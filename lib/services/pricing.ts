@@ -1,0 +1,381 @@
+import { 
+  differenceInDays, 
+  eachDayOfInterval, 
+  isWeekend, 
+  format, 
+  isSameDay,
+  addDays,
+  startOfDay,
+  endOfDay 
+} from 'date-fns';
+import { ptBR } from 'date-fns/locale';
+import type { Property, PriceCalculation } from '@/lib/types';
+
+export interface HolidayRule {
+  name: string;
+  startDate: Date;
+  endDate: Date;
+  multiplier: number;
+  priority: number; // Higher priority overrides lower priority
+}
+
+export interface SeasonalRule {
+  name: string;
+  startDate: Date;
+  endDate: Date;
+  pricePerNight: number;
+  description: string;
+  priority: number;
+}
+
+export class PricingService {
+  private brazilianHolidays: HolidayRule[] = [
+    // Fixed holidays
+    { name: 'Ano Novo', startDate: new Date(2024, 0, 1), endDate: new Date(2024, 0, 1), multiplier: 1.5, priority: 1 },
+    { name: 'Tiradentes', startDate: new Date(2024, 3, 21), endDate: new Date(2024, 3, 21), multiplier: 1.2, priority: 1 },
+    { name: 'Dia do Trabalho', startDate: new Date(2024, 4, 1), endDate: new Date(2024, 4, 1), multiplier: 1.2, priority: 1 },
+    { name: 'Independência', startDate: new Date(2024, 8, 7), endDate: new Date(2024, 8, 7), multiplier: 1.3, priority: 1 },
+    { name: 'Nossa Senhora Aparecida', startDate: new Date(2024, 9, 12), endDate: new Date(2024, 9, 12), multiplier: 1.2, priority: 1 },
+    { name: 'Finados', startDate: new Date(2024, 10, 2), endDate: new Date(2024, 10, 2), multiplier: 1.1, priority: 1 },
+    { name: 'Proclamação da República', startDate: new Date(2024, 10, 15), endDate: new Date(2024, 10, 15), multiplier: 1.2, priority: 1 },
+    { name: 'Natal', startDate: new Date(2024, 11, 25), endDate: new Date(2024, 11, 25), multiplier: 1.8, priority: 1 },
+    
+    // Holiday periods
+    { name: 'Reveillon', startDate: new Date(2024, 11, 26), endDate: new Date(2025, 0, 6), multiplier: 2.0, priority: 2 },
+    { name: 'Carnaval', startDate: new Date(2024, 1, 10), endDate: new Date(2024, 1, 17), multiplier: 1.8, priority: 2 },
+    { name: 'Festa Junina', startDate: new Date(2024, 5, 20), endDate: new Date(2024, 6, 5), multiplier: 1.3, priority: 1 },
+    { name: 'Férias de Julho', startDate: new Date(2024, 6, 1), endDate: new Date(2024, 6, 31), multiplier: 1.4, priority: 1 },
+    { name: 'Férias de Janeiro', startDate: new Date(2024, 0, 1), endDate: new Date(2024, 0, 31), multiplier: 1.5, priority: 1 },
+  ];
+
+  async calculatePrice(
+    property: Property,
+    checkIn: Date,
+    checkOut: Date,
+    guests: number
+  ): Promise<PriceCalculation> {
+    const startDate = startOfDay(checkIn);
+    const endDate = startOfDay(checkOut);
+    const nights = differenceInDays(endDate, startDate);
+    
+    if (nights <= 0) {
+      throw new Error('Data de check-out deve ser após a data de check-in');
+    }
+
+    if (nights < property.minimumNights) {
+      throw new Error(`Estadia mínima de ${property.minimumNights} noite${property.minimumNights > 1 ? 's' : ''}`);
+    }
+
+    if (guests > property.maxGuests) {
+      throw new Error(`Número máximo de hóspedes: ${property.maxGuests}`);
+    }
+
+    const daysOfStay = eachDayOfInterval({ start: startDate, end: addDays(endDate, -1) });
+    const breakdown: PriceCalculation['breakdown'] = [];
+    
+    let subtotal = 0;
+    let weekendSurcharge = 0;
+    let holidaySurcharge = 0;
+    let seasonalAdjustment = 0;
+
+    for (const day of daysOfStay) {
+      const dayPrice = this.getDayPrice(property, day);
+      breakdown.push({
+        date: day,
+        pricePerNight: dayPrice.finalPrice,
+        isWeekend: dayPrice.isWeekend,
+        isHoliday: dayPrice.isHoliday,
+        seasonalRate: dayPrice.seasonalRate,
+      });
+
+      subtotal += dayPrice.finalPrice;
+      
+      if (dayPrice.isWeekend && !dayPrice.isHoliday) {
+        weekendSurcharge += dayPrice.finalPrice - property.pricing.basePrice;
+      }
+      
+      if (dayPrice.isHoliday) {
+        holidaySurcharge += dayPrice.finalPrice - property.pricing.basePrice;
+      }
+      
+      if (dayPrice.seasonalRate && dayPrice.seasonalRate !== property.pricing.basePrice) {
+        seasonalAdjustment += dayPrice.seasonalRate - property.pricing.basePrice;
+      }
+    }
+
+    const totalPrice = subtotal + property.pricing.cleaningFee + property.pricing.securityDeposit;
+
+    return {
+      basePrice: property.pricing.basePrice,
+      nights,
+      subtotal,
+      weekendSurcharge,
+      holidaySurcharge,
+      seasonalAdjustment,
+      cleaningFee: property.pricing.cleaningFee,
+      securityDeposit: property.pricing.securityDeposit,
+      totalPrice,
+      breakdown,
+    };
+  }
+
+  private getDayPrice(property: Property, date: Date): {
+    finalPrice: number;
+    isWeekend: boolean;
+    isHoliday: boolean;
+    seasonalRate?: number;
+  } {
+    let basePrice = property.pricing.basePrice;
+    let isWeekendDay = false;
+    let isHolidayDay = false;
+    let seasonalRate: number | undefined;
+
+    // Check for seasonal pricing (highest priority)
+    const seasonalPrice = this.getSeasonalPrice(property, date);
+    if (seasonalPrice) {
+      basePrice = seasonalPrice;
+      seasonalRate = seasonalPrice;
+    }
+
+    // Check if it's a holiday
+    const holidayRule = this.getHolidayRule(date);
+    if (holidayRule) {
+      basePrice = Math.round(basePrice * holidayRule.multiplier);
+      isHolidayDay = true;
+    }
+    // Check if it's a weekend (only if not a holiday)
+    else if (isWeekend(date)) {
+      basePrice = Math.round(basePrice * property.pricing.weekendMultiplier);
+      isWeekendDay = true;
+    }
+
+    return {
+      finalPrice: basePrice,
+      isWeekend: isWeekendDay,
+      isHoliday: isHolidayDay,
+      seasonalRate,
+    };
+  }
+
+  private getSeasonalPrice(property: Property, date: Date): number | null {
+    const applicableSeasonalPrices = property.pricing.seasonalPrices
+      .filter(seasonal => {
+        const startDate = startOfDay(seasonal.startDate);
+        const endDate = endOfDay(seasonal.endDate);
+        return date >= startDate && date <= endDate;
+      })
+      .sort((a, b) => b.pricePerNight - a.pricePerNight); // Highest price first
+
+    return applicableSeasonalPrices.length > 0 ? applicableSeasonalPrices[0].pricePerNight : null;
+  }
+
+  private getHolidayRule(date: Date): HolidayRule | null {
+    const applicableHolidays = this.brazilianHolidays
+      .filter(holiday => {
+        const startDate = startOfDay(holiday.startDate);
+        const endDate = endOfDay(holiday.endDate);
+        return date >= startDate && date <= endDate;
+      })
+      .sort((a, b) => b.priority - a.priority); // Highest priority first
+
+    return applicableHolidays.length > 0 ? applicableHolidays[0] : null;
+  }
+
+  async getOccupancyRate(
+    propertyId: string,
+    startDate: Date,
+    endDate: Date
+  ): Promise<number> {
+    try {
+      // This would typically fetch reservation data from the database
+      // For now, we'll return a mock calculation
+      const totalDays = differenceInDays(endDate, startDate);
+      const occupiedDays = Math.floor(totalDays * 0.7); // Mock 70% occupancy
+      
+      return occupiedDays / totalDays;
+    } catch (error) {
+      console.error('Error calculating occupancy rate:', error);
+      return 0;
+    }
+  }
+
+  async getRevenueProjection(
+    property: Property,
+    startDate: Date,
+    endDate: Date,
+    expectedOccupancyRate: number = 0.7
+  ): Promise<{
+    totalRevenue: number;
+    averageNightlyRate: number;
+    occupiedNights: number;
+    totalNights: number;
+  }> {
+    try {
+      const daysOfPeriod = eachDayOfInterval({ start: startDate, end: endDate });
+      const totalNights = daysOfPeriod.length;
+      const occupiedNights = Math.floor(totalNights * expectedOccupancyRate);
+      
+      let totalRevenue = 0;
+      let totalNightlyRate = 0;
+
+      for (const day of daysOfPeriod) {
+        const dayPrice = this.getDayPrice(property, day);
+        totalNightlyRate += dayPrice.finalPrice;
+      }
+
+      const averageNightlyRate = totalNightlyRate / totalNights;
+      totalRevenue = averageNightlyRate * occupiedNights;
+
+      return {
+        totalRevenue,
+        averageNightlyRate,
+        occupiedNights,
+        totalNights,
+      };
+    } catch (error) {
+      console.error('Error calculating revenue projection:', error);
+      return {
+        totalRevenue: 0,
+        averageNightlyRate: 0,
+        occupiedNights: 0,
+        totalNights: 0,
+      };
+    }
+  }
+
+  formatPriceBreakdown(calculation: PriceCalculation): string {
+    let breakdown = `📊 *Detalhamento do Preço*\n\n`;
+    
+    breakdown += `🏠 ${calculation.nights} noite${calculation.nights > 1 ? 's' : ''} × R$ ${calculation.basePrice} = R$ ${calculation.subtotal}\n`;
+    
+    if (calculation.weekendSurcharge > 0) {
+      breakdown += `🌟 Adicional fim de semana: R$ ${calculation.weekendSurcharge}\n`;
+    }
+    
+    if (calculation.holidaySurcharge > 0) {
+      breakdown += `🎉 Adicional feriado: R$ ${calculation.holidaySurcharge}\n`;
+    }
+    
+    if (calculation.seasonalAdjustment > 0) {
+      breakdown += `📈 Ajuste sazonal: R$ ${calculation.seasonalAdjustment}\n`;
+    }
+    
+    breakdown += `🧹 Taxa de limpeza: R$ ${calculation.cleaningFee}\n`;
+    breakdown += `🛡️ Caução (devolvida): R$ ${calculation.securityDeposit}\n`;
+    breakdown += `━━━━━━━━━━━━━━━━━━━━━━━━\n`;
+    breakdown += `💳 **Total: R$ ${calculation.totalPrice}**`;
+    
+    return breakdown;
+  }
+
+  formatDateRange(startDate: Date, endDate: Date): string {
+    return `${format(startDate, 'dd/MM/yyyy', { locale: ptBR })} - ${format(endDate, 'dd/MM/yyyy', { locale: ptBR })}`;
+  }
+
+  validatePricing(property: Property): {
+    isValid: boolean;
+    errors: string[];
+  } {
+    const errors: string[] = [];
+
+    if (property.pricing.basePrice <= 0) {
+      errors.push('Preço base deve ser maior que zero');
+    }
+
+    if (property.pricing.weekendMultiplier < 1) {
+      errors.push('Multiplicador de fim de semana deve ser maior ou igual a 1');
+    }
+
+    if (property.pricing.holidayMultiplier < 1) {
+      errors.push('Multiplicador de feriado deve ser maior ou igual a 1');
+    }
+
+    if (property.pricing.cleaningFee < 0) {
+      errors.push('Taxa de limpeza não pode ser negativa');
+    }
+
+    if (property.pricing.securityDeposit < 0) {
+      errors.push('Caução não pode ser negativa');
+    }
+
+    // Validate seasonal prices
+    for (const seasonal of property.pricing.seasonalPrices) {
+      if (seasonal.pricePerNight <= 0) {
+        errors.push(`Preço sazonal "${seasonal.description}" deve ser maior que zero`);
+      }
+      
+      if (seasonal.startDate >= seasonal.endDate) {
+        errors.push(`Data de início deve ser anterior à data de fim para "${seasonal.description}"`);
+      }
+    }
+
+    return {
+      isValid: errors.length === 0,
+      errors,
+    };
+  }
+
+  async suggestPricing(
+    location: string,
+    bedrooms: number,
+    amenities: string[]
+  ): Promise<{
+    suggestedBasePrice: number;
+    suggestedWeekendMultiplier: number;
+    suggestedCleaningFee: number;
+    suggestedSecurityDeposit: number;
+    reasoning: string;
+  }> {
+    // This would typically use market data and ML models
+    // For now, we'll use simple heuristics
+    
+    let basePrice = 100; // Base starting price
+    
+    // Adjust for location
+    const locationMultipliers: Record<string, number> = {
+      'Rio de Janeiro': 1.8,
+      'São Paulo': 1.6,
+      'Florianópolis': 1.4,
+      'Salvador': 1.3,
+      'Recife': 1.2,
+      'Fortaleza': 1.1,
+    };
+    
+    const locationMultiplier = locationMultipliers[location] || 1.0;
+    basePrice *= locationMultiplier;
+    
+    // Adjust for bedrooms
+    basePrice += (bedrooms - 1) * 50;
+    
+    // Adjust for premium amenities
+    const premiumAmenities = ['piscina', 'academia', 'sauna', 'churrasqueira', 'ar-condicionado'];
+    const premiumAmenityCount = amenities.filter(amenity => 
+      premiumAmenities.some(premium => amenity.toLowerCase().includes(premium.toLowerCase()))
+    ).length;
+    
+    basePrice += premiumAmenityCount * 30;
+    
+    const suggestedWeekendMultiplier = 1.2;
+    const suggestedCleaningFee = Math.round(basePrice * 0.3);
+    const suggestedSecurityDeposit = Math.round(basePrice * 2);
+    
+    const reasoning = `
+Preço sugerido baseado em:
+- Localização: ${location} (multiplicador ${locationMultiplier}x)
+- ${bedrooms} quarto${bedrooms > 1 ? 's' : ''}
+- ${premiumAmenityCount} comodidade${premiumAmenityCount > 1 ? 's' : ''} premium
+- Padrões de mercado para a região
+    `.trim();
+    
+    return {
+      suggestedBasePrice: Math.round(basePrice),
+      suggestedWeekendMultiplier,
+      suggestedCleaningFee,
+      suggestedSecurityDeposit,
+      reasoning,
+    };
+  }
+}
+
+export const pricingService = new PricingService();
+export default pricingService;
