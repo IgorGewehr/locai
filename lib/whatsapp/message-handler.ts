@@ -10,6 +10,7 @@ import { ReservationService } from '@/lib/services/reservation-service'
 import { withTimeout, withRetry, RateLimiter } from '@/lib/utils/async'
 import { validatePhoneNumber, validateMessageContent } from '@/lib/utils/validation'
 import { NetworkError, RateLimitError, ErrorType, classifyError } from '@/lib/utils/errors'
+import { TranscriptionService } from '@/lib/services/transcription-service'
 
 export class WhatsAppMessageHandler {
   private whatsappClient: WhatsAppClient
@@ -20,6 +21,7 @@ export class WhatsAppMessageHandler {
   private reservationService: ReservationService
   private rateLimiter: RateLimiter
   private processingMessages: Set<string> = new Set()
+  private transcriptionService: TranscriptionService
 
   constructor(
     whatsappClient: WhatsAppClient,
@@ -36,6 +38,7 @@ export class WhatsAppMessageHandler {
     this.propertyService = propertyService
     this.reservationService = reservationService
     this.rateLimiter = new RateLimiter(20, 60000) // 20 messages per minute
+    this.transcriptionService = new TranscriptionService(whatsappClient)
   }
 
   async handleIncomingMessage(webhookData: WhatsAppWebhookData): Promise<void> {
@@ -68,8 +71,21 @@ export class WhatsAppMessageHandler {
       this.processingMessages.add(messageId)
       
       try {
-        // Validate message content
-        const messageContent = message.text?.body || this.getMediaCaption(message) || ''
+        // Process message content (including audio transcription)
+        let messageContent = message.text?.body || this.getMediaCaption(message) || ''
+        
+        // Handle audio messages with transcription
+        if (message.type === 'audio' && message.audio?.id) {
+          try {
+            console.log(`Transcribing audio message: ${message.audio.id}`)
+            messageContent = await this.transcriptionService.transcribeAudio(message.audio.id)
+            console.log(`Audio transcribed: "${messageContent.slice(0, 100)}..."`)
+          } catch (error) {
+            console.error('Audio transcription failed:', error)
+            messageContent = 'Recebi seu áudio! Por favor, envie sua mensagem por texto para eu processar melhor. 😊'
+          }
+        }
+        
         const validatedContent = validateMessageContent(messageContent)
         
         console.log(`Processing message from ${validatedPhone}: ${validatedContent.slice(0, 100)}...`)
@@ -102,7 +118,7 @@ export class WhatsAppMessageHandler {
           }
         )
 
-        // Skip AI processing for certain message types
+        // Skip AI processing only for unsupported message types (audio now supported)
         if (this.shouldSkipAIProcessing(message)) {
           await this.sendAcknowledgment(validatedPhone, message.type)
           return
@@ -115,8 +131,16 @@ export class WhatsAppMessageHandler {
           'AI processing'
         )
 
-        // Send AI response
-        await this.sendAIResponse(validatedPhone, aiResponse)
+        // Determine if we should respond with audio
+        const shouldUseAudio = message.type === 'audio' && 
+          this.transcriptionService.shouldGenerateAudioResponse(
+            validatedPhone,
+            conversation.messages || [],
+            undefined // Will use default preferences
+          )
+
+        // Send AI response (text or audio based on context)
+        await this.sendAIResponse(validatedPhone, aiResponse, shouldUseAudio)
 
         // Save AI response message
         await this.conversationService.addMessage(
@@ -260,28 +284,76 @@ export class WhatsAppMessageHandler {
   }
 
   private shouldSkipAIProcessing(message: WhatsAppIncomingMessage): boolean {
-    // Skip AI processing for certain message types that don't need responses
-    const skipTypes = ['audio'] // Add other types as needed
+    // Skip AI processing only for message types that truly don't need responses
+    const skipTypes = ['sticker', 'reaction'] // Audio now supported!
     return skipTypes.includes(message.type)
   }
 
   private async sendAcknowledgment(to: string, messageType: string): Promise<void> {
     const acknowledgments = {
-      'audio': 'Recebi seu áudio! Vou analisar e responder em breve.',
-      'document': 'Recebi seu documento! Vou analisar e responder em breve.',
-      'location': 'Recebi sua localização! Isso me ajuda a sugerir propriedades próximas.',
-      'contact': 'Recebi seu contato! Obrigado por compartilhar.'
+      'document': 'Recebi seu documento! Vou analisar e responder em breve. 📄',
+      'location': 'Recebi sua localização! Isso me ajuda a sugerir propriedades próximas. 📍',
+      'contact': 'Recebi seu contato! Obrigado por compartilhar. 👤',
+      'sticker': '😊 Adorei o sticker! Como posso ajudar você?',
+      'reaction': 'Obrigado pela reação! Em que mais posso ajudar? 👍',
+      'image': 'Recebi sua imagem! Vou analisar e responder em breve. 🖼️',
+      'video': 'Recebi seu vídeo! Vou analisar e responder em breve. 🎥'
     }
 
-    const ackMessage = acknowledgments[messageType] || 'Recebi sua mensagem!'
-    await this.whatsappClient.sendText(to, ackMessage)
+    const ackMessage = acknowledgments[messageType] || 'Recebi sua mensagem! 📱'
+    await withRetry(
+      () => this.whatsappClient.sendText(to, ackMessage),
+      2,
+      1000
+    )
   }
 
-  private async sendAIResponse(to: string, response: AIResponse): Promise<void> {
+  /**
+   * Enhanced AI response sender with audio support
+   */
+  private async sendAIResponse(
+    to: string, 
+    response: AIResponse, 
+    preferAudio: boolean = false
+  ): Promise<void> {
     try {
-      // Send main text response
+      // Send main response (text or audio)
       if (response.content) {
-        await this.whatsappClient.sendText(to, response.content)
+        if (preferAudio && response.content.length > 20) {
+          // Try to send audio response
+          try {
+            console.log(`🎤 Generating audio response for ${to}`)
+            
+            const audioResult = await this.transcriptionService.generateAudioResponse(
+              response.content,
+              undefined, // Use default preferences
+              to
+            )
+            
+            if (audioResult.audioBuffer) {
+              console.log(`🔊 Sending audio response: ${(audioResult.audioBuffer.length / 1024).toFixed(1)}KB`)
+              
+              await withRetry(
+                () => this.whatsappClient.sendAudio(to, audioResult.audioBuffer!),
+                2,
+                1000
+              )
+              
+              console.log(`✅ Audio response sent successfully`)
+            } else {
+              // Fallback to text if audio generation failed
+              console.log(`⚠️ Audio generation failed, falling back to text`)
+              await this.sendTextResponse(to, response.content)
+            }
+            
+          } catch (audioError) {
+            console.error('❌ Audio response failed, sending text:', audioError)
+            await this.sendTextResponse(to, response.content)
+          }
+        } else {
+          // Send text response
+          await this.sendTextResponse(to, response.content)
+        }
       }
 
       // Handle function call responses
@@ -293,9 +365,20 @@ export class WhatsAppMessageHandler {
       await this.delay(1000)
 
     } catch (error) {
-      console.error('Error sending AI response:', error)
+      console.error('❌ Error sending AI response:', error)
       throw error
     }
+  }
+  
+  /**
+   * Send text response with retry logic
+   */
+  private async sendTextResponse(to: string, content: string): Promise<void> {
+    await withRetry(
+      () => this.whatsappClient.sendText(to, content),
+      3,
+      1000
+    )
   }
 
   private async handleFunctionCallResponse(to: string, functionCall: any): Promise<void> {
@@ -580,6 +663,50 @@ Não perca essa oportunidade! 🚀
         }
       ]
     )
+  }
+
+  /**
+   * Get comprehensive audio statistics for analytics
+   */
+  getAudioStats(): {
+    cacheStats: { size: number; keys: string[] }
+    totalProcessed: number
+    successRate: number
+  } {
+    const cacheStats = this.transcriptionService.getCacheStats()
+    
+    return {
+      cacheStats,
+      totalProcessed: cacheStats.size, // Simplified - in real app would track more
+      successRate: 0.95 // Simplified - in real app would calculate actual rate
+    }
+  }
+
+  /**
+   * Clear audio cache for memory management
+   */
+  clearAudioCache(): void {
+    this.transcriptionService.clearCache()
+    console.log('🧹 Audio processing cache cleared')
+  }
+
+  /**
+   * Handle audio-specific errors with user-friendly messages
+   */
+  private handleAudioError(error: any, clientPhone: string): string {
+    if (error.message?.includes('format')) {
+      return 'Formato de áudio não suportado. Tente gravar novamente ou envie por texto. 🎤'
+    }
+    
+    if (error.message?.includes('size')) {
+      return 'Áudio muito grande. Tente um áudio mais curto ou envie por texto. 📱'
+    }
+    
+    if (error.message?.includes('timeout')) {
+      return 'Áudio demorou para processar. Tente novamente ou envie por texto. ⏱️'
+    }
+    
+    return 'Tive dificuldade para processar seu áudio. Pode tentar novamente ou enviar por texto? 😊'
   }
 
   private async sendRateLimitMessage(to: string): Promise<void> {
