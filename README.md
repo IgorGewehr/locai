@@ -236,7 +236,7 @@ O sistema calcula preços considerando:
 - Preços sazonais customizados
 - Taxas de limpeza e caução
 
-## 📊 Collections do Firestore
+## 📊 Collections do Firestore (EXPANDIDO)
 
 ### Properties
 - Informações da propriedade
@@ -253,15 +253,35 @@ O sistema calcula preços considerando:
 - Informações do cliente
 - Preferências de busca
 - Histórico de reservas
+- **🆕 Análise comportamental**
 
-### Conversations
+### Conversations (APRIMORADO)
 - Conversas do WhatsApp
-- Contexto da conversa
+- **🆕 Contexto inteligente**
+- **🆕 Análise de sentimento**
+- **🆕 Score de engajamento**
 - Mensagens e histórico
 
-### Messages
+### Messages (EXPANDIDO)
 - Mensagens individuais
 - Metadata e status
+- **🆕 Confiança da IA**
+- **🆕 Function calls executadas**
+
+### 🆕 AI Agents
+- Configurações de personalidade
+- Métricas de performance
+- Histórico de melhorias
+
+### 🆕 Automations
+- Triggers e condições
+- Ações e workflows
+- Logs de execução
+
+### 🆕 Analytics
+- Métricas de conversão
+- Performance do agente
+- Insights comportamentais
 
 ## 🔒 Segurança
 
