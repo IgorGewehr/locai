@@ -26,6 +26,14 @@ import {
   Step,
   StepLabel,
   StepContent,
+  Tabs,
+  Tab,
+  FormControl,
+  InputLabel,
+  Select,
+  CircularProgress,
+  Avatar,
+  Paper,
 } from '@mui/material';
 import {
   WhatsApp,
@@ -40,6 +48,10 @@ import {
   Settings,
   Launch,
   ContentCopy,
+  Business,
+  Upload,
+  SmartToy,
+  QrCode,
 } from '@mui/icons-material';
 
 interface WhatsAppConfig {
@@ -59,7 +71,25 @@ const steps = [
   'Testar conexão'
 ];
 
+interface CompanyConfig {
+  name: string;
+  logo: string | null;
+  address: string;
+  phone: string;
+  email: string;
+  website: string;
+}
+
+interface AIConfig {
+  personalityPrompt: string;
+  responseStyle: 'formal' | 'friendly' | 'casual';
+  customInstructions: string;
+  greetingMessage: string;
+  unavailableMessage: string;
+}
+
 export default function SettingsPage() {
+  const [activeTab, setActiveTab] = useState(0);
   const [config, setConfig] = useState<WhatsAppConfig>({
     phoneNumberId: '',
     accessToken: '',
@@ -68,10 +98,29 @@ export default function SettingsPage() {
     status: 'disconnected'
   });
   
+  const [companyConfig, setCompanyConfig] = useState<CompanyConfig>({
+    name: '',
+    logo: null,
+    address: '',
+    phone: '',
+    email: '',
+    website: '',
+  });
+  
+  const [aiConfig, setAIConfig] = useState<AIConfig>({
+    personalityPrompt: 'Você é um assistente imobiliário profissional e atencioso.',
+    responseStyle: 'friendly',
+    customInstructions: '',
+    greetingMessage: 'Olá! Sou o assistente virtual da {company}. Como posso ajudá-lo hoje?',
+    unavailableMessage: 'Desculpe, não tenho imóveis disponíveis com essas características no momento.',
+  });
+  
   const [activeStep, setActiveStep] = useState(0);
   const [showGuideDialog, setShowGuideDialog] = useState(false);
+  const [showQRDialog, setShowQRDialog] = useState(false);
   const [testing, setTesting] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [uploadingLogo, setUploadingLogo] = useState(false);
 
   useEffect(() => {
     // Generate webhook URL based on current domain
@@ -162,32 +211,69 @@ export default function SettingsPage() {
     }
   };
 
+  const handleLogoUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      setUploadingLogo(true);
+      // Simulate upload - in production, upload to Firebase Storage
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setCompanyConfig(prev => ({ ...prev, logo: reader.result as string }));
+        setUploadingLogo(false);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const saveAllConfigs = async () => {
+    setSaving(true);
+    try {
+      // Save all configurations
+      localStorage.setItem('whatsapp_config', JSON.stringify(config));
+      localStorage.setItem('company_config', JSON.stringify(companyConfig));
+      localStorage.setItem('ai_config', JSON.stringify(aiConfig));
+      
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      alert('Todas as configurações foram salvas com sucesso!');
+    } catch (error) {
+      console.error('Error saving configurations:', error);
+      alert('Erro ao salvar configurações');
+    } finally {
+      setSaving(false);
+    }
+  };
+
   return (
     <Box>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
         <Typography variant="h4" component="h1" fontWeight="bold">
-          Configurações WhatsApp
+          Configurações
         </Typography>
-        <Box sx={{ display: 'flex', gap: 2 }}>
-          <Button
-            variant="outlined"
-            startIcon={<Info />}
-            onClick={() => setShowGuideDialog(true)}
-          >
-            Guia de Setup
-          </Button>
-          <Chip 
-            icon={<WhatsApp />}
-            label={getStatusText()}
-            color={getStatusColor()}
-            variant="outlined"
-          />
-        </Box>
+        <Button
+          variant="contained"
+          startIcon={saving ? <CircularProgress size={20} /> : <Save />}
+          onClick={saveAllConfigs}
+          disabled={saving}
+        >
+          {saving ? 'Salvando...' : 'Salvar Todas as Configurações'}
+        </Button>
       </Box>
 
-      <Grid container spacing={3}>
-        {/* Current Status */}
-        <Grid item xs={12}>
+      <Card sx={{ mb: 3 }}>
+        <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
+          <Tabs value={activeTab} onChange={(_, newValue) => setActiveTab(newValue)}>
+            <Tab label="WhatsApp" icon={<WhatsApp />} iconPosition="start" />
+            <Tab label="Empresa" icon={<Business />} iconPosition="start" />
+            <Tab label="Assistente IA" icon={<SmartToy />} iconPosition="start" />
+          </Tabs>
+        </Box>
+      </Card>
+
+      {/* WhatsApp Tab */}
+      {activeTab === 0 && (
+        <Grid container spacing={3}>
+          {/* Current Status */}
+          <Grid item xs={12}>
           <Alert 
             severity={config.status === 'connected' ? 'success' : 'info'} 
             icon={config.status === 'connected' ? <CheckCircle /> : <Info />}
@@ -361,21 +447,21 @@ export default function SettingsPage() {
           </Card>
         </Grid>
 
-        {/* Environment Variables */}
-        <Grid item xs={12}>
-          <Card>
-            <CardContent>
-              <Typography variant="h6" gutterBottom>
-                Variáveis de Ambiente (.env.local)
-              </Typography>
-              
-              <Alert severity="warning" sx={{ mb: 2 }}>
-                <AlertTitle>Importante</AlertTitle>
-                Adicione estas variáveis ao seu arquivo .env.local e reinicie o servidor.
-              </Alert>
-              
-              <Box sx={{ bgcolor: 'grey.100', p: 2, borderRadius: 1, fontFamily: 'monospace' }}>
-                <pre style={{ margin: 0, fontSize: '0.875rem' }}>
+          {/* Environment Variables */}
+          <Grid item xs={12}>
+            <Card>
+              <CardContent>
+                <Typography variant="h6" gutterBottom>
+                  Variáveis de Ambiente (.env.local)
+                </Typography>
+                
+                <Alert severity="warning" sx={{ mb: 2 }}>
+                  <AlertTitle>Importante</AlertTitle>
+                  Adicione estas variáveis ao seu arquivo .env.local e reinicie o servidor.
+                </Alert>
+                
+                <Box sx={{ bgcolor: 'grey.100', p: 2, borderRadius: 1, fontFamily: 'monospace' }}>
+                  <pre style={{ margin: 0, fontSize: '0.875rem' }}>
 {`# WhatsApp Business API
 WHATSAPP_PHONE_NUMBER_ID=${config.phoneNumberId || 'your_phone_number_id'}
 WHATSAPP_ACCESS_TOKEN=${config.accessToken || 'your_access_token'}
@@ -388,20 +474,286 @@ OPENAI_API_KEY=sk-your_openai_api_key
 NEXT_PUBLIC_FIREBASE_PROJECT_ID=your_project_id
 FIREBASE_PRIVATE_KEY="your_private_key"
 FIREBASE_CLIENT_EMAIL=your_service_account@your_project.iam.gserviceaccount.com`}
-                </pre>
-              </Box>
-              
-              <Button
-                startIcon={<ContentCopy />}
-                onClick={() => copyToClipboard(`WHATSAPP_PHONE_NUMBER_ID=${config.phoneNumberId}\nWHATSAPP_ACCESS_TOKEN=${config.accessToken}\nWHATSAPP_VERIFY_TOKEN=${config.verifyToken}`)}
-                sx={{ mt: 2 }}
-              >
-                Copiar Configuração
-              </Button>
-            </CardContent>
-          </Card>
+                  </pre>
+                </Box>
+                
+                <Button
+                  startIcon={<ContentCopy />}
+                  onClick={() => copyToClipboard(`WHATSAPP_PHONE_NUMBER_ID=${config.phoneNumberId}\nWHATSAPP_ACCESS_TOKEN=${config.accessToken}\nWHATSAPP_VERIFY_TOKEN=${config.verifyToken}`)}
+                  sx={{ mt: 2 }}
+                >
+                  Copiar Configuração
+                </Button>
+              </CardContent>
+            </Card>
+          </Grid>
         </Grid>
-      </Grid>
+      )}
+
+      {/* Company Tab */}
+      {activeTab === 1 && (
+        <Grid container spacing={3}>
+          <Grid item xs={12}>
+            <Card>
+              <CardContent>
+                <Typography variant="h6" gutterBottom>
+                  Informações da Empresa
+                </Typography>
+                
+                {/* Logo Upload */}
+                <Box sx={{ mb: 3 }}>
+                  <Typography variant="subtitle1" gutterBottom>
+                    Logo da Empresa
+                  </Typography>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+                    {companyConfig.logo ? (
+                      <Avatar
+                        src={companyConfig.logo}
+                        sx={{ width: 100, height: 100 }}
+                        variant="rounded"
+                      />
+                    ) : (
+                      <Box
+                        sx={{
+                          width: 100,
+                          height: 100,
+                          border: '2px dashed',
+                          borderColor: 'divider',
+                          borderRadius: 1,
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                        }}
+                      >
+                        <Business sx={{ fontSize: 40, color: 'text.secondary' }} />
+                      </Box>
+                    )}
+                    <Box>
+                      <input
+                        accept="image/*"
+                        style={{ display: 'none' }}
+                        id="logo-upload"
+                        type="file"
+                        onChange={handleLogoUpload}
+                      />
+                      <label htmlFor="logo-upload">
+                        <Button
+                          variant="outlined"
+                          component="span"
+                          startIcon={<Upload />}
+                          disabled={uploadingLogo}
+                        >
+                          {uploadingLogo ? 'Enviando...' : 'Enviar Logo'}
+                        </Button>
+                      </label>
+                      <Typography variant="caption" display="block" sx={{ mt: 1 }}>
+                        JPG, PNG ou SVG. Máximo 2MB.
+                      </Typography>
+                    </Box>
+                  </Box>
+                </Box>
+                
+                <Grid container spacing={3}>
+                  <Grid item xs={12} md={6}>
+                    <TextField
+                      fullWidth
+                      label="Nome da Empresa"
+                      value={companyConfig.name}
+                      onChange={(e) => setCompanyConfig(prev => ({ ...prev, name: e.target.value }))}
+                      placeholder="Imobiliária XYZ"
+                    />
+                  </Grid>
+                  <Grid item xs={12} md={6}>
+                    <TextField
+                      fullWidth
+                      label="Telefone"
+                      value={companyConfig.phone}
+                      onChange={(e) => setCompanyConfig(prev => ({ ...prev, phone: e.target.value }))}
+                      placeholder="(21) 99999-9999"
+                    />
+                  </Grid>
+                  <Grid item xs={12} md={6}>
+                    <TextField
+                      fullWidth
+                      label="E-mail"
+                      value={companyConfig.email}
+                      onChange={(e) => setCompanyConfig(prev => ({ ...prev, email: e.target.value }))}
+                      placeholder="contato@imobiliaria.com.br"
+                    />
+                  </Grid>
+                  <Grid item xs={12} md={6}>
+                    <TextField
+                      fullWidth
+                      label="Website"
+                      value={companyConfig.website}
+                      onChange={(e) => setCompanyConfig(prev => ({ ...prev, website: e.target.value }))}
+                      placeholder="www.imobiliaria.com.br"
+                    />
+                  </Grid>
+                  <Grid item xs={12}>
+                    <TextField
+                      fullWidth
+                      label="Endereço"
+                      value={companyConfig.address}
+                      onChange={(e) => setCompanyConfig(prev => ({ ...prev, address: e.target.value }))}
+                      placeholder="Rua das Flores, 123 - Centro - Rio de Janeiro/RJ"
+                      multiline
+                      rows={2}
+                    />
+                  </Grid>
+                </Grid>
+              </CardContent>
+            </Card>
+          </Grid>
+        </Grid>
+      )}
+
+      {/* AI Assistant Tab */}
+      {activeTab === 2 && (
+        <Grid container spacing={3}>
+          <Grid item xs={12}>
+            <Alert severity="info" sx={{ mb: 3 }}>
+              Personalize como o assistente IA responde aos clientes. As configurações abaixo ajustam o comportamento e tom das respostas.
+            </Alert>
+          </Grid>
+          
+          <Grid item xs={12} md={8}>
+            <Card>
+              <CardContent>
+                <Typography variant="h6" gutterBottom>
+                  Personalidade do Assistente
+                </Typography>
+                
+                <Grid container spacing={3}>
+                  <Grid item xs={12}>
+                    <FormControl fullWidth>
+                      <InputLabel>Estilo de Resposta</InputLabel>
+                      <Select
+                        value={aiConfig.responseStyle}
+                        onChange={(e) => setAIConfig(prev => ({ ...prev, responseStyle: e.target.value as any }))}
+                        label="Estilo de Resposta"
+                      >
+                        <MenuItem value="formal">Formal - Mais profissional e distante</MenuItem>
+                        <MenuItem value="friendly">Amigável - Equilibrado e acolhedor</MenuItem>
+                        <MenuItem value="casual">Casual - Descontraído e próximo</MenuItem>
+                      </Select>
+                    </FormControl>
+                  </Grid>
+                  
+                  <Grid item xs={12}>
+                    <TextField
+                      fullWidth
+                      label="Prompt de Personalidade"
+                      value={aiConfig.personalityPrompt}
+                      onChange={(e) => setAIConfig(prev => ({ ...prev, personalityPrompt: e.target.value }))}
+                      multiline
+                      rows={3}
+                      helperText="Define a personalidade base do assistente"
+                    />
+                  </Grid>
+                  
+                  <Grid item xs={12}>
+                    <TextField
+                      fullWidth
+                      label="Instruções Customizadas"
+                      value={aiConfig.customInstructions}
+                      onChange={(e) => setAIConfig(prev => ({ ...prev, customInstructions: e.target.value }))}
+                      multiline
+                      rows={4}
+                      placeholder="Ex: Sempre mencione nossa política de cancelamento flexível. Destaque a proximidade da praia."
+                      helperText="Instruções específicas para o assistente seguir"
+                    />
+                  </Grid>
+                  
+                  <Grid item xs={12}>
+                    <TextField
+                      fullWidth
+                      label="Mensagem de Boas-vindas"
+                      value={aiConfig.greetingMessage}
+                      onChange={(e) => setAIConfig(prev => ({ ...prev, greetingMessage: e.target.value }))}
+                      multiline
+                      rows={2}
+                      helperText="Use {company} para incluir o nome da empresa"
+                    />
+                  </Grid>
+                  
+                  <Grid item xs={12}>
+                    <TextField
+                      fullWidth
+                      label="Mensagem de Indisponibilidade"
+                      value={aiConfig.unavailableMessage}
+                      onChange={(e) => setAIConfig(prev => ({ ...prev, unavailableMessage: e.target.value }))}
+                      multiline
+                      rows={2}
+                      helperText="Mensagem quando não há imóveis disponíveis"
+                    />
+                  </Grid>
+                </Grid>
+              </CardContent>
+            </Card>
+          </Grid>
+          
+          <Grid item xs={12} md={4}>
+            <Card>
+              <CardContent>
+                <Typography variant="h6" gutterBottom>
+                  Exemplos de Respostas
+                </Typography>
+                
+                <Box sx={{ mb: 3 }}>
+                  <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+                    Estilo Atual: {aiConfig.responseStyle === 'formal' ? 'Formal' : aiConfig.responseStyle === 'friendly' ? 'Amigável' : 'Casual'}
+                  </Typography>
+                  
+                  <Paper variant="outlined" sx={{ p: 2, mt: 1 }}>
+                    <Typography variant="body2" sx={{ fontStyle: 'italic' }}>
+                      {aiConfig.responseStyle === 'formal' 
+                        ? '"Boa tarde. Temos disponível um excelente apartamento que atende aos seus requisitos. Permite-me apresentar os detalhes?"'
+                        : aiConfig.responseStyle === 'friendly'
+                        ? '"Olá! Que bom falar com você! 😊 Encontrei um apartamento perfeito que acho que vai adorar. Posso te mostrar?"'
+                        : '"Oi! Achei um apê incrível que tem tudo a ver com o que você procura! Quer dar uma olhada?"'
+                      }
+                    </Typography>
+                  </Paper>
+                </Box>
+                
+                <Alert severity="info">
+                  <AlertTitle>Dicas</AlertTitle>
+                  <Typography variant="body2">
+                    • Use um tom consistente com sua marca<br/>
+                    • Instruções claras melhoram as respostas<br/>
+                    • Teste diferentes estilos com clientes reais
+                  </Typography>
+                </Alert>
+              </CardContent>
+            </Card>
+          </Grid>
+          
+          <Grid item xs={12}>
+            <Card>
+              <CardContent>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                  <Typography variant="h6">
+                    Conexão WhatsApp QR Code
+                  </Typography>
+                  <Button
+                    variant="contained"
+                    startIcon={<QrCode />}
+                    onClick={() => setShowQRDialog(true)}
+                    color="success"
+                  >
+                    Conectar WhatsApp
+                  </Button>
+                </Box>
+                
+                <Alert severity={config.status === 'connected' ? 'success' : 'warning'}>
+                  Status: {config.status === 'connected' ? 'WhatsApp conectado e funcionando' : 'WhatsApp desconectado - Clique em "Conectar WhatsApp" para iniciar'}
+                </Alert>
+              </CardContent>
+            </Card>
+          </Grid>
+        </Grid>
+      )}
 
       {/* Setup Guide Dialog */}
       <Dialog open={showGuideDialog} onClose={() => setShowGuideDialog(false)} maxWidth="md" fullWidth>
@@ -519,6 +871,48 @@ FIREBASE_CLIENT_EMAIL=your_service_account@your_project.iam.gserviceaccount.com`
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setShowGuideDialog(false)}>Fechar</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* QR Code Dialog */}
+      <Dialog open={showQRDialog} onClose={() => setShowQRDialog(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>
+          Conectar WhatsApp Business
+        </DialogTitle>
+        <DialogContent>
+          <Box sx={{ textAlign: 'center', py: 3 }}>
+            <Typography variant="body1" gutterBottom>
+              Escaneie o QR Code com seu WhatsApp Business
+            </Typography>
+            <Box 
+              sx={{ 
+                width: 250, 
+                height: 250, 
+                mx: 'auto', 
+                my: 3, 
+                border: '2px solid',
+                borderColor: 'divider',
+                borderRadius: 2,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                backgroundColor: 'grey.100'
+              }}
+            >
+              <Typography variant="caption" color="text.secondary">
+                [QR Code seria gerado aqui]
+              </Typography>
+            </Box>
+            <Alert severity="info">
+              1. Abra o WhatsApp Business no seu celular<br/>
+              2. Vá em Configurações → Dispositivos conectados<br/>
+              3. Clique em "Conectar dispositivo"<br/>
+              4. Escaneie este QR Code
+            </Alert>
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setShowQRDialog(false)}>Fechar</Button>
         </DialogActions>
       </Dialog>
     </Box>
