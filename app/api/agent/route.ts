@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import openaiService from '@/lib/services/openai';
+import { AIService } from '@/lib/services/ai-service';
 import agentFunctions from '@/lib/services/agent-functions';
 import whatsappService from '@/lib/services/whatsapp';
 import { 

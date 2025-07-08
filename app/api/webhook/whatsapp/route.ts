@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { WhatsAppClient } from '@/lib/whatsapp/client'
-import { WhatsAppMessageHandler } from '@/lib/whatsapp/message-handler'
 import { AIService } from '@/lib/services/ai-service'
 import { AutomationService } from '@/lib/services/automation-service'
 import { WhatsAppWebhookData } from '@/lib/types/whatsapp'
