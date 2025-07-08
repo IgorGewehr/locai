@@ -1,143 +1,197 @@
-import { NextRequest, NextResponse } from 'next/server';
-import whatsappService from '@/lib/services/whatsapp';
+import { NextRequest, NextResponse } from 'next/server'
+import { WhatsAppClient } from '@/lib/whatsapp/client'
+import { WhatsAppMessageHandler } from '@/lib/whatsapp/message-handler'
+import { AIService } from '@/lib/services/ai-service'
+import { AutomationService } from '@/lib/services/automation-service'
+import { WhatsAppWebhookData } from '@/lib/types/whatsapp'
+
+// Initialize services
+const tenantId = process.env.TENANT_ID || 'default'
+const whatsappClient = new WhatsAppClient(
+  process.env.WHATSAPP_PHONE_NUMBER_ID!,
+  process.env.WHATSAPP_ACCESS_TOKEN!
+)
+const aiService = new AIService(tenantId)
+const automationService = new AutomationService(tenantId, whatsappClient, aiService)
+const messageHandler = new WhatsAppMessageHandler(
+  whatsappClient,
+  aiService,
+  undefined as any, // conversationService will be injected
+  automationService,
+  undefined as any, // propertyService will be injected
+  undefined as any  // reservationService will be injected
+)
 
 export async function GET(request: NextRequest) {
-  const { searchParams } = new URL(request.url);
-  const mode = searchParams.get('hub.mode');
-  const token = searchParams.get('hub.verify_token');
-  const challenge = searchParams.get('hub.challenge');
+  try {
+    const { searchParams } = new URL(request.url)
+    const mode = searchParams.get('hub.mode')
+    const token = searchParams.get('hub.verify_token')
+    const challenge = searchParams.get('hub.challenge')
 
-  if (!mode || !token || !challenge) {
+    console.log('WhatsApp webhook verification:', { mode, token, challenge })
+
+    if (!mode || !token || !challenge) {
+      return NextResponse.json(
+        { error: 'Missing required parameters' },
+        { status: 400 }
+      )
+    }
+
+    // Verify the webhook
+    if (mode === 'subscribe' && token === process.env.WHATSAPP_VERIFY_TOKEN) {
+      console.log('WhatsApp webhook verified successfully')
+      return new NextResponse(challenge, {
+        status: 200,
+        headers: { 'Content-Type': 'text/plain' },
+      })
+    }
+
+    console.log('WhatsApp webhook verification failed')
     return NextResponse.json(
-      { error: 'Missing required parameters' },
-      { status: 400 }
-    );
+      { error: 'Invalid verification token' },
+      { status: 403 }
+    )
+  } catch (error) {
+    console.error('Error in WhatsApp webhook verification:', error)
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    )
   }
-
-  const result = whatsappService.verifyWebhook(mode, token, challenge);
-  
-  if (result) {
-    return new NextResponse(result, {
-      status: 200,
-      headers: { 'Content-Type': 'text/plain' },
-    });
-  }
-
-  return NextResponse.json(
-    { error: 'Invalid verification token' },
-    { status: 403 }
-  );
 }
 
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json();
+    const body: WhatsAppWebhookData = await request.json()
     
-    // Parse webhook payload
-    const { messages, statuses } = whatsappService.parseWebhookPayload(body);
-    
-    // Process incoming messages
-    for (const message of messages) {
-      await processIncomingMessage(message);
-    }
-    
-    // Process message status updates
-    for (const status of statuses) {
-      await processMessageStatus(status);
+    console.log('WhatsApp webhook received:', JSON.stringify(body, null, 2))
+
+    // Validate webhook structure
+    if (!body.entry || !Array.isArray(body.entry) || body.entry.length === 0) {
+      console.log('Invalid webhook structure - no entries')
+      return NextResponse.json({ success: true }) // Return success to avoid retries
     }
 
-    return NextResponse.json({ success: true });
+    // Process each entry
+    for (const entry of body.entry) {
+      if (!entry.changes || !Array.isArray(entry.changes)) {
+        continue
+      }
+
+      for (const change of entry.changes) {
+        if (change.field !== 'messages') {
+          continue
+        }
+
+        const value = change.value
+        
+        // Process incoming messages
+        if (value.messages && Array.isArray(value.messages)) {
+          for (const message of value.messages) {
+            try {
+              console.log(`Processing message from ${message.from}: ${message.text?.body || message.type}`)
+              
+              // Create webhook data for message handler
+              const messageWebhookData: WhatsAppWebhookData = {
+                object: body.object,
+                entry: [{
+                  id: entry.id,
+                  changes: [{
+                    value: {
+                      messaging_product: value.messaging_product,
+                      metadata: value.metadata,
+                      contacts: value.contacts,
+                      messages: [message]
+                    },
+                    field: 'messages'
+                  }]
+                }]
+              }
+
+              await messageHandler.handleIncomingMessage(messageWebhookData)
+            } catch (error) {
+              console.error(`Error processing message ${message.id}:`, error)
+              
+              // Send error message to user
+              try {
+                await whatsappClient.sendText(
+                  message.from,
+                  'Desculpe, ocorreu um erro temporário. Nossa equipe foi notificada. Tente novamente em alguns instantes.'
+                )
+              } catch (sendError) {
+                console.error('Failed to send error message:', sendError)
+              }
+            }
+          }
+        }
+
+        // Process message status updates
+        if (value.statuses && Array.isArray(value.statuses)) {
+          for (const status of value.statuses) {
+            try {
+              console.log(`Processing status update for message ${status.id}: ${status.status}`)
+              
+              // Create webhook data for status handler
+              const statusWebhookData: WhatsAppWebhookData = {
+                object: body.object,
+                entry: [{
+                  id: entry.id,
+                  changes: [{
+                    value: {
+                      messaging_product: value.messaging_product,
+                      metadata: value.metadata,
+                      statuses: [status]
+                    },
+                    field: 'messages'
+                  }]
+                }]
+              }
+
+              await messageHandler.handleStatusUpdate(statusWebhookData)
+            } catch (error) {
+              console.error(`Error processing status ${status.id}:`, error)
+            }
+          }
+        }
+
+        // Process errors if any
+        if (value.errors && Array.isArray(value.errors)) {
+          for (const error of value.errors) {
+            console.error('WhatsApp API error:', error)
+            
+            const errorWebhookData: WhatsAppWebhookData = {
+              object: body.object,
+              entry: [{
+                id: entry.id,
+                changes: [{
+                  value: {
+                    messaging_product: value.messaging_product,
+                    metadata: value.metadata,
+                    errors: [error]
+                  },
+                  field: 'messages'
+                }]
+              }]
+            }
+
+            await messageHandler.handleError(errorWebhookData)
+          }
+        }
+      }
+    }
+
+    return NextResponse.json({ success: true })
 
   } catch (error) {
-    console.error('WhatsApp webhook error:', error);
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    );
+    console.error('WhatsApp webhook error:', error)
+    
+    // Return success to avoid webhook retries for parsing errors
+    return NextResponse.json({ success: true })
   }
 }
 
-async function processIncomingMessage(message: any) {
-  try {
-    // Only process text messages for now
-    if (message.type !== 'text') {
-      // Send a response indicating we only handle text messages
-      await whatsappService.sendTextMessage(
-        message.from,
-        'Desculpe, no momento eu apenas processso mensagens de texto. Por favor, envie sua pergunta em formato de texto.'
-      );
-      return;
-    }
-
-    const messageText = message.text?.body;
-    if (!messageText) return;
-
-    // Mark message as read
-    await whatsappService.markMessageAsRead(message.id);
-
-    // Send typing indicator (optional)
-    // await whatsappService.sendTypingIndicator(message.from);
-
-    // Process message with agent
-    const agentResponse = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL}/api/agent`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        message: messageText,
-        clientPhone: message.from,
-        whatsappNumber: message.from,
-      }),
-    });
-
-    const agentResult = await agentResponse.json();
-
-    if (agentResult.success && agentResult.data.response) {
-      // Send response back to WhatsApp
-      await whatsappService.sendTextMessage(
-        message.from,
-        agentResult.data.response
-      );
-    } else {
-      // Send error message
-      await whatsappService.sendTextMessage(
-        message.from,
-        'Desculpe, ocorreu um erro ao processar sua mensagem. Tente novamente em alguns instantes.'
-      );
-    }
-
-  } catch (error) {
-    console.error('Error processing incoming message:', error);
-    
-    // Send error response
-    try {
-      await whatsappService.sendTextMessage(
-        message.from,
-        'Desculpe, estou com dificuldades técnicas no momento. Tente novamente mais tarde ou entre em contato diretamente conosco.'
-      );
-    } catch (sendError) {
-      console.error('Error sending error message:', sendError);
-    }
-  }
-}
-
-async function processMessageStatus(status: any) {
-  try {
-    // Update message status in database if needed
-    console.log('Message status update:', status);
-    
-    // You can implement message status tracking here
-    // For example, update the message status in Firestore
-    
-  } catch (error) {
-    console.error('Error processing message status:', error);
-  }
-}
-
-// Helper function to validate webhook signature (recommended for production)
-function validateWebhookSignature(body: string, signature: string): boolean {
-  // This would verify the X-Hub-Signature-256 header
-  // Implementation depends on your security requirements
-  return true; // Simplified for demo
+// Health check endpoint
+export async function HEAD(request: NextRequest) {
+  return new NextResponse(null, { status: 200 })
 }
