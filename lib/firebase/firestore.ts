@@ -41,7 +41,19 @@ export const COLLECTIONS = {
 
 // Generic CRUD operations
 export class FirestoreService<T extends { id: string }> {
-  constructor(private collectionName: string) {}
+  protected collection: ReturnType<typeof collection>;
+  
+  constructor(private collectionName: string) {
+    this.collection = collection(db, this.collectionName);
+  }
+
+  protected async query(queryRef: any): Promise<T[]> {
+    const querySnapshot = await getDocs(queryRef);
+    return querySnapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data(),
+    })) as T[];
+  }
 
   async create(data: Omit<T, 'id'>): Promise<string> {
     const docRef = await addDoc(collection(db, this.collectionName), {
@@ -235,6 +247,10 @@ export const conversationQueries = {
     return messageService.getWhere('conversationId', '==', conversationId, 'timestamp');
   },
 };
+
+// Add the missing methods to the conversationService to maintain compatibility
+conversationService.getConversationByWhatsApp = conversationQueries.getConversationByWhatsApp;
+conversationService.getMessagesByConversation = conversationQueries.getMessagesByConversation;
 
 export const clientQueries = {
   async getClientByPhone(phone: string): Promise<Client | null> {

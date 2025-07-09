@@ -197,6 +197,40 @@ export interface ApiResponse<T = any> {
   message?: string;
 }
 
+export interface AgentContext {
+  clientId: string;
+  conversationId: string;
+  currentSearchFilters?: PropertySearchFilters;
+  interestedProperties?: string[];
+  pendingReservation?: {
+    propertyId: string;
+    checkIn: Date;
+    checkOut: Date;
+    guests: number;
+    totalPrice?: number;
+  };
+  clientPreferences?: {
+    budget?: number;
+    location?: string;
+    amenities?: string[];
+    propertyType?: string;
+  };
+}
+
+export interface AIResponse {
+  message: string;
+  functionCall?: {
+    name: string;
+    arguments: any;
+  };
+  functionCalls?: Array<{
+    name: string;
+    arguments: any;
+  }>;
+  confidence?: number;
+  sentiment?: string;
+}
+
 export interface DashboardStats {
   totalProperties: number;
   activeProperties: number;

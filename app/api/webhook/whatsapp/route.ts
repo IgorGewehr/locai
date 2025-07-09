@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { WhatsAppClient } from '@/lib/whatsapp/client'
+import { WhatsAppMessageHandler } from '@/lib/whatsapp/message-handler'
 import { AIService } from '@/lib/services/ai-service'
 import { AutomationService } from '@/lib/services/automation-service'
+import { conversationService, propertyService, reservationService } from '@/lib/firebase/firestore'
 import { WhatsAppWebhookData } from '@/lib/types/whatsapp'
 
 // Initialize services
@@ -15,10 +17,10 @@ const automationService = new AutomationService(tenantId, whatsappClient, aiServ
 const messageHandler = new WhatsAppMessageHandler(
   whatsappClient,
   aiService,
-  undefined as any, // conversationService will be injected
+  conversationService,
   automationService,
-  undefined as any, // propertyService will be injected
-  undefined as any  // reservationService will be injected
+  propertyService,
+  reservationService
 )
 
 export async function GET(request: NextRequest) {

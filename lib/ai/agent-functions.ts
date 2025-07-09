@@ -6,6 +6,28 @@ import { reservationService } from '@/lib/services/reservation-service'
 import { clientService } from '@/lib/services/client-service'
 import { calculatePricing } from '@/lib/services/pricing'
 import { addDays, format } from 'date-fns'
+import {
+  SearchPropertiesArgs,
+  SearchPropertiesResponse,
+  SendPropertyMediaArgs,
+  SendPropertyMediaResponse,
+  CalculateTotalPriceArgs,
+  CalculateTotalPriceResponse,
+  CheckAvailabilityArgs,
+  CheckAvailabilityResponse,
+  CreateReservationArgs,
+  CreateReservationResponse,
+  ApplyDiscountArgs,
+  ApplyDiscountResponse,
+  ScheduleFollowUpArgs,
+  ScheduleFollowUpResponse,
+  GetPropertyDetailsArgs,
+  GetPropertyDetailsResponse,
+  SuggestAlternativesArgs,
+  SuggestAlternativesResponse,
+  AIFunctionArgs,
+  AIFunctionResponse,
+} from '@/lib/types/ai-functions'
 
 export const AI_FUNCTIONS: AIFunction[] = [
   {
@@ -175,41 +197,41 @@ export class AIFunctionExecutor {
     this.tenantId = tenantId
   }
 
-  async executeFunctionCall(functionName: string, args: any): Promise<any> {
+  async executeFunctionCall(functionName: string, args: AIFunctionArgs): Promise<AIFunctionResponse> {
     switch (functionName) {
       case 'search_properties':
-        return await this.searchProperties(args)
+        return await this.searchProperties(args as SearchPropertiesArgs)
       
       case 'send_property_media':
-        return await this.sendPropertyMedia(args)
+        return await this.sendPropertyMedia(args as SendPropertyMediaArgs)
       
       case 'calculate_total_price':
-        return await this.calculateTotalPrice(args)
+        return await this.calculateTotalPrice(args as CalculateTotalPriceArgs)
       
       case 'check_availability':
-        return await this.checkAvailability(args)
+        return await this.checkAvailability(args as CheckAvailabilityArgs)
       
       case 'create_reservation':
-        return await this.createReservation(args)
+        return await this.createReservation(args as CreateReservationArgs)
       
       case 'apply_discount':
-        return await this.applyDiscount(args)
+        return await this.applyDiscount(args as ApplyDiscountArgs)
       
       case 'schedule_follow_up':
-        return await this.scheduleFollowUp(args)
+        return await this.scheduleFollowUp(args as ScheduleFollowUpArgs)
       
       case 'get_property_details':
-        return await this.getPropertyDetails(args)
+        return await this.getPropertyDetails(args as GetPropertyDetailsArgs)
       
       case 'suggest_alternatives':
-        return await this.suggestAlternatives(args)
+        return await this.suggestAlternatives(args as SuggestAlternativesArgs)
       
       default:
         throw new Error(`Função não reconhecida: ${functionName}`)
     }
   }
 
-  private async searchProperties(args: any): Promise<any> {
+  private async searchProperties(args: SearchPropertiesArgs): Promise<SearchPropertiesResponse> {
     const { location, checkIn, checkOut, guests, budget, amenities, propertyType } = args
     
     try {

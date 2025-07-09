@@ -1,14 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { AIService } from '@/lib/services/ai-service';
-import agentFunctions from '@/lib/services/agent-functions';
-import whatsappService from '@/lib/services/whatsapp';
+import * as agentFunctions from '@/lib/ai/agent-functions-exports';
 import { 
   conversationService, 
   messageService, 
   clientService,
   clientQueries 
 } from '@/lib/firebase/firestore';
-import type { AgentContext, Message } from '@/lib/types';
+import type { AgentContext, Message, AIResponse } from '@/lib/types';
 
 export async function POST(request: NextRequest) {
   try {
@@ -98,7 +97,8 @@ export async function POST(request: NextRequest) {
     };
 
     // Process message with OpenAI
-    const agentResponse = await openaiService.processMessage(
+    const aiService = new AIService();
+    const agentResponse: AIResponse = await aiService.processMessage(
       message,
       context,
       recentHistory
