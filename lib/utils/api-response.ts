@@ -315,3 +315,34 @@ export function validatePhone(phone: string): boolean {
   const phoneRegex = /^(\+55|55)?[\s-]?(\(?\d{2}\)?[\s-]?)?[\s-]?(\d{4,5}[\s-]?\d{4})$/;
   return phoneRegex.test(phone);
 }
+
+// Legacy helper function for backward compatibility
+export const apiResponse = {
+  success: <T>(data: T, status: number = 200): NextResponse<ApiResponse<T>> => {
+    const response: ApiResponse<T> = {
+      success: true,
+      data,
+      meta: {
+        timestamp: new Date().toISOString(),
+        version: '1.0',
+      },
+    };
+    
+    return NextResponse.json(response, { status });
+  },
+
+  error: (message: string, status: number = 500, code: string = 'ERROR'): NextResponse<ApiResponse> => {
+    const response: ApiResponse = {
+      success: false,
+      error: {
+        code,
+        message,
+        type: status >= 500 ? ErrorType.INTERNAL : ErrorType.BAD_REQUEST,
+        timestamp: new Date().toISOString(),
+        requestId: crypto.randomUUID(),
+      },
+    };
+    
+    return NextResponse.json(response, { status });
+  },
+};

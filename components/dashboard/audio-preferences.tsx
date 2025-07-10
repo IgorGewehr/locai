@@ -80,12 +80,10 @@ export default function AudioPreferencesComponent({
     setCurrentlyPlaying(voiceId);
     
     try {
-      // Simulate voice test - in real app would generate and play audio
-      const testText = "Olá! Esta é uma demonstração da minha voz. Como posso ajudar você hoje?";
-      console.log(`Testing voice: ${voiceId} with text: "${testText}"`);
+      const testText = "Olá! Como posso ajudar você hoje?";
       
-      // Simulate audio playback time
-      await new Promise(resolve => setTimeout(resolve, 3000));
+      // TODO: Implement actual voice testing with OpenAI TTS API
+      await new Promise(resolve => setTimeout(resolve, 1000));
       
     } finally {
       setTestingVoice(false);
@@ -229,7 +227,7 @@ export default function AudioPreferencesComponent({
                     <Alert severity="info" sx={{ mt: 2 }}>
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                         <CircularProgress size={16} />
-                        Testando voz... (em um app real, um áudio seria reproduzido)
+                        Testando voz...
                       </Box>
                     </Alert>
                   )}

@@ -1,6 +1,9 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { reservationService, propertyService, clientService } from '@/lib/firebase/firestore';
+import type { Reservation, Property, Client } from '@/lib/types';
 import {
   Box,
   Card,
@@ -30,7 +33,8 @@ import {
   InputAdornment,
   FormControl,
   InputLabel,
-  Select
+  Select,
+  CircularProgress
 } from '@mui/material';
 import {
   Add,
@@ -50,65 +54,24 @@ import {
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
-interface Reservation {
-  id: string;
+interface ReservationWithDetails extends Reservation {
   propertyName: string;
   clientName: string;
   clientPhone: string;
-  checkIn: string;
-  checkOut: string;
-  guests: number;
-  totalAmount: number;
-  status: 'pending' | 'confirmed' | 'checked_in' | 'checked_out' | 'cancelled';
-  paymentStatus: 'pending' | 'paid' | 'overdue' | 'refunded';
-  source: 'whatsapp_ai' | 'manual' | 'website';
-  createdAt: string;
   nights: number;
 }
 
-// Mock data - seria substituído por dados reais do Firebase
-const mockReservations: Reservation[] = [
-  {
-    id: 'RES001',
-    propertyName: 'Casa na Praia - Ipanema',
-    clientName: 'Maria Silva',
-    clientPhone: '+5511999999999',
-    checkIn: '2024-02-15',
-    checkOut: '2024-02-18',
-    guests: 4,
-    totalAmount: 1200,
-    status: 'confirmed',
-    paymentStatus: 'paid',
-    source: 'whatsapp_ai',
-    createdAt: '2024-01-15T10:30:00Z',
-    nights: 3
-  },
-  {
-    id: 'RES002',
-    propertyName: 'Apartamento Centro - Copacabana',
-    clientName: 'João Santos',
-    clientPhone: '+5511888888888',
-    checkIn: '2024-02-20',
-    checkOut: '2024-02-25',
-    guests: 2,
-    totalAmount: 900,
-    status: 'pending',
-    paymentStatus: 'pending',
-    source: 'whatsapp_ai',
-    createdAt: '2024-01-16T15:45:00Z',
-    nights: 5
-  }
-];
 
 export default function ReservationsPage() {
-  const [reservations, setReservations] = useState<Reservation[]>(mockReservations);
-  const [filteredReservations, setFilteredReservations] = useState<Reservation[]>(mockReservations);
+  const router = useRouter();
+  const [reservations, setReservations] = useState<ReservationWithDetails[]>([]);
+  const [filteredReservations, setFilteredReservations] = useState<ReservationWithDetails[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
   const [paymentFilter, setPaymentFilter] = useState('all');
-  const [selectedReservation, setSelectedReservation] = useState<Reservation | null>(null);
+  const [selectedReservation, setSelectedReservation] = useState<ReservationWithDetails | null>(null);
   const [detailsOpen, setDetailsOpen] = useState(false);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   // Filter reservations based on search and filters
   useEffect(() => {
@@ -169,10 +132,77 @@ export default function ReservationsPage() {
     setDetailsOpen(true);
   };
 
+  // Load reservations from Firebase
+  useEffect(() => {
+    const loadReservations = async () => {
+      try {
+        const [reservationsData, propertiesData, clientsData] = await Promise.all([
+          reservationService.getAll(),
+          propertyService.getAll(),
+          clientService.getAll()
+        ]);
+
+        // Create maps for quick lookup
+        const propertiesMap = new Map(propertiesData.map(p => [p.id, p]));
+        const clientsMap = new Map(clientsData.map(c => [c.id, c]));
+
+        // Combine reservation data with property and client details
+        const reservationsWithDetails: ReservationWithDetails[] = reservationsData.map(reservation => {
+          const property = propertiesMap.get(reservation.propertyId);
+          const client = clientsMap.get(reservation.clientId);
+          const checkInDate = new Date(reservation.checkIn);
+          const checkOutDate = new Date(reservation.checkOut);
+          const nights = Math.ceil((checkOutDate.getTime() - checkInDate.getTime()) / (1000 * 60 * 60 * 24));
+
+          return {
+            ...reservation,
+            propertyName: property?.name || 'Propriedade não encontrada',
+            clientName: client?.name || 'Cliente não encontrado',
+            clientPhone: client?.phone || 'Telefone não encontrado',
+            nights
+          };
+        });
+
+        setReservations(reservationsWithDetails);
+      } catch (error) {
+        console.error('Error loading reservations:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadReservations();
+  }, []);
+
   const refreshData = async () => {
     setLoading(true);
-    // Simular carregamento de dados
-    await new Promise(resolve => setTimeout(resolve, 1000));
+    // Reload data from Firebase
+    const [reservationsData, propertiesData, clientsData] = await Promise.all([
+      reservationService.getAll(),
+      propertyService.getAll(),
+      clientService.getAll()
+    ]);
+
+    const propertiesMap = new Map(propertiesData.map(p => [p.id, p]));
+    const clientsMap = new Map(clientsData.map(c => [c.id, c]));
+
+    const reservationsWithDetails: ReservationWithDetails[] = reservationsData.map(reservation => {
+      const property = propertiesMap.get(reservation.propertyId);
+      const client = clientsMap.get(reservation.clientId);
+      const checkInDate = new Date(reservation.checkIn);
+      const checkOutDate = new Date(reservation.checkOut);
+      const nights = Math.ceil((checkOutDate.getTime() - checkInDate.getTime()) / (1000 * 60 * 60 * 24));
+
+      return {
+        ...reservation,
+        propertyName: property?.name || 'Propriedade não encontrada',
+        clientName: client?.name || 'Cliente não encontrado',
+        clientPhone: client?.phone || 'Telefone não encontrado',
+        nights
+      };
+    });
+
+    setReservations(reservationsWithDetails);
     setLoading(false);
   };
 
@@ -194,7 +224,7 @@ export default function ReservationsPage() {
           <Button
             variant="contained"
             startIcon={<Add />}
-            onClick={() => {/* Implementar nova reserva */}}
+            onClick={() => router.push('/dashboard/reservations/create')}
           >
             Nova Reserva
           </Button>
@@ -291,7 +321,20 @@ export default function ReservationsPage() {
               </TableRow>
             </TableHead>
             <TableBody>
-              {filteredReservations.map((reservation) => (
+              {loading ? (
+                <TableRow>
+                  <TableCell colSpan={10} align="center" sx={{ py: 4 }}>
+                    <Typography color="text.secondary">Carregando reservas...</Typography>
+                  </TableCell>
+                </TableRow>
+              ) : filteredReservations.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={10} align="center" sx={{ py: 4 }}>
+                    <Typography color="text.secondary">Nenhuma reserva encontrada</Typography>
+                  </TableCell>
+                </TableRow>
+              ) : (
+                filteredReservations.map((reservation) => (
                 <TableRow key={reservation.id} hover>
                   <TableCell>
                     <Typography variant="body2" fontWeight="bold">
@@ -324,7 +367,7 @@ export default function ReservationsPage() {
                   <TableCell>
                     <Box>
                       <Typography variant="body2">
-                        {format(parseISO(reservation.checkIn), 'dd/MM', { locale: ptBR })} - {format(parseISO(reservation.checkOut), 'dd/MM/yyyy', { locale: ptBR })}
+                        {format(reservation.checkIn, 'dd/MM', { locale: ptBR })} - {format(reservation.checkOut, 'dd/MM/yyyy', { locale: ptBR })}
                       </Typography>
                       <Typography variant="caption" color="text.secondary">
                         {reservation.nights} noites
@@ -340,7 +383,7 @@ export default function ReservationsPage() {
                   
                   <TableCell>
                     <Typography variant="body2" fontWeight="bold">
-                      R$ {reservation.totalAmount.toLocaleString('pt-BR')}
+                      R$ {reservation.totalPrice.toLocaleString('pt-BR')}
                     </Typography>
                   </TableCell>
                   
@@ -361,8 +404,8 @@ export default function ReservationsPage() {
                   </TableCell>
                   
                   <TableCell>
-                    <Tooltip title={reservation.source}>
-                      {getSourceIcon(reservation.source)}
+                    <Tooltip title="Manual">
+                      <Schedule sx={{ fontSize: 16 }} />
                     </Tooltip>
                   </TableCell>
                   
@@ -383,7 +426,7 @@ export default function ReservationsPage() {
                     </Box>
                   </TableCell>
                 </TableRow>
-              ))}
+              )))}
             </TableBody>
           </Table>
         </TableContainer>
@@ -415,8 +458,8 @@ export default function ReservationsPage() {
                   Detalhes da Estadia
                 </Typography>
                 <Typography><strong>Propriedade:</strong> {selectedReservation.propertyName}</Typography>
-                <Typography><strong>Check-in:</strong> {format(parseISO(selectedReservation.checkIn), 'dd/MM/yyyy')}</Typography>
-                <Typography><strong>Check-out:</strong> {format(parseISO(selectedReservation.checkOut), 'dd/MM/yyyy')}</Typography>
+                <Typography><strong>Check-in:</strong> {format(selectedReservation.checkIn, 'dd/MM/yyyy')}</Typography>
+                <Typography><strong>Check-out:</strong> {format(selectedReservation.checkOut, 'dd/MM/yyyy')}</Typography>
                 <Typography><strong>Hóspedes:</strong> {selectedReservation.guests}</Typography>
                 <Typography><strong>Noites:</strong> {selectedReservation.nights}</Typography>
               </Grid>
@@ -425,7 +468,7 @@ export default function ReservationsPage() {
                 <Typography variant="h6" gutterBottom>
                   Financeiro
                 </Typography>
-                <Typography><strong>Valor Total:</strong> R$ {selectedReservation.totalAmount.toLocaleString('pt-BR')}</Typography>
+                <Typography><strong>Valor Total:</strong> R$ {selectedReservation.totalPrice.toLocaleString('pt-BR')}</Typography>
                 <Typography><strong>Status Pagamento:</strong> {selectedReservation.paymentStatus}</Typography>
               </Grid>
               
@@ -434,8 +477,8 @@ export default function ReservationsPage() {
                   Status
                 </Typography>
                 <Typography><strong>Status:</strong> {selectedReservation.status}</Typography>
-                <Typography><strong>Origem:</strong> {selectedReservation.source}</Typography>
-                <Typography><strong>Criado em:</strong> {format(parseISO(selectedReservation.createdAt), 'dd/MM/yyyy HH:mm')}</Typography>
+                <Typography><strong>Origem:</strong> Manual</Typography>
+                <Typography><strong>Criado em:</strong> {format(selectedReservation.createdAt, 'dd/MM/yyyy HH:mm')}</Typography>
               </Grid>
             </Grid>
           )}
@@ -455,7 +498,7 @@ export default function ReservationsPage() {
         color="primary"
         aria-label="add"
         sx={{ position: 'fixed', bottom: 16, right: 16 }}
-        onClick={() => {/* Implementar nova reserva */}}
+        onClick={() => router.push('/dashboard/reservations/create')}
       >
         <Add />
       </Fab>

@@ -2,6 +2,7 @@
 
 import { usePathname } from 'next/navigation';
 import Link from 'next/link';
+import { useMemo } from 'react';
 import {
   Drawer,
   List,
@@ -77,21 +78,38 @@ const secondaryItems = [
   },
 ];
 
-const drawerWidth = 280;
+const drawerWidth = 260;
 
 export default function Sidebar({ open, onClose }: SidebarProps) {
   const pathname = usePathname();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
 
+  // Memoize styles to prevent unnecessary recalculations
+  const selectedStyles = useMemo(() => ({
+    mx: 1,
+    borderRadius: 1,
+    '&.Mui-selected': {
+      backgroundColor: theme.palette.primary.main + '20',
+      color: theme.palette.primary.main,
+      '&:hover': {
+        backgroundColor: theme.palette.primary.main + '30',
+      },
+    },
+  }), [theme.palette.primary.main]);
+
+  // Memoize menu items to prevent recreation
+  const memoizedMenuItems = useMemo(() => menuItems, []);
+  const memoizedSecondaryItems = useMemo(() => secondaryItems, []);
+
   const drawerContent = (
-    <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-      <Toolbar>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+    <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column', bgcolor: 'background.paper' }}>
+      <Toolbar sx={{ minHeight: { xs: 56, sm: 64 } }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, width: '100%' }}>
           <Box
             sx={{
-              width: 40,
-              height: 40,
+              width: 36,
+              height: 36,
               borderRadius: '50%',
               background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
               display: 'flex',
@@ -99,11 +117,12 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
               justifyContent: 'center',
               color: 'white',
               fontWeight: 'bold',
+              fontSize: '0.875rem',
             }}
           >
             AI
           </Box>
-          <Typography variant="h6" fontWeight="bold">
+          <Typography variant="h6" fontWeight="bold" sx={{ fontSize: '1.1rem' }}>
             Agente Imobiliária
           </Typography>
         </Box>
@@ -112,8 +131,8 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
       <Divider />
 
       <Box sx={{ flex: 1, overflowY: 'auto', py: 1 }}>
-        <List>
-          {menuItems.map((item) => (
+        <List dense>
+          {memoizedMenuItems.map((item) => (
             <ListItemButton
               key={item.href}
               component={Link}
@@ -121,25 +140,29 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
               selected={pathname === item.href}
               onClick={isMobile ? onClose : undefined}
               sx={{
-                mx: 1,
-                borderRadius: 1,
-                '&.Mui-selected': {
-                  backgroundColor: theme.palette.primary.main + '20',
-                  color: theme.palette.primary.main,
-                  '&:hover': {
-                    backgroundColor: theme.palette.primary.main + '30',
-                  },
+                ...selectedStyles,
+                minHeight: 48,
+                py: 1.5,
+                '&:hover': {
+                  bgcolor: 'action.hover',
                 },
               }}
             >
               <ListItemIcon
                 sx={{
-                  color: pathname === item.href ? theme.palette.primary.main : 'inherit',
+                  color: pathname === item.href ? theme.palette.primary.main : 'text.secondary',
+                  minWidth: 40,
                 }}
               >
                 {item.icon}
               </ListItemIcon>
-              <ListItemText primary={item.text} />
+              <ListItemText 
+                primary={item.text}
+                primaryTypographyProps={{
+                  fontSize: '0.9rem',
+                  fontWeight: pathname === item.href ? 600 : 400,
+                }}
+              />
             </ListItemButton>
           ))}
         </List>
@@ -147,8 +170,8 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
 
       <Divider />
 
-      <List>
-        {secondaryItems.map((item) => (
+      <List dense>
+        {memoizedSecondaryItems.map((item) => (
           <ListItemButton
             key={item.href}
             component={Link}
@@ -156,31 +179,35 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
             selected={pathname === item.href}
             onClick={isMobile ? onClose : undefined}
             sx={{
-              mx: 1,
-              borderRadius: 1,
-              '&.Mui-selected': {
-                backgroundColor: theme.palette.primary.main + '20',
-                color: theme.palette.primary.main,
-                '&:hover': {
-                  backgroundColor: theme.palette.primary.main + '30',
-                },
+              ...selectedStyles,
+              minHeight: 48,
+              py: 1.5,
+              '&:hover': {
+                bgcolor: 'action.hover',
               },
             }}
           >
             <ListItemIcon
               sx={{
-                color: pathname === item.href ? theme.palette.primary.main : 'inherit',
+                color: pathname === item.href ? theme.palette.primary.main : 'text.secondary',
+                minWidth: 40,
               }}
             >
               {item.icon}
             </ListItemIcon>
-            <ListItemText primary={item.text} />
+            <ListItemText 
+              primary={item.text}
+              primaryTypographyProps={{
+                fontSize: '0.9rem',
+                fontWeight: pathname === item.href ? 600 : 400,
+              }}
+            />
           </ListItemButton>
         ))}
       </List>
 
-      <Box sx={{ p: 2 }}>
-        <Typography variant="caption" color="text.secondary">
+      <Box sx={{ p: 2, mt: 'auto' }}>
+        <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.75rem' }}>
           v1.0.0 - Powered by OpenAI
         </Typography>
       </Box>
@@ -192,12 +219,21 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
       variant={isMobile ? 'temporary' : 'persistent'}
       open={open}
       onClose={onClose}
+      ModalProps={{
+        keepMounted: true, // Better performance on mobile
+      }}
       sx={{
         width: drawerWidth,
         flexShrink: 0,
         '& .MuiDrawer-paper': {
           width: drawerWidth,
           boxSizing: 'border-box',
+          borderRight: '1px solid',
+          borderColor: 'divider',
+          bgcolor: 'background.paper',
+          ...(isMobile && {
+            boxShadow: '0 8px 32px rgba(0, 0, 0, 0.12)',
+          }),
         },
       }}
     >

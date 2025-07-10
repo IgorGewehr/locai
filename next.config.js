@@ -26,13 +26,6 @@ const nextConfig = {
     ],
   },
   
-  // API configuration
-  api: {
-    bodyParser: {
-      sizeLimit: '10mb',
-    },
-  },
-  
   // Security headers
   async headers() {
     return [

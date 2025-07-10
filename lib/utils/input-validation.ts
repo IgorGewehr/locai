@@ -351,3 +351,14 @@ export class InputValidator {
     return sanitized;
   }
 }
+
+// Export instance for backward compatibility
+export const inputValidation = {
+  validateInput: async (data: any, schema: any) => {
+    try {
+      return await schema.validate(data, { abortEarly: false });
+    } catch (error: any) {
+      throw error;
+    }
+  },
+};

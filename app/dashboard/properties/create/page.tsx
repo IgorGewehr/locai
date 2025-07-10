@@ -28,7 +28,7 @@ import PropertySpecs from '@/components/organisms/PropertySpecs/PropertySpecs';
 import PropertyAmenities from '@/components/organisms/PropertyAmenities/PropertyAmenities';
 import PropertyPricing from '@/components/organisms/PropertyPricing/PropertyPricing';
 import PropertyMediaUpload from '@/components/organisms/PropertyMediaUpload/PropertyMediaUpload';
-import type { Property, PricingRule } from '@/lib/types';
+import type { Property, PricingRule, PropertyCategory, PaymentMethod } from '@/lib/types/property';
 
 const steps = [
   'Informações Básicas',
@@ -40,10 +40,10 @@ const steps = [
 ];
 
 const propertyTypes = [
-  { value: 'apartment', label: 'Apartamento', icon: <Apartment /> },
-  { value: 'house', label: 'Casa', icon: <House /> },
-  { value: 'villa', label: 'Villa', icon: <Villa /> },
-  { value: 'studio', label: 'Studio', icon: <Home /> },
+  { value: PropertyCategory.APARTMENT, label: 'Apartamento', icon: <Apartment /> },
+  { value: PropertyCategory.HOUSE, label: 'Casa', icon: <House /> },
+  { value: PropertyCategory.VILLA, label: 'Villa', icon: <Villa /> },
+  { value: PropertyCategory.STUDIO, label: 'Studio', icon: <Home /> },
 ];
 
 export default function CreatePropertyPage() {
@@ -53,41 +53,31 @@ export default function CreatePropertyPage() {
   const [error, setError] = useState<string | null>(null);
   
   const [property, setProperty] = useState<Partial<Property>>({
-    name: '',
+    title: '',
     description: '',
-    type: 'apartment',
-    address: {
-      street: '',
-      number: '',
-      complement: '',
-      neighborhood: '',
-      city: '',
-      state: '',
-      zipCode: '',
-      country: 'Brasil',
-    },
-    coordinates: {
-      lat: 0,
-      lng: 0,
-    },
+    address: '',
+    category: PropertyCategory.APARTMENT,
     bedrooms: 1,
     bathrooms: 1,
-    capacity: 2,
-    area: 0,
+    maxGuests: 2,
+    basePrice: 0,
+    pricePerExtraGuest: 0,
+    minimumNights: 1,
+    cleaningFee: 0,
     amenities: [],
+    isFeatured: false,
+    allowsPets: false,
+    paymentMethodSurcharges: {
+      [PaymentMethod.CREDIT_CARD]: 0,
+      [PaymentMethod.PIX]: 0,
+      [PaymentMethod.CASH]: 0,
+      [PaymentMethod.BANK_TRANSFER]: 0,
+    },
     photos: [],
     videos: [],
-    basePrice: 0,
-    weekendMultiplier: 1.2,
-    holidayMultiplier: 1.5,
-    minimumStay: 2,
-    cleaningFee: 0,
-    securityDeposit: 0,
-    rules: [],
-    checkInTime: '14:00',
-    checkOutTime: '11:00',
-    status: 'active',
-    availability: [],
+    unavailableDates: [],
+    customPricing: {},
+    isActive: true,
   });
 
   const [pricingRules, setPricingRules] = useState<PricingRule[]>([]);
@@ -104,18 +94,16 @@ export default function CreatePropertyPage() {
     switch (step) {
       case 0: // Basic Info
         return !!(
-          property.name &&
+          property.title &&
           property.description &&
-          property.type &&
-          property.address?.street &&
-          property.address?.city
+          property.category &&
+          property.address
         );
       case 1: // Specs
         return !!(
           property.bedrooms &&
           property.bathrooms &&
-          property.capacity &&
-          property.area
+          property.maxGuests
         );
       case 2: // Amenities
         return true; // Optional
@@ -211,10 +199,10 @@ export default function CreatePropertyPage() {
                 <Typography variant="subtitle1" fontWeight="bold">
                   Informações Básicas
                 </Typography>
-                <Typography>Nome: {property.name}</Typography>
-                <Typography>Tipo: {propertyTypes.find(t => t.value === property.type)?.label}</Typography>
+                <Typography>Nome: {property.title}</Typography>
+                <Typography>Tipo: {propertyTypes.find(t => t.value === property.category)?.label}</Typography>
                 <Typography>
-                  Endereço: {property.address?.street}, {property.address?.number} - {property.address?.city}/{property.address?.state}
+                  Endereço: {property.address}
                 </Typography>
               </Box>
 
@@ -224,8 +212,7 @@ export default function CreatePropertyPage() {
                 </Typography>
                 <Typography>Quartos: {property.bedrooms}</Typography>
                 <Typography>Banheiros: {property.bathrooms}</Typography>
-                <Typography>Capacidade: {property.capacity} pessoas</Typography>
-                <Typography>Área: {property.area}m²</Typography>
+                <Typography>Capacidade: {property.maxGuests} pessoas</Typography>
               </Box>
 
               <Box sx={{ mt: 2 }}>
@@ -234,7 +221,7 @@ export default function CreatePropertyPage() {
                 </Typography>
                 <Typography>Diária Base: R$ {property.basePrice}</Typography>
                 <Typography>Taxa de Limpeza: R$ {property.cleaningFee}</Typography>
-                <Typography>Depósito de Segurança: R$ {property.securityDeposit}</Typography>
+                <Typography>Preço por Hóspede Extra: R$ {property.pricePerExtraGuest}</Typography>
               </Box>
 
               <Box sx={{ mt: 2 }}>

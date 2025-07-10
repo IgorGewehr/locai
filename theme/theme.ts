@@ -1,3 +1,5 @@
+'use client';
+
 import { createTheme, ThemeOptions } from '@mui/material/styles';
 import { ptBR } from '@mui/material/locale';
 
@@ -30,49 +32,71 @@ declare module '@mui/material/styles' {
 }
 
 const baseTheme: ThemeOptions = {
+  breakpoints: {
+    values: {
+      xs: 0,
+      sm: 600,
+      md: 960,
+      lg: 1280,
+      xl: 1920,
+    },
+  },
   typography: {
     fontFamily: '"Inter", "Roboto", "Helvetica", "Arial", sans-serif',
+    fontSize: 16,
     h1: {
-      fontSize: '2.5rem',
+      fontSize: 'clamp(2rem, 4vw, 3.5rem)',
       fontWeight: 600,
       lineHeight: 1.2,
     },
     h2: {
-      fontSize: '2rem',
+      fontSize: 'clamp(1.75rem, 3.5vw, 2.75rem)',
       fontWeight: 600,
       lineHeight: 1.3,
     },
     h3: {
-      fontSize: '1.75rem',
+      fontSize: 'clamp(1.5rem, 3vw, 2.25rem)',
       fontWeight: 600,
       lineHeight: 1.3,
     },
     h4: {
-      fontSize: '1.5rem',
+      fontSize: 'clamp(1.25rem, 2.5vw, 1.875rem)',
       fontWeight: 600,
       lineHeight: 1.4,
     },
     h5: {
-      fontSize: '1.25rem',
+      fontSize: 'clamp(1.125rem, 2vw, 1.5rem)',
       fontWeight: 600,
       lineHeight: 1.4,
     },
     h6: {
-      fontSize: '1rem',
+      fontSize: 'clamp(1rem, 1.5vw, 1.25rem)',
       fontWeight: 600,
       lineHeight: 1.5,
     },
     body1: {
-      fontSize: '0.875rem',
-      lineHeight: 1.5,
+      fontSize: 'clamp(0.875rem, 1.25vw, 1.125rem)',
+      lineHeight: 1.6,
     },
     body2: {
-      fontSize: '0.75rem',
+      fontSize: 'clamp(0.8rem, 1.1vw, 1rem)',
       lineHeight: 1.5,
     },
     button: {
       textTransform: 'none',
       fontWeight: 500,
+      fontSize: 'clamp(0.875rem, 1.2vw, 1rem)',
+    },
+    caption: {
+      fontSize: 'clamp(0.75rem, 1vw, 0.875rem)',
+    },
+    subtitle1: {
+      fontSize: 'clamp(1rem, 1.4vw, 1.125rem)',
+      lineHeight: 1.5,
+    },
+    subtitle2: {
+      fontSize: 'clamp(0.875rem, 1.2vw, 1rem)',
+      lineHeight: 1.5,
     },
   },
   shape: {
@@ -83,14 +107,18 @@ const baseTheme: ThemeOptions = {
       styleOverrides: {
         root: {
           borderRadius: 8,
-          padding: '8px 24px',
-          fontSize: '0.875rem',
+          padding: '12px 28px',
+          fontSize: '1rem',
           fontWeight: 500,
           textTransform: 'none',
           boxShadow: 'none',
           '&:hover': {
             boxShadow: 'none',
           },
+        },
+        sizeLarge: {
+          padding: '16px 32px',
+          fontSize: '1.125rem',
         },
         containedPrimary: {
           background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
@@ -119,7 +147,9 @@ const baseTheme: ThemeOptions = {
     MuiAppBar: {
       styleOverrides: {
         root: {
-          boxShadow: '0 1px 4px rgba(0, 0, 0, 0.1)',
+          boxShadow: '0 1px 3px rgba(0, 0, 0, 0.08)',
+          backdropFilter: 'blur(8px)',
+          backgroundColor: 'rgba(255, 255, 255, 0.95)',
         },
       },
     },
@@ -135,7 +165,25 @@ const baseTheme: ThemeOptions = {
         root: {
           '& .MuiOutlinedInput-root': {
             borderRadius: 8,
+            fontSize: '1rem',
           },
+          '& .MuiInputLabel-root': {
+            fontSize: '1rem',
+          },
+          '& .MuiFormHelperText-root': {
+            fontSize: '0.875rem',
+          },
+        },
+      },
+    },
+    MuiInputBase: {
+      styleOverrides: {
+        root: {
+          fontSize: '1rem',
+        },
+        input: {
+          fontSize: '1rem',
+          padding: '14px 16px',
         },
       },
     },
@@ -143,6 +191,11 @@ const baseTheme: ThemeOptions = {
       styleOverrides: {
         root: {
           borderRadius: 6,
+          fontSize: '0.9rem',
+          height: '36px',
+        },
+        label: {
+          fontSize: '0.9rem',
         },
       },
     },
@@ -151,6 +204,37 @@ const baseTheme: ThemeOptions = {
         root: {
           textTransform: 'none',
           fontWeight: 500,
+          fontSize: '1rem',
+        },
+      },
+    },
+    MuiTableCell: {
+      styleOverrides: {
+        root: {
+          fontSize: '1rem',
+          padding: '16px',
+        },
+        head: {
+          fontSize: '1.1rem',
+          fontWeight: 600,
+        },
+      },
+    },
+    MuiMenuItem: {
+      styleOverrides: {
+        root: {
+          fontSize: '1rem',
+          minHeight: '48px',
+        },
+      },
+    },
+    MuiListItemText: {
+      styleOverrides: {
+        primary: {
+          fontSize: '1rem',
+        },
+        secondary: {
+          fontSize: '0.9rem',
         },
       },
     },
@@ -200,7 +284,7 @@ export const lightTheme = createTheme({
       dark: '#388e3c',
     },
     background: {
-      default: '#f8fafc',
+      default: '#fafbfc',
       paper: '#ffffff',
     },
     text: {

@@ -58,47 +58,37 @@ export default function AdvancedAnalytics() {
   const [timeRange, setTimeRange] = useState('30d');
   const [loading, setLoading] = useState(false);
 
-  // Mock data - seria substituído por dados reais do Firebase
+  // TODO: Load data from Firebase
   const revenueData = [
-    { month: 'Jan', revenue: 15000, bookings: 12, occupancy: 75 },
-    { month: 'Fev', revenue: 18000, bookings: 15, occupancy: 82 },
-    { month: 'Mar', revenue: 22000, bookings: 18, occupancy: 88 },
-    { month: 'Abr', revenue: 19000, bookings: 16, occupancy: 79 },
-    { month: 'Mai', revenue: 25000, bookings: 20, occupancy: 92 },
-    { month: 'Jun', revenue: 28000, bookings: 22, occupancy: 95 }
+    { month: 'Jan', revenue: 0, bookings: 0, occupancy: 0 },
+    { month: 'Fev', revenue: 0, bookings: 0, occupancy: 0 },
+    { month: 'Mar', revenue: 0, bookings: 0, occupancy: 0 },
+    { month: 'Abr', revenue: 0, bookings: 0, occupancy: 0 },
+    { month: 'Mai', revenue: 0, bookings: 0, occupancy: 0 },
+    { month: 'Jun', revenue: 0, bookings: 0, occupancy: 0 }
   ];
 
-  const propertyPerformance = [
-    { name: 'Casa na Praia', revenue: 12000, bookings: 8, rating: 4.9, occupancy: 95 },
-    { name: 'Apartamento Centro', revenue: 9500, bookings: 12, rating: 4.7, occupancy: 88 },
-    { name: 'Cobertura Vista Mar', revenue: 15000, bookings: 5, rating: 5.0, occupancy: 92 },
-    { name: 'Loft Moderno', revenue: 7800, bookings: 9, rating: 4.6, occupancy: 76 }
-  ];
+  const propertyPerformance: Array<{name: string, revenue: number, bookings: number, rating: number, occupancy: number}> = [];
 
-  const customerSegments = [
-    { name: 'Famílias', value: 45, color: '#8884d8' },
-    { name: 'Casais', value: 30, color: '#82ca9d' },
-    { name: 'Viagem Negócios', value: 15, color: '#ffc658' },
-    { name: 'Grupos Amigos', value: 10, color: '#ff7300' }
-  ];
+  const customerSegments: Array<{name: string, value: number, color: string}> = [];
 
   const conversationMetrics = [
-    { day: 'Seg', messages: 45, conversions: 8, responseTime: 1.2 },
-    { day: 'Ter', messages: 52, conversions: 11, responseTime: 0.9 },
-    { day: 'Qua', messages: 38, conversions: 7, responseTime: 1.5 },
-    { day: 'Qui', messages: 61, conversions: 14, responseTime: 0.8 },
-    { day: 'Sex', messages: 73, conversions: 16, responseTime: 1.1 },
-    { day: 'Sáb', messages: 89, conversions: 22, responseTime: 1.3 },
-    { day: 'Dom', messages: 67, conversions: 18, responseTime: 1.0 }
+    { day: 'Seg', messages: 0, conversions: 0, responseTime: 0 },
+    { day: 'Ter', messages: 0, conversions: 0, responseTime: 0 },
+    { day: 'Qua', messages: 0, conversions: 0, responseTime: 0 },
+    { day: 'Qui', messages: 0, conversions: 0, responseTime: 0 },
+    { day: 'Sex', messages: 0, conversions: 0, responseTime: 0 },
+    { day: 'Sáb', messages: 0, conversions: 0, responseTime: 0 },
+    { day: 'Dom', messages: 0, conversions: 0, responseTime: 0 }
   ];
 
   const aiPerformanceMetrics = {
-    totalConversations: 1247,
-    successfulBookings: 186,
-    conversionRate: 14.9,
-    avgResponseTime: 1.1,
-    customerSatisfaction: 4.8,
-    autoResolutionRate: 78.5
+    totalConversations: 0,
+    successfulBookings: 0,
+    conversionRate: 0,
+    avgResponseTime: 0,
+    customerSatisfaction: 0,
+    autoResolutionRate: 0
   };
 
   const formatCurrency = (value: number) => {

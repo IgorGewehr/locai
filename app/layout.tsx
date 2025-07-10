@@ -4,6 +4,8 @@ import { ThemeProvider } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
 import { Toaster } from 'react-hot-toast';
 import { lightTheme } from '@/theme/theme';
+import { AuthProvider } from '@/contexts/AuthContext';
+import '@/styles/globals.css';
 
 export const metadata: Metadata = {
   title: 'Agente Imobiliária - Sistema de Gestão',
@@ -22,17 +24,19 @@ export default function RootLayout({
         <AppRouterCacheProvider>
           <ThemeProvider theme={lightTheme}>
             <CssBaseline />
-            {children}
-            <Toaster
-              position="top-right"
-              toastOptions={{
-                duration: 4000,
-                style: {
-                  background: '#363636',
-                  color: '#fff',
-                },
-              }}
-            />
+            <AuthProvider>
+              {children}
+              <Toaster
+                position="top-right"
+                toastOptions={{
+                  duration: 4000,
+                  style: {
+                    background: '#363636',
+                    color: '#fff',
+                  },
+                }}
+              />
+            </AuthProvider>
           </ThemeProvider>
         </AppRouterCacheProvider>
       </body>

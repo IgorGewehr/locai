@@ -190,7 +190,7 @@ export function useAIAgent({
     await updateAgent(agentId, { isActive })
   }, [updateAgent])
 
-  const testAgent = useCallback(async (agentId: string, message: string = 'Olá, estou interessado em alugar uma propriedade para o final de semana.'): Promise<AIResponse> => {
+  const testAgent = useCallback(async (agentId: string, message: string = 'Olá!'): Promise<AIResponse> => {
     setTesting(true)
     setError(null)
     

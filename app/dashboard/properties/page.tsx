@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
+import { propertyService } from '@/lib/firebase/firestore';
 import {
   Box,
   Card,
@@ -28,6 +29,7 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
+  CircularProgress,
 } from '@mui/material';
 import {
   Add,
@@ -50,79 +52,8 @@ import {
   Block,
   Schedule,
 } from '@mui/icons-material';
-import type { Property } from '@/lib/types';
+import type { Property } from '@/lib/types/property';
 
-// Mock data
-const mockProperties: Property[] = [
-  {
-    id: '1',
-    name: 'Casa na Praia - Ipanema',
-    type: 'house',
-    description: 'Linda casa de frente para o mar com vista deslumbrante',
-    address: {
-      street: 'Rua Vieira Souto',
-      number: '500',
-      neighborhood: 'Ipanema',
-      city: 'Rio de Janeiro',
-      state: 'RJ',
-      zipCode: '22420-000',
-      country: 'Brasil',
-    },
-    coordinates: { lat: -22.9838, lng: -43.2096 },
-    bedrooms: 4,
-    bathrooms: 3,
-    capacity: 8,
-    area: 250,
-    amenities: ['pool', 'wifi', 'parking', 'airConditioning', 'kitchen', 'beachAccess'],
-    photos: [{ url: '/api/placeholder/400/300', order: 1, type: 'photo' }],
-    basePrice: 800,
-    weekendMultiplier: 1.2,
-    holidayMultiplier: 1.5,
-    minimumStay: 3,
-    cleaningFee: 150,
-    securityDeposit: 1000,
-    checkInTime: '14:00',
-    checkOutTime: '11:00',
-    status: 'active',
-    availability: [],
-    createdAt: new Date('2024-01-01'),
-    updatedAt: new Date('2024-01-15'),
-  },
-  {
-    id: '2',
-    name: 'Apartamento Vista Mar - Copacabana',
-    type: 'apartment',
-    description: 'Apartamento moderno com vista panorâmica',
-    address: {
-      street: 'Av. Atlântica',
-      number: '2000',
-      neighborhood: 'Copacabana',
-      city: 'Rio de Janeiro',
-      state: 'RJ',
-      zipCode: '22021-000',
-      country: 'Brasil',
-    },
-    coordinates: { lat: -22.9711, lng: -43.1823 },
-    bedrooms: 2,
-    bathrooms: 2,
-    capacity: 4,
-    area: 120,
-    amenities: ['wifi', 'airConditioning', 'kitchen', 'elevator', 'gym'],
-    photos: [{ url: '/api/placeholder/400/300', order: 1, type: 'photo' }],
-    basePrice: 450,
-    weekendMultiplier: 1.3,
-    holidayMultiplier: 1.7,
-    minimumStay: 2,
-    cleaningFee: 100,
-    securityDeposit: 500,
-    checkInTime: '15:00',
-    checkOutTime: '10:00',
-    status: 'active',
-    availability: [],
-    createdAt: new Date('2024-01-05'),
-    updatedAt: new Date('2024-01-20'),
-  },
-];
 
 const propertyTypeIcons: Record<string, React.ReactNode> = {
   apartment: <Apartment />,
@@ -133,8 +64,9 @@ const propertyTypeIcons: Record<string, React.ReactNode> = {
 
 export default function PropertiesPage() {
   const router = useRouter();
-  const [properties, setProperties] = useState<Property[]>(mockProperties);
-  const [filteredProperties, setFilteredProperties] = useState<Property[]>(mockProperties);
+  const [properties, setProperties] = useState<Property[]>([]);
+  const [filteredProperties, setFilteredProperties] = useState<Property[]>([]);
+  const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [typeFilter, setTypeFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
@@ -142,23 +74,41 @@ export default function PropertiesPage() {
   const [selectedProperty, setSelectedProperty] = useState<Property | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
 
+  // Load properties from Firebase
+  useEffect(() => {
+    const loadProperties = async () => {
+      try {
+        const propertiesData = await propertyService.getAll();
+        setProperties(propertiesData);
+      } catch (error) {
+        console.error('Error loading properties:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadProperties();
+  }, []);
+
   useEffect(() => {
     let filtered = properties;
 
     if (searchTerm) {
       filtered = filtered.filter(property =>
-        property.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        property.address.city.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        property.address.neighborhood.toLowerCase().includes(searchTerm.toLowerCase())
+        property.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        property.address.toLowerCase().includes(searchTerm.toLowerCase())
       );
     }
 
-    if (typeFilter !== 'all') {
-      filtered = filtered.filter(property => property.type === typeFilter);
-    }
-
+    // Note: The Property type doesn't have a 'type' field, so we'll skip type filtering for now
+    // or map to another field
+    
     if (statusFilter !== 'all') {
-      filtered = filtered.filter(property => property.status === statusFilter);
+      if (statusFilter === 'active') {
+        filtered = filtered.filter(property => property.isActive);
+      } else if (statusFilter === 'inactive') {
+        filtered = filtered.filter(property => !property.isActive);
+      }
     }
 
     setFilteredProperties(filtered);
@@ -175,38 +125,37 @@ export default function PropertiesPage() {
 
   const handleDelete = async () => {
     if (selectedProperty) {
-      // Simulate API call
-      await new Promise(resolve => setTimeout(resolve, 500));
-      setProperties(prev => prev.filter(p => p.id !== selectedProperty.id));
-      setDeleteDialogOpen(false);
-      setSelectedProperty(null);
+      try {
+        await propertyService.delete(selectedProperty.id);
+        setProperties(prev => prev.filter(p => p.id !== selectedProperty.id));
+        setDeleteDialogOpen(false);
+        setSelectedProperty(null);
+      } catch (error) {
+        console.error('Error deleting property:', error);
+      }
     }
   };
 
-  const handleDuplicate = () => {
+  const handleDuplicate = async () => {
     if (selectedProperty) {
-      const duplicated = {
-        ...selectedProperty,
-        id: Date.now().toString(),
-        name: `${selectedProperty.name} (Cópia)`,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      };
-      setProperties(prev => [...prev, duplicated]);
-      handleMenuClose();
+      try {
+        const duplicated = {
+          ...selectedProperty,
+          title: `${selectedProperty.title} (Cópia)`,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        };
+        delete (duplicated as any).id; // Remove id so Firebase generates a new one
+        const newProperty = await propertyService.create(duplicated as Omit<Property, 'id'>);
+        setProperties(prev => [...prev, newProperty]);
+        handleMenuClose();
+      } catch (error) {
+        console.error('Error duplicating property:', error);
+      }
     }
   };
 
-  const getStatusChip = (status: Property['status']) => {
-    const config = {
-      active: { label: 'Ativo', color: 'success' as const, icon: <CheckCircle /> },
-      inactive: { label: 'Inativo', color: 'error' as const, icon: <Block /> },
-      maintenance: { label: 'Manutenção', color: 'warning' as const, icon: <Schedule /> },
-    };
-
-    const { label, color, icon } = config[status];
-    return <Chip label={label} color={color} size="small" icon={icon} />;
-  };
+  // Removed getStatusChip function as status field doesn't exist in current Property interface
 
   return (
     <Box>
@@ -292,8 +241,19 @@ export default function PropertiesPage() {
 
       {/* Properties Grid */}
       <Grid container spacing={3}>
-        {filteredProperties.map((property) => (
-          <Grid item xs={12} sm={6} md={4} key={property.id}>
+        {loading ? (
+          <Box sx={{ display: 'flex', justifyContent: 'center', p: 4, width: '100%' }}>
+            <CircularProgress />
+          </Box>
+        ) : filteredProperties.length === 0 ? (
+          <Box sx={{ textAlign: 'center', p: 4, width: '100%' }}>
+            <Typography color="text.secondary">
+              Nenhuma propriedade encontrada
+            </Typography>
+          </Box>
+        ) : (
+          filteredProperties.map((property) => (
+          <Grid item xs={12} sm={6} md={4} lg={3} xl={3} key={property.id}>
             <Card elevation={2} sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
               <CardMedia
                 component="img"
@@ -306,7 +266,7 @@ export default function PropertiesPage() {
               <CardContent sx={{ flexGrow: 1 }}>
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1 }}>
                   <Typography variant="h6" component="h2" sx={{ fontWeight: 'bold' }}>
-                    {property.name}
+                    {property.title}
                   </Typography>
                   <IconButton
                     size="small"
@@ -316,19 +276,12 @@ export default function PropertiesPage() {
                   </IconButton>
                 </Box>
 
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 1 }}>
-                  {propertyTypeIcons[property.type]}
-                  <Typography variant="body2" color="text.secondary">
-                    {property.type === 'apartment' ? 'Apartamento' : 
-                     property.type === 'house' ? 'Casa' :
-                     property.type === 'villa' ? 'Villa' : 'Studio'}
-                  </Typography>
-                </Box>
+                {/* Property type removed as it's not in the current Property interface */}
 
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 2 }}>
                   <LocationOn fontSize="small" color="action" />
                   <Typography variant="body2" color="text.secondary">
-                    {property.address.neighborhood}, {property.address.city}
+                    {property.address}
                   </Typography>
                 </Box>
 
@@ -342,21 +295,26 @@ export default function PropertiesPage() {
                   <Grid item xs={4}>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
                       <Group fontSize="small" color="action" />
-                      <Typography variant="body2">{property.capacity}</Typography>
+                      <Typography variant="body2">{property.maxGuests}</Typography>
                     </Box>
                   </Grid>
                   <Grid item xs={4}>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
                       <AttachMoney fontSize="small" color="action" />
-                      <Typography variant="body2">{property.basePrice}</Typography>
+                      <Typography variant="body2">R$ {property.basePrice}</Typography>
                     </Box>
                   </Grid>
                 </Grid>
 
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  {getStatusChip(property.status)}
+                  <Chip
+                    label={property.isActive ? 'Ativo' : 'Inativo'}
+                    color={property.isActive ? 'success' : 'default'}
+                    size="small"
+                    icon={property.isActive ? <CheckCircle /> : <Block />}
+                  />
                   <Typography variant="body2" color="text.secondary">
-                    {property.area}m²
+                    {property.bedrooms} quartos • {property.bathrooms} banheiros
                   </Typography>
                 </Box>
               </CardContent>
@@ -380,7 +338,7 @@ export default function PropertiesPage() {
               </CardActions>
             </Card>
           </Grid>
-        ))}
+        )))}
       </Grid>
 
       {/* Action Menu */}
@@ -414,7 +372,7 @@ export default function PropertiesPage() {
         <DialogTitle>Confirmar Exclusão</DialogTitle>
         <DialogContent>
           <Typography>
-            Tem certeza que deseja excluir o imóvel "{selectedProperty?.name}"?
+            Tem certeza que deseja excluir o imóvel "{selectedProperty?.title}"?
           </Typography>
           <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
             Esta ação não pode ser desfeita.

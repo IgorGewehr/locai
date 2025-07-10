@@ -1,0 +1,260 @@
+/* Global CSS for Professional UI/UX */
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  font-size: 16px;
+  scroll-behavior: smooth;
+}
+
+body {
+  line-height: 1.6;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-family: 'Inter', 'Roboto', 'Helvetica', 'Arial', sans-serif;
+  margin: 0;
+  padding: 0;
+  background-color: #fafbfc;
+}
+
+/* Better spacing for form elements */
+.MuiFormControl-root {
+  margin-bottom: 16px !important;
+}
+
+/* Larger touch targets for mobile */
+@media (max-width: 768px) {
+  .MuiButton-root {
+    min-height: 48px !important;
+    font-size: 1.1rem !important;
+  }
+  
+  .MuiIconButton-root {
+    min-height: 48px !important;
+    min-width: 48px !important;
+  }
+  
+  .MuiTab-root {
+    min-height: 48px !important;
+    font-size: 1.1rem !important;
+  }
+}
+
+/* Better contrast for text */
+.MuiTypography-body2 {
+  color: rgba(0, 0, 0, 0.8) !important;
+}
+
+/* Larger cards for better readability */
+.MuiCard-root {
+  padding: 4px !important;
+}
+
+/* Better spacing in lists */
+.MuiListItem-root {
+  padding-top: 12px !important;
+  padding-bottom: 12px !important;
+}
+
+/* Larger table cells */
+.MuiTableCell-root {
+  padding: 16px !important;
+  font-size: 1rem !important;
+}
+
+/* Better input field styling */
+.MuiOutlinedInput-input {
+  padding: 16px 14px !important;
+  font-size: 1rem !important;
+}
+
+/* Larger chips */
+.MuiChip-root {
+  height: 36px !important;
+  font-size: 0.95rem !important;
+}
+
+/* Better menu item spacing */
+.MuiMenuItem-root {
+  padding: 12px 16px !important;
+  font-size: 1rem !important;
+}
+
+/* Improve focus visibility */
+.MuiButton-root:focus,
+.MuiIconButton-root:focus,
+.MuiTab-root:focus {
+  outline: 2px solid #667eea !important;
+  outline-offset: 2px !important;
+}
+
+/* Better alert styling */
+.MuiAlert-root {
+  font-size: 1rem !important;
+  padding: 16px !important;
+}
+
+/* Larger modal content */
+.MuiDialog-paper {
+  font-size: 1rem !important;
+}
+
+.MuiDialogTitle-root {
+  font-size: 1.5rem !important;
+  padding: 24px !important;
+}
+
+.MuiDialogContent-root {
+  padding: 24px !important;
+  font-size: 1rem !important;
+}
+
+.MuiDialogActions-root {
+  padding: 16px 24px !important;
+}
+
+/* Better sidebar readability */
+.MuiDrawer-paper .MuiListItemText-primary {
+  font-size: 1rem !important;
+  font-weight: 500 !important;
+}
+
+.MuiDrawer-paper .MuiListItemText-secondary {
+  font-size: 0.9rem !important;
+}
+
+/* Better header styling */
+.MuiAppBar-root .MuiTypography-h6 {
+  font-size: 1.25rem !important;
+  font-weight: 600 !important;
+}
+
+/* Improve tooltip readability */
+.MuiTooltip-tooltip {
+  font-size: 0.9rem !important;
+  padding: 8px 12px !important;
+}
+
+/* Better accordion styling */
+.MuiAccordionSummary-content {
+  font-size: 1rem !important;
+}
+
+/* Larger pagination */
+.MuiPaginationItem-root {
+  font-size: 1rem !important;
+  min-width: 40px !important;
+  height: 40px !important;
+}
+
+/* Better breadcrumb styling */
+.MuiBreadcrumbs-root {
+  font-size: 1rem !important;
+}
+
+/* Improve snackbar readability */
+.MuiSnackbarContent-root {
+  font-size: 1rem !important;
+  padding: 16px !important;
+}
+
+/* Better stepper styling */
+.MuiStepLabel-label {
+  font-size: 1rem !important;
+}
+
+.MuiStepContent-root {
+  font-size: 1rem !important;
+}
+
+/* Larger switch and checkbox */
+.MuiSwitch-root {
+  width: 58px !important;
+  height: 38px !important;
+}
+
+.MuiCheckbox-root,
+.MuiRadio-root {
+  padding: 12px !important;
+}
+
+/* Better spacing in forms */
+.MuiFormControlLabel-root {
+  margin-bottom: 8px !important;
+}
+
+.MuiFormControlLabel-label {
+  font-size: 1rem !important;
+}
+
+/* Improve select dropdown */
+.MuiSelect-select {
+  padding: 16px 14px !important;
+  font-size: 1rem !important;
+}
+
+/* Better spacing for form helpers */
+.MuiFormHelperText-root {
+  font-size: 0.9rem !important;
+  margin-top: 8px !important;
+}
+
+/* Performance optimizations */
+.MuiDrawer-paper {
+  will-change: transform;
+  backface-visibility: hidden;
+}
+
+.MuiAppBar-root {
+  will-change: transform;
+}
+
+/* Smooth transitions */
+.MuiDrawer-root .MuiDrawer-paper {
+  transition: transform 225ms cubic-bezier(0.0, 0, 0.2, 1) 0ms !important;
+}
+
+/* Professional scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(0, 0, 0, 0.3);
+}
+
+/* Loading states */
+.MuiCircularProgress-root {
+  animation: rotation 1s linear infinite;
+}
+
+@keyframes rotation {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Better shadows for cards */
+.MuiCard-root {
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08), 0 1px 2px rgba(0, 0, 0, 0.12) !important;
+  transition: box-shadow 0.15s ease-in-out !important;
+}
+
+.MuiCard-root:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15) !important;
+}

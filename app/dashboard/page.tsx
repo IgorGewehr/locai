@@ -24,15 +24,15 @@ import {
 } from '@mui/icons-material';
 import type { DashboardStats } from '@/lib/types';
 
-const mockStats: DashboardStats = {
-  totalProperties: 25,
-  activeProperties: 22,
-  totalReservations: 156,
-  pendingReservations: 8,
-  totalRevenue: 125000,
-  monthlyRevenue: 18500,
-  occupancyRate: 0.78,
-  averageRating: 4.6,
+const initialStats: DashboardStats = {
+  totalProperties: 0,
+  activeProperties: 0,
+  totalReservations: 0,
+  pendingReservations: 0,
+  totalRevenue: 0,
+  monthlyRevenue: 0,
+  occupancyRate: 0,
+  averageRating: 0,
 };
 
 interface StatCardProps {
@@ -97,7 +97,7 @@ function StatCard({ title, value, subtitle, icon, trend, color }: StatCardProps)
 }
 
 export default function DashboardPage() {
-  const [stats, setStats] = useState<DashboardStats>(mockStats);
+  const [stats, setStats] = useState<DashboardStats>(initialStats);
   const [loading, setLoading] = useState(false);
 
   const refreshStats = async () => {
@@ -122,47 +122,43 @@ export default function DashboardPage() {
 
       <Grid container spacing={3}>
         {/* Statistics Cards */}
-        <Grid item xs={12} sm={6} md={3}>
+        <Grid item xs={12} sm={6} md={3} lg={3} xl={2}>
           <StatCard
             title="Propriedades"
             value={stats.activeProperties}
             subtitle={`${stats.totalProperties} total`}
             icon={<Home />}
             color="primary"
-            trend={{ value: 12, isPositive: true }}
           />
         </Grid>
 
-        <Grid item xs={12} sm={6} md={3}>
+        <Grid item xs={12} sm={6} md={3} lg={3} xl={2}>
           <StatCard
             title="Reservas"
             value={stats.pendingReservations}
             subtitle={`${stats.totalReservations} total`}
             icon={<CalendarMonth />}
             color="secondary"
-            trend={{ value: 8, isPositive: true }}
           />
         </Grid>
 
-        <Grid item xs={12} sm={6} md={3}>
+        <Grid item xs={12} sm={6} md={3} lg={3} xl={2}>
           <StatCard
             title="Receita Mensal"
             value={`R$ ${(stats.monthlyRevenue / 1000).toFixed(1)}k`}
             subtitle={`R$ ${(stats.totalRevenue / 1000).toFixed(0)}k total`}
             icon={<AttachMoney />}
             color="success"
-            trend={{ value: 15, isPositive: true }}
           />
         </Grid>
 
-        <Grid item xs={12} sm={6} md={3}>
+        <Grid item xs={12} sm={6} md={3} lg={3} xl={2}>
           <StatCard
             title="Taxa de Ocupação"
             value={`${(stats.occupancyRate * 100).toFixed(1)}%`}
             subtitle={`Média: ${stats.averageRating} estrelas`}
             icon={<People />}
             color="warning"
-            trend={{ value: 3, isPositive: false }}
           />
         </Grid>
 
@@ -178,25 +174,25 @@ export default function DashboardPage() {
               </Box>
               
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
-                <Chip label="Conectado" color="success" size="small" />
+                <Chip label="Não configurado" color="warning" size="small" />
                 <Typography variant="body2" color="text.secondary">
-                  Último sync: há 2 minutos
+                  Configure o WhatsApp nas configurações
                 </Typography>
               </Box>
 
               <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
                 <Typography variant="body2">Mensagens hoje:</Typography>
-                <Typography variant="body2" fontWeight="bold">47</Typography>
+                <Typography variant="body2" fontWeight="bold">0</Typography>
               </Box>
               
               <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
                 <Typography variant="body2">Conversas ativas:</Typography>
-                <Typography variant="body2" fontWeight="bold">12</Typography>
+                <Typography variant="body2" fontWeight="bold">0</Typography>
               </Box>
               
               <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
                 <Typography variant="body2">Tempo médio resposta:</Typography>
-                <Typography variant="body2" fontWeight="bold">1.2s</Typography>
+                <Typography variant="body2" fontWeight="bold">N/A</Typography>
               </Box>
             </CardContent>
           </Card>
@@ -210,54 +206,10 @@ export default function DashboardPage() {
                 Atividade Recente
               </Typography>
               
-              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <Box>
-                    <Typography variant="body2" fontWeight="medium">
-                      Nova reserva - Casa na Praia
-                    </Typography>
-                    <Typography variant="caption" color="text.secondary">
-                      há 15 minutos
-                    </Typography>
-                  </Box>
-                  <Chip label="Nova" color="primary" size="small" />
-                </Box>
-
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <Box>
-                    <Typography variant="body2" fontWeight="medium">
-                      Cliente solicitou fotos - Apartamento Centro
-                    </Typography>
-                    <Typography variant="caption" color="text.secondary">
-                      há 32 minutos
-                    </Typography>
-                  </Box>
-                  <Chip label="WhatsApp" color="success" size="small" />
-                </Box>
-
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <Box>
-                    <Typography variant="body2" fontWeight="medium">
-                      Pagamento confirmado - Cobertura Vista Mar
-                    </Typography>
-                    <Typography variant="caption" color="text.secondary">
-                      há 1 hora
-                    </Typography>
-                  </Box>
-                  <Chip label="Pago" color="success" size="small" />
-                </Box>
-
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <Box>
-                    <Typography variant="body2" fontWeight="medium">
-                      Nova propriedade cadastrada
-                    </Typography>
-                    <Typography variant="caption" color="text.secondary">
-                      há 2 horas
-                    </Typography>
-                  </Box>
-                  <Chip label="Sistema" color="secondary" size="small" />
-                </Box>
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, minHeight: 200, justifyContent: 'center', alignItems: 'center' }}>
+                <Typography variant="body2" color="text.secondary" align="center">
+                  Nenhuma atividade recente
+                </Typography>
               </Box>
             </CardContent>
           </Card>

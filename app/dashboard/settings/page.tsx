@@ -33,7 +33,7 @@ import {
   Select,
   CircularProgress,
   Avatar,
-  Paper,
+  Paper, MenuItem,
 } from '@mui/material';
 import {
   WhatsApp,
@@ -41,7 +41,7 @@ import {
   Error,
   Info,
   Save,
-  Test,
+  PlayArrow,
   Link,
   Phone,
   VpnKey,
@@ -367,20 +367,18 @@ export default function SettingsPage() {
               <Box sx={{ display: 'flex', gap: 2, mt: 3 }}>
                 <Button
                   variant="contained"
-                  startIcon={<Save />}
+                  startIcon={saving ? <CircularProgress size={20} /> : <Save />}
                   onClick={handleSaveConfiguration}
                   disabled={!config.phoneNumberId || !config.accessToken || saving}
-                  loading={saving}
                 >
                   {saving ? 'Salvando...' : 'Salvar Configuração'}
                 </Button>
                 
                 <Button
                   variant="outlined"
-                  startIcon={<Test />}
+                  startIcon={testing ? <CircularProgress size={20} /> : <PlayArrow />}
                   onClick={handleTestConnection}
                   disabled={!config.phoneNumberId || !config.accessToken || testing}
-                  loading={testing}
                 >
                   {testing ? 'Testando...' : 'Testar Conexão'}
                 </Button>

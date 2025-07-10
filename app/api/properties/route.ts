@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { propertyService, propertyQueries } from '@/lib/firebase/firestore';
-import type { Property } from '@/lib/types';
+import type { Property } from '@/lib/types/property';
 
 export async function GET(request: NextRequest) {
   try {
@@ -36,9 +36,9 @@ export async function GET(request: NextRequest) {
     if (search) {
       const searchLower = search.toLowerCase();
       properties = properties.filter(property =>
-        property.name.toLowerCase().includes(searchLower) ||
+        property.title.toLowerCase().includes(searchLower) ||
         property.description.toLowerCase().includes(searchLower) ||
-        property.location.toLowerCase().includes(searchLower)
+        property.address.toLowerCase().includes(searchLower)
       );
     }
 
@@ -77,7 +77,7 @@ export async function POST(request: NextRequest) {
 
     // Validate required fields
     const requiredFields = [
-      'name', 'description', 'location', 'address', 
+      'title', 'description', 'address', 'category',
       'bedrooms', 'bathrooms', 'maxGuests', 'minimumNights'
     ];
 
@@ -91,37 +91,38 @@ export async function POST(request: NextRequest) {
     }
 
     // Validate pricing
-    if (!propertyData.pricing || !propertyData.pricing.basePrice) {
+    if (!propertyData.basePrice) {
       return NextResponse.json(
         { success: false, error: 'Preço base é obrigatório' },
         { status: 400 }
       );
     }
 
-    // Set default values
+    // Set default values and add required fields
     const property: Omit<Property, 'id'> = {
-      name: propertyData.name,
+      title: propertyData.title,
       description: propertyData.description,
-      location: propertyData.location,
       address: propertyData.address,
+      category: propertyData.category,
       bedrooms: parseInt(propertyData.bedrooms),
       bathrooms: parseInt(propertyData.bathrooms),
       maxGuests: parseInt(propertyData.maxGuests),
+      basePrice: parseFloat(propertyData.basePrice),
+      pricePerExtraGuest: parseFloat(propertyData.pricePerExtraGuest) || 0,
       minimumNights: parseInt(propertyData.minimumNights) || 1,
+      cleaningFee: parseFloat(propertyData.cleaningFee) || 0,
       amenities: propertyData.amenities || [],
+      isFeatured: propertyData.isFeatured || false,
+      allowsPets: propertyData.allowsPets || false,
+      paymentMethodSurcharges: propertyData.paymentMethodSurcharges || {},
       photos: propertyData.photos || [],
       videos: propertyData.videos || [],
-      pricing: {
-        basePrice: parseFloat(propertyData.pricing.basePrice),
-        weekendMultiplier: parseFloat(propertyData.pricing.weekendMultiplier) || 1.2,
-        holidayMultiplier: parseFloat(propertyData.pricing.holidayMultiplier) || 1.5,
-        cleaningFee: parseFloat(propertyData.pricing.cleaningFee) || 0,
-        securityDeposit: parseFloat(propertyData.pricing.securityDeposit) || 0,
-        seasonalPrices: propertyData.pricing.seasonalPrices || [],
-      },
+      unavailableDates: propertyData.unavailableDates || [],
+      customPricing: propertyData.customPricing || {},
       isActive: propertyData.isActive !== false,
       createdAt: new Date(),
       updatedAt: new Date(),
+      tenantId: 'default', // TODO: Get from auth context
     };
 
     const propertyId = await propertyService.create(property);

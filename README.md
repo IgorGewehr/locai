@@ -863,7 +863,7 @@ npm install
 ### 2. Configuração
 ```bash
 # Copie o arquivo de exemplo
-cp .env.example .env.local
+cp .env .env.local
 
 # Edite as variáveis de ambiente
 nano .env.local

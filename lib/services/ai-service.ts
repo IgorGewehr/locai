@@ -297,7 +297,7 @@ export class AIService {
       clientId: 'test-client',
       agentId: agentId,
       tenantId: this.tenantId,
-      whatsappPhone: '+5511999999999',
+      whatsappPhone: '',
       status: 'active' as any,
       stage: 'greeting' as any,
       intent: 'information' as any,
