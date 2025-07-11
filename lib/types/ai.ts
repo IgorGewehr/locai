@@ -105,6 +105,7 @@ export interface WeeklyTrend {
 }
 
 export interface AIResponse {
+  message: string
   content: string
   functionCall?: {
     name: string

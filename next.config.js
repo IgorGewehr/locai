@@ -7,6 +7,12 @@ const nextConfig = {
     },
   },
   
+  // Production optimizations
+  output: 'standalone',
+  poweredByHeader: false,
+  compress: true,
+  reactStrictMode: true,
+  
   // Images configuration
   images: {
     domains: [
@@ -48,6 +54,14 @@ const nextConfig = {
             key: 'X-XSS-Protection',
             value: '1; mode=block',
           },
+          {
+            key: 'Content-Security-Policy',
+            value: "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://apis.google.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https: blob:; connect-src 'self' https://api.openai.com https://firestore.googleapis.com wss://*.firebaseio.com; frame-src 'none'; object-src 'none';",
+          },
+          {
+            key: 'Permissions-Policy',
+            value: 'camera=(), microphone=(), geolocation=()',
+          },
         ],
       },
       {
@@ -84,10 +98,6 @@ const nextConfig = {
     return config;
   },
   
-  // Environment variables
-  env: {
-    CUSTOM_KEY: 'custom_value',
-  },
   
   // Redirects
   async redirects() {

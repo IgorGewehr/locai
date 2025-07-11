@@ -1,77 +1,104 @@
-import { NextRequest, NextResponse } from 'next/server'
+// lib/middleware/auth.ts
+import { NextRequest } from 'next/server'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
+import jwt from 'jsonwebtoken'
 
-export interface AuthUser {
-  id: string
-  email: string
-  name: string
-  tenantId: string
-  role: string
+export interface AuthContext {
+  authenticated: boolean
+  userId?: string
+  tenantId?: string
+  role?: string
+  isWhatsApp?: boolean
 }
 
-export async function withAuth(
-  request: NextRequest,
-  handler: (request: NextRequest, user: AuthUser) => Promise<NextResponse>
-): Promise<NextResponse> {
-  try {
-    // Get session from NextAuth
-    const session = await getServerSession(authOptions)
+export async function validateAuth(req: NextRequest): Promise<AuthContext> {
+  // Check if it's a WhatsApp webhook request
+  const isWhatsApp = req.headers.get('x-whatsapp-signature') !== null ||
+                     req.url.includes('/api/webhook/whatsapp')
+
+  if (isWhatsApp) {
+    // WhatsApp webhooks don't need session auth but should be verified separately
+    return {
+      authenticated: true,
+      isWhatsApp: true
+    }
+  }
+
+  // Check for API key authentication
+  const apiKey = req.headers.get('x-api-key')
+  if (apiKey && process.env.API_KEY) {
+    if (apiKey === process.env.API_KEY) {
+      // Extract tenant from API key or header
+      const tenantId = req.headers.get('x-tenant-id') || process.env.TENANT_ID || 'default'
+      return {
+        authenticated: true,
+        tenantId,
+        role: 'api'
+      }
+    }
+  }
+
+  // Check for Bearer token
+  const authHeader = req.headers.get('authorization')
+  if (authHeader?.startsWith('Bearer ')) {
+    const token = authHeader.substring(7)
     
-    if (!session?.user) {
-      return NextResponse.json(
-        { 
-          error: 'Não autorizado', 
-          code: 'UNAUTHORIZED' 
-        },
-        { status: 401 }
-      )
+    try {
+      const decoded = jwt.verify(token, process.env.JWT_SECRET || 'secret') as any
+      return {
+        authenticated: true,
+        userId: decoded.userId,
+        tenantId: decoded.tenantId,
+        role: decoded.role
+      }
+    } catch (error) {
+      // Invalid token
     }
+  }
 
-    // Cast to our AuthUser type
-    const user = session.user as AuthUser
-
-    // Validate required fields
-    if (!user.id || !user.tenantId) {
-      return NextResponse.json(
-        { 
-          error: 'Sessão inválida', 
-          code: 'INVALID_SESSION' 
-        },
-        { status: 401 }
-      )
+  // Check for session authentication
+  try {
+    const session = await getServerSession(authOptions)
+    if (session?.user) {
+      return {
+        authenticated: true,
+        userId: session.user.id,
+        tenantId: session.user.tenantId,
+        role: session.user.role
+      }
     }
-
-    // Call the handler with authenticated user
-    return handler(request, user)
   } catch (error) {
-    console.error('Auth middleware error:', error)
-    return NextResponse.json(
-      { 
-        error: 'Erro de autenticação', 
-        code: 'AUTH_ERROR' 
-      },
-      { status: 500 }
-    )
+    // Session check failed
+  }
+
+  return {
+    authenticated: false
   }
 }
 
-// Role-based access control middleware
-export async function withRole(
-  request: NextRequest,
-  allowedRoles: string[],
-  handler: (request: NextRequest, user: AuthUser) => Promise<NextResponse>
-): Promise<NextResponse> {
-  return withAuth(request, async (req, user) => {
-    if (!allowedRoles.includes(user.role)) {
-      return NextResponse.json(
-        { 
-          error: 'Acesso negado', 
-          code: 'FORBIDDEN' 
-        },
-        { status: 403 }
-      )
-    }
-    return handler(req, user)
-  })
+export function requireAuth(authContext: AuthContext): void {
+  if (!authContext.authenticated) {
+    throw new Error('Authentication required')
+  }
+}
+
+export function requireTenant(authContext: AuthContext): string {
+  if (!authContext.tenantId) {
+    throw new Error('Tenant ID required')
+  }
+  return authContext.tenantId
+}
+
+export function requireRole(authContext: AuthContext, allowedRoles: string[]): void {
+  requireAuth(authContext)
+  
+  if (!authContext.role || !allowedRoles.includes(authContext.role)) {
+    throw new Error('Insufficient permissions')
+  }
+}
+
+// Auth middleware function
+export async function authMiddleware(req: NextRequest): Promise<AuthContext> {
+  return validateAuth(req)
 }

@@ -32,6 +32,13 @@ export interface Property {
       description: string;
     }>;
   };
+  // Analytics fields
+  status: 'active' | 'inactive' | 'maintenance' | 'occupied';
+  type: 'residential' | 'commercial' | 'vacation' | 'mixed';
+  neighborhood: string;
+  city: string;
+  capacity: number;
+  basePrice: number;
   isActive: boolean;
   createdAt: Date;
   updatedAt: Date;
@@ -51,6 +58,10 @@ export interface Reservation {
   notes?: string;
   createdAt: Date;
   updatedAt: Date;
+  // Analytics fields
+  totalAmount: number;
+  nights: number;
+  source: string;
 }
 
 export interface Client {
@@ -59,6 +70,7 @@ export interface Client {
   email?: string;
   phone: string;
   whatsappNumber?: string;
+  tenantId?: string;
   preferences: {
     location?: string;
     priceRange?: {
@@ -80,6 +92,7 @@ export interface Conversation {
   id: string;
   clientId: string;
   whatsappNumber: string;
+  tenantId?: string;
   messages: Message[];
   isActive: boolean;
   lastMessageAt: Date;
@@ -90,6 +103,9 @@ export interface Conversation {
   };
   createdAt: Date;
   updatedAt: Date;
+  // Analytics fields
+  whatsappPhone: string;
+  source: string;
 }
 
 export interface Message {
@@ -102,6 +118,11 @@ export interface Message {
   timestamp: Date;
   isRead: boolean;
   whatsappMessageId?: string;
+  tenantId?: string;
+  metadata?: {
+    functionCalls?: string[];
+    processingTime?: number;
+  };
 }
 
 export interface PropertySearchFilters {
@@ -158,6 +179,7 @@ export interface Payment {
   transactionId?: string;
   createdAt: Date;
   updatedAt: Date;
+  method: 'stripe' | 'pix' | 'cash';
 }
 
 export interface AgentFunction {

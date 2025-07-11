@@ -111,21 +111,21 @@ export class WhatsAppClient {
   async sendImage(to: string, imageUrl: string, caption?: string): Promise<void> {
     await this.sendMessage(to, {
       type: 'image',
-      image: { link: imageUrl, caption }
+      image: caption ? { link: imageUrl, caption } : { link: imageUrl }
     })
   }
 
   async sendVideo(to: string, videoUrl: string, caption?: string): Promise<void> {
     await this.sendMessage(to, {
       type: 'video',
-      video: { link: videoUrl, caption }
+      video: caption ? { link: videoUrl, caption } : { link: videoUrl }
     })
   }
 
   async sendDocument(to: string, documentUrl: string, filename?: string): Promise<void> {
     await this.sendMessage(to, {
       type: 'document',
-      document: { link: documentUrl, filename }
+      document: filename ? { link: documentUrl, filename } : { link: documentUrl }
     })
   }
 
@@ -147,12 +147,12 @@ export class WhatsAppClient {
       }
       
       // Send audio message
+      const audioObj: any = { id: uploadResponse.id }
+      if (caption) audioObj.caption = caption
+      
       await this.sendMessage(to, {
         type: 'audio',
-        audio: { 
-          id: uploadResponse.id,
-          caption: caption || undefined
-        }
+        audio: audioObj
       })
       
       console.log(`✅ Audio message sent successfully: ${uploadResponse.id}`)
@@ -172,12 +172,12 @@ export class WhatsAppClient {
    */
   async sendAudioFromUrl(to: string, audioUrl: string, caption?: string): Promise<void> {
     try {
+      const audioObj: any = { link: audioUrl }
+      if (caption) audioObj.caption = caption
+      
       await this.sendMessage(to, {
         type: 'audio',
-        audio: { 
-          link: audioUrl,
-          caption: caption || undefined
-        }
+        audio: audioObj
       })
       
       console.log(`✅ Audio message sent from URL: ${audioUrl}`)
@@ -193,9 +193,13 @@ export class WhatsAppClient {
   }
 
   async sendLocation(to: string, latitude: number, longitude: number, name?: string, address?: string): Promise<void> {
+    const location: any = { latitude, longitude }
+    if (name) location.name = name
+    if (address) location.address = address
+    
     await this.sendMessage(to, {
       type: 'location',
-      location: { latitude, longitude, name, address }
+      location
     })
   }
 

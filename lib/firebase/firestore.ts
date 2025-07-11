@@ -39,6 +39,15 @@ export const COLLECTIONS = {
   PAYMENTS: 'payments',
 } as const;
 
+// Query options interface
+export interface QueryOptions {
+  orderBy?: string;
+  orderDirection?: 'asc' | 'desc';
+  limit?: number;
+  offset?: number;
+  startAfter?: any;
+}
+
 // Generic CRUD operations
 export class FirestoreService<T extends { id: string }> {
   protected collection: ReturnType<typeof collection>;
@@ -55,21 +64,31 @@ export class FirestoreService<T extends { id: string }> {
     })) as T[];
   }
 
-  async create(data: Omit<T, 'id'>): Promise<string> {
+  async create(data: Omit<T, 'id'>): Promise<T> {
     const docRef = await addDoc(collection(db, this.collectionName), {
       ...data,
       createdAt: Timestamp.now(),
       updatedAt: Timestamp.now(),
     });
-    return docRef.id;
+    return {
+      id: docRef.id,
+      ...data,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    } as T;
   }
 
-  async update(id: string, data: Partial<T>): Promise<void> {
+  async update(id: string, data: Partial<T>): Promise<T> {
     const docRef = doc(db, this.collectionName, id);
     await updateDoc(docRef, {
       ...data,
       updatedAt: Timestamp.now(),
     });
+    const updated = await this.get(id);
+    if (!updated) {
+      throw new Error('Document not found after update');
+    }
+    return updated;
   }
 
   async delete(id: string): Promise<void> {
@@ -77,7 +96,7 @@ export class FirestoreService<T extends { id: string }> {
     await deleteDoc(docRef);
   }
 
-  async getById(id: string): Promise<T | null> {
+  async get(id: string): Promise<T | null> {
     const docRef = doc(db, this.collectionName, id);
     const docSnap = await getDoc(docRef);
     
@@ -85,6 +104,11 @@ export class FirestoreService<T extends { id: string }> {
       return { id: docSnap.id, ...docSnap.data() } as T;
     }
     return null;
+  }
+
+  // Alias for backward compatibility
+  async getById(id: string): Promise<T | null> {
+    return this.get(id);
   }
 
   async getAll(): Promise<T[]> {
@@ -117,6 +141,55 @@ export class FirestoreService<T extends { id: string }> {
       id: doc.id,
       ...doc.data(),
     })) as T[];
+  }
+
+  async getMany(
+    filters: Array<{ field: string; operator: any; value: any }>,
+    options?: QueryOptions
+  ): Promise<T[]> {
+    let constraints: any[] = filters.map(f => where(f.field, f.operator, f.value));
+    
+    if (options?.orderBy) {
+      constraints.push(orderBy(options.orderBy, options.orderDirection || 'asc'));
+    }
+    
+    if (options?.limit) {
+      constraints.push(limit(options.limit));
+    }
+    
+    if (options?.startAfter) {
+      constraints.push(startAfter(options.startAfter));
+    }
+
+    const q = query(collection(db, this.collectionName), ...constraints);
+    const querySnapshot = await getDocs(q);
+    
+    let results = querySnapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data(),
+    })) as T[];
+
+    // Handle offset for pagination
+    if (options?.offset) {
+      results = results.slice(options.offset);
+    }
+
+    return results;
+  }
+
+  async count(filters?: Array<{ field: string; operator: any; value: any }>): Promise<number> {
+    let constraints: any[] = [];
+    
+    if (filters) {
+      constraints = filters.map(f => where(f.field, f.operator, f.value));
+    }
+
+    const q = constraints.length > 0 
+      ? query(collection(db, this.collectionName), ...constraints)
+      : collection(db, this.collectionName);
+      
+    const querySnapshot = await getDocs(q);
+    return querySnapshot.size;
   }
 
   onSnapshot(callback: (data: T[]) => void, constraints?: any[]): () => void {
@@ -239,6 +312,14 @@ export const conversationQueries = {
     return results.length > 0 ? results[0] : null;
   },
 
+  async getConversationByWhatsAppAndTenant(whatsappNumber: string, tenantId: string): Promise<Conversation | null> {
+    const results = await conversationService.getMany([
+      { field: 'whatsappNumber', operator: '==', value: whatsappNumber },
+      { field: 'tenantId', operator: '==', value: tenantId }
+    ]);
+    return results.length > 0 ? results[0] : null;
+  },
+
   async getActiveConversations(): Promise<Conversation[]> {
     return conversationService.getWhere('isActive', '==', true, 'lastMessageAt');
   },
@@ -249,12 +330,21 @@ export const conversationQueries = {
 };
 
 // Add the missing methods to the conversationService to maintain compatibility
-conversationService.getConversationByWhatsApp = conversationQueries.getConversationByWhatsApp;
-conversationService.getMessagesByConversation = conversationQueries.getMessagesByConversation;
+(conversationService as any).getConversationByWhatsApp = conversationQueries.getConversationByWhatsApp;
+(conversationService as any).getConversationByWhatsAppAndTenant = conversationQueries.getConversationByWhatsAppAndTenant;
+(conversationService as any).getMessagesByConversation = conversationQueries.getMessagesByConversation;
 
 export const clientQueries = {
   async getClientByPhone(phone: string): Promise<Client | null> {
     const results = await clientService.getWhere('phone', '==', phone);
+    return results.length > 0 ? results[0] : null;
+  },
+  
+  async getClientByPhoneAndTenant(phone: string, tenantId: string): Promise<Client | null> {
+    const results = await clientService.getMany([
+      { field: 'phone', operator: '==', value: phone },
+      { field: 'tenantId', operator: '==', value: tenantId }
+    ]);
     return results.length > 0 ? results[0] : null;
   },
 
@@ -277,6 +367,9 @@ export const clientQueries = {
     })) as Client[];
   },
 };
+
+// Add the missing method to the clientService to maintain compatibility
+(clientService as any).getClientByPhoneAndTenant = clientQueries.getClientByPhoneAndTenant;
 
 // Batch operations
 export const batchOperations = {

@@ -13,6 +13,13 @@ export interface Property {
   minimumNights: number
   cleaningFee: number
   
+  // Analytics fields
+  status: PropertyStatus
+  type: PropertyType
+  neighborhood: string
+  city: string
+  capacity: number
+  
   // Comodidades
   amenities: string[]
   
@@ -44,6 +51,20 @@ export enum PropertyCategory {
   STUDIO = 'studio',
   VILLA = 'villa',
   CONDO = 'condo'
+}
+
+export enum PropertyStatus {
+  ACTIVE = 'active',
+  INACTIVE = 'inactive',
+  MAINTENANCE = 'maintenance',
+  OCCUPIED = 'occupied'
+}
+
+export enum PropertyType {
+  RESIDENTIAL = 'residential',
+  COMMERCIAL = 'commercial',
+  VACATION = 'vacation',
+  MIXED = 'mixed'
 }
 
 export enum PaymentMethod {

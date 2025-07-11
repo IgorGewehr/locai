@@ -48,15 +48,15 @@ export async function GET(request: NextRequest) {
     });
 
     // Check authentication
-    const authResult = await authMiddleware(request, {
-      requireRole: ['admin', 'agent']
-    });
+    const authContext = await authMiddleware(request);
 
-    if (!authResult.success) {
-      return authResult.response!;
+    if (!authContext.authenticated) {
+      return NextResponse.json({ error: 'Authentication required' }, { status: 401 });
     }
 
-    const authContext = authResult.context!;
+    if (!authContext.tenantId) {
+      return NextResponse.json({ error: 'Tenant ID required' }, { status: 400 });
+    }
 
     // Parse and validate query parameters
     const { searchParams } = new URL(request.url);

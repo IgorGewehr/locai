@@ -21,7 +21,10 @@
       "Bash(rm:*)",
       "Bash(npm run build:*)",
       "Bash(npm run lint:*)",
-      "Bash(touch:*)"
+      "Bash(touch:*)",
+      "Bash(npx tsc:*)",
+      "Bash(npm audit:*)",
+      "Bash(chmod:*)"
     ],
     "deny": []
   }

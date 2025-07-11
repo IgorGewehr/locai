@@ -78,7 +78,8 @@ export class WhatsAppMessageHandler {
         if (message.type === 'audio' && message.audio?.id) {
           try {
             console.log(`Transcribing audio message: ${message.audio.id}`)
-            messageContent = await this.transcriptionService.transcribeAudio(message.audio.id)
+            const transcriptionResult = await this.transcriptionService.transcribeAudio(message.audio.id)
+            messageContent = typeof transcriptionResult === 'string' ? transcriptionResult : transcriptionResult.text
             console.log(`Audio transcribed: "${messageContent.slice(0, 100)}..."`)
           } catch (error) {
             console.error('Audio transcription failed:', error)
@@ -104,18 +105,24 @@ export class WhatsAppMessageHandler {
         }
 
         // Save incoming message
+        const mediaUrl = await this.getMediaUrl(message)
+        const messageData: any = {
+          content: validatedContent,
+          type: this.getMessageType(message),
+          direction: 'inbound',
+          whatsappMessageId: message.id,
+          timestamp: new Date(parseInt(message.timestamp) * 1000),
+          status: MessageStatus.RECEIVED,
+          isFromAI: false
+        }
+        
+        if (mediaUrl) {
+          messageData.mediaUrl = mediaUrl
+        }
+        
         const savedMessage = await this.conversationService.addMessage(
           conversation.id,
-          {
-            content: validatedContent,
-            type: this.getMessageType(message),
-            direction: 'inbound',
-            whatsappMessageId: message.id,
-            mediaUrl: await this.getMediaUrl(message),
-            timestamp: new Date(parseInt(message.timestamp) * 1000),
-            status: MessageStatus.RECEIVED,
-            isFromAI: false
-          }
+          messageData
         )
 
         // Skip AI processing only for unsupported message types (audio now supported)
@@ -198,7 +205,7 @@ export class WhatsAppMessageHandler {
     }
   }
 
-  private extractMessageData(webhookData: WhatsAppWebhookData): { message: WhatsAppIncomingMessage, from: string, contact: any } {
+  private extractMessageData(webhookData: WhatsAppWebhookData): { message: WhatsAppIncomingMessage | null, from: string | null, contact: any | null } {
     const entry = webhookData.entry?.[0]
     const change = entry?.changes?.[0]
     const value = change?.value

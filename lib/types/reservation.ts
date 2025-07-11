@@ -25,6 +25,10 @@ export interface Reservation {
   paymentPlan: PaymentPlan
   payments: Payment[]
   
+  // Analytics fields
+  nights: number
+  paymentStatus: PaymentStatus
+  
   // Extras
   extraServices: ExtraService[]
   specialRequests: string

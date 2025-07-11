@@ -1,5 +1,5 @@
 export interface WhatsAppMessage {
-  type: 'text' | 'image' | 'video' | 'audio' | 'document' | 'location' | 'contact' | 'template'
+  type: 'text' | 'image' | 'video' | 'audio' | 'document' | 'location' | 'contact' | 'template' | 'interactive'
   text?: { body: string }
   image?: { link: string; caption?: string }
   video?: { link: string; caption?: string }
@@ -8,6 +8,15 @@ export interface WhatsAppMessage {
   location?: { latitude: number; longitude: number; name?: string; address?: string }
   contact?: { name: string; phone: string }
   template?: WhatsAppTemplate
+  interactive?: {
+    type: 'button' | 'list'
+    body: { text: string }
+    action?: {
+      buttons?: Array<{ type: string; reply: { id: string; title: string } }>
+      button?: string
+      sections?: any[]
+    }
+  }
 }
 
 export interface WhatsAppTemplate {
@@ -161,7 +170,8 @@ export enum MessageType {
   DOCUMENT = 'document',
   LOCATION = 'location',
   CONTACT = 'contact',
-  TEMPLATE = 'template'
+  TEMPLATE = 'template',
+  INTERACTIVE = 'interactive'
 }
 
 export interface WhatsAppBusinessProfile {

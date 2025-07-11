@@ -283,3 +283,4 @@ class ReservationService {
 }
 
 export const reservationService = new ReservationService()
+export { ReservationService }
