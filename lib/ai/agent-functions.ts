@@ -4,8 +4,9 @@ import { Property } from '@/lib/types'
 import { propertyService } from '@/lib/services/property-service'
 import { reservationService } from '@/lib/services/reservation-service'
 import { clientService } from '@/lib/services/client-service'
+import { transactionService } from '@/lib/services/transaction-service'
 import { calculatePricing } from '@/lib/services/pricing'
-import { addDays, format } from 'date-fns'
+import { addDays, format, addMonths } from 'date-fns'
 import {
   SearchPropertiesArgs,
   SearchPropertiesResponse,
@@ -25,6 +26,8 @@ import {
   GetPropertyDetailsResponse,
   SuggestAlternativesArgs,
   SuggestAlternativesResponse,
+  CreatePendingTransactionArgs,
+  CreatePendingTransactionResponse,
   AIFunctionArgs,
   AIFunctionResponse,
 } from '@/lib/types/ai-functions'
@@ -187,6 +190,31 @@ export const AI_FUNCTIONS: AIFunction[] = [
     autoExecute: true,
     requiresApproval: false,
     priority: 2
+  },
+  {
+    name: 'create_pending_transaction',
+    description: 'Criar transação pendente após cliente informar forma de pagamento',
+    parameters: {
+      type: 'object',
+      properties: {
+        reservationId: { type: 'string', description: 'ID da reserva' },
+        clientId: { type: 'string', description: 'ID do cliente' },
+        propertyId: { type: 'string', description: 'ID da propriedade' },
+        amount: { type: 'number', description: 'Valor total da transação' },
+        paymentMethod: { 
+          type: 'string', 
+          enum: ['stripe', 'pix', 'cash', 'bank_transfer', 'credit_card', 'debit_card'],
+          description: 'Método de pagamento escolhido' 
+        },
+        description: { type: 'string', description: 'Descrição da transação' },
+        installments: { type: 'number', description: 'Número de parcelas (opcional para parcelamento)' },
+        conversationId: { type: 'string', description: 'ID da conversa do WhatsApp' }
+      },
+      required: ['reservationId', 'clientId', 'propertyId', 'amount', 'paymentMethod', 'description']
+    },
+    autoExecute: true,
+    requiresApproval: false,
+    priority: 2
   }
 ]
 
@@ -225,6 +253,9 @@ export class AIFunctionExecutor {
       
       case 'suggest_alternatives':
         return await this.suggestAlternatives(args as SuggestAlternativesArgs)
+      
+      case 'create_pending_transaction':
+        return await this.createPendingTransaction(args as CreatePendingTransactionArgs)
       
       default:
         throw new Error(`Função não reconhecida: ${functionName}`)
@@ -605,5 +636,104 @@ export class AIFunctionExecutor {
     // Implementar lógica para sugerir datas alternativas
     // Verificar disponibilidade em datas próximas
     return []
+  }
+
+  private async createPendingTransaction(args: CreatePendingTransactionArgs): Promise<CreatePendingTransactionResponse> {
+    const {
+      reservationId,
+      clientId,
+      propertyId,
+      amount,
+      paymentMethod,
+      description,
+      installments,
+      conversationId
+    } = args
+    
+    try {
+      const transactionIds: string[] = []
+      
+      if (installments && installments > 1) {
+        // Criar múltiplas transações para parcelamento
+        const installmentAmount = Math.round((amount / installments) * 100) / 100 // Arredondar para 2 casas decimais
+        const firstInstallmentAmount = amount - (installmentAmount * (installments - 1)) // Ajustar primeira parcela para cobrir diferenças de arredondamento
+        
+        for (let i = 0; i < installments; i++) {
+          const currentAmount = i === 0 ? firstInstallmentAmount : installmentAmount
+          const dueDate = addMonths(new Date(), i)
+          
+          const transaction = await transactionService.create({
+            type: 'income',
+            amount: currentAmount,
+            date: dueDate,
+            description: `${description} - Parcela ${i + 1}/${installments}`,
+            category: 'reserva',
+            status: 'pending',
+            paymentMethod,
+            reservationId,
+            clientId,
+            propertyId,
+            createdByAI: true,
+            aiConversationId: conversationId,
+            tenantId: this.tenantId,
+            isRecurring: false,
+            createdAt: new Date(),
+            updatedAt: new Date(),
+            tags: [`parcela_${i + 1}`, 'parcelado']
+          })
+          
+          transactionIds.push(transaction.id)
+        }
+        
+        return {
+          success: true,
+          data: {
+            transactionIds,
+            totalAmount: amount,
+            installmentAmount,
+            installments,
+            paymentMethod,
+            description: `${description} - Parcelado em ${installments}x`
+          }
+        }
+      } else {
+        // Criar transação única
+        const transaction = await transactionService.create({
+          type: 'income',
+          amount,
+          date: new Date(),
+          description,
+          category: 'reserva',
+          status: 'pending',
+          paymentMethod,
+          reservationId,
+          clientId,
+          propertyId,
+          createdByAI: true,
+          aiConversationId: conversationId,
+          tenantId: this.tenantId,
+          isRecurring: false,
+          createdAt: new Date(),
+          updatedAt: new Date()
+        })
+        
+        transactionIds.push(transaction.id)
+        
+        return {
+          success: true,
+          data: {
+            transactionIds,
+            totalAmount: amount,
+            paymentMethod,
+            description
+          }
+        }
+      }
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Erro ao criar transação pendente'
+      }
+    }
   }
 }

@@ -156,6 +156,30 @@ export interface SuggestAlternativesResponse {
   error?: string;
 }
 
+export interface CreatePendingTransactionArgs {
+  reservationId: string;
+  clientId: string;
+  propertyId: string;
+  amount: number;
+  paymentMethod: 'stripe' | 'pix' | 'cash' | 'bank_transfer' | 'credit_card' | 'debit_card';
+  description: string;
+  installments?: number; // Número de parcelas (opcional para parcelamento)
+  conversationId?: string; // ID da conversa do WhatsApp
+}
+
+export interface CreatePendingTransactionResponse {
+  success: boolean;
+  data?: {
+    transactionIds: string[]; // Array de IDs das transações criadas
+    totalAmount: number;
+    installmentAmount?: number; // Valor de cada parcela
+    installments?: number; // Número de parcelas
+    paymentMethod: string;
+    description: string;
+  };
+  error?: string;
+}
+
 // Union type for all function arguments
 export type AIFunctionArgs = 
   | SearchPropertiesArgs
@@ -166,7 +190,8 @@ export type AIFunctionArgs =
   | ApplyDiscountArgs
   | ScheduleFollowUpArgs
   | GetPropertyDetailsArgs
-  | SuggestAlternativesArgs;
+  | SuggestAlternativesArgs
+  | CreatePendingTransactionArgs;
 
 // Union type for all function responses
 export type AIFunctionResponse = 
@@ -178,7 +203,8 @@ export type AIFunctionResponse =
   | ApplyDiscountResponse
   | ScheduleFollowUpResponse
   | GetPropertyDetailsResponse
-  | SuggestAlternativesResponse;
+  | SuggestAlternativesResponse
+  | CreatePendingTransactionResponse;
 
 // Helper type for function execution
 export interface AIFunctionCall {
@@ -296,5 +322,24 @@ export const AIFunctionSchemas = {
       paymentMethod: { type: 'string', enum: ['credit_card', 'bank_transfer', 'pix'], description: 'Método de pagamento' }
     },
     required: ['propertyId', 'checkIn', 'checkOut', 'guests', 'clientId', 'paymentMethod']
+  },
+  
+  createPendingTransaction: {
+    type: 'object',
+    properties: {
+      reservationId: { type: 'string', description: 'ID da reserva' },
+      clientId: { type: 'string', description: 'ID do cliente' },
+      propertyId: { type: 'string', description: 'ID da propriedade' },
+      amount: { type: 'number', minimum: 0, description: 'Valor total da transação' },
+      paymentMethod: { 
+        type: 'string', 
+        enum: ['stripe', 'pix', 'cash', 'bank_transfer', 'credit_card', 'debit_card'],
+        description: 'Método de pagamento escolhido' 
+      },
+      description: { type: 'string', description: 'Descrição da transação' },
+      installments: { type: 'number', minimum: 1, maximum: 24, description: 'Número de parcelas (opcional para parcelamento)' },
+      conversationId: { type: 'string', description: 'ID da conversa do WhatsApp' }
+    },
+    required: ['reservationId', 'clientId', 'propertyId', 'amount', 'paymentMethod', 'description']
   }
 } as const;

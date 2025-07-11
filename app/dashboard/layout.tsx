@@ -57,7 +57,6 @@ export default function DashboardLayout({
       <Box sx={{ display: 'flex', minHeight: '100vh', bgcolor: 'background.default' }}>
         <Header 
           onMenuClick={handleSidebarToggle} 
-          title="Sistema de Gestão Imobiliária"
         />
         
         <Sidebar 
@@ -69,13 +68,12 @@ export default function DashboardLayout({
           component="main"
           sx={mainContentStyles}
         >
-          <Toolbar sx={{ minHeight: { xs: 64, sm: 72 } }} />
+          <Toolbar sx={{ minHeight: 64 }} />
           <Box sx={{ 
             flex: 1,
-            p: { xs: 3, sm: 4, md: 5 },
+            p: { xs: 2, sm: 2.5, md: 3 },
             maxWidth: '100%',
             overflow: 'hidden',
-            background: 'transparent',
           }}>
             {children}
           </Box>

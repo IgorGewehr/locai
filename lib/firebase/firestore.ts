@@ -26,6 +26,7 @@ import type {
   Message,
   Amenity,
   Payment,
+  Transaction,
 } from '@/lib/types';
 
 // Collections
@@ -37,6 +38,7 @@ export const COLLECTIONS = {
   MESSAGES: 'messages',
   AMENITIES: 'amenities',
   PAYMENTS: 'payments',
+  TRANSACTIONS: 'transactions',
 } as const;
 
 // Query options interface

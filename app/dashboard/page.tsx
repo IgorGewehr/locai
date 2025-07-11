@@ -353,8 +353,8 @@ export default function DashboardPage() {
         <Grid item xs={12} sm={6} lg={3}>
           <StatCard
             title="Propriedades Ativas"
-            value={24}
-            subtitle="32 total"
+            value={loading ? 0 : stats.activeProperties}
+            subtitle={loading ? "Carregando..." : `${stats.totalProperties} total`}
             icon={<Home sx={{ fontSize: 32 }} />}
             color="primary"
             trend={{ value: 12, isPositive: true }}
@@ -364,8 +364,8 @@ export default function DashboardPage() {
         <Grid item xs={12} sm={6} lg={3}>
           <StatCard
             title="Reservas Pendentes"
-            value={8}
-            subtitle="156 total"
+            value={loading ? 0 : stats.pendingReservations}
+            subtitle={loading ? "Carregando..." : `${stats.totalReservations} total`}
             icon={<CalendarMonth sx={{ fontSize: 32 }} />}
             color="secondary"
             trend={{ value: 24, isPositive: true }}
@@ -375,8 +375,8 @@ export default function DashboardPage() {
         <Grid item xs={12} sm={6} lg={3}>
           <StatCard
             title="Receita Mensal"
-            value="R$ 45.2k"
-            subtitle="R$ 324k total"
+            value={loading ? "R$ 0" : `R$ ${(stats.monthlyRevenue / 1000).toFixed(1)}k`}
+            subtitle={loading ? "Carregando..." : `R$ ${(stats.totalRevenue / 1000).toFixed(0)}k total`}
             icon={<AttachMoney sx={{ fontSize: 32 }} />}
             color="success"
             trend={{ value: 18, isPositive: true }}
@@ -386,8 +386,8 @@ export default function DashboardPage() {
         <Grid item xs={12} sm={6} lg={3}>
           <StatCard
             title="Taxa de Ocupação"
-            value="89.5%"
-            subtitle="4.8 ⭐ média"
+            value={loading ? "0%" : `${stats.occupancyRate.toFixed(1)}%`}
+            subtitle={loading ? "Carregando..." : `${stats.averageRating.toFixed(1)} ⭐ média`}
             icon={<People sx={{ fontSize: 32 }} />}
             color="warning"
             trend={{ value: 5, isPositive: false }}
@@ -470,7 +470,7 @@ export default function DashboardPage() {
                     Mensagens hoje:
                   </Typography>
                   <Typography variant="h6" sx={{ color: '#ffffff', fontWeight: 700, fontSize: '1.25rem' }}>
-                    127
+                    {loading ? '-' : whatsappStats.messagesTotal}
                   </Typography>
                 </Box>
                 
@@ -479,7 +479,7 @@ export default function DashboardPage() {
                     Conversas ativas:
                   </Typography>
                   <Typography variant="h6" sx={{ color: '#ffffff', fontWeight: 700, fontSize: '1.25rem' }}>
-                    23
+                    {loading ? '-' : whatsappStats.activeConversations}
                   </Typography>
                 </Box>
                 
@@ -488,7 +488,7 @@ export default function DashboardPage() {
                     Tempo médio resposta:
                   </Typography>
                   <Typography variant="h6" sx={{ color: '#ffffff', fontWeight: 700, fontSize: '1.25rem' }}>
-                    1.2s
+                    {loading ? '-' : `${whatsappStats.avgResponseTime.toFixed(1)}s`}
                   </Typography>
                 </Box>
               </Box>
@@ -675,7 +675,7 @@ export default function DashboardPage() {
                       transform: 'scale(1.05)',
                     }
                   }}
-                  onClick={() => window.location.href = '/dashboard/analytics'}
+                  onClick={() => window.location.href = '/dashboard/financeiro'}
                 />
                 <Chip
                   label="Configurações WhatsApp"

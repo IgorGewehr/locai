@@ -15,6 +15,7 @@ import {
   Typography,
   useTheme,
   useMediaQuery,
+  Chip,
 } from '@mui/material';
 import {
   Dashboard,
@@ -22,9 +23,10 @@ import {
   CalendarMonth,
   People,
   Chat,
-  Analytics,
+  AccountBalance,
   Settings,
   HelpOutline,
+  TrendingUp,
 } from '@mui/icons-material';
 
 interface SidebarProps {
@@ -59,9 +61,9 @@ const menuItems = [
     icon: <Chat />,
   },
   {
-    text: 'Analytics',
+    text: 'Financeiro',
     href: '/dashboard/analytics',
-    icon: <Analytics />,
+    icon: <AccountBalance />,
   },
 ];
 
@@ -85,97 +87,60 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
 
-  // Memoize styles to prevent unnecessary recalculations
-  const selectedStyles = useMemo(() => ({
-    mx: 1,
-    borderRadius: 1,
-    '&.Mui-selected': {
-      backgroundColor: theme.palette.primary.main + '20',
-      color: theme.palette.primary.main,
-      '&:hover': {
-        backgroundColor: theme.palette.primary.main + '30',
-      },
-    },
-  }), [theme.palette.primary.main]);
-
-  // Memoize menu items to prevent recreation
-  const memoizedMenuItems = useMemo(() => menuItems, []);
-  const memoizedSecondaryItems = useMemo(() => secondaryItems, []);
-
   const drawerContent = (
     <Box sx={{ 
       height: '100%', 
       display: 'flex', 
       flexDirection: 'column',
-      background: 'rgba(15, 15, 15, 0.95)',
-      backdropFilter: 'blur(20px)',
+      bgcolor: 'background.paper',
     }}>
-      <Toolbar sx={{ minHeight: { xs: 64, sm: 72 }, px: 3 }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, width: '100%' }}>
+      <Toolbar sx={{ minHeight: 64, px: 3 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
           <Box
             sx={{
-              width: 44,
-              height: 44,
-              borderRadius: '14px',
-              background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)',
+              width: 36,
+              height: 36,
+              borderRadius: 1.5,
+              bgcolor: 'primary.main',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
               color: 'white',
               fontWeight: 'bold',
-              fontSize: '1.1rem',
-              boxShadow: '0 4px 12px rgba(99, 102, 241, 0.3)',
+              fontSize: '0.875rem',
             }}
           >
-            AI
+            LP
           </Box>
           <Box>
             <Typography 
-              variant="h6" 
-              fontWeight="bold" 
+              variant="subtitle1" 
+              fontWeight={600} 
               sx={{ 
-                fontSize: '1.2rem',
-                background: 'linear-gradient(135deg, #ffffff 0%, #e2e8f0 100%)',
-                WebkitBackgroundClip: 'text',
-                WebkitTextFillColor: 'transparent',
-                backgroundClip: 'text',
-                lineHeight: 1.2,
+                lineHeight: 1,
+                color: 'text.primary',
               }}
             >
-              Agente Imobiliária
+              Locai Pro
             </Typography>
             <Typography 
               variant="caption" 
               sx={{ 
-                color: 'rgba(255, 255, 255, 0.85)',
+                color: 'text.secondary',
                 fontSize: '0.75rem',
-                fontWeight: 500,
               }}
             >
-              Enterprise Platform
+              Gestão Imobiliária
             </Typography>
           </Box>
         </Box>
       </Toolbar>
 
-      <Divider sx={{ borderColor: 'rgba(255, 255, 255, 0.1)' }} />
+      <Divider />
 
-      <Box sx={{ flex: 1, overflowY: 'auto', py: 2, px: 2 }}>
-        <Typography 
-          variant="overline" 
-          sx={{ 
-            px: 2, 
-            pb: 1,
-            color: 'rgba(255, 255, 255, 0.85)',
-            fontSize: '0.7rem',
-            fontWeight: 600,
-            letterSpacing: '0.08em',
-          }}
-        >
-          MENU PRINCIPAL
-        </Typography>
-        <List dense sx={{ '& .MuiListItem-root': { mb: 0.5 } }}>
-          {memoizedMenuItems.map((item) => (
+      <Box sx={{ flex: 1, overflowY: 'auto', py: 2 }}>
+        <List sx={{ px: 2 }}>
+          {menuItems.map((item) => (
             <ListItemButton
               key={item.href}
               component={Link}
@@ -183,42 +148,28 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
               selected={pathname === item.href}
               onClick={isMobile ? onClose : undefined}
               sx={{
-                borderRadius: '12px',
-                mx: 1,
-                minHeight: 48,
-                py: 1.5,
-                px: 2,
-                transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
-                position: 'relative',
-                overflow: 'hidden',
+                borderRadius: 1.5,
+                mb: 0.5,
+                minHeight: 44,
                 '&:hover': {
-                  background: 'rgba(255, 255, 255, 0.08)',
-                  transform: 'translateX(4px)',
+                  bgcolor: 'action.hover',
                 },
                 '&.Mui-selected': {
-                  background: 'rgba(99, 102, 241, 0.15)',
-                  boxShadow: '0 4px 12px rgba(99, 102, 241, 0.2)',
+                  bgcolor: 'primary.main',
+                  color: 'primary.contrastText',
                   '&:hover': {
-                    background: 'rgba(99, 102, 241, 0.2)',
+                    bgcolor: 'primary.dark',
                   },
-                  '&::before': {
-                    content: '""',
-                    position: 'absolute',
-                    left: 0,
-                    top: 0,
-                    bottom: 0,
-                    width: '3px',
-                    background: 'linear-gradient(180deg, #6366f1 0%, #8b5cf6 100%)',
-                    borderRadius: '0 2px 2px 0',
-                  }
+                  '& .MuiListItemIcon-root': {
+                    color: 'primary.contrastText',
+                  },
                 },
               }}
             >
               <ListItemIcon
                 sx={{
-                  color: pathname === item.href ? '#6366f1' : 'rgba(255, 255, 255, 0.85)',
-                  minWidth: 36,
-                  transition: 'all 0.2s ease',
+                  minWidth: 40,
+                  color: pathname === item.href ? 'inherit' : 'text.secondary',
                 }}
               >
                 {item.icon}
@@ -227,8 +178,7 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
                 primary={item.text}
                 primaryTypographyProps={{
                   fontSize: '0.875rem',
-                  fontWeight: pathname === item.href ? 600 : 500,
-                  color: pathname === item.href ? '#ffffff' : 'rgba(255, 255, 255, 0.95)',
+                  fontWeight: pathname === item.href ? 600 : 400,
                 }}
               />
             </ListItemButton>
@@ -236,24 +186,11 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
         </List>
       </Box>
 
-      <Divider sx={{ borderColor: 'rgba(255, 255, 255, 0.1)' }} />
+      <Divider />
 
-      <Box sx={{ py: 2, px: 2 }}>
-        <Typography 
-          variant="overline" 
-          sx={{ 
-            px: 2, 
-            pb: 1,
-            color: 'rgba(255, 255, 255, 0.85)',
-            fontSize: '0.7rem',
-            fontWeight: 600,
-            letterSpacing: '0.08em',
-          }}
-        >
-          CONFIGURAÇÕES
-        </Typography>
-        <List dense sx={{ '& .MuiListItem-root': { mb: 0.5 } }}>
-          {memoizedSecondaryItems.map((item) => (
+      <Box sx={{ p: 2 }}>
+        <List>
+          {secondaryItems.map((item) => (
             <ListItemButton
               key={item.href}
               component={Link}
@@ -261,42 +198,21 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
               selected={pathname === item.href}
               onClick={isMobile ? onClose : undefined}
               sx={{
-                borderRadius: '12px',
-                mx: 1,
-                minHeight: 48,
-                py: 1.5,
-                px: 2,
-                transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
-                position: 'relative',
-                overflow: 'hidden',
+                borderRadius: 1.5,
+                mb: 0.5,
+                minHeight: 44,
                 '&:hover': {
-                  background: 'rgba(255, 255, 255, 0.08)',
-                  transform: 'translateX(4px)',
+                  bgcolor: 'action.hover',
                 },
                 '&.Mui-selected': {
-                  background: 'rgba(99, 102, 241, 0.15)',
-                  boxShadow: '0 4px 12px rgba(99, 102, 241, 0.2)',
-                  '&:hover': {
-                    background: 'rgba(99, 102, 241, 0.2)',
-                  },
-                  '&::before': {
-                    content: '""',
-                    position: 'absolute',
-                    left: 0,
-                    top: 0,
-                    bottom: 0,
-                    width: '3px',
-                    background: 'linear-gradient(180deg, #6366f1 0%, #8b5cf6 100%)',
-                    borderRadius: '0 2px 2px 0',
-                  }
+                  bgcolor: 'action.selected',
                 },
               }}
             >
               <ListItemIcon
                 sx={{
-                  color: pathname === item.href ? '#6366f1' : 'rgba(255, 255, 255, 0.85)',
-                  minWidth: 36,
-                  transition: 'all 0.2s ease',
+                  minWidth: 40,
+                  color: 'text.secondary',
                 }}
               >
                 {item.icon}
@@ -305,46 +221,29 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
                 primary={item.text}
                 primaryTypographyProps={{
                   fontSize: '0.875rem',
-                  fontWeight: pathname === item.href ? 600 : 500,
-                  color: pathname === item.href ? '#ffffff' : 'rgba(255, 255, 255, 0.95)',
+                  fontWeight: pathname === item.href ? 600 : 400,
                 }}
               />
             </ListItemButton>
           ))}
         </List>
-      </Box>
 
-      <Box sx={{ p: 3, mt: 'auto' }}>
         <Box
           sx={{
-            background: 'rgba(99, 102, 241, 0.1)',
-            border: '1px solid rgba(99, 102, 241, 0.2)',
-            borderRadius: '12px',
+            mt: 2,
             p: 2,
-            textAlign: 'center',
+            bgcolor: 'action.hover',
+            borderRadius: 1.5,
           }}
         >
-          <Typography 
-            variant="caption" 
-            sx={{ 
-              color: 'rgba(255, 255, 255, 0.7)',
-              fontSize: '0.75rem',
-              fontWeight: 500,
-              display: 'block',
-              mb: 0.5,
-            }}
-          >
-            v1.0.0 Enterprise
-          </Typography>
-          <Typography 
-            variant="caption" 
-            sx={{ 
-              color: '#6366f1',
-              fontSize: '0.7rem',
-              fontWeight: 600,
-            }}
-          >
-            Powered by OpenAI GPT-4
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+            <TrendingUp sx={{ fontSize: 20, color: 'success.main' }} />
+            <Typography variant="body2" fontWeight={600}>
+              Plano Pro
+            </Typography>
+          </Box>
+          <Typography variant="caption" color="text.secondary">
+            Ilimitado até 31/12/2024
           </Typography>
         </Box>
       </Box>
@@ -357,7 +256,7 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
       open={open}
       onClose={onClose}
       ModalProps={{
-        keepMounted: true, // Better performance on mobile
+        keepMounted: true,
       }}
       sx={{
         width: drawerWidth,
@@ -365,12 +264,8 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
         '& .MuiDrawer-paper': {
           width: drawerWidth,
           boxSizing: 'border-box',
-          borderRight: '1px solid',
+          borderRight: 1,
           borderColor: 'divider',
-          bgcolor: 'background.paper',
-          ...(isMobile && {
-            boxShadow: '0 8px 32px rgba(0, 0, 0, 0.12)',
-          }),
         },
       }}
     >

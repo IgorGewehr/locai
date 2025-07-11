@@ -281,3 +281,51 @@ export interface UserPreferences {
   dateFormat: 'dd/MM/yyyy' | 'MM/dd/yyyy' | 'yyyy-MM-dd';
   currency: 'BRL' | 'USD' | 'EUR';
 }
+
+export interface Transaction {
+  // Campos básicos
+  id: string;
+  amount: number;
+  type: 'income' | 'expense';
+  status: 'pending' | 'completed' | 'cancelled';
+  description: string;
+  date: Date;
+  createdAt: Date;
+  updatedAt: Date;
+  
+  // Categorização
+  category: 'reservation' | 'maintenance' | 'cleaning' | 'commission' | 'refund' | 'other';
+  subcategory?: string;
+  
+  // Método de pagamento
+  paymentMethod: 'stripe' | 'pix' | 'cash' | 'bank_transfer' | 'credit_card' | 'debit_card';
+  
+  // Campos de relacionamento
+  reservationId?: string;
+  clientId?: string;
+  propertyId?: string;
+  
+  // Campos para recorrência
+  isRecurring: boolean;
+  recurringType?: 'monthly' | 'weekly' | 'yearly';
+  recurringEndDate?: Date;
+  parentTransactionId?: string;
+  
+  // Campos de controle
+  confirmedBy?: string; // ID do admin que confirmou
+  confirmedAt?: Date;
+  notes?: string;
+  
+  // Metadados para integração com IA
+  createdByAI: boolean;
+  aiConversationId?: string;
+  
+  // Dados adicionais para relatórios
+  tenantId?: string;
+  attachments?: Array<{
+    url: string;
+    filename: string;
+    uploadedAt: Date;
+  }>;
+  tags?: string[];
+}

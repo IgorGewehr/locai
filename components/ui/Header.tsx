@@ -14,6 +14,7 @@ import {
   Box,
   Badge,
   Tooltip,
+  Divider,
 } from '@mui/material';
 import {
   Menu as MenuIcon,
@@ -22,14 +23,15 @@ import {
   Settings,
   Logout,
   WhatsApp,
+  CheckCircle,
 } from '@mui/icons-material';
 
 interface HeaderProps {
   onMenuClick: () => void;
-  title: string;
+  title?: string;
 }
 
-export default function Header({ onMenuClick, title }: HeaderProps) {
+export default function Header({ onMenuClick }: HeaderProps) {
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [notificationsCount] = useState(0);
   const router = useRouter();
@@ -68,26 +70,22 @@ export default function Header({ onMenuClick, title }: HeaderProps) {
       elevation={0}
       sx={{
         zIndex: (theme) => theme.zIndex.drawer + 1,
-        background: 'rgba(10, 10, 10, 0.8)',
-        backdropFilter: 'blur(20px)',
-        borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
-        boxShadow: '0 2px 20px rgba(0, 0, 0, 0.3)',
+        backgroundColor: 'background.paper',
+        borderBottom: 1,
+        borderColor: 'divider',
       }}
     >
-      <Toolbar sx={{ minHeight: { xs: 64, sm: 72 }, px: { xs: 2, sm: 3 } }}>
+      <Toolbar sx={{ minHeight: 64, px: 3 }}>
         <IconButton
           color="inherit"
           aria-label="open drawer"
           edge="start"
           onClick={onMenuClick}
           sx={{ 
-            mr: 3,
-            p: 1.5,
-            borderRadius: '12px',
-            transition: 'all 0.2s ease',
+            mr: 2,
+            color: 'text.primary',
             '&:hover': {
-              background: 'rgba(255, 255, 255, 0.08)',
-              transform: 'scale(1.05)',
+              backgroundColor: 'action.hover',
             }
           }}
         >
@@ -95,135 +93,88 @@ export default function Header({ onMenuClick, title }: HeaderProps) {
         </IconButton>
 
         <Box sx={{ display: 'flex', alignItems: 'center', flexGrow: 1 }}>
-          <Box
-            sx={{
-              width: 40,
-              height: 40,
-              borderRadius: '12px',
-              background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              color: 'white',
-              fontWeight: 'bold',
-              fontSize: '1rem',
-              mr: 2,
-              boxShadow: '0 4px 12px rgba(99, 102, 241, 0.3)',
-            }}
-          >
-            AI
-          </Box>
           <Typography 
             variant="h6" 
             component="div" 
             sx={{ 
-              fontSize: { xs: '1.1rem', sm: '1.3rem' },
-              fontWeight: 700,
-              background: 'linear-gradient(135deg, #ffffff 0%, #e2e8f0 100%)',
-              WebkitBackgroundClip: 'text',
-              WebkitTextFillColor: 'transparent',
-              backgroundClip: 'text',
-              display: { xs: 'none', sm: 'block' }
+              fontWeight: 600,
+              color: 'text.primary',
+              fontSize: '1.125rem',
             }}
           >
-            {title}
+            Locai Pro
           </Typography>
         </Box>
 
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
           {/* WhatsApp Status */}
-          <Tooltip title="WhatsApp Conectado" arrow>
-            <IconButton 
-              color="inherit" 
-              size="medium"
-              sx={{
-                borderRadius: '12px',
-                transition: 'all 0.2s ease',
-                '&:hover': {
-                  background: 'rgba(16, 185, 129, 0.1)',
-                  transform: 'scale(1.05)',
-                }
-              }}
-            >
-              <Badge 
-                color="success" 
-                variant="dot"
-                sx={{
-                  '& .MuiBadge-dot': {
-                    backgroundColor: '#10b981',
-                    boxShadow: '0 0 8px rgba(16, 185, 129, 0.6)',
-                  }
-                }}
-              >
-                <WhatsApp sx={{ color: '#10b981' }} />
-              </Badge>
-            </IconButton>
-          </Tooltip>
+          <Box
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              px: 2,
+              py: 0.75,
+              borderRadius: 2,
+              backgroundColor: 'success.main',
+              color: 'white',
+            }}
+          >
+            <CheckCircle sx={{ fontSize: 16, mr: 1 }} />
+            <Typography variant="caption" fontWeight={500}>
+              WhatsApp Conectado
+            </Typography>
+          </Box>
 
           {/* Notifications */}
-          <Tooltip title="Notificações" arrow>
-            <IconButton 
-              color="inherit" 
-              size="medium"
+          <IconButton 
+            color="inherit" 
+            sx={{
+              color: 'text.secondary',
+              '&:hover': {
+                backgroundColor: 'action.hover',
+              }
+            }}
+          >
+            <Badge 
+              badgeContent={notificationsCount} 
+              color="error"
               sx={{
-                borderRadius: '12px',
-                transition: 'all 0.2s ease',
-                '&:hover': {
-                  background: 'rgba(99, 102, 241, 0.1)',
-                  transform: 'scale(1.05)',
+                '& .MuiBadge-badge': {
+                  fontSize: '0.7rem',
+                  height: 18,
+                  minWidth: 18,
                 }
               }}
             >
-              <Badge 
-                badgeContent={notificationsCount} 
-                color="error"
-                sx={{
-                  '& .MuiBadge-badge': {
-                    backgroundColor: '#ef4444',
-                    color: '#fff',
-                    fontWeight: 600,
-                  }
-                }}
-              >
-                <Notifications sx={{ color: 'rgba(255, 255, 255, 0.95)' }} />
-              </Badge>
-            </IconButton>
-          </Tooltip>
+              <Notifications fontSize="small" />
+            </Badge>
+          </IconButton>
 
           {/* User Menu */}
-          <Tooltip title="Menu do usuário" arrow>
-            <IconButton
-              size="medium"
-              aria-label="account of current user"
-              aria-controls="menu-appbar"
-              aria-haspopup="true"
-              onClick={handleMenu}
-              color="inherit"
+          <IconButton
+            size="medium"
+            aria-label="account of current user"
+            aria-controls="menu-appbar"
+            aria-haspopup="true"
+            onClick={handleMenu}
+            sx={{ 
+              ml: 1,
+              p: 0.5,
+            }}
+          >
+            <Avatar 
               sx={{ 
-                ml: 1,
-                borderRadius: '12px',
-                border: '2px solid rgba(255, 255, 255, 0.1)',
-                transition: 'all 0.2s ease',
-                '&:hover': {
-                  border: '2px solid rgba(99, 102, 241, 0.3)',
-                  transform: 'scale(1.05)',
-                }
-              }}
+                width: 32, 
+                height: 32,
+                bgcolor: 'primary.main',
+                fontSize: '0.875rem',
+                fontWeight: 600,
+              }} 
+              src={user?.photoURL || undefined}
             >
-              <Avatar 
-                sx={{ 
-                  width: 36, 
-                  height: 36,
-                  background: user?.photoURL ? 'none' : 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)',
-                  fontSize: '1rem',
-                  fontWeight: 600,
-                }} 
-                src={user?.photoURL || undefined}
-              >
-                {user?.displayName ? user.displayName[0].toUpperCase() : <AccountCircle />}
-              </Avatar>
-            </IconButton>
-          </Tooltip>
+              {user?.displayName ? user.displayName[0].toUpperCase() : user?.email?.[0].toUpperCase() || 'U'}
+            </Avatar>
+          </IconButton>
 
           <Menu
             id="menu-appbar"
@@ -243,33 +194,32 @@ export default function Header({ onMenuClick, title }: HeaderProps) {
               sx: {
                 minWidth: 200,
                 mt: 1.5,
-                borderRadius: '16px',
-                background: 'rgba(15, 15, 15, 0.95)',
-                backdropFilter: 'blur(20px)',
-                border: '1px solid rgba(255, 255, 255, 0.1)',
-                boxShadow: '0 8px 32px rgba(0, 0, 0, 0.4)',
-                '& .MuiMenuItem-root': {
-                  borderRadius: '8px',
-                  margin: '4px 8px',
-                  transition: 'all 0.2s ease',
-                  '&:hover': {
-                    background: 'rgba(99, 102, 241, 0.1)',
-                  }
-                }
+                borderRadius: 2,
+                boxShadow: theme => theme.custom.elevation.medium,
               }
             }}
           >
+            <Box sx={{ px: 2, py: 1.5 }}>
+              <Typography variant="body2" fontWeight={600}>
+                {user?.displayName || user?.email || 'Usuário'}
+              </Typography>
+              <Typography variant="caption" color="text.secondary">
+                {user?.email}
+              </Typography>
+            </Box>
+            <Divider />
             <MenuItem onClick={handleProfile} sx={{ py: 1.5 }}>
-              <AccountCircle sx={{ mr: 2, color: '#6366f1' }} />
-              Meu Perfil
+              <AccountCircle sx={{ mr: 2, fontSize: 20, color: 'text.secondary' }} />
+              <Typography variant="body2">Meu Perfil</Typography>
             </MenuItem>
             <MenuItem onClick={handleSettings} sx={{ py: 1.5 }}>
-              <Settings sx={{ mr: 2, color: '#8b5cf6' }} />
-              Configurações
+              <Settings sx={{ mr: 2, fontSize: 20, color: 'text.secondary' }} />
+              <Typography variant="body2">Configurações</Typography>
             </MenuItem>
-            <MenuItem onClick={handleLogout} sx={{ py: 1.5 }}>
-              <Logout sx={{ mr: 2, color: '#ef4444' }} />
-              Sair
+            <Divider />
+            <MenuItem onClick={handleLogout} sx={{ py: 1.5, color: 'error.main' }}>
+              <Logout sx={{ mr: 2, fontSize: 20 }} />
+              <Typography variant="body2">Sair</Typography>
             </MenuItem>
           </Menu>
         </Box>

@@ -8,363 +8,538 @@ import {
   Typography,
   Button,
   Card,
-  CardContent,
-  Grid,
-  Avatar,
-  Chip,
-  IconButton,
-  Menu,
-  MenuItem,
   TextField,
   InputAdornment,
-  Fab,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
   List,
   ListItem,
   ListItemAvatar,
   ListItemText,
-  ListItemSecondaryAction,
+  ListItemButton,
+  Avatar,
+  Chip,
+  IconButton,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Grid,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
   Divider,
-  CircularProgress,
+  Alert,
+  SpeedDial,
+  SpeedDialIcon,
+  SpeedDialAction,
+  Tabs,
+  Tab,
+  Badge,
 } from '@mui/material';
 import {
   Search,
   Add,
-  MoreVert,
-  Edit,
-  Delete,
+  WhatsApp,
   Phone,
   Email,
-  WhatsApp,
-  Star,
-  TrendingUp,
-  AccessTime,
   Person,
+  FilterList,
+  Download,
+  Upload,
+  Star,
+  StarBorder,
+  Schedule,
+  CheckCircle,
 } from '@mui/icons-material';
 import { useRouter } from 'next/navigation';
+import { format } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
 
+interface ClientFormData {
+  name: string;
+  phone: string;
+  email: string;
+  cpf?: string;
+  notes?: string;
+}
 
 export default function ClientsPage() {
   const [clients, setClients] = useState<Client[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
+  const [showAddDialog, setShowAddDialog] = useState(false);
+  const [showImportDialog, setShowImportDialog] = useState(false);
+  const [selectedTab, setSelectedTab] = useState(0);
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
-  const [menuAnchor, setMenuAnchor] = useState<null | HTMLElement>(null);
-  const [openDialog, setOpenDialog] = useState(false);
+  const [filterOpen, setFilterOpen] = useState(false);
   const router = useRouter();
 
-  // Load clients from Firebase
-  useEffect(() => {
-    const loadClients = async () => {
-      try {
-        const clientsData = await clientService.getAll();
-        setClients(clientsData);
-      } catch (error) {
-        console.error('Error loading clients:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
+  const [formData, setFormData] = useState<ClientFormData>({
+    name: '',
+    phone: '',
+    email: '',
+    cpf: '',
+    notes: '',
+  });
 
+  useEffect(() => {
     loadClients();
   }, []);
 
-  const filteredClients = clients.filter(client =>
-    client.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    (client.email && client.email.toLowerCase().includes(searchTerm.toLowerCase())) ||
-    client.phone.includes(searchTerm)
-  );
-
-  const handleMenuOpen = (event: React.MouseEvent<HTMLElement>, client: Client) => {
-    setMenuAnchor(event.currentTarget);
-    setSelectedClient(client);
-  };
-
-  const handleMenuClose = () => {
-    setMenuAnchor(null);
-    setSelectedClient(null);
-  };
-
-  const handleViewDetails = () => {
-    if (selectedClient) {
-      router.push(`/dashboard/clients/${selectedClient.id}`);
+  const loadClients = async () => {
+    try {
+      const clientsData = await clientService.getAll();
+      setClients(clientsData);
+    } catch (error) {
+      console.error('Error loading clients:', error);
+    } finally {
+      setLoading(false);
     }
-    handleMenuClose();
   };
 
-  const handleEditClient = () => {
-    if (selectedClient) {
-      router.push(`/dashboard/clients/${selectedClient.id}/edit`);
+  const handleAddClient = async () => {
+    try {
+      const newClient: Omit<Client, 'id'> = {
+        name: formData.name,
+        phone: formData.phone,
+        email: formData.email || '',
+        cpf: formData.cpf || '',
+        preferences: {
+          communicationPreference: 'whatsapp',
+          preferredPaymentMethod: 'pix',
+          language: 'pt-BR',
+        },
+        totalSpent: 0,
+        totalReservations: 0,
+        isActive: true,
+        source: 'manual',
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+
+      await clientService.create(newClient);
+      setShowAddDialog(false);
+      setFormData({ name: '', phone: '', email: '', cpf: '', notes: '' });
+      loadClients();
+    } catch (error) {
+      console.error('Error adding client:', error);
     }
-    handleMenuClose();
   };
 
-  const handleDeleteClient = async () => {
-    if (selectedClient) {
-      try {
-        await clientService.delete(selectedClient.id);
-        setClients(clients.filter(c => c.id !== selectedClient.id));
-      } catch (error) {
-        console.error('Error deleting client:', error);
-      }
+  const handleClientClick = (client: Client) => {
+    router.push(`/dashboard/clients/${client.id}`);
+  };
+
+  const handleWhatsAppClick = (phone: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    window.open(`https://wa.me/55${phone.replace(/\D/g, '')}`, '_blank');
+  };
+
+  const handleCallClick = (phone: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    window.location.href = `tel:${phone}`;
+  };
+
+  const handleEmailClick = (email: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    window.location.href = `mailto:${email}`;
+  };
+
+  const toggleFavorite = async (client: Client, e: React.MouseEvent) => {
+    e.stopPropagation();
+    // Implementation for favorite toggle
+  };
+
+  const filteredClients = clients.filter(client => {
+    const matchesSearch = 
+      client.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (client.email && client.email.toLowerCase().includes(searchTerm.toLowerCase())) ||
+      client.phone.includes(searchTerm);
+
+    if (selectedTab === 0) return matchesSearch; // Todos
+    if (selectedTab === 1) return matchesSearch && client.isActive; // Ativos
+    if (selectedTab === 2) return matchesSearch && client.source === 'whatsapp'; // WhatsApp
+    return matchesSearch;
+  });
+
+  const getInitials = (name: string) => {
+    return name
+      .split(' ')
+      .map(n => n[0])
+      .join('')
+      .toUpperCase()
+      .slice(0, 2);
+  };
+
+  const formatPhone = (phone: string) => {
+    const cleaned = phone.replace(/\D/g, '');
+    if (cleaned.length === 11) {
+      return `(${cleaned.slice(0, 2)}) ${cleaned.slice(2, 7)}-${cleaned.slice(7)}`;
     }
-    handleMenuClose();
+    return phone;
   };
-
-  const getStatusColor = (isActive: boolean) => {
-    return isActive ? 'success' : 'default';
-  };
-
-  const getStatusLabel = (isActive: boolean) => {
-    return isActive ? 'Ativo' : 'Inativo';
-  };
-
-  const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat('pt-BR', {
-      style: 'currency',
-      currency: 'BRL',
-    }).format(value);
-  };
-
 
   return (
     <Box>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-        <Typography variant="h4" component="h1" fontWeight="bold">
+        <Typography variant="h4" component="h1" fontWeight={600}>
           Clientes
         </Typography>
-        <Button
-          variant="contained"
-          startIcon={<Add />}
-          onClick={() => router.push('/dashboard/clients/create')}
+        <Box sx={{ display: 'flex', gap: 2 }}>
+          <Button
+            variant="outlined"
+            startIcon={<Download />}
+          >
+            Exportar
+          </Button>
+          <Button
+            variant="contained"
+            startIcon={<Add />}
+            onClick={() => setShowAddDialog(true)}
+          >
+            Adicionar Cliente
+          </Button>
+        </Box>
+      </Box>
+
+      {/* Search and Filters */}
+      <Card sx={{ mb: 3 }}>
+        <Box sx={{ p: 2 }}>
+          <TextField
+            fullWidth
+            placeholder="Buscar por nome, telefone ou email..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            InputProps={{
+              startAdornment: (
+                <InputAdornment position="start">
+                  <Search />
+                </InputAdornment>
+              ),
+              endAdornment: (
+                <InputAdornment position="end">
+                  <IconButton onClick={() => setFilterOpen(!filterOpen)}>
+                    <FilterList />
+                  </IconButton>
+                </InputAdornment>
+              ),
+            }}
+          />
+        </Box>
+        
+        <Tabs 
+          value={selectedTab} 
+          onChange={(_, newValue) => setSelectedTab(newValue)}
+          sx={{ px: 2 }}
         >
-          Novo Cliente
-        </Button>
-      </Box>
-
-      {/* Search Bar */}
-      <Box sx={{ mb: 3 }}>
-        <TextField
-          fullWidth
-          placeholder="Buscar clientes..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          InputProps={{
-            startAdornment: (
-              <InputAdornment position="start">
-                <Search />
-              </InputAdornment>
-            ),
-          }}
-        />
-      </Box>
-
-      {/* Stats Cards */}
-      <Grid container spacing={3} sx={{ mb: 3 }}>
-        <Grid item xs={12} sm={6} md={3} lg={3} xl={2}>
-          <Card>
-            <CardContent>
-              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <Box>
-                  <Typography color="text.secondary" gutterBottom>
-                    Total de Clientes
-                  </Typography>
-                  <Typography variant="h4" component="div">
-                    {clients.length}
-                  </Typography>
-                </Box>
-                <Person color="primary" sx={{ fontSize: 40 }} />
+          <Tab 
+            label={
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                Todos
+                <Chip label={clients.length} size="small" />
               </Box>
-            </CardContent>
+            } 
+          />
+          <Tab 
+            label={
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                Ativos
+                <Chip label={clients.filter(c => c.isActive).length} size="small" color="success" />
+              </Box>
+            } 
+          />
+          <Tab 
+            label={
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                WhatsApp
+                <Chip label={clients.filter(c => c.source === 'whatsapp').length} size="small" color="primary" />
+              </Box>
+            } 
+          />
+        </Tabs>
+      </Card>
+
+      {/* Summary Stats */}
+      <Grid container spacing={2} sx={{ mb: 3 }}>
+        <Grid item xs={12} sm={6} md={3}>
+          <Card sx={{ p: 2, bgcolor: 'primary.light', color: 'primary.contrastText' }}>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <Box>
+                <Typography variant="h4" fontWeight={600}>
+                  {clients.length}
+                </Typography>
+                <Typography variant="body2">
+                  Total de Clientes
+                </Typography>
+              </Box>
+              <Person sx={{ fontSize: 40, opacity: 0.7 }} />
+            </Box>
           </Card>
         </Grid>
-
-        <Grid item xs={12} sm={6} md={3} lg={3} xl={2}>
-          <Card>
-            <CardContent>
-              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <Box>
-                  <Typography color="text.secondary" gutterBottom>
-                    Clientes Ativos
-                  </Typography>
-                  <Typography variant="h4" component="div">
-                    {clients.filter(c => c.isActive).length}
-                  </Typography>
-                </Box>
-                <TrendingUp color="warning" sx={{ fontSize: 40 }} />
+        <Grid item xs={12} sm={6} md={3}>
+          <Card sx={{ p: 2 }}>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <Box>
+                <Typography variant="h4" fontWeight={600}>
+                  {clients.filter(c => c.source === 'whatsapp').length}
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  Via WhatsApp
+                </Typography>
               </Box>
-            </CardContent>
+              <WhatsApp sx={{ fontSize: 40, color: 'success.main', opacity: 0.7 }} />
+            </Box>
           </Card>
         </Grid>
-
-        <Grid item xs={12} sm={6} md={3} lg={3} xl={2}>
-          <Card>
-            <CardContent>
-              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <Box>
-                  <Typography color="text.secondary" gutterBottom>
-                    Total Gasto
-                  </Typography>
-                  <Typography variant="h4" component="div">
-                    {formatCurrency(clients.reduce((sum, c) => sum + c.totalSpent, 0))}
-                  </Typography>
-                </Box>
-                <Star color="success" sx={{ fontSize: 40 }} />
+        <Grid item xs={12} sm={6} md={3}>
+          <Card sx={{ p: 2 }}>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <Box>
+                <Typography variant="h4" fontWeight={600}>
+                  {clients.reduce((sum, c) => sum + c.totalReservations, 0)}
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  Total de Reservas
+                </Typography>
               </Box>
-            </CardContent>
+              <Schedule sx={{ fontSize: 40, color: 'info.main', opacity: 0.7 }} />
+            </Box>
           </Card>
         </Grid>
-
-        <Grid item xs={12} sm={6} md={3} lg={3} xl={2}>
-          <Card>
-            <CardContent>
-              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <Box>
-                  <Typography color="text.secondary" gutterBottom>
-                    Reservas Totais
-                  </Typography>
-                  <Typography variant="h4" component="div">
-                    {clients.reduce((sum, c) => sum + c.totalReservations, 0)}
-                  </Typography>
-                </Box>
-                <AccessTime color="info" sx={{ fontSize: 40 }} />
+        <Grid item xs={12} sm={6} md={3}>
+          <Card sx={{ p: 2 }}>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <Box>
+                <Typography variant="h4" fontWeight={600}>
+                  {clients.filter(c => c.isActive).length}
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  Clientes Ativos
+                </Typography>
               </Box>
-            </CardContent>
+              <CheckCircle sx={{ fontSize: 40, color: 'success.main', opacity: 0.7 }} />
+            </Box>
           </Card>
         </Grid>
       </Grid>
 
-      {/* Clients List */}
+      {/* Clients List - Contact Style */}
       <Card>
-        <CardContent>
-          <Typography variant="h6" gutterBottom>
-            Lista de Clientes
-          </Typography>
-          <List>
-            {loading ? (
-              <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
-                <CircularProgress />
-              </Box>
-            ) : filteredClients.length === 0 ? (
-              <Box sx={{ textAlign: 'center', p: 4 }}>
-                <Typography color="text.secondary">
-                  Nenhum cliente encontrado
-                </Typography>
-              </Box>
-            ) : (
-              filteredClients.map((client, index) => (
+        <List sx={{ p: 0 }}>
+          {loading ? (
+            <Box sx={{ textAlign: 'center', py: 8 }}>
+              <Typography color="text.secondary">Carregando clientes...</Typography>
+            </Box>
+          ) : filteredClients.length === 0 ? (
+            <Box sx={{ textAlign: 'center', py: 8 }}>
+              <Person sx={{ fontSize: 64, color: 'text.disabled', mb: 2 }} />
+              <Typography variant="h6" color="text.secondary" gutterBottom>
+                Nenhum cliente encontrado
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                Adicione seu primeiro cliente ou ajuste os filtros
+              </Typography>
+            </Box>
+          ) : (
+            filteredClients.map((client, index) => (
               <Box key={client.id}>
-                <ListItem
-                  sx={{
-                    borderRadius: 1,
-                    '&:hover': {
-                      backgroundColor: 'action.hover',
-                    },
-                  }}
+                <ListItemButton
+                  onClick={() => handleClientClick(client)}
+                  sx={{ py: 2 }}
                 >
                   <ListItemAvatar>
-                    <Avatar sx={{ bgcolor: 'primary.main' }}>
-                      {client.name.split(' ').map(n => n[0]).join('')}
+                    <Avatar 
+                      sx={{ 
+                        bgcolor: client.source === 'whatsapp' ? 'success.main' : 'primary.main',
+                        width: 48,
+                        height: 48,
+                      }}
+                    >
+                      {getInitials(client.name)}
                     </Avatar>
                   </ListItemAvatar>
                   
                   <ListItemText
                     primary={
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                        <Typography variant="subtitle1" fontWeight="medium">
+                        <Typography variant="subtitle1" fontWeight={500}>
                           {client.name}
                         </Typography>
-                        <Chip
-                          label={getStatusLabel(client.isActive)}
-                          color={getStatusColor(client.isActive) as any}
-                          size="small"
-                        />
-                        <Chip
-                          label={`Reservas: ${client.totalReservations}`}
-                          color="primary"
-                          size="small"
-                          variant="outlined"
-                        />
+                        {client.source === 'whatsapp' && (
+                          <Chip 
+                            label="WhatsApp" 
+                            size="small" 
+                            color="success" 
+                            sx={{ height: 20, fontSize: '0.7rem' }}
+                          />
+                        )}
                       </Box>
                     }
                     secondary={
-                      <Box sx={{ mt: 1 }}>
+                      <Box>
                         <Typography variant="body2" color="text.secondary">
-                          {client.email || 'Sem email'} • {client.phone}
+                          {formatPhone(client.phone)}
+                          {client.email && ` • ${client.email}`}
                         </Typography>
-                        <Typography variant="body2" color="text.secondary">
-                          Preferência: {client.preferences.preferredPaymentMethod} • {client.preferences.communicationPreference}
-                        </Typography>
-                        <Typography variant="body2" color="text.secondary">
-                          Total gasto: {formatCurrency(client.totalSpent)}
-                        </Typography>
+                        {client.totalReservations > 0 && (
+                          <Typography variant="caption" color="text.secondary">
+                            {client.totalReservations} reservas • 
+                            Última em {format(client.updatedAt.toDate ? client.updatedAt.toDate() : new Date(client.updatedAt), 'dd/MM/yyyy')}
+                          </Typography>
+                        )}
                       </Box>
                     }
                   />
                   
-                  <ListItemSecondaryAction>
-                    <Box sx={{ display: 'flex', gap: 1 }}>
-                      <IconButton size="small" color="success">
-                        <WhatsApp />
-                      </IconButton>
-                      <IconButton size="small" color="primary">
+                  <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                    <IconButton 
+                      size="small" 
+                      color="success"
+                      onClick={(e) => handleWhatsAppClick(client.phone, e)}
+                    >
+                      <WhatsApp />
+                    </IconButton>
+                    <IconButton 
+                      size="small"
+                      onClick={(e) => handleCallClick(client.phone, e)}
+                    >
+                      <Phone />
+                    </IconButton>
+                    {client.email && (
+                      <IconButton 
+                        size="small"
+                        onClick={(e) => handleEmailClick(client.email!, e)}
+                      >
                         <Email />
                       </IconButton>
-                      <IconButton size="small" color="secondary">
-                        <Phone />
-                      </IconButton>
-                      <IconButton
-                        size="small"
-                        onClick={(e) => handleMenuOpen(e, client)}
-                      >
-                        <MoreVert />
-                      </IconButton>
-                    </Box>
-                  </ListItemSecondaryAction>
-                </ListItem>
+                    )}
+                    <IconButton 
+                      size="small"
+                      onClick={(e) => toggleFavorite(client, e)}
+                    >
+                      <StarBorder />
+                    </IconButton>
+                  </Box>
+                </ListItemButton>
                 {index < filteredClients.length - 1 && <Divider />}
               </Box>
-            )))}
-          </List>
-        </CardContent>
+            ))
+          )}
+        </List>
       </Card>
 
-      {/* Context Menu */}
-      <Menu
-        anchorEl={menuAnchor}
-        open={Boolean(menuAnchor)}
-        onClose={handleMenuClose}
-      >
-        <MenuItem onClick={handleViewDetails}>
-          <Person sx={{ mr: 1 }} />
-          Ver Detalhes
-        </MenuItem>
-        <MenuItem onClick={handleEditClient}>
-          <Edit sx={{ mr: 1 }} />
-          Editar
-        </MenuItem>
-        <MenuItem onClick={handleDeleteClient} sx={{ color: 'error.main' }}>
-          <Delete sx={{ mr: 1 }} />
-          Excluir
-        </MenuItem>
-      </Menu>
+      {/* Add Client Dialog */}
+      <Dialog open={showAddDialog} onClose={() => setShowAddDialog(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>Adicionar Cliente</DialogTitle>
+        <DialogContent>
+          <Grid container spacing={2} sx={{ mt: 1 }}>
+            <Grid item xs={12}>
+              <TextField
+                fullWidth
+                label="Nome Completo"
+                value={formData.name}
+                onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
+                required
+              />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                fullWidth
+                label="Telefone"
+                value={formData.phone}
+                onChange={(e) => setFormData(prev => ({ ...prev, phone: e.target.value }))}
+                placeholder="(21) 99999-9999"
+                required
+              />
+            </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                fullWidth
+                label="CPF"
+                value={formData.cpf}
+                onChange={(e) => setFormData(prev => ({ ...prev, cpf: e.target.value }))}
+                placeholder="000.000.000-00"
+              />
+            </Grid>
+            <Grid item xs={12}>
+              <TextField
+                fullWidth
+                label="E-mail"
+                type="email"
+                value={formData.email}
+                onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
+              />
+            </Grid>
+            <Grid item xs={12}>
+              <TextField
+                fullWidth
+                label="Observações"
+                value={formData.notes}
+                onChange={(e) => setFormData(prev => ({ ...prev, notes: e.target.value }))}
+                multiline
+                rows={3}
+              />
+            </Grid>
+          </Grid>
+          <Alert severity="info" sx={{ mt: 2 }}>
+            Clientes também são adicionados automaticamente quando entram em contato pelo WhatsApp.
+          </Alert>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setShowAddDialog(false)}>Cancelar</Button>
+          <Button 
+            variant="contained" 
+            onClick={handleAddClient}
+            disabled={!formData.name || !formData.phone}
+          >
+            Adicionar
+          </Button>
+        </DialogActions>
+      </Dialog>
 
-      {/* Floating Action Button */}
-      <Fab
-        color="primary"
-        aria-label="add"
-        sx={{
-          position: 'fixed',
-          bottom: 16,
-          right: 16,
-        }}
-        onClick={() => router.push('/dashboard/clients/create')}
+      {/* Import Dialog */}
+      <Dialog open={showImportDialog} onClose={() => setShowImportDialog(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>Importar Clientes</DialogTitle>
+        <DialogContent>
+          <Box sx={{ textAlign: 'center', py: 4 }}>
+            <Upload sx={{ fontSize: 64, color: 'text.secondary', mb: 2 }} />
+            <Typography variant="h6" gutterBottom>
+              Arraste um arquivo CSV aqui
+            </Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+              ou clique para selecionar
+            </Typography>
+            <Button variant="outlined" component="label">
+              Selecionar Arquivo
+              <input type="file" hidden accept=".csv" />
+            </Button>
+          </Box>
+          <Alert severity="info">
+            O arquivo CSV deve conter as colunas: nome, telefone, email, cpf
+          </Alert>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setShowImportDialog(false)}>Cancelar</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Speed Dial */}
+      <SpeedDial
+        ariaLabel="Ações rápidas"
+        sx={{ position: 'fixed', bottom: 16, right: 16 }}
+        icon={<SpeedDialIcon />}
       >
-        <Add />
-      </Fab>
+        <SpeedDialAction
+          icon={<Upload />}
+          tooltipTitle="Importar Clientes"
+          onClick={() => setShowImportDialog(true)}
+        />
+        <SpeedDialAction
+          icon={<Add />}
+          tooltipTitle="Adicionar Cliente"
+          onClick={() => setShowAddDialog(true)}
+        />
+      </SpeedDial>
     </Box>
   );
 }
