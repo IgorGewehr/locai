@@ -254,21 +254,57 @@ export const PropertyAmenities: React.FC = () => {
                         name="amenities"
                         control={control}
                         render={({ field }) => (
-                          <CheckboxField
-                            name={`amenity-${amenity}`}
-                            label={amenity}
-                            checked={field.value?.includes(amenity) || false}
-                            onChange={(e) => {
-                              const isChecked = e.target.checked
-                              const currentAmenities = field.value || []
-                              
-                              if (isChecked) {
-                                field.onChange([...currentAmenities, amenity])
-                              } else {
-                                field.onChange(currentAmenities.filter((a: string) => a !== amenity))
-                              }
-                            }}
-                          />
+                          <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                            <input
+                              type="checkbox"
+                              id={`amenity-${amenity}`}
+                              checked={field.value?.includes(amenity) || false}
+                              onChange={(e) => {
+                                const isChecked = e.target.checked
+                                const currentAmenities = field.value || []
+                                
+                                if (isChecked) {
+                                  field.onChange([...currentAmenities, amenity])
+                                } else {
+                                  field.onChange(currentAmenities.filter((a: string) => a !== amenity))
+                                }
+                              }}
+                              style={{ display: 'none' }}
+                            />
+                            <label 
+                              htmlFor={`amenity-${amenity}`}
+                              style={{ 
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                width: '100%',
+                                padding: '8px 0'
+                              }}
+                            >
+                              <Box
+                                sx={{
+                                  width: 20,
+                                  height: 20,
+                                  borderRadius: 1,
+                                  border: 2,
+                                  borderColor: field.value?.includes(amenity) ? 'primary.main' : 'grey.400',
+                                  backgroundColor: field.value?.includes(amenity) ? 'primary.main' : 'transparent',
+                                  display: 'flex',
+                                  alignItems: 'center',
+                                  justifyContent: 'center',
+                                  mr: 1,
+                                  transition: 'all 0.2s ease-in-out',
+                                }}
+                              >
+                                {field.value?.includes(amenity) && (
+                                  <Check sx={{ fontSize: 16, color: 'white' }} />
+                                )}
+                              </Box>
+                              <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                                {amenity}
+                              </Typography>
+                            </label>
+                          </Box>
                         )}
                       />
                     </Paper>

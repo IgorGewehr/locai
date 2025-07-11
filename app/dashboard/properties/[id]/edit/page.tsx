@@ -29,12 +29,16 @@ import {
   Schedule,
   Block,
 } from '@mui/icons-material';
-import PropertyBasicInfo from '@/components/organisms/PropertyBasicInfo/PropertyBasicInfo';
-import PropertySpecs from '@/components/organisms/PropertySpecs/PropertySpecs';
-import PropertyAmenities from '@/components/organisms/PropertyAmenities/PropertyAmenities';
-import PropertyPricing from '@/components/organisms/PropertyPricing/PropertyPricing';
+import { useForm, FormProvider } from 'react-hook-form';
+import { yupResolver } from '@hookform/resolvers/yup';
+import * as yup from 'yup';
+import { PropertyBasicInfo } from '@/components/organisms/PropertyBasicInfo/PropertyBasicInfo';
+import { PropertySpecs } from '@/components/organisms/PropertySpecs/PropertySpecs';
+import { PropertyAmenities } from '@/components/organisms/PropertyAmenities/PropertyAmenities';
+import { PropertyPricing } from '@/components/organisms/PropertyPricing/PropertyPricing';
 import PropertyMediaUpload from '@/components/organisms/PropertyMediaUpload/PropertyMediaUpload';
-import type { Property, PricingRule } from '@/lib/types';
+import { Property, PricingRule, PropertyCategory, PaymentMethod } from '@/lib/types/property';
+import { propertyService } from '@/lib/firebase/firestore';
 
 interface TabPanelProps {
   children?: React.ReactNode;
@@ -59,37 +63,81 @@ function TabPanel(props: TabPanelProps) {
 }
 
 const propertyTypes = [
-  { value: 'apartment', label: 'Apartamento', icon: <Apartment /> },
-  { value: 'house', label: 'Casa', icon: <House /> },
-  { value: 'villa', label: 'Villa', icon: <Villa /> },
-  { value: 'studio', label: 'Studio', icon: <Home /> },
+  { value: PropertyCategory.APARTMENT, label: 'Apartamento', icon: <Apartment /> },
+  { value: PropertyCategory.HOUSE, label: 'Casa', icon: <House /> },
+  { value: PropertyCategory.VILLA, label: 'Villa', icon: <Villa /> },
+  { value: PropertyCategory.STUDIO, label: 'Studio', icon: <Home /> },
 ];
 
+const propertySchema = yup.object().shape({
+  title: yup.string().required('Título é obrigatório'),
+  description: yup.string().required('Descrição é obrigatória'),
+  address: yup.string().required('Endereço é obrigatório'),
+  category: yup.string().required('Categoria é obrigatória'),
+  bedrooms: yup.number().min(1, 'Deve ter pelo menos 1 quarto').required('Número de quartos é obrigatório'),
+  bathrooms: yup.number().min(1, 'Deve ter pelo menos 1 banheiro').required('Número de banheiros é obrigatório'),
+  maxGuests: yup.number().min(1, 'Deve acomodar pelo menos 1 hóspede').required('Número máximo de hóspedes é obrigatório'),
+  basePrice: yup.number().min(1, 'Preço deve ser maior que 0').required('Preço base é obrigatório'),
+  pricePerExtraGuest: yup.number().min(0, 'Preço não pode ser negativo').required(),
+  minimumNights: yup.number().min(1, 'Deve ter pelo menos 1 noite').required('Número mínimo de noites é obrigatório'),
+  cleaningFee: yup.number().min(0, 'Taxa não pode ser negativa').required(),
+  amenities: yup.array().of(yup.string()).default([]),
+  isFeatured: yup.boolean().default(false),
+  allowsPets: yup.boolean().default(false),
+  paymentMethodSurcharges: yup.object().shape({
+    [PaymentMethod.CREDIT_CARD]: yup.number().min(0).default(0),
+    [PaymentMethod.PIX]: yup.number().min(0).default(0),
+    [PaymentMethod.CASH]: yup.number().min(0).default(0),
+    [PaymentMethod.BANK_TRANSFER]: yup.number().min(0).default(0),
+  }),
+  photos: yup.array().min(1, 'Deve ter pelo menos 1 foto').required('Pelo menos uma foto é obrigatória'),
+  videos: yup.array().default([]),
+  unavailableDates: yup.array().default([]),
+  customPricing: yup.object().default({}),
+  isActive: yup.boolean().default(true),
+});
 
 export default function EditPropertyPage() {
   const router = useRouter();
   const params = useParams();
+  const propertyId = params?.id as string;
+  
   const [activeTab, setActiveTab] = useState(0);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showStatusDialog, setShowStatusDialog] = useState(false);
-  const [hasChanges, setHasChanges] = useState(false);
-  
-  const [property, setProperty] = useState<Property | null>(null);
   const [pricingRules, setPricingRules] = useState<PricingRule[]>([]);
+
+  const methods = useForm<Property>({
+    resolver: yupResolver(propertySchema),
+  });
+
+  const { handleSubmit, reset, formState: { isDirty } } = methods;
 
   useEffect(() => {
     // Load property data from Firebase
     const loadProperty = async () => {
+      if (!propertyId) return;
+      
       try {
-        const response = await fetch(`/api/properties/${params.id}`);
-        if (!response.ok) {
-          throw new Error('Failed to fetch property');
-        }
+        const property = await propertyService.getById(propertyId);
         
-        const propertyData = await response.json();
-        setProperty(propertyData);
+        if (!property) {
+          setError('Propriedade não encontrada');
+          setLoading(false);
+          return;
+        }
+
+        // Convert dates back to Date objects
+        const propertyData = {
+          ...property,
+          unavailableDates: property.unavailableDates?.map((date: any) => 
+            date instanceof Date ? date : date.toDate ? date.toDate() : new Date(date)
+          ) || [],
+        };
+        
+        reset(propertyData);
         setLoading(false);
       } catch (err) {
         setError('Erro ao carregar propriedade');
@@ -98,27 +146,20 @@ export default function EditPropertyPage() {
     };
 
     loadProperty();
-  }, [params.id]);
+  }, [propertyId, reset]);
 
-  const handlePropertyChange = (updates: Partial<Property>) => {
-    if (property) {
-      setProperty({ ...property, ...updates });
-      setHasChanges(true);
-    }
-  };
-
-  const handleSave = async () => {
+  const onSubmit = async (data: Property) => {
     setSaving(true);
     setError(null);
 
     try {
-      const response = await fetch(`/api/properties/${params.id}`, {
+      const response = await fetch(`/api/properties/${propertyId}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          ...property,
+          ...data,
           pricingRules,
           updatedAt: new Date(),
         }),
@@ -128,8 +169,8 @@ export default function EditPropertyPage() {
         throw new Error('Erro ao salvar alterações');
       }
 
-      setHasChanges(false);
       alert('Alterações salvas com sucesso!');
+      router.push('/dashboard/properties');
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erro desconhecido');
     } finally {
@@ -137,29 +178,19 @@ export default function EditPropertyPage() {
     }
   };
 
-  const handleStatusChange = (newStatus: Property['status']) => {
-    if (property) {
-      setProperty({ ...property, status: newStatus });
-      setHasChanges(true);
-      setShowStatusDialog(false);
-    }
+  const handleStatusChange = (newStatus: boolean) => {
+    methods.setValue('isActive', newStatus, { shouldDirty: true });
+    setShowStatusDialog(false);
   };
 
   const getStatusChip = () => {
-    if (!property) return null;
-
-    const config = {
-      active: { label: 'Ativo', color: 'success' as const, icon: <CheckCircle /> },
-      inactive: { label: 'Inativo', color: 'error' as const, icon: <Block /> },
-      maintenance: { label: 'Manutenção', color: 'warning' as const, icon: <Schedule /> },
-    };
-
-    const { label, color, icon } = config[property.status];
+    const isActive = methods.watch('isActive');
+    
     return (
       <Chip
-        label={label}
-        color={color}
-        icon={icon}
+        label={isActive ? 'Ativo' : 'Inativo'}
+        color={isActive ? 'success' : 'error'}
+        icon={isActive ? <CheckCircle /> : <Block />}
         onClick={() => setShowStatusDialog(true)}
         sx={{ cursor: 'pointer' }}
       />
@@ -174,16 +205,22 @@ export default function EditPropertyPage() {
     );
   }
 
-  if (error || !property) {
+  if (error) {
     return (
-      <Alert severity="error">
-        {error || 'Propriedade não encontrada'}
-      </Alert>
+      <Box>
+        <Alert severity="error">
+          {error}
+        </Alert>
+        <Button onClick={() => router.push('/dashboard/properties')}>
+          Voltar para Imóveis
+        </Button>
+      </Box>
     );
   }
 
   return (
-    <Box>
+    <FormProvider {...methods}>
+      <Box>
       {/* Header */}
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
         <Box>
@@ -192,7 +229,7 @@ export default function EditPropertyPage() {
           </Typography>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mt: 1 }}>
             <Typography variant="h6" color="text.secondary">
-              {property.name}
+              {methods.watch('title')}
             </Typography>
             {getStatusChip()}
           </Box>
@@ -209,8 +246,8 @@ export default function EditPropertyPage() {
           <Button
             variant="contained"
             startIcon={saving ? <CircularProgress size={20} /> : <Save />}
-            onClick={handleSave}
-            disabled={saving || !hasChanges}
+            onClick={handleSubmit(onSubmit)}
+            disabled={saving || !isDirty}
           >
             {saving ? 'Salvando...' : 'Salvar Alterações'}
           </Button>
@@ -223,7 +260,7 @@ export default function EditPropertyPage() {
         </Alert>
       )}
 
-      {hasChanges && (
+      {isDirty && (
         <Alert severity="info" sx={{ mb: 3 }}>
           Você tem alterações não salvas
         </Alert>
@@ -243,43 +280,23 @@ export default function EditPropertyPage() {
 
         <CardContent>
           <TabPanel value={activeTab} index={0}>
-            <PropertyBasicInfo
-              property={property}
-              onChange={handlePropertyChange}
-              propertyTypes={propertyTypes}
-            />
+            <PropertyBasicInfo />
           </TabPanel>
 
           <TabPanel value={activeTab} index={1}>
-            <PropertySpecs
-              property={property}
-              onChange={handlePropertyChange}
-            />
+            <PropertySpecs />
           </TabPanel>
 
           <TabPanel value={activeTab} index={2}>
-            <PropertyAmenities
-              selectedAmenities={property.amenities}
-              onChange={(amenities) => handlePropertyChange({ amenities })}
-            />
+            <PropertyAmenities />
           </TabPanel>
 
           <TabPanel value={activeTab} index={3}>
-            <PropertyPricing
-              property={property}
-              pricingRules={pricingRules}
-              onPropertyChange={handlePropertyChange}
-              onPricingRulesChange={setPricingRules}
-            />
+            <PropertyPricing />
           </TabPanel>
 
           <TabPanel value={activeTab} index={4}>
-            <PropertyMediaUpload
-              photos={property.photos}
-              videos={property.videos}
-              onPhotosChange={(photos) => handlePropertyChange({ photos })}
-              onVideosChange={(videos) => handlePropertyChange({ videos })}
-            />
+            <PropertyMediaUpload />
           </TabPanel>
         </CardContent>
       </Card>
@@ -293,31 +310,22 @@ export default function EditPropertyPage() {
           </Typography>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
             <Button
-              variant={property.status === 'active' ? 'contained' : 'outlined'}
+              variant={methods.watch('isActive') ? 'contained' : 'outlined'}
               color="success"
               startIcon={<CheckCircle />}
-              onClick={() => handleStatusChange('active')}
+              onClick={() => handleStatusChange(true)}
               fullWidth
             >
               Ativo - Disponível para reservas
             </Button>
             <Button
-              variant={property.status === 'inactive' ? 'contained' : 'outlined'}
+              variant={!methods.watch('isActive') ? 'contained' : 'outlined'}
               color="error"
               startIcon={<Block />}
-              onClick={() => handleStatusChange('inactive')}
+              onClick={() => handleStatusChange(false)}
               fullWidth
             >
               Inativo - Não disponível
-            </Button>
-            <Button
-              variant={property.status === 'maintenance' ? 'contained' : 'outlined'}
-              color="warning"
-              startIcon={<Schedule />}
-              onClick={() => handleStatusChange('maintenance')}
-              fullWidth
-            >
-              Manutenção - Temporariamente indisponível
             </Button>
           </Box>
         </DialogContent>
@@ -328,5 +336,6 @@ export default function EditPropertyPage() {
         </DialogActions>
       </Dialog>
     </Box>
+    </FormProvider>
   );
 }

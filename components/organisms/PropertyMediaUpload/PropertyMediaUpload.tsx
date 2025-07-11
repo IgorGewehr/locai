@@ -28,6 +28,7 @@ import {
   Edit,
 } from '@mui/icons-material';
 import { useDropzone } from 'react-dropzone';
+import { useFormContext } from 'react-hook-form';
 
 interface MediaFile {
   url: string;
@@ -36,19 +37,10 @@ interface MediaFile {
   type: 'photo' | 'video';
 }
 
-interface PropertyMediaUploadProps {
-  photos: MediaFile[];
-  videos: MediaFile[];
-  onPhotosChange: (photos: MediaFile[]) => void;
-  onVideosChange: (videos: MediaFile[]) => void;
-}
-
-export default function PropertyMediaUpload({
-  photos,
-  videos,
-  onPhotosChange,
-  onVideosChange,
-}: PropertyMediaUploadProps) {
+export default function PropertyMediaUpload() {
+  const { watch, setValue, formState: { errors } } = useFormContext();
+  const photos = watch('photos') || [];
+  const videos = watch('videos') || [];
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [selectedMedia, setSelectedMedia] = useState<MediaFile | null>(null);
@@ -72,10 +64,10 @@ export default function PropertyMediaUpload({
       });
     }
 
-    onPhotosChange([...photos, ...newPhotos]);
+    setValue('photos', [...photos, ...newPhotos]);
     setUploading(false);
     setUploadProgress(0);
-  }, [photos, onPhotosChange]);
+  }, [photos, setValue]);
 
   const onDropVideos = useCallback(async (acceptedFiles: File[]) => {
     setUploading(true);
@@ -94,10 +86,10 @@ export default function PropertyMediaUpload({
       });
     }
 
-    onVideosChange([...videos, ...newVideos]);
+    setValue('videos', [...videos, ...newVideos]);
     setUploading(false);
     setUploadProgress(0);
-  }, [videos, onVideosChange]);
+  }, [videos, setValue]);
 
   const { getRootProps: getPhotoRootProps, getInputProps: getPhotoInputProps } = useDropzone({
     onDrop: onDropPhotos,
@@ -118,12 +110,12 @@ export default function PropertyMediaUpload({
 
   const handleDeletePhoto = (index: number) => {
     const newPhotos = photos.filter((_, i) => i !== index);
-    onPhotosChange(newPhotos);
+    setValue('photos', newPhotos);
   };
 
   const handleDeleteVideo = (index: number) => {
     const newVideos = videos.filter((_, i) => i !== index);
-    onVideosChange(newVideos);
+    setValue('videos', newVideos);
   };
 
   const handleEditCaption = (media: MediaFile) => {
@@ -139,14 +131,14 @@ export default function PropertyMediaUpload({
         if (index !== -1) {
           const newPhotos = [...photos];
           newPhotos[index] = { ...newPhotos[index], caption: tempCaption };
-          onPhotosChange(newPhotos);
+          setValue('photos', newPhotos);
         }
       } else {
         const index = videos.findIndex(v => v.url === selectedMedia.url);
         if (index !== -1) {
           const newVideos = [...videos];
           newVideos[index] = { ...newVideos[index], caption: tempCaption };
-          onVideosChange(newVideos);
+          setValue('videos', newVideos);
         }
       }
     }
@@ -173,6 +165,12 @@ export default function PropertyMediaUpload({
                   size="small"
                 />
               </Box>
+
+              {errors.photos && (
+                <Alert severity="error" sx={{ mb: 2 }}>
+                  {errors.photos.message}
+                </Alert>
+              )}
 
               <Box
                 {...getPhotoRootProps()}

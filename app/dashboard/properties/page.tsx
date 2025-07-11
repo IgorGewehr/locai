@@ -254,88 +254,205 @@ export default function PropertiesPage() {
         ) : (
           filteredProperties.map((property) => (
           <Grid item xs={12} sm={6} md={4} lg={3} xl={3} key={property.id}>
-            <Card elevation={2} sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-              <CardMedia
-                component="img"
-                height="200"
-                image={property.photos[0]?.url || '/api/placeholder/400/300'}
-                alt={property.name}
-                sx={{ objectFit: 'cover' }}
-              />
-              
-              <CardContent sx={{ flexGrow: 1 }}>
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1 }}>
-                  <Typography variant="h6" component="h2" sx={{ fontWeight: 'bold' }}>
-                    {property.title}
-                  </Typography>
-                  <IconButton
+            <Card 
+              elevation={0}
+              sx={{ 
+                height: '100%', 
+                display: 'flex', 
+                flexDirection: 'column',
+                border: '1px solid',
+                borderColor: 'divider',
+                borderRadius: 3,
+                transition: 'all 0.3s ease-in-out',
+                '&:hover': {
+                  borderColor: 'primary.main',
+                  transform: 'translateY(-4px)',
+                  boxShadow: (theme) => theme.shadows[8],
+                  '& .property-image': {
+                    transform: 'scale(1.05)',
+                  },
+                  '& .property-actions': {
+                    opacity: 1,
+                    transform: 'translateY(0)',
+                  }
+                }
+              }}
+            >
+              <Box sx={{ position: 'relative', overflow: 'hidden', borderRadius: '12px 12px 0 0' }}>
+                <CardMedia
+                  component="img"
+                  height="200"
+                  image={property.photos[0]?.url || '/api/placeholder/400/300'}
+                  alt={property.title}
+                  className="property-image"
+                  sx={{ 
+                    objectFit: 'cover',
+                    transition: 'transform 0.3s ease-in-out',
+                  }}
+                />
+                
+                {/* Property Type Badge */}
+                <Box sx={{ position: 'absolute', top: 12, left: 12 }}>
+                  <Chip
+                    icon={propertyTypeIcons[property.category] || <Home />}
+                    label={property.category.charAt(0).toUpperCase() + property.category.slice(1)}
                     size="small"
-                    onClick={(e) => handleMenuOpen(e, property)}
-                  >
-                    <MoreVert />
-                  </IconButton>
+                    sx={{
+                      backgroundColor: 'rgba(255, 255, 255, 0.95)',
+                      backdropFilter: 'blur(10px)',
+                      fontWeight: 600,
+                      '& .MuiChip-icon': {
+                        fontSize: '16px',
+                      }
+                    }}
+                  />
                 </Box>
-
-                {/* Property type removed as it's not in the current Property interface */}
-
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 2 }}>
-                  <LocationOn fontSize="small" color="action" />
-                  <Typography variant="body2" color="text.secondary">
-                    {property.address}
-                  </Typography>
-                </Box>
-
-                <Grid container spacing={1} sx={{ mb: 2 }}>
-                  <Grid item xs={4}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                      <Bed fontSize="small" color="action" />
-                      <Typography variant="body2">{property.bedrooms}</Typography>
-                    </Box>
-                  </Grid>
-                  <Grid item xs={4}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                      <Group fontSize="small" color="action" />
-                      <Typography variant="body2">{property.maxGuests}</Typography>
-                    </Box>
-                  </Grid>
-                  <Grid item xs={4}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                      <AttachMoney fontSize="small" color="action" />
-                      <Typography variant="body2">R$ {property.basePrice}</Typography>
-                    </Box>
-                  </Grid>
-                </Grid>
-
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                
+                {/* Status Badge */}
+                <Box sx={{ position: 'absolute', top: 12, right: 12 }}>
                   <Chip
                     label={property.isActive ? 'Ativo' : 'Inativo'}
                     color={property.isActive ? 'success' : 'default'}
                     size="small"
                     icon={property.isActive ? <CheckCircle /> : <Block />}
+                    sx={{
+                      backgroundColor: property.isActive ? 'rgba(46, 125, 50, 0.9)' : 'rgba(158, 158, 158, 0.9)',
+                      color: 'white',
+                      fontWeight: 600,
+                      '& .MuiChip-icon': {
+                        color: 'white',
+                        fontSize: '16px',
+                      }
+                    }}
                   />
-                  <Typography variant="body2" color="text.secondary">
-                    {property.bedrooms} quartos • {property.bathrooms} banheiros
+                </Box>
+
+                {/* Hover Actions Overlay */}
+                <Box 
+                  className="property-actions"
+                  sx={{
+                    position: 'absolute',
+                    bottom: 0,
+                    left: 0,
+                    right: 0,
+                    background: 'linear-gradient(transparent, rgba(0,0,0,0.8))',
+                    p: 2,
+                    opacity: 0,
+                    transform: 'translateY(20px)',
+                    transition: 'all 0.3s ease-in-out',
+                    display: 'flex',
+                    gap: 1,
+                    justifyContent: 'center',
+                  }}
+                >
+                  <IconButton
+                    size="small"
+                    sx={{ 
+                      backgroundColor: 'rgba(255, 255, 255, 0.9)',
+                      color: 'primary.main',
+                      '&:hover': {
+                        backgroundColor: 'white',
+                        transform: 'scale(1.1)',
+                      }
+                    }}
+                    onClick={() => router.push(`/dashboard/properties/${property.id}`)}
+                  >
+                    <Visibility fontSize="small" />
+                  </IconButton>
+                  <IconButton
+                    size="small"
+                    sx={{ 
+                      backgroundColor: 'rgba(255, 255, 255, 0.9)',
+                      color: 'primary.main',
+                      '&:hover': {
+                        backgroundColor: 'white',
+                        transform: 'scale(1.1)',
+                      }
+                    }}
+                    onClick={() => router.push(`/dashboard/properties/${property.id}/edit`)}
+                  >
+                    <Edit fontSize="small" />
+                  </IconButton>
+                  <IconButton
+                    size="small"
+                    sx={{ 
+                      backgroundColor: 'rgba(255, 255, 255, 0.9)',
+                      color: 'primary.main',
+                      '&:hover': {
+                        backgroundColor: 'white',
+                        transform: 'scale(1.1)',
+                      }
+                    }}
+                    onClick={(e) => handleMenuOpen(e, property)}
+                  >
+                    <MoreVert fontSize="small" />
+                  </IconButton>
+                </Box>
+              </Box>
+              
+              <CardContent sx={{ flexGrow: 1, p: 2.5 }}>
+                <Typography 
+                  variant="h6" 
+                  component="h2" 
+                  sx={{ 
+                    fontWeight: 700,
+                    mb: 1,
+                    fontSize: '1.1rem',
+                    lineHeight: 1.3,
+                    display: '-webkit-box',
+                    WebkitLineClamp: 2,
+                    WebkitBoxOrient: 'vertical',
+                    overflow: 'hidden',
+                    textOverflow: 'ellipsis',
+                  }}
+                >
+                  {property.title}
+                </Typography>
+
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 2 }}>
+                  <LocationOn fontSize="small" color="action" />
+                  <Typography 
+                    variant="body2" 
+                    color="text.secondary"
+                    sx={{
+                      display: '-webkit-box',
+                      WebkitLineClamp: 1,
+                      WebkitBoxOrient: 'vertical',
+                      overflow: 'hidden',
+                      textOverflow: 'ellipsis',
+                    }}
+                  >
+                    {property.address}
                   </Typography>
                 </Box>
-              </CardContent>
 
-              <CardActions sx={{ justifyContent: 'space-between', px: 2, pb: 2 }}>
-                <Button
-                  size="small"
-                  startIcon={<Visibility />}
-                  onClick={() => router.push(`/dashboard/properties/${property.id}`)}
-                >
-                  Visualizar
-                </Button>
-                <Button
-                  size="small"
-                  color="primary"
-                  startIcon={<Edit />}
-                  onClick={() => router.push(`/dashboard/properties/${property.id}/edit`)}
-                >
-                  Editar
-                </Button>
-              </CardActions>
+                {/* Property Features */}
+                <Box sx={{ display: 'flex', gap: 2, mb: 2 }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                    <Bed fontSize="small" color="action" />
+                    <Typography variant="body2" fontWeight={600}>
+                      {property.bedrooms}
+                    </Typography>
+                  </Box>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                    <Group fontSize="small" color="action" />
+                    <Typography variant="body2" fontWeight={600}>
+                      {property.maxGuests}
+                    </Typography>
+                  </Box>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                    <AttachMoney fontSize="small" color="success.main" />
+                    <Typography variant="body2" fontWeight={700} color="success.main">
+                      R$ {property.basePrice}
+                    </Typography>
+                  </Box>
+                </Box>
+
+                {/* Additional Info */}
+                <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.85rem' }}>
+                  {property.bedrooms} quartos • {property.bathrooms} banheiros
+                </Typography>
+              </CardContent>
             </Card>
           </Grid>
         )))}

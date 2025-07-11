@@ -1,5 +1,5 @@
 // components/organisms/PropertyPricing/PropertyPricing.tsx
-import React from 'react'
+import React, { useState, useEffect } from 'react'
 import {
   Box,
   Grid,
@@ -8,7 +8,9 @@ import {
   alpha,
   InputAdornment,
   Divider,
-  Chip
+  Chip,
+  Tabs,
+  Tab
 } from '@mui/material'
 import { FormField, SelectField } from '@/components/molecules'
 import { Typography } from '@/components/atoms'
@@ -19,15 +21,38 @@ import {
   Group,
   Schedule,
   Payment,
-  Info
+  Info,
+  EventAvailable,
+  CalendarMonth
 } from '@mui/icons-material'
 import { 
   PaymentMethod, 
   PAYMENT_METHODS_LABELS 
 } from '@/lib/types/property'
+import { useFormContext } from 'react-hook-form'
+import PricingCalendar from '@/components/organisms/PricingCalendar/PricingCalendar'
+import AvailabilityCalendar from '@/components/organisms/AvailabilityCalendar/AvailabilityCalendar'
 
 export const PropertyPricing: React.FC = () => {
   const theme = useTheme()
+  const { watch, setValue } = useFormContext()
+  const [tabValue, setTabValue] = useState(0)
+  
+  const basePrice = watch('basePrice') || 0
+  const customPricing = watch('customPricing') || {}
+  const unavailableDates = watch('unavailableDates') || []
+
+  const handleCustomPricingChange = (prices: Record<string, number>) => {
+    setValue('customPricing', prices, { shouldDirty: true })
+  }
+
+  const handleUnavailableDatesChange = (dates: Date[]) => {
+    setValue('unavailableDates', dates, { shouldDirty: true })
+  }
+
+  const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
+    setTabValue(newValue)
+  }
 
   return (
     <Box>
@@ -252,6 +277,69 @@ export const PropertyPricing: React.FC = () => {
         ))}
 
         <Grid item xs={12}>
+          <Divider sx={{ my: 2 }}>
+            <Chip 
+              icon={<CalendarMonth />} 
+              label="Calendários de Preços e Disponibilidade" 
+              color="primary"
+            />
+          </Divider>
+        </Grid>
+
+        <Grid item xs={12}>
+          <Paper 
+            sx={{ 
+              p: 3,
+              borderRadius: 2,
+            }}
+          >
+            <Tabs 
+              value={tabValue} 
+              onChange={handleTabChange}
+              sx={{ mb: 3 }}
+            >
+              <Tab 
+                icon={<TrendingUp />} 
+                iconPosition="start" 
+                label="Preços Dinâmicos" 
+              />
+              <Tab 
+                icon={<EventAvailable />} 
+                iconPosition="start" 
+                label="Disponibilidade" 
+              />
+            </Tabs>
+
+            {tabValue === 0 && (
+              <Box>
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+                  Configure preços especiais para datas específicas, fins de semana, feriados ou temporadas.
+                  Os preços definidos aqui sobrescrevem o preço base.
+                </Typography>
+                <PricingCalendar
+                  basePrice={basePrice}
+                  specialPrices={customPricing}
+                  onPricesChange={handleCustomPricingChange}
+                />
+              </Box>
+            )}
+
+            {tabValue === 1 && (
+              <Box>
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+                  Marque as datas em que o imóvel não estará disponível para reserva.
+                  Útil para bloqueios pessoais, manutenção ou reservas existentes.
+                </Typography>
+                <AvailabilityCalendar
+                  unavailableDates={unavailableDates}
+                  onDatesChange={handleUnavailableDatesChange}
+                />
+              </Box>
+            )}
+          </Paper>
+        </Grid>
+
+        <Grid item xs={12}>
           <Paper 
             sx={{ 
               p: 3,
@@ -273,7 +361,7 @@ export const PropertyPricing: React.FC = () => {
                     Pesquise preços de imóveis similares na sua região
                   </Typography>
                   <Typography component="li" variant="body2" sx={{ mb: 1 }}>
-                    Considere ajustar preços para fins de semana e feriados
+                    Use os presets rápidos para fins de semana e feriados
                   </Typography>
                   <Typography component="li" variant="body2">
                     Uma taxa de limpeza adequada está entre R$ 50-150
@@ -283,13 +371,13 @@ export const PropertyPricing: React.FC = () => {
               <Grid item xs={12} md={6}>
                 <Box component="ul" sx={{ pl: 2, m: 0 }}>
                   <Typography component="li" variant="body2" sx={{ mb: 1 }}>
-                    Estadia mínima de 2-3 noites reduz rotatividade
+                    Dezembro geralmente tem demanda 10-20% maior
                   </Typography>
                   <Typography component="li" variant="body2" sx={{ mb: 1 }}>
-                    PIX normalmente tem desconto (0-5% menos)
+                    Bloqueie datas de manutenção preventivamente
                   </Typography>
                   <Typography component="li" variant="body2">
-                    Cartão pode ter acréscimo (2-5% mais)
+                    PIX normalmente tem desconto (0-5% menos)
                   </Typography>
                 </Box>
               </Grid>

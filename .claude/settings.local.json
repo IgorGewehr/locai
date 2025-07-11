@@ -24,7 +24,8 @@
       "Bash(touch:*)",
       "Bash(npx tsc:*)",
       "Bash(npm audit:*)",
-      "Bash(chmod:*)"
+      "Bash(chmod:*)",
+      "Bash(mkdir:*)"
     ],
     "deny": []
   }
