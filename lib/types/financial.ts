@@ -151,6 +151,324 @@ export enum CashFlowCategory {
   OTHER_EXPENSES = 'other_expenses'
 }
 
+// Metas Financeiras
+export interface FinancialGoal {
+  id: string
+  tenantId: string
+  name: string
+  description?: string
+  
+  // Tipo e categoria
+  type: GoalType
+  category: GoalCategory
+  metric: GoalMetric
+  
+  // Valores
+  targetValue: number
+  currentValue: number
+  startValue: number
+  
+  // Período
+  period: DateRange
+  frequency: GoalFrequency
+  
+  // Status
+  status: GoalStatus
+  progress: number // 0-100
+  
+  // Tracking
+  checkpoints: GoalCheckpoint[]
+  milestones: GoalMilestone[]
+  
+  // Alertas
+  alerts: GoalAlert[]
+  notificationSettings: NotificationSettings
+  
+  // Metadata
+  createdAt: Date
+  updatedAt: Date
+  createdBy: string
+  
+  // Comparações
+  comparison?: GoalComparison
+  forecast?: GoalForecast
+}
+
+export enum GoalType {
+  REVENUE = 'revenue',
+  OCCUPANCY = 'occupancy',
+  AVERAGE_TICKET = 'average_ticket',
+  BOOKINGS = 'bookings',
+  CUSTOMER_ACQUISITION = 'customer_acquisition',
+  RETENTION = 'retention',
+  PROFIT_MARGIN = 'profit_margin',
+  CUSTOM = 'custom'
+}
+
+export enum GoalCategory {
+  FINANCIAL = 'financial',
+  OPERATIONAL = 'operational',
+  GROWTH = 'growth',
+  EFFICIENCY = 'efficiency',
+  CUSTOMER = 'customer'
+}
+
+export enum GoalMetric {
+  // Financeiro
+  TOTAL_REVENUE = 'total_revenue',
+  NET_REVENUE = 'net_revenue',
+  GROSS_PROFIT = 'gross_profit',
+  NET_PROFIT = 'net_profit',
+  
+  // Operacional
+  OCCUPANCY_RATE = 'occupancy_rate',
+  ADR = 'adr',
+  REVPAR = 'revpar',
+  BOOKING_COUNT = 'booking_count',
+  
+  // Crescimento
+  MRR = 'mrr',
+  ARR = 'arr',
+  GROWTH_RATE = 'growth_rate',
+  NEW_CUSTOMERS = 'new_customers',
+  
+  // Eficiência
+  CAC = 'cac',
+  LTV = 'ltv',
+  CONVERSION_RATE = 'conversion_rate',
+  REPEAT_RATE = 'repeat_rate'
+}
+
+export enum GoalFrequency {
+  DAILY = 'daily',
+  WEEKLY = 'weekly',
+  MONTHLY = 'monthly',
+  QUARTERLY = 'quarterly',
+  YEARLY = 'yearly'
+}
+
+export enum GoalStatus {
+  DRAFT = 'draft',
+  ACTIVE = 'active',
+  PAUSED = 'paused',
+  COMPLETED = 'completed',
+  FAILED = 'failed',
+  ARCHIVED = 'archived'
+}
+
+export interface GoalCheckpoint {
+  id: string
+  date: Date
+  value: number
+  progress: number
+  notes?: string
+  automated: boolean
+}
+
+export interface GoalMilestone {
+  id: string
+  name: string
+  targetValue: number
+  targetDate: Date
+  achieved: boolean
+  achievedDate?: Date
+  reward?: string
+}
+
+export interface GoalAlert {
+  id: string
+  type: 'warning' | 'success' | 'info' | 'critical'
+  title: string
+  message: string
+  date: Date
+  read: boolean
+  actionRequired: boolean
+}
+
+export interface NotificationSettings {
+  enabled: boolean
+  channels: NotificationChannel[]
+  frequency: 'realtime' | 'daily' | 'weekly'
+  
+  // Gatilhos
+  onMilestone: boolean
+  onTarget: boolean
+  onDeviation: boolean
+  deviationThreshold: number // percentual
+  
+  // Destinatários
+  recipients: string[]
+}
+
+export enum NotificationChannel {
+  EMAIL = 'email',
+  WHATSAPP = 'whatsapp',
+  DASHBOARD = 'dashboard',
+  WEBHOOK = 'webhook'
+}
+
+export interface GoalComparison {
+  previousPeriod: {
+    value: number
+    progress: number
+    growth: number
+  }
+  
+  benchmark: {
+    industry: number
+    topPerformers: number
+    average: number
+  }
+  
+  projectedVsActual: {
+    projected: number
+    actual: number
+    variance: number
+    variancePercentage: number
+  }
+}
+
+export interface GoalForecast {
+  projectedValue: number
+  projectedDate: Date
+  confidence: number // 0-1
+  
+  scenarios: {
+    optimistic: ForecastScenario
+    realistic: ForecastScenario
+    pessimistic: ForecastScenario
+  }
+  
+  factors: ForecastFactor[]
+  recommendations: string[]
+}
+
+export interface ForecastScenario {
+  value: number
+  probability: number
+  assumptions: string[]
+}
+
+// Tracking de Performance de Metas
+export interface GoalPerformance {
+  goalId: string
+  period: DateRange
+  
+  // Métricas
+  actualValue: number
+  targetValue: number
+  progress: number
+  trend: 'up' | 'down' | 'stable'
+  
+  // Velocidade
+  dailyAverage: number
+  weeklyAverage: number
+  monthlyAverage: number
+  
+  // Projeções
+  projectedCompletion: Date
+  requiredDailyRate: number
+  currentPace: 'ahead' | 'on_track' | 'behind'
+  
+  // Análise
+  contributingFactors: ContributingFactor[]
+  blockers: string[]
+  opportunities: string[]
+}
+
+export interface ContributingFactor {
+  factor: string
+  impact: 'positive' | 'negative'
+  magnitude: 'low' | 'medium' | 'high'
+  description: string
+}
+
+// Dashboard de Metas
+export interface GoalsDashboard {
+  tenantId: string
+  period: DateRange
+  
+  // Resumo
+  summary: {
+    totalGoals: number
+    activeGoals: number
+    completedGoals: number
+    averageProgress: number
+    onTrackPercentage: number
+  }
+  
+  // Metas por status
+  goalsByStatus: Record<GoalStatus, number>
+  
+  // Metas por categoria
+  goalsByCategory: Record<GoalCategory, GoalCategoryStats>
+  
+  // Performance
+  topPerformers: GoalPerformance[]
+  needsAttention: GoalPerformance[]
+  recentlyCompleted: FinancialGoal[]
+  
+  // Insights
+  insights: GoalInsight[]
+  recommendations: GoalRecommendation[]
+}
+
+export interface GoalCategoryStats {
+  count: number
+  averageProgress: number
+  completionRate: number
+}
+
+export interface GoalInsight {
+  id: string
+  type: 'achievement' | 'risk' | 'opportunity' | 'trend'
+  title: string
+  description: string
+  goals: string[]
+  impact: 'low' | 'medium' | 'high'
+  createdAt: Date
+}
+
+export interface GoalRecommendation {
+  id: string
+  goalId: string
+  title: string
+  description: string
+  actions: string[]
+  expectedImpact: string
+  priority: 'low' | 'medium' | 'high' | 'critical'
+  category: 'strategy' | 'tactics' | 'resources' | 'timeline'
+}
+
+// Labels para metas
+export const GOAL_TYPE_LABELS = {
+  [GoalType.REVENUE]: 'Receita',
+  [GoalType.OCCUPANCY]: 'Ocupação',
+  [GoalType.AVERAGE_TICKET]: 'Ticket Médio',
+  [GoalType.BOOKINGS]: 'Reservas',
+  [GoalType.CUSTOMER_ACQUISITION]: 'Aquisição de Clientes',
+  [GoalType.RETENTION]: 'Retenção',
+  [GoalType.PROFIT_MARGIN]: 'Margem de Lucro',
+  [GoalType.CUSTOM]: 'Personalizada'
+}
+
+export const GOAL_CATEGORY_LABELS = {
+  [GoalCategory.FINANCIAL]: 'Financeira',
+  [GoalCategory.OPERATIONAL]: 'Operacional',
+  [GoalCategory.GROWTH]: 'Crescimento',
+  [GoalCategory.EFFICIENCY]: 'Eficiência',
+  [GoalCategory.CUSTOMER]: 'Cliente'
+}
+
+export const GOAL_STATUS_LABELS = {
+  [GoalStatus.DRAFT]: 'Rascunho',
+  [GoalStatus.ACTIVE]: 'Ativa',
+  [GoalStatus.PAUSED]: 'Pausada',
+  [GoalStatus.COMPLETED]: 'Concluída',
+  [GoalStatus.FAILED]: 'Não Alcançada',
+  [GoalStatus.ARCHIVED]: 'Arquivada'
+}
+
 // Relatórios
 export interface FinancialReport {
   id: string

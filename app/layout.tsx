@@ -3,7 +3,7 @@ import { AppRouterCacheProvider } from '@mui/material-nextjs/v14-appRouter';
 import { ThemeProvider } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
 import { Toaster } from 'react-hot-toast';
-import { lightTheme } from '@/theme/theme';
+import { darkTheme } from '@/theme/theme';
 import { AuthProvider } from '@/contexts/AuthContext';
 import '@/styles/globals.css';
 
@@ -22,7 +22,7 @@ export default function RootLayout({
     <html lang="pt-BR">
       <body>
         <AppRouterCacheProvider>
-          <ThemeProvider theme={lightTheme}>
+          <ThemeProvider theme={darkTheme}>
             <CssBaseline />
             <AuthProvider>
               {children}
@@ -31,8 +31,12 @@ export default function RootLayout({
                 toastOptions={{
                   duration: 4000,
                   style: {
-                    background: '#363636',
-                    color: '#fff',
+                    background: 'rgba(15, 15, 15, 0.95)',
+                    color: 'rgba(255, 255, 255, 0.9)',
+                    border: '1px solid rgba(255, 255, 255, 0.1)',
+                    borderRadius: '12px',
+                    backdropFilter: 'blur(20px)',
+                    boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3)',
                   },
                 }}
               />

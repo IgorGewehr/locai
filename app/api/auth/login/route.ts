@@ -1,90 +1,144 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { apiResponse } from '@/lib/utils/api-response';
-import * as yup from 'yup';
+import { withErrorHandler, successResponse } from '@/lib/middleware/error-handler';
+import { applySecurityMeasures } from '@/lib/middleware/security';
+import { authRateLimit, applyRateLimitHeaders } from '@/lib/middleware/rate-limit';
+import { loginSchema } from '@/lib/validation/schemas';
+import { auth } from '@/lib/firebase/admin';
+import { generateJWT } from '@/lib/middleware/auth';
+import { FirestoreService } from '@/lib/firebase/firestore';
 import bcrypt from 'bcryptjs';
+import { z } from 'zod';
 
-// Validation schema
-const loginSchema = yup.object().shape({
-  email: yup
-    .string()
-    .email('Email inválido')
-    .required('Email é obrigatório'),
-  password: yup
-    .string()
-    .min(6, 'Senha deve ter pelo menos 6 caracteres')
-    .required('Senha é obrigatória'),
-});
+// User interface
+interface User {
+  id: string;
+  email: string;
+  name: string;
+  role: 'admin' | 'agent' | 'user';
+  tenantId: string;
+  passwordHash?: string;
+  firebaseUid?: string;
+  createdAt: Date;
+  lastLogin?: Date;
+  isActive: boolean;
+}
 
-// Mock user database - In production, this would be a real database
-const MOCK_USERS = [
-  {
-    id: '1',
-    email: 'admin@locai.com',
-    name: 'Administrador',
-    role: 'admin' as const,
-    tenantId: 'tenant-1',
-    // Password: admin123 (hashed)
-    passwordHash: '$2b$12$zDQxiEnS9MoA4mNndTGit.puohpwpoG6dYSdRCTk2WjESgsKnPa.O',
-    createdAt: new Date('2024-01-01'),
-    lastLogin: new Date(),
-  },
-  {
-    id: '2',
-    email: 'user@locai.com',
-    name: 'Usuário',
-    role: 'user' as const,
-    tenantId: 'tenant-1',
-    // Password: user123 (hashed)
-    passwordHash: '$2b$12$igrpbxh3QWwQlitYluFAUudL./Ky0Jvmh/NVBTZtLia77HCQnlKjm',
-    createdAt: new Date('2024-01-01'),
-    lastLogin: new Date(),
-  },
-];
+// Initialize Firestore service for users
+const userService = new FirestoreService<User>('users');
 
-export async function POST(request: NextRequest) {
+export const POST = withErrorHandler(async (request: NextRequest) => {
+  // Apply rate limiting
+  const rateLimitResponse = await authRateLimit(request);
+  if (rateLimitResponse) return rateLimitResponse;
+
+  // Parse and validate body
+  const body = await request.json();
+  const validatedData = loginSchema.parse(body);
+  const { email, password, tenantId } = validatedData;
+
+  // Determine tenant
+  const effectiveTenantId = tenantId || process.env.NEXT_PUBLIC_TENANT_ID || 'default';
+
   try {
-    const body = await request.json();
+    // Try Firebase authentication first
+    const firebaseUser = await auth.getUserByEmail(email).catch(() => null);
     
-    // Validate input
-    try {
-      await loginSchema.validate(body);
-    } catch (validationError: any) {
-      return apiResponse.error(
-        validationError.message,
-        400,
-        'VALIDATION_ERROR'
-      );
-    }
-    
-    const { email, password } = body;
+    if (firebaseUser) {
+      // Generate custom token for Firebase user
+      const customToken = await auth.createCustomToken(firebaseUser.uid, {
+        email: firebaseUser.email,
+        role: firebaseUser.customClaims?.role || 'user',
+        tenantId: effectiveTenantId,
+      });
 
-    // Find user by email
-    const user = MOCK_USERS.find(u => u.email.toLowerCase() === email.toLowerCase());
-    
-    if (!user) {
-      return apiResponse.error(
-        'Credenciais inválidas',
-        401,
-        'INVALID_CREDENTIALS'
-      );
+      // Get or create user document
+      let user = await userService.findOne([
+        ['firebaseUid', '==', firebaseUser.uid],
+        ['tenantId', '==', effectiveTenantId]
+      ]);
+
+      if (!user) {
+        // Create user document
+        user = await userService.create({
+          email: firebaseUser.email!,
+          name: firebaseUser.displayName || firebaseUser.email!.split('@')[0],
+          role: firebaseUser.customClaims?.role || 'user',
+          tenantId: effectiveTenantId,
+          firebaseUid: firebaseUser.uid,
+          createdAt: new Date(),
+          lastLogin: new Date(),
+          isActive: true,
+        });
+      } else {
+        // Update last login
+        await userService.update(user.id, { lastLogin: new Date() });
+      }
+
+      // Generate JWT
+      const jwt = generateJWT({
+        uid: user.id,
+        email: user.email,
+        tenantId: user.tenantId,
+        role: user.role,
+      });
+
+      const response = successResponse({
+        user: {
+          id: user.id,
+          email: user.email,
+          name: user.name,
+          role: user.role,
+          tenantId: user.tenantId,
+        },
+        token: jwt,
+        firebaseToken: customToken,
+      });
+
+      // Set auth cookie
+      response.cookies.set('auth-token', jwt, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        maxAge: 7 * 24 * 60 * 60, // 7 days
+        path: '/',
+      });
+
+      // Apply security headers
+      applySecurityMeasures(request, response);
+      applyRateLimitHeaders(request, response);
+
+      return response;
+    }
+
+    // Fall back to database authentication
+    const user = await userService.findOne([
+      ['email', '==', email.toLowerCase()],
+      ['tenantId', '==', effectiveTenantId],
+      ['isActive', '==', true]
+    ]);
+
+    if (!user || !user.passwordHash) {
+      throw new Error('Invalid credentials');
     }
 
     // Verify password
     const isValidPassword = await bcrypt.compare(password, user.passwordHash);
-    
     if (!isValidPassword) {
-      return apiResponse.error(
-        'Credenciais inválidas',
-        401,
-        'INVALID_CREDENTIALS'
-      );
+      throw new Error('Invalid credentials');
     }
 
-    // Simple token (in production would use proper JWT)
-    const token = Buffer.from(`${user.id}:${user.email}:${Date.now()}`).toString('base64');
+    // Update last login
+    await userService.update(user.id, { lastLogin: new Date() });
 
-    // Set HTTP-only cookie
-    const response = apiResponse.success({
+    // Generate JWT
+    const jwt = generateJWT({
+      uid: user.id,
+      email: user.email,
+      tenantId: user.tenantId,
+      role: user.role,
+    });
+
+    const response = successResponse({
       user: {
         id: user.id,
         email: user.email,
@@ -92,11 +146,11 @@ export async function POST(request: NextRequest) {
         role: user.role,
         tenantId: user.tenantId,
       },
-      token,
+      token: jwt,
     });
 
     // Set auth cookie
-    response.cookies.set('auth-token', token, {
+    response.cookies.set('auth-token', jwt, {
       httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
@@ -104,15 +158,14 @@ export async function POST(request: NextRequest) {
       path: '/',
     });
 
+    // Apply security headers
+    applySecurityMeasures(request, response);
+    applyRateLimitHeaders(request, response);
+
     return response;
 
-  } catch (error) {
-    console.error('Login error:', error);
-    
-    return apiResponse.error(
-      'Erro interno do servidor',
-      500,
-      'INTERNAL_SERVER_ERROR'
-    );
+  } catch (error: any) {
+    // Generic error message to prevent user enumeration
+    throw new Error('Invalid credentials');
   }
-}
+});

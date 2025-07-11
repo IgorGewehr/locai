@@ -62,6 +62,7 @@ import {
 } from 'recharts';
 import { format, startOfMonth, endOfMonth, subMonths } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import FinancialGoals from '@/components/dashboard/goals/FinancialGoals';
 
 // Mock data for charts
 const revenueData = [
@@ -275,6 +276,7 @@ export default function AnalyticsPage() {
             <Tab label="Propriedades" icon={<Home />} iconPosition="start" />
             <Tab label="Métodos de Pagamento" icon={<Assessment />} iconPosition="start" />
             <Tab label="Origem das Reservas" icon={<People />} iconPosition="start" />
+            <Tab label="Metas Financeiras" icon={<ShowChart />} iconPosition="start" />
           </Tabs>
         </Box>
 
@@ -490,6 +492,11 @@ export default function AnalyticsPage() {
                 </Grid>
               </Grid>
             </Box>
+          </TabPanel>
+
+          {/* Financial Goals Tab */}
+          <TabPanel value={activeTab} index={4}>
+            <FinancialGoals />
           </TabPanel>
         </CardContent>
       </Card>

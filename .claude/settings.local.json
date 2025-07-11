@@ -18,7 +18,10 @@
       "Bash(pkill:*)",
       "Bash(true)",
       "Bash(node:*)",
-      "Bash(rm:*)"
+      "Bash(rm:*)",
+      "Bash(npm run build:*)",
+      "Bash(npm run lint:*)",
+      "Bash(touch:*)"
     ],
     "deny": []
   }

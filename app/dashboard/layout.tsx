@@ -69,12 +69,13 @@ export default function DashboardLayout({
           component="main"
           sx={mainContentStyles}
         >
-          <Toolbar />
+          <Toolbar sx={{ minHeight: { xs: 64, sm: 72 } }} />
           <Box sx={{ 
             flex: 1,
-            p: { xs: 2, sm: 3, md: 4 },
+            p: { xs: 3, sm: 4, md: 5 },
             maxWidth: '100%',
-            overflow: 'hidden'
+            overflow: 'hidden',
+            background: 'transparent',
           }}>
             {children}
           </Box>

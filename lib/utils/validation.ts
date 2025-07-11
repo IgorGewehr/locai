@@ -1,4 +1,6 @@
 import { ValidationError } from './errors'
+import { z } from 'zod'
+import DOMPurify from 'isomorphic-dompurify'
 
 export function validatePhoneNumber(phone: string): string {
   if (!phone) {
@@ -43,10 +45,47 @@ export function sanitizeUserInput(input: string): string {
     return ''
   }
 
-  return input
+  // Use DOMPurify for comprehensive sanitization
+  const cleaned = DOMPurify.sanitize(input, {
+    ALLOWED_TAGS: [], // No HTML tags allowed
+    ALLOWED_ATTR: [],
+    KEEP_CONTENT: true,
+  })
+
+  return cleaned
     .trim()
-    .replace(/[<>]/g, '') // Remove potential HTML tags
     .slice(0, 4000) // Limit length to prevent memory issues
+}
+
+// Sanitize SQL-like input to prevent injection
+export function sanitizeSQLInput(input: string): string {
+  if (!input || typeof input !== 'string') {
+    return ''
+  }
+
+  return input
+    .replace(/['"\\]/g, '') // Remove quotes and backslashes
+    .replace(/--/g, '') // Remove SQL comments
+    .replace(/\/\*/g, '') // Remove multi-line comments
+    .replace(/;/g, '') // Remove semicolons
+    .trim()
+}
+
+// Validate and sanitize JSON input
+export function validateJSON(input: string): any {
+  try {
+    const parsed = JSON.parse(input)
+    // Additional validation to prevent prototype pollution
+    if (parsed && typeof parsed === 'object') {
+      const hasProto = '__proto__' in parsed || 'constructor' in parsed || 'prototype' in parsed
+      if (hasProto) {
+        throw new ValidationError('Invalid JSON: contains forbidden properties', 'json')
+      }
+    }
+    return parsed
+  } catch (error) {
+    throw new ValidationError('Invalid JSON format', 'json')
+  }
 }
 
 export function validateMessageContent(content: string): string {
@@ -174,6 +213,179 @@ export function validatePropertySearchCriteria(criteria: any): void {
     
     if (checkIn > maxFutureDate) {
       throw new ValidationError('Check-in date is too far in the future', 'checkIn')
+    }
+  }
+}
+
+export function validateFinancialGoal(goal: any): { valid: boolean; errors: string[] } {
+  const errors: string[] = []
+
+  // Required fields
+  if (!goal || typeof goal !== 'object') {
+    errors.push('Invalid goal data')
+    return { valid: false, errors }
+  }
+
+  if (!goal.name || goal.name.trim().length === 0) {
+    errors.push('Goal name is required')
+  }
+
+  if (!goal.type) {
+    errors.push('Goal type is required')
+  }
+
+  if (!goal.category) {
+    errors.push('Goal category is required')
+  }
+
+  if (!goal.metric) {
+    errors.push('Goal metric is required')
+  }
+
+  // Validate numbers
+  if (goal.targetValue === null || goal.targetValue === undefined) {
+    errors.push('Target value is required')
+  } else if (isNaN(Number(goal.targetValue))) {
+    errors.push('Target value must be a number')
+  }
+
+  if (goal.startValue !== null && goal.startValue !== undefined && isNaN(Number(goal.startValue))) {
+    errors.push('Start value must be a number')
+  }
+
+  // Validate target > start for most metrics
+  if (goal.targetValue !== undefined && goal.startValue !== undefined) {
+    const target = Number(goal.targetValue)
+    const start = Number(goal.startValue)
+    
+    // For most metrics, target should be greater than start
+    if (!['churn_rate', 'cac'].includes(goal.metric) && target <= start) {
+      errors.push('Target value must be greater than start value')
+    }
+  }
+
+  // Validate dates
+  if (!goal.period || !goal.period.start || !goal.period.end) {
+    errors.push('Goal period (start and end dates) is required')
+  } else {
+    try {
+      const startDate = validateDate(goal.period.start, 'Start date')
+      const endDate = validateDate(goal.period.end, 'End date')
+      
+      if (endDate <= startDate) {
+        errors.push('End date must be after start date')
+      }
+      
+      // Max goal duration: 5 years
+      const yearsDiff = (endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24 * 365)
+      if (yearsDiff > 5) {
+        errors.push('Goal duration cannot exceed 5 years')
+      }
+    } catch (error) {
+      if (error instanceof ValidationError) {
+        errors.push(error.message)
+      }
+    }
+  }
+
+  // Validate frequency
+  if (!goal.frequency) {
+    errors.push('Goal frequency is required')
+  }
+
+  // Validate status
+  if (!goal.status) {
+    errors.push('Goal status is required')
+  }
+
+  // Validate milestones if present
+  if (goal.milestones && Array.isArray(goal.milestones)) {
+    goal.milestones.forEach((milestone: any, index: number) => {
+      if (!milestone.name || milestone.name.trim().length === 0) {
+        errors.push(`Milestone ${index + 1}: name is required`)
+      }
+      
+      if (milestone.targetValue === null || milestone.targetValue === undefined) {
+        errors.push(`Milestone ${index + 1}: target value is required`)
+      }
+      
+      if (!milestone.targetDate) {
+        errors.push(`Milestone ${index + 1}: target date is required`)
+      } else {
+        try {
+          const targetDate = validateDate(milestone.targetDate, 'Milestone date')
+          
+          // Milestone should be within goal period
+          if (goal.period && goal.period.start && goal.period.end) {
+            const start = new Date(goal.period.start)
+            const end = new Date(goal.period.end)
+            
+            if (targetDate < start || targetDate > end) {
+              errors.push(`Milestone ${index + 1}: date must be within goal period`)
+            }
+          }
+        } catch (error) {
+          if (error instanceof ValidationError) {
+            errors.push(`Milestone ${index + 1}: ${error.message}`)
+          }
+        }
+      }
+    })
+  }
+
+  // Validate notification settings if present
+  if (goal.notificationSettings) {
+    if (goal.notificationSettings.deviationThreshold !== undefined) {
+      const threshold = Number(goal.notificationSettings.deviationThreshold)
+      if (isNaN(threshold) || threshold < 0 || threshold > 100) {
+        errors.push('Deviation threshold must be between 0 and 100')
+      }
+    }
+    
+    if (goal.notificationSettings.recipients && Array.isArray(goal.notificationSettings.recipients)) {
+      goal.notificationSettings.recipients.forEach((email: string, index: number) => {
+        try {
+          validateEmail(email)
+        } catch (error) {
+          errors.push(`Recipient ${index + 1}: invalid email format`)
+        }
+      })
+    }
+  }
+
+  // Validate tenant ID if present
+  if (goal.tenantId) {
+    try {
+      validateTenantId(goal.tenantId)
+    } catch (error) {
+      errors.push('Invalid tenant ID')
+    }
+  }
+
+  return {
+    valid: errors.length === 0,
+    errors
+  }
+}
+
+export function validateGoalCheckpoint(checkpoint: any): void {
+  if (!checkpoint || typeof checkpoint !== 'object') {
+    throw new ValidationError('Invalid checkpoint data', 'checkpoint')
+  }
+
+  if (checkpoint.value === null || checkpoint.value === undefined) {
+    throw new ValidationError('Checkpoint value is required', 'value')
+  }
+
+  const value = Number(checkpoint.value)
+  if (isNaN(value)) {
+    throw new ValidationError('Checkpoint value must be a number', 'value')
+  }
+
+  if (checkpoint.notes && typeof checkpoint.notes === 'string') {
+    const sanitized = sanitizeUserInput(checkpoint.notes)
+    if (sanitized.length > 500) {
+      throw new ValidationError('Checkpoint notes cannot exceed 500 characters', 'notes')
     }
   }
 }

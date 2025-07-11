@@ -1,44 +1,96 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { FirestoreService } from '@/lib/firebase/firestore';
-import { Reservation, Property, Conversation } from '@/lib/types';
+import { Reservation, Property, Conversation, Payment } from '@/lib/types';
+import { PaymentMethod, PaymentStatus } from '@/lib/types/reservation';
 import { startOfMonth, endOfMonth, subMonths, format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { z } from 'zod';
+import { authMiddleware } from '@/lib/middleware/auth';
+import { rateLimiters } from '@/lib/utils/rate-limiter';
+import { handleApiError } from '@/lib/utils/api-errors';
+import { ValidationError } from '@/lib/utils/errors';
 
 const reservationService = new FirestoreService<Reservation>('reservations');
 const propertyService = new FirestoreService<Property>('properties');
 const conversationService = new FirestoreService<Conversation>('conversations');
+const paymentService = new FirestoreService<Payment>('payments');
+
+// Validation schemas
+const analyticsQuerySchema = z.object({
+  type: z.enum(['overview', 'revenue', 'properties', 'conversions', 'charts']).default('overview'),
+  period: z.string().regex(/^(week|month|quarter|year|\d+months)$/).default('month')
+});
+
+const PAYMENT_METHOD_LABELS = {
+  [PaymentMethod.PIX]: 'PIX',
+  [PaymentMethod.CREDIT_CARD]: 'Cartão Crédito',
+  [PaymentMethod.DEBIT_CARD]: 'Cartão Débito',
+  [PaymentMethod.CASH]: 'Dinheiro',
+  [PaymentMethod.BANK_TRANSFER]: 'Transferência',
+  [PaymentMethod.BANK_SLIP]: 'Boleto'
+};
+
+const PAYMENT_METHOD_COLORS = {
+  [PaymentMethod.PIX]: '#00875A',
+  [PaymentMethod.CREDIT_CARD]: '#1976D2',
+  [PaymentMethod.DEBIT_CARD]: '#42A5F5',
+  [PaymentMethod.CASH]: '#FF9800',
+  [PaymentMethod.BANK_TRANSFER]: '#90CAF9',
+  [PaymentMethod.BANK_SLIP]: '#9C27B0'
+};
 
 export async function GET(request: NextRequest) {
   try {
+    // Apply rate limiting
+    await rateLimiters.api.checkLimit({
+      ip: request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || 'unknown',
+      headers: request.headers
+    });
+
+    // Check authentication
+    const authResult = await authMiddleware(request, {
+      requireRole: ['admin', 'agent']
+    });
+
+    if (!authResult.success) {
+      return authResult.response!;
+    }
+
+    const authContext = authResult.context!;
+
+    // Parse and validate query parameters
     const { searchParams } = new URL(request.url);
-    const type = searchParams.get('type') || 'overview';
-    const period = searchParams.get('period') || 'month';
+    const queryParams = {
+      type: searchParams.get('type'),
+      period: searchParams.get('period')
+    };
+
+    const validatedParams = analyticsQuerySchema.parse(queryParams);
     
-    switch (type) {
+    // Add tenant context to all queries
+    const tenantId = authContext.tenantId;
+    
+    switch (validatedParams.type) {
       case 'overview':
-        return await getOverviewAnalytics(period);
+        return await getOverviewAnalytics(validatedParams.period, tenantId);
       case 'revenue':
-        return await getRevenueAnalytics(period);
+        return await getRevenueAnalytics(validatedParams.period, tenantId);
       case 'properties':
-        return await getPropertiesAnalytics();
+        return await getPropertiesAnalytics(tenantId);
       case 'conversions':
-        return await getConversionsAnalytics();
+        return await getConversionsAnalytics(tenantId);
       case 'charts':
-        return await getChartsData(period);
+        return await getChartsData(validatedParams.period, tenantId);
       default:
-        return NextResponse.json({ error: 'Invalid analytics type' }, { status: 400 });
+        throw new ValidationError('Invalid analytics type');
     }
 
   } catch (error) {
-    console.error('Error fetching analytics:', error);
-    return NextResponse.json(
-      { error: 'Failed to fetch analytics data' },
-      { status: 500 }
-    );
+    return handleApiError(error);
   }
 }
 
-async function getOverviewAnalytics(period: string) {
+async function getOverviewAnalytics(period: string, tenantId: string) {
   try {
     const now = new Date();
     let startDate: Date;
@@ -66,14 +118,17 @@ async function getOverviewAnalytics(period: string) {
         endDate = endOfMonth(now);
     }
 
-    // Get reservations in period
+    // Get reservations in period for this tenant
     const reservations = await reservationService.getMany([
+      { field: 'tenantId', operator: '==', value: tenantId },
       { field: 'createdAt', operator: '>=', value: startDate },
       { field: 'createdAt', operator: '<=', value: endDate }
     ]);
 
-    // Get all properties for totals
-    const properties = await propertyService.getAll();
+    // Get all properties for this tenant
+    const properties = await propertyService.getMany([
+      { field: 'tenantId', operator: '==', value: tenantId }
+    ]);
     const activeProperties = properties.filter(p => p.status === 'active');
 
     // Calculate metrics
@@ -103,6 +158,7 @@ async function getOverviewAnalytics(period: string) {
     previousEndDate.setTime(endDate.getTime() - periodDiff);
 
     const previousReservations = await reservationService.getMany([
+      { field: 'tenantId', operator: '==', value: tenantId },
       { field: 'createdAt', operator: '>=', value: previousStartDate },
       { field: 'createdAt', operator: '<=', value: previousEndDate }
     ]);
@@ -138,8 +194,8 @@ async function getOverviewAnalytics(period: string) {
         reservations: reservationGrowth,
       },
       trends: {
-        dailyRevenue: await getDailyRevenueTrend(startDate, endDate),
-        monthlyGrowth: await getMonthlyGrowthTrend(),
+        dailyRevenue: await getDailyRevenueTrend(startDate, endDate, tenantId),
+        monthlyGrowth: await getMonthlyGrowthTrend(tenantId),
       }
     });
 
@@ -149,13 +205,14 @@ async function getOverviewAnalytics(period: string) {
   }
 }
 
-async function getRevenueAnalytics(period: string) {
+async function getRevenueAnalytics(period: string, tenantId: string) {
   try {
     const months = parseInt(period.replace('months', '')) || 6;
     const endDate = new Date();
     const startDate = subMonths(endDate, months);
 
     const reservations = await reservationService.getMany([
+      { field: 'tenantId', operator: '==', value: tenantId },
       { field: 'createdAt', operator: '>=', value: startDate },
       { field: 'createdAt', operator: '<=', value: endDate }
     ]);
@@ -197,10 +254,14 @@ async function getRevenueAnalytics(period: string) {
   }
 }
 
-async function getPropertiesAnalytics() {
+async function getPropertiesAnalytics(tenantId: string) {
   try {
-    const properties = await propertyService.getAll();
-    const reservations = await reservationService.getAll();
+    const properties = await propertyService.getMany([
+      { field: 'tenantId', operator: '==', value: tenantId }
+    ]);
+    const reservations = await reservationService.getMany([
+      { field: 'tenantId', operator: '==', value: tenantId }
+    ]);
 
     const propertyPerformance = properties.map(property => {
       const propertyReservations = reservations.filter(r => 
@@ -247,10 +308,14 @@ async function getPropertiesAnalytics() {
   }
 }
 
-async function getConversionsAnalytics() {
+async function getConversionsAnalytics(tenantId: string) {
   try {
-    const conversations = await conversationService.getAll();
-    const reservations = await reservationService.getAll();
+    const conversations = await conversationService.getMany([
+      { field: 'tenantId', operator: '==', value: tenantId }
+    ]);
+    const reservations = await reservationService.getMany([
+      { field: 'tenantId', operator: '==', value: tenantId }
+    ]);
 
     const whatsappConversations = conversations.filter(c => c.whatsappPhone);
     const conversionsFromWhatsApp = reservations.filter(r => r.source === 'whatsapp_ai');
@@ -263,7 +328,8 @@ async function getConversionsAnalytics() {
       whatsapp_ai: reservations.filter(r => r.source === 'whatsapp_ai').length,
       manual: reservations.filter(r => r.source === 'manual').length,
       website: reservations.filter(r => r.source === 'website').length,
-      partner: reservations.filter(r => r.source === 'partner').length,
+      phone: reservations.filter(r => r.source === 'phone').length,
+      email: reservations.filter(r => r.source === 'email').length,
     };
 
     const revenueBySource = {
@@ -276,8 +342,11 @@ async function getConversionsAnalytics() {
       website: reservations
         .filter(r => r.source === 'website')
         .reduce((sum, r) => sum + r.totalAmount, 0),
-      partner: reservations
-        .filter(r => r.source === 'partner')
+      phone: reservations
+        .filter(r => r.source === 'phone')
+        .reduce((sum, r) => sum + r.totalAmount, 0),
+      email: reservations
+        .filter(r => r.source === 'email')
         .reduce((sum, r) => sum + r.totalAmount, 0),
     };
 
@@ -294,8 +363,8 @@ async function getConversionsAnalytics() {
         revenue: revenueBySource,
       },
       performance: {
-        averageResponseTime: 2.5, // This would come from message timestamps
-        customerSatisfaction: 4.6, // This would come from ratings
+        averageResponseTime: await calculateAverageResponseTime(conversations),
+        customerSatisfaction: await calculateCustomerSatisfaction(tenantId),
         whatsappEffectiveness: Math.round(conversionRate),
       }
     });
@@ -306,29 +375,74 @@ async function getConversionsAnalytics() {
   }
 }
 
-async function getChartsData(period: string) {
+async function getChartsData(period: string, tenantId: string) {
   try {
     const months = 6;
-    const data = await getRevenueAnalytics(`${months}months`);
+    const data = await getRevenueAnalytics(`${months}months`, tenantId);
     
-    // Payment methods data (mock - would come from payment service)
-    const paymentMethods = [
-      { name: 'PIX', value: 45, color: '#00875A' },
-      { name: 'Cartão Crédito', value: 30, color: '#1976D2' },
-      { name: 'Cartão Débito', value: 15, color: '#42A5F5' },
-      { name: 'Transferência', value: 10, color: '#90CAF9' },
-    ];
+    // Get real payment data
+    const endDate = new Date();
+    const startDate = subMonths(endDate, months);
+    
+    const payments = await paymentService.getMany([
+      { field: 'tenantId', operator: '==', value: tenantId },
+      { field: 'paidDate', operator: '>=', value: startDate },
+      { field: 'paidDate', operator: '<=', value: endDate },
+      { field: 'status', operator: '==', value: PaymentStatus.PAID }
+    ]);
+
+    // Calculate payment methods distribution
+    const paymentMethodCounts = payments.reduce((acc, payment) => {
+      acc[payment.method] = (acc[payment.method] || 0) + 1;
+      return acc;
+    }, {} as Record<PaymentMethod, number>);
+
+    const totalPayments = payments.length;
+    const paymentMethods = Object.entries(paymentMethodCounts).map(([method, count]) => ({
+      name: PAYMENT_METHOD_LABELS[method as PaymentMethod],
+      value: Math.round((count / totalPayments) * 100),
+      color: PAYMENT_METHOD_COLORS[method as PaymentMethod]
+    }));
+
+    // Get real source data from reservations
+    const reservations = await reservationService.getMany([
+      { field: 'tenantId', operator: '==', value: tenantId },
+      { field: 'createdAt', operator: '>=', value: startDate },
+      { field: 'createdAt', operator: '<=', value: endDate },
+      { field: 'status', operator: '!=', value: 'cancelled' }
+    ]);
 
     const sourceData = [
-      { source: 'WhatsApp AI', bookings: 145, revenue: 87500 },
-      { source: 'Website', bookings: 52, revenue: 31200 },
-      { source: 'Manual', bookings: 23, revenue: 13800 },
-      { source: 'Parceiros', bookings: 18, revenue: 10800 },
-    ];
+      { 
+        source: 'WhatsApp AI', 
+        bookings: reservations.filter(r => r.source === 'whatsapp_ai').length,
+        revenue: reservations.filter(r => r.source === 'whatsapp_ai').reduce((sum, r) => sum + r.totalAmount, 0)
+      },
+      { 
+        source: 'Website', 
+        bookings: reservations.filter(r => r.source === 'website').length,
+        revenue: reservations.filter(r => r.source === 'website').reduce((sum, r) => sum + r.totalAmount, 0)
+      },
+      { 
+        source: 'Manual', 
+        bookings: reservations.filter(r => r.source === 'manual').length,
+        revenue: reservations.filter(r => r.source === 'manual').reduce((sum, r) => sum + r.totalAmount, 0)
+      },
+      { 
+        source: 'Telefone', 
+        bookings: reservations.filter(r => r.source === 'phone').length,
+        revenue: reservations.filter(r => r.source === 'phone').reduce((sum, r) => sum + r.totalAmount, 0)
+      },
+      { 
+        source: 'E-mail', 
+        bookings: reservations.filter(r => r.source === 'email').length,
+        revenue: reservations.filter(r => r.source === 'email').reduce((sum, r) => sum + r.totalAmount, 0)
+      },
+    ].filter(s => s.bookings > 0); // Only include sources with actual bookings
 
     return NextResponse.json({
       revenue: data,
-      paymentMethods,
+      paymentMethods: paymentMethods.length > 0 ? paymentMethods : getDefaultPaymentMethods(),
       sources: sourceData,
     });
 
@@ -338,12 +452,123 @@ async function getChartsData(period: string) {
   }
 }
 
-async function getDailyRevenueTrend(startDate: Date, endDate: Date) {
-  // Implementation for daily revenue trend
-  return [];
+async function getDailyRevenueTrend(startDate: Date, endDate: Date, tenantId: string) {
+  try {
+    const reservations = await reservationService.getMany([
+      { field: 'tenantId', operator: '==', value: tenantId },
+      { field: 'createdAt', operator: '>=', value: startDate },
+      { field: 'createdAt', operator: '<=', value: endDate },
+      { field: 'status', operator: '!=', value: 'cancelled' }
+    ]);
+
+    const dailyRevenue: Record<string, number> = {};
+    
+    reservations.forEach(reservation => {
+      const dateKey = format(new Date(reservation.createdAt), 'yyyy-MM-dd');
+      dailyRevenue[dateKey] = (dailyRevenue[dateKey] || 0) + reservation.totalAmount;
+    });
+
+    return Object.entries(dailyRevenue).map(([date, revenue]) => ({
+      date,
+      revenue
+    })).sort((a, b) => a.date.localeCompare(b.date));
+  } catch (error) {
+    console.error('Error calculating daily revenue trend:', error);
+    return [];
+  }
 }
 
-async function getMonthlyGrowthTrend() {
-  // Implementation for monthly growth trend
-  return [];
+async function getMonthlyGrowthTrend(tenantId: string) {
+  try {
+    const months = 12;
+    const endDate = new Date();
+    const monthlyGrowth = [];
+    
+    for (let i = 1; i < months; i++) {
+      const currentMonthStart = startOfMonth(subMonths(endDate, i));
+      const currentMonthEnd = endOfMonth(currentMonthStart);
+      const previousMonthStart = startOfMonth(subMonths(endDate, i + 1));
+      const previousMonthEnd = endOfMonth(previousMonthStart);
+      
+      const [currentReservations, previousReservations] = await Promise.all([
+        reservationService.getMany([
+          { field: 'tenantId', operator: '==', value: tenantId },
+          { field: 'createdAt', operator: '>=', value: currentMonthStart },
+          { field: 'createdAt', operator: '<=', value: currentMonthEnd },
+          { field: 'status', operator: '!=', value: 'cancelled' }
+        ]),
+        reservationService.getMany([
+          { field: 'tenantId', operator: '==', value: tenantId },
+          { field: 'createdAt', operator: '>=', value: previousMonthStart },
+          { field: 'createdAt', operator: '<=', value: previousMonthEnd },
+          { field: 'status', operator: '!=', value: 'cancelled' }
+        ])
+      ]);
+      
+      const currentRevenue = currentReservations.reduce((sum, r) => sum + r.totalAmount, 0);
+      const previousRevenue = previousReservations.reduce((sum, r) => sum + r.totalAmount, 0);
+      
+      const growth = previousRevenue > 0 
+        ? ((currentRevenue - previousRevenue) / previousRevenue) * 100 
+        : 0;
+      
+      monthlyGrowth.push({
+        month: format(currentMonthStart, 'MMM yyyy', { locale: ptBR }),
+        growth: Math.round(growth * 100) / 100
+      });
+    }
+    
+    return monthlyGrowth.reverse();
+  } catch (error) {
+    console.error('Error calculating monthly growth trend:', error);
+    return [];
+  }
+}
+
+// Helper functions
+async function calculateAverageResponseTime(conversations: Conversation[]): Promise<number> {
+  try {
+    const whatsappConversations = conversations.filter(c => c.whatsappPhone && c.messages?.length > 1);
+    
+    if (whatsappConversations.length === 0) return 0;
+    
+    let totalResponseTime = 0;
+    let responseCount = 0;
+    
+    whatsappConversations.forEach(conversation => {
+      const messages = conversation.messages || [];
+      for (let i = 1; i < messages.length; i++) {
+        if (messages[i].sender === 'agent' && messages[i-1].sender === 'user') {
+          const responseTime = new Date(messages[i].timestamp).getTime() - new Date(messages[i-1].timestamp).getTime();
+          if (responseTime > 0 && responseTime < 3600000) { // Less than 1 hour
+            totalResponseTime += responseTime;
+            responseCount++;
+          }
+        }
+      }
+    });
+    
+    if (responseCount === 0) return 0;
+    
+    // Return average in minutes
+    return Math.round((totalResponseTime / responseCount) / 60000);
+  } catch (error) {
+    console.error('Error calculating average response time:', error);
+    return 0;
+  }
+}
+
+async function calculateCustomerSatisfaction(tenantId: string): Promise<number> {
+  // This would integrate with a rating/feedback system
+  // For now, return a default value
+  return 4.5;
+}
+
+function getDefaultPaymentMethods() {
+  return [
+    { name: 'PIX', value: 0, color: '#00875A' },
+    { name: 'Cartão Crédito', value: 0, color: '#1976D2' },
+    { name: 'Cartão Débito', value: 0, color: '#42A5F5' },
+    { name: 'Transferência', value: 0, color: '#90CAF9' },
+  ];
 }
