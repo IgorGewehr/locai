@@ -17,8 +17,7 @@ export class RateLimitService {
       try {
         this.redis = new Redis(process.env.REDIS_URL)
       } catch (error) {
-        console.warn('Failed to connect to Redis, falling back to in-memory rate limiting')
-      }
+        }
     }
   }
 
@@ -29,60 +28,59 @@ export class RateLimitService {
     const fullKey = `${config.keyPrefix || 'rate_limit'}:${key}`
     const now = Date.now()
     const windowStart = now - config.windowMs
-    
+
     if (this.redis) {
       try {
         // Use Redis sliding window algorithm
         const pipe = this.redis.pipeline()
-        
+
         // Remove old entries
         pipe.zremrangebyscore(fullKey, '-inf', windowStart)
-        
+
         // Count current entries
         pipe.zcard(fullKey)
-        
+
         // Add current request
         pipe.zadd(fullKey, now, `${now}-${Math.random()}`)
-        
+
         // Set expiry
         pipe.expire(fullKey, Math.ceil(config.windowMs / 1000))
-        
+
         const results = await pipe.exec()
         const count = results?.[1]?.[1] as number || 0
-        
+
         const allowed = count < config.maxRequests
         const remaining = Math.max(0, config.maxRequests - count - 1)
         const resetAt = now + config.windowMs
-        
+
         return { allowed, remaining, resetAt }
       } catch (error) {
-        console.error('Redis rate limit error:', error)
         // Fall back to in-memory
       }
     }
-    
+
     // In-memory fallback
     const entry = this.inMemoryStore.get(fullKey)
-    
+
     if (!entry || entry.resetAt < now) {
       // New window
       this.inMemoryStore.set(fullKey, {
         count: 1,
         resetAt: now + config.windowMs
       })
-      
+
       // Clean up old entries periodically
       if (this.inMemoryStore.size > 10000) {
         this.cleanupInMemoryStore()
       }
-      
+
       return {
         allowed: true,
         remaining: config.maxRequests - 1,
         resetAt: now + config.windowMs
       }
     }
-    
+
     if (entry.count >= config.maxRequests) {
       return {
         allowed: false,
@@ -90,7 +88,7 @@ export class RateLimitService {
         resetAt: entry.resetAt
       }
     }
-    
+
     entry.count++
     return {
       allowed: true,
@@ -110,15 +108,14 @@ export class RateLimitService {
 
   async reset(key: string, keyPrefix?: string): Promise<void> {
     const fullKey = `${keyPrefix || 'rate_limit'}:${key}`
-    
+
     if (this.redis) {
       try {
         await this.redis.del(fullKey)
       } catch (error) {
-        console.error('Redis reset error:', error)
-      }
+        }
     }
-    
+
     this.inMemoryStore.delete(fullKey)
   }
 

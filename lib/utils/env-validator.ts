@@ -6,12 +6,12 @@ const envSchema = z.object({
   NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
   NEXT_PUBLIC_APP_URL: z.string().url().min(1),
   NEXT_PUBLIC_TENANT_ID: z.string().min(1).default('default'),
-  
+
   // Authentication
   JWT_SECRET: z.string().min(32, 'JWT_SECRET must be at least 32 characters'),
   NEXTAUTH_URL: z.string().url().optional(),
   NEXTAUTH_SECRET: z.string().min(32).optional(),
-  
+
   // Firebase Client
   NEXT_PUBLIC_FIREBASE_API_KEY: z.string().min(1),
   NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: z.string().min(1),
@@ -20,45 +20,45 @@ const envSchema = z.object({
   NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: z.string().min(1),
   NEXT_PUBLIC_FIREBASE_APP_ID: z.string().min(1),
   NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID: z.string().optional(),
-  
+
   // Firebase Admin
   FIREBASE_PROJECT_ID: z.string().min(1),
   FIREBASE_CLIENT_EMAIL: z.string().email(),
   FIREBASE_PRIVATE_KEY: z.string().min(1),
-  
+
   // OpenAI
   OPENAI_API_KEY: z.string().regex(/^sk-/, 'Invalid OpenAI API key format'),
-  
+
   // WhatsApp
   WHATSAPP_ACCESS_TOKEN: z.string().min(1),
   WHATSAPP_PHONE_NUMBER_ID: z.string().min(1),
   WHATSAPP_BUSINESS_ACCOUNT_ID: z.string().min(1),
   WHATSAPP_VERIFY_TOKEN: z.string().min(1),
   WHATSAPP_APP_SECRET: z.string().min(1),
-  
+
   // Optional services
   STRIPE_SECRET_KEY: z.string().optional(),
   STRIPE_PUBLISHABLE_KEY: z.string().optional(),
   STRIPE_WEBHOOK_SECRET: z.string().optional(),
   REDIS_URL: z.string().url().optional(),
   SENTRY_DSN: z.string().url().optional(),
-  
+
   // Security
   DATABASE_ENCRYPTION_KEY: z.string().min(32).optional(),
   API_RATE_LIMIT_WINDOW_MS: z.string().transform(Number).pipe(z.number().positive()).default('60000'),
   API_RATE_LIMIT_MAX_REQUESTS: z.string().transform(Number).pipe(z.number().positive()).default('100'),
-  
+
   // Feature flags
   ENABLE_WHATSAPP_INTEGRATION: z.string().transform(val => val === 'true').default('true'),
   ENABLE_AI_AGENT: z.string().transform(val => val === 'true').default('true'),
   ENABLE_PAYMENT_PROCESSING: z.string().transform(val => val === 'true').default('false'),
   ENABLE_ANALYTICS: z.string().transform(val => val === 'true').default('true'),
-  
+
   // Performance
   CACHE_TTL_SECONDS: z.string().transform(Number).pipe(z.number().positive()).default('300'),
   MAX_CONCURRENT_AI_REQUESTS: z.string().transform(Number).pipe(z.number().positive()).default('10'),
   AI_REQUEST_TIMEOUT_MS: z.string().transform(Number).pipe(z.number().positive()).default('30000'),
-  
+
   // Logging
   LOG_LEVEL: z.enum(['error', 'warn', 'info', 'debug']).default('info'),
   AUDIT_LOG_RETENTION_DAYS: z.string().transform(Number).pipe(z.number().positive()).default('90'),
@@ -76,10 +76,9 @@ export function validateEnv(): EnvVars {
         const path = issue.path.join('.');
         return `${path}: ${issue.message}`;
       });
-      
-      console.error('❌ Environment validation failed:');
-      console.error(missingVars.join('\n'));
-      
+
+      );
+
       throw new Error('Environment validation failed. Please check your environment variables.');
     }
     throw error;
@@ -103,24 +102,24 @@ export const isFeatureEnabled = (feature: keyof Pick<EnvVars, 'ENABLE_WHATSAPP_I
 // Production readiness check
 export function checkProductionReadiness(): { ready: boolean; issues: string[] } {
   const issues: string[] = [];
-  
+
   // Check critical production variables
   if (!env.NEXT_PUBLIC_APP_URL.startsWith('https://') && isProduction) {
     issues.push('NEXT_PUBLIC_APP_URL must use HTTPS in production');
   }
-  
+
   if (!env.DATABASE_ENCRYPTION_KEY && isProduction) {
     issues.push('DATABASE_ENCRYPTION_KEY is recommended for production');
   }
-  
+
   if (!env.REDIS_URL && isProduction) {
     issues.push('REDIS_URL is recommended for production rate limiting');
   }
-  
+
   if (!env.SENTRY_DSN && isProduction) {
     issues.push('SENTRY_DSN is recommended for production error tracking');
   }
-  
+
   // Check WhatsApp configuration if enabled
   if (env.ENABLE_WHATSAPP_INTEGRATION) {
     const whatsappVars = [
@@ -130,14 +129,14 @@ export function checkProductionReadiness(): { ready: boolean; issues: string[] }
       'WHATSAPP_VERIFY_TOKEN',
       'WHATSAPP_APP_SECRET'
     ];
-    
+
     whatsappVars.forEach(varName => {
       if (!process.env[varName]) {
         issues.push(`${varName} is required when WhatsApp integration is enabled`);
       }
     });
   }
-  
+
   // Check Stripe configuration if enabled
   if (env.ENABLE_PAYMENT_PROCESSING) {
     const stripeVars = ['STRIPE_SECRET_KEY', 'STRIPE_PUBLISHABLE_KEY'];
@@ -147,7 +146,7 @@ export function checkProductionReadiness(): { ready: boolean; issues: string[] }
       }
     });
   }
-  
+
   return {
     ready: issues.length === 0,
     issues
@@ -156,21 +155,13 @@ export function checkProductionReadiness(): { ready: boolean; issues: string[] }
 
 // Log environment status
 export function logEnvironmentStatus(): void {
-  console.log('🔧 Environment Configuration:');
-  console.log(`   NODE_ENV: ${env.NODE_ENV}`);
-  console.log(`   App URL: ${env.NEXT_PUBLIC_APP_URL}`);
-  console.log(`   Tenant ID: ${env.NEXT_PUBLIC_TENANT_ID}`);
-  console.log(`   WhatsApp Integration: ${env.ENABLE_WHATSAPP_INTEGRATION ? '✅' : '❌'}`);
-  console.log(`   AI Agent: ${env.ENABLE_AI_AGENT ? '✅' : '❌'}`);
-  console.log(`   Payment Processing: ${env.ENABLE_PAYMENT_PROCESSING ? '✅' : '❌'}`);
-  console.log(`   Analytics: ${env.ENABLE_ANALYTICS ? '✅' : '❌'}`);
-  
+
   const { ready, issues } = checkProductionReadiness();
-  
+
   if (ready) {
-    console.log('✅ Production readiness: READY');
+
   } else {
-    console.log('⚠️  Production readiness: ISSUES FOUND');
-    issues.forEach(issue => console.log(`   - ${issue}`));
+
+    issues.forEach(issue => );
   }
 }

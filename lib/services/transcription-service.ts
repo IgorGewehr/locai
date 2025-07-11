@@ -30,14 +30,13 @@ export class TranscriptionService {
     if (!process.env.OPENAI_API_KEY) {
       throw new Error('OPENAI_API_KEY is required for audio processing')
     }
-    
+
     this.openai = new OpenAI({
       apiKey: process.env.OPENAI_API_KEY
     })
     this.whatsappClient = whatsappClient
-    
-    console.log('🎵 TranscriptionService initialized with professional audio processing')
-  }
+
+    }
 
   /**
    * Transcribe WhatsApp audio message with professional error handling and caching
@@ -48,12 +47,11 @@ export class TranscriptionService {
     cached: boolean
   }> {
     const startTime = Date.now()
-    
+
     try {
       // Check cache first
       const cached = this.audioCache.get(audioId)
       if (cached) {
-        console.log(`📂 Using cached transcription for audio ${audioId}`)
         return {
           text: cached,
           metrics: {
@@ -66,8 +64,6 @@ export class TranscriptionService {
           cached: true
         }
       }
-
-      console.log(`🎤 Starting transcription for audio ${audioId}`)
 
       // 1. Get audio file details from WhatsApp
       const mediaDetails = await withTimeout(
@@ -102,7 +98,7 @@ export class TranscriptionService {
         )
       }
 
-      console.log(`📥 Audio downloaded: ${(audioBuffer.length / 1024).toFixed(1)}KB`)
+      .toFixed(1)}KB`)
 
       // 5. Transcribe using OpenAI Whisper with enhanced parameters
       const transcriptionResult = await withRetry(
@@ -113,7 +109,7 @@ export class TranscriptionService {
             `audio_${audioId}.${this.getFileExtension(mediaDetails.mime_type)}`, 
             { type: mediaDetails.mime_type || 'audio/ogg' }
           )
-          
+
           return await withTimeout(
             this.openai.audio.transcriptions.create({
               file: audioFile,
@@ -144,9 +140,8 @@ export class TranscriptionService {
         language: typeof transcriptionResult === 'object' ? transcriptionResult.language || 'pt' : 'pt',
         processingCost: this.calculateProcessingCost(audioBuffer.length)
       }
-      
+
       if (!cleanedText || cleanedText.length < 3) {
-        console.warn(`⚠️ Low quality transcription for audio ${audioId}: "${rawText}"`)
         return {
           text: 'Não consegui entender claramente o áudio. Poderia repetir de forma mais clara ou enviar por texto? 😊',
           metrics,
@@ -156,10 +151,10 @@ export class TranscriptionService {
 
       // 7. Cache successful transcription
       this.audioCache.set(audioId, cleanedText)
-      
+
       // 8. Log successful transcription
-      console.log(`✅ Audio transcribed successfully in ${metrics.transcriptionTime}ms: "${cleanedText.slice(0, 100)}..."`)
-      
+      }..."`)
+
       // 9. Optional: Save transcription metrics for analytics
       await this.saveTranscriptionMetrics(audioId, clientPhone, metrics)
 
@@ -171,8 +166,6 @@ export class TranscriptionService {
 
     } catch (error) {
       const processingTime = Date.now() - startTime
-      console.error(`❌ Error transcribing audio ${audioId} after ${processingTime}ms:`, error)
-      
       // Classify error and provide appropriate fallback
       if (error instanceof ValidationError) {
         return {
@@ -187,7 +180,7 @@ export class TranscriptionService {
           cached: false
         }
       }
-      
+
       if (error instanceof NetworkError || error.message?.includes('timeout')) {
         return {
           text: 'Tive dificuldades para processar seu áudio devido à conexão. Pode tentar novamente ou enviar por texto? 📱',
@@ -201,7 +194,7 @@ export class TranscriptionService {
           cached: false
         }
       }
-      
+
       // Generic fallback for unknown errors
       return {
         text: 'Recebi seu áudio! Para garantir que eu entenda perfeitamente, pode enviar sua mensagem por texto? Assim posso te ajudar da melhor forma! 😊',
@@ -235,7 +228,7 @@ export class TranscriptionService {
     }
   }> {
     const startTime = Date.now()
-    
+
     try {
       // Use default preferences if not provided
       const audioPrefs: AudioPreferences = {
@@ -248,7 +241,7 @@ export class TranscriptionService {
 
       // Prepare text for TTS
       const cleanText = this.prepareTextForTTS(text)
-      
+
       if (!cleanText || cleanText.length < 5) {
         return {
           audioBuffer: null,
@@ -262,7 +255,7 @@ export class TranscriptionService {
         }
       }
 
-      console.log(`🎤 Generating audio response (${audioPrefs.voice}, ${audioPrefs.voiceModel}): "${cleanText.slice(0, 50)}..."`)
+      : "${cleanText.slice(0, 50)}..."`)
 
       // Generate audio response using OpenAI TTS
       const audioResponse = await withRetry(
@@ -283,7 +276,7 @@ export class TranscriptionService {
 
       const arrayBuffer = await audioResponse.arrayBuffer()
       const audioBuffer = Buffer.from(arrayBuffer)
-      
+
       const processingTime = Date.now() - startTime
       const estimatedDuration = cleanText.length / 15 // Rough estimate: 15 chars per second
       const estimatedCost = cleanText.length * 0.000015 // OpenAI TTS pricing
@@ -296,8 +289,8 @@ export class TranscriptionService {
         model: audioPrefs.voiceModel
       }
 
-      console.log(`✅ Audio generated in ${processingTime}ms: ${(audioBuffer.length / 1024).toFixed(1)}KB`)
-      
+      .toFixed(1)}KB`)
+
       // Log for analytics
       this.logAudioGeneration(clientPhone, metadata, processingTime)
 
@@ -308,8 +301,6 @@ export class TranscriptionService {
 
     } catch (error) {
       const processingTime = Date.now() - startTime
-      console.error(`❌ Error generating audio response after ${processingTime}ms:`, error)
-      
       return {
         audioBuffer: null,
         metadata: {
@@ -393,7 +384,7 @@ export class TranscriptionService {
       'audio/aac': 'aac',
       'audio/webm': 'webm'
     }
-    
+
     return extensions[mimeType || ''] || 'ogg'
   }
 
@@ -425,11 +416,11 @@ export class TranscriptionService {
       'reserva', 'hospedagem', 'diária', 'preço', 'disponível',
       'quartos', 'banheiros', 'piscina', 'praia', 'centro'
     ]
-    
+
     const keywordMatches = realEstateKeywords.filter(keyword => 
       cleanedText.toLowerCase().includes(keyword)
     ).length
-    
+
     confidence += Math.min(keywordMatches * 0.05, 0.2)
 
     return Math.min(confidence, 1.0)
@@ -476,15 +467,11 @@ export class TranscriptionService {
     try {
       // This could save to Firebase for analytics
       // For now, just log for monitoring
-      console.log(`📊 Transcription metrics for ${audioId}:`, {
-        clientPhone,
-        ...metrics,
-        timestamp: new Date().toISOString()
+      .toISOString()
       })
     } catch (error) {
       // Don't fail transcription if analytics fails
-      console.warn('Failed to save transcription metrics:', error)
-    }
+      }
   }
 
   /**
@@ -496,15 +483,10 @@ export class TranscriptionService {
     processingTime?: number
   ): void {
     try {
-      console.log(`📊 Audio generation metrics:`, {
-        clientPhone,
-        processingTime,
-        ...metadata,
-        timestamp: new Date().toISOString()
+      .toISOString()
       })
     } catch (error) {
-      console.warn('Failed to log audio generation metrics:', error)
-    }
+      }
   }
 
   /**
@@ -512,8 +494,7 @@ export class TranscriptionService {
    */
   clearCache(): void {
     this.audioCache.clear()
-    console.log('🧹 Audio transcription cache cleared')
-  }
+    }
 
   /**
    * Get cache statistics

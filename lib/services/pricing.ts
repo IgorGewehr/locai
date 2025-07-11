@@ -39,7 +39,7 @@ export class PricingService {
     { name: 'Finados', startDate: new Date(2024, 10, 2), endDate: new Date(2024, 10, 2), multiplier: 1.1, priority: 1 },
     { name: 'Proclamação da República', startDate: new Date(2024, 10, 15), endDate: new Date(2024, 10, 15), multiplier: 1.2, priority: 1 },
     { name: 'Natal', startDate: new Date(2024, 11, 25), endDate: new Date(2024, 11, 25), multiplier: 1.8, priority: 1 },
-    
+
     // Holiday periods
     { name: 'Reveillon', startDate: new Date(2024, 11, 26), endDate: new Date(2025, 0, 6), multiplier: 2.0, priority: 2 },
     { name: 'Carnaval', startDate: new Date(2024, 1, 10), endDate: new Date(2024, 1, 17), multiplier: 1.8, priority: 2 },
@@ -57,7 +57,7 @@ export class PricingService {
     const startDate = startOfDay(checkIn);
     const endDate = startOfDay(checkOut);
     const nights = differenceInDays(endDate, startDate);
-    
+
     if (nights <= 0) {
       throw new Error('Data de check-out deve ser após a data de check-in');
     }
@@ -72,7 +72,7 @@ export class PricingService {
 
     const daysOfStay = eachDayOfInterval({ start: startDate, end: addDays(endDate, -1) });
     const breakdown: PriceCalculation['breakdown'] = [];
-    
+
     let subtotal = 0;
     let weekendSurcharge = 0;
     let holidaySurcharge = 0;
@@ -89,15 +89,15 @@ export class PricingService {
       });
 
       subtotal += dayPrice.finalPrice;
-      
+
       if (dayPrice.isWeekend && !dayPrice.isHoliday) {
         weekendSurcharge += dayPrice.finalPrice - property.basePrice;
       }
-      
+
       if (dayPrice.isHoliday) {
         holidaySurcharge += dayPrice.finalPrice - property.basePrice;
       }
-      
+
       if (dayPrice.seasonalRate && dayPrice.seasonalRate !== property.basePrice) {
         seasonalAdjustment += dayPrice.seasonalRate - property.basePrice;
       }
@@ -105,7 +105,7 @@ export class PricingService {
 
     const extraGuestFee = guests > property.capacity ? 
       (guests - property.capacity) * property.pricePerExtraGuest * nights : 0;
-    
+
     const totalPrice = subtotal + extraGuestFee + property.cleaningFee;
 
     return {
@@ -144,26 +144,26 @@ export class PricingService {
     let isHolidayDay = this.isHoliday(date);
     let isDecember = date.getMonth() === 11;
     let isHighSeason = property.highSeasonMonths?.includes(date.getMonth() + 1) || false;
-    
+
     // Apply surcharges (non-cumulative - apply the highest one)
     let surchargePercentage = 0;
-    
+
     if (isHolidayDay && property.holidaySurcharge) {
       surchargePercentage = Math.max(surchargePercentage, property.holidaySurcharge);
     }
-    
+
     if (isWeekendDay && property.weekendSurcharge) {
       surchargePercentage = Math.max(surchargePercentage, property.weekendSurcharge);
     }
-    
+
     if (isDecember && property.decemberSurcharge) {
       surchargePercentage = Math.max(surchargePercentage, property.decemberSurcharge);
     }
-    
+
     if (isHighSeason && property.highSeasonSurcharge) {
       surchargePercentage = Math.max(surchargePercentage, property.highSeasonSurcharge);
     }
-    
+
     const finalPrice = Math.round(basePrice * (1 + surchargePercentage / 100));
 
     return {
@@ -216,10 +216,10 @@ export class PricingService {
       // TODO: Implement actual occupancy calculation from Firebase
       const totalDays = differenceInDays(endDate, startDate);
       const occupiedDays = Math.floor(totalDays * 0.7); // Default 70% occupancy
-      
+
       return occupiedDays / totalDays;
     } catch (error) {
-      console.error('Error calculating occupancy rate:', error);
+
       return 0;
     }
   }
@@ -239,7 +239,7 @@ export class PricingService {
       const daysOfPeriod = eachDayOfInterval({ start: startDate, end: endDate });
       const totalNights = daysOfPeriod.length;
       const occupiedNights = Math.floor(totalNights * expectedOccupancyRate);
-      
+
       let totalRevenue = 0;
       let totalNightlyRate = 0;
 
@@ -258,7 +258,7 @@ export class PricingService {
         totalNights,
       };
     } catch (error) {
-      console.error('Error calculating revenue projection:', error);
+
       return {
         totalRevenue: 0,
         averageNightlyRate: 0,
@@ -270,26 +270,26 @@ export class PricingService {
 
   formatPriceBreakdown(calculation: PriceCalculation): string {
     let breakdown = `📊 *Detalhamento do Preço*\n\n`;
-    
+
     breakdown += `🏠 ${calculation.nights} noite${calculation.nights > 1 ? 's' : ''} × R$ ${calculation.basePrice} = R$ ${calculation.subtotal}\n`;
-    
+
     if (calculation.weekendSurcharge > 0) {
       breakdown += `🌟 Adicional fim de semana: R$ ${calculation.weekendSurcharge}\n`;
     }
-    
+
     if (calculation.holidaySurcharge > 0) {
       breakdown += `🎉 Adicional feriado: R$ ${calculation.holidaySurcharge}\n`;
     }
-    
+
     if (calculation.seasonalAdjustment > 0) {
       breakdown += `📈 Ajuste sazonal: R$ ${calculation.seasonalAdjustment}\n`;
     }
-    
+
     breakdown += `🧹 Taxa de limpeza: R$ ${calculation.cleaningFee}\n`;
     breakdown += `🛡️ Caução (devolvida): R$ ${calculation.securityDeposit}\n`;
     breakdown += `━━━━━━━━━━━━━━━━━━━━━━━━\n`;
     breakdown += `💳 **Total: R$ ${calculation.totalPrice}**`;
-    
+
     return breakdown;
   }
 
@@ -346,9 +346,9 @@ export class PricingService {
   }> {
     // This would typically use market data and ML models
     // For now, we'll use simple heuristics
-    
+
     let basePrice = 100; // Base starting price
-    
+
     // Adjust for location
     const locationMultipliers: Record<string, number> = {
       'Rio de Janeiro': 1.8,
@@ -358,25 +358,25 @@ export class PricingService {
       'Recife': 1.2,
       'Fortaleza': 1.1,
     };
-    
+
     const locationMultiplier = locationMultipliers[location] || 1.0;
     basePrice *= locationMultiplier;
-    
+
     // Adjust for bedrooms
     basePrice += (bedrooms - 1) * 50;
-    
+
     // Adjust for premium amenities
     const premiumAmenities = ['piscina', 'academia', 'sauna', 'churrasqueira', 'ar-condicionado'];
     const premiumAmenityCount = amenities.filter(amenity => 
       premiumAmenities.some(premium => amenity.toLowerCase().includes(premium.toLowerCase()))
     ).length;
-    
+
     basePrice += premiumAmenityCount * 30;
-    
+
     const suggestedWeekendMultiplier = 1.2;
     const suggestedCleaningFee = Math.round(basePrice * 0.3);
     const suggestedSecurityDeposit = Math.round(basePrice * 2);
-    
+
     const reasoning = `
 Preço sugerido baseado em:
 - Localização: ${location} (multiplicador ${locationMultiplier}x)
@@ -384,7 +384,7 @@ Preço sugerido baseado em:
 - ${premiumAmenityCount} comodidade${premiumAmenityCount > 1 ? 's' : ''} premium
 - Padrões de mercado para a região
     `.trim();
-    
+
     return {
       suggestedBasePrice: Math.round(basePrice),
       suggestedWeekendMultiplier,

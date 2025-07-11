@@ -56,7 +56,6 @@ export class WhatsAppWebhook {
         { status: 405 }
       )
     } catch (error) {
-      console.error('Webhook error:', error)
       return NextResponse.json(
         { error: 'Internal server error' },
         { status: 500 }
@@ -70,14 +69,10 @@ export class WhatsAppWebhook {
     const token = url.searchParams.get('hub.verify_token')
     const challenge = url.searchParams.get('hub.challenge')
 
-    console.log('Webhook verification request:', { mode, token, challenge })
-
     if (mode === 'subscribe' && token === this.verifyToken) {
-      console.log('Webhook verified successfully')
       return new NextResponse(challenge, { status: 200 })
     }
 
-    console.log('Webhook verification failed')
     return NextResponse.json(
       { error: 'Forbidden' },
       { status: 403 }
@@ -87,12 +82,11 @@ export class WhatsAppWebhook {
   private async handleIncomingWebhook(request: NextRequest): Promise<NextResponse> {
     try {
       const body: WhatsAppWebhookData = await request.json()
-      
-      console.log('Incoming webhook:', JSON.stringify(body, null, 2))
+
+      )
 
       // Verify webhook signature (recommended for production)
       if (!this.verifyWebhookSignature(request, body)) {
-        console.error('Invalid webhook signature')
         return NextResponse.json(
           { error: 'Invalid signature' },
           { status: 401 }
@@ -109,8 +103,6 @@ export class WhatsAppWebhook {
       return NextResponse.json({ success: true }, { status: 200 })
 
     } catch (error) {
-      console.error('Error processing webhook:', error)
-      
       // Return 200 to prevent WhatsApp from retrying
       return NextResponse.json(
         { error: 'Processing error', message: error.message },
@@ -121,8 +113,6 @@ export class WhatsAppWebhook {
 
   private async processWebhookChange(change: any, fullBody: WhatsAppWebhookData): Promise<void> {
     const { field, value } = change
-
-    console.log(`Processing change for field: ${field}`)
 
     switch (field) {
       case 'messages':
@@ -151,17 +141,15 @@ export class WhatsAppWebhook {
         break
 
       default:
-        console.log(`Unhandled webhook field: ${field}`)
-    }
+        }
   }
 
   private verifyWebhookSignature(request: NextRequest, body: any): boolean {
     // In production, you should verify the webhook signature
     // using the X-Hub-Signature-256 header
-    
+
     const signature = request.headers.get('X-Hub-Signature-256')
     if (!signature) {
-      console.log('No signature provided, skipping verification for development')
       return true // Skip verification in development
     }
 
@@ -173,7 +161,7 @@ export class WhatsAppWebhook {
       .createHmac('sha256', process.env.WHATSAPP_WEBHOOK_SECRET)
       .update(JSON.stringify(body))
       .digest('hex')
-    
+
     return signature === expectedSignature
     */
 
@@ -181,48 +169,36 @@ export class WhatsAppWebhook {
   }
 
   private async handleTemplateStatusUpdate(value: any): Promise<void> {
-    console.log('Template status update:', value)
-    
     // Handle template approval/rejection
     const { event, message_template_id, message_template_name, status } = value
-    
+
     // Update template status in database
     // You can implement template management here
-    
-    console.log(`Template ${message_template_name} (${message_template_id}) status: ${status}`)
+
+    status: ${status}`)
   }
 
   private async handlePhoneNumberUpdate(value: any): Promise<void> {
-    console.log('Phone number update:', value)
-    
     // Handle phone number name changes
     const { phone_number_id, display_name, verified_name } = value
-    
+
     // Update phone number info in database
-    console.log(`Phone number ${phone_number_id} name updated to: ${display_name}`)
-  }
+    }
 
   private async handleAccountReviewUpdate(value: any): Promise<void> {
-    console.log('Account review update:', value)
-    
     // Handle account review status changes
     const { decision } = value
-    
+
     if (decision === 'APPROVED') {
-      console.log('WhatsApp Business account approved')
-    } else if (decision === 'REJECTED') {
-      console.log('WhatsApp Business account rejected')
-    }
+      } else if (decision === 'REJECTED') {
+      }
   }
 
   private async handleBusinessCapabilityUpdate(value: any): Promise<void> {
-    console.log('Business capability update:', value)
-    
     // Handle business capability changes
     const { capabilities } = value
-    
-    console.log('Business capabilities updated:', capabilities)
-  }
+
+    }
 
   // Health check endpoint
   async healthCheck(): Promise<NextResponse> {
@@ -263,10 +239,10 @@ export function validateWebhookSecurity(request: NextRequest): boolean {
   // Implement additional security checks
   const userAgent = request.headers.get('user-agent')
   const origin = request.headers.get('origin')
-  
+
   // WhatsApp webhooks come from specific IPs and user agents
   // You can implement IP whitelist here
-  
+
   return true // For now, always allow
 }
 
@@ -279,23 +255,23 @@ export class WebhookRateLimiter {
   isAllowed(identifier: string): boolean {
     const now = Date.now()
     const windowStart = now - this.windowMs
-    
+
     if (!this.requests.has(identifier)) {
       this.requests.set(identifier, [])
     }
-    
+
     const requests = this.requests.get(identifier)!
-    
+
     // Remove old requests
     const recentRequests = requests.filter(time => time > windowStart)
-    
+
     if (recentRequests.length >= this.maxRequests) {
       return false
     }
-    
+
     recentRequests.push(now)
     this.requests.set(identifier, recentRequests)
-    
+
     return true
   }
 }

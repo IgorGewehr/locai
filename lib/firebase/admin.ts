@@ -23,7 +23,7 @@ if (getApps().length === 0) {
   try {
     // Parse the private key (handle escaped newlines)
     const privateKey = process.env.FIREBASE_PRIVATE_KEY!.replace(/\\n/g, '\n');
-    
+
     app = initializeApp({
       credential: cert({
         projectId: process.env.FIREBASE_PROJECT_ID!,
@@ -34,7 +34,7 @@ if (getApps().length === 0) {
       storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET!,
     });
   } catch (error) {
-    console.error('Failed to initialize Firebase Admin:', error);
+
     throw new Error('Firebase Admin initialization failed');
   }
 } else {

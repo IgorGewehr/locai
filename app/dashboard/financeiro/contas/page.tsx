@@ -258,7 +258,7 @@ export default function ContasPage() {
       });
 
     } catch (error) {
-      console.error('Error loading data:', error);
+
     } finally {
       setLoading(false);
     }
@@ -347,7 +347,7 @@ export default function ContasPage() {
       setShowAccountDialog(false);
       loadData();
     } catch (error) {
-      console.error('Error saving account:', error);
+
     } finally {
       setSaving(false);
     }
@@ -364,7 +364,7 @@ export default function ContasPage() {
       setPaymentAmount(0);
       loadData();
     } catch (error) {
-      console.error('Error processing payment:', error);
+
     } finally {
       setSaving(false);
     }
@@ -376,7 +376,7 @@ export default function ContasPage() {
         await accountsService.delete(id);
         loadData();
       } catch (error) {
-        console.error('Error deleting account:', error);
+
       }
     }
   };
@@ -412,7 +412,7 @@ export default function ContasPage() {
   const calculateInterestAndFees = async (account: Account) => {
     const { interest, fine } = await accountsService.calculateInterestAndFees(account.id);
     const total = account.remainingAmount + interest + fine;
-    
+
     setSelectedAccount(account);
     setPaymentAmount(total);
     setShowPaymentDialog(true);

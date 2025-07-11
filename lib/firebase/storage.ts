@@ -70,7 +70,7 @@ export class StorageService {
           try {
             const downloadURL = await getDownloadURL(uploadTask.snapshot.ref);
             const metadata = await getMetadata(uploadTask.snapshot.ref);
-            
+
             resolve({
               url: downloadURL,
               path: path,
@@ -119,7 +119,7 @@ export class StorageService {
     const path = folderPath || this.basePath;
     const listRef = ref(storage, path);
     const result = await listAll(listRef);
-    
+
     return result.items.map(item => item.fullPath);
   }
 
@@ -147,7 +147,7 @@ export const extractPathFromUrl = (url: string): string => {
     const pathMatch = urlObj.pathname.match(/\/o\/(.+?)\?/);
     return pathMatch ? decodeURIComponent(pathMatch[1]) : '';
   } catch (error) {
-    console.error('Error extracting path from URL:', error);
+
     return '';
   }
 };
@@ -155,14 +155,14 @@ export const extractPathFromUrl = (url: string): string => {
 export const validateImageFile = (file: File): boolean => {
   const validTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif'];
   const maxSize = 10 * 1024 * 1024; // 10MB
-  
+
   return validTypes.includes(file.type) && file.size <= maxSize;
 };
 
 export const validateVideoFile = (file: File): boolean => {
   const validTypes = ['video/mp4', 'video/webm', 'video/ogg'];
   const maxSize = 100 * 1024 * 1024; // 100MB
-  
+
   return validTypes.includes(file.type) && file.size <= maxSize;
 };
 
@@ -171,14 +171,14 @@ export const compressImage = async (file: File, maxWidth: number = 1920, quality
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d');
     const img = new Image();
-    
+
     img.onload = () => {
       const ratio = Math.min(maxWidth / img.width, maxWidth / img.height);
       canvas.width = img.width * ratio;
       canvas.height = img.height * ratio;
-      
+
       ctx?.drawImage(img, 0, 0, canvas.width, canvas.height);
-      
+
       canvas.toBlob((blob) => {
         if (blob) {
           const compressedFile = new File([blob], file.name, {
@@ -191,7 +191,7 @@ export const compressImage = async (file: File, maxWidth: number = 1920, quality
         }
       }, 'image/jpeg', quality);
     };
-    
+
     img.src = URL.createObjectURL(file);
   });
 };
@@ -201,13 +201,13 @@ export const generateThumbnail = async (videoFile: File): Promise<File> => {
     const video = document.createElement('video');
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d');
-    
+
     video.onloadedmetadata = () => {
       canvas.width = video.videoWidth;
       canvas.height = video.videoHeight;
       video.currentTime = 1; // Capture frame at 1 second
     };
-    
+
     video.onseeked = () => {
       if (ctx) {
         ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
@@ -224,7 +224,7 @@ export const generateThumbnail = async (videoFile: File): Promise<File> => {
         }, 'image/jpeg', 0.8);
       }
     };
-    
+
     video.onerror = () => reject(new Error('Error loading video'));
     video.src = URL.createObjectURL(videoFile);
   });

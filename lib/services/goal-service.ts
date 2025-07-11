@@ -45,7 +45,7 @@ export class GoalService {
   private readonly collectionName = 'financial_goals'
   private readonly performanceCollectionName = 'goal_performance'
   private readonly checkpointsCollectionName = 'goal_checkpoints'
-  
+
   // Criar nova meta
   async createGoal(goal: Omit<FinancialGoal, 'id' | 'createdAt' | 'updatedAt'>): Promise<FinancialGoal> {
     try {
@@ -57,7 +57,7 @@ export class GoalService {
 
       const goalId = doc(collection(db, this.collectionName)).id
       const now = new Date()
-      
+
       const newGoal: FinancialGoal = {
         ...goal,
         id: goalId,
@@ -114,7 +114,7 @@ export class GoalService {
     try {
       const goalRef = doc(db, this.collectionName, goalId)
       const goalDoc = await getDoc(goalRef)
-      
+
       if (!goalDoc.exists()) {
         throw new Error('Meta não encontrada')
       }
@@ -159,7 +159,7 @@ export class GoalService {
         5000,
         'Buscar meta'
       )
-      
+
       if (!goalDoc.exists()) {
         return null
       }
@@ -233,14 +233,14 @@ export class GoalService {
       await runTransaction(db, async (transaction) => {
         const goalRef = doc(db, this.collectionName, goalId)
         const goalDoc = await transaction.get(goalRef)
-        
+
         if (!goalDoc.exists()) {
           throw new Error('Meta não encontrada')
         }
 
         const goal = this.convertTimestampsToDates(goalDoc.data()) as FinancialGoal
         const now = new Date()
-        
+
         const newCheckpoint: GoalCheckpoint = {
           id: doc(collection(db, this.checkpointsCollectionName)).id,
           date: now,
@@ -252,7 +252,7 @@ export class GoalService {
 
         // Adicionar checkpoint ao array
         const updatedCheckpoints = [...(goal.checkpoints || []), newCheckpoint]
-        
+
         // Atualizar meta
         transaction.update(goalRef, {
           checkpoints: updatedCheckpoints.map(cp => ({
@@ -274,7 +274,7 @@ export class GoalService {
 
         // Verificar marcos
         await this.checkMilestones(goalId, checkpoint.value, transaction)
-        
+
         // Verificar alertas
         await this.checkAlerts(goalId, newCheckpoint.progress, transaction)
       })
@@ -366,7 +366,7 @@ export class GoalService {
   async getGoalsDashboard(tenantId: string, period?: DateRange): Promise<GoalsDashboard> {
     try {
       const goals = await this.getGoalsByTenant(tenantId, { period })
-      
+
       // Calcular resumo
       const activeGoals = goals.filter(g => g.status === GoalStatus.ACTIVE)
       const completedGoals = goals.filter(g => g.status === GoalStatus.COMPLETED)
@@ -390,11 +390,11 @@ export class GoalService {
         if (!acc[goal.category]) {
           acc[goal.category] = { count: 0, averageProgress: 0, completionRate: 0 }
         }
-        
+
         const categoryGoals = goals.filter(g => g.category === goal.category)
         const activeInCategory = categoryGoals.filter(g => g.status === GoalStatus.ACTIVE)
         const completedInCategory = categoryGoals.filter(g => g.status === GoalStatus.COMPLETED)
-        
+
         acc[goal.category] = {
           count: categoryGoals.length,
           averageProgress: activeInCategory.length > 0
@@ -404,7 +404,7 @@ export class GoalService {
             ? (completedInCategory.length / categoryGoals.length) * 100
             : 0
         }
-        
+
         return acc
       }, {} as Record<GoalCategory, any>)
 
@@ -464,7 +464,7 @@ export class GoalService {
 
       // Extrair valor baseado na métrica
       const newValue = this.extractValueFromMetrics(goal.metric, metricsData)
-      
+
       if (newValue !== null && newValue !== goal.currentValue) {
         await this.addCheckpoint(goalId, {
           value: newValue,
@@ -473,21 +473,20 @@ export class GoalService {
         })
       }
     } catch (error) {
-      console.error('Erro ao atualizar meta com métricas:', error)
-    }
+      }
   }
 
   // Métodos privados auxiliares
 
   private calculateProgress(goal: Partial<FinancialGoal>): number {
     if (!goal.targetValue || !goal.startValue === undefined) return 0
-    
+
     const current = goal.currentValue || 0
     const start = goal.startValue || 0
     const target = goal.targetValue
-    
+
     if (target === start) return 100
-    
+
     const progress = ((current - start) / (target - start)) * 100
     return Math.max(0, Math.min(100, Math.round(progress)))
   }
@@ -544,7 +543,7 @@ export class GoalService {
     if (goal.notificationSettings?.onDeviation) {
       const expectedProgress = this.calculateExpectedProgress(goal)
       const deviation = Math.abs(progress - expectedProgress)
-      
+
       if (deviation > (goal.notificationSettings.deviationThreshold || 10)) {
         alerts.push({
           id: doc(collection(db, 'alerts')).id,
@@ -585,11 +584,11 @@ export class GoalService {
     const now = new Date()
     const totalDays = differenceInDays(goal.period.end, goal.period.start)
     const elapsedDays = differenceInDays(now, goal.period.start)
-    
+
     if (totalDays === 0) return 100
     if (elapsedDays <= 0) return 0
     if (elapsedDays >= totalDays) return 100
-    
+
     return (elapsedDays / totalDays) * 100
   }
 
@@ -631,7 +630,7 @@ export class GoalService {
     if (goal.checkpoints.length >= 3) {
       const recentCheckpoints = goal.checkpoints.slice(-3)
       const trend = recentCheckpoints[2].value - recentCheckpoints[0].value
-      
+
       if (trend > 0) {
         factors.push({
           factor: 'Tendência positiva',
@@ -658,11 +657,11 @@ export class GoalService {
 
   private identifyBlockers(goal: FinancialGoal, pace: string): string[] {
     const blockers = []
-    
+
     if (pace === 'behind') {
       blockers.push('Ritmo atual insuficiente para alcançar a meta no prazo')
     }
-    
+
     if (goal.progress < 25 && this.calculateExpectedProgress(goal) > 50) {
       blockers.push('Progresso significativamente abaixo do esperado')
     }
@@ -672,11 +671,11 @@ export class GoalService {
 
   private identifyOpportunities(goal: FinancialGoal, pace: string): string[] {
     const opportunities = []
-    
+
     if (pace === 'ahead') {
       opportunities.push('Possibilidade de superar a meta ou antecipar conclusão')
     }
-    
+
     if (goal.type === GoalType.REVENUE) {
       opportunities.push('Implementar estratégias de upselling')
       opportunities.push('Otimizar preços para períodos de alta demanda')
@@ -687,13 +686,13 @@ export class GoalService {
 
   private async generateInsights(goals: FinancialGoal[], performances: GoalPerformance[]): Promise<any[]> {
     const insights = []
-    
+
     // Insight de conquistas
     const recentAchievements = goals.filter(g => 
       g.status === GoalStatus.COMPLETED && 
       differenceInDays(new Date(), g.updatedAt) <= 30
     )
-    
+
     if (recentAchievements.length > 0) {
       insights.push({
         id: doc(collection(db, 'insights')).id,
@@ -725,7 +724,7 @@ export class GoalService {
 
   private async generateRecommendations(goals: FinancialGoal[], performances: GoalPerformance[]): Promise<any[]> {
     const recommendations = []
-    
+
     // Recomendação para metas atrasadas
     const behindGoals = performances.filter(p => p.currentPace === 'behind')
     if (behindGoals.length > 0) {
@@ -750,19 +749,19 @@ export class GoalService {
 
   private convertTimestampsToDates(data: any): any {
     if (!data) return data
-    
+
     const converted = { ...data }
-    
+
     // Converter Timestamps principais
     if (converted.createdAt?.toDate) converted.createdAt = converted.createdAt.toDate()
     if (converted.updatedAt?.toDate) converted.updatedAt = converted.updatedAt.toDate()
-    
+
     // Converter período
     if (converted.period) {
       if (converted.period.start?.toDate) converted.period.start = converted.period.start.toDate()
       if (converted.period.end?.toDate) converted.period.end = converted.period.end.toDate()
     }
-    
+
     // Converter checkpoints
     if (converted.checkpoints) {
       converted.checkpoints = converted.checkpoints.map((cp: any) => ({
@@ -770,7 +769,7 @@ export class GoalService {
         date: cp.date?.toDate ? cp.date.toDate() : cp.date
       }))
     }
-    
+
     // Converter milestones
     if (converted.milestones) {
       converted.milestones = converted.milestones.map((ms: any) => ({
@@ -779,7 +778,7 @@ export class GoalService {
         achievedDate: ms.achievedDate?.toDate ? ms.achievedDate.toDate() : ms.achievedDate
       }))
     }
-    
+
     // Converter alerts
     if (converted.alerts) {
       converted.alerts = converted.alerts.map((alert: any) => ({
@@ -787,7 +786,7 @@ export class GoalService {
         date: alert.date?.toDate ? alert.date.toDate() : alert.date
       }))
     }
-    
+
     return converted
   }
 
@@ -807,8 +806,7 @@ export class GoalService {
         }
       },
       (error) => {
-        console.error('Erro ao monitorar meta:', error)
-      }
+        }
     )
 
     return unsubscribe

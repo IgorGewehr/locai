@@ -5,7 +5,7 @@ import { apiResponse } from '@/lib/utils/api-response';
 export async function GET(request: NextRequest) {
   try {
     const authResult = await authService.requireAuth(request);
-    
+
     if (authResult instanceof NextResponse) {
       return authResult; // Auth failed, return error response
     }
@@ -25,8 +25,7 @@ export async function GET(request: NextRequest) {
     });
 
   } catch (error) {
-    console.error('Get user error:', error);
-    
+
     return apiResponse.error(
       'Erro interno do servidor',
       500,

@@ -20,7 +20,7 @@ export const RATE_LIMIT_CONFIGS = {
 
 function getRateLimiter(key: string, config: RateLimitConfig): RateLimiterMemory {
   const limiterKey = `${key}-${config.points}-${config.duration}`
-  
+
   if (!rateLimiters.has(limiterKey)) {
     rateLimiters.set(limiterKey, new RateLimiterMemory({
       points: config.points,
@@ -28,7 +28,7 @@ function getRateLimiter(key: string, config: RateLimitConfig): RateLimiterMemory
       blockDuration: config.blockDuration || 60, // Default 1 minute block
     }))
   }
-  
+
   return rateLimiters.get(limiterKey)!
 }
 
@@ -42,17 +42,17 @@ export async function withRateLimit(
     const clientId = request.headers.get('x-forwarded-for') || 
                     request.headers.get('x-real-ip') || 
                     'anonymous'
-    
+
     // Get or create rate limiter for this configuration
     const rateLimiter = getRateLimiter(`api-${request.url}`, config)
-    
+
     try {
       // Consume 1 point
       await rateLimiter.consume(clientId)
-      
+
       // Call the handler
       const response = await handler(request)
-      
+
       // Add rate limit headers
       const rateLimitInfo = await rateLimiter.get(clientId)
       if (rateLimitInfo) {
@@ -60,7 +60,7 @@ export async function withRateLimit(
         response.headers.set('X-RateLimit-Remaining', rateLimitInfo.remainingPoints.toString())
         response.headers.set('X-RateLimit-Reset', new Date(Date.now() + rateLimitInfo.msBeforeNext).toISOString())
       }
-      
+
       return response
     } catch (rejRes: any) {
       // Rate limit exceeded
@@ -83,7 +83,6 @@ export async function withRateLimit(
       )
     }
   } catch (error) {
-    console.error('Rate limit middleware error:', error)
     // In case of error, allow the request to proceed
     return handler(request)
   }

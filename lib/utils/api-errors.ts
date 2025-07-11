@@ -4,8 +4,6 @@ import { FirebaseError } from 'firebase/app'
 import { ValidationError } from './errors'
 
 export function handleApiError(error: unknown): NextResponse {
-  console.error('API Error:', error)
-
   // Validation errors
   if (error instanceof ValidationError) {
     return NextResponse.json(

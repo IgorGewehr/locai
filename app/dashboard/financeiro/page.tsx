@@ -229,7 +229,7 @@ export default function FinanceiroPage() {
   const loadData = async () => {
     try {
       setLoading(true);
-      
+
       // Carregar dados relacionados
       const [propertiesData, clientsData, reservationsData] = await Promise.all([
         propertyService.getAll(),
@@ -243,7 +243,7 @@ export default function FinanceiroPage() {
 
       // Carregar transações com filtros
       const transactionFilters: any = {};
-      
+
       if (filters.type && filters.type !== 'all') {
         transactionFilters.type = filters.type;
       }
@@ -279,7 +279,7 @@ export default function FinanceiroPage() {
       setStats(statsData);
 
     } catch (error) {
-      console.error('Error loading data:', error);
+
       showSnackbar('Erro ao carregar dados', 'error');
     } finally {
       setLoading(false);
@@ -391,7 +391,7 @@ export default function FinanceiroPage() {
       setShowTransactionDialog(false);
       loadData();
     } catch (error) {
-      console.error('Error saving transaction:', error);
+
       showSnackbar('Erro ao salvar transação', 'error');
     } finally {
       setSaving(false);
@@ -405,7 +405,7 @@ export default function FinanceiroPage() {
         showSnackbar('Transação excluída com sucesso', 'success');
         loadData();
       } catch (error) {
-        console.error('Error deleting transaction:', error);
+
         showSnackbar('Erro ao excluir transação', 'error');
       }
     }
@@ -417,7 +417,7 @@ export default function FinanceiroPage() {
       showSnackbar('Transação confirmada com sucesso', 'success');
       loadData();
     } catch (error) {
-      console.error('Error confirming transaction:', error);
+
       showSnackbar('Erro ao confirmar transação', 'error');
     }
   };
@@ -428,7 +428,7 @@ export default function FinanceiroPage() {
       showSnackbar('Transação cancelada com sucesso', 'success');
       loadData();
     } catch (error) {
-      console.error('Error cancelling transaction:', error);
+
       showSnackbar('Erro ao cancelar transação', 'error');
     }
   };
@@ -445,7 +445,7 @@ export default function FinanceiroPage() {
       setSelectedTransactions([]);
       loadData();
     } catch (error) {
-      console.error('Error in bulk action:', error);
+
       showSnackbar('Erro ao processar ação em lote', 'error');
     }
   };

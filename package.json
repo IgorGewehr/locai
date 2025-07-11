@@ -14,7 +14,8 @@
     "deploy": "./scripts/deploy.sh",
     "deploy:check": "npm run prod-check && npm run build",
     "health": "curl -f http://localhost:3000/api/health",
-    "clean": "rm -rf .next out node_modules/.cache"
+    "clean": "rm -rf .next out node_modules/.cache",
+    "generate-password-hash": "node scripts/generate-password-hash.cjs"
   },
   "dependencies": {
     "@emotion/cache": "^11.11.0",

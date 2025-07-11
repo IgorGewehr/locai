@@ -88,8 +88,6 @@ export async function POST(request: NextRequest) {
     })
 
   } catch (error) {
-    console.error('Error processing AI agent request:', error)
-    
     return NextResponse.json(
       { 
         error: 'Internal server error',
@@ -125,7 +123,7 @@ export async function GET(request: NextRequest) {
     } else {
       // Get all agents
       const agents = await aiService.getAllAgents()
-      
+
       return NextResponse.json({
         success: true,
         agents
@@ -133,8 +131,6 @@ export async function GET(request: NextRequest) {
     }
 
   } catch (error) {
-    console.error('Error fetching AI agents:', error)
-    
     return NextResponse.json(
       { 
         error: 'Internal server error',
@@ -184,8 +180,6 @@ export async function PUT(request: NextRequest) {
     })
 
   } catch (error) {
-    console.error('Error updating AI agent:', error)
-    
     return NextResponse.json(
       { 
         error: 'Internal server error',

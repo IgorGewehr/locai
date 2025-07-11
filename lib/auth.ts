@@ -20,11 +20,11 @@ export const authOptions: NextAuthOptions = {
         try {
           // In production, implement proper authentication with Firebase Auth or database
           // This is a placeholder for production readiness
-          
+
           // For now, check against environment variables for admin access
           const adminEmail = process.env.ADMIN_EMAIL || 'admin@locai.com.br'
           const adminPassword = process.env.ADMIN_PASSWORD_HASH || '$2a$10$K7L5G7X5Y5Z5Z5Z5Z5Z5Z.hash' // bcrypt hash
-          
+
           if (credentials.email === adminEmail) {
             const isValidPassword = await bcrypt.compare(credentials.password, adminPassword)
             if (isValidPassword) {
@@ -37,10 +37,9 @@ export const authOptions: NextAuthOptions = {
               }
             }
           }
-          
+
           throw new Error('Credenciais inválidas')
         } catch (error) {
-          console.error('Authentication error:', error)
           return null
         }
       }

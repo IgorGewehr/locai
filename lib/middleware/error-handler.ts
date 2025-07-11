@@ -67,9 +67,9 @@ function logError(error: any, request: NextRequest, requestId: string): void {
   // In production, send to logging service
   if (process.env.NODE_ENV === 'production') {
     // TODO: Send to Sentry, LogRocket, etc.
-    console.error('[ERROR]', JSON.stringify(logData));
+    );
   } else {
-    console.error('[ERROR]', logData);
+
   }
 }
 
@@ -234,13 +234,13 @@ export async function errorHandlerMiddleware(
 ): Promise<NextResponse> {
   try {
     const response = await handler();
-    
+
     // Add security headers
     response.headers.set('X-Content-Type-Options', 'nosniff');
     response.headers.set('X-Frame-Options', 'DENY');
     response.headers.set('X-XSS-Protection', '1; mode=block');
     response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
-    
+
     return response;
   } catch (error) {
     return handleError(error, request);

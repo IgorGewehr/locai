@@ -26,7 +26,7 @@ export class AgentFunctions {
   async searchProperties(filters: PropertySearchFilters): Promise<FunctionResult> {
     try {
       const properties = await propertyQueries.searchProperties(filters);
-      
+
       if (properties.length === 0) {
         return {
           success: true,
@@ -45,12 +45,12 @@ export class AgentFunctions {
           const bMatchingAmenities = b.amenities.filter(amenity => 
             filters.amenities!.includes(amenity)
           ).length;
-          
+
           if (aMatchingAmenities !== bMatchingAmenities) {
             return bMatchingAmenities - aMatchingAmenities;
           }
         }
-        
+
         // Then by price (lower first)
         return a.pricing.basePrice - b.pricing.basePrice;
       });
@@ -61,7 +61,7 @@ export class AgentFunctions {
         message: `Encontrei ${properties.length} propriedade${properties.length > 1 ? 's' : ''} que atende${properties.length === 1 ? '' : 'm'} aos seus critérios!`,
       };
     } catch (error) {
-      console.error('Error searching properties:', error);
+
       return {
         success: false,
         error: 'Erro ao buscar propriedades',
@@ -72,7 +72,7 @@ export class AgentFunctions {
   async getPropertyDetails(propertyId: string): Promise<FunctionResult> {
     try {
       const property = await propertyQueries.getById(propertyId);
-      
+
       if (!property) {
         return {
           success: false,
@@ -86,7 +86,7 @@ export class AgentFunctions {
         message: `Aqui estão os detalhes da propriedade "${property.name}":`,
       };
     } catch (error) {
-      console.error('Error getting property details:', error);
+
       return {
         success: false,
         error: 'Erro ao obter detalhes da propriedade',
@@ -102,7 +102,7 @@ export class AgentFunctions {
   ): Promise<FunctionResult> {
     try {
       const property = await propertyQueries.getById(propertyId);
-      
+
       if (!property) {
         return {
           success: false,
@@ -130,7 +130,7 @@ export class AgentFunctions {
         message: `Calculei o preço para sua estadia de ${priceCalculation.nights} noite${priceCalculation.nights > 1 ? 's' : ''}:`,
       };
     } catch (error) {
-      console.error('Error calculating price:', error);
+
       return {
         success: false,
         error: 'Erro ao calcular preço',
@@ -145,7 +145,7 @@ export class AgentFunctions {
   ): Promise<FunctionResult> {
     try {
       const property = await propertyQueries.getById(propertyId);
-      
+
       if (!property) {
         return {
           success: false,
@@ -154,20 +154,20 @@ export class AgentFunctions {
       }
 
       let mediaCount = 0;
-      
+
       // Send photos
       if (mediaType === 'photos' || mediaType === 'all') {
         const photos = property.photos
           .sort((a, b) => a.order - b.order)
           .slice(0, 5); // Limit to 5 photos
-        
+
         for (const photo of photos) {
           const result = await whatsappService.sendImageMessage(
             whatsappNumber,
             photo.url,
             photo.isMain ? `📸 ${property.name} - Foto Principal` : undefined
           );
-          
+
           if (result.success) {
             mediaCount++;
           }
@@ -179,14 +179,14 @@ export class AgentFunctions {
         const videos = property.videos
           .sort((a, b) => a.order - b.order)
           .slice(0, 2); // Limit to 2 videos
-        
+
         for (const video of videos) {
           const result = await whatsappService.sendVideoMessage(
             whatsappNumber,
             video.url,
             `🎥 ${property.name} - ${video.title}`
           );
-          
+
           if (result.success) {
             mediaCount++;
           }
@@ -199,7 +199,7 @@ export class AgentFunctions {
         message: `Enviei ${mediaCount} arquivo${mediaCount > 1 ? 's' : ''} de mídia da propriedade "${property.name}"`,
       };
     } catch (error) {
-      console.error('Error sending property media:', error);
+
       return {
         success: false,
         error: 'Erro ao enviar mídia da propriedade',
@@ -217,7 +217,7 @@ export class AgentFunctions {
   ): Promise<FunctionResult> {
     try {
       const property = await propertyQueries.getById(propertyId);
-      
+
       if (!property) {
         return {
           success: false,
@@ -281,7 +281,7 @@ export class AgentFunctions {
         message: `Reserva criada com sucesso! Código: ${reservationId}`,
       };
     } catch (error) {
-      console.error('Error creating reservation:', error);
+
       return {
         success: false,
         error: 'Erro ao criar reserva',
@@ -295,7 +295,7 @@ export class AgentFunctions {
   ): Promise<FunctionResult> {
     try {
       const client = await clientService.getById(clientId);
-      
+
       if (!client) {
         return {
           success: false,
@@ -318,7 +318,7 @@ export class AgentFunctions {
         message: 'Preferências atualizadas com sucesso! Isso me ajudará a encontrar propriedades mais adequadas para você.',
       };
     } catch (error) {
-      console.error('Error updating client preferences:', error);
+
       return {
         success: false,
         error: 'Erro ao atualizar preferências',
@@ -333,7 +333,7 @@ export class AgentFunctions {
   ): Promise<FunctionResult> {
     try {
       const property = await propertyQueries.getById(propertyId);
-      
+
       if (!property) {
         return {
           success: false,
@@ -362,7 +362,7 @@ export class AgentFunctions {
           : 'Esta propriedade está disponível para as datas selecionadas!',
       };
     } catch (error) {
-      console.error('Error checking availability:', error);
+
       return {
         success: false,
         error: 'Erro ao verificar disponibilidade',
@@ -376,7 +376,7 @@ export class AgentFunctions {
   ): Promise<FunctionResult> {
     try {
       const client = await clientService.getById(clientId);
-      
+
       if (!client) {
         return {
           success: false,
@@ -394,7 +394,7 @@ export class AgentFunctions {
       };
 
       const properties = await propertyQueries.searchProperties(searchFilters);
-      
+
       // Sort by relevance and limit results
       const recommendations = properties.slice(0, limit);
 
@@ -404,7 +404,7 @@ export class AgentFunctions {
         message: `Baseado no seu perfil, encontrei ${recommendations.length} propriedade${recommendations.length > 1 ? 's' : ''} que podem te interessar:`,
       };
     } catch (error) {
-      console.error('Error getting recommendations:', error);
+
       return {
         success: false,
         error: 'Erro ao obter recomendações',
@@ -418,7 +418,7 @@ export class AgentFunctions {
   ): Promise<FunctionResult> {
     try {
       const conversation = await conversationService.getById(conversationId);
-      
+
       if (!conversation) {
         return {
           success: false,
@@ -442,7 +442,7 @@ export class AgentFunctions {
         message: 'Contexto da conversa atualizado',
       };
     } catch (error) {
-      console.error('Error updating conversation context:', error);
+
       return {
         success: false,
         error: 'Erro ao atualizar contexto da conversa',

@@ -17,15 +17,13 @@ export class WhatsAppClient {
   async sendMessage(to: string, message: WhatsAppMessage): Promise<any> {
     try {
       const url = `${this.baseURL}/${this.phoneNumberId}/messages`
-      
+
       const payload = {
         messaging_product: 'whatsapp',
         recipient_type: 'individual',
         to: to,
         ...message
       }
-
-      console.log(`📤 Sending ${message.type} message to ${to}`)
 
       const response = await fetch(url, {
         method: 'POST',
@@ -38,8 +36,6 @@ export class WhatsAppClient {
 
       if (!response.ok) {
         const error = await response.json()
-        console.error(`❌ Failed to send ${message.type} message:`, error)
-        
         throw new WhatsAppError(
           error.error?.code || response.status,
           error.error?.message || `Failed to send ${message.type} message`,
@@ -48,17 +44,13 @@ export class WhatsAppClient {
       }
 
       const result = await response.json()
-      console.log(`✅ ${message.type} message sent successfully:`, result.messages?.[0]?.id)
-      
       return result
-      
+
     } catch (error) {
-      console.error(`❌ Error in sendMessage for type ${message.type}:`, error)
-      
       if (error instanceof WhatsAppError) {
         throw error
       }
-      
+
       throw new WhatsAppError(
         500,
         error instanceof Error ? error.message : 'Failed to send message',
@@ -80,7 +72,7 @@ export class WhatsAppClient {
   async sendTypingIndicator(to: string): Promise<void> {
     try {
       const url = `${this.baseURL}/${this.phoneNumberId}/messages`
-      
+
       await fetch(url, {
         method: 'POST',
         headers: {
@@ -98,14 +90,13 @@ export class WhatsAppClient {
           }
         })
       })
-      
+
       // Note: WhatsApp API doesn't have official typing indicators
       // This is a workaround that sends a brief message
-      
+
     } catch (error) {
       // Don't throw on typing indicator failures
-      console.warn('Failed to send typing indicator:', error)
-    }
+      }
   }
 
   async sendImage(to: string, imageUrl: string, caption?: string): Promise<void> {
@@ -134,31 +125,28 @@ export class WhatsAppClient {
    */
   async sendAudio(to: string, audioBuffer: Buffer, caption?: string): Promise<void> {
     try {
-      console.log(`🎵 Sending audio message to ${to} (${(audioBuffer.length / 1024).toFixed(1)}KB)`)
-      
+      .toFixed(1)}KB)`)
+
       // Create audio file from buffer
       const audioFile = new File([audioBuffer], 'audio_response.mp3', { type: 'audio/mpeg' })
-      
+
       // Upload audio to WhatsApp
       const uploadResponse = await this.uploadMedia(audioFile)
-      
+
       if (!uploadResponse.id) {
         throw new Error('Failed to upload audio file')
       }
-      
+
       // Send audio message
       const audioObj: any = { id: uploadResponse.id }
       if (caption) audioObj.caption = caption
-      
+
       await this.sendMessage(to, {
         type: 'audio',
         audio: audioObj
       })
-      
-      console.log(`✅ Audio message sent successfully: ${uploadResponse.id}`)
-      
-    } catch (error) {
-      console.error('❌ Error sending audio message:', error)
+
+      } catch (error) {
       throw new WhatsAppError(
         500, 
         error instanceof Error ? error.message : 'Failed to send audio message',
@@ -174,16 +162,13 @@ export class WhatsAppClient {
     try {
       const audioObj: any = { link: audioUrl }
       if (caption) audioObj.caption = caption
-      
+
       await this.sendMessage(to, {
         type: 'audio',
         audio: audioObj
       })
-      
-      console.log(`✅ Audio message sent from URL: ${audioUrl}`)
-      
-    } catch (error) {
-      console.error('❌ Error sending audio from URL:', error)
+
+      } catch (error) {
       throw new WhatsAppError(
         500, 
         error instanceof Error ? error.message : 'Failed to send audio from URL',
@@ -196,7 +181,7 @@ export class WhatsAppClient {
     const location: any = { latitude, longitude }
     if (name) location.name = name
     if (address) location.address = address
-    
+
     await this.sendMessage(to, {
       type: 'location',
       location
@@ -253,7 +238,7 @@ export class WhatsAppClient {
   async markAsRead(messageId: string): Promise<void> {
     try {
       const url = `${this.baseURL}/${this.phoneNumberId}/messages`
-      
+
       const response = await fetch(url, {
         method: 'POST',
         headers: {
@@ -275,11 +260,8 @@ export class WhatsAppClient {
           'Mark Read Error'
         )
       }
-      
-      console.log(`✅ Message ${messageId} marked as read`)
-      
-    } catch (error) {
-      console.error(`❌ Failed to mark message ${messageId} as read:`, error)
+
+      } catch (error) {
       // Don't throw on mark-as-read failures - it's not critical
     }
   }
@@ -291,9 +273,9 @@ export class WhatsAppClient {
     try {
       // Validate file before upload
       await this.validateMediaFile(file)
-      
-      console.log(`📤 Uploading ${file.type} file: ${file.name} (${(file.size / 1024).toFixed(1)}KB)`)
-      
+
+      .toFixed(1)}KB)`)
+
       const formData = new FormData()
       formData.append('file', file)
       formData.append('type', file.type)
@@ -317,12 +299,9 @@ export class WhatsAppClient {
       }
 
       const result = await response.json()
-      console.log(`✅ Media uploaded successfully: ${result.id}`)
-      
       return result
-      
+
     } catch (error) {
-      console.error('❌ Error uploading media:', error)
       if (error instanceof WhatsAppError) {
         throw error
       }
@@ -412,8 +391,8 @@ export class WhatsAppClient {
    */
   async downloadMedia(mediaUrl: string): Promise<Buffer> {
     try {
-      console.log(`📥 Downloading media from: ${mediaUrl.slice(0, 50)}...`)
-      
+      }...`)
+
       const response = await fetch(mediaUrl, {
         headers: {
           'Authorization': `Bearer ${this.accessToken}`,
@@ -434,8 +413,8 @@ export class WhatsAppClient {
       const contentLength = response.headers.get('content-length')
       if (contentLength) {
         const size = parseInt(contentLength)
-        console.log(`📦 Downloading ${(size / 1024).toFixed(1)}KB...`)
-        
+        .toFixed(1)}KB...`)
+
         // Check size limit
         if (size > 25 * 1024 * 1024) { // 25MB limit
           throw new Error('Media file too large to download')
@@ -444,22 +423,20 @@ export class WhatsAppClient {
 
       const arrayBuffer = await response.arrayBuffer()
       const buffer = Buffer.from(arrayBuffer)
-      
-      console.log(`✅ Media downloaded successfully: ${(buffer.length / 1024).toFixed(1)}KB`)
-      
+
+      .toFixed(1)}KB`)
+
       return buffer
-      
+
     } catch (error) {
-      console.error('❌ Error downloading media:', error)
-      
       if (error instanceof WhatsAppError) {
         throw error
       }
-      
+
       if (error.name === 'AbortError') {
         throw new WhatsAppError(408, 'Media download timeout', 'Download Timeout')
       }
-      
+
       throw new WhatsAppError(
         500, 
         error instanceof Error ? error.message : 'Failed to download media',
@@ -502,10 +479,7 @@ export class WhatsAppClient {
   async setWebhook(webhookUrl: string, verifyToken: string): Promise<void> {
     // This would typically be done through Facebook Developer Console
     // but can be programmatically set up if needed
-    console.log('Webhook setup should be done through Facebook Developer Console')
-    console.log('Webhook URL:', webhookUrl)
-    console.log('Verify Token:', verifyToken)
-  }
+    }
 
   async getPhoneNumberInfo(): Promise<any> {
     const response = await fetch(`${this.baseURL}/${this.phoneNumberId}`, {
@@ -595,22 +569,22 @@ export class WhatsAppClient {
 
     // Check for common audio file headers
     const header = buffer.slice(0, 4)
-    
+
     // MP3 header
     if (header[0] === 0xFF && (header[1] & 0xE0) === 0xE0) {
       return true
     }
-    
+
     // MP4/M4A header
     if (header.toString() === 'ftyp') {
       return true
     }
-    
+
     // OGG header
     if (header.toString('ascii', 0, 4) === 'OggS') {
       return true
     }
-    
+
     // WAV header
     if (header.toString('ascii', 0, 4) === 'RIFF') {
       return true
@@ -629,12 +603,12 @@ export class WhatsAppClient {
   formatPhoneNumber(phoneNumber: string): string {
     // Remove any non-digit characters except +
     let cleaned = phoneNumber.replace(/[^\d+]/g, '')
-    
+
     // Add + if not present
     if (!cleaned.startsWith('+')) {
       cleaned = '+' + cleaned
     }
-    
+
     return cleaned
   }
 
@@ -674,20 +648,20 @@ export class WhatsAppClient {
   handleAudioError(error: any, operation: string): WhatsAppError {
     const errorMessage = error.message || `Audio ${operation} failed`
     const errorCode = error.code || 500
-    
+
     // Map specific audio errors
     if (errorMessage.includes('format')) {
       return new WhatsAppError(400, 'Unsupported audio format', 'Audio Format Error')
     }
-    
+
     if (errorMessage.includes('size')) {
       return new WhatsAppError(413, 'Audio file too large', 'Audio Size Error')
     }
-    
+
     if (errorMessage.includes('timeout')) {
       return new WhatsAppError(408, 'Audio processing timeout', 'Audio Timeout Error')
     }
-    
+
     return new WhatsAppError(errorCode, errorMessage, `Audio ${operation} Error`)
   }
 }

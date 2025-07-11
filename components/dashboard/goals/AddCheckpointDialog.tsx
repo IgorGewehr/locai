@@ -58,12 +58,12 @@ export default function AddCheckpointDialog({
 
   const calculateNewProgress = () => {
     if (!goal.targetValue || goal.startValue === undefined) return 0
-    
+
     const start = goal.startValue || 0
     const target = goal.targetValue
-    
+
     if (target === start) return 100
-    
+
     const progress = ((value - start) / (target - start)) * 100
     return Math.max(0, Math.min(100, progress))
   }
@@ -93,7 +93,6 @@ export default function AddCheckpointDialog({
 
       onSuccess()
     } catch (error) {
-      console.error('Erro ao adicionar checkpoint:', error)
       setError(error instanceof Error ? error.message : 'Erro ao adicionar checkpoint')
     } finally {
       setLoading(false)
@@ -186,7 +185,7 @@ export default function AddCheckpointDialog({
                 {newProgress.toFixed(1)}%
               </Typography>
             </Box>
-            
+
             <Typography 
               variant="body2" 
               color={progressDiff > 0 ? 'success.main' : 'error.main'}

@@ -194,11 +194,11 @@ export default function DashboardPage() {
       // Fetch properties
       const properties = await propertyService.getAll();
       const activeProperties = properties.filter(p => p.status === 'active');
-      
+
       // Fetch reservations
       const reservations = await reservationService.getAll();
       const pendingReservations = reservations.filter(r => r.status === 'pending');
-      
+
       // Calculate monthly revenue
       const currentMonth = new Date().getMonth();
       const currentYear = new Date().getFullYear();
@@ -206,12 +206,12 @@ export default function DashboardPage() {
         const date = r.checkIn.toDate();
         return date.getMonth() === currentMonth && date.getFullYear() === currentYear && r.status === 'confirmed';
       });
-      
+
       const monthlyRevenue = monthlyReservations.reduce((total, r) => total + r.totalPrice, 0);
       const totalRevenue = reservations
         .filter(r => r.status === 'confirmed')
         .reduce((total, r) => total + r.totalPrice, 0);
-      
+
       // Calculate occupancy rate
       const totalDays = activeProperties.length * 30; // Assuming 30 days
       const occupiedDays = reservations
@@ -223,23 +223,23 @@ export default function DashboardPage() {
           return total + days;
         }, 0);
       const occupancyRate = totalDays > 0 ? (occupiedDays / totalDays) * 100 : 0;
-      
+
       // Fetch WhatsApp stats
       const today = new Date();
       today.setHours(0, 0, 0, 0);
-      
+
       const messagesQuery = query(
         collection(db, 'messages'),
         where('timestamp', '>=', Timestamp.fromDate(today))
       );
       const messagesSnapshot = await getDocs(messagesQuery);
-      
+
       const conversationsQuery = query(
         collection(db, 'conversations'),
         where('status', '==', 'active')
       );
       const conversationsSnapshot = await getDocs(conversationsQuery);
-      
+
       // Fetch recent activity
       const activityQuery = query(
         collection(db, 'activity_logs'),
@@ -251,7 +251,7 @@ export default function DashboardPage() {
         id: doc.id,
         ...doc.data()
       }));
-      
+
       setStats({
         totalProperties: properties.length,
         activeProperties: activeProperties.length,
@@ -262,16 +262,16 @@ export default function DashboardPage() {
         occupancyRate,
         averageRating: 4.8, // Calculate from reviews when available
       });
-      
+
       setWhatsappStats({
         messagesTotal: messagesSnapshot.size,
         activeConversations: conversationsSnapshot.size,
         avgResponseTime: 1.2, // Calculate from actual response times
       });
-      
+
       setRecentActivity(activities);
     } catch (error) {
-      console.error('Error fetching stats:', error);
+
     } finally {
       setLoading(false);
     }
@@ -436,7 +436,7 @@ export default function DashboardPage() {
                   <WhatsApp sx={{ color: 'white', fontSize: 28 }} />
                 </Box>
               </Box>
-              
+
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 4 }}>
                 <Chip 
                   label="Conectado" 
@@ -470,7 +470,7 @@ export default function DashboardPage() {
                     {loading ? '-' : whatsappStats.messagesTotal}
                   </Typography>
                 </Box>
-                
+
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <Typography variant="body1" sx={{ color: 'rgba(255, 255, 255, 0.9)', fontSize: '1.125rem' }}>
                     Conversas ativas:
@@ -479,7 +479,7 @@ export default function DashboardPage() {
                     {loading ? '-' : whatsappStats.activeConversations}
                   </Typography>
                 </Box>
-                
+
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <Typography variant="body1" sx={{ color: 'rgba(255, 255, 255, 0.9)', fontSize: '1.125rem' }}>
                     Tempo médio resposta:
@@ -537,7 +537,7 @@ export default function DashboardPage() {
                   <TrendingUp sx={{ color: 'white', fontSize: 28 }} />
                 </Box>
               </Box>
-              
+
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3, mt: 4 }}>
                 {loading ? (
                   Array.from({ length: 4 }).map((_, index) => (
@@ -618,7 +618,7 @@ export default function DashboardPage() {
               >
                 Ações Rápidas
               </Typography>
-              
+
               <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', alignItems: 'center' }}>
                 <Chip
                   label="Nova Propriedade"

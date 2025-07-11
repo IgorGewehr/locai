@@ -1,8 +1,9 @@
 import { AIFunctionExecutor } from './agent-functions';
 import { Property } from '@/lib/types';
+import { getTenantId } from '@/lib/utils/tenant';
 
 // Create a single instance to use across the application
-const functionExecutor = new AIFunctionExecutor(process.env.TENANT_ID || 'default');
+const functionExecutor = new AIFunctionExecutor(getTenantId());
 
 // Export individual functions for backward compatibility
 export const searchProperties = async (args: any) => {

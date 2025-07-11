@@ -30,7 +30,10 @@ export async function validateAuth(req: NextRequest): Promise<AuthContext> {
   if (apiKey && process.env.API_KEY) {
     if (apiKey === process.env.API_KEY) {
       // Extract tenant from API key or header
-      const tenantId = req.headers.get('x-tenant-id') || process.env.TENANT_ID || 'default'
+      const tenantId = req.headers.get('x-tenant-id') || process.env.TENANT_ID
+      if (!tenantId) {
+        throw new Error('Tenant ID is required for API key authentication')
+      }
       return {
         authenticated: true,
         tenantId,

@@ -4,9 +4,6 @@ import { getStorage } from 'firebase/storage';
 import { getAuth } from 'firebase/auth';
 import { getAnalytics } from 'firebase/analytics';
 
-
-
-
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY!,
   authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN!,
@@ -35,13 +32,12 @@ if (typeof window !== 'undefined' && process.env.NODE_ENV === 'production') {
   import('firebase/firestore').then(({ enableNetwork, enableIndexedDbPersistence }) => {
     enableIndexedDbPersistence(db).catch((err) => {
       if (err.code === 'failed-precondition') {
-        console.warn('Multiple tabs open, persistence can only be enabled in one tab at a time.');
+
       } else if (err.code === 'unimplemented') {
-        console.warn('The current browser does not support offline persistence.');
+
       }
     });
   });
 }
-
 
 export default app;

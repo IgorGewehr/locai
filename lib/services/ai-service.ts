@@ -15,7 +15,7 @@ export class AIService {
     this.openai = new OpenAI({
       apiKey: process.env.OPENAI_API_KEY
     })
-    
+
     // Load default agent
     this.loadDefaultAgent()
   }
@@ -101,7 +101,7 @@ export class AIService {
     try {
       const agentId = conversation.agentId || 'ai-agent-default'
       const generator = this.generators.get(agentId)
-      
+
       if (!generator) {
         throw new Error(`AI generator not found for agent ${agentId}`)
       }
@@ -109,9 +109,9 @@ export class AIService {
       // Update conversation context
       const contextManager = new ConversationContextManager(conversation.context)
       contextManager.updateFromMessage(message)
-      
+
       const updatedContext = contextManager.getContext()
-      
+
       // Generate AI response
       const aiResponse = await generator.generateResponse(
         conversation,
@@ -125,8 +125,6 @@ export class AIService {
       return aiResponse
 
     } catch (error) {
-      console.error('Error processing message with AI:', error)
-      
       // Return fallback response
       return {
         content: 'Desculpe, estou com dificuldades técnicas no momento. Um de nossos especialistas entrará em contato em breve.',
@@ -194,7 +192,7 @@ export class AIService {
     if (!agent) return
 
     agent.performance.totalConversations++
-    
+
     // Update average response time (simplified calculation)
     const responseTime = 2.5 // This would be calculated from actual timing
     agent.performance.averageResponseTime = (
@@ -406,15 +404,14 @@ export class AIService {
 
   async importTrainingData(data: any): Promise<void> {
     // This would import training data to improve the AI
-    console.log('Training data imported:', data.length, 'entries')
-  }
+    }
 
   // Health check for the AI service
   async healthCheck(): Promise<{ status: string; details: any }> {
     try {
       // Test OpenAI connection
       await this.openai.models.list()
-      
+
       return {
         status: 'healthy',
         details: {

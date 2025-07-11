@@ -66,10 +66,10 @@ export async function GET(request: NextRequest) {
     };
 
     const validatedParams = analyticsQuerySchema.parse(queryParams);
-    
+
     // Add tenant context to all queries
     const tenantId = authContext.tenantId;
-    
+
     switch (validatedParams.type) {
       case 'overview':
         return await getOverviewAnalytics(validatedParams.period, tenantId);
@@ -200,7 +200,7 @@ async function getOverviewAnalytics(period: string, tenantId: string) {
     });
 
   } catch (error) {
-    console.error('Error in getOverviewAnalytics:', error);
+
     throw error;
   }
 }
@@ -221,7 +221,7 @@ async function getRevenueAnalytics(period: string, tenantId: string) {
     for (let i = 0; i < months; i++) {
       const monthStart = subMonths(endDate, months - i - 1);
       const monthEnd = endOfMonth(monthStart);
-      
+
       const monthReservations = reservations.filter(r => {
         const createdAt = new Date(r.createdAt);
         return createdAt >= monthStart && createdAt <= monthEnd;
@@ -249,7 +249,7 @@ async function getRevenueAnalytics(period: string, tenantId: string) {
     });
 
   } catch (error) {
-    console.error('Error in getRevenueAnalytics:', error);
+
     throw error;
   }
 }
@@ -270,7 +270,7 @@ async function getPropertiesAnalytics(tenantId: string) {
 
       const revenue = propertyReservations.reduce((sum, r) => sum + r.totalAmount, 0);
       const totalNights = propertyReservations.reduce((sum, r) => sum + r.nights, 0);
-      
+
       // Calculate occupancy (simplified - assuming 30 days per month)
       const occupancy = Math.min((totalNights / 30) * 100, 100);
 
@@ -303,7 +303,7 @@ async function getPropertiesAnalytics(tenantId: string) {
     });
 
   } catch (error) {
-    console.error('Error in getPropertiesAnalytics:', error);
+
     throw error;
   }
 }
@@ -370,7 +370,7 @@ async function getConversionsAnalytics(tenantId: string) {
     });
 
   } catch (error) {
-    console.error('Error in getConversionsAnalytics:', error);
+
     throw error;
   }
 }
@@ -379,11 +379,11 @@ async function getChartsData(period: string, tenantId: string) {
   try {
     const months = 6;
     const data = await getRevenueAnalytics(`${months}months`, tenantId);
-    
+
     // Get real payment data
     const endDate = new Date();
     const startDate = subMonths(endDate, months);
-    
+
     const payments = await paymentService.getMany([
       { field: 'tenantId', operator: '==', value: tenantId },
       { field: 'paidDate', operator: '>=', value: startDate },
@@ -447,7 +447,7 @@ async function getChartsData(period: string, tenantId: string) {
     });
 
   } catch (error) {
-    console.error('Error in getChartsData:', error);
+
     throw error;
   }
 }
@@ -462,7 +462,7 @@ async function getDailyRevenueTrend(startDate: Date, endDate: Date, tenantId: st
     ]);
 
     const dailyRevenue: Record<string, number> = {};
-    
+
     reservations.forEach(reservation => {
       const dateKey = format(new Date(reservation.createdAt), 'yyyy-MM-dd');
       dailyRevenue[dateKey] = (dailyRevenue[dateKey] || 0) + reservation.totalAmount;
@@ -473,7 +473,7 @@ async function getDailyRevenueTrend(startDate: Date, endDate: Date, tenantId: st
       revenue
     })).sort((a, b) => a.date.localeCompare(b.date));
   } catch (error) {
-    console.error('Error calculating daily revenue trend:', error);
+
     return [];
   }
 }
@@ -483,13 +483,13 @@ async function getMonthlyGrowthTrend(tenantId: string) {
     const months = 12;
     const endDate = new Date();
     const monthlyGrowth = [];
-    
+
     for (let i = 1; i < months; i++) {
       const currentMonthStart = startOfMonth(subMonths(endDate, i));
       const currentMonthEnd = endOfMonth(currentMonthStart);
       const previousMonthStart = startOfMonth(subMonths(endDate, i + 1));
       const previousMonthEnd = endOfMonth(previousMonthStart);
-      
+
       const [currentReservations, previousReservations] = await Promise.all([
         reservationService.getMany([
           { field: 'tenantId', operator: '==', value: tenantId },
@@ -504,23 +504,23 @@ async function getMonthlyGrowthTrend(tenantId: string) {
           { field: 'status', operator: '!=', value: 'cancelled' }
         ])
       ]);
-      
+
       const currentRevenue = currentReservations.reduce((sum, r) => sum + r.totalAmount, 0);
       const previousRevenue = previousReservations.reduce((sum, r) => sum + r.totalAmount, 0);
-      
+
       const growth = previousRevenue > 0 
         ? ((currentRevenue - previousRevenue) / previousRevenue) * 100 
         : 0;
-      
+
       monthlyGrowth.push({
         month: format(currentMonthStart, 'MMM yyyy', { locale: ptBR }),
         growth: Math.round(growth * 100) / 100
       });
     }
-    
+
     return monthlyGrowth.reverse();
   } catch (error) {
-    console.error('Error calculating monthly growth trend:', error);
+
     return [];
   }
 }
@@ -529,12 +529,12 @@ async function getMonthlyGrowthTrend(tenantId: string) {
 async function calculateAverageResponseTime(conversations: Conversation[]): Promise<number> {
   try {
     const whatsappConversations = conversations.filter(c => c.whatsappPhone && c.messages?.length > 1);
-    
+
     if (whatsappConversations.length === 0) return 0;
-    
+
     let totalResponseTime = 0;
     let responseCount = 0;
-    
+
     whatsappConversations.forEach(conversation => {
       const messages = conversation.messages || [];
       for (let i = 1; i < messages.length; i++) {
@@ -547,13 +547,13 @@ async function calculateAverageResponseTime(conversations: Conversation[]): Prom
         }
       }
     });
-    
+
     if (responseCount === 0) return 0;
-    
+
     // Return average in minutes
     return Math.round((totalResponseTime / responseCount) / 60000);
   } catch (error) {
-    console.error('Error calculating average response time:', error);
+
     return 0;
   }
 }

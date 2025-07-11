@@ -25,7 +25,7 @@ export interface AuthTokenPayload {
 
 class AuthService {
   private secret: Uint8Array;
-  
+
   constructor() {
     if (!process.env.JWT_SECRET) {
       throw new Error('JWT_SECRET environment variable is required');
@@ -56,7 +56,7 @@ class AuthService {
       const { payload } = await jwtVerify(token, this.secret);
       return payload as AuthTokenPayload;
     } catch (error) {
-      console.error('Token verification failed:', error);
+
       return null;
     }
   }
@@ -93,13 +93,13 @@ class AuthService {
 
   async getCurrentUser(): Promise<User | null> {
     const token = await this.getAuthToken();
-    
+
     if (!token) {
       return null;
     }
 
     const payload = await this.verifyToken(token);
-    
+
     if (!payload) {
       return null;
     }
@@ -118,7 +118,7 @@ class AuthService {
 
   async requireAuth(request: NextRequest): Promise<{ user: User; token: string } | NextResponse> {
     const authHeader = request.headers.get('authorization');
-    
+
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
       return NextResponse.json(
         { 
@@ -132,7 +132,7 @@ class AuthService {
 
     const token = authHeader.substring(7);
     const payload = await this.verifyToken(token);
-    
+
     if (!payload) {
       return NextResponse.json(
         { 
@@ -170,28 +170,28 @@ class AuthService {
 
   // Basic rate limiting for auth endpoints
   private loginAttempts = new Map<string, { count: number; lastAttempt: Date }>();
-  
+
   async checkRateLimit(identifier: string, maxAttempts: number = 5, windowMs: number = 15 * 60 * 1000): Promise<boolean> {
     const now = new Date();
     const attempts = this.loginAttempts.get(identifier);
-    
+
     if (!attempts) {
       this.loginAttempts.set(identifier, { count: 1, lastAttempt: now });
       return true;
     }
-    
+
     const timeSinceLastAttempt = now.getTime() - attempts.lastAttempt.getTime();
-    
+
     if (timeSinceLastAttempt > windowMs) {
       // Reset window
       this.loginAttempts.set(identifier, { count: 1, lastAttempt: now });
       return true;
     }
-    
+
     if (attempts.count >= maxAttempts) {
       return false;
     }
-    
+
     attempts.count++;
     attempts.lastAttempt = now;
     return true;

@@ -17,7 +17,7 @@ interface UseConversationsReturn {
   loading: boolean
   error: string | null
   stats: ConversationStats | null
-  
+
   // Actions
   loadConversations: () => Promise<void>
   loadConversation: (conversationId: string) => Promise<void>
@@ -27,11 +27,11 @@ interface UseConversationsReturn {
   addMessage: (conversationId: string, message: Partial<Message>) => Promise<void>
   escalateToHuman: (conversationId: string, reason: string) => Promise<void>
   completeConversation: (conversationId: string, outcome: any) => Promise<void>
-  
+
   // Filters
   setFilters: (filters: ConversationFilters) => void
   clearFilters: () => void
-  
+
   // Utils
   refreshConversations: () => Promise<void>
   refreshConversation: (conversationId: string) => Promise<void>
@@ -81,41 +81,40 @@ export function useConversations({
   }, [])
 
   const handleError = useCallback((error: any, context: string) => {
-    console.error(`Error in ${context}:`, error)
     setError(error instanceof Error ? error.message : `Error in ${context}`)
   }, [])
 
   const buildQueryParams = useCallback(() => {
     const params = new URLSearchParams()
-    
+
     params.append('tenantId', tenantId)
     params.append('limit', limit.toString())
-    
+
     if (filters.status) params.append('status', filters.status)
     if (filters.stage) params.append('stage', filters.stage)
     if (filters.clientId) params.append('clientId', filters.clientId)
     if (filters.dateFrom) params.append('dateFrom', filters.dateFrom.toISOString())
     if (filters.dateTo) params.append('dateTo', filters.dateTo.toISOString())
     if (filters.search) params.append('search', filters.search)
-    
+
     return params.toString()
   }, [tenantId, limit, filters])
 
   const loadConversations = useCallback(async () => {
     setLoading(true)
     setError(null)
-    
+
     try {
       const queryParams = buildQueryParams()
       const response = await fetch(`/api/conversations?${queryParams}`)
       const data = await response.json()
-      
+
       if (!data.success) {
         throw new Error(data.error || 'Failed to load conversations')
       }
-      
+
       setConversations(data.conversations || [])
-      
+
       // Load stats if no specific filters are applied
       if (!filters.clientId && !filters.search) {
         await loadStats()
@@ -131,27 +130,26 @@ export function useConversations({
     try {
       const response = await fetch(`/api/conversations/stats?tenantId=${tenantId}`)
       const data = await response.json()
-      
+
       if (data.success) {
         setStats(data.stats)
       }
     } catch (error) {
-      console.error('Error loading conversation stats:', error)
-    }
+      }
   }, [tenantId])
 
   const loadConversation = useCallback(async (conversationId: string) => {
     setLoading(true)
     setError(null)
-    
+
     try {
       const response = await fetch(`/api/conversations/${conversationId}`)
       const data = await response.json()
-      
+
       if (!data.success) {
         throw new Error(data.error || 'Failed to load conversation')
       }
-      
+
       setCurrentConversation(data.conversation)
     } catch (error) {
       handleError(error, 'loadConversation')
@@ -163,7 +161,7 @@ export function useConversations({
   const createConversation = useCallback(async (phoneNumber: string, clientName?: string): Promise<Conversation> => {
     setLoading(true)
     setError(null)
-    
+
     try {
       const response = await fetch('/api/conversations', {
         method: 'POST',
@@ -176,18 +174,18 @@ export function useConversations({
           tenantId
         }),
       })
-      
+
       const data = await response.json()
-      
+
       if (!data.success) {
         throw new Error(data.error || 'Failed to create conversation')
       }
-      
+
       const newConversation = data.conversation
-      
+
       // Update local state
       setConversations(prev => [newConversation, ...prev])
-      
+
       return newConversation
     } catch (error) {
       handleError(error, 'createConversation')
@@ -200,7 +198,7 @@ export function useConversations({
   const updateConversation = useCallback(async (conversationId: string, updates: Partial<Conversation>) => {
     setLoading(true)
     setError(null)
-    
+
     try {
       const response = await fetch(`/api/conversations/${conversationId}`, {
         method: 'PUT',
@@ -209,18 +207,18 @@ export function useConversations({
         },
         body: JSON.stringify(updates),
       })
-      
+
       const data = await response.json()
-      
+
       if (!data.success) {
         throw new Error(data.error || 'Failed to update conversation')
       }
-      
+
       // Update local state
       setConversations(prev => prev.map(conv => 
         conv.id === conversationId ? { ...conv, ...updates } : conv
       ))
-      
+
       if (currentConversation?.id === conversationId) {
         setCurrentConversation(prev => prev ? { ...prev, ...updates } : null)
       }
@@ -234,21 +232,21 @@ export function useConversations({
   const deleteConversation = useCallback(async (conversationId: string) => {
     setLoading(true)
     setError(null)
-    
+
     try {
       const response = await fetch(`/api/conversations/${conversationId}`, {
         method: 'DELETE',
       })
-      
+
       const data = await response.json()
-      
+
       if (!data.success) {
         throw new Error(data.error || 'Failed to delete conversation')
       }
-      
+
       // Update local state
       setConversations(prev => prev.filter(conv => conv.id !== conversationId))
-      
+
       if (currentConversation?.id === conversationId) {
         setCurrentConversation(null)
       }
@@ -268,13 +266,13 @@ export function useConversations({
         },
         body: JSON.stringify(message),
       })
-      
+
       const data = await response.json()
-      
+
       if (!data.success) {
         throw new Error(data.error || 'Failed to add message')
       }
-      
+
       // Refresh conversation to get updated messages
       await refreshConversation(conversationId)
     } catch (error) {
@@ -341,7 +339,7 @@ export function useConversations({
     loading,
     error,
     stats,
-    
+
     // Actions
     loadConversations,
     loadConversation,
@@ -351,11 +349,11 @@ export function useConversations({
     addMessage,
     escalateToHuman,
     completeConversation,
-    
+
     // Filters
     setFilters,
     clearFilters,
-    
+
     // Utils
     refreshConversations,
     refreshConversation,

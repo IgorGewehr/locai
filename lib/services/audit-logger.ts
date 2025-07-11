@@ -47,15 +47,15 @@ class AuditLogger {
   private getIpAddress(request: NextRequest): string {
     const forwarded = request.headers.get('x-forwarded-for');
     const realIp = request.headers.get('x-real-ip');
-    
+
     if (forwarded) {
       return forwarded.split(',')[0].trim();
     }
-    
+
     if (realIp) {
       return realIp;
     }
-    
+
     return 'unknown';
   }
 
@@ -110,7 +110,7 @@ class AuditLogger {
       this.addToBatch(auditLog);
 
     } catch (error) {
-      console.error('Audit logging error:', error);
+
       // Don't throw - audit logging should not break the application
     }
   }
@@ -140,7 +140,7 @@ class AuditLogger {
 
       this.addToBatch(auditLog);
     } catch (error) {
-      console.error('Audit action logging error:', error);
+
     }
   }
 
@@ -162,16 +162,16 @@ class AuditLogger {
 
     const sanitize = (obj: any): any => {
       if (typeof obj !== 'object' || obj === null) return obj;
-      
+
       if (Array.isArray(obj)) {
         return obj.map(sanitize);
       }
 
       const sanitized: any = {};
-      
+
       for (const [key, value] of Object.entries(obj)) {
         const lowerKey = key.toLowerCase();
-        
+
         if (sensitiveFields.some(field => lowerKey.includes(field.toLowerCase()))) {
           sanitized[key] = '[REDACTED]';
         } else if (typeof value === 'object') {
@@ -180,7 +180,7 @@ class AuditLogger {
           sanitized[key] = value;
         }
       }
-      
+
       return sanitized;
     };
 
@@ -227,7 +227,7 @@ class AuditLogger {
         batch.map(log => this.auditService.create(log))
       );
     } catch (error) {
-      console.error('Batch audit logging error:', error);
+
       // Could implement retry logic here
     }
   }
@@ -415,7 +415,7 @@ class AuditLogger {
         await this.auditService.delete(log.id);
         deleted++;
       } catch (error) {
-        console.error(`Failed to delete audit log ${log.id}:`, error);
+
       }
     }
 
@@ -440,10 +440,10 @@ export function withAuditLogging(
     handler: () => Promise<Response>
   ): Promise<Response> => {
     const startTime = Date.now();
-    
+
     try {
       const response = await handler();
-      
+
       // Log the request
       await auditLogger.log(
         request,
@@ -454,7 +454,7 @@ export function withAuditLogging(
         context,
         startTime
       );
-      
+
       return response;
     } catch (error) {
       // Log error
@@ -467,7 +467,7 @@ export function withAuditLogging(
         context,
         startTime
       );
-      
+
       throw error;
     }
   };

@@ -8,7 +8,7 @@ const nextConfig = {
   },
   
   // Production optimizations
-  output: 'standalone',
+  // output: 'standalone', // Removed for Netlify compatibility
   poweredByHeader: false,
   compress: true,
   reactStrictMode: true,

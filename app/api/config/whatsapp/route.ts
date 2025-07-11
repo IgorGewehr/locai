@@ -27,12 +27,12 @@ export async function GET(request: NextRequest) {
       try {
         const client = new WhatsAppClient(config.phoneNumberId, config.accessToken);
         const phoneInfo = await client.getPhoneNumberInfo();
-        
+
         config.status = 'connected';
         config.businessName = phoneInfo.display_phone_number;
         config.lastSync = new Date();
       } catch (error) {
-        console.error('WhatsApp connection test failed:', error);
+
         config.status = 'error';
       }
     }
@@ -40,7 +40,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(config);
 
   } catch (error) {
-    console.error('Error fetching WhatsApp config:', error);
+
     return NextResponse.json(
       { error: 'Failed to fetch WhatsApp configuration' },
       { status: 500 }
@@ -71,7 +71,7 @@ export async function POST(request: NextRequest) {
     );
 
   } catch (error) {
-    console.error('Error in WhatsApp config POST:', error);
+
     return NextResponse.json(
       { error: 'Failed to process WhatsApp configuration' },
       { status: 500 }
@@ -92,10 +92,10 @@ async function testConnection(phoneNumberId: string, accessToken: string) {
     }
 
     const client = new WhatsAppClient(phoneNumberId, accessToken);
-    
+
     // Test basic connection
     const phoneInfo = await client.getPhoneNumberInfo();
-    
+
     // Test business profile
     const businessProfile = await client.getBusinessProfile();
 
@@ -116,8 +116,7 @@ async function testConnection(phoneNumberId: string, accessToken: string) {
     });
 
   } catch (error) {
-    console.error('WhatsApp connection test failed:', error);
-    
+
     let errorMessage = 'Connection failed';
     if (error.message?.includes('Invalid access token')) {
       errorMessage = 'Invalid Access Token. Please check your credentials.';
@@ -140,7 +139,7 @@ async function saveConfiguration(config: WhatsAppConfig) {
   try {
     // In production, this would save to database
     // For now, we'll just validate and return success
-    
+
     const requiredFields = ['phoneNumberId', 'accessToken', 'verifyToken'];
     for (const field of requiredFields) {
       if (!config[field]) {
@@ -182,7 +181,7 @@ async function saveConfiguration(config: WhatsAppConfig) {
     });
 
   } catch (error) {
-    console.error('Error saving WhatsApp config:', error);
+
     return NextResponse.json({
       success: false,
       error: 'Failed to save configuration',
@@ -194,10 +193,10 @@ async function saveConfiguration(config: WhatsAppConfig) {
 async function setupWebhook(phoneNumberId: string, accessToken: string, verifyToken: string) {
   try {
     const webhookUrl = `${process.env.NEXT_PUBLIC_APP_URL}/api/webhook/whatsapp`;
-    
+
     // Note: Webhook setup is typically done via Facebook Developer Console
     // This endpoint provides the information needed for manual setup
-    
+
     return NextResponse.json({
       success: true,
       webhookSetup: {
@@ -221,7 +220,7 @@ async function setupWebhook(phoneNumberId: string, accessToken: string, verifyTo
     });
 
   } catch (error) {
-    console.error('Error setting up webhook:', error);
+
     return NextResponse.json({
       success: false,
       error: 'Failed to setup webhook',
@@ -233,13 +232,13 @@ async function setupWebhook(phoneNumberId: string, accessToken: string, verifyTo
 export async function PUT(request: NextRequest) {
   try {
     const body = await request.json();
-    
+
     // Update configuration
     const result = await saveConfiguration(body);
     return result;
 
   } catch (error) {
-    console.error('Error updating WhatsApp config:', error);
+
     return NextResponse.json(
       { error: 'Failed to update WhatsApp configuration' },
       { status: 500 }
@@ -250,14 +249,14 @@ export async function PUT(request: NextRequest) {
 export async function DELETE(request: NextRequest) {
   try {
     // In production, this would remove the configuration from database
-    
+
     return NextResponse.json({
       success: true,
       message: 'WhatsApp configuration removed successfully',
     });
 
   } catch (error) {
-    console.error('Error removing WhatsApp config:', error);
+
     return NextResponse.json(
       { error: 'Failed to remove WhatsApp configuration' },
       { status: 500 }

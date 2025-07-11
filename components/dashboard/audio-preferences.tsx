@@ -63,7 +63,7 @@ export default function AudioPreferencesComponent({
     try {
       await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate API call
       onSave?.(preferences);
-      console.log('Audio preferences saved:', preferences);
+
     } finally {
       setSaving(false);
     }
@@ -75,16 +75,16 @@ export default function AudioPreferencesComponent({
 
   const testVoice = async (voiceId: string) => {
     if (testingVoice) return;
-    
+
     setTestingVoice(true);
     setCurrentlyPlaying(voiceId);
-    
+
     try {
       const testText = "Olá! Como posso ajudar você hoje?";
-      
+
       // TODO: Implement actual voice testing with OpenAI TTS API
       await new Promise(resolve => setTimeout(resolve, 1000));
-      
+
     } finally {
       setTestingVoice(false);
       setCurrentlyPlaying(null);
@@ -94,7 +94,7 @@ export default function AudioPreferencesComponent({
   const getVoiceTypeIcon = (voiceId: string) => {
     const femaleVoices = ['nova', 'shimmer'];
     const maleVoices = ['echo', 'fable', 'onyx'];
-    
+
     if (femaleVoices.includes(voiceId)) {
       return '👩';
     } else if (maleVoices.includes(voiceId)) {
@@ -170,7 +170,7 @@ export default function AudioPreferencesComponent({
                       Seleção de Voz
                     </Typography>
                   </Box>
-                  
+
                   <Grid container spacing={2}>
                     {Object.entries(VOICE_OPTIONS).map(([voiceId, voiceInfo]) => (
                       <Grid item xs={12} sm={6} md={4} key={voiceId}>
@@ -196,7 +196,7 @@ export default function AudioPreferencesComponent({
                             <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
                               {voiceInfo.description}
                             </Typography>
-                            
+
                             <Box sx={{ display: 'flex', justifyContent: 'center', gap: 1 }}>
                               {preferences.voice === voiceId && (
                                 <Chip label="Selecionada" color="primary" size="small" />
@@ -222,7 +222,7 @@ export default function AudioPreferencesComponent({
                       </Grid>
                     ))}
                   </Grid>
-                  
+
                   {testingVoice && (
                     <Alert severity="info" sx={{ mt: 2 }}>
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -245,7 +245,7 @@ export default function AudioPreferencesComponent({
                       Qualidade de Voz
                     </Typography>
                   </Box>
-                  
+
                   <FormControl fullWidth>
                     <InputLabel>Modelo</InputLabel>
                     <Select
@@ -271,7 +271,7 @@ export default function AudioPreferencesComponent({
                       </MenuItem>
                     </Select>
                   </FormControl>
-                  
+
                   <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
                     {getQualityDescription(preferences.voiceModel)}
                   </Typography>
@@ -289,7 +289,7 @@ export default function AudioPreferencesComponent({
                       Velocidade da Voz
                     </Typography>
                   </Box>
-                  
+
                   <Box sx={{ px: 2 }}>
                     <Slider
                       value={preferences.voiceSpeed}
@@ -307,7 +307,7 @@ export default function AudioPreferencesComponent({
                       valueLabelFormat={(value) => `${value}x`}
                     />
                   </Box>
-                  
+
                   <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mt: 2 }}>
                     <Typography variant="body2" color="text.secondary">
                       {getSpeedDescription(preferences.voiceSpeed)}
@@ -329,7 +329,7 @@ export default function AudioPreferencesComponent({
                   <Typography variant="h6" sx={{ mb: 2 }}>
                     Resumo das Configurações
                   </Typography>
-                  
+
                   <Grid container spacing={2}>
                     <Grid item xs={6} md={3}>
                       <Typography variant="body2" color="text.secondary">
@@ -339,7 +339,7 @@ export default function AudioPreferencesComponent({
                         {preferences.preferAudioResponses ? 'Sim' : 'Não'}
                       </Typography>
                     </Grid>
-                    
+
                     <Grid item xs={6} md={3}>
                       <Typography variant="body2" color="text.secondary">
                         Voz Selecionada
@@ -348,7 +348,7 @@ export default function AudioPreferencesComponent({
                         {VOICE_OPTIONS[preferences.voice].name}
                       </Typography>
                     </Grid>
-                    
+
                     <Grid item xs={6} md={3}>
                       <Typography variant="body2" color="text.secondary">
                         Qualidade
@@ -357,7 +357,7 @@ export default function AudioPreferencesComponent({
                         {preferences.voiceModel === 'tts-1-hd' ? 'HD' : 'Padrão'}
                       </Typography>
                     </Grid>
-                    
+
                     <Grid item xs={6} md={3}>
                       <Typography variant="body2" color="text.secondary">
                         Velocidade
@@ -383,7 +383,7 @@ export default function AudioPreferencesComponent({
             >
               Restaurar Padrões
             </Button>
-            
+
             <Button
               variant="contained"
               startIcon={saving ? <CircularProgress size={20} /> : <Save />}

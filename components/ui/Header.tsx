@@ -49,7 +49,7 @@ export default function Header({ onMenuClick }: HeaderProps) {
     try {
       await signOut();
     } catch (error) {
-      console.error('Logout error:', error);
+
     }
     handleClose();
   };

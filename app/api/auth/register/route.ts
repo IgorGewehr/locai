@@ -70,7 +70,7 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
       firebaseUid = firebaseUser.uid;
     } catch (error: any) {
       // If Firebase fails, we can still create a local user
-      console.warn('Firebase user creation failed:', error.message);
+
     }
 
     // Hash password for local storage
@@ -139,12 +139,12 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
     if (error instanceof ConflictError) {
       throw error;
     }
-    
+
     // Check for Firebase-specific errors
     if (error.code === 'auth/email-already-exists') {
       throw new ConflictError('Email already in use');
     }
-    
+
     if (error.code === 'auth/invalid-password') {
       throw new AuthenticationError('Password does not meet requirements');
     }

@@ -91,7 +91,7 @@ export default function ClientsPage() {
       const clientsData = await clientService.getAll();
       setClients(clientsData);
     } catch (error) {
-      console.error('Error loading clients:', error);
+
     } finally {
       setLoading(false);
     }
@@ -122,7 +122,7 @@ export default function ClientsPage() {
       setFormData({ name: '', phone: '', email: '', cpf: '', notes: '' });
       loadClients();
     } catch (error) {
-      console.error('Error adding client:', error);
+
     }
   };
 
@@ -226,7 +226,7 @@ export default function ClientsPage() {
             }}
           />
         </Box>
-        
+
         <Tabs 
           value={selectedTab} 
           onChange={(_, newValue) => setSelectedTab(newValue)}
@@ -358,7 +358,7 @@ export default function ClientsPage() {
                       {getInitials(client.name)}
                     </Avatar>
                   </ListItemAvatar>
-                  
+
                   <ListItemText
                     primary={
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -390,7 +390,7 @@ export default function ClientsPage() {
                       </Box>
                     }
                   />
-                  
+
                   <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
                     <IconButton 
                       size="small" 

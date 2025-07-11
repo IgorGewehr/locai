@@ -23,7 +23,7 @@ export class RateLimiter {
     this.config = {
       maxRequests: config.maxRequests,
       windowMs: config.windowMs,
-      keyGenerator: config.keyGenerator || ((req) => req.ip || 'default'),
+      keyGenerator: config.keyGenerator || ((req) => req.ip || 'anonymous'),
       skipSuccessfulRequests: config.skipSuccessfulRequests || false,
       skipFailedRequests: config.skipFailedRequests || false,
     };

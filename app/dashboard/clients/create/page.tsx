@@ -63,7 +63,7 @@ export default function CreateClientPage() {
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState('');
-  
+
   const [formData, setFormData] = useState<ClientFormData>({
     name: '',
     email: '',
@@ -127,13 +127,13 @@ export default function CreateClientPage() {
       };
 
       await clientService.create(clientData);
-      
+
       setSuccess(true);
       setTimeout(() => {
         router.push('/dashboard/clients');
       }, 2000);
     } catch (err) {
-      console.error('Error creating client:', err);
+
       setError('Erro ao criar cliente. Tente novamente.');
     } finally {
       setLoading(false);
@@ -335,7 +335,7 @@ export default function CreateClientPage() {
                 >
                   Voltar
                 </Button>
-                
+
                 <Box sx={{ display: 'flex', gap: 2 }}>
                   {activeStep === steps.length - 1 ? (
                     <Button
@@ -367,7 +367,7 @@ export default function CreateClientPage() {
               <Typography variant="h6" gutterBottom>
                 Dicas para Cadastro
               </Typography>
-              
+
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                   <Person color="primary" />
@@ -375,21 +375,21 @@ export default function CreateClientPage() {
                     Informações completas ajudam na personalização do atendimento
                   </Typography>
                 </Box>
-                
+
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                   <ContactPhone color="primary" />
                   <Typography variant="body2">
                     WhatsApp é essencial para o atendimento via IA
                   </Typography>
                 </Box>
-                
+
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                   <AttachMoney color="primary" />
                   <Typography variant="body2">
                     Orçamento ajuda a filtrar propriedades adequadas
                   </Typography>
                 </Box>
-                
+
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                   <Notes color="primary" />
                   <Typography variant="body2">

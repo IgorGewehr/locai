@@ -61,7 +61,6 @@ interface ReservationWithDetails extends Reservation {
   nights: number;
 }
 
-
 export default function ReservationsPage() {
   const router = useRouter();
   const [reservations, setReservations] = useState<ReservationWithDetails[]>([]);
@@ -165,7 +164,7 @@ export default function ReservationsPage() {
 
         setReservations(reservationsWithDetails);
       } catch (error) {
-        console.error('Error loading reservations:', error);
+
       } finally {
         setLoading(false);
       }
@@ -250,7 +249,7 @@ export default function ReservationsPage() {
                 }}
               />
             </Grid>
-            
+
             <Grid item xs={6} md={2}>
               <FormControl fullWidth>
                 <InputLabel>Status</InputLabel>
@@ -341,7 +340,7 @@ export default function ReservationsPage() {
                       {reservation.id}
                     </Typography>
                   </TableCell>
-                  
+
                   <TableCell>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                       <Avatar sx={{ width: 32, height: 32, fontSize: '0.875rem' }}>
@@ -357,13 +356,13 @@ export default function ReservationsPage() {
                       </Box>
                     </Box>
                   </TableCell>
-                  
+
                   <TableCell>
                     <Typography variant="body2">
                       {reservation.propertyName}
                     </Typography>
                   </TableCell>
-                  
+
                   <TableCell>
                     <Box>
                       <Typography variant="body2">
@@ -374,19 +373,19 @@ export default function ReservationsPage() {
                       </Typography>
                     </Box>
                   </TableCell>
-                  
+
                   <TableCell>
                     <Badge badgeContent={reservation.guests} color="primary">
                       <Typography variant="body2">pessoas</Typography>
                     </Badge>
                   </TableCell>
-                  
+
                   <TableCell>
                     <Typography variant="body2" fontWeight="bold">
                       R$ {reservation.totalPrice.toLocaleString('pt-BR')}
                     </Typography>
                   </TableCell>
-                  
+
                   <TableCell>
                     <Chip
                       label={reservation.status}
@@ -394,7 +393,7 @@ export default function ReservationsPage() {
                       size="small"
                     />
                   </TableCell>
-                  
+
                   <TableCell>
                     <Chip
                       label={reservation.paymentStatus}
@@ -402,13 +401,13 @@ export default function ReservationsPage() {
                       size="small"
                     />
                   </TableCell>
-                  
+
                   <TableCell>
                     <Tooltip title="Manual">
                       <Schedule sx={{ fontSize: 16 }} />
                     </Tooltip>
                   </TableCell>
-                  
+
                   <TableCell>
                     <Box sx={{ display: 'flex', gap: 0.5 }}>
                       <IconButton 
@@ -452,7 +451,7 @@ export default function ReservationsPage() {
                 <Typography><strong>Nome:</strong> {selectedReservation.clientName}</Typography>
                 <Typography><strong>Telefone:</strong> {selectedReservation.clientPhone}</Typography>
               </Grid>
-              
+
               <Grid item xs={12} md={6}>
                 <Typography variant="h6" gutterBottom>
                   Detalhes da Estadia
@@ -463,7 +462,7 @@ export default function ReservationsPage() {
                 <Typography><strong>Hóspedes:</strong> {selectedReservation.guests}</Typography>
                 <Typography><strong>Noites:</strong> {selectedReservation.nights}</Typography>
               </Grid>
-              
+
               <Grid item xs={12} md={6}>
                 <Typography variant="h6" gutterBottom>
                   Financeiro
@@ -471,7 +470,7 @@ export default function ReservationsPage() {
                 <Typography><strong>Valor Total:</strong> R$ {selectedReservation.totalPrice.toLocaleString('pt-BR')}</Typography>
                 <Typography><strong>Status Pagamento:</strong> {selectedReservation.paymentStatus}</Typography>
               </Grid>
-              
+
               <Grid item xs={12} md={6}>
                 <Typography variant="h6" gutterBottom>
                   Status

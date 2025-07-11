@@ -51,27 +51,27 @@ export const ErrorCodes = {
   INVALID_TOKEN: 'INVALID_TOKEN',
   TOKEN_EXPIRED: 'TOKEN_EXPIRED',
   INSUFFICIENT_PERMISSIONS: 'INSUFFICIENT_PERMISSIONS',
-  
+
   // Validation
   VALIDATION_ERROR: 'VALIDATION_ERROR',
   INVALID_INPUT: 'INVALID_INPUT',
   MISSING_REQUIRED_FIELD: 'MISSING_REQUIRED_FIELD',
   INVALID_FORMAT: 'INVALID_FORMAT',
-  
+
   // Resources
   NOT_FOUND: 'NOT_FOUND',
   RESOURCE_NOT_FOUND: 'RESOURCE_NOT_FOUND',
   ALREADY_EXISTS: 'ALREADY_EXISTS',
-  
+
   // Rate Limiting
   RATE_LIMIT_EXCEEDED: 'RATE_LIMIT_EXCEEDED',
   TOO_MANY_REQUESTS: 'TOO_MANY_REQUESTS',
-  
+
   // External Services
   OPENAI_ERROR: 'OPENAI_ERROR',
   WHATSAPP_ERROR: 'WHATSAPP_ERROR',
   FIREBASE_ERROR: 'FIREBASE_ERROR',
-  
+
   // Internal
   INTERNAL_SERVER_ERROR: 'INTERNAL_SERVER_ERROR',
   DATABASE_ERROR: 'DATABASE_ERROR',
@@ -86,28 +86,28 @@ export const CommonErrors = {
     type: ErrorType.AUTHENTICATION,
     statusCode: 401,
   }),
-  
+
   invalidToken: (): ApiError => ({
     code: ErrorCodes.INVALID_TOKEN,
     message: 'Token inválido ou expirado',
     type: ErrorType.AUTHENTICATION,
     statusCode: 401,
   }),
-  
+
   forbidden: (): ApiError => ({
     code: ErrorCodes.INSUFFICIENT_PERMISSIONS,
     message: 'Acesso negado',
     type: ErrorType.AUTHORIZATION,
     statusCode: 403,
   }),
-  
+
   notFound: (resource: string = 'Recurso'): ApiError => ({
     code: ErrorCodes.NOT_FOUND,
     message: `${resource} não encontrado`,
     type: ErrorType.NOT_FOUND,
     statusCode: 404,
   }),
-  
+
   validation: (message: string, details?: any): ApiError => ({
     code: ErrorCodes.VALIDATION_ERROR,
     message,
@@ -115,35 +115,35 @@ export const CommonErrors = {
     statusCode: 400,
     details,
   }),
-  
+
   conflict: (message: string): ApiError => ({
     code: ErrorCodes.ALREADY_EXISTS,
     message,
     type: ErrorType.CONFLICT,
     statusCode: 409,
   }),
-  
+
   rateLimit: (): ApiError => ({
     code: ErrorCodes.RATE_LIMIT_EXCEEDED,
     message: 'Muitas solicitações. Tente novamente mais tarde.',
     type: ErrorType.RATE_LIMIT,
     statusCode: 429,
   }),
-  
+
   internal: (message: string = 'Erro interno do servidor'): ApiError => ({
     code: ErrorCodes.INTERNAL_SERVER_ERROR,
     message,
     type: ErrorType.INTERNAL,
     statusCode: 500,
   }),
-  
+
   external: (service: string, message?: string): ApiError => ({
     code: `${service.toUpperCase()}_ERROR`,
     message: message || `Erro no serviço ${service}`,
     type: ErrorType.EXTERNAL_SERVICE,
     statusCode: 502,
   }),
-  
+
   timeout: (): ApiError => ({
     code: ErrorCodes.TIMEOUT,
     message: 'Operação expirou. Tente novamente.',
@@ -168,7 +168,7 @@ export class ApiResponseHandler {
         version: '1.0',
       },
     };
-    
+
     return NextResponse.json(response);
   }
 
@@ -184,23 +184,23 @@ export class ApiResponseHandler {
         details: error.details,
       },
     };
-    
+
     return NextResponse.json(response, { status: error.statusCode });
   }
 
   static created<T>(data: T, location?: string): NextResponse<ApiResponse<T>> {
     const response = this.success(data);
-    
+
     if (location) {
       response.headers.set('Location', location);
     }
-    
+
     // Set status to 201 Created
     Object.defineProperty(response, 'status', {
       value: 201,
       writable: false,
     });
-    
+
     return response;
   }
 
@@ -215,7 +215,7 @@ export class ApiResponseHandler {
     total: number
   ): NextResponse<ApiResponse<T[]>> {
     const totalPages = Math.ceil(total / limit);
-    
+
     return this.success(data, {
       pagination: {
         page,
@@ -234,8 +234,7 @@ export class ApiResponseHandler {
     try {
       return await operation();
     } catch (error) {
-      console.error('API operation failed:', error);
-      
+
       // Handle specific error types
       if (error instanceof Error) {
         if (error.name === 'ValidationError') {
@@ -248,7 +247,7 @@ export class ApiResponseHandler {
           return this.error(CommonErrors.conflict(error.message));
         }
       }
-      
+
       // Generic internal server error
       return this.error(CommonErrors.internal(errorMessage));
     }
@@ -259,7 +258,7 @@ export class ApiResponseHandler {
 export class ApiValidationError extends Error {
   name = 'ValidationError';
   details?: any;
-  
+
   constructor(message: string, details?: any) {
     super(message);
     this.details = details;
@@ -268,7 +267,7 @@ export class ApiValidationError extends Error {
 
 export class ApiNotFoundError extends Error {
   name = 'NotFoundError';
-  
+
   constructor(message: string = 'Recurso não encontrado') {
     super(message);
   }
@@ -276,7 +275,7 @@ export class ApiNotFoundError extends Error {
 
 export class ApiConflictError extends Error {
   name = 'ConflictError';
-  
+
   constructor(message: string) {
     super(message);
   }
@@ -285,7 +284,7 @@ export class ApiConflictError extends Error {
 export class ApiExternalServiceError extends Error {
   name = 'ExternalServiceError';
   service: string;
-  
+
   constructor(service: string, message: string) {
     super(message);
     this.service = service;
@@ -295,7 +294,7 @@ export class ApiExternalServiceError extends Error {
 // Helper for input validation
 export function validateRequired(data: any, fields: string[]): void {
   const missing = fields.filter(field => !data[field]);
-  
+
   if (missing.length > 0) {
     throw new ApiValidationError(
       `Campos obrigatórios ausentes: ${missing.join(', ')}`,
@@ -327,7 +326,7 @@ export const apiResponse = {
         version: '1.0',
       },
     };
-    
+
     return NextResponse.json(response, { status });
   },
 
@@ -342,7 +341,7 @@ export const apiResponse = {
         requestId: crypto.randomUUID(),
       },
     };
-    
+
     return NextResponse.json(response, { status });
   },
 };

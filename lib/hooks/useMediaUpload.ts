@@ -56,20 +56,19 @@ export function useMediaUpload(): UseMediaUploadReturn {
 
           const fileName = `${generateUniqueId()}-${file.name}`
           const storageRef = ref(storage, `properties/${type}s/${fileName}`)
-          
+
           const snapshot = await uploadBytes(storageRef, fileToUpload)
           const url = await getDownloadURL(snapshot.ref)
-          
+
           // Update progress
           setProgress(((index + 1) / files.length) * 100)
-          
+
           return {
             name: file.name,
             url,
             size: file.size,
           }
         } catch (err) {
-          console.error(`Error uploading ${file.name}:`, err)
           throw new Error(`Erro ao enviar ${file.name}: ${err instanceof Error ? err.message : 'Erro desconhecido'}`)
         }
       })

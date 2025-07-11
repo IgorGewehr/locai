@@ -46,7 +46,6 @@ export function usePropertyForm(tenantId: string): UsePropertyFormReturn {
 
       setSuccess(true)
     } catch (err) {
-      console.error('Error saving property:', err)
       setError(err instanceof Error ? err.message : 'Erro desconhecido ao salvar propriedade')
       throw err
     } finally {

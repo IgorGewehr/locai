@@ -14,8 +14,8 @@ export class ErrorHandler {
       additionalInfo,
     };
 
-    console.error('Error logged:', JSON.stringify(errorInfo, null, 2));
-    
+    );
+
     // In production, you would send this to a logging service
     // Example: await sendToLoggingService(errorInfo);
   }
@@ -133,18 +133,18 @@ export class ErrorHandler {
         return await operation();
       } catch (error) {
         lastError = error;
-        
+
         this.logError(error, `${context} - Attempt ${attempt}/${maxRetries}`);
-        
+
         if (attempt === maxRetries) {
           throw error;
         }
-        
+
         // Don't retry on certain error types
         if (error.name === 'ValidationError' || error.name === 'UnauthorizedError' || error.name === 'ForbiddenError') {
           throw error;
         }
-        
+
         // Exponential backoff
         const delay = delayMs * Math.pow(2, attempt - 1);
         await new Promise(resolve => setTimeout(resolve, delay));
@@ -186,24 +186,24 @@ export class ErrorHandler {
 
       try {
         const result = await fn(...args);
-        
+
         // Success - reset failure count and close circuit
         if (state === 'half-open') {
           state = 'closed';
         }
         failureCount = 0;
-        
+
         return result;
       } catch (error) {
         failureCount++;
         lastFailureTime = now;
-        
+
         // Open circuit if failure threshold reached
         if (failureCount >= options.failureThreshold) {
           state = 'open';
           this.logError(error, `Circuit breaker OPENED for ${options.context}`);
         }
-        
+
         throw error;
       }
     };

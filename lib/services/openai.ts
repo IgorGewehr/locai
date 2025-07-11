@@ -259,14 +259,14 @@ Sempre use as funções disponíveis para fornecer informações precisas e atua
       const assistantMessage = choice.message;
 
       let functionCalls: Array<{ name: string; arguments: any }> = [];
-      
+
       if (assistantMessage.function_call) {
         try {
           const functionName = assistantMessage.function_call.name;
           const functionArgs = JSON.parse(assistantMessage.function_call.arguments);
           functionCalls.push({ name: functionName, arguments: functionArgs });
         } catch (error) {
-          console.error('Error parsing function call:', error);
+
         }
       }
 
@@ -276,7 +276,7 @@ Sempre use as funções disponíveis para fornecer informações precisas e atua
         shouldSendMedia: functionCalls.some(call => call.name === 'sendPropertyMedia'),
       };
     } catch (error) {
-      console.error('OpenAI API error:', error);
+
       return {
         message: 'Desculpe, estou com dificuldades técnicas no momento. Pode tentar novamente em alguns instantes?',
       };
@@ -350,7 +350,7 @@ ${JSON.stringify(context.clientPreferences, null, 2)}
 
       return response.choices[0].message?.content || property.description;
     } catch (error) {
-      console.error('Error generating property description:', error);
+
       return property.description;
     }
   }
@@ -377,7 +377,7 @@ ${JSON.stringify(context.clientPreferences, null, 2)}
       return response.choices[0].message?.content || 
         `Olá${clientName ? `, ${clientName}` : ''}! 👋 Sou seu assistente virtual para aluguel por temporada. Estou aqui para ajudar você a encontrar a propriedade perfeita para sua estadia. Como posso te ajudar hoje?`;
     } catch (error) {
-      console.error('Error generating welcome message:', error);
+
       return `Olá${clientName ? `, ${clientName}` : ''}! 👋 Sou seu assistente virtual para aluguel por temporada. Estou aqui para ajudar você a encontrar a propriedade perfeita para sua estadia. Como posso te ajudar hoje?`;
     }
   }
@@ -398,7 +398,7 @@ ${JSON.stringify(context.clientPreferences, null, 2)}
         categories: flaggedCategories,
       };
     } catch (error) {
-      console.error('Error moderating content:', error);
+
       return { flagged: false, categories: [] };
     }
   }
@@ -437,7 +437,7 @@ ${JSON.stringify(context.clientPreferences, null, 2)}
       }
       return {};
     } catch (error) {
-      console.error('Error extracting date from message:', error);
+
       return {};
     }
   }

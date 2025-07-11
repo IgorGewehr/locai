@@ -193,7 +193,6 @@ export default function CreateGoalDialog({
 
       onSuccess()
     } catch (error) {
-      console.error('Erro ao salvar meta:', error)
       setError(error instanceof Error ? error.message : 'Erro ao salvar meta')
     } finally {
       setLoading(false)

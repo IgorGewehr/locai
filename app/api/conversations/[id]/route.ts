@@ -9,7 +9,7 @@ export async function GET(
     const conversationId = params.id
 
     const conversation = await conversationService.getById(conversationId)
-    
+
     if (!conversation) {
       return NextResponse.json(
         { error: 'Conversation not found' },
@@ -23,8 +23,6 @@ export async function GET(
     })
 
   } catch (error) {
-    console.error('Error fetching conversation:', error)
-    
     return NextResponse.json(
       { 
         error: 'Internal server error',
@@ -52,8 +50,6 @@ export async function PUT(
     })
 
   } catch (error) {
-    console.error('Error updating conversation:', error)
-    
     return NextResponse.json(
       { 
         error: 'Internal server error',
@@ -79,8 +75,6 @@ export async function DELETE(
     })
 
   } catch (error) {
-    console.error('Error deleting conversation:', error)
-    
     return NextResponse.json(
       { 
         error: 'Internal server error',

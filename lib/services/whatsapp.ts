@@ -74,7 +74,7 @@ export class WhatsAppService {
         messageId: response.data.messages[0].id,
       };
     } catch (error: any) {
-      console.error('WhatsApp send message error:', error.response?.data || error.message);
+
       return {
         success: false,
         error: error.response?.data?.error?.message || error.message,
@@ -145,7 +145,7 @@ export class WhatsAppService {
 
       return { success: true };
     } catch (error: any) {
-      console.error('WhatsApp mark as read error:', error.response?.data || error.message);
+
       return {
         success: false,
         error: error.response?.data?.error?.message || error.message,
@@ -175,7 +175,7 @@ export class WhatsAppService {
         url: mediaUrl,
       };
     } catch (error: any) {
-      console.error('WhatsApp download media error:', error.response?.data || error.message);
+
       return {
         success: false,
         error: error.response?.data?.error?.message || error.message,
@@ -242,7 +242,7 @@ export class WhatsAppService {
         profile: response.data.data[0],
       };
     } catch (error: any) {
-      console.error('WhatsApp get business profile error:', error.response?.data || error.message);
+
       return {
         success: false,
         error: error.response?.data?.error?.message || error.message,
@@ -267,7 +267,7 @@ export class WhatsAppService {
 
       return { success: true };
     } catch (error: any) {
-      console.error('WhatsApp update business profile error:', error.response?.data || error.message);
+
       return {
         success: false,
         error: error.response?.data?.error?.message || error.message,
@@ -278,7 +278,7 @@ export class WhatsAppService {
   formatPhoneNumber(phoneNumber: string): string {
     // Remove all non-digit characters
     const digits = phoneNumber.replace(/\D/g, '');
-    
+
     // Add country code if not present (assuming Brazil +55)
     if (digits.length === 11 && digits.startsWith('55')) {
       return digits;
@@ -287,7 +287,7 @@ export class WhatsAppService {
     } else if (digits.length === 10) {
       return `5511${digits}`;
     }
-    
+
     return digits;
   }
 

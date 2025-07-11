@@ -10,7 +10,7 @@ export class AutomationService {
   constructor(tenantId: string, whatsappClient: WhatsAppClient, aiService: AIService) {
     this.tenantId = tenantId
     this.automationEngine = new AutomationEngine(whatsappClient, aiService, tenantId)
-    
+
     // Load automations on initialization
     this.initialize()
   }
@@ -23,8 +23,7 @@ export class AutomationService {
     try {
       await this.automationEngine.processTrigger(eventType, eventData)
     } catch (error) {
-      console.error('Error triggering automations:', error)
-    }
+      }
   }
 
   async createAutomation(automation: Omit<Automation, 'id' | 'createdAt' | 'updatedAt'>): Promise<Automation> {

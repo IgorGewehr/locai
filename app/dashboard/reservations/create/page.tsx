@@ -52,14 +52,13 @@ interface ReservationFormData {
 
 const steps = ['Propriedade e Cliente', 'Datas e Hóspedes', 'Pagamento e Confirmação'];
 
-
 export default function CreateReservationPage() {
   const router = useRouter();
   const [activeStep, setActiveStep] = useState(0);
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState('');
-  
+
   const [formData, setFormData] = useState<ReservationFormData>({
     propertyId: '',
     clientName: '',
@@ -74,9 +73,9 @@ export default function CreateReservationPage() {
     source: 'manual',
     notes: '',
   });
-  
+
   const [properties, setProperties] = useState<Array<{ id: string; name: string; basePrice: number }>>([]);
-  
+
   useEffect(() => {
     const loadProperties = async () => {
       try {
@@ -86,10 +85,10 @@ export default function CreateReservationPage() {
           setProperties(data.map((p: any) => ({ id: p.id, name: p.name, basePrice: p.basePrice })));
         }
       } catch (err) {
-        console.error('Failed to load properties:', err);
+
       }
     };
-    
+
     loadProperties();
   }, []);
 
@@ -156,7 +155,7 @@ export default function CreateReservationPage() {
       }
 
       const result = await response.json();
-      
+
       setSuccess(true);
       setTimeout(() => {
         router.push('/dashboard/reservations');
@@ -408,7 +407,7 @@ export default function CreateReservationPage() {
                 >
                   Voltar
                 </Button>
-                
+
                 <Box sx={{ display: 'flex', gap: 2 }}>
                   {activeStep === steps.length - 1 ? (
                     <Button
@@ -440,7 +439,7 @@ export default function CreateReservationPage() {
               <Typography variant="h6" gutterBottom>
                 Dicas para Nova Reserva
               </Typography>
-              
+
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                   <Home color="primary" />
@@ -448,21 +447,21 @@ export default function CreateReservationPage() {
                     Selecione a propriedade primeiro para calcular automaticamente o valor
                   </Typography>
                 </Box>
-                
+
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                   <Person color="primary" />
                   <Typography variant="body2">
                     Dados completos do cliente facilitam o atendimento
                   </Typography>
                 </Box>
-                
+
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                   <CalendarMonth color="primary" />
                   <Typography variant="body2">
                     Verifique a disponibilidade da propriedade nas datas
                   </Typography>
                 </Box>
-                
+
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                   <AttachMoney color="primary" />
                   <Typography variant="body2">

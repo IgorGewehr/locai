@@ -74,7 +74,7 @@ export default function FinancialGoals() {
   const [dashboard, setDashboard] = useState<GoalsDashboard | null>(null)
   const [goals, setGoals] = useState<FinancialGoal[]>([])
   const [performances, setPerformances] = useState<Record<string, GoalPerformance>>({})
-  
+
   // Dialogs
   const [createDialogOpen, setCreateDialogOpen] = useState(false)
   const [detailsDialogOpen, setDetailsDialogOpen] = useState(false)
@@ -105,7 +105,7 @@ export default function FinancialGoals() {
       const activeGoals = goalsData.goals.filter((g: FinancialGoal) => 
         g.status === GoalStatus.ACTIVE
       )
-      
+
       const performancePromises = activeGoals.map(async (goal: FinancialGoal) => {
         const response = await fetch(`/api/goals?id=${goal.id}&includePerformance=true`)
         if (response.ok) {
@@ -122,11 +122,10 @@ export default function FinancialGoals() {
         }
         return acc
       }, {} as Record<string, GoalPerformance>)
-      
+
       setPerformances(performanceMap)
 
     } catch (error) {
-      console.error('Erro ao carregar dados:', error)
       setError(error instanceof Error ? error.message : 'Erro ao carregar dados')
     } finally {
       setLoading(false)
@@ -167,7 +166,6 @@ export default function FinancialGoals() {
 
       await fetchData()
     } catch (error) {
-      console.error('Erro ao excluir meta:', error)
       alert('Erro ao excluir meta')
     }
   }
@@ -191,7 +189,6 @@ export default function FinancialGoals() {
       alert(result.message)
       await fetchData()
     } catch (error) {
-      console.error('Erro ao sincronizar métricas:', error)
       alert('Erro ao sincronizar métricas')
     }
   }
@@ -233,7 +230,7 @@ export default function FinancialGoals() {
           <Typography variant="h5" fontWeight="bold">
             Metas Financeiras
           </Typography>
-          
+
           <Stack direction="row" spacing={1}>
             <Tooltip title="Sincronizar com métricas">
               <IconButton onClick={handleSyncMetrics}>

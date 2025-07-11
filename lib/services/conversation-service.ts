@@ -21,7 +21,7 @@ class ConversationService extends FirestoreService<Conversation> {
       const query = this.collection
         .where('whatsappPhone', '==', phoneNumber)
         .where('status', 'in', [ConversationStatus.ACTIVE, ConversationStatus.WAITING_CLIENT])
-      
+
       if (tenantId) {
         query.where('tenantId', '==', tenantId)
       }
@@ -29,7 +29,6 @@ class ConversationService extends FirestoreService<Conversation> {
       const conversations = await this.query(query.limit(1))
       return conversations[0] || null
     } catch (error) {
-      console.error('Error finding conversation by phone:', error)
       return null
     }
   }
@@ -46,7 +45,6 @@ class ConversationService extends FirestoreService<Conversation> {
 
       return conversations[0] || null
     } catch (error) {
-      console.error('Error finding active conversation:', error)
       return null
     }
   }
@@ -55,7 +53,7 @@ class ConversationService extends FirestoreService<Conversation> {
     try {
       // Find or create client
       let client = await clientService.findByPhone(phoneNumber, tenantId)
-      
+
       if (!client) {
         client = await clientService.create({
           name: clientName || '',
@@ -114,7 +112,6 @@ class ConversationService extends FirestoreService<Conversation> {
 
       return await this.create(conversation)
     } catch (error) {
-      console.error('Error creating new conversation:', error)
       throw error
     }
   }
@@ -140,7 +137,7 @@ class ConversationService extends FirestoreService<Conversation> {
 
       // Add message to conversation
       const updatedMessages = [...(conversation.messages || []), message]
-      
+
       await this.update(conversationId, {
         messages: updatedMessages,
         lastMessageAt: message.timestamp
@@ -148,7 +145,6 @@ class ConversationService extends FirestoreService<Conversation> {
 
       return message
     } catch (error) {
-      console.error('Error adding message:', error)
       throw error
     }
   }
@@ -161,7 +157,6 @@ class ConversationService extends FirestoreService<Conversation> {
       )
 
       if (conversations.length === 0) {
-        console.log(`Message ${messageId} not found in any conversation`)
         return
       }
 
@@ -180,8 +175,7 @@ class ConversationService extends FirestoreService<Conversation> {
 
       await this.update(conversation.id, { messages: updatedMessages })
     } catch (error) {
-      console.error('Error updating message status:', error)
-    }
+      }
   }
 
   async updateConversationFromAI(conversationId: string, aiResponse: any): Promise<void> {
@@ -195,7 +189,7 @@ class ConversationService extends FirestoreService<Conversation> {
       // Update stage based on AI response
       if (aiResponse.functionCall) {
         const functionName = aiResponse.functionCall.name
-        
+
         switch (functionName) {
           case 'search_properties':
             updates.stage = ConversationStage.PROPERTY_SHOWING
@@ -212,8 +206,7 @@ class ConversationService extends FirestoreService<Conversation> {
 
       await this.update(conversationId, updates)
     } catch (error) {
-      console.error('Error updating conversation from AI:', error)
-    }
+      }
   }
 
   async escalateToHuman(conversationId: string, reason: string, urgency: string = 'medium'): Promise<void> {
@@ -229,9 +222,7 @@ class ConversationService extends FirestoreService<Conversation> {
         }
       })
 
-      console.log(`Conversation ${conversationId} escalated to human: ${reason}`)
-    } catch (error) {
-      console.error('Error escalating conversation:', error)
+      } catch (error) {
       throw error
     }
   }
@@ -246,7 +237,6 @@ class ConversationService extends FirestoreService<Conversation> {
           .limit(limit)
       )
     } catch (error) {
-      console.error('Error getting active conversations:', error)
       return []
     }
   }
@@ -274,7 +264,6 @@ class ConversationService extends FirestoreService<Conversation> {
 
       return stats
     } catch (error) {
-      console.error('Error getting conversation stats:', error)
       return {
         total: 0,
         active: 0,
@@ -315,7 +304,6 @@ class ConversationService extends FirestoreService<Conversation> {
 
       return await this.query(query)
     } catch (error) {
-      console.error('Error searching conversations:', error)
       return []
     }
   }
@@ -328,7 +316,6 @@ class ConversationService extends FirestoreService<Conversation> {
           .orderBy('startedAt', 'desc')
       )
     } catch (error) {
-      console.error('Error getting conversations by client:', error)
       return []
     }
   }
@@ -337,7 +324,6 @@ class ConversationService extends FirestoreService<Conversation> {
     try {
       await this.update(conversationId, { context })
     } catch (error) {
-      console.error('Error updating conversation context:', error)
       throw error
     }
   }
@@ -350,7 +336,6 @@ class ConversationService extends FirestoreService<Conversation> {
         outcome
       })
     } catch (error) {
-      console.error('Error completing conversation:', error)
       throw error
     }
   }
@@ -364,7 +349,6 @@ class ConversationService extends FirestoreService<Conversation> {
         .sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime())
         .slice(0, limit)
     } catch (error) {
-      console.error('Error getting recent messages:', error)
       return []
     }
   }

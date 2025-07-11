@@ -54,7 +54,6 @@ import {
 } from '@mui/icons-material';
 import type { Property } from '@/lib/types/property';
 
-
 const propertyTypeIcons: Record<string, React.ReactNode> = {
   apartment: <Apartment />,
   house: <House />,
@@ -81,7 +80,7 @@ export default function PropertiesPage() {
         const propertiesData = await propertyService.getAll();
         setProperties(propertiesData);
       } catch (error) {
-        console.error('Error loading properties:', error);
+
       } finally {
         setLoading(false);
       }
@@ -102,7 +101,7 @@ export default function PropertiesPage() {
 
     // Note: The Property type doesn't have a 'type' field, so we'll skip type filtering for now
     // or map to another field
-    
+
     if (statusFilter !== 'all') {
       if (statusFilter === 'active') {
         filtered = filtered.filter(property => property.isActive);
@@ -131,7 +130,7 @@ export default function PropertiesPage() {
         setDeleteDialogOpen(false);
         setSelectedProperty(null);
       } catch (error) {
-        console.error('Error deleting property:', error);
+
       }
     }
   };
@@ -150,7 +149,7 @@ export default function PropertiesPage() {
         setProperties(prev => [...prev, newProperty]);
         handleMenuClose();
       } catch (error) {
-        console.error('Error duplicating property:', error);
+
       }
     }
   };
@@ -290,7 +289,7 @@ export default function PropertiesPage() {
                     transition: 'transform 0.3s ease-in-out',
                   }}
                 />
-                
+
                 {/* Property Type Badge */}
                 <Box sx={{ position: 'absolute', top: 12, left: 12 }}>
                   <Chip
@@ -307,7 +306,7 @@ export default function PropertiesPage() {
                     }}
                   />
                 </Box>
-                
+
                 {/* Status Badge */}
                 <Box sx={{ position: 'absolute', top: 12, right: 12 }}>
                   <Chip
@@ -389,7 +388,7 @@ export default function PropertiesPage() {
                   </IconButton>
                 </Box>
               </Box>
-              
+
               <CardContent sx={{ flexGrow: 1, p: 2.5 }}>
                 <Typography 
                   variant="h6" 

@@ -40,8 +40,6 @@ export async function GET(request: NextRequest) {
     })
 
   } catch (error) {
-    console.error('Error fetching conversations:', error)
-    
     return NextResponse.json(
       { 
         error: 'Internal server error',
@@ -70,7 +68,7 @@ export async function POST(request: NextRequest) {
 
     // Check if conversation already exists
     const existingConversation = await conversationService.findActiveByPhone(phoneNumber, tenantId)
-    
+
     if (existingConversation) {
       return NextResponse.json({
         success: true,
@@ -89,8 +87,6 @@ export async function POST(request: NextRequest) {
     })
 
   } catch (error) {
-    console.error('Error creating conversation:', error)
-    
     return NextResponse.json(
       { 
         error: 'Internal server error',

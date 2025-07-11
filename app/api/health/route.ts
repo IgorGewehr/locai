@@ -24,17 +24,17 @@ const CACHE_DURATION = 30000; // 30 seconds
 
 async function checkFirebaseConnection(): Promise<{ status: 'up' | 'down' | 'warn'; responseTime: number; message?: string }> {
   const start = Date.now();
-  
+
   try {
     // Test Firebase Admin connection
     await adminDb.collection('health_check').doc('test').set({
       timestamp: new Date(),
       test: true,
     });
-    
+
     // Test Firebase client connection
     const testDoc = await adminDb.collection('health_check').doc('test').get();
-    
+
     if (!testDoc.exists) {
       return {
         status: 'warn',
@@ -42,10 +42,10 @@ async function checkFirebaseConnection(): Promise<{ status: 'up' | 'down' | 'war
         message: 'Firebase connection works but test document not found',
       };
     }
-    
+
     // Clean up test document
     await adminDb.collection('health_check').doc('test').delete();
-    
+
     return {
       status: 'up',
       responseTime: Date.now() - start,
@@ -61,7 +61,7 @@ async function checkFirebaseConnection(): Promise<{ status: 'up' | 'down' | 'war
 
 async function checkOpenAIConnection(): Promise<{ status: 'up' | 'down' | 'warn'; responseTime: number; message?: string }> {
   const start = Date.now();
-  
+
   try {
     if (!process.env.OPENAI_API_KEY) {
       return {
@@ -70,7 +70,7 @@ async function checkOpenAIConnection(): Promise<{ status: 'up' | 'down' | 'warn'
         message: 'OpenAI API key not configured',
       };
     }
-    
+
     // Simple API key validation (doesn't make actual API call)
     if (!process.env.OPENAI_API_KEY.startsWith('sk-')) {
       return {
@@ -79,7 +79,7 @@ async function checkOpenAIConnection(): Promise<{ status: 'up' | 'down' | 'warn'
         message: 'OpenAI API key format invalid',
       };
     }
-    
+
     return {
       status: 'up',
       responseTime: Date.now() - start,
@@ -95,7 +95,7 @@ async function checkOpenAIConnection(): Promise<{ status: 'up' | 'down' | 'warn'
 
 async function checkWhatsAppConnection(): Promise<{ status: 'up' | 'down' | 'warn'; responseTime: number; message?: string }> {
   const start = Date.now();
-  
+
   try {
     const requiredEnvVars = [
       'WHATSAPP_ACCESS_TOKEN',
@@ -103,9 +103,9 @@ async function checkWhatsAppConnection(): Promise<{ status: 'up' | 'down' | 'war
       'WHATSAPP_VERIFY_TOKEN',
       'WHATSAPP_APP_SECRET',
     ];
-    
+
     const missingVars = requiredEnvVars.filter(varName => !process.env[varName]);
-    
+
     if (missingVars.length > 0) {
       return {
         status: 'warn',
@@ -113,7 +113,7 @@ async function checkWhatsAppConnection(): Promise<{ status: 'up' | 'down' | 'war
         message: `Missing WhatsApp environment variables: ${missingVars.join(', ')}`,
       };
     }
-    
+
     return {
       status: 'up',
       responseTime: Date.now() - start,
@@ -129,7 +129,7 @@ async function checkWhatsAppConnection(): Promise<{ status: 'up' | 'down' | 'war
 
 async function checkEnvironmentVariables(): Promise<{ status: 'up' | 'down' | 'warn'; responseTime: number; message?: string }> {
   const start = Date.now();
-  
+
   try {
     const criticalEnvVars = [
       'NEXT_PUBLIC_APP_URL',
@@ -138,9 +138,9 @@ async function checkEnvironmentVariables(): Promise<{ status: 'up' | 'down' | 'w
       'FIREBASE_PROJECT_ID',
       'OPENAI_API_KEY',
     ];
-    
+
     const missingVars = criticalEnvVars.filter(varName => !process.env[varName]);
-    
+
     if (missingVars.length > 0) {
       return {
         status: 'down',
@@ -148,7 +148,7 @@ async function checkEnvironmentVariables(): Promise<{ status: 'up' | 'down' | 'w
         message: `Missing critical environment variables: ${missingVars.join(', ')}`,
       };
     }
-    
+
     // Check JWT secret length
     if (process.env.JWT_SECRET && process.env.JWT_SECRET.length < 32) {
       return {
@@ -157,7 +157,7 @@ async function checkEnvironmentVariables(): Promise<{ status: 'up' | 'down' | 'w
         message: 'JWT_SECRET should be at least 32 characters long',
       };
     }
-    
+
     return {
       status: 'up',
       responseTime: Date.now() - start,
@@ -174,7 +174,7 @@ async function checkEnvironmentVariables(): Promise<{ status: 'up' | 'down' | 'w
 async function performHealthCheck(): Promise<HealthCheck> {
   const timestamp = new Date().toISOString();
   const uptime = process.uptime();
-  
+
   // Run all checks in parallel
   const [firebaseCheck, openaiCheck, whatsappCheck, envCheck] = await Promise.all([
     checkFirebaseConnection(),
@@ -182,7 +182,7 @@ async function performHealthCheck(): Promise<HealthCheck> {
     checkWhatsAppConnection(),
     checkEnvironmentVariables(),
   ]);
-  
+
   const checks = {
     firebase: {
       ...firebaseCheck,
@@ -201,12 +201,12 @@ async function performHealthCheck(): Promise<HealthCheck> {
       lastCheck: timestamp,
     },
   };
-  
+
   // Determine overall status
   const statuses = Object.values(checks).map(check => check.status);
   const hasDown = statuses.includes('down');
   const hasWarn = statuses.includes('warn');
-  
+
   let overallStatus: 'healthy' | 'unhealthy' | 'degraded';
   if (hasDown) {
     overallStatus = 'unhealthy';
@@ -215,7 +215,7 @@ async function performHealthCheck(): Promise<HealthCheck> {
   } else {
     overallStatus = 'healthy';
   }
-  
+
   return {
     status: overallStatus,
     timestamp,
@@ -229,7 +229,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
   try {
     const now = Date.now();
     const detailed = request.nextUrl.searchParams.get('detailed') === 'true';
-    
+
     // Use cached result if available and not expired
     if (lastHealthCheck && (now - lastCheckTime) < CACHE_DURATION && !detailed) {
       return NextResponse.json(lastHealthCheck, {
@@ -240,17 +240,17 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
         },
       });
     }
-    
+
     // Perform health check
     const healthCheck = await performHealthCheck();
-    
+
     // Cache the result
     lastHealthCheck = healthCheck;
     lastCheckTime = now;
-    
+
     // Return appropriate status code
     const statusCode = healthCheck.status === 'healthy' ? 200 : 503;
-    
+
     // Return detailed or summary response
     const response = detailed ? healthCheck : {
       status: healthCheck.status,
@@ -258,7 +258,7 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
       version: healthCheck.version,
       uptime: healthCheck.uptime,
     };
-    
+
     return NextResponse.json(response, {
       status: statusCode,
       headers: {
@@ -266,10 +266,9 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
         'Content-Type': 'application/json',
       },
     });
-    
+
   } catch (error) {
-    console.error('Health check error:', error);
-    
+
     return NextResponse.json({
       status: 'unhealthy',
       timestamp: new Date().toISOString(),

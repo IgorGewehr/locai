@@ -13,7 +13,7 @@ interface UseAIAgentReturn {
   loading: boolean
   error: string | null
   testing: boolean
-  
+
   // Actions
   loadAgents: () => Promise<void>
   loadAgent: (agentId: string) => Promise<void>
@@ -24,7 +24,7 @@ interface UseAIAgentReturn {
   testAgent: (agentId: string, message?: string) => Promise<AIResponse>
   updatePersonality: (agentId: string, personality: Partial<AIPersonality>) => Promise<void>
   updateConfiguration: (agentId: string, configuration: Partial<AIConfiguration>) => Promise<void>
-  
+
   // Utils
   refreshAgent: (agentId: string) => Promise<void>
   clearError: () => void
@@ -45,22 +45,21 @@ export function useAIAgent({
   }, [])
 
   const handleError = useCallback((error: any, context: string) => {
-    console.error(`Error in ${context}:`, error)
     setError(error instanceof Error ? error.message : `Error in ${context}`)
   }, [])
 
   const loadAgents = useCallback(async () => {
     setLoading(true)
     setError(null)
-    
+
     try {
       const response = await fetch(`/api/ai/agent?tenantId=${tenantId}`)
       const data = await response.json()
-      
+
       if (!data.success) {
         throw new Error(data.error || 'Failed to load agents')
       }
-      
+
       setAgents(data.agents || [])
     } catch (error) {
       handleError(error, 'loadAgents')
@@ -72,15 +71,15 @@ export function useAIAgent({
   const loadAgent = useCallback(async (agentId: string) => {
     setLoading(true)
     setError(null)
-    
+
     try {
       const response = await fetch(`/api/ai/agent?tenantId=${tenantId}&agentId=${agentId}`)
       const data = await response.json()
-      
+
       if (!data.success) {
         throw new Error(data.error || 'Failed to load agent')
       }
-      
+
       setCurrentAgent(data.agent)
     } catch (error) {
       handleError(error, 'loadAgent')
@@ -92,7 +91,7 @@ export function useAIAgent({
   const createAgent = useCallback(async (agentData: Omit<AIAgent, 'id' | 'createdAt' | 'updatedAt'>) => {
     setLoading(true)
     setError(null)
-    
+
     try {
       const response = await fetch('/api/ai/agent', {
         method: 'POST',
@@ -104,13 +103,13 @@ export function useAIAgent({
           tenantId
         }),
       })
-      
+
       const data = await response.json()
-      
+
       if (!data.success) {
         throw new Error(data.error || 'Failed to create agent')
       }
-      
+
       // Refresh agents list
       await loadAgents()
     } catch (error) {
@@ -123,7 +122,7 @@ export function useAIAgent({
   const updateAgent = useCallback(async (agentId: string, updates: Partial<AIAgent>) => {
     setLoading(true)
     setError(null)
-    
+
     try {
       const response = await fetch('/api/ai/agent', {
         method: 'PUT',
@@ -136,18 +135,18 @@ export function useAIAgent({
           ...updates
         }),
       })
-      
+
       const data = await response.json()
-      
+
       if (!data.success) {
         throw new Error(data.error || 'Failed to update agent')
       }
-      
+
       // Update local state
       setAgents(prev => prev.map(agent => 
         agent.id === agentId ? { ...agent, ...updates } : agent
       ))
-      
+
       if (currentAgent?.id === agentId) {
         setCurrentAgent(prev => prev ? { ...prev, ...updates } : null)
       }
@@ -161,21 +160,21 @@ export function useAIAgent({
   const deleteAgent = useCallback(async (agentId: string) => {
     setLoading(true)
     setError(null)
-    
+
     try {
       const response = await fetch(`/api/ai/agent?agentId=${agentId}&tenantId=${tenantId}`, {
         method: 'DELETE',
       })
-      
+
       const data = await response.json()
-      
+
       if (!data.success) {
         throw new Error(data.error || 'Failed to delete agent')
       }
-      
+
       // Update local state
       setAgents(prev => prev.filter(agent => agent.id !== agentId))
-      
+
       if (currentAgent?.id === agentId) {
         setCurrentAgent(null)
       }
@@ -193,7 +192,7 @@ export function useAIAgent({
   const testAgent = useCallback(async (agentId: string, message: string = 'Olá!'): Promise<AIResponse> => {
     setTesting(true)
     setError(null)
-    
+
     try {
       const response = await fetch('/api/ai/test', {
         method: 'POST',
@@ -206,13 +205,13 @@ export function useAIAgent({
           tenantId
         }),
       })
-      
+
       const data = await response.json()
-      
+
       if (!data.success) {
         throw new Error(data.error || 'Failed to test agent')
       }
-      
+
       return data.testResult
     } catch (error) {
       handleError(error, 'testAgent')
@@ -253,7 +252,7 @@ export function useAIAgent({
     loading,
     error,
     testing,
-    
+
     // Actions
     loadAgents,
     loadAgent,
@@ -264,7 +263,7 @@ export function useAIAgent({
     testAgent,
     updatePersonality,
     updateConfiguration,
-    
+
     // Utils
     refreshAgent,
     clearError

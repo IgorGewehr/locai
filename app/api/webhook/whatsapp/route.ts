@@ -11,9 +11,10 @@ import { sanitizeUserInput, validateJSON } from '@/lib/utils/validation'
 import { handleApiError } from '@/lib/utils/api-errors'
 import crypto from 'crypto'
 import { z } from 'zod'
+import { getTenantId } from '@/lib/utils/tenant'
 
 // Initialize services
-const tenantId = process.env.TENANT_ID || 'default'
+const tenantId = getTenantId()
 const whatsappClient = new WhatsAppClient(
   process.env.WHATSAPP_PHONE_NUMBER_ID!,
   process.env.WHATSAPP_ACCESS_TOKEN!
@@ -74,13 +75,11 @@ const WebhookPayloadSchema = z.object({
 function verifyWebhookSignature(request: NextRequest, body: string): boolean {
   const signature = request.headers.get('x-hub-signature-256')
   if (!signature) {
-    console.error('Missing webhook signature header')
     return false
   }
 
   const appSecret = process.env.WHATSAPP_APP_SECRET
   if (!appSecret) {
-    console.error('WHATSAPP_APP_SECRET not configured')
     return false
   }
 
@@ -90,7 +89,7 @@ function verifyWebhookSignature(request: NextRequest, body: string): boolean {
     .digest('hex')
 
   const providedSignature = signature.replace('sha256=', '')
-  
+
   // Use timing-safe comparison
   const isValid = crypto.timingSafeEqual(
     Buffer.from(expectedSignature, 'hex'),
@@ -98,8 +97,7 @@ function verifyWebhookSignature(request: NextRequest, body: string): boolean {
   )
 
   if (!isValid) {
-    console.error('Invalid webhook signature')
-  }
+    }
 
   return isValid
 }
@@ -123,15 +121,14 @@ async function logWebhookEvent(
   }
 
   // In production, send to logging service
-  console.log(`Webhook ${type}:`, JSON.stringify(logEntry, null, 2))
-  
+  )
+
   // Store critical events in Firestore for auditing
   if (type === 'error' || (type === 'processed' && data.messageId)) {
     try {
       await conversationService.db.collection('webhook_logs').add(logEntry)
     } catch (logError) {
-      console.error('Failed to store webhook log:', logError)
-    }
+      }
   }
 }
 
@@ -163,7 +160,7 @@ export async function GET(request: NextRequest) {
         method: 'GET',
         result: 'webhook_verified',
       })
-      
+
       return new NextResponse(sanitizedChallenge, {
         status: 200,
         headers: { 'Content-Type': 'text/plain' },
@@ -174,7 +171,7 @@ export async function GET(request: NextRequest) {
       method: 'GET',
       error: 'invalid_verification_token',
     })
-    
+
     return NextResponse.json(
       { error: 'Invalid verification token' },
       { status: 403 }
@@ -189,7 +186,7 @@ export async function POST(request: NextRequest) {
   try {
     // Get raw body for signature verification
     const rawBody = await request.text()
-    
+
     // Verify webhook signature
     if (!verifyWebhookSignature(request, rawBody)) {
       await logWebhookEvent('error', {
@@ -225,7 +222,7 @@ export async function POST(request: NextRequest) {
       })
       return NextResponse.json({ success: true }) // Return success to avoid retries
     }
-    
+
     await logWebhookEvent('received', {
       method: 'POST',
       object: body.object,
@@ -253,7 +250,7 @@ export async function POST(request: NextRequest) {
         }
 
         const value = change.value
-        
+
         // Process incoming messages
         if (value.messages && Array.isArray(value.messages)) {
           for (const message of value.messages) {
@@ -278,7 +275,7 @@ export async function POST(request: NextRequest) {
                   error: 'rate_limit_exceeded',
                   phone: message.from,
                 })
-                
+
                 // Send rate limit message
                 await whatsappClient.sendText(
                   message.from,
@@ -289,14 +286,14 @@ export async function POST(request: NextRequest) {
 
               // Mark message as processed
               processedMessages.set(message.id, Date.now())
-              
+
               await logWebhookEvent('processed', {
                 messageId: message.id,
                 from: message.from,
                 type: message.type,
                 text: message.text?.body ? sanitizeUserInput(message.text.body).substring(0, 100) : undefined,
               })
-              
+
               // Create webhook data for message handler
               const messageWebhookData: WhatsAppWebhookData = {
                 object: body.object,
@@ -320,13 +317,13 @@ export async function POST(request: NextRequest) {
                 30000, // 30 seconds timeout
                 `Message processing for ${message.id}`
               )
-              
+
             } catch (error) {
               await logWebhookEvent('error', {
                 messageId: message.id,
                 from: message.from,
               }, error)
-              
+
               // Send error message to user
               try {
                 await whatsappClient.sendText(
@@ -334,8 +331,7 @@ export async function POST(request: NextRequest) {
                   'Desculpe, ocorreu um erro temporário. Nossa equipe foi notificada. Tente novamente em alguns instantes.'
                 )
               } catch (sendError) {
-                console.error('Failed to send error message:', sendError)
-              }
+                }
             }
           }
         }
@@ -349,7 +345,7 @@ export async function POST(request: NextRequest) {
                 status: status.status,
                 recipient: status.recipient_id,
               })
-              
+
               // Create webhook data for status handler
               const statusWebhookData: WhatsAppWebhookData = {
                 object: body.object,
@@ -382,7 +378,7 @@ export async function POST(request: NextRequest) {
               whatsappError: error,
               metadata: value.metadata,
             })
-            
+
             const errorWebhookData: WhatsAppWebhookData = {
               object: body.object,
               entry: [{
@@ -408,7 +404,7 @@ export async function POST(request: NextRequest) {
 
   } catch (error) {
     await logWebhookEvent('error', { method: 'POST' }, error)
-    
+
     // For critical errors, still return success to avoid infinite webhook retries
     // but log the error for investigation
     return NextResponse.json({ success: true })

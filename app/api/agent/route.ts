@@ -28,11 +28,11 @@ import {
 export async function POST(request: NextRequest) {
   // Start request logging
   const logContext = createRequestLogContext(Date.now());
-  
+
   try {
     // Authentication (optional for WhatsApp webhooks)
     const authContext = await validateAuth(request);
-    
+
     // Parse and validate request body
     let body;
     try {
@@ -55,7 +55,7 @@ export async function POST(request: NextRequest) {
     try {
       validatedMessage = validateMessageContent(message);
       validatedPhone = validatePhoneNumber(clientPhone);
-      
+
       // Get tenant ID from auth context or request
       const tenantId = authContext.tenantId || requestTenantId || process.env.TENANT_ID || 'default';
       validatedTenantId = validateTenantId(tenantId);
@@ -89,7 +89,7 @@ export async function POST(request: NextRequest) {
         phoneNumber: validatedPhone,
         tenantId: validatedTenantId
       });
-      
+
       return NextResponse.json(
         { 
           success: false, 
@@ -111,7 +111,7 @@ export async function POST(request: NextRequest) {
     let client = await clientQueries.getClientByPhoneAndTenant(validatedPhone, validatedTenantId);
     if (!client) {
       const sanitizedWhatsappNumber = whatsappNumber ? validatePhoneNumber(whatsappNumber) : validatedPhone;
-      
+
       const clientData = sanitizeClientData({
         name: 'Cliente WhatsApp',
         phone: validatedPhone,
@@ -124,7 +124,7 @@ export async function POST(request: NextRequest) {
         createdAt: new Date(),
         updatedAt: new Date(),
       });
-      
+
       const clientId = await clientService.create(clientData);
       client = await clientService.getById(clientId);
     }
@@ -139,7 +139,7 @@ export async function POST(request: NextRequest) {
         phoneNumber: validatedPhone,
         tenantId: validatedTenantId
       });
-      
+
       return handleApiError(new Error('Erro ao processar sua mensagem. Por favor, tente novamente.'));
     }
 
@@ -149,7 +149,7 @@ export async function POST(request: NextRequest) {
       sanitizedWhatsappNumber,
       validatedTenantId
     );
-    
+
     if (!conversation) {
       const conversationId = await conversationService.create({
         clientId: client.id,
@@ -176,7 +176,7 @@ export async function POST(request: NextRequest) {
         clientId: client.id,
         tenantId: validatedTenantId
       });
-      
+
       return handleApiError(new Error('Erro ao processar sua mensagem. Por favor, tente novamente.'));
     }
 
@@ -213,7 +213,7 @@ export async function POST(request: NextRequest) {
     // Process message with OpenAI (with timeout and error handling)
     const aiService = new AIService();
     let agentResponse: AIResponse;
-    
+
     try {
       // Set a timeout for AI processing
       const aiPromise = aiService.processMessage(
@@ -221,11 +221,11 @@ export async function POST(request: NextRequest) {
         context,
         recentHistory
       );
-      
+
       const timeoutPromise = new Promise<never>((_, reject) => {
         setTimeout(() => reject(new Error('AI processing timeout')), 30000); // 30 second timeout
       });
-      
+
       agentResponse = await Promise.race([aiPromise, timeoutPromise]);
     } catch (error) {
       await logContext.log({
@@ -239,7 +239,7 @@ export async function POST(request: NextRequest) {
         conversationId: conversation.id,
         tenantId: validatedTenantId
       });
-      
+
       // Return a friendly error message
       return NextResponse.json({
         success: true,
@@ -254,12 +254,12 @@ export async function POST(request: NextRequest) {
     // Execute function calls if any (with error handling)
     let functionResults = [];
     const executedFunctions: string[] = [];
-    
+
     if (agentResponse.functionCalls?.length) {
       for (const functionCall of agentResponse.functionCalls) {
         let result;
         executedFunctions.push(functionCall.name);
-        
+
         try {
           switch (functionCall.name) {
           case 'searchProperties':
@@ -303,29 +303,29 @@ export async function POST(request: NextRequest) {
             result = { success: false, error: 'Função não encontrada' };
           }
         } catch (error) {
-          console.error(`Function ${functionCall.name} error:`, error);
+
           result = { 
             success: false, 
             error: 'Erro ao executar função. Por favor, tente novamente.'
           };
         }
-        
+
         functionResults.push({ function: functionCall.name, result });
       }
     }
 
     // Sanitize function results
     functionResults = sanitizeFunctionResults(functionResults);
-    
+
     // Generate and sanitize final response message
     let finalMessage = sanitizeAIResponse(agentResponse.message);
-    
+
     // Append function results to message if applicable
     for (const { function: functionName, result } of functionResults) {
       if (result.success && result.message) {
         finalMessage += '\n\n' + result.message;
       }
-      
+
       // Format property results
       if (functionName === 'searchProperties' && result.success && result.data) {
         const properties = result.data.slice(0, 3); // Show top 3
@@ -333,7 +333,7 @@ export async function POST(request: NextRequest) {
           finalMessage += '\n\n' + agentFunctions.formatPropertySummary(property);
         }
       }
-      
+
       // Format price calculation
       if (functionName === 'calculatePrice' && result.success && result.data) {
         finalMessage += '\n\n' + agentFunctions.formatPriceBreakdown(result.data);
@@ -417,14 +417,14 @@ export async function POST(request: NextRequest) {
       error: error instanceof Error ? error.message : 'Unknown error',
       errorCode: 'INTERNAL_ERROR'
     });
-    
+
     return handleApiError(error);
   }
 }
 
 export async function GET(request: NextRequest) {
   const logContext = createRequestLogContext(Date.now());
-  
+
   try {
     // Authentication required for GET
     const authContext = await validateAuth(request);
@@ -436,15 +436,15 @@ export async function GET(request: NextRequest) {
         error: 'Authentication required',
         errorCode: 'UNAUTHORIZED'
       });
-      
+
       return NextResponse.json(
         { success: false, error: 'Authentication required' },
         { status: 401 }
       );
     }
-    
+
     const tenantId = requireTenant(authContext);
-    
+
     const { searchParams } = new URL(request.url);
     const conversationId = searchParams.get('conversationId');
 
@@ -457,12 +457,12 @@ export async function GET(request: NextRequest) {
         errorCode: 'MISSING_PARAMETER',
         tenantId
       });
-      
+
       return handleApiError(new Error('ID da conversa é obrigatório'));
     }
 
     const conversation = await conversationService.getById(conversationId);
-    
+
     if (!conversation || conversation.tenantId !== tenantId) {
       await logContext.log({
         endpoint: '/api/agent',
@@ -473,7 +473,7 @@ export async function GET(request: NextRequest) {
         conversationId,
         tenantId
       });
-      
+
       return NextResponse.json(
         { success: false, error: 'Conversa não encontrada' },
         { status: 404 }
@@ -509,7 +509,7 @@ export async function GET(request: NextRequest) {
       error: error instanceof Error ? error.message : 'Unknown error',
       errorCode: 'INTERNAL_ERROR'
     });
-    
+
     return handleApiError(error);
   }
 }

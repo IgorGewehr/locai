@@ -69,8 +69,6 @@ export class RequestLogger {
 
       await batch.commit()
     } catch (error) {
-      console.error('Failed to write request logs:', error)
-      
       // Put failed logs back in queue (with limit to prevent memory issues)
       if (this.logs.length < this.BATCH_SIZE * 2) {
         this.logs.unshift(...logsToWrite)
@@ -93,7 +91,7 @@ let requestLogger: RequestLogger | null = null
 export function getRequestLogger(): RequestLogger {
   if (!requestLogger) {
     requestLogger = new RequestLogger()
-    
+
     // Set up graceful shutdown
     process.on('beforeExit', async () => {
       await requestLogger?.shutdown()

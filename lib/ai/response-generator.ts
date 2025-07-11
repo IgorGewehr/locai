@@ -64,7 +64,7 @@ export class AIResponseGenerator {
     } catch (error) {
       const errorType = classifyError(error)
       const errorResponse = getErrorResponse(errorType, error)
-      
+
       await this.logError({
         type: errorType,
         error,
@@ -72,7 +72,7 @@ export class AIResponseGenerator {
         messageId: newMessage.id,
         timestamp: new Date()
       })
-      
+
       return errorResponse
     }
   }
@@ -150,35 +150,35 @@ INSTRUÇÕES IMPORTANTES:
 
   private buildContextualInfo(context: ConversationContext): string {
     let contextInfo = 'CONTEXTO DA CONVERSA:\n'
-    
+
     if (context.clientPreferences) {
       contextInfo += `Cliente prefere: ${JSON.stringify(context.clientPreferences)}\n`
     }
-    
+
     if (context.searchCriteria) {
       contextInfo += `Critérios de busca: ${JSON.stringify(context.searchCriteria)}\n`
     }
-    
+
     if (context.viewedProperties.length > 0) {
       contextInfo += `Propriedades já vistas: ${context.viewedProperties.join(', ')}\n`
     }
-    
+
     if (context.favoriteProperties.length > 0) {
       contextInfo += `Propriedades favoritas: ${context.favoriteProperties.join(', ')}\n`
     }
-    
+
     if (context.budgetRange) {
       contextInfo += `Orçamento: R$ ${context.budgetRange.min} - R$ ${context.budgetRange.max}\n`
     }
-    
+
     if (context.lastOfferMade) {
       contextInfo += `Última oferta feita: ${JSON.stringify(context.lastOfferMade)}\n`
     }
-    
+
     if (context.nextAction) {
       contextInfo += `Próxima ação sugerida: ${context.nextAction}\n`
     }
-    
+
     return contextInfo
   }
 
@@ -188,7 +188,7 @@ INSTRUÇÕES IMPORTANTES:
     context: ConversationContext
   ): Promise<AIResponse> {
     const message = completion.choices[0].message
-    
+
     // Se há function call, processa função
     if (message.function_call) {
       const functionResult = await this.executeFunctionCall(
@@ -196,7 +196,7 @@ INSTRUÇÕES IMPORTANTES:
         conversation,
         context
       )
-      
+
       // Segunda chamada para gerar resposta baseada no resultado
       const secondCompletion = await this.openai.chat.completions.create({
         model: this.personality.model || 'gpt-4',
@@ -242,13 +242,12 @@ INSTRUÇÕES IMPORTANTES:
     try {
       const args = JSON.parse(functionCall.arguments)
       const result = await this.functionExecutor.executeFunctionCall(functionCall.name, args)
-      
+
       // Atualizar contexto baseado no resultado
       this.updateContextFromFunctionResult(context, functionCall.name, result)
-      
+
       return result
     } catch (error) {
-      console.error('Error executing function:', error)
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Erro na execução da função'
@@ -267,7 +266,7 @@ INSTRUÇÕES IMPORTANTES:
           context.viewedProperties = result.properties.map((p: any) => p.id)
         }
         break
-      
+
       case 'calculate_total_price':
         if (result.success) {
           context.lastOfferMade = {
@@ -280,7 +279,7 @@ INSTRUÇÕES IMPORTANTES:
           }
         }
         break
-      
+
       case 'apply_discount':
         if (result.success && context.lastOfferMade) {
           context.lastOfferMade.offeredPrice = result.discount.finalPrice
@@ -294,14 +293,14 @@ INSTRUÇÕES IMPORTANTES:
     // Lógica para calcular confiança baseada na resposta
     const message = completion.choices[0].message
     const contentLength = message.content?.length || 0
-    
+
     // Fatores que afetam confiança
     let confidence = 0.8 // Base
-    
+
     if (contentLength > 50) confidence += 0.1 // Resposta substancial
     if (contentLength > 200) confidence += 0.1 // Resposta detalhada
     if (message.function_call) confidence += 0.2 // Usou função
-    
+
     return Math.min(confidence, 1.0)
   }
 
@@ -309,14 +308,14 @@ INSTRUÇÕES IMPORTANTES:
     // Análise simples de sentimento
     const positiveWords = ['obrigado', 'perfeito', 'excelente', 'ótimo', 'maravilhoso', 'adorei']
     const negativeWords = ['problema', 'ruim', 'péssimo', 'terrível', 'horrível', 'não gostei']
-    
+
     const lowercaseContent = content.toLowerCase()
     const positiveCount = positiveWords.filter(word => lowercaseContent.includes(word)).length
     const negativeCount = negativeWords.filter(word => lowercaseContent.includes(word)).length
-    
+
     let score = 0
     let label = 'neutral'
-    
+
     if (positiveCount > negativeCount) {
       score = 0.7
       label = 'positive'
@@ -324,7 +323,7 @@ INSTRUÇÕES IMPORTANTES:
       score = -0.7
       label = 'negative'
     }
-    
+
     return {
       score,
       label,
@@ -334,14 +333,14 @@ INSTRUÇÕES IMPORTANTES:
 
   private extractSuggestedActions(completion: any, functionResult?: any): string[] {
     const actions: string[] = []
-    
+
     if (functionResult?.success === false) {
       actions.push('retry')
     }
-    
+
     if (completion.choices[0].message.function_call) {
       const functionName = completion.choices[0].message.function_call.name
-      
+
       switch (functionName) {
         case 'search_properties':
           actions.push('send_property_media', 'calculate_total_price')
@@ -354,7 +353,7 @@ INSTRUÇÕES IMPORTANTES:
           break
       }
     }
-    
+
     return actions
   }
 
@@ -372,18 +371,9 @@ INSTRUÇÕES IMPORTANTES:
     timestamp: Date
   }): Promise<void> {
     try {
-      console.error('AI Response Error:', {
-        type: errorData.type,
-        conversationId: errorData.conversationId,
-        messageId: errorData.messageId,
-        error: errorData.error.message || errorData.error,
-        timestamp: errorData.timestamp
-      })
-      
       // In production, send to monitoring service
       // await this.monitoringService.recordError(errorData)
     } catch (logError) {
-      console.error('Failed to log error:', logError)
-    }
+      }
   }
 }

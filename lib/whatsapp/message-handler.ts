@@ -44,19 +44,17 @@ export class WhatsAppMessageHandler {
   async handleIncomingMessage(webhookData: WhatsAppWebhookData): Promise<void> {
     try {
       const { message, from, contact } = this.extractMessageData(webhookData)
-      
+
       if (!message || !from) {
-        console.log('Invalid webhook data received')
         return
       }
 
       // Validate phone number format
       const validatedPhone = validatePhoneNumber(from)
-      
+
       // Check rate limiting
       const rateLimitAllowed = await this.rateLimiter.isAllowed(validatedPhone)
       if (!rateLimitAllowed) {
-        console.log(`Rate limit exceeded for ${validatedPhone}`)
         await this.sendRateLimitMessage(validatedPhone)
         return
       }
@@ -64,32 +62,29 @@ export class WhatsAppMessageHandler {
       // Check for duplicate message processing
       const messageId = message.id
       if (this.processingMessages.has(messageId)) {
-        console.log(`Duplicate message detected: ${messageId}`)
         return
       }
 
       this.processingMessages.add(messageId)
-      
+
       try {
         // Process message content (including audio transcription)
         let messageContent = message.text?.body || this.getMediaCaption(message) || ''
-        
+
         // Handle audio messages with transcription
         if (message.type === 'audio' && message.audio?.id) {
           try {
-            console.log(`Transcribing audio message: ${message.audio.id}`)
             const transcriptionResult = await this.transcriptionService.transcribeAudio(message.audio.id)
             messageContent = typeof transcriptionResult === 'string' ? transcriptionResult : transcriptionResult.text
-            console.log(`Audio transcribed: "${messageContent.slice(0, 100)}..."`)
+            }..."`)
           } catch (error) {
-            console.error('Audio transcription failed:', error)
             messageContent = 'Recebi seu áudio! Por favor, envie sua mensagem por texto para eu processar melhor. 😊'
           }
         }
-        
+
         const validatedContent = validateMessageContent(messageContent)
-        
-        console.log(`Processing message from ${validatedPhone}: ${validatedContent.slice(0, 100)}...`)
+
+        }...`)
 
         // Mark message as read immediately with timeout
         await withTimeout(
@@ -115,11 +110,11 @@ export class WhatsAppMessageHandler {
           status: MessageStatus.RECEIVED,
           isFromAI: false
         }
-        
+
         if (mediaUrl) {
           messageData.mediaUrl = mediaUrl
         }
-        
+
         const savedMessage = await this.conversationService.addMessage(
           conversation.id,
           messageData
@@ -175,24 +170,22 @@ export class WhatsAppMessageHandler {
           messageContent: savedMessage.content,
           aiResponse: aiResponse
         })
-        
+
       } finally {
         // Remove message from processing set
         this.processingMessages.delete(messageId)
       }
 
     } catch (error) {
-      console.error('Error handling WhatsApp message:', error)
-      
       // Classify error and send appropriate response
       const errorType = this.classifyError(error)
-      
+
       try {
         const { from } = this.extractMessageData(webhookData)
         if (from) {
           const validatedPhone = validatePhoneNumber(from)
           const errorMessage = this.getErrorMessage(errorType)
-          
+
           await withTimeout(
             this.whatsappClient.sendText(validatedPhone, errorMessage),
             10000,
@@ -200,8 +193,7 @@ export class WhatsAppMessageHandler {
           )
         }
       } catch (sendError) {
-        console.error('Failed to send error message:', sendError)
-      }
+        }
     }
   }
 
@@ -285,7 +277,6 @@ export class WhatsAppMessageHandler {
       )
       return mediaDetails.url
     } catch (error) {
-      console.error('Error getting media URL:', error)
       return undefined
     }
   }
@@ -329,32 +320,27 @@ export class WhatsAppMessageHandler {
         if (preferAudio && response.content.length > 20) {
           // Try to send audio response
           try {
-            console.log(`🎤 Generating audio response for ${to}`)
-            
             const audioResult = await this.transcriptionService.generateAudioResponse(
               response.content,
               undefined, // Use default preferences
               to
             )
-            
+
             if (audioResult.audioBuffer) {
-              console.log(`🔊 Sending audio response: ${(audioResult.audioBuffer.length / 1024).toFixed(1)}KB`)
-              
+              .toFixed(1)}KB`)
+
               await withRetry(
                 () => this.whatsappClient.sendAudio(to, audioResult.audioBuffer!),
                 2,
                 1000
               )
-              
-              console.log(`✅ Audio response sent successfully`)
-            } else {
+
+              } else {
               // Fallback to text if audio generation failed
-              console.log(`⚠️ Audio generation failed, falling back to text`)
               await this.sendTextResponse(to, response.content)
             }
-            
+
           } catch (audioError) {
-            console.error('❌ Audio response failed, sending text:', audioError)
             await this.sendTextResponse(to, response.content)
           }
         } else {
@@ -372,11 +358,10 @@ export class WhatsAppMessageHandler {
       await this.delay(1000)
 
     } catch (error) {
-      console.error('❌ Error sending AI response:', error)
       throw error
     }
   }
-  
+
   /**
    * Send text response with retry logic
    */
@@ -392,7 +377,6 @@ export class WhatsAppMessageHandler {
     const { name, result } = functionCall
 
     if (!result?.success) {
-      console.error(`Function ${name} failed:`, result?.error)
       return
     }
 
@@ -400,19 +384,19 @@ export class WhatsAppMessageHandler {
       case 'send_property_media':
         await this.sendPropertyMedia(to, result)
         break
-      
+
       case 'search_properties':
         await this.sendPropertyResults(to, result)
         break
-      
+
       case 'create_reservation':
         await this.sendReservationConfirmation(to, result)
         break
-      
+
       case 'calculate_total_price':
         await this.sendPriceBreakdown(to, result)
         break
-      
+
       case 'apply_discount':
         await this.sendDiscountConfirmation(to, result)
         break
@@ -430,7 +414,7 @@ export class WhatsAppMessageHandler {
           photo.url,
           `${propertyName} - Foto ${index + 1}/${photos.length}`
         )
-        
+
         // Add delay between photos
         if (index < photos.length - 1) {
           await this.delay(1500)
@@ -478,7 +462,7 @@ export class WhatsAppMessageHandler {
 
     // Send top 3 properties with photos
     const topProperties = properties.slice(0, 3)
-    
+
     for (const property of topProperties) {
       // Send property info
       const propertyText = `
@@ -594,7 +578,7 @@ Não perca essa oportunidade! 🚀
       if (!value?.statuses?.[0]) return
 
       const status = value.statuses[0]
-      
+
       // Update message status in database
       await this.conversationService.updateMessageStatus(
         status.id,
@@ -602,16 +586,11 @@ Não perca essa oportunidade! 🚀
         new Date(parseInt(status.timestamp) * 1000)
       )
 
-      console.log(`Message ${status.id} status updated to: ${status.status}`)
-
-    } catch (error) {
-      console.error('Error handling status update:', error)
-    }
+      } catch (error) {
+      }
   }
 
   async handleError(webhookData: WhatsAppWebhookData): Promise<void> {
-    console.error('WhatsApp webhook error:', webhookData)
-    
     // Log error for monitoring
     // You can integrate with your error tracking system here
   }
@@ -681,7 +660,7 @@ Não perca essa oportunidade! 🚀
     successRate: number
   } {
     const cacheStats = this.transcriptionService.getCacheStats()
-    
+
     return {
       cacheStats,
       totalProcessed: cacheStats.size, // Simplified - in real app would track more
@@ -694,8 +673,7 @@ Não perca essa oportunidade! 🚀
    */
   clearAudioCache(): void {
     this.transcriptionService.clearCache()
-    console.log('🧹 Audio processing cache cleared')
-  }
+    }
 
   /**
    * Handle audio-specific errors with user-friendly messages
@@ -704,15 +682,15 @@ Não perca essa oportunidade! 🚀
     if (error.message?.includes('format')) {
       return 'Formato de áudio não suportado. Tente gravar novamente ou envie por texto. 🎤'
     }
-    
+
     if (error.message?.includes('size')) {
       return 'Áudio muito grande. Tente um áudio mais curto ou envie por texto. 📱'
     }
-    
+
     if (error.message?.includes('timeout')) {
       return 'Áudio demorou para processar. Tente novamente ou envie por texto. ⏱️'
     }
-    
+
     return 'Tive dificuldade para processar seu áudio. Pode tentar novamente ou enviar por texto? 😊'
   }
 
@@ -723,23 +701,22 @@ Não perca essa oportunidade! 🚀
         'Você está enviando muitas mensagens seguidas. Aguarde um momento e tente novamente.'
       )
     } catch (error) {
-      console.error('Failed to send rate limit message:', error)
-    }
+      }
   }
 
   private classifyError(error: any): ErrorType {
     if (error.name === 'ValidationError') {
       return ErrorType.VALIDATION
     }
-    
+
     if (error.name === 'TimeoutError') {
       return ErrorType.TIMEOUT
     }
-    
+
     if (error.name === 'RateLimitError') {
       return ErrorType.RATE_LIMIT
     }
-    
+
     return classifyError(error)
   }
 
@@ -747,19 +724,19 @@ Não perca essa oportunidade! 🚀
     switch (errorType) {
       case ErrorType.VALIDATION:
         return 'Não consegui processar sua mensagem. Pode tentar reformular de forma mais simples?'
-      
+
       case ErrorType.RATE_LIMIT:
         return 'Muitas mensagens recebidas. Aguarde um momento e tente novamente.'
-      
+
       case ErrorType.TIMEOUT:
         return 'Sua solicitação está demorando mais que o esperado. Vou processar e responder em breve.'
-      
+
       case ErrorType.NETWORK:
         return 'Estou com problemas de conexão. Nossa equipe técnica foi notificada.'
-      
+
       case ErrorType.API_LIMIT:
         return 'Estou com muitas conversas simultâneas. Tente novamente em alguns segundos.'
-      
+
       default:
         return 'Desculpe, ocorreu um erro temporário. Nossa equipe foi notificada e em breve retornaremos o contato.'
     }

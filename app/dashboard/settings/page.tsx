@@ -92,7 +92,7 @@ export default function SettingsPage() {
   const [uploadingLogo, setUploadingLogo] = useState(false);
   const [qrCodeData, setQrCodeData] = useState('');
   const [connectingWhatsApp, setConnectingWhatsApp] = useState(false);
-  
+
   const [companyConfig, setCompanyConfig] = useState<CompanyConfig>({
     name: '',
     logo: null,
@@ -101,7 +101,7 @@ export default function SettingsPage() {
     email: '',
     website: '',
   });
-  
+
   const [aiConfig, setAIConfig] = useState<AIConfig>({
     personalityPrompt: 'Você é um assistente imobiliário profissional e atencioso.',
     responseStyle: 'friendly',
@@ -135,13 +135,13 @@ export default function SettingsPage() {
       const savedAI = localStorage.getItem('ai_config');
       const savedBilling = localStorage.getItem('billing_config');
       const whatsappStatus = localStorage.getItem('whatsapp_connected');
-      
+
       if (savedCompany) setCompanyConfig(JSON.parse(savedCompany));
       if (savedAI) setAIConfig(JSON.parse(savedAI));
       if (savedBilling) setBillingConfig(JSON.parse(savedBilling));
       if (whatsappStatus === 'true') setWhatsappConnected(true);
     } catch (error) {
-      console.error('Error loading configuration:', error);
+
     }
   };
 
@@ -152,7 +152,7 @@ export default function SettingsPage() {
       const qrCode = await QRCode.toDataURL(connectionString);
       setQrCodeData(qrCode);
     } catch (error) {
-      console.error('Error generating QR code:', error);
+
     }
   };
 
@@ -192,11 +192,11 @@ export default function SettingsPage() {
       localStorage.setItem('company_config', JSON.stringify(companyConfig));
       localStorage.setItem('ai_config', JSON.stringify(aiConfig));
       localStorage.setItem('billing_config', JSON.stringify(billingConfig));
-      
+
       await new Promise(resolve => setTimeout(resolve, 1000));
       alert('Configurações salvas com sucesso!');
     } catch (error) {
-      console.error('Error saving configurations:', error);
+
       alert('Erro ao salvar configurações');
     } finally {
       setSaving(false);
@@ -281,7 +281,7 @@ export default function SettingsPage() {
                     <Alert severity="success" sx={{ mb: 3 }}>
                       Seu WhatsApp Business está conectado e pronto para atender clientes automaticamente.
                     </Alert>
-                    
+
                     <Grid container spacing={2}>
                       <Grid item xs={12} md={6}>
                         <Paper variant="outlined" sx={{ p: 2 }}>
@@ -333,7 +333,7 @@ export default function SettingsPage() {
                 <Typography variant="h6" gutterBottom>
                   Informações da Empresa
                 </Typography>
-                
+
                 {/* Logo Upload */}
                 <Box sx={{ mb: 4 }}>
                   <Typography variant="subtitle2" gutterBottom>
@@ -388,7 +388,7 @@ export default function SettingsPage() {
                     </Box>
                   </Box>
                 </Box>
-                
+
                 <Grid container spacing={3}>
                   <Grid item xs={12} md={6}>
                     <TextField
@@ -453,7 +453,7 @@ export default function SettingsPage() {
                 <Typography variant="h6" gutterBottom>
                   Configurações do Assistente
                 </Typography>
-                
+
                 <Grid container spacing={3}>
                   <Grid item xs={12}>
                     <FormControl fullWidth>
@@ -469,7 +469,7 @@ export default function SettingsPage() {
                       </Select>
                     </FormControl>
                   </Grid>
-                  
+
                   <Grid item xs={12}>
                     <TextField
                       fullWidth
@@ -481,7 +481,7 @@ export default function SettingsPage() {
                       helperText="Use {company} para incluir o nome da empresa"
                     />
                   </Grid>
-                  
+
                   <Grid item xs={12}>
                     <TextField
                       fullWidth

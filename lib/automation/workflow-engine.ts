@@ -30,22 +30,18 @@ export class AutomationEngine {
     try {
       // Load automations from database
       const automations = await this.getActiveAutomations(tenantId)
-      
+
       this.activeAutomations.clear()
       automations.forEach(automation => {
         this.activeAutomations.set(automation.id, automation)
       })
-      
-      console.log(`Loaded ${automations.length} active automations for tenant ${tenantId}`)
-    } catch (error) {
-      console.error('Error loading automations:', error)
-    }
+
+      } catch (error) {
+      }
   }
 
   async processTrigger(eventType: string, eventData: any): Promise<void> {
     try {
-      console.log(`Processing trigger: ${eventType}`)
-      
       const matchingAutomations = Array.from(this.activeAutomations.values())
         .filter(automation => this.matchesTrigger(automation.trigger, eventType, eventData))
         .sort((a, b) => b.priority - a.priority) // Higher priority first
@@ -54,8 +50,7 @@ export class AutomationEngine {
         await this.executeAutomation(automation, eventData)
       }
     } catch (error) {
-      console.error('Error processing trigger:', error)
-    }
+      }
   }
 
   private async getActiveAutomations(tenantId: string): Promise<Automation[]> {
@@ -301,12 +296,9 @@ export class AutomationEngine {
     }
 
     try {
-      console.log(`Executing automation: ${automation.name}`)
-
       // Check conditions
       if (!this.evaluateConditions(automation.conditions, eventData)) {
         execution.status = ExecutionStatus.CANCELLED
-        console.log(`Automation ${automation.name} cancelled - conditions not met`)
         return
       }
 
@@ -316,8 +308,7 @@ export class AutomationEngine {
         execution.results.push(actionResult)
 
         if (!actionResult.success) {
-          console.error(`Action ${action.type} failed:`, actionResult.error)
-        }
+          }
       }
 
       execution.status = ExecutionStatus.COMPLETED
@@ -328,15 +319,12 @@ export class AutomationEngine {
       automation.lastExecuted = new Date()
       automation.successRate = this.calculateSuccessRate(automation)
 
-      console.log(`Automation ${automation.name} completed successfully`)
-
-    } catch (error) {
+      } catch (error) {
       execution.status = ExecutionStatus.FAILED
       execution.error = error instanceof Error ? error.message : 'Unknown error'
       execution.completedAt = new Date()
 
-      console.error(`Automation ${automation.name} failed:`, error)
-    }
+      }
 
     // Save execution record
     await this.saveExecutionRecord(execution)
@@ -350,7 +338,7 @@ export class AutomationEngine {
 
     for (const condition of conditions) {
       const conditionResult = this.evaluateCondition(condition, eventData)
-      
+
       if (currentOperator === 'AND') {
         result = result && conditionResult
       } else {
@@ -365,44 +353,44 @@ export class AutomationEngine {
 
   private evaluateCondition(condition: AutomationCondition, eventData: any): boolean {
     const fieldValue = this.getFieldValue(condition.field, eventData)
-    
+
     switch (condition.operator) {
       case ConditionOperator.EQUALS:
         return fieldValue === condition.value
-      
+
       case ConditionOperator.NOT_EQUALS:
         return fieldValue !== condition.value
-      
+
       case ConditionOperator.GREATER_THAN:
         return fieldValue > condition.value
-      
+
       case ConditionOperator.LESS_THAN:
         return fieldValue < condition.value
-      
+
       case ConditionOperator.CONTAINS:
         return String(fieldValue).toLowerCase().includes(String(condition.value).toLowerCase())
-      
+
       case ConditionOperator.NOT_CONTAINS:
         return !String(fieldValue).toLowerCase().includes(String(condition.value).toLowerCase())
-      
+
       case ConditionOperator.STARTS_WITH:
         return String(fieldValue).toLowerCase().startsWith(String(condition.value).toLowerCase())
-      
+
       case ConditionOperator.ENDS_WITH:
         return String(fieldValue).toLowerCase().endsWith(String(condition.value).toLowerCase())
-      
+
       case ConditionOperator.IS_EMPTY:
         return !fieldValue || fieldValue === '' || fieldValue === null || fieldValue === undefined
-      
+
       case ConditionOperator.IS_NOT_EMPTY:
         return fieldValue !== '' && fieldValue !== null && fieldValue !== undefined
-      
+
       case ConditionOperator.IN:
         return Array.isArray(condition.value) && condition.value.includes(fieldValue)
-      
+
       case ConditionOperator.NOT_IN:
         return Array.isArray(condition.value) && !condition.value.includes(fieldValue)
-      
+
       default:
         return false
     }
@@ -425,7 +413,7 @@ export class AutomationEngine {
 
   private async executeAction(action: AutomationAction, eventData: any, context: any): Promise<any> {
     const startTime = Date.now()
-    
+
     try {
       // Apply delay if specified
       if (action.delay && action.delay > 0) {
@@ -495,7 +483,7 @@ export class AutomationEngine {
     const message = this.replacePlaceholders(action.configuration.message, eventData, context)
 
     await this.whatsappClient.sendText(phone, message)
-    
+
     return { phone, message, sent: true }
   }
 
@@ -504,7 +492,7 @@ export class AutomationEngine {
     const { templateName, language, parameters } = action.configuration
 
     await this.whatsappClient.sendTemplate(phone, templateName, parameters || [])
-    
+
     return { phone, templateName, sent: true }
   }
 
@@ -512,69 +500,67 @@ export class AutomationEngine {
     // Generate AI response for the context
     if (eventData.conversation && eventData.message) {
       const aiResponse = await this.aiService.processMessage(eventData.conversation, eventData.message)
-      
+
       const phone = this.getPhoneFromContext(eventData, context)
       await this.whatsappClient.sendText(phone, aiResponse.content)
-      
+
       return { phone, aiResponse, sent: true }
     }
-    
+
     throw new Error('No conversation context for AI response')
   }
 
   private async executeApplyDiscount(action: AutomationAction, eventData: any, context: any): Promise<any> {
     const { discountPercentage, reason, message } = action.configuration
-    
+
     // This would integrate with your pricing system
     // For now, just send the discount message
     if (message) {
       const phone = this.getPhoneFromContext(eventData, context)
       const formattedMessage = this.replacePlaceholders(message, eventData, context)
-      
+
       await this.whatsappClient.sendText(phone, formattedMessage)
     }
-    
+
     return { discountPercentage, reason, applied: true }
   }
 
   private async executeScheduleFollowUp(action: AutomationAction, eventData: any, context: any): Promise<any> {
     const { followUpDate, message, priority } = action.configuration
-    
+
     // This would integrate with your task/reminder system
-    console.log(`Scheduling follow-up for ${followUpDate}: ${message}`)
-    
     return { followUpDate, message, priority, scheduled: true }
   }
 
   private async executeUpdateClient(action: AutomationAction, eventData: any, context: any): Promise<any> {
     const { updates } = action.configuration
     const clientId = eventData.clientId || context.clientId
-    
+
     if (clientId) {
       await clientService.update(clientId, updates)
       return { clientId, updates, updated: true }
     }
-    
+
     throw new Error('No client ID for update')
   }
 
   private async executeEscalateToHuman(action: AutomationAction, eventData: any, context: any): Promise<any> {
     const { reason, urgency } = action.configuration
     const conversationId = eventData.conversationId || context.conversationId
-    
+
     if (conversationId) {
       await conversationService.escalateToHuman(conversationId, reason, urgency)
-      
+
       // Send message to client
       const phone = this.getPhoneFromContext(eventData, context)
       await this.whatsappClient.sendText(
         phone,
         'Um de nossos especialistas entrará em contato em breve para melhor atendê-lo(a). Obrigado pela paciência! 👨‍💼'
       )
-      
+
       return { conversationId, reason, escalated: true }
     }
-    
+
     throw new Error('No conversation ID for escalation')
   }
 
@@ -595,7 +581,7 @@ export class AutomationEngine {
       default:
         throw new Error(`Unsupported media type: ${mediaType}`)
     }
-    
+
     return { phone, mediaUrl, mediaType, sent: true }
   }
 
@@ -635,8 +621,7 @@ export class AutomationEngine {
 
   private async saveExecutionRecord(execution: AutomationExecution): Promise<void> {
     // TODO: Implement database save
-    console.log(`Saving execution record:`, execution.id)
-  }
+    }
 
   // Public methods for managing automations
   async createAutomation(automation: Omit<Automation, 'id' | 'createdAt' | 'updatedAt'>): Promise<Automation> {
