@@ -268,6 +268,9 @@ export class AgentFunctions {
 
       const reservationId = await reservationService.create(reservationData);
 
+      // Sync reservation dates with property unavailableDates
+      await reservationService.syncReservationWithUnavailableDates(reservationId, 'add');
+
       return {
         success: true,
         data: {

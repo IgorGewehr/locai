@@ -3,6 +3,7 @@ import { Reservation, ReservationStatus, PaymentStatus } from '@/lib/types/reser
 import { Property } from '@/lib/types/property'
 import { ValidationError } from '@/lib/utils/errors'
 import { CheckAvailabilityInput } from '@/lib/validations/reservation'
+import { eachDayOfInterval, format } from 'date-fns'
 
 class ReservationService {
   private reservationDb: FirestoreService<Reservation>
@@ -279,6 +280,109 @@ class ReservationService {
 
     // Add more business rules here
     return true
+  }
+
+  /**
+   * Sync reservation dates with property unavailableDates
+   * This is called when a reservation is confirmed
+   */
+  async syncReservationWithUnavailableDates(
+    reservationId: string,
+    action: 'add' | 'remove' = 'add'
+  ): Promise<void> {
+    const reservation = await this.reservationDb.get(reservationId)
+    
+    if (!reservation) {
+      throw new ValidationError('Reserva não encontrada', 'reservationId')
+    }
+
+    // Only sync confirmed, checked-in, or pending reservations
+    if (![
+      ReservationStatus.CONFIRMED,
+      ReservationStatus.CHECKED_IN,
+      ReservationStatus.PENDING
+    ].includes(reservation.status)) {
+      return
+    }
+
+    const property = await this.propertyDb.get(reservation.propertyId)
+    
+    if (!property) {
+      throw new ValidationError('Propriedade não encontrada', 'propertyId')
+    }
+
+    // Get all dates in the reservation period
+    const reservationDates = eachDayOfInterval({
+      start: new Date(reservation.checkIn),
+      end: new Date(reservation.checkOut)
+    })
+
+    // Convert existing unavailable dates to date strings for comparison
+    const unavailableDateStrings = new Set(
+      (property.unavailableDates || []).map(date => 
+        format(new Date(date), 'yyyy-MM-dd')
+      )
+    )
+
+    if (action === 'add') {
+      // Add reservation dates to unavailable dates
+      reservationDates.forEach(date => {
+        unavailableDateStrings.add(format(date, 'yyyy-MM-dd'))
+      })
+    } else {
+      // Remove reservation dates from unavailable dates
+      reservationDates.forEach(date => {
+        unavailableDateStrings.delete(format(date, 'yyyy-MM-dd'))
+      })
+    }
+
+    // Convert back to Date array
+    const updatedUnavailableDates = Array.from(unavailableDateStrings)
+      .map(dateStr => new Date(dateStr))
+      .sort((a, b) => a.getTime() - b.getTime())
+
+    // Update property with new unavailable dates
+    await this.propertyDb.update(reservation.propertyId, {
+      unavailableDates: updatedUnavailableDates,
+      updatedAt: new Date()
+    })
+  }
+
+  /**
+   * Update reservation status and sync availability if needed
+   */
+  async updateReservationStatus(
+    reservationId: string,
+    newStatus: ReservationStatus
+  ): Promise<void> {
+    const reservation = await this.reservationDb.get(reservationId)
+    
+    if (!reservation) {
+      throw new ValidationError('Reserva não encontrada', 'reservationId')
+    }
+
+    const oldStatus = reservation.status
+
+    // Update reservation status
+    await this.reservationDb.update(reservationId, {
+      status: newStatus,
+      updatedAt: new Date()
+    })
+
+    // Sync availability based on status change
+    if (
+      newStatus === ReservationStatus.CONFIRMED && 
+      oldStatus !== ReservationStatus.CONFIRMED
+    ) {
+      // Add dates to unavailable when confirming
+      await this.syncReservationWithUnavailableDates(reservationId, 'add')
+    } else if (
+      [ReservationStatus.CANCELLED, ReservationStatus.NO_SHOW].includes(newStatus) &&
+      [ReservationStatus.CONFIRMED, ReservationStatus.PENDING].includes(oldStatus)
+    ) {
+      // Remove dates from unavailable when cancelling
+      await this.syncReservationWithUnavailableDates(reservationId, 'remove')
+    }
   }
 }
 

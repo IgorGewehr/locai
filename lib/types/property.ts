@@ -38,6 +38,13 @@ export interface Property {
   unavailableDates: Date[]
   customPricing: Record<string, number> // "YYYY-MM-DD" -> price
   
+  // Configurações de acréscimos automáticos
+  weekendSurcharge?: number // Percentual de acréscimo para fins de semana
+  holidaySurcharge?: number // Percentual de acréscimo para feriados
+  decemberSurcharge?: number // Percentual de acréscimo para dezembro
+  highSeasonSurcharge?: number // Percentual de acréscimo para alta temporada
+  highSeasonMonths?: number[] // Meses considerados alta temporada (1-12)
+  
   // Metadados
   isActive: boolean
   createdAt: Date

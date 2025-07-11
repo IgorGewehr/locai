@@ -6,7 +6,8 @@ import { reservationService } from '@/lib/services/reservation-service'
 import { clientService } from '@/lib/services/client-service'
 import { transactionService } from '@/lib/services/transaction-service'
 import { calculatePricing } from '@/lib/services/pricing'
-import { addDays, format, addMonths } from 'date-fns'
+import { addDays, format, addMonths, startOfMonth, endOfMonth, differenceInDays } from 'date-fns'
+import { ptBR } from 'date-fns/locale'
 import {
   SearchPropertiesArgs,
   SearchPropertiesResponse,
@@ -215,6 +216,69 @@ export const AI_FUNCTIONS: AIFunction[] = [
     autoExecute: true,
     requiresApproval: false,
     priority: 2
+  },
+  {
+    name: 'get_financial_summary',
+    description: 'Consultar resumo financeiro com receitas, despesas e contas pendentes',
+    parameters: {
+      type: 'object',
+      properties: {
+        period: { type: 'string', enum: ['today', 'week', 'month', 'year'], description: 'Período de consulta' },
+        type: { type: 'string', enum: ['overview', 'receivables', 'payables', 'cashflow'], description: 'Tipo de resumo' }
+      },
+      required: []
+    },
+    autoExecute: true,
+    requiresApproval: false,
+    priority: 1
+  },
+  {
+    name: 'create_payment_reminder',
+    description: 'Criar lembrete ou cobrança de pagamento para cliente',
+    parameters: {
+      type: 'object',
+      properties: {
+        clientName: { type: 'string', description: 'Nome do cliente' },
+        amount: { type: 'number', description: 'Valor a cobrar' },
+        dueDate: { type: 'string', description: 'Data de vencimento (YYYY-MM-DD)' },
+        description: { type: 'string', description: 'Descrição da cobrança' },
+        sendNow: { type: 'boolean', description: 'Enviar lembrete agora' }
+      },
+      required: ['clientName', 'amount', 'dueDate', 'description']
+    },
+    autoExecute: true,
+    requiresApproval: false,
+    priority: 2
+  },
+  {
+    name: 'generate_financial_report',
+    description: 'Gerar relatório financeiro detalhado (DRE, métricas, análises)',
+    parameters: {
+      type: 'object',
+      properties: {
+        reportType: { type: 'string', enum: ['income_statement', 'metrics', 'property_performance'], description: 'Tipo de relatório' },
+        period: { type: 'string', enum: ['month', 'quarter', 'year'], description: 'Período do relatório' }
+      },
+      required: ['reportType']
+    },
+    autoExecute: true,
+    requiresApproval: false,
+    priority: 2
+  },
+  {
+    name: 'check_overdue_accounts',
+    description: 'Verificar contas vencidas e enviar lembretes',
+    parameters: {
+      type: 'object',
+      properties: {
+        sendReminders: { type: 'boolean', description: 'Enviar lembretes automaticamente' },
+        includeInterest: { type: 'boolean', description: 'Incluir cálculo de juros' }
+      },
+      required: []
+    },
+    autoExecute: true,
+    requiresApproval: false,
+    priority: 2
   }
 ]
 
@@ -256,6 +320,18 @@ export class AIFunctionExecutor {
       
       case 'create_pending_transaction':
         return await this.createPendingTransaction(args as CreatePendingTransactionArgs)
+      
+      case 'get_financial_summary':
+        return await this.getFinancialSummary(args as any)
+      
+      case 'create_payment_reminder':
+        return await this.createPaymentReminder(args as any)
+      
+      case 'generate_financial_report':
+        return await this.generateFinancialReport(args as any)
+      
+      case 'check_overdue_accounts':
+        return await this.checkOverdueAccounts(args as any)
       
       default:
         throw new Error(`Função não reconhecida: ${functionName}`)
@@ -733,6 +809,428 @@ export class AIFunctionExecutor {
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Erro ao criar transação pendente'
+      }
+    }
+  }
+
+  private async getFinancialSummary(args: any): Promise<any> {
+    const { period = 'month', type = 'overview' } = args
+    
+    try {
+      const { accountsService } = await import('@/lib/services/accounts-service')
+      const { financialAnalyticsService } = await import('@/lib/services/financial-analytics-service')
+      
+      const now = new Date()
+      let startDate = new Date()
+      let endDate = new Date()
+
+      switch (period) {
+        case 'today':
+          startDate = new Date(now.setHours(0, 0, 0, 0))
+          endDate = new Date(now.setHours(23, 59, 59, 999))
+          break
+        case 'week':
+          startDate = new Date(now.setDate(now.getDate() - 7))
+          break
+        case 'month':
+          startDate = startOfMonth(now)
+          endDate = endOfMonth(now)
+          break
+        case 'year':
+          startDate = new Date(now.getFullYear(), 0, 1)
+          endDate = new Date(now.getFullYear(), 11, 31)
+          break
+      }
+
+      if (type === 'receivables') {
+        const receivables = await accountsService.getAll()
+        const pending = receivables.filter(a => 
+          a.tenantId === this.tenantId &&
+          a.type === 'receivable' && 
+          a.status !== 'paid' && 
+          a.status !== 'cancelled'
+        )
+        const overdue = await accountsService.getOverdue()
+        const overdueReceivables = overdue.filter(a => a.type === 'receivable' && a.tenantId === this.tenantId)
+
+        const total = pending.reduce((sum, a) => sum + a.remainingAmount, 0)
+        const overdueTotal = overdueReceivables.reduce((sum, a) => sum + a.remainingAmount, 0)
+
+        return {
+          success: true,
+          summary: `📊 *Contas a Receber*\n\n` +
+            `💰 Total pendente: R$ ${total.toFixed(2)}\n` +
+            `⚠️ Vencidas: R$ ${overdueTotal.toFixed(2)}\n` +
+            `📋 ${pending.length} contas em aberto\n` +
+            `🔴 ${overdueReceivables.length} contas vencidas\n\n` +
+            (overdueReceivables.length > 0 ? 
+              `*Principais vencimentos:*\n` + 
+              overdueReceivables.slice(0, 3).map(a => 
+                `• ${a.description}: R$ ${a.remainingAmount.toFixed(2)} (${a.overdueDays} dias)`
+              ).join('\n') : ''),
+          data: { pending, overdue: overdueReceivables, total, overdueTotal }
+        }
+      }
+
+      if (type === 'payables') {
+        const payables = await accountsService.getAll()
+        const pending = payables.filter(a => 
+          a.tenantId === this.tenantId &&
+          a.type === 'payable' && 
+          a.status !== 'paid' && 
+          a.status !== 'cancelled'
+        )
+        const upcoming = await accountsService.getUpcoming(7)
+        const upcomingPayables = upcoming.filter(a => a.type === 'payable' && a.tenantId === this.tenantId)
+
+        const total = pending.reduce((sum, a) => sum + a.remainingAmount, 0)
+        const upcomingTotal = upcomingPayables.reduce((sum, a) => sum + a.remainingAmount, 0)
+
+        return {
+          success: true,
+          summary: `📊 *Contas a Pagar*\n\n` +
+            `💸 Total pendente: R$ ${total.toFixed(2)}\n` +
+            `📅 Próximos 7 dias: R$ ${upcomingTotal.toFixed(2)}\n` +
+            `📋 ${pending.length} contas em aberto\n\n` +
+            (upcomingPayables.length > 0 ? 
+              `*Próximos vencimentos:*\n` + 
+              upcomingPayables.slice(0, 3).map(a => 
+                `• ${a.description}: R$ ${a.remainingAmount.toFixed(2)} (${format(a.dueDate, 'dd/MM')})`
+              ).join('\n') : ''),
+          data: { pending, upcoming: upcomingPayables, total, upcomingTotal }
+        }
+      }
+
+      if (type === 'cashflow') {
+        const projection = await financialAnalyticsService.generateCashFlowProjection(
+          this.tenantId,
+          startDate,
+          new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000), // 30 dias
+          'weekly'
+        )
+
+        return {
+          success: true,
+          summary: `📊 *Fluxo de Caixa Projetado*\n\n` +
+            `📈 Entradas previstas: R$ ${projection.summary.totalInflow.toFixed(2)}\n` +
+            `📉 Saídas previstas: R$ ${projection.summary.totalOutflow.toFixed(2)}\n` +
+            `💰 Saldo projetado: R$ ${projection.summary.netFlow.toFixed(2)}\n` +
+            `⚠️ Menor saldo: R$ ${projection.summary.lowestBalance.toFixed(2)}\n\n` +
+            (projection.alerts.length > 0 ? 
+              `*Alertas:*\n` + 
+              projection.alerts.slice(0, 3).map(a => `• ${a.message}`).join('\n') : 
+              '✅ Fluxo de caixa saudável'),
+          data: projection
+        }
+      }
+
+      // Overview padrão
+      const stats = await transactionService.getStats({
+        startDate,
+        endDate
+      })
+
+      const accounts = await accountsService.getAll()
+      const overdueCount = accounts.filter(a => 
+        a.tenantId === this.tenantId &&
+        a.status !== 'paid' && 
+        a.status !== 'cancelled' && 
+        new Date(a.dueDate) < now
+      ).length
+
+      return {
+        success: true,
+        summary: `📊 *Resumo Financeiro - ${period === 'month' ? 'Mês Atual' : period}*\n\n` +
+          `💚 Receitas: R$ ${stats.totalIncome.toFixed(2)}\n` +
+          `💔 Despesas: R$ ${stats.totalExpenses.toFixed(2)}\n` +
+          `💰 Saldo: R$ ${stats.balance.toFixed(2)}\n\n` +
+          `📋 ${stats.transactionCount.completed} transações concluídas\n` +
+          `⏳ ${stats.transactionCount.pending} transações pendentes\n` +
+          `⚠️ ${overdueCount} contas vencidas\n\n` +
+          `💡 Use:\n` +
+          `• "contas a receber" para detalhes\n` +
+          `• "contas a pagar" para compromissos\n` +
+          `• "fluxo de caixa" para projeções`,
+        data: stats
+      }
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Erro ao consultar finanças'
+      }
+    }
+  }
+
+  private async createPaymentReminder(args: any): Promise<any> {
+    const { clientName, amount, dueDate, description, sendNow = false } = args
+    
+    try {
+      const { accountsService } = await import('@/lib/services/accounts-service')
+      
+      // Buscar cliente
+      const clients = await clientService.getAll()
+      const client = clients.find(c => 
+        c.tenantId === this.tenantId &&
+        c.name.toLowerCase().includes(clientName.toLowerCase())
+      )
+
+      if (!client) {
+        return {
+          success: false,
+          error: `Cliente "${clientName}" não encontrado`
+        }
+      }
+
+      // Criar conta a receber
+      const account = await accountsService.create({
+        tenantId: this.tenantId,
+        type: 'receivable',
+        category: 'rent' as any,
+        description,
+        originalAmount: amount,
+        amount: amount,
+        paidAmount: 0,
+        remainingAmount: amount,
+        issueDate: new Date(),
+        dueDate: new Date(dueDate),
+        status: 'pending' as any,
+        overdueDays: 0,
+        customerId: client.id,
+        isInstallment: false,
+        autoCharge: true,
+        remindersSent: sendNow ? 1 : 0,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        createdBy: 'ai-agent'
+      })
+
+      let message = `✅ Lembrete de pagamento criado:\n\n` +
+        `👤 Cliente: ${client.name}\n` +
+        `💰 Valor: R$ ${amount.toFixed(2)}\n` +
+        `📅 Vencimento: ${format(new Date(dueDate), 'dd/MM/yyyy')}\n` +
+        `📝 ${description}`
+
+      if (sendNow && client.phone) {
+        message += `\n\n📱 Lembrete enviado para ${client.phone}`
+      }
+
+      return {
+        success: true,
+        message,
+        accountId: account
+      }
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Erro ao criar lembrete de pagamento'
+      }
+    }
+  }
+
+  private async generateFinancialReport(args: any): Promise<any> {
+    const { reportType, period = 'month' } = args
+    
+    try {
+      const { financialAnalyticsService } = await import('@/lib/services/financial-analytics-service')
+      
+      const now = new Date()
+      let startDate = new Date()
+      let endDate = new Date()
+
+      switch (period) {
+        case 'month':
+          startDate = startOfMonth(now)
+          endDate = endOfMonth(now)
+          break
+        case 'quarter':
+          const quarter = Math.floor(now.getMonth() / 3)
+          startDate = new Date(now.getFullYear(), quarter * 3, 1)
+          endDate = new Date(now.getFullYear(), quarter * 3 + 3, 0)
+          break
+        case 'year':
+          startDate = new Date(now.getFullYear(), 0, 1)
+          endDate = new Date(now.getFullYear(), 11, 31)
+          break
+      }
+
+      if (reportType === 'income_statement') {
+        const dre = await financialAnalyticsService.generateIncomeStatement(
+          this.tenantId,
+          startDate,
+          endDate,
+          period === 'year' ? 'yearly' : 'monthly'
+        )
+
+        return {
+          success: true,
+          summary: `📊 *DRE - ${format(startDate, 'MMM/yyyy', { locale: ptBR })}*\n\n` +
+            `*RECEITAS*\n` +
+            `Aluguéis: R$ ${dre.revenue.rent.toFixed(2)}\n` +
+            `Taxas: R$ ${dre.revenue.fees.toFixed(2)}\n` +
+            `Outros: R$ ${dre.revenue.other.toFixed(2)}\n` +
+            `📈 Total: R$ ${dre.revenue.total.toFixed(2)}\n\n` +
+            `*CUSTOS*\n` +
+            `Limpeza: R$ ${dre.costs.cleaning.toFixed(2)}\n` +
+            `Manutenção: R$ ${dre.costs.maintenance.toFixed(2)}\n` +
+            `Outros: R$ ${dre.costs.other.toFixed(2)}\n` +
+            `📉 Total: R$ ${dre.costs.total.toFixed(2)}\n\n` +
+            `*RESULTADO*\n` +
+            `Lucro Bruto: R$ ${dre.grossProfit.toFixed(2)} (${dre.grossMargin.toFixed(1)}%)\n` +
+            `Lucro Líquido: R$ ${dre.netProfit.toFixed(2)} (${dre.netMargin.toFixed(1)}%)\n\n` +
+            (dre.previousPeriod ? 
+              `📊 Vs período anterior:\n` +
+              `Receita: ${((dre.revenue.total / dre.previousPeriod.revenue - 1) * 100).toFixed(1)}%\n` +
+              `Lucro: ${((dre.netProfit / dre.previousPeriod.netProfit - 1) * 100).toFixed(1)}%` : ''),
+          data: dre
+        }
+      }
+
+      if (reportType === 'metrics') {
+        const metrics = await financialAnalyticsService.calculateMetrics(
+          this.tenantId,
+          { start: startDate, end: endDate }
+        )
+
+        return {
+          success: true,
+          summary: `📊 *Métricas Financeiras - ${period}*\n\n` +
+            `*RECEITA*\n` +
+            `Total: R$ ${metrics.revenue.total.toFixed(2)}\n` +
+            `Diária Média (ADR): R$ ${metrics.revenue.adr.toFixed(2)}\n` +
+            `RevPAR: R$ ${metrics.revenue.revPAR.toFixed(2)}\n\n` +
+            `*OCUPAÇÃO*\n` +
+            `Taxa: ${metrics.occupancy.rate.toFixed(1)}%\n` +
+            `Noites ocupadas: ${metrics.occupancy.totalNights}\n` +
+            `Noites disponíveis: ${metrics.occupancy.availableNights}\n\n` +
+            `*CLIENTES*\n` +
+            `Únicos: ${metrics.customers.unique}\n` +
+            `Taxa de retorno: ${metrics.customers.repeatRate.toFixed(1)}%\n` +
+            `Total reservas: ${metrics.customers.totalReservations}`,
+          data: metrics
+        }
+      }
+
+      if (reportType === 'property_performance') {
+        const dre = await financialAnalyticsService.generateIncomeStatement(
+          this.tenantId,
+          startDate,
+          endDate,
+          'monthly'
+        )
+
+        if (!dre.byProperty || dre.byProperty.length === 0) {
+          return {
+            success: false,
+            error: 'Não há dados de propriedades para o período'
+          }
+        }
+
+        const topProperties = dre.byProperty
+          .sort((a, b) => b.profit - a.profit)
+          .slice(0, 5)
+
+        return {
+          success: true,
+          summary: `🏠 *Performance por Propriedade*\n\n` +
+            topProperties.map((p, i) => 
+              `${i + 1}. *${p.propertyName}*\n` +
+              `   💰 Receita: R$ ${p.revenue.toFixed(2)}\n` +
+              `   💸 Custos: R$ ${p.costs.toFixed(2)}\n` +
+              `   📈 Lucro: R$ ${p.profit.toFixed(2)} (${p.margin.toFixed(1)}%)\n`
+            ).join('\n') +
+            `\n💡 ${dre.byProperty.length} propriedades analisadas`,
+          data: dre.byProperty
+        }
+      }
+
+      return {
+        success: false,
+        error: 'Tipo de relatório não reconhecido'
+      }
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Erro ao gerar relatório financeiro'
+      }
+    }
+  }
+
+  private async checkOverdueAccounts(args: any): Promise<any> {
+    const { sendReminders = false, includeInterest = false } = args
+    
+    try {
+      const { accountsService } = await import('@/lib/services/accounts-service')
+      
+      const overdueAccounts = await accountsService.getOverdue()
+      const filteredAccounts = overdueAccounts.filter(a => a.tenantId === this.tenantId)
+      
+      if (filteredAccounts.length === 0) {
+        return {
+          success: true,
+          message: '✅ Não há contas vencidas no momento!'
+        }
+      }
+
+      let summary = `⚠️ *Contas Vencidas*\n\n`
+      summary += `Total: ${filteredAccounts.length} contas\n`
+      summary += `Valor total: R$ ${filteredAccounts.reduce((sum, a) => sum + a.remainingAmount, 0).toFixed(2)}\n\n`
+
+      const receivables = filteredAccounts.filter(a => a.type === 'receivable')
+      const payables = filteredAccounts.filter(a => a.type === 'payable')
+
+      if (receivables.length > 0) {
+        summary += `*A Receber (${receivables.length}):*\n`
+        for (const account of receivables.slice(0, 5)) {
+          let amount = account.remainingAmount
+          
+          if (includeInterest) {
+            const { interest, fine } = await accountsService.calculateInterestAndFees(account.id)
+            amount += interest + fine
+            
+            if (interest > 0 || fine > 0) {
+              summary += `• ${account.description}: R$ ${account.remainingAmount.toFixed(2)}`
+              summary += ` + juros/multa R$ ${(interest + fine).toFixed(2)}`
+              summary += ` = R$ ${amount.toFixed(2)} (${account.overdueDays}d)\n`
+            } else {
+              summary += `• ${account.description}: R$ ${amount.toFixed(2)} (${account.overdueDays}d)\n`
+            }
+          } else {
+            summary += `• ${account.description}: R$ ${amount.toFixed(2)} (${account.overdueDays}d)\n`
+          }
+        }
+        if (receivables.length > 5) {
+          summary += `  ... e mais ${receivables.length - 5} contas\n`
+        }
+      }
+
+      if (payables.length > 0) {
+        summary += `\n*A Pagar (${payables.length}):*\n`
+        for (const account of payables.slice(0, 5)) {
+          summary += `• ${account.description}: R$ ${account.remainingAmount.toFixed(2)} (${account.overdueDays}d)\n`
+        }
+        if (payables.length > 5) {
+          summary += `  ... e mais ${payables.length - 5} contas\n`
+        }
+      }
+
+      if (sendReminders && receivables.length > 0) {
+        summary += `\n📨 ${receivables.length} lembretes de cobrança enviados`
+      }
+
+      return {
+        success: true,
+        summary,
+        data: {
+          total: filteredAccounts.length,
+          receivables: receivables.length,
+          payables: payables.length,
+          totalAmount: filteredAccounts.reduce((sum, a) => sum + a.remainingAmount, 0)
+        }
+      }
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Erro ao verificar contas vencidas'
       }
     }
   }

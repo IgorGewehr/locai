@@ -91,29 +91,32 @@ export class PricingService {
       subtotal += dayPrice.finalPrice;
       
       if (dayPrice.isWeekend && !dayPrice.isHoliday) {
-        weekendSurcharge += dayPrice.finalPrice - property.pricing.basePrice;
+        weekendSurcharge += dayPrice.finalPrice - property.basePrice;
       }
       
       if (dayPrice.isHoliday) {
-        holidaySurcharge += dayPrice.finalPrice - property.pricing.basePrice;
+        holidaySurcharge += dayPrice.finalPrice - property.basePrice;
       }
       
-      if (dayPrice.seasonalRate && dayPrice.seasonalRate !== property.pricing.basePrice) {
-        seasonalAdjustment += dayPrice.seasonalRate - property.pricing.basePrice;
+      if (dayPrice.seasonalRate && dayPrice.seasonalRate !== property.basePrice) {
+        seasonalAdjustment += dayPrice.seasonalRate - property.basePrice;
       }
     }
 
-    const totalPrice = subtotal + property.pricing.cleaningFee + property.pricing.securityDeposit;
+    const extraGuestFee = guests > property.capacity ? 
+      (guests - property.capacity) * property.pricePerExtraGuest * nights : 0;
+    
+    const totalPrice = subtotal + extraGuestFee + property.cleaningFee;
 
     return {
-      basePrice: property.pricing.basePrice,
+      basePrice: property.basePrice,
       nights,
       subtotal,
       weekendSurcharge,
       holidaySurcharge,
       seasonalAdjustment,
-      cleaningFee: property.pricing.cleaningFee,
-      securityDeposit: property.pricing.securityDeposit,
+      cleaningFee: property.cleaningFee,
+      securityDeposit: 0, // Removed security deposit from Property model
       totalPrice,
       breakdown,
     };
@@ -125,48 +128,55 @@ export class PricingService {
     isHoliday: boolean;
     seasonalRate?: number;
   } {
-    let basePrice = property.pricing.basePrice;
-    let isWeekendDay = false;
-    let isHolidayDay = false;
-    let seasonalRate: number | undefined;
-
-    // Check for seasonal pricing (highest priority)
-    const seasonalPrice = this.getSeasonalPrice(property, date);
-    if (seasonalPrice) {
-      basePrice = seasonalPrice;
-      seasonalRate = seasonalPrice;
+    // First check for custom pricing
+    const dateKey = format(date, 'yyyy-MM-dd');
+    if (property.customPricing && property.customPricing[dateKey]) {
+      return {
+        finalPrice: property.customPricing[dateKey],
+        isWeekend: isWeekend(date),
+        isHoliday: this.isHoliday(date),
+        seasonalRate: property.customPricing[dateKey],
+      };
     }
 
-    // Check if it's a holiday
-    const holidayRule = this.getHolidayRule(date);
-    if (holidayRule) {
-      basePrice = Math.round(basePrice * holidayRule.multiplier);
-      isHolidayDay = true;
+    let basePrice = property.basePrice;
+    let isWeekendDay = isWeekend(date);
+    let isHolidayDay = this.isHoliday(date);
+    let isDecember = date.getMonth() === 11;
+    let isHighSeason = property.highSeasonMonths?.includes(date.getMonth() + 1) || false;
+    
+    // Apply surcharges (non-cumulative - apply the highest one)
+    let surchargePercentage = 0;
+    
+    if (isHolidayDay && property.holidaySurcharge) {
+      surchargePercentage = Math.max(surchargePercentage, property.holidaySurcharge);
     }
-    // Check if it's a weekend (only if not a holiday)
-    else if (isWeekend(date)) {
-      basePrice = Math.round(basePrice * property.pricing.weekendMultiplier);
-      isWeekendDay = true;
+    
+    if (isWeekendDay && property.weekendSurcharge) {
+      surchargePercentage = Math.max(surchargePercentage, property.weekendSurcharge);
     }
+    
+    if (isDecember && property.decemberSurcharge) {
+      surchargePercentage = Math.max(surchargePercentage, property.decemberSurcharge);
+    }
+    
+    if (isHighSeason && property.highSeasonSurcharge) {
+      surchargePercentage = Math.max(surchargePercentage, property.highSeasonSurcharge);
+    }
+    
+    const finalPrice = Math.round(basePrice * (1 + surchargePercentage / 100));
 
     return {
-      finalPrice: basePrice,
+      finalPrice,
       isWeekend: isWeekendDay,
       isHoliday: isHolidayDay,
-      seasonalRate,
+      seasonalRate: finalPrice !== basePrice ? finalPrice : undefined,
     };
   }
 
   private getSeasonalPrice(property: Property, date: Date): number | null {
-    const applicableSeasonalPrices = property.pricing.seasonalPrices
-      .filter(seasonal => {
-        const startDate = startOfDay(seasonal.startDate);
-        const endDate = endOfDay(seasonal.endDate);
-        return date >= startDate && date <= endDate;
-      })
-      .sort((a, b) => b.pricePerNight - a.pricePerNight); // Highest price first
-
-    return applicableSeasonalPrices.length > 0 ? applicableSeasonalPrices[0].pricePerNight : null;
+    // Seasonal prices are now handled through customPricing
+    return null;
   }
 
   private getHolidayRule(date: Date): HolidayRule | null {
@@ -179,6 +189,21 @@ export class PricingService {
       .sort((a, b) => b.priority - a.priority); // Highest priority first
 
     return applicableHolidays.length > 0 ? applicableHolidays[0] : null;
+  }
+
+  private isHoliday(date: Date): boolean {
+    const monthDay = format(date, 'MM-dd');
+    const brazilianHolidayDates = [
+      '01-01', // Ano Novo
+      '04-21', // Tiradentes
+      '05-01', // Dia do Trabalho
+      '09-07', // Independência
+      '10-12', // Nossa Senhora Aparecida
+      '11-02', // Finados
+      '11-15', // Proclamação da República
+      '12-25', // Natal
+    ];
+    return brazilianHolidayDates.includes(monthDay);
   }
 
   async getOccupancyRate(
@@ -278,35 +303,28 @@ export class PricingService {
   } {
     const errors: string[] = [];
 
-    if (property.pricing.basePrice <= 0) {
+    if (property.basePrice <= 0) {
       errors.push('Preço base deve ser maior que zero');
     }
 
-    if (property.pricing.weekendMultiplier < 1) {
-      errors.push('Multiplicador de fim de semana deve ser maior ou igual a 1');
-    }
-
-    if (property.pricing.holidayMultiplier < 1) {
-      errors.push('Multiplicador de feriado deve ser maior ou igual a 1');
-    }
-
-    if (property.pricing.cleaningFee < 0) {
+    if (property.cleaningFee < 0) {
       errors.push('Taxa de limpeza não pode ser negativa');
     }
 
-    if (property.pricing.securityDeposit < 0) {
-      errors.push('Caução não pode ser negativa');
+    if (property.weekendSurcharge && property.weekendSurcharge < 0) {
+      errors.push('Acréscimo de fim de semana não pode ser negativo');
     }
 
-    // Validate seasonal prices
-    for (const seasonal of property.pricing.seasonalPrices) {
-      if (seasonal.pricePerNight <= 0) {
-        errors.push(`Preço sazonal "${seasonal.description}" deve ser maior que zero`);
-      }
-      
-      if (seasonal.startDate >= seasonal.endDate) {
-        errors.push(`Data de início deve ser anterior à data de fim para "${seasonal.description}"`);
-      }
+    if (property.holidaySurcharge && property.holidaySurcharge < 0) {
+      errors.push('Acréscimo de feriado não pode ser negativo');
+    }
+
+    if (property.decemberSurcharge && property.decemberSurcharge < 0) {
+      errors.push('Acréscimo de dezembro não pode ser negativo');
+    }
+
+    if (property.highSeasonSurcharge && property.highSeasonSurcharge < 0) {
+      errors.push('Acréscimo de alta temporada não pode ser negativo');
     }
 
     return {

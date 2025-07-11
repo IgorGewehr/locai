@@ -37,6 +37,9 @@ interface PricingCalendarProps {
   basePrice: number;
   specialPrices: Record<string, number>;
   onPricesChange: (prices: Record<string, number>) => void;
+  weekendSurcharge?: number;
+  holidaySurcharge?: number;
+  decemberSurcharge?: number;
 }
 
 type SelectionMode = 'single' | 'range';
@@ -56,6 +59,9 @@ const PricingCalendar: React.FC<PricingCalendarProps> = ({
   basePrice,
   specialPrices,
   onPricesChange,
+  weekendSurcharge = 30,
+  holidaySurcharge = 50,
+  decemberSurcharge = 10,
 }) => {
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [selectionMode, setSelectionMode] = useState<SelectionMode>('single');
@@ -89,7 +95,7 @@ const PricingCalendar: React.FC<PricingCalendarProps> = ({
 
   const getPriceForDate = (date: Date): number => {
     const dateKey = format(date, 'yyyy-MM-dd');
-    return specialPrices[dateKey] || basePrice;
+    return specialPrices[dateKey] || basePrice || 0;
   };
 
   const handleDateClick = (date: Date) => {
@@ -132,7 +138,7 @@ const PricingCalendar: React.FC<PricingCalendarProps> = ({
       if (percentageIncrease) {
         const percentage = parseFloat(percentageIncrease);
         if (!isNaN(percentage)) {
-          price = basePrice * (1 + percentage / 100);
+          price = (basePrice || 0) * (1 + percentage / 100);
         }
       }
       
@@ -171,14 +177,14 @@ const PricingCalendar: React.FC<PricingCalendarProps> = ({
       days.forEach(date => {
         if (isWeekend(date) && isSameMonth(date, currentMonth)) {
           const dateKey = format(date, 'yyyy-MM-dd');
-          newPrices[dateKey] = basePrice * 1.3; // 30% increase
+          newPrices[dateKey] = (basePrice || 0) * (1 + weekendSurcharge / 100);
         }
       });
     } else if (preset === 'holiday') {
       days.forEach(date => {
         if (isHoliday(date) && isSameMonth(date, currentMonth)) {
           const dateKey = format(date, 'yyyy-MM-dd');
-          newPrices[dateKey] = basePrice * 1.5; // 50% increase
+          newPrices[dateKey] = (basePrice || 0) * (1 + holidaySurcharge / 100);
         }
       });
     } else if (preset === 'december') {
@@ -190,7 +196,7 @@ const PricingCalendar: React.FC<PricingCalendarProps> = ({
       });
       decemberDays.forEach(date => {
         const dateKey = format(date, 'yyyy-MM-dd');
-        newPrices[dateKey] = basePrice * 1.1; // 10% increase
+        newPrices[dateKey] = (basePrice || 0) * (1 + decemberSurcharge / 100);
       });
     }
     
@@ -226,30 +232,30 @@ const PricingCalendar: React.FC<PricingCalendarProps> = ({
             </Stack>
             
             <Stack direction="row" spacing={1}>
-              <Tooltip title="Aplicar 30% de aumento nos fins de semana">
+              <Tooltip title={`Aplicar ${weekendSurcharge}% de aumento nos fins de semana`}>
                 <Chip
                   icon={<Weekend />}
-                  label="Fins de Semana"
+                  label={`Fins de Semana (+${weekendSurcharge}%)`}
                   onClick={() => handleQuickPreset('weekend')}
                   color="primary"
                   variant="outlined"
                   clickable
                 />
               </Tooltip>
-              <Tooltip title="Aplicar 50% de aumento nos feriados">
+              <Tooltip title={`Aplicar ${holidaySurcharge}% de aumento nos feriados`}>
                 <Chip
                   icon={<Celebration />}
-                  label="Feriados"
+                  label={`Feriados (+${holidaySurcharge}%)`}
                   onClick={() => handleQuickPreset('holiday')}
                   color="secondary"
                   variant="outlined"
                   clickable
                 />
               </Tooltip>
-              <Tooltip title="Aplicar 10% de aumento em dezembro">
+              <Tooltip title={`Aplicar ${decemberSurcharge}% de aumento em dezembro`}>
                 <Chip
                   icon={<TrendingUp />}
-                  label="Dezembro"
+                  label={`Dezembro (+${decemberSurcharge}%)`}
                   onClick={() => handleQuickPreset('december')}
                   color="success"
                   variant="outlined"
@@ -294,7 +300,7 @@ const PricingCalendar: React.FC<PricingCalendarProps> = ({
               const dateIsWeekend = isWeekend(date);
               const dateIsHoliday = isHoliday(date);
               const price = getPriceForDate(date);
-              const hasSpecialPrice = price !== basePrice;
+              const hasSpecialPrice = price !== (basePrice || 0);
               
               return (
                 <Tooltip
@@ -371,7 +377,7 @@ const PricingCalendar: React.FC<PricingCalendarProps> = ({
               InputProps={{
                 startAdornment: <InputAdornment position="start">R$</InputAdornment>,
               }}
-              helperText={`Valor base: R$ ${basePrice.toFixed(2)}`}
+              helperText={`Valor base: R$ ${(basePrice || 0).toFixed(2)}`}
             />
             
             {selectionMode === 'range' && (

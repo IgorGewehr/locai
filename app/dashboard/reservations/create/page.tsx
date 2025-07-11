@@ -125,15 +125,44 @@ export default function CreateReservationPage() {
     setError('');
 
     try {
-      // TODO: Implement reservation creation with Firebase
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      // Create reservation data matching the API schema
+      const reservationData = {
+        propertyId: formData.propertyId,
+        clientName: formData.clientName,
+        clientPhone: formData.clientPhone,
+        clientEmail: formData.clientEmail || undefined,
+        checkIn: formData.checkIn?.toISOString(),
+        checkOut: formData.checkOut?.toISOString(),
+        guests: formData.guests,
+        totalAmount: formData.totalAmount,
+        status: formData.status,
+        paymentStatus: formData.paymentStatus,
+        paymentMethod: formData.paymentMethod || 'pix',
+        source: formData.source,
+        notes: formData.notes || undefined,
+      };
+
+      const response = await fetch('/api/reservations', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(reservationData),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Erro ao criar reserva');
+      }
+
+      const result = await response.json();
       
       setSuccess(true);
       setTimeout(() => {
         router.push('/dashboard/reservations');
       }, 2000);
     } catch (err) {
-      setError('Erro ao criar reserva. Tente novamente.');
+      setError(err instanceof Error ? err.message : 'Erro ao criar reserva. Tente novamente.');
     } finally {
       setLoading(false);
     }

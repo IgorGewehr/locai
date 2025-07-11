@@ -32,15 +32,19 @@ import {
 import { useFormContext } from 'react-hook-form'
 import PricingCalendar from '@/components/organisms/PricingCalendar/PricingCalendar'
 import AvailabilityCalendar from '@/components/organisms/AvailabilityCalendar/AvailabilityCalendar'
+import { PricingSurcharges } from '@/components/organisms/PricingSurcharges'
 
 export const PropertyPricing: React.FC = () => {
   const theme = useTheme()
   const { watch, setValue } = useFormContext()
   const [tabValue, setTabValue] = useState(0)
   
-  const basePrice = watch('basePrice') || 0
+  const basePrice = Number(watch('basePrice')) || 0
   const customPricing = watch('customPricing') || {}
   const unavailableDates = watch('unavailableDates') || []
+  const weekendSurcharge = watch('weekendSurcharge') || 0
+  const holidaySurcharge = watch('holidaySurcharge') || 0
+  const decemberSurcharge = watch('decemberSurcharge') || 0
 
   const handleCustomPricingChange = (prices: Record<string, number>) => {
     setValue('customPricing', prices, { shouldDirty: true })
@@ -308,6 +312,11 @@ export const PropertyPricing: React.FC = () => {
                 iconPosition="start" 
                 label="Disponibilidade" 
               />
+              <Tab 
+                icon={<TrendingUp />} 
+                iconPosition="start" 
+                label="Acréscimos Automáticos" 
+              />
             </Tabs>
 
             {tabValue === 0 && (
@@ -320,6 +329,9 @@ export const PropertyPricing: React.FC = () => {
                   basePrice={basePrice}
                   specialPrices={customPricing}
                   onPricesChange={handleCustomPricingChange}
+                  weekendSurcharge={weekendSurcharge}
+                  holidaySurcharge={holidaySurcharge}
+                  decemberSurcharge={decemberSurcharge}
                 />
               </Box>
             )}
@@ -334,6 +346,12 @@ export const PropertyPricing: React.FC = () => {
                   unavailableDates={unavailableDates}
                   onDatesChange={handleUnavailableDatesChange}
                 />
+              </Box>
+            )}
+
+            {tabValue === 2 && (
+              <Box>
+                <PricingSurcharges />
               </Box>
             )}
           </Paper>

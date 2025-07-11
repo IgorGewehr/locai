@@ -209,6 +209,11 @@ export async function POST(request: NextRequest) {
         // Create reservation
         const savedReservation = await reservationDb.create(reservation)
 
+        // Sync reservation dates with property unavailableDates if status is confirmed or pending
+        if (savedReservation.id && [ReservationStatus.CONFIRMED, ReservationStatus.PENDING].includes(savedReservation.status)) {
+          await reservationService.syncReservationWithUnavailableDates(savedReservation.id, 'add')
+        }
+
         // TODO: Send confirmation email/WhatsApp
         // TODO: Create initial payment record
         // TODO: Trigger automation workflows
@@ -349,6 +354,11 @@ export async function PUT(request: NextRequest) {
         if (updates.checkOut) updates.checkOut = new Date(updates.checkOut)
 
         const updatedReservation = await reservationDb.update(id, updates)
+
+        // Handle status changes and sync availability
+        if (validatedData.status && validatedData.status !== existingReservation.status) {
+          await reservationService.updateReservationStatus(id, validatedData.status)
+        }
 
         // Update payment status if paid amount changed
         if (validatedData.paidAmount !== undefined) {
