@@ -65,45 +65,6 @@ const propertyTypes = [
   { value: 'studio', label: 'Studio', icon: <Home /> },
 ];
 
-// Mock data - in production, this would be fetched from API
-const mockProperty: Property = {
-  id: '1',
-  name: 'Casa na Praia - Ipanema',
-  type: 'house',
-  description: 'Linda casa de frente para o mar com vista deslumbrante',
-  address: {
-    street: 'Rua Vieira Souto',
-    number: '500',
-    neighborhood: 'Ipanema',
-    city: 'Rio de Janeiro',
-    state: 'RJ',
-    zipCode: '22420-000',
-    country: 'Brasil',
-  },
-  coordinates: { lat: -22.9838, lng: -43.2096 },
-  bedrooms: 4,
-  bathrooms: 3,
-  capacity: 8,
-  area: 250,
-  amenities: ['pool', 'wifi', 'parking', 'airConditioning', 'kitchen', 'beachAccess'],
-  photos: [
-    { url: '/api/placeholder/400/300', order: 1, type: 'photo', caption: 'Vista da frente' },
-    { url: '/api/placeholder/400/300', order: 2, type: 'photo', caption: 'Sala de estar' },
-  ],
-  videos: [],
-  basePrice: 800,
-  weekendMultiplier: 1.2,
-  holidayMultiplier: 1.5,
-  minimumStay: 3,
-  cleaningFee: 150,
-  securityDeposit: 1000,
-  checkInTime: '14:00',
-  checkOutTime: '11:00',
-  status: 'active',
-  availability: [],
-  createdAt: new Date('2024-01-01'),
-  updatedAt: new Date('2024-01-15'),
-};
 
 export default function EditPropertyPage() {
   const router = useRouter();
@@ -119,11 +80,16 @@ export default function EditPropertyPage() {
   const [pricingRules, setPricingRules] = useState<PricingRule[]>([]);
 
   useEffect(() => {
-    // Simulate loading property data
+    // Load property data from Firebase
     const loadProperty = async () => {
       try {
-        await new Promise(resolve => setTimeout(resolve, 500));
-        setProperty(mockProperty);
+        const response = await fetch(`/api/properties/${params.id}`);
+        if (!response.ok) {
+          throw new Error('Failed to fetch property');
+        }
+        
+        const propertyData = await response.json();
+        setProperty(propertyData);
         setLoading(false);
       } catch (err) {
         setError('Erro ao carregar propriedade');

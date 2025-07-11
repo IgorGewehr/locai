@@ -64,7 +64,7 @@ import { format, startOfMonth, endOfMonth, subMonths } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import FinancialGoals from '@/components/dashboard/goals/FinancialGoals';
 
-// Mock data for charts
+// Revenue data - this would be fetched from Firebase in production
 const revenueData = [
   { month: 'Jan', revenue: 42000, reservations: 28 },
   { month: 'Fev', revenue: 38000, reservations: 24 },

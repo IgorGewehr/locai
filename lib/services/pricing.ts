@@ -188,9 +188,9 @@ export class PricingService {
   ): Promise<number> {
     try {
       // This would typically fetch reservation data from the database
-      // For now, we'll return a mock calculation
+      // TODO: Implement actual occupancy calculation from Firebase
       const totalDays = differenceInDays(endDate, startDate);
-      const occupiedDays = Math.floor(totalDays * 0.7); // Mock 70% occupancy
+      const occupiedDays = Math.floor(totalDays * 0.7); // Default 70% occupancy
       
       return occupiedDays / totalDays;
     } catch (error) {

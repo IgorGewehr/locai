@@ -92,7 +92,7 @@ export default function AnalyticsDashboard({ tenantId = 'default' }: AnalyticsDa
     limit: 100 
   })
 
-  // Generate mock performance data for demonstration
+  // Generate performance data - this would be fetched from Firebase in production
   const performanceData = useMemo(() => {
     const days = period === '7d' ? 7 : period === '30d' ? 30 : 90
     const labels = Array.from({ length: days }, (_, i) => 

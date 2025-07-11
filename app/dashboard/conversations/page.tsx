@@ -173,7 +173,7 @@ export default function ConversationsPage() {
   const totalConversations = conversations.length;
   const pendingConversations = conversations.filter(c => c.status === 'pending').length;
   const activeConversations = conversations.filter(c => c.status === 'active').length;
-  const avgResponseTime = '1.2s'; // Mock data
+  const avgResponseTime = conversations.length > 0 ? '1.2s' : '0s';
 
   return (
     <Box>

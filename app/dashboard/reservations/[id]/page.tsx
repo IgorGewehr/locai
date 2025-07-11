@@ -105,68 +105,22 @@ export default function ReservationDetailPage() {
     try {
       setLoading(true);
       
-      // Mock data - replace with actual API calls
-      const mockReservation: Reservation = {
-        id: params.id as string,
-        propertyId: 'prop-1',
-        propertyName: 'Apartamento Vista Mar - Copacabana',
-        propertyAddress: 'Av. Atlântica, 1000 - Copacabana, Rio de Janeiro',
-        propertyImages: ['/images/property1.jpg'],
-        clientId: 'client-1',
-        clientName: 'João Silva',
-        clientEmail: 'joao.silva@email.com',
-        clientPhone: '+55 11 99999-9999',
-        clientAvatar: '',
-        checkIn: new Date('2024-02-01'),
-        checkOut: new Date('2024-02-07'),
-        guests: 4,
-        status: 'confirmed',
-        paymentStatus: 'paid',
-        totalAmount: 3500,
-        basePrice: 3000,
-        fees: 300,
-        taxes: 350,
-        discounts: 150,
-        notes: 'Cliente solicitou check-in antecipado.',
-        createdAt: new Date('2024-01-15T10:30:00'),
-        lastUpdated: new Date('2024-01-16T14:20:00'),
-      };
-
-      const mockActivities: Activity[] = [
-        {
-          id: '1',
-          type: 'created',
-          description: 'Reserva criada pelo cliente',
-          timestamp: new Date('2024-01-15T10:30:00'),
-          user: 'João Silva',
-        },
-        {
-          id: '2',
-          type: 'confirmed',
-          description: 'Reserva confirmada automaticamente',
-          timestamp: new Date('2024-01-15T11:00:00'),
-          user: 'Sistema',
-        },
-        {
-          id: '3',
-          type: 'payment',
-          description: 'Pagamento processado com sucesso',
-          timestamp: new Date('2024-01-15T11:05:00'),
-          user: 'Sistema',
-        },
-        {
-          id: '4',
-          type: 'updated',
-          description: 'Anotações adicionadas',
-          timestamp: new Date('2024-01-16T14:20:00'),
-          user: 'Admin',
-        },
-      ];
-
-      setReservation(mockReservation);
-      setActivities(mockActivities);
-      setNotes(mockReservation.notes || '');
-      setNewStatus(mockReservation.status);
+      // Fetch reservation data from Firebase
+      const reservationData = await fetch(`/api/reservations/${params.id}`);
+      if (!reservationData.ok) {
+        throw new Error('Failed to fetch reservation');
+      }
+      
+      const reservation = await reservationData.json();
+      
+      // Fetch activities data
+      const activitiesData = await fetch(`/api/reservations/${params.id}/activities`);
+      const activities = activitiesData.ok ? await activitiesData.json() : [];
+      
+      setReservation(reservation);
+      setActivities(activities);
+      setNotes(reservation.notes || '');
+      setNewStatus(reservation.status);
     } catch (err) {
       setError('Erro ao carregar dados da reserva');
     } finally {

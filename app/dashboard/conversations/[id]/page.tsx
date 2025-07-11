@@ -88,89 +88,20 @@ export default function ConversationDetailPage() {
     try {
       setLoading(true);
       
-      // Mock data - replace with actual API calls
-      const mockConversation: Conversation = {
-        id: params.id as string,
-        clientName: 'Maria Santos',
-        clientPhone: '+55 11 98765-4321',
-        clientAvatar: '',
-        platform: 'whatsapp',
-        status: 'active',
-        lastMessage: new Date('2024-01-20T15:30:00'),
-        aiEnabled: true,
-        totalMessages: 25,
-        tags: ['Lead', 'Interessada'],
-      };
-
-      const mockMessages: Message[] = [
-        {
-          id: '1',
-          content: 'Olá! Gostaria de saber sobre apartamentos disponíveis em Copacabana.',
-          timestamp: new Date('2024-01-20T14:00:00'),
-          sender: 'user',
-          type: 'text',
-          metadata: { delivered: true, read: true, clientName: 'Maria Santos' },
-        },
-        {
-          id: '2',
-          content: 'Olá Maria! Temos várias opções disponíveis em Copacabana. Posso te ajudar a encontrar o apartamento ideal. Você tem preferência por quantos quartos?',
-          timestamp: new Date('2024-01-20T14:02:00'),
-          sender: 'ai',
-          type: 'text',
-          metadata: { delivered: true, read: true },
-        },
-        {
-          id: '3',
-          content: 'Procuro um apartamento de 2 quartos, preferencialmente com vista para o mar.',
-          timestamp: new Date('2024-01-20T14:05:00'),
-          sender: 'user',
-          type: 'text',
-          metadata: { delivered: true, read: true, clientName: 'Maria Santos' },
-        },
-        {
-          id: '4',
-          content: 'Perfeito! Encontrei algumas opções que podem te interessar. Vou enviar algumas fotos dos apartamentos disponíveis.',
-          timestamp: new Date('2024-01-20T14:07:00'),
-          sender: 'ai',
-          type: 'text',
-          metadata: { delivered: true, read: true },
-        },
-        {
-          id: '5',
-          content: 'Apartamento em Copacabana - 2 quartos, vista mar',
-          timestamp: new Date('2024-01-20T14:08:00'),
-          sender: 'ai',
-          type: 'image',
-          metadata: { delivered: true, read: true },
-        },
-        {
-          id: '6',
-          content: 'Nossa, que lindo! Qual o valor da diária?',
-          timestamp: new Date('2024-01-20T14:15:00'),
-          sender: 'user',
-          type: 'text',
-          metadata: { delivered: true, read: true, clientName: 'Maria Santos' },
-        },
-        {
-          id: '7',
-          content: 'Para esse apartamento, a diária é R$ 250 na baixa temporada e R$ 350 na alta temporada. Para qual período você está pensando?',
-          timestamp: new Date('2024-01-20T14:17:00'),
-          sender: 'ai',
-          type: 'text',
-          metadata: { delivered: true, read: true },
-        },
-        {
-          id: '8',
-          content: 'Estou planejando para o mês de março. Poderia fazer uma reserva?',
-          timestamp: new Date('2024-01-20T15:30:00'),
-          sender: 'user',
-          type: 'text',
-          metadata: { delivered: true, read: false, clientName: 'Maria Santos' },
-        },
-      ];
-
-      setConversation(mockConversation);
-      setMessages(mockMessages);
+      // Fetch conversation data from Firebase
+      const conversationData = await fetch(`/api/conversations/${params.id}`);
+      if (!conversationData.ok) {
+        throw new Error('Failed to fetch conversation');
+      }
+      
+      const conversation = await conversationData.json();
+      
+      // Fetch messages data
+      const messagesData = await fetch(`/api/conversations/${params.id}/messages`);
+      const messages = messagesData.ok ? await messagesData.json() : [];
+      
+      setConversation(conversation);
+      setMessages(messages);
     } catch (err) {
       setError('Erro ao carregar conversa');
     } finally {

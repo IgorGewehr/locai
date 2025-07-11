@@ -52,12 +52,6 @@ interface ReservationFormData {
 
 const steps = ['Propriedade e Cliente', 'Datas e Hóspedes', 'Pagamento e Confirmação'];
 
-// Mock properties for selection
-const mockProperties = [
-  { id: '1', name: 'Propriedade 1', basePrice: 200 },
-  { id: '2', name: 'Propriedade 2', basePrice: 300 },
-  { id: '3', name: 'Propriedade 3', basePrice: 150 },
-];
 
 export default function CreateReservationPage() {
   const router = useRouter();
@@ -80,6 +74,24 @@ export default function CreateReservationPage() {
     source: 'manual',
     notes: '',
   });
+  
+  const [properties, setProperties] = useState<Array<{ id: string; name: string; basePrice: number }>>([]);
+  
+  useEffect(() => {
+    const loadProperties = async () => {
+      try {
+        const response = await fetch('/api/properties');
+        if (response.ok) {
+          const data = await response.json();
+          setProperties(data.map((p: any) => ({ id: p.id, name: p.name, basePrice: p.basePrice })));
+        }
+      } catch (err) {
+        console.error('Failed to load properties:', err);
+      }
+    };
+    
+    loadProperties();
+  }, []);
 
   const handleInputChange = (field: keyof ReservationFormData, value: any) => {
     setFormData(prev => ({
@@ -91,7 +103,7 @@ export default function CreateReservationPage() {
   // Calculate total amount when dates or property changes
   useEffect(() => {
     if (formData.propertyId && formData.checkIn && formData.checkOut) {
-      const property = mockProperties.find(p => p.id === formData.propertyId);
+      const property = properties.find(p => p.id === formData.propertyId);
       if (property) {
         const nights = Math.ceil((formData.checkOut.getTime() - formData.checkIn.getTime()) / (1000 * 60 * 60 * 24));
         const total = property.basePrice * nights;
@@ -147,7 +159,7 @@ export default function CreateReservationPage() {
           <Grid container spacing={3}>
             <Grid item xs={12}>
               <Autocomplete
-                options={mockProperties}
+                options={properties}
                 getOptionLabel={(option) => option.name}
                 renderInput={(params) => (
                   <TextField
@@ -310,7 +322,7 @@ export default function CreateReservationPage() {
                 </Typography>
                 <Typography><strong>Cliente:</strong> {formData.clientName}</Typography>
                 <Typography><strong>Telefone:</strong> {formData.clientPhone}</Typography>
-                <Typography><strong>Propriedade:</strong> {mockProperties.find(p => p.id === formData.propertyId)?.name || 'Não selecionada'}</Typography>
+                <Typography><strong>Propriedade:</strong> {properties.find(p => p.id === formData.propertyId)?.name || 'Não selecionada'}</Typography>
                 <Typography><strong>Check-in:</strong> {formData.checkIn ? formData.checkIn.toLocaleDateString('pt-BR') : 'Não definido'}</Typography>
                 <Typography><strong>Check-out:</strong> {formData.checkOut ? formData.checkOut.toLocaleDateString('pt-BR') : 'Não definido'}</Typography>
                 <Typography><strong>Hóspedes:</strong> {formData.guests}</Typography>

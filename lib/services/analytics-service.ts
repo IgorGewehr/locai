@@ -20,8 +20,8 @@ export async function getAnalytics(
   tenantId: string, 
   options?: { period?: DateRange }
 ): Promise<AnalyticsData> {
-  // Temporary mock implementation
-  // Replace with actual Firebase queries
+  // TODO: Replace with actual Firebase queries
+  // This is a placeholder implementation
   
   return {
     totalRevenue: 245000,

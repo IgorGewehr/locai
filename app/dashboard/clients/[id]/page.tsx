@@ -105,64 +105,26 @@ export default function ClientDetailPage() {
     try {
       setLoading(true);
       
-      // Mock data - replace with actual API calls
-      const mockClient: Client = {
-        id: params.id as string,
-        name: 'João Silva',
-        email: 'joao.silva@email.com',
-        phone: '+55 11 99999-9999',
-        whatsapp: '+55 11 99999-9999',
-        location: 'São Paulo, SP',
-        avatar: '',
-        status: 'active',
-        tags: ['Premium', 'Empresarial'],
-        notes: 'Cliente interessado em imóveis comerciais no centro da cidade.',
-        createdAt: new Date('2024-01-15'),
-        lastContact: new Date('2024-01-20'),
-        totalReservations: 5,
-        totalSpent: 15000,
-      };
-
-      const mockReservations: Reservation[] = [
-        {
-          id: '1',
-          propertyName: 'Apartamento Copacabana',
-          checkIn: new Date('2024-02-01'),
-          checkOut: new Date('2024-02-07'),
-          status: 'confirmed',
-          total: 3500,
-        },
-        {
-          id: '2',
-          propertyName: 'Casa Ipanema',
-          checkIn: new Date('2024-01-15'),
-          checkOut: new Date('2024-01-20'),
-          status: 'confirmed',
-          total: 4200,
-        },
-      ];
-
-      const mockConversations: Conversation[] = [
-        {
-          id: '1',
-          lastMessage: 'Obrigado pela reserva! Aguardo mais novidades.',
-          timestamp: new Date('2024-01-20T14:30:00'),
-          status: 'read',
-          platform: 'whatsapp',
-        },
-        {
-          id: '2',
-          lastMessage: 'Gostaria de saber sobre disponibilidade para o próximo mês.',
-          timestamp: new Date('2024-01-18T10:15:00'),
-          status: 'read',
-          platform: 'whatsapp',
-        },
-      ];
-
-      setClient(mockClient);
-      setReservations(mockReservations);
-      setConversations(mockConversations);
-      setNotes(mockClient.notes || '');
+      // Fetch client data from Firebase
+      const clientData = await fetch(`/api/clients/${params.id}`);
+      if (!clientData.ok) {
+        throw new Error('Failed to fetch client');
+      }
+      
+      const client = await clientData.json();
+      
+      // Fetch client reservations
+      const reservationsData = await fetch(`/api/clients/${params.id}/reservations`);
+      const reservations = reservationsData.ok ? await reservationsData.json() : [];
+      
+      // Fetch client conversations
+      const conversationsData = await fetch(`/api/clients/${params.id}/conversations`);
+      const conversations = conversationsData.ok ? await conversationsData.json() : [];
+      
+      setClient(client);
+      setReservations(reservations);
+      setConversations(conversations);
+      setNotes(client.notes || '');
     } catch (err) {
       setError('Erro ao carregar dados do cliente');
     } finally {
