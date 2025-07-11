@@ -24,10 +24,7 @@ import {
   WhatsApp,
 } from '@mui/icons-material';
 import type { DashboardStats } from '@/lib/types';
-import { propertyService } from '@/lib/services/property-service';
-import { reservationService } from '@/lib/services/reservation-service';
-import { clientService } from '@/lib/services/client-service';
-import { conversationService } from '@/lib/services/conversation-service';
+import { propertyService, reservationService, clientService, conversationService } from '@/lib/firebase/firestore';
 import { db } from '@/lib/firebase/config';
 import { collection, query, where, getDocs, orderBy, limit, Timestamp } from 'firebase/firestore';
 

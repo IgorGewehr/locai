@@ -53,6 +53,7 @@ export interface QueryOptions {
 // Generic CRUD operations
 export class FirestoreService<T extends { id: string }> {
   protected collection: ReturnType<typeof collection>;
+  protected db = { getDocs }; // Add db property for compatibility
   
   constructor(private collectionName: string) {
     this.collection = collection(db, this.collectionName);
@@ -145,6 +146,15 @@ export class FirestoreService<T extends { id: string }> {
     })) as T[];
   }
 
+  // Add method to support compatibility with existing services
+  async queryDocuments(queryRef: any): Promise<T[]> {
+    const querySnapshot = await getDocs(queryRef);
+    return querySnapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data(),
+    })) as T[];
+  }
+
   async getMany(
     filters: Array<{ field: string; operator: any; value: any }>,
     options?: QueryOptions
@@ -219,6 +229,7 @@ export const conversationService = new FirestoreService<Conversation>(COLLECTION
 export const messageService = new FirestoreService<Message>(COLLECTIONS.MESSAGES);
 export const amenityService = new FirestoreService<Amenity>(COLLECTIONS.AMENITIES);
 export const paymentService = new FirestoreService<Payment>(COLLECTIONS.PAYMENTS);
+export const transactionFirestoreService = new FirestoreService<Transaction>(COLLECTIONS.TRANSACTIONS);
 
 // Specialized methods
 export const propertyQueries = {
