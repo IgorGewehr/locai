@@ -125,7 +125,7 @@ export class WhatsAppClient {
    */
   async sendAudio(to: string, audioBuffer: Buffer, caption?: string): Promise<void> {
     try {
-      .toFixed(1)}KB)`)
+      console.log(`Sending audio: ${(audioBuffer.length / 1024).toFixed(1)}KB)`)
 
       // Create audio file from buffer
       const audioFile = new File([audioBuffer], 'audio_response.mp3', { type: 'audio/mpeg' })
