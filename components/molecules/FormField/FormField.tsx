@@ -99,7 +99,7 @@ export const FormField: React.FC<FormFieldProps> = ({
             },
           }}
         >
-          {fieldError?.message}
+          {(typeof fieldError === 'object' && 'message' in fieldError ? fieldError.message : '') as React.ReactNode}
         </FormHelperText>
       )}
       

@@ -3,7 +3,9 @@ import { WhatsAppClient } from '@/lib/whatsapp/client'
 import { WhatsAppMessageHandler } from '@/lib/whatsapp/message-handler'
 import { AIService } from '@/lib/services/ai-service'
 import { AutomationService } from '@/lib/services/automation-service'
-import { conversationService, propertyService, reservationService } from '@/lib/firebase/firestore'
+import { ConversationService } from '@/lib/services/conversation-service'
+import { PropertyService } from '@/lib/services/property-service'
+import { ReservationService } from '@/lib/services/reservation-service'
 import { WhatsAppWebhookData, WhatsAppWebhookEntry, WhatsAppWebhookChange } from '@/lib/types/whatsapp'
 import { rateLimiters } from '@/lib/utils/rate-limiter'
 import { ErrorHandler, ValidationError } from '@/lib/utils/error-handler'
@@ -20,6 +22,9 @@ const whatsappClient = new WhatsAppClient(
   process.env.WHATSAPP_ACCESS_TOKEN!
 )
 const aiService = new AIService(tenantId)
+const conversationService = new ConversationService()
+const propertyService = new PropertyService()
+const reservationService = new ReservationService()
 const automationService = new AutomationService(tenantId, whatsappClient, aiService)
 const messageHandler = new WhatsAppMessageHandler(
   whatsappClient,
@@ -121,14 +126,17 @@ async function logWebhookEvent(
   }
 
   // In production, send to logging service
-  )
+  // TODO: Add proper logging - Webhook Event
 
   // Store critical events in Firestore for auditing
+  // TODO: Implement proper logging service
   if (type === 'error' || (type === 'processed' && data.messageId)) {
     try {
-      await conversationService.db.collection('webhook_logs').add(logEntry)
+      // await conversationService.db.collection('webhook_logs').add(logEntry)
+      // TODO: Add proper logging - Webhook log
     } catch (logError) {
-      }
+      // TODO: Add proper logging - Logging error
+    }
   }
 }
 
@@ -303,7 +311,7 @@ export async function POST(request: NextRequest) {
                     value: {
                       messaging_product: value.messaging_product,
                       metadata: value.metadata,
-                      contacts: value.contacts,
+                      contacts: value.contacts || [],
                       messages: [message]
                     },
                     field: 'messages'
@@ -372,8 +380,8 @@ export async function POST(request: NextRequest) {
         }
 
         // Process errors if any
-        if (value.errors && Array.isArray(value.errors)) {
-          for (const error of value.errors) {
+        if ((value as any).errors && Array.isArray((value as any).errors)) {
+          for (const error of (value as any).errors) {
             await logWebhookEvent('error', {
               whatsappError: error,
               metadata: value.metadata,
@@ -387,8 +395,10 @@ export async function POST(request: NextRequest) {
                   value: {
                     messaging_product: value.messaging_product,
                     metadata: value.metadata,
-                    errors: [error]
-                  },
+                    contacts: [],
+                    messages: [],
+                    ...{ errors: [error] }
+                  } as any,
                   field: 'messages'
                 }]
               }]

@@ -27,22 +27,22 @@ export const PaymentMethodIcon: React.FC<PaymentMethodIconProps> = ({
 }) => {
   const theme = useTheme()
 
-  const getIcon = () => {
+  const getIconComponent = () => {
     switch (method) {
       case PaymentMethod.PIX:
-        return <PixIcon />
+        return PixIcon
       case PaymentMethod.CREDIT_CARD:
-        return <CreditCard />
+        return CreditCard
       case PaymentMethod.DEBIT_CARD:
-        return <CreditCard />
+        return CreditCard
       case PaymentMethod.CASH:
-        return <LocalAtm />
+        return LocalAtm
       case PaymentMethod.BANK_TRANSFER:
-        return <AccountBalance />
+        return AccountBalance
       case PaymentMethod.BANK_SLIP:
-        return <Receipt />
+        return Receipt
       default:
-        return <Payment />
+        return Payment
     }
   }
 
@@ -76,8 +76,11 @@ export const PaymentMethodIcon: React.FC<PaymentMethodIconProps> = ({
     }
   }
 
+  const IconComponent = getIconComponent();
+  const finalTitleAccess = showTooltip ? PAYMENT_METHOD_LABELS[method] : props.titleAccess;
+  
   return (
-    <SvgIcon
+    <IconComponent
       {...props}
       sx={{
         color: getColor(),
@@ -91,17 +94,15 @@ export const PaymentMethodIcon: React.FC<PaymentMethodIconProps> = ({
         }),
         ...props.sx,
       }}
-      titleAccess={showTooltip ? PAYMENT_METHOD_LABELS[method] : undefined}
-    >
-      {getIcon()}
-    </SvgIcon>
+      {...(finalTitleAccess && { titleAccess: finalTitleAccess })}
+    />
   )
 }
 
 // Ícone customizado do PIX
-const PixIcon: React.FC = () => (
-  <svg viewBox="0 0 24 24" fill="currentColor">
+const PixIcon: React.FC<SvgIconProps> = (props) => (
+  <SvgIcon {...props} viewBox="0 0 24 24">
     <path d="M7.93 12l2.12-2.12c.39-.39 1.02-.39 1.41 0L12 10.41l.54-.53c.39-.39 1.02-.39 1.41 0L16.07 12l-2.12 2.12c-.39.39-1.02.39-1.41 0L12 13.59l-.54.53c-.39.39-1.02.39-1.41 0L7.93 12z"/>
     <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zM8.5 8.5L10 10l-1.5 1.5L7 10l1.5-1.5zm7 7L14 17l-1.5-1.5L14 14l1.5 1.5z"/>
-  </svg>
+  </SvgIcon>
 )

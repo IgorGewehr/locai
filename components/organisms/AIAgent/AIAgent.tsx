@@ -506,7 +506,7 @@ export default function AIAgent({
       >
         <Alert 
           onClose={() => setNotification(null)} 
-          severity={notification?.severity}
+          severity={notification?.severity || 'info'}
         >
           {notification?.message}
         </Alert>

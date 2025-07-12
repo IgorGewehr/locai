@@ -85,7 +85,7 @@ export const StepperNavigation: React.FC<StepperNavigationProps> = ({
       {steps.map((step, index) => (
         <Step 
           key={step.label}
-          completed={completed[index]}
+          completed={completed[index] || false}
           sx={{
             '& .MuiStepLabel-labelContainer': {
               maxWidth: alternativeLabel ? '140px' : 'none',

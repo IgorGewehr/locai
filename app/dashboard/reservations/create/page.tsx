@@ -21,9 +21,9 @@ import {
   Step,
   StepLabel,
   Autocomplete,
-  DatePicker,
 } from '@mui/material';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
+import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { ptBR } from 'date-fns/locale';
 import {
@@ -46,6 +46,7 @@ interface ReservationFormData {
   totalAmount: number;
   status: 'pending' | 'confirmed' | 'cancelled';
   paymentStatus: 'pending' | 'paid' | 'overdue';
+  paymentMethod?: 'pix' | 'credit_card' | 'cash' | 'bank_transfer';
   source: 'manual' | 'whatsapp_ai' | 'website';
   notes: string;
 }
@@ -74,7 +75,7 @@ export default function CreateReservationPage() {
     notes: '',
   });
 
-  const [properties, setProperties] = useState<Array<{ id: string; name: string; basePrice: number }>>([]);
+  const [properties, setProperties] = useState<Array<{ id: string; title: string; basePrice: number }>>([]);
 
   useEffect(() => {
     const loadProperties = async () => {
@@ -82,7 +83,7 @@ export default function CreateReservationPage() {
         const response = await fetch('/api/properties');
         if (response.ok) {
           const data = await response.json();
-          setProperties(data.map((p: any) => ({ id: p.id, name: p.name, basePrice: p.basePrice })));
+          setProperties(data.map((p: any) => ({ id: p.id, title: p.title, basePrice: p.basePrice })));
         }
       } catch (err) {
 
@@ -188,8 +189,8 @@ export default function CreateReservationPage() {
             <Grid item xs={12}>
               <Autocomplete
                 options={properties}
-                getOptionLabel={(option) => option.name}
-                renderInput={(params) => (
+                getOptionLabel={(option) => option.title}
+                renderInput={(params: any) => (
                   <TextField
                     {...params}
                     label="Propriedade"
@@ -350,7 +351,7 @@ export default function CreateReservationPage() {
                 </Typography>
                 <Typography><strong>Cliente:</strong> {formData.clientName}</Typography>
                 <Typography><strong>Telefone:</strong> {formData.clientPhone}</Typography>
-                <Typography><strong>Propriedade:</strong> {properties.find(p => p.id === formData.propertyId)?.name || 'Não selecionada'}</Typography>
+                <Typography><strong>Propriedade:</strong> {properties.find(p => p.id === formData.propertyId)?.title || 'Não selecionada'}</Typography>
                 <Typography><strong>Check-in:</strong> {formData.checkIn ? formData.checkIn.toLocaleDateString('pt-BR') : 'Não definido'}</Typography>
                 <Typography><strong>Check-out:</strong> {formData.checkOut ? formData.checkOut.toLocaleDateString('pt-BR') : 'Não definido'}</Typography>
                 <Typography><strong>Hóspedes:</strong> {formData.guests}</Typography>

@@ -170,7 +170,7 @@ export default function Header({ onMenuClick }: HeaderProps) {
                 fontSize: '0.875rem',
                 fontWeight: 600,
               }} 
-              src={user?.photoURL || undefined}
+              src={user?.photoURL}
             >
               {user?.displayName ? user.displayName[0].toUpperCase() : user?.email?.[0].toUpperCase() || 'U'}
             </Avatar>

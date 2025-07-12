@@ -74,23 +74,23 @@ export default function ProfilePage() {
     if (user) {
       setProfile({
         id: user.id,
-        name: user.name || user.email.split('@')[0],
+        name: user.name || user.email?.split('@')[0] || '',
         email: user.email,
-        phone: user.phone || '',
+        phone: (user as any).phone || '',
         role: user.role,
-        avatar: user.avatar || null,
-        company: user.company || 'LocAI Imobiliária',
-        position: user.position || 'Usuário',
-        location: user.location || '',
-        bio: user.bio || '',
-        joinDate: user.createdAt ? new Date(user.createdAt) : new Date(),
-        lastLogin: user.lastLogin ? new Date(user.lastLogin) : new Date(),
+        avatar: (user as any).avatar || null,
+        company: (user as any).company || 'LocAI Imobiliária',
+        position: (user as any).position || 'Usuário',
+        location: (user as any).location || '',
+        bio: (user as any).bio || '',
+        joinDate: (user as any).createdAt ? new Date((user as any).createdAt) : new Date(),
+        lastLogin: (user as any).lastLogin ? new Date((user as any).lastLogin) : new Date(),
         settings: {
-          notifications: user.settings?.notifications ?? true,
-          darkMode: user.settings?.darkMode ?? false,
-          language: user.settings?.language ?? 'pt-BR',
-          emailNotifications: user.settings?.emailNotifications ?? true,
-          whatsappNotifications: user.settings?.whatsappNotifications ?? true,
+          notifications: (user as any).settings?.notifications ?? true,
+          darkMode: (user as any).settings?.darkMode ?? false,
+          language: (user as any).settings?.language ?? 'pt-BR',
+          emailNotifications: (user as any).settings?.emailNotifications ?? true,
+          whatsappNotifications: (user as any).settings?.whatsappNotifications ?? true,
         },
       });
     }
@@ -125,7 +125,7 @@ export default function ProfilePage() {
       // Simulate upload
       const reader = new FileReader();
       reader.onloadend = () => {
-        setProfile(prev => ({ ...prev, avatar: reader.result as string }));
+        setProfile(prev => prev ? { ...prev, avatar: reader.result as string } : null);
         setUploading(false);
       };
       reader.readAsDataURL(file);
@@ -181,7 +181,7 @@ export default function ProfilePage() {
             <CardContent sx={{ textAlign: 'center' }}>
               <Box sx={{ position: 'relative', mb: 2 }}>
                 <Avatar
-                  src={profile.avatar || undefined}
+                  {...(profile.avatar && { src: profile.avatar })}
                   sx={{
                     width: 120,
                     height: 120,
@@ -286,8 +286,8 @@ export default function ProfilePage() {
                   <TextField
                     fullWidth
                     label="Nome Completo"
-                    value={profile.name}
-                    onChange={(e) => setProfile(prev => ({ ...prev, name: e.target.value }))}
+                    value={profile.name || ''}
+                    onChange={(e) => setProfile(prev => prev ? { ...prev, name: e.target.value } : null)}
                     disabled={!editing}
                   />
                 </Grid>
@@ -296,8 +296,8 @@ export default function ProfilePage() {
                   <TextField
                     fullWidth
                     label="Email"
-                    value={profile.email}
-                    onChange={(e) => setProfile(prev => ({ ...prev, email: e.target.value }))}
+                    value={profile.email || ''}
+                    onChange={(e) => setProfile(prev => prev ? { ...prev, email: e.target.value } : null)}
                     disabled={!editing}
                   />
                 </Grid>
@@ -306,8 +306,8 @@ export default function ProfilePage() {
                   <TextField
                     fullWidth
                     label="Telefone"
-                    value={profile.phone}
-                    onChange={(e) => setProfile(prev => ({ ...prev, phone: e.target.value }))}
+                    value={profile.phone || ''}
+                    onChange={(e) => setProfile(prev => prev ? { ...prev, phone: e.target.value } : null)}
                     disabled={!editing}
                   />
                 </Grid>
@@ -316,8 +316,8 @@ export default function ProfilePage() {
                   <TextField
                     fullWidth
                     label="Empresa"
-                    value={profile.company}
-                    onChange={(e) => setProfile(prev => ({ ...prev, company: e.target.value }))}
+                    value={profile.company || ''}
+                    onChange={(e) => setProfile(prev => prev ? { ...prev, company: e.target.value } : null)}
                     disabled={!editing}
                   />
                 </Grid>
@@ -326,8 +326,8 @@ export default function ProfilePage() {
                   <TextField
                     fullWidth
                     label="Cargo"
-                    value={profile.position}
-                    onChange={(e) => setProfile(prev => ({ ...prev, position: e.target.value }))}
+                    value={profile.position || ''}
+                    onChange={(e) => setProfile(prev => prev ? { ...prev, position: e.target.value } : null)}
                     disabled={!editing}
                   />
                 </Grid>
@@ -336,8 +336,8 @@ export default function ProfilePage() {
                   <TextField
                     fullWidth
                     label="Localização"
-                    value={profile.location}
-                    onChange={(e) => setProfile(prev => ({ ...prev, location: e.target.value }))}
+                    value={profile.location || ''}
+                    onChange={(e) => setProfile(prev => prev ? { ...prev, location: e.target.value } : null)}
                     disabled={!editing}
                   />
                 </Grid>
@@ -348,8 +348,8 @@ export default function ProfilePage() {
                     label="Biografia"
                     multiline
                     rows={3}
-                    value={profile.bio}
-                    onChange={(e) => setProfile(prev => ({ ...prev, bio: e.target.value }))}
+                    value={profile.bio || ''}
+                    onChange={(e) => setProfile(prev => prev ? { ...prev, bio: e.target.value } : null)}
                     disabled={!editing}
                     placeholder="Conte um pouco sobre você..."
                   />

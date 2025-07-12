@@ -1,7 +1,7 @@
 // app/api/goals/route.ts
 import { NextRequest, NextResponse } from 'next/server'
 import { goalService } from '@/lib/services/goal-service'
-import { GoalStatus, GoalType, GoalCategory } from '@/lib/types/financial'
+import { GoalStatus, GoalType, GoalCategory, NotificationChannel } from '@/lib/types/financial'
 import { getServerSession } from 'next-auth'
 import { authOptions } from '@/lib/auth'
 import { handleApiError } from '@/lib/utils/api-errors'
@@ -24,7 +24,7 @@ const createGoalSchema = z.object({
   status: z.nativeEnum(GoalStatus).default(GoalStatus.DRAFT),
   notificationSettings: z.object({
     enabled: z.boolean().default(true),
-    channels: z.array(z.string()).default(['dashboard']),
+    channels: z.array(z.nativeEnum(NotificationChannel)).default([NotificationChannel.DASHBOARD]),
     frequency: z.enum(['realtime', 'daily', 'weekly']).default('daily'),
     onMilestone: z.boolean().default(true),
     onTarget: z.boolean().default(true),
@@ -156,9 +156,26 @@ export async function POST(request: NextRequest) {
 
     const goalData = {
       ...validationResult.data,
+      description: validationResult.data.description || '',
+      metric: validationResult.data.metric as any,
+      frequency: validationResult.data.frequency as any,
+      notificationSettings: validationResult.data.notificationSettings || {
+        enabled: false,
+        frequency: 'daily',
+        channels: [NotificationChannel.DASHBOARD],
+        onMilestone: false,
+        onTarget: false,
+        onDeviation: false,
+        deviationThreshold: 10,
+        recipients: []
+      },
       tenantId: session.user.tenantId,
       createdBy: session.user.id,
-      milestones: body.milestones || []
+      milestones: body.milestones || [],
+      progress: 0,
+      currentValue: 0,
+      checkpoints: [],
+      alerts: []
     }
 
     const newGoal = await goalService.createGoal(goalData)

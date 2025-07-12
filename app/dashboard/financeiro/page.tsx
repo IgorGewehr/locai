@@ -112,7 +112,8 @@ import {
 } from 'recharts';
 import { format, startOfMonth, endOfMonth, subMonths, isAfter, isBefore, addMonths, differenceInDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { Transaction, Property, Client, Reservation } from '@/lib/types';
+import { Transaction, Client, Reservation } from '@/lib/types';
+import { Property } from '@/lib/types/property';
 import { transactionService } from '@/lib/services/transaction-service';
 import { propertyService, clientService, reservationService } from '@/lib/firebase/firestore';
 import { useAuth } from '@/lib/hooks/useAuth';
@@ -311,20 +312,20 @@ export default function FinanceiroPage() {
     setFormData({
       type: transaction.type,
       category: transaction.category,
-      subcategory: transaction.subcategory,
+      subcategory: transaction.subcategory || '',
       description: transaction.description,
       amount: transaction.amount,
       date: format(transaction.date, 'yyyy-MM-dd'),
       status: transaction.status === 'cancelled' ? 'pending' : transaction.status,
-      propertyId: transaction.propertyId,
-      clientId: transaction.clientId,
-      reservationId: transaction.reservationId,
-      paymentMethod: transaction.paymentMethod,
-      notes: transaction.notes,
+      propertyId: transaction.propertyId || '',
+      clientId: transaction.clientId || '',
+      reservationId: transaction.reservationId || '',
+      paymentMethod: transaction.paymentMethod || '',
+      notes: transaction.notes || '',
       tags: transaction.tags || [],
       isRecurring: transaction.isRecurring,
-      recurringType: transaction.recurringType,
-      recurringEndDate: transaction.recurringEndDate ? format(transaction.recurringEndDate, 'yyyy-MM-dd') : undefined
+      recurringType: transaction.recurringType || 'monthly',
+      recurringEndDate: transaction.recurringEndDate ? format(transaction.recurringEndDate, 'yyyy-MM-dd') : ''
     });
     setShowTransactionDialog(true);
   };
@@ -338,7 +339,7 @@ export default function FinanceiroPage() {
         await transactionService.createRecurringTransaction({
           baseTransaction: {
             type: formData.type,
-            category: formData.category,
+            category: formData.category as any,
             subcategory: formData.subcategory,
             description: formData.description,
             amount: formData.amount,
@@ -352,7 +353,7 @@ export default function FinanceiroPage() {
             tags: formData.tags,
             createdByAI: false,
             tenantId: user?.tenantId
-          },
+          } as any,
           recurringType: formData.recurringType!,
           recurringEndDate: new Date(formData.recurringEndDate!),
           createFirstNow: true
@@ -360,7 +361,7 @@ export default function FinanceiroPage() {
         showSnackbar('Transação recorrente criada com sucesso', 'success');
       } else {
         // Criar ou atualizar transação normal
-        const transactionData: Omit<Transaction, 'id' | 'createdAt' | 'updatedAt'> = {
+        const transactionData: any = {
           type: formData.type,
           category: formData.category,
           subcategory: formData.subcategory,
@@ -519,7 +520,7 @@ export default function FinanceiroPage() {
 
   const categoryData = stats?.byCategory 
     ? Object.entries(stats.byCategory)
-        .filter(([_, value]) => value > 0)
+        .filter(([_, value]) => (value as number) > 0)
         .map(([name, value]) => ({ name, value }))
     : [];
 
@@ -619,7 +620,7 @@ export default function FinanceiroPage() {
                   >
                     <MenuItem value="">Todas</MenuItem>
                     {properties.map(prop => (
-                      <MenuItem key={prop.id} value={prop.id}>{prop.name}</MenuItem>
+                      <MenuItem key={prop.id} value={prop.id}>{prop.title}</MenuItem>
                     ))}
                   </Select>
                 </FormControl>
@@ -688,7 +689,7 @@ export default function FinanceiroPage() {
                   control={
                     <Switch
                       checked={filters.isRecurring || false}
-                      onChange={(e) => handleFilterChange({ isRecurring: e.target.checked ? true : undefined })}
+                      onChange={(e) => handleFilterChange({ isRecurring: e.target.checked })}
                     />
                   }
                   label="Apenas Recorrentes"
@@ -1053,7 +1054,7 @@ export default function FinanceiroPage() {
                               sx={{ display: 'flex', alignItems: 'center', gap: 0.5, fontSize: '0.875rem' }}
                             >
                               <Apartment sx={{ fontSize: 16 }} />
-                              {properties.find(p => p.id === transaction.propertyId)?.name || 'Propriedade'}
+                              {properties.find(p => p.id === transaction.propertyId)?.title || 'Propriedade'}
                             </Link>
                           )}
                           {transaction.clientId && (
@@ -1369,7 +1370,7 @@ export default function FinanceiroPage() {
                     <MenuItem key={prop.id} value={prop.id}>
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                         <Apartment sx={{ fontSize: 20 }} />
-                        {prop.name}
+                        {prop.title}
                       </Box>
                     </MenuItem>
                   ))}
@@ -1411,7 +1412,7 @@ export default function FinanceiroPage() {
                     <MenuItem key={res.id} value={res.id}>
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                         <CalendarMonth sx={{ fontSize: 20 }} />
-                        #{res.id.slice(-6)} - {format(res.checkIn.toDate(), 'dd/MM')}
+                        #{res.id.slice(-6)} - {format((res.checkIn as any)?.toDate ? (res.checkIn as any).toDate() : new Date(res.checkIn), 'dd/MM')}
                       </Box>
                     </MenuItem>
                   ))}
@@ -1439,10 +1440,11 @@ export default function FinanceiroPage() {
                 onChange={(_, newValue) => setFormData(prev => ({ ...prev, tags: newValue }))}
                 renderInput={(params) => (
                   <TextField
-                    {...params}
+                    {...(params as any)}
                     label="Tags"
                     placeholder="Digite e pressione Enter"
                     helperText="Use tags para categorizar melhor suas transações"
+                    size="small"
                   />
                 )}
                 renderTags={(value, getTagProps) =>

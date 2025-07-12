@@ -49,7 +49,7 @@ export const CheckboxField: React.FC<CheckboxFieldProps> = ({
                 sx={{
                   transition: 'all 0.2s ease-in-out',
                   '&:hover': {
-                    backgroundColor: alpha(theme.palette[color].main, 0.1),
+                    backgroundColor: alpha(color === 'default' ? theme.palette.action.hover : theme.palette[color as 'primary' | 'secondary'].main, 0.1),
                     transform: 'scale(1.1)',
                   },
                   '&.Mui-checked': {
@@ -103,7 +103,7 @@ export const CheckboxField: React.FC<CheckboxFieldProps> = ({
             },
           }}
         >
-          {fieldError?.message}
+          {(typeof fieldError === 'object' && 'message' in fieldError ? fieldError.message : '') as React.ReactNode}
         </FormHelperText>
       )}
       

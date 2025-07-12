@@ -3,8 +3,9 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { clientService } from '@/lib/firebase/firestore';
-import type { Client, CustomerSegment, AcquisitionSource } from '@/lib/types/client';
-import type { PaymentMethod } from '@/lib/types/reservation';
+import type { Client } from '@/lib/types/client';
+import { CustomerSegment, AcquisitionSource } from '@/lib/types/client';
+import { PaymentMethod } from '@/lib/types/reservation';
 import {
   Box,
   Card,
@@ -95,9 +96,9 @@ export default function CreateClientPage() {
     setError('');
 
     try {
-      const clientData: Omit<Client, 'id'> = {
+      const clientData: any = {
         name: formData.name,
-        email: formData.email || undefined,
+        email: formData.email || '',
         phone: formData.phone,
         document: '', // TODO: Add document field to form
         documentType: 'cpf',
@@ -121,6 +122,7 @@ export default function CreateClientPage() {
         tags: formData.preferredPropertyTypes,
         notes: formData.notes,
         reviews: [],
+        reservations: [],
         createdAt: new Date(),
         updatedAt: new Date(),
         tenantId: 'default', // TODO: Get from auth context

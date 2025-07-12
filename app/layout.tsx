@@ -5,7 +5,6 @@ import CssBaseline from '@mui/material/CssBaseline';
 import { Toaster } from 'react-hot-toast';
 import { darkTheme } from '@/theme/theme';
 import { AuthProvider } from '@/contexts/AuthContext';
-import '@/styles/globals.css';
 
 export const metadata: Metadata = {
   title: 'Agente Imobiliária - Sistema de Gestão',

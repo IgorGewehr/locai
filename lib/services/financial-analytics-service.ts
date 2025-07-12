@@ -221,7 +221,7 @@ export class FinancialAnalyticsService {
         
         return {
           propertyId: property.id,
-          propertyName: property.name,
+          propertyName: property.title,
           revenue: propRevenue,
           costs: propCosts,
           expenses: 0, // Simplified

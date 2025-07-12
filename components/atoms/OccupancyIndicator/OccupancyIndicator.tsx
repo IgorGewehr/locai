@@ -166,7 +166,7 @@ export const OccupancyIndicator: React.FC<OccupancyIndicatorProps> = ({
                 variant="caption"
                 color="text.secondary"
                 sx={{
-                  fontSize: sizeConfig.fontSize * 0.8,
+                  fontSize: `calc(${sizeConfig.fontSize} * 0.8)`,
                   display: 'block',
                 }}
               >
@@ -211,7 +211,7 @@ export const OccupancyIndicator: React.FC<OccupancyIndicatorProps> = ({
               <Typography
                 variant="caption"
                 sx={{
-                  fontSize: sizeConfig.fontSize * 0.9,
+                  fontSize: `calc(${sizeConfig.fontSize} * 0.9)`,
                   fontWeight: 500,
                 }}
               >
@@ -222,7 +222,7 @@ export const OccupancyIndicator: React.FC<OccupancyIndicatorProps> = ({
               <Typography
                 variant="caption"
                 sx={{
-                  fontSize: sizeConfig.fontSize * 0.9,
+                  fontSize: `calc(${sizeConfig.fontSize} * 0.9)`,
                   fontWeight: 600,
                   color,
                 }}

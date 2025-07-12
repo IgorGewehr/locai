@@ -359,7 +359,7 @@ export default function FinancialGoals() {
             <Grid item xs={12} md={6} lg={4} key={goal.id}>
               <GoalCard
                 goal={goal}
-                performance={performances[goal.id]}
+                performance={performances[goal.id] as GoalPerformance}
                 onView={handleViewGoal}
                 onEdit={handleEditGoal}
                 onDelete={handleDeleteGoal}
@@ -376,7 +376,7 @@ export default function FinancialGoals() {
             <Grid item xs={12} md={6} lg={4} key={goal.id}>
               <GoalCard
                 goal={goal}
-                performance={performances[goal.id]}
+                performance={performances[goal.id] as GoalPerformance}
                 onView={handleViewGoal}
                 onEdit={handleEditGoal}
                 onDelete={handleDeleteGoal}
@@ -393,7 +393,7 @@ export default function FinancialGoals() {
             <Grid item xs={12} md={6} lg={4} key={goal.id}>
               <GoalCard
                 goal={goal}
-                performance={performances[goal.id]}
+                performance={performances[goal.id] as GoalPerformance}
                 onView={handleViewGoal}
                 onEdit={handleEditGoal}
                 onDelete={handleDeleteGoal}
@@ -411,7 +411,7 @@ export default function FinancialGoals() {
               <Grid item xs={12} md={6} lg={4} key={goal.id}>
                 <GoalCard
                   goal={goal}
-                  performance={performances[goal.id]}
+                  performance={performances[goal.id] as GoalPerformance}
                   onView={handleViewGoal}
                   onEdit={handleEditGoal}
                   onDelete={handleDeleteGoal}
@@ -467,7 +467,7 @@ export default function FinancialGoals() {
             setSelectedGoal(null)
           }}
           goal={selectedGoal}
-          performance={performances[selectedGoal.id]}
+          performance={performances[selectedGoal.id] as GoalPerformance}
         />
       )}
 

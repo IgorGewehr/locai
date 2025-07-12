@@ -39,7 +39,7 @@ import {
   Payment,
   Person,
   Home,
-  Calendar,
+  CalendarToday,
   Receipt,
   Phone,
   Email,
@@ -231,7 +231,7 @@ export default function ReservationDetailPage() {
                 <Chip
                   label={reservation.status}
                   color={getStatusColor(reservation.status) as any}
-                  size="large"
+                  size="medium"
                 />
                 <Chip
                   label={`Pagamento: ${reservation.paymentStatus}`}
@@ -243,7 +243,7 @@ export default function ReservationDetailPage() {
               <Grid container spacing={2}>
                 <Grid item xs={12} md={6}>
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                    <Calendar color="primary" />
+                    <CalendarToday color="primary" />
                     <Typography variant="h6">Datas</Typography>
                   </Box>
                   <Typography variant="body1">
@@ -312,8 +312,8 @@ export default function ReservationDetailPage() {
               </Box>
               
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
-                <Avatar src={reservation.clientAvatar} sx={{ width: 50, height: 50 }}>
-                  {reservation.clientName[0]}
+                <Avatar {...(reservation.clientAvatar ? { src: reservation.clientAvatar } : {})} sx={{ width: 50, height: 50 }}>
+                  {reservation.clientName?.[0]}
                 </Avatar>
                 <Box>
                   <Typography variant="h6">{reservation.clientName}</Typography>

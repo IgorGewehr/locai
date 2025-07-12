@@ -145,9 +145,9 @@ export default function CreateGoalDialog({
           name: m.name,
           targetValue: m.targetValue,
           targetDate: new Date(m.targetDate),
-          reward: m.reward
+          reward: m.reward || ''
         })) || [],
-        notificationSettings: goal.notificationSettings || formData.notificationSettings
+        notificationSettings: (goal.notificationSettings || formData.notificationSettings) as any
       })
     }
   }, [goal])
@@ -528,7 +528,7 @@ export default function CreateGoalDialog({
                           value={milestone.name}
                           onChange={(e) => {
                             const updated = [...formData.milestones]
-                            updated[index].name = e.target.value
+                            if (updated[index]) updated[index].name = e.target.value
                             setFormData({ ...formData, milestones: updated })
                           }}
                         />
@@ -542,7 +542,7 @@ export default function CreateGoalDialog({
                           value={milestone.targetValue}
                           onChange={(e) => {
                             const updated = [...formData.milestones]
-                            updated[index].targetValue = parseFloat(e.target.value) || 0
+                            if (updated[index]) updated[index].targetValue = parseFloat(e.target.value) || 0
                             setFormData({ ...formData, milestones: updated })
                           }}
                         />
@@ -554,7 +554,7 @@ export default function CreateGoalDialog({
                           onChange={(date) => {
                             if (date) {
                               const updated = [...formData.milestones]
-                              updated[index].targetDate = date
+                              if (updated[index]) updated[index].targetDate = date
                               setFormData({ ...formData, milestones: updated })
                             }
                           }}

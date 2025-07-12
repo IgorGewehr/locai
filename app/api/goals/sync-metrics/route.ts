@@ -122,7 +122,7 @@ export async function GET(request: NextRequest) {
         metric: goal.metric,
         lastSync: lastCheckpoint?.date || null,
         hoursSinceLastSync,
-        needsSync: !lastCheckpoint || hoursSinceLastSync > 24,
+        needsSync: !lastCheckpoint || (hoursSinceLastSync !== null && hoursSinceLastSync > 24),
         currentValue: goal.currentValue,
         targetValue: goal.targetValue,
         progress: goal.progress

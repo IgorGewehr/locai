@@ -44,6 +44,81 @@ export class TimeoutError extends AIError {
   }
 }
 
+// Additional error classes needed by middleware
+export class AppError extends Error {
+  constructor(
+    message: string,
+    public code: string = 'APP_ERROR',
+    public details?: any
+  ) {
+    super(message)
+    this.name = 'AppError'
+  }
+}
+
+export class AuthenticationError extends AppError {
+  constructor(message: string = 'Authentication failed') {
+    super(message, 'AUTHENTICATION_ERROR')
+  }
+}
+
+export class AuthorizationError extends AppError {
+  constructor(message: string = 'Authorization failed') {
+    super(message, 'AUTHORIZATION_ERROR')
+  }
+}
+
+export class NotFoundError extends AppError {
+  constructor(message: string = 'Resource not found') {
+    super(message, 'NOT_FOUND')
+  }
+}
+
+export class ConflictError extends AppError {
+  constructor(message: string = 'Conflict occurred') {
+    super(message, 'CONFLICT')
+  }
+}
+
+export class ExternalServiceError extends AppError {
+  constructor(
+    message: string,
+    public service: string = 'External Service'
+  ) {
+    super(message, 'EXTERNAL_SERVICE_ERROR', { service })
+  }
+}
+
+// Firestore error handler utility
+export function handleFirestoreError(error: any): never {
+  if (error.code?.startsWith('permission-denied')) {
+    throw new AuthorizationError('Access denied to this resource')
+  }
+  
+  if (error.code?.startsWith('not-found')) {
+    throw new NotFoundError('Document not found')
+  }
+  
+  if (error.code?.startsWith('already-exists')) {
+    throw new ConflictError('Document already exists')
+  }
+  
+  if (error.code?.startsWith('resource-exhausted')) {
+    throw new ExternalServiceError('Database quota exceeded', 'Firestore')
+  }
+  
+  if (error.code?.startsWith('deadline-exceeded')) {
+    throw new TimeoutError('Database operation', 30000)
+  }
+  
+  if (error.code?.startsWith('unavailable')) {
+    throw new ExternalServiceError('Database temporarily unavailable', 'Firestore')
+  }
+  
+  // Generic Firestore error
+  throw new ExternalServiceError(error.message || 'Database error', 'Firestore')
+}
+
 export function classifyError(error: any): ErrorType {
   if (error instanceof AIError) return error.type
   

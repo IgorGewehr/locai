@@ -112,7 +112,7 @@ export const SelectField: React.FC<SelectFieldProps> = ({
               <MenuItem 
                 key={option.value} 
                 value={option.value}
-                disabled={option.disabled}
+                disabled={option.disabled || false}
                 sx={{
                   transition: 'all 0.2s ease-in-out',
                   '&:hover': {
@@ -140,7 +140,7 @@ export const SelectField: React.FC<SelectFieldProps> = ({
             },
           }}
         >
-          {fieldError?.message}
+          {(typeof fieldError === 'object' && 'message' in fieldError ? fieldError.message : '') as React.ReactNode}
         </FormHelperText>
       )}
       

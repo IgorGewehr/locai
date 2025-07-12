@@ -334,7 +334,7 @@ ${JSON.stringify(context.clientPreferences, null, 2)}
           {
             role: 'user',
             content: `Crie uma descrição para esta propriedade:
-            Nome: ${property.name}
+            Nome: ${property.title}
             Localização: ${property.location}
             Quartos: ${property.bedrooms}
             Banheiros: ${property.bathrooms}

@@ -19,7 +19,6 @@ import {
 } from 'firebase/firestore';
 import { db } from './config';
 import type {
-  Property,
   Reservation,
   Client,
   Conversation,
@@ -28,6 +27,7 @@ import type {
   Payment,
   Transaction,
 } from '@/lib/types';
+import type { Property } from '@/lib/types/property';
 
 // Collections
 export const COLLECTIONS = {

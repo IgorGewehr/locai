@@ -56,6 +56,7 @@ export default function PropertyMediaUpload() {
       setUploadProgress((i / acceptedFiles.length) * 100);
 
       // Simulate upload - in production, upload to Firebase Storage
+      if (!file) continue;
       const url = URL.createObjectURL(file);
       newPhotos.push({
         url,
@@ -78,6 +79,7 @@ export default function PropertyMediaUpload() {
       setUploadProgress((i / acceptedFiles.length) * 100);
 
       // Simulate upload
+      if (!file) continue;
       const url = URL.createObjectURL(file);
       newVideos.push({
         url,
@@ -109,12 +111,12 @@ export default function PropertyMediaUpload() {
   });
 
   const handleDeletePhoto = (index: number) => {
-    const newPhotos = photos.filter((_, i) => i !== index);
+    const newPhotos = photos.filter((_: MediaFile, i: number) => i !== index);
     setValue('photos', newPhotos);
   };
 
   const handleDeleteVideo = (index: number) => {
-    const newVideos = videos.filter((_, i) => i !== index);
+    const newVideos = videos.filter((_: MediaFile, i: number) => i !== index);
     setValue('videos', newVideos);
   };
 
@@ -127,14 +129,14 @@ export default function PropertyMediaUpload() {
   const handleSaveCaption = () => {
     if (selectedMedia) {
       if (selectedMedia.type === 'photo') {
-        const index = photos.findIndex(p => p.url === selectedMedia.url);
+        const index = photos.findIndex((p: MediaFile) => p.url === selectedMedia.url);
         if (index !== -1) {
           const newPhotos = [...photos];
           newPhotos[index] = { ...newPhotos[index], caption: tempCaption };
           setValue('photos', newPhotos);
         }
       } else {
-        const index = videos.findIndex(v => v.url === selectedMedia.url);
+        const index = videos.findIndex((v: MediaFile) => v.url === selectedMedia.url);
         if (index !== -1) {
           const newVideos = [...videos];
           newVideos[index] = { ...newVideos[index], caption: tempCaption };
@@ -168,7 +170,7 @@ export default function PropertyMediaUpload() {
 
               {errors.photos && (
                 <Alert severity="error" sx={{ mb: 2 }}>
-                  {errors.photos.message}
+                  {typeof errors.photos === 'string' ? errors.photos : String(errors.photos.message || 'Erro nas fotos')}
                 </Alert>
               )}
 
@@ -212,7 +214,7 @@ export default function PropertyMediaUpload() {
                     Fotos carregadas (arraste para reordenar)
                   </Typography>
                   <ImageList sx={{ width: '100%', height: 300 }} cols={4} rowHeight={164}>
-                    {photos.map((photo, index) => (
+                    {photos.map((photo: MediaFile, index: number) => (
                       <ImageListItem key={photo.url}>
                         <img
                           src={photo.url}
@@ -308,7 +310,7 @@ export default function PropertyMediaUpload() {
                     Vídeos carregados
                   </Typography>
                   <Grid container spacing={2}>
-                    {videos.map((video, index) => (
+                    {videos.map((video: MediaFile, index: number) => (
                       <Grid item xs={12} sm={6} md={4} key={video.url}>
                         <Card variant="outlined">
                           <Box sx={{ position: 'relative', paddingTop: '56.25%' }}>

@@ -44,11 +44,17 @@ export const StatusChip: React.FC<StatusChipProps> = ({
       case 'customer':
         return getCustomerStatusConfig(status as CustomerSegment, theme)
       default:
-        return { color: theme.palette.grey[500], label: status, icon: null }
+        return { 
+          color: theme.palette.grey[500], 
+          backgroundColor: theme.palette.grey[100],
+          label: status, 
+          icon: null,
+          pulse: false
+        }
     }
   }
 
-  const { color, backgroundColor, label, icon, pulse } = getStatusConfig()
+  const { color, backgroundColor, label, icon, pulse = false } = getStatusConfig() as any
 
   return (
     <Chip

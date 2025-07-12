@@ -138,7 +138,7 @@ export const QuickActionButton: React.FC<QuickActionButtonProps> = ({
               '100%': { transform: 'rotate(360deg)' },
             },
           }),
-          ...props.sx,
+          ...(props.sx as any),
         }}
       >
         {icon}

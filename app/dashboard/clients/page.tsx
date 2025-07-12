@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { clientService } from '@/lib/firebase/firestore';
 import type { Client } from '@/lib/types/client';
+import { PaymentMethod } from '@/lib/types/reservation';
 import {
   Box,
   Typography,
@@ -89,7 +90,7 @@ export default function ClientsPage() {
   const loadClients = async () => {
     try {
       const clientsData = await clientService.getAll();
-      setClients(clientsData);
+      setClients(clientsData as unknown as Client[]);
     } catch (error) {
 
     } finally {
@@ -99,15 +100,18 @@ export default function ClientsPage() {
 
   const handleAddClient = async () => {
     try {
-      const newClient: Omit<Client, 'id'> = {
+      const newClient: any = {
         name: formData.name,
         phone: formData.phone,
         email: formData.email || '',
-        cpf: formData.cpf || '',
+        document: formData.cpf || '',
+        documentType: 'cpf',
         preferences: {
           communicationPreference: 'whatsapp',
-          preferredPaymentMethod: 'pix',
-          language: 'pt-BR',
+          preferredPaymentMethod: PaymentMethod.PIX,
+          petOwner: false,
+          smoker: false,
+          marketingOptIn: true
         },
         totalSpent: 0,
         totalReservations: 0,
@@ -158,7 +162,7 @@ export default function ClientsPage() {
 
     if (selectedTab === 0) return matchesSearch; // Todos
     if (selectedTab === 1) return matchesSearch && client.isActive; // Ativos
-    if (selectedTab === 2) return matchesSearch && client.source === 'whatsapp'; // WhatsApp
+    if (selectedTab === 2) return matchesSearch && (client as any).source === 'whatsapp'; // WhatsApp
     return matchesSearch;
   });
 
@@ -252,7 +256,7 @@ export default function ClientsPage() {
             label={
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                 WhatsApp
-                <Chip label={clients.filter(c => c.source === 'whatsapp').length} size="small" color="primary" />
+                <Chip label={clients.filter(c => (c as any).source === 'whatsapp').length} size="small" color="primary" />
               </Box>
             } 
           />
@@ -281,7 +285,7 @@ export default function ClientsPage() {
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <Box>
                 <Typography variant="h4" fontWeight={600}>
-                  {clients.filter(c => c.source === 'whatsapp').length}
+                  {clients.filter(c => (c as any).source === 'whatsapp').length}
                 </Typography>
                 <Typography variant="body2" color="text.secondary">
                   Via WhatsApp
@@ -350,7 +354,7 @@ export default function ClientsPage() {
                   <ListItemAvatar>
                     <Avatar 
                       sx={{ 
-                        bgcolor: client.source === 'whatsapp' ? 'success.main' : 'primary.main',
+                        bgcolor: (client as any).source === 'whatsapp' ? 'success.main' : 'primary.main',
                         width: 48,
                         height: 48,
                       }}
@@ -365,7 +369,7 @@ export default function ClientsPage() {
                         <Typography variant="subtitle1" fontWeight={500}>
                           {client.name}
                         </Typography>
-                        {client.source === 'whatsapp' && (
+                        {(client as any).source === 'whatsapp' && (
                           <Chip 
                             label="WhatsApp" 
                             size="small" 
@@ -384,7 +388,7 @@ export default function ClientsPage() {
                         {client.totalReservations > 0 && (
                           <Typography variant="caption" color="text.secondary">
                             {client.totalReservations} reservas • 
-                            Última em {format(client.updatedAt.toDate ? client.updatedAt.toDate() : new Date(client.updatedAt), 'dd/MM/yyyy')}
+                            Última em {format((client.updatedAt as any)?.toDate ? (client.updatedAt as any).toDate() : new Date(client.updatedAt), 'dd/MM/yyyy')}
                           </Typography>
                         )}
                       </Box>

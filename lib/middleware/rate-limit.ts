@@ -96,3 +96,30 @@ export async function withAuthAndRateLimit(
 ): Promise<NextResponse> {
   return withRateLimit(request, config, authHandler)
 }
+
+// Specific rate limiter for authentication endpoints
+export const authRateLimit = {
+  points: 5, // 5 attempts
+  duration: 300, // Per 5 minutes
+  blockDuration: 900 // Block for 15 minutes after exceeding
+}
+
+// Apply rate limit headers to response
+export function applyRateLimitHeaders(
+  response: NextResponse,
+  config: RateLimitConfig,
+  remaining: number,
+  resetTime: Date
+): NextResponse {
+  response.headers.set('X-RateLimit-Limit', config.points.toString())
+  response.headers.set('X-RateLimit-Remaining', remaining.toString())
+  response.headers.set('X-RateLimit-Reset', resetTime.toISOString())
+  return response
+}
+
+// Create a rate limiter middleware for specific endpoints
+export function createRateLimitMiddleware(config: RateLimitConfig) {
+  return (handler: (req: NextRequest) => Promise<NextResponse>) => {
+    return (req: NextRequest) => withRateLimit(req, config, handler)
+  }
+}

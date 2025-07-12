@@ -203,7 +203,7 @@ export default function DashboardPage() {
       const currentMonth = new Date().getMonth();
       const currentYear = new Date().getFullYear();
       const monthlyReservations = reservations.filter(r => {
-        const date = r.checkIn.toDate();
+        const date = (r.checkIn as any)?.toDate ? (r.checkIn as any).toDate() : new Date(r.checkIn);
         return date.getMonth() === currentMonth && date.getFullYear() === currentYear && r.status === 'confirmed';
       });
 
@@ -217,8 +217,8 @@ export default function DashboardPage() {
       const occupiedDays = reservations
         .filter(r => r.status === 'confirmed')
         .reduce((total, r) => {
-          const checkIn = r.checkIn.toDate();
-          const checkOut = r.checkOut.toDate();
+          const checkIn = (r.checkIn as any)?.toDate ? (r.checkIn as any).toDate() : new Date(r.checkIn);
+          const checkOut = (r.checkOut as any)?.toDate ? (r.checkOut as any).toDate() : new Date(r.checkOut);
           const days = Math.ceil((checkOut.getTime() - checkIn.getTime()) / (1000 * 60 * 60 * 24));
           return total + days;
         }, 0);

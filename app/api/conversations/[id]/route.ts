@@ -3,10 +3,11 @@ import { conversationService } from '@/lib/services/conversation-service'
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const conversationId = params.id
+    const resolvedParams = await params
+    const conversationId = resolvedParams.id
 
     const conversation = await conversationService.getById(conversationId)
 
@@ -35,10 +36,11 @@ export async function GET(
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const conversationId = params.id
+    const resolvedParams = await params
+    const conversationId = resolvedParams.id
     const body = await request.json()
 
     const updatedConversation = await conversationService.update(conversationId, body)
@@ -62,10 +64,11 @@ export async function PUT(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const conversationId = params.id
+    const resolvedParams = await params
+    const conversationId = resolvedParams.id
 
     await conversationService.delete(conversationId)
 

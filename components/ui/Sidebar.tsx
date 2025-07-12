@@ -2,7 +2,7 @@
 
 import { usePathname } from 'next/navigation';
 import Link from 'next/link';
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import {
   Drawer,
   List,
@@ -16,6 +16,7 @@ import {
   useTheme,
   useMediaQuery,
   Chip,
+  Collapse,
 } from '@mui/material';
 import {
   Dashboard,
@@ -27,6 +28,11 @@ import {
   Settings,
   HelpOutline,
   TrendingUp,
+  ExpandLess,
+  ExpandMore,
+  Receipt,
+  AttachMoney,
+  Campaign,
 } from '@mui/icons-material';
 
 interface SidebarProps {
@@ -62,8 +68,30 @@ const menuItems = [
   },
   {
     text: 'Financeiro',
-    href: '/dashboard/analytics',
+    href: '/dashboard/financeiro',
     icon: <AccountBalance />,
+    submenu: [
+      {
+        text: 'Visão Geral',
+        href: '/dashboard/financeiro',
+        icon: <TrendingUp />,
+      },
+      {
+        text: 'Transações',
+        href: '/dashboard/financeiro/transacoes',
+        icon: <Receipt />,
+      },
+      {
+        text: 'Contas',
+        href: '/dashboard/financeiro/contas',
+        icon: <AttachMoney />,
+      },
+      {
+        text: 'Cobranças',
+        href: '/dashboard/financeiro/cobrancas',
+        icon: <Campaign />,
+      },
+    ],
   },
 ];
 
@@ -86,6 +114,15 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
   const pathname = usePathname();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+  const [expandedMenu, setExpandedMenu] = useState<string | null>(null);
+
+  const handleMenuClick = (itemText: string, hasSubmenu: boolean) => {
+    if (hasSubmenu) {
+      setExpandedMenu(expandedMenu === itemText ? null : itemText);
+    } else if (isMobile) {
+      onClose();
+    }
+  };
 
   const drawerContent = (
     <Box sx={{ 
@@ -141,47 +178,96 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
       <Box sx={{ flex: 1, overflowY: 'auto', py: 2 }}>
         <List sx={{ px: 2 }}>
           {menuItems.map((item) => (
-            <ListItemButton
-              key={item.href}
-              component={Link}
-              href={item.href}
-              selected={pathname === item.href}
-              onClick={isMobile ? onClose : undefined}
-              sx={{
-                borderRadius: 1.5,
-                mb: 0.5,
-                minHeight: 44,
-                '&:hover': {
-                  bgcolor: 'action.hover',
-                },
-                '&.Mui-selected': {
-                  bgcolor: 'primary.main',
-                  color: 'primary.contrastText',
-                  '&:hover': {
-                    bgcolor: 'primary.dark',
-                  },
-                  '& .MuiListItemIcon-root': {
-                    color: 'primary.contrastText',
-                  },
-                },
-              }}
-            >
-              <ListItemIcon
+            <Box key={item.href}>
+              <ListItemButton
+                component={item.submenu ? 'div' : Link}
+                href={!item.submenu ? item.href : undefined}
+                selected={pathname === item.href || item.submenu?.some(sub => pathname === sub.href)}
+                onClick={() => handleMenuClick(item.text, !!item.submenu)}
                 sx={{
-                  minWidth: 40,
-                  color: pathname === item.href ? 'inherit' : 'text.secondary',
+                  borderRadius: 1.5,
+                  mb: 0.5,
+                  minHeight: 44,
+                  '&:hover': {
+                    bgcolor: 'action.hover',
+                  },
+                  '&.Mui-selected': {
+                    bgcolor: 'primary.main',
+                    color: 'primary.contrastText',
+                    '&:hover': {
+                      bgcolor: 'primary.dark',
+                    },
+                    '& .MuiListItemIcon-root': {
+                      color: 'primary.contrastText',
+                    },
+                  },
                 }}
               >
-                {item.icon}
-              </ListItemIcon>
-              <ListItemText 
-                primary={item.text}
-                primaryTypographyProps={{
-                  fontSize: '0.875rem',
-                  fontWeight: pathname === item.href ? 600 : 400,
-                }}
-              />
-            </ListItemButton>
+                <ListItemIcon
+                  sx={{
+                    minWidth: 40,
+                    color: (pathname === item.href || item.submenu?.some(sub => pathname === sub.href)) ? 'inherit' : 'text.secondary',
+                  }}
+                >
+                  {item.icon}
+                </ListItemIcon>
+                <ListItemText 
+                  primary={item.text}
+                  primaryTypographyProps={{
+                    fontSize: '0.875rem',
+                    fontWeight: (pathname === item.href || item.submenu?.some(sub => pathname === sub.href)) ? 600 : 400,
+                  }}
+                />
+                {item.submenu && (
+                  expandedMenu === item.text ? <ExpandLess /> : <ExpandMore />
+                )}
+              </ListItemButton>
+              {item.submenu && (
+                <Collapse in={expandedMenu === item.text} timeout="auto" unmountOnExit>
+                  <List component="div" disablePadding sx={{ pl: 2 }}>
+                    {item.submenu.map((subItem) => (
+                      <ListItemButton
+                        key={subItem.href}
+                        component={Link}
+                        href={subItem.href}
+                        selected={pathname === subItem.href}
+                        onClick={isMobile ? onClose : undefined}
+                        sx={{
+                          borderRadius: 1.5,
+                          mb: 0.5,
+                          minHeight: 40,
+                          '&:hover': {
+                            bgcolor: 'action.hover',
+                          },
+                          '&.Mui-selected': {
+                            bgcolor: 'primary.light',
+                            '&:hover': {
+                              bgcolor: 'primary.main',
+                            },
+                          },
+                        }}
+                      >
+                        <ListItemIcon
+                          sx={{
+                            minWidth: 36,
+                            color: pathname === subItem.href ? 'primary.main' : 'text.secondary',
+                          }}
+                        >
+                          {subItem.icon}
+                        </ListItemIcon>
+                        <ListItemText 
+                          primary={subItem.text}
+                          primaryTypographyProps={{
+                            fontSize: '0.813rem',
+                            fontWeight: pathname === subItem.href ? 600 : 400,
+                          }}
+                        />
+                      </ListItemButton>
+                    ))}
+                  </List>
+                </Collapse>
+              )}
+            </Box>
           ))}
         </List>
       </Box>

@@ -1,6 +1,6 @@
 import { OpenAI } from 'openai'
 import { AIFunction } from '@/lib/types/ai'
-import { Property } from '@/lib/types'
+import { Property } from '@/lib/types/property'
 import { propertyService } from '@/lib/services/property-service'
 import { reservationService } from '@/lib/services/reservation-service'
 import { clientService } from '@/lib/services/client-service'
@@ -279,6 +279,28 @@ export const AI_FUNCTIONS: AIFunction[] = [
     autoExecute: true,
     requiresApproval: false,
     priority: 2
+  },
+  {
+    name: 'process_billing_response',
+    description: 'Processar resposta do cliente sobre cobrança/pagamento',
+    parameters: {
+      type: 'object',
+      properties: {
+        clientId: { type: 'string', description: 'ID do cliente' },
+        transactionId: { type: 'string', description: 'ID da transação relacionada' },
+        responseType: { 
+          type: 'string', 
+          enum: ['promise_to_pay', 'payment_made', 'dispute', 'need_help'],
+          description: 'Tipo de resposta do cliente' 
+        },
+        promisedDate: { type: 'string', description: 'Data prometida para pagamento (se aplicável)' },
+        notes: { type: 'string', description: 'Observações sobre a resposta' }
+      },
+      required: ['clientId', 'responseType']
+    },
+    autoExecute: true,
+    requiresApproval: false,
+    priority: 2
   }
 ]
 
@@ -332,6 +354,9 @@ export class AIFunctionExecutor {
       
       case 'check_overdue_accounts':
         return await this.checkOverdueAccounts(args as any)
+      
+      case 'process_billing_response':
+        return await this.processBillingResponse(args as any)
       
       default:
         throw new Error(`Função não reconhecida: ${functionName}`)
@@ -397,21 +422,21 @@ export class AIFunctionExecutor {
 
       const result: any = {
         success: true,
-        propertyName: property.name,
+        propertyName: property.title,
         propertyId: property.id
       }
 
       if (mediaType === 'photos' || mediaType === 'both') {
         result.photos = property.photos?.map(photo => ({
           url: photo.url,
-          caption: photo.caption || `${property.name} - ${photo.title}`
+          caption: photo.caption || `${property.title} - ${photo.title}`
         })) || []
       }
 
       if (mediaType === 'videos' || mediaType === 'both') {
         result.videos = property.videos?.map(video => ({
           url: video.url,
-          title: video.title || `${property.name} - Vídeo`,
+          title: video.title || `${property.title} - Vídeo`,
           caption: video.description
         })) || []
       }
@@ -645,7 +670,7 @@ export class AIFunctionExecutor {
         success: true,
         property: {
           id: property.id,
-          name: property.name,
+          name: property.title,
           location: property.location,
           bedrooms: property.bedrooms,
           bathrooms: property.bathrooms,
@@ -686,7 +711,7 @@ export class AIFunctionExecutor {
         success: true,
         alternatives: alternatives.map(property => ({
           id: property.id,
-          name: property.name,
+          name: property.title,
           location: property.location,
           basePrice: property.basePrice,
           bedrooms: property.bedrooms,
@@ -1231,6 +1256,103 @@ export class AIFunctionExecutor {
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Erro ao verificar contas vencidas'
+      }
+    }
+  }
+
+  private async processBillingResponse(args: any): Promise<any> {
+    const { clientId, transactionId, responseType, promisedDate, notes } = args
+    
+    try {
+      const { billingService } = await import('@/lib/services/billing-service')
+      const { transactionService } = await import('@/lib/services/transaction-service')
+      const { clientService } = await import('@/lib/firebase/firestore')
+      
+      const client = await clientService.getById(clientId)
+      if (!client) {
+        return {
+          success: false,
+          error: 'Cliente não encontrado'
+        }
+      }
+
+      let message = ''
+      
+      switch (responseType) {
+        case 'promise_to_pay':
+          message = `✅ Promessa de pagamento registrada!\n\n`
+          message += `Cliente: ${client.name}\n`
+          if (promisedDate) {
+            const promisedDateFormatted = format(new Date(promisedDate), 'dd/MM/yyyy', { locale: ptBR })
+            message += `Data prometida: ${promisedDateFormatted}\n`
+          }
+          if (notes) {
+            message += `Observações: ${notes}\n`
+          }
+          
+          // Registrar resposta no sistema de cobrança
+          if (client.whatsappNumber) {
+            await billingService.processClientResponse(
+              client.whatsappNumber, 
+              notes || 'Promessa de pagamento', 
+              'positive'
+            )
+          }
+          break
+          
+        case 'payment_made':
+          message = `🎉 Pagamento confirmado!\n\n`
+          message += `Obrigado por informar. Vamos verificar e dar baixa na transação.\n`
+          
+          // Marcar transação como paga se informada
+          if (transactionId) {
+            await transactionService.confirmTransaction(transactionId, 'client_confirmation')
+            message += `\n✅ Transação atualizada com sucesso!`
+          }
+          break
+          
+        case 'dispute':
+          message = `⚠️ Contestação registrada\n\n`
+          message += `Vamos analisar sua solicitação e entrar em contato.\n`
+          if (notes) {
+            message += `\nMotivo: ${notes}`
+          }
+          
+          // Registrar resposta negativa
+          if (client.whatsappNumber) {
+            await billingService.processClientResponse(
+              client.whatsappNumber, 
+              notes || 'Contestação', 
+              'negative'
+            )
+          }
+          break
+          
+        case 'need_help':
+          message = `🤝 Vamos ajudar você!\n\n`
+          message += `Entendo que precisa de ajuda com o pagamento.\n`
+          message += `Podemos oferecer algumas opções:\n\n`
+          message += `• Parcelamento em até 3x\n`
+          message += `• Desconto para pagamento à vista\n`
+          message += `• Renegociação de valores\n\n`
+          message += `Como posso ajudar melhor?`
+          break
+      }
+
+      return {
+        success: true,
+        message,
+        data: {
+          clientId,
+          responseType,
+          promisedDate,
+          notes
+        }
+      }
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Erro ao processar resposta'
       }
     }
   }

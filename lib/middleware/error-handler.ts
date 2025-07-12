@@ -67,9 +67,9 @@ function logError(error: any, request: NextRequest, requestId: string): void {
   // In production, send to logging service
   if (process.env.NODE_ENV === 'production') {
     // TODO: Send to Sentry, LogRocket, etc.
-    );
+    console.error('Production Error:', error);
   } else {
-
+    console.error('Development Error:', error);
   }
 }
 

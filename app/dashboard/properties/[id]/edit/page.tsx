@@ -37,7 +37,7 @@ import { PropertySpecs } from '@/components/organisms/PropertySpecs/PropertySpec
 import { PropertyAmenities } from '@/components/organisms/PropertyAmenities/PropertyAmenities';
 import { PropertyPricing } from '@/components/organisms/PropertyPricing/PropertyPricing';
 import PropertyMediaUpload from '@/components/organisms/PropertyMediaUpload/PropertyMediaUpload';
-import { Property, PricingRule, PropertyCategory, PaymentMethod } from '@/lib/types/property';
+import { Property, PricingRule, PropertyCategory, PaymentMethod, PropertyStatus, PropertyType } from '@/lib/types/property';
 import { propertyService } from '@/lib/firebase/firestore';
 
 interface TabPanelProps {
@@ -73,7 +73,7 @@ const propertySchema = yup.object().shape({
   title: yup.string().required('Título é obrigatório'),
   description: yup.string().required('Descrição é obrigatória'),
   address: yup.string().required('Endereço é obrigatório'),
-  category: yup.string().required('Categoria é obrigatória'),
+  category: yup.string().oneOf(Object.values(PropertyCategory)).required('Categoria é obrigatória'),
   bedrooms: yup.number().min(1, 'Deve ter pelo menos 1 quarto').required('Número de quartos é obrigatório'),
   bathrooms: yup.number().min(1, 'Deve ter pelo menos 1 banheiro').required('Número de banheiros é obrigatório'),
   maxGuests: yup.number().min(1, 'Deve acomodar pelo menos 1 hóspede').required('Número máximo de hóspedes é obrigatório'),
@@ -81,6 +81,15 @@ const propertySchema = yup.object().shape({
   pricePerExtraGuest: yup.number().min(0, 'Preço não pode ser negativo').required(),
   minimumNights: yup.number().min(1, 'Deve ter pelo menos 1 noite').required('Número mínimo de noites é obrigatório'),
   cleaningFee: yup.number().min(0, 'Taxa não pode ser negativa').required(),
+  
+  // Analytics fields
+  status: yup.string().oneOf(Object.values(PropertyStatus)).default(PropertyStatus.ACTIVE),
+  type: yup.string().oneOf(Object.values(PropertyType)).default(PropertyType.RESIDENTIAL),
+  neighborhood: yup.string().default(''),
+  city: yup.string().default(''),
+  capacity: yup.number().min(1).default(1),
+  
+  // Other fields
   amenities: yup.array().of(yup.string()).default([]),
   isFeatured: yup.boolean().default(false),
   allowsPets: yup.boolean().default(false),
@@ -95,6 +104,11 @@ const propertySchema = yup.object().shape({
   unavailableDates: yup.array().default([]),
   customPricing: yup.object().default({}),
   isActive: yup.boolean().default(true),
+  
+  // Timestamps
+  createdAt: yup.date().default(() => new Date()),
+  updatedAt: yup.date().default(() => new Date()),
+  tenantId: yup.string().default(''),
 });
 
 export default function EditPropertyPage() {
@@ -110,7 +124,7 @@ export default function EditPropertyPage() {
   const [pricingRules, setPricingRules] = useState<PricingRule[]>([]);
 
   const methods = useForm<Property>({
-    resolver: yupResolver(propertySchema),
+    resolver: yupResolver(propertySchema) as any,
   });
 
   const { handleSubmit, reset, formState: { isDirty } } = methods;
@@ -132,12 +146,12 @@ export default function EditPropertyPage() {
         // Convert dates back to Date objects
         const propertyData = {
           ...property,
-          unavailableDates: property.unavailableDates?.map((date: any) => 
+          unavailableDates: (property as any).unavailableDates?.map((date: any) => 
             date instanceof Date ? date : date.toDate ? date.toDate() : new Date(date)
           ) || [],
         };
         
-        reset(propertyData);
+        reset(propertyData as unknown as Property);
         setLoading(false);
       } catch (err) {
         setError('Erro ao carregar propriedade');

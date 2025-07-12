@@ -3,7 +3,8 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { reservationService, propertyService, clientService } from '@/lib/firebase/firestore';
-import type { Reservation, Property, Client } from '@/lib/types';
+import type { Reservation, Client } from '@/lib/types';
+import type { Property } from '@/lib/types/property';
 import {
   Box,
   Card,
@@ -126,7 +127,7 @@ export default function ReservationsPage() {
     }
   };
 
-  const handleViewDetails = (reservation: Reservation) => {
+  const handleViewDetails = (reservation: ReservationWithDetails) => {
     setSelectedReservation(reservation);
     setDetailsOpen(true);
   };
@@ -155,7 +156,7 @@ export default function ReservationsPage() {
 
           return {
             ...reservation,
-            propertyName: property?.name || 'Propriedade não encontrada',
+            propertyName: property?.title || 'Propriedade não encontrada',
             clientName: client?.name || 'Cliente não encontrado',
             clientPhone: client?.phone || 'Telefone não encontrado',
             nights
@@ -194,7 +195,7 @@ export default function ReservationsPage() {
 
       return {
         ...reservation,
-        propertyName: property?.name || 'Propriedade não encontrada',
+        propertyName: property?.title || 'Propriedade não encontrada',
         clientName: client?.name || 'Cliente não encontrado',
         clientPhone: client?.phone || 'Telefone não encontrado',
         nights

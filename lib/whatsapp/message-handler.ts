@@ -76,15 +76,12 @@ export class WhatsAppMessageHandler {
           try {
             const transcriptionResult = await this.transcriptionService.transcribeAudio(message.audio.id)
             messageContent = typeof transcriptionResult === 'string' ? transcriptionResult : transcriptionResult.text
-            }..."`)
           } catch (error) {
             messageContent = 'Recebi seu áudio! Por favor, envie sua mensagem por texto para eu processar melhor. 😊'
           }
         }
 
         const validatedContent = validateMessageContent(messageContent)
-
-        }...`)
 
         // Mark message as read immediately with timeout
         await withTimeout(
@@ -124,6 +121,11 @@ export class WhatsAppMessageHandler {
         if (this.shouldSkipAIProcessing(message)) {
           await this.sendAcknowledgment(validatedPhone, message.type)
           return
+        }
+
+        // Check if this is a billing response before AI processing
+        if (await this.isBillingResponse(validatedContent, validatedPhone)) {
+          await this.processBillingResponse(validatedContent, validatedPhone, conversation)
         }
 
         // Process with AI (with timeout)
@@ -327,7 +329,7 @@ export class WhatsAppMessageHandler {
             )
 
             if (audioResult.audioBuffer) {
-              .toFixed(1)}KB`)
+              // TODO: Add proper logging - Generated audio response size
 
               await withRetry(
                 () => this.whatsappClient.sendAudio(to, audioResult.audioBuffer!),
@@ -466,7 +468,7 @@ export class WhatsAppMessageHandler {
     for (const property of topProperties) {
       // Send property info
       const propertyText = `
-🏠 *${property.name}*
+🏠 *${property.title}*
 📍 ${property.location}
 🛏️ ${property.bedrooms} quartos | 🚿 ${property.bathrooms} banheiros
 👥 Até ${property.maxGuests} hóspedes
@@ -485,7 +487,7 @@ export class WhatsAppMessageHandler {
           () => this.whatsappClient.sendImage(
             to,
             property.photos[0].url,
-            `${property.name} - Foto principal`
+            `${property.title} - Foto principal`
           ),
           2,
           1000
@@ -739,6 +741,72 @@ Não perca essa oportunidade! 🚀
 
       default:
         return 'Desculpe, ocorreu um erro temporário. Nossa equipe foi notificada e em breve retornaremos o contato.'
+    }
+  }
+
+  private async isBillingResponse(content: string, phoneNumber: string): Promise<boolean> {
+    // Check if there are active billing reminders for this phone number
+    try {
+      const { billingService } = await import('@/lib/services/billing-service')
+      const reminders = await billingService.getActiveRemindersForPhone(phoneNumber)
+      
+      if (reminders.length === 0) {
+        return false
+      }
+
+      // Keywords that indicate a billing-related response
+      const billingKeywords = [
+        'pag', 'pago', 'paguei', 'pagamento',
+        'vou pagar', 'posso pagar', 'quando pagar',
+        'boleto', 'pix', 'transferencia', 'cartão',
+        'vencimento', 'vencido', 'atraso', 'juros',
+        'desconto', 'parcela', 'valor',
+        'ja paguei', 'já paguei', 'efetuei', 'realizei',
+        'comprovante', 'recibo',
+        'contestar', 'discordo', 'não concordo',
+        'ajuda', 'dificuldade', 'problema'
+      ]
+
+      const lowerContent = content.toLowerCase()
+      return billingKeywords.some(keyword => lowerContent.includes(keyword))
+    } catch (error) {
+      // TODO: Add proper logging - Error checking billing response
+      return false
+    }
+  }
+
+  private async processBillingResponse(
+    content: string, 
+    phoneNumber: string, 
+    conversation: any
+  ): Promise<void> {
+    try {
+      const { billingService } = await import('@/lib/services/billing-service')
+      
+      // Determine sentiment of the response
+      let sentiment: 'positive' | 'negative' | 'neutral' = 'neutral'
+      
+      const positiveKeywords = ['paguei', 'pago', 'sim', 'ok', 'certo', 'vou pagar', 'pode', 'confirmo']
+      const negativeKeywords = ['não', 'contestar', 'discordo', 'erro', 'problema', 'dificuldade']
+      
+      const lowerContent = content.toLowerCase()
+      
+      if (positiveKeywords.some(k => lowerContent.includes(k))) {
+        sentiment = 'positive'
+      } else if (negativeKeywords.some(k => lowerContent.includes(k))) {
+        sentiment = 'negative'
+      }
+      
+      // Process the billing response
+      await billingService.processClientResponse(phoneNumber, content, sentiment)
+      
+      // Update conversation context to indicate billing discussion
+      if (conversation.context) {
+        conversation.context.lastBillingInteraction = new Date()
+        conversation.context.billingResponseSentiment = sentiment
+      }
+    } catch (error) {
+      // TODO: Add proper logging - Error processing billing response
     }
   }
 }

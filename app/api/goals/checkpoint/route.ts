@@ -58,7 +58,10 @@ export async function POST(request: NextRequest) {
     }
 
     // Adicionar checkpoint
-    await goalService.addCheckpoint(goalId, checkpointData)
+    await goalService.addCheckpoint(goalId, {
+      ...checkpointData,
+      notes: checkpointData.notes || ''
+    })
 
     // Buscar meta atualizada com novo checkpoint
     const updatedGoal = await goalService.getGoalById(goalId)

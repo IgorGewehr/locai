@@ -1,6 +1,6 @@
 // lib/types/property.ts
 export interface Property {
-  id?: string
+  id: string
   title: string
   description: string
   address: string

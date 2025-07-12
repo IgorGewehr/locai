@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { FirestoreService } from '@/lib/firebase/firestore';
-import { Reservation, Property, Conversation, Payment } from '@/lib/types';
+import { Reservation, Conversation, Payment } from '@/lib/types';
+import { Property } from '@/lib/types/property';
 import { PaymentMethod, PaymentStatus } from '@/lib/types/reservation';
 import { startOfMonth, endOfMonth, subMonths, format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -276,9 +277,9 @@ async function getPropertiesAnalytics(tenantId: string) {
 
       return {
         id: property.id,
-        name: property.name,
+        name: property.title,
         type: property.type,
-        location: `${property.address.neighborhood}, ${property.address.city}`,
+        location: property.address || 'N/A',
         revenue,
         reservations: propertyReservations.length,
         occupancy: Math.round(occupancy),
@@ -393,7 +394,7 @@ async function getChartsData(period: string, tenantId: string) {
 
     // Calculate payment methods distribution
     const paymentMethodCounts = payments.reduce((acc, payment) => {
-      acc[payment.method] = (acc[payment.method] || 0) + 1;
+      (acc as any)[payment.method] = ((acc as any)[payment.method] || 0) + 1;
       return acc;
     }, {} as Record<PaymentMethod, number>);
 
@@ -538,8 +539,8 @@ async function calculateAverageResponseTime(conversations: Conversation[]): Prom
     whatsappConversations.forEach(conversation => {
       const messages = conversation.messages || [];
       for (let i = 1; i < messages.length; i++) {
-        if (messages[i].sender === 'agent' && messages[i-1].sender === 'user') {
-          const responseTime = new Date(messages[i].timestamp).getTime() - new Date(messages[i-1].timestamp).getTime();
+        if ((messages[i] as any)?.sender === 'agent' && (messages[i-1] as any)?.sender === 'user') {
+          const responseTime = new Date(messages[i]?.timestamp || new Date()).getTime() - new Date(messages[i-1]?.timestamp || new Date()).getTime();
           if (responseTime > 0 && responseTime < 3600000) { // Less than 1 hour
             totalResponseTime += responseTime;
             responseCount++;

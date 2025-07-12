@@ -118,11 +118,11 @@ async function testConnection(phoneNumberId: string, accessToken: string) {
   } catch (error) {
 
     let errorMessage = 'Connection failed';
-    if (error.message?.includes('Invalid access token')) {
+    if ((error as any).message?.includes('Invalid access token')) {
       errorMessage = 'Invalid Access Token. Please check your credentials.';
-    } else if (error.message?.includes('Phone number not found')) {
+    } else if ((error as any).message?.includes('Phone number not found')) {
       errorMessage = 'Phone Number ID not found. Please verify the ID.';
-    } else if (error.message?.includes('Rate limit')) {
+    } else if ((error as any).message?.includes('Rate limit')) {
       errorMessage = 'Rate limit exceeded. Please try again later.';
     }
 
@@ -130,7 +130,7 @@ async function testConnection(phoneNumberId: string, accessToken: string) {
       success: false,
       status: 'error',
       error: errorMessage,
-      details: error.message,
+      details: (error as any).message,
     });
   }
 }
@@ -234,7 +234,7 @@ async function setupWebhook(phoneNumberId: string, accessToken: string, verifyTo
     return NextResponse.json({
       success: false,
       error: 'Failed to setup webhook',
-      details: error.message,
+      details: (error as any).message,
     });
   }
 }

@@ -1,4 +1,4 @@
-import { Property } from '@/lib/types';
+import { Property } from '@/lib/types/property';
 import { propertyService as firebasePropertyService } from '@/lib/firebase/firestore';
 import { reservationService } from './reservation-service';
 

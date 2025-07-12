@@ -98,7 +98,7 @@ export class TranscriptionService {
         )
       }
 
-      .toFixed(1)}KB`)
+      // TODO: Add proper logging - Processing audio file size
 
       // 5. Transcribe using OpenAI Whisper with enhanced parameters
       const transcriptionResult = await withRetry(
@@ -153,7 +153,7 @@ export class TranscriptionService {
       this.audioCache.set(audioId, cleanedText)
 
       // 8. Log successful transcription
-      }..."`)
+      // TODO: Add proper logging - Transcription completed successfully
 
       // 9. Optional: Save transcription metrics for analytics
       await this.saveTranscriptionMetrics(audioId, clientPhone, metrics)
@@ -255,7 +255,7 @@ export class TranscriptionService {
         }
       }
 
-      : "${cleanText.slice(0, 50)}..."`)
+      // TODO: Add proper logging - Generating TTS audio response
 
       // Generate audio response using OpenAI TTS
       const audioResponse = await withRetry(
@@ -289,7 +289,7 @@ export class TranscriptionService {
         model: audioPrefs.voiceModel
       }
 
-      .toFixed(1)}KB`)
+      // TODO: Add proper logging - Generated audio response size
 
       // Log for analytics
       this.logAudioGeneration(clientPhone, metadata, processingTime)
@@ -467,11 +467,11 @@ export class TranscriptionService {
     try {
       // This could save to Firebase for analytics
       // For now, just log for monitoring
-      .toISOString()
-      })
+      // TODO: Add proper logging - Transcription metrics saved
     } catch (error) {
       // Don't fail transcription if analytics fails
-      }
+      // TODO: Add proper logging - Failed to save transcription metrics
+    }
   }
 
   /**
@@ -483,10 +483,10 @@ export class TranscriptionService {
     processingTime?: number
   ): void {
     try {
-      .toISOString()
-      })
+      // TODO: Add proper logging - Audio generation logged
     } catch (error) {
-      }
+      // TODO: Add proper logging - Failed to log audio generation
+    }
   }
 
   /**
@@ -494,7 +494,8 @@ export class TranscriptionService {
    */
   clearCache(): void {
     this.audioCache.clear()
-    }
+    // TODO: Add proper logging - Audio transcription cache cleared
+  }
 
   /**
    * Get cache statistics

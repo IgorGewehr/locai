@@ -73,3 +73,6 @@ export const authOptions: NextAuthOptions = {
   },
   secret: process.env.NEXTAUTH_SECRET
 }
+
+// Export auth function for server-side usage
+export { getServerSession as auth } from 'next-auth'

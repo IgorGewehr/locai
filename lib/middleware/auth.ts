@@ -12,6 +12,14 @@ export interface AuthContext {
   isWhatsApp?: boolean
 }
 
+export interface AuthUser {
+  id: string
+  email: string
+  name: string
+  role: string
+  tenantId: string
+}
+
 export async function validateAuth(req: NextRequest): Promise<AuthContext> {
   // Check if it's a WhatsApp webhook request
   const isWhatsApp = req.headers.get('x-whatsapp-signature') !== null ||
@@ -104,4 +112,21 @@ export function requireRole(authContext: AuthContext, allowedRoles: string[]): v
 // Auth middleware function
 export async function authMiddleware(req: NextRequest): Promise<AuthContext> {
   return validateAuth(req)
+}
+
+// Generate JWT token utility
+export function generateJWT(payload: any): string {
+  const secret = process.env.JWT_SECRET || 'secret'
+  return jwt.sign(payload, secret, { expiresIn: '24h' })
+}
+
+// Higher-order function for protecting API routes
+export function withAuth<T extends any[], R>(
+  handler: (req: NextRequest, authContext: AuthContext, ...args: T) => Promise<R>
+) {
+  return async (req: NextRequest, ...args: T): Promise<R> => {
+    const authContext = await validateAuth(req)
+    requireAuth(authContext)
+    return handler(req, authContext, ...args)
+  }
 }

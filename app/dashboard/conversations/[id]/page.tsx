@@ -131,18 +131,7 @@ export default function ConversationDetailPage() {
       // API call to send message would go here
       // await sendMessage(conversation?.id, messageToSend);
 
-      // Simulate AI response after a delay
-      setTimeout(() => {
-        const aiResponse: Message = {
-          id: (Date.now() + 1).toString(),
-          content: 'Mensagem recebida. O agente irá responder em breve.',
-          timestamp: new Date(),
-          sender: 'ai',
-          type: 'text',
-          metadata: { delivered: true, read: false },
-        };
-        setMessages(prev => [...prev, aiResponse]);
-      }, 1000);
+      // AI response will be handled by the webhook
 
     } catch (err) {
       setError('Erro ao enviar mensagem');
@@ -218,8 +207,11 @@ export default function ConversationDetailPage() {
           <ArrowBack />
         </IconButton>
         
-        <Avatar src={conversation.clientAvatar} sx={{ width: 40, height: 40 }}>
-          {conversation.clientName[0]}
+        <Avatar 
+          {...(conversation.clientAvatar && { src: conversation.clientAvatar })}
+          sx={{ width: 40, height: 40 }}
+        >
+          {conversation.clientName?.[0] || '?'}
         </Avatar>
         
         <Box sx={{ flex: 1 }}>

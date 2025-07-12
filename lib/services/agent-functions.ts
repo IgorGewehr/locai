@@ -83,7 +83,7 @@ export class AgentFunctions {
       return {
         success: true,
         data: property,
-        message: `Aqui estão os detalhes da propriedade "${property.name}":`,
+        message: `Aqui estão os detalhes da propriedade "${property.title}":`,
       };
     } catch (error) {
 
@@ -165,7 +165,7 @@ export class AgentFunctions {
           const result = await whatsappService.sendImageMessage(
             whatsappNumber,
             photo.url,
-            photo.isMain ? `📸 ${property.name} - Foto Principal` : undefined
+            photo.isMain ? `📸 ${property.title} - Foto Principal` : undefined
           );
 
           if (result.success) {
@@ -184,7 +184,7 @@ export class AgentFunctions {
           const result = await whatsappService.sendVideoMessage(
             whatsappNumber,
             video.url,
-            `🎥 ${property.name} - ${video.title}`
+            `🎥 ${property.title} - ${video.title}`
           );
 
           if (result.success) {
@@ -196,7 +196,7 @@ export class AgentFunctions {
       return {
         success: true,
         data: { mediaCount },
-        message: `Enviei ${mediaCount} arquivo${mediaCount > 1 ? 's' : ''} de mídia da propriedade "${property.name}"`,
+        message: `Enviei ${mediaCount} arquivo${mediaCount > 1 ? 's' : ''} de mídia da propriedade "${property.title}"`,
       };
     } catch (error) {
 
@@ -276,7 +276,7 @@ export class AgentFunctions {
         data: {
           reservationId,
           totalPrice: priceCalculation.totalPrice,
-          property: property.name,
+          property: property.title,
         },
         message: `Reserva criada com sucesso! Código: ${reservationId}`,
       };
@@ -451,7 +451,7 @@ export class AgentFunctions {
   }
 
   formatPropertySummary(property: Property): string {
-    return `🏠 *${property.name}*
+    return `🏠 *${property.title}*
 📍 ${property.location}
 🛏️ ${property.bedrooms} quarto${property.bedrooms > 1 ? 's' : ''} | 🚿 ${property.bathrooms} banheiro${property.bathrooms > 1 ? 's' : ''}
 👥 Até ${property.maxGuests} hóspedes

@@ -182,10 +182,10 @@ export default function ClientDetailPage() {
           <Grid container spacing={3} alignItems="center">
             <Grid item>
               <Avatar
-                src={client.avatar}
+                {...(client.avatar && { src: client.avatar })}
                 sx={{ width: 80, height: 80 }}
               >
-                {client.name[0]}
+                {client.name?.[0] || '?'}
               </Avatar>
             </Grid>
             <Grid item xs>

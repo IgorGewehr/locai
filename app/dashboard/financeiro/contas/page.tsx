@@ -84,7 +84,8 @@ import {
 } from '@/lib/types/accounts';
 import { accountsService } from '@/lib/services/accounts-service';
 import { propertyService, clientService } from '@/lib/firebase/firestore';
-import { Property, Client } from '@/lib/types';
+import { Client } from '@/lib/types';
+import { Property } from '@/lib/types/property';
 
 interface AccountFormData {
   type: 'payable' | 'receivable';
@@ -283,20 +284,20 @@ export default function ContasPage() {
     setFormData({
       type: account.type,
       category: account.category,
-      subcategory: account.subcategory,
+      subcategory: account.subcategory || '',
       description: account.description,
       originalAmount: account.originalAmount,
       dueDate: format(new Date(account.dueDate), 'yyyy-MM-dd'),
-      paymentMethod: account.paymentMethod,
-      propertyId: account.propertyId,
-      supplierId: account.supplierId,
-      customerId: account.customerId,
-      notes: account.notes,
+      paymentMethod: account.paymentMethod || '',
+      propertyId: account.propertyId || '',
+      supplierId: account.supplierId || '',
+      customerId: account.customerId || '',
+      notes: account.notes || '',
       isInstallment: account.isInstallment,
-      totalInstallments: account.totalInstallments,
-      interestRate: account.interestRate,
-      fineRate: account.fineRate,
-      invoiceNumber: account.invoiceNumber,
+      totalInstallments: account.totalInstallments || 1,
+      interestRate: account.interestRate || 0,
+      fineRate: account.fineRate || 0,
+      invoiceNumber: account.invoiceNumber || '',
       tags: account.tags || []
     });
     setShowAccountDialog(true);
@@ -306,7 +307,7 @@ export default function ContasPage() {
     try {
       setSaving(true);
 
-      const accountData: Omit<Account, 'id' | 'createdAt' | 'updatedAt'> = {
+      const accountData: any = {
         tenantId: user?.tenantId || '',
         type: formData.type,
         category: formData.category,
@@ -605,7 +606,7 @@ export default function ContasPage() {
                   >
                     <MenuItem value="">Todas</MenuItem>
                     {properties.map(prop => (
-                      <MenuItem key={prop.id} value={prop.id}>{prop.name}</MenuItem>
+                      <MenuItem key={prop.id} value={prop.id}>{prop.title}</MenuItem>
                     ))}
                   </Select>
                 </FormControl>
@@ -761,7 +762,7 @@ export default function ContasPage() {
                     />
                   </TableCell>
                   <TableCell>
-                    {account.propertyId && properties.find(p => p.id === account.propertyId)?.name}
+                    {account.propertyId && properties.find(p => p.id === account.propertyId)?.title}
                   </TableCell>
                   <TableCell>
                     {activeTab === 'receivable' 
@@ -951,7 +952,7 @@ export default function ContasPage() {
                 >
                   <MenuItem value="">Nenhuma</MenuItem>
                   {properties.map(prop => (
-                    <MenuItem key={prop.id} value={prop.id}>{prop.name}</MenuItem>
+                    <MenuItem key={prop.id} value={prop.id}>{prop.title}</MenuItem>
                   ))}
                 </Select>
               </FormControl>
@@ -1014,7 +1015,7 @@ export default function ContasPage() {
                 type="number"
                 label="Taxa de Juros (% ao mês)"
                 value={formData.interestRate || ''}
-                onChange={(e) => setFormData({ ...formData, interestRate: parseFloat(e.target.value) || undefined })}
+                onChange={(e) => setFormData({ ...formData, interestRate: parseFloat(e.target.value) || 0 })}
                 InputProps={{
                   endAdornment: <InputAdornment position="end">%</InputAdornment>
                 }}
@@ -1026,7 +1027,7 @@ export default function ContasPage() {
                 type="number"
                 label="Multa (%)"
                 value={formData.fineRate || ''}
-                onChange={(e) => setFormData({ ...formData, fineRate: parseFloat(e.target.value) || undefined })}
+                onChange={(e) => setFormData({ ...formData, fineRate: parseFloat(e.target.value) || 0 })}
                 InputProps={{
                   endAdornment: <InputAdornment position="end">%</InputAdornment>
                 }}
@@ -1042,7 +1043,7 @@ export default function ContasPage() {
                     setFormData({ 
                       ...formData, 
                       isInstallment: value > 1,
-                      totalInstallments: value > 1 ? value : undefined
+                      totalInstallments: value > 1 ? value : 1
                     });
                   }}
                   label="Parcelamento"
@@ -1073,9 +1074,10 @@ export default function ContasPage() {
                 onChange={(_, newValue) => setFormData({ ...formData, tags: newValue })}
                 renderInput={(params) => (
                   <TextField
-                    {...params}
+                    {...(params as any)}
                     label="Tags"
                     placeholder="Digite e pressione Enter"
+                    size="small"
                   />
                 )}
               />

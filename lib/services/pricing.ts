@@ -9,7 +9,8 @@ import {
   endOfDay 
 } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import type { Property, PriceCalculation } from '@/lib/types';
+import type { PriceCalculation } from '@/lib/types';
+import type { Property } from '@/lib/types/property';
 
 export interface HolidayRule {
   name: string;

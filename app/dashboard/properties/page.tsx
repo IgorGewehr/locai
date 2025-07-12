@@ -54,7 +54,7 @@ import {
 } from '@mui/icons-material';
 import type { Property } from '@/lib/types/property';
 
-const propertyTypeIcons: Record<string, React.ReactNode> = {
+const propertyTypeIcons: Record<string, React.ReactElement> = {
   apartment: <Apartment />,
   house: <House />,
   villa: <Villa />,
@@ -440,7 +440,7 @@ export default function PropertiesPage() {
                     </Typography>
                   </Box>
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                    <AttachMoney fontSize="small" color="success.main" />
+                    <AttachMoney fontSize="small" color="success" />
                     <Typography variant="body2" fontWeight={700} color="success.main">
                       R$ {property.basePrice}
                     </Typography>

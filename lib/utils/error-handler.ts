@@ -14,7 +14,7 @@ export class ErrorHandler {
       additionalInfo,
     };
 
-    );
+    console.error('Error logged:', errorInfo);
 
     // In production, you would send this to a logging service
     // Example: await sendToLoggingService(errorInfo);

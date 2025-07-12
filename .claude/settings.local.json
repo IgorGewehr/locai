@@ -25,7 +25,8 @@
       "Bash(npx tsc:*)",
       "Bash(npm audit:*)",
       "Bash(chmod:*)",
-      "Bash(mkdir:*)"
+      "Bash(mkdir:*)",
+      "Bash(ESLINT_NO_DEV_ERRORS=true npm run build)"
     ],
     "deny": []
   }

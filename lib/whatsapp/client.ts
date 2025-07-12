@@ -125,7 +125,7 @@ export class WhatsAppClient {
    */
   async sendAudio(to: string, audioBuffer: Buffer, caption?: string): Promise<void> {
     try {
-      console.log(`Sending audio: ${(audioBuffer.length / 1024).toFixed(1)}KB)`)
+      // TODO: Add proper logging - Sending audio size
 
       // Create audio file from buffer
       const audioFile = new File([audioBuffer], 'audio_response.mp3', { type: 'audio/mpeg' })
@@ -273,8 +273,8 @@ export class WhatsAppClient {
     try {
       // Validate file before upload
       await this.validateMediaFile(file)
-
-      .toFixed(1)}KB)`)
+      
+      // TODO: Add proper logging - Uploading media file
 
       const formData = new FormData()
       formData.append('file', file)
@@ -391,7 +391,7 @@ export class WhatsAppClient {
    */
   async downloadMedia(mediaUrl: string): Promise<Buffer> {
     try {
-      }...`)
+      // TODO: Add proper logging - Downloading media from URL
 
       const response = await fetch(mediaUrl, {
         headers: {
@@ -413,7 +413,7 @@ export class WhatsAppClient {
       const contentLength = response.headers.get('content-length')
       if (contentLength) {
         const size = parseInt(contentLength)
-        .toFixed(1)}KB...`)
+        // TODO: Add proper logging - Downloading media size
 
         // Check size limit
         if (size > 25 * 1024 * 1024) { // 25MB limit
@@ -424,7 +424,7 @@ export class WhatsAppClient {
       const arrayBuffer = await response.arrayBuffer()
       const buffer = Buffer.from(arrayBuffer)
 
-      .toFixed(1)}KB`)
+      // TODO: Add proper logging - Media downloaded successfully
 
       return buffer
 
@@ -446,6 +446,7 @@ export class WhatsAppClient {
   }
 
   async getBusinessProfile(): Promise<any> {
+    try {
     const response = await fetch(`${this.baseURL}/${this.phoneNumberId}/whatsapp_business_profile`, {
       headers: {
         'Authorization': `Bearer ${this.accessToken}`
@@ -458,6 +459,9 @@ export class WhatsAppClient {
     }
 
     return response.json()
+    } catch (error) {
+      throw new WhatsAppError(500, 'Failed to get business profile', 'Business Profile Error')
+    }
   }
 
   async updateBusinessProfile(profile: any): Promise<void> {

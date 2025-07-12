@@ -163,7 +163,8 @@ export default function ResetPasswordPage() {
           </Button>
 
           <Box sx={{ textAlign: 'center' }}>
-            <Link component={NextLink} href="/login" underline="hover" startIcon={<ArrowBack />}>
+            <Link component={NextLink} href="/login" underline="hover" sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+              <ArrowBack fontSize="small" />
               Voltar ao login
             </Link>
           </Box>

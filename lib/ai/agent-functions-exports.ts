@@ -1,5 +1,5 @@
 import { AIFunctionExecutor } from './agent-functions';
-import { Property } from '@/lib/types';
+import { Property } from '@/lib/types/property';
 import { getTenantId } from '@/lib/utils/tenant';
 
 // Create a single instance to use across the application
@@ -60,7 +60,7 @@ export const updateClientPreferences = async (clientId: string, preferences: any
 };
 
 export const formatPropertySummary = (property: Property): string => {
-  return `🏠 **${property.name}**
+  return `🏠 **${property.title}**
 📍 ${property.location}
 🛏️ ${property.bedrooms} quartos • 🚿 ${property.bathrooms} banheiros
 👥 Até ${property.maxGuests} hóspedes

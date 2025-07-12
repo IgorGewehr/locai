@@ -78,7 +78,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Process message with AI
-    const aiResponse = await aiService.processMessage(conversation, messageObj)
+    const aiResponse = await aiService.processMessage(conversation as any, messageObj)
 
     return NextResponse.json({
       success: true,
