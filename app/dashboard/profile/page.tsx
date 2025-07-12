@@ -1,6 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useAuth } from '@/lib/hooks/useAuth';
 import {
   Box,
   Typography,
@@ -64,34 +65,57 @@ interface UserProfile {
 }
 
 export default function ProfilePage() {
+  const { user, loading } = useAuth();
   const [editing, setEditing] = useState(false);
   const [uploading, setUploading] = useState(false);
-  const [profile, setProfile] = useState<UserProfile>({
-    id: '1',
-    name: 'Administrador',
-    email: 'admin@locai.com',
-    phone: '+55 21 99999-9999',
-    role: 'admin',
-    avatar: null,
-    company: 'LocAI Imobiliária',
-    position: 'Gerente',
-    location: 'Rio de Janeiro, RJ',
-    bio: 'Especialista em tecnologia imobiliária com foco em automação e IA.',
-    joinDate: new Date('2024-01-01'),
-    lastLogin: new Date(),
-    settings: {
-      notifications: true,
-      darkMode: false,
-      language: 'pt-BR',
-      emailNotifications: true,
-      whatsappNotifications: true,
-    },
-  });
+  const [profile, setProfile] = useState<UserProfile | null>(null);
 
-  const handleSave = () => {
-    // In a real app, this would save to backend
-    setEditing(false);
-    alert('Perfil atualizado com sucesso!');
+  useEffect(() => {
+    if (user) {
+      setProfile({
+        id: user.id,
+        name: user.name || user.email.split('@')[0],
+        email: user.email,
+        phone: user.phone || '',
+        role: user.role,
+        avatar: user.avatar || null,
+        company: user.company || 'LocAI Imobiliária',
+        position: user.position || 'Usuário',
+        location: user.location || '',
+        bio: user.bio || '',
+        joinDate: user.createdAt ? new Date(user.createdAt) : new Date(),
+        lastLogin: user.lastLogin ? new Date(user.lastLogin) : new Date(),
+        settings: {
+          notifications: user.settings?.notifications ?? true,
+          darkMode: user.settings?.darkMode ?? false,
+          language: user.settings?.language ?? 'pt-BR',
+          emailNotifications: user.settings?.emailNotifications ?? true,
+          whatsappNotifications: user.settings?.whatsappNotifications ?? true,
+        },
+      });
+    }
+  }, [user]);
+
+  const handleSave = async () => {
+    if (!profile) return;
+    
+    try {
+      // Save to backend
+      const response = await fetch('/api/auth/profile', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(profile)
+      });
+      
+      if (response.ok) {
+        setEditing(false);
+        alert('Perfil atualizado com sucesso!');
+      } else {
+        alert('Erro ao salvar perfil');
+      }
+    } catch (error) {
+      alert('Erro ao salvar perfil');
+    }
   };
 
   const handleAvatarUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -109,13 +133,14 @@ export default function ProfilePage() {
   };
 
   const handleSettingChange = (setting: keyof UserProfile['settings'], value: boolean) => {
-    setProfile(prev => ({
+    if (!profile) return;
+    setProfile(prev => prev ? ({
       ...prev,
       settings: {
         ...prev.settings,
         [setting]: value,
       },
-    }));
+    }) : null);
   };
 
   const getRoleColor = (role: string) => {
@@ -125,6 +150,14 @@ export default function ProfilePage() {
   const getRoleLabel = (role: string) => {
     return role === 'admin' ? 'Administrador' : 'Usuário';
   };
+
+  if (loading || !profile) {
+    return (
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '80vh' }}>
+        <Typography>Carregando...</Typography>
+      </Box>
+    );
+  }
 
   return (
     <Box>

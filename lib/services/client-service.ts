@@ -53,6 +53,10 @@ export class ClientService {
   async delete(id: string): Promise<void> {
     return clientService.delete(id);
   }
+
+  async getAll(): Promise<Client[]> {
+    return clientService.getAll();
+  }
 }
 
 export const clientService = new ClientService();

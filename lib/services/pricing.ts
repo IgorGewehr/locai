@@ -396,4 +396,39 @@ Preço sugerido baseado em:
 }
 
 export const pricingService = new PricingService();
+
+// Helper function for AI agent
+export async function calculatePricing(
+  propertyId: string,
+  checkIn: Date,
+  checkOut: Date,
+  guests: number
+): Promise<PriceCalculation & { serviceFee: number }> {
+  // Get property from service
+  const { propertyService } = await import('@/lib/services/property-service');
+  const property = await propertyService.getById(propertyId);
+  
+  if (!property) {
+    throw new Error('Propriedade não encontrada');
+  }
+  
+  // Calculate pricing using the service
+  const priceCalculation = await pricingService.calculatePrice(
+    property,
+    checkIn,
+    checkOut,
+    guests
+  );
+  
+  // Add service fee (10% of total)
+  const serviceFee = Math.round(priceCalculation.totalPrice * 0.1);
+  const totalPrice = priceCalculation.totalPrice + serviceFee;
+  
+  return {
+    ...priceCalculation,
+    serviceFee,
+    totalPrice
+  };
+}
+
 export default pricingService;

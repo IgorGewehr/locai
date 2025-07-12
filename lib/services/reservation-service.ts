@@ -17,7 +17,12 @@ class ReservationService {
   /**
    * Check if a property is available for the given dates
    */
-  async checkAvailability(input: CheckAvailabilityInput): Promise<boolean> {
+  async checkAvailability(input: CheckAvailabilityInput | {
+    propertyId: string;
+    checkIn: Date;
+    checkOut: Date;
+    excludeReservationId?: string;
+  }): Promise<boolean> {
     const { propertyId, checkIn, checkOut, excludeReservationId } = input
     
     // Get all reservations for this property
@@ -55,6 +60,7 @@ class ReservationService {
 
     return true
   }
+
 
   /**
    * Validate property capacity
@@ -346,6 +352,69 @@ class ReservationService {
       unavailableDates: updatedUnavailableDates,
       updatedAt: new Date()
     })
+  }
+
+  /**
+   * Create a new reservation
+   */
+  async create(reservationData: {
+    propertyId: string;
+    clientId: string;
+    checkIn: Date;
+    checkOut: Date;
+    guests: number;
+    totalAmount: number;
+    paymentMethod: string;
+    specialRequests?: string;
+    status: ReservationStatus;
+    tenantId: string;
+  }): Promise<Reservation> {
+    // Validate availability
+    const isAvailable = await this.checkAvailability({
+      propertyId: reservationData.propertyId,
+      checkIn: reservationData.checkIn,
+      checkOut: reservationData.checkOut
+    });
+
+    if (!isAvailable) {
+      throw new ValidationError('Propriedade não disponível para as datas selecionadas', 'availability');
+    }
+
+    // Validate property capacity
+    await this.validatePropertyCapacity(reservationData.propertyId, reservationData.guests);
+
+    // Calculate pricing
+    const pricing = await this.calculatePricing(
+      reservationData.propertyId,
+      reservationData.checkIn,
+      reservationData.checkOut,
+      reservationData.guests
+    );
+
+    // Generate confirmation code
+    const confirmationCode = `RES${Date.now().toString(36).toUpperCase()}`;
+
+    // Create reservation
+    const reservation: Omit<Reservation, 'id'> = {
+      ...reservationData,
+      confirmationCode,
+      totalAmount: pricing.totalAmount,
+      paidAmount: 0,
+      pendingAmount: pricing.totalAmount,
+      paymentStatus: PaymentStatus.PENDING,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+
+    const id = await this.reservationDb.create(reservation);
+    const createdReservation = { ...reservation, id } as Reservation;
+
+    // Sync with property unavailable dates
+    if (reservationData.status === ReservationStatus.CONFIRMED) {
+      await this.syncReservationWithUnavailableDates(id, 'add');
+    }
+
+    return createdReservation;
   }
 
   /**

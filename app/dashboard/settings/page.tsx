@@ -88,10 +88,16 @@ export default function SettingsPage() {
   const [activeTab, setActiveTab] = useState(0);
   const [whatsappConnected, setWhatsappConnected] = useState(false);
   const [showQRDialog, setShowQRDialog] = useState(false);
+  const [showWhatsAppConfig, setShowWhatsAppConfig] = useState(false);
   const [saving, setSaving] = useState(false);
   const [uploadingLogo, setUploadingLogo] = useState(false);
   const [qrCodeData, setQrCodeData] = useState('');
   const [connectingWhatsApp, setConnectingWhatsApp] = useState(false);
+  const [whatsappCredentials, setWhatsappCredentials] = useState({
+    phoneNumberId: '',
+    accessToken: '',
+    verifyToken: '',
+  });
 
   const [companyConfig, setCompanyConfig] = useState<CompanyConfig>({
     name: '',
@@ -126,6 +132,7 @@ export default function SettingsPage() {
 
   useEffect(() => {
     loadConfiguration();
+    checkWhatsAppConnection();
     generateQRCode();
   }, []);
 
@@ -134,38 +141,84 @@ export default function SettingsPage() {
       const savedCompany = localStorage.getItem('company_config');
       const savedAI = localStorage.getItem('ai_config');
       const savedBilling = localStorage.getItem('billing_config');
-      const whatsappStatus = localStorage.getItem('whatsapp_connected');
 
       if (savedCompany) setCompanyConfig(JSON.parse(savedCompany));
       if (savedAI) setAIConfig(JSON.parse(savedAI));
       if (savedBilling) setBillingConfig(JSON.parse(savedBilling));
-      if (whatsappStatus === 'true') setWhatsappConnected(true);
     } catch (error) {
+      console.error('Failed to load configuration:', error);
+    }
+  };
 
+  const checkWhatsAppConnection = async () => {
+    try {
+      const response = await fetch('/api/config/whatsapp');
+      const result = await response.json();
+      
+      if (result.status === 'connected') {
+        setWhatsappConnected(true);
+        localStorage.setItem('whatsapp_connected', 'true');
+      } else {
+        setWhatsappConnected(false);
+        localStorage.setItem('whatsapp_connected', 'false');
+      }
+    } catch (error) {
+      console.error('Failed to check WhatsApp connection:', error);
+      setWhatsappConnected(false);
     }
   };
 
   const generateQRCode = async () => {
     try {
-      // In production, this would be a real WhatsApp Business API connection string
-      const connectionString = `whatsapp://connect?phone=${Date.now()}&token=${Math.random().toString(36)}`;
+      // Generate real WhatsApp Business connection QR code
+      const webhookUrl = `${process.env.NEXT_PUBLIC_APP_URL}/api/webhook/whatsapp`;
+      const connectionString = `https://business.whatsapp.com/connect?webhook=${encodeURIComponent(webhookUrl)}&verify_token=${Math.random().toString(36).substr(2, 9)}`;
       const qrCode = await QRCode.toDataURL(connectionString);
       setQrCodeData(qrCode);
     } catch (error) {
-
+      console.error('Failed to generate QR code:', error);
     }
   };
 
   const handleWhatsAppConnect = async () => {
     setConnectingWhatsApp(true);
-    // Simulate connection process
-    setTimeout(() => {
-      setWhatsappConnected(true);
-      setShowQRDialog(false);
+    try {
+      // Test real WhatsApp connection with provided credentials
+      const response = await fetch('/api/config/whatsapp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          action: 'test',
+          ...whatsappCredentials
+        })
+      });
+      
+      const result = await response.json();
+      
+      if (result.success) {
+        // Save credentials and mark as connected
+        await fetch('/api/config/whatsapp', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ 
+            action: 'save',
+            ...whatsappCredentials
+          })
+        });
+        
+        setWhatsappConnected(true);
+        setShowQRDialog(false);
+        setShowWhatsAppConfig(false);
+        localStorage.setItem('whatsapp_connected', 'true');
+        alert('WhatsApp conectado com sucesso!');
+      } else {
+        alert('Erro na conexão: ' + result.error);
+      }
+    } catch (error) {
+      alert('Erro ao conectar WhatsApp. Verifique suas configurações.');
+    } finally {
       setConnectingWhatsApp(false);
-      localStorage.setItem('whatsapp_connected', 'true');
-      alert('WhatsApp conectado com sucesso!');
-    }, 3000);
+    }
   };
 
   const handleWhatsAppDisconnect = () => {
@@ -269,9 +322,9 @@ export default function SettingsPage() {
                       variant="contained"
                       color="success"
                       startIcon={<QrCode2 />}
-                      onClick={() => setShowQRDialog(true)}
+                      onClick={() => setShowWhatsAppConfig(true)}
                     >
-                      Conectar WhatsApp
+                      Configurar WhatsApp
                     </Button>
                   )}
                 </Box>
@@ -290,7 +343,7 @@ export default function SettingsPage() {
                             <Box>
                               <Typography variant="subtitle2">Número Conectado</Typography>
                               <Typography variant="body2" color="text.secondary">
-                                +55 21 99999-9999
+                                {process.env.NEXT_PUBLIC_WHATSAPP_PHONE || 'Não configurado'}
                               </Typography>
                             </Box>
                           </Box>
@@ -303,7 +356,7 @@ export default function SettingsPage() {
                             <Box>
                               <Typography variant="subtitle2">Status da Conexão</Typography>
                               <Typography variant="body2" color="text.secondary">
-                                Ativo há 2 horas
+                                {whatsappConnected ? 'Conectado' : 'Desconectado'}
                               </Typography>
                             </Box>
                           </Box>
@@ -654,75 +707,88 @@ export default function SettingsPage() {
         </Grid>
       )}
 
-      {/* WhatsApp QR Code Dialog */}
+      {/* WhatsApp Configuration Dialog */}
       <Dialog 
-        open={showQRDialog} 
-        onClose={() => !connectingWhatsApp && setShowQRDialog(false)}
-        maxWidth="sm" 
+        open={showWhatsAppConfig} 
+        onClose={() => !connectingWhatsApp && setShowWhatsAppConfig(false)}
+        maxWidth="md" 
         fullWidth
       >
         <DialogTitle>
-          Conectar WhatsApp Business
+          Configurar WhatsApp Business API
         </DialogTitle>
         <DialogContent>
-          <Box sx={{ textAlign: 'center', py: 2 }}>
-            {!connectingWhatsApp ? (
-              <>
-                <Typography variant="body1" gutterBottom>
-                  Escaneie o QR Code com seu WhatsApp Business
-                </Typography>
-                <Box sx={{ my: 3, display: 'flex', justifyContent: 'center' }}>
-                  {qrCodeData && (
-                    <img 
-                      src={qrCodeData} 
-                      alt="QR Code" 
-                      style={{ 
-                        width: 250, 
-                        height: 250,
-                        border: '2px solid',
-                        borderColor: '#e0e0e0',
-                        borderRadius: 8,
-                      }}
-                    />
-                  )}
-                </Box>
-                <Alert severity="info" sx={{ textAlign: 'left' }}>
-                  <Typography variant="body2" component="div">
-                    1. Abra o WhatsApp Business no seu celular<br/>
-                    2. Toque em Mais opções → Dispositivos conectados<br/>
-                    3. Toque em Conectar dispositivo<br/>
-                    4. Aponte seu telefone para esta tela
-                  </Typography>
-                </Alert>
-              </>
-            ) : (
-              <Box sx={{ py: 4 }}>
-                <CircularProgress size={60} sx={{ mb: 3 }} />
-                <Typography variant="h6" gutterBottom>
-                  Conectando...
-                </Typography>
+          <Box sx={{ mt: 2 }}>
+            <Alert severity="info" sx={{ mb: 3 }}>
+              <Typography variant="body2">
+                Para conectar o WhatsApp Business, você precisa das credenciais da API do Meta Business.
+                Obtenha essas informações no Facebook Developer Console.
+              </Typography>
+            </Alert>
+
+            <Grid container spacing={3}>
+              <Grid item xs={12}>
+                <TextField
+                  fullWidth
+                  label="Phone Number ID"
+                  value={whatsappCredentials.phoneNumberId}
+                  onChange={(e) => setWhatsappCredentials(prev => ({ ...prev, phoneNumberId: e.target.value }))}
+                  placeholder="Ex: 123456789012345"
+                  helperText="ID do número de telefone do WhatsApp Business"
+                />
+              </Grid>
+              <Grid item xs={12}>
+                <TextField
+                  fullWidth
+                  label="Access Token"
+                  type="password"
+                  value={whatsappCredentials.accessToken}
+                  onChange={(e) => setWhatsappCredentials(prev => ({ ...prev, accessToken: e.target.value }))}
+                  placeholder="Ex: EAAxxxxxxxxxx..."
+                  helperText="Token de acesso permanente do WhatsApp Business API"
+                />
+              </Grid>
+              <Grid item xs={12}>
+                <TextField
+                  fullWidth
+                  label="Verify Token"
+                  value={whatsappCredentials.verifyToken}
+                  onChange={(e) => setWhatsappCredentials(prev => ({ ...prev, verifyToken: e.target.value }))}
+                  placeholder="Ex: meu_token_secreto"
+                  helperText="Token de verificação para webhook (defina um valor único)"
+                />
+              </Grid>
+            </Grid>
+
+            <Alert severity="warning" sx={{ mt: 3 }}>
+              <Typography variant="body2">
+                <strong>Webhook URL:</strong> Configure no Facebook Developer Console:<br/>
+                <code>{process.env.NEXT_PUBLIC_APP_URL}/api/webhook/whatsapp</code>
+              </Typography>
+            </Alert>
+
+            {connectingWhatsApp && (
+              <Box sx={{ textAlign: 'center', py: 3 }}>
+                <CircularProgress size={40} sx={{ mb: 2 }} />
                 <Typography variant="body2" color="text.secondary">
-                  Aguarde enquanto estabelecemos a conexão
+                  Testando conexão...
                 </Typography>
               </Box>
             )}
           </Box>
         </DialogContent>
         <DialogActions>
-          {!connectingWhatsApp && (
-            <>
-              <Button onClick={() => setShowQRDialog(false)}>
-                Cancelar
-              </Button>
-              <Button 
-                variant="contained" 
-                onClick={handleWhatsAppConnect}
-                color="success"
-              >
-                Simular Conexão
-              </Button>
-            </>
-          )}
+          <Button onClick={() => setShowWhatsAppConfig(false)} disabled={connectingWhatsApp}>
+            Cancelar
+          </Button>
+          <Button 
+            variant="contained" 
+            onClick={handleWhatsAppConnect}
+            color="success"
+            disabled={connectingWhatsApp || !whatsappCredentials.phoneNumberId || !whatsappCredentials.accessToken || !whatsappCredentials.verifyToken}
+          >
+            {connectingWhatsApp ? 'Testando...' : 'Conectar'}
+          </Button>
         </DialogActions>
       </Dialog>
     </Box>
