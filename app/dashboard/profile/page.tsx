@@ -118,17 +118,32 @@ export default function ProfilePage() {
     }
   };
 
-  const handleAvatarUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleAvatarUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
       setUploading(true);
-      // Simulate upload
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setProfile(prev => prev ? { ...prev, avatar: reader.result as string } : null);
+      try {
+        const formData = new FormData();
+        formData.append('file', file);
+
+        const response = await fetch('/api/upload/avatar', {
+          method: 'POST',
+          body: formData,
+        });
+
+        if (response.ok) {
+          const { url } = await response.json();
+          setProfile(prev => prev ? { ...prev, avatar: url } : null);
+        } else {
+          const error = await response.json();
+          alert(error.error || 'Erro ao enviar avatar');
+        }
+      } catch (error) {
+        console.error('Avatar upload error:', error);
+        alert('Erro ao enviar avatar');
+      } finally {
         setUploading(false);
-      };
-      reader.readAsDataURL(file);
+      }
     }
   };
 

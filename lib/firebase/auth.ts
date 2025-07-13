@@ -14,6 +14,8 @@ export interface AuthUser {
   email: string | null;
   displayName: string | null;
   photoURL: string | null;
+  tenantId?: string;
+  role?: 'admin' | 'user';
 }
 
 export class AuthService {
@@ -62,6 +64,8 @@ export class AuthService {
       email: user.email,
       displayName: user.displayName,
       photoURL: user.photoURL,
+      tenantId: (user as any).tenantId,
+      role: (user as any).role,
     };
   }
 }

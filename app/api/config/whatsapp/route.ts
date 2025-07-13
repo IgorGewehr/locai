@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { WhatsAppClient } from '@/lib/whatsapp/client';
+import { settingsService } from '@/lib/services/settings-service';
+import { getAuthFromCookie } from '@/lib/utils/auth-cookie';
 
 interface WhatsAppConfig {
   phoneNumberId: string;
@@ -13,11 +15,20 @@ interface WhatsAppConfig {
 
 export async function GET(request: NextRequest) {
   try {
-    // In production, this would fetch from database
+    const auth = await getAuthFromCookie(request);
+    if (!auth) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const tenantId = auth.tenantId || 'default-tenant';
+    
+    // Fetch WhatsApp credentials from Firebase
+    const whatsappSettings = await settingsService.getWhatsAppCredentials(tenantId);
+    
     const config: WhatsAppConfig = {
-      phoneNumberId: process.env.WHATSAPP_PHONE_NUMBER_ID || '',
-      accessToken: process.env.WHATSAPP_ACCESS_TOKEN || '',
-      verifyToken: process.env.WHATSAPP_VERIFY_TOKEN || '',
+      phoneNumberId: whatsappSettings?.phoneNumberId || process.env.WHATSAPP_PHONE_NUMBER_ID || '',
+      accessToken: whatsappSettings?.accessToken || process.env.WHATSAPP_ACCESS_TOKEN || '',
+      verifyToken: whatsappSettings?.verifyToken || process.env.WHATSAPP_VERIFY_TOKEN || '',
       webhookUrl: `${process.env.NEXT_PUBLIC_APP_URL}/api/webhook/whatsapp`,
       status: 'disconnected',
     };
@@ -32,15 +43,19 @@ export async function GET(request: NextRequest) {
         config.businessName = phoneInfo.display_phone_number;
         config.lastSync = new Date();
       } catch (error) {
-
+        console.error('WhatsApp connection test failed:', error);
         config.status = 'error';
       }
     }
 
-    return NextResponse.json(config);
+    // Don't send the actual access token to the client
+    return NextResponse.json({
+      ...config,
+      accessToken: config.accessToken ? '***' : '',
+    });
 
   } catch (error) {
-
+    console.error('WhatsApp config error:', error);
     return NextResponse.json(
       { error: 'Failed to fetch WhatsApp configuration' },
       { status: 500 }
@@ -50,6 +65,11 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
+    const auth = await getAuthFromCookie(request);
+    if (!auth) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     const body = await request.json();
     const { phoneNumberId, accessToken, verifyToken, action } = body;
 
@@ -58,7 +78,7 @@ export async function POST(request: NextRequest) {
     }
 
     if (action === 'save') {
-      return await saveConfiguration(body);
+      return await saveConfiguration(body, auth.tenantId || 'default-tenant');
     }
 
     if (action === 'setup-webhook') {
@@ -71,7 +91,7 @@ export async function POST(request: NextRequest) {
     );
 
   } catch (error) {
-
+    console.error('WhatsApp config POST error:', error);
     return NextResponse.json(
       { error: 'Failed to process WhatsApp configuration' },
       { status: 500 }
@@ -135,7 +155,7 @@ async function testConnection(phoneNumberId: string, accessToken: string) {
   }
 }
 
-async function saveConfiguration(config: any) {
+async function saveConfiguration(config: any, tenantId: string) {
   try {
     const requiredFields = ['phoneNumberId', 'accessToken', 'verifyToken'];
     for (const field of requiredFields) {
@@ -162,31 +182,26 @@ async function saveConfiguration(config: any) {
       });
     }
 
-    // Save to environment variables (in production, save to secure database)
-    // Note: This is a simplified approach. In production, use proper credential management
-    const configData = {
+    // Save WhatsApp settings to Firebase
+    await settingsService.updateWhatsAppSettings(tenantId, {
       phoneNumberId: config.phoneNumberId,
-      accessToken: config.accessToken, // Should be encrypted in production
+      accessToken: config.accessToken,
       verifyToken: config.verifyToken,
-      webhookUrl: `${process.env.NEXT_PUBLIC_APP_URL}/api/webhook/whatsapp`,
-      status: 'connected',
+      connected: true,
+      businessName: testData.phoneInfo?.phoneNumber,
       lastSync: new Date(),
-      businessInfo: testData.phoneInfo,
-    };
-
-    // In production: save to secure database with encryption
-    // await saveConfigToSecureDatabase(configData);
+    });
 
     return NextResponse.json({
       success: true,
       message: 'WhatsApp configuration saved successfully',
       config: {
-        phoneNumberId: configData.phoneNumberId,
-        verifyToken: configData.verifyToken,
-        webhookUrl: configData.webhookUrl,
+        phoneNumberId: config.phoneNumberId,
+        verifyToken: config.verifyToken,
+        webhookUrl: `${process.env.NEXT_PUBLIC_APP_URL}/api/webhook/whatsapp`,
         status: 'connected',
-        lastSync: configData.lastSync,
-        businessInfo: configData.businessInfo,
+        lastSync: new Date(),
+        businessInfo: testData.phoneInfo,
       },
     });
 
@@ -241,14 +256,20 @@ async function setupWebhook(phoneNumberId: string, accessToken: string, verifyTo
 
 export async function PUT(request: NextRequest) {
   try {
+    const auth = await getAuthFromCookie(request);
+    if (!auth) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
     const body = await request.json();
+    const tenantId = auth.tenantId || 'default-tenant';
 
     // Update configuration
-    const result = await saveConfiguration(body);
+    const result = await saveConfiguration(body, tenantId);
     return result;
 
   } catch (error) {
-
+    console.error('WhatsApp config PUT error:', error);
     return NextResponse.json(
       { error: 'Failed to update WhatsApp configuration' },
       { status: 500 }
@@ -258,7 +279,22 @@ export async function PUT(request: NextRequest) {
 
 export async function DELETE(request: NextRequest) {
   try {
-    // In production, this would remove the configuration from database
+    const auth = await getAuthFromCookie(request);
+    if (!auth) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const tenantId = auth.tenantId || 'default-tenant';
+
+    // Remove WhatsApp configuration from Firebase
+    await settingsService.updateWhatsAppSettings(tenantId, {
+      phoneNumberId: '',
+      accessToken: '',
+      verifyToken: '',
+      connected: false,
+      businessName: undefined,
+      lastSync: undefined,
+    });
 
     return NextResponse.json({
       success: true,
@@ -266,7 +302,7 @@ export async function DELETE(request: NextRequest) {
     });
 
   } catch (error) {
-
+    console.error('WhatsApp config DELETE error:', error);
     return NextResponse.json(
       { error: 'Failed to remove WhatsApp configuration' },
       { status: 500 }

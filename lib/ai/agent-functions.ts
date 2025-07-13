@@ -35,6 +35,112 @@ import {
 
 export const AI_FUNCTIONS: AIFunction[] = [
   {
+    name: 'cancel_reservation',
+    description: 'Cancelar uma reserva existente',
+    parameters: {
+      type: 'object',
+      properties: {
+        reservationId: { type: 'string', description: 'ID da reserva' },
+        reason: { type: 'string', description: 'Motivo do cancelamento' },
+        refundAmount: { type: 'number', description: 'Valor a reembolsar' },
+        notifyClient: { type: 'boolean', description: 'Notificar cliente via WhatsApp' }
+      },
+      required: ['reservationId', 'reason']
+    },
+    autoExecute: true,
+    requiresApproval: false,
+    priority: 2
+  },
+  {
+    name: 'modify_reservation',
+    description: 'Modificar datas ou detalhes de uma reserva existente',
+    parameters: {
+      type: 'object',
+      properties: {
+        reservationId: { type: 'string', description: 'ID da reserva' },
+        newCheckIn: { type: 'string', description: 'Nova data check-in (YYYY-MM-DD)' },
+        newCheckOut: { type: 'string', description: 'Nova data check-out (YYYY-MM-DD)' },
+        newGuests: { type: 'number', description: 'Novo número de hóspedes' },
+        specialRequests: { type: 'string', description: 'Novas solicitações especiais' }
+      },
+      required: ['reservationId']
+    },
+    autoExecute: true,
+    requiresApproval: false,
+    priority: 2
+  },
+  {
+    name: 'update_property_availability',
+    description: 'Bloquear ou desbloquear datas para uma propriedade',
+    parameters: {
+      type: 'object',
+      properties: {
+        propertyId: { type: 'string', description: 'ID da propriedade' },
+        dates: { type: 'array', items: { type: 'string' }, description: 'Datas para bloquear/desbloquear (YYYY-MM-DD)' },
+        action: { type: 'string', enum: ['block', 'unblock'], description: 'Ação a realizar' },
+        reason: { type: 'string', description: 'Motivo do bloqueio/desbloqueio' }
+      },
+      required: ['propertyId', 'dates', 'action']
+    },
+    autoExecute: true,
+    requiresApproval: false,
+    priority: 2
+  },
+  {
+    name: 'update_property_pricing',
+    description: 'Atualizar preços de uma propriedade',
+    parameters: {
+      type: 'object',
+      properties: {
+        propertyId: { type: 'string', description: 'ID da propriedade' },
+        basePrice: { type: 'number', description: 'Novo preço base' },
+        cleaningFee: { type: 'number', description: 'Nova taxa de limpeza' },
+        weekendMultiplier: { type: 'number', description: 'Novo multiplicador de fim de semana' },
+        seasonalRates: { type: 'array', items: { type: 'object' }, description: 'Novas tarifas sazonais' }
+      },
+      required: ['propertyId']
+    },
+    autoExecute: false,
+    requiresApproval: true,
+    priority: 3
+  },
+  {
+    name: 'confirm_payment_received',
+    description: 'Confirmar recebimento de pagamento',
+    parameters: {
+      type: 'object',
+      properties: {
+        transactionId: { type: 'string', description: 'ID da transação' },
+        paymentDate: { type: 'string', description: 'Data do pagamento (YYYY-MM-DD)' },
+        paymentMethod: { type: 'string', description: 'Método de pagamento utilizado' },
+        paymentProof: { type: 'string', description: 'Comprovante ou referência do pagamento' }
+      },
+      required: ['transactionId']
+    },
+    autoExecute: true,
+    requiresApproval: false,
+    priority: 2
+  },
+  {
+    name: 'create_expense',
+    description: 'Criar uma despesa operacional',
+    parameters: {
+      type: 'object',
+      properties: {
+        description: { type: 'string', description: 'Descrição da despesa' },
+        amount: { type: 'number', description: 'Valor da despesa' },
+        category: { type: 'string', enum: ['cleaning', 'maintenance', 'utilities', 'marketing', 'other'], description: 'Categoria da despesa' },
+        propertyId: { type: 'string', description: 'ID da propriedade relacionada' },
+        dueDate: { type: 'string', description: 'Data de vencimento (YYYY-MM-DD)' },
+        isRecurring: { type: 'boolean', description: 'Se é despesa recorrente' }
+      },
+      required: ['description', 'amount', 'category']
+    },
+    autoExecute: true,
+    requiresApproval: false,
+    priority: 2
+  },
+  {
     name: 'search_properties',
     description: 'Buscar propriedades baseado nos critérios do cliente',
     parameters: {
@@ -193,25 +299,32 @@ export const AI_FUNCTIONS: AIFunction[] = [
     priority: 2
   },
   {
-    name: 'create_pending_transaction',
-    description: 'Criar transação pendente após cliente informar forma de pagamento',
+    name: 'create_financial_movement',
+    description: 'Criar movimentação financeira (receita ou despesa)',
     parameters: {
       type: 'object',
       properties: {
-        reservationId: { type: 'string', description: 'ID da reserva' },
-        clientId: { type: 'string', description: 'ID do cliente' },
-        propertyId: { type: 'string', description: 'ID da propriedade' },
-        amount: { type: 'number', description: 'Valor total da transação' },
+        type: { type: 'string', enum: ['income', 'expense'], description: 'Tipo de movimentação' },
+        category: { 
+          type: 'string', 
+          enum: ['rent', 'cleaning', 'maintenance', 'commission', 'utilities', 'marketing', 'refund', 'other'],
+          description: 'Categoria da movimentação' 
+        },
+        description: { type: 'string', description: 'Descrição da movimentação' },
+        amount: { type: 'number', description: 'Valor da movimentação' },
+        dueDate: { type: 'string', description: 'Data de vencimento (YYYY-MM-DD)' },
+        clientId: { type: 'string', description: 'ID do cliente (opcional)' },
+        propertyId: { type: 'string', description: 'ID da propriedade (opcional)' },
+        reservationId: { type: 'string', description: 'ID da reserva (opcional)' },
         paymentMethod: { 
           type: 'string', 
           enum: ['stripe', 'pix', 'cash', 'bank_transfer', 'credit_card', 'debit_card'],
-          description: 'Método de pagamento escolhido' 
+          description: 'Método de pagamento' 
         },
-        description: { type: 'string', description: 'Descrição da transação' },
-        installments: { type: 'number', description: 'Número de parcelas (opcional para parcelamento)' },
-        conversationId: { type: 'string', description: 'ID da conversa do WhatsApp' }
+        autoCharge: { type: 'boolean', description: 'Cobrar automaticamente via WhatsApp' },
+        installments: { type: 'number', description: 'Número de parcelas (opcional)' }
       },
-      required: ['reservationId', 'clientId', 'propertyId', 'amount', 'paymentMethod', 'description']
+      required: ['type', 'category', 'description', 'amount', 'dueDate']
     },
     autoExecute: true,
     requiresApproval: false,
@@ -340,8 +453,8 @@ export class AIFunctionExecutor {
       case 'suggest_alternatives':
         return await this.suggestAlternatives(args as SuggestAlternativesArgs)
       
-      case 'create_pending_transaction':
-        return await this.createPendingTransaction(args as CreatePendingTransactionArgs)
+      case 'create_financial_movement':
+        return await this.createFinancialMovement(args as any)
       
       case 'get_financial_summary':
         return await this.getFinancialSummary(args as any)
@@ -357,6 +470,40 @@ export class AIFunctionExecutor {
       
       case 'process_billing_response':
         return await this.processBillingResponse(args as any)
+      
+      case 'cancel_reservation':
+        return await this.cancelReservation(args as any)
+      
+      case 'modify_reservation':
+        return await this.modifyReservation(args as any)
+      
+      case 'update_property_availability':
+        return await this.updatePropertyAvailability(args as any)
+      
+      case 'update_property_pricing':
+        return await this.updatePropertyPricing(args as any)
+      
+      case 'confirm_payment_received':
+        return await this.confirmPaymentReceived(args as any)
+      
+      case 'create_expense':
+        return await this.createExpense(args as any)
+      
+      case 'create_pending_transaction':
+        // Manter compatibilidade - redirecionar para novo método
+        return await this.createFinancialMovement({
+          type: 'income',
+          category: 'rent',
+          description: args.description,
+          amount: args.amount,
+          dueDate: new Date().toISOString().split('T')[0],
+          clientId: args.clientId,
+          propertyId: args.propertyId,
+          reservationId: args.reservationId,
+          paymentMethod: args.paymentMethod,
+          autoCharge: true,
+          installments: args.installments
+        })
       
       default:
         throw new Error(`Função não reconhecida: ${functionName}`)
@@ -739,101 +886,104 @@ export class AIFunctionExecutor {
     return []
   }
 
-  private async createPendingTransaction(args: CreatePendingTransactionArgs): Promise<CreatePendingTransactionResponse> {
+  private async createFinancialMovement(args: any): Promise<any> {
     const {
-      reservationId,
+      type,
+      category,
+      description,
+      amount,
+      dueDate,
       clientId,
       propertyId,
-      amount,
+      reservationId,
       paymentMethod,
-      description,
-      installments,
-      conversationId
+      autoCharge,
+      installments
     } = args
     
     try {
-      const transactionIds: string[] = []
+      const { financialMovementService } = await import('@/lib/services/financial-movement-service')
+      
+      // Buscar nome do cliente se fornecido
+      let clientName: string | undefined
+      if (clientId) {
+        const client = await clientService.getById(clientId)
+        clientName = client?.name
+      }
+      
+      // Buscar nome da propriedade se fornecido
+      let propertyName: string | undefined
+      if (propertyId) {
+        const property = await propertyService.getById(propertyId)
+        propertyName = property?.title
+      }
       
       if (installments && installments > 1) {
-        // Criar múltiplas transações para parcelamento
-        const installmentAmount = Math.round((amount / installments) * 100) / 100 // Arredondar para 2 casas decimais
-        const firstInstallmentAmount = amount - (installmentAmount * (installments - 1)) // Ajustar primeira parcela para cobrir diferenças de arredondamento
-        
-        for (let i = 0; i < installments; i++) {
-          const currentAmount = i === 0 ? firstInstallmentAmount : installmentAmount
-          const dueDate = addMonths(new Date(), i)
-          
-          const transaction = await transactionService.create({
-            type: 'income',
-            amount: currentAmount,
-            date: dueDate,
-            description: `${description} - Parcela ${i + 1}/${installments}`,
-            category: 'reserva',
-            status: 'pending',
-            paymentMethod,
-            reservationId,
+        // Criar parcelamento
+        const ids = await financialMovementService.createInstallments(
+          {
+            type,
+            category,
+            description,
+            amount,
+            dueDate: new Date(dueDate),
             clientId,
             propertyId,
-            createdByAI: true,
-            aiConversationId: conversationId,
-            tenantId: this.tenantId,
-            isRecurring: false,
-            createdAt: new Date(),
-            updatedAt: new Date(),
-            tags: [`parcela_${i + 1}`, 'parcelado']
-          })
-          
-          transactionIds.push(transaction.id)
-        }
+            reservationId,
+            paymentMethod,
+            autoCharge: autoCharge || false,
+            tenantId: this.tenantId
+          },
+          installments
+        )
         
         return {
           success: true,
+          message: `${installments} parcelas criadas com sucesso`,
           data: {
-            transactionIds,
+            movementIds: ids,
             totalAmount: amount,
-            installmentAmount,
             installments,
-            paymentMethod,
-            description: `${description} - Parcelado em ${installments}x`
+            firstDueDate: dueDate
           }
         }
       } else {
-        // Criar transação única
-        const transaction = await transactionService.create({
-          type: 'income',
-          amount,
-          date: new Date(),
+        // Criar movimentação única
+        const movement = await financialMovementService.create({
+          type,
+          category,
           description,
-          category: 'reserva',
-          status: 'pending',
-          paymentMethod,
-          reservationId,
+          amount,
+          dueDate: new Date(dueDate),
           clientId,
+          clientName,
           propertyId,
-          createdByAI: true,
-          aiConversationId: conversationId,
+          propertyName,
+          reservationId,
+          paymentMethod,
+          autoCharge: autoCharge || false,
           tenantId: this.tenantId,
-          isRecurring: false,
-          createdAt: new Date(),
-          updatedAt: new Date()
+          createdBy: 'ai-agent',
+          createdByAI: true
         })
-        
-        transactionIds.push(transaction.id)
         
         return {
           success: true,
+          message: `${type === 'income' ? 'Receita' : 'Despesa'} criada com sucesso`,
           data: {
-            transactionIds,
-            totalAmount: amount,
-            paymentMethod,
-            description
+            movementId: movement.id,
+            description,
+            amount,
+            dueDate,
+            status: movement.status,
+            autoCharge: movement.autoCharge
           }
         }
       }
     } catch (error) {
       return {
         success: false,
-        error: error instanceof Error ? error.message : 'Erro ao criar transação pendente'
+        error: error instanceof Error ? error.message : 'Erro ao criar movimentação financeira'
       }
     }
   }
@@ -842,8 +992,7 @@ export class AIFunctionExecutor {
     const { period = 'month', type = 'overview' } = args
     
     try {
-      const { accountsService } = await import('@/lib/services/accounts-service')
-      const { financialAnalyticsService } = await import('@/lib/services/financial-analytics-service')
+      const { financialMovementService } = await import('@/lib/services/financial-movement-service')
       
       const now = new Date()
       let startDate = new Date()
@@ -868,115 +1017,84 @@ export class AIFunctionExecutor {
       }
 
       if (type === 'receivables') {
-        const receivables = await accountsService.getAll()
-        const pending = receivables.filter(a => 
-          a.tenantId === this.tenantId &&
-          a.type === 'receivable' && 
-          a.status !== 'paid' && 
-          a.status !== 'cancelled'
-        )
-        const overdue = await accountsService.getOverdue()
-        const overdueReceivables = overdue.filter(a => a.type === 'receivable' && a.tenantId === this.tenantId)
-
-        const total = pending.reduce((sum, a) => sum + a.remainingAmount, 0)
-        const overdueTotal = overdueReceivables.reduce((sum, a) => sum + a.remainingAmount, 0)
+        const movements = await financialMovementService.list({
+          tenantId: this.tenantId,
+          type: 'income',
+          status: 'pending'
+        })
+        
+        const overdueMovements = await financialMovementService.getOverdue(this.tenantId)
+        const overdueIncome = overdueMovements.filter(m => m.type === 'income')
+        
+        const total = movements.reduce((sum, m) => sum + m.amount, 0)
+        const overdueTotal = overdueIncome.reduce((sum, m) => sum + m.amount, 0)
 
         return {
           success: true,
-          summary: `📊 *Contas a Receber*\n\n` +
+          summary: `📊 *A Receber*\n\n` +
             `💰 Total pendente: R$ ${total.toFixed(2)}\n` +
             `⚠️ Vencidas: R$ ${overdueTotal.toFixed(2)}\n` +
-            `📋 ${pending.length} contas em aberto\n` +
-            `🔴 ${overdueReceivables.length} contas vencidas\n\n` +
-            (overdueReceivables.length > 0 ? 
+            `📋 ${movements.length} movimentações em aberto\n` +
+            `🔴 ${overdueIncome.length} vencidas\n\n` +
+            (overdueIncome.length > 0 ? 
               `*Principais vencimentos:*\n` + 
-              overdueReceivables.slice(0, 3).map(a => 
-                `• ${a.description}: R$ ${a.remainingAmount.toFixed(2)} (${a.overdueDays} dias)`
+              overdueIncome.slice(0, 3).map(m => 
+                `• ${m.description}: R$ ${m.amount.toFixed(2)} (${m.overdueDays} dias)`
               ).join('\n') : ''),
-          data: { pending, overdue: overdueReceivables, total, overdueTotal }
+          data: { pending: movements, overdue: overdueIncome, total, overdueTotal }
         }
       }
 
       if (type === 'payables') {
-        const payables = await accountsService.getAll()
-        const pending = payables.filter(a => 
-          a.tenantId === this.tenantId &&
-          a.type === 'payable' && 
-          a.status !== 'paid' && 
-          a.status !== 'cancelled'
-        )
-        const upcoming = await accountsService.getUpcoming(7)
-        const upcomingPayables = upcoming.filter(a => a.type === 'payable' && a.tenantId === this.tenantId)
-
-        const total = pending.reduce((sum, a) => sum + a.remainingAmount, 0)
-        const upcomingTotal = upcomingPayables.reduce((sum, a) => sum + a.remainingAmount, 0)
+        const movements = await financialMovementService.list({
+          tenantId: this.tenantId,
+          type: 'expense',
+          status: 'pending'
+        })
+        
+        const upcoming = await financialMovementService.getUpcoming(this.tenantId, 7)
+        const upcomingExpenses = upcoming.filter(m => m.type === 'expense')
+        
+        const total = movements.reduce((sum, m) => sum + m.amount, 0)
+        const upcomingTotal = upcomingExpenses.reduce((sum, m) => sum + m.amount, 0)
 
         return {
           success: true,
-          summary: `📊 *Contas a Pagar*\n\n` +
+          summary: `📊 *A Pagar*\n\n` +
             `💸 Total pendente: R$ ${total.toFixed(2)}\n` +
             `📅 Próximos 7 dias: R$ ${upcomingTotal.toFixed(2)}\n` +
-            `📋 ${pending.length} contas em aberto\n\n` +
-            (upcomingPayables.length > 0 ? 
+            `📋 ${movements.length} movimentações em aberto\n\n` +
+            (upcomingExpenses.length > 0 ? 
               `*Próximos vencimentos:*\n` + 
-              upcomingPayables.slice(0, 3).map(a => 
-                `• ${a.description}: R$ ${a.remainingAmount.toFixed(2)} (${format(a.dueDate, 'dd/MM')})`
-              ).join('\n') : ''),
-          data: { pending, upcoming: upcomingPayables, total, upcomingTotal }
-        }
-      }
-
-      if (type === 'cashflow') {
-        const projection = await financialAnalyticsService.generateCashFlowProjection(
-          this.tenantId,
-          startDate,
-          new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000), // 30 dias
-          'weekly'
-        )
-
-        return {
-          success: true,
-          summary: `📊 *Fluxo de Caixa Projetado*\n\n` +
-            `📈 Entradas previstas: R$ ${projection.summary.totalInflow.toFixed(2)}\n` +
-            `📉 Saídas previstas: R$ ${projection.summary.totalOutflow.toFixed(2)}\n` +
-            `💰 Saldo projetado: R$ ${projection.summary.netFlow.toFixed(2)}\n` +
-            `⚠️ Menor saldo: R$ ${projection.summary.lowestBalance.toFixed(2)}\n\n` +
-            (projection.alerts.length > 0 ? 
-              `*Alertas:*\n` + 
-              projection.alerts.slice(0, 3).map(a => `• ${a.message}`).join('\n') : 
-              '✅ Fluxo de caixa saudável'),
-          data: projection
+              upcomingExpenses.slice(0, 3).map(m => {
+                const dueDate = m.dueDate instanceof Date ? m.dueDate : m.dueDate.toDate()
+                return `• ${m.description}: R$ ${m.amount.toFixed(2)} (${format(dueDate, 'dd/MM')})`
+              }).join('\n') : ''),
+          data: { pending: movements, upcoming: upcomingExpenses, total, upcomingTotal }
         }
       }
 
       // Overview padrão
-      const stats = await transactionService.getStats({
+      const summary = await financialMovementService.getSummary(
+        this.tenantId,
         startDate,
         endDate
-      })
-
-      const accounts = await accountsService.getAll()
-      const overdueCount = accounts.filter(a => 
-        a.tenantId === this.tenantId &&
-        a.status !== 'paid' && 
-        a.status !== 'cancelled' && 
-        new Date(a.dueDate) < now
-      ).length
+      )
 
       return {
         success: true,
         summary: `📊 *Resumo Financeiro - ${period === 'month' ? 'Mês Atual' : period}*\n\n` +
-          `💚 Receitas: R$ ${stats.totalIncome.toFixed(2)}\n` +
-          `💔 Despesas: R$ ${stats.totalExpenses.toFixed(2)}\n` +
-          `💰 Saldo: R$ ${stats.balance.toFixed(2)}\n\n` +
-          `📋 ${stats.transactionCount.completed} transações concluídas\n` +
-          `⏳ ${stats.transactionCount.pending} transações pendentes\n` +
-          `⚠️ ${overdueCount} contas vencidas\n\n` +
+          `💚 Receitas: R$ ${summary.totalIncome.toFixed(2)}\n` +
+          `💔 Despesas: R$ ${summary.totalExpenses.toFixed(2)}\n` +
+          `💰 Saldo: R$ ${summary.balance.toFixed(2)}\n\n` +
+          `📋 ${summary.paid.count} movimentações pagas\n` +
+          `⏳ ${summary.pending.count} pendentes\n` +
+          `⚠️ ${summary.overdue.count} vencidas\n\n` +
           `💡 Use:\n` +
-          `• "contas a receber" para detalhes\n` +
-          `• "contas a pagar" para compromissos\n` +
-          `• "fluxo de caixa" para projeções`,
-        data: stats
+          `• "a receber" para detalhes de receitas\n` +
+          `• "a pagar" para despesas\n` +
+          `• "criar receita/despesa" para lançamentos`,
+        data: summary
       }
     } catch (error) {
       return {
@@ -1181,81 +1299,75 @@ export class AIFunctionExecutor {
   }
 
   private async checkOverdueAccounts(args: any): Promise<any> {
-    const { sendReminders = false, includeInterest = false } = args
+    const { sendReminders = false } = args
     
     try {
-      const { accountsService } = await import('@/lib/services/accounts-service')
+      const { financialMovementService } = await import('@/lib/services/financial-movement-service')
       
-      const overdueAccounts = await accountsService.getOverdue()
-      const filteredAccounts = overdueAccounts.filter(a => a.tenantId === this.tenantId)
+      const overdueMovements = await financialMovementService.getOverdue(this.tenantId)
       
-      if (filteredAccounts.length === 0) {
+      if (overdueMovements.length === 0) {
         return {
           success: true,
-          message: '✅ Não há contas vencidas no momento!'
+          message: '✅ Não há movimentações vencidas no momento!'
         }
       }
 
-      let summary = `⚠️ *Contas Vencidas*\n\n`
-      summary += `Total: ${filteredAccounts.length} contas\n`
-      summary += `Valor total: R$ ${filteredAccounts.reduce((sum, a) => sum + a.remainingAmount, 0).toFixed(2)}\n\n`
+      let summary = `⚠️ *Movimentações Vencidas*\n\n`
+      summary += `Total: ${overdueMovements.length} movimentações\n`
+      summary += `Valor total: R$ ${overdueMovements.reduce((sum, m) => sum + m.amount, 0).toFixed(2)}\n\n`
 
-      const receivables = filteredAccounts.filter(a => a.type === 'receivable')
-      const payables = filteredAccounts.filter(a => a.type === 'payable')
+      const overdueIncome = overdueMovements.filter(m => m.type === 'income')
+      const overdueExpenses = overdueMovements.filter(m => m.type === 'expense')
 
-      if (receivables.length > 0) {
-        summary += `*A Receber (${receivables.length}):*\n`
-        for (const account of receivables.slice(0, 5)) {
-          let amount = account.remainingAmount
-          
-          if (includeInterest) {
-            const { interest, fine } = await accountsService.calculateInterestAndFees(account.id)
-            amount += interest + fine
-            
-            if (interest > 0 || fine > 0) {
-              summary += `• ${account.description}: R$ ${account.remainingAmount.toFixed(2)}`
-              summary += ` + juros/multa R$ ${(interest + fine).toFixed(2)}`
-              summary += ` = R$ ${amount.toFixed(2)} (${account.overdueDays}d)\n`
-            } else {
-              summary += `• ${account.description}: R$ ${amount.toFixed(2)} (${account.overdueDays}d)\n`
-            }
-          } else {
-            summary += `• ${account.description}: R$ ${amount.toFixed(2)} (${account.overdueDays}d)\n`
+      if (overdueIncome.length > 0) {
+        summary += `*A Receber (${overdueIncome.length}):*\n`
+        for (const movement of overdueIncome.slice(0, 5)) {
+          summary += `• ${movement.description}: R$ ${movement.amount.toFixed(2)} (${movement.overdueDays}d)`
+          if (movement.clientName) {
+            summary += ` - ${movement.clientName}`
+          }
+          summary += '\n'
+        }
+        if (overdueIncome.length > 5) {
+          summary += `  ... e mais ${overdueIncome.length - 5} movimentações\n`
+        }
+      }
+
+      if (overdueExpenses.length > 0) {
+        summary += `\n*A Pagar (${overdueExpenses.length}):*\n`
+        for (const movement of overdueExpenses.slice(0, 5)) {
+          summary += `• ${movement.description}: R$ ${movement.amount.toFixed(2)} (${movement.overdueDays}d)\n`
+        }
+        if (overdueExpenses.length > 5) {
+          summary += `  ... e mais ${overdueExpenses.length - 5} movimentações\n`
+        }
+      }
+
+      if (sendReminders && overdueIncome.length > 0) {
+        // Atualizar lembretes nas movimentações
+        for (const movement of overdueIncome) {
+          if (movement.autoCharge) {
+            await financialMovementService.updateReminder(movement.id)
           }
         }
-        if (receivables.length > 5) {
-          summary += `  ... e mais ${receivables.length - 5} contas\n`
-        }
-      }
-
-      if (payables.length > 0) {
-        summary += `\n*A Pagar (${payables.length}):*\n`
-        for (const account of payables.slice(0, 5)) {
-          summary += `• ${account.description}: R$ ${account.remainingAmount.toFixed(2)} (${account.overdueDays}d)\n`
-        }
-        if (payables.length > 5) {
-          summary += `  ... e mais ${payables.length - 5} contas\n`
-        }
-      }
-
-      if (sendReminders && receivables.length > 0) {
-        summary += `\n📨 ${receivables.length} lembretes de cobrança enviados`
+        summary += `\n📨 ${overdueIncome.filter(m => m.autoCharge).length} lembretes de cobrança enviados`
       }
 
       return {
         success: true,
         summary,
         data: {
-          total: filteredAccounts.length,
-          receivables: receivables.length,
-          payables: payables.length,
-          totalAmount: filteredAccounts.reduce((sum, a) => sum + a.remainingAmount, 0)
+          total: overdueMovements.length,
+          receivables: overdueIncome.length,
+          payables: overdueExpenses.length,
+          totalAmount: overdueMovements.reduce((sum, m) => sum + m.amount, 0)
         }
       }
     } catch (error) {
       return {
         success: false,
-        error: error instanceof Error ? error.message : 'Erro ao verificar contas vencidas'
+        error: error instanceof Error ? error.message : 'Erro ao verificar movimentações vencidas'
       }
     }
   }
@@ -1353,6 +1465,356 @@ export class AIFunctionExecutor {
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Erro ao processar resposta'
+      }
+    }
+  }
+
+  private async cancelReservation(args: any): Promise<any> {
+    const { reservationId, reason, refundAmount, notifyClient = true } = args
+    
+    try {
+      const reservation = await reservationService.getById(reservationId)
+      if (!reservation) {
+        return { success: false, error: 'Reserva não encontrada' }
+      }
+
+      // Atualizar status da reserva
+      await reservationService.update(reservationId, {
+        status: 'cancelled',
+        cancellationReason: reason,
+        cancellationDate: new Date(),
+        refundAmount: refundAmount || 0
+      })
+
+      // Liberar as datas da propriedade
+      const property = await propertyService.getById(reservation.propertyId)
+      if (property && property.availability?.blockedDates) {
+        const checkIn = new Date(reservation.checkIn)
+        const checkOut = new Date(reservation.checkOut)
+        const datesToUnblock: string[] = []
+        
+        for (let d = new Date(checkIn); d < checkOut; d.setDate(d.getDate() + 1)) {
+          datesToUnblock.push(format(d, 'yyyy-MM-dd'))
+        }
+        
+        const updatedBlockedDates = property.availability.blockedDates.filter(
+          date => !datesToUnblock.includes(date)
+        )
+        
+        await propertyService.update(reservation.propertyId, {
+          'availability.blockedDates': updatedBlockedDates
+        })
+      }
+
+      // Criar transação de reembolso se aplicável
+      if (refundAmount && refundAmount > 0) {
+        await transactionService.create({
+          type: 'expense',
+          amount: refundAmount,
+          date: new Date(),
+          description: `Reembolso - Cancelamento de reserva ${reservation.confirmationCode}`,
+          category: 'refund',
+          status: 'pending',
+          paymentMethod: reservation.paymentMethod,
+          reservationId: reservationId,
+          clientId: reservation.clientId,
+          propertyId: reservation.propertyId,
+          tenantId: this.tenantId,
+          isRecurring: false,
+          createdAt: new Date(),
+          updatedAt: new Date()
+        })
+      }
+
+      return {
+        success: true,
+        message: `Reserva ${reservation.confirmationCode} cancelada com sucesso`,
+        data: {
+          reservationId,
+          confirmationCode: reservation.confirmationCode,
+          reason,
+          refundAmount: refundAmount || 0,
+          clientNotified: notifyClient
+        }
+      }
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Erro ao cancelar reserva'
+      }
+    }
+  }
+
+  private async modifyReservation(args: any): Promise<any> {
+    const { reservationId, newCheckIn, newCheckOut, newGuests, specialRequests } = args
+    
+    try {
+      const reservation = await reservationService.getById(reservationId)
+      if (!reservation) {
+        return { success: false, error: 'Reserva não encontrada' }
+      }
+
+      const updates: any = {}
+      let needsAvailabilityUpdate = false
+      let oldDates: string[] = []
+      let newDates: string[] = []
+
+      // Se mudando datas, verificar disponibilidade
+      if (newCheckIn || newCheckOut) {
+        const checkIn = new Date(newCheckIn || reservation.checkIn)
+        const checkOut = new Date(newCheckOut || reservation.checkOut)
+        
+        // Verificar disponibilidade
+        const isAvailable = await reservationService.checkAvailability(
+          reservation.propertyId,
+          checkIn,
+          checkOut,
+          reservationId // Excluir reserva atual da verificação
+        )
+
+        if (!isAvailable) {
+          return {
+            success: false,
+            error: 'As novas datas não estão disponíveis'
+          }
+        }
+
+        // Calcular datas antigas e novas
+        const oldCheckIn = new Date(reservation.checkIn)
+        const oldCheckOut = new Date(reservation.checkOut)
+        
+        for (let d = new Date(oldCheckIn); d < oldCheckOut; d.setDate(d.getDate() + 1)) {
+          oldDates.push(format(new Date(d), 'yyyy-MM-dd'))
+        }
+        
+        for (let d = new Date(checkIn); d < checkOut; d.setDate(d.getDate() + 1)) {
+          newDates.push(format(new Date(d), 'yyyy-MM-dd'))
+        }
+
+        updates.checkIn = checkIn
+        updates.checkOut = checkOut
+        needsAvailabilityUpdate = true
+
+        // Recalcular preço
+        const pricing = await calculatePricing(
+          reservation.propertyId,
+          checkIn,
+          checkOut,
+          newGuests || reservation.guests
+        )
+        updates.totalAmount = pricing.totalPrice
+      }
+
+      if (newGuests) {
+        updates.guests = newGuests
+      }
+
+      if (specialRequests !== undefined) {
+        updates.specialRequests = specialRequests
+      }
+
+      // Atualizar reserva
+      await reservationService.update(reservationId, updates)
+
+      // Atualizar disponibilidade se necessário
+      if (needsAvailabilityUpdate) {
+        const property = await propertyService.getById(reservation.propertyId)
+        if (property && property.availability?.blockedDates) {
+          // Remover datas antigas e adicionar novas
+          let blockedDates = property.availability.blockedDates.filter(
+            date => !oldDates.includes(date)
+          )
+          blockedDates = [...blockedDates, ...newDates.filter(date => !blockedDates.includes(date))]
+          
+          await propertyService.update(reservation.propertyId, {
+            'availability.blockedDates': blockedDates
+          })
+        }
+      }
+
+      return {
+        success: true,
+        message: 'Reserva modificada com sucesso',
+        data: {
+          reservationId,
+          confirmationCode: reservation.confirmationCode,
+          updates,
+          newTotalAmount: updates.totalAmount
+        }
+      }
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Erro ao modificar reserva'
+      }
+    }
+  }
+
+  private async updatePropertyAvailability(args: any): Promise<any> {
+    const { propertyId, dates, action, reason } = args
+    
+    try {
+      const property = await propertyService.getById(propertyId)
+      if (!property) {
+        return { success: false, error: 'Propriedade não encontrada' }
+      }
+
+      const currentBlockedDates = property.availability?.blockedDates || []
+      let updatedDates: string[]
+
+      if (action === 'block') {
+        // Adicionar datas bloqueadas
+        updatedDates = [...new Set([...currentBlockedDates, ...dates])]
+      } else {
+        // Remover datas bloqueadas
+        updatedDates = currentBlockedDates.filter(date => !dates.includes(date))
+      }
+
+      await propertyService.update(propertyId, {
+        'availability.blockedDates': updatedDates,
+        'availability.lastUpdateReason': reason,
+        'availability.lastUpdateDate': new Date()
+      })
+
+      return {
+        success: true,
+        message: `Datas ${action === 'block' ? 'bloqueadas' : 'desbloqueadas'} com sucesso`,
+        data: {
+          propertyId,
+          propertyName: property.title,
+          action,
+          datesAffected: dates.length,
+          reason
+        }
+      }
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Erro ao atualizar disponibilidade'
+      }
+    }
+  }
+
+  private async updatePropertyPricing(args: any): Promise<any> {
+    const { propertyId, basePrice, cleaningFee, weekendMultiplier, seasonalRates } = args
+    
+    try {
+      const property = await propertyService.getById(propertyId)
+      if (!property) {
+        return { success: false, error: 'Propriedade não encontrada' }
+      }
+
+      const updates: any = {}
+      
+      if (basePrice !== undefined) {
+        updates.basePrice = basePrice
+      }
+      
+      if (cleaningFee !== undefined) {
+        updates.cleaningFee = cleaningFee
+      }
+      
+      if (weekendMultiplier !== undefined) {
+        updates['pricing.weekendMultiplier'] = weekendMultiplier
+      }
+      
+      if (seasonalRates) {
+        updates['pricing.seasonalRates'] = seasonalRates
+      }
+
+      await propertyService.update(propertyId, updates)
+
+      return {
+        success: true,
+        message: 'Preços atualizados com sucesso',
+        data: {
+          propertyId,
+          propertyName: property.title,
+          updates: {
+            basePrice: basePrice || property.basePrice,
+            cleaningFee: cleaningFee || property.cleaningFee,
+            weekendMultiplier: weekendMultiplier || property.pricing?.weekendMultiplier,
+            seasonalRatesCount: seasonalRates?.length || 0
+          }
+        }
+      }
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Erro ao atualizar preços'
+      }
+    }
+  }
+
+  private async confirmPaymentReceived(args: any): Promise<any> {
+    const { transactionId, paymentDate, paymentMethod, paymentProof } = args
+    
+    try {
+      const { financialMovementService } = await import('@/lib/services/financial-movement-service')
+      
+      // Tentar encontrar movimento pelo ID fornecido
+      const movement = await financialMovementService.getById(transactionId)
+      if (!movement) {
+        return { success: false, error: 'Movimentação não encontrada' }
+      }
+
+      // Marcar como pago
+      await financialMovementService.markAsPaid(movement.id, {
+        paymentDate: paymentDate ? new Date(paymentDate) : new Date(),
+        paymentMethod: paymentMethod || movement.paymentMethod,
+        paymentProof
+      })
+
+      // Se for relacionada a uma reserva, atualizar status
+      if (movement.reservationId) {
+        const reservation = await reservationService.getById(movement.reservationId)
+        if (reservation && reservation.status === 'pending_payment') {
+          await reservationService.update(movement.reservationId, {
+            status: 'confirmed',
+            paymentStatus: 'paid'
+          })
+        }
+      }
+
+      return {
+        success: true,
+        message: 'Pagamento confirmado com sucesso',
+        data: {
+          movementId: movement.id,
+          description: movement.description,
+          amount: movement.amount,
+          paymentDate: paymentDate || new Date().toISOString(),
+          paymentMethod: paymentMethod || movement.paymentMethod,
+          status: 'paid'
+        }
+      }
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Erro ao confirmar pagamento'
+      }
+    }
+  }
+
+  private async createExpense(args: any): Promise<any> {
+    const { description, amount, category, propertyId, dueDate, isRecurring } = args
+    
+    try {
+      // Redirecionar para o novo método unificado
+      return await this.createFinancialMovement({
+        type: 'expense',
+        category: category || 'other',
+        description,
+        amount,
+        dueDate: dueDate || new Date().toISOString().split('T')[0],
+        propertyId,
+        autoCharge: false,
+        isRecurring
+      })
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Erro ao criar despesa'
       }
     }
   }

@@ -68,28 +68,18 @@ const menuItems = [
   },
   {
     text: 'Financeiro',
-    href: '/dashboard/financeiro',
+    href: '/dashboard/financeiro-simples',
     icon: <AccountBalance />,
     submenu: [
       {
-        text: 'Visão Geral',
-        href: '/dashboard/financeiro',
+        text: 'Visão Simples',
+        href: '/dashboard/financeiro-simples',
         icon: <TrendingUp />,
       },
       {
-        text: 'Transações',
-        href: '/dashboard/financeiro/transacoes',
+        text: 'Sistema Completo',
+        href: '/dashboard/financeiro',
         icon: <Receipt />,
-      },
-      {
-        text: 'Contas',
-        href: '/dashboard/financeiro/contas',
-        icon: <AttachMoney />,
-      },
-      {
-        text: 'Cobranças',
-        href: '/dashboard/financeiro/cobrancas',
-        icon: <Campaign />,
       },
     ],
   },

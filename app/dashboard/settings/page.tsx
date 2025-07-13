@@ -93,6 +93,7 @@ export default function SettingsPage() {
   const [uploadingLogo, setUploadingLogo] = useState(false);
   const [qrCodeData, setQrCodeData] = useState('');
   const [connectingWhatsApp, setConnectingWhatsApp] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [whatsappCredentials, setWhatsappCredentials] = useState({
     phoneNumberId: '',
     accessToken: '',
@@ -132,21 +133,48 @@ export default function SettingsPage() {
 
   useEffect(() => {
     loadConfiguration();
-    checkWhatsAppConnection();
     generateQRCode();
   }, []);
 
   const loadConfiguration = async () => {
     try {
-      const savedCompany = localStorage.getItem('company_config');
-      const savedAI = localStorage.getItem('ai_config');
-      const savedBilling = localStorage.getItem('billing_config');
-
-      if (savedCompany) setCompanyConfig(JSON.parse(savedCompany));
-      if (savedAI) setAIConfig(JSON.parse(savedAI));
-      if (savedBilling) setBillingConfig(JSON.parse(savedBilling));
+      setLoading(true);
+      
+      // Load settings from Firebase
+      const response = await fetch('/api/settings');
+      if (response.ok) {
+        const settings = await response.json();
+        
+        if (settings) {
+          if (settings.company) {
+            setCompanyConfig(settings.company);
+          }
+          if (settings.ai) {
+            setAIConfig(settings.ai);
+          }
+          if (settings.billing) {
+            setBillingConfig(settings.billing);
+          }
+          if (settings.whatsapp) {
+            setWhatsappConnected(settings.whatsapp.connected);
+            if (settings.whatsapp.phoneNumberId) {
+              setWhatsappCredentials({
+                phoneNumberId: settings.whatsapp.phoneNumberId,
+                accessToken: '', // Don't expose the actual token
+                verifyToken: '', // Don't expose the actual token
+              });
+            }
+          }
+        }
+      }
+      
+      // Also check WhatsApp connection status
+      await checkWhatsAppConnection();
+      
     } catch (error) {
       console.error('Failed to load configuration:', error);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -157,10 +185,8 @@ export default function SettingsPage() {
       
       if (result.status === 'connected') {
         setWhatsappConnected(true);
-        localStorage.setItem('whatsapp_connected', 'true');
       } else {
         setWhatsappConnected(false);
-        localStorage.setItem('whatsapp_connected', 'false');
       }
     } catch (error) {
       console.error('Failed to check WhatsApp connection:', error);
@@ -170,10 +196,9 @@ export default function SettingsPage() {
 
   const generateQRCode = async () => {
     try {
-      // Generate real WhatsApp Business connection QR code
-      const webhookUrl = `${process.env.NEXT_PUBLIC_APP_URL}/api/webhook/whatsapp`;
-      const connectionString = `https://business.whatsapp.com/connect?webhook=${encodeURIComponent(webhookUrl)}&verify_token=${Math.random().toString(36).substr(2, 9)}`;
-      const qrCode = await QRCode.toDataURL(connectionString);
+      // Generate WhatsApp setup instructions QR code
+      const setupUrl = `${window.location.origin}/dashboard/settings?tab=whatsapp&setup=true`;
+      const qrCode = await QRCode.toDataURL(setupUrl);
       setQrCodeData(qrCode);
     } catch (error) {
       console.error('Failed to generate QR code:', error);
@@ -209,8 +234,9 @@ export default function SettingsPage() {
         setWhatsappConnected(true);
         setShowQRDialog(false);
         setShowWhatsAppConfig(false);
-        localStorage.setItem('whatsapp_connected', 'true');
         alert('WhatsApp conectado com sucesso!');
+        // Reload settings to get updated WhatsApp info
+        await loadConfiguration();
       } else {
         alert('Erro na conexão: ' + result.error);
       }
@@ -221,40 +247,105 @@ export default function SettingsPage() {
     }
   };
 
-  const handleWhatsAppDisconnect = () => {
-    setWhatsappConnected(false);
-    localStorage.setItem('whatsapp_connected', 'false');
+  const handleWhatsAppDisconnect = async () => {
+    try {
+      const response = await fetch('/api/config/whatsapp', {
+        method: 'DELETE',
+      });
+      
+      if (response.ok) {
+        setWhatsappConnected(false);
+        setWhatsappCredentials({
+          phoneNumberId: '',
+          accessToken: '',
+          verifyToken: '',
+        });
+        alert('WhatsApp desconectado com sucesso!');
+      }
+    } catch (error) {
+      console.error('Error disconnecting WhatsApp:', error);
+      alert('Erro ao desconectar WhatsApp');
+    }
   };
 
   const handleLogoUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
       setUploadingLogo(true);
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setCompanyConfig(prev => ({ ...prev, logo: reader.result as string }));
+      try {
+        const formData = new FormData();
+        formData.append('file', file);
+
+        const response = await fetch('/api/upload/logo', {
+          method: 'POST',
+          body: formData,
+        });
+
+        if (response.ok) {
+          const { url } = await response.json();
+          setCompanyConfig(prev => ({ ...prev, logo: url }));
+        } else {
+          const error = await response.json();
+          alert(error.error || 'Erro ao enviar logo');
+        }
+      } catch (error) {
+        console.error('Logo upload error:', error);
+        alert('Erro ao enviar logo');
+      } finally {
         setUploadingLogo(false);
-      };
-      reader.readAsDataURL(file);
+      }
     }
   };
 
   const saveAllConfigs = async () => {
     setSaving(true);
     try {
-      localStorage.setItem('company_config', JSON.stringify(companyConfig));
-      localStorage.setItem('ai_config', JSON.stringify(aiConfig));
-      localStorage.setItem('billing_config', JSON.stringify(billingConfig));
+      // Save company settings
+      await fetch('/api/settings', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          section: 'company',
+          data: companyConfig
+        })
+      });
 
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      // Save AI settings
+      await fetch('/api/settings', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          section: 'ai',
+          data: aiConfig
+        })
+      });
+
+      // Save billing settings
+      await fetch('/api/settings', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          section: 'billing',
+          data: billingConfig
+        })
+      });
+
       alert('Configurações salvas com sucesso!');
     } catch (error) {
-
+      console.error('Error saving settings:', error);
       alert('Erro ao salvar configurações');
     } finally {
       setSaving(false);
     }
   };
+
+  if (loading) {
+    return (
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '80vh' }}>
+        <CircularProgress />
+      </Box>
+    );
+  }
 
   return (
     <Box>
@@ -343,7 +434,7 @@ export default function SettingsPage() {
                             <Box>
                               <Typography variant="subtitle2">Número Conectado</Typography>
                               <Typography variant="body2" color="text.secondary">
-                                {process.env.NEXT_PUBLIC_WHATSAPP_PHONE || 'Não configurado'}
+                                {whatsappCredentials.phoneNumberId ? '+55 (XX) XXXXX-XXXX' : 'Não configurado'}
                               </Typography>
                             </Box>
                           </Box>
