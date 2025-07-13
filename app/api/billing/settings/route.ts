@@ -1,15 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { billingService } from '@/lib/services/billing-service';
-import { auth } from '@/lib/auth';
+import { auth } from '@/lib/firebase/admin';
 
 export async function GET(request: NextRequest) {
   try {
-    const session = await auth();
-    if (!session?.user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    // Verificar autenticação
+    const authHeader = request.headers.get('authorization');
+    if (!authHeader?.startsWith('Bearer ')) {
+      return NextResponse.json({ error: 'Token não fornecido' }, { status: 401 });
     }
 
-    const tenantId = session.user.tenantId || session.user.id;
+    const token = authHeader.split('Bearer ')[1];
+    const decodedToken = await auth.verifyIdToken(token);
+    const tenantId = decodedToken.tenantId || decodedToken.uid;
+
+    // Buscar configurações
     let settings = await billingService.getSettings(tenantId);
     
     // Se não existir, criar configurações padrão
@@ -19,7 +24,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({ settings });
   } catch (error) {
-    console.error('Erro ao buscar configurações:', error);
+    console.error('Erro ao buscar configurações de cobrança:', error);
     return NextResponse.json(
       { error: 'Erro ao buscar configurações' },
       { status: 500 }
@@ -29,28 +34,46 @@ export async function GET(request: NextRequest) {
 
 export async function PUT(request: NextRequest) {
   try {
-    const session = await auth();
-    if (!session?.user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    // Verificar autenticação
+    const authHeader = request.headers.get('authorization');
+    if (!authHeader?.startsWith('Bearer ')) {
+      return NextResponse.json({ error: 'Token não fornecido' }, { status: 401 });
     }
+
+    const token = authHeader.split('Bearer ')[1];
+    const decodedToken = await auth.verifyIdToken(token);
+    const tenantId = decodedToken.tenantId || decodedToken.uid;
 
     const body = await request.json();
-    const tenantId = session.user.tenantId || session.user.id;
-    
-    // Configuração simplificada para pequenos proprietários
-    if (body.simpleConfig) {
-      await billingService.setupSimpleBilling(tenantId, body.simpleConfig);
-      return NextResponse.json({ success: true });
+    const { simpleConfig } = body;
+
+    if (simpleConfig) {
+      // Configuração simplificada
+      await billingService.setupSimpleBilling(tenantId, {
+        reminderDays: simpleConfig.reminderDays,
+        tone: simpleConfig.tone,
+        autoSend: simpleConfig.autoSend
+      });
+    } else {
+      // Configuração completa
+      // TODO: Implementar quando o modo avançado estiver pronto
+      return NextResponse.json(
+        { error: 'Modo avançado ainda não implementado' },
+        { status: 400 }
+      );
     }
 
-    // Configuração completa
-    // TODO: Implementar atualização completa das configurações
-    
-    return NextResponse.json({ success: true });
+    // Buscar configurações atualizadas
+    const settings = await billingService.getSettings(tenantId);
+
+    return NextResponse.json({ 
+      success: true, 
+      settings 
+    });
   } catch (error) {
-    console.error('Erro ao atualizar configurações:', error);
+    console.error('Erro ao salvar configurações de cobrança:', error);
     return NextResponse.json(
-      { error: 'Erro ao atualizar configurações' },
+      { error: 'Erro ao salvar configurações' },
       { status: 500 }
     );
   }

@@ -1,5 +1,3 @@
-'use client';
-
 import { createTheme, ThemeOptions } from '@mui/material/styles';
 import { ptBR } from '@mui/material/locale';
 

@@ -33,6 +33,9 @@ import {
   Receipt,
   AttachMoney,
   Campaign,
+  NotificationsActive,
+  Assessment,
+  AccountBalanceWallet,
 } from '@mui/icons-material';
 
 interface SidebarProps {
@@ -74,12 +77,22 @@ const menuItems = [
       {
         text: 'Visão Simples',
         href: '/dashboard/financeiro-simples',
-        icon: <TrendingUp />,
+        icon: <AccountBalanceWallet />,
       },
       {
-        text: 'Sistema Completo',
+        text: 'Transações',
         href: '/dashboard/financeiro',
         icon: <Receipt />,
+      },
+      {
+        text: 'Cobranças',
+        href: '/dashboard/financeiro/cobrancas',
+        icon: <NotificationsActive />,
+      },
+      {
+        text: 'Relatórios',
+        href: '/dashboard/financeiro/relatorios',
+        icon: <Assessment />,
       },
     ],
   },

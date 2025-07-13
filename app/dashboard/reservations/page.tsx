@@ -35,7 +35,8 @@ import {
   FormControl,
   InputLabel,
   Select,
-  CircularProgress
+  CircularProgress,
+  Link
 } from '@mui/material';
 import {
   Add,
@@ -50,7 +51,10 @@ import {
   Cancel,
   Schedule,
   Download,
-  Refresh
+  Refresh,
+  Home,
+  Person,
+  Receipt
 } from '@mui/icons-material';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -209,15 +213,28 @@ export default function ReservationsPage() {
   return (
     <Box>
       {/* Header */}
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+      <Box sx={{ 
+        display: 'flex', 
+        flexDirection: { xs: 'column', sm: 'row' },
+        justifyContent: 'space-between', 
+        alignItems: { xs: 'stretch', sm: 'center' }, 
+        gap: 2,
+        mb: 3 
+      }}>
         <Typography variant="h4" component="h1" fontWeight="bold">
           Reservas
         </Typography>
-        <Box sx={{ display: 'flex', gap: 2 }}>
+        <Box sx={{ 
+          display: 'flex', 
+          gap: 2,
+          flexDirection: { xs: 'column', sm: 'row' },
+          width: { xs: '100%', sm: 'auto' }
+        }}>
           <Button
             variant="outlined"
             startIcon={<Download />}
             onClick={() => {/* Implementar export */}}
+            sx={{ display: { xs: 'none', sm: 'flex' } }}
           >
             Exportar
           </Button>
@@ -225,6 +242,7 @@ export default function ReservationsPage() {
             variant="contained"
             startIcon={<Add />}
             onClick={() => router.push('/dashboard/reservations/create')}
+            fullWidth={{ xs: true, sm: false }}
           >
             Nova Reserva
           </Button>
@@ -303,21 +321,24 @@ export default function ReservationsPage() {
       </Card>
 
       {/* Reservations Table */}
-      <Card>
-        <TableContainer>
+      <Card sx={{ overflowX: 'auto' }}>
+        <TableContainer sx={{ 
+          minWidth: { xs: 300, sm: 600, md: 900 },
+          overflowX: 'auto' 
+        }}>
           <Table>
             <TableHead>
               <TableRow>
-                <TableCell>ID</TableCell>
-                <TableCell>Cliente</TableCell>
-                <TableCell>Propriedade</TableCell>
-                <TableCell>Período</TableCell>
-                <TableCell>Hóspedes</TableCell>
-                <TableCell>Valor</TableCell>
-                <TableCell>Status</TableCell>
-                <TableCell>Pagamento</TableCell>
-                <TableCell>Origem</TableCell>
-                <TableCell>Ações</TableCell>
+                <TableCell sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem' }, px: { xs: 1, sm: 2 } }}>ID</TableCell>
+                <TableCell sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem' }, px: { xs: 1, sm: 2 } }}>Cliente</TableCell>
+                <TableCell sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem' }, px: { xs: 1, sm: 2 }, display: { xs: 'none', sm: 'table-cell' } }}>Propriedade</TableCell>
+                <TableCell sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem' }, px: { xs: 1, sm: 2 } }}>Período</TableCell>
+                <TableCell sx={{ display: { xs: 'none', sm: 'table-cell' }, fontSize: { xs: '0.75rem', sm: '0.875rem' }, px: { xs: 1, sm: 2 } }}>Hóspedes</TableCell>
+                <TableCell sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem' }, px: { xs: 1, sm: 2 } }}>Valor</TableCell>
+                <TableCell sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem' }, px: { xs: 1, sm: 2 }, display: { xs: 'none', sm: 'table-cell' } }}>Status</TableCell>
+                <TableCell sx={{ display: { xs: 'none', md: 'table-cell' }, fontSize: { xs: '0.75rem', sm: '0.875rem' }, px: { xs: 1, sm: 2 } }}>Pagamento</TableCell>
+                <TableCell sx={{ display: { xs: 'none', lg: 'table-cell' }, fontSize: { xs: '0.75rem', sm: '0.875rem' }, px: { xs: 1, sm: 2 } }}>Origem</TableCell>
+                <TableCell sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem' }, px: { xs: 1, sm: 2 } }}>Ações</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
@@ -336,66 +357,93 @@ export default function ReservationsPage() {
               ) : (
                 filteredReservations.map((reservation) => (
                 <TableRow key={reservation.id} hover>
-                  <TableCell>
-                    <Typography variant="body2" fontWeight="bold">
-                      {reservation.id}
+                  <TableCell sx={{ px: { xs: 1, sm: 2 } }}>
+                    <Typography variant="body2" fontWeight="bold" sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem' } }}>
+                      #{reservation.id.slice(-6).toUpperCase()}
                     </Typography>
                   </TableCell>
 
-                  <TableCell>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                      <Avatar sx={{ width: 32, height: 32, fontSize: '0.875rem' }}>
+                  <TableCell sx={{ px: { xs: 1, sm: 2 } }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: { xs: 0.5, sm: 1 } }}>
+                      <Avatar sx={{ width: { xs: 24, sm: 32 }, height: { xs: 24, sm: 32 }, fontSize: { xs: '0.75rem', sm: '0.875rem' }, display: { xs: 'none', sm: 'flex' } }}>
                         {reservation.clientName.charAt(0)}
                       </Avatar>
                       <Box>
-                        <Typography variant="body2" fontWeight="medium">
-                          {reservation.clientName}
-                        </Typography>
-                        <Typography variant="caption" color="text.secondary">
+                        <Link
+                          href={`/dashboard/clients/${reservation.clientId}`}
+                          sx={{ 
+                            textDecoration: 'none',
+                            color: 'inherit',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 0.5,
+                            '&:hover': { textDecoration: 'underline' }
+                          }}
+                        >
+                          <Person sx={{ fontSize: 16 }} />
+                          <Typography variant="body2" fontWeight="medium" sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem' } }}>
+                            {reservation.clientName}
+                          </Typography>
+                        </Link>
+                        <Typography variant="caption" color="text.secondary" sx={{ display: { xs: 'none', sm: 'block' }, fontSize: { xs: '0.625rem', sm: '0.75rem' } }}>
                           {reservation.clientPhone}
                         </Typography>
                       </Box>
                     </Box>
                   </TableCell>
 
-                  <TableCell>
-                    <Typography variant="body2">
-                      {reservation.propertyName}
-                    </Typography>
+                  <TableCell sx={{ px: { xs: 1, sm: 2 }, display: { xs: 'none', sm: 'table-cell' } }}>
+                    <Link
+                      href={`/dashboard/properties/${reservation.propertyId}`}
+                      sx={{ 
+                        display: 'flex',
+                        alignItems: 'center',
+                        gap: 0.5,
+                        textDecoration: 'none',
+                        color: 'inherit',
+                        '&:hover': { textDecoration: 'underline' }
+                      }}
+                    >
+                      <Home sx={{ fontSize: 18 }} />
+                      <Typography variant="body2" sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem' } }}>
+                        {reservation.propertyName}
+                      </Typography>
+                    </Link>
                   </TableCell>
 
-                  <TableCell>
+                  <TableCell sx={{ px: { xs: 1, sm: 2 } }}>
                     <Box>
-                      <Typography variant="body2">
-                        {format(reservation.checkIn, 'dd/MM', { locale: ptBR })} - {format(reservation.checkOut, 'dd/MM/yyyy', { locale: ptBR })}
+                      <Typography variant="body2" sx={{ fontSize: { xs: '0.7rem', sm: '0.875rem' } }}>
+                        {format(reservation.checkIn, 'dd/MM', { locale: ptBR })} - {format(reservation.checkOut, 'dd/MM', { locale: ptBR })}
                       </Typography>
-                      <Typography variant="caption" color="text.secondary">
+                      <Typography variant="caption" color="text.secondary" sx={{ display: { xs: 'none', sm: 'block' }, fontSize: { xs: '0.625rem', sm: '0.75rem' } }}>
                         {reservation.nights} noites
                       </Typography>
                     </Box>
                   </TableCell>
 
-                  <TableCell>
+                  <TableCell sx={{ display: { xs: 'none', sm: 'table-cell' } }}>
                     <Badge badgeContent={reservation.guests} color="primary">
                       <Typography variant="body2">pessoas</Typography>
                     </Badge>
                   </TableCell>
 
-                  <TableCell>
-                    <Typography variant="body2" fontWeight="bold">
+                  <TableCell sx={{ px: { xs: 1, sm: 2 } }}>
+                    <Typography variant="body2" fontWeight="bold" sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem' } }}>
                       R$ {reservation.totalPrice.toLocaleString('pt-BR')}
                     </Typography>
                   </TableCell>
 
-                  <TableCell>
+                  <TableCell sx={{ px: { xs: 1, sm: 2 }, display: { xs: 'none', sm: 'table-cell' } }}>
                     <Chip
                       label={reservation.status}
                       color={getStatusColor(reservation.status) as any}
                       size="small"
+                      sx={{ fontSize: { xs: '0.625rem', sm: '0.75rem' } }}
                     />
                   </TableCell>
 
-                  <TableCell>
+                  <TableCell sx={{ display: { xs: 'none', md: 'table-cell' } }}>
                     <Chip
                       label={reservation.paymentStatus}
                       color={getPaymentStatusColor(reservation.paymentStatus) as any}
@@ -403,26 +451,51 @@ export default function ReservationsPage() {
                     />
                   </TableCell>
 
-                  <TableCell>
+                  <TableCell sx={{ display: { xs: 'none', lg: 'table-cell' } }}>
                     <Tooltip title="Manual">
                       <Schedule sx={{ fontSize: 16 }} />
                     </Tooltip>
                   </TableCell>
 
-                  <TableCell>
-                    <Box sx={{ display: 'flex', gap: 0.5 }}>
-                      <IconButton 
-                        size="small" 
-                        onClick={() => handleViewDetails(reservation)}
-                      >
-                        <Visibility />
-                      </IconButton>
-                      <IconButton size="small">
-                        <Edit />
-                      </IconButton>
-                      <IconButton size="small" color="error">
-                        <Delete />
-                      </IconButton>
+                  <TableCell sx={{ px: { xs: 1, sm: 2 } }}>
+                    <Box sx={{ display: 'flex', gap: { xs: 0, sm: 0.5 }, flexWrap: { xs: 'wrap', sm: 'nowrap' } }}>
+                      <Tooltip title="Ver pagamento">
+                        <IconButton 
+                          size="small" 
+                          onClick={() => router.push(`/dashboard/financeiro?reservationId=${reservation.id}`)}
+                          color="primary"
+                          sx={{ p: { xs: 0.5, sm: 1 }, display: { xs: 'none', sm: 'inline-flex' } }}
+                        >
+                          <Payment sx={{ fontSize: { xs: 16, sm: 20 } }} />
+                        </IconButton>
+                      </Tooltip>
+                      <Tooltip title="Ver detalhes">
+                        <IconButton 
+                          size="small" 
+                          onClick={() => handleViewDetails(reservation)}
+                          sx={{ p: { xs: 0.5, sm: 1 } }}
+                        >
+                          <Visibility sx={{ fontSize: { xs: 16, sm: 20 } }} />
+                        </IconButton>
+                      </Tooltip>
+                      <Tooltip title="Editar">
+                        <IconButton 
+                          size="small"
+                          onClick={() => router.push(`/dashboard/reservations/${reservation.id}/edit`)}
+                          sx={{ p: { xs: 0.5, sm: 1 }, display: { xs: 'none', sm: 'inline-flex' } }}
+                        >
+                          <Edit sx={{ fontSize: { xs: 16, sm: 20 } }} />
+                        </IconButton>
+                      </Tooltip>
+                      <Tooltip title="Excluir">
+                        <IconButton 
+                          size="small" 
+                          color="error"
+                          sx={{ p: { xs: 0.5, sm: 1 }, display: { xs: 'none', sm: 'inline-flex' } }}
+                        >
+                          <Delete sx={{ fontSize: { xs: 16, sm: 20 } }} />
+                        </IconButton>
+                      </Tooltip>
                     </Box>
                   </TableCell>
                 </TableRow>
@@ -484,6 +557,33 @@ export default function ReservationsPage() {
           )}
         </DialogContent>
         <DialogActions>
+          <Button 
+            startIcon={<Payment />}
+            onClick={() => {
+              setDetailsOpen(false);
+              router.push(`/dashboard/financeiro?reservationId=${selectedReservation?.id}`);
+            }}
+          >
+            Ver Pagamento
+          </Button>
+          <Button 
+            startIcon={<Person />}
+            onClick={() => {
+              setDetailsOpen(false);
+              router.push(`/dashboard/clients/${selectedReservation?.clientId}`);
+            }}
+          >
+            Ver Cliente
+          </Button>
+          <Button 
+            startIcon={<Home />}
+            onClick={() => {
+              setDetailsOpen(false);
+              router.push(`/dashboard/properties/${selectedReservation?.propertyId}`);
+            }}
+          >
+            Ver Propriedade
+          </Button>
           <Button onClick={() => setDetailsOpen(false)}>
             Fechar
           </Button>
@@ -493,11 +593,16 @@ export default function ReservationsPage() {
         </DialogActions>
       </Dialog>
 
-      {/* Floating Action Button for Quick Add */}
+      {/* Floating Action Button for Quick Add - Mobile Only */}
       <Fab
         color="primary"
         aria-label="add"
-        sx={{ position: 'fixed', bottom: 16, right: 16 }}
+        sx={{ 
+          position: 'fixed', 
+          bottom: 16, 
+          right: 16,
+          display: { xs: 'flex', sm: 'none' }
+        }}
         onClick={() => router.push('/dashboard/reservations/create')}
       >
         <Add />

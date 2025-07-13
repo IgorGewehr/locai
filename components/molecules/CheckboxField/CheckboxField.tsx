@@ -49,7 +49,9 @@ export const CheckboxField: React.FC<CheckboxFieldProps> = ({
                 sx={{
                   transition: 'all 0.2s ease-in-out',
                   '&:hover': {
-                    backgroundColor: alpha(color === 'default' ? theme.palette.action.hover : theme.palette[color as 'primary' | 'secondary'].main, 0.1),
+                    backgroundColor: color === 'default' 
+                      ? theme.palette.action.hover 
+                      : alpha(theme.palette[color as 'primary' | 'secondary'].main, 0.1),
                     transform: 'scale(1.1)',
                   },
                   '&.Mui-checked': {

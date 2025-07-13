@@ -2,9 +2,9 @@
 
 import { useState, useCallback, useMemo, useEffect } from 'react';
 import { Box, Toolbar, useTheme, useMediaQuery } from '@mui/material';
-import Header from '@/components/ui/Header';
-import Sidebar from '@/components/ui/Sidebar';
-import ProtectedRoute from '@/components/auth/ProtectedRoute';
+import Header from '@/components/organisms/navigation/Header';
+import Sidebar from '@/components/organisms/navigation/Sidebar';
+import ProtectedRoute from '@/components/utilities/ProtectedRoute';
 
 const drawerWidth = 260;
 

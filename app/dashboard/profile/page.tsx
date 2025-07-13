@@ -149,13 +149,16 @@ export default function ProfilePage() {
 
   const handleSettingChange = (setting: keyof UserProfile['settings'], value: boolean) => {
     if (!profile) return;
-    setProfile(prev => prev ? ({
-      ...prev,
-      settings: {
-        ...prev.settings,
-        [setting]: value,
-      },
-    }) : null);
+    setProfile(prev => {
+      if (!prev) return null;
+      return {
+        ...prev,
+        settings: {
+          ...prev.settings,
+          [setting]: value,
+        },
+      };
+    });
   };
 
   const getRoleColor = (role: string) => {
@@ -301,7 +304,7 @@ export default function ProfilePage() {
                   <TextField
                     fullWidth
                     label="Nome Completo"
-                    value={profile.name || ''}
+                    value={profile?.name || ''}
                     onChange={(e) => setProfile(prev => prev ? { ...prev, name: e.target.value } : null)}
                     disabled={!editing}
                   />
@@ -311,7 +314,7 @@ export default function ProfilePage() {
                   <TextField
                     fullWidth
                     label="Email"
-                    value={profile.email || ''}
+                    value={profile?.email || ''}
                     onChange={(e) => setProfile(prev => prev ? { ...prev, email: e.target.value } : null)}
                     disabled={!editing}
                   />
@@ -321,7 +324,7 @@ export default function ProfilePage() {
                   <TextField
                     fullWidth
                     label="Telefone"
-                    value={profile.phone || ''}
+                    value={profile?.phone || ''}
                     onChange={(e) => setProfile(prev => prev ? { ...prev, phone: e.target.value } : null)}
                     disabled={!editing}
                   />
@@ -331,7 +334,7 @@ export default function ProfilePage() {
                   <TextField
                     fullWidth
                     label="Empresa"
-                    value={profile.company || ''}
+                    value={profile?.company || ''}
                     onChange={(e) => setProfile(prev => prev ? { ...prev, company: e.target.value } : null)}
                     disabled={!editing}
                   />
@@ -341,7 +344,7 @@ export default function ProfilePage() {
                   <TextField
                     fullWidth
                     label="Cargo"
-                    value={profile.position || ''}
+                    value={profile?.position || ''}
                     onChange={(e) => setProfile(prev => prev ? { ...prev, position: e.target.value } : null)}
                     disabled={!editing}
                   />
@@ -351,7 +354,7 @@ export default function ProfilePage() {
                   <TextField
                     fullWidth
                     label="Localização"
-                    value={profile.location || ''}
+                    value={profile?.location || ''}
                     onChange={(e) => setProfile(prev => prev ? { ...prev, location: e.target.value } : null)}
                     disabled={!editing}
                   />
@@ -363,7 +366,7 @@ export default function ProfilePage() {
                     label="Biografia"
                     multiline
                     rows={3}
-                    value={profile.bio || ''}
+                    value={profile?.bio || ''}
                     onChange={(e) => setProfile(prev => prev ? { ...prev, bio: e.target.value } : null)}
                     disabled={!editing}
                     placeholder="Conte um pouco sobre você..."

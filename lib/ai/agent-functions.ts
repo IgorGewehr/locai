@@ -141,6 +141,26 @@ export const AI_FUNCTIONS: AIFunction[] = [
     priority: 2
   },
   {
+    name: 'register_client',
+    description: 'Registrar um novo cliente no sistema',
+    parameters: {
+      type: 'object',
+      properties: {
+        name: { type: 'string', description: 'Nome completo do cliente' },
+        email: { type: 'string', description: 'Email do cliente' },
+        phone: { type: 'string', description: 'Telefone do cliente' },
+        document: { type: 'string', description: 'CPF/CNPJ do cliente' },
+        birthDate: { type: 'string', description: 'Data de nascimento (YYYY-MM-DD)' },
+        address: { type: 'string', description: 'Endereço do cliente' },
+        preferences: { type: 'string', description: 'Preferências ou observações sobre o cliente' }
+      },
+      required: ['name', 'phone']
+    },
+    autoExecute: true,
+    requiresApproval: false,
+    priority: 2
+  },
+  {
     name: 'search_properties',
     description: 'Buscar propriedades baseado nos critérios do cliente',
     parameters: {
@@ -489,6 +509,9 @@ export class AIFunctionExecutor {
       case 'create_expense':
         return await this.createExpense(args as any)
       
+      case 'register_client':
+        return await this.registerClient(args as any)
+      
       case 'create_pending_transaction':
         // Manter compatibilidade - redirecionar para novo método
         return await this.createFinancialMovement({
@@ -718,6 +741,21 @@ export class AIFunctionExecutor {
         tenantId: this.tenantId
       })
 
+      // Criar movimentação financeira automaticamente
+      const property = await propertyService.getById(propertyId)
+      const financialMovement = await this.createFinancialMovement({
+        type: 'income',
+        category: 'rent',
+        description: `Reserva ${reservation.confirmationCode} - ${property?.title || 'Propriedade'}`,
+        amount: totalAmount,
+        dueDate: checkIn, // Vencimento no check-in
+        clientId: client.id,
+        propertyId: propertyId,
+        reservationId: reservation.id,
+        paymentMethod: paymentMethod || 'pix',
+        autoCharge: true // Ativar cobrança automática via WhatsApp
+      })
+
       return {
         success: true,
         reservation: {
@@ -733,7 +771,15 @@ export class AIFunctionExecutor {
             currency: 'BRL' 
           })
         },
-        message: 'Reserva criada com sucesso!'
+        payment: financialMovement.success ? {
+          id: financialMovement.transaction?.id,
+          dueDate: checkIn,
+          autoCharge: true
+        } : null,
+        message: 'Reserva criada com sucesso! ' + 
+                 (financialMovement.success 
+                   ? 'Cobrança automática configurada.' 
+                   : 'Atenção: Registre o pagamento manualmente.')
       }
     } catch (error) {
       return {
@@ -1815,6 +1861,74 @@ export class AIFunctionExecutor {
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Erro ao criar despesa'
+      }
+    }
+  }
+
+  private async registerClient(args: any): Promise<any> {
+    const { name, email, phone, document, birthDate, address, preferences } = args
+    
+    try {
+      // Verificar se o cliente já existe pelo telefone
+      const existingClients = await clientService.searchByPhone(phone)
+      if (existingClients.length > 0) {
+        const client = existingClients[0]
+        
+        // Atualizar informações se fornecidas
+        const updates: any = {}
+        if (email && !client.email) updates.email = email
+        if (document && !client.document) updates.document = document
+        if (birthDate && !client.birthDate) updates.birthDate = birthDate
+        if (address && !client.address) updates.address = address
+        if (preferences) updates.preferences = preferences
+        
+        if (Object.keys(updates).length > 0) {
+          await clientService.update(client.id, updates)
+        }
+        
+        return {
+          success: true,
+          client: {
+            id: client.id,
+            name: client.name,
+            phone: client.phone,
+            email: client.email || email,
+            isExisting: true
+          },
+          message: `Cliente ${client.name} já cadastrado. Informações atualizadas.`
+        }
+      }
+      
+      // Criar novo cliente
+      const newClient = await clientService.create({
+        name,
+        email: email || '',
+        phone,
+        document: document || '',
+        birthDate: birthDate ? new Date(birthDate) : undefined,
+        address: address || '',
+        preferences: preferences || '',
+        source: 'whatsapp',
+        score: 0,
+        totalBookings: 0,
+        tenantId: this.tenantId
+      })
+      
+      return {
+        success: true,
+        client: {
+          id: newClient.id,
+          name: newClient.name,
+          phone: newClient.phone,
+          email: newClient.email,
+          isExisting: false
+        },
+        message: `Cliente ${newClient.name} cadastrado com sucesso!`
+      }
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Erro ao registrar cliente'
       }
     }
   }

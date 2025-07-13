@@ -45,6 +45,8 @@ import {
   Email,
   Note,
   History,
+  Visibility,
+  AttachMoney,
 } from '@mui/icons-material';
 import { format, differenceInDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -273,9 +275,19 @@ export default function ReservationDetailPage() {
           {/* Property Info */}
           <Card sx={{ mb: 3 }}>
             <CardContent>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
-                <Home color="primary" />
-                <Typography variant="h6">Propriedade</Typography>
+              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <Home color="primary" />
+                  <Typography variant="h6">Propriedade</Typography>
+                </Box>
+                <Button
+                  size="small"
+                  variant="outlined"
+                  onClick={() => router.push(`/dashboard/properties/${reservation.propertyId}`)}
+                  startIcon={<Visibility />}
+                >
+                  Ver Propriedade
+                </Button>
               </Box>
               
               <Typography variant="h6" gutterBottom>
@@ -306,9 +318,19 @@ export default function ReservationDetailPage() {
           {/* Client Info */}
           <Card>
             <CardContent>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
-                <Person color="primary" />
-                <Typography variant="h6">Cliente</Typography>
+              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <Person color="primary" />
+                  <Typography variant="h6">Cliente</Typography>
+                </Box>
+                <Button
+                  size="small"
+                  variant="outlined"
+                  onClick={() => router.push(`/dashboard/clients/${reservation.clientId}`)}
+                  startIcon={<Visibility />}
+                >
+                  Ver Cliente
+                </Button>
               </Box>
               
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
@@ -336,9 +358,19 @@ export default function ReservationDetailPage() {
           {/* Price Breakdown */}
           <Card sx={{ mb: 3 }}>
             <CardContent>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
-                <Receipt color="primary" />
-                <Typography variant="h6">Detalhes do Pagamento</Typography>
+              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <Receipt color="primary" />
+                  <Typography variant="h6">Detalhes do Pagamento</Typography>
+                </Box>
+                <Button
+                  size="small"
+                  variant="outlined"
+                  onClick={() => router.push(`/dashboard/financeiro?reservationId=${reservation.id}`)}
+                  startIcon={<AttachMoney />}
+                >
+                  Ver no Financeiro
+                </Button>
               </Box>
               
               <TableContainer>

@@ -52,6 +52,7 @@ import {
   Badge,
   Collapse,
   FormHelperText,
+  Fab,
 } from '@mui/material';
 import {
   AttachMoney,
@@ -92,6 +93,8 @@ import {
   LocalOffer,
   AccessTime,
   Info,
+  NotificationsActive,
+  NotificationsOff,
 } from '@mui/icons-material';
 import {
   AreaChart,
@@ -110,11 +113,13 @@ import {
   Legend,
   ResponsiveContainer,
 } from 'recharts';
-import { format, startOfMonth, endOfMonth, subMonths, isAfter, isBefore, addMonths, differenceInDays } from 'date-fns';
+import { format, startOfMonth, endOfMonth, subMonths, isAfter, isBefore, addMonths, differenceInDays, addDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Transaction, Client, Reservation } from '@/lib/types';
 import { Property } from '@/lib/types/property';
+import { BillingSettings } from '@/lib/types/billing';
 import { transactionService } from '@/lib/services/transaction-service';
+import { billingService } from '@/lib/services/billing-service';
 import { propertyService, clientService, reservationService } from '@/lib/firebase/firestore';
 import { useAuth } from '@/lib/hooks/useAuth';
 
@@ -136,6 +141,9 @@ interface TransactionFormData {
   isRecurring: boolean;
   recurringType?: 'monthly' | 'weekly' | 'yearly';
   recurringEndDate?: string;
+  // Campos para cobrança automática
+  enableAutomaticBilling?: boolean;
+  reminderDays?: number;
 }
 
 interface TransactionFilters {
@@ -209,7 +217,9 @@ export default function FinanceiroPage() {
     severity: 'success'
   });
   const [stats, setStats] = useState<any>(null);
+  const [previousMonthStats, setPreviousMonthStats] = useState<any>(null);
   const [expandedRecurring, setExpandedRecurring] = useState<string[]>([]);
+  const [billingSettings, setBillingSettings] = useState<BillingSettings | null>(null);
 
   const [formData, setFormData] = useState<TransactionFormData>({
     type: 'income',
@@ -220,11 +230,14 @@ export default function FinanceiroPage() {
     status: 'pending',
     paymentMethod: 'pix',
     isRecurring: false,
-    tags: []
+    tags: [],
+    enableAutomaticBilling: true,
+    reminderDays: 2
   });
 
   useEffect(() => {
     loadData();
+    loadBillingSettings();
   }, [filters]);
 
   const loadData = async () => {
@@ -278,12 +291,33 @@ export default function FinanceiroPage() {
       // Calcular estatísticas
       const statsData = await transactionService.getStats(transactionFilters);
       setStats(statsData);
+      
+      // Calcular estatísticas do mês anterior para comparação
+      const previousMonth = startOfMonth(subMonths(new Date(), 1));
+      const previousMonthEnd = endOfMonth(previousMonth);
+      const previousStats = await transactionService.getStats({
+        ...transactionFilters,
+        startDate: previousMonth,
+        endDate: previousMonthEnd
+      });
+      setPreviousMonthStats(previousStats);
 
     } catch (error) {
 
       showSnackbar('Erro ao carregar dados', 'error');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadBillingSettings = async () => {
+    try {
+      const settings = await billingService.getSettings(user?.tenantId || '');
+      if (settings) {
+        setBillingSettings(settings);
+      }
+    } catch (error) {
+      console.error('Erro ao carregar configurações de cobrança:', error);
     }
   };
 
@@ -302,7 +336,9 @@ export default function FinanceiroPage() {
       status: 'pending',
       paymentMethod: 'pix',
       isRecurring: false,
-      tags: []
+      tags: [],
+      enableAutomaticBilling: billingSettings?.enabled || false,
+      reminderDays: billingSettings?.defaultReminderDays || 2
     });
     setShowTransactionDialog(true);
   };
@@ -325,7 +361,9 @@ export default function FinanceiroPage() {
       tags: transaction.tags || [],
       isRecurring: transaction.isRecurring,
       recurringType: transaction.recurringType || 'monthly',
-      recurringEndDate: transaction.recurringEndDate ? format(transaction.recurringEndDate, 'yyyy-MM-dd') : ''
+      recurringEndDate: transaction.recurringEndDate ? format(transaction.recurringEndDate, 'yyyy-MM-dd') : '',
+      enableAutomaticBilling: false, // TODO: buscar configuração específica da transação
+      reminderDays: billingSettings?.defaultReminderDays || 2
     });
     setShowTransactionDialog(true);
   };
@@ -384,7 +422,33 @@ export default function FinanceiroPage() {
           await transactionService.update(editingTransaction.id, transactionData);
           showSnackbar('Transação atualizada com sucesso', 'success');
         } else {
-          await transactionService.create(transactionData);
+          const newTransaction = await transactionService.create(transactionData);
+          
+          // Criar lembretes de cobrança se habilitado
+          if (formData.enableAutomaticBilling && formData.type === 'income' && formData.clientId && newTransaction.id) {
+            try {
+              await billingService.createReminder({
+                transactionId: newTransaction.id,
+                clientId: formData.clientId,
+                type: 'before_due',
+                scheduledDate: addDays(new Date(formData.date), -formData.reminderDays!),
+                daysFromDue: -formData.reminderDays!
+              });
+              
+              if (billingSettings?.defaultOverdueDays && billingSettings.defaultOverdueDays > 0) {
+                await billingService.createReminder({
+                  transactionId: newTransaction.id,
+                  clientId: formData.clientId,
+                  type: 'overdue',
+                  scheduledDate: addDays(new Date(formData.date), billingSettings.defaultOverdueDays),
+                  daysFromDue: billingSettings.defaultOverdueDays
+                });
+              }
+            } catch (error) {
+              console.error('Erro ao criar lembretes:', error);
+            }
+          }
+          
           showSnackbar('Transação criada com sucesso', 'success');
         }
       }
@@ -534,45 +598,78 @@ export default function FinanceiroPage() {
 
   return (
     <Box>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+      <Box sx={{ 
+        display: 'flex', 
+        flexDirection: { xs: 'column', sm: 'row' },
+        justifyContent: 'space-between', 
+        alignItems: { xs: 'stretch', sm: 'center' }, 
+        gap: 2,
+        mb: 3 
+      }}>
         <Typography variant="h4" component="h1" fontWeight={600}>
           Financeiro
         </Typography>
-        <Box sx={{ display: 'flex', gap: 2 }}>
+        <Box sx={{ 
+          display: 'flex', 
+          gap: 1,
+          flexDirection: { xs: 'column', sm: 'row' },
+          width: { xs: '100%', sm: 'auto' }
+        }}>
           <ToggleButtonGroup
             value={viewMode}
             exclusive
             onChange={(_, newMode) => newMode && setViewMode(newMode)}
             size="small"
+            sx={{ 
+              display: { xs: 'none', md: 'flex' },
+              flexGrow: { xs: 1, sm: 0 }
+            }}
           >
             <ToggleButton value="dashboard">
-              <Assessment sx={{ mr: 1 }} />
-              Dashboard
+              <Assessment sx={{ mr: { xs: 0, sm: 1 } }} />
+              <Box sx={{ display: { xs: 'none', sm: 'inline' } }}>Dashboard</Box>
             </ToggleButton>
             <ToggleButton value="transactions">
-              <Receipt sx={{ mr: 1 }} />
-              Transações
+              <Receipt sx={{ mr: { xs: 0, sm: 1 } }} />
+              <Box sx={{ display: { xs: 'none', sm: 'inline' } }}>Transações</Box>
             </ToggleButton>
             <ToggleButton value="recurring">
-              <Repeat sx={{ mr: 1 }} />
-              Recorrentes
+              <Repeat sx={{ mr: { xs: 0, sm: 1 } }} />
+              <Box sx={{ display: { xs: 'none', sm: 'inline' } }}>Recorrentes</Box>
             </ToggleButton>
           </ToggleButtonGroup>
+          
+          {/* Mobile view mode selector */}
+          <Select
+            value={viewMode}
+            onChange={(e) => setViewMode(e.target.value as 'dashboard' | 'transactions' | 'recurring')}
+            size="small"
+            sx={{ display: { xs: 'flex', md: 'none' }, mb: { xs: 1, sm: 0 } }}
+          >
+            <MenuItem value="dashboard">Dashboard</MenuItem>
+            <MenuItem value="transactions">Transações</MenuItem>
+            <MenuItem value="recurring">Recorrentes</MenuItem>
+          </Select>
+          
           <Button
             variant="contained"
             startIcon={<Add />}
             onClick={handleAddTransaction}
+            fullWidth={{ xs: true, sm: false }}
           >
-            Nova Transação
+            <Box sx={{ display: { xs: 'none', sm: 'inline' } }}>Nova Transação</Box>
+            <Box sx={{ display: { xs: 'inline', sm: 'none' } }}>Nova</Box>
           </Button>
-          <IconButton onClick={() => setShowFilters(!showFilters)}>
-            <Badge color="primary" variant="dot" invisible={!Object.keys(filters).some(key => key !== 'dateRange' && filters[key as keyof TransactionFilters])}>
-              <FilterList />
-            </Badge>
-          </IconButton>
-          <IconButton>
-            <Download />
-          </IconButton>
+          <Box sx={{ display: 'flex', gap: 1 }}>
+            <IconButton onClick={() => setShowFilters(!showFilters)}>
+              <Badge color="primary" variant="dot" invisible={!Object.keys(filters).some(key => key !== 'dateRange' && filters[key as keyof TransactionFilters])}>
+                <FilterList />
+              </Badge>
+            </IconButton>
+            <IconButton sx={{ display: { xs: 'none', sm: 'flex' } }}>
+              <Download />
+            </IconButton>
+          </Box>
         </Box>
       </Box>
 
@@ -726,10 +823,26 @@ export default function FinanceiroPage() {
                         {formatCurrency(stats?.totalIncome || 0)}
                       </Typography>
                       <Box sx={{ display: 'flex', alignItems: 'center', mt: 1 }}>
-                        <TrendingUp sx={{ fontSize: 16, color: 'success.main', mr: 0.5 }} />
-                        <Typography variant="caption" color="success.main">
-                          +12.5% vs mês anterior
-                        </Typography>
+                        {previousMonthStats && previousMonthStats.totalIncome > 0 ? (
+                          <>
+                            {stats.totalIncome >= previousMonthStats.totalIncome ? (
+                              <TrendingUp sx={{ fontSize: 16, color: 'success.main', mr: 0.5 }} />
+                            ) : (
+                              <TrendingDown sx={{ fontSize: 16, color: 'error.main', mr: 0.5 }} />
+                            )}
+                            <Typography 
+                              variant="caption" 
+                              color={stats.totalIncome >= previousMonthStats.totalIncome ? 'success.main' : 'error.main'}
+                            >
+                              {stats.totalIncome >= previousMonthStats.totalIncome ? '+' : ''}
+                              {((stats.totalIncome - previousMonthStats.totalIncome) / previousMonthStats.totalIncome * 100).toFixed(1)}% vs mês anterior
+                            </Typography>
+                          </>
+                        ) : (
+                          <Typography variant="caption" color="text.secondary">
+                            Sem dados do mês anterior
+                          </Typography>
+                        )}
                       </Box>
                     </Box>
                     <Box sx={{ 
@@ -760,10 +873,26 @@ export default function FinanceiroPage() {
                         {formatCurrency(stats?.totalExpenses || 0)}
                       </Typography>
                       <Box sx={{ display: 'flex', alignItems: 'center', mt: 1 }}>
-                        <TrendingDown sx={{ fontSize: 16, color: 'error.main', mr: 0.5 }} />
-                        <Typography variant="caption" color="error.main">
-                          +8.2% vs mês anterior
-                        </Typography>
+                        {previousMonthStats && previousMonthStats.totalExpenses > 0 ? (
+                          <>
+                            {stats.totalExpenses <= previousMonthStats.totalExpenses ? (
+                              <TrendingDown sx={{ fontSize: 16, color: 'success.main', mr: 0.5 }} />
+                            ) : (
+                              <TrendingUp sx={{ fontSize: 16, color: 'error.main', mr: 0.5 }} />
+                            )}
+                            <Typography 
+                              variant="caption" 
+                              color={stats.totalExpenses <= previousMonthStats.totalExpenses ? 'success.main' : 'error.main'}
+                            >
+                              {stats.totalExpenses > previousMonthStats.totalExpenses ? '+' : ''}
+                              {((stats.totalExpenses - previousMonthStats.totalExpenses) / previousMonthStats.totalExpenses * 100).toFixed(1)}% vs mês anterior
+                            </Typography>
+                          </>
+                        ) : (
+                          <Typography variant="caption" color="text.secondary">
+                            Sem dados do mês anterior
+                          </Typography>
+                        )}
                       </Box>
                     </Box>
                     <Box sx={{ 
@@ -950,8 +1079,8 @@ export default function FinanceiroPage() {
               )}
             </Box>
 
-            <TableContainer component={Paper} variant="outlined">
-              <Table>
+            <TableContainer component={Paper} variant="outlined" sx={{ overflowX: 'auto' }}>
+              <Table sx={{ minWidth: { xs: 600, sm: 800, md: 1000 } }}>
                 <TableHead>
                   <TableRow>
                     <TableCell padding="checkbox">
@@ -971,10 +1100,10 @@ export default function FinanceiroPage() {
                     <TableCell>Tipo</TableCell>
                     <TableCell>Categoria</TableCell>
                     <TableCell>Descrição</TableCell>
-                    <TableCell>Relacionamentos</TableCell>
+                    <TableCell sx={{ display: { xs: 'none', md: 'table-cell' } }}>Relacionamentos</TableCell>
                     <TableCell align="right">Valor</TableCell>
-                    <TableCell>Status</TableCell>
-                    <TableCell>Pagamento</TableCell>
+                    <TableCell sx={{ display: { xs: 'none', sm: 'table-cell' } }}>Status</TableCell>
+                    <TableCell sx={{ display: { xs: 'none', lg: 'table-cell' } }}>Pagamento</TableCell>
                     <TableCell align="center">Ações</TableCell>
                   </TableRow>
                 </TableHead>
@@ -1002,14 +1131,26 @@ export default function FinanceiroPage() {
                           <Typography variant="body2">
                             {format(transaction.date, 'dd/MM/yyyy')}
                           </Typography>
-                          {transaction.isRecurring && (
-                            <Chip
-                              size="small"
-                              label={transaction.recurringType}
-                              icon={<Repeat />}
-                              sx={{ mt: 0.5 }}
-                            />
-                          )}
+                          <Box sx={{ display: 'flex', gap: 0.5, mt: 0.5 }}>
+                            {transaction.isRecurring && (
+                              <Chip
+                                size="small"
+                                label={transaction.recurringType}
+                                icon={<Repeat />}
+                              />
+                            )}
+                            {transaction.type === 'income' && transaction.status === 'pending' && billingSettings?.enabled && (
+                              <Tooltip title="Cobrança automática ativa">
+                                <Chip
+                                  size="small"
+                                  label="Auto"
+                                  icon={<NotificationsActive />}
+                                  color="success"
+                                  variant="outlined"
+                                />
+                              </Tooltip>
+                            )}
+                          </Box>
                         </Box>
                       </TableCell>
                       <TableCell>{getTypeChip(transaction.type)}</TableCell>
@@ -1046,7 +1187,7 @@ export default function FinanceiroPage() {
                           )}
                         </Box>
                       </TableCell>
-                      <TableCell>
+                      <TableCell sx={{ display: { xs: 'none', md: 'table-cell' } }}>
                         <Stack spacing={0.5}>
                           {transaction.propertyId && (
                             <Link
@@ -1087,8 +1228,8 @@ export default function FinanceiroPage() {
                           {formatCurrency(transaction.amount)}
                         </Typography>
                       </TableCell>
-                      <TableCell>{getStatusChip(transaction.status)}</TableCell>
-                      <TableCell>
+                      <TableCell sx={{ display: { xs: 'none', sm: 'table-cell' } }}>{getStatusChip(transaction.status)}</TableCell>
+                      <TableCell sx={{ display: { xs: 'none', lg: 'table-cell' } }}>
                         <Chip
                           size="small"
                           label={paymentMethods[transaction.paymentMethod]}
@@ -1461,6 +1602,57 @@ export default function FinanceiroPage() {
               />
             </Grid>
 
+            {/* Cobrança Automática */}
+            {formData.type === 'income' && formData.clientId && billingSettings?.enabled && (
+              <>
+                <Grid item xs={12}>
+                  <Divider sx={{ my: 1 }}>
+                    <Typography variant="caption" color="text.secondary">
+                      Cobrança Automática
+                    </Typography>
+                  </Divider>
+                </Grid>
+
+                <Grid item xs={12}>
+                  <FormControlLabel
+                    control={
+                      <Switch
+                        checked={formData.enableAutomaticBilling}
+                        onChange={(e) => setFormData(prev => ({ ...prev, enableAutomaticBilling: e.target.checked }))}
+                      />
+                    }
+                    label={
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <NotificationsActive sx={{ fontSize: 20 }} />
+                        Ativar cobrança automática via WhatsApp
+                      </Box>
+                    }
+                  />
+                  {formData.enableAutomaticBilling && (
+                    <FormHelperText>
+                      Lembretes serão enviados {formData.reminderDays} {formData.reminderDays === 1 ? 'dia' : 'dias'} antes do vencimento
+                    </FormHelperText>
+                  )}
+                </Grid>
+
+                {formData.enableAutomaticBilling && (
+                  <Grid item xs={12}>
+                    <TextField
+                      fullWidth
+                      type="number"
+                      label="Dias antes do vencimento"
+                      value={formData.reminderDays}
+                      onChange={(e) => setFormData(prev => ({ ...prev, reminderDays: parseInt(e.target.value) || 2 }))}
+                      InputProps={{
+                        inputProps: { min: 0, max: 30 }
+                      }}
+                      helperText="Quantos dias antes do vencimento enviar o lembrete"
+                    />
+                  </Grid>
+                )}
+              </>
+            )}
+
             {/* Recorrência */}
             {!editingTransaction && (
               <>
@@ -1549,6 +1741,21 @@ export default function FinanceiroPage() {
           {snackbar.message}
         </Alert>
       </Snackbar>
+
+      {/* Floating Action Button for Mobile */}
+      <Fab
+        color="primary"
+        aria-label="add transaction"
+        sx={{ 
+          position: 'fixed', 
+          bottom: 16, 
+          right: 16,
+          display: { xs: 'flex', sm: 'none' }
+        }}
+        onClick={handleAddTransaction}
+      >
+        <Add />
+      </Fab>
     </Box>
   );
 }

@@ -444,9 +444,71 @@ class BillingService {
       updatedAt: serverTimestamp()
     });
 
-    // Atualizar status da transação se necessário
-    if (sentiment === 'positive' && message.toLowerCase().includes('pag')) {
-      // Cliente mencionou pagamento - pode ser útil para análise
+    // Verificar se é confirmação de pagamento
+    const paymentKeywords = ['paguei', 'pago', 'pagamento', 'realizado', 'transferi', 'transferido', 'comprovante', 'pix'];
+    const messageNormalized = message.toLowerCase();
+    const isPaymentConfirmation = paymentKeywords.some(keyword => messageNormalized.includes(keyword));
+
+    if (sentiment === 'positive' && isPaymentConfirmation) {
+      // Cliente confirmou pagamento - marcar transação como paga
+      try {
+        await transactionService.confirmTransaction(latestReminder.transactionId, 'client_confirmation');
+        
+        // Enviar confirmação de recebimento
+        const transaction = await transactionService.getById(latestReminder.transactionId);
+        const settings = await this.getSettings(latestReminder.tenantId);
+        
+        if (transaction && settings?.templates.receipt) {
+          const client = await clientService.getById(latestReminder.clientId);
+          const property = transaction.propertyId 
+            ? await propertyService.getById(transaction.propertyId)
+            : null;
+
+          const variables = {
+            clientName: client?.name || 'Cliente',
+            amount: this.formatCurrency(transaction.amount),
+            propertyName: property?.name || 'N/A',
+            period: transaction.description || 'N/A',
+            paymentDate: format(new Date(), 'dd/MM/yyyy'),
+            companyName: process.env.NEXT_PUBLIC_COMPANY_NAME || 'Imobiliária'
+          };
+
+          // Substituir variáveis no template de recibo
+          let receiptMessage = settings.templates.receipt.message;
+          Object.entries(variables).forEach(([key, value]) => {
+            receiptMessage = receiptMessage.replace(new RegExp(`{{${key}}}`, 'g'), String(value));
+          });
+
+          // Enviar mensagem de confirmação
+          await fetch(`${process.env.NEXT_PUBLIC_APP_URL}/api/agent`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              message: receiptMessage,
+              to: whatsappNumber,
+              isSystemMessage: true,
+              metadata: {
+                type: 'payment_receipt',
+                transactionId: latestReminder.transactionId
+              }
+            })
+          });
+        }
+      } catch (error) {
+        console.error('Erro ao processar confirmação de pagamento:', error);
+      }
+      
+      await this.updateTransactionBillingStatus(latestReminder.transactionId, {
+        lastClientResponse: {
+          message,
+          timestamp: new Date(),
+          sentiment,
+          promisedPaymentDate: this.extractDateFromMessage(message)
+        },
+        isPaid: true
+      });
+    } else if (sentiment === 'positive' && message.toLowerCase().includes('pag')) {
+      // Cliente mencionou pagamento mas não confirmou - pode ser promessa
       await this.updateTransactionBillingStatus(latestReminder.transactionId, {
         lastClientResponse: {
           message,

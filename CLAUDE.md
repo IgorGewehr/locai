@@ -129,15 +129,35 @@ Complex property model with:
 - Mobile-responsive drawer behavior
 - Material-UI theme integration
 
-### UI Components (EXPANDED)
-- **Header/Sidebar**: Navigation with WhatsApp status indicators
-- **Property Components**: Cards, forms, galleries, pricing forms
-- **Reservation Components**: Calendar views, booking forms
-- **Chat Interface**: Conversation management and message display
-- **AI Configuration**: Visual setup interface for agents and personalities
-- **WhatsApp Setup**: Step-by-step configuration wizard
-- **Analytics Dashboard**: Real-time metrics and performance monitoring
-- **Automation Builder**: Visual workflow and trigger configuration
+### UI Components (REORGANIZED - ATOMIC DESIGN)
+
+**Atoms (17 components)**:
+- Basic building blocks: Buttons, Inputs, Typography, Chips, Indicators
+- AI-specific: AIConfidenceIndicator, AIPersonality, AutomationTrigger
+- Display elements: CurrencyDisplay, DateDisplay, StatusChip
+- Specialized: ClientScore, MessageType, PaymentMethodIcon
+
+**Molecules (Organized by category)**:
+- **Cards**: MediaCard, FinancialSummaryCard
+- **Forms**: CheckboxField, FormField, SelectField  
+- **Navigation**: StepperNavigation, QuickActions
+- **Profiles**: ClientProfile
+- **Summaries**: ConversationSummary
+
+**Organisms (Domain-based organization)**:
+- **AI**: AIAgent configuration and display
+- **Calendars**: AvailabilityCalendar, PricingCalendar
+- **Dashboards**: AnalyticsDashboard, AudioPreferences
+- **Financial**: TransactionTimeline, PricingSurcharges
+- **Goals**: GoalCard, CreateGoalDialog, GoalDetailsDialog
+- **Navigation**: Header (with WhatsApp status), Sidebar
+- **Property**: PropertyBasicInfo, PropertySpecs, PropertyAmenities, PropertyPricing, PropertyMediaUpload
+
+**Templates**: 
+- **Dashboards**: AdvancedAnalytics, SimpleFinancialDashboard, FinancialGoals
+
+**Utilities**:
+- **ProtectedRoute**: Authentication HOC
 
 ## Firebase Integration
 
@@ -187,6 +207,7 @@ Agent can execute advanced functions:
 - `analyzeClientBehavior`: Behavioral analysis and insights
 - `updateClientPreferences`: Learning from interactions
 - `triggerAutomations`: Context-based automation triggers
+- `register_client`: Standalone client registration with deduplication
 
 ## Environment Configuration (ENHANCED)
 
@@ -236,7 +257,33 @@ Required environment variables (see `.env.example`):
 ## Path Aliases
 
 - `@/*` resolves to the project root
-- Import examples: `@/lib/types`, `@/components/ui`, `@/theme/theme`
+- Import examples: `@/lib/types`, `@/components/atoms/Button`, `@/theme/theme`
+
+## Recent Updates (December 2024)
+
+### Enhanced Features
+1. **AI Agent Enhancements**:
+   - Added standalone `register_client` function for autonomous client registration
+   - Client deduplication by phone number with automatic data updates
+   - All CRUD operations fully functional for reservations, clients, and payments
+
+2. **Navigation & UX Improvements**:
+   - Added intuitive navigation buttons between related records
+   - Reservation details now link directly to client, property, and payment records
+   - Financial transactions display links to associated reservations, clients, and properties
+   - Bi-directional navigation ensures easy data exploration
+
+3. **Mobile Responsiveness**:
+   - Improved table responsiveness in reservations dashboard
+   - Enhanced mobile layout for financial dashboard
+   - Responsive table cells with adaptive font sizes and padding
+   - Mobile-optimized action buttons with conditional display
+
+4. **Data Integrity**:
+   - Removed all mock/placeholder data from analytics components
+   - Financial trends now calculate from real transaction data
+   - Dynamic customer segmentation based on actual client data
+   - Real-time occupancy and performance metrics
 
 ## Key Integration Points (UPDATED)
 
@@ -244,7 +291,12 @@ When extending the system:
 1. **New agent functions**: Add to `lib/ai/agent-functions.ts` with proper error handling
 2. **Database operations**: Use existing services or extend FirestoreService with validation
 3. **API endpoints**: Follow existing patterns in `app/api/` with comprehensive error handling
-4. **UI components**: Integrate with Material-UI theme system and atomic design principles
+4. **UI components**: Follow atomic design structure:
+   - **Atoms**: Place in `components/atoms/` for basic reusable elements
+   - **Molecules**: Place in `components/molecules/` organized by category (cards, forms, navigation, etc.)
+   - **Organisms**: Place in `components/organisms/` organized by domain (ai, financial, property, etc.)
+   - **Templates**: Place in `components/templates/dashboards/` for page layouts
+   - **Utilities**: Place in `components/utilities/` for non-UI components
 5. **WhatsApp features**: Extend webhook handler with rate limiting and validation
 6. **Automation workflows**: Add to `lib/automation/` with trigger and action definitions
 7. **Error handling**: Use classification system in `lib/utils/errors.ts`

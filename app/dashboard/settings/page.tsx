@@ -35,6 +35,9 @@ import {
   ListItem,
   ListItemText,
   ListItemSecondaryAction,
+  useTheme,
+  useMediaQuery,
+  Stack,
 } from '@mui/material';
 import {
   WhatsApp,
@@ -50,6 +53,7 @@ import {
   PhoneAndroid,
   Link as LinkIcon,
   Settings as SettingsIcon,
+  Close,
 } from '@mui/icons-material';
 import QRCode from 'qrcode';
 
@@ -85,6 +89,10 @@ interface BillingConfig {
 }
 
 export default function SettingsPage() {
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+  const isTablet = useMediaQuery(theme.breakpoints.down('md'));
+  
   const [activeTab, setActiveTab] = useState(0);
   const [whatsappConnected, setWhatsappConnected] = useState(false);
   const [showQRDialog, setShowQRDialog] = useState(false);
@@ -348,9 +356,16 @@ export default function SettingsPage() {
   }
 
   return (
-    <Box>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-        <Typography variant="h4" component="h1" fontWeight={600}>
+    <Box sx={{ px: isMobile ? 1 : 0 }}>
+      <Box sx={{ 
+        display: 'flex', 
+        flexDirection: isMobile ? 'column' : 'row',
+        justifyContent: 'space-between', 
+        alignItems: isMobile ? 'stretch' : 'center', 
+        mb: 3,
+        gap: 2 
+      }}>
+        <Typography variant={isMobile ? "h5" : "h4"} component="h1" fontWeight={600}>
           Configurações
         </Typography>
         <Button
@@ -358,8 +373,10 @@ export default function SettingsPage() {
           startIcon={saving ? <CircularProgress size={20} /> : <Save />}
           onClick={saveAllConfigs}
           disabled={saving}
+          fullWidth={isMobile}
+          size={isMobile ? "large" : "medium"}
         >
-          {saving ? 'Salvando...' : 'Salvar Alterações'}
+          {saving ? 'Salvando...' : 'Salvar'}
         </Button>
       </Box>
 
@@ -368,11 +385,34 @@ export default function SettingsPage() {
           value={activeTab} 
           onChange={(_, newValue) => setActiveTab(newValue)}
           sx={{ borderBottom: 1, borderColor: 'divider' }}
+          variant={isMobile ? "scrollable" : "fullWidth"}
+          scrollButtons={isMobile ? "auto" : false}
+          allowScrollButtonsMobile
         >
-          <Tab label="WhatsApp" icon={<WhatsApp />} iconPosition="start" />
-          <Tab label="Empresa" icon={<Business />} iconPosition="start" />
-          <Tab label="Assistente IA" icon={<SmartToy />} iconPosition="start" />
-          <Tab label="Cobrança Automática" icon={<SettingsIcon />} iconPosition="start" />
+          <Tab 
+            label={isMobile ? "WhatsApp" : "WhatsApp"} 
+            icon={<WhatsApp />} 
+            iconPosition={isMobile ? "top" : "start"}
+            sx={{ minWidth: isMobile ? 100 : 'auto' }}
+          />
+          <Tab 
+            label={isMobile ? "Empresa" : "Empresa"} 
+            icon={<Business />} 
+            iconPosition={isMobile ? "top" : "start"}
+            sx={{ minWidth: isMobile ? 100 : 'auto' }}
+          />
+          <Tab 
+            label={isMobile ? "IA" : "Assistente IA"} 
+            icon={<SmartToy />} 
+            iconPosition={isMobile ? "top" : "start"}
+            sx={{ minWidth: isMobile ? 100 : 'auto' }}
+          />
+          <Tab 
+            label={isMobile ? "Cobrança" : "Cobrança Automática"} 
+            icon={<SettingsIcon />} 
+            iconPosition={isMobile ? "top" : "start"}
+            sx={{ minWidth: isMobile ? 100 : 'auto' }}
+          />
         </Tabs>
       </Paper>
 
@@ -382,9 +422,16 @@ export default function SettingsPage() {
           <Grid item xs={12}>
             <Card>
               <CardContent>
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-                  <Box>
-                    <Typography variant="h6" gutterBottom>
+                <Box sx={{ 
+                  display: 'flex', 
+                  flexDirection: isMobile ? 'column' : 'row',
+                  justifyContent: 'space-between', 
+                  alignItems: isMobile ? 'stretch' : 'center', 
+                  mb: 3,
+                  gap: 2
+                }}>
+                  <Box sx={{ flex: 1 }}>
+                    <Typography variant={isMobile ? "subtitle1" : "h6"} gutterBottom fontWeight={600}>
                       Conexão WhatsApp Business
                     </Typography>
                     <Typography variant="body2" color="text.secondary">
@@ -392,8 +439,12 @@ export default function SettingsPage() {
                     </Typography>
                   </Box>
                   {whatsappConnected ? (
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <Stack 
+                      direction={isMobile ? "column" : "row"} 
+                      spacing={2}
+                      sx={{ width: isMobile ? '100%' : 'auto' }}
+                    >
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, justifyContent: isMobile ? 'center' : 'flex-start' }}>
                         <CheckCircle color="success" />
                         <Typography variant="body2" color="success.main" fontWeight={500}>
                           Conectado
@@ -402,18 +453,21 @@ export default function SettingsPage() {
                       <Button
                         variant="outlined"
                         color="error"
-                        size="small"
+                        size={isMobile ? "medium" : "small"}
                         onClick={handleWhatsAppDisconnect}
+                        fullWidth={isMobile}
                       >
                         Desconectar
                       </Button>
-                    </Box>
+                    </Stack>
                   ) : (
                     <Button
                       variant="contained"
                       color="success"
                       startIcon={<QrCode2 />}
                       onClick={() => setShowWhatsAppConfig(true)}
+                      fullWidth={isMobile}
+                      size={isMobile ? "large" : "medium"}
                     >
                       Configurar WhatsApp
                     </Button>
@@ -427,10 +481,16 @@ export default function SettingsPage() {
                     </Alert>
 
                     <Grid container spacing={2}>
-                      <Grid item xs={12} md={6}>
+                      <Grid item xs={12} sm={6}>
                         <Paper variant="outlined" sx={{ p: 2 }}>
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                            <PhoneAndroid color="primary" />
+                          <Box sx={{ 
+                            display: 'flex', 
+                            alignItems: 'center', 
+                            gap: 2,
+                            flexDirection: isMobile ? 'column' : 'row',
+                            textAlign: isMobile ? 'center' : 'left'
+                          }}>
+                            <PhoneAndroid color="primary" fontSize={isMobile ? "large" : "medium"} />
                             <Box>
                               <Typography variant="subtitle2">Número Conectado</Typography>
                               <Typography variant="body2" color="text.secondary">
@@ -440,10 +500,16 @@ export default function SettingsPage() {
                           </Box>
                         </Paper>
                       </Grid>
-                      <Grid item xs={12} md={6}>
+                      <Grid item xs={12} sm={6}>
                         <Paper variant="outlined" sx={{ p: 2 }}>
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                            <LinkIcon color="primary" />
+                          <Box sx={{ 
+                            display: 'flex', 
+                            alignItems: 'center', 
+                            gap: 2,
+                            flexDirection: isMobile ? 'column' : 'row',
+                            textAlign: isMobile ? 'center' : 'left'
+                          }}>
+                            <LinkIcon color="primary" fontSize={isMobile ? "large" : "medium"} />
                             <Box>
                               <Typography variant="subtitle2">Status da Conexão</Typography>
                               <Typography variant="body2" color="text.secondary">
@@ -474,7 +540,7 @@ export default function SettingsPage() {
           <Grid item xs={12}>
             <Card>
               <CardContent>
-                <Typography variant="h6" gutterBottom>
+                <Typography variant={isMobile ? "subtitle1" : "h6"} gutterBottom fontWeight={600}>
                   Informações da Empresa
                 </Typography>
 
@@ -483,18 +549,27 @@ export default function SettingsPage() {
                   <Typography variant="subtitle2" gutterBottom>
                     Logo da Empresa
                   </Typography>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 3 }}>
+                  <Box sx={{ 
+                    display: 'flex', 
+                    alignItems: isMobile ? 'flex-start' : 'center', 
+                    gap: isMobile ? 2 : 3,
+                    flexDirection: isMobile ? 'column' : 'row'
+                  }}>
                     {companyConfig.logo ? (
                       <Avatar
                         src={companyConfig.logo}
-                        sx={{ width: 80, height: 80 }}
+                        sx={{ 
+                          width: isMobile ? 100 : 80, 
+                          height: isMobile ? 100 : 80,
+                          alignSelf: isMobile ? 'center' : 'flex-start'
+                        }}
                         variant="rounded"
                       />
                     ) : (
                       <Box
                         sx={{
-                          width: 80,
-                          height: 80,
+                          width: isMobile ? 100 : 80,
+                          height: isMobile ? 100 : 80,
                           border: '2px dashed',
                           borderColor: 'divider',
                           borderRadius: 1,
@@ -502,12 +577,16 @@ export default function SettingsPage() {
                           alignItems: 'center',
                           justifyContent: 'center',
                           bgcolor: 'action.hover',
+                          alignSelf: isMobile ? 'center' : 'flex-start'
                         }}
                       >
                         <Business sx={{ fontSize: 32, color: 'text.secondary' }} />
                       </Box>
                     )}
-                    <Box>
+                    <Box sx={{ 
+                      width: isMobile ? '100%' : 'auto',
+                      textAlign: isMobile ? 'center' : 'left'
+                    }}>
                       <input
                         accept="image/*"
                         style={{ display: 'none' }}
@@ -521,7 +600,8 @@ export default function SettingsPage() {
                           component="span"
                           startIcon={<Upload />}
                           disabled={uploadingLogo}
-                          size="small"
+                          size={isMobile ? "medium" : "small"}
+                          fullWidth={isMobile}
                         >
                           {uploadingLogo ? 'Enviando...' : 'Enviar Logo'}
                         </Button>
@@ -533,41 +613,45 @@ export default function SettingsPage() {
                   </Box>
                 </Box>
 
-                <Grid container spacing={3}>
-                  <Grid item xs={12} md={6}>
+                <Grid container spacing={isMobile ? 2 : 3}>
+                  <Grid item xs={12} sm={6}>
                     <TextField
                       fullWidth
                       label="Nome da Empresa"
                       value={companyConfig.name}
                       onChange={(e) => setCompanyConfig(prev => ({ ...prev, name: e.target.value }))}
                       placeholder="Imobiliária Exemplo"
+                      size={isMobile ? "small" : "medium"}
                     />
                   </Grid>
-                  <Grid item xs={12} md={6}>
+                  <Grid item xs={12} sm={6}>
                     <TextField
                       fullWidth
                       label="Telefone"
                       value={companyConfig.phone}
                       onChange={(e) => setCompanyConfig(prev => ({ ...prev, phone: e.target.value }))}
                       placeholder="(21) 99999-9999"
+                      size={isMobile ? "small" : "medium"}
                     />
                   </Grid>
-                  <Grid item xs={12} md={6}>
+                  <Grid item xs={12} sm={6}>
                     <TextField
                       fullWidth
                       label="E-mail"
                       value={companyConfig.email}
                       onChange={(e) => setCompanyConfig(prev => ({ ...prev, email: e.target.value }))}
                       placeholder="contato@imobiliaria.com.br"
+                      size={isMobile ? "small" : "medium"}
                     />
                   </Grid>
-                  <Grid item xs={12} md={6}>
+                  <Grid item xs={12} sm={6}>
                     <TextField
                       fullWidth
                       label="Website"
                       value={companyConfig.website}
                       onChange={(e) => setCompanyConfig(prev => ({ ...prev, website: e.target.value }))}
                       placeholder="www.imobiliaria.com.br"
+                      size={isMobile ? "small" : "medium"}
                     />
                   </Grid>
                   <Grid item xs={12}>
@@ -579,6 +663,7 @@ export default function SettingsPage() {
                       placeholder="Rua das Flores, 123 - Centro - Rio de Janeiro/RJ"
                       multiline
                       rows={2}
+                      size={isMobile ? "small" : "medium"}
                     />
                   </Grid>
                 </Grid>
@@ -594,11 +679,11 @@ export default function SettingsPage() {
           <Grid item xs={12}>
             <Card>
               <CardContent>
-                <Typography variant="h6" gutterBottom>
+                <Typography variant={isMobile ? "subtitle1" : "h6"} gutterBottom fontWeight={600}>
                   Configurações do Assistente
                 </Typography>
 
-                <Grid container spacing={3}>
+                <Grid container spacing={isMobile ? 2 : 3}>
                   <Grid item xs={12}>
                     <FormControl fullWidth>
                       <InputLabel>Estilo de Resposta</InputLabel>
@@ -666,7 +751,12 @@ export default function SettingsPage() {
                         label="Configurar horário de atendimento"
                       />
                       {aiConfig.businessHours.enabled && (
-                        <Box sx={{ mt: 2, display: 'flex', gap: 2 }}>
+                        <Box sx={{ 
+                          mt: 2, 
+                          display: 'flex', 
+                          gap: 2,
+                          flexDirection: isMobile ? 'column' : 'row'
+                        }}>
                           <TextField
                             label="Início"
                             type="time"
@@ -676,6 +766,8 @@ export default function SettingsPage() {
                               businessHours: { ...prev.businessHours, start: e.target.value }
                             }))}
                             InputLabelProps={{ shrink: true }}
+                            fullWidth
+                            size={isMobile ? "small" : "medium"}
                           />
                           <TextField
                             label="Fim"
@@ -686,6 +778,8 @@ export default function SettingsPage() {
                               businessHours: { ...prev.businessHours, end: e.target.value }
                             }))}
                             InputLabelProps={{ shrink: true }}
+                            fullWidth
+                            size={isMobile ? "small" : "medium"}
                           />
                         </Box>
                       )}
@@ -704,9 +798,16 @@ export default function SettingsPage() {
           <Grid item xs={12}>
             <Card>
               <CardContent>
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-                  <Box>
-                    <Typography variant="h6" gutterBottom>
+                <Box sx={{ 
+                  display: 'flex', 
+                  flexDirection: isMobile ? 'column' : 'row',
+                  justifyContent: 'space-between', 
+                  alignItems: isMobile ? 'stretch' : 'center', 
+                  mb: 3,
+                  gap: 2
+                }}>
+                  <Box sx={{ flex: 1 }}>
+                    <Typography variant={isMobile ? "subtitle1" : "h6"} gutterBottom fontWeight={600}>
                       Cobrança Automática via WhatsApp
                     </Typography>
                     <Typography variant="body2" color="text.secondary">
@@ -722,12 +823,13 @@ export default function SettingsPage() {
                       />
                     }
                     label="Ativado"
+                    sx={{ margin: isMobile ? '0 auto' : 0 }}
                   />
                 </Box>
 
                 {billingConfig.automaticBilling && (
-                  <Grid container spacing={3}>
-                    <Grid item xs={12} md={6}>
+                  <Grid container spacing={isMobile ? 2 : 3}>
+                    <Grid item xs={12} sm={6}>
                       <TextField
                         fullWidth
                         type="number"
@@ -735,9 +837,10 @@ export default function SettingsPage() {
                         value={billingConfig.reminderDays}
                         onChange={(e) => setBillingConfig(prev => ({ ...prev, reminderDays: parseInt(e.target.value) }))}
                         InputProps={{ inputProps: { min: 1, max: 30 } }}
+                        size={isMobile ? "small" : "medium"}
                       />
                     </Grid>
-                    <Grid item xs={12} md={6}>
+                    <Grid item xs={12} sm={6}>
                       <TextField
                         fullWidth
                         type="number"
@@ -745,6 +848,7 @@ export default function SettingsPage() {
                         value={billingConfig.lateFeePercentage}
                         onChange={(e) => setBillingConfig(prev => ({ ...prev, lateFeePercentage: parseFloat(e.target.value) }))}
                         InputProps={{ inputProps: { min: 0, max: 10, step: 0.5 } }}
+                        size={isMobile ? "small" : "medium"}
                       />
                     </Grid>
                     <Grid item xs={12}>
@@ -762,13 +866,18 @@ export default function SettingsPage() {
                       <Typography variant="subtitle2" gutterBottom>
                         Métodos de Pagamento Aceitos
                       </Typography>
-                      <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                      <Box sx={{ 
+                        display: 'flex', 
+                        gap: 1, 
+                        flexWrap: 'wrap',
+                        flexDirection: isMobile ? 'column' : 'row'
+                      }}>
                         {['PIX', 'Cartão de Crédito', 'Cartão de Débito', 'Boleto', 'Transferência'].map(method => (
                           <FormControlLabel
                             key={method}
                             control={
                               <Switch
-                                size="small"
+                                size={isMobile ? "medium" : "small"}
                                 checked={billingConfig.paymentMethods.includes(method)}
                                 onChange={(e) => {
                                   if (e.target.checked) {
@@ -786,6 +895,10 @@ export default function SettingsPage() {
                               />
                             }
                             label={method}
+                            sx={{ 
+                              width: isMobile ? '100%' : 'auto',
+                              marginLeft: 0
+                            }}
                           />
                         ))}
                       </Box>
@@ -804,9 +917,19 @@ export default function SettingsPage() {
         onClose={() => !connectingWhatsApp && setShowWhatsAppConfig(false)}
         maxWidth="md" 
         fullWidth
+        fullScreen={isMobile}
       >
-        <DialogTitle>
+        <DialogTitle sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           Configurar WhatsApp Business API
+          {isMobile && (
+            <IconButton
+              onClick={() => setShowWhatsAppConfig(false)}
+              disabled={connectingWhatsApp}
+              size="small"
+            >
+              <Close />
+            </IconButton>
+          )}
         </DialogTitle>
         <DialogContent>
           <Box sx={{ mt: 2 }}>
@@ -826,6 +949,7 @@ export default function SettingsPage() {
                   onChange={(e) => setWhatsappCredentials(prev => ({ ...prev, phoneNumberId: e.target.value }))}
                   placeholder="Ex: 123456789012345"
                   helperText="ID do número de telefone do WhatsApp Business"
+                  size={isMobile ? "small" : "medium"}
                 />
               </Grid>
               <Grid item xs={12}>
@@ -837,6 +961,7 @@ export default function SettingsPage() {
                   onChange={(e) => setWhatsappCredentials(prev => ({ ...prev, accessToken: e.target.value }))}
                   placeholder="Ex: EAAxxxxxxxxxx..."
                   helperText="Token de acesso permanente do WhatsApp Business API"
+                  size={isMobile ? "small" : "medium"}
                 />
               </Grid>
               <Grid item xs={12}>
@@ -847,14 +972,17 @@ export default function SettingsPage() {
                   onChange={(e) => setWhatsappCredentials(prev => ({ ...prev, verifyToken: e.target.value }))}
                   placeholder="Ex: meu_token_secreto"
                   helperText="Token de verificação para webhook (defina um valor único)"
+                  size={isMobile ? "small" : "medium"}
                 />
               </Grid>
             </Grid>
 
             <Alert severity="warning" sx={{ mt: 3 }}>
-              <Typography variant="body2">
+              <Typography variant="body2" sx={{ wordBreak: 'break-all' }}>
                 <strong>Webhook URL:</strong> Configure no Facebook Developer Console:<br/>
-                <code>{process.env.NEXT_PUBLIC_APP_URL}/api/webhook/whatsapp</code>
+                <code style={{ fontSize: isMobile ? '0.75rem' : '0.875rem' }}>
+                  {process.env.NEXT_PUBLIC_APP_URL}/api/webhook/whatsapp
+                </code>
               </Typography>
             </Alert>
 
@@ -868,8 +996,18 @@ export default function SettingsPage() {
             )}
           </Box>
         </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setShowWhatsAppConfig(false)} disabled={connectingWhatsApp}>
+        <DialogActions sx={{ 
+          flexDirection: isMobile ? 'column-reverse' : 'row',
+          gap: isMobile ? 1 : 0,
+          px: isMobile ? 3 : 2,
+          pb: isMobile ? 3 : 2
+        }}>
+          <Button 
+            onClick={() => setShowWhatsAppConfig(false)} 
+            disabled={connectingWhatsApp}
+            fullWidth={isMobile}
+            size={isMobile ? "large" : "medium"}
+          >
             Cancelar
           </Button>
           <Button 
@@ -877,6 +1015,8 @@ export default function SettingsPage() {
             onClick={handleWhatsAppConnect}
             color="success"
             disabled={connectingWhatsApp || !whatsappCredentials.phoneNumberId || !whatsappCredentials.accessToken || !whatsappCredentials.verifyToken}
+            fullWidth={isMobile}
+            size={isMobile ? "large" : "medium"}
           >
             {connectingWhatsApp ? 'Testando...' : 'Conectar'}
           </Button>
