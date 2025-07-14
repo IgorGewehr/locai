@@ -11,6 +11,22 @@ export async function GET(request: NextRequest) {
 
     const settings = await settingsService.getSettings(auth.tenantId || 'default-tenant');
     
+    // Get user profile for company info integration
+    const { adminDb } = await import('@/lib/firebase/admin');
+    const userDoc = await adminDb.collection('users').doc(auth.userId).get();
+    const userData = userDoc.exists ? userDoc.data() : {};
+    
+    // Merge user profile data with company settings if needed
+    if (settings?.company && userData) {
+      settings.company = {
+        ...settings.company,
+        // Use profile data as fallback if company data is empty
+        name: settings.company.name || userData.company || 'LocAI Imobiliária',
+        email: settings.company.email || userData.email || auth.email,
+        phone: settings.company.phone || userData.phone || '',
+      };
+    }
+    
     // Remove sensitive data before sending to client
     if (settings?.whatsapp) {
       settings.whatsapp = {

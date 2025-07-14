@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useAuth } from '@/lib/hooks/useAuth';
 import { UserProfile as ExtendedUserProfile } from '@/lib/types/user';
 import {
@@ -72,53 +72,111 @@ export default function ProfilePage() {
   const [profile, setProfile] = useState<ProfileFormData | null>(null);
 
   useEffect(() => {
-    if (user) {
-      const extendedUser = user as ExtendedUserProfile;
-      setProfile({
-        id: user.id,
-        name: user.name || user.email?.split('@')[0] || '',
-        email: user.email,
-        phone: extendedUser.phone || extendedUser.phoneNumber || '',
-        role: user.role,
-        avatar: extendedUser.avatar || extendedUser.photoURL || null,
-        company: extendedUser.company || 'LocAI Imobiliária',
-        position: user.role === 'admin' ? 'Administrador' : 'Usuário',
-        location: '',
-        bio: '',
-        joinDate: extendedUser.metadata?.createdAt ? new Date(extendedUser.metadata.createdAt) : new Date(),
-        lastLogin: extendedUser.metadata?.lastLogin ? new Date(extendedUser.metadata.lastLogin) : new Date(),
-        settings: {
-          notifications: extendedUser.settings?.notifications ?? true,
-          darkMode: extendedUser.settings?.theme === 'dark' ?? false,
-          language: (extendedUser.settings?.language as 'pt-BR' | 'en-US') ?? 'pt-BR',
-          emailNotifications: true,
-          whatsappNotifications: true,
-        },
-      });
+    const loadProfile = async () => {
+      if (!user) return;
+      
+      try {
+        const response = await fetch('/api/auth/profile');
+        if (response.ok) {
+          const profileData = await response.json();
+          setProfile({
+            id: profileData.id,
+            name: profileData.name || user.name || user.email?.split('@')[0] || '',
+            email: profileData.email || user.email || '',
+            phone: profileData.phone || '',
+            role: profileData.role || user.role,
+            avatar: profileData.avatar || null,
+            company: profileData.company || 'LocAI Imobiliária',
+            position: profileData.position || (user.role === 'admin' ? 'Administrador' : 'Usuário'),
+            location: profileData.location || '',
+            bio: profileData.bio || '',
+            joinDate: profileData.createdAt ? new Date(profileData.createdAt) : new Date(),
+            lastLogin: profileData.lastLogin ? new Date(profileData.lastLogin) : new Date(),
+            settings: {
+              notifications: profileData.settings?.notifications ?? true,
+              darkMode: profileData.settings?.darkMode ?? false,
+              language: profileData.settings?.language ?? 'pt-BR',
+              emailNotifications: profileData.settings?.emailNotifications ?? true,
+              whatsappNotifications: profileData.settings?.whatsappNotifications ?? true,
+            },
+          });
+        } else {
+          // Fallback to user data if API fails
+          const extendedUser = user as ExtendedUserProfile;
+          setProfile({
+            id: user.id,
+            name: user.name || user.email?.split('@')[0] || '',
+            email: user.email || '',
+            phone: extendedUser.phone || extendedUser.phoneNumber || '',
+            role: user.role,
+            avatar: extendedUser.avatar || extendedUser.photoURL || null,
+            company: 'LocAI Imobiliária',
+            position: user.role === 'admin' ? 'Administrador' : 'Usuário',
+            location: '',
+            bio: '',
+            joinDate: new Date(),
+            lastLogin: new Date(),
+            settings: {
+              notifications: true,
+              darkMode: false,
+              language: 'pt-BR',
+              emailNotifications: true,
+              whatsappNotifications: true,
+            },
+          });
+        }
+      } catch (error) {
+        console.error('Error loading profile:', error);
+      }
+    };
+
+    if (user && !profile) {
+      loadProfile();
     }
   }, [user]);
 
-  const handleSave = async () => {
+  const handleSave = useCallback(async () => {
     if (!profile) return;
     
     try {
-      // Save to backend
-      const response = await fetch('/api/auth/profile', {
+      // Save profile to backend
+      const profileResponse = await fetch('/api/auth/profile', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(profile)
       });
       
-      if (response.ok) {
+      if (profileResponse.ok) {
+        // Also update company settings if company info changed
+        if (profile.company || profile.phone) {
+          try {
+            await fetch('/api/settings', {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                section: 'company',
+                data: {
+                  name: profile.company,
+                  phone: profile.phone,
+                  email: profile.email,
+                }
+              })
+            });
+          } catch (settingsError) {
+            console.log('Settings sync failed, but profile saved:', settingsError);
+          }
+        }
+        
         setEditing(false);
         alert('Perfil atualizado com sucesso!');
       } else {
         alert('Erro ao salvar perfil');
       }
     } catch (error) {
+      console.error('Error saving profile:', error);
       alert('Erro ao salvar perfil');
     }
-  };
+  }, [profile]);
 
   const handleAvatarUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -149,10 +207,9 @@ export default function ProfilePage() {
     }
   };
 
-  const handleSettingChange = (setting: keyof UserProfile['settings'], value: boolean) => {
-    if (!profile) return;
+  const handleSettingChange = useCallback((setting: keyof ProfileFormData['settings'], value: boolean) => {
     setProfile(prev => {
-      if (!prev) return null;
+      if (!prev) return prev;
       return {
         ...prev,
         settings: {
@@ -161,7 +218,7 @@ export default function ProfilePage() {
         },
       };
     });
-  };
+  }, []);
 
   const getRoleColor = (role: string) => {
     return role === 'admin' ? 'primary' : 'secondary';
@@ -171,10 +228,43 @@ export default function ProfilePage() {
     return role === 'admin' ? 'Administrador' : 'Usuário';
   };
 
-  if (loading || !profile) {
+  // Memoized handlers to prevent infinite loops
+  const handleFieldChange = useCallback((field: keyof ProfileFormData, value: string) => {
+    setProfile(prev => {
+      if (!prev) return prev;
+      return {
+        ...prev,
+        [field]: value,
+      };
+    });
+  }, []);
+
+  // Memoized field values to prevent unnecessary re-renders
+  const fieldValues = useMemo(() => {
+    if (!profile) return {};
+    return {
+      name: profile.name || '',
+      email: profile.email || '',
+      phone: profile.phone || '',
+      company: profile.company || '',
+      position: profile.position || '',
+      location: profile.location || '',
+      bio: profile.bio || '',
+    };
+  }, [profile]);
+
+  if (loading) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '80vh' }}>
         <Typography>Carregando...</Typography>
+      </Box>
+    );
+  }
+
+  if (!profile) {
+    return (
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '80vh' }}>
+        <Typography>Erro ao carregar perfil</Typography>
       </Box>
     );
   }
@@ -306,8 +396,8 @@ export default function ProfilePage() {
                   <TextField
                     fullWidth
                     label="Nome Completo"
-                    value={profile?.name || ''}
-                    onChange={(e) => setProfile(prev => prev ? { ...prev, name: e.target.value } : null)}
+                    value={fieldValues.name}
+                    onChange={(e) => handleFieldChange('name', e.target.value)}
                     disabled={!editing}
                   />
                 </Grid>
@@ -316,8 +406,8 @@ export default function ProfilePage() {
                   <TextField
                     fullWidth
                     label="Email"
-                    value={profile?.email || ''}
-                    onChange={(e) => setProfile(prev => prev ? { ...prev, email: e.target.value } : null)}
+                    value={fieldValues.email}
+                    onChange={(e) => handleFieldChange('email', e.target.value)}
                     disabled={!editing}
                   />
                 </Grid>
@@ -326,8 +416,8 @@ export default function ProfilePage() {
                   <TextField
                     fullWidth
                     label="Telefone"
-                    value={profile?.phone || ''}
-                    onChange={(e) => setProfile(prev => prev ? { ...prev, phone: e.target.value } : null)}
+                    value={fieldValues.phone}
+                    onChange={(e) => handleFieldChange('phone', e.target.value)}
                     disabled={!editing}
                   />
                 </Grid>
@@ -336,8 +426,8 @@ export default function ProfilePage() {
                   <TextField
                     fullWidth
                     label="Empresa"
-                    value={profile?.company || ''}
-                    onChange={(e) => setProfile(prev => prev ? { ...prev, company: e.target.value } : null)}
+                    value={fieldValues.company}
+                    onChange={(e) => handleFieldChange('company', e.target.value)}
                     disabled={!editing}
                   />
                 </Grid>
@@ -346,8 +436,8 @@ export default function ProfilePage() {
                   <TextField
                     fullWidth
                     label="Cargo"
-                    value={profile?.position || ''}
-                    onChange={(e) => setProfile(prev => prev ? { ...prev, position: e.target.value } : null)}
+                    value={fieldValues.position}
+                    onChange={(e) => handleFieldChange('position', e.target.value)}
                     disabled={!editing}
                   />
                 </Grid>
@@ -356,8 +446,8 @@ export default function ProfilePage() {
                   <TextField
                     fullWidth
                     label="Localização"
-                    value={profile?.location || ''}
-                    onChange={(e) => setProfile(prev => prev ? { ...prev, location: e.target.value } : null)}
+                    value={fieldValues.location}
+                    onChange={(e) => handleFieldChange('location', e.target.value)}
                     disabled={!editing}
                   />
                 </Grid>
@@ -368,8 +458,8 @@ export default function ProfilePage() {
                     label="Biografia"
                     multiline
                     rows={3}
-                    value={profile?.bio || ''}
-                    onChange={(e) => setProfile(prev => prev ? { ...prev, bio: e.target.value } : null)}
+                    value={fieldValues.bio}
+                    onChange={(e) => handleFieldChange('bio', e.target.value)}
                     disabled={!editing}
                     placeholder="Conte um pouco sobre você..."
                   />
