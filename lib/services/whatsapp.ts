@@ -297,7 +297,28 @@ export class WhatsAppService {
   }
 }
 
-// Create a singleton instance
+// Factory function to create WhatsApp service with dynamic credentials
+export async function createWhatsAppService(tenantId: string): Promise<WhatsAppService> {
+  const { settingsService } = await import('./settings-service');
+  const credentials = await settingsService.getWhatsAppCredentials(tenantId);
+  
+  if (credentials?.accessToken && credentials?.phoneNumberId) {
+    return new WhatsAppService({
+      accessToken: credentials.accessToken,
+      phoneNumberId: credentials.phoneNumberId,
+      verifyToken: credentials.verifyToken || process.env.WHATSAPP_VERIFY_TOKEN || '',
+    });
+  }
+  
+  // Fallback to environment variables for backward compatibility
+  return new WhatsAppService({
+    accessToken: process.env.WHATSAPP_ACCESS_TOKEN || '',
+    phoneNumberId: process.env.WHATSAPP_PHONE_NUMBER_ID || '',
+    verifyToken: process.env.WHATSAPP_VERIFY_TOKEN || '',
+  });
+}
+
+// Create a default instance for backward compatibility
 const whatsappService = new WhatsAppService({
   accessToken: process.env.WHATSAPP_ACCESS_TOKEN || '',
   phoneNumberId: process.env.WHATSAPP_PHONE_NUMBER_ID || '',

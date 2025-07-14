@@ -1,20 +1,51 @@
 import { WhatsAppMessage, WhatsAppTemplate, WhatsAppMediaResponse, WhatsAppMediaDetails, WhatsAppError } from '@/lib/types/whatsapp'
 import { withTimeout } from '@/lib/utils/async'
+import { whatsappSessionManager } from './session-manager'
+import { settingsService } from '@/lib/services/settings-service'
 
 export class WhatsAppClient {
   private baseURL = 'https://graph.facebook.com/v18.0'
   private phoneNumberId: string
   private accessToken: string
+  private tenantId: string
+  private useWebClient: boolean = false
 
-  constructor(phoneNumberId: string, accessToken: string) {
+  constructor(phoneNumberId: string, accessToken: string, tenantId?: string) {
     this.phoneNumberId = phoneNumberId
     this.accessToken = accessToken
+    this.tenantId = tenantId || 'default'
+    
+    // Check if we should use Web client based on empty credentials
+    this.useWebClient = !phoneNumberId || !accessToken || phoneNumberId === 'web' || accessToken === 'web'
   }
 
   /**
    * Enhanced send message with better error handling and logging
    */
   async sendMessage(to: string, message: WhatsAppMessage): Promise<any> {
+    // If using Web client, delegate to session manager
+    if (this.useWebClient) {
+      let text = '';
+      let mediaUrl: string | undefined;
+      
+      if (message.type === 'text' && message.text) {
+        text = message.text.body;
+      } else if (message.type === 'image' && message.image) {
+        text = message.image.caption || '';
+        mediaUrl = message.image.link;
+      } else if (message.type === 'video' && message.video) {
+        text = message.video.caption || '';
+        mediaUrl = message.video.link;
+      } else if (message.type === 'document' && message.document) {
+        text = message.document.filename || 'Document';
+        mediaUrl = message.document.link;
+      }
+      
+      await whatsappSessionManager.sendMessage(this.tenantId, to, text, mediaUrl);
+      return { success: true };
+    }
+    
+    // Original Business API implementation
     try {
       const url = `${this.baseURL}/${this.phoneNumberId}/messages`
 
@@ -60,10 +91,14 @@ export class WhatsAppClient {
   }
 
   async sendText(to: string, text: string): Promise<void> {
-    await this.sendMessage(to, {
-      type: 'text',
-      text: { body: text }
-    })
+    if (this.useWebClient) {
+      await whatsappSessionManager.sendMessage(this.tenantId, to, text)
+    } else {
+      await this.sendMessage(to, {
+        type: 'text',
+        text: { body: text }
+      })
+    }
   }
 
   /**
@@ -100,24 +135,36 @@ export class WhatsAppClient {
   }
 
   async sendImage(to: string, imageUrl: string, caption?: string): Promise<void> {
-    await this.sendMessage(to, {
-      type: 'image',
-      image: caption ? { link: imageUrl, caption } : { link: imageUrl }
-    })
+    if (this.useWebClient) {
+      await whatsappSessionManager.sendMessage(this.tenantId, to, caption || '', imageUrl)
+    } else {
+      await this.sendMessage(to, {
+        type: 'image',
+        image: caption ? { link: imageUrl, caption } : { link: imageUrl }
+      })
+    }
   }
 
   async sendVideo(to: string, videoUrl: string, caption?: string): Promise<void> {
-    await this.sendMessage(to, {
-      type: 'video',
-      video: caption ? { link: videoUrl, caption } : { link: videoUrl }
-    })
+    if (this.useWebClient) {
+      await whatsappSessionManager.sendMessage(this.tenantId, to, caption || '', videoUrl)
+    } else {
+      await this.sendMessage(to, {
+        type: 'video',
+        video: caption ? { link: videoUrl, caption } : { link: videoUrl }
+      })
+    }
   }
 
   async sendDocument(to: string, documentUrl: string, filename?: string): Promise<void> {
-    await this.sendMessage(to, {
-      type: 'document',
-      document: filename ? { link: documentUrl, filename } : { link: documentUrl }
-    })
+    if (this.useWebClient) {
+      await whatsappSessionManager.sendMessage(this.tenantId, to, filename || 'Document', documentUrl)
+    } else {
+      await this.sendMessage(to, {
+        type: 'document',
+        document: filename ? { link: documentUrl, filename } : { link: documentUrl }
+      })
+    }
   }
 
   /**
@@ -602,6 +649,59 @@ export class WhatsAppClient {
     // Basic validation for international format
     const regex = /^\+?[1-9]\d{1,14}$/
     return regex.test(phoneNumber.replace(/\s/g, ''))
+  }
+  
+  /**
+   * Check if WhatsApp Web is connected
+   */
+  async isConnected(): Promise<boolean> {
+    if (this.useWebClient) {
+      const status = await whatsappSessionManager.getSessionStatus(this.tenantId)
+      return status.connected
+    }
+    
+    // For Business API, check if credentials are valid
+    try {
+      await this.getPhoneNumberInfo()
+      return true
+    } catch {
+      return false
+    }
+  }
+  
+  /**
+   * Get connection status details
+   */
+  async getConnectionStatus(): Promise<{
+    connected: boolean
+    type: 'web' | 'business'
+    phoneNumber?: string
+    businessName?: string
+  }> {
+    if (this.useWebClient) {
+      const status = await whatsappSessionManager.getSessionStatus(this.tenantId)
+      return {
+        connected: status.connected,
+        type: 'web',
+        phoneNumber: status.phoneNumber || undefined,
+        businessName: status.businessName || undefined
+      }
+    }
+    
+    try {
+      const info = await this.getPhoneNumberInfo()
+      return {
+        connected: true,
+        type: 'business',
+        phoneNumber: info.display_phone_number,
+        businessName: info.verified_name
+      }
+    } catch {
+      return {
+        connected: false,
+        type: 'business'
+      }
+    }
   }
 
   formatPhoneNumber(phoneNumber: string): string {

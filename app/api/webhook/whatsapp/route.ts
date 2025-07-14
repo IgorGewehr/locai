@@ -14,26 +14,7 @@ import { handleApiError } from '@/lib/utils/api-errors'
 import crypto from 'crypto'
 import { z } from 'zod'
 import { getTenantId } from '@/lib/utils/tenant'
-
-// Initialize services
-const tenantId = getTenantId()
-const whatsappClient = new WhatsAppClient(
-  process.env.WHATSAPP_PHONE_NUMBER_ID!,
-  process.env.WHATSAPP_ACCESS_TOKEN!
-)
-const aiService = new AIService(tenantId)
-const conversationService = new ConversationService()
-const propertyService = new PropertyService()
-const reservationService = new ReservationService()
-const automationService = new AutomationService(tenantId, whatsappClient, aiService)
-const messageHandler = new WhatsAppMessageHandler(
-  whatsappClient,
-  aiService,
-  conversationService,
-  automationService,
-  propertyService,
-  reservationService
-)
+import { whatsappSessionManager } from '@/lib/whatsapp/session-manager'
 
 // Message deduplication cache (stores message IDs for 5 minutes)
 const processedMessages = new Map<string, number>()
@@ -284,11 +265,13 @@ export async function POST(request: NextRequest) {
                   phone: message.from,
                 })
 
-                // Send rate limit message
-                await whatsappClient.sendText(
+                // Send rate limit message using session manager
+                const rateLimitTenantId = await whatsappSessionManager.getTenantByPhoneNumber(value.metadata.phone_number_id) || getTenantId(request);
+                await whatsappSessionManager.sendMessage(
+                  rateLimitTenantId,
                   message.from,
                   'Você está enviando muitas mensagens. Por favor, aguarde um momento antes de enviar mais mensagens.'
-                )
+                );
                 continue
               }
 
@@ -319,9 +302,16 @@ export async function POST(request: NextRequest) {
                 }]
               }
 
+              // Get tenant ID from phone number
+              const phoneNumberId = value.metadata.phone_number_id;
+              const messageTenantId = await whatsappSessionManager.getTenantByPhoneNumber(phoneNumberId) || getTenantId(request);
+              
+              // Create message handler for this tenant
+              const messageHandler = new WhatsAppMessageHandler(messageTenantId);
+              
               // Process with timeout
               await ErrorHandler.withTimeout(
-                async () => await messageHandler.handleIncomingMessage(messageWebhookData),
+                async () => await messageHandler.handleWebhook(messageWebhookData),
                 30000, // 30 seconds timeout
                 `Message processing for ${message.id}`
               )
@@ -332,14 +322,17 @@ export async function POST(request: NextRequest) {
                 from: message.from,
               }, error)
 
-              // Send error message to user
+              // Send error message to user using session manager
               try {
-                await whatsappClient.sendText(
+                const errorTenantId = await whatsappSessionManager.getTenantByPhoneNumber(value.metadata.phone_number_id) || getTenantId(request);
+                await whatsappSessionManager.sendMessage(
+                  errorTenantId,
                   message.from,
                   'Desculpe, ocorreu um erro temporário. Nossa equipe foi notificada. Tente novamente em alguns instantes.'
-                )
+                );
               } catch (sendError) {
-                }
+                console.error('Error sending error message:', sendError);
+              }
             }
           }
         }
@@ -370,7 +363,9 @@ export async function POST(request: NextRequest) {
                 }]
               }
 
-              await messageHandler.handleStatusUpdate(statusWebhookData)
+              const statusTenantId = await whatsappSessionManager.getTenantByPhoneNumber(value.metadata.phone_number_id) || getTenantId(request);
+              const statusHandler = new WhatsAppMessageHandler(statusTenantId);
+              await statusHandler.handleStatusUpdate(statusWebhookData)
             } catch (error) {
               await logWebhookEvent('error', {
                 statusId: status.id,
@@ -404,7 +399,9 @@ export async function POST(request: NextRequest) {
               }]
             }
 
-            await messageHandler.handleError(errorWebhookData)
+            const errorHandlerTenantId = await whatsappSessionManager.getTenantByPhoneNumber(value.metadata.phone_number_id) || getTenantId(request);
+            const errorHandler = new WhatsAppMessageHandler(errorHandlerTenantId);
+            await errorHandler.handleError(errorWebhookData)
           }
         }
       }

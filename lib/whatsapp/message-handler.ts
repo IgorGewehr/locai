@@ -13,34 +13,56 @@ import { NetworkError, RateLimitError, ErrorType, classifyError } from '@/lib/ut
 import { TranscriptionService } from '@/lib/services/transcription-service'
 
 export class WhatsAppMessageHandler {
-  private whatsappClient: WhatsAppClient
+  private whatsappClient: WhatsAppClient | null = null
   private aiService: AIService
   private conversationService: ConversationService
-  private automationService: AutomationService
+  private automationService: AutomationService | null = null
   private propertyService: PropertyService
   private reservationService: ReservationService
   private rateLimiter: RateLimiter
   private processingMessages: Set<string> = new Set()
-  private transcriptionService: TranscriptionService
+  private transcriptionService: TranscriptionService | null = null
+  private tenantId: string
 
   constructor(
-    whatsappClient: WhatsAppClient,
-    aiService: AIService,
-    conversationService: ConversationService,
-    automationService: AutomationService,
-    propertyService: PropertyService,
-    reservationService: ReservationService
+    tenantId: string,
+    whatsappClient?: WhatsAppClient,
+    aiService?: AIService,
+    conversationService?: ConversationService,
+    automationService?: AutomationService,
+    propertyService?: PropertyService,
+    reservationService?: ReservationService
   ) {
-    this.whatsappClient = whatsappClient
-    this.aiService = aiService
-    this.conversationService = conversationService
-    this.automationService = automationService
-    this.propertyService = propertyService
-    this.reservationService = reservationService
+    this.tenantId = tenantId
+    this.whatsappClient = whatsappClient || null
+    this.aiService = aiService || new AIService(tenantId)
+    this.conversationService = conversationService || new ConversationService()
+    this.automationService = automationService || null
+    this.propertyService = propertyService || new PropertyService()
+    this.reservationService = reservationService || new ReservationService()
     this.rateLimiter = new RateLimiter(20, 60000) // 20 messages per minute
-    this.transcriptionService = new TranscriptionService(whatsappClient)
+    if (whatsappClient) {
+      this.transcriptionService = new TranscriptionService(whatsappClient)
+    }
+  }
+  
+  async initializeClient(): Promise<void> {
+    if (!this.whatsappClient) {
+      // Create WhatsApp client with Web support
+      this.whatsappClient = new WhatsAppClient('web', 'web', this.tenantId)
+      this.transcriptionService = new TranscriptionService(this.whatsappClient)
+      this.automationService = new AutomationService(this.tenantId, this.whatsappClient, this.aiService)
+    }
   }
 
+  async handleWebhook(webhookData: WhatsAppWebhookData): Promise<void> {
+    // Initialize client if needed
+    await this.initializeClient()
+    
+    // Process the message
+    await this.handleIncomingMessage(webhookData)
+  }
+  
   async handleIncomingMessage(webhookData: WhatsAppWebhookData): Promise<void> {
     try {
       const { message, from, contact } = this.extractMessageData(webhookData)

@@ -1,0 +1,499 @@
+import makeWASocket, {
+  DisconnectReason,
+  fetchLatestBaileysVersion,
+  makeCacheableSignalKeyStore,
+  makeInMemoryStore,
+  proto,
+  useMultiFileAuthState,
+  WAMessageContent,
+  WAMessageKey,
+} from '@whiskeysockets/baileys';
+import { Boom } from '@hapi/boom';
+import pino from 'pino';
+import * as fs from 'fs';
+import * as path from 'path';
+import { settingsService } from '@/lib/services/settings-service';
+import { db } from '@/lib/firebase/config';
+import { doc, updateDoc, setDoc, getDoc, onSnapshot, collection } from 'firebase/firestore';
+import { EventEmitter } from 'events';
+
+interface WhatsAppSession {
+  socket: ReturnType<typeof makeWASocket> | null;
+  store: ReturnType<typeof makeInMemoryStore> | null;
+  qrCode: string | null;
+  status: 'disconnected' | 'connecting' | 'qr' | 'connected';
+  phoneNumber: string | null;
+  businessName: string | null;
+  lastActivity: Date;
+  reconnectAttempts: number;
+}
+
+interface SessionEvents {
+  'qr': (tenantId: string, qr: string) => void;
+  'connected': (tenantId: string, phoneNumber: string) => void;
+  'disconnected': (tenantId: string, reason: string) => void;
+  'message': (tenantId: string, message: any) => void;
+  'status': (tenantId: string, status: WhatsAppSession['status']) => void;
+}
+
+export class WhatsAppSessionManager extends EventEmitter {
+  private sessions: Map<string, WhatsAppSession> = new Map();
+  private logger = pino({ level: 'info' });
+  private sessionDir = path.join(process.cwd(), '.sessions');
+  private reconnectTimers: Map<string, NodeJS.Timeout> = new Map();
+  private statusListeners: Map<string, () => void> = new Map();
+
+  constructor() {
+    super();
+    this.ensureSessionDirectory();
+    this.startCleanupInterval();
+  }
+
+  private ensureSessionDirectory() {
+    if (!fs.existsSync(this.sessionDir)) {
+      fs.mkdirSync(this.sessionDir, { recursive: true });
+    }
+  }
+
+  private startCleanupInterval() {
+    // Clean up inactive sessions every 30 minutes
+    setInterval(() => {
+      const now = Date.now();
+      for (const [tenantId, session] of this.sessions.entries()) {
+        const inactiveTime = now - session.lastActivity.getTime();
+        if (inactiveTime > 60 * 60 * 1000 && session.status === 'disconnected') {
+          this.logger.info(`Cleaning up inactive session for tenant ${tenantId}`);
+          this.destroySession(tenantId);
+        }
+      }
+    }, 30 * 60 * 1000);
+  }
+
+  async initializeSession(tenantId: string): Promise<void> {
+    this.logger.info(`Initializing WhatsApp session for tenant ${tenantId}`);
+    
+    if (this.sessions.has(tenantId)) {
+      const existingSession = this.sessions.get(tenantId)!;
+      if (existingSession.status === 'connected') {
+        this.logger.info(`Session already connected for tenant ${tenantId}`);
+        return;
+      }
+    }
+
+    const session: WhatsAppSession = {
+      socket: null,
+      store: null,
+      qrCode: null,
+      status: 'connecting',
+      phoneNumber: null,
+      businessName: null,
+      lastActivity: new Date(),
+      reconnectAttempts: 0,
+    };
+
+    this.sessions.set(tenantId, session);
+    this.emit('status', tenantId, 'connecting');
+    await this.updateSessionStatus(tenantId, 'connecting');
+
+    try {
+      await this.connectSession(tenantId);
+    } catch (error) {
+      this.logger.error(`Failed to initialize session for tenant ${tenantId}:`, error);
+      session.status = 'disconnected';
+      this.emit('status', tenantId, 'disconnected');
+      await this.updateSessionStatus(tenantId, 'disconnected');
+      throw error;
+    }
+  }
+
+  private async connectSession(tenantId: string): Promise<void> {
+    const session = this.sessions.get(tenantId);
+    if (!session) {
+      throw new Error(`No session found for tenant ${tenantId}`);
+    }
+
+    const { version } = await fetchLatestBaileysVersion();
+    const sessionPath = path.join(this.sessionDir, `session-${tenantId}`);
+    
+    const { state, saveCreds } = await useMultiFileAuthState(sessionPath);
+    
+    const store = makeInMemoryStore({
+      logger: this.logger.child({ stream: 'store' }),
+    });
+    
+    session.store = store;
+
+    const socket = makeWASocket({
+      version,
+      logger: this.logger.child({ stream: 'socket' }),
+      printQRInTerminal: false,
+      auth: {
+        creds: state.creds,
+        keys: makeCacheableSignalKeyStore(state.keys, this.logger),
+      },
+      generateHighQualityLinkPreview: true,
+      getMessage: async (key: WAMessageKey) => {
+        if (store) {
+          const msg = await store.loadMessage(key.remoteJid!, key.id!);
+          return msg?.message || undefined;
+        }
+        return proto.Message.fromObject({});
+      },
+    });
+
+    session.socket = socket;
+    store.bind(socket.ev);
+
+    // Handle connection updates
+    socket.ev.on('connection.update', async (update) => {
+      const { connection, lastDisconnect, qr } = update;
+      
+      if (qr) {
+        session.qrCode = qr;
+        session.status = 'qr';
+        this.emit('qr', tenantId, qr);
+        this.emit('status', tenantId, 'qr');
+        await this.updateSessionStatus(tenantId, 'qr', qr);
+      }
+
+      if (connection === 'close') {
+        const shouldReconnect = (lastDisconnect?.error as Boom)?.output?.statusCode !== DisconnectReason.loggedOut;
+        
+        if (shouldReconnect && session.reconnectAttempts < 5) {
+          session.reconnectAttempts++;
+          const delay = Math.min(1000 * Math.pow(2, session.reconnectAttempts), 30000);
+          
+          this.logger.info(`Reconnecting session for tenant ${tenantId} in ${delay}ms (attempt ${session.reconnectAttempts})`);
+          
+          const timer = setTimeout(() => {
+            this.connectSession(tenantId);
+          }, delay);
+          
+          this.reconnectTimers.set(tenantId, timer);
+        } else {
+          session.status = 'disconnected';
+          this.emit('disconnected', tenantId, 'Connection closed');
+          this.emit('status', tenantId, 'disconnected');
+          await this.updateSessionStatus(tenantId, 'disconnected');
+          
+          if ((lastDisconnect?.error as Boom)?.output?.statusCode === DisconnectReason.loggedOut) {
+            // Clear session data if logged out
+            await this.clearSessionData(tenantId);
+          }
+        }
+      } else if (connection === 'open') {
+        session.reconnectAttempts = 0;
+        session.status = 'connected';
+        session.qrCode = null;
+        
+        // Get phone number and business info
+        const phoneNumber = socket.user?.id.split(':')[0] || '';
+        const businessName = socket.user?.name || '';
+        
+        session.phoneNumber = phoneNumber;
+        session.businessName = businessName;
+        
+        this.emit('connected', tenantId, phoneNumber);
+        this.emit('status', tenantId, 'connected');
+        await this.updateSessionStatus(tenantId, 'connected', null, phoneNumber, businessName);
+        
+        this.logger.info(`WhatsApp connected for tenant ${tenantId}: ${phoneNumber} (${businessName})`);
+        
+        // Clear any reconnect timers
+        const timer = this.reconnectTimers.get(tenantId);
+        if (timer) {
+          clearTimeout(timer);
+          this.reconnectTimers.delete(tenantId);
+        }
+      }
+    });
+
+    // Handle credentials update
+    socket.ev.on('creds.update', saveCreds);
+
+    // Handle incoming messages
+    socket.ev.on('messages.upsert', async ({ messages, type }) => {
+      if (type === 'notify') {
+        for (const msg of messages) {
+          if (!msg.key.fromMe && msg.message) {
+            session.lastActivity = new Date();
+            this.emit('message', tenantId, msg);
+            
+            // Process the message through our existing handler
+            await this.processIncomingMessage(tenantId, msg);
+          }
+        }
+      }
+    });
+
+    // Handle message updates (receipts, etc.)
+    socket.ev.on('messages.update', (updates) => {
+      for (const update of updates) {
+        this.logger.debug(`Message ${update.key.id} updated:`, update.update);
+      }
+    });
+
+    // Handle group updates
+    socket.ev.on('groups.update', (updates) => {
+      for (const update of updates) {
+        this.logger.debug(`Group ${update.id} updated`);
+      }
+    });
+  }
+
+  private async processIncomingMessage(tenantId: string, message: proto.IWebMessageInfo) {
+    try {
+      // Import our existing message handler
+      const { WhatsAppMessageHandler } = await import('./message-handler');
+      const handler = new WhatsAppMessageHandler(tenantId);
+      
+      // Convert Baileys message format to our expected format
+      const formattedMessage = {
+        entry: [{
+          id: tenantId,
+          changes: [{
+            value: {
+              messaging_product: 'whatsapp',
+              metadata: {
+                display_phone_number: this.sessions.get(tenantId)?.phoneNumber || '',
+                phone_number_id: tenantId,
+              },
+              messages: [{
+                from: message.key.remoteJid?.replace('@s.whatsapp.net', '') || '',
+                id: message.key.id || '',
+                timestamp: String(message.messageTimestamp || Date.now() / 1000),
+                text: {
+                  body: message.message?.conversation || 
+                        message.message?.extendedTextMessage?.text || 
+                        '',
+                },
+                type: 'text',
+              }],
+            },
+          }],
+        }],
+      };
+      
+      await handler.handleWebhook(formattedMessage);
+    } catch (error) {
+      this.logger.error(`Error processing message for tenant ${tenantId}:`, error);
+    }
+  }
+
+  async sendMessage(tenantId: string, phoneNumber: string, message: string, mediaUrl?: string): Promise<boolean> {
+    const session = this.sessions.get(tenantId);
+    if (!session || !session.socket || session.status !== 'connected') {
+      throw new Error('WhatsApp not connected');
+    }
+
+    try {
+      const jid = phoneNumber.includes('@') ? phoneNumber : `${phoneNumber}@s.whatsapp.net`;
+      
+      let content: WAMessageContent;
+      
+      if (mediaUrl) {
+        // Handle media messages
+        const response = await fetch(mediaUrl);
+        const buffer = await response.arrayBuffer();
+        
+        if (mediaUrl.includes('.jpg') || mediaUrl.includes('.jpeg') || mediaUrl.includes('.png')) {
+          content = {
+            image: Buffer.from(buffer),
+            caption: message,
+          };
+        } else if (mediaUrl.includes('.mp4') || mediaUrl.includes('.mov')) {
+          content = {
+            video: Buffer.from(buffer),
+            caption: message,
+          };
+        } else {
+          content = {
+            document: Buffer.from(buffer),
+            caption: message,
+            fileName: path.basename(mediaUrl),
+          };
+        }
+      } else {
+        content = { text: message };
+      }
+      
+      await session.socket.sendMessage(jid, content);
+      session.lastActivity = new Date();
+      return true;
+    } catch (error) {
+      this.logger.error(`Failed to send message for tenant ${tenantId}:`, error);
+      throw error;
+    }
+  }
+
+  async getSessionStatus(tenantId: string): Promise<{
+    connected: boolean;
+    status: WhatsAppSession['status'];
+    phoneNumber: string | null;
+    businessName: string | null;
+    qrCode: string | null;
+  }> {
+    const session = this.sessions.get(tenantId);
+    
+    if (!session) {
+      return {
+        connected: false,
+        status: 'disconnected',
+        phoneNumber: null,
+        businessName: null,
+        qrCode: null,
+      };
+    }
+
+    return {
+      connected: session.status === 'connected',
+      status: session.status,
+      phoneNumber: session.phoneNumber,
+      businessName: session.businessName,
+      qrCode: session.qrCode,
+    };
+  }
+
+  async disconnectSession(tenantId: string): Promise<void> {
+    const session = this.sessions.get(tenantId);
+    if (!session) return;
+
+    try {
+      if (session.socket) {
+        await session.socket.logout();
+      }
+    } catch (error) {
+      this.logger.error(`Error disconnecting session for tenant ${tenantId}:`, error);
+    }
+
+    await this.clearSessionData(tenantId);
+    this.destroySession(tenantId);
+  }
+
+  private async clearSessionData(tenantId: string) {
+    const sessionPath = path.join(this.sessionDir, `session-${tenantId}`);
+    
+    try {
+      if (fs.existsSync(sessionPath)) {
+        fs.rmSync(sessionPath, { recursive: true, force: true });
+      }
+    } catch (error) {
+      this.logger.error(`Error clearing session data for tenant ${tenantId}:`, error);
+    }
+  }
+
+  private destroySession(tenantId: string) {
+    const session = this.sessions.get(tenantId);
+    if (!session) return;
+
+    // Close socket
+    if (session.socket) {
+      session.socket.ev.removeAllListeners();
+      session.socket.ws.close();
+    }
+
+    // Clear timers
+    const timer = this.reconnectTimers.get(tenantId);
+    if (timer) {
+      clearTimeout(timer);
+      this.reconnectTimers.delete(tenantId);
+    }
+
+    // Remove session
+    this.sessions.delete(tenantId);
+    
+    // Remove status listener
+    const listener = this.statusListeners.get(tenantId);
+    if (listener) {
+      listener();
+      this.statusListeners.delete(tenantId);
+    }
+  }
+
+  private async updateSessionStatus(
+    tenantId: string, 
+    status: WhatsAppSession['status'],
+    qrCode?: string | null,
+    phoneNumber?: string,
+    businessName?: string
+  ) {
+    try {
+      const settingsRef = doc(db, 'settings', tenantId);
+      const settingsDoc = await getDoc(settingsRef);
+      
+      const currentSettings = settingsDoc.exists() ? settingsDoc.data() : {};
+      
+      const whatsappSettings = {
+        ...currentSettings.whatsapp,
+        connected: status === 'connected',
+        status,
+        lastSync: new Date(),
+        qrCode: qrCode || null,
+      };
+      
+      if (phoneNumber) {
+        whatsappSettings.phoneNumber = phoneNumber;
+      }
+      
+      if (businessName) {
+        whatsappSettings.businessName = businessName;
+      }
+      
+      if (status === 'disconnected') {
+        whatsappSettings.qrCode = null;
+      }
+      
+      await setDoc(settingsRef, {
+        ...currentSettings,
+        whatsapp: whatsappSettings,
+      }, { merge: true });
+      
+    } catch (error) {
+      this.logger.error(`Error updating session status for tenant ${tenantId}:`, error);
+    }
+  }
+
+  // Listen to status changes for a specific tenant
+  onStatusChange(tenantId: string, callback: (status: any) => void): () => void {
+    const settingsRef = doc(db, 'settings', tenantId);
+    
+    const unsubscribe = onSnapshot(settingsRef, (doc) => {
+      if (doc.exists()) {
+        const data = doc.data();
+        callback(data.whatsapp || {});
+      }
+    });
+    
+    this.statusListeners.set(tenantId, unsubscribe);
+    return unsubscribe;
+  }
+
+  // Get tenant ID by phone number
+  async getTenantByPhoneNumber(phoneNumber: string): Promise<string | null> {
+    try {
+      for (const [tenantId, session] of this.sessions.entries()) {
+        if (session.phoneNumber === phoneNumber) {
+          return tenantId;
+        }
+      }
+      
+      // If not in memory, check Firestore
+      const settingsSnapshot = await collection(db, 'settings').get();
+      
+      for (const doc of settingsSnapshot.docs) {
+        const data = doc.data();
+        if (data.whatsapp?.phoneNumber === phoneNumber) {
+          return doc.id;
+        }
+      }
+      
+      return null;
+    } catch (error) {
+      this.logger.error(`Error getting tenant by phone number ${phoneNumber}:`, error);
+      return null;
+    }
+  }
+}
+
+// Singleton instance
+export const whatsappSessionManager = new WhatsAppSessionManager();

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import {
   Box,
   Card,
@@ -55,7 +55,7 @@ import {
   Settings as SettingsIcon,
   Close,
 } from '@mui/icons-material';
-import QRCode from 'qrcode';
+import QRCode from 'react-qr-code';
 
 interface CompanyConfig {
   name: string;
@@ -100,6 +100,9 @@ export default function SettingsPage() {
   const [saving, setSaving] = useState(false);
   const [uploadingLogo, setUploadingLogo] = useState(false);
   const [qrCodeData, setQrCodeData] = useState('');
+  const [whatsappStatus, setWhatsappStatus] = useState<'disconnected' | 'connecting' | 'qr' | 'connected'>('disconnected');
+  const [whatsappQRCode, setWhatsappQRCode] = useState<string | null>(null);
+  const [connectionType, setConnectionType] = useState<'api' | 'web'>('web');
   const [connectingWhatsApp, setConnectingWhatsApp] = useState(false);
   const [loading, setLoading] = useState(true);
   const [whatsappCredentials, setWhatsappCredentials] = useState({
@@ -188,13 +191,28 @@ export default function SettingsPage() {
 
   const checkWhatsAppConnection = async () => {
     try {
+      // Check web session status
+      const sessionResponse = await fetch('/api/whatsapp/session');
+      if (sessionResponse.ok) {
+        const sessionData = await sessionResponse.json();
+        if (sessionData.data) {
+          setWhatsappStatus(sessionData.data.status);
+          setWhatsappConnected(sessionData.data.connected);
+          setWhatsappQRCode(sessionData.data.qrCode);
+          
+          if (sessionData.data.connected) {
+            setConnectionType('web');
+          }
+        }
+      }
+      
+      // Also check API connection
       const response = await fetch('/api/config/whatsapp');
       const result = await response.json();
       
-      if (result.status === 'connected') {
+      if (result.status === 'connected' && !whatsappConnected) {
         setWhatsappConnected(true);
-      } else {
-        setWhatsappConnected(false);
+        setConnectionType('api');
       }
     } catch (error) {
       console.error('Failed to check WhatsApp connection:', error);
@@ -203,17 +221,10 @@ export default function SettingsPage() {
   };
 
   const generateQRCode = async () => {
-    try {
-      // Generate WhatsApp setup instructions QR code
-      const setupUrl = `${window.location.origin}/dashboard/settings?tab=whatsapp&setup=true`;
-      const qrCode = await QRCode.toDataURL(setupUrl);
-      setQrCodeData(qrCode);
-    } catch (error) {
-      console.error('Failed to generate QR code:', error);
-    }
+    // This function is no longer needed with react-qr-code
   };
 
-  const handleWhatsAppConnect = async () => {
+  const handleWhatsAppConnectAPI = async () => {
     setConnectingWhatsApp(true);
     try {
       // Test real WhatsApp connection with provided credentials
@@ -252,6 +263,80 @@ export default function SettingsPage() {
       alert('Erro ao conectar WhatsApp. Verifique suas configurações.');
     } finally {
       setConnectingWhatsApp(false);
+    }
+  };
+  
+  const handleWhatsAppConnectWeb = async () => {
+    setConnectingWhatsApp(true);
+    setShowQRDialog(true);
+    
+    try {
+      // Initialize WhatsApp Web session
+      const response = await fetch('/api/whatsapp/session', {
+        method: 'POST',
+      });
+      
+      if (response.ok) {
+        const result = await response.json();
+        setWhatsappStatus(result.data.status);
+        setWhatsappQRCode(result.data.qrCode);
+        
+        // Start polling for status updates
+        startStatusPolling();
+      } else {
+        alert('Erro ao iniciar sessão WhatsApp');
+        setShowQRDialog(false);
+      }
+    } catch (error) {
+      console.error('Error connecting WhatsApp Web:', error);
+      alert('Erro ao conectar WhatsApp');
+      setShowQRDialog(false);
+    } finally {
+      setConnectingWhatsApp(false);
+    }
+  };
+  
+  const startStatusPolling = () => {
+    const interval = setInterval(async () => {
+      try {
+        const response = await fetch('/api/whatsapp/session');
+        if (response.ok) {
+          const result = await response.json();
+          setWhatsappStatus(result.data.status);
+          setWhatsappQRCode(result.data.qrCode);
+          
+          if (result.data.connected) {
+            setWhatsappConnected(true);
+            setShowQRDialog(false);
+            clearInterval(interval);
+            alert('WhatsApp conectado com sucesso!');
+            await loadConfiguration();
+          }
+        }
+      } catch (error) {
+        console.error('Error polling status:', error);
+      }
+    }, 2000); // Poll every 2 seconds
+    
+    // Clear interval after 5 minutes
+    setTimeout(() => clearInterval(interval), 5 * 60 * 1000);
+  };
+  
+  const handleWhatsAppDisconnectWeb = async () => {
+    try {
+      const response = await fetch('/api/whatsapp/session', {
+        method: 'DELETE',
+      });
+      
+      if (response.ok) {
+        setWhatsappConnected(false);
+        setWhatsappStatus('disconnected');
+        setWhatsappQRCode(null);
+        alert('WhatsApp desconectado com sucesso!');
+      }
+    } catch (error) {
+      console.error('Error disconnecting WhatsApp Web:', error);
+      alert('Erro ao desconectar WhatsApp');
     }
   };
 
@@ -454,7 +539,7 @@ export default function SettingsPage() {
                         variant="outlined"
                         color="error"
                         size={isMobile ? "medium" : "small"}
-                        onClick={handleWhatsAppDisconnect}
+                        onClick={connectionType === 'web' ? handleWhatsAppDisconnectWeb : handleWhatsAppDisconnect}
                         fullWidth={isMobile}
                       >
                         Desconectar
@@ -465,11 +550,17 @@ export default function SettingsPage() {
                       variant="contained"
                       color="success"
                       startIcon={<QrCode2 />}
-                      onClick={() => setShowWhatsAppConfig(true)}
+                      onClick={() => {
+                        if (connectionType === 'web') {
+                          handleWhatsAppConnectWeb();
+                        } else {
+                          setShowWhatsAppConfig(true);
+                        }
+                      }}
                       fullWidth={isMobile}
                       size={isMobile ? "large" : "medium"}
                     >
-                      Configurar WhatsApp
+                      Conectar WhatsApp
                     </Button>
                   )}
                 </Box>
@@ -911,9 +1002,119 @@ export default function SettingsPage() {
         </Grid>
       )}
 
-      {/* WhatsApp Configuration Dialog */}
+      {/* QR Code Dialog for WhatsApp Web */}
       <Dialog 
-        open={showWhatsAppConfig} 
+        open={showQRDialog} 
+        onClose={() => !connectingWhatsApp && setShowQRDialog(false)}
+        maxWidth="sm" 
+        fullWidth
+      >
+        <DialogTitle sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          Conectar WhatsApp
+          <IconButton
+            onClick={() => setShowQRDialog(false)}
+            disabled={connectingWhatsApp}
+            size="small"
+          >
+            <Close />
+          </IconButton>
+        </DialogTitle>
+        <DialogContent>
+          <Box sx={{ textAlign: 'center', py: 2 }}>
+            {whatsappStatus === 'qr' && whatsappQRCode ? (
+              <>
+                <Typography variant="body1" gutterBottom sx={{ mb: 3 }}>
+                  Escaneie o código QR com seu WhatsApp
+                </Typography>
+                <Box sx={{ 
+                  display: 'inline-block', 
+                  p: 2, 
+                  bgcolor: 'white',
+                  borderRadius: 2,
+                  boxShadow: 2
+                }}>
+                  <QRCode value={whatsappQRCode} size={256} />
+                </Box>
+                <Typography variant="body2" color="text.secondary" sx={{ mt: 3 }}>
+                  1. Abra o WhatsApp no seu celular<br/>
+                  2. Toque em Menu ou Configurações e selecione "Dispositivos conectados"<br/>
+                  3. Toque em "Conectar dispositivo"<br/>
+                  4. Aponte seu telefone para esta tela para capturar o código
+                </Typography>
+              </>
+            ) : whatsappStatus === 'connecting' ? (
+              <>
+                <CircularProgress size={60} sx={{ mb: 3 }} />
+                <Typography variant="body1">
+                  Gerando código QR...
+                </Typography>
+              </>
+            ) : whatsappStatus === 'connected' ? (
+              <>
+                <CheckCircle color="success" sx={{ fontSize: 80, mb: 2 }} />
+                <Typography variant="h6" color="success.main">
+                  WhatsApp conectado com sucesso!
+                </Typography>
+              </>
+            ) : (
+              <Typography variant="body1" color="error">
+                Erro ao gerar código QR. Tente novamente.
+              </Typography>
+            )}
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setShowQRDialog(false)}>
+            {whatsappStatus === 'connected' ? 'Fechar' : 'Cancelar'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+      
+      {/* Connection Type Selection Dialog */}
+      <Dialog
+        open={showWhatsAppConfig && connectionType === 'web'}
+        onClose={() => setShowWhatsAppConfig(false)}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>Escolha o tipo de conexão</DialogTitle>
+        <DialogContent>
+          <Box sx={{ pt: 2 }}>
+            <Button
+              fullWidth
+              variant="outlined"
+              size="large"
+              startIcon={<QrCode2 />}
+              onClick={() => {
+                setShowWhatsAppConfig(false);
+                handleWhatsAppConnectWeb();
+              }}
+              sx={{ mb: 2 }}
+            >
+              WhatsApp Web (QR Code)
+            </Button>
+            <Button
+              fullWidth
+              variant="outlined"
+              size="large"
+              startIcon={<Business />}
+              onClick={() => {
+                setConnectionType('api');
+              }}
+            >
+              WhatsApp Business API
+            </Button>
+            <Typography variant="body2" color="text.secondary" sx={{ mt: 2 }}>
+              <strong>WhatsApp Web:</strong> Use seu WhatsApp pessoal ou Business. Conecte via QR Code.<br/><br/>
+              <strong>WhatsApp Business API:</strong> Para empresas maiores. Requer aprovação do Meta.
+            </Typography>
+          </Box>
+        </DialogContent>
+      </Dialog>
+
+      {/* WhatsApp Business API Configuration Dialog */}
+      <Dialog 
+        open={showWhatsAppConfig && connectionType === 'api'} 
         onClose={() => !connectingWhatsApp && setShowWhatsAppConfig(false)}
         maxWidth="md" 
         fullWidth

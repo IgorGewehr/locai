@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/lib/hooks/useAuth';
+import { UserProfile as ExtendedUserProfile } from '@/lib/types/user';
 import {
   Box,
   Typography,
@@ -42,7 +43,7 @@ import {
   Settings,
 } from '@mui/icons-material';
 
-interface UserProfile {
+interface ProfileFormData {
   id: string;
   name: string;
   email: string;
@@ -68,29 +69,30 @@ export default function ProfilePage() {
   const { user, loading } = useAuth();
   const [editing, setEditing] = useState(false);
   const [uploading, setUploading] = useState(false);
-  const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [profile, setProfile] = useState<ProfileFormData | null>(null);
 
   useEffect(() => {
     if (user) {
+      const extendedUser = user as ExtendedUserProfile;
       setProfile({
         id: user.id,
         name: user.name || user.email?.split('@')[0] || '',
         email: user.email,
-        phone: (user as any).phone || '',
+        phone: extendedUser.phone || extendedUser.phoneNumber || '',
         role: user.role,
-        avatar: (user as any).avatar || null,
-        company: (user as any).company || 'LocAI Imobiliária',
-        position: (user as any).position || 'Usuário',
-        location: (user as any).location || '',
-        bio: (user as any).bio || '',
-        joinDate: (user as any).createdAt ? new Date((user as any).createdAt) : new Date(),
-        lastLogin: (user as any).lastLogin ? new Date((user as any).lastLogin) : new Date(),
+        avatar: extendedUser.avatar || extendedUser.photoURL || null,
+        company: extendedUser.company || 'LocAI Imobiliária',
+        position: user.role === 'admin' ? 'Administrador' : 'Usuário',
+        location: '',
+        bio: '',
+        joinDate: extendedUser.metadata?.createdAt ? new Date(extendedUser.metadata.createdAt) : new Date(),
+        lastLogin: extendedUser.metadata?.lastLogin ? new Date(extendedUser.metadata.lastLogin) : new Date(),
         settings: {
-          notifications: (user as any).settings?.notifications ?? true,
-          darkMode: (user as any).settings?.darkMode ?? false,
-          language: (user as any).settings?.language ?? 'pt-BR',
-          emailNotifications: (user as any).settings?.emailNotifications ?? true,
-          whatsappNotifications: (user as any).settings?.whatsappNotifications ?? true,
+          notifications: extendedUser.settings?.notifications ?? true,
+          darkMode: extendedUser.settings?.theme === 'dark' ?? false,
+          language: (extendedUser.settings?.language as 'pt-BR' | 'en-US') ?? 'pt-BR',
+          emailNotifications: true,
+          whatsappNotifications: true,
         },
       });
     }

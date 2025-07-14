@@ -1,8 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
+import { getTenantId } from '@/lib/utils/tenant';
 import {
   AppBar,
   Toolbar,
@@ -24,6 +25,9 @@ import {
   Logout,
   WhatsApp,
   CheckCircle,
+  Error as ErrorIcon,
+  Sync as SyncIcon,
+  QrCode2,
 } from '@mui/icons-material';
 
 interface HeaderProps {
@@ -34,8 +38,11 @@ interface HeaderProps {
 export default function Header({ onMenuClick }: HeaderProps) {
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [notificationsCount] = useState(0);
+  const [whatsappStatus, setWhatsappStatus] = useState<'disconnected' | 'connecting' | 'qr' | 'connected'>('disconnected');
+  const [connectionType, setConnectionType] = useState<'web' | 'api'>('web');
   const router = useRouter();
   const { user, signOut } = useAuth();
+  const tenantId = getTenantId();
 
   const handleMenu = (event: React.MouseEvent<HTMLElement>) => {
     setAnchorEl(event.currentTarget);
@@ -62,6 +69,74 @@ export default function Header({ onMenuClick }: HeaderProps) {
   const handleProfile = () => {
     router.push('/dashboard/profile');
     handleClose();
+  };
+  
+  useEffect(() => {
+    checkWhatsAppStatus();
+    const interval = setInterval(checkWhatsAppStatus, 30000); // Check every 30 seconds
+    return () => clearInterval(interval);
+  }, []);
+  
+  const checkWhatsAppStatus = async () => {
+    try {
+      // First check Web session
+      const sessionResponse = await fetch('/api/whatsapp/session');
+      if (sessionResponse.ok) {
+        const sessionData = await sessionResponse.json();
+        if (sessionData.data) {
+          setWhatsappStatus(sessionData.data.status);
+          if (sessionData.data.connected) {
+            setConnectionType('web');
+            return;
+          }
+        }
+      }
+      
+      // If Web is not connected, check API
+      const apiResponse = await fetch('/api/config/whatsapp');
+      if (apiResponse.ok) {
+        const apiData = await apiResponse.json();
+        if (apiData.status === 'connected') {
+          setWhatsappStatus('connected');
+          setConnectionType('api');
+        }
+      }
+    } catch (error) {
+      console.error('Error checking WhatsApp status:', error);
+    }
+  };
+  
+  const getStatusDisplay = () => {
+    switch (whatsappStatus) {
+      case 'connected':
+        return {
+          icon: <CheckCircle sx={{ fontSize: 16, mr: 1 }} />,
+          text: 'WhatsApp Conectado',
+          color: 'success.main',
+          bgColor: 'success.main',
+        };
+      case 'qr':
+        return {
+          icon: <QrCode2 sx={{ fontSize: 16, mr: 1 }} />,
+          text: 'Aguardando QR Code',
+          color: 'warning.main',
+          bgColor: 'warning.main',
+        };
+      case 'connecting':
+        return {
+          icon: <SyncIcon sx={{ fontSize: 16, mr: 1, animation: 'spin 1s linear infinite' }} />,
+          text: 'Conectando...',
+          color: 'info.main',
+          bgColor: 'info.main',
+        };
+      default:
+        return {
+          icon: <ErrorIcon sx={{ fontSize: 16, mr: 1 }} />,
+          text: 'WhatsApp Desconectado',
+          color: 'error.main',
+          bgColor: 'error.main',
+        };
+    }
   };
 
   return (
@@ -108,22 +183,30 @@ export default function Header({ onMenuClick }: HeaderProps) {
 
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
           {/* WhatsApp Status */}
-          <Box
-            sx={{
-              display: 'flex',
-              alignItems: 'center',
-              px: 2,
-              py: 0.75,
-              borderRadius: 2,
-              backgroundColor: 'success.main',
-              color: 'white',
-            }}
-          >
-            <CheckCircle sx={{ fontSize: 16, mr: 1 }} />
-            <Typography variant="caption" fontWeight={500}>
-              WhatsApp Conectado
-            </Typography>
-          </Box>
+          <Tooltip title={`Tipo de conexão: ${connectionType === 'web' ? 'WhatsApp Web' : 'WhatsApp Business API'}`}>
+            <Box
+              sx={{
+                display: 'flex',
+                alignItems: 'center',
+                px: 2,
+                py: 0.75,
+                borderRadius: 2,
+                backgroundColor: getStatusDisplay().bgColor,
+                color: 'white',
+                cursor: 'pointer',
+                transition: 'all 0.3s ease',
+                '&:hover': {
+                  opacity: 0.9,
+                },
+              }}
+              onClick={() => router.push('/dashboard/settings')}
+            >
+              {getStatusDisplay().icon}
+              <Typography variant="caption" fontWeight={500}>
+                {getStatusDisplay().text}
+              </Typography>
+            </Box>
+          </Tooltip>
 
           {/* Notifications */}
           <IconButton 
@@ -226,4 +309,22 @@ export default function Header({ onMenuClick }: HeaderProps) {
       </Toolbar>
     </AppBar>
   );
+}
+
+// Add CSS animation for spinning icon
+const globalStyles = `
+  @keyframes spin {
+    from {
+      transform: rotate(0deg);
+    }
+    to {
+      transform: rotate(360deg);
+    }
+  }
+`;
+
+if (typeof window !== 'undefined') {
+  const style = document.createElement('style');
+  style.textContent = globalStyles;
+  document.head.appendChild(style);
 }

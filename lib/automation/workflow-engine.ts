@@ -13,6 +13,8 @@ import { WhatsAppClient } from '@/lib/whatsapp/client'
 import { AIService } from '@/lib/services/ai-service'
 import { conversationService } from '@/lib/services/conversation-service'
 import { clientService } from '@/lib/services/client-service'
+import { db } from '@/lib/firebase/config'
+import { collection, doc, addDoc, updateDoc, getDocs, query, where } from 'firebase/firestore'
 
 export class AutomationEngine {
   private whatsappClient: WhatsAppClient
@@ -54,9 +56,32 @@ export class AutomationEngine {
   }
 
   private async getActiveAutomations(tenantId: string): Promise<Automation[]> {
-    // TODO: Implement database query
-    // This would typically fetch from a database
-    return this.getDefaultAutomations(tenantId)
+    try {
+      // Fetch automations from Firestore
+      const automationsRef = collection(db, 'automations');
+      const q = query(
+        automationsRef,
+        where('tenantId', '==', tenantId),
+        where('active', '==', true)
+      );
+      
+      const snapshot = await getDocs(q);
+      const automations: Automation[] = [];
+      
+      snapshot.forEach((doc) => {
+        automations.push({ id: doc.id, ...doc.data() } as Automation);
+      });
+      
+      // If no custom automations, return defaults
+      if (automations.length === 0) {
+        return this.getDefaultAutomations(tenantId);
+      }
+      
+      return automations;
+    } catch (error) {
+      console.error('Error fetching automations:', error);
+      return this.getDefaultAutomations(tenantId);
+    }
   }
 
   private getDefaultAutomations(tenantId: string): Automation[] {
@@ -620,8 +645,17 @@ export class AutomationEngine {
   }
 
   private async saveExecutionRecord(execution: AutomationExecution): Promise<void> {
-    // TODO: Implement database save
+    try {
+      const executionsRef = collection(db, 'automation_executions');
+      await addDoc(executionsRef, {
+        ...execution,
+        tenantId: this.tenantId,
+        createdAt: new Date(),
+      });
+    } catch (error) {
+      console.error('Error saving execution record:', error);
     }
+  }
 
   // Public methods for managing automations
   async createAutomation(automation: Omit<Automation, 'id' | 'createdAt' | 'updatedAt'>): Promise<Automation> {
@@ -639,7 +673,39 @@ export class AutomationEngine {
       this.activeAutomations.set(newAutomation.id, newAutomation)
     }
 
+    await this.saveAutomation(newAutomation);
     return newAutomation
+  }
+  
+  async saveAutomation(automation: Automation): Promise<void> {
+    try {
+      const automationsRef = collection(db, 'automations');
+      
+      if (automation.id && automation.id.startsWith('automation_')) {
+        // Create new automation
+        await addDoc(automationsRef, {
+          ...automation,
+          tenantId: this.tenantId,
+          createdAt: automation.createdAt || new Date(),
+          updatedAt: new Date(),
+          active: automation.active ?? true,
+        });
+      } else if (automation.id) {
+        // Update existing automation
+        const docRef = doc(automationsRef, automation.id);
+        await updateDoc(docRef, {
+          ...automation,
+          updatedAt: new Date(),
+        });
+      }
+    } catch (error) {
+      console.error('Error saving automation:', error);
+      throw new Error('Failed to save automation');
+    }
+  }
+  
+  async getAutomations(): Promise<Automation[]> {
+    return this.getActiveAutomations(this.tenantId);
   }
 
   async updateAutomation(id: string, updates: Partial<Automation>): Promise<Automation> {
