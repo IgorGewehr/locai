@@ -14,6 +14,18 @@ const firebaseConfig = {
   measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID,
 };
 
+// Debug: Log configuration to help troubleshoot
+if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
+  console.log('Firebase Config:', {
+    apiKey: firebaseConfig.apiKey ? 'Set' : 'Missing',
+    authDomain: firebaseConfig.authDomain,
+    projectId: firebaseConfig.projectId,
+    storageBucket: firebaseConfig.storageBucket,
+    messagingSenderId: firebaseConfig.messagingSenderId,
+    appId: firebaseConfig.appId ? 'Set' : 'Missing',
+  });
+}
+
 // Initialize Firebase
 const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
 

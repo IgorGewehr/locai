@@ -290,7 +290,7 @@ export default function FinanceiroSimplesPage() {
             variant="outlined"
             startIcon={<NotificationsActive />}
             onClick={() => setShowBillingDialog(true)}
-            color={billingSettings?.enabled ? 'success' : 'default'}
+            color={billingSettings?.enabled ? 'success' : 'inherit'}
           >
             {billingSettings?.enabled ? 'Cobrança Automática Ativa' : 'Configurar Cobrança'}
           </Button>

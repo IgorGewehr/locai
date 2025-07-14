@@ -133,7 +133,7 @@ export default function RelatoriosFinanceirosPage() {
       });
 
       // Processar dados do relatório
-      const reportData = processReportData(transactions, propertiesData, clientsData, startDate, endDate);
+      const reportData = await processReportData(transactions, propertiesData, clientsData, startDate, endDate);
       setReportData(reportData);
 
     } catch (error) {
@@ -143,13 +143,13 @@ export default function RelatoriosFinanceirosPage() {
     }
   };
 
-  const processReportData = (
+  const processReportData = async (
     transactions: Transaction[], 
     properties: Property[], 
     clients: Client[],
     startDate: Date,
     endDate: Date
-  ): ReportData => {
+  ): Promise<ReportData> => {
     // Calcular totais
     const totalIncome = transactions
       .filter(t => t.type === 'income' && t.status === 'completed')
@@ -308,21 +308,21 @@ export default function RelatoriosFinanceirosPage() {
   }
 
   // Preparar dados para gráficos - usando dados reais
-  const monthlyData = reportData.monthlyRevenue.map((revenue, index) => {
-    const date = subMonths(new Date(), reportData.monthlyRevenue.length - 1 - index);
-    const expenses = reportData.monthlyExpenses[index] || 0;
+  const monthlyData = reportData?.monthlyRevenue?.map((revenue, index) => {
+    const date = subMonths(new Date(), (reportData?.monthlyRevenue?.length || 1) - 1 - index);
+    const expenses = reportData?.monthlyExpenses?.[index] || 0;
     return {
       month: format(date, 'MMM', { locale: ptBR }),
       receitas: revenue,
       despesas: expenses,
     };
-  });
+  }) || [];
 
   const categoryData = Object.entries(reportData.byCategory)
     .map(([name, value]) => ({ name, value }))
     .sort((a, b) => b.value - a.value);
 
-  const propertyPerformance = Object.entries(reportData.byProperty)
+  const propertyPerformance = Object.entries(reportData?.byProperty || {})
     .map(([propertyId, data]) => ({
       name: properties.find(p => p.id === propertyId)?.title || 'Propriedade',
       ...data,
@@ -389,12 +389,12 @@ export default function RelatoriosFinanceirosPage() {
                     Receita Total
                   </Typography>
                   <Typography variant="h5" fontWeight={600} color="success.main">
-                    {formatCurrency(reportData.totalIncome)}
+                    {formatCurrency(reportData?.totalIncome || 0)}
                   </Typography>
                   <Box sx={{ display: 'flex', alignItems: 'center', mt: 1 }}>
                     <TrendingUp sx={{ fontSize: 16, color: 'success.main', mr: 0.5 }} />
                     <Typography variant="caption" color="success.main">
-                      +{reportData.growthRate}% vs período anterior
+                      +{reportData?.growthRate || 0}% vs período anterior
                     </Typography>
                   </Box>
                 </Box>
@@ -413,10 +413,10 @@ export default function RelatoriosFinanceirosPage() {
                     Despesas
                   </Typography>
                   <Typography variant="h5" fontWeight={600} color="error.main">
-                    {formatCurrency(reportData.totalExpenses)}
+                    {formatCurrency(reportData?.totalExpenses || 0)}
                   </Typography>
                   <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
-                    {((reportData.totalExpenses / reportData.totalIncome) * 100).toFixed(1)}% da receita
+                    {reportData?.totalIncome ? ((reportData.totalExpenses / reportData.totalIncome) * 100).toFixed(1) : '0'}% da receita
                   </Typography>
                 </Box>
                 <ArrowDownward sx={{ color: 'error.main', fontSize: 32 }} />
@@ -434,10 +434,10 @@ export default function RelatoriosFinanceirosPage() {
                     Lucro Líquido
                   </Typography>
                   <Typography variant="h5" fontWeight={600} color="primary.main">
-                    {formatCurrency(reportData.netProfit)}
+                    {formatCurrency(reportData?.netProfit || 0)}
                   </Typography>
                   <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
-                    Margem: {((reportData.netProfit / reportData.totalIncome) * 100).toFixed(1)}%
+                    Margem: {reportData?.totalIncome ? ((reportData.netProfit / reportData.totalIncome) * 100).toFixed(1) : '0'}%
                   </Typography>
                 </Box>
                 <AttachMoney sx={{ color: 'primary.main', fontSize: 32 }} />
@@ -455,7 +455,7 @@ export default function RelatoriosFinanceirosPage() {
                     Taxa de Ocupação
                   </Typography>
                   <Typography variant="h5" fontWeight={600}>
-                    {reportData.occupancyRate.toFixed(1)}%
+                    {reportData?.occupancyRate?.toFixed(1) || '0'}%
                   </Typography>
                   <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
                     {properties.length} propriedades
@@ -591,7 +591,7 @@ export default function RelatoriosFinanceirosPage() {
                     </TableRow>
                   </TableHead>
                   <TableBody>
-                    {reportData.topClients.map((client, index) => (
+                    {reportData?.topClients?.map((client, index) => (
                       <TableRow key={client.clientId}>
                         <TableCell>
                           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>

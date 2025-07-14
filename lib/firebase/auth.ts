@@ -25,13 +25,39 @@ export class AuthService {
   }
 
   static async signUp(email: string, password: string, displayName?: string): Promise<AuthUser> {
-    const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-    
-    if (displayName) {
-      await updateProfile(userCredential.user, { displayName });
+    try {
+      // Add retry logic for network failures
+      let attempts = 0;
+      const maxAttempts = 3;
+      
+      while (attempts < maxAttempts) {
+        try {
+          const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+          
+          if (displayName) {
+            await updateProfile(userCredential.user, { displayName });
+          }
+          
+          return this.mapFirebaseUser(userCredential.user);
+        } catch (error: any) {
+          attempts++;
+          
+          // If it's a network error and we haven't exhausted retries, wait and try again
+          if (error.code === 'auth/network-request-failed' && attempts < maxAttempts) {
+            await new Promise(resolve => setTimeout(resolve, 1000 * attempts)); // Exponential backoff
+            continue;
+          }
+          
+          // Re-throw the error if it's not a network error or we've exhausted retries
+          throw error;
+        }
+      }
+      
+      throw new Error('Failed to create account after multiple attempts');
+    } catch (error: any) {
+      console.error('Auth SignUp Error:', error);
+      throw error;
     }
-    
-    return this.mapFirebaseUser(userCredential.user);
   }
 
   static async signOut(): Promise<void> {
