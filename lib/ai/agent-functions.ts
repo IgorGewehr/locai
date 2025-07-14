@@ -772,7 +772,7 @@ export class AIFunctionExecutor {
           })
         },
         payment: financialMovement.success ? {
-          id: financialMovement.transaction?.id,
+          id: financialMovement.data?.transactionId,
           dueDate: checkIn,
           autoCharge: true
         } : null,
@@ -948,8 +948,6 @@ export class AIFunctionExecutor {
     } = args
     
     try {
-      const { financialMovementService } = await import('@/lib/services/financial-movement-service')
-      
       // Buscar nome do cliente se fornecido
       let clientName: string | undefined
       if (clientId) {
@@ -965,64 +963,72 @@ export class AIFunctionExecutor {
       }
       
       if (installments && installments > 1) {
-        // Criar parcelamento
-        const ids = await financialMovementService.createInstallments(
-          {
+        // Criar parcelamento usando transactionService
+        const transactions = []
+        const installmentAmount = amount / installments
+        
+        for (let i = 0; i < installments; i++) {
+          const installmentDate = new Date(dueDate)
+          installmentDate.setMonth(installmentDate.getMonth() + i)
+          
+          const transaction = await transactionService.create({
             type,
             category,
-            description,
-            amount,
-            dueDate: new Date(dueDate),
+            description: `${description} (${i + 1}/${installments})`,
+            amount: installmentAmount,
+            date: installmentDate,
+            status: 'pending',
             clientId,
             propertyId,
             reservationId,
-            paymentMethod,
-            autoCharge: autoCharge || false,
-            tenantId: this.tenantId
-          },
-          installments
-        )
+            paymentMethod: paymentMethod || 'pix',
+            notes: `Parcela ${i + 1} de ${installments} - Criado pela IA`,
+            tags: ['ai-generated', 'installment'],
+            isRecurring: false
+          })
+          
+          transactions.push(transaction)
+        }
         
         return {
           success: true,
           message: `${installments} parcelas criadas com sucesso`,
           data: {
-            movementIds: ids,
+            transactionIds: transactions.map(t => t.id),
             totalAmount: amount,
             installments,
-            firstDueDate: dueDate
+            firstDueDate: dueDate,
+            installmentAmount
           }
         }
       } else {
-        // Criar movimentação única
-        const movement = await financialMovementService.create({
+        // Criar transação única
+        const transaction = await transactionService.create({
           type,
           category,
           description,
           amount,
-          dueDate: new Date(dueDate),
+          date: new Date(dueDate),
+          status: 'pending',
           clientId,
-          clientName,
           propertyId,
-          propertyName,
           reservationId,
-          paymentMethod,
-          autoCharge: autoCharge || false,
-          tenantId: this.tenantId,
-          createdBy: 'ai-agent',
-          createdByAI: true
+          paymentMethod: paymentMethod || 'pix',
+          notes: 'Criado automaticamente pela IA',
+          tags: ['ai-generated'],
+          isRecurring: false
         })
         
         return {
           success: true,
           message: `${type === 'income' ? 'Receita' : 'Despesa'} criada com sucesso`,
           data: {
-            movementId: movement.id,
+            transactionId: transaction.id,
             description,
             amount,
-            dueDate,
-            status: movement.status,
-            autoCharge: movement.autoCharge
+            date: dueDate,
+            status: transaction.status,
+            type: transaction.type
           }
         }
       }

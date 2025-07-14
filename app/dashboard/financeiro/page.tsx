@@ -1,418 +1,356 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Box,
-  Container,
-  ToggleButton,
-  ToggleButtonGroup,
-  Button,
+  Card,
+  CardContent,
   Typography,
-  Alert,
-  Snackbar,
-  CircularProgress,
+  Grid,
+  Button,
+  Chip,
+  Stack,
+  IconButton,
+  Divider,
 } from '@mui/material';
 import {
-  TableChart,
-  ShowChart,
-  BarChart,
+  Receipt,
+  Payment,
   Assessment,
-  FilterList,
-  Download,
+  Add,
+  TrendingUp,
+  TrendingDown,
   Refresh,
 } from '@mui/icons-material';
-import EnhancedFinancialDashboard from '@/components/templates/dashboards/EnhancedFinancialDashboard';
-import EnhancedTransactionTable from '@/components/organisms/financial/EnhancedTransactionTable';
-import InteractiveCharts from '@/components/organisms/financial/InteractiveCharts';
-import { Transaction, Client, Property, Reservation } from '@/lib/types';
-import { transactionService } from '@/lib/services/transaction-service';
-import { clientService } from '@/lib/services/client-service';
-import { propertyService } from '@/lib/services/property-service';
-import { reservationService } from '@/lib/services/reservation-service';
-import { format, subMonths, startOfMonth, endOfMonth } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
+import { useRouter } from 'next/navigation';
+import { Transaction } from '@/lib/types';
+import { collection, query, orderBy, limit, getDocs, where, Timestamp } from 'firebase/firestore';
+import { db } from '@/lib/firebase/config';
 
-interface FinancialStats {
-  totalIncome: number;
-  totalExpenses: number;
-  balance: number;
-  pendingIncome: number;
-  pendingExpenses: number;
-  transactionCount: {
-    total: number;
-    pending: number;
-    completed: number;
-  };
-  growth: {
-    income: number;
-    expenses: number;
-    balance: number;
-  };
-  byCategory: Record<string, number>;
+interface FinancialOverview {
+  totalBalance: number;
+  monthlyIncome: number;
+  monthlyExpenses: number;
+  pendingTransactions: number;
+  recentTransactions: Transaction[];
 }
-
-interface ChartData {
-  monthlyTrends: any[];
-  categoryBreakdown: any[];
-  cashFlow: any[];
-  paymentMethods: any[];
-  propertyPerformance: any[];
-}
-
-type ViewMode = 'dashboard' | 'transactions' | 'analytics';
-type Period = '3m' | '6m' | '1y' | '2y';
 
 export default function FinancialPage() {
-  const [viewMode, setViewMode] = useState<ViewMode>('dashboard');
-  const [period, setPeriod] = useState<Period>('6m');
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [snackbarOpen, setSnackbarOpen] = useState(false);
-  
-  // Data states
-  const [transactions, setTransactions] = useState<Transaction[]>([]);
-  const [clients, setClients] = useState<Client[]>([]);
-  const [properties, setProperties] = useState<Property[]>([]);
-  const [reservations, setReservations] = useState<Reservation[]>([]);
-  const [stats, setStats] = useState<FinancialStats | null>(null);
-  const [chartData, setChartData] = useState<ChartData | null>(null);
+  const router = useRouter();
+  const [loading, setLoading] = useState(true);
+  const [overview, setOverview] = useState<FinancialOverview>({
+    totalBalance: 0,
+    monthlyIncome: 0,
+    monthlyExpenses: 0,
+    pendingTransactions: 0,
+    recentTransactions: [],
+  });
 
-  // Load data
-  const loadData = useCallback(async () => {
+  const loadData = async () => {
     try {
-      setIsLoading(true);
-      setError(null);
+      setLoading(true);
 
-      // Generate mock data for demonstration
-      const mockTransactions: Transaction[] = Array.from({ length: 50 }, (_, i) => ({
-        id: `trans_${i}`,
-        type: Math.random() > 0.6 ? 'income' : 'expense',
-        category: Math.random() > 0.5 ? 'Hospedagem' : 'Manutenção',
-        description: `Transação ${i + 1}`,
-        amount: Math.random() * 5000 + 500,
-        date: subMonths(new Date(), Math.floor(Math.random() * 12)),
-        status: Math.random() > 0.3 ? 'completed' : 'pending',
-        paymentMethod: 'pix',
-        propertyId: `prop_${Math.floor(Math.random() * 5)}`,
-        clientId: `client_${Math.floor(Math.random() * 10)}`,
-        tags: ['tag1', 'tag2'],
-        notes: 'Observações da transação',
-      }));
+      // Get current month range
+      const now = new Date();
+      const startOfCurrentMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+      const endOfCurrentMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
 
-      const mockClients: Client[] = Array.from({ length: 10 }, (_, i) => ({
-        id: `client_${i}`,
-        name: `Cliente ${i + 1}`,
-        email: `cliente${i}@email.com`,
-        phone: `+5511999${String(i).padStart(6, '0')}`,
-        preferences: {},
-        reservations: [],
-        totalSpent: Math.random() * 10000,
-        rating: Math.random() * 5,
-        notes: '',
-        tags: [],
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      }));
+      // Fetch all transactions
+      const transactionsQuery = query(
+        collection(db, 'transactions'),
+        orderBy('date', 'desc')
+      );
+      const transactionsSnapshot = await getDocs(transactionsQuery);
+      const allTransactions = transactionsSnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data(),
+        date: doc.data().date?.toDate() || new Date(),
+      })) as Transaction[];
 
-      const mockProperties: Property[] = Array.from({ length: 5 }, (_, i) => ({
-        id: `prop_${i}`,
-        title: `Propriedade ${i + 1}`,
-        description: 'Descrição da propriedade',
-        location: { address: `Endereço ${i + 1}`, city: 'Cidade', state: 'SP' },
-        bedrooms: Math.floor(Math.random() * 4) + 1,
-        bathrooms: Math.floor(Math.random() * 3) + 1,
-        maxGuests: Math.floor(Math.random() * 8) + 2,
-        basePrice: Math.random() * 500 + 200,
-        cleaningFee: 100,
-        amenities: [],
-        photos: [],
-        isActive: true,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      }));
+      // Calculate monthly income and expenses
+      const monthlyTransactions = allTransactions.filter(t => {
+        const transDate = t.date;
+        return transDate >= startOfCurrentMonth && transDate <= endOfCurrentMonth;
+      });
 
-      const mockReservations: Reservation[] = Array.from({ length: 20 }, (_, i) => ({
-        id: `reservation_${i}`,
-        propertyId: `prop_${Math.floor(Math.random() * 5)}`,
-        clientId: `client_${Math.floor(Math.random() * 10)}`,
-        checkIn: new Date(),
-        checkOut: new Date(),
-        guests: Math.floor(Math.random() * 6) + 1,
-        totalAmount: Math.random() * 3000 + 1000,
-        status: 'confirmed',
-        paymentStatus: 'paid',
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      }));
+      const monthlyIncome = monthlyTransactions
+        .filter(t => t.type === 'income' && t.status === 'completed')
+        .reduce((sum, t) => sum + t.amount, 0);
 
-      setTransactions(mockTransactions);
-      setClients(mockClients);
-      setProperties(mockProperties);
-      setReservations(mockReservations);
+      const monthlyExpenses = monthlyTransactions
+        .filter(t => t.type === 'expense' && t.status === 'completed')
+        .reduce((sum, t) => sum + t.amount, 0);
 
-      // Calculate stats
-      const calculatedStats = calculateStats(mockTransactions);
-      setStats(calculatedStats);
+      // Calculate total balance
+      const totalBalance = allTransactions
+        .filter(t => t.status === 'completed')
+        .reduce((sum, t) => sum + (t.type === 'income' ? t.amount : -t.amount), 0);
 
-      // Prepare chart data
-      const preparedChartData = prepareChartData(mockTransactions, period);
-      setChartData(preparedChartData);
+      // Count pending transactions
+      const pendingTransactions = allTransactions.filter(t => t.status === 'pending').length;
 
-    } catch (err) {
-      console.error('Error loading financial data:', err);
-      setError('Erro ao carregar dados financeiros');
+      // Get recent transactions (last 5)
+      const recentTransactions = allTransactions.slice(0, 5);
+
+      setOverview({
+        totalBalance,
+        monthlyIncome,
+        monthlyExpenses,
+        pendingTransactions,
+        recentTransactions,
+      });
+
+    } catch (error) {
+      console.error('Error loading financial data:', error);
     } finally {
-      setIsLoading(false);
+      setLoading(false);
     }
-  }, [period]);
+  };
 
   useEffect(() => {
     loadData();
-  }, [loadData]);
-
-  const calculateStats = (transactions: Transaction[]): FinancialStats => {
-    const currentMonth = new Date();
-    const firstDayOfMonth = startOfMonth(currentMonth);
-    const lastDayOfMonth = endOfMonth(currentMonth);
-    
-    const currentMonthTransactions = transactions.filter(t => {
-      const transactionDate = new Date(t.date);
-      return transactionDate >= firstDayOfMonth && transactionDate <= lastDayOfMonth;
-    });
-
-    const income = currentMonthTransactions
-      .filter(t => t.type === 'income')
-      .reduce((sum, t) => sum + t.amount, 0);
-    
-    const expenses = currentMonthTransactions
-      .filter(t => t.type === 'expense')
-      .reduce((sum, t) => sum + t.amount, 0);
-
-    const pendingIncome = currentMonthTransactions
-      .filter(t => t.type === 'income' && t.status === 'pending')
-      .reduce((sum, t) => sum + t.amount, 0);
-
-    const pendingExpenses = currentMonthTransactions
-      .filter(t => t.type === 'expense' && t.status === 'pending')
-      .reduce((sum, t) => sum + t.amount, 0);
-
-    // Calculate growth (simplified - would need previous month data)
-    const growth = {
-      income: Math.random() * 20 - 10, // Mock data
-      expenses: Math.random() * 20 - 10,
-      balance: Math.random() * 20 - 10,
-    };
-
-    // Count transactions by status
-    const transactionCount = {
-      total: currentMonthTransactions.length,
-      pending: currentMonthTransactions.filter(t => t.status === 'pending').length,
-      completed: currentMonthTransactions.filter(t => t.status === 'completed').length,
-    };
-
-    // Group by category
-    const byCategory: Record<string, number> = {};
-    currentMonthTransactions.forEach(t => {
-      byCategory[t.category] = (byCategory[t.category] || 0) + t.amount;
-    });
-
-    return {
-      totalIncome: income,
-      totalExpenses: expenses,
-      balance: income - expenses,
-      pendingIncome,
-      pendingExpenses,
-      transactionCount,
-      growth,
-      byCategory,
-    };
-  };
-
-  const prepareChartData = (transactions: Transaction[], period: Period): ChartData => {
-    const months = period === '3m' ? 3 : period === '6m' ? 6 : period === '1y' ? 12 : 24;
-    
-    const monthlyTrends = Array.from({ length: months }, (_, i) => {
-      const date = subMonths(new Date(), months - 1 - i);
-      const monthStart = startOfMonth(date);
-      const monthEnd = endOfMonth(date);
-      
-      const monthTransactions = transactions.filter(t => {
-        const transactionDate = new Date(t.date);
-        return transactionDate >= monthStart && transactionDate <= monthEnd;
-      });
-      
-      return {
-        month: format(date, 'MMM/yy', { locale: ptBR }),
-        receitas: monthTransactions.filter(t => t.type === 'income').reduce((sum, t) => sum + t.amount, 0),
-        despesas: monthTransactions.filter(t => t.type === 'expense').reduce((sum, t) => sum + t.amount, 0),
-      };
-    });
-
-    // Other chart data would be calculated here
-    return {
-      monthlyTrends,
-      categoryBreakdown: [],
-      cashFlow: [],
-      paymentMethods: [],
-      propertyPerformance: [],
-    };
-  };
-
-  const handleRefresh = () => {
-    loadData();
-    setSnackbarOpen(true);
-  };
-
-  const handleFilter = () => {
-    // Implement filter functionality
-  };
-
-  const handleExport = () => {
-    // Implement export functionality
-  };
-
-  const handleTransactionEdit = (transaction: Transaction) => {
-    // Implement edit functionality
-  };
-
-  const handleTransactionDelete = (id: string) => {
-    // Implement delete functionality
-  };
-
-  const handleTransactionConfirm = (id: string) => {
-    // Implement confirm functionality
-  };
-
-  const handleTransactionCancel = (id: string) => {
-    // Implement cancel functionality
-  };
-
-  const handleBulkAction = (action: string, ids: string[]) => {
-    // Implement bulk actions
-  };
-
-  if (error) {
-    return (
-      <Container maxWidth="xl" sx={{ py: 3 }}>
-        <Alert severity="error" sx={{ mb: 2 }}>
-          {error}
-        </Alert>
-        <Button variant="contained" onClick={loadData}>
-          Tentar Novamente
-        </Button>
-      </Container>
-    );
-  }
+  }, []);
 
   return (
-    <Container maxWidth="xl" sx={{ py: 3 }}>
-      {/* Navigation */}
-      <Box sx={{ mb: 4 }}>
-        <Box sx={{ 
-          display: 'flex', 
-          justifyContent: 'space-between', 
-          alignItems: 'center',
-          mb: 3
-        }}>
-          <Typography variant="h4" sx={{ fontWeight: 700 }}>
-            Módulo Financeiro
+    <Box>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 4 }}>
+        <Box>
+          <Typography variant="h4" component="h1" fontWeight={600}>
+            Financeiro
           </Typography>
-          
-          <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
-            <ToggleButtonGroup
-              value={period}
-              exclusive
-              onChange={(_, value) => value && setPeriod(value)}
-              size="small"
-            >
-              <ToggleButton value="3m">3M</ToggleButton>
-              <ToggleButton value="6m">6M</ToggleButton>
-              <ToggleButton value="1y">1A</ToggleButton>
-              <ToggleButton value="2y">2A</ToggleButton>
-            </ToggleButtonGroup>
-            
-            <Button
-              variant="outlined"
-              startIcon={<Refresh />}
-              onClick={handleRefresh}
-              disabled={isLoading}
-            >
-              Atualizar
-            </Button>
-          </Box>
+          <Typography variant="subtitle1" color="text.secondary">
+            Visão geral das finanças e transações
+          </Typography>
         </Box>
-        
-        <ToggleButtonGroup
-          value={viewMode}
-          exclusive
-          onChange={(_, value) => value && setViewMode(value)}
-          aria-label="view mode"
-          sx={{ mb: 2 }}
-        >
-          <ToggleButton value="dashboard" aria-label="dashboard">
-            <Assessment sx={{ mr: 1 }} />
-            Dashboard
-          </ToggleButton>
-          <ToggleButton value="transactions" aria-label="transactions">
-            <TableChart sx={{ mr: 1 }} />
-            Transações
-          </ToggleButton>
-          <ToggleButton value="analytics" aria-label="analytics">
-            <BarChart sx={{ mr: 1 }} />
-            Análises
-          </ToggleButton>
-        </ToggleButtonGroup>
+        <IconButton onClick={loadData} disabled={loading}>
+          <Refresh />
+        </IconButton>
       </Box>
 
-      {/* Content */}
-      {isLoading ? (
-        <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
-          <CircularProgress size={60} />
-        </Box>
-      ) : (
-        <>
-          {viewMode === 'dashboard' && stats && (
-            <EnhancedFinancialDashboard
-              stats={stats}
-              isLoading={false}
-              onRefresh={handleRefresh}
-              onFilter={handleFilter}
-              onExport={handleExport}
-            />
-          )}
-          
-          {viewMode === 'transactions' && (
-            <EnhancedTransactionTable
-              transactions={transactions}
-              properties={properties}
-              clients={clients}
-              reservations={reservations}
-              onEdit={handleTransactionEdit}
-              onDelete={handleTransactionDelete}
-              onConfirm={handleTransactionConfirm}
-              onCancel={handleTransactionCancel}
-              onBulkAction={handleBulkAction}
-              isLoading={false}
-            />
-          )}
-          
-          {viewMode === 'analytics' && chartData && (
-            <InteractiveCharts
-              data={chartData}
-              period={period}
-              onPeriodChange={setPeriod}
-            />
-          )}
-        </>
-      )}
-      
-      {/* Success Snackbar */}
-      <Snackbar
-        open={snackbarOpen}
-        autoHideDuration={3000}
-        onClose={() => setSnackbarOpen(false)}
-        message="Dados atualizados com sucesso!"
-      />
-    </Container>
+      {/* Navigation Cards */}
+      <Grid container spacing={3} sx={{ mb: 4 }}>
+        <Grid item xs={12} md={4}>
+          <Card
+            sx={{
+              cursor: 'pointer',
+              transition: 'all 0.2s',
+              '&:hover': { transform: 'translateY(-2px)', boxShadow: 3 }
+            }}
+            onClick={() => router.push('/dashboard/financeiro/transacoes')}
+          >
+            <CardContent>
+              <Stack direction="row" alignItems="center" spacing={2}>
+                <Receipt color="primary" sx={{ fontSize: 40 }} />
+                <Box>
+                  <Typography variant="h6" fontWeight={600}>
+                    Transações
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    Gerenciar receitas e despesas
+                  </Typography>
+                </Box>
+              </Stack>
+            </CardContent>
+          </Card>
+        </Grid>
+
+        <Grid item xs={12} md={4}>
+          <Card
+            sx={{
+              cursor: 'pointer',
+              transition: 'all 0.2s',
+              '&:hover': { transform: 'translateY(-2px)', boxShadow: 3 }
+            }}
+            onClick={() => router.push('/dashboard/financeiro/cobrancas')}
+          >
+            <CardContent>
+              <Stack direction="row" alignItems="center" spacing={2}>
+                <Payment color="warning" sx={{ fontSize: 40 }} />
+                <Box>
+                  <Typography variant="h6" fontWeight={600}>
+                    Cobranças
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    Automatizar e acompanhar cobranças
+                  </Typography>
+                </Box>
+              </Stack>
+            </CardContent>
+          </Card>
+        </Grid>
+
+        <Grid item xs={12} md={4}>
+          <Card
+            sx={{
+              cursor: 'pointer',
+              transition: 'all 0.2s',
+              '&:hover': { transform: 'translateY(-2px)', boxShadow: 3 }
+            }}
+            onClick={() => router.push('/dashboard/financeiro/relatorios')}
+          >
+            <CardContent>
+              <Stack direction="row" alignItems="center" spacing={2}>
+                <Assessment color="success" sx={{ fontSize: 40 }} />
+                <Box>
+                  <Typography variant="h6" fontWeight={600}>
+                    Relatórios
+                  </Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    Análises e dashboards
+                  </Typography>
+                </Box>
+              </Stack>
+            </CardContent>
+          </Card>
+        </Grid>
+      </Grid>
+
+      {/* Financial Overview */}
+      <Grid container spacing={3}>
+        <Grid item xs={12} sm={6} md={3}>
+          <Card>
+            <CardContent>
+              <Stack direction="row" alignItems="center" justifyContent="space-between">
+                <Box>
+                  <Typography variant="subtitle2" color="text.secondary">
+                    Saldo Total
+                  </Typography>
+                  <Typography variant="h5" fontWeight={600} color={overview.totalBalance >= 0 ? 'success.main' : 'error.main'}>
+                    R$ {overview.totalBalance.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                  </Typography>
+                </Box>
+                {overview.totalBalance >= 0 ? (
+                  <TrendingUp color="success" />
+                ) : (
+                  <TrendingDown color="error" />
+                )}
+              </Stack>
+            </CardContent>
+          </Card>
+        </Grid>
+
+        <Grid item xs={12} sm={6} md={3}>
+          <Card>
+            <CardContent>
+              <Stack direction="row" alignItems="center" justifyContent="space-between">
+                <Box>
+                  <Typography variant="subtitle2" color="text.secondary">
+                    Receita Mensal
+                  </Typography>
+                  <Typography variant="h5" fontWeight={600} color="success.main">
+                    R$ {overview.monthlyIncome.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                  </Typography>
+                </Box>
+                <TrendingUp color="success" />
+              </Stack>
+            </CardContent>
+          </Card>
+        </Grid>
+
+        <Grid item xs={12} sm={6} md={3}>
+          <Card>
+            <CardContent>
+              <Stack direction="row" alignItems="center" justifyContent="space-between">
+                <Box>
+                  <Typography variant="subtitle2" color="text.secondary">
+                    Despesas Mensais
+                  </Typography>
+                  <Typography variant="h5" fontWeight={600} color="error.main">
+                    R$ {overview.monthlyExpenses.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                  </Typography>
+                </Box>
+                <TrendingDown color="error" />
+              </Stack>
+            </CardContent>
+          </Card>
+        </Grid>
+
+        <Grid item xs={12} sm={6} md={3}>
+          <Card>
+            <CardContent>
+              <Stack direction="row" alignItems="center" justifyContent="space-between">
+                <Box>
+                  <Typography variant="subtitle2" color="text.secondary">
+                    Pendentes
+                  </Typography>
+                  <Typography variant="h5" fontWeight={600} color="warning.main">
+                    {overview.pendingTransactions}
+                  </Typography>
+                </Box>
+                <Receipt color="warning" />
+              </Stack>
+            </CardContent>
+          </Card>
+        </Grid>
+
+        {/* Recent Transactions */}
+        <Grid item xs={12}>
+          <Card>
+            <CardContent>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                <Typography variant="h6" fontWeight={600}>
+                  Transações Recentes
+                </Typography>
+                <Button
+                  variant="outlined"
+                  size="small"
+                  onClick={() => router.push('/dashboard/financeiro/transacoes')}
+                >
+                  Ver Todas
+                </Button>
+              </Box>
+              <Divider sx={{ mb: 2 }} />
+              
+              {loading ? (
+                <Typography color="text.secondary">Carregando...</Typography>
+              ) : overview.recentTransactions.length === 0 ? (
+                <Typography color="text.secondary">Nenhuma transação encontrada</Typography>
+              ) : (
+                <Stack spacing={2}>
+                  {overview.recentTransactions.map((transaction) => (
+                    <Box
+                      key={transaction.id}
+                      sx={{
+                        display: 'flex',
+                        justifyContent: 'space-between',
+                        alignItems: 'center',
+                        p: 2,
+                        border: '1px solid',
+                        borderColor: 'divider',
+                        borderRadius: 1,
+                      }}
+                    >
+                      <Box>
+                        <Typography variant="subtitle2">
+                          {transaction.description}
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary">
+                          {transaction.date.toLocaleDateString('pt-BR')} • {transaction.category}
+                        </Typography>
+                      </Box>
+                      <Stack direction="row" alignItems="center" spacing={1}>
+                        <Typography
+                          variant="subtitle1"
+                          fontWeight={600}
+                          color={transaction.type === 'income' ? 'success.main' : 'error.main'}
+                        >
+                          {transaction.type === 'income' ? '+' : '-'}R$ {transaction.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                        </Typography>
+                        <Chip
+                          label={transaction.status === 'completed' ? 'Concluída' : 'Pendente'}
+                          size="small"
+                          color={transaction.status === 'completed' ? 'success' : 'warning'}
+                          variant="outlined"
+                        />
+                      </Stack>
+                    </Box>
+                  ))}
+                </Stack>
+              )}
+            </CardContent>
+          </Card>
+        </Grid>
+      </Grid>
+    </Box>
   );
 }

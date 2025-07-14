@@ -185,6 +185,7 @@ export default function DashboardPage() {
     messagesTotal: 0,
     activeConversations: 0,
     avgResponseTime: 0,
+    connected: false,
   });
   const [recentActivity, setRecentActivity] = useState<any[]>([]);
 
@@ -224,6 +225,18 @@ export default function DashboardPage() {
         }, 0);
       const occupancyRate = totalDays > 0 ? (occupiedDays / totalDays) * 100 : 0;
 
+      // Check WhatsApp connection status
+      let whatsappConnected = false;
+      try {
+        const whatsappResponse = await fetch('/api/config/whatsapp');
+        if (whatsappResponse.ok) {
+          const whatsappData = await whatsappResponse.json();
+          whatsappConnected = whatsappData.status === 'connected';
+        }
+      } catch (error) {
+        console.log('WhatsApp connection check failed');
+      }
+
       // Fetch WhatsApp stats
       const today = new Date();
       today.setHours(0, 0, 0, 0);
@@ -239,6 +252,17 @@ export default function DashboardPage() {
         where('status', '==', 'active')
       );
       const conversationsSnapshot = await getDocs(conversationsQuery);
+
+      // Calculate average response time from real data
+      let avgResponseTime = 0;
+      if (messagesSnapshot.size > 0) {
+        const messages = messagesSnapshot.docs.map(doc => doc.data());
+        const botMessages = messages.filter(m => m.from === 'bot' && m.responseTime);
+        if (botMessages.length > 0) {
+          const totalResponseTime = botMessages.reduce((sum, m) => sum + (m.responseTime || 0), 0);
+          avgResponseTime = totalResponseTime / botMessages.length;
+        }
+      }
 
       // Fetch recent activity
       const activityQuery = query(
@@ -266,7 +290,8 @@ export default function DashboardPage() {
       setWhatsappStats({
         messagesTotal: messagesSnapshot.size,
         activeConversations: conversationsSnapshot.size,
-        avgResponseTime: 1.2, // Calculate from actual response times
+        avgResponseTime: avgResponseTime,
+        connected: whatsappConnected,
       });
 
       setRecentActivity(activities);
@@ -439,11 +464,11 @@ export default function DashboardPage() {
 
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 4 }}>
                 <Chip 
-                  label="Conectado" 
+                  label={whatsappStats.connected ? "Conectado" : "Desconectado"} 
                   sx={{
-                    background: 'rgba(16, 185, 129, 0.15)',
-                    color: '#10b981',
-                    border: '1px solid rgba(16, 185, 129, 0.3)',
+                    background: whatsappStats.connected ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)',
+                    color: whatsappStats.connected ? '#10b981' : '#ef4444',
+                    border: whatsappStats.connected ? '1px solid rgba(16, 185, 129, 0.3)' : '1px solid rgba(239, 68, 68, 0.3)',
                     fontWeight: 600,
                     fontSize: '1rem',
                     px: 2,
@@ -457,7 +482,7 @@ export default function DashboardPage() {
                     fontSize: '1.125rem'
                   }}
                 >
-                  Sistema funcionando perfeitamente
+                  {whatsappStats.connected ? "Sistema funcionando perfeitamente" : "Configure WhatsApp nas configurações"}
                 </Typography>
               </Box>
 
@@ -485,7 +510,7 @@ export default function DashboardPage() {
                     Tempo médio resposta:
                   </Typography>
                   <Typography variant="h6" sx={{ color: '#ffffff', fontWeight: 700, fontSize: '1.25rem' }}>
-                    {loading ? '-' : `${whatsappStats.avgResponseTime.toFixed(1)}s`}
+                    {loading ? '-' : whatsappStats.avgResponseTime > 0 ? `${whatsappStats.avgResponseTime.toFixed(1)}s` : 'N/A'}
                   </Typography>
                 </Box>
               </Box>

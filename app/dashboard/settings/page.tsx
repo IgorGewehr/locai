@@ -1213,7 +1213,7 @@ export default function SettingsPage() {
           </Button>
           <Button 
             variant="contained" 
-            onClick={handleWhatsAppConnect}
+            onClick={handleWhatsAppConnectAPI}
             color="success"
             disabled={connectingWhatsApp || !whatsappCredentials.phoneNumberId || !whatsappCredentials.accessToken || !whatsappCredentials.verifyToken}
             fullWidth={isMobile}

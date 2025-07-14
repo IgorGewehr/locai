@@ -7,39 +7,23 @@ import {
   CardContent,
   Typography,
   Grid,
-  Select,
-  MenuItem,
   FormControl,
   InputLabel,
+  Select,
+  MenuItem,
   Button,
-  ToggleButton,
-  ToggleButtonGroup,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  Paper,
+  Stack,
   Chip,
-  LinearProgress,
   IconButton,
-  Tooltip,
 } from '@mui/material';
 import {
   TrendingUp,
   TrendingDown,
   Download,
-  Print,
-  CalendarMonth,
-  Home,
-  Person,
+  Refresh,
   AttachMoney,
-  CheckCircle,
-  Schedule,
-  Warning,
-  ArrowUpward,
-  ArrowDownward,
+  Receipt,
+  Assessment,
 } from '@mui/icons-material';
 import {
   AreaChart,
@@ -48,358 +32,256 @@ import {
   Bar,
   LineChart,
   Line,
-  PieChart,
-  Pie,
-  Cell,
   XAxis,
   YAxis,
   CartesianGrid,
-  Tooltip as ChartTooltip,
-  Legend,
+  Tooltip,
   ResponsiveContainer,
+  PieChart,
+  Pie,
+  Cell,
 } from 'recharts';
-import { format, startOfMonth, endOfMonth, subMonths, startOfYear, endOfYear } from 'date-fns';
+import { Transaction } from '@/lib/types';
+import { collection, query, orderBy, getDocs, where, Timestamp } from 'firebase/firestore';
+import { db } from '@/lib/firebase/config';
+import { format, subMonths, startOfMonth, endOfMonth } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { Transaction, Client } from '@/lib/types';
-import { Property } from '@/lib/types/property';
-import { transactionService } from '@/lib/services/transaction-service';
-import { propertyService, clientService } from '@/lib/firebase/firestore';
-import { useAuth } from '@/lib/hooks/useAuth';
 
-interface ReportData {
-  period: string;
+interface FinancialMetrics {
   totalIncome: number;
   totalExpenses: number;
-  netProfit: number;
-  transactions: Transaction[];
-  byProperty: { [propertyId: string]: { income: number; expenses: number; profit: number } };
-  byCategory: { [category: string]: number };
-  topClients: Array<{ clientId: string; name: string; total: number; transactions: number }>;
-  occupancyRate: number;
-  growthRate: number;
+  netIncome: number;
+  transactionCount: number;
+  avgTransactionValue: number;
+  monthlyGrowth: number;
 }
 
-const COLORS = ['#10b981', '#3b82f6', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'];
+interface ChartData {
+  name: string;
+  receita: number;
+  despesa: number;
+  saldo: number;
+}
 
-export default function RelatoriosFinanceirosPage() {
-  const { user } = useAuth();
+const COLORS = ['#10b981', '#f59e0b', '#ef4444', '#6366f1', '#8b5cf6'];
+
+export default function ReportsPage() {
   const [loading, setLoading] = useState(true);
-  const [reportType, setReportType] = useState<'monthly' | 'quarterly' | 'yearly'>('monthly');
-  const [selectedPeriod, setSelectedPeriod] = useState(format(new Date(), 'yyyy-MM'));
-  const [properties, setProperties] = useState<Property[]>([]);
-  const [clients, setClients] = useState<Client[]>([]);
-  const [reportData, setReportData] = useState<ReportData | null>(null);
+  const [period, setPeriod] = useState('6m');
+  const [metrics, setMetrics] = useState<FinancialMetrics>({
+    totalIncome: 0,
+    totalExpenses: 0,
+    netIncome: 0,
+    transactionCount: 0,
+    avgTransactionValue: 0,
+    monthlyGrowth: 0,
+  });
+  const [chartData, setChartData] = useState<ChartData[]>([]);
+  const [categoryData, setCategoryData] = useState<any[]>([]);
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
 
-  useEffect(() => {
-    loadData();
-  }, [reportType, selectedPeriod]);
-
-  const loadData = async () => {
+  const loadReportsData = async () => {
     try {
       setLoading(true);
 
-      // Carregar dados relacionados
-      const [propertiesData, clientsData] = await Promise.all([
-        propertyService.getAll(),
-        clientService.getAll(),
-      ]);
-
-      setProperties(propertiesData);
-      setClients(clientsData);
-
-      // Determinar período do relatório
-      let startDate: Date;
-      let endDate: Date;
-
-      if (reportType === 'monthly') {
-        const [year, month] = selectedPeriod.split('-').map(Number);
-        startDate = startOfMonth(new Date(year, month - 1));
-        endDate = endOfMonth(new Date(year, month - 1));
-      } else if (reportType === 'quarterly') {
-        const [year, quarter] = selectedPeriod.split('-Q').map(Number);
-        const startMonth = (quarter - 1) * 3;
-        startDate = new Date(year, startMonth, 1);
-        endDate = endOfMonth(new Date(year, startMonth + 2));
-      } else {
-        const year = parseInt(selectedPeriod);
-        startDate = startOfYear(new Date(year, 0));
-        endDate = endOfYear(new Date(year, 0));
+      // Calculate date range based on period
+      const endDate = new Date();
+      let startDate = new Date();
+      
+      switch (period) {
+        case '3m':
+          startDate = subMonths(endDate, 3);
+          break;
+        case '6m':
+          startDate = subMonths(endDate, 6);
+          break;
+        case '1y':
+          startDate = subMonths(endDate, 12);
+          break;
+        case '2y':
+          startDate = subMonths(endDate, 24);
+          break;
+        default:
+          startDate = subMonths(endDate, 6);
       }
 
-      // Buscar transações do período
-      const { transactions } = await transactionService.getFiltered({
-        startDate,
-        endDate,
+      // Fetch transactions for the period
+      const transactionsQuery = query(
+        collection(db, 'transactions'),
+        where('date', '>=', Timestamp.fromDate(startDate)),
+        where('date', '<=', Timestamp.fromDate(endDate)),
+        orderBy('date', 'desc')
+      );
+
+      const snapshot = await getDocs(transactionsQuery);
+      const transactionData = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data(),
+        date: doc.data().date?.toDate() || new Date(),
+      })) as Transaction[];
+
+      setTransactions(transactionData);
+
+      // Calculate metrics
+      const completedTransactions = transactionData.filter(t => t.status === 'completed');
+      const totalIncome = completedTransactions
+        .filter(t => t.type === 'income')
+        .reduce((sum, t) => sum + t.amount, 0);
+      
+      const totalExpenses = completedTransactions
+        .filter(t => t.type === 'expense')
+        .reduce((sum, t) => sum + t.amount, 0);
+
+      const netIncome = totalIncome - totalExpenses;
+      const transactionCount = completedTransactions.length;
+      const avgTransactionValue = transactionCount > 0 ? (totalIncome + totalExpenses) / transactionCount : 0;
+
+      // Calculate monthly growth (comparing with previous period)
+      const previousPeriodStart = new Date(startDate);
+      const previousPeriodEnd = new Date(startDate);
+      
+      const periodDuration = endDate.getTime() - startDate.getTime();
+      previousPeriodStart.setTime(startDate.getTime() - periodDuration);
+
+      const previousQuery = query(
+        collection(db, 'transactions'),
+        where('date', '>=', Timestamp.fromDate(previousPeriodStart)),
+        where('date', '<', Timestamp.fromDate(startDate)),
+        orderBy('date', 'desc')
+      );
+
+      const previousSnapshot = await getDocs(previousQuery);
+      const previousTransactions = previousSnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data(),
+        date: doc.data().date?.toDate() || new Date(),
+      })) as Transaction[];
+
+      const previousIncome = previousTransactions
+        .filter(t => t.status === 'completed' && t.type === 'income')
+        .reduce((sum, t) => sum + t.amount, 0);
+
+      const monthlyGrowth = previousIncome > 0 ? ((totalIncome - previousIncome) / previousIncome) * 100 : 0;
+
+      setMetrics({
+        totalIncome,
+        totalExpenses,
+        netIncome,
+        transactionCount,
+        avgTransactionValue,
+        monthlyGrowth,
       });
 
-      // Processar dados do relatório
-      const reportData = await processReportData(transactions, propertiesData, clientsData, startDate, endDate);
-      setReportData(reportData);
+      // Generate monthly chart data
+      const monthlyData: ChartData[] = [];
+      const months = Math.min(parseInt(period.replace(/[^0-9]/g, '')) * (period.includes('y') ? 12 : 1), 12);
+      
+      for (let i = months - 1; i >= 0; i--) {
+        const monthStart = startOfMonth(subMonths(endDate, i));
+        const monthEnd = endOfMonth(subMonths(endDate, i));
+        
+        const monthTransactions = completedTransactions.filter(t => 
+          t.date >= monthStart && t.date <= monthEnd
+        );
+        
+        const monthIncome = monthTransactions
+          .filter(t => t.type === 'income')
+          .reduce((sum, t) => sum + t.amount, 0);
+        
+        const monthExpenses = monthTransactions
+          .filter(t => t.type === 'expense')
+          .reduce((sum, t) => sum + t.amount, 0);
+
+        monthlyData.push({
+          name: format(monthStart, 'MMM/yy', { locale: ptBR }),
+          receita: monthIncome,
+          despesa: monthExpenses,
+          saldo: monthIncome - monthExpenses,
+        });
+      }
+
+      setChartData(monthlyData);
+
+      // Generate category data for pie chart
+      const categoryMap: Record<string, number> = {};
+      completedTransactions.forEach(t => {
+        if (t.type === 'income') {
+          categoryMap[t.category] = (categoryMap[t.category] || 0) + t.amount;
+        }
+      });
+
+      const categoryArray = Object.entries(categoryMap)
+        .map(([name, value]) => ({ name, value }))
+        .sort((a, b) => b.value - a.value)
+        .slice(0, 5); // Top 5 categories
+
+      setCategoryData(categoryArray);
 
     } catch (error) {
-      console.error('Erro ao carregar dados:', error);
+      console.error('Error loading reports data:', error);
     } finally {
       setLoading(false);
     }
   };
 
-  const processReportData = async (
-    transactions: Transaction[], 
-    properties: Property[], 
-    clients: Client[],
-    startDate: Date,
-    endDate: Date
-  ): Promise<ReportData> => {
-    // Calcular totais
-    const totalIncome = transactions
-      .filter(t => t.type === 'income' && t.status === 'completed')
-      .reduce((sum, t) => sum + t.amount, 0);
-
-    const totalExpenses = transactions
-      .filter(t => t.type === 'expense' && t.status === 'completed')
-      .reduce((sum, t) => sum + t.amount, 0);
-
-    const netProfit = totalIncome - totalExpenses;
-
-    // Agrupar por propriedade
-    const byProperty: ReportData['byProperty'] = {};
-    transactions.forEach(t => {
-      if (t.propertyId && t.status === 'completed') {
-        if (!byProperty[t.propertyId]) {
-          byProperty[t.propertyId] = { income: 0, expenses: 0, profit: 0 };
-        }
-        if (t.type === 'income') {
-          byProperty[t.propertyId].income += t.amount;
-        } else {
-          byProperty[t.propertyId].expenses += t.amount;
-        }
-        byProperty[t.propertyId].profit = byProperty[t.propertyId].income - byProperty[t.propertyId].expenses;
-      }
-    });
-
-    // Agrupar por categoria
-    const byCategory: ReportData['byCategory'] = {};
-    transactions
-      .filter(t => t.status === 'completed')
-      .forEach(t => {
-        if (!byCategory[t.category]) {
-          byCategory[t.category] = 0;
-        }
-        byCategory[t.category] += t.amount;
-      });
-
-    // Top clientes
-    const clientTotals: { [clientId: string]: { total: number; count: number } } = {};
-    transactions
-      .filter(t => t.type === 'income' && t.status === 'completed' && t.clientId)
-      .forEach(t => {
-        if (!clientTotals[t.clientId!]) {
-          clientTotals[t.clientId!] = { total: 0, count: 0 };
-        }
-        clientTotals[t.clientId!].total += t.amount;
-        clientTotals[t.clientId!].count++;
-      });
-
-    const topClients = Object.entries(clientTotals)
-      .map(([clientId, data]) => ({
-        clientId,
-        name: clients.find(c => c.id === clientId)?.name || 'Cliente',
-        total: data.total,
-        transactions: data.count,
-      }))
-      .sort((a, b) => b.total - a.total)
-      .slice(0, 10);
-
-    // Taxa de ocupação (simplificada)
-    const totalDays = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
-    const occupiedDays = transactions
-      .filter(t => t.type === 'income' && t.category === 'reservation')
-      .length * 3; // Assumindo 3 dias por reserva em média
-    const occupancyRate = (occupiedDays / (totalDays * properties.length)) * 100;
-
-    // Taxa de crescimento (comparado com período anterior)
-    const previousPeriodStart = subMonths(startDate, 1);
-    const previousPeriodEnd = subMonths(endDate, 1);
-    const previousTransactions = await transactionService.getAll();
-    const previousIncome = previousTransactions
-      .filter(t => {
-        const tDate = t.date instanceof Date ? t.date : new Date(t.date);
-        return t.type === 'income' && 
-               t.status === 'completed' &&
-               tDate >= previousPeriodStart && 
-               tDate <= previousPeriodEnd;
-      })
-      .reduce((sum, t) => sum + t.amount, 0);
-    
-    const growthRate = previousIncome > 0 
-      ? Math.round(((totalIncome - previousIncome) / previousIncome) * 100 * 10) / 10
-      : 0;
-
-    return {
-      period: format(startDate, 'MMMM yyyy', { locale: ptBR }),
-      totalIncome,
-      totalExpenses,
-      netProfit,
-      transactions,
-      byProperty,
-      byCategory,
-      topClients,
-      occupancyRate,
-      growthRate,
-    };
-  };
+  useEffect(() => {
+    loadReportsData();
+  }, [period]);
 
   const formatCurrency = (value: number) => {
-    return new Intl.NumberFormat('pt-BR', {
-      style: 'currency',
-      currency: 'BRL'
-    }).format(value);
+    return `R$ ${value.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
   };
-
-  const handleExport = (format: 'pdf' | 'excel') => {
-    // Implementar exportação
-    console.log(`Exportando relatório em formato ${format}`);
-  };
-
-  const getAvailablePeriods = () => {
-    const periods = [];
-    const now = new Date();
-
-    if (reportType === 'monthly') {
-      for (let i = 0; i < 12; i++) {
-        const date = subMonths(now, i);
-        periods.push({
-          value: format(date, 'yyyy-MM'),
-          label: format(date, 'MMMM yyyy', { locale: ptBR }),
-        });
-      }
-    } else if (reportType === 'quarterly') {
-      const currentYear = now.getFullYear();
-      const currentQuarter = Math.floor(now.getMonth() / 3) + 1;
-      
-      for (let year = currentYear; year >= currentYear - 2; year--) {
-        for (let q = 4; q >= 1; q--) {
-          if (year === currentYear && q > currentQuarter) continue;
-          periods.push({
-            value: `${year}-Q${q}`,
-            label: `${q}º Trimestre ${year}`,
-          });
-        }
-      }
-    } else {
-      const currentYear = now.getFullYear();
-      for (let year = currentYear; year >= currentYear - 5; year--) {
-        periods.push({
-          value: year.toString(),
-          label: year.toString(),
-        });
-      }
-    }
-
-    return periods;
-  };
-
-  if (loading || !reportData) {
-    return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '80vh' }}>
-        <LinearProgress sx={{ width: '50%' }} />
-      </Box>
-    );
-  }
-
-  // Preparar dados para gráficos - usando dados reais
-  const monthlyData = reportData?.monthlyRevenue?.map((revenue, index) => {
-    const date = subMonths(new Date(), (reportData?.monthlyRevenue?.length || 1) - 1 - index);
-    const expenses = reportData?.monthlyExpenses?.[index] || 0;
-    return {
-      month: format(date, 'MMM', { locale: ptBR }),
-      receitas: revenue,
-      despesas: expenses,
-    };
-  }) || [];
-
-  const categoryData = Object.entries(reportData.byCategory)
-    .map(([name, value]) => ({ name, value }))
-    .sort((a, b) => b.value - a.value);
-
-  const propertyPerformance = Object.entries(reportData?.byProperty || {})
-    .map(([propertyId, data]) => ({
-      name: properties.find(p => p.id === propertyId)?.title || 'Propriedade',
-      ...data,
-    }))
-    .sort((a, b) => b.profit - a.profit);
 
   return (
     <Box>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-        <Typography variant="h4" component="h1" fontWeight={600}>
-          Relatórios Financeiros
-        </Typography>
-        <Box sx={{ display: 'flex', gap: 2 }}>
-          <Tooltip title="Exportar PDF">
-            <IconButton onClick={() => handleExport('pdf')}>
-              <Print />
-            </IconButton>
-          </Tooltip>
-          <Tooltip title="Exportar Excel">
-            <IconButton onClick={() => handleExport('excel')}>
-              <Download />
-            </IconButton>
-          </Tooltip>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 4 }}>
+        <Box>
+          <Typography variant="h4" component="h1" fontWeight={600}>
+            Relatórios Financeiros
+          </Typography>
+          <Typography variant="subtitle1" color="text.secondary">
+            Análises e insights financeiros detalhados
+          </Typography>
         </Box>
+        <Stack direction="row" spacing={2}>
+          <FormControl size="small" sx={{ minWidth: 120 }}>
+            <InputLabel>Período</InputLabel>
+            <Select
+              value={period}
+              onChange={(e) => setPeriod(e.target.value)}
+              label="Período"
+            >
+              <MenuItem value="3m">3 meses</MenuItem>
+              <MenuItem value="6m">6 meses</MenuItem>
+              <MenuItem value="1y">1 ano</MenuItem>
+              <MenuItem value="2y">2 anos</MenuItem>
+            </Select>
+          </FormControl>
+          <IconButton onClick={loadReportsData} disabled={loading}>
+            <Refresh />
+          </IconButton>
+          <Button variant="outlined" startIcon={<Download />}>
+            Exportar
+          </Button>
+        </Stack>
       </Box>
 
-      {/* Seleção de Período */}
-      <Box sx={{ display: 'flex', gap: 2, mb: 3 }}>
-        <ToggleButtonGroup
-          value={reportType}
-          exclusive
-          onChange={(_, newType) => newType && setReportType(newType)}
-          size="small"
-        >
-          <ToggleButton value="monthly">Mensal</ToggleButton>
-          <ToggleButton value="quarterly">Trimestral</ToggleButton>
-          <ToggleButton value="yearly">Anual</ToggleButton>
-        </ToggleButtonGroup>
-
-        <FormControl size="small" sx={{ minWidth: 200 }}>
-          <InputLabel>Período</InputLabel>
-          <Select
-            value={selectedPeriod}
-            onChange={(e) => setSelectedPeriod(e.target.value)}
-            label="Período"
-          >
-            {getAvailablePeriods().map(period => (
-              <MenuItem key={period.value} value={period.value}>
-                {period.label}
-              </MenuItem>
-            ))}
-          </Select>
-        </FormControl>
-      </Box>
-
-      {/* KPI Cards */}
-      <Grid container spacing={3} sx={{ mb: 3 }}>
+      {/* Key Metrics */}
+      <Grid container spacing={3} sx={{ mb: 4 }}>
         <Grid item xs={12} sm={6} md={3}>
           <Card>
             <CardContent>
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+              <Stack direction="row" alignItems="center" justifyContent="space-between">
                 <Box>
-                  <Typography color="text.secondary" gutterBottom variant="body2">
+                  <Typography variant="subtitle2" color="text.secondary">
                     Receita Total
                   </Typography>
                   <Typography variant="h5" fontWeight={600} color="success.main">
-                    {formatCurrency(reportData?.totalIncome || 0)}
+                    {formatCurrency(metrics.totalIncome)}
                   </Typography>
-                  <Box sx={{ display: 'flex', alignItems: 'center', mt: 1 }}>
-                    <TrendingUp sx={{ fontSize: 16, color: 'success.main', mr: 0.5 }} />
-                    <Typography variant="caption" color="success.main">
-                      +{reportData?.growthRate || 0}% vs período anterior
-                    </Typography>
-                  </Box>
                 </Box>
-                <ArrowUpward sx={{ color: 'success.main', fontSize: 32 }} />
-              </Box>
+                <TrendingUp color="success" />
+              </Stack>
             </CardContent>
           </Card>
         </Grid>
@@ -407,20 +289,17 @@ export default function RelatoriosFinanceirosPage() {
         <Grid item xs={12} sm={6} md={3}>
           <Card>
             <CardContent>
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+              <Stack direction="row" alignItems="center" justifyContent="space-between">
                 <Box>
-                  <Typography color="text.secondary" gutterBottom variant="body2">
-                    Despesas
+                  <Typography variant="subtitle2" color="text.secondary">
+                    Despesas Totais
                   </Typography>
                   <Typography variant="h5" fontWeight={600} color="error.main">
-                    {formatCurrency(reportData?.totalExpenses || 0)}
-                  </Typography>
-                  <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
-                    {reportData?.totalIncome ? ((reportData.totalExpenses / reportData.totalIncome) * 100).toFixed(1) : '0'}% da receita
+                    {formatCurrency(metrics.totalExpenses)}
                   </Typography>
                 </Box>
-                <ArrowDownward sx={{ color: 'error.main', fontSize: 32 }} />
-              </Box>
+                <TrendingDown color="error" />
+              </Stack>
             </CardContent>
           </Card>
         </Grid>
@@ -428,20 +307,21 @@ export default function RelatoriosFinanceirosPage() {
         <Grid item xs={12} sm={6} md={3}>
           <Card>
             <CardContent>
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+              <Stack direction="row" alignItems="center" justifyContent="space-between">
                 <Box>
-                  <Typography color="text.secondary" gutterBottom variant="body2">
+                  <Typography variant="subtitle2" color="text.secondary">
                     Lucro Líquido
                   </Typography>
-                  <Typography variant="h5" fontWeight={600} color="primary.main">
-                    {formatCurrency(reportData?.netProfit || 0)}
-                  </Typography>
-                  <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
-                    Margem: {reportData?.totalIncome ? ((reportData.netProfit / reportData.totalIncome) * 100).toFixed(1) : '0'}%
+                  <Typography 
+                    variant="h5" 
+                    fontWeight={600} 
+                    color={metrics.netIncome >= 0 ? 'success.main' : 'error.main'}
+                  >
+                    {formatCurrency(metrics.netIncome)}
                   </Typography>
                 </Box>
-                <AttachMoney sx={{ color: 'primary.main', fontSize: 32 }} />
-              </Box>
+                <AttachMoney color={metrics.netIncome >= 0 ? 'success' : 'error'} />
+              </Stack>
             </CardContent>
           </Card>
         </Grid>
@@ -449,167 +329,175 @@ export default function RelatoriosFinanceirosPage() {
         <Grid item xs={12} sm={6} md={3}>
           <Card>
             <CardContent>
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+              <Stack direction="row" alignItems="center" justifyContent="space-between">
                 <Box>
-                  <Typography color="text.secondary" gutterBottom variant="body2">
-                    Taxa de Ocupação
+                  <Typography variant="subtitle2" color="text.secondary">
+                    Crescimento Mensal
                   </Typography>
-                  <Typography variant="h5" fontWeight={600}>
-                    {reportData?.occupancyRate?.toFixed(1) || '0'}%
-                  </Typography>
-                  <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
-                    {properties.length} propriedades
+                  <Typography 
+                    variant="h5" 
+                    fontWeight={600}
+                    color={metrics.monthlyGrowth >= 0 ? 'success.main' : 'error.main'}
+                  >
+                    {metrics.monthlyGrowth >= 0 ? '+' : ''}{metrics.monthlyGrowth.toFixed(1)}%
                   </Typography>
                 </Box>
-                <Home sx={{ color: 'text.secondary', fontSize: 32 }} />
+                {metrics.monthlyGrowth >= 0 ? (
+                  <TrendingUp color="success" />
+                ) : (
+                  <TrendingDown color="error" />
+                )}
+              </Stack>
+            </CardContent>
+          </Card>
+        </Grid>
+      </Grid>
+
+      {/* Charts */}
+      <Grid container spacing={3}>
+        {/* Monthly Trends */}
+        <Grid item xs={12} lg={8}>
+          <Card>
+            <CardContent>
+              <Typography variant="h6" fontWeight={600} gutterBottom>
+                Tendências Mensais
+              </Typography>
+              <Box sx={{ height: 400 }}>
+                {loading ? (
+                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
+                    <Typography color="text.secondary">Carregando...</Typography>
+                  </Box>
+                ) : (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <AreaChart data={chartData}>
+                      <CartesianGrid strokeDasharray="3 3" />
+                      <XAxis dataKey="name" />
+                      <YAxis tickFormatter={(value) => `R$ ${(value / 1000).toFixed(0)}k`} />
+                      <Tooltip 
+                        formatter={(value: number) => [formatCurrency(value), '']}
+                        labelStyle={{ color: '#000' }}
+                      />
+                      <Area 
+                        type="monotone" 
+                        dataKey="receita" 
+                        stackId="1" 
+                        stroke="#10b981" 
+                        fill="#10b981"
+                        fillOpacity={0.6}
+                        name="Receita"
+                      />
+                      <Area 
+                        type="monotone" 
+                        dataKey="despesa" 
+                        stackId="2" 
+                        stroke="#ef4444" 
+                        fill="#ef4444"
+                        fillOpacity={0.6}
+                        name="Despesa"
+                      />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                )}
               </Box>
             </CardContent>
           </Card>
         </Grid>
-      </Grid>
 
-      {/* Gráficos */}
-      <Grid container spacing={3} sx={{ mb: 3 }}>
-        <Grid item xs={12} md={8}>
+        {/* Category Breakdown */}
+        <Grid item xs={12} lg={4}>
           <Card>
             <CardContent>
-              <Typography variant="h6" gutterBottom>
-                Evolução Mensal
+              <Typography variant="h6" fontWeight={600} gutterBottom>
+                Receita por Categoria
               </Typography>
-              <ResponsiveContainer width="100%" height={300}>
-                <AreaChart data={monthlyData}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="month" />
-                  <YAxis />
-                  <ChartTooltip formatter={(value: number) => formatCurrency(value)} />
-                  <Legend />
-                  <Area
-                    type="monotone"
-                    dataKey="receitas"
-                    stackId="1"
-                    stroke="#10b981"
-                    fill="#10b981"
-                    fillOpacity={0.6}
-                  />
-                  <Area
-                    type="monotone"
-                    dataKey="despesas"
-                    stackId="2"
-                    stroke="#ef4444"
-                    fill="#ef4444"
-                    fillOpacity={0.6}
-                  />
-                </AreaChart>
-              </ResponsiveContainer>
+              <Box sx={{ height: 400 }}>
+                {loading ? (
+                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
+                    <Typography color="text.secondary">Carregando...</Typography>
+                  </Box>
+                ) : categoryData.length === 0 ? (
+                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
+                    <Typography color="text.secondary">Sem dados para exibir</Typography>
+                  </Box>
+                ) : (
+                  <ResponsiveContainer width="100%" height="100%">
+                    <PieChart>
+                      <Pie
+                        data={categoryData}
+                        cx="50%"
+                        cy="50%"
+                        labelLine={false}
+                        label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                        outerRadius={120}
+                        fill="#8884d8"
+                        dataKey="value"
+                      >
+                        {categoryData.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                        ))}
+                      </Pie>
+                      <Tooltip formatter={(value: number) => [formatCurrency(value), 'Valor']} />
+                    </PieChart>
+                  </ResponsiveContainer>
+                )}
+              </Box>
             </CardContent>
           </Card>
         </Grid>
 
-        <Grid item xs={12} md={4}>
+        {/* Summary Stats */}
+        <Grid item xs={12}>
           <Card>
             <CardContent>
-              <Typography variant="h6" gutterBottom>
-                Receitas por Categoria
+              <Typography variant="h6" fontWeight={600} gutterBottom>
+                Resumo do Período
               </Typography>
-              <ResponsiveContainer width="100%" height={300}>
-                <PieChart>
-                  <Pie
-                    data={categoryData}
-                    cx="50%"
-                    cy="50%"
-                    labelLine={false}
-                    label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
-                    outerRadius={80}
-                    fill="#8884d8"
-                    dataKey="value"
-                  >
-                    {categoryData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                    ))}
-                  </Pie>
-                  <ChartTooltip formatter={(value: number) => formatCurrency(value)} />
-                </PieChart>
-              </ResponsiveContainer>
-            </CardContent>
-          </Card>
-        </Grid>
-      </Grid>
-
-      {/* Tabelas */}
-      <Grid container spacing={3}>
-        <Grid item xs={12} md={6}>
-          <Card>
-            <CardContent>
-              <Typography variant="h6" gutterBottom>
-                Desempenho por Propriedade
-              </Typography>
-              <TableContainer>
-                <Table size="small">
-                  <TableHead>
-                    <TableRow>
-                      <TableCell>Propriedade</TableCell>
-                      <TableCell align="right">Receita</TableCell>
-                      <TableCell align="right">Despesa</TableCell>
-                      <TableCell align="right">Lucro</TableCell>
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {propertyPerformance.map((property) => (
-                      <TableRow key={property.name}>
-                        <TableCell>{property.name}</TableCell>
-                        <TableCell align="right" sx={{ color: 'success.main' }}>
-                          {formatCurrency(property.income)}
-                        </TableCell>
-                        <TableCell align="right" sx={{ color: 'error.main' }}>
-                          {formatCurrency(property.expenses)}
-                        </TableCell>
-                        <TableCell align="right" sx={{ fontWeight: 600 }}>
-                          {formatCurrency(property.profit)}
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </TableContainer>
-            </CardContent>
-          </Card>
-        </Grid>
-
-        <Grid item xs={12} md={6}>
-          <Card>
-            <CardContent>
-              <Typography variant="h6" gutterBottom>
-                Top 10 Clientes
-              </Typography>
-              <TableContainer>
-                <Table size="small">
-                  <TableHead>
-                    <TableRow>
-                      <TableCell>Cliente</TableCell>
-                      <TableCell align="center">Transações</TableCell>
-                      <TableCell align="right">Total</TableCell>
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {reportData?.topClients?.map((client, index) => (
-                      <TableRow key={client.clientId}>
-                        <TableCell>
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                            <Person sx={{ fontSize: 20, color: 'text.secondary' }} />
-                            {client.name}
-                          </Box>
-                        </TableCell>
-                        <TableCell align="center">
-                          <Chip label={client.transactions} size="small" />
-                        </TableCell>
-                        <TableCell align="right" sx={{ fontWeight: 600 }}>
-                          {formatCurrency(client.total)}
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </TableContainer>
+              <Grid container spacing={3}>
+                <Grid item xs={12} sm={6} md={3}>
+                  <Box sx={{ textAlign: 'center' }}>
+                    <Receipt sx={{ fontSize: 40, color: 'primary.main', mb: 1 }} />
+                    <Typography variant="h4" fontWeight={600}>
+                      {metrics.transactionCount}
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      Transações
+                    </Typography>
+                  </Box>
+                </Grid>
+                <Grid item xs={12} sm={6} md={3}>
+                  <Box sx={{ textAlign: 'center' }}>
+                    <Assessment sx={{ fontSize: 40, color: 'secondary.main', mb: 1 }} />
+                    <Typography variant="h4" fontWeight={600}>
+                      {formatCurrency(metrics.avgTransactionValue)}
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      Valor Médio
+                    </Typography>
+                  </Box>
+                </Grid>
+                <Grid item xs={12} sm={6} md={3}>
+                  <Box sx={{ textAlign: 'center' }}>
+                    <TrendingUp sx={{ fontSize: 40, color: 'success.main', mb: 1 }} />
+                    <Typography variant="h4" fontWeight={600}>
+                      {((metrics.totalIncome / (metrics.totalIncome + metrics.totalExpenses)) * 100).toFixed(1)}%
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      % Receita
+                    </Typography>
+                  </Box>
+                </Grid>
+                <Grid item xs={12} sm={6} md={3}>
+                  <Box sx={{ textAlign: 'center' }}>
+                    <AttachMoney sx={{ fontSize: 40, color: 'warning.main', mb: 1 }} />
+                    <Typography variant="h4" fontWeight={600}>
+                      {metrics.netIncome > 0 ? '+' : ''}{((metrics.netIncome / metrics.totalIncome) * 100).toFixed(1)}%
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      Margem Líquida
+                    </Typography>
+                  </Box>
+                </Grid>
+              </Grid>
             </CardContent>
           </Card>
         </Grid>
