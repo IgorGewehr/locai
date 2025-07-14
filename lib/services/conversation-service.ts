@@ -9,7 +9,7 @@ import {
 } from '@/lib/types/conversation'
 import { FirestoreService } from '@/lib/firebase/firestore'
 import { Timestamp } from 'firebase/firestore'
-import { clientService } from './client-service'
+import { clientServiceWrapper } from './client-service'
 
 class ConversationService extends FirestoreService<Conversation> {
   constructor() {
@@ -52,10 +52,10 @@ class ConversationService extends FirestoreService<Conversation> {
   async createNew(phoneNumber: string, clientName?: string, tenantId: string = 'default'): Promise<Conversation> {
     try {
       // Find or create client
-      let client = await clientService.findByPhone(phoneNumber, tenantId)
+      let client = await clientServiceWrapper.findByPhone(phoneNumber, tenantId)
 
       if (!client) {
-        client = await clientService.create({
+        client = await clientServiceWrapper.create({
           name: clientName || '',
           phone: phoneNumber,
           tenantId,

@@ -26,7 +26,12 @@
       "Bash(npm audit:*)",
       "Bash(chmod:*)",
       "Bash(mkdir:*)",
-      "Bash(ESLINT_NO_DEV_ERRORS=true npm run build)"
+      "Bash(ESLINT_NO_DEV_ERRORS=true npm run build)",
+      "Bash(/dev/null)",
+      "Bash(npm run clean:*)",
+      "Bash(npm ls:*)",
+      "Bash(./node_modules/.bin/next dev --turbo)",
+      "Bash(npm rebuild:*)"
     ],
     "deny": []
   }

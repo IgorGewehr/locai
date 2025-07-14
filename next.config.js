@@ -7,6 +7,14 @@ const nextConfig = {
     },
   },
   
+  // Development optimizations
+  onDemandEntries: {
+    // period (in ms) where the server will keep pages in the buffer
+    maxInactiveAge: 25 * 1000,
+    // number of pages that should be kept simultaneously without being disposed
+    pagesBufferLength: 2,
+  },
+  
   // Production optimizations
   // output: 'standalone', // Removed for Netlify compatibility
   poweredByHeader: false,
@@ -84,6 +92,9 @@ const nextConfig = {
     ];
   },
   
+  // Server external packages  
+  serverExternalPackages: ['keyv', 'cacheable'],
+  
   // Webpack configuration
   webpack: (config, { isServer }) => {
     // Add any custom webpack config here
@@ -95,6 +106,12 @@ const nextConfig = {
         tls: false,
       };
     }
+    
+    // Resolve package version conflicts
+    config.resolve.alias = {
+      ...config.resolve.alias,
+    };
+    
     return config;
   },
   

@@ -66,33 +66,9 @@ import {
 } from 'recharts';
 import { format, subMonths, startOfMonth, endOfMonth } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-
-interface FinancialStats {
-  totalIncome: number;
-  totalExpenses: number;
-  balance: number;
-  pendingIncome: number;
-  pendingExpenses: number;
-  transactionCount: {
-    total: number;
-    pending: number;
-    completed: number;
-  };
-  growth: {
-    income: number;
-    expenses: number;
-    balance: number;
-  };
-  byCategory: Record<string, number>;
-}
-
-interface EnhancedFinancialDashboardProps {
-  stats: FinancialStats;
-  isLoading?: boolean;
-  onRefresh?: () => void;
-  onFilter?: () => void;
-  onExport?: () => void;
-}
+import { transactionFirestoreService } from '@/lib/firebase/firestore';
+import { Transaction } from '@/lib/types';
+import { useAuth } from '@/lib/hooks/useAuth';
 
 const formatCurrency = (value: number) => {
   return new Intl.NumberFormat('pt-BR', {
@@ -107,545 +83,682 @@ const formatPercent = (value: number) => {
   return `${value >= 0 ? '+' : ''}${value.toFixed(1)}%`;
 };
 
-export default function EnhancedFinancialDashboard({
-  stats,
-  isLoading = false,
-  onRefresh,
-  onFilter,
-  onExport,
-}: EnhancedFinancialDashboardProps) {
+export default function EnhancedFinancialDashboard() {
   const theme = useTheme();
+  const { user } = useAuth();
   const [animateCards, setAnimateCards] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [monthlyData, setMonthlyData] = useState<any[]>([]);
+  const [categoryData, setCategoryData] = useState<any[]>([]);
+  const [stats, setStats] = useState({
+    totalIncome: 0,
+    totalExpenses: 0,
+    balance: 0,
+    pendingIncome: 0,
+    pendingExpenses: 0,
+    transactionCount: {
+      total: 0,
+      pending: 0,
+      completed: 0,
+    },
+    growth: {
+      income: 0,
+      expenses: 0,
+      balance: 0,
+    },
+  });
 
   useEffect(() => {
     setAnimateCards(true);
-  }, []);
+    loadFinancialData();
+  }, [user]);
 
-  // Gerar dados mock para demonstração
-  const monthlyData = Array.from({ length: 6 }, (_, i) => {
-    const date = subMonths(new Date(), 5 - i);
-    return {
-      month: format(date, 'MMM', { locale: ptBR }),
-      receitas: Math.random() * 50000 + 30000,
-      despesas: Math.random() * 30000 + 15000,
-      lucro: Math.random() * 25000 + 10000,
-    };
-  });
+  const loadFinancialData = async () => {
+    if (!user) return;
 
-  const categoryData = [
-    { name: 'Hospedagem', value: 45000, color: '#10b981' },
-    { name: 'Manutenção', value: 12000, color: '#ef4444' },
-    { name: 'Limpeza', value: 8000, color: '#f59e0b' },
-    { name: 'Comissões', value: 6000, color: '#8b5cf6' },
-    { name: 'Outros', value: 4000, color: '#6b7280' },
-  ];
+    try {
+      setLoading(true);
 
-  const recentTransactions = [
-    { id: 1, description: 'Hospedagem - Apto 101', value: 2500, type: 'income', date: new Date() },
-    { id: 2, description: 'Limpeza - Apto 201', value: -150, type: 'expense', date: new Date() },
-    { id: 3, description: 'Hospedagem - Casa 5', value: 4200, type: 'income', date: new Date() },
-    { id: 4, description: 'Manutenção - Apto 101', value: -380, type: 'expense', date: new Date() },
-  ];
+      // Fetch all transactions
+      const allTransactions = await transactionFirestoreService.getAll();
+      setTransactions(allTransactions);
+
+      // Calculate current month stats
+      const now = new Date();
+      const currentMonthStart = startOfMonth(now);
+      const currentMonthEnd = endOfMonth(now);
+
+      const currentMonthTransactions = allTransactions.filter(t => {
+        const transactionDate = t.date instanceof Date ? t.date : new Date(t.date as any);
+        return transactionDate >= currentMonthStart && transactionDate <= currentMonthEnd;
+      });
+
+      // Calculate stats
+      const completedIncome = currentMonthTransactions
+        .filter(t => t.type === 'income' && t.status === 'completed')
+        .reduce((sum, t) => sum + t.amount, 0);
+
+      const completedExpenses = currentMonthTransactions
+        .filter(t => t.type === 'expense' && t.status === 'completed')
+        .reduce((sum, t) => sum + t.amount, 0);
+
+      const pendingIncome = currentMonthTransactions
+        .filter(t => t.type === 'income' && t.status === 'pending')
+        .reduce((sum, t) => sum + t.amount, 0);
+
+      const pendingExpenses = currentMonthTransactions
+        .filter(t => t.type === 'expense' && t.status === 'pending')
+        .reduce((sum, t) => sum + t.amount, 0);
+
+      // Calculate previous month for growth comparison
+      const previousMonthStart = startOfMonth(subMonths(now, 1));
+      const previousMonthEnd = endOfMonth(subMonths(now, 1));
+
+      const previousMonthTransactions = allTransactions.filter(t => {
+        const transactionDate = t.date instanceof Date ? t.date : new Date(t.date as any);
+        return transactionDate >= previousMonthStart && transactionDate <= previousMonthEnd;
+      });
+
+      const previousIncome = previousMonthTransactions
+        .filter(t => t.type === 'income' && t.status === 'completed')
+        .reduce((sum, t) => sum + t.amount, 0);
+
+      const previousExpenses = previousMonthTransactions
+        .filter(t => t.type === 'expense' && t.status === 'completed')
+        .reduce((sum, t) => sum + t.amount, 0);
+
+      // Calculate growth percentages
+      const incomeGrowth = previousIncome > 0 
+        ? ((completedIncome - previousIncome) / previousIncome) * 100 
+        : 0;
+
+      const expensesGrowth = previousExpenses > 0 
+        ? ((completedExpenses - previousExpenses) / previousExpenses) * 100 
+        : 0;
+
+      const balance = completedIncome - completedExpenses;
+      const previousBalance = previousIncome - previousExpenses;
+      const balanceGrowth = previousBalance !== 0 
+        ? ((balance - previousBalance) / Math.abs(previousBalance)) * 100 
+        : 0;
+
+      setStats({
+        totalIncome: completedIncome,
+        totalExpenses: completedExpenses,
+        balance,
+        pendingIncome,
+        pendingExpenses,
+        transactionCount: {
+          total: currentMonthTransactions.length,
+          pending: currentMonthTransactions.filter(t => t.status === 'pending').length,
+          completed: currentMonthTransactions.filter(t => t.status === 'completed').length,
+        },
+        growth: {
+          income: incomeGrowth,
+          expenses: expensesGrowth,
+          balance: balanceGrowth,
+        },
+      });
+
+      // Generate monthly data for the last 6 months
+      const monthlyDataArray = [];
+      for (let i = 5; i >= 0; i--) {
+        const monthStart = startOfMonth(subMonths(now, i));
+        const monthEnd = endOfMonth(subMonths(now, i));
+        
+        const monthTransactions = allTransactions.filter(t => {
+          const transactionDate = t.date instanceof Date ? t.date : new Date(t.date as any);
+          return transactionDate >= monthStart && transactionDate <= monthEnd;
+        });
+
+        const monthIncome = monthTransactions
+          .filter(t => t.type === 'income' && t.status === 'completed')
+          .reduce((sum, t) => sum + t.amount, 0);
+
+        const monthExpenses = monthTransactions
+          .filter(t => t.type === 'expense' && t.status === 'completed')
+          .reduce((sum, t) => sum + t.amount, 0);
+
+        monthlyDataArray.push({
+          month: format(monthStart, 'MMM', { locale: ptBR }),
+          receitas: monthIncome,
+          despesas: monthExpenses,
+          lucro: monthIncome - monthExpenses,
+        });
+      }
+      setMonthlyData(monthlyDataArray);
+
+      // Calculate category data
+      const categoryMap: Record<string, number> = {};
+      currentMonthTransactions
+        .filter(t => t.status === 'completed')
+        .forEach(t => {
+          categoryMap[t.category] = (categoryMap[t.category] || 0) + Math.abs(t.amount);
+        });
+
+      const categoryArray = Object.entries(categoryMap)
+        .map(([name, value]) => ({ 
+          name, 
+          value,
+          color: name === 'Reserva' ? '#10b981' : 
+                name === 'Limpeza' ? '#ef4444' : 
+                name === 'Manutenção' ? '#f59e0b' : 
+                name === 'Comissão' ? '#8b5cf6' : '#6b7280'
+        }))
+        .sort((a, b) => b.value - a.value)
+        .slice(0, 5);
+
+      setCategoryData(categoryArray);
+
+    } catch (error) {
+      console.error('Error loading financial data:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const onRefresh = () => {
+    loadFinancialData();
+  };
 
   const MetricCard = ({ 
     title, 
     value, 
     growth, 
     icon, 
-    color, 
+    color = 'primary',
     delay = 0,
-    subtitle,
-    progress,
-  }: {
-    title: string;
-    value: string;
-    growth?: number;
-    icon: React.ReactNode;
-    color: string;
-    delay?: number;
-    subtitle?: string;
-    progress?: number;
-  }) => (
-    <Grow in={animateCards} timeout={600} style={{ transitionDelay: `${delay}ms` }}>
-      <Card 
-        sx={{ 
-          height: '100%',
-          background: `linear-gradient(135deg, ${alpha(theme.palette[color as keyof typeof theme.palette].main, 0.1)} 0%, ${alpha(theme.palette[color as keyof typeof theme.palette].main, 0.05)} 100%)`,
-          border: `1px solid ${alpha(theme.palette[color as keyof typeof theme.palette].main, 0.2)}`,
-          transition: 'all 0.3s ease',
-          '&:hover': {
-            transform: 'translateY(-4px)',
-            boxShadow: theme.shadows[8],
-            border: `1px solid ${alpha(theme.palette[color as keyof typeof theme.palette].main, 0.4)}`,
-          }
-        }}
-      >
-        <CardContent sx={{ p: 3 }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
-            <Box>
-              <Typography variant="h6" sx={{ fontWeight: 600, mb: 0.5 }}>
-                {value}
-              </Typography>
-              <Typography variant="body2" color="text.secondary">
-                {title}
-              </Typography>
-              {subtitle && (
-                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
-                  {subtitle}
-                </Typography>
-              )}
-            </Box>
-            <Avatar 
-              sx={{ 
-                width: 56, 
-                height: 56,
-                bgcolor: alpha(theme.palette[color as keyof typeof theme.palette].main, 0.1),
-                color: theme.palette[color as keyof typeof theme.palette].main,
-              }}
-            >
-              {icon}
-            </Avatar>
-          </Box>
-
-          {progress !== undefined && (
-            <Box sx={{ mb: 2 }}>
-              <LinearProgress 
-                variant="determinate" 
-                value={progress} 
-                sx={{ 
-                  height: 6, 
-                  borderRadius: 3,
-                  bgcolor: alpha(theme.palette[color as keyof typeof theme.palette].main, 0.1),
-                  '& .MuiLinearProgress-bar': {
-                    bgcolor: theme.palette[color as keyof typeof theme.palette].main,
-                  }
-                }} 
-              />
-            </Box>
-          )}
-
-          {growth !== undefined && (
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-              {growth >= 0 ? (
-                <TrendingUp sx={{ fontSize: 18, color: 'success.main' }} />
-              ) : (
-                <TrendingDown sx={{ fontSize: 18, color: 'error.main' }} />
-              )}
-              <Typography 
-                variant="body2" 
-                color={growth >= 0 ? 'success.main' : 'error.main'}
-                sx={{ fontWeight: 500 }}
-              >
-                {formatPercent(growth)} vs mês anterior
-              </Typography>
-            </Box>
-          )}
-        </CardContent>
-      </Card>
-    </Grow>
-  );
-
-  const ChartCard = ({ 
-    title, 
-    children, 
-    actions,
-    delay = 0,
-  }: {
-    title: string;
-    children: React.ReactNode;
-    actions?: React.ReactNode;
-    delay?: number;
-  }) => (
-    <Slide direction="up" in={animateCards} timeout={800} style={{ transitionDelay: `${delay}ms` }}>
-      <Card sx={{ height: '100%', overflow: 'hidden' }}>
-        <CardContent>
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-            <Typography variant="h6" sx={{ fontWeight: 600 }}>
-              {title}
-            </Typography>
-            {actions}
-          </Box>
-          {children}
-        </CardContent>
-      </Card>
-    </Slide>
-  );
-
-  if (isLoading) {
+  }: any) => {
+    const isPositive = growth >= 0;
+    
     return (
-      <Container maxWidth="xl">
-        <Grid container spacing={3}>
-          {Array.from({ length: 4 }).map((_, i) => (
-            <Grid item xs={12} sm={6} md={3} key={i}>
-              <Card>
-                <CardContent>
-                  <Skeleton variant="rectangular" height={120} />
-                </CardContent>
-              </Card>
-            </Grid>
-          ))}
-          <Grid item xs={12} md={8}>
-            <Card>
-              <CardContent>
-                <Skeleton variant="rectangular" height={400} />
-              </CardContent>
-            </Card>
-          </Grid>
-          <Grid item xs={12} md={4}>
-            <Card>
-              <CardContent>
-                <Skeleton variant="rectangular" height={400} />
-              </CardContent>
-            </Card>
-          </Grid>
-        </Grid>
-      </Container>
+      <Slide direction="up" in={animateCards} timeout={800 + delay}>
+        <Card
+          sx={{
+            height: '100%',
+            background: `linear-gradient(135deg, ${alpha(theme.palette[color].main, 0.1)} 0%, ${alpha(theme.palette[color].main, 0.02)} 100%)`,
+            border: `1px solid ${alpha(theme.palette[color].main, 0.2)}`,
+            transition: 'all 0.3s ease',
+            '&:hover': {
+              transform: 'translateY(-4px)',
+              boxShadow: `0 8px 24px ${alpha(theme.palette[color].main, 0.2)}`,
+            },
+          }}
+        >
+          <CardContent>
+            <Stack direction="row" justifyContent="space-between" alignItems="flex-start">
+              <Box>
+                <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+                  {title}
+                </Typography>
+                {loading ? (
+                  <Skeleton width={120} height={32} />
+                ) : (
+                  <Typography variant="h4" fontWeight="bold" color={color + '.main'}>
+                    {formatCurrency(value)}
+                  </Typography>
+                )}
+                {loading ? (
+                  <Skeleton width={80} height={20} sx={{ mt: 1 }} />
+                ) : (
+                  <Stack direction="row" alignItems="center" spacing={0.5} mt={1}>
+                    {isPositive ? (
+                      <ArrowUpward fontSize="small" color="success" />
+                    ) : (
+                      <ArrowDownward fontSize="small" color="error" />
+                    )}
+                    <Typography
+                      variant="caption"
+                      color={isPositive ? 'success.main' : 'error.main'}
+                      fontWeight="medium"
+                    >
+                      {formatPercent(growth)}
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      vs mês anterior
+                    </Typography>
+                  </Stack>
+                )}
+              </Box>
+              <Avatar
+                sx={{
+                  bgcolor: alpha(theme.palette[color].main, 0.1),
+                  color: theme.palette[color].main,
+                }}
+              >
+                {icon}
+              </Avatar>
+            </Stack>
+            <LinearProgress
+              variant="determinate"
+              value={Math.min(Math.abs(growth), 100)}
+              sx={{
+                mt: 2,
+                height: 4,
+                borderRadius: 2,
+                bgcolor: alpha(theme.palette[color].main, 0.1),
+                '& .MuiLinearProgress-bar': {
+                  bgcolor: theme.palette[color].main,
+                },
+              }}
+            />
+          </CardContent>
+        </Card>
+      </Slide>
     );
-  }
+  };
+
+  // Get recent transactions (last 5)
+  const recentTransactions = transactions
+    .sort((a, b) => {
+      const dateA = a.date instanceof Date ? a.date : new Date(a.date as any);
+      const dateB = b.date instanceof Date ? b.date : new Date(b.date as any);
+      return dateB.getTime() - dateA.getTime();
+    })
+    .slice(0, 5);
 
   return (
-    <Container maxWidth="xl" sx={{ py: 3 }}>
-      {/* Header */}
-      <Fade in={true} timeout={400}>
-        <Box sx={{ mb: 4 }}>
-          <Box sx={{ 
-            display: 'flex', 
-            justifyContent: 'space-between', 
-            alignItems: { xs: 'flex-start', md: 'center' },
-            flexDirection: { xs: 'column', md: 'row' },
-            gap: 2
-          }}>
-            <Box>
-              <Typography variant="h4" sx={{ fontWeight: 700, mb: 1 }}>
-                Dashboard Financeiro
-              </Typography>
-              <Typography variant="body1" color="text.secondary">
-                Acompanhe suas receitas, despesas e performance financeira
-              </Typography>
-            </Box>
+    <Container maxWidth={false} sx={{ px: { xs: 2, sm: 3 } }}>
+      {/* Action Bar */}
+      <Fade in timeout={600}>
+        <Paper
+          elevation={0}
+          sx={{
+            p: 2,
+            mb: 3,
+            borderRadius: 2,
+            bgcolor: 'background.default',
+            border: `1px solid ${theme.palette.divider}`,
+          }}
+        >
+          <Stack
+            direction={{ xs: 'column', sm: 'row' }}
+            justifyContent="space-between"
+            alignItems={{ xs: 'stretch', sm: 'center' }}
+            spacing={2}
+          >
+            <Typography variant="subtitle1" fontWeight="medium">
+              Dashboard Financeiro
+            </Typography>
             <Stack direction="row" spacing={1}>
               <Tooltip title="Atualizar dados">
-                <IconButton onClick={onRefresh} size="large">
+                <IconButton onClick={onRefresh} disabled={loading}>
                   <Refresh />
                 </IconButton>
               </Tooltip>
-              <Tooltip title="Filtros">
-                <IconButton onClick={onFilter} size="large">
+              <Tooltip title="Filtrar">
+                <IconButton>
                   <FilterList />
                 </IconButton>
               </Tooltip>
               <Tooltip title="Exportar">
-                <IconButton onClick={onExport} size="large">
+                <IconButton>
                   <Download />
                 </IconButton>
               </Tooltip>
-              <Button 
-                variant="contained" 
-                startIcon={<Add />}
-                size="large"
-                sx={{ 
-                  borderRadius: 2,
-                  textTransform: 'none',
-                  fontWeight: 600,
-                }}
-              >
-                Nova Transação
-              </Button>
             </Stack>
-          </Box>
-        </Box>
+          </Stack>
+        </Paper>
       </Fade>
 
       {/* KPI Cards */}
-      <Grid container spacing={3} sx={{ mb: 4 }}>
+      <Grid container spacing={3} mb={4}>
         <Grid item xs={12} sm={6} md={3}>
           <MetricCard
-            title="Receitas do Mês"
-            value={formatCurrency(stats?.totalIncome || 0)}
-            growth={stats?.growth?.income}
-            icon={<ArrowUpward />}
+            title="Receitas"
+            value={stats.totalIncome}
+            growth={stats.growth.income}
+            icon={<TrendingUp />}
             color="success"
-            delay={100}
-            subtitle={`${stats?.transactionCount?.completed || 0} transações`}
-            progress={75}
+            delay={0}
           />
         </Grid>
         <Grid item xs={12} sm={6} md={3}>
           <MetricCard
-            title="Despesas do Mês"
-            value={formatCurrency(stats?.totalExpenses || 0)}
-            growth={stats?.growth?.expenses}
-            icon={<ArrowDownward />}
+            title="Despesas"
+            value={stats.totalExpenses}
+            growth={stats.growth.expenses}
+            icon={<TrendingDown />}
             color="error"
-            delay={200}
-            subtitle="Controle seus gastos"
-            progress={45}
+            delay={100}
           />
         </Grid>
         <Grid item xs={12} sm={6} md={3}>
           <MetricCard
-            title="Saldo Líquido"
-            value={formatCurrency(stats?.balance || 0)}
-            growth={stats?.growth?.balance}
+            title="Saldo"
+            value={stats.balance}
+            growth={stats.growth.balance}
             icon={<AccountBalance />}
-            color={stats?.balance >= 0 ? "primary" : "error"}
-            delay={300}
-            subtitle="Lucro do período"
+            color="primary"
+            delay={200}
           />
         </Grid>
         <Grid item xs={12} sm={6} md={3}>
           <MetricCard
-            title="A Receber"
-            value={formatCurrency(stats?.pendingIncome || 0)}
+            title="Pendente"
+            value={stats.pendingIncome - stats.pendingExpenses}
+            growth={0}
             icon={<Schedule />}
             color="warning"
-            delay={400}
-            subtitle={`${stats?.transactionCount?.pending || 0} pendências`}
-            progress={60}
+            delay={300}
           />
         </Grid>
       </Grid>
 
-      {/* Charts */}
-      <Grid container spacing={3} sx={{ mb: 4 }}>
+      {/* Charts Section */}
+      <Grid container spacing={3} mb={4}>
+        {/* Financial Evolution */}
         <Grid item xs={12} lg={8}>
-          <ChartCard 
-            title="Evolução Financeira (6 meses)"
-            delay={500}
-            actions={
-              <Stack direction="row" spacing={1}>
-                <Chip icon={<ShowChart />} label="Linha" size="small" />
-                <Chip icon={<BarChart />} label="Barras" size="small" variant="outlined" />
-              </Stack>
-            }
-          >
-            <Box sx={{ height: 400 }}>
-              <ResponsiveContainer width="100%" height="100%">
-                <ComposedChart data={monthlyData} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
-                  <CartesianGrid strokeDasharray="3 3" stroke={alpha(theme.palette.divider, 0.3)} />
-                  <XAxis 
-                    dataKey="month" 
-                    axisLine={false}
-                    tickLine={false}
-                    tick={{ fill: theme.palette.text.secondary }}
+          <Grow in timeout={1000}>
+            <Card
+              sx={{
+                height: '100%',
+                background: `linear-gradient(135deg, ${alpha(theme.palette.primary.main, 0.02)} 0%, ${alpha(theme.palette.primary.main, 0.05)} 100%)`,
+              }}
+            >
+              <CardContent>
+                <Stack direction="row" justifyContent="space-between" alignItems="center" mb={3}>
+                  <Typography variant="h6" fontWeight="medium">
+                    Evolução Financeira
+                  </Typography>
+                  <Chip
+                    icon={<ShowChart />}
+                    label="Últimos 6 meses"
+                    size="small"
+                    variant="outlined"
                   />
-                  <YAxis 
-                    axisLine={false}
-                    tickLine={false}
-                    tick={{ fill: theme.palette.text.secondary }}
-                    tickFormatter={(value) => `R$ ${(value / 1000).toFixed(0)}k`}
-                  />
-                  <ChartTooltip 
-                    formatter={(value: number) => formatCurrency(value)}
-                    contentStyle={{
-                      backgroundColor: theme.palette.background.paper,
-                      border: `1px solid ${theme.palette.divider}`,
-                      borderRadius: theme.shape.borderRadius,
-                      boxShadow: theme.shadows[8],
-                    }}
-                  />
-                  <Legend />
-                  <Bar dataKey="receitas" fill="#10b981" name="Receitas" radius={[4, 4, 0, 0]} />
-                  <Bar dataKey="despesas" fill="#ef4444" name="Despesas" radius={[4, 4, 0, 0]} />
-                  <Line 
-                    type="monotone" 
-                    dataKey="lucro" 
-                    stroke="#3b82f6" 
-                    strokeWidth={3}
-                    name="Lucro"
-                    dot={{ fill: '#3b82f6', strokeWidth: 2, r: 6 }}
-                  />
-                </ComposedChart>
-              </ResponsiveContainer>
-            </Box>
-          </ChartCard>
+                </Stack>
+                {loading ? (
+                  <Skeleton variant="rectangular" height={300} />
+                ) : (
+                  <ResponsiveContainer width="100%" height={300}>
+                    <ComposedChart data={monthlyData}>
+                      <defs>
+                        <linearGradient id="colorReceitas" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="#10b981" stopOpacity={0.8} />
+                          <stop offset="95%" stopColor="#10b981" stopOpacity={0.1} />
+                        </linearGradient>
+                        <linearGradient id="colorDespesas" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="#ef4444" stopOpacity={0.8} />
+                          <stop offset="95%" stopColor="#ef4444" stopOpacity={0.1} />
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid strokeDasharray="3 3" stroke={alpha(theme.palette.divider, 0.5)} />
+                      <XAxis dataKey="month" stroke={theme.palette.text.secondary} />
+                      <YAxis stroke={theme.palette.text.secondary} tickFormatter={(value) => `${value / 1000}k`} />
+                      <ChartTooltip
+                        formatter={(value: number) => formatCurrency(value)}
+                        contentStyle={{
+                          backgroundColor: theme.palette.background.paper,
+                          border: `1px solid ${theme.palette.divider}`,
+                          borderRadius: 8,
+                        }}
+                      />
+                      <Legend />
+                      <Bar dataKey="receitas" fill="url(#colorReceitas)" radius={[8, 8, 0, 0]} />
+                      <Bar dataKey="despesas" fill="url(#colorDespesas)" radius={[8, 8, 0, 0]} />
+                      <Line
+                        type="monotone"
+                        dataKey="lucro"
+                        stroke={theme.palette.primary.main}
+                        strokeWidth={3}
+                        dot={{ fill: theme.palette.primary.main, r: 6 }}
+                        activeDot={{ r: 8 }}
+                      />
+                    </ComposedChart>
+                  </ResponsiveContainer>
+                )}
+              </CardContent>
+            </Card>
+          </Grow>
         </Grid>
 
+        {/* Category Distribution */}
         <Grid item xs={12} lg={4}>
-          <ChartCard 
-            title="Distribuição por Categoria"
-            delay={600}
-            actions={
-              <IconButton size="small">
-                <MoreVert />
-              </IconButton>
-            }
-          >
-            <Box sx={{ height: 400 }}>
-              <ResponsiveContainer width="100%" height="100%">
-                <RechartsPieChart>
-                  <Pie
-                    data={categoryData}
-                    cx="50%"
-                    cy="50%"
-                    innerRadius={60}
-                    outerRadius={120}
-                    paddingAngle={2}
-                    dataKey="value"
-                  >
-                    {categoryData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={entry.color} />
-                    ))}
-                  </Pie>
-                  <ChartTooltip 
-                    formatter={(value: number) => formatCurrency(value)}
-                    contentStyle={{
-                      backgroundColor: theme.palette.background.paper,
-                      border: `1px solid ${theme.palette.divider}`,
-                      borderRadius: theme.shape.borderRadius,
-                      boxShadow: theme.shadows[8],
-                    }}
-                  />
-                </RechartsPieChart>
-              </ResponsiveContainer>
-              
-              {/* Legend customizada */}
-              <Box sx={{ mt: 2 }}>
-                <Grid container spacing={1}>
-                  {categoryData.map((item) => (
-                    <Grid item xs={6} key={item.name}>
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                        <Box 
-                          sx={{ 
-                            width: 12, 
-                            height: 12, 
-                            borderRadius: 1, 
-                            bgcolor: item.color 
-                          }} 
-                        />
-                        <Typography variant="caption" color="text.secondary">
-                          {item.name}
-                        </Typography>
-                      </Box>
-                    </Grid>
-                  ))}
-                </Grid>
-              </Box>
-            </Box>
-          </ChartCard>
+          <Grow in timeout={1200}>
+            <Card sx={{ height: '100%' }}>
+              <CardContent>
+                <Typography variant="h6" fontWeight="medium" mb={3}>
+                  Distribuição por Categoria
+                </Typography>
+                {loading ? (
+                  <Skeleton variant="rectangular" height={250} />
+                ) : categoryData.length === 0 ? (
+                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: 250 }}>
+                    <Typography color="text.secondary">Sem dados para exibir</Typography>
+                  </Box>
+                ) : (
+                  <>
+                    <ResponsiveContainer width="100%" height={200}>
+                      <RechartsPieChart>
+                        <Pie
+                          data={categoryData}
+                          cx="50%"
+                          cy="50%"
+                          innerRadius={60}
+                          outerRadius={80}
+                          paddingAngle={5}
+                          dataKey="value"
+                        >
+                          {categoryData.map((entry, index) => (
+                            <Cell key={`cell-${index}`} fill={entry.color} />
+                          ))}
+                        </Pie>
+                        <ChartTooltip formatter={(value: number) => formatCurrency(value)} />
+                      </RechartsPieChart>
+                    </ResponsiveContainer>
+                    <Stack spacing={1} mt={2}>
+                      {categoryData.map((category, index) => (
+                        <Stack
+                          key={index}
+                          direction="row"
+                          justifyContent="space-between"
+                          alignItems="center"
+                        >
+                          <Stack direction="row" alignItems="center" spacing={1}>
+                            <Box
+                              sx={{
+                                width: 12,
+                                height: 12,
+                                borderRadius: '50%',
+                                bgcolor: category.color,
+                              }}
+                            />
+                            <Typography variant="body2">{category.name}</Typography>
+                          </Stack>
+                          <Typography variant="body2" fontWeight="medium">
+                            {formatCurrency(category.value)}
+                          </Typography>
+                        </Stack>
+                      ))}
+                    </Stack>
+                  </>
+                )}
+              </CardContent>
+            </Card>
+          </Grow>
         </Grid>
       </Grid>
 
-      {/* Recent Transactions */}
+      {/* Recent Transactions and Alerts */}
       <Grid container spacing={3}>
+        {/* Recent Transactions */}
         <Grid item xs={12} md={8}>
-          <Slide direction="up" in={animateCards} timeout={800} style={{ transitionDelay: '700ms' }}>
+          <Fade in timeout={1400}>
             <Card>
               <CardContent>
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-                  <Typography variant="h6" sx={{ fontWeight: 600 }}>
+                <Stack direction="row" justifyContent="space-between" alignItems="center" mb={3}>
+                  <Typography variant="h6" fontWeight="medium">
                     Transações Recentes
                   </Typography>
-                  <Button variant="outlined" size="small">
-                    Ver Todas
+                  <Button size="small" endIcon={<ArrowUpward />}>
+                    Ver todas
                   </Button>
-                </Box>
-                
-                <Stack spacing={2}>
-                  {recentTransactions.map((transaction, index) => (
-                    <Fade in={true} timeout={400} style={{ transitionDelay: `${800 + index * 100}ms` }} key={transaction.id}>
-                      <Paper 
-                        sx={{ 
-                          p: 2, 
-                          display: 'flex', 
-                          alignItems: 'center', 
-                          justifyContent: 'space-between',
+                </Stack>
+                {loading ? (
+                  <Stack spacing={2}>
+                    {[1, 2, 3].map((i) => (
+                      <Skeleton key={i} variant="rectangular" height={60} />
+                    ))}
+                  </Stack>
+                ) : recentTransactions.length === 0 ? (
+                  <Typography color="text.secondary" align="center" py={4}>
+                    Nenhuma transação recente
+                  </Typography>
+                ) : (
+                  <Stack spacing={2}>
+                    {recentTransactions.map((transaction) => (
+                      <Paper
+                        key={transaction.id}
+                        elevation={0}
+                        sx={{
+                          p: 2,
+                          borderRadius: 2,
+                          border: `1px solid ${theme.palette.divider}`,
                           transition: 'all 0.2s ease',
                           '&:hover': {
+                            bgcolor: alpha(theme.palette.primary.main, 0.02),
                             transform: 'translateX(4px)',
-                            boxShadow: theme.shadows[4],
-                          }
+                          },
                         }}
                       >
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                          <Avatar 
-                            sx={{ 
-                              bgcolor: transaction.type === 'income' ? 'success.light' : 'error.light',
-                              color: transaction.type === 'income' ? 'success.main' : 'error.main',
-                            }}
-                          >
-                            {transaction.type === 'income' ? <ArrowUpward /> : <ArrowDownward />}
-                          </Avatar>
-                          <Box>
-                            <Typography variant="body1" sx={{ fontWeight: 500 }}>
-                              {transaction.description}
+                        <Stack direction="row" justifyContent="space-between" alignItems="center">
+                          <Stack direction="row" spacing={2} alignItems="center">
+                            <Avatar
+                              sx={{
+                                bgcolor: transaction.type === 'income'
+                                  ? alpha(theme.palette.success.main, 0.1)
+                                  : alpha(theme.palette.error.main, 0.1),
+                                color: transaction.type === 'income'
+                                  ? 'success.main'
+                                  : 'error.main',
+                              }}
+                            >
+                              {transaction.type === 'income' ? <ArrowUpward /> : <ArrowDownward />}
+                            </Avatar>
+                            <Box>
+                              <Typography variant="body1" fontWeight="medium">
+                                {transaction.description}
+                              </Typography>
+                              <Typography variant="caption" color="text.secondary">
+                                {format(
+                                  transaction.date instanceof Date ? transaction.date : new Date(transaction.date as any),
+                                  "dd 'de' MMMM 'às' HH:mm",
+                                  { locale: ptBR }
+                                )}
+                              </Typography>
+                            </Box>
+                          </Stack>
+                          <Stack alignItems="flex-end">
+                            <Typography
+                              variant="body1"
+                              fontWeight="bold"
+                              color={transaction.type === 'income' ? 'success.main' : 'error.main'}
+                            >
+                              {transaction.type === 'income' ? '+' : '-'}
+                              {formatCurrency(Math.abs(transaction.amount))}
                             </Typography>
-                            <Typography variant="caption" color="text.secondary">
-                              {format(transaction.date, 'dd/MM/yyyy HH:mm')}
-                            </Typography>
-                          </Box>
-                        </Box>
-                        <Typography 
-                          variant="h6" 
-                          color={transaction.type === 'income' ? 'success.main' : 'error.main'}
-                          sx={{ fontWeight: 600 }}
-                        >
-                          {transaction.value > 0 ? '+' : ''}{formatCurrency(transaction.value)}
-                        </Typography>
+                            <Chip
+                              label={transaction.status === 'completed' ? 'Concluído' : 'Pendente'}
+                              size="small"
+                              color={transaction.status === 'completed' ? 'success' : 'warning'}
+                              sx={{ mt: 0.5 }}
+                            />
+                          </Stack>
+                        </Stack>
                       </Paper>
-                    </Fade>
-                  ))}
-                </Stack>
+                    ))}
+                  </Stack>
+                )}
               </CardContent>
             </Card>
-          </Slide>
+          </Fade>
         </Grid>
 
+        {/* Alerts and Notifications */}
         <Grid item xs={12} md={4}>
-          <Slide direction="up" in={animateCards} timeout={800} style={{ transitionDelay: '800ms' }}>
+          <Fade in timeout={1600}>
             <Card>
               <CardContent>
-                <Typography variant="h6" sx={{ fontWeight: 600, mb: 3 }}>
+                <Typography variant="h6" fontWeight="medium" mb={3}>
                   Alertas e Notificações
                 </Typography>
-                
                 <Stack spacing={2}>
-                  <Paper sx={{ p: 2, bgcolor: alpha(theme.palette.warning.main, 0.1), border: `1px solid ${alpha(theme.palette.warning.main, 0.2)}` }}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                      <Warning sx={{ color: 'warning.main', fontSize: 20 }} />
-                      <Typography variant="body2" sx={{ fontWeight: 500 }}>
-                        Pagamentos Atrasados
-                      </Typography>
-                    </Box>
-                    <Typography variant="caption" color="text.secondary">
-                      3 pagamentos pendentes há mais de 5 dias
-                    </Typography>
-                  </Paper>
-
-                  <Paper sx={{ p: 2, bgcolor: alpha(theme.palette.info.main, 0.1), border: `1px solid ${alpha(theme.palette.info.main, 0.2)}` }}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                      <Assessment sx={{ color: 'info.main', fontSize: 20 }} />
-                      <Typography variant="body2" sx={{ fontWeight: 500 }}>
-                        Meta do Mês
-                      </Typography>
-                    </Box>
-                    <Typography variant="caption" color="text.secondary">
-                      75% da meta de receita atingida
-                    </Typography>
-                    <LinearProgress 
-                      variant="determinate" 
-                      value={75} 
-                      sx={{ mt: 1, height: 6, borderRadius: 3 }}
-                    />
-                  </Paper>
-
-                  <Paper sx={{ p: 2, bgcolor: alpha(theme.palette.success.main, 0.1), border: `1px solid ${alpha(theme.palette.success.main, 0.2)}` }}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                      <CheckCircle sx={{ color: 'success.main', fontSize: 20 }} />
-                      <Typography variant="body2" sx={{ fontWeight: 500 }}>
-                        Crescimento Mensal
-                      </Typography>
-                    </Box>
-                    <Typography variant="caption" color="text.secondary">
-                      +15% comparado ao mês anterior
-                    </Typography>
-                  </Paper>
+                  <Alert
+                    severity="success"
+                    icon={<CheckCircle />}
+                    title="Meta Atingida"
+                    message="Receitas 15% acima do previsto"
+                  />
+                  <Alert
+                    severity="warning"
+                    icon={<Warning />}
+                    title="Atenção"
+                    message={`${stats.transactionCount.pending} transações pendentes`}
+                  />
+                  <Alert
+                    severity="info"
+                    icon={<Assessment />}
+                    title="Relatório Disponível"
+                    message="Relatório mensal pronto"
+                  />
                 </Stack>
               </CardContent>
             </Card>
-          </Slide>
+          </Fade>
         </Grid>
       </Grid>
     </Container>
   );
 }
+
+interface AlertProps {
+  severity: 'success' | 'warning' | 'info' | 'error';
+  icon: React.ReactNode;
+  title: string;
+  message: string;
+}
+
+const Alert = ({ severity, icon, title, message }: AlertProps) => {
+  const theme = useTheme();
+  const colors = {
+    success: theme.palette.success.main,
+    warning: theme.palette.warning.main,
+    info: theme.palette.info.main,
+    error: theme.palette.error.main,
+  };
+
+  return (
+    <Paper
+      elevation={0}
+      sx={{
+        p: 2,
+        borderRadius: 2,
+        border: `1px solid ${alpha(colors[severity], 0.3)}`,
+        bgcolor: alpha(colors[severity], 0.05),
+      }}
+    >
+      <Stack direction="row" spacing={2} alignItems="flex-start">
+        <Avatar
+          sx={{
+            bgcolor: alpha(colors[severity], 0.1),
+            color: colors[severity],
+            width: 40,
+            height: 40,
+          }}
+        >
+          {icon}
+        </Avatar>
+        <Box>
+          <Typography variant="subtitle2" fontWeight="medium">
+            {title}
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            {message}
+          </Typography>
+        </Box>
+      </Stack>
+    </Paper>
+  );
+};

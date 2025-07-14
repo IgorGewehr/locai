@@ -71,17 +71,12 @@ const menuItems = [
   },
   {
     text: 'Financeiro',
-    href: '/dashboard/financeiro-simples',
+    href: '/dashboard/financeiro',
     icon: <AccountBalance />,
     submenu: [
       {
-        text: 'Visão Simples',
-        href: '/dashboard/financeiro-simples',
-        icon: <AccountBalanceWallet />,
-      },
-      {
         text: 'Transações',
-        href: '/dashboard/financeiro',
+        href: '/dashboard/financeiro/transactions',
         icon: <Receipt />,
       },
       {

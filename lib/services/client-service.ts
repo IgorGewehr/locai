@@ -59,4 +59,4 @@ export class ClientService {
   }
 }
 
-export const clientService = new ClientService();
+export const clientServiceWrapper = new ClientService();

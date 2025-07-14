@@ -12,7 +12,7 @@ import {
 import { WhatsAppClient } from '@/lib/whatsapp/client'
 import { AIService } from '@/lib/services/ai-service'
 import { conversationService } from '@/lib/services/conversation-service'
-import { clientService } from '@/lib/services/client-service'
+import { clientServiceWrapper } from '@/lib/services/client-service'
 import { db } from '@/lib/firebase/config'
 import { collection, doc, addDoc, updateDoc, getDocs, query, where } from 'firebase/firestore'
 
@@ -562,7 +562,7 @@ export class AutomationEngine {
     const clientId = eventData.clientId || context.clientId
 
     if (clientId) {
-      await clientService.update(clientId, updates)
+      await clientServiceWrapper.update(clientId, updates)
       return { clientId, updates, updated: true }
     }
 

@@ -58,7 +58,7 @@ import { ptBR } from 'date-fns/locale';
 import { useAuth } from '@/lib/hooks/useAuth';
 import { getAnalytics } from '@/lib/services/analytics-service';
 import { conversationService } from '@/lib/firebase/firestore';
-import { transactionService } from '@/lib/services/transaction-service';
+import { transactionFirestoreService } from '@/lib/firebase/firestore';
 import { propertyService } from '@/lib/firebase/firestore';
 
 // Advanced Analytics Dashboard Component
@@ -140,11 +140,12 @@ export default function AdvancedAnalytics() {
       const properties = await propertyService.getAll();
       const propertyData = await Promise.all(
         properties.slice(0, 5).map(async (property) => {
-          const { transactions } = await transactionService.getFiltered({
-            propertyId: property.id,
-            startDate,
-            endDate
-          });
+          const allTransactions = await transactionFirestoreService.getAll();
+          const transactions = allTransactions.filter(t => 
+            t.propertyId === property.id &&
+            t.date >= startDate &&
+            t.date <= endDate
+          );
 
           const revenue = transactions
             .filter(t => t.status === 'completed' && t.type === 'income')

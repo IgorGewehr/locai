@@ -1,7 +1,7 @@
 // lib/services/analytics-service.ts
 import { DateRange } from '@/lib/types/financial'
 import { Reservation, Transaction, Property, Client } from '@/lib/types'
-import { reservationService, transactionService, propertyService, clientService } from '@/lib/firebase/firestore'
+import { reservationService, transactionFirestoreService, propertyService, clientService } from '@/lib/firebase/firestore'
 import { 
   startOfMonth, 
   endOfMonth, 
@@ -52,7 +52,7 @@ export async function getAnalytics(
     const [properties, reservations, transactions, clients] = await Promise.all([
       propertyService.getAll(),
       reservationService.getAll(),
-      transactionService.getAll(),
+      transactionFirestoreService.getAll(),
       clientService.getAll()
     ])
 

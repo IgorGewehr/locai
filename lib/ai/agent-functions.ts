@@ -3,7 +3,7 @@ import { AIFunction } from '@/lib/types/ai'
 import { Property } from '@/lib/types/property'
 import { propertyService } from '@/lib/services/property-service'
 import { reservationService } from '@/lib/services/reservation-service'
-import { clientService } from '@/lib/services/client-service'
+import { clientServiceWrapper } from '@/lib/services/client-service'
 import { transactionService } from '@/lib/services/transaction-service'
 import { calculatePricing } from '@/lib/services/pricing'
 import { addDays, format, addMonths, startOfMonth, endOfMonth, differenceInDays } from 'date-fns'
@@ -719,7 +719,7 @@ export class AIFunctionExecutor {
     
     try {
       // Criar ou atualizar cliente
-      const client = await clientService.createOrUpdate({
+      const client = await clientServiceWrapper.createOrUpdate({
         name: clientName,
         email: clientEmail,
         document: clientDocument,
@@ -951,7 +951,7 @@ export class AIFunctionExecutor {
       // Buscar nome do cliente se fornecido
       let clientName: string | undefined
       if (clientId) {
-        const client = await clientService.getById(clientId)
+        const client = await clientServiceWrapper.getById(clientId)
         clientName = client?.name
       }
       
@@ -1163,7 +1163,7 @@ export class AIFunctionExecutor {
       const { accountsService } = await import('@/lib/services/accounts-service')
       
       // Buscar cliente
-      const clients = await clientService.getAll()
+      const clients = await clientServiceWrapper.getAll()
       const client = clients.find(c => 
         c.tenantId === this.tenantId &&
         c.name.toLowerCase().includes(clientName.toLowerCase())
@@ -1430,9 +1430,9 @@ export class AIFunctionExecutor {
     try {
       const { billingService } = await import('@/lib/services/billing-service')
       const { transactionService } = await import('@/lib/services/transaction-service')
-      const { clientService } = await import('@/lib/firebase/firestore')
+      const { clientServiceWrapper } = await import('@/lib/firebase/firestore')
       
-      const client = await clientService.getById(clientId)
+      const client = await clientServiceWrapper.getById(clientId)
       if (!client) {
         return {
           success: false,
@@ -1876,7 +1876,7 @@ export class AIFunctionExecutor {
     
     try {
       // Verificar se o cliente já existe pelo telefone
-      const existingClients = await clientService.searchByPhone(phone)
+      const existingClients = await clientServiceWrapper.searchByPhone(phone)
       if (existingClients.length > 0) {
         const client = existingClients[0]
         
@@ -1889,7 +1889,7 @@ export class AIFunctionExecutor {
         if (preferences) updates.preferences = preferences
         
         if (Object.keys(updates).length > 0) {
-          await clientService.update(client.id, updates)
+          await clientServiceWrapper.update(client.id, updates)
         }
         
         return {
@@ -1906,7 +1906,7 @@ export class AIFunctionExecutor {
       }
       
       // Criar novo cliente
-      const newClient = await clientService.create({
+      const newClient = await clientServiceWrapper.create({
         name,
         email: email || '',
         phone,
