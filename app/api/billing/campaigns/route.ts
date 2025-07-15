@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { billingService } from '@/lib/services/billing-service';
 import { auth } from '@/lib/firebase/admin';
+import { db } from '@/lib/firebase/admin-config';
+import { collection, query, where, getDocs, orderBy, limit } from 'firebase/firestore';
 
 export async function GET(request: NextRequest) {
   try {
@@ -14,25 +16,31 @@ export async function GET(request: NextRequest) {
     const decodedToken = await auth.verifyIdToken(token);
     const tenantId = decodedToken.tenantId || decodedToken.uid;
 
-    // Buscar configurações
-    let settings = await billingService.getSettings(tenantId);
-    
-    // Se não existir, criar configurações padrão
-    if (!settings) {
-      settings = await billingService.createDefaultSettings(tenantId);
-    }
+    // Buscar campanhas
+    const q = query(
+      collection(db, 'billing_campaigns'),
+      where('tenantId', '==', tenantId),
+      orderBy('createdAt', 'desc'),
+      limit(50)
+    );
 
-    return NextResponse.json({ settings });
+    const snapshot = await getDocs(q);
+    const campaigns = snapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    }));
+
+    return NextResponse.json({ campaigns });
   } catch (error) {
-    console.error('Erro ao buscar configurações de cobrança:', error);
+    console.error('Erro ao buscar campanhas:', error);
     return NextResponse.json(
-      { error: 'Erro ao buscar configurações' },
+      { error: 'Erro ao buscar campanhas' },
       { status: 500 }
     );
   }
 }
 
-export async function PUT(request: NextRequest) {
+export async function POST(request: NextRequest) {
   try {
     // Verificar autenticação
     const authHeader = request.headers.get('authorization');
@@ -43,38 +51,26 @@ export async function PUT(request: NextRequest) {
     const token = authHeader.split('Bearer ')[1];
     const decodedToken = await auth.verifyIdToken(token);
     const tenantId = decodedToken.tenantId || decodedToken.uid;
+    const userId = decodedToken.uid;
 
     const body = await request.json();
-    const { simpleConfig, settings } = body;
-
-    if (simpleConfig) {
-      // Configuração simplificada
-      await billingService.setupSimpleBilling(tenantId, {
-        reminderDays: simpleConfig.reminderDays,
-        tone: simpleConfig.tone,
-        autoSend: simpleConfig.autoSend
-      });
-    } else if (settings) {
-      // Configuração completa (modo avançado)
-      await billingService.updateSettings(tenantId, settings);
-    } else {
-      return NextResponse.json(
-        { error: 'Dados de configuração não fornecidos' },
-        { status: 400 }
-      );
-    }
-
-    // Buscar configurações atualizadas
-    const settings = await billingService.getSettings(tenantId);
+    
+    // Criar campanha
+    const campaignId = await billingService.createCampaign({
+      ...body,
+      tenantId,
+      createdBy: userId,
+      status: 'scheduled'
+    });
 
     return NextResponse.json({ 
       success: true, 
-      settings 
+      campaignId 
     });
   } catch (error) {
-    console.error('Erro ao salvar configurações de cobrança:', error);
+    console.error('Erro ao criar campanha:', error);
     return NextResponse.json(
-      { error: 'Erro ao salvar configurações' },
+      { error: 'Erro ao criar campanha' },
       { status: 500 }
     );
   }

@@ -383,9 +383,11 @@ export default function EnhancedFinancialDashboard() {
             </Typography>
             <Stack direction="row" spacing={1}>
               <Tooltip title="Atualizar dados">
-                <IconButton onClick={onRefresh} disabled={loading}>
-                  <Refresh />
-                </IconButton>
+                <span>
+                  <IconButton onClick={onRefresh} disabled={loading}>
+                    <Refresh />
+                  </IconButton>
+                </span>
               </Tooltip>
               <Tooltip title="Filtrar">
                 <IconButton>

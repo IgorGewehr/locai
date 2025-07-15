@@ -71,11 +71,17 @@ export default function DashboardLayout({
           <Toolbar sx={{ minHeight: 64 }} />
           <Box sx={{ 
             flex: 1,
-            p: { xs: 2, sm: 2.5, md: 3 },
-            maxWidth: '100%',
+            display: 'flex',
+            justifyContent: 'center',
             overflow: 'hidden',
           }}>
-            {children}
+            <Box sx={{
+              width: '100%',
+              maxWidth: 1600, // Limita a largura máxima do conteúdo
+              p: { xs: 2, sm: 2.5, md: 3 },
+            }}>
+              {children}
+            </Box>
           </Box>
         </Box>
       </Box>

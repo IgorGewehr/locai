@@ -31,7 +31,8 @@
       "Bash(npm run clean:*)",
       "Bash(npm ls:*)",
       "Bash(./node_modules/.bin/next dev --turbo)",
-      "Bash(npm rebuild:*)"
+      "Bash(npm rebuild:*)",
+      "Bash(npm:*)"
     ],
     "deny": []
   }

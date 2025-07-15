@@ -639,6 +639,19 @@ class BillingService {
     return undefined;
   }
 
+  // Atualizar configurações completas (modo avançado)
+  async updateSettings(tenantId: string, updates: Partial<BillingSettings>): Promise<void> {
+    const settings = await this.getSettings(tenantId);
+    if (!settings) {
+      throw new Error('Configurações não encontradas');
+    }
+
+    await updateDoc(doc(db, 'billing_settings', settings.id), {
+      ...updates,
+      updatedAt: serverTimestamp()
+    });
+  }
+
   // Configuração simplificada para pequenos proprietários
   async setupSimpleBilling(tenantId: string, config: {
     reminderDays: '1_day' | '2_days' | '3_days' | '7_days';

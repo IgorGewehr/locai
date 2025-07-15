@@ -80,8 +80,10 @@ export default function AdvancedAnalytics() {
   });
 
   useEffect(() => {
-    loadAnalytics();
-  }, [timeRange, user]);
+    if (user?.tenantId) {
+      loadAnalytics();
+    }
+  }, [timeRange, user?.tenantId]);
 
   const loadAnalytics = async () => {
     if (!user) return;

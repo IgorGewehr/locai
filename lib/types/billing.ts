@@ -384,15 +384,15 @@ Tudo certo por aqui! Obrigado! 🎉
 };
 
 // Variáveis disponíveis nos templates
-export const TEMPLATE_VARIABLES = [
-  { key: '{{clientName}}', description: 'Nome do cliente' },
-  { key: '{{amount}}', description: 'Valor da fatura' },
-  { key: '{{dueDate}}', description: 'Data de vencimento' },
-  { key: '{{propertyName}}', description: 'Nome da propriedade' },
-  { key: '{{period}}', description: 'Período da cobrança' },
-  { key: '{{paymentLink}}', description: 'Link para pagamento' },
-  { key: '{{companyName}}', description: 'Nome da empresa' },
-  { key: '{{updatedAmount}}', description: 'Valor atualizado (com juros/multa)' },
-  { key: '{{paymentDate}}', description: 'Data do pagamento' },
-  { key: '{{daysOverdue}}', description: 'Dias em atraso' },
-];
+export const TEMPLATE_VARIABLES: Record<string, string> = {
+  clientName: 'Nome do cliente',
+  amount: 'Valor da fatura',
+  dueDate: 'Data de vencimento',
+  propertyName: 'Nome da propriedade',
+  period: 'Período da cobrança',
+  paymentLink: 'Link para pagamento',
+  companyName: 'Nome da empresa',
+  updatedAmount: 'Valor atualizado (com juros/multa)',
+  paymentDate: 'Data do pagamento',
+  daysOverdue: 'Dias em atraso',
+};

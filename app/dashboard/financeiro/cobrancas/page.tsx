@@ -70,8 +70,12 @@ import {
   Smartphone,
   BusinessCenter,
 } from '@mui/icons-material';
-import { BillingSettings, SimpleBillingConfig, TEMPLATE_VARIABLES } from '@/lib/types/billing';
+import { BillingSettings, SimpleBillingConfig, BillingTemplate, TEMPLATE_VARIABLES } from '@/lib/types/billing';
 import { useAuth } from '@/lib/hooks/useAuth';
+import GeneralSettings from './components/GeneralSettings';
+import MessageTemplates from './components/MessageTemplates';
+import ScheduleSettings from './components/ScheduleSettings';
+import CampaignManager from './components/CampaignManager';
 
 interface TabPanelProps {
   children?: React.ReactNode;
@@ -97,6 +101,7 @@ export default function CobrancasConfigPage() {
   const [simpleMode, setSimpleMode] = useState(true);
   const [showPreview, setShowPreview] = useState(false);
   const [expandedTemplate, setExpandedTemplate] = useState<string | null>(null);
+  const [advancedSettings, setAdvancedSettings] = useState<BillingSettings | null>(null);
   const [snackbar, setSnackbar] = useState<{ open: boolean; message: string; severity: 'success' | 'error' }>({
     open: false,
     message: '',
@@ -124,6 +129,7 @@ export default function CobrancasConfigPage() {
       
       if (data.settings) {
         setSettings(data.settings);
+        setAdvancedSettings(data.settings);
         // Converter configurações complexas para simples
         setSimpleConfig({
           enabled: data.settings.enabled,
@@ -161,6 +167,35 @@ export default function CobrancasConfigPage() {
       showSnackbar('Erro ao salvar configurações', 'error');
     } finally {
       setSaving(false);
+    }
+  };
+
+  const saveAdvancedSettings = async () => {
+    try {
+      setSaving(true);
+      const response = await fetch('/api/billing/settings', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ settings: advancedSettings })
+      });
+
+      if (response.ok) {
+        showSnackbar('Configurações avançadas salvas com sucesso!', 'success');
+        await loadSettings();
+      } else {
+        throw new Error('Erro ao salvar configurações');
+      }
+    } catch (error) {
+      console.error('Erro ao salvar:', error);
+      showSnackbar('Erro ao salvar configurações avançadas', 'error');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleAdvancedSettingsChange = (updates: Partial<BillingSettings>) => {
+    if (advancedSettings) {
+      setAdvancedSettings({ ...advancedSettings, ...updates });
     }
   };
 
@@ -456,23 +491,34 @@ export default function CobrancasConfigPage() {
             </Tabs>
 
             <TabPanel value={tabValue} index={0}>
-              <Alert severity="info" sx={{ mb: 3 }}>
-                Modo avançado em desenvolvimento. Use o modo simples para configurações básicas.
-              </Alert>
+              <GeneralSettings settings={settings} onChange={handleAdvancedSettingsChange} />
             </TabPanel>
 
             <TabPanel value={tabValue} index={1}>
-              <Typography variant="body1">Templates de mensagem em desenvolvimento...</Typography>
+              <MessageTemplates settings={settings} onChange={handleAdvancedSettingsChange} />
             </TabPanel>
 
             <TabPanel value={tabValue} index={2}>
-              <Typography variant="body1">Configurações de horário em desenvolvimento...</Typography>
+              <ScheduleSettings settings={settings} onChange={handleAdvancedSettingsChange} />
             </TabPanel>
 
             <TabPanel value={tabValue} index={3}>
-              <Typography variant="body1">Campanhas em desenvolvimento...</Typography>
+              <CampaignManager tenantId={user?.tenantId || ''} />
             </TabPanel>
           </CardContent>
+          {!simpleMode && (
+            <Box sx={{ p: 3, borderTop: 1, borderColor: 'divider', display: 'flex', justifyContent: 'flex-end' }}>
+              <Button
+                variant="contained"
+                size="large"
+                startIcon={<Save />}
+                onClick={saveAdvancedSettings}
+                disabled={saving || !advancedSettings}
+              >
+                {saving ? <CircularProgress size={24} /> : 'Salvar Configurações Avançadas'}
+              </Button>
+            </Box>
+          )}
         </Card>
       )}
 
