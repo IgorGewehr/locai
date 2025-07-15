@@ -65,11 +65,11 @@ export async function PUT(request: NextRequest) {
     }
 
     // Buscar configurações atualizadas
-    const settings = await billingService.getSettings(tenantId);
+    const updatedSettings = await billingService.getSettings(tenantId);
 
     return NextResponse.json({ 
       success: true, 
-      settings 
+      settings: updatedSettings 
     });
   } catch (error) {
     console.error('Erro ao salvar configurações de cobrança:', error);

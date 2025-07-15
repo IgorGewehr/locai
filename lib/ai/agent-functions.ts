@@ -5,9 +5,11 @@ import { propertyService } from '@/lib/services/property-service'
 import { reservationService } from '@/lib/services/reservation-service'
 import { clientServiceWrapper } from '@/lib/services/client-service'
 import { transactionService } from '@/lib/services/transaction-service'
+import { crmService } from '@/lib/services/crm-service'
 import { calculatePricing } from '@/lib/services/pricing'
 import { addDays, format, addMonths, startOfMonth, endOfMonth, differenceInDays } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
+import { LeadSource, LeadStatus, TaskPriority } from '@/lib/types/crm'
 import {
   SearchPropertiesArgs,
   SearchPropertiesResponse,
@@ -34,6 +36,106 @@ import {
 } from '@/lib/types/ai-functions'
 
 export const AI_FUNCTIONS: AIFunction[] = [
+  {
+    name: 'create_or_update_lead',
+    description: 'Criar ou atualizar um lead no CRM com base na conversa',
+    parameters: {
+      type: 'object',
+      properties: {
+        name: { type: 'string', description: 'Nome do lead' },
+        phone: { type: 'string', description: 'Telefone do lead' },
+        email: { type: 'string', description: 'Email do lead' },
+        source: { type: 'string', enum: ['whatsapp_ai', 'manual', 'website', 'referral'], description: 'Origem do lead' },
+        temperature: { type: 'string', enum: ['hot', 'warm', 'cold'], description: 'Temperatura do lead' },
+        preferences: {
+          type: 'object',
+          properties: {
+            propertyType: { type: 'array', items: { type: 'string' }, description: 'Tipos de imóvel' },
+            location: { type: 'array', items: { type: 'string' }, description: 'Localizações preferidas' },
+            priceMin: { type: 'number', description: 'Preço mínimo' },
+            priceMax: { type: 'number', description: 'Preço máximo' },
+            bedrooms: { type: 'number', description: 'Número de quartos' },
+            moveInDate: { type: 'string', description: 'Data de mudança (YYYY-MM-DD)' }
+          }
+        },
+        notes: { type: 'string', description: 'Observações sobre o lead' },
+        tags: { type: 'array', items: { type: 'string' }, description: 'Tags para categorizar o lead' }
+      },
+      required: ['name', 'phone']
+    },
+    autoExecute: true,
+    requiresApproval: false,
+    priority: 2
+  },
+  {
+    name: 'update_lead_status',
+    description: 'Atualizar o status de um lead no funil de vendas',
+    parameters: {
+      type: 'object',
+      properties: {
+        leadId: { type: 'string', description: 'ID do lead' },
+        status: { type: 'string', enum: ['new', 'contacted', 'qualified', 'opportunity', 'negotiation', 'won', 'lost', 'nurturing'], description: 'Novo status' },
+        reason: { type: 'string', description: 'Motivo da mudança de status' },
+        wonValue: { type: 'number', description: 'Valor do negócio (se status = won)' }
+      },
+      required: ['leadId', 'status']
+    },
+    autoExecute: true,
+    requiresApproval: false,
+    priority: 2
+  },
+  {
+    name: 'track_lead_interaction',
+    description: 'Registrar interação com lead (conversa, visita, proposta)',
+    parameters: {
+      type: 'object',
+      properties: {
+        leadId: { type: 'string', description: 'ID do lead' },
+        type: { type: 'string', enum: ['whatsapp_message', 'phone_call', 'email', 'meeting', 'property_viewing', 'proposal', 'note'], description: 'Tipo de interação' },
+        content: { type: 'string', description: 'Conteúdo da interação' },
+        sentiment: { type: 'string', enum: ['positive', 'neutral', 'negative'], description: 'Sentimento detectado' },
+        propertyId: { type: 'string', description: 'ID da propriedade (se aplicável)' }
+      },
+      required: ['leadId', 'type', 'content']
+    },
+    autoExecute: true,
+    requiresApproval: false,
+    priority: 1
+  },
+  {
+    name: 'get_lead_insights',
+    description: 'Obter insights e análise preditiva sobre leads',
+    parameters: {
+      type: 'object',
+      properties: {
+        leadId: { type: 'string', description: 'ID do lead específico' },
+        type: { type: 'string', enum: ['individual', 'pipeline', 'conversion_probability'], description: 'Tipo de análise' }
+      },
+      required: []
+    },
+    autoExecute: true,
+    requiresApproval: false,
+    priority: 1
+  },
+  {
+    name: 'schedule_lead_task',
+    description: 'Criar tarefa de acompanhamento para um lead',
+    parameters: {
+      type: 'object',
+      properties: {
+        leadId: { type: 'string', description: 'ID do lead' },
+        title: { type: 'string', description: 'Título da tarefa' },
+        description: { type: 'string', description: 'Descrição da tarefa' },
+        type: { type: 'string', enum: ['call', 'email', 'meeting', 'follow_up', 'document', 'other'], description: 'Tipo de tarefa' },
+        priority: { type: 'string', enum: ['low', 'medium', 'high', 'urgent'], description: 'Prioridade' },
+        dueDate: { type: 'string', description: 'Data de vencimento (YYYY-MM-DD HH:MM)' }
+      },
+      required: ['leadId', 'title', 'type', 'dueDate']
+    },
+    autoExecute: true,
+    requiresApproval: false,
+    priority: 2
+  },
   {
     name: 'cancel_reservation',
     description: 'Cancelar uma reserva existente',
@@ -511,6 +613,21 @@ export class AIFunctionExecutor {
       
       case 'register_client':
         return await this.registerClient(args as any)
+      
+      case 'create_or_update_lead':
+        return await this.createOrUpdateLead(args as any)
+      
+      case 'update_lead_status':
+        return await this.updateLeadStatus(args as any)
+      
+      case 'track_lead_interaction':
+        return await this.trackLeadInteraction(args as any)
+      
+      case 'get_lead_insights':
+        return await this.getLeadInsights(args as any)
+      
+      case 'schedule_lead_task':
+        return await this.scheduleLeadTask(args as any)
       
       case 'create_pending_transaction':
         // Manter compatibilidade - redirecionar para novo método
@@ -1935,6 +2052,336 @@ export class AIFunctionExecutor {
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Erro ao registrar cliente'
+      }
+    }
+  }
+
+  private async createOrUpdateLead(args: any): Promise<any> {
+    const { name, phone, email, source = LeadSource.WHATSAPP_AI, temperature = 'warm', preferences, notes, tags = [] } = args
+    
+    try {
+      // Verificar se lead já existe pelo telefone
+      const existingLeads = await crmService.searchLeadsByPhone(phone)
+      
+      if (existingLeads.length > 0) {
+        const lead = existingLeads[0]
+        
+        // Atualizar lead existente
+        const updates: any = {}
+        if (email && !lead.email) updates.email = email
+        if (temperature !== lead.temperature) updates.temperature = temperature
+        if (preferences) updates.preferences = { ...lead.preferences, ...preferences }
+        if (notes) updates.notes = notes
+        if (tags.length > 0) updates.tags = [...new Set([...lead.tags, ...tags])]
+        
+        if (Object.keys(updates).length > 0) {
+          await crmService.updateLead(lead.id, updates)
+        }
+        
+        return {
+          success: true,
+          lead: {
+            id: lead.id,
+            name: lead.name,
+            phone: lead.phone,
+            status: lead.status,
+            temperature: updates.temperature || lead.temperature,
+            isExisting: true
+          },
+          message: `Lead ${lead.name} atualizado com sucesso`
+        }
+      }
+      
+      // Criar novo lead
+      const newLead = await crmService.createLead({
+        tenantId: this.tenantId,
+        name,
+        phone,
+        email: email || undefined,
+        whatsappNumber: phone,
+        status: LeadStatus.NEW,
+        source,
+        temperature,
+        score: 50, // Score inicial
+        qualificationCriteria: {
+          budget: false,
+          authority: false,
+          need: false,
+          timeline: false
+        },
+        preferences: preferences ? {
+          propertyType: preferences.propertyType,
+          location: preferences.location,
+          priceRange: preferences.priceMin && preferences.priceMax 
+            ? { min: preferences.priceMin, max: preferences.priceMax }
+            : undefined,
+          bedrooms: preferences.bedrooms ? { min: preferences.bedrooms, max: preferences.bedrooms + 2 } : undefined,
+          moveInDate: preferences.moveInDate ? new Date(preferences.moveInDate) : undefined
+        } : {},
+        tags,
+        notes,
+        firstContactDate: new Date(),
+        lastContactDate: new Date(),
+        totalInteractions: 1
+      })
+      
+      return {
+        success: true,
+        lead: {
+          id: newLead.id,
+          name: newLead.name,
+          phone: newLead.phone,
+          status: newLead.status,
+          temperature: newLead.temperature,
+          isExisting: false
+        },
+        message: `Novo lead ${newLead.name} criado com sucesso`
+      }
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Erro ao criar/atualizar lead'
+      }
+    }
+  }
+
+  private async updateLeadStatus(args: any): Promise<any> {
+    const { leadId, status, reason, wonValue } = args
+    
+    try {
+      const lead = await crmService.getLeadById(leadId)
+      if (!lead) {
+        return { success: false, error: 'Lead não encontrado' }
+      }
+      
+      const updates: any = { status }
+      
+      if (status === LeadStatus.WON && wonValue) {
+        updates.wonValue = wonValue
+        updates.wonDate = new Date()
+      }
+      
+      if (status === LeadStatus.LOST && reason) {
+        updates.lostReason = reason
+        updates.lostDate = new Date()
+      }
+      
+      await crmService.updateLead(leadId, updates)
+      
+      // Criar atividade
+      await crmService.createActivity({
+        leadId,
+        tenantId: this.tenantId,
+        type: 'status_change',
+        description: `Status alterado para ${status}${reason ? ` - ${reason}` : ''}`,
+        userId: 'ai-agent',
+        userName: 'IA Agent'
+      })
+      
+      return {
+        success: true,
+        message: `Status do lead atualizado para ${status}`,
+        data: {
+          leadId,
+          leadName: lead.name,
+          oldStatus: lead.status,
+          newStatus: status,
+          wonValue
+        }
+      }
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Erro ao atualizar status do lead'
+      }
+    }
+  }
+
+  private async trackLeadInteraction(args: any): Promise<any> {
+    const { leadId, type, content, sentiment, propertyId } = args
+    
+    try {
+      const lead = await crmService.getLeadById(leadId)
+      if (!lead) {
+        return { success: false, error: 'Lead não encontrado' }
+      }
+      
+      // Criar interação
+      await crmService.createInteraction({
+        leadId,
+        tenantId: this.tenantId,
+        type: type as any,
+        direction: 'inbound',
+        content,
+        sentiment,
+        propertyId,
+        userId: 'ai-agent',
+        userName: 'IA Agent'
+      })
+      
+      // Atualizar contador de interações e data do último contato
+      await crmService.updateLead(leadId, {
+        totalInteractions: lead.totalInteractions + 1,
+        lastContactDate: new Date()
+      })
+      
+      return {
+        success: true,
+        message: 'Interação registrada com sucesso',
+        data: {
+          leadId,
+          leadName: lead.name,
+          interactionType: type,
+          sentiment
+        }
+      }
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Erro ao registrar interação'
+      }
+    }
+  }
+
+  private async getLeadInsights(args: any): Promise<any> {
+    const { leadId, type = 'individual' } = args
+    
+    try {
+      if (type === 'individual' && leadId) {
+        const lead = await crmService.getLeadById(leadId)
+        if (!lead) {
+          return { success: false, error: 'Lead não encontrado' }
+        }
+        
+        const interactions = await crmService.getLeadInteractions(leadId)
+        const activities = await crmService.getLeadActivities(leadId)
+        
+        // Análise simples de probabilidade de conversão
+        let conversionProbability = lead.score
+        
+        // Ajustar baseado em temperatura
+        if (lead.temperature === 'hot') conversionProbability += 15
+        else if (lead.temperature === 'cold') conversionProbability -= 15
+        
+        // Ajustar baseado em interações
+        if (lead.totalInteractions > 5) conversionProbability += 10
+        
+        // Ajustar baseado em qualificação
+        const qualificationScore = Object.values(lead.qualificationCriteria).filter(v => v).length
+        conversionProbability += qualificationScore * 5
+        
+        conversionProbability = Math.min(Math.max(conversionProbability, 0), 100)
+        
+        // Determinar próxima ação recomendada
+        const daysSinceLastContact = differenceInDays(new Date(), new Date(lead.lastContactDate))
+        let nextAction = 'follow_up'
+        
+        if (daysSinceLastContact > 7) nextAction = 'follow_up'
+        else if (lead.status === 'qualified') nextAction = 'schedule_viewing'
+        else if (lead.temperature === 'hot') nextAction = 'send_proposal'
+        else if (lead.totalInteractions < 2) nextAction = 'initial_contact'
+        
+        return {
+          success: true,
+          insights: {
+            leadName: lead.name,
+            conversionProbability,
+            nextAction,
+            daysSinceLastContact,
+            totalInteractions: lead.totalInteractions,
+            qualificationLevel: qualificationScore,
+            temperature: lead.temperature,
+            estimatedValue: lead.preferences.priceRange 
+              ? (lead.preferences.priceRange.min + lead.preferences.priceRange.max) / 2 * 12 * (conversionProbability / 100)
+              : 0
+          },
+          message: `Análise do lead ${lead.name} concluída`
+        }
+      }
+      
+      if (type === 'pipeline') {
+        const allLeads = await crmService.getAllLeads(this.tenantId)
+        
+        const pipeline = {
+          new: allLeads.filter(l => l.status === LeadStatus.NEW).length,
+          contacted: allLeads.filter(l => l.status === LeadStatus.CONTACTED).length,
+          qualified: allLeads.filter(l => l.status === LeadStatus.QUALIFIED).length,
+          opportunity: allLeads.filter(l => l.status === LeadStatus.OPPORTUNITY).length,
+          negotiation: allLeads.filter(l => l.status === LeadStatus.NEGOTIATION).length,
+          won: allLeads.filter(l => l.status === LeadStatus.WON).length,
+          lost: allLeads.filter(l => l.status === LeadStatus.LOST).length
+        }
+        
+        const conversionRate = allLeads.length > 0 
+          ? (pipeline.won / allLeads.length) * 100 
+          : 0
+        
+        const hotLeads = allLeads.filter(l => l.temperature === 'hot').length
+        
+        return {
+          success: true,
+          insights: {
+            pipeline,
+            totalLeads: allLeads.length,
+            conversionRate,
+            hotLeads,
+            averageScore: allLeads.reduce((sum, l) => sum + l.score, 0) / allLeads.length || 0
+          },
+          message: 'Análise do pipeline concluída'
+        }
+      }
+      
+      return {
+        success: false,
+        error: 'Tipo de análise não reconhecido'
+      }
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Erro ao gerar insights'
+      }
+    }
+  }
+
+  private async scheduleLeadTask(args: any): Promise<any> {
+    const { leadId, title, description, type, priority = TaskPriority.MEDIUM, dueDate } = args
+    
+    try {
+      const lead = await crmService.getLeadById(leadId)
+      if (!lead) {
+        return { success: false, error: 'Lead não encontrado' }
+      }
+      
+      const task = await crmService.createTask({
+        tenantId: this.tenantId,
+        title,
+        description: description || '',
+        type: type as any,
+        priority,
+        dueDate: new Date(dueDate),
+        leadId,
+        status: 'pending' as any,
+        assignedTo: 'ai-agent',
+        assignedBy: 'ai-agent',
+        tags: ['ai-generated']
+      })
+      
+      return {
+        success: true,
+        message: 'Tarefa criada com sucesso',
+        data: {
+          taskId: task.id,
+          leadName: lead.name,
+          title,
+          type,
+          priority,
+          dueDate
+        }
+      }
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Erro ao criar tarefa'
       }
     }
   }
