@@ -1,6 +1,6 @@
 // lib/hooks/useMediaUpload.ts
 import { useState, useCallback } from 'react'
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage'
+import { ref, uploadBytesResumable, getDownloadURL, UploadTask } from 'firebase/storage'
 import { storage } from '@/lib/firebase/config'
 import { 
   validateFileType, 
@@ -62,19 +62,38 @@ export function useMediaUpload(): UseMediaUploadReturn {
           const fileName = `${generateUniqueId()}-${file.name}`
           const storageRef = ref(storage, `properties/${type}s/${fileName}`)
 
-          const snapshot = await uploadBytes(storageRef, fileToUpload)
-          const url = await getDownloadURL(snapshot.ref)
-
-          // Update progress
-          setProgress(((index + 1) / files.length) * 100)
-
-          return {
-            name: file.name,
-            url,
-            size: file.size,
-          }
+          // Use uploadBytesResumable for progress tracking
+          const uploadTask = uploadBytesResumable(storageRef, fileToUpload)
+          
+          return new Promise<UploadedFile>((resolve, reject) => {
+            uploadTask.on(
+              'state_changed',
+              (snapshot) => {
+                // Calculate progress for this file
+                const fileProgress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100
+                // Calculate overall progress across all files
+                const overallProgress = ((index * 100) + fileProgress) / files.length
+                setProgress(overallProgress)
+              },
+              (error) => {
+                reject(new Error(`Erro ao enviar ${file.name}: ${error.message}`))
+              },
+              async () => {
+                try {
+                  const url = await getDownloadURL(uploadTask.snapshot.ref)
+                  resolve({
+                    name: file.name,
+                    url,
+                    size: file.size,
+                  })
+                } catch (err) {
+                  reject(new Error(`Erro ao obter URL de ${file.name}: ${err instanceof Error ? err.message : 'Erro desconhecido'}`))
+                }
+              }
+            )
+          })
         } catch (err) {
-          throw new Error(`Erro ao enviar ${file.name}: ${err instanceof Error ? err.message : 'Erro desconhecido'}`)
+          throw new Error(`Erro ao preparar upload de ${file.name}: ${err instanceof Error ? err.message : 'Erro desconhecido'}`)
         }
       })
 
