@@ -393,6 +393,7 @@ export default function ClientsPage() {
                         )}
                       </Box>
                     }
+                    secondaryTypographyProps={{ component: 'div' }}
                   />
 
                   <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>

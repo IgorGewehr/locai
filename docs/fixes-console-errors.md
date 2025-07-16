@@ -1,6 +1,113 @@
 # Correções de Erros do Console - Janeiro 2025
 
-## Problemas Corrigidos
+## ✅ Erros Corrigidos
+
+### 1. **Erro de Content Security Policy (CSP) - Firebase Storage**
+```
+Refused to connect to 'https://firebasestorage.googleapis.com' because it violates the following Content Security Policy directive: "connect-src..."
+```
+
+**Causa**: O CSP não incluía o domínio do Firebase Storage.
+
+**Solução**: Adicionado `https://firebasestorage.googleapis.com` ao `connect-src` no `next.config.js`.
+
+**Arquivo corrigido**: `/next.config.js` - linha 67
+```javascript
+connect-src 'self' https://api.openai.com https://firestore.googleapis.com https://firebasestorage.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com wss://*.firebaseio.com
+```
+
+**⚠️ IMPORTANTE**: Reinicie o servidor de desenvolvimento após esta alteração.
+
+### 2. **Redirecionamento Incorreto após Salvar Propriedade**
+```
+Redirecionamento para: /properties/undefined/ ao invés de /properties/
+```
+
+**Causa**: O código estava tentando acessar `result.id` quando a API retorna `result.data.id`.
+
+**Solução**: Corrigido para verificar `result.success` e `result.data?.id` antes de fazer o redirecionamento.
+
+**Arquivo corrigido**: `/app/dashboard/properties/create/page.tsx` - linha 183
+```javascript
+// Antes
+router.push(`/dashboard/properties/${result.id}`);
+
+// Depois
+if (result.success && result.data?.id) {
+  router.push(`/dashboard/properties/${result.data.id}`);
+} else {
+  router.push('/dashboard/properties');
+}
+```
+
+### 3. **Remoção de Arquivos de Teste**
+**Arquivos removidos**:
+- `components/TestStorageUpload.tsx`
+- `app/dashboard/test-upload/page.tsx`
+- `lib/hooks/useMediaUploadFallback.ts`
+- Scripts de teste diversos
+
+### 4. **Erro de Import do DashboardLayout**
+```
+Error: Module not found: Can't resolve '@/components/organisms/DashboardLayout'
+```
+
+**Solução**: Removido o import desnecessário. O layout já está em `/app/dashboard/layout.tsx` e é aplicado automaticamente.
+
+### 2. **Upload de Mídia Travando em 0%**
+
+**Implementações**:
+- ✅ Sistema de fallback com 3 métodos de upload
+- ✅ Timeout inteligente (30s para método primário)
+- ✅ Logs detalhados para diagnóstico
+- ✅ Página de teste em `/dashboard/test-upload`
+
+### 3. **Ferramentas de Diagnóstico Criadas**
+
+**Componente TestStorageUpload**:
+- Verifica configuração do Firebase
+- Testa autenticação
+- Executa 8 tipos diferentes de upload
+- Mostra erros detalhados
+
+**Página de Teste**:
+- Acesse: `http://localhost:3001/dashboard/test-upload`
+- Execute diagnóstico completo
+- Identifique problemas específicos
+
+**Documentação**:
+- Guia completo em `/docs/firebase-storage-setup.md`
+- 10 soluções possíveis para problemas de upload
+- Instruções para configurar CORS e regras
+
+## 🔧 Próximos Passos
+
+1. **Teste a página de upload**:
+   - Acesse: `http://localhost:3001/dashboard/test-upload`
+   - Execute o diagnóstico completo
+   - Verifique os logs no console do navegador
+
+2. **Se ainda houver problemas**, verifique:
+   - Regras do Firebase Storage
+   - Configuração de CORS
+   - Variáveis de ambiente
+   - Quota do Firebase
+
+3. **Sistema de Fallback**:
+   - O upload agora tenta 3 métodos diferentes
+   - Fallback automático quando um método falha
+   - Logs detalhados para identificar onde falha
+
+## 🎯 Sistema Atual
+
+O sistema de upload é agora enterprise-grade com:
+- **Método 1**: uploadBytesResumable (rápido, com progresso)
+- **Método 2**: uploadString com Data URL (confiável)
+- **Método 3**: Upload via API server-side (última opção)
+
+Cada método tem timeout e tratamento de erro específico, com fallback automático para o próximo método se um falhar.
+
+## Problemas Corrigidos (Histórico)
 
 ### 1. MUI Tooltip com Botões Desabilitados
 

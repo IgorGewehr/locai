@@ -469,6 +469,7 @@ export default function ReservationDetailPage() {
                           </Typography>
                         </Box>
                       }
+                      secondaryTypographyProps={{ component: 'div' }}
                     />
                   </ListItem>
                 ))}

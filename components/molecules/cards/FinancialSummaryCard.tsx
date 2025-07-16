@@ -83,14 +83,14 @@ export default function FinancialSummaryCard({
   const calculateChange = () => {
     if (!previousValue || previousValue === 0) return null;
     const change = ((value - previousValue) / previousValue) * 100;
-    return change;
+    return isNaN(change) ? null : change;
   };
 
   const change = calculateChange();
   const color = getColor();
   const icon = getIcon();
 
-  const progressValue = goal ? Math.min((value / goal) * 100, 100) : 0;
+  const progressValue = goal && goal > 0 ? Math.min((value / goal) * 100, 100) : 0;
 
   return (
     <Card 
@@ -173,7 +173,7 @@ export default function FinancialSummaryCard({
                 Meta: {formatCurrency(goal)}
               </Typography>
               <Typography variant="caption" color="text.secondary">
-                {progressValue.toFixed(0)}%
+                {isNaN(progressValue) ? 0 : progressValue.toFixed(0)}%
               </Typography>
             </Box>
             <LinearProgress 

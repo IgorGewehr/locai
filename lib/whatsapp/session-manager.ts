@@ -333,20 +333,31 @@ export class WhatsAppSessionManager extends EventEmitter {
       
       if (mediaUrl) {
         // Handle media messages
+        this.logger.info(`📥 Fetching media from: ${mediaUrl}`);
         const response = await fetch(mediaUrl);
-        const buffer = await response.arrayBuffer();
         
-        if (mediaUrl.includes('.jpg') || mediaUrl.includes('.jpeg') || mediaUrl.includes('.png')) {
+        if (!response.ok) {
+          this.logger.error(`❌ Failed to fetch media: ${response.status} ${response.statusText}`);
+          throw new Error(`Failed to fetch media: ${response.status} ${response.statusText}`);
+        }
+        
+        const buffer = await response.arrayBuffer();
+        this.logger.info(`📁 Downloaded media size: ${buffer.byteLength} bytes`);
+        
+        if (mediaUrl.includes('.jpg') || mediaUrl.includes('.jpeg') || mediaUrl.includes('.png') || mediaUrl.includes('.webp')) {
+          this.logger.info(`📸 Sending as image`);
           content = {
             image: Buffer.from(buffer),
             caption: message,
           };
         } else if (mediaUrl.includes('.mp4') || mediaUrl.includes('.mov')) {
+          this.logger.info(`🎥 Sending as video`);
           content = {
             video: Buffer.from(buffer),
             caption: message,
           };
         } else {
+          this.logger.info(`📄 Sending as document`);
           content = {
             document: Buffer.from(buffer),
             caption: message,

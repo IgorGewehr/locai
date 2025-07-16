@@ -568,6 +568,7 @@ export class AIFunctionExecutor {
   }
 
   async executeFunctionCall(functionName: string, args: AIFunctionArgs): Promise<AIFunctionResponse> {
+    console.log(`🔧 Executing function: ${functionName} with args:`, args);
     switch (functionName) {
       case 'search_properties':
         return await this.searchProperties(args as SearchPropertiesArgs)
@@ -725,11 +726,17 @@ export class AIFunctionExecutor {
   private async sendPropertyMedia(args: any): Promise<any> {
     const { propertyId, mediaType } = args
     
+    console.log(`🔧 sendPropertyMedia called with propertyId: ${propertyId}, mediaType: ${mediaType}`);
+    
     try {
       const property = await propertyService.getById(propertyId)
       if (!property) {
+        console.log(`❌ Property not found: ${propertyId}`);
         return { success: false, error: 'Propriedade não encontrada' }
       }
+      
+      console.log(`✅ Property found: ${property.title}, photos: ${property.photos?.length || 0}`);
+      console.log(`📸 Property photos:`, property.photos);
 
       const result: any = {
         success: true,

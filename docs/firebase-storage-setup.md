@@ -1,144 +1,144 @@
-# Configuração do Firebase Storage
+# Firebase Storage Setup Guide
 
-## Problema: Upload travado em 0%
+## 🔥 Problema: Upload de Mídia Travando em 0%
 
-Se o upload de imagens/vídeos está travando em 0%, isso geralmente indica um problema de permissões ou CORS no Firebase Storage.
+### Possíveis Causas e Soluções
 
-## Solução
+### 1. **Regras de Segurança do Firebase Storage**
 
-### 1. Verificar Regras de Segurança do Storage
-
-Acesse o Firebase Console → Storage → Rules e configure as regras:
+Acesse o Console do Firebase → Storage → Rules e verifique se as regras permitem upload:
 
 ```javascript
-// Regras para desenvolvimento (TEMPORÁRIO - NÃO USE EM PRODUÇÃO)
+// Regras mais permissivas para teste (NÃO USE EM PRODUÇÃO)
 rules_version = '2';
 service firebase.storage {
   match /b/{bucket}/o {
     match /{allPaths=**} {
-      allow read, write: if true;
+      allow read, write: if request.auth != null;
     }
   }
 }
 ```
 
-Para produção, use regras mais seguras:
+### 2. **Configuração do CORS**
 
-```javascript
-rules_version = '2';
-service firebase.storage {
-  match /b/{bucket}/o {
-    // Permitir leitura pública de imagens
-    match /properties/{allPaths=**} {
-      allow read: if true;
-      allow write: if request.auth != null
-        && request.resource.size < 100 * 1024 * 1024 // 100MB max
-        && request.resource.contentType.matches('(image|video)/.*');
-    }
-  }
-}
-```
+O Firebase Storage pode estar bloqueando requisições do navegador. Configure o CORS:
 
-### 2. Configurar CORS
-
-Crie um arquivo `cors.json`:
+1. Instale o Google Cloud SDK
+2. Crie um arquivo `cors.json`:
 
 ```json
 [
   {
-    "origin": ["http://localhost:3000", "http://localhost:3001", "https://seu-dominio.com"],
+    "origin": ["http://localhost:3000", "http://localhost:3002", "https://seu-dominio.com"],
     "method": ["GET", "POST", "PUT", "DELETE"],
     "maxAgeSeconds": 3600,
     "responseHeader": [
       "Content-Type",
-      "Access-Control-Allow-Origin",
-      "Access-Control-Allow-Headers",
-      "Access-Control-Allow-Methods",
-      "X-Requested-With",
-      "X-Firebase-Storage-Version"
+      "x-goog-acl",
+      "x-goog-meta-firebaseStorageDownloadTokens",
+      "Access-Control-Allow-Origin"
     ]
   }
 ]
 ```
 
-Aplique a configuração CORS:
-
+3. Execute:
 ```bash
-# Instalar gsutil se ainda não tiver
-pip install gsutil
-
-# Configurar CORS
-gsutil cors set cors.json gs://seu-bucket-id.appspot.com
+gsutil cors set cors.json gs://seu-bucket-do-firebase.appspot.com
 ```
 
-### 3. Verificar Configurações do Projeto
+### 3. **Verificar Configuração do Firebase**
 
-1. **Verifique o arquivo `.env`**:
+Certifique-se de que todas as variáveis estão no `.env.local`:
+
 ```env
+NEXT_PUBLIC_FIREBASE_API_KEY=sua-api-key
+NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=seu-projeto.firebaseapp.com
+NEXT_PUBLIC_FIREBASE_PROJECT_ID=seu-projeto
 NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=seu-projeto.appspot.com
+NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=seu-sender-id
+NEXT_PUBLIC_FIREBASE_APP_ID=sua-app-id
 ```
 
-2. **Verifique se o bucket está correto no Firebase Console**
+### 4. **Quota e Limites**
 
-3. **Verifique se a autenticação está funcionando**:
-   - O usuário precisa estar autenticado para fazer upload
-   - Verifique se `auth.currentUser` não é null
+Verifique no Console do Firebase:
+- Quota de armazenamento disponível
+- Limite de banda
+- Número de operações
 
-### 4. Debug do Upload
+### 5. **Problemas de Rede**
 
-O código já foi atualizado com logs de debug. Ao tentar fazer upload:
+- Verifique se há proxy ou firewall bloqueando
+- Teste com uma conexão diferente
+- Use o modo anônimo do navegador
 
-1. Abra o Console do navegador (F12)
-2. Tente fazer upload de uma imagem
-3. Procure por mensagens como:
-   - "📎 Starting upload for..."
-   - "📈 Upload progress for..."
-   - "❌ Upload error for..."
+### 6. **Usar a Página de Teste**
 
-### 5. Erros Comuns e Soluções
+Acesse `/dashboard/test-upload` para executar um diagnóstico completo que verifica:
+- Configuração do Firebase
+- Autenticação
+- Todos os métodos de upload
+- Erros detalhados
 
-**Erro: "storage/unauthorized"**
-- Solução: Atualize as regras de segurança (veja item 1)
+### 7. **Logs de Debug**
 
-**Erro: "storage/unauthenticated"**
-- Solução: Certifique-se de que o usuário está logado
+Abra o Console do Navegador (F12) e procure por:
+- Erros de CORS
+- Erros de autenticação
+- Timeouts de rede
+- Mensagens de erro do Firebase
 
-**Erro: "CORS error"**
-- Solução: Configure CORS (veja item 2)
+### 8. **Soluções Implementadas**
 
-**Erro: "storage/retry-limit-exceeded"**
-- Solução: Verifique conexão de internet e tente novamente
+O sistema agora tem 3 métodos de upload com fallback automático:
 
-### 6. Teste Rápido
+1. **uploadBytesResumable** (principal)
+   - Melhor para progresso em tempo real
+   - Timeout de 30 segundos
 
-Para testar se o Storage está funcionando, execute no console do navegador:
+2. **uploadString com Data URL** (fallback)
+   - Converte arquivo para base64
+   - Mais confiável para arquivos pequenos
+
+3. **Upload via API** (último recurso)
+   - Upload server-side
+   - Contorna problemas de CORS
+
+### 9. **Testar Manualmente**
+
+Use este código no console do navegador:
 
 ```javascript
-// Teste de conexão com Storage
-import { storage } from '@/lib/firebase/config';
-import { ref, uploadString } from 'firebase/storage';
+// Teste básico de upload
+async function testUpload() {
+  const { storage, auth } = await import('/lib/firebase/config');
+  
+  console.log('Auth:', auth.currentUser?.email);
+  console.log('Storage:', storage.app.options.storageBucket);
+  
+  const blob = new Blob(['test'], { type: 'text/plain' });
+  const file = new File([blob], 'test.txt');
+  
+  const { ref, uploadBytes, getDownloadURL } = await import('firebase/storage');
+  const storageRef = ref(storage, 'test/manual-test.txt');
+  
+  try {
+    const snapshot = await uploadBytes(storageRef, file);
+    const url = await getDownloadURL(snapshot.ref);
+    console.log('Success! URL:', url);
+  } catch (error) {
+    console.error('Error:', error);
+  }
+}
 
-const testRef = ref(storage, 'test/test.txt');
-uploadString(testRef, 'Hello World').then(() => {
-  console.log('✅ Storage está funcionando!');
-}).catch((error) => {
-  console.error('❌ Erro no Storage:', error);
-});
+testUpload();
 ```
 
-## Checklist de Verificação
+### 10. **Contato com Suporte**
 
-- [ ] Firebase Storage está ativado no console
-- [ ] Regras de segurança permitem upload
-- [ ] CORS está configurado corretamente
-- [ ] Variáveis de ambiente estão corretas
-- [ ] Usuário está autenticado
-- [ ] Console do navegador mostra logs de debug
-
-## Suporte
-
-Se o problema persistir após seguir estes passos:
-1. Verifique os logs do navegador
-2. Verifique o Firebase Console → Storage → Usage
-3. Teste com uma imagem pequena (< 1MB)
-4. Verifique se há quota disponível no Firebase
+Se nenhuma solução funcionar:
+1. Verifique o status do Firebase: https://status.firebase.google.com/
+2. Abra um ticket no suporte do Firebase
+3. Forneça os logs de erro e o resultado da página de teste

@@ -21,6 +21,7 @@ export class WhatsAppMessageHandler {
   private reservationService: ReservationService
   private rateLimiter: RateLimiter
   private processingMessages: Set<string> = new Set()
+  private processingConversations: Set<string> = new Set()
   private transcriptionService: TranscriptionService | null = null
   private tenantId: string
 
@@ -76,8 +77,11 @@ export class WhatsAppMessageHandler {
       // Check if message should be processed (not from groups)
       const { shouldProcessMessage } = await import('@/lib/utils/whatsapp-utils');
       
-      if (!shouldProcessMessage(from)) {
-        console.log(`🚫 Ignoring message from: ${from} (group or invalid)`);
+      // Reconstruct the full JID for validation (from is just the phone number)
+      const fullJid = from.includes('@') ? from : `${from}@s.whatsapp.net`;
+      
+      if (!shouldProcessMessage(fullJid)) {
+        console.log(`🚫 Ignoring message from: ${fullJid} (group or invalid)`);
         return;
       }
 
@@ -97,7 +101,14 @@ export class WhatsAppMessageHandler {
         return
       }
 
+      // Check if we're already processing this conversation
+      if (this.processingConversations.has(validatedPhone)) {
+        console.log(`⏳ Already processing conversation for ${validatedPhone}, skipping`);
+        return;
+      }
+
       this.processingMessages.add(messageId)
+      this.processingConversations.add(validatedPhone)
 
       try {
         // Process message content (including audio transcription)
@@ -208,6 +219,7 @@ export class WhatsAppMessageHandler {
       } finally {
         // Remove message from processing set
         this.processingMessages.delete(messageId)
+        this.processingConversations.delete(validatedPhone)
       }
 
     } catch (error) {

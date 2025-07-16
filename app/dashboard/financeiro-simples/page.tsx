@@ -490,6 +490,7 @@ export default function FinanceiroSimplesPage() {
                               )}
                             </Box>
                           }
+                          secondaryTypographyProps={{ component: 'div' }}
                         />
                         <ListItemSecondaryAction>
                           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>

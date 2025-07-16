@@ -381,7 +381,7 @@ export default function ConversationsPage() {
                             {conversation.lastMessageTime.toLocaleString('pt-BR')}
                           </span>
                           <span style={{ fontSize: '0.75rem', color: 'rgba(0, 0, 0, 0.6)' }}>
-                            • Confiança IA: {(conversation.aiConfidence * 100).toFixed(0)}%
+                            • Confiança IA: {isNaN(conversation.aiConfidence * 100) ? 0 : (conversation.aiConfidence * 100).toFixed(0)}%
                           </span>
                           <span style={{ fontSize: '0.75rem', color: 'rgba(0, 0, 0, 0.6)' }}>
                             • {conversation.assignedAgent}
@@ -406,6 +406,7 @@ export default function ConversationsPage() {
                         </span>
                       </span>
                     }
+                    secondaryTypographyProps={{ component: 'div' }}
                   />
                   
                   <ListItemSecondaryAction>

@@ -163,10 +163,10 @@ export function useMediaUpload(): UseMediaUploadReturn {
               
               // Set a timeout to prevent hanging
               const uploadTimeout = setTimeout(() => {
-                console.warn('⏱️ Primary upload timeout, trying fallback...');
+                console.warn('⏱️ Primary upload timeout (15s), trying fallback...');
                 uploadTask.cancel();
                 reject(new Error('PRIMARY_TIMEOUT'));
-              }, 30000); // 30 seconds timeout for primary method
+              }, 15000); // Reduced to 15 seconds for faster fallback
               
               uploadTask.on('state_changed',
                 // Progress callback

@@ -38,6 +38,8 @@ export class AIResponseGenerator {
       const sanitizedContent = sanitizeUserInput(newMessage.content)
       this.validateMessageLength(sanitizedContent)
 
+      console.log('🤖 Sending message to OpenAI:', sanitizedContent);
+
       const completion = await withTimeout(
         this.openai.chat.completions.create({
           model: this.personality.model || 'gpt-4',
@@ -56,14 +58,28 @@ export class AIResponseGenerator {
           })),
           function_call: 'auto'
         }),
-        30000, // 30 second timeout
+        60000, // Increased to 60 second timeout
         'OpenAI API call'
       )
 
+      console.log('🤖 OpenAI response received:', completion.choices[0]);
+
       return await this.processAIResponse(completion, conversation, context)
     } catch (error) {
+      console.error('❌ Error in generateResponse:', error);
+      console.error('Error details:', {
+        message: error.message,
+        status: error.status,
+        code: error.code,
+        name: error.name,
+        stack: error.stack
+      });
+      
       const errorType = classifyError(error)
+      console.log('🔧 Error classified as:', errorType);
+      
       const errorResponse = getErrorResponse(errorType, error)
+      console.log('🔧 Error response:', errorResponse);
 
       await this.logError({
         type: errorType,
@@ -189,13 +205,17 @@ INSTRUÇÕES IMPORTANTES:
   ): Promise<AIResponse> {
     const message = completion.choices[0].message
 
+    console.log('🔧 Processing AI response. Has function call:', !!message.function_call);
+
     // Se há function call, processa função
     if (message.function_call) {
+      console.log('🔧 Executing function call:', message.function_call.name);
       const functionResult = await this.executeFunctionCall(
         message.function_call,
         conversation,
         context
       )
+      console.log('🔧 Function result:', functionResult);
 
       // Segunda chamada para gerar resposta baseada no resultado
       const secondCompletion = await this.openai.chat.completions.create({
@@ -241,7 +261,9 @@ INSTRUÇÕES IMPORTANTES:
   ): Promise<any> {
     try {
       const args = JSON.parse(functionCall.arguments)
+      console.log('🔧 Function call arguments:', args);
       const result = await this.functionExecutor.executeFunctionCall(functionCall.name, args)
+      console.log('🔧 Function execution result:', result);
 
       // Atualizar contexto baseado no resultado
       this.updateContextFromFunctionResult(context, functionCall.name, result)

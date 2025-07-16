@@ -120,24 +120,37 @@ export function handleFirestoreError(error: any): never {
 }
 
 export function classifyError(error: any): ErrorType {
+  console.log('🔍 Classifying error:', {
+    instanceof_AIError: error instanceof AIError,
+    code: error.code,
+    status: error.status,
+    name: error.name,
+    message: error.message
+  });
+  
   if (error instanceof AIError) return error.type
   
   if (error.code === 'ENOTFOUND' || error.code === 'ECONNREFUSED') {
+    console.log('🔍 Classified as NETWORK');
     return ErrorType.NETWORK
   }
   
-  if (error.status === 429 || error.message?.includes('rate limit')) {
+  if (error.status === 429 || error.message?.includes('rate limit') || error.message?.includes('Rate limit') || error.code === 'rate_limit_exceeded') {
+    console.log('🔍 Classified as API_LIMIT');
     return ErrorType.API_LIMIT
   }
   
   if (error.status === 401 || error.status === 403) {
+    console.log('🔍 Classified as AUTHENTICATION');
     return ErrorType.AUTHENTICATION
   }
   
   if (error.name === 'TimeoutError') {
+    console.log('🔍 Classified as TIMEOUT');
     return ErrorType.TIMEOUT
   }
   
+  console.log('🔍 Classified as INTERNAL');
   return ErrorType.INTERNAL
 }
 

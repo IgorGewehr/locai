@@ -142,6 +142,7 @@ export default function GoalCard({
   }
 
   const formatValue = (value: number) => {
+    if (isNaN(value)) return '0'
     // Para métricas percentuais
     if (goal.metric.includes('rate') || goal.metric.includes('percentage')) {
       return `${value.toFixed(1)}%`

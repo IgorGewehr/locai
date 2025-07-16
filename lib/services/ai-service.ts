@@ -133,13 +133,9 @@ export class AIService {
       return aiResponse
 
     } catch (error) {
-      // Return fallback response
-      return {
-        content: 'Desculpe, estou com dificuldades técnicas no momento. Um de nossos especialistas entrará em contato em breve.',
-        confidence: 0.1,
-        sentiment: { score: 0, label: 'neutral', confidence: 0.5 },
-        suggestedActions: ['escalate_to_human']
-      }
+      console.error('❌ Error in AI service processMessage:', error);
+      // Re-throw the error to let the response generator handle it properly
+      throw error;
     }
   }
 

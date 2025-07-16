@@ -180,7 +180,12 @@ export default function CreatePropertyPage() {
       }
 
       const result = await response.json();
-      router.push(`/dashboard/properties/${result.id}`);
+      if (result.success && result.data?.id) {
+        router.push(`/dashboard/properties/${result.data.id}`);
+      } else {
+        // Se não houver ID, redireciona para a lista de propriedades
+        router.push('/dashboard/properties');
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erro desconhecido');
     } finally {

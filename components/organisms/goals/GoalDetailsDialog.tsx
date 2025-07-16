@@ -106,6 +106,7 @@ export default function GoalDetailsDialog({
   }
 
   const formatValue = (value: number) => {
+    if (isNaN(value)) return '0'
     if (goal.metric.includes('rate') || goal.metric.includes('percentage')) {
       return `${value.toFixed(1)}%`
     }
@@ -296,6 +297,7 @@ export default function GoalDetailsDialog({
                           }
                         />
                       }
+                      secondaryTypographyProps={{ component: 'div' }}
                     />
                   </ListItem>
                   <ListItem>
@@ -505,6 +507,7 @@ export default function GoalDetailsDialog({
                           </Typography>
                         </>
                       }
+                      secondaryTypographyProps={{ component: 'div' }}
                     />
                     {alert.actionRequired && (
                       <Chip label="Ação necessária" size="small" color="error" />
