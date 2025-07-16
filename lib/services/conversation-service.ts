@@ -123,6 +123,11 @@ class ConversationService extends FirestoreService<Conversation> {
         throw new Error('Conversation not found')
       }
 
+      // Filter out undefined values from messageData
+      const filteredMessageData = Object.fromEntries(
+        Object.entries(messageData).filter(([_, value]) => value !== undefined)
+      )
+
       const message: Message = {
         id: `msg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
         conversationId,
@@ -132,7 +137,7 @@ class ConversationService extends FirestoreService<Conversation> {
         isFromAI: messageData.isFromAI || false,
         timestamp: messageData.timestamp || new Date(),
         status: messageData.status || MessageStatus.RECEIVED,
-        ...messageData
+        ...filteredMessageData
       }
 
       // Add message to conversation
@@ -181,9 +186,16 @@ class ConversationService extends FirestoreService<Conversation> {
   async updateConversationFromAI(conversationId: string, aiResponse: any): Promise<void> {
     try {
       const updates: Partial<Conversation> = {
-        confidence: aiResponse.confidence,
-        sentiment: aiResponse.sentiment,
         lastMessageAt: new Date()
+      }
+
+      // Only add fields that are not undefined
+      if (aiResponse.confidence !== undefined) {
+        updates.confidence = aiResponse.confidence
+      }
+      
+      if (aiResponse.sentiment !== undefined) {
+        updates.sentiment = aiResponse.sentiment
       }
 
       // Update stage based on AI response
@@ -204,7 +216,12 @@ class ConversationService extends FirestoreService<Conversation> {
         }
       }
 
-      await this.update(conversationId, updates)
+      // Filter out undefined values before updating
+      const filteredUpdates = Object.fromEntries(
+        Object.entries(updates).filter(([_, value]) => value !== undefined)
+      )
+
+      await this.update(conversationId, filteredUpdates)
     } catch (error) {
       }
   }

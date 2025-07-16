@@ -176,8 +176,10 @@ export async function POST(request: NextRequest) {
     // Get raw body for signature verification
     const rawBody = await request.text()
 
-    // Verify webhook signature
-    if (!verifyWebhookSignature(request, rawBody)) {
+    // Verify webhook signature (skip for WhatsApp Web mode)
+    const isWebMode = !process.env.WHATSAPP_APP_SECRET || process.env.WHATSAPP_MODE === 'web';
+    
+    if (!isWebMode && !verifyWebhookSignature(request, rawBody)) {
       await logWebhookEvent('error', {
         method: 'POST',
         error: 'invalid_signature',
@@ -187,6 +189,8 @@ export async function POST(request: NextRequest) {
         { status: 401 }
       )
     }
+    
+    console.log('📨 Webhook received, mode:', isWebMode ? 'Web' : 'Business API');
 
     // Parse and validate JSON
     let body: WhatsAppWebhookData

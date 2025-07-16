@@ -15,13 +15,28 @@ export function validatePhoneNumber(phone: string): string {
     throw new ValidationError('Invalid phone number format', 'phone')
   }
 
-  // Ensure it starts with country code or add default Brazil code
-  if (cleanPhone.length === 11 && cleanPhone.startsWith('11')) {
-    return `55${cleanPhone}` // Add Brazil country code
+  // Handle Brazilian mobile numbers with 11 digits (without country code)
+  if (cleanPhone.length === 11) {
+    // Valid area codes in Brazil start with 11-99
+    const areaCode = cleanPhone.substring(0, 2)
+    const areaCodeNum = parseInt(areaCode)
+    if (areaCodeNum >= 11 && areaCodeNum <= 99) {
+      return `55${cleanPhone}` // Add Brazil country code
+    }
   }
   
+  // Handle Brazilian numbers with country code (13 digits: 55 + 11 digits)
   if (cleanPhone.length === 13 && cleanPhone.startsWith('55')) {
     return cleanPhone
+  }
+
+  // Handle WhatsApp format numbers (12 digits: 55 + 10 digits for older format)
+  if (cleanPhone.length === 12 && cleanPhone.startsWith('55')) {
+    const areaCode = cleanPhone.substring(2, 4)
+    const areaCodeNum = parseInt(areaCode)
+    if (areaCodeNum >= 11 && areaCodeNum <= 99) {
+      return cleanPhone
+    }
   }
 
   throw new ValidationError('Phone number must be in Brazilian format', 'phone')

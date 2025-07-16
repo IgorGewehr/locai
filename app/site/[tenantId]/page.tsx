@@ -8,6 +8,7 @@ import MiniSiteLayout from '@/components/mini-site/MiniSiteLayout';
 import PropertyGrid from '@/components/mini-site/PropertyGrid';
 import PropertyGridSkeleton from '@/components/mini-site/PropertyGridSkeleton';
 import ErrorBoundary from '@/components/mini-site/ErrorBoundary';
+import MiniSiteError from '@/components/mini-site/MiniSiteError';
 
 export default function MiniSitePage() {
   const params = useParams();
@@ -87,41 +88,26 @@ export default function MiniSitePage() {
   }
 
   if (error) {
+    const isNotFound = error === 'Mini-site not found or inactive' || error === 'Failed to load mini-site';
     return (
-      <Container maxWidth="md" sx={{ py: 8 }}>
-        <Alert 
-          severity="error" 
-          sx={{ 
-            borderRadius: 3,
-            '& .MuiAlert-message': {
-              fontSize: '1.1rem',
-            },
-          }}
-        >
-          {error === 'Mini-site not found or inactive' 
-            ? 'Este mini-site não foi encontrado ou está inativo. Verifique o link e tente novamente.'
-            : error
-          }
-        </Alert>
-      </Container>
+      <MiniSiteError 
+        error={new Error(error)} 
+        isNotFound={isNotFound}
+        reset={() => {
+          setError(null);
+          setLoading(true);
+          window.location.reload();
+        }}
+      />
     );
   }
 
   if (!config) {
     return (
-      <Container maxWidth="md" sx={{ py: 8 }}>
-        <Alert 
-          severity="warning"
-          sx={{ 
-            borderRadius: 3,
-            '& .MuiAlert-message': {
-              fontSize: '1.1rem',
-            },
-          }}
-        >
-          Mini-site não encontrado ou inativo.
-        </Alert>
-      </Container>
+      <MiniSiteError 
+        error={new Error('Mini-site não encontrado ou inativo')} 
+        isNotFound={true}
+      />
     );
   }
 

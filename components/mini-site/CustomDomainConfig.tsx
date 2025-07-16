@@ -60,6 +60,8 @@ import {
   ShoppingCart,
   Star,
 } from '@mui/icons-material';
+import Toast from '@/components/atoms/Toast';
+import { useToast } from '@/lib/hooks/useToast';
 
 interface CustomDomainConfigProps {
   tenantId: string;
@@ -88,6 +90,7 @@ export default function CustomDomainConfig({
 }: CustomDomainConfigProps) {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+  const { toast, hideToast, showSuccess, showError } = useToast();
   
   const [domain, setDomain] = useState(currentDomain || '');
   const [loading, setLoading] = useState(false);
@@ -162,11 +165,11 @@ export default function CustomDomainConfig({
         setActiveStep(1);
         setDomainStatus(data.validation);
       } else {
-        alert('Domínio inválido. Verifique o formato e tente novamente.');
+        showError('Domínio inválido. Verifique o formato e tente novamente.');
       }
     } catch (error) {
       console.error('Domain validation error:', error);
-      alert('Erro ao validar domínio. Tente novamente.');
+      showError('Erro ao validar domínio. Tente novamente.');
     } finally {
       setLoading(false);
     }
@@ -187,7 +190,7 @@ export default function CustomDomainConfig({
       onDomainChange(domain);
     } catch (error) {
       console.error('Domain configuration error:', error);
-      alert('Erro ao configurar domínio. Tente novamente.');
+      showError('Erro ao configurar domínio. Tente novamente.');
     } finally {
       setLoading(false);
     }
@@ -235,7 +238,7 @@ export default function CustomDomainConfig({
       await loadDomainStatus();
     } catch (error) {
       console.error('Remove domain error:', error);
-      alert('Erro ao remover domínio. Tente novamente.');
+      showError('Erro ao remover domínio. Tente novamente.');
     } finally {
       setLoading(false);
     }
@@ -582,6 +585,14 @@ export default function CustomDomainConfig({
           </List>
         </DialogContent>
       </Dialog>
+
+      {/* Toast Notifications */}
+      <Toast
+        open={toast.open}
+        message={toast.message}
+        type={toast.type}
+        onClose={hideToast}
+      />
     </Box>
   );
 }

@@ -48,10 +48,12 @@ export class WhatsAppMessageHandler {
   
   async initializeClient(): Promise<void> {
     if (!this.whatsappClient) {
+      console.log('🔧 Initializing WhatsApp client for tenant:', this.tenantId);
       // Create WhatsApp client with Web support
       this.whatsappClient = new WhatsAppClient('web', 'web', this.tenantId)
       this.transcriptionService = new TranscriptionService(this.whatsappClient)
       this.automationService = new AutomationService(this.tenantId, this.whatsappClient, this.aiService)
+      console.log('✅ WhatsApp client initialized successfully');
     }
   }
 
@@ -69,6 +71,14 @@ export class WhatsAppMessageHandler {
 
       if (!message || !from) {
         return
+      }
+
+      // Check if message should be processed (not from groups)
+      const { shouldProcessMessage } = await import('@/lib/utils/whatsapp-utils');
+      
+      if (!shouldProcessMessage(from)) {
+        console.log(`🚫 Ignoring message from: ${from} (group or invalid)`);
+        return;
       }
 
       // Validate phone number format
@@ -201,6 +211,9 @@ export class WhatsAppMessageHandler {
       }
 
     } catch (error) {
+      console.error('❌ Error in handleIncomingMessage:', error)
+      console.error('Error stack:', error instanceof Error ? error.stack : 'No stack trace')
+      
       // Classify error and send appropriate response
       const errorType = this.classifyError(error)
 
@@ -390,11 +403,24 @@ export class WhatsAppMessageHandler {
    * Send text response with retry logic
    */
   private async sendTextResponse(to: string, content: string): Promise<void> {
-    await withRetry(
-      () => this.whatsappClient.sendText(to, content),
-      3,
-      1000
-    )
+    console.log(`📤 Sending text response to ${to}: ${content.substring(0, 100)}...`);
+    
+    if (!this.whatsappClient) {
+      console.error('❌ WhatsApp client not initialized!');
+      throw new Error('WhatsApp client not initialized');
+    }
+    
+    try {
+      await withRetry(
+        () => this.whatsappClient.sendText(to, content),
+        3,
+        1000
+      )
+      console.log('✅ Text response sent successfully!');
+    } catch (error) {
+      console.error('❌ Error sending text response:', error);
+      throw error;
+    }
   }
 
   private async handleFunctionCallResponse(to: string, functionCall: any): Promise<void> {

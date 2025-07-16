@@ -6,6 +6,7 @@ import {
   Container,
   Typography,
   CircularProgress,
+  Alert,
 } from '@mui/material';
 import { useAuth } from '@/contexts/AuthContext';
 import MiniSiteActivator from '@/components/organisms/marketing/MiniSiteActivator';
@@ -15,6 +16,7 @@ export default function MiniSitePage() {
   const { user } = useAuth();
   const [loading, setLoading] = useState(true);
   const [miniSiteActive, setMiniSiteActive] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const checkMiniSiteStatus = async () => {
@@ -25,9 +27,13 @@ export default function MiniSitePage() {
         if (response.ok) {
           const settings = await response.json();
           setMiniSiteActive(settings?.miniSite?.active || false);
+        } else {
+          console.error('Failed to fetch settings:', response.status);
+          setError('Failed to load settings');
         }
       } catch (error) {
         console.error('Error checking mini-site status:', error);
+        setError('Error loading mini-site status');
       } finally {
         setLoading(false);
       }
@@ -52,6 +58,16 @@ export default function MiniSitePage() {
       >
         <CircularProgress />
       </Box>
+    );
+  }
+
+  if (error) {
+    return (
+      <Container maxWidth="lg" sx={{ py: 4 }}>
+        <Alert severity="error" sx={{ mb: 2 }}>
+          {error}
+        </Alert>
+      </Container>
     );
   }
 

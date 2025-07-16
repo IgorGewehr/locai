@@ -12,8 +12,16 @@ export class AIService {
 
   constructor(tenantId: string) {
     this.tenantId = tenantId
+    
+    const apiKey = process.env.OPENAI_API_KEY
+    if (!apiKey) {
+      console.error('❌ OPENAI_API_KEY not found in environment variables!')
+    } else {
+      console.log('✅ OpenAI API key loaded successfully')
+    }
+    
     this.openai = new OpenAI({
-      apiKey: process.env.OPENAI_API_KEY
+      apiKey: apiKey
     })
 
     // Load default agent

@@ -489,9 +489,11 @@ Forneça uma análise em JSON com:
           </Typography>
         </Box>
         <Tooltip title="Atualizar análise">
-          <IconButton onClick={onRefresh} disabled={loading}>
-            <Refresh />
-          </IconButton>
+          <span>
+            <IconButton onClick={onRefresh} disabled={loading}>
+              <Refresh />
+            </IconButton>
+          </span>
         </Tooltip>
       </Box>
 
@@ -605,13 +607,9 @@ Forneça uma análise em JSON com:
                             </Box>
                           }
                           secondary={
-                            <Box sx={{ mt: 1 }}>
-                              <Typography variant="body2" color="text.secondary">
-                                {insight.actionReason} • Valor estimado: {formatCurrency(insight.estimatedValue)}
-                              </Typography>
-                              
-                              {/* Opportunities and Risks */}
-                              <Stack direction="row" spacing={1} sx={{ mt: 1 }}>
+                            <>
+                              {insight.actionReason} • Valor estimado: {formatCurrency(insight.estimatedValue)}
+                              <Stack direction="row" spacing={1} sx={{ mt: 1, display: 'flex' }}>
                                 {insight.opportunities.slice(0, 2).map((opp, i) => (
                                   <Chip
                                     key={i}
@@ -631,8 +629,9 @@ Forneça uma análise em JSON com:
                                   />
                                 ))}
                               </Stack>
-                            </Box>
+                            </>
                           }
+                          secondaryTypographyProps={{ component: 'div' }}
                         />
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                           <Button

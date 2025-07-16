@@ -13,7 +13,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const tenantId = auth.userId; // Use userId as tenantId
+    const tenantId = auth.tenantId || auth.userId; // Use tenantId or userId as fallback
 
     console.log(`🚀 Activating mini-site for user: ${tenantId}`);
 
@@ -35,7 +35,11 @@ export async function POST(request: NextRequest) {
       seoKeywords: 'imóveis, aluguel, temporada, férias, propriedades',
     });
 
-    const miniSiteUrl = `${new URL(request.url).origin}/site/${tenantId}`;
+    // Generate mini-site URL based on environment
+    const origin = new URL(request.url).origin;
+    const miniSiteUrl = `${origin}/site/${tenantId}`;
+    
+    console.log(`✅ Mini-site URL generated: ${miniSiteUrl}`);
 
     return NextResponse.json({
       success: true,

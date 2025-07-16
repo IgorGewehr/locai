@@ -161,7 +161,9 @@ export class WhatsAppSessionManager extends EventEmitter {
     });
 
     session.socket = socket;
-    store.bind(socket.ev);
+    if (store) {
+      store.bind(socket.ev);
+    }
 
     // Handle connection updates
     socket.ev.on('connection.update', async (update) => {
@@ -262,6 +264,18 @@ export class WhatsAppSessionManager extends EventEmitter {
 
   private async processIncomingMessage(tenantId: string, message: proto.IWebMessageInfo) {
     try {
+      this.logger.info(`📨 Processing incoming message for tenant ${tenantId}`);
+      this.logger.info(`Message from: ${message.key.remoteJid}`);
+      this.logger.info(`Message content: ${message.message?.conversation || message.message?.extendedTextMessage?.text || 'No text content'}`);
+      
+      // Check if message should be processed (not from groups)
+      const { shouldProcessMessage } = await import('@/lib/utils/whatsapp-utils');
+      
+      if (!shouldProcessMessage(message.key.remoteJid || '')) {
+        this.logger.info(`🚫 Ignoring message from: ${message.key.remoteJid} (group or invalid)`);
+        return;
+      }
+      
       // Import our existing message handler
       const { WhatsAppMessageHandler } = await import('./message-handler');
       const handler = new WhatsAppMessageHandler(tenantId);
@@ -293,20 +307,27 @@ export class WhatsAppSessionManager extends EventEmitter {
         }],
       };
       
+      this.logger.info(`🔄 Calling message handler with formatted message`);
       await handler.handleWebhook(formattedMessage);
+      this.logger.info(`✅ Message processed successfully`);
     } catch (error) {
-      this.logger.error(`Error processing message for tenant ${tenantId}:`, error);
+      this.logger.error(`❌ Error processing message for tenant ${tenantId}:`, error);
+      this.logger.error(`Error stack:`, error instanceof Error ? error.stack : 'No stack trace');
     }
   }
 
   async sendMessage(tenantId: string, phoneNumber: string, message: string, mediaUrl?: string): Promise<boolean> {
+    this.logger.info(`📤 Attempting to send message for tenant ${tenantId} to ${phoneNumber}`);
+    
     const session = this.sessions.get(tenantId);
     if (!session || !session.socket || session.status !== 'connected') {
+      this.logger.error(`❌ WhatsApp not connected for tenant ${tenantId}. Status: ${session?.status}`);
       throw new Error('WhatsApp not connected');
     }
 
     try {
       const jid = phoneNumber.includes('@') ? phoneNumber : `${phoneNumber}@s.whatsapp.net`;
+      this.logger.info(`📱 Sending to JID: ${jid}`);
       
       let content: WAMessageContent;
       
@@ -336,11 +357,13 @@ export class WhatsAppSessionManager extends EventEmitter {
         content = { text: message };
       }
       
+      this.logger.info(`📨 Sending message content:`, content);
       await session.socket.sendMessage(jid, content);
       session.lastActivity = new Date();
+      this.logger.info(`✅ Message sent successfully!`);
       return true;
     } catch (error) {
-      this.logger.error(`Failed to send message for tenant ${tenantId}:`, error);
+      this.logger.error(`❌ Failed to send message for tenant ${tenantId}:`, error);
       throw error;
     }
   }

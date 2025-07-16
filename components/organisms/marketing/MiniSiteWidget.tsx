@@ -138,9 +138,11 @@ export default function MiniSiteWidget({ tenantId = 'demo' }: MiniSiteWidgetProp
               </IconButton>
             </Tooltip>
             <Tooltip title="Abrir Mini-Site">
-              <IconButton size="small" onClick={openMiniSite} disabled={!miniSiteConfig.active}>
-                <OpenInNew />
-              </IconButton>
+              <span>
+                <IconButton size="small" onClick={openMiniSite} disabled={!miniSiteConfig.active}>
+                  <OpenInNew />
+                </IconButton>
+              </span>
             </Tooltip>
           </Box>
         </Box>

@@ -66,6 +66,9 @@ import {
   Public,
 } from '@mui/icons-material';
 import QRCode from 'react-qr-code';
+import Toast from '@/components/atoms/Toast';
+import LoadingOverlay from '@/components/atoms/LoadingOverlay';
+import { useToast } from '@/lib/hooks/useToast';
 
 interface CompanyConfig {
   name: string;
@@ -103,6 +106,7 @@ export default function SettingsPage() {
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const isTablet = useMediaQuery(theme.breakpoints.down('md'));
   const { user } = useAuth();
+  const { toast, hideToast, showSuccess, showError, showInfo } = useToast();
   
   const [activeTab, setActiveTab] = useState(0);
   const [whatsappConnected, setWhatsappConnected] = useState(false);
@@ -309,14 +313,14 @@ export default function SettingsPage() {
         setWhatsappConnected(true);
         setShowQRDialog(false);
         setShowWhatsAppConfig(false);
-        alert('WhatsApp conectado com sucesso!');
+        showSuccess('WhatsApp conectado com sucesso!');
         // Reload settings to get updated WhatsApp info
         await loadConfiguration();
       } else {
-        alert('Erro na conexão: ' + result.error);
+        showError('Erro na conexão: ' + result.error);
       }
     } catch (error) {
-      alert('Erro ao conectar WhatsApp. Verifique suas configurações.');
+      showError('Erro ao conectar WhatsApp. Verifique suas configurações.');
     } finally {
       setConnectingWhatsApp(false);
     }
@@ -340,12 +344,12 @@ export default function SettingsPage() {
         // Start polling for status updates
         startStatusPolling();
       } else {
-        alert('Erro ao iniciar sessão WhatsApp');
+        showError('Erro ao iniciar sessão WhatsApp');
         setShowQRDialog(false);
       }
     } catch (error) {
       console.error('Error connecting WhatsApp Web:', error);
-      alert('Erro ao conectar WhatsApp');
+      showError('Erro ao conectar WhatsApp');
       setShowQRDialog(false);
     } finally {
       setConnectingWhatsApp(false);
@@ -365,7 +369,7 @@ export default function SettingsPage() {
             setWhatsappConnected(true);
             setShowQRDialog(false);
             clearInterval(interval);
-            alert('WhatsApp conectado com sucesso!');
+            showSuccess('WhatsApp conectado com sucesso!');
             await loadConfiguration();
           }
         }
@@ -388,11 +392,11 @@ export default function SettingsPage() {
         setWhatsappConnected(false);
         setWhatsappStatus('disconnected');
         setWhatsappQRCode(null);
-        alert('WhatsApp desconectado com sucesso!');
+        showSuccess('WhatsApp desconectado com sucesso!');
       }
     } catch (error) {
       console.error('Error disconnecting WhatsApp Web:', error);
-      alert('Erro ao desconectar WhatsApp');
+      showError('Erro ao desconectar WhatsApp');
     }
   };
 
@@ -409,11 +413,11 @@ export default function SettingsPage() {
           accessToken: '',
           verifyToken: '',
         });
-        alert('WhatsApp desconectado com sucesso!');
+        showSuccess('WhatsApp desconectado com sucesso!');
       }
     } catch (error) {
       console.error('Error disconnecting WhatsApp:', error);
-      alert('Erro ao desconectar WhatsApp');
+      showError('Erro ao desconectar WhatsApp');
     }
   };
 
@@ -435,11 +439,11 @@ export default function SettingsPage() {
           setCompanyConfig(prev => ({ ...prev, logo: url }));
         } else {
           const error = await response.json();
-          alert(error.error || 'Erro ao enviar logo');
+          showError(error.error || 'Erro ao enviar logo');
         }
       } catch (error) {
         console.error('Logo upload error:', error);
-        alert('Erro ao enviar logo');
+        showError('Erro ao enviar logo');
       } finally {
         setUploadingLogo(false);
       }
@@ -489,10 +493,10 @@ export default function SettingsPage() {
         })
       });
 
-      alert('Configurações salvas com sucesso!');
+      showSuccess('Configurações salvas com sucesso!');
     } catch (error) {
       console.error('Error saving settings:', error);
-      alert('Erro ao salvar configurações');
+      showError('Erro ao salvar configurações');
     } finally {
       setSaving(false);
     }
@@ -504,7 +508,7 @@ export default function SettingsPage() {
 
   const copyMiniSiteUrl = () => {
     navigator.clipboard.writeText(miniSiteUrl);
-    alert('URL copiada para a área de transferência!');
+    showSuccess('URL copiada para a área de transferência!');
   };
 
   const openMiniSite = () => {
@@ -1405,13 +1409,12 @@ export default function SettingsPage() {
                   4. Aponte seu telefone para esta tela para capturar o código
                 </Typography>
               </>
-            ) : whatsappStatus === 'connecting' ? (
-              <>
-                <CircularProgress size={60} sx={{ mb: 3 }} />
-                <Typography variant="body1">
-                  Gerando código QR...
-                </Typography>
-              </>
+            ) : whatsappStatus === 'connecting' || !whatsappQRCode ? (
+              <LoadingOverlay 
+                open={true} 
+                message="Inicializando conexão WhatsApp..." 
+                backdrop={false}
+              />
             ) : whatsappStatus === 'connected' ? (
               <>
                 <CheckCircle color="success" sx={{ fontSize: 80, mb: 2 }} />
@@ -1420,9 +1423,11 @@ export default function SettingsPage() {
                 </Typography>
               </>
             ) : (
-              <Typography variant="body1" color="error">
-                Erro ao gerar código QR. Tente novamente.
-              </Typography>
+              <LoadingOverlay 
+                open={true} 
+                message="Preparando conexão..." 
+                backdrop={false}
+              />
             )}
           </Box>
         </DialogContent>
@@ -1586,6 +1591,14 @@ export default function SettingsPage() {
           </Button>
         </DialogActions>
       </Dialog>
+
+      {/* Toast Notifications */}
+      <Toast
+        open={toast.open}
+        message={toast.message}
+        type={toast.type}
+        onClose={hideToast}
+      />
     </Box>
   );
 }
