@@ -448,7 +448,10 @@ export class WhatsAppMessageHandler {
         break
 
       case 'search_properties':
-        await this.sendPropertyResults(to, result)
+        // Se precisa de mais informações, deixa a IA responder primeiro
+        if (!result.needsMoreInfo) {
+          await this.sendPropertyResults(to, result)
+        }
         break
 
       case 'create_reservation':
@@ -498,7 +501,7 @@ export class WhatsAppMessageHandler {
   }
 
   private async sendPropertyResults(to: string, searchResult: any): Promise<void> {
-    const { properties, totalFound } = searchResult
+    const { properties, totalFound, hasMedia } = searchResult
 
     if (!properties || properties.length === 0) {
       await withRetry(
@@ -512,49 +515,20 @@ export class WhatsAppMessageHandler {
       return
     }
 
-    // Send summary with retry
-    await withRetry(
-      () => this.whatsappClient.sendText(
-        to,
-        `Encontrei ${totalFound} propriedades que atendem aos seus critérios! Aqui estão as principais:`
-      ),
-      2,
-      1000
-    )
-
-    // Send top 3 properties with photos
-    const topProperties = properties.slice(0, 3)
-
-    for (const property of topProperties) {
-      // Send property info
-      const propertyText = `
-🏠 *${property.title}*
-📍 ${property.location}
-🛏️ ${property.bedrooms} quartos | 🚿 ${property.bathrooms} banheiros
-👥 Até ${property.maxGuests} hóspedes
-💰 R$ ${property.calculatedPrice?.toLocaleString('pt-BR')} total (${property.totalNights} noites)
-      `.trim()
-
+    // Send only the first property with photo - no duplicated info
+    const property = properties[0]
+    
+    // Send main photo first
+    if (property.photos && property.photos.length > 0) {
       await withRetry(
-        () => this.whatsappClient.sendText(to, propertyText),
+        () => this.whatsappClient.sendImage(
+          to,
+          property.photos[0].url,
+          `${property.title} - ${property.address}`
+        ),
         2,
         1000
       )
-
-      // Send main photo
-      if (property.photos && property.photos.length > 0) {
-        await withRetry(
-          () => this.whatsappClient.sendImage(
-            to,
-            property.photos[0].url,
-            `${property.title} - Foto principal`
-          ),
-          2,
-          1000
-        )
-      }
-
-      await this.delay(2000)
     }
 
     // Offer to see more or get details

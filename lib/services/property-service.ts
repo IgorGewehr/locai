@@ -29,9 +29,10 @@ export class PropertyService {
       if (filters.location) {
         const locationLower = filters.location.toLowerCase();
         properties = properties.filter(p => 
-          p.location.toLowerCase().includes(locationLower) ||
+          p.location?.toLowerCase().includes(locationLower) ||
           p.city?.toLowerCase().includes(locationLower) ||
-          p.state?.toLowerCase().includes(locationLower)
+          p.state?.toLowerCase().includes(locationLower) ||
+          p.address?.toLowerCase().includes(locationLower)
         );
       }
       

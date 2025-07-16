@@ -218,10 +218,12 @@ class ConversationService extends FirestoreService<Conversation> {
 
       // Filter out undefined values before updating
       const filteredUpdates = Object.fromEntries(
-        Object.entries(updates).filter(([_, value]) => value !== undefined)
+        Object.entries(updates).filter(([_, value]) => value !== undefined && value !== null)
       )
 
-      await this.update(conversationId, filteredUpdates)
+      if (Object.keys(filteredUpdates).length > 0) {
+        await this.update(conversationId, filteredUpdates)
+      }
     } catch (error) {
       }
   }

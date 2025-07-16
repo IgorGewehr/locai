@@ -679,10 +679,10 @@ export class AIFunctionExecutor {
     const { location, checkIn, checkOut, guests, budget, amenities, propertyType } = args
     
     try {
-      const properties = await propertyService.searchProperties({
+      let properties = await propertyService.searchProperties({
         location,
-        checkIn: new Date(checkIn),
-        checkOut: new Date(checkOut),
+        checkIn: checkIn ? new Date(checkIn) : undefined,
+        checkOut: checkOut ? new Date(checkOut) : undefined,
         guests,
         maxPrice: budget,
         amenities,
@@ -690,30 +690,53 @@ export class AIFunctionExecutor {
         tenantId: this.tenantId
       })
 
-      // Calcular preços para cada propriedade
-      const propertiesWithPrices = await Promise.all(
-        properties.map(async (property) => {
-          const pricing = await calculatePricing(
-            property.id,
-            new Date(checkIn),
-            new Date(checkOut),
-            guests
-          )
-          
-          return {
-            ...property,
-            calculatedPrice: pricing.totalPrice,
-            pricePerNight: pricing.basePrice,
-            totalNights: pricing.nights
-          }
+      // Se não encontrou propriedades com os filtros específicos, buscar todas as propriedades ativas
+      if (properties.length === 0) {
+        console.log('🔍 No properties found with filters, searching all active properties...');
+        properties = await propertyService.searchProperties({
+          tenantId: this.tenantId
         })
-      )
+      }
+
+      // Apenas calcular preços se tiver datas válidas
+      let propertiesWithPrices;
+      if (checkIn && checkOut && guests) {
+        propertiesWithPrices = await Promise.all(
+          properties.map(async (property) => {
+            const pricing = await calculatePricing(
+              property.id,
+              new Date(checkIn),
+              new Date(checkOut),
+              guests
+            )
+            
+            return {
+              ...property,
+              calculatedPrice: pricing.totalPrice,
+              pricePerNight: pricing.basePrice,
+              totalNights: pricing.nights
+            }
+          })
+        )
+      } else {
+        // Sem datas válidas, não calcular preços
+        propertiesWithPrices = properties.map(property => ({
+          ...property,
+          calculatedPrice: null,
+          pricePerNight: property.basePrice,
+          totalNights: null
+        }))
+      }
 
       return {
         success: true,
         properties: propertiesWithPrices,
         totalFound: propertiesWithPrices.length,
-        searchCriteria: { location, checkIn, checkOut, guests, budget }
+        searchCriteria: { location, checkIn, checkOut, guests, budget },
+        // Inclui informações sobre disponibilidade de mídia
+        hasMedia: propertiesWithPrices.some(p => p.photos && p.photos.length > 0),
+        // Indica se precisa de mais informações
+        needsMoreInfo: !checkIn || !checkOut || !guests
       }
     } catch (error) {
       return {

@@ -95,30 +95,36 @@ export class AIResponseGenerator {
 
   private buildSystemPrompt(): string {
     return `
-Você é ${this.personality.name}, um corretor especializado em locações por temporada da ${this.businessContext.companyName}.
+Você é ${this.personality.name}, uma consultora especializada em locações por temporada da ${this.businessContext.companyName}.
 
-PERSONALIDADE:
-- Tom: ${this.personality.tone}
-- Estilo: ${this.personality.style}
-- Tamanho das respostas: ${this.personality.responseLength}
-- Foco: ${this.personality.specialityFocus.join(', ')}
+PERSONALIDADE: Prática, eficiente, humana. Respostas CONCISAS e diretas.
 
-EMPRESA:
-- Nome: ${this.businessContext.companyName}
-- Localização: ${this.businessContext.location}
-- Especialidade: ${this.businessContext.specialty}
-- Imóveis disponíveis: ${this.businessContext.totalProperties}
-- Desconto máximo permitido: ${this.businessContext.maxDiscountPercentage}%
+REGRAS DE ATENDIMENTO:
+1. SEMPRE pergunte detalhes essenciais ANTES de fazer orçamentos:
+   - Quantas pessoas?
+   - Quais datas (check-in e check-out)?
+   - Localização preferida?
 
-SUAS RESPONSABILIDADES:
-1. Entender as necessidades do cliente de forma consultiva
-2. Apresentar imóveis que realmente atendam aos critérios
-3. Enviar fotos e vídeos quando solicitado ou relevante
-4. Calcular preços exatos incluindo taxas e promoções
-5. Negociar quando necessário (desconto máximo: ${this.businessContext.maxDiscountPercentage}%)
-6. Finalizar reservas quando cliente decidir
-7. Manter contexto de toda a conversa
-8. Ser proativo em sugestões e follow-ups
+2. NUNCA invente informações ou descontos que não existem
+3. Use APENAS dados reais do banco de dados
+4. Seja objetiva - máximo 3 linhas por resposta
+5. NUNCA repita informações já enviadas
+
+QUANDO CLIENTE PEDE FOTOS:
+- Se ele não disse datas/pessoas: use search_properties sem datas específicas
+- A IA responderá depois com pergunta sobre datas/pessoas
+- Não envie múltiplas mensagens repetitivas
+
+EXEMPLOS DE RESPOSTAS EFICIENTES:
+Para pedido de fotos: "Aqui está um apartamento disponível. Para qual data e quantas pessoas?"
+Para orçamento: "Preciso saber as datas e quantas pessoas para calcular o preço correto."
+
+PROIBIDO:
+- Orçamentos sem datas/pessoas válidas
+- Descontos inventados (jamais ofereça desconto 10% ou qualquer outro)
+- Textos longos ou formatação excessiva
+- Informações repetidas
+- Múltiplas mensagens sobre o mesmo assunto
 
 REGRAS DE NEGÓCIO:
 - Preços mudam por fim de semana (+20%) e feriados (+50%)
@@ -218,12 +224,15 @@ INSTRUÇÕES IMPORTANTES:
       console.log('🔧 Function result:', functionResult);
 
       // Segunda chamada para gerar resposta baseada no resultado
+      const lastMessage = conversation.messages?.[conversation.messages.length - 1];
+      const userContent = lastMessage?.content || 'Solicitação de informações';
+      
       const secondCompletion = await this.openai.chat.completions.create({
         model: this.personality.model || 'gpt-4',
         temperature: this.personality.temperature || 0.7,
         messages: [
           { role: 'system', content: this.buildSystemPrompt() },
-          { role: 'user', content: conversation.messages[conversation.messages.length - 1].content },
+          { role: 'user', content: userContent },
           message,
           { 
             role: 'function', 
