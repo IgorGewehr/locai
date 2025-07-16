@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import {
   Box,
   Card,
@@ -29,69 +29,76 @@ import {
 } from '@mui/icons-material';
 import { useDropzone } from 'react-dropzone';
 import { useFormContext } from 'react-hook-form';
-
-interface MediaFile {
-  url: string;
-  caption?: string;
-  order: number;
-  type: 'photo' | 'video';
-}
+import { useMediaUpload } from '@/lib/hooks/useMediaUpload';
+import { createPhotoFromFile, createVideoFromFile } from '@/lib/utils/mediaUtils';
+import { PropertyPhoto, PropertyVideo } from '@/lib/types/property';
 
 export default function PropertyMediaUpload() {
   const { watch, setValue, formState: { errors } } = useFormContext();
-  const photos = watch('photos') || [];
-  const videos = watch('videos') || [];
-  const [uploading, setUploading] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState(0);
-  const [selectedMedia, setSelectedMedia] = useState<MediaFile | null>(null);
+  const photos: PropertyPhoto[] = watch('photos') || [];
+  const videos: PropertyVideo[] = watch('videos') || [];
+  const { uploadFiles, uploading, progress, error, clearError } = useMediaUpload();
+  const [selectedMedia, setSelectedMedia] = useState<PropertyPhoto | PropertyVideo | null>(null);
   const [captionDialogOpen, setCaptionDialogOpen] = useState(false);
   const [tempCaption, setTempCaption] = useState('');
 
-  const onDropPhotos = useCallback(async (acceptedFiles: File[]) => {
-    setUploading(true);
-    const newPhotos: MediaFile[] = [];
-
-    for (let i = 0; i < acceptedFiles.length; i++) {
-      const file = acceptedFiles[i];
-      setUploadProgress((i / acceptedFiles.length) * 100);
-
-      // Simulate upload - in production, upload to Firebase Storage
-      if (!file) continue;
-      const url = URL.createObjectURL(file);
-      newPhotos.push({
-        url,
-        order: photos.length + i,
-        type: 'photo',
+  // Cleanup blob URLs on unmount
+  useEffect(() => {
+    return () => {
+      photos.forEach(photo => {
+        if (photo.url.startsWith('blob:')) {
+          URL.revokeObjectURL(photo.url);
+        }
       });
-    }
+      videos.forEach(video => {
+        if (video.url.startsWith('blob:')) {
+          URL.revokeObjectURL(video.url);
+        }
+      });
+    };
+  }, [photos, videos]);
 
-    setValue('photos', [...photos, ...newPhotos]);
-    setUploading(false);
-    setUploadProgress(0);
-  }, [photos, setValue]);
+  const onDropPhotos = useCallback(async (acceptedFiles: File[]) => {
+    if (acceptedFiles.length === 0) return;
+    
+    try {
+      clearError();
+      const uploadResults = await uploadFiles(acceptedFiles, 'image');
+      
+      const newPhotos: PropertyPhoto[] = uploadResults.map((result, index) => 
+        createPhotoFromFile(
+          acceptedFiles[index], 
+          result.url, 
+          photos.length + index
+        )
+      );
+
+      setValue('photos', [...photos, ...newPhotos]);
+    } catch (error) {
+      console.error('Error uploading photos:', error);
+    }
+  }, [photos, setValue, uploadFiles, clearError]);
 
   const onDropVideos = useCallback(async (acceptedFiles: File[]) => {
-    setUploading(true);
-    const newVideos: MediaFile[] = [];
+    if (acceptedFiles.length === 0) return;
+    
+    try {
+      clearError();
+      const uploadResults = await uploadFiles(acceptedFiles, 'video');
+      
+      const newVideos: PropertyVideo[] = uploadResults.map((result, index) => 
+        createVideoFromFile(
+          acceptedFiles[index], 
+          result.url, 
+          videos.length + index
+        )
+      );
 
-    for (let i = 0; i < acceptedFiles.length; i++) {
-      const file = acceptedFiles[i];
-      setUploadProgress((i / acceptedFiles.length) * 100);
-
-      // Simulate upload
-      if (!file) continue;
-      const url = URL.createObjectURL(file);
-      newVideos.push({
-        url,
-        order: videos.length + i,
-        type: 'video',
-      });
+      setValue('videos', [...videos, ...newVideos]);
+    } catch (error) {
+      console.error('Error uploading videos:', error);
     }
-
-    setValue('videos', [...videos, ...newVideos]);
-    setUploading(false);
-    setUploadProgress(0);
-  }, [videos, setValue]);
+  }, [videos, setValue, uploadFiles, clearError]);
 
   const { getRootProps: getPhotoRootProps, getInputProps: getPhotoInputProps } = useDropzone({
     onDrop: onDropPhotos,
@@ -111,35 +118,51 @@ export default function PropertyMediaUpload() {
   });
 
   const handleDeletePhoto = (index: number) => {
-    const newPhotos = photos.filter((_: MediaFile, i: number) => i !== index);
+    const photoToDelete = photos[index];
+    // Cleanup blob URL if it exists
+    if (photoToDelete?.url.startsWith('blob:')) {
+      URL.revokeObjectURL(photoToDelete.url);
+    }
+    
+    const newPhotos = photos.filter((_, i: number) => i !== index);
     setValue('photos', newPhotos);
   };
 
   const handleDeleteVideo = (index: number) => {
-    const newVideos = videos.filter((_: MediaFile, i: number) => i !== index);
+    const videoToDelete = videos[index];
+    // Cleanup blob URL if it exists
+    if (videoToDelete?.url.startsWith('blob:')) {
+      URL.revokeObjectURL(videoToDelete.url);
+    }
+    
+    const newVideos = videos.filter((_, i: number) => i !== index);
     setValue('videos', newVideos);
   };
 
-  const handleEditCaption = (media: MediaFile) => {
+  const handleEditCaption = (media: PropertyPhoto | PropertyVideo) => {
     setSelectedMedia(media);
-    setTempCaption(media.caption || '');
+    // PropertyPhoto has 'caption', PropertyVideo has 'title'
+    const currentText = 'isMain' in media ? media.caption || '' : media.title || '';
+    setTempCaption(currentText);
     setCaptionDialogOpen(true);
   };
 
   const handleSaveCaption = () => {
     if (selectedMedia) {
-      if (selectedMedia.type === 'photo') {
-        const index = photos.findIndex((p: MediaFile) => p.url === selectedMedia.url);
+      // Check if it's a PropertyPhoto by checking for 'isMain' property
+      if ('isMain' in selectedMedia) {
+        const index = photos.findIndex((p: PropertyPhoto) => p.id === selectedMedia.id);
         if (index !== -1) {
           const newPhotos = [...photos];
           newPhotos[index] = { ...newPhotos[index], caption: tempCaption };
           setValue('photos', newPhotos);
         }
       } else {
-        const index = videos.findIndex((v: MediaFile) => v.url === selectedMedia.url);
+        // It's a PropertyVideo
+        const index = videos.findIndex((v: PropertyVideo) => v.id === selectedMedia.id);
         if (index !== -1) {
           const newVideos = [...videos];
-          newVideos[index] = { ...newVideos[index], caption: tempCaption };
+          newVideos[index] = { ...newVideos[index], title: tempCaption };
           setValue('videos', newVideos);
         }
       }
@@ -201,11 +224,17 @@ export default function PropertyMediaUpload() {
 
               {uploading && (
                 <Box sx={{ mt: 2 }}>
-                  <LinearProgress variant="determinate" value={uploadProgress} />
+                  <LinearProgress variant="determinate" value={progress} />
                   <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
-                    Enviando... {Math.round(uploadProgress)}%
+                    Enviando... {Math.round(progress)}%
                   </Typography>
                 </Box>
+              )}
+
+              {error && (
+                <Alert severity="error" sx={{ mt: 2 }} onClose={clearError}>
+                  {error}
+                </Alert>
               )}
 
               {photos.length > 0 && (
@@ -214,17 +243,17 @@ export default function PropertyMediaUpload() {
                     Fotos carregadas (arraste para reordenar)
                   </Typography>
                   <ImageList sx={{ width: '100%', height: 300 }} cols={4} rowHeight={164}>
-                    {photos.map((photo: MediaFile, index: number) => (
-                      <ImageListItem key={photo.url}>
+                    {photos.map((photo: PropertyPhoto, index: number) => (
+                      <ImageListItem key={photo.id}>
                         <img
                           src={photo.url}
-                          alt={`Foto ${index + 1}`}
+                          alt={photo.caption || `Foto ${index + 1}`}
                           loading="lazy"
                           style={{ height: '164px', objectFit: 'cover' }}
                         />
                         <ImageListItemBar
                           title={photo.caption || `Foto ${index + 1}`}
-                          subtitle={index === 0 ? 'Foto principal' : ''}
+                          subtitle={photo.isMain ? 'Foto principal' : ''}
                           actionIcon={
                             <Box>
                               <IconButton
@@ -310,8 +339,8 @@ export default function PropertyMediaUpload() {
                     Vídeos carregados
                   </Typography>
                   <Grid container spacing={2}>
-                    {videos.map((video: MediaFile, index: number) => (
-                      <Grid item xs={12} sm={6} md={4} key={video.url}>
+                    {videos.map((video: PropertyVideo, index: number) => (
+                      <Grid item xs={12} sm={6} md={4} key={video.id}>
                         <Card variant="outlined">
                           <Box sx={{ position: 'relative', paddingTop: '56.25%' }}>
                             <video
@@ -328,7 +357,7 @@ export default function PropertyMediaUpload() {
                           </Box>
                           <Box sx={{ p: 1, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                             <Typography variant="body2">
-                              {video.caption || `Vídeo ${index + 1}`}
+                              {video.title || `Vídeo ${index + 1}`}
                             </Typography>
                             <Box>
                               <IconButton size="small" onClick={() => handleEditCaption(video)}>

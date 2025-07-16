@@ -35,11 +35,16 @@ import {
   Download,
   Refresh,
   ArrowForward,
+  Save,
+  Cancel,
 } from '@mui/icons-material';
 import { useRouter } from 'next/navigation';
 import { Transaction, Client, Property, Reservation } from '@/lib/types';
-import { collection, query, orderBy, getDocs, doc, getDoc } from 'firebase/firestore';
+import { collection, query, orderBy, getDocs, doc, getDoc, addDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase/config';
+import { useForm, Controller } from 'react-hook-form';
+import { yupResolver } from '@hookform/resolvers/yup';
+import * as yup from 'yup';
 
 export default function TransactionsPage() {
   const router = useRouter();
@@ -56,21 +61,57 @@ export default function TransactionsPage() {
   const [relatedClient, setRelatedClient] = useState<Client | null>(null);
   const [relatedProperty, setRelatedProperty] = useState<Property | null>(null);
   const [relatedReservation, setRelatedReservation] = useState<Reservation | null>(null);
+  
+  // New transaction dialog
+  const [newTransactionOpen, setNewTransactionOpen] = useState(false);
+  
+  // Transaction form validation schema
+  const transactionSchema = yup.object().shape({
+    description: yup.string().required('Descrição é obrigatória'),
+    amount: yup.number().positive('Valor deve ser positivo').required('Valor é obrigatório'),
+    type: yup.string().oneOf(['income', 'expense']).required('Tipo é obrigatório'),
+    category: yup.string().required('Categoria é obrigatória'),
+    status: yup.string().oneOf(['pending', 'completed', 'cancelled']).required('Status é obrigatório'),
+    paymentMethod: yup.string().required('Método de pagamento é obrigatório'),
+    notes: yup.string(),
+  });
+  
+  // Form setup
+  const {
+    control,
+    handleSubmit,
+    reset,
+    formState: { errors, isSubmitting }
+  } = useForm({
+    resolver: yupResolver(transactionSchema),
+    defaultValues: {
+      description: '',
+      amount: 0,
+      type: 'income',
+      category: '',
+      status: 'pending',
+      paymentMethod: 'pix',
+      notes: '',
+    }
+  });
 
   const loadTransactions = async () => {
     try {
       setLoading(true);
+      console.log('Loading transactions...');
       const transactionsQuery = query(
         collection(db, 'transactions'),
         orderBy('date', 'desc')
       );
       const snapshot = await getDocs(transactionsQuery);
+      console.log('Transactions snapshot:', snapshot.size, 'documents');
       const transactionData = snapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data(),
         date: doc.data().date?.toDate() || new Date(),
       })) as Transaction[];
 
+      console.log('Transaction data:', transactionData);
       setTransactions(transactionData);
     } catch (error) {
       console.error('Error loading transactions:', error);
@@ -114,6 +155,33 @@ export default function TransactionsPage() {
     }
 
     setDetailsOpen(true);
+  };
+
+  const handleCreateTransaction = async (data: any) => {
+    try {
+      const newTransaction = {
+        ...data,
+        date: new Date(),
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+
+      await addDoc(collection(db, 'transactions'), newTransaction);
+      
+      // Reset form and close dialog
+      reset();
+      setNewTransactionOpen(false);
+      
+      // Reload transactions
+      await loadTransactions();
+    } catch (error) {
+      console.error('Error creating transaction:', error);
+    }
+  };
+
+  const handleCloseNewTransaction = () => {
+    reset();
+    setNewTransactionOpen(false);
   };
 
   useEffect(() => {
@@ -164,7 +232,11 @@ export default function TransactionsPage() {
           <IconButton onClick={loadTransactions} disabled={loading}>
             <Refresh />
           </IconButton>
-          <Button variant="contained" startIcon={<Add />}>
+          <Button 
+            variant="contained" 
+            startIcon={<Add />}
+            onClick={() => setNewTransactionOpen(true)}
+          >
             Nova Transação
           </Button>
         </Stack>
@@ -387,7 +459,7 @@ export default function TransactionsPage() {
                             endIcon={<ArrowForward />}
                             onClick={() => {
                               setDetailsOpen(false);
-                              router.push(`/dashboard/clientes?id=${relatedClient.id}`);
+                              router.push(`/dashboard/clients/${relatedClient.id}`);
                             }}
                           >
                             Ver Cliente
@@ -414,7 +486,7 @@ export default function TransactionsPage() {
                             endIcon={<ArrowForward />}
                             onClick={() => {
                               setDetailsOpen(false);
-                              router.push(`/dashboard/propriedades?id=${relatedProperty.id}`);
+                              router.push(`/dashboard/properties/${relatedProperty.id}`);
                             }}
                           >
                             Ver Propriedade
@@ -441,7 +513,7 @@ export default function TransactionsPage() {
                             endIcon={<ArrowForward />}
                             onClick={() => {
                               setDetailsOpen(false);
-                              router.push(`/dashboard/reservas?id=${relatedReservation.id}`);
+                              router.push(`/dashboard/reservations/${relatedReservation.id}`);
                             }}
                           >
                             Ver Reserva
@@ -466,6 +538,148 @@ export default function TransactionsPage() {
             Fechar
           </Button>
         </DialogActions>
+      </Dialog>
+
+      {/* New Transaction Dialog */}
+      <Dialog
+        open={newTransactionOpen}
+        onClose={handleCloseNewTransaction}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>
+          <Typography variant="h6" fontWeight={600}>
+            Nova Transação
+          </Typography>
+        </DialogTitle>
+        <form onSubmit={handleSubmit(handleCreateTransaction)}>
+          <DialogContent>
+            <Stack spacing={3}>
+              <Controller
+                name="description"
+                control={control}
+                render={({ field }) => (
+                  <TextField
+                    {...field}
+                    label="Descrição"
+                    fullWidth
+                    error={!!errors.description}
+                    helperText={errors.description?.message}
+                  />
+                )}
+              />
+              
+              <Controller
+                name="amount"
+                control={control}
+                render={({ field }) => (
+                  <TextField
+                    {...field}
+                    label="Valor"
+                    type="number"
+                    fullWidth
+                    inputProps={{ step: '0.01', min: '0' }}
+                    error={!!errors.amount}
+                    helperText={errors.amount?.message}
+                  />
+                )}
+              />
+              
+              <Controller
+                name="type"
+                control={control}
+                render={({ field }) => (
+                  <FormControl fullWidth error={!!errors.type}>
+                    <InputLabel>Tipo</InputLabel>
+                    <Select {...field} label="Tipo">
+                      <MenuItem value="income">Receita</MenuItem>
+                      <MenuItem value="expense">Despesa</MenuItem>
+                    </Select>
+                    {errors.type && <Typography variant="caption" color="error">{errors.type.message}</Typography>}
+                  </FormControl>
+                )}
+              />
+              
+              <Controller
+                name="category"
+                control={control}
+                render={({ field }) => (
+                  <TextField
+                    {...field}
+                    label="Categoria"
+                    fullWidth
+                    error={!!errors.category}
+                    helperText={errors.category?.message}
+                  />
+                )}
+              />
+              
+              <Controller
+                name="status"
+                control={control}
+                render={({ field }) => (
+                  <FormControl fullWidth error={!!errors.status}>
+                    <InputLabel>Status</InputLabel>
+                    <Select {...field} label="Status">
+                      <MenuItem value="pending">Pendente</MenuItem>
+                      <MenuItem value="completed">Concluída</MenuItem>
+                      <MenuItem value="cancelled">Cancelada</MenuItem>
+                    </Select>
+                    {errors.status && <Typography variant="caption" color="error">{errors.status.message}</Typography>}
+                  </FormControl>
+                )}
+              />
+              
+              <Controller
+                name="paymentMethod"
+                control={control}
+                render={({ field }) => (
+                  <FormControl fullWidth error={!!errors.paymentMethod}>
+                    <InputLabel>Método de Pagamento</InputLabel>
+                    <Select {...field} label="Método de Pagamento">
+                      <MenuItem value="pix">PIX</MenuItem>
+                      <MenuItem value="credit_card">Cartão de Crédito</MenuItem>
+                      <MenuItem value="debit_card">Cartão de Débito</MenuItem>
+                      <MenuItem value="bank_transfer">Transferência Bancária</MenuItem>
+                      <MenuItem value="cash">Dinheiro</MenuItem>
+                      <MenuItem value="stripe">Stripe</MenuItem>
+                    </Select>
+                    {errors.paymentMethod && <Typography variant="caption" color="error">{errors.paymentMethod.message}</Typography>}
+                  </FormControl>
+                )}
+              />
+              
+              <Controller
+                name="notes"
+                control={control}
+                render={({ field }) => (
+                  <TextField
+                    {...field}
+                    label="Observações"
+                    fullWidth
+                    multiline
+                    rows={3}
+                    error={!!errors.notes}
+                    helperText={errors.notes?.message}
+                  />
+                )}
+              />
+            </Stack>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={handleCloseNewTransaction} startIcon={<Cancel />}>
+              Cancelar
+            </Button>
+            <Button 
+              type="submit" 
+              variant="contained" 
+              disabled={isSubmitting}
+              startIcon={<Save />}
+            >
+              {isSubmitting ? 'Salvando...' : 'Salvar'}
+            </Button>
+          </DialogActions>
+        </form>
       </Dialog>
     </Box>
   );

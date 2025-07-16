@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { billingService } from '@/lib/services/billing-service';
-import { auth } from '@/lib/firebase/admin';
-import { db } from '@/lib/firebase/admin-config';
+import { auth, db } from '@/lib/firebase/admin';
 import { collection, query, where, getDocs, orderBy, limit } from 'firebase/firestore';
 
 export async function GET(request: NextRequest) {

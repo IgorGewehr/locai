@@ -45,12 +45,32 @@ export interface WhatsAppSettings {
   updatedAt?: Date;
 }
 
+export interface MiniSiteSettings {
+  active: boolean;
+  title: string;
+  description: string;
+  primaryColor: string;
+  secondaryColor: string;
+  accentColor: string;
+  fontFamily: 'modern' | 'classic' | 'elegant';
+  borderRadius: 'sharp' | 'rounded' | 'extra-rounded';
+  showPrices: boolean;
+  showAvailability: boolean;
+  showReviews: boolean;
+  whatsappNumber: string;
+  companyEmail: string;
+  seoKeywords: string;
+  customDomain?: string;
+  updatedAt?: Date;
+}
+
 export interface TenantSettings {
   id: string;
   company: CompanySettings;
   ai: AISettings;
   billing: BillingSettings;
   whatsapp: WhatsAppSettings;
+  miniSite: MiniSiteSettings;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -121,23 +141,68 @@ class SettingsService {
     });
   }
 
+  // Update mini-site settings
+  async updateMiniSiteSettings(tenantId: string, settings: Partial<MiniSiteSettings>): Promise<void> {
+    try {
+      // Try to get existing settings first
+      const existingSettings = await this.getSettings(tenantId);
+      
+      if (existingSettings) {
+        // Update existing document
+        await this.service.update(tenantId, {
+          miniSite: {
+            ...existingSettings.miniSite,
+            ...settings,
+            updatedAt: new Date(),
+          },
+          updatedAt: new Date(),
+        });
+      } else {
+        // Create new document with default settings
+        const defaultSettings = this.getDefaultSettings(tenantId);
+        await this.service.set(tenantId, {
+          ...defaultSettings,
+          id: tenantId,
+          miniSite: {
+            ...defaultSettings.miniSite,
+            ...settings,
+            updatedAt: new Date(),
+          },
+          updatedAt: new Date(),
+        });
+      }
+    } catch (error) {
+      console.error('Error updating mini-site settings:', error);
+      throw error;
+    }
+  }
+
   // Create or update all settings
   async saveSettings(tenantId: string, settings: Partial<TenantSettings>): Promise<void> {
-    const existing = await this.service.getById(tenantId);
-    
-    if (existing) {
-      await this.service.update(tenantId, {
-        ...settings,
-        updatedAt: new Date(),
-      });
-    } else {
-      await this.service.create({
-        ...this.getDefaultSettings(tenantId),
-        ...settings,
-        id: tenantId,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      });
+    try {
+      const existing = await this.service.getById(tenantId);
+      
+      if (existing) {
+        await this.service.update(tenantId, {
+          ...settings,
+          updatedAt: new Date(),
+        });
+      } else {
+        // Use set instead of create to ensure document ID matches tenantId
+        const newSettings = {
+          ...this.getDefaultSettings(tenantId),
+          ...settings,
+          id: tenantId,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        };
+        
+        // Use Firestore set method directly for better control
+        await this.service.set(tenantId, newSettings);
+      }
+    } catch (error) {
+      console.error('Error saving settings:', error);
+      throw error;
     }
   }
 
@@ -200,6 +265,22 @@ class SettingsService {
         accessToken: '',
         verifyToken: '',
         connected: false,
+      },
+      miniSite: {
+        active: false,
+        title: 'Minha Imobiliária',
+        description: 'Encontre o imóvel perfeito para você',
+        primaryColor: '#1976d2',
+        secondaryColor: '#dc004e',
+        accentColor: '#ed6c02',
+        fontFamily: 'modern',
+        borderRadius: 'rounded',
+        showPrices: true,
+        showAvailability: true,
+        showReviews: true,
+        whatsappNumber: '',
+        companyEmail: '',
+        seoKeywords: 'imóveis, aluguel, venda, imobiliária',
       },
       createdAt: new Date(),
       updatedAt: new Date(),

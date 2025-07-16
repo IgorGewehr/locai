@@ -28,8 +28,8 @@ export async function getAuthFromCookie(request: NextRequest): Promise<AuthInfo 
       return null;
     }
 
-    // Extract tenant ID from headers or use default
-    const tenantId = request.headers.get('x-tenant-id') || 'default-tenant';
+    // Use userId as tenantId (since each user is their own tenant)
+    const tenantId = request.headers.get('x-tenant-id') || userId;
 
     return {
       userId,

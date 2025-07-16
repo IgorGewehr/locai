@@ -243,6 +243,27 @@ export const AI_FUNCTIONS: AIFunction[] = [
     priority: 2
   },
   {
+    name: 'process_mini_site_inquiry',
+    description: 'Processar solicitação de reserva vinda do mini-site do cliente',
+    parameters: {
+      type: 'object',
+      properties: {
+        propertyId: { type: 'string', description: 'ID da propriedade de interesse' },
+        clientName: { type: 'string', description: 'Nome do cliente interessado' },
+        clientPhone: { type: 'string', description: 'Telefone do cliente' },
+        checkIn: { type: 'string', description: 'Data check-in desejada (YYYY-MM-DD)' },
+        checkOut: { type: 'string', description: 'Data check-out desejada (YYYY-MM-DD)' },
+        guests: { type: 'number', description: 'Número de hóspedes' },
+        message: { type: 'string', description: 'Mensagem adicional do cliente' },
+        source: { type: 'string', enum: ['mini-site'], description: 'Origem da solicitação' }
+      },
+      required: ['propertyId', 'clientName', 'clientPhone']
+    },
+    autoExecute: true,
+    requiresApproval: false,
+    priority: 1
+  },
+  {
     name: 'register_client',
     description: 'Registrar um novo cliente no sistema',
     parameters: {
@@ -610,6 +631,9 @@ export class AIFunctionExecutor {
       
       case 'create_expense':
         return await this.createExpense(args as any)
+      
+      case 'process_mini_site_inquiry':
+        return await this.processMiniSiteInquiry(args as any)
       
       case 'register_client':
         return await this.registerClient(args as any)
@@ -1984,6 +2008,140 @@ export class AIFunctionExecutor {
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Erro ao criar despesa'
+      }
+    }
+  }
+
+  private async processMiniSiteInquiry(args: any): Promise<any> {
+    const { propertyId, clientName, clientPhone, checkIn, checkOut, guests, message, source = 'mini-site' } = args
+    
+    try {
+      // Buscar informações da propriedade
+      const property = await propertyService.getById(propertyId)
+      if (!property) {
+        return { success: false, error: 'Propriedade não encontrada' }
+      }
+
+      // Registrar ou atualizar cliente automaticamente
+      const clientResult = await this.registerClient({
+        name: clientName,
+        phone: clientPhone,
+        preferences: `Interessado em ${property.title} via mini-site`
+      })
+
+      if (!clientResult.success) {
+        return clientResult
+      }
+
+      // Criar ou atualizar lead no CRM
+      const leadResult = await this.createOrUpdateLead({
+        name: clientName,
+        phone: clientPhone,
+        source: 'mini_site',
+        temperature: 'hot',
+        preferences: {
+          propertyType: [property.type],
+          location: [property.location.city],
+          moveInDate: checkIn
+        },
+        notes: `Interessado em ${property.title} via mini-site. ${message || ''}`,
+        tags: ['mini-site', 'hot-lead', property.type]
+      })
+
+      // Registrar interação inicial
+      if (leadResult.success && leadResult.lead?.id) {
+        await this.trackLeadInteraction({
+          leadId: leadResult.lead.id,
+          type: 'whatsapp_message',
+          content: `Cliente entrou em contato via mini-site sobre ${property.title}. Datas: ${checkIn || 'não informada'} a ${checkOut || 'não informada'}. Hóspedes: ${guests || 'não informado'}. ${message || ''}`,
+          sentiment: 'positive',
+          propertyId
+        })
+      }
+
+      // Verificar disponibilidade se datas informadas
+      let availabilityInfo = ''
+      let priceInfo = ''
+      
+      if (checkIn && checkOut && guests) {
+        const availabilityResult = await this.checkAvailability({
+          propertyId,
+          checkIn,
+          checkOut
+        })
+
+        if (availabilityResult.success) {
+          if (availabilityResult.available) {
+            availabilityInfo = `✅ *Ótimas notícias!* A propriedade está disponível nas datas solicitadas.\n\n`
+            
+            // Calcular preço
+            const priceResult = await this.calculateTotalPrice({
+              propertyId,
+              checkIn,
+              checkOut,
+              guests
+            })
+
+            if (priceResult.success) {
+              priceInfo = `💰 *Valor total*: ${priceResult.formattedPrice}\n` +
+                         `📊 *Detalhamento*:\n` +
+                         `• Diária: R$ ${priceResult.breakdown.basePrice.toFixed(2)}\n` +
+                         `• Número de noites: ${priceResult.breakdown.nights}\n` +
+                         `• Subtotal: R$ ${priceResult.breakdown.subtotal.toFixed(2)}\n` +
+                         (priceResult.breakdown.cleaningFee > 0 ? `• Taxa de limpeza: R$ ${priceResult.breakdown.cleaningFee.toFixed(2)}\n` : '') +
+                         (priceResult.breakdown.serviceFee > 0 ? `• Taxa de serviço: R$ ${priceResult.breakdown.serviceFee.toFixed(2)}\n` : '') +
+                         `\n`
+            }
+          } else {
+            availabilityInfo = `⚠️ A propriedade não está disponível exatamente nas datas solicitadas.\n\n`
+            if (availabilityResult.alternativeDates?.length > 0) {
+              availabilityInfo += `📅 *Datas alternativas disponíveis*:\n`
+              // Implementar sugestões de datas
+            }
+          }
+        }
+      }
+
+      // Criar resposta personalizada
+      const response = `🏠 *${property.title}*\n\n` +
+        `Olá ${clientName}! 👋\n\n` +
+        `Obrigado pelo seu interesse em nossa propriedade através do nosso site!\n\n` +
+        `🏡 *Sobre a propriedade*:\n` +
+        `📍 ${property.location.address}, ${property.location.city}\n` +
+        `🛏️ ${property.bedrooms} quarto${property.bedrooms > 1 ? 's' : ''}\n` +
+        `🚿 ${property.bathrooms} banheiro${property.bathrooms > 1 ? 's' : ''}\n` +
+        `👥 Até ${property.maxGuests} hóspede${property.maxGuests > 1 ? 's' : ''}\n\n` +
+        (checkIn && checkOut && guests ? 
+          `🗓️ *Suas datas*: ${format(new Date(checkIn), 'dd/MM/yyyy')} a ${format(new Date(checkOut), 'dd/MM/yyyy')}\n` +
+          `👥 *Hóspedes*: ${guests}\n\n` +
+          availabilityInfo +
+          priceInfo
+        : '') +
+        `💡 *Próximos passos*:\n` +
+        `1. Vou verificar todos os detalhes para você\n` +
+        `2. Posso enviar mais fotos e informações\n` +
+        `3. Se tudo estiver ok, finalizamos a reserva\n\n` +
+        `❓ Tem alguma pergunta específica sobre a propriedade ou gostaria de mais informações?\n\n` +
+        `🤖 *Atendimento automatizado 24/7*\n` +
+        `Sou seu assistente virtual e estou aqui para ajudar com tudo!`
+
+      return {
+        success: true,
+        message: response,
+        data: {
+          propertyId,
+          propertyName: property.title,
+          clientId: clientResult.client.id,
+          leadId: leadResult.lead?.id,
+          availability: checkIn && checkOut ? availabilityInfo.includes('✅') : undefined,
+          estimatedPrice: priceInfo ? priceInfo : undefined,
+          source: 'mini-site'
+        }
+      }
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Erro ao processar solicitação do mini-site'
       }
     }
   }

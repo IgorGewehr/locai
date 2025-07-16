@@ -37,6 +37,7 @@ import {
 
 interface ReservationFormData {
   propertyId: string;
+  clientId: string;
   clientName: string;
   clientPhone: string;
   clientEmail: string;
@@ -62,6 +63,7 @@ export default function CreateReservationPage() {
 
   const [formData, setFormData] = useState<ReservationFormData>({
     propertyId: '',
+    clientId: '',
     clientName: '',
     clientPhone: '',
     clientEmail: '',
@@ -76,27 +78,78 @@ export default function CreateReservationPage() {
   });
 
   const [properties, setProperties] = useState<Array<{ id: string; title: string; basePrice: number }>>([]);
+  const [clients, setClients] = useState<Array<{ id: string; name: string; phone: string; email: string }>>([]);
+  const [selectedClient, setSelectedClient] = useState<{ id: string; name: string; phone: string; email: string } | null>(null);
+  const [isNewClient, setIsNewClient] = useState(false);
 
   useEffect(() => {
-    const loadProperties = async () => {
+    const loadData = async () => {
       try {
-        const response = await fetch('/api/properties');
-        if (response.ok) {
-          const data = await response.json();
-          setProperties(data.map((p: any) => ({ id: p.id, title: p.title, basePrice: p.basePrice })));
+        // Load properties
+        const propertiesResponse = await fetch('/api/properties');
+        if (propertiesResponse.ok) {
+          const propertiesData = await propertiesResponse.json();
+          setProperties(propertiesData.map((p: any) => ({ id: p.id, title: p.title, basePrice: p.basePrice })));
+        }
+
+        // Load clients
+        const clientsResponse = await fetch('/api/clients');
+        if (clientsResponse.ok) {
+          const clientsData = await clientsResponse.json();
+          setClients(clientsData.map((c: any) => ({ 
+            id: c.id, 
+            name: c.name, 
+            phone: c.phone, 
+            email: c.email 
+          })));
         }
       } catch (err) {
-
+        console.error('Error loading data:', err);
       }
     };
 
-    loadProperties();
+    loadData();
   }, []);
 
   const handleInputChange = (field: keyof ReservationFormData, value: any) => {
     setFormData(prev => ({
       ...prev,
       [field]: value
+    }));
+  };
+
+  const handleClientSelection = (client: { id: string; name: string; phone: string; email: string } | null) => {
+    setSelectedClient(client);
+    if (client) {
+      setIsNewClient(false);
+      setFormData(prev => ({
+        ...prev,
+        clientId: client.id,
+        clientName: client.name,
+        clientPhone: client.phone,
+        clientEmail: client.email,
+      }));
+    } else {
+      setIsNewClient(true);
+      setFormData(prev => ({
+        ...prev,
+        clientId: '',
+        clientName: '',
+        clientPhone: '',
+        clientEmail: '',
+      }));
+    }
+  };
+
+  const handleNewClientToggle = () => {
+    setIsNewClient(!isNewClient);
+    setSelectedClient(null);
+    setFormData(prev => ({
+      ...prev,
+      clientId: '',
+      clientName: '',
+      clientPhone: '',
+      clientEmail: '',
     }));
   };
 
@@ -125,9 +178,34 @@ export default function CreateReservationPage() {
     setError('');
 
     try {
+      // If it's a new client, create the client first
+      let clientId = formData.clientId;
+      
+      if (isNewClient && !formData.clientId) {
+        const clientData = {
+          name: formData.clientName,
+          phone: formData.clientPhone,
+          email: formData.clientEmail || undefined,
+        };
+        
+        const clientResponse = await fetch('/api/clients', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(clientData)
+        });
+        
+        if (clientResponse.ok) {
+          const newClient = await clientResponse.json();
+          clientId = newClient.id;
+        } else {
+          throw new Error('Erro ao criar cliente');
+        }
+      }
+
       // Create reservation data matching the API schema
       const reservationData = {
         propertyId: formData.propertyId,
+        clientId: clientId,
         clientName: formData.clientName,
         clientPhone: formData.clientPhone,
         clientEmail: formData.clientEmail || undefined,
@@ -171,7 +249,11 @@ export default function CreateReservationPage() {
   const isStepValid = (step: number) => {
     switch (step) {
       case 0:
-        return formData.propertyId && formData.clientName && formData.clientPhone;
+        const hasProperty = formData.propertyId;
+        const hasClient = isNewClient 
+          ? (formData.clientName && formData.clientPhone)
+          : (selectedClient && formData.clientId);
+        return hasProperty && hasClient;
       case 1:
         return formData.checkIn && formData.checkOut && formData.guests > 0;
       case 2:
@@ -200,34 +282,78 @@ export default function CreateReservationPage() {
                 onChange={(_, value) => handleInputChange('propertyId', value?.id || '')}
               />
             </Grid>
-            <Grid item xs={12} md={6}>
-              <TextField
-                fullWidth
-                label="Nome do Cliente"
-                value={formData.clientName}
-                onChange={(e) => handleInputChange('clientName', e.target.value)}
-                required
-              />
+            <Grid item xs={12}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
+                <Typography variant="subtitle1">Cliente:</Typography>
+                <Button
+                  variant={isNewClient ? "contained" : "outlined"}
+                  size="small"
+                  onClick={handleNewClientToggle}
+                >
+                  {isNewClient ? "Cancelar Novo Cliente" : "Novo Cliente"}
+                </Button>
+              </Box>
             </Grid>
-            <Grid item xs={12} md={6}>
-              <TextField
-                fullWidth
-                label="E-mail do Cliente"
-                type="email"
-                value={formData.clientEmail}
-                onChange={(e) => handleInputChange('clientEmail', e.target.value)}
-              />
-            </Grid>
-            <Grid item xs={12} md={6}>
-              <TextField
-                fullWidth
-                label="Telefone do Cliente"
-                value={formData.clientPhone}
-                onChange={(e) => handleInputChange('clientPhone', e.target.value)}
-                placeholder="+55 11 99999-9999"
-                required
-              />
-            </Grid>
+            
+            {!isNewClient ? (
+              <Grid item xs={12}>
+                <Autocomplete
+                  options={clients}
+                  getOptionLabel={(option) => `${option.name} (${option.phone})`}
+                  value={selectedClient}
+                  onChange={(_, value) => handleClientSelection(value)}
+                  renderInput={(params) => (
+                    <TextField
+                      {...params}
+                      label="Selecionar Cliente Existente"
+                      placeholder="Digite o nome ou telefone do cliente"
+                      required
+                    />
+                  )}
+                  renderOption={(props, option) => (
+                    <Box component="li" {...props}>
+                      <Box>
+                        <Typography variant="subtitle2">{option.name}</Typography>
+                        <Typography variant="body2" color="text.secondary">
+                          {option.phone} {option.email && `• ${option.email}`}
+                        </Typography>
+                      </Box>
+                    </Box>
+                  )}
+                />
+              </Grid>
+            ) : (
+              <>
+                <Grid item xs={12} md={6}>
+                  <TextField
+                    fullWidth
+                    label="Nome do Cliente"
+                    value={formData.clientName}
+                    onChange={(e) => handleInputChange('clientName', e.target.value)}
+                    required
+                  />
+                </Grid>
+                <Grid item xs={12} md={6}>
+                  <TextField
+                    fullWidth
+                    label="E-mail do Cliente"
+                    type="email"
+                    value={formData.clientEmail}
+                    onChange={(e) => handleInputChange('clientEmail', e.target.value)}
+                  />
+                </Grid>
+                <Grid item xs={12} md={6}>
+                  <TextField
+                    fullWidth
+                    label="Telefone do Cliente"
+                    value={formData.clientPhone}
+                    onChange={(e) => handleInputChange('clientPhone', e.target.value)}
+                    placeholder="+55 11 99999-9999"
+                    required
+                  />
+                </Grid>
+              </>
+            )}
             <Grid item xs={12} md={6}>
               <FormControl fullWidth>
                 <InputLabel>Origem</InputLabel>

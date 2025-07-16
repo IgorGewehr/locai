@@ -1,6 +1,8 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import { useAuth } from '@/contexts/AuthContext';
+import { generateMiniSiteUrl, generateQRCodeUrl } from '@/lib/utils/url-generator';
 import {
   Box,
   Card,
@@ -48,12 +50,20 @@ import {
   SmartToy,
   QrCode2,
   Edit,
+  Language,
+  Visibility,
+  Share,
+  Palette,
+  Analytics,
   Delete,
   Add,
   PhoneAndroid,
   Link as LinkIcon,
   Settings as SettingsIcon,
   Close,
+  Brush,
+  Speed,
+  Public,
 } from '@mui/icons-material';
 import QRCode from 'react-qr-code';
 
@@ -92,6 +102,7 @@ export default function SettingsPage() {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const isTablet = useMediaQuery(theme.breakpoints.down('md'));
+  const { user } = useAuth();
   
   const [activeTab, setActiveTab] = useState(0);
   const [whatsappConnected, setWhatsappConnected] = useState(false);
@@ -110,6 +121,37 @@ export default function SettingsPage() {
     accessToken: '',
     verifyToken: '',
   });
+  
+  // Mini-site states
+  const [miniSiteConfig, setMiniSiteConfig] = useState({
+    active: false,
+    title: 'Minha Imobiliária',
+    description: 'Encontre o imóvel perfeito para você',
+    primaryColor: '#1976d2',
+    secondaryColor: '#dc004e',
+    accentColor: '#ed6c02',
+    fontFamily: 'modern',
+    borderRadius: 'rounded',
+    showPrices: true,
+    showAvailability: true,
+    showReviews: true,
+    whatsappNumber: '',
+    companyEmail: '',
+    seoKeywords: 'imóveis, aluguel, venda, imobiliária',
+    customDomain: '',
+    template: 'modern-blue',
+  });
+  const [miniSiteUrl, setMiniSiteUrl] = useState('');
+  const [miniSiteAnalytics, setMiniSiteAnalytics] = useState({
+    totalViews: 0,
+    propertyViews: 0,
+    inquiries: 0,
+    conversionRate: 0,
+  });
+  const [showTemplateSelector, setShowTemplateSelector] = useState(false);
+  const [showDomainConfig, setShowDomainConfig] = useState(false);
+  const [showQRCode, setShowQRCode] = useState(false);
+  const [showAdvancedAnalytics, setShowAdvancedAnalytics] = useState(false);
 
   const [companyConfig, setCompanyConfig] = useState<CompanyConfig>({
     name: '',
@@ -176,6 +218,17 @@ export default function SettingsPage() {
               });
             }
           }
+          if (settings.miniSite) {
+            setMiniSiteConfig(prev => ({ ...prev, ...settings.miniSite }));
+            // Generate mini-site URL using current user's UID as tenant ID
+            const actualTenantId = user?.uid || 'default-tenant';
+            const miniSiteUrl = generateMiniSiteUrl({
+              tenantId: actualTenantId,
+              subdomain: settings.miniSite.customDomain,
+              isProduction: process.env.NODE_ENV === 'production'
+            });
+            setMiniSiteUrl(miniSiteUrl);
+          }
         }
       }
       
@@ -221,7 +274,10 @@ export default function SettingsPage() {
   };
 
   const generateQRCode = async () => {
-    // This function is no longer needed with react-qr-code
+    if (miniSiteUrl) {
+      const qrUrl = generateQRCodeUrl(miniSiteUrl, 200);
+      setQrCodeData(qrUrl);
+    }
   };
 
   const handleWhatsAppConnectAPI = async () => {
@@ -423,6 +479,16 @@ export default function SettingsPage() {
         })
       });
 
+      // Save mini-site settings
+      await fetch('/api/settings', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          section: 'miniSite',
+          data: miniSiteConfig
+        })
+      });
+
       alert('Configurações salvas com sucesso!');
     } catch (error) {
       console.error('Error saving settings:', error);
@@ -430,6 +496,19 @@ export default function SettingsPage() {
     } finally {
       setSaving(false);
     }
+  };
+
+  const handleMiniSiteConfigChange = (field: string, value: any) => {
+    setMiniSiteConfig(prev => ({ ...prev, [field]: value }));
+  };
+
+  const copyMiniSiteUrl = () => {
+    navigator.clipboard.writeText(miniSiteUrl);
+    alert('URL copiada para a área de transferência!');
+  };
+
+  const openMiniSite = () => {
+    window.open(miniSiteUrl, '_blank');
   };
 
   if (loading) {
@@ -489,6 +568,12 @@ export default function SettingsPage() {
           <Tab 
             label={isMobile ? "IA" : "Assistente IA"} 
             icon={<SmartToy />} 
+            iconPosition={isMobile ? "top" : "start"}
+            sx={{ minWidth: isMobile ? 100 : 'auto' }}
+          />
+          <Tab 
+            label={isMobile ? "Mini-Site" : "Mini-Site"} 
+            icon={<Language />} 
             iconPosition={isMobile ? "top" : "start"}
             sx={{ minWidth: isMobile ? 100 : 'auto' }}
           />
@@ -883,8 +968,286 @@ export default function SettingsPage() {
         </Grid>
       )}
 
-      {/* Automatic Billing Tab */}
+      {/* Mini-Site Tab */}
       {activeTab === 3 && (
+        <Grid container spacing={3}>
+          <Grid item xs={12}>
+            <Card>
+              <CardContent>
+                <Box sx={{ 
+                  display: 'flex', 
+                  flexDirection: isMobile ? 'column' : 'row',
+                  justifyContent: 'space-between', 
+                  alignItems: isMobile ? 'stretch' : 'center', 
+                  gap: isMobile ? 2 : 3,
+                  mb: 3 
+                }}>
+                  <Box sx={{ flex: 1 }}>
+                    <Typography variant={isMobile ? "subtitle1" : "h6"} gutterBottom fontWeight={600}>
+                      Mini-Site para Imóveis
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      Crie seu próprio site de imóveis personalizado para compartilhar com clientes
+                    </Typography>
+                  </Box>
+                  <Box sx={{ display: 'flex', gap: 1, flexDirection: isMobile ? 'column' : 'row' }}>
+                    <Button
+                      variant="outlined"
+                      startIcon={<Visibility />}
+                      onClick={openMiniSite}
+                      disabled={!miniSiteConfig.active}
+                      fullWidth={isMobile}
+                    >
+                      Visualizar
+                    </Button>
+                    <Button
+                      variant="outlined"
+                      startIcon={<Share />}
+                      onClick={copyMiniSiteUrl}
+                      disabled={!miniSiteConfig.active}
+                      fullWidth={isMobile}
+                    >
+                      Copiar URL
+                    </Button>
+                    <Button
+                      variant="outlined"
+                      startIcon={<QrCode2 />}
+                      onClick={() => setShowQRCode(true)}
+                      disabled={!miniSiteConfig.active}
+                      fullWidth={isMobile}
+                    >
+                      QR Code
+                    </Button>
+                  </Box>
+                </Box>
+
+                <Grid container spacing={3}>
+                  <Grid item xs={12} md={6}>
+                    <Box sx={{ mb: 3 }}>
+                      <Typography variant="h6" gutterBottom fontWeight={600}>
+                        Configurações Básicas
+                      </Typography>
+                      
+                      <FormControlLabel
+                        control={
+                          <Switch
+                            checked={miniSiteConfig.active}
+                            onChange={(e) => handleMiniSiteConfigChange('active', e.target.checked)}
+                            color="primary"
+                          />
+                        }
+                        label="Ativar Mini-Site"
+                        sx={{ mb: 2 }}
+                      />
+                      
+                      <TextField
+                        fullWidth
+                        label="Título do Site"
+                        value={miniSiteConfig.title}
+                        onChange={(e) => handleMiniSiteConfigChange('title', e.target.value)}
+                        sx={{ mb: 2 }}
+                      />
+                      
+                      <TextField
+                        fullWidth
+                        multiline
+                        rows={2}
+                        label="Descrição"
+                        value={miniSiteConfig.description}
+                        onChange={(e) => handleMiniSiteConfigChange('description', e.target.value)}
+                        sx={{ mb: 2 }}
+                      />
+                      
+                      <TextField
+                        fullWidth
+                        label="Palavras-chave SEO"
+                        value={miniSiteConfig.seoKeywords}
+                        onChange={(e) => handleMiniSiteConfigChange('seoKeywords', e.target.value)}
+                        helperText="Separadas por vírgula"
+                        sx={{ mb: 2 }}
+                      />
+
+                      <Box sx={{ display: 'flex', gap: 1, mb: 2 }}>
+                        <Button
+                          variant="outlined"
+                          startIcon={<Brush />}
+                          onClick={() => setShowTemplateSelector(true)}
+                          fullWidth
+                        >
+                          Escolher Template
+                        </Button>
+                        <Button
+                          variant="outlined"
+                          startIcon={<Public />}
+                          onClick={() => setShowDomainConfig(true)}
+                          fullWidth
+                        >
+                          Domínio
+                        </Button>
+                      </Box>
+
+                      <Button
+                        variant="outlined"
+                        startIcon={<Analytics />}
+                        onClick={() => setShowAdvancedAnalytics(true)}
+                        fullWidth
+                        disabled={!miniSiteConfig.active}
+                      >
+                        Analytics Avançadas
+                      </Button>
+                    </Box>
+                  </Grid>
+                  
+                  <Grid item xs={12} md={6}>
+                    <Box sx={{ mb: 3 }}>
+                      <Typography variant="h6" gutterBottom fontWeight={600}>
+                        Personalização Visual
+                      </Typography>
+                      
+                      <Box sx={{ display: 'flex', gap: 2, mb: 2 }}>
+                        <Box sx={{ flex: 1 }}>
+                          <Typography variant="body2" color="text.secondary" gutterBottom>
+                            Cor Primária
+                          </Typography>
+                          <input
+                            type="color"
+                            value={miniSiteConfig.primaryColor}
+                            onChange={(e) => handleMiniSiteConfigChange('primaryColor', e.target.value)}
+                            style={{ width: '100%', height: '40px', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
+                          />
+                        </Box>
+                        <Box sx={{ flex: 1 }}>
+                          <Typography variant="body2" color="text.secondary" gutterBottom>
+                            Cor Secundária
+                          </Typography>
+                          <input
+                            type="color"
+                            value={miniSiteConfig.secondaryColor}
+                            onChange={(e) => handleMiniSiteConfigChange('secondaryColor', e.target.value)}
+                            style={{ width: '100%', height: '40px', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
+                          />
+                        </Box>
+                      </Box>
+                      
+                      <FormControl fullWidth sx={{ mb: 2 }}>
+                        <InputLabel>Fonte</InputLabel>
+                        <Select
+                          value={miniSiteConfig.fontFamily}
+                          onChange={(e) => handleMiniSiteConfigChange('fontFamily', e.target.value)}
+                          label="Fonte"
+                        >
+                          <MenuItem value="modern">Moderna</MenuItem>
+                          <MenuItem value="classic">Clássica</MenuItem>
+                          <MenuItem value="elegant">Elegante</MenuItem>
+                        </Select>
+                      </FormControl>
+                      
+                      <FormControl fullWidth sx={{ mb: 2 }}>
+                        <InputLabel>Bordas</InputLabel>
+                        <Select
+                          value={miniSiteConfig.borderRadius}
+                          onChange={(e) => handleMiniSiteConfigChange('borderRadius', e.target.value)}
+                          label="Bordas"
+                        >
+                          <MenuItem value="sharp">Retas</MenuItem>
+                          <MenuItem value="rounded">Arredondadas</MenuItem>
+                          <MenuItem value="extra-rounded">Muito Arredondadas</MenuItem>
+                        </Select>
+                      </FormControl>
+                    </Box>
+                  </Grid>
+                  
+                  <Grid item xs={12}>
+                    <Box sx={{ mb: 3 }}>
+                      <Typography variant="h6" gutterBottom fontWeight={600}>
+                        Funcionalidades
+                      </Typography>
+                      
+                      <Grid container spacing={2}>
+                        <Grid item xs={12} sm={6} md={4}>
+                          <FormControlLabel
+                            control={
+                              <Switch
+                                checked={miniSiteConfig.showPrices}
+                                onChange={(e) => handleMiniSiteConfigChange('showPrices', e.target.checked)}
+                              />
+                            }
+                            label="Mostrar Preços"
+                          />
+                        </Grid>
+                        <Grid item xs={12} sm={6} md={4}>
+                          <FormControlLabel
+                            control={
+                              <Switch
+                                checked={miniSiteConfig.showAvailability}
+                                onChange={(e) => handleMiniSiteConfigChange('showAvailability', e.target.checked)}
+                              />
+                            }
+                            label="Mostrar Disponibilidade"
+                          />
+                        </Grid>
+                        <Grid item xs={12} sm={6} md={4}>
+                          <FormControlLabel
+                            control={
+                              <Switch
+                                checked={miniSiteConfig.showReviews}
+                                onChange={(e) => handleMiniSiteConfigChange('showReviews', e.target.checked)}
+                              />
+                            }
+                            label="Mostrar Avaliações"
+                          />
+                        </Grid>
+                      </Grid>
+                    </Box>
+                  </Grid>
+                  
+                  <Grid item xs={12}>
+                    <Box sx={{ 
+                      p: 3, 
+                      bgcolor: 'background.paper', 
+                      borderRadius: 2, 
+                      border: '1px solid',
+                      borderColor: 'divider'
+                    }}>
+                      <Typography variant="h6" gutterBottom fontWeight={600}>
+                        URL do seu Mini-Site
+                      </Typography>
+                      <Box sx={{ display: 'flex', gap: 2, alignItems: 'center', flexWrap: 'wrap' }}>
+                        <TextField
+                          value={miniSiteUrl}
+                          InputProps={{
+                            readOnly: true,
+                            endAdornment: (
+                              <IconButton onClick={copyMiniSiteUrl} size="small">
+                                <Share />
+                              </IconButton>
+                            )
+                          }}
+                          sx={{ flex: 1, minWidth: 300 }}
+                        />
+                        <Button
+                          variant="outlined"
+                          startIcon={<Visibility />}
+                          onClick={openMiniSite}
+                          disabled={!miniSiteConfig.active}
+                        >
+                          Abrir
+                        </Button>
+                      </Box>
+                      <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+                        Compartilhe este link com seus clientes para que eles vejam seus imóveis
+                      </Typography>
+                    </Box>
+                  </Grid>
+                </Grid>
+              </CardContent>
+            </Card>
+          </Grid>
+        </Grid>
+      )}
+
+      {/* Automatic Billing Tab */}
+      {activeTab === 4 && (
         <Grid container spacing={3}>
           <Grid item xs={12}>
             <Card>

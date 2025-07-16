@@ -365,37 +365,46 @@ export default function ConversationsPage() {
                       </Box>
                     }
                     secondary={
-                      <Box sx={{ mt: 1 }}>
-                        <Typography 
-                          variant="body2" 
-                          color="text.secondary"
-                          fontWeight={conversation.unreadCount > 0 ? 'medium' : 'normal'}
+                      <span style={{ marginTop: '4px', display: 'block' }}>
+                        <span 
+                          style={{ 
+                            fontSize: '0.875rem',
+                            color: 'rgba(0, 0, 0, 0.6)',
+                            fontWeight: conversation.unreadCount > 0 ? '500' : 'normal'
+                          }}
                         >
                           {conversation.lastMessage}
-                        </Typography>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 0.5 }}>
-                          <Typography variant="caption" color="text.secondary">
+                        </span>
+                        <br />
+                        <span style={{ display: 'flex', alignItems: 'center', gap: '4px', marginTop: '2px' }}>
+                          <span style={{ fontSize: '0.75rem', color: 'rgba(0, 0, 0, 0.6)' }}>
                             {conversation.lastMessageTime.toLocaleString('pt-BR')}
-                          </Typography>
-                          <Typography variant="caption" color="text.secondary">
+                          </span>
+                          <span style={{ fontSize: '0.75rem', color: 'rgba(0, 0, 0, 0.6)' }}>
                             • Confiança IA: {(conversation.aiConfidence * 100).toFixed(0)}%
-                          </Typography>
-                          <Typography variant="caption" color="text.secondary">
+                          </span>
+                          <span style={{ fontSize: '0.75rem', color: 'rgba(0, 0, 0, 0.6)' }}>
                             • {conversation.assignedAgent}
-                          </Typography>
-                        </Box>
-                        <Box sx={{ display: 'flex', gap: 0.5, mt: 0.5 }}>
+                          </span>
+                        </span>
+                        <br />
+                        <span style={{ display: 'flex', gap: '2px', marginTop: '2px', flexWrap: 'wrap' }}>
                           {conversation.tags.map((tag) => (
-                            <Chip
+                            <span
                               key={tag}
-                              label={tag}
-                              size="small"
-                              variant="outlined"
-                              sx={{ height: 20, fontSize: '0.7rem' }}
-                            />
+                              style={{
+                                padding: '1px 4px',
+                                border: '1px solid rgba(0, 0, 0, 0.23)',
+                                borderRadius: '4px',
+                                fontSize: '0.7rem',
+                                lineHeight: '16px'
+                              }}
+                            >
+                              {tag}
+                            </span>
                           ))}
-                        </Box>
-                      </Box>
+                        </span>
+                      </span>
                     }
                   />
                   

@@ -105,47 +105,148 @@ export default function InteractiveCharts({
   const [selectedChart, setSelectedChart] = useState<string | null>(null);
   const [showAnimations, setShowAnimations] = useState(true);
 
-  // Dados mock melhorados
-  const mockData = useMemo(() => ({
-    monthlyTrends: Array.from({ length: period === '3m' ? 3 : period === '6m' ? 6 : period === '1y' ? 12 : 24 }, (_, i) => {
-      const monthsBack = period === '3m' ? 2 - i : period === '6m' ? 5 - i : period === '1y' ? 11 - i : 23 - i;
-      const date = subMonths(new Date(), monthsBack);
-      const baseIncome = 30000 + Math.random() * 20000;
-      const baseExpense = 15000 + Math.random() * 10000;
+  // Real data from Firebase transactions and reservations
+  const realData = useMemo(() => {
+    const monthsCount = period === '3m' ? 3 : period === '6m' ? 6 : period === '1y' ? 12 : 24;
+    
+    // Group transactions by month
+    const monthlyData = new Map<string, {
+      receitas: number;
+      despesas: number;
+      reservas: number;
+      ocupacao: number;
+    }>();
+    
+    // Process transactions
+    transactions.forEach(transaction => {
+      const monthKey = format(new Date(transaction.date), 'MMM/yy', { locale: ptBR });
+      const existing = monthlyData.get(monthKey) || { receitas: 0, despesas: 0, reservas: 0, ocupacao: 0 };
       
-      return {
-        month: format(date, 'MMM/yy', { locale: ptBR }),
-        fullMonth: format(date, 'MMMM yyyy', { locale: ptBR }),
-        receitas: Math.round(baseIncome),
-        despesas: Math.round(baseExpense),
-        lucro: Math.round(baseIncome - baseExpense),
-        reservas: Math.round(Math.random() * 50 + 20),
-        ocupacao: Math.round(Math.random() * 30 + 70),
-      };
+      if (transaction.type === 'income') {
+        existing.receitas += transaction.amount;
+      } else {
+        existing.despesas += transaction.amount;
+      }
+      
+      monthlyData.set(monthKey, existing);
+    });
+    
+    // Process reservations for occupancy
+    reservations.forEach(reservation => {
+      const monthKey = format(new Date(reservation.checkIn), 'MMM/yy', { locale: ptBR });
+      const existing = monthlyData.get(monthKey) || { receitas: 0, despesas: 0, reservas: 0, ocupacao: 0 };
+      
+      existing.reservas += 1;
+      
+      monthlyData.set(monthKey, existing);
+    });
+    
+    return {
+      monthlyTrends: Array.from({ length: monthsCount }, (_, i) => {
+        const monthsBack = monthsCount - 1 - i;
+        const date = subMonths(new Date(), monthsBack);
+        const monthKey = format(date, 'MMM/yy', { locale: ptBR });
+        const data = monthlyData.get(monthKey) || { receitas: 0, despesas: 0, reservas: 0, ocupacao: 0 };
+        
+        // Calculate occupancy rate based on reservations (simplified)
+        const occupancyRate = Math.min(100, (data.reservas * 3.33)); // Rough calculation
+        
+        return {
+          month: monthKey,
+          fullMonth: format(date, 'MMMM yyyy', { locale: ptBR }),
+          receitas: data.receitas,
+          despesas: data.despesas,
+          lucro: data.receitas - data.despesas,
+          reservas: data.reservas,
+          ocupacao: Math.round(occupancyRate),
+        };
     }).reverse(),
     
-    categoryBreakdown: [
-      { name: 'Hospedagem', value: 45000, percentage: 60, color: '#10b981', count: 125 },
-      { name: 'Manutenção', value: 12000, percentage: 16, color: '#ef4444', count: 45 },
-      { name: 'Limpeza', value: 8000, percentage: 11, color: '#f59e0b', count: 78 },
-      { name: 'Comissões', value: 6000, percentage: 8, color: '#8b5cf6', count: 32 },
-      { name: 'Outros', value: 4000, percentage: 5, color: '#6b7280', count: 23 },
-    ],
+    // Real category breakdown from transactions
+    categoryBreakdown: (() => {
+      const categories = new Map<string, { value: number; count: number }>();
+      let totalValue = 0;
+      
+      transactions.forEach(transaction => {
+        const category = transaction.category || 'Outros';
+        const existing = categories.get(category) || { value: 0, count: 0 };
+        existing.value += transaction.amount;
+        existing.count += 1;
+        categories.set(category, existing);
+        totalValue += transaction.amount;
+      });
+      
+      const colors = ['#10b981', '#ef4444', '#f59e0b', '#8b5cf6', '#6b7280'];
+      
+      return Array.from(categories.entries()).map(([name, data], index) => ({
+        name,
+        value: data.value,
+        percentage: Math.round((data.value / totalValue) * 100),
+        color: colors[index % colors.length],
+        count: data.count
+      })).sort((a, b) => b.value - a.value);
+    })(),
     
-    paymentMethods: [
-      { name: 'PIX', value: 35000, percentage: 47, color: '#10b981' },
-      { name: 'Cartão', value: 25000, percentage: 33, color: '#3b82f6' },
-      { name: 'Transferência', value: 10000, percentage: 13, color: '#f59e0b' },
-      { name: 'Dinheiro', value: 5000, percentage: 7, color: '#ef4444' },
-    ],
+    // Real payment methods from transactions
+    paymentMethods: (() => {
+      const methods = new Map<string, number>();
+      let totalValue = 0;
+      
+      transactions.forEach(transaction => {
+        const method = transaction.paymentMethod || 'Outros';
+        methods.set(method, (methods.get(method) || 0) + transaction.amount);
+        totalValue += transaction.amount;
+      });
+      
+      const colors = ['#10b981', '#3b82f6', '#f59e0b', '#ef4444'];
+      
+      return Array.from(methods.entries()).map(([name, value], index) => ({
+        name,
+        value,
+        percentage: Math.round((value / totalValue) * 100),
+        color: colors[index % colors.length]
+      })).sort((a, b) => b.value - a.value);
+    })(),
     
-    propertyPerformance: [
-      { id: 'apt-101', name: 'Apartamento 101', receita: 8500, despesas: 1200, lucro: 7300, ocupacao: 85 },
-      { id: 'casa-5', name: 'Casa da Praia 5', receita: 12000, despesas: 2100, lucro: 9900, ocupacao: 92 },
-      { id: 'apt-201', name: 'Apartamento 201', receita: 6800, despesas: 980, lucro: 5820, ocupacao: 78 },
-      { id: 'studio-3', name: 'Studio Centro 3', receita: 4200, despesas: 650, lucro: 3550, ocupacao: 68 },
-    ],
-  }), [period]);
+    // Real property performance from reservations and transactions
+    propertyPerformance: (() => {
+      const propertyData = new Map<string, { receita: number; despesas: number; ocupacao: number }>();
+      
+      // Calculate revenue and expenses by property
+      transactions.forEach(transaction => {
+        if (transaction.propertyId) {
+          const existing = propertyData.get(transaction.propertyId) || { receita: 0, despesas: 0, ocupacao: 0 };
+          if (transaction.type === 'income') {
+            existing.receita += transaction.amount;
+          } else {
+            existing.despesas += transaction.amount;
+          }
+          propertyData.set(transaction.propertyId, existing);
+        }
+      });
+      
+      // Calculate occupancy from reservations
+      reservations.forEach(reservation => {
+        if (reservation.propertyId) {
+          const existing = propertyData.get(reservation.propertyId) || { receita: 0, despesas: 0, ocupacao: 0 };
+          existing.ocupacao += 1; // Simplified occupancy count
+          propertyData.set(reservation.propertyId, existing);
+        }
+      });
+      
+      return Array.from(propertyData.entries()).map(([id, data]) => {
+        const property = properties.find(p => p.id === id);
+        return {
+          id,
+          name: property?.title || `Propriedade ${id}`,
+          receita: data.receita,
+          despesas: data.despesas,
+          lucro: data.receita - data.despesas,
+          ocupacao: Math.min(100, data.ocupacao * 5) // Rough calculation
+        };
+      }).sort((a, b) => b.receita - a.receita);
+    })(),
+  }), [period, transactions, reservations, properties]);
 
   const ChartCard = ({ 
     title, 
@@ -316,7 +417,7 @@ export default function InteractiveCharts({
           >
             <ResponsiveContainer width="100%" height="100%">
               {chartType === 'area' ? (
-                <AreaChart data={mockData.monthlyTrends} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+                <AreaChart data={realData.monthlyTrends} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke={alpha(theme.palette.divider, 0.3)} />
                   <XAxis 
                     dataKey="month" 
@@ -364,7 +465,7 @@ export default function InteractiveCharts({
                   </defs>
                 </AreaChart>
               ) : chartType === 'bar' ? (
-                <RechartsBarChart data={mockData.monthlyTrends} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+                <RechartsBarChart data={realData.monthlyTrends} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke={alpha(theme.palette.divider, 0.3)} />
                   <XAxis dataKey="month" axisLine={false} tickLine={false} />
                   <YAxis axisLine={false} tickLine={false} tickFormatter={(value) => `${(value / 1000).toFixed(0)}k`} />
@@ -374,7 +475,7 @@ export default function InteractiveCharts({
                   <Bar dataKey="despesas" fill="#ef4444" name="Despesas" radius={[4, 4, 0, 0]} />
                 </RechartsBarChart>
               ) : (
-                <LineChart data={mockData.monthlyTrends} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
+                <LineChart data={realData.monthlyTrends} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke={alpha(theme.palette.divider, 0.3)} />
                   <XAxis dataKey="month" axisLine={false} tickLine={false} />
                   <YAxis axisLine={false} tickLine={false} tickFormatter={(value) => `${(value / 1000).toFixed(0)}k`} />
@@ -400,7 +501,7 @@ export default function InteractiveCharts({
             <ResponsiveContainer width="100%" height="100%">
               <RechartsPieChart>
                 <Pie
-                  data={mockData.categoryBreakdown}
+                  data={realData.categoryBreakdown}
                   cx="50%"
                   cy="45%"
                   innerRadius={60}
@@ -410,7 +511,7 @@ export default function InteractiveCharts({
                   animationBegin={0}
                   animationDuration={showAnimations ? 1000 : 0}
                 >
-                  {mockData.categoryBreakdown.map((entry, index) => (
+                  {realData.categoryBreakdown.map((entry, index) => (
                     <Cell 
                       key={`cell-${index}`} 
                       fill={entry.color}
@@ -426,7 +527,7 @@ export default function InteractiveCharts({
             {/* Legend personalizada */}
             <Box sx={{ mt: 2 }}>
               <Stack spacing={1}>
-                {mockData.categoryBreakdown.map((item) => (
+                {realData.categoryBreakdown.map((item) => (
                   <Box 
                     key={item.name}
                     sx={{ 
@@ -475,7 +576,7 @@ export default function InteractiveCharts({
             height={350}
           >
             <Stack spacing={2}>
-              {mockData.propertyPerformance.map((property, index) => (
+              {realData.propertyPerformance.map((property, index) => (
                 <Paper 
                   key={property.id}
                   sx={{ 
@@ -563,19 +664,19 @@ export default function InteractiveCharts({
                 cy="50%" 
                 innerRadius="20%" 
                 outerRadius="80%" 
-                data={mockData.paymentMethods}
+                data={realData.paymentMethods}
               >
                 <RadialBar 
                   dataKey="percentage" 
                   cornerRadius={10} 
-                  fill={(entry, index) => mockData.paymentMethods[index]?.color || '#8884d8'}
+                  fill={(entry, index) => realData.paymentMethods[index]?.color || '#8884d8'}
                 />
                 <ChartTooltip content={<CustomTooltip />} />
               </RadialBarChart>
             </ResponsiveContainer>
             
             <Stack spacing={1} sx={{ mt: 2 }}>
-              {mockData.paymentMethods.map((method) => (
+              {realData.paymentMethods.map((method) => (
                 <Box 
                   key={method.name}
                   sx={{ 

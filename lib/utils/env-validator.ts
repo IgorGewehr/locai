@@ -77,7 +77,7 @@ export function validateEnv(): EnvVars {
         return `${path}: ${issue.message}`;
       });
 
-      );
+      console.error('Environment validation failed:', missingVars);
 
       throw new Error('Environment validation failed. Please check your environment variables.');
     }
@@ -155,13 +155,12 @@ export function checkProductionReadiness(): { ready: boolean; issues: string[] }
 
 // Log environment status
 export function logEnvironmentStatus(): void {
-
   const { ready, issues } = checkProductionReadiness();
 
   if (ready) {
-
+    console.log('✅ Environment is ready for production');
   } else {
-
-    issues.forEach(issue => );
+    console.warn('⚠️  Environment issues detected:');
+    issues.forEach(issue => console.warn(`  - ${issue}`));
   }
 }

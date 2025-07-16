@@ -1,4 +1,6 @@
 import React, { useState, useEffect } from 'react';
+import { conversationService } from '@/lib/services/conversation-service';
+import { aiService } from '@/lib/services/ai-service';
 import {
   Box,
   Card,
@@ -89,13 +91,75 @@ export default function AIInsights({ leads, onActionClick, onRefresh }: AIInsigh
     }
   }, [leads]);
 
-  const analyzeLeads = () => {
+  const analyzeLeads = async () => {
     setLoading(true);
     
-    // Simulate AI analysis (in production, this would call an AI service)
-    setTimeout(() => {
-      // Analyze top conversion probability leads
-      const analyzedLeads = leads
+    try {
+      // Real AI analysis using OpenAI and Firebase data
+      const activeLeads = leads.filter(lead => lead.status !== 'won' && lead.status !== 'lost');
+      
+      // Get additional context from Firebase for each lead
+      const analyzedLeads = await Promise.all(
+        activeLeads.map(async (lead) => {
+          try {
+            // Get conversation history from Firebase
+            const conversationHistory = await getLeadConversationHistory(lead.id);
+            
+            // Perform real AI analysis
+            const analysis = await performRealAIAnalysis(lead, conversationHistory);
+            
+            return {
+              lead,
+              conversionProbability: analysis.conversionProbability,
+              nextBestAction: analysis.nextBestAction,
+              actionReason: analysis.actionReason,
+              riskFactors: analysis.riskFactors,
+              opportunities: analysis.opportunities,
+              estimatedValue: analysis.estimatedValue,
+              daysToConversion: analysis.daysToConversion,
+            };
+          } catch (error) {
+            console.error(`Error analyzing lead ${lead.id}:`, error);
+            // Fallback to basic calculation if AI analysis fails
+            return {
+              lead,
+              conversionProbability: calculateConversionProbability(lead),
+              nextBestAction: determineNextBestAction(lead),
+              actionReason: getActionReason(lead),
+              riskFactors: identifyRiskFactors(lead),
+              opportunities: identifyOpportunities(lead),
+              estimatedValue: estimateLeadValue(lead),
+              daysToConversion: estimateDaysToConversion(lead),
+            };
+          }
+        })
+      );
+
+      // Sort by conversion probability and take top 5
+      const sortedLeads = analyzedLeads
+        .sort((a, b) => b.conversionProbability - a.conversionProbability)
+        .slice(0, 5);
+
+      setTopLeads(sortedLeads);
+
+      // Generate market insights from real data
+      const insights = generateMarketInsights(leads);
+      setMarketInsights(insights);
+
+      // Calculate performance metrics from real data
+      const wonLeads = leads.filter(l => l.status === 'won');
+      const metrics = {
+        conversionRate: leads.length > 0 ? (wonLeads.length / leads.length) * 100 : 0,
+        averageTimeToClose: calculateAverageTimeToClose(wonLeads),
+        totalPipelineValue: calculatePipelineValue(leads),
+        hotLeadsCount: leads.filter(l => l.temperature === 'hot').length,
+      };
+      setPerformanceMetrics(metrics);
+
+    } catch (error) {
+      console.error('Error in AI analysis:', error);
+      // Fallback to basic analysis if AI fails
+      const basicAnalysis = leads
         .filter(lead => lead.status !== 'won' && lead.status !== 'lost')
         .map(lead => ({
           lead,
@@ -109,25 +173,11 @@ export default function AIInsights({ leads, onActionClick, onRefresh }: AIInsigh
         }))
         .sort((a, b) => b.conversionProbability - a.conversionProbability)
         .slice(0, 5);
-
-      setTopLeads(analyzedLeads);
-
-      // Generate market insights
-      const insights = generateMarketInsights(leads);
-      setMarketInsights(insights);
-
-      // Calculate performance metrics
-      const wonLeads = leads.filter(l => l.status === 'won');
-      const metrics = {
-        conversionRate: leads.length > 0 ? (wonLeads.length / leads.length) * 100 : 0,
-        averageTimeToClose: calculateAverageTimeToClose(wonLeads),
-        totalPipelineValue: calculatePipelineValue(leads),
-        hotLeadsCount: leads.filter(l => l.temperature === 'hot').length,
-      };
-      setPerformanceMetrics(metrics);
-
+      
+      setTopLeads(basicAnalysis);
+    } finally {
       setLoading(false);
-    }, 1000);
+    }
   };
 
   const calculateConversionProbability = (lead: Lead): number => {
@@ -295,6 +345,83 @@ export default function AIInsights({ leads, onActionClick, onRefresh }: AIInsigh
     }
     
     return insights;
+  };
+
+  // New AI-powered functions for real analysis
+  const getLeadConversationHistory = async (leadId: string) => {
+    try {
+      // Get conversations associated with this lead
+      const conversations = await conversationService.getMany([
+        { field: 'leadId', operator: '==', value: leadId }
+      ]);
+      
+      if (conversations.length === 0) return [];
+      
+      // Get messages for each conversation
+      const allMessages = await Promise.all(
+        conversations.map(conv => 
+          conversationService.getMessagesByConversation(conv.id)
+        )
+      );
+      
+      return allMessages.flat().sort((a, b) => 
+        new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+      );
+    } catch (error) {
+      console.error('Error fetching conversation history:', error);
+      return [];
+    }
+  };
+
+  const performRealAIAnalysis = async (lead: any, conversationHistory: any[]) => {
+    try {
+      const prompt = `
+Analise este lead imobiliário e forneça insights baseados no histórico de conversas:
+
+Lead: ${JSON.stringify({
+  name: lead.name,
+  status: lead.status,
+  score: lead.score,
+  temperature: lead.temperature,
+  preferences: lead.preferences,
+  tags: lead.tags
+})}
+
+Histórico de Conversas: ${JSON.stringify(conversationHistory.slice(-10))}
+
+Forneça uma análise em JSON com:
+{
+  "conversionProbability": número entre 0-100,
+  "nextBestAction": "ação específica recomendada",
+  "actionReason": "explicação da ação",
+  "riskFactors": ["lista de riscos"],
+  "opportunities": ["lista de oportunidades"],
+  "estimatedValue": valor estimado da transação,
+  "daysToConversion": dias estimados para conversão
+}
+`;
+
+      const analysis = await aiService.generateResponse(prompt, {
+        temperature: 0.3,
+        maxTokens: 500
+      });
+
+      // Parse AI response
+      const parsedAnalysis = JSON.parse(analysis);
+      
+      return {
+        conversionProbability: Math.min(100, Math.max(0, parsedAnalysis.conversionProbability || 50)),
+        nextBestAction: parsedAnalysis.nextBestAction || 'Acompanhar lead',
+        actionReason: parsedAnalysis.actionReason || 'Análise baseada no histórico',
+        riskFactors: Array.isArray(parsedAnalysis.riskFactors) ? parsedAnalysis.riskFactors : [],
+        opportunities: Array.isArray(parsedAnalysis.opportunities) ? parsedAnalysis.opportunities : [],
+        estimatedValue: parsedAnalysis.estimatedValue || 0,
+        daysToConversion: parsedAnalysis.daysToConversion || 30
+      };
+    } catch (error) {
+      console.error('Error in AI analysis:', error);
+      throw error; // Re-throw to trigger fallback
+    }
   };
 
   const calculateAverageTimeToClose = (wonLeads: Lead[]): number => {

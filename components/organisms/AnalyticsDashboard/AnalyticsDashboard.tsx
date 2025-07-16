@@ -92,43 +92,79 @@ export default function AnalyticsDashboard({ tenantId = 'default' }: AnalyticsDa
     limit: 100 
   })
 
-  // Generate performance data - this would be fetched from Firebase in production
+  // Generate performance data from real Firebase conversations
   const performanceData = useMemo(() => {
     const days = period === '7d' ? 7 : period === '30d' ? 30 : 90
+    const endDate = new Date()
+    const startDate = subDays(endDate, days - 1)
+    
+    // Create labels for each day
     const labels = Array.from({ length: days }, (_, i) => 
-      format(subDays(new Date(), days - 1 - i), 'dd/MM')
+      format(subDays(endDate, days - 1 - i), 'dd/MM')
     )
+    
+    // Group conversations by date
+    const conversationsByDate = new Map<string, number>()
+    const conversionsByDate = new Map<string, number>()
+    
+    conversations.forEach(conversation => {
+      const date = format(new Date(conversation.createdAt), 'dd/MM')
+      conversationsByDate.set(date, (conversationsByDate.get(date) || 0) + 1)
+      
+      // Count conversions (completed conversations)
+      if (conversation.status === 'resolved' || conversation.status === 'completed') {
+        conversionsByDate.set(date, (conversionsByDate.get(date) || 0) + 1)
+      }
+    })
     
     return {
       labels,
       datasets: [
         {
           label: 'Conversas',
-          data: labels.map(() => Math.floor(Math.random() * 20) + 5),
+          data: labels.map(label => conversationsByDate.get(label) || 0),
           borderColor: 'rgb(75, 192, 192)',
           backgroundColor: 'rgba(75, 192, 192, 0.2)',
           yAxisID: 'y',
         },
         {
           label: 'Conversões',
-          data: labels.map(() => Math.floor(Math.random() * 8) + 1),
+          data: labels.map(label => conversionsByDate.get(label) || 0),
           borderColor: 'rgb(255, 99, 132)',
           backgroundColor: 'rgba(255, 99, 132, 0.2)',
           yAxisID: 'y1',
         },
       ],
     }
-  }, [period])
+  }, [period, conversations])
 
-  const sentimentData = useMemo(() => ({
-    labels: ['Positivo', 'Neutro', 'Negativo'],
-    datasets: [
-      {
-        data: [65, 30, 5],
-        backgroundColor: [
-          'rgba(75, 192, 192, 0.8)',
-          'rgba(255, 206, 86, 0.8)',
-          'rgba(255, 99, 132, 0.8)',
+  const sentimentData = useMemo(() => {
+    // Calculate real sentiment data from conversations
+    const sentimentCounts = { positive: 0, neutral: 0, negative: 0 }
+    const total = conversations.length
+    
+    conversations.forEach(conversation => {
+      if (conversation.sentiment) {
+        sentimentCounts[conversation.sentiment]++
+      } else {
+        sentimentCounts.neutral++ // Default to neutral if no sentiment
+      }
+    })
+    
+    // Convert to percentages or use raw counts
+    const positiveCount = sentimentCounts.positive
+    const neutralCount = sentimentCounts.neutral
+    const negativeCount = sentimentCounts.negative
+    
+    return {
+      labels: ['Positivo', 'Neutro', 'Negativo'],
+      datasets: [
+        {
+          data: [positiveCount, neutralCount, negativeCount],
+          backgroundColor: [
+            'rgba(75, 192, 192, 0.8)',
+            'rgba(255, 206, 86, 0.8)',
+            'rgba(255, 99, 132, 0.8)',
         ],
         borderColor: [
           'rgba(75, 192, 192, 1)',
@@ -138,7 +174,8 @@ export default function AnalyticsDashboard({ tenantId = 'default' }: AnalyticsDa
         borderWidth: 1,
       },
     ],
-  }), [])
+  }
+  }, [conversations])
 
   const agentPerformanceData = useMemo(() => ({
     labels: agents.map(agent => agent.name),

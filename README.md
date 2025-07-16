@@ -1,15 +1,20 @@
-# 🏠 LocAI - Sistema de Gestão Imobiliária com IA
+# 🏠 Agente Imobiliária - CRM e Maximização de Reservas Diretas com IA
 
-**LocAI** é um sistema completo de gestão imobiliária enterprise-level com assistente de IA integrado ao WhatsApp. O sistema permite gerenciar propriedades, reservas, clientes e oferece automação inteligente para atendimento 24/7.
+**A mais poderosa plataforma de CRM e maximização de reservas diretas, com um assistente de IA que trabalha 24/7 para você.**
+
+Sistema enterprise-grade para gestores de propriedades de aluguel por temporada, com assistente de IA integrado ao WhatsApp, mini-sites personalizados e automação completa do processo de vendas.
 
 ## 🎉 Status do Projeto (Dezembro 2024)
 
-✅ **Sistema 100% Funcional**
+✅ **Sistema 100% Funcional** 
 - Todos os módulos integrados com Firebase (sem dados mockados)
 - CRUD completo para todas as entidades
 - IA capaz de criar autonomamente: reservas, clientes e pagamentos
 - Navegação intuitiva entre registros relacionados
 - Interface responsiva otimizada para mobile
+- **NOVO**: Mini-sites personalizados para cada gestor com design superior ao Airbnb
+- **NOVO**: Integração WhatsApp para conversão direta via mini-site
+- **NOVO**: Sistema de proteção de rotas para isolamento de tenants
 
 ## 📋 Índice
 
@@ -33,16 +38,27 @@
   - Registro inteligente de clientes com deduplicação
   - Gestão de despesas e receitas
   - Function calling avançado
+  - **NOVO**: Processamento especializado de inquéritos do mini-site
   
 - **🏠 Gestão de Propriedades**: CRUD completo com upload de mídia
   - Calendário de disponibilidade
   - Precificação dinâmica por temporada
   - Galeria de fotos e vídeos
+  - **NOVO**: Exposição automática no mini-site público
   
 - **📅 Sistema de Reservas**: Controle completo do ciclo de locação
   - Links diretos para cliente, propriedade e pagamento
   - Status e acompanhamento em tempo real
   - Integração automática com financeiro
+  - **NOVO**: Conversão direta via WhatsApp do mini-site
+  
+- **🌐 Mini-Sites Personalizados**: Showcase público de propriedades
+  - Design moderno superior ao Airbnb com glassmorphismo
+  - Busca avançada e filtros inteligentes
+  - Galeria de imagens com navegação fluida
+  - Integração direta com WhatsApp para reservas
+  - Responsive design perfeito
+  - Analytics de visualizações e conversões
   
 - **📊 Analytics Enterprise**: Métricas financeiras e operacionais
   - Dados reais sem placeholders
@@ -295,6 +311,60 @@
 - SettingsTabs (sistema de abas)
 ```
 
+### 🌐 Mini-Sites Públicos (`/site/[tenantId]`)
+
+**Localização**: `app/site/[tenantId]/page.tsx`
+
+**Funcionalidades**:
+- Design superior ao Airbnb com glassmorphismo
+- Busca avançada com filtros em tempo real
+- Grid responsivo de propriedades
+- SEO otimizado automaticamente
+- Analytics de visualizações
+
+**Components Utilizados**:
+```typescript
+// Layout personalizado
+- MiniSiteLayout (layout branded do mini-site)
+
+// Grid de propriedades
+- PropertyGrid (grid responsivo com filtros)
+- PropertyCard (cartão otimizado para público)
+
+// Funcionalidades
+- SearchFilters (filtros avançados)
+- HeroSection (seção de destaque)
+- Footer (rodapé com contato)
+```
+
+#### Detalhes da Propriedade (`/site/[tenantId]/property/[propertyId]`)
+**Localização**: `app/site/[tenantId]/property/[propertyId]/page.tsx`
+
+**Funcionalidades**:
+- Galeria de imagens com modal e navegação
+- Informações completas da propriedade
+- Integração direta com WhatsApp
+- Botão flutuante de contato
+- Seções organizadas (comodidades, políticas, preços)
+
+**Components Utilizados**:
+```typescript
+// Visualização principal
+- PropertyDetailView (view completa da propriedade)
+
+// Seções específicas
+- PropertyHero (galeria principal)
+- PropertyInfo (informações básicas)
+- AmenitiesList (lista de comodidades)
+- PolicySection (políticas da propriedade)
+- BookingSidebar (sidebar de reserva)
+
+// Interatividade
+- ImageModal (modal de imagens)
+- WhatsAppButton (botão de contato)
+- ShareButton (compartilhamento)
+```
+
 ## 🧩 Atomic Design Components
 
 ### 🔹 Atoms (Elementos Básicos)
@@ -414,9 +484,126 @@ app/api/
 ├── analytics/route.ts          # Dados de analytics
 ├── pricing/route.ts            # Cálculos de preço
 ├── media/route.ts              # Upload de mídia
+├── mini-site/                  # 🆕 APIs públicas do mini-site
+│   └── [tenantId]/
+│       ├── route.ts           # Dados gerais do mini-site
+│       └── properties/
+│           └── [propertyId]/  # Detalhes de propriedade pública
 └── config/
     ├── whatsapp/route.ts      # Config WhatsApp
     └── company/route.ts        # Config da empresa
+```
+
+### 🆕 Mini-Site APIs (Públicas)
+
+#### 🌐 `/api/mini-site/[tenantId]` - Dados do Mini-Site
+```typescript
+// Obter configuração e propriedades do mini-site
+GET /api/mini-site/tenant123?filters=apartment&location=rio
+
+Response: {
+  "success": true,
+  "data": {
+    "config": {
+      "active": true,
+      "companyName": "Imóveis Premium",
+      "theme": {
+        "primaryColor": "#1976d2",
+        "borderRadius": "rounded",
+        "glassmorphism": true
+      },
+      "contactInfo": {
+        "whatsappNumber": "5511999999999",
+        "displayNumber": true
+      },
+      "features": {
+        "showPricing": true,
+        "enableFilters": true,
+        "showContactForm": true
+      },
+      "seo": {
+        "title": "Imóveis Premium - Aluguel por Temporada",
+        "description": "Encontre as melhores propriedades...",
+        "keywords": ["aluguel", "temporada", "Rio de Janeiro"]
+      }
+    },
+    "properties": [
+      {
+        "id": "prop123",
+        "name": "Casa na Praia",
+        "description": "Linda casa frente ao mar...",
+        "location": {
+          "address": "Rua da Praia, 123",
+          "city": "Rio de Janeiro",
+          "state": "RJ"
+        },
+        "pricing": {
+          "basePrice": 500,
+          "cleaningFee": 100,
+          "minimumStay": 2
+        },
+        "media": {
+          "photos": [
+            {
+              "url": "https://...",
+              "order": 1,
+              "isMain": true
+            }
+          ]
+        },
+        "amenities": ["Wi-Fi", "Piscina", "Estacionamento"],
+        "maxGuests": 6,
+        "bedrooms": 3,
+        "bathrooms": 2,
+        "featured": true,
+        "tenantId": "tenant123"
+      }
+    ]
+  }
+}
+
+// Criar inquérito de reserva
+POST /api/mini-site/tenant123
+{
+  "propertyId": "prop123",
+  "clientName": "João Silva",
+  "clientPhone": "5511888888888",
+  "clientEmail": "joao@email.com",
+  "checkIn": "2024-12-20",
+  "checkOut": "2024-12-25",
+  "guests": 4,
+  "message": "Gostaria de fazer uma reserva"
+}
+
+Response: {
+  "success": true,
+  "data": {
+    "inquiryId": "inquiry123",
+    "whatsappUrl": "https://wa.me/5511999999999?text=Olá...",
+    "estimatedResponse": "5 minutos"
+  }
+}
+```
+
+#### 🏠 `/api/mini-site/[tenantId]/properties/[propertyId]` - Detalhes da Propriedade
+```typescript
+GET /api/mini-site/tenant123/properties/prop123
+
+Response: {
+  "success": true,
+  "data": {
+    "config": { /* mesmo config do mini-site */ },
+    "property": {
+      /* detalhes completos da propriedade */
+      "policies": {
+        "checkIn": "15:00",
+        "checkOut": "11:00",
+        "cancellationPolicy": "Cancelamento flexível até 24h antes",
+        "houseRules": ["Não permitido fumar", "Silêncio após 22h"]
+      }
+    }
+  }
+}
 ```
 
 ### Funcionalidades por Endpoint
@@ -515,6 +702,94 @@ GET /api/analytics/properties?sortBy=revenue
 
 // Dados para gráficos
 GET /api/analytics/charts/revenue?period=6months
+```
+
+#### 🌐 `/api/mini-site/[tenantId]` - Mini-Site Público
+```typescript
+// Dados gerais do mini-site
+GET /api/mini-site/tenant123?utm_source=google
+
+Response: {
+  "success": true,
+  "data": {
+    "config": {
+      "tenantId": "tenant123",
+      "theme": { ... },
+      "contactInfo": { ... },
+      "seo": { ... }
+    },
+    "properties": [
+      {
+        "id": "prop_123",
+        "name": "Casa na Praia",
+        "pricing": { "basePrice": 500 },
+        "media": { "photos": [...] },
+        "availability": { "isAvailable": true }
+      }
+    ]
+  }
+}
+
+// Criar solicitação de reserva
+POST /api/mini-site/tenant123
+{
+  "propertyId": "prop_123",
+  "clientInfo": {
+    "name": "João Silva",
+    "phone": "+5511999999999"
+  },
+  "inquiryDetails": {
+    "checkIn": "2024-02-15",
+    "checkOut": "2024-02-18", 
+    "guests": 4
+  }
+}
+
+Response: {
+  "success": true,
+  "data": {
+    "inquiryId": "inq_456",
+    "whatsappUrl": "https://wa.me/5511988776655?text=...",
+    "message": "Inquiry created successfully"
+  }
+}
+```
+
+#### 🏠 `/api/mini-site/[tenantId]/properties/[propertyId]` - Propriedade Individual
+```typescript
+// Detalhes completos da propriedade
+GET /api/mini-site/tenant123/properties/prop_123
+
+Response: {
+  "success": true,
+  "data": {
+    "config": { ... },
+    "property": {
+      "id": "prop_123",
+      "name": "Casa na Praia",
+      "description": "Linda casa com vista para o mar",
+      "bedrooms": 3,
+      "bathrooms": 2,
+      "maxGuests": 8,
+      "media": {
+        "photos": [...],
+        "videos": [...],
+        "virtualTour": "..."
+      },
+      "amenities": ["piscina", "wifi", "ar condicionado"],
+      "pricing": {
+        "basePrice": 500,
+        "cleaningFee": 100,
+        "minimumStay": 2
+      },
+      "policies": {
+        "checkIn": "15:00",
+        "checkOut": "11:00",
+        "cancellationPolicy": "Flexível"
+      }
+    }
+  }
+}
 ```
 
 ## 📊 Modelos de Dados
@@ -717,6 +992,58 @@ interface Client {
 }
 ```
 
+### 🌐 MiniSiteConfig (Configuração do Mini-Site)
+```typescript
+interface MiniSiteConfig {
+  tenantId: string;
+  isActive: boolean;
+  customDomain?: string;
+  
+  theme: {
+    primaryColor: string;
+    secondaryColor: string;
+    accentColor: string;
+    backgroundColor: string;
+    textColor: string;
+    logoUrl?: string;
+    backgroundImage?: string;
+    fontFamily: 'modern' | 'classic' | 'elegant';
+    borderRadius: 'sharp' | 'rounded' | 'extra-rounded';
+  };
+  
+  contactInfo: {
+    whatsappNumber: string;
+    email?: string;
+    businessName: string;
+    businessDescription: string;
+    businessLogo?: string;
+  };
+  
+  seo: {
+    title: string;
+    description: string;
+    keywords: string[];
+    ogImage?: string;
+  };
+  
+  features: {
+    showPricing: boolean;
+    showAvailability: boolean;
+    enableVirtualTour: boolean;
+    showReviews: boolean;
+    enableMultiLanguage: boolean;
+  };
+  
+  analytics: {
+    googleAnalyticsId?: string;
+    enableTracking: boolean;
+  };
+  
+  createdAt: Date;
+  updatedAt: Date;
+}
+```
+
 ### 🔧 PricingRule (Regra de Preço)
 ```typescript
 interface PricingRule {
@@ -801,6 +1128,15 @@ locai/
 │   │   ├── analytics/page.tsx       # Analytics enterprise
 │   │   └── settings/page.tsx        # Configurações
 │   │
+│   ├── 📁 site/                     # Mini-sites públicos
+│   │   └── 📁 [tenantId]/           # Mini-site por tenant
+│   │       ├── page.tsx            # Listagem de propriedades
+│   │       ├── layout.tsx          # Layout público personalizado
+│   │       ├── loading.tsx         # Estados de carregamento
+│   │       └── 📁 property/
+│   │           └── 📁 [propertyId]/
+│   │               └── page.tsx    # Detalhes da propriedade
+│   │
 │   ├── globals.css                  # Estilos globais
 │   ├── layout.tsx                   # Layout raiz
 │   └── page.tsx                     # Homepage
@@ -861,12 +1197,17 @@ locai/
 │   │   ├── 📁 navigation/          # Navegação principal
 │   │   │   ├── Header/
 │   │   │   └── Sidebar/
-│   │   └── 📁 property/            # Propriedades
-│   │       ├── PropertyAmenities/
-│   │       ├── PropertyBasicInfo/
-│   │       ├── PropertyMediaUpload/
-│   │       ├── PropertyPricing/
-│   │       └── PropertySpecs/
+│   │   ├── 📁 property/            # Propriedades
+│   │   │   ├── PropertyAmenities/
+│   │   │   ├── PropertyBasicInfo/
+│   │   │   ├── PropertyMediaUpload/
+│   │   │   ├── PropertyPricing/
+│   │   │   └── PropertySpecs/
+│   │   └── 📁 mini-site/          # Mini-site público
+│   │       ├── MiniSiteLayout/     # Layout personalizado
+│   │       ├── PropertyGrid/       # Grid de propriedades públicas
+│   │       ├── PropertyCard/       # Cartão otimizado para público
+│   │       └── PropertyDetailView/ # Visualização detalhada
 │   │
 │   ├── 📁 templates/               # Templates de página
 │   │   └── 📁 dashboards/
@@ -898,7 +1239,8 @@ locai/
 │   │   ├── reservation.ts         # Serviço de reservas
 │   │   ├── pricing.ts             # Engine de precificação
 │   │   ├── conversation.ts        # Serviço de conversas
-│   │   └── analytics.ts           # Serviço de analytics
+│   │   ├── analytics.ts           # Serviço de analytics
+│   │   └── mini-site-service.ts   # Serviço do mini-site público
 │   │
 │   ├── 📁 utils/                  # Utilitários
 │   │   ├── errors.ts              # Tratamento de erros

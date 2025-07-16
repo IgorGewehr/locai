@@ -36,6 +36,7 @@ import {
   NotificationsActive,
   Assessment,
   AccountBalanceWallet,
+  Language,
 } from '@mui/icons-material';
 
 interface SidebarProps {
@@ -70,13 +71,18 @@ const menuItems = [
     icon: <Chat />,
   },
   {
+    text: 'Mini-Site',
+    href: '/dashboard/mini-site',
+    icon: <Language />,
+  },
+  {
     text: 'Financeiro',
     href: '/dashboard/financeiro',
     icon: <AccountBalance />,
     submenu: [
       {
         text: 'Transações',
-        href: '/dashboard/financeiro/transactions',
+        href: '/dashboard/financeiro/transacoes',
         icon: <Receipt />,
       },
       {

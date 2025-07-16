@@ -2,6 +2,7 @@ import {
   collection,
   doc,
   addDoc,
+  setDoc,
   updateDoc,
   deleteDoc,
   getDoc,
@@ -76,6 +77,21 @@ export class FirestoreService<T extends { id: string }> {
     return {
       id: docRef.id,
       ...data,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    } as T;
+  }
+
+  async set(id: string, data: T): Promise<T> {
+    const docRef = doc(db, this.collectionName, id);
+    await setDoc(docRef, {
+      ...data,
+      createdAt: Timestamp.now(),
+      updatedAt: Timestamp.now(),
+    });
+    return {
+      ...data,
+      id,
       createdAt: new Date(),
       updatedAt: new Date(),
     } as T;
@@ -217,6 +233,23 @@ export class FirestoreService<T extends { id: string }> {
         ...doc.data(),
       })) as T[];
       callback(data);
+    });
+  }
+
+  // Subscribe to a specific document
+  subscribeToDocument(id: string, callback: (data: T | null) => void): () => void {
+    const docRef = doc(db, this.collectionName, id);
+    
+    return onSnapshot(docRef, (snapshot: DocumentSnapshot) => {
+      if (snapshot.exists()) {
+        const data = {
+          id: snapshot.id,
+          ...snapshot.data(),
+        } as T;
+        callback(data);
+      } else {
+        callback(null);
+      }
     });
   }
 }

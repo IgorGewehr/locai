@@ -73,6 +73,9 @@ export async function PUT(request: NextRequest) {
       case 'billing':
         await settingsService.updateBillingSettings(tenantId, data);
         break;
+      case 'miniSite':
+        await settingsService.updateMiniSiteSettings(tenantId, data);
+        break;
       case 'whatsapp':
         // WhatsApp settings should be updated through the dedicated endpoint
         return NextResponse.json(

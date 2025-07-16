@@ -2,12 +2,21 @@ import makeWASocket, {
   DisconnectReason,
   fetchLatestBaileysVersion,
   makeCacheableSignalKeyStore,
-  makeInMemoryStore,
   proto,
   useMultiFileAuthState,
   WAMessageContent,
   WAMessageKey,
 } from '@whiskeysockets/baileys';
+
+// Fallback import for makeInMemoryStore
+let makeInMemoryStore: any;
+try {
+  const baileys = require('@whiskeysockets/baileys');
+  makeInMemoryStore = baileys.makeInMemoryStore;
+} catch (error) {
+  console.warn('makeInMemoryStore not available, using fallback');
+  makeInMemoryStore = null;
+}
 import { Boom } from '@hapi/boom';
 import pino from 'pino';
 import * as fs from 'fs';
@@ -117,9 +126,19 @@ export class WhatsAppSessionManager extends EventEmitter {
     
     const { state, saveCreds } = await useMultiFileAuthState(sessionPath);
     
-    const store = makeInMemoryStore({
-      logger: this.logger.child({ stream: 'store' }),
-    });
+    let store: any = null;
+    if (makeInMemoryStore) {
+      try {
+        store = makeInMemoryStore({
+          logger: this.logger.child({ stream: 'store' }),
+        });
+      } catch (error) {
+        this.logger.warn('Failed to create in-memory store, proceeding without store');
+        store = null;
+      }
+    } else {
+      this.logger.warn('makeInMemoryStore not available, proceeding without store');
+    }
     
     session.store = store;
 

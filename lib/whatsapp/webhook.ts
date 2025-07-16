@@ -83,7 +83,7 @@ export class WhatsAppWebhook {
     try {
       const body: WhatsAppWebhookData = await request.json()
 
-      )
+      console.log('Incoming webhook:', JSON.stringify(body, null, 2));
 
       // Verify webhook signature (recommended for production)
       if (!this.verifyWebhookSignature(request, body)) {
@@ -174,8 +174,7 @@ export class WhatsAppWebhook {
 
     // Update template status in database
     // You can implement template management here
-
-    status: ${status}`)
+    console.log(`Template ${message_template_name} status: ${status}`);
   }
 
   private async handlePhoneNumberUpdate(value: any): Promise<void> {

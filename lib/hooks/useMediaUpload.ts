@@ -2,7 +2,6 @@
 import { useState, useCallback } from 'react'
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage'
 import { storage } from '@/lib/firebase/config'
-import { UploadedFile } from '@/lib/types/property'
 import { 
   validateFileType, 
   validateFileSize, 
@@ -10,6 +9,12 @@ import {
   compressImage,
   isImageFile
 } from '@/lib/utils/mediaUtils'
+
+export interface UploadedFile {
+  name: string
+  url: string
+  size: number
+}
 
 export interface UseMediaUploadReturn {
   uploadFiles: (files: File[], type: 'image' | 'video') => Promise<UploadedFile[]>

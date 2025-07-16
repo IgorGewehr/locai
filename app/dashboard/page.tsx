@@ -27,6 +27,7 @@ import type { DashboardStats } from '@/lib/types';
 import { propertyService, reservationService, clientService, conversationService } from '@/lib/firebase/firestore';
 import { db } from '@/lib/firebase/config';
 import { collection, query, where, getDocs, orderBy, limit, Timestamp } from 'firebase/firestore';
+import MiniSiteWidget from '@/components/organisms/marketing/MiniSiteWidget';
 
 const initialStats: DashboardStats = {
   totalProperties: 0,
@@ -416,8 +417,12 @@ export default function DashboardPage() {
           />
         </Grid>
 
-        {/* Second Row - Detailed Information Cards (2 Equal Cards) */}
-        <Grid item xs={12} lg={6}>
+        {/* Second Row - Detailed Information Cards (3 Equal Cards) */}
+        <Grid item xs={12} lg={4}>
+          <MiniSiteWidget tenantId="default-tenant" />
+        </Grid>
+        
+        <Grid item xs={12} lg={4}>
           <Card 
             sx={{ 
               height: { xs: 'auto', lg: 400 },
@@ -518,7 +523,7 @@ export default function DashboardPage() {
           </Card>
         </Grid>
 
-        <Grid item xs={12} lg={6}>
+        <Grid item xs={12} lg={4}>
           <Card 
             sx={{ 
               height: { xs: 'auto', lg: 400 },
