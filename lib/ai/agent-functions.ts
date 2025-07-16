@@ -697,6 +697,16 @@ export class AIFunctionExecutor {
           tenantId: this.tenantId
         })
       }
+      
+      // Priorizar propriedades em destaque primeiro
+      properties = properties.sort((a, b) => {
+        if (a.isFeatured && !b.isFeatured) return -1
+        if (!a.isFeatured && b.isFeatured) return 1
+        return 0
+      })
+      
+      // Limitar a 5 propriedades para não sobrecarregar o cliente
+      properties = properties.slice(0, 5)
 
       // Apenas calcular preços se tiver datas válidas
       let propertiesWithPrices;

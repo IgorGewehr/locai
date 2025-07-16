@@ -22,6 +22,7 @@ import {
   Divider,
   Badge,
   Button,
+  CircularProgress,
 } from '@mui/material';
 import {
   Search,
@@ -40,6 +41,8 @@ import {
   AccessTime,
 } from '@mui/icons-material';
 import { useRouter } from 'next/navigation';
+import { collection, getDocs, query, orderBy, limit } from 'firebase/firestore';
+import { db } from '@/lib/firebase/config';
 
 interface Conversation {
   id: string;
@@ -64,7 +67,53 @@ export default function ConversationsPage() {
   const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null);
   const [menuAnchor, setMenuAnchor] = useState<null | HTMLElement>(null);
   const [filterStatus, setFilterStatus] = useState<string>('all');
+  const [loading, setLoading] = useState(true);
   const router = useRouter();
+
+  // Carregar conversas do Firestore
+  useEffect(() => {
+    const fetchConversations = async () => {
+      try {
+        const conversationsRef = collection(db, 'conversations');
+        const q = query(conversationsRef, orderBy('lastMessageAt', 'desc'), limit(100));
+        const querySnapshot = await getDocs(q);
+        
+        const fetchedConversations: Conversation[] = [];
+        
+        querySnapshot.forEach((doc) => {
+          const data = doc.data();
+          
+          // Mapear dados do Firestore para interface Conversation
+          const conversation: Conversation = {
+            id: doc.id,
+            clientName: data.clientName || 'Cliente',
+            clientPhone: data.clientPhone || '',
+            lastMessage: data.lastMessage || '',
+            lastMessageTime: data.lastMessageAt?.toDate() || new Date(),
+            status: data.status || 'active',
+            priority: data.priority || 'medium',
+            unreadCount: data.unreadCount || 0,
+            isStarred: data.isStarred || false,
+            sentiment: data.sentiment || 'neutral',
+            aiConfidence: data.confidence || 0,
+            tags: data.tags || [],
+            assignedAgent: data.assignedAgent || 'AI Sofia',
+          };
+          
+          fetchedConversations.push(conversation);
+        });
+        
+        setConversations(fetchedConversations);
+        console.log('Conversas carregadas:', fetchedConversations.length);
+      } catch (error) {
+        console.error('Erro ao carregar conversas:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchConversations();
+  }, []);
 
   const filteredConversations = conversations.filter(conv => {
     const matchesSearch = conv.clientName.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -310,8 +359,22 @@ export default function ConversationsPage() {
           <Typography variant="h6" gutterBottom>
             Lista de Conversas
           </Typography>
-          <List>
-            {filteredConversations.map((conversation, index) => (
+          {loading ? (
+            <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
+              <CircularProgress />
+            </Box>
+          ) : filteredConversations.length === 0 ? (
+            <Box sx={{ textAlign: 'center', py: 4 }}>
+              <Typography variant="h6" color="text.secondary">
+                {conversations.length === 0 ? 'Nenhuma conversa encontrada' : 'Nenhuma conversa corresponde aos filtros'}
+              </Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+                {conversations.length === 0 ? 'Aguardando primeira interação via WhatsApp' : 'Tente ajustar os filtros de busca'}
+              </Typography>
+            </Box>
+          ) : (
+            <List>
+              {filteredConversations.map((conversation, index) => (
               <Box key={conversation.id}>
                 <ListItem
                   sx={{
@@ -434,8 +497,9 @@ export default function ConversationsPage() {
                 </ListItem>
                 {index < filteredConversations.length - 1 && <Divider />}
               </Box>
-            ))}
-          </List>
+              ))}
+            </List>
+          )}
         </CardContent>
       </Card>
 

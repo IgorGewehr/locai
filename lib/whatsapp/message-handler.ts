@@ -515,33 +515,37 @@ export class WhatsAppMessageHandler {
       return
     }
 
-    // Send only the first property with photo - no duplicated info
-    const property = properties[0]
-    
-    // Send main photo first
-    if (property.photos && property.photos.length > 0) {
-      await withRetry(
-        () => this.whatsappClient.sendImage(
-          to,
-          property.photos[0].url,
-          `${property.title} - ${property.address}`
-        ),
-        2,
-        1000
-      )
+    // Send photos for each property with organized info
+    for (const property of properties) {
+      // Send main photo first
+      if (property.photos && property.photos.length > 0) {
+        const amenitiesText = property.amenities ? property.amenities.slice(0, 3).join(', ') : 'Não informado'
+        const caption = `🏠 *${property.title}*\n- ${property.address}\n- ${property.bedrooms} quarto(s), ${property.bathrooms} banheiro(s)\n- Preço base: R$ ${property.basePrice}/noite\n- Taxa de limpeza: R$ ${property.cleaningFee}\n- Comodidades: ${amenitiesText}\n- Permite pets: ${property.allowsPets ? 'Sim' : 'Não'}`
+        
+        await withRetry(
+          () => this.whatsappClient.sendImage(
+            to,
+            property.photos[0].url,
+            caption
+          ),
+          2,
+          1000
+        )
+        
+        // Delay between properties
+        await this.delay(1500)
+      }
     }
 
-    // Offer to see more or get details
-    if (totalFound > 3) {
-      await withRetry(
-        () => this.whatsappClient.sendText(
-          to,
-          `Posso mostrar mais ${totalFound - 3} propriedades ou enviar mais detalhes de alguma específica. O que prefere?`
-        ),
-        2,
-        1000
-      )
-    }
+    // Final message asking for more info
+    await withRetry(
+      () => this.whatsappClient.sendText(
+        to,
+        `Qual destas propriedades mais te interessou? Preciso saber as datas e quantas pessoas para calcular o preço final.`
+      ),
+      2,
+      1000
+    )
   }
 
   private async sendReservationConfirmation(to: string, reservationData: any): Promise<void> {

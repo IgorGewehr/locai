@@ -107,7 +107,15 @@ class ConversationService extends FirestoreService<Conversation> {
           leadScore: 0,
           followUpRequired: false,
           notes: ''
-        }
+        },
+        // Campos necessários para a página de conversas
+        clientName: clientName || client.name || 'Cliente',
+        clientPhone: phoneNumber,
+        lastMessage: 'Conversa iniciada',
+        assignedAgent: 'AI Sofia',
+        unreadCount: 0,
+        isStarred: false,
+        tags: []
       }
 
       return await this.create(conversation)
@@ -145,7 +153,8 @@ class ConversationService extends FirestoreService<Conversation> {
 
       await this.update(conversationId, {
         messages: updatedMessages,
-        lastMessageAt: message.timestamp
+        lastMessageAt: message.timestamp,
+        lastMessage: message.content.substring(0, 100) // Update lastMessage field
       })
 
       return message
@@ -218,7 +227,11 @@ class ConversationService extends FirestoreService<Conversation> {
 
       // Filter out undefined values before updating
       const filteredUpdates = Object.fromEntries(
-        Object.entries(updates).filter(([_, value]) => value !== undefined && value !== null)
+        Object.entries(updates).filter(([_, value]) => {
+          return value !== undefined && 
+                 value !== null && 
+                 !(typeof value === 'object' && value !== null && Object.keys(value).length === 0)
+        })
       )
 
       if (Object.keys(filteredUpdates).length > 0) {
