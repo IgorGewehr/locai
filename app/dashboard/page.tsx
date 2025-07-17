@@ -525,87 +525,202 @@ export default function DashboardPage() {
               }
             }}
           >
-            <CardContent sx={{ p: 4, height: '100%' }}>
+            <CardContent sx={{ p: 4, height: '100%', display: 'flex', flexDirection: 'column' }}>
               <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 3 }}>
-                <Typography 
-                  variant="h5" 
-                  component="h2"
-                  sx={{ 
-                    color: '#ffffff',
-                    fontWeight: 700,
-                    fontSize: '1.5rem'
-                  }}
-                >
-                  Status WhatsApp
-                </Typography>
-                <Box
-                  sx={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    width: 56,
-                    height: 56,
-                    borderRadius: '16px',
-                    background: 'linear-gradient(135deg, #10b981, #059669)',
-                    boxShadow: '0 8px 24px rgba(16, 185, 129, 0.4)',
-                  }}
-                >
-                  <WhatsApp sx={{ color: 'white', fontSize: 28 }} />
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                  <Box
+                    sx={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      width: 56,
+                      height: 56,
+                      borderRadius: '16px',
+                      background: 'linear-gradient(135deg, #10b981, #059669)',
+                      boxShadow: '0 8px 24px rgba(16, 185, 129, 0.4)',
+                    }}
+                  >
+                    <WhatsApp sx={{ color: 'white', fontSize: 28 }} />
+                  </Box>
+                  <Box>
+                    <Typography 
+                      variant="h5" 
+                      component="h2"
+                      sx={{ 
+                        color: '#ffffff',
+                        fontWeight: 700,
+                        fontSize: '1.5rem',
+                        mb: 0.5
+                      }}
+                    >
+                      WhatsApp AI
+                    </Typography>
+                    <Chip 
+                      label={whatsappStats.connected ? "Conectado" : "Desconectado"} 
+                      sx={{
+                        background: whatsappStats.connected ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)',
+                        color: whatsappStats.connected ? '#10b981' : '#ef4444',
+                        border: whatsappStats.connected ? '1px solid rgba(16, 185, 129, 0.3)' : '1px solid rgba(239, 68, 68, 0.3)',
+                        fontWeight: 600,
+                        fontSize: '0.875rem',
+                        height: 28,
+                      }}
+                    />
+                  </Box>
                 </Box>
+                <IconButton 
+                  href="/dashboard/settings"
+                  sx={{
+                    background: 'rgba(16, 185, 129, 0.1)',
+                    border: '1px solid rgba(16, 185, 129, 0.2)',
+                    color: '#10b981',
+                    '&:hover': {
+                      background: 'rgba(16, 185, 129, 0.2)',
+                      transform: 'scale(1.05)',
+                    }
+                  }}
+                >
+                  <Settings />
+                </IconButton>
               </Box>
 
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 4 }}>
-                <Chip 
-                  label={whatsappStats.connected ? "Conectado" : "Desconectado"} 
-                  sx={{
-                    background: whatsappStats.connected ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)',
-                    color: whatsappStats.connected ? '#10b981' : '#ef4444',
-                    border: whatsappStats.connected ? '1px solid rgba(16, 185, 129, 0.3)' : '1px solid rgba(239, 68, 68, 0.3)',
-                    fontWeight: 600,
-                    fontSize: '1rem',
-                    px: 2,
-                    py: 1,
-                  }}
-                />
+              <Box sx={{ mb: 4 }}>
                 <Typography 
                   variant="body1" 
                   sx={{ 
                     color: 'rgba(255, 255, 255, 0.8)',
-                    fontSize: '1.125rem'
+                    fontSize: '1rem'
                   }}
                 >
-                  {whatsappStats.connected ? "Sistema funcionando perfeitamente" : "Configure WhatsApp nas configurações"}
+                  {whatsappStats.connected 
+                    ? "Atendimento automatizado funcionando perfeitamente" 
+                    : "Configure o WhatsApp nas configurações para ativar o atendimento automatizado"}
                 </Typography>
               </Box>
 
-              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <Typography variant="body1" sx={{ color: 'rgba(255, 255, 255, 0.9)', fontSize: '1.125rem' }}>
-                    Mensagens hoje:
-                  </Typography>
-                  <Typography variant="h6" sx={{ color: '#ffffff', fontWeight: 700, fontSize: '1.25rem' }}>
+              <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 2.5 }}>
+                <Box 
+                  sx={{ 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    justifyContent: 'space-between',
+                    p: 2,
+                    borderRadius: '12px',
+                    background: 'rgba(255, 255, 255, 0.05)',
+                    border: '1px solid rgba(255, 255, 255, 0.1)',
+                    transition: 'all 0.2s',
+                    '&:hover': {
+                      background: 'rgba(255, 255, 255, 0.08)',
+                    }
+                  }}
+                >
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                    <Typography variant="body1" sx={{ color: 'rgba(255, 255, 255, 0.9)' }}>
+                      💬 Mensagens hoje
+                    </Typography>
+                  </Box>
+                  <Typography variant="h6" sx={{ color: '#ffffff', fontWeight: 700 }}>
                     {loading ? '-' : whatsappStats.messagesTotal}
                   </Typography>
                 </Box>
 
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <Typography variant="body1" sx={{ color: 'rgba(255, 255, 255, 0.9)', fontSize: '1.125rem' }}>
-                    Conversas ativas:
-                  </Typography>
-                  <Typography variant="h6" sx={{ color: '#ffffff', fontWeight: 700, fontSize: '1.25rem' }}>
+                <Box 
+                  sx={{ 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    justifyContent: 'space-between',
+                    p: 2,
+                    borderRadius: '12px',
+                    background: 'rgba(255, 255, 255, 0.05)',
+                    border: '1px solid rgba(255, 255, 255, 0.1)',
+                    transition: 'all 0.2s',
+                    '&:hover': {
+                      background: 'rgba(255, 255, 255, 0.08)',
+                    }
+                  }}
+                >
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                    <Typography variant="body1" sx={{ color: 'rgba(255, 255, 255, 0.9)' }}>
+                      👥 Conversas ativas
+                    </Typography>
+                  </Box>
+                  <Typography variant="h6" sx={{ color: '#ffffff', fontWeight: 700 }}>
                     {loading ? '-' : whatsappStats.activeConversations}
                   </Typography>
                 </Box>
 
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <Typography variant="body1" sx={{ color: 'rgba(255, 255, 255, 0.9)', fontSize: '1.125rem' }}>
-                    Tempo médio resposta:
-                  </Typography>
-                  <Typography variant="h6" sx={{ color: '#ffffff', fontWeight: 700, fontSize: '1.25rem' }}>
+                <Box 
+                  sx={{ 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    justifyContent: 'space-between',
+                    p: 2,
+                    borderRadius: '12px',
+                    background: 'rgba(255, 255, 255, 0.05)',
+                    border: '1px solid rgba(255, 255, 255, 0.1)',
+                    transition: 'all 0.2s',
+                    '&:hover': {
+                      background: 'rgba(255, 255, 255, 0.08)',
+                    }
+                  }}
+                >
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                    <Typography variant="body1" sx={{ color: 'rgba(255, 255, 255, 0.9)' }}>
+                      ⚡ Tempo de resposta
+                    </Typography>
+                  </Box>
+                  <Typography variant="h6" sx={{ color: '#ffffff', fontWeight: 700 }}>
                     {loading ? '-' : whatsappStats.avgResponseTime > 0 ? `${(isNaN(whatsappStats.avgResponseTime) ? 0 : whatsappStats.avgResponseTime).toFixed(1)}s` : 'N/A'}
                   </Typography>
                 </Box>
+
+                <Box 
+                  sx={{ 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    justifyContent: 'space-between',
+                    p: 2,
+                    borderRadius: '12px',
+                    background: 'rgba(16, 185, 129, 0.1)',
+                    border: '1px solid rgba(16, 185, 129, 0.2)',
+                  }}
+                >
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                    <Typography variant="body1" sx={{ color: 'rgba(255, 255, 255, 0.9)' }}>
+                      🤖 IA Ativa
+                    </Typography>
+                  </Box>
+                  <Typography variant="h6" sx={{ color: '#10b981', fontWeight: 700 }}>
+                    {whatsappStats.connected ? 'GPT-4' : 'Offline'}
+                  </Typography>
+                </Box>
               </Box>
+
+              {whatsappStats.connected && (
+                <>
+                  <Divider sx={{ borderColor: 'rgba(255, 255, 255, 0.1)', my: 3 }} />
+                  <Box sx={{ display: 'flex', gap: 2 }}>
+                    <Button
+                      variant="contained"
+                      startIcon={<WhatsApp />}
+                      href="/dashboard/conversations"
+                      sx={{ 
+                        flex: 1,
+                        background: 'linear-gradient(135deg, #10b981, #059669)',
+                        '&:hover': {
+                          background: 'linear-gradient(135deg, #059669, #047857)',
+                        },
+                        textTransform: 'none',
+                        fontWeight: 600,
+                        py: 1.5,
+                        borderRadius: '12px',
+                      }}
+                    >
+                      Ver Conversas
+                    </Button>
+                  </Box>
+                </>
+              )}
             </CardContent>
           </Card>
         </Grid>
@@ -626,79 +741,202 @@ export default function DashboardPage() {
               }
             }}
           >
-            <CardContent sx={{ p: 4, height: '100%' }}>
+            <CardContent sx={{ p: 4, height: '100%', display: 'flex', flexDirection: 'column' }}>
               <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 3 }}>
-                <Typography 
-                  variant="h5" 
-                  component="h2"
-                  sx={{ 
-                    color: '#ffffff',
-                    fontWeight: 700,
-                    fontSize: '1.5rem'
-                  }}
-                >
-                  Atividade Recente
-                </Typography>
-                <Box
-                  sx={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    width: 56,
-                    height: 56,
-                    borderRadius: '16px',
-                    background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
-                    boxShadow: '0 8px 24px rgba(99, 102, 241, 0.4)',
-                  }}
-                >
-                  <TrendingUp sx={{ color: 'white', fontSize: 28 }} />
-                </Box>
-              </Box>
-
-              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3, mt: 4 }}>
-                {loading ? (
-                  Array.from({ length: 4 }).map((_, index) => (
-                    <Skeleton key={index} variant="rectangular" height={60} sx={{ borderRadius: '12px' }} />
-                  ))
-                ) : recentActivity.length > 0 ? (
-                  recentActivity.map((item, index) => (
-                  <Box 
-                    key={index}
-                    sx={{ 
-                      display: 'flex', 
-                      justifyContent: 'space-between', 
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                  <Box
+                    sx={{
+                      display: 'flex',
                       alignItems: 'center',
-                      p: 2,
-                      borderRadius: '12px',
-                      background: 'rgba(255, 255, 255, 0.05)',
-                      border: '1px solid rgba(255, 255, 255, 0.1)',
+                      justifyContent: 'center',
+                      width: 56,
+                      height: 56,
+                      borderRadius: '16px',
+                      background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
+                      boxShadow: '0 8px 24px rgba(99, 102, 241, 0.4)',
                     }}
                   >
+                    <TrendingUp sx={{ color: 'white', fontSize: 28 }} />
+                  </Box>
+                  <Box>
+                    <Typography 
+                      variant="h5" 
+                      component="h2"
+                      sx={{ 
+                        color: '#ffffff',
+                        fontWeight: 700,
+                        fontSize: '1.5rem',
+                        mb: 0.5
+                      }}
+                    >
+                      Atividade Recente
+                    </Typography>
+                    <Typography 
+                      variant="body2" 
+                      sx={{ 
+                        color: 'rgba(255, 255, 255, 0.7)',
+                        fontSize: '0.875rem'
+                      }}
+                    >
+                      Últimas 24 horas
+                    </Typography>
+                  </Box>
+                </Box>
+                <IconButton 
+                  onClick={refreshStats}
+                  sx={{
+                    background: 'rgba(99, 102, 241, 0.1)',
+                    border: '1px solid rgba(99, 102, 241, 0.2)',
+                    color: '#6366f1',
+                    '&:hover': {
+                      background: 'rgba(99, 102, 241, 0.2)',
+                      transform: 'scale(1.05)',
+                    }
+                  }}
+                >
+                  <Refresh />
+                </IconButton>
+              </Box>
+
+              <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 2, overflow: 'auto' }}>
+                {loading ? (
+                  Array.from({ length: 4 }).map((_, index) => (
+                    <Skeleton key={index} variant="rectangular" height={70} sx={{ borderRadius: '12px' }} />
+                  ))
+                ) : recentActivity.length > 0 ? (
+                  recentActivity.map((item, index) => {
+                    const getActivityIcon = () => {
+                      if (item.action?.includes('reserva') || item.description?.includes('Reserva')) {
+                        return { icon: '📅', color: '#8b5cf6' };
+                      }
+                      if (item.action?.includes('mensagem') || item.action?.includes('WhatsApp')) {
+                        return { icon: '💬', color: '#10b981' };
+                      }
+                      if (item.action?.includes('cliente')) {
+                        return { icon: '👤', color: '#3b82f6' };
+                      }
+                      if (item.action?.includes('propriedade')) {
+                        return { icon: '🏠', color: '#f59e0b' };
+                      }
+                      return { icon: '📌', color: '#6b7280' };
+                    };
+
+                    const { icon, color } = getActivityIcon();
+                    const timeAgo = item.timestamp ? new Date(item.timestamp.toDate ? item.timestamp.toDate() : item.timestamp) : new Date();
+                    const formattedTime = new Intl.RelativeTimeFormat('pt-BR', { numeric: 'auto' }).format(
+                      Math.ceil((timeAgo.getTime() - new Date().getTime()) / (1000 * 60)),
+                      'minute'
+                    );
+
+                    return (
+                      <Box 
+                        key={index}
+                        sx={{ 
+                          display: 'flex', 
+                          gap: 2,
+                          p: 2,
+                          borderRadius: '12px',
+                          background: 'rgba(255, 255, 255, 0.05)',
+                          border: '1px solid rgba(255, 255, 255, 0.1)',
+                          transition: 'all 0.2s',
+                          cursor: 'pointer',
+                          '&:hover': {
+                            background: 'rgba(255, 255, 255, 0.08)',
+                            transform: 'translateX(4px)',
+                          }
+                        }}
+                        onClick={() => {
+                          if (item.link) {
+                            window.location.href = item.link;
+                          }
+                        }}
+                      >
+                        <Box
+                          sx={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            width: 40,
+                            height: 40,
+                            borderRadius: '10px',
+                            background: `${color}20`,
+                            flexShrink: 0,
+                          }}
+                        >
+                          <Typography sx={{ fontSize: '1.25rem' }}>{icon}</Typography>
+                        </Box>
+                        <Box sx={{ flex: 1, minWidth: 0 }}>
+                          <Typography 
+                            variant="body2" 
+                            sx={{ 
+                              color: '#ffffff',
+                              fontSize: '0.9rem',
+                              fontWeight: 500,
+                              mb: 0.5,
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                              whiteSpace: 'nowrap',
+                            }}
+                          >
+                            {item.action || item.description || 'Atividade'}
+                          </Typography>
+                          <Typography 
+                            variant="caption" 
+                            sx={{ 
+                              color: 'rgba(255, 255, 255, 0.6)',
+                              fontSize: '0.8rem'
+                            }}
+                          >
+                            {formattedTime}
+                          </Typography>
+                        </Box>
+                      </Box>
+                    );
+                  })
+                ) : (
+                  <Box 
+                    sx={{ 
+                      flex: 1, 
+                      display: 'flex', 
+                      flexDirection: 'column', 
+                      alignItems: 'center', 
+                      justifyContent: 'center',
+                      gap: 2
+                    }}
+                  >
+                    <Box
+                      sx={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        width: 80,
+                        height: 80,
+                        borderRadius: '20px',
+                        background: 'rgba(99, 102, 241, 0.1)',
+                      }}
+                    >
+                      <Typography sx={{ fontSize: '2.5rem' }}>🎯</Typography>
+                    </Box>
                     <Typography 
                       variant="body1" 
                       sx={{ 
-                        color: '#ffffff',
-                        fontSize: '1rem',
-                        fontWeight: 500
+                        color: 'rgba(255, 255, 255, 0.7)', 
+                        textAlign: 'center' 
                       }}
                     >
-                      {item.action || item.description || 'Atividade'}
+                      Nenhuma atividade nas últimas 24 horas
                     </Typography>
                     <Typography 
                       variant="caption" 
                       sx={{ 
-                        color: 'rgba(255, 255, 255, 0.85)',
-                        fontSize: '0.875rem'
+                        color: 'rgba(255, 255, 255, 0.5)', 
+                        textAlign: 'center',
+                        maxWidth: '80%'
                       }}
                     >
-                      {item.timestamp ? new Date(item.timestamp.toDate()).toLocaleString('pt-BR') : 'Agora'}
+                      As atividades aparecerão aqui quando houver novas reservas, mensagens ou ações no sistema
                     </Typography>
                   </Box>
-                  ))
-                ) : (
-                  <Typography variant="body2" sx={{ color: 'rgba(255, 255, 255, 0.85)', textAlign: 'center', mt: 4 }}>
-                    Nenhuma atividade recente
-                  </Typography>
                 )}
               </Box>
             </CardContent>

@@ -37,6 +37,26 @@ import {
 
 export const AI_FUNCTIONS: AIFunction[] = [
   {
+    name: 'schedule_property_viewing',
+    description: 'Agendar uma visita ao imóvel para o cliente',
+    parameters: {
+      type: 'object',
+      properties: {
+        propertyId: { type: 'string', description: 'ID do imóvel' },
+        clientName: { type: 'string', description: 'Nome do cliente' },
+        clientPhone: { type: 'string', description: 'Telefone do cliente' },
+        clientEmail: { type: 'string', description: 'Email do cliente (opcional)' },
+        viewingDate: { type: 'string', description: 'Data da visita (YYYY-MM-DD)' },
+        viewingTime: { type: 'string', description: 'Horário da visita (HH:MM)' },
+        notes: { type: 'string', description: 'Observações sobre a visita' }
+      },
+      required: ['propertyId', 'clientName', 'clientPhone', 'viewingDate', 'viewingTime']
+    },
+    autoExecute: true,
+    requiresApproval: false,
+    priority: 1
+  },
+  {
     name: 'create_or_update_lead',
     description: 'Criar ou atualizar um lead no CRM com base na conversa',
     parameters: {
@@ -570,6 +590,9 @@ export class AIFunctionExecutor {
   async executeFunctionCall(functionName: string, args: AIFunctionArgs): Promise<AIFunctionResponse> {
     console.log(`🔧 Executing function: ${functionName} with args:`, args);
     switch (functionName) {
+      case 'schedule_property_viewing':
+        return await this.schedulePropertyViewing(args as any)
+      
       case 'search_properties':
         return await this.searchProperties(args as SearchPropertiesArgs)
       
@@ -672,6 +695,70 @@ export class AIFunctionExecutor {
       
       default:
         throw new Error(`Função não reconhecida: ${functionName}`)
+    }
+  }
+
+  private async schedulePropertyViewing(args: any): Promise<any> {
+    const { propertyId, clientName, clientPhone, clientEmail, viewingDate, viewingTime, notes } = args
+    
+    try {
+      // Criar ou atualizar cliente
+      const client = await clientServiceWrapper.createOrUpdate({
+        name: clientName,
+        phone: clientPhone,
+        email: clientEmail || undefined,
+        tenantId: this.tenantId,
+        source: 'whatsapp'
+      })
+
+      // Buscar propriedade
+      const property = await propertyService.getById(propertyId)
+      if (!property) {
+        return {
+          success: false,
+          error: 'Propriedade não encontrada'
+        }
+      }
+
+      // Criar tarefa no CRM para a visita
+      const viewingDateTime = new Date(`${viewingDate}T${viewingTime}:00`)
+      
+      await crmService.createTask({
+        leadId: client.id,
+        title: `Visita ao imóvel: ${property.title || property.name}`,
+        description: `Visita agendada para ${format(viewingDateTime, "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}. ${notes || ''}`,
+        dueDate: viewingDateTime,
+        priority: TaskPriority.HIGH,
+        assignedTo: 'system',
+        tenantId: this.tenantId
+      })
+
+      // Agendar follow-up automático
+      const followUpDate = addDays(viewingDateTime, 1)
+      await this.scheduleFollowUp({
+        conversationId: '', // Será preenchido pelo contexto
+        date: format(followUpDate, 'yyyy-MM-dd'),
+        message: `Olá ${clientName}! Como foi sua visita ao ${property.title || property.name}? Gostaria de prosseguir com a reserva?`,
+        type: 'post_viewing'
+      })
+
+      return {
+        success: true,
+        viewing: {
+          propertyId,
+          propertyName: property.title || property.name,
+          clientName,
+          date: format(viewingDateTime, "dd/MM/yyyy", { locale: ptBR }),
+          time: format(viewingDateTime, "HH:mm", { locale: ptBR }),
+          address: property.address || property.location
+        },
+        message: `Visita agendada com sucesso! Confirmamos para ${format(viewingDateTime, "dd/MM/yyyy 'às' HH:mm", { locale: ptBR })}. Endereço: ${property.address || property.location}.`
+      }
+    } catch (error) {
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Erro ao agendar visita'
+      }
     }
   }
 
@@ -939,6 +1026,33 @@ export class AIFunctionExecutor {
         paymentMethod: paymentMethod || 'pix',
         autoCharge: true // Ativar cobrança automática via WhatsApp
       })
+
+      // Atualizar disponibilidade do imóvel
+      if (property) {
+        try {
+          // Adicionar período reservado às datas bloqueadas
+          const blockedDates = property.blockedDates || []
+          const startDate = new Date(checkIn)
+          const endDate = new Date(checkOut)
+          
+          // Adicionar cada dia do período como bloqueado
+          for (let date = new Date(startDate); date <= endDate; date.setDate(date.getDate() + 1)) {
+            const dateStr = format(date, 'yyyy-MM-dd')
+            if (!blockedDates.includes(dateStr)) {
+              blockedDates.push(dateStr)
+            }
+          }
+          
+          await propertyService.update(propertyId, {
+            blockedDates,
+            updatedAt: new Date()
+          })
+          
+          console.log(`✅ Disponibilidade do imóvel ${propertyId} atualizada para o período ${checkIn} - ${checkOut}`)
+        } catch (error) {
+          console.error('❌ Erro ao atualizar disponibilidade do imóvel:', error)
+        }
+      }
 
       return {
         success: true,

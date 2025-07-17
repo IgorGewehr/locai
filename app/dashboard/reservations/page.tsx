@@ -54,7 +54,10 @@ import {
   Refresh,
   Home,
   Person,
-  Receipt
+  Receipt,
+  Event,
+  House,
+  LocationOn
 } from '@mui/icons-material';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -72,6 +75,7 @@ export default function ReservationsPage() {
   const [filteredReservations, setFilteredReservations] = useState<ReservationWithDetails[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
+  const [typeFilter, setTypeFilter] = useState('all'); // New filter for reservation vs visit
   const [paymentFilter, setPaymentFilter] = useState('all');
   const [selectedReservation, setSelectedReservation] = useState<ReservationWithDetails | null>(null);
   const [detailsOpen, setDetailsOpen] = useState(false);
@@ -90,6 +94,21 @@ export default function ReservationsPage() {
       );
     }
 
+    // Type filter (reservation vs visit)
+    if (typeFilter !== 'all') {
+      if (typeFilter === 'visit') {
+        filtered = filtered.filter(reservation => 
+          reservation.status === 'visit' || 
+          (reservation.totalPrice === 0 && reservation.status === 'pending')
+        );
+      } else if (typeFilter === 'reservation') {
+        filtered = filtered.filter(reservation => 
+          reservation.status !== 'visit' && 
+          !(reservation.totalPrice === 0 && reservation.status === 'pending')
+        );
+      }
+    }
+
     // Status filter
     if (statusFilter !== 'all') {
       filtered = filtered.filter(reservation => reservation.status === statusFilter);
@@ -101,7 +120,7 @@ export default function ReservationsPage() {
     }
 
     setFilteredReservations(filtered);
-  }, [reservations, searchTerm, statusFilter, paymentFilter]);
+  }, [reservations, searchTerm, statusFilter, typeFilter, paymentFilter]);
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -110,6 +129,7 @@ export default function ReservationsPage() {
       case 'checked_in': return 'info';
       case 'checked_out': return 'default';
       case 'cancelled': return 'error';
+      case 'visit': return 'secondary';
       default: return 'default';
     }
   };
@@ -222,7 +242,7 @@ export default function ReservationsPage() {
         mb: 3 
       }}>
         <Typography variant="h4" component="h1" fontWeight="bold">
-          Reservas
+          Reservas e Visitas
         </Typography>
         <Box sx={{ 
           display: 'flex', 
@@ -232,11 +252,11 @@ export default function ReservationsPage() {
         }}>
           <Button
             variant="outlined"
-            startIcon={<Download />}
-            onClick={() => {/* Implementar export */}}
+            startIcon={<Event />}
+            onClick={() => router.push('/dashboard/reservations/create?type=visit')}
             sx={{ display: { xs: 'none', sm: 'flex' } }}
           >
-            Exportar
+            Agendar Visita
           </Button>
           <Button
             variant="contained"
@@ -269,7 +289,22 @@ export default function ReservationsPage() {
               />
             </Grid>
 
-            <Grid item xs={6} md={2}>
+            <Grid item xs={6} sm={3} md={2}>
+              <FormControl fullWidth>
+                <InputLabel>Tipo</InputLabel>
+                <Select
+                  value={typeFilter}
+                  label="Tipo"
+                  onChange={(e) => setTypeFilter(e.target.value)}
+                >
+                  <MenuItem value="all">Todos</MenuItem>
+                  <MenuItem value="reservation">Reservas</MenuItem>
+                  <MenuItem value="visit">Visitas</MenuItem>
+                </Select>
+              </FormControl>
+            </Grid>
+
+            <Grid item xs={6} sm={3} md={2}>
               <FormControl fullWidth>
                 <InputLabel>Status</InputLabel>
                 <Select
@@ -283,11 +318,12 @@ export default function ReservationsPage() {
                   <MenuItem value="checked_in">Check-in</MenuItem>
                   <MenuItem value="checked_out">Check-out</MenuItem>
                   <MenuItem value="cancelled">Cancelada</MenuItem>
+                  <MenuItem value="visit">Visita Agendada</MenuItem>
                 </Select>
               </FormControl>
             </Grid>
 
-            <Grid item xs={6} md={2}>
+            <Grid item xs={6} sm={3} md={2}>
               <FormControl fullWidth>
                 <InputLabel>Pagamento</InputLabel>
                 <Select
@@ -304,13 +340,13 @@ export default function ReservationsPage() {
               </FormControl>
             </Grid>
 
-            <Grid item xs={12} md={4}>
+            <Grid item xs={12} sm={6} md={2}>
               <Box sx={{ display: 'flex', gap: 1, justifyContent: 'flex-end' }}>
                 <IconButton onClick={refreshData} disabled={loading}>
                   <Refresh />
                 </IconButton>
                 <Chip 
-                  label={`${filteredReservations.length} reservas`} 
+                  label={`${filteredReservations.length} registros`} 
                   color="primary" 
                   variant="outlined" 
                 />
@@ -355,13 +391,23 @@ export default function ReservationsPage() {
                   </TableCell>
                 </TableRow>
               ) : (
-                filteredReservations.map((reservation) => (
-                <TableRow key={reservation.id} hover>
-                  <TableCell sx={{ px: { xs: 1, sm: 2 } }}>
-                    <Typography variant="body2" fontWeight="bold" sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem' } }}>
-                      #{reservation.id.slice(-6).toUpperCase()}
-                    </Typography>
-                  </TableCell>
+                filteredReservations.map((reservation) => {
+                  const isVisit = reservation.status === 'visit' || (reservation.totalPrice === 0 && reservation.status === 'pending');
+                  
+                  return (
+                  <TableRow key={reservation.id} hover>
+                    <TableCell sx={{ px: { xs: 1, sm: 2 } }}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        {isVisit ? (
+                          <Event sx={{ fontSize: 18, color: 'secondary.main' }} />
+                        ) : (
+                          <House sx={{ fontSize: 18, color: 'primary.main' }} />
+                        )}
+                        <Typography variant="body2" fontWeight="bold" sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem' } }}>
+                          #{reservation.id.slice(-6).toUpperCase()}
+                        </Typography>
+                      </Box>
+                    </TableCell>
 
                   <TableCell sx={{ px: { xs: 1, sm: 2 } }}>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: { xs: 0.5, sm: 1 } }}>
@@ -436,19 +482,33 @@ export default function ReservationsPage() {
 
                   <TableCell sx={{ px: { xs: 1, sm: 2 }, display: { xs: 'none', sm: 'table-cell' } }}>
                     <Chip
-                      label={reservation.status}
+                      label={
+                        reservation.status === 'visit' ? 'Visita Agendada' :
+                        reservation.status === 'confirmed' ? 'Confirmada' :
+                        reservation.status === 'pending' ? (isVisit ? 'Visita Pendente' : 'Pendente') :
+                        reservation.status === 'checked_in' ? 'Check-in' :
+                        reservation.status === 'checked_out' ? 'Check-out' :
+                        reservation.status === 'cancelled' ? 'Cancelada' : reservation.status
+                      }
                       color={getStatusColor(reservation.status) as any}
                       size="small"
                       sx={{ fontSize: { xs: '0.625rem', sm: '0.75rem' } }}
+                      icon={isVisit ? <Event sx={{ fontSize: 14 }} /> : undefined}
                     />
                   </TableCell>
 
                   <TableCell sx={{ display: { xs: 'none', md: 'table-cell' } }}>
-                    <Chip
-                      label={reservation.paymentStatus}
-                      color={getPaymentStatusColor(reservation.paymentStatus) as any}
-                      size="small"
-                    />
+                    {!isVisit ? (
+                      <Chip
+                        label={reservation.paymentStatus}
+                        color={getPaymentStatusColor(reservation.paymentStatus) as any}
+                        size="small"
+                      />
+                    ) : (
+                      <Typography variant="caption" color="text.secondary">
+                        N/A
+                      </Typography>
+                    )}
                   </TableCell>
 
                   <TableCell sx={{ display: { xs: 'none', lg: 'table-cell' } }}>
@@ -499,7 +559,8 @@ export default function ReservationsPage() {
                     </Box>
                   </TableCell>
                 </TableRow>
-              )))}
+                );
+              })}
             </TableBody>
           </Table>
         </TableContainer>

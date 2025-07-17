@@ -2,23 +2,52 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## 🚀 Quick Start
+
+```bash
+# Install dependencies
+npm install
+
+# Start development
+npm run dev
+
+# Access at http://localhost:3000
+```
+
+**Key Areas:**
+- Dashboard: `/dashboard`
+- Mini-site: Configure custom domain
+- WhatsApp: Auto-connects on first message
+
 ## Project Overview
 
-This is a comprehensive **enterprise-grade** real estate AI agent system called "agente-imobiliaria" built with Next.js 14, Material-UI, and Firebase. The system features an **intelligent WhatsApp bot powered by OpenAI GPT-4** with advanced **function calling**, **conversation context management**, **automation workflows**, and **professional error handling**. The system includes a **visual configuration interface** for WhatsApp setup and **multi-tenant architecture** support.
+This is a comprehensive **enterprise-grade** real estate AI agent system called "locai" built with Next.js 15, Material-UI, and Firebase. The system features:
+
+- **Dual WhatsApp Integration**: Business API + WhatsApp Web (Baileys)
+- **AI-Powered Bot**: OpenAI GPT-4 with advanced function calling
+- **Multi-tenant Architecture**: Complete tenant isolation and configuration
+- **Mini-Site System**: Public sites with custom domains for tenants
+- **Complete CRM**: Lead management, Kanban board, AI insights
+- **Financial Management**: Goals, billing campaigns, payment tracking
+- **Enterprise Features**: Professional error handling, monitoring, automation
 
 ## Technology Stack
 
-- **Framework**: Next.js 14.2.0 with App Router
+- **Framework**: Next.js 15.3.5 with App Router
 - **Language**: TypeScript 5.3.0
 - **UI Library**: Material-UI v5.15.0 with Emotion
 - **Database**: Firebase Firestore v10.7.0
 - **Storage**: Firebase Storage
 - **AI**: OpenAI API v4.20.0 with function calling
-- **Messaging**: WhatsApp Business API
+- **Messaging**: 
+  - WhatsApp Business API (official)
+  - WhatsApp Web via Baileys v6.7.18
 - **Payments**: Stripe integration
 - **State Management**: Zustand
 - **Forms**: React Hook Form with Yup validation
-- **Date Handling**: date-fns v3.0.0
+- **Date Handling**: date-fns v2.30.0
+- **Charts**: Recharts v2.15.4
+- **Authentication**: Firebase Auth with custom flows
 
 ## Development Commands
 
@@ -37,6 +66,21 @@ npm run lint
 
 # TypeScript type checking
 npm run type-check
+
+# Production readiness check
+npm run prod-check
+
+# Deploy to production
+npm run deploy
+
+# Health check
+npm run health
+
+# Clean cache and build folders
+npm run clean
+
+# Generate password hash
+npm run generate-password-hash
 ```
 
 ## Core Architecture
@@ -87,16 +131,43 @@ Sophisticated dynamic pricing system (`lib/services/pricing.ts`):
 - Real-time price calculations for date ranges
 - Revenue projections and occupancy analytics
 
-### API Routes Structure (COMPREHENSIVE)
+### API Routes Structure (COMPLETE)
 ```
 app/api/
 ├── agent/route.ts              # Core AI agent processing with function calling
-├── webhook/whatsapp/route.ts   # WhatsApp message handling with professional error handling
-├── properties/route.ts         # Property CRUD operations
-├── properties/[id]/route.ts    # Individual property management
-├── automations/route.ts        # NEW: Automation management
-├── analytics/route.ts          # NEW: AI performance analytics
-└── config/whatsapp/route.ts    # NEW: WhatsApp configuration API
+├── ai/agent/route.ts           # Additional AI agent endpoint
+├── auth/                       # Complete authentication system
+│   ├── login/route.ts         # User login with Firebase Auth
+│   ├── logout/route.ts        # Session termination
+│   ├── register/route.ts      # New user registration
+│   └── profile/route.ts       # User profile management
+├── billing/                    # Financial management system
+│   ├── campaigns/route.ts     # Billing campaigns creation
+│   ├── reminders/route.ts     # Automated payment reminders
+│   └── settings/route.ts      # Billing preferences
+├── conversations/              # Full conversation management
+│   ├── route.ts               # List and create conversations
+│   └── [id]/messages/route.ts # Messages within conversations
+├── goals/                      # Financial goals tracking
+│   ├── route.ts               # Goals CRUD operations
+│   └── sync-metrics/route.ts  # Real-time metrics sync
+├── mini-site/                  # Public mini-site system
+│   ├── enable/route.ts        # Enable/disable mini-sites
+│   ├── settings/route.ts      # Domain and customization
+│   └── analytics/route.ts     # Visitor tracking
+├── properties/                 # Property management
+│   ├── route.ts               # Property CRUD operations
+│   └── [id]/route.ts          # Individual property details
+├── upload/                     # Media upload system
+│   ├── avatar/route.ts        # User profile pictures
+│   ├── logo/route.ts          # Company branding
+│   └── media/route.ts         # Property media files
+├── webhook/                    # External integrations
+│   ├── whatsapp/route.ts      # WhatsApp Business API
+│   └── whatsapp-web/route.ts  # WhatsApp Web (Baileys)
+├── automations/route.ts        # Workflow automation engine
+├── analytics/route.ts          # Performance analytics
+└── config/whatsapp/route.ts    # WhatsApp configuration
 ```
 
 ## Key Data Models
@@ -292,7 +363,41 @@ Required environment variables (see `.env.example`):
 - TODO comments for enhanced logging
 - Console logs cleanup for production
 
-## Recent Updates (December 2024)
+## Recent Updates (January 2025)
+
+### New Major Features
+1. **Mini-Site System**:
+   - Public-facing websites for each tenant
+   - Custom domain configuration
+   - SEO optimization and analytics
+   - Template customization
+   - Lead capture integration
+
+2. **Dual WhatsApp Mode**:
+   - WhatsApp Business API (official)
+   - WhatsApp Web via Baileys (alternative)
+   - Automatic failover between modes
+   - Session management for Web mode
+
+3. **Complete CRM System**:
+   - Kanban board for lead management
+   - AI-powered insights and recommendations
+   - Task automation and follow-ups
+   - Lead scoring and prioritization
+
+4. **Financial Goals Module**:
+   - Goal creation with milestones
+   - Progress tracking and visualization
+   - Automated metric synchronization
+   - Achievement notifications
+
+5. **Billing Campaigns**:
+   - Automated billing reminders
+   - Campaign scheduling
+   - Payment tracking integration
+   - Customizable templates
+
+## Previous Updates (December 2024)
 
 ### Enhanced Features
 1. **AI Agent Enhancements**:
@@ -337,7 +442,30 @@ When extending the system:
 9. **Performance**: Consider async patterns from `lib/utils/async.ts`
 10. **Configuration**: Use dashboard interface for user-configurable features
 
-## New Architecture Components
+## Additional Systems
+
+### Mini-Site Architecture
+- **Public Routes**: `/[domain]` for tenant-specific sites
+- **Template Engine**: Customizable themes and layouts
+- **Lead Capture**: Integrated with main CRM
+- **Analytics**: Visitor tracking and conversion metrics
+- **SEO**: Dynamic meta tags and sitemap generation
+
+### WhatsApp Web Integration (Baileys)
+- **Session Management**: QR code authentication
+- **Message Queue**: Reliable delivery with retries
+- **Media Handling**: Image and document support
+- **Status Tracking**: Real-time delivery receipts
+- **Multi-device**: Support for WhatsApp multi-device
+
+### CRM & Lead Management
+- **Kanban View**: Visual pipeline management
+- **AI Scoring**: Automatic lead qualification
+- **Task Automation**: Follow-up scheduling
+- **Integration**: Connected to WhatsApp conversations
+- **Analytics**: Conversion tracking and insights
+
+## Core Architecture Components
 
 ### Professional Error Handling
 - **Error Classification**: Automatic categorization of errors
@@ -368,3 +496,23 @@ When extending the system:
 - **Configuration per Tenant**: Individual WhatsApp setups
 - **Scalable Design**: Support for multiple organizations
 - **Performance Optimization**: Tenant-aware caching
+- **Mini-Site Domains**: Custom domain per tenant
+- **Billing Separation**: Independent financial tracking
+- **Resource Limits**: Configurable usage quotas
+- **White-labeling**: Full branding customization
+
+## Quick Reference
+
+### Key Files to Know
+- **AI Agent**: `lib/ai/agent-functions.ts` - All bot functions
+- **WhatsApp**: `lib/whatsapp/message-handler.ts` - Message processing
+- **Mini-Site**: `app/[domain]/page.tsx` - Public site entry
+- **CRM**: `app/dashboard/crm/page.tsx` - Lead management
+- **Auth**: `lib/auth/auth-service.ts` - Authentication logic
+
+### Common Tasks
+1. **Add AI Function**: Edit `lib/ai/agent-functions.ts`
+2. **New API Route**: Add to `app/api/` following patterns
+3. **UI Component**: Use atomic design in `components/`
+4. **Database Model**: Extend types in `lib/types/`
+5. **Mini-Site Feature**: Update `app/[domain]/` routes

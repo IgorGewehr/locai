@@ -1,6 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { format } from 'date-fns';
 import {
   Box,
   Card,
@@ -27,6 +29,8 @@ import {
   Select,
   MenuItem,
   TablePagination,
+  Autocomplete,
+  Alert,
 } from '@mui/material';
 import {
   Add,
@@ -37,6 +41,8 @@ import {
   ArrowForward,
   Save,
   Cancel,
+  Link,
+  Person as PersonIcon,
 } from '@mui/icons-material';
 import { useRouter } from 'next/navigation';
 import { Transaction, Client, Property, Reservation } from '@/lib/types';
@@ -65,6 +71,13 @@ export default function TransactionsPage() {
   // New transaction dialog
   const [newTransactionOpen, setNewTransactionOpen] = useState(false);
   
+  // Client and reservation data
+  const [allClients, setAllClients] = useState<Client[]>([]);
+  const [allReservations, setAllReservations] = useState<Reservation[]>([]);
+  const [selectedClient, setSelectedClient] = useState<Client | null>(null);
+  const [selectedReservation, setSelectedReservation] = useState<Reservation | null>(null);
+  const [filteredReservations, setFilteredReservations] = useState<Reservation[]>([]);
+  
   // Transaction form validation schema
   const transactionSchema = yup.object().shape({
     description: yup.string().required('Descrição é obrigatória'),
@@ -73,6 +86,9 @@ export default function TransactionsPage() {
     category: yup.string().required('Categoria é obrigatória'),
     status: yup.string().oneOf(['pending', 'completed', 'cancelled']).required('Status é obrigatório'),
     paymentMethod: yup.string().required('Método de pagamento é obrigatório'),
+    clientId: yup.string(),
+    reservationId: yup.string(),
+    propertyId: yup.string(),
     notes: yup.string(),
   });
   
@@ -91,6 +107,9 @@ export default function TransactionsPage() {
       category: '',
       status: 'pending',
       paymentMethod: 'pix',
+      clientId: '',
+      reservationId: '',
+      propertyId: '',
       notes: '',
     }
   });
@@ -164,12 +183,18 @@ export default function TransactionsPage() {
         date: new Date(),
         createdAt: new Date(),
         updatedAt: new Date(),
+        // Only include IDs if they have values
+        ...(data.clientId && { clientId: data.clientId }),
+        ...(data.reservationId && { reservationId: data.reservationId }),
+        ...(data.propertyId && { propertyId: data.propertyId }),
       };
 
       await addDoc(collection(db, 'transactions'), newTransaction);
       
       // Reset form and close dialog
       reset();
+      setSelectedClient(null);
+      setSelectedReservation(null);
       setNewTransactionOpen(false);
       
       // Reload transactions
@@ -181,11 +206,88 @@ export default function TransactionsPage() {
 
   const handleCloseNewTransaction = () => {
     reset();
+    setSelectedClient(null);
+    setSelectedReservation(null);
     setNewTransactionOpen(false);
+  };
+
+  const handleClientSelection = (client: Client | null) => {
+    setSelectedClient(client);
+    
+    if (client) {
+      // Filter reservations by selected client
+      const clientReservations = allReservations.filter(r => r.clientId === client.id);
+      setFilteredReservations(clientReservations);
+    } else {
+      // Show all reservations if no client selected
+      setFilteredReservations(allReservations);
+      setSelectedReservation(null);
+    }
+  };
+
+  const handleReservationSelection = async (reservation: Reservation | null) => {
+    setSelectedReservation(reservation);
+    
+    if (reservation) {
+      // Auto-fill form fields based on reservation
+      reset({
+        description: `Pagamento - Reserva #${reservation.id.slice(-8)}`,
+        amount: reservation.totalAmount,
+        type: 'income',
+        category: 'reservation',
+        status: reservation.paymentStatus === 'paid' ? 'completed' : 'pending',
+        paymentMethod: reservation.paymentMethod || 'pix',
+        clientId: reservation.clientId,
+        reservationId: reservation.id,
+        propertyId: reservation.propertyId,
+        notes: `Check-in: ${format(reservation.checkIn, 'dd/MM/yyyy')} - Check-out: ${format(reservation.checkOut, 'dd/MM/yyyy')}`,
+      });
+      
+      // Also set the selected client if not already selected
+      if (!selectedClient && reservation.clientId) {
+        const client = allClients.find(c => c.id === reservation.clientId);
+        if (client) {
+          setSelectedClient(client);
+        }
+      }
+    }
+  };
+
+  const loadClients = async () => {
+    try {
+      const clientsQuery = query(collection(db, 'clients'), orderBy('name'));
+      const snapshot = await getDocs(clientsQuery);
+      const clientsData = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data(),
+      })) as Client[];
+      setAllClients(clientsData);
+    } catch (error) {
+      console.error('Error loading clients:', error);
+    }
+  };
+
+  const loadReservations = async () => {
+    try {
+      const reservationsQuery = query(collection(db, 'reservations'), orderBy('checkIn', 'desc'));
+      const snapshot = await getDocs(reservationsQuery);
+      const reservationsData = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data(),
+        checkIn: doc.data().checkIn?.toDate ? doc.data().checkIn.toDate() : new Date(doc.data().checkIn),
+        checkOut: doc.data().checkOut?.toDate ? doc.data().checkOut.toDate() : new Date(doc.data().checkOut),
+      })) as Reservation[];
+      setAllReservations(reservationsData);
+      setFilteredReservations(reservationsData);
+    } catch (error) {
+      console.error('Error loading reservations:', error);
+    }
   };
 
   useEffect(() => {
     loadTransactions();
+    loadClients();
+    loadReservations();
   }, []);
 
   const filteredTransactions = transactions.filter(transaction => {
@@ -214,6 +316,18 @@ export default function TransactionsPage() {
       case 'pending': return 'Pendente';
       case 'failed': return 'Falhou';
       default: return status;
+    }
+  };
+
+  const getCategoryLabel = (category: string) => {
+    switch (category) {
+      case 'reservation': return 'Reserva';
+      case 'maintenance': return 'Manutenção';
+      case 'cleaning': return 'Limpeza';
+      case 'commission': return 'Comissão';
+      case 'refund': return 'Reembolso';
+      case 'other': return 'Outros';
+      default: return category;
     }
   };
 
@@ -311,14 +425,38 @@ export default function TransactionsPage() {
                 paginatedTransactions.map((transaction) => (
                   <TableRow key={transaction.id} hover>
                     <TableCell>
-                      {transaction.date.toLocaleDateString('pt-BR')}
+                      {format(transaction.date, 'dd/MM/yyyy')}
                     </TableCell>
                     <TableCell>
-                      <Typography variant="subtitle2">
-                        {transaction.description}
-                      </Typography>
+                      <Box>
+                        <Typography variant="subtitle2">
+                          {transaction.description}
+                        </Typography>
+                        {(transaction.clientId || transaction.reservationId) && (
+                          <Stack direction="row" spacing={1} sx={{ mt: 0.5 }}>
+                            {transaction.clientId && (
+                              <Chip
+                                label="Cliente"
+                                size="small"
+                                variant="outlined"
+                                color="primary"
+                                sx={{ height: 20, fontSize: '0.75rem' }}
+                              />
+                            )}
+                            {transaction.reservationId && (
+                              <Chip
+                                label="Reserva"
+                                size="small"
+                                variant="outlined"
+                                color="secondary"
+                                sx={{ height: 20, fontSize: '0.75rem' }}
+                              />
+                            )}
+                          </Stack>
+                        )}
+                      </Box>
                     </TableCell>
-                    <TableCell>{transaction.category}</TableCell>
+                    <TableCell>{getCategoryLabel(transaction.category)}</TableCell>
                     <TableCell>
                       <Chip
                         label={transaction.type === 'income' ? 'Receita' : 'Despesa'}
@@ -345,12 +483,14 @@ export default function TransactionsPage() {
                       />
                     </TableCell>
                     <TableCell align="center">
-                      <IconButton
-                        size="small"
-                        onClick={() => loadTransactionDetails(transaction)}
-                      >
-                        <Visibility />
-                      </IconButton>
+                      <Tooltip title="Ver detalhes">
+                        <IconButton
+                          size="small"
+                          onClick={() => router.push(`/dashboard/financeiro/transacoes/${transaction.id}`)}
+                        >
+                          <Visibility />
+                        </IconButton>
+                      </Tooltip>
                     </TableCell>
                   </TableRow>
                 ))
@@ -400,7 +540,7 @@ export default function TransactionsPage() {
                   </Box>
                   <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
                     <Typography variant="body2" color="text.secondary">Categoria:</Typography>
-                    <Typography variant="body2">{selectedTransaction.category}</Typography>
+                    <Typography variant="body2">{getCategoryLabel(selectedTransaction.category)}</Typography>
                   </Box>
                   <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
                     <Typography variant="body2" color="text.secondary">Valor:</Typography>
@@ -414,7 +554,7 @@ export default function TransactionsPage() {
                   </Box>
                   <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
                     <Typography variant="body2" color="text.secondary">Data:</Typography>
-                    <Typography variant="body2">{selectedTransaction.date.toLocaleDateString('pt-BR')}</Typography>
+                    <Typography variant="body2">{format(selectedTransaction.date, 'dd/MM/yyyy')}</Typography>
                   </Box>
                   <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
                     <Typography variant="body2" color="text.secondary">Status:</Typography>
@@ -600,17 +740,117 @@ export default function TransactionsPage() {
                 )}
               />
               
+              {/* Client Selection */}
+              <Controller
+                name="clientId"
+                control={control}
+                render={({ field: { onChange, value } }) => (
+                  <Autocomplete
+                    options={allClients}
+                    getOptionLabel={(option) => `${option.name} - ${option.phone}`}
+                    value={selectedClient}
+                    onChange={(_, newValue) => {
+                      handleClientSelection(newValue);
+                      onChange(newValue?.id || '');
+                    }}
+                renderInput={(params) => (
+                  <TextField
+                    {...params}
+                    label="Cliente (opcional)"
+                    placeholder="Selecione um cliente"
+                    helperText="Associe esta transação a um cliente"
+                  />
+                )}
+                renderOption={(props, option) => (
+                  <Box component="li" {...props}>
+                    <Box>
+                      <Typography variant="subtitle2">{option.name}</Typography>
+                      <Typography variant="body2" color="text.secondary">
+                        {option.phone} {option.email && `• ${option.email}`}
+                      </Typography>
+                    </Box>
+                  </Box>
+                )}
+                  />
+                )}
+              />
+              
+              {/* Reservation Selection */}
+              <Controller
+                name="reservationId"
+                control={control}
+                render={({ field: { onChange, value } }) => (
+                  <Autocomplete
+                options={filteredReservations}
+                getOptionLabel={(option) => {
+                  const checkIn = option.checkIn instanceof Date ? option.checkIn : new Date(option.checkIn);
+                  return `#${option.id.slice(-8)} - ${format(checkIn, 'dd/MM/yyyy')} - R$ ${option.totalAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
+                }}
+                    value={selectedReservation}
+                    onChange={(_, newValue) => {
+                      handleReservationSelection(newValue);
+                      onChange(newValue?.id || '');
+                    }}
+                disabled={filteredReservations.length === 0}
+                renderInput={(params) => (
+                  <TextField
+                    {...params}
+                    label="Reserva Relacionada (opcional)"
+                    placeholder="Selecione uma reserva"
+                    helperText={
+                      selectedClient 
+                        ? `${filteredReservations.length} reserva(s) encontrada(s) para este cliente`
+                        : "Selecione um cliente para filtrar as reservas"
+                    }
+                  />
+                )}
+                renderOption={(props, option) => {
+                  const checkIn = option.checkIn instanceof Date ? option.checkIn : new Date(option.checkIn);
+                  const checkOut = option.checkOut instanceof Date ? option.checkOut : new Date(option.checkOut);
+                  return (
+                    <Box component="li" {...props}>
+                      <Box>
+                        <Typography variant="subtitle2">
+                          Reserva #{option.id.slice(-8)} - {option.status}
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary">
+                          {format(checkIn, 'dd/MM/yyyy')} - {format(checkOut, 'dd/MM/yyyy')}
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary">
+                          R$ {option.totalAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} • {option.paymentStatus}
+                        </Typography>
+                      </Box>
+                    </Box>
+                  );
+                }}
+                  />
+                )}
+              />
+              
+              {selectedReservation && (
+                <Alert severity="info">
+                  <Typography variant="body2">
+                    <strong>Reserva selecionada:</strong> Os campos foram preenchidos automaticamente com base na reserva.
+                  </Typography>
+                </Alert>
+              )}
+              
               <Controller
                 name="category"
                 control={control}
                 render={({ field }) => (
-                  <TextField
-                    {...field}
-                    label="Categoria"
-                    fullWidth
-                    error={!!errors.category}
-                    helperText={errors.category?.message}
-                  />
+                  <FormControl fullWidth error={!!errors.category}>
+                    <InputLabel>Categoria</InputLabel>
+                    <Select {...field} label="Categoria">
+                      <MenuItem value="reservation">Reserva</MenuItem>
+                      <MenuItem value="maintenance">Manutenção</MenuItem>
+                      <MenuItem value="cleaning">Limpeza</MenuItem>
+                      <MenuItem value="commission">Comissão</MenuItem>
+                      <MenuItem value="refund">Reembolso</MenuItem>
+                      <MenuItem value="other">Outros</MenuItem>
+                    </Select>
+                    {errors.category && <Typography variant="caption" color="error">{errors.category.message}</Typography>}
+                  </FormControl>
                 )}
               />
               
@@ -662,6 +902,15 @@ export default function TransactionsPage() {
                     error={!!errors.notes}
                     helperText={errors.notes?.message}
                   />
+                )}
+              />
+              
+              {/* Hidden fields for IDs */}
+              <Controller
+                name="propertyId"
+                control={control}
+                render={({ field }) => (
+                  <input type="hidden" {...field} />
                 )}
               />
             </Stack>

@@ -4,8 +4,6 @@ import { useState, useEffect, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import {
   Box,
-  Card,
-  CardContent,
   Typography,
   Avatar,
   Chip,
@@ -18,6 +16,13 @@ import {
   Alert,
   Paper,
   Tooltip,
+  CircularProgress,
+  InputAdornment,
+  Menu,
+  MenuItem,
+  Skeleton,
+  Fade,
+  Zoom,
 } from '@mui/material';
 import {
   ArrowBack,
@@ -27,24 +32,42 @@ import {
   Email,
   SmartToy,
   Person,
-  Attachment,
+  AttachFile,
   MoreVert,
   Settings,
+  Image as ImageIcon,
+  InsertDriveFile,
+  Mic,
+  EmojiEmotions,
+  CheckCircle,
+  Check,
+  DoneAll,
+  Schedule,
+  Star,
+  StarBorder,
+  Delete,
+  Block,
 } from '@mui/icons-material';
-import { format } from 'date-fns';
+import { format, isToday, isYesterday, formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
 interface Message {
   id: string;
   content: string;
   timestamp: Date;
-  sender: 'user' | 'ai' | 'agent';
+  sender?: 'user' | 'ai' | 'agent';
   type: 'text' | 'image' | 'audio' | 'document';
+  direction?: 'inbound' | 'outbound';
+  isFromAI?: boolean;
+  status?: 'sent' | 'delivered' | 'read' | 'failed';
   metadata?: {
     delivered?: boolean;
     read?: boolean;
     clientName?: string;
     agentName?: string;
+    mediaUrl?: string;
+    fileName?: string;
+    fileSize?: number;
   };
 }
 
@@ -53,27 +76,41 @@ interface Conversation {
   clientName: string;
   clientPhone: string;
   clientAvatar?: string;
+  clientEmail?: string;
   platform: 'whatsapp' | 'email' | 'phone';
-  status: 'active' | 'closed' | 'pending';
+  status: 'active' | 'closed' | 'pending' | 'completed';
   lastMessage: Date;
   aiEnabled: boolean;
   totalMessages: number;
   tags: string[];
+  unreadCount?: number;
+  isStarred?: boolean;
+  clientTyping?: boolean;
+  agentId?: string;
+  assignedAgent?: string;
 }
 
 export default function ConversationDetailPage() {
   const params = useParams();
   const router = useRouter();
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [conversation, setConversation] = useState<Conversation | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [sending, setSending] = useState(false);
+  const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+  const [selectedMessages, setSelectedMessages] = useState<string[]>([]);
+  const [isTyping, setIsTyping] = useState(false);
 
   useEffect(() => {
     loadConversationData();
+    // Set up real-time updates
+    const interval = setInterval(loadMessages, 5000);
+    return () => clearInterval(interval);
   }, [params.id]);
 
   useEffect(() => {
@@ -88,7 +125,7 @@ export default function ConversationDetailPage() {
     try {
       setLoading(true);
       
-      // Fetch conversation data from Firebase
+      // Fetch conversation data
       const conversationResponse = await fetch(`/api/conversations/${params.id}`);
       if (!conversationResponse.ok) {
         throw new Error('Failed to fetch conversation');
@@ -97,46 +134,66 @@ export default function ConversationDetailPage() {
       const conversationData = await conversationResponse.json();
       const conversation = conversationData.conversation;
       
-      // Fetch messages data
-      const messagesResponse = await fetch(`/api/conversations/${params.id}/messages`);
-      const messages = messagesResponse.ok ? await messagesResponse.json() : [];
-      
-      // Transform conversation data to match our interface
-      const transformedConversation = {
+      // Transform conversation data
+      const transformedConversation: Conversation = {
         id: conversation.id,
         clientName: conversation.clientName || 'Cliente',
         clientPhone: conversation.whatsappPhone || conversation.clientPhone || '',
         clientAvatar: conversation.clientAvatar,
+        clientEmail: conversation.clientEmail,
         platform: 'whatsapp' as const,
         status: conversation.status || 'active',
         lastMessage: conversation.lastMessageAt ? new Date(conversation.lastMessageAt) : new Date(),
         aiEnabled: true,
-        totalMessages: messages.length,
-        tags: conversation.tags || []
+        totalMessages: conversation.messages?.length || 0,
+        tags: conversation.tags || [],
+        unreadCount: conversation.unreadCount || 0,
+        isStarred: conversation.isStarred || false,
+        agentId: conversation.agentId,
+        assignedAgent: conversation.assignedAgent || 'AI Sofia'
       };
-
-      // Transform messages to match our interface
-      const transformedMessages = messages.map((msg: any) => ({
-        id: msg.id,
-        content: msg.content,
-        timestamp: new Date(msg.timestamp),
-        sender: msg.isFromAI ? 'ai' : 'user',
-        type: msg.type || 'text',
-        metadata: {
-          delivered: true,
-          read: true,
-          clientName: conversation.clientName || 'Cliente',
-          agentName: 'Sofia'
-        }
-      }));
       
       setConversation(transformedConversation);
-      setMessages(transformedMessages);
+      await loadMessages();
     } catch (err) {
       console.error('Error loading conversation:', err);
       setError('Erro ao carregar conversa');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadMessages = async () => {
+    try {
+      const messagesResponse = await fetch(`/api/conversations/${params.id}/messages`);
+      if (!messagesResponse.ok) return;
+      
+      const messagesData = await messagesResponse.json();
+      
+      // Transform messages
+      const transformedMessages = messagesData.map((msg: any) => ({
+        id: msg.id,
+        content: msg.content,
+        timestamp: new Date(msg.timestamp),
+        sender: msg.isFromAI ? 'ai' : (msg.direction === 'inbound' ? 'user' : 'agent'),
+        type: msg.type || 'text',
+        direction: msg.direction,
+        isFromAI: msg.isFromAI,
+        status: msg.status || 'delivered',
+        metadata: {
+          delivered: msg.status === 'delivered' || msg.status === 'read',
+          read: msg.status === 'read',
+          clientName: conversation?.clientName || 'Cliente',
+          agentName: msg.isFromAI ? 'AI Sofia' : 'Você',
+          mediaUrl: msg.mediaUrl,
+          fileName: msg.fileName,
+          fileSize: msg.fileSize
+        }
+      }));
+      
+      setMessages(transformedMessages);
+    } catch (err) {
+      console.error('Error loading messages:', err);
     }
   };
 
@@ -148,24 +205,45 @@ export default function ConversationDetailPage() {
     setNewMessage('');
 
     try {
-      const newMsg: Message = {
-        id: Date.now().toString(),
+      // Add optimistic message
+      const tempMessage: Message = {
+        id: `temp_${Date.now()}`,
         content: messageToSend,
         timestamp: new Date(),
         sender: 'agent',
         type: 'text',
-        metadata: { delivered: false, read: false, agentName: 'Você' },
+        direction: 'outbound',
+        status: 'sent',
+        metadata: { 
+          delivered: false, 
+          read: false, 
+          agentName: 'Você' 
+        },
       };
 
-      setMessages(prev => [...prev, newMsg]);
+      setMessages(prev => [...prev, tempMessage]);
 
-      // API call to send message would go here
-      // await sendMessage(conversation?.id, messageToSend);
+      // Send via API
+      const response = await fetch(`/api/conversations/${params.id}/messages`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          content: messageToSend,
+          type: 'text',
+          direction: 'outbound',
+          isFromAI: false,
+        })
+      });
 
-      // AI response will be handled by the webhook
+      if (!response.ok) throw new Error('Failed to send message');
+
+      // Reload messages to get the real message
+      await loadMessages();
 
     } catch (err) {
       setError('Erro ao enviar mensagem');
+      // Remove optimistic message on error
+      setMessages(prev => prev.filter(m => !m.id.startsWith('temp_')));
     } finally {
       setSending(false);
     }
@@ -178,240 +256,396 @@ export default function ConversationDetailPage() {
     }
   };
 
+  const handleFileSelect = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Handle file upload logic here
+    console.log('File selected:', file);
+  };
+
+  const formatMessageTime = (date: Date) => {
+    if (isToday(date)) {
+      return format(date, 'HH:mm', { locale: ptBR });
+    } else if (isYesterday(date)) {
+      return `Ontem ${format(date, 'HH:mm', { locale: ptBR })}`;
+    } else {
+      return format(date, 'dd/MM/yyyy HH:mm', { locale: ptBR });
+    }
+  };
+
+  const formatDateSeparator = (date: Date) => {
+    if (isToday(date)) {
+      return 'Hoje';
+    } else if (isYesterday(date)) {
+      return 'Ontem';
+    } else {
+      return format(date, "EEEE, d 'de' MMMM", { locale: ptBR });
+    }
+  };
+
+  const shouldShowDateSeparator = (currentMsg: Message, prevMsg?: Message) => {
+    if (!prevMsg) return true;
+    const currentDate = new Date(currentMsg.timestamp).toDateString();
+    const prevDate = new Date(prevMsg.timestamp).toDateString();
+    return currentDate !== prevDate;
+  };
+
   const getPlatformIcon = (platform: string) => {
     switch (platform) {
-      case 'whatsapp': return <WhatsApp color="success" />;
+      case 'whatsapp': return <WhatsApp sx={{ color: '#25D366' }} />;
       case 'email': return <Email color="primary" />;
       case 'phone': return <Phone color="secondary" />;
       default: return null;
     }
   };
 
-  const getSenderIcon = (sender: string) => {
-    switch (sender) {
-      case 'ai': return <SmartToy color="primary" />;
-      case 'agent': return <Person color="secondary" />;
+  const getStatusIcon = (status?: string) => {
+    switch (status) {
+      case 'sent': return <Check sx={{ fontSize: 16, color: 'text.secondary' }} />;
+      case 'delivered': return <DoneAll sx={{ fontSize: 16, color: 'text.secondary' }} />;
+      case 'read': return <DoneAll sx={{ fontSize: 16, color: '#4FC3F7' }} />;
+      case 'failed': return <Schedule sx={{ fontSize: 16, color: 'error.main' }} />;
       default: return null;
     }
   };
 
-  const getSenderName = (message: Message) => {
-    switch (message.sender) {
-      case 'user': return message.metadata?.clientName || 'Cliente';
-      case 'ai': return 'Agente IA';
-      case 'agent': return message.metadata?.agentName || 'Agente';
-      default: return 'Desconhecido';
+  const toggleStarred = async () => {
+    if (!conversation) return;
+    
+    try {
+      await fetch(`/api/conversations/${conversation.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ isStarred: !conversation.isStarred })
+      });
+      
+      setConversation({ ...conversation, isStarred: !conversation.isStarred });
+    } catch (err) {
+      console.error('Error toggling starred:', err);
     }
   };
 
-  const getMessageAlignment = (sender: string) => {
-    return sender === 'user' ? 'flex-end' : 'flex-start';
-  };
+  if (loading) {
+    return (
+      <Box sx={{ p: 3 }}>
+        <Skeleton variant="rectangular" height={80} sx={{ mb: 2 }} />
+        <Skeleton variant="text" width="60%" height={40} sx={{ mb: 1 }} />
+        <Skeleton variant="text" width="40%" height={40} sx={{ mb: 1 }} />
+        <Skeleton variant="text" width="50%" height={40} />
+      </Box>
+    );
+  }
 
-  const getMessageColor = (sender: string) => {
-    switch (sender) {
-      case 'user': return 'primary.main';
-      case 'ai': return 'secondary.main';
-      case 'agent': return 'info.main';
-      default: return 'grey.500';
-    }
-  };
-
-  if (loading) return <Box>Carregando...</Box>;
   if (error) return <Alert severity="error">{error}</Alert>;
   if (!conversation) return <Alert severity="error">Conversa não encontrada</Alert>;
 
   return (
-    <Box sx={{ height: '100vh', display: 'flex', flexDirection: 'column' }}>
+    <Box sx={{ 
+      height: '100vh', 
+      display: 'flex', 
+      flexDirection: 'column',
+      bgcolor: 'background.default' 
+    }}>
       {/* Header */}
       <Paper
-        elevation={1}
+        elevation={2}
         sx={{
           p: 2,
           display: 'flex',
           alignItems: 'center',
           gap: 2,
           borderRadius: 0,
+          bgcolor: 'background.paper',
+          borderBottom: 1,
+          borderColor: 'divider'
         }}
       >
-        <IconButton onClick={() => router.back()}>
+        <IconButton onClick={() => router.back()} sx={{ p: 1 }}>
           <ArrowBack />
         </IconButton>
         
         <Avatar 
-          {...(conversation.clientAvatar && { src: conversation.clientAvatar })}
-          sx={{ width: 40, height: 40 }}
+          src={conversation.clientAvatar}
+          sx={{ 
+            width: 48, 
+            height: 48,
+            bgcolor: 'primary.main' 
+          }}
         >
           {conversation.clientName?.[0] || '?'}
         </Avatar>
         
         <Box sx={{ flex: 1 }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <Typography variant="h6">{conversation.clientName}</Typography>
+            <Typography variant="h6" sx={{ fontWeight: 600 }}>
+              {conversation.clientName}
+            </Typography>
             {getPlatformIcon(conversation.platform)}
             {conversation.aiEnabled && (
               <Tooltip title="IA Ativada">
-                <SmartToy color="primary" fontSize="small" />
+                <SmartToy sx={{ color: 'primary.main', fontSize: 20 }} />
               </Tooltip>
             )}
           </Box>
-          <Typography variant="body2" color="textSecondary">
-            {conversation.clientPhone} • {conversation.totalMessages} mensagens
-          </Typography>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <Typography variant="body2" color="text.secondary">
+              {conversation.clientPhone}
+            </Typography>
+            {conversation.status === 'active' && (
+              <Chip 
+                label="Online" 
+                size="small" 
+                sx={{ 
+                  height: 20,
+                  bgcolor: '#4CAF50',
+                  color: 'white',
+                  fontSize: '0.75rem'
+                }} 
+              />
+            )}
+            {isTyping && (
+              <Typography variant="caption" color="primary.main" sx={{ ml: 1 }}>
+                digitando...
+              </Typography>
+            )}
+          </Box>
         </Box>
 
-        <Box sx={{ display: 'flex', gap: 1 }}>
-{conversation.tags && conversation.tags.length > 0 ? conversation.tags.map((tag) => (
-            <Chip key={tag} label={tag} size="small" variant="outlined" />
-          )) : null}
+        <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+          {conversation.tags.map((tag) => (
+            <Chip 
+              key={tag} 
+              label={tag} 
+              size="small" 
+              variant="outlined"
+              sx={{ borderRadius: 2 }}
+            />
+          ))}
+          
+          <IconButton onClick={toggleStarred}>
+            {conversation.isStarred ? <Star color="warning" /> : <StarBorder />}
+          </IconButton>
+          
+          <IconButton onClick={(e) => setAnchorEl(e.currentTarget)}>
+            <MoreVert />
+          </IconButton>
         </Box>
-
-        <IconButton>
-          <Settings />
-        </IconButton>
-        <IconButton>
-          <MoreVert />
-        </IconButton>
       </Paper>
 
-      {/* Messages */}
+      {/* Messages Area */}
       <Box
         sx={{
           flex: 1,
           overflowY: 'auto',
-          p: 2,
-          bgcolor: 'grey.50',
+          bgcolor: '#F5F7FA',
+          backgroundImage: 'radial-gradient(circle at 1px 1px, #E0E0E0 1px, transparent 1px)',
+          backgroundSize: '40px 40px',
         }}
       >
-        <List sx={{ py: 0 }}>
-          {messages && messages.length > 0 ? messages.map((message, index) => (
-            <ListItem
-              key={message.id}
-              sx={{
-                display: 'flex',
-                justifyContent: getMessageAlignment(message.sender),
-                py: 0.5,
-              }}
-            >
-              <Box
-                sx={{
-                  maxWidth: '70%',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: getMessageAlignment(message.sender),
-                }}
-              >
-                {/* Sender info */}
-                <Box
+        <List sx={{ py: 2, px: { xs: 1, sm: 2, md: 3 } }}>
+          {messages.length > 0 ? messages.map((message, index) => {
+            const showDateSeparator = shouldShowDateSeparator(message, messages[index - 1]);
+            const isUser = message.sender === 'user';
+            const isAI = message.sender === 'ai' || message.isFromAI;
+            
+            return (
+              <Box key={message.id}>
+                {showDateSeparator && (
+                  <Box sx={{ 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    my: 2,
+                    px: 2 
+                  }}>
+                    <Divider sx={{ flex: 1 }} />
+                    <Chip 
+                      label={formatDateSeparator(message.timestamp)}
+                      size="small"
+                      sx={{ 
+                        mx: 2,
+                        bgcolor: 'background.paper',
+                        fontSize: '0.75rem'
+                      }}
+                    />
+                    <Divider sx={{ flex: 1 }} />
+                  </Box>
+                )}
+                
+                <ListItem
                   sx={{
                     display: 'flex',
-                    alignItems: 'center',
-                    gap: 0.5,
-                    mb: 0.5,
-                    alignSelf: getMessageAlignment(message.sender),
+                    justifyContent: isUser ? 'flex-start' : 'flex-end',
+                    py: 0.5,
+                    px: { xs: 1, sm: 2 }
                   }}
                 >
-                  {getSenderIcon(message.sender)}
-                  <Typography variant="caption" color="textSecondary">
-                    {getSenderName(message)}
-                  </Typography>
-                  <Typography variant="caption" color="textSecondary">
-                    {format(message.timestamp, 'HH:mm', { locale: ptBR })}
-                  </Typography>
-                </Box>
-
-                {/* Message bubble */}
-                <Paper
-                  elevation={1}
-                  sx={{
-                    p: 1.5,
-                    bgcolor: message.sender === 'user' 
-                      ? '#DCF8C6' 
-                      : message.sender === 'ai' 
-                        ? '#E3F2FD' 
-                        : '#F5F5F5',
-                    color: '#1A1A1A',
-                    borderRadius: 2,
-                    borderTopLeftRadius: message.sender === 'user' ? 2 : 0.5,
-                    borderTopRightRadius: message.sender === 'user' ? 0.5 : 2,
-                    border: message.sender === 'user' 
-                      ? '1px solid #4CAF50' 
-                      : message.sender === 'ai'
-                        ? '1px solid #2196F3'
-                        : '1px solid #E0E0E0',
-                  }}
-                >
-                  {message.type === 'image' ? (
-                    <Box>
-                      <Box
-                        sx={{
-                          width: 200,
-                          height: 150,
-                          bgcolor: 'grey.200',
-                          borderRadius: 1,
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          mb: 1,
-                        }}
-                      >
-                        <Typography variant="caption" color="textSecondary">
-                          [Imagem]
-                        </Typography>
-                      </Box>
-                      <Typography 
-                        variant="body2" 
-                        sx={{ 
-                          color: '#1A1A1A',
-                          fontWeight: 400,
-                          lineHeight: 1.5,
-                          whiteSpace: 'pre-wrap'
-                        }}
-                      >
-                        {message.content}
-                      </Typography>
-                    </Box>
-                  ) : (
-                    <Typography 
-                      variant="body2" 
-                      sx={{ 
-                        color: '#1A1A1A',
-                        fontWeight: 400,
-                        lineHeight: 1.5,
-                        whiteSpace: 'pre-wrap'
+                  <Fade in timeout={300}>
+                    <Box
+                      sx={{
+                        maxWidth: { xs: '85%', sm: '70%', md: '60%' },
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: isUser ? 'flex-start' : 'flex-end',
                       }}
                     >
-                      {message.content}
-                    </Typography>
-                  )}
-                </Paper>
+                      {/* Message Bubble */}
+                      <Paper
+                        elevation={1}
+                        sx={{
+                          p: 2,
+                          bgcolor: isUser 
+                            ? 'background.paper' 
+                            : isAI 
+                              ? '#E3F2FD' 
+                              : '#E8F5E9',
+                          borderRadius: 2,
+                          borderTopLeftRadius: isUser ? 0 : 16,
+                          borderTopRightRadius: isUser ? 16 : 0,
+                          position: 'relative',
+                          minWidth: '100px',
+                          boxShadow: '0 1px 2px rgba(0,0,0,0.1)',
+                          '&::before': isUser ? {
+                            content: '""',
+                            position: 'absolute',
+                            top: 0,
+                            left: -8,
+                            width: 0,
+                            height: 0,
+                            borderStyle: 'solid',
+                            borderWidth: '0 8px 8px 0',
+                            borderColor: 'transparent background.paper transparent transparent'
+                          } : {
+                            content: '""',
+                            position: 'absolute',
+                            top: 0,
+                            right: -8,
+                            width: 0,
+                            height: 0,
+                            borderStyle: 'solid',
+                            borderWidth: '0 0 8px 8px',
+                            borderColor: isAI 
+                              ? 'transparent transparent transparent #E3F2FD'
+                              : 'transparent transparent transparent #E8F5E9'
+                          }
+                        }}
+                      >
+                        {/* Sender Name */}
+                        {(isUser || isAI) && (
+                          <Box sx={{ 
+                            display: 'flex', 
+                            alignItems: 'center', 
+                            gap: 0.5, 
+                            mb: 0.5 
+                          }}>
+                            {isAI && <SmartToy sx={{ fontSize: 16, color: 'primary.main' }} />}
+                            <Typography 
+                              variant="caption" 
+                              sx={{ 
+                                fontWeight: 600,
+                                color: isAI ? 'primary.main' : 'text.secondary'
+                              }}
+                            >
+                              {isUser ? conversation.clientName : 'AI Sofia'}
+                            </Typography>
+                          </Box>
+                        )}
 
-                {/* Message status */}
-                {message.sender !== 'user' && (
-                  <Typography variant="caption" color="textSecondary" sx={{ mt: 0.5 }}>
-                    {message.metadata?.delivered
-                      ? message.metadata?.read
-                        ? 'Lida'
-                        : 'Entregue'
-                      : 'Enviando...'}
-                  </Typography>
-                )}
+                        {/* Message Content */}
+                        {message.type === 'image' ? (
+                          <Box>
+                            <Box
+                              component="img"
+                              src={message.metadata?.mediaUrl || '/placeholder.jpg'}
+                              sx={{
+                                width: '100%',
+                                maxWidth: 300,
+                                height: 'auto',
+                                borderRadius: 1,
+                                mb: message.content ? 1 : 0
+                              }}
+                            />
+                            {message.content && (
+                              <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>
+                                {message.content}
+                              </Typography>
+                            )}
+                          </Box>
+                        ) : message.type === 'document' ? (
+                          <Box sx={{ 
+                            display: 'flex', 
+                            alignItems: 'center', 
+                            gap: 1,
+                            p: 1,
+                            bgcolor: 'action.hover',
+                            borderRadius: 1
+                          }}>
+                            <InsertDriveFile color="action" />
+                            <Box>
+                              <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                                {message.metadata?.fileName || 'Documento'}
+                              </Typography>
+                              {message.metadata?.fileSize && (
+                                <Typography variant="caption" color="text.secondary">
+                                  {(message.metadata.fileSize / 1024).toFixed(1)} KB
+                                </Typography>
+                              )}
+                            </Box>
+                          </Box>
+                        ) : (
+                          <Typography 
+                            variant="body2" 
+                            sx={{ 
+                              whiteSpace: 'pre-wrap',
+                              wordBreak: 'break-word'
+                            }}
+                          >
+                            {message.content}
+                          </Typography>
+                        )}
+
+                        {/* Message Time & Status */}
+                        <Box sx={{ 
+                          display: 'flex', 
+                          alignItems: 'center', 
+                          gap: 0.5, 
+                          mt: 1,
+                          justifyContent: 'flex-end'
+                        }}>
+                          <Typography 
+                            variant="caption" 
+                            color="text.secondary"
+                            sx={{ fontSize: '0.7rem' }}
+                          >
+                            {formatMessageTime(message.timestamp)}
+                          </Typography>
+                          {!isUser && getStatusIcon(message.status)}
+                        </Box>
+                      </Paper>
+                    </Box>
+                  </Fade>
+                </ListItem>
               </Box>
-            </ListItem>
-          )) : (
+            );
+          }) : (
             <Box sx={{ 
               display: 'flex', 
               flexDirection: 'column', 
               alignItems: 'center', 
               justifyContent: 'center',
-              py: 4,
+              py: 8,
               textAlign: 'center'
             }}>
+              <WhatsApp sx={{ fontSize: 64, color: 'action.disabled', mb: 2 }} />
               <Typography variant="h6" color="text.secondary" gutterBottom>
                 Nenhuma mensagem ainda
               </Typography>
               <Typography variant="body2" color="text.secondary">
-                Quando você enviar uma mensagem, ela aparecerá aqui
+                Inicie uma conversa enviando uma mensagem
               </Typography>
             </Box>
           )}
@@ -428,10 +662,25 @@ export default function ConversationDetailPage() {
           gap: 1,
           alignItems: 'flex-end',
           borderRadius: 0,
+          borderTop: 1,
+          borderColor: 'divider',
+          bgcolor: 'background.paper'
         }}
       >
-        <IconButton color="primary">
-          <Attachment />
+        <input
+          type="file"
+          ref={fileInputRef}
+          hidden
+          onChange={handleFileUpload}
+          accept="image/*,.pdf,.doc,.docx"
+        />
+        
+        <IconButton 
+          color="primary" 
+          onClick={handleFileSelect}
+          sx={{ p: 1 }}
+        >
+          <AttachFile />
         </IconButton>
         
         <TextField
@@ -445,16 +694,73 @@ export default function ConversationDetailPage() {
           variant="outlined"
           size="small"
           disabled={sending}
+          sx={{
+            '& .MuiOutlinedInput-root': {
+              borderRadius: 3,
+              bgcolor: 'grey.50'
+            }
+          }}
+          InputProps={{
+            endAdornment: (
+              <InputAdornment position="end">
+                <IconButton 
+                  size="small" 
+                  onClick={() => setShowEmojiPicker(!showEmojiPicker)}
+                  sx={{ mr: -1 }}
+                >
+                  <EmojiEmotions fontSize="small" />
+                </IconButton>
+              </InputAdornment>
+            )
+          }}
         />
         
         <IconButton
           color="primary"
           onClick={handleSendMessage}
           disabled={!newMessage.trim() || sending}
+          sx={{ 
+            p: 1,
+            bgcolor: 'primary.main',
+            color: 'white',
+            '&:hover': {
+              bgcolor: 'primary.dark'
+            },
+            '&:disabled': {
+              bgcolor: 'action.disabledBackground',
+              color: 'action.disabled'
+            }
+          }}
         >
-          <Send />
+          {sending ? <CircularProgress size={24} color="inherit" /> : <Send />}
+        </IconButton>
+        
+        <IconButton color="primary" sx={{ p: 1 }}>
+          <Mic />
         </IconButton>
       </Paper>
+
+      {/* Options Menu */}
+      <Menu
+        anchorEl={anchorEl}
+        open={Boolean(anchorEl)}
+        onClose={() => setAnchorEl(null)}
+      >
+        <MenuItem onClick={() => {
+          setAnchorEl(null);
+          // Handle block contact
+        }}>
+          <Block fontSize="small" sx={{ mr: 1 }} />
+          Bloquear contato
+        </MenuItem>
+        <MenuItem onClick={() => {
+          setAnchorEl(null);
+          // Handle delete conversation
+        }}>
+          <Delete fontSize="small" sx={{ mr: 1 }} />
+          Apagar conversa
+        </MenuItem>
+      </Menu>
     </Box>
   );
 }

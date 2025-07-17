@@ -2,8 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { propertyService } from '@/lib/firebase/firestore';
-import type { Property } from '@/lib/types';
+import { propertyService, reservationService } from '@/lib/firebase/firestore';
+import type { Property, Reservation } from '@/lib/types';
 import {
   Box,
   Card,
@@ -33,6 +33,10 @@ import {
   Cancel,
   Pets,
   Home,
+  CalendarMonth,
+  OpenInNew,
+  Event,
+  Schedule,
 } from '@mui/icons-material';
 
 export default function PropertyViewPage() {
@@ -41,6 +45,7 @@ export default function PropertyViewPage() {
   const propertyId = params.id as string;
   
   const [property, setProperty] = useState<Property | null>(null);
+  const [reservations, setReservations] = useState<Reservation[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -51,6 +56,17 @@ export default function PropertyViewPage() {
         const propertyData = await propertyService.getById(propertyId);
         if (propertyData) {
           setProperty(propertyData);
+          
+          // Fetch reservations for this property
+          const allReservations = await reservationService.getAll();
+          const propertyReservations = allReservations.filter(
+            (res) => res.propertyId === propertyId
+          );
+          setReservations(propertyReservations.sort((a, b) => {
+            const dateA = new Date(a.checkIn);
+            const dateB = new Date(b.checkIn);
+            return dateB.getTime() - dateA.getTime(); // Most recent first
+          }));
         } else {
           setError('Propriedade não encontrada');
         }
@@ -350,6 +366,110 @@ export default function PropertyViewPage() {
                   variant="filled"
                   size="small"
                 />
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Reservations History */}
+          <Card sx={{ mb: 3 }}>
+            <CardContent>
+              <Typography variant="h6" gutterBottom>
+                Histórico de Reservas e Visitas
+              </Typography>
+              <Divider sx={{ mb: 2 }} />
+              
+              {reservations.length === 0 ? (
+                <Typography variant="body2" color="text.secondary">
+                  Nenhuma reserva ou visita agendada para este imóvel.
+                </Typography>
+              ) : (
+                <Box>
+                  {reservations.map((reservation) => {
+                    const isVisit = reservation.status === 'visit' || reservation.totalPrice === 0;
+                    const isPast = new Date(reservation.checkOut) < new Date();
+                    const isCurrent = new Date(reservation.checkIn) <= new Date() && new Date(reservation.checkOut) >= new Date();
+                    
+                    return (
+                      <Paper
+                        key={reservation.id}
+                        sx={{
+                          p: 2,
+                          mb: 2,
+                          cursor: 'pointer',
+                          transition: 'all 0.2s',
+                          border: '1px solid',
+                          borderColor: 'divider',
+                          '&:hover': {
+                            borderColor: 'primary.main',
+                            transform: 'translateY(-2px)',
+                            boxShadow: 2,
+                          },
+                          opacity: isPast ? 0.7 : 1,
+                          backgroundColor: isCurrent ? 'action.selected' : 'background.paper',
+                        }}
+                        onClick={() => router.push(`/dashboard/reservations?id=${reservation.id}`)}
+                      >
+                        <Box display="flex" justifyContent="space-between" alignItems="start" mb={1}>
+                          <Box display="flex" alignItems="center" gap={1}>
+                            {isVisit ? <Event color="info" /> : <CalendarMonth color="primary" />}
+                            <Typography variant="subtitle2" fontWeight={600}>
+                              {isVisit ? 'Visita Agendada' : 'Reserva'} #{reservation.id.slice(-6)}
+                            </Typography>
+                          </Box>
+                          <IconButton size="small" onClick={(e) => {
+                            e.stopPropagation();
+                            router.push(`/dashboard/reservations?id=${reservation.id}`);
+                          }}>
+                            <OpenInNew fontSize="small" />
+                          </IconButton>
+                        </Box>
+                        
+                        <Box display="flex" alignItems="center" gap={2} mb={1}>
+                          <Box display="flex" alignItems="center" gap={0.5}>
+                            <Schedule fontSize="small" color="action" />
+                            <Typography variant="body2">
+                              {new Date(reservation.checkIn).toLocaleDateString('pt-BR')} - 
+                              {new Date(reservation.checkOut).toLocaleDateString('pt-BR')}
+                            </Typography>
+                          </Box>
+                          {isCurrent && (
+                            <Chip label="Em andamento" color="primary" size="small" />
+                          )}
+                        </Box>
+                        
+                        <Box display="flex" justifyContent="space-between" alignItems="center">
+                          <Typography variant="body2" color="text.secondary">
+                            Cliente: {reservation.clientName || 'Não informado'}
+                          </Typography>
+                          {!isVisit && (
+                            <Typography variant="body2" fontWeight={600} color="success.main">
+                              {formatCurrency(reservation.totalPrice)}
+                            </Typography>
+                          )}
+                        </Box>
+                        
+                        <Box mt={1}>
+                          <Chip
+                            label={
+                              reservation.status === 'confirmed' ? 'Confirmada' :
+                              reservation.status === 'pending' ? 'Pendente' :
+                              reservation.status === 'cancelled' ? 'Cancelada' :
+                              reservation.status === 'visit' ? 'Visita' : reservation.status
+                            }
+                            color={
+                              reservation.status === 'confirmed' ? 'success' :
+                              reservation.status === 'pending' ? 'warning' :
+                              reservation.status === 'cancelled' ? 'error' :
+                              reservation.status === 'visit' ? 'info' : 'default'
+                            }
+                            size="small"
+                            variant="outlined"
+                          />
+                        </Box>
+                      </Paper>
+                    );
+                  })}
+                </Box>
               )}
             </CardContent>
           </Card>

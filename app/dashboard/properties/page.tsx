@@ -95,12 +95,16 @@ export default function PropertiesPage() {
     if (searchTerm) {
       filtered = filtered.filter(property =>
         property.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        property.address.toLowerCase().includes(searchTerm.toLowerCase())
+        property.address.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (property.city && property.city.toLowerCase().includes(searchTerm.toLowerCase())) ||
+        (property.neighborhood && property.neighborhood.toLowerCase().includes(searchTerm.toLowerCase()))
       );
     }
 
-    // Note: The Property type doesn't have a 'type' field, so we'll skip type filtering for now
-    // or map to another field
+    // Filter by type (mapping typeFilter to property.category)
+    if (typeFilter !== 'all') {
+      filtered = filtered.filter(property => property.category === typeFilter);
+    }
 
     if (statusFilter !== 'all') {
       if (statusFilter === 'active') {

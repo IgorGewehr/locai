@@ -51,6 +51,51 @@ export const PREDEFINED_RESPONSES: PredefinedResponse[] = [
       sentiment: { score: 0.6, label: 'neutral', confidence: 0.8 }
     },
     confidence: 0.85
+  },
+  {
+    patterns: ['ok', 'tá', 'certo', 'beleza', 'entendi', 'sim', 's'],
+    response: {
+      content: 'Perfeito! Em que mais posso ajudar?',
+      confidence: 0.9,
+      sentiment: { score: 0.7, label: 'positive', confidence: 0.9 }
+    },
+    confidence: 0.9
+  },
+  {
+    patterns: ['não', 'nao', 'n', 'negativo'],
+    response: {
+      content: 'Entendi. Posso ajudar com algo mais?',
+      confidence: 0.8,
+      sentiment: { score: 0.6, label: 'neutral', confidence: 0.8 }
+    },
+    confidence: 0.85
+  },
+  {
+    patterns: ['qual valor', 'quanto custa', 'preço', 'valor'],
+    response: {
+      content: 'Para te passar valores, preciso saber: qual imóvel te interessou e para quais datas?',
+      confidence: 0.8,
+      sentiment: { score: 0.7, label: 'neutral', confidence: 0.8 }
+    },
+    confidence: 0.8
+  },
+  {
+    patterns: ['localização', 'onde fica', 'endereço', 'local'],
+    response: {
+      content: 'Temos imóveis em diversas localizações. Qual região você prefere?',
+      confidence: 0.8,
+      sentiment: { score: 0.7, label: 'neutral', confidence: 0.8 }
+    },
+    confidence: 0.8
+  },
+  {
+    patterns: ['pode me ajudar', 'preciso de ajuda', 'me ajuda', 'ajuda'],
+    response: {
+      content: 'Claro! Estou aqui para isso. Me conta o que você precisa?',
+      confidence: 0.9,
+      sentiment: { score: 0.8, label: 'positive', confidence: 0.9 }
+    },
+    confidence: 0.9
   }
 ]
 

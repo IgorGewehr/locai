@@ -59,7 +59,7 @@ export class AIResponseGenerator {
 
       // Determinar complexidade da mensagem
       const isComplexQuery = this.isComplexQuery(sanitizedContent, context)
-      const selectedModel = isComplexQuery ? 'gpt-4' : 'gpt-3.5-turbo'
+      const selectedModel = isComplexQuery ? 'gpt-4' : 'gpt-3.5-turbo-1106' // Usar modelo mais eficiente
       
       console.log(`🤖 Using model: ${selectedModel} (complex: ${isComplexQuery})`);
 
@@ -74,7 +74,7 @@ export class AIResponseGenerator {
         this.openai.chat.completions.create({
           model: selectedModel,
           temperature: this.personality.temperature || 0.7,
-          max_tokens: isComplexQuery ? 1000 : 500,
+          max_tokens: isComplexQuery ? 800 : 300, // Reduzir tokens para economizar
           messages: [
             { role: 'system', content: systemPrompt },
             { role: 'system', content: contextualInfo },
@@ -131,18 +131,21 @@ export class AIResponseGenerator {
   private isComplexQuery(content: string, context: ConversationContext): boolean {
     const complexKeywords = [
       'orçamento', 'preço', 'calcular', 'reserva', 'disponibilidade',
-      'negociar', 'desconto', 'comparar', 'análise', 'relatório'
+      'negociar', 'desconto', 'comparar', 'análise', 'relatório',
+      'quanto', 'valor', 'custo', 'cobrar', 'pagar'
     ]
     
     // FORÇAR queries de fotos como complexas para usar GPT-4
     const photoKeywords = [
-      'foto', 'imagem', 'me envie', 'envie', 'ver', 'mostrar', 'apartamento'
+      'foto', 'imagem', 'me envie', 'envie', 'ver', 'mostrar', 'apartamento',
+      'manda', 'envia', 'visualizar', 'como é', 'quero ver'
     ]
     
     // FORÇAR intenções de reserva como complexas para melhor compreensão de contexto
     const reservationKeywords = [
       'quero reservar', 'fazer reserva', 'vou fechar', 'confirmar', 'alugar',
-      'fechar negócio', 'vou pegar', 'decidido', 'escolhido'
+      'fechar negócio', 'vou pegar', 'decidido', 'escolhido',
+      'reservar', 'booking', 'fecha', 'quero ficar', 'vamos fechar'
     ]
     
     const hasComplexKeywords = complexKeywords.some(keyword => 
@@ -199,35 +202,37 @@ export class AIResponseGenerator {
 
   private buildOptimizedSystemPrompt(isComplex: boolean): string {
     if (!isComplex) {
-      // Prompt aprimorado para queries simples MAS sem perder funcionalidade
-      return `Você é Sofia, consultora imobiliária especializada. Use linguagem popular: "data de entrada" e "data de saída" ao invés de check-in/check-out. ANALISE SEMPRE O CONTEXTO: se cliente já demonstrou interesse em imóvel específico e mencionou reserva, PRIORIZE finalizar a reserva em vez de mostrar mais opções. Para FOTOS/IMÓVEIS: SEMPRE use search_properties primeiro, depois send_property_media para CADA propriedade encontrada. Para orçamentos, colete: datas, número de pessoas, preferências. Seja calorosa mas profissional.`
+      // Prompt minimalista para economizar tokens
+      return `Você é Sofia, consultora imobiliária. Use termos simples (data entrada/saída). Responda direto ao ponto. Se preciso, use funções disponíveis.`
     }
     
-    // Prompt completo para queries complexas
-    return this.buildFullSystemPrompt()
+    // Prompt otimizado para queries complexas
+    return `Você é Sofia, consultora especializada em temporada. Use linguagem popular. Se cliente quer reservar, finalize. Para fotos: search_properties + send_property_media. Seja direta e eficiente.`
   }
 
   private buildFullSystemPrompt(): string {
     return `
-Você é ${this.personality.name}, uma consultora especializada em locações por temporada da ${this.businessContext.companyName}.
+Você é ${this.personality.name}, consultora de temporada da ${this.businessContext.companyName}.
 
-PERSONALIDADE: Prática, eficiente, humana. Respostas CONCISAS e diretas.
+FOCO: Entender EXATAMENTE o que cliente quer e responder de forma DIRETA.
 
-LINGUAGEM POPULAR - MUITO IMPORTANTE:
-- Use "data de entrada" ao invés de "check-in"
-- Use "data de saída" ao invés de "check-out"
-- Use "quantas pessoas" ao invés de "guests"
-- Use "valor total" ao invés de "price"
+LINGUAGEM SIMPLES:
+- "data de entrada/saída" (não check-in/out)
+- "quantas pessoas" (não hóspedes)
+- "valor total" (não diárias)
 
-ANÁLISE DE CONTEXTO - PRIORIDADE MÁXIMA:
-1. Se cliente JÁ mencionou interesse em imóvel específico ("quero reservar ap 204", "vou fechar", "fazer reserva"), PRIORIZE finalizar a reserva
-2. NÃO mostre outras opções quando cliente já demonstrou decisão de reserva
-3. IDENTIFIQUE a INTENÇÃO: reserva > orçamento > busca de imóveis
-4. Use o contexto da conversa para entender o que cliente realmente quer
+PRIORIDADES:
+1. Cliente quer RESERVAR? → Finalize a reserva IMEDIATAMENTE
+2. Cliente quer VALORES? → Pergunte: imóvel, datas, pessoas
+3. Cliente quer VER imóveis? → Mostre fotos (máx 3)
 
-REGRAS DE ATENDIMENTO:
-1. SEMPRE pergunte detalhes essenciais ANTES de fazer orçamentos:
-   - Quantas pessoas?
+INTERPRETAÇÃO INTELIGENTE:
+- "quero reservar" = criar reserva AGORA
+- "me envie fotos" = search + send_media 
+- "quanto custa" = calcular preço
+- "apartamento disponível" = verificar datas
+
+SEJA DIRETA: Máximo 2-3 frases por resposta.
    - Quais datas (data de entrada e data de saída)?
    - Localização preferida?
 
@@ -319,21 +324,21 @@ FLUXO OBRIGATÓRIO PARA FOTOS/IMÓVEIS:
     const messages = conversation.messages?.filter(msg => msg.type === 'text') || []
     
     if (!isComplex) {
-      // Para queries simples, apenas últimas 2 mensagens para economizar tokens
+      // Para queries simples, apenas última mensagem para economizar tokens
       return messages
-        .slice(-2)
+        .slice(-1)
         .map(msg => ({
           role: msg.isFromAI ? 'assistant' : 'user',
-          content: msg.content.substring(0, 100) // Mais curto para economizar
+          content: msg.content.substring(0, 80) // Ainda mais curto
         }))
     }
     
-    // Para queries complexas, até 4 mensagens mais relevantes (reduzido de 6)
+    // Para queries complexas, até 3 mensagens mais relevantes (reduzido de 4)
     return messages
-      .slice(-4)
+      .slice(-3)
       .map(msg => ({
         role: msg.isFromAI ? 'assistant' : 'user',
-        content: msg.content.substring(0, 200) // Reduzido de 300
+        content: msg.content.substring(0, 150) // Reduzido de 200
       }))
   }
 

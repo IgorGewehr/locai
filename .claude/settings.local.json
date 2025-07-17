@@ -32,7 +32,12 @@
       "Bash(npm ls:*)",
       "Bash(./node_modules/.bin/next dev --turbo)",
       "Bash(npm rebuild:*)",
-      "Bash(npm:*)"
+      "Bash(npm:*)",
+      "Bash(for:*)",
+      "Bash(do [ -f \"$file\" ])",
+      "Bash(echo:*)",
+      "Bash(done)",
+      "Bash(npx tsx:*)"
     ],
     "deny": []
   }

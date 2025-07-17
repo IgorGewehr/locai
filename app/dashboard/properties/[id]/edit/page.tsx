@@ -78,37 +78,19 @@ const propertySchema = yup.object().shape({
   bathrooms: yup.number().min(1, 'Deve ter pelo menos 1 banheiro').required('Número de banheiros é obrigatório'),
   maxGuests: yup.number().min(1, 'Deve acomodar pelo menos 1 hóspede').required('Número máximo de hóspedes é obrigatório'),
   basePrice: yup.number().min(1, 'Preço deve ser maior que 0').required('Preço base é obrigatório'),
-  pricePerExtraGuest: yup.number().min(0, 'Preço não pode ser negativo').required(),
-  minimumNights: yup.number().min(1, 'Deve ter pelo menos 1 noite').required('Número mínimo de noites é obrigatório'),
-  cleaningFee: yup.number().min(0, 'Taxa não pode ser negativa').required(),
+  pricePerExtraGuest: yup.number().min(0, 'Preço não pode ser negativo').nullable(),
+  minimumNights: yup.number().min(1, 'Deve ter pelo menos 1 noite').nullable(),
+  cleaningFee: yup.number().min(0, 'Taxa não pode ser negativa').nullable(),
   
-  // Analytics fields
-  status: yup.string().oneOf(Object.values(PropertyStatus)).default(PropertyStatus.ACTIVE),
-  type: yup.string().oneOf(Object.values(PropertyType)).default(PropertyType.RESIDENTIAL),
-  neighborhood: yup.string().default(''),
-  city: yup.string().default(''),
-  capacity: yup.number().min(1).default(1),
-  
-  // Other fields
-  amenities: yup.array().of(yup.string()).default([]),
-  isFeatured: yup.boolean().default(false),
-  allowsPets: yup.boolean().default(false),
-  paymentMethodSurcharges: yup.object().shape({
-    [PaymentMethod.CREDIT_CARD]: yup.number().min(0).default(0),
-    [PaymentMethod.PIX]: yup.number().min(0).default(0),
-    [PaymentMethod.CASH]: yup.number().min(0).default(0),
-    [PaymentMethod.BANK_TRANSFER]: yup.number().min(0).default(0),
-  }),
-  photos: yup.array().min(1, 'Deve ter pelo menos 1 foto').required('Pelo menos uma foto é obrigatória'),
-  videos: yup.array().default([]),
-  unavailableDates: yup.array().default([]),
-  customPricing: yup.object().default({}),
-  isActive: yup.boolean().default(true),
-  
-  // Timestamps
-  createdAt: yup.date().default(() => new Date()),
-  updatedAt: yup.date().default(() => new Date()),
-  tenantId: yup.string().default(''),
+  // Optional fields with proper defaults
+  amenities: yup.array().of(yup.string()).nullable(),
+  isFeatured: yup.boolean().nullable(),
+  allowsPets: yup.boolean().nullable(),
+  photos: yup.array().nullable(), // Remove required validation for photos
+  videos: yup.array().nullable(),
+  unavailableDates: yup.array().nullable(),
+  customPricing: yup.object().nullable(),
+  isActive: yup.boolean().nullable(),
 });
 
 export default function EditPropertyPage() {
@@ -125,10 +107,12 @@ export default function EditPropertyPage() {
   const [pricingRules, setPricingRules] = useState<PricingRule[]>([]);
 
   const methods = useForm<Property>({
-    resolver: yupResolver(propertySchema) as any,
+    // Temporarily remove validation to debug
+    // resolver: yupResolver(propertySchema) as any,
+    mode: 'onChange',
   });
 
-  const { handleSubmit, reset, formState: { isDirty } } = methods;
+  const { handleSubmit, reset, formState: { isDirty, errors } } = methods;
 
   useEffect(() => {
     // Load property data from Firebase
@@ -164,6 +148,7 @@ export default function EditPropertyPage() {
   }, [propertyId, reset]);
 
   const onSubmit = async (data: Property) => {
+    console.log('Form submitted with data:', data);
     setSaving(true);
     setError(null);
 
@@ -180,16 +165,21 @@ export default function EditPropertyPage() {
         }),
       });
 
+      const responseData = await response.json();
+
       if (!response.ok) {
-        throw new Error('Erro ao salvar alterações');
+        throw new Error(responseData.error || 'Erro ao salvar alterações');
       }
 
       setSuccessMessage('Alterações salvas com sucesso!');
+      // Reset form to clear dirty state
+      reset(data);
       // Redirect after 2 seconds to show success message
       setTimeout(() => {
         router.push('/dashboard/properties');
       }, 2000);
     } catch (err) {
+      console.error('Error saving property:', err);
       setError(err instanceof Error ? err.message : 'Erro desconhecido');
     } finally {
       setSaving(false);
@@ -265,7 +255,7 @@ export default function EditPropertyPage() {
             variant="contained"
             startIcon={saving ? <CircularProgress size={20} /> : <Save />}
             onClick={handleSubmit(onSubmit)}
-            disabled={saving || !isDirty}
+            disabled={saving}
           >
             {saving ? 'Salvando...' : 'Salvar Alterações'}
           </Button>

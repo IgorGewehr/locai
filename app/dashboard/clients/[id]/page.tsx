@@ -27,6 +27,9 @@ import {
   DialogContent,
   DialogActions,
   TextField,
+  Skeleton,
+  CircularProgress,
+  MenuItem,
 } from '@mui/material';
 import {
   ArrowBack,
@@ -39,9 +42,17 @@ import {
   Message,
   History,
   Bookmark,
+  Visibility,
+  Home,
+  Payment,
+  CheckCircle,
+  Cancel,
+  Schedule,
+  Event,
 } from '@mui/icons-material';
 import { safeFormatDate, DateFormats } from '@/lib/utils/date-utils';
 import { clientService, reservationService, conversationService } from '@/lib/firebase/firestore';
+import { clientServiceWrapper } from '@/lib/services/client-service';
 
 interface Client {
   id: string;
@@ -62,11 +73,14 @@ interface Client {
 
 interface Reservation {
   id: string;
+  propertyId: string;
   propertyName: string;
   checkIn: Date;
   checkOut: Date;
-  status: 'confirmed' | 'pending' | 'cancelled';
+  status: 'confirmed' | 'pending' | 'cancelled' | 'checked_in' | 'checked_out' | 'visit';
   total: number;
+  paymentStatus?: string;
+  guests?: number;
 }
 
 interface Conversation {
@@ -97,8 +111,19 @@ export default function ClientDetailPage() {
   const [tabValue, setTabValue] = useState(0);
   const [editOpen, setEditOpen] = useState(false);
   const [editNameOpen, setEditNameOpen] = useState(false);
+  const [editMode, setEditMode] = useState(false);
   const [notes, setNotes] = useState('');
   const [clientName, setClientName] = useState('');
+  const [saving, setSaving] = useState(false);
+  const [formData, setFormData] = useState({
+    name: '',
+    email: '',
+    phone: '',
+    document: '',
+    notes: '',
+    tags: [] as string[],
+    status: 'active' as 'active' | 'inactive' | 'lead',
+  });
 
   useEffect(() => {
     loadClientData();
@@ -118,14 +143,20 @@ export default function ClientDetailPage() {
       let reservations: Reservation[] = [];
       try {
         const reservationsData = await reservationService.getWhere('clientId', '==', params.id as string);
-        reservations = reservationsData.map((res: any) => ({
-          id: res.id,
-          propertyName: res.propertyName || res.propertyId || 'Propriedade não identificada',
-          checkIn: res.checkIn?.toDate ? res.checkIn.toDate() : new Date(res.checkIn),
-          checkOut: res.checkOut?.toDate ? res.checkOut.toDate() : new Date(res.checkOut),
-          status: res.status || 'pending',
-          total: res.totalPrice || 0
-        }));
+        // Sort by check-in date descending
+        reservations = reservationsData
+          .map((res: any) => ({
+            id: res.id,
+            propertyId: res.propertyId,
+            propertyName: res.propertyName || res.propertyId || 'Propriedade não identificada',
+            checkIn: res.checkIn?.toDate ? res.checkIn.toDate() : new Date(res.checkIn),
+            checkOut: res.checkOut?.toDate ? res.checkOut.toDate() : new Date(res.checkOut),
+            status: res.status || 'pending',
+            total: res.totalPrice || res.totalAmount || 0,
+            paymentStatus: res.paymentStatus,
+            guests: res.guests
+          }))
+          .sort((a, b) => b.checkIn.getTime() - a.checkIn.getTime());
       } catch (err) {
         console.log('Erro ao carregar reservas:', err);
       }
@@ -160,6 +191,17 @@ export default function ClientDetailPage() {
       setConversations(conversations);
       setNotes((client as any).notes || '');
       setClientName(client.name || '');
+      
+      // Initialize form data
+      setFormData({
+        name: client.name || '',
+        email: client.email || '',
+        phone: client.phone || '',
+        document: (client as any).document || '',
+        notes: (client as any).notes || '',
+        tags: client.tags || [],
+        status: client.status || 'active',
+      });
     } catch (err) {
       console.error('Erro ao carregar dados do cliente:', err);
       setError('Erro ao carregar dados do cliente');
@@ -198,7 +240,79 @@ export default function ClientDetailPage() {
     }
   };
 
-  if (loading) return <Box>Carregando...</Box>;
+  const handleSaveClient = async () => {
+    setSaving(true);
+    setError(null);
+
+    try {
+      await clientServiceWrapper.update(params.id as string, {
+        name: formData.name,
+        email: formData.email,
+        phone: formData.phone,
+        document: formData.document,
+        notes: formData.notes,
+        tags: formData.tags,
+        status: formData.status,
+        updatedAt: new Date(),
+      });
+
+      // Update local state
+      setClient(prev => prev ? {
+        ...prev,
+        name: formData.name,
+        email: formData.email,
+        phone: formData.phone,
+        notes: formData.notes,
+        tags: formData.tags,
+        status: formData.status,
+      } : null);
+      
+      setEditMode(false);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Erro ao atualizar cliente');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <Box sx={{ p: 3 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
+          <Skeleton variant="circular" width={40} height={40} sx={{ mr: 2 }} />
+          <Skeleton variant="text" width={300} height={40} />
+        </Box>
+        <Card sx={{ mb: 3 }}>
+          <CardContent>
+            <Grid container spacing={3}>
+              <Grid item>
+                <Skeleton variant="circular" width={80} height={80} />
+              </Grid>
+              <Grid item xs>
+                <Skeleton variant="text" width={200} height={32} sx={{ mb: 1 }} />
+                <Skeleton variant="text" width={150} height={24} sx={{ mb: 2 }} />
+                <Skeleton variant="text" width={250} height={20} sx={{ mb: 1 }} />
+                <Skeleton variant="text" width={200} height={20} />
+              </Grid>
+            </Grid>
+          </CardContent>
+        </Card>
+        <Grid container spacing={3}>
+          {[1, 2, 3, 4].map((i) => (
+            <Grid item xs={12} md={3} key={i}>
+              <Card>
+                <CardContent>
+                  <Skeleton variant="text" width="100%" height={24} />
+                  <Skeleton variant="text" width="80%" height={40} />
+                </CardContent>
+              </Card>
+            </Grid>
+          ))}
+        </Grid>
+      </Box>
+    );
+  }
+  
   if (error) return <Alert severity="error">{error}</Alert>;
   if (!client) return <Alert severity="error">Cliente não encontrado</Alert>;
 
@@ -245,57 +359,172 @@ export default function ClientDetailPage() {
               </Avatar>
             </Grid>
             <Grid item xs>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                <Typography variant="h5">
-                  {client.name}
-                </Typography>
-                <IconButton 
-                  size="small" 
-                  onClick={() => setEditNameOpen(true)}
-                  sx={{ opacity: 0.7, '&:hover': { opacity: 1 } }}
-                >
-                  <Edit fontSize="small" />
-                </IconButton>
-              </Box>
-              <Box sx={{ display: 'flex', gap: 1, mb: 2 }}>
-                <Chip
-                  label={client.status}
-                  color={getStatusColor(client.status) as any}
-                  size="small"
-                />
-                {(client.tags || []).map((tag) => (
-                  <Chip key={tag} label={tag} variant="outlined" size="small" />
-                ))}
-              </Box>
-              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <Email fontSize="small" />
-                  <Typography variant="body1">{client.email}</Typography>
-                </Box>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <Phone fontSize="small" />
-                  <Typography variant="body1">{client.phone}</Typography>
-                </Box>
-                {client.location && (
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                    <LocationOn fontSize="small" />
-                    <Typography variant="body1">{client.location}</Typography>
+              {!editMode ? (
+                <>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                    <Typography variant="h5">
+                      {client.name}
+                    </Typography>
                   </Box>
-                )}
-              </Box>
+                  <Box sx={{ display: 'flex', gap: 1, mb: 2 }}>
+                    <Chip
+                      label={client.status}
+                      color={getStatusColor(client.status) as any}
+                      size="small"
+                    />
+                    {(client.tags || []).map((tag) => (
+                      <Chip key={tag} label={tag} variant="outlined" size="small" />
+                    ))}
+                  </Box>
+                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <Email fontSize="small" />
+                      <Typography variant="body1">{client.email || 'Não informado'}</Typography>
+                    </Box>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <Phone fontSize="small" />
+                      <Typography variant="body1">{client.phone}</Typography>
+                    </Box>
+                    {client.location && (
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <LocationOn fontSize="small" />
+                        <Typography variant="body1">{client.location}</Typography>
+                      </Box>
+                    )}
+                  </Box>
+                </>
+              ) : (
+                <Grid container spacing={2}>
+                  <Grid item xs={12} md={6}>
+                    <TextField
+                      fullWidth
+                      size="small"
+                      label="Nome"
+                      value={formData.name}
+                      onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                      required
+                    />
+                  </Grid>
+                  <Grid item xs={12} md={6}>
+                    <TextField
+                      fullWidth
+                      size="small"
+                      label="Telefone"
+                      value={formData.phone}
+                      onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                      required
+                    />
+                  </Grid>
+                  <Grid item xs={12} md={6}>
+                    <TextField
+                      fullWidth
+                      size="small"
+                      label="E-mail"
+                      type="email"
+                      value={formData.email}
+                      onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                    />
+                  </Grid>
+                  <Grid item xs={12} md={6}>
+                    <TextField
+                      fullWidth
+                      size="small"
+                      label="Status"
+                      select
+                      value={formData.status}
+                      onChange={(e) => setFormData({ ...formData, status: e.target.value as any })}
+                    >
+                      <MenuItem value="active">Ativo</MenuItem>
+                      <MenuItem value="inactive">Inativo</MenuItem>
+                      <MenuItem value="lead">Lead</MenuItem>
+                    </TextField>
+                  </Grid>
+                  <Grid item xs={12}>
+                    <TextField
+                      fullWidth
+                      size="small"
+                      label="CPF/CNPJ"
+                      value={formData.document}
+                      onChange={(e) => setFormData({ ...formData, document: e.target.value })}
+                    />
+                  </Grid>
+                </Grid>
+              )}
             </Grid>
             <Grid item>
-              <Button
-                variant="outlined"
-                startIcon={<Edit />}
-                onClick={() => setEditOpen(true)}
-              >
-                Editar Anotações
-              </Button>
+              {!editMode ? (
+                <Button
+                  variant="contained"
+                  startIcon={<Edit />}
+                  onClick={() => setEditMode(true)}
+                >
+                  Editar Cliente
+                </Button>
+              ) : (
+                <Box sx={{ display: 'flex', gap: 1 }}>
+                  <Button
+                    variant="outlined"
+                    onClick={() => {
+                      setEditMode(false);
+                      // Reset form data
+                      setFormData({
+                        name: client.name || '',
+                        email: client.email || '',
+                        phone: client.phone || '',
+                        document: (client as any).document || '',
+                        notes: (client as any).notes || '',
+                        tags: client.tags || [],
+                        status: client.status || 'active',
+                      });
+                    }}
+                    disabled={saving}
+                  >
+                    Cancelar
+                  </Button>
+                  <Button
+                    variant="contained"
+                    color="success"
+                    onClick={handleSaveClient}
+                    disabled={saving}
+                  >
+                    {saving ? 'Salvando...' : 'Salvar'}
+                  </Button>
+                </Box>
+              )}
             </Grid>
           </Grid>
         </CardContent>
       </Card>
+
+      {/* Notes Section */}
+      {(client.notes || editMode) && (
+        <Card sx={{ mb: 3, backgroundColor: 'action.hover' }}>
+          <CardContent>
+            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
+              <Typography variant="h6">Anotações</Typography>
+              {!editMode && (
+                <IconButton size="small" onClick={() => setEditOpen(true)}>
+                  <Edit fontSize="small" />
+                </IconButton>
+              )}
+            </Box>
+            {editMode ? (
+              <TextField
+                fullWidth
+                multiline
+                rows={4}
+                value={formData.notes}
+                onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                placeholder="Adicione anotações sobre este cliente..."
+              />
+            ) : (
+              <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>
+                {client.notes}
+              </Typography>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       {/* Stats Cards */}
       <Grid container spacing={3} sx={{ mb: 3 }}>
@@ -361,65 +590,302 @@ export default function ClientDetailPage() {
         </Box>
 
         <TabPanel value={tabValue} index={0}>
-          <TableContainer>
-            <Table>
-              <TableHead>
-                <TableRow>
-                  <TableCell>Propriedade</TableCell>
-                  <TableCell>Check-in</TableCell>
-                  <TableCell>Check-out</TableCell>
-                  <TableCell>Status</TableCell>
-                  <TableCell>Total</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {reservations.map((reservation) => (
-                  <TableRow key={reservation.id}>
-                    <TableCell>{reservation.propertyName}</TableCell>
-                    <TableCell>
-                      {safeFormatDate(reservation.checkIn, DateFormats.SHORT)}
-                    </TableCell>
-                    <TableCell>
-                      {safeFormatDate(reservation.checkOut, DateFormats.SHORT)}
-                    </TableCell>
-                    <TableCell>
-                      <Chip
-                        label={reservation.status}
-                        color={getStatusColor(reservation.status) as any}
-                        size="small"
-                      />
-                    </TableCell>
-                    <TableCell>
-                      {new Intl.NumberFormat('pt-BR', {
-                        style: 'currency',
-                        currency: 'BRL',
-                      }).format(reservation.total)}
-                    </TableCell>
+          {reservations.length === 0 ? (
+            <Box sx={{ textAlign: 'center', py: 4 }}>
+              <Typography color="textSecondary">Nenhuma reserva encontrada</Typography>
+            </Box>
+          ) : (
+            <TableContainer>
+              <Table>
+                <TableHead>
+                  <TableRow>
+                    <TableCell>Tipo</TableCell>
+                    <TableCell>Propriedade</TableCell>
+                    <TableCell>Período</TableCell>
+                    <TableCell>Hóspedes</TableCell>
+                    <TableCell>Status</TableCell>
+                    <TableCell>Pagamento</TableCell>
+                    <TableCell>Total</TableCell>
+                    <TableCell>Ações</TableCell>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </TableContainer>
+                </TableHead>
+                <TableBody>
+                  {reservations.map((reservation) => {
+                    const isVisit = reservation.status === 'visit' || reservation.total === 0;
+                    const isPast = new Date(reservation.checkOut) < new Date();
+                    const isCurrent = new Date(reservation.checkIn) <= new Date() && new Date(reservation.checkOut) >= new Date();
+                    
+                    return (
+                      <TableRow key={reservation.id} hover>
+                        <TableCell>
+                          {isVisit ? (
+                            <Event sx={{ color: 'secondary.main' }} />
+                          ) : (
+                            <Home sx={{ color: 'primary.main' }} />
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          <Button
+                            size="small"
+                            startIcon={<Home sx={{ fontSize: 16 }} />}
+                            onClick={() => router.push(`/dashboard/properties/${reservation.propertyId}`)}
+                            sx={{ textTransform: 'none' }}
+                          >
+                            {reservation.propertyName}
+                          </Button>
+                        </TableCell>
+                        <TableCell>
+                          <Box>
+                            <Typography variant="body2">
+                              {safeFormatDate(reservation.checkIn, DateFormats.SHORT)} - {safeFormatDate(reservation.checkOut, DateFormats.SHORT)}
+                            </Typography>
+                            <Typography variant="caption" color="textSecondary">
+                              {Math.ceil((reservation.checkOut.getTime() - reservation.checkIn.getTime()) / (1000 * 60 * 60 * 24))} noites
+                            </Typography>
+                          </Box>
+                        </TableCell>
+                        <TableCell>{reservation.guests || '-'}</TableCell>
+                        <TableCell>
+                          <Chip
+                            label={
+                              reservation.status === 'visit' ? 'Visita' :
+                              reservation.status === 'confirmed' ? 'Confirmada' :
+                              reservation.status === 'pending' ? (isVisit ? 'Visita Pendente' : 'Pendente') :
+                              reservation.status === 'checked_in' ? 'Check-in' :
+                              reservation.status === 'checked_out' ? 'Check-out' :
+                              reservation.status === 'cancelled' ? 'Cancelada' : reservation.status
+                            }
+                            color={
+                              reservation.status === 'confirmed' ? 'success' :
+                              reservation.status === 'pending' ? 'warning' :
+                              reservation.status === 'cancelled' ? 'error' :
+                              reservation.status === 'checked_in' ? 'info' :
+                              reservation.status === 'visit' ? 'secondary' :
+                              'default'
+                            }
+                            size="small"
+                            icon={isVisit ? <Event sx={{ fontSize: 14 }} /> : undefined}
+                          />
+                        </TableCell>
+                        <TableCell>
+                          {!isVisit && reservation.paymentStatus ? (
+                            <Chip
+                              label={
+                                reservation.paymentStatus === 'paid' ? 'Pago' :
+                                reservation.paymentStatus === 'pending' ? 'Pendente' :
+                                reservation.paymentStatus === 'overdue' ? 'Atrasado' :
+                                reservation.paymentStatus
+                              }
+                              color={
+                                reservation.paymentStatus === 'paid' ? 'success' :
+                                reservation.paymentStatus === 'pending' ? 'warning' :
+                                reservation.paymentStatus === 'overdue' ? 'error' :
+                                'default'
+                              }
+                              size="small"
+                            />
+                          ) : (
+                            <Typography variant="caption" color="textSecondary">
+                              {isVisit ? 'N/A' : '-'}
+                            </Typography>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          <Typography variant="body2" fontWeight="bold">
+                            {new Intl.NumberFormat('pt-BR', {
+                              style: 'currency',
+                              currency: 'BRL',
+                            }).format(reservation.total)}
+                          </Typography>
+                        </TableCell>
+                        <TableCell>
+                          <Box sx={{ display: 'flex', gap: 1 }}>
+                            <IconButton
+                              size="small"
+                              onClick={() => router.push(`/dashboard/reservations/${reservation.id}`)}
+                              title="Ver detalhes"
+                            >
+                              <Visibility sx={{ fontSize: 18 }} />
+                            </IconButton>
+                            {!isVisit && (
+                              <IconButton
+                                size="small"
+                                onClick={() => router.push(`/dashboard/financeiro?reservationId=${reservation.id}`)}
+                                title="Ver pagamento"
+                                color="primary"
+                              >
+                                <Payment sx={{ fontSize: 18 }} />
+                              </IconButton>
+                            )}
+                          </Box>
+                        </TableCell>
+                      </TableRow>
+                    );
+                  })}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          )}
         </TabPanel>
 
         <TabPanel value={tabValue} index={1}>
-          {conversations.map((conversation) => (
-            <Box key={conversation.id} sx={{ mb: 2, p: 2, border: 1, borderColor: 'divider', borderRadius: 1 }}>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                {getPlatformIcon(conversation.platform)}
-                <Typography variant="caption" color="textSecondary">
-                  {safeFormatDate(conversation.timestamp, DateFormats.LONG)}
-                </Typography>
-              </Box>
-              <Typography variant="body2">{conversation.lastMessage}</Typography>
+          {conversations.length === 0 ? (
+            <Box sx={{ textAlign: 'center', py: 4 }}>
+              <Typography color="textSecondary">Nenhuma conversa encontrada</Typography>
             </Box>
-          ))}
+          ) : (
+            conversations.map((conversation) => (
+              <Box 
+                key={conversation.id} 
+                sx={{ 
+                  mb: 2, 
+                  p: 2, 
+                  border: 1, 
+                  borderColor: 'divider', 
+                  borderRadius: 1,
+                  cursor: 'pointer',
+                  transition: 'all 0.2s',
+                  '&:hover': {
+                    borderColor: 'primary.main',
+                    backgroundColor: 'action.hover'
+                  }
+                }}
+                onClick={() => router.push(`/dashboard/conversations/${conversation.id}`)}
+              >
+                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    {getPlatformIcon(conversation.platform)}
+                    <Typography variant="caption" color="textSecondary">
+                      {safeFormatDate(conversation.timestamp, DateFormats.LONG)}
+                    </Typography>
+                  </Box>
+                  <Button 
+                    size="small" 
+                    variant="outlined"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      router.push(`/dashboard/conversations/${conversation.id}`);
+                    }}
+                  >
+                    Ver conversa
+                  </Button>
+                </Box>
+                <Typography variant="body2">{conversation.lastMessage}</Typography>
+              </Box>
+            ))
+          )}
         </TabPanel>
 
         <TabPanel value={tabValue} index={2}>
-          <Typography variant="body2" color="textSecondary">
-            Histórico de atividades em breve...
-          </Typography>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+            {/* Combine reservations and conversations into a timeline */}
+            {(() => {
+              const activities: any[] = [];
+              
+              // Add reservations to activities
+              reservations.forEach(res => {
+                const isVisit = res.status === 'visit' || res.total === 0;
+                activities.push({
+                  id: `res-${res.id}`,
+                  type: 'reservation',
+                  date: res.checkIn,
+                  title: isVisit ? 'Visita agendada' : 'Reserva criada',
+                  description: `${res.propertyName} - ${safeFormatDate(res.checkIn, DateFormats.SHORT)} a ${safeFormatDate(res.checkOut, DateFormats.SHORT)}`,
+                  status: res.status,
+                  link: `/dashboard/reservations/${res.id}`,
+                  icon: isVisit ? <Event color="secondary" /> : <Home color="primary" />
+                });
+              });
+              
+              // Add conversations to activities
+              conversations.forEach(conv => {
+                activities.push({
+                  id: `conv-${conv.id}`,
+                  type: 'conversation',
+                  date: conv.timestamp,
+                  title: 'Conversa pelo WhatsApp',
+                  description: conv.lastMessage,
+                  status: conv.status,
+                  link: `/dashboard/conversations/${conv.id}`,
+                  icon: <WhatsApp color="success" />
+                });
+              });
+              
+              // Sort by date descending
+              activities.sort((a, b) => b.date.getTime() - a.date.getTime());
+              
+              if (activities.length === 0) {
+                return (
+                  <Box sx={{ textAlign: 'center', py: 4 }}>
+                    <Typography color="textSecondary">Nenhuma atividade registrada</Typography>
+                  </Box>
+                );
+              }
+              
+              return activities.map((activity) => (
+                <Paper 
+                  key={activity.id} 
+                  sx={{ 
+                    p: 2,
+                    cursor: 'pointer',
+                    transition: 'all 0.2s',
+                    '&:hover': {
+                      backgroundColor: 'action.hover',
+                      transform: 'translateX(4px)'
+                    }
+                  }}
+                  onClick={() => router.push(activity.link)}
+                >
+                  <Box sx={{ display: 'flex', gap: 2 }}>
+                    <Box sx={{ pt: 0.5 }}>
+                      {activity.icon}
+                    </Box>
+                    <Box sx={{ flex: 1 }}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
+                        <Typography variant="subtitle2" fontWeight="bold">
+                          {activity.title}
+                        </Typography>
+                        <Typography variant="caption" color="textSecondary">
+                          {safeFormatDate(activity.date, DateFormats.LONG)}
+                        </Typography>
+                      </Box>
+                      <Typography variant="body2" color="textSecondary">
+                        {activity.description}
+                      </Typography>
+                      {activity.status && (
+                        <Box sx={{ mt: 1 }}>
+                          <Chip
+                            label={
+                              activity.status === 'confirmed' ? 'Confirmada' :
+                              activity.status === 'pending' ? 'Pendente' :
+                              activity.status === 'cancelled' ? 'Cancelada' :
+                              activity.status === 'visit' ? 'Visita' :
+                              activity.status === 'unread' ? 'Não lida' :
+                              activity.status === 'read' ? 'Lida' :
+                              activity.status
+                            }
+                            size="small"
+                            color={
+                              activity.status === 'confirmed' ? 'success' :
+                              activity.status === 'pending' ? 'warning' :
+                              activity.status === 'cancelled' ? 'error' :
+                              activity.status === 'visit' ? 'secondary' :
+                              'default'
+                            }
+                          />
+                        </Box>
+                      )}
+                    </Box>
+                    <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                      <IconButton size="small">
+                        <Visibility sx={{ fontSize: 18 }} />
+                      </IconButton>
+                    </Box>
+                  </Box>
+                </Paper>
+              ));
+            })()}
+          </Box>
         </TabPanel>
       </Card>
 

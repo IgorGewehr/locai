@@ -94,7 +94,7 @@ export default function AdvancedAnalytics() {
       // Determine date range based on selection
       const now = new Date();
       let startDate: Date;
-      let endDate = now;
+      const endDate = now;
 
       switch (timeRange) {
         case '7d':

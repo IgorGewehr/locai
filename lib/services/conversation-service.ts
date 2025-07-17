@@ -77,7 +77,7 @@ class ConversationService extends FirestoreService<Conversation> {
       let client = await clientServiceWrapper.findByPhone(phoneNumber, tenantId)
 
       if (!client) {
-        client = await clientServiceWrapper.create({
+        client = await clientServiceWrapper.createOrUpdate({
           name: clientName || '',
           phone: phoneNumber,
           tenantId,
@@ -153,6 +153,9 @@ class ConversationService extends FirestoreService<Conversation> {
         throw new Error('Conversation not found')
       }
 
+      // Import messageService to save in the separate collection
+      const { messageService } = await import('@/lib/firebase/firestore')
+
       // Filter out undefined values from messageData
       const filteredMessageData = Object.fromEntries(
         Object.entries(messageData).filter(([_, value]) => value !== undefined)
@@ -170,7 +173,13 @@ class ConversationService extends FirestoreService<Conversation> {
         ...filteredMessageData
       }
 
-      // Add message to conversation
+      // Save message to the separate messages collection
+      await messageService.create({
+        ...message,
+        id: undefined // Let Firestore generate the ID
+      })
+
+      // Add message to conversation's internal array
       const updatedMessages = [...(conversation.messages || []), message]
 
       // Filter out undefined values before updating

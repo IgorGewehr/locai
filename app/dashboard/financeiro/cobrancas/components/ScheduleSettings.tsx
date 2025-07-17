@@ -320,7 +320,7 @@ export default function ScheduleSettings({ settings, onChange }: ScheduleSetting
                         fullWidth
                         label="Delay entre envios (segundos)"
                         type="number"
-                        defaultValue={5}
+                        defaultValue="5"
                         helperText="Tempo de espera entre cada envio em lote"
                       />
                     </Grid>
@@ -330,7 +330,7 @@ export default function ScheduleSettings({ settings, onChange }: ScheduleSetting
                         fullWidth
                         label="Tamanho do lote"
                         type="number"
-                        defaultValue={50}
+                        defaultValue="50"
                         helperText="Quantos lembretes processar por vez"
                       />
                     </Grid>

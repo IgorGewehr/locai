@@ -145,43 +145,122 @@ export default function MiniSiteWidget({ tenantId = 'demo' }: MiniSiteWidgetProp
   }
 
   return (
-    <Card>
-      <CardContent>
-        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <Language color="primary" />
-            <Typography variant="h6" fontWeight={600}>
-              Mini-Site
-            </Typography>
+    <Card 
+      sx={{ 
+        height: { xs: 'auto', lg: 400 },
+        minHeight: 350,
+        background: 'rgba(255, 255, 255, 0.08)',
+        backdropFilter: 'blur(20px)',
+        border: '1px solid rgba(255, 255, 255, 0.15)',
+        borderRadius: '20px',
+        transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+        '&:hover': {
+          transform: 'translateY(-4px)',
+          boxShadow: '0 16px 50px rgba(0, 0, 0, 0.4)',
+        }
+      }}
+    >
+      <CardContent sx={{ p: 4, height: '100%' }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 3 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+            <Box
+              sx={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                width: 56,
+                height: 56,
+                borderRadius: '16px',
+                background: 'linear-gradient(135deg, #ec4899, #f43f5e)',
+                boxShadow: '0 8px 24px rgba(236, 72, 153, 0.4)',
+              }}
+            >
+              <Language sx={{ color: 'white', fontSize: 28 }} />
+            </Box>
+            <Box>
+              <Typography 
+                variant="h5" 
+                component="h2"
+                sx={{ 
+                  color: '#ffffff',
+                  fontWeight: 700,
+                  fontSize: '1.5rem',
+                  mb: 0.5
+                }}
+              >
+                Mini-Site
+              </Typography>
+              <Chip
+                label={miniSiteConfig.active ? 'Ativo' : 'Inativo'}
+                sx={{
+                  background: miniSiteConfig.active ? 'rgba(16, 185, 129, 0.15)' : 'rgba(107, 114, 128, 0.15)',
+                  color: miniSiteConfig.active ? '#10b981' : '#6b7280',
+                  border: miniSiteConfig.active ? '1px solid rgba(16, 185, 129, 0.3)' : '1px solid rgba(107, 114, 128, 0.3)',
+                  fontWeight: 600,
+                  fontSize: '0.875rem',
+                  height: 28,
+                }}
+              />
+            </Box>
           </Box>
           <Box sx={{ display: 'flex', gap: 1 }}>
             <Tooltip title="Configurações">
-              <IconButton size="small" onClick={openSettings}>
+              <IconButton 
+                onClick={openSettings}
+                sx={{
+                  background: 'rgba(236, 72, 153, 0.1)',
+                  border: '1px solid rgba(236, 72, 153, 0.2)',
+                  color: '#ec4899',
+                  '&:hover': {
+                    background: 'rgba(236, 72, 153, 0.2)',
+                    transform: 'scale(1.05)',
+                  }
+                }}
+              >
                 <Settings />
               </IconButton>
             </Tooltip>
-            <Tooltip title="Abrir Mini-Site">
-              <span>
-                <IconButton size="small" onClick={openMiniSite} disabled={!miniSiteConfig.active}>
+            {miniSiteConfig.active && (
+              <Tooltip title="Abrir Mini-Site">
+                <IconButton 
+                  onClick={openMiniSite}
+                  sx={{
+                    background: 'rgba(236, 72, 153, 0.1)',
+                    border: '1px solid rgba(236, 72, 153, 0.2)',
+                    color: '#ec4899',
+                    '&:hover': {
+                      background: 'rgba(236, 72, 153, 0.2)',
+                      transform: 'scale(1.05)',
+                    }
+                  }}
+                >
                   <OpenInNew />
                 </IconButton>
-              </span>
-            </Tooltip>
+              </Tooltip>
+            )}
           </Box>
         </Box>
 
-        <Box sx={{ mb: 3 }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-            <Typography variant="subtitle1" fontWeight={600}>
-              {miniSiteConfig.title}
-            </Typography>
-            <Chip
-              label={miniSiteConfig.active ? 'Ativo' : 'Inativo'}
-              color={miniSiteConfig.active ? 'success' : 'default'}
-              size="small"
-            />
-          </Box>
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+        <Box sx={{ mb: 4 }}>
+          <Typography 
+            variant="h6" 
+            sx={{ 
+              color: '#ffffff',
+              fontWeight: 600,
+              fontSize: '1.25rem',
+              mb: 1
+            }}
+          >
+            {miniSiteConfig.title}
+          </Typography>
+          <Typography 
+            variant="body1" 
+            sx={{ 
+              color: 'rgba(255, 255, 255, 0.8)',
+              fontSize: '1rem',
+              mb: 3
+            }}
+          >
             {miniSiteConfig.description}
           </Typography>
           
@@ -189,24 +268,52 @@ export default function MiniSiteWidget({ tenantId = 'demo' }: MiniSiteWidgetProp
             <Box sx={{ 
               display: 'flex', 
               alignItems: 'center', 
-              gap: 1, 
-              p: 1, 
-              bgcolor: 'background.default',
-              borderRadius: 1,
-              border: '1px solid',
-              borderColor: 'divider'
+              gap: 1.5, 
+              p: 2, 
+              background: 'rgba(236, 72, 153, 0.1)',
+              borderRadius: '12px',
+              border: '1px solid rgba(236, 72, 153, 0.2)',
             }}>
-              <Typography variant="body2" sx={{ flex: 1, fontFamily: 'monospace' }}>
+              <Language sx={{ color: '#ec4899', fontSize: 20 }} />
+              <Typography 
+                variant="body2" 
+                sx={{ 
+                  flex: 1, 
+                  fontFamily: 'monospace',
+                  color: '#ffffff',
+                  fontSize: '0.9rem',
+                  wordBreak: 'break-all'
+                }}
+              >
                 {miniSiteUrl}
               </Typography>
               <Tooltip title="Copiar URL">
-                <IconButton size="small" onClick={copyMiniSiteUrl}>
+                <IconButton 
+                  size="small" 
+                  onClick={copyMiniSiteUrl}
+                  sx={{
+                    color: '#ec4899',
+                    '&:hover': {
+                      background: 'rgba(236, 72, 153, 0.1)',
+                    }
+                  }}
+                >
                   <ContentCopy fontSize="small" />
                 </IconButton>
               </Tooltip>
             </Box>
           ) : (
-            <Alert severity="info" sx={{ mb: 2 }}>
+            <Alert 
+              severity="info" 
+              sx={{ 
+                background: 'rgba(59, 130, 246, 0.1)',
+                border: '1px solid rgba(59, 130, 246, 0.2)',
+                color: '#60a5fa',
+                '& .MuiAlert-icon': {
+                  color: '#60a5fa'
+                }
+              }}
+            >
               Ative seu mini-site nas configurações para começar a receber visitas!
             </Alert>
           )}
@@ -214,49 +321,117 @@ export default function MiniSiteWidget({ tenantId = 'demo' }: MiniSiteWidgetProp
 
         {miniSiteConfig.active && (
           <>
-            <Divider sx={{ mb: 2 }} />
+            <Divider sx={{ borderColor: 'rgba(255, 255, 255, 0.1)', mb: 3 }} />
             
-            <Typography variant="subtitle2" fontWeight={600} sx={{ mb: 2 }}>
-              Estatísticas (últimos 30 dias)
+            <Typography 
+              variant="subtitle1" 
+              sx={{ 
+                color: '#ffffff',
+                fontWeight: 600,
+                fontSize: '1.125rem',
+                mb: 2.5
+              }}
+            >
+              Desempenho (30 dias)
             </Typography>
             
-            <Stack spacing={2}>
-              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <VisibilityIcon color="primary" fontSize="small" />
-                  <Typography variant="body2">Visualizações</Typography>
+            <Stack spacing={2.5}>
+              <Box 
+                sx={{ 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  justifyContent: 'space-between',
+                  p: 2,
+                  borderRadius: '12px',
+                  background: 'rgba(255, 255, 255, 0.05)',
+                  border: '1px solid rgba(255, 255, 255, 0.1)',
+                  transition: 'all 0.2s',
+                  '&:hover': {
+                    background: 'rgba(255, 255, 255, 0.08)',
+                  }
+                }}
+              >
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                  <VisibilityIcon sx={{ color: '#60a5fa', fontSize: 20 }} />
+                  <Typography variant="body1" sx={{ color: 'rgba(255, 255, 255, 0.9)' }}>
+                    Visualizações
+                  </Typography>
                 </Box>
-                <Typography variant="body2" fontWeight={600}>
+                <Typography variant="h6" sx={{ color: '#ffffff', fontWeight: 700 }}>
                   {analytics.totalViews.toLocaleString()}
                 </Typography>
               </Box>
               
-              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <TouchApp color="primary" fontSize="small" />
-                  <Typography variant="body2">Imóveis Visualizados</Typography>
+              <Box 
+                sx={{ 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  justifyContent: 'space-between',
+                  p: 2,
+                  borderRadius: '12px',
+                  background: 'rgba(255, 255, 255, 0.05)',
+                  border: '1px solid rgba(255, 255, 255, 0.1)',
+                  transition: 'all 0.2s',
+                  '&:hover': {
+                    background: 'rgba(255, 255, 255, 0.08)',
+                  }
+                }}
+              >
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                  <TouchApp sx={{ color: '#a78bfa', fontSize: 20 }} />
+                  <Typography variant="body1" sx={{ color: 'rgba(255, 255, 255, 0.9)' }}>
+                    Imóveis Vistos
+                  </Typography>
                 </Box>
-                <Typography variant="body2" fontWeight={600}>
+                <Typography variant="h6" sx={{ color: '#ffffff', fontWeight: 700 }}>
                   {analytics.propertyViews.toLocaleString()}
                 </Typography>
               </Box>
               
-              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <WhatsApp color="primary" fontSize="small" />
-                  <Typography variant="body2">Contatos</Typography>
+              <Box 
+                sx={{ 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  justifyContent: 'space-between',
+                  p: 2,
+                  borderRadius: '12px',
+                  background: 'rgba(255, 255, 255, 0.05)',
+                  border: '1px solid rgba(255, 255, 255, 0.1)',
+                  transition: 'all 0.2s',
+                  '&:hover': {
+                    background: 'rgba(255, 255, 255, 0.08)',
+                  }
+                }}
+              >
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                  <WhatsApp sx={{ color: '#10b981', fontSize: 20 }} />
+                  <Typography variant="body1" sx={{ color: 'rgba(255, 255, 255, 0.9)' }}>
+                    Contatos
+                  </Typography>
                 </Box>
-                <Typography variant="body2" fontWeight={600}>
+                <Typography variant="h6" sx={{ color: '#ffffff', fontWeight: 700 }}>
                   {analytics.inquiries}
                 </Typography>
               </Box>
               
-              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <TrendingUp color="success" fontSize="small" />
-                  <Typography variant="body2">Taxa de Conversão</Typography>
+              <Box 
+                sx={{ 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  justifyContent: 'space-between',
+                  p: 2,
+                  borderRadius: '12px',
+                  background: 'rgba(16, 185, 129, 0.1)',
+                  border: '1px solid rgba(16, 185, 129, 0.2)',
+                }}
+              >
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                  <TrendingUp sx={{ color: '#10b981', fontSize: 20 }} />
+                  <Typography variant="body1" sx={{ color: 'rgba(255, 255, 255, 0.9)' }}>
+                    Taxa de Conversão
+                  </Typography>
                 </Box>
-                <Typography variant="body2" fontWeight={600} color="success.main">
+                <Typography variant="h6" sx={{ color: '#10b981', fontWeight: 700 }}>
                   {analytics.conversionRate}%
                 </Typography>
               </Box>
@@ -264,30 +439,52 @@ export default function MiniSiteWidget({ tenantId = 'demo' }: MiniSiteWidgetProp
           </>
         )}
 
-        <Divider sx={{ my: 2 }} />
+        {miniSiteConfig.active && (
+          <>
+            <Divider sx={{ borderColor: 'rgba(255, 255, 255, 0.1)', my: 3 }} />
 
-        <Box sx={{ display: 'flex', gap: 1 }}>
-          <Button
-            variant="outlined"
-            size="small"
-            startIcon={<Visibility />}
-            onClick={openMiniSite}
-            disabled={!miniSiteConfig.active}
-            sx={{ flex: 1 }}
-          >
-            Visualizar
-          </Button>
-          <Button
-            variant="outlined"
-            size="small"
-            startIcon={<Share />}
-            onClick={copyMiniSiteUrl}
-            disabled={!miniSiteConfig.active}
-            sx={{ flex: 1 }}
-          >
-            Compartilhar
-          </Button>
-        </Box>
+            <Box sx={{ display: 'flex', gap: 2 }}>
+              <Button
+                variant="contained"
+                startIcon={<Visibility />}
+                onClick={openMiniSite}
+                sx={{ 
+                  flex: 1,
+                  background: 'linear-gradient(135deg, #ec4899, #f43f5e)',
+                  '&:hover': {
+                    background: 'linear-gradient(135deg, #db2777, #e11d48)',
+                  },
+                  textTransform: 'none',
+                  fontWeight: 600,
+                  py: 1.5,
+                  borderRadius: '12px',
+                }}
+              >
+                Visualizar Site
+              </Button>
+              <Button
+                variant="outlined"
+                startIcon={<Share />}
+                onClick={copyMiniSiteUrl}
+                sx={{ 
+                  flex: 1,
+                  borderColor: 'rgba(236, 72, 153, 0.3)',
+                  color: '#ec4899',
+                  '&:hover': {
+                    borderColor: '#ec4899',
+                    background: 'rgba(236, 72, 153, 0.1)',
+                  },
+                  textTransform: 'none',
+                  fontWeight: 600,
+                  py: 1.5,
+                  borderRadius: '12px',
+                }}
+              >
+                Compartilhar
+              </Button>
+            </Box>
+          </>
+        )}
       </CardContent>
     </Card>
   );

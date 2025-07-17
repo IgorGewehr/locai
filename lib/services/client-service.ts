@@ -8,15 +8,20 @@ export class ClientService {
     document?: string;
     phone: string;
     tenantId?: string;
+    source?: string;
   }): Promise<Client> {
-    // Check if client exists
-    const existingClient = await clientService.getWhere('phone', '==', clientData.phone);
+    // Check if client exists using findByPhone which considers tenantId
+    const existingClient = await this.findByPhone(clientData.phone, clientData.tenantId);
     
-    if (existingClient.length > 0) {
-      // Update existing client
-      const client = existingClient[0];
-      await clientService.update(client.id, clientData);
-      return { ...client, ...clientData };
+    if (existingClient) {
+      // Update existing client with new data (preserving existing data)
+      const updatedData = {
+        ...existingClient,
+        ...clientData,
+        updatedAt: new Date()
+      };
+      await clientService.update(existingClient.id, updatedData);
+      return updatedData;
     } else {
       // Create new client
       const id = await clientService.create({
