@@ -150,7 +150,7 @@ export default function Header({ onMenuClick }: HeaderProps) {
         borderColor: 'divider',
       }}
     >
-      <Toolbar sx={{ minHeight: 64, px: 3 }}>
+      <Toolbar sx={{ minHeight: { xs: 56, md: 64 }, px: { xs: 2, md: 3 } }}>
         <IconButton
           color="inherit"
           aria-label="open drawer"
@@ -159,12 +159,13 @@ export default function Header({ onMenuClick }: HeaderProps) {
           sx={{ 
             mr: 2,
             color: 'text.primary',
+            p: { xs: 1, md: 1.5 },
             '&:hover': {
               backgroundColor: 'action.hover',
             }
           }}
         >
-          <MenuIcon />
+          <MenuIcon sx={{ fontSize: { xs: 20, md: 24 } }} />
         </IconButton>
 
         <Box sx={{ display: 'flex', alignItems: 'center', flexGrow: 1 }}>
@@ -174,27 +175,28 @@ export default function Header({ onMenuClick }: HeaderProps) {
             sx={{ 
               fontWeight: 600,
               color: 'text.primary',
-              fontSize: '1.125rem',
+              fontSize: { xs: '1rem', md: '1.125rem' },
             }}
           >
-            Locai Pro
+LocAI
           </Typography>
         </Box>
 
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: { xs: 1, md: 1.5 } }}>
           {/* WhatsApp Status */}
           <Tooltip title={`Tipo de conexão: ${connectionType === 'web' ? 'WhatsApp Web' : 'WhatsApp Business API'}`}>
             <Box
               sx={{
                 display: 'flex',
                 alignItems: 'center',
-                px: 2,
-                py: 0.75,
+                px: { xs: 1.5, md: 2 },
+                py: { xs: 0.5, md: 0.75 },
                 borderRadius: 2,
                 backgroundColor: getStatusDisplay().bgColor,
                 color: 'white',
                 cursor: 'pointer',
                 transition: 'all 0.3s ease',
+                minHeight: { xs: 36, md: 40 },
                 '&:hover': {
                   opacity: 0.9,
                 },
@@ -202,7 +204,14 @@ export default function Header({ onMenuClick }: HeaderProps) {
               onClick={() => router.push('/dashboard/settings')}
             >
               {getStatusDisplay().icon}
-              <Typography variant="caption" fontWeight={500}>
+              <Typography 
+                variant="caption" 
+                fontWeight={500}
+                sx={{ 
+                  fontSize: { xs: '0.7rem', md: '0.75rem' },
+                  display: { xs: 'none', sm: 'block' }
+                }}
+              >
                 {getStatusDisplay().text}
               </Typography>
             </Box>
@@ -213,6 +222,7 @@ export default function Header({ onMenuClick }: HeaderProps) {
             color="inherit" 
             sx={{
               color: 'text.secondary',
+              p: { xs: 1, md: 1.5 },
               '&:hover': {
                 backgroundColor: 'action.hover',
               }
@@ -229,7 +239,7 @@ export default function Header({ onMenuClick }: HeaderProps) {
                 }
               }}
             >
-              <Notifications fontSize="small" />
+              <Notifications sx={{ fontSize: { xs: 20, md: 24 } }} />
             </Badge>
           </IconButton>
 
@@ -242,15 +252,15 @@ export default function Header({ onMenuClick }: HeaderProps) {
             onClick={handleMenu}
             sx={{ 
               ml: 1,
-              p: 0.5,
+              p: { xs: 0.5, md: 1 },
             }}
           >
             <Avatar 
               sx={{ 
-                width: 32, 
-                height: 32,
+                width: { xs: 32, md: 36 }, 
+                height: { xs: 32, md: 36 },
                 bgcolor: 'primary.main',
-                fontSize: '0.875rem',
+                fontSize: { xs: '0.875rem', md: '1rem' },
                 fontWeight: 600,
               }} 
               src={user?.photoURL}

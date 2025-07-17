@@ -42,6 +42,7 @@ import {
 } from '@mui/icons-material';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { clientService, reservationService, conversationService } from '@/lib/firebase/firestore';
 
 interface Client {
   id: string;
@@ -105,27 +106,49 @@ export default function ClientDetailPage() {
     try {
       setLoading(true);
       
-      // Fetch client data from Firebase
-      const clientData = await fetch(`/api/clients/${params.id}`);
-      if (!clientData.ok) {
-        throw new Error('Failed to fetch client');
+      // Fetch client data directly from Firebase
+      const client = await clientService.getById(params.id as string);
+      if (!client) {
+        throw new Error('Cliente não encontrado');
       }
       
-      const client = await clientData.json();
-      
       // Fetch client reservations
-      const reservationsData = await fetch(`/api/clients/${params.id}/reservations`);
-      const reservations = reservationsData.ok ? await reservationsData.json() : [];
+      let reservations: Reservation[] = [];
+      try {
+        const reservationsData = await reservationService.getWhere('clientId', '==', params.id as string);
+        reservations = reservationsData.map((res: any) => ({
+          id: res.id,
+          propertyName: res.propertyName || res.propertyId || 'Propriedade não identificada',
+          checkIn: res.checkIn?.toDate ? res.checkIn.toDate() : new Date(res.checkIn),
+          checkOut: res.checkOut?.toDate ? res.checkOut.toDate() : new Date(res.checkOut),
+          status: res.status || 'pending',
+          total: res.totalPrice || 0
+        }));
+      } catch (err) {
+        console.log('Erro ao carregar reservas:', err);
+      }
       
       // Fetch client conversations
-      const conversationsData = await fetch(`/api/clients/${params.id}/conversations`);
-      const conversations = conversationsData.ok ? await conversationsData.json() : [];
+      let conversations: Conversation[] = [];
+      try {
+        const conversationsData = await conversationService.getWhere('clientId', '==', params.id as string);
+        conversations = conversationsData.slice(0, 10).map((conv: any) => ({
+          id: conv.id,
+          lastMessage: conv.lastMessage || 'Sem mensagens',
+          timestamp: conv.updatedAt?.toDate ? conv.updatedAt.toDate() : new Date(conv.updatedAt || Date.now()),
+          status: conv.status === 'active' ? 'unread' : 'read',
+          platform: conv.platform || 'whatsapp'
+        }));
+      } catch (err) {
+        console.log('Erro ao carregar conversas:', err);
+      }
       
-      setClient(client);
+      setClient(client as Client);
       setReservations(reservations);
       setConversations(conversations);
-      setNotes(client.notes || '');
+      setNotes((client as any).notes || '');
     } catch (err) {
+      console.error('Erro ao carregar dados do cliente:', err);
       setError('Erro ao carregar dados do cliente');
     } finally {
       setLoading(false);
@@ -134,10 +157,15 @@ export default function ClientDetailPage() {
 
   const handleSaveNotes = async () => {
     try {
-      // API call to update notes
+      // Update notes directly in Firebase
+      await clientService.update(params.id as string, { 
+        notes,
+        updatedAt: new Date()
+      });
       setClient(prev => prev ? { ...prev, notes } : null);
       setEditOpen(false);
     } catch (err) {
+      console.error('Erro ao salvar anotações:', err);
       setError('Erro ao salvar anotações');
     }
   };

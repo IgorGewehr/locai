@@ -144,35 +144,66 @@ class SettingsService {
   // Update mini-site settings
   async updateMiniSiteSettings(tenantId: string, settings: Partial<MiniSiteSettings>): Promise<void> {
     try {
+      console.log(`🔧 Updating mini-site settings for tenant: ${tenantId}`);
+      console.log('🔧 Settings to update:', settings);
+      
+      // Filter out undefined values from settings
+      const filteredSettings = Object.fromEntries(
+        Object.entries(settings).filter(([_, value]) => {
+          return value !== undefined && 
+                 value !== null && 
+                 !(typeof value === 'object' && value !== null && Object.keys(value).length === 0)
+        })
+      );
+      
+      console.log('🔧 Filtered settings:', filteredSettings);
+      
       // Try to get existing settings first
       const existingSettings = await this.getSettings(tenantId);
       
       if (existingSettings) {
+        console.log('🔧 Updating existing settings document');
         // Update existing document
-        await this.service.update(tenantId, {
+        const updateData = {
           miniSite: {
             ...existingSettings.miniSite,
-            ...settings,
+            ...filteredSettings,
             updatedAt: new Date(),
           },
           updatedAt: new Date(),
-        });
+        };
+        
+        // Filter the entire update data object
+        const filteredUpdateData = Object.fromEntries(
+          Object.entries(updateData).filter(([_, value]) => {
+            return value !== undefined && 
+                   value !== null && 
+                   !(typeof value === 'object' && value !== null && Object.keys(value).length === 0)
+          })
+        );
+        
+        await this.service.update(tenantId, filteredUpdateData);
       } else {
+        console.log('🔧 Creating new settings document');
         // Create new document with default settings
         const defaultSettings = this.getDefaultSettings(tenantId);
-        await this.service.set(tenantId, {
+        const newSettings = {
           ...defaultSettings,
           id: tenantId,
           miniSite: {
             ...defaultSettings.miniSite,
-            ...settings,
+            ...filteredSettings,
             updatedAt: new Date(),
           },
           updatedAt: new Date(),
-        });
+        };
+        
+        await this.service.set(tenantId, newSettings);
       }
+      
+      console.log('✅ Mini-site settings updated successfully');
     } catch (error) {
-      console.error('Error updating mini-site settings:', error);
+      console.error('❌ Error updating mini-site settings:', error);
       throw error;
     }
   }
@@ -267,7 +298,7 @@ class SettingsService {
         connected: false,
       },
       miniSite: {
-        active: false,
+        active: true, // Ativo por padrão para permitir configuração e uso inicial
         title: 'Minha Imobiliária',
         description: 'Encontre o imóvel perfeito para você',
         primaryColor: '#1976d2',

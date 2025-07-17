@@ -84,11 +84,15 @@ export class FirestoreService<T extends { id: string }> {
 
   async set(id: string, data: T): Promise<T> {
     const docRef = doc(db, this.collectionName, id);
-    await setDoc(docRef, {
+    
+    // Filter out undefined values to prevent Firestore errors
+    const filteredData = this.filterUndefinedValues({
       ...data,
       createdAt: Timestamp.now(),
       updatedAt: Timestamp.now(),
     });
+    
+    await setDoc(docRef, filteredData);
     return {
       ...data,
       id,
@@ -99,15 +103,42 @@ export class FirestoreService<T extends { id: string }> {
 
   async update(id: string, data: Partial<T>): Promise<T> {
     const docRef = doc(db, this.collectionName, id);
-    await updateDoc(docRef, {
+    
+    // Filter out undefined values to prevent Firestore errors
+    const filteredData = this.filterUndefinedValues({
       ...data,
       updatedAt: Timestamp.now(),
     });
+    
+    await updateDoc(docRef, filteredData);
     const updated = await this.get(id);
     if (!updated) {
       throw new Error('Document not found after update');
     }
     return updated;
+  }
+  
+  // Helper method to filter out undefined values recursively
+  private filterUndefinedValues(obj: any): any {
+    if (obj === null || obj === undefined) {
+      return null;
+    }
+    
+    if (Array.isArray(obj)) {
+      return obj.map(item => this.filterUndefinedValues(item));
+    }
+    
+    if (typeof obj === 'object') {
+      const filtered: any = {};
+      for (const [key, value] of Object.entries(obj)) {
+        if (value !== undefined) {
+          filtered[key] = this.filterUndefinedValues(value);
+        }
+      }
+      return filtered;
+    }
+    
+    return obj;
   }
 
   async delete(id: string): Promise<void> {

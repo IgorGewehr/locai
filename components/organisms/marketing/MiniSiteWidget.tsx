@@ -66,8 +66,21 @@ export default function MiniSiteWidget({ tenantId = 'demo' }: MiniSiteWidgetProp
       const configResponse = await fetch('/api/settings');
       if (configResponse.ok) {
         const settings = await configResponse.json();
-        if (settings.miniSite) {
-          setMiniSiteConfig(settings.miniSite);
+        if (settings?.miniSite) {
+          setMiniSiteConfig({
+            active: true, // Sempre ativo para permitir configuração inicial
+            title: settings.miniSite.title || 'Minha Imobiliária',
+            description: settings.miniSite.description || 'Encontre o imóvel perfeito para você',
+            primaryColor: settings.miniSite.primaryColor || '#1976d2',
+          });
+        } else {
+          // Set default config if no miniSite settings exist
+          setMiniSiteConfig({
+            active: true, // Ativo por padrão para permitir configuração
+            title: 'Minha Imobiliária',
+            description: 'Encontre o imóvel perfeito para você',
+            primaryColor: '#1976d2',
+          });
         }
         // Use current user's UID as tenant ID
         const actualTenantId = user?.uid || 'default-tenant';

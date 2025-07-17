@@ -7,6 +7,7 @@ import {
   clientService,
   clientQueries 
 } from '@/lib/firebase/firestore';
+import { clientServiceWrapper } from '@/lib/services/client-service';
 import '@/lib/firebase/tenant-queries'; // Extends services with tenant methods
 import type { AgentContext, Message, AIResponse } from '@/lib/types';
 import { handleApiError } from '@/lib/utils/api-errors';
@@ -107,25 +108,22 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Get or create client with tenant isolation
+    // Get or create client with tenant isolation - using safe duplicate-check method
     let client = await clientQueries.getClientByPhoneAndTenant(validatedPhone, validatedTenantId);
     if (!client) {
-      const sanitizedWhatsappNumber = whatsappNumber ? validatePhoneNumber(whatsappNumber) : validatedPhone;
-
-      const clientData = sanitizeClientData({
-        name: 'Cliente WhatsApp',
-        phone: validatedPhone,
-        whatsappNumber: sanitizedWhatsappNumber,
-        tenantId: validatedTenantId,
-        preferences: {},
-        reservations: [],
-        totalSpent: 0,
-        isActive: true,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      });
-
-      client = await clientService.create(clientData);
+      try {
+        client = await clientServiceWrapper.createOrUpdate({
+          name: 'Cliente WhatsApp',
+          phone: validatedPhone,
+          tenantId: validatedTenantId
+        });
+      } catch (error) {
+        // If createOrUpdate fails, try to find the client again (might have been created by another request)
+        client = await clientQueries.getClientByPhoneAndTenant(validatedPhone, validatedTenantId);
+        if (!client) {
+          throw error; // Re-throw if still not found
+        }
+      }
     }
 
     if (!client) {

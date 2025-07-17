@@ -41,7 +41,7 @@ import {
   AccessTime,
 } from '@mui/icons-material';
 import { useRouter } from 'next/navigation';
-import { collection, getDocs, query, orderBy, limit } from 'firebase/firestore';
+import { collection, getDocs, query, orderBy, limit, where } from 'firebase/firestore';
 import { db } from '@/lib/firebase/config';
 
 interface Conversation {
@@ -75,21 +75,42 @@ export default function ConversationsPage() {
     const fetchConversations = async () => {
       try {
         const conversationsRef = collection(db, 'conversations');
-        const q = query(conversationsRef, orderBy('lastMessageAt', 'desc'), limit(100));
+        const q = query(conversationsRef, orderBy('lastMessageAt', 'desc'), limit(500));
         const querySnapshot = await getDocs(q);
         
-        const fetchedConversations: Conversation[] = [];
+        const conversationsByPhone = new Map<string, Conversation>();
         
-        querySnapshot.forEach((doc) => {
+        const conversationsPromises = querySnapshot.docs.map(async (doc) => {
           const data = doc.data();
+          let lastMessage = data.lastMessage || '';
+          
+          // Se não tiver lastMessage, buscar na coleção de mensagens
+          if (!lastMessage) {
+            try {
+              const messagesRef = collection(db, 'messages');
+              const messagesQuery = query(
+                messagesRef,
+                where('conversationId', '==', doc.id),
+                orderBy('timestamp', 'desc'),
+                limit(1)
+              );
+              const messagesSnapshot = await getDocs(messagesQuery);
+              if (!messagesSnapshot.empty) {
+                const lastMessageDoc = messagesSnapshot.docs[0];
+                lastMessage = lastMessageDoc.data().content || lastMessageDoc.data().message || '';
+              }
+            } catch (err) {
+              console.log('Erro ao buscar última mensagem para conversa', doc.id, err);
+            }
+          }
           
           // Mapear dados do Firestore para interface Conversation
           const conversation: Conversation = {
             id: doc.id,
             clientName: data.clientName || 'Cliente',
             clientPhone: data.clientPhone || '',
-            lastMessage: data.lastMessage || '',
-            lastMessageTime: data.lastMessageAt?.toDate() || new Date(),
+            lastMessage: lastMessage || 'Conversa iniciada',
+            lastMessageTime: data.lastMessageAt?.toDate() || data.updatedAt?.toDate() || new Date(),
             status: data.status || 'active',
             priority: data.priority || 'medium',
             unreadCount: data.unreadCount || 0,
@@ -100,11 +121,25 @@ export default function ConversationsPage() {
             assignedAgent: data.assignedAgent || 'AI Sofia',
           };
           
-          fetchedConversations.push(conversation);
+          return conversation;
         });
         
-        setConversations(fetchedConversations);
-        console.log('Conversas carregadas:', fetchedConversations.length);
+        const allConversations = await Promise.all(conversationsPromises);
+        
+        // Agrupar por número de telefone - manter apenas a conversa mais recente
+        allConversations.forEach((conversation) => {
+          const existingConversation = conversationsByPhone.get(conversation.clientPhone);
+          if (!existingConversation || conversation.lastMessageTime > existingConversation.lastMessageTime) {
+            conversationsByPhone.set(conversation.clientPhone, conversation);
+          }
+        });
+        
+        // Converter Map para Array e ordenar por última mensagem
+        const uniqueConversations = Array.from(conversationsByPhone.values())
+          .sort((a, b) => b.lastMessageTime.getTime() - a.lastMessageTime.getTime());
+        
+        setConversations(uniqueConversations);
+        console.log('Conversas carregadas (agrupadas por contato):', uniqueConversations.length);
       } catch (error) {
         console.error('Erro ao carregar conversas:', error);
       } finally {
@@ -404,27 +439,38 @@ export default function ConversationsPage() {
                   
                   <ListItemText
                     primary={
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                        <Typography 
-                          variant="subtitle1" 
-                          fontWeight={conversation.unreadCount > 0 ? 'bold' : 'medium'}
-                        >
-                          {conversation.clientName}
-                        </Typography>
-                        <Chip
-                          label={getStatusLabel(conversation.status)}
-                          color={getStatusColor(conversation.status) as any}
-                          size="small"
-                        />
-                        <Chip
-                          label={conversation.priority}
-                          color={getPriorityColor(conversation.priority) as any}
-                          size="small"
-                          variant="outlined"
-                        />
-                        <Typography variant="body2">
-                          {getSentimentIcon(conversation.sentiment)}
-                        </Typography>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, justifyContent: 'space-between' }}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                          <Typography 
+                            variant="subtitle1" 
+                            fontWeight={conversation.unreadCount > 0 ? 'bold' : 'medium'}
+                            sx={{ 
+                              color: conversation.unreadCount > 0 ? '#1976d2' : '#333',
+                              fontSize: '1rem'
+                            }}
+                          >
+                            {conversation.clientName}
+                          </Typography>
+                          <Typography variant="body2" sx={{ color: '#666' }}>
+                            {getSentimentIcon(conversation.sentiment)}
+                          </Typography>
+                        </Box>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                          <Chip
+                            label={getStatusLabel(conversation.status)}
+                            color={getStatusColor(conversation.status) as any}
+                            size="small"
+                            sx={{ fontSize: '0.7rem', height: 20 }}
+                          />
+                          {conversation.priority === 'high' && (
+                            <Chip
+                              label="Alta"
+                              color="error"
+                              size="small"
+                              sx={{ fontSize: '0.7rem', height: 20 }}
+                            />
+                          )}
+                        </Box>
                       </Box>
                     }
                     secondary={
@@ -432,21 +478,29 @@ export default function ConversationsPage() {
                         <span 
                           style={{ 
                             fontSize: '0.875rem',
-                            color: 'rgba(0, 0, 0, 0.6)',
-                            fontWeight: conversation.unreadCount > 0 ? '500' : 'normal'
+                            color: '#555',
+                            fontWeight: conversation.unreadCount > 0 ? '500' : 'normal',
+                            lineHeight: '1.4'
                           }}
                         >
-                          {conversation.lastMessage}
+                          {conversation.lastMessage.length > 80 
+                            ? conversation.lastMessage.substring(0, 80) + '...' 
+                            : conversation.lastMessage}
                         </span>
                         <br />
                         <span style={{ display: 'flex', alignItems: 'center', gap: '4px', marginTop: '2px' }}>
-                          <span style={{ fontSize: '0.75rem', color: 'rgba(0, 0, 0, 0.6)' }}>
-                            {conversation.lastMessageTime.toLocaleString('pt-BR')}
+                          <span style={{ fontSize: '0.75rem', color: '#777', fontWeight: 500 }}>
+                            {conversation.lastMessageTime.toLocaleString('pt-BR', { 
+                              day: '2-digit', 
+                              month: '2-digit', 
+                              hour: '2-digit', 
+                              minute: '2-digit' 
+                            })}
                           </span>
-                          <span style={{ fontSize: '0.75rem', color: 'rgba(0, 0, 0, 0.6)' }}>
-                            • Confiança IA: {isNaN(conversation.aiConfidence * 100) ? 0 : (conversation.aiConfidence * 100).toFixed(0)}%
+                          <span style={{ fontSize: '0.75rem', color: '#777' }}>
+                            • {conversation.clientPhone}
                           </span>
-                          <span style={{ fontSize: '0.75rem', color: 'rgba(0, 0, 0, 0.6)' }}>
+                          <span style={{ fontSize: '0.75rem', color: '#777' }}>
                             • {conversation.assignedAgent}
                           </span>
                         </span>

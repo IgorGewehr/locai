@@ -159,33 +159,70 @@ export default function PropertiesPage() {
   return (
     <Box>
       {/* Header */}
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-        <Typography variant="h4" component="h1" fontWeight="bold">
+      <Box sx={{ 
+        display: 'flex', 
+        flexDirection: { xs: 'column', sm: 'row' },
+        justifyContent: 'space-between', 
+        alignItems: { xs: 'stretch', sm: 'center' }, 
+        mb: { xs: 2, md: 3 },
+        gap: { xs: 1.5, md: 2 }
+      }}>
+        <Typography 
+          variant="h4" 
+          component="h1" 
+          fontWeight="bold"
+          sx={{ 
+            fontSize: { xs: '1.5rem', sm: '1.75rem', md: '2rem' },
+            color: 'text.primary'
+          }}
+        >
           Imóveis
         </Typography>
         <Button
           variant="contained"
-          startIcon={<Add />}
+          startIcon={<Add sx={{ fontSize: { xs: 18, md: 20 } }} />}
           onClick={() => router.push('/dashboard/properties/create')}
+          sx={{
+            minHeight: { xs: 44, md: 48 },
+            px: { xs: 2, md: 3 },
+            fontSize: { xs: '0.875rem', md: '1rem' },
+            fontWeight: 600,
+            borderRadius: 2,
+            boxShadow: 2,
+            '&:hover': {
+              transform: 'translateY(-2px)',
+              boxShadow: 4,
+            }
+          }}
         >
           Novo Imóvel
         </Button>
       </Box>
 
       {/* Filters */}
-      <Card sx={{ mb: 3 }}>
-        <CardContent>
-          <Grid container spacing={3} alignItems="center">
+      <Card sx={{ mb: { xs: 2, md: 3 }, borderRadius: 2, border: '1px solid', borderColor: 'divider' }}>
+        <CardContent sx={{ p: { xs: 2, md: 3 } }}>
+          <Grid container spacing={{ xs: 2, md: 3 }} alignItems="center">
             <Grid item xs={12} md={4}>
               <TextField
                 fullWidth
                 placeholder="Buscar por nome, cidade ou bairro..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
+                size="small"
+                sx={{
+                  '& .MuiInputBase-root': {
+                    minHeight: { xs: 44, md: 48 },
+                    borderRadius: 2,
+                  },
+                  '& .MuiInputBase-input': {
+                    fontSize: { xs: '0.875rem', md: '1rem' },
+                  }
+                }}
                 InputProps={{
                   startAdornment: (
                     <InputAdornment position="start">
-                      <Search />
+                      <Search sx={{ fontSize: { xs: 18, md: 20 } }} />
                     </InputAdornment>
                   ),
                 }}
@@ -193,12 +230,19 @@ export default function PropertiesPage() {
             </Grid>
 
             <Grid item xs={6} md={2}>
-              <FormControl fullWidth>
-                <InputLabel>Tipo</InputLabel>
+              <FormControl fullWidth size="small">
+                <InputLabel sx={{ fontSize: { xs: '0.875rem', md: '1rem' } }}>Tipo</InputLabel>
                 <Select
                   value={typeFilter}
                   label="Tipo"
                   onChange={(e) => setTypeFilter(e.target.value)}
+                  sx={{
+                    minHeight: { xs: 44, md: 48 },
+                    borderRadius: 2,
+                    '& .MuiSelect-select': {
+                      fontSize: { xs: '0.875rem', md: '1rem' },
+                    }
+                  }}
                 >
                   <MenuItem value="all">Todos</MenuItem>
                   <MenuItem value="apartment">Apartamento</MenuItem>
@@ -210,12 +254,19 @@ export default function PropertiesPage() {
             </Grid>
 
             <Grid item xs={6} md={2}>
-              <FormControl fullWidth>
-                <InputLabel>Status</InputLabel>
+              <FormControl fullWidth size="small">
+                <InputLabel sx={{ fontSize: { xs: '0.875rem', md: '1rem' } }}>Status</InputLabel>
                 <Select
                   value={statusFilter}
                   label="Status"
                   onChange={(e) => setStatusFilter(e.target.value)}
+                  sx={{
+                    minHeight: { xs: 44, md: 48 },
+                    borderRadius: 2,
+                    '& .MuiSelect-select': {
+                      fontSize: { xs: '0.875rem', md: '1rem' },
+                    }
+                  }}
                 >
                   <MenuItem value="all">Todos</MenuItem>
                   <MenuItem value="active">Ativo</MenuItem>
@@ -226,11 +277,22 @@ export default function PropertiesPage() {
             </Grid>
 
             <Grid item xs={12} md={4}>
-              <Box sx={{ display: 'flex', gap: 1, justifyContent: 'flex-end' }}>
+              <Box sx={{ 
+                display: 'flex', 
+                gap: 1, 
+                justifyContent: { xs: 'center', md: 'flex-end' },
+                alignItems: 'center'
+              }}>
                 <Chip
                   label={`${filteredProperties.length} imóveis`}
                   color="primary"
                   variant="outlined"
+                  size="small"
+                  sx={{
+                    fontSize: { xs: '0.75rem', md: '0.875rem' },
+                    height: { xs: 28, md: 32 },
+                    borderRadius: 2,
+                  }}
                 />
               </Box>
             </Grid>
@@ -239,14 +301,14 @@ export default function PropertiesPage() {
       </Card>
 
       {/* Properties Grid */}
-      <Grid container spacing={3}>
+      <Grid container spacing={{ xs: 2, md: 3 }}>
         {loading ? (
           <Box sx={{ display: 'flex', justifyContent: 'center', p: 4, width: '100%' }}>
             <CircularProgress />
           </Box>
         ) : filteredProperties.length === 0 ? (
           <Box sx={{ textAlign: 'center', p: 4, width: '100%' }}>
-            <Typography color="text.secondary">
+            <Typography color="text.secondary" sx={{ fontSize: { xs: '0.875rem', md: '1rem' } }}>
               Nenhuma propriedade encontrada
             </Typography>
           </Box>
@@ -261,8 +323,9 @@ export default function PropertiesPage() {
                 flexDirection: 'column',
                 border: '1px solid',
                 borderColor: 'divider',
-                borderRadius: 3,
+                borderRadius: { xs: 2, md: 3 },
                 transition: 'all 0.3s ease-in-out',
+                cursor: 'pointer',
                 '&:hover': {
                   borderColor: 'primary.main',
                   transform: 'translateY(-4px)',

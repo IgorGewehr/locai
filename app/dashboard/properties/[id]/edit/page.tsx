@@ -120,6 +120,7 @@ export default function EditPropertyPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [showStatusDialog, setShowStatusDialog] = useState(false);
   const [pricingRules, setPricingRules] = useState<PricingRule[]>([]);
 
@@ -183,8 +184,11 @@ export default function EditPropertyPage() {
         throw new Error('Erro ao salvar alterações');
       }
 
-      alert('Alterações salvas com sucesso!');
-      router.push('/dashboard/properties');
+      setSuccessMessage('Alterações salvas com sucesso!');
+      // Redirect after 2 seconds to show success message
+      setTimeout(() => {
+        router.push('/dashboard/properties');
+      }, 2000);
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Erro desconhecido');
     } finally {
@@ -274,7 +278,13 @@ export default function EditPropertyPage() {
         </Alert>
       )}
 
-      {isDirty && (
+      {successMessage && (
+        <Alert severity="success" sx={{ mb: 3 }} onClose={() => setSuccessMessage(null)}>
+          {successMessage}
+        </Alert>
+      )}
+
+      {isDirty && !successMessage && (
         <Alert severity="info" sx={{ mb: 3 }}>
           Você tem alterações não salvas
         </Alert>

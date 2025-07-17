@@ -230,9 +230,9 @@ export default function ConversationDetailPage() {
         </Box>
 
         <Box sx={{ display: 'flex', gap: 1 }}>
-          {conversation.tags.map((tag) => (
+{conversation.tags && conversation.tags.length > 0 ? conversation.tags.map((tag) => (
             <Chip key={tag} label={tag} size="small" variant="outlined" />
-          ))}
+          )) : null}
         </Box>
 
         <IconButton>
@@ -253,7 +253,7 @@ export default function ConversationDetailPage() {
         }}
       >
         <List sx={{ py: 0 }}>
-          {messages.map((message, index) => (
+          {messages && messages.length > 0 ? messages.map((message, index) => (
             <ListItem
               key={message.id}
               sx={{
@@ -294,11 +294,20 @@ export default function ConversationDetailPage() {
                   elevation={1}
                   sx={{
                     p: 1.5,
-                    bgcolor: message.sender === 'user' ? 'primary.main' : 'white',
-                    color: message.sender === 'user' ? 'white' : 'text.primary',
+                    bgcolor: message.sender === 'user' 
+                      ? '#DCF8C6' 
+                      : message.sender === 'ai' 
+                        ? '#E3F2FD' 
+                        : '#F5F5F5',
+                    color: '#1A1A1A',
                     borderRadius: 2,
                     borderTopLeftRadius: message.sender === 'user' ? 2 : 0.5,
                     borderTopRightRadius: message.sender === 'user' ? 0.5 : 2,
+                    border: message.sender === 'user' 
+                      ? '1px solid #4CAF50' 
+                      : message.sender === 'ai'
+                        ? '1px solid #2196F3'
+                        : '1px solid #E0E0E0',
                   }}
                 >
                   {message.type === 'image' ? (
@@ -319,10 +328,30 @@ export default function ConversationDetailPage() {
                           [Imagem]
                         </Typography>
                       </Box>
-                      <Typography variant="body2">{message.content}</Typography>
+                      <Typography 
+                        variant="body2" 
+                        sx={{ 
+                          color: '#1A1A1A',
+                          fontWeight: 400,
+                          lineHeight: 1.5,
+                          whiteSpace: 'pre-wrap'
+                        }}
+                      >
+                        {message.content}
+                      </Typography>
                     </Box>
                   ) : (
-                    <Typography variant="body2">{message.content}</Typography>
+                    <Typography 
+                      variant="body2" 
+                      sx={{ 
+                        color: '#1A1A1A',
+                        fontWeight: 400,
+                        lineHeight: 1.5,
+                        whiteSpace: 'pre-wrap'
+                      }}
+                    >
+                      {message.content}
+                    </Typography>
                   )}
                 </Paper>
 
@@ -338,7 +367,23 @@ export default function ConversationDetailPage() {
                 )}
               </Box>
             </ListItem>
-          ))}
+          )) : (
+            <Box sx={{ 
+              display: 'flex', 
+              flexDirection: 'column', 
+              alignItems: 'center', 
+              justifyContent: 'center',
+              py: 4,
+              textAlign: 'center'
+            }}>
+              <Typography variant="h6" color="text.secondary" gutterBottom>
+                Nenhuma mensagem ainda
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                Quando você enviar uma mensagem, ela aparecerá aqui
+              </Typography>
+            </Box>
+          )}
         </List>
         <div ref={messagesEndRef} />
       </Box>

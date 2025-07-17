@@ -57,11 +57,11 @@ function StatCard({ title, value, subtitle, icon, trend, color }: StatCardProps)
     <Card 
       sx={{ 
         height: '100%',
-        minHeight: 180,
+        minHeight: { xs: 160, sm: 180, md: 200 },
         background: 'rgba(255, 255, 255, 0.08)',
         backdropFilter: 'blur(20px)',
         border: '1px solid rgba(255, 255, 255, 0.15)',
-        borderRadius: '20px',
+        borderRadius: { xs: '16px', md: '20px' },
         transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
         position: 'relative',
         overflow: 'hidden',
@@ -84,16 +84,22 @@ function StatCard({ title, value, subtitle, icon, trend, color }: StatCardProps)
         }
       }}
     >
-      <CardContent sx={{ p: 4, height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
+      <CardContent sx={{ 
+        p: { xs: 2.5, sm: 3, md: 4 }, 
+        height: '100%', 
+        display: 'flex', 
+        flexDirection: 'column', 
+        justifyContent: 'space-between' 
+      }}>
         <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
           <Box
             sx={{
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              width: 64,
-              height: 64,
-              borderRadius: '18px',
+              width: { xs: 48, sm: 56, md: 64 },
+              height: { xs: 48, sm: 56, md: 64 },
+              borderRadius: { xs: '14px', md: '18px' },
               background: `linear-gradient(135deg, ${color === 'primary' ? '#6366f1, #8b5cf6' : 
                 color === 'secondary' ? '#8b5cf6, #d946ef' : 
                 color === 'success' ? '#10b981, #059669' :
@@ -115,39 +121,39 @@ function StatCard({ title, value, subtitle, icon, trend, color }: StatCardProps)
                 gap: 1,
                 background: trend.isPositive ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)',
                 borderRadius: '12px',
-                px: 2,
-                py: 1,
+                px: { xs: 1.5, md: 2 },
+                py: { xs: 0.5, md: 1 },
                 border: `1px solid ${trend.isPositive ? 'rgba(16, 185, 129, 0.3)' : 'rgba(239, 68, 68, 0.3)'}`,
               }}
             >
               {trend.isPositive ? (
-                <TrendingUp sx={{ color: '#10b981', fontSize: 20 }} />
+                <TrendingUp sx={{ color: '#10b981', fontSize: { xs: 18, md: 20 } }} />
               ) : (
-                <TrendingDown sx={{ color: '#ef4444', fontSize: 20 }} />
+                <TrendingDown sx={{ color: '#ef4444', fontSize: { xs: 18, md: 20 } }} />
               )}
               <Typography
                 variant="body2"
                 color={trend.isPositive ? '#10b981' : '#ef4444'}
                 fontWeight="700"
-                sx={{ fontSize: '1rem' }}
+                sx={{ fontSize: { xs: '0.875rem', md: '1rem' } }}
               >
-                {trend.value}%
+{!isNaN(trend.value) ? trend.value : 0}%
               </Typography>
             </Box>
           )}
         </Box>
 
-        <Box sx={{ mt: 3 }}>
+        <Box sx={{ mt: { xs: 2, md: 3 } }}>
           <Typography 
             variant="h2" 
             fontWeight="800" 
             sx={{
               color: '#ffffff',
               mb: 1,
-              fontSize: 'clamp(2rem, 3vw, 2.5rem)',
+              fontSize: { xs: '1.75rem', sm: '2rem', md: '2.25rem', lg: '2.5rem' },
             }}
           >
-            {typeof value === 'number' ? value.toLocaleString() : value}
+{typeof value === 'number' && !isNaN(value) ? value.toLocaleString() : (value || '0')}
           </Typography>
 
           <Typography 
@@ -155,7 +161,7 @@ function StatCard({ title, value, subtitle, icon, trend, color }: StatCardProps)
             sx={{ 
               color: '#ffffff',
               fontWeight: 600,
-              fontSize: '1.125rem',
+              fontSize: { xs: '1rem', md: '1.125rem' },
               mb: 0.5
             }}
           >
@@ -167,7 +173,7 @@ function StatCard({ title, value, subtitle, icon, trend, color }: StatCardProps)
               variant="body2" 
               sx={{ 
                 color: 'rgba(255, 255, 255, 0.85)',
-                fontSize: '1rem'
+                fontSize: { xs: '0.875rem', md: '1rem' }
               }}
             >
               {subtitle}
@@ -189,30 +195,50 @@ export default function DashboardPage() {
     connected: false,
   });
   const [recentActivity, setRecentActivity] = useState<any[]>([]);
+  const [trends, setTrends] = useState({
+    propertiesTrend: 0,
+    reservationsTrend: 0,
+    revenueTrend: 0,
+    occupancyTrend: 0
+  });
 
   const fetchStats = async () => {
     setLoading(true);
     try {
       // Fetch properties
       const properties = await propertyService.getAll();
-      const activeProperties = properties.filter(p => p.status === 'active');
+      const activeProperties = properties.filter(p => p.isActive === true);
 
       // Fetch reservations
       const reservations = await reservationService.getAll();
       const pendingReservations = reservations.filter(r => r.status === 'pending');
 
-      // Calculate monthly revenue
+      // Calculate monthly revenue and trends
       const currentMonth = new Date().getMonth();
       const currentYear = new Date().getFullYear();
+      const lastMonth = currentMonth === 0 ? 11 : currentMonth - 1;
+      const lastMonthYear = currentMonth === 0 ? currentYear - 1 : currentYear;
+      
       const monthlyReservations = reservations.filter(r => {
         const date = (r.checkIn as any)?.toDate ? (r.checkIn as any).toDate() : new Date(r.checkIn);
         return date.getMonth() === currentMonth && date.getFullYear() === currentYear && r.status === 'confirmed';
       });
+      
+      const lastMonthReservations = reservations.filter(r => {
+        const date = (r.checkIn as any)?.toDate ? (r.checkIn as any).toDate() : new Date(r.checkIn);
+        return date.getMonth() === lastMonth && date.getFullYear() === lastMonthYear && r.status === 'confirmed';
+      });
 
       const monthlyRevenue = monthlyReservations.reduce((total, r) => total + r.totalPrice, 0);
+      const lastMonthRevenue = lastMonthReservations.reduce((total, r) => total + r.totalPrice, 0);
       const totalRevenue = reservations
         .filter(r => r.status === 'confirmed')
         .reduce((total, r) => total + r.totalPrice, 0);
+        
+      // Calculate trends
+      const revenueTrend = lastMonthRevenue > 0 ? ((monthlyRevenue - lastMonthRevenue) / lastMonthRevenue) * 100 : 0;
+      const reservationsTrend = lastMonthReservations.length > 0 ? 
+        ((monthlyReservations.length - lastMonthReservations.length) / lastMonthReservations.length) * 100 : 0;
 
       // Calculate occupancy rate
       const totalDays = activeProperties.length * 30; // Assuming 30 days
@@ -229,10 +255,22 @@ export default function DashboardPage() {
       // Check WhatsApp connection status
       let whatsappConnected = false;
       try {
-        const whatsappResponse = await fetch('/api/config/whatsapp');
-        if (whatsappResponse.ok) {
-          const whatsappData = await whatsappResponse.json();
-          whatsappConnected = whatsappData.status === 'connected';
+        // First check Web session
+        const sessionResponse = await fetch('/api/whatsapp/session');
+        if (sessionResponse.ok) {
+          const sessionData = await sessionResponse.json();
+          if (sessionData.data && sessionData.data.connected) {
+            whatsappConnected = true;
+          }
+        }
+        
+        // If Web is not connected, check API
+        if (!whatsappConnected) {
+          const apiResponse = await fetch('/api/config/whatsapp');
+          if (apiResponse.ok) {
+            const apiData = await apiResponse.json();
+            whatsappConnected = apiData.status === 'connected';
+          }
         }
       } catch (error) {
         console.log('WhatsApp connection check failed');
@@ -265,17 +303,44 @@ export default function DashboardPage() {
         }
       }
 
-      // Fetch recent activity
-      const activityQuery = query(
-        collection(db, 'activity_logs'),
-        orderBy('timestamp', 'desc'),
-        limit(4)
-      );
-      const activitySnapshot = await getDocs(activityQuery);
-      const activities = activitySnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      }));
+      // Fetch recent activity - try multiple collections
+      let activities = [];
+      try {
+        const activityQuery = query(
+          collection(db, 'activity_logs'),
+          orderBy('timestamp', 'desc'),
+          limit(4)
+        );
+        const activitySnapshot = await getDocs(activityQuery);
+        activities = activitySnapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        }));
+      } catch (error) {
+        // If activity_logs doesn't exist, create fallback from recent reservations
+        const recentReservations = reservations
+          .sort((a, b) => new Date(b.createdAt || Date.now()).getTime() - new Date(a.createdAt || Date.now()).getTime())
+          .slice(0, 2);
+        
+        const recentMessages = messagesSnapshot.docs
+          .slice(0, 2)
+          .map(doc => doc.data());
+        
+        activities = [
+          ...recentReservations.map(r => ({
+            id: r.id,
+            action: 'Nova reserva criada',
+            timestamp: r.createdAt || new Date(),
+            description: `Reserva para ${r.propertyName || 'propriedade'}`
+          })),
+          ...recentMessages.map(m => ({
+            id: m.id || Math.random().toString(),
+            action: 'Nova mensagem WhatsApp',
+            timestamp: m.timestamp || new Date(),
+            description: 'Mensagem recebida via WhatsApp'
+          }))
+        ].slice(0, 4);
+      }
 
       setStats({
         totalProperties: properties.length,
@@ -285,7 +350,7 @@ export default function DashboardPage() {
         totalRevenue,
         monthlyRevenue,
         occupancyRate,
-        averageRating: 4.8, // Calculate from reviews when available
+        averageRating: 0, // Reviews system not implemented yet
       });
 
       setWhatsappStats({
@@ -296,6 +361,14 @@ export default function DashboardPage() {
       });
 
       setRecentActivity(activities);
+      
+      // Set calculated trends
+      setTrends({
+        propertiesTrend: 0, // Properties trend (growth in properties)
+        reservationsTrend: Math.round(reservationsTrend),
+        revenueTrend: Math.round(revenueTrend),
+        occupancyTrend: 0 // Calculate based on previous month if needed
+      });
     } catch (error) {
 
     } finally {
@@ -313,8 +386,15 @@ export default function DashboardPage() {
 
   return (
     <Box>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 4 }}>
-        <Box>
+      <Box sx={{ 
+        display: 'flex', 
+        justifyContent: 'space-between', 
+        alignItems: 'center', 
+        mb: { xs: 3, md: 4 },
+        flexDirection: { xs: 'column', sm: 'row' },
+        gap: { xs: 2, sm: 0 }
+      }}>
+        <Box sx={{ textAlign: { xs: 'center', sm: 'left' } }}>
           <Typography 
             variant="h3" 
             component="h1" 
@@ -325,13 +405,18 @@ export default function DashboardPage() {
               WebkitTextFillColor: 'transparent',
               backgroundClip: 'text',
               mb: 1,
+              fontSize: { xs: '1.875rem', sm: '2.25rem', md: '2.5rem' }
             }}
           >
             Dashboard
           </Typography>
           <Typography 
             variant="subtitle1" 
-            sx={{ color: 'rgba(255, 255, 255, 0.85)', fontWeight: 500 }}
+            sx={{ 
+              color: 'rgba(255, 255, 255, 0.85)', 
+              fontWeight: 500,
+              fontSize: { xs: '0.875rem', md: '1rem' }
+            }}
           >
             Visão geral do sistema imobiliário
           </Typography>
@@ -343,14 +428,16 @@ export default function DashboardPage() {
             background: 'rgba(99, 102, 241, 0.1)',
             border: '1px solid rgba(99, 102, 241, 0.2)',
             borderRadius: '12px',
-            p: 1.5,
+            p: { xs: 1.5, md: 2 },
+            width: { xs: 48, md: 56 },
+            height: { xs: 48, md: 56 },
             '&:hover': {
               background: 'rgba(99, 102, 241, 0.2)',
               transform: 'scale(1.05)',
             }
           }}
         >
-          <Refresh sx={{ color: '#6366f1' }} />
+          <Refresh sx={{ color: '#6366f1', fontSize: { xs: 20, md: 24 } }} />
         </IconButton>
       </Box>
 
@@ -370,50 +457,50 @@ export default function DashboardPage() {
         </Box>
       )}
 
-      {/* Symmetric Grid Layout */}
-      <Grid container spacing={4}>
-        {/* Top Row - Main Statistics (4 Equal Cards) */}
-        <Grid item xs={12} sm={6} lg={3}>
+      {/* Optimized Grid Layout for iPad */}
+      <Grid container spacing={{ xs: 2, md: 3, lg: 4 }}>
+        {/* Top Row - Main Statistics (Responsive for iPad) */}
+        <Grid item xs={12} sm={6} md={3}>
           <StatCard
             title="Propriedades Ativas"
             value={loading ? 0 : stats.activeProperties}
             subtitle={loading ? "Carregando..." : `${stats.totalProperties} total`}
-            icon={<Home sx={{ fontSize: 32 }} />}
+            icon={<Home sx={{ fontSize: { xs: 28, md: 32 } }} />}
             color="primary"
-            trend={{ value: 12, isPositive: true }}
+            trend={{ value: trends.propertiesTrend, isPositive: trends.propertiesTrend >= 0 }}
           />
         </Grid>
 
-        <Grid item xs={12} sm={6} lg={3}>
+        <Grid item xs={12} sm={6} md={3}>
           <StatCard
             title="Reservas Pendentes"
             value={loading ? 0 : stats.pendingReservations}
             subtitle={loading ? "Carregando..." : `${stats.totalReservations} total`}
-            icon={<CalendarMonth sx={{ fontSize: 32 }} />}
+            icon={<CalendarMonth sx={{ fontSize: { xs: 28, md: 32 } }} />}
             color="secondary"
-            trend={{ value: 24, isPositive: true }}
+            trend={{ value: trends.reservationsTrend, isPositive: trends.reservationsTrend >= 0 }}
           />
         </Grid>
 
-        <Grid item xs={12} sm={6} lg={3}>
+        <Grid item xs={12} sm={6} md={3}>
           <StatCard
             title="Receita Mensal"
-            value={loading ? "R$ 0" : `R$ ${(stats.monthlyRevenue / 1000).toFixed(1)}k`}
-            subtitle={loading ? "Carregando..." : `R$ ${(stats.totalRevenue / 1000).toFixed(0)}k total`}
-            icon={<AttachMoney sx={{ fontSize: 32 }} />}
+            value={loading ? "R$ 0" : `R$ ${(isNaN(stats.monthlyRevenue) ? 0 : stats.monthlyRevenue / 1000).toFixed(1)}k`}
+            subtitle={loading ? "Carregando..." : `R$ ${(isNaN(stats.totalRevenue) ? 0 : stats.totalRevenue / 1000).toFixed(0)}k total`}
+            icon={<AttachMoney sx={{ fontSize: { xs: 28, md: 32 } }} />}
             color="success"
-            trend={{ value: 18, isPositive: true }}
+            trend={{ value: trends.revenueTrend, isPositive: trends.revenueTrend >= 0 }}
           />
         </Grid>
 
-        <Grid item xs={12} sm={6} lg={3}>
+        <Grid item xs={12} sm={6} md={3}>
           <StatCard
             title="Taxa de Ocupação"
-            value={loading ? "0%" : `${stats.occupancyRate.toFixed(1)}%`}
-            subtitle={loading ? "Carregando..." : `${stats.averageRating.toFixed(1)} ⭐ média`}
-            icon={<People sx={{ fontSize: 32 }} />}
+            value={loading ? "0%" : `${(isNaN(stats.occupancyRate) ? 0 : stats.occupancyRate).toFixed(1)}%`}
+            subtitle={loading ? "Carregando..." : `${stats.activeProperties} propriedades ativas`}
+            icon={<People sx={{ fontSize: { xs: 28, md: 32 } }} />}
             color="warning"
-            trend={{ value: 5, isPositive: false }}
+            trend={{ value: trends.occupancyTrend, isPositive: trends.occupancyTrend >= 0 }}
           />
         </Grid>
 
@@ -515,7 +602,7 @@ export default function DashboardPage() {
                     Tempo médio resposta:
                   </Typography>
                   <Typography variant="h6" sx={{ color: '#ffffff', fontWeight: 700, fontSize: '1.25rem' }}>
-                    {loading ? '-' : whatsappStats.avgResponseTime > 0 ? `${whatsappStats.avgResponseTime.toFixed(1)}s` : 'N/A'}
+                    {loading ? '-' : whatsappStats.avgResponseTime > 0 ? `${(isNaN(whatsappStats.avgResponseTime) ? 0 : whatsappStats.avgResponseTime).toFixed(1)}s` : 'N/A'}
                   </Typography>
                 </Box>
               </Box>
@@ -649,78 +736,122 @@ export default function DashboardPage() {
                 Ações Rápidas
               </Typography>
 
-              <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', alignItems: 'center' }}>
+              <Box sx={{ 
+                display: 'flex', 
+                gap: { xs: 1.5, md: 2 }, 
+                flexWrap: 'wrap', 
+                alignItems: 'center',
+                justifyContent: { xs: 'center', sm: 'flex-start' }
+              }}>
                 <Chip
-                  label="Nova Propriedade"
+                  label="+ Propriedade"
                   clickable
                   sx={{
                     background: 'rgba(99, 102, 241, 0.2)',
                     color: '#c7d2fe',
                     border: '1px solid rgba(99, 102, 241, 0.3)',
                     fontWeight: 600,
-                    fontSize: '1rem',
-                    height: 40,
-                    px: 2,
+                    fontSize: { xs: '0.875rem', md: '1rem' },
+                    height: { xs: 44, md: 48 },
+                    px: { xs: 2, md: 3 },
+                    minWidth: { xs: 44, md: 48 },
                     '&:hover': {
                       background: 'rgba(99, 102, 241, 0.3)',
                       transform: 'scale(1.05)',
+                    },
+                    '&:active': {
+                      transform: 'scale(0.98)',
                     }
                   }}
                   onClick={() => window.location.href = '/dashboard/properties/create'}
                 />
                 <Chip
-                  label="Ver Conversas"
+                  label={`💬 Conversas (${whatsappStats.activeConversations})`}
                   clickable
                   sx={{
                     background: 'rgba(139, 92, 246, 0.2)',
                     color: '#d8b4fe',
                     border: '1px solid rgba(139, 92, 246, 0.3)',
                     fontWeight: 600,
-                    fontSize: '1rem',
-                    height: 40,
-                    px: 2,
+                    fontSize: { xs: '0.875rem', md: '1rem' },
+                    height: { xs: 44, md: 48 },
+                    px: { xs: 2, md: 3 },
+                    minWidth: { xs: 44, md: 48 },
                     '&:hover': {
                       background: 'rgba(139, 92, 246, 0.3)',
                       transform: 'scale(1.05)',
+                    },
+                    '&:active': {
+                      transform: 'scale(0.98)',
                     }
                   }}
                   onClick={() => window.location.href = '/dashboard/conversations'}
                 />
                 <Chip
-                  label="Relatórios"
+                  label="💰 Financeiro"
                   clickable
                   sx={{
                     background: 'rgba(16, 185, 129, 0.2)',
                     color: '#6ee7b7',
                     border: '1px solid rgba(16, 185, 129, 0.3)',
                     fontWeight: 600,
-                    fontSize: '1rem',
-                    height: 40,
-                    px: 2,
+                    fontSize: { xs: '0.875rem', md: '1rem' },
+                    height: { xs: 44, md: 48 },
+                    px: { xs: 2, md: 3 },
+                    minWidth: { xs: 44, md: 48 },
                     '&:hover': {
                       background: 'rgba(16, 185, 129, 0.3)',
                       transform: 'scale(1.05)',
+                    },
+                    '&:active': {
+                      transform: 'scale(0.98)',
                     }
                   }}
                   onClick={() => window.location.href = '/dashboard/financeiro'}
                 />
                 <Chip
-                  label="Configurações WhatsApp"
+                  label="⚙️ Configurações"
                   clickable
                   sx={{
                     background: 'rgba(245, 158, 11, 0.2)',
                     color: '#fde68a',
                     border: '1px solid rgba(245, 158, 11, 0.3)',
                     fontWeight: 600,
-                    fontSize: '1rem',
-                    height: 40,
-                    px: 2,
+                    fontSize: { xs: '0.875rem', md: '1rem' },
+                    height: { xs: 44, md: 48 },
+                    px: { xs: 2, md: 3 },
+                    minWidth: { xs: 44, md: 48 },
                     '&:hover': {
                       background: 'rgba(245, 158, 11, 0.3)',
                       transform: 'scale(1.05)',
+                    },
+                    '&:active': {
+                      transform: 'scale(0.98)',
                     }
                   }}
                   onClick={() => window.location.href = '/dashboard/settings'}
+                />
+                <Chip
+                  label="🌐 Mini-Site"
+                  clickable
+                  sx={{
+                    background: 'rgba(236, 72, 153, 0.2)',
+                    color: '#f9a8d4',
+                    border: '1px solid rgba(236, 72, 153, 0.3)',
+                    fontWeight: 600,
+                    fontSize: { xs: '0.875rem', md: '1rem' },
+                    height: { xs: 44, md: 48 },
+                    px: { xs: 2, md: 3 },
+                    minWidth: { xs: 44, md: 48 },
+                    '&:hover': {
+                      background: 'rgba(236, 72, 153, 0.3)',
+                      transform: 'scale(1.05)',
+                    },
+                    '&:active': {
+                      transform: 'scale(0.98)',
+                    }
+                  }}
+                  onClick={() => window.location.href = '/dashboard/mini-site'}
                 />
               </Box>
             </CardContent>

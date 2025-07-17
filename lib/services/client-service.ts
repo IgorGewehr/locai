@@ -89,6 +89,12 @@ export class ClientService {
     createdAt?: Date;
     updatedAt?: Date;
   }): Promise<Client> {
+    // Check for duplicates before creating
+    const existingClient = await this.findByPhone(clientData.phone, clientData.tenantId);
+    if (existingClient) {
+      throw new Error(`Cliente com telefone ${clientData.phone} já existe. Use createOrUpdate() para atualizar dados existentes.`);
+    }
+    
     const id = await clientService.create({
       ...clientData,
       preferences: {},

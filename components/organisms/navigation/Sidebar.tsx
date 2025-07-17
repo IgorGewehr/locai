@@ -135,12 +135,12 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
       flexDirection: 'column',
       bgcolor: 'background.paper',
     }}>
-      <Toolbar sx={{ minHeight: 64, px: 3 }}>
+      <Toolbar sx={{ minHeight: { xs: 56, md: 64 }, px: { xs: 2, md: 3 } }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
           <Box
             sx={{
-              width: 36,
-              height: 36,
+              width: { xs: 32, md: 36 },
+              height: { xs: 32, md: 36 },
               borderRadius: 1.5,
               bgcolor: 'primary.main',
               display: 'flex',
@@ -148,10 +148,10 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
               justifyContent: 'center',
               color: 'white',
               fontWeight: 'bold',
-              fontSize: '0.875rem',
+              fontSize: { xs: '0.75rem', md: '0.875rem' },
             }}
           >
-            LP
+🏠
           </Box>
           <Box>
             <Typography 
@@ -160,15 +160,16 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
               sx={{ 
                 lineHeight: 1,
                 color: 'text.primary',
+                fontSize: { xs: '0.9rem', md: '1rem' },
               }}
             >
-              Locai Pro
+              LocAI
             </Typography>
             <Typography 
               variant="caption" 
               sx={{ 
                 color: 'text.secondary',
-                fontSize: '0.75rem',
+                fontSize: { xs: '0.7rem', md: '0.75rem' },
               }}
             >
               Gestão Imobiliária
@@ -180,7 +181,7 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
       <Divider />
 
       <Box sx={{ flex: 1, overflowY: 'auto', py: 2 }}>
-        <List sx={{ px: 2 }}>
+        <List sx={{ px: { xs: 1.5, md: 2 } }}>
           {menuItems.map((item) => (
             <Box key={item.href}>
               <ListItemButton
@@ -191,7 +192,8 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
                 sx={{
                   borderRadius: 1.5,
                   mb: 0.5,
-                  minHeight: 44,
+                  minHeight: { xs: 48, md: 52 },
+                  px: { xs: 1.5, md: 2 },
                   '&:hover': {
                     bgcolor: 'action.hover',
                   },
@@ -209,7 +211,7 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
               >
                 <ListItemIcon
                   sx={{
-                    minWidth: 40,
+                    minWidth: { xs: 36, md: 40 },
                     color: (pathname === item.href || item.submenu?.some(sub => pathname === sub.href)) ? 'inherit' : 'text.secondary',
                   }}
                 >
@@ -218,12 +220,12 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
                 <ListItemText 
                   primary={item.text}
                   primaryTypographyProps={{
-                    fontSize: '0.875rem',
+                    fontSize: { xs: '0.813rem', md: '0.875rem' },
                     fontWeight: (pathname === item.href || item.submenu?.some(sub => pathname === sub.href)) ? 600 : 400,
                   }}
                 />
                 {item.submenu && (
-                  expandedMenu === item.text ? <ExpandLess /> : <ExpandMore />
+                  expandedMenu === item.text ? <ExpandLess sx={{ fontSize: { xs: 20, md: 24 } }} /> : <ExpandMore sx={{ fontSize: { xs: 20, md: 24 } }} />
                 )}
               </ListItemButton>
               {item.submenu && (
@@ -239,7 +241,8 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
                         sx={{
                           borderRadius: 1.5,
                           mb: 0.5,
-                          minHeight: 40,
+                          minHeight: { xs: 44, md: 48 },
+                          px: { xs: 1.5, md: 2 },
                           '&:hover': {
                             bgcolor: 'action.hover',
                           },
@@ -253,7 +256,7 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
                       >
                         <ListItemIcon
                           sx={{
-                            minWidth: 36,
+                            minWidth: { xs: 32, md: 36 },
                             color: pathname === subItem.href ? 'primary.main' : 'text.secondary',
                           }}
                         >
@@ -262,7 +265,7 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
                         <ListItemText 
                           primary={subItem.text}
                           primaryTypographyProps={{
-                            fontSize: '0.813rem',
+                            fontSize: { xs: '0.75rem', md: '0.813rem' },
                             fontWeight: pathname === subItem.href ? 600 : 400,
                           }}
                         />
@@ -278,7 +281,7 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
 
       <Divider />
 
-      <Box sx={{ p: 2 }}>
+      <Box sx={{ p: { xs: 1.5, md: 2 } }}>
         <List>
           {secondaryItems.map((item) => (
             <ListItemButton
@@ -290,7 +293,8 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
               sx={{
                 borderRadius: 1.5,
                 mb: 0.5,
-                minHeight: 44,
+                minHeight: { xs: 48, md: 52 },
+                px: { xs: 1.5, md: 2 },
                 '&:hover': {
                   bgcolor: 'action.hover',
                 },
@@ -301,7 +305,7 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
             >
               <ListItemIcon
                 sx={{
-                  minWidth: 40,
+                  minWidth: { xs: 36, md: 40 },
                   color: 'text.secondary',
                 }}
               >
@@ -310,7 +314,7 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
               <ListItemText 
                 primary={item.text}
                 primaryTypographyProps={{
-                  fontSize: '0.875rem',
+                  fontSize: { xs: '0.813rem', md: '0.875rem' },
                   fontWeight: pathname === item.href ? 600 : 400,
                 }}
               />
@@ -318,24 +322,6 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
           ))}
         </List>
 
-        <Box
-          sx={{
-            mt: 2,
-            p: 2,
-            bgcolor: 'action.hover',
-            borderRadius: 1.5,
-          }}
-        >
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-            <TrendingUp sx={{ fontSize: 20, color: 'success.main' }} />
-            <Typography variant="body2" fontWeight={600}>
-              Plano Pro
-            </Typography>
-          </Box>
-          <Typography variant="caption" color="text.secondary">
-            Ilimitado até 31/12/2024
-          </Typography>
-        </Box>
       </Box>
     </Box>
   );

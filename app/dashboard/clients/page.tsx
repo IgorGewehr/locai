@@ -51,6 +51,7 @@ import {
   StarBorder,
   Schedule,
   CheckCircle,
+  Edit,
 } from '@mui/icons-material';
 import { useRouter } from 'next/navigation';
 import { format } from 'date-fns';
@@ -149,6 +150,11 @@ export default function ClientsPage() {
     window.location.href = `mailto:${email}`;
   };
 
+  const handleEditClick = (clientId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    router.push(`/dashboard/clients/${clientId}/edit`);
+  };
+
   const toggleFavorite = async (client: Client, e: React.MouseEvent) => {
     e.stopPropagation();
     // Implementation for favorite toggle
@@ -185,14 +191,26 @@ export default function ClientsPage() {
 
   return (
     <Box>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+      <Box sx={{ 
+        display: 'flex', 
+        flexDirection: { xs: 'column', sm: 'row' },
+        justifyContent: 'space-between', 
+        alignItems: { xs: 'stretch', sm: 'center' }, 
+        mb: 3,
+        gap: 2
+      }}>
         <Typography variant="h4" component="h1" fontWeight={600}>
           Clientes
         </Typography>
-        <Box sx={{ display: 'flex', gap: 2 }}>
+        <Box sx={{ 
+          display: 'flex', 
+          flexDirection: { xs: 'column', sm: 'row' },
+          gap: 2 
+        }}>
           <Button
             variant="outlined"
             startIcon={<Download />}
+            fullWidth={{ xs: true, sm: false }}
           >
             Exportar
           </Button>
@@ -200,6 +218,7 @@ export default function ClientsPage() {
             variant="contained"
             startIcon={<Add />}
             onClick={() => setShowAddDialog(true)}
+            fullWidth={{ xs: true, sm: false }}
           >
             Adicionar Cliente
           </Button>
@@ -418,6 +437,13 @@ export default function ClientsPage() {
                         <Email />
                       </IconButton>
                     )}
+                    <IconButton 
+                      size="small"
+                      onClick={(e) => handleEditClick(client.id, e)}
+                      title="Editar cliente"
+                    >
+                      <Edit />
+                    </IconButton>
                     <IconButton 
                       size="small"
                       onClick={(e) => toggleFavorite(client, e)}

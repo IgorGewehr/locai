@@ -18,15 +18,37 @@ class ConversationService extends FirestoreService<Conversation> {
 
   async findByPhone(phoneNumber: string, tenantId?: string): Promise<Conversation | null> {
     try {
-      const query = this.collection
+      // Primeiro, tenta encontrar uma conversa ativa
+      let query = this.collection
         .where('whatsappPhone', '==', phoneNumber)
         .where('status', 'in', [ConversationStatus.ACTIVE, ConversationStatus.WAITING_CLIENT])
 
       if (tenantId) {
-        query.where('tenantId', '==', tenantId)
+        query = query.where('tenantId', '==', tenantId)
       }
 
-      const conversations = await this.query(query.limit(1))
+      let conversations = await this.query(query.limit(1))
+      
+      // Se não encontrar ativa, busca a mais recente para esse número
+      if (conversations.length === 0) {
+        query = this.collection
+          .where('whatsappPhone', '==', phoneNumber)
+          .orderBy('lastMessageAt', 'desc')
+        
+        if (tenantId) {
+          query = query.where('tenantId', '==', tenantId)
+        }
+        
+        conversations = await this.query(query.limit(1))
+        
+        // Reativa a conversa mais recente
+        if (conversations.length > 0) {
+          const conversation = conversations[0]
+          await this.update(conversation.id, { status: ConversationStatus.ACTIVE })
+          return { ...conversation, status: ConversationStatus.ACTIVE }
+        }
+      }
+      
       return conversations[0] || null
     } catch (error) {
       return null
@@ -151,11 +173,22 @@ class ConversationService extends FirestoreService<Conversation> {
       // Add message to conversation
       const updatedMessages = [...(conversation.messages || []), message]
 
-      await this.update(conversationId, {
+      // Filter out undefined values before updating
+      const updateData = {
         messages: updatedMessages,
         lastMessageAt: message.timestamp,
         lastMessage: message.content.substring(0, 100) // Update lastMessage field
-      })
+      }
+      
+      const filteredUpdateData = Object.fromEntries(
+        Object.entries(updateData).filter(([_, value]) => {
+          return value !== undefined && 
+                 value !== null && 
+                 !(typeof value === 'object' && value !== null && Object.keys(value).length === 0)
+        })
+      )
+
+      await this.update(conversationId, filteredUpdateData)
 
       return message
     } catch (error) {
@@ -187,7 +220,19 @@ class ConversationService extends FirestoreService<Conversation> {
         return msg
       })
 
-      await this.update(conversation.id, { messages: updatedMessages })
+      // Filter out undefined values before updating
+      const updateData = { messages: updatedMessages }
+      const filteredUpdateData = Object.fromEntries(
+        Object.entries(updateData).filter(([_, value]) => {
+          return value !== undefined && 
+                 value !== null && 
+                 !(typeof value === 'object' && value !== null && Object.keys(value).length === 0)
+        })
+      )
+      
+      if (Object.keys(filteredUpdateData).length > 0) {
+        await this.update(conversation.id, filteredUpdateData)
+      }
     } catch (error) {
       }
   }

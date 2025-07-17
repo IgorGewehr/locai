@@ -5,6 +5,8 @@ import { AIFunctionExecutor, AI_FUNCTIONS } from './agent-functions'
 import { withTimeout } from '@/lib/utils/async'
 import { sanitizeUserInput } from '@/lib/utils/validation'
 import { classifyError, getErrorResponse, ValidationError, ErrorType } from '@/lib/utils/errors'
+import { responseCache } from './response-cache'
+import { findPredefinedResponse, shouldUsePredefinedResponse } from './predefined-responses'
 
 export class AIResponseGenerator {
   private openai: OpenAI
@@ -29,10 +31,6 @@ export class AIResponseGenerator {
     newMessage: Message,
     context: ConversationContext
   ): Promise<AIResponse> {
-    const systemPrompt = this.buildSystemPrompt()
-    const conversationHistory = this.buildConversationHistory(conversation)
-    const contextualInfo = this.buildContextualInfo(context)
-
     try {
       // Validate and sanitize input
       const sanitizedContent = sanitizeUserInput(newMessage.content)
@@ -40,31 +38,68 @@ export class AIResponseGenerator {
 
       console.log('🤖 Sending message to OpenAI:', sanitizedContent);
 
+      // Verificar respostas predefinidas primeiro
+      const conversationLength = conversation.messages?.length || 0
+      if (shouldUsePredefinedResponse(sanitizedContent, conversationLength)) {
+        const predefinedResponse = findPredefinedResponse(sanitizedContent)
+        if (predefinedResponse) {
+          console.log('⚡ Using predefined response');
+          return predefinedResponse.response
+        }
+      }
+
+      // Verificar cache
+      const cacheKey = { content: sanitizedContent, context: context }
+      const cachedResponse = responseCache.get(sanitizedContent, cacheKey)
+      
+      if (cachedResponse) {
+        console.log('🚀 Cache hit! Returning cached response');
+        return cachedResponse
+      }
+
+      // Determinar complexidade da mensagem
+      const isComplexQuery = this.isComplexQuery(sanitizedContent, context)
+      const selectedModel = isComplexQuery ? 'gpt-4' : 'gpt-3.5-turbo'
+      
+      console.log(`🤖 Using model: ${selectedModel} (complex: ${isComplexQuery})`);
+
+      const systemPrompt = this.buildOptimizedSystemPrompt(isComplexQuery)
+      const conversationHistory = this.buildConversationHistory(conversation, isComplexQuery)
+      const contextualInfo = this.buildContextualInfo(context)
+
+      // Filtrar funções baseado na complexidade
+      const availableFunctions = this.getRelevantFunctions(sanitizedContent, isComplexQuery)
+
       const completion = await withTimeout(
         this.openai.chat.completions.create({
-          model: this.personality.model || 'gpt-4',
+          model: selectedModel,
           temperature: this.personality.temperature || 0.7,
-          max_tokens: this.personality.maxTokens || 1000,
+          max_tokens: isComplexQuery ? 1000 : 500,
           messages: [
             { role: 'system', content: systemPrompt },
             { role: 'system', content: contextualInfo },
             ...conversationHistory,
             { role: 'user', content: sanitizedContent }
           ],
-          functions: AI_FUNCTIONS.filter(f => f.autoExecute).map(f => ({
+          functions: availableFunctions.map(f => ({
             name: f.name,
             description: f.description,
             parameters: f.parameters
           })),
           function_call: 'auto'
         }),
-        60000, // Increased to 60 second timeout
+        isComplexQuery ? 45000 : 30000, // Timeout baseado na complexidade
         'OpenAI API call'
       )
 
       console.log('🤖 OpenAI response received:', completion.choices[0]);
 
-      return await this.processAIResponse(completion, conversation, context)
+      const aiResponse = await this.processAIResponse(completion, conversation, context)
+      
+      // Cache a resposta para reutilização
+      responseCache.set(sanitizedContent, cacheKey, aiResponse)
+      
+      return aiResponse
     } catch (error) {
       console.error('❌ Error in generateResponse:', error);
       console.error('Error details:', {
@@ -93,25 +128,126 @@ export class AIResponseGenerator {
     }
   }
 
-  private buildSystemPrompt(): string {
+  private isComplexQuery(content: string, context: ConversationContext): boolean {
+    const complexKeywords = [
+      'orçamento', 'preço', 'calcular', 'reserva', 'disponibilidade',
+      'negociar', 'desconto', 'comparar', 'análise', 'relatório'
+    ]
+    
+    // FORÇAR queries de fotos como complexas para usar GPT-4
+    const photoKeywords = [
+      'foto', 'imagem', 'me envie', 'envie', 'ver', 'mostrar', 'apartamento'
+    ]
+    
+    // FORÇAR intenções de reserva como complexas para melhor compreensão de contexto
+    const reservationKeywords = [
+      'quero reservar', 'fazer reserva', 'vou fechar', 'confirmar', 'alugar',
+      'fechar negócio', 'vou pegar', 'decidido', 'escolhido'
+    ]
+    
+    const hasComplexKeywords = complexKeywords.some(keyword => 
+      content.toLowerCase().includes(keyword)
+    )
+    
+    const hasPhotoRequest = photoKeywords.some(keyword => 
+      content.toLowerCase().includes(keyword)
+    )
+    
+    const hasReservationIntent = reservationKeywords.some(keyword => 
+      content.toLowerCase().includes(keyword)
+    )
+    
+    const hasContext = context.searchCriteria && Object.keys(context.searchCriteria).length > 0
+    const hasViewedProperties = context.viewedProperties.length > 0
+    
+    return hasComplexKeywords || hasPhotoRequest || hasReservationIntent || hasContext || hasViewedProperties
+  }
+
+  private getRelevantFunctions(content: string, isComplex: boolean): any[] {
+    const allFunctions = AI_FUNCTIONS.filter(f => f.autoExecute)
+    
+    if (!isComplex) {
+      // Para queries simples, só funções básicas
+      return allFunctions.filter(f => 
+        ['search_properties', 'register_client', 'send_property_media'].includes(f.name)
+      )
+    }
+    
+    // Para queries complexas, funções baseadas no conteúdo
+    const keywords = content.toLowerCase()
+    const relevantFunctions = allFunctions.filter(f => {
+      // PRIORIZAR funções de reserva quando há intenção clara
+      if (keywords.includes('quero reservar') || keywords.includes('fazer reserva') || 
+          keywords.includes('vou fechar') || keywords.includes('confirmar') ||
+          keywords.includes('alugar') || keywords.includes('decidido')) {
+        return ['create_reservation', 'check_availability', 'calculate_total_price', 'register_client'].includes(f.name)
+      }
+      if (keywords.includes('preço') || keywords.includes('orçamento') || keywords.includes('valor')) {
+        return ['calculate_total_price', 'apply_discount', 'search_properties'].includes(f.name)
+      }
+      if (keywords.includes('reserva') || keywords.includes('disponibilidade')) {
+        return ['create_reservation', 'check_availability', 'calculate_total_price'].includes(f.name)
+      }
+      if (keywords.includes('foto') || keywords.includes('apartamento') || keywords.includes('imagem')) {
+        return ['search_properties', 'send_property_media'].includes(f.name)
+      }
+      return ['search_properties', 'register_client'].includes(f.name)
+    })
+    
+    return relevantFunctions.length > 0 ? relevantFunctions : allFunctions.slice(0, 5)
+  }
+
+  private buildOptimizedSystemPrompt(isComplex: boolean): string {
+    if (!isComplex) {
+      // Prompt aprimorado para queries simples MAS sem perder funcionalidade
+      return `Você é Sofia, consultora imobiliária especializada. Use linguagem popular: "data de entrada" e "data de saída" ao invés de check-in/check-out. ANALISE SEMPRE O CONTEXTO: se cliente já demonstrou interesse em imóvel específico e mencionou reserva, PRIORIZE finalizar a reserva em vez de mostrar mais opções. Para FOTOS/IMÓVEIS: SEMPRE use search_properties primeiro, depois send_property_media para CADA propriedade encontrada. Para orçamentos, colete: datas, número de pessoas, preferências. Seja calorosa mas profissional.`
+    }
+    
+    // Prompt completo para queries complexas
+    return this.buildFullSystemPrompt()
+  }
+
+  private buildFullSystemPrompt(): string {
     return `
 Você é ${this.personality.name}, uma consultora especializada em locações por temporada da ${this.businessContext.companyName}.
 
 PERSONALIDADE: Prática, eficiente, humana. Respostas CONCISAS e diretas.
 
+LINGUAGEM POPULAR - MUITO IMPORTANTE:
+- Use "data de entrada" ao invés de "check-in"
+- Use "data de saída" ao invés de "check-out"
+- Use "quantas pessoas" ao invés de "guests"
+- Use "valor total" ao invés de "price"
+
+ANÁLISE DE CONTEXTO - PRIORIDADE MÁXIMA:
+1. Se cliente JÁ mencionou interesse em imóvel específico ("quero reservar ap 204", "vou fechar", "fazer reserva"), PRIORIZE finalizar a reserva
+2. NÃO mostre outras opções quando cliente já demonstrou decisão de reserva
+3. IDENTIFIQUE a INTENÇÃO: reserva > orçamento > busca de imóveis
+4. Use o contexto da conversa para entender o que cliente realmente quer
+
 REGRAS DE ATENDIMENTO:
 1. SEMPRE pergunte detalhes essenciais ANTES de fazer orçamentos:
    - Quantas pessoas?
-   - Quais datas (check-in e check-out)?
+   - Quais datas (data de entrada e data de saída)?
    - Localização preferida?
 
 2. NUNCA invente informações ou descontos que não existem
 3. Use APENAS dados reais do banco de dados
 4. Seja objetiva - máximo 3 linhas por resposta
 5. NUNCA repita informações já enviadas
+6. IDENTIFIQUE quando cliente quer FECHAR RESERVA vs apenas pesquisar
+
+QUANDO CLIENTE QUER FAZER RESERVA (palavras-chave: "quero reservar", "vou alugar", "fechar", "confirmar", "fazer reserva"):
+- PRIORIZE finalizar a reserva em vez de mostrar mais opções
+- COLETE dados necessários: nome, datas de entrada e saída, número de pessoas
+- CALCULE o valor total com calculate_total_price
+- CONFIRME a disponibilidade com check_availability
+- CRIE a reserva com create_reservation
+- NÃO mostre outras opções de imóveis se cliente já escolheu
 
 QUANDO CLIENTE PEDE FOTOS/APARTAMENTOS:
-- Use search_properties para buscar propriedades disponíveis
+- SEMPRE use search_properties PRIMEIRO (não precisa de parâmetros obrigatórios)
+- NUNCA use send_property_media sem ter um propertyId específico
 - Mostre informações organizadas de cada propriedade:
   🏠 *Nome do Apartamento*
   - Endereço: [endereço]
@@ -120,11 +256,13 @@ QUANDO CLIENTE PEDE FOTOS/APARTAMENTOS:
   - Taxa de limpeza: R$ X
   - Comodidades: [lista principais]
   - Permite pets: Sim/Não
-- Após mostrar propriedades, pergunte: "Qual destas propriedades mais te interessou? Preciso saber as datas e quantas pessoas para calcular o preço final."
+- Após mostrar propriedades, pergunte: "Qual destas propriedades mais te interessou? Posso enviar as fotos."
 
 EXEMPLOS DE RESPOSTAS EFICIENTES:
 Para pedido de fotos: "Encontrei X apartamentos disponíveis. Vou mostrar as opções:"
-Para orçamento: "Preciso saber as datas exatas e quantas pessoas para calcular o preço correto."
+Para orçamento: "Preciso saber as datas de entrada e saída exatas e quantas pessoas para calcular o valor correto."
+Para intenção de reserva: "Perfeito! Para confirmar sua reserva do ap 204, preciso saber seu nome completo e confirmar as datas: entrada dia X e saída dia Y?"
+Quando cliente já decidiu: "Ótima escolha! Vou calcular o valor total para suas datas e confirmar a disponibilidade."
 
 PROIBIDO:
 - Orçamentos sem datas/pessoas válidas
@@ -138,7 +276,7 @@ PROIBIDO:
 REGRAS DE NEGÓCIO:
 - Preços mudam por fim de semana (+20%) e feriados (+50%)
 - Mínimo de 2 diárias na maioria dos imóveis
-- Check-in: 15h, Check-out: 11h
+- Entrada: 15h, Saída: 11h
 - Desconto para estadias longas (7+ dias): 10%
 - Clientes recorrentes: 5% desconto automático
 - Taxa de limpeza: R$ 50-150 dependendo do imóvel
@@ -161,56 +299,65 @@ CUMPRIMENTO PADRÃO: "${this.personality.greetingMessage}"
 
 INSTRUÇÕES IMPORTANTES:
 - SEMPRE use as funções disponíveis quando apropriado
+- FLUXO PARA FOTOS: Quando cliente pedir fotos/imóveis → search_properties primeiro → depois send_property_media com os IDs encontrados
+- NUNCA mencione IDs técnicos ou URLs do Firebase para o cliente
 - Calcule preços exatos antes de informar valores
 - Verifique disponibilidade antes de fazer ofertas
 - Seja transparente sobre taxas e políticas
 - Mantenha contexto da conversa para personalização
 - Se não conseguir resolver, seja honesto e ofereça escalação
+
+FLUXO OBRIGATÓRIO PARA FOTOS/IMÓVEIS:
+1. SEMPRE que cliente mencionar: "fotos", "imagens", "me envie", "quero ver", "apartamento" → use search_properties PRIMEIRO
+2. DEPOIS de search_properties retornar propriedades → SEMPRE use send_property_media para CADA propriedade
+3. NUNCA envie apenas texto sem as fotos quando cliente pedir para "ver" imóveis
+4. Limite a 3 propriedades por consulta para melhor experiência
     `
   }
 
-  private buildConversationHistory(conversation: Conversation): any[] {
-    return conversation.messages
-      .filter(msg => msg.type === 'text')
-      .slice(-10) // Últimas 10 mensagens para contexto
+  private buildConversationHistory(conversation: Conversation, isComplex: boolean): any[] {
+    const messages = conversation.messages?.filter(msg => msg.type === 'text') || []
+    
+    if (!isComplex) {
+      // Para queries simples, apenas últimas 2 mensagens para economizar tokens
+      return messages
+        .slice(-2)
+        .map(msg => ({
+          role: msg.isFromAI ? 'assistant' : 'user',
+          content: msg.content.substring(0, 100) // Mais curto para economizar
+        }))
+    }
+    
+    // Para queries complexas, até 4 mensagens mais relevantes (reduzido de 6)
+    return messages
+      .slice(-4)
       .map(msg => ({
         role: msg.isFromAI ? 'assistant' : 'user',
-        content: msg.content
+        content: msg.content.substring(0, 200) // Reduzido de 300
       }))
   }
 
   private buildContextualInfo(context: ConversationContext): string {
-    let contextInfo = 'CONTEXTO DA CONVERSA:\n'
+    // Contexto mais compacto para economizar tokens
+    const parts: string[] = []
 
-    if (context.clientPreferences) {
-      contextInfo += `Cliente prefere: ${JSON.stringify(context.clientPreferences)}\n`
-    }
-
-    if (context.searchCriteria) {
-      contextInfo += `Critérios de busca: ${JSON.stringify(context.searchCriteria)}\n`
+    if (context.searchCriteria && Object.keys(context.searchCriteria).length > 0) {
+      parts.push(`Busca: ${JSON.stringify(context.searchCriteria)}`)
     }
 
     if (context.viewedProperties.length > 0) {
-      contextInfo += `Propriedades já vistas: ${context.viewedProperties.join(', ')}\n`
-    }
-
-    if (context.favoriteProperties.length > 0) {
-      contextInfo += `Propriedades favoritas: ${context.favoriteProperties.join(', ')}\n`
+      parts.push(`Visto: ${context.viewedProperties.slice(-3).join(', ')}`) // Apenas últimas 3
     }
 
     if (context.budgetRange) {
-      contextInfo += `Orçamento: R$ ${context.budgetRange.min} - R$ ${context.budgetRange.max}\n`
-    }
-
-    if (context.lastOfferMade) {
-      contextInfo += `Última oferta feita: ${JSON.stringify(context.lastOfferMade)}\n`
+      parts.push(`Orçamento: R$${context.budgetRange.min}-${context.budgetRange.max}`)
     }
 
     if (context.nextAction) {
-      contextInfo += `Próxima ação sugerida: ${context.nextAction}\n`
+      parts.push(`Ação: ${context.nextAction}`)
     }
 
-    return contextInfo
+    return parts.length > 0 ? `CONTEXTO: ${parts.join(' | ')}\n` : ''
   }
 
   private async processAIResponse(
@@ -236,17 +383,68 @@ INSTRUÇÕES IMPORTANTES:
       const lastMessage = conversation.messages?.[conversation.messages.length - 1];
       const userContent = lastMessage?.content || 'Solicitação de informações';
       
+      // Check if we need to chain functions (search_properties → send_property_media)
+      let shouldChainFunctions = false;
+      let chainedResults = functionResult;
+      
+      if (message.function_call.name === 'search_properties' && functionResult.success && functionResult.properties?.length > 0) {
+        // Check if user is asking for photos/images - expanded detection
+        const userWantsPhotos = /foto|imagem|ver|mostrar|enviar.*foto|quero.*foto|me.*envie|envie.*foto|fotos|imagens|ver.*apartamento|apartamento.*foto|imóvel|imovel|apartamento/i.test(userContent);
+        
+        console.log(`🔍 User content: "${userContent}"`);
+        console.log(`📸 User wants photos: ${userWantsPhotos}`);
+        console.log(`🏠 Found ${functionResult.properties.length} properties`);
+        
+        // SEMPRE enviar mídias quando encontrar propriedades
+        if (userWantsPhotos || true) { // Forçar sempre
+          console.log('🔗 Chaining search_properties → send_property_media');
+          shouldChainFunctions = true;
+          
+          // Send media for found properties (limit to first 3)
+          const propertiesToShow = functionResult.properties.slice(0, 3);
+          const mediaResults = [];
+          
+          for (const property of propertiesToShow) {
+            console.log(`📤 Executing send_property_media for property: ${property.id} (${property.title})`);
+            try {
+              const mediaResult = await this.functionExecutor.executeFunctionCall('send_property_media', {
+                propertyId: property.id,
+                mediaType: 'photos'
+              });
+              console.log(`📱 Media result for ${property.id}:`, mediaResult);
+              if (mediaResult.success) {
+                mediaResults.push({
+                  property: property,
+                  media: mediaResult
+                });
+                console.log(`✅ Successfully added media for ${property.title}`);
+              } else {
+                console.log(`❌ Failed to get media for ${property.title}:`, mediaResult.error);
+              }
+            } catch (error) {
+              console.error('❌ Error sending media for property:', property.id, error);
+            }
+          }
+          
+          chainedResults = {
+            ...functionResult,
+            mediaResults,
+            chainedFunction: true
+          };
+        }
+      }
+      
       const secondCompletion = await this.openai.chat.completions.create({
         model: this.personality.model || 'gpt-4',
         temperature: this.personality.temperature || 0.7,
         messages: [
-          { role: 'system', content: this.buildSystemPrompt() },
+          { role: 'system', content: this.buildFullSystemPrompt() },
           { role: 'user', content: userContent },
           message,
           { 
             role: 'function', 
             name: message.function_call.name, 
-            content: JSON.stringify(functionResult) 
+            content: JSON.stringify(chainedResults) 
           }
         ]
       })
@@ -256,7 +454,7 @@ INSTRUÇÕES IMPORTANTES:
         functionCall: {
           name: message.function_call.name,
           arguments: JSON.parse(message.function_call.arguments),
-          result: functionResult
+          result: chainedResults // Include media results from chaining
         },
         confidence: this.calculateConfidence(secondCompletion),
         sentiment: this.analyzeSentiment(secondCompletion.choices[0].message.content || ''),

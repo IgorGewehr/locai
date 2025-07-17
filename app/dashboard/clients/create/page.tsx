@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { clientService } from '@/lib/firebase/firestore';
+import { clientServiceWrapper } from '@/lib/services/client-service';
 import type { Client } from '@/lib/types/client';
 import { CustomerSegment, AcquisitionSource } from '@/lib/types/client';
 import { PaymentMethod } from '@/lib/types/reservation';
@@ -128,7 +129,20 @@ export default function CreateClientPage() {
         tenantId: 'default', // TODO: Get from auth context
       };
 
-      await clientService.create(clientData);
+      try {
+        await clientServiceWrapper.createOrUpdate({
+          name: formData.name,
+          email: formData.email || '',
+          phone: formData.phone,
+          tenantId: 'default'
+        });
+      } catch (duplicateError) {
+        if (duplicateError instanceof Error && duplicateError.message.includes('já existe')) {
+          setError('Cliente com este telefone já existe. Verifique o número ou edite o cliente existente.');
+          return;
+        }
+        throw duplicateError;
+      }
 
       setSuccess(true);
       setTimeout(() => {

@@ -24,6 +24,10 @@ export class WhatsAppMessageHandler {
   private processingConversations: Set<string> = new Set()
   private transcriptionService: TranscriptionService | null = null
   private tenantId: string
+  
+  // Sistema de delay para agrupar mensagens múltiplas
+  private messageQueue: Map<string, { messages: WhatsAppIncomingMessage[], timeout: NodeJS.Timeout }> = new Map()
+  private readonly MESSAGE_DELAY = 10000 // 10 segundos
 
   constructor(
     tenantId: string,
@@ -101,148 +105,178 @@ export class WhatsAppMessageHandler {
         return
       }
 
-      // Check if we're already processing this conversation
-      if (this.processingConversations.has(validatedPhone)) {
-        console.log(`⏳ Already processing conversation for ${validatedPhone}, skipping`);
-        return;
+      // Sistema de delay para agrupar mensagens múltiplas
+      await this.queueMessageWithDelay(validatedPhone, message)
+      return
+    } catch (error) {
+      console.error('❌ Error in handleIncomingMessage (queue):', error);
+    }
+  }
+
+  // Método para enfileirar mensagens com delay
+  private async queueMessageWithDelay(phoneNumber: string, message: WhatsAppIncomingMessage): Promise<void> {
+    console.log(`📥 Queueing message from ${phoneNumber} with ${this.MESSAGE_DELAY/1000}s delay`);
+    
+    // Limpa timeout anterior se existir
+    if (this.messageQueue.has(phoneNumber)) {
+      const existing = this.messageQueue.get(phoneNumber)!
+      clearTimeout(existing.timeout)
+      existing.messages.push(message)
+    } else {
+      this.messageQueue.set(phoneNumber, {
+        messages: [message],
+        timeout: setTimeout(() => {}, 0) // placeholder
+      })
+    }
+
+    // Cria novo timeout
+    const timeout = setTimeout(async () => {
+      const queuedData = this.messageQueue.get(phoneNumber)
+      if (queuedData) {
+        this.messageQueue.delete(phoneNumber)
+        console.log(`⏱️ Processing ${queuedData.messages.length} queued messages from ${phoneNumber}`)
+        await this.processQueuedMessages(phoneNumber, queuedData.messages)
+      }
+    }, this.MESSAGE_DELAY)
+
+    this.messageQueue.get(phoneNumber)!.timeout = timeout
+  }
+
+  // Processa mensagens agrupadas
+  private async processQueuedMessages(phoneNumber: string, messages: WhatsAppIncomingMessage[]): Promise<void> {
+    if (this.processingConversations.has(phoneNumber)) {
+      console.log(`⏳ Already processing conversation for ${phoneNumber}, skipping queued messages`);
+      return;
+    }
+
+    this.processingConversations.add(phoneNumber)
+
+    try {
+      // Combina o conteúdo de todas as mensagens
+      const combinedContent = await this.combineMessageContents(messages)
+      const lastMessage = messages[messages.length - 1]
+      
+      // Marcar todas as mensagens como lidas
+      for (const message of messages) {
+        try {
+          await withTimeout(
+            this.whatsappClient?.markAsRead(message.id),
+            5000,
+            'Mark message as read'
+          )
+        } catch (error) {
+          console.error('Error marking message as read:', error)
+        }
       }
 
-      this.processingMessages.add(messageId)
-      this.processingConversations.add(validatedPhone)
+      // Find or create conversation
+      let conversation = await this.conversationService.findByPhone(phoneNumber)
+      if (!conversation) {
+        conversation = await this.conversationService.createNew(phoneNumber, undefined)
+      }
 
-      try {
-        // Process message content (including audio transcription)
-        let messageContent = message.text?.body || this.getMediaCaption(message) || ''
-
-        // Handle audio messages with transcription
-        if (message.type === 'audio' && message.audio?.id) {
-          try {
-            const transcriptionResult = await this.transcriptionService.transcribeAudio(message.audio.id)
-            messageContent = typeof transcriptionResult === 'string' ? transcriptionResult : transcriptionResult.text
-          } catch (error) {
-            messageContent = 'Recebi seu áudio! Por favor, envie sua mensagem por texto para eu processar melhor. 😊'
-          }
-        }
-
-        const validatedContent = validateMessageContent(messageContent)
-
-        // Mark message as read immediately with timeout
-        await withTimeout(
-          this.whatsappClient.markAsRead(message.id),
-          5000,
-          'Mark message as read'
-        )
-
-        // Find or create conversation
-        let conversation = await this.conversationService.findByPhone(validatedPhone)
-        if (!conversation) {
-          conversation = await this.conversationService.createNew(validatedPhone, contact?.profile?.name)
-        }
-
-        // Save incoming message
-        const mediaUrl = await this.getMediaUrl(message)
-        const messageData: any = {
-          content: validatedContent,
-          type: this.getMessageType(message),
+      // Salva apenas a mensagem combinada no banco
+      const savedMessage = await this.conversationService.addMessage(
+        conversation.id,
+        {
+          content: combinedContent,
+          type: MessageType.TEXT,
           direction: 'inbound',
-          whatsappMessageId: message.id,
-          timestamp: new Date(parseInt(message.timestamp) * 1000),
+          whatsappMessageId: lastMessage.id,
+          timestamp: new Date(parseInt(lastMessage.timestamp) * 1000),
           status: MessageStatus.RECEIVED,
           isFromAI: false
         }
+      )
 
-        if (mediaUrl) {
-          messageData.mediaUrl = mediaUrl
-        }
+      // Process with AI (with timeout) - usando conteúdo combinado
+      const aiResponse = await withTimeout(
+        this.aiService.processMessage(conversation, savedMessage),
+        45000,
+        'AI processing'
+      )
 
-        const savedMessage = await this.conversationService.addMessage(
-          conversation.id,
-          messageData
-        )
+      // Send AI response
+      await this.sendAIResponse(phoneNumber, aiResponse, false)
 
-        // Skip AI processing only for unsupported message types (audio now supported)
-        if (this.shouldSkipAIProcessing(message)) {
-          await this.sendAcknowledgment(validatedPhone, message.type)
-          return
-        }
-
-        // Check if this is a billing response before AI processing
-        if (await this.isBillingResponse(validatedContent, validatedPhone)) {
-          await this.processBillingResponse(validatedContent, validatedPhone, conversation)
-        }
-
-        // Process with AI (with timeout)
-        const aiResponse = await withTimeout(
-          this.aiService.processMessage(conversation, savedMessage),
-          45000,
-          'AI processing'
-        )
-
-        // Determine if we should respond with audio
-        const shouldUseAudio = message.type === 'audio' && 
-          this.transcriptionService.shouldGenerateAudioResponse(
-            validatedPhone,
-            conversation.messages || [],
-            undefined // Will use default preferences
-          )
-
-        // Send AI response (text or audio based on context)
-        await this.sendAIResponse(validatedPhone, aiResponse, shouldUseAudio)
-
-        // Save AI response message
-        await this.conversationService.addMessage(
-          conversation.id,
-          {
-            content: aiResponse.content,
-            type: MessageType.TEXT,
-            direction: 'outbound',
-            isFromAI: true,
-            functionCall: aiResponse.functionCall,
-            confidence: aiResponse.confidence,
-            timestamp: new Date(),
-            status: MessageStatus.SENT
-          }
-        )
-
-        // Update conversation context and analytics
-        await this.conversationService.updateConversationFromAI(conversation.id, aiResponse)
-
-        // Trigger automations
-        await this.automationService.triggerAutomations('message_received', {
-          conversationId: conversation.id,
-          messageId: savedMessage.id,
-          clientPhone: validatedPhone,
-          messageContent: savedMessage.content,
-          aiResponse: aiResponse
-        })
-
-      } finally {
-        // Remove message from processing set
-        this.processingMessages.delete(messageId)
-        this.processingConversations.delete(validatedPhone)
+      // Save AI response message - filter undefined values
+      const responseData: any = {
+        content: aiResponse.content,
+        type: MessageType.TEXT,
+        direction: 'outbound',
+        isFromAI: true,
+        timestamp: new Date(),
+        status: MessageStatus.SENT
+      }
+      
+      // Only add fields if they are not undefined
+      if (aiResponse.functionCall !== undefined) {
+        responseData.functionCall = aiResponse.functionCall
+      }
+      if (aiResponse.confidence !== undefined) {
+        responseData.confidence = aiResponse.confidence
       }
 
+      await this.conversationService.addMessage(conversation.id, responseData)
+
+      // Update conversation context and analytics
+      await this.conversationService.updateConversationFromAI(conversation.id, aiResponse)
+
     } catch (error) {
-      console.error('❌ Error in handleIncomingMessage:', error)
-      console.error('Error stack:', error instanceof Error ? error.stack : 'No stack trace')
+      console.error('❌ Error in processQueuedMessages:', error)
+    } finally {
+      this.processingConversations.delete(phoneNumber)
+    }
+  }
+
+  // Combina o conteúdo de múltiplas mensagens
+  private async combineMessageContents(messages: WhatsAppIncomingMessage[]): Promise<string> {
+    const contents: string[] = []
+    
+    for (const message of messages) {
+      let content = message.text?.body || this.getMediaCaption(message) || ''
       
-      // Classify error and send appropriate response
-      const errorType = this.classifyError(error)
-
-      try {
-        const { from } = this.extractMessageData(webhookData)
-        if (from) {
-          const validatedPhone = validatePhoneNumber(from)
-          const errorMessage = this.getErrorMessage(errorType)
-
-          await withTimeout(
-            this.whatsappClient.sendText(validatedPhone, errorMessage),
-            10000,
-            'Send error message'
-          )
+      // Handle audio messages with transcription
+      if (message.type === 'audio' && message.audio?.id && this.transcriptionService) {
+        try {
+          const transcriptionResult = await this.transcriptionService.transcribeAudio(message.audio.id)
+          content = typeof transcriptionResult === 'string' ? transcriptionResult : transcriptionResult.text
+        } catch (error) {
+          content = 'Recebi seu áudio! Por favor, envie sua mensagem por texto para eu processar melhor. 😊'
         }
-      } catch (sendError) {
-        }
+      }
+      
+      if (content.trim()) {
+        contents.push(validateMessageContent(content))
+      }
+    }
+    
+    // Combina as mensagens com quebras de linha
+    return contents.join(' ') || 'Mensagens recebidas'
+  }
+
+  // Error handling para o webhook principal
+  private async handleWebhookError(error: unknown, webhookData: any): Promise<void> {
+    console.error('❌ Error in handleIncomingMessage:', error)
+    console.error('Error stack:', error instanceof Error ? error.stack : 'No stack trace')
+      
+    // Classify error and send appropriate response
+    const errorType = this.classifyError(error)
+
+    try {
+      const { from } = this.extractMessageData(webhookData)
+      if (from && this.whatsappClient) {
+        const validatedPhone = validatePhoneNumber(from)
+        const errorMessage = this.getErrorMessage(errorType)
+
+        await withTimeout(
+          this.whatsappClient.sendText(validatedPhone, errorMessage),
+          10000,
+          'Send error message'
+        )
+      }
+    } catch (sendError) {
+      console.error('Error sending error message:', sendError)
     }
   }
 
@@ -363,6 +397,13 @@ export class WhatsAppMessageHandler {
     response: AIResponse, 
     preferAudio: boolean = false
   ): Promise<void> {
+    console.log(`🤖 Sending AI response to ${to}`);
+    console.log(`📄 Response content length: ${response.content?.length || 0}`);
+    console.log(`🔧 Has function call: ${!!response.functionCall}`);
+    if (response.functionCall) {
+      console.log(`⚙️ Function call name: ${response.functionCall.name}`);
+    }
+    
     try {
       // Send main response (text or audio)
       if (response.content) {
@@ -401,6 +442,16 @@ export class WhatsAppMessageHandler {
       // Handle function call responses
       if (response.functionCall) {
         await this.handleFunctionCallResponse(to, response.functionCall)
+        
+        // Handle chained media results if present
+        if (response.functionCall.result?.mediaResults) {
+          console.log(`🔗 Processing ${response.functionCall.result.mediaResults.length} chained media results`);
+          for (const mediaResult of response.functionCall.result.mediaResults) {
+            console.log(`📱 Sending media for property: ${mediaResult.property.title}`);
+            await this.sendPropertyMedia(to, mediaResult.media);
+            await this.delay(2000); // Delay between media sends
+          }
+        }
       }
 
       // Add delay between messages to feel more natural
@@ -444,6 +495,8 @@ export class WhatsAppMessageHandler {
 
     switch (name) {
       case 'send_property_media':
+        console.log(`🎯 Handling send_property_media function call for ${to}`);
+        console.log(`📋 Media data:`, JSON.stringify(result, null, 2));
         await this.sendPropertyMedia(to, result)
         break
 

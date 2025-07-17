@@ -125,6 +125,11 @@ export default function SettingsPage() {
     accessToken: '',
     verifyToken: '',
   });
+  const [whatsappInfo, setWhatsappInfo] = useState({
+    businessName: '',
+    displayPhoneNumber: '',
+    status: 'disconnected' as 'disconnected' | 'connecting' | 'connected' | 'error'
+  });
   
   // Mini-site states
   const [miniSiteConfig, setMiniSiteConfig] = useState({
@@ -270,6 +275,17 @@ export default function SettingsPage() {
       if (result.status === 'connected' && !whatsappConnected) {
         setWhatsappConnected(true);
         setConnectionType('api');
+        setWhatsappInfo({
+          businessName: result.businessName || '',
+          displayPhoneNumber: result.businessName || 'Número conectado',
+          status: 'connected'
+        });
+      } else if (result.status !== 'connected') {
+        setWhatsappInfo({
+          businessName: '',
+          displayPhoneNumber: '',
+          status: result.status || 'disconnected'
+        });
       }
     } catch (error) {
       console.error('Failed to check WhatsApp connection:', error);
@@ -674,7 +690,7 @@ export default function SettingsPage() {
                             <Box>
                               <Typography variant="subtitle2">Número Conectado</Typography>
                               <Typography variant="body2" color="text.secondary">
-                                {whatsappCredentials.phoneNumberId ? '+55 (XX) XXXXX-XXXX' : 'Não configurado'}
+                                {whatsappInfo.displayPhoneNumber || 'Não configurado'}
                               </Typography>
                             </Box>
                           </Box>

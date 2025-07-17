@@ -160,8 +160,8 @@ export const AI_FUNCTIONS: AIFunction[] = [
       type: 'object',
       properties: {
         reservationId: { type: 'string', description: 'ID da reserva' },
-        newCheckIn: { type: 'string', description: 'Nova data check-in (YYYY-MM-DD)' },
-        newCheckOut: { type: 'string', description: 'Nova data check-out (YYYY-MM-DD)' },
+        newCheckIn: { type: 'string', description: 'Nova data de entrada (YYYY-MM-DD)' },
+        newCheckOut: { type: 'string', description: 'Nova data de saída (YYYY-MM-DD)' },
         newGuests: { type: 'number', description: 'Novo número de hóspedes' },
         specialRequests: { type: 'string', description: 'Novas solicitações especiais' }
       },
@@ -251,8 +251,8 @@ export const AI_FUNCTIONS: AIFunction[] = [
         propertyId: { type: 'string', description: 'ID da propriedade de interesse' },
         clientName: { type: 'string', description: 'Nome do cliente interessado' },
         clientPhone: { type: 'string', description: 'Telefone do cliente' },
-        checkIn: { type: 'string', description: 'Data check-in desejada (YYYY-MM-DD)' },
-        checkOut: { type: 'string', description: 'Data check-out desejada (YYYY-MM-DD)' },
+        checkIn: { type: 'string', description: 'Data de entrada desejada (YYYY-MM-DD)' },
+        checkOut: { type: 'string', description: 'Data de saída desejada (YYYY-MM-DD)' },
         guests: { type: 'number', description: 'Número de hóspedes' },
         message: { type: 'string', description: 'Mensagem adicional do cliente' },
         source: { type: 'string', enum: ['mini-site'], description: 'Origem da solicitação' }
@@ -285,19 +285,19 @@ export const AI_FUNCTIONS: AIFunction[] = [
   },
   {
     name: 'search_properties',
-    description: 'Buscar propriedades baseado nos critérios do cliente',
+    description: 'Buscar propriedades disponíveis. OBRIGATÓRIO: Use esta função primeiro quando cliente pedir fotos/imóveis. Após encontrar propriedades, o sistema automaticamente enviará as fotos.',
     parameters: {
       type: 'object',
       properties: {
-        location: { type: 'string', description: 'Localização desejada' },
-        checkIn: { type: 'string', description: 'Data check-in (YYYY-MM-DD)' },
-        checkOut: { type: 'string', description: 'Data check-out (YYYY-MM-DD)' },
-        guests: { type: 'number', description: 'Número de hóspedes' },
-        budget: { type: 'number', description: 'Orçamento máximo por noite' },
-        amenities: { type: 'array', items: { type: 'string' }, description: 'Comodidades desejadas' },
-        propertyType: { type: 'string', description: 'Tipo de propriedade' }
+        location: { type: 'string', description: 'Localização desejada (opcional)' },
+        checkIn: { type: 'string', description: 'Data de entrada YYYY-MM-DD (opcional)' },
+        checkOut: { type: 'string', description: 'Data de saída YYYY-MM-DD (opcional)' },
+        guests: { type: 'number', description: 'Número de hóspedes (opcional)' },
+        budget: { type: 'number', description: 'Orçamento máximo por noite (opcional)' },
+        amenities: { type: 'array', items: { type: 'string' }, description: 'Comodidades desejadas (opcional)' },
+        propertyType: { type: 'string', description: 'Tipo: apartment, house, villa, studio (opcional)' }
       },
-      required: ['checkIn', 'checkOut', 'guests']
+      required: []
     },
     autoExecute: true,
     requiresApproval: false,
@@ -305,11 +305,11 @@ export const AI_FUNCTIONS: AIFunction[] = [
   },
   {
     name: 'send_property_media',
-    description: 'Enviar fotos e vídeos de uma propriedade específica',
+    description: 'Enviar fotos e vídeos de uma propriedade específica. IMPORTANTE: Use esta função apenas quando tiver um propertyId específico. Se o cliente pedir fotos sem especificar qual propriedade, use search_properties primeiro',
     parameters: {
       type: 'object',
       properties: {
-        propertyId: { type: 'string', description: 'ID da propriedade' },
+        propertyId: { type: 'string', description: 'ID da propriedade (obrigatório - obtido via search_properties)' },
         mediaType: { type: 'string', enum: ['photos', 'videos', 'both'], description: 'Tipo de mídia' }
       },
       required: ['propertyId', 'mediaType']
@@ -325,8 +325,8 @@ export const AI_FUNCTIONS: AIFunction[] = [
       type: 'object',
       properties: {
         propertyId: { type: 'string' },
-        checkIn: { type: 'string' },
-        checkOut: { type: 'string' },
+        checkIn: { type: 'string', description: 'Data de entrada (YYYY-MM-DD)' },
+        checkOut: { type: 'string', description: 'Data de saída (YYYY-MM-DD)' },
         guests: { type: 'number' },
         appliedDiscount: { type: 'number', description: 'Desconto aplicado em %' }
       },
@@ -343,8 +343,8 @@ export const AI_FUNCTIONS: AIFunction[] = [
       type: 'object',
       properties: {
         propertyId: { type: 'string' },
-        checkIn: { type: 'string' },
-        checkOut: { type: 'string' }
+        checkIn: { type: 'string', description: 'Data de entrada (YYYY-MM-DD)' },
+        checkOut: { type: 'string', description: 'Data de saída (YYYY-MM-DD)' }
       },
       required: ['propertyId', 'checkIn', 'checkOut']
     },
@@ -359,8 +359,8 @@ export const AI_FUNCTIONS: AIFunction[] = [
       type: 'object',
       properties: {
         propertyId: { type: 'string' },
-        checkIn: { type: 'string' },
-        checkOut: { type: 'string' },
+        checkIn: { type: 'string', description: 'Data de entrada (YYYY-MM-DD)' },
+        checkOut: { type: 'string', description: 'Data de saída (YYYY-MM-DD)' },
         guests: { type: 'number' },
         clientName: { type: 'string' },
         clientEmail: { type: 'string' },
@@ -746,7 +746,10 @@ export class AIFunctionExecutor {
         // Inclui informações sobre disponibilidade de mídia
         hasMedia: propertiesWithPrices.some(p => p.photos && p.photos.length > 0),
         // Indica se precisa de mais informações
-        needsMoreInfo: !checkIn || !checkOut || !guests
+        needsMoreInfo: !checkIn || !checkOut || !guests,
+        // Instruição para o AI sobre próximos passos
+        nextAction: propertiesWithPrices.length > 0 ? 'send_property_media_for_found_properties' : 'suggest_alternatives',
+        foundPropertyIds: propertiesWithPrices.map(p => p.id)
       }
     } catch (error) {
       return {
@@ -2191,9 +2194,9 @@ export class AIFunctionExecutor {
     
     try {
       // Verificar se o cliente já existe pelo telefone
-      const existingClients = await clientServiceWrapper.searchByPhone(phone)
-      if (existingClients.length > 0) {
-        const client = existingClients[0]
+      const existingClient = await clientServiceWrapper.findByPhone(phone, this.tenantId)
+      if (existingClient) {
+        const client = existingClient
         
         // Atualizar informações se fornecidas
         const updates: any = {}
@@ -2220,18 +2223,12 @@ export class AIFunctionExecutor {
         }
       }
       
-      // Criar novo cliente
-      const newClient = await clientServiceWrapper.create({
+      // Criar novo cliente usando createOrUpdate para garantir unicidade
+      const newClient = await clientServiceWrapper.createOrUpdate({
         name,
         email: email || '',
         phone,
         document: document || '',
-        birthDate: birthDate ? new Date(birthDate) : undefined,
-        address: address || '',
-        preferences: preferences || '',
-        source: 'whatsapp',
-        score: 0,
-        totalBookings: 0,
         tenantId: this.tenantId
       })
       
