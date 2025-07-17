@@ -716,7 +716,7 @@ export default function TransactionsPage() {
                               Cliente
                             </Typography>
                             <Typography variant="body2" color="text.secondary">
-                              {relatedClient.name} • {relatedClient.phone}
+                              {relatedClient.name} - {relatedClient.phone}
                             </Typography>
                           </Box>
                           <Button
@@ -770,7 +770,7 @@ export default function TransactionsPage() {
                               Reserva
                             </Typography>
                             <Typography variant="body2" color="text.secondary">
-                              #{relatedReservation.id.slice(-8)} • {relatedReservation.status}
+                              #{relatedReservation.id.slice(-8)} - {relatedReservation.status}
                             </Typography>
                           </Box>
                           <Button
@@ -1106,7 +1106,7 @@ export default function TransactionsPage() {
                                 <Box>
                                   <Typography variant="subtitle2">{option.name}</Typography>
                                   <Typography variant="body2" color="text.secondary">
-                                    {option.phone} {option.email && `• ${option.email}`}
+                                    {option.phone} {option.email && ` - ${option.email}`}
                                   </Typography>
                                 </Box>
                               </Box>
@@ -1172,7 +1172,7 @@ export default function TransactionsPage() {
                                     {format(checkIn, 'dd/MM/yyyy')} - {format(checkOut, 'dd/MM/yyyy')}
                                   </Typography>
                                   <Typography variant="body2" color="text.secondary">
-                                    R$ {(option.totalAmount || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })} • {option.paymentStatus}
+                                    R$ {(option.totalAmount || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })} - {option.paymentStatus}
                                   </Typography>
                                 </Box>
                               </Box>

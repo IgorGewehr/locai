@@ -39,7 +39,8 @@
       "Bash(done)",
       "Bash(npx tsx:*)",
       "Bash(fuser:*)",
-      "Bash(sed:*)"
+      "Bash(sed:*)",
+      "Bash(perl:*)"
     ],
     "deny": []
   }

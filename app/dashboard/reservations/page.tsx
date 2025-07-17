@@ -561,9 +561,9 @@ export default function ReservationsPage() {
                       </Tooltip>
                     </Box>
                   </TableCell>
-                  </TableRow>
-                  );
-                }))}
+                </TableRow>
+                );
+              }))}
             </TableBody>
           </Table>
         </TableContainer>
