@@ -109,13 +109,13 @@ export default function CreateLeadDialog({ open, onClose, onSuccess }: CreateLea
             ? { min: parseInt(formData.bedrooms), max: parseInt(formData.bedrooms) + 2 }
             : undefined,
           moveInDate: formData.moveInDate ? new Date(formData.moveInDate) : undefined,
-        },
+        } as any,
         tags: formData.tags,
         firstContactDate: new Date(),
         lastContactDate: new Date(),
         totalInteractions: 0,
-        assignedTo: user?.uid,
-      });
+        assignedTo: user?.id,
+      } as any);
       
       onSuccess();
       handleReset();

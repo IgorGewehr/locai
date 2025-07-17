@@ -96,4 +96,5 @@ export class AuthService {
   }
 }
 
+export { auth };
 export default AuthService;

@@ -80,7 +80,7 @@ export async function POST() {
     }
 
     // Find first inactive tenant
-    let targetTenant = null;
+    let targetTenant: any = null;
     settingsSnapshot.forEach((doc) => {
       const data = doc.data();
       if (!data.miniSite?.active && !targetTenant) {
@@ -94,10 +94,12 @@ export async function POST() {
     if (!targetTenant) {
       // If no inactive tenants, use the first one
       const firstDoc = settingsSnapshot.docs[0];
-      targetTenant = {
-        id: firstDoc.id,
-        data: firstDoc.data()
-      };
+      if (firstDoc) {
+        targetTenant = {
+          id: firstDoc.id,
+          data: firstDoc.data()
+        };
+      }
     }
 
     // Activate mini-site for the target tenant

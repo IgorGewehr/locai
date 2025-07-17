@@ -11,6 +11,9 @@ export async function GET(request: NextRequest) {
     }
 
     const token = authHeader.split('Bearer ')[1];
+    if (!token) {
+      return NextResponse.json({ error: 'Token inválido' }, { status: 401 });
+    }
     const decodedToken = await auth.verifyIdToken(token);
     const tenantId = decodedToken.tenantId || decodedToken.uid;
 
@@ -41,6 +44,9 @@ export async function PUT(request: NextRequest) {
     }
 
     const token = authHeader.split('Bearer ')[1];
+    if (!token) {
+      return NextResponse.json({ error: 'Token inválido' }, { status: 401 });
+    }
     const decodedToken = await auth.verifyIdToken(token);
     const tenantId = decodedToken.tenantId || decodedToken.uid;
 

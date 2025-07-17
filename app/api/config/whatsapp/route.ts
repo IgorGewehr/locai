@@ -292,8 +292,6 @@ export async function DELETE(request: NextRequest) {
       accessToken: '',
       verifyToken: '',
       connected: false,
-      businessName: undefined,
-      lastSync: undefined,
     });
 
     return NextResponse.json({

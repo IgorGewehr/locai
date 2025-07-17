@@ -105,12 +105,14 @@ export async function POST(
     const validatedData = inquirySchema.parse(body);
 
     // Create inquiry
-    const inquiryId = await miniSiteService.createInquiry({
+    const inquiryData: any = {
       tenantId,
       status: 'new',
       source: 'mini-site',
       ...validatedData
-    });
+    };
+    
+    const inquiryId = await miniSiteService.createInquiry(inquiryData);
 
     // Generate WhatsApp booking URL
     const config = await miniSiteService.getConfig(tenantId);

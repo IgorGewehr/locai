@@ -73,10 +73,10 @@ const UpdateClientSchema = z.object({
 // GET /api/clients/[id] - Get a specific client
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const clientId = params.id
+    const { id: clientId } = await params
 
     if (!clientId) {
       return NextResponse.json(
@@ -107,10 +107,10 @@ export async function GET(
 // PUT /api/clients/[id] - Update a specific client
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const clientId = params.id
+    const { id: clientId } = await params
     const body = await request.json()
 
     if (!clientId) {
@@ -158,7 +158,7 @@ export async function PUT(
     // Address sanitization
     if (validatedData.address) {
       sanitizedData.address = {
-        ...existingClient.address,
+        ...((existingClient as any).address || {}),
         ...validatedData.address
       }
       if (validatedData.address.street) sanitizedData.address.street = sanitizeUserInput(validatedData.address.street)
@@ -174,13 +174,13 @@ export async function PUT(
     // Preferences sanitization
     if (validatedData.preferences) {
       sanitizedData.preferences = {
-        ...existingClient.preferences,
+        ...((existingClient as any).preferences || {}),
         ...validatedData.preferences
       }
       
       if (validatedData.preferences.emergencyContact) {
         sanitizedData.preferences.emergencyContact = {
-          ...existingClient.preferences?.emergencyContact,
+          ...((existingClient as any).preferences?.emergencyContact || {}),
           ...validatedData.preferences.emergencyContact
         }
         if (validatedData.preferences.emergencyContact.name) {
@@ -225,10 +225,10 @@ export async function PUT(
 // DELETE /api/clients/[id] - Delete a specific client
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const clientId = params.id
+    const { id: clientId } = await params
 
     if (!clientId) {
       return NextResponse.json(

@@ -91,7 +91,7 @@ const MessagesArea = styled(Box)(({ theme }) => ({
   },
 }));
 
-const MessageBubble = styled(Paper)(({ theme, isUser, isAI }) => ({
+const MessageBubble = styled(Paper)<{ isUser?: boolean; isAI?: boolean }>(({ theme, isUser, isAI }) => ({
   padding: theme.spacing(1.5, 2),
   maxWidth: '70%',
   marginLeft: isUser ? 'auto' : 0,
@@ -490,7 +490,7 @@ export default function ConversationDetailPage() {
 
     return (
       <Box sx={{ px: 3, mb: 1 }}>
-        <MessageBubble isUser={isUser} isAI={isAI} elevation={0}>
+        <MessageBubble isUser={isUser} isAI={isAI || false} elevation={0}>
           {/* AI Badge */}
           {isAI && (
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
@@ -587,7 +587,7 @@ export default function ConversationDetailPage() {
         </IconButton>
         
         <Avatar 
-          src={conversation.clientAvatar}
+          {...(conversation.clientAvatar ? { src: conversation.clientAvatar } : {})}
           sx={{ 
             width: 40, 
             height: 40,

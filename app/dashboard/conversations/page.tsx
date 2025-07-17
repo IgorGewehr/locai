@@ -97,7 +97,7 @@ export default function ConversationsPage() {
               const messagesSnapshot = await getDocs(messagesQuery);
               if (!messagesSnapshot.empty) {
                 const lastMessageDoc = messagesSnapshot.docs[0];
-                lastMessage = lastMessageDoc.data().content || lastMessageDoc.data().message || '';
+                lastMessage = lastMessageDoc?.data()?.content || lastMessageDoc?.data()?.message || '';
               }
             } catch (err) {
               console.log('Erro ao buscar última mensagem para conversa', doc.id, err);

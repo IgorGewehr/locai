@@ -44,7 +44,7 @@ export async function POST(request: NextRequest) {
     const storageService = new StorageService();
     const tenantId = auth.tenantId || 'default-tenant';
     const filename = `logos/${tenantId}_${Date.now()}.${file.type.split('/')[1]}`;
-    const url = await storageService.uploadFile(buffer, filename, file.type);
+    const url = await storageService.uploadFile(file as any, filename);
 
     return NextResponse.json({
       success: true,

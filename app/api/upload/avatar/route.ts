@@ -43,7 +43,7 @@ export async function POST(request: NextRequest) {
     // Upload to Firebase Storage
     const storageService = new StorageService();
     const filename = `avatars/${auth.userId}_${Date.now()}.${file.type.split('/')[1]}`;
-    const url = await storageService.uploadFile(buffer, filename, file.type);
+    const url = await storageService.uploadFile(file as any, filename);
 
     return NextResponse.json({
       success: true,

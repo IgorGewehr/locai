@@ -91,14 +91,14 @@ export async function GET(request: NextRequest) {
         client.name?.toLowerCase().includes(searchLower) ||
         client.email?.toLowerCase().includes(searchLower) ||
         client.phone?.toLowerCase().includes(searchLower) ||
-        client.document?.toLowerCase().includes(searchLower)
+        (client as any).document?.toLowerCase().includes(searchLower)
       )
     }
 
     // Segment filter
     if (segment) {
       filteredClients = filteredClients.filter(client => 
-        client.customerSegment === segment
+        (client as any).customerSegment === segment
       )
     }
 
@@ -114,7 +114,7 @@ export async function GET(request: NextRequest) {
     if (isVip !== null) {
       const vipFilter = isVip === 'true'
       filteredClients = filteredClients.filter(client => 
-        client.isVip === vipFilter
+        (client as any).isVip === vipFilter
       )
     }
 

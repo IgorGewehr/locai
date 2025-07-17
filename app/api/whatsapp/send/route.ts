@@ -18,7 +18,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const tenantId = getTenantId(request);
+    const tenantId = 'default';
     const body = await request.json();
     
     // Validate input

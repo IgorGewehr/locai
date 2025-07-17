@@ -230,7 +230,7 @@ async function suggestDomains(baseDomain: string): Promise<DomainSuggestion[]> {
     domain,
     available: Math.random() > 0.4, // 60% availability for demo
     price: Math.floor(Math.random() * 50) + 30,
-    registrar: ['Registro.br', 'GoDaddy', 'Namecheap'][Math.floor(Math.random() * 3)],
+    registrar: ['Registro.br', 'GoDaddy', 'Namecheap'][Math.floor(Math.random() * 3)] as string,
   }));
 }
 

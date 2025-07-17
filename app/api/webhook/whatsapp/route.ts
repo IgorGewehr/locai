@@ -97,7 +97,7 @@ async function logWebhookEvent(
   const logEntry = {
     timestamp: new Date().toISOString(),
     type,
-    tenantId,
+    tenantId: 'default',
     data,
     error: error ? {
       message: error.message,
@@ -270,7 +270,7 @@ export async function POST(request: NextRequest) {
                 })
 
                 // Send rate limit message using session manager
-                const rateLimitTenantId = await whatsappSessionManager.getTenantByPhoneNumber(value.metadata.phone_number_id) || getTenantId(request);
+                const rateLimitTenantId = await whatsappSessionManager.getTenantByPhoneNumber(value.metadata.phone_number_id) || 'default';
                 await whatsappSessionManager.sendMessage(
                   rateLimitTenantId,
                   message.from,
@@ -308,7 +308,7 @@ export async function POST(request: NextRequest) {
 
               // Get tenant ID from phone number
               const phoneNumberId = value.metadata.phone_number_id;
-              const messageTenantId = await whatsappSessionManager.getTenantByPhoneNumber(phoneNumberId) || getTenantId(request);
+              const messageTenantId = await whatsappSessionManager.getTenantByPhoneNumber(phoneNumberId) || 'default';
               
               // Create message handler for this tenant
               const messageHandler = new WhatsAppMessageHandler(messageTenantId);
@@ -328,7 +328,7 @@ export async function POST(request: NextRequest) {
 
               // Send error message to user using session manager
               try {
-                const errorTenantId = await whatsappSessionManager.getTenantByPhoneNumber(value.metadata.phone_number_id) || getTenantId(request);
+                const errorTenantId = await whatsappSessionManager.getTenantByPhoneNumber(value.metadata.phone_number_id) || 'default';
                 await whatsappSessionManager.sendMessage(
                   errorTenantId,
                   message.from,
@@ -367,7 +367,7 @@ export async function POST(request: NextRequest) {
                 }]
               }
 
-              const statusTenantId = await whatsappSessionManager.getTenantByPhoneNumber(value.metadata.phone_number_id) || getTenantId(request);
+              const statusTenantId = await whatsappSessionManager.getTenantByPhoneNumber(value.metadata.phone_number_id) || 'default';
               const statusHandler = new WhatsAppMessageHandler(statusTenantId);
               await statusHandler.handleStatusUpdate(statusWebhookData)
             } catch (error) {
@@ -403,7 +403,7 @@ export async function POST(request: NextRequest) {
               }]
             }
 
-            const errorHandlerTenantId = await whatsappSessionManager.getTenantByPhoneNumber(value.metadata.phone_number_id) || getTenantId(request);
+            const errorHandlerTenantId = await whatsappSessionManager.getTenantByPhoneNumber(value.metadata.phone_number_id) || 'default';
             const errorHandler = new WhatsAppMessageHandler(errorHandlerTenantId);
             await errorHandler.handleError(errorWebhookData)
           }

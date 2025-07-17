@@ -11,6 +11,7 @@ import {
   Button,
   List,
   ListItem,
+  ListItemAvatar,
   ListItemIcon,
   ListItemText,
   Avatar,
@@ -208,7 +209,7 @@ export default function AIInsights({ leads, onActionClick, onRefresh }: AIInsigh
     const daysSinceLastContact = differenceInDays(new Date(), new Date(lead.lastContactDate));
     
     if (daysSinceLastContact > 7) return 'follow_up';
-    if (lead.status === 'qualified' && !lead.propertyViewings?.length) return 'schedule_viewing';
+    if (lead.status === 'qualified' && !(lead as any).propertyViewings?.length) return 'schedule_viewing';
     if (lead.temperature === 'hot' && lead.status === 'opportunity') return 'send_proposal';
     if (lead.totalInteractions < 2) return 'initial_contact';
     if (lead.status === 'negotiation') return 'close_deal';
@@ -360,7 +361,7 @@ export default function AIInsights({ leads, onActionClick, onRefresh }: AIInsigh
       // Get messages for each conversation
       const allMessages = await Promise.all(
         conversations.map(conv => 
-          conversationService.getMessagesByConversation(conv.id)
+          (conversationService as any).getMessagesByConversation(conv.id)
         )
       );
       
@@ -401,7 +402,7 @@ Forneça uma análise em JSON com:
 }
 `;
 
-      const analysis = await aiService.generateResponse(prompt, {
+      const analysis = await (aiService as any).generateResponse(prompt, {
         temperature: 0.3,
         maxTokens: 500
       });

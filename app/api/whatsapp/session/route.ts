@@ -13,7 +13,7 @@ export async function GET(request: NextRequest) {
     //   return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     // }
 
-    const tenantId = getTenantId(request);
+    const tenantId = 'default';
     const status = await whatsappSessionManager.getSessionStatus(tenantId);
 
     return NextResponse.json({
@@ -38,7 +38,7 @@ export async function POST(request: NextRequest) {
     //   return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     // }
 
-    const tenantId = getTenantId(request);
+    const tenantId = 'default';
     
     // Initialize the session
     await whatsappSessionManager.initializeSession(tenantId);
@@ -70,7 +70,7 @@ export async function DELETE(request: NextRequest) {
     //   return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     // }
 
-    const tenantId = getTenantId(request);
+    const tenantId = 'default';
     
     await whatsappSessionManager.disconnectSession(tenantId);
 

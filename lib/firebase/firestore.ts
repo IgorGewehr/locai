@@ -294,6 +294,7 @@ export const messageService = new FirestoreService<Message>(COLLECTIONS.MESSAGES
 export const amenityService = new FirestoreService<Amenity>(COLLECTIONS.AMENITIES);
 export const paymentService = new FirestoreService<Payment>(COLLECTIONS.PAYMENTS);
 export const transactionFirestoreService = new FirestoreService<Transaction>(COLLECTIONS.TRANSACTIONS);
+export const transactionService = transactionFirestoreService;
 
 // Specialized methods
 export const propertyQueries = {

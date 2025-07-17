@@ -179,12 +179,12 @@ export default function ClientDetailPage() {
       // Process client data with safe date handling
       const processedClient = {
         ...client,
-        createdAt: client.createdAt?.toDate ? client.createdAt.toDate() : new Date(client.createdAt || Date.now()),
-        lastContact: client.lastContact?.toDate ? client.lastContact.toDate() : (client.lastContact ? new Date(client.lastContact) : null),
-        totalReservations: client.totalReservations || reservations.length,
-        totalSpent: client.totalSpent || 0,
-        tags: client.tags || []
-      } as Client;
+        createdAt: (client.createdAt as any)?.toDate ? (client.createdAt as any).toDate() : new Date(client.createdAt || Date.now()),
+        lastContact: ((client as any).lastContact as any)?.toDate ? ((client as any).lastContact as any).toDate() : ((client as any).lastContact ? new Date((client as any).lastContact) : null),
+        totalReservations: (client as any).totalReservations || reservations.length,
+        totalSpent: (client as any).totalSpent || 0,
+        tags: (client as any).tags || []
+      } as any;
 
       setClient(processedClient);
       setReservations(reservations);
@@ -199,8 +199,8 @@ export default function ClientDetailPage() {
         phone: client.phone || '',
         document: (client as any).document || '',
         notes: (client as any).notes || '',
-        tags: client.tags || [],
-        status: client.status || 'active',
+        tags: (client as any).tags || [],
+        status: (client as any).status || 'active',
       });
     } catch (err) {
       console.error('Erro ao carregar dados do cliente:', err);
@@ -216,7 +216,7 @@ export default function ClientDetailPage() {
       await clientService.update(params.id as string, { 
         notes,
         updatedAt: new Date()
-      });
+      } as any);
       setClient(prev => prev ? { ...prev, notes } : null);
       setEditOpen(false);
     } catch (err) {
@@ -242,7 +242,7 @@ export default function ClientDetailPage() {
 
   const handleSaveClient = async () => {
     setSaving(true);
-    setError(null);
+    setError('');
 
     try {
       await clientServiceWrapper.update(params.id as string, {
@@ -254,7 +254,7 @@ export default function ClientDetailPage() {
         tags: formData.tags,
         status: formData.status,
         updatedAt: new Date(),
-      });
+      } as any);
 
       // Update local state
       setClient(prev => prev ? {
@@ -664,7 +664,7 @@ export default function ClientDetailPage() {
                               'default'
                             }
                             size="small"
-                            icon={isVisit ? <Event sx={{ fontSize: 14 }} /> : undefined}
+                            {...(isVisit ? { icon: <Event sx={{ fontSize: 14 }} /> } : {})}
                           />
                         </TableCell>
                         <TableCell>

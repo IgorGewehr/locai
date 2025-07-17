@@ -48,12 +48,12 @@ export default function EditClientPage() {
         setLoading(true);
         const clientData = await clientService.getById(clientId);
         if (clientData) {
-          setClient(clientData);
+          setClient(clientData as any);
           setFormData({
             name: clientData.name || '',
             email: clientData.email || '',
             phone: clientData.phone || '',
-            document: clientData.document || '',
+            document: (clientData as any).document || '',
             notes: (clientData as any).notes || '',
           });
         } else {
@@ -92,7 +92,7 @@ export default function EditClientPage() {
         document: formData.document,
         notes: formData.notes,
         updatedAt: new Date(),
-      });
+      } as any);
 
       setSuccessMessage('Cliente atualizado com sucesso!');
       setTimeout(() => {

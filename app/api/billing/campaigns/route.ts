@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { billingService } from '@/lib/services/billing-service';
-import { auth, db } from '@/lib/firebase/admin';
-import { collection, query, where, getDocs, orderBy, limit } from 'firebase/firestore';
+import { auth, adminDb } from '@/lib/firebase/admin';
 
 export async function GET(request: NextRequest) {
   try {
@@ -12,18 +11,20 @@ export async function GET(request: NextRequest) {
     }
 
     const token = authHeader.split('Bearer ')[1];
+    if (!token) {
+      return NextResponse.json({ error: 'Token inválido' }, { status: 401 });
+    }
     const decodedToken = await auth.verifyIdToken(token);
     const tenantId = decodedToken.tenantId || decodedToken.uid;
 
     // Buscar campanhas
-    const q = query(
-      collection(db, 'billing_campaigns'),
-      where('tenantId', '==', tenantId),
-      orderBy('createdAt', 'desc'),
-      limit(50)
-    );
+    const campaignsRef = adminDb.collection('billing_campaigns');
+    const snapshot = await campaignsRef
+      .where('tenantId', '==', tenantId)
+      .orderBy('createdAt', 'desc')
+      .limit(50)
+      .get();
 
-    const snapshot = await getDocs(q);
     const campaigns = snapshot.docs.map(doc => ({
       id: doc.id,
       ...doc.data()
@@ -48,6 +49,9 @@ export async function POST(request: NextRequest) {
     }
 
     const token = authHeader.split('Bearer ')[1];
+    if (!token) {
+      return NextResponse.json({ error: 'Token inválido' }, { status: 401 });
+    }
     const decodedToken = await auth.verifyIdToken(token);
     const tenantId = decodedToken.tenantId || decodedToken.uid;
     const userId = decodedToken.uid;

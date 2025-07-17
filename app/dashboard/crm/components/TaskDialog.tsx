@@ -59,12 +59,12 @@ export default function TaskDialog({
         priority: formData.priority,
         dueDate: formData.dueDate,
         reminderDate: formData.reminderDate || undefined,
-        assignedTo: user?.uid || '',
-        assignedBy: user?.uid || '',
+        assignedTo: user?.id || '',
+        assignedBy: user?.id || '',
         leadId,
         status: 'pending' as any,
         tags: [],
-      });
+      } as any);
       
       onSuccess();
       handleReset();

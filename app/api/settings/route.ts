@@ -35,8 +35,8 @@ export async function GET(request: NextRequest) {
         phoneNumberId: settings.whatsapp.phoneNumberId,
         verifyToken: settings.whatsapp.verifyToken ? '***' : '', // Mask token
         connected: settings.whatsapp.connected,
-        businessName: settings.whatsapp.businessName,
-        lastSync: settings.whatsapp.lastSync,
+        businessName: settings.whatsapp.businessName || '',
+        lastSync: settings.whatsapp.lastSync || new Date(),
       };
     }
 

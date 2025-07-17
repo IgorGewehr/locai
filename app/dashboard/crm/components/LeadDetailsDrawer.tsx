@@ -1,5 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import {
+  Timeline,
+  TimelineItem,
+  TimelineSeparator,
+  TimelineDot,
+  TimelineConnector,
+  TimelineContent,
+  TimelineOppositeContent,
+} from '@mui/lab';
+import {
   Drawer,
   Box,
   Typography,
@@ -16,13 +25,6 @@ import {
   Button,
   TextField,
   Divider,
-  Timeline,
-  TimelineItem,
-  TimelineSeparator,
-  TimelineDot,
-  TimelineConnector,
-  TimelineContent,
-  TimelineOppositeContent,
   Card,
   CardContent,
   Stack,
@@ -115,7 +117,7 @@ export default function LeadDetailsDrawer({
         temperature: editedLead.temperature,
         preferences: editedLead.preferences,
         tags: editedLead.tags,
-      });
+      } as any);
       setEditMode(false);
       onUpdate();
     } catch (error) {
@@ -133,8 +135,8 @@ export default function LeadDetailsDrawer({
         type: 'note' as any,
         direction: 'outbound',
         content: note,
-        userId: user?.uid || '',
-        userName: user?.displayName || 'Usuário',
+        userId: user?.id || '',
+        userName: user?.name || 'Usuário',
       });
       setNote('');
       loadLeadData();
@@ -369,7 +371,7 @@ export default function LeadDetailsDrawer({
                   </Typography>
                   <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
                     {lead.tags.map((tag) => (
-                      <Chip key={tag} label={tag} size="small" onDelete={editMode ? () => {} : undefined} />
+                      <Chip key={tag} label={tag} size="small" {...(editMode ? { onDelete: () => {} } : {})} />
                     ))}
                     {editMode && (
                       <Chip
