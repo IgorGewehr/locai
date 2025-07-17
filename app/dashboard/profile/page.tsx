@@ -70,6 +70,8 @@ export default function ProfilePage() {
   const [editing, setEditing] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [profile, setProfile] = useState<ProfileFormData | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string>('');
+  const [errorMessage, setErrorMessage] = useState<string>('');
 
   useEffect(() => {
     const loadProfile = async () => {
@@ -168,13 +170,17 @@ export default function ProfilePage() {
         }
         
         setEditing(false);
-        alert('Perfil atualizado com sucesso!');
+        setSuccessMessage('Perfil atualizado com sucesso!');
+        setErrorMessage('');
+        setTimeout(() => setSuccessMessage(''), 5000);
       } else {
-        alert('Erro ao salvar perfil');
+        setErrorMessage('Erro ao salvar perfil');
+        setSuccessMessage('');
       }
     } catch (error) {
       console.error('Error saving profile:', error);
-      alert('Erro ao salvar perfil');
+      setErrorMessage('Erro ao salvar perfil');
+      setSuccessMessage('');
     }
   }, [profile]);
 
@@ -194,13 +200,18 @@ export default function ProfilePage() {
         if (response.ok) {
           const { url } = await response.json();
           setProfile(prev => prev ? { ...prev, avatar: url } : null);
+          setSuccessMessage('Avatar atualizado com sucesso!');
+          setErrorMessage('');
+          setTimeout(() => setSuccessMessage(''), 5000);
         } else {
           const error = await response.json();
-          alert(error.error || 'Erro ao enviar avatar');
+          setErrorMessage(error.error || 'Erro ao enviar avatar');
+          setSuccessMessage('');
         }
       } catch (error) {
         console.error('Avatar upload error:', error);
-        alert('Erro ao enviar avatar');
+        setErrorMessage('Erro ao enviar avatar');
+        setSuccessMessage('');
       } finally {
         setUploading(false);
       }
@@ -271,6 +282,26 @@ export default function ProfilePage() {
 
   return (
     <Box>
+      {/* Success/Error Messages */}
+      {successMessage && (
+        <Alert 
+          severity="success" 
+          sx={{ mb: 3 }} 
+          onClose={() => setSuccessMessage('')}
+        >
+          {successMessage}
+        </Alert>
+      )}
+      {errorMessage && (
+        <Alert 
+          severity="error" 
+          sx={{ mb: 3 }} 
+          onClose={() => setErrorMessage('')}
+        >
+          {errorMessage}
+        </Alert>
+      )}
+
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
         <Typography variant="h4" component="h1" fontWeight="bold">
           Meu Perfil

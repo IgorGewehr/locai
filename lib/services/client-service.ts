@@ -60,19 +60,20 @@ export class ClientService {
 
   async findByPhone(phoneNumber: string, tenantId?: string): Promise<Client | null> {
     try {
-      const clients = await clientService.getWhere('phone', '==', phoneNumber);
+      let clients: Client[];
       
-      if (clients.length === 0) {
-        return null;
-      }
-      
-      // If tenantId is provided, filter by it
       if (tenantId) {
-        const tenantClients = clients.filter(client => client.tenantId === tenantId);
-        return tenantClients.length > 0 ? tenantClients[0] : null;
+        // Use compound query when tenantId is provided to prevent duplicates across tenants
+        clients = await clientService.getMany([
+          { field: 'phone', operator: '==', value: phoneNumber },
+          { field: 'tenantId', operator: '==', value: tenantId }
+        ]);
+      } else {
+        // Fallback to simple query
+        clients = await clientService.getWhere('phone', '==', phoneNumber);
       }
       
-      return clients[0];
+      return clients.length > 0 ? clients[0] : null;
     } catch (error) {
       console.error('Error finding client by phone:', error);
       return null;

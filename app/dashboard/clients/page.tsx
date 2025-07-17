@@ -54,7 +54,7 @@ import {
   Edit,
 } from '@mui/icons-material';
 import { useRouter } from 'next/navigation';
-import { format } from 'date-fns';
+import { safeFormatDate, DateFormats } from '@/lib/utils/date-utils';
 import { ptBR } from 'date-fns/locale';
 
 interface ClientFormData {
@@ -407,7 +407,7 @@ export default function ClientsPage() {
                         {client.totalReservations > 0 && (
                           <Typography variant="caption" color="text.secondary">
                             {client.totalReservations} reservas • 
-                            Última em {format((client.updatedAt as any)?.toDate ? (client.updatedAt as any).toDate() : new Date(client.updatedAt), 'dd/MM/yyyy')}
+                            Última em {safeFormatDate(client.updatedAt, DateFormats.SHORT, 'N/A')}
                           </Typography>
                         )}
                       </Box>

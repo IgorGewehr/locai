@@ -40,8 +40,7 @@ import {
   History,
   Bookmark,
 } from '@mui/icons-material';
-import { format } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
+import { safeFormatDate, DateFormats } from '@/lib/utils/date-utils';
 import { clientService, reservationService, conversationService } from '@/lib/firebase/firestore';
 
 interface Client {
@@ -90,13 +89,16 @@ export default function ClientDetailPage() {
   const params = useParams();
   const router = useRouter();
   const [client, setClient] = useState<Client | null>(null);
+
   const [reservations, setReservations] = useState<Reservation[]>([]);
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [tabValue, setTabValue] = useState(0);
   const [editOpen, setEditOpen] = useState(false);
+  const [editNameOpen, setEditNameOpen] = useState(false);
   const [notes, setNotes] = useState('');
+  const [clientName, setClientName] = useState('');
 
   useEffect(() => {
     loadClientData();
@@ -143,10 +145,21 @@ export default function ClientDetailPage() {
         console.log('Erro ao carregar conversas:', err);
       }
       
-      setClient(client as Client);
+      // Process client data with safe date handling
+      const processedClient = {
+        ...client,
+        createdAt: client.createdAt?.toDate ? client.createdAt.toDate() : new Date(client.createdAt || Date.now()),
+        lastContact: client.lastContact?.toDate ? client.lastContact.toDate() : (client.lastContact ? new Date(client.lastContact) : null),
+        totalReservations: client.totalReservations || reservations.length,
+        totalSpent: client.totalSpent || 0,
+        tags: client.tags || []
+      } as Client;
+
+      setClient(processedClient);
       setReservations(reservations);
       setConversations(conversations);
       setNotes((client as any).notes || '');
+      setClientName(client.name || '');
     } catch (err) {
       console.error('Erro ao carregar dados do cliente:', err);
       setError('Erro ao carregar dados do cliente');
@@ -167,6 +180,21 @@ export default function ClientDetailPage() {
     } catch (err) {
       console.error('Erro ao salvar anotações:', err);
       setError('Erro ao salvar anotações');
+    }
+  };
+
+  const handleSaveName = async () => {
+    try {
+      // Update name directly in Firebase
+      await clientService.update(params.id as string, { 
+        name: clientName,
+        updatedAt: new Date()
+      });
+      setClient(prev => prev ? { ...prev, name: clientName } : null);
+      setEditNameOpen(false);
+    } catch (err) {
+      console.error('Erro ao salvar nome:', err);
+      setError('Erro ao salvar nome');
     }
   };
 
@@ -217,16 +245,25 @@ export default function ClientDetailPage() {
               </Avatar>
             </Grid>
             <Grid item xs>
-              <Typography variant="h5" gutterBottom>
-                {client.name}
-              </Typography>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+                <Typography variant="h5">
+                  {client.name}
+                </Typography>
+                <IconButton 
+                  size="small" 
+                  onClick={() => setEditNameOpen(true)}
+                  sx={{ opacity: 0.7, '&:hover': { opacity: 1 } }}
+                >
+                  <Edit fontSize="small" />
+                </IconButton>
+              </Box>
               <Box sx={{ display: 'flex', gap: 1, mb: 2 }}>
                 <Chip
                   label={client.status}
                   color={getStatusColor(client.status) as any}
                   size="small"
                 />
-                {client.tags.map((tag) => (
+                {(client.tags || []).map((tag) => (
                   <Chip key={tag} label={tag} variant="outlined" size="small" />
                 ))}
               </Box>
@@ -294,7 +331,7 @@ export default function ClientDetailPage() {
                 Cliente desde
               </Typography>
               <Typography variant="h6">
-                {format(client.createdAt, 'MMM yyyy', { locale: ptBR })}
+                {safeFormatDate(client.createdAt, DateFormats.MONTH_YEAR, 'N/A')}
               </Typography>
             </CardContent>
           </Card>
@@ -306,9 +343,7 @@ export default function ClientDetailPage() {
                 Último Contato
               </Typography>
               <Typography variant="h6">
-                {client.lastContact
-                  ? format(client.lastContact, 'dd/MM/yyyy', { locale: ptBR })
-                  : 'Nunca'}
+                {safeFormatDate(client.lastContact, DateFormats.SHORT, 'Nunca')}
               </Typography>
             </CardContent>
           </Card>
@@ -342,10 +377,10 @@ export default function ClientDetailPage() {
                   <TableRow key={reservation.id}>
                     <TableCell>{reservation.propertyName}</TableCell>
                     <TableCell>
-                      {format(reservation.checkIn, 'dd/MM/yyyy')}
+                      {safeFormatDate(reservation.checkIn, DateFormats.SHORT)}
                     </TableCell>
                     <TableCell>
-                      {format(reservation.checkOut, 'dd/MM/yyyy')}
+                      {safeFormatDate(reservation.checkOut, DateFormats.SHORT)}
                     </TableCell>
                     <TableCell>
                       <Chip
@@ -373,7 +408,7 @@ export default function ClientDetailPage() {
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
                 {getPlatformIcon(conversation.platform)}
                 <Typography variant="caption" color="textSecondary">
-                  {format(conversation.timestamp, 'dd/MM/yyyy HH:mm')}
+                  {safeFormatDate(conversation.timestamp, DateFormats.LONG)}
                 </Typography>
               </Box>
               <Typography variant="body2">{conversation.lastMessage}</Typography>
@@ -405,6 +440,27 @@ export default function ClientDetailPage() {
         <DialogActions>
           <Button onClick={() => setEditOpen(false)}>Cancelar</Button>
           <Button onClick={handleSaveNotes} variant="contained">
+            Salvar
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Edit Name Dialog */}
+      <Dialog open={editNameOpen} onClose={() => setEditNameOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>Editar Nome do Cliente</DialogTitle>
+        <DialogContent>
+          <TextField
+            fullWidth
+            value={clientName}
+            onChange={(e) => setClientName(e.target.value)}
+            placeholder="Nome completo do cliente"
+            sx={{ mt: 1 }}
+            autoFocus
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setEditNameOpen(false)}>Cancelar</Button>
+          <Button onClick={handleSaveName} variant="contained">
             Salvar
           </Button>
         </DialogActions>

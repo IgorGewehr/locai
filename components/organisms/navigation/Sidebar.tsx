@@ -71,11 +71,6 @@ const menuItems = [
     icon: <Chat />,
   },
   {
-    text: 'Mini-Site',
-    href: '/dashboard/mini-site',
-    icon: <Language />,
-  },
-  {
     text: 'Financeiro',
     href: '/dashboard/financeiro',
     icon: <AccountBalance />,

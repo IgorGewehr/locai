@@ -89,20 +89,51 @@ export default function ConversationDetailPage() {
       setLoading(true);
       
       // Fetch conversation data from Firebase
-      const conversationData = await fetch(`/api/conversations/${params.id}`);
-      if (!conversationData.ok) {
+      const conversationResponse = await fetch(`/api/conversations/${params.id}`);
+      if (!conversationResponse.ok) {
         throw new Error('Failed to fetch conversation');
       }
       
-      const conversation = await conversationData.json();
+      const conversationData = await conversationResponse.json();
+      const conversation = conversationData.conversation;
       
       // Fetch messages data
-      const messagesData = await fetch(`/api/conversations/${params.id}/messages`);
-      const messages = messagesData.ok ? await messagesData.json() : [];
+      const messagesResponse = await fetch(`/api/conversations/${params.id}/messages`);
+      const messages = messagesResponse.ok ? await messagesResponse.json() : [];
       
-      setConversation(conversation);
-      setMessages(messages);
+      // Transform conversation data to match our interface
+      const transformedConversation = {
+        id: conversation.id,
+        clientName: conversation.clientName || 'Cliente',
+        clientPhone: conversation.whatsappPhone || conversation.clientPhone || '',
+        clientAvatar: conversation.clientAvatar,
+        platform: 'whatsapp' as const,
+        status: conversation.status || 'active',
+        lastMessage: conversation.lastMessageAt ? new Date(conversation.lastMessageAt) : new Date(),
+        aiEnabled: true,
+        totalMessages: messages.length,
+        tags: conversation.tags || []
+      };
+
+      // Transform messages to match our interface
+      const transformedMessages = messages.map((msg: any) => ({
+        id: msg.id,
+        content: msg.content,
+        timestamp: new Date(msg.timestamp),
+        sender: msg.isFromAI ? 'ai' : 'user',
+        type: msg.type || 'text',
+        metadata: {
+          delivered: true,
+          read: true,
+          clientName: conversation.clientName || 'Cliente',
+          agentName: 'Sofia'
+        }
+      }));
+      
+      setConversation(transformedConversation);
+      setMessages(transformedMessages);
     } catch (err) {
+      console.error('Error loading conversation:', err);
       setError('Erro ao carregar conversa');
     } finally {
       setLoading(false);
