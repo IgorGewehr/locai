@@ -87,18 +87,28 @@ export default function MiniSiteWidget({ tenantId = 'demo' }: MiniSiteWidgetProp
         setMiniSiteUrl(`${window.location.origin}/site/${actualTenantId}`);
       }
       
-      // Load analytics
-      const analyticsResponse = await fetch('/api/analytics/mini-site');
-      if (analyticsResponse.ok) {
-        const analyticsData = await analyticsResponse.json();
-        setAnalytics(analyticsData);
-      } else {
-        // Mock data for demo
+      // Load analytics - usar dados reais apenas
+      try {
+        const analyticsResponse = await fetch('/api/analytics/mini-site');
+        if (analyticsResponse.ok) {
+          const analyticsData = await analyticsResponse.json();
+          setAnalytics(analyticsData);
+        } else {
+          // Usar dados vazios se API não estiver disponível
+          setAnalytics({
+            totalViews: 0,
+            propertyViews: 0,
+            inquiries: 0,
+            conversionRate: 0,
+          });
+        }
+      } catch (analyticsError) {
+        console.log('Analytics API não disponível, usando dados vazios');
         setAnalytics({
-          totalViews: Math.floor(Math.random() * 1000) + 100,
-          propertyViews: Math.floor(Math.random() * 500) + 50,
-          inquiries: Math.floor(Math.random() * 50) + 5,
-          conversionRate: parseFloat((Math.random() * 10 + 2).toFixed(1)),
+          totalViews: 0,
+          propertyViews: 0,
+          inquiries: 0,
+          conversionRate: 0,
         });
       }
       

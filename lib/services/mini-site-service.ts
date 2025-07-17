@@ -310,57 +310,57 @@ class MiniSiteService {
     return {
       id: property.id!,
       tenantId: property.tenantId,
-      name: property.name,
+      name: property.title,
       description: property.description || '',
       type: property.type,
       bedrooms: property.bedrooms,
       bathrooms: property.bathrooms,
       maxGuests: property.maxGuests,
-      area: property.area,
+      area: property.area || 0,
       location: {
-        address: property.location.address,
-        city: property.location.city,
-        state: property.location.state,
-        country: property.location.country || 'Brasil',
-        zipCode: property.location.zipCode,
-        coordinates: property.location.coordinates
+        address: property.address,
+        city: property.city,
+        state: property.neighborhood,
+        country: 'Brasil',
+        zipCode: '',
+        coordinates: undefined
       },
       media: {
-        photos: property.photos.map(photo => ({
+        photos: (property.photos || []).map(photo => ({
           url: photo.url,
-          alt: photo.alt || property.name,
+          alt: photo.caption || property.title,
           order: photo.order,
           isMain: photo.isMain
         })),
-        videos: property.videos?.map(video => ({
+        videos: (property.videos || []).map(video => ({
           url: video.url,
           thumbnail: video.thumbnail,
-          title: video.title || property.name
+          title: video.title || property.title
         })),
-        virtualTour: property.virtualTour
+        virtualTour: undefined
       },
-      amenities: property.amenities,
+      amenities: property.amenities || [],
       pricing: {
-        basePrice: property.pricing.basePrice,
+        basePrice: property.basePrice,
         currency: 'BRL',
         pricePerNight: true,
-        minimumStay: property.pricing.minimumStay || 1,
-        cleaningFee: property.pricing.cleaningFee,
-        extraGuestFee: property.pricing.extraGuestFee
+        minimumStay: property.minimumNights || 1,
+        cleaningFee: property.cleaningFee,
+        extraGuestFee: property.pricePerExtraGuest
       },
       availability: {
-        isAvailable: property.availability.isAvailable,
-        availableDates: property.availability.availableDates,
-        blockedDates: property.availability.blockedDates
+        isAvailable: property.status === 'active',
+        availableDates: [],
+        blockedDates: property.unavailableDates || []
       },
       policies: {
-        checkIn: property.policies?.checkIn || '15:00',
-        checkOut: property.policies?.checkOut || '11:00',
-        cancellationPolicy: property.policies?.cancellationPolicy || 'Flexível',
-        houseRules: property.policies?.houseRules || []
+        checkIn: '15:00',
+        checkOut: '11:00',
+        cancellationPolicy: 'Flexível',
+        houseRules: []
       },
       isActive: property.isActive,
-      featured: property.featured || false,
+      featured: property.isFeatured || false,
       createdAt: property.createdAt,
       updatedAt: property.updatedAt
     };
