@@ -38,15 +38,19 @@ export class AIResponseGenerator {
 
       console.log('🤖 Sending message to OpenAI:', sanitizedContent);
 
-      // Verificar respostas predefinidas primeiro
+      // Verificar respostas predefinidas primeiro (apenas para mensagens muito simples)
       const conversationLength = conversation.messages?.length || 0
+      console.log(`🔍 Checking predefined responses for: "${sanitizedContent}" (conversation length: ${conversationLength})`);
+      
       if (shouldUsePredefinedResponse(sanitizedContent, conversationLength)) {
         const predefinedResponse = findPredefinedResponse(sanitizedContent)
         if (predefinedResponse) {
-          console.log('⚡ Using predefined response');
+          console.log('⚡ Using predefined response for:', sanitizedContent);
           return predefinedResponse.response
         }
       }
+      
+      console.log('🤖 Using AI processing for:', sanitizedContent);
 
       // Verificar cache
       const cacheKey = { content: sanitizedContent, context: context }
@@ -242,13 +246,15 @@ SEJA DIRETA: Máximo 2-3 frases por resposta.
 5. NUNCA repita informações já enviadas
 6. IDENTIFIQUE quando cliente quer FECHAR RESERVA vs apenas pesquisar
 
-QUANDO CLIENTE QUER FAZER RESERVA (palavras-chave: "quero reservar", "vou alugar", "fechar", "confirmar", "fazer reserva"):
+QUANDO CLIENTE QUER FAZER RESERVA (palavras-chave: "quero reservar", "vou alugar", "fechar", "confirmar", "fazer reserva", "gostei", "escolhi", "vou ficar"):
 - PRIORIZE finalizar a reserva em vez de mostrar mais opções
-- COLETE dados necessários: nome, datas de entrada e saída, número de pessoas
-- CALCULE o valor total com calculate_total_price
-- CONFIRME a disponibilidade com check_availability
-- CRIE a reserva com create_reservation
+- Se cliente mencionou PROPRIEDADE ESPECÍFICA (ex: "apto 204", "apartamento 204") + DATAS (ex: "dia 1 ao 7", "agosto") + PESSOAS (ex: "1 pessoa"), EXECUTE:
+  1. check_availability com a propriedade e datas mencionadas
+  2. calculate_total_price se disponível
+  3. create_reservation se cliente confirmar
+- NÃO pergunte dados já fornecidos pelo cliente
 - NÃO mostre outras opções de imóveis se cliente já escolheu
+- LEMBRE-SE: cliente pode dar todas as informações de uma vez!
 
 QUANDO CLIENTE PEDE FOTOS/APARTAMENTOS:
 - SEMPRE use search_properties PRIMEIRO (não precisa de parâmetros obrigatórios)

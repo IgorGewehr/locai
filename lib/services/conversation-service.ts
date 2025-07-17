@@ -45,12 +45,41 @@ class ConversationService extends FirestoreService<Conversation> {
         if (conversations.length > 0) {
           const conversation = conversations[0]
           await this.update(conversation.id, { status: ConversationStatus.ACTIVE })
+          
+          // Load messages from separate collection
+          const { messageService } = await import('@/lib/firebase/firestore')
+          const messages = await messageService.query(
+            messageService.collection
+              .where('conversationId', '==', conversation.id)
+              .orderBy('timestamp', 'desc')
+              .limit(20)
+          )
+          
+          // Add messages to conversation object
+          conversation.messages = messages.reverse() // Reverse to get chronological order
+          
           return { ...conversation, status: ConversationStatus.ACTIVE }
         }
       }
       
-      return conversations[0] || null
+      const conversation = conversations[0]
+      if (!conversation) return null
+      
+      // Load messages from separate collection
+      const { messageService } = await import('@/lib/firebase/firestore')
+      const messages = await messageService.query(
+        messageService.collection
+          .where('conversationId', '==', conversation.id)
+          .orderBy('timestamp', 'desc')
+          .limit(20)
+      )
+      
+      // Add messages to conversation object
+      conversation.messages = messages.reverse() // Reverse to get chronological order
+      
+      return conversation
     } catch (error) {
+      console.error('Error finding conversation by phone:', error)
       return null
     }
   }
@@ -174,10 +203,8 @@ class ConversationService extends FirestoreService<Conversation> {
       }
 
       // Save message to the separate messages collection
-      await messageService.create({
-        ...message,
-        id: undefined // Let Firestore generate the ID
-      })
+      const { id, ...messageWithoutId } = message
+      await messageService.create(messageWithoutId)
 
       // Add message to conversation's internal array
       const updatedMessages = [...(conversation.messages || []), message]

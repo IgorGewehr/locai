@@ -20,7 +20,18 @@ import {
   Stepper,
   Step,
   StepLabel,
+  StepContent,
   Autocomplete,
+  Avatar,
+  Chip,
+  Stack,
+  Divider,
+  InputAdornment,
+  Fade,
+  Slide,
+  CircularProgress,
+  IconButton,
+  Tooltip,
 } from '@mui/material';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
@@ -33,7 +44,29 @@ import {
   Person,
   CalendarMonth,
   AttachMoney,
+  Phone,
+  Email,
+  Group,
+  Payment,
+  Check,
+  Add,
+  Search,
+  Edit,
+  Business,
+  LocationOn,
+  Schedule,
+  EventAvailable,
+  CreditCard,
+  AccountBalance,
+  Pix,
+  MoneyOff,
+  Info,
+  Warning,
+  Cancel,
+  NavigateNext,
+  NavigateBefore,
 } from '@mui/icons-material';
+import ModernButton from '@/components/atoms/ModernButton';
 
 interface ReservationFormData {
   propertyId: string;
@@ -52,12 +85,29 @@ interface ReservationFormData {
   notes: string;
 }
 
-const steps = ['Propriedade e Cliente', 'Datas e Hóspedes', 'Pagamento e Confirmação'];
+const steps = [
+  { 
+    label: 'Propriedade e Cliente', 
+    icon: <Business />,
+    description: 'Selecione a propriedade e o cliente'
+  },
+  { 
+    label: 'Datas e Hóspedes', 
+    icon: <CalendarMonth />,
+    description: 'Defina as datas e número de hóspedes'
+  },
+  { 
+    label: 'Pagamento e Confirmação', 
+    icon: <Payment />,
+    description: 'Configure o pagamento e finalize'
+  }
+];
 
 export default function CreateReservationPage() {
   const router = useRouter();
   const [activeStep, setActiveStep] = useState(0);
   const [loading, setLoading] = useState(false);
+  const [loadingData, setLoadingData] = useState(true);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState('');
 
@@ -84,27 +134,55 @@ export default function CreateReservationPage() {
 
   useEffect(() => {
     const loadData = async () => {
+      setLoadingData(true);
       try {
-        // Load properties
-        const propertiesResponse = await fetch('/api/properties');
+        // Load properties and clients in parallel
+        const [propertiesResponse, clientsResponse] = await Promise.all([
+          fetch('/api/properties'),
+          fetch('/api/clients')
+        ]);
+
+        // Process properties
         if (propertiesResponse.ok) {
           const propertiesData = await propertiesResponse.json();
-          setProperties(propertiesData.map((p: any) => ({ id: p.id, title: p.title, basePrice: p.basePrice })));
+          if (Array.isArray(propertiesData)) {
+            setProperties(propertiesData.map((p: any) => ({ 
+              id: p.id, 
+              title: p.title, 
+              basePrice: p.basePrice || 0 
+            })));
+          } else {
+            console.error('Properties data is not an array:', propertiesData);
+            setProperties([]);
+          }
+        } else {
+          console.error('Failed to load properties:', propertiesResponse.status);
+          setError('Erro ao carregar propriedades');
         }
 
-        // Load clients
-        const clientsResponse = await fetch('/api/clients');
+        // Process clients
         if (clientsResponse.ok) {
           const clientsData = await clientsResponse.json();
-          setClients(clientsData.map((c: any) => ({ 
-            id: c.id, 
-            name: c.name, 
-            phone: c.phone, 
-            email: c.email 
-          })));
+          if (Array.isArray(clientsData)) {
+            setClients(clientsData.map((c: any) => ({ 
+              id: c.id, 
+              name: c.name, 
+              phone: c.phone, 
+              email: c.email 
+            })));
+          } else {
+            console.error('Clients data is not an array:', clientsData);
+            setClients([]);
+          }
+        } else {
+          console.error('Failed to load clients:', clientsResponse.status);
+          setError('Erro ao carregar clientes');
         }
       } catch (err) {
         console.error('Error loading data:', err);
+        setError('Erro ao carregar dados');
+      } finally {
+        setLoadingData(false);
       }
     };
 
@@ -116,6 +194,40 @@ export default function CreateReservationPage() {
       ...prev,
       [field]: value
     }));
+  };
+
+
+  const isStepComplete = (step: number) => {
+    switch (step) {
+      case 0:
+        return formData.propertyId && formData.clientId;
+      case 1:
+        return formData.checkIn && formData.checkOut && formData.guests > 0;
+      case 2:
+        return formData.paymentMethod && formData.totalAmount > 0;
+      default:
+        return false;
+    }
+  };
+
+  const getPaymentMethodIcon = (method: string) => {
+    switch (method) {
+      case 'pix': return <Pix />;
+      case 'credit_card': return <CreditCard />;
+      case 'cash': return <AttachMoney />;
+      case 'bank_transfer': return <AccountBalance />;
+      default: return <Payment />;
+    }
+  };
+
+  const getPaymentMethodLabel = (method: string) => {
+    switch (method) {
+      case 'pix': return 'PIX';
+      case 'credit_card': return 'Cartão de Crédito';
+      case 'cash': return 'Dinheiro';
+      case 'bank_transfer': return 'Transferência Bancária';
+      default: return method;
+    }
   };
 
   const handleClientSelection = (client: { id: string; name: string; phone: string; email: string } | null) => {
@@ -480,8 +592,8 @@ export default function CreateReservationPage() {
                 <Typography><strong>Propriedade:</strong> {properties.find(p => p.id === formData.propertyId)?.title || 'Não selecionada'}</Typography>
                 <Typography><strong>Check-in:</strong> {formData.checkIn ? formData.checkIn.toLocaleDateString('pt-BR') : 'Não definido'}</Typography>
                 <Typography><strong>Check-out:</strong> {formData.checkOut ? formData.checkOut.toLocaleDateString('pt-BR') : 'Não definido'}</Typography>
-                <Typography><strong>Hóspedes:</strong> {formData.guests}</Typography>
-                <Typography><strong>Valor Total:</strong> R$ {formData.totalAmount.toLocaleString('pt-BR')}</Typography>
+                <Typography><strong>Hóspedes:</strong> {formData.guests || 0}</Typography>
+                <Typography><strong>Valor Total:</strong> R$ {(formData.totalAmount || 0).toLocaleString('pt-BR')}</Typography>
               </Paper>
             </Grid>
           </Grid>
@@ -492,135 +604,333 @@ export default function CreateReservationPage() {
     }
   };
 
-  return (
-    <Box>
-      {/* Header */}
-      <Box sx={{ display: 'flex', alignItems: 'center', mb: 3 }}>
-        <Button
-          startIcon={<ArrowBack />}
-          onClick={() => router.push('/dashboard/reservations')}
-          sx={{ mr: 2 }}
-        >
-          Voltar
-        </Button>
-        <Typography variant="h4" component="h1" fontWeight="bold">
-          Nova Reserva
-        </Typography>
+  if (loadingData) {
+    return (
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '60vh' }}>
+        <Stack spacing={2} alignItems="center">
+          <CircularProgress size={60} />
+          <Typography variant="h6" color="text.secondary">
+            Carregando dados...
+          </Typography>
+        </Stack>
       </Box>
+    );
+  }
 
-      <Grid container spacing={3}>
-        <Grid item xs={12} lg={8}>
-          <Card>
-            <CardContent>
-              {/* Stepper */}
-              <Stepper activeStep={activeStep} sx={{ mb: 4 }}>
-                {steps.map((label, index) => (
-                  <Step key={label}>
-                    <StepLabel>{label}</StepLabel>
-                  </Step>
-                ))}
-              </Stepper>
-
-              {/* Step Content */}
-              <Box sx={{ mb: 4 }}>
-                {renderStepContent(activeStep)}
-              </Box>
-
-              {/* Navigation Buttons */}
-              <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
-                <Button
-                  disabled={activeStep === 0}
-                  onClick={handleBack}
+  return (
+    <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={ptBR}>
+      <Fade in={true} timeout={500}>
+        <Box sx={{ maxWidth: '1200px', mx: 'auto', p: 3 }}>
+          {/* Modern Header */}
+          <Paper
+            elevation={0}
+            sx={{
+              p: 3,
+              mb: 4,
+              borderRadius: 3,
+              background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+              color: 'white',
+              position: 'relative',
+              overflow: 'hidden',
+            }}
+          >
+            <Box sx={{ position: 'relative', zIndex: 1 }}>
+              <Stack direction="row" spacing={2} alignItems="center" sx={{ mb: 2 }}>
+                <Avatar sx={{ bgcolor: 'rgba(255,255,255,0.2)', backdropFilter: 'blur(10px)' }}>
+                  <CalendarMonth />
+                </Avatar>
+                <Box>
+                  <Typography variant="h4" fontWeight={700}>
+                    Nova Reserva
+                  </Typography>
+                  <Typography variant="body1" sx={{ opacity: 0.9 }}>
+                    Crie uma nova reserva de forma rápida e intuitiva
+                  </Typography>
+                </Box>
+              </Stack>
+              
+              <Stack direction="row" spacing={1} sx={{ mt: 2 }}>
+                <ModernButton
+                  variant="glass"
+                  size="small"
+                  icon={<ArrowBack />}
+                  onClick={() => router.push('/dashboard/reservations')}
+                  sx={{ color: 'white', borderColor: 'rgba(255,255,255,0.3)' }}
                 >
                   Voltar
-                </Button>
+                </ModernButton>
+              </Stack>
+            </Box>
+          </Paper>
 
-                <Box sx={{ display: 'flex', gap: 2 }}>
-                  {activeStep === steps.length - 1 ? (
-                    <Button
-                      variant="contained"
-                      onClick={handleSubmit}
-                      disabled={loading || !isStepValid(activeStep)}
-                      startIcon={<Save />}
+          <Grid container spacing={4}>
+            {/* Main Content */}
+            <Grid item xs={12} lg={8}>
+              <Card 
+                sx={{ 
+                  borderRadius: 3, 
+                  boxShadow: '0 8px 32px rgba(0,0,0,0.1)',
+                  overflow: 'hidden'
+                }}
+              >
+                <CardContent sx={{ p: 4 }}>
+                  {/* Progress Stepper */}
+                  <Stepper 
+                    activeStep={activeStep} 
+                    sx={{ 
+                      mb: 4,
+                      '& .MuiStepLabel-root': {
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        gap: 1
+                      }
+                    }}
+                  >
+                    {steps.map((step, index) => (
+                      <Step key={step.label}>
+                        <StepLabel 
+                          icon={
+                            <Avatar 
+                              sx={{ 
+                                bgcolor: index <= activeStep ? 'primary.main' : 'grey.300',
+                                width: 40,
+                                height: 40,
+                                transition: 'all 0.3s ease'
+                              }}
+                            >
+                              {isStepComplete(index) ? <Check /> : step.icon}
+                            </Avatar>
+                          }
+                        >
+                          <Typography variant="subtitle2" fontWeight={600}>
+                            {step.label}
+                          </Typography>
+                          <Typography variant="caption" color="text.secondary">
+                            {step.description}
+                          </Typography>
+                        </StepLabel>
+                      </Step>
+                    ))}
+                  </Stepper>
+
+                  {/* Step Content with Transitions */}
+                  <Slide direction="left" in={true} timeout={300}>
+                    <Box sx={{ mb: 4 }}>
+                      {renderStepContent(activeStep)}
+                    </Box>
+                  </Slide>
+
+                  {/* Navigation */}
+                  <Box sx={{ 
+                    display: 'flex', 
+                    justifyContent: 'space-between', 
+                    alignItems: 'center',
+                    mt: 4,
+                    pt: 3,
+                    borderTop: '1px solid',
+                    borderColor: 'divider'
+                  }}>
+                    <ModernButton
+                      variant="secondary"
+                      size="medium"
+                      icon={<NavigateBefore />}
+                      onClick={handleBack}
+                      disabled={activeStep === 0}
                     >
-                      {loading ? 'Salvando...' : 'Criar Reserva'}
-                    </Button>
-                  ) : (
-                    <Button
-                      variant="contained"
-                      onClick={handleNext}
-                      disabled={!isStepValid(activeStep)}
-                    >
-                      Próximo
-                    </Button>
-                  )}
-                </Box>
-              </Box>
-            </CardContent>
-          </Card>
-        </Grid>
+                      Anterior
+                    </ModernButton>
 
-        <Grid item xs={12} lg={4}>
-          <Card>
-            <CardContent>
-              <Typography variant="h6" gutterBottom>
-                Dicas para Nova Reserva
-              </Typography>
+                    <Stack direction="row" spacing={2}>
+                      {activeStep === steps.length - 1 ? (
+                        <ModernButton
+                          variant="elegant"
+                          size="large"
+                          icon={<Save />}
+                          onClick={handleSubmit}
+                          loading={loading}
+                          disabled={!isStepComplete(activeStep)}
+                        >
+                          Criar Reserva
+                        </ModernButton>
+                      ) : (
+                        <ModernButton
+                          variant="primary"
+                          size="medium"
+                          icon={<NavigateNext />}
+                          onClick={handleNext}
+                          disabled={!isStepComplete(activeStep)}
+                        >
+                          Próximo
+                        </ModernButton>
+                      )}
+                    </Stack>
+                  </Box>
+                </CardContent>
+              </Card>
+            </Grid>
 
-              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <Home color="primary" />
-                  <Typography variant="body2">
-                    Selecione a propriedade primeiro para calcular automaticamente o valor
-                  </Typography>
-                </Box>
+            {/* Sidebar */}
+            <Grid item xs={12} lg={4}>
+              <Stack spacing={3}>
+                {/* Progress Summary */}
+                <Card sx={{ borderRadius: 3, overflow: 'hidden' }}>
+                  <CardContent>
+                    <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <Info color="primary" />
+                      Progresso
+                    </Typography>
+                    <Box sx={{ mt: 2 }}>
+                      {steps.map((step, index) => (
+                        <Box key={index} sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 1 }}>
+                          <Avatar
+                            sx={{ 
+                              width: 24, 
+                              height: 24,
+                              bgcolor: isStepComplete(index) ? 'success.main' : 
+                                      index === activeStep ? 'primary.main' : 'grey.300',
+                              fontSize: '0.75rem'
+                            }}
+                          >
+                            {isStepComplete(index) ? <Check fontSize="small" /> : index + 1}
+                          </Avatar>
+                          <Typography 
+                            variant="body2" 
+                            color={isStepComplete(index) ? 'success.main' : 'text.secondary'}
+                            fontWeight={index === activeStep ? 600 : 400}
+                          >
+                            {step.label}
+                          </Typography>
+                        </Box>
+                      ))}
+                    </Box>
+                  </CardContent>
+                </Card>
 
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <Person color="primary" />
-                  <Typography variant="body2">
-                    Dados completos do cliente facilitam o atendimento
-                  </Typography>
-                </Box>
+                {/* Quick Tips */}
+                <Card sx={{ borderRadius: 3, overflow: 'hidden' }}>
+                  <CardContent>
+                    <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <Info color="primary" />
+                      Dicas Rápidas
+                    </Typography>
+                    <Stack spacing={2} sx={{ mt: 2 }}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                        <Avatar sx={{ bgcolor: 'primary.main', width: 32, height: 32 }}>
+                          <Business fontSize="small" />
+                        </Avatar>
+                        <Typography variant="body2">
+                          Propriedades com preços base facilitam o cálculo
+                        </Typography>
+                      </Box>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                        <Avatar sx={{ bgcolor: 'success.main', width: 32, height: 32 }}>
+                          <Person fontSize="small" />
+                        </Avatar>
+                        <Typography variant="body2">
+                          Cliente novo será criado automaticamente
+                        </Typography>
+                      </Box>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                        <Avatar sx={{ bgcolor: 'warning.main', width: 32, height: 32 }}>
+                          <Schedule fontSize="small" />
+                        </Avatar>
+                        <Typography variant="body2">
+                          Verifique conflitos de datas
+                        </Typography>
+                      </Box>
+                    </Stack>
+                  </CardContent>
+                </Card>
 
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <CalendarMonth color="primary" />
-                  <Typography variant="body2">
-                    Verifique a disponibilidade da propriedade nas datas
-                  </Typography>
-                </Box>
+                {/* Summary Preview */}
+                {(formData.propertyId || formData.clientName) && (
+                  <Card sx={{ borderRadius: 3, overflow: 'hidden' }}>
+                    <CardContent>
+                      <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <EventAvailable color="primary" />
+                        Resumo
+                      </Typography>
+                      <Stack spacing={2} sx={{ mt: 2 }}>
+                        {formData.propertyId && (
+                          <Box>
+                            <Typography variant="caption" color="text.secondary">
+                              Propriedade
+                            </Typography>
+                            <Typography variant="body2" fontWeight={600}>
+                              {properties.find(p => p.id === formData.propertyId)?.title || 'Selecionada'}
+                            </Typography>
+                          </Box>
+                        )}
+                        {formData.clientName && (
+                          <Box>
+                            <Typography variant="caption" color="text.secondary">
+                              Cliente
+                            </Typography>
+                            <Typography variant="body2" fontWeight={600}>
+                              {formData.clientName}
+                            </Typography>
+                          </Box>
+                        )}
+                        {formData.checkIn && formData.checkOut && (
+                          <Box>
+                            <Typography variant="caption" color="text.secondary">
+                              Período
+                            </Typography>
+                            <Typography variant="body2" fontWeight={600}>
+                              {formData.checkIn.toLocaleDateString()} - {formData.checkOut.toLocaleDateString()}
+                            </Typography>
+                          </Box>
+                        )}
+                        {formData.totalAmount > 0 && (
+                          <Box>
+                            <Typography variant="caption" color="text.secondary">
+                              Valor Total
+                            </Typography>
+                            <Typography variant="h6" color="primary.main" fontWeight={700}>
+                              R$ {(formData.totalAmount || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                            </Typography>
+                          </Box>
+                        )}
+                      </Stack>
+                    </CardContent>
+                  </Card>
+                )}
+              </Stack>
+            </Grid>
+          </Grid>
 
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <AttachMoney color="primary" />
-                  <Typography variant="body2">
-                    O valor é calculado automaticamente mas pode ser ajustado
-                  </Typography>
-                </Box>
-              </Box>
-            </CardContent>
-          </Card>
-        </Grid>
-      </Grid>
+          {/* Notifications */}
+          <Snackbar
+            open={success}
+            autoHideDuration={6000}
+            onClose={() => setSuccess(false)}
+            anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
+          >
+            <Alert 
+              onClose={() => setSuccess(false)} 
+              severity="success"
+              sx={{ borderRadius: 2 }}
+            >
+              Reserva criada com sucesso!
+            </Alert>
+          </Snackbar>
 
-      {/* Success/Error Messages */}
-      <Snackbar
-        open={success}
-        autoHideDuration={6000}
-        onClose={() => setSuccess(false)}
-      >
-        <Alert severity="success" onClose={() => setSuccess(false)}>
-          Reserva criada com sucesso!
-        </Alert>
-      </Snackbar>
-
-      <Snackbar
-        open={!!error}
-        autoHideDuration={6000}
-        onClose={() => setError('')}
-      >
-        <Alert severity="error" onClose={() => setError('')}>
-          {error}
-        </Alert>
-      </Snackbar>
-    </Box>
+          <Snackbar
+            open={!!error}
+            autoHideDuration={6000}
+            onClose={() => setError('')}
+            anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
+          >
+            <Alert 
+              onClose={() => setError('')} 
+              severity="error"
+              sx={{ borderRadius: 2 }}
+            >
+              {error}
+            </Alert>
+          </Snackbar>
+        </Box>
+      </Fade>
+    </LocalizationProvider>
   );
 }

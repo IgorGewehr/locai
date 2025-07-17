@@ -3,7 +3,7 @@ import { Toaster } from 'react-hot-toast';
 import Providers from './providers';
 
 export const metadata: Metadata = {
-  title: 'Agente Imobiliária - Sistema de Gestão',
+  title: 'LocAI',
   description: 'Sistema completo de gestão para imobiliária com agente IA integrado ao WhatsApp',
   keywords: 'imobiliária, gestão, propriedades, WhatsApp, IA, reservas',
 };
@@ -15,6 +15,13 @@ export default function RootLayout({
 }) {
   return (
     <html lang="pt-BR">
+      <head>
+        <link rel="icon" href="/icons/favicon.ico" />
+        <link rel="icon" type="image/png" sizes="16x16" href="/icons/favicon-16x16.png" />
+        <link rel="icon" type="image/png" sizes="32x32" href="/icons/favicon-32x32.png" />
+        <link rel="apple-touch-icon" sizes="180x180" href="/icons/apple-touch-icon.png" />
+        <link rel="manifest" href="/icons/site.webmanifest" />
+      </head>
       <body>
         <Providers>
           {children}

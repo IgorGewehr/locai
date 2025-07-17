@@ -895,8 +895,18 @@ export class AIFunctionExecutor {
     const { propertyId, checkIn, checkOut, guests, appliedDiscount = 0 } = args
     
     try {
+      // Resolve property ID if it's a title/name
+      const resolvedPropertyId = await this.resolvePropertyId(propertyId)
+      
+      if (!resolvedPropertyId) {
+        return {
+          success: false,
+          error: 'Propriedade não encontrada'
+        }
+      }
+      
       const pricing = await calculatePricing(
-        propertyId,
+        resolvedPropertyId,
         new Date(checkIn),
         new Date(checkOut),
         guests
@@ -932,12 +942,46 @@ export class AIFunctionExecutor {
     }
   }
 
+  /**
+   * Resolve property ID from title/name or return ID if already valid
+   */
+  private async resolvePropertyId(propertyIdOrTitle: string): Promise<string | null> {
+    // If it's already a Firebase ID format, return it
+    if (propertyIdOrTitle.length > 15) {
+      return propertyIdOrTitle
+    }
+    
+    // Otherwise, search for property by title
+    try {
+      const properties = await propertyService.getAll()
+      const property = properties.find(p => 
+        p.title.toLowerCase().includes(propertyIdOrTitle.toLowerCase()) ||
+        p.title.toLowerCase() === propertyIdOrTitle.toLowerCase()
+      )
+      
+      return property?.id || null
+    } catch (error) {
+      console.error('Error resolving property ID:', error)
+      return null
+    }
+  }
+
   private async checkAvailability(args: any): Promise<any> {
     const { propertyId, checkIn, checkOut } = args
     
     try {
+      // Resolve property ID if it's a title/name
+      const resolvedPropertyId = await this.resolvePropertyId(propertyId)
+      
+      if (!resolvedPropertyId) {
+        return {
+          success: false,
+          error: 'Propriedade não encontrada'
+        }
+      }
+      
       const isAvailable = await reservationService.checkAvailability(
-        propertyId,
+        resolvedPropertyId,
         new Date(checkIn),
         new Date(checkOut)
       )
@@ -945,7 +989,7 @@ export class AIFunctionExecutor {
       if (!isAvailable) {
         // Sugerir datas alternativas
         const alternativeDates = await this.suggestAlternativeDates(
-          propertyId,
+          resolvedPropertyId,
           new Date(checkIn),
           new Date(checkOut)
         )
@@ -962,7 +1006,7 @@ export class AIFunctionExecutor {
         success: true,
         available: true,
         message: 'Propriedade disponível nas datas selecionadas',
-        propertyId,
+        propertyId: resolvedPropertyId,
         dates: { checkIn, checkOut }
       }
     } catch (error) {
@@ -989,6 +1033,15 @@ export class AIFunctionExecutor {
     } = args
     
     try {
+      // Resolve property ID if it's a title/name
+      const resolvedPropertyId = await this.resolvePropertyId(propertyId)
+      
+      if (!resolvedPropertyId) {
+        return {
+          success: false,
+          error: 'Propriedade não encontrada'
+        }
+      }
       // Criar ou atualizar cliente
       const client = await clientServiceWrapper.createOrUpdate({
         name: clientName,
@@ -1000,7 +1053,7 @@ export class AIFunctionExecutor {
 
       // Criar reserva
       const reservation = await reservationService.create({
-        propertyId,
+        propertyId: resolvedPropertyId,
         clientId: client.id,
         checkIn: new Date(checkIn),
         checkOut: new Date(checkOut),
@@ -1013,7 +1066,7 @@ export class AIFunctionExecutor {
       })
 
       // Criar movimentação financeira automaticamente
-      const property = await propertyService.getById(propertyId)
+      const property = await propertyService.getById(resolvedPropertyId)
       const financialMovement = await this.createFinancialMovement({
         type: 'income',
         category: 'rent',
@@ -1021,7 +1074,7 @@ export class AIFunctionExecutor {
         amount: totalAmount,
         dueDate: checkIn, // Vencimento no check-in
         clientId: client.id,
-        propertyId: propertyId,
+        propertyId: resolvedPropertyId,
         reservationId: reservation.id,
         paymentMethod: paymentMethod || 'pix',
         autoCharge: true // Ativar cobrança automática via WhatsApp

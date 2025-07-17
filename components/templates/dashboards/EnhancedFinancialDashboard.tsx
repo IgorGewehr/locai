@@ -83,6 +83,27 @@ const formatPercent = (value: number) => {
   return `${value >= 0 ? '+' : ''}${value.toFixed(1)}%`;
 };
 
+// Helper function to safely convert any date value to a Date object
+const safeDate = (dateValue: any): Date | null => {
+  if (dateValue instanceof Date) {
+    return isNaN(dateValue.getTime()) ? null : dateValue;
+  }
+  if (typeof dateValue === 'string' || typeof dateValue === 'number') {
+    const date = new Date(dateValue);
+    return isNaN(date.getTime()) ? null : date;
+  }
+  // Handle Firebase Timestamp objects
+  if (dateValue && typeof dateValue.toDate === 'function') {
+    try {
+      const date = dateValue.toDate();
+      return isNaN(date.getTime()) ? null : date;
+    } catch {
+      return null;
+    }
+  }
+  return null;
+};
+
 export default function EnhancedFinancialDashboard() {
   const theme = useTheme();
   const { user } = useAuth();
@@ -130,7 +151,10 @@ export default function EnhancedFinancialDashboard() {
       const currentMonthEnd = endOfMonth(now);
 
       const currentMonthTransactions = allTransactions.filter(t => {
-        const transactionDate = t.date instanceof Date ? t.date : new Date(t.date as any);
+        const transactionDate = safeDate(t.date);
+        if (!transactionDate) {
+          return false;
+        }
         return transactionDate >= currentMonthStart && transactionDate <= currentMonthEnd;
       });
 
@@ -156,7 +180,10 @@ export default function EnhancedFinancialDashboard() {
       const previousMonthEnd = endOfMonth(subMonths(now, 1));
 
       const previousMonthTransactions = allTransactions.filter(t => {
-        const transactionDate = t.date instanceof Date ? t.date : new Date(t.date as any);
+        const transactionDate = safeDate(t.date);
+        if (!transactionDate) {
+          return false;
+        }
         return transactionDate >= previousMonthStart && transactionDate <= previousMonthEnd;
       });
 
@@ -208,7 +235,10 @@ export default function EnhancedFinancialDashboard() {
         const monthEnd = endOfMonth(subMonths(now, i));
         
         const monthTransactions = allTransactions.filter(t => {
-          const transactionDate = t.date instanceof Date ? t.date : new Date(t.date as any);
+          const transactionDate = safeDate(t.date);
+          if (!transactionDate) {
+            return false;
+          }
           return transactionDate >= monthStart && transactionDate <= monthEnd;
         });
 
@@ -253,6 +283,10 @@ export default function EnhancedFinancialDashboard() {
 
     } catch (error) {
       console.error('Error loading financial data:', error);
+      // Additional debugging for date-related errors
+      if (error instanceof RangeError && error.message.includes('Invalid time value')) {
+        console.error('Date formatting error detected. Check transaction dates in the database.');
+      }
     } finally {
       setLoading(false);
     }
@@ -351,9 +385,14 @@ export default function EnhancedFinancialDashboard() {
 
   // Get recent transactions (last 5)
   const recentTransactions = transactions
+    .filter(t => {
+      const date = safeDate(t.date);
+      return date !== null; // Only include valid dates
+    })
     .sort((a, b) => {
-      const dateA = a.date instanceof Date ? a.date : new Date(a.date as any);
-      const dateB = b.date instanceof Date ? b.date : new Date(b.date as any);
+      const dateA = safeDate(a.date);
+      const dateB = safeDate(b.date);
+      if (!dateA || !dateB) return 0;
       return dateB.getTime() - dateA.getTime();
     })
     .slice(0, 5);
@@ -644,11 +683,13 @@ export default function EnhancedFinancialDashboard() {
                                 {transaction.description}
                               </Typography>
                               <Typography variant="caption" color="text.secondary">
-                                {format(
-                                  transaction.date instanceof Date ? transaction.date : new Date(transaction.date as any),
-                                  "dd 'de' MMMM 'às' HH:mm",
-                                  { locale: ptBR }
-                                )}
+                                {(() => {
+                                  const date = safeDate(transaction.date);
+                                  if (!date) {
+                                    return 'Data inválida';
+                                  }
+                                  return format(date, "dd 'de' MMMM 'às' HH:mm", { locale: ptBR });
+                                })()}
                               </Typography>
                             </Box>
                           </Stack>

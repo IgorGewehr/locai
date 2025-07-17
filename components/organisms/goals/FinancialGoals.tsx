@@ -20,6 +20,7 @@ import {
   CardContent,
   LinearProgress
 } from '@mui/material'
+import ModernButton from '@/components/atoms/ModernButton';
 import {
   Add,
   Refresh,
@@ -242,13 +243,14 @@ export default function FinancialGoals() {
                 <Refresh />
               </IconButton>
             </Tooltip>
-            <Button
-              variant="contained"
-              startIcon={<Add />}
+            <ModernButton
+              variant="elegant"
+              size="medium"
+              icon={<Add />}
               onClick={handleCreateGoal}
             >
               Nova Meta
-            </Button>
+            </ModernButton>
           </Stack>
         </Box>
 
@@ -432,13 +434,14 @@ export default function FinancialGoals() {
           <Typography variant="body2" color="text.secondary" mb={3}>
             Defina metas para acompanhar o progresso do seu negócio
           </Typography>
-          <Button
-            variant="contained"
-            startIcon={<Add />}
+          <ModernButton
+            variant="gradient"
+            size="large"
+            icon={<Add />}
             onClick={handleCreateGoal}
           >
             Criar Primeira Meta
-          </Button>
+          </ModernButton>
         </Box>
       )}
 

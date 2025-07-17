@@ -122,11 +122,13 @@ export class WhatsAppMessageHandler {
       const existing = this.messageQueue.get(phoneNumber)!
       clearTimeout(existing.timeout)
       existing.messages.push(message)
+      console.log(`📚 Added message to existing queue. Total messages: ${existing.messages.length}`);
     } else {
       this.messageQueue.set(phoneNumber, {
         messages: [message],
         timeout: setTimeout(() => {}, 0) // placeholder
       })
+      console.log(`📚 Created new message queue for ${phoneNumber}`);
     }
 
     // Cria novo timeout
@@ -211,7 +213,12 @@ export class WhatsAppMessageHandler {
       
       // Only add fields if they are not undefined
       if (aiResponse.functionCall !== undefined) {
-        responseData.functionCall = aiResponse.functionCall
+        // Filter undefined values from function call result
+        const cleanedFunctionCall = {
+          ...aiResponse.functionCall,
+          result: aiResponse.functionCall.result ? this.filterUndefinedValues(aiResponse.functionCall.result) : undefined
+        }
+        responseData.functionCall = cleanedFunctionCall
       }
       if (aiResponse.confidence !== undefined) {
         responseData.confidence = aiResponse.confidence
@@ -251,8 +258,16 @@ export class WhatsAppMessageHandler {
       }
     }
     
-    // Combina as mensagens com quebras de linha
-    return contents.join(' ') || 'Mensagens recebidas'
+    // Combina as mensagens de forma mais inteligente
+    if (contents.length === 1) {
+      return contents[0] || 'Mensagens recebidas'
+    } else if (contents.length > 1) {
+      console.log(`🔄 Combining ${contents.length} messages into one context`);
+      // Combine messages with natural flow
+      return contents.join('. ') || 'Mensagens recebidas'
+    }
+    
+    return 'Mensagens recebidas'
   }
 
   // Error handling para o webhook principal
@@ -864,6 +879,32 @@ Não perca essa oportunidade! 🚀
       // TODO: Add proper logging - Error checking billing response
       return false
     }
+  }
+
+  /**
+   * Filter undefined values from nested objects
+   */
+  private filterUndefinedValues(obj: any): any {
+    if (obj === null || obj === undefined) return undefined
+    
+    if (typeof obj === 'object' && !Array.isArray(obj)) {
+      const filtered: any = {}
+      for (const [key, value] of Object.entries(obj)) {
+        if (value !== undefined) {
+          if (typeof value === 'object' && value !== null) {
+            const filteredValue = this.filterUndefinedValues(value)
+            if (filteredValue !== undefined) {
+              filtered[key] = filteredValue
+            }
+          } else {
+            filtered[key] = value
+          }
+        }
+      }
+      return Object.keys(filtered).length > 0 ? filtered : undefined
+    }
+    
+    return obj
   }
 
   private async processBillingResponse(

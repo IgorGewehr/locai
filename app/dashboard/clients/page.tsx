@@ -37,6 +37,7 @@ import {
   Tab,
   Badge,
 } from '@mui/material';
+import ModernButton from '@/components/atoms/ModernButton';
 import {
   Search,
   Add,
@@ -207,21 +208,14 @@ export default function ClientsPage() {
           flexDirection: { xs: 'column', sm: 'row' },
           gap: 2 
         }}>
-          <Button
-            variant="outlined"
-            startIcon={<Download />}
-            fullWidth={{ xs: true, sm: false }}
-          >
-            Exportar
-          </Button>
-          <Button
-            variant="contained"
-            startIcon={<Add />}
+          <ModernButton
+            variant="elegant"
+            size="large"
+            icon={<Add />}
             onClick={() => setShowAddDialog(true)}
-            fullWidth={{ xs: true, sm: false }}
           >
             Adicionar Cliente
-          </Button>
+          </ModernButton>
         </Box>
       </Box>
 

@@ -35,6 +35,8 @@ import {
   Select,
   Dialog,
 } from '@mui/material';
+import ModernButton from '@/components/atoms/ModernButton';
+import ModernFAB from '@/components/atoms/ModernFAB';
 import {
   Add,
   Search,
@@ -318,13 +320,14 @@ export default function CRMPage() {
             </Badge>
           </IconButton>
           
-          <Button
-            variant="contained"
-            startIcon={<Add />}
+          <ModernButton
+            variant="gradient"
+            size="large"
+            icon={<Add />}
             onClick={() => setCreateLeadOpen(true)}
           >
             Novo Lead
-          </Button>
+          </ModernButton>
         </Box>
       </Box>
 
@@ -466,13 +469,13 @@ export default function CRMPage() {
       )}
 
       {/* FAB for quick add */}
-      <Fab
-        color="primary"
-        sx={{ position: 'fixed', bottom: 16, right: 16 }}
+      <ModernFAB
+        variant="glass"
+        size="large"
+        tooltip="Novo Lead"
+        icon={<Add />}
         onClick={() => setCreateLeadOpen(true)}
-      >
-        <Add />
-      </Fab>
+      />
     </Box>
   );
 }

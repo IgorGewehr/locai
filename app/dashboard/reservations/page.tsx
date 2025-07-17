@@ -38,6 +38,8 @@ import {
   CircularProgress,
   Link
 } from '@mui/material';
+import ModernButton from '@/components/atoms/ModernButton';
+import ModernFAB from '@/components/atoms/ModernFAB';
 import {
   Add,
   Search,
@@ -250,22 +252,23 @@ export default function ReservationsPage() {
           flexDirection: { xs: 'column', sm: 'row' },
           width: { xs: '100%', sm: 'auto' }
         }}>
-          <Button
-            variant="outlined"
-            startIcon={<Event />}
+          <ModernButton
+            variant="secondary"
+            size="medium"
+            icon={<Event />}
             onClick={() => router.push('/dashboard/reservations/create?type=visit')}
             sx={{ display: { xs: 'none', sm: 'flex' } }}
           >
             Agendar Visita
-          </Button>
-          <Button
-            variant="contained"
-            startIcon={<Add />}
+          </ModernButton>
+          <ModernButton
+            variant="elegant"
+            size="large"
+            icon={<Add />}
             onClick={() => router.push('/dashboard/reservations/create')}
-            fullWidth={{ xs: true, sm: false }}
           >
             Nova Reserva
-          </Button>
+          </ModernButton>
         </Box>
       </Box>
 
@@ -558,9 +561,9 @@ export default function ReservationsPage() {
                       </Tooltip>
                     </Box>
                   </TableCell>
-                </TableRow>
-                );
-              })}
+                  </TableRow>
+                  );
+                }))}
             </TableBody>
           </Table>
         </TableContainer>
@@ -655,19 +658,14 @@ export default function ReservationsPage() {
       </Dialog>
 
       {/* Floating Action Button for Quick Add - Mobile Only */}
-      <Fab
-        color="primary"
-        aria-label="add"
-        sx={{ 
-          position: 'fixed', 
-          bottom: 16, 
-          right: 16,
-          display: { xs: 'flex', sm: 'none' }
-        }}
+      <ModernFAB
+        variant="gradient"
+        size="large"
+        tooltip="Nova Reserva"
+        icon={<Add />}
         onClick={() => router.push('/dashboard/reservations/create')}
-      >
-        <Add />
-      </Fab>
+        sx={{ display: { xs: 'flex', sm: 'none' } }}
+      />
     </Box>
   );
 }

@@ -31,6 +31,8 @@ import {
   DialogActions,
   CircularProgress,
 } from '@mui/material';
+import ModernButton from '@/components/atoms/ModernButton';
+import ModernFAB from '@/components/atoms/ModernFAB';
 import {
   Add,
   Search,
@@ -182,25 +184,14 @@ export default function PropertiesPage() {
         >
           Imóveis
         </Typography>
-        <Button
-          variant="contained"
-          startIcon={<Add sx={{ fontSize: { xs: 18, md: 20 } }} />}
+        <ModernButton
+          variant="elegant"
+          size="large"
+          icon={<Add />}
           onClick={() => router.push('/dashboard/properties/create')}
-          sx={{
-            minHeight: { xs: 44, md: 48 },
-            px: { xs: 2, md: 3 },
-            fontSize: { xs: '0.875rem', md: '1rem' },
-            fontWeight: 600,
-            borderRadius: 2,
-            boxShadow: 2,
-            '&:hover': {
-              transform: 'translateY(-2px)',
-              boxShadow: 4,
-            }
-          }}
         >
           Novo Imóvel
-        </Button>
+        </ModernButton>
       </Box>
 
       {/* Filters */}
@@ -572,14 +563,13 @@ export default function PropertiesPage() {
       </Dialog>
 
       {/* Floating Action Button */}
-      <Fab
-        color="primary"
-        aria-label="add"
-        sx={{ position: 'fixed', bottom: 16, right: 16 }}
+      <ModernFAB
+        variant="elegant"
+        size="large"
+        tooltip="Novo Imóvel"
+        icon={<Add />}
         onClick={() => router.push('/dashboard/properties/create')}
-      >
-        <Add />
-      </Fab>
+      />
     </Box>
   );
 }

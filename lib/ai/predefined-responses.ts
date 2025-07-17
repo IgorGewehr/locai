@@ -53,7 +53,7 @@ export const PREDEFINED_RESPONSES: PredefinedResponse[] = [
     confidence: 0.85
   },
   {
-    patterns: ['ok', 'tá', 'certo', 'beleza', 'entendi', 'sim', 's'],
+    patterns: ['ok', 'tá', 'ta', 'certo', 'beleza', 'entendi'],
     response: {
       content: 'Perfeito! Em que mais posso ajudar?',
       confidence: 0.9,
@@ -103,10 +103,16 @@ export function findPredefinedResponse(content: string): PredefinedResponse | nu
   const normalizedContent = content.toLowerCase().trim()
   
   for (const predefined of PREDEFINED_RESPONSES) {
-    const match = predefined.patterns.some(pattern => 
-      normalizedContent.includes(pattern) || 
-      normalizedContent === pattern
-    )
+    const match = predefined.patterns.some(pattern => {
+      // Use exact match for short patterns or word boundary matching for longer ones
+      if (pattern.length <= 3) {
+        return normalizedContent === pattern
+      } else {
+        // For longer patterns, check if it's a whole word match
+        const regex = new RegExp(`\\b${pattern}\\b`, 'i')
+        return regex.test(normalizedContent)
+      }
+    })
     
     if (match) {
       return predefined
@@ -117,14 +123,25 @@ export function findPredefinedResponse(content: string): PredefinedResponse | nu
 }
 
 export function shouldUsePredefinedResponse(content: string, conversationLength: number): boolean {
-  // Usar respostas predefinidas para:
-  // 1. Mensagens muito curtas (< 10 caracteres)
-  // 2. Primeiras mensagens da conversa
-  // 3. Padrões comuns de saudação/despedida
+  // Usar respostas predefinidas APENAS para:
+  // 1. Mensagens muito curtas e simples (< 5 caracteres E sem palavras complexas)
+  // 2. Saudações específicas no início da conversa
+  // 3. Despedidas específicas
   
-  const isShortMessage = content.length < 10
-  const isFirstMessage = conversationLength === 0
-  const hasPredefinedMatch = findPredefinedResponse(content) !== null
+  const normalizedContent = content.toLowerCase().trim()
+  const isVeryShortMessage = content.length < 5
   
-  return isShortMessage || isFirstMessage || hasPredefinedMatch
+  // Não usar predefinidas se a mensagem contém palavras que indicam intenção específica
+  const hasSpecificIntent = /apartamento|casa|imóvel|imovel|quero|preciso|gostaria|alug|reserv|fotos|imagens|valor|preço|preco|disponib|quando|onde|como|quantas|pessoas|datas|entrada|saida|check/.test(normalizedContent)
+  
+  if (hasSpecificIntent) {
+    return false // Sempre usar AI para mensagens com intenção específica
+  }
+  
+  // Usar predefinidas apenas para saudações/despedidas muito específicas
+  const isSimpleGreeting = /^(oi|olá|ola|hey|bom dia|boa tarde|boa noite)$/i.test(normalizedContent)
+  const isSimpleFarewell = /^(tchau|até logo|bye|falou|obrigado|obrigada)$/i.test(normalizedContent)
+  const isSimpleAcknowledgment = /^(ok|tá|ta|certo|beleza|entendi|sim|s|não|nao|n)$/i.test(normalizedContent)
+  
+  return isVeryShortMessage || isSimpleGreeting || isSimpleFarewell || isSimpleAcknowledgment
 }

@@ -31,7 +31,25 @@ import {
   TablePagination,
   Autocomplete,
   Alert,
+  Tooltip,
+  Grid,
+  Paper,
+  InputAdornment,
+  ToggleButton,
+  ToggleButtonGroup,
+  Avatar,
+  List,
+  ListItem,
+  ListItemAvatar,
+  ListItemText,
+  Stepper,
+  Step,
+  StepLabel,
+  StepContent,
+  Fade,
+  Slide,
 } from '@mui/material';
+import ModernButton from '@/components/atoms/ModernButton';
 import {
   Add,
   Visibility,
@@ -43,8 +61,28 @@ import {
   Cancel,
   Link,
   Person as PersonIcon,
+  TrendingUp,
+  TrendingDown,
+  AccountBalance,
+  CreditCard,
+  Pix,
+  MoneyOff,
+  AttachMoney,
+  Receipt,
+  Build,
+  CleaningServices,
+  Percent,
+  Undo,
+  MoreHoriz,
+  Close,
+  CheckCircle,
+  Schedule,
+  Error,
+  Info,
+  AccountCircle,
+  Home,
+  CalendarToday,
 } from '@mui/icons-material';
-import { useRouter } from 'next/navigation';
 import { Transaction, Client, Property, Reservation } from '@/lib/types';
 import { collection, query, orderBy, getDocs, doc, getDoc, addDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase/config';
@@ -70,6 +108,8 @@ export default function TransactionsPage() {
   
   // New transaction dialog
   const [newTransactionOpen, setNewTransactionOpen] = useState(false);
+  const [activeStep, setActiveStep] = useState(0);
+  const [transactionType, setTransactionType] = useState<'income' | 'expense'>('income');
   
   // Client and reservation data
   const [allClients, setAllClients] = useState<Client[]>([]);
@@ -208,8 +248,92 @@ export default function TransactionsPage() {
     reset();
     setSelectedClient(null);
     setSelectedReservation(null);
+    setFilteredReservations([]);
+    setActiveStep(0);
+    setTransactionType('income');
     setNewTransactionOpen(false);
   };
+
+  const handleNext = () => {
+    setActiveStep((prevActiveStep) => prevActiveStep + 1);
+  };
+
+  const handleBack = () => {
+    setActiveStep((prevActiveStep) => prevActiveStep - 1);
+  };
+
+  const handleTypeChange = (type: 'income' | 'expense') => {
+    setTransactionType(type);
+    // Auto-update form type when toggle changes
+    reset((formData) => ({
+      ...formData,
+      type: type
+    }));
+  };
+
+  // Helper functions for icons and categories
+  const getCategoryIcon = (category: string) => {
+    switch (category) {
+      case 'reservation': return <Receipt />;
+      case 'maintenance': return <Build />;
+      case 'cleaning': return <CleaningServices />;
+      case 'commission': return <Percent />;
+      case 'refund': return <Undo />;
+      default: return <MoreHoriz />;
+    }
+  };
+
+  const getPaymentMethodIcon = (method: string) => {
+    switch (method) {
+      case 'pix': return <Pix />;
+      case 'credit_card': return <CreditCard />;
+      case 'debit_card': return <CreditCard />;
+      case 'bank_transfer': return <AccountBalance />;
+      case 'cash': return <AttachMoney />;
+      case 'stripe': return <CreditCard />;
+      default: return <AttachMoney />;
+    }
+  };
+
+  const getStatusIcon = (status: string) => {
+    switch (status) {
+      case 'completed': return <CheckCircle />;
+      case 'pending': return <Schedule />;
+      case 'cancelled': return <Error />;
+      default: return <Info />;
+    }
+  };
+
+
+  const categories = [
+    { value: 'reservation', label: 'Reserva', icon: <Receipt /> },
+    { value: 'maintenance', label: 'Manutenção', icon: <Build /> },
+    { value: 'cleaning', label: 'Limpeza', icon: <CleaningServices /> },
+    { value: 'commission', label: 'Comissão', icon: <Percent /> },
+    { value: 'refund', label: 'Reembolso', icon: <Undo /> },
+    { value: 'other', label: 'Outros', icon: <MoreHoriz /> },
+  ];
+
+  const paymentMethods = [
+    { value: 'pix', label: 'PIX', icon: <Pix /> },
+    { value: 'credit_card', label: 'Cartão de Crédito', icon: <CreditCard /> },
+    { value: 'debit_card', label: 'Cartão de Débito', icon: <CreditCard /> },
+    { value: 'bank_transfer', label: 'Transferência Bancária', icon: <AccountBalance /> },
+    { value: 'cash', label: 'Dinheiro', icon: <AttachMoney /> },
+    { value: 'stripe', label: 'Stripe', icon: <CreditCard /> },
+  ];
+
+  const statusOptions = [
+    { value: 'pending', label: 'Pendente', icon: <Schedule />, color: 'warning' as const },
+    { value: 'completed', label: 'Concluída', icon: <CheckCircle />, color: 'success' as const },
+    { value: 'cancelled', label: 'Cancelada', icon: <Error />, color: 'error' as const },
+  ];
+
+  const steps = [
+    'Tipo e Informações Básicas',
+    'Categoria e Método de Pagamento',
+    'Associações e Observações'
+  ];
 
   const handleClientSelection = (client: Client | null) => {
     setSelectedClient(client);
@@ -346,13 +470,14 @@ export default function TransactionsPage() {
           <IconButton onClick={loadTransactions} disabled={loading}>
             <Refresh />
           </IconButton>
-          <Button 
-            variant="contained" 
-            startIcon={<Add />}
+          <ModernButton
+            variant="primary"
+            size="medium"
+            icon={<Add />}
             onClick={() => setNewTransactionOpen(true)}
           >
             Nova Transação
-          </Button>
+          </ModernButton>
         </Stack>
       </Box>
 
@@ -471,7 +596,7 @@ export default function TransactionsPage() {
                         color={transaction.type === 'income' ? 'success.main' : 'error.main'}
                         fontWeight={600}
                       >
-                        {transaction.type === 'income' ? '+' : '-'}R$ {transaction.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                        {transaction.type === 'income' ? '+' : '-'}R$ {(transaction.amount || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                       </Typography>
                     </TableCell>
                     <TableCell>
@@ -549,7 +674,7 @@ export default function TransactionsPage() {
                       fontWeight={600}
                       color={selectedTransaction.type === 'income' ? 'success.main' : 'error.main'}
                     >
-                      {selectedTransaction.type === 'income' ? '+' : '-'}R$ {selectedTransaction.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                      {selectedTransaction.type === 'income' ? '+' : '-'}R$ {(selectedTransaction.amount || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                     </Typography>
                   </Box>
                   <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
@@ -680,253 +805,459 @@ export default function TransactionsPage() {
         </DialogActions>
       </Dialog>
 
-      {/* New Transaction Dialog */}
+      {/* New Transaction Dialog - Modern with Stepper */}
       <Dialog
         open={newTransactionOpen}
         onClose={handleCloseNewTransaction}
-        maxWidth="sm"
+        maxWidth="md"
         fullWidth
+        TransitionComponent={Slide}
+        TransitionProps={{ direction: 'up' }}
+        PaperProps={{
+          sx: {
+            borderRadius: 3,
+            boxShadow: '0 8px 32px rgba(0,0,0,0.1)',
+          }
+        }}
       >
-        <DialogTitle>
-          <Typography variant="h6" fontWeight={600}>
-            Nova Transação
-          </Typography>
+        <DialogTitle sx={{ pb: 1 }}>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+              <Avatar sx={{ bgcolor: 'primary.main' }}>
+                <Add />
+              </Avatar>
+              <Box>
+                <Typography component="div" variant="h5" fontWeight={600}>
+                  Nova Transação
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  Crie uma nova transação financeira
+                </Typography>
+              </Box>
+            </Box>
+            <IconButton onClick={handleCloseNewTransaction} sx={{ color: 'text.secondary' }}>
+              <Close />
+            </IconButton>
+          </Box>
         </DialogTitle>
+        
         <form onSubmit={handleSubmit(handleCreateTransaction)}>
-          <DialogContent>
-            <Stack spacing={3}>
-              <Controller
-                name="description"
-                control={control}
-                render={({ field }) => (
-                  <TextField
-                    {...field}
-                    label="Descrição"
-                    fullWidth
-                    error={!!errors.description}
-                    helperText={errors.description?.message}
-                  />
-                )}
-              />
-              
-              <Controller
-                name="amount"
-                control={control}
-                render={({ field }) => (
-                  <TextField
-                    {...field}
-                    label="Valor"
-                    type="number"
-                    fullWidth
-                    inputProps={{ step: '0.01', min: '0' }}
-                    error={!!errors.amount}
-                    helperText={errors.amount?.message}
-                  />
-                )}
-              />
-              
-              <Controller
-                name="type"
-                control={control}
-                render={({ field }) => (
-                  <FormControl fullWidth error={!!errors.type}>
-                    <InputLabel>Tipo</InputLabel>
-                    <Select {...field} label="Tipo">
-                      <MenuItem value="income">Receita</MenuItem>
-                      <MenuItem value="expense">Despesa</MenuItem>
-                    </Select>
-                    {errors.type && <Typography variant="caption" color="error">{errors.type.message}</Typography>}
-                  </FormControl>
-                )}
-              />
-              
-              {/* Client Selection */}
-              <Controller
-                name="clientId"
-                control={control}
-                render={({ field: { onChange, value } }) => (
-                  <Autocomplete
-                    options={allClients}
-                    getOptionLabel={(option) => `${option.name} - ${option.phone}`}
-                    value={selectedClient}
-                    onChange={(_, newValue) => {
-                      handleClientSelection(newValue);
-                      onChange(newValue?.id || '');
-                    }}
-                renderInput={(params) => (
-                  <TextField
-                    {...params}
-                    label="Cliente (opcional)"
-                    placeholder="Selecione um cliente"
-                    helperText="Associe esta transação a um cliente"
-                  />
-                )}
-                renderOption={(props, option) => (
-                  <Box component="li" {...props}>
-                    <Box>
-                      <Typography variant="subtitle2">{option.name}</Typography>
-                      <Typography variant="body2" color="text.secondary">
-                        {option.phone} {option.email && `• ${option.email}`}
+          <DialogContent sx={{ px: 3, py: 0 }}>
+            <Stepper activeStep={activeStep} orientation="horizontal" sx={{ mb: 4 }}>
+              {steps.map((label) => (
+                <Step key={label}>
+                  <StepLabel>{label}</StepLabel>
+                </Step>
+              ))}
+            </Stepper>
+
+            <Fade in={true} timeout={500}>
+              <Box>
+                {/* Step 1: Basic Information */}
+                {activeStep === 0 && (
+                  <Stack spacing={4}>
+                    {/* Type Selection with Toggle */}
+                    <Paper elevation={0} sx={{ p: 3, bgcolor: 'grey.50', borderRadius: 2 }}>
+                      <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <TrendingUp />
+                        Tipo da Transação
                       </Typography>
-                    </Box>
-                  </Box>
-                )}
-                  />
-                )}
-              />
-              
-              {/* Reservation Selection */}
-              <Controller
-                name="reservationId"
-                control={control}
-                render={({ field: { onChange, value } }) => (
-                  <Autocomplete
-                options={filteredReservations}
-                getOptionLabel={(option) => {
-                  const checkIn = option.checkIn instanceof Date ? option.checkIn : new Date(option.checkIn);
-                  return `#${option.id.slice(-8)} - ${format(checkIn, 'dd/MM/yyyy')} - R$ ${option.totalAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
-                }}
-                    value={selectedReservation}
-                    onChange={(_, newValue) => {
-                      handleReservationSelection(newValue);
-                      onChange(newValue?.id || '');
-                    }}
-                disabled={filteredReservations.length === 0}
-                renderInput={(params) => (
-                  <TextField
-                    {...params}
-                    label="Reserva Relacionada (opcional)"
-                    placeholder="Selecione uma reserva"
-                    helperText={
-                      selectedClient 
-                        ? `${filteredReservations.length} reserva(s) encontrada(s) para este cliente`
-                        : "Selecione um cliente para filtrar as reservas"
-                    }
-                  />
-                )}
-                renderOption={(props, option) => {
-                  const checkIn = option.checkIn instanceof Date ? option.checkIn : new Date(option.checkIn);
-                  const checkOut = option.checkOut instanceof Date ? option.checkOut : new Date(option.checkOut);
-                  return (
-                    <Box component="li" {...props}>
-                      <Box>
-                        <Typography variant="subtitle2">
-                          Reserva #{option.id.slice(-8)} - {option.status}
-                        </Typography>
-                        <Typography variant="body2" color="text.secondary">
-                          {format(checkIn, 'dd/MM/yyyy')} - {format(checkOut, 'dd/MM/yyyy')}
-                        </Typography>
-                        <Typography variant="body2" color="text.secondary">
-                          R$ {option.totalAmount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })} • {option.paymentStatus}
-                        </Typography>
+                      <Box sx={{ display: 'flex', justifyContent: 'center', mt: 2 }}>
+                        <ToggleButtonGroup
+                          value={transactionType}
+                          exclusive
+                          onChange={(_, value) => value && handleTypeChange(value)}
+                          sx={{ 
+                            '& .MuiToggleButton-root': { 
+                              px: 4, 
+                              py: 1.5, 
+                              borderRadius: 2,
+                              border: '2px solid',
+                              minWidth: 150,
+                            }
+                          }}
+                        >
+                          <ToggleButton value="income" sx={{ color: 'success.main', borderColor: 'success.main' }}>
+                            <TrendingUp sx={{ mr: 1 }} />
+                            Receita
+                          </ToggleButton>
+                          <ToggleButton value="expense" sx={{ color: 'error.main', borderColor: 'error.main' }}>
+                            <TrendingDown sx={{ mr: 1 }} />
+                            Despesa
+                          </ToggleButton>
+                        </ToggleButtonGroup>
                       </Box>
-                    </Box>
-                  );
-                }}
-                  />
+                    </Paper>
+
+                    <Grid container spacing={3}>
+                      <Grid item xs={12}>
+                        <Controller
+                          name="description"
+                          control={control}
+                          render={({ field }) => (
+                            <TextField
+                              {...field}
+                              label="Descrição da Transação"
+                              placeholder="Ex: Pagamento de reserva, Taxa de limpeza..."
+                              fullWidth
+                              error={!!errors.description}
+                              helperText={errors.description?.message}
+                              InputProps={{
+                                startAdornment: (
+                                  <InputAdornment position="start">
+                                    <Receipt />
+                                  </InputAdornment>
+                                ),
+                              }}
+                            />
+                          )}
+                        />
+                      </Grid>
+                      
+                      <Grid item xs={12} md={6}>
+                        <Controller
+                          name="amount"
+                          control={control}
+                          render={({ field }) => (
+                            <TextField
+                              {...field}
+                              label="Valor"
+                              type="number"
+                              fullWidth
+                              inputProps={{ step: '0.01', min: '0' }}
+                              error={!!errors.amount}
+                              helperText={errors.amount?.message}
+                              InputProps={{
+                                startAdornment: (
+                                  <InputAdornment position="start">
+                                    R$
+                                  </InputAdornment>
+                                ),
+                              }}
+                            />
+                          )}
+                        />
+                      </Grid>
+
+                      <Grid item xs={12} md={6}>
+                        <Controller
+                          name="status"
+                          control={control}
+                          render={({ field }) => (
+                            <FormControl fullWidth error={!!errors.status}>
+                              <InputLabel>Status</InputLabel>
+                              <Select 
+                                {...field} 
+                                label="Status"
+                                renderValue={(selected) => (
+                                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                    {getStatusIcon(selected)}
+                                    {statusOptions.find(s => s.value === selected)?.label}
+                                  </Box>
+                                )}
+                              >
+                                {statusOptions.map((status) => (
+                                  <MenuItem key={status.value} value={status.value}>
+                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                      {status.icon}
+                                      {status.label}
+                                    </Box>
+                                  </MenuItem>
+                                ))}
+                              </Select>
+                              {errors.status && <Typography variant="caption" color="error">{errors.status.message}</Typography>}
+                            </FormControl>
+                          )}
+                        />
+                      </Grid>
+                    </Grid>
+
+                    {/* Hidden type controller */}
+                    <Controller
+                      name="type"
+                      control={control}
+                      render={({ field }) => (
+                        <input type="hidden" {...field} value={transactionType} />
+                      )}
+                    />
+                  </Stack>
                 )}
-              />
-              
-              {selectedReservation && (
-                <Alert severity="info">
-                  <Typography variant="body2">
-                    <strong>Reserva selecionada:</strong> Os campos foram preenchidos automaticamente com base na reserva.
-                  </Typography>
-                </Alert>
-              )}
-              
-              <Controller
-                name="category"
-                control={control}
-                render={({ field }) => (
-                  <FormControl fullWidth error={!!errors.category}>
-                    <InputLabel>Categoria</InputLabel>
-                    <Select {...field} label="Categoria">
-                      <MenuItem value="reservation">Reserva</MenuItem>
-                      <MenuItem value="maintenance">Manutenção</MenuItem>
-                      <MenuItem value="cleaning">Limpeza</MenuItem>
-                      <MenuItem value="commission">Comissão</MenuItem>
-                      <MenuItem value="refund">Reembolso</MenuItem>
-                      <MenuItem value="other">Outros</MenuItem>
-                    </Select>
-                    {errors.category && <Typography variant="caption" color="error">{errors.category.message}</Typography>}
-                  </FormControl>
+
+                {/* Step 2: Category and Payment Method */}
+                {activeStep === 1 && (
+                  <Stack spacing={4}>
+                    <Typography variant="h6" gutterBottom>
+                      Categoria e Método de Pagamento
+                    </Typography>
+                    
+                    <Grid container spacing={3}>
+                      <Grid item xs={12} md={6}>
+                        <Controller
+                          name="category"
+                          control={control}
+                          render={({ field }) => (
+                            <FormControl fullWidth error={!!errors.category}>
+                              <InputLabel>Categoria</InputLabel>
+                              <Select 
+                                {...field} 
+                                label="Categoria"
+                                renderValue={(selected) => (
+                                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                    {getCategoryIcon(selected)}
+                                    {categories.find(c => c.value === selected)?.label}
+                                  </Box>
+                                )}
+                              >
+                                {categories.map((category) => (
+                                  <MenuItem key={category.value} value={category.value}>
+                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                      {category.icon}
+                                      {category.label}
+                                    </Box>
+                                  </MenuItem>
+                                ))}
+                              </Select>
+                              {errors.category && <Typography variant="caption" color="error">{errors.category.message}</Typography>}
+                            </FormControl>
+                          )}
+                        />
+                      </Grid>
+                      
+                      <Grid item xs={12} md={6}>
+                        <Controller
+                          name="paymentMethod"
+                          control={control}
+                          render={({ field }) => (
+                            <FormControl fullWidth error={!!errors.paymentMethod}>
+                              <InputLabel>Método de Pagamento</InputLabel>
+                              <Select 
+                                {...field} 
+                                label="Método de Pagamento"
+                                renderValue={(selected) => (
+                                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                    {getPaymentMethodIcon(selected)}
+                                    {paymentMethods.find(p => p.value === selected)?.label}
+                                  </Box>
+                                )}
+                              >
+                                {paymentMethods.map((method) => (
+                                  <MenuItem key={method.value} value={method.value}>
+                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                      {method.icon}
+                                      {method.label}
+                                    </Box>
+                                  </MenuItem>
+                                ))}
+                              </Select>
+                              {errors.paymentMethod && <Typography variant="caption" color="error">{errors.paymentMethod.message}</Typography>}
+                            </FormControl>
+                          )}
+                        />
+                      </Grid>
+                    </Grid>
+                  </Stack>
                 )}
-              />
-              
-              <Controller
-                name="status"
-                control={control}
-                render={({ field }) => (
-                  <FormControl fullWidth error={!!errors.status}>
-                    <InputLabel>Status</InputLabel>
-                    <Select {...field} label="Status">
-                      <MenuItem value="pending">Pendente</MenuItem>
-                      <MenuItem value="completed">Concluída</MenuItem>
-                      <MenuItem value="cancelled">Cancelada</MenuItem>
-                    </Select>
-                    {errors.status && <Typography variant="caption" color="error">{errors.status.message}</Typography>}
-                  </FormControl>
+
+                {/* Step 3: Associations and Notes */}
+                {activeStep === 2 && (
+                  <Stack spacing={4}>
+                    <Typography variant="h6" gutterBottom>
+                      Associações e Observações
+                    </Typography>
+                    
+                    {/* Client Selection */}
+                    <Controller
+                      name="clientId"
+                      control={control}
+                      render={({ field: { onChange, value } }) => (
+                        <Autocomplete
+                          options={allClients}
+                          getOptionLabel={(option) => `${option.name} - ${option.phone}`}
+                          value={selectedClient}
+                          onChange={(_, newValue) => {
+                            handleClientSelection(newValue);
+                            onChange(newValue?.id || '');
+                          }}
+                          renderInput={(params) => (
+                            <TextField
+                              {...params}
+                              label="Cliente (opcional)"
+                              placeholder="Selecione um cliente"
+                              helperText="Associe esta transação a um cliente específico"
+                              InputProps={{
+                                ...params.InputProps,
+                                startAdornment: (
+                                  <InputAdornment position="start">
+                                    <AccountCircle />
+                                  </InputAdornment>
+                                ),
+                              }}
+                            />
+                          )}
+                          renderOption={(props, option) => {
+                            const { key, ...otherProps } = props;
+                            return (
+                              <Box component="li" key={key} {...otherProps}>
+                                <ListItemAvatar>
+                                  <Avatar>
+                                    <AccountCircle />
+                                  </Avatar>
+                                </ListItemAvatar>
+                                <Box>
+                                  <Typography variant="subtitle2">{option.name}</Typography>
+                                  <Typography variant="body2" color="text.secondary">
+                                    {option.phone} {option.email && `• ${option.email}`}
+                                  </Typography>
+                                </Box>
+                              </Box>
+                            );
+                          }}
+                        />
+                      )}
+                    />
+                    
+                    {/* Reservation Selection */}
+                    <Controller
+                      name="reservationId"
+                      control={control}
+                      render={({ field: { onChange, value } }) => (
+                        <Autocomplete
+                          options={filteredReservations}
+                          getOptionLabel={(option) => {
+                            const checkIn = option.checkIn instanceof Date ? option.checkIn : new Date(option.checkIn);
+                            return `#${option.id.slice(-8)} - ${format(checkIn, 'dd/MM/yyyy')} - R$ ${(option.totalAmount || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
+                          }}
+                          value={selectedReservation}
+                          onChange={(_, newValue) => {
+                            handleReservationSelection(newValue);
+                            onChange(newValue?.id || '');
+                          }}
+                          disabled={filteredReservations.length === 0}
+                          renderInput={(params) => (
+                            <TextField
+                              {...params}
+                              label="Reserva Relacionada (opcional)"
+                              placeholder="Selecione uma reserva"
+                              helperText={
+                                selectedClient 
+                                  ? `${filteredReservations.length} reserva(s) encontrada(s) para este cliente`
+                                  : "Selecione um cliente para filtrar as reservas"
+                              }
+                              InputProps={{
+                                ...params.InputProps,
+                                startAdornment: (
+                                  <InputAdornment position="start">
+                                    <CalendarToday />
+                                  </InputAdornment>
+                                ),
+                              }}
+                            />
+                          )}
+                          renderOption={(props, option) => {
+                            const { key, ...otherProps } = props;
+                            const checkIn = option.checkIn instanceof Date ? option.checkIn : new Date(option.checkIn);
+                            const checkOut = option.checkOut instanceof Date ? option.checkOut : new Date(option.checkOut);
+                            return (
+                              <Box component="li" key={key} {...otherProps}>
+                                <ListItemAvatar>
+                                  <Avatar>
+                                    <CalendarToday />
+                                  </Avatar>
+                                </ListItemAvatar>
+                                <Box>
+                                  <Typography variant="subtitle2">
+                                    Reserva #{option.id.slice(-8)} - {option.status}
+                                  </Typography>
+                                  <Typography variant="body2" color="text.secondary">
+                                    {format(checkIn, 'dd/MM/yyyy')} - {format(checkOut, 'dd/MM/yyyy')}
+                                  </Typography>
+                                  <Typography variant="body2" color="text.secondary">
+                                    R$ {(option.totalAmount || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })} • {option.paymentStatus}
+                                  </Typography>
+                                </Box>
+                              </Box>
+                            );
+                          }}
+                        />
+                      )}
+                    />
+                    
+                    {selectedReservation && (
+                      <Alert severity="info" sx={{ borderRadius: 2 }}>
+                        <Typography variant="body2">
+                          <strong>Reserva selecionada:</strong> Os campos foram preenchidos automaticamente com base na reserva.
+                        </Typography>
+                      </Alert>
+                    )}
+                    
+                    <Controller
+                      name="notes"
+                      control={control}
+                      render={({ field }) => (
+                        <TextField
+                          {...field}
+                          label="Observações"
+                          placeholder="Adicione observações sobre esta transação..."
+                          fullWidth
+                          multiline
+                          rows={4}
+                          error={!!errors.notes}
+                          helperText={errors.notes?.message}
+                        />
+                      )}
+                    />
+                    
+                    {/* Hidden fields for IDs */}
+                    <Controller
+                      name="propertyId"
+                      control={control}
+                      render={({ field }) => (
+                        <input type="hidden" {...field} />
+                      )}
+                    />
+                  </Stack>
                 )}
-              />
-              
-              <Controller
-                name="paymentMethod"
-                control={control}
-                render={({ field }) => (
-                  <FormControl fullWidth error={!!errors.paymentMethod}>
-                    <InputLabel>Método de Pagamento</InputLabel>
-                    <Select {...field} label="Método de Pagamento">
-                      <MenuItem value="pix">PIX</MenuItem>
-                      <MenuItem value="credit_card">Cartão de Crédito</MenuItem>
-                      <MenuItem value="debit_card">Cartão de Débito</MenuItem>
-                      <MenuItem value="bank_transfer">Transferência Bancária</MenuItem>
-                      <MenuItem value="cash">Dinheiro</MenuItem>
-                      <MenuItem value="stripe">Stripe</MenuItem>
-                    </Select>
-                    {errors.paymentMethod && <Typography variant="caption" color="error">{errors.paymentMethod.message}</Typography>}
-                  </FormControl>
-                )}
-              />
-              
-              <Controller
-                name="notes"
-                control={control}
-                render={({ field }) => (
-                  <TextField
-                    {...field}
-                    label="Observações"
-                    fullWidth
-                    multiline
-                    rows={3}
-                    error={!!errors.notes}
-                    helperText={errors.notes?.message}
-                  />
-                )}
-              />
-              
-              {/* Hidden fields for IDs */}
-              <Controller
-                name="propertyId"
-                control={control}
-                render={({ field }) => (
-                  <input type="hidden" {...field} />
-                )}
-              />
-            </Stack>
+              </Box>
+            </Fade>
           </DialogContent>
-          <DialogActions>
-            <Button onClick={handleCloseNewTransaction} startIcon={<Cancel />}>
+          
+          <DialogActions sx={{ px: 3, py: 2, gap: 1 }}>
+            <Button 
+              onClick={handleCloseNewTransaction} 
+              startIcon={<Close />}
+              sx={{ mr: 'auto' }}
+            >
               Cancelar
             </Button>
-            <Button 
-              type="submit" 
-              variant="contained" 
-              disabled={isSubmitting}
-              startIcon={<Save />}
+            
+            <Button
+              disabled={activeStep === 0}
+              onClick={handleBack}
+              startIcon={<ArrowForward sx={{ transform: 'rotate(180deg)' }} />}
             >
-              {isSubmitting ? 'Salvando...' : 'Salvar'}
+              Voltar
             </Button>
+            
+            {activeStep === steps.length - 1 ? (
+              <Button 
+                type="submit" 
+                variant="contained" 
+                disabled={isSubmitting}
+                startIcon={<Save />}
+                sx={{ minWidth: 140 }}
+              >
+                {isSubmitting ? 'Salvando...' : 'Criar Transação'}
+              </Button>
+            ) : (
+              <Button 
+                variant="contained" 
+                onClick={handleNext}
+                endIcon={<ArrowForward />}
+                sx={{ minWidth: 120 }}
+              >
+                Próximo
+              </Button>
+            )}
           </DialogActions>
         </form>
       </Dialog>

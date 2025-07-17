@@ -15,6 +15,7 @@ import {
   ListItemText,
   Divider,
 } from '@mui/material';
+import ModernButton from '@/components/atoms/ModernButton';
 import {
   Add,
   Receipt,
@@ -156,16 +157,15 @@ export default function QuickActions({ onAddTransaction, stats }: QuickActionsPr
         <Divider sx={{ my: 3 }} />
 
         <Stack spacing={1}>
-          <Button
-            fullWidth
-            variant="contained"
-            color="primary"
-            startIcon={<Add />}
+          <ModernButton
+            variant="primary"
+            size="large"
+            icon={<Add />}
             onClick={onAddTransaction}
-            sx={{ py: 1.5 }}
+            sx={{ width: '100%' }}
           >
             Nova Transação
-          </Button>
+          </ModernButton>
         </Stack>
 
         <Menu

@@ -2,26 +2,26 @@
 
 import { useState, useEffect } from 'react';
 import {
-  Grid,
-  Card,
-  CardContent,
-  Typography,
-  Box,
-  LinearProgress,
-  Paper,
-  IconButton,
-  Chip,
-  Skeleton,
+    Grid,
+    Card,
+    CardContent,
+    Typography,
+    Box,
+    LinearProgress,
+    Paper,
+    IconButton,
+    Chip,
+    Skeleton, Divider, Button,
 } from '@mui/material';
 import {
-  Home,
-  CalendarMonth,
-  People,
-  AttachMoney,
-  TrendingUp,
-  TrendingDown,
-  Refresh,
-  WhatsApp,
+    Home,
+    CalendarMonth,
+    People,
+    AttachMoney,
+    TrendingUp,
+    TrendingDown,
+    Refresh,
+    WhatsApp, Settings,
 } from '@mui/icons-material';
 import type { DashboardStats } from '@/lib/types';
 import { propertyService, reservationService, clientService, conversationService } from '@/lib/firebase/firestore';
@@ -584,20 +584,6 @@ export default function DashboardPage() {
                 </IconButton>
               </Box>
 
-              <Box sx={{ mb: 4 }}>
-                <Typography 
-                  variant="body1" 
-                  sx={{ 
-                    color: 'rgba(255, 255, 255, 0.8)',
-                    fontSize: '1rem'
-                  }}
-                >
-                  {whatsappStats.connected 
-                    ? "Atendimento automatizado funcionando perfeitamente" 
-                    : "Configure o WhatsApp nas configurações para ativar o atendimento automatizado"}
-                </Typography>
-              </Box>
-
               <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 2.5 }}>
                 <Box 
                   sx={{ 
@@ -671,27 +657,6 @@ export default function DashboardPage() {
                   </Box>
                   <Typography variant="h6" sx={{ color: '#ffffff', fontWeight: 700 }}>
                     {loading ? '-' : whatsappStats.avgResponseTime > 0 ? `${(isNaN(whatsappStats.avgResponseTime) ? 0 : whatsappStats.avgResponseTime).toFixed(1)}s` : 'N/A'}
-                  </Typography>
-                </Box>
-
-                <Box 
-                  sx={{ 
-                    display: 'flex', 
-                    alignItems: 'center', 
-                    justifyContent: 'space-between',
-                    p: 2,
-                    borderRadius: '12px',
-                    background: 'rgba(16, 185, 129, 0.1)',
-                    border: '1px solid rgba(16, 185, 129, 0.2)',
-                  }}
-                >
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                    <Typography variant="body1" sx={{ color: 'rgba(255, 255, 255, 0.9)' }}>
-                      🤖 IA Ativa
-                    </Typography>
-                  </Box>
-                  <Typography variant="h6" sx={{ color: '#10b981', fontWeight: 700 }}>
-                    {whatsappStats.connected ? 'GPT-4' : 'Offline'}
                   </Typography>
                 </Box>
               </Box>

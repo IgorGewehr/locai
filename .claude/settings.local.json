@@ -37,7 +37,9 @@
       "Bash(do [ -f \"$file\" ])",
       "Bash(echo:*)",
       "Bash(done)",
-      "Bash(npx tsx:*)"
+      "Bash(npx tsx:*)",
+      "Bash(fuser:*)",
+      "Bash(sed:*)"
     ],
     "deny": []
   }
