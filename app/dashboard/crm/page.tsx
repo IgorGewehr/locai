@@ -156,11 +156,11 @@ export default function CRMPage() {
   };
 
   const loadTasks = async () => {
-    if (!user?.uid) return;
+    if (!user?.id) return;
     
     try {
-      const todayTasks = await crmService.getTodayTasks(user.uid);
-      const overdueTasks = await crmService.getOverdueTasks(user.uid);
+      const todayTasks = await crmService.getTodayTasks(user.id);
+      const overdueTasks = await crmService.getOverdueTasks(user.id);
       setTasks([...overdueTasks, ...todayTasks]);
     } catch (error) {
       console.error('Error loading tasks:', error);
