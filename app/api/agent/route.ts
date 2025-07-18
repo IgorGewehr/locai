@@ -204,21 +204,63 @@ export async function POST(request: NextRequest) {
       clientPreferences: client.preferences || {},
     };
 
-    // Process message with OpenAI (with timeout and error handling)
-    // For simplification, create a basic response
-    const aiService = null; // Will handle manually
-    let agentResponse: AIResponse;
-
+    // Process message with new Agent Orchestrator
+    const { AgentOrchestratorService } = await import('@/lib/services/agent-orchestrator.service');
+    const orchestrator = new AgentOrchestratorService(validatedTenantId);
+    
     try {
-      // For simplification, create a basic response
-      agentResponse = {
-        content: `Recebi sua mensagem: "${validatedMessage}". Estou processando e em breve responderei com mais detalhes.`,
-        message: `Recebi sua mensagem: "${validatedMessage}". Estou processando e em breve responderei com mais detalhes.`,
-        confidence: 0.8,
-        suggestedActions: [],
-        context: context,
-        sentiment: 'positive'
-      } as unknown as AIResponse;
+      // Use the new orchestrator to process the message
+      const result = await orchestrator.processMessage(validatedMessage, validatedPhone);
+      
+      if (result.success) {
+        // Log successful request
+        await logContext.log({
+          endpoint: '/api/agent',
+          method: 'POST',
+          statusCode: 200,
+          phoneNumber: validatedPhone,
+          clientId: client.id,
+          conversationId: conversation.id,
+          tenantId: validatedTenantId,
+          processingTime: result.metrics?.processingTime,
+          turns: result.metrics?.turns,
+          confidence: result.metrics?.confidence,
+          userAgent: request.headers.get('user-agent') || 'unknown',
+          ip: request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || 'unknown'
+        });
+
+        return NextResponse.json({
+          success: true,
+          data: {
+            response: result.response,
+            conversationId: conversation.id,
+            clientId: client.id,
+            metrics: result.metrics
+          }
+        });
+      } else {
+        // Handle orchestrator failure
+        await logContext.log({
+          endpoint: '/api/agent',
+          method: 'POST',
+          statusCode: 500,
+          error: 'Agent orchestrator failed',
+          errorCode: 'ORCHESTRATOR_ERROR',
+          phoneNumber: validatedPhone,
+          clientId: client.id,
+          conversationId: conversation.id,
+          tenantId: validatedTenantId
+        });
+
+        return NextResponse.json({
+          success: true,
+          data: {
+            response: result.response,
+            conversationId: conversation.id,
+            clientId: client.id,
+          }
+        });
+      }
     } catch (error) {
       await logContext.log({
         endpoint: '/api/agent',
@@ -242,163 +284,6 @@ export async function POST(request: NextRequest) {
         },
       });
     }
-
-    // Execute function calls if any (with error handling)
-    let functionResults = [];
-    const executedFunctions: string[] = [];
-
-    if (agentResponse.functionCalls?.length) {
-      for (const functionCall of agentResponse.functionCalls) {
-        let result;
-        executedFunctions.push(functionCall.name);
-
-        try {
-          switch (functionCall.name) {
-          case 'searchProperties':
-            result = await agentFunctions.searchProperties(functionCall.arguments);
-            break;
-          case 'getPropertyDetails':
-            result = await agentFunctions.getPropertyDetails(functionCall.arguments.propertyId);
-            break;
-          case 'calculatePrice':
-            result = await agentFunctions.calculatePrice(
-              functionCall.arguments.propertyId,
-              functionCall.arguments.checkIn,
-              functionCall.arguments.checkOut,
-              functionCall.arguments.guests
-            );
-            break;
-          case 'sendPropertyMedia':
-            result = await agentFunctions.sendPropertyMedia(
-              functionCall.arguments.propertyId,
-              whatsappNumber || clientPhone,
-              functionCall.arguments.mediaType
-            );
-            break;
-          case 'createReservation':
-            result = await agentFunctions.createReservation(
-              client.id,
-              functionCall.arguments.propertyId,
-              functionCall.arguments.checkIn,
-              functionCall.arguments.checkOut,
-              functionCall.arguments.guests,
-              functionCall.arguments.notes
-            );
-            break;
-          case 'updateClientPreferences':
-            result = await agentFunctions.updateClientPreferences(
-              client.id,
-              functionCall.arguments
-            );
-            break;
-          default:
-            result = { success: false, error: 'Função não encontrada' };
-          }
-        } catch (error) {
-
-          result = { 
-            success: false, 
-            error: 'Erro ao executar função. Por favor, tente novamente.'
-          };
-        }
-
-        functionResults.push({ function: functionCall.name, result });
-      }
-    }
-
-    // Sanitize function results
-    functionResults = sanitizeFunctionResults(functionResults);
-
-    // Generate and sanitize final response message
-    let finalMessage = sanitizeAIResponse(agentResponse.message);
-
-    // Append function results to message if applicable
-    for (const { function: functionName, result } of functionResults) {
-      if (result.success && result.message) {
-        finalMessage += '\n\n' + result.message;
-      }
-
-      // Format property results
-      if (functionName === 'searchProperties' && result.success && result.data) {
-        const properties = result.data.slice(0, 3); // Show top 3
-        for (const property of properties) {
-          finalMessage += '\n\n' + agentFunctions.formatPropertySummary(property);
-        }
-      }
-
-      // Format price calculation
-      if (functionName === 'calculatePrice' && result.success && result.data) {
-        finalMessage += '\n\n' + agentFunctions.formatPriceBreakdown(result.data);
-      }
-    }
-
-    // Save agent response with sanitization
-    await messageService.create({
-      conversationId: conversation.id,
-      from: 'agent',
-      content: finalMessage,
-      messageType: 'text',
-      timestamp: new Date(),
-      isRead: false,
-      tenantId: validatedTenantId,
-      metadata: {
-        functionCalls: executedFunctions,
-        processingTime: Date.now() - logContext.startTime
-      }
-    });
-
-    // Update conversation context if needed
-    const updatedContext = { ...conversation.context };
-    let contextChanged = false;
-
-    // Update search filters from function calls
-    const searchCall = functionResults.find(r => r.function === 'searchProperties');
-    if (searchCall?.result.success) {
-      updatedContext.currentSearchFilters = searchCall.result.data;
-      contextChanged = true;
-    }
-
-    // Update interested properties
-    const propertyDetailsCalls = functionResults.filter(r => r.function === 'getPropertyDetails');
-    if (propertyDetailsCalls.length > 0) {
-      updatedContext.interestedProperties = [
-        ...(updatedContext.interestedProperties || []),
-        ...propertyDetailsCalls.map(call => call.result.data?.id).filter(Boolean)
-      ];
-      contextChanged = true;
-    }
-
-    if (contextChanged) {
-      await conversationService.update(conversation.id, {
-        context: updatedContext,
-        lastMessageAt: new Date(),
-        tenantId: validatedTenantId
-      });
-    }
-
-    // Log successful request
-    await logContext.log({
-      endpoint: '/api/agent',
-      method: 'POST',
-      statusCode: 200,
-      phoneNumber: validatedPhone,
-      clientId: client.id,
-      conversationId: conversation.id,
-      functionCalls: executedFunctions,
-      tenantId: validatedTenantId,
-      userAgent: request.headers.get('user-agent') || 'unknown',
-      ip: request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || 'unknown'
-    });
-
-    return NextResponse.json({
-      success: true,
-      data: {
-        response: finalMessage,
-        functionResults,
-        conversationId: conversation.id,
-        clientId: client.id,
-      },
-    });
 
   } catch (error) {
     // Log error
