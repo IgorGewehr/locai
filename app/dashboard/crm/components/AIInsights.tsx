@@ -585,7 +585,7 @@ Forneça uma análise em JSON com:
                       <ListItem sx={{ px: 0, py: 2 }}>
                         <ListItemAvatar>
                           <Avatar>
-                            {insight.lead.name.charAt(0).toUpperCase()}
+                            {insight.lead.name ? insight.lead.name.charAt(0).toUpperCase() : '?'}
                           </Avatar>
                         </ListItemAvatar>
                         <ListItemText

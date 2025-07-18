@@ -240,15 +240,15 @@ export default function PropertyCard({ property, config, onWhatsAppClick }: Prop
           <Stack direction="row" spacing={{ xs: 1, sm: 2 }} sx={{ mb: 2, flexWrap: 'wrap', gap: 1 }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
               <People sx={{ fontSize: 16, color: config.theme.primaryColor }} />
-              <Typography variant="body2">{property.maxGuests}</Typography>
+              <Typography variant="body2">{property.maxGuests || 0}</Typography>
             </Box>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
               <Bed sx={{ fontSize: 16, color: config.theme.primaryColor }} />
-              <Typography variant="body2">{property.bedrooms}</Typography>
+              <Typography variant="body2">{property.bedrooms || 0}</Typography>
             </Box>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
               <Bathtub sx={{ fontSize: 16, color: config.theme.primaryColor }} />
-              <Typography variant="body2">{property.bathrooms}</Typography>
+              <Typography variant="body2">{property.bathrooms || 0}</Typography>
             </Box>
             {property.area && (
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>

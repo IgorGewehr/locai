@@ -369,7 +369,7 @@ export default function CRMPage() {
               <Box key={lead.id}>
                 <ListItemButton onClick={() => handleLeadClick(lead)}>
                   <ListItemIcon>
-                    <Avatar>{lead.name.charAt(0).toUpperCase()}</Avatar>
+                    <Avatar>{lead.name ? lead.name.charAt(0).toUpperCase() : '?'}</Avatar>
                   </ListItemIcon>
                   <ListItemText
                     primary={

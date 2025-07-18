@@ -47,11 +47,13 @@ const bounceAnimation = keyframes`
 `;
 
 // Styled FAB with modern design
-const StyledModernFAB = styled(Fab)<{ 
+const StyledModernFAB = styled(Fab, {
+  shouldForwardProp: (prop) => prop !== 'isLoading' && prop !== 'variant' && prop !== 'size'
+})<{ 
   variant?: 'primary' | 'elegant' | 'gradient' | 'glass';
   size?: 'small' | 'medium' | 'large';
-  loading?: boolean;
-}>(({ theme, variant: customVariant, size, loading }) => ({
+  isLoading?: boolean;
+}>(({ theme, variant: customVariant, size, isLoading }) => ({
   position: 'fixed',
   bottom: size === 'small' ? '16px' : size === 'large' ? '24px' : '20px',
   right: size === 'small' ? '16px' : size === 'large' ? '24px' : '20px',
@@ -122,7 +124,7 @@ const StyledModernFAB = styled(Fab)<{
   }),
   
   // Loading state
-  ...(loading && {
+  ...(isLoading && {
     pointerEvents: 'none',
     opacity: 0.7,
   }),
@@ -196,7 +198,7 @@ const ModernFAB: React.FC<ModernFABProps> = ({
     <StyledModernFAB
       variant={variant}
       size={size}
-      loading={loading}
+      isLoading={loading}
       disabled={disabled || loading}
       onClick={onClick}
       {...props}

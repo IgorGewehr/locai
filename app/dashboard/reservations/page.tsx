@@ -415,7 +415,7 @@ export default function ReservationsPage() {
                   <TableCell sx={{ px: { xs: 1, sm: 2 } }}>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: { xs: 0.5, sm: 1 } }}>
                       <Avatar sx={{ width: { xs: 24, sm: 32 }, height: { xs: 24, sm: 32 }, fontSize: { xs: '0.75rem', sm: '0.875rem' }, display: { xs: 'none', sm: 'flex' } }}>
-                        {reservation.clientName.charAt(0)}
+                        {reservation.clientName ? reservation.clientName.charAt(0) : '?'}
                       </Avatar>
                       <Box>
                         <Link

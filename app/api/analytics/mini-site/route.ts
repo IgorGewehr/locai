@@ -170,7 +170,7 @@ function generateDemoAnalytics(days: number): AnalyticsResponse {
     propertyViews: Math.floor(baseViews * 0.85),
     inquiries,
     bookingConversions: conversions,
-    conversionRate: parseFloat(((conversions / inquiries) * 100).toFixed(1)),
+    conversionRate: inquiries > 0 ? parseFloat(((conversions / inquiries) * 100).toFixed(1)) : 0,
     averageSessionDuration: Math.floor(Math.random() * 300) + 180, // 3-8 minutes
     topProperties: [
       { propertyId: '1', propertyName: 'Apartamento Centro', views: Math.floor(baseViews * 0.3), inquiries: Math.floor(inquiries * 0.4), conversionRate: 12.5 },

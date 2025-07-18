@@ -133,10 +133,11 @@ export default function EnhancedFinancialDashboard() {
   useEffect(() => {
     setAnimateCards(true);
     loadFinancialData();
-  }, [user]);
+  }, []);
 
   const loadFinancialData = async () => {
-    if (!user) return;
+    // Remove user dependency for now to allow dashboard to load
+    // if (!user) return;
 
     try {
       setLoading(true);

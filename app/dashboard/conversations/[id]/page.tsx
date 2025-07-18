@@ -22,6 +22,9 @@ import {
   Fade,
   styled,
   alpha,
+  Card,
+  CardContent,
+  Badge,
 } from '@mui/material';
 import {
   ArrowBack,
@@ -43,8 +46,13 @@ import {
   VolumeUp,
   Image as ImageIcon,
   InsertDriveFile,
+  Person,
+  Phone,
+  Email,
+  AccessTime,
+  ChatBubbleOutline,
 } from '@mui/icons-material';
-import { format, isToday, isYesterday } from 'date-fns';
+import { format, isToday, isYesterday, differenceInMinutes } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
 // Styled Components
@@ -52,7 +60,7 @@ const ConversationContainer = styled(Box)(({ theme }) => ({
   height: '100vh',
   display: 'flex',
   flexDirection: 'column',
-  backgroundColor: theme.palette.grey[50],
+  backgroundColor: '#f5f5f5',
   overflow: 'hidden',
 }));
 
@@ -64,18 +72,35 @@ const Header = styled(Paper)(({ theme }) => ({
   backgroundColor: theme.palette.background.paper,
   borderRadius: 0,
   borderBottom: `1px solid ${theme.palette.divider}`,
-  boxShadow: '0 1px 8px rgba(0,0,0,0.06)',
+  boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
   zIndex: 1000,
+  position: 'sticky',
+  top: 0,
 }));
 
 const MessagesArea = styled(Box)(({ theme }) => ({
   flex: 1,
   overflowY: 'auto',
-  backgroundColor: '#fafafa',
-  padding: theme.spacing(2, 0),
+  padding: theme.spacing(2),
   display: 'flex',
   flexDirection: 'column',
-  gap: theme.spacing(1),
+  gap: theme.spacing(2),
+  background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+  position: 'relative',
+  '&::before': {
+    content: '""',
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    background: `
+      radial-gradient(circle at 20% 50%, rgba(120, 119, 198, 0.3) 0%, transparent 50%),
+      radial-gradient(circle at 80% 20%, rgba(255, 255, 255, 0.1) 0%, transparent 50%),
+      radial-gradient(circle at 40% 80%, rgba(120, 119, 198, 0.2) 0%, transparent 50%)
+    `,
+    pointerEvents: 'none',
+  },
   '&::-webkit-scrollbar': {
     width: '6px',
   },
@@ -83,148 +108,143 @@ const MessagesArea = styled(Box)(({ theme }) => ({
     background: 'transparent',
   },
   '&::-webkit-scrollbar-thumb': {
-    background: theme.palette.grey[300],
+    background: 'rgba(255, 255, 255, 0.3)',
     borderRadius: '3px',
   },
   '&::-webkit-scrollbar-thumb:hover': {
-    background: theme.palette.grey[400],
+    background: 'rgba(255, 255, 255, 0.5)',
   },
 }));
 
-const MessageBubble = styled(Paper)<{ isUser?: boolean; isAI?: boolean }>(({ theme, isUser, isAI }) => ({
+const MessageGroup = styled(Box, {
+  shouldForwardProp: (prop) => prop !== '$isUser',
+})<{ $isUser?: boolean }>(({ theme, $isUser }) => ({
+  display: 'flex',
+  flexDirection: 'column',
+  alignItems: $isUser ? 'flex-end' : 'flex-start',
+  gap: theme.spacing(0.5),
+  maxWidth: '85%',
+  alignSelf: $isUser ? 'flex-end' : 'flex-start',
+  position: 'relative',
+  zIndex: 1,
+}));
+
+const MessageBubble = styled(Paper, {
+  shouldForwardProp: (prop) => prop !== '$isUser' && prop !== '$isAI',
+})<{ $isUser?: boolean; $isAI?: boolean }>(({ theme, $isUser, $isAI }) => ({
   padding: theme.spacing(1.5, 2),
-  maxWidth: '70%',
-  marginLeft: isUser ? 'auto' : 0,
-  marginRight: isUser ? 0 : 'auto',
-  borderRadius: 18,
-  backgroundColor: isUser 
-    ? theme.palette.primary.main 
-    : isAI 
-      ? alpha(theme.palette.info.main, 0.1)
+  maxWidth: '100%',
+  borderRadius: $isUser ? '20px 20px 4px 20px' : '20px 20px 20px 4px',
+  backgroundColor: $isUser 
+    ? theme.palette.primary.main
+    : $isAI 
+      ? '#4CAF50'
       : theme.palette.background.paper,
-  color: isUser ? theme.palette.primary.contrastText : theme.palette.text.primary,
-  boxShadow: isUser 
-    ? `0 2px 8px ${alpha(theme.palette.primary.main, 0.3)}`
-    : `0 1px 4px ${alpha(theme.palette.grey[500], 0.1)}`,
+  color: $isUser || $isAI ? theme.palette.primary.contrastText : theme.palette.text.primary,
+  boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
   position: 'relative',
   wordBreak: 'break-word',
-  '&::before': isUser ? {
+  fontSize: '0.95rem',
+  lineHeight: 1.4,
+  border: $isUser || $isAI ? 'none' : `1px solid ${theme.palette.divider}`,
+  
+  '&::before': $isUser ? {
     content: '""',
     position: 'absolute',
     bottom: 0,
-    right: -6,
+    right: -8,
     width: 0,
     height: 0,
-    borderLeft: `12px solid ${theme.palette.primary.main}`,
-    borderBottom: '12px solid transparent',
+    border: '8px solid transparent',
+    borderTopColor: theme.palette.primary.main,
+    borderBottom: 'none',
+    borderRight: 'none',
+  } : $isAI ? {
+    content: '""',
+    position: 'absolute',
+    bottom: 0,
+    left: -8,
+    width: 0,
+    height: 0,
+    border: '8px solid transparent',
+    borderTopColor: '#4CAF50',
+    borderBottom: 'none',
+    borderLeft: 'none',
   } : {
     content: '""',
     position: 'absolute',
     bottom: 0,
-    left: -6,
+    left: -8,
     width: 0,
     height: 0,
-    borderRight: `12px solid ${isAI ? alpha(theme.palette.info.main, 0.1) : theme.palette.background.paper}`,
-    borderBottom: '12px solid transparent',
-  },
-  [theme.breakpoints.down('sm')]: {
-    maxWidth: '85%',
+    border: '8px solid transparent',
+    borderTopColor: theme.palette.background.paper,
+    borderBottom: 'none',
+    borderLeft: 'none',
   },
 }));
 
-const MessageInputContainer = styled(Paper)(({ theme }) => ({
-  padding: theme.spacing(2, 3),
+const MessageMeta = styled(Box, {
+  shouldForwardProp: (prop) => prop !== '$isUser',
+})<{ $isUser?: boolean }>(({ theme, $isUser }) => ({
   display: 'flex',
-  alignItems: 'flex-end',
+  alignItems: 'center',
   gap: theme.spacing(1),
+  fontSize: '0.75rem',
+  color: 'rgba(255, 255, 255, 0.8)',
+  marginTop: theme.spacing(0.5),
+  justifyContent: $isUser ? 'flex-end' : 'flex-start',
+}));
+
+const InputArea = styled(Paper)(({ theme }) => ({
+  padding: theme.spacing(2),
   backgroundColor: theme.palette.background.paper,
   borderRadius: 0,
   borderTop: `1px solid ${theme.palette.divider}`,
-  boxShadow: '0 -1px 8px rgba(0,0,0,0.06)',
-}));
-
-const MessageInput = styled(TextField)(({ theme }) => ({
-  '& .MuiOutlinedInput-root': {
-    borderRadius: 24,
-    backgroundColor: theme.palette.grey[50],
-    '&:hover': {
-      backgroundColor: theme.palette.grey[100],
-    },
-    '&.Mui-focused': {
-      backgroundColor: theme.palette.background.paper,
-    },
-  },
-  '& .MuiOutlinedInput-notchedOutline': {
-    border: 'none',
-  },
-}));
-
-const SendButton = styled(IconButton)(({ theme }) => ({
-  width: 48,
-  height: 48,
-  backgroundColor: theme.palette.primary.main,
-  color: theme.palette.primary.contrastText,
-  '&:hover': {
-    backgroundColor: theme.palette.primary.dark,
-  },
-  '&:disabled': {
-    backgroundColor: theme.palette.action.disabledBackground,
-    color: theme.palette.action.disabled,
-  },
+  boxShadow: '0 -2px 8px rgba(0,0,0,0.08)',
 }));
 
 const DateDivider = styled(Box)(({ theme }) => ({
   display: 'flex',
   alignItems: 'center',
-  margin: theme.spacing(2, 0),
-  padding: theme.spacing(0, 3),
-  '& .MuiDivider-root': {
+  gap: theme.spacing(2),
+  margin: theme.spacing(3, 0),
+  position: 'relative',
+  zIndex: 1,
+  '&::before, &::after': {
+    content: '""',
     flex: 1,
-    borderColor: theme.palette.grey[200],
+    height: '1px',
+    background: 'rgba(255, 255, 255, 0.3)',
   },
 }));
 
-const StatusIndicator = styled(Box)(({ theme }) => ({
+const DateChip = styled(Chip)(({ theme }) => ({
+  backgroundColor: 'rgba(255, 255, 255, 0.2)',
+  color: 'white',
+  fontSize: '0.75rem',
+  backdropFilter: 'blur(10px)',
+  border: '1px solid rgba(255, 255, 255, 0.3)',
+}));
+
+const StatusIcon = styled(Box, {
+  shouldForwardProp: (prop) => prop !== '$status',
+})<{ $status?: string }>(({ theme, $status }) => ({
   display: 'flex',
   alignItems: 'center',
-  justifyContent: 'flex-end',
-  gap: theme.spacing(0.5),
-  marginTop: theme.spacing(0.5),
-  '& .MuiSvgIcon-root': {
-    fontSize: 14,
-    opacity: 0.7,
-  },
+  fontSize: '0.75rem',
+  color: $status === 'read' ? theme.palette.info.main : 'rgba(255, 255, 255, 0.6)',
 }));
 
-const OnlineIndicator = styled(Box)(({ theme }) => ({
-  width: 8,
-  height: 8,
-  borderRadius: '50%',
-  backgroundColor: '#4CAF50',
-  animation: 'pulse 2s infinite',
-  '@keyframes pulse': {
-    '0%': {
-      opacity: 1,
-    },
-    '50%': {
-      opacity: 0.5,
-    },
-    '100%': {
-      opacity: 1,
-    },
-  },
-}));
-
-// Interfaces
 interface Message {
   id: string;
   content: string;
   timestamp: Date;
-  sender?: 'user' | 'ai' | 'agent';
-  type: 'text' | 'image' | 'audio' | 'document';
+  sender: 'user' | 'ai' | 'agent';
+  type: 'text' | 'image' | 'file' | 'audio';
   direction?: 'inbound' | 'outbound';
   isFromAI?: boolean;
-  status?: 'sent' | 'delivered' | 'read' | 'failed';
+  status?: 'sent' | 'delivered' | 'read';
   metadata?: {
     delivered?: boolean;
     read?: boolean;
@@ -240,40 +260,37 @@ interface Conversation {
   id: string;
   clientName: string;
   clientPhone: string;
-  clientAvatar?: string;
-  clientEmail?: string;
-  platform: 'whatsapp' | 'email' | 'phone';
-  status: 'active' | 'closed' | 'pending' | 'completed';
-  lastMessage: Date;
-  aiEnabled: boolean;
-  totalMessages: number;
-  tags: string[];
-  unreadCount?: number;
-  isStarred?: boolean;
-  clientTyping?: boolean;
-  agentId?: string;
-  assignedAgent?: string;
+  lastMessage: string;
+  timestamp: Date;
+  status: 'active' | 'archived' | 'spam';
+  isStarred: boolean;
+  unreadCount: number;
+  source: 'whatsapp' | 'web' | 'phone';
+  metadata?: {
+    clientAvatar?: string;
+    tags?: string[];
+    assignedAgent?: string;
+  };
 }
 
-export default function ConversationDetailPage() {
+export default function ConversationPage() {
   const params = useParams();
   const router = useRouter();
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  
   const [conversation, setConversation] = useState<Conversation | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState('');
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
   const [sending, setSending] = useState(false);
-  const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
-  const [isTyping, setIsTyping] = useState(false);
+  const [error, setError] = useState('');
+  const [menuAnchor, setMenuAnchor] = useState<null | HTMLElement>(null);
 
   useEffect(() => {
-    loadConversationData();
-    // Set up real-time updates
-    const interval = setInterval(loadMessages, 5000);
-    return () => clearInterval(interval);
+    if (params.id) {
+      loadConversation();
+      loadMessages();
+    }
   }, [params.id]);
 
   useEffect(() => {
@@ -284,50 +301,22 @@ export default function ConversationDetailPage() {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
-  const loadConversationData = async () => {
+  const loadConversation = async () => {
     try {
-      setLoading(true);
+      const response = await fetch(`/api/conversations/${params.id}`);
+      if (!response.ok) throw new Error('Failed to load conversation');
       
-      // Fetch conversation data
-      const conversationResponse = await fetch(`/api/conversations/${params.id}`);
-      if (!conversationResponse.ok) {
-        throw new Error('Failed to fetch conversation');
-      }
-      
-      const conversationData = await conversationResponse.json();
-      const conversation = conversationData.conversation;
-      
-      // Transform conversation data
-      const transformedConversation: Conversation = {
-        id: conversation.id,
-        clientName: conversation.clientName || 'Cliente',
-        clientPhone: conversation.whatsappPhone || conversation.clientPhone || '',
-        clientAvatar: conversation.clientAvatar,
-        clientEmail: conversation.clientEmail,
-        platform: 'whatsapp' as const,
-        status: conversation.status || 'active',
-        lastMessage: conversation.lastMessageAt ? new Date(conversation.lastMessageAt) : new Date(),
-        aiEnabled: true,
-        totalMessages: conversation.messages?.length || 0,
-        tags: conversation.tags || [],
-        unreadCount: conversation.unreadCount || 0,
-        isStarred: conversation.isStarred || false,
-        agentId: conversation.agentId,
-        assignedAgent: conversation.assignedAgent || 'AI Sofia'
-      };
-      
-      setConversation(transformedConversation);
-      await loadMessages();
+      const data = await response.json();
+      setConversation(data);
     } catch (err) {
       console.error('Error loading conversation:', err);
       setError('Erro ao carregar conversa');
-    } finally {
-      setLoading(false);
     }
   };
 
   const loadMessages = async () => {
     try {
+      setLoading(true);
       const messagesResponse = await fetch(`/api/conversations/${params.id}/messages`);
       if (!messagesResponse.ok) return;
       
@@ -350,43 +339,43 @@ export default function ConversationDetailPage() {
           agentName: msg.isFromAI ? 'AI Sofia' : 'Você',
           mediaUrl: msg.mediaUrl,
           fileName: msg.fileName,
-          fileSize: msg.fileSize
+          fileSize: msg.fileSize,
         }
       }));
-      
+
       setMessages(transformedMessages);
     } catch (err) {
       console.error('Error loading messages:', err);
+      setError('Erro ao carregar mensagens');
+    } finally {
+      setLoading(false);
     }
   };
 
   const handleSendMessage = async () => {
-    if (!newMessage.trim() || sending) return;
+    if (!newMessage.trim()) return;
 
-    setSending(true);
     const messageToSend = newMessage.trim();
     setNewMessage('');
+    setSending(true);
+
+    // Add optimistic message
+    const tempMessage: Message = {
+      id: `temp_${Date.now()}`,
+      content: messageToSend,
+      timestamp: new Date(),
+      sender: 'agent',
+      type: 'text',
+      direction: 'outbound',
+      status: 'sent',
+      metadata: {
+        agentName: 'Você',
+      }
+    };
+
+    setMessages(prev => [...prev, tempMessage]);
 
     try {
-      // Add optimistic message
-      const tempMessage: Message = {
-        id: `temp_${Date.now()}`,
-        content: messageToSend,
-        timestamp: new Date(),
-        sender: 'agent',
-        type: 'text',
-        direction: 'outbound',
-        status: 'sent',
-        metadata: { 
-          delivered: false, 
-          read: false, 
-          agentName: 'Você' 
-        },
-      };
-
-      setMessages(prev => [...prev, tempMessage]);
-
-      // Send via API
       const response = await fetch(`/api/conversations/${params.id}/messages`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -397,12 +386,10 @@ export default function ConversationDetailPage() {
           isFromAI: false,
         })
       });
-
       if (!response.ok) throw new Error('Failed to send message');
-
+      
       // Reload messages to get the real message
       await loadMessages();
-
     } catch (err) {
       setError('Erro ao enviar mensagem');
       // Remove optimistic message on error
@@ -412,362 +399,301 @@ export default function ConversationDetailPage() {
     }
   };
 
-  const handleKeyPress = (e: React.KeyboardEvent) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
-      e.preventDefault();
-      handleSendMessage();
-    }
-  };
-
-  const handleFileSelect = () => {
-    fileInputRef.current?.click();
-  };
-
-  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-
-    // Handle file upload logic here
-    console.log('File selected:', file);
-  };
-
-  const formatMessageTime = (date: Date) => {
+  const formatTime = (date: Date) => {
     if (isToday(date)) {
       return format(date, 'HH:mm', { locale: ptBR });
     } else if (isYesterday(date)) {
       return `Ontem ${format(date, 'HH:mm', { locale: ptBR })}`;
     } else {
-      return format(date, 'dd/MM/yyyy HH:mm', { locale: ptBR });
+      return format(date, 'dd/MM HH:mm', { locale: ptBR });
     }
   };
 
-  const formatDateSeparator = (date: Date) => {
+  const formatDate = (date: Date) => {
     if (isToday(date)) {
       return 'Hoje';
     } else if (isYesterday(date)) {
       return 'Ontem';
     } else {
-      return format(date, "d 'de' MMMM", { locale: ptBR });
+      return format(date, 'dd/MM/yyyy', { locale: ptBR });
     }
   };
 
-  const shouldShowDateSeparator = (currentMsg: Message, prevMsg?: Message) => {
-    if (!prevMsg) return true;
-    const currentDate = new Date(currentMsg.timestamp).toDateString();
-    const prevDate = new Date(prevMsg.timestamp).toDateString();
-    return currentDate !== prevDate;
+  const shouldShowDateDivider = (message: Message, prevMessage: Message | null) => {
+    if (!prevMessage) return true;
+    const currentDate = new Date(message.timestamp);
+    const prevDate = new Date(prevMessage.timestamp);
+    return currentDate.toDateString() !== prevDate.toDateString();
   };
 
-  const getStatusIcon = (status?: string) => {
-    switch (status) {
-      case 'sent': return <Check sx={{ color: 'inherit' }} />;
-      case 'delivered': return <DoneAll sx={{ color: 'inherit' }} />;
-      case 'read': return <DoneAll sx={{ color: '#4FC3F7' }} />;
-      case 'failed': return <Schedule sx={{ color: 'error.main' }} />;
-      default: return null;
-    }
+  const shouldGroupMessage = (message: Message, nextMessage: Message | null) => {
+    if (!nextMessage) return false;
+    const timeDiff = differenceInMinutes(new Date(nextMessage.timestamp), new Date(message.timestamp));
+    return message.sender === nextMessage.sender && timeDiff < 5;
   };
 
-  const toggleStarred = async () => {
-    if (!conversation) return;
+  const getStatusIcon = (message: Message) => {
+    if (message.sender !== 'agent') return null;
     
-    try {
-      await fetch(`/api/conversations/${conversation.id}`, {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ isStarred: !conversation.isStarred })
-      });
-      
-      setConversation({ ...conversation, isStarred: !conversation.isStarred });
-    } catch (err) {
-      console.error('Error toggling starred:', err);
+    if (message.metadata?.read) {
+      return <DoneAll sx={{ fontSize: '0.75rem' }} />;
+    } else if (message.metadata?.delivered) {
+      return <Check sx={{ fontSize: '0.75rem' }} />;
+    } else {
+      return <Schedule sx={{ fontSize: '0.75rem' }} />;
     }
-  };
-
-  const renderMessage = (message: Message) => {
-    const isUser = message.sender === 'user';
-    const isAI = message.sender === 'ai' || message.isFromAI;
-
-    return (
-      <Box sx={{ px: 3, mb: 1 }}>
-        <MessageBubble isUser={isUser} isAI={isAI || false} elevation={0}>
-          {/* AI Badge */}
-          {isAI && (
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
-              <SmartToy sx={{ fontSize: 14, color: 'info.main' }} />
-              <Typography variant="caption" sx={{ color: 'info.main', fontWeight: 500 }}>
-                AI Sofia
-              </Typography>
-            </Box>
-          )}
-
-          {/* Message Content */}
-          {message.type === 'image' ? (
-            <Box>
-              <Box
-                component="img"
-                src={message.metadata?.mediaUrl || '/placeholder.jpg'}
-                sx={{
-                  width: '100%',
-                  maxWidth: 280,
-                  height: 'auto',
-                  borderRadius: 2,
-                  mb: message.content ? 1 : 0
-                }}
-              />
-              {message.content && (
-                <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>
-                  {message.content}
-                </Typography>
-              )}
-            </Box>
-          ) : message.type === 'document' ? (
-            <Box sx={{ 
-              display: 'flex', 
-              alignItems: 'center', 
-              gap: 1,
-              p: 1,
-              bgcolor: alpha('#000', 0.05),
-              borderRadius: 1
-            }}>
-              <InsertDriveFile sx={{ color: 'text.secondary' }} />
-              <Box>
-                <Typography variant="body2" sx={{ fontWeight: 500 }}>
-                  {message.metadata?.fileName || 'Documento'}
-                </Typography>
-                {message.metadata?.fileSize && (
-                  <Typography variant="caption" color="text.secondary">
-                    {(message.metadata.fileSize / 1024).toFixed(1)} KB
-                  </Typography>
-                )}
-              </Box>
-            </Box>
-          ) : (
-            <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>
-              {message.content}
-            </Typography>
-          )}
-
-          {/* Message Status */}
-          <StatusIndicator>
-            <Typography variant="caption" sx={{ fontSize: 11, opacity: 0.7 }}>
-              {formatMessageTime(message.timestamp)}
-            </Typography>
-            {!isUser && getStatusIcon(message.status)}
-          </StatusIndicator>
-        </MessageBubble>
-      </Box>
-    );
   };
 
   if (loading) {
     return (
       <ConversationContainer>
-        <Box sx={{ 
-          display: 'flex', 
-          justifyContent: 'center', 
-          alignItems: 'center', 
-          height: '100%' 
-        }}>
+        <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%' }}>
           <CircularProgress />
         </Box>
       </ConversationContainer>
     );
   }
 
-  if (error) return <Alert severity="error">{error}</Alert>;
-  if (!conversation) return <Alert severity="error">Conversa não encontrada</Alert>;
-
   return (
     <ConversationContainer>
       {/* Header */}
       <Header elevation={0}>
-        <IconButton onClick={() => router.back()} sx={{ mr: 1 }}>
+        <IconButton 
+          onClick={() => router.back()} 
+          sx={{ mr: 1 }}
+        >
           <ArrowBack />
         </IconButton>
         
         <Avatar 
-          {...(conversation.clientAvatar ? { src: conversation.clientAvatar } : {})}
           sx={{ 
-            width: 40, 
-            height: 40,
+            width: 48, 
+            height: 48,
             bgcolor: 'primary.main',
-            fontSize: 16,
+            fontSize: '1.2rem',
             fontWeight: 600,
           }}
         >
-          {conversation.clientName?.[0] || '?'}
+          {conversation?.clientName ? conversation.clientName.charAt(0).toUpperCase() : 'C'}
         </Avatar>
         
         <Box sx={{ flex: 1 }}>
+          <Typography variant="h6" fontWeight={600}>
+            {conversation?.clientName || 'Cliente'}
+          </Typography>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <Typography variant="h6" sx={{ fontWeight: 600, fontSize: 16 }}>
-              {conversation.clientName}
+            <WhatsApp sx={{ fontSize: 16, color: '#25D366' }} />
+            <Typography variant="body2" color="text.secondary">
+              {conversation?.clientPhone || 'Número não disponível'}
             </Typography>
-            <WhatsApp sx={{ color: '#25D366', fontSize: 16 }} />
-            {conversation.aiEnabled && (
-              <Tooltip title="IA Ativada">
-                <SmartToy sx={{ color: 'primary.main', fontSize: 16 }} />
-              </Tooltip>
-            )}
-          </Box>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <Typography variant="body2" color="text.secondary" sx={{ fontSize: 13 }}>
-              {conversation.clientPhone}
-            </Typography>
-            {conversation.status === 'active' && (
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                <OnlineIndicator />
-                <Typography variant="caption" sx={{ color: '#4CAF50', fontSize: 12 }}>
-                  Online
-                </Typography>
-              </Box>
-            )}
-            {isTyping && (
-              <Typography variant="caption" color="primary.main" sx={{ fontSize: 12 }}>
-                digitando...
-              </Typography>
+            {conversation?.status === 'active' && (
+              <Chip 
+                label="Ativo" 
+                size="small" 
+                color="success" 
+                sx={{ fontSize: '0.7rem', height: 20 }} 
+              />
             )}
           </Box>
         </Box>
 
-        <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
-          <IconButton onClick={toggleStarred} size="small">
-            {conversation.isStarred ? <Star sx={{ color: '#FFB300' }} /> : <StarBorder />}
-          </IconButton>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <Tooltip title="Conversa favorita">
+            <IconButton>
+              {conversation?.isStarred ? <Star color="warning" /> : <StarBorder />}
+            </IconButton>
+          </Tooltip>
           
-          <IconButton onClick={(e) => setAnchorEl(e.currentTarget)} size="small">
+          <IconButton onClick={(e) => setMenuAnchor(e.currentTarget)}>
             <MoreVert />
           </IconButton>
+          
+          <Menu
+            anchorEl={menuAnchor}
+            open={Boolean(menuAnchor)}
+            onClose={() => setMenuAnchor(null)}
+          >
+            <MenuItem>
+              <Phone sx={{ mr: 2 }} />
+              Ligar para cliente
+            </MenuItem>
+            <MenuItem>
+              <Email sx={{ mr: 2 }} />
+              Enviar email
+            </MenuItem>
+            <Divider />
+            <MenuItem>
+              <Block sx={{ mr: 2 }} />
+              Bloquear conversa
+            </MenuItem>
+            <MenuItem sx={{ color: 'error.main' }}>
+              <Delete sx={{ mr: 2 }} />
+              Deletar conversa
+            </MenuItem>
+          </Menu>
         </Box>
       </Header>
 
       {/* Messages Area */}
       <MessagesArea>
-        {messages.length > 0 ? (
-          <>
-            {messages.map((message, index) => {
-              const showDateSeparator = shouldShowDateSeparator(message, messages[index - 1]);
-              
-              return (
-                <Box key={message.id}>
-                  {showDateSeparator && (
-                    <DateDivider>
-                      <Divider />
-                      <Chip 
-                        label={formatDateSeparator(message.timestamp)}
-                        size="small"
-                        sx={{ 
-                          mx: 2,
-                          bgcolor: 'background.paper',
-                          fontSize: 12,
-                          height: 24,
-                          fontWeight: 500,
-                        }}
-                      />
-                      <Divider />
-                    </DateDivider>
-                  )}
-                  
-                  <Fade in timeout={300}>
-                    <div>{renderMessage(message)}</div>
-                  </Fade>
-                </Box>
-              );
-            })}
-          </>
-        ) : (
-          <Box sx={{ 
-            display: 'flex', 
-            flexDirection: 'column', 
-            alignItems: 'center', 
-            justifyContent: 'center',
-            height: '100%',
-            textAlign: 'center',
-            color: 'text.secondary'
-          }}>
-            <WhatsApp sx={{ fontSize: 64, mb: 2, opacity: 0.3 }} />
-            <Typography variant="h6" gutterBottom>
+        {error && (
+          <Alert severity="error" sx={{ mb: 2, position: 'relative', zIndex: 1 }}>
+            {error}
+          </Alert>
+        )}
+
+        {messages.length === 0 ? (
+          <Box 
+            sx={{ 
+              display: 'flex', 
+              flexDirection: 'column',
+              alignItems: 'center', 
+              justifyContent: 'center',
+              height: '100%',
+              color: 'rgba(255, 255, 255, 0.8)',
+              position: 'relative',
+              zIndex: 1,
+            }}
+          >
+            <ChatBubbleOutline sx={{ fontSize: 64, mb: 2, opacity: 0.5 }} />
+            <Typography variant="h6" sx={{ mb: 1, fontWeight: 500 }}>
               Nenhuma mensagem ainda
             </Typography>
-            <Typography variant="body2" sx={{ opacity: 0.7 }}>
-              Inicie uma conversa enviando uma mensagem
+            <Typography variant="body2" sx={{ opacity: 0.8, textAlign: 'center', maxWidth: 300 }}>
+              Esta conversa ainda não possui mensagens. Envie a primeira mensagem para começar!
             </Typography>
           </Box>
+        ) : (
+          messages.map((message, index) => {
+            const prevMessage = index > 0 ? messages[index - 1] : null;
+            const nextMessage = index < messages.length - 1 ? messages[index + 1] : null;
+            const showDate = shouldShowDateDivider(message, prevMessage);
+            const isGrouped = shouldGroupMessage(message, nextMessage);
+            const isUser = message.sender === 'user';
+            const isAI = message.sender === 'ai';
+
+            return (
+              <div key={message.id || `message-${index}`}>
+                {showDate && (
+                  <DateDivider key={`date-${index}`}>
+                    <DateChip label={formatDate(new Date(message.timestamp))} />
+                  </DateDivider>
+                )}
+                
+                <MessageGroup $isUser={isUser || message.sender === 'agent'}>
+                  <MessageBubble 
+                    elevation={2}
+                    $isUser={isUser || message.sender === 'agent'}
+                    $isAI={isAI}
+                  >
+                    {/* Sender name for AI/Agent messages */}
+                    {(isAI || message.sender === 'agent') && !isUser && (
+                      <Typography 
+                        variant="caption" 
+                        sx={{ 
+                          fontWeight: 600, 
+                          color: isAI ? 'rgba(255,255,255,0.9)' : 'text.secondary',
+                          mb: 0.5,
+                          display: 'block'
+                        }}
+                      >
+                        {isAI ? (
+                          <>
+                            <SmartToy sx={{ fontSize: 14, mr: 0.5, verticalAlign: 'middle' }} />
+                            AI Sofia
+                          </>
+                        ) : (
+                          message.metadata?.agentName || 'Agente'
+                        )}
+                      </Typography>
+                    )}
+                    
+                    <Typography variant="body1">
+                      {message.content}
+                    </Typography>
+                  </MessageBubble>
+                  
+                  {!isGrouped && (
+                    <MessageMeta $isUser={isUser || message.sender === 'agent'}>
+                      <AccessTime sx={{ fontSize: '0.75rem' }} />
+                      <Typography variant="caption">
+                        {formatTime(new Date(message.timestamp))}
+                      </Typography>
+                      <StatusIcon $status={message.status}>
+                        {getStatusIcon(message)}
+                      </StatusIcon>
+                    </MessageMeta>
+                  )}
+                </MessageGroup>
+              </div>
+            );
+          })
         )}
         <div ref={messagesEndRef} />
       </MessagesArea>
 
-      {/* Message Input */}
-      <MessageInputContainer elevation={0}>
-        <input
-          type="file"
-          ref={fileInputRef}
-          hidden
-          onChange={handleFileUpload}
-          accept="image/*,.pdf,.doc,.docx"
-        />
-        
-        <IconButton 
-          onClick={handleFileSelect}
-          sx={{ color: 'text.secondary' }}
-        >
-          <AttachFile />
-        </IconButton>
-        
-        <MessageInput
-          fullWidth
-          multiline
-          maxRows={4}
-          value={newMessage}
-          onChange={(e) => setNewMessage(e.target.value)}
-          onKeyPress={handleKeyPress}
-          placeholder="Digite sua mensagem..."
-          size="small"
-          disabled={sending}
-          InputProps={{
-            endAdornment: (
-              <InputAdornment position="end">
-                <IconButton size="small" sx={{ color: 'text.secondary' }}>
-                  <EmojiEmotions />
-                </IconButton>
-              </InputAdornment>
-            )
-          }}
-        />
-        
-        <SendButton
-          onClick={handleSendMessage}
-          disabled={!newMessage.trim() || sending}
-        >
-          {sending ? <CircularProgress size={20} color="inherit" /> : <Send />}
-        </SendButton>
-      </MessageInputContainer>
-
-      {/* Options Menu */}
-      <Menu
-        anchorEl={anchorEl}
-        open={Boolean(anchorEl)}
-        onClose={() => setAnchorEl(null)}
-        PaperProps={{
-          sx: { minWidth: 180 }
-        }}
-      >
-        <MenuItem onClick={() => {
-          setAnchorEl(null);
-          // Handle block contact
-        }}>
-          <Block fontSize="small" sx={{ mr: 1 }} />
-          Bloquear contato
-        </MenuItem>
-        <MenuItem onClick={() => {
-          setAnchorEl(null);
-          // Handle delete conversation
-        }}>
-          <Delete fontSize="small" sx={{ mr: 1 }} />
-          Apagar conversa
-        </MenuItem>
-      </Menu>
+      {/* Input Area */}
+      <InputArea elevation={0}>
+        <Box sx={{ display: 'flex', alignItems: 'flex-end', gap: 2 }}>
+          <TextField
+            fullWidth
+            multiline
+            maxRows={4}
+            value={newMessage}
+            onChange={(e) => setNewMessage(e.target.value)}
+            placeholder="Digite sua mensagem..."
+            variant="outlined"
+            size="small"
+            onKeyPress={(e) => {
+              if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                handleSendMessage();
+              }
+            }}
+            sx={{
+              '& .MuiOutlinedInput-root': {
+                borderRadius: 3,
+                backgroundColor: 'background.default',
+              }
+            }}
+            InputProps={{
+              endAdornment: (
+                <InputAdornment position="end">
+                  <IconButton size="small">
+                    <EmojiEmotions />
+                  </IconButton>
+                  <IconButton size="small">
+                    <AttachFile />
+                  </IconButton>
+                </InputAdornment>
+              ),
+            }}
+          />
+          
+          <IconButton
+            onClick={handleSendMessage}
+            disabled={!newMessage.trim() || sending}
+            sx={{
+              bgcolor: 'primary.main',
+              color: 'white',
+              width: 48,
+              height: 48,
+              '&:hover': {
+                bgcolor: 'primary.dark',
+              },
+              '&:disabled': {
+                bgcolor: 'grey.300',
+              },
+            }}
+          >
+            {sending ? (
+              <CircularProgress size={20} color="inherit" />
+            ) : (
+              <Send />
+            )}
+          </IconButton>
+        </Box>
+      </InputArea>
     </ConversationContainer>
   );
 }

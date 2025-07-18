@@ -40,12 +40,12 @@ const floatAnimation = keyframes`
 
 // Styled button with modern design
 const StyledModernButton = styled(Button, {
-  shouldForwardProp: (prop) => prop !== 'loading' && prop !== 'variant' && prop !== 'size'
+  shouldForwardProp: (prop) => prop !== 'isLoading' && prop !== 'variant' && prop !== 'size'
 })<{ 
   variant?: 'primary' | 'secondary' | 'elegant' | 'gradient' | 'glass';
   size?: 'small' | 'medium' | 'large';
-  loading?: boolean;
-}>(({ theme, variant: customVariant, size, loading }) => ({
+  isLoading?: boolean;
+}>(({ theme, variant: customVariant, size, isLoading }) => ({
   position: 'relative',
   overflow: 'hidden',
   fontWeight: 600,
@@ -133,7 +133,7 @@ const StyledModernButton = styled(Button, {
   }),
   
   // Loading state
-  ...(loading && {
+  ...(isLoading && {
     pointerEvents: 'none',
     opacity: 0.7,
   }),
@@ -214,7 +214,7 @@ const ModernButton: React.FC<ModernButtonProps> = ({
     <StyledModernButton
       variant={variant}
       size={size}
-      loading={loading}
+      isLoading={loading}
       disabled={disabled || loading}
       startIcon={!loading && icon}
       {...props}

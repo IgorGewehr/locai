@@ -183,7 +183,7 @@ export default function LeadDetailsDrawer({
         <Box sx={{ p: 2, bgcolor: 'background.default' }}>
           <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
             <Avatar sx={{ width: 56, height: 56, mr: 2 }}>
-              {lead.name.charAt(0).toUpperCase()}
+              {lead.name ? lead.name.charAt(0).toUpperCase() : '?'}
             </Avatar>
             <Box sx={{ flex: 1 }}>
               {editMode ? (
@@ -450,8 +450,8 @@ export default function LeadDetailsDrawer({
                       <Card>
                         <CardContent>
                           <Typography variant="subtitle2">
-                            {interaction.type.replace(/_/g, ' ').charAt(0).toUpperCase() +
-                              interaction.type.replace(/_/g, ' ').slice(1)}
+                            {interaction.type ? interaction.type.replace(/_/g, ' ').charAt(0).toUpperCase() +
+                              interaction.type.replace(/_/g, ' ').slice(1) : 'Unknown'}
                           </Typography>
                           <Typography variant="body2" sx={{ mt: 1 }}>
                             {interaction.content}

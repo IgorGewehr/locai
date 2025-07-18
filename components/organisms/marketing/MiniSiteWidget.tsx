@@ -147,8 +147,8 @@ export default function MiniSiteWidget({ tenantId = 'demo' }: MiniSiteWidgetProp
   return (
     <Card 
       sx={{ 
-        height: { xs: 'auto', lg: 400 },
-        minHeight: 350,
+        height: 'auto',
+        minHeight: { xs: 'auto', lg: 350 },
         background: 'rgba(255, 255, 255, 0.08)',
         backdropFilter: 'blur(20px)',
         border: '1px solid rgba(255, 255, 255, 0.15)',
@@ -160,7 +160,7 @@ export default function MiniSiteWidget({ tenantId = 'demo' }: MiniSiteWidgetProp
         }
       }}
     >
-      <CardContent sx={{ p: 4, height: '100%' }}>
+      <CardContent sx={{ p: 4 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 3 }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
             <Box

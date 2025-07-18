@@ -149,7 +149,7 @@ export default function KanbanBoard({
                                 {/* Lead Header */}
                                 <Box sx={{ display: 'flex', alignItems: 'flex-start', mb: 1 }}>
                                   <Avatar sx={{ width: 32, height: 32, fontSize: 14, mr: 1 }}>
-                                    {lead.name.charAt(0).toUpperCase()}
+                                    {lead.name ? lead.name.charAt(0).toUpperCase() : '?'}
                                   </Avatar>
                                   <Box sx={{ flex: 1 }}>
                                     <Typography variant="subtitle2" fontWeight={600} noWrap>

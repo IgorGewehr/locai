@@ -424,7 +424,7 @@ export default function InteractiveCharts({
                         {formatCurrency(item.value)}
                       </Typography>
                       <Typography variant="caption" color="text.secondary">
-                        {item.percentage}%
+                        {!isNaN(item.percentage) ? `${item.percentage}%` : '0%'}
                       </Typography>
                     </Box>
                   </Box>
@@ -573,7 +573,7 @@ export default function InteractiveCharts({
                       {formatCurrency(method.value)}
                     </Typography>
                     <Typography variant="caption" color="text.secondary">
-                      {method.percentage}%
+                      {!isNaN(method.percentage) ? `${method.percentage}%` : '0%'}
                     </Typography>
                   </Box>
                 </Box>

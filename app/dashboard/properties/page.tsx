@@ -352,7 +352,7 @@ export default function PropertiesPage() {
                 <Box sx={{ position: 'absolute', top: 12, left: 12 }}>
                   <Chip
                     icon={propertyTypeIcons[property.category] || <Home />}
-                    label={property.category.charAt(0).toUpperCase() + property.category.slice(1)}
+                    label={property.category ? property.category.charAt(0).toUpperCase() + property.category.slice(1) : 'Outros'}
                     size="small"
                     sx={{
                       backgroundColor: 'rgba(255, 255, 255, 0.95)',

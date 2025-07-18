@@ -82,7 +82,7 @@ export default function ClientScore({
                 color: `${color}.main`
               }}
             >
-              {score}
+              {!isNaN(score) ? score : 0}
             </Typography>
           </Box>
         </Box>

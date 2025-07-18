@@ -98,7 +98,7 @@ export default function DashboardBreadcrumb({
         
         if (parentMapping) {
           breadcrumbs.push({
-            label: segment.charAt(0).toUpperCase() + segment.slice(1),
+            label: segment ? segment.charAt(0).toUpperCase() + segment.slice(1) : 'Unknown',
             href: undefined,
             icon: parentMapping.icon,
             active: true,
