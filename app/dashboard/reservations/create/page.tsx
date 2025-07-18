@@ -274,7 +274,7 @@ export default function CreateReservationPage() {
                   renderOption={(props, option) => {
                     const { key, ...otherProps } = props;
                     return (
-                      <Box component="li" key={key} {...otherProps}>
+                      <Box component="li" key={key || `property-${option.id}`} {...otherProps}>
                         <Box sx={{ display: 'flex', alignItems: 'center', width: '100%' }}>
                           <Home sx={{ mr: 2, color: 'text.secondary' }} />
                           <Box sx={{ flex: 1 }}>
@@ -328,7 +328,7 @@ export default function CreateReservationPage() {
                     renderOption={(props, option) => {
                       const { key, ...otherProps } = props;
                       return (
-                        <Box component="li" key={key} {...otherProps}>
+                        <Box component="li" key={key || `client-${option.id}`} {...otherProps}>
                           <Box sx={{ display: 'flex', alignItems: 'center', width: '100%' }}>
                             <Avatar sx={{ mr: 2, width: 32, height: 32, fontSize: '0.875rem' }}>
                               {option.name ? option.name.charAt(0) : '?'}
@@ -353,7 +353,7 @@ export default function CreateReservationPage() {
                   />
                 ) : (
                   <Grid container spacing={2}>
-                    <Grid item xs={12}>
+                    <Grid item xs={12} key="client-name">
                       <TextField
                         fullWidth
                         label="Nome do Cliente"
@@ -365,7 +365,7 @@ export default function CreateReservationPage() {
                         }}
                       />
                     </Grid>
-                    <Grid item xs={12} sm={6}>
+                    <Grid item xs={12} sm={6} key="client-phone">
                       <TextField
                         fullWidth
                         label="Telefone"
@@ -377,7 +377,7 @@ export default function CreateReservationPage() {
                         }}
                       />
                     </Grid>
-                    <Grid item xs={12} sm={6}>
+                    <Grid item xs={12} sm={6} key="client-email">
                       <TextField
                         fullWidth
                         label="Email"
@@ -408,7 +408,7 @@ export default function CreateReservationPage() {
                 </Box>
                 <LocalizationProvider dateAdapter={AdapterDateFns} adapterLocale={ptBR}>
                   <Grid container spacing={2}>
-                    <Grid item xs={12} sm={6}>
+                    <Grid item xs={12} sm={6} key="checkin-date">
                       <DatePicker
                         label="Check-in"
                         value={formData.checkIn}
@@ -421,7 +421,7 @@ export default function CreateReservationPage() {
                         }}
                       />
                     </Grid>
-                    <Grid item xs={12} sm={6}>
+                    <Grid item xs={12} sm={6} key="checkout-date">
                       <DatePicker
                         label="Check-out"
                         value={formData.checkOut}
@@ -447,7 +447,7 @@ export default function CreateReservationPage() {
                   <Typography variant="h6">Detalhes da Hospedagem</Typography>
                 </Box>
                 <Grid container spacing={2}>
-                  <Grid item xs={12} sm={6}>
+                  <Grid item xs={12} sm={6} key="guests-count">
                     <TextField
                       fullWidth
                       label="Número de Hóspedes"
@@ -461,7 +461,7 @@ export default function CreateReservationPage() {
                       required
                     />
                   </Grid>
-                  <Grid item xs={12} sm={6}>
+                  <Grid item xs={12} sm={6} key="total-amount">
                     <TextField
                       fullWidth
                       label="Valor Total"
@@ -474,7 +474,7 @@ export default function CreateReservationPage() {
                       required
                     />
                   </Grid>
-                  <Grid item xs={12}>
+                  <Grid item xs={12} key="notes">
                     <TextField
                       fullWidth
                       label="Observações"
@@ -507,7 +507,7 @@ export default function CreateReservationPage() {
                 </Box>
 
                 <Grid container spacing={3}>
-                  <Grid item xs={12} md={6}>
+                  <Grid item xs={12} md={6} key="property-info">
                     <Paper sx={{ p: 2, bgcolor: 'background.default' }}>
                       <Typography variant="subtitle1" fontWeight={600} gutterBottom>
                         Propriedade
@@ -527,7 +527,7 @@ export default function CreateReservationPage() {
                     </Paper>
                   </Grid>
 
-                  <Grid item xs={12} md={6}>
+                  <Grid item xs={12} md={6} key="client-info">
                     <Paper sx={{ p: 2, bgcolor: 'background.default' }}>
                       <Typography variant="subtitle1" fontWeight={600} gutterBottom>
                         Cliente
@@ -547,13 +547,13 @@ export default function CreateReservationPage() {
                     </Paper>
                   </Grid>
 
-                  <Grid item xs={12}>
+                  <Grid item xs={12} key="reservation-details">
                     <Paper sx={{ p: 2, bgcolor: 'primary.50' }}>
                       <Typography variant="subtitle1" fontWeight={600} gutterBottom>
                         Detalhes da Reserva
                       </Typography>
                       <Grid container spacing={2}>
-                        <Grid item xs={6} sm={3}>
+                        <Grid item xs={6} sm={3} key="checkin-detail">
                           <Box>
                             <Typography variant="caption" color="text.secondary">
                               Check-in
@@ -563,7 +563,7 @@ export default function CreateReservationPage() {
                             </Typography>
                           </Box>
                         </Grid>
-                        <Grid item xs={6} sm={3}>
+                        <Grid item xs={6} sm={3} key="checkout-detail">
                           <Box>
                             <Typography variant="caption" color="text.secondary">
                               Check-out
@@ -573,7 +573,7 @@ export default function CreateReservationPage() {
                             </Typography>
                           </Box>
                         </Grid>
-                        <Grid item xs={6} sm={3}>
+                        <Grid item xs={6} sm={3} key="guests-detail">
                           <Box>
                             <Typography variant="caption" color="text.secondary">
                               Hóspedes
@@ -583,7 +583,7 @@ export default function CreateReservationPage() {
                             </Typography>
                           </Box>
                         </Grid>
-                        <Grid item xs={6} sm={3}>
+                        <Grid item xs={6} sm={3} key="total-detail">
                           <Box>
                             <Typography variant="caption" color="text.secondary">
                               Valor Total
@@ -636,8 +636,8 @@ export default function CreateReservationPage() {
       <Card sx={{ mb: 4 }}>
         <CardContent>
           <Stepper activeStep={activeStep} alternativeLabel>
-            {steps.map((label) => (
-              <Step key={label}>
+            {steps.map((label, index) => (
+              <Step key={`step-${index}`}>
                 <StepLabel>{label}</StepLabel>
               </Step>
             ))}

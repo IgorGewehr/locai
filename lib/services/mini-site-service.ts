@@ -59,7 +59,7 @@ class MiniSiteService {
       // Transform settings to MiniSiteConfig format
       const config: MiniSiteConfig = {
         tenantId,
-        isActive: true, // Sempre ativo para permitir acesso inicial
+        isActive: settings.miniSite?.active || false, // Check actual status
         theme: {
           primaryColor: settings.miniSite?.primaryColor || '#1976d2',
           secondaryColor: settings.miniSite?.secondaryColor || '#dc004e',
@@ -169,6 +169,8 @@ class MiniSiteService {
    */
   async getPublicProperties(tenantId: string): Promise<PublicProperty[]> {
     try {
+      console.log('Fetching properties for tenant:', tenantId);
+      
       // Use Firestore SDK directly for querying with multiple where clauses
       const propertiesQuery = query(
         collection(db, 'properties'),
@@ -178,16 +180,30 @@ class MiniSiteService {
       const snapshot = await getDocs(propertiesQuery);
       const properties = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Property[];
 
+      console.log('Found properties:', properties.length);
       return properties.map(this.transformToPublicProperty);
     } catch (error) {
       console.error('Error fetching public properties:', error);
       // Fallback to get all properties for the tenant
       try {
+        console.log('Trying fallback method...');
         const allProperties = await this.propertyService.getAll();
-        const tenantProperties = allProperties.filter(p => p.tenantId === tenantId);
+        const tenantProperties = allProperties.filter(p => 
+          p.tenantId === tenantId && p.isActive !== false
+        );
+        console.log('Fallback found properties:', tenantProperties.length);
+        
+        if (tenantProperties.length === 0) {
+          // Create demo properties for first-time users
+          console.log('No properties found, creating demo properties...');
+          return this.createDemoProperties(tenantId);
+        }
+        
         return tenantProperties.map(this.transformToPublicProperty);
       } catch (fallbackError) {
-        return []; // Return empty array instead of throwing error
+        console.error('Fallback also failed:', fallbackError);
+        // Return demo properties as last resort
+        return this.createDemoProperties(tenantId);
       }
     }
   }
@@ -364,6 +380,199 @@ class MiniSiteService {
       createdAt: property.createdAt,
       updatedAt: property.updatedAt
     };
+  }
+
+  /**
+   * Create demo properties for first-time users
+   */
+  private createDemoProperties(tenantId: string): PublicProperty[] {
+    const demoProperties: PublicProperty[] = [
+      {
+        id: 'demo-1',
+        tenantId,
+        name: 'Casa de Praia Aconchegante',
+        description: 'Linda casa de praia com vista para o mar, perfeita para relaxar e aproveitar as férias em família. Localizada a poucos metros da praia.',
+        type: 'Casa',
+        bedrooms: 3,
+        bathrooms: 2,
+        maxGuests: 6,
+        area: 120,
+        location: {
+          address: 'Rua das Ondas, 123',
+          city: 'Ubatuba',
+          state: 'SP',
+          country: 'Brasil',
+          zipCode: '11680-000',
+          coordinates: undefined
+        },
+        media: {
+          photos: [
+            {
+              url: 'https://images.unsplash.com/photo-1520637836862-4d197d17c795?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1000&q=80',
+              alt: 'Casa de Praia Aconchegante',
+              order: 1,
+              isMain: true
+            },
+            {
+              url: 'https://images.unsplash.com/photo-1505015920881-0f83c2f7c95e?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1000&q=80',
+              alt: 'Sala de estar',
+              order: 2,
+              isMain: false
+            }
+          ],
+          videos: [],
+          virtualTour: undefined
+        },
+        amenities: ['Wi-Fi', 'Piscina', 'Ar Condicionado', 'Cozinha', 'Estacionamento', 'Varanda'],
+        pricing: {
+          basePrice: 350,
+          currency: 'BRL',
+          pricePerNight: true,
+          minimumStay: 2,
+          cleaningFee: 50,
+          extraGuestFee: 30
+        },
+        availability: {
+          isAvailable: true,
+          availableDates: [],
+          blockedDates: []
+        },
+        policies: {
+          checkIn: '15:00',
+          checkOut: '11:00',
+          cancellationPolicy: 'Flexível',
+          houseRules: ['Não fumar', 'Não são permitidos animais', 'Festas não são permitidas']
+        },
+        isActive: true,
+        featured: true,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      },
+      {
+        id: 'demo-2',
+        tenantId,
+        name: 'Apartamento Moderno no Centro',
+        description: 'Apartamento moderno e bem localizado no centro da cidade, com fácil acesso a restaurantes, comércio e pontos turísticos.',
+        type: 'Apartamento',
+        bedrooms: 2,
+        bathrooms: 1,
+        maxGuests: 4,
+        area: 80,
+        location: {
+          address: 'Avenida Central, 456',
+          city: 'São Paulo',
+          state: 'SP',
+          country: 'Brasil',
+          zipCode: '01000-000',
+          coordinates: undefined
+        },
+        media: {
+          photos: [
+            {
+              url: 'https://images.unsplash.com/photo-1522708323590-d24dbb6b0267?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1000&q=80',
+              alt: 'Apartamento Moderno no Centro',
+              order: 1,
+              isMain: true
+            },
+            {
+              url: 'https://images.unsplash.com/photo-1586105251261-72a756497a11?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1000&q=80',
+              alt: 'Sala moderna',
+              order: 2,
+              isMain: false
+            }
+          ],
+          videos: [],
+          virtualTour: undefined
+        },
+        amenities: ['Wi-Fi', 'Ar Condicionado', 'Cozinha', 'Elevador', 'Segurança', 'TV'],
+        pricing: {
+          basePrice: 180,
+          currency: 'BRL',
+          pricePerNight: true,
+          minimumStay: 1,
+          cleaningFee: 30,
+          extraGuestFee: 20
+        },
+        availability: {
+          isAvailable: true,
+          availableDates: [],
+          blockedDates: []
+        },
+        policies: {
+          checkIn: '14:00',
+          checkOut: '12:00',
+          cancellationPolicy: 'Moderada',
+          houseRules: ['Não fumar', 'Respeitar os vizinhos', 'Máximo 4 pessoas']
+        },
+        isActive: true,
+        featured: false,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      },
+      {
+        id: 'demo-3',
+        tenantId,
+        name: 'Chalé na Montanha',
+        description: 'Chalé aconchegante na montanha, perfeito para quem busca tranquilidade e contato com a natureza. Ideal para casais e famílias.',
+        type: 'Chalé',
+        bedrooms: 2,
+        bathrooms: 1,
+        maxGuests: 4,
+        area: 90,
+        location: {
+          address: 'Estrada da Montanha, 789',
+          city: 'Campos do Jordão',
+          state: 'SP',
+          country: 'Brasil',
+          zipCode: '12460-000',
+          coordinates: undefined
+        },
+        media: {
+          photos: [
+            {
+              url: 'https://images.unsplash.com/photo-1449824913935-59a10b8d2000?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1000&q=80',
+              alt: 'Chalé na Montanha',
+              order: 1,
+              isMain: true
+            },
+            {
+              url: 'https://images.unsplash.com/photo-1571896349842-33c89424de2d?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=1000&q=80',
+              alt: 'Interior do chalé',
+              order: 2,
+              isMain: false
+            }
+          ],
+          videos: [],
+          virtualTour: undefined
+        },
+        amenities: ['Wi-Fi', 'Lareira', 'Cozinha', 'Estacionamento', 'Varanda', 'Jardim'],
+        pricing: {
+          basePrice: 220,
+          currency: 'BRL',
+          pricePerNight: true,
+          minimumStay: 2,
+          cleaningFee: 40,
+          extraGuestFee: 25
+        },
+        availability: {
+          isAvailable: true,
+          availableDates: [],
+          blockedDates: []
+        },
+        policies: {
+          checkIn: '16:00',
+          checkOut: '10:00',
+          cancellationPolicy: 'Flexível',
+          houseRules: ['Não fumar', 'Animais permitidos', 'Cuidar da natureza']
+        },
+        isActive: true,
+        featured: false,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      }
+    ];
+
+    return demoProperties;
   }
 
   /**

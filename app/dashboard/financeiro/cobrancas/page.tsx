@@ -124,7 +124,30 @@ export default function CobrancasConfigPage() {
   const loadSettings = async () => {
     try {
       setLoading(true);
-      const response = await fetch('/api/billing/settings');
+      
+      // Get authentication token
+      const token = localStorage.getItem('auth_token');
+      if (!token) {
+        console.error('Token de autenticação não encontrado');
+        showSnackbar('Erro de autenticação', 'error');
+        return;
+      }
+
+      const response = await fetch('/api/billing/settings', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json',
+        },
+      });
+      
+      if (!response.ok) {
+        if (response.status === 401) {
+          showSnackbar('Token de autenticação inválido', 'error');
+          return;
+        }
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+      
       const data = await response.json();
       
       if (data.settings) {
@@ -138,6 +161,64 @@ export default function CobrancasConfigPage() {
           tone: data.settings.templates.beforeDue.tone,
           autoSend: true
         });
+      } else {
+        // Configurações não encontradas, criar padrões
+        const defaultSettings = {
+          id: '',
+          tenantId: user?.uid || '',
+          enabled: false,
+          defaultReminderDays: 2,
+          defaultOverdueDays: 1,
+          maxReminders: 3,
+          sendTimeStart: '09:00',
+          sendTimeEnd: '18:00',
+          workDays: [1, 2, 3, 4, 5],
+          templates: {
+            beforeDue: {
+              id: 'before_due_default',
+              name: 'Lembrete antes do vencimento',
+              message: 'Sua fatura vence em breve',
+              tone: 'friendly' as const,
+              includePaymentLink: true,
+              includeInvoice: false
+            },
+            onDue: {
+              id: 'on_due_default',
+              name: 'Lembrete no vencimento',
+              message: 'Sua fatura vence hoje',
+              tone: 'friendly' as const,
+              includePaymentLink: true,
+              includeInvoice: false
+            },
+            overdue: {
+              id: 'overdue_default',
+              name: 'Cobrança em atraso',
+              message: 'Sua fatura está em atraso',
+              tone: 'friendly' as const,
+              includePaymentLink: true,
+              includeInvoice: true
+            },
+            receipt: {
+              id: 'receipt_default',
+              name: 'Confirmação de pagamento',
+              message: 'Pagamento confirmado',
+              tone: 'friendly' as const,
+              includePaymentLink: false,
+              includeInvoice: true
+            }
+          },
+          transactionTypes: {
+            all: true,
+            reservation: true,
+            maintenance: true,
+            cleaning: true,
+            commission: true,
+            other: true
+          },
+          createdAt: new Date(),
+          updatedAt: new Date()
+        };
+        setAdvancedSettings(defaultSettings);
       }
     } catch (error) {
       console.error('Erro ao carregar configurações:', error);
@@ -150,9 +231,19 @@ export default function CobrancasConfigPage() {
   const saveSimpleSettings = async () => {
     try {
       setSaving(true);
+      
+      const token = localStorage.getItem('auth_token');
+      if (!token) {
+        showSnackbar('Erro de autenticação', 'error');
+        return;
+      }
+
       const response = await fetch('/api/billing/settings', {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
         body: JSON.stringify({ simpleConfig })
       });
 
@@ -173,9 +264,19 @@ export default function CobrancasConfigPage() {
   const saveAdvancedSettings = async () => {
     try {
       setSaving(true);
+      
+      const token = localStorage.getItem('auth_token');
+      if (!token) {
+        showSnackbar('Erro de autenticação', 'error');
+        return;
+      }
+
       const response = await fetch('/api/billing/settings', {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
         body: JSON.stringify({ settings: advancedSettings })
       });
 
@@ -205,9 +306,18 @@ export default function CobrancasConfigPage() {
 
   const processTestReminders = async () => {
     try {
+      const token = localStorage.getItem('auth_token');
+      if (!token) {
+        showSnackbar('Erro de autenticação', 'error');
+        return;
+      }
+
       const response = await fetch('/api/billing/reminders', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
         body: JSON.stringify({ action: 'process_pending' })
       });
 
@@ -228,42 +338,87 @@ export default function CobrancasConfigPage() {
   }
 
   return (
-    <Box>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-        <Typography variant="h4" component="h1" fontWeight={600}>
-          Configurações de Cobrança
-        </Typography>
-        <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
-          <ToggleButtonGroup
-            value={simpleMode ? 'simple' : 'advanced'}
-            exclusive
-            onChange={(_, value) => value && setSimpleMode(value === 'simple')}
-            size="small"
-          >
-            <ToggleButton value="simple">
-              <Smartphone sx={{ mr: 1 }} />
-              Modo Simples
-            </ToggleButton>
-            <ToggleButton value="advanced">
-              <BusinessCenter sx={{ mr: 1 }} />
-              Modo Avançado
-            </ToggleButton>
-          </ToggleButtonGroup>
+    <Box sx={{ 
+      p: { xs: 2, sm: 3 },
+      background: 'linear-gradient(135deg, #f8faff 0%, #e3f2fd 100%)',
+      minHeight: '100vh',
+      borderRadius: 2
+    }}>
+      <Box sx={{ 
+        display: 'flex', 
+        flexDirection: { xs: 'column', sm: 'row' },
+        justifyContent: 'space-between', 
+        alignItems: { xs: 'flex-start', sm: 'center' },
+        gap: { xs: 2, sm: 0 },
+        mb: 4 
+      }}>
+        <Box>
+          <Typography variant="h4" component="h1" fontWeight={600} gutterBottom sx={{ color: '#1565c0' }}>
+            Configurações de Cobrança
+          </Typography>
+          <Typography variant="body1" sx={{ color: '#1e3a8a', fontWeight: 500 }}>
+            Configure lembretes automáticos via WhatsApp para suas cobranças
+          </Typography>
         </Box>
+        <ToggleButtonGroup
+          value={simpleMode ? 'simple' : 'advanced'}
+          exclusive
+          onChange={(_, value) => value && setSimpleMode(value === 'simple')}
+          size="small"
+          sx={{ 
+            '& .MuiToggleButton-root': { 
+              px: 2, 
+              py: 1,
+              minWidth: 120,
+              fontSize: '0.875rem',
+              '&.Mui-selected': {
+                backgroundColor: 'primary.main',
+                color: 'primary.contrastText',
+                '&:hover': {
+                  backgroundColor: 'primary.dark',
+                }
+              }
+            }
+          }}
+        >
+          <ToggleButton value="simple">
+            <Smartphone sx={{ mr: 1, fontSize: 20 }} />
+            Modo Simples
+          </ToggleButton>
+          <ToggleButton value="advanced">
+            <BusinessCenter sx={{ mr: 1, fontSize: 20 }} />
+            Modo Avançado
+          </ToggleButton>
+        </ToggleButtonGroup>
       </Box>
 
       {simpleMode ? (
         // Modo Simples - Para pequenos proprietários
         <Grid container spacing={3}>
-          <Grid item xs={12} md={8}>
-            <Card>
-              <CardContent>
-                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 3 }}>
+          <Grid item xs={12} lg={8}>
+            <Card 
+              sx={{ 
+                borderRadius: 3,
+                boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)',
+                overflow: 'hidden',
+                background: 'linear-gradient(135deg, #ffffff 0%, #f8faff 100%)',
+                border: '1px solid rgba(21, 101, 192, 0.1)'
+              }}
+            >
+              <CardContent sx={{ p: { xs: 2, sm: 3 } }}>
+                <Box sx={{ 
+                  display: 'flex', 
+                  flexDirection: { xs: 'column', sm: 'row' },
+                  alignItems: { xs: 'flex-start', sm: 'center' },
+                  justifyContent: 'space-between', 
+                  gap: { xs: 2, sm: 0 },
+                  mb: 3 
+                }}>
                   <Box>
-                    <Typography variant="h6" gutterBottom>
+                    <Typography variant="h6" gutterBottom sx={{ color: '#1565c0', fontWeight: 600 }}>
                       Cobrança Automática via WhatsApp
                     </Typography>
-                    <Typography variant="body2" color="text.secondary">
+                    <Typography variant="body2" sx={{ color: '#1e3a8a', fontWeight: 500 }}>
                       Configure lembretes automáticos para seus clientes
                     </Typography>
                   </Box>
@@ -273,9 +428,21 @@ export default function CobrancasConfigPage() {
                         checked={simpleConfig.enabled}
                         onChange={(e) => setSimpleConfig(prev => ({ ...prev, enabled: e.target.checked }))}
                         color="primary"
+                        size="medium"
                       />
                     }
-                    label={simpleConfig.enabled ? 'Ativado' : 'Desativado'}
+                    label={
+                      <Chip 
+                        label={simpleConfig.enabled ? 'Ativado' : 'Desativado'}
+                        color={simpleConfig.enabled ? 'success' : 'default'}
+                        size="small"
+                      />
+                    }
+                    labelPlacement="start"
+                    sx={{ 
+                      m: 0,
+                      '& .MuiFormControlLabel-label': { mr: 1 }
+                    }}
                   />
                 </Box>
 
@@ -284,7 +451,7 @@ export default function CobrancasConfigPage() {
                 <Collapse in={simpleConfig.enabled}>
                   <Grid container spacing={3}>
                     <Grid item xs={12}>
-                      <Typography variant="subtitle1" gutterBottom fontWeight={500}>
+                      <Typography variant="subtitle1" gutterBottom fontWeight={600} sx={{ color: '#1565c0' }}>
                         Quando enviar lembretes?
                       </Typography>
                       <FormControl fullWidth>
@@ -337,7 +504,7 @@ export default function CobrancasConfigPage() {
                     </Grid>
 
                     <Grid item xs={12}>
-                      <Typography variant="subtitle1" gutterBottom fontWeight={500}>
+                      <Typography variant="subtitle1" gutterBottom fontWeight={600} sx={{ color: '#1565c0' }}>
                         Tom da mensagem
                       </Typography>
                       <ToggleButtonGroup
@@ -391,68 +558,117 @@ export default function CobrancasConfigPage() {
             </Card>
           </Grid>
 
-          <Grid item xs={12} md={4}>
+          <Grid item xs={12} lg={4}>
             <Stack spacing={3}>
-              <Card>
+              <Card 
+                sx={{ 
+                  borderRadius: 3,
+                  boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)',
+                  border: '1px solid rgba(21, 101, 192, 0.2)',
+                  background: 'linear-gradient(135deg, #e3f2fd 0%, #ffffff 100%)'
+                }}
+              >
                 <CardContent>
                   <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-                    <Info sx={{ mr: 1, color: 'primary.main' }} />
-                    <Typography variant="h6">Como funciona?</Typography>
+                    <Info sx={{ mr: 1, color: '#1565c0' }} />
+                    <Typography variant="h6" fontWeight={600} sx={{ color: '#1565c0' }}>Como funciona?</Typography>
                   </Box>
                   <List dense>
-                    <ListItem>
+                    <ListItem sx={{ px: 0 }}>
                       <ListItemText 
-                        primary="1. Criação automática"
-                        secondary="Quando você criar uma fatura, o sistema programa os lembretes automaticamente"
+                        primary={
+                          <Typography variant="subtitle2" fontWeight={600} sx={{ color: '#1565c0' }}>
+                            1. Criação automática
+                          </Typography>
+                        }
+                        secondary={
+                          <Typography variant="body2" sx={{ color: '#1e3a8a', fontWeight: 500 }}>
+                            Quando você criar uma fatura, o sistema programa os lembretes automaticamente
+                          </Typography>
+                        }
                       />
                     </ListItem>
-                    <ListItem>
+                    <ListItem sx={{ px: 0 }}>
                       <ListItemText 
-                        primary="2. Envio inteligente"
-                        secondary="Mensagens são enviadas no horário comercial via WhatsApp"
+                        primary={
+                          <Typography variant="subtitle2" fontWeight={600} sx={{ color: '#1565c0' }}>
+                            2. Envio inteligente
+                          </Typography>
+                        }
+                        secondary={
+                          <Typography variant="body2" sx={{ color: '#1e3a8a', fontWeight: 500 }}>
+                            Mensagens são enviadas no horário comercial via WhatsApp
+                          </Typography>
+                        }
                       />
                     </ListItem>
-                    <ListItem>
+                    <ListItem sx={{ px: 0 }}>
                       <ListItemText 
-                        primary="3. Acompanhamento"
-                        secondary="Você recebe notificações sobre respostas e pagamentos"
+                        primary={
+                          <Typography variant="subtitle2" fontWeight={600} sx={{ color: '#1565c0' }}>
+                            3. Acompanhamento
+                          </Typography>
+                        }
+                        secondary={
+                          <Typography variant="body2" sx={{ color: '#1e3a8a', fontWeight: 500 }}>
+                            Você recebe notificações sobre respostas e pagamentos
+                          </Typography>
+                        }
                       />
                     </ListItem>
-                    <ListItem>
+                    <ListItem sx={{ px: 0 }}>
                       <ListItemText 
-                        primary="4. Confirmação automática"
-                        secondary="Quando o cliente pagar, o sistema atualiza automaticamente"
+                        primary={
+                          <Typography variant="subtitle2" fontWeight={600} sx={{ color: '#1565c0' }}>
+                            4. Confirmação automática
+                          </Typography>
+                        }
+                        secondary={
+                          <Typography variant="body2" sx={{ color: '#1e3a8a', fontWeight: 500 }}>
+                            Quando o cliente pagar, o sistema atualiza automaticamente
+                          </Typography>
+                        }
                       />
                     </ListItem>
                   </List>
                 </CardContent>
               </Card>
 
-              <Card>
+              <Card sx={{ 
+                borderRadius: 3,
+                boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)',
+                background: 'linear-gradient(135deg, #e8f5e8 0%, #ffffff 100%)',
+                border: '1px solid rgba(76, 175, 80, 0.2)'
+              }}>
                 <CardContent>
                   <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-                    <TrendingUp sx={{ mr: 1, color: 'success.main' }} />
-                    <Typography variant="h6">Benefícios</Typography>
+                    <TrendingUp sx={{ mr: 1, color: '#2e7d32' }} />
+                    <Typography variant="h6" sx={{ color: '#2e7d32', fontWeight: 600 }}>Benefícios</Typography>
                   </Box>
-                  <Typography variant="body2" paragraph>
+                  <Typography variant="body2" paragraph sx={{ color: '#1b5e20', fontWeight: 500 }}>
                     • Redução de inadimplência em até 40%
                   </Typography>
-                  <Typography variant="body2" paragraph>
+                  <Typography variant="body2" paragraph sx={{ color: '#1b5e20', fontWeight: 500 }}>
                     • Economia de tempo com cobranças manuais
                   </Typography>
-                  <Typography variant="body2" paragraph>
+                  <Typography variant="body2" paragraph sx={{ color: '#1b5e20', fontWeight: 500 }}>
                     • Melhora no relacionamento com clientes
                   </Typography>
-                  <Typography variant="body2">
+                  <Typography variant="body2" sx={{ color: '#1b5e20', fontWeight: 500 }}>
                     • Pagamentos mais rápidos
                   </Typography>
                 </CardContent>
               </Card>
 
               {simpleConfig.enabled && (
-                <Card>
+                <Card sx={{ 
+                  borderRadius: 3,
+                  boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)',
+                  background: 'linear-gradient(135deg, #fff3e0 0%, #ffffff 100%)',
+                  border: '1px solid rgba(255, 152, 0, 0.2)'
+                }}>
                   <CardContent>
-                    <Typography variant="h6" gutterBottom>
+                    <Typography variant="h6" gutterBottom sx={{ color: '#e65100', fontWeight: 600 }}>
                       Ações Rápidas
                     </Typography>
                     <Stack spacing={2}>
@@ -481,44 +697,109 @@ export default function CobrancasConfigPage() {
         </Grid>
       ) : (
         // Modo Avançado - Configurações completas
-        <Card>
-          <CardContent>
-            <Tabs value={tabValue} onChange={(_, newValue) => setTabValue(newValue)}>
-              <Tab label="Configurações Gerais" />
-              <Tab label="Templates de Mensagem" />
-              <Tab label="Horários e Frequência" />
-              <Tab label="Campanhas" />
-            </Tabs>
+        <Card 
+          sx={{ 
+            borderRadius: 3,
+            boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)',
+            overflow: 'hidden',
+            background: 'linear-gradient(135deg, #ffffff 0%, #f8faff 100%)',
+            border: '1px solid rgba(21, 101, 192, 0.1)'
+          }}
+        >
+          <CardContent sx={{ p: 0 }}>
+            <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
+              <Tabs 
+                value={tabValue} 
+                onChange={(_, newValue) => setTabValue(newValue)}
+                variant="scrollable"
+                scrollButtons="auto"
+                sx={{ 
+                  '& .MuiTabs-indicator': {
+                    height: 3,
+                    borderRadius: '3px 3px 0 0'
+                  },
+                  '& .MuiTab-root': {
+                    minWidth: 140,
+                    textTransform: 'none',
+                    fontSize: '0.875rem',
+                    fontWeight: 500,
+                    py: 2
+                  }
+                }}
+              >
+                <Tab 
+                  label="Configurações Gerais" 
+                  icon={<Settings />}
+                  iconPosition="start"
+                  sx={{ gap: 1 }}
+                />
+                <Tab 
+                  label="Templates de Mensagem" 
+                  icon={<Message />}
+                  iconPosition="start"
+                  sx={{ gap: 1 }}
+                />
+                <Tab 
+                  label="Horários e Frequência" 
+                  icon={<Schedule />}
+                  iconPosition="start"
+                  sx={{ gap: 1 }}
+                />
+                <Tab 
+                  label="Campanhas" 
+                  icon={<Campaign />}
+                  iconPosition="start"
+                  sx={{ gap: 1 }}
+                />
+              </Tabs>
+            </Box>
 
             <TabPanel value={tabValue} index={0}>
-              <GeneralSettings settings={settings} onChange={handleAdvancedSettingsChange} />
+              <GeneralSettings settings={advancedSettings} onChange={handleAdvancedSettingsChange} />
             </TabPanel>
 
             <TabPanel value={tabValue} index={1}>
-              <MessageTemplates settings={settings} onChange={handleAdvancedSettingsChange} />
+              <MessageTemplates settings={advancedSettings} onChange={handleAdvancedSettingsChange} />
             </TabPanel>
 
             <TabPanel value={tabValue} index={2}>
-              <ScheduleSettings settings={settings} onChange={handleAdvancedSettingsChange} />
+              <ScheduleSettings settings={advancedSettings} onChange={handleAdvancedSettingsChange} />
             </TabPanel>
 
             <TabPanel value={tabValue} index={3}>
-              <CampaignManager tenantId={user?.tenantId || ''} />
+              <CampaignManager tenantId={user?.uid || ''} />
             </TabPanel>
           </CardContent>
-          {!simpleMode && (
-            <Box sx={{ p: 3, borderTop: 1, borderColor: 'divider', display: 'flex', justifyContent: 'flex-end' }}>
-              <Button
-                variant="contained"
-                size="large"
-                startIcon={<Save />}
-                onClick={saveAdvancedSettings}
-                disabled={saving || !advancedSettings}
-              >
-                {saving ? <CircularProgress size={24} /> : 'Salvar Configurações Avançadas'}
-              </Button>
-            </Box>
-          )}
+          
+          <Box sx={{ 
+            p: 3, 
+            borderTop: 1, 
+            borderColor: 'divider', 
+            background: 'linear-gradient(135deg, #f8faff 0%, #e3f2fd 100%)',
+            display: 'flex', 
+            justifyContent: 'flex-end',
+            gap: 2
+          }}>
+            <Button
+              variant="outlined"
+              size="large"
+              startIcon={<Cancel />}
+              onClick={() => setAdvancedSettings(settings)}
+              disabled={saving}
+            >
+              Cancelar
+            </Button>
+            <Button
+              variant="contained"
+              size="large"
+              startIcon={<Save />}
+              onClick={saveAdvancedSettings}
+              disabled={saving || !advancedSettings}
+              sx={{ minWidth: 180 }}
+            >
+              {saving ? <CircularProgress size={24} /> : 'Salvar Configurações'}
+            </Button>
+          </Box>
         </Card>
       )}
 

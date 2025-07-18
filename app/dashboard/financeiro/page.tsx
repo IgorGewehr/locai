@@ -112,13 +112,18 @@ export default function FinancialPage() {
   }, []);
 
   return (
-    <Box>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 4 }}>
+    <Box sx={{ 
+      background: 'linear-gradient(135deg, #f8faff 0%, #e3f2fd 100%)',
+      minHeight: '100vh',
+      borderRadius: 2,
+      p: { xs: 4, md: 5 }
+    }}>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: { xs: 4, md: 5 } }}>
         <Box>
-          <Typography variant="h4" component="h1" fontWeight={600}>
+          <Typography variant="h4" component="h1" fontWeight={600} sx={{ color: '#1565c0', fontSize: { xs: '1.75rem', md: '2rem', lg: '2.25rem' } }}>
             Financeiro
           </Typography>
-          <Typography variant="subtitle1" color="text.secondary">
+          <Typography variant="subtitle1" sx={{ color: '#1e3a8a', fontWeight: 500, fontSize: { xs: '1rem', md: '1.125rem' } }}>
             Visão geral das finanças e transações
           </Typography>
         </Box>
@@ -128,24 +133,28 @@ export default function FinancialPage() {
       </Box>
 
       {/* Navigation Cards */}
-      <Grid container spacing={3} sx={{ mb: 4 }}>
+      <Grid container spacing={{ xs: 3, md: 4 }} sx={{ mb: { xs: 4, md: 5 } }}>
         <Grid item xs={12} md={4}>
           <Card
             sx={{
               cursor: 'pointer',
               transition: 'all 0.2s',
-              '&:hover': { transform: 'translateY(-2px)', boxShadow: 3 }
+              background: 'linear-gradient(135deg, #ffffff 0%, #f8faff 100%)',
+              border: '1px solid rgba(21, 101, 192, 0.1)',
+              borderRadius: 3,
+              boxShadow: '0 4px 20px rgba(0, 0, 0, 0.1)',
+              '&:hover': { transform: 'translateY(-2px)', boxShadow: '0 8px 32px rgba(0, 0, 0, 0.15)' }
             }}
             onClick={() => router.push('/dashboard/financeiro/transacoes')}
           >
             <CardContent>
               <Stack direction="row" alignItems="center" spacing={2}>
-                <Receipt color="primary" sx={{ fontSize: 40 }} />
+                <Receipt sx={{ fontSize: 40, color: '#1565c0' }} />
                 <Box>
-                  <Typography variant="h6" fontWeight={600}>
+                  <Typography variant="h6" fontWeight={600} sx={{ color: '#1565c0' }}>
                     Transações
                   </Typography>
-                  <Typography variant="body2" color="text.secondary">
+                  <Typography variant="body2" sx={{ color: '#1e3a8a', fontWeight: 500 }}>
                     Gerenciar receitas e despesas
                   </Typography>
                 </Box>
@@ -159,18 +168,22 @@ export default function FinancialPage() {
             sx={{
               cursor: 'pointer',
               transition: 'all 0.2s',
-              '&:hover': { transform: 'translateY(-2px)', boxShadow: 3 }
+              background: 'linear-gradient(135deg, #ffffff 0%, #fff3e0 100%)',
+              border: '1px solid rgba(255, 152, 0, 0.2)',
+              borderRadius: 3,
+              boxShadow: '0 4px 20px rgba(0, 0, 0, 0.1)',
+              '&:hover': { transform: 'translateY(-2px)', boxShadow: '0 8px 32px rgba(0, 0, 0, 0.15)' }
             }}
             onClick={() => router.push('/dashboard/financeiro/cobrancas')}
           >
             <CardContent>
               <Stack direction="row" alignItems="center" spacing={2}>
-                <Payment color="warning" sx={{ fontSize: 40 }} />
+                <Payment sx={{ fontSize: 40, color: '#e65100' }} />
                 <Box>
-                  <Typography variant="h6" fontWeight={600}>
+                  <Typography variant="h6" fontWeight={600} sx={{ color: '#e65100' }}>
                     Cobranças
                   </Typography>
-                  <Typography variant="body2" color="text.secondary">
+                  <Typography variant="body2" sx={{ color: '#bf360c', fontWeight: 500 }}>
                     Automatizar e acompanhar cobranças
                   </Typography>
                 </Box>
@@ -184,18 +197,22 @@ export default function FinancialPage() {
             sx={{
               cursor: 'pointer',
               transition: 'all 0.2s',
-              '&:hover': { transform: 'translateY(-2px)', boxShadow: 3 }
+              background: 'linear-gradient(135deg, #ffffff 0%, #e8f5e8 100%)',
+              border: '1px solid rgba(76, 175, 80, 0.2)',
+              borderRadius: 3,
+              boxShadow: '0 4px 20px rgba(0, 0, 0, 0.1)',
+              '&:hover': { transform: 'translateY(-2px)', boxShadow: '0 8px 32px rgba(0, 0, 0, 0.15)' }
             }}
             onClick={() => router.push('/dashboard/financeiro/relatorios')}
           >
             <CardContent>
               <Stack direction="row" alignItems="center" spacing={2}>
-                <Assessment color="success" sx={{ fontSize: 40 }} />
+                <Assessment sx={{ fontSize: 40, color: '#2e7d32' }} />
                 <Box>
-                  <Typography variant="h6" fontWeight={600}>
+                  <Typography variant="h6" fontWeight={600} sx={{ color: '#2e7d32' }}>
                     Relatórios
                   </Typography>
-                  <Typography variant="body2" color="text.secondary">
+                  <Typography variant="body2" sx={{ color: '#1b5e20', fontWeight: 500 }}>
                     Análises e dashboards
                   </Typography>
                 </Box>
@@ -208,21 +225,26 @@ export default function FinancialPage() {
       {/* Financial Overview */}
       <Grid container spacing={3}>
         <Grid item xs={12} sm={6} md={3}>
-          <Card>
+          <Card sx={{ 
+            background: 'linear-gradient(135deg, #ffffff 0%, #f8faff 100%)',
+            border: '1px solid rgba(21, 101, 192, 0.1)',
+            borderRadius: 3,
+            boxShadow: '0 4px 20px rgba(0, 0, 0, 0.1)'
+          }}>
             <CardContent>
               <Stack direction="row" alignItems="center" justifyContent="space-between">
                 <Box>
-                  <Typography variant="subtitle2" color="text.secondary">
+                  <Typography variant="subtitle2" sx={{ color: '#1e3a8a', fontWeight: 500 }}>
                     Saldo Total
                   </Typography>
-                  <Typography variant="h5" fontWeight={600} color={overview.totalBalance >= 0 ? 'success.main' : 'error.main'}>
+                  <Typography variant="h5" fontWeight={600} color={overview.totalBalance >= 0 ? '#2e7d32' : '#d32f2f'}>
                     R$ {overview.totalBalance.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                   </Typography>
                 </Box>
                 {overview.totalBalance >= 0 ? (
-                  <TrendingUp color="success" />
+                  <TrendingUp sx={{ color: '#2e7d32' }} />
                 ) : (
-                  <TrendingDown color="error" />
+                  <TrendingDown sx={{ color: '#d32f2f' }} />
                 )}
               </Stack>
             </CardContent>
@@ -230,54 +252,69 @@ export default function FinancialPage() {
         </Grid>
 
         <Grid item xs={12} sm={6} md={3}>
-          <Card>
+          <Card sx={{ 
+            background: 'linear-gradient(135deg, #ffffff 0%, #e8f5e8 100%)',
+            border: '1px solid rgba(76, 175, 80, 0.2)',
+            borderRadius: 3,
+            boxShadow: '0 4px 20px rgba(0, 0, 0, 0.1)'
+          }}>
             <CardContent>
               <Stack direction="row" alignItems="center" justifyContent="space-between">
                 <Box>
-                  <Typography variant="subtitle2" color="text.secondary">
+                  <Typography variant="subtitle2" sx={{ color: '#1b5e20', fontWeight: 500 }}>
                     Receita Mensal
                   </Typography>
-                  <Typography variant="h5" fontWeight={600} color="success.main">
+                  <Typography variant="h5" fontWeight={600} sx={{ color: '#2e7d32' }}>
                     R$ {overview.monthlyIncome.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                   </Typography>
                 </Box>
-                <TrendingUp color="success" />
+                <TrendingUp sx={{ color: '#2e7d32' }} />
               </Stack>
             </CardContent>
           </Card>
         </Grid>
 
         <Grid item xs={12} sm={6} md={3}>
-          <Card>
+          <Card sx={{ 
+            background: 'linear-gradient(135deg, #ffffff 0%, #ffebee 100%)',
+            border: '1px solid rgba(244, 67, 54, 0.2)',
+            borderRadius: 3,
+            boxShadow: '0 4px 20px rgba(0, 0, 0, 0.1)'
+          }}>
             <CardContent>
               <Stack direction="row" alignItems="center" justifyContent="space-between">
                 <Box>
-                  <Typography variant="subtitle2" color="text.secondary">
+                  <Typography variant="subtitle2" sx={{ color: '#b71c1c', fontWeight: 500 }}>
                     Despesas Mensais
                   </Typography>
-                  <Typography variant="h5" fontWeight={600} color="error.main">
+                  <Typography variant="h5" fontWeight={600} sx={{ color: '#d32f2f' }}>
                     R$ {overview.monthlyExpenses.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                   </Typography>
                 </Box>
-                <TrendingDown color="error" />
+                <TrendingDown sx={{ color: '#d32f2f' }} />
               </Stack>
             </CardContent>
           </Card>
         </Grid>
 
         <Grid item xs={12} sm={6} md={3}>
-          <Card>
+          <Card sx={{ 
+            background: 'linear-gradient(135deg, #ffffff 0%, #fff3e0 100%)',
+            border: '1px solid rgba(255, 152, 0, 0.2)',
+            borderRadius: 3,
+            boxShadow: '0 4px 20px rgba(0, 0, 0, 0.1)'
+          }}>
             <CardContent>
               <Stack direction="row" alignItems="center" justifyContent="space-between">
                 <Box>
-                  <Typography variant="subtitle2" color="text.secondary">
+                  <Typography variant="subtitle2" sx={{ color: '#bf360c', fontWeight: 500 }}>
                     Pendentes
                   </Typography>
-                  <Typography variant="h5" fontWeight={600} color="warning.main">
+                  <Typography variant="h5" fontWeight={600} sx={{ color: '#e65100' }}>
                     {overview.pendingTransactions}
                   </Typography>
                 </Box>
-                <Receipt color="warning" />
+                <Receipt sx={{ color: '#e65100' }} />
               </Stack>
             </CardContent>
           </Card>
@@ -285,16 +322,29 @@ export default function FinancialPage() {
 
         {/* Recent Transactions */}
         <Grid item xs={12}>
-          <Card>
+          <Card sx={{ 
+            background: 'linear-gradient(135deg, #ffffff 0%, #f8faff 100%)',
+            border: '1px solid rgba(21, 101, 192, 0.1)',
+            borderRadius: 3,
+            boxShadow: '0 4px 20px rgba(0, 0, 0, 0.1)'
+          }}>
             <CardContent>
               <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-                <Typography variant="h6" fontWeight={600}>
+                <Typography variant="h6" fontWeight={600} sx={{ color: '#1565c0' }}>
                   Transações Recentes
                 </Typography>
                 <Button
                   variant="outlined"
                   size="small"
                   onClick={() => router.push('/dashboard/financeiro/transacoes')}
+                  sx={{ 
+                    borderColor: '#1565c0',
+                    color: '#1565c0',
+                    '&:hover': {
+                      borderColor: '#1565c0',
+                      backgroundColor: 'rgba(21, 101, 192, 0.04)'
+                    }
+                  }}
                 >
                   Ver Todas
                 </Button>
@@ -302,9 +352,9 @@ export default function FinancialPage() {
               <Divider sx={{ mb: 2 }} />
               
               {loading ? (
-                <Typography color="text.secondary">Carregando...</Typography>
+                <Typography sx={{ color: '#1e3a8a', fontWeight: 500 }}>Carregando...</Typography>
               ) : overview.recentTransactions.length === 0 ? (
-                <Typography color="text.secondary">Nenhuma transação encontrada</Typography>
+                <Typography sx={{ color: '#1e3a8a', fontWeight: 500 }}>Nenhuma transação encontrada</Typography>
               ) : (
                 <Stack spacing={2}>
                   {overview.recentTransactions.map((transaction) => (
@@ -315,16 +365,22 @@ export default function FinancialPage() {
                         justifyContent: 'space-between',
                         alignItems: 'center',
                         p: 2,
-                        border: '1px solid',
-                        borderColor: 'divider',
-                        borderRadius: 1,
+                        border: '1px solid rgba(21, 101, 192, 0.1)',
+                        borderRadius: 2,
+                        background: 'rgba(248, 250, 255, 0.5)',
+                        '&:hover': {
+                          background: 'rgba(248, 250, 255, 0.8)',
+                          transform: 'translateY(-1px)',
+                          boxShadow: '0 2px 8px rgba(0, 0, 0, 0.1)'
+                        },
+                        transition: 'all 0.2s ease'
                       }}
                     >
                       <Box>
-                        <Typography variant="subtitle2">
+                        <Typography variant="subtitle2" sx={{ color: '#1565c0', fontWeight: 600 }}>
                           {transaction.description}
                         </Typography>
-                        <Typography variant="caption" color="text.secondary">
+                        <Typography variant="caption" sx={{ color: '#1e3a8a', fontWeight: 500 }}>
                           {transaction.date.toLocaleDateString('pt-BR')} • {transaction.category}
                         </Typography>
                       </Box>
@@ -332,7 +388,7 @@ export default function FinancialPage() {
                         <Typography
                           variant="subtitle1"
                           fontWeight={600}
-                          color={transaction.type === 'income' ? 'success.main' : 'error.main'}
+                          color={transaction.type === 'income' ? '#2e7d32' : '#d32f2f'}
                         >
                           {transaction.type === 'income' ? '+' : '-'}R$ {transaction.amount.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
                         </Typography>

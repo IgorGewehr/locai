@@ -217,6 +217,27 @@ export default function PropertyGridModern({ properties: initialProperties, conf
 
   return (
     <Container maxWidth="xl" sx={{ py: 4 }}>
+      {/* Demo Properties Notice */}
+      {properties.some(p => p.id.startsWith('demo-')) && (
+        <Alert
+          severity="info"
+          sx={{
+            mb: 3,
+            borderRadius: 2,
+            backgroundColor: alpha(config.theme.primaryColor, 0.1),
+            border: `1px solid ${alpha(config.theme.primaryColor, 0.2)}`,
+            '& .MuiAlert-icon': {
+              color: config.theme.primaryColor,
+            },
+          }}
+        >
+          <Typography variant="body2">
+            <strong>Propriedades de Demonstração:</strong> Estas são propriedades de exemplo para você ver como o mini-site funciona. 
+            Cadastre suas propriedades reais no dashboard para substituí-las.
+          </Typography>
+        </Alert>
+      )}
+
       {/* Enhanced Hero Section */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}

@@ -77,8 +77,9 @@ export default function DashboardLayout({
           }}>
             <Box sx={{
               width: '100%',
-              maxWidth: 1600, // Limita a largura máxima do conteúdo
-              p: { xs: 2, sm: 2.5, md: 3 },
+              maxWidth: 1800, // Aumenta largura máxima para melhor uso do espaço
+              p: { xs: 3, sm: 4, md: 5 }, // Aumenta padding para mais espaço
+              mx: 'auto', // Centraliza o conteúdo
             }}>
               {children}
             </Box>

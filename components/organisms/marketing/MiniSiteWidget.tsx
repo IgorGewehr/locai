@@ -68,7 +68,7 @@ export default function MiniSiteWidget({ tenantId = 'demo' }: MiniSiteWidgetProp
         const settings = await configResponse.json();
         if (settings?.miniSite) {
           setMiniSiteConfig({
-            active: true, // Sempre ativo para permitir configuração inicial
+            active: settings.miniSite.active || false, // Usa o valor real do banco
             title: settings.miniSite.title || 'Minha Imobiliária',
             description: settings.miniSite.description || 'Encontre o imóvel perfeito para você',
             primaryColor: settings.miniSite.primaryColor || '#1976d2',
@@ -76,7 +76,7 @@ export default function MiniSiteWidget({ tenantId = 'demo' }: MiniSiteWidgetProp
         } else {
           // Set default config if no miniSite settings exist
           setMiniSiteConfig({
-            active: true, // Ativo por padrão para permitir configuração
+            active: false, // Inativo por padrão se não há configuração
             title: 'Minha Imobiliária',
             description: 'Encontre o imóvel perfeito para você',
             primaryColor: '#1976d2',
@@ -129,7 +129,29 @@ export default function MiniSiteWidget({ tenantId = 'demo' }: MiniSiteWidgetProp
   };
 
   const openSettings = () => {
-    router.push('/dashboard/settings?tab=3'); // Tab 3 is the Mini-Site tab
+    router.push('/dashboard/mini-site'); // Vai direto para a página de mini-site
+  };
+
+  const activateMiniSite = async () => {
+    try {
+      setLoading(true);
+      const response = await fetch('/api/fix-mini-site-auto', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tenantId: user?.uid || 'default-tenant' })
+      });
+      
+      if (response.ok) {
+        // Recarregar dados após ativação
+        await loadMiniSiteData();
+      } else {
+        console.error('Erro ao ativar mini-site');
+      }
+    } catch (error) {
+      console.error('Erro ao ativar mini-site:', error);
+    } finally {
+      setLoading(false);
+    }
   };
 
   if (loading) {
@@ -303,19 +325,40 @@ export default function MiniSiteWidget({ tenantId = 'demo' }: MiniSiteWidgetProp
               </Tooltip>
             </Box>
           ) : (
-            <Alert 
-              severity="info" 
-              sx={{ 
-                background: 'rgba(59, 130, 246, 0.1)',
-                border: '1px solid rgba(59, 130, 246, 0.2)',
-                color: '#60a5fa',
-                '& .MuiAlert-icon': {
-                  color: '#60a5fa'
-                }
-              }}
-            >
-              Ative seu mini-site nas configurações para começar a receber visitas!
-            </Alert>
+            <>
+              <Alert 
+                severity="info" 
+                sx={{ 
+                  background: 'rgba(59, 130, 246, 0.1)',
+                  border: '1px solid rgba(59, 130, 246, 0.2)',
+                  color: '#60a5fa',
+                  '& .MuiAlert-icon': {
+                    color: '#60a5fa'
+                  },
+                  mb: 2
+                }}
+              >
+                Ative seu mini-site para começar a receber visitas!
+              </Alert>
+              <Button
+                variant="contained"
+                onClick={activateMiniSite}
+                disabled={loading}
+                sx={{ 
+                  width: '100%',
+                  background: 'linear-gradient(135deg, #ec4899, #f43f5e)',
+                  '&:hover': {
+                    background: 'linear-gradient(135deg, #db2777, #e11d48)',
+                  },
+                  textTransform: 'none',
+                  fontWeight: 600,
+                  py: 1.5,
+                  borderRadius: '12px',
+                }}
+              >
+                {loading ? 'Ativando...' : '🚀 Ativar Mini-Site'}
+              </Button>
+            </>
           )}
         </Box>
 

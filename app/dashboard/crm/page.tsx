@@ -288,12 +288,12 @@ export default function CRMPage() {
   return (
     <Box>
       {/* Header */}
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: { xs: 4, md: 5 } }}>
         <Box>
-          <Typography variant="h4" component="h1" fontWeight={600}>
+          <Typography variant="h4" component="h1" fontWeight={600} sx={{ fontSize: { xs: '1.75rem', md: '2rem', lg: '2.25rem' } }}>
             CRM - Gestão de Relacionamento
           </Typography>
-          <Typography variant="body2" color="text.secondary">
+          <Typography variant="body2" color="text.secondary" sx={{ fontSize: { xs: '0.875rem', md: '1rem' } }}>
             {totalLeads} leads • {conversionRate.toFixed(1)}% taxa de conversão
           </Typography>
         </Box>

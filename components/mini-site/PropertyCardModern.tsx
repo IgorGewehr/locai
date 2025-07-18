@@ -292,6 +292,31 @@ export default function PropertyCardModern({
         </Box>
       )}
 
+      {/* Demo Badge */}
+      {property.id.startsWith('demo-') && (
+        <Box
+          sx={{
+            position: 'absolute',
+            top: property.featured ? 52 : 12,
+            left: 12,
+          }}
+        >
+          <Chip
+            label="Demo"
+            size="small"
+            sx={{
+              background: alpha(theme.palette.warning.main, 0.9),
+              color: 'white',
+              fontWeight: 600,
+              boxShadow: `0 4px 12px ${alpha(theme.palette.warning.main, 0.3)}`,
+              '& .MuiChip-label': {
+                px: 2,
+              },
+            }}
+          />
+        </Box>
+      )}
+
       {/* Pricing Badge */}
       {config.features.showPricing && (
         <Box

@@ -65,6 +65,12 @@ export async function GET(
       );
     }
 
+    // For debugging - always allow access if config exists
+    console.log(`Mini-site config for ${tenantId}:`, {
+      isActive: config.isActive,
+      businessName: config.contactInfo.businessName
+    });
+
     // Get public properties
     const properties = await miniSiteService.getPublicProperties(tenantId);
 

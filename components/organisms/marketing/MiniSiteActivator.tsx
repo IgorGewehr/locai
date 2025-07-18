@@ -20,7 +20,7 @@ import {
   Settings,
   Public,
 } from '@mui/icons-material';
-import { useAuth } from '@/contexts/AuthContext';
+import { useAuth } from '@/lib/hooks/useAuth';
 
 interface MiniSiteActivatorProps {
   onActivated?: () => void;

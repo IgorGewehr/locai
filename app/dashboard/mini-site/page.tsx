@@ -7,8 +7,10 @@ import {
   Typography,
   CircularProgress,
   Alert,
+  Button,
+  Stack,
 } from '@mui/material';
-import { useAuth } from '@/contexts/AuthContext';
+import { useAuth } from '@/lib/hooks/useAuth';
 import MiniSiteActivator from '@/components/organisms/marketing/MiniSiteActivator';
 import MiniSiteWidget from '@/components/organisms/marketing/MiniSiteWidget';
 
@@ -17,6 +19,7 @@ export default function MiniSitePage() {
   const [loading, setLoading] = useState(true);
   const [miniSiteActive, setMiniSiteActive] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [testMode, setTestMode] = useState(false);
 
   useEffect(() => {
     const checkMiniSiteStatus = async () => {
@@ -44,6 +47,34 @@ export default function MiniSitePage() {
 
   const handleActivated = () => {
     setMiniSiteActive(true);
+  };
+
+  const handleTestActivation = async () => {
+    setTestMode(true);
+    try {
+      const response = await fetch('/api/activate-mini-site-simple', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ tenantId: user?.uid || 'default-tenant' }),
+      });
+      
+      const data = await response.json();
+      
+      if (data.success) {
+        setMiniSiteActive(true);
+        setError(null);
+        // Open mini-site in new tab
+        window.open(data.miniSiteUrl, '_blank');
+      } else {
+        setError(data.error || 'Erro ao ativar mini-site');
+      }
+    } catch (err) {
+      setError('Erro de conexão');
+    } finally {
+      setTestMode(false);
+    }
   };
 
   if (loading) {
@@ -84,6 +115,25 @@ export default function MiniSitePage() {
           }
         </Typography>
       </Box>
+
+      {/* Test buttons for debugging */}
+      <Stack direction="row" spacing={2} sx={{ mb: 4, justifyContent: 'center' }}>
+        <Button
+          variant="outlined"
+          onClick={handleTestActivation}
+          disabled={testMode}
+          color="warning"
+        >
+          {testMode ? 'Testando...' : 'Ativar Mini-Site (Teste)'}
+        </Button>
+        <Button
+          variant="outlined"
+          onClick={() => window.open(`/api/test-mini-site?tenantId=${user?.uid || 'default-tenant'}`, '_blank')}
+          color="info"
+        >
+          Debug Info
+        </Button>
+      </Stack>
 
       {miniSiteActive ? (
         <MiniSiteWidget tenantId={user?.uid} />

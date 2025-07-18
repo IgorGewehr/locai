@@ -14,8 +14,29 @@ export async function GET(request: NextRequest) {
     if (!token) {
       return NextResponse.json({ error: 'Token inválido' }, { status: 401 });
     }
-    const decodedToken = await auth.verifyIdToken(token);
-    const tenantId = decodedToken.tenantId || decodedToken.uid;
+
+    let tenantId: string;
+    
+    try {
+      // Try Firebase Auth first
+      const decodedToken = await auth.verifyIdToken(token);
+      tenantId = decodedToken.tenantId || decodedToken.uid;
+    } catch (firebaseError) {
+      // If Firebase Auth fails, try simple token
+      try {
+        const decodedSimpleToken = Buffer.from(token, 'base64').toString('utf-8');
+        const [uid, email, timestamp] = decodedSimpleToken.split(':');
+        
+        if (!uid || !email || !timestamp) {
+          throw new Error('Invalid token format');
+        }
+        
+        // Use uid as tenantId
+        tenantId = uid;
+      } catch (simpleTokenError) {
+        return NextResponse.json({ error: 'Token inválido' }, { status: 401 });
+      }
+    }
 
     // Buscar configurações
     let settings = await billingService.getSettings(tenantId);
@@ -47,8 +68,29 @@ export async function PUT(request: NextRequest) {
     if (!token) {
       return NextResponse.json({ error: 'Token inválido' }, { status: 401 });
     }
-    const decodedToken = await auth.verifyIdToken(token);
-    const tenantId = decodedToken.tenantId || decodedToken.uid;
+
+    let tenantId: string;
+    
+    try {
+      // Try Firebase Auth first
+      const decodedToken = await auth.verifyIdToken(token);
+      tenantId = decodedToken.tenantId || decodedToken.uid;
+    } catch (firebaseError) {
+      // If Firebase Auth fails, try simple token
+      try {
+        const decodedSimpleToken = Buffer.from(token, 'base64').toString('utf-8');
+        const [uid, email, timestamp] = decodedSimpleToken.split(':');
+        
+        if (!uid || !email || !timestamp) {
+          throw new Error('Invalid token format');
+        }
+        
+        // Use uid as tenantId
+        tenantId = uid;
+      } catch (simpleTokenError) {
+        return NextResponse.json({ error: 'Token inválido' }, { status: 401 });
+      }
+    }
 
     const body = await request.json();
     const { simpleConfig, settings } = body;

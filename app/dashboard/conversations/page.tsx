@@ -261,8 +261,8 @@ export default function ConversationsPage() {
 
   return (
     <Box>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-        <Typography variant="h4" component="h1" fontWeight="bold">
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: { xs: 4, md: 5 } }}>
+        <Typography variant="h4" component="h1" fontWeight="bold" sx={{ fontSize: { xs: '1.75rem', md: '2rem', lg: '2.25rem' } }}>
           Conversas WhatsApp
         </Typography>
         <Button
@@ -275,7 +275,7 @@ export default function ConversationsPage() {
       </Box>
 
       {/* Stats Cards */}
-      <Grid container spacing={3} sx={{ mb: 3 }}>
+      <Grid container spacing={{ xs: 3, md: 4 }} sx={{ mb: { xs: 4, md: 5 } }}>
         <Grid item xs={12} sm={6} md={3}>
           <Card>
             <CardContent>

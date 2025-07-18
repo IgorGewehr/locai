@@ -57,7 +57,7 @@ function StatCard({ title, value, subtitle, icon, trend, color }: StatCardProps)
     <Card 
       sx={{ 
         height: '100%',
-        minHeight: { xs: 160, sm: 180, md: 200 },
+        minHeight: { xs: 180, sm: 200, md: 220, lg: 240 },
         background: 'rgba(255, 255, 255, 0.08)',
         backdropFilter: 'blur(20px)',
         border: '1px solid rgba(255, 255, 255, 0.15)',
@@ -85,7 +85,7 @@ function StatCard({ title, value, subtitle, icon, trend, color }: StatCardProps)
       }}
     >
       <CardContent sx={{ 
-        p: { xs: 2.5, sm: 3, md: 4 }, 
+        p: { xs: 3, sm: 4, md: 5 }, 
         height: '100%', 
         display: 'flex', 
         flexDirection: 'column', 
@@ -97,8 +97,8 @@ function StatCard({ title, value, subtitle, icon, trend, color }: StatCardProps)
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              width: { xs: 48, sm: 56, md: 64 },
-              height: { xs: 48, sm: 56, md: 64 },
+              width: { xs: 56, sm: 64, md: 72, lg: 80 },
+              height: { xs: 56, sm: 64, md: 72, lg: 80 },
               borderRadius: { xs: '14px', md: '18px' },
               background: `linear-gradient(135deg, ${color === 'primary' ? '#6366f1, #8b5cf6' : 
                 color === 'secondary' ? '#8b5cf6, #d946ef' : 
@@ -150,7 +150,7 @@ function StatCard({ title, value, subtitle, icon, trend, color }: StatCardProps)
             sx={{
               color: '#ffffff',
               mb: 1,
-              fontSize: { xs: '1.75rem', sm: '2rem', md: '2.25rem', lg: '2.5rem' },
+              fontSize: { xs: '2rem', sm: '2.25rem', md: '2.5rem', lg: '2.75rem' },
             }}
           >
 {typeof value === 'number' && !isNaN(value) ? value.toLocaleString() : (value || '0')}
@@ -161,7 +161,7 @@ function StatCard({ title, value, subtitle, icon, trend, color }: StatCardProps)
             sx={{ 
               color: '#ffffff',
               fontWeight: 600,
-              fontSize: { xs: '1rem', md: '1.125rem' },
+              fontSize: { xs: '1.125rem', md: '1.25rem', lg: '1.375rem' },
               mb: 0.5
             }}
           >
@@ -390,7 +390,7 @@ export default function DashboardPage() {
         display: 'flex', 
         justifyContent: 'space-between', 
         alignItems: 'center', 
-        mb: { xs: 3, md: 4 },
+        mb: { xs: 4, md: 5 },
         flexDirection: { xs: 'column', sm: 'row' },
         gap: { xs: 2, sm: 0 }
       }}>
@@ -405,7 +405,7 @@ export default function DashboardPage() {
               WebkitTextFillColor: 'transparent',
               backgroundClip: 'text',
               mb: 1,
-              fontSize: { xs: '1.875rem', sm: '2.25rem', md: '2.5rem' }
+              fontSize: { xs: '2.125rem', sm: '2.5rem', md: '2.75rem', lg: '3rem' }
             }}
           >
             Dashboard
@@ -415,7 +415,7 @@ export default function DashboardPage() {
             sx={{ 
               color: 'rgba(255, 255, 255, 0.85)', 
               fontWeight: 500,
-              fontSize: { xs: '0.875rem', md: '1rem' }
+              fontSize: { xs: '1rem', md: '1.125rem', lg: '1.25rem' }
             }}
           >
             Visão geral do sistema imobiliário
@@ -458,14 +458,14 @@ export default function DashboardPage() {
       )}
 
       {/* Optimized Grid Layout for iPad */}
-      <Grid container spacing={{ xs: 2, md: 3, lg: 4 }}>
+      <Grid container spacing={{ xs: 3, md: 4, lg: 5 }}>
         {/* Top Row - Main Statistics (Responsive for iPad) */}
         <Grid item xs={12} sm={6} md={3}>
           <StatCard
             title="Propriedades Ativas"
             value={loading ? 0 : stats.activeProperties}
             subtitle={loading ? "Carregando..." : `${stats.totalProperties} total`}
-            icon={<Home sx={{ fontSize: { xs: 28, md: 32 } }} />}
+            icon={<Home sx={{ fontSize: { xs: 32, md: 36, lg: 40 } }} />}
             color="primary"
             trend={{ value: trends.propertiesTrend, isPositive: trends.propertiesTrend >= 0 }}
           />
@@ -476,7 +476,7 @@ export default function DashboardPage() {
             title="Reservas Pendentes"
             value={loading ? 0 : stats.pendingReservations}
             subtitle={loading ? "Carregando..." : `${stats.totalReservations} total`}
-            icon={<CalendarMonth sx={{ fontSize: { xs: 28, md: 32 } }} />}
+            icon={<CalendarMonth sx={{ fontSize: { xs: 32, md: 36, lg: 40 } }} />}
             color="secondary"
             trend={{ value: trends.reservationsTrend, isPositive: trends.reservationsTrend >= 0 }}
           />
@@ -487,7 +487,7 @@ export default function DashboardPage() {
             title="Receita Mensal"
             value={loading ? "R$ 0" : `R$ ${(isNaN(stats.monthlyRevenue) ? 0 : stats.monthlyRevenue / 1000).toFixed(1)}k`}
             subtitle={loading ? "Carregando..." : `R$ ${(isNaN(stats.totalRevenue) ? 0 : stats.totalRevenue / 1000).toFixed(0)}k total`}
-            icon={<AttachMoney sx={{ fontSize: { xs: 28, md: 32 } }} />}
+            icon={<AttachMoney sx={{ fontSize: { xs: 32, md: 36, lg: 40 } }} />}
             color="success"
             trend={{ value: trends.revenueTrend, isPositive: trends.revenueTrend >= 0 }}
           />
@@ -498,7 +498,7 @@ export default function DashboardPage() {
             title="Taxa de Ocupação"
             value={loading ? "0%" : `${(isNaN(stats.occupancyRate) ? 0 : stats.occupancyRate).toFixed(1)}%`}
             subtitle={loading ? "Carregando..." : `${stats.activeProperties} propriedades ativas`}
-            icon={<People sx={{ fontSize: { xs: 28, md: 32 } }} />}
+            icon={<People sx={{ fontSize: { xs: 32, md: 36, lg: 40 } }} />}
             color="warning"
             trend={{ value: trends.occupancyTrend, isPositive: trends.occupancyTrend >= 0 }}
           />

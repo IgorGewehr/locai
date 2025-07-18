@@ -43,9 +43,11 @@ export default function GeneralSettings({ settings, onChange }: GeneralSettingsP
   if (!settings) {
     return (
       <Box sx={{ p: 3, textAlign: 'center' }}>
-        <Typography variant="body1" color="text.secondary">
-          Carregando configurações...
-        </Typography>
+        <Alert severity="warning" sx={{ mb: 2 }}>
+          <Typography variant="body1">
+            Configurações não encontradas. O sistema criará configurações padrão quando você salvar.
+          </Typography>
+        </Alert>
       </Box>
     );
   }
