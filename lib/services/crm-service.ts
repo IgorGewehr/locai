@@ -143,32 +143,37 @@ class CRMService {
     const q = query(
       collection(db, 'crm_leads'),
       where('tenantId', '==', tenantId),
-      where('status', '==', status),
-      orderBy('score', 'desc')
+      where('status', '==', status)
     );
     
     const snapshot = await getDocs(q);
-    return snapshot.docs.map(doc => ({
+    const leads = snapshot.docs.map(doc => ({
       id: doc.id,
       ...doc.data()
     })) as Lead[];
+    
+    // Sort locally to avoid needing composite index
+    return leads.sort((a, b) => (b.score || 0) - (a.score || 0));
   }
 
   async getHotLeads(tenantId: string): Promise<Lead[]> {
     const q = query(
       collection(db, 'crm_leads'),
       where('tenantId', '==', tenantId),
-      where('temperature', '==', 'hot'),
-      where('status', 'in', [LeadStatus.QUALIFIED, LeadStatus.OPPORTUNITY, LeadStatus.NEGOTIATION]),
-      orderBy('score', 'desc'),
-      limit(10)
+      where('temperature', '==', 'hot')
     );
     
     const snapshot = await getDocs(q);
-    return snapshot.docs.map(doc => ({
+    const leads = snapshot.docs.map(doc => ({
       id: doc.id,
       ...doc.data()
     })) as Lead[];
+    
+    // Filter and sort locally to avoid needing composite index
+    return leads
+      .filter(lead => [LeadStatus.QUALIFIED, LeadStatus.OPPORTUNITY, LeadStatus.NEGOTIATION].includes(lead.status))
+      .sort((a, b) => (b.score || 0) - (a.score || 0))
+      .slice(0, 10);
   }
 
   // =============== INTERACTIONS ===============
@@ -301,23 +306,24 @@ class CRMService {
         collection(db, 'crm_tasks'),
         where('assignedTo', '==', userId),
         where('status', '==', TaskStatus.PENDING),
-        where('dueDate', '<', now),
-        orderBy('dueDate', 'asc')
+        where('dueDate', '<', now)
       );
     } else {
       q = query(
         collection(db, 'crm_tasks'),
         where('status', '==', TaskStatus.PENDING),
-        where('dueDate', '<', now),
-        orderBy('dueDate', 'asc')
+        where('dueDate', '<', now)
       );
     }
     
     const snapshot = await getDocs(q);
-    return snapshot.docs.map(doc => ({
+    const tasks = snapshot.docs.map(doc => ({
       id: doc.id,
       ...doc.data()
     })) as Task[];
+    
+    // Sort locally to avoid needing composite index
+    return tasks.sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime());
   }
 
   async getTodayTasks(userId: string): Promise<Task[]> {
@@ -328,17 +334,55 @@ class CRMService {
     const q = query(
       collection(db, 'crm_tasks'),
       where('assignedTo', '==', userId),
-      where('status', 'in', [TaskStatus.PENDING, TaskStatus.IN_PROGRESS]),
       where('dueDate', '>=', Timestamp.fromDate(today)),
-      where('dueDate', '<', Timestamp.fromDate(tomorrow)),
-      orderBy('dueDate', 'asc')
+      where('dueDate', '<', Timestamp.fromDate(tomorrow))
     );
     
     const snapshot = await getDocs(q);
-    return snapshot.docs.map(doc => ({
+    const tasks = snapshot.docs.map(doc => ({
       id: doc.id,
       ...doc.data()
     })) as Task[];
+    
+    // Filter and sort locally to avoid needing composite index
+    return tasks
+      .filter(task => [TaskStatus.PENDING, TaskStatus.IN_PROGRESS].includes(task.status))
+      .sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime());
+  }
+
+  // =============== CLIENTS ===============
+
+  async getAllClients(tenantId: string): Promise<Client[]> {
+    const q = query(
+      collection(db, 'clients'),
+      where('tenantId', '==', tenantId)
+    );
+    
+    const snapshot = await getDocs(q);
+    const clients = snapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    })) as Client[];
+    
+    // Sort locally by name
+    return clients.sort((a, b) => a.name.localeCompare(b.name));
+  }
+
+  async getActiveClients(tenantId: string): Promise<Client[]> {
+    const q = query(
+      collection(db, 'clients'),
+      where('tenantId', '==', tenantId),
+      where('isActive', '==', true)
+    );
+    
+    const snapshot = await getDocs(q);
+    const clients = snapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    })) as Client[];
+    
+    // Sort locally by name
+    return clients.sort((a, b) => a.name.localeCompare(b.name));
   }
 
   // =============== CONVERSION ===============

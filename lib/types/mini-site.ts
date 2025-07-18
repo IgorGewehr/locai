@@ -11,14 +11,25 @@ export interface MiniSiteTheme {
   textColor: string;
   logoUrl?: string;
   backgroundImage?: string;
-  fontFamily: 'modern' | 'classic' | 'elegant';
-  borderRadius: 'sharp' | 'rounded' | 'extra-rounded';
+  fontFamily: 'modern' | 'classic' | 'elegant' | string;
+  borderRadius: 'sharp' | 'rounded' | 'extra-rounded' | number;
 }
 
 export interface MiniSiteConfig {
+  id: string;
   tenantId: string;
-  isActive: boolean;
+  enabled: boolean;
+  subdomain?: string;
   customDomain?: string;
+  
+  // Hero Section
+  heroTitle?: string;
+  heroSubtitle?: string;
+  heroMedia?: {
+    type: 'image' | 'video';
+    url: string;
+  };
+  
   theme: MiniSiteTheme;
   contactInfo: {
     whatsappNumber: string;

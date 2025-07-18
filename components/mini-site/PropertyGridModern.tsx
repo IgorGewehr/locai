@@ -42,6 +42,7 @@ import { PublicProperty, MiniSiteConfig } from '@/lib/types/mini-site';
 import PropertyCardModern from './PropertyCardModern';
 import { miniSiteClientService } from '@/lib/services/mini-site-client-service';
 import { motion, AnimatePresence } from 'framer-motion';
+import HeroSection from './HeroSection';
 
 interface PropertyGridModernProps {
   properties: PublicProperty[];
@@ -82,12 +83,12 @@ export default function PropertyGridModern({ properties: initialProperties, conf
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
-  // Get unique values for filter options
-  const uniqueAmenities = Array.from(new Set(properties.flatMap(p => p.amenities))).sort();
-  const propertyTypes = Array.from(new Set(properties.map(p => p.type))).sort();
-  const locations = Array.from(new Set(properties.map(p => p.location.city))).sort();
-  const maxGuests = Math.max(...properties.map(p => p.maxGuests));
-  const maxBedrooms = Math.max(...properties.map(p => p.bedrooms));
+  // Get unique values for filter options (safe for empty arrays)
+  const uniqueAmenities = properties.length > 0 ? Array.from(new Set(properties.flatMap(p => p.amenities))).sort() : [];
+  const propertyTypes = properties.length > 0 ? Array.from(new Set(properties.map(p => p.type))).sort() : [];
+  const locations = properties.length > 0 ? Array.from(new Set(properties.map(p => p.location.city))).sort() : [];
+  const maxGuests = properties.length > 0 ? Math.max(...properties.map(p => p.maxGuests)) : 10;
+  const maxBedrooms = properties.length > 0 ? Math.max(...properties.map(p => p.bedrooms)) : 5;
   const priceRange = properties.length > 0 ? {
     min: Math.min(...properties.map(p => p.pricing.basePrice)),
     max: Math.max(...properties.map(p => p.pricing.basePrice))
@@ -204,124 +205,65 @@ export default function PropertyGridModern({ properties: initialProperties, conf
     Array.isArray(value) ? value.length > 0 : value !== ''
   );
 
-  const heroStyle = {
-    background: `linear-gradient(135deg, ${alpha(config.theme.primaryColor, 0.08)}, ${alpha(config.theme.accentColor, 0.04)})`,
-    backdropFilter: 'blur(20px)',
-    borderRadius: 3,
-    border: `1px solid ${alpha(config.theme.primaryColor, 0.1)}`,
-    mb: 4,
-    p: { xs: 3, md: 5 },
-    position: 'relative',
-    overflow: 'hidden',
-  };
+  // Get unique locations for featured
+  const featuredLocations = Array.from(new Set(properties.map(p => p.location.city))).slice(0, 6);
 
   return (
-    <Container maxWidth="xl" sx={{ py: 4 }}>
-      {/* Demo Properties Notice */}
-      {properties.some(p => p.id.startsWith('demo-')) && (
-        <Alert
-          severity="info"
-          sx={{
-            mb: 3,
-            borderRadius: 2,
-            backgroundColor: alpha(config.theme.primaryColor, 0.1),
-            border: `1px solid ${alpha(config.theme.primaryColor, 0.2)}`,
-            '& .MuiAlert-icon': {
-              color: config.theme.primaryColor,
-            },
-          }}
-        >
-          <Typography variant="body2">
-            <strong>Propriedades de Demonstração:</strong> Estas são propriedades de exemplo para você ver como o mini-site funciona. 
-            Cadastre suas propriedades reais no dashboard para substituí-las.
-          </Typography>
-        </Alert>
-      )}
-
+    <>
       {/* Enhanced Hero Section */}
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.6 }}
-      >
-        <Box sx={heroStyle}>
-          <Box sx={{ position: 'relative', zIndex: 2 }}>
-            <Typography 
-              variant="h2" 
-              component="h1" 
-              sx={{ 
-                fontWeight: 800,
-                mb: 2,
-                background: `linear-gradient(135deg, ${config.theme.primaryColor}, ${config.theme.accentColor})`,
-                WebkitBackgroundClip: 'text',
-                WebkitTextFillColor: 'transparent',
-                backgroundClip: 'text',
-                textAlign: 'center',
-                fontSize: { xs: '2.5rem', md: '3.5rem' },
-                lineHeight: 1.2,
-              }}
-            >
-              {config.seo.title}
-            </Typography>
-            <Typography 
-              variant="h5" 
-              sx={{ 
-                textAlign: 'center', 
-                opacity: 0.8, 
-                mb: 4,
-                maxWidth: 700,
-                mx: 'auto',
-                fontWeight: 400,
-                lineHeight: 1.5,
-              }}
-            >
-              {config.seo.description}
-            </Typography>
+      <HeroSection
+        config={config}
+        onSearch={setSearchTerm}
+        propertyCount={properties.length}
+        featuredLocations={featuredLocations}
+      />
 
-            {/* Enhanced Search Bar */}
-            <Box sx={{ maxWidth: 700, mx: 'auto', mb: 3 }}>
-              <TextField
-                fullWidth
-                placeholder="Buscar por nome, localização, ou comodidades..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                InputProps={{
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <Search sx={{ color: config.theme.primaryColor, fontSize: 24 }} />
-                    </InputAdornment>
-                  ),
-                  endAdornment: searchTerm && (
-                    <InputAdornment position="end">
-                      <Button
-                        size="small"
-                        onClick={() => setSearchTerm('')}
-                        sx={{ minWidth: 'auto', p: 0.5 }}
-                      >
-                        <Clear fontSize="small" />
-                      </Button>
-                    </InputAdornment>
-                  ),
-                }}
-                sx={{
-                  '& .MuiOutlinedInput-root': {
-                    borderRadius: 4,
-                    backgroundColor: 'rgba(255, 255, 255, 0.9)',
-                    backdropFilter: 'blur(10px)',
-                    fontSize: '1.1rem',
-                    py: 1,
-                    '&:hover fieldset': {
-                      borderColor: config.theme.primaryColor,
-                    },
-                    '&.Mui-focused fieldset': {
-                      borderColor: config.theme.primaryColor,
-                    },
-                  },
-                }}
-              />
-            </Box>
+      <Container maxWidth="xl" sx={{ py: 4 }}>
+        {/* No Properties Notice */}
+        {properties.length === 0 && (
+          <Alert
+            severity="info"
+            sx={{
+              mb: 3,
+              borderRadius: 2,
+              backgroundColor: alpha(config.theme.primaryColor, 0.1),
+              border: `1px solid ${alpha(config.theme.primaryColor, 0.2)}`,
+              '& .MuiAlert-icon': {
+                color: config.theme.primaryColor,
+              },
+            }}
+          >
+            <Typography variant="body2">
+              <strong>Nenhuma propriedade encontrada:</strong> Não foram encontradas propriedades para exibir. 
+              Cadastre suas propriedades no dashboard para que apareçam aqui.
+            </Typography>
+          </Alert>
+        )}
 
-            {/* Enhanced Control Bar */}
+        {/* Demo Properties Notice */}
+        {properties.length > 0 && properties.some(p => p.id.startsWith('demo-')) && (
+          <Alert
+            severity="info"
+            sx={{
+              mb: 3,
+              borderRadius: 2,
+              backgroundColor: alpha(config.theme.primaryColor, 0.1),
+              border: `1px solid ${alpha(config.theme.primaryColor, 0.2)}`,
+              '& .MuiAlert-icon': {
+                color: config.theme.primaryColor,
+              },
+            }}
+          >
+            <Typography variant="body2">
+              <strong>Propriedades de Demonstração:</strong> Estas são propriedades de exemplo para você ver como o mini-site funciona. 
+              Cadastre suas propriedades reais no dashboard para substituí-las.
+            </Typography>
+          </Alert>
+        )}
+
+        {/* Control Bar - Only show if there are properties */}
+        {properties.length > 0 && (
+          <Box sx={{ mb: 4 }}>
             <Stack 
               direction={{ xs: 'column', sm: 'row' }} 
               spacing={2} 
@@ -358,81 +300,81 @@ export default function PropertyGridModern({ properties: initialProperties, conf
                 Filtros
               </Button>
 
+            <Button
+              startIcon={<Refresh />}
+              onClick={refreshProperties}
+              disabled={loading}
+              variant="outlined"
+              sx={{
+                borderRadius: 3,
+                px: 3,
+                py: 1.5,
+                textTransform: 'none',
+                fontWeight: 600,
+                minWidth: 140,
+                borderColor: config.theme.accentColor,
+                color: config.theme.accentColor,
+                '&:hover': {
+                  backgroundColor: alpha(config.theme.accentColor, 0.04),
+                },
+              }}
+            >
+              Atualizar
+            </Button>
+
+            <Stack direction="row" spacing={1}>
               <Button
-                startIcon={<Refresh />}
-                onClick={refreshProperties}
-                disabled={loading}
-                variant="outlined"
-                sx={{
-                  borderRadius: 3,
-                  px: 3,
-                  py: 1.5,
-                  textTransform: 'none',
-                  fontWeight: 600,
-                  minWidth: 140,
-                  borderColor: config.theme.accentColor,
-                  color: config.theme.accentColor,
-                  '&:hover': {
-                    backgroundColor: alpha(config.theme.accentColor, 0.04),
-                  },
+                startIcon={<ViewModule />}
+                onClick={() => setViewMode('grid')}
+                variant={viewMode === 'grid' ? 'contained' : 'outlined'}
+                size="small"
+                sx={{ 
+                  minWidth: 'auto',
+                  px: 2,
+                  borderRadius: 2,
+                  ...(viewMode === 'grid' ? {
+                    backgroundColor: config.theme.primaryColor,
+                  } : {
+                    borderColor: config.theme.primaryColor,
+                    color: config.theme.primaryColor,
+                  })
                 }}
               >
-                Atualizar
+                Grade
               </Button>
-
-              <Stack direction="row" spacing={1}>
-                <Button
-                  startIcon={<ViewModule />}
-                  onClick={() => setViewMode('grid')}
-                  variant={viewMode === 'grid' ? 'contained' : 'outlined'}
-                  size="small"
-                  sx={{ 
-                    minWidth: 'auto',
-                    px: 2,
-                    borderRadius: 2,
-                    ...(viewMode === 'grid' ? {
-                      backgroundColor: config.theme.primaryColor,
-                    } : {
-                      borderColor: config.theme.primaryColor,
-                      color: config.theme.primaryColor,
-                    })
-                  }}
-                >
-                  Grade
-                </Button>
-                <Button
-                  startIcon={<ViewList />}
-                  onClick={() => setViewMode('list')}
-                  variant={viewMode === 'list' ? 'contained' : 'outlined'}
-                  size="small"
-                  sx={{ 
-                    minWidth: 'auto',
-                    px: 2,
-                    borderRadius: 2,
-                    ...(viewMode === 'list' ? {
-                      backgroundColor: config.theme.primaryColor,
-                    } : {
-                      borderColor: config.theme.primaryColor,
-                      color: config.theme.primaryColor,
-                    })
-                  }}
-                >
-                  Lista
-                </Button>
-              </Stack>
+              <Button
+                startIcon={<ViewList />}
+                onClick={() => setViewMode('list')}
+                variant={viewMode === 'list' ? 'contained' : 'outlined'}
+                size="small"
+                sx={{ 
+                  minWidth: 'auto',
+                  px: 2,
+                  borderRadius: 2,
+                  ...(viewMode === 'list' ? {
+                    backgroundColor: config.theme.primaryColor,
+                  } : {
+                    borderColor: config.theme.primaryColor,
+                    color: config.theme.primaryColor,
+                  })
+                }}
+              >
+                Lista
+              </Button>
             </Stack>
-          </Box>
+          </Stack>
         </Box>
-      </motion.div>
+        )}
 
-      {/* Enhanced Filters */}
-      <Collapse in={showFilters}>
-        <motion.div
-          initial={{ opacity: 0, height: 0 }}
-          animate={{ opacity: 1, height: 'auto' }}
-          exit={{ opacity: 0, height: 0 }}
-          transition={{ duration: 0.3 }}
-        >
+      {/* Enhanced Filters - Only show if there are properties */}
+      {properties.length > 0 && (
+        <Collapse in={showFilters}>
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+            transition={{ duration: 0.3 }}
+          >
           <Card 
             sx={{ 
               mb: 4,
@@ -630,16 +572,18 @@ export default function PropertyGridModern({ properties: initialProperties, conf
           </Card>
         </motion.div>
       </Collapse>
+      )}
 
-      {/* Results Header */}
-      <Box sx={{ 
-        mb: 4, 
-        display: 'flex', 
-        justifyContent: 'space-between', 
-        alignItems: 'center',
-        flexWrap: 'wrap',
-        gap: 2
-      }}>
+      {/* Results Header - Only show if there are properties */}
+      {properties.length > 0 && (
+        <Box sx={{ 
+          mb: 4, 
+          display: 'flex', 
+          justifyContent: 'space-between', 
+          alignItems: 'center',
+          flexWrap: 'wrap',
+          gap: 2
+        }}>
         <Typography 
           variant="h4" 
           sx={{ 
@@ -687,6 +631,7 @@ export default function PropertyGridModern({ properties: initialProperties, conf
           </Box>
         )}
       </Box>
+      )}
 
       {/* Error Display */}
       {error && (
@@ -777,26 +722,27 @@ export default function PropertyGridModern({ properties: initialProperties, conf
         </motion.div>
       )}
 
-      {/* Scroll to Top Button */}
-      <Zoom in={showScrollTop}>
-        <Fab
-          color="primary"
-          size="medium"
-          onClick={scrollToTop}
-          sx={{
-            position: 'fixed',
-            bottom: 24,
-            right: 24,
-            background: `linear-gradient(135deg, ${config.theme.primaryColor}, ${config.theme.accentColor})`,
-            '&:hover': {
-              transform: 'scale(1.1)',
-            },
-            transition: 'all 0.3s ease',
-          }}
-        >
-          <KeyboardArrowUp />
-        </Fab>
-      </Zoom>
-    </Container>
+        {/* Scroll to Top Button */}
+        <Zoom in={showScrollTop}>
+          <Fab
+            color="primary"
+            size="medium"
+            onClick={scrollToTop}
+            sx={{
+              position: 'fixed',
+              bottom: 24,
+              right: 24,
+              background: `linear-gradient(135deg, ${config.theme.primaryColor}, ${config.theme.accentColor})`,
+              '&:hover': {
+                transform: 'scale(1.1)',
+              },
+              transition: 'all 0.3s ease',
+            }}
+          >
+            <KeyboardArrowUp />
+          </Fab>
+        </Zoom>
+      </Container>
+    </>
   );
 }

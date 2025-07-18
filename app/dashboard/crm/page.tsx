@@ -74,6 +74,7 @@ import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { crmService } from '@/lib/services/crm-service';
 import { Lead, LeadStatus, Task, TaskStatus, Interaction } from '@/lib/types/crm';
+import { Client } from '@/lib/types';
 import { useAuth } from '@/lib/hooks/useAuth';
 import LeadDetailsDrawer from './components/LeadDetailsDrawer';
 import CreateLeadDialog from './components/CreateLeadDialog';
@@ -94,7 +95,7 @@ const statusColumns = [
 export default function CRMPage() {
   const { user } = useAuth();
   const router = useRouter();
-  const [view, setView] = useState<'pipeline' | 'list' | 'analytics'>('pipeline');
+  const [view, setView] = useState<'pipeline' | 'list' | 'clients' | 'analytics'>('pipeline');
   const [leads, setLeads] = useState<Record<LeadStatus, Lead[]>>({
     [LeadStatus.NEW]: [],
     [LeadStatus.CONTACTED]: [],
@@ -116,11 +117,13 @@ export default function CRMPage() {
   const [selectedFilter, setSelectedFilter] = useState<'all' | 'my' | 'hot' | 'cold'>('all');
   const [tasks, setTasks] = useState<Task[]>([]);
   const [hotLeads, setHotLeads] = useState<Lead[]>([]);
+  const [clients, setClients] = useState<Client[]>([]);
 
   useEffect(() => {
     loadLeads();
     loadTasks();
     loadHotLeads();
+    loadClients();
   }, [user]);
 
   const loadLeads = async () => {
@@ -175,6 +178,17 @@ export default function CRMPage() {
       setHotLeads(hot);
     } catch (error) {
       console.error('Error loading hot leads:', error);
+    }
+  };
+
+  const loadClients = async () => {
+    if (!user?.tenantId) return;
+    
+    try {
+      const clientList = await crmService.getAllClients(user.tenantId);
+      setClients(clientList);
+    } catch (error) {
+      console.error('Error loading clients:', error);
     }
   };
 
@@ -286,7 +300,12 @@ export default function CRMPage() {
   const conversionRate = totalLeads > 0 ? (wonLeads / totalLeads) * 100 : 0;
 
   return (
-    <Box>
+    <Box sx={{ 
+      maxWidth: 'calc(100vw - 280px)', // Account for sidebar width
+      pr: { xs: 1, sm: 2, md: 3, lg: 4 }, // Progressive right padding
+      mr: { xs: 0, sm: 1, md: 2, lg: 3 }, // Progressive right margin
+      overflow: 'hidden' // Prevent horizontal overflow
+    }}>
       {/* Header */}
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: { xs: 4, md: 5 } }}>
         <Box>
@@ -345,6 +364,7 @@ export default function CRMPage() {
         <Tabs value={view} onChange={(_, v) => setView(v)}>
           <Tab label="Pipeline" value="pipeline" icon={<Analytics />} iconPosition="start" />
           <Tab label="Lista" value="list" icon={<Assignment />} iconPosition="start" />
+          <Tab label="Clientes" value="clients" icon={<Groups />} iconPosition="start" />
           <Tab label="Insights IA" value="analytics" icon={<AutoAwesome />} iconPosition="start" />
         </Tabs>
       </Card>
@@ -401,12 +421,127 @@ export default function CRMPage() {
         </Card>
       )}
 
+      {view === 'clients' && (
+        <Card>
+          <CardContent>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+              <Typography variant="h6" fontWeight={600}>
+                Lista de Clientes ({clients.length})
+              </Typography>
+              <TextField
+                size="small"
+                placeholder="Buscar clientes..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <Search />
+                    </InputAdornment>
+                  ),
+                }}
+                sx={{ width: 300 }}
+              />
+            </Box>
+            <List>
+              {clients
+                .filter(client => 
+                  client.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                  client.phone?.includes(searchTerm) ||
+                  client.email?.toLowerCase().includes(searchTerm.toLowerCase())
+                )
+                .map((client, index) => (
+                  <Box key={client.id}>
+                    <ListItem sx={{ py: 2 }}>
+                      <ListItemIcon>
+                        <Avatar sx={{ bgcolor: client.isActive ? 'success.main' : 'grey.400' }}>
+                          {client.name ? client.name.charAt(0).toUpperCase() : '?'}
+                        </Avatar>
+                      </ListItemIcon>
+                      <ListItemText
+                        primary={
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                            <Typography variant="subtitle1" fontWeight={600}>
+                              {client.name}
+                            </Typography>
+                            <Chip
+                              label={client.isActive ? 'Ativo' : 'Inativo'}
+                              size="small"
+                              color={client.isActive ? 'success' : 'default'}
+                            />
+                          </Box>
+                        }
+                        secondary={
+                          <Box>
+                            <Typography variant="body2" color="text.secondary">
+                              {client.phone} • {client.email}
+                            </Typography>
+                            <Typography variant="body2" color="text.secondary">
+                              Total gasto: R$ {client.totalSpent?.toFixed(2) || '0,00'} • 
+                              Reservas: {client.reservations?.length || 0}
+                            </Typography>
+                          </Box>
+                        }
+                      />
+                      <Box sx={{ display: 'flex', gap: 1 }}>
+                        <Tooltip title="WhatsApp">
+                          <IconButton 
+                            size="small" 
+                            onClick={() => {
+                              if (client.phone) {
+                                window.open(`https://wa.me/55${client.phone.replace(/\D/g, '')}`, '_blank');
+                              }
+                            }}
+                          >
+                            <WhatsApp />
+                          </IconButton>
+                        </Tooltip>
+                        <Tooltip title="Ligar">
+                          <IconButton 
+                            size="small"
+                            onClick={() => {
+                              if (client.phone) {
+                                window.location.href = `tel:${client.phone}`;
+                              }
+                            }}
+                          >
+                            <Phone />
+                          </IconButton>
+                        </Tooltip>
+                        <Tooltip title="Email">
+                          <IconButton 
+                            size="small"
+                            onClick={() => {
+                              if (client.email) {
+                                window.location.href = `mailto:${client.email}`;
+                              }
+                            }}
+                          >
+                            <Email />
+                          </IconButton>
+                        </Tooltip>
+                      </Box>
+                    </ListItem>
+                    {index < clients.length - 1 && <Divider />}
+                  </Box>
+                ))}
+              {clients.length === 0 && (
+                <Box sx={{ textAlign: 'center', py: 4 }}>
+                  <Typography variant="body2" color="text.secondary">
+                    Nenhum cliente encontrado
+                  </Typography>
+                </Box>
+              )}
+            </List>
+          </CardContent>
+        </Card>
+      )}
+
       {view === 'analytics' && (
         <AIInsights
           leads={Object.values(leads).flat()}
-          hotLeads={hotLeads}
-          tasks={tasks}
-          tenantId={user?.tenantId || ''}
+          onActionClick={(lead, action) => handleQuickAction(lead, action)}
+          onRefresh={() => loadLeads()}
         />
       )}
 

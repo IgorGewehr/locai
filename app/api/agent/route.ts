@@ -49,13 +49,14 @@ export async function POST(request: NextRequest) {
       return handleApiError(new Error('Invalid request body'));
     }
 
-    const { message, clientPhone, whatsappNumber, tenantId: requestTenantId } = body;
+    const { message, clientPhone, phone, whatsappNumber, tenantId: requestTenantId, isTest } = body;
 
     // Validate required fields
     let validatedPhone, validatedMessage, validatedTenantId;
     try {
       validatedMessage = validateMessageContent(message);
-      validatedPhone = validatePhoneNumber(clientPhone);
+      // Use either clientPhone or phone parameter
+      validatedPhone = validatePhoneNumber(clientPhone || phone);
 
       // Get tenant ID from auth context or request
       const tenantId = authContext.tenantId || requestTenantId || process.env.TENANT_ID || 'default';
@@ -72,40 +73,42 @@ export async function POST(request: NextRequest) {
       return handleApiError(error);
     }
 
-    // Rate limiting per phone number
-    const rateLimitService = getRateLimitService();
-    const rateLimitKey = `${validatedTenantId}:${validatedPhone}`;
-    const rateLimitResult = await rateLimitService.checkRateLimit(
-      rateLimitKey,
-      RATE_LIMITS.whatsapp
-    );
-
-    if (!rateLimitResult.allowed) {
-      await logContext.log({
-        endpoint: '/api/agent',
-        method: 'POST',
-        statusCode: 429,
-        error: 'Rate limit exceeded',
-        errorCode: 'RATE_LIMIT_EXCEEDED',
-        phoneNumber: validatedPhone,
-        tenantId: validatedTenantId
-      });
-
-      return NextResponse.json(
-        { 
-          success: false, 
-          error: 'Muitas mensagens enviadas. Por favor, aguarde um momento.',
-          retryAfter: Math.ceil((rateLimitResult.resetAt - Date.now()) / 1000)
-        },
-        { 
-          status: 429,
-          headers: {
-            'X-RateLimit-Limit': RATE_LIMITS.whatsapp.maxRequests.toString(),
-            'X-RateLimit-Remaining': rateLimitResult.remaining.toString(),
-            'X-RateLimit-Reset': new Date(rateLimitResult.resetAt).toISOString()
-          }
-        }
+    // Rate limiting per phone number (skip for test mode)
+    if (!isTest) {
+      const rateLimitService = getRateLimitService();
+      const rateLimitKey = `${validatedTenantId}:${validatedPhone}`;
+      const rateLimitResult = await rateLimitService.checkRateLimit(
+        rateLimitKey,
+        RATE_LIMITS.whatsapp
       );
+
+      if (!rateLimitResult.allowed) {
+        await logContext.log({
+          endpoint: '/api/agent',
+          method: 'POST',
+          statusCode: 429,
+          error: 'Rate limit exceeded',
+          errorCode: 'RATE_LIMIT_EXCEEDED',
+          phoneNumber: validatedPhone,
+          tenantId: validatedTenantId
+        });
+
+        return NextResponse.json(
+          { 
+            success: false, 
+            error: 'Muitas mensagens enviadas. Por favor, aguarde um momento.',
+            retryAfter: Math.ceil((rateLimitResult.resetAt - Date.now()) / 1000)
+          },
+          { 
+            status: 429,
+            headers: {
+              'X-RateLimit-Limit': RATE_LIMITS.whatsapp.maxRequests.toString(),
+              'X-RateLimit-Remaining': rateLimitResult.remaining.toString(),
+              'X-RateLimit-Reset': new Date(rateLimitResult.resetAt).toISOString()
+            }
+          }
+        );
+      }
     }
 
     // Get or create client with tenant isolation - using safe duplicate-check method
@@ -204,63 +207,44 @@ export async function POST(request: NextRequest) {
       clientPreferences: client.preferences || {},
     };
 
-    // Process message with new Agent Orchestrator
-    const { AgentOrchestratorService } = await import('@/lib/services/agent-orchestrator.service');
-    const orchestrator = new AgentOrchestratorService(validatedTenantId);
+    // Process message with Enhanced Agent Orchestrator
+    const { EnhancedAgentOrchestratorService } = await import('@/lib/services/agent-orchestrator-enhanced.service');
+    const orchestrator = new EnhancedAgentOrchestratorService(validatedTenantId);
     
     try {
-      // Use the new orchestrator to process the message
+      // Use the enhanced orchestrator to process the message
       const result = await orchestrator.processMessage(validatedMessage, validatedPhone);
       
-      if (result.success) {
-        // Log successful request
-        await logContext.log({
-          endpoint: '/api/agent',
-          method: 'POST',
-          statusCode: 200,
-          phoneNumber: validatedPhone,
-          clientId: client.id,
-          conversationId: conversation.id,
-          tenantId: validatedTenantId,
-          processingTime: result.metrics?.processingTime,
-          turns: result.metrics?.turns,
-          confidence: result.metrics?.confidence,
-          userAgent: request.headers.get('user-agent') || 'unknown',
-          ip: request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || 'unknown'
-        });
+      // Log detailed execution info
+      await logContext.log({
+        endpoint: '/api/agent',
+        method: 'POST',
+        statusCode: result.success ? 200 : 500,
+        phoneNumber: validatedPhone,
+        clientId: client.id,
+        conversationId: conversation.id,
+        tenantId: validatedTenantId,
+        processingTime: result.metrics.processingTime,
+        turns: result.metrics.totalTurns,
+        confidence: result.metrics.confidence,
+        toolsUsed: result.metrics.toolsUsed,
+        errorCount: result.metrics.errorCount,
+        finalAction: result.metrics.finalAction,
+        userAgent: request.headers.get('user-agent') || 'unknown',
+        ip: request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || 'unknown'
+      });
 
-        return NextResponse.json({
-          success: true,
-          data: {
-            response: result.response,
-            conversationId: conversation.id,
-            clientId: client.id,
-            metrics: result.metrics
-          }
-        });
-      } else {
-        // Handle orchestrator failure
-        await logContext.log({
-          endpoint: '/api/agent',
-          method: 'POST',
-          statusCode: 500,
-          error: 'Agent orchestrator failed',
-          errorCode: 'ORCHESTRATOR_ERROR',
-          phoneNumber: validatedPhone,
-          clientId: client.id,
+      return NextResponse.json({
+        success: result.success,
+        message: result.response,
+        data: {
+          response: result.response,
           conversationId: conversation.id,
-          tenantId: validatedTenantId
-        });
-
-        return NextResponse.json({
-          success: true,
-          data: {
-            response: result.response,
-            conversationId: conversation.id,
-            clientId: client.id,
-          }
-        });
-      }
+          clientId: client.id,
+          metrics: result.metrics,
+          ...(process.env.NODE_ENV === 'development' && { logs: result.logs })
+        }
+      });
     } catch (error) {
       await logContext.log({
         endpoint: '/api/agent',
@@ -277,6 +261,7 @@ export async function POST(request: NextRequest) {
       // Return a friendly error message
       return NextResponse.json({
         success: true,
+        message: 'Desculpe, estou com dificuldades técnicas no momento. Por favor, tente novamente em alguns instantes.',
         data: {
           response: 'Desculpe, estou com dificuldades técnicas no momento. Por favor, tente novamente em alguns instantes.',
           conversationId: conversation.id,

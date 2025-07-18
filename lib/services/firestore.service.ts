@@ -1,4 +1,4 @@
-import { db } from '@/lib/firebase/client';
+import { db } from '@/lib/firebase/config';
 import { doc, setDoc, getDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { ConversationContext } from '@/lib/types/ai-agent';
 

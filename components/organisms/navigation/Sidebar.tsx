@@ -37,6 +37,11 @@ import {
   Assessment,
   AccountBalanceWallet,
   Language,
+  GroupWork,
+  Analytics,
+  AccountTree,
+  Widgets,
+  BugReport,
 } from '@mui/icons-material';
 
 interface SidebarProps {
@@ -49,32 +54,43 @@ const menuItems = [
     text: 'Dashboard',
     href: '/dashboard',
     icon: <Dashboard />,
+    badge: null,
   },
   {
     text: 'Propriedades',
     href: '/dashboard/properties',
     icon: <Home />,
+    badge: null,
   },
   {
     text: 'Reservas',
     href: '/dashboard/reservations',
     icon: <CalendarMonth />,
-  },
-  {
-    text: 'Clientes',
-    href: '/dashboard/clients',
-    icon: <People />,
+    badge: null,
   },
   {
     text: 'Conversas',
     href: '/dashboard/conversations',
     icon: <Chat />,
+    badge: null,
+  },
+  {
+    text: 'Clientes',
+    href: '/dashboard/crm',
+    icon: <People />,
+    badge: null,
   },
   {
     text: 'Financeiro',
     href: '/dashboard/financeiro',
     icon: <AccountBalance />,
+    badge: null,
     submenu: [
+      {
+        text: 'Visão Geral',
+        href: '/dashboard/financeiro',
+        icon: <Analytics />,
+      },
       {
         text: 'Transações',
         href: '/dashboard/financeiro/transacoes',
@@ -85,12 +101,19 @@ const menuItems = [
         href: '/dashboard/financeiro/cobrancas',
         icon: <NotificationsActive />,
       },
-      {
-        text: 'Relatórios',
-        href: '/dashboard/financeiro/relatorios',
-        icon: <Assessment />,
-      },
     ],
+  },
+  {
+    text: 'Mini-Site',
+    href: '/dashboard/mini-site',
+    icon: <Language />,
+    badge: null,
+  },
+  {
+    text: 'Teste',
+    href: '/dashboard/teste',
+    icon: <BugReport />,
+    badge: 'DEV',
   },
 ];
 
@@ -99,11 +122,13 @@ const secondaryItems = [
     text: 'Configurações',
     href: '/dashboard/settings',
     icon: <Settings />,
+    badge: null,
   },
   {
     text: 'Ajuda',
     href: '/dashboard/help',
     icon: <HelpOutline />,
+    badge: null,
   },
 ];
 
@@ -128,34 +153,48 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
       height: '100%', 
       display: 'flex', 
       flexDirection: 'column',
-      bgcolor: 'background.paper',
+      background: 'linear-gradient(180deg, #0f172a 0%, #1e293b 100%)',
+      borderRight: '1px solid',
+      borderColor: 'rgba(255, 255, 255, 0.08)',
+      boxShadow: '0 0 32px rgba(0, 0, 0, 0.2)',
     }}>
-      <Toolbar sx={{ minHeight: { xs: 56, md: 64 }, px: { xs: 2, md: 3 } }}>
+      <Toolbar sx={{ 
+        minHeight: { xs: 56, md: 64 }, 
+        px: { xs: 2, md: 3 },
+        background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)',
+        color: 'white',
+        borderBottom: '1px solid rgba(255, 255, 255, 0.06)',
+        boxShadow: '0 2px 12px rgba(0, 0, 0, 0.15)',
+      }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
           <Box
             sx={{
-              width: { xs: 32, md: 36 },
-              height: { xs: 32, md: 36 },
-              borderRadius: 1.5,
-              bgcolor: 'primary.main',
+              width: { xs: 36, md: 40 },
+              height: { xs: 36, md: 40 },
+              borderRadius: 2,
+              background: 'linear-gradient(135deg, #06b6d4 0%, #0891b2 100%)',
+              backdropFilter: 'blur(10px)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
               color: 'white',
               fontWeight: 'bold',
-              fontSize: { xs: '0.75rem', md: '0.875rem' },
+              fontSize: { xs: '1rem', md: '1.125rem' },
+              border: '1px solid rgba(255, 255, 255, 0.2)',
+              boxShadow: '0 4px 16px rgba(6, 182, 212, 0.4)',
             }}
           >
-🏠
+            🏠
           </Box>
           <Box>
             <Typography 
               variant="subtitle1" 
-              fontWeight={600} 
+              fontWeight={700} 
               sx={{ 
                 lineHeight: 1,
-                color: 'text.primary',
-                fontSize: { xs: '0.9rem', md: '1rem' },
+                color: 'white',
+                fontSize: { xs: '1rem', md: '1.125rem' },
+                textShadow: '0 1px 2px rgba(0, 0, 0, 0.2)',
               }}
             >
               LocAI
@@ -163,8 +202,9 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
             <Typography 
               variant="caption" 
               sx={{ 
-                color: 'text.secondary',
-                fontSize: { xs: '0.7rem', md: '0.75rem' },
+                color: 'rgba(255, 255, 255, 0.85)',
+                fontSize: { xs: '0.75rem', md: '0.813rem' },
+                fontWeight: 500,
               }}
             >
               Gestão Imobiliária
@@ -173,7 +213,7 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
         </Box>
       </Toolbar>
 
-      <Divider />
+      <Divider sx={{ borderColor: 'rgba(255, 255, 255, 0.08)' }} />
 
       <Box sx={{ flex: 1, overflowY: 'auto', py: 2 }}>
         <List sx={{ px: { xs: 1.5, md: 2 } }}>
@@ -185,29 +225,42 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
                 selected={pathname === item.href || item.submenu?.some(sub => pathname === sub.href)}
                 onClick={() => handleMenuClick(item.text, !!item.submenu)}
                 sx={{
-                  borderRadius: 1.5,
-                  mb: 0.5,
-                  minHeight: { xs: 48, md: 52 },
-                  px: { xs: 1.5, md: 2 },
+                  borderRadius: 2,
+                  mb: 1,
+                  minHeight: { xs: 52, md: 56 },
+                  px: { xs: 2, md: 2.5 },
+                  mx: 0.5,
+                  background: 'transparent',
+                  border: '1px solid transparent',
+                  color: 'rgba(255, 255, 255, 0.8)',
+                  transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
                   '&:hover': {
-                    bgcolor: 'action.hover',
+                    background: 'linear-gradient(135deg, rgba(6, 182, 212, 0.12) 0%, rgba(8, 145, 178, 0.12) 100%)',
+                    border: '1px solid rgba(6, 182, 212, 0.2)',
+                    transform: 'translateX(2px)',
+                    boxShadow: '0 4px 16px rgba(6, 182, 212, 0.15)',
+                    color: 'rgba(255, 255, 255, 0.95)',
                   },
                   '&.Mui-selected': {
-                    bgcolor: 'primary.main',
-                    color: 'primary.contrastText',
+                    background: 'linear-gradient(135deg, #06b6d4 0%, #0891b2 100%)',
+                    color: 'white',
+                    border: '1px solid rgba(255, 255, 255, 0.2)',
+                    boxShadow: '0 4px 20px rgba(6, 182, 212, 0.3)',
                     '&:hover': {
-                      bgcolor: 'primary.dark',
+                      background: 'linear-gradient(135deg, #0891b2 0%, #0e7490 100%)',
+                      transform: 'translateX(4px)',
+                      boxShadow: '0 6px 24px rgba(6, 182, 212, 0.4)',
                     },
                     '& .MuiListItemIcon-root': {
-                      color: 'primary.contrastText',
+                      color: 'white',
                     },
                   },
                 }}
               >
                 <ListItemIcon
                   sx={{
-                    minWidth: { xs: 36, md: 40 },
-                    color: (pathname === item.href || item.submenu?.some(sub => pathname === sub.href)) ? 'inherit' : 'text.secondary',
+                    minWidth: { xs: 40, md: 44 },
+                    color: (pathname === item.href || item.submenu?.some(sub => pathname === sub.href)) ? 'inherit' : 'rgba(255, 255, 255, 0.6)',
                   }}
                 >
                   {item.icon}
@@ -215,10 +268,27 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
                 <ListItemText 
                   primary={item.text}
                   primaryTypographyProps={{
-                    fontSize: { xs: '0.813rem', md: '0.875rem' },
-                    fontWeight: (pathname === item.href || item.submenu?.some(sub => pathname === sub.href)) ? 600 : 400,
+                    fontSize: { xs: '0.875rem', md: '0.9rem' },
+                    fontWeight: (pathname === item.href || item.submenu?.some(sub => pathname === sub.href)) ? 600 : 500,
                   }}
                 />
+                {item.badge && (
+                  <Chip
+                    label={item.badge}
+                    size="small"
+                    sx={{
+                      height: 20,
+                      fontSize: '0.625rem',
+                      fontWeight: 600,
+                      bgcolor: '#22c55e',
+                      color: 'white',
+                      boxShadow: '0 2px 8px rgba(34, 197, 94, 0.3)',
+                      '& .MuiChip-label': {
+                        px: 1,
+                      },
+                    }}
+                  />
+                )}
                 {item.submenu && (
                   expandedMenu === item.text ? <ExpandLess sx={{ fontSize: { xs: 20, md: 24 } }} /> : <ExpandMore sx={{ fontSize: { xs: 20, md: 24 } }} />
                 )}
@@ -238,13 +308,27 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
                           mb: 0.5,
                           minHeight: { xs: 44, md: 48 },
                           px: { xs: 1.5, md: 2 },
+                          mx: 0.5,
+                          color: 'rgba(255, 255, 255, 0.7)',
+                          transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
                           '&:hover': {
-                            bgcolor: 'action.hover',
+                            background: 'linear-gradient(135deg, rgba(6, 182, 212, 0.08) 0%, rgba(8, 145, 178, 0.08) 100%)',
+                            transform: 'translateX(2px)',
+                            boxShadow: '0 2px 8px rgba(6, 182, 212, 0.1)',
+                            color: 'rgba(255, 255, 255, 0.9)',
                           },
                           '&.Mui-selected': {
-                            bgcolor: 'primary.light',
+                            background: 'linear-gradient(135deg, rgba(6, 182, 212, 0.15) 0%, rgba(8, 145, 178, 0.15) 100%)',
+                            color: '#67e8f9',
+                            border: '1px solid rgba(6, 182, 212, 0.3)',
+                            boxShadow: '0 3px 12px rgba(6, 182, 212, 0.2)',
                             '&:hover': {
-                              bgcolor: 'primary.main',
+                              background: 'linear-gradient(135deg, rgba(6, 182, 212, 0.2) 0%, rgba(8, 145, 178, 0.2) 100%)',
+                              transform: 'translateX(4px)',
+                              boxShadow: '0 4px 16px rgba(6, 182, 212, 0.25)',
+                            },
+                            '& .MuiListItemIcon-root': {
+                              color: '#67e8f9',
                             },
                           },
                         }}
@@ -252,7 +336,7 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
                         <ListItemIcon
                           sx={{
                             minWidth: { xs: 32, md: 36 },
-                            color: pathname === subItem.href ? 'primary.main' : 'text.secondary',
+                            color: pathname === subItem.href ? '#67e8f9' : 'rgba(255, 255, 255, 0.5)',
                           }}
                         >
                           {subItem.icon}
@@ -260,8 +344,8 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
                         <ListItemText 
                           primary={subItem.text}
                           primaryTypographyProps={{
-                            fontSize: { xs: '0.75rem', md: '0.813rem' },
-                            fontWeight: pathname === subItem.href ? 600 : 400,
+                            fontSize: { xs: '0.813rem', md: '0.875rem' },
+                            fontWeight: pathname === subItem.href ? 600 : 500,
                           }}
                         />
                       </ListItemButton>
@@ -274,7 +358,7 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
         </List>
       </Box>
 
-      <Divider />
+      <Divider sx={{ borderColor: 'rgba(255, 255, 255, 0.08)' }} />
 
       <Box sx={{ p: { xs: 1.5, md: 2 } }}>
         <List>
@@ -286,22 +370,34 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
               selected={pathname === item.href}
               onClick={isMobile ? onClose : undefined}
               sx={{
-                borderRadius: 1.5,
-                mb: 0.5,
+                borderRadius: 2,
+                mb: 1,
                 minHeight: { xs: 48, md: 52 },
                 px: { xs: 1.5, md: 2 },
+                mx: 0.5,
+                color: 'rgba(255, 255, 255, 0.7)',
+                transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
                 '&:hover': {
-                  bgcolor: 'action.hover',
+                  background: 'linear-gradient(135deg, rgba(148, 163, 184, 0.08) 0%, rgba(203, 213, 225, 0.08) 100%)',
+                  transform: 'translateX(2px)',
+                  boxShadow: '0 2px 8px rgba(148, 163, 184, 0.1)',
+                  color: 'rgba(255, 255, 255, 0.9)',
                 },
                 '&.Mui-selected': {
-                  bgcolor: 'action.selected',
+                  background: 'linear-gradient(135deg, rgba(148, 163, 184, 0.15) 0%, rgba(203, 213, 225, 0.15) 100%)',
+                  color: '#cbd5e1',
+                  border: '1px solid rgba(148, 163, 184, 0.3)',
+                  boxShadow: '0 2px 8px rgba(148, 163, 184, 0.15)',
+                  '& .MuiListItemIcon-root': {
+                    color: '#cbd5e1',
+                  },
                 },
               }}
             >
               <ListItemIcon
                 sx={{
                   minWidth: { xs: 36, md: 40 },
-                  color: 'text.secondary',
+                  color: pathname === item.href ? '#cbd5e1' : 'rgba(255, 255, 255, 0.5)',
                 }}
               >
                 {item.icon}
@@ -310,9 +406,26 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
                 primary={item.text}
                 primaryTypographyProps={{
                   fontSize: { xs: '0.813rem', md: '0.875rem' },
-                  fontWeight: pathname === item.href ? 600 : 400,
+                  fontWeight: pathname === item.href ? 600 : 500,
                 }}
               />
+              {item.badge && (
+                <Chip
+                  label={item.badge}
+                  size="small"
+                  sx={{
+                    height: 20,
+                    fontSize: '0.625rem',
+                    fontWeight: 600,
+                    bgcolor: '#f59e0b',
+                    color: 'white',
+                    boxShadow: '0 2px 8px rgba(245, 158, 11, 0.3)',
+                    '& .MuiChip-label': {
+                      px: 1,
+                    },
+                  }}
+                />
+              )}
             </ListItemButton>
           ))}
         </List>

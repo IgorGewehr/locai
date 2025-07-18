@@ -60,7 +60,7 @@ const ConversationContainer = styled(Box)(({ theme }) => ({
   height: '100vh',
   display: 'flex',
   flexDirection: 'column',
-  backgroundColor: '#f5f5f5',
+  backgroundColor: '#111b21', // Dark background like WhatsApp
   overflow: 'hidden',
 }));
 
@@ -69,13 +69,14 @@ const Header = styled(Paper)(({ theme }) => ({
   display: 'flex',
   alignItems: 'center',
   gap: theme.spacing(2),
-  backgroundColor: theme.palette.background.paper,
+  backgroundColor: '#1e2a38', // Dark header background
   borderRadius: 0,
-  borderBottom: `1px solid ${theme.palette.divider}`,
-  boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
+  borderBottom: '1px solid #3a4750',
+  boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
   zIndex: 1000,
   position: 'sticky',
   top: 0,
+  color: 'white',
 }));
 
 const MessagesArea = styled(Box)(({ theme }) => ({
@@ -85,22 +86,9 @@ const MessagesArea = styled(Box)(({ theme }) => ({
   display: 'flex',
   flexDirection: 'column',
   gap: theme.spacing(2),
-  background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+  backgroundColor: '#0d1421', // Dark chat background like WhatsApp
+  backgroundImage: 'url("data:image/svg+xml,%3Csvg width="20" height="20" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg"%3E%3Cg fill="%23ffffff" fill-opacity="0.02"%3E%3Cpath d="M0 0h20v20H0V0zm10 17a7 7 0 1 0 0-14 7 7 0 0 0 0 14z"/%3E%3C/g%3E%3C/svg%3E")',
   position: 'relative',
-  '&::before': {
-    content: '""',
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    background: `
-      radial-gradient(circle at 20% 50%, rgba(120, 119, 198, 0.3) 0%, transparent 50%),
-      radial-gradient(circle at 80% 20%, rgba(255, 255, 255, 0.1) 0%, transparent 50%),
-      radial-gradient(circle at 40% 80%, rgba(120, 119, 198, 0.2) 0%, transparent 50%)
-    `,
-    pointerEvents: 'none',
-  },
   '&::-webkit-scrollbar': {
     width: '6px',
   },
@@ -136,17 +124,17 @@ const MessageBubble = styled(Paper, {
   maxWidth: '100%',
   borderRadius: $isUser ? '20px 20px 4px 20px' : '20px 20px 20px 4px',
   backgroundColor: $isUser 
-    ? theme.palette.primary.main
+    ? '#005c4b' // Dark green for user messages
     : $isAI 
-      ? '#4CAF50'
-      : theme.palette.background.paper,
-  color: $isUser || $isAI ? theme.palette.primary.contrastText : theme.palette.text.primary,
-  boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
+      ? '#128c7e' // Light green for AI messages
+      : '#005c4b', // Default to user style
+  color: 'white', // White text for all messages
+  boxShadow: '0 2px 8px rgba(0,0,0,0.3)',
   position: 'relative',
   wordBreak: 'break-word',
   fontSize: '0.95rem',
   lineHeight: 1.4,
-  border: $isUser || $isAI ? 'none' : `1px solid ${theme.palette.divider}`,
+  border: 'none',
   
   '&::before': $isUser ? {
     content: '""',
@@ -156,7 +144,7 @@ const MessageBubble = styled(Paper, {
     width: 0,
     height: 0,
     border: '8px solid transparent',
-    borderTopColor: theme.palette.primary.main,
+    borderTopColor: '#005c4b',
     borderBottom: 'none',
     borderRight: 'none',
   } : $isAI ? {
@@ -167,7 +155,7 @@ const MessageBubble = styled(Paper, {
     width: 0,
     height: 0,
     border: '8px solid transparent',
-    borderTopColor: '#4CAF50',
+    borderTopColor: '#128c7e',
     borderBottom: 'none',
     borderLeft: 'none',
   } : {
@@ -178,7 +166,7 @@ const MessageBubble = styled(Paper, {
     width: 0,
     height: 0,
     border: '8px solid transparent',
-    borderTopColor: theme.palette.background.paper,
+    borderTopColor: '#005c4b',
     borderBottom: 'none',
     borderLeft: 'none',
   },
@@ -198,10 +186,10 @@ const MessageMeta = styled(Box, {
 
 const InputArea = styled(Paper)(({ theme }) => ({
   padding: theme.spacing(2),
-  backgroundColor: theme.palette.background.paper,
+  backgroundColor: '#1e2a38', // Dark input area background
   borderRadius: 0,
-  borderTop: `1px solid ${theme.palette.divider}`,
-  boxShadow: '0 -2px 8px rgba(0,0,0,0.08)',
+  borderTop: '1px solid #3a4750',
+  boxShadow: '0 -2px 8px rgba(0,0,0,0.3)',
 }));
 
 const DateDivider = styled(Box)(({ theme }) => ({
@@ -220,11 +208,11 @@ const DateDivider = styled(Box)(({ theme }) => ({
 }));
 
 const DateChip = styled(Chip)(({ theme }) => ({
-  backgroundColor: 'rgba(255, 255, 255, 0.2)',
+  backgroundColor: 'rgba(18, 140, 126, 0.3)', // Semi-transparent green
   color: 'white',
   fontSize: '0.75rem',
   backdropFilter: 'blur(10px)',
-  border: '1px solid rgba(255, 255, 255, 0.3)',
+  border: '1px solid rgba(37, 211, 102, 0.3)',
 }));
 
 const StatusIcon = styled(Box, {
@@ -460,7 +448,7 @@ export default function ConversationPage() {
       <Header elevation={0}>
         <IconButton 
           onClick={() => router.back()} 
-          sx={{ mr: 1 }}
+          sx={{ mr: 1, color: 'white' }}
         >
           <ArrowBack />
         </IconButton>
@@ -469,7 +457,7 @@ export default function ConversationPage() {
           sx={{ 
             width: 48, 
             height: 48,
-            bgcolor: 'primary.main',
+            bgcolor: '#25d366', // WhatsApp green
             fontSize: '1.2rem',
             fontWeight: 600,
           }}
@@ -478,12 +466,12 @@ export default function ConversationPage() {
         </Avatar>
         
         <Box sx={{ flex: 1 }}>
-          <Typography variant="h6" fontWeight={600}>
+          <Typography variant="h6" fontWeight={600} sx={{ color: 'white' }}>
             {conversation?.clientName || 'Cliente'}
           </Typography>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
             <WhatsApp sx={{ fontSize: 16, color: '#25D366' }} />
-            <Typography variant="body2" color="text.secondary">
+            <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.7)' }}>
               {conversation?.clientPhone || 'Número não disponível'}
             </Typography>
             {conversation?.status === 'active' && (
@@ -499,12 +487,12 @@ export default function ConversationPage() {
 
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
           <Tooltip title="Conversa favorita">
-            <IconButton>
+            <IconButton sx={{ color: 'white' }}>
               {conversation?.isStarred ? <Star color="warning" /> : <StarBorder />}
             </IconButton>
           </Tooltip>
           
-          <IconButton onClick={(e) => setMenuAnchor(e.currentTarget)}>
+          <IconButton onClick={(e) => setMenuAnchor(e.currentTarget)} sx={{ color: 'white' }}>
             <MoreVert />
           </IconButton>
           
@@ -592,7 +580,7 @@ export default function ConversationPage() {
                         variant="caption" 
                         sx={{ 
                           fontWeight: 600, 
-                          color: isAI ? 'rgba(255,255,255,0.9)' : 'text.secondary',
+                          color: 'rgba(255,255,255,0.8)',
                           mb: 0.5,
                           display: 'block'
                         }}
@@ -653,16 +641,32 @@ export default function ConversationPage() {
             sx={{
               '& .MuiOutlinedInput-root': {
                 borderRadius: 3,
-                backgroundColor: 'background.default',
-              }
+                backgroundColor: '#1e2a38',
+                color: 'white',
+                '& fieldset': {
+                  borderColor: '#3a4750',
+                },
+                '&:hover fieldset': {
+                  borderColor: '#128c7e',
+                },
+                '&.Mui-focused fieldset': {
+                  borderColor: '#25d366',
+                },
+              },
+              '& .MuiInputBase-input': {
+                color: 'white',
+              },
+              '& .MuiInputBase-input::placeholder': {
+                color: 'rgba(255,255,255,0.7)',
+              },
             }}
             InputProps={{
               endAdornment: (
                 <InputAdornment position="end">
-                  <IconButton size="small">
+                  <IconButton size="small" sx={{ color: 'rgba(255,255,255,0.7)' }}>
                     <EmojiEmotions />
                   </IconButton>
-                  <IconButton size="small">
+                  <IconButton size="small" sx={{ color: 'rgba(255,255,255,0.7)' }}>
                     <AttachFile />
                   </IconButton>
                 </InputAdornment>
@@ -674,15 +678,15 @@ export default function ConversationPage() {
             onClick={handleSendMessage}
             disabled={!newMessage.trim() || sending}
             sx={{
-              bgcolor: 'primary.main',
+              bgcolor: '#25d366', // WhatsApp green
               color: 'white',
               width: 48,
               height: 48,
               '&:hover': {
-                bgcolor: 'primary.dark',
+                bgcolor: '#128c7e',
               },
               '&:disabled': {
-                bgcolor: 'grey.300',
+                bgcolor: '#3a4750',
               },
             }}
           >

@@ -540,18 +540,45 @@ export default function SettingsPage() {
   }
 
   return (
-    <Box sx={{ px: isMobile ? 1 : 0 }}>
+    <Box sx={{ 
+      px: isMobile ? 1 : 0,
+      background: 'linear-gradient(135deg, #f8fafc 0%, #e3f2fd 100%)',
+      minHeight: '100vh',
+      borderRadius: 2,
+      p: { xs: 2, md: 3 }
+    }}>
       <Box sx={{ 
         display: 'flex', 
         flexDirection: isMobile ? 'column' : 'row',
         justifyContent: 'space-between', 
         alignItems: isMobile ? 'stretch' : 'center', 
-        mb: 3,
+        mb: { xs: 3, md: 4 },
         gap: 2 
       }}>
-        <Typography variant={isMobile ? "h5" : "h4"} component="h1" fontWeight={600}>
-          Configurações
-        </Typography>
+        <Box>
+          <Typography 
+            variant={isMobile ? "h5" : "h4"} 
+            component="h1" 
+            fontWeight={700}
+            sx={{ 
+              color: '#1565c0',
+              fontSize: { xs: '1.75rem', md: '2rem', lg: '2.25rem' },
+              mb: 1
+            }}
+          >
+            Configurações
+          </Typography>
+          <Typography 
+            variant="subtitle1" 
+            sx={{ 
+              color: '#1e3a8a', 
+              fontWeight: 500,
+              fontSize: { xs: '0.875rem', md: '1rem' }
+            }}
+          >
+            Configure e personalize seu sistema
+          </Typography>
+        </Box>
         <Button
           variant="contained"
           startIcon={saving ? <CircularProgress size={20} /> : <Save />}
@@ -559,16 +586,63 @@ export default function SettingsPage() {
           disabled={saving}
           fullWidth={isMobile}
           size={isMobile ? "large" : "medium"}
+          sx={{
+            background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+            boxShadow: '0 4px 20px rgba(102, 126, 234, 0.25)',
+            borderRadius: 2,
+            px: { xs: 2, md: 3 },
+            py: { xs: 1.5, md: 2 },
+            fontWeight: 600,
+            textTransform: 'none',
+            '&:hover': {
+              background: 'linear-gradient(135deg, #5a67d8 0%, #6b46c1 100%)',
+              transform: 'translateY(-2px)',
+            },
+            '&:disabled': {
+              background: 'linear-gradient(135deg, #9ca3af 0%, #6b7280 100%)',
+            }
+          }}
         >
-          {saving ? 'Salvando...' : 'Salvar'}
+          {saving ? 'Salvando...' : 'Salvar Configurações'}
         </Button>
       </Box>
 
-      <Paper sx={{ mb: 3 }}>
+      <Paper sx={{ 
+        mb: 4, 
+        borderRadius: 3,
+        background: 'rgba(255, 255, 255, 0.9)',
+        backdropFilter: 'blur(10px)',
+        boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)',
+        border: '1px solid rgba(255, 255, 255, 0.2)',
+        overflow: 'hidden'
+      }}>
         <Tabs 
           value={activeTab} 
           onChange={(_, newValue) => setActiveTab(newValue)}
-          sx={{ borderBottom: 1, borderColor: 'divider' }}
+          sx={{ 
+            borderBottom: 1, 
+            borderColor: 'divider',
+            '& .MuiTab-root': {
+              textTransform: 'none',
+              fontWeight: 600,
+              fontSize: { xs: '0.875rem', md: '1rem' },
+              py: { xs: 2, md: 2.5 },
+              transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+              '&:hover': {
+                color: 'primary.main',
+                backgroundColor: 'rgba(102, 126, 234, 0.05)',
+              },
+              '&.Mui-selected': {
+                color: 'primary.main',
+                backgroundColor: 'rgba(102, 126, 234, 0.1)',
+              }
+            },
+            '& .MuiTabs-indicator': {
+              height: 3,
+              borderRadius: 1.5,
+              background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+            }
+          }}
           variant={isMobile ? "scrollable" : "fullWidth"}
           scrollButtons={isMobile ? "auto" : false}
           allowScrollButtonsMobile
@@ -610,8 +684,15 @@ export default function SettingsPage() {
       {activeTab === 0 && (
         <Grid container spacing={3}>
           <Grid item xs={12}>
-            <Card>
-              <CardContent>
+            <Card sx={{
+              borderRadius: 3,
+              background: 'rgba(255, 255, 255, 0.9)',
+              backdropFilter: 'blur(10px)',
+              boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)',
+              border: '1px solid rgba(255, 255, 255, 0.2)',
+              overflow: 'hidden'
+            }}>
+              <CardContent sx={{ p: { xs: 3, md: 4 } }}>
                 <Box sx={{ 
                   display: 'flex', 
                   flexDirection: isMobile ? 'column' : 'row',
@@ -734,11 +815,47 @@ export default function SettingsPage() {
       {activeTab === 1 && (
         <Grid container spacing={3}>
           <Grid item xs={12}>
-            <Card>
-              <CardContent>
-                <Typography variant={isMobile ? "subtitle1" : "h6"} gutterBottom fontWeight={600}>
-                  Informações da Empresa
-                </Typography>
+            <Card sx={{
+              borderRadius: 3,
+              background: 'rgba(255, 255, 255, 0.9)',
+              backdropFilter: 'blur(10px)',
+              boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)',
+              border: '1px solid rgba(255, 255, 255, 0.2)',
+              overflow: 'hidden'
+            }}>
+              <CardContent sx={{ p: { xs: 3, md: 4 } }}>
+                <Box sx={{ 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  gap: 2, 
+                  mb: 3,
+                  pb: 2,
+                  borderBottom: '1px solid',
+                  borderColor: 'divider'
+                }}>
+                  <Box
+                    sx={{
+                      width: 48,
+                      height: 48,
+                      borderRadius: 2,
+                      background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      color: 'white',
+                    }}
+                  >
+                    <Business sx={{ fontSize: 24 }} />
+                  </Box>
+                  <Box>
+                    <Typography variant={isMobile ? "subtitle1" : "h6"} gutterBottom fontWeight={600}>
+                      Informações da Empresa
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      Configure os dados da sua empresa
+                    </Typography>
+                  </Box>
+                </Box>
 
                 {/* Logo Upload */}
                 <Box sx={{ mb: 4 }}>
@@ -873,11 +990,47 @@ export default function SettingsPage() {
       {activeTab === 2 && (
         <Grid container spacing={3}>
           <Grid item xs={12}>
-            <Card>
-              <CardContent>
-                <Typography variant={isMobile ? "subtitle1" : "h6"} gutterBottom fontWeight={600}>
-                  Configurações do Assistente
-                </Typography>
+            <Card sx={{
+              borderRadius: 3,
+              background: 'rgba(255, 255, 255, 0.9)',
+              backdropFilter: 'blur(10px)',
+              boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)',
+              border: '1px solid rgba(255, 255, 255, 0.2)',
+              overflow: 'hidden'
+            }}>
+              <CardContent sx={{ p: { xs: 3, md: 4 } }}>
+                <Box sx={{ 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  gap: 2, 
+                  mb: 3,
+                  pb: 2,
+                  borderBottom: '1px solid',
+                  borderColor: 'divider'
+                }}>
+                  <Box
+                    sx={{
+                      width: 48,
+                      height: 48,
+                      borderRadius: 2,
+                      background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      color: 'white',
+                    }}
+                  >
+                    <SmartToy sx={{ fontSize: 24 }} />
+                  </Box>
+                  <Box>
+                    <Typography variant={isMobile ? "subtitle1" : "h6"} gutterBottom fontWeight={600}>
+                      Configurações do Assistente IA
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      Personalize o comportamento do assistente
+                    </Typography>
+                  </Box>
+                </Box>
 
                 <Grid container spacing={isMobile ? 2 : 3}>
                   <Grid item xs={12}>
@@ -992,8 +1145,15 @@ export default function SettingsPage() {
       {activeTab === 3 && (
         <Grid container spacing={3}>
           <Grid item xs={12}>
-            <Card>
-              <CardContent>
+            <Card sx={{
+              borderRadius: 3,
+              background: 'rgba(255, 255, 255, 0.9)',
+              backdropFilter: 'blur(10px)',
+              boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)',
+              border: '1px solid rgba(255, 255, 255, 0.2)',
+              overflow: 'hidden'
+            }}>
+              <CardContent sx={{ p: { xs: 3, md: 4 } }}>
                 <Box sx={{ 
                   display: 'flex', 
                   flexDirection: isMobile ? 'column' : 'row',
@@ -1270,8 +1430,15 @@ export default function SettingsPage() {
       {activeTab === 4 && (
         <Grid container spacing={3}>
           <Grid item xs={12}>
-            <Card>
-              <CardContent>
+            <Card sx={{
+              borderRadius: 3,
+              background: 'rgba(255, 255, 255, 0.9)',
+              backdropFilter: 'blur(10px)',
+              boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)',
+              border: '1px solid rgba(255, 255, 255, 0.2)',
+              overflow: 'hidden'
+            }}>
+              <CardContent sx={{ p: { xs: 3, md: 4 } }}>
                 <Box sx={{ 
                   display: 'flex', 
                   flexDirection: isMobile ? 'column' : 'row',

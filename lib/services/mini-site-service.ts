@@ -171,39 +171,66 @@ class MiniSiteService {
     try {
       console.log('Fetching properties for tenant:', tenantId);
       
-      // Use Firestore SDK directly for querying with multiple where clauses
-      const propertiesQuery = query(
-        collection(db, 'properties'),
-        where('tenantId', '==', tenantId),
-        where('isActive', '==', true)
-      );
-      const snapshot = await getDocs(propertiesQuery);
-      const properties = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Property[];
-
-      console.log('Found properties:', properties.length);
-      return properties.map(this.transformToPublicProperty);
+      // First, try to get all properties for the tenant
+      const allProperties = await this.propertyService.getAll();
+      console.log('Total properties in database:', allProperties.length);
+      
+      // Filter for the specific tenant
+      const tenantProperties = allProperties.filter(p => {
+        console.log('Checking property:', p.id, 'tenantId:', p.tenantId, 'isActive:', p.isActive);
+        return p.tenantId === tenantId;
+      });
+      
+      console.log('Properties for tenant:', tenantProperties.length);
+      
+      // Filter only active properties
+      const activeProperties = tenantProperties.filter(p => p.isActive !== false);
+      console.log('Active properties:', activeProperties.length);
+      
+      if (activeProperties.length === 0) {
+        console.log('No active properties found for tenant:', tenantId);
+        // Instead of creating demo properties, return empty array
+        // This will show the actual state to the user
+        return [];
+      }
+      
+      // Transform to public properties
+      const publicProperties = activeProperties.map(p => this.transformToPublicProperty(p));
+      console.log('Transformed public properties:', publicProperties.length);
+      
+      return publicProperties;
     } catch (error) {
       console.error('Error fetching public properties:', error);
-      // Fallback to get all properties for the tenant
+      
+      // Fallback: try direct Firestore query
       try {
-        console.log('Trying fallback method...');
-        const allProperties = await this.propertyService.getAll();
-        const tenantProperties = allProperties.filter(p => 
-          p.tenantId === tenantId && p.isActive !== false
+        console.log('Trying direct Firestore query...');
+        const propertiesQuery = query(
+          collection(db, 'properties'),
+          where('tenantId', '==', tenantId)
         );
-        console.log('Fallback found properties:', tenantProperties.length);
+        const snapshot = await getDocs(propertiesQuery);
+        const properties = snapshot.docs.map(doc => ({ 
+          id: doc.id, 
+          ...doc.data() 
+        })) as Property[];
         
-        if (tenantProperties.length === 0) {
-          // Create demo properties for first-time users
-          console.log('No properties found, creating demo properties...');
-          return this.createDemoProperties(tenantId);
+        console.log('Direct query found properties:', properties.length);
+        
+        // Filter active properties
+        const activeProperties = properties.filter(p => p.isActive !== false);
+        console.log('Active properties from direct query:', activeProperties.length);
+        
+        if (activeProperties.length === 0) {
+          console.log('No properties found via direct query');
+          return [];
         }
         
-        return tenantProperties.map(this.transformToPublicProperty);
+        return activeProperties.map(p => this.transformToPublicProperty(p));
       } catch (fallbackError) {
-        console.error('Fallback also failed:', fallbackError);
-        // Return demo properties as last resort
-        return this.createDemoProperties(tenantId);
+        console.error('Direct query also failed:', fallbackError);
+        // Return empty array instead of demo properties
+        return [];
       }
     }
   }
