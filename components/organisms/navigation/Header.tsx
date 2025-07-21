@@ -39,7 +39,7 @@ export default function Header({ onMenuClick }: HeaderProps) {
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [notificationsCount] = useState(0);
   const [whatsappStatus, setWhatsappStatus] = useState<'disconnected' | 'connecting' | 'qr' | 'connected'>('disconnected');
-  const [connectionType, setConnectionType] = useState<'web' | 'api'>('web');
+  const [connectionType, setConnectionType] = useState<'web' | null>('web');
   const router = useRouter();
   const { user, signOut } = useAuth();
   const tenantId = getTenantId();
@@ -80,7 +80,14 @@ export default function Header({ onMenuClick }: HeaderProps) {
   const checkWhatsAppStatus = async () => {
     try {
       // First check Web session
-      const sessionResponse = await fetch('/api/whatsapp/session');
+      const sessionResponse = await fetch('/api/whatsapp/session', {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        credentials: 'include', // Include cookies for authentication
+      });
+      
       if (sessionResponse.ok) {
         const sessionData = await sessionResponse.json();
         if (sessionData.data) {
@@ -92,17 +99,14 @@ export default function Header({ onMenuClick }: HeaderProps) {
         }
       }
       
-      // If Web is not connected, check API
-      const apiResponse = await fetch('/api/config/whatsapp');
-      if (apiResponse.ok) {
-        const apiData = await apiResponse.json();
-        if (apiData.status === 'connected') {
-          setWhatsappStatus('connected');
-          setConnectionType('api');
-        }
-      }
+      // Only WhatsApp Web is available
+      setWhatsappStatus('disconnected');
+      setConnectionType(null);
     } catch (error) {
       console.error('Error checking WhatsApp status:', error);
+      // Set disconnected status on error
+      setWhatsappStatus('disconnected');
+      setConnectionType(null);
     }
   };
   

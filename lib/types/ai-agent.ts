@@ -6,6 +6,8 @@ export interface AIInput {
   turnNumber?: number;
   clientPhone: string;
   tenantId: string;
+  validationFeedback?: string;
+  originalIntent?: string; // Rastreia a intenção original do usuário
 }
 
 export interface AIResponse {
@@ -27,6 +29,7 @@ export interface ConversationContext {
   interestedProperties: string[];
   pendingReservation?: PendingReservation;
   clientProfile: ClientProfile;
+  currentPropertyId?: string; // ID da propriedade atual em discussão
 }
 
 export interface ConversationMessage {

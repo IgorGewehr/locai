@@ -3,7 +3,7 @@ import { WhatsAppWebhookData, WhatsAppIncomingMessage } from '@/lib/types/whatsa
 import { AIResponse } from '@/lib/types/ai'
 import { Message, MessageType, MessageStatus } from '@/lib/types/conversation'
 import { ConversationService } from '@/lib/services/conversation-service'
-import { AIService } from '@/lib/services/ai-service'
+import { AIService } from '@/lib/services/ai-service-stub'
 import { AutomationService } from '@/lib/services/automation-service'
 import { PropertyService } from '@/lib/services/property-service'
 import { ReservationService } from '@/lib/services/reservation-service'

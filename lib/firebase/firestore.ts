@@ -169,6 +169,15 @@ export class FirestoreService<T extends { id: string }> {
     })) as T[];
   }
 
+  async getAllByTenant(tenantId: string): Promise<T[]> {
+    const q = query(collection(db, this.collectionName), where('tenantId', '==', tenantId));
+    const querySnapshot = await getDocs(q);
+    return querySnapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data(),
+    })) as T[];
+  }
+
   async getWhere(
     field: string,
     operator: any,

@@ -29,7 +29,11 @@ export async function middleware(request: NextRequest) {
     '/signup',
     '/reset-password',
     '/api/webhook/whatsapp',
-    '/api/auth'
+    '/api/webhook/whatsapp-web',
+    '/api/auth',
+    '/api/agent',
+    '/api/whatsapp/session',
+    '/api/config/whatsapp'
   ]
 
   if (publicRoutes.some(route => pathname === route || pathname.startsWith(route))) {

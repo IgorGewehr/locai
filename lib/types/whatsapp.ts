@@ -1,5 +1,7 @@
+// WhatsApp Web Types (Baileys-based)
+
 export interface WhatsAppMessage {
-  type: 'text' | 'image' | 'video' | 'audio' | 'document' | 'location' | 'contact' | 'template' | 'interactive'
+  type: 'text' | 'image' | 'video' | 'audio' | 'document' | 'location' | 'contact'
   text?: { body: string }
   image?: { link: string; caption?: string }
   video?: { link: string; caption?: string }
@@ -7,16 +9,6 @@ export interface WhatsAppMessage {
   document?: { link: string; filename?: string }
   location?: { latitude: number; longitude: number; name?: string; address?: string }
   contact?: { name: string; phone: string }
-  template?: WhatsAppTemplate
-  interactive?: {
-    type: 'button' | 'list'
-    body: { text: string }
-    action?: {
-      buttons?: Array<{ type: string; reply: { id: string; title: string } }>
-      button?: string
-      sections?: any[]
-    }
-  }
 }
 
 export interface WhatsAppTemplate {
@@ -40,114 +32,38 @@ export interface WhatsAppTemplateParameter {
   document?: { link: string; filename?: string }
 }
 
-export interface WhatsAppWebhookData {
-  object: string
-  entry: WhatsAppWebhookEntry[]
-}
-
-export interface WhatsAppWebhookEntry {
+// WhatsApp Web Session Types
+export interface WhatsAppWebSession {
   id: string
-  changes: WhatsAppWebhookChange[]
+  tenantId: string
+  connected: boolean
+  phone?: string
+  name?: string
+  qrCode?: string
+  lastActivity: Date
+  connectionStatus: 'disconnected' | 'connecting' | 'connected' | 'error'
 }
 
-export interface WhatsAppWebhookChange {
-  value: WhatsAppWebhookValue
-  field: string
-}
-
-export interface WhatsAppWebhookValue {
-  messaging_product: string
-  metadata: WhatsAppMetadata
-  contacts?: WhatsAppContact[]
-  messages?: WhatsAppIncomingMessage[]
-  statuses?: WhatsAppStatus[]
-}
-
-export interface WhatsAppMetadata {
-  display_phone_number: string
-  phone_number_id: string
-}
-
-export interface WhatsAppContact {
-  profile: {
-    name: string
-  }
-  wa_id: string
-}
-
-export interface WhatsAppIncomingMessage {
+export interface WhatsAppWebMessage {
   id: string
   from: string
-  timestamp: string
-  type: MessageType
-  text?: { body: string }
-  image?: { 
-    mime_type: string
-    sha256: string
-    id: string
-    caption?: string
-  }
-  video?: {
-    mime_type: string
-    sha256: string
-    id: string
-    caption?: string
-  }
-  audio?: {
-    mime_type: string
-    sha256: string
-    id: string
-    voice: boolean
-  }
-  document?: {
-    mime_type: string
-    sha256: string
-    id: string
-    filename?: string
-  }
-  location?: {
-    latitude: number
-    longitude: number
-    name?: string
-    address?: string
-  }
-  contact?: {
-    name: string
-    phone: string
-  }
-  context?: {
-    from: string
-    id: string
-  }
+  to: string
+  body: string
+  timestamp: Date
+  type: 'incoming' | 'outgoing'
+  mediaUrl?: string
+  mediaType?: string
+  status: 'sending' | 'sent' | 'delivered' | 'read' | 'failed'
 }
 
-export interface WhatsAppStatus {
-  id: string
-  status: 'sent' | 'delivered' | 'read' | 'failed'
-  timestamp: string
-  recipient_id: string
-  conversation?: {
-    id: string
-    expiration_timestamp?: string
-    origin: {
-      type: string
-    }
-  }
-  pricing?: {
-    billable: boolean
-    pricing_model: string
-    category: string
-  }
-}
-
-export interface WhatsAppError {
-  code: number
-  title: string
-  message: string
-  error_data?: {
-    messaging_product: string
-    details: string
-  }
+export enum MessageType {
+  TEXT = 'text',
+  IMAGE = 'image',
+  VIDEO = 'video',
+  AUDIO = 'audio',
+  DOCUMENT = 'document',
+  LOCATION = 'location',
+  CONTACT = 'contact'
 }
 
 export interface WhatsAppMediaResponse {
@@ -162,43 +78,31 @@ export interface WhatsAppMediaDetails {
   id: string
 }
 
-export enum MessageType {
-  TEXT = 'text',
-  IMAGE = 'image',
-  VIDEO = 'video',
-  AUDIO = 'audio',
-  DOCUMENT = 'document',
-  LOCATION = 'location',
-  CONTACT = 'contact',
-  TEMPLATE = 'template',
-  INTERACTIVE = 'interactive'
-}
+// Error handling
+export class WhatsAppError extends Error {
+  code: number
+  title: string
+  timestamp: Date
 
-export interface WhatsAppBusinessProfile {
-  about?: string
-  address?: string
-  description?: string
-  email?: string
-  messaging_product: string
-  profile_picture_url?: string
-  websites?: string[]
-  vertical?: string
-}
-
-export interface WhatsAppPhoneNumber {
-  id: string
-  display_phone_number: string
-  verified_name: string
-  code_verification_status: string
-  quality_rating: string
-  platform: string
-  throughput: {
-    level: string
+  constructor(code: number, message: string, title: string = 'WhatsApp Error') {
+    super(message)
+    this.name = 'WhatsAppError'
+    this.code = code
+    this.title = title
+    this.timestamp = new Date()
   }
 }
 
-export interface WhatsAppWebhookVerification {
-  'hub.mode': string
-  'hub.verify_token': string
-  'hub.challenge': string
+// Rate limiting types
+export interface RateLimitInfo {
+  remaining: number
+  resetTime: Date
+  limit: number
+}
+
+// Connection event types
+export interface ConnectionEvent {
+  type: 'connecting' | 'connected' | 'disconnected' | 'qr' | 'error'
+  data?: any
+  timestamp: Date
 }

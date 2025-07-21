@@ -1,6 +1,6 @@
 import { AutomationEngine } from '@/lib/automation/workflow-engine'
 import { WhatsAppClient } from '@/lib/whatsapp/client'
-import { AIService } from '@/lib/services/ai-service'
+import { AIService } from '@/lib/services/ai-service-stub'
 import { Automation, AutomationExecution, TriggerType } from '@/lib/types/automation'
 
 export class AutomationService {

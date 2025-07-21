@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { AIService } from '@/lib/services/ai-service';
+// AIService removed - using ProfessionalAgent
 import * as agentFunctions from '@/lib/ai/agent-functions-exports';
 import { 
   conversationService, 
@@ -146,9 +146,25 @@ export async function POST(request: NextRequest) {
     // Get or create conversation with tenant isolation
     const sanitizedWhatsappNumber = whatsappNumber ? validatePhoneNumber(whatsappNumber) : validatedPhone;
     
-    // For now, create a new conversation session for each request
-    // In production, implement proper conversation lookup
-    const conversation = await conversationService.create({
+    // Try to find existing active conversation first
+    let conversation = null;
+    const existingConversations = await conversationService.getWhere('clientId', '==', client.id);
+    const activeConversation = existingConversations.find(c => 
+      c.isActive && 
+      c.tenantId === validatedTenantId &&
+      c.whatsappPhone === sanitizedWhatsappNumber
+    );
+    
+    if (activeConversation) {
+      conversation = activeConversation;
+      // Update last message timestamp
+      await conversationService.update(conversation.id, {
+        lastMessageAt: new Date(),
+        updatedAt: new Date()
+      });
+    } else {
+      // Create new conversation if none exists
+      conversation = await conversationService.create({
         clientId: client.id,
         whatsappPhone: sanitizedWhatsappNumber,
         whatsappNumber: sanitizedWhatsappNumber,
@@ -161,6 +177,7 @@ export async function POST(request: NextRequest) {
         createdAt: new Date(),
         updatedAt: new Date(),
       });
+    }
 
     if (!conversation) {
       await logContext.log({
@@ -207,42 +224,56 @@ export async function POST(request: NextRequest) {
       clientPreferences: client.preferences || {},
     };
 
-    // Process message with Enhanced Agent Orchestrator
-    const { EnhancedAgentOrchestratorService } = await import('@/lib/services/agent-orchestrator-enhanced.service');
-    const orchestrator = new EnhancedAgentOrchestratorService(validatedTenantId);
+    // Process message with Professional Agent (NEW SYSTEM)
+    const { ProfessionalAgent } = await import('@/lib/ai-agent/professional-agent');
+    const agent = new ProfessionalAgent();
     
     try {
-      // Use the enhanced orchestrator to process the message
-      const result = await orchestrator.processMessage(validatedMessage, validatedPhone);
+      // Use the professional agent to process the message
+      const result = await agent.processMessage({
+        message: validatedMessage,
+        clientPhone: validatedPhone,
+        tenantId: validatedTenantId,
+        conversationHistory: recentHistory
+      });
       
-      // Log detailed execution info
+      // Send WhatsApp response (integrada no Professional Agent)
+      try {
+        const { sendWhatsAppMessage } = await import('@/lib/whatsapp/message-sender');
+        await sendWhatsAppMessage(validatedPhone, result.reply);
+      } catch (error) {
+        console.error('Error sending WhatsApp message:', error);
+      }
+      
+      // Log detailed execution info (simplified)
       await logContext.log({
         endpoint: '/api/agent',
         method: 'POST',
-        statusCode: result.success ? 200 : 500,
+        statusCode: 200,
         phoneNumber: validatedPhone,
         clientId: client.id,
         conversationId: conversation.id,
         tenantId: validatedTenantId,
-        processingTime: result.metrics.processingTime,
-        turns: result.metrics.totalTurns,
-        confidence: result.metrics.confidence,
-        toolsUsed: result.metrics.toolsUsed,
-        errorCount: result.metrics.errorCount,
-        finalAction: result.metrics.finalAction,
+        intent: result.intent,
+        confidence: result.confidence,
+        tokensUsed: result.tokensUsed,
+        fromCache: result.fromCache,
         userAgent: request.headers.get('user-agent') || 'unknown',
         ip: request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || 'unknown'
       });
 
       return NextResponse.json({
-        success: result.success,
-        message: result.response,
+        success: true,
+        message: result.reply,
         data: {
-          response: result.response,
+          response: result.reply,
           conversationId: conversation.id,
           clientId: client.id,
-          metrics: result.metrics,
-          ...(process.env.NODE_ENV === 'development' && { logs: result.logs })
+          intent: result.intent,
+          confidence: result.confidence,
+          tokensUsed: result.tokensUsed,
+          fromCache: result.fromCache,
+          actions: result.actions?.length || 0
         }
       });
     } catch (error) {
@@ -258,9 +289,17 @@ export async function POST(request: NextRequest) {
         tenantId: validatedTenantId
       });
 
+      // Send error message via WhatsApp
+      try {
+        const { sendWhatsAppMessage } = await import('@/lib/whatsapp/message-sender');
+        await sendWhatsAppMessage(validatedPhone, 'Desculpe, estou com dificuldades técnicas no momento. Por favor, tente novamente em alguns instantes.');
+      } catch (sendError) {
+        console.error('Error sending error message:', sendError);
+      }
+
       // Return a friendly error message
       return NextResponse.json({
-        success: true,
+        success: false,
         message: 'Desculpe, estou com dificuldades técnicas no momento. Por favor, tente novamente em alguns instantes.',
         data: {
           response: 'Desculpe, estou com dificuldades técnicas no momento. Por favor, tente novamente em alguns instantes.',

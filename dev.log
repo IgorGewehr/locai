@@ -1,0 +1,819 @@
+
+> agente-imobiliaria@0.1.0 dev
+> next dev --turbo
+
+   ▲ Next.js 15.4.1 (Turbopack)
+   - Local:        http://localhost:3000
+   - Network:      http://10.255.255.254:3000
+   - Environments: .env.development, .env
+   - Experiments (use with caution):
+     · serverActions
+
+ ✓ Starting...
+ ✓ Compiled middleware in 343ms
+ ✓ Ready in 9.4s
+ ⚠ Webpack is configured while Turbopack is not, which may cause problems.
+ ⚠ See instructions if you need to configure Turbopack:
+  https://nextjs.org/docs/app/api-reference/next-config-js/turbopack
+
+ ○ Compiling /api/whatsapp/session ...
+ ✓ Compiled /api/whatsapp/session in 3.8s
+ GET /api/whatsapp/session 200 in 5638ms
+ ✓ Compiled /api/config/whatsapp in 378ms
+⚠️ ⚠️ WhatsApp token expired. Please renew token in dashboard.
+ GET /api/config/whatsapp 200 in 8880ms
+ GET /api/whatsapp/session 200 in 296ms
+ GET /api/config/whatsapp 200 in 761ms
+ ○ Compiling /api/agent ...
+ ✓ Compiled /api/agent in 797ms
+ GET /api/whatsapp/session 200 in 321ms
+🚀 [session-1752923164375-v9dnw4vto] Starting agent session for: "oi, quero o valor do apartamento em copacabana"
+ GET /api/config/whatsapp 200 in 798ms
+🔄 [session-1752923164375-v9dnw4vto] Turn 1/8
+🔍 [session-1752923164375-v9dnw4vto] Debug: previousToolResult exists: false, success: undefined, turn: 1
+🤖 [turn-1752923164773-omv0y06ck] Starting AI turn 1
+🧠 [turn-1752923164773-omv0y06ck] Input: {
+  userMessage: 'oi, quero o valor do apartamento em copacabana',
+  hasContext: true,
+  hasPreviousResult: false,
+  historyLength: 5,
+  model: 'gpt-3.5-turbo-0125'
+}
+🔄 [turn-1752923164773-omv0y06ck] Attempt 1/3 with model gpt-3.5-turbo-0125
+📝 [turn-1752923164773-omv0y06ck] Raw response: {
+  "thought": "Situação: Cliente quer saber o valor do apartamento em Copacabana. Cliente quer: Obter preço. Tenho dados? NÃO - preciso calcular o preço. Ação: Calcular o preço do apartamento em Copa...
+✅ [turn-1752923164773-omv0y06ck] Success in 2841ms: {
+  thought: 'Situação: Cliente quer saber o valor do apartamento em Copacabana. Cliente quer: Obter preço. Tenho ...',
+  actionType: 'call_tool',
+  confidence: 0.9,
+  toolName: 'calculate_pricing'
+}
+✅ [session-1752923164375-v9dnw4vto] Response structure valid
+
+[32m=== AGENT DECISION DEBUG ===[0m
+✅ Session: session-1752923164375-v9dnw4vto
+📝 User Message: "oi, quero o valor do apartamento em copacabana"
+🧠 AI Reasoning: "Situação: Cliente quer saber o valor do apartamento em Copacabana. Cliente quer: Obter preço. Tenho dados? NÃO - preciso calcular o preço. Ação: Calcu..."
+🎯 Action Taken: calculate_pricing
+✓ Expected Action: calculate_pricing
+📊 Confidence: 90.0%
+[32m=========================[0m
+
+🧠 [session-1752923164375-v9dnw4vto] AI Response (turn 1): {
+  thought: 'Situação: Cliente quer saber o valor do apartamento em Copacabana. Cliente quer: Obter preço. Tenho ...',
+  action: 'call_tool',
+  confidence: 0.9,
+  toolName: 'calculate_pricing'
+}
+🔧 [session-1752923164375-v9dnw4vto] Executing tool: calculate_pricing
+🔧 [session-1752923164375-v9dnw4vto] Tool result: {
+  toolName: 'calculate_pricing',
+  success: true,
+  error: undefined,
+  executionTime: 0
+}
+🔄 [session-1752923164375-v9dnw4vto] Turn 2/8
+🔍 [session-1752923164375-v9dnw4vto] Debug: previousToolResult exists: true, success: true, turn: 2
+✅ Request appears to be fulfilled
+✅ [session-1752923164375-v9dnw4vto] Request fulfilled, forcing reply (turn 2)
+📱 Sending WhatsApp message to 5511999999999: 💰 **Valores do Apartamento em Florianópolis:**
+
+💵 Diária: R$ 300
+🧹 Taxa de limpeza: R$ 150 (única)
+
+📅 **Exemplo para um fim de semana (2 diárias):**
+• 2 diárias: R$ 600
+• Taxa limpeza: R$ 150
+**• TOTAL: R$ 750**
+
+Para calcular o valor exato, me informe suas datas de check-in e check-out! 📅
+✅ WhatsApp message sent successfully (mock)
+✅ [session-1752923164375-v9dnw4vto] Session completed with fulfilled request in 4172ms
+📦 Cache SET for: "oi, quero o valor do apartamento em copacabana..."
+ POST /api/agent 200 in 17888ms
+ GET /api/whatsapp/session 200 in 298ms
+ GET /api/config/whatsapp 200 in 785ms
+ GET /api/whatsapp/session 200 in 368ms
+ GET /api/config/whatsapp 200 in 779ms
+ GET /api/whatsapp/session 200 in 278ms
+ GET /api/config/whatsapp 200 in 747ms
+ GET /api/whatsapp/session 200 in 277ms
+ GET /api/config/whatsapp 200 in 732ms
+ GET /api/whatsapp/session 200 in 237ms
+ GET /api/config/whatsapp 200 in 723ms
+ GET /api/whatsapp/session 200 in 267ms
+⚠️ ⚠️ WhatsApp token expired (occurred 8 times in last 5 minutes). Please renew token in dashboard.
+ GET /api/config/whatsapp 200 in 748ms
+ GET /api/whatsapp/session 200 in 284ms
+ GET /api/config/whatsapp 200 in 732ms
+ GET /api/whatsapp/session 200 in 275ms
+ GET /api/config/whatsapp 200 in 695ms
+ GET /api/whatsapp/session 200 in 279ms
+ GET /api/config/whatsapp 200 in 848ms
+ GET /api/whatsapp/session 200 in 271ms
+ GET /api/config/whatsapp 200 in 718ms
+🚀 [session-1752923591965-o4gxcwpje] Starting agent session for: "quero me cadastrar, meu nome é João Silva e meu email é joao@teste.com"
+🔄 [session-1752923591965-o4gxcwpje] Turn 1/8
+🔍 [session-1752923591965-o4gxcwpje] Debug: previousToolResult exists: false, success: undefined, turn: 1
+🤖 [turn-1752923592406-thmi9qeko] Starting AI turn 1
+🧠 [turn-1752923592406-thmi9qeko] Input: {
+  userMessage: 'quero me cadastrar, meu nome é João Silva e meu email é joao@teste.com',
+  hasContext: true,
+  hasPreviousResult: false,
+  historyLength: 5,
+  model: 'gpt-3.5-turbo-0125'
+}
+🔄 [turn-1752923592406-thmi9qeko] Attempt 1/3 with model gpt-3.5-turbo-0125
+📝 [turn-1752923592406-thmi9qeko] Raw response: {
+  "thought": "Situação: Cliente quer se cadastrar. Cliente quer: Cadastrar-se com nome e email. Tenho dados? SIM - posso cadastrar o cliente. Ação: Cadastrar cliente com nome e email fornecidos.",
+ ...
+✅ [turn-1752923592406-thmi9qeko] Success in 3021ms: {
+  thought: 'Situação: Cliente quer se cadastrar. Cliente quer: Cadastrar-se com nome e email. Tenho dados? SIM -...',
+  actionType: 'reply',
+  confidence: 0.9,
+  toolName: 'N/A'
+}
+✅ [session-1752923591965-o4gxcwpje] Response structure valid
+
+[32m=== AGENT DECISION DEBUG ===[0m
+✅ Session: session-1752923591965-o4gxcwpje
+📝 User Message: "quero me cadastrar, meu nome é João Silva e meu email é joao@teste.com"
+🧠 AI Reasoning: "Situação: Cliente quer se cadastrar. Cliente quer: Cadastrar-se com nome e email. Tenho dados? SIM - posso cadastrar o cliente. Ação: Cadastrar client..."
+🎯 Action Taken: reply
+✓ Expected Action: reply
+📊 Confidence: 90.0%
+[32m=========================[0m
+
+🧠 [session-1752923591965-o4gxcwpje] AI Response (turn 1): {
+  thought: 'Situação: Cliente quer se cadastrar. Cliente quer: Cadastrar-se com nome e email. Tenho dados? SIM -...',
+  action: 'reply',
+  confidence: 0.9,
+  toolName: 'N/A'
+}
+📱 Sending WhatsApp message to 5511999999999: Olá João Silva! 🌟 Seja bem-vindo! Vou te cadastrar com o email joao@teste.com. Como posso te ajudar hoje? Está procurando um apartamento em Copacabana ou tem alguma outra preferência?
+✅ WhatsApp message sent successfully (mock)
+✅ [session-1752923591965-o4gxcwpje] Session completed successfully in 4409ms
+
+✅ Quality Metrics - Session session-1752923591965-o4gxcwpje
+📊 Confidence: 90.0%
+⏱️ Response Time: 4.41s
+🔄 Turns: 1
+🛠️ Tools Used: None
+
+    
+ POST /api/agent 200 in 5789ms
+🚀 [session-1752923599545-yyz4iq6ow] Starting agent session for: "quero reservar o apartamento em floripa para dia 25 a 27 de janeiro"
+🔄 [session-1752923599545-yyz4iq6ow] Turn 1/8
+🔍 [session-1752923599545-yyz4iq6ow] Debug: previousToolResult exists: false, success: undefined, turn: 1
+🤖 [turn-1752923599945-cahj6vtci] Starting AI turn 1
+🧠 [turn-1752923599945-cahj6vtci] Input: {
+  userMessage: 'quero reservar o apartamento em floripa para dia 25 a 27 de janeiro',
+  hasContext: true,
+  hasPreviousResult: false,
+  historyLength: 5,
+  model: 'gpt-3.5-turbo-0125'
+}
+🔄 [turn-1752923599945-cahj6vtci] Attempt 1/3 with model gpt-3.5-turbo-0125
+📝 [turn-1752923599945-cahj6vtci] Raw response: {
+  "thought": "Situação: Cliente quer reservar apartamento em Floripa para 25 a 27 de janeiro. Cliente quer: Fazer reserva. Tenho dados? NÃO - preciso verificar disponibilidade. Ação: Usar check_avai...
+✅ [turn-1752923599945-cahj6vtci] Success in 2107ms: {
+  thought: 'Situação: Cliente quer reservar apartamento em Floripa para 25 a 27 de janeiro. Cliente quer: Fazer ...',
+  actionType: 'call_tool',
+  confidence: 0.9,
+  toolName: 'check_availability'
+}
+✅ [session-1752923599545-yyz4iq6ow] Response structure valid
+
+[32m=== AGENT DECISION DEBUG ===[0m
+✅ Session: session-1752923599545-yyz4iq6ow
+📝 User Message: "quero reservar o apartamento em floripa para dia 25 a 27 de janeiro"
+🧠 AI Reasoning: "Situação: Cliente quer reservar apartamento em Floripa para 25 a 27 de janeiro. Cliente quer: Fazer reserva. Tenho dados? NÃO - preciso verificar disp..."
+🎯 Action Taken: check_availability
+✓ Expected Action: check_availability
+📊 Confidence: 90.0%
+[32m=========================[0m
+
+🧠 [session-1752923599545-yyz4iq6ow] AI Response (turn 1): {
+  thought: 'Situação: Cliente quer reservar apartamento em Floripa para 25 a 27 de janeiro. Cliente quer: Fazer ...',
+  action: 'call_tool',
+  confidence: 0.9,
+  toolName: 'check_availability'
+}
+🔧 [session-1752923599545-yyz4iq6ow] Executing tool: check_availability
+❌ Error executing tool check_availability: [Error [FirebaseError]: Function where() called with invalid data. Unsupported field value: undefined] {
+  code: 'invalid-argument',
+  customData: undefined,
+  toString: [Function (anonymous)]
+}
+🔧 [session-1752923599545-yyz4iq6ow] Tool result: {
+  toolName: 'check_availability',
+  success: false,
+  error: 'Ops, tive um probleminha técnico. Vamos tentar de novo?',
+  executionTime: 5
+}
+🔄 [session-1752923599545-yyz4iq6ow] Turn 2/8
+🔍 [session-1752923599545-yyz4iq6ow] Debug: previousToolResult exists: true, success: false, turn: 2
+🤖 [turn-1752923602507-5nqj446ip] Starting AI turn 2
+🧠 [turn-1752923602507-5nqj446ip] Input: {
+  userMessage: 'quero reservar o apartamento em floripa para dia 25 a 27 de janeiro',
+  hasContext: true,
+  hasPreviousResult: true,
+  historyLength: 5,
+  model: 'gpt-3.5-turbo-0125'
+}
+🔄 [turn-1752923602507-5nqj446ip] Attempt 1/3 with model gpt-3.5-turbo-0125
+📝 [turn-1752923602507-5nqj446ip] Raw response: {
+  "thought": "Situação: Cliente deseja reservar apartamento em Floripa para dias específicos. Cliente quer: Fazer reserva. Tenho dados? SIM - posso tentar novamente a disponibilidade. Ação: Tentar v...
+✅ [turn-1752923602507-5nqj446ip] Success in 2495ms: {
+  thought: 'Situação: Cliente deseja reservar apartamento em Floripa para dias específicos. Cliente quer: Fazer ...',
+  actionType: 'call_tool',
+  confidence: 0.9,
+  toolName: 'check_availability'
+}
+✅ [session-1752923599545-yyz4iq6ow] Response structure valid
+🚨 [session-1752923599545-yyz4iq6ow] LOOP DETECTED: Same tool check_availability used again!
+🔄 [session-1752923599545-yyz4iq6ow] LOOP PREVENTION: Converted to reply
+
+[32m=== AGENT DECISION DEBUG ===[0m
+✅ Session: session-1752923599545-yyz4iq6ow
+📝 User Message: "quero reservar o apartamento em floripa para dia 25 a 27 de janeiro"
+🧠 AI Reasoning: "Detectei que já usei essa ferramenta. Vou responder com os dados que obtive...."
+🎯 Action Taken: reply
+✓ Expected Action: reply
+📊 Confidence: 70.0%
+[32m=========================[0m
+
+🧠 [session-1752923599545-yyz4iq6ow] AI Response (turn 2): {
+  thought: 'Detectei que já usei essa ferramenta. Vou responder com os dados que obtive....',
+  action: 'reply',
+  confidence: 0.7,
+  toolName: 'N/A'
+}
+📱 Sending WhatsApp message to 5511999999999: Desculpe, tive um pequeno problema técnico. 😊 Vamos tentar de novo? Me conta o que você está procurando!
+✅ WhatsApp message sent successfully (mock)
+✅ [session-1752923599545-yyz4iq6ow] Session completed successfully in 6361ms
+
+🚨 QUALITY ALERT - Session session-1752923599545-yyz4iq6ow
+🐌 Slow response: 6.4s
+User Message: "quero reservar o apartamento em floripa para dia 25 a 27 de janeiro..."
+Response: "Desculpe, tive um pequeno problema técnico. 😊 Vamos tentar de novo? Me conta o que você está procur..."
+      
+
+✅ Quality Metrics - Session session-1752923599545-yyz4iq6ow
+📊 Confidence: 70.0%
+⏱️ Response Time: 6.36s
+🔄 Turns: 2
+🛠️ Tools Used: check_availability
+
+    
+⚠️ [session-1752923599545-yyz4iq6ow] Session issues: [
+  '1 tool executions failed',
+  'User wanted to search but search_properties was not used'
+]
+ POST /api/agent 200 in 7527ms
+🚀 [session-1752923609168-c8ysv82d1] Starting agent session for: "quero agendar uma visita ao apartamento para amanhã às 15h"
+🔄 [session-1752923609168-c8ysv82d1] Turn 1/8
+🔍 [session-1752923609168-c8ysv82d1] Debug: previousToolResult exists: false, success: undefined, turn: 1
+🤖 [turn-1752923609600-2byk1w7q3] Starting AI turn 1
+🧠 [turn-1752923609600-2byk1w7q3] Input: {
+  userMessage: 'quero agendar uma visita ao apartamento para amanhã às 15h',
+  hasContext: true,
+  hasPreviousResult: false,
+  historyLength: 5,
+  model: 'gpt-3.5-turbo-0125'
+}
+🔄 [turn-1752923609600-2byk1w7q3] Attempt 1/3 with model gpt-3.5-turbo-0125
+📝 [turn-1752923609600-2byk1w7q3] Raw response: {
+  "thought": "Situação: Cliente quer agendar visita ao apartamento. Cliente quer: Agendar visita para amanhã às 15h. Tenho dados? NÃO - preciso buscar primeiro. Ação: Usar search_properties para enc...
+✅ [turn-1752923609600-2byk1w7q3] Success in 3061ms: {
+  thought: 'Situação: Cliente quer agendar visita ao apartamento. Cliente quer: Agendar visita para amanhã às 15...',
+  actionType: 'call_tool',
+  confidence: 0.9,
+  toolName: 'search_properties'
+}
+✅ [session-1752923609168-c8ysv82d1] Response structure valid
+
+[32m=== AGENT DECISION DEBUG ===[0m
+✅ Session: session-1752923609168-c8ysv82d1
+📝 User Message: "quero agendar uma visita ao apartamento para amanhã às 15h"
+🧠 AI Reasoning: "Situação: Cliente quer agendar visita ao apartamento. Cliente quer: Agendar visita para amanhã às 15h. Tenho dados? NÃO - preciso buscar primeiro. Açã..."
+🎯 Action Taken: search_properties
+✓ Expected Action: search_properties
+📊 Confidence: 90.0%
+[32m=========================[0m
+
+🧠 [session-1752923609168-c8ysv82d1] AI Response (turn 1): {
+  thought: 'Situação: Cliente quer agendar visita ao apartamento. Cliente quer: Agendar visita para amanhã às 15...',
+  action: 'call_tool',
+  confidence: 0.9,
+  toolName: 'search_properties'
+}
+🔧 [session-1752923609168-c8ysv82d1] Executing tool: search_properties
+🔍 Searching properties with filters: {
+  location: 'Copacabana',
+  priceRange: undefined,
+  bedrooms: undefined,
+  amenities: undefined
+}
+📦 Found 0 properties
+⚠️ No properties found with filters, trying without filters...
+📦 Found 8 active properties total
+🔧 [session-1752923609168-c8ysv82d1] Tool result: {
+  toolName: 'search_properties',
+  success: true,
+  error: undefined,
+  executionTime: 428
+}
+📦 [session-1752923609168-c8ysv82d1] Context updated with 5 properties, selected: 3IEQccZUh7nA2cTxJM83
+🔄 [session-1752923609168-c8ysv82d1] Turn 2/8
+🔍 [session-1752923609168-c8ysv82d1] Debug: previousToolResult exists: true, success: true, turn: 2
+✅ Request appears to be fulfilled
+✅ [session-1752923609168-c8ysv82d1] Request fulfilled, forcing reply (turn 2)
+📱 Sending WhatsApp message to 5511999999999: 🏠 **Excelentes notícias! Encontrei 5 opções incríveis em Florianópolis:**
+
+💰 **Valores de R$ Infinity a R$ -Infinity/noite**
+
+1. **Apartamento**
+   📍 Ótima localização | 🛏️ 1 quartos
+   💰 R$ 300/noite | 👥 Até 2 pessoas
+
+2. **Apartamento**
+   📍 Ótima localização | 🛏️ 2 quartos
+   💰 R$ 300/noite | 👥 Até 4 pessoas
+
+3. **Apartamento**
+   📍 Ótima localização | 🛏️ 1 quartos
+   💰 R$ 300/noite | 👥 Até 2 pessoas
+
+Tem preferência por alguma? Posso enviar fotos e calcular o valor total! 📸💕
+✅ WhatsApp message sent successfully (mock)
+✅ [session-1752923609168-c8ysv82d1] Session completed with fulfilled request in 4774ms
+📦 Cache SET for: "quero agendar uma visita ao apartamento para amanh..."
+ POST /api/agent 200 in 5762ms
+ GET /api/whatsapp/session 200 in 246ms
+ GET /api/config/whatsapp 200 in 724ms
+ GET /api/whatsapp/session 200 in 253ms
+ GET /api/config/whatsapp 200 in 710ms
+ GET /api/whatsapp/session 200 in 284ms
+⚠️ ⚠️ WhatsApp token expired (occurred 7 times in last 5 minutes). Please renew token in dashboard.
+ GET /api/config/whatsapp 200 in 736ms
+ GET /api/whatsapp/session 200 in 306ms
+ GET /api/config/whatsapp 200 in 776ms
+ GET /api/whatsapp/session 200 in 337ms
+ GET /api/config/whatsapp 200 in 789ms
+🚀 [session-1753016057280-5x8b5vt3m] Starting agent session for: "oi"
+🔄 [session-1753016057280-5x8b5vt3m] Turn 1/8
+🔍 [session-1753016057280-5x8b5vt3m] Debug: previousToolResult exists: false, success: undefined, turn: 1
+🤖 [turn-1753016057707-ntke0orh1] Starting AI turn 1
+🧠 [turn-1753016057707-ntke0orh1] Input: {
+  userMessage: 'oi',
+  hasContext: true,
+  hasPreviousResult: false,
+  historyLength: 5,
+  model: 'gpt-3.5-turbo-0125'
+}
+🔄 [turn-1753016057707-ntke0orh1] Attempt 1/3 with model gpt-3.5-turbo-0125
+📝 [turn-1753016057707-ntke0orh1] Raw response: {
+  "thought": "Situação: Cliente cumprimentou. Cliente quer: Saudar. Tenho dados? SIM - posso responder diretamente. Ação: Responder calorosamente.",
+  "action": {
+    "type": "reply",
+    "payload":...
+✅ [turn-1753016057707-ntke0orh1] Success in 3681ms: {
+  thought: 'Situação: Cliente cumprimentou. Cliente quer: Saudar. Tenho dados? SIM - posso responder diretamente...',
+  actionType: 'reply',
+  confidence: 0.95,
+  toolName: 'N/A'
+}
+✅ [session-1753016057280-5x8b5vt3m] Response structure valid
+
+[32m=== AGENT DECISION DEBUG ===[0m
+✅ Session: session-1753016057280-5x8b5vt3m
+📝 User Message: "oi"
+🧠 AI Reasoning: "Situação: Cliente cumprimentou. Cliente quer: Saudar. Tenho dados? SIM - posso responder diretamente. Ação: Responder calorosamente...."
+🎯 Action Taken: reply
+✓ Expected Action: reply
+📊 Confidence: 95.0%
+[32m=========================[0m
+
+🧠 [session-1753016057280-5x8b5vt3m] AI Response (turn 1): {
+  thought: 'Situação: Cliente cumprimentou. Cliente quer: Saudar. Tenho dados? SIM - posso responder diretamente...',
+  action: 'reply',
+  confidence: 0.95,
+  toolName: 'N/A'
+}
+📱 Sending WhatsApp message to 5511999999999: Oi! 😊 Que bom falar com você! Sou a Sofia, sua consultora imobiliária. Como posso te ajudar hoje? Está procurando um apartamento em Florianópolis? 🏠💕
+✅ WhatsApp message sent successfully (mock)
+✅ [session-1753016057280-5x8b5vt3m] Session completed successfully in 4958ms
+
+✅ Quality Metrics - Session session-1753016057280-5x8b5vt3m
+📊 Confidence: 95.0%
+⏱️ Response Time: 4.96s
+🔄 Turns: 1
+🛠️ Tools Used: None
+
+    
+ POST /api/agent 200 in 6810ms
+🚀 [session-1753016064422-bceen1f44] Starting agent session for: "quero alugar apartamento"
+🔄 [session-1753016064422-bceen1f44] Turn 1/8
+🔍 [session-1753016064422-bceen1f44] Debug: previousToolResult exists: false, success: undefined, turn: 1
+🤖 [turn-1753016064844-g7hmnoju2] Starting AI turn 1
+🧠 [turn-1753016064844-g7hmnoju2] Input: {
+  userMessage: 'quero alugar apartamento',
+  hasContext: true,
+  hasPreviousResult: false,
+  historyLength: 5,
+  model: 'gpt-3.5-turbo-0125'
+}
+🔄 [turn-1753016064844-g7hmnoju2] Attempt 1/3 with model gpt-3.5-turbo-0125
+📝 [turn-1753016064844-g7hmnoju2] Raw response: {
+  "thought": "Situação: Cliente quer alugar apartamento. Cliente quer: Buscar apartamento para alugar em Florianópolis. Tenho dados? SIM - já busquei antes. Ação: Responder com opções disponíveis.",...
+✅ [turn-1753016064844-g7hmnoju2] Success in 2549ms: {
+  thought: 'Situação: Cliente quer alugar apartamento. Cliente quer: Buscar apartamento para alugar em Florianóp...',
+  actionType: 'reply',
+  confidence: 0.9,
+  toolName: 'N/A'
+}
+✅ [session-1753016064422-bceen1f44] Response structure valid
+
+[32m=== AGENT DECISION DEBUG ===[0m
+✅ Session: session-1753016064422-bceen1f44
+📝 User Message: "quero alugar apartamento"
+🧠 AI Reasoning: "Situação: Cliente quer alugar apartamento. Cliente quer: Buscar apartamento para alugar em Florianópolis. Tenho dados? SIM - já busquei antes. Ação: R..."
+🎯 Action Taken: reply
+✓ Expected Action: reply
+📊 Confidence: 90.0%
+[32m=========================[0m
+
+🧠 [session-1753016064422-bceen1f44] AI Response (turn 1): {
+  thought: 'Situação: Cliente quer alugar apartamento. Cliente quer: Buscar apartamento para alugar em Florianóp...',
+  action: 'reply',
+  confidence: 0.9,
+  toolName: 'N/A'
+}
+📱 Sending WhatsApp message to 5511999999999: Claro! 🏠🌴 Encontrei opções de apartamentos para alugar em Florianópolis. Eles são incríveis! Posso te enviar mais detalhes e fotos? 📸✨
+✅ WhatsApp message sent successfully (mock)
+✅ [session-1753016064422-bceen1f44] Session completed successfully in 3791ms
+📦 Cache SET for: "quero alugar apartamento..."
+
+✅ Quality Metrics - Session session-1753016064422-bceen1f44
+📊 Confidence: 90.0%
+⏱️ Response Time: 3.79s
+🔄 Turns: 1
+🛠️ Tools Used: None
+
+    
+⚠️ [session-1753016064422-bceen1f44] Session issues: [ 'User wanted to search but search_properties was not used' ]
+ POST /api/agent 200 in 4930ms
+🚀 [session-1753016070540-ryeezccuf] Starting agent session for: "apartamento em santos"
+🔄 [session-1753016070540-ryeezccuf] Turn 1/8
+🔍 [session-1753016070540-ryeezccuf] Debug: previousToolResult exists: false, success: undefined, turn: 1
+🤖 [turn-1753016070936-oqj7j0dse] Starting AI turn 1
+🧠 [turn-1753016070936-oqj7j0dse] Input: {
+  userMessage: 'apartamento em santos',
+  hasContext: true,
+  hasPreviousResult: false,
+  historyLength: 5,
+  model: 'gpt-3.5-turbo-0125'
+}
+🔄 [turn-1753016070936-oqj7j0dse] Attempt 1/3 with model gpt-3.5-turbo-0125
+📝 [turn-1753016070936-oqj7j0dse] Raw response: {
+  "thought": "Situação: Cliente quer buscar apartamento em Santos. Cliente quer: Buscar apartamento em Santos. Tenho dados? SIM - filtro de localização Florianópolis. Ação: Atualizar filtro de busca...
+✅ [turn-1753016070936-oqj7j0dse] Success in 3090ms: {
+  thought: 'Situação: Cliente quer buscar apartamento em Santos. Cliente quer: Buscar apartamento em Santos. Ten...',
+  actionType: 'call_tool',
+  confidence: 0.9,
+  toolName: 'search_properties'
+}
+✅ [session-1753016070540-ryeezccuf] Response structure valid
+
+[32m=== AGENT DECISION DEBUG ===[0m
+✅ Session: session-1753016070540-ryeezccuf
+📝 User Message: "apartamento em santos"
+🧠 AI Reasoning: "Situação: Cliente quer buscar apartamento em Santos. Cliente quer: Buscar apartamento em Santos. Tenho dados? SIM - filtro de localização Florianópoli..."
+🎯 Action Taken: search_properties
+✓ Expected Action: search_properties
+📊 Confidence: 90.0%
+[32m=========================[0m
+
+🧠 [session-1753016070540-ryeezccuf] AI Response (turn 1): {
+  thought: 'Situação: Cliente quer buscar apartamento em Santos. Cliente quer: Buscar apartamento em Santos. Ten...',
+  action: 'call_tool',
+  confidence: 0.9,
+  toolName: 'search_properties'
+}
+🔧 [session-1753016070540-ryeezccuf] Executing tool: search_properties
+🔍 Searching properties with filters: {
+  location: 'Santos',
+  priceRange: undefined,
+  bedrooms: undefined,
+  amenities: undefined
+}
+📦 Found 0 properties
+⚠️ No properties found with filters, trying without filters...
+📦 Found 8 active properties total
+🔧 [session-1753016070540-ryeezccuf] Tool result: {
+  toolName: 'search_properties',
+  success: true,
+  error: undefined,
+  executionTime: 461
+}
+📦 [session-1753016070540-ryeezccuf] Context updated with 5 properties, selected: 3IEQccZUh7nA2cTxJM83
+🔄 [session-1753016070540-ryeezccuf] Turn 2/8
+🔍 [session-1753016070540-ryeezccuf] Debug: previousToolResult exists: true, success: true, turn: 2
+✅ Request appears to be fulfilled
+✅ [session-1753016070540-ryeezccuf] Request fulfilled, forcing reply (turn 2)
+📱 Sending WhatsApp message to 5511999999999: 🏠 **Excelentes notícias! Encontrei 5 opções incríveis em Florianópolis:**
+
+💰 **Valores de R$ Infinity a R$ -Infinity/noite**
+
+1. **Apartamento**
+   📍 Ótima localização | 🛏️ 1 quartos
+   💰 R$ 300/noite | 👥 Até 2 pessoas
+
+2. **Apartamento**
+   📍 Ótima localização | 🛏️ 2 quartos
+   💰 R$ 300/noite | 👥 Até 4 pessoas
+
+3. **Apartamento**
+   📍 Ótima localização | 🛏️ 1 quartos
+   💰 R$ 300/noite | 👥 Até 2 pessoas
+
+Tem preferência por alguma? Posso enviar fotos e calcular o valor total! 📸💕
+✅ WhatsApp message sent successfully (mock)
+✅ [session-1753016070540-ryeezccuf] Session completed with fulfilled request in 4788ms
+📦 Cache SET for: "apartamento em santos..."
+ POST /api/agent 200 in 5889ms
+🚀 [session-1753016077254-6ml09upq1] Starting agent session for: "quero reservar para o carnaval"
+🔄 [session-1753016077254-6ml09upq1] Turn 1/8
+🔍 [session-1753016077254-6ml09upq1] Debug: previousToolResult exists: false, success: undefined, turn: 1
+🤖 [turn-1753016077647-dew5ppzpc] Starting AI turn 1
+🧠 [turn-1753016077647-dew5ppzpc] Input: {
+  userMessage: 'quero reservar para o carnaval',
+  hasContext: true,
+  hasPreviousResult: false,
+  historyLength: 5,
+  model: 'gpt-3.5-turbo-0125'
+}
+🔄 [turn-1753016077647-dew5ppzpc] Attempt 1/3 with model gpt-3.5-turbo-0125
+📝 [turn-1753016077647-dew5ppzpc] Raw response: {
+  "thought": "Situação: Cliente quer reservar para o Carnaval. Cliente quer: Fazer reserva. Tenho dados? SIM - reserva pendente. Ação: Calcular preço e finalizar reserva.",
+  "action": {
+    "type":...
+✅ [turn-1753016077647-dew5ppzpc] Success in 3654ms: {
+  thought: 'Situação: Cliente quer reservar para o Carnaval. Cliente quer: Fazer reserva. Tenho dados? SIM - res...',
+  actionType: 'call_tool',
+  confidence: 0.9,
+  toolName: 'calculate_pricing'
+}
+✅ [session-1753016077254-6ml09upq1] Response structure valid
+
+[32m=== AGENT DECISION DEBUG ===[0m
+✅ Session: session-1753016077254-6ml09upq1
+📝 User Message: "quero reservar para o carnaval"
+🧠 AI Reasoning: "Situação: Cliente quer reservar para o Carnaval. Cliente quer: Fazer reserva. Tenho dados? SIM - reserva pendente. Ação: Calcular preço e finalizar re..."
+🎯 Action Taken: calculate_pricing
+✓ Expected Action: calculate_pricing
+📊 Confidence: 90.0%
+[32m=========================[0m
+
+🧠 [session-1753016077254-6ml09upq1] AI Response (turn 1): {
+  thought: 'Situação: Cliente quer reservar para o Carnaval. Cliente quer: Fazer reserva. Tenho dados? SIM - res...',
+  action: 'call_tool',
+  confidence: 0.9,
+  toolName: 'calculate_pricing'
+}
+🔧 [session-1753016077254-6ml09upq1] Executing tool: calculate_pricing
+❌ Error executing tool calculate_pricing: TypeError: path.indexOf is not a function
+    at FirestoreService.get (lib/firebase/firestore.ts:150:23)
+    at FirestoreService.getById (lib/firebase/firestore.ts:161:16)
+    at PropertyService.getById (lib/services/property-service.ts:94:35)
+    at calculatePricing (lib/services/pricing.ts:410:41)
+    at async Object.handler (lib/services/tools.service.ts:321:24)
+    at async ToolsService.executeTool (lib/services/tools.service.ts:586:21)
+    at async EnhancedAgentOrchestratorService.processMessage (lib/services/agent-orchestrator-enhanced.service.ts:453:25)
+    at async POST (app/api/agent/route.ts:216:21)
+  148 |
+  149 |   async get(id: string): Promise<T | null> {
+> 150 |     const docRef = doc(db, this.collectionName, id);
+      |                       ^
+  151 |     const docSnap = await getDoc(docRef);
+  152 |     
+  153 |     if (docSnap.exists()) {
+🔧 [session-1753016077254-6ml09upq1] Tool result: {
+  toolName: 'calculate_pricing',
+  success: false,
+  error: 'Ops, tive um probleminha técnico. Vamos tentar de novo?',
+  executionTime: 517
+}
+🔄 [session-1753016077254-6ml09upq1] Turn 2/8
+🔍 [session-1753016077254-6ml09upq1] Debug: previousToolResult exists: true, success: false, turn: 2
+🤖 [turn-1753016082227-diraru3h9] Starting AI turn 2
+🧠 [turn-1753016082227-diraru3h9] Input: {
+  userMessage: 'quero reservar para o carnaval',
+  hasContext: true,
+  hasPreviousResult: true,
+  historyLength: 5,
+  model: 'gpt-3.5-turbo-0125'
+}
+🔄 [turn-1753016082227-diraru3h9] Attempt 1/3 with model gpt-3.5-turbo-0125
+📝 [turn-1753016082227-diraru3h9] Raw response: {
+  "thought": "Situação: Cliente quer reservar para o Carnaval. Cliente quer: Fazer reserva. Tenho dados? SIM - tenho propriedade vista e reserva pendente. Ação: OBRIGATÓRIO tentar novamente calcular...
+✅ [turn-1753016082227-diraru3h9] Success in 3252ms: {
+  thought: 'Situação: Cliente quer reservar para o Carnaval. Cliente quer: Fazer reserva. Tenho dados? SIM - ten...',
+  actionType: 'call_tool',
+  confidence: 0.9,
+  toolName: 'calculate_pricing'
+}
+✅ [session-1753016077254-6ml09upq1] Response structure valid
+🚨 [session-1753016077254-6ml09upq1] LOOP DETECTED: Same tool calculate_pricing used again!
+🔄 [session-1753016077254-6ml09upq1] LOOP PREVENTION: Converted to reply
+
+[32m=== AGENT DECISION DEBUG ===[0m
+✅ Session: session-1753016077254-6ml09upq1
+📝 User Message: "quero reservar para o carnaval"
+🧠 AI Reasoning: "Detectei que já usei essa ferramenta. Vou responder com os dados que obtive...."
+🎯 Action Taken: reply
+✓ Expected Action: reply
+📊 Confidence: 70.0%
+[32m=========================[0m
+
+🧠 [session-1753016077254-6ml09upq1] AI Response (turn 2): {
+  thought: 'Detectei que já usei essa ferramenta. Vou responder com os dados que obtive....',
+  action: 'reply',
+  confidence: 0.7,
+  toolName: 'N/A'
+}
+📱 Sending WhatsApp message to 5511999999999: Desculpe, tive um pequeno problema técnico. 😊 Vamos tentar de novo? Me conta o que você está procurando!
+✅ WhatsApp message sent successfully (mock)
+✅ [session-1753016077254-6ml09upq1] Session completed successfully in 9010ms
+
+🚨 QUALITY ALERT - Session session-1753016077254-6ml09upq1
+🐌 Slow response: 9.0s
+User Message: "quero reservar para o carnaval..."
+Response: "Desculpe, tive um pequeno problema técnico. 😊 Vamos tentar de novo? Me conta o que você está procur..."
+      
+
+✅ Quality Metrics - Session session-1753016077254-6ml09upq1
+📊 Confidence: 70.0%
+⏱️ Response Time: 9.01s
+🔄 Turns: 2
+🛠️ Tools Used: calculate_pricing
+
+    
+⚠️ [session-1753016077254-6ml09upq1] Session issues: [ '1 tool executions failed' ]
+ POST /api/agent 200 in 10125ms
+ ○ Compiling /_not-found/page ...
+ ✓ Compiled /_not-found/page in 3.1s
+ POST /api/agent-commercial 404 in 3902ms
+🚀 [session-1753016127195-5s9fnqa37] Starting agent session for: "quero um apto"
+🔄 [session-1753016127195-5s9fnqa37] Turn 1/8
+🔍 [session-1753016127195-5s9fnqa37] Debug: previousToolResult exists: false, success: undefined, turn: 1
+🤖 [turn-1753016127609-24yh3p206] Starting AI turn 1
+🧠 [turn-1753016127609-24yh3p206] Input: {
+  userMessage: 'quero um apto',
+  hasContext: true,
+  hasPreviousResult: false,
+  historyLength: 5,
+  model: 'gpt-3.5-turbo-0125'
+}
+🔄 [turn-1753016127609-24yh3p206] Attempt 1/3 with model gpt-3.5-turbo-0125
+📝 [turn-1753016127609-24yh3p206] Raw response: {
+  "thought": "Situação: Cliente quer um apartamento. Cliente quer: Encontrar um apartamento. Tenho dados? SIM - já filtramos por Santos. Ação: Mostrar opções disponíveis em Santos.",
+  "action": {
+ ...
+✅ [turn-1753016127609-24yh3p206] Success in 2786ms: {
+  thought: 'Situação: Cliente quer um apartamento. Cliente quer: Encontrar um apartamento. Tenho dados? SIM - já...',
+  actionType: 'call_tool',
+  confidence: 0.9,
+  toolName: 'search_properties'
+}
+✅ [session-1753016127195-5s9fnqa37] Response structure valid
+
+[32m=== AGENT DECISION DEBUG ===[0m
+✅ Session: session-1753016127195-5s9fnqa37
+📝 User Message: "quero um apto"
+🧠 AI Reasoning: "Situação: Cliente quer um apartamento. Cliente quer: Encontrar um apartamento. Tenho dados? SIM - já filtramos por Santos. Ação: Mostrar opções dispon..."
+🎯 Action Taken: search_properties
+✓ Expected Action: search_properties
+📊 Confidence: 90.0%
+[32m=========================[0m
+
+🧠 [session-1753016127195-5s9fnqa37] AI Response (turn 1): {
+  thought: 'Situação: Cliente quer um apartamento. Cliente quer: Encontrar um apartamento. Tenho dados? SIM - já...',
+  action: 'call_tool',
+  confidence: 0.9,
+  toolName: 'search_properties'
+}
+🔧 [session-1753016127195-5s9fnqa37] Executing tool: search_properties
+🔍 Searching properties with filters: {
+  location: 'Santos',
+  priceRange: undefined,
+  bedrooms: undefined,
+  amenities: undefined
+}
+📦 Found 0 properties
+⚠️ No properties found with filters, trying without filters...
+📦 Found 8 active properties total
+🔧 [session-1753016127195-5s9fnqa37] Tool result: {
+  toolName: 'search_properties',
+  success: true,
+  error: undefined,
+  executionTime: 443
+}
+📦 [session-1753016127195-5s9fnqa37] Context updated with 5 properties, selected: 3IEQccZUh7nA2cTxJM83
+🔄 [session-1753016127195-5s9fnqa37] Turn 2/8
+🔍 [session-1753016127195-5s9fnqa37] Debug: previousToolResult exists: true, success: true, turn: 2
+✅ Request appears to be fulfilled
+✅ [session-1753016127195-5s9fnqa37] Request fulfilled, forcing reply (turn 2)
+📱 Sending WhatsApp message to 5511999999999: 🏠 **Excelentes notícias! Encontrei 5 opções incríveis em Florianópolis:**
+
+💰 **Valores de R$ Infinity a R$ -Infinity/noite**
+
+1. **Apartamento**
+   📍 Ótima localização | 🛏️ 1 quartos
+   💰 R$ 300/noite | 👥 Até 2 pessoas
+
+2. **Apartamento**
+   📍 Ótima localização | 🛏️ 2 quartos
+   💰 R$ 300/noite | 👥 Até 4 pessoas
+
+3. **Apartamento**
+   📍 Ótima localização | 🛏️ 1 quartos
+   💰 R$ 300/noite | 👥 Até 2 pessoas
+
+Tem preferência por alguma? Posso enviar fotos e calcular o valor total! 📸💕
+✅ WhatsApp message sent successfully (mock)
+✅ [session-1753016127195-5s9fnqa37] Session completed with fulfilled request in 4486ms
+📦 Cache SET for: "quero um apto..."
+ POST /api/agent 200 in 5408ms
+ GET /api/agent-commercial 404 in 247ms
+ ⨯ Error [TypeError]: Cannot redefine property: __import_unsupported
+    at <unknown> (.next/server/middleware.js:2)
+    at Proxy.defineProperty (<anonymous>)
+    at 855 (.next/server/middleware.js:2:155)
+    at c (.next/server/edge-runtime-webpack.js:1:127)
+    at <unknown> (.next/server/middleware.js:13:93829)
+    at b (.next/server/edge-runtime-webpack.js:1:1250)
+    at <unknown> (.next/server/middleware.js:1:51)
+ ○ Compiling /_error ...
+ ✓ Compiled /_error in 1575ms
+ ⨯ [Error: ENOENT: no such file or directory, open '/mnt/c/Users/Administrador/WebstormProjects/locai/.next/static/development/_buildManifest.js.tmp.ls8b6nrxwf'] {
+  errno: -2,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: '/mnt/c/Users/Administrador/WebstormProjects/locai/.next/static/development/_buildManifest.js.tmp.ls8b6nrxwf'
+}
+ ⨯ [Error: ENOENT: no such file or directory, open '/mnt/c/Users/Administrador/WebstormProjects/locai/.next/server/app/_not-found/page/app-build-manifest.json'] {
+  errno: -2,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: '/mnt/c/Users/Administrador/WebstormProjects/locai/.next/server/app/_not-found/page/app-build-manifest.json'
+}
+[Error: ENOENT: no such file or directory, open '/mnt/c/Users/Administrador/WebstormProjects/locai/.next/static/development/_buildManifest.js.tmp.1qe1tdmgcs7'] {
+  errno: -2,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: '/mnt/c/Users/Administrador/WebstormProjects/locai/.next/static/development/_buildManifest.js.tmp.1qe1tdmgcs7'
+}
+ ⨯ [Error: ENOENT: no such file or directory, open '/mnt/c/Users/Administrador/WebstormProjects/locai/.next/static/development/_buildManifest.js.tmp.k8on18nh6fl'] {
+  errno: -2,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: '/mnt/c/Users/Administrador/WebstormProjects/locai/.next/static/development/_buildManifest.js.tmp.k8on18nh6fl'
+}
+[Error: ENOENT: no such file or directory, open '/mnt/c/Users/Administrador/WebstormProjects/locai/.next/static/development/_buildManifest.js.tmp.n9e1dbnf6z'] {
+  errno: -2,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: '/mnt/c/Users/Administrador/WebstormProjects/locai/.next/static/development/_buildManifest.js.tmp.n9e1dbnf6z'
+}
+ ✓ Compiled middleware in 147ms
+ ⚠ Found a change in next.config.js. Restarting the server to apply the changes...
+   ▲ Next.js 15.4.1 (Turbopack)
+   - Local:        http://localhost:3000
+   - Network:      http://10.255.255.254:3000
+   - Environments: .env.development, .env
+   - Experiments (use with caution):
+     · serverActions
+
+ ✓ Starting...
+ ✓ Compiled middleware in 367ms
+ ✓ Ready in 13.3s
+ ⚠ Webpack is configured while Turbopack is not, which may cause problems.
+ ⚠ See instructions if you need to configure Turbopack:
+  https://nextjs.org/docs/app/api-reference/next-config-js/turbopack
+
+ ○ Compiling /_not-found/page ...
+ ✓ Compiled /_not-found/page in 2.9s
+ POST /api/agent-professional 404 in 2652ms
+ POST /api/agent-professional 404 in 171ms
+ ⨯ [Error: ENOENT: no such file or directory, open '/mnt/c/Users/Administrador/WebstormProjects/locai/.next/server/app/_not-found/page/app-build-manifest.json'] {
+  errno: -2,
+  code: 'ENOENT',
+  syscall: 'open',
+  path: '/mnt/c/Users/Administrador/WebstormProjects/locai/.next/server/app/_not-found/page/app-build-manifest.json'
+}
+ ○ Compiling /_error ...
+ ✓ Compiled /_error in 1474ms
+ POST /api/agent-professional 500 in 4281ms
+[?25h

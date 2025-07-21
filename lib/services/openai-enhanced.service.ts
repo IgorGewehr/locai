@@ -73,6 +73,11 @@ export class EnhancedOpenAIService {
     // Mensagem principal
     sections.push(`MENSAGEM_USUARIO: "${input.userMessage}"`);
     
+    // Intenção original detectada
+    if (input.originalIntent) {
+      sections.push(`INTENCAO_ORIGINAL: ${input.originalIntent}`);
+    }
+    
     // Contexto da conversa
     if (input.conversationContext) {
       const ctx = input.conversationContext;
@@ -104,7 +109,10 @@ export class EnhancedOpenAIService {
     if (input.conversationHistory && input.conversationHistory.length > 0) {
       const history = input.conversationHistory
         .slice(-3) // Últimas 3 interações
-        .map(msg => `${msg.role}: ${msg.content.substring(0, 100)}`)
+        .map(msg => {
+          const content = msg.content || '';
+          return `${msg.role}: ${content.substring(0, 100)}`;
+        })
         .join(' | ');
       sections.push(`HISTORICO_RECENTE: ${history}`);
     }
@@ -121,6 +129,11 @@ export class EnhancedOpenAIService {
         erro: input.previousToolResult.error || 'N/A'
       };
       sections.push(`RESULTADO_FERRAMENTA_ANTERIOR: ${JSON.stringify(result)}`);
+      
+      // Adicionar contexto sobre ferramentas já usadas
+      if (input.originalIntent) {
+        sections.push(`FERRAMENTAS_JA_USADAS: ${input.previousToolResult.toolName}`);
+      }
     }
     
     // Contexto do turno
@@ -131,37 +144,20 @@ export class EnhancedOpenAIService {
   }
 
   private selectOptimalModel(input: AIInput): string {
-    const { userMessage, conversationContext, previousToolResult } = input;
+    // QUICK WIN: Sempre usar GPT-3.5 para economia máxima
+    // Remover lógica complexa e forçar modelo mais barato
     
-    // Usar GPT-4 para casos complexos
-    const complexPatterns = [
-      /reservar|reserva|alugar|fechar|confirmar/i,
-      /preço|valor|orçamento|calcular/i,
-      /comparar|melhor|diferença/i,
-      /disponibilidade|disponível|livre/i,
-      /desconto|promoção|negociar/i
-    ];
+    const userMessage = input.userMessage?.toLowerCase() || '';
     
-    const isComplexIntent = complexPatterns.some(pattern => pattern.test(userMessage));
-    
-    const hasRichContext = (
-      conversationContext?.searchFilters && Object.keys(conversationContext.searchFilters).length > 2
-    ) || (
-      conversationContext?.interestedProperties && conversationContext.interestedProperties.length > 0
-    ) || (
-      conversationContext?.pendingReservation !== undefined
-    );
-    
-    const hasToolResult = previousToolResult !== undefined;
-    
-    // Usar modelos que suportam JSON response format
-    if (isComplexIntent || hasRichContext || hasToolResult) {
-      // Para casos complexos, usar GPT-4-turbo que suporta JSON
-      return 'gpt-4-turbo-preview';
-    } else {
-      // Para casos simples, usar GPT-3.5-turbo
-      return 'gpt-3.5-turbo';
+    // GPT-4 APENAS para criação de reservas (caso crítico)
+    if (userMessage.includes('confirmo') && userMessage.includes('reserva')) {
+      console.log('🧠 Using GPT-4 only for reservation confirmation');
+      return 'gpt-4o-mini';
     }
+    
+    // SEMPRE GPT-3.5 para todo o resto
+    console.log('💰 Using GPT-3.5 for cost optimization');
+    return 'gpt-3.5-turbo-0125';
   }
 
   private async callOpenAIWithRetry(
@@ -182,7 +178,7 @@ export class EnhancedOpenAIService {
             { role: "system", content: MASTER_PROMPT },
             { role: "user", content: prompt }
           ],
-          temperature: 0.2, // Muito baixo para máxima previsibilidade
+          temperature: 0.7, // Aumentado para respostas mais naturais e criativas
           max_tokens: model === 'gpt-3.5-turbo' ? 800 : 1200,
           top_p: 0.8,
           frequency_penalty: 0.1,
@@ -197,7 +193,7 @@ export class EnhancedOpenAIService {
         
         const response = await withTimeout(
           this.openai.chat.completions.create(requestParams),
-          45000, // 45s timeout
+          15000, // 15s timeout (reduzido de 45s)
           `OpenAI API call attempt ${attempt}`
         );
         
@@ -254,9 +250,32 @@ export class EnhancedOpenAIService {
     // Validar e sanitizar resposta
     const validatedResponse = validateAIResponse(parsedResponse);
     
-    // Enriquecer contexto se necessário
-    if (!validatedResponse.updatedContext.clientProfile.phone) {
-      validatedResponse.updatedContext.clientProfile.phone = input.clientPhone;
+    // Garantir que updatedContext e clientProfile existam
+    if (!validatedResponse.updatedContext) {
+      validatedResponse.updatedContext = {
+        searchFilters: {},
+        interestedProperties: [],
+        pendingReservation: undefined,
+        clientProfile: {
+          phone: input.clientPhone,
+          preferences: {},
+          lastInteraction: new Date()
+        },
+        currentPropertyId: null,
+        conversationStage: 'greeting'
+      };
+    } else {
+      // Garantir que clientProfile exista
+      if (!validatedResponse.updatedContext.clientProfile) {
+        validatedResponse.updatedContext.clientProfile = {
+          phone: input.clientPhone,
+          preferences: {},
+          lastInteraction: new Date()
+        };
+      } else if (!validatedResponse.updatedContext.clientProfile.phone) {
+        // Apenas adicionar o phone se clientProfile existir mas phone não
+        validatedResponse.updatedContext.clientProfile.phone = input.clientPhone;
+      }
     }
     
     return validatedResponse;

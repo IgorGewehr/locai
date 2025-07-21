@@ -40,7 +40,12 @@
       "Bash(npx tsx:*)",
       "Bash(fuser:*)",
       "Bash(sed:*)",
-      "Bash(perl:*)"
+      "Bash(perl:*)",
+      "Bash(timeout:*)",
+      "Bash(awk:*)",
+      "Bash(rg:*)",
+      "Bash(cp:*)",
+      "Bash(npx ts-node:*)"
     ],
     "deny": []
   }

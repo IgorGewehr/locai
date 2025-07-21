@@ -17,7 +17,10 @@
     "deploy:check": "npm run prod-check && npm run build",
     "health": "curl -f http://localhost:3000/api/health",
     "clean": "rm -rf .next out node_modules/.cache",
-    "generate-password-hash": "node scripts/generate-password-hash.cjs"
+    "generate-password-hash": "node scripts/generate-password-hash.cjs",
+    "test-agent": "node scripts/test-agent-ai-improvements.js",
+    "test-integration": "node scripts/test-agent-integration.js",
+    "fix-agent": "node scripts/fix-agent-issues.js"
   },
   "dependencies": {
     "@emotion/cache": "^11.11.0",

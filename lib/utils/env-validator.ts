@@ -29,12 +29,8 @@ const envSchema = z.object({
   // OpenAI
   OPENAI_API_KEY: z.string().regex(/^sk-/, 'Invalid OpenAI API key format'),
 
-  // WhatsApp
-  WHATSAPP_ACCESS_TOKEN: z.string().min(1),
-  WHATSAPP_PHONE_NUMBER_ID: z.string().min(1),
-  WHATSAPP_BUSINESS_ACCOUNT_ID: z.string().min(1),
-  WHATSAPP_VERIFY_TOKEN: z.string().min(1),
-  WHATSAPP_APP_SECRET: z.string().min(1),
+  // WhatsApp Web (optional - uses QR code authentication)
+  WHATSAPP_VERIFY_TOKEN: z.string().optional(),
 
   // Optional services
   STRIPE_SECRET_KEY: z.string().optional(),
@@ -120,21 +116,9 @@ export function checkProductionReadiness(): { ready: boolean; issues: string[] }
     issues.push('SENTRY_DSN is recommended for production error tracking');
   }
 
-  // Check WhatsApp configuration if enabled
+  // WhatsApp Web uses QR code authentication - no API keys needed
   if (env.ENABLE_WHATSAPP_INTEGRATION) {
-    const whatsappVars = [
-      'WHATSAPP_ACCESS_TOKEN',
-      'WHATSAPP_PHONE_NUMBER_ID',
-      'WHATSAPP_BUSINESS_ACCOUNT_ID',
-      'WHATSAPP_VERIFY_TOKEN',
-      'WHATSAPP_APP_SECRET'
-    ];
-
-    whatsappVars.forEach(varName => {
-      if (!process.env[varName]) {
-        issues.push(`${varName} is required when WhatsApp integration is enabled`);
-      }
-    });
+    console.log('✅ WhatsApp Web integration enabled (QR code authentication)');
   }
 
   // Check Stripe configuration if enabled

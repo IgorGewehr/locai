@@ -14,13 +14,10 @@ export class PropertyService {
     tenantId?: string;
   }): Promise<Property[]> {
     try {
-      // Get all properties first
-      let properties = await firebasePropertyService.getAll();
-      
-      // Filter by tenant if provided
-      if (filters.tenantId) {
-        properties = properties.filter(p => p.tenantId === filters.tenantId);
-      }
+      // Get properties filtered by tenant if tenantId is provided
+      let properties = filters.tenantId 
+        ? await firebasePropertyService.getAllByTenant(filters.tenantId)
+        : await firebasePropertyService.getAll();
       
       // Filter by active status
       properties = properties.filter(p => p.isActive);
@@ -29,9 +26,8 @@ export class PropertyService {
       if (filters.location) {
         const locationLower = filters.location.toLowerCase();
         properties = properties.filter(p => 
-          p.location?.toLowerCase().includes(locationLower) ||
           p.city?.toLowerCase().includes(locationLower) ||
-          p.state?.toLowerCase().includes(locationLower) ||
+          p.neighborhood?.toLowerCase().includes(locationLower) ||
           p.address?.toLowerCase().includes(locationLower)
         );
       }
@@ -106,6 +102,13 @@ export class PropertyService {
     return firebasePropertyService.delete(id);
   }
 
+  async getActiveProperties(tenantId?: string): Promise<Property[]> {
+    const properties = tenantId 
+      ? await firebasePropertyService.getAllByTenant(tenantId)
+      : await firebasePropertyService.getAll();
+    return properties.filter(p => p.isActive);
+  }
+
   async findSimilar(propertyId: string, options: {
     budget?: number;
     locations?: string[];
@@ -133,8 +136,8 @@ export class PropertyService {
       if (options.locations && options.locations.length > 0) {
         properties = properties.filter(p => 
           options.locations!.some(loc => 
-            p.location.toLowerCase().includes(loc.toLowerCase()) ||
-            p.city?.toLowerCase().includes(loc.toLowerCase())
+            p.city?.toLowerCase().includes(loc.toLowerCase()) ||
+            p.neighborhood?.toLowerCase().includes(loc.toLowerCase())
           )
         );
       } else {

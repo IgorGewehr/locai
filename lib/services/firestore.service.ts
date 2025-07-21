@@ -1,5 +1,5 @@
 import { db } from '@/lib/firebase/config';
-import { doc, setDoc, getDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
+import { doc, setDoc, getDoc, updateDoc, serverTimestamp, collection, addDoc, query, where, orderBy, limit, getDocs } from 'firebase/firestore';
 import { ConversationContext } from '@/lib/types/ai-agent';
 
 export class FirestoreService {
@@ -159,6 +159,89 @@ export class FirestoreService {
     } catch (error) {
       console.error('❌ Error logging agent action:', error);
       // Não falhar por causa de log
+    }
+  }
+
+  // Métodos adicionais para métricas
+  async saveDocument(collectionName: string, data: any): Promise<string> {
+    try {
+      const colRef = collection(db, collectionName);
+      const docRef = await addDoc(colRef, {
+        ...data,
+        tenantId: this.tenantId,
+        createdAt: serverTimestamp()
+      });
+      return docRef.id;
+    } catch (error) {
+      console.error(`❌ Error saving document to ${collectionName}:`, error);
+      throw error;
+    }
+  }
+
+  async queryDocuments(collectionName: string, filters: any[]): Promise<any[]> {
+    try {
+      const colRef = collection(db, collectionName);
+      let q = query(colRef, where('tenantId', '==', this.tenantId));
+      
+      // Aplicar filtros
+      filters.forEach(([field, operator, value]) => {
+        q = query(q, where(field, operator, value));
+      });
+      
+      // Ordenar por timestamp e limitar
+      q = query(q, orderBy('timestamp', 'desc'), limit(1000));
+      
+      const querySnapshot = await getDocs(q);
+      return querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    } catch (error) {
+      console.error(`❌ Error querying documents from ${collectionName}:`, error);
+      return [];
+    }
+  }
+
+  // Novo: Memória completa da conversa para o agente vendedor
+  async getConversationMemory(phone: string): Promise<any> {
+    try {
+      const docRef = doc(db, 'conversation_memory', `${this.tenantId}_${phone}`);
+      const docSnap = await getDoc(docRef);
+      
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        // Converter timestamps para Date
+        if (data.messages) {
+          data.messages = data.messages.map((msg: any) => ({
+            ...msg,
+            timestamp: msg.timestamp?.toDate() || new Date()
+          }));
+        }
+        data.lastInteraction = data.lastInteraction?.toDate() || new Date();
+        return data;
+      }
+      
+      return null;
+    } catch (error) {
+      console.error('Error getting conversation memory:', error);
+      return null;
+    }
+  }
+
+  async saveConversationMemory(phone: string, memory: any): Promise<void> {
+    try {
+      const docRef = doc(db, 'conversation_memory', `${this.tenantId}_${phone}`);
+      
+      // Limitar histórico a últimas 50 mensagens
+      if (memory.messages && memory.messages.length > 50) {
+        memory.messages = memory.messages.slice(-50);
+      }
+      
+      await setDoc(docRef, {
+        ...memory,
+        tenantId: this.tenantId,
+        updatedAt: serverTimestamp()
+      });
+    } catch (error) {
+      console.error('Error saving conversation memory:', error);
+      // Não lançar erro - memória não é crítica
     }
   }
 }

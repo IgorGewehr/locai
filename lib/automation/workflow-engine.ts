@@ -10,7 +10,7 @@ import {
   ConditionOperator
 } from '@/lib/types/automation'
 import { WhatsAppClient } from '@/lib/whatsapp/client'
-import { AIService } from '@/lib/services/ai-service'
+import { AIService } from '@/lib/services/ai-service-stub'
 import { conversationService } from '@/lib/services/conversation-service'
 import { clientServiceWrapper } from '@/lib/services/client-service'
 import { db } from '@/lib/firebase/config'

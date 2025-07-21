@@ -75,14 +75,36 @@ export async function GET(request: NextRequest) {
     const start = startDate ? new Date(startDate) : new Date(Date.now() - parseInt(period) * 24 * 60 * 60 * 1000);
 
     // Get analytics data
-    const analytics = await analyticsService.getMany([
-      { field: 'tenantId', operator: '==', value: tenantId },
-      { field: 'date', operator: '>=', value: start },
-      { field: 'date', operator: '<=', value: end }
-    ], {
-      orderBy: 'date',
-      orderDirection: 'desc'
-    });
+    // Note: This query requires a composite index on [tenantId, date]
+    // If index is not available, fallback to simpler query
+    let analytics: MiniSiteAnalytics[] = [];
+    
+    try {
+      analytics = await analyticsService.getMany([
+        { field: 'tenantId', operator: '==', value: tenantId },
+        { field: 'date', operator: '>=', value: start },
+        { field: 'date', operator: '<=', value: end }
+      ], {
+        orderBy: 'date',
+        orderDirection: 'desc'
+      });
+    } catch (indexError: any) {
+      // Fallback: Get all tenant analytics first, then filter by date in memory
+      console.warn('Composite index not available, using fallback query:', indexError.message);
+      const allAnalytics = await analyticsService.getMany([
+        { field: 'tenantId', operator: '==', value: tenantId }
+      ]);
+      
+      // Filter by date range in memory
+      analytics = allAnalytics.filter(item => {
+        const itemDate = item.date instanceof Date ? item.date : new Date(item.date);
+        return itemDate >= start && itemDate <= end;
+      }).sort((a, b) => {
+        const dateA = a.date instanceof Date ? a.date : new Date(a.date);
+        const dateB = b.date instanceof Date ? b.date : new Date(b.date);
+        return dateB.getTime() - dateA.getTime(); // desc order
+      });
+    }
 
     if (analytics.length === 0) {
       // Generate realistic demo data
