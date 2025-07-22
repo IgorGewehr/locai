@@ -13,8 +13,7 @@ import {
   Alert,
   CircularProgress,
 } from '@mui/material';
-import { clientService } from '@/lib/firebase/firestore';
-import { useAuth } from '@/lib/hooks/useAuth';
+import { useTenant } from '@/contexts/TenantContext';
 import type { Client } from '@/lib/types';
 
 interface CreateClientDialogProps {
@@ -32,7 +31,7 @@ interface FormData {
 }
 
 export default function CreateClientDialog({ open, onClose, onSuccess }: CreateClientDialogProps) {
-  const { user } = useAuth();
+  const { services, isReady } = useTenant();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [formData, setFormData] = useState<FormData>({
@@ -62,8 +61,8 @@ export default function CreateClientDialog({ open, onClose, onSuccess }: CreateC
       return;
     }
 
-    if (!user?.tenantId) {
-      setError('Erro de autenticação. Faça login novamente.');
+    if (!services || !isReady) {
+      setError('Serviços não estão prontos. Tente novamente.');
       return;
     }
 
@@ -77,7 +76,6 @@ export default function CreateClientDialog({ open, onClose, onSuccess }: CreateC
         email: formData.email.trim() || undefined,
         document: formData.cpf.replace(/\D/g, '') || undefined,
         notes: formData.notes.trim() || undefined,
-        tenantId: user.tenantId,
         source: 'manual' as const,
         isActive: true,
         totalReservations: 0,
@@ -87,7 +85,7 @@ export default function CreateClientDialog({ open, onClose, onSuccess }: CreateC
         updatedAt: new Date(),
       };
 
-      await clientService.create(clientData as Omit<Client, 'id'>);
+      await services.clients.create(clientData as Omit<Client, 'id'>);
       onSuccess();
       handleClose();
     } catch (error) {
@@ -208,7 +206,7 @@ export default function CreateClientDialog({ open, onClose, onSuccess }: CreateC
         <Button
           onClick={handleSubmit}
           variant="contained"
-          disabled={loading || !formData.name || !formData.phone}
+          disabled={loading || !formData.name || !formData.phone || !services || !isReady}
           startIcon={loading ? <CircularProgress size={20} /> : null}
         >
           {loading ? 'Criando...' : 'Criar Cliente'}

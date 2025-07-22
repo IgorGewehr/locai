@@ -61,9 +61,8 @@ import { ptBR } from 'date-fns/locale';
 import { Transaction, Client, Reservation } from '@/lib/types';
 import { Property } from '@/lib/types/property';
 import { BillingSettings, SimpleBillingConfig } from '@/lib/types/billing';
-import { transactionService } from '@/lib/services/transaction-service';
 import { billingService } from '@/lib/services/billing-service';
-import { propertyService, clientService, reservationService } from '@/lib/firebase/firestore';
+import { useTenant } from '@/contexts/TenantContext';
 import { useAuth } from '@/lib/hooks/useAuth';
 
 interface TransactionWithDetails extends Transaction {
@@ -75,6 +74,7 @@ interface TransactionWithDetails extends Transaction {
 
 export default function FinanceiroSimplesPage() {
   const { user } = useAuth();
+  const { services, isReady } = useTenant();
   const [viewPeriod, setViewPeriod] = useState<'current' | 'past'>('current');
   const [transactions, setTransactions] = useState<TransactionWithDetails[]>([]);
   const [properties, setProperties] = useState<Property[]>([]);
@@ -103,18 +103,22 @@ export default function FinanceiroSimplesPage() {
   });
 
   useEffect(() => {
-    loadData();
-    loadBillingSettings();
-  }, [viewPeriod]);
+    if (isReady && services) {
+      loadData();
+      loadBillingSettings();
+    }
+  }, [viewPeriod, isReady, services]);
 
   const loadData = async () => {
+    if (!services) return;
+    
     try {
       setLoading(true);
 
       // Carregar dados relacionados
       const [propertiesData, clientsData] = await Promise.all([
-        propertyService.getAll(),
-        clientService.getAll(),
+        services.properties.getAll(),
+        services.clients.getAll(),
       ]);
 
       setProperties(propertiesData);
@@ -134,10 +138,14 @@ export default function FinanceiroSimplesPage() {
       }
 
       // Buscar transações
-      const { transactions: transactionsData } = await transactionService.getFiltered({
-        type: 'income',
-        startDate,
-        endDate,
+      const allTransactions = await services.transactions.getWhere('type', '==', 'income', 'date');
+      
+      // Filtrar por data localmente
+      const transactionsData = allTransactions.filter(transaction => {
+        const transactionDate = transaction.date;
+        const date = transactionDate instanceof Date ? transactionDate : 
+                     transactionDate?.toDate ? transactionDate.toDate() : new Date(transactionDate);
+        return date >= startDate && date <= endDate;
       });
 
       // Enriquecer transações com dados relacionados

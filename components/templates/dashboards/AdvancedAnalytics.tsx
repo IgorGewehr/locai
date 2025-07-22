@@ -55,15 +55,12 @@ import {
 } from 'recharts';
 import { format, subDays, subMonths, startOfMonth, endOfMonth } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { useAuth } from '@/lib/hooks/useAuth';
 import { getAnalytics } from '@/lib/services/analytics-service';
-import { conversationService } from '@/lib/firebase/firestore';
-import { transactionFirestoreService } from '@/lib/firebase/firestore';
-import { propertyService } from '@/lib/firebase/firestore';
+import { useTenant } from '@/contexts/TenantContext';
 
 // Advanced Analytics Dashboard Component
 export default function AdvancedAnalytics() {
-  const { user } = useAuth();
+  const { services, isReady } = useTenant();
   const [timeRange, setTimeRange] = useState('30d');
   const [loading, setLoading] = useState(true);
   const [analyticsData, setAnalyticsData] = useState<any>(null);
@@ -80,12 +77,13 @@ export default function AdvancedAnalytics() {
   });
 
   useEffect(() => {
-    loadAnalytics();
-  }, [timeRange]);
+    if (isReady && services) {
+      loadAnalytics();
+    }
+  }, [timeRange, isReady, services]);
 
   const loadAnalytics = async () => {
-    // Remove user dependency for now to allow dashboard to load
-    // if (!user) return;
+    if (!services) return;
 
     try {
       setLoading(true);
@@ -138,10 +136,10 @@ export default function AdvancedAnalytics() {
       setRevenueData(monthlyRevenue);
 
       // Load property performance
-      const properties = await propertyService.getAll();
+      const properties = await services.properties.getAll();
       const propertyData = await Promise.all(
         properties.slice(0, 5).map(async (property) => {
-          const allTransactions = await transactionFirestoreService.getAll();
+          const allTransactions = await services.transactions.getAll();
           const transactions = allTransactions.filter(t => 
             t.propertyId === property.id &&
             t.date >= startDate &&
@@ -164,7 +162,7 @@ export default function AdvancedAnalytics() {
       setPropertyPerformance(propertyData);
 
       // Load conversation metrics
-      const conversations = await conversationService.getAll();
+      const conversations = await services.conversations.getAll();
       const recentConversations = conversations.filter(c => {
         const createdAt = c.createdAt instanceof Date ? c.createdAt : new Date(c.createdAt as any);
         return createdAt >= startDate;

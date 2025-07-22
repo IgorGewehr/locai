@@ -63,6 +63,7 @@ import {
   PersonAdd,
 } from '@mui/icons-material';
 import ModernButton from '@/components/atoms/ModernButton';
+import { useTenant } from '@/contexts/TenantContext';
 
 interface ReservationFormData {
   propertyId: string;
@@ -89,6 +90,7 @@ const steps = [
 
 export default function CreateReservationPage() {
   const router = useRouter();
+  const { services, isReady } = useTenant();
   const [activeStep, setActiveStep] = useState(0);
   const [formData, setFormData] = useState<ReservationFormData>({
     propertyId: '',
@@ -118,49 +120,32 @@ export default function CreateReservationPage() {
 
   useEffect(() => {
     const loadData = async () => {
+      if (!isReady || !services) {
+        return;
+      }
+
       setLoadingData(true);
       try {
-        const [propertiesResponse, clientsResponse] = await Promise.all([
-          fetch('/api/properties'),
-          fetch('/api/clients')
+        // Load properties using tenant services
+        const [propertiesData, clientsData] = await Promise.all([
+          services.properties.getAll(),
+          services.clients.getAll()
         ]);
 
         // Process properties
-        if (propertiesResponse.ok) {
-          const propertiesData = await propertiesResponse.json();
-          if (propertiesData.success && Array.isArray(propertiesData.data)) {
-            setProperties(propertiesData.data.map((p: any) => ({ 
-              id: p.id, 
-              title: p.title, 
-              basePrice: p.basePrice || 0 
-            })));
-          } else {
-            console.error('Properties API response format error:', propertiesData);
-            setProperties([]);
-          }
-        } else {
-          console.error('Failed to load properties:', propertiesResponse.status);
-          setError('Erro ao carregar propriedades');
-        }
+        setProperties(propertiesData.map((p: any) => ({ 
+          id: p.id, 
+          title: p.title, 
+          basePrice: p.basePrice || 0 
+        })));
 
         // Process clients
-        if (clientsResponse.ok) {
-          const clientsData = await clientsResponse.json();
-          if (clientsData.success && Array.isArray(clientsData.data)) {
-            setClients(clientsData.data.map((c: any) => ({ 
-              id: c.id, 
-              name: c.name, 
-              phone: c.phone, 
-              email: c.email 
-            })));
-          } else {
-            console.error('Clients API response format error:', clientsData);
-            setClients([]);
-          }
-        } else {
-          console.error('Failed to load clients:', clientsResponse.status);
-          setError('Erro ao carregar clientes');
-        }
+        setClients(clientsData.map((c: any) => ({ 
+          id: c.id, 
+          name: c.name, 
+          phone: c.phone, 
+          email: c.email 
+        })));
       } catch (err) {
         console.error('Error loading data:', err);
         setError('Erro ao carregar dados');
@@ -170,7 +155,7 @@ export default function CreateReservationPage() {
     };
 
     loadData();
-  }, []);
+  }, [services, isReady]);
 
   const handleInputChange = (field: keyof ReservationFormData, value: any) => {
     setFormData(prev => ({
@@ -200,6 +185,11 @@ export default function CreateReservationPage() {
   };
 
   const handleSubmit = async () => {
+    if (!isReady || !services) {
+      setError('Serviços não estão prontos. Tente novamente.');
+      return;
+    }
+
     setLoading(true);
     setError('');
 
@@ -210,15 +200,8 @@ export default function CreateReservationPage() {
         updatedAt: new Date(),
       };
 
-      const response = await fetch('/api/reservations', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(reservationData),
-      });
-
-      if (!response.ok) {
-        throw new Error('Erro ao criar reserva');
-      }
+      // Create reservation using tenant services
+      await services.reservations.create(reservationData);
 
       setSuccess(true);
       setTimeout(() => {
@@ -607,7 +590,7 @@ export default function CreateReservationPage() {
     }
   };
 
-  if (loadingData) {
+  if (!isReady || !services || loadingData) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '60vh' }}>
         <CircularProgress />

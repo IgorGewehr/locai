@@ -34,6 +34,7 @@ import {
   InputLabel,
   Select,
   Dialog,
+  CircularProgress,
 } from '@mui/material';
 import ModernButton from '@/components/atoms/ModernButton';
 import ModernFAB from '@/components/atoms/ModernFAB';
@@ -76,6 +77,7 @@ import { crmService } from '@/lib/services/crm-service';
 import { Lead, LeadStatus, Task, TaskStatus, Interaction } from '@/lib/types/crm';
 import { Client } from '@/lib/types';
 import { useAuth } from '@/lib/hooks/useAuth';
+import { useTenant } from '@/contexts/TenantContext';
 import LeadDetailsDrawer from './components/LeadDetailsDrawer';
 import CreateLeadDialog from './components/CreateLeadDialog';
 import TaskDialog from './components/TaskDialog';
@@ -94,6 +96,7 @@ const statusColumns = [
 
 export default function CRMPage() {
   const { user } = useAuth();
+  const { services, isReady } = useTenant();
   const router = useRouter();
   const [view, setView] = useState<'pipeline' | 'list' | 'clients' | 'analytics'>('pipeline');
   const [leads, setLeads] = useState<Record<LeadStatus, Lead[]>>({
@@ -120,14 +123,16 @@ export default function CRMPage() {
   const [clients, setClients] = useState<Client[]>([]);
 
   useEffect(() => {
-    loadLeads();
-    loadTasks();
-    loadHotLeads();
-    loadClients();
-  }, [user]);
+    if (isReady && services) {
+      loadLeads();
+      loadTasks();
+      loadHotLeads();
+      loadClients();
+    }
+  }, [services, isReady]);
 
   const loadLeads = async () => {
-    if (!user?.tenantId) return;
+    if (!isReady || !services) return;
     
     try {
       setLoading(true);
@@ -142,10 +147,10 @@ export default function CRMPage() {
         [LeadStatus.NURTURING]: [],
       };
 
-      // Load leads for each status
+      // Load leads for each status using tenant services
       for (const status of Object.values(LeadStatus)) {
         if (status !== LeadStatus.LOST && status !== LeadStatus.NURTURING) {
-          const statusLeads = await crmService.getLeadsByStatus(status, user.tenantId);
+          const statusLeads = await services.leads.getWhere('status', '==', status);
           leadsByStatus[status] = statusLeads;
         }
       }
@@ -159,22 +164,22 @@ export default function CRMPage() {
   };
 
   const loadTasks = async () => {
-    if (!user?.id) return;
+    if (!isReady || !services || !user?.id) return;
     
     try {
-      const todayTasks = await crmService.getTodayTasks(user.id);
-      const overdueTasks = await crmService.getOverdueTasks(user.id);
-      setTasks([...overdueTasks, ...todayTasks]);
+      // Get tasks assigned to current user
+      const userTasks = await services.tasks.getWhere('assignedTo', '==', user.id);
+      setTasks(userTasks);
     } catch (error) {
       console.error('Error loading tasks:', error);
     }
   };
 
   const loadHotLeads = async () => {
-    if (!user?.tenantId) return;
+    if (!isReady || !services) return;
     
     try {
-      const hot = await crmService.getHotLeads(user.tenantId);
+      const hot = await services.leads.getWhere('temperature', '==', 'hot');
       setHotLeads(hot);
     } catch (error) {
       console.error('Error loading hot leads:', error);
@@ -182,10 +187,10 @@ export default function CRMPage() {
   };
 
   const loadClients = async () => {
-    if (!user?.tenantId) return;
+    if (!isReady || !services) return;
     
     try {
-      const clientList = await crmService.getAllClients(user.tenantId);
+      const clientList = await services.clients.getAll();
       setClients(clientList);
     } catch (error) {
       console.error('Error loading clients:', error);
@@ -298,6 +303,14 @@ export default function CRMPage() {
   const totalLeads = Object.values(leads).reduce((sum, statusLeads) => sum + statusLeads.length, 0);
   const wonLeads = leads[LeadStatus.WON].length;
   const conversionRate = totalLeads > 0 ? (wonLeads / totalLeads) * 100 : 0;
+
+  if (!isReady || !services) {
+    return (
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '60vh' }}>
+        <CircularProgress />
+      </Box>
+    );
+  }
 
   return (
     <Box sx={{ 

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { clientService } from '@/lib/firebase/firestore';
+import { useTenant } from '@/contexts/TenantContext';
 import type { Client } from '@/lib/types';
 import { PaymentMethod } from '@/lib/types/reservation';
 import {
@@ -73,6 +73,7 @@ interface ClientFormData {
 
 export default function ClientsPage() {
   const { user } = useAuth();
+  const { services, isReady } = useTenant();
   const [clients, setClients] = useState<Client[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -97,10 +98,10 @@ export default function ClientsPage() {
 
   useEffect(() => {
     loadClients();
-  }, []);
+  }, [services, isReady]);
 
   const loadClients = async (isRefresh = false) => {
-    if (!user?.tenantId) return;
+    if (!services || !isReady) return;
     
     try {
       if (isRefresh) {
@@ -109,7 +110,7 @@ export default function ClientsPage() {
       }
       
       console.log('🔄 [Clients Dashboard] Carregando clientes...');
-      const clientsData = await clientService.getAllByTenant(user.tenantId);
+      const clientsData = await services.clients.getAll();
       console.log(`✅ [Clients Dashboard] ${clientsData.length} clientes carregados`, clientsData);
       
       // Ordenar clientes: mais recentes primeiro
@@ -130,6 +131,8 @@ export default function ClientsPage() {
   };
 
   const handleAddClient = async () => {
+    if (!services) return;
+    
     try {
       console.log('➕ [Clients Dashboard] Criando novo cliente:', formData);
       
@@ -138,12 +141,16 @@ export default function ClientsPage() {
         phone: formData.phone,
         email: formData.email || undefined,
         document: formData.cpf || undefined,
-        tenantId: 'default', // TODO: Pegar do contexto do tenant atual
-        source: 'manual'
+        source: 'manual',
+        isActive: true,
+        totalReservations: 0,
+        totalSpent: 0,
+        createdAt: new Date(),
+        updatedAt: new Date()
       };
 
-      const newClient = await clientServiceWrapper.create(clientData);
-      console.log('✅ [Clients Dashboard] Cliente criado:', newClient);
+      await services.clients.create(clientData as Omit<Client, 'id'>);
+      console.log('✅ [Clients Dashboard] Cliente criado');
       
       setShowAddDialog(false);
       setFormData({ name: '', phone: '', email: '', cpf: '', notes: '' });
@@ -152,7 +159,6 @@ export default function ClientsPage() {
       await loadClients();
     } catch (error) {
       console.error('❌ [Clients Dashboard] Erro ao criar cliente:', error);
-      // TODO: Mostrar mensagem de erro para o usuário
       alert(`Erro ao criar cliente: ${error instanceof Error ? error.message : 'Erro desconhecido'}`);
     }
   };

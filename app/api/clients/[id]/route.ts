@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { clientService } from '@/lib/firebase/firestore'
+import { TenantServiceFactory } from '@/lib/firebase/firestore-v2'
 import { handleApiError } from '@/lib/utils/api-errors'
 import { sanitizeUserInput } from '@/lib/utils/validation'
+import { authMiddleware } from '@/lib/middleware/auth'
 import { z } from 'zod'
 import { CustomerSegment, AcquisitionSource } from '@/lib/types/client'
 import { PaymentMethod } from '@/lib/types/reservation'
@@ -85,7 +86,17 @@ export async function GET(
       )
     }
 
-    const client = await clientService.get(clientId)
+    // Check authentication and get tenantId
+    const authContext = await authMiddleware(request)
+    if (!authContext.authenticated || !authContext.tenantId) {
+      return NextResponse.json(
+        { error: 'Authentication required', code: 'UNAUTHORIZED' },
+        { status: 401 }
+      )
+    }
+
+    const services = new TenantServiceFactory(authContext.tenantId)
+    const client = await services.clients.get(clientId)
 
     if (!client) {
       return NextResponse.json(
@@ -120,8 +131,18 @@ export async function PUT(
       )
     }
 
+    // Check authentication and get tenantId
+    const authContext = await authMiddleware(request)
+    if (!authContext.authenticated || !authContext.tenantId) {
+      return NextResponse.json(
+        { error: 'Authentication required', code: 'UNAUTHORIZED' },
+        { status: 401 }
+      )
+    }
+
+    const services = new TenantServiceFactory(authContext.tenantId)
     // Check if client exists
-    const existingClient = await clientService.get(clientId)
+    const existingClient = await services.clients.get(clientId)
     if (!existingClient) {
       return NextResponse.json(
         { error: 'Cliente não encontrado', code: 'CLIENT_NOT_FOUND' },
@@ -209,11 +230,14 @@ export async function PUT(
     sanitizedData.updatedAt = new Date()
 
     // Update the client
-    const updatedClient = await clientService.update(clientId, sanitizedData)
+    const updatedClient = await services.clients.update(clientId, sanitizedData)
+    
+    // Get the updated client data
+    const finalClient = await services.clients.get(clientId)
 
     return NextResponse.json({
       success: true,
-      data: updatedClient,
+      data: finalClient,
       message: 'Cliente atualizado com sucesso'
     })
 
@@ -237,8 +261,18 @@ export async function DELETE(
       )
     }
 
+    // Check authentication and get tenantId
+    const authContext = await authMiddleware(request)
+    if (!authContext.authenticated || !authContext.tenantId) {
+      return NextResponse.json(
+        { error: 'Authentication required', code: 'UNAUTHORIZED' },
+        { status: 401 }
+      )
+    }
+
+    const services = new TenantServiceFactory(authContext.tenantId)
     // Check if client exists
-    const existingClient = await clientService.get(clientId)
+    const existingClient = await services.clients.get(clientId)
     if (!existingClient) {
       return NextResponse.json(
         { error: 'Cliente não encontrado', code: 'CLIENT_NOT_FOUND' },
@@ -247,7 +281,7 @@ export async function DELETE(
     }
 
     // Instead of hard delete, we'll soft delete by setting isActive to false
-    await clientService.update(clientId, {
+    await services.clients.update(clientId, {
       isActive: false,
       updatedAt: new Date()
     })

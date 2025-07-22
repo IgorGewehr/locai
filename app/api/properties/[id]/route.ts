@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { propertyService } from '@/lib/firebase/firestore'
+import { TenantServiceFactory } from '@/lib/firebase/firestore-v2'
 import { handleApiError } from '@/lib/utils/api-errors'
 import { sanitizeUserInput } from '@/lib/utils/validation'
+import { authMiddleware } from '@/lib/middleware/auth'
 import { UpdatePropertySchema } from '@/lib/validation/property-schemas'
 import type { Property } from '@/lib/types/property'
 
@@ -22,7 +23,17 @@ export async function GET(
       )
     }
 
-    const property = await propertyService.getById(resolvedParams.id)
+    // Check authentication and get tenantId
+    const authContext = await authMiddleware(request)
+    if (!authContext.authenticated || !authContext.tenantId) {
+      return NextResponse.json(
+        { error: 'Authentication required', code: 'UNAUTHORIZED' },
+        { status: 401 }
+      )
+    }
+
+    const services = new TenantServiceFactory(authContext.tenantId)
+    const property = await services.properties.getById(resolvedParams.id)
 
     if (!property) {
       return NextResponse.json(
@@ -63,8 +74,18 @@ export async function PUT(
 
     const body = await request.json()
 
+    // Check authentication and get tenantId
+    const authContext = await authMiddleware(request)
+    if (!authContext.authenticated || !authContext.tenantId) {
+      return NextResponse.json(
+        { error: 'Authentication required', code: 'UNAUTHORIZED' },
+        { status: 401 }
+      )
+    }
+
+    const services = new TenantServiceFactory(authContext.tenantId)
     // Check if property exists 
-    const existingProperty = await propertyService.getById(resolvedParams.id)
+    const existingProperty = await services.properties.getById(resolvedParams.id)
     if (!existingProperty) {
       return NextResponse.json(
         { 
@@ -125,14 +146,14 @@ export async function PUT(
     }
 
     // Update property
-    await propertyService.update(resolvedParams.id, {
+    await services.properties.update(resolvedParams.id, {
       ...(validatedData as any),
       ...sanitizedUpdate,
       updatedAt: new Date(),
     })
 
     // Get updated property
-    const updatedProperty = await propertyService.getById(resolvedParams.id)
+    const updatedProperty = await services.properties.getById(resolvedParams.id)
 
     return NextResponse.json({
       success: true,
@@ -162,8 +183,18 @@ export async function DELETE(
       )
     }
 
+    // Check authentication and get tenantId
+    const authContext = await authMiddleware(request)
+    if (!authContext.authenticated || !authContext.tenantId) {
+      return NextResponse.json(
+        { error: 'Authentication required', code: 'UNAUTHORIZED' },
+        { status: 401 }
+      )
+    }
+
+    const services = new TenantServiceFactory(authContext.tenantId)
     // Check if property exists
-    const existingProperty = await propertyService.getById(resolvedParams.id)
+    const existingProperty = await services.properties.getById(resolvedParams.id)
     if (!existingProperty) {
       return NextResponse.json(
         { 
@@ -178,7 +209,7 @@ export async function DELETE(
     // TODO: Add check for active reservations before deletion
 
     // Soft delete by marking as inactive
-    await propertyService.update(resolvedParams.id, {
+    await services.properties.update(resolvedParams.id, {
       isActive: false,
       updatedAt: new Date(),
     })

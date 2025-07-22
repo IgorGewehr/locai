@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { clientService } from '@/lib/firebase/firestore'
+import { TenantServiceFactory } from '@/lib/firebase/firestore-v2'
 import { handleApiError } from '@/lib/utils/api-errors'
 import { sanitizeUserInput } from '@/lib/utils/validation'
+import { authMiddleware } from '@/lib/middleware/auth'
 import { z } from 'zod'
 import { CustomerSegment, AcquisitionSource } from '@/lib/types/client'
 import { PaymentMethod } from '@/lib/types/reservation'
@@ -78,8 +79,18 @@ export async function GET(request: NextRequest) {
     const isActive = searchParams.get('isActive')
     const isVip = searchParams.get('isVip')
 
+    // Check authentication and get tenantId
+    const authContext = await authMiddleware(request)
+    if (!authContext.authenticated || !authContext.tenantId) {
+      return NextResponse.json(
+        { error: 'Authentication required', code: 'UNAUTHORIZED' },
+        { status: 401 }
+      )
+    }
+
+    const services = new TenantServiceFactory(authContext.tenantId)
     // Get clients with basic filtering
-    const clients = await clientService.getAll()
+    const clients = await services.clients.getAll()
 
     // Apply filters
     let filteredClients = clients
@@ -144,6 +155,15 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
     
+    // Check authentication and get tenantId
+    const authContext = await authMiddleware(request)
+    if (!authContext.authenticated || !authContext.tenantId) {
+      return NextResponse.json(
+        { error: 'Authentication required', code: 'UNAUTHORIZED' },
+        { status: 401 }
+      )
+    }
+
     // Validate the request body
     const validationResult = CreateClientSchema.safeParse(body)
     if (!validationResult.success) {
@@ -201,7 +221,6 @@ export async function POST(request: NextRequest) {
       },
       
       // Default values
-      tenantId: process.env.NEXT_PUBLIC_TENANT_ID || 'default',
       isActive: validatedData.isActive !== undefined ? validatedData.isActive : true,
       isVip: validatedData.isVip !== undefined ? validatedData.isVip : false,
       customerSegment: validatedData.customerSegment || CustomerSegment.NEW,
@@ -221,8 +240,9 @@ export async function POST(request: NextRequest) {
       updatedAt: new Date(),
     }
 
+    const services = new TenantServiceFactory(authContext.tenantId)
     // Create the client
-    const newClient = await clientService.create(sanitizedData)
+    const newClient = await services.clients.create(sanitizedData)
 
     return NextResponse.json(
       { 

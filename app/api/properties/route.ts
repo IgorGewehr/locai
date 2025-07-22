@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { propertyService } from '@/lib/firebase/firestore'
+import { TenantServiceFactory } from '@/lib/firebase/firestore-v2'
 import { handleApiError } from '@/lib/utils/api-errors'
 import { sanitizeUserInput } from '@/lib/utils/validation'
+import { authMiddleware } from '@/lib/middleware/auth'
 import { CreatePropertySchema } from '@/lib/validation/property-schemas'
 import type { Property } from '@/lib/types/property'
 
@@ -13,8 +14,18 @@ export async function GET(request: NextRequest) {
     const limit = parseInt(searchParams.get('limit') || '10')
     const search = searchParams.get('search')
 
+    // Check authentication and get tenantId
+    const authContext = await authMiddleware(request)
+    if (!authContext.authenticated || !authContext.tenantId) {
+      return NextResponse.json(
+        { error: 'Authentication required', code: 'UNAUTHORIZED' },
+        { status: 401 }
+      )
+    }
+
+    const services = new TenantServiceFactory(authContext.tenantId)
     // Get properties with basic filtering
-    const properties = await propertyService.getAll()
+    const properties = await services.properties.getAll()
 
     // Simple search filtering if search term provided
     let filteredProperties = properties
@@ -53,6 +64,15 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
     
+    // Check authentication and get tenantId
+    const authContext = await authMiddleware(request)
+    if (!authContext.authenticated || !authContext.tenantId) {
+      return NextResponse.json(
+        { error: 'Authentication required', code: 'UNAUTHORIZED' },
+        { status: 401 }
+      )
+    }
+
     // Validate the request body
     const validationResult = CreatePropertySchema.safeParse(body)
     if (!validationResult.success) {
@@ -75,14 +95,14 @@ export async function POST(request: NextRequest) {
       description: sanitizeUserInput(validatedData.description),
       address: sanitizeUserInput(validatedData.address),
       amenities: validatedData.amenities?.map(a => sanitizeUserInput(a)) || [],
-      tenantId: process.env.NEXT_PUBLIC_TENANT_ID || 'default',
       isActive: true,
       createdAt: new Date(),
       updatedAt: new Date(),
     }
 
+    const services = new TenantServiceFactory(authContext.tenantId)
     // Create the property
-    const newProperty = await propertyService.create(sanitizedData)
+    const newProperty = await services.properties.create(sanitizedData)
 
     return NextResponse.json(
       { 

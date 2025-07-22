@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { FirestoreService } from '@/lib/firebase/firestore';
+import { TenantServiceFactory } from '@/lib/firebase/firestore-v2';
 import { Reservation, Conversation, Payment } from '@/lib/types';
 import { Property } from '@/lib/types/property';
 import { PaymentMethod, PaymentStatus } from '@/lib/types/reservation';
@@ -10,11 +10,6 @@ import { authMiddleware } from '@/lib/middleware/auth';
 import { rateLimiters } from '@/lib/utils/rate-limiter';
 import { handleApiError } from '@/lib/utils/api-errors';
 import { ValidationError } from '@/lib/utils/errors';
-
-const reservationService = new FirestoreService<Reservation>('reservations');
-const propertyService = new FirestoreService<Property>('properties');
-const conversationService = new FirestoreService<Conversation>('conversations');
-const paymentService = new FirestoreService<Payment>('payments');
 
 // Validation schemas
 const analyticsQuerySchema = z.object({
@@ -93,6 +88,7 @@ export async function GET(request: NextRequest) {
 
 async function getOverviewAnalytics(period: string, tenantId: string) {
   try {
+    const services = new TenantServiceFactory(tenantId);
     const now = new Date();
     let startDate: Date;
     let endDate = now;
@@ -120,35 +116,32 @@ async function getOverviewAnalytics(period: string, tenantId: string) {
     }
 
     // Get reservations in period for this tenant
-    const reservations = await reservationService.getMany([
-      { field: 'tenantId', operator: '==', value: tenantId },
+    const reservations = await services.reservations.getMany([
       { field: 'createdAt', operator: '>=', value: startDate },
       { field: 'createdAt', operator: '<=', value: endDate }
     ]);
 
     // Get all properties for this tenant
-    const properties = await propertyService.getMany([
-      { field: 'tenantId', operator: '==', value: tenantId }
-    ]);
-    const activeProperties = properties.filter(p => p.status === 'active');
+    const properties = await services.properties.getAll();
+    const activeProperties = properties.filter((p: any) => p.status === 'active');
 
     // Calculate metrics
     const totalRevenue = reservations
-      .filter(r => r.status !== 'cancelled')
-      .reduce((sum, r) => sum + r.totalAmount, 0);
+      .filter((r: any) => r.status !== 'cancelled')
+      .reduce((sum: number, r: any) => sum + r.totalAmount, 0);
 
-    const totalReservations = reservations.filter(r => r.status !== 'cancelled').length;
-    const pendingReservations = reservations.filter(r => r.status === 'pending').length;
-    const confirmedReservations = reservations.filter(r => r.status === 'confirmed').length;
+    const totalReservations = reservations.filter((r: any) => r.status !== 'cancelled').length;
+    const pendingReservations = reservations.filter((r: any) => r.status === 'pending').length;
+    const confirmedReservations = reservations.filter((r: any) => r.status === 'confirmed').length;
 
     // Calculate average ticket
     const averageTicket = totalReservations > 0 ? totalRevenue / totalReservations : 0;
 
     // Calculate occupancy rate (simplified)
-    const totalCapacity = activeProperties.reduce((sum, p) => sum + p.capacity, 0);
+    const totalCapacity = activeProperties.reduce((sum: number, p: any) => sum + p.capacity, 0);
     const totalGuestNights = reservations
-      .filter(r => r.status !== 'cancelled')
-      .reduce((sum, r) => sum + (r.guests * r.nights), 0);
+      .filter((r: any) => r.status !== 'cancelled')
+      .reduce((sum: number, r: any) => sum + (r.guests * r.nights), 0);
     const occupancyRate = totalCapacity > 0 ? totalGuestNights / (totalCapacity * 30) : 0;
 
     // Growth calculations (compare with previous period)
@@ -158,15 +151,14 @@ async function getOverviewAnalytics(period: string, tenantId: string) {
     previousStartDate.setTime(startDate.getTime() - periodDiff);
     previousEndDate.setTime(endDate.getTime() - periodDiff);
 
-    const previousReservations = await reservationService.getMany([
-      { field: 'tenantId', operator: '==', value: tenantId },
+    const previousReservations = await services.reservations.getMany([
       { field: 'createdAt', operator: '>=', value: previousStartDate },
       { field: 'createdAt', operator: '<=', value: previousEndDate }
     ]);
 
     const previousRevenue = previousReservations
-      .filter(r => r.status !== 'cancelled')
-      .reduce((sum, r) => sum + r.totalAmount, 0);
+      .filter((r: any) => r.status !== 'cancelled')
+      .reduce((sum: number, r: any) => sum + r.totalAmount, 0);
 
     const revenueGrowth = previousRevenue > 0 
       ? ((totalRevenue - previousRevenue) / previousRevenue) * 100 
@@ -211,9 +203,9 @@ async function getRevenueAnalytics(period: string, tenantId: string) {
     const months = parseInt(period.replace('months', '')) || 6;
     const endDate = new Date();
     const startDate = subMonths(endDate, months);
+    const services = new TenantServiceFactory(tenantId);
 
-    const reservations = await reservationService.getMany([
-      { field: 'tenantId', operator: '==', value: tenantId },
+    const reservations = await services.reservations.getMany([
       { field: 'createdAt', operator: '>=', value: startDate },
       { field: 'createdAt', operator: '<=', value: endDate }
     ]);
@@ -257,20 +249,17 @@ async function getRevenueAnalytics(period: string, tenantId: string) {
 
 async function getPropertiesAnalytics(tenantId: string) {
   try {
-    const properties = await propertyService.getMany([
-      { field: 'tenantId', operator: '==', value: tenantId }
-    ]);
-    const reservations = await reservationService.getMany([
-      { field: 'tenantId', operator: '==', value: tenantId }
-    ]);
+    const services = new TenantServiceFactory(tenantId);
+    const properties = await services.properties.getAll();
+    const reservations = await services.reservations.getAll();
 
-    const propertyPerformance = properties.map(property => {
-      const propertyReservations = reservations.filter(r => 
+    const propertyPerformance = properties.map((property: any) => {
+      const propertyReservations = reservations.filter((r: any) => 
         r.propertyId === property.id && r.status !== 'cancelled'
       );
 
-      const revenue = propertyReservations.reduce((sum, r) => sum + r.totalAmount, 0);
-      const totalNights = propertyReservations.reduce((sum, r) => sum + r.nights, 0);
+      const revenue = propertyReservations.reduce((sum: number, r: any) => sum + r.totalAmount, 0);
+      const totalNights = propertyReservations.reduce((sum: number, r: any) => sum + r.nights, 0);
 
       // Calculate occupancy (simplified - assuming 30 days per month)
       const occupancy = Math.min((totalNights / 30) * 100, 100);
@@ -295,9 +284,9 @@ async function getPropertiesAnalytics(tenantId: string) {
       properties: propertyPerformance,
       summary: {
         totalProperties: properties.length,
-        activeProperties: properties.filter(p => p.status === 'active').length,
+        activeProperties: properties.filter((p: any) => p.status === 'active').length,
         averageOccupancy: Math.round(
-          propertyPerformance.reduce((sum, p) => sum + p.occupancy, 0) / propertyPerformance.length
+          propertyPerformance.reduce((sum: number, p: any) => sum + p.occupancy, 0) / propertyPerformance.length
         ),
         topPerformer: propertyPerformance[0] || null,
       }
@@ -311,44 +300,41 @@ async function getPropertiesAnalytics(tenantId: string) {
 
 async function getConversionsAnalytics(tenantId: string) {
   try {
-    const conversations = await conversationService.getMany([
-      { field: 'tenantId', operator: '==', value: tenantId }
-    ]);
-    const reservations = await reservationService.getMany([
-      { field: 'tenantId', operator: '==', value: tenantId }
-    ]);
+    const services = new TenantServiceFactory(tenantId);
+    const conversations = await services.conversations.getAll();
+    const reservations = await services.reservations.getAll();
 
-    const whatsappConversations = conversations.filter(c => c.whatsappPhone);
-    const conversionsFromWhatsApp = reservations.filter(r => r.source === 'whatsapp_ai');
+    const whatsappConversations = conversations.filter((c: any) => c.whatsappPhone);
+    const conversionsFromWhatsApp = reservations.filter((r: any) => r.source === 'whatsapp_ai');
 
     const conversionRate = whatsappConversations.length > 0 
       ? (conversionsFromWhatsApp.length / whatsappConversations.length) * 100 
       : 0;
 
     const sourceBreakdown = {
-      whatsapp_ai: reservations.filter(r => r.source === 'whatsapp_ai').length,
-      manual: reservations.filter(r => r.source === 'manual').length,
-      website: reservations.filter(r => r.source === 'website').length,
-      phone: reservations.filter(r => r.source === 'phone').length,
-      email: reservations.filter(r => r.source === 'email').length,
+      whatsapp_ai: reservations.filter((r: any) => r.source === 'whatsapp_ai').length,
+      manual: reservations.filter((r: any) => r.source === 'manual').length,
+      website: reservations.filter((r: any) => r.source === 'website').length,
+      phone: reservations.filter((r: any) => r.source === 'phone').length,
+      email: reservations.filter((r: any) => r.source === 'email').length,
     };
 
     const revenueBySource = {
       whatsapp_ai: reservations
-        .filter(r => r.source === 'whatsapp_ai')
-        .reduce((sum, r) => sum + r.totalAmount, 0),
+        .filter((r: any) => r.source === 'whatsapp_ai')
+        .reduce((sum: number, r: any) => sum + r.totalAmount, 0),
       manual: reservations
-        .filter(r => r.source === 'manual')
-        .reduce((sum, r) => sum + r.totalAmount, 0),
+        .filter((r: any) => r.source === 'manual')
+        .reduce((sum: number, r: any) => sum + r.totalAmount, 0),
       website: reservations
-        .filter(r => r.source === 'website')
-        .reduce((sum, r) => sum + r.totalAmount, 0),
+        .filter((r: any) => r.source === 'website')
+        .reduce((sum: number, r: any) => sum + r.totalAmount, 0),
       phone: reservations
-        .filter(r => r.source === 'phone')
-        .reduce((sum, r) => sum + r.totalAmount, 0),
+        .filter((r: any) => r.source === 'phone')
+        .reduce((sum: number, r: any) => sum + r.totalAmount, 0),
       email: reservations
-        .filter(r => r.source === 'email')
-        .reduce((sum, r) => sum + r.totalAmount, 0),
+        .filter((r: any) => r.source === 'email')
+        .reduce((sum: number, r: any) => sum + r.totalAmount, 0),
     };
 
     return NextResponse.json({
@@ -385,8 +371,8 @@ async function getChartsData(period: string, tenantId: string) {
     const endDate = new Date();
     const startDate = subMonths(endDate, months);
 
-    const payments = await paymentService.getMany([
-      { field: 'tenantId', operator: '==', value: tenantId },
+    const services = new TenantServiceFactory(tenantId);
+    const payments = await services.payments.getMany([
       { field: 'paidDate', operator: '>=', value: startDate },
       { field: 'paidDate', operator: '<=', value: endDate },
       { field: 'status', operator: '==', value: PaymentStatus.PAID }
@@ -401,13 +387,12 @@ async function getChartsData(period: string, tenantId: string) {
     const totalPayments = payments.length;
     const paymentMethods = Object.entries(paymentMethodCounts).map(([method, count]) => ({
       name: PAYMENT_METHOD_LABELS[method as PaymentMethod],
-      value: Math.round((count / totalPayments) * 100),
+      value: Math.round(((count as number) / totalPayments) * 100),
       color: PAYMENT_METHOD_COLORS[method as PaymentMethod]
     }));
 
     // Get real source data from reservations
-    const reservations = await reservationService.getMany([
-      { field: 'tenantId', operator: '==', value: tenantId },
+    const reservations = await services.reservations.getMany([
       { field: 'createdAt', operator: '>=', value: startDate },
       { field: 'createdAt', operator: '<=', value: endDate },
       { field: 'status', operator: '!=', value: 'cancelled' }
@@ -416,30 +401,30 @@ async function getChartsData(period: string, tenantId: string) {
     const sourceData = [
       { 
         source: 'WhatsApp AI', 
-        bookings: reservations.filter(r => r.source === 'whatsapp_ai').length,
-        revenue: reservations.filter(r => r.source === 'whatsapp_ai').reduce((sum, r) => sum + r.totalAmount, 0)
+        bookings: reservations.filter((r: any) => r.source === 'whatsapp_ai').length,
+        revenue: reservations.filter((r: any) => r.source === 'whatsapp_ai').reduce((sum: number, r: any) => sum + r.totalAmount, 0)
       },
       { 
         source: 'Website', 
-        bookings: reservations.filter(r => r.source === 'website').length,
-        revenue: reservations.filter(r => r.source === 'website').reduce((sum, r) => sum + r.totalAmount, 0)
+        bookings: reservations.filter((r: any) => r.source === 'website').length,
+        revenue: reservations.filter((r: any) => r.source === 'website').reduce((sum: number, r: any) => sum + r.totalAmount, 0)
       },
       { 
         source: 'Manual', 
-        bookings: reservations.filter(r => r.source === 'manual').length,
-        revenue: reservations.filter(r => r.source === 'manual').reduce((sum, r) => sum + r.totalAmount, 0)
+        bookings: reservations.filter((r: any) => r.source === 'manual').length,
+        revenue: reservations.filter((r: any) => r.source === 'manual').reduce((sum: number, r: any) => sum + r.totalAmount, 0)
       },
       { 
         source: 'Telefone', 
-        bookings: reservations.filter(r => r.source === 'phone').length,
-        revenue: reservations.filter(r => r.source === 'phone').reduce((sum, r) => sum + r.totalAmount, 0)
+        bookings: reservations.filter((r: any) => r.source === 'phone').length,
+        revenue: reservations.filter((r: any) => r.source === 'phone').reduce((sum: number, r: any) => sum + r.totalAmount, 0)
       },
       { 
         source: 'E-mail', 
-        bookings: reservations.filter(r => r.source === 'email').length,
-        revenue: reservations.filter(r => r.source === 'email').reduce((sum, r) => sum + r.totalAmount, 0)
+        bookings: reservations.filter((r: any) => r.source === 'email').length,
+        revenue: reservations.filter((r: any) => r.source === 'email').reduce((sum: number, r: any) => sum + r.totalAmount, 0)
       },
-    ].filter(s => s.bookings > 0); // Only include sources with actual bookings
+    ].filter((s: any) => s.bookings > 0); // Only include sources with actual bookings
 
     return NextResponse.json({
       revenue: data,
@@ -455,8 +440,8 @@ async function getChartsData(period: string, tenantId: string) {
 
 async function getDailyRevenueTrend(startDate: Date, endDate: Date, tenantId: string) {
   try {
-    const reservations = await reservationService.getMany([
-      { field: 'tenantId', operator: '==', value: tenantId },
+    const services = new TenantServiceFactory(tenantId);
+    const reservations = await services.reservations.getMany([
       { field: 'createdAt', operator: '>=', value: startDate },
       { field: 'createdAt', operator: '<=', value: endDate },
       { field: 'status', operator: '!=', value: 'cancelled' }
@@ -464,7 +449,7 @@ async function getDailyRevenueTrend(startDate: Date, endDate: Date, tenantId: st
 
     const dailyRevenue: Record<string, number> = {};
 
-    reservations.forEach(reservation => {
+    reservations.forEach((reservation: any) => {
       const dateKey = format(new Date(reservation.createdAt), 'yyyy-MM-dd');
       dailyRevenue[dateKey] = (dailyRevenue[dateKey] || 0) + reservation.totalAmount;
     });
@@ -484,6 +469,7 @@ async function getMonthlyGrowthTrend(tenantId: string) {
     const months = 12;
     const endDate = new Date();
     const monthlyGrowth = [];
+    const services = new TenantServiceFactory(tenantId);
 
     for (let i = 1; i < months; i++) {
       const currentMonthStart = startOfMonth(subMonths(endDate, i));
@@ -492,22 +478,20 @@ async function getMonthlyGrowthTrend(tenantId: string) {
       const previousMonthEnd = endOfMonth(previousMonthStart);
 
       const [currentReservations, previousReservations] = await Promise.all([
-        reservationService.getMany([
-          { field: 'tenantId', operator: '==', value: tenantId },
+        services.reservations.getMany([
           { field: 'createdAt', operator: '>=', value: currentMonthStart },
           { field: 'createdAt', operator: '<=', value: currentMonthEnd },
           { field: 'status', operator: '!=', value: 'cancelled' }
         ]),
-        reservationService.getMany([
-          { field: 'tenantId', operator: '==', value: tenantId },
+        services.reservations.getMany([
           { field: 'createdAt', operator: '>=', value: previousMonthStart },
           { field: 'createdAt', operator: '<=', value: previousMonthEnd },
           { field: 'status', operator: '!=', value: 'cancelled' }
         ])
       ]);
 
-      const currentRevenue = currentReservations.reduce((sum, r) => sum + r.totalAmount, 0);
-      const previousRevenue = previousReservations.reduce((sum, r) => sum + r.totalAmount, 0);
+      const currentRevenue = currentReservations.reduce((sum: number, r: any) => sum + r.totalAmount, 0);
+      const previousRevenue = previousReservations.reduce((sum: number, r: any) => sum + r.totalAmount, 0);
 
       const growth = previousRevenue > 0 
         ? ((currentRevenue - previousRevenue) / previousRevenue) * 100 

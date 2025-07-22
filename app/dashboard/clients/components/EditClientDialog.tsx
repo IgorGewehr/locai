@@ -15,7 +15,7 @@ import {
   FormControlLabel,
   Switch,
 } from '@mui/material';
-import { clientService } from '@/lib/firebase/firestore';
+import { useTenant } from '@/contexts/TenantContext';
 import type { Client } from '@/lib/types';
 
 interface EditClientDialogProps {
@@ -35,6 +35,7 @@ interface FormData {
 }
 
 export default function EditClientDialog({ open, client, onClose, onSuccess }: EditClientDialogProps) {
+  const { services, isReady } = useTenant();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [formData, setFormData] = useState<FormData>({
@@ -72,6 +73,11 @@ export default function EditClientDialog({ open, client, onClose, onSuccess }: E
       return;
     }
 
+    if (!services || !isReady) {
+      setError('Serviços não estão prontos. Tente novamente.');
+      return;
+    }
+
     setLoading(true);
     setError(null);
 
@@ -87,7 +93,7 @@ export default function EditClientDialog({ open, client, onClose, onSuccess }: E
         updatedAt: new Date(),
       };
 
-      await clientService.update(client.id, updateData);
+      await services.clients.update(client.id, updateData);
       onSuccess();
       handleClose();
     } catch (error) {
@@ -223,7 +229,7 @@ export default function EditClientDialog({ open, client, onClose, onSuccess }: E
         <Button
           onClick={handleSubmit}
           variant="contained"
-          disabled={loading || !formData.name || !formData.phone}
+          disabled={loading || !formData.name || !formData.phone || !services || !isReady}
           startIcon={loading ? <CircularProgress size={20} /> : null}
         >
           {loading ? 'Salvando...' : 'Salvar Alterações'}

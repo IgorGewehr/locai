@@ -24,8 +24,8 @@ import {
     WhatsApp, Settings,
 } from '@mui/icons-material';
 import type { DashboardStats } from '@/lib/types';
-import { propertyService, reservationService, clientService, conversationService } from '@/lib/firebase/firestore';
 import { db } from '@/lib/firebase/config';
+import { useTenant } from '@/contexts/TenantContext';
 import { collection, query, where, getDocs, orderBy, limit, Timestamp } from 'firebase/firestore';
 import MiniSiteWidget from '@/components/organisms/marketing/MiniSiteWidget';
 
@@ -186,6 +186,7 @@ function StatCard({ title, value, subtitle, icon, trend, color }: StatCardProps)
 }
 
 export default function DashboardPage() {
+  const { services, isReady } = useTenant();
   const [stats, setStats] = useState<DashboardStats>(initialStats);
   const [loading, setLoading] = useState(true);
   const [whatsappStats, setWhatsappStats] = useState({
@@ -203,14 +204,16 @@ export default function DashboardPage() {
   });
 
   const fetchStats = async () => {
+    if (!services || !isReady) return;
+    
     setLoading(true);
     try {
       // Fetch properties
-      const properties = await propertyService.getAll();
+      const properties = await services.properties.getAll();
       const activeProperties = properties.filter(p => p.isActive === true);
 
       // Fetch reservations
-      const reservations = await reservationService.getAll();
+      const reservations = await services.reservations.getAll();
       const pendingReservations = reservations.filter(r => r.status === 'pending');
 
       // Calculate monthly revenue and trends
@@ -378,7 +381,7 @@ export default function DashboardPage() {
 
   useEffect(() => {
     fetchStats();
-  }, []);
+  }, [services, isReady]);
 
   const refreshStats = async () => {
     await fetchStats();

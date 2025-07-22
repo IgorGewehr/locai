@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { propertyService } from '@/lib/firebase/firestore';
+import { useTenant } from '@/contexts/TenantContext';
 import {
   Box,
   Card,
@@ -74,22 +74,25 @@ export default function PropertiesPage() {
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [selectedProperty, setSelectedProperty] = useState<Property | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const { services, isReady } = useTenant();
 
   // Load properties from Firebase
   useEffect(() => {
     const loadProperties = async () => {
+      if (!services || !isReady) return;
+      
       try {
-        const propertiesData = await propertyService.getAll();
+        const propertiesData = await services.properties.getAll();
         setProperties(propertiesData);
       } catch (error) {
-
+        console.error('Error loading properties:', error);
       } finally {
         setLoading(false);
       }
     };
 
     loadProperties();
-  }, []);
+  }, [services, isReady]);
 
   useEffect(() => {
     let filtered = properties;
@@ -129,20 +132,20 @@ export default function PropertiesPage() {
   };
 
   const handleDelete = async () => {
-    if (selectedProperty) {
+    if (selectedProperty && services) {
       try {
-        await propertyService.delete(selectedProperty.id);
+        await services.properties.delete(selectedProperty.id);
         setProperties(prev => prev.filter(p => p.id !== selectedProperty.id));
         setDeleteDialogOpen(false);
         setSelectedProperty(null);
       } catch (error) {
-
+        console.error('Error deleting property:', error);
       }
     }
   };
 
   const handleDuplicate = async () => {
-    if (selectedProperty) {
+    if (selectedProperty && services) {
       try {
         const duplicated = {
           ...selectedProperty,
@@ -151,10 +154,15 @@ export default function PropertiesPage() {
           updatedAt: new Date(),
         };
         delete (duplicated as any).id; // Remove id so Firebase generates a new one
-        const newProperty = await propertyService.create(duplicated as Omit<Property, 'id'>);
-        setProperties(prev => [...prev, newProperty]);
+        const newPropertyId = await services.properties.create(duplicated as Omit<Property, 'id'>);
+        
+        // Reload properties to get the new one
+        const propertiesData = await services.properties.getAll();
+        setProperties(propertiesData);
+        
         handleMenuClose();
       } catch (error) {
+        console.error('Error duplicating property:', error);
 
       }
     }

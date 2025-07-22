@@ -37,7 +37,7 @@ import {
 } from '@mui/icons-material';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { reservationService } from '@/lib/firebase/firestore';
+import { useTenant } from '@/contexts/TenantContext';
 import type { Client } from '@/lib/types';
 import type { Reservation } from '@/lib/types/reservation';
 
@@ -49,6 +49,7 @@ interface ClientDetailsDialogProps {
 }
 
 export default function ClientDetailsDialog({ open, client, onClose, onEdit }: ClientDetailsDialogProps) {
+  const { services, isReady } = useTenant();
   const [reservations, setReservations] = useState<Reservation[]>([]);
   const [loading, setLoading] = useState(false);
 
@@ -56,12 +57,14 @@ export default function ClientDetailsDialog({ open, client, onClose, onEdit }: C
     if (open && client) {
       loadReservations();
     }
-  }, [open, client]);
+  }, [open, client, services, isReady]);
 
   const loadReservations = async () => {
+    if (!services || !isReady) return;
+    
     setLoading(true);
     try {
-      const clientReservations = await reservationService.getWhere('clientId', '==', client.id);
+      const clientReservations = await services.reservations.getWhere('clientId', '==', client.id);
       setReservations(clientReservations.sort((a, b) => 
         new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
       ));

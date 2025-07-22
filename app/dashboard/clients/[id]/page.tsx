@@ -51,8 +51,8 @@ import {
   Event,
 } from '@mui/icons-material';
 import { safeFormatDate, DateFormats } from '@/lib/utils/date-utils';
-import { clientService, reservationService, conversationService } from '@/lib/firebase/firestore';
 import { clientServiceWrapper } from '@/lib/services/client-service';
+import { useTenant } from '@/contexts/TenantContext';
 
 interface Client {
   id: string;
@@ -102,6 +102,7 @@ function TabPanel({ children, value, index }: any) {
 export default function ClientDetailPage() {
   const params = useParams();
   const router = useRouter();
+  const { services, isReady } = useTenant();
   const [client, setClient] = useState<Client | null>(null);
 
   const [reservations, setReservations] = useState<Reservation[]>([]);
@@ -127,14 +128,16 @@ export default function ClientDetailPage() {
 
   useEffect(() => {
     loadClientData();
-  }, [params.id]);
+  }, [params.id, services, isReady]);
 
   const loadClientData = async () => {
+    if (!services || !isReady) return;
+    
     try {
       setLoading(true);
       
-      // Fetch client data directly from Firebase
-      const client = await clientService.getById(params.id as string);
+      // Fetch client data using tenant-aware service
+      const client = await services.clients.getById(params.id as string);
       if (!client) {
         throw new Error('Cliente não encontrado');
       }
@@ -142,7 +145,7 @@ export default function ClientDetailPage() {
       // Fetch client reservations
       let reservations: Reservation[] = [];
       try {
-        const reservationsData = await reservationService.getWhere('clientId', '==', params.id as string);
+        const reservationsData = await services.reservations.getWhere('clientId', '==', params.id as string);
         // Sort by check-in date descending
         reservations = reservationsData
           .map((res: any) => ({
@@ -164,7 +167,7 @@ export default function ClientDetailPage() {
       // Fetch client conversations
       let conversations: Conversation[] = [];
       try {
-        const conversationsData = await conversationService.getWhere('clientId', '==', params.id as string);
+        const conversationsData = await services.conversations.getWhere('clientId', '==', params.id as string);
         conversations = conversationsData.slice(0, 10).map((conv: any) => ({
           id: conv.id,
           lastMessage: conv.lastMessage || 'Sem mensagens',
@@ -211,9 +214,11 @@ export default function ClientDetailPage() {
   };
 
   const handleSaveNotes = async () => {
+    if (!services) return;
+    
     try {
-      // Update notes directly in Firebase
-      await clientService.update(params.id as string, { 
+      // Update notes using tenant-aware service
+      await services.clients.update(params.id as string, { 
         notes,
         updatedAt: new Date()
       } as any);
@@ -226,9 +231,11 @@ export default function ClientDetailPage() {
   };
 
   const handleSaveName = async () => {
+    if (!services) return;
+    
     try {
-      // Update name directly in Firebase
-      await clientService.update(params.id as string, { 
+      // Update name using tenant-aware service
+      await services.clients.update(params.id as string, { 
         name: clientName,
         updatedAt: new Date()
       });

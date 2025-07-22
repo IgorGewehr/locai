@@ -21,7 +21,7 @@ import {
   Timer as TimerIcon,
   Refresh as RefreshIcon,
 } from '@mui/icons-material';
-import { conversationService, reservationService } from '@/lib/firebase/firestore';
+import { useTenant } from '@/contexts/TenantContext';
 
 interface ConversionMetrics {
   totalConversations: number;
@@ -36,24 +36,27 @@ interface ConversionMetrics {
 }
 
 export default function ConversionDashboard() {
+  const { services, isReady } = useTenant();
   const [metrics, setMetrics] = useState<ConversionMetrics | null>(null);
   const [loading, setLoading] = useState(true);
   const [lastUpdate, setLastUpdate] = useState(new Date());
 
   const loadMetrics = async () => {
+    if (!services || !isReady) return;
+    
     setLoading(true);
     try {
       // Buscar conversas de hoje
       const today = new Date();
       today.setHours(0, 0, 0, 0);
       
-      const allConversations = await conversationService.getAll();
+      const allConversations = await services.conversations.getAll();
       const todayConversations = allConversations.filter(
         c => new Date(c.createdAt) >= today
       );
 
       // Buscar reservas
-      const allReservations = await reservationService.getAll();
+      const allReservations = await services.reservations.getAll();
       const todayReservations = allReservations.filter(
         r => new Date(r.createdAt) >= today
       );
@@ -110,7 +113,7 @@ export default function ConversionDashboard() {
     // Atualizar a cada 5 minutos
     const interval = setInterval(loadMetrics, 5 * 60 * 1000);
     return () => clearInterval(interval);
-  }, []);
+  }, [services, isReady]);
 
   const MetricCard = ({ 
     title, 

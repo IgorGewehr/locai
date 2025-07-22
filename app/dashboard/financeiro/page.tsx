@@ -24,8 +24,7 @@ import {
 } from '@mui/icons-material';
 import { useRouter } from 'next/navigation';
 import { Transaction } from '@/lib/types';
-import { collection, query, orderBy, limit, getDocs, where, Timestamp } from 'firebase/firestore';
-import { db } from '@/lib/firebase/config';
+import { useTenant } from '@/contexts/TenantContext';
 
 interface FinancialOverview {
   totalBalance: number;
@@ -37,6 +36,7 @@ interface FinancialOverview {
 
 export default function FinancialPage() {
   const router = useRouter();
+  const { services, isReady } = useTenant();
   const [loading, setLoading] = useState(true);
   const [overview, setOverview] = useState<FinancialOverview>({
     totalBalance: 0,
@@ -47,6 +47,8 @@ export default function FinancialPage() {
   });
 
   const loadData = async () => {
+    if (!services) return;
+    
     try {
       setLoading(true);
 
@@ -56,16 +58,7 @@ export default function FinancialPage() {
       const endOfCurrentMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
 
       // Fetch all transactions
-      const transactionsQuery = query(
-        collection(db, 'transactions'),
-        orderBy('date', 'desc')
-      );
-      const transactionsSnapshot = await getDocs(transactionsQuery);
-      const allTransactions = transactionsSnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data(),
-        date: doc.data().date?.toDate() || new Date(),
-      })) as Transaction[];
+      const allTransactions = await services.transactions.getAll();
 
       // Calculate monthly income and expenses
       const monthlyTransactions = allTransactions.filter(t => {
@@ -108,8 +101,10 @@ export default function FinancialPage() {
   };
 
   useEffect(() => {
-    loadData();
-  }, []);
+    if (isReady && services) {
+      loadData();
+    }
+  }, [isReady, services]);
 
   return (
     <Box sx={{ 

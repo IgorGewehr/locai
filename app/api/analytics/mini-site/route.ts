@@ -5,7 +5,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthFromCookie } from '@/lib/utils/auth-cookie';
-import { FirestoreService } from '@/lib/firebase/firestore';
+import { TenantServiceFactory } from '@/lib/firebase/firestore-v2';
 import { MiniSiteAnalytics } from '@/lib/types/mini-site';
 
 interface AnalyticsResponse {
@@ -67,8 +67,8 @@ export async function GET(request: NextRequest) {
     const startDate = searchParams.get('startDate');
     const endDate = searchParams.get('endDate');
 
-    const analyticsService = new FirestoreService<MiniSiteAnalytics>('mini_site_analytics');
-    const propertyService = new FirestoreService<any>('properties');
+    const services = new TenantServiceFactory(tenantId);
+    const analyticsService = services.createService<MiniSiteAnalytics>('mini_site_analytics');
 
     // Calculate date range
     const end = endDate ? new Date(endDate) : new Date();
@@ -81,7 +81,6 @@ export async function GET(request: NextRequest) {
     
     try {
       analytics = await analyticsService.getMany([
-        { field: 'tenantId', operator: '==', value: tenantId },
         { field: 'date', operator: '>=', value: start },
         { field: 'date', operator: '<=', value: end }
       ], {
@@ -89,11 +88,9 @@ export async function GET(request: NextRequest) {
         orderDirection: 'desc'
       });
     } catch (indexError: any) {
-      // Fallback: Get all tenant analytics first, then filter by date in memory
+      // Fallback: Get all analytics first, then filter by date in memory
       console.warn('Composite index not available, using fallback query:', indexError.message);
-      const allAnalytics = await analyticsService.getMany([
-        { field: 'tenantId', operator: '==', value: tenantId }
-      ]);
+      const allAnalytics = await analyticsService.getAll();
       
       // Filter by date range in memory
       analytics = allAnalytics.filter(item => {
@@ -113,12 +110,11 @@ export async function GET(request: NextRequest) {
     }
 
     // Get properties for enhanced data
-    const properties = await propertyService.getMany([
-      { field: 'tenantId', operator: '==', value: tenantId },
+    const properties = await services.properties.getMany([
       { field: 'isActive', operator: '==', value: true }
     ]);
 
-    const propertyMap = new Map(properties.map(p => [p.id, p]));
+    const propertyMap = new Map(properties.map((p: any) => [p.id, p]));
 
     // Aggregate analytics data
     const aggregatedData = aggregateAnalytics(analytics, propertyMap);
@@ -154,7 +150,8 @@ export async function POST(request: NextRequest) {
     } = body;
 
     const tenantId = auth.tenantId || 'default-tenant';
-    const analyticsService = new FirestoreService<MiniSiteAnalytics>('mini_site_analytics');
+    const services = new TenantServiceFactory(tenantId);
+    const analyticsService = services.createService<MiniSiteAnalytics>('mini_site_analytics');
 
     // Track event
     await recordAnalyticsEvent(analyticsService, {
@@ -239,7 +236,7 @@ function aggregateAnalytics(analytics: MiniSiteAnalytics[], propertyMap: Map<str
   return generateDemoAnalytics(30);
 }
 
-async function recordAnalyticsEvent(service: FirestoreService<MiniSiteAnalytics>, event: any) {
+async function recordAnalyticsEvent(service: any, event: any) {
   // Record individual analytics events
   const today = new Date();
   today.setHours(0, 0, 0, 0);

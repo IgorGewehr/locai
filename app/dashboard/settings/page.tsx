@@ -31,8 +31,8 @@ import {
   Close,
 } from '@mui/icons-material';
 import { useAuth } from '@/lib/hooks/useAuth';
+import { useTenant } from '@/contexts/TenantContext';
 import DashboardBreadcrumb from '@/components/atoms/DashboardBreadcrumb';
-import { getTenantId } from '@/lib/utils/tenant';
 
 interface WhatsAppSession {
   connected: boolean;
@@ -46,7 +46,7 @@ export default function SettingsPage() {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const { user } = useAuth();
-  const tenantId = getTenantId();
+  const { tenantId, isReady } = useTenant();
 
   const [whatsappSession, setWhatsappSession] = useState<WhatsAppSession>({
     connected: false,
@@ -154,6 +154,14 @@ export default function SettingsPage() {
       default: return 'Desconectado';
     }
   };
+
+  if (!isReady) {
+    return (
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '60vh' }}>
+        <CircularProgress />
+      </Box>
+    );
+  }
 
   return (
     <Box sx={{ p: 3 }}>

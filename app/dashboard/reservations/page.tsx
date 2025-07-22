@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { reservationService, propertyService, clientService } from '@/lib/firebase/firestore';
+import { useTenant } from '@/contexts/TenantContext';
 import type { Reservation, Client } from '@/lib/types';
 import type { Property } from '@/lib/types/property';
 import {
@@ -73,6 +73,7 @@ interface ReservationWithDetails extends Reservation {
 
 export default function ReservationsPage() {
   const router = useRouter();
+  const { services, isReady } = useTenant();
   const [reservations, setReservations] = useState<ReservationWithDetails[]>([]);
   const [filteredReservations, setFilteredReservations] = useState<ReservationWithDetails[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
@@ -161,11 +162,15 @@ export default function ReservationsPage() {
   // Load reservations from Firebase
   useEffect(() => {
     const loadReservations = async () => {
+      if (!isReady || !services) {
+        return;
+      }
+
       try {
         const [reservationsData, propertiesData, clientsData] = await Promise.all([
-          reservationService.getAll(),
-          propertyService.getAll(),
-          clientService.getAll()
+          services.reservations.getAll(),
+          services.properties.getAll(),
+          services.clients.getAll()
         ]);
 
         // Create maps for quick lookup
@@ -198,38 +203,47 @@ export default function ReservationsPage() {
     };
 
     loadReservations();
-  }, []);
+  }, [services, isReady]);
 
   const refreshData = async () => {
+    if (!isReady || !services) {
+      return;
+    }
+
     setLoading(true);
-    // Reload data from Firebase
-    const [reservationsData, propertiesData, clientsData] = await Promise.all([
-      reservationService.getAll(),
-      propertyService.getAll(),
-      clientService.getAll()
-    ]);
+    try {
+      // Reload data from Firebase
+      const [reservationsData, propertiesData, clientsData] = await Promise.all([
+        services.reservations.getAll(),
+        services.properties.getAll(),
+        services.clients.getAll()
+      ]);
 
-    const propertiesMap = new Map(propertiesData.map(p => [p.id, p]));
-    const clientsMap = new Map(clientsData.map(c => [c.id, c]));
+      const propertiesMap = new Map(propertiesData.map(p => [p.id, p]));
+      const clientsMap = new Map(clientsData.map(c => [c.id, c]));
 
-    const reservationsWithDetails: ReservationWithDetails[] = reservationsData.map(reservation => {
-      const property = propertiesMap.get(reservation.propertyId);
-      const client = clientsMap.get(reservation.clientId);
-      const checkInDate = new Date(reservation.checkIn);
-      const checkOutDate = new Date(reservation.checkOut);
-      const nights = Math.ceil((checkOutDate.getTime() - checkInDate.getTime()) / (1000 * 60 * 60 * 24));
+      const reservationsWithDetails: ReservationWithDetails[] = reservationsData.map(reservation => {
+        const property = propertiesMap.get(reservation.propertyId);
+        const client = clientsMap.get(reservation.clientId);
+        const checkInDate = new Date(reservation.checkIn);
+        const checkOutDate = new Date(reservation.checkOut);
+        const nights = Math.ceil((checkOutDate.getTime() - checkInDate.getTime()) / (1000 * 60 * 60 * 24));
 
-      return {
-        ...reservation,
-        propertyName: property?.title || 'Propriedade não encontrada',
-        clientName: client?.name || 'Cliente não encontrado',
-        clientPhone: client?.phone || 'Telefone não encontrado',
-        nights
-      };
-    });
+        return {
+          ...reservation,
+          propertyName: property?.title || 'Propriedade não encontrada',
+          clientName: client?.name || 'Cliente não encontrado',
+          clientPhone: client?.phone || 'Telefone não encontrado',
+          nights
+        };
+      });
 
-    setReservations(reservationsWithDetails);
-    setLoading(false);
+      setReservations(reservationsWithDetails);
+    } catch (error) {
+      console.error('Error refreshing reservations:', error);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -345,7 +359,7 @@ export default function ReservationsPage() {
 
             <Grid item xs={12} sm={6} md={2}>
               <Box sx={{ display: 'flex', gap: 1, justifyContent: 'flex-end' }}>
-                <IconButton onClick={refreshData} disabled={loading}>
+                <IconButton onClick={refreshData} disabled={loading || !isReady}>
                   <Refresh />
                 </IconButton>
                 <Chip 
@@ -381,7 +395,7 @@ export default function ReservationsPage() {
               </TableRow>
             </TableHead>
             <TableBody>
-              {loading ? (
+              {loading || !isReady ? (
                 <TableRow>
                   <TableCell colSpan={10} align="center" sx={{ py: 4 }}>
                     <Typography color="text.secondary">Carregando reservas...</Typography>

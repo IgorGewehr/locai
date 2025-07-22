@@ -66,9 +66,8 @@ import {
 } from 'recharts';
 import { format, subMonths, startOfMonth, endOfMonth } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { transactionFirestoreService } from '@/lib/firebase/firestore';
 import { Transaction } from '@/lib/types';
-import { useAuth } from '@/lib/hooks/useAuth';
+import { useTenant } from '@/contexts/TenantContext';
 
 const formatCurrency = (value: number) => {
   return new Intl.NumberFormat('pt-BR', {
@@ -106,7 +105,7 @@ const safeDate = (dateValue: any): Date | null => {
 
 export default function EnhancedFinancialDashboard() {
   const theme = useTheme();
-  const { user } = useAuth();
+  const { services, isReady } = useTenant();
   const [animateCards, setAnimateCards] = useState(false);
   const [loading, setLoading] = useState(true);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
@@ -132,18 +131,19 @@ export default function EnhancedFinancialDashboard() {
 
   useEffect(() => {
     setAnimateCards(true);
-    loadFinancialData();
-  }, []);
+    if (isReady && services) {
+      loadFinancialData();
+    }
+  }, [isReady, services]);
 
   const loadFinancialData = async () => {
-    // Remove user dependency for now to allow dashboard to load
-    // if (!user) return;
+    if (!services) return;
 
     try {
       setLoading(true);
 
       // Fetch all transactions
-      const allTransactions = await transactionFirestoreService.getAll();
+      const allTransactions = await services.transactions.getAll();
       setTransactions(allTransactions);
 
       // Calculate current month stats

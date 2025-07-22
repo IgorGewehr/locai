@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { TenantServiceFactory } from '@/lib/firebase/firestore-v2'
 import { conversationService } from '@/lib/services/conversation-service'
 
 export async function GET(request: NextRequest) {

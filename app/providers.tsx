@@ -6,6 +6,7 @@ import CssBaseline from '@mui/material/CssBaseline';
 import { AppRouterCacheProvider } from '@mui/material-nextjs/v14-appRouter';
 import { darkTheme } from '@/theme/theme';
 import { AuthProvider } from '@/contexts/AuthContext';
+import { TenantProvider } from '@/contexts/TenantContext';
 
 interface ProvidersProps {
   children: ReactNode;
@@ -38,7 +39,9 @@ export default function Providers({ children }: ProvidersProps) {
       <ThemeProvider theme={theme}>
         <CssBaseline />
         <AuthProvider>
-          {children}
+          <TenantProvider>
+            {children}
+          </TenantProvider>
         </AuthProvider>
       </ThemeProvider>
     </AppRouterCacheProvider>

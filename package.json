@@ -20,7 +20,8 @@
     "generate-password-hash": "node scripts/generate-password-hash.cjs",
     "test-agent": "node scripts/test-agent-ai-improvements.js",
     "test-integration": "node scripts/test-agent-integration.js",
-    "fix-agent": "node scripts/fix-agent-issues.js"
+    "fix-agent": "node scripts/fix-agent-issues.js",
+    "migrate-firebase": "node scripts/migrate-firebase-structure.js"
   },
   "dependencies": {
     "@emotion/cache": "^11.11.0",

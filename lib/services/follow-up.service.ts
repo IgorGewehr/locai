@@ -1,4 +1,4 @@
-import { conversationService, messageService } from '@/lib/firebase/firestore';
+import { TenantServiceFactory } from '@/lib/firebase/firestore-v2';
 import whatsappService from '@/lib/services/whatsapp';
 import { Timestamp } from 'firebase/firestore';
 
@@ -9,6 +9,12 @@ interface FollowUpConfig {
 }
 
 export class FollowUpService {
+  private tenantId: string;
+
+  constructor(tenantId: string) {
+    this.tenantId = tenantId;
+  }
+
   private followUps: FollowUpConfig[] = [
     {
       delay: 30, // 30 minutos
@@ -47,7 +53,8 @@ export class FollowUpService {
       const job = setTimeout(async () => {
         try {
           // Verifica condições antes de enviar
-          const conversation = await conversationService.getById(conversationId);
+          const services = new TenantServiceFactory(this.tenantId);
+          const conversation = await services.conversations.getById(conversationId);
           if (!conversation || conversation.hasReservation) {
             return; // Não enviar se já tem reserva
           }
@@ -75,8 +82,10 @@ export class FollowUpService {
    */
   private async sendFollowUp(conversationId: string, clientPhone: string, message: string) {
     try {
+      const services = new TenantServiceFactory(this.tenantId);
+
       // Salva mensagem no banco
-      await messageService.create({
+      await services.messages.create({
         conversationId,
         from: 'agent',
         content: message,
@@ -90,7 +99,7 @@ export class FollowUpService {
       await whatsappService.sendTextMessage(clientPhone, message);
 
       // Atualiza conversa
-      await conversationService.update(conversationId, {
+      await services.conversations.update(conversationId, {
         lastFollowUpAt: new Date(),
         followUpCount: Timestamp.now()
       });
@@ -119,8 +128,10 @@ export class FollowUpService {
   async onReservationCreated(conversationId: string) {
     this.cancelFollowUps(conversationId);
     
+    const services = new TenantServiceFactory(this.tenantId);
+    
     // Marca conversa como tendo reserva
-    await conversationService.update(conversationId, {
+    await services.conversations.update(conversationId, {
       hasReservation: true,
       reservationCreatedAt: new Date()
     });
@@ -156,5 +167,9 @@ export class FollowUpService {
   }
 }
 
-// Singleton
-export const followUpService = new FollowUpService();
+/**
+ * Factory function to create tenant-aware follow-up service
+ */
+export function createFollowUpService(tenantId: string): FollowUpService {
+  return new FollowUpService(tenantId);
+}

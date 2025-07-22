@@ -41,8 +41,7 @@ import {
   AccessTime,
 } from '@mui/icons-material';
 import { useRouter } from 'next/navigation';
-import { collection, getDocs, query, orderBy, limit, where } from 'firebase/firestore';
-import { db } from '@/lib/firebase/config';
+import { useTenant } from '@/contexts/TenantContext';
 
 interface Conversation {
   id: string;
@@ -62,6 +61,7 @@ interface Conversation {
 
 
 export default function ConversationsPage() {
+  const { services, isReady } = useTenant();
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedConversation, setSelectedConversation] = useState<Conversation | null>(null);
@@ -70,47 +70,41 @@ export default function ConversationsPage() {
   const [loading, setLoading] = useState(true);
   const router = useRouter();
 
-  // Carregar conversas do Firestore
+  // Carregar conversas usando tenant services
   useEffect(() => {
     const fetchConversations = async () => {
+      if (!isReady || !services) {
+        return;
+      }
+
       try {
-        const conversationsRef = collection(db, 'conversations');
-        const q = query(conversationsRef, orderBy('lastMessageAt', 'desc'), limit(500));
-        const querySnapshot = await getDocs(q);
+        // Use tenant services to get conversations
+        const conversationsData = await services.conversations.getAll();
         
         const conversationsByPhone = new Map<string, Conversation>();
         
-        const conversationsPromises = querySnapshot.docs.map(async (doc) => {
-          const data = doc.data();
+        const conversationsPromises = conversationsData.map(async (data: any) => {
           let lastMessage = data.lastMessage || '';
           
           // Se não tiver lastMessage, buscar na coleção de mensagens
-          if (!lastMessage) {
+          if (!lastMessage && data.id) {
             try {
-              const messagesRef = collection(db, 'messages');
-              const messagesQuery = query(
-                messagesRef,
-                where('conversationId', '==', doc.id),
-                orderBy('timestamp', 'desc'),
-                limit(1)
-              );
-              const messagesSnapshot = await getDocs(messagesQuery);
-              if (!messagesSnapshot.empty) {
-                const lastMessageDoc = messagesSnapshot.docs[0];
-                lastMessage = lastMessageDoc?.data()?.content || lastMessageDoc?.data()?.message || '';
+              const messages = await services.messages.getWhere('conversationId', '==', data.id, 'timestamp', 1);
+              if (messages.length > 0) {
+                lastMessage = messages[0]?.content || messages[0]?.message || '';
               }
             } catch (err) {
-              console.log('Erro ao buscar última mensagem para conversa', doc.id, err);
+              console.log('Erro ao buscar última mensagem para conversa', data.id, err);
             }
           }
           
-          // Mapear dados do Firestore para interface Conversation
+          // Mapear dados para interface Conversation
           const conversation: Conversation = {
-            id: doc.id,
+            id: data.id,
             clientName: data.clientName || 'Cliente',
             clientPhone: data.clientPhone || '',
             lastMessage: lastMessage || 'Conversa iniciada',
-            lastMessageTime: data.lastMessageAt?.toDate() || data.updatedAt?.toDate() || new Date(),
+            lastMessageTime: data.lastMessageAt?.toDate ? data.lastMessageAt.toDate() : (data.lastMessageAt || data.updatedAt || new Date()),
             status: data.status || 'active',
             priority: data.priority || 'medium',
             unreadCount: data.unreadCount || 0,
@@ -148,7 +142,7 @@ export default function ConversationsPage() {
     };
 
     fetchConversations();
-  }, []);
+  }, [services, isReady]);
 
   const filteredConversations = conversations.filter(conv => {
     const matchesSearch = conv.clientName.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -258,6 +252,14 @@ export default function ConversationsPage() {
   const pendingConversations = conversations.filter(c => c.status === 'pending').length;
   const activeConversations = conversations.filter(c => c.status === 'active').length;
   const avgResponseTime = conversations.length > 0 ? '1.2s' : '0s';
+
+  if (!isReady || !services) {
+    return (
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '60vh' }}>
+        <CircularProgress />
+      </Box>
+    );
+  }
 
   return (
     <Box>

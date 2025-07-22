@@ -5,7 +5,7 @@ import { authRateLimit, applyRateLimitHeaders } from '@/lib/middleware/rate-limi
 import { registerSchema } from '@/lib/validation/schemas';
 import { auth } from '@/lib/firebase/admin';
 import { generateJWT } from '@/lib/middleware/auth';
-import { FirestoreService } from '@/lib/firebase/firestore';
+import { createMultiTenantService } from '@/lib/firebase/firestore-v2';
 import bcrypt from 'bcryptjs';
 import { AuthenticationError, ConflictError } from '@/lib/utils/errors';
 
@@ -24,8 +24,8 @@ interface User {
   isActive: boolean;
 }
 
-// Initialize Firestore service for users
-const userService = new FirestoreService<User>('users');
+// Note: Users collection remains global for authentication
+// But we'll use the multi-tenant service for consistency
 
 export const POST = withErrorHandler(async (request: NextRequest) => {
   // Skip rate limiting for simplification
@@ -73,7 +73,9 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
     // Hash password for local storage
     const passwordHash = await bcrypt.hash(password, 12);
 
-    // Create user document
+    // Create user document in global users collection
+    // Note: Using 'global' as tenantId for users collection to maintain global access
+    const userService = createMultiTenantService<User>('global', 'users');
     const user = await userService.create({
       email: email.toLowerCase(),
       name,

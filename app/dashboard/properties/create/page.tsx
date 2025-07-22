@@ -32,6 +32,7 @@ import { PropertyAmenities } from '@/components/organisms/PropertyAmenities/Prop
 import { PropertyPricing } from '@/components/organisms/PropertyPricing/PropertyPricing';
 import PropertyMediaUpload from '@/components/organisms/PropertyMediaUpload/PropertyMediaUpload';
 import { Property, PricingRule, PropertyCategory, PaymentMethod, PropertyStatus, PropertyType } from '@/lib/types/property';
+import { useTenant } from '@/contexts/TenantContext';
 
 const steps = [
   'Informações Básicas',
@@ -93,6 +94,7 @@ const propertySchema = yup.object().shape({
 
 export default function CreatePropertyPage() {
   const router = useRouter();
+  const { services, isReady } = useTenant();
   const [activeStep, setActiveStep] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -160,34 +162,32 @@ export default function CreatePropertyPage() {
   };
 
   const handleSave = async (data: Property) => {
+    if (!isReady || !services) {
+      setError('Serviços não estão prontos. Tente novamente.');
+      return;
+    }
+
     setLoading(true);
     setError(null);
 
     try {
-      const response = await fetch('/api/properties', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          ...data,
-          pricingRules,
-        }),
-      });
-
-      if (!response.ok) {
-        throw new Error('Erro ao criar propriedade');
-      }
-
-      const result = await response.json();
-      if (result.success && result.data?.id) {
-        router.push(`/dashboard/properties/${result.data.id}`);
+      // Create property using tenant services
+      const propertyData = {
+        ...data,
+        pricingRules,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+      
+      const createdProperty = await services.properties.create(propertyData);
+      
+      if (createdProperty && createdProperty.id) {
+        router.push(`/dashboard/properties/${createdProperty.id}`);
       } else {
-        // Se não houver ID, redireciona para a lista de propriedades
         router.push('/dashboard/properties');
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Erro desconhecido');
+      setError(err instanceof Error ? err.message : 'Erro ao criar propriedade');
     } finally {
       setLoading(false);
     }
@@ -261,6 +261,14 @@ export default function CreatePropertyPage() {
       </Card>
     );
   };
+
+  if (!isReady || !services) {
+    return (
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '60vh' }}>
+        <CircularProgress />
+      </Box>
+    );
+  }
 
   return (
     <FormProvider {...methods}>

@@ -32,7 +32,7 @@ import {
 } from '@mui/icons-material';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { transactionService, clientService, reservationService, propertyService } from '@/lib/firebase/firestore';
+import { useTenant } from '@/contexts/TenantContext';
 
 interface Transaction {
   id: string;
@@ -76,6 +76,7 @@ interface Property {
 export default function TransactionDetailPage() {
   const params = useParams();
   const router = useRouter();
+  const { services, isReady } = useTenant();
   const [transaction, setTransaction] = useState<Transaction | null>(null);
   const [client, setClient] = useState<Client | null>(null);
   const [reservation, setReservation] = useState<Reservation | null>(null);
@@ -85,40 +86,36 @@ export default function TransactionDetailPage() {
   const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
-    loadTransactionDetails();
-  }, [params.id]);
+    if (isReady && services) {
+      loadTransactionDetails();
+    }
+  }, [params.id, isReady, services]);
 
   const loadTransactionDetails = async () => {
+    if (!services) return;
+    
     try {
       setLoading(true);
       
       // Load transaction
-      const transactionData = await transactionService.getById(params.id as string);
+      const transactionData = await services.transactions.getById(params.id as string);
       if (!transactionData) {
         throw new Error('Transação não encontrada');
       }
 
-      // Convert date fields
-      const transaction: Transaction = {
-        ...transactionData,
-        date: transactionData.date?.toDate ? transactionData.date.toDate() : new Date(transactionData.date),
-        createdAt: transactionData.createdAt?.toDate ? transactionData.createdAt.toDate() : new Date(transactionData.createdAt),
-        updatedAt: transactionData.updatedAt?.toDate ? transactionData.updatedAt.toDate() : new Date(transactionData.updatedAt),
-      };
-
-      setTransaction(transaction);
+      setTransaction(transactionData as Transaction);
 
       // Load related client
-      if (transaction.clientId) {
-        const clientData = await clientService.getById(transaction.clientId);
+      if (transactionData.clientId) {
+        const clientData = await services.clients.getById(transactionData.clientId);
         if (clientData) {
           setClient(clientData);
         }
       }
 
       // Load related reservation
-      if (transaction.reservationId) {
-        const reservationData = await reservationService.getById(transaction.reservationId);
+      if (transactionData.reservationId) {
+        const reservationData = await services.reservations.getById(transactionData.reservationId);
         if (reservationData) {
           setReservation({
             id: reservationData.id,
@@ -131,12 +128,12 @@ export default function TransactionDetailPage() {
       }
 
       // Load related property
-      if (transaction.propertyId) {
-        const propertyData = await propertyService.getById(transaction.propertyId);
+      if (transactionData.propertyId) {
+        const propertyData = await services.properties.getById(transactionData.propertyId);
         if (propertyData) {
           setProperty({
             id: propertyData.id,
-            name: propertyData.name,
+            name: propertyData.name || propertyData.title,
             location: propertyData.location,
           });
         }
@@ -155,11 +152,12 @@ export default function TransactionDetailPage() {
   };
 
   const handleDelete = async () => {
+    if (!services || !transaction) return;
     if (!confirm('Tem certeza que deseja excluir esta transação?')) return;
 
     try {
       setDeleting(true);
-      await transactionService.delete(transaction!.id);
+      await services.transactions.delete(transaction.id);
       router.push('/dashboard/financeiro/transacoes');
     } catch (err) {
       console.error('Error deleting transaction:', err);

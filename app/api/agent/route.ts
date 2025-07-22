@@ -1,12 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 // Using Sofia Agent V2
 import { 
-  conversationService, 
-  messageService, 
-  clientService,
   clientQueries 
 } from '@/lib/firebase/firestore';
 import { clientServiceWrapper } from '@/lib/services/client-service';
+import { TenantServiceFactory } from '@/lib/firebase/firestore-v2';
 import '@/lib/firebase/tenant-queries'; // Extends services with tenant methods
 import type { AgentContext, Message, AIResponse } from '@/lib/types';
 import { handleApiError } from '@/lib/utils/api-errors';
@@ -144,10 +142,11 @@ export async function POST(request: NextRequest) {
 
     // Get or create conversation with tenant isolation
     const sanitizedWhatsappNumber = whatsappNumber ? validatePhoneNumber(whatsappNumber) : validatedPhone;
+    const services = new TenantServiceFactory(validatedTenantId);
     
     // Try to find existing active conversation first
     let conversation = null;
-    const existingConversations = await conversationService.getWhere('clientId', '==', client.id);
+    const existingConversations = await services.conversations.getWhere('clientId', '==', client.id);
     const activeConversation = existingConversations.find(c => 
       c.isActive && 
       c.tenantId === validatedTenantId &&
@@ -157,13 +156,13 @@ export async function POST(request: NextRequest) {
     if (activeConversation) {
       conversation = activeConversation;
       // Update last message timestamp
-      await conversationService.update(conversation.id, {
+      await services.conversations.update(conversation.id, {
         lastMessageAt: new Date(),
         updatedAt: new Date()
       });
     } else {
       // Create new conversation if none exists
-      conversation = await conversationService.create({
+      const conversationId = await services.conversations.create({
         clientId: client.id,
         whatsappPhone: sanitizedWhatsappNumber,
         whatsappNumber: sanitizedWhatsappNumber,
@@ -176,6 +175,8 @@ export async function POST(request: NextRequest) {
         createdAt: new Date(),
         updatedAt: new Date(),
       });
+      
+      conversation = await services.conversations.getById(conversationId);
     }
 
     if (!conversation) {
@@ -194,7 +195,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Save incoming message with sanitization
-    await messageService.create({
+    await services.messages.create({
       conversationId: conversation.id,
       from: 'client',
       content: validatedMessage,
@@ -353,7 +354,8 @@ export async function GET(request: NextRequest) {
       return handleApiError(new Error('ID da conversa é obrigatório'));
     }
 
-    const conversation = await conversationService.getById(conversationId);
+    const services = new TenantServiceFactory(tenantId);
+    const conversation = await services.conversations.getById(conversationId);
 
     if (!conversation || conversation.tenantId !== tenantId) {
       await logContext.log({

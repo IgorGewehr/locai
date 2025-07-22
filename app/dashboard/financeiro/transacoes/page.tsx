@@ -84,14 +84,14 @@ import {
   CalendarToday,
 } from '@mui/icons-material';
 import { Transaction, Client, Property, Reservation } from '@/lib/types';
-import { collection, query, orderBy, getDocs, doc, getDoc, addDoc } from 'firebase/firestore';
-import { db } from '@/lib/firebase/config';
+import { useTenant } from '@/contexts/TenantContext';
 import { useForm, Controller } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
 import * as yup from 'yup';
 
 export default function TransactionsPage() {
   const router = useRouter();
+  const { services, isReady } = useTenant();
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
@@ -155,21 +155,12 @@ export default function TransactionsPage() {
   });
 
   const loadTransactions = async () => {
+    if (!services || !isReady) return;
+    
     try {
       setLoading(true);
       console.log('Loading transactions...');
-      const transactionsQuery = query(
-        collection(db, 'transactions'),
-        orderBy('date', 'desc')
-      );
-      const snapshot = await getDocs(transactionsQuery);
-      console.log('Transactions snapshot:', snapshot.size, 'documents');
-      const transactionData = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data(),
-        date: doc.data().date?.toDate() || new Date(),
-      })) as Transaction[];
-
+      const transactionData = await services.transactions.getAll();
       console.log('Transaction data:', transactionData);
       setTransactions(transactionData);
     } catch (error) {
@@ -180,6 +171,8 @@ export default function TransactionsPage() {
   };
 
   const loadTransactionDetails = async (transaction: Transaction) => {
+    if (!services) return;
+    
     setSelectedTransaction(transaction);
     setRelatedClient(null);
     setRelatedProperty(null);
@@ -188,25 +181,25 @@ export default function TransactionsPage() {
     try {
       // Load related client
       if (transaction.clientId) {
-        const clientDoc = await getDoc(doc(db, 'clients', transaction.clientId));
-        if (clientDoc.exists()) {
-          setRelatedClient({ id: clientDoc.id, ...clientDoc.data() } as Client);
+        const clientData = await services.clients.getById(transaction.clientId);
+        if (clientData) {
+          setRelatedClient(clientData);
         }
       }
 
       // Load related property
       if (transaction.propertyId) {
-        const propertyDoc = await getDoc(doc(db, 'properties', transaction.propertyId));
-        if (propertyDoc.exists()) {
-          setRelatedProperty({ id: propertyDoc.id, ...propertyDoc.data() } as Property);
+        const propertyData = await services.properties.getById(transaction.propertyId);
+        if (propertyData) {
+          setRelatedProperty(propertyData);
         }
       }
 
       // Load related reservation
       if (transaction.reservationId) {
-        const reservationDoc = await getDoc(doc(db, 'reservations', transaction.reservationId));
-        if (reservationDoc.exists()) {
-          setRelatedReservation({ id: reservationDoc.id, ...reservationDoc.data() } as Reservation);
+        const reservationData = await services.reservations.getById(transaction.reservationId);
+        if (reservationData) {
+          setRelatedReservation(reservationData);
         }
       }
     } catch (error) {
@@ -217,6 +210,8 @@ export default function TransactionsPage() {
   };
 
   const handleCreateTransaction = async (data: any) => {
+    if (!services) return;
+    
     try {
       const newTransaction = {
         ...data,
@@ -229,7 +224,7 @@ export default function TransactionsPage() {
         ...(data.propertyId && { propertyId: data.propertyId }),
       };
 
-      await addDoc(collection(db, 'transactions'), newTransaction);
+      await services.transactions.create(newTransaction);
       
       // Reset form and close dialog
       reset();
@@ -378,13 +373,10 @@ export default function TransactionsPage() {
   };
 
   const loadClients = async () => {
+    if (!services) return;
+    
     try {
-      const clientsQuery = query(collection(db, 'clients'), orderBy('name'));
-      const snapshot = await getDocs(clientsQuery);
-      const clientsData = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data(),
-      })) as Client[];
+      const clientsData = await services.clients.getAll();
       setAllClients(clientsData);
     } catch (error) {
       console.error('Error loading clients:', error);
@@ -392,15 +384,10 @@ export default function TransactionsPage() {
   };
 
   const loadReservations = async () => {
+    if (!services) return;
+    
     try {
-      const reservationsQuery = query(collection(db, 'reservations'), orderBy('checkIn', 'desc'));
-      const snapshot = await getDocs(reservationsQuery);
-      const reservationsData = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data(),
-        checkIn: doc.data().checkIn?.toDate ? doc.data().checkIn.toDate() : new Date(doc.data().checkIn),
-        checkOut: doc.data().checkOut?.toDate ? doc.data().checkOut.toDate() : new Date(doc.data().checkOut),
-      })) as Reservation[];
+      const reservationsData = await services.reservations.getAll();
       setAllReservations(reservationsData);
       setFilteredReservations(reservationsData);
     } catch (error) {
@@ -409,10 +396,12 @@ export default function TransactionsPage() {
   };
 
   useEffect(() => {
-    loadTransactions();
-    loadClients();
-    loadReservations();
-  }, []);
+    if (isReady && services) {
+      loadTransactions();
+      loadClients();
+      loadReservations();
+    }
+  }, [isReady, services]);
 
   const filteredTransactions = transactions.filter(transaction => {
     if (filterType !== 'all' && transaction.type !== filterType) return false;

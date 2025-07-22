@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { messageService } from '@/lib/firebase/firestore'
+import { TenantServiceFactory } from '@/lib/firebase/firestore-v2'
 
 export async function GET(
   request: NextRequest,
@@ -8,9 +8,13 @@ export async function GET(
   try {
     const resolvedParams = await params
     const conversationId = resolvedParams.id
+    const { searchParams } = new URL(request.url)
+    const tenantId = searchParams.get('tenantId') || 'default'
+
+    const services = new TenantServiceFactory(tenantId)
 
     // Get messages for this conversation
-    const messages = await messageService.getWhere('conversationId', '==', conversationId)
+    const messages = await services.messages.getWhere('conversationId', '==', conversationId)
     
     // Sort messages by timestamp
     const sortedMessages = messages
@@ -46,6 +50,10 @@ export async function POST(
     const resolvedParams = await params
     const conversationId = resolvedParams.id
     const body = await request.json()
+    const { searchParams } = new URL(request.url)
+    const tenantId = searchParams.get('tenantId') || body.tenantId || 'default'
+
+    const services = new TenantServiceFactory(tenantId)
 
     const message = {
       conversationId,
@@ -54,10 +62,11 @@ export async function POST(
       isFromAI: body.isFromAI || false,
       timestamp: new Date(),
       metadata: body.metadata || {},
+      tenantId,
       ...body
     }
 
-    const messageId = await messageService.create(message)
+    const messageId = await services.messages.create(message)
 
     return NextResponse.json({
       success: true,

@@ -5,7 +5,7 @@ import { authRateLimit, applyRateLimitHeaders } from '@/lib/middleware/rate-limi
 import { loginSchema } from '@/lib/validation/schemas';
 import { auth } from '@/lib/firebase/admin';
 import { generateJWT } from '@/lib/middleware/auth';
-import { FirestoreService } from '@/lib/firebase/firestore';
+import { createMultiTenantService } from '@/lib/firebase/firestore-v2';
 import bcrypt from 'bcryptjs';
 import { z } from 'zod';
 
@@ -23,8 +23,8 @@ interface User {
   isActive: boolean;
 }
 
-// Initialize Firestore service for users
-const userService = new FirestoreService<User>('users');
+// Note: Users collection remains global for authentication
+// But we'll use the multi-tenant service for consistency
 
 export const POST = withErrorHandler(async (request: NextRequest) => {
   // For simplification, skip rate limiting for now
@@ -54,7 +54,8 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
       // For simplification, always create/get user
       let user;
       try {
-        // Try to get user by some ID or create new one
+        // Try to get user by some ID or create new one using global user service
+        const userService = createMultiTenantService<User>('global', 'users');
         user = await userService.create({
           email: firebaseUser.email!,
           name: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'User',
