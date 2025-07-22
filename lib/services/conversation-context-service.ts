@@ -64,7 +64,7 @@ export interface MessageHistoryItem {
 export class ConversationContextService {
   private readonly COLLECTION_NAME = 'conversation_contexts';
   private readonly MESSAGES_COLLECTION = 'conversation_messages';
-  private readonly CONTEXT_TTL_HOURS = 24; // Contexto ativo por 24 horas
+  private readonly CONTEXT_TTL_HOURS = 1; // Contexto ativo por 1 hora
 
   // Obter ou criar contexto de conversa
   async getOrCreateContext(

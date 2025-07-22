@@ -62,29 +62,35 @@ const SOFIA_SYSTEM_PROMPT_V3 = `Você é Sofia, uma consultora virtual especiali
 4. Se sim → chame send_property_media COM O ID REAL RETORNADO por search_properties
 5. Se não → apresente próxima opção
 
-⚠️ REGRA CRÍTICA DE IDs:
-- SEMPRE use o ID EXATO retornado por search_properties  
-- EXEMPLO: se search_properties retornou id "Z7sMJljf6O4fvIYgXYn9", use EXATAMENTE esse ID
-- NUNCA use "1", "primeira", "primeiro" - SEMPRE o ID real
+🚨 REGRA ABSOLUTA DE IDs - LEIA COM ATENÇÃO:
+- JAMAIS invente IDs como "ABC123", "1", "2", "primeira opção" 
+- SEMPRE use APENAS os IDs REAIS que aparecem no contexto de sistema
+- EXEMPLO CORRETO: se o contexto mostra id "Z7sMJljf6O4fvIYgXYn9", use EXATAMENTE isso
+- PARA TODAS AS FUNÇÕES: get_property_details, calculate_price, send_property_media, create_reservation
+- SE NÃO TIVER ID REAL DISPONÍVEL: chame search_properties primeiro
 
-🎯 ESTRATÉGIA DE CONVERSÃO:
-Quando cliente mostra interesse específico em um imóvel:
+🎯 ESTRATÉGIA DE CONVERSÃO OBRIGATÓRIA:
+Quando cliente demonstra interesse em fazer reserva:
 
-1. PRIMEIRO: "Excelente escolha! Antes de prosseguir, gostaria de conhecer outras opções similares?" 
+1. PRIMEIRO: Mostrar preço detalhado com calculate_price
 
-2. SE CLIENTE QUER VER OUTRAS: "Procura algo específico? Temos opções com:"
-   - 🚗 Vaga de estacionamento
-   - 🛁 Banheira de hidromassagem  
-   - 🏊‍♀️ Piscina privativa
-   - 🌿 Área gourmet
-   - 🐕 Pet-friendly
-   [Use search_properties com amenities específicas]
+2. MOMENTO DECISIVO OBRIGATÓRIO - SEMPRE PERGUNTAR:
+   "Perfeito! Para esta propriedade você prefere:"
+   - 🏠 "Agendar uma visita presencial para conhecer pessoalmente"  
+   - ✅ "Já garantir sua reserva direta (últimas datas disponíveis!)"
 
-3. APÓS MOSTRAR OPÇÕES: "Qual propriedade mais chamou sua atenção?"
+3. SE CLIENTE ESCOLHER VISITA:
+   - chame check_visit_availability
+   - colete dados (nome, CPF, telefone)  
+   - chame register_client
+   - chame schedule_visit
 
-4. MOMENTO DECISIVO: "Perfeito! Para esta propriedade você prefere:"
-   - 🏠 "Agendar uma visita presencial para conhecer pessoalmente"
-   - ✅ "Já garantir sua reserva (últimas datas disponíveis!)"
+4. SE CLIENTE ESCOLHER RESERVA DIRETA:
+   - colete dados (nome, CPF, telefone)
+   - chame register_client  
+   - chame create_reservation
+
+⚠️ REGRA CRÍTICA: NUNCA colete dados do cliente SEM antes perguntar se prefere VISITA ou RESERVA DIRETA!
 
 💼 FLUXO DE VISITA PRESENCIAL:
 1. Cliente escolhe visita → chame check_visit_availability
@@ -212,12 +218,20 @@ export class SofiaAgentV3 {
       if (context.context.interestedProperties && context.context.interestedProperties.length > 0) {
         messages.push({
           role: 'system',
-          content: `PROPRIEDADES ENCONTRADAS (IDs REAIS para usar nas funções):
-1ª opção: ID = "${context.context.interestedProperties[0]}"
-2ª opção: ID = "${context.context.interestedProperties[1] || 'N/A'}"
-3ª opção: ID = "${context.context.interestedProperties[2] || 'N/A'}"
+          content: `❌ NUNCA USE IDs FICTÍCIOS COMO "ABC123", "1", "2", "primeira opção" ❌
 
-OBRIGATÓRIO: Use estes IDs EXATOS quando cliente falar "primeira", "segunda", etc.`
+🏠 PROPRIEDADES REAIS DISPONÍVEIS COM SEUS IDs REAIS:
+1ª opção: "${context.context.interestedProperties[0]}"
+2ª opção: "${context.context.interestedProperties[1] || 'N/A'}"
+3ª opção: "${context.context.interestedProperties[2] || 'N/A'}"
+
+⚠️ REGRA ABSOLUTA: 
+- Para get_property_details: use EXATAMENTE um destes IDs reais
+- Para calculate_price: use EXATAMENTE um destes IDs reais  
+- Para send_property_media: use EXATAMENTE um destes IDs reais
+- Para create_reservation: use EXATAMENTE um destes IDs reais
+
+🚨 JAMAIS INVENTE IDs! Use APENAS os IDs listados acima.`
         });
       }
 
@@ -290,6 +304,39 @@ OBRIGATÓRIO: Use estes IDs EXATOS quando cliente falar "primeira", "segunda", e
           const args = JSON.parse(toolCall.function.arguments);
           
           console.log(`⚡ [Sofia V3] Executando função: ${functionName}`, args);
+          
+          // VALIDAÇÃO DE IDs: Corrigir IDs inválidos usando o contexto
+          if ((functionName === 'get_property_details' || functionName === 'calculate_price' || 
+               functionName === 'send_property_media' || functionName === 'create_reservation') && 
+              args.propertyId) {
+            
+            const availableIds = context.context.interestedProperties || [];
+            const requestedId = args.propertyId;
+            
+            // Se está usando ID fictício mas temos IDs reais disponíveis
+            if ((requestedId === 'ABC123' || requestedId === '1' || requestedId === '2' || 
+                 requestedId === 'primeira' || requestedId === 'primeira opção') && 
+                availableIds.length > 0) {
+              
+              console.log(`🚨 [Sofia V3] CORRIGINDO ID INVÁLIDO: "${requestedId}" → "${availableIds[0]}"`);
+              args.propertyId = availableIds[0]; // Usar o primeiro ID real disponível
+            }
+            
+            // Se está usando ID inválido e não temos IDs disponíveis
+            else if (!availableIds.includes(requestedId) && availableIds.length > 0) {
+              console.log(`⚠️ [Sofia V3] ID não encontrado no contexto: "${requestedId}". IDs disponíveis:`, availableIds);
+              console.log(`🔧 [Sofia V3] Usando primeiro ID disponível: "${availableIds[0]}"`);
+              args.propertyId = availableIds[0];
+            }
+            
+            // PROTEÇÃO EXTRA: Detectar se propertyId é igual ao clientId (erro comum)
+            else if (functionName === 'create_reservation' && context.context.pendingReservation?.clientId && 
+                     requestedId === context.context.pendingReservation.clientId && availableIds.length > 0) {
+              console.log(`🚨 [Sofia V3] ERRO DETECTADO: PropertyId igual a ClientId! "${requestedId}"`);
+              console.log(`🔧 [Sofia V3] CORRIGINDO: PropertyId → "${availableIds[0]}"`);
+              args.propertyId = availableIds[0];
+            }
+          }
           
           try {
             const result = await CorrectedAgentFunctions.executeFunction(
@@ -499,17 +546,21 @@ OBRIGATÓRIO: Use estes IDs EXATOS quando cliente falar "primeira", "segunda", e
               name: clientName
             };
             
-            // Salvar APENAS o ID STRING na reserva pendente
-            if (updates.pendingReservation) {
-              updates.pendingReservation.clientId = clientId;
-            } else {
-              updates.pendingReservation = { clientId: clientId };
-            }
+            // PRESERVAR dados existentes da reserva pendente e apenas adicionar clientId
+            // Obter contexto atual para não perder propertyId, checkIn, checkOut, etc.
+            const currentContext = await conversationContextService.getOrCreateContext(clientPhone, tenantId);
+            const existingReservation = currentContext.context.pendingReservation || {};
+            
+            updates.pendingReservation = {
+              ...existingReservation, // PRESERVAR todos os dados existentes
+              clientId: clientId      // Adicionar apenas o clientId
+            };
             
             console.log(`👤 [Sofia V3] Cliente registrado com ID: ${clientId}`);
             console.log(`⚠️ [Sofia V3] ATENÇÃO: Sofia deve chamar create_reservation IMEDIATAMENTE após register_client!`);
             console.log(`🔍 [Sofia V3] DEBUG - Tipo do result.client:`, typeof result.client);
             console.log(`🔍 [Sofia V3] DEBUG - ClientId:`, clientId);
+            console.log(`🔍 [Sofia V3] DEBUG - Reserva pendente preservada:`, updates.pendingReservation);
           }
           break;
 
