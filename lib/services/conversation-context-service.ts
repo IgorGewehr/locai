@@ -13,7 +13,7 @@ import {
   Timestamp,
   serverTimestamp
 } from 'firebase/firestore';
-import { firestore } from '@/lib/firebase/firestore';
+import { db } from '@/lib/firebase/config';
 
 // ===== INTERFACES =====
 
@@ -73,7 +73,7 @@ export class ConversationContextService {
   ): Promise<ConversationDocument> {
     try {
       const conversationId = this.generateConversationId(clientPhone, tenantId);
-      const docRef = doc(firestore, this.COLLECTION_NAME, conversationId);
+      const docRef = doc(db, this.COLLECTION_NAME, conversationId);
       const docSnap = await getDoc(docRef);
 
       if (docSnap.exists()) {
@@ -126,7 +126,7 @@ export class ConversationContextService {
     };
 
     try {
-      await setDoc(doc(firestore, this.COLLECTION_NAME, conversationId), newContext);
+      await setDoc(doc(db, this.COLLECTION_NAME, conversationId), newContext);
       return newContext;
     } catch (error) {
       console.error('❌ [ContextService] Erro ao criar contexto:', error);
@@ -142,11 +142,19 @@ export class ConversationContextService {
   ): Promise<void> {
     try {
       const conversationId = this.generateConversationId(clientPhone, tenantId);
-      const docRef = doc(firestore, this.COLLECTION_NAME, conversationId);
+      const docRef = doc(db, this.COLLECTION_NAME, conversationId);
+      
+      // Clean updates to remove undefined values
+      const cleanedUpdates: any = {};
+      Object.entries(updates).forEach(([key, value]) => {
+        if (value !== undefined) {
+          cleanedUpdates[key] = value;
+        }
+      });
       
       await updateDoc(docRef, {
         'context': {
-          ...updates,
+          ...cleanedUpdates,
           lastActivity: serverTimestamp()
         },
         'updatedAt': serverTimestamp()
@@ -178,20 +186,20 @@ export class ConversationContextService {
         role: message.role,
         content: message.content,
         timestamp: Timestamp.now(),
-        intent: message.intent,
-        confidence: message.confidence,
-        tokensUsed: message.tokensUsed,
-        fromCache: message.fromCache
+        ...(message.intent !== undefined && { intent: message.intent }),
+        ...(message.confidence !== undefined && { confidence: message.confidence }),
+        ...(message.tokensUsed !== undefined && { tokensUsed: message.tokensUsed }),
+        ...(message.fromCache !== undefined && { fromCache: message.fromCache })
       };
 
       // Salvar mensagem
       await setDoc(
-        doc(collection(firestore, this.MESSAGES_COLLECTION)), 
+        doc(collection(db, this.MESSAGES_COLLECTION)), 
         messageDoc
       );
 
       // Atualizar contador de mensagens e última mensagem
-      const contextRef = doc(firestore, this.COLLECTION_NAME, conversationId);
+      const contextRef = doc(db, this.COLLECTION_NAME, conversationId);
       await updateDoc(contextRef, {
         messageCount: message.role === 'user' ? 
           (await getDoc(contextRef)).data()?.messageCount + 1 || 1 : 
@@ -215,11 +223,10 @@ export class ConversationContextService {
     try {
       const conversationId = this.generateConversationId(clientPhone, tenantId);
       
+      // Fallback approach - get all messages for conversation and sort manually
       const q = query(
-        collection(firestore, this.MESSAGES_COLLECTION),
-        where('conversationId', '==', conversationId),
-        orderBy('timestamp', 'desc'),
-        limit(limitMessages)
+        collection(db, this.MESSAGES_COLLECTION),
+        where('conversationId', '==', conversationId)
       );
 
       const querySnapshot = await getDocs(q);
@@ -232,13 +239,27 @@ export class ConversationContextService {
         } as MessageHistoryItem);
       });
 
-      // Reverter para ordem cronológica
-      messages.reverse();
+      // Sort by timestamp manually
+      messages.sort((a, b) => {
+        const timeA = a.timestamp?.toMillis() || 0;
+        const timeB = b.timestamp?.toMillis() || 0;
+        return timeB - timeA; // Descending order
+      });
+
+      // Limit messages
+      const limitedMessages = messages.slice(0, limitMessages);
       
-      console.log(`📜 [ContextService] ${messages.length} mensagens recuperadas do histórico`);
-      return messages;
+      // Reverter para ordem cronológica
+      limitedMessages.reverse();
+      
+      console.log(`📜 [ContextService] ${limitedMessages.length} mensagens recuperadas do histórico`);
+      return limitedMessages;
     } catch (error) {
       console.error('❌ [ContextService] Erro ao obter histórico:', error);
+      // If index error, return empty array to not break the flow
+      if (error instanceof Error && error.message.includes('index')) {
+        console.log('⚠️ [ContextService] Índice não disponível, retornando histórico vazio');
+      }
       return [];
     }
   }
@@ -251,7 +272,7 @@ export class ConversationContextService {
   ): Promise<void> {
     try {
       const conversationId = this.generateConversationId(clientPhone, tenantId);
-      const docRef = doc(firestore, this.COLLECTION_NAME, conversationId);
+      const docRef = doc(db, this.COLLECTION_NAME, conversationId);
       
       const docSnap = await getDoc(docRef);
       if (docSnap.exists()) {
@@ -273,7 +294,7 @@ export class ConversationContextService {
   ): Promise<void> {
     try {
       const conversationId = this.generateConversationId(clientPhone, tenantId);
-      await updateDoc(doc(firestore, this.COLLECTION_NAME, conversationId), {
+      await updateDoc(doc(db, this.COLLECTION_NAME, conversationId), {
         status: 'completed',
         updatedAt: serverTimestamp()
       });
@@ -291,7 +312,7 @@ export class ConversationContextService {
       expirationTime.setHours(expirationTime.getHours() - this.CONTEXT_TTL_HOURS);
       
       const q = query(
-        collection(firestore, this.COLLECTION_NAME),
+        collection(db, this.COLLECTION_NAME),
         where('tenantId', '==', tenantId),
         where('context.lastActivity', '<', Timestamp.fromDate(expirationTime)),
         where('status', '==', 'active')

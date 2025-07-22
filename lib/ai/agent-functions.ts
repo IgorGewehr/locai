@@ -90,7 +90,7 @@ export class SimplifiedAgentFunctions {
   
   static async searchProperties(args: any, tenantId: string): Promise<any> {
     try {
-      const properties = await propertyService.getPropertiesByTenant(tenantId);
+      const properties = await propertyService.getActiveProperties(tenantId);
       
       // Filtros básicos
       let filtered = properties.filter(p => p.status === 'active');

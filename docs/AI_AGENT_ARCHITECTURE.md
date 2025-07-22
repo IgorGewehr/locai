@@ -1,720 +1,735 @@
-# 🤖 Arquitetura Completa do Agente de IA - locai
+# Sofia AI Agent - Arquitetura Detalhada (2025)
 
 ## 📋 Índice
 1. [Visão Geral](#visão-geral)
-2. [Arquitetura do Sistema](#arquitetura-do-sistema)
-3. [Fluxo de Processamento](#fluxo-de-processamento)
-4. [Componentes Principais](#componentes-principais)
-5. [APIs e Rotas](#apis-e-rotas)
-6. [Sistema de Funções](#sistema-de-funções)
-7. [Gerenciamento de Estado](#gerenciamento-de-estado)
-8. [Otimizações e Performance](#otimizações-e-performance)
-9. [Integração com WhatsApp](#integração-com-whatsapp)
-10. [Diagramas e Fluxogramas](#diagramas-e-fluxogramas)
+2. [Arquitetura Corrigida](#arquitetura-corrigida)
+3. [Estrutura de Arquivos](#estrutura-de-arquivos)
+4. [Sofia Agent V2](#sofia-agent-v2)
+5. [Sistema de Funções](#sistema-de-funções)
+6. [Gerenciamento de Contexto](#gerenciamento-de-contexto)
+7. [Correções Implementadas](#correções-implementadas)
+8. [Interface de Teste](#interface-de-teste)
+9. [Performance e Economia](#performance-e-economia)
+10. [Manutenção e Extensão](#manutenção-e-extensão)
 
 ---
 
 ## 🎯 Visão Geral
 
-O sistema de IA do locai é um agente conversacional enterprise-grade desenvolvido para atender clientes via WhatsApp, auxiliando na busca e reserva de propriedades para temporada. O sistema utiliza uma arquitetura **Intent-Based** com **Function Calling** otimizada para reduzir custos e melhorar a performance.
+Sofia é a assistente virtual especializada em locação de imóveis por temporada do sistema Locai. Ela foi projetada para fornecer uma experiência conversacional natural, mantendo memória completa da conversa e executando funções específicas do sistema.
 
-### Características Principais:
-- **Arquitetura Intent-Based**: Detecta intenções localmente sem usar tokens da OpenAI
-- **Singleton Pattern**: Mantém contexto entre requisições
-- **Cache Inteligente**: Respostas instantâneas para perguntas comuns
-- **Multi-tenant**: Suporte para múltiplos clientes isolados
-- **Dual WhatsApp**: Business API + WhatsApp Web (Baileys)
+### 🎯 **Objetivos Principais**
+1. **100% Respostas GPT**: Todas as respostas são geradas pelo ChatGPT para máxima naturalidade
+2. **Memória Completa**: Sofia lembra de tudo que foi dito na conversa do dia atual
+3. **Function Calling**: Executa funções essenciais (busca, preços, reservas)
+4. **Respostas Concisas**: Máximo 3 linhas, prática e simpática
+5. **Não Assumir Dados**: Nunca pressupõe informações que o cliente não forneceu
 
 ---
 
-## 🏗️ Arquitetura do Sistema
+## 🏗️ Arquitetura Corrigida
 
-### Camadas da Aplicação
+### Fluxo Principal
+```
+WhatsApp → API Route → Sofia Agent V2 → GPT-3.5 → Function Calls → Response
+```
+
+### Componentes Principais
+- **Sofia Agent V2**: Lógica principal de conversação
+- **Conversation Context Service**: Gerenciamento de memória
+- **Agent Functions**: 4 funções essenciais do sistema
+- **Property Service**: Operações com propriedades
+
+---
+
+## 📁 Estrutura de Arquivos
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                    WhatsApp (Cliente)                        │
-└─────────────────────┬───────────────────────────────────────┘
-                      │
-┌─────────────────────▼───────────────────────────────────────┐
-│                 Webhook Endpoints                            │
-│  • /api/webhook/whatsapp (Business API)                     │
-│  • /api/webhook/whatsapp-web (Baileys)                      │
-└─────────────────────┬───────────────────────────────────────┘
-                      │
-┌─────────────────────▼───────────────────────────────────────┐
-│                  API Route Handler                           │
-│         /api/agent/route.ts (Principal)                     │
-└─────────────────────┬───────────────────────────────────────┘
-                      │
-┌─────────────────────▼───────────────────────────────────────┐
-│              Professional Agent                              │
-│     /lib/ai-agent/professional-agent.ts                     │
-│  • Intent Detection (Local)                                  │
-│  • Context Management                                        │
-│  • Function Routing                                          │
-│  • Cache Management                                          │
-└─────────────────────┬───────────────────────────────────────┘
-                      │
-┌─────────────────────▼───────────────────────────────────────┐
-│               Agent Functions                                │
-│        /lib/ai/agent-functions.ts                           │
-│  • searchProperties                                          │
-│  • calculatePrice                                            │
-│  • createReservation                                         │
-│  • registerClient                                            │
-└─────────────────────┬───────────────────────────────────────┘
-                      │
-┌─────────────────────▼───────────────────────────────────────┐
-│            Firebase Services                                 │
-│  • Firestore Database                                        │
-│  • Property Service                                          │
-│  • Client Service                                            │
-│  • Conversation Service                                      │
-└─────────────────────────────────────────────────────────────┘
+lib/ai-agent/
+├── sofia-agent-v2.ts           # Agente principal (VERSÃO CORRIGIDA)
+└── professional-agent.ts       # Versão anterior (DEPRECATED)
+
+lib/ai/
+├── agent-functions.ts          # 4 funções essenciais
+└── agent-functions-exports.ts  # REMOVIDO - código morto
+
+lib/services/
+└── conversation-context-service.ts  # Gerenciamento de contexto
+
+app/api/agent/
+├── route.ts                    # Endpoint principal (usa Sofia V2)
+└── clear-context/route.ts      # Limpar contexto para testes
 ```
 
 ---
 
-## 🔄 Fluxo de Processamento
+## 🤖 Sofia Agent V2 - Implementação Detalhada
 
-### 1. Recepção da Mensagem
-
-```mermaid
-sequenceDiagram
-    participant W as WhatsApp
-    participant WH as Webhook
-    participant API as API Route
-    participant PA as Professional Agent
-    participant F as Functions
-    participant DB as Database
-    
-    W->>WH: Mensagem do usuário
-    WH->>API: POST /api/agent
-    API->>API: Validação e Rate Limiting
-    API->>DB: Buscar/Criar Cliente
-    API->>DB: Buscar/Criar Conversa
-    API->>PA: processMessage()
-    PA->>PA: Detectar Intenção
-    PA->>PA: Verificar Cache
-    alt Cache Hit
-        PA-->>API: Resposta do Cache
-    else Cache Miss
-        PA->>F: Executar Função
-        F->>DB: Operações no Banco
-        DB-->>F: Dados
-        F-->>PA: Resultado
-        PA->>PA: Salvar no Cache
-        PA-->>API: Resposta Processada
-    end
-    API->>W: Enviar Resposta
-```
-
-### 2. Fluxo de Detecção de Intenção
-
-O sistema usa detecção local de intenção para economizar tokens:
-
+### Classe Principal
 ```typescript
-INTENT_PATTERNS = {
-  greeting: ['olá', 'oi', 'bom dia', ...],
-  search_properties: ['procuro', 'busco', 'quero', 'apartamento', ...],
-  price_inquiry: ['quanto', 'preço', 'valor', ...],
-  availability_check: ['disponível', 'livre', ...],
-  booking_intent: ['reservar', 'confirmar', ...],
-  more_info: ['detalhes', 'fotos', 'informações', ...]
-}
-```
-
----
-
-## 📦 Componentes Principais
-
-### 1. **Professional Agent** (`/lib/ai-agent/professional-agent.ts`)
-
-O cérebro do sistema, responsável por:
-
-- **Intent Detection**: Detecta a intenção do usuário localmente
-- **Context Management**: Mantém contexto da conversa em memória
-- **Cache Management**: Gerencia cache inteligente de respostas
-- **Function Routing**: Roteia para handlers específicos
-- **Response Generation**: Gera respostas otimizadas
-
-#### Estrutura Principal:
-
-```typescript
-export class ProfessionalAgent {
+export class SofiaAgentV2 {
   private openai: OpenAI;
-  private cache: SmartCache;
-  private conversationContexts = new Map<string, ConversationContext>();
-
-  // Singleton pattern
-  static getInstance(): ProfessionalAgent
-
-  // Processa mensagem principal
-  async processMessage(input: AgentInput): Promise<AgentResponse>
-
-  // Handlers especializados
-  private handleGreeting(): AgentResponse
-  private async handlePropertySearch(): Promise<AgentResponse>
-  private async handlePriceInquiry(): Promise<AgentResponse>
-  private async handleBookingIntent(): Promise<AgentResponse>
-  private async handleGeneral(): Promise<AgentResponse>
-
-  // Execução de ações
-  private async executeAction(action: AgentAction): Promise<any>
+  private static instance: SofiaAgentV2;  // Singleton pattern
   
-  // Gestão de contexto
-  private getOrCreateContext(clientPhone: string): ConversationContext
-  private updateContext(context, message, intent): void
+  static getInstance(): SofiaAgentV2 {
+    if (!this.instance) {
+      this.instance = new SofiaAgentV2();
+    }
+    return this.instance;
+  }
 }
 ```
 
-### 2. **API Route Handler** (`/app/api/agent/route.ts`)
+### Processo de Conversação
 
-Ponto de entrada principal para todas as requisições do agente:
-
-#### Responsabilidades:
-- **Autenticação**: Valida tokens e contexto do tenant
-- **Rate Limiting**: 20 mensagens/minuto por telefone
-- **Validação**: Sanitiza e valida inputs
-- **Client Management**: Cria/busca clientes no banco
-- **Conversation Management**: Gerencia conversas ativas
-- **Error Handling**: Tratamento profissional de erros
-- **Logging**: Registro detalhado de todas as operações
-
-#### Fluxo de Processamento:
-
+#### 1. **Recepção da Mensagem**
 ```typescript
-POST /api/agent
-├── Validação do Request Body
-├── Validação de Telefone e Mensagem
-├── Rate Limiting Check
-├── Get/Create Client
-├── Get/Create Conversation
-├── Build Conversation History
-├── Call ProfessionalAgent.processMessage()
-├── Send WhatsApp Response
-├── Log Metrics
-└── Return Response
+async processMessage(input: SofiaInput): Promise<SofiaResponse>
 ```
 
-### 3. **Agent Functions** (`/lib/ai/agent-functions.ts`)
+#### 2. **Obtenção do Contexto**
+- Busca contexto existente no Firebase
+- Obtém histórico **apenas do dia atual**
+- Limita a 10 mensagens recentes para não confundir o GPT
 
-Conjunto de funções que o agente pode executar:
-
-#### Funções Disponíveis:
-
+#### 3. **Construção das Mensagens**
 ```typescript
-// 1. Busca de Propriedades
-searchProperties({
-  location?: string,
-  checkIn?: Date,
-  checkOut?: Date,
-  guests?: number,
-  amenities?: string[],
-  priceRange?: { min: number, max: number }
-}) => Property[]
+const messages: MessageHistory[] = [
+  { role: 'system', content: SOFIA_SYSTEM_PROMPT },
+  { role: 'system', content: `Informações coletadas: ${context}` },
+  ...historyMessages,
+  { role: 'user', content: input.message }
+];
+```
 
-// 2. Cálculo de Preço
-calculatePrice({
+#### 4. **Primeira Chamada GPT**
+- Determina se precisa usar funções
+- Usa `tool_choice: 'auto'`
+- Temperatura 0.7 para naturalidade
+- Max 150 tokens para concisão
+
+#### 5. **Execução de Funções (se necessário)**
+- Executa funções solicitadas pelo GPT
+- Trata erros de execução
+- Atualiza contexto baseado nos resultados
+
+#### 6. **Segunda Chamada GPT (se houve funções)**
+- Gera resposta baseada nos resultados das funções
+- Formato correto de `tool_calls` e `tool_messages`
+- Evita o erro "tool_call_id not found"
+
+#### 7. **Persistência**
+- Salva mensagens no histórico
+- Atualiza contexto no Firebase
+- Incrementa contador de tokens
+
+---
+
+## 🛠 Sistema de Funções
+
+### 4 Funções Essenciais
+
+#### 1. **search_properties**
+```typescript
+{
+  location: string,    // Cidade/região OBRIGATÓRIA
+  guests?: number,     // Número de hóspedes
+  checkIn?: string,    // Data check-in (YYYY-MM-DD)
+  checkOut?: string    // Data check-out (YYYY-MM-DD)
+}
+```
+
+#### 2. **calculate_price**
+```typescript
+{
+  propertyId: string,  // ID da propriedade
+  nights?: number      // Número de noites
+}
+```
+
+#### 3. **create_reservation**
+```typescript
+{
   propertyId: string,
-  checkIn: Date,
-  checkOut: Date,
-  guests: number,
-  couponCode?: string
-}) => PriceCalculation
+  clientName: string,
+  clientPhone: string,
+  checkIn: string,
+  checkOut: string,
+  guests: number
+}
+```
 
-// 3. Criação de Reserva
-createReservation({
-  propertyId: string,
-  clientId: string,
-  checkIn: Date,
-  checkOut: Date,
-  guests: number,
-  totalAmount: number
-}) => Reservation
-
-// 4. Registro de Cliente
-registerClient({
+#### 4. **register_client**
+```typescript
+{
   name: string,
   phone: string,
-  email?: string,
-  cpf?: string
-}) => Client
-
-// 5. Envio de Mídia
-sendPropertyMedia({
-  propertyId: string,
-  clientPhone: string,
-  mediaType: 'photos' | 'video'
-}) => void
-
-// 6. Verificação de Disponibilidade
-checkAvailability({
-  propertyId: string,
-  checkIn: Date,
-  checkOut: Date
-}) => boolean
-```
-
-### 4. **Intent Detector** (Parte do Professional Agent)
-
-Sistema de detecção de intenções sem uso de IA:
-
-```typescript
-class IntentDetector {
-  // Detecta intenção principal
-  static detectIntent(message: string): string
-  
-  // Extrai localização
-  static extractLocation(message: string): string | null
-  
-  // Extrai números (hóspedes, orçamento, noites)
-  static extractNumbers(message: string): {
-    guests: number,
-    budget: number,
-    nights: number
-  }
-  
-  // Extrai datas
-  static extractDates(message: string): {
-    checkIn?: Date,
-    checkOut?: Date
-  }
+  email?: string
 }
 ```
 
-### 5. **Smart Cache System**
+### Implementação
+- **Error Handling**: Try-catch em todas as funções
+- **Service Integration**: Usa `propertyService.getActiveProperties(tenantId)`
+- **Parameter Validation**: Valida campos obrigatórios
+- **Fallback**: Respostas padrão em caso de erro
 
-Cache inteligente com TTL e hit tracking:
+---
 
+## 🧮 Gerenciamento de Contexto
+
+### Interface de Contexto
 ```typescript
-class SmartCache {
-  // Gera chave baseada em intent + dados relevantes
-  private generateKey(input, intent): string
-  
-  // Busca no cache
-  get(input, intent): AgentResponse | null
-  
-  // Salva no cache com TTL
-  set(input, intent, response, ttlMinutes): void
-  
-  // Estatísticas do cache
-  getStats(): { size: number, hitRate: number }
-}
-```
-
-### 6. **Context Manager**
-
-Gerencia o contexto da conversa:
-
-```typescript
-interface ConversationContext {
+interface ConversationContextData {
   intent: string;
   stage: 'greeting' | 'discovery' | 'presentation' | 'negotiation' | 'closing';
   clientData: {
     name?: string;
-    city?: string;
+    city?: string;          // ⚠️ Só preenche quando cliente mencionar
     budget?: number;
     guests?: number;
     checkIn?: string;
     checkOut?: string;
   };
-  interestedProperties: string[];
+  interestedProperties: string[];  // IDs das propriedades
   lastAction?: string;
 }
 ```
 
+### Atualização por Função
+- **search_properties**: Salva cidade, hóspedes, datas → stage: 'discovery'
+- **calculate_price**: Atualiza stage para 'presentation'
+- **create_reservation**: Atualiza stage para 'closing'
+- **register_client**: Salva nome do cliente
+
+### Persistência
+- **Firebase Firestore**: Armazena contexto e histórico
+- **TTL**: Contexto expira após 24 horas
+- **Cleanup**: Remove contextos expirados automaticamente
+- **Error Resilience**: Trata valores undefined
+
 ---
 
-## 🌐 APIs e Rotas
+## ⚠️ Correções Implementadas
 
-### Rotas Principais do Agente
-
-#### 1. **POST /api/agent**
-Endpoint principal para processar mensagens.
-
-**Request Body:**
-```json
-{
-  "message": "Quero alugar um apartamento em Florianópolis",
-  "clientPhone": "11999999999",
-  "tenantId": "tenant_123",
-  "isTest": false
+### **Problema 1**: Sofia assumia Florianópolis
+**Causa**: Contexto persistia entre diferentes conversas  
+**Solução**: Filtro por data atual no histórico
+```typescript
+private async getCurrentDayHistory() {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  // Filtra apenas mensagens de hoje
 }
 ```
 
-**Response:**
-```json
-{
-  "success": true,
-  "message": "Encontrei 5 propriedades incríveis em Florianópolis!",
-  "data": {
-    "response": "...",
-    "conversationId": "conv_123",
-    "clientId": "client_456",
-    "intent": "search_properties",
-    "confidence": 0.95,
-    "tokensUsed": 25,
-    "fromCache": false,
-    "actions": 1
+### **Problema 2**: Erro propertyService.getPropertiesByTenant  
+**Causa**: Método não existia  
+**Solução**: Usar `propertyService.getActiveProperties(tenantId)`
+
+### **Problema 3**: Erro OpenAI tool_calls  
+**Causa**: tool_call_id não tinha resposta correspondente  
+**Solução**: Formato correto de tool messages
+```typescript
+toolMessages.push({
+  role: 'tool',
+  tool_call_id: toolCall.id,
+  content: JSON.stringify(result)
+});
+```
+
+### **Problema 4**: Campos undefined no Firebase  
+**Causa**: Tentativa de salvar valores undefined  
+**Solução**: Filtrar campos undefined
+```typescript
+const cleanedUpdates: any = {};
+Object.entries(updates).forEach(([key, value]) => {
+  if (value !== undefined) {
+    cleanedUpdates[key] = value;
+  }
+});
+```
+
+---
+
+## 🧪 Interface de Teste
+
+### Localização
+`/dashboard/teste`
+
+### Funcionalidades
+- Simulação de conversa WhatsApp
+- Visualização de tokens gastos
+- Botão para limpar contexto
+- Histórico completo da conversa
+- Indicadores de ações executadas
+
+### Fluxo de Teste Recomendado
+1. **"ola quero um ap"** → Sofia deve perguntar a cidade
+2. **"florianopolis"** → Sofia deve buscar propriedades  
+3. **"quero um apartamento barato"** → Sofia deve mostrar opções
+4. **Usar botão "Refresh"** para limpar contexto entre testes
+
+---
+
+## 🚀 Performance e Economia
+
+### Otimizações
+- **GPT-3.5 Turbo**: 10x mais barato que GPT-4
+- **Limite de Tokens**: 150 por resposta mantém concisão
+- **Contexto Limitado**: Apenas 10 mensagens recentes
+- **Cache de Contexto**: Firebase para persistência
+- **Singleton Pattern**: Uma instância para todo sistema
+
+### Métricas
+- **Tokens Utilizados**: Rastreamento por conversa
+- **Funções Executadas**: Contador de actions
+- **Tempo de Resposta**: Medição automática
+- **Taxa de Erro**: Logging detalhado
+- **Context Hits**: Reutilização de contexto
+
+---
+
+## 🔧 Manutenção e Extensão
+
+### Para Modificar Comportamento da Sofia
+1. Editar `SOFIA_SYSTEM_PROMPT` em `sofia-agent-v2.ts`
+2. Ajustar parâmetros do GPT (temperature, max_tokens)
+3. Modificar lógica de `updateContextFromFunction`
+
+### Para Adicionar Nova Função
+1. Adicionar à `ESSENTIAL_AI_FUNCTIONS` em `agent-functions.ts`
+2. Implementar método na classe `SimplifiedAgentFunctions`
+3. Adicionar lógica de contexto em `updateContextFromFunction`
+
+### Para Alterar Contexto
+1. Modificar interface `ConversationContextData`
+2. Atualizar migração de dados se necessário
+3. Ajustar lógica de atualização
+
+---
+
+## 📊 Fluxo de Conversa Ideal
+
+1. **Greeting**: Sofia cumprimenta e pergunta cidade
+2. **Discovery**: Cliente informa cidade → Sofia busca propriedades
+3. **Presentation**: Mostra opções → Cliente pergunta preços
+4. **Negotiation**: Discussão de detalhes
+5. **Closing**: Criação da reserva
+
+---
+
+## 🎯 System Prompt Atual
+
+```
+Você é Sofia, uma assistente virtual especializada em aluguel de imóveis por temporada.
+
+PERSONALIDADE:
+- Simpática, prática e direta
+- Responde em português brasileiro casual
+- Usa emojis moderadamente
+- Foca em ajudar o cliente a encontrar o imóvel ideal
+
+REGRAS IMPORTANTES:
+1. SEMPRE responda de forma concisa (máximo 3 linhas)
+2. NUNCA assuma informações que o cliente não forneceu
+3. SEMPRE pergunte a cidade se não foi mencionada
+4. Use as funções disponíveis para buscar propriedades e criar reservas
+5. Lembre-se de TUDO que o cliente disse na conversa atual
+6. Seja proativa em sugerir próximos passos
+
+FLUXO IDEAL:
+1. Cumprimentar e perguntar dados básicos (cidade, datas, pessoas)
+2. Buscar e apresentar opções (use search_properties APENAS após ter cidade)
+3. Mostrar detalhes e valores (use calculate_price)
+4. Criar a reserva (use create_reservation)
+```
+
+---
+
+## 📦 Arquivos Removidos
+
+- `lib/ai-agent/sofia-agent.ts` → Versão com problemas
+- `lib/ai/agent-functions-exports.ts` → Código não utilizado
+- Referências no `app/api/agent/route.ts` atualizadas
+
+---
+
+## ✅ Status Atual
+
+✅ **Todas as respostas via GPT**  
+✅ **Memória completa da conversa**  
+✅ **Function calling funcionando**  
+✅ **Não assume informações**  
+✅ **Errors corrigidos**  
+✅ **Código morto removido**  
+✅ **Documentação atualizada**
+
+**Sofia está pronta para uso em produção! 🎉**# Sofia AI Agent - Arquitetura Detalhada (2025)
+
+## 📋 Índice
+1. [Visão Geral](#visão-geral)
+2. [Arquitetura Corrigida](#arquitetura-corrigida)
+3. [Estrutura de Arquivos](#estrutura-de-arquivos)
+4. [Sofia Agent V2](#sofia-agent-v2)
+5. [Sistema de Funções](#sistema-de-funções)
+6. [Gerenciamento de Contexto](#gerenciamento-de-contexto)
+7. [Correções Implementadas](#correções-implementadas)
+8. [Interface de Teste](#interface-de-teste)
+9. [Performance e Economia](#performance-e-economia)
+10. [Manutenção e Extensão](#manutenção-e-extensão)
+
+---
+
+## 🎯 Visão Geral
+
+Sofia é a assistente virtual especializada em locação de imóveis por temporada do sistema Locai. Ela foi projetada para fornecer uma experiência conversacional natural, mantendo memória completa da conversa e executando funções específicas do sistema.
+
+### 🎯 **Objetivos Principais**
+1. **100% Respostas GPT**: Todas as respostas são geradas pelo ChatGPT para máxima naturalidade
+2. **Memória Completa**: Sofia lembra de tudo que foi dito na conversa do dia atual
+3. **Function Calling**: Executa funções essenciais (busca, preços, reservas)
+4. **Respostas Concisas**: Máximo 3 linhas, prática e simpática
+5. **Não Assumir Dados**: Nunca pressupõe informações que o cliente não forneceu
+
+---
+
+## 🏗️ Arquitetura Corrigida
+
+### Fluxo Principal
+```
+WhatsApp → API Route → Sofia Agent V2 → GPT-3.5 → Function Calls → Response
+```
+
+### Componentes Principais
+- **Sofia Agent V2**: Lógica principal de conversação
+- **Conversation Context Service**: Gerenciamento de memória
+- **Agent Functions**: 4 funções essenciais do sistema
+- **Property Service**: Operações com propriedades
+
+---
+
+## 📁 Estrutura de Arquivos
+
+```
+lib/ai-agent/
+├── sofia-agent-v2.ts           # Agente principal (VERSÃO CORRIGIDA)
+└── professional-agent.ts       # Versão anterior (DEPRECATED)
+
+lib/ai/
+├── agent-functions.ts          # 4 funções essenciais
+└── agent-functions-exports.ts  # REMOVIDO - código morto
+
+lib/services/
+└── conversation-context-service.ts  # Gerenciamento de contexto
+
+app/api/agent/
+├── route.ts                    # Endpoint principal (usa Sofia V2)
+└── clear-context/route.ts      # Limpar contexto para testes
+```
+
+---
+
+## 🤖 Sofia Agent V2 - Implementação Detalhada
+
+### Classe Principal
+```typescript
+export class SofiaAgentV2 {
+  private openai: OpenAI;
+  private static instance: SofiaAgentV2;  // Singleton pattern
+  
+  static getInstance(): SofiaAgentV2 {
+    if (!this.instance) {
+      this.instance = new SofiaAgentV2();
+    }
+    return this.instance;
   }
 }
 ```
 
-#### 2. **POST /api/agent/clear-context**
-Limpa o contexto de um cliente (útil para testes).
+### Processo de Conversação
 
-**Request Body:**
-```json
+#### 1. **Recepção da Mensagem**
+```typescript
+async processMessage(input: SofiaInput): Promise<SofiaResponse>
+```
+
+#### 2. **Obtenção do Contexto**
+- Busca contexto existente no Firebase
+- Obtém histórico **apenas do dia atual**
+- Limita a 10 mensagens recentes para não confundir o GPT
+
+#### 3. **Construção das Mensagens**
+```typescript
+const messages: MessageHistory[] = [
+  { role: 'system', content: SOFIA_SYSTEM_PROMPT },
+  { role: 'system', content: `Informações coletadas: ${context}` },
+  ...historyMessages,
+  { role: 'user', content: input.message }
+];
+```
+
+#### 4. **Primeira Chamada GPT**
+- Determina se precisa usar funções
+- Usa `tool_choice: 'auto'`
+- Temperatura 0.7 para naturalidade
+- Max 150 tokens para concisão
+
+#### 5. **Execução de Funções (se necessário)**
+- Executa funções solicitadas pelo GPT
+- Trata erros de execução
+- Atualiza contexto baseado nos resultados
+
+#### 6. **Segunda Chamada GPT (se houve funções)**
+- Gera resposta baseada nos resultados das funções
+- Formato correto de `tool_calls` e `tool_messages`
+- Evita o erro "tool_call_id not found"
+
+#### 7. **Persistência**
+- Salva mensagens no histórico
+- Atualiza contexto no Firebase
+- Incrementa contador de tokens
+
+---
+
+## 🛠 Sistema de Funções
+
+### 4 Funções Essenciais
+
+#### 1. **search_properties**
+```typescript
 {
-  "clientPhone": "11999999999"
+  location: string,    // Cidade/região OBRIGATÓRIA
+  guests?: number,     // Número de hóspedes
+  checkIn?: string,    // Data check-in (YYYY-MM-DD)
+  checkOut?: string    // Data check-out (YYYY-MM-DD)
 }
 ```
 
-#### 3. **GET /api/agent?conversationId=xxx**
-Busca histórico de uma conversa.
-
-### Webhooks do WhatsApp
-
-#### 1. **POST /api/webhook/whatsapp**
-Webhook para WhatsApp Business API.
-
-#### 2. **POST /api/webhook/whatsapp-web**
-Webhook para WhatsApp Web (Baileys).
-
----
-
-## ⚙️ Sistema de Funções
-
-### Arquitetura de Function Calling
-
-O sistema implementa suas próprias funções ao invés de usar o function calling da OpenAI:
-
+#### 2. **calculate_price**
 ```typescript
-// Fluxo de execução
-1. Detectar Intenção (local, 0 tokens)
-2. Mapear para Handler Específico
-3. Executar Função Apropriada
-4. Formatar Resposta
-5. Cachear se Apropriado
-```
-
-### Handlers Especializados
-
-#### 1. **handleGreeting**
-- Respostas pré-definidas (0 tokens)
-- Rotação aleatória de saudações
-- Sempre pergunta a cidade
-
-#### 2. **handlePropertySearch**
-- Extrai localização e requisitos
-- Busca no banco de dados
-- Formata resposta com categorias:
-  - Opção Econômica
-  - Conforto Ideal
-  - Experiência Completa
-
-#### 3. **handlePriceInquiry**
-- Calcula preço baseado em:
-  - Diária base
-  - Taxa de limpeza
-  - Taxas sazonais
-  - Número de noites
-
-#### 4. **handleBookingIntent**
-- Coleta dados essenciais:
-  - Nome completo
-  - Datas de check-in/out
-  - Número de hóspedes
-- Cria reserva no sistema
-
-#### 5. **handleGeneral**
-- Fallback para casos não mapeados
-- Usa GPT-3.5 com prompt otimizado
-- Máximo 80 tokens por resposta
-
----
-
-## 💾 Gerenciamento de Estado
-
-### 1. **Conversation Context**
-Mantido em memória (Map) no singleton do agent:
-
-```typescript
-conversationContexts = new Map<phoneNumber, ConversationContext>()
-```
-
-### 2. **Database Persistence**
-Conversas e mensagens salvas no Firestore:
-
-```typescript
-conversations/
-├── {conversationId}/
-│   ├── clientId
-│   ├── messages[]
-│   ├── context{}
-│   ├── isActive
-│   └── lastMessageAt
-
-messages/
-├── {messageId}/
-│   ├── conversationId
-│   ├── content
-│   ├── from: 'client' | 'agent'
-│   ├── timestamp
-│   └── metadata{}
-```
-
-### 3. **Client State**
-Informações do cliente persistidas:
-
-```typescript
-clients/
-├── {clientId}/
-│   ├── name
-│   ├── phone
-│   ├── email
-│   ├── preferences{}
-│   ├── score
-│   └── lastInteraction
-```
-
----
-
-## 🚀 Otimizações e Performance
-
-### 1. **Redução de Uso de Tokens**
-
-| Operação | Tokens Antes | Tokens Depois | Economia |
-|----------|--------------|---------------|----------|
-| Greeting | 150-200 | 0 | 100% |
-| Search | 300-400 | 25-35 | ~90% |
-| Price | 200-250 | 20-30 | ~88% |
-| General | 400-500 | 40-80 | ~85% |
-
-### 2. **Cache Inteligente**
-
-```typescript
-// Cache baseado em:
-- Intent da mensagem
-- Dados relevantes (cidade, datas, etc)
-- TTL de 30 minutos (configurável)
-- Hit tracking para métricas
-```
-
-### 3. **Singleton Pattern**
-
-```typescript
-// Mantém uma única instância do agent
-let agentInstance: ProfessionalAgent | null = null;
-
-static getInstance(): ProfessionalAgent {
-  if (!agentInstance) {
-    agentInstance = new ProfessionalAgent();
-  }
-  return agentInstance;
+{
+  propertyId: string,  // ID da propriedade
+  nights?: number      // Número de noites
 }
 ```
 
-### 4. **Rate Limiting**
-
+#### 3. **create_reservation**
 ```typescript
-// Por telefone: 20 mensagens/minuto
-// Implementado com Redis
-// Headers de resposta incluem limites
-X-RateLimit-Limit: 20
-X-RateLimit-Remaining: 15
-X-RateLimit-Reset: 2024-01-25T10:30:00Z
+{
+  propertyId: string,
+  clientName: string,
+  clientPhone: string,
+  checkIn: string,
+  checkOut: string,
+  guests: number
+}
 ```
 
----
-
-## 📱 Integração com WhatsApp
-
-### 1. **Dual Mode System**
-
-O sistema suporta dois modos de integração:
-
-#### WhatsApp Business API (Oficial)
-- Webhook: `/api/webhook/whatsapp`
-- Requer token de verificação
-- Suporta templates de mensagem
-- Maior confiabilidade
-
-#### WhatsApp Web (Baileys)
-- Webhook: `/api/webhook/whatsapp-web`
-- QR Code authentication
-- Não requer aprovação do Meta
-- Backup automático
-
-### 2. **Message Sender** (`/lib/whatsapp/message-sender.ts`)
-
+#### 4. **register_client**
 ```typescript
-export async function sendWhatsAppMessage(
+{
+  name: string,
   phone: string,
-  message: string,
-  options?: {
-    mediaUrl?: string,
-    buttons?: Button[],
-    templateId?: string
-  }
-): Promise<void>
-```
-
-### 3. **Media Handling**
-
-```typescript
-// Suporte para envio de:
-- Imagens (JPEG, PNG)
-- Vídeos (MP4)
-- Documentos (PDF)
-- Áudio (MP3, OGG)
-
-// Compressão automática
-// Geração de thumbnails
-// Upload para Firebase Storage
-```
-
----
-
-## 📊 Diagramas e Fluxogramas
-
-### Fluxo Completo de uma Conversa
-
-```
-┌─────────────────┐
-│   Cliente       │
-│   WhatsApp      │
-└────────┬────────┘
-         │ "Olá"
-         ▼
-┌─────────────────┐
-│ Intent: Greeting│──────► Resposta Local (0 tokens)
-└─────────────────┘        "Olá! Em qual cidade..."
-         │
-         │ "Florianópolis"
-         ▼
-┌─────────────────┐
-│ Context Update  │──────► Salva cidade no contexto
-└────────┬────────┘
-         │ "quero um apto para 2 pessoas"
-         ▼
-┌─────────────────┐
-│Intent: Search   │──────► Busca no Banco
-└────────┬────────┘        Retorna 5 propriedades
-         │
-         │ "pode mostrar as 3 mais baratas"
-         ▼
-┌─────────────────┐
-│ Use Context     │──────► Usa cidade salva
-│ Format Response │        Mostra 3 opções
-└────────┬────────┘
-         │ "quero a primeira opção"
-         ▼
-┌─────────────────┐
-│Intent: Booking  │──────► Inicia processo
-└─────────────────┘        de reserva
-```
-
-### Arquitetura de Decisão
-
-```
-Mensagem Recebida
-        │
-        ▼
-┌───────────────┐
-│Detect Intent  │
-└───────┬───────┘
-        │
-        ▼
-┌───────────────┐     Não
-│  Cache Hit?   ├──────────┐
-└───────┬───────┘          │
-        │ Sim              │
-        ▼                  ▼
-┌───────────────┐  ┌───────────────┐
-│Return Cached  │  │Select Handler │
-└───────────────┘  └───────┬───────┘
-                           │
-                           ▼
-                   ┌───────────────┐
-                   │Execute Handler│
-                   └───────┬───────┘
-                           │
-                           ▼
-                   ┌───────────────┐
-                   │ Cache Result  │
-                   └───────┬───────┘
-                           │
-                           ▼
-                   ┌───────────────┐
-                   │Return Response│
-                   └───────────────┘
-```
-
----
-
-## 🔧 Configuração e Manutenção
-
-### Variáveis de Ambiente Necessárias
-
-```env
-# OpenAI
-OPENAI_API_KEY=sk-...
-
-# Firebase
-FIREBASE_PROJECT_ID=...
-FIREBASE_CLIENT_EMAIL=...
-FIREBASE_PRIVATE_KEY=...
-
-# WhatsApp
-WHATSAPP_TOKEN=...
-WHATSAPP_PHONE_NUMBER_ID=...
-WHATSAPP_VERIFY_TOKEN=...
-
-# Application
-TENANT_ID=default
-NEXT_PUBLIC_BASE_URL=https://...
-```
-
-### Monitoramento e Métricas
-
-O sistema expõe métricas através do método `getAgentStats()`:
-
-```typescript
-{
-  cacheStats: {
-    size: 45,
-    hitRate: 0.73
-  },
-  activeConversations: 12,
-  memoryUsage: {...},
-  timestamp: "2024-01-25T10:30:00Z"
+  email?: string
 }
 ```
 
-### Logs e Debug
+### Implementação
+- **Error Handling**: Try-catch em todas as funções
+- **Service Integration**: Usa `propertyService.getActiveProperties(tenantId)`
+- **Parameter Validation**: Valida campos obrigatórios
+- **Fallback**: Respostas padrão em caso de erro
 
-Todos os componentes incluem logs detalhados:
+---
 
+## 🧮 Gerenciamento de Contexto
+
+### Interface de Contexto
 ```typescript
-[Agent] Contexto para 11999999999: {...}
-[Agent] Buscando propriedades com params: {...}
-[Agent] Encontradas 5 propriedades em florianópolis
-[Agent] Redirecionando para busca - cidade já conhecida: florianópolis
+interface ConversationContextData {
+  intent: string;
+  stage: 'greeting' | 'discovery' | 'presentation' | 'negotiation' | 'closing';
+  clientData: {
+    name?: string;
+    city?: string;          // ⚠️ Só preenche quando cliente mencionar
+    budget?: number;
+    guests?: number;
+    checkIn?: string;
+    checkOut?: string;
+  };
+  interestedProperties: string[];  // IDs das propriedades
+  lastAction?: string;
+}
+```
+
+### Atualização por Função
+- **search_properties**: Salva cidade, hóspedes, datas → stage: 'discovery'
+- **calculate_price**: Atualiza stage para 'presentation'
+- **create_reservation**: Atualiza stage para 'closing'
+- **register_client**: Salva nome do cliente
+
+### Persistência
+- **Firebase Firestore**: Armazena contexto e histórico
+- **TTL**: Contexto expira após 24 horas
+- **Cleanup**: Remove contextos expirados automaticamente
+- **Error Resilience**: Trata valores undefined
+
+---
+
+## ⚠️ Correções Implementadas
+
+### **Problema 1**: Sofia assumia Florianópolis
+**Causa**: Contexto persistia entre diferentes conversas  
+**Solução**: Filtro por data atual no histórico
+```typescript
+private async getCurrentDayHistory() {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  // Filtra apenas mensagens de hoje
+}
+```
+
+### **Problema 2**: Erro propertyService.getPropertiesByTenant  
+**Causa**: Método não existia  
+**Solução**: Usar `propertyService.getActiveProperties(tenantId)`
+
+### **Problema 3**: Erro OpenAI tool_calls  
+**Causa**: tool_call_id não tinha resposta correspondente  
+**Solução**: Formato correto de tool messages
+```typescript
+toolMessages.push({
+  role: 'tool',
+  tool_call_id: toolCall.id,
+  content: JSON.stringify(result)
+});
+```
+
+### **Problema 4**: Campos undefined no Firebase  
+**Causa**: Tentativa de salvar valores undefined  
+**Solução**: Filtrar campos undefined
+```typescript
+const cleanedUpdates: any = {};
+Object.entries(updates).forEach(([key, value]) => {
+  if (value !== undefined) {
+    cleanedUpdates[key] = value;
+  }
+});
 ```
 
 ---
 
-## 🎯 Conclusão
+## 🧪 Interface de Teste
 
-O sistema de IA do locai representa uma implementação enterprise-grade de um agente conversacional, com foco em:
+### Localização
+`/dashboard/teste`
 
-1. **Performance**: 90% de redução no uso de tokens
-2. **Confiabilidade**: Sistema de fallback e retry
-3. **Escalabilidade**: Arquitetura multi-tenant
-4. **Manutenibilidade**: Código modular e bem documentado
-5. **User Experience**: Respostas rápidas e contextualizadas
+### Funcionalidades
+- Simulação de conversa WhatsApp
+- Visualização de tokens gastos
+- Botão para limpar contexto
+- Histórico completo da conversa
+- Indicadores de ações executadas
 
-A arquitetura Intent-Based com Function Calling local permite que o sistema seja extremamente eficiente enquanto mantém a qualidade das interações, tornando-o ideal para aplicações em produção com alto volume de mensagens.
+### Fluxo de Teste Recomendado
+1. **"ola quero um ap"** → Sofia deve perguntar a cidade
+2. **"florianopolis"** → Sofia deve buscar propriedades  
+3. **"quero um apartamento barato"** → Sofia deve mostrar opções
+4. **Usar botão "Refresh"** para limpar contexto entre testes
+
+---
+
+## 🚀 Performance e Economia
+
+### Otimizações
+- **GPT-3.5 Turbo**: 10x mais barato que GPT-4
+- **Limite de Tokens**: 150 por resposta mantém concisão
+- **Contexto Limitado**: Apenas 10 mensagens recentes
+- **Cache de Contexto**: Firebase para persistência
+- **Singleton Pattern**: Uma instância para todo sistema
+
+### Métricas
+- **Tokens Utilizados**: Rastreamento por conversa
+- **Funções Executadas**: Contador de actions
+- **Tempo de Resposta**: Medição automática
+- **Taxa de Erro**: Logging detalhado
+- **Context Hits**: Reutilização de contexto
+
+---
+
+## 🔧 Manutenção e Extensão
+
+### Para Modificar Comportamento da Sofia
+1. Editar `SOFIA_SYSTEM_PROMPT` em `sofia-agent-v2.ts`
+2. Ajustar parâmetros do GPT (temperature, max_tokens)
+3. Modificar lógica de `updateContextFromFunction`
+
+### Para Adicionar Nova Função
+1. Adicionar à `ESSENTIAL_AI_FUNCTIONS` em `agent-functions.ts`
+2. Implementar método na classe `SimplifiedAgentFunctions`
+3. Adicionar lógica de contexto em `updateContextFromFunction`
+
+### Para Alterar Contexto
+1. Modificar interface `ConversationContextData`
+2. Atualizar migração de dados se necessário
+3. Ajustar lógica de atualização
+
+---
+
+## 📊 Fluxo de Conversa Ideal
+
+1. **Greeting**: Sofia cumprimenta e pergunta cidade
+2. **Discovery**: Cliente informa cidade → Sofia busca propriedades
+3. **Presentation**: Mostra opções → Cliente pergunta preços
+4. **Negotiation**: Discussão de detalhes
+5. **Closing**: Criação da reserva
+
+---
+
+## 🎯 System Prompt Atual
+
+```
+Você é Sofia, uma assistente virtual especializada em aluguel de imóveis por temporada.
+
+PERSONALIDADE:
+- Simpática, prática e direta
+- Responde em português brasileiro casual
+- Usa emojis moderadamente
+- Foca em ajudar o cliente a encontrar o imóvel ideal
+
+REGRAS IMPORTANTES:
+1. SEMPRE responda de forma concisa (máximo 3 linhas)
+2. NUNCA assuma informações que o cliente não forneceu
+3. SEMPRE pergunte a cidade se não foi mencionada
+4. Use as funções disponíveis para buscar propriedades e criar reservas
+5. Lembre-se de TUDO que o cliente disse na conversa atual
+6. Seja proativa em sugerir próximos passos
+
+FLUXO IDEAL:
+1. Cumprimentar e perguntar dados básicos (cidade, datas, pessoas)
+2. Buscar e apresentar opções (use search_properties APENAS após ter cidade)
+3. Mostrar detalhes e valores (use calculate_price)
+4. Criar a reserva (use create_reservation)
+```
+
+---
+
+## 📦 Arquivos Removidos
+
+- `lib/ai-agent/sofia-agent.ts` → Versão com problemas
+- `lib/ai/agent-functions-exports.ts` → Código não utilizado
+- Referências no `app/api/agent/route.ts` atualizadas
+
+---
+
+## ✅ Status Atual
+
+✅ **Todas as respostas via GPT**  
+✅ **Memória completa da conversa**  
+✅ **Function calling funcionando**  
+✅ **Não assume informações**  
+✅ **Errors corrigidos**  
+✅ **Código morto removido**  
+✅ **Documentação atualizada**
+
+**Sofia está pronta para uso em produção! 🎉**

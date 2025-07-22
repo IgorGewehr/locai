@@ -162,7 +162,7 @@ export default function TestePage() {
     const startTime = Date.now();
 
     try {
-      const endpoint = '/api/agent'; // Agora sempre usa Professional Agent
+      const endpoint = '/api/agent'; // Usando Sofia AI Agent V3 com funções corrigidas
       const response = await fetch(endpoint, {
         method: 'POST',
         headers: {
@@ -291,7 +291,7 @@ export default function TestePage() {
               🧪 Teste do Agente IA
             </Typography>
             <Chip 
-              label="🚀 Professional Agent"
+              label="🚀 Sofia AI V3"
               size="small"
               sx={{ 
                 bgcolor: '#4caf50', 
@@ -617,10 +617,10 @@ export default function TestePage() {
           />
           <Box sx={{ mt: 2, p: 2, bgcolor: 'rgba(76, 175, 80, 0.1)', borderRadius: 1, border: '1px solid #4caf50' }}>
             <Typography variant="body2" fontWeight={600} sx={{ color: '#4caf50' }}>
-              🚀 Professional Agent Ativo
+              🚀 Sofia AI Agent V3 Ativo
             </Typography>
             <Typography variant="caption" color="textSecondary">
-              Intent-based • 90% menos tokens • Cache inteligente • 70% mais rápido
+              5 Funções corrigidas • Fluxo cliente→reserva • IDs reais • Validação completa
             </Typography>
           </Box>
         </DialogContent>
@@ -650,23 +650,24 @@ export default function TestePage() {
             <li>Simulação de cliente WhatsApp</li>
           </Typography>
           <Typography variant="h6" gutterBottom sx={{ mt: 2 }}>
-            Novo Professional Agent:
+            Sofia AI Agent V3 - Correções:
           </Typography>
           <Typography variant="body2" component="ul" sx={{ pl: 2 }}>
-            <li>🚀 <strong>Intent-based</strong> - Detecta intenção localmente (0 tokens)</li>
-            <li>💰 <strong>90% menos tokens</strong> - Economia drástica de custos</li>
-            <li>⚡ <strong>Cache inteligente</strong> - Respostas instantâneas para casos comuns</li>
-            <li>🎯 <strong>4 funções essenciais</strong> - search, price, reservation, register</li>
-            <li>📊 <strong>Métricas avançadas</strong> - Tokens, cache hits, confidence</li>
+            <li>🔧 <strong>Funções corrigidas</strong> - search, details, price, client, reservation</li>
+            <li>🎯 <strong>IDs reais</strong> - Usa IDs do Firebase ao invés de strings simples</li>
+            <li>👤 <strong>Fluxo cliente→reserva</strong> - Registra cliente antes de criar reserva</li>
+            <li>✅ <strong>Validação completa</strong> - Verifica dados antes de executar</li>
+            <li>🧠 <strong>Contexto inteligente</strong> - Gerencia estado de reserva pendente</li>
           </Typography>
           <Typography variant="h6" gutterBottom sx={{ mt: 2 }}>
-            Exemplos de teste:
+            Fluxo de teste completo:
           </Typography>
           <Typography variant="body2" component="ul" sx={{ pl: 2 }}>
-            <li>"Olá" - Cache local (0 tokens)</li>
-            <li>"Procuro apartamento no Rio" - Busca otimizada (~25 tokens)</li>
-            <li>"Quanto custa 3 noites?" - Cálculo direto (~20 tokens)</li>
-            <li>"Quero reservar" - Booking intent (~50 tokens)</li>
+            <li>"ola quero um ap" - Sofia pergunta cidade e dados</li>
+            <li>"florianopolis, 2 pessoas, 1 a 10 janeiro" - Busca propriedades</li>
+            <li>"quanto fica a primeira opção?" - Calcula preços com IDs reais</li>
+            <li>"quero reservar" - Coleta nome do cliente</li>
+            <li>"João Silva" - Registra cliente → cria reserva</li>
           </Typography>
         </DialogContent>
         <DialogActions>

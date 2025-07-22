@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-// AIService removed - using ProfessionalAgent
-import * as agentFunctions from '@/lib/ai/agent-functions-exports';
+// Using Sofia Agent V2
 import { 
   conversationService, 
   messageService, 
@@ -224,17 +223,15 @@ export async function POST(request: NextRequest) {
       clientPreferences: client.preferences || {},
     };
 
-    // Process message with Professional Agent (NEW SYSTEM) - Usando singleton
-    const { ProfessionalAgent } = await import('@/lib/ai-agent/professional-agent');
-    const agent = ProfessionalAgent.getInstance();
+    // Process message with Sofia Agent V3 (FUNCTIONS CORRECTED VERSION)
+    const { sofiaAgentV3 } = await import('@/lib/ai-agent/sofia-agent-v3');
     
     try {
-      // Use the professional agent to process the message
-      const result = await agent.processMessage({
+      // Use Sofia agent to process the message
+      const result = await sofiaAgentV3.processMessage({
         message: validatedMessage,
         clientPhone: validatedPhone,
-        tenantId: validatedTenantId,
-        conversationHistory: recentHistory
+        tenantId: validatedTenantId
       });
       
       // Send WhatsApp response (integrada no Professional Agent)
@@ -254,10 +251,7 @@ export async function POST(request: NextRequest) {
         clientId: client.id,
         conversationId: conversation.id,
         tenantId: validatedTenantId,
-        intent: result.intent,
-        confidence: result.confidence,
         tokensUsed: result.tokensUsed,
-        fromCache: result.fromCache,
         userAgent: request.headers.get('user-agent') || 'unknown',
         ip: request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || 'unknown'
       });
@@ -269,10 +263,7 @@ export async function POST(request: NextRequest) {
           response: result.reply,
           conversationId: conversation.id,
           clientId: client.id,
-          intent: result.intent,
-          confidence: result.confidence,
           tokensUsed: result.tokensUsed,
-          fromCache: result.fromCache,
           actions: result.actions?.length || 0
         }
       });

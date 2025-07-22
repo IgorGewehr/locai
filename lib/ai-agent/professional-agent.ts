@@ -759,7 +759,7 @@ Responda como Sofia (vendedora imobiliária), máximo 2 linhas. NUNCA pergunte s
       const { propertyService } = await import('@/lib/services/property-service');
       
       // Buscar todas as propriedades do tenant
-      const allProperties = await propertyService.getPropertiesByTenant(tenantId);
+      const allProperties = await propertyService.getActiveProperties(tenantId);
       console.log(`📊 [SEARCH-${searchId}] Total de propriedades encontradas: ${allProperties.length}`);
       
       if (allProperties.length === 0) {
@@ -854,7 +854,7 @@ Responda como Sofia (vendedora imobiliária), máximo 2 linhas. NUNCA pergunte s
       try {
         console.log(`🔄 [SEARCH-${searchId}] Tentando busca básica fallback...`);
         const { propertyService } = await import('@/lib/services/property-service');
-        const basicProperties = await propertyService.getPropertiesByTenant(tenantId);
+        const basicProperties = await propertyService.getActiveProperties(tenantId);
         
         return basicProperties.slice(0, 3).map(p => ({
           id: p.id,
