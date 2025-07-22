@@ -228,7 +228,24 @@ export default function TestePage() {
     }
   };
 
-  const clearSession = () => {
+  const clearSession = async () => {
+    // Limpar contexto do agente para este telefone
+    if (session) {
+      try {
+        await fetch('/api/agent/clear-context', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            clientPhone: session.phone,
+          }),
+        });
+      } catch (error) {
+        console.error('Erro ao limpar contexto:', error);
+      }
+    }
+    
     setSession(null);
     setMessages([]);
     setError(null);

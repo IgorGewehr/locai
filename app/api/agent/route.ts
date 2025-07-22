@@ -224,9 +224,9 @@ export async function POST(request: NextRequest) {
       clientPreferences: client.preferences || {},
     };
 
-    // Process message with Professional Agent (NEW SYSTEM)
+    // Process message with Professional Agent (NEW SYSTEM) - Usando singleton
     const { ProfessionalAgent } = await import('@/lib/ai-agent/professional-agent');
-    const agent = new ProfessionalAgent();
+    const agent = ProfessionalAgent.getInstance();
     
     try {
       // Use the professional agent to process the message
