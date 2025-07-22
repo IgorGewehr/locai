@@ -135,15 +135,20 @@ export default function MiniSiteWidget({ tenantId = 'demo' }: MiniSiteWidgetProp
   const activateMiniSite = async () => {
     try {
       setLoading(true);
-      const response = await fetch('/api/fix-mini-site-auto', {
+      const response = await fetch('/api/mini-site/activate', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ tenantId: user?.uid || 'default-tenant' })
+        headers: { 'Content-Type': 'application/json' }
       });
       
       if (response.ok) {
+        const data = await response.json();
+        console.log('Mini-site ativado:', data);
         // Recarregar dados após ativação
         await loadMiniSiteData();
+        // Abrir mini-site em nova aba
+        if (data.miniSiteUrl) {
+          window.open(data.miniSiteUrl, '_blank');
+        }
       } else {
         console.error('Erro ao ativar mini-site');
       }

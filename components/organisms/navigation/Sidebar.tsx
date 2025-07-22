@@ -42,6 +42,7 @@ import {
   AccountTree,
   Widgets,
   BugReport,
+  Event,
 } from '@mui/icons-material';
 
 interface SidebarProps {
@@ -69,14 +70,26 @@ const menuItems = [
     badge: null,
   },
   {
+    text: 'Agenda',
+    href: '/dashboard/agenda',
+    icon: <Event />,
+    badge: null,
+  },
+  {
     text: 'Conversas',
     href: '/dashboard/conversations',
     icon: <Chat />,
     badge: null,
   },
   {
-    text: 'Clientes',
+    text: 'CRM',
     href: '/dashboard/crm',
+    icon: <GroupWork />,
+    badge: null,
+  },
+  {
+    text: 'Clientes',
+    href: '/dashboard/clients',
     icon: <People />,
     badge: null,
   },

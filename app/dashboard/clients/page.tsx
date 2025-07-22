@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from 'react';
 import { clientService } from '@/lib/firebase/firestore';
-import { clientServiceWrapper } from '@/lib/services/client-service';
 import type { Client } from '@/lib/types';
 import { PaymentMethod } from '@/lib/types/reservation';
 import {
@@ -57,8 +56,12 @@ import {
   Refresh,
 } from '@mui/icons-material';
 import { useRouter } from 'next/navigation';
-import { safeFormatDate, DateFormats } from '@/lib/utils/date-utils';
+import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { useAuth } from '@/lib/hooks/useAuth';
+import CreateClientDialog from './components/CreateClientDialog';
+import EditClientDialog from './components/EditClientDialog';
+import ClientDetailsDialog from './components/ClientDetailsDialog';
 
 interface ClientFormData {
   name: string;
@@ -69,11 +72,14 @@ interface ClientFormData {
 }
 
 export default function ClientsPage() {
+  const { user } = useAuth();
   const [clients, setClients] = useState<Client[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [showAddDialog, setShowAddDialog] = useState(false);
+  const [showEditDialog, setShowEditDialog] = useState(false);
+  const [showDetailsDialog, setShowDetailsDialog] = useState(false);
   const [showImportDialog, setShowImportDialog] = useState(false);
   const [selectedTab, setSelectedTab] = useState(0);
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
@@ -94,6 +100,8 @@ export default function ClientsPage() {
   }, []);
 
   const loadClients = async (isRefresh = false) => {
+    if (!user?.tenantId) return;
+    
     try {
       if (isRefresh) {
         setRefreshing(true);
@@ -101,7 +109,7 @@ export default function ClientsPage() {
       }
       
       console.log('🔄 [Clients Dashboard] Carregando clientes...');
-      const clientsData = await clientServiceWrapper.getAll();
+      const clientsData = await clientService.getAllByTenant(user.tenantId);
       console.log(`✅ [Clients Dashboard] ${clientsData.length} clientes carregados`, clientsData);
       
       // Ordenar clientes: mais recentes primeiro
@@ -150,7 +158,8 @@ export default function ClientsPage() {
   };
 
   const handleClientClick = (client: Client) => {
-    router.push(`/dashboard/clients/${client.id}`);
+    setSelectedClient(client);
+    setShowDetailsDialog(true);
   };
 
   const handleWhatsAppClick = (phone: string, e: React.MouseEvent) => {
@@ -168,9 +177,10 @@ export default function ClientsPage() {
     window.location.href = `mailto:${email}`;
   };
 
-  const handleEditClick = (clientId: string, e: React.MouseEvent) => {
+  const handleEditClick = (client: Client, e: React.MouseEvent) => {
     e.stopPropagation();
-    router.push(`/dashboard/clients/${clientId}/edit`);
+    setSelectedClient(client);
+    setShowEditDialog(true);
   };
 
   const toggleFavorite = async (client: Client, e: React.MouseEvent) => {
@@ -451,10 +461,10 @@ export default function ClientsPage() {
                           {client.document && ` • 📄 CPF: ${client.document.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4')}`}
                         </Typography>
                         <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mt: 0.5 }}>
-                          {client.totalReservations > 0 ? (
+                          {(client.totalReservations || 0) > 0 ? (
                             <Typography variant="caption" color="text.secondary">
-                              🏠 {client.totalReservations} reserva{client.totalReservations > 1 ? 's' : ''} • 
-                              💰 R$ {client.totalSpent.toLocaleString('pt-BR')} gastos
+                              🏠 {client.totalReservations || 0} reserva{(client.totalReservations || 0) > 1 ? 's' : ''} • 
+                              💰 R$ {(client.totalSpent || 0).toLocaleString('pt-BR')} gastos
                             </Typography>
                           ) : (
                             <Typography variant="caption" color="text.secondary">
@@ -462,7 +472,7 @@ export default function ClientsPage() {
                             </Typography>
                           )}
                           <Typography variant="caption" color="text.secondary">
-                            • Cadastrado em {safeFormatDate(client.createdAt, DateFormats.SHORT, 'N/A')}
+                            • Cadastrado em {format(new Date(client.createdAt), 'dd/MM/yyyy', { locale: ptBR })}
                           </Typography>
                         </Box>
                       </Box>
@@ -494,7 +504,7 @@ export default function ClientsPage() {
                     )}
                     <IconButton 
                       size="small"
-                      onClick={(e) => handleEditClick(client.id, e)}
+                      onClick={(e) => handleEditClick(client, e)}
                       title="Editar cliente"
                     >
                       <Edit />
@@ -608,6 +618,47 @@ export default function ClientsPage() {
           <Button onClick={() => setShowImportDialog(false)}>Cancelar</Button>
         </DialogActions>
       </Dialog>
+
+      {/* Client Dialogs */}
+      <CreateClientDialog
+        open={showAddDialog}
+        onClose={() => setShowAddDialog(false)}
+        onSuccess={() => {
+          loadClients();
+          setShowAddDialog(false);
+        }}
+      />
+
+      {selectedClient && (
+        <>
+          <EditClientDialog
+            open={showEditDialog}
+            client={selectedClient}
+            onClose={() => {
+              setShowEditDialog(false);
+              setSelectedClient(null);
+            }}
+            onSuccess={() => {
+              loadClients();
+              setShowEditDialog(false);
+              setSelectedClient(null);
+            }}
+          />
+
+          <ClientDetailsDialog
+            open={showDetailsDialog}
+            client={selectedClient}
+            onClose={() => {
+              setShowDetailsDialog(false);
+              setSelectedClient(null);
+            }}
+            onEdit={() => {
+              setShowDetailsDialog(false);
+              setShowEditDialog(true);
+            }}
+          />
+        </>
+      )}
 
       {/* Speed Dial */}
       <SpeedDial

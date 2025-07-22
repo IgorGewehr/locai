@@ -40,7 +40,7 @@ export default function MiniSiteActivator({ onActivated }: MiniSiteActivatorProp
     setError('');
 
     try {
-      const response = await fetch('/api/activate-mini-site', {
+      const response = await fetch('/api/mini-site/activate', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
