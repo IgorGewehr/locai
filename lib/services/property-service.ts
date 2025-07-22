@@ -73,11 +73,23 @@ export class PropertyService {
       // Filter by max price (this would need pricing calculation for accurate filtering)
       // For now, filter by base price
       if (filters.maxPrice) {
-        properties = properties.filter(p => p.basePrice <= filters.maxPrice);
+        properties = properties.filter(p => {
+          const price = p.basePrice || p.pricing?.basePrice || 999999;
+          return price <= filters.maxPrice;
+        });
       }
       
-      // Sort by price
-      properties.sort((a, b) => a.basePrice - b.basePrice);
+      // Sort by price (CRESCENTE - mais baratas primeiro)
+      properties.sort((a, b) => {
+        const priceA = a.basePrice || a.pricing?.basePrice || 999999;
+        const priceB = b.basePrice || b.pricing?.basePrice || 999999;
+        return priceA - priceB;
+      });
+      
+      console.log(`📊 PropertyService: ${properties.length} propriedades ordenadas por preço`);
+      if (properties.length > 0) {
+        console.log(`💰 Preços: ${properties.slice(0, 3).map(p => `R$${p.basePrice || p.pricing?.basePrice || 0}`).join(', ')}`);
+      }
       
       return properties;
     } catch (error) {

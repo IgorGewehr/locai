@@ -69,9 +69,12 @@ export interface Client {
   name: string;
   email?: string;
   phone: string;
+  document?: string;
+  documentType?: 'cpf' | 'cnpj';
   whatsappNumber?: string;
   tenantId?: string;
-  preferences: {
+  source?: 'whatsapp' | 'website' | 'manual' | 'referral' | 'other';
+  preferences?: {
     location?: string;
     priceRange?: {
       min: number;
@@ -80,10 +83,19 @@ export interface Client {
     amenities?: string[];
     bedrooms?: number;
     maxGuests?: number;
+    communicationPreference?: 'whatsapp' | 'email' | 'phone' | 'sms';
+    preferredPaymentMethod?: any;
+    petOwner?: boolean;
+    smoker?: boolean;
+    marketingOptIn?: boolean;
   };
-  reservations: string[];
+  reservations?: string[];
   totalSpent: number;
+  totalReservations: number;
   isActive: boolean;
+  isVip?: boolean;
+  tags?: string[];
+  notes?: string;
   createdAt: Date;
   updatedAt: Date;
 }

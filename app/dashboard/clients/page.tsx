@@ -2,7 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import { clientService } from '@/lib/firebase/firestore';
-import type { Client } from '@/lib/types/client';
+import { clientServiceWrapper } from '@/lib/services/client-service';
+import type { Client } from '@/lib/types';
 import { PaymentMethod } from '@/lib/types/reservation';
 import {
   Box,
@@ -53,6 +54,7 @@ import {
   Schedule,
   CheckCircle,
   Edit,
+  Refresh,
 } from '@mui/icons-material';
 import { useRouter } from 'next/navigation';
 import { safeFormatDate, DateFormats } from '@/lib/utils/date-utils';
@@ -69,12 +71,14 @@ interface ClientFormData {
 export default function ClientsPage() {
   const [clients, setClients] = useState<Client[]>([]);
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [showImportDialog, setShowImportDialog] = useState(false);
   const [selectedTab, setSelectedTab] = useState(0);
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
   const [filterOpen, setFilterOpen] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const router = useRouter();
 
   const [formData, setFormData] = useState<ClientFormData>({
@@ -89,46 +93,59 @@ export default function ClientsPage() {
     loadClients();
   }, []);
 
-  const loadClients = async () => {
+  const loadClients = async (isRefresh = false) => {
     try {
-      const clientsData = await clientService.getAll();
-      setClients(clientsData as unknown as Client[]);
+      if (isRefresh) {
+        setRefreshing(true);
+        setError(null);
+      }
+      
+      console.log('🔄 [Clients Dashboard] Carregando clientes...');
+      const clientsData = await clientServiceWrapper.getAll();
+      console.log(`✅ [Clients Dashboard] ${clientsData.length} clientes carregados`, clientsData);
+      
+      // Ordenar clientes: mais recentes primeiro
+      const sortedClients = clientsData.sort((a, b) => 
+        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+      );
+      
+      setClients(sortedClients);
+      setError(null);
     } catch (error) {
-
+      console.error('❌ [Clients Dashboard] Erro ao carregar clientes:', error);
+      setError('Erro ao carregar clientes. Tente novamente.');
+      setClients([]);
     } finally {
       setLoading(false);
+      setRefreshing(false);
     }
   };
 
   const handleAddClient = async () => {
     try {
-      const newClient: any = {
+      console.log('➕ [Clients Dashboard] Criando novo cliente:', formData);
+      
+      const clientData = {
         name: formData.name,
         phone: formData.phone,
-        email: formData.email || '',
-        document: formData.cpf || '',
-        documentType: 'cpf',
-        preferences: {
-          communicationPreference: 'whatsapp',
-          preferredPaymentMethod: PaymentMethod.PIX,
-          petOwner: false,
-          smoker: false,
-          marketingOptIn: true
-        },
-        totalSpent: 0,
-        totalReservations: 0,
-        isActive: true,
-        source: 'manual',
-        createdAt: new Date(),
-        updatedAt: new Date(),
+        email: formData.email || undefined,
+        document: formData.cpf || undefined,
+        tenantId: 'default', // TODO: Pegar do contexto do tenant atual
+        source: 'manual'
       };
 
-      await clientService.create(newClient);
+      const newClient = await clientServiceWrapper.create(clientData);
+      console.log('✅ [Clients Dashboard] Cliente criado:', newClient);
+      
       setShowAddDialog(false);
       setFormData({ name: '', phone: '', email: '', cpf: '', notes: '' });
-      loadClients();
+      
+      // Recarregar lista
+      await loadClients();
     } catch (error) {
-
+      console.error('❌ [Clients Dashboard] Erro ao criar cliente:', error);
+      // TODO: Mostrar mensagem de erro para o usuário
+      alert(`Erro ao criar cliente: ${error instanceof Error ? error.message : 'Erro desconhecido'}`);
     }
   };
 
@@ -169,7 +186,7 @@ export default function ClientsPage() {
 
     if (selectedTab === 0) return matchesSearch; // Todos
     if (selectedTab === 1) return matchesSearch && client.isActive; // Ativos
-    if (selectedTab === 2) return matchesSearch && (client as any).source === 'whatsapp'; // WhatsApp
+    if (selectedTab === 2) return matchesSearch && client.source === 'whatsapp'; // WhatsApp
     return matchesSearch;
   });
 
@@ -235,6 +252,20 @@ export default function ClientsPage() {
               ),
               endAdornment: (
                 <InputAdornment position="end">
+                  <IconButton 
+                    onClick={() => loadClients(true)} 
+                    disabled={refreshing}
+                    title="Atualizar lista"
+                    sx={{ mr: 1 }}
+                  >
+                    <Refresh sx={{ 
+                      animation: refreshing ? 'spin 1s linear infinite' : 'none',
+                      '@keyframes spin': {
+                        '0%': { transform: 'rotate(0deg)' },
+                        '100%': { transform: 'rotate(360deg)' }
+                      }
+                    }} />
+                  </IconButton>
                   <IconButton onClick={() => setFilterOpen(!filterOpen)}>
                     <FilterList />
                   </IconButton>
@@ -269,12 +300,19 @@ export default function ClientsPage() {
             label={
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                 WhatsApp
-                <Chip label={clients.filter(c => (c as any).source === 'whatsapp').length} size="small" color="primary" />
+                <Chip label={clients.filter(c => c.source === 'whatsapp').length} size="small" color="primary" />
               </Box>
             } 
           />
         </Tabs>
       </Card>
+
+      {/* Error Alert */}
+      {error && (
+        <Alert severity="error" sx={{ mb: 3 }} onClose={() => setError(null)}>
+          {error}
+        </Alert>
+      )}
 
       {/* Summary Stats */}
       <Grid container spacing={2} sx={{ mb: 3 }}>
@@ -298,7 +336,7 @@ export default function ClientsPage() {
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <Box>
                 <Typography variant="h4" fontWeight={600}>
-                  {clients.filter(c => (c as any).source === 'whatsapp').length}
+                  {clients.filter(c => c.source === 'whatsapp').length}
                 </Typography>
                 <Typography variant="body2" color="text.secondary">
                   Via WhatsApp
@@ -351,11 +389,24 @@ export default function ClientsPage() {
             <Box sx={{ textAlign: 'center', py: 8 }}>
               <Person sx={{ fontSize: 64, color: 'text.disabled', mb: 2 }} />
               <Typography variant="h6" color="text.secondary" gutterBottom>
-                Nenhum cliente encontrado
+                {searchTerm ? 'Nenhum cliente encontrado para esta busca' : 'Nenhum cliente cadastrado'}
               </Typography>
-              <Typography variant="body2" color="text.secondary">
-                Adicione seu primeiro cliente ou ajuste os filtros
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+                {searchTerm 
+                  ? 'Tente ajustar os filtros ou termo de busca'
+                  : 'Clientes também são adicionados automaticamente via WhatsApp'
+                }
               </Typography>
+              {!searchTerm && (
+                <ModernButton
+                  variant="elegant"
+                  size="medium"
+                  icon={<Add />}
+                  onClick={() => setShowAddDialog(true)}
+                >
+                  Adicionar Primeiro Cliente
+                </ModernButton>
+              )}
             </Box>
           ) : (
             filteredClients.map((client, index) => (
@@ -367,7 +418,7 @@ export default function ClientsPage() {
                   <ListItemAvatar>
                     <Avatar 
                       sx={{ 
-                        bgcolor: (client as any).source === 'whatsapp' ? 'success.main' : 'primary.main',
+                        bgcolor: client.source === 'whatsapp' ? 'success.main' : 'primary.main',
                         width: 48,
                         height: 48,
                       }}
@@ -382,7 +433,7 @@ export default function ClientsPage() {
                         <Typography variant="subtitle1" fontWeight={500}>
                           {client.name}
                         </Typography>
-                        {(client as any).source === 'whatsapp' && (
+                        {client.source === 'whatsapp' && (
                           <Chip 
                             label="WhatsApp" 
                             size="small" 
@@ -395,15 +446,25 @@ export default function ClientsPage() {
                     secondary={
                       <Box>
                         <Typography variant="body2" color="text.secondary">
-                          {formatPhone(client.phone)}
-                          {client.email && ` • ${client.email}`}
+                          📱 {formatPhone(client.phone)}
+                          {client.email && ` • 📧 ${client.email}`}
+                          {client.document && ` • 📄 CPF: ${client.document.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4')}`}
                         </Typography>
-                        {client.totalReservations > 0 && (
+                        <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mt: 0.5 }}>
+                          {client.totalReservations > 0 ? (
+                            <Typography variant="caption" color="text.secondary">
+                              🏠 {client.totalReservations} reserva{client.totalReservations > 1 ? 's' : ''} • 
+                              💰 R$ {client.totalSpent.toLocaleString('pt-BR')} gastos
+                            </Typography>
+                          ) : (
+                            <Typography variant="caption" color="text.secondary">
+                              Novo cliente - Nenhuma reserva ainda
+                            </Typography>
+                          )}
                           <Typography variant="caption" color="text.secondary">
-                            {client.totalReservations} reservas • 
-                            Última em {safeFormatDate(client.updatedAt, DateFormats.SHORT, 'N/A')}
+                            • Cadastrado em {safeFormatDate(client.createdAt, DateFormats.SHORT, 'N/A')}
                           </Typography>
-                        )}
+                        </Box>
                       </Box>
                     }
                     secondaryTypographyProps={{ component: 'div' }}

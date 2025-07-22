@@ -13,36 +13,57 @@ export class ClientService {
     // Check if client exists using findByPhone which considers tenantId
     const existingClient = await this.findByPhone(clientData.phone, clientData.tenantId);
     
+    // Filtrar campos undefined para evitar erro no Firebase
+    const cleanedData: any = {
+      name: clientData.name,
+      phone: clientData.phone,
+      tenantId: clientData.tenantId || 'default',
+      source: clientData.source || 'whatsapp'
+    };
+    
+    // Adicionar campos opcionais apenas se não forem undefined/vazios
+    if (clientData.email && clientData.email.trim() !== '') {
+      cleanedData.email = clientData.email;
+    }
+    if (clientData.document && clientData.document.trim() !== '') {
+      cleanedData.document = clientData.document;
+    }
+    
     if (existingClient) {
       // Update existing client with new data (preserving existing data)
       const updatedData = {
         ...existingClient,
-        ...clientData,
+        ...cleanedData,
         updatedAt: new Date()
       };
       await clientService.update(existingClient.id, updatedData);
       return updatedData;
     } else {
       // Create new client
-      const id = await clientService.create({
-        ...clientData,
-        preferences: {},
+      const newClientData = {
+        ...cleanedData,
+        preferences: {
+          communicationPreference: 'whatsapp',
+          marketingOptIn: true,
+          petOwner: false,
+          smoker: false
+        },
         reservations: [],
         totalSpent: 0,
+        totalReservations: 0,
         isActive: true,
+        isVip: false,
+        tags: [],
+        notes: '',
         createdAt: new Date(),
         updatedAt: new Date()
-      } as any);
+      };
+      
+      const id = await clientService.create(newClientData as any);
       
       return {
         id,
-        ...clientData,
-        preferences: {},
-        reservations: [],
-        totalSpent: 0,
-        isActive: true,
-        createdAt: new Date(),
-        updatedAt: new Date()
+        ...newClientData
       } as Client;
     }
   }
@@ -101,25 +122,42 @@ export class ClientService {
       throw new Error(`Cliente com telefone ${clientData.phone} já existe. Use createOrUpdate() para atualizar dados existentes.`);
     }
     
-    const id = await clientService.create({
-      ...clientData,
-      preferences: {},
+    // Filtrar campos undefined para evitar erro no Firebase
+    const cleanedData: any = {
+      name: clientData.name,
+      phone: clientData.phone,
+      tenantId: clientData.tenantId || 'default',
+      source: clientData.source || 'whatsapp',
+      preferences: {
+        communicationPreference: 'whatsapp',
+        marketingOptIn: true,
+        petOwner: false,
+        smoker: false
+      },
       reservations: [],
       totalSpent: 0,
+      totalReservations: 0,
       isActive: true,
+      isVip: false,
+      tags: [],
+      notes: '',
       createdAt: clientData.createdAt || new Date(),
       updatedAt: clientData.updatedAt || new Date()
-    } as any);
+    };
+    
+    // Adicionar campos opcionais apenas se não forem undefined/vazios
+    if (clientData.email && clientData.email.trim() !== '') {
+      cleanedData.email = clientData.email;
+    }
+    if (clientData.document && clientData.document.trim() !== '') {
+      cleanedData.document = clientData.document;
+    }
+    
+    const id = await clientService.create(cleanedData as any);
     
     return {
       id,
-      ...clientData,
-      preferences: {},
-      reservations: [],
-      totalSpent: 0,
-      isActive: true,
-      createdAt: clientData.createdAt || new Date(),
-      updatedAt: clientData.updatedAt || new Date()
+      ...cleanedData
     } as Client;
   }
 }
