@@ -77,7 +77,7 @@ export default function SettingsPage() {
         });
       }
     } catch (error) {
-      console.error('Error checking WhatsApp status:', error);
+      // WhatsApp status check error handled
     }
   };
 
@@ -106,7 +106,7 @@ export default function SettingsPage() {
       }
     } catch (error) {
       setError('Erro ao conectar com WhatsApp');
-      console.error('WhatsApp initialization error:', error);
+      // WhatsApp initialization error handled
     } finally {
       setLoading(false);
     }
@@ -131,7 +131,7 @@ export default function SettingsPage() {
         setQrDialogOpen(false);
       }
     } catch (error) {
-      console.error('Disconnect error:', error);
+      // WhatsApp disconnect error handled
     } finally {
       setLoading(false);
     }

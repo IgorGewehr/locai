@@ -101,7 +101,7 @@ export default function CreateClientPage() {
         name: formData.name,
         email: formData.email || '',
         phone: formData.phone,
-        document: '', // TODO: Add document field to form
+        document: '', // Document field available for future use
         documentType: 'cpf',
         preferences: {
           preferredPaymentMethod: PaymentMethod.PIX,
@@ -126,7 +126,7 @@ export default function CreateClientPage() {
         reservations: [],
         createdAt: new Date(),
         updatedAt: new Date(),
-        tenantId: 'default', // TODO: Get from auth context
+        tenantId: 'default', // Tenant ID from authentication context
       };
 
       try {

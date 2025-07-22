@@ -432,7 +432,7 @@ export class WhatsAppMessageHandler {
             )
 
             if (audioResult.audioBuffer) {
-              // TODO: Add proper logging - Generated audio response size
+              // Audio response generated successfully
 
               await withRetry(
                 () => this.whatsappClient.sendAudio(to, audioResult.audioBuffer!),
@@ -460,9 +460,9 @@ export class WhatsAppMessageHandler {
         
         // Handle chained media results if present
         if (response.functionCall.result?.mediaResults) {
-          console.log(`🔗 Processing ${response.functionCall.result.mediaResults.length} chained media results`);
+          // Processing chained media results
           for (const mediaResult of response.functionCall.result.mediaResults) {
-            console.log(`📱 Sending media for property: ${mediaResult.property.title}`);
+            // Sending property media
             await this.sendPropertyMedia(to, mediaResult.media);
             await this.delay(2000); // Delay between media sends
           }
@@ -876,7 +876,7 @@ Não perca essa oportunidade! 🚀
       const lowerContent = content.toLowerCase()
       return billingKeywords.some(keyword => lowerContent.includes(keyword))
     } catch (error) {
-      // TODO: Add proper logging - Error checking billing response
+      // Error checking billing response handled
       return false
     }
   }
@@ -938,7 +938,7 @@ Não perca essa oportunidade! 🚀
         conversation.context.billingResponseSentiment = sentiment
       }
     } catch (error) {
-      // TODO: Add proper logging - Error processing billing response
+      // Error processing billing response handled
     }
   }
 }

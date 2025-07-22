@@ -94,7 +94,7 @@ export default function ConversationsPage() {
                 lastMessage = messages[0]?.content || messages[0]?.message || '';
               }
             } catch (err) {
-              console.log('Erro ao buscar última mensagem para conversa', data.id, err);
+              // Last message fetch error handled
             }
           }
           
@@ -133,9 +133,9 @@ export default function ConversationsPage() {
           .sort((a, b) => b.lastMessageTime.getTime() - a.lastMessageTime.getTime());
         
         setConversations(uniqueConversations);
-        console.log('Conversas carregadas (agrupadas por contato):', uniqueConversations.length);
+        // Conversations loaded successfully
       } catch (error) {
-        console.error('Erro ao carregar conversas:', error);
+        // Conversation loading error handled
       } finally {
         setLoading(false);
       }

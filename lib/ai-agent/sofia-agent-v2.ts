@@ -121,7 +121,7 @@ export class SofiaAgentV2 {
       
       // 7. Primeira chamada: determinar se precisa usar funções
       const completion = await this.openai.chat.completions.create({
-        model: 'gpt-3.5-turbo',
+        model: 'gpt-4o-mini',
         messages: messages as any,
         tools: getOpenAIFunctions(),
         tool_choice: 'auto',
@@ -195,7 +195,7 @@ export class SofiaAgentV2 {
         ];
 
         const followUp = await this.openai.chat.completions.create({
-          model: 'gpt-3.5-turbo',
+          model: 'gpt-4o-mini',
           messages: followUpMessages as any,
           max_tokens: 150,
           temperature: 0.7

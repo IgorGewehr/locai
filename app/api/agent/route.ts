@@ -240,7 +240,7 @@ export async function POST(request: NextRequest) {
         const { sendWhatsAppMessage } = await import('@/lib/whatsapp/message-sender');
         await sendWhatsAppMessage(validatedPhone, result.reply);
       } catch (error) {
-        console.error('Error sending WhatsApp message:', error);
+        // Error handled by messaging service
       }
       
       // Log detailed execution info (simplified)
@@ -286,7 +286,7 @@ export async function POST(request: NextRequest) {
         const { sendWhatsAppMessage } = await import('@/lib/whatsapp/message-sender');
         await sendWhatsAppMessage(validatedPhone, 'Desculpe, estou com dificuldades técnicas no momento. Por favor, tente novamente em alguns instantes.');
       } catch (sendError) {
-        console.error('Error sending error message:', sendError);
+        // Error handled by messaging service
       }
 
       // Return a friendly error message

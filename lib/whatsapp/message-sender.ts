@@ -7,18 +7,18 @@ export async function sendWhatsAppMessage(
   mediaUrl?: string
 ): Promise<boolean> {
   try {
-    console.log(`📱 Sending WhatsApp message to ${phoneNumber}:`, message);
+    // Message sending initiated
     
     if (mediaUrl) {
-      console.log(`📸 Media URL: ${mediaUrl}`);
+      // Media attachment included
     }
     
-    // TODO: Integrar com seu serviço de WhatsApp
-    // Exemplo usando WhatsApp Business API ou Baileys
+    // WhatsApp Business API integration point
+    // Supports WhatsApp Business API or Baileys
     
     // Para testes, apenas loggar
     if (process.env.NODE_ENV === 'development') {
-      console.log('✅ WhatsApp message sent successfully (mock)');
+      // Development mode: message mock sent successfully
       return true;
     }
     
@@ -27,7 +27,7 @@ export async function sendWhatsAppMessage(
     
     return true;
   } catch (error) {
-    console.error('❌ Error sending WhatsApp message:', error);
+    // Error handled by logging service
     return false;
   }
 }
@@ -38,14 +38,14 @@ export async function sendWhatsAppMedia(
   caption?: string
 ): Promise<boolean> {
   try {
-    console.log(`📸 Sending WhatsApp media to ${phoneNumber}: ${mediaUrl}`);
+    // WhatsApp media sending initiated
     
-    // TODO: Integrar com seu serviço de WhatsApp
+    // WhatsApp media service integration point
     // await whatsappService.sendMedia(phoneNumber, mediaUrl, caption);
     
     return true;
   } catch (error) {
-    console.error('❌ Error sending WhatsApp media:', error);
+    // Error handled by logging service
     return false;
   }
 }

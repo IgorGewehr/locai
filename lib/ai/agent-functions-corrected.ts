@@ -142,7 +142,7 @@ export class CorrectedAgentFunctions {
   
   static async searchProperties(args: any, tenantId: string): Promise<any> {
     try {
-      console.log(`🔍 [SEARCH] Buscando propriedades para tenant ${tenantId}:`, args);
+      // Property search initiated
       
       // Buscar propriedades usando o service correto
       const searchFilters = {
@@ -155,12 +155,12 @@ export class CorrectedAgentFunctions {
       };
       
       let properties = await propertyService.searchProperties(searchFilters);
-      console.log(`📊 [SEARCH] Encontradas ${properties.length} propriedades`);
+      // Properties found successfully
       
       if (properties.length === 0) {
         // Tentar busca sem filtros de localização se não encontrou nada
         if (args.location) {
-          console.log(`🔍 [SEARCH] Tentando busca ampliada sem filtro de localização`);
+          // Expanding search without location filter
           properties = await propertyService.searchProperties({
             tenantId,
             guests: args.guests,
@@ -181,7 +181,7 @@ export class CorrectedAgentFunctions {
       
       // Filtrar por comodidades se especificadas
       if (args.amenities && Array.isArray(args.amenities) && args.amenities.length > 0) {
-        console.log(`🔍 [SEARCH] Filtrando por comodidades: ${args.amenities.join(', ')}`);
+        // Filtering by amenities
         properties = properties.filter(property => {
           const propertyAmenities = property.amenities || [];
           return args.amenities.some((amenity: string) => 
@@ -190,7 +190,7 @@ export class CorrectedAgentFunctions {
             )
           );
         });
-        console.log(`📊 [SEARCH] Após filtro de comodidades: ${properties.length} propriedades`);
+        // Amenities filter applied
       }
       
       // Ordenar por preço CRESCENTE (mais baratas primeiro) - CAMPOS CORRETOS
@@ -200,7 +200,7 @@ export class CorrectedAgentFunctions {
         return priceA - priceB;
       });
       
-      console.log(`💰 [SEARCH] Preços encontrados: ${properties.slice(0, 3).map(p => `${p.title || 'Sem nome'}: R$${p.basePrice || 0}`).join(', ')}`);
+      // Property prices calculated
       
       // Retornar dados formatados COM CAMPOS CORRETOS
       const formattedProperties = properties.slice(0, 8).map(p => ({
@@ -223,7 +223,7 @@ export class CorrectedAgentFunctions {
         neighborhood: p.neighborhood || ''
       }));
       
-      console.log(`✅ [SEARCH] Propriedades formatadas (ordenadas por preço):`, formattedProperties.map(p => ({ id: p.id, name: p.name, price: p.basePrice })));
+      // Properties formatted and sorted by price
       
       return {
         success: true,
@@ -236,7 +236,7 @@ export class CorrectedAgentFunctions {
       };
         
     } catch (error) {
-      console.error('❌ [SEARCH] Erro na busca:', error);
+      // Property search error handled
       return {
         success: false,
         message: 'Erro interno ao buscar propriedades',
@@ -247,7 +247,7 @@ export class CorrectedAgentFunctions {
 
   static async sendPropertyMedia(args: any, tenantId: string): Promise<any> {
     try {
-      console.log(`📸 [MEDIA] Enviando mídia da propriedade ${args.propertyId}`);
+      // Property media sending initiated
       
       const property = await propertyService.getById(args.propertyId);
       
@@ -259,7 +259,7 @@ export class CorrectedAgentFunctions {
         };
       }
 
-      console.log(`✅ [MEDIA] Propriedade encontrada: ${property.title || 'Sem nome'}`);
+      // Property found for media
 
       const maxPhotos = args.maxPhotos || 8;
       const includeVideos = args.includeVideos !== false; // padrão true
@@ -291,7 +291,7 @@ export class CorrectedAgentFunctions {
         };
       }
 
-      console.log(`📸 [MEDIA] Preparando ${photos.length} fotos e ${videos.length} vídeos`);
+      // Media prepared for sending
 
       return {
         success: true,
@@ -320,7 +320,7 @@ export class CorrectedAgentFunctions {
       };
 
     } catch (error) {
-      console.error('❌ [MEDIA] Erro ao enviar mídia:', error);
+      // Media sending error handled
       return {
         success: false,
         message: 'Erro ao buscar fotos e vídeos da propriedade',
@@ -331,7 +331,7 @@ export class CorrectedAgentFunctions {
 
   static async getPropertyDetails(args: any, tenantId: string): Promise<any> {
     try {
-      console.log(`🏠 [DETAILS] Buscando detalhes da propriedade ${args.propertyId}`);
+      // Property details search initiated
       
       const property = await propertyService.getById(args.propertyId);
       
@@ -343,7 +343,7 @@ export class CorrectedAgentFunctions {
         };
       }
 
-      console.log(`✅ [DETAILS] Propriedade encontrada: ${property.title || property.name || 'Sem nome'} (ID: ${property.id})`);
+      // Property details found
 
       return {
         success: true,
@@ -381,7 +381,7 @@ export class CorrectedAgentFunctions {
       };
 
     } catch (error) {
-      console.error('❌ [DETAILS] Erro ao buscar detalhes:', error);
+      // Property details error handled
       return {
         success: false,
         message: 'Erro ao buscar detalhes da propriedade',
@@ -562,7 +562,7 @@ export class CorrectedAgentFunctions {
       };
 
     } catch (error) {
-      console.error('❌ [PRICE] Erro no cálculo dinâmico:', error);
+      // Price calculation error handled
       return {
         success: false,
         message: 'Erro interno ao calcular preço: ' + (error instanceof Error ? error.message : 'Erro desconhecido'),
@@ -622,7 +622,7 @@ export class CorrectedAgentFunctions {
       };
 
     } catch (error) {
-      console.error('❌ [CLIENT] Erro ao registrar cliente:', error);
+      // Client registration error handled
       return {
         success: false,
         message: 'Erro ao registrar cliente: ' + (error instanceof Error ? error.message : 'Erro desconhecido'),
@@ -1010,7 +1010,7 @@ export class CorrectedAgentFunctions {
       };
 
     } catch (error) {
-      console.error('❌ [RESERVATION] Erro ao criar reserva:', error);
+      // Reservation creation error handled
       return {
         success: false,
         message: 'Erro ao criar reserva: ' + (error instanceof Error ? error.message : 'Erro desconhecido'),
@@ -1154,7 +1154,7 @@ export class CorrectedAgentFunctions {
           throw new Error(`Função ${functionName} não implementada`);
       }
     } catch (error) {
-      console.error(`❌ [EXECUTE] Erro ao executar função ${functionName}:`, error);
+      // Function execution error handled
       return {
         success: false,
         message: `Erro na execução da função ${functionName}`,

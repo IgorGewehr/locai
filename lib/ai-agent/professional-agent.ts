@@ -592,7 +592,7 @@ Responda em português, máximo 2 linhas, coletando dados que faltam para reserv
 
     try {
       const completion = await this.openai.chat.completions.create({
-        model: 'gpt-3.5-turbo', // Usar 3.5 para booking simples!
+        model: 'gpt-4o-mini', // Usar 3.5 para booking simples!
         messages: [
           {
             role: 'system',
@@ -700,7 +700,7 @@ Responda como Sofia (vendedora imobiliária), máximo 2 linhas. NUNCA pergunte s
       });
 
       const completion = await this.openai.chat.completions.create({
-        model: 'gpt-3.5-turbo',
+        model: 'gpt-4o-mini',
         messages,
         max_tokens: 80,
         temperature: 0.4

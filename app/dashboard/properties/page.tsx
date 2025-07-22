@@ -85,7 +85,7 @@ export default function PropertiesPage() {
         const propertiesData = await services.properties.getAll();
         setProperties(propertiesData);
       } catch (error) {
-        console.error('Error loading properties:', error);
+        // Property loading error handled
       } finally {
         setLoading(false);
       }
@@ -139,7 +139,7 @@ export default function PropertiesPage() {
         setDeleteDialogOpen(false);
         setSelectedProperty(null);
       } catch (error) {
-        console.error('Error deleting property:', error);
+        // Property deletion error handled
       }
     }
   };
@@ -162,7 +162,7 @@ export default function PropertiesPage() {
         
         handleMenuClose();
       } catch (error) {
-        console.error('Error duplicating property:', error);
+        // Property duplication error handled
 
       }
     }

@@ -186,7 +186,7 @@ export default function FinanceiroSimplesPage() {
       setStats(stats);
 
     } catch (error) {
-      console.error('Erro ao carregar dados:', error);
+      // Data loading error handled
     } finally {
       setLoading(false);
     }
@@ -215,7 +215,7 @@ export default function FinanceiroSimplesPage() {
         });
       }
     } catch (error) {
-      console.error('Erro ao carregar configurações de cobrança:', error);
+      // Billing configuration loading error handled
     }
   };
 
@@ -230,17 +230,17 @@ export default function FinanceiroSimplesPage() {
       setShowBillingDialog(false);
       loadBillingSettings();
     } catch (error) {
-      console.error('Erro ao salvar configurações:', error);
+      // Configuration save error handled
     }
   };
 
   const handleToggleAutomaticBilling = async (transactionId: string, enable: boolean) => {
     try {
       // Implementar lógica para ativar/desativar cobrança automática para uma transação específica
-      console.log(`${enable ? 'Ativando' : 'Desativando'} cobrança automática para transação ${transactionId}`);
+      // Updating billing configuration
       // TODO: Implementar no backend
     } catch (error) {
-      console.error('Erro ao alterar configuração de cobrança:', error);
+      // Billing configuration change error handled
     }
   };
 

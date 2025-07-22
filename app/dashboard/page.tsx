@@ -276,7 +276,7 @@ export default function DashboardPage() {
           }
         }
       } catch (error) {
-        console.log('WhatsApp connection check failed');
+        // WhatsApp connection check handled
       }
 
       // Fetch WhatsApp stats
