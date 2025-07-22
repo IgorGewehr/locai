@@ -185,7 +185,7 @@ export const aiAgentRequestSchema = z.object({
 });
 
 export const aiAgentConfigSchema = z.object({
-  model: z.enum(['gpt-4', 'gpt-3.5-turbo']).default('gpt-4'),
+  model: z.enum(['gpt-4o-mini']).default('gpt-4o-mini'),
   temperature: z.number().min(0).max(2).default(0.7),
   maxTokens: z.number().int().positive().max(4000).default(1000),
   systemPrompt: z.string().max(2000).optional(),

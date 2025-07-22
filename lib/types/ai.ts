@@ -30,7 +30,7 @@ export interface AIPersonality {
 
 export interface AIConfiguration {
   // OpenAI
-  model: 'gpt-4' | 'gpt-4-turbo' | 'gpt-3.5-turbo'
+  model: 'gpt-4o-mini'
   temperature: number
   maxTokens: number
   

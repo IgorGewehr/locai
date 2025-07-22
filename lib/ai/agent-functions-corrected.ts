@@ -601,10 +601,13 @@ export class CorrectedAgentFunctions {
       const client = await clientServiceWrapper.createOrUpdate(clientData);
       
       console.log(`✅ [CLIENT] Cliente registrado com ID: ${client.id}`);
+      console.log(`🔍 [CLIENT] DEBUG - Tipo do client:`, typeof client);
+      console.log(`🔍 [CLIENT] DEBUG - Client.id:`, client.id);
 
       return {
         success: true,
-        client: {
+        client: client.id, // RETORNAR APENAS O ID STRING
+        clientData: { // Dados completos em campo separado se necessário
           id: client.id,
           name: client.name,
           phone: client.phone,

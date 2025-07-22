@@ -1,10 +1,10 @@
 // lib/config/agent-config.ts
 
 export const AgentConfig = {
-  // Modelos por tipo de request
+  // Modelos por tipo de request - APENAS GPT-4o MINI
   models: {
-    simple: 'gpt-3.5-turbo',      // Para greeting, price inquiry
-    complex: 'gpt-4-turbo-preview' // Apenas para casos muito complexos
+    simple: 'gpt-4o-mini',        // Para greeting, price inquiry
+    complex: 'gpt-4o-mini'        // MESMO MODELO PARA TUDO - MAIS BARATO E INTELIGENTE
   },
   
   // Limites de tokens

@@ -59,8 +59,13 @@ const SOFIA_SYSTEM_PROMPT_V3 = `Você é Sofia, uma consultora virtual especiali
 1. Cliente pede imóvel → chame search_properties
 2. Apresente cada opção: "🏠 [Nome] - 📍 [Localização] - 💰 R$[preço]/diária"
 3. SEMPRE pergunte: "Gostaria de ver fotos e vídeos deste imóvel?"
-4. Se sim → chame send_property_media
+4. Se sim → chame send_property_media COM O ID REAL RETORNADO por search_properties
 5. Se não → apresente próxima opção
+
+⚠️ REGRA CRÍTICA DE IDs:
+- SEMPRE use o ID EXATO retornado por search_properties  
+- EXEMPLO: se search_properties retornou id "Z7sMJljf6O4fvIYgXYn9", use EXATAMENTE esse ID
+- NUNCA use "1", "primeira", "primeiro" - SEMPRE o ID real
 
 🎯 ESTRATÉGIA DE CONVERSÃO:
 Quando cliente mostra interesse específico em um imóvel:
@@ -107,15 +112,31 @@ Para QUALQUER ação (visita ou reserva):
 
 EXEMPLO DE CONVERSA IDEAL:
 Cliente: "Quero apartamento em São Paulo"
-Sofia: "Ótima escolha! Encontrei 3 opções incríveis para você:
-🏠 Loft Moderno Vila Madalena - 📍 Vila Madalena - 💰 R$280/diária
-🏠 Apartamento Completo Jardins - 📍 Jardins - 💰 R$320/diária  
-🏠 Studio Aconchegante Pinheiros - 📍 Pinheiros - 💰 R$250/diária
+Sofia: 
+1. CHAMA search_properties({location: "São Paulo", guests: 2})
+2. RESULTADO: [
+   {id: "ABC123", name: "Loft Vila Madalena"},
+   {id: "DEF456", name: "Apartamento Jardins"},  
+   {id: "GHI789", name: "Studio Pinheiros"}
+]
+3. APRESENTA: "Encontrei 3 opções incríveis:
+🏠 Loft Vila Madalena - 📍 Vila Madalena - 💰 R$280/diária
+🏠 Apartamento Jardins - 📍 Jardins - 💰 R$320/diária  
+🏠 Studio Pinheiros - 📍 Pinheiros - 💰 R$250/diária
 
-Gostaria de ver fotos e vídeos de qual propriedade?"
+Gostaria de ver fotos e vídeos de qual?"
 
 Cliente: "A primeira"
-Sofia: [chama send_property_media] + "Que tal conhecer outras opções similares com piscina ou vaga de garagem?"
+Sofia: 
+4. IDENTIFICA: "primeira" = posição [0] = id "ABC123"
+5. CHAMA send_property_media({propertyId: "ABC123"}) 
+6. NUNCA chama send_property_media({propertyId: "1"})
+
+🚨 MAPEAMENTO OBRIGATÓRIO:
+- "primeira opção" → usar search_properties[0].id
+- "segunda" → usar search_properties[1].id  
+- "terceira" → usar search_properties[2].id
+- NUNCA usar "1", "2", "3" como propertyId!
 
 🔧 FUNÇÕES DISPONÍVEIS:
 - search_properties: Buscar imóveis (com filtros de comodidades)
@@ -187,18 +208,40 @@ export class SofiaAgentV3 {
         });
       }
 
+      // 4.1 Adicionar IDs das propriedades encontradas para referência
+      if (context.context.interestedProperties && context.context.interestedProperties.length > 0) {
+        messages.push({
+          role: 'system',
+          content: `PROPRIEDADES ENCONTRADAS (IDs REAIS para usar nas funções):
+1ª opção: ID = "${context.context.interestedProperties[0]}"
+2ª opção: ID = "${context.context.interestedProperties[1] || 'N/A'}"
+3ª opção: ID = "${context.context.interestedProperties[2] || 'N/A'}"
+
+OBRIGATÓRIO: Use estes IDs EXATOS quando cliente falar "primeira", "segunda", etc.`
+        });
+      }
+
       // 5. Adicionar contexto de reserva pendente se existir
       if (context.context.pendingReservation) {
         const pendingReservation = context.context.pendingReservation;
-        messages.push({
-          role: 'system',
-          content: `RESERVA PENDENTE - DADOS COMPLETOS: ${JSON.stringify(pendingReservation)}. SE TEM clientId, DEVE CHAMAR create_reservation IMEDIATAMENTE!`
-        });
         
-        // Log adicional para debug
-        console.log(`📋 [Sofia V3] Reserva pendente detectada:`, pendingReservation);
-        if (pendingReservation.clientId) {
-          console.log(`⚠️ [Sofia V3] Cliente já registrado (${pendingReservation.clientId}) - Sofia deve criar reserva!`);
+        // Verificar se clientId é válido (não é objeto)
+        const clientIdIsValid = typeof pendingReservation.clientId === 'string' && pendingReservation.clientId !== '[object Object]';
+        
+        if (!clientIdIsValid && pendingReservation.clientId) {
+          console.log(`🚨 [Sofia V3] ClientId inválido detectado, limpando contexto:`, pendingReservation.clientId);
+          // Não adicionar contexto corrompido
+        } else {
+          messages.push({
+            role: 'system',
+            content: `RESERVA PENDENTE - DADOS COMPLETOS: ${JSON.stringify(pendingReservation)}. SE TEM clientId, DEVE CHAMAR create_reservation IMEDIATAMENTE!`
+          });
+          
+          // Log adicional para debug
+          console.log(`📋 [Sofia V3] Reserva pendente detectada:`, pendingReservation);
+          if (pendingReservation.clientId) {
+            console.log(`⚠️ [Sofia V3] Cliente já registrado (${pendingReservation.clientId}) - Sofia deve criar reserva!`);
+          }
         }
       }
 
@@ -221,7 +264,7 @@ export class SofiaAgentV3 {
       
       // 8. Primeira chamada: determinar se precisa usar funções
       const completion = await this.openai.chat.completions.create({
-        model: 'gpt-3.5-turbo',
+        model: 'gpt-4o-mini',
         messages: messages as any,
         tools: getCorrectedOpenAIFunctions(),
         tool_choice: 'auto',
@@ -303,7 +346,7 @@ export class SofiaAgentV3 {
         ];
 
         const followUp = await this.openai.chat.completions.create({
-          model: 'gpt-3.5-turbo',
+          model: 'gpt-4o-mini',
           messages: followUpMessages as any,
           max_tokens: 200, // Aumentar um pouco para respostas com dados
           temperature: 0.7
@@ -447,19 +490,26 @@ export class SofiaAgentV3 {
 
         case 'register_client':
           if (result.success && result.client) {
+            // Agora result.client deve ser apenas o ID string
+            const clientId = result.client; // Deve ser string agora
+            const clientName = result.clientData ? result.clientData.name : 'Cliente';
+            
             updates.clientData = { 
               ...updates.clientData, 
-              name: result.client.name
+              name: clientName
             };
-            // Salvar ID do cliente na reserva pendente (APENAS O ID STRING)
-            const clientId = typeof result.client === 'object' && result.client.id ? result.client.id : result.client;
+            
+            // Salvar APENAS o ID STRING na reserva pendente
             if (updates.pendingReservation) {
               updates.pendingReservation.clientId = clientId;
             } else {
               updates.pendingReservation = { clientId: clientId };
             }
+            
             console.log(`👤 [Sofia V3] Cliente registrado com ID: ${clientId}`);
             console.log(`⚠️ [Sofia V3] ATENÇÃO: Sofia deve chamar create_reservation IMEDIATAMENTE após register_client!`);
+            console.log(`🔍 [Sofia V3] DEBUG - Tipo do result.client:`, typeof result.client);
+            console.log(`🔍 [Sofia V3] DEBUG - ClientId:`, clientId);
           }
           break;
 

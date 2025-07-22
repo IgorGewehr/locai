@@ -149,15 +149,9 @@ export class EnhancedOpenAIService {
     
     const userMessage = input.userMessage?.toLowerCase() || '';
     
-    // GPT-4 APENAS para criação de reservas (caso crítico)
-    if (userMessage.includes('confirmo') && userMessage.includes('reserva')) {
-      console.log('🧠 Using GPT-4 only for reservation confirmation');
-      return 'gpt-4o-mini';
-    }
-    
-    // SEMPRE GPT-3.5 para todo o resto
-    console.log('💰 Using GPT-3.5 for cost optimization');
-    return 'gpt-3.5-turbo-0125';
+    // SEMPRE usar GPT-4o Mini - melhor custo-benefício para todos os casos
+    console.log('💰 Using GPT-4o Mini for all cases - best cost/performance ratio');
+    return 'gpt-4o-mini';
   }
 
   private async callOpenAIWithRetry(
@@ -179,7 +173,7 @@ export class EnhancedOpenAIService {
             { role: "user", content: prompt }
           ],
           temperature: 0.7, // Aumentado para respostas mais naturais e criativas
-          max_tokens: model === 'gpt-3.5-turbo' ? 800 : 1200,
+          max_tokens: 800, // SEMPRE 800 já que é sempre gpt-4o-mini
           top_p: 0.8,
           frequency_penalty: 0.1,
           presence_penalty: 0.1

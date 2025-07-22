@@ -29,7 +29,7 @@ export class OpenAIService {
           ],
           response_format: { type: "json_object" },
           temperature: 0.3, // Baixo para previsibilidade
-          max_tokens: modelToUse === 'gpt-3.5-turbo' ? 500 : 800,
+          max_tokens: 500, // SEMPRE 500 já que é sempre gpt-4o-mini
         }),
         30000, // 30s timeout
         'OpenAI API call'
@@ -81,8 +81,8 @@ export class OpenAIService {
       Object.keys(conversationContext.searchFilters).length > 0
     ) || conversationContext.interestedProperties.length > 0;
     
-    // Usar GPT-4 só quando necessário
-    return (hasComplexIntent || hasRichContext) ? 'gpt-4' : 'gpt-3.5-turbo';
+    // SEMPRE usar GPT-4o Mini - mais barato e inteligente
+    return 'gpt-4o-mini';
   }
 
   private buildOptimizedPrompt(input: AIInput): string {

@@ -30,7 +30,7 @@ export const ENHANCED_SALES_PERSONALITY: AIPersonality = {
   ],
   
   // Sales-optimized model settings
-  model: 'gpt-4',
+  model: 'gpt-4o-mini',
   temperature: 0.7, // Balance creativity with consistency
   maxTokens: 800, // Concise but complete responses
   

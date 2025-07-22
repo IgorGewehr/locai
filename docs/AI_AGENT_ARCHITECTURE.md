@@ -1,735 +1,666 @@
-# Sofia AI Agent - Arquitetura Detalhada (2025)
+# Sofia V3 - AI Sales Agent Architecture (2025)
 
 ## 📋 Índice
-1. [Visão Geral](#visão-geral)
-2. [Arquitetura Corrigida](#arquitetura-corrigida)
-3. [Estrutura de Arquivos](#estrutura-de-arquivos)
-4. [Sofia Agent V2](#sofia-agent-v2)
-5. [Sistema de Funções](#sistema-de-funções)
-6. [Gerenciamento de Contexto](#gerenciamento-de-contexto)
-7. [Correções Implementadas](#correções-implementadas)
-8. [Interface de Teste](#interface-de-teste)
-9. [Performance e Economia](#performance-e-economia)
-10. [Manutenção e Extensão](#manutenção-e-extensão)
+1. [Visão Geral Sofia V3](#visão-geral-sofia-v3)
+2. [Arquitetura Completa](#arquitetura-completa)
+3. [Sistema de Funções Expandido](#sistema-de-funções-expandido)
+4. [Personalidade de Vendas](#personalidade-de-vendas)
+5. [Gerenciamento de Contexto Avançado](#gerenciamento-de-contexto-avançado)
+6. [Sistema de Agendamento de Visitas](#sistema-de-agendamento-de-visitas)
+7. [Correções e Melhorias](#correções-e-melhorias)
+8. [Migração GPT-4o Mini](#migração-gpt-4o-mini)
+9. [Dashboard de Clientes](#dashboard-de-clientes)
+10. [Documentação Técnica](#documentação-técnica)
 
 ---
 
-## 🎯 Visão Geral
+## 🎯 Visão Geral Sofia V3
 
-Sofia é a assistente virtual especializada em locação de imóveis por temporada do sistema Locai. Ela foi projetada para fornecer uma experiência conversacional natural, mantendo memória completa da conversa e executando funções específicas do sistema.
+Sofia é uma **consultora especializada em locações por temporada** que foi completamente redesenhada para ser uma **agente de vendas profissional** focada em conversão de leads e fechamento de reservas.
 
-### 🎯 **Objetivos Principais**
-1. **100% Respostas GPT**: Todas as respostas são geradas pelo ChatGPT para máxima naturalidade
-2. **Memória Completa**: Sofia lembra de tudo que foi dito na conversa do dia atual
-3. **Function Calling**: Executa funções essenciais (busca, preços, reservas)
-4. **Respostas Concisas**: Máximo 3 linhas, prática e simpática
-5. **Não Assumir Dados**: Nunca pressupõe informações que o cliente não forneceu
+### 🚀 **Principais Características V3**
+1. **Consultora de Vendas**: Personalidade focada em conversão e urgência
+2. **8 Funções Avançadas**: Sistema completo de gerenciamento de vendas
+3. **Sistema de Visitas**: Agendamento completo de visitas presenciais
+4. **Coleta de CPF**: Registro completo de clientes com documento
+5. **Gestão de Mídia**: Compartilhamento automático de fotos e vídeos
+6. **GPT-4o Mini**: Migração para modelo mais eficiente e econômico
+7. **IDs Corrigidos**: Sistema robusto de referência de propriedades
+8. **Dashboard Integrado**: Interface completa para gestão de clientes
 
 ---
 
-## 🏗️ Arquitetura Corrigida
+## 🏗️ Arquitetura Completa
 
-### Fluxo Principal
+### Fluxo Principal V3
 ```
-WhatsApp → API Route → Sofia Agent V2 → GPT-3.5 → Function Calls → Response
+WhatsApp → API Route → Sofia Agent V3 → GPT-4o Mini → Function Calls → Sales Response
 ```
 
 ### Componentes Principais
-- **Sofia Agent V2**: Lógica principal de conversação
-- **Conversation Context Service**: Gerenciamento de memória
-- **Agent Functions**: 4 funções essenciais do sistema
-- **Property Service**: Operações com propriedades
+- **Sofia Agent V3**: Consultora de vendas com personalidade otimizada
+- **Agent Functions Corrected**: 8 funções especializadas
+- **Visit Appointment System**: Sistema completo de agendamento
+- **Sales Personality Module**: Técnicas de vendas integradas
+- **Property ID Context**: Gerenciamento robusto de IDs
+- **Client Dashboard**: Interface para gestão de leads
 
 ---
 
-## 📁 Estrutura de Arquivos
+## 📁 Estrutura de Arquivos V3
 
 ```
 lib/ai-agent/
-├── sofia-agent-v2.ts           # Agente principal (VERSÃO CORRIGIDA)
-└── professional-agent.ts       # Versão anterior (DEPRECATED)
+├── sofia-agent-v3.ts              # Agente principal V3 (VERSÃO ATUAL)
+└── professional-agent.ts          # Versão anterior (DEPRECATED)
 
 lib/ai/
-├── agent-functions.ts          # 4 funções essenciais
-└── agent-functions-exports.ts  # REMOVIDO - código morto
+├── agent-functions-corrected.ts   # 8 funções especializadas
+├── sales-personality.ts           # Personalidade de vendas avançada
+└── response-generator.ts          # Sistema de respostas otimizado
+
+lib/types/
+├── visit-appointment.ts           # Sistema completo de visitas
+├── ai.ts                         # Types atualizados para GPT-4o Mini
+└── index.ts                      # Client interface com CPF
 
 lib/services/
-└── conversation-context-service.ts  # Gerenciamento de contexto
+├── openai.service.ts             # Migrado para GPT-4o Mini
+├── openai-enhanced.service.ts    # Enhanced service V3
+└── conversation-context-service.ts # Gerenciamento avançado
 
-app/api/agent/
-├── route.ts                    # Endpoint principal (usa Sofia V2)
-└── clear-context/route.ts      # Limpar contexto para testes
+app/dashboard/
+└── clients/page.tsx              # Dashboard de clientes funcional
+
+lib/validation/
+└── schemas.ts                    # Schemas atualizados (só GPT-4o Mini)
 ```
 
 ---
 
-## 🤖 Sofia Agent V2 - Implementação Detalhada
+## 🛠 Sistema de Funções Expandido
 
-### Classe Principal
+### 8 Funções Especializadas V3
+
+#### 1. **search_properties** (APRIMORADA)
 ```typescript
-export class SofiaAgentV2 {
-  private openai: OpenAI;
-  private static instance: SofiaAgentV2;  // Singleton pattern
-  
-  static getInstance(): SofiaAgentV2 {
-    if (!this.instance) {
-      this.instance = new SofiaAgentV2();
-    }
-    return this.instance;
+{
+  location?: string,        // Cidade/região
+  guests?: number,         // Número de hóspedes
+  checkIn?: string,        // Data check-in (YYYY-MM-DD)
+  checkOut?: string,       // Data check-out (YYYY-MM-DD)
+  amenities?: string[]     // Filtros de comodidades (NOVO)
+}
+```
+**Melhorias**:
+- Ordenação por preço ascendente (mais baratos primeiro)
+- Filtros de comodidades (piscina, estacionamento, banheira, etc.)
+- Retorna máximo 5 propriedades para não sobrecarregar
+- IDs reais do Firebase (sem mais "1", "2", "3")
+
+#### 2. **calculate_price** (DINAMICO)
+```typescript
+{
+  propertyId: string,      // ID real da propriedade
+  checkIn?: string,        // Data check-in
+  checkOut?: string,       // Data check-out
+  guests?: number          // Número de hóspedes
+}
+```
+**Melhorias**:
+- Cálculo dinâmico com multiplicadores
+- Consideração de feriados brasileiros
+- Surcharges por número de hóspedes
+- Preço médio por diária
+- Detalhamento completo dos custos
+
+#### 3. **send_property_media** (NOVA)
+```typescript
+{
+  propertyId: string,      // ID da propriedade
+  mediaType?: 'photos' | 'videos' | 'all'
+}
+```
+**Funcionalidades**:
+- Envio automático de fotos via WhatsApp
+- Suporte a vídeos de propriedades
+- Captions personalizadas para cada mídia
+- Integração com WhatsApp Business API
+
+#### 4. **register_client** (APRIMORADA COM CPF)
+```typescript
+{
+  name: string,            // Nome completo
+  phone: string,          // Telefone
+  document?: string,       // CPF (OBRIGATÓRIO)
+  email?: string          // Email opcional
+}
+```
+**Melhorias**:
+- CPF obrigatório para registro completo
+- Deduplicação por telefone
+- Retorna apenas ID string (sem objeto)
+- Tratamento robusto de dados duplicados
+
+#### 5. **create_reservation** (ROBUSTA)
+```typescript
+{
+  propertyId: string,      // ID real da propriedade
+  clientId: string,        // ID do cliente registrado
+  checkIn: string,         // Data check-in
+  checkOut: string,        // Data check-out
+  guests: number,          // Número de hóspedes
+  notes?: string          // Observações especiais
+}
+```
+
+#### 6. **schedule_visit** (NOVA)
+```typescript
+{
+  propertyId: string,      // ID da propriedade
+  clientId: string,        // ID do cliente
+  preferredDate: string,   // Data preferida (YYYY-MM-DD)
+  preferredTime: string,   // Horário preferido
+  notes?: string          // Observações
+}
+```
+**Funcionalidades**:
+- Sistema completo de agendamento
+- Verificação de disponibilidade do agente
+- Horários comerciais configuráveis
+- Notificações automáticas
+
+#### 7. **check_visit_availability** (NOVA)
+```typescript
+{
+  date: string,           // Data para verificar (YYYY-MM-DD)
+  propertyId?: string     // ID da propriedade (opcional)
+}
+```
+**Funcionalidades**:
+- Verificação de horários disponíveis
+- Consideração de agenda do agente
+- Sugestão de horários alternativos
+- Integração com sistema de visitas
+
+#### 8. **get_property_details** (MELHORADA)
+```typescript
+{
+  propertyId: string      // ID real da propriedade
+}
+```
+**Melhorias**:
+- Detalhes completos da propriedade
+- Informações de localização precisas
+- Lista completa de comodidades
+- Status de disponibilidade
+- Preços e políticas
+
+---
+
+## 💼 Personalidade de Vendas
+
+### Sistema de Personalidade Avançado
+Sofia V3 utiliza o módulo `sales-personality.ts` com técnicas profissionais de vendas:
+
+#### Características Principais
+```typescript
+{
+  name: 'Sofia',
+  tone: 'friendly_professional',    // Amigável mas expert
+  style: 'consultative',           // Focada em soluções
+  responseLength: 'adaptive',      // Baseado no engajamento
+  model: 'gpt-4o-mini',           // Modelo otimizado
+  temperature: 0.7,               // Criatividade balanceada
+  maxTokens: 800                  // Respostas completas
+}
+```
+
+#### Comportamentos de Vendas
+- **Tratamento de Objeções**: Respostas específicas para preço, localização, disponibilidade
+- **Criação de Urgência**: Mensagens de escassez, limite de tempo, popularidade
+- **Prova Social**: Depoimentos, estatísticas, atividade recente
+- **Conexão Emocional**: Foco em família, experiência, valor
+
+### Prompt Otimizado V3
+```
+Você é Sofia, consultora especializada em locações por temporada com foco em VENDAS e CONVERSÃO.
+
+PERSONALIDADE PROFISSIONAL:
+- Consultora experiente e confiável
+- Entusiasmada em fechar negócios
+- Cria senso de urgência apropriado
+- Oferece sempre alternativas
+- Foca em benefícios, não apenas características
+
+FLUXO DE VENDAS OBRIGATÓRIO:
+1. Apresente propriedades com: nome, localização, preço médio/diária
+2. SEMPRE pergunte se cliente quer ver fotos/vídeos (use send_property_media)
+3. Colete CPF além de nome e telefone (use register_client)
+4. Ofereça alternativas com comodidades (piscina, estacionamento, banheira)
+5. Dê DUAS opções: VISITA presencial OU reserva direta
+6. Use técnicas de urgência e prova social
+
+REGRAS DE CONVERSÃO:
+- Propriedades mais baratas primeiro
+- Sempre mencione diferenciais únicos
+- Crie experiências emocionais ("imagine sua família aqui...")
+- Use prova social ("95% recomendam", "nota 4.9/5")
+- Ofereça desconto por decisão rápida
+```
+
+---
+
+## 🧮 Gerenciamento de Contexto Avançado
+
+### Interface de Contexto V3
+```typescript
+interface AgentContext {
+  searchCriteria?: PropertySearchFilters
+  interestedProperties?: string[]           // IDs reais das propriedades
+  pendingReservation?: PendingReservation
+  pendingVisit?: PendingVisitAppointment   // NOVO
+  clientId?: string                        // ID do cliente registrado
+  clientProfile?: {                        // EXPANDIDO
+    name?: string
+    phone?: string
+    document?: string                      // CPF
+    email?: string
+    preferences?: ClientPreferences
+    leadScore?: number
+    totalReservations?: number
+    totalSpent?: number
+  }
+  conversationStage?: ConversationStage
+  lastPropertyShown?: string
+  mediaShared?: string[]                   // NOVO - controle de mídia compartilhada
+}
+```
+
+### Sistema de IDs Corrigido
+Para resolver o problema de IDs incorretos ("1", "2", "3"), implementamos:
+
+```typescript
+// Context com IDs reais
+messages.push({
+  role: 'system',
+  content: `PROPRIEDADES ENCONTRADAS (IDs REAIS para usar nas funções):
+1ª opção: ID = "${context.context.interestedProperties[0]}"
+2ª opção: ID = "${context.context.interestedProperties[1] || 'N/A'}"
+3ª opção: ID = "${context.context.interestedProperties[2] || 'N/A'}"
+
+OBRIGATÓRIO: Use estes IDs EXATOS quando cliente falar "primeira", "segunda", etc.`
+});
+```
+
+---
+
+## 📅 Sistema de Agendamento de Visitas
+
+### Tipos Completos V3
+```typescript
+export interface VisitAppointment {
+  id: string
+  clientId: string
+  propertyId: string
+  tenantId: string
+  scheduledDate: Date
+  scheduledTime: string
+  status: VisitStatus
+  type: VisitType
+  agentId?: string
+  notes?: string
+  createdAt: Date
+  updatedAt: Date
+  confirmationSent: boolean
+  reminderSent: boolean
+  clientInfo: {
+    name: string
+    phone: string
+    email?: string
+  }
+  propertyInfo: {
+    title: string
+    address: string
+    coordinates?: { lat: number, lng: number }
+  }
+}
+
+export type VisitStatus = 
+  | 'scheduled'    // Agendada
+  | 'confirmed'    // Confirmada pelo cliente
+  | 'completed'    // Realizada
+  | 'cancelled'    // Cancelada
+  | 'no_show'      // Cliente não compareceu
+  | 'rescheduled'  // Reagendada
+
+export type VisitType = 
+  | 'property_tour'      // Tour pela propriedade
+  | 'consultation'       // Consulta/orientação
+  | 'key_handover'       // Entrega de chaves
+  | 'check_in_support'   // Apoio no check-in
+```
+
+### Fluxo de Agendamento
+1. Cliente manifesta interesse em visita
+2. Sofia pergunta data e horário preferidos
+3. `check_visit_availability` verifica disponibilidade
+4. `schedule_visit` confirma o agendamento
+5. Sistema envia confirmação automática
+6. Lembretes são enviados antes da visita
+
+---
+
+## ⚠️ Correções e Melhorias
+
+### **Problema 1**: IDs Incorretos ("1", "2", "3")
+**Causa**: Sofia usava IDs fictícios ao invés dos IDs reais do Firebase
+**Solução V3**:
+- Context com IDs reais das propriedades encontradas
+- Prompt explícito com mapeamento de IDs
+- Validação de IDs antes de executar funções
+- Logs detalhados para debug
+
+### **Problema 2**: Client ID como [object Object]
+**Causa**: `register_client` retornava objeto completo ao invés de apenas ID
+**Solução V3**:
+```typescript
+// ANTES (PROBLEMA)
+return {
+  success: true,
+  client: clientDoc // Objeto completo
+}
+
+// DEPOIS (CORRIGIDO)
+return {
+  success: true,
+  client: client.id, // APENAS O ID STRING
+  clientData: { // Dados completos em campo separado
+    id: client.id,
+    name: client.name,
+    // ...
   }
 }
 ```
 
-### Processo de Conversação
-
-#### 1. **Recepção da Mensagem**
+### **Problema 3**: Propriedades não ordenadas por preço
+**Causa**: Sort function não funcionava corretamente
+**Solução V3**:
 ```typescript
-async processMessage(input: SofiaInput): Promise<SofiaResponse>
+// Ordenação explícita por preço ascendente
+.sort((a, b) => {
+  const priceA = a.pricing?.basePrice || 0;
+  const priceB = b.pricing?.basePrice || 0;
+  return priceA - priceB; // Mais barato primeiro
+})
 ```
 
-#### 2. **Obtenção do Contexto**
-- Busca contexto existente no Firebase
-- Obtém histórico **apenas do dia atual**
-- Limita a 10 mensagens recentes para não confundir o GPT
-
-#### 3. **Construção das Mensagens**
+### **Problema 4**: Firebase undefined errors
+**Causa**: Tentativa de salvar campos undefined
+**Solução V3**:
 ```typescript
-const messages: MessageHistory[] = [
-  { role: 'system', content: SOFIA_SYSTEM_PROMPT },
-  { role: 'system', content: `Informações coletadas: ${context}` },
-  ...historyMessages,
-  { role: 'user', content: input.message }
-];
+// Filtrar campos undefined
+const filteredData = Object.fromEntries(
+  Object.entries(data).filter(([_, value]) => 
+    value !== undefined && value !== null && value !== ''
+  )
+);
 ```
-
-#### 4. **Primeira Chamada GPT**
-- Determina se precisa usar funções
-- Usa `tool_choice: 'auto'`
-- Temperatura 0.7 para naturalidade
-- Max 150 tokens para concisão
-
-#### 5. **Execução de Funções (se necessário)**
-- Executa funções solicitadas pelo GPT
-- Trata erros de execução
-- Atualiza contexto baseado nos resultados
-
-#### 6. **Segunda Chamada GPT (se houve funções)**
-- Gera resposta baseada nos resultados das funções
-- Formato correto de `tool_calls` e `tool_messages`
-- Evita o erro "tool_call_id not found"
-
-#### 7. **Persistência**
-- Salva mensagens no histórico
-- Atualiza contexto no Firebase
-- Incrementa contador de tokens
 
 ---
 
-## 🛠 Sistema de Funções
+## 🚀 Migração GPT-4o Mini
 
-### 4 Funções Essenciais
+### Benefícios da Migração
+- **Custo**: 60% mais barato que GPT-3.5 Turbo
+- **Performance**: Mais rápido que GPT-4
+- **Qualidade**: Superior ao GPT-3.5 Turbo
+- **Eficiência**: Melhor compreensão de contexto
 
-#### 1. **search_properties**
+### Arquivos Migrados
+```typescript
+// Todos os arquivos agora usam apenas GPT-4o Mini:
+- lib/services/openai.service.ts           ✅ gpt-4o-mini
+- lib/services/openai-enhanced.service.ts  ✅ gpt-4o-mini
+- lib/config/agent-config.ts               ✅ gpt-4o-mini
+- lib/ai/sales-personality.ts              ✅ gpt-4o-mini
+- lib/validation/schemas.ts                ✅ apenas gpt-4o-mini permitido
+```
+
+### Configuração Otimizada
 ```typescript
 {
-  location: string,    // Cidade/região OBRIGATÓRIA
-  guests?: number,     // Número de hóspedes
-  checkIn?: string,    // Data check-in (YYYY-MM-DD)
-  checkOut?: string    // Data check-out (YYYY-MM-DD)
+  model: 'gpt-4o-mini',
+  temperature: 0.7,        // Criatividade para vendas
+  max_tokens: 800,         // Respostas completas
+  top_p: 0.8,
+  frequency_penalty: 0.1,
+  presence_penalty: 0.1
 }
 ```
 
-#### 2. **calculate_price**
-```typescript
-{
-  propertyId: string,  // ID da propriedade
-  nights?: number      // Número de noites
-}
-```
+---
 
-#### 3. **create_reservation**
-```typescript
-{
-  propertyId: string,
-  clientName: string,
-  clientPhone: string,
-  checkIn: string,
-  checkOut: string,
-  guests: number
-}
-```
+## 👥 Dashboard de Clientes
 
-#### 4. **register_client**
+### Interface Atualizada V3
+Localização: `/app/dashboard/clients/page.tsx`
+
+#### Funcionalidades Implementadas
+- **Lista Completa**: Todos os clientes com dados reais
+- **Informações CPF**: Documento exibido quando disponível
+- **Estatísticas**: Total de reservas e valor gasto
+- **Refresh Button**: Atualização manual dos dados
+- **Estados de Loading**: UX aprimorada
+- **Error Handling**: Tratamento robusto de erros
+- **Empty States**: Mensagens quando sem dados
+
+#### Interface Cliente V3
 ```typescript
-{
-  name: string,
-  phone: string,
+export interface Client {
+  id: string
+  name: string
   email?: string
+  phoneNumber: string
+  document?: string              // CPF
+  address?: ClientAddress
+  preferences?: ClientPreferences
+  tags: string[]
+  tenantId: string
+  createdAt: Date
+  updatedAt: Date
+  source?: 'whatsapp' | 'website' | 'referral' | 'manual'
+  totalReservations?: number     // NOVO
+  totalSpent?: number           // NOVO
+  lastInteraction?: Date        // NOVO
 }
 ```
 
-### Implementação
-- **Error Handling**: Try-catch em todas as funções
-- **Service Integration**: Usa `propertyService.getActiveProperties(tenantId)`
-- **Parameter Validation**: Valida campos obrigatórios
-- **Fallback**: Respostas padrão em caso de erro
+### Serviços Integrados
+- `clientServiceWrapper`: Serviço unificado
+- Integração com Firestore
+- Caching para performance
+- Validação de dados
 
 ---
 
-## 🧮 Gerenciamento de Contexto
+## 📊 Fluxo de Vendas Completo V3
 
-### Interface de Contexto
+### 1. **Greeting & Discovery**
+- Sofia cumprimenta e identifica necessidades
+- Coleta informações básicas: cidade, datas, pessoas
+- Estabelece rapport e confiança
+
+### 2. **Property Presentation**
+- Busca propriedades com `search_properties`
+- Apresenta com nome, localização, preço médio
+- **SEMPRE pergunta se quer ver fotos/vídeos**
+
+### 3. **Media Sharing**
+- Usa `send_property_media` automaticamente
+- Compartilha fotos com captions otimizadas
+- Destaca diferenciais visuais
+
+### 4. **Client Registration**
+- Coleta nome, telefone e **CPF obrigatório**
+- Usa `register_client` com dados completos
+- Deduplicação por telefone
+
+### 5. **Objection Handling**
+- Trata objeções de preço com alternativas
+- Oferece propriedades com comodidades específicas
+- Cria urgência com escassez e tempo limite
+
+### 6. **Decision Point**
+- Oferece **DUAS opções claras**:
+  - **Visita presencial**: Usa `schedule_visit`
+  - **Reserva direta**: Usa `create_reservation`
+
+### 7. **Closing**
+- Confirma todos os detalhes
+- Finaliza com urgência apropriada
+- Gera confirmações automáticas
+
+---
+
+## 🎯 Prompt System V3
+
+### Prompt Principal Otimizado
+```
+Você é Sofia, consultora ESPECIALISTA em locações por temporada com FOCO EM VENDAS.
+
+🎯 OBJETIVO: Converter leads em reservas através de consultoria profissional.
+
+🏆 PERSONALIDADE PROFISSIONAL:
+- Consultora experiente e entusiasmada
+- Cria senso de urgência apropriado
+- Sempre oferece alternativas
+- Foca em benefícios emocionais
+- Usa técnicas de prova social
+
+📋 FLUXO DE VENDAS OBRIGATÓRIO:
+1. Apresente propriedades com: NOME + LOCALIZAÇÃO + PREÇO MÉDIO/DIÁRIA
+2. SEMPRE pergunte: "Gostaria de ver as fotos e vídeos desta propriedade?"
+3. Registre cliente com: NOME + TELEFONE + CPF (obrigatório)
+4. Ofereça alternativas baseadas em comodidades (piscina, estacionamento, banheira)
+5. Dê DUAS opções claras: VISITA presencial OU reserva direta
+6. Use urgência: "apenas 2 datas disponíveis", "95% recomendam"
+
+🎨 TÉCNICAS DE CONVERSÃO:
+- Mostre propriedades mais baratas PRIMEIRO
+- Use experiências emocionais: "imagine sua família relaxando aqui..."
+- Aplique prova social: "nota 4.9/5", "família acabou de fazer check-out e adorou"
+- Ofereça desconto por decisão rápida
+- Sempre mencione diferenciais únicos
+
+⚠️ REGRAS CRÍTICAS:
+- Use IDs REAIS das propriedades (nunca invente)
+- Quando cliente falar "primeira", "segunda", use o ID correto do contexto
+- CPF é OBRIGATÓRIO no registro de cliente
+- Sempre ofereça ver mídia após apresentar propriedade
+- Dê opção de visita E reserva direta
+
+🚀 FUNÇÃO PARA CADA SITUAÇÃO:
+- Busca: search_properties
+- Mídia: send_property_media
+- Preços: calculate_price  
+- Registro: register_client (com CPF)
+- Visita: schedule_visit
+- Reserva: create_reservation
+```
+
+---
+
+## 🔧 Documentação Técnica
+
+### Configuração de Desenvolvimento
+```bash
+# Instalar dependências
+npm install
+
+# Iniciar desenvolvimento
+npm run dev
+
+# Testar Sofia V3
+# Acesse: http://localhost:3000/dashboard/teste
+```
+
+### Variáveis de Ambiente
+```bash
+# OpenAI (obrigatório)
+OPENAI_API_KEY=sk-...
+
+# Firebase (obrigatório)  
+NEXT_PUBLIC_FIREBASE_API_KEY=...
+FIREBASE_PRIVATE_KEY=...
+
+# WhatsApp Business API
+WHATSAPP_ACCESS_TOKEN=...
+WHATSAPP_PHONE_NUMBER_ID=...
+```
+
+### Estrutura de Testes
 ```typescript
-interface ConversationContextData {
-  intent: string;
-  stage: 'greeting' | 'discovery' | 'presentation' | 'negotiation' | 'closing';
-  clientData: {
-    name?: string;
-    city?: string;          // ⚠️ Só preenche quando cliente mencionar
-    budget?: number;
-    guests?: number;
-    checkIn?: string;
-    checkOut?: string;
-  };
-  interestedProperties: string[];  // IDs das propriedades
-  lastAction?: string;
-}
+// Cenários de teste recomendados:
+1. "olá, quero um ap em floripa"
+2. "quero ver fotos"  
+3. "meu nome é João, telefone 11999999999, CPF 12345678901"
+4. "prefiro agendar uma visita"
+5. "quero fazer a reserva direto"
 ```
 
-### Atualização por Função
-- **search_properties**: Salva cidade, hóspedes, datas → stage: 'discovery'
-- **calculate_price**: Atualiza stage para 'presentation'
-- **create_reservation**: Atualiza stage para 'closing'
-- **register_client**: Salva nome do cliente
-
-### Persistência
-- **Firebase Firestore**: Armazena contexto e histórico
-- **TTL**: Contexto expira após 24 horas
-- **Cleanup**: Remove contextos expirados automaticamente
-- **Error Resilience**: Trata valores undefined
-
----
-
-## ⚠️ Correções Implementadas
-
-### **Problema 1**: Sofia assumia Florianópolis
-**Causa**: Contexto persistia entre diferentes conversas  
-**Solução**: Filtro por data atual no histórico
+### Logs de Debug
+Sofia V3 inclui logging detalhado:
 ```typescript
-private async getCurrentDayHistory() {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  // Filtra apenas mensagens de hoje
-}
-```
-
-### **Problema 2**: Erro propertyService.getPropertiesByTenant  
-**Causa**: Método não existia  
-**Solução**: Usar `propertyService.getActiveProperties(tenantId)`
-
-### **Problema 3**: Erro OpenAI tool_calls  
-**Causa**: tool_call_id não tinha resposta correspondente  
-**Solução**: Formato correto de tool messages
-```typescript
-toolMessages.push({
-  role: 'tool',
-  tool_call_id: toolCall.id,
-  content: JSON.stringify(result)
-});
-```
-
-### **Problema 4**: Campos undefined no Firebase  
-**Causa**: Tentativa de salvar valores undefined  
-**Solução**: Filtrar campos undefined
-```typescript
-const cleanedUpdates: any = {};
-Object.entries(updates).forEach(([key, value]) => {
-  if (value !== undefined) {
-    cleanedUpdates[key] = value;
-  }
-});
+// Logs principais
+console.log('🏠 Propriedades encontradas:', properties.length);
+console.log('💰 Preço calculado:', calculation);
+console.log('📞 Cliente registrado ID:', clientId);
+console.log('📅 Visita agendada:', appointment);
 ```
 
 ---
 
-## 🧪 Interface de Teste
+## ✅ Status Atual V3
 
-### Localização
-`/dashboard/teste`
+### ✅ **Recursos Implementados**
+- [x] Personalidade de vendas otimizada
+- [x] 8 funções especializadas funcionando
+- [x] Sistema de visitas completo
+- [x] Coleta de CPF obrigatória
+- [x] IDs reais corrigidos
+- [x] Migração GPT-4o Mini
+- [x] Dashboard de clientes funcional
+- [x] Compartilhamento de mídia
+- [x] Ordenação por preço
+- [x] Tratamento de objetos duplicate
 
-### Funcionalidades
-- Simulação de conversa WhatsApp
-- Visualização de tokens gastos
-- Botão para limpar contexto
-- Histórico completo da conversa
-- Indicadores de ações executadas
+### ✅ **Correções Validadas**
+- [x] Sofia não assume mais Florianópolis
+- [x] IDs reais ao invés de "1", "2", "3"
+- [x] Client ID como string, não objeto
+- [x] Propriedades ordenadas por preço
+- [x] Firebase undefined errors corrigidos
+- [x] Funções executam sem erro
+- [x] Context management robusto
+- [x] Error handling profissional
 
-### Fluxo de Teste Recomendado
-1. **"ola quero um ap"** → Sofia deve perguntar a cidade
-2. **"florianopolis"** → Sofia deve buscar propriedades  
-3. **"quero um apartamento barato"** → Sofia deve mostrar opções
-4. **Usar botão "Refresh"** para limpar contexto entre testes
-
----
-
-## 🚀 Performance e Economia
-
-### Otimizações
-- **GPT-3.5 Turbo**: 10x mais barato que GPT-4
-- **Limite de Tokens**: 150 por resposta mantém concisão
-- **Contexto Limitado**: Apenas 10 mensagens recentes
-- **Cache de Contexto**: Firebase para persistência
-- **Singleton Pattern**: Uma instância para todo sistema
-
-### Métricas
-- **Tokens Utilizados**: Rastreamento por conversa
-- **Funções Executadas**: Contador de actions
-- **Tempo de Resposta**: Medição automática
-- **Taxa de Erro**: Logging detalhado
-- **Context Hits**: Reutilização de contexto
+### 🚀 **Performance e Economia**
+- [x] GPT-4o Mini: 60% economia vs GPT-3.5
+- [x] Respostas mais rápidas e inteligentes
+- [x] Function calling otimizado
+- [x] Context management eficiente
+- [x] Error recovery automático
 
 ---
 
-## 🔧 Manutenção e Extensão
-
-### Para Modificar Comportamento da Sofia
-1. Editar `SOFIA_SYSTEM_PROMPT` em `sofia-agent-v2.ts`
-2. Ajustar parâmetros do GPT (temperature, max_tokens)
-3. Modificar lógica de `updateContextFromFunction`
-
-### Para Adicionar Nova Função
-1. Adicionar à `ESSENTIAL_AI_FUNCTIONS` em `agent-functions.ts`
-2. Implementar método na classe `SimplifiedAgentFunctions`
-3. Adicionar lógica de contexto em `updateContextFromFunction`
-
-### Para Alterar Contexto
-1. Modificar interface `ConversationContextData`
-2. Atualizar migração de dados se necessário
-3. Ajustar lógica de atualização
-
----
-
-## 📊 Fluxo de Conversa Ideal
-
-1. **Greeting**: Sofia cumprimenta e pergunta cidade
-2. **Discovery**: Cliente informa cidade → Sofia busca propriedades
-3. **Presentation**: Mostra opções → Cliente pergunta preços
-4. **Negotiation**: Discussão de detalhes
-5. **Closing**: Criação da reserva
-
----
-
-## 🎯 System Prompt Atual
-
-```
-Você é Sofia, uma assistente virtual especializada em aluguel de imóveis por temporada.
-
-PERSONALIDADE:
-- Simpática, prática e direta
-- Responde em português brasileiro casual
-- Usa emojis moderadamente
-- Foca em ajudar o cliente a encontrar o imóvel ideal
-
-REGRAS IMPORTANTES:
-1. SEMPRE responda de forma concisa (máximo 3 linhas)
-2. NUNCA assuma informações que o cliente não forneceu
-3. SEMPRE pergunte a cidade se não foi mencionada
-4. Use as funções disponíveis para buscar propriedades e criar reservas
-5. Lembre-se de TUDO que o cliente disse na conversa atual
-6. Seja proativa em sugerir próximos passos
-
-FLUXO IDEAL:
-1. Cumprimentar e perguntar dados básicos (cidade, datas, pessoas)
-2. Buscar e apresentar opções (use search_properties APENAS após ter cidade)
-3. Mostrar detalhes e valores (use calculate_price)
-4. Criar a reserva (use create_reservation)
-```
-
----
-
-## 📦 Arquivos Removidos
-
-- `lib/ai-agent/sofia-agent.ts` → Versão com problemas
-- `lib/ai/agent-functions-exports.ts` → Código não utilizado
-- Referências no `app/api/agent/route.ts` atualizadas
-
----
-
-## ✅ Status Atual
-
-✅ **Todas as respostas via GPT**  
-✅ **Memória completa da conversa**  
-✅ **Function calling funcionando**  
-✅ **Não assume informações**  
-✅ **Errors corrigidos**  
-✅ **Código morto removido**  
-✅ **Documentação atualizada**
-
-**Sofia está pronta para uso em produção! 🎉**# Sofia AI Agent - Arquitetura Detalhada (2025)
-
-## 📋 Índice
-1. [Visão Geral](#visão-geral)
-2. [Arquitetura Corrigida](#arquitetura-corrigida)
-3. [Estrutura de Arquivos](#estrutura-de-arquivos)
-4. [Sofia Agent V2](#sofia-agent-v2)
-5. [Sistema de Funções](#sistema-de-funções)
-6. [Gerenciamento de Contexto](#gerenciamento-de-contexto)
-7. [Correções Implementadas](#correções-implementadas)
-8. [Interface de Teste](#interface-de-teste)
-9. [Performance e Economia](#performance-e-economia)
-10. [Manutenção e Extensão](#manutenção-e-extensão)
-
----
-
-## 🎯 Visão Geral
-
-Sofia é a assistente virtual especializada em locação de imóveis por temporada do sistema Locai. Ela foi projetada para fornecer uma experiência conversacional natural, mantendo memória completa da conversa e executando funções específicas do sistema.
-
-### 🎯 **Objetivos Principais**
-1. **100% Respostas GPT**: Todas as respostas são geradas pelo ChatGPT para máxima naturalidade
-2. **Memória Completa**: Sofia lembra de tudo que foi dito na conversa do dia atual
-3. **Function Calling**: Executa funções essenciais (busca, preços, reservas)
-4. **Respostas Concisas**: Máximo 3 linhas, prática e simpática
-5. **Não Assumir Dados**: Nunca pressupõe informações que o cliente não forneceu
-
----
-
-## 🏗️ Arquitetura Corrigida
-
-### Fluxo Principal
-```
-WhatsApp → API Route → Sofia Agent V2 → GPT-3.5 → Function Calls → Response
-```
-
-### Componentes Principais
-- **Sofia Agent V2**: Lógica principal de conversação
-- **Conversation Context Service**: Gerenciamento de memória
-- **Agent Functions**: 4 funções essenciais do sistema
-- **Property Service**: Operações com propriedades
-
----
-
-## 📁 Estrutura de Arquivos
-
-```
-lib/ai-agent/
-├── sofia-agent-v2.ts           # Agente principal (VERSÃO CORRIGIDA)
-└── professional-agent.ts       # Versão anterior (DEPRECATED)
-
-lib/ai/
-├── agent-functions.ts          # 4 funções essenciais
-└── agent-functions-exports.ts  # REMOVIDO - código morto
-
-lib/services/
-└── conversation-context-service.ts  # Gerenciamento de contexto
-
-app/api/agent/
-├── route.ts                    # Endpoint principal (usa Sofia V2)
-└── clear-context/route.ts      # Limpar contexto para testes
-```
-
----
-
-## 🤖 Sofia Agent V2 - Implementação Detalhada
-
-### Classe Principal
-```typescript
-export class SofiaAgentV2 {
-  private openai: OpenAI;
-  private static instance: SofiaAgentV2;  // Singleton pattern
-  
-  static getInstance(): SofiaAgentV2 {
-    if (!this.instance) {
-      this.instance = new SofiaAgentV2();
-    }
-    return this.instance;
-  }
-}
-```
-
-### Processo de Conversação
-
-#### 1. **Recepção da Mensagem**
-```typescript
-async processMessage(input: SofiaInput): Promise<SofiaResponse>
-```
-
-#### 2. **Obtenção do Contexto**
-- Busca contexto existente no Firebase
-- Obtém histórico **apenas do dia atual**
-- Limita a 10 mensagens recentes para não confundir o GPT
-
-#### 3. **Construção das Mensagens**
-```typescript
-const messages: MessageHistory[] = [
-  { role: 'system', content: SOFIA_SYSTEM_PROMPT },
-  { role: 'system', content: `Informações coletadas: ${context}` },
-  ...historyMessages,
-  { role: 'user', content: input.message }
-];
-```
-
-#### 4. **Primeira Chamada GPT**
-- Determina se precisa usar funções
-- Usa `tool_choice: 'auto'`
-- Temperatura 0.7 para naturalidade
-- Max 150 tokens para concisão
-
-#### 5. **Execução de Funções (se necessário)**
-- Executa funções solicitadas pelo GPT
-- Trata erros de execução
-- Atualiza contexto baseado nos resultados
-
-#### 6. **Segunda Chamada GPT (se houve funções)**
-- Gera resposta baseada nos resultados das funções
-- Formato correto de `tool_calls` e `tool_messages`
-- Evita o erro "tool_call_id not found"
-
-#### 7. **Persistência**
-- Salva mensagens no histórico
-- Atualiza contexto no Firebase
-- Incrementa contador de tokens
-
----
-
-## 🛠 Sistema de Funções
-
-### 4 Funções Essenciais
-
-#### 1. **search_properties**
-```typescript
-{
-  location: string,    // Cidade/região OBRIGATÓRIA
-  guests?: number,     // Número de hóspedes
-  checkIn?: string,    // Data check-in (YYYY-MM-DD)
-  checkOut?: string    // Data check-out (YYYY-MM-DD)
-}
-```
-
-#### 2. **calculate_price**
-```typescript
-{
-  propertyId: string,  // ID da propriedade
-  nights?: number      // Número de noites
-}
-```
-
-#### 3. **create_reservation**
-```typescript
-{
-  propertyId: string,
-  clientName: string,
-  clientPhone: string,
-  checkIn: string,
-  checkOut: string,
-  guests: number
-}
-```
-
-#### 4. **register_client**
-```typescript
-{
-  name: string,
-  phone: string,
-  email?: string
-}
-```
-
-### Implementação
-- **Error Handling**: Try-catch em todas as funções
-- **Service Integration**: Usa `propertyService.getActiveProperties(tenantId)`
-- **Parameter Validation**: Valida campos obrigatórios
-- **Fallback**: Respostas padrão em caso de erro
-
----
-
-## 🧮 Gerenciamento de Contexto
-
-### Interface de Contexto
-```typescript
-interface ConversationContextData {
-  intent: string;
-  stage: 'greeting' | 'discovery' | 'presentation' | 'negotiation' | 'closing';
-  clientData: {
-    name?: string;
-    city?: string;          // ⚠️ Só preenche quando cliente mencionar
-    budget?: number;
-    guests?: number;
-    checkIn?: string;
-    checkOut?: string;
-  };
-  interestedProperties: string[];  // IDs das propriedades
-  lastAction?: string;
-}
-```
-
-### Atualização por Função
-- **search_properties**: Salva cidade, hóspedes, datas → stage: 'discovery'
-- **calculate_price**: Atualiza stage para 'presentation'
-- **create_reservation**: Atualiza stage para 'closing'
-- **register_client**: Salva nome do cliente
-
-### Persistência
-- **Firebase Firestore**: Armazena contexto e histórico
-- **TTL**: Contexto expira após 24 horas
-- **Cleanup**: Remove contextos expirados automaticamente
-- **Error Resilience**: Trata valores undefined
-
----
-
-## ⚠️ Correções Implementadas
-
-### **Problema 1**: Sofia assumia Florianópolis
-**Causa**: Contexto persistia entre diferentes conversas  
-**Solução**: Filtro por data atual no histórico
-```typescript
-private async getCurrentDayHistory() {
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  // Filtra apenas mensagens de hoje
-}
-```
-
-### **Problema 2**: Erro propertyService.getPropertiesByTenant  
-**Causa**: Método não existia  
-**Solução**: Usar `propertyService.getActiveProperties(tenantId)`
-
-### **Problema 3**: Erro OpenAI tool_calls  
-**Causa**: tool_call_id não tinha resposta correspondente  
-**Solução**: Formato correto de tool messages
-```typescript
-toolMessages.push({
-  role: 'tool',
-  tool_call_id: toolCall.id,
-  content: JSON.stringify(result)
-});
-```
-
-### **Problema 4**: Campos undefined no Firebase  
-**Causa**: Tentativa de salvar valores undefined  
-**Solução**: Filtrar campos undefined
-```typescript
-const cleanedUpdates: any = {};
-Object.entries(updates).forEach(([key, value]) => {
-  if (value !== undefined) {
-    cleanedUpdates[key] = value;
-  }
-});
-```
-
----
-
-## 🧪 Interface de Teste
-
-### Localização
-`/dashboard/teste`
-
-### Funcionalidades
-- Simulação de conversa WhatsApp
-- Visualização de tokens gastos
-- Botão para limpar contexto
-- Histórico completo da conversa
-- Indicadores de ações executadas
-
-### Fluxo de Teste Recomendado
-1. **"ola quero um ap"** → Sofia deve perguntar a cidade
-2. **"florianopolis"** → Sofia deve buscar propriedades  
-3. **"quero um apartamento barato"** → Sofia deve mostrar opções
-4. **Usar botão "Refresh"** para limpar contexto entre testes
-
----
-
-## 🚀 Performance e Economia
-
-### Otimizações
-- **GPT-3.5 Turbo**: 10x mais barato que GPT-4
-- **Limite de Tokens**: 150 por resposta mantém concisão
-- **Contexto Limitado**: Apenas 10 mensagens recentes
-- **Cache de Contexto**: Firebase para persistência
-- **Singleton Pattern**: Uma instância para todo sistema
-
-### Métricas
-- **Tokens Utilizados**: Rastreamento por conversa
-- **Funções Executadas**: Contador de actions
-- **Tempo de Resposta**: Medição automática
-- **Taxa de Erro**: Logging detalhado
-- **Context Hits**: Reutilização de contexto
-
----
-
-## 🔧 Manutenção e Extensão
-
-### Para Modificar Comportamento da Sofia
-1. Editar `SOFIA_SYSTEM_PROMPT` em `sofia-agent-v2.ts`
-2. Ajustar parâmetros do GPT (temperature, max_tokens)
-3. Modificar lógica de `updateContextFromFunction`
-
-### Para Adicionar Nova Função
-1. Adicionar à `ESSENTIAL_AI_FUNCTIONS` em `agent-functions.ts`
-2. Implementar método na classe `SimplifiedAgentFunctions`
-3. Adicionar lógica de contexto em `updateContextFromFunction`
-
-### Para Alterar Contexto
-1. Modificar interface `ConversationContextData`
-2. Atualizar migração de dados se necessário
-3. Ajustar lógica de atualização
-
----
-
-## 📊 Fluxo de Conversa Ideal
-
-1. **Greeting**: Sofia cumprimenta e pergunta cidade
-2. **Discovery**: Cliente informa cidade → Sofia busca propriedades
-3. **Presentation**: Mostra opções → Cliente pergunta preços
-4. **Negotiation**: Discussão de detalhes
-5. **Closing**: Criação da reserva
-
----
-
-## 🎯 System Prompt Atual
-
-```
-Você é Sofia, uma assistente virtual especializada em aluguel de imóveis por temporada.
-
-PERSONALIDADE:
-- Simpática, prática e direta
-- Responde em português brasileiro casual
-- Usa emojis moderadamente
-- Foca em ajudar o cliente a encontrar o imóvel ideal
-
-REGRAS IMPORTANTES:
-1. SEMPRE responda de forma concisa (máximo 3 linhas)
-2. NUNCA assuma informações que o cliente não forneceu
-3. SEMPRE pergunte a cidade se não foi mencionada
-4. Use as funções disponíveis para buscar propriedades e criar reservas
-5. Lembre-se de TUDO que o cliente disse na conversa atual
-6. Seja proativa em sugerir próximos passos
-
-FLUXO IDEAL:
-1. Cumprimentar e perguntar dados básicos (cidade, datas, pessoas)
-2. Buscar e apresentar opções (use search_properties APENAS após ter cidade)
-3. Mostrar detalhes e valores (use calculate_price)
-4. Criar a reserva (use create_reservation)
-```
-
----
-
-## 📦 Arquivos Removidos
-
-- `lib/ai-agent/sofia-agent.ts` → Versão com problemas
-- `lib/ai/agent-functions-exports.ts` → Código não utilizado
-- Referências no `app/api/agent/route.ts` atualizadas
-
----
-
-## ✅ Status Atual
-
-✅ **Todas as respostas via GPT**  
-✅ **Memória completa da conversa**  
-✅ **Function calling funcionando**  
-✅ **Não assume informações**  
-✅ **Errors corrigidos**  
-✅ **Código morto removido**  
-✅ **Documentação atualizada**
-
-**Sofia está pronta para uso em produção! 🎉**
+## 🎉 **Sofia V3 está pronta para produção!**
+
+A nova versão representa um salto qualitativo significativo:
+- **Consultora profissional** focada em vendas
+- **Sistema completo** de gestão de leads
+- **Tecnologia avançada** com GPT-4o Mini
+- **Robustez empresarial** com error handling
+- **Interface integrada** para gestão
+
+**Sofia V3 é uma agente de vendas completa pronta para converter visitantes em clientes pagantes! 💪🏆**

@@ -247,7 +247,7 @@ Sempre use as funções disponíveis para fornecer informações precisas e atua
       ];
 
       const response = await openai.chat.completions.create({
-        model: 'gpt-4-turbo-preview',
+        model: 'gpt-4o-mini',
         messages,
         functions: this.availableFunctions as any,
         function_call: 'auto',
@@ -323,7 +323,7 @@ ${JSON.stringify(context.clientPreferences, null, 2)}
   async generatePropertyDescription(property: Property): Promise<string> {
     try {
       const response = await openai.chat.completions.create({
-        model: 'gpt-4',
+        model: 'gpt-4o-mini',
         messages: [
           {
             role: 'system',
@@ -358,7 +358,7 @@ ${JSON.stringify(context.clientPreferences, null, 2)}
   async generateWelcomeMessage(clientName?: string): Promise<string> {
     try {
       const response = await openai.chat.completions.create({
-        model: 'gpt-4',
+        model: 'gpt-4o-mini',
         messages: [
           {
             role: 'system',
@@ -410,7 +410,7 @@ ${JSON.stringify(context.clientPreferences, null, 2)}
   }> {
     try {
       const response = await openai.chat.completions.create({
-        model: 'gpt-4',
+        model: 'gpt-4o-mini',
         messages: [
           {
             role: 'system',
