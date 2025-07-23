@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import {
   Box,
   Typography,
@@ -143,7 +143,7 @@ export default function TestePage() {
     setMessages([welcomeMessage]);
   };
 
-  const sendMessage = async () => {
+  const sendMessage = useCallback(async () => {
     if (!inputMessage.trim() || loading || !session) return;
 
     const userMessage: Message = {
@@ -226,7 +226,7 @@ export default function TestePage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [inputMessage, loading, session, user?.tenantId]);
 
   const clearSession = async () => {
     // Limpar contexto do agente para este telefone
@@ -261,12 +261,12 @@ export default function TestePage() {
     });
   };
 
-  const handleKeyPress = (e: React.KeyboardEvent) => {
+  const handleKeyPress = useCallback((e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       sendMessage();
     }
-  };
+  }, [sendMessage]);
 
   const formatDuration = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -535,7 +535,7 @@ export default function TestePage() {
                 multiline
                 maxRows={3}
                 value={inputMessage}
-                onChange={(e) => setInputMessage(e.target.value)}
+                onChange={useCallback((e: React.ChangeEvent<HTMLInputElement>) => setInputMessage(e.target.value), [])}
                 onKeyPress={handleKeyPress}
                 placeholder="Digite sua mensagem..."
                 disabled={loading}
@@ -611,7 +611,7 @@ export default function TestePage() {
             fullWidth
             label="Número de Telefone (Simulado)"
             value={testPhone}
-            onChange={(e) => setTestPhone(e.target.value)}
+            onChange={useCallback((e: React.ChangeEvent<HTMLInputElement>) => setTestPhone(e.target.value), [])}
             sx={{ mt: 2 }}
             helperText="Número usado para simular cliente no WhatsApp"
           />

@@ -27,22 +27,26 @@ export function TenantProvider({ children }: { children: ReactNode }) {
     if (user) {
       // Use tenantId if available, otherwise use uid as tenantId
       const id = user.tenantId || user.uid || user.id;
-      setTenantId(id);
       
-      // Create service factory
-      const factory = new TenantServiceFactory(id);
-      setServices(factory);
-      
-      // Set tenant ID in service wrappers
-      propertyServiceWrapper.setTenantId(id);
-      
-      setIsReady(true);
+      // Only update if tenantId actually changes
+      if (tenantId !== id) {
+        setTenantId(id);
+        
+        // Create service factory
+        const factory = new TenantServiceFactory(id);
+        setServices(factory);
+        
+        // Set tenant ID in service wrappers
+        propertyServiceWrapper.setTenantId(id);
+        
+        setIsReady(true);
+      }
     } else {
       setTenantId(null);
       setServices(null);
       setIsReady(false);
     }
-  }, [user]);
+  }, [user?.tenantId, user?.uid, user?.id, tenantId]);
 
   return (
     <TenantContext.Provider value={{ tenantId, services, isReady }}>

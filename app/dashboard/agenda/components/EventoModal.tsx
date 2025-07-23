@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from 'react';
+import { logger } from '@/lib/utils/logger';
 import {
     Dialog,
     DialogTitle,
@@ -189,18 +190,23 @@ const EventoModal: React.FC<EventoModalProps> = ({
 
             await onSave(reservationData);
         } catch (error) {
-            console.error('Erro ao salvar reserva:', error);
+            logger.error('Erro ao salvar reserva', { 
+                error, 
+                component: 'EventoModal',
+                operation: 'handleSave',
+                reservationData 
+            });
         } finally {
             setLoading(false);
         }
     };
 
     const getSelectedProperty = () => {
-        return properties.find(p => p.id === formData.propertyId);
+        return properties?.find(p => p.id === formData.propertyId);
     };
 
     const getSelectedClient = () => {
-        return clients.find(c => c.id === formData.clientId);
+        return clients?.find(c => c.id === formData.clientId);
     };
 
     const getStatusColor = (status: ReservationStatus) => {
@@ -275,7 +281,7 @@ const EventoModal: React.FC<EventoModalProps> = ({
                                     <Autocomplete
                                         value={getSelectedProperty() || null}
                                         onChange={(_, value) => handleChange('propertyId', value?.id || '')}
-                                        options={properties}
+                                        options={properties || []}
                                         getOptionLabel={(option) => option.name}
                                         renderInput={(params) => (
                                             <TextField
@@ -314,7 +320,7 @@ const EventoModal: React.FC<EventoModalProps> = ({
                                     <Autocomplete
                                         value={getSelectedClient() || null}
                                         onChange={(_, value) => handleChange('clientId', value?.id || '')}
-                                        options={clients}
+                                        options={clients || []}
                                         getOptionLabel={(option) => option.name}
                                         renderInput={(params) => (
                                             <TextField

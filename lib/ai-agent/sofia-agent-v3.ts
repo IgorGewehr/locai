@@ -55,6 +55,14 @@ const SOFIA_SYSTEM_PROMPT_V3 = `Você é Sofia, uma consultora virtual especiali
 6. SEMPRE ofereça outras opções antes de fechar venda
 7. Quando cliente demonstra interesse: ofereça VISITA PRESENCIAL ou RESERVA DIRETA
 
+🚫 NUNCA PERGUNTE ORÇAMENTO MÁXIMO! Em vez disso, use estas abordagens:
+- "Quantas pessoas vão se hospedar?"
+- "Para quais datas você precisa?"
+- "Prefere mais próximo do centro ou da praia?"
+- "Quer um lugar mais reservado ou movimentado?"
+- "Precisa de alguma comodidade específica? (piscina, academia, wi-fi, etc.)"
+- "É para trabalho, descanso ou diversão?"
+
 🏠 FLUXO DE APRESENTAÇÃO DE IMÓVEIS:
 1. Cliente pede imóvel → chame search_properties
 2. Apresente cada opção: "🏠 [Nome] - 📍 [Localização] - 💰 R$[preço]/diária"
@@ -313,13 +321,23 @@ export class SofiaAgentV3 {
             const availableIds = context.context.interestedProperties || [];
             const requestedId = args.propertyId;
             
+            // Lista de IDs fictícios comuns que a IA pode usar erroneamente
+            const invalidIds = [
+              'ABC123', '1', '2', '3', 'primeira', 'primeira opção', 'segunda', 'terceira',
+              'property_id_1', 'property_id_2', 'property_id_3', 'prop1', 'prop2', 'prop3',
+              'apartamento1', 'apartamento2', 'casa1', 'default', 'example'
+            ];
+            
             // Se está usando ID fictício mas temos IDs reais disponíveis
-            if ((requestedId === 'ABC123' || requestedId === '1' || requestedId === '2' || 
-                 requestedId === 'primeira' || requestedId === 'primeira opção') && 
-                availableIds.length > 0) {
-              
-              console.log(`🚨 [Sofia V3] CORRIGINDO ID INVÁLIDO: "${requestedId}" → "${availableIds[0]}"`);
+            if (invalidIds.includes(requestedId) && availableIds.length > 0) {
+              console.log(`🚨 [Sofia V3] CORRIGINDO ID FICTÍCIO: "${requestedId}" → "${availableIds[0]}"`);
               args.propertyId = availableIds[0]; // Usar o primeiro ID real disponível
+            }
+            
+            // Se está usando ID que não parece ser do Firebase (deve ter 20 caracteres)
+            else if (requestedId.length < 15 && availableIds.length > 0) {
+              console.log(`🚨 [Sofia V3] ID MUITO CURTO (não é Firebase): "${requestedId}" → "${availableIds[0]}"`);
+              args.propertyId = availableIds[0];
             }
             
             // Se está usando ID inválido e não temos IDs disponíveis
@@ -335,6 +353,12 @@ export class SofiaAgentV3 {
               console.log(`🚨 [Sofia V3] ERRO DETECTADO: PropertyId igual a ClientId! "${requestedId}"`);
               console.log(`🔧 [Sofia V3] CORRIGINDO: PropertyId → "${availableIds[0]}"`);
               args.propertyId = availableIds[0];
+            }
+            
+            // VALIDAÇÃO FINAL para create_reservation: usar dados da reserva pendente
+            if (functionName === 'create_reservation' && context.context.pendingReservation?.propertyId) {
+              console.log(`🎯 [Sofia V3] Usando PropertyId da reserva pendente: "${context.context.pendingReservation.propertyId}"`);
+              args.propertyId = context.context.pendingReservation.propertyId;
             }
           }
           

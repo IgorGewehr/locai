@@ -72,9 +72,20 @@ export default function Header({ onMenuClick }: HeaderProps) {
   };
   
   useEffect(() => {
-    checkWhatsAppStatus();
-    const interval = setInterval(checkWhatsAppStatus, 30000); // Check every 30 seconds
-    return () => clearInterval(interval);
+    let interval: NodeJS.Timeout;
+    
+    // Only check status if not on settings page (to avoid conflicts)
+    const isSettingsPage = window.location.pathname.includes('/settings');
+    if (!isSettingsPage) {
+      checkWhatsAppStatus();
+      interval = setInterval(checkWhatsAppStatus, 30000); // Check every 30 seconds
+    }
+    
+    return () => {
+      if (interval) {
+        clearInterval(interval);
+      }
+    };
   }, []);
   
   const checkWhatsAppStatus = async () => {

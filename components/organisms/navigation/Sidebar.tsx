@@ -43,6 +43,7 @@ import {
   Widgets,
   BugReport,
   Event,
+  Schedule,
 } from '@mui/icons-material';
 
 interface SidebarProps {
@@ -74,6 +75,18 @@ const menuItems = [
     href: '/dashboard/agenda',
     icon: <Event />,
     badge: null,
+    submenu: [
+      {
+        text: 'Visão Geral',
+        href: '/dashboard/agenda',
+        icon: <Event />,
+      },
+      {
+        text: 'Visitas',
+        href: '/dashboard/agenda/visitas',
+        icon: <Schedule />,
+      },
+    ],
   },
   {
     text: 'Conversas',

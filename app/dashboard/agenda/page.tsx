@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useMemo, useCallback, forwardRef, useImperativeHandle } from 'react';
+import { logger } from '@/lib/utils/logger';
 import {
     Box,
     Typography,
@@ -275,7 +276,11 @@ const AgendaPage = forwardRef(({ initialReservationId }, ref) => {
     const handleSaveReservation = useCallback(async (reservationData: any) => {
         try {
             // Implementar salvamento da reserva
-            console.log('Salvando reserva:', reservationData);
+            logger.info('Salvando reserva', { 
+                reservationData,
+                component: 'AgendaPage',
+                operation: 'handleSaveReservation'
+            });
             setShowEventoModal(false);
             setReservaSelecionada(null);
             setIsLoading(false);
@@ -286,7 +291,11 @@ const AgendaPage = forwardRef(({ initialReservationId }, ref) => {
                 type: 'success'
             });
         } catch (error) {
-            console.error("Erro ao salvar reserva:", error);
+            logger.error('Erro ao salvar reserva', { 
+                error,
+                component: 'AgendaPage',
+                operation: 'handleSaveReservation'
+            });
             setNotification({
                 open: true,
                 message: "Erro ao salvar reserva. Tente novamente.",
@@ -307,7 +316,12 @@ const AgendaPage = forwardRef(({ initialReservationId }, ref) => {
         try {
             setIsLoading(true);
             // Implementar mudança de status
-            console.log(`Alterando status da reserva ${reservationId} para ${newStatus}`);
+            logger.info('Alterando status da reserva', { 
+                reservationId,
+                newStatus,
+                component: 'AgendaPage',
+                operation: 'handleStatusChange'
+            });
             
             setNotification({
                 open: true,
@@ -317,7 +331,13 @@ const AgendaPage = forwardRef(({ initialReservationId }, ref) => {
             
             setShowReservationDialog(false);
         } catch (error) {
-            console.error("Erro ao alterar status da reserva:", error);
+            logger.error('Erro ao alterar status da reserva', { 
+                error,
+                reservationId,
+                newStatus,
+                component: 'AgendaPage',
+                operation: 'handleStatusChange'
+            });
             setNotification({
                 open: true,
                 message: "Erro ao alterar status. Tente novamente.",

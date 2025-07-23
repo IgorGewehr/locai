@@ -4,6 +4,10 @@ import { getTenantId } from '@/lib/utils/tenant';
 import { verifyAuth } from '@/lib/utils/auth';
 import { z } from 'zod';
 
+// Simple cache to prevent excessive API calls
+const statusCache = new Map<string, { data: any; timestamp: number }>();
+const CACHE_DURATION = 5000; // 5 seconds
+
 // GET /api/whatsapp/session - Get session status
 export async function GET(request: NextRequest) {
   try {
@@ -14,7 +18,23 @@ export async function GET(request: NextRequest) {
     // }
 
     const tenantId = 'default';
+    
+    // Check cache first
+    const cached = statusCache.get(tenantId);
+    if (cached && (Date.now() - cached.timestamp) < CACHE_DURATION) {
+      return NextResponse.json({
+        success: true,
+        data: cached.data,
+      });
+    }
+    
     const status = await whatsappSessionManager.getSessionStatus(tenantId);
+    
+    // Cache the result
+    statusCache.set(tenantId, {
+      data: status,
+      timestamp: Date.now(),
+    });
 
     return NextResponse.json({
       success: true,

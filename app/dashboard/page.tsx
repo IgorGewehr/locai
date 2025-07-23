@@ -26,8 +26,9 @@ import {
 import type { DashboardStats } from '@/lib/types';
 import { db } from '@/lib/firebase/config';
 import { useTenant } from '@/contexts/TenantContext';
-import { collection, query, where, getDocs, orderBy, limit, Timestamp } from 'firebase/firestore';
+import { collection, query, where, getDocs, Timestamp } from 'firebase/firestore';
 import MiniSiteWidget from '@/components/organisms/marketing/MiniSiteWidget';
+import AgendaCard from '@/components/organisms/dashboards/AgendaCard';
 
 const initialStats: DashboardStats = {
   totalProperties: 0,
@@ -195,7 +196,6 @@ export default function DashboardPage() {
     avgResponseTime: 0,
     connected: false,
   });
-  const [recentActivity, setRecentActivity] = useState<any[]>([]);
   const [trends, setTrends] = useState({
     propertiesTrend: 0,
     reservationsTrend: 0,
@@ -306,44 +306,6 @@ export default function DashboardPage() {
         }
       }
 
-      // Fetch recent activity - try multiple collections
-      let activities = [];
-      try {
-        const activityQuery = query(
-          collection(db, 'activity_logs'),
-          orderBy('timestamp', 'desc'),
-          limit(4)
-        );
-        const activitySnapshot = await getDocs(activityQuery);
-        activities = activitySnapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data()
-        }));
-      } catch (error) {
-        // If activity_logs doesn't exist, create fallback from recent reservations
-        const recentReservations = reservations
-          .sort((a, b) => new Date(b.createdAt || Date.now()).getTime() - new Date(a.createdAt || Date.now()).getTime())
-          .slice(0, 2);
-        
-        const recentMessages = messagesSnapshot.docs
-          .slice(0, 2)
-          .map(doc => doc.data());
-        
-        activities = [
-          ...recentReservations.map(r => ({
-            id: r.id,
-            action: 'Nova reserva criada',
-            timestamp: r.createdAt || new Date(),
-            description: `Reserva para ${r.propertyName || 'propriedade'}`
-          })),
-          ...recentMessages.map(m => ({
-            id: m.id || Math.random().toString(),
-            action: 'Nova mensagem WhatsApp',
-            timestamp: m.timestamp || new Date(),
-            description: 'Mensagem recebida via WhatsApp'
-          }))
-        ].slice(0, 4);
-      }
 
       setStats({
         totalProperties: properties.length,
@@ -363,7 +325,6 @@ export default function DashboardPage() {
         connected: whatsappConnected,
       });
 
-      setRecentActivity(activities);
       
       // Set calculated trends
       setTrends({
@@ -694,221 +655,9 @@ export default function DashboardPage() {
         </Grid>
 
         <Grid item xs={12} lg={4}>
-          <Card 
-            sx={{ 
-              height: { xs: 'auto', lg: 400 },
-              minHeight: 350,
-              background: 'rgba(255, 255, 255, 0.08)',
-              backdropFilter: 'blur(20px)',
-              border: '1px solid rgba(255, 255, 255, 0.15)',
-              borderRadius: '20px',
-              transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-              '&:hover': {
-                transform: 'translateY(-4px)',
-                boxShadow: '0 16px 50px rgba(0, 0, 0, 0.4)',
-              }
-            }}
-          >
-            <CardContent sx={{ p: 4, height: '100%', display: 'flex', flexDirection: 'column' }}>
-              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 3 }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                  <Box
-                    sx={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      width: 56,
-                      height: 56,
-                      borderRadius: '16px',
-                      background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
-                      boxShadow: '0 8px 24px rgba(99, 102, 241, 0.4)',
-                    }}
-                  >
-                    <TrendingUp sx={{ color: 'white', fontSize: 28 }} />
-                  </Box>
-                  <Box>
-                    <Typography 
-                      variant="h5" 
-                      component="h2"
-                      sx={{ 
-                        color: '#ffffff',
-                        fontWeight: 700,
-                        fontSize: '1.5rem',
-                        mb: 0.5
-                      }}
-                    >
-                      Atividade Recente
-                    </Typography>
-                    <Typography 
-                      variant="body2" 
-                      sx={{ 
-                        color: 'rgba(255, 255, 255, 0.7)',
-                        fontSize: '0.875rem'
-                      }}
-                    >
-                      Últimas 24 horas
-                    </Typography>
-                  </Box>
-                </Box>
-                <IconButton 
-                  onClick={refreshStats}
-                  sx={{
-                    background: 'rgba(99, 102, 241, 0.1)',
-                    border: '1px solid rgba(99, 102, 241, 0.2)',
-                    color: '#6366f1',
-                    '&:hover': {
-                      background: 'rgba(99, 102, 241, 0.2)',
-                      transform: 'scale(1.05)',
-                    }
-                  }}
-                >
-                  <Refresh />
-                </IconButton>
-              </Box>
-
-              <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 2, overflow: 'auto' }}>
-                {loading ? (
-                  Array.from({ length: 4 }).map((_, index) => (
-                    <Skeleton key={index} variant="rectangular" height={70} sx={{ borderRadius: '12px' }} />
-                  ))
-                ) : recentActivity.length > 0 ? (
-                  recentActivity.map((item, index) => {
-                    const getActivityIcon = () => {
-                      if (item.action?.includes('reserva') || item.description?.includes('Reserva')) {
-                        return { icon: '📅', color: '#8b5cf6' };
-                      }
-                      if (item.action?.includes('mensagem') || item.action?.includes('WhatsApp')) {
-                        return { icon: '💬', color: '#10b981' };
-                      }
-                      if (item.action?.includes('cliente')) {
-                        return { icon: '👤', color: '#3b82f6' };
-                      }
-                      if (item.action?.includes('propriedade')) {
-                        return { icon: '🏠', color: '#f59e0b' };
-                      }
-                      return { icon: '📌', color: '#6b7280' };
-                    };
-
-                    const { icon, color } = getActivityIcon();
-                    const timeAgo = item.timestamp ? new Date(item.timestamp.toDate ? item.timestamp.toDate() : item.timestamp) : new Date();
-                    const formattedTime = new Intl.RelativeTimeFormat('pt-BR', { numeric: 'auto' }).format(
-                      Math.ceil((timeAgo.getTime() - new Date().getTime()) / (1000 * 60)),
-                      'minute'
-                    );
-
-                    return (
-                      <Box 
-                        key={index}
-                        sx={{ 
-                          display: 'flex', 
-                          gap: 2,
-                          p: 2,
-                          borderRadius: '12px',
-                          background: 'rgba(255, 255, 255, 0.05)',
-                          border: '1px solid rgba(255, 255, 255, 0.1)',
-                          transition: 'all 0.2s',
-                          cursor: 'pointer',
-                          '&:hover': {
-                            background: 'rgba(255, 255, 255, 0.08)',
-                            transform: 'translateX(4px)',
-                          }
-                        }}
-                        onClick={() => {
-                          if (item.link) {
-                            window.location.href = item.link;
-                          }
-                        }}
-                      >
-                        <Box
-                          sx={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            width: 40,
-                            height: 40,
-                            borderRadius: '10px',
-                            background: `${color}20`,
-                            flexShrink: 0,
-                          }}
-                        >
-                          <Typography sx={{ fontSize: '1.25rem' }}>{icon}</Typography>
-                        </Box>
-                        <Box sx={{ flex: 1, minWidth: 0 }}>
-                          <Typography 
-                            variant="body2" 
-                            sx={{ 
-                              color: '#ffffff',
-                              fontSize: '0.9rem',
-                              fontWeight: 500,
-                              mb: 0.5,
-                              overflow: 'hidden',
-                              textOverflow: 'ellipsis',
-                              whiteSpace: 'nowrap',
-                            }}
-                          >
-                            {item.action || item.description || 'Atividade'}
-                          </Typography>
-                          <Typography 
-                            variant="caption" 
-                            sx={{ 
-                              color: 'rgba(255, 255, 255, 0.6)',
-                              fontSize: '0.8rem'
-                            }}
-                          >
-                            {formattedTime}
-                          </Typography>
-                        </Box>
-                      </Box>
-                    );
-                  })
-                ) : (
-                  <Box 
-                    sx={{ 
-                      flex: 1, 
-                      display: 'flex', 
-                      flexDirection: 'column', 
-                      alignItems: 'center', 
-                      justifyContent: 'center',
-                      gap: 2
-                    }}
-                  >
-                    <Box
-                      sx={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        width: 80,
-                        height: 80,
-                        borderRadius: '20px',
-                        background: 'rgba(99, 102, 241, 0.1)',
-                      }}
-                    >
-                      <Typography sx={{ fontSize: '2.5rem' }}>🎯</Typography>
-                    </Box>
-                    <Typography 
-                      variant="body1" 
-                      sx={{ 
-                        color: 'rgba(255, 255, 255, 0.7)', 
-                        textAlign: 'center' 
-                      }}
-                    >
-                      Nenhuma atividade nas últimas 24 horas
-                    </Typography>
-                    <Typography 
-                      variant="caption" 
-                      sx={{ 
-                        color: 'rgba(255, 255, 255, 0.5)', 
-                        textAlign: 'center',
-                        maxWidth: '80%'
-                      }}
-                    >
-                      As atividades aparecerão aqui quando houver novas reservas, mensagens ou ações no sistema
-                    </Typography>
-                  </Box>
-                )}
-              </Box>
-            </CardContent>
-          </Card>
+          <AgendaCard 
+            onCreateVisit={() => window.location.href = '/dashboard/agenda/visitas'}
+          />
         </Grid>
 
         {/* Quick Actions */}
@@ -1058,6 +807,28 @@ export default function DashboardPage() {
                     }
                   }}
                   onClick={() => window.location.href = '/dashboard/mini-site'}
+                />
+                <Chip
+                  label="📅 Agenda"
+                  clickable
+                  sx={{
+                    background: 'rgba(139, 92, 246, 0.2)',
+                    color: '#d8b4fe',
+                    border: '1px solid rgba(139, 92, 246, 0.3)',
+                    fontWeight: 600,
+                    fontSize: { xs: '0.875rem', md: '1rem' },
+                    height: { xs: 44, md: 48 },
+                    px: { xs: 2, md: 3 },
+                    minWidth: { xs: 44, md: 48 },
+                    '&:hover': {
+                      background: 'rgba(139, 92, 246, 0.3)',
+                      transform: 'scale(1.05)',
+                    },
+                    '&:active': {
+                      transform: 'scale(0.98)',
+                    }
+                  }}
+                  onClick={() => window.location.href = '/dashboard/agenda/visitas'}
                 />
               </Box>
             </CardContent>

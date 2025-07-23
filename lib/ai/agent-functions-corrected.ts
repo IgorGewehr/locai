@@ -659,8 +659,14 @@ export class CorrectedAgentFunctions {
         const currentDate = new Date(startDate);
         currentDate.setDate(startDate.getDate() + i);
         
-        // Pular datas no passado
+        // Pular datas no passado (mas não hoje se ainda há horários disponíveis)
         if (currentDate < today) continue;
+        
+        // Pular hoje se já passaram dos horários comerciais
+        if (currentDate.getTime() === today.getTime()) {
+          const now = new Date();
+          if (now.getHours() >= 18) continue; // Após 18h não agendar para hoje
+        }
         
         const dayName = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'][currentDate.getDay()];
         const daySchedule = defaultSchedule[dayName as keyof typeof defaultSchedule];
@@ -670,7 +676,17 @@ export class CorrectedAgentFunctions {
         // Gerar horários baseado na preferência
         const timeSlots = this.generateTimeSlots(daySchedule.startTime, daySchedule.endTime, timePreference);
         
+        // Debug log
+        console.log(`📅 [VISIT] ${currentDate.toISOString().split('T')[0]} (${dayName}): ${timeSlots.length} slots`);
+        
         timeSlots.forEach(time => {
+          // Para hoje, só slots futuros
+          if (currentDate.getTime() === today.getTime()) {
+            const now = new Date();
+            const [slotHour] = time.split(':').map(Number);
+            if (slotHour <= now.getHours()) return; // Pular horários passados
+          }
+          
           availableSlots.push({
             date: currentDate.toISOString().split('T')[0],
             dateFormatted: currentDate.toLocaleDateString('pt-BR', { 
@@ -689,9 +705,10 @@ export class CorrectedAgentFunctions {
       
       if (availableSlots.length === 0) {
         return {
-          success: false,
-          message: 'Não há horários disponíveis no período solicitado.',
-          availableSlots: []
+          success: true, // Changed to true to show alternative message
+          message: 'No momento não temos horários disponíveis para visita presencial. Que tal garantir sua reserva diretamente? Temos disponibilidade para as datas solicitadas e você pode conhecer o imóvel no check-in!',
+          availableSlots: [],
+          alternativeAction: 'direct_booking'
         };
       }
       
