@@ -31,7 +31,7 @@ import {
   VISIT_STATUS_LABELS, 
   VISIT_STATUS_COLORS 
 } from '@/lib/types/visit-appointment';
-import { useTenant } from '@/lib/hooks/useTenant';
+import { useTenant } from '@/contexts/TenantContext';
 
 interface AgendaCardProps {
   onCreateVisit?: () => void;

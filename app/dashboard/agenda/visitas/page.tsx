@@ -9,7 +9,7 @@ import {
   ViewVisitDialog 
 } from '@/components/organisms/AgendaVisitas';
 import { VisitAppointment, VisitStatus, VisitResult } from '@/lib/types/visit-appointment';
-import { useTenant } from '@/lib/hooks/useTenant';
+import { useTenant } from '@/contexts/TenantContext';
 
 export default function VisitasPage() {
   const { tenantId } = useTenant();

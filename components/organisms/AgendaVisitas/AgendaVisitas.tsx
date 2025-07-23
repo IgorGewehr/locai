@@ -52,7 +52,7 @@ import {
   AvailableTimeSlot,
 } from '@/lib/types/visit-appointment';
 import { Property, Client } from '@/lib/types';
-import { useTenant } from '@/lib/hooks/useTenant';
+import { useTenant } from '@/contexts/TenantContext';
 
 interface AgendaVisitasProps {
   onCreateVisit?: () => void;

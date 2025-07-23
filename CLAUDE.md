@@ -116,7 +116,7 @@ The heart of the application is Sofia, an intelligent conversational agent speci
 ### Data Layer Architecture (MULTI-TENANT)
 - **Multi-tenant Structure**: `tenants/{tenantId}/collections` for complete data isolation
 - **TenantServiceFactory** (`lib/services/tenant-service-factory.ts`): Creates tenant-scoped services
-- **useTenant() Hook** (`lib/hooks/useTenant.ts`): Global tenant context management
+- **useTenant() Hook** (`contexts/TenantContext.tsx`): Global tenant context management
 - **Generic Firestore Service** (`lib/firebase/firestore.ts`): Type-safe CRUD operations with real-time subscriptions
 - **Core Collections**: properties, reservations, clients, conversations, messages, amenities, payments
 - **AI Collections**: ai_agents, automations, analytics, conversation_contexts
@@ -558,10 +558,10 @@ When extending the system:
 - **Auth**: `lib/auth/auth-service.ts` - Authentication logic
 - **Logger**: `lib/utils/logger.ts` - Professional logging system
 - **TenantServiceFactory**: `lib/services/tenant-service-factory.ts` - Multi-tenant services
-- **useTenant Hook**: `lib/hooks/useTenant.ts` - Tenant context management
+- **useTenant Hook**: `contexts/TenantContext.tsx` - Tenant context management
 
 ### Common Tasks
-1. **Modify Sofia's Responses**: Edit system prompt in `lib/ai-agent/sofia-agent-v2.ts`
+1. **Modify Sofia's Responses**: Edit system prompt in `lib/ai-agent/sofia-agent-v3.ts`
 2. **Add AI Function**: Add to ESSENTIAL_AI_FUNCTIONS in `lib/ai/agent-functions.ts`
 3. **Update Context Logic**: Modify `updateContextFromFunction` in Sofia agent
 4. **Test Sofia**: Use `/dashboard/teste` interface with clear context button
