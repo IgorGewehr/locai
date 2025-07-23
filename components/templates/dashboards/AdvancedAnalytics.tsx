@@ -154,7 +154,7 @@ export default function AdvancedAnalytics() {
             name: property.title,
             revenue,
             bookings: transactions.length,
-            rating: transactions.length > 0 ? 4.0 + (Math.random() * 1.0) : 0 // Calculated based on bookings
+            rating: transactions.length > 0 ? 4.0 + (Math.random() * 1.0) : 0, // Calculated based on bookings
             occupancy: Math.round(transactions.length * 10) // Simplified occupancy calculation
           };
         })
@@ -195,8 +195,8 @@ export default function AdvancedAnalytics() {
         totalConversations,
         successfulBookings,
         conversionRate,
-        avgResponseTime: recentConversations.length > 0 ? Math.round(15 + Math.random() * 10) : 0
-        customerSatisfaction: recentConversations.length > 0 ? 4.0 + (Math.random() * 1.0) : 0
+        avgResponseTime: recentConversations.length > 0 ? Math.round(15 + Math.random() * 10) : 0,
+        customerSatisfaction: recentConversations.length > 0 ? 4.0 + (Math.random() * 1.0) : 0,
         autoResolutionRate: recentConversations.length > 0 ? Math.round(70 + Math.random() * 20) : 0
       });
 

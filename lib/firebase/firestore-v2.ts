@@ -362,4 +362,8 @@ export class TenantServiceFactory {
   get analytics() {
     return this.createService('analytics');
   }
+
+  get visits() {
+    return this.createService('visits');
+  }
 }

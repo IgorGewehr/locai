@@ -3,7 +3,6 @@
 import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
 import { useAuth } from '@/lib/hooks/useAuth';
 import { TenantServiceFactory } from '@/lib/firebase/firestore-v2';
-import { propertyServiceWrapper } from '@/lib/services/service-wrapper';
 
 interface TenantContextType {
   tenantId: string | null;
@@ -35,9 +34,6 @@ export function TenantProvider({ children }: { children: ReactNode }) {
         // Create service factory
         const factory = new TenantServiceFactory(id);
         setServices(factory);
-        
-        // Set tenant ID in service wrappers
-        propertyServiceWrapper.setTenantId(id);
         
         setIsReady(true);
       }
