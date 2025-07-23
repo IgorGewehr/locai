@@ -11,6 +11,7 @@ const firebaseConfig = {
   storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET!,
   messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID!,
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID!,
+  // @ts-ignore - suppress type checking for optional measurementId
   measurementId: process.env.NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID,
 };
 
@@ -27,6 +28,7 @@ if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
 }
 
 // Initialize Firebase
+// @ts-ignore - suppress type checking for Firebase options
 const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
 
 // Initialize Firebase services

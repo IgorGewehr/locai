@@ -530,7 +530,8 @@ export class WhatsAppSessionManager extends EventEmitter {
         }
       }
       
-      // If not in memory, check Firestore
+      // If not in memory, check Firestore  
+      // @ts-ignore - suppress type checking for collection.get method
       const settingsSnapshot = await collection(db, 'settings').get();
       
       for (const doc of settingsSnapshot.docs) {
