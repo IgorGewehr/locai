@@ -28,6 +28,7 @@ import { db } from '@/lib/firebase/config';
 import { useTenant } from '@/contexts/TenantContext';
 import { collection, query, where, getDocs, Timestamp } from 'firebase/firestore';
 import MiniSiteWidget from '@/components/organisms/marketing/MiniSiteWidget';
+import MiniSiteWidgetFullWidth from '@/components/organisms/marketing/MiniSiteWidgetFullWidth';
 import AgendaCard from '@/components/organisms/dashboards/AgendaCard';
 import CRMCard from '@/components/organisms/dashboards/CRMCard';
 
@@ -659,10 +660,9 @@ export default function DashboardPage() {
           </Card>
         </Grid>
 
-        <Grid item xs={12} lg={4}>
-          <AgendaCard 
-            onCreateEvent={() => window.location.href = '/dashboard/agenda/visao-geral'}
-          />
+        {/* Third Row - Mini-Site Widget (Full Width) */}
+        <Grid item xs={12}>
+          <MiniSiteWidgetFullWidth tenantId="default-tenant" />
         </Grid>
 
         {/* Quick Actions */}
