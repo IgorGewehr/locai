@@ -413,10 +413,11 @@ export default function PropertiesPage() {
                   <IconButton
                     size="small"
                     sx={{ 
-                      backgroundColor: 'rgba(255, 255, 255, 0.9)',
-                      color: 'primary.main',
+                      background: 'rgba(255, 255, 255, 0.1)',
+                      border: '1px solid rgba(255, 255, 255, 0.2)',
+                      color: 'white',
                       '&:hover': {
-                        backgroundColor: 'white',
+                        background: 'rgba(255, 255, 255, 0.2)',
                         transform: 'scale(1.1)',
                       }
                     }}
@@ -427,10 +428,11 @@ export default function PropertiesPage() {
                   <IconButton
                     size="small"
                     sx={{ 
-                      backgroundColor: 'rgba(255, 255, 255, 0.9)',
-                      color: 'primary.main',
+                      background: 'rgba(255, 255, 255, 0.1)',
+                      border: '1px solid rgba(255, 255, 255, 0.2)',
+                      color: 'white',
                       '&:hover': {
-                        backgroundColor: 'white',
+                        background: 'rgba(255, 255, 255, 0.2)',
                         transform: 'scale(1.1)',
                       }
                     }}
@@ -441,10 +443,11 @@ export default function PropertiesPage() {
                   <IconButton
                     size="small"
                     sx={{ 
-                      backgroundColor: 'rgba(255, 255, 255, 0.9)',
-                      color: 'primary.main',
+                      background: 'rgba(255, 255, 255, 0.1)',
+                      border: '1px solid rgba(255, 255, 255, 0.2)',
+                      color: 'white',
                       '&:hover': {
-                        backgroundColor: 'white',
+                        background: 'rgba(255, 255, 255, 0.2)',
                         transform: 'scale(1.1)',
                       }
                     }}

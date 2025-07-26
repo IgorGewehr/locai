@@ -57,7 +57,8 @@ import {
 } from '@mui/icons-material';
 import { Lead, LeadStatus, Interaction, LeadActivity, Task } from '@/lib/types/crm';
 import { crmService } from '@/lib/services/crm-service';
-import { format } from 'date-fns';
+import { scrollbarStyles } from '@/styles/scrollbarStyles';
+import { safeFormatDate, DateFormats } from '@/lib/utils/date-formatter';
 import { ptBR } from 'date-fns/locale';
 import { useAuth } from '@/lib/hooks/useAuth';
 
@@ -306,7 +307,7 @@ export default function LeadDetailsDrawer({
         </Tabs>
 
         {/* Tab Content */}
-        <Box sx={{ flex: 1, overflow: 'auto' }}>
+        <Box sx={{ flex: 1, overflow: 'auto', ...scrollbarStyles.hidden }}>
           {tab === 0 && (
             <Box sx={{ p: 2 }}>
               {/* Lead Score Progress */}
@@ -419,7 +420,7 @@ export default function LeadDetailsDrawer({
                   <TimelineItem key={interaction.id}>
                     <TimelineOppositeContent sx={{ flex: 0.3 }}>
                       <Typography variant="caption" color="text.secondary">
-                        {format(new Date(interaction.createdAt), 'dd/MM HH:mm')}
+                        {safeFormatDate(interaction.createdAt, 'dd/MM HH:mm')}
                       </Typography>
                     </TimelineOppositeContent>
                     <TimelineSeparator>
@@ -497,7 +498,7 @@ export default function LeadDetailsDrawer({
                     </ListItemIcon>
                     <ListItemText
                       primary={activity.description}
-                      secondary={format(new Date(activity.createdAt), "dd/MM/yyyy 'às' HH:mm")}
+                      secondary={safeFormatDate(activity.createdAt, DateFormats.FULL_WITH_TIME)}
                     />
                   </ListItem>
                 ))}

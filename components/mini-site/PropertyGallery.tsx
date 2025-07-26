@@ -372,7 +372,7 @@ export default function PropertyGallery({
           borderTop: `1px solid ${alpha(theme.palette.divider, 0.1)}`,
         }}
       >
-        <Stack direction="row" spacing={1} sx={{ overflowX: 'auto', pb: 1 }}>
+        <Stack direction="row" spacing={1} sx={{ overflowX: 'auto', pb: 1 }} className="scrollbar-thin">
           {allMedia.map((media, index) => (
             <Box
               key={index}

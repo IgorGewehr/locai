@@ -54,6 +54,7 @@ import {
 } from '@mui/icons-material';
 import { format, isToday, isYesterday, differenceInMinutes } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { scrollbarStyles } from '@/styles/scrollbarStyles';
 
 // Styled Components
 const ConversationContainer = styled(Box)(({ theme }) => ({
@@ -523,7 +524,7 @@ export default function ConversationPage() {
       </Header>
 
       {/* Messages Area */}
-      <MessagesArea>
+      <MessagesArea sx={scrollbarStyles.hidden}>
         {error && (
           <Alert severity="error" sx={{ mb: 2, position: 'relative', zIndex: 1 }}>
             {error}

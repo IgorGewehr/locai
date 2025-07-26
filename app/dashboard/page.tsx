@@ -28,7 +28,9 @@ import { db } from '@/lib/firebase/config';
 import { useTenant } from '@/contexts/TenantContext';
 import { collection, query, where, getDocs, Timestamp } from 'firebase/firestore';
 import MiniSiteWidget from '@/components/organisms/marketing/MiniSiteWidget';
+import MiniSiteWidgetFullWidth from '@/components/organisms/marketing/MiniSiteWidgetFullWidth';
 import AgendaCard from '@/components/organisms/dashboards/AgendaCard';
+import CRMCard from '@/components/organisms/dashboards/CRMCard';
 
 const initialStats: DashboardStats = {
   totalProperties: 0,
@@ -470,7 +472,11 @@ export default function DashboardPage() {
 
         {/* Second Row - Detailed Information Cards (3 Equal Cards) */}
         <Grid item xs={12} lg={4}>
-          <MiniSiteWidget tenantId="default-tenant" />
+          <AgendaCard />
+        </Grid>
+        
+        <Grid item xs={12} lg={4}>
+          <CRMCard />
         </Grid>
         
         <Grid item xs={12} lg={4}>
@@ -654,10 +660,9 @@ export default function DashboardPage() {
           </Card>
         </Grid>
 
-        <Grid item xs={12} lg={4}>
-          <AgendaCard 
-            onCreateVisit={() => window.location.href = '/dashboard/agenda/visitas'}
-          />
+        {/* Third Row - Mini-Site Widget (Full Width) */}
+        <Grid item xs={12}>
+          <MiniSiteWidgetFullWidth tenantId="default-tenant" />
         </Grid>
 
         {/* Quick Actions */}

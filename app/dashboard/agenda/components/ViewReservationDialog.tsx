@@ -630,7 +630,8 @@ const ViewReservationDialog: React.FC<ViewReservationDialogProps> = ({
                                     sx={{
                                         p: 0,
                                         borderRadius: '24px',
-                                        backgroundColor: 'white',
+                                        background: 'rgba(255, 255, 255, 0.08)',
+                                        backdropFilter: 'blur(20px)',
                                         border: `1px solid ${theme.palette.grey[200]}`,
                                         overflow: 'hidden',
                                         boxShadow: '0 4px 20px rgba(0, 0, 0, 0.05)',
@@ -747,7 +748,8 @@ const ViewReservationDialog: React.FC<ViewReservationDialogProps> = ({
                                     sx={{
                                         p: 3.5,
                                         borderRadius: '24px',
-                                        backgroundColor: 'white',
+                                        background: 'rgba(255, 255, 255, 0.08)',
+                                        backdropFilter: 'blur(20px)',
                                         border: `1px solid ${theme.palette.grey[200]}`,
                                         boxShadow: '0 4px 20px rgba(0, 0, 0, 0.05)',
                                         transition: 'all 0.3s',
@@ -933,8 +935,9 @@ const ViewReservationDialog: React.FC<ViewReservationDialogProps> = ({
                                                 sx={{
                                                     p: 3,
                                                     borderRadius: '16px',
-                                                    border: '1px solid #EAECEF',
-                                                    bgcolor: 'white'
+                                                    background: 'rgba(255, 255, 255, 0.08)',
+                                                    backdropFilter: 'blur(20px)',
+                                                    border: '1px solid rgba(255, 255, 255, 0.15)'
                                                 }}
                                             >
                                                 <Typography variant="subtitle2" color="primary" sx={{ mb: 1 }}>
@@ -954,8 +957,9 @@ const ViewReservationDialog: React.FC<ViewReservationDialogProps> = ({
                                                 sx={{
                                                     p: 3,
                                                     borderRadius: '16px',
-                                                    border: '1px solid #EAECEF',
-                                                    bgcolor: 'white'
+                                                    background: 'rgba(255, 255, 255, 0.08)',
+                                                    backdropFilter: 'blur(20px)',
+                                                    border: '1px solid rgba(255, 255, 255, 0.15)'
                                                 }}
                                             >
                                                 <Typography variant="subtitle2" color="primary" sx={{ mb: 1 }}>

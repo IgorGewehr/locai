@@ -56,8 +56,7 @@ import {
   Refresh,
 } from '@mui/icons-material';
 import { useRouter } from 'next/navigation';
-import { format } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
+import { safeFormatDate, DateFormats } from '@/lib/utils/date-formatter';
 import { useAuth } from '@/lib/hooks/useAuth';
 import CreateClientDialog from './components/CreateClientDialog';
 import EditClientDialog from './components/EditClientDialog';
@@ -478,7 +477,7 @@ export default function ClientsPage() {
                             </Typography>
                           )}
                           <Typography variant="caption" color="text.secondary">
-                            • Cadastrado em {format(new Date(client.createdAt), 'dd/MM/yyyy', { locale: ptBR })}
+                            • Cadastrado em {safeFormatDate(client.createdAt, DateFormats.SHORT, 'Não informado')}
                           </Typography>
                         </Box>
                       </Box>

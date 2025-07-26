@@ -1,5 +1,8 @@
 /* Enterprise Dark Theme Global CSS */
 
+/* Import modern scrollbar styles */
+@import './scrollbar.css';
+
 * {
   box-sizing: border-box;
 }
@@ -219,30 +222,7 @@ body {
   transition: transform 225ms cubic-bezier(0.0, 0, 0.2, 1) 0ms !important;
 }
 
-/* Professional dark scrollbars */
-::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
-}
-
-::-webkit-scrollbar-track {
-  background: rgba(255, 255, 255, 0.05);
-  border-radius: 4px;
-}
-
-::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.2);
-  border-radius: 4px;
-  transition: all 0.2s ease;
-}
-
-::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.3);
-}
-
-::-webkit-scrollbar-corner {
-  background: transparent;
-}
+/* Professional dark scrollbars are now handled by scrollbar.css import */
 
 /* Loading states */
 .MuiCircularProgress-root {

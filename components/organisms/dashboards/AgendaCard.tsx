@@ -21,6 +21,10 @@ import {
   Add,
   Refresh,
   ArrowForward,
+  CheckCircle,
+  Groups,
+  Task,
+  Event as EventIcon,
 } from '@mui/icons-material';
 import { format, isToday, isTomorrow, addDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -32,14 +36,15 @@ import {
   VISIT_STATUS_COLORS 
 } from '@/lib/types/visit-appointment';
 import { useTenant } from '@/contexts/TenantContext';
+import { scrollbarStyles } from '@/styles/scrollbarStyles';
 
 interface AgendaCardProps {
-  onCreateVisit?: () => void;
+  onCreateEvent?: () => void;
 }
 
-export default function AgendaCard({ onCreateVisit }: AgendaCardProps) {
+export default function AgendaCard({ onCreateEvent }: AgendaCardProps) {
   const { tenantId } = useTenant();
-  const [upcomingVisits, setUpcomingVisits] = useState<VisitAppointment[]>([]);
+  const [upcomingEvents, setUpcomingEvents] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState({
     today: 0,
@@ -48,32 +53,62 @@ export default function AgendaCard({ onCreateVisit }: AgendaCardProps) {
     total: 0,
   });
 
-  const loadVisits = async () => {
+  const loadAgendaEvents = async () => {
     if (!tenantId) return;
     
     try {
       setLoading(true);
-      const response = await fetch(`/api/visits?tenantId=${tenantId}&limit=5&upcoming=true`);
+      const response = await fetch(`/api/visits?tenantId=${tenantId}&limit=10&upcoming=true`);
       
       if (response.ok) {
         const data = await response.json();
         const visits = data.data || [];
-        setUpcomingVisits(visits);
+        
+        // Filtrar apenas visitas futuras e ordenar por data/hora
+        const now = new Date();
+        const futureVisits = visits
+          .filter((visit: VisitAppointment) => {
+            const visitDateTime = new Date(visit.scheduledDate);
+            visitDateTime.setHours(parseInt(visit.scheduledTime.split(':')[0]));
+            visitDateTime.setMinutes(parseInt(visit.scheduledTime.split(':')[1]));
+            return visitDateTime > now;
+          })
+          .sort((a: VisitAppointment, b: VisitAppointment) => {
+            const dateA = new Date(a.scheduledDate);
+            const dateB = new Date(b.scheduledDate);
+            dateA.setHours(parseInt(a.scheduledTime.split(':')[0]));
+            dateA.setMinutes(parseInt(a.scheduledTime.split(':')[1]));
+            dateB.setHours(parseInt(b.scheduledTime.split(':')[0]));
+            dateB.setMinutes(parseInt(b.scheduledTime.split(':')[1]));
+            return dateA.getTime() - dateB.getTime();
+          });
+        
+        // Por enquanto, vamos mostrar as visitas como eventos
+        // TODO: Adicionar outros tipos de eventos (reuniões, tarefas, etc.)
+        const events = futureVisits.map((visit: any) => ({
+          ...visit,
+          type: 'visit',
+          title: `Visita - ${visit.propertyName}`,
+          subtitle: visit.clientName,
+          icon: 'home'
+        }));
+        
+        setUpcomingEvents(events);
         
         // Calcular estatísticas
         const today = new Date();
         const tomorrow = addDays(today, 1);
         const weekEnd = addDays(today, 7);
         
-        const todayVisits = visits.filter((visit: VisitAppointment) => 
+        const todayVisits = futureVisits.filter((visit: VisitAppointment) => 
           isToday(new Date(visit.scheduledDate))
         ).length;
         
-        const tomorrowVisits = visits.filter((visit: VisitAppointment) => 
+        const tomorrowVisits = futureVisits.filter((visit: VisitAppointment) => 
           isTomorrow(new Date(visit.scheduledDate))
         ).length;
         
-        const thisWeekVisits = visits.filter((visit: VisitAppointment) => {
+        const thisWeekVisits = futureVisits.filter((visit: VisitAppointment) => {
           const visitDate = new Date(visit.scheduledDate);
           return visitDate >= today && visitDate <= weekEnd;
         }).length;
@@ -82,7 +117,7 @@ export default function AgendaCard({ onCreateVisit }: AgendaCardProps) {
           today: todayVisits,
           tomorrow: tomorrowVisits,
           thisWeek: thisWeekVisits,
-          total: visits.length,
+          total: futureVisits.length,
         });
       }
     } catch (error) {
@@ -93,7 +128,7 @@ export default function AgendaCard({ onCreateVisit }: AgendaCardProps) {
   };
 
   useEffect(() => {
-    loadVisits();
+    loadAgendaEvents();
   }, [tenantId]);
 
   const getDateLabel = (date: Date) => {
@@ -104,6 +139,19 @@ export default function AgendaCard({ onCreateVisit }: AgendaCardProps) {
 
   const formatTime = (time: string) => {
     return time.substring(0, 5); // Remove segundos se houver
+  };
+
+  const getEventIcon = (type: string) => {
+    switch (type) {
+      case 'visit':
+        return <Home sx={{ fontSize: 16, color: 'rgba(255, 255, 255, 0.7)' }} />;
+      case 'meeting':
+        return <Groups sx={{ fontSize: 16, color: 'rgba(255, 255, 255, 0.7)' }} />;
+      case 'task':
+        return <Task sx={{ fontSize: 16, color: 'rgba(255, 255, 255, 0.7)' }} />;
+      default:
+        return <EventIcon sx={{ fontSize: 16, color: 'rgba(255, 255, 255, 0.7)' }} />;
+    }
   };
 
   return (
@@ -151,7 +199,7 @@ export default function AgendaCard({ onCreateVisit }: AgendaCardProps) {
                   mb: 0.5
                 }}
               >
-                Agenda de Visitas
+                Agenda
               </Typography>
               <Typography 
                 variant="body2" 
@@ -160,13 +208,13 @@ export default function AgendaCard({ onCreateVisit }: AgendaCardProps) {
                   fontSize: '0.875rem'
                 }}
               >
-                Próximas visitas agendadas
+                Próximos compromissos
               </Typography>
             </Box>
           </Box>
           <Box sx={{ display: 'flex', gap: 1 }}>
             <IconButton 
-              onClick={loadVisits}
+              onClick={loadAgendaEvents}
               disabled={loading}
               sx={{
                 background: 'rgba(139, 92, 246, 0.1)',
@@ -180,9 +228,9 @@ export default function AgendaCard({ onCreateVisit }: AgendaCardProps) {
             >
               <Refresh />
             </IconButton>
-            {onCreateVisit && (
+            {onCreateEvent && (
               <IconButton 
-                onClick={onCreateVisit}
+                onClick={onCreateEvent}
                 sx={{
                   background: 'rgba(139, 92, 246, 0.1)',
                   border: '1px solid rgba(139, 92, 246, 0.2)',
@@ -249,15 +297,15 @@ export default function AgendaCard({ onCreateVisit }: AgendaCardProps) {
         </Box>
 
         {/* Upcoming Visits List */}
-        <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 2, overflow: 'auto' }}>
+        <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 2, overflow: 'auto', ...scrollbarStyles.hidden }}>
           {loading ? (
             Array.from({ length: 3 }).map((_, index) => (
-              <Skeleton key={index} variant="rectangular" height={70} sx={{ borderRadius: '12px' }} />
+              <Skeleton key={index} variant="rectangular" height={80} sx={{ borderRadius: '12px', bgcolor: 'rgba(255, 255, 255, 0.05)' }} />
             ))
-          ) : upcomingVisits.length > 0 ? (
-            upcomingVisits.slice(0, 3).map((visit) => (
+          ) : upcomingEvents.length > 0 ? (
+            upcomingEvents.slice(0, 4).map((event) => (
               <Box 
-                key={visit.id}
+                key={event.id}
                 sx={{ 
                   p: 2,
                   borderRadius: '12px',
@@ -265,19 +313,34 @@ export default function AgendaCard({ onCreateVisit }: AgendaCardProps) {
                   border: '1px solid rgba(255, 255, 255, 0.1)',
                   transition: 'all 0.2s',
                   cursor: 'pointer',
+                  position: 'relative',
+                  overflow: 'hidden',
                   '&:hover': {
                     background: 'rgba(255, 255, 255, 0.08)',
                     transform: 'translateX(4px)',
+                    borderColor: 'rgba(139, 92, 246, 0.3)',
+                  },
+                  '&::before': {
+                    content: '""',
+                    position: 'absolute',
+                    top: 0,
+                    left: 0,
+                    width: '3px',
+                    height: '100%',
+                    background: event.type === 'visit' ? 'linear-gradient(135deg, #8b5cf6, #6366f1)' : 
+                               event.type === 'meeting' ? '#3b82f6' : 
+                               event.type === 'task' ? '#f59e0b' : '#10b981',
+                    borderRadius: '3px',
                   }
                 }}
                 onClick={() => {
-                  window.location.href = '/dashboard/agenda/visitas';
+                  window.location.href = '/dashboard/agenda/visao-geral';
                 }}
               >
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1 }}>
                   <Box sx={{ flex: 1, minWidth: 0 }}>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
-                      <Home sx={{ fontSize: 16, color: 'rgba(255, 255, 255, 0.7)' }} />
+                      {getEventIcon(event.type)}
                       <Typography 
                         variant="body2" 
                         sx={{ 
@@ -288,7 +351,7 @@ export default function AgendaCard({ onCreateVisit }: AgendaCardProps) {
                           whiteSpace: 'nowrap',
                         }}
                       >
-                        {visit.propertyName}
+                        {event.title || event.propertyName}
                       </Typography>
                     </Box>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -302,34 +365,52 @@ export default function AgendaCard({ onCreateVisit }: AgendaCardProps) {
                           whiteSpace: 'nowrap',
                         }}
                       >
-                        {visit.clientName}
+                        {event.subtitle || event.clientName}
                       </Typography>
                     </Box>
                   </Box>
-                  <Chip
-                    label={VISIT_STATUS_LABELS[visit.status]}
-                    size="small"
-                    sx={{
-                      backgroundColor: VISIT_STATUS_COLORS[visit.status],
-                      color: 'white',
-                      fontWeight: 'bold',
-                      fontSize: '0.7rem',
-                      height: 20,
-                    }}
-                  />
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                    {event.confirmedByClient && (
+                      <Chip
+                        icon={<CheckCircle sx={{ fontSize: 14 }} />}
+                        size="small"
+                        sx={{
+                          height: 20,
+                          bgcolor: 'rgba(16, 185, 129, 0.1)',
+                          color: '#10b981',
+                          border: '1px solid rgba(16, 185, 129, 0.2)',
+                          '& .MuiChip-icon': {
+                            color: '#10b981',
+                          },
+                        }}
+                      />
+                    )}
+                    <Chip
+                      label={event.status ? VISIT_STATUS_LABELS[event.status] : 'Agendado'}
+                      size="small"
+                      sx={{
+                        backgroundColor: event.status ? VISIT_STATUS_COLORS[event.status] + '20' : 'rgba(139, 92, 246, 0.2)',
+                        color: event.status ? VISIT_STATUS_COLORS[event.status] : '#8b5cf6',
+                        border: event.status ? `1px solid ${VISIT_STATUS_COLORS[event.status]}40` : '1px solid rgba(139, 92, 246, 0.3)',
+                        fontWeight: 600,
+                        fontSize: '0.7rem',
+                        height: 20,
+                      }}
+                    />
+                  </Box>
                 </Box>
                 <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
                       <CalendarToday sx={{ fontSize: 14, color: 'rgba(255, 255, 255, 0.5)' }} />
-                      <Typography variant="caption" sx={{ color: 'rgba(255, 255, 255, 0.7)' }}>
-                        {getDateLabel(new Date(visit.scheduledDate))}
+                      <Typography variant="caption" sx={{ color: 'rgba(255, 255, 255, 0.7)', fontWeight: 500 }}>
+                        {getDateLabel(new Date(event.scheduledDate))}
                       </Typography>
                     </Box>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
                       <AccessTime sx={{ fontSize: 14, color: 'rgba(255, 255, 255, 0.5)' }} />
-                      <Typography variant="caption" sx={{ color: 'rgba(255, 255, 255, 0.7)' }}>
-                        {formatTime(visit.scheduledTime)}
+                      <Typography variant="caption" sx={{ color: 'rgba(255, 255, 255, 0.7)', fontWeight: 600 }}>
+                        {formatTime(event.scheduledTime)}
                       </Typography>
                     </Box>
                   </Box>
@@ -362,13 +443,14 @@ export default function AgendaCard({ onCreateVisit }: AgendaCardProps) {
                 <Typography sx={{ fontSize: '2.5rem' }}>📅</Typography>
               </Box>
               <Typography 
-                variant="body1" 
+                variant="h6" 
                 sx={{ 
-                  color: 'rgba(255, 255, 255, 0.7)', 
-                  textAlign: 'center' 
+                  color: '#ffffff', 
+                  textAlign: 'center',
+                  fontWeight: 600
                 }}
               >
-                Nenhuma visita agendada
+                Nenhum compromisso agendado
               </Typography>
               <Typography 
                 variant="caption" 
@@ -378,21 +460,42 @@ export default function AgendaCard({ onCreateVisit }: AgendaCardProps) {
                   maxWidth: '80%'
                 }}
               >
-                Agende visitas para acompanhar seus clientes
+                Organize seus compromissos e tarefas
               </Typography>
+              {onCreateEvent && (
+                <Button
+                  variant="contained"
+                  startIcon={<Add />}
+                  onClick={onCreateEvent}
+                  sx={{
+                    mt: 2,
+                    background: 'linear-gradient(135deg, #8b5cf6, #6366f1)',
+                    '&:hover': {
+                      background: 'linear-gradient(135deg, #7c3aed, #4f46e5)',
+                    },
+                    textTransform: 'none',
+                    fontWeight: 600,
+                    py: 1.5,
+                    px: 3,
+                    borderRadius: '12px',
+                  }}
+                >
+                  Criar Primeiro Compromisso
+                </Button>
+              )}
             </Box>
           )}
         </Box>
 
         {/* Footer Actions */}
-        {upcomingVisits.length > 0 && (
+        {upcomingEvents.length > 0 && (
           <>
             <Divider sx={{ borderColor: 'rgba(255, 255, 255, 0.1)', my: 2 }} />
             <Box sx={{ display: 'flex', gap: 2 }}>
               <Button
                 variant="contained"
                 startIcon={<Schedule />}
-                href="/dashboard/agenda/visitas"
+                href="/dashboard/agenda/visao-geral"
                 sx={{ 
                   flex: 1,
                   background: 'linear-gradient(135deg, #8b5cf6, #6366f1)',
@@ -405,14 +508,15 @@ export default function AgendaCard({ onCreateVisit }: AgendaCardProps) {
                   borderRadius: '12px',
                 }}
               >
-                Ver Todas
+                Ver Agenda Completa
               </Button>
-              {onCreateVisit && (
+              {onCreateEvent && (
                 <Button
                   variant="outlined"
                   startIcon={<Add />}
-                  onClick={onCreateVisit}
+                  onClick={onCreateEvent}
                   sx={{ 
+                    flex: 1,
                     color: '#8b5cf6',
                     borderColor: 'rgba(139, 92, 246, 0.3)',
                     '&:hover': {
@@ -425,7 +529,7 @@ export default function AgendaCard({ onCreateVisit }: AgendaCardProps) {
                     borderRadius: '12px',
                   }}
                 >
-                  Nova
+                  Novo Compromisso
                 </Button>
               )}
             </Box>
