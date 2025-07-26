@@ -68,6 +68,7 @@ import { format, subMonths, startOfMonth, endOfMonth } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Transaction } from '@/lib/types';
 import { useTenant } from '@/contexts/TenantContext';
+import { logger } from '@/lib/utils/logger';
 
 const formatCurrency = (value: number) => {
   return new Intl.NumberFormat('pt-BR', {
@@ -283,10 +284,10 @@ export default function EnhancedFinancialDashboard() {
       setCategoryData(categoryArray);
 
     } catch (error) {
-      console.error('Error loading financial data:', error);
+      logger.error('Error loading financial data', { error });
       // Additional debugging for date-related errors
       if (error instanceof RangeError && error.message.includes('Invalid time value')) {
-        console.error('Date formatting error detected. Check transaction dates in the database.');
+        logger.error('Date formatting error detected. Check transaction dates in the database.');
       }
     } finally {
       setLoading(false);

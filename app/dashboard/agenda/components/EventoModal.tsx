@@ -21,6 +21,7 @@ import {
     IconButton,
     Autocomplete,
     InputAdornment,
+    Alert,
 } from '@mui/material';
 import {
     Close as CloseIcon,
@@ -72,6 +73,7 @@ const EventoModal: React.FC<EventoModalProps> = ({
 
     const [loading, setLoading] = useState(false);
     const [errors, setErrors] = useState<{ [key: string]: string }>({});
+    const [saveError, setSaveError] = useState<string | null>(null);
 
     useEffect(() => {
         if (reservation) {
@@ -110,6 +112,7 @@ const EventoModal: React.FC<EventoModalProps> = ({
             });
         }
         setErrors({});
+        setSaveError(null);
     }, [reservation, isOpen]);
 
     const validateForm = () => {
@@ -189,6 +192,7 @@ const EventoModal: React.FC<EventoModalProps> = ({
             };
 
             await onSave(reservationData);
+            onClose();
         } catch (error) {
             logger.error('Erro ao salvar reserva', { 
                 error, 
@@ -196,6 +200,7 @@ const EventoModal: React.FC<EventoModalProps> = ({
                 operation: 'handleSave',
                 reservationData 
             });
+            setSaveError('Erro ao salvar reserva. Por favor, tente novamente.');
         } finally {
             setLoading(false);
         }
@@ -269,6 +274,12 @@ const EventoModal: React.FC<EventoModalProps> = ({
                 </DialogTitle>
 
                 <DialogContent sx={{ p: 3 }}>
+                    {saveError && (
+                        <Alert severity="error" sx={{ mb: 2 }} onClose={() => setSaveError(null)}>
+                            {saveError}
+                        </Alert>
+                    )}
+                    
                     <Box sx={{ mb: 3 }}>
                         <Typography variant="h6" sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
                             <Home color="primary" />

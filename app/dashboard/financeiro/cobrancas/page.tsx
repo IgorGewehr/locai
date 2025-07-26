@@ -340,9 +340,8 @@ export default function CobrancasConfigPage() {
   return (
     <Box sx={{ 
       p: { xs: 2, sm: 3 },
-      background: 'linear-gradient(135deg, #f8faff 0%, #e3f2fd 100%)',
+      bgcolor: 'background.default',
       minHeight: '100vh',
-      borderRadius: 2
     }}>
       <Box sx={{ 
         display: 'flex', 
@@ -353,10 +352,10 @@ export default function CobrancasConfigPage() {
         mb: 4 
       }}>
         <Box>
-          <Typography variant="h4" component="h1" fontWeight={600} gutterBottom sx={{ color: '#1565c0' }}>
+          <Typography variant="h4" component="h1" fontWeight={600} gutterBottom>
             Configurações de Cobrança
           </Typography>
-          <Typography variant="body1" sx={{ color: '#1e3a8a', fontWeight: 500 }}>
+          <Typography variant="body1" color="text.secondary">
             Configure lembretes automáticos via WhatsApp para suas cobranças
           </Typography>
         </Box>
@@ -398,11 +397,11 @@ export default function CobrancasConfigPage() {
           <Grid item xs={12} lg={8}>
             <Card 
               sx={{ 
-                borderRadius: 3,
-                boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)',
+                borderRadius: 2,
+                boxShadow: (theme) => theme.shadows[1],
                 overflow: 'hidden',
-                background: 'linear-gradient(135deg, #ffffff 0%, #f8faff 100%)',
-                border: '1px solid rgba(21, 101, 192, 0.1)'
+                bgcolor: 'background.paper',
+                border: (theme) => `1px solid ${theme.palette.divider}`
               }}
             >
               <CardContent sx={{ p: { xs: 2, sm: 3 } }}>
@@ -415,10 +414,10 @@ export default function CobrancasConfigPage() {
                   mb: 3 
                 }}>
                   <Box>
-                    <Typography variant="h6" gutterBottom sx={{ color: '#1565c0', fontWeight: 600 }}>
+                    <Typography variant="h6" gutterBottom fontWeight={600}>
                       Cobrança Automática via WhatsApp
                     </Typography>
-                    <Typography variant="body2" sx={{ color: '#1e3a8a', fontWeight: 500 }}>
+                    <Typography variant="body2" color="text.secondary">
                       Configure lembretes automáticos para seus clientes
                     </Typography>
                   </Box>
@@ -451,7 +450,7 @@ export default function CobrancasConfigPage() {
                 <Collapse in={simpleConfig.enabled}>
                   <Grid container spacing={3}>
                     <Grid item xs={12}>
-                      <Typography variant="subtitle1" gutterBottom fontWeight={600} sx={{ color: '#1565c0' }}>
+                      <Typography variant="subtitle1" gutterBottom fontWeight={600} color="primary">
                         Quando enviar lembretes?
                       </Typography>
                       <FormControl fullWidth>
@@ -504,7 +503,7 @@ export default function CobrancasConfigPage() {
                     </Grid>
 
                     <Grid item xs={12}>
-                      <Typography variant="subtitle1" gutterBottom fontWeight={600} sx={{ color: '#1565c0' }}>
+                      <Typography variant="subtitle1" gutterBottom fontWeight={600} color="primary">
                         Tom da mensagem
                       </Typography>
                       <ToggleButtonGroup
@@ -562,27 +561,27 @@ export default function CobrancasConfigPage() {
             <Stack spacing={3}>
               <Card 
                 sx={{ 
-                  borderRadius: 3,
-                  boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)',
-                  border: '1px solid rgba(21, 101, 192, 0.2)',
-                  background: 'linear-gradient(135deg, #e3f2fd 0%, #ffffff 100%)'
+                  borderRadius: 2,
+                  boxShadow: (theme) => theme.shadows[1],
+                  border: (theme) => `1px solid ${theme.palette.divider}`,
+                  bgcolor: 'background.paper'
                 }}
               >
                 <CardContent>
                   <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-                    <Info sx={{ mr: 1, color: '#1565c0' }} />
-                    <Typography variant="h6" fontWeight={600} sx={{ color: '#1565c0' }}>Como funciona?</Typography>
+                    <Info sx={{ mr: 1, color: 'primary.main' }} />
+                    <Typography variant="h6" fontWeight={600}>Como funciona?</Typography>
                   </Box>
                   <List dense>
                     <ListItem sx={{ px: 0 }}>
                       <ListItemText 
                         primary={
-                          <Typography variant="subtitle2" fontWeight={600} sx={{ color: '#1565c0' }}>
+                          <Typography variant="subtitle2" fontWeight={600}>
                             1. Criação automática
                           </Typography>
                         }
                         secondary={
-                          <Typography variant="body2" sx={{ color: '#1e3a8a', fontWeight: 500 }}>
+                          <Typography variant="body2" color="text.secondary">
                             Quando você criar uma fatura, o sistema programa os lembretes automaticamente
                           </Typography>
                         }
@@ -591,12 +590,12 @@ export default function CobrancasConfigPage() {
                     <ListItem sx={{ px: 0 }}>
                       <ListItemText 
                         primary={
-                          <Typography variant="subtitle2" fontWeight={600} sx={{ color: '#1565c0' }}>
+                          <Typography variant="subtitle2" fontWeight={600}>
                             2. Envio inteligente
                           </Typography>
                         }
                         secondary={
-                          <Typography variant="body2" sx={{ color: '#1e3a8a', fontWeight: 500 }}>
+                          <Typography variant="body2" color="text.secondary">
                             Mensagens são enviadas no horário comercial via WhatsApp
                           </Typography>
                         }
@@ -605,12 +604,12 @@ export default function CobrancasConfigPage() {
                     <ListItem sx={{ px: 0 }}>
                       <ListItemText 
                         primary={
-                          <Typography variant="subtitle2" fontWeight={600} sx={{ color: '#1565c0' }}>
+                          <Typography variant="subtitle2" fontWeight={600}>
                             3. Acompanhamento
                           </Typography>
                         }
                         secondary={
-                          <Typography variant="body2" sx={{ color: '#1e3a8a', fontWeight: 500 }}>
+                          <Typography variant="body2" color="text.secondary">
                             Você recebe notificações sobre respostas e pagamentos
                           </Typography>
                         }
@@ -619,12 +618,12 @@ export default function CobrancasConfigPage() {
                     <ListItem sx={{ px: 0 }}>
                       <ListItemText 
                         primary={
-                          <Typography variant="subtitle2" fontWeight={600} sx={{ color: '#1565c0' }}>
+                          <Typography variant="subtitle2" fontWeight={600}>
                             4. Confirmação automática
                           </Typography>
                         }
                         secondary={
-                          <Typography variant="body2" sx={{ color: '#1e3a8a', fontWeight: 500 }}>
+                          <Typography variant="body2" color="text.secondary">
                             Quando o cliente pagar, o sistema atualiza automaticamente
                           </Typography>
                         }
@@ -635,26 +634,26 @@ export default function CobrancasConfigPage() {
               </Card>
 
               <Card sx={{ 
-                borderRadius: 3,
-                boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)',
-                background: 'linear-gradient(135deg, #e8f5e8 0%, #ffffff 100%)',
-                border: '1px solid rgba(76, 175, 80, 0.2)'
+                borderRadius: 2,
+                boxShadow: (theme) => theme.shadows[1],
+                bgcolor: 'background.paper',
+                border: (theme) => `1px solid ${theme.palette.divider}`
               }}>
                 <CardContent>
                   <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-                    <TrendingUp sx={{ mr: 1, color: '#2e7d32' }} />
-                    <Typography variant="h6" sx={{ color: '#2e7d32', fontWeight: 600 }}>Benefícios</Typography>
+                    <TrendingUp sx={{ mr: 1, color: 'success.main' }} />
+                    <Typography variant="h6" fontWeight={600}>Benefícios</Typography>
                   </Box>
-                  <Typography variant="body2" paragraph sx={{ color: '#1b5e20', fontWeight: 500 }}>
+                  <Typography variant="body2" paragraph color="text.secondary">
                     • Redução de inadimplência em até 40%
                   </Typography>
-                  <Typography variant="body2" paragraph sx={{ color: '#1b5e20', fontWeight: 500 }}>
+                  <Typography variant="body2" paragraph color="text.secondary">
                     • Economia de tempo com cobranças manuais
                   </Typography>
-                  <Typography variant="body2" paragraph sx={{ color: '#1b5e20', fontWeight: 500 }}>
+                  <Typography variant="body2" paragraph color="text.secondary">
                     • Melhora no relacionamento com clientes
                   </Typography>
-                  <Typography variant="body2" sx={{ color: '#1b5e20', fontWeight: 500 }}>
+                  <Typography variant="body2" color="text.secondary">
                     • Pagamentos mais rápidos
                   </Typography>
                 </CardContent>
@@ -662,13 +661,13 @@ export default function CobrancasConfigPage() {
 
               {simpleConfig.enabled && (
                 <Card sx={{ 
-                  borderRadius: 3,
-                  boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)',
-                  background: 'linear-gradient(135deg, #fff3e0 0%, #ffffff 100%)',
-                  border: '1px solid rgba(255, 152, 0, 0.2)'
+                  borderRadius: 2,
+                  boxShadow: (theme) => theme.shadows[1],
+                  bgcolor: 'background.paper',
+                  border: (theme) => `1px solid ${theme.palette.divider}`
                 }}>
                   <CardContent>
-                    <Typography variant="h6" gutterBottom sx={{ color: '#e65100', fontWeight: 600 }}>
+                    <Typography variant="h6" gutterBottom fontWeight={600}>
                       Ações Rápidas
                     </Typography>
                     <Stack spacing={2}>
@@ -699,11 +698,11 @@ export default function CobrancasConfigPage() {
         // Modo Avançado - Configurações completas
         <Card 
           sx={{ 
-            borderRadius: 3,
-            boxShadow: '0 8px 32px rgba(0, 0, 0, 0.1)',
+            borderRadius: 2,
+            boxShadow: (theme) => theme.shadows[1],
             overflow: 'hidden',
-            background: 'linear-gradient(135deg, #ffffff 0%, #f8faff 100%)',
-            border: '1px solid rgba(21, 101, 192, 0.1)'
+            bgcolor: 'background.paper',
+            border: (theme) => `1px solid ${theme.palette.divider}`
           }}
         >
           <CardContent sx={{ p: 0 }}>
@@ -775,7 +774,7 @@ export default function CobrancasConfigPage() {
             p: 3, 
             borderTop: 1, 
             borderColor: 'divider', 
-            background: 'linear-gradient(135deg, #f8faff 0%, #e3f2fd 100%)',
+            bgcolor: 'background.default',
             display: 'flex', 
             justifyContent: 'flex-end',
             gap: 2
@@ -810,10 +809,9 @@ export default function CobrancasConfigPage() {
           <Stack spacing={3} sx={{ pt: 2 }}>
             <Paper sx={{ 
               p: 2, 
-              bgcolor: 'rgba(255, 255, 255, 0.08)',
-              backdropFilter: 'blur(20px)',
-              border: '1px solid rgba(255, 255, 255, 0.15)',
-              borderRadius: '12px'
+              bgcolor: 'background.paper',
+              border: (theme) => `1px solid ${theme.palette.divider}`,
+              borderRadius: 2
             }}>
               <Typography variant="subtitle2" gutterBottom color="primary">
                 Lembrete antes do vencimento
@@ -853,10 +851,9 @@ Sua Imobiliária`}
             {simpleConfig.overdueReminder && (
               <Paper sx={{ 
               p: 2, 
-              bgcolor: 'rgba(255, 255, 255, 0.08)',
-              backdropFilter: 'blur(20px)',
-              border: '1px solid rgba(255, 255, 255, 0.15)',
-              borderRadius: '12px'
+              bgcolor: 'background.paper',
+              border: (theme) => `1px solid ${theme.palette.divider}`,
+              borderRadius: 2
             }}>
                 <Typography variant="subtitle2" gutterBottom color="error">
                   Lembrete após vencimento

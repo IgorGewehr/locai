@@ -35,6 +35,7 @@ import ViewReservationDialog from './components/ViewReservationDialog';
 import { format, isToday, isSameDay, addDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import DashboardBreadcrumb from '@/components/atoms/DashboardBreadcrumb';
+import { useTenant } from '@/contexts/TenantContext';
 
 export default function AgendaPage() {
     const theme = useTheme();
@@ -101,6 +102,8 @@ export default function AgendaPage() {
         setReservaSelecionada(null);
     };
 
+    const { services } = useTenant();
+
     const handleSaveReservation = async (reservationData: any) => {
         try {
             logger.info('Salvando reserva', { 
@@ -108,6 +111,19 @@ export default function AgendaPage() {
                 component: 'AgendaPage',
                 operation: 'handleSaveReservation'
             });
+
+            if (!services) {
+                throw new Error('Serviços não disponíveis');
+            }
+
+            // Se tem ID, é uma atualização
+            if (reservationData.id) {
+                await services.reservations.update(reservationData.id, reservationData);
+            } else {
+                // Senão, é uma nova reserva
+                await services.reservations.create(reservationData);
+            }
+
             setShowEventoModal(false);
             setReservaSelecionada(null);
         } catch (error) {

@@ -8,6 +8,8 @@ import {
   getDocs
 } from 'firebase/firestore';
 import { db } from './config';
+import { useTenant } from '@/contexts/TenantContext';
+import { logger } from '@/lib/utils/logger';
 
 export function useFirestore<T>(
   collectionName: string,
@@ -40,7 +42,7 @@ export function useFirestore<T>(
           setLoading(false);
         },
         (err) => {
-          console.error(`Error fetching ${collectionName}:`, err);
+          logger.error(`Error fetching ${collectionName}:`, { error: err, collectionName });
           setError(err as Error);
           setLoading(false);
         }
@@ -48,7 +50,7 @@ export function useFirestore<T>(
 
       return unsubscribe;
     } catch (err) {
-      console.error(`Error setting up listener for ${collectionName}:`, err);
+      logger.error(`Error setting up listener for ${collectionName}:`, { error: err, collectionName });
       setError(err as Error);
       setLoading(false);
     }
@@ -57,23 +59,88 @@ export function useFirestore<T>(
   return { data, loading, error };
 }
 
+// Hook multi-tenant genérico
+export function useTenantFirestore<T>(
+  collectionName: string,
+  queryConstraints?: any[]
+) {
+  const { currentTenant } = useTenant();
+  const [data, setData] = useState<T | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<Error | null>(null);
+
+  useEffect(() => {
+    if (!currentTenant) {
+      logger.warn('No tenant found in useTenantFirestore', { collectionName });
+      setLoading(false);
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+
+    try {
+      const tenantPath = `tenants/${currentTenant.id}/${collectionName}`;
+      const collectionRef = collection(db, tenantPath);
+      let q = collectionRef as any;
+
+      if (queryConstraints && queryConstraints.length > 0) {
+        q = query(collectionRef, ...queryConstraints);
+      }
+
+      const unsubscribe = onSnapshot(
+        q,
+        (snapshot) => {
+          const items = snapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data()
+          }));
+          setData(items as T);
+          setLoading(false);
+        },
+        (err) => {
+          logger.error(`Error fetching ${collectionName}:`, { 
+            error: err,
+            tenantId: currentTenant.id,
+            collectionName 
+          });
+          setError(err as Error);
+          setLoading(false);
+        }
+      );
+
+      return unsubscribe;
+    } catch (err) {
+      logger.error(`Error setting up listener for ${collectionName}:`, {
+        error: err,
+        tenantId: currentTenant.id,
+        collectionName
+      });
+      setError(err as Error);
+      setLoading(false);
+    }
+  }, [collectionName, currentTenant, JSON.stringify(queryConstraints)]);
+
+  return { data, loading, error };
+}
+
 // Hook específico para reservas
 export function useReservations() {
-  return useFirestore<any[]>('reservations', [
+  return useTenantFirestore<any[]>('reservations', [
     orderBy('checkIn', 'asc')
   ]);
 }
 
 // Hook específico para propriedades
 export function useProperties() {
-  return useFirestore<any[]>('properties', [
+  return useTenantFirestore<any[]>('properties', [
     orderBy('name', 'asc')
   ]);
 }
 
 // Hook específico para clientes  
 export function useClients() {
-  return useFirestore<any[]>('clients', [
+  return useTenantFirestore<any[]>('clients', [
     orderBy('name', 'asc')
   ]);
 }
