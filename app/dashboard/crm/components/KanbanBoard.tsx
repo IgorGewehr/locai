@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState } from 'react';
 import {
   Box,
   Card,
@@ -12,6 +12,7 @@ import {
   Skeleton,
   Paper,
   Tooltip,
+  Fade,
 } from '@mui/material';
 import {
   Phone,
@@ -27,7 +28,6 @@ import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import { Lead, LeadStatus } from '@/lib/types/crm';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { scrollbarStyles } from '@/styles/scrollbarStyles';
 
 interface KanbanBoardProps {
   leads: Record<LeadStatus, Lead[]>;
@@ -48,11 +48,10 @@ export default function KanbanBoard({
   getTemperatureIcon,
   loading,
 }: KanbanBoardProps) {
-  const [currentIndex, setCurrentIndex] = useState(0);
-  const containerRef = useRef<HTMLDivElement>(null);
-  const columnWidth = 300;
-  const columnGap = 16;
-  const columnsToShow = 4;
+  const [currentPage, setCurrentPage] = useState(0);
+  const columnsPerPage = 3; // Show 3 columns at once for better spacing
+  const totalPages = Math.ceil(statusColumns.length / columnsPerPage);
+
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('pt-BR', {
       style: 'currency',
@@ -66,372 +65,474 @@ export default function KanbanBoard({
     return days;
   };
 
-  const handlePrevious = () => {
-    setCurrentIndex(Math.max(0, currentIndex - 1));
+  const getCurrentColumns = () => {
+    const start = currentPage * columnsPerPage;
+    return statusColumns.slice(start, start + columnsPerPage);
   };
 
-  const handleNext = () => {
-    setCurrentIndex(Math.min(statusColumns.length - columnsToShow, currentIndex + 1));
+  const nextPage = () => {
+    setCurrentPage((prev) => Math.min(prev + 1, totalPages - 1));
   };
 
-  const canGoPrevious = currentIndex > 0;
-  const canGoNext = currentIndex < statusColumns.length - columnsToShow;
+  const prevPage = () => {
+    setCurrentPage((prev) => Math.max(prev - 1, 0));
+  };
 
   return (
-    <DragDropContext onDragEnd={onDragEnd}>
-      <Box sx={{ position: 'relative', width: '100%', px: 5 }}>
-        {/* Left Shadow Indicator */}
-        {canGoPrevious && (
-          <Box
+    <Box sx={{ position: 'relative' }}>
+      {/* Navigation Controls */}
+      <Box sx={{ 
+        display: 'flex', 
+        justifyContent: 'space-between', 
+        alignItems: 'center', 
+        mb: 3,
+        px: 1
+      }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+          <Typography variant="h6" fontWeight={600} sx={{ color: '#ffffff' }}>
+            Pipeline CRM
+          </Typography>
+          <Chip 
+            label={`${currentPage + 1} de ${totalPages}`}
+            size="small"
             sx={{
-              position: 'absolute',
-              left: 40,
-              top: 0,
-              bottom: 0,
-              width: 60,
-              background: 'linear-gradient(to right, rgba(0, 0, 0, 0.2), transparent)',
-              zIndex: 5,
-              pointerEvents: 'none',
+              background: 'rgba(99, 102, 241, 0.2)',
+              color: '#c7d2fe',
+              border: '1px solid rgba(99, 102, 241, 0.3)',
+              fontWeight: 600,
             }}
           />
-        )}
-
-        {/* Right Shadow Indicator */}
-        {canGoNext && (
-          <Box
-            sx={{
-              position: 'absolute',
-              right: 40,
-              top: 0,
-              bottom: 0,
-              width: 60,
-              background: 'linear-gradient(to left, rgba(0, 0, 0, 0.2), transparent)',
-              zIndex: 5,
-              pointerEvents: 'none',
-            }}
-          />
-        )}
-
-        {/* Left Arrow */}
-        {statusColumns.length > columnsToShow && canGoPrevious && (
+        </Box>
+        
+        <Box sx={{ display: 'flex', gap: 1 }}>
           <IconButton
-            onClick={handlePrevious}
+            onClick={prevPage}
+            disabled={currentPage === 0}
             sx={{
-              position: 'absolute',
-              left: 0,
-              top: '50%',
-              transform: 'translateY(-50%)',
-              zIndex: 10,
-              background: 'rgba(255, 255, 255, 0.08)',
-              backdropFilter: 'blur(20px)',
-              boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3)',
-              border: '1px solid rgba(255, 255, 255, 0.15)',
+              background: 'rgba(255, 255, 255, 0.1)',
+              color: currentPage === 0 ? 'rgba(255, 255, 255, 0.3)' : '#ffffff',
+              border: '1px solid rgba(255, 255, 255, 0.2)',
               '&:hover': {
-                background: 'rgba(255, 255, 255, 0.12)',
-                transform: 'translateY(-50%) scale(1.1)',
+                background: 'rgba(255, 255, 255, 0.2)',
               },
-              transition: 'all 0.2s',
+              '&:disabled': {
+                background: 'rgba(255, 255, 255, 0.05)',
+              }
             }}
           >
-            <ChevronLeft sx={{ fontSize: 28, color: 'primary.main' }} />
+            <ChevronLeft />
           </IconButton>
-        )}
-
-        {/* Right Arrow */}
-        {statusColumns.length > columnsToShow && canGoNext && (
+          
           <IconButton
-            onClick={handleNext}
+            onClick={nextPage}
+            disabled={currentPage === totalPages - 1}
             sx={{
-              position: 'absolute',
-              right: 0,
-              top: '50%',
-              transform: 'translateY(-50%)',
-              zIndex: 10,
-              background: 'rgba(255, 255, 255, 0.08)',
-              backdropFilter: 'blur(20px)',
-              boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3)',
-              border: '1px solid rgba(255, 255, 255, 0.15)',
+              background: 'rgba(255, 255, 255, 0.1)',
+              color: currentPage === totalPages - 1 ? 'rgba(255, 255, 255, 0.3)' : '#ffffff',
+              border: '1px solid rgba(255, 255, 255, 0.2)',
               '&:hover': {
-                background: 'rgba(255, 255, 255, 0.12)',
-                transform: 'translateY(-50%) scale(1.1)',
+                background: 'rgba(255, 255, 255, 0.2)',
               },
-              transition: 'all 0.2s',
+              '&:disabled': {
+                background: 'rgba(255, 255, 255, 0.05)',
+              }
             }}
           >
-            <ChevronRight sx={{ fontSize: 28, color: 'primary.main' }} />
-          </IconButton>
-        )}
+            <ChevronRight />
+           </IconButton>
+        </Box>
+      </Box>
 
-        {/* Columns Container */}
-        <Box 
-          ref={containerRef}
-          sx={{ 
-            overflow: 'hidden',
-            position: 'relative',
-            width: '100%',
-            maxWidth: `${columnsToShow * columnWidth + (columnsToShow - 1) * columnGap}px`,
-            mx: 'auto',
-          }}
-        >
-          <Box 
-            sx={{ 
-              display: 'flex', 
-              gap: `${columnGap}px`, 
-              pb: 2,
-              transform: `translateX(-${currentIndex * (columnWidth + columnGap)}px)`,
-              transition: 'transform 0.3s ease-in-out',
-            }}
-          >
-            {statusColumns.map((column) => (
-          <Paper
-            key={column.id}
-            sx={{
-              minWidth: 300,
-              maxWidth: 300,
-              flex: '0 0 300px',
-              background: 'rgba(255, 255, 255, 0.08)',
-              backdropFilter: 'blur(20px)',
-              border: '1px solid rgba(255, 255, 255, 0.15)',
-              borderRadius: '16px',
-              transition: 'all 0.3s',
-              overflow: 'hidden',
-            }}
-          >
-            {/* Column Header */}
-            <Box
-              sx={{
-                p: 2,
-                borderBottom: 3,
-                borderColor: column.color,
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-              }}
-            >
-              <Box>
-                <Typography variant="h6" fontWeight={600}>
-                  {column.title}
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  {leads[column.id].length} leads
-                </Typography>
-              </Box>
-              {column.id === LeadStatus.WON && leads[column.id].length > 0 && (
-                <Chip
-                  label={formatCurrency(
-                    leads[column.id].reduce((sum, lead) => sum + (lead.wonValue || 0), 0)
-                  )}
-                  color="success"
-                  size="small"
-                />
-              )}
-            </Box>
-
-            {/* Column Content */}
-            <Droppable droppableId={column.id}>
-              {(provided, snapshot) => (
+      {/* Kanban Board */}
+      <DragDropContext onDragEnd={onDragEnd}>
+        <Fade in={true} key={currentPage}>
+          <Box sx={{ 
+            display: 'grid', 
+            gridTemplateColumns: 'repeat(3, 1fr)',
+            gap: 4,
+            minHeight: 600
+          }}>
+            {getCurrentColumns().map((column) => (
+              <Paper
+                key={column.id}
+                sx={{
+                  background: 'rgba(255, 255, 255, 0.08)',
+                  backdropFilter: 'blur(20px)',
+                  border: '1px solid rgba(255, 255, 255, 0.15)',
+                  borderRadius: '20px',
+                  transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                  '&:hover': {
+                    transform: 'translateY(-2px)',
+                    boxShadow: '0 12px 40px rgba(0, 0, 0, 0.3)',
+                  }
+                }}
+              >
+                {/* Column Header */}
                 <Box
-                  ref={provided.innerRef}
-                  {...provided.droppableProps}
                   sx={{
-                    minHeight: 400,
-                    maxHeight: 'calc(100vh - 300px)',
-                    overflowY: 'auto',
-                    p: 1,
-                    bgcolor: snapshot.isDraggingOver ? 'action.hover' : 'transparent',
-                    transition: 'background-color 0.2s',
-                    ...scrollbarStyles.hidden,
+                    p: 3,
+                    borderBottom: '4px solid',
+                    borderColor: column.color,
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    background: `linear-gradient(135deg, ${column.color}15, ${column.color}08)`,
                   }}
                 >
-                  {loading ? (
-                    <>
-                      {[1, 2, 3].map((i) => (
-                        <Skeleton key={i} variant="rectangular" height={120} sx={{ mb: 1, borderRadius: 1 }} />
-                      ))}
-                    </>
-                  ) : (
-                    <>
-                      {leads[column.id].map((lead, index) => (
-                        <Draggable key={lead.id} draggableId={lead.id} index={index}>
-                          {(provided, snapshot) => (
-                            <Card
-                              ref={provided.innerRef}
-                              {...provided.draggableProps}
-                              {...provided.dragHandleProps}
-                              onClick={() => onLeadClick(lead)}
-                              sx={{
-                                mb: 1,
-                                cursor: 'pointer',
-                                opacity: snapshot.isDragging ? 0.8 : 1,
-                                transform: snapshot.isDragging ? 'rotate(2deg)' : 'none',
-                                transition: 'transform 0.2s, box-shadow 0.2s',
-                                '&:hover': {
-                                  boxShadow: 3,
-                                },
-                              }}
-                            >
-                              <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
-                                {/* Lead Header */}
-                                <Box sx={{ display: 'flex', alignItems: 'flex-start', mb: 1 }}>
-                                  <Avatar sx={{ width: 32, height: 32, fontSize: 14, mr: 1 }}>
-                                    {lead.name ? lead.name.charAt(0).toUpperCase() : '?'}
-                                  </Avatar>
-                                  <Box sx={{ flex: 1 }}>
-                                    <Typography variant="subtitle2" fontWeight={600} noWrap>
-                                      {lead.name}
-                                    </Typography>
-                                    <Typography variant="caption" color="text.secondary" noWrap>
-                                      {lead.phone}
-                                    </Typography>
-                                  </Box>
-                                  {getTemperatureIcon(lead.temperature)}
-                                </Box>
-
-                                {/* Lead Score */}
-                                <Box sx={{ mb: 1 }}>
-                                  <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
-                                    <Typography variant="caption">Score</Typography>
-                                    <Typography variant="caption" fontWeight={600}>
-                                      {lead.score}%
-                                    </Typography>
-                                  </Box>
-                                  <LinearProgress
-                                    variant="determinate"
-                                    value={lead.score}
-                                    sx={{
-                                      height: 4,
-                                      borderRadius: 2,
-                                      bgcolor: 'grey.200',
-                                      '& .MuiLinearProgress-bar': {
-                                        bgcolor: lead.score > 70 ? 'success.main' : lead.score > 40 ? 'warning.main' : 'error.main',
-                                      },
-                                    }}
-                                  />
-                                </Box>
-
-                                {/* Lead Info */}
-                                <Stack spacing={0.5} sx={{ mb: 1 }}>
-                                  {lead.preferences.priceRange && (
-                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                                      <AttachMoney sx={{ fontSize: 14, color: 'text.secondary' }} />
-                                      <Typography variant="caption" color="text.secondary">
-                                        {formatCurrency(lead.preferences.priceRange.min)} - {formatCurrency(lead.preferences.priceRange.max)}
-                                      </Typography>
-                                    </Box>
-                                  )}
-                                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                                    <AccessTime sx={{ fontSize: 14, color: 'text.secondary' }} />
-                                    <Typography variant="caption" color="text.secondary">
-                                      {getDaysInStage(lead)} dias no estágio
-                                    </Typography>
-                                  </Box>
-                                </Stack>
-
-                                {/* Tags */}
-                                <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap', mb: 1 }}>
-                                  <Chip label={lead.source} size="small" variant="outlined" />
-                                  {lead.tags.slice(0, 2).map((tag) => (
-                                    <Chip key={tag} label={tag} size="small" variant="outlined" />
-                                  ))}
-                                  {lead.tags.length > 2 && (
-                                    <Chip label={`+${lead.tags.length - 2}`} size="small" variant="outlined" />
-                                  )}
-                                </Box>
-
-                                {/* Quick Actions */}
-                                <Box sx={{ display: 'flex', gap: 0.5, justifyContent: 'flex-end' }}>
-                                  <Tooltip title="WhatsApp">
-                                    <IconButton
-                                      size="small"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        onQuickAction(lead, 'whatsapp');
-                                      }}
-                                    >
-                                      <WhatsApp sx={{ fontSize: 18 }} />
-                                    </IconButton>
-                                  </Tooltip>
-                                  <Tooltip title="Ligar">
-                                    <IconButton
-                                      size="small"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        onQuickAction(lead, 'call');
-                                      }}
-                                    >
-                                      <Phone sx={{ fontSize: 18 }} />
-                                    </IconButton>
-                                  </Tooltip>
-                                  {lead.email && (
-                                    <Tooltip title="Email">
-                                      <IconButton
-                                        size="small"
-                                        onClick={(e) => {
-                                          e.stopPropagation();
-                                          onQuickAction(lead, 'email');
-                                        }}
-                                      >
-                                        <Email sx={{ fontSize: 18 }} />
-                                      </IconButton>
-                                    </Tooltip>
-                                  )}
-                                  <Tooltip title="Criar Tarefa">
-                                    <IconButton
-                                      size="small"
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        onQuickAction(lead, 'task');
-                                      }}
-                                    >
-                                      <TaskIcon sx={{ fontSize: 18 }} />
-                                    </IconButton>
-                                  </Tooltip>
-                                </Box>
-                              </CardContent>
-                            </Card>
-                          )}
-                        </Draggable>
-                      ))}
-                      {provided.placeholder}
-                    </>
+                  <Box>
+                    <Typography 
+                      variant="h6" 
+                      fontWeight={700}
+                      sx={{ 
+                        color: '#ffffff',
+                        fontSize: '1.125rem',
+                        mb: 0.5
+                      }}
+                    >
+                      {column.title}
+                    </Typography>
+                    <Typography 
+                      variant="body2" 
+                      sx={{ 
+                        color: 'rgba(255, 255, 255, 0.7)',
+                        fontSize: '0.875rem'
+                      }}
+                    >
+                      {leads[column.id].length} leads
+                    </Typography>
+                  </Box>
+                  {column.id === LeadStatus.WON && leads[column.id].length > 0 && (
+                    <Chip
+                      label={formatCurrency(
+                        leads[column.id].reduce((sum, lead) => sum + (lead.wonValue || 0), 0)
+                      )}
+                      sx={{
+                        background: 'rgba(34, 197, 94, 0.2)',
+                        color: '#22c55e',
+                        border: '1px solid rgba(34, 197, 94, 0.3)',
+                        fontWeight: 600,
+                      }}
+                      size="small"
+                    />
                   )}
                 </Box>
-              )}
-            </Droppable>
-          </Paper>
-            ))}
-          </Box>
-        </Box>
 
-        {/* Navigation Dots */}
-        {statusColumns.length > columnsToShow && (
-          <Box sx={{ 
-            display: 'flex', 
-            justifyContent: 'center', 
-            gap: 1, 
-            mt: 2 
-          }}>
-            {Array.from({ length: statusColumns.length - columnsToShow + 1 }).map((_, index) => (
-              <Box
-                key={index}
-                onClick={() => setCurrentIndex(index)}
-                sx={{
-                  width: index === currentIndex ? 24 : 8,
-                  height: 8,
-                  borderRadius: '4px',
-                  bgcolor: index === currentIndex ? 'primary.main' : 'rgba(255, 255, 255, 0.3)',
-                  cursor: 'pointer',
-                  transition: 'all 0.3s',
-                  '&:hover': {
-                    bgcolor: index === currentIndex ? 'primary.dark' : 'rgba(255, 255, 255, 0.5)',
-                    transform: 'scale(1.2)',
-                  },
-                }}
-              />
+                {/* Column Content */}
+                <Droppable droppableId={column.id}>
+                  {(provided, snapshot) => (
+                    <Box
+                      ref={provided.innerRef}
+                      {...provided.droppableProps}
+                      sx={{
+                        minHeight: 500,
+                        maxHeight: 500,
+                        overflowY: 'auto',
+                        p: 3,
+                        background: snapshot.isDraggingOver ? 'rgba(99, 102, 241, 0.1)' : 'transparent',
+                        transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                        '&::-webkit-scrollbar': {
+                          width: '8px',
+                        },
+                        '&::-webkit-scrollbar-track': {
+                          background: 'rgba(255, 255, 255, 0.1)',
+                          borderRadius: '4px',
+                        },
+                        '&::-webkit-scrollbar-thumb': {
+                          background: 'rgba(255, 255, 255, 0.3)',
+                          borderRadius: '4px',
+                          '&:hover': {
+                            background: 'rgba(255, 255, 255, 0.5)',
+                          },
+                        },
+                      }}
+                    >
+                      {loading ? (
+                        <>
+                          {[1, 2, 3].map((i) => (
+                            <Skeleton 
+                              key={i} 
+                              variant="rectangular" 
+                              height={160} 
+                              sx={{ 
+                                mb: 2, 
+                                borderRadius: '16px',
+                                background: 'rgba(255, 255, 255, 0.05)',
+                              }} 
+                            />
+                          ))}
+                        </>
+                      ) : (
+                        <>
+                          {leads[column.id].map((lead, index) => (
+                            <Draggable key={lead.id} draggableId={lead.id} index={index}>
+                              {(provided, snapshot) => (
+                                <Card
+                                  ref={provided.innerRef}
+                                  {...provided.draggableProps}
+                                  {...provided.dragHandleProps}
+                                  onClick={() => onLeadClick(lead)}
+                                  sx={{
+                                    mb: 2,
+                                    cursor: 'pointer',
+                                    opacity: snapshot.isDragging ? 0.9 : 1,
+                                    transform: snapshot.isDragging ? 'rotate(3deg) scale(1.05)' : 'none',
+                                    transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                                    background: 'rgba(255, 255, 255, 0.08)',
+                                    backdropFilter: 'blur(10px)',
+                                    border: '1px solid rgba(255, 255, 255, 0.12)',
+                                    borderRadius: '16px',
+                                    '&:hover': {
+                                      transform: 'translateY(-4px)',
+                                      boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3)',
+                                      background: 'rgba(255, 255, 255, 0.12)',
+                                    },
+                                  }}
+                                >
+                                  <CardContent sx={{ p: 3, '&:last-child': { pb: 3 } }}>
+                                    {/* Lead Header */}
+                                    <Box sx={{ display: 'flex', alignItems: 'flex-start', mb: 2 }}>
+                                      <Avatar 
+                                        sx={{ 
+                                          width: 40, 
+                                          height: 40, 
+                                          fontSize: 16, 
+                                          mr: 1.5,
+                                          background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
+                                          boxShadow: '0 4px 12px rgba(99, 102, 241, 0.3)',
+                                        }}
+                                      >
+                                        {lead.name ? lead.name.charAt(0).toUpperCase() : '?'}
+                                      </Avatar>
+                                      <Box sx={{ flex: 1 }}>
+                                        <Typography 
+                                          variant="subtitle1" 
+                                          fontWeight={700}
+                                          sx={{ 
+                                            color: '#ffffff',
+                                            fontSize: '1rem',
+                                            mb: 0.5
+                                          }}
+                                        >
+                                          {lead.name}
+                                        </Typography>
+                                        <Typography 
+                                          variant="body2" 
+                                          sx={{ 
+                                            color: 'rgba(255, 255, 255, 0.7)',
+                                            fontSize: '0.875rem'
+                                          }}
+                                        >
+                                          {lead.phone}
+                                        </Typography>
+                                      </Box>
+                                      <Box sx={{ mt: 0.5 }}>
+                                        {getTemperatureIcon(lead.temperature)}
+                                      </Box>
+                                    </Box>
+
+                                    {/* Lead Score */}
+                                    <Box sx={{ mb: 2 }}>
+                                      <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                                        <Typography 
+                                          variant="body2" 
+                                          sx={{ color: 'rgba(255, 255, 255, 0.8)', fontWeight: 600 }}
+                                        >
+                                          Score
+                                        </Typography>
+                                        <Typography 
+                                          variant="body2" 
+                                          fontWeight={700}
+                                          sx={{ color: '#ffffff' }}
+                                        >
+                                          {lead.score}%
+                                        </Typography>
+                                      </Box>
+                                      <LinearProgress
+                                        variant="determinate"
+                                        value={lead.score}
+                                        sx={{
+                                          height: 6,
+                                          borderRadius: 3,
+                                          background: 'rgba(255, 255, 255, 0.1)',
+                                          '& .MuiLinearProgress-bar': {
+                                            borderRadius: 3,
+                                            background: lead.score > 70 
+                                              ? 'linear-gradient(135deg, #22c55e, #16a34a)'
+                                              : lead.score > 40 
+                                              ? 'linear-gradient(135deg, #f59e0b, #d97706)'
+                                              : 'linear-gradient(135deg, #ef4444, #dc2626)',
+                                          },
+                                        }}
+                                      />
+                                    </Box>
+
+                                    {/* Lead Info */}
+                                    <Stack spacing={1} sx={{ mb: 2 }}>
+                                      {lead.preferences.priceRange && (
+                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                          <AttachMoney sx={{ fontSize: 16, color: '#10b981' }} />
+                                          <Typography 
+                                            variant="body2" 
+                                            sx={{ color: 'rgba(255, 255, 255, 0.8)', fontSize: '0.875rem' }}
+                                          >
+                                            {formatCurrency(lead.preferences.priceRange.min)} - {formatCurrency(lead.preferences.priceRange.max)}
+                                          </Typography>
+                                        </Box>
+                                      )}
+                                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                        <AccessTime sx={{ fontSize: 16, color: '#8b5cf6' }} />
+                                        <Typography 
+                                          variant="body2" 
+                                          sx={{ color: 'rgba(255, 255, 255, 0.8)', fontSize: '0.875rem' }}
+                                        >
+                                          {getDaysInStage(lead)} dias no estágio
+                                        </Typography>
+                                      </Box>
+                                    </Stack>
+
+                                    {/* Tags */}
+                                    <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mb: 2 }}>
+                                      <Chip 
+                                        label={lead.source} 
+                                        size="small" 
+                                        sx={{
+                                          background: 'rgba(99, 102, 241, 0.2)',
+                                          color: '#c7d2fe',
+                                          border: '1px solid rgba(99, 102, 241, 0.3)',
+                                          fontWeight: 600,
+                                          fontSize: '0.75rem',
+                                        }}
+                                      />
+                                      {lead.tags.slice(0, 1).map((tag) => (
+                                        <Chip 
+                                          key={tag} 
+                                          label={tag} 
+                                          size="small" 
+                                          sx={{
+                                            background: 'rgba(139, 92, 246, 0.2)',
+                                            color: '#d8b4fe',
+                                            border: '1px solid rgba(139, 92, 246, 0.3)',
+                                            fontWeight: 600,
+                                            fontSize: '0.75rem',
+                                          }}
+                                        />
+                                      ))}
+                                      {lead.tags.length > 1 && (
+                                        <Chip 
+                                          label={`+${lead.tags.length - 1}`} 
+                                          size="small" 
+                                          sx={{
+                                            background: 'rgba(255, 255, 255, 0.1)',
+                                            color: 'rgba(255, 255, 255, 0.7)',
+                                            border: '1px solid rgba(255, 255, 255, 0.2)',
+                                            fontWeight: 600,
+                                            fontSize: '0.75rem',
+                                          }}
+                                        />
+                                      )}
+                                    </Box>
+
+                                    {/* Quick Actions */}
+                                    <Box sx={{ display: 'flex', gap: 1, justifyContent: 'center' }}>
+                                      <Tooltip title="WhatsApp">
+                                        <IconButton
+                                          size="small"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            onQuickAction(lead, 'whatsapp');
+                                          }}
+                                          sx={{
+                                            background: 'rgba(37, 211, 102, 0.2)',
+                                            color: '#25d366',
+                                            border: '1px solid rgba(37, 211, 102, 0.3)',
+                                            '&:hover': {
+                                              background: 'rgba(37, 211, 102, 0.3)',
+                                              transform: 'scale(1.1)',
+                                            }
+                                          }}
+                                        >
+                                          <WhatsApp sx={{ fontSize: 18 }} />
+                                        </IconButton>
+                                      </Tooltip>
+                                      <Tooltip title="Ligar">
+                                        <IconButton
+                                          size="small"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            onQuickAction(lead, 'call');
+                                          }}
+                                          sx={{
+                                            background: 'rgba(59, 130, 246, 0.2)',
+                                            color: '#3b82f6',
+                                            border: '1px solid rgba(59, 130, 246, 0.3)',
+                                            '&:hover': {
+                                              background: 'rgba(59, 130, 246, 0.3)',
+                                              transform: 'scale(1.1)',
+                                            }
+                                          }}
+                                        >
+                                          <Phone sx={{ fontSize: 18 }} />
+                                        </IconButton>
+                                      </Tooltip>
+                                      {lead.email && (
+                                        <Tooltip title="Email">
+                                          <IconButton
+                                            size="small"
+                                            onClick={(e) => {
+                                              e.stopPropagation();
+                                              onQuickAction(lead, 'email');
+                                            }}
+                                            sx={{
+                                              background: 'rgba(245, 158, 11, 0.2)',
+                                              color: '#f59e0b',
+                                              border: '1px solid rgba(245, 158, 11, 0.3)',
+                                              '&:hover': {
+                                                background: 'rgba(245, 158, 11, 0.3)',
+                                                transform: 'scale(1.1)',
+                                              }
+                                            }}
+                                          >
+                                            <Email sx={{ fontSize: 18 }} />
+                                          </IconButton>
+                                        </Tooltip>
+                                      )}
+                                      <Tooltip title="Criar Tarefa">
+                                        <IconButton
+                                          size="small"
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            onQuickAction(lead, 'task');
+                                          }}
+                                          sx={{
+                                            background: 'rgba(139, 92, 246, 0.2)',
+                                            color: '#8b5cf6',
+                                            border: '1px solid rgba(139, 92, 246, 0.3)',
+                                            '&:hover': {
+                                              background: 'rgba(139, 92, 246, 0.3)',
+                                              transform: 'scale(1.1)',
+                                            }
+                                          }}
+                                        >
+                                          <TaskIcon sx={{ fontSize: 18 }} />
+                                        </IconButton>
+                                      </Tooltip>
+                                    </Box>
+                                  </CardContent>
+                                </Card>
+                              )}
+                            </Draggable>
+                          ))}
+                          {provided.placeholder}
+                        </>
+                      )}
+                    </Box>
+                  )}
+                </Droppable>
+              </Paper>
             ))}
           </Box>
-        )}
-      </Box>
-    </DragDropContext>
+        </Fade>
+      </DragDropContext>
+    </Box>
   );
 }
