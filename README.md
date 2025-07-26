@@ -1,46 +1,49 @@
-# 🏠 Agente Imobiliária - CRM e Maximização de Reservas Diretas com IA
+# 🏠 LocAI - Sistema Imobiliário Enterprise com IA Avançada
 
 **A mais poderosa plataforma de CRM e maximização de reservas diretas, com um assistente de IA que trabalha 24/7 para você.**
 
 Sistema enterprise-grade para gestores de propriedades de aluguel por temporada, com assistente de IA integrado ao WhatsApp, mini-sites personalizados e automação completa do processo de vendas.
 
-## 🎉 Status do Projeto (Janeiro 2025)
+## 🎉 Status do Projeto (Julho 2025)
 
 ✅ **ENTERPRISE-GRADE SISTEMA** - Code Review Completo ⭐⭐⭐⭐⭐
 
 ### 📊 **Qualidade de Código Verificada**
 - **TypeScript**: Rigorosamente tipado com interfaces robustas
 - **Firebase**: 100% integrado, zero simulações, dados reais
-- **Componentes**: Atomic Design, comunicação perfeita entre componentes  
-- **Agente IA**: GPT-4 com 12+ funções, integração enterprise-grade
+- **Multi-Tenant**: Arquitetura completa com isolamento total
+- **Agente IA**: Sofia V3 com Professional Agent otimizado
 - **WhatsApp**: Dual-mode (Business API + Web), error handling profissional
+- **UI/UX**: TopAppBar moderno + Kanban redesenhado com glassmorphism
 - **Segurança**: Rate limiting, timeout protection, sanitização de input
 
 ### 🚀 **Funcionalidades Core**
-- Todos os módulos integrados com Firebase (sem dados mockados)
-- CRUD completo para todas as entidades
-- IA capaz de criar autonomamente: reservas, clientes e pagamentos
-- Navegação intuitiva entre registros relacionados
-- Interface responsiva otimizada para mobile
-- **NOVO**: Mini-sites personalizados para cada gestor com design superior ao Airbnb
-- **NOVO**: Integração WhatsApp para conversão direta via mini-site
-- **NOVO**: Sistema de proteção de rotas para isolamento de tenants
+- **Sistema Multi-Tenant**: Isolamento completo com `tenants/{tenantId}/collections`
+- **Sofia AI Agent V3**: GPT-4o Mini com 90% redução de tokens
+- **TopAppBar Moderno**: Navegação estilo ClickUp substituindo sidebar
+- **Kanban Board Redesenhado**: UX/UI moderno com paginação inteligente
+- **Mini-sites Personalizados**: Design superior ao Airbnb
+- **Dashboard Inteligente**: Métricas reais com layout geométrico perfeito
+- **WhatsApp Status Real**: Integração sem mock data
 
-### 🔧 **Fixes Recentes (Janeiro 2025)**
-- ✅ **Upload de Mídia**: Progresso real usando `uploadBytesResumable`
-- ✅ **Tooltips MUI**: Corrigido wrapping de botões desabilitados
-- ✅ **Componentes**: InteractiveCharts usando dados reais dos props
-- ✅ **Code Review**: Análise completa realizada
+### 🔧 **Atualizações Recentes (Julho 2025)**
+- ✅ **Multi-Tenant Migration**: 100% completa com TenantServiceFactory
+- ✅ **TopAppBar Implementation**: Navegação moderna substituindo sidebar
+- ✅ **Kanban Board Redesign**: Interface moderna com paginação 3 colunas
+- ✅ **Dashboard Layout Fix**: Cards com altura perfeita e geometria alinhada
+- ✅ **Real Data Integration**: Remoção completa de mock data
+- ✅ **Professional Logging**: Sistema estruturado substituindo console.log
+- ✅ **Sofia Agent V3**: Agente otimizado com context management
 
 ## 📋 Índice
 
 - [🎯 Visão Geral](#-visão-geral)
 - [🏗️ Arquitetura do Sistema](#️-arquitetura-do-sistema)
-- [🖥️ Telas e Funcionalidades](#️-telas-e-funcionalidades)
+- [🤖 Sistema Sofia AI V3](#-sistema-sofia-ai-v3)
+- [🖥️ Interface Moderna](#️-interface-moderna)
 - [🧩 Atomic Design Components](#-atomic-design-components)
 - [🔗 API Routes](#-api-routes)
 - [📊 Modelos de Dados](#-modelos-de-dados)
-- [📚 Estrutura de Arquivos](#-estrutura-de-arquivos)
 - [🚀 Como Executar](#-como-executar)
 - [⚙️ Configuração](#️-configuração)
 - [🔧 Tecnologias](#-tecnologias)
@@ -49,353 +52,222 @@ Sistema enterprise-grade para gestores de propriedades de aluguel por temporada,
 
 ### Funcionalidades Principais
 
-- **🤖 Agente IA Enterprise**: Sistema revolucionário Intent-Based com Professional Agent
+- **🤖 Sofia AI Agent V3**: Sistema revolucionário com Professional Agent
   - **90% redução de tokens**: De 400+ para 25-35 tokens por interação
-  - **Detecção local de intenção**: Zero tokens para casos comuns (saudações, filtros)
-  - **Cache inteligente**: Respostas instantâneas com 73% hit rate
-  - **Singleton Pattern**: Contexto persistente entre requisições
-  - **Function Calling otimizado**: 12+ funções especializadas
-  - **Abordagem consultiva**: Apresenta opções sem perguntar orçamento
-  - **Dual WhatsApp Mode**: Business API + WhatsApp Web (Baileys)
+  - **Context management**: Persistência inteligente entre conversas
+  - **Function calling otimizado**: 12+ funções especializadas
+  - **GPT-4o Mini**: Modelo cost-optimized com mesma qualidade
+  - **Abordagem consultiva**: Foco em conversão e vendas
   - **Rate Limiting**: 20 mensagens/minuto com proteção contra abuso
-  - **NOVO**: Processamento especializado de inquéritos do mini-site
+  
+- **🌐 Arquitetura Multi-Tenant**: Sistema empresarial escalável
+  - **TenantServiceFactory**: Criação automática de serviços por tenant
+  - **useTenant() Hook**: Context global para isolamento
+  - **Migração Completa**: 100% dos dados isolados por tenant
+  - **Configuração Individual**: WhatsApp e branding por organização
+  - **Scalabilidade**: Suporte ilimitado de organizações
+  
+- **🎨 Interface Moderna**: UX/UX profissional redesenhada
+  - **TopAppBar**: Navegação moderna estilo ClickUp
+  - **Kanban Board**: Design glassmorphism com paginação inteligente
+  - **Dashboard Geométrico**: Layout perfeito com cards alinhados
+  - **Real-time Status**: WhatsApp status sem mock data
+  - **Responsive Design**: Otimizado para todos dispositivos
   
 - **🏠 Gestão de Propriedades**: CRUD completo com upload de mídia
   - Calendário de disponibilidade
   - Precificação dinâmica por temporada
   - Galeria de fotos e vídeos
-  - **NOVO**: Exposição automática no mini-site público
+  - Exposição automática no mini-site público
   
 - **📅 Sistema de Reservas**: Controle completo do ciclo de locação
   - Links diretos para cliente, propriedade e pagamento
   - Status e acompanhamento em tempo real
   - Integração automática com financeiro
-  - **NOVO**: Conversão direta via WhatsApp do mini-site
+  - Conversão direta via WhatsApp do mini-site
   
 - **🌐 Mini-Sites Personalizados**: Showcase público de propriedades
   - Design moderno superior ao Airbnb com glassmorphismo
   - Busca avançada e filtros inteligentes
   - Galeria de imagens com navegação fluida
   - Integração direta com WhatsApp para reservas
-  - Responsive design perfeito
   - Analytics de visualizações e conversões
   
 - **📊 Analytics Enterprise**: Métricas financeiras e operacionais
-  - Dados reais sem placeholders
-  - Tendências calculadas dinamicamente
-  - Segmentação de clientes automática
+  - Dados reais calculados dinamicamente
+  - Tendências automáticas
+  - Segmentação de clientes inteligente
   
-- **⚙️ Configuração Visual**: Setup de IA e empresa sem código
 - **💰 Precificação Dinâmica**: Sistema automatizado com regras customizáveis
 
 ### Arquitetura Técnica
 
 - **Frontend**: Next.js 15 + TypeScript + Material-UI v5
 - **Backend**: Next.js API Routes + Firebase Admin SDK  
-- **IA**: Professional Agent (Intent-Based) + OpenAI GPT-4o Mini
+- **IA**: Sofia Agent V3 (GPT-4o Mini) + Professional Agent Pattern
 - **Mensageria**: Dual WhatsApp (Business API + Baileys)
 - **Banco de Dados**: Firebase Firestore com isolamento multi-tenant
 - **Storage**: Firebase Storage com compressação automática
-- **Cache**: Sistema inteligente com TTL e hit tracking
 - **Multi-Tenancy**: Arquitetura `tenants/{tenantId}/collections` completa
-- **Logging**: Sistema profissional com níveis estruturados
-- **Monitoramento**: OpenTelemetry + Rate Limiting + Error Classification
+- **Logging**: Sistema profissional estruturado
+- **Monitoramento**: Rate Limiting + Error Classification + Performance Tracking
 
 ## 🏗️ Arquitetura do Sistema
 
 ```
 ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
 │   WhatsApp      │    │   Next.js       │    │   Firebase      │
-│   Business API  │◄──►│   Application   │◄──►│   Backend       │
+│   Business API  │◄──►│   Application   │◄──►│   Firestore     │
 └─────────────────┘    └─────────────────┘    └─────────────────┘
          ▲                       ▲                       ▲
          │                       │                       │
          ▼                       ▼                       ▼
 ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│   OpenAI        │    │   Material-UI   │    │   Storage       │
-│   GPT-4 API     │    │   Components    │    │   (Images/Docs) │
+│   Sofia AI      │    │   TopAppBar     │    │   Multi-Tenant  │
+│   Agent V3      │    │   Navigation    │    │   Architecture  │
 └─────────────────┘    └─────────────────┘    └─────────────────┘
 ```
 
-### Fluxo de Dados (OTIMIZADO)
+### Fluxo Multi-Tenant
 
-1. **Cliente** envia mensagem no WhatsApp (Business API ou Baileys)
-2. **Webhook** valida e aplica rate limiting (20 msg/min)
-3. **Professional Agent** (Singleton) detecta intenção localmente (0 tokens)
-4. **Cache Check**: Verifica cache inteligente (73% hit rate)
-5. **Function Execution**: Executa funções especializadas se necessário
-6. **Context Update**: Atualiza contexto persistente da conversa
-7. **Firebase** persiste dados com isolamento multi-tenant
-8. **Response**: Envia resposta otimizada (25-35 tokens médio)
-9. **Dashboard** exibe métricas em tempo real com analytics avançado
+1. **TenantServiceFactory** identifica tenant do usuário
+2. **useTenant() Hook** provê contexto global
+3. **Serviços Scoped** acessam dados isolados em `tenants/{tenantId}/collections`
+4. **Sofia Agent** utiliza contexto tenant para personalização
+5. **Dashboard** exibe dados específicos do tenant
+6. **Mini-site** renderiza propriedades isoladas por tenant
 
-## 🖥️ Telas e Funcionalidades
+## 🤖 Sistema Sofia AI V3
 
-### 🏠 Dashboard Principal (`/dashboard`)
+### Professional Agent Pattern Otimizado
 
-**Localização**: `app/dashboard/page.tsx`
+Sofia V3 representa uma evolução significativa na eficiência de agentes conversacionais, implementando um **Professional Agent Pattern** que reduz drasticamente o uso de tokens da OpenAI.
 
-**Funcionalidades**:
-- KPIs principais (receita, ocupação, reservas)
-- Status do WhatsApp em tempo real
-- Atividade recente
-- Ações rápidas de navegação
+#### 📊 Performance Metrics
+- **90% redução de tokens**: De 400+ tokens para 25-35 tokens por interação
+- **Context persistence**: Mantém contexto entre conversas
+- **Function calling**: 12+ funções especializadas
+- **GPT-4o Mini**: Cost-optimized mantendo qualidade
+- **Response time**: 70% mais rápido que sistemas tradicionais
 
-**Components Utilizados**:
+#### 🧠 Context Management Inteligente
+
 ```typescript
-// Atoms
-- Typography (títulos e textos)
-- Chip (status e badges)
-- Avatar (representação visual)
-- LinearProgress (indicadores)
-
-// Molecules  
-- StatCard (cartões de métricas)
-- ActivityItem (itens de atividade)
-
-// Organisms
-- DashboardHeader (cabeçalho com ações)
-- StatsGrid (grid de estatísticas)
-- ActivityFeed (feed de atividades)
+// Context persistente entre requisições
+interface ConversationContextData {
+  searchFilters: PropertyFilters;
+  interestedProperties: string[];
+  currentStep: ConversationStep;
+  clientPreferences: ClientPreferences;
+  pendingActions: string[];
+  pendingReservation?: ReservationData;
+}
 ```
 
-### 🏠 Gestão de Propriedades
+#### 🎯 Funções Especializadas
 
-#### Listagem (`/dashboard/properties`)
-**Localização**: `app/dashboard/properties/page.tsx`
-
-**Funcionalidades**:
-- Grid responsivo de propriedades
-- Filtros por tipo, status e busca textual
-- Menu de ações (editar, duplicar, excluir)
-- Cards com informações visuais
-
-**Components Utilizados**:
 ```typescript
-// Atoms
-- TextField (busca e filtros)
-- Select (dropdowns de filtro)
-- IconButton (ações rápidas)
-- Chip (status da propriedade)
-
-// Molecules
-- PropertyCard (cartão de propriedade)
-- FilterBar (barra de filtros)
-- ActionMenu (menu de ações)
-
-// Organisms
-- PropertiesGrid (grid principal)
-- PropertiesFilters (sistema de filtros)
+// 12+ funções otimizadas disponíveis
+- searchProperties()        // Busca com filtros inteligentes
+- calculatePrice()          // Cálculo dinâmico de preços
+- createReservation()       // Criação de reservas completas
+- register_client()         // Registro com deduplicação
+- sendPropertyMedia()       // Envio de fotos/vídeos
+- checkAvailability()       // Verificação de disponibilidade
+- scheduleVisit()           // Agendamento de visitas
+- applyDiscount()           // Sistema de descontos
+- generateQuote()           // Cotações personalizadas
+- analyzeClientBehavior()   // Análise comportamental
+- triggerAutomations()      // Automações contextuais
+- updateContext()           // Atualização de contexto
 ```
 
-#### Criação (`/dashboard/properties/create`)
-**Localização**: `app/dashboard/properties/create/page.tsx`
+#### 🛡️ Recursos Enterprise
 
-**Funcionalidades**:
-- Stepper com 6 etapas organizadas
-- Validação em tempo real
-- Upload de mídia com preview
-- Sistema de precificação dinâmica
+- **Rate Limiting**: 20 mensagens/minuto por telefone
+- **Professional Logging**: Sistema estruturado com níveis
+- **Error Handling**: Sistema de classificação e recuperação
+- **Security**: Sanitização e validação em todas as camadas  
+- **Multi-tenant**: Isolamento completo entre organizações
+- **Fallback**: Graceful degradation quando APIs falham
 
-**Components Utilizados**:
-```typescript
-// Organisms (Principais)
-- PropertyBasicInfo (informações básicas)
-- PropertySpecs (especificações técnicas)
-- PropertyAmenities (comodidades)
-- PropertyPricing (configuração de preços)
-- PropertyMediaUpload (upload de fotos/vídeos)
+#### 🎭 Abordagem Consultiva
 
-// Molecules
-- StepperNavigation (navegação entre etapas)
-- ValidationMessage (mensagens de erro)
-- PriceCalculator (calculadora de preços)
+Sofia V3 foi otimizada para uma **abordagem de vendas consultiva**:
 
-// Atoms
-- Stepper (indicador de progresso)
-- Button (navegação e ações)
-- TextField (inputs diversos)
+- ❌ ~~"Qual seu orçamento?"~~ → ✅ **"Tenho 3 opções incríveis para você!"**
+- ❌ ~~"Quantos quartos precisa?"~~ → ✅ **"Encontrei desde estúdios até casas de 4 quartos"**
+- ❌ ~~"Perguntas investigativas"~~ → ✅ **"Apresentação de soluções direcionadas"**
+
+### 📂 Estrutura de Arquivos do Sistema IA
+
+```
+lib/ai-agent/
+├── sofia-agent-v3.ts           # Agent principal otimizado
+└── professional-agent.ts       # Professional pattern implementation
+
+lib/ai/
+├── agent-functions-corrected.ts # 12+ funções especializadas
+└── agent-functions.ts          # Funções legacy (deprecated)
+
+lib/services/
+├── conversation-context-service.ts # Context management
+└── tenant-service-factory.ts   # Multi-tenant services
+
+app/api/
+├── agent/route.ts              # Endpoint principal (POST/GET)
+└── agent/clear-context/        # Limpeza de contexto (testes)
 ```
 
-#### Edição (`/dashboard/properties/[id]/edit`)
-**Localização**: `app/dashboard/properties/[id]/edit/page.tsx`
+## 🖥️ Interface Moderna
+
+### TopAppBar Navigation
+
+Substituição completa da sidebar por uma navegação moderna estilo ClickUp:
 
 **Funcionalidades**:
-- Tabs para organização do conteúdo
-- Indicador de alterações não salvas
-- Mudança de status inline
-- Preservação de estado durante edição
+- **WhatsApp Status**: Indicador real-time sem mock data
+- **User Profile**: Informações reais do usuário autenticado
+- **Modern Design**: Glassmorphism e animações suaves
+- **Responsive**: Adaptável a diferentes tamanhos de tela
+- **Real-time Updates**: Status polling a cada 30 segundos
 
-**Components Utilizados**:
-```typescript
-// Organisms (Reutilizados da criação)
-- PropertyBasicInfo
-- PropertySpecs  
-- PropertyAmenities
-- PropertyPricing
-- PropertyMediaUpload
+**Localização**: `components/organisms/navigation/TopAppBar.tsx`
 
-// Molecules
-- TabNavigation (navegação em abas)
-- StatusChanger (alteração de status)
-- UnsavedChanges (indicador de mudanças)
+### Kanban Board Redesenhado
 
-// Atoms
-- Tabs (sistema de abas)
-- Dialog (confirmações)
-- Alert (avisos importantes)
+Design completamente modernizado para o CRM:
+
+**Melhorias**:
+- **Paginação Inteligente**: 3 colunas por página com navegação smooth
+- **Glassmorphism Design**: Cards com backdrop blur e transparência
+- **Enhanced Cards**: Avatares maiores, tipografia melhorada, cores vibrantes
+- **Smooth Animations**: Hover effects, drag transformations, page transitions
+- **Custom Scrollbars**: Design moderno com transparência
+
+**Localização**: `app/dashboard/crm/components/KanbanBoard.tsx`
+
+### Dashboard Layout Geometricamente Perfeito
+
+Layout redesenhado com alinhamento perfeito:
+
+**Estrutura**:
+```
+Row 1: [Prop Ativas] [Reservas Pend] [Receita Mensal] [Taxa Ocupação]
+Row 2: [Agenda Card] [🆕 CRM Card] [WhatsApp Card]
+Row 3: [🆕 Mini-site Full Width]
+Row 4: [Ações Rápidas Full Width]
 ```
 
-### 📅 Sistema de Reservas (`/dashboard/reservations`)
-
-**Localização**: `app/dashboard/reservations/page.tsx`
-
-**Funcionalidades**:
-- Tabela profissional com paginação
-- Filtros por status, pagamento e período
-- Modal de detalhes completos
-- Integração com WhatsApp
-
-**Components Utilizados**:
-```typescript
-// Atoms
-- Table (tabela principal)
-- TableCell (células da tabela)
-- Badge (contadores)
-- Tooltip (informações extras)
-
-// Molecules
-- ReservationRow (linha da tabela)
-- FilterPanel (painel de filtros)
-- StatusChip (chip de status)
-- PaymentStatus (status de pagamento)
-
-// Organisms
-- ReservationsTable (tabela completa)
-- ReservationDetails (modal de detalhes)
-- ReservationsFilters (sistema de filtros)
-```
-
-### 📊 Analytics Enterprise (`/dashboard/analytics`)
-
-**Localização**: `app/dashboard/analytics/page.tsx`
-
-**Funcionalidades**:
-- KPIs com indicadores de tendência
-- 4 tabs especializadas (Receita, Propriedades, Pagamentos, Origens)
-- Gráficos interativos com Recharts
-- Insights automáticos e alertas
-
-**Components Utilizados**:
-```typescript
-// Atoms
-- Typography (títulos e labels)
-- Select (seletores de período)
-- Chip (indicadores)
-- LinearProgress (barras de progresso)
-
-// Molecules
-- KPICard (cartões de métricas principais)
-- ChartContainer (containers para gráficos)
-- InsightAlert (alertas de insights)
-- TrendIndicator (indicadores de tendência)
-
-// Organisms
-- RevenueChart (gráfico de receita)
-- PropertyPerformanceTable (tabela de performance)
-- PaymentMethodsPie (gráfico pizza de pagamentos)
-- BookingSourcesBar (gráfico de origens)
-- AnalyticsDashboard (dashboard completo)
-```
-
-### ⚙️ Configurações Avançadas (`/dashboard/settings`)
-
-**Localização**: `app/dashboard/settings/page.tsx`
-
-**Funcionalidades**:
-- 3 tabs: WhatsApp, Empresa, Assistente IA
-- Upload de logo com preview
-- Configuração de prompts da IA
-- QR Code para conexão WhatsApp
-
-**Components Utilizados**:
-```typescript
-// Atoms
-- TextField (inputs de configuração)
-- Avatar (preview do logo)
-- Button (ações de upload/save)
-- Alert (avisos e status)
-
-// Molecules
-- LogoUploader (upload de logo)
-- AIStylePreview (preview de estilos IA)
-- QRCodeDisplay (exibição do QR)
-- ConfigurationForm (formulários)
-
-// Organisms
-- WhatsAppSetup (configuração completa WhatsApp)
-- CompanySettings (configurações da empresa)
-- AIPersonalityConfig (configuração da IA)
-- SettingsTabs (sistema de abas)
-```
-
-### 🌐 Mini-Sites Públicos (`/site/[tenantId]`)
-
-**Localização**: `app/site/[tenantId]/page.tsx`
-
-**Funcionalidades**:
-- Design superior ao Airbnb com glassmorphismo
-- Busca avançada com filtros em tempo real
-- Grid responsivo de propriedades
-- SEO otimizado automaticamente
-- Analytics de visualizações
-
-**Components Utilizados**:
-```typescript
-// Layout personalizado
-- MiniSiteLayout (layout branded do mini-site)
-
-// Grid de propriedades
-- PropertyGrid (grid responsivo com filtros)
-- PropertyCard (cartão otimizado para público)
-
-// Funcionalidades
-- SearchFilters (filtros avançados)
-- HeroSection (seção de destaque)
-- Footer (rodapé com contato)
-```
-
-#### Detalhes da Propriedade (`/site/[tenantId]/property/[propertyId]`)
-**Localização**: `app/site/[tenantId]/property/[propertyId]/page.tsx`
-
-**Funcionalidades**:
-- Galeria de imagens com modal e navegação
-- Informações completas da propriedade
-- Integração direta com WhatsApp
-- Botão flutuante de contato
-- Seções organizadas (comodidades, políticas, preços)
-
-**Components Utilizados**:
-```typescript
-// Visualização principal
-- PropertyDetailView (view completa da propriedade)
-
-// Seções específicas
-- PropertyHero (galeria principal)
-- PropertyInfo (informações básicas)
-- AmenitiesList (lista de comodidades)
-- PolicySection (políticas da propriedade)
-- BookingSidebar (sidebar de reserva)
-
-// Interatividade
-- ImageModal (modal de imagens)
-- WhatsAppButton (botão de contato)
-- ShareButton (compartilhamento)
-```
+**Características**:
+- **Geometric Alignment**: Altura perfeita para todos os cards
+- **Real Data**: Integração completa com Firebase
+- **CRM Card**: Nova card com estatísticas reais do CRM
+- **Mini-site Widget**: Layout horizontal otimizado
 
 ## 🧩 Atomic Design Components
 
-### 🔹 Atoms (Elementos Básicos)
+### 🔹 Atoms (Elementos Básicos) - 17 Componentes
 ```
 components/atoms/
 ├── AIConfidenceIndicator/   # Indicador de confiança IA
@@ -439,25 +311,17 @@ components/molecules/
 ### 🔶 Organisms (Seções Complexas)
 ```
 components/organisms/
-├── ai/
-│   └── AIAgent/                # Agente de IA
-├── calendars/
-│   ├── AvailabilityCalendar/   # Calendário de disponibilidade
-│   └── PricingCalendar/        # Calendário de preços
 ├── dashboards/
 │   ├── AnalyticsDashboard/     # Dashboard de analytics
-│   └── AudioPreferences/       # Preferências de áudio
-├── financial/
-│   ├── TransactionTimeline/    # Timeline de transações
-│   └── PricingSurcharges/      # Sobretaxas de preço
-├── goals/
-│   ├── GoalCard/               # Cartão de meta
-│   ├── CreateGoalDialog/       # Diálogo criar meta
-│   ├── GoalDetailsDialog/      # Detalhes da meta
-│   └── AddCheckpointDialog/    # Adicionar checkpoint
+│   ├── AgendaCard/            # Card agenda redesenhado
+│   └── 🆕 CRMCard/             # Nova card CRM com dados reais
 ├── navigation/
-│   ├── Header/                 # Cabeçalho principal
-│   └── Sidebar/                # Barra lateral
+│   └── 🆕 TopAppBar/           # Navegação moderna substituindo sidebar
+├── crm/
+│   └── 🆕 KanbanBoard/         # Kanban redesenhado com glassmorphism
+├── marketing/
+│   ├── MiniSiteWidget/         # Widget mini-site padrão
+│   └── 🆕 MiniSiteWidgetFullWidth/ # Widget full-width horizontal
 └── property/
     ├── PropertyAmenities/      # Comodidades
     ├── PropertyBasicInfo/      # Informações básicas
@@ -466,152 +330,12 @@ components/organisms/
     └── PropertySpecs/          # Especificações
 ```
 
-### 🏗️ Templates (Layout Structures)
-```
-components/templates/
-└── dashboards/
-    ├── AdvancedAnalytics/          # Analytics avançado
-    ├── SimpleFinancialDashboard/   # Dashboard financeiro
-    └── FinancialGoals/             # Metas financeiras
-```
-
-### 🛠️ Utilities (Componentes Utilitários)
-```
-components/utilities/
-└── ProtectedRoute/     # Rota protegida por autenticação
-```
-
-### 📄 Pages (Páginas Completas)
-```
-app/dashboard/
-├── page.tsx                    # Dashboard principal
-├── properties/
-│   ├── page.tsx               # Listagem de propriedades
-│   ├── create/page.tsx        # Criação de propriedade
-│   └── [id]/edit/page.tsx     # Edição de propriedade
-├── reservations/page.tsx       # Gestão de reservas
-├── analytics/page.tsx          # Analytics e métricas
-└── settings/page.tsx           # Configurações
-```
-
-## 🤖 Sistema de IA - Professional Agent
-
-### Arquitetura Intent-Based Revolucionária
-
-O Professional Agent representa uma evolução significativa na eficiência de agentes conversacionais, implementando um sistema **Intent-Based** que reduz drasticamente o uso de tokens da OpenAI.
-
-#### 📊 Performance Metrics
-- **90% redução de tokens**: De 400+ tokens para 25-35 tokens por interação
-- **73% cache hit rate**: Respostas instantâneas para casos comuns
-- **0 tokens** para detecção de intenção (local)
-- **70% mais rápido** que sistemas tradicionais
-- **20x mais econômico** em custos de API
-
-#### 🧠 Sistema de Detecção de Intenção Local
-
-```typescript
-INTENT_PATTERNS = {
-  greeting: ['olá', 'oi', 'bom dia', 'boa tarde', ...],
-  search_properties: ['procuro', 'busco', 'quero', 'apartamento', 'opções', ...],
-  price_inquiry: ['quanto', 'preço', 'valor', 'custo', ...],
-  booking_intent: ['reservar', 'confirmar', 'fechar', ...],
-  more_info: ['detalhes', 'fotos', 'informações', ...]
-}
-```
-
-#### 🎯 Handlers Especializados
-
-| Handler | Tokens Usados | Funcionalidade |
-|---------|---------------|----------------|
-| `handleGreeting` | 0 | Respostas pré-definidas rotacionais |
-| `handlePropertySearch` | 25-35 | Busca inteligente com filtros |
-| `handlePriceInquiry` | 20-30 | Cálculo de preços dinâmico |
-| `handleBookingIntent` | 50-80 | Processo de reserva |
-| `handleGeneral` | 40-80 | Fallback com GPT-3.5 |
-
-#### 🚀 Principais Componentes
-
-**1. Professional Agent (`/lib/ai-agent/professional-agent.ts`)**
-- Singleton pattern para contexto persistente
-- Cache inteligente com TTL
-- Detecção local de intenções
-- Gerenciamento de contexto otimizado
-
-**2. Context Manager**
-- Mantém dados da conversa em memória
-- Extração automática de informações (cidade, datas, hóspedes)
-- Atualização incremental do contexto
-- Persistência entre requisições
-
-**3. Smart Cache System**
-- TTL configurável (30min padrão)
-- Chaves baseadas em intent + dados relevantes
-- Hit rate tracking e métricas
-- Limpeza automática de cache expirado
-
-**4. Intent Detector**
-- Matching local por palavras-chave
-- Extração de entidades (localização, números, datas)
-- Zero dependência de IA externa
-- Processamento instantâneo
-
-#### ⚙️ Funções Especializadas
-
-```typescript
-// 12+ funções otimizadas disponíveis
-- searchProperties()     // Busca com filtros inteligentes
-- calculatePrice()       // Cálculo dinâmico de preços
-- createReservation()    // Criação de reservas completas
-- registerClient()       // Registro com deduplicação
-- sendPropertyMedia()    // Envio de fotos/vídeos
-- checkAvailability()    // Verificação de disponibilidade
-- applyDiscount()        // Sistema de descontos
-- generateQuote()        // Cotações personalizadas
-- analyzeClientBehavior() // Análise comportamental
-- triggerAutomations()   // Automações contextuais
-- updateClientPreferences() // Aprendizado de preferências
-- scheduleFollowUp()     // Follow-ups automatizados
-```
-
-#### 🛡️ Recursos Enterprise
-
-- **Rate Limiting**: 20 mensagens/minuto por telefone
-- **Error Handling**: Sistema de classificação e recuperação
-- **Security**: Sanitização e validação em todas as camadas  
-- **Monitoring**: Logs detalhados e métricas em tempo real
-- **Fallback**: Graceful degradation quando APIs falham
-- **Multi-tenant**: Isolamento completo entre tenants
-
-#### 🎭 Abordagem Consultiva
-
-O agente foi otimizado para uma **abordagem consultiva** ao invés de interrogativa:
-
-- ❌ ~~"Qual seu orçamento?"~~ → ✅ **"Tenho 3 opções incríveis para você!"**
-- ❌ ~~"Quantos quartos precisa?"~~ → ✅ **"Encontrei desde estúdios até casas de 4 quartos"**
-
-### 📂 Estrutura de Arquivos do Sistema IA
-
-```
-lib/ai-agent/
-└── professional-agent.ts      # Agente principal (Singleton + Cache + Context)
-
-lib/ai/
-├── agent-functions.ts          # 12+ funções especializadas
-├── conversation-context.ts     # Contexto da conversa
-├── response-cache.ts          # Cache de respostas
-└── predefined-responses.ts    # Respostas pré-definidas
-
-app/api/
-├── agent/route.ts             # Endpoint principal (POST/GET)
-└── agent/clear-context/       # Limpeza de contexto (testes)
-```
-
 ## 🔗 API Routes
 
 ### Core APIs
 ```
 app/api/
-├── agent/route.ts              # Processamento do agente IA
+├── agent/route.ts              # Sofia AI Agent V3
 ├── webhook/whatsapp/route.ts   # Webhook do WhatsApp
 ├── properties/
 │   ├── route.ts               # CRUD de propriedades
@@ -622,9 +346,10 @@ app/api/
 ├── clients/route.ts            # Gestão de clientes
 ├── conversations/route.ts      # Conversas do WhatsApp
 ├── analytics/route.ts          # Dados de analytics
-├── pricing/route.ts            # Cálculos de preço
-├── media/route.ts              # Upload de mídia
-├── mini-site/                  # 🆕 APIs públicas do mini-site
+├── crm/                        # 🆕 APIs do CRM
+│   ├── leads/route.ts         # Gestão de leads
+│   └── tasks/route.ts         # Gestão de tarefas
+├── mini-site/                  # APIs públicas do mini-site
 │   └── [tenantId]/
 │       ├── route.ts           # Dados gerais do mini-site
 │       └── properties/
@@ -634,310 +359,43 @@ app/api/
     └── company/route.ts        # Config da empresa
 ```
 
-### 🆕 Mini-Site APIs (Públicas)
+### 🆕 Multi-Tenant API Architecture
 
-#### 🌐 `/api/mini-site/[tenantId]` - Dados do Mini-Site
+#### Tenant Service Factory Pattern
 ```typescript
-// Obter configuração e propriedades do mini-site
-GET /api/mini-site/tenant123?filters=apartment&location=rio
+// Automatic tenant-scoped service creation
+const services = TenantServiceFactory.getServices(tenantId);
 
-Response: {
-  "success": true,
-  "data": {
-    "config": {
-      "active": true,
-      "companyName": "Imóveis Premium",
-      "theme": {
-        "primaryColor": "#1976d2",
-        "borderRadius": "rounded",
-        "glassmorphism": true
-      },
-      "contactInfo": {
-        "whatsappNumber": "5511999999999",
-        "displayNumber": true
-      },
-      "features": {
-        "showPricing": true,
-        "enableFilters": true,
-        "showContactForm": true
-      },
-      "seo": {
-        "title": "Imóveis Premium - Aluguel por Temporada",
-        "description": "Encontre as melhores propriedades...",
-        "keywords": ["aluguel", "temporada", "Rio de Janeiro"]
-      }
-    },
-    "properties": [
-      {
-        "id": "prop123",
-        "name": "Casa na Praia",
-        "description": "Linda casa frente ao mar...",
-        "location": {
-          "address": "Rua da Praia, 123",
-          "city": "Rio de Janeiro",
-          "state": "RJ"
-        },
-        "pricing": {
-          "basePrice": 500,
-          "cleaningFee": 100,
-          "minimumStay": 2
-        },
-        "media": {
-          "photos": [
-            {
-              "url": "https://...",
-              "order": 1,
-              "isMain": true
-            }
-          ]
-        },
-        "amenities": ["Wi-Fi", "Piscina", "Estacionamento"],
-        "maxGuests": 6,
-        "bedrooms": 3,
-        "bathrooms": 2,
-        "featured": true,
-        "tenantId": "tenant123"
-      }
-    ]
-  }
-}
-
-// Criar inquérito de reserva
-POST /api/mini-site/tenant123
-{
-  "propertyId": "prop123",
-  "clientName": "João Silva",
-  "clientPhone": "5511888888888",
-  "clientEmail": "joao@email.com",
-  "checkIn": "2024-12-20",
-  "checkOut": "2024-12-25",
-  "guests": 4,
-  "message": "Gostaria de fazer uma reserva"
-}
-
-Response: {
-  "success": true,
-  "data": {
-    "inquiryId": "inquiry123",
-    "whatsappUrl": "https://wa.me/5511999999999?text=Olá...",
-    "estimatedResponse": "5 minutos"
-  }
-}
+// All services are automatically scoped
+const properties = await services.properties.getAll();
+const reservations = await services.reservations.getAll();
+const conversations = await services.conversations.getAll();
 ```
 
-#### 🏠 `/api/mini-site/[tenantId]/properties/[propertyId]` - Detalhes da Propriedade
-```typescript
-GET /api/mini-site/tenant123/properties/prop123
-
-Response: {
-  "success": true,
-  "data": {
-    "config": { /* mesmo config do mini-site */ },
-    "property": {
-      /* detalhes completos da propriedade */
-      "policies": {
-        "checkIn": "15:00",
-        "checkOut": "11:00",
-        "cancellationPolicy": "Cancelamento flexível até 24h antes",
-        "houseRules": ["Não permitido fumar", "Silêncio após 22h"]
-      }
-    }
-  }
-}
-```
-
-### Funcionalidades por Endpoint
-
-#### 🤖 `/api/agent` - Agente IA
+#### 🤖 `/api/agent` - Sofia AI V3
 ```typescript
 POST /api/agent
 {
   "message": "Procuro apartamento 2 quartos",
   "clientPhone": "+5511999999999",
-  "conversationId": "conv_123"
+  "tenantId": "tenant_123"
 }
 
 Response: {
   "response": "Encontrei ótimas opções! Posso mostrar?",
   "function_calls": ["searchProperties", "sendPropertyMedia"],
-  "context_updated": true
-}
-```
-
-#### 📱 `/api/webhook/whatsapp` - Webhook WhatsApp
-```typescript
-POST /api/webhook/whatsapp
-{
-  "entry": [{
-    "changes": [{
-      "value": {
-        "messages": [{
-          "from": "5511999999999",
-          "text": { "body": "Olá" },
-          "timestamp": "1640995200"
-        }]
-      }
-    }]
-  }]
-}
-```
-
-#### 🏠 `/api/properties` - Propriedades
-```typescript
-// Criar propriedade
-POST /api/properties
-{
-  "name": "Casa na Praia",
-  "type": "house",
-  "bedrooms": 3,
-  "bathrooms": 2,
-  "basePrice": 500,
-  "address": { ... },
-  "amenities": ["pool", "wifi"]
-}
-
-// Buscar propriedades
-GET /api/properties?type=apartment&city=Rio&maxPrice=800
-
-// Atualizar propriedade
-PUT /api/properties/123
-{
-  "name": "Casa na Praia - Renovada",
-  "status": "active"
-}
-```
-
-#### 📅 `/api/reservations` - Reservas
-```typescript
-// Criar reserva
-POST /api/reservations
-{
-  "propertyId": "prop_123",
-  "clientPhone": "+5511999999999",
-  "checkIn": "2024-02-15",
-  "checkOut": "2024-02-18",
-  "guests": 4,
-  "totalAmount": 1200
-}
-
-// Listar reservas
-GET /api/reservations?status=confirmed&startDate=2024-02-01
-```
-
-#### 📊 `/api/analytics` - Analytics
-```typescript
-// Métricas gerais
-GET /api/analytics/overview?period=month
-
-Response: {
-  "totalRevenue": 125000,
-  "totalReservations": 156,
-  "occupancyRate": 0.78,
-  "averageRating": 4.6,
-  "trends": { ... }
-}
-
-// Performance de propriedades
-GET /api/analytics/properties?sortBy=revenue
-
-// Dados para gráficos
-GET /api/analytics/charts/revenue?period=6months
-```
-
-#### 🌐 `/api/mini-site/[tenantId]` - Mini-Site Público
-```typescript
-// Dados gerais do mini-site
-GET /api/mini-site/tenant123?utm_source=google
-
-Response: {
-  "success": true,
-  "data": {
-    "config": {
-      "tenantId": "tenant123",
-      "theme": { ... },
-      "contactInfo": { ... },
-      "seo": { ... }
-    },
-    "properties": [
-      {
-        "id": "prop_123",
-        "name": "Casa na Praia",
-        "pricing": { "basePrice": 500 },
-        "media": { "photos": [...] },
-        "availability": { "isAvailable": true }
-      }
-    ]
-  }
-}
-
-// Criar solicitação de reserva
-POST /api/mini-site/tenant123
-{
-  "propertyId": "prop_123",
-  "clientInfo": {
-    "name": "João Silva",
-    "phone": "+5511999999999"
-  },
-  "inquiryDetails": {
-    "checkIn": "2024-02-15",
-    "checkOut": "2024-02-18", 
-    "guests": 4
-  }
-}
-
-Response: {
-  "success": true,
-  "data": {
-    "inquiryId": "inq_456",
-    "whatsappUrl": "https://wa.me/5511988776655?text=...",
-    "message": "Inquiry created successfully"
-  }
-}
-```
-
-#### 🏠 `/api/mini-site/[tenantId]/properties/[propertyId]` - Propriedade Individual
-```typescript
-// Detalhes completos da propriedade
-GET /api/mini-site/tenant123/properties/prop_123
-
-Response: {
-  "success": true,
-  "data": {
-    "config": { ... },
-    "property": {
-      "id": "prop_123",
-      "name": "Casa na Praia",
-      "description": "Linda casa com vista para o mar",
-      "bedrooms": 3,
-      "bathrooms": 2,
-      "maxGuests": 8,
-      "media": {
-        "photos": [...],
-        "videos": [...],
-        "virtualTour": "..."
-      },
-      "amenities": ["piscina", "wifi", "ar condicionado"],
-      "pricing": {
-        "basePrice": 500,
-        "cleaningFee": 100,
-        "minimumStay": 2
-      },
-      "policies": {
-        "checkIn": "15:00",
-        "checkOut": "11:00",
-        "cancellationPolicy": "Flexível"
-      }
-    }
-  }
+  "context_updated": true,
+  "tokens_used": 28
 }
 ```
 
 ## 📊 Modelos de Dados
 
-### 🏠 Property (Propriedade)
+### 🏠 Property (Multi-Tenant)
 ```typescript
 interface Property {
   id: string;
+  tenantId: string;  // 🆕 Tenant isolation
   name: string;
   type: 'apartment' | 'house' | 'villa' | 'studio';
   description: string;
@@ -953,16 +411,12 @@ interface Property {
     zipCode: string;
     country: string;
   };
-  coordinates: {
-    lat: number;
-    lng: number;
-  };
   
   // Especificações
   bedrooms: number;
   bathrooms: number;
-  capacity: number;  // máximo de hóspedes
-  area: number;      // em m²
+  capacity: number;
+  area: number;
   
   // Comodidades
   amenities: string[];
@@ -972,17 +426,12 @@ interface Property {
   videos: MediaFile[];
   
   // Precificação
-  basePrice: number;           // preço base por noite
-  weekendMultiplier: number;   // multiplicador fim de semana
-  holidayMultiplier: number;   // multiplicador feriado
-  minimumStay: number;         // estadia mínima em noites
-  cleaningFee: number;         // taxa de limpeza
-  securityDeposit: number;     // depósito de segurança
-  
-  // Regras e Políticas
-  rules: string[];
-  checkInTime: string;    // ex: "14:00"
-  checkOutTime: string;   // ex: "11:00"
+  basePrice: number;
+  weekendMultiplier: number;
+  holidayMultiplier: number;
+  minimumStay: number;
+  cleaningFee: number;
+  securityDeposit: number;
   
   // Status e Meta
   status: 'active' | 'inactive' | 'maintenance';
@@ -990,457 +439,100 @@ interface Property {
   createdAt: Date;
   updatedAt: Date;
 }
-
-interface MediaFile {
-  url: string;
-  caption?: string;
-  order: number;
-  type: 'photo' | 'video';
-}
-
-interface AvailabilityPeriod {
-  startDate: Date;
-  endDate: Date;
-  available: boolean;
-  specialPrice?: number;  // preço especial para o período
-}
 ```
 
-### 📅 Reservation (Reserva)
+### 🆕 Lead (CRM System)
 ```typescript
-interface Reservation {
+interface Lead {
   id: string;
-  
-  // Propriedade
-  propertyId: string;
-  propertyName: string;
-  
-  // Cliente
-  clientPhone: string;
-  clientName: string;
-  clientEmail?: string;
-  
-  // Período
-  checkIn: Date;
-  checkOut: Date;
-  nights: number;
-  guests: number;
-  
-  // Financeiro
-  baseAmount: number;      // valor base
-  cleaningFee: number;     // taxa de limpeza
-  securityDeposit: number; // depósito
-  totalAmount: number;     // valor total
-  
-  // Status
-  status: 'pending' | 'confirmed' | 'checked_in' | 'checked_out' | 'cancelled';
-  paymentStatus: 'pending' | 'paid' | 'overdue' | 'refunded';
-  
-  // Origem
-  source: 'whatsapp_ai' | 'manual' | 'website' | 'partner';
-  
-  // Meta
-  notes?: string;
-  createdAt: Date;
-  updatedAt: Date;
-}
-```
-
-### 💬 Conversation (Conversa)
-```typescript
-interface Conversation {
-  id: string;
-  clientPhone: string;
-  
-  // Estado da conversa
-  status: 'active' | 'closed' | 'transferred';
-  lastMessage: Date;
-  messageCount: number;
-  
-  // Contexto da IA
-  context: {
-    searchFilters: PropertyFilters;
-    interestedProperties: string[];
-    currentStep: ConversationStep;
-    clientPreferences: ClientPreferences;
-    pendingActions: string[];
-  };
-  
-  // Analytics
-  sentiment: 'positive' | 'neutral' | 'negative';
-  satisfaction?: number;  // 1-5
-  conversionStatus: 'lead' | 'qualified' | 'converted' | 'lost';
-  
-  createdAt: Date;
-  updatedAt: Date;
-}
-
-interface Message {
-  id: string;
-  conversationId: string;
-  
-  // Conteúdo
-  content: string;
-  type: 'text' | 'image' | 'video' | 'document' | 'location';
-  sender: 'client' | 'ai' | 'human';
-  
-  // WhatsApp
-  whatsappMessageId?: string;
-  mediaUrl?: string;
-  
-  // IA Context
-  aiResponse?: {
-    model: string;
-    processingTime: number;
-    functionsCalled: string[];
-    confidence: number;
-  };
-  
-  timestamp: Date;
-}
-```
-
-### 👤 Client (Cliente)
-```typescript
-interface Client {
-  id: string;
+  tenantId: string;
+  name: string;
   phone: string;
-  name?: string;
   email?: string;
+  
+  // Status do lead
+  status: LeadStatus;
+  temperature: 'hot' | 'warm' | 'cold';
+  score: number; // 0-100
   
   // Preferências
   preferences: {
     propertyType: string[];
-    priceRange: { min: number; max: number };
+    priceRange?: { min: number; max: number };
     locations: string[];
     amenities: string[];
-    communicationStyle: 'formal' | 'casual';
   };
   
-  // Histórico
-  conversationHistory: string[];  // IDs das conversas
-  reservationHistory: string[];   // IDs das reservas
+  // Origem e tracking
+  source: string;  // WhatsApp, Mini-site, Manual, etc.
+  tags: string[];
+  assignedTo?: string;
   
-  // Analytics
-  totalSpent: number;
-  averageStay: number;
-  lastInteraction: Date;
-  lifetimeValue: number;
+  // Dados de conversão
+  wonValue?: number;
+  lostReason?: string;
   
+  // Timestamps
   createdAt: Date;
   updatedAt: Date;
 }
+
+enum LeadStatus {
+  NEW = 'new',
+  CONTACTED = 'contacted',
+  QUALIFIED = 'qualified',
+  OPPORTUNITY = 'opportunity',
+  NEGOTIATION = 'negotiation',
+  WON = 'won',
+  LOST = 'lost',
+  NURTURING = 'nurturing'
+}
 ```
 
-### 🌐 MiniSiteConfig (Configuração do Mini-Site)
+### 🆕 ConversationContext (Enhanced)
 ```typescript
-interface MiniSiteConfig {
+interface ConversationContextData {
   tenantId: string;
-  isActive: boolean;
-  customDomain?: string;
+  clientPhone: string;
   
-  theme: {
-    primaryColor: string;
-    secondaryColor: string;
-    accentColor: string;
-    backgroundColor: string;
-    textColor: string;
-    logoUrl?: string;
-    backgroundImage?: string;
-    fontFamily: 'modern' | 'classic' | 'elegant';
-    borderRadius: 'sharp' | 'rounded' | 'extra-rounded';
+  // Filters and search
+  searchFilters: {
+    location?: string;
+    propertyType?: string;
+    priceRange?: { min: number; max: number };
+    guests?: number;
+    checkIn?: string;
+    checkOut?: string;
   };
   
-  contactInfo: {
-    whatsappNumber: string;
-    email?: string;
-    businessName: string;
-    businessDescription: string;
-    businessLogo?: string;
+  // Interaction state
+  interestedProperties: string[];
+  currentStep: ConversationStep;
+  lastInteraction: Date;
+  
+  // Enhanced context
+  pendingReservation?: {
+    propertyId?: string;
+    checkIn?: string;
+    checkOut?: string;
+    guests?: number;
+    totalPrice?: number;
+    clientId?: string;
   };
   
-  seo: {
-    title: string;
-    description: string;
-    keywords: string[];
-    ogImage?: string;
+  // Client preferences
+  clientPreferences: {
+    communicationStyle: 'formal' | 'casual';
+    preferredTime: string;
+    budget: 'low' | 'medium' | 'high';
   };
   
-  features: {
-    showPricing: boolean;
-    showAvailability: boolean;
-    enableVirtualTour: boolean;
-    showReviews: boolean;
-    enableMultiLanguage: boolean;
-  };
-  
-  analytics: {
-    googleAnalyticsId?: string;
-    enableTracking: boolean;
-  };
-  
-  createdAt: Date;
-  updatedAt: Date;
+  // Metrics
+  messageCount: number;
+  tokensUsed: number;
+  functionsExecuted: string[];
 }
 ```
-
-### 🔧 PricingRule (Regra de Preço)
-```typescript
-interface PricingRule {
-  id: string;
-  propertyId: string;
-  
-  // Condições
-  name: string;
-  startDate: Date;
-  endDate: Date;
-  daysOfWeek?: number[];  // 0-6, domingo-sábado
-  
-  // Modificadores
-  multiplier?: number;    // ex: 1.5 para +50%
-  fixedPrice?: number;    // preço fixo
-  discount?: number;      // desconto em %
-  
-  // Meta
-  priority: number;       // para resolver conflitos
-  active: boolean;
-  createdAt: Date;
-}
-```
-
-### 📈 Analytics (Métricas)
-```typescript
-interface AnalyticsData {
-  // Período
-  startDate: Date;
-  endDate: Date;
-  
-  // Métricas Financeiras
-  revenue: {
-    total: number;
-    byProperty: Record<string, number>;
-    byMonth: Record<string, number>;
-    growth: number;  // % vs período anterior
-  };
-  
-  // Métricas Operacionais
-  occupancy: {
-    overall: number;
-    byProperty: Record<string, number>;
-    trend: number[];
-  };
-  
-  // Métricas de Conversão
-  conversion: {
-    leadToBooking: number;
-    whatsappEffectiveness: number;
-    averageResponseTime: number;
-  };
-  
-  // Satisfação
-  satisfaction: {
-    averageRating: number;
-    reviewCount: number;
-    nps: number;
-  };
-}
-```
-
-## 📚 Estrutura de Arquivos
-
-```
-locai/
-├── 📁 app/                          # Next.js 14 App Router
-│   ├── 📁 api/                      # API Routes
-│   │   ├── agent/route.ts           # Agente IA principal
-│   │   ├── webhook/whatsapp/route.ts # Webhook WhatsApp
-│   │   ├── properties/route.ts      # CRUD propriedades
-│   │   ├── reservations/route.ts    # CRUD reservas
-│   │   └── analytics/route.ts       # Métricas e dados
-│   │
-│   ├── 📁 dashboard/                # Área administrativa
-│   │   ├── page.tsx                 # Dashboard principal
-│   │   ├── 📁 properties/           # Gestão de propriedades
-│   │   │   ├── page.tsx            # Listagem
-│   │   │   ├── create/page.tsx     # Criação
-│   │   │   └── [id]/edit/page.tsx  # Edição
-│   │   ├── reservations/page.tsx    # Gestão de reservas
-│   │   ├── analytics/page.tsx       # Analytics enterprise
-│   │   └── settings/page.tsx        # Configurações
-│   │
-│   ├── 📁 site/                     # Mini-sites públicos
-│   │   └── 📁 [tenantId]/           # Mini-site por tenant
-│   │       ├── page.tsx            # Listagem de propriedades
-│   │       ├── layout.tsx          # Layout público personalizado
-│   │       ├── loading.tsx         # Estados de carregamento
-│   │       └── 📁 property/
-│   │           └── 📁 [propertyId]/
-│   │               └── page.tsx    # Detalhes da propriedade
-│   │
-│   ├── globals.css                  # Estilos globais
-│   ├── layout.tsx                   # Layout raiz
-│   └── page.tsx                     # Homepage
-│
-├── 📁 components/                   # Atomic Design Components
-│   ├── 📁 atoms/                   # Elementos básicos (17 componentes)
-│   │   ├── AIConfidenceIndicator/
-│   │   ├── AIPersonality/
-│   │   ├── AutomationTrigger/
-│   │   ├── Button/
-│   │   ├── Chip/
-│   │   ├── ClientScore/
-│   │   ├── ConversationStatus/
-│   │   ├── CurrencyDisplay/
-│   │   ├── DateDisplay/
-│   │   ├── Icon/
-│   │   ├── Input/
-│   │   ├── MessageType/
-│   │   ├── OccupancyIndicator/
-│   │   ├── PaymentMethodIcon/
-│   │   ├── QuickActionButton/
-│   │   ├── StatusChip/
-│   │   └── Typography/
-│   │
-│   ├── 📁 molecules/               # Combinações funcionais
-│   │   ├── 📁 cards/               # Cartões
-│   │   │   ├── MediaCard/
-│   │   │   └── FinancialSummaryCard/
-│   │   ├── 📁 forms/               # Campos de formulário
-│   │   │   ├── CheckboxField/
-│   │   │   ├── FormField/
-│   │   │   └── SelectField/
-│   │   ├── 📁 navigation/          # Navegação
-│   │   │   ├── StepperNavigation/
-│   │   │   └── QuickActions/
-│   │   ├── 📁 profiles/            # Perfis
-│   │   │   └── ClientProfile/
-│   │   └── 📁 summaries/           # Resumos
-│   │       └── ConversationSummary/
-│   │
-│   ├── 📁 organisms/               # Seções complexas
-│   │   ├── 📁 ai/                  # IA
-│   │   │   └── AIAgent/
-│   │   ├── 📁 calendars/           # Calendários
-│   │   │   ├── AvailabilityCalendar/
-│   │   │   └── PricingCalendar/
-│   │   ├── 📁 dashboards/          # Dashboards
-│   │   │   ├── AnalyticsDashboard/
-│   │   │   └── AudioPreferences/
-│   │   ├── 📁 financial/           # Financeiro
-│   │   │   ├── TransactionTimeline/
-│   │   │   └── PricingSurcharges/
-│   │   ├── 📁 goals/               # Metas
-│   │   │   ├── GoalCard/
-│   │   │   ├── CreateGoalDialog/
-│   │   │   ├── GoalDetailsDialog/
-│   │   │   └── AddCheckpointDialog/
-│   │   ├── 📁 navigation/          # Navegação principal
-│   │   │   ├── Header/
-│   │   │   └── Sidebar/
-│   │   ├── 📁 property/            # Propriedades
-│   │   │   ├── PropertyAmenities/
-│   │   │   ├── PropertyBasicInfo/
-│   │   │   ├── PropertyMediaUpload/
-│   │   │   ├── PropertyPricing/
-│   │   │   └── PropertySpecs/
-│   │   └── 📁 mini-site/          # Mini-site público
-│   │       ├── MiniSiteLayout/     # Layout personalizado
-│   │       ├── PropertyGrid/       # Grid de propriedades públicas
-│   │       ├── PropertyCard/       # Cartão otimizado para público
-│   │       └── PropertyDetailView/ # Visualização detalhada
-│   │
-│   ├── 📁 templates/               # Templates de página
-│   │   └── 📁 dashboards/
-│   │       ├── AdvancedAnalytics/
-│   │       ├── SimpleFinancialDashboard/
-│   │       └── FinancialGoals/
-│   │
-│   └── 📁 utilities/               # Componentes utilitários
-│       └── ProtectedRoute/
-│
-├── 📁 lib/                         # Utilitários e Serviços
-│   ├── 📁 ai/                      # Sistema de IA
-│   │   ├── response-generator.ts   # Gerador de respostas
-│   │   ├── agent-functions.ts      # Funções do agente
-│   │   └── conversation-context.ts # Contexto das conversas
-│   │
-│   ├── 📁 firebase/                # Integração Firebase
-│   │   ├── firestore.ts           # Serviço Firestore
-│   │   ├── storage.ts             # Firebase Storage
-│   │   └── admin.ts               # Admin SDK
-│   │
-│   ├── 📁 whatsapp/               # Integração WhatsApp
-│   │   ├── message-handler.ts     # Processador de mensagens
-│   │   ├── api-client.ts          # Cliente da API
-│   │   └── webhook-validator.ts    # Validação de webhooks
-│   │
-│   ├── 📁 services/               # Serviços de negócio
-│   │   ├── property.ts            # Serviço de propriedades
-│   │   ├── reservation.ts         # Serviço de reservas
-│   │   ├── pricing.ts             # Engine de precificação
-│   │   ├── conversation.ts        # Serviço de conversas
-│   │   ├── analytics.ts           # Serviço de analytics
-│   │   └── mini-site-service.ts   # Serviço do mini-site público
-│   │
-│   ├── 📁 utils/                  # Utilitários
-│   │   ├── errors.ts              # Tratamento de erros
-│   │   ├── validation.ts          # Validações
-│   │   ├── async.ts               # Operações assíncronas
-│   │   ├── dates.ts               # Manipulação de datas
-│   │   └── formatting.ts          # Formatação de dados
-│   │
-│   └── types.ts                   # Definições TypeScript
-│
-├── 📁 public/                     # Arquivos estáticos
-│   ├── images/
-│   ├── icons/
-│   └── ...
-│
-├── 📁 theme/                      # Configuração do tema
-│   ├── theme.ts                   # Tema Material-UI
-│   └── colors.ts                  # Paleta de cores
-│
-├── .env.local                     # Variáveis de ambiente
-├── .env.example                   # Exemplo de configuração
-├── next.config.js                 # Configuração Next.js
-├── package.json                   # Dependências
-├── tsconfig.json                  # Configuração TypeScript
-├── CLAUDE.md                      # Documentação para IA
-└── README.md                      # Este arquivo
-```
-
-### 🎯 Principais Diretórios
-
-#### `lib/` - Lógica de Negócio
-- **`ai/`**: Sistema completo de IA com GPT-4
-- **`firebase/`**: Integração com banco e storage
-- **`whatsapp/`**: API e webhook do WhatsApp
-- **`services/`**: Camada de serviços de negócio
-- **`utils/`**: Utilitários e helpers
-
-#### `components/` - Atomic Design (Estrutura Atualizada)
-- **`atoms/`**: 17 componentes básicos reutilizáveis
-- **`molecules/`**: Componentes intermediários organizados por categoria
-  - `cards/`: Cartões de informação
-  - `forms/`: Campos de formulário
-  - `navigation/`: Elementos de navegação
-  - `profiles/`: Componentes de perfil
-  - `summaries/`: Resumos e sínteses
-- **`organisms/`**: Seções complexas organizadas por domínio
-  - `ai/`: Componentes de inteligência artificial
-  - `calendars/`: Calendários especializados
-  - `dashboards/`: Componentes de dashboard
-  - `financial/`: Elementos financeiros
-  - `goals/`: Gestão de metas
-  - `navigation/`: Navegação principal (Header/Sidebar)
-  - `property/`: Componentes de propriedades
-- **`templates/`**: Templates de páginas completas
-  - `dashboards/`: Templates de dashboards específicos
-- **`utilities/`**: Componentes não-UI (HOCs, guards, etc.)
-
-#### `app/` - Next.js App Router
-- **`api/`**: Endpoints REST da aplicação
-- **`dashboard/`**: Interface administrativa completa
 
 ## 🚀 Como Executar
 
@@ -1461,46 +553,52 @@ cd locai
 npm install
 ```
 
-### 2. Configuração
+### 2. Configuração Multi-Tenant
 ```bash
 # Copie o arquivo de exemplo
-cp .env .env.local
+cp .env.example .env.local
 
-# Edite as variáveis de ambiente
+# Configure as variáveis de ambiente
 nano .env.local
 ```
 
 ### 3. Configuração do Firebase
 1. Crie um projeto no [Firebase Console](https://console.firebase.google.com)
-2. Ative Firestore e Storage
-3. Gere uma chave de serviço
-4. Configure as variáveis no `.env.local`
+2. Ative Firestore com regras de segurança multi-tenant
+3. Configure Storage com isolamento por tenant
+4. Gere uma chave de serviço
+5. Configure as variáveis no `.env.local`
 
 ### 4. Configuração do WhatsApp
 1. Acesse o dashboard em `/dashboard/settings`
-2. Siga o guia de configuração passo a passo
-3. Configure o webhook apontando para `/api/webhook/whatsapp`
+2. Use o **TopAppBar** para navegar até Settings
+3. Configure WhatsApp na aba correspondente
+4. Siga o guia de configuração passo a passo
+5. Configure o webhook apontando para `/api/webhook/whatsapp`
 
 ### 5. Execução
 ```bash
-# Modo desenvolvimento
+# Modo desenvolvimento com Turbopack
 npm run dev
 
 # Build para produção
 npm run build
 npm start
+
+# Health check
+npm run health
 ```
 
 ## ⚙️ Configuração
 
 ### Variáveis de Ambiente
 ```env
-# Firebase
+# Firebase Multi-Tenant
 NEXT_PUBLIC_FIREBASE_PROJECT_ID=seu-projeto-id
 FIREBASE_PRIVATE_KEY="-----BEGIN PRIVATE KEY-----\n..."
 FIREBASE_CLIENT_EMAIL=firebase-adminsdk@seu-projeto.iam.gserviceaccount.com
 
-# OpenAI
+# OpenAI GPT-4o Mini
 OPENAI_API_KEY=sk-...
 
 # WhatsApp Business API
@@ -1508,83 +606,87 @@ WHATSAPP_PHONE_NUMBER_ID=123456789
 WHATSAPP_ACCESS_TOKEN=EAAxxxxx
 WHATSAPP_VERIFY_TOKEN=seu-verify-token
 
-# Aplicação
+# Multi-Tenant Configuration
+NEXT_PUBLIC_DEFAULT_TENANT_ID=tenant_001
 NEXT_PUBLIC_APP_URL=https://seu-dominio.com
+
+# Professional Logging
+LOG_LEVEL=info
+ENABLE_STRUCTURED_LOGGING=true
 ```
 
-### Configuração Visual
+### Configuração Visual via TopAppBar
 
 #### WhatsApp (`/dashboard/settings`)
 - **Tab WhatsApp**: Configure credenciais da API
-- **Guia Passo-a-Passo**: Setup completo com validação
-- **Teste de Conexão**: Verificação automática
+- **Status Real-time**: Verificação automática sem mock data
+- **QR Code Integration**: Para WhatsApp Web (Baileys)
+- **Teste de Conexão**: Validação automática
 
-#### Empresa (`/dashboard/settings`)
-- **Upload de Logo**: Drag & drop com preview
-- **Informações**: Nome, endereço, contatos
-- **Branding**: Personalização visual
-
-#### Assistente IA (`/dashboard/settings`)
-- **Personalidade**: 3 estilos (Formal, Amigável, Casual)
-- **Prompts Customizados**: Instruções específicas
-- **Mensagens**: Boas-vindas e indisponibilidade
-- **Preview**: Visualização em tempo real
+#### Multi-Tenant Setup
+- **Tenant Context**: Configuração automática via useTenant()
+- **Isolated Data**: Dados completamente isolados por organização
+- **Custom Branding**: Logo e cores personalizáveis por tenant
 
 ## 🔧 Tecnologias
 
 ### Frontend
-- **Next.js 14**: Framework React com App Router
-- **TypeScript**: Tipagem estática
-- **Material-UI v5**: Componentes e design system
-- **Emotion**: CSS-in-JS
-- **Recharts**: Gráficos e visualizações
-- **React Hook Form**: Formulários otimizados
-- **Yup**: Validação de schemas
-- **date-fns**: Manipulação de datas
+- **Next.js 15**: Framework React com App Router e Turbopack
+- **TypeScript 5.3**: Tipagem estática rigorosa
+- **Material-UI v5.15**: Design system moderno com Emotion
+- **TopAppBar Navigation**: Substituição moderna da sidebar
+- **Glassmorphism**: Design moderno com backdrop blur
+- **React Hook Form**: Formulários otimizados com validação
+- **date-fns v2.30**: Manipulação de datas
 
-### Backend
-- **Next.js API Routes**: Endpoints REST
-- **Firebase Firestore**: Banco NoSQL
-- **Firebase Storage**: Armazenamento de arquivos
-- **Firebase Admin SDK**: Operações server-side
+### Backend & IA
+- **Next.js API Routes**: Endpoints REST enterprise
+- **Firebase Firestore v10.7**: Banco NoSQL multi-tenant
+- **Firebase Storage**: Armazenamento com isolamento
+- **Sofia AI V3**: GPT-4o Mini cost-optimized
+- **Professional Agent**: Pattern otimizado para conversação
+- **OpenAI Function Calling**: 12+ funções especializadas
 
-### IA e Integração
-- **OpenAI GPT-4**: Processamento de linguagem natural
-- **Function Calling**: Execução de funções específicas
-- **WhatsApp Business API**: Mensageria
-- **Webhooks**: Comunicação em tempo real
+### Multi-Tenant Architecture
+- **TenantServiceFactory**: Factory pattern para isolamento
+- **useTenant() Hook**: Context global para tenant awareness
+- **Firestore Rules**: Segurança a nível de banco
+- **Isolated Storage**: Media files separados por tenant
+
+### Integração & Monitoramento
+- **WhatsApp Business API**: Mensageria oficial
+- **Baileys v6.7**: WhatsApp Web alternativo
+- **Professional Logging**: Sistema estruturado
+- **Rate Limiting**: Proteção contra abuso
+- **Error Classification**: Sistema de categorização
 
 ### Ferramentas de Desenvolvimento
-- **ESLint**: Linting de código
-- **Prettier**: Formatação automática
-- **Husky**: Git hooks
-- **Conventional Commits**: Padrão de commits
-
-### Deploy e Monitoramento
-- **Vercel**: Deploy e hosting
-- **Firebase Functions**: Processamento serverless
-- **OpenTelemetry**: Observabilidade (opcional)
+- **ESLint & Prettier**: Qualidade de código
+- **TypeScript Strict**: Tipagem rigorosa
+- **Git Hooks**: Validação automática
+- **Professional Patterns**: Singleton, Factory, Observer
 
 ## 📈 Próximos Passos
 
 ### Funcionalidades Planejadas
 - [ ] Sistema de pagamentos integrado (Stripe/PagSeguro)
-- [ ] Notificações push
-- [ ] App mobile (React Native)
+- [ ] Notificações push multi-tenant
+- [ ] App mobile com React Native
 - [ ] Integração com Airbnb/Booking.com
-- [ ] Sistema de avaliações
+- [ ] Sistema de avaliações por tenant
 - [ ] Chat humano de backup
-- [ ] Relatórios avançados
+- [ ] Relatórios avançados por organização
 - [ ] API pública para parceiros
 
 ### Melhorias Técnicas
 - [ ] Testes automatizados (Jest + Testing Library)
 - [ ] CI/CD com GitHub Actions
 - [ ] Monitoramento com Sentry integrado
-- [ ] Cache com Redis
-- [ ] CDN para imagens
+- [ ] Cache com Redis para performance
+- [ ] CDN para imagens por tenant
 - [ ] PWA (Progressive Web App)
 - [ ] Métricas de performance avançadas
+- [ ] OpenTelemetry integration
 
 ---
 
@@ -1598,4 +700,4 @@ Para dúvidas, sugestões ou problemas:
 
 ---
 
-**LocAI** - Transformando a gestão imobiliária com inteligência artificial 🚀
+**LocAI** - Transformando a gestão imobiliária com inteligência artificial e arquitetura enterprise 🚀
