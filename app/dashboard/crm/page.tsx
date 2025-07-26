@@ -78,6 +78,7 @@ import { Lead, LeadStatus, Task, TaskStatus, Interaction } from '@/lib/types/crm
 import { Client } from '@/lib/types';
 import { useAuth } from '@/lib/hooks/useAuth';
 import { useTenant } from '@/contexts/TenantContext';
+import { scrollbarStyles } from '@/styles/scrollbarStyles';
 import LeadDetailsDrawer from './components/LeadDetailsDrawer';
 import CreateLeadDialog from './components/CreateLeadDialog';
 import TaskDialog from './components/TaskDialog';
@@ -313,42 +314,128 @@ export default function CRMPage() {
   }
 
   return (
-    <Box sx={{ 
-      maxWidth: 'calc(100vw - 280px)', // Account for sidebar width
-      pr: { xs: 1, sm: 2, md: 3, lg: 4 }, // Progressive right padding
-      mr: { xs: 0, sm: 1, md: 2, lg: 3 }, // Progressive right margin
-      overflow: 'hidden' // Prevent horizontal overflow
-    }}>
-      {/* Header */}
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: { xs: 4, md: 5 } }}>
-        <Box>
-          <Typography variant="h4" component="h1" fontWeight={600} sx={{ fontSize: { xs: '1.75rem', md: '2rem', lg: '2.25rem' } }}>
-            CRM - Gestão de Relacionamento
-          </Typography>
-          <Typography variant="body2" color="text.secondary" sx={{ fontSize: { xs: '0.875rem', md: '1rem' } }}>
-            {totalLeads} leads • {conversionRate.toFixed(1)}% taxa de conversão
-          </Typography>
+    <Box sx={{ width: '100%', overflow: 'hidden' }}>
+      {/* Modern Header with Glass Effect */}
+      <Box sx={{ 
+        mb: 4,
+        background: 'rgba(255, 255, 255, 0.08)',
+        backdropFilter: 'blur(20px)',
+        border: '1px solid rgba(255, 255, 255, 0.15)',
+        borderRadius: '24px',
+        p: 4,
+        transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+        '&:hover': {
+          transform: 'translateY(-2px)',
+          boxShadow: '0 16px 50px rgba(0, 0, 0, 0.4)',
+        }
+      }}>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 3 }}>
+          <Box>
+            <Typography 
+              variant="h3" 
+              component="h1" 
+              fontWeight="700"
+              sx={{
+                background: 'linear-gradient(135deg, #ffffff 0%, #a5b4fc 100%)',
+                WebkitBackgroundClip: 'text',
+                WebkitTextFillColor: 'transparent',
+                backgroundClip: 'text',
+                mb: 1,
+                fontSize: { xs: '2rem', md: '2.5rem', lg: '3rem' }
+              }}
+            >
+              CRM Inteligente
+            </Typography>
+            <Typography 
+              variant="subtitle1" 
+              sx={{ 
+                color: 'rgba(255, 255, 255, 0.85)', 
+                fontWeight: 500,
+                fontSize: { xs: '1rem', md: '1.125rem' }
+              }}
+            >
+              Gestão avançada de relacionamento com clientes
+            </Typography>
+          </Box>
+          
+          <Box sx={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 2,
+            p: 2,
+            borderRadius: '16px',
+            background: 'rgba(255, 255, 255, 0.05)',
+            border: '1px solid rgba(255, 255, 255, 0.1)',
+          }}>
+            <Box sx={{ textAlign: 'center' }}>
+              <Typography variant="h4" fontWeight="700" color="primary">
+                {totalLeads}
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                Total Leads
+              </Typography>
+            </Box>
+            <Box sx={{ 
+              width: '1px', 
+              height: '40px', 
+              bgcolor: 'rgba(255, 255, 255, 0.2)' 
+            }} />
+            <Box sx={{ textAlign: 'center' }}>
+              <Typography variant="h4" fontWeight="700" color="success.main">
+                {conversionRate.toFixed(1)}%
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                Conversão
+              </Typography>
+            </Box>
+          </Box>
         </Box>
-        
-        <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
+
+        {/* Search and Actions Bar */}
+        <Box sx={{ display: 'flex', gap: 2, alignItems: 'center', flexWrap: 'wrap' }}>
           <TextField
-            size="small"
-            placeholder="Buscar leads..."
+            placeholder="Buscar leads, clientes ou empresas..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             InputProps={{
               startAdornment: (
                 <InputAdornment position="start">
-                  <Search />
+                  <Search sx={{ color: 'rgba(255, 255, 255, 0.7)' }} />
                 </InputAdornment>
               ),
             }}
-            sx={{ width: 300 }}
+            sx={{ 
+              flex: 1,
+              minWidth: 300,
+              '& .MuiOutlinedInput-root': {
+                background: 'rgba(255, 255, 255, 0.08)',
+                border: '1px solid rgba(255, 255, 255, 0.15)',
+                borderRadius: '12px',
+                '&:hover': {
+                  background: 'rgba(255, 255, 255, 0.12)',
+                },
+                '&.Mui-focused': {
+                  background: 'rgba(255, 255, 255, 0.12)',
+                  borderColor: 'primary.main',
+                },
+              }
+            }}
           />
           
-          <IconButton onClick={(e) => setFilterMenuAnchor(e.currentTarget)}>
+          <IconButton 
+            onClick={(e) => setFilterMenuAnchor(e.currentTarget)}
+            sx={{
+              background: 'rgba(255, 255, 255, 0.08)',
+              border: '1px solid rgba(255, 255, 255, 0.15)',
+              borderRadius: '12px',
+              '&:hover': {
+                background: 'rgba(255, 255, 255, 0.12)',
+                transform: 'scale(1.05)',
+              }
+            }}
+          >
             <Badge badgeContent={selectedFilter !== 'all' ? 1 : 0} color="primary">
-              <FilterList />
+              <FilterList sx={{ color: 'rgba(255, 255, 255, 0.9)' }} />
             </Badge>
           </IconButton>
           
@@ -357,13 +444,22 @@ export default function CRMPage() {
             size="large"
             icon={<Add />}
             onClick={() => setCreateLeadOpen(true)}
+            sx={{
+              background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)',
+              boxShadow: '0 8px 24px rgba(99, 102, 241, 0.4)',
+              '&:hover': {
+                background: 'linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%)',
+                transform: 'translateY(-2px)',
+                boxShadow: '0 12px 32px rgba(99, 102, 241, 0.5)',
+              }
+            }}
           >
             Novo Lead
           </ModernButton>
         </Box>
       </Box>
 
-      {/* Quick Stats */}
+      {/* Quick Stats - Moved and modernized */}
       <CRMStats 
         totalLeads={totalLeads}
         hotLeads={hotLeads.length}
@@ -372,15 +468,71 @@ export default function CRMPage() {
         conversionRate={conversionRate}
       />
 
-      {/* View Tabs */}
-      <Card sx={{ mb: 3 }}>
-        <Tabs value={view} onChange={(_, v) => setView(v)}>
-          <Tab label="Pipeline" value="pipeline" icon={<Analytics />} iconPosition="start" />
-          <Tab label="Lista" value="list" icon={<Assignment />} iconPosition="start" />
-          <Tab label="Clientes" value="clients" icon={<Groups />} iconPosition="start" />
-          <Tab label="Insights IA" value="analytics" icon={<AutoAwesome />} iconPosition="start" />
+      {/* Modern Navigation Tabs */}
+      <Box sx={{ 
+        mb: 4,
+        background: 'rgba(255, 255, 255, 0.08)',
+        backdropFilter: 'blur(20px)',
+        border: '1px solid rgba(255, 255, 255, 0.15)',
+        borderRadius: '20px',
+        p: 1,
+      }}>
+        <Tabs 
+          value={view} 
+          onChange={(_, v) => setView(v)}
+          variant="scrollable"
+          scrollButtons="auto"
+          sx={{
+            ...scrollbarStyles.hidden,
+            '& .MuiTab-root': {
+              borderRadius: '16px',
+              mx: 0.5,
+              transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+              color: 'rgba(255, 255, 255, 0.7)',
+              fontWeight: 600,
+              textTransform: 'none',
+              minHeight: 56,
+              '&:hover': {
+                background: 'rgba(255, 255, 255, 0.08)',
+                color: 'rgba(255, 255, 255, 0.9)',
+              },
+              '&.Mui-selected': {
+                background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)',
+                color: 'white',
+                boxShadow: '0 4px 12px rgba(99, 102, 241, 0.4)',
+              }
+            },
+            '& .MuiTabs-indicator': {
+              display: 'none',
+            }
+          }}
+        >
+          <Tab 
+            label="Pipeline" 
+            value="pipeline" 
+            icon={<Analytics />} 
+            iconPosition="start" 
+          />
+          <Tab 
+            label="Lista" 
+            value="list" 
+            icon={<Assignment />} 
+            iconPosition="start" 
+          />
+          <Tab 
+            label="Clientes" 
+            value="clients" 
+            icon={<Groups />} 
+            iconPosition="start" 
+          />
+          <Tab 
+            label="Insights IA" 
+            value="analytics" 
+            icon={<AutoAwesome />} 
+            iconPosition="start" 
+          />
         </Tabs>
-      </Card>
+      </Box>
 
       {/* Main Content */}
       {view === 'pipeline' && (

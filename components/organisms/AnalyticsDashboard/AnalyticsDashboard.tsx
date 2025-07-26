@@ -42,7 +42,8 @@ import {
 import { AIAgent } from '@/lib/types/ai'
 import { useAIAgent } from '@/lib/hooks/useAIAgent'
 import { useConversations } from '@/lib/hooks/useConversations'
-import { format, subDays } from 'date-fns'
+import { subDays } from 'date-fns'
+import { safeFormatDate } from '@/lib/utils/date-formatter'
 
 // Register ChartJS components
 ChartJS.register(
@@ -100,7 +101,7 @@ export default function AnalyticsDashboard({ tenantId = 'default' }: AnalyticsDa
     
     // Create labels for each day
     const labels = Array.from({ length: days }, (_, i) => 
-      format(subDays(endDate, days - 1 - i), 'dd/MM')
+      safeFormatDate(subDays(endDate, days - 1 - i), 'dd/MM')
     )
     
     // Group conversations by date
@@ -108,7 +109,7 @@ export default function AnalyticsDashboard({ tenantId = 'default' }: AnalyticsDa
     const conversionsByDate = new Map<string, number>()
     
     conversations.forEach(conversation => {
-      const date = format(new Date(conversation.createdAt), 'dd/MM')
+      const date = safeFormatDate(conversation.createdAt, 'dd/MM')
       conversationsByDate.set(date, (conversationsByDate.get(date) || 0) + 1)
       
       // Count conversions (completed conversations)
@@ -464,9 +465,9 @@ export default function AnalyticsDashboard({ tenantId = 'default' }: AnalyticsDa
               <Typography variant="h6" gutterBottom>
                 Conversas Recentes
               </Typography>
-              <Box sx={{ maxHeight: 400, overflow: 'auto' }}>
+              <Box sx={{ maxHeight: 400, overflow: 'auto' }} className="scrollbar-card">
                 {conversations.slice(0, 10).map(conversation => (
-                  <Box key={conversation.id} sx={{ mb: 2, p: 2, bgcolor: 'grey.50', borderRadius: 1 }}>
+                  <Box key={conversation.id} sx={{ mb: 2, p: 2, bgcolor: 'rgba(255, 255, 255, 0.05)', borderRadius: 1 }}>
                     <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
                       <Typography variant="subtitle2">
                         {conversation.whatsappPhone}
@@ -485,7 +486,7 @@ export default function AnalyticsDashboard({ tenantId = 'default' }: AnalyticsDa
                       Mensagens: {conversation.messages?.length || 0}
                     </Typography>
                     <Typography variant="caption" color="text.secondary">
-                      {format(conversation.startedAt, 'dd/MM/yyyy HH:mm')}
+                      {safeFormatDate(conversation.startedAt, 'dd/MM/yyyy HH:mm')}
                     </Typography>
                   </Box>
                 ))}

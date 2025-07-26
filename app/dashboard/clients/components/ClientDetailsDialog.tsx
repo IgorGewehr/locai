@@ -35,7 +35,7 @@ import {
   CalendarToday,
   LocationOn,
 } from '@mui/icons-material';
-import { format } from 'date-fns';
+import { safeFormatDate, DateFormats } from '@/lib/utils/date-formatter';
 import { ptBR } from 'date-fns/locale';
 import { useTenant } from '@/contexts/TenantContext';
 import type { Client } from '@/lib/types';
@@ -240,7 +240,7 @@ export default function ClientDetailsDialog({ open, client, onClose, onEdit }: C
                     </ListItemIcon>
                     <ListItemText 
                       primary="Cadastrado em" 
-                      secondary={format(new Date(client.createdAt), "dd 'de' MMMM 'de' yyyy", { locale: ptBR })} 
+                      secondary={safeFormatDate(client.createdAt, DateFormats.LONG)} 
                     />
                   </ListItem>
                 </List>
@@ -353,15 +353,15 @@ export default function ClientDetailsDialog({ open, client, onClose, onEdit }: C
                             secondary={
                               <Box>
                                 <Typography variant="body2" color="text.secondary">
-                                  Check-in: {format(new Date(reservation.checkIn), 'dd/MM/yyyy', { locale: ptBR })} • 
-                                  Check-out: {format(new Date(reservation.checkOut), 'dd/MM/yyyy', { locale: ptBR })}
+                                  Check-in: {safeFormatDate(reservation.checkIn, DateFormats.SHORT)} • 
+                                  Check-out: {safeFormatDate(reservation.checkOut, DateFormats.SHORT)}
                                 </Typography>
                                 <Typography variant="body2" color="text.secondary">
                                   Valor: R$ {(reservation.totalValue || 0).toLocaleString('pt-BR')} • 
                                   Hóspedes: {reservation.guestCount}
                                 </Typography>
                                 <Typography variant="body2" color="text.secondary">
-                                  Criada em: {format(new Date(reservation.createdAt), 'dd/MM/yyyy', { locale: ptBR })}
+                                  Criada em: {safeFormatDate(reservation.createdAt, DateFormats.SHORT)}
                                 </Typography>
                               </Box>
                             }

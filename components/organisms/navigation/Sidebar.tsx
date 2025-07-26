@@ -3,6 +3,7 @@
 import { usePathname } from 'next/navigation';
 import Link from 'next/link';
 import { useMemo, useState } from 'react';
+import { scrollbarStyles } from '@/styles/scrollbarStyles';
 import {
   Drawer,
   List,
@@ -241,7 +242,7 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
 
       <Divider sx={{ borderColor: 'rgba(255, 255, 255, 0.08)' }} />
 
-      <Box sx={{ flex: 1, overflowY: 'auto', py: 2 }}>
+      <Box sx={{ flex: 1, overflowY: 'auto', py: 2, ...scrollbarStyles.hidden }}>
         <List sx={{ px: { xs: 1.5, md: 2 } }}>
           {menuItems.map((item) => (
             <Box key={item.href}>
@@ -462,7 +463,7 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
 
   return (
     <Drawer
-      variant={isMobile ? 'temporary' : 'persistent'}
+      variant="temporary"
       open={open}
       onClose={onClose}
       ModalProps={{
@@ -476,6 +477,11 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
           boxSizing: 'border-box',
           borderRight: 1,
           borderColor: 'divider',
+          position: 'fixed',
+          top: 64, // altura do header
+          height: 'calc(100vh - 64px)',
+          zIndex: theme.zIndex.drawer + 1,
+          boxShadow: '4px 0 10px rgba(0, 0, 0, 0.1)',
         },
       }}
     >

@@ -656,7 +656,7 @@ export default function DashboardPage() {
 
         <Grid item xs={12} lg={4}>
           <AgendaCard 
-            onCreateVisit={() => window.location.href = '/dashboard/agenda/visitas'}
+            onCreateEvent={() => window.location.href = '/dashboard/agenda/visao-geral'}
           />
         </Grid>
 

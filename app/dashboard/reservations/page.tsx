@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useTenant } from '@/contexts/TenantContext';
 import type { Reservation, Client } from '@/lib/types';
 import type { Property } from '@/lib/types/property';
+import { scrollbarStyles } from '@/styles/scrollbarStyles';
 import {
   Box,
   Card,
@@ -374,10 +375,11 @@ export default function ReservationsPage() {
       </Card>
 
       {/* Reservations Table */}
-      <Card sx={{ overflowX: 'auto' }}>
+      <Card sx={{ overflowX: 'auto', ...scrollbarStyles.table }}>
         <TableContainer sx={{ 
           minWidth: { xs: 300, sm: 600, md: 900 },
-          overflowX: 'auto' 
+          overflowX: 'auto',
+          ...scrollbarStyles.table
         }}>
           <Table>
             <TableHead>

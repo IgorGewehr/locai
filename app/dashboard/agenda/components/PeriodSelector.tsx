@@ -42,9 +42,10 @@ const PeriodSelector: React.FC<PeriodSelectorProps> = ({ changeView, activeView 
                 variant="outlined"
                 onClick={handleButtonClick}
                 sx={{
-                    backgroundColor: 'white',
+                    background: 'rgba(255, 255, 255, 0.08)',
+                    backdropFilter: 'blur(20px)',
                     borderRadius: '50px',
-                    border: '1.522px solid rgba(0, 0, 0, 0.20)',
+                    border: '1.522px solid rgba(255, 255, 255, 0.20)',
                     textTransform: 'none',
                     px: 2,
                     display: 'flex',

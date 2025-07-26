@@ -846,7 +846,13 @@ export default function TransactionsPage() {
                 {activeStep === 0 && (
                   <Stack spacing={4}>
                     {/* Type Selection with Toggle */}
-                    <Paper elevation={0} sx={{ p: 3, bgcolor: 'grey.50', borderRadius: 2 }}>
+                    <Paper elevation={0} sx={{ 
+                      p: 3, 
+                      bgcolor: 'rgba(255, 255, 255, 0.08)',
+                      backdropFilter: 'blur(20px)',
+                      border: '1px solid rgba(255, 255, 255, 0.15)',
+                      borderRadius: '16px'
+                    }}>
                       <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                         <TrendingUp />
                         Tipo da Transação

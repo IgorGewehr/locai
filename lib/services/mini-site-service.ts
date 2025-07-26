@@ -9,10 +9,10 @@ import { Property } from '@/lib/types';
 import { settingsService } from '@/lib/services/settings-service';
 import { db } from '@/lib/firebase/config';
 import { collection, query, where, getDocs, addDoc, updateDoc, doc } from 'firebase/firestore';
+import { TenantServiceFactory } from '@/lib/firebase/firestore-v2';
 
 class MiniSiteService {
   private configService = new FirestoreService<MiniSiteConfig>('mini_site_configs');
-  private propertyService = new FirestoreService<Property>('properties');
   private inquiryService = new FirestoreService<MiniSiteInquiry>('mini_site_inquiries');
   private analyticsService = new FirestoreService<MiniSiteAnalytics>('mini_site_analytics');
 
@@ -171,16 +171,11 @@ class MiniSiteService {
     try {
       console.log('Fetching properties for tenant:', tenantId);
       
-      // First, try to get all properties for the tenant
-      const allProperties = await this.propertyService.getAll();
-      console.log('Total properties in database:', allProperties.length);
+      // Use tenant-scoped property service
+      const propertyService = TenantServiceFactory.getPropertyService(tenantId);
       
-      // Filter for the specific tenant
-      const tenantProperties = allProperties.filter(p => {
-        console.log('Checking property:', p.id, 'tenantId:', p.tenantId, 'isActive:', p.isActive);
-        return p.tenantId === tenantId;
-      });
-      
+      // Get all properties for the tenant
+      const tenantProperties = await propertyService.getAll();
       console.log('Properties for tenant:', tenantProperties.length);
       
       // Filter only active properties
@@ -240,9 +235,11 @@ class MiniSiteService {
    */
   async getPublicProperty(tenantId: string, propertyId: string): Promise<PublicProperty | null> {
     try {
-      const property = await this.propertyService.getById(propertyId);
+      // Use tenant-scoped property service
+      const propertyService = TenantServiceFactory.getPropertyService(tenantId);
+      const property = await propertyService.getById(propertyId);
       
-      if (!property || property.tenantId !== tenantId || !property.isActive) {
+      if (!property || !property.isActive) {
         return null;
       }
 

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useRef } from 'react';
 import {
   Box,
   Card,
@@ -20,11 +20,14 @@ import {
   Task as TaskIcon,
   AttachMoney,
   AccessTime,
+  ChevronLeft,
+  ChevronRight,
 } from '@mui/icons-material';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import { Lead, LeadStatus } from '@/lib/types/crm';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { scrollbarStyles } from '@/styles/scrollbarStyles';
 
 interface KanbanBoardProps {
   leads: Record<LeadStatus, Lead[]>;
@@ -45,6 +48,11 @@ export default function KanbanBoard({
   getTemperatureIcon,
   loading,
 }: KanbanBoardProps) {
+  const [currentIndex, setCurrentIndex] = useState(0);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const columnWidth = 300;
+  const columnGap = 16;
+  const columnsToShow = 4;
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('pt-BR', {
       style: 'currency',
@@ -58,19 +66,135 @@ export default function KanbanBoard({
     return days;
   };
 
+  const handlePrevious = () => {
+    setCurrentIndex(Math.max(0, currentIndex - 1));
+  };
+
+  const handleNext = () => {
+    setCurrentIndex(Math.min(statusColumns.length - columnsToShow, currentIndex + 1));
+  };
+
+  const canGoPrevious = currentIndex > 0;
+  const canGoNext = currentIndex < statusColumns.length - columnsToShow;
+
   return (
     <DragDropContext onDragEnd={onDragEnd}>
-      <Box sx={{ display: 'flex', gap: 2, overflowX: 'auto', pb: 2 }}>
-        {statusColumns.map((column) => (
+      <Box sx={{ position: 'relative', width: '100%', px: 5 }}>
+        {/* Left Shadow Indicator */}
+        {canGoPrevious && (
+          <Box
+            sx={{
+              position: 'absolute',
+              left: 40,
+              top: 0,
+              bottom: 0,
+              width: 60,
+              background: 'linear-gradient(to right, rgba(0, 0, 0, 0.2), transparent)',
+              zIndex: 5,
+              pointerEvents: 'none',
+            }}
+          />
+        )}
+
+        {/* Right Shadow Indicator */}
+        {canGoNext && (
+          <Box
+            sx={{
+              position: 'absolute',
+              right: 40,
+              top: 0,
+              bottom: 0,
+              width: 60,
+              background: 'linear-gradient(to left, rgba(0, 0, 0, 0.2), transparent)',
+              zIndex: 5,
+              pointerEvents: 'none',
+            }}
+          />
+        )}
+
+        {/* Left Arrow */}
+        {statusColumns.length > columnsToShow && canGoPrevious && (
+          <IconButton
+            onClick={handlePrevious}
+            sx={{
+              position: 'absolute',
+              left: 0,
+              top: '50%',
+              transform: 'translateY(-50%)',
+              zIndex: 10,
+              background: 'rgba(255, 255, 255, 0.08)',
+              backdropFilter: 'blur(20px)',
+              boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3)',
+              border: '1px solid rgba(255, 255, 255, 0.15)',
+              '&:hover': {
+                background: 'rgba(255, 255, 255, 0.12)',
+                transform: 'translateY(-50%) scale(1.1)',
+              },
+              transition: 'all 0.2s',
+            }}
+          >
+            <ChevronLeft sx={{ fontSize: 28, color: 'primary.main' }} />
+          </IconButton>
+        )}
+
+        {/* Right Arrow */}
+        {statusColumns.length > columnsToShow && canGoNext && (
+          <IconButton
+            onClick={handleNext}
+            sx={{
+              position: 'absolute',
+              right: 0,
+              top: '50%',
+              transform: 'translateY(-50%)',
+              zIndex: 10,
+              background: 'rgba(255, 255, 255, 0.08)',
+              backdropFilter: 'blur(20px)',
+              boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3)',
+              border: '1px solid rgba(255, 255, 255, 0.15)',
+              '&:hover': {
+                background: 'rgba(255, 255, 255, 0.12)',
+                transform: 'translateY(-50%) scale(1.1)',
+              },
+              transition: 'all 0.2s',
+            }}
+          >
+            <ChevronRight sx={{ fontSize: 28, color: 'primary.main' }} />
+          </IconButton>
+        )}
+
+        {/* Columns Container */}
+        <Box 
+          ref={containerRef}
+          sx={{ 
+            overflow: 'hidden',
+            position: 'relative',
+            width: '100%',
+            maxWidth: `${columnsToShow * columnWidth + (columnsToShow - 1) * columnGap}px`,
+            mx: 'auto',
+          }}
+        >
+          <Box 
+            sx={{ 
+              display: 'flex', 
+              gap: `${columnGap}px`, 
+              pb: 2,
+              transform: `translateX(-${currentIndex * (columnWidth + columnGap)}px)`,
+              transition: 'transform 0.3s ease-in-out',
+            }}
+          >
+            {statusColumns.map((column) => (
           <Paper
             key={column.id}
             sx={{
               minWidth: 300,
               maxWidth: 300,
-              bgcolor: 'background.default',
-              border: 1,
-              borderColor: 'divider',
-              borderRadius: 2,
+              flex: '0 0 300px',
+              background: 'rgba(255, 255, 255, 0.08)',
+              backdropFilter: 'blur(20px)',
+              border: '1px solid rgba(255, 255, 255, 0.15)',
+              borderRadius: '16px',
+              transition: 'all 0.3s',
+              overflow: 'hidden',
             }}
           >
             {/* Column Header */}
@@ -116,6 +240,7 @@ export default function KanbanBoard({
                     p: 1,
                     bgcolor: snapshot.isDraggingOver ? 'action.hover' : 'transparent',
                     transition: 'background-color 0.2s',
+                    ...scrollbarStyles.hidden,
                   }}
                 >
                   {loading ? (
@@ -274,7 +399,38 @@ export default function KanbanBoard({
               )}
             </Droppable>
           </Paper>
-        ))}
+            ))}
+          </Box>
+        </Box>
+
+        {/* Navigation Dots */}
+        {statusColumns.length > columnsToShow && (
+          <Box sx={{ 
+            display: 'flex', 
+            justifyContent: 'center', 
+            gap: 1, 
+            mt: 2 
+          }}>
+            {Array.from({ length: statusColumns.length - columnsToShow + 1 }).map((_, index) => (
+              <Box
+                key={index}
+                onClick={() => setCurrentIndex(index)}
+                sx={{
+                  width: index === currentIndex ? 24 : 8,
+                  height: 8,
+                  borderRadius: '4px',
+                  bgcolor: index === currentIndex ? 'primary.main' : 'rgba(255, 255, 255, 0.3)',
+                  cursor: 'pointer',
+                  transition: 'all 0.3s',
+                  '&:hover': {
+                    bgcolor: index === currentIndex ? 'primary.dark' : 'rgba(255, 255, 255, 0.5)',
+                    transform: 'scale(1.2)',
+                  },
+                }}
+              />
+            ))}
+          </Box>
+        )}
       </Box>
     </DragDropContext>
   );

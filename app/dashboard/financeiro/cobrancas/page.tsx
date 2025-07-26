@@ -808,7 +808,13 @@ export default function CobrancasConfigPage() {
         <DialogTitle>Preview das Mensagens</DialogTitle>
         <DialogContent>
           <Stack spacing={3} sx={{ pt: 2 }}>
-            <Paper sx={{ p: 2, bgcolor: 'grey.100' }}>
+            <Paper sx={{ 
+              p: 2, 
+              bgcolor: 'rgba(255, 255, 255, 0.08)',
+              backdropFilter: 'blur(20px)',
+              border: '1px solid rgba(255, 255, 255, 0.15)',
+              borderRadius: '12px'
+            }}>
               <Typography variant="subtitle2" gutterBottom color="primary">
                 Lembrete antes do vencimento
               </Typography>
@@ -845,7 +851,13 @@ Sua Imobiliária`}
             </Paper>
 
             {simpleConfig.overdueReminder && (
-              <Paper sx={{ p: 2, bgcolor: 'grey.100' }}>
+              <Paper sx={{ 
+              p: 2, 
+              bgcolor: 'rgba(255, 255, 255, 0.08)',
+              backdropFilter: 'blur(20px)',
+              border: '1px solid rgba(255, 255, 255, 0.15)',
+              borderRadius: '12px'
+            }}>
                 <Typography variant="subtitle2" gutterBottom color="error">
                   Lembrete após vencimento
                 </Typography>

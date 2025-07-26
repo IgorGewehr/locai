@@ -44,8 +44,7 @@ export async function GET(request: NextRequest) {
       })),
       urls: {
         miniSite: `${new URL(request.url).origin}/site/${tenantId}`,
-        dashboard: `${new URL(request.url).origin}/dashboard/mini-site`,
-        debug: `${new URL(request.url).origin}/api/test-mini-site-visual?tenantId=${tenantId}`
+        dashboard: `${new URL(request.url).origin}/dashboard/mini-site`
       }
     });
     

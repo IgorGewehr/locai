@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { logger } from '@/lib/utils/logger';
+import { scrollbarStyles } from '@/styles/scrollbarStyles';
 import {
     Box,
     Typography,
@@ -404,7 +405,7 @@ export default function AgendaPage() {
                             Nenhuma reserva para hoje.
                         </Alert>
                     ) : (
-                        <Box sx={{ maxHeight: '500px', overflow: 'auto' }}>
+                        <Box sx={{ maxHeight: '500px', overflow: 'auto', ...scrollbarStyles.hidden }}>
                             {todayReservations.map(reservation => (
                                 <ReservationCard key={reservation.id} reservation={reservation} compact />
                             ))}
@@ -424,7 +425,7 @@ export default function AgendaPage() {
                             Nenhuma reserva próxima agendada.
                         </Alert>
                     ) : (
-                        <Box sx={{ maxHeight: '500px', overflow: 'auto' }}>
+                        <Box sx={{ maxHeight: '500px', overflow: 'auto', ...scrollbarStyles.hidden }}>
                             {upcomingReservations.map(reservation => (
                                 <ReservationCard key={reservation.id} reservation={reservation} compact />
                             ))}
