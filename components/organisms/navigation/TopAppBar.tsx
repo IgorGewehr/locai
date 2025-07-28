@@ -212,7 +212,14 @@ export default function TopAppBar({ onLogout }: TopAppBarProps) {
     >
       <Box sx={{ px: 3, py: 1 }}>
         {/* Main Navigation Row */}
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 4 }}>
+        <Box sx={{ 
+          display: 'flex', 
+          alignItems: 'center', 
+          gap: { xs: 1, sm: 2, md: 3, lg: 4 },
+          overflowX: 'auto',
+          '&::-webkit-scrollbar': { display: 'none' },
+          scrollbarWidth: 'none',
+        }}>
           {/* Logo */}
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
             <Box
@@ -245,7 +252,12 @@ export default function TopAppBar({ onLogout }: TopAppBarProps) {
           </Box>
 
           {/* Navigation Items */}
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flex: 1 }}>
+          <Box sx={{ 
+            display: { xs: 'none', md: 'flex' }, 
+            alignItems: 'center', 
+            gap: 1, 
+            flex: 1 
+          }}>
             {navigationItems.map((item) => (
               <Box key={item.href} sx={{ position: 'relative' }}>
                 <Button
@@ -353,12 +365,17 @@ export default function TopAppBar({ onLogout }: TopAppBarProps) {
           </Box>
 
           {/* Right Side Actions */}
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+          <Box sx={{ 
+            display: 'flex', 
+            alignItems: 'center', 
+            gap: { xs: 0.5, sm: 1, md: 2 },
+            marginLeft: 'auto',
+          }}>
             {/* WhatsApp Status */}
             <Tooltip title={getWhatsAppStatusText()}>
               <Button
                 onClick={() => router.push('/dashboard/settings')}
-                startIcon={<WhatsApp />}
+                startIcon={<WhatsApp sx={{ display: { xs: 'none', sm: 'block' } }} />}
                 endIcon={
                   <Circle 
                     sx={{ 
@@ -376,10 +393,11 @@ export default function TopAppBar({ onLogout }: TopAppBarProps) {
                   borderRadius: 2,
                   px: 2,
                   py: 1,
-                  fontSize: '0.875rem',
+                  fontSize: { xs: '0.75rem', sm: '0.875rem' },
                   fontWeight: 500,
                   textTransform: 'none',
                   transition: 'all 0.2s',
+                  minWidth: { xs: 'auto', sm: 'unset' },
                   '&:hover': {
                     backgroundColor: whatsappStatus === 'connected'
                       ? 'rgba(34, 197, 94, 0.15)'
@@ -387,24 +405,26 @@ export default function TopAppBar({ onLogout }: TopAppBarProps) {
                   },
                 }}
               >
-                WhatsApp
+                <Box component="span" sx={{ display: { xs: 'none', sm: 'inline' } }}>WhatsApp</Box>
               </Button>
             </Tooltip>
 
             {/* Mini-Site */}
-            <Tooltip title="Mini-Site">
-              <IconButton
-                onClick={() => router.push('/dashboard/mini-site')}
-                sx={{
-                  color: 'rgba(255, 255, 255, 0.8)',
-                  '&:hover': { backgroundColor: 'rgba(255, 255, 255, 0.1)' },
-                }}
-              >
-                <Language />
-              </IconButton>
-            </Tooltip>
+            <Box sx={{ display: { xs: 'none', sm: 'block' } }}>
+              <Tooltip title="Mini-Site">
+                <IconButton
+                  onClick={() => router.push('/dashboard/mini-site')}
+                  sx={{
+                    color: 'rgba(255, 255, 255, 0.8)',
+                    '&:hover': { backgroundColor: 'rgba(255, 255, 255, 0.1)' },
+                  }}
+                >
+                  <Language />
+                </IconButton>
+              </Tooltip>
+            </Box>
 
-            <Divider orientation="vertical" flexItem sx={{ borderColor: 'rgba(255, 255, 255, 0.2)' }} />
+            <Divider orientation="vertical" flexItem sx={{ borderColor: 'rgba(255, 255, 255, 0.2)', display: { xs: 'none', sm: 'block' } }} />
 
             {/* Profile */}
             <Button
@@ -422,18 +442,42 @@ export default function TopAppBar({ onLogout }: TopAppBarProps) {
                   {user?.displayName?.charAt(0)?.toUpperCase() || user?.email?.charAt(0)?.toUpperCase() || 'U'}
                 </Avatar>
               }
-              endIcon={<ExpandMore />}
+              endIcon={<ExpandMore sx={{ display: { xs: 'none', sm: 'block' } }} />}
               sx={{
                 color: 'white',
                 textTransform: 'none',
                 '&:hover': { backgroundColor: 'rgba(255, 255, 255, 0.05)' },
+                minWidth: { xs: 'auto', sm: 'unset' },
+                padding: { xs: 0.5, sm: 1 },
               }}
             >
-              <Box sx={{ textAlign: 'left' }}>
-                <Typography variant="body2" sx={{ fontWeight: 600, lineHeight: 1 }}>
+              <Box sx={{ 
+                textAlign: 'left',
+                display: { xs: 'none', sm: 'block' },
+                maxWidth: { sm: 150, md: 200 },
+                overflow: 'hidden',
+              }}>
+                <Typography 
+                  variant="body2" 
+                  sx={{ 
+                    fontWeight: 600, 
+                    lineHeight: 1,
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap',
+                    overflow: 'hidden',
+                  }}
+                >
                   {user?.displayName || user?.email?.split('@')[0] || 'Usuário'}
                 </Typography>
-                <Typography variant="caption" sx={{ color: 'rgba(255, 255, 255, 0.6)' }}>
+                <Typography 
+                  variant="caption" 
+                  sx={{ 
+                    color: 'rgba(255, 255, 255, 0.6)',
+                    textOverflow: 'ellipsis',
+                    whiteSpace: 'nowrap',
+                    overflow: 'hidden',
+                  }}
+                >
                   {user?.email || 'Admin'}
                 </Typography>
               </Box>

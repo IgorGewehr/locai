@@ -16,15 +16,40 @@ export default function DashboardLayout({
 
   return (
     <ProtectedRoute>
-      <Box sx={{ minHeight: '100vh', bgcolor: 'background.default' }}>
+      <Box sx={{ 
+        minHeight: '100vh', 
+        bgcolor: 'background.default',
+        display: 'flex',
+        flexDirection: 'column',
+      }}>
         <TopAppBar onLogout={handleLogout} />
+        <Toolbar /> {/* Spacer for fixed AppBar */}
         
         <Box
           component="main"
           sx={{
+            flexGrow: 1,
             width: '100%',
-            minHeight: '100vh',
-            pt: 8, // Space for fixed TopAppBar
+            overflowY: 'auto',
+            overflowX: 'hidden',
+            /* Modern invisible scrollbar */
+            '&::-webkit-scrollbar': {
+              width: '8px',
+              height: '8px',
+            },
+            '&::-webkit-scrollbar-track': {
+              background: 'transparent',
+            },
+            '&::-webkit-scrollbar-thumb': {
+              background: 'rgba(255, 255, 255, 0.1)',
+              borderRadius: '4px',
+              '&:hover': {
+                background: 'rgba(255, 255, 255, 0.2)',
+              },
+            },
+            /* Firefox */
+            scrollbarWidth: 'thin',
+            scrollbarColor: 'rgba(255, 255, 255, 0.1) transparent',
           }}
         >
           <Box sx={{ 
