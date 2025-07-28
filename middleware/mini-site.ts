@@ -18,9 +18,9 @@ export function miniSiteMiddleware(request: NextRequest) {
   if (hostname.endsWith(`.${miniSiteDomain}`)) {
     const subdomain = hostname.replace(`.${miniSiteDomain}`, '');
     
-    // Reescrever para a rota /site/[tenantId]
+    // Reescrever para a rota /mini-site/[tenantId]
     const url = request.nextUrl.clone();
-    url.pathname = `/site/${subdomain}${pathname}`;
+    url.pathname = `/mini-site/${subdomain}${pathname}`;
     
     return NextResponse.rewrite(url);
   }

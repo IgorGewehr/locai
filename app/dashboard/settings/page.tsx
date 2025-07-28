@@ -71,22 +71,42 @@ export default function SettingsPage() {
       const response = await fetch('/api/whatsapp/session');
       if (response.ok) {
         const data = await response.json();
-        setWhatsappSession({
+        
+        console.log('📊 Frontend: Status check response:', {
+          success: data.success,
+          connected: data.data?.connected,
+          status: data.data?.status,
+          hasQrCode: !!data.data?.qrCode,
+          phoneNumber: data.data?.phoneNumber,
+          businessName: data.data?.businessName
+        });
+        
+        const newSession = {
           connected: data.data?.connected || false,
           phone: data.data?.phoneNumber,
           name: data.data?.businessName,
           status: data.data?.status || 'disconnected',
           qrCode: data.data?.qrCode
-        });
+        };
+        
+        setWhatsappSession(newSession);
+        
+        // If we have a QR code and dialog is not open, open it
+        if (data.data?.qrCode && !qrDialogOpen && data.data?.status === 'qr') {
+          console.log('🔲 Frontend: QR Code found in status check, opening dialog');
+          setQrDialogOpen(true);
+        }
       }
     } catch (error) {
-      console.error('Error checking WhatsApp status:', error);
+      console.error('❌ Frontend: Error checking WhatsApp status:', error);
     }
   };
 
   const initializeWhatsApp = async () => {
     setLoading(true);
     setError(null);
+    
+    console.log('🚀 Frontend: Starting WhatsApp initialization...');
     
     try {
       const response = await fetch('/api/whatsapp/session', {
@@ -96,27 +116,41 @@ export default function SettingsPage() {
 
       const data = await response.json();
       
+      console.log('📥 Frontend: API response:', {
+        success: data.success,
+        hasData: !!data.data,
+        status: data.data?.status,
+        hasQrCode: !!data.data?.qrCode,
+        qrCodeLength: data.data?.qrCode?.length,
+        connected: data.data?.connected
+      });
+      
       if (data.success) {
+        // Update session state with all received data
+        setWhatsappSession(prev => ({ 
+          ...prev, 
+          ...data.data,
+          qrCode: data.data.qrCode,
+          status: data.data.status || 'connecting'
+        }));
+        
         if (data.data.qrCode) {
-          setWhatsappSession(prev => ({ 
-            ...prev, 
-            qrCode: data.data.qrCode, 
-            status: 'connecting' 
-          }));
+          console.log('🔲 Frontend: QR Code received, opening dialog');
           setQrDialogOpen(true);
         } else if (data.data.connected) {
-          setWhatsappSession(prev => ({ 
-            ...prev, 
-            connected: true, 
-            status: 'connected' 
-          }));
+          console.log('✅ Frontend: Already connected');
           setSuccess('WhatsApp conectado com sucesso!');
           setTimeout(() => setSuccess(null), 3000);
+        } else {
+          console.log('⏳ Frontend: Waiting for QR code...');
+          setError('QR Code não foi gerado. Tente novamente.');
         }
       } else {
+        console.error('❌ Frontend: API error:', data.error);
         setError(data.error || 'Falha ao inicializar WhatsApp');
       }
     } catch (error) {
+      console.error('❌ Frontend: Network error:', error);
       setError('Erro ao conectar com WhatsApp');
     } finally {
       setLoading(false);
@@ -395,6 +429,13 @@ export default function SettingsPage() {
                   backgroundColor: 'white',
                   padding: '16px'
                 }} 
+                onError={(e) => {
+                  console.error('❌ Frontend: Error loading QR code image:', e);
+                  console.log('🔍 Frontend: QR Code src:', whatsappSession.qrCode?.substring(0, 50) + '...');
+                }}
+                onLoad={() => {
+                  console.log('✅ Frontend: QR Code image loaded successfully');
+                }}
               />
               
               <Typography variant="h6" sx={{ mt: 3, mb: 2, color: 'white' }}>
@@ -407,11 +448,31 @@ export default function SettingsPage() {
                 3. "Conectar dispositivo"<br/>
                 4. Escaneie este código
               </Typography>
+              
+              {/* Debug info in development */}
+              <Typography 
+                variant="caption" 
+                sx={{ 
+                  color: 'rgba(255, 255, 255, 0.5)', 
+                  display: 'block', 
+                  mt: 2,
+                  fontFamily: 'monospace'
+                }}
+              >
+                Debug: QR Type: {whatsappSession.qrCode?.startsWith('data:') ? 'Data URL' : 'Raw String'} | 
+                Length: {whatsappSession.qrCode?.length}
+              </Typography>
             </Box>
           ) : (
             <Box>
               <CircularProgress size={60} sx={{ mb: 2, color: '#25d366' }} />
               <Typography sx={{ color: 'white' }}>Gerando QR Code...</Typography>
+              <Typography 
+                variant="caption" 
+                sx={{ color: 'rgba(255, 255, 255, 0.5)', display: 'block', mt: 1 }}
+              >
+                Status: {whatsappSession.status}
+              </Typography>
             </Box>
           )}
         </DialogContent>

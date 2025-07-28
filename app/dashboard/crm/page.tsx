@@ -322,14 +322,21 @@ export default function CRMPage() {
         backdropFilter: 'blur(20px)',
         border: '1px solid rgba(255, 255, 255, 0.15)',
         borderRadius: '24px',
-        p: 4,
+        p: { xs: 2, sm: 3, md: 4 },
         transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
         '&:hover': {
           transform: 'translateY(-2px)',
           boxShadow: '0 16px 50px rgba(0, 0, 0, 0.4)',
         }
       }}>
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 3 }}>
+        <Box sx={{ 
+          display: 'flex', 
+          justifyContent: 'space-between', 
+          alignItems: { xs: 'center', md: 'flex-start' }, 
+          mb: 3,
+          flexDirection: { xs: 'column', lg: 'row' },
+          gap: { xs: 3, lg: 0 },
+        }}>
           <Box>
             <Typography 
               variant="h3" 
@@ -362,16 +369,25 @@ export default function CRMPage() {
             display: 'flex',
             alignItems: 'center',
             gap: 2,
-            p: 2,
+            p: { xs: 1.5, sm: 2 },
             borderRadius: '16px',
             background: 'rgba(255, 255, 255, 0.05)',
             border: '1px solid rgba(255, 255, 255, 0.1)',
           }}>
             <Box sx={{ textAlign: 'center' }}>
-              <Typography variant="h4" fontWeight="700" color="primary">
+              <Typography 
+                variant="h4" 
+                fontWeight="700" 
+                color="primary"
+                sx={{ fontSize: { xs: '1.5rem', sm: '2rem', md: '2.125rem' } }}
+              >
                 {totalLeads}
               </Typography>
-              <Typography variant="body2" color="text.secondary">
+              <Typography 
+                variant="body2" 
+                color="text.secondary"
+                sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem' } }}
+              >
                 Total Leads
               </Typography>
             </Box>
@@ -381,10 +397,19 @@ export default function CRMPage() {
               bgcolor: 'rgba(255, 255, 255, 0.2)' 
             }} />
             <Box sx={{ textAlign: 'center' }}>
-              <Typography variant="h4" fontWeight="700" color="success.main">
+              <Typography 
+                variant="h4" 
+                fontWeight="700" 
+                color="success.main"
+                sx={{ fontSize: { xs: '1.5rem', sm: '2rem', md: '2.125rem' } }}
+              >
                 {conversionRate.toFixed(1)}%
               </Typography>
-              <Typography variant="body2" color="text.secondary">
+              <Typography 
+                variant="body2" 
+                color="text.secondary"
+                sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem' } }}
+              >
                 Conversão
               </Typography>
             </Box>

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Box,
   Card,
@@ -49,8 +49,34 @@ export default function KanbanBoard({
   loading,
 }: KanbanBoardProps) {
   const [currentPage, setCurrentPage] = useState(0);
-  const columnsPerPage = 3; // Show 3 columns at once for better spacing
+  
+  // Responsive columns per page
+  const getColumnsPerPage = () => {
+    if (typeof window !== 'undefined') {
+      if (window.innerWidth < 600) return 1; // Mobile
+      if (window.innerWidth < 960) return 2; // Tablet
+      return 3; // Desktop
+    }
+    return 3;
+  };
+  
+  const [columnsPerPage, setColumnsPerPage] = useState(getColumnsPerPage());
   const totalPages = Math.ceil(statusColumns.length / columnsPerPage);
+  
+  // Update columns per page on resize
+  useEffect(() => {
+    const handleResize = () => {
+      const newColumnsPerPage = getColumnsPerPage();
+      setColumnsPerPage(newColumnsPerPage);
+      // Reset to first page if current page is out of bounds
+      if (currentPage >= Math.ceil(statusColumns.length / newColumnsPerPage)) {
+        setCurrentPage(0);
+      }
+    };
+    
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, [currentPage, statusColumns.length]);
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('pt-BR', {
@@ -86,7 +112,9 @@ export default function KanbanBoard({
         justifyContent: 'space-between', 
         alignItems: 'center', 
         mb: 3,
-        px: 1
+        px: { xs: 0, sm: 1 },
+        flexDirection: { xs: 'column', sm: 'row' },
+        gap: { xs: 2, sm: 0 }
       }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
           <Typography variant="h6" fontWeight={600} sx={{ color: '#ffffff' }}>
@@ -148,9 +176,14 @@ export default function KanbanBoard({
         <Fade in={true} key={currentPage}>
           <Box sx={{ 
             display: 'grid', 
-            gridTemplateColumns: 'repeat(3, 1fr)',
-            gap: 4,
-            minHeight: 600
+            gridTemplateColumns: {
+              xs: '1fr',
+              sm: columnsPerPage === 2 ? 'repeat(2, 1fr)' : '1fr',
+              md: `repeat(${columnsPerPage}, 1fr)`,
+            },
+            gap: { xs: 2, sm: 3, md: 4 },
+            minHeight: { xs: 400, sm: 500, md: 600 },
+            px: { xs: 0, sm: 0 },
           }}>
             {getCurrentColumns().map((column) => (
               <Paper

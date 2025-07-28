@@ -43,7 +43,7 @@ export async function GET(request: NextRequest) {
         basePrice: p.pricing?.basePrice || 0
       })),
       urls: {
-        miniSite: `${new URL(request.url).origin}/site/${tenantId}`,
+        miniSite: `${new URL(request.url).origin}/mini-site/${tenantId}`,
         dashboard: `${new URL(request.url).origin}/dashboard/mini-site`
       }
     });

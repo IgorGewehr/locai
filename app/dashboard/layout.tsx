@@ -3,15 +3,23 @@
 import { Box, Toolbar } from '@mui/material';
 import TopAppBar from '@/components/organisms/navigation/TopAppBar';
 import ProtectedRoute from '@/components/utilities/ProtectedRoute';
+import { useAuth } from '@/contexts/AuthContext';
 
 export default function DashboardLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  const handleLogout = () => {
-    // Implement logout logic here
-    console.log('Logout clicked');
+  const { signOut } = useAuth();
+
+  const handleLogout = async () => {
+    try {
+      console.log('🚪 Iniciando logout...');
+      await signOut();
+      console.log('✅ Logout realizado com sucesso');
+    } catch (error) {
+      console.error('❌ Erro no logout:', error);
+    }
   };
 
   return (
@@ -32,6 +40,8 @@ export default function DashboardLayout({
             width: '100%',
             overflowY: 'auto',
             overflowX: 'hidden',
+            position: 'relative',
+            zIndex: 1,
             /* Modern invisible scrollbar */
             '&::-webkit-scrollbar': {
               width: '8px',
@@ -55,6 +65,8 @@ export default function DashboardLayout({
           <Box sx={{ 
             p: { xs: 2, sm: 3 },
             width: '100%',
+            position: 'relative',
+            zIndex: 1,
           }}>
             {children}
           </Box>

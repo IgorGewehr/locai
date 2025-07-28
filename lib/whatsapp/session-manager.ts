@@ -79,14 +79,18 @@ export class WhatsAppSessionManager extends EventEmitter {
   }
 
   async initializeSession(tenantId: string): Promise<void> {
-    this.logger.info(`Initializing WhatsApp session for tenant ${tenantId}`);
+    this.logger.info(`🚀 Initializing WhatsApp session for tenant ${tenantId}`);
     
+    // Always destroy existing session before creating new one to ensure clean state
     if (this.sessions.has(tenantId)) {
       const existingSession = this.sessions.get(tenantId)!;
       if (existingSession.status === 'connected') {
-        this.logger.info(`Session already connected for tenant ${tenantId}`);
+        this.logger.info(`✅ Session already connected for tenant ${tenantId}`);
         return;
       }
+      // Destroy existing session to get fresh QR code
+      this.logger.info(`🔄 Destroying existing session for tenant ${tenantId}`);
+      await this.destroySession(tenantId);
     }
 
     const session: WhatsAppSession = {
@@ -106,8 +110,9 @@ export class WhatsAppSessionManager extends EventEmitter {
 
     try {
       await this.connectSession(tenantId);
+      this.logger.info(`✅ Session initialization completed for tenant ${tenantId}`);
     } catch (error) {
-      this.logger.error(`Failed to initialize session for tenant ${tenantId}:`, error);
+      this.logger.error(`❌ Failed to initialize session for tenant ${tenantId}:`, error);
       session.status = 'disconnected';
       this.emit('status', tenantId, 'disconnected');
       await this.updateSessionStatus(tenantId, 'disconnected');
@@ -170,11 +175,48 @@ export class WhatsAppSessionManager extends EventEmitter {
       const { connection, lastDisconnect, qr } = update;
       
       if (qr) {
-        session.qrCode = qr;
-        session.status = 'qr';
-        this.emit('qr', tenantId, qr);
-        this.emit('status', tenantId, 'qr');
-        await this.updateSessionStatus(tenantId, 'qr', qr);
+        this.logger.info(`🔲 QR Code generated for tenant ${tenantId}`);
+        this.logger.info(`📄 QR Code length: ${qr.length} characters`);
+        
+        try {
+          // Import QRCode library dynamically
+          const QRCode = require('qrcode');
+          
+          // Generate QR code as data URL
+          const qrDataUrl = await QRCode.toDataURL(qr, {
+            type: 'image/png',
+            quality: 0.92,
+            margin: 1,
+            color: {
+              dark: '#000000',
+              light: '#FFFFFF'
+            },
+            width: 256
+          });
+          
+          this.logger.info(`🎨 QR Code data URL generated successfully`);
+          
+          session.qrCode = qrDataUrl;
+          session.status = 'qr';
+          session.lastActivity = new Date();
+          
+          this.emit('qr', tenantId, qrDataUrl);
+          this.emit('status', tenantId, 'qr');
+          await this.updateSessionStatus(tenantId, 'qr', qrDataUrl);
+          
+          this.logger.info(`✅ QR Code saved and emitted for tenant ${tenantId}`);
+        } catch (error) {
+          this.logger.error(`❌ Error generating QR code data URL:`, error);
+          
+          // Fallback: save raw QR string
+          session.qrCode = qr;
+          session.status = 'qr';
+          session.lastActivity = new Date();
+          
+          this.emit('qr', tenantId, qr);
+          this.emit('status', tenantId, 'qr');
+          await this.updateSessionStatus(tenantId, 'qr', qr);
+        }
       }
 
       if (connection === 'close') {
@@ -435,14 +477,18 @@ export class WhatsAppSessionManager extends EventEmitter {
     }
   }
 
-  private destroySession(tenantId: string) {
+  private async destroySession(tenantId: string) {
     const session = this.sessions.get(tenantId);
     if (!session) return;
 
     // Close socket
     if (session.socket) {
-      session.socket.ev.removeAllListeners();
-      session.socket.ws.close();
+      try {
+        session.socket.ev.removeAllListeners();
+        session.socket.ws.close();
+      } catch (error) {
+        this.logger.error(`Error closing socket for tenant ${tenantId}:`, error);
+      }
     }
 
     // Clear timers
@@ -461,6 +507,9 @@ export class WhatsAppSessionManager extends EventEmitter {
       listener();
       this.statusListeners.delete(tenantId);
     }
+    
+    // Clear session files
+    await this.clearSessionData(tenantId);
   }
 
   private async updateSessionStatus(

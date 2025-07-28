@@ -13,8 +13,15 @@ export async function middleware(request: NextRequest) {
   }
 
   // Mini-site routes - public access allowed
-  if (pathname.startsWith('/site/')) {
+  if (pathname.startsWith('/mini-site/')) {
     return NextResponse.next()
+  }
+
+  // Legacy site routes - redirect to mini-site
+  if (pathname.startsWith('/site/')) {
+    const url = request.nextUrl.clone();
+    url.pathname = pathname.replace('/site/', '/mini-site/');
+    return NextResponse.redirect(url, 301);
   }
 
   // API routes for mini-site - public access

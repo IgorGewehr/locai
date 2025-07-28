@@ -60,20 +60,47 @@ export async function POST(request: NextRequest) {
 
     const tenantId = 'default';
     
+    console.log(`🚀 API: Initializing session for tenant ${tenantId}`);
+    
     // Initialize the session
     await whatsappSessionManager.initializeSession(tenantId);
 
-    // Wait a bit for QR code generation
-    await new Promise(resolve => setTimeout(resolve, 2000));
+    // Wait longer for QR code generation with polling
+    let attempts = 0;
+    const maxAttempts = 15; // 15 seconds total
+    let status = null;
+    
+    while (attempts < maxAttempts) {
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      status = await whatsappSessionManager.getSessionStatus(tenantId);
+      
+      console.log(`📊 API: Status check ${attempts + 1}/${maxAttempts}: ${status.status}, QR present: ${!!status.qrCode}`);
+      
+      if (status.qrCode || status.connected || status.status === 'connected') {
+        console.log(`✅ API: Session ready after ${attempts + 1} seconds`);
+        break;
+      }
+      
+      attempts++;
+    }
+    
+    if (!status) {
+      status = await whatsappSessionManager.getSessionStatus(tenantId);
+    }
 
-    const status = await whatsappSessionManager.getSessionStatus(tenantId);
+    console.log(`📤 API: Returning status:`, {
+      connected: status.connected,
+      status: status.status,
+      hasQrCode: !!status.qrCode,
+      qrCodeLength: status.qrCode?.length
+    });
 
     return NextResponse.json({
       success: true,
       data: status,
     });
   } catch (error) {
-    console.error('Error initializing session:', error);
+    console.error('❌ API: Error initializing session:', error);
     return NextResponse.json(
       { success: false, error: 'Failed to initialize session' },
       { status: 500 }

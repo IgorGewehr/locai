@@ -163,6 +163,7 @@ export default function TestePage() {
 
     try {
       const endpoint = '/api/agent'; // Usando Sofia AI Agent V3 com funções corrigidas
+      console.log('🚀 Enviando mensagem para Sofia V3:', inputMessage.trim());
       const response = await fetch(endpoint, {
         method: 'POST',
         headers: {
@@ -178,8 +179,12 @@ export default function TestePage() {
       });
 
       const data = await response.json();
+      
+      console.log('📥 Resposta da API:', data);
+      console.log('📊 Status:', response.status);
 
       if (!response.ok) {
+        console.error('❌ Erro da API:', data);
         throw new Error(data.error || 'Erro ao comunicar com o agente');
       }
 
@@ -267,6 +272,14 @@ export default function TestePage() {
       sendMessage();
     }
   }, [sendMessage]);
+
+  const handleInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    setInputMessage(e.target.value);
+  }, []);
+
+  const handlePhoneChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    setTestPhone(e.target.value);
+  }, []);
 
   const formatDuration = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
@@ -535,7 +548,7 @@ export default function TestePage() {
                 multiline
                 maxRows={3}
                 value={inputMessage}
-                onChange={useCallback((e: React.ChangeEvent<HTMLInputElement>) => setInputMessage(e.target.value), [])}
+                onChange={handleInputChange}
                 onKeyPress={handleKeyPress}
                 placeholder="Digite sua mensagem..."
                 disabled={loading}
@@ -611,7 +624,7 @@ export default function TestePage() {
             fullWidth
             label="Número de Telefone (Simulado)"
             value={testPhone}
-            onChange={useCallback((e: React.ChangeEvent<HTMLInputElement>) => setTestPhone(e.target.value), [])}
+            onChange={handlePhoneChange}
             sx={{ mt: 2 }}
             helperText="Número usado para simular cliente no WhatsApp"
           />

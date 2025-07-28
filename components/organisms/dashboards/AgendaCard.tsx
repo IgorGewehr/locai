@@ -11,6 +11,9 @@ import {
   Divider,
   Chip,
   Skeleton,
+  Stack,
+  LinearProgress,
+  CircularProgress,
 } from '@mui/material';
 import {
   Schedule,
@@ -25,8 +28,11 @@ import {
   Groups,
   Task,
   Event as EventIcon,
+  TrendingUp,
+  EventAvailable,
+  EventBusy,
 } from '@mui/icons-material';
-import { format, isToday, isTomorrow, addDays } from 'date-fns';
+import { format, isToday, isTomorrow, addDays, differenceInHours } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
 import { 
@@ -93,35 +99,37 @@ export default function AgendaCard({ onCreateEvent }: AgendaCardProps) {
           icon: 'home'
         }));
         
-        setUpcomingEvents(events);
+        setUpcomingEvents(events.slice(0, 3)); // Show only 3 events
         
         // Calcular estatísticas
         const today = new Date();
         const tomorrow = addDays(today, 1);
-        const weekEnd = addDays(today, 7);
+        const weekFromNow = addDays(today, 7);
         
-        const todayVisits = futureVisits.filter((visit: VisitAppointment) => 
-          isToday(new Date(visit.scheduledDate))
-        ).length;
-        
-        const tomorrowVisits = futureVisits.filter((visit: VisitAppointment) => 
-          isTomorrow(new Date(visit.scheduledDate))
-        ).length;
-        
-        const thisWeekVisits = futureVisits.filter((visit: VisitAppointment) => {
+        const todayEvents = futureVisits.filter((visit: VisitAppointment) => {
           const visitDate = new Date(visit.scheduledDate);
-          return visitDate >= today && visitDate <= weekEnd;
-        }).length;
+          return isToday(visitDate);
+        });
+        
+        const tomorrowEvents = futureVisits.filter((visit: VisitAppointment) => {
+          const visitDate = new Date(visit.scheduledDate);
+          return isTomorrow(visitDate);
+        });
+        
+        const weekEvents = futureVisits.filter((visit: VisitAppointment) => {
+          const visitDate = new Date(visit.scheduledDate);
+          return visitDate <= weekFromNow;
+        });
         
         setStats({
-          today: todayVisits,
-          tomorrow: tomorrowVisits,
-          thisWeek: thisWeekVisits,
+          today: todayEvents.length,
+          tomorrow: tomorrowEvents.length,
+          thisWeek: weekEvents.length,
           total: futureVisits.length,
         });
       }
     } catch (error) {
-      console.error('Erro ao carregar visitas:', error);
+      console.error('Erro ao carregar eventos da agenda:', error);
     } finally {
       setLoading(false);
     }
@@ -131,28 +139,59 @@ export default function AgendaCard({ onCreateEvent }: AgendaCardProps) {
     loadAgendaEvents();
   }, [tenantId]);
 
-  const getDateLabel = (date: Date) => {
-    if (isToday(date)) return 'Hoje';
-    if (isTomorrow(date)) return 'Amanhã';
-    return format(date, "dd 'de' MMM", { locale: ptBR });
-  };
-
-  const formatTime = (time: string) => {
-    return time.substring(0, 5); // Remove segundos se houver
-  };
-
-  const getEventIcon = (type: string) => {
-    switch (type) {
+  const getEventIcon = (eventType: string) => {
+    switch (eventType) {
       case 'visit':
-        return <Home sx={{ fontSize: 16, color: 'rgba(255, 255, 255, 0.7)' }} />;
+        return <Home sx={{ fontSize: 16 }} />;
       case 'meeting':
-        return <Groups sx={{ fontSize: 16, color: 'rgba(255, 255, 255, 0.7)' }} />;
+        return <Groups sx={{ fontSize: 16 }} />;
       case 'task':
-        return <Task sx={{ fontSize: 16, color: 'rgba(255, 255, 255, 0.7)' }} />;
+        return <Task sx={{ fontSize: 16 }} />;
       default:
-        return <EventIcon sx={{ fontSize: 16, color: 'rgba(255, 255, 255, 0.7)' }} />;
+        return <EventIcon sx={{ fontSize: 16 }} />;
     }
   };
+
+  const formatEventTime = (date: string, time: string) => {
+    const eventDate = new Date(date);
+    const [hours, minutes] = time.split(':');
+    eventDate.setHours(parseInt(hours), parseInt(minutes));
+    
+    const now = new Date();
+    const hoursUntil = differenceInHours(eventDate, now);
+    
+    if (hoursUntil < 1 && hoursUntil >= 0) {
+      return 'Em breve';
+    } else if (hoursUntil < 24 && hoursUntil >= 1) {
+      return `Em ${hoursUntil}h`;
+    } else if (isToday(eventDate)) {
+      return `Hoje às ${time}`;
+    } else if (isTomorrow(eventDate)) {
+      return `Amanhã às ${time}`;
+    } else {
+      return format(eventDate, "dd/MM 'às' HH:mm", { locale: ptBR });
+    }
+  };
+
+  if (loading) {
+    return (
+      <Card 
+        sx={{ 
+          height: { xs: 'auto', lg: 400 },
+          minHeight: 350,
+          background: 'rgba(255, 255, 255, 0.08)',
+          backdropFilter: 'blur(20px)',
+          border: '1px solid rgba(255, 255, 255, 0.15)',
+          borderRadius: '20px',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+      >
+        <CircularProgress size={40} />
+      </Card>
+    );
+  }
 
   return (
     <Card 
@@ -164,9 +203,20 @@ export default function AgendaCard({ onCreateEvent }: AgendaCardProps) {
         border: '1px solid rgba(255, 255, 255, 0.15)',
         borderRadius: '20px',
         transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+        position: 'relative',
+        overflow: 'hidden',
         '&:hover': {
           transform: 'translateY(-4px)',
           boxShadow: '0 16px 50px rgba(0, 0, 0, 0.4)',
+        },
+        '&::before': {
+          content: '""',
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          height: '4px',
+          background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
         }
       }}
     >
@@ -181,360 +231,219 @@ export default function AgendaCard({ onCreateEvent }: AgendaCardProps) {
                 justifyContent: 'center',
                 width: 56,
                 height: 56,
-                borderRadius: '16px',
-                background: 'linear-gradient(135deg, #8b5cf6, #6366f1)',
-                boxShadow: '0 8px 24px rgba(139, 92, 246, 0.4)',
+                borderRadius: '14px',
+                background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
+                color: 'white',
+                boxShadow: '0 8px 24px rgba(99, 102, 241, 0.4)',
               }}
             >
-              <Schedule sx={{ color: 'white', fontSize: 28 }} />
+              <Schedule sx={{ fontSize: 28 }} />
             </Box>
             <Box>
-              <Typography 
-                variant="h5" 
-                component="h2"
-                sx={{ 
-                  color: '#ffffff',
-                  fontWeight: 700,
-                  fontSize: '1.5rem',
-                  mb: 0.5
-                }}
-              >
+              <Typography variant="h6" fontWeight={700} sx={{ color: '#ffffff', mb: 0.5 }}>
                 Agenda
               </Typography>
-              <Typography 
-                variant="body2" 
-                sx={{ 
-                  color: 'rgba(255, 255, 255, 0.7)',
-                  fontSize: '0.875rem'
-                }}
-              >
+              <Typography variant="body2" sx={{ color: 'rgba(255, 255, 255, 0.7)' }}>
                 Próximos compromissos
               </Typography>
             </Box>
           </Box>
+          
           <Box sx={{ display: 'flex', gap: 1 }}>
             <IconButton 
               onClick={loadAgendaEvents}
               disabled={loading}
               sx={{
-                background: 'rgba(139, 92, 246, 0.1)',
-                border: '1px solid rgba(139, 92, 246, 0.2)',
-                color: '#8b5cf6',
+                background: 'rgba(99, 102, 241, 0.1)',
+                border: '1px solid rgba(99, 102, 241, 0.2)',
+                color: '#6366f1',
                 '&:hover': {
-                  background: 'rgba(139, 92, 246, 0.2)',
-                  transform: 'scale(1.05)',
-                }
+                  background: 'rgba(99, 102, 241, 0.2)',
+                },
               }}
             >
-              <Refresh />
+              <Refresh sx={{ fontSize: 20 }} />
             </IconButton>
-            {onCreateEvent && (
-              <IconButton 
-                onClick={onCreateEvent}
+            <IconButton 
+              onClick={onCreateEvent}
+              sx={{
+                background: 'rgba(99, 102, 241, 0.1)',
+                border: '1px solid rgba(99, 102, 241, 0.2)',
+                color: '#6366f1',
+                '&:hover': {
+                  background: 'rgba(99, 102, 241, 0.2)',
+                },
+              }}
+            >
+              <Add sx={{ fontSize: 20 }} />
+            </IconButton>
+          </Box>
+        </Box>
+
+        {/* Stats Grid */}
+        <Box sx={{ mb: 3 }}>
+          <Stack spacing={2}>
+            {/* Today and Tomorrow */}
+            <Box sx={{ display: 'flex', gap: 2 }}>
+              <Box sx={{ 
+                flex: 1, 
+                textAlign: 'center',
+                p: 2,
+                borderRadius: '12px',
+                background: 'rgba(99, 102, 241, 0.1)',
+                border: '1px solid rgba(99, 102, 241, 0.2)',
+              }}>
+                <Typography variant="h5" fontWeight={700} sx={{ color: '#6366f1', mb: 0.5 }}>
+                  {stats.today}
+                </Typography>
+                <Typography variant="body2" sx={{ color: 'rgba(255, 255, 255, 0.7)' }}>
+                  Hoje
+                </Typography>
+              </Box>
+              <Box sx={{ 
+                flex: 1, 
+                textAlign: 'center',
+                p: 2,
+                borderRadius: '12px',
+                background: 'rgba(139, 92, 246, 0.1)',
+                border: '1px solid rgba(139, 92, 246, 0.2)',
+              }}>
+                <Typography variant="h5" fontWeight={700} sx={{ color: '#8b5cf6', mb: 0.5 }}>
+                  {stats.tomorrow}
+                </Typography>
+                <Typography variant="body2" sx={{ color: 'rgba(255, 255, 255, 0.7)' }}>
+                  Amanhã
+                </Typography>
+              </Box>
+            </Box>
+
+            {/* Week Progress */}
+            <Box sx={{ 
+              p: 2,
+              borderRadius: '12px',
+              background: 'rgba(255, 255, 255, 0.05)',
+              border: '1px solid rgba(255, 255, 255, 0.1)',
+            }}>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+                <Typography variant="body2" sx={{ color: 'rgba(255, 255, 255, 0.8)', fontWeight: 600 }}>
+                  Esta Semana
+                </Typography>
+                <Typography variant="h6" fontWeight={700} sx={{ color: '#ffffff' }}>
+                  {stats.thisWeek} eventos
+                </Typography>
+              </Box>
+              <LinearProgress 
+                variant="determinate" 
+                value={stats.thisWeek > 0 ? Math.min((stats.thisWeek / 20) * 100, 100) : 0}
                 sx={{
-                  background: 'rgba(139, 92, 246, 0.1)',
-                  border: '1px solid rgba(139, 92, 246, 0.2)',
-                  color: '#8b5cf6',
-                  '&:hover': {
-                    background: 'rgba(139, 92, 246, 0.2)',
-                    transform: 'scale(1.05)',
-                  }
-                }}
-              >
-                <Add />
-              </IconButton>
-            )}
-          </Box>
-        </Box>
-
-        {/* Stats */}
-        <Box sx={{ display: 'flex', gap: 2, mb: 3 }}>
-          <Box sx={{ 
-            flex: 1, 
-            p: 2, 
-            borderRadius: '12px',
-            background: 'rgba(255, 255, 255, 0.05)',
-            border: '1px solid rgba(255, 255, 255, 0.1)',
-            textAlign: 'center'
-          }}>
-            <Typography variant="h6" sx={{ color: '#ffffff', fontWeight: 700 }}>
-              {loading ? '-' : stats.today}
-            </Typography>
-            <Typography variant="caption" sx={{ color: 'rgba(255, 255, 255, 0.7)' }}>
-              Hoje
-            </Typography>
-          </Box>
-          <Box sx={{ 
-            flex: 1, 
-            p: 2, 
-            borderRadius: '12px',
-            background: 'rgba(255, 255, 255, 0.05)',
-            border: '1px solid rgba(255, 255, 255, 0.1)',
-            textAlign: 'center'
-          }}>
-            <Typography variant="h6" sx={{ color: '#ffffff', fontWeight: 700 }}>
-              {loading ? '-' : stats.tomorrow}
-            </Typography>
-            <Typography variant="caption" sx={{ color: 'rgba(255, 255, 255, 0.7)' }}>
-              Amanhã
-            </Typography>
-          </Box>
-          <Box sx={{ 
-            flex: 1, 
-            p: 2, 
-            borderRadius: '12px',
-            background: 'rgba(255, 255, 255, 0.05)',
-            border: '1px solid rgba(255, 255, 255, 0.1)',
-            textAlign: 'center'
-          }}>
-            <Typography variant="h6" sx={{ color: '#ffffff', fontWeight: 700 }}>
-              {loading ? '-' : stats.thisWeek}
-            </Typography>
-            <Typography variant="caption" sx={{ color: 'rgba(255, 255, 255, 0.7)' }}>
-              Esta Semana
-            </Typography>
-          </Box>
-        </Box>
-
-        {/* Upcoming Visits List */}
-        <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 2, overflow: 'auto', ...scrollbarStyles.hidden }}>
-          {loading ? (
-            Array.from({ length: 3 }).map((_, index) => (
-              <Skeleton key={index} variant="rectangular" height={80} sx={{ borderRadius: '12px', bgcolor: 'rgba(255, 255, 255, 0.05)' }} />
-            ))
-          ) : upcomingEvents.length > 0 ? (
-            upcomingEvents.slice(0, 4).map((event) => (
-              <Box 
-                key={event.id}
-                sx={{ 
-                  p: 2,
-                  borderRadius: '12px',
-                  background: 'rgba(255, 255, 255, 0.05)',
-                  border: '1px solid rgba(255, 255, 255, 0.1)',
-                  transition: 'all 0.2s',
-                  cursor: 'pointer',
-                  position: 'relative',
-                  overflow: 'hidden',
-                  '&:hover': {
-                    background: 'rgba(255, 255, 255, 0.08)',
-                    transform: 'translateX(4px)',
-                    borderColor: 'rgba(139, 92, 246, 0.3)',
+                  height: 8,
+                  borderRadius: 4,
+                  backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                  '& .MuiLinearProgress-bar': {
+                    borderRadius: 4,
+                    background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
                   },
-                  '&::before': {
-                    content: '""',
-                    position: 'absolute',
-                    top: 0,
-                    left: 0,
-                    width: '3px',
-                    height: '100%',
-                    background: event.type === 'visit' ? 'linear-gradient(135deg, #8b5cf6, #6366f1)' : 
-                               event.type === 'meeting' ? '#3b82f6' : 
-                               event.type === 'task' ? '#f59e0b' : '#10b981',
-                    borderRadius: '3px',
-                  }
                 }}
-                onClick={() => {
-                  window.location.href = '/dashboard/agenda/visao-geral';
-                }}
-              >
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1 }}>
-                  <Box sx={{ flex: 1, minWidth: 0 }}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
+              />
+            </Box>
+          </Stack>
+        </Box>
+
+        {/* Events List */}
+        <Box sx={{ flex: 1 }}>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+            <Typography variant="body2" sx={{ color: 'rgba(255, 255, 255, 0.8)', fontWeight: 600 }}>
+              Próximos Eventos
+            </Typography>
+            <Button
+              size="small"
+              endIcon={<ArrowForward sx={{ fontSize: 16 }} />}
+              href="/dashboard/agenda"
+              sx={{
+                color: '#6366f1',
+                textTransform: 'none',
+                fontSize: '0.875rem',
+                '&:hover': {
+                  background: 'rgba(99, 102, 241, 0.1)',
+                },
+              }}
+            >
+              Ver todos
+            </Button>
+          </Box>
+
+          {upcomingEvents.length > 0 ? (
+            <Stack spacing={1.5}>
+              {upcomingEvents.map((event, index) => (
+                <Box
+                  key={index}
+                  sx={{
+                    p: 2,
+                    borderRadius: '12px',
+                    background: 'rgba(255, 255, 255, 0.05)',
+                    border: '1px solid rgba(255, 255, 255, 0.1)',
+                    transition: 'all 0.3s ease',
+                    cursor: 'pointer',
+                    '&:hover': {
+                      background: 'rgba(255, 255, 255, 0.08)',
+                      transform: 'translateX(4px)',
+                    },
+                  }}
+                >
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                    <Box
+                      sx={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        width: 36,
+                        height: 36,
+                        borderRadius: '10px',
+                        background: event.type === 'visit' 
+                          ? 'rgba(34, 197, 94, 0.2)' 
+                          : 'rgba(99, 102, 241, 0.2)',
+                        color: event.type === 'visit' ? '#22c55e' : '#6366f1',
+                      }}
+                    >
                       {getEventIcon(event.type)}
-                      <Typography 
-                        variant="body2" 
-                        sx={{ 
-                          color: '#ffffff',
-                          fontWeight: 600,
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis',
-                          whiteSpace: 'nowrap',
-                        }}
-                      >
-                        {event.title || event.propertyName}
+                    </Box>
+                    <Box sx={{ flex: 1 }}>
+                      <Typography variant="body2" fontWeight={600} sx={{ color: '#ffffff' }}>
+                        {event.title}
+                      </Typography>
+                      <Typography variant="caption" sx={{ color: 'rgba(255, 255, 255, 0.7)' }}>
+                        {event.subtitle}
                       </Typography>
                     </Box>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                      <Person sx={{ fontSize: 14, color: 'rgba(255, 255, 255, 0.5)' }} />
-                      <Typography 
-                        variant="caption" 
-                        sx={{ 
-                          color: 'rgba(255, 255, 255, 0.7)',
-                          overflow: 'hidden',
-                          textOverflow: 'ellipsis',
-                          whiteSpace: 'nowrap',
-                        }}
-                      >
-                        {event.subtitle || event.clientName}
-                      </Typography>
-                    </Box>
-                  </Box>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                    {event.confirmedByClient && (
-                      <Chip
-                        icon={<CheckCircle sx={{ fontSize: 14 }} />}
-                        size="small"
-                        sx={{
-                          height: 20,
-                          bgcolor: 'rgba(16, 185, 129, 0.1)',
-                          color: '#10b981',
-                          border: '1px solid rgba(16, 185, 129, 0.2)',
-                          '& .MuiChip-icon': {
-                            color: '#10b981',
-                          },
-                        }}
-                      />
-                    )}
                     <Chip
-                      label={event.status ? VISIT_STATUS_LABELS[event.status] : 'Agendado'}
+                      label={formatEventTime(event.scheduledDate, event.scheduledTime)}
                       size="small"
                       sx={{
-                        backgroundColor: event.status ? VISIT_STATUS_COLORS[event.status] + '20' : 'rgba(139, 92, 246, 0.2)',
-                        color: event.status ? VISIT_STATUS_COLORS[event.status] : '#8b5cf6',
-                        border: event.status ? `1px solid ${VISIT_STATUS_COLORS[event.status]}40` : '1px solid rgba(139, 92, 246, 0.3)',
-                        fontWeight: 600,
-                        fontSize: '0.7rem',
-                        height: 20,
+                        backgroundColor: 'rgba(99, 102, 241, 0.2)',
+                        color: '#a5b4fc',
+                        border: '1px solid rgba(99, 102, 241, 0.3)',
+                        fontSize: '0.75rem',
                       }}
                     />
                   </Box>
                 </Box>
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                      <CalendarToday sx={{ fontSize: 14, color: 'rgba(255, 255, 255, 0.5)' }} />
-                      <Typography variant="caption" sx={{ color: 'rgba(255, 255, 255, 0.7)', fontWeight: 500 }}>
-                        {getDateLabel(new Date(event.scheduledDate))}
-                      </Typography>
-                    </Box>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                      <AccessTime sx={{ fontSize: 14, color: 'rgba(255, 255, 255, 0.5)' }} />
-                      <Typography variant="caption" sx={{ color: 'rgba(255, 255, 255, 0.7)', fontWeight: 600 }}>
-                        {formatTime(event.scheduledTime)}
-                      </Typography>
-                    </Box>
-                  </Box>
-                  <ArrowForward sx={{ fontSize: 16, color: 'rgba(255, 255, 255, 0.5)' }} />
-                </Box>
-              </Box>
-            ))
+              ))}
+            </Stack>
           ) : (
-            <Box 
-              sx={{ 
-                flex: 1, 
-                display: 'flex', 
-                flexDirection: 'column', 
-                alignItems: 'center', 
-                justifyContent: 'center',
-                gap: 2
-              }}
-            >
-              <Box
-                sx={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  width: 80,
-                  height: 80,
-                  borderRadius: '20px',
-                  background: 'rgba(139, 92, 246, 0.1)',
-                }}
-              >
-                <Typography sx={{ fontSize: '2.5rem' }}>📅</Typography>
-              </Box>
-              <Typography 
-                variant="h6" 
-                sx={{ 
-                  color: '#ffffff', 
-                  textAlign: 'center',
-                  fontWeight: 600
-                }}
-              >
-                Nenhum compromisso agendado
+            <Box sx={{ 
+              textAlign: 'center', 
+              py: 4,
+              borderRadius: '12px',
+              background: 'rgba(255, 255, 255, 0.05)',
+              border: '1px solid rgba(255, 255, 255, 0.1)',
+            }}>
+              <EventAvailable sx={{ fontSize: 48, color: 'rgba(255, 255, 255, 0.3)', mb: 1 }} />
+              <Typography variant="body2" sx={{ color: 'rgba(255, 255, 255, 0.7)' }}>
+                Nenhum evento agendado
               </Typography>
-              <Typography 
-                variant="caption" 
-                sx={{ 
-                  color: 'rgba(255, 255, 255, 0.5)', 
-                  textAlign: 'center',
-                  maxWidth: '80%'
-                }}
-              >
-                Organize seus compromissos e tarefas
-              </Typography>
-              {onCreateEvent && (
-                <Button
-                  variant="contained"
-                  startIcon={<Add />}
-                  onClick={onCreateEvent}
-                  sx={{
-                    mt: 2,
-                    background: 'linear-gradient(135deg, #8b5cf6, #6366f1)',
-                    '&:hover': {
-                      background: 'linear-gradient(135deg, #7c3aed, #4f46e5)',
-                    },
-                    textTransform: 'none',
-                    fontWeight: 600,
-                    py: 1.5,
-                    px: 3,
-                    borderRadius: '12px',
-                  }}
-                >
-                  Criar Primeiro Compromisso
-                </Button>
-              )}
             </Box>
           )}
         </Box>
-
-        {/* Footer Actions */}
-        {upcomingEvents.length > 0 && (
-          <>
-            <Divider sx={{ borderColor: 'rgba(255, 255, 255, 0.1)', my: 2 }} />
-            <Box sx={{ display: 'flex', gap: 2 }}>
-              <Button
-                variant="contained"
-                startIcon={<Schedule />}
-                href="/dashboard/agenda/visao-geral"
-                sx={{ 
-                  flex: 1,
-                  background: 'linear-gradient(135deg, #8b5cf6, #6366f1)',
-                  '&:hover': {
-                    background: 'linear-gradient(135deg, #7c3aed, #4f46e5)',
-                  },
-                  textTransform: 'none',
-                  fontWeight: 600,
-                  py: 1.5,
-                  borderRadius: '12px',
-                }}
-              >
-                Ver Agenda Completa
-              </Button>
-              {onCreateEvent && (
-                <Button
-                  variant="outlined"
-                  startIcon={<Add />}
-                  onClick={onCreateEvent}
-                  sx={{ 
-                    flex: 1,
-                    color: '#8b5cf6',
-                    borderColor: 'rgba(139, 92, 246, 0.3)',
-                    '&:hover': {
-                      borderColor: 'rgba(139, 92, 246, 0.5)',
-                      background: 'rgba(139, 92, 246, 0.1)',
-                    },
-                    textTransform: 'none',
-                    fontWeight: 600,
-                    py: 1.5,
-                    borderRadius: '12px',
-                  }}
-                >
-                  Novo Compromisso
-                </Button>
-              )}
-            </Box>
-          </>
-        )}
       </CardContent>
     </Card>
   );

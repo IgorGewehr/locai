@@ -80,7 +80,7 @@ export default function MiniSiteWidgetFullWidth({ tenantId = 'demo' }: MiniSiteW
           });
         }
         const actualTenantId = user?.uid || 'default-tenant';
-        setMiniSiteUrl(`${window.location.origin}/site/${actualTenantId}`);
+        setMiniSiteUrl(`${window.location.origin}/mini-site/${actualTenantId}`);
       }
       
       // Load analytics

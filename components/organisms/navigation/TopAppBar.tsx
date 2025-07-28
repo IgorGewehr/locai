@@ -43,7 +43,12 @@ import {
   KeyboardArrowDown,
   WhatsApp,
   Circle,
+  SmartToy,
 } from '@mui/icons-material';
+
+// 🧪 DESENVOLVIMENTO: Configuração para mostrar item de teste
+// Para PRODUÇÃO: Altere SHOW_TEST_ROUTE para false
+const SHOW_TEST_ROUTE = process.env.NODE_ENV === 'development';
 
 interface NavigationItem {
   text: string;
@@ -69,6 +74,13 @@ const navigationItems: NavigationItem[] = [
     href: '/dashboard/reservations',
     icon: <CalendarMonth sx={{ fontSize: 20 }} />,
   },
+  // 🧪 ITEM DE TESTE - Condicional para desenvolvimento
+  ...(SHOW_TEST_ROUTE ? [{
+    text: 'Teste IA',
+    href: '/dashboard/teste',
+    icon: <SmartToy sx={{ fontSize: 20 }} />,
+    badge: '🧪' as string | number,
+  }] : []),
   {
     text: 'Agenda',
     href: '/dashboard/agenda',
@@ -127,7 +139,14 @@ export default function TopAppBar({ onLogout }: TopAppBarProps) {
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [profileAnchorEl, setProfileAnchorEl] = useState<null | HTMLElement>(null);
   const [activeSubmenu, setActiveSubmenu] = useState<string | null>(null);
+  const [submenuAnchorEl, setSubmenuAnchorEl] = useState<{ [key: string]: HTMLElement | null }>({});
   const [whatsappStatus, setWhatsappStatus] = useState<'connected' | 'disconnected' | 'connecting'>('disconnected');
+
+  // Close dropdown when pathname changes
+  useEffect(() => {
+    setActiveSubmenu(null);
+    setSubmenuAnchorEl({});
+  }, [pathname]);
 
   // Check WhatsApp status
   useEffect(() => {
@@ -174,9 +193,12 @@ export default function TopAppBar({ onLogout }: TopAppBarProps) {
     }
   };
 
-  const handleNavClick = (item: NavigationItem) => {
+  const handleNavClick = (item: NavigationItem, event: React.MouseEvent<HTMLElement>) => {
+    event.stopPropagation();
     if (item.submenu) {
-      setActiveSubmenu(activeSubmenu === item.text ? null : item.text);
+      const newSubmenu = activeSubmenu === item.text ? null : item.text;
+      setActiveSubmenu(newSubmenu);
+      setSubmenuAnchorEl({ ...submenuAnchorEl, [item.text]: newSubmenu ? event.currentTarget : null });
     } else {
       router.push(item.href);
       setActiveSubmenu(null);
@@ -208,6 +230,7 @@ export default function TopAppBar({ onLogout }: TopAppBarProps) {
         backdropFilter: 'blur(20px)',
         boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)',
         borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
+        zIndex: (theme) => theme.zIndex.appBar + 1,
       }}
     >
       <Box sx={{ px: 3, py: 1 }}>
@@ -261,7 +284,7 @@ export default function TopAppBar({ onLogout }: TopAppBarProps) {
             {navigationItems.map((item) => (
               <Box key={item.href} sx={{ position: 'relative' }}>
                 <Button
-                  onClick={() => handleNavClick(item)}
+                  onClick={(e) => handleNavClick(item, e)}
                   startIcon={item.icon}
                   endIcon={item.submenu ? <KeyboardArrowDown sx={{ fontSize: 16 }} /> : null}
                   sx={{
@@ -304,61 +327,73 @@ export default function TopAppBar({ onLogout }: TopAppBarProps) {
                   )}
                 </Button>
 
-                {/* Submenu */}
+                {/* Submenu usando Menu do MUI */}
                 {item.submenu && (
-                  <Collapse in={activeSubmenu === item.text}>
-                    <Box
-                      sx={{
-                        position: 'absolute',
-                        top: '100%',
-                        left: 0,
+                  <Menu
+                    anchorEl={submenuAnchorEl[item.text]}
+                    open={activeSubmenu === item.text}
+                    onClose={() => {
+                      setActiveSubmenu(null);
+                      setSubmenuAnchorEl({ ...submenuAnchorEl, [item.text]: null });
+                    }}
+                    PaperProps={{
+                      sx: {
                         mt: 0.5,
-                        minWidth: 200,
+                        minWidth: 220,
                         background: 'rgba(30, 41, 59, 0.98)',
                         backdropFilter: 'blur(20px)',
                         border: '1px solid rgba(255, 255, 255, 0.1)',
                         borderRadius: 2,
-                        boxShadow: '0 4px 20px rgba(0, 0, 0, 0.3)',
+                        boxShadow: '0 8px 32px rgba(0, 0, 0, 0.4)',
                         overflow: 'hidden',
-                        zIndex: 1000,
-                      }}
-                    >
-                      {item.submenu.map((subItem) => (
-                        <ListItemButton
-                          key={subItem.href}
-                          onClick={() => {
-                            router.push(subItem.href);
-                            setActiveSubmenu(null);
-                          }}
-                          selected={pathname === subItem.href}
-                          sx={{
-                            py: 1.5,
-                            px: 2,
+                      },
+                    }}
+                    transformOrigin={{ horizontal: 'left', vertical: 'top' }}
+                    anchorOrigin={{ horizontal: 'left', vertical: 'bottom' }}
+                    sx={{
+                      '& .MuiPaper-root': {
+                        backgroundColor: 'transparent',
+                      },
+                    }}
+                  >
+                    {item.submenu.map((subItem) => (
+                      <MenuItem
+                        key={subItem.href}
+                        onClick={() => {
+                          router.push(subItem.href);
+                          setActiveSubmenu(null);
+                          setSubmenuAnchorEl({ ...submenuAnchorEl, [item.text]: null });
+                        }}
+                        selected={pathname === subItem.href}
+                        sx={{
+                          py: 1.5,
+                          px: 2,
+                          minHeight: 48,
+                          color: pathname === subItem.href ? '#06b6d4' : 'rgba(255, 255, 255, 0.9)',
+                          '&:hover': {
+                            backgroundColor: 'rgba(6, 182, 212, 0.1)',
+                          },
+                          '&.Mui-selected': {
+                            backgroundColor: 'rgba(6, 182, 212, 0.15)',
                             '&:hover': {
-                              backgroundColor: 'rgba(6, 182, 212, 0.1)',
+                              backgroundColor: 'rgba(6, 182, 212, 0.2)',
                             },
-                            '&.Mui-selected': {
-                              backgroundColor: 'rgba(6, 182, 212, 0.15)',
-                              '&:hover': {
-                                backgroundColor: 'rgba(6, 182, 212, 0.2)',
-                              },
-                            },
+                          },
+                        }}
+                      >
+                        <ListItemIcon sx={{ minWidth: 36, color: 'rgba(255, 255, 255, 0.7)' }}>
+                          {subItem.icon}
+                        </ListItemIcon>
+                        <ListItemText 
+                          primary={subItem.text}
+                          primaryTypographyProps={{
+                            fontSize: '0.875rem',
+                            fontWeight: pathname === subItem.href ? 600 : 500,
                           }}
-                        >
-                          <ListItemIcon sx={{ minWidth: 36, color: 'rgba(255, 255, 255, 0.7)' }}>
-                            {subItem.icon}
-                          </ListItemIcon>
-                          <ListItemText 
-                            primary={subItem.text}
-                            primaryTypographyProps={{
-                              fontSize: '0.875rem',
-                              color: pathname === subItem.href ? '#06b6d4' : 'rgba(255, 255, 255, 0.9)',
-                            }}
-                          />
-                        </ListItemButton>
-                      ))}
-                    </Box>
-                  </Collapse>
+                        />
+                      </MenuItem>
+                    ))}
+                  </Menu>
                 )}
               </Box>
             ))}

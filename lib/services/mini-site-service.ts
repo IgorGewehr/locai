@@ -8,7 +8,7 @@ import { MiniSiteConfig, PublicProperty, MiniSiteInquiry, MiniSiteAnalytics } fr
 import { Property } from '@/lib/types';
 import { settingsService } from '@/lib/services/settings-service';
 import { db } from '@/lib/firebase/config';
-import { collection, query, where, getDocs, addDoc, updateDoc, doc } from 'firebase/firestore';
+import { collection, query, where, getDocs, addDoc, updateDoc, doc, getDoc } from 'firebase/firestore';
 import { TenantServiceFactory } from '@/lib/firebase/firestore-v2';
 
 class MiniSiteService {
@@ -171,62 +171,52 @@ class MiniSiteService {
     try {
       console.log('Fetching properties for tenant:', tenantId);
       
-      // Use tenant-scoped property service
-      const propertyService = TenantServiceFactory.getPropertyService(tenantId);
-      
-      // Get all properties for the tenant
-      const tenantProperties = await propertyService.getAll();
-      console.log('Properties for tenant:', tenantProperties.length);
-      
-      // Filter only active properties
-      const activeProperties = tenantProperties.filter(p => p.isActive !== false);
-      console.log('Active properties:', activeProperties.length);
-      
-      if (activeProperties.length === 0) {
-        console.log('No active properties found for tenant:', tenantId);
-        // Instead of creating demo properties, return empty array
-        // This will show the actual state to the user
-        return [];
+      // Try multi-tenant structure first
+      try {
+        const tenantPropertiesQuery = query(
+          collection(db, 'tenants', tenantId, 'properties'),
+          where('isActive', '!=', false)
+        );
+        const tenantSnapshot = await getDocs(tenantPropertiesQuery);
+        
+        if (!tenantSnapshot.empty) {
+          console.log('Found properties in tenant collection:', tenantSnapshot.size);
+          const properties = tenantSnapshot.docs.map(doc => ({ 
+            id: doc.id, 
+            ...doc.data(),
+            tenantId // Ensure tenantId is set
+          })) as Property[];
+          
+          return properties.map(p => this.transformToPublicProperty(p));
+        }
+      } catch (tenantError) {
+        console.log('No properties in tenant collection, trying root collection...');
       }
       
-      // Transform to public properties
-      const publicProperties = activeProperties.map(p => this.transformToPublicProperty(p));
-      console.log('Transformed public properties:', publicProperties.length);
+      // Fallback to root collection for backward compatibility
+      const rootPropertiesQuery = query(
+        collection(db, 'properties'),
+        where('tenantId', '==', tenantId),
+        where('isActive', '!=', false)
+      );
+      const rootSnapshot = await getDocs(rootPropertiesQuery);
       
-      return publicProperties;
-    } catch (error) {
-      console.error('Error fetching public properties:', error);
-      
-      // Fallback: try direct Firestore query
-      try {
-        console.log('Trying direct Firestore query...');
-        const propertiesQuery = query(
-          collection(db, 'properties'),
-          where('tenantId', '==', tenantId)
-        );
-        const snapshot = await getDocs(propertiesQuery);
-        const properties = snapshot.docs.map(doc => ({ 
+      if (!rootSnapshot.empty) {
+        console.log('Found properties in root collection:', rootSnapshot.size);
+        const properties = rootSnapshot.docs.map(doc => ({ 
           id: doc.id, 
           ...doc.data() 
         })) as Property[];
         
-        console.log('Direct query found properties:', properties.length);
-        
-        // Filter active properties
-        const activeProperties = properties.filter(p => p.isActive !== false);
-        console.log('Active properties from direct query:', activeProperties.length);
-        
-        if (activeProperties.length === 0) {
-          console.log('No properties found via direct query');
-          return [];
-        }
-        
-        return activeProperties.map(p => this.transformToPublicProperty(p));
-      } catch (fallbackError) {
-        console.error('Direct query also failed:', fallbackError);
-        // Return empty array instead of demo properties
-        return [];
+        return properties.map(p => this.transformToPublicProperty(p));
       }
+      
+      console.log('No properties found for tenant:', tenantId);
+      return [];
+      
+    } catch (error) {
+      console.error('Error fetching public properties:', error);
+      return [];
     }
   }
 
@@ -235,18 +225,46 @@ class MiniSiteService {
    */
   async getPublicProperty(tenantId: string, propertyId: string): Promise<PublicProperty | null> {
     try {
-      // Use tenant-scoped property service
-      const propertyService = TenantServiceFactory.getPropertyService(tenantId);
-      const property = await propertyService.getById(propertyId);
-      
-      if (!property || !property.isActive) {
-        return null;
+      // Try multi-tenant structure first
+      try {
+        const tenantPropertyRef = doc(db, 'tenants', tenantId, 'properties', propertyId);
+        const tenantPropertyDoc = await getDoc(tenantPropertyRef);
+        
+        if (tenantPropertyDoc.exists()) {
+          const property = { 
+            id: tenantPropertyDoc.id, 
+            ...tenantPropertyDoc.data(),
+            tenantId 
+          } as Property;
+          
+          if (property.isActive !== false) {
+            return this.transformToPublicProperty(property);
+          }
+        }
+      } catch (tenantError) {
+        console.log('Property not found in tenant collection, trying root...');
       }
-
-      return this.transformToPublicProperty(property);
+      
+      // Fallback to root collection
+      const rootPropertyRef = doc(db, 'properties', propertyId);
+      const rootPropertyDoc = await getDoc(rootPropertyRef);
+      
+      if (rootPropertyDoc.exists()) {
+        const property = { 
+          id: rootPropertyDoc.id, 
+          ...rootPropertyDoc.data() 
+        } as Property;
+        
+        // Verify it belongs to the correct tenant and is active
+        if (property.tenantId === tenantId && property.isActive !== false) {
+          return this.transformToPublicProperty(property);
+        }
+      }
+      
+      return null;
     } catch (error) {
       console.error('Error fetching public property:', error);
-      throw new Error('Failed to fetch property');
+      return null;
     }
   }
 
