@@ -57,7 +57,7 @@ import {
   ArrowUpward,
 } from '@mui/icons-material';
 import { useParams } from 'next/navigation';
-import { miniSiteService } from '@/lib/services/mini-site-service';
+// Remove import para evitar problema com Firebase Admin no cliente
 import { MiniSiteConfig, PublicProperty } from '@/lib/types/mini-site';
 import Image from 'next/image';
 import { formatCurrency } from '@/lib/utils/format';
@@ -131,29 +131,59 @@ export default function MiniSitePage() {
       setLoading(true);
       setError(null);
 
-      // Load configuration
-      const siteConfig = await miniSiteService.getConfig(tenantId);
-      if (!siteConfig || !siteConfig.isActive) {
+      // Load configuration via API
+      const configResponse = await fetch(`/api/mini-site/${tenantId}/config`);
+      const configData = await configResponse.json();
+      
+      if (!configData.success || !configData.data || !configData.data.isActive) {
         setError('Este mini-site não está disponível no momento.');
         return;
       }
-      setConfig(siteConfig);
+      
+      const siteConfig = configData.data;
+      
+      // Transform config to match expected structure
+      const transformedConfig = {
+        ...siteConfig,
+        theme: {
+          primaryColor: siteConfig.primaryColor || '#1976d2',
+          secondaryColor: siteConfig.secondaryColor || '#dc004e',
+          accentColor: siteConfig.accentColor || '#00bcd4',
+        },
+        contactInfo: {
+          businessName: siteConfig.title || 'Minha Imobiliária',
+          businessDescription: siteConfig.description || 'Encontre o imóvel perfeito para você',
+          whatsappNumber: siteConfig.whatsappNumber || '',
+          email: siteConfig.companyEmail || '',
+        },
+        seo: {
+          title: siteConfig.title || 'Minha Imobiliária',
+          description: siteConfig.description || 'Encontre o imóvel perfeito para você',
+          keywords: siteConfig.seoKeywords ? siteConfig.seoKeywords.split(',').map(k => k.trim()) : [],
+        }
+      };
+      
+      setConfig(transformedConfig);
 
       // Apply theme
-      if (siteConfig.theme) {
-        document.documentElement.style.setProperty('--primary-color', siteConfig.theme.primaryColor);
-        document.documentElement.style.setProperty('--secondary-color', siteConfig.theme.secondaryColor);
-        document.documentElement.style.setProperty('--accent-color', siteConfig.theme.accentColor);
+      if (transformedConfig.theme) {
+        document.documentElement.style.setProperty('--primary-color', transformedConfig.theme.primaryColor);
+        document.documentElement.style.setProperty('--secondary-color', transformedConfig.theme.secondaryColor);
+        document.documentElement.style.setProperty('--accent-color', transformedConfig.theme.accentColor);
       }
 
       // Update page title and meta
-      document.title = siteConfig.seo?.title || siteConfig.contactInfo.businessName;
-      updateMetaTags(siteConfig);
+      document.title = transformedConfig.seo?.title || transformedConfig.contactInfo.businessName;
+      updateMetaTags(transformedConfig);
 
-      // Load properties
-      const publicProperties = await miniSiteService.getPublicProperties(tenantId);
-      setProperties(publicProperties);
-      setFilteredProperties(publicProperties);
+      // Load properties via API
+      const propertiesResponse = await fetch(`/api/mini-site/${tenantId}/properties`);
+      const propertiesData = await propertiesResponse.json();
+      
+      if (propertiesData.success && propertiesData.data) {
+        setProperties(propertiesData.data);
+        setFilteredProperties(propertiesData.data);
+      }
 
     } catch (error) {
       console.error('Error loading mini-site:', error);
@@ -173,7 +203,20 @@ export default function MiniSitePage() {
         if (value) utmParams[param] = value;
       });
 
-      await miniSiteService.recordPageView(tenantId, undefined, utmParams);
+      // Record page view via API (opcional - pode ser removido para simplicidade)
+      try {
+        await fetch(`/api/mini-site/${tenantId}/analytics`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ 
+            action: 'page_view',
+            utmParams 
+          })
+        });
+      } catch (err) {
+        // Analytics failure shouldn't break the page
+        console.warn('Failed to record page view:', err);
+      }
     } catch (error) {
       console.error('Error recording page view:', error);
     }
@@ -246,12 +289,13 @@ export default function MiniSitePage() {
   };
 
   const handleWhatsAppClick = (property: PublicProperty) => {
-    if (!config?.contactInfo.whatsappNumber) return;
+    if (!config?.whatsappNumber) return;
     
-    const url = miniSiteService.generateWhatsAppBookingUrl(
-      config.contactInfo.whatsappNumber,
-      property.name
-    );
+    // Generate WhatsApp URL directly
+    const whatsappNumber = config.whatsappNumber;
+    const propertyName = property.name;
+    const message = `Olá! Tenho interesse na propriedade: ${propertyName}`;
+    const url = `https://wa.me/${whatsappNumber.replace(/\D/g, '')}?text=${encodeURIComponent(message)}`;
     window.open(url, '_blank');
   };
 

@@ -16,9 +16,10 @@ export interface MiniSiteTheme {
 }
 
 export interface MiniSiteConfig {
-  id: string;
+  id?: string;
   tenantId: string;
-  enabled: boolean;
+  isActive: boolean;
+  enabled?: boolean;
   subdomain?: string;
   customDomain?: string;
   
@@ -55,8 +56,8 @@ export interface MiniSiteConfig {
     googleAnalyticsId?: string;
     enableTracking: boolean;
   };
-  createdAt: Date;
-  updatedAt: Date;
+  createdAt?: Date;
+  updatedAt?: Date;
 }
 
 export interface PublicProperty {

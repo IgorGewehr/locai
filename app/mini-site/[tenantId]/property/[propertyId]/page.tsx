@@ -56,7 +56,7 @@ import {
   Square,
 } from '@mui/icons-material';
 import { useParams, useRouter } from 'next/navigation';
-import { miniSiteService } from '@/lib/services/mini-site-service';
+// Remove import para evitar problema com Firebase Admin no cliente
 import { MiniSiteConfig, PublicProperty } from '@/lib/types/mini-site';
 import { formatCurrency } from '@/lib/utils/format';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -115,31 +115,61 @@ export default function PropertyDetailPage() {
       setLoading(true);
       setError(null);
 
-      // Load configuration
-      const siteConfig = await miniSiteService.getConfig(tenantId);
-      if (!siteConfig || !siteConfig.isActive) {
+      // Load configuration via API
+      const configResponse = await fetch(`/api/mini-site/${tenantId}/config`);
+      const configData = await configResponse.json();
+      
+      if (!configData.success || !configData.data || !configData.data.isActive) {
         setError('Este mini-site não está disponível no momento.');
         return;
       }
-      setConfig(siteConfig);
+      
+      const siteConfig = configData.data;
+      
+      // Transform config to match expected structure
+      const transformedConfig = {
+        ...siteConfig,
+        theme: {
+          primaryColor: siteConfig.primaryColor || '#1976d2',
+          secondaryColor: siteConfig.secondaryColor || '#dc004e',
+          accentColor: siteConfig.accentColor || '#00bcd4',
+        },
+        contactInfo: {
+          businessName: siteConfig.title || 'Minha Imobiliária',
+          businessDescription: siteConfig.description || 'Encontre o imóvel perfeito para você',
+          whatsappNumber: siteConfig.whatsappNumber || '',
+          email: siteConfig.companyEmail || '',
+        },
+        seo: {
+          title: siteConfig.title || 'Minha Imobiliária',
+          description: siteConfig.description || 'Encontre o imóvel perfeito para você',
+          keywords: siteConfig.seoKeywords ? siteConfig.seoKeywords.split(',').map(k => k.trim()) : [],
+        }
+      };
+      
+      setConfig(transformedConfig);
 
       // Apply theme
-      if (siteConfig.theme) {
-        document.documentElement.style.setProperty('--primary-color', siteConfig.theme.primaryColor);
-        document.documentElement.style.setProperty('--secondary-color', siteConfig.theme.secondaryColor);
-        document.documentElement.style.setProperty('--accent-color', siteConfig.theme.accentColor);
+      if (transformedConfig.theme) {
+        document.documentElement.style.setProperty('--primary-color', transformedConfig.theme.primaryColor);
+        document.documentElement.style.setProperty('--secondary-color', transformedConfig.theme.secondaryColor);
+        document.documentElement.style.setProperty('--accent-color', transformedConfig.theme.accentColor);
       }
 
-      // Load property
-      const publicProperty = await miniSiteService.getPublicProperty(tenantId, propertyId);
-      if (!publicProperty) {
+      // Load property via API
+      const propertyResponse = await fetch(`/api/mini-site/${tenantId}/property/${propertyId}`);
+      const propertyData = await propertyResponse.json();
+      
+      if (!propertyData.success || !propertyData.data) {
         setError('Propriedade não encontrada.');
         return;
       }
+      
+      const publicProperty = propertyData.data;
       setProperty(publicProperty);
 
       // Update page title
-      document.title = `${publicProperty.name} - ${siteConfig.contactInfo.businessName}`;
+      document.title = `${publicProperty.name} - ${transformedConfig.contactInfo.businessName}`;
 
     } catch (error) {
       console.error('Error loading property:', error);
@@ -151,7 +181,20 @@ export default function PropertyDetailPage() {
 
   const recordPageView = async () => {
     try {
-      await miniSiteService.recordPageView(tenantId, propertyId);
+      // Record page view via API (opcional - pode ser removido para simplicidade)
+      try {
+        await fetch(`/api/mini-site/${tenantId}/analytics`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ 
+            action: 'page_view',
+            propertyId 
+          })
+        });
+      } catch (err) {
+        // Analytics failure shouldn't break the page
+        console.warn('Failed to record page view:', err);
+      }
     } catch (error) {
       console.error('Error recording page view:', error);
     }
@@ -174,13 +217,24 @@ export default function PropertyDetailPage() {
   const handleWhatsAppClick = () => {
     if (!config?.contactInfo.whatsappNumber || !property) return;
     
-    const url = miniSiteService.generateWhatsAppBookingUrl(
-      config.contactInfo.whatsappNumber,
-      property.name,
-      contactForm.checkIn,
-      contactForm.checkOut,
-      contactForm.guests
-    );
+    // Generate WhatsApp URL directly
+    const whatsappNumber = config.contactInfo.whatsappNumber;
+    const propertyName = property.name;
+    let message = `Olá! Tenho interesse na propriedade *${propertyName}*`;
+    
+    if (contactForm.checkIn && contactForm.checkOut) {
+      message += ` para o período de ${contactForm.checkIn} até ${contactForm.checkOut}`;
+    }
+    
+    if (contactForm.guests) {
+      message += ` para ${contactForm.guests} hóspede${contactForm.guests > 1 ? 's' : ''}`;
+    }
+    
+    message += '. Gostaria de mais informações e verificar a disponibilidade. Obrigado!';
+    
+    const encodedMessage = encodeURIComponent(message);
+    const url = `https://wa.me/${whatsappNumber.replace(/\D/g, '')}?text=${encodedMessage}`;
+    
     window.open(url, '_blank');
   };
 
@@ -208,7 +262,7 @@ export default function PropertyDetailPage() {
 
   const handleContactSubmit = async () => {
     try {
-      await miniSiteService.createInquiry({
+      const inquiryData = {
         tenantId,
         propertyId: property!.id,
         propertyName: property!.name,
@@ -219,19 +273,31 @@ export default function PropertyDetailPage() {
         checkIn: contactForm.checkIn ? new Date(contactForm.checkIn) : undefined,
         checkOut: contactForm.checkOut ? new Date(contactForm.checkOut) : undefined,
         numberOfGuests: contactForm.guests,
+      };
+
+      const response = await fetch(`/api/mini-site/${tenantId}/inquiry`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(inquiryData)
       });
+
+      const result = await response.json();
       
-      alert('Mensagem enviada com sucesso! Entraremos em contato em breve.');
-      setShowContactForm(false);
-      setContactForm({
-        name: '',
-        email: '',
-        phone: '',
-        message: '',
-        checkIn: '',
-        checkOut: '',
-        guests: 1,
-      });
+      if (result.success) {
+        alert('Mensagem enviada com sucesso! Entraremos em contato em breve.');
+        setShowContactForm(false);
+        setContactForm({
+          name: '',
+          email: '',
+          phone: '',
+          message: '',
+          checkIn: '',
+          checkOut: '',
+          guests: 1,
+        });
+      } else {
+        throw new Error(result.error || 'Failed to send inquiry');
+      }
     } catch (error) {
       console.error('Error sending inquiry:', error);
       alert('Erro ao enviar mensagem. Por favor, tente novamente.');

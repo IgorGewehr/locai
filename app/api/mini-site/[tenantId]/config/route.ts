@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { miniSiteService } from '@/lib/services/mini-site-service';
+import { settingsService } from '@/lib/services/settings-service';
 
 export async function GET(
   request: NextRequest,
@@ -15,19 +15,37 @@ export async function GET(
       );
     }
 
-    // Get mini-site configuration
-    const config = await miniSiteService.getConfig(tenantId);
-
-    if (!config) {
+    // Get tenant settings directly (server-side only)
+    const settings = await settingsService.getSettings(tenantId);
+    
+    if (!settings || !settings.miniSite) {
       return NextResponse.json(
         { success: false, error: 'Mini-site configuration not found' },
         { status: 404 }
       );
     }
 
+    // Return only public mini-site configuration
+    const publicConfig = {
+      isActive: settings.miniSite.active,
+      title: settings.miniSite.title,
+      description: settings.miniSite.description,
+      primaryColor: settings.miniSite.primaryColor,
+      secondaryColor: settings.miniSite.secondaryColor,
+      accentColor: settings.miniSite.accentColor,
+      fontFamily: settings.miniSite.fontFamily,
+      borderRadius: settings.miniSite.borderRadius,
+      showPrices: settings.miniSite.showPrices,
+      showAvailability: settings.miniSite.showAvailability,
+      showReviews: settings.miniSite.showReviews,
+      whatsappNumber: settings.miniSite.whatsappNumber,
+      companyEmail: settings.miniSite.companyEmail,
+      seoKeywords: settings.miniSite.seoKeywords,
+    };
+
     return NextResponse.json({
       success: true,
-      data: config,
+      data: publicConfig,
       tenantId,
     });
 
