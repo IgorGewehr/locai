@@ -268,15 +268,6 @@ export default function ReservationsPage() {
           width: { xs: '100%', sm: 'auto' }
         }}>
           <ModernButton
-            variant="secondary"
-            size="medium"
-            icon={<Event />}
-            onClick={() => router.push('/dashboard/reservations/create?type=visit')}
-            sx={{ display: { xs: 'none', sm: 'flex' } }}
-          >
-            Agendar Visita
-          </ModernButton>
-          <ModernButton
             variant="elegant"
             size="large"
             icon={<Add />}

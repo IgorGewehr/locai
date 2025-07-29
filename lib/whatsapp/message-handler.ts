@@ -55,7 +55,7 @@ export class WhatsAppMessageHandler {
     if (!this.whatsappClient) {
       console.log('🔧 Initializing WhatsApp client for tenant:', this.tenantId);
       // Create WhatsApp client with Web support
-      this.whatsappClient = new WhatsAppClient('web', 'web', this.tenantId)
+      this.whatsappClient = new WhatsAppClient(this.tenantId)
       this.transcriptionService = new TranscriptionService(this.whatsappClient)
       this.automationService = new AutomationService(this.tenantId, this.whatsappClient, this.aiService)
       console.log('✅ WhatsApp client initialized successfully');
@@ -193,7 +193,7 @@ export class WhatsAppMessageHandler {
 
       // Process with AI (with timeout) - usando conteúdo combinado
       const aiResponse = await withTimeout(
-        this.aiService.processMessage(conversation, savedMessage),
+        this.aiService.processMessage(savedMessage.content, conversation),
         45000,
         'AI processing'
       )
@@ -712,15 +712,7 @@ Não perca essa oportunidade! 🚀
     await this.whatsappClient.sendTemplate(
       to,
       'welcome_message',
-      'pt_BR',
-      [
-        {
-          type: 'body',
-          parameters: [
-            { type: 'text', text: clientName }
-          ]
-        }
-      ]
+      [clientName]
     )
   }
 
@@ -728,17 +720,11 @@ Não perca essa oportunidade! 🚀
     await this.whatsappClient.sendTemplate(
       to,
       'booking_confirmation',
-      'pt_BR',
       [
-        {
-          type: 'body',
-          parameters: [
-            { type: 'text', text: bookingDetails.propertyName },
-            { type: 'text', text: bookingDetails.checkIn },
-            { type: 'text', text: bookingDetails.checkOut },
-            { type: 'text', text: bookingDetails.totalAmount }
-          ]
-        }
+        bookingDetails.propertyName,
+        bookingDetails.checkIn,
+        bookingDetails.checkOut,
+        bookingDetails.totalAmount
       ]
     )
   }
@@ -747,15 +733,7 @@ Não perca essa oportunidade! 🚀
     await this.whatsappClient.sendTemplate(
       to,
       'follow_up',
-      'pt_BR',
-      [
-        {
-          type: 'body',
-          parameters: [
-            { type: 'text', text: clientName }
-          ]
-        }
-      ]
+      [clientName]
     )
   }
 

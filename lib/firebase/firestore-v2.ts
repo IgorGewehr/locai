@@ -336,7 +336,7 @@ export class TenantServiceFactory {
   }
 
   get transactions() {
-    return this.createService('transactions');
+    return this.createService<import('@/lib/types').Transaction>('transactions');
   }
 
   get payments() {

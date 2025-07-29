@@ -27,9 +27,11 @@ import {
     Refresh,
 } from '@mui/icons-material';
 import { useReservations, useProperties, useClients } from '@/lib/firebase/hooks';
+import { useTodayVisits, useUpcomingVisits } from '@/lib/firebase/hooks/useVisits';
 import { Reservation, ReservationStatus, RESERVATION_STATUS_LABELS } from '@/lib/types/reservation';
 import { Property } from '@/lib/types/property';
 import { Client } from '@/lib/types/client';
+import { VisitAppointment, VISIT_STATUS_LABELS } from '@/lib/types/visit-appointment';
 import EventoModal from './components/EventoModal';
 import ViewReservationDialog from './components/ViewReservationDialog';
 import { format, isToday, isSameDay, addDays } from 'date-fns';
@@ -52,6 +54,8 @@ export default function AgendaPage() {
     const { data: reservations, loading: loadingReservations, error: reservationsError } = useReservations();
     const { data: properties } = useProperties();
     const { data: clients } = useClients();
+    const { data: todayVisits, loading: loadingTodayVisits } = useTodayVisits();
+    const { data: upcomingVisits, loading: loadingUpcomingVisits } = useUpcomingVisits(7);
 
     // Funções auxiliares para filtrar reservas
     const getTodayReservations = () => {
@@ -462,6 +466,99 @@ export default function AgendaPage() {
                                 <ReservationCard key={reservation.id} reservation={reservation} compact />
                             ))}
                         </Box>
+                    )}
+                </Grid>
+
+                {/* Visitas Agendadas */}
+                <Grid item xs={12}>
+                    <Typography variant="h5" fontWeight={600} sx={{ mb: 3, display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <CalendarToday color="secondary" />
+                        Visitas Agendadas ({(todayVisits?.length || 0) + (upcomingVisits?.length || 0)})
+                    </Typography>
+                    
+                    {!todayVisits?.length && !upcomingVisits?.length ? (
+                        <Alert severity="info" sx={{ borderRadius: 2 }}>
+                            Nenhuma visita agendada.
+                        </Alert>
+                    ) : (
+                        <Grid container spacing={2}>
+                            {/* Visitas de hoje */}
+                            {todayVisits && todayVisits.length > 0 && (
+                                <Grid item xs={12} md={6}>
+                                    <Typography variant="h6" sx={{ mb: 2, color: 'secondary.main' }}>
+                                        Hoje
+                                    </Typography>
+                                    {todayVisits.map((visit) => (
+                                        <Card key={visit.id} sx={{ mb: 2, border: '1px solid', borderColor: 'secondary.light' }}>
+                                            <CardContent>
+                                                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1 }}>
+                                                    <Typography variant="subtitle1" fontWeight={600}>
+                                                        {visit.propertyName}
+                                                    </Typography>
+                                                    <Chip 
+                                                        label={VISIT_STATUS_LABELS[visit.status]} 
+                                                        size="small"
+                                                        color="secondary"
+                                                    />
+                                                </Box>
+                                                <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                                                    <Person sx={{ fontSize: 16, mr: 0.5, verticalAlign: 'middle' }} />
+                                                    {visit.clientName} - {visit.clientPhone}
+                                                </Typography>
+                                                <Typography variant="body2" color="text.secondary">
+                                                    <AccessTime sx={{ fontSize: 16, mr: 0.5, verticalAlign: 'middle' }} />
+                                                    {visit.scheduledTime}
+                                                </Typography>
+                                                {visit.notes && (
+                                                    <Typography variant="caption" sx={{ mt: 1, display: 'block', fontStyle: 'italic' }}>
+                                                        {visit.notes}
+                                                    </Typography>
+                                                )}
+                                            </CardContent>
+                                        </Card>
+                                    ))}
+                                </Grid>
+                            )}
+                            
+                            {/* Próximas visitas */}
+                            {upcomingVisits && upcomingVisits.length > 0 && (
+                                <Grid item xs={12} md={6}>
+                                    <Typography variant="h6" sx={{ mb: 2, color: 'secondary.main' }}>
+                                        Próximos Dias
+                                    </Typography>
+                                    {upcomingVisits.map((visit) => (
+                                        <Card key={visit.id} sx={{ mb: 2, border: '1px solid', borderColor: 'secondary.light' }}>
+                                            <CardContent>
+                                                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1 }}>
+                                                    <Typography variant="subtitle1" fontWeight={600}>
+                                                        {visit.propertyName}
+                                                    </Typography>
+                                                    <Chip 
+                                                        label={format(new Date(visit.scheduledDate), 'dd/MM', { locale: ptBR })} 
+                                                        size="small"
+                                                        variant="outlined"
+                                                        color="secondary"
+                                                    />
+                                                </Box>
+                                                <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                                                    <Person sx={{ fontSize: 16, mr: 0.5, verticalAlign: 'middle' }} />
+                                                    {visit.clientName} - {visit.clientPhone}
+                                                </Typography>
+                                                <Typography variant="body2" color="text.secondary">
+                                                    <AccessTime sx={{ fontSize: 16, mr: 0.5, verticalAlign: 'middle' }} />
+                                                    {format(new Date(visit.scheduledDate), 'EEEE', { locale: ptBR })} às {visit.scheduledTime}
+                                                </Typography>
+                                                {visit.notes && (
+                                                    <Typography variant="caption" sx={{ mt: 1, display: 'block', fontStyle: 'italic' }}>
+                                                        {visit.notes}
+                                                    </Typography>
+                                                )}
+                                            </CardContent>
+                                        </Card>
+                                    ))}
+                                </Grid>
+                            )}
+                        </Grid>
                     )}
                 </Grid>
 

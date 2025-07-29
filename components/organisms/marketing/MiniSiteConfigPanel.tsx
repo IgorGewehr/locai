@@ -28,7 +28,7 @@ import {
   Visibility,
   Settings,
 } from '@mui/icons-material';
-import { useAuth } from '@/lib/hooks/useAuth';
+import { useTenant } from '@/contexts/TenantContext';
 
 interface MiniSiteConfig {
   active: boolean;
@@ -45,7 +45,7 @@ interface MiniSiteConfig {
 }
 
 export default function MiniSiteConfigPanel() {
-  const { user } = useAuth();
+  const { tenantId } = useTenant();
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [config, setConfig] = useState<MiniSiteConfig>({
@@ -66,29 +66,51 @@ export default function MiniSiteConfigPanel() {
   const [error, setError] = useState('');
 
   useEffect(() => {
-    loadConfig();
-  }, [user]);
+    if (tenantId) {
+      loadConfig();
+    }
+  }, [tenantId]);
 
   const loadConfig = async () => {
-    if (!user?.tenantId) return;
+    if (!tenantId) {
+      setLoading(false);
+      return;
+    }
     
     try {
       setLoading(true);
+      setError('');
+      
+      console.log('Loading mini-site config for tenant:', tenantId);
       
       // Ensure config exists
-      const ensureResponse = await fetch(`/api/mini-site/ensure-config?tenantId=${user.tenantId}`);
+      const ensureResponse = await fetch(`/api/mini-site/ensure-config?tenantId=${tenantId}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+      
+      if (!ensureResponse.ok) {
+        throw new Error(`HTTP error! status: ${ensureResponse.status}`);
+      }
+      
       const ensureData = await ensureResponse.json();
+      
+      console.log('Received config data:', ensureData);
       
       if (ensureData.success && ensureData.config) {
         setConfig(ensureData.config);
-        setMiniSiteUrl(ensureData.miniSiteUrl);
+        setMiniSiteUrl(ensureData.miniSiteUrl || '');
+      } else {
+        throw new Error(ensureData.error || 'Failed to load config');
       }
     } catch (error) {
       console.error('Error loading config:', error);
-      setError('Erro ao carregar configurações');
+      setError('Erro ao carregar configurações: ' + (error instanceof Error ? error.message : 'Erro desconhecido'));
     } finally {
       setLoading(false);
-    }
+    }  
   };
 
   const handleSave = async () => {
@@ -120,7 +142,7 @@ export default function MiniSiteConfigPanel() {
   };
 
   const handleActivate = async () => {
-    if (!user?.tenantId) return;
+    if (!tenantId) return;
     
     try {
       setSaving(true);
@@ -133,7 +155,7 @@ export default function MiniSiteConfigPanel() {
       const response = await fetch('/api/mini-site/activate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ tenantId: user.tenantId })
+        body: JSON.stringify({ tenantId })
       });
 
       const data = await response.json();

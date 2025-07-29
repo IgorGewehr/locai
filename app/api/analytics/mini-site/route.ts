@@ -6,7 +6,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthFromCookie } from '@/lib/utils/auth-cookie';
 import { TenantServiceFactory } from '@/lib/firebase/firestore-v2';
-import { MiniSiteAnalytics } from '@/lib/types/mini-site';
+import { MiniSiteAnalytics, MiniSiteAnalyticsEvent } from '@/lib/types/mini-site';
 
 interface AnalyticsResponse {
   totalViews: number;
@@ -68,42 +68,42 @@ export async function GET(request: NextRequest) {
     const endDate = searchParams.get('endDate');
 
     const services = new TenantServiceFactory(tenantId);
-    const analyticsService = services.createService<MiniSiteAnalytics>('mini_site_analytics');
+    const analyticsEventsService = services.createService<MiniSiteAnalyticsEvent>('mini_site_analytics_events');
 
     // Calculate date range
     const end = endDate ? new Date(endDate) : new Date();
     const start = startDate ? new Date(startDate) : new Date(Date.now() - parseInt(period) * 24 * 60 * 60 * 1000);
 
-    // Get analytics data
-    // Note: This query requires a composite index on [tenantId, date]
+    // Get analytics events data
+    // Note: This query requires a composite index on [tenantId, timestamp]
     // If index is not available, fallback to simpler query
-    let analytics: MiniSiteAnalytics[] = [];
+    let analyticsEvents: MiniSiteAnalyticsEvent[] = [];
     
     try {
-      analytics = await analyticsService.getMany([
-        { field: 'date', operator: '>=', value: start },
-        { field: 'date', operator: '<=', value: end }
+      analyticsEvents = await analyticsEventsService.getMany([
+        { field: 'timestamp', operator: '>=', value: start },
+        { field: 'timestamp', operator: '<=', value: end }
       ], {
-        orderBy: 'date',
+        orderBy: 'timestamp',
         orderDirection: 'desc'
       });
     } catch (indexError: any) {
-      // Fallback: Get all analytics first, then filter by date in memory
+      // Fallback: Get all analytics events first, then filter by timestamp in memory
       console.warn('Composite index not available, using fallback query:', indexError.message);
-      const allAnalytics = await analyticsService.getAll();
+      const allAnalyticsEvents = await analyticsEventsService.getAll();
       
       // Filter by date range in memory
-      analytics = allAnalytics.filter(item => {
-        const itemDate = item.date instanceof Date ? item.date : new Date(item.date);
+      analyticsEvents = allAnalyticsEvents.filter(item => {
+        const itemDate = item.timestamp instanceof Date ? item.timestamp : new Date(item.timestamp);
         return itemDate >= start && itemDate <= end;
       }).sort((a, b) => {
-        const dateA = a.date instanceof Date ? a.date : new Date(a.date);
-        const dateB = b.date instanceof Date ? b.date : new Date(b.date);
+        const dateA = a.timestamp instanceof Date ? a.timestamp : new Date(a.timestamp);
+        const dateB = b.timestamp instanceof Date ? b.timestamp : new Date(b.timestamp);
         return dateB.getTime() - dateA.getTime(); // desc order
       });
     }
 
-    if (analytics.length === 0) {
+    if (analyticsEvents.length === 0) {
       // Return empty real data structure
       return NextResponse.json({
         totalViews: 0,
@@ -121,7 +121,7 @@ export async function GET(request: NextRequest) {
     const propertyMap = new Map(properties.map((p: any) => [p.id, p]));
 
     // Aggregate analytics data
-    const aggregatedData = aggregateAnalytics(analytics, propertyMap);
+    const aggregatedData = aggregateAnalytics(analyticsEvents, propertyMap);
 
     return NextResponse.json(aggregatedData);
 
@@ -155,10 +155,10 @@ export async function POST(request: NextRequest) {
 
     const tenantId = auth.tenantId || 'default-tenant';
     const services = new TenantServiceFactory(tenantId);
-    const analyticsService = services.createService<MiniSiteAnalytics>('mini_site_analytics');
+    const analyticsEventsService = services.createService<MiniSiteAnalyticsEvent>('mini_site_analytics_events');
 
     // Track event
-    await recordAnalyticsEvent(analyticsService, {
+    await recordAnalyticsEvent(analyticsEventsService, {
       tenantId,
       event,
       propertyId,
@@ -234,7 +234,7 @@ function generateDemoAnalytics(days: number): AnalyticsResponse {
   };
 }
 
-function aggregateAnalytics(analytics: MiniSiteAnalytics[], propertyMap: Map<string, any>): AnalyticsResponse {
+function aggregateAnalytics(analyticsEvents: MiniSiteAnalyticsEvent[], propertyMap: Map<string, any>): AnalyticsResponse {
   // Initialize counters
   let totalViews = 0;
   let uniqueVisitors = new Set<string>();
@@ -264,8 +264,8 @@ function aggregateAnalytics(analytics: MiniSiteAnalytics[], propertyMap: Map<str
     conversions: number;
   }>();
   
-  // Process each analytics entry
-  analytics.forEach(entry => {
+  // Process each analytics event
+  analyticsEvents.forEach(entry => {
     // Count views
     if (entry.event === 'page_view') {
       totalViews++;
@@ -335,9 +335,10 @@ function aggregateAnalytics(analytics: MiniSiteAnalytics[], propertyMap: Map<str
       deviceMap.set(device, (deviceMap.get(device) || 0) + 1);
     }
     
-    // Track location
-    if (entry.location?.country) {
-      const country = entry.location.country;
+    // Track location (simplified - would need proper location parsing)
+    if (entry.location) {
+      // For now, assume location is a country name or parse it from location string
+      const country = entry.location || 'Unknown';
       countryMap.set(country, (countryMap.get(country) || 0) + 1);
     }
     
@@ -472,20 +473,20 @@ function getDeviceType(userAgent: string): string {
 
 async function recordAnalyticsEvent(service: any, event: any) {
   // Record individual analytics events
-  const analyticsData: MiniSiteAnalytics = {
+  const analyticsEventData: MiniSiteAnalyticsEvent = {
+    id: crypto.randomUUID(),
     tenantId: event.tenantId,
     event: event.event,
-    propertyId: event.propertyId || null,
-    propertyName: event.propertyName || null,
-    sessionId: event.sessionId,
-    userAgent: event.userAgent || null,
-    referrer: event.referrer || null,
-    location: event.location || null,
+    propertyId: event.propertyId || undefined,
+    sessionId: event.sessionId || undefined,
+    userAgent: event.userAgent || undefined,
+    referrer: event.referrer || undefined,
+    location: event.location || undefined,
     timestamp: event.timestamp,
-    date: event.timestamp,
-    sessionDuration: event.sessionDuration || 0,
-    pageLoadTime: event.pageLoadTime || 0,
+    sessionDuration: event.sessionDuration || undefined,
+    pageLoadTime: event.pageLoadTime || undefined,
+    createdAt: new Date(),
   };
 
-  await service.create(analyticsData);
+  await service.create(analyticsEventData);
 }

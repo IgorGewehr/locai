@@ -324,6 +324,7 @@ export class WhatsAppSessionManager extends EventEmitter {
       
       // Convert Baileys message format to our expected format
       const formattedMessage = {
+        object: 'whatsapp_business_account',
         entry: [{
           id: tenantId,
           changes: [{
@@ -345,6 +346,7 @@ export class WhatsAppSessionManager extends EventEmitter {
                 type: 'text',
               }],
             },
+            field: 'messages',
           }],
         }],
       };
@@ -391,27 +393,29 @@ export class WhatsAppSessionManager extends EventEmitter {
           content = {
             image: Buffer.from(buffer),
             caption: message,
-          };
+          } as any;
         } else if (mediaUrl.includes('.mp4') || mediaUrl.includes('.mov')) {
           this.logger.info(`🎥 Sending as video`);
           content = {
             video: Buffer.from(buffer),
             caption: message,
-          };
+          } as any;
         } else {
           this.logger.info(`📄 Sending as document`);
           content = {
             document: Buffer.from(buffer),
             caption: message,
             fileName: path.basename(mediaUrl),
-          };
+          } as any;
         }
       } else {
-        content = { text: message };
+        content = { 
+          text: message 
+        } as any;
       }
       
       this.logger.info(`📨 Sending message content:`, content);
-      await session.socket.sendMessage(jid, content);
+      await session.socket.sendMessage(jid, content as any);
       session.lastActivity = new Date();
       this.logger.info(`✅ Message sent successfully!`);
       return true;
@@ -484,7 +488,7 @@ export class WhatsAppSessionManager extends EventEmitter {
     // Close socket
     if (session.socket) {
       try {
-        session.socket.ev.removeAllListeners();
+        session.socket.ev.removeAllListeners('connection.update');
         session.socket.ws.close();
       } catch (error) {
         this.logger.error(`Error closing socket for tenant ${tenantId}:`, error);

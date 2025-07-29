@@ -149,6 +149,21 @@ export interface MiniSiteInquiry {
   updatedAt: Date;
 }
 
+export interface MiniSiteAnalyticsEvent {
+  id: string;
+  tenantId: string;
+  event: 'page_view' | 'property_view' | 'inquiry' | 'contact_click' | 'booking_conversion' | 'booking' | 'reservation';
+  sessionId?: string;
+  propertyId?: string;
+  timestamp: Date;
+  userAgent?: string;
+  referrer?: string;
+  location?: string;
+  sessionDuration?: number;
+  pageLoadTime?: number;
+  createdAt: Date;
+}
+
 export interface MiniSiteAnalytics {
   id: string;
   tenantId: string;

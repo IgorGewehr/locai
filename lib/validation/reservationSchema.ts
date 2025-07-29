@@ -140,17 +140,23 @@ export const guestDetailSchema = yup.object({
   document: yup
     .string()
     .required('Documento é obrigatório')
-    .when('documentType', {
-      is: 'cpf',
-      then: yup.string().matches(/^\d{3}\.\d{3}\.\d{3}-\d{2}$/, 'CPF deve ter formato válido'),
+    .when('documentType', (documentType, schema) => {
+      if (documentType === 'cpf') {
+        return schema.matches(/^\d{3}\.\d{3}\.\d{3}-\d{2}$/, 'CPF deve ter formato válido');
+      }
+      return schema;
     })
-    .when('documentType', {
-      is: 'rg',
-      then: yup.string().min(7, 'RG deve ter pelo menos 7 caracteres'),
+    .when('documentType', (documentType, schema) => {
+      if (documentType === 'rg') {
+        return schema.min(7, 'RG deve ter pelo menos 7 caracteres');
+      }
+      return schema;
     })
-    .when('documentType', {
-      is: 'passport',
-      then: yup.string().min(6, 'Passaporte deve ter pelo menos 6 caracteres'),
+    .when('documentType', (documentType, schema) => {
+      if (documentType === 'passport') {
+        return schema.min(6, 'Passaporte deve ter pelo menos 6 caracteres');
+      }
+      return schema;
     }),
   
   documentType: yup
@@ -208,9 +214,11 @@ export const paymentSchema = yup.object({
   
   paidDate: yup
     .date()
-    .when('status', {
-      is: PaymentStatus.PAID,
-      then: yup.date().required('Data de pagamento é obrigatória quando status é pago'),
+    .when('status', (status, schema) => {
+      if (status === PaymentStatus.PAID) {
+        return schema.required('Data de pagamento é obrigatória quando status é pago');
+      }
+      return schema;
     }),
   
   installmentNumber: yup

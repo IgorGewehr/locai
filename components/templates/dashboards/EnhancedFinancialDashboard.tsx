@@ -284,7 +284,14 @@ export default function EnhancedFinancialDashboard() {
       setCategoryData(categoryArray);
 
     } catch (error) {
-      logger.error('Error loading financial data', { error });
+      logger.error(
+        'Error loading financial data', 
+        error instanceof Error ? error : undefined,
+        { 
+          component: 'EnhancedFinancialDashboard',
+          operation: 'loadFinancialData'
+        }
+      );
       // Additional debugging for date-related errors
       if (error instanceof RangeError && error.message.includes('Invalid time value')) {
         logger.error('Date formatting error detected. Check transaction dates in the database.');

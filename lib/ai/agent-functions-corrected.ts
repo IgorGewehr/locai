@@ -6,7 +6,9 @@ import { propertyService } from '@/lib/services/property-service';
 import { reservationService } from '@/lib/services/reservation-service';
 import { clientServiceWrapper } from '@/lib/services/client-service';
 import { crmService } from '@/lib/services/crm-service';
+import { visitService } from '@/lib/services/visit-service';
 import { LeadStatus, LeadSource, InteractionType } from '@/lib/types/crm';
+import { VisitStatus, TimePreference } from '@/lib/types/visit-appointment';
 
 // ===== TIPOS CORRIGIDOS =====
 
@@ -666,91 +668,67 @@ export class CorrectedAgentFunctions {
       
       const startDate = args.startDate ? new Date(args.startDate) : new Date();
       const days = args.days || 7;
-      const timePreference = args.timePreference;
+      const endDate = new Date(startDate);
+      endDate.setDate(endDate.getDate() + days);
       
-      // Configuração padrão da agenda (simulada - em produção viria do banco)
-      const defaultSchedule = {
-        monday: { isWorkingDay: true, startTime: '09:00', endTime: '18:00', maxVisits: 8 },
-        tuesday: { isWorkingDay: true, startTime: '09:00', endTime: '18:00', maxVisits: 8 },
-        wednesday: { isWorkingDay: true, startTime: '09:00', endTime: '18:00', maxVisits: 8 },
-        thursday: { isWorkingDay: true, startTime: '09:00', endTime: '18:00', maxVisits: 8 },
-        friday: { isWorkingDay: true, startTime: '09:00', endTime: '18:00', maxVisits: 8 },
-        saturday: { isWorkingDay: true, startTime: '09:00', endTime: '17:00', maxVisits: 6 },
-        sunday: { isWorkingDay: false, startTime: '', endTime: '', maxVisits: 0 }
-      };
-      
-      const availableSlots = [];
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      
-      // Gerar slots disponíveis
-      for (let i = 0; i < days; i++) {
-        const currentDate = new Date(startDate);
-        currentDate.setDate(startDate.getDate() + i);
-        
-        // Pular datas no passado (mas não hoje se ainda há horários disponíveis)
-        if (currentDate < today) continue;
-        
-        // Pular hoje se já passaram dos horários comerciais
-        if (currentDate.getTime() === today.getTime()) {
-          const now = new Date();
-          if (now.getHours() >= 18) continue; // Após 18h não agendar para hoje
+      // Converter preferência de horário para enum
+      const preferredTimes: string[] = [];
+      if (args.timePreference) {
+        switch (args.timePreference) {
+          case 'morning':
+            preferredTimes.push(TimePreference.MORNING);
+            break;
+          case 'afternoon':
+            preferredTimes.push(TimePreference.AFTERNOON);
+            break;
+          case 'evening':
+            preferredTimes.push(TimePreference.EVENING);
+            break;
         }
-        
-        const dayName = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'][currentDate.getDay()];
-        const daySchedule = defaultSchedule[dayName as keyof typeof defaultSchedule];
-        
-        if (!daySchedule.isWorkingDay) continue;
-        
-        // Gerar horários baseado na preferência
-        const timeSlots = this.generateTimeSlots(daySchedule.startTime, daySchedule.endTime, timePreference);
-        
-        // Debug log
-        console.log(`📅 [VISIT] ${currentDate.toISOString().split('T')[0]} (${dayName}): ${timeSlots.length} slots`);
-        
-        timeSlots.forEach(time => {
-          // Para hoje, só slots futuros
-          if (currentDate.getTime() === today.getTime()) {
-            const now = new Date();
-            const [slotHour] = time.split(':').map(Number);
-            if (slotHour <= now.getHours()) return; // Pular horários passados
-          }
-          
-          availableSlots.push({
-            date: currentDate.toISOString().split('T')[0],
-            dateFormatted: currentDate.toLocaleDateString('pt-BR', { 
-              weekday: 'long', 
-              year: 'numeric', 
-              month: 'long', 
-              day: 'numeric' 
-            }),
-            time,
-            timeFormatted: time,
-            period: this.getTimePeriod(time),
-            agentName: 'Consultor Disponível'
-          });
-        });
       }
+      
+      // Usar o serviço real de visitas para verificar disponibilidade
+      const availableSlots = await visitService.checkAvailability(tenantId, {
+        startDate,
+        endDate,
+        preferredTimes: preferredTimes.length > 0 ? preferredTimes : undefined
+      });
       
       if (availableSlots.length === 0) {
         return {
-          success: true, // Changed to true to show alternative message
+          success: true, // Show alternative message
           message: 'No momento não temos horários disponíveis para visita presencial. Que tal garantir sua reserva diretamente? Temos disponibilidade para as datas solicitadas e você pode conhecer o imóvel no check-in!',
           availableSlots: [],
           alternativeAction: 'direct_booking'
         };
       }
       
-      console.log(`✅ [VISIT AVAILABILITY] ${availableSlots.length} horários disponíveis encontrados`);
+      // Formatar slots para resposta
+      const formattedSlots = availableSlots.slice(0, 15).map(slot => ({
+        date: slot.date.toISOString().split('T')[0],
+        dateFormatted: slot.date.toLocaleDateString('pt-BR', { 
+          weekday: 'long', 
+          year: 'numeric', 
+          month: 'long', 
+          day: 'numeric' 
+        }),
+        time: slot.time,
+        timeFormatted: slot.time,
+        period: this.getTimePeriod(slot.time),
+        agentName: slot.agentName || 'Consultor Disponível',
+        duration: slot.duration
+      }));
+      
+      console.log(`✅ [VISIT AVAILABILITY] ${formattedSlots.length} horários disponíveis encontrados`);
       
       return {
         success: true,
-        availableSlots: availableSlots.slice(0, 15), // Máximo 15 opções
-        message: `Encontrei ${Math.min(availableSlots.length, 15)} horários disponíveis para visita presencial!`,
+        availableSlots: formattedSlots,
+        message: `Encontrei ${formattedSlots.length} horários disponíveis para visita presencial!`,
         period: {
           startDate: startDate.toISOString().split('T')[0],
           days,
-          timePreference
+          timePreference: args.timePreference
         }
       };
       
@@ -828,7 +806,17 @@ export class CorrectedAgentFunctions {
         };
       }
 
-      // 2. Validar data da visita
+      // 2. Buscar dados do cliente
+      const client = await clientServiceWrapper.getById(args.clientId);
+      if (!client) {
+        return {
+          success: false,
+          message: 'Cliente não encontrado',
+          visit: null
+        };
+      }
+
+      // 3. Validar data da visita
       const visitDateTime = new Date(args.visitDate + 'T' + args.visitTime + ':00');
       const now = new Date();
       
@@ -840,41 +828,76 @@ export class CorrectedAgentFunctions {
         };
       }
 
-      // 3. Criar dados da visita (em produção salvaria no banco de visitas)
+      // 4. Criar visita no banco usando o serviço
       const visitData = {
-        id: `visit_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
         tenantId,
+        clientId: args.clientId,
+        clientName: client.name,
+        clientPhone: client.phone,
         propertyId: args.propertyId,
         propertyName: property.title || 'Propriedade',
         propertyAddress: property.address || '',
-        clientId: args.clientId,
         scheduledDate: new Date(args.visitDate),
         scheduledTime: args.visitTime,
-        visitDateTime,
-        status: 'scheduled',
+        duration: 60, // Duração padrão de 60 minutos
+        status: VisitStatus.SCHEDULED,
         notes: args.notes || '',
         clientRequests: args.notes ? [args.notes] : [],
-        confirmedByClient: true, // Cliente confirmou ao agendar
+        confirmedByClient: true, // Cliente confirmou ao agendar via WhatsApp
         confirmedByAgent: false, // Aguardando confirmação da imobiliária
-        source: 'whatsapp',
+        source: 'whatsapp' as const,
         createdAt: new Date(),
-        propertyDetails: {
-          address: property.address,
-          neighborhood: property.neighborhood,
-          city: property.city,
-          bedrooms: property.bedrooms,
-          bathrooms: property.bathrooms,
-          maxGuests: property.maxGuests
-        }
+        updatedAt: new Date()
       };
+
+      // Salvar no Firebase
+      const createdVisit = await visitService.createVisit(visitData);
       
-      console.log(`✅ [VISIT] Visita agendada com ID: ${visitData.id}`);
+      console.log(`✅ [VISIT] Visita agendada com ID: ${createdVisit.id}`);
+
+      // Atualizar lead no CRM se existir
+      try {
+        const lead = await crmService.getLeadByPhone(client.phone);
+        if (lead) {
+          await crmService.updateLead(lead.id, {
+            status: LeadStatus.OPPORTUNITY,
+            temperature: 'hot',
+            score: Math.max(lead.score, 85),
+            lastContactDate: new Date()
+          });
+          
+          // Criar interação no CRM
+          await crmService.createInteraction({
+            leadId: lead.id,
+            tenantId,
+            type: InteractionType.MEETING,
+            channel: 'whatsapp',
+            direction: 'inbound',
+            content: `Visita agendada para ${property.title} em ${new Date(args.visitDate).toLocaleDateString('pt-BR')} às ${args.visitTime}`,
+            userId: 'ai-agent',
+            userName: 'AI Agent',
+            metadata: {
+              visitId: createdVisit.id,
+              propertyId: args.propertyId,
+              visitDate: args.visitDate,
+              visitTime: args.visitTime
+            }
+          });
+        }
+      } catch (crmError) {
+        console.error('⚠️ [VISIT] Erro ao atualizar CRM:', crmError);
+        // Não falhar a visita por erro no CRM
+      }
 
       return {
         success: true,
-        visit: visitData,
+        visit: {
+          id: createdVisit.id,
+          ...visitData
+        },
         message: `✅ Visita agendada com sucesso!\n📅 ${new Date(args.visitDate).toLocaleDateString('pt-BR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })} às ${args.visitTime}\n🏠 ${property.title || 'Propriedade'}\n📍 ${property.address}\n\nEm breve nosso consultor entrará em contato para confirmar! 📞`,
         confirmationDetails: {
+          visitId: createdVisit.id,
           date: args.visitDate,
           dateFormatted: new Date(args.visitDate).toLocaleDateString('pt-BR', { 
             weekday: 'long', 

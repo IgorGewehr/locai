@@ -1,3 +1,80 @@
+// WhatsApp Business API Types
+
+export interface WhatsAppWebhookData {
+  object: string;
+  entry: Array<{
+    id: string;
+    changes: Array<{
+      value: {
+        messaging_product: string;
+        metadata: {
+          display_phone_number: string;
+          phone_number_id: string;
+        };
+        contacts?: Array<{
+          profile: {
+            name: string;
+          };
+          wa_id: string;
+        }>;
+        messages?: WhatsAppIncomingMessage[];
+        statuses?: Array<{
+          id: string;
+          status: string;
+          timestamp: string;
+          recipient_id: string;
+        }>;
+      };
+      field: string;
+    }>;
+  }>;
+}
+
+export interface WhatsAppIncomingMessage {
+  id: string;
+  from: string;
+  timestamp: string;
+  type: 'text' | 'image' | 'video' | 'audio' | 'document' | 'location' | 'contact';
+  text?: {
+    body: string;
+  };
+  image?: {
+    caption?: string;
+    mime_type: string;
+    sha256: string;
+    id: string;
+  };
+  video?: {
+    caption?: string;
+    mime_type: string;
+    sha256: string;
+    id: string;
+  };
+  audio?: {
+    mime_type: string;
+    sha256: string;
+    id: string;
+    voice: boolean;
+  };
+  document?: {
+    caption?: string;
+    filename: string;
+    mime_type: string;
+    sha256: string;
+    id: string;
+  };
+  location?: {
+    latitude: number;
+    longitude: number;
+    name?: string;
+    address?: string;
+  };
+  context?: {
+    from: string;
+    id: string;
+  };
+}
+
 // WhatsApp Web Types (Baileys-based)
 
 export interface WhatsAppMessage {

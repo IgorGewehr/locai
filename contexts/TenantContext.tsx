@@ -42,7 +42,7 @@ export function TenantProvider({ children }: { children: ReactNode }) {
       setServices(null);
       setIsReady(false);
     }
-  }, [user?.tenantId, user?.uid, user?.id, tenantId]);
+  }, [user?.tenantId, user?.uid, user?.id]); // Removed tenantId from dependencies to prevent infinite loop
 
   return (
     <TenantContext.Provider value={{ tenantId, services, isReady }}>

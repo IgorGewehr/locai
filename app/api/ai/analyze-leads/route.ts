@@ -88,7 +88,7 @@ export async function POST(request: NextRequest) {
     try {
       analyzedLeads = JSON.parse(analysisResult);
     } catch (parseError) {
-      logger.error('Failed to parse AI analysis result', { error: parseError });
+      logger.error('Failed to parse AI analysis result', parseError);
       // Fallback to basic analysis
       analyzedLeads = leads.map((lead: Lead) => ({
         lead,
@@ -116,7 +116,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(enrichedAnalysis);
 
   } catch (error) {
-    logger.error('Error in AI lead analysis', { error });
+    logger.error('Error in AI lead analysis', error);
     
     return NextResponse.json(
       { error: 'Failed to analyze leads' },
