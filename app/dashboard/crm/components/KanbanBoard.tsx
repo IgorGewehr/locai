@@ -54,8 +54,9 @@ export default function KanbanBoard({
   const getColumnsPerPage = () => {
     if (typeof window !== 'undefined') {
       if (window.innerWidth < 600) return 1; // Mobile
-      if (window.innerWidth < 960) return 2; // Tablet
-      return 3; // Desktop
+      if (window.innerWidth < 768) return 2; // Small Tablet
+      if (window.innerWidth < 1024) return 3; // Tablet 11"
+      return 4; // Desktop
     }
     return 3;
   };

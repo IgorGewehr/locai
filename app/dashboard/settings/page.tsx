@@ -20,6 +20,10 @@ import {
   IconButton,
   Stack,
   Chip,
+  TextField,
+  InputAdornment,
+  Grid,
+  Divider,
 } from '@mui/material';
 import {
   WhatsApp,
@@ -29,10 +33,18 @@ import {
   Refresh,
   Close,
   Settings as SettingsIcon,
+  Person,
+  Lock,
+  Edit,
+  Save,
+  Visibility,
+  VisibilityOff,
 } from '@mui/icons-material';
 import { useAuth } from '@/lib/hooks/useAuth';
 import { useTenant } from '@/contexts/TenantContext';
 import DashboardBreadcrumb from '@/components/atoms/DashboardBreadcrumb';
+import { updateProfile, updatePassword, EmailAuthProvider, reauthenticateWithCredential } from 'firebase/auth';
+import { auth } from '@/lib/firebase/config';
 
 interface WhatsAppSession {
   connected: boolean;
@@ -53,6 +65,25 @@ export default function SettingsPage() {
   const [success, setSuccess] = useState<string | null>(null);
   const [qrDialogOpen, setQrDialogOpen] = useState(false);
 
+  // Profile states
+  const [profileLoading, setProfileLoading] = useState(false);
+  const [editingProfile, setEditingProfile] = useState(false);
+  const [editingPassword, setEditingPassword] = useState(false);
+  const [showCurrentPassword, setShowCurrentPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  
+  const [profileData, setProfileData] = useState({
+    displayName: user?.displayName || '',
+    email: user?.email || ''
+  });
+
+  const [passwordData, setPasswordData] = useState({
+    currentPassword: '',
+    newPassword: '',
+    confirmPassword: ''
+  });
+
   const [whatsappSession, setWhatsappSession] = useState<WhatsAppSession>({
     connected: false,
     status: 'disconnected'
@@ -65,6 +96,80 @@ export default function SettingsPage() {
     const interval = setInterval(checkWhatsAppStatus, 10000);
     return () => clearInterval(interval);
   }, []);
+
+  // Update profile data when user changes
+  useEffect(() => {
+    if (user) {
+      setProfileData({
+        displayName: user.displayName || '',
+        email: user.email || ''
+      });
+    }
+  }, [user]);
+
+  const handleUpdateProfile = async () => {
+    if (!user || !auth.currentUser) return;
+
+    setProfileLoading(true);
+    setError(null);
+
+    try {
+      await updateProfile(auth.currentUser, {
+        displayName: profileData.displayName
+      });
+
+      setSuccess('Perfil atualizado com sucesso!');
+      setEditingProfile(false);
+    } catch (error: any) {
+      setError('Erro ao atualizar perfil: ' + error.message);
+    } finally {
+      setProfileLoading(false);
+    }
+  };
+
+  const handleUpdatePassword = async () => {
+    if (!user || !auth.currentUser) return;
+
+    if (passwordData.newPassword !== passwordData.confirmPassword) {
+      setError('A confirmação da senha não confere');
+      return;
+    }
+
+    if (passwordData.newPassword.length < 6) {
+      setError('A nova senha deve ter pelo menos 6 caracteres');
+      return;
+    }
+
+    setProfileLoading(true);
+    setError(null);
+
+    try {
+      // Re-authenticate user before changing password
+      const credential = EmailAuthProvider.credential(
+        auth.currentUser.email!,
+        passwordData.currentPassword
+      );
+      
+      await reauthenticateWithCredential(auth.currentUser, credential);
+      await updatePassword(auth.currentUser, passwordData.newPassword);
+
+      setSuccess('Senha alterada com sucesso!');
+      setEditingPassword(false);
+      setPasswordData({
+        currentPassword: '',
+        newPassword: '',
+        confirmPassword: ''
+      });
+    } catch (error: any) {
+      if (error.code === 'auth/wrong-password') {
+        setError('Senha atual incorreta');
+      } else {
+        setError('Erro ao alterar senha: ' + error.message);
+      }
+    } finally {
+      setProfileLoading(false);
+    }
+  };
 
   const checkWhatsAppStatus = async () => {
     try {
@@ -232,7 +337,7 @@ export default function SettingsPage() {
   }
 
   return (
-    <Box sx={{ p: 3 }}>
+    <Box sx={{ p: { xs: 2, sm: 3 } }}>
       <DashboardBreadcrumb 
         items={[
           { label: 'Dashboard', href: '/dashboard' },
@@ -241,27 +346,306 @@ export default function SettingsPage() {
       />
 
       {/* Header */}
-      <Box sx={{ mb: 4 }}>
-        <Typography variant="h4" fontWeight={600} sx={{ mb: 1 }}>
+      <Box sx={{ mb: { xs: 3, sm: 4 } }}>
+        <Typography 
+          variant="h4" 
+          fontWeight={600} 
+          sx={{ 
+            mb: 1,
+            fontSize: { xs: '1.75rem', sm: '2.125rem' },
+          }}
+        >
           Configurações
         </Typography>
-        <Typography variant="body2" color="text.secondary">
-          Configure sua conexão WhatsApp e outras preferências
+        <Typography 
+          variant="body2" 
+          color="text.secondary"
+          sx={{ fontSize: { xs: '0.875rem', sm: '1rem' } }}
+        >
+          Configure seu perfil, conexão WhatsApp e outras preferências
         </Typography>
       </Box>
 
       {/* Alerts */}
       {error && (
-        <Alert severity="error" sx={{ mb: 3 }} onClose={() => setError(null)}>
+        <Alert severity="error" sx={{ mb: { xs: 2, sm: 3 } }} onClose={() => setError(null)}>
           {error}
         </Alert>
       )}
 
       {success && (
-        <Alert severity="success" sx={{ mb: 3 }} onClose={() => setSuccess(null)}>
+        <Alert severity="success" sx={{ mb: { xs: 2, sm: 3 } }} onClose={() => setSuccess(null)}>
           {success}
         </Alert>
       )}
+
+      {/* Profile Configuration */}
+      <Card 
+        sx={{ 
+          background: 'rgba(255, 255, 255, 0.05)',
+          backdropFilter: 'blur(20px)',
+          border: '1px solid rgba(255, 255, 255, 0.1)',
+          borderRadius: { xs: 2, sm: 3 },
+          mb: { xs: 3, sm: 4 },
+        }}
+      >
+        <CardContent sx={{ p: { xs: 2, sm: 3, md: 4 } }}>
+          {/* Header */}
+          <Box sx={{ 
+            display: 'flex', 
+            alignItems: { xs: 'flex-start', sm: 'center' },
+            flexDirection: { xs: 'column', sm: 'row' },
+            mb: { xs: 3, sm: 4 },
+            gap: { xs: 1, sm: 0 },
+          }}>
+            <Person sx={{ 
+              color: 'primary.main', 
+              mr: { xs: 0, sm: 2 }, 
+              fontSize: { xs: 28, sm: 32 },
+              mb: { xs: 1, sm: 0 },
+            }} />
+            <Box>
+              <Typography 
+                variant="h5" 
+                fontWeight={600} 
+                sx={{ 
+                  mb: 0.5,
+                  fontSize: { xs: '1.25rem', sm: '1.5rem' },
+                }}
+              >
+                Perfil do Usuário
+              </Typography>
+              <Typography 
+                variant="body2" 
+                color="text.secondary"
+                sx={{ fontSize: { xs: '0.8rem', sm: '0.875rem' } }}
+              >
+                Gerencie suas informações pessoais e senha
+              </Typography>
+            </Box>
+          </Box>
+
+          <Grid container spacing={{ xs: 2, sm: 3, md: 4 }}>
+            {/* Profile Information */}
+            <Grid item xs={12} md={6}>
+              <Box sx={{ mb: 3 }}>
+                <Typography variant="h6" sx={{ mb: 2, display: 'flex', alignItems: 'center' }}>
+                  <Person sx={{ mr: 1, fontSize: 20 }} />
+                  Informações Pessoais
+                </Typography>
+
+                <Stack spacing={2}>
+                  <TextField
+                    fullWidth
+                    label="Nome de Exibição"
+                    value={profileData.displayName}
+                    onChange={(e) => setProfileData(prev => ({ ...prev, displayName: e.target.value }))}
+                    disabled={!editingProfile || profileLoading}
+                    InputProps={{
+                      startAdornment: (
+                        <InputAdornment position="start">
+                          <Person color="primary" />
+                        </InputAdornment>
+                      ),
+                    }}
+                  />
+
+                  <TextField
+                    fullWidth
+                    label="Email"
+                    value={profileData.email}
+                    disabled
+                    InputProps={{
+                      startAdornment: (
+                        <InputAdornment position="start">
+                          <Person color="primary" />
+                        </InputAdornment>
+                      ),
+                    }}
+                    helperText="O email não pode ser alterado"
+                  />
+
+                  <Box sx={{ display: 'flex', gap: 1 }}>
+                    {!editingProfile ? (
+                      <Button
+                        variant="outlined"
+                        startIcon={<Edit />}
+                        onClick={() => setEditingProfile(true)}
+                        disabled={profileLoading}
+                      >
+                        Editar Perfil
+                      </Button>
+                    ) : (
+                      <>
+                        <Button
+                          variant="contained"
+                          startIcon={profileLoading ? <CircularProgress size={20} /> : <Save />}
+                          onClick={handleUpdateProfile}
+                          disabled={profileLoading}
+                        >
+                          {profileLoading ? 'Salvando...' : 'Salvar'}
+                        </Button>
+                        <Button
+                          variant="outlined"
+                          onClick={() => {
+                            setEditingProfile(false);
+                            setProfileData({
+                              displayName: user?.displayName || '',
+                              email: user?.email || ''
+                            });
+                          }}
+                          disabled={profileLoading}
+                        >
+                          Cancelar
+                        </Button>
+                      </>
+                    )}
+                  </Box>
+                </Stack>
+              </Box>
+            </Grid>
+
+            {/* Password Change */}
+            <Grid item xs={12} md={6}>
+              <Box>
+                <Typography variant="h6" sx={{ mb: 2, display: 'flex', alignItems: 'center' }}>
+                  <Lock sx={{ mr: 1, fontSize: 20 }} />
+                  Alterar Senha
+                </Typography>
+
+                {!editingPassword ? (
+                  <Button
+                    variant="outlined"
+                    startIcon={<Lock />}
+                    onClick={() => setEditingPassword(true)}
+                    disabled={profileLoading}
+                  >
+                    Alterar Senha
+                  </Button>
+                ) : (
+                  <Stack spacing={2}>
+                    <TextField
+                      fullWidth
+                      label="Senha Atual"
+                      type={showCurrentPassword ? 'text' : 'password'}
+                      value={passwordData.currentPassword}
+                      onChange={(e) => setPasswordData(prev => ({ ...prev, currentPassword: e.target.value }))}
+                      disabled={profileLoading}
+                      InputProps={{
+                        startAdornment: (
+                          <InputAdornment position="start">
+                            <Lock color="primary" />
+                          </InputAdornment>
+                        ),
+                        endAdornment: (
+                          <InputAdornment position="end">
+                            <IconButton
+                              onClick={() => setShowCurrentPassword(!showCurrentPassword)}
+                              edge="end"
+                            >
+                              {showCurrentPassword ? <VisibilityOff /> : <Visibility />}
+                            </IconButton>
+                          </InputAdornment>
+                        ),
+                      }}
+                    />
+
+                    <TextField
+                      fullWidth
+                      label="Nova Senha"
+                      type={showNewPassword ? 'text' : 'password'}
+                      value={passwordData.newPassword}
+                      onChange={(e) => setPasswordData(prev => ({ ...prev, newPassword: e.target.value }))}
+                      disabled={profileLoading}
+                      InputProps={{
+                        startAdornment: (
+                          <InputAdornment position="start">
+                            <Lock color="primary" />
+                          </InputAdornment>
+                        ),
+                        endAdornment: (
+                          <InputAdornment position="end">
+                            <IconButton
+                              onClick={() => setShowNewPassword(!showNewPassword)}
+                              edge="end"
+                            >
+                              {showNewPassword ? <VisibilityOff /> : <Visibility />}
+                            </IconButton>
+                          </InputAdornment>
+                        ),
+                      }}
+                      helperText="Mínimo de 6 caracteres"
+                    />
+
+                    <TextField
+                      fullWidth
+                      label="Confirmar Nova Senha"
+                      type={showConfirmPassword ? 'text' : 'password'}
+                      value={passwordData.confirmPassword}
+                      onChange={(e) => setPasswordData(prev => ({ ...prev, confirmPassword: e.target.value }))}
+                      disabled={profileLoading}
+                      error={passwordData.confirmPassword !== '' && passwordData.newPassword !== passwordData.confirmPassword}
+                      InputProps={{
+                        startAdornment: (
+                          <InputAdornment position="start">
+                            <Lock color="primary" />
+                          </InputAdornment>
+                        ),
+                        endAdornment: (
+                          <InputAdornment position="end">
+                            <IconButton
+                              onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                              edge="end"
+                            >
+                              {showConfirmPassword ? <VisibilityOff /> : <Visibility />}
+                            </IconButton>
+                          </InputAdornment>
+                        ),
+                      }}
+                      helperText={
+                        passwordData.confirmPassword !== '' && passwordData.newPassword !== passwordData.confirmPassword
+                          ? 'As senhas não conferem'
+                          : undefined
+                      }
+                    />
+
+                    <Box sx={{ display: 'flex', gap: 1 }}>
+                      <Button
+                        variant="contained"
+                        startIcon={profileLoading ? <CircularProgress size={20} /> : <Save />}
+                        onClick={handleUpdatePassword}
+                        disabled={
+                          profileLoading ||
+                          !passwordData.currentPassword ||
+                          !passwordData.newPassword ||
+                          !passwordData.confirmPassword ||
+                          passwordData.newPassword !== passwordData.confirmPassword
+                        }
+                      >
+                        {profileLoading ? 'Alterando...' : 'Alterar Senha'}
+                      </Button>
+                      <Button
+                        variant="outlined"
+                        onClick={() => {
+                          setEditingPassword(false);
+                          setPasswordData({
+                            currentPassword: '',
+                            newPassword: '',
+                            confirmPassword: ''
+                          });
+                        }}
+                        disabled={profileLoading}
+                      >
+                        Cancelar
+                      </Button>
+                    </Box>
+                  </Stack>
+                )}
+              </Box>
+            </Grid>
+          </Grid>
+        </CardContent>
+      </Card>
 
       {/* WhatsApp Configuration */}
       <Card 
@@ -269,18 +653,40 @@ export default function SettingsPage() {
           background: 'rgba(255, 255, 255, 0.05)',
           backdropFilter: 'blur(20px)',
           border: '1px solid rgba(255, 255, 255, 0.1)',
-          borderRadius: 3,
+          borderRadius: { xs: 2, sm: 3 },
         }}
       >
-        <CardContent sx={{ p: 4 }}>
+        <CardContent sx={{ p: { xs: 2, sm: 3, md: 4 } }}>
           {/* Header */}
-          <Box sx={{ display: 'flex', alignItems: 'center', mb: 4 }}>
-            <WhatsApp sx={{ color: '#25d366', mr: 2, fontSize: 32 }} />
+          <Box sx={{ 
+            display: 'flex', 
+            alignItems: { xs: 'flex-start', sm: 'center' },
+            flexDirection: { xs: 'column', sm: 'row' },
+            mb: { xs: 3, sm: 4 },
+            gap: { xs: 1, sm: 0 },
+          }}>
+            <WhatsApp sx={{ 
+              color: '#25d366', 
+              mr: { xs: 0, sm: 2 }, 
+              fontSize: { xs: 28, sm: 32 },
+              mb: { xs: 1, sm: 0 },
+            }} />
             <Box>
-              <Typography variant="h5" fontWeight={600} sx={{ mb: 0.5 }}>
+              <Typography 
+                variant="h5" 
+                fontWeight={600} 
+                sx={{ 
+                  mb: 0.5,
+                  fontSize: { xs: '1.25rem', sm: '1.5rem' },
+                }}
+              >
                 WhatsApp Web
               </Typography>
-              <Typography variant="body2" color="text.secondary">
+              <Typography 
+                variant="body2" 
+                color="text.secondary"
+                sx={{ fontSize: { xs: '0.8rem', sm: '0.875rem' } }}
+              >
                 Conecte sua conta WhatsApp para automação de mensagens
               </Typography>
             </Box>
@@ -289,28 +695,52 @@ export default function SettingsPage() {
           {/* Status Card */}
           <Card 
             sx={{ 
-              mb: 4,
+              mb: { xs: 3, sm: 4 },
               background: 'rgba(255, 255, 255, 0.03)',
               border: `1px solid ${getStatusColor()}40`,
             }}
           >
-            <CardContent sx={{ p: 3 }}>
-              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                <Box sx={{ display: 'flex', alignItems: 'center' }}>
+            <CardContent sx={{ p: { xs: 2, sm: 3 } }}>
+              <Box sx={{ 
+                display: 'flex', 
+                alignItems: { xs: 'flex-start', sm: 'center' },
+                justifyContent: 'space-between',
+                flexDirection: { xs: 'column', sm: 'row' },
+                gap: { xs: 2, sm: 0 },
+              }}>
+                <Box sx={{ 
+                  display: 'flex', 
+                  alignItems: { xs: 'flex-start', sm: 'center' },
+                  flexDirection: { xs: 'column', sm: 'row' },
+                  gap: { xs: 1, sm: 0 },
+                }}>
                   {getStatusIcon()}
-                  <Box sx={{ ml: 2 }}>
-                    <Typography variant="h6" fontWeight={600}>
+                  <Box sx={{ ml: { xs: 0, sm: 2 } }}>
+                    <Typography 
+                      variant="h6" 
+                      fontWeight={600}
+                      sx={{ fontSize: { xs: '1.125rem', sm: '1.25rem' } }}
+                    >
                       {getStatusText()}
                     </Typography>
                     {whatsappSession.name && whatsappSession.phone && (
-                      <Typography variant="body2" color="text.secondary">
+                      <Typography 
+                        variant="body2" 
+                        color="text.secondary"
+                        sx={{ fontSize: { xs: '0.8rem', sm: '0.875rem' } }}
+                      >
                         {whatsappSession.name} • {whatsappSession.phone}
                       </Typography>
                     )}
                   </Box>
                 </Box>
 
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                <Box sx={{ 
+                  display: 'flex', 
+                  alignItems: 'center', 
+                  gap: { xs: 1, sm: 2 },
+                  alignSelf: { xs: 'flex-end', sm: 'center' },
+                }}>
                   <Chip
                     label={whatsappSession.connected ? 'Ativo' : 'Inativo'}
                     size="small"
@@ -319,6 +749,7 @@ export default function SettingsPage() {
                       color: getStatusColor(),
                       border: `1px solid ${getStatusColor()}40`,
                       fontWeight: 600,
+                      fontSize: { xs: '0.75rem', sm: '0.8125rem' },
                     }}
                   />
                   
@@ -332,6 +763,7 @@ export default function SettingsPage() {
                       }
                     }}
                     disabled={loading}
+                    size={isMobile ? 'small' : 'medium'}
                   />
                 </Box>
               </Box>
@@ -393,11 +825,14 @@ export default function SettingsPage() {
         onClose={() => setQrDialogOpen(false)}
         maxWidth="sm"
         fullWidth
+        fullScreen={isMobile}
         PaperProps={{
           sx: {
             background: 'rgba(30, 41, 59, 0.95)',
             backdropFilter: 'blur(20px)',
             border: '1px solid rgba(255, 255, 255, 0.1)',
+            borderRadius: { xs: 0, sm: 2 },
+            m: { xs: 0, sm: 2 },
           }
         }}
       >
@@ -405,18 +840,38 @@ export default function SettingsPage() {
           display: 'flex', 
           alignItems: 'center', 
           justifyContent: 'space-between',
-          color: 'white'
+          color: 'white',
+          p: { xs: 2, sm: 3 },
         }}>
           <Box sx={{ display: 'flex', alignItems: 'center' }}>
-            <WhatsApp sx={{ color: '#25d366', mr: 1 }} />
-            Conectar WhatsApp
+            <WhatsApp sx={{ 
+              color: '#25d366', 
+              mr: 1,
+              fontSize: { xs: 20, sm: 24 },
+            }} />
+            <Typography 
+              variant="h6" 
+              sx={{ fontSize: { xs: '1.125rem', sm: '1.25rem' } }}
+            >
+              Conectar WhatsApp
+            </Typography>
           </Box>
-          <IconButton onClick={() => setQrDialogOpen(false)} sx={{ color: 'white' }}>
-            <Close />
+          <IconButton 
+            onClick={() => setQrDialogOpen(false)} 
+            sx={{ 
+              color: 'white',
+              p: { xs: 1, sm: 1.5 },
+            }}
+          >
+            <Close sx={{ fontSize: { xs: 20, sm: 24 } }} />
           </IconButton>
         </DialogTitle>
         
-        <DialogContent sx={{ textAlign: 'center', py: 4 }}>
+        <DialogContent sx={{ 
+          textAlign: 'center', 
+          py: { xs: 3, sm: 4 },
+          px: { xs: 2, sm: 3 },
+        }}>
           {whatsappSession.qrCode ? (
             <Box>
               <img 

@@ -161,11 +161,36 @@ Sofia:
 - check_visit_availability: Verificar agenda para visitas presenciais  
 - schedule_visit: Agendar visita presencial
 - create_reservation: Criar reserva após cadastro
+- classify_lead_status: Classificar automaticamente o status do lead no CRM
+
+🤖 CLASSIFICAÇÃO AUTOMÁTICA DE LEADS (NOVA FUNCIONALIDADE):
+Ao final de cada conversa significativa, SEMPRE use classify_lead_status para atualizar o CRM:
+
+📊 OUTCOMES DISPONÍVEIS:
+- 'deal_closed': Cliente fez reserva ou fechou negócio
+- 'visit_scheduled': Cliente agendou visita presencial
+- 'price_negotiation': Cliente quer negociar preços/descontos
+- 'wants_human_agent': Cliente pediu para falar com humano
+- 'information_gathering': Cliente ainda coletando informações
+- 'no_reservation': Cliente não quer reservar no momento
+- 'lost_interest': Cliente perdeu interesse/não responde
+
+🎯 QUANDO CLASSIFICAR:
+- Após cada interação importante (ver propriedades, discutir preços, etc.)
+- Quando cliente demonstra decisão final
+- Quando conversa chega a ponto de conclusão
+- Se cliente para de responder por mais de 3 mensagens
+
+📋 EXEMPLOS DE USO:
+- Cliente fez reserva → classify_lead_status(outcome: 'deal_closed', reason: 'Reserva confirmada para apartamento XYZ')
+- Cliente agendou visita → classify_lead_status(outcome: 'visit_scheduled', reason: 'Visita marcada para sábado 15h')
+- Cliente quer desconto → classify_lead_status(outcome: 'price_negotiation', reason: 'Pediu 10% desconto no Loft Vila Madalena')
 
 ⚡ REGRA ABSOLUTA:
 - SEM dados reais = NÃO fale de imóveis
 - SEMPRE chame search_properties primeiro
 - SEMPRE use IDs reais retornados pelas funções
+- SEMPRE classifique o lead após interações importantes
 - SEJA UMA VENDEDORA QUE CONVERTE!
 
 🚀 FOCO: Transformar interessados em visitantes ou compradores!`;
@@ -543,6 +568,27 @@ export class SofiaAgentV3 {
             // Marcar que cliente viu mídia desta propriedade
             updates.lastAction = 'viewed_media';
             updates.stage = 'engagement';
+            
+            // TRIGGER AUTOMÁTICO: Classificar lead como information_gathering
+            try {
+              if (typeof crmService !== 'undefined') {
+                await CorrectedAgentFunctions.executeFunction(
+                  'classify_lead_status',
+                  {
+                    clientPhone,
+                    conversationOutcome: 'information_gathering',
+                    reason: `Cliente visualizou mídia da propriedade: ${result.property.name}`,
+                    metadata: {
+                      propertiesViewed: [result.property.id],
+                    }
+                  },
+                  tenantId
+                );
+                console.log(`🤖 [SOFIA V3] Lead automaticamente classificado como 'information_gathering'`);
+              }
+            } catch (error) {
+              console.error('❌ [SOFIA V3] Erro ao classificar lead automaticamente:', error);
+            }
           }
           break;
 
@@ -593,6 +639,29 @@ export class SofiaAgentV3 {
             updates.stage = 'closing';
             // Limpar reserva pendente após sucesso
             updates.pendingReservation = {};
+            
+            // TRIGGER AUTOMÁTICO: Classificar lead como deal_closed
+            try {
+              // Verificar se CRM está disponível para este tenant
+              if (typeof crmService !== 'undefined') {
+                await CorrectedAgentFunctions.executeFunction(
+                  'classify_lead_status',
+                  {
+                    clientPhone,
+                    conversationOutcome: 'deal_closed',
+                    reason: `Reserva criada com sucesso (ID: ${result.reservation?.id})`,
+                    metadata: {
+                      propertiesViewed: updates.interestedProperties || [],
+                      priceDiscussed: result.reservation?.totalPrice
+                    }
+                  },
+                  tenantId
+                );
+                console.log(`🤖 [SOFIA V3] Lead automaticamente classificado como 'deal_closed'`);
+              }
+            } catch (error) {
+              console.error('❌ [SOFIA V3] Erro ao classificar lead automaticamente:', error);
+            }
           }
           break;
 
@@ -607,6 +676,28 @@ export class SofiaAgentV3 {
           if (result.success) {
             updates.stage = 'visit_scheduled';
             updates.lastAction = 'visit_scheduled';
+            
+            // TRIGGER AUTOMÁTICO: Classificar lead como visit_scheduled
+            try {
+              if (typeof crmService !== 'undefined') {
+                await CorrectedAgentFunctions.executeFunction(
+                  'classify_lead_status',
+                  {
+                    clientPhone,
+                    conversationOutcome: 'visit_scheduled',
+                    reason: `Visita agendada para ${result.visit?.visitDate} às ${result.visit?.visitTime}`,
+                    metadata: {
+                      visitDate: result.visit?.visitDate,
+                      propertiesViewed: updates.interestedProperties || []
+                    }
+                  },
+                  tenantId
+                );
+                console.log(`🤖 [SOFIA V3] Lead automaticamente classificado como 'visit_scheduled'`);
+              }
+            } catch (error) {
+              console.error('❌ [SOFIA V3] Erro ao classificar lead automaticamente:', error);
+            }
           }
           break;
       }

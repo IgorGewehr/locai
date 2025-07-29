@@ -16,11 +16,15 @@ import {
   Chip,
   Tooltip,
   useTheme,
+  useMediaQuery,
   Collapse,
   List,
   ListItemButton,
   ListItemIcon,
   ListItemText,
+  Drawer,
+  Paper,
+  Badge,
 } from '@mui/material';
 import {
   Dashboard,
@@ -44,6 +48,9 @@ import {
   WhatsApp,
   Circle,
   SmartToy,
+  Menu as MenuIcon,
+  Close,
+  ChevronRight,
 } from '@mui/icons-material';
 
 // 🧪 DESENVOLVIMENTO: Configuração para mostrar item de teste
@@ -135,12 +142,17 @@ export default function TopAppBar({ onLogout }: TopAppBarProps) {
   const pathname = usePathname();
   const router = useRouter();
   const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('lg'));
   const { user } = useAuth();
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [profileAnchorEl, setProfileAnchorEl] = useState<null | HTMLElement>(null);
   const [activeSubmenu, setActiveSubmenu] = useState<string | null>(null);
   const [submenuAnchorEl, setSubmenuAnchorEl] = useState<{ [key: string]: HTMLElement | null }>({});
   const [whatsappStatus, setWhatsappStatus] = useState<'connected' | 'disconnected' | 'connecting'>('disconnected');
+  
+  // Mobile drawer states
+  const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
+  const [expandedItems, setExpandedItems] = useState<{ [key: string]: boolean }>({});
 
   // Close dropdown when pathname changes
   useEffect(() => {
@@ -213,6 +225,30 @@ export default function TopAppBar({ onLogout }: TopAppBarProps) {
     setProfileAnchorEl(null);
   };
 
+  // Mobile drawer functions
+  const handleMobileDrawerToggle = () => {
+    setMobileDrawerOpen(!mobileDrawerOpen);
+  };
+
+  const handleMobileNavClick = (item: NavigationItem) => {
+    if (item.submenu) {
+      setExpandedItems(prev => ({
+        ...prev,
+        [item.text]: !prev[item.text]
+      }));
+    } else {
+      router.push(item.href);
+      setMobileDrawerOpen(false);
+      setExpandedItems({});
+    }
+  };
+
+  const handleMobileSubNavClick = (item: NavigationItem) => {
+    router.push(item.href);
+    setMobileDrawerOpen(false);
+    setExpandedItems({});
+  };
+
   const isActive = (href: string) => pathname === href;
   const isParentActive = (item: NavigationItem) => {
     if (pathname === item.href) return true;
@@ -233,7 +269,7 @@ export default function TopAppBar({ onLogout }: TopAppBarProps) {
         zIndex: (theme) => theme.zIndex.appBar + 1,
       }}
     >
-      <Box sx={{ px: 3, py: 1 }}>
+      <Box sx={{ px: { xs: 2, sm: 3 }, py: { xs: 0.75, sm: 1 } }}>
         {/* Main Navigation Row */}
         <Box sx={{ 
           display: 'flex', 
@@ -242,13 +278,33 @@ export default function TopAppBar({ onLogout }: TopAppBarProps) {
           overflowX: 'auto',
           '&::-webkit-scrollbar': { display: 'none' },
           scrollbarWidth: 'none',
+          minHeight: { xs: 56, sm: 64 },
         }}>
+          {/* Mobile Menu Button */}
+          {isMobile && (
+            <IconButton
+              onClick={handleMobileDrawerToggle}
+              sx={{
+                color: 'white',
+                mr: 1,
+                p: 1,
+              }}
+            >
+              <MenuIcon />
+            </IconButton>
+          )}
+
           {/* Logo */}
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+          <Box sx={{ 
+            display: 'flex', 
+            alignItems: 'center', 
+            gap: { xs: 1, sm: 1.5 },
+            flexShrink: 0,
+          }}>
             <Box
               sx={{
-                width: 36,
-                height: 36,
+                width: { xs: 32, sm: 36 },
+                height: { xs: 32, sm: 36 },
                 borderRadius: 2,
                 display: 'flex',
                 alignItems: 'center',
@@ -259,8 +315,8 @@ export default function TopAppBar({ onLogout }: TopAppBarProps) {
               <img 
                 src="/locai-logo.svg" 
                 alt="LocAI Logo" 
-                width={36} 
-                height={36}
+                width={32} 
+                height={32}
                 style={{ borderRadius: 8 }}
               />
             </Box>
@@ -269,7 +325,8 @@ export default function TopAppBar({ onLogout }: TopAppBarProps) {
               sx={{
                 fontWeight: 700,
                 color: 'white',
-                fontSize: '1.125rem',
+                fontSize: { xs: '1rem', sm: '1.125rem' },
+                display: { xs: 'none', sm: 'block' },
               }}
             >
               LocAI
@@ -278,7 +335,7 @@ export default function TopAppBar({ onLogout }: TopAppBarProps) {
 
           {/* Navigation Items */}
           <Box sx={{ 
-            display: { xs: 'none', md: 'flex' }, 
+            display: { xs: 'none', lg: 'flex' }, 
             alignItems: 'center', 
             gap: 1, 
             flex: 1 
@@ -295,11 +352,12 @@ export default function TopAppBar({ onLogout }: TopAppBarProps) {
                       ? 'rgba(6, 182, 212, 0.1)' 
                       : 'transparent',
                     borderRadius: 2,
-                    px: 2,
+                    px: { xs: 1.5, lg: 2 },
                     py: 1,
-                    fontSize: '0.875rem',
+                    fontSize: { xs: '0.8rem', lg: '0.875rem' },
                     fontWeight: isParentActive(item) ? 600 : 500,
                     textTransform: 'none',
+                    minWidth: 'unset',
                     transition: 'all 0.2s',
                     '&:hover': {
                       backgroundColor: isParentActive(item)
@@ -312,13 +370,15 @@ export default function TopAppBar({ onLogout }: TopAppBarProps) {
                     },
                   }}
                 >
-                  {item.text}
+                  <Box component="span" sx={{ display: { xs: 'none', xl: 'inline' } }}>
+                    {item.text}
+                  </Box>
                   {item.badge && (
                     <Chip
                       label={item.badge}
                       size="small"
                       sx={{
-                        ml: 1,
+                        ml: { xs: 0, xl: 1 },
                         height: 20,
                         fontSize: '0.625rem',
                         fontWeight: 600,
@@ -407,16 +467,22 @@ export default function TopAppBar({ onLogout }: TopAppBarProps) {
             alignItems: 'center', 
             gap: { xs: 0.5, sm: 1, md: 2 },
             marginLeft: 'auto',
+            flexShrink: 0,
           }}>
             {/* WhatsApp Status */}
             <Tooltip title={getWhatsAppStatusText()}>
               <Button
                 onClick={() => router.push('/dashboard/settings')}
-                startIcon={<WhatsApp sx={{ display: { xs: 'none', sm: 'block' } }} />}
+                startIcon={
+                  <WhatsApp sx={{ 
+                    fontSize: { xs: 18, sm: 20 },
+                    display: { xs: 'block', sm: 'block' }
+                  }} />
+                }
                 endIcon={
                   <Circle 
                     sx={{ 
-                      fontSize: 8, 
+                      fontSize: { xs: 6, sm: 8 }, 
                       color: getWhatsAppStatusColor(),
                       filter: 'drop-shadow(0 0 4px currentColor)',
                     }} 
@@ -428,8 +494,8 @@ export default function TopAppBar({ onLogout }: TopAppBarProps) {
                     ? 'rgba(34, 197, 94, 0.1)' 
                     : 'rgba(255, 255, 255, 0.05)',
                   borderRadius: 2,
-                  px: 2,
-                  py: 1,
+                  px: { xs: 1, sm: 2 },
+                  py: { xs: 0.75, sm: 1 },
                   fontSize: { xs: '0.75rem', sm: '0.875rem' },
                   fontWeight: 500,
                   textTransform: 'none',
@@ -442,26 +508,36 @@ export default function TopAppBar({ onLogout }: TopAppBarProps) {
                   },
                 }}
               >
-                <Box component="span" sx={{ display: { xs: 'none', sm: 'inline' } }}>WhatsApp</Box>
+                <Box component="span" sx={{ display: { xs: 'none', md: 'inline' } }}>WhatsApp</Box>
               </Button>
             </Tooltip>
 
             {/* Mini-Site */}
-            <Box sx={{ display: { xs: 'none', sm: 'block' } }}>
+            <Box sx={{ display: { xs: 'none', lg: 'block' } }}>
               <Tooltip title="Mini-Site">
                 <IconButton
                   onClick={() => router.push('/dashboard/mini-site')}
                   sx={{
                     color: 'rgba(255, 255, 255, 0.8)',
                     '&:hover': { backgroundColor: 'rgba(255, 255, 255, 0.1)' },
+                    p: { xs: 1, sm: 1.25 },
                   }}
                 >
-                  <Language />
+                  <Language sx={{ fontSize: { xs: 18, sm: 20 } }} />
                 </IconButton>
               </Tooltip>
             </Box>
 
-            <Divider orientation="vertical" flexItem sx={{ borderColor: 'rgba(255, 255, 255, 0.2)', display: { xs: 'none', sm: 'block' } }} />
+            <Divider 
+              orientation="vertical" 
+              flexItem 
+              sx={{ 
+                borderColor: 'rgba(255, 255, 255, 0.2)', 
+                display: { xs: 'none', lg: 'block' },
+                height: { sm: 32, md: 40 },
+                alignSelf: 'center',
+              }} 
+            />
 
             {/* Profile */}
             <Button
@@ -469,30 +545,36 @@ export default function TopAppBar({ onLogout }: TopAppBarProps) {
               startIcon={
                 <Avatar
                   sx={{
-                    width: 32,
-                    height: 32,
+                    width: { xs: 28, sm: 32 },
+                    height: { xs: 28, sm: 32 },
                     bgcolor: 'rgba(6, 182, 212, 0.2)',
                     color: '#06b6d4',
                     border: '2px solid rgba(6, 182, 212, 0.3)',
+                    fontSize: { xs: '0.75rem', sm: '1rem' },
                   }}
                 >
                   {user?.displayName?.charAt(0)?.toUpperCase() || user?.email?.charAt(0)?.toUpperCase() || 'U'}
                 </Avatar>
               }
-              endIcon={<ExpandMore sx={{ display: { xs: 'none', sm: 'block' } }} />}
+              endIcon={<ExpandMore sx={{ 
+                display: { xs: 'none', md: 'block' },
+                fontSize: { sm: 18, md: 20 },
+              }} />}
               sx={{
                 color: 'white',
                 textTransform: 'none',
                 '&:hover': { backgroundColor: 'rgba(255, 255, 255, 0.05)' },
                 minWidth: { xs: 'auto', sm: 'unset' },
                 padding: { xs: 0.5, sm: 1 },
+                borderRadius: 2,
               }}
             >
               <Box sx={{ 
                 textAlign: 'left',
-                display: { xs: 'none', sm: 'block' },
-                maxWidth: { sm: 150, md: 200 },
+                display: { xs: 'none', md: 'block' },
+                maxWidth: { md: 120, lg: 160, xl: 200 },
                 overflow: 'hidden',
+                ml: 1,
               }}>
                 <Typography 
                   variant="body2" 
@@ -502,6 +584,7 @@ export default function TopAppBar({ onLogout }: TopAppBarProps) {
                     textOverflow: 'ellipsis',
                     whiteSpace: 'nowrap',
                     overflow: 'hidden',
+                    fontSize: { md: '0.8rem', lg: '0.875rem' },
                   }}
                 >
                   {user?.displayName || user?.email?.split('@')[0] || 'Usuário'}
@@ -513,6 +596,7 @@ export default function TopAppBar({ onLogout }: TopAppBarProps) {
                     textOverflow: 'ellipsis',
                     whiteSpace: 'nowrap',
                     overflow: 'hidden',
+                    fontSize: { md: '0.65rem', lg: '0.75rem' },
                   }}
                 >
                   {user?.email || 'Admin'}
@@ -530,42 +614,411 @@ export default function TopAppBar({ onLogout }: TopAppBarProps) {
                   background: 'rgba(30, 41, 59, 0.98)',
                   backdropFilter: 'blur(20px)',
                   border: '1px solid rgba(255, 255, 255, 0.1)',
-                  minWidth: 200,
+                  borderRadius: 2,
+                  minWidth: { xs: 180, sm: 200 },
+                  boxShadow: '0 8px 32px rgba(0, 0, 0, 0.4)',
                 },
               }}
+              transformOrigin={{ horizontal: 'right', vertical: 'top' }}
+              anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
             >
               <MenuItem onClick={() => {
                 router.push('/dashboard/settings');
                 handleProfileMenuClose();
+              }} sx={{ 
+                py: { xs: 1.5, sm: 1 },
+                px: { xs: 2, sm: 1.5 },
+                minHeight: { xs: 48, sm: 44 },
+                '&:hover': {
+                  backgroundColor: 'rgba(6, 182, 212, 0.1)',
+                },
               }}>
-                <ListItemIcon>
-                  <Settings fontSize="small" sx={{ color: 'rgba(255, 255, 255, 0.7)' }} />
+                <ListItemIcon sx={{ minWidth: { xs: 36, sm: 32 } }}>
+                  <Settings 
+                    fontSize="small" 
+                    sx={{ 
+                      color: 'rgba(255, 255, 255, 0.7)',
+                      fontSize: { xs: 18, sm: 16 },
+                    }} 
+                  />
                 </ListItemIcon>
-                <ListItemText primary="Configurações" />
+                <ListItemText 
+                  primary="Configurações"
+                  primaryTypographyProps={{
+                    fontSize: { xs: '0.875rem', sm: '0.8rem' },
+                    fontWeight: 500,
+                  }}
+                />
               </MenuItem>
               <MenuItem onClick={() => {
                 router.push('/dashboard/help');
                 handleProfileMenuClose();
+              }} sx={{ 
+                py: { xs: 1.5, sm: 1 },
+                px: { xs: 2, sm: 1.5 },
+                minHeight: { xs: 48, sm: 44 },
+                '&:hover': {
+                  backgroundColor: 'rgba(6, 182, 212, 0.1)',
+                },
               }}>
-                <ListItemIcon>
-                  <HelpOutline fontSize="small" sx={{ color: 'rgba(255, 255, 255, 0.7)' }} />
+                <ListItemIcon sx={{ minWidth: { xs: 36, sm: 32 } }}>
+                  <HelpOutline 
+                    fontSize="small" 
+                    sx={{ 
+                      color: 'rgba(255, 255, 255, 0.7)',
+                      fontSize: { xs: 18, sm: 16 },
+                    }} 
+                  />
                 </ListItemIcon>
-                <ListItemText primary="Ajuda" />
+                <ListItemText 
+                  primary="Ajuda"
+                  primaryTypographyProps={{
+                    fontSize: { xs: '0.875rem', sm: '0.8rem' },
+                    fontWeight: 500,
+                  }}
+                />
               </MenuItem>
-              <Divider sx={{ borderColor: 'rgba(255, 255, 255, 0.1)' }} />
+              <Divider sx={{ 
+                borderColor: 'rgba(255, 255, 255, 0.1)',
+                my: { xs: 0.5, sm: 0 },
+              }} />
               <MenuItem onClick={() => {
                 handleProfileMenuClose();
                 onLogout?.();
+              }} sx={{ 
+                py: { xs: 1.5, sm: 1 },
+                px: { xs: 2, sm: 1.5 },
+                minHeight: { xs: 48, sm: 44 },
+                '&:hover': {
+                  backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                },
               }}>
-                <ListItemIcon>
-                  <Logout fontSize="small" sx={{ color: 'rgba(255, 255, 255, 0.7)' }} />
+                <ListItemIcon sx={{ minWidth: { xs: 36, sm: 32 } }}>
+                  <Logout 
+                    fontSize="small" 
+                    sx={{ 
+                      color: 'rgba(239, 68, 68, 0.8)',
+                      fontSize: { xs: 18, sm: 16 },
+                    }} 
+                  />
                 </ListItemIcon>
-                <ListItemText primary="Sair" />
+                <ListItemText 
+                  primary="Sair"
+                  primaryTypographyProps={{
+                    fontSize: { xs: '0.875rem', sm: '0.8rem' },
+                    fontWeight: 500,
+                    color: 'rgba(239, 68, 68, 0.9)',
+                  }}
+                />
               </MenuItem>
             </Menu>
           </Box>
         </Box>
       </Box>
+
+      {/* Mobile Navigation Drawer */}
+      <Drawer
+        anchor="left"
+        open={mobileDrawerOpen}
+        onClose={handleMobileDrawerToggle}
+        ModalProps={{
+          keepMounted: true, // Better open performance on mobile.
+        }}
+        PaperProps={{
+          sx: {
+            width: 280,
+            background: 'rgba(15, 23, 42, 0.98)',
+            backdropFilter: 'blur(20px)',
+            border: 'none',
+          }
+        }}
+      >
+        {/* Drawer Header */}
+        <Box sx={{ 
+          p: 3, 
+          borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+        }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+            <Box
+              sx={{
+                width: 32,
+                height: 32,
+                borderRadius: 2,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                boxShadow: '0 4px 16px rgba(6, 182, 212, 0.3)',
+              }}
+            >
+              <img 
+                src="/locai-logo.svg" 
+                alt="LocAI Logo" 
+                width={28} 
+                height={28}
+                style={{ borderRadius: 6 }}
+              />
+            </Box>
+            <Typography
+              variant="h6"
+              sx={{
+                fontWeight: 700,
+                color: 'white',
+                fontSize: '1.125rem',
+              }}
+            >
+              LocAI
+            </Typography>
+          </Box>
+          <IconButton 
+            onClick={handleMobileDrawerToggle}
+            sx={{ color: 'rgba(255, 255, 255, 0.7)' }}
+          >
+            <Close />
+          </IconButton>
+        </Box>
+
+        {/* User Profile Section */}
+        <Box sx={{ 
+          p: 3, 
+          borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
+          display: 'flex',
+          alignItems: 'center',
+          gap: 2,
+        }}>
+          <Avatar
+            sx={{
+              width: 48,
+              height: 48,
+              bgcolor: 'rgba(6, 182, 212, 0.2)',
+              color: '#06b6d4',
+              border: '2px solid rgba(6, 182, 212, 0.3)',
+            }}
+          >
+            {user?.displayName?.charAt(0)?.toUpperCase() || user?.email?.charAt(0)?.toUpperCase() || 'U'}
+          </Avatar>
+          <Box sx={{ flex: 1, minWidth: 0 }}>
+            <Typography 
+              variant="subtitle1" 
+              sx={{ 
+                fontWeight: 600, 
+                color: 'white',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+                overflow: 'hidden',
+              }}
+            >
+              {user?.displayName || user?.email?.split('@')[0] || 'Usuário'}
+            </Typography>
+            <Typography 
+              variant="body2" 
+              sx={{ 
+                color: 'rgba(255, 255, 255, 0.6)',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+                overflow: 'hidden',
+              }}
+            >
+              {user?.email || 'Admin'}
+            </Typography>
+          </Box>
+        </Box>
+
+        {/* WhatsApp Status */}
+        <Box sx={{ 
+          p: 2, 
+          mx: 2,
+          mt: 2,
+          borderRadius: 2,
+          background: whatsappStatus === 'connected' 
+            ? 'rgba(34, 197, 94, 0.1)' 
+            : 'rgba(239, 68, 68, 0.1)',
+          border: `1px solid ${whatsappStatus === 'connected' ? 'rgba(34, 197, 94, 0.2)' : 'rgba(239, 68, 68, 0.2)'}`,
+          display: 'flex',
+          alignItems: 'center',
+          gap: 2,
+        }}>
+          <WhatsApp sx={{ 
+            color: whatsappStatus === 'connected' ? '#22c55e' : '#ef4444',
+            fontSize: 20,
+          }} />
+          <Box sx={{ flex: 1 }}>
+            <Typography 
+              variant="body2" 
+              sx={{ 
+                fontWeight: 600, 
+                color: whatsappStatus === 'connected' ? '#22c55e' : '#ef4444',
+                fontSize: '0.875rem',
+              }}
+            >
+              {getWhatsAppStatusText()}
+            </Typography>
+          </Box>
+          <Circle 
+            sx={{ 
+              fontSize: 8, 
+              color: getWhatsAppStatusColor(),
+              filter: 'drop-shadow(0 0 4px currentColor)',
+            }} 
+          />
+        </Box>
+
+        {/* Navigation Items */}
+        <List sx={{ flex: 1, p: 2 }}>
+          {navigationItems.map((item) => (
+            <Box key={item.href}>
+              <ListItemButton
+                onClick={() => handleMobileNavClick(item)}
+                sx={{
+                  borderRadius: 2,
+                  mb: 0.5,
+                  py: 1.5,
+                  px: 2,
+                  background: isParentActive(item) ? 'rgba(6, 182, 212, 0.1)' : 'transparent',
+                  '&:hover': {
+                    background: 'rgba(6, 182, 212, 0.05)',
+                  },
+                }}
+              >
+                <ListItemIcon sx={{ minWidth: 40, color: isParentActive(item) ? '#06b6d4' : 'rgba(255, 255, 255, 0.7)' }}>
+                  {item.icon}
+                </ListItemIcon>
+                <ListItemText 
+                  primary={item.text}
+                  primaryTypographyProps={{
+                    fontWeight: isParentActive(item) ? 600 : 500,
+                    color: isParentActive(item) ? '#06b6d4' : 'white',
+                    fontSize: '0.9rem',
+                  }}
+                />
+                {item.badge && (
+                  <Chip
+                    label={item.badge}
+                    size="small"
+                    sx={{
+                      height: 20,
+                      fontSize: '0.625rem',
+                      fontWeight: 600,
+                      bgcolor: '#22c55e',
+                      color: 'white',
+                      ml: 1,
+                    }}
+                  />
+                )}
+                {item.submenu && (
+                  <ChevronRight 
+                    sx={{ 
+                      color: 'rgba(255, 255, 255, 0.5)',
+                      transform: expandedItems[item.text] ? 'rotate(90deg)' : 'rotate(0deg)',
+                      transition: 'transform 0.2s',
+                    }} 
+                  />
+                )}
+              </ListItemButton>
+              
+              {/* Submenu */}
+              {item.submenu && (
+                <Collapse in={expandedItems[item.text]} timeout="auto" unmountOnExit>
+                  <List sx={{ pl: 2 }}>
+                    {item.submenu.map((subItem) => (
+                      <ListItemButton
+                        key={subItem.href}
+                        onClick={() => handleMobileSubNavClick(subItem)}
+                        sx={{
+                          borderRadius: 2,
+                          mb: 0.5,
+                          py: 1,
+                          px: 2,
+                          ml: 2,
+                          background: isActive(subItem.href) ? 'rgba(6, 182, 212, 0.15)' : 'transparent',
+                          '&:hover': {
+                            background: 'rgba(6, 182, 212, 0.08)',
+                          },
+                        }}
+                      >
+                        <ListItemIcon sx={{ minWidth: 36, color: isActive(subItem.href) ? '#06b6d4' : 'rgba(255, 255, 255, 0.6)' }}>
+                          {subItem.icon}
+                        </ListItemIcon>
+                        <ListItemText 
+                          primary={subItem.text}
+                          primaryTypographyProps={{
+                            fontWeight: isActive(subItem.href) ? 600 : 500,
+                            color: isActive(subItem.href) ? '#06b6d4' : 'rgba(255, 255, 255, 0.8)',
+                            fontSize: '0.85rem',
+                          }}
+                        />
+                      </ListItemButton>
+                    ))}
+                  </List>
+                </Collapse>
+              )}
+            </Box>
+          ))}
+        </List>
+
+        {/* Bottom Actions */}
+        <Box sx={{ 
+          p: 2, 
+          borderTop: '1px solid rgba(255, 255, 255, 0.1)',
+        }}>
+          <ListItemButton
+            onClick={() => {
+              router.push('/dashboard/settings');
+              setMobileDrawerOpen(false);
+            }}
+            sx={{
+              borderRadius: 2,
+              mb: 1,
+              py: 1.5,
+              px: 2,
+              '&:hover': {
+                background: 'rgba(6, 182, 212, 0.05)',
+              },
+            }}
+          >
+            <ListItemIcon sx={{ minWidth: 40, color: 'rgba(255, 255, 255, 0.7)' }}>
+              <Settings />
+            </ListItemIcon>
+            <ListItemText 
+              primary="Configurações"
+              primaryTypographyProps={{
+                fontWeight: 500,
+                color: 'white',
+                fontSize: '0.9rem',
+              }}
+            />
+          </ListItemButton>
+          
+          <ListItemButton
+            onClick={() => {
+              setMobileDrawerOpen(false);
+              onLogout?.();
+            }}
+            sx={{
+              borderRadius: 2,
+              py: 1.5,
+              px: 2,
+              '&:hover': {
+                background: 'rgba(239, 68, 68, 0.1)',
+              },
+            }}
+          >
+            <ListItemIcon sx={{ minWidth: 40, color: 'rgba(239, 68, 68, 0.8)' }}>
+              <Logout />
+            </ListItemIcon>
+            <ListItemText 
+              primary="Sair"
+              primaryTypographyProps={{
+                fontWeight: 500,
+                color: 'rgba(239, 68, 68, 0.9)',
+                fontSize: '0.9rem',
+              }}
+            />
+          </ListItemButton>
+        </Box>
+      </Drawer>
     </AppBar>
   );
 }

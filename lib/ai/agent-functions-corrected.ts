@@ -5,6 +5,8 @@ import { OpenAI } from 'openai';
 import { propertyService } from '@/lib/services/property-service';
 import { reservationService } from '@/lib/services/reservation-service';
 import { clientServiceWrapper } from '@/lib/services/client-service';
+import { crmService } from '@/lib/services/crm-service';
+import { LeadStatus, LeadSource, InteractionType } from '@/lib/types/crm';
 
 // ===== TIPOS CORRIGIDOS =====
 
@@ -132,6 +134,33 @@ export const CORRECTED_AI_FUNCTIONS: CorrectedAIFunction[] = [
         notes: { type: 'string', description: 'Observações adicionais (opcional)' }
       },
       required: ['clientId', 'propertyId', 'checkIn', 'checkOut', 'guests', 'totalPrice']
+    }
+  },
+  {
+    name: 'classify_lead_status',
+    description: 'Classificar automaticamente o status do lead baseado no progresso da conversa e outcomes específicos',
+    parameters: {
+      type: 'object',
+      properties: {
+        clientPhone: { type: 'string', description: 'Telefone do cliente para identificar o lead' },
+        conversationOutcome: { 
+          type: 'string', 
+          enum: ['no_reservation', 'visit_scheduled', 'deal_closed', 'price_negotiation', 'wants_human_agent', 'information_gathering', 'lost_interest'],
+          description: 'Outcome da conversa detectado pela IA' 
+        },
+        reason: { type: 'string', description: 'Razão específica para a classificação' },
+        metadata: { 
+          type: 'object', 
+          description: 'Dados adicionais como propriedades vistas, preços discutidos, etc (opcional)',
+          properties: {
+            propertiesViewed: { type: 'array', items: { type: 'string' } },
+            priceDiscussed: { type: 'number' },
+            visitDate: { type: 'string' },
+            objections: { type: 'array', items: { type: 'string' } }
+          }
+        }
+      },
+      required: ['clientPhone', 'conversationOutcome', 'reason']
     }
   }
 ];
@@ -1036,99 +1065,224 @@ export class CorrectedAgentFunctions {
     }
   }
 
-  static async scheduleVisit(args: any, tenantId: string): Promise<any> {
+  static async classifyLeadStatus(args: any, tenantId: string): Promise<any> {
     try {
-      console.log(`🏠 [VISIT] Agendando visita:`, args);
+      console.log(`🤖 [LEAD CLASSIFICATION] Classificando lead:`, args);
       
       // Validar dados obrigatórios
-      if (!args.clientId || !args.propertyId || !args.visitDate || !args.visitTime) {
+      if (!args.clientPhone || !args.conversationOutcome || !args.reason) {
         return {
           success: false,
-          message: 'Dados obrigatórios faltando para agendar visita (clientId, propertyId, visitDate, visitTime)',
-          visit: null
+          message: 'Dados obrigatórios faltando para classificar lead (clientPhone, conversationOutcome, reason)',
+          classification: null
         };
       }
 
-      // 1. Verificar se propriedade existe e está ativa
-      const property = await propertyService.getById(args.propertyId);
-      if (!property || !property.isActive) {
-        return {
-          success: false,
-          message: 'Propriedade não encontrada ou inativa',
-          visit: null
-        };
-      }
-
-      // 2. Verificar se cliente existe (opcional - para melhor UX)
-      try {
-        const client = await clientServiceWrapper.getById ? 
-          await clientServiceWrapper.getById(args.clientId) : null;
-        if (client) {
-          console.log(`✅ [VISIT] Cliente encontrado: ${client.name}`);
-        }
-      } catch (error) {
-        console.warn('⚠️ [VISIT] Não foi possível verificar cliente:', error);
-      }
-
-      // 3. Validar data da visita
-      const visitDate = new Date(args.visitDate + 'T' + args.visitTime);
-      const now = new Date();
+      // 1. Buscar lead existente pelo telefone
+      let lead = await crmService.getLeadByPhone(args.clientPhone);
       
-      if (visitDate < now) {
-        return {
-          success: false,
-          message: 'Data da visita deve ser no futuro',
-          visit: null
-        };
+      if (!lead) {
+        // Criar novo lead se não existir
+        console.log(`📱 [LEAD CLASSIFICATION] Criando novo lead para ${args.clientPhone}`);
+        lead = await crmService.createLead({
+          tenantId,
+          name: args.clientPhone, // Será atualizado quando obtivermos o nome
+          phone: args.clientPhone,
+          whatsappNumber: args.clientPhone,
+          status: LeadStatus.NEW,
+          source: LeadSource.WHATSAPP_AI,
+          score: 60,
+          temperature: 'warm',
+          qualificationCriteria: {
+            budget: false,
+            authority: false,
+            need: false,
+            timeline: false
+          },
+          preferences: {},
+          firstContactDate: new Date(),
+          lastContactDate: new Date(),
+          totalInteractions: 0,
+          tags: ['whatsapp', 'ai-classified']
+        });
       }
 
-      // 4. Criar dados da visita (simulado - em produção salvaria no banco)
-      const visitData = {
-        id: `visit_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-        tenantId,
-        propertyId: args.propertyId,
-        propertyName: property.title || 'Propriedade',
-        clientId: args.clientId,
-        visitDate: args.visitDate,
-        visitTime: args.visitTime,
-        visitDateTime: visitDate,
-        status: 'scheduled',
-        notes: args.notes || '',
-        createdAt: new Date(),
-        source: 'whatsapp',
-        // DETALHES DA PROPRIEDADE PARA REFERÊNCIA
-        propertyDetails: {
-          address: property.address,
-          neighborhood: property.neighborhood,
-          city: property.city,
-          bedrooms: property.bedrooms,
-          bathrooms: property.bathrooms,
-          maxGuests: property.maxGuests
-        }
+      // 2. Mapear outcome para status do CRM
+      let newStatus: LeadStatus;
+      let temperature: 'cold' | 'warm' | 'hot' = lead.temperature;
+      let score = lead.score;
+
+      switch (args.conversationOutcome) {
+        case 'deal_closed':
+          newStatus = LeadStatus.WON;
+          temperature = 'hot';
+          score = Math.max(score, 95);
+          break;
+        
+        case 'visit_scheduled':
+          newStatus = LeadStatus.OPPORTUNITY;
+          temperature = 'hot';
+          score = Math.max(score, 85);
+          break;
+        
+        case 'price_negotiation':
+          newStatus = LeadStatus.NEGOTIATION;
+          temperature = 'warm';
+          score = Math.max(score, 75);
+          break;
+        
+        case 'wants_human_agent':
+          newStatus = LeadStatus.QUALIFIED;
+          temperature = 'warm';
+          score = Math.max(score, 70);
+          break;
+        
+        case 'information_gathering':
+          newStatus = LeadStatus.CONTACTED;
+          temperature = 'warm';
+          score = Math.max(score, 60);
+          break;
+        
+        case 'no_reservation':
+          newStatus = LeadStatus.NURTURING;
+          temperature = 'cold';
+          score = Math.min(score, 40);
+          break;
+        
+        case 'lost_interest':
+          newStatus = LeadStatus.LOST;
+          temperature = 'cold';
+          score = Math.min(score, 30);
+          break;
+        
+        default:
+          newStatus = LeadStatus.CONTACTED;
+          temperature = 'warm';
+      }
+
+      // 3. Preparar updates baseados no metadata
+      const updates: Partial<any> = {
+        status: newStatus,
+        temperature,
+        score,
+        lastContactDate: new Date()
       };
-      
-      console.log(`✅ [VISIT] Visita agendada com ID: ${visitData.id}`);
+
+      // Adicionar metadata específico se fornecido
+      if (args.metadata) {
+        if (args.metadata.propertiesViewed?.length > 0) {
+          updates.tags = [...(lead.tags || []), 'viewed-properties'];
+          // Aumentar score se visualizou propriedades
+          updates.score = Math.min(100, (updates.score || score) + 10);
+        }
+        
+        if (args.metadata.priceDiscussed) {
+          updates.preferences = {
+            ...lead.preferences,
+            priceRange: {
+              ...lead.preferences.priceRange,
+              max: args.metadata.priceDiscussed
+            }
+          };
+          updates.qualificationCriteria = {
+            ...lead.qualificationCriteria,
+            budget: true
+          };
+        }
+        
+        if (args.metadata.visitDate) {
+          updates.preferences = {
+            ...lead.preferences,
+            moveInDate: new Date(args.metadata.visitDate)
+          };
+          updates.qualificationCriteria = {
+            ...lead.qualificationCriteria,
+            timeline: true
+          };
+        }
+
+        if (args.metadata.objections?.length > 0) {
+          updates.tags = [...(lead.tags || []), 'has-objections'];
+        }
+      }
+
+      // 4. Atualizar lead no CRM
+      const updatedLead = await crmService.updateLead(lead.id, updates);
+
+      // 5. Criar interação para registrar a classificação
+      await crmService.createInteraction({
+        leadId: lead.id,
+        tenantId,
+        type: InteractionType.NOTE,
+        channel: 'whatsapp',
+        direction: 'inbound',
+        content: `IA classificou lead como: ${args.conversationOutcome}. Razão: ${args.reason}`,
+        userId: 'ai-classifier',
+        userName: 'AI Classifier',
+        aiAnalysis: {
+          summary: `Lead classificado automaticamente baseado no outcome: ${args.conversationOutcome}`,
+          keyPoints: [args.reason],
+          sentiment: args.conversationOutcome === 'lost_interest' ? -0.8 : 
+                    args.conversationOutcome === 'deal_closed' ? 0.9 : 0.5,
+          intent: [args.conversationOutcome],
+          suggestedActions: this.getSuggestedActionsForOutcome(args.conversationOutcome)
+        }
+      });
+
+      console.log(`✅ [LEAD CLASSIFICATION] Lead ${lead.id} classificado como ${newStatus} (${temperature}, score: ${updates.score})`);
 
       return {
         success: true,
-        visit: visitData,
-        message: `Visita agendada para ${args.visitDate} às ${args.visitTime} na propriedade "${property.title || 'Propriedade'}" (${property.address}). Em breve entraremos em contato para confirmar!`,
-        confirmationDetails: {
-          date: args.visitDate,
-          time: args.visitTime,
-          property: property.title || 'Propriedade',
-          address: property.address,
-          contact: 'Aguarde nossa confirmação por WhatsApp'
-        }
+        classification: {
+          leadId: lead.id,
+          oldStatus: lead.status,
+          newStatus,
+          oldTemperature: lead.temperature,
+          newTemperature: temperature,
+          oldScore: lead.score,
+          newScore: updates.score,
+          outcome: args.conversationOutcome,
+          reason: args.reason,
+          suggestedActions: this.getSuggestedActionsForOutcome(args.conversationOutcome)
+        },
+        message: `Lead classificado com sucesso! Status: ${newStatus}, Temperatura: ${temperature}, Score: ${updates.score}`
       };
 
     } catch (error) {
-      console.error('❌ [VISIT] Erro ao agendar visita:', error);
+      console.error('❌ [LEAD CLASSIFICATION] Erro ao classificar lead:', error);
       return {
         success: false,
-        message: 'Erro ao agendar visita: ' + (error instanceof Error ? error.message : 'Erro desconhecido'),
-        visit: null
+        message: 'Erro ao classificar lead: ' + (error instanceof Error ? error.message : 'Erro desconhecido'),
+        classification: null
       };
+    }
+  }
+
+  private static getSuggestedActionsForOutcome(outcome: string): string[] {
+    switch (outcome) {
+      case 'deal_closed':
+        return ['Preparar contrato', 'Confirmar dados de pagamento', 'Agendar check-in'];
+      
+      case 'visit_scheduled':
+        return ['Confirmar visita por WhatsApp', 'Preparar propriedade para visita', 'Enviar informações de localização'];
+      
+      case 'price_negotiation':
+        return ['Preparar proposta com desconto', 'Verificar margem de negociação', 'Agendar ligação para negociar'];
+      
+      case 'wants_human_agent':
+        return ['Transferir para consultor humano', 'Agendar ligação', 'Priorizar contato'];
+      
+      case 'information_gathering':
+        return ['Enviar mais informações sobre propriedades', 'Agendar follow-up em 2 dias', 'Qualificar necessidades'];
+      
+      case 'no_reservation':
+        return ['Adicionar à lista de nutrição', 'Enviar conteúdo educativo', 'Follow-up em 1 semana'];
+      
+      case 'lost_interest':
+        return ['Marcar para follow-up em 30 dias', 'Analisar motivos da perda', 'Adicionar à campanha de reativação'];
+      
+      default:
+        return ['Fazer follow-up', 'Continuar nutrição'];
     }
   }
 
@@ -1166,6 +1320,9 @@ export class CorrectedAgentFunctions {
         
         case 'create_reservation':
           return await this.createReservation(args, tenantId);
+        
+        case 'classify_lead_status':
+          return await this.classifyLeadStatus(args, tenantId);
         
         default:
           throw new Error(`Função ${functionName} não implementada`);

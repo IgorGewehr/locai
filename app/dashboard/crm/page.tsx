@@ -539,13 +539,7 @@ export default function CRMPage() {
             iconPosition="start" 
           />
           <Tab 
-            label="Lista" 
-            value="list" 
-            icon={<Assignment />} 
-            iconPosition="start" 
-          />
-          <Tab 
-            label="Clientes" 
+            label="Todos os Leads" 
             value="clients" 
             icon={<Groups />} 
             iconPosition="start" 
@@ -572,55 +566,22 @@ export default function CRMPage() {
         />
       )}
 
-      {view === 'list' && (
-        <Card>
-          <List>
-            {getFilteredLeads().map((lead, index) => (
-              <Box key={lead.id}>
-                <ListItemButton onClick={() => handleLeadClick(lead)}>
-                  <ListItemIcon>
-                    <Avatar>{lead.name ? lead.name.charAt(0).toUpperCase() : '?'}</Avatar>
-                  </ListItemIcon>
-                  <ListItemText
-                    primary={
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                        {lead.name}
-                        {getTemperatureIcon(lead.temperature)}
-                        <Chip
-                          label={lead.status}
-                          size="small"
-                          color={lead.status === LeadStatus.WON ? 'success' : 'default'}
-                        />
-                      </Box>
-                    }
-                    secondary={`${lead.phone} • ${lead.source} • Score: ${lead.score}`}
-                  />
-                  <Box sx={{ display: 'flex', gap: 1 }}>
-                    <IconButton size="small" onClick={(e) => { e.stopPropagation(); handleQuickAction(lead, 'whatsapp'); }}>
-                      <WhatsApp />
-                    </IconButton>
-                    <IconButton size="small" onClick={(e) => { e.stopPropagation(); handleQuickAction(lead, 'task'); }}>
-                      <TaskIcon />
-                    </IconButton>
-                  </Box>
-                </ListItemButton>
-                {index < getFilteredLeads().length - 1 && <Divider />}
-              </Box>
-            ))}
-          </List>
-        </Card>
-      )}
 
       {view === 'clients' && (
         <Card>
           <CardContent>
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-              <Typography variant="h6" fontWeight={600}>
-                Lista de Clientes ({clients.length})
-              </Typography>
+              <Box>
+                <Typography variant="h6" fontWeight={600}>
+                  Todos os Leads ({Object.values(leads).flat().length})
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  Visão completa de todos os leads no sistema
+                </Typography>
+              </Box>
               <TextField
                 size="small"
-                placeholder="Buscar clientes..."
+                placeholder="Buscar leads..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 InputProps={{
@@ -634,42 +595,56 @@ export default function CRMPage() {
               />
             </Box>
             <List>
-              {clients
-                .filter(client => 
-                  client.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                  client.phone?.includes(searchTerm) ||
-                  client.email?.toLowerCase().includes(searchTerm.toLowerCase())
-                )
-                .map((client, index) => (
-                  <Box key={client.id}>
-                    <ListItem sx={{ py: 2 }}>
+              {getFilteredLeads()
+                .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
+                .map((lead, index) => (
+                  <Box key={lead.id}>
+                    <ListItemButton onClick={() => handleLeadClick(lead)} sx={{ py: 2 }}>
                       <ListItemIcon>
-                        <Avatar sx={{ bgcolor: client.isActive ? 'success.main' : 'grey.400' }}>
-                          {client.name ? client.name.charAt(0).toUpperCase() : '?'}
+                        <Avatar sx={{ 
+                          bgcolor: lead.temperature === 'hot' ? 'error.main' : 
+                                   lead.temperature === 'warm' ? 'warning.main' : 'info.main',
+                          width: 48,
+                          height: 48,
+                        }}>
+                          {lead.name ? lead.name.charAt(0).toUpperCase() : '?'}
                         </Avatar>
                       </ListItemIcon>
                       <ListItemText
                         primary={
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
                             <Typography variant="subtitle1" fontWeight={600}>
-                              {client.name}
+                              {lead.name}
                             </Typography>
+                            {getTemperatureIcon(lead.temperature)}
                             <Chip
-                              label={client.isActive ? 'Ativo' : 'Inativo'}
+                              label={lead.status.replace('_', ' ').toUpperCase()}
                               size="small"
-                              color={client.isActive ? 'success' : 'default'}
+                              color={lead.status === LeadStatus.WON ? 'success' : 
+                                     lead.status === LeadStatus.NEGOTIATION ? 'warning' : 'default'}
+                            />
+                            <Chip
+                              label={`Score: ${lead.score}%`}
+                              size="small"
+                              variant="outlined"
+                              color={lead.score > 70 ? 'success' : lead.score > 40 ? 'warning' : 'error'}
                             />
                           </Box>
                         }
                         secondary={
                           <Box>
                             <Typography variant="body2" color="text.secondary">
-                              {client.phone} • {client.email}
+                              📞 {lead.phone} • 📧 {lead.email || 'Não informado'}
                             </Typography>
                             <Typography variant="body2" color="text.secondary">
-                              Total gasto: R$ {client.totalSpent?.toFixed(2) || '0,00'} • 
-                              Reservas: {client.reservations?.length || 0}
+                              🏷️ {lead.source} • 💬 {lead.totalInteractions} interações • 
+                              🕒 {format(new Date(lead.lastContactDate), 'dd/MM/yyyy', { locale: ptBR })}
                             </Typography>
+                            {lead.preferences.priceRange && (
+                              <Typography variant="body2" color="text.secondary">
+                                💰 Orçamento: R$ {lead.preferences.priceRange.min.toLocaleString()} - R$ {lead.preferences.priceRange.max.toLocaleString()}
+                              </Typography>
+                            )}
                           </Box>
                         }
                       />
@@ -677,10 +652,9 @@ export default function CRMPage() {
                         <Tooltip title="WhatsApp">
                           <IconButton 
                             size="small" 
-                            onClick={() => {
-                              if (client.phone) {
-                                window.open(`https://wa.me/55${client.phone.replace(/\D/g, '')}`, '_blank');
-                              }
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleQuickAction(lead, 'whatsapp');
                             }}
                           >
                             <WhatsApp />
@@ -689,36 +663,34 @@ export default function CRMPage() {
                         <Tooltip title="Ligar">
                           <IconButton 
                             size="small"
-                            onClick={() => {
-                              if (client.phone) {
-                                window.location.href = `tel:${client.phone}`;
-                              }
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleQuickAction(lead, 'call');
                             }}
                           >
                             <Phone />
                           </IconButton>
                         </Tooltip>
-                        <Tooltip title="Email">
+                        <Tooltip title="Criar Tarefa">
                           <IconButton 
                             size="small"
-                            onClick={() => {
-                              if (client.email) {
-                                window.location.href = `mailto:${client.email}`;
-                              }
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleQuickAction(lead, 'task');
                             }}
                           >
-                            <Email />
+                            <TaskIcon />
                           </IconButton>
                         </Tooltip>
                       </Box>
-                    </ListItem>
-                    {index < clients.length - 1 && <Divider />}
+                    </ListItemButton>
+                    {index < getFilteredLeads().length - 1 && <Divider />}
                   </Box>
                 ))}
-              {clients.length === 0 && (
+              {getFilteredLeads().length === 0 && (
                 <Box sx={{ textAlign: 'center', py: 4 }}>
                   <Typography variant="body2" color="text.secondary">
-                    Nenhum cliente encontrado
+                    Nenhum lead encontrado
                   </Typography>
                 </Box>
               )}

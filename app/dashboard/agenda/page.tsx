@@ -312,17 +312,33 @@ export default function AgendaPage() {
             />
 
             {/* Header */}
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 4 }}>
+            <Box sx={{ 
+                display: 'flex', 
+                flexDirection: { xs: 'column', md: 'row' },
+                justifyContent: 'space-between', 
+                alignItems: { xs: 'flex-start', md: 'center' }, 
+                mb: 4,
+                gap: { xs: 2, md: 0 }
+            }}>
                 <Box>
-                    <Typography variant="h4" fontWeight={700} sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                        <CalendarToday sx={{ fontSize: 32, color: 'primary.main' }} />
+                    <Typography 
+                        variant="h4" 
+                        fontWeight={700} 
+                        sx={{ 
+                            display: 'flex', 
+                            alignItems: 'center', 
+                            gap: 2,
+                            fontSize: { xs: '1.5rem', sm: '2rem', md: '2.125rem' }
+                        }}
+                    >
+                        <CalendarToday sx={{ fontSize: { xs: 24, sm: 28, md: 32 }, color: 'primary.main' }} />
                         Agenda de Reservas
                     </Typography>
-                    <Typography variant="body1" color="text.secondary">
+                    <Typography variant="body1" color="text.secondary" sx={{ fontSize: { xs: '0.875rem', md: '1rem' } }}>
                         Gerencie todas as suas reservas de forma organizada
                     </Typography>
                 </Box>
-                <Box sx={{ display: 'flex', gap: 2 }}>
+                <Box sx={{ display: 'flex', gap: 1, alignSelf: { xs: 'stretch', md: 'auto' } }}>
                     <IconButton onClick={() => window.location.reload()}>
                         <Refresh />
                     </IconButton>
@@ -344,63 +360,63 @@ export default function AgendaPage() {
             </Box>
 
             {/* Stats Cards */}
-            <Grid container spacing={3} sx={{ mb: 4 }}>
-                <Grid item xs={12} sm={6} md={3}>
+            <Grid container spacing={{ xs: 2, md: 3 }} sx={{ mb: 4 }}>
+                <Grid item xs={6} sm={6} md={3}>
                     <Card sx={{ 
                         textAlign: 'center', 
-                        p: 3,
+                        p: { xs: 2, md: 3 },
                         background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
                         color: 'white'
                     }}>
-                        <Typography variant="h3" sx={{ fontWeight: 700, mb: 1 }}>
+                        <Typography variant="h3" sx={{ fontWeight: 700, mb: 1, fontSize: { xs: '1.75rem', md: '3rem' } }}>
                             {todayReservations.length}
                         </Typography>
-                        <Typography variant="body1" sx={{ opacity: 0.9 }}>
+                        <Typography variant="body1" sx={{ opacity: 0.9, fontSize: { xs: '0.875rem', md: '1rem' } }}>
                             Reservas Hoje
                         </Typography>
                     </Card>
                 </Grid>
-                <Grid item xs={12} sm={6} md={3}>
+                <Grid item xs={6} sm={6} md={3}>
                     <Card sx={{ 
                         textAlign: 'center', 
-                        p: 3,
+                        p: { xs: 2, md: 3 },
                         background: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',
                         color: 'white'
                     }}>
-                        <Typography variant="h3" sx={{ fontWeight: 700, mb: 1 }}>
+                        <Typography variant="h3" sx={{ fontWeight: 700, mb: 1, fontSize: { xs: '1.75rem', md: '3rem' } }}>
                             {upcomingReservations.length}
                         </Typography>
-                        <Typography variant="body1" sx={{ opacity: 0.9 }}>
+                        <Typography variant="body1" sx={{ opacity: 0.9, fontSize: { xs: '0.875rem', md: '1rem' } }}>
                             Próximas Reservas
                         </Typography>
                     </Card>
                 </Grid>
-                <Grid item xs={12} sm={6} md={3}>
+                <Grid item xs={6} sm={6} md={3}>
                     <Card sx={{ 
                         textAlign: 'center', 
-                        p: 3,
+                        p: { xs: 2, md: 3 },
                         background: 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)',
                         color: 'white'
                     }}>
-                        <Typography variant="h3" sx={{ fontWeight: 700, mb: 1 }}>
+                        <Typography variant="h3" sx={{ fontWeight: 700, mb: 1, fontSize: { xs: '1.75rem', md: '3rem' } }}>
                             {reservations?.length || 0}
                         </Typography>
-                        <Typography variant="body1" sx={{ opacity: 0.9 }}>
+                        <Typography variant="body1" sx={{ opacity: 0.9, fontSize: { xs: '0.875rem', md: '1rem' } }}>
                             Total de Reservas
                         </Typography>
                     </Card>
                 </Grid>
-                <Grid item xs={12} sm={6} md={3}>
+                <Grid item xs={6} sm={6} md={3}>
                     <Card sx={{ 
                         textAlign: 'center', 
-                        p: 3,
+                        p: { xs: 2, md: 3 },
                         background: 'linear-gradient(135deg, #fa709a 0%, #fee140 100%)',
                         color: 'white'
                     }}>
-                        <Typography variant="h3" sx={{ fontWeight: 700, mb: 1 }}>
+                        <Typography variant="h3" sx={{ fontWeight: 700, mb: 1, fontSize: { xs: '1.75rem', md: '3rem' } }}>
                             {reservations?.filter(r => r.status === ReservationStatus.CONFIRMED).length || 0}
                         </Typography>
-                        <Typography variant="body1" sx={{ opacity: 0.9 }}>
+                        <Typography variant="body1" sx={{ opacity: 0.9, fontSize: { xs: '0.875rem', md: '1rem' } }}>
                             Confirmadas
                         </Typography>
                     </Card>
@@ -408,7 +424,7 @@ export default function AgendaPage() {
             </Grid>
 
             {/* Conteúdo principal */}
-            <Grid container spacing={4}>
+            <Grid container spacing={{ xs: 2, md: 4 }}>
                 {/* Reservas de hoje */}
                 <Grid item xs={12} lg={6}>
                     <Typography variant="h5" fontWeight={600} sx={{ mb: 3, display: 'flex', alignItems: 'center', gap: 1 }}>

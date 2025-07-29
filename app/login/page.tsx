@@ -306,7 +306,7 @@ export default function LoginPage() {
               maxWidth: { xs: '100%', lg: '500px' },
               textAlign: { xs: 'center', lg: 'left' },
               mb: { xs: 4, lg: 0 },
-              display: { xs: 'none', md: 'block' },
+              display: { xs: 'none', sm: 'block' },
             }}
           >
             {/* Logo */}
@@ -410,9 +410,10 @@ export default function LoginPage() {
                 background: 'rgba(255, 255, 255, 0.08)',
                 backdropFilter: 'blur(20px)',
                 border: '1px solid rgba(255, 255, 255, 0.12)',
-                borderRadius: 4,
+                borderRadius: { xs: 3, sm: 4 },
                 overflow: 'hidden',
                 boxShadow: '0 24px 48px rgba(0, 0, 0, 0.4)',
+                mx: { xs: 1, sm: 0 },
               }}
             >
               {/* Mode Selector */}

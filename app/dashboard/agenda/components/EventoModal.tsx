@@ -236,10 +236,13 @@ const EventoModal: React.FC<EventoModalProps> = ({
                 onClose={onClose}
                 maxWidth="md"
                 fullWidth
+                fullScreen={false}
                 PaperProps={{
                     sx: {
-                        borderRadius: '16px',
-                        maxHeight: '90vh'
+                        borderRadius: { xs: '16px 16px 0 0', sm: '16px' },
+                        maxHeight: { xs: '95vh', sm: '90vh' },
+                        margin: { xs: 0, sm: '32px' },
+                        width: { xs: '100%', sm: 'auto' },
                     }
                 }}
             >
@@ -249,11 +252,18 @@ const EventoModal: React.FC<EventoModalProps> = ({
                     alignItems: 'center',
                     bgcolor: 'primary.main',
                     color: 'white',
-                    py: 2
+                    py: 2,
+                    px: { xs: 2, sm: 3 }
                 }}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                        <CalendarToday />
-                        <Typography variant="h6" fontWeight={600}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: 0, flex: 1 }}>
+                        <CalendarToday sx={{ fontSize: { xs: 20, sm: 24 } }} />
+                        <Typography variant="h6" fontWeight={600} sx={{ 
+                            fontSize: { xs: '1rem', sm: '1.25rem' },
+                            truncate: true,
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap'
+                        }}>
                             {reservation ? 'Editar Reserva' : 'Nova Reserva'}
                         </Typography>
                         {reservation && (
@@ -261,7 +271,7 @@ const EventoModal: React.FC<EventoModalProps> = ({
                                 label={RESERVATION_STATUS_LABELS[formData.status]}
                                 size="small"
                                 color={getStatusColor(formData.status) as any}
-                                sx={{ ml: 1 }}
+                                sx={{ ml: 1, display: { xs: 'none', sm: 'inline-flex' } }}
                             />
                         )}
                     </Box>
@@ -273,7 +283,7 @@ const EventoModal: React.FC<EventoModalProps> = ({
                     </IconButton>
                 </DialogTitle>
 
-                <DialogContent sx={{ p: 3 }}>
+                <DialogContent sx={{ p: { xs: 2, sm: 3 } }}>
                     {saveError && (
                         <Alert severity="error" sx={{ mb: 2 }} onClose={() => setSaveError(null)}>
                             {saveError}
@@ -548,11 +558,20 @@ const EventoModal: React.FC<EventoModalProps> = ({
                     </Box>
                 </DialogContent>
 
-                <DialogActions sx={{ p: 3, gap: 1 }}>
+                <DialogActions sx={{ 
+                    p: { xs: 2, sm: 3 }, 
+                    gap: 1,
+                    flexDirection: { xs: 'column', sm: 'row' }
+                }}>
                     <Button
                         onClick={onClose}
                         color="inherit"
-                        sx={{ borderRadius: '50px', px: 3 }}
+                        sx={{ 
+                            borderRadius: '50px', 
+                            px: 3,
+                            width: { xs: '100%', sm: 'auto' },
+                            order: { xs: 2, sm: 1 }
+                        }}
                     >
                         Cancelar
                     </Button>
@@ -564,7 +583,9 @@ const EventoModal: React.FC<EventoModalProps> = ({
                         sx={{
                             borderRadius: '50px',
                             px: 3,
-                            boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
+                            boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+                            width: { xs: '100%', sm: 'auto' },
+                            order: { xs: 1, sm: 2 }
                         }}
                     >
                         {loading ? 'Salvando...' : reservation ? 'Atualizar' : 'Criar'} Reserva
