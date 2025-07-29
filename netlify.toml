@@ -4,8 +4,8 @@
   # Build command
   command = "npm run build"
   
-  # Directory to publish (Next.js output)
-  publish = ".next"
+  # Directory to publish (Next.js standalone output)
+  publish = ".next/standalone"
   
   # Functions directory for serverless functions
   functions = "netlify/functions"
@@ -23,6 +23,12 @@
   
   # Increase build timeout
   AWS_LAMBDA_JS_RUNTIME = "nodejs20.x"
+  
+  # Next.js build optimization
+  NEXT_TELEMETRY_DISABLED = "1"
+  
+  # Memory allocation for build
+  NODE_OPTIONS = "--max-old-space-size=4096"
 
 # Netlify Next.js Plugin
 [[plugins]]
@@ -105,5 +111,5 @@
   command = "npm run dev"
   targetPort = 3000
   port = 8888
-  publish = ".next"
+  publish = ".next/standalone"
   autoLaunch = true

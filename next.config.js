@@ -7,6 +7,9 @@ const nextConfig = {
     },
   },
   
+  // Netlify deployment configuration
+  output: 'standalone',
+  
   // Production optimizations
   poweredByHeader: false,
   compress: true,
