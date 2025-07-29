@@ -1,6 +1,11 @@
+'use client';
+
 import Link from 'next/link';
 import { Box, Container, Typography, Button } from '@mui/material';
 import { Home, ArrowBack } from '@mui/icons-material';
+
+// Force dynamic rendering
+export const dynamic = 'force-dynamic';
 
 export default function NotFound() {
   return (

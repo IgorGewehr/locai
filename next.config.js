@@ -7,21 +7,7 @@ const nextConfig = {
     },
   },
   
-  // Force dynamic rendering for all pages
-  generateBuildId: async () => {
-    return 'dynamic-build'
-  },
-  
-  // Development optimizations
-  onDemandEntries: {
-    // period (in ms) where the server will keep pages in the buffer
-    maxInactiveAge: 25 * 1000,
-    // number of pages that should be kept simultaneously without being disposed
-    pagesBufferLength: 2,
-  },
-  
   // Production optimizations
-  // output: 'standalone', // Removed for Netlify compatibility
   poweredByHeader: false,
   compress: true,
   reactStrictMode: true,
