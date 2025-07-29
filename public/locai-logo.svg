@@ -1,0 +1,49 @@
+<svg width="36" height="36" viewBox="0 0 36 36" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="logoGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#06b6d4;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#0891b2;stop-opacity:1" />
+    </linearGradient>
+    <linearGradient id="buildingGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#ffffff;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#f1f5f9;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  
+  <!-- Background Circle -->
+  <circle cx="18" cy="18" r="16" fill="url(#logoGradient)"/>
+  
+  <!-- Main Building Structure -->
+  <g transform="translate(18, 18)">
+    <!-- Base Building -->
+    <rect x="-6" y="-2" width="12" height="8" rx="1.5" fill="url(#buildingGradient)"/>
+    
+    <!-- Roof Triangle -->
+    <path d="M -7 -2 L 0 -9 L 7 -2 Z" fill="url(#buildingGradient)"/>
+    
+    <!-- Door -->
+    <rect x="-1.5" y="2" width="3" height="4" rx="0.5" fill="#0891b2"/>
+    
+    <!-- Windows -->
+    <rect x="-5" y="-1" width="2" height="2" rx="0.3" fill="#0891b2"/>
+    <rect x="3" y="-1" width="2" height="2" rx="0.3" fill="#0891b2"/>
+    <rect x="-5" y="2" width="2" height="2" rx="0.3" fill="#0891b2"/>
+    <rect x="3" y="2" width="2" height="2" rx="0.3" fill="#0891b2"/>
+    
+    <!-- AI Brain/Chip Symbol in roof -->
+    <g transform="translate(0, -6)" opacity="0.8">
+      <!-- Main chip body -->
+      <rect x="-2" y="-1.5" width="4" height="3" rx="0.3" fill="#0891b2"/>
+      
+      <!-- Connection pins -->
+      <rect x="-2.5" y="-0.5" width="0.5" height="0.5" fill="#0891b2"/>
+      <rect x="-2.5" y="0" width="0.5" height="0.5" fill="#0891b2"/>
+      <rect x="2" y="-0.5" width="0.5" height="0.5" fill="#0891b2"/>
+      <rect x="2" y="0" width="0.5" height="0.5" fill="#0891b2"/>
+      
+      <!-- Inner circuit pattern -->
+      <circle cx="0" cy="0" r="0.8" fill="none" stroke="white" stroke-width="0.2"/>
+      <circle cx="0" cy="0" r="0.3" fill="white"/>
+    </g>
+  </g>
+</svg>

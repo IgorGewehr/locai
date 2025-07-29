@@ -12,7 +12,20 @@ import {
   Box,
   Alert,
   CircularProgress,
+  Typography,
+  InputAdornment,
+  IconButton,
+  Divider,
 } from '@mui/material';
+import {
+  Person,
+  Phone,
+  Email,
+  Description,
+  Badge,
+  Close,
+  PersonAdd,
+} from '@mui/icons-material';
 import { useTenant } from '@/contexts/TenantContext';
 import type { Client } from '@/lib/types';
 
@@ -122,15 +135,52 @@ export default function CreateClientDialog({ open, onClose, onSuccess }: CreateC
   };
 
   return (
-    <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth>
-      <DialogTitle>Novo Cliente</DialogTitle>
-      <DialogContent>
-        <Box sx={{ pt: 2 }}>
-          {error && (
-            <Alert severity="error" sx={{ mb: 2 }}>
-              {error}
-            </Alert>
-          )}
+    <Dialog 
+      open={open} 
+      onClose={handleClose} 
+      maxWidth="sm" 
+      fullWidth
+      PaperProps={{
+        sx: {
+          borderRadius: '16px',
+          maxHeight: '90vh'
+        }
+      }}
+    >
+      <DialogTitle sx={{ 
+        display: 'flex', 
+        justifyContent: 'space-between', 
+        alignItems: 'center',
+        bgcolor: 'primary.main',
+        color: 'white',
+        py: 2
+      }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <PersonAdd />
+          <Typography variant="h6" fontWeight={600}>
+            Novo Cliente
+          </Typography>
+        </Box>
+        <IconButton
+          onClick={handleClose}
+          sx={{ color: 'white' }}
+          disabled={loading}
+        >
+          <Close />
+        </IconButton>
+      </DialogTitle>
+      <DialogContent sx={{ p: 3 }}>
+        {error && (
+          <Alert severity="error" sx={{ mb: 3 }}>
+            {error}
+          </Alert>
+        )}
+
+        <Box sx={{ mb: 3 }}>
+          <Typography variant="h6" sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
+            <Person color="primary" />
+            Informações Pessoais
+          </Typography>
           
           <Grid container spacing={2}>
             <Grid item xs={12}>
@@ -141,6 +191,13 @@ export default function CreateClientDialog({ open, onClose, onSuccess }: CreateC
                 onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
                 required
                 disabled={loading}
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <Person color="primary" />
+                    </InputAdornment>
+                  ),
+                }}
               />
             </Grid>
             
@@ -154,6 +211,13 @@ export default function CreateClientDialog({ open, onClose, onSuccess }: CreateC
                 required
                 disabled={loading}
                 inputProps={{ maxLength: 15 }}
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <Phone color="primary" />
+                    </InputAdornment>
+                  ),
+                }}
               />
             </Grid>
             
@@ -166,6 +230,13 @@ export default function CreateClientDialog({ open, onClose, onSuccess }: CreateC
                 placeholder="000.000.000-00"
                 disabled={loading}
                 inputProps={{ maxLength: 14 }}
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <Badge color="primary" />
+                    </InputAdornment>
+                  ),
+                }}
               />
             </Grid>
             
@@ -177,37 +248,69 @@ export default function CreateClientDialog({ open, onClose, onSuccess }: CreateC
                 value={formData.email}
                 onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
                 disabled={loading}
-              />
-            </Grid>
-            
-            <Grid item xs={12}>
-              <TextField
-                fullWidth
-                label="Observações"
-                multiline
-                rows={3}
-                value={formData.notes}
-                onChange={(e) => setFormData(prev => ({ ...prev, notes: e.target.value }))}
-                disabled={loading}
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <Email color="primary" />
+                    </InputAdornment>
+                  ),
+                }}
               />
             </Grid>
           </Grid>
-
-          <Alert severity="info" sx={{ mt: 2 }}>
-            Clientes também são adicionados automaticamente quando entram em contato pelo WhatsApp.
-          </Alert>
         </Box>
+
+        <Divider sx={{ my: 3 }} />
+
+        <Box>
+          <Typography variant="h6" sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
+            <Description color="primary" />
+            Observações
+          </Typography>
+          
+          <TextField
+            fullWidth
+            label="Observações"
+            multiline
+            rows={3}
+            value={formData.notes}
+            onChange={(e) => setFormData(prev => ({ ...prev, notes: e.target.value }))}
+            disabled={loading}
+            placeholder="Adicione observações sobre o cliente..."
+            InputProps={{
+              startAdornment: (
+                <InputAdornment position="start" sx={{ alignSelf: 'flex-start', mt: 1 }}>
+                  <Description color="primary" />
+                </InputAdornment>
+              ),
+            }}
+          />
+        </Box>
+
+        <Alert severity="info" sx={{ mt: 3 }}>
+          Clientes também são adicionados automaticamente quando entram em contato pelo WhatsApp.
+        </Alert>
       </DialogContent>
       
-      <DialogActions>
-        <Button onClick={handleClose} disabled={loading}>
+      <DialogActions sx={{ p: 3, gap: 1 }}>
+        <Button
+          onClick={handleClose}
+          disabled={loading}
+          color="inherit"
+          sx={{ borderRadius: '50px', px: 3 }}
+        >
           Cancelar
         </Button>
         <Button
           onClick={handleSubmit}
           variant="contained"
           disabled={loading || !formData.name || !formData.phone || !services || !isReady}
-          startIcon={loading ? <CircularProgress size={20} /> : null}
+          startIcon={loading ? <CircularProgress size={20} /> : <PersonAdd />}
+          sx={{
+            borderRadius: '50px',
+            px: 3,
+            boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
+          }}
         >
           {loading ? 'Criando...' : 'Criar Cliente'}
         </Button>

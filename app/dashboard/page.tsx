@@ -489,9 +489,20 @@ export default function DashboardPage() {
               border: '1px solid rgba(255, 255, 255, 0.15)',
               borderRadius: '20px',
               transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+              position: 'relative',
+              overflow: 'hidden',
               '&:hover': {
                 transform: 'translateY(-4px)',
                 boxShadow: '0 16px 50px rgba(0, 0, 0, 0.4)',
+              },
+              '&::before': {
+                content: '""',
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                right: 0,
+                height: '4px',
+                background: 'linear-gradient(135deg, #10b981, #059669)',
               }
             }}
           >
@@ -505,53 +516,34 @@ export default function DashboardPage() {
                       justifyContent: 'center',
                       width: 56,
                       height: 56,
-                      borderRadius: '16px',
+                      borderRadius: '14px',
                       background: 'linear-gradient(135deg, #10b981, #059669)',
+                      color: 'white',
                       boxShadow: '0 8px 24px rgba(16, 185, 129, 0.4)',
                     }}
                   >
-                    <WhatsApp sx={{ color: 'white', fontSize: 28 }} />
+                    <WhatsApp sx={{ fontSize: 28 }} />
                   </Box>
                   <Box>
-                    <Typography 
-                      variant="h5" 
-                      component="h2"
-                      sx={{ 
-                        color: '#ffffff',
-                        fontWeight: 700,
-                        fontSize: '1.5rem',
-                        mb: 0.5
-                      }}
-                    >
+                    <Typography variant="h6" fontWeight={700} sx={{ color: '#ffffff', mb: 0.5 }}>
                       WhatsApp AI
                     </Typography>
-                    <Chip 
-                      label={whatsappStats.connected ? "Conectado" : "Desconectado"} 
-                      sx={{
-                        background: whatsappStats.connected ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)',
-                        color: whatsappStats.connected ? '#10b981' : '#ef4444',
-                        border: whatsappStats.connected ? '1px solid rgba(16, 185, 129, 0.3)' : '1px solid rgba(239, 68, 68, 0.3)',
-                        fontWeight: 600,
-                        fontSize: '0.875rem',
-                        height: 28,
-                      }}
-                    />
+                    <Typography variant="body2" sx={{ color: 'rgba(255, 255, 255, 0.7)' }}>
+                      Assistente inteligente
+                    </Typography>
                   </Box>
                 </Box>
-                <IconButton 
-                  href="/dashboard/settings"
+                
+                <Chip
+                  label={whatsappStats.connected ? "Conectado" : "Desconectado"}
+                  icon={whatsappStats.connected ? undefined : undefined}
                   sx={{
-                    background: 'rgba(16, 185, 129, 0.1)',
-                    border: '1px solid rgba(16, 185, 129, 0.2)',
-                    color: '#10b981',
-                    '&:hover': {
-                      background: 'rgba(16, 185, 129, 0.2)',
-                      transform: 'scale(1.05)',
-                    }
+                    backgroundColor: whatsappStats.connected ? 'rgba(34, 197, 94, 0.2)' : 'rgba(239, 68, 68, 0.2)',
+                    color: whatsappStats.connected ? '#22c55e' : '#ef4444',
+                    border: `1px solid ${whatsappStats.connected ? 'rgba(34, 197, 94, 0.3)' : 'rgba(239, 68, 68, 0.3)'}`,
+                    fontWeight: 600,
                   }}
-                >
-                  <Settings />
-                </IconButton>
+                />
               </Box>
 
               <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 2.5 }}>

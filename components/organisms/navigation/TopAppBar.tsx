@@ -250,17 +250,19 @@ export default function TopAppBar({ onLogout }: TopAppBarProps) {
                 width: 36,
                 height: 36,
                 borderRadius: 2,
-                background: 'linear-gradient(135deg, #06b6d4 0%, #0891b2 100%)',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                color: 'white',
-                fontWeight: 'bold',
-                fontSize: '1.125rem',
                 boxShadow: '0 4px 16px rgba(6, 182, 212, 0.3)',
               }}
             >
-              🏠
+              <img 
+                src="/locai-logo.svg" 
+                alt="LocAI Logo" 
+                width={36} 
+                height={36}
+                style={{ borderRadius: 8 }}
+              />
             </Box>
             <Typography
               variant="h6"

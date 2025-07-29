@@ -1,20 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
 import { settingsService } from '@/lib/services/settings-service';
 
 export async function POST(request: NextRequest) {
   try {
-    // Get authenticated user
-    const session = await getServerSession(authOptions);
-    if (!session || !session.user) {
+    // Get tenant ID from request body
+    const body = await request.json();
+    const tenantId = body.tenantId || 'default';
+    
+    if (!tenantId) {
       return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
+        { error: 'Tenant ID required' },
+        { status: 400 }
       );
     }
-
-    const tenantId = session.user.id;
     console.log('Activating mini-site for tenant:', tenantId);
 
     // Get current settings

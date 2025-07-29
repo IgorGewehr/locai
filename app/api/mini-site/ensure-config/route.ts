@@ -1,20 +1,19 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth';
 import { settingsService } from '@/lib/services/settings-service';
+import { useTenant } from '@/contexts/TenantContext';
 
 export async function GET(request: NextRequest) {
   try {
-    // Get authenticated user
-    const session = await getServerSession(authOptions);
-    if (!session || !session.user) {
+    // Get tenant ID from URL params or default
+    const url = new URL(request.url);
+    const tenantId = url.searchParams.get('tenantId') || 'default';
+    
+    if (!tenantId) {
       return NextResponse.json(
-        { error: 'Unauthorized' },
-        { status: 401 }
+        { error: 'Tenant ID required' },
+        { status: 400 }
       );
     }
-
-    const tenantId = session.user.id;
     console.log('Ensuring mini-site config for tenant:', tenantId);
 
     // Get current settings
@@ -26,7 +25,7 @@ export async function GET(request: NextRequest) {
       
       await settingsService.saveSettings(tenantId, {
         miniSite: {
-          active: true,
+          active: false,
           title: currentSettings?.company?.name || 'Minha Imobiliária',
           description: 'Encontre o imóvel perfeito para você',
           primaryColor: '#1976d2',
