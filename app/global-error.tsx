@@ -16,49 +16,51 @@ export default function GlobalError({ error, reset }: GlobalErrorProps) {
   }, [error]);
 
   return (
-    <html>
+    <html lang="pt-BR">
       <body>
-        <Container maxWidth="sm">
-          <Box
-            sx={{
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              justifyContent: 'center',
-              minHeight: '100vh',
-              textAlign: 'center',
-              py: 4,
-            }}
-          >
-            <Typography variant="h1" component="h1" sx={{ fontSize: '4rem', fontWeight: 'bold', mb: 2 }}>
+        <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{ textAlign: 'center', padding: '2rem', maxWidth: '600px' }}>
+            <h1 style={{ fontSize: '4rem', fontWeight: 'bold', marginBottom: '1rem', color: '#333' }}>
               500
-            </Typography>
-            <Typography variant="h4" component="h2" gutterBottom>
+            </h1>
+            <h2 style={{ fontSize: '1.5rem', marginBottom: '1rem', color: '#555' }}>
               Erro interno do servidor
-            </Typography>
-            <Typography variant="body1" color="text.secondary" sx={{ mb: 4 }}>
+            </h2>
+            <p style={{ color: '#666', marginBottom: '2rem' }}>
               Ocorreu um erro inesperado no servidor. Nossa equipe foi notificada.
-            </Typography>
-            <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', justifyContent: 'center' }}>
-              <Button
-                variant="contained"
-                startIcon={<Refresh />}
+            </p>
+            <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center', flexWrap: 'wrap' }}>
+              <button
                 onClick={reset}
-                sx={{ minWidth: 150 }}
+                style={{
+                  padding: '0.75rem 1.5rem',
+                  backgroundColor: '#1976d2',
+                  color: 'white',
+                  border: 'none',
+                  borderRadius: '4px',
+                  cursor: 'pointer',
+                  minWidth: '150px'
+                }}
               >
                 Tentar novamente
-              </Button>
-              <Button
-                variant="outlined"
-                startIcon={<Home />}
+              </button>
+              <button
                 onClick={() => window.location.href = '/dashboard'}
-                sx={{ minWidth: 150 }}
+                style={{
+                  padding: '0.75rem 1.5rem',
+                  backgroundColor: 'transparent',
+                  color: '#1976d2',
+                  border: '1px solid #1976d2',
+                  borderRadius: '4px',
+                  cursor: 'pointer',
+                  minWidth: '150px'
+                }}
               >
                 Ir para Dashboard
-              </Button>
-            </Box>
-          </Box>
-        </Container>
+              </button>
+            </div>
+          </div>
+        </div>
       </body>
     </html>
   );
