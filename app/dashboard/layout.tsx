@@ -5,6 +5,9 @@ import TopAppBar from '@/components/organisms/navigation/TopAppBar';
 import ProtectedRoute from '@/components/utilities/ProtectedRoute';
 import { useAuth } from '@/contexts/AuthContext';
 
+// Disable static generation for dashboard pages
+export const dynamic = 'force-dynamic';
+
 export default function DashboardLayout({
   children,
 }: {

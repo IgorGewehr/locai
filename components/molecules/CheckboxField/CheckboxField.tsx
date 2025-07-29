@@ -1,4 +1,6 @@
 // components/molecules/CheckboxField/CheckboxField.tsx
+'use client';
+
 import React from 'react'
 import { 
   Box,

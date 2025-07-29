@@ -1,4 +1,6 @@
 // components/atoms/QuickActionButton/QuickActionButton.tsx
+'use client';
+
 import React from 'react'
 import { 
   Fab, 

@@ -1,4 +1,6 @@
 // components/molecules/MediaCard/MediaCard.tsx
+'use client';
+
 import React from 'react'
 import {
   Card,

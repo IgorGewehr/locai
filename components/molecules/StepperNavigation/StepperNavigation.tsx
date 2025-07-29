@@ -1,4 +1,6 @@
 // components/molecules/StepperNavigation/StepperNavigation.tsx
+'use client';
+
 import React from 'react'
 import {
   Box,

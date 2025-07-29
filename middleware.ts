@@ -1,7 +1,11 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
-import { authService } from '@/lib/auth/auth-service'
+import { jwtVerify } from 'jose'
 import { miniSiteMiddleware } from '@/middleware/mini-site'
+
+const JWT_SECRET = new TextEncoder().encode(
+  process.env.JWT_SECRET || 'your-secret-key'
+)
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
@@ -58,10 +62,10 @@ export async function middleware(request: NextRequest) {
   }
 
   try {
-    // Verify the token
-    const payload = await authService.verifyToken(authToken)
+    // Verify the token using jose directly (Edge Runtime compatible)
+    const { payload } = await jwtVerify(authToken, JWT_SECRET)
     
-    if (!payload) {
+    if (!payload || !payload.sub) {
       // Invalid token - redirect to login
       const loginUrl = new URL('/login', request.url)
       loginUrl.searchParams.set('redirect', pathname)
@@ -70,9 +74,9 @@ export async function middleware(request: NextRequest) {
     
     // Add user info to headers for downstream use
     const requestHeaders = new Headers(request.headers)
-    requestHeaders.set('x-user-id', payload.sub)
-    requestHeaders.set('x-tenant-id', payload.tenantId || payload.sub) // Use userId as tenantId if no specific tenantId
-    requestHeaders.set('x-user-role', payload.role)
+    requestHeaders.set('x-user-id', payload.sub as string)
+    requestHeaders.set('x-tenant-id', (payload.tenantId as string) || (payload.sub as string)) // Use userId as tenantId if no specific tenantId
+    requestHeaders.set('x-user-role', payload.role as string)
 
     return NextResponse.next({
       request: {

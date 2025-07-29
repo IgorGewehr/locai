@@ -1,4 +1,6 @@
 // components/atoms/Icon/Icon.tsx
+'use client';
+
 import React from 'react'
 import { 
   SvgIcon, 

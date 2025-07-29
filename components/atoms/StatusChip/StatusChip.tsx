@@ -1,4 +1,6 @@
 // components/atoms/StatusChip/StatusChip.tsx
+'use client';
+
 import React from 'react'
 import { Chip, ChipProps, useTheme, alpha } from '@mui/material'
 import { 

@@ -1,4 +1,6 @@
 // components/organisms/PropertyAmenities/PropertyAmenities.tsx
+'use client';
+
 import React, { useState } from 'react'
 import {
   Box,

@@ -1,4 +1,6 @@
 // components/atoms/Typography/Typography.tsx
+'use client';
+
 import React from 'react'
 import { 
   Typography as MuiTypography, 

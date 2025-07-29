@@ -7,6 +7,11 @@ const nextConfig = {
     },
   },
   
+  // Force dynamic rendering for all pages
+  generateBuildId: async () => {
+    return 'dynamic-build'
+  },
+  
   // Development optimizations
   onDemandEntries: {
     // period (in ms) where the server will keep pages in the buffer
@@ -20,6 +25,10 @@ const nextConfig = {
   poweredByHeader: false,
   compress: true,
   reactStrictMode: true,
+  
+  // Disable static optimization to fix build issues
+  trailingSlash: false,
+  skipTrailingSlashRedirect: true,
   typescript: {
     // !! CUIDADO !!
     // Permite que a build de produção seja gerada com sucesso mesmo que seu projeto tenha erros de tipo.

@@ -1,4 +1,6 @@
 // components/atoms/OccupancyIndicator/OccupancyIndicator.tsx
+'use client';
+
 import React from 'react'
 import { 
   Box, 

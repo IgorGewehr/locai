@@ -1,4 +1,6 @@
 // components/atoms/CurrencyDisplay/CurrencyDisplay.tsx
+'use client';
+
 import React from 'react'
 import { Typography, TypographyProps, Box, useTheme, alpha } from '@mui/material'
 import { TrendingUp, TrendingDown, TrendingFlat } from '@mui/icons-material'

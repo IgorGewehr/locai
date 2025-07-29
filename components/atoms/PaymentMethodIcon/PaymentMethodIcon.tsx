@@ -1,4 +1,6 @@
 // components/atoms/PaymentMethodIcon/PaymentMethodIcon.tsx
+'use client';
+
 import React from 'react'
 import { SvgIcon, SvgIconProps, useTheme } from '@mui/material'
 import { PaymentMethod, PAYMENT_METHOD_LABELS } from '@/lib/types/reservation'

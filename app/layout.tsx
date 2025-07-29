@@ -2,6 +2,10 @@ import type { Metadata } from 'next';
 import { Toaster } from 'react-hot-toast';
 import Providers from './providers';
 
+// Force dynamic rendering for the entire app
+export const dynamic = 'force-dynamic';
+export const fetchCache = 'force-no-store';
+
 export const metadata: Metadata = {
   title: 'LocAI',
   description: 'Sistema completo de gestão para imobiliária com agente IA integrado ao WhatsApp',

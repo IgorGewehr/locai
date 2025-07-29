@@ -1,4 +1,6 @@
 // components/atoms/DateDisplay/DateDisplay.tsx
+'use client';
+
 import React from 'react'
 import { Typography, TypographyProps, Box, Chip, useTheme } from '@mui/material'
 import { 

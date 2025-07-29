@@ -1,4 +1,6 @@
 // components/organisms/PropertyBasicInfo/PropertyBasicInfo.tsx
+'use client';
+
 import React from 'react'
 import {
   Box,

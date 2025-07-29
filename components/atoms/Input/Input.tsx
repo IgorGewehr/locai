@@ -1,4 +1,6 @@
 // components/atoms/Input/Input.tsx
+'use client';
+
 import React from 'react'
 import { 
   TextField, 

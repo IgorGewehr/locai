@@ -56,6 +56,9 @@ import {
 } from '@mui/icons-material';
 import type { Property } from '@/lib/types/property';
 
+// Disable static generation for this page
+export const dynamic = 'force-dynamic';
+
 const propertyTypeIcons: Record<string, React.ReactElement> = {
   apartment: <Apartment />,
   house: <House />,
