@@ -156,6 +156,66 @@ export default function CRMPage() {
         }
       }
 
+      // Load existing clients and convert them to leads if they haven't been converted yet
+      const existingClients = await services.clients.getAll();
+      
+      for (const client of existingClients) {
+        // Check if this client is already a lead
+        const existingLead = Object.values(leadsByStatus).flat().find(lead => 
+          lead.phone === client.phone || lead.clientId === client.id
+        );
+        
+        if (!existingLead) {
+          // Convert client to lead format and add to WON status
+          const clientAsLead: Lead = {
+            id: `client_${client.id}`, // Prefix to avoid ID conflicts
+            clientId: client.id,
+            tenantId: client.tenantId || '',
+            name: client.name,
+            email: client.email || '',
+            phone: client.phone,
+            whatsappNumber: client.phone,
+            status: LeadStatus.WON, // Existing clients are already won
+            source: client.source || 'Existente',
+            score: 100, // Max score for existing clients
+            temperature: 'hot',
+            qualificationCriteria: {
+              budget: true,
+              authority: true,
+              need: true,
+              timeline: true
+            },
+            preferences: {
+              location: client.preferences?.location ? [client.preferences.location] : [],
+              priceRange: client.preferences?.priceRange ? {
+                min: client.preferences.priceRange.min || 0,
+                max: client.preferences.priceRange.max || 10000
+              } : undefined,
+              amenities: client.preferences?.amenities || [],
+              bedrooms: client.preferences?.bedrooms ? {
+                min: client.preferences.bedrooms,
+                max: client.preferences.bedrooms
+              } : undefined,
+              maxGuests: client.preferences?.maxGuests
+            },
+            firstContactDate: client.createdAt,
+            lastContactDate: client.updatedAt,
+            totalInteractions: client.totalReservations || 0,
+            tags: ['cliente-existente', ...(client.tags || [])],
+            customFields: {
+              notes: client.notes || '',
+              originalClientData: true
+            },
+            assignedTo: '',
+            createdAt: client.createdAt,
+            updatedAt: client.updatedAt,
+            convertedToClientAt: client.createdAt
+          };
+          
+          leadsByStatus[LeadStatus.WON].push(clientAsLead);
+        }
+      }
+
       setLeads(leadsByStatus);
     } catch (error) {
       console.error('Error loading leads:', error);
@@ -212,6 +272,12 @@ export default function CRMPage() {
     // Update local state optimistically
     const sourceLead = leads[sourceStatus].find(l => l.id === leadId);
     if (!sourceLead) return;
+
+    // Prevent dragging client-based leads (they are already converted)
+    if (sourceLead.id.startsWith('client_') || sourceLead.customFields?.originalClientData) {
+      console.warn('Cannot move leads that represent existing clients');
+      return;
+    }
 
     setLeads(prev => ({
       ...prev,
