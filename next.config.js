@@ -7,17 +7,20 @@ const nextConfig = {
     },
   },
   
-  // Netlify deployment configuration
-  output: 'standalone',
-  
   // Production optimizations
   poweredByHeader: false,
   compress: true,
-  reactStrictMode: true,
+  reactStrictMode: false,
   
-  // Disable static optimization to fix build issues
+  // Disable static optimization completely
   trailingSlash: false,
   skipTrailingSlashRedirect: true,
+  
+  // Completely disable static generation
+  generateStaticParams: () => [],
+  generateViewport: undefined,
+  generateMetadata: undefined,
+  
   typescript: {
     // !! CUIDADO !!
     // Permite que a build de produção seja gerada com sucesso mesmo que seu projeto tenha erros de tipo.

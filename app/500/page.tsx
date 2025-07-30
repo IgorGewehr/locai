@@ -1,3 +1,5 @@
+export const dynamic = 'force-dynamic';
+
 export default function Custom500() {
   return (
     <div style={{ 

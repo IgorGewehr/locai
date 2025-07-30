@@ -5,6 +5,7 @@ import Providers from './providers';
 // Force dynamic rendering for the entire app
 export const dynamic = 'force-dynamic';
 export const fetchCache = 'force-no-store';
+export const runtime = 'nodejs';
 
 export const metadata: Metadata = {
   title: 'LocAI',

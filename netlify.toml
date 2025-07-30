@@ -18,10 +18,6 @@
   # Memory allocation for build
   NODE_OPTIONS = "--max-old-space-size=4096"
 
-# Netlify Next.js Plugin
-[[plugins]]
-  package = "@netlify/plugin-nextjs"
-
 # Headers configuration
 [[headers]]
   for = "/*"
