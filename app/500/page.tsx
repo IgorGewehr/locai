@@ -4,9 +4,6 @@ import { Box, Container, Typography, Button } from '@mui/material';
 import { Home, ArrowBack } from '@mui/icons-material';
 import Link from 'next/link';
 
-// Disable static generation for this page
-export const dynamic = 'force-dynamic';
-
 export default function Custom500() {
   return (
     <Container maxWidth="sm">
