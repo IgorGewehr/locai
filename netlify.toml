@@ -17,6 +17,10 @@
   
   # Memory allocation for build
   NODE_OPTIONS = "--max-old-space-size=4096"
+  
+  # NPM cache optimization
+  NPM_CONFIG_CACHE = "/opt/build/cache/npm"
+  CYPRESS_CACHE_FOLDER = "/opt/build/cache/cypress"
 
 # Headers configuration
 [[headers]]

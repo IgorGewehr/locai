@@ -16,10 +16,8 @@ const nextConfig = {
   trailingSlash: false,
   skipTrailingSlashRedirect: true,
   
-  // Completely disable static generation
-  generateStaticParams: () => [],
-  generateViewport: undefined,
-  generateMetadata: undefined,
+  // Completely disable static optimization
+  output: 'standalone',
   
   typescript: {
     // !! CUIDADO !!
