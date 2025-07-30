@@ -1,52 +1,25 @@
-'use client';
-
-import { Box, Container, Typography, Button } from '@mui/material';
-import { Home, ArrowBack } from '@mui/icons-material';
-import Link from 'next/link';
-
 export default function Custom500() {
   return (
-    <Container maxWidth="sm">
-      <Box
-        sx={{
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'center',
-          minHeight: '100vh',
-          textAlign: 'center',
-          py: 4,
-        }}
-      >
-        <Typography variant="h1" component="h1" sx={{ fontSize: '6rem', fontWeight: 'bold', mb: 2 }}>
-          500
-        </Typography>
-        <Typography variant="h4" component="h2" gutterBottom>
-          Erro interno do servidor
-        </Typography>
-        <Typography variant="body1" color="text.secondary" sx={{ mb: 4 }}>
-          Ocorreu um erro interno no servidor. Nossa equipe foi notificada.
-        </Typography>
-        <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', justifyContent: 'center' }}>
-          <Button
-            variant="contained"
-            startIcon={<Home />}
-            component={Link}
-            href="/dashboard"
-            sx={{ minWidth: 150 }}
-          >
-            Ir para Dashboard
-          </Button>
-          <Button
-            variant="outlined"
-            startIcon={<ArrowBack />}
-            onClick={() => window.history.back()}
-            sx={{ minWidth: 150 }}
-          >
-            Voltar
-          </Button>
-        </Box>
-      </Box>
-    </Container>
+    <div style={{ 
+      display: 'flex', 
+      flexDirection: 'column', 
+      alignItems: 'center', 
+      justifyContent: 'center', 
+      minHeight: '100vh',
+      fontFamily: 'system-ui, -apple-system, sans-serif'
+    }}>
+      <h1 style={{ fontSize: '4rem', margin: '0 0 1rem 0' }}>500</h1>
+      <h2 style={{ fontSize: '1.5rem', margin: '0 0 1rem 0' }}>Erro interno do servidor</h2>
+      <p style={{ margin: '0 0 2rem 0' }}>Ocorreu um erro interno no servidor.</p>
+      <a href="/dashboard" style={{ 
+        padding: '0.75rem 1.5rem', 
+        backgroundColor: '#1976d2', 
+        color: 'white', 
+        textDecoration: 'none',
+        borderRadius: '4px'
+      }}>
+        Ir para Dashboard
+      </a>
+    </div>
   );
 }
