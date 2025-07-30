@@ -95,6 +95,28 @@ const statusColumns = [
   { id: LeadStatus.WON, title: 'Ganhos', color: '#4caf50' },
 ];
 
+const formatSafeDate = (date: any): string => {
+  try {
+    if (!date) return 'Data não informada';
+    const parsedDate = date instanceof Date ? date : new Date(date);
+    if (isNaN(parsedDate.getTime())) return 'Data inválida';
+    return format(parsedDate, 'dd/MM/yyyy', { locale: ptBR });
+  } catch (error) {
+    return 'Data inválida';
+  }
+};
+
+const createSafeDate = (date: any): Date => {
+  try {
+    if (!date) return new Date();
+    const parsedDate = date instanceof Date ? date : new Date(date);
+    if (isNaN(parsedDate.getTime())) return new Date();
+    return parsedDate;
+  } catch (error) {
+    return new Date();
+  }
+};
+
 export default function CRMPage() {
   const { user } = useAuth();
   const { services, isReady } = useTenant();
@@ -168,7 +190,7 @@ export default function CRMPage() {
         if (!existingLead) {
           // Convert client to lead format and add to WON status
           const clientAsLead: Lead = {
-            id: `client_${client.id}`, // Prefix to avoid ID conflicts
+            id: `client_${client.id}_${client.phone?.replace(/\D/g, '') || Date.now()}`, // More unique ID
             clientId: client.id,
             tenantId: client.tenantId || '',
             name: client.name,
@@ -176,9 +198,9 @@ export default function CRMPage() {
             phone: client.phone,
             whatsappNumber: client.phone,
             status: LeadStatus.WON, // Existing clients are already won
-            source: client.source || 'Existente',
+            source: (client as any).source || 'Existente',
             score: 100, // Max score for existing clients
-            temperature: 'hot',
+            temperature: 'hot' as const,
             qualificationCriteria: {
               budget: true,
               authority: true,
@@ -198,8 +220,8 @@ export default function CRMPage() {
               } : undefined,
               maxGuests: client.preferences?.maxGuests
             },
-            firstContactDate: client.createdAt,
-            lastContactDate: client.updatedAt,
+            firstContactDate: createSafeDate(client.createdAt),
+            lastContactDate: createSafeDate(client.updatedAt),
             totalInteractions: client.totalReservations || 0,
             tags: ['cliente-existente', ...(client.tags || [])],
             customFields: {
@@ -207,9 +229,9 @@ export default function CRMPage() {
               originalClientData: true
             },
             assignedTo: '',
-            createdAt: client.createdAt,
-            updatedAt: client.updatedAt,
-            convertedToClientAt: client.createdAt
+            createdAt: createSafeDate(client.createdAt),
+            updatedAt: createSafeDate(client.updatedAt),
+            convertedToClientAt: createSafeDate(client.createdAt)
           };
           
           leadsByStatus[LeadStatus.WON].push(clientAsLead);
@@ -664,7 +686,7 @@ export default function CRMPage() {
               {getFilteredLeads()
                 .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
                 .map((lead, index) => (
-                  <Box key={lead.id}>
+                  <Box key={`${lead.id}-${index}-${lead.phone || 'no-phone'}`}>
                     <ListItemButton onClick={() => handleLeadClick(lead)} sx={{ py: 2 }}>
                       <ListItemIcon>
                         <Avatar sx={{ 
@@ -698,20 +720,20 @@ export default function CRMPage() {
                           </Box>
                         }
                         secondary={
-                          <Box>
-                            <Typography variant="body2" color="text.secondary">
+                          <span>
+                            <span style={{ display: 'block', fontSize: '0.875rem', color: 'rgba(255, 255, 255, 0.7)' }}>
                               📞 {lead.phone} • 📧 {lead.email || 'Não informado'}
-                            </Typography>
-                            <Typography variant="body2" color="text.secondary">
+                            </span>
+                            <span style={{ display: 'block', fontSize: '0.875rem', color: 'rgba(255, 255, 255, 0.7)' }}>
                               🏷️ {lead.source} • 💬 {lead.totalInteractions} interações • 
-                              🕒 {format(new Date(lead.lastContactDate), 'dd/MM/yyyy', { locale: ptBR })}
-                            </Typography>
+                              🕒 {formatSafeDate(lead.lastContactDate)}
+                            </span>
                             {lead.preferences.priceRange && (
-                              <Typography variant="body2" color="text.secondary">
+                              <span style={{ display: 'block', fontSize: '0.875rem', color: 'rgba(255, 255, 255, 0.7)' }}>
                                 💰 Orçamento: R$ {lead.preferences.priceRange.min.toLocaleString()} - R$ {lead.preferences.priceRange.max.toLocaleString()}
-                              </Typography>
+                              </span>
                             )}
-                          </Box>
+                          </span>
                         }
                       />
                       <Box sx={{ display: 'flex', gap: 1 }}>
