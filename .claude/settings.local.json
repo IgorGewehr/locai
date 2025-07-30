@@ -45,7 +45,8 @@
       "Bash(awk:*)",
       "Bash(rg:*)",
       "Bash(cp:*)",
-      "Bash(npx ts-node:*)"
+      "Bash(npx ts-node:*)",
+      "Bash(npx json-lint:*)"
     ],
     "deny": []
   }
