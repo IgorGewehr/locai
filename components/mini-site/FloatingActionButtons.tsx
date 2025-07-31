@@ -288,7 +288,7 @@ export default function FloatingActionButtons({
                   onClick={onBookmark}
                   sx={{
                     bgcolor: isBookmarked ? theme.palette.error.main : alpha(theme.palette.background.paper, 0.9),
-                    color: isBookmarked ? 'white' : theme.palette.text.primary,
+                    color: isBookmarked ? '#ffffff' : theme.palette.text.primary,
                     backdropFilter: 'blur(10px)',
                     '&:hover': {
                       bgcolor: isBookmarked ? theme.palette.error.dark : theme.palette.background.paper,
@@ -308,7 +308,7 @@ export default function FloatingActionButtons({
               sx={{
                 '& .MuiSpeedDial-fab': {
                   background: `linear-gradient(135deg, ${config.theme.primaryColor}, ${config.theme.accentColor})`,
-                  color: 'white',
+                  color: '#ffffff',
                   '&:hover': {
                     background: `linear-gradient(135deg, ${config.theme.primaryColor}, ${config.theme.accentColor})`,
                     transform: 'scale(1.1)',
@@ -332,7 +332,7 @@ export default function FloatingActionButtons({
                   sx={{
                     '& .MuiSpeedDialAction-fab': {
                       bgcolor: action.color,
-                      color: 'white',
+                      color: '#ffffff',
                       '&:hover': {
                         bgcolor: action.color,
                         transform: 'scale(1.1)',

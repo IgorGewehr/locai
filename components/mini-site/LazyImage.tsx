@@ -81,7 +81,7 @@ export default function LazyImage({
     borderRadius,
     overflow: 'hidden',
     position: 'relative' as const,
-    backgroundColor: alpha(theme.palette.grey[200], 0.5),
+    backgroundColor: 'rgba(255, 255, 255, 0.03)',
     ...(aspectRatio && {
       aspectRatio,
       height: 'auto',
@@ -96,9 +96,10 @@ export default function LazyImage({
       height="100%"
       sx={{
         borderRadius,
-        bgcolor: alpha(theme.palette.primary.main, 0.1),
+        bgcolor: 'rgba(139, 92, 246, 0.1)',
         '&::after': {
           animationDuration: '1.5s',
+          background: 'linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.04), transparent)',
         },
       }}
     />
@@ -112,11 +113,12 @@ export default function LazyImage({
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        backgroundColor: alpha(theme.palette.grey[300], 0.5),
-        color: alpha(theme.palette.text.secondary, 0.6),
+        backgroundColor: 'rgba(255, 255, 255, 0.05)',
+        color: 'rgba(255, 255, 255, 0.5)',
         fontSize: '0.875rem',
         textAlign: 'center',
         p: 2,
+        borderRadius,
       }}
     >
       Imagem não disponível

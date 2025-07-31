@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   Box,
   Typography,
@@ -73,16 +73,11 @@ export default function SettingsPage() {
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   
-  const [profileData, setProfileData] = useState({
-    displayName: user?.displayName || '',
-    email: user?.email || ''
-  });
-
-  const [passwordData, setPasswordData] = useState({
-    currentPassword: '',
-    newPassword: '',
-    confirmPassword: ''
-  });
+  // Use separate state for each field to prevent object recreation
+  const [displayName, setDisplayName] = useState(user?.displayName || '');
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
 
   const [whatsappSession, setWhatsappSession] = useState<WhatsAppSession>({
     connected: false,
@@ -97,17 +92,14 @@ export default function SettingsPage() {
     return () => clearInterval(interval);
   }, []);
 
-  // Update profile data when user changes
+  // Update display name when user changes
   useEffect(() => {
-    if (user) {
-      setProfileData({
-        displayName: user.displayName || '',
-        email: user.email || ''
-      });
+    if (user?.displayName !== displayName) {
+      setDisplayName(user?.displayName || '');
     }
-  }, [user]);
+  }, [user?.displayName, displayName]); // Include displayName in deps to avoid stale closures
 
-  const handleUpdateProfile = async () => {
+  const handleUpdateProfile = useCallback(async () => {
     if (!user || !auth.currentUser) return;
 
     setProfileLoading(true);
@@ -115,7 +107,7 @@ export default function SettingsPage() {
 
     try {
       await updateProfile(auth.currentUser, {
-        displayName: profileData.displayName
+        displayName: displayName
       });
 
       setSuccess('Perfil atualizado com sucesso!');
@@ -125,17 +117,17 @@ export default function SettingsPage() {
     } finally {
       setProfileLoading(false);
     }
-  };
+  }, [user, displayName]);
 
-  const handleUpdatePassword = async () => {
+  const handleUpdatePassword = useCallback(async () => {
     if (!user || !auth.currentUser) return;
 
-    if (passwordData.newPassword !== passwordData.confirmPassword) {
+    if (newPassword !== confirmPassword) {
       setError('A confirmação da senha não confere');
       return;
     }
 
-    if (passwordData.newPassword.length < 6) {
+    if (newPassword.length < 6) {
       setError('A nova senha deve ter pelo menos 6 caracteres');
       return;
     }
@@ -147,19 +139,17 @@ export default function SettingsPage() {
       // Re-authenticate user before changing password
       const credential = EmailAuthProvider.credential(
         auth.currentUser.email!,
-        passwordData.currentPassword
+        currentPassword
       );
       
       await reauthenticateWithCredential(auth.currentUser, credential);
-      await updatePassword(auth.currentUser, passwordData.newPassword);
+      await updatePassword(auth.currentUser, newPassword);
 
       setSuccess('Senha alterada com sucesso!');
       setEditingPassword(false);
-      setPasswordData({
-        currentPassword: '',
-        newPassword: '',
-        confirmPassword: ''
-      });
+      setCurrentPassword('');
+      setNewPassword('');
+      setConfirmPassword('');
     } catch (error: any) {
       if (error.code === 'auth/wrong-password') {
         setError('Senha atual incorreta');
@@ -169,7 +159,7 @@ export default function SettingsPage() {
     } finally {
       setProfileLoading(false);
     }
-  };
+  }, [user, currentPassword, newPassword, confirmPassword]);
 
   const checkWhatsAppStatus = async () => {
     try {
@@ -289,7 +279,7 @@ export default function SettingsPage() {
     }
   };
 
-  const getStatusIcon = () => {
+  const statusIcon = useMemo(() => {
     switch (whatsappSession.status) {
       case 'connected':
         return <CheckCircle sx={{ color: '#22c55e', fontSize: 24 }} />;
@@ -300,9 +290,9 @@ export default function SettingsPage() {
       default:
         return <QrCode sx={{ color: '#6b7280', fontSize: 24 }} />;
     }
-  };
+  }, [whatsappSession.status]);
 
-  const getStatusText = () => {
+  const statusText = useMemo(() => {
     switch (whatsappSession.status) {
       case 'connected':
         return 'Conectado';
@@ -313,9 +303,9 @@ export default function SettingsPage() {
       default:
         return 'Desconectado';
     }
-  };
+  }, [whatsappSession.status]);
 
-  const getStatusColor = () => {
+  const statusColor = useMemo(() => {
     switch (whatsappSession.status) {
       case 'connected':
         return '#22c55e';
@@ -326,7 +316,29 @@ export default function SettingsPage() {
       default:
         return '#6b7280';
     }
-  };
+  }, [whatsappSession.status]);
+
+  // Memoized input handlers to prevent re-renders
+  const handleDisplayNameChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    setDisplayName(e.target.value);
+  }, []);
+
+  const handleCurrentPasswordChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    setCurrentPassword(e.target.value);
+  }, []);
+
+  const handleNewPasswordChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    setNewPassword(e.target.value);
+  }, []);
+
+  const handleConfirmPasswordChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    setConfirmPassword(e.target.value);
+  }, []);
+
+  // Memoized validation
+  const passwordMismatch = useMemo(() => {
+    return confirmPassword.length > 0 && newPassword !== confirmPassword;
+  }, [confirmPassword, newPassword]);
 
   if (!isReady) {
     return (
@@ -438,8 +450,8 @@ export default function SettingsPage() {
                   <TextField
                     fullWidth
                     label="Nome de Exibição"
-                    value={profileData.displayName}
-                    onChange={(e) => setProfileData(prev => ({ ...prev, displayName: e.target.value }))}
+                    value={displayName}
+                    onChange={handleDisplayNameChange}
                     disabled={!editingProfile || profileLoading}
                     InputProps={{
                       startAdornment: (
@@ -453,7 +465,7 @@ export default function SettingsPage() {
                   <TextField
                     fullWidth
                     label="Email"
-                    value={profileData.email}
+                    value={user?.email || ''}
                     disabled
                     InputProps={{
                       startAdornment: (
@@ -489,10 +501,7 @@ export default function SettingsPage() {
                           variant="outlined"
                           onClick={() => {
                             setEditingProfile(false);
-                            setProfileData({
-                              displayName: user?.displayName || '',
-                              email: user?.email || ''
-                            });
+                            setDisplayName(user?.displayName || '');
                           }}
                           disabled={profileLoading}
                         >
@@ -528,8 +537,8 @@ export default function SettingsPage() {
                       fullWidth
                       label="Senha Atual"
                       type={showCurrentPassword ? 'text' : 'password'}
-                      value={passwordData.currentPassword}
-                      onChange={(e) => setPasswordData(prev => ({ ...prev, currentPassword: e.target.value }))}
+                      value={currentPassword}
+                      onChange={handleCurrentPasswordChange}
                       disabled={profileLoading}
                       InputProps={{
                         startAdornment: (
@@ -554,8 +563,8 @@ export default function SettingsPage() {
                       fullWidth
                       label="Nova Senha"
                       type={showNewPassword ? 'text' : 'password'}
-                      value={passwordData.newPassword}
-                      onChange={(e) => setPasswordData(prev => ({ ...prev, newPassword: e.target.value }))}
+                      value={newPassword}
+                      onChange={handleNewPasswordChange}
                       disabled={profileLoading}
                       InputProps={{
                         startAdornment: (
@@ -581,10 +590,10 @@ export default function SettingsPage() {
                       fullWidth
                       label="Confirmar Nova Senha"
                       type={showConfirmPassword ? 'text' : 'password'}
-                      value={passwordData.confirmPassword}
-                      onChange={(e) => setPasswordData(prev => ({ ...prev, confirmPassword: e.target.value }))}
+                      value={confirmPassword}
+                      onChange={handleConfirmPasswordChange}
                       disabled={profileLoading}
-                      error={passwordData.confirmPassword !== '' && passwordData.newPassword !== passwordData.confirmPassword}
+                      error={passwordMismatch}
                       InputProps={{
                         startAdornment: (
                           <InputAdornment position="start">
@@ -602,11 +611,7 @@ export default function SettingsPage() {
                           </InputAdornment>
                         ),
                       }}
-                      helperText={
-                        passwordData.confirmPassword !== '' && passwordData.newPassword !== passwordData.confirmPassword
-                          ? 'As senhas não conferem'
-                          : undefined
-                      }
+                      helperText={passwordMismatch ? 'As senhas não conferem' : undefined}
                     />
 
                     <Box sx={{ display: 'flex', gap: 1 }}>
@@ -616,10 +621,10 @@ export default function SettingsPage() {
                         onClick={handleUpdatePassword}
                         disabled={
                           profileLoading ||
-                          !passwordData.currentPassword ||
-                          !passwordData.newPassword ||
-                          !passwordData.confirmPassword ||
-                          passwordData.newPassword !== passwordData.confirmPassword
+                          !currentPassword ||
+                          !newPassword ||
+                          !confirmPassword ||
+                          newPassword !== confirmPassword
                         }
                       >
                         {profileLoading ? 'Alterando...' : 'Alterar Senha'}
@@ -628,11 +633,9 @@ export default function SettingsPage() {
                         variant="outlined"
                         onClick={() => {
                           setEditingPassword(false);
-                          setPasswordData({
-                            currentPassword: '',
-                            newPassword: '',
-                            confirmPassword: ''
-                          });
+                          setCurrentPassword('');
+                          setNewPassword('');
+                          setConfirmPassword('');
                         }}
                         disabled={profileLoading}
                       >
@@ -697,7 +700,7 @@ export default function SettingsPage() {
             sx={{ 
               mb: { xs: 3, sm: 4 },
               background: 'rgba(255, 255, 255, 0.03)',
-              border: `1px solid ${getStatusColor()}40`,
+              border: `1px solid ${statusColor}40`,
             }}
           >
             <CardContent sx={{ p: { xs: 2, sm: 3 } }}>
@@ -714,14 +717,14 @@ export default function SettingsPage() {
                   flexDirection: { xs: 'column', sm: 'row' },
                   gap: { xs: 1, sm: 0 },
                 }}>
-                  {getStatusIcon()}
+                  {statusIcon}
                   <Box sx={{ ml: { xs: 0, sm: 2 } }}>
                     <Typography 
                       variant="h6" 
                       fontWeight={600}
                       sx={{ fontSize: { xs: '1.125rem', sm: '1.25rem' } }}
                     >
-                      {getStatusText()}
+                      {statusText}
                     </Typography>
                     {whatsappSession.name && whatsappSession.phone && (
                       <Typography 
@@ -745,9 +748,9 @@ export default function SettingsPage() {
                     label={whatsappSession.connected ? 'Ativo' : 'Inativo'}
                     size="small"
                     sx={{
-                      backgroundColor: `${getStatusColor()}20`,
-                      color: getStatusColor(),
-                      border: `1px solid ${getStatusColor()}40`,
+                      backgroundColor: `${statusColor}20`,
+                      color: statusColor,
+                      border: `1px solid ${statusColor}40`,
                       fontWeight: 600,
                       fontSize: { xs: '0.75rem', sm: '0.8125rem' },
                     }}

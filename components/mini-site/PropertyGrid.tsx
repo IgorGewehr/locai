@@ -381,7 +381,7 @@ export default function PropertyGrid({ properties: initialProperties, config }: 
                     sx={{
                       ...(filters.amenities.includes(amenity) ? {
                         backgroundColor: config.theme.primaryColor,
-                        color: 'white',
+                        color: '#ffffff',
                       } : {
                         borderColor: alpha(config.theme.primaryColor, 0.3),
                         color: config.theme.primaryColor,

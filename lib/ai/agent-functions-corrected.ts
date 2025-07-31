@@ -7,8 +7,11 @@ import { reservationService } from '@/lib/services/reservation-service';
 import { clientServiceWrapper } from '@/lib/services/client-service';
 import { crmService } from '@/lib/services/crm-service';
 import { visitService } from '@/lib/services/visit-service';
-import { LeadStatus, LeadSource, InteractionType } from '@/lib/types/crm';
-import { VisitStatus, TimePreference } from '@/lib/types/visit-appointment';
+import { TenantServiceFactory } from '@/lib/services/tenant-service-factory';
+import { logger } from '@/lib/utils/logger';
+import { LeadStatus, LeadSource, InteractionType, type Lead } from '@/lib/types/crm';
+import { VisitStatus, TimePreference, type VisitAppointment } from '@/lib/types/visit-appointment';
+import type { Reservation } from '@/lib/types/reservation';
 
 // ===== TIPOS CORRIGIDOS =====
 
@@ -173,11 +176,18 @@ export class CorrectedAgentFunctions {
   
   static async searchProperties(args: any, tenantId: string): Promise<any> {
     try {
-      // Property search initiated
-      
-      // Buscar propriedades usando o service correto
-      const searchFilters = {
+      logger.info('Buscando propriedades', { 
+        args,
         tenantId,
+        component: 'CorrectedAgentFunctions',
+        function: 'searchProperties'
+      });
+      
+      // Usar tenant-scoped services
+      const services = TenantServiceFactory.getServices(tenantId);
+      
+      // Buscar propriedades usando tenant-scoped service
+      const searchFilters = {
         location: args.location,
         guests: args.guests,
         checkIn: args.checkIn ? new Date(args.checkIn) : undefined,
@@ -185,8 +195,38 @@ export class CorrectedAgentFunctions {
         maxPrice: args.budget
       };
       
-      let properties = await propertyService.searchProperties(searchFilters);
-      // Properties found successfully
+      let properties = await services.properties.getAll();
+      
+      // Filtrar propriedades ativas
+      properties = properties.filter(p => p.isActive);
+      
+      // Aplicar filtros de busca
+      if (args.location) {
+        properties = properties.filter(p => 
+          (p.city && p.city.toLowerCase().includes(args.location.toLowerCase())) ||
+          (p.neighborhood && p.neighborhood.toLowerCase().includes(args.location.toLowerCase())) ||
+          (p.address && p.address.toLowerCase().includes(args.location.toLowerCase()))
+        );
+      }
+      
+      if (args.guests) {
+        properties = properties.filter(p => 
+          (p.maxGuests && p.maxGuests >= args.guests) ||
+          (p.capacity && p.capacity >= args.guests)
+        );
+      }
+      
+      if (args.budget) {
+        properties = properties.filter(p => 
+          p.basePrice && p.basePrice <= args.budget
+        );
+      }
+      
+      logger.info('Propriedades filtradas', { 
+        totalFound: properties.length,
+        filters: searchFilters,
+        component: 'CorrectedAgentFunctions'
+      });
       
       if (properties.length === 0) {
         // Tentar busca sem filtros de localização se não encontrou nada
@@ -278,9 +318,17 @@ export class CorrectedAgentFunctions {
 
   static async sendPropertyMedia(args: any, tenantId: string): Promise<any> {
     try {
-      // Property media sending initiated
+      logger.info('Enviando mídia da propriedade', { 
+        propertyId: args.propertyId,
+        tenantId,
+        component: 'CorrectedAgentFunctions',
+        function: 'sendPropertyMedia'
+      });
       
-      const property = await propertyService.getById(args.propertyId);
+      // Usar tenant-scoped services
+      const services = TenantServiceFactory.getServices(tenantId);
+      
+      const property = await services.properties.getById(args.propertyId);
       
       if (!property) {
         return {
@@ -362,9 +410,17 @@ export class CorrectedAgentFunctions {
 
   static async getPropertyDetails(args: any, tenantId: string): Promise<any> {
     try {
-      // Property details search initiated
+      logger.info('Obtendo detalhes da propriedade', { 
+        propertyId: args.propertyId,
+        tenantId,
+        component: 'CorrectedAgentFunctions',
+        function: 'getPropertyDetails'
+      });
       
-      const property = await propertyService.getById(args.propertyId);
+      // Usar tenant-scoped services
+      const services = TenantServiceFactory.getServices(tenantId);
+      
+      const property = await services.properties.getById(args.propertyId);
       
       if (!property) {
         return {
@@ -423,7 +479,12 @@ export class CorrectedAgentFunctions {
 
   static async calculatePrice(args: any, tenantId: string): Promise<any> {
     try {
-      console.log(`💰 [PRICE] Calculando preço dinâmico:`, args);
+      logger.info('Calculando preço dinâmico', { 
+        args,
+        tenantId,
+        component: 'CorrectedAgentFunctions',
+        function: 'calculatePrice'
+      });
       
       // Validar parâmetros obrigatórios
       if (!args.propertyId || !args.checkIn || !args.checkOut) {
@@ -434,11 +495,18 @@ export class CorrectedAgentFunctions {
         };
       }
       
+      // Usar tenant-scoped services
+      const services = TenantServiceFactory.getServices(tenantId);
+      
       // Buscar propriedade
-      const property = await propertyService.getById(args.propertyId);
+      const property = await services.properties.getById(args.propertyId);
       
       if (!property) {
-        console.log(`❌ [PRICE] Propriedade ${args.propertyId} não encontrada`);
+        logger.warn('Propriedade não encontrada para cálculo de preço', { 
+          propertyId: args.propertyId,
+          tenantId,
+          component: 'CorrectedAgentFunctions'
+        });
         return {
           success: false,
           message: `Propriedade com ID ${args.propertyId} não encontrada`,
@@ -446,7 +514,11 @@ export class CorrectedAgentFunctions {
         };
       }
 
-      console.log(`✅ [PRICE] Propriedade encontrada: ${property.title || 'Sem nome'} (ID: ${property.id})`);
+      logger.info('Propriedade encontrada para cálculo', { 
+        propertyId: property.id,
+        propertyName: property.title || property.name || 'Sem nome',
+        component: 'CorrectedAgentFunctions'
+      });
 
       // Calcular número de noites
       const checkIn = new Date(args.checkIn);
@@ -584,7 +656,13 @@ export class CorrectedAgentFunctions {
         }
       }
 
-      console.log(`✅ [PRICE] Cálculo dinâmico: R$${total} para ${nights} noites (média: R$${calculation.averageDailyPrice}/dia)`);
+      logger.info('Cálculo de preço concluído', { 
+        propertyId: args.propertyId,
+        total,
+        nights,
+        averageDailyPrice: calculation.averageDailyPrice,
+        component: 'CorrectedAgentFunctions'
+      });
 
       return {
         success: true,
@@ -593,7 +671,14 @@ export class CorrectedAgentFunctions {
       };
 
     } catch (error) {
-      // Price calculation error handled
+      logger.error('Erro ao calcular preço', { 
+        error,
+        args,
+        tenantId,
+        component: 'CorrectedAgentFunctions',
+        function: 'calculatePrice'
+      });
+      
       return {
         success: false,
         message: 'Erro interno ao calcular preço: ' + (error instanceof Error ? error.message : 'Erro desconhecido'),
@@ -604,56 +689,121 @@ export class CorrectedAgentFunctions {
 
   static async registerClient(args: any, tenantId: string): Promise<any> {
     try {
-      console.log(`👤 [CLIENT] Registrando cliente:`, { name: args.name, phone: args.phone });
-      
-      // Filtrar campos undefined para evitar erro no Firebase
-      const clientData: any = {
-        name: args.name,
+      logger.info('Registrando cliente/lead', { 
+        name: args.name, 
         phone: args.phone,
         tenantId,
-        source: 'whatsapp'
-      };
+        component: 'CorrectedAgentFunctions',
+        function: 'registerClient'
+      });
       
-      // Adicionar campos opcionais apenas se não forem undefined
-      if (args.email && args.email.trim() !== '') {
-        clientData.email = args.email;
-      }
-      // CPF agora é obrigatório
-      if (!args.document || args.document.trim() === '') {
+      // Usar tenant-scoped services
+      const services = TenantServiceFactory.getServices(tenantId);
+      
+      // Verificar se lead já existe
+      const existingLead = await services.leads.getWhere('phone', '==', args.phone);
+      
+      if (existingLead.length > 0) {
+        // Lead já existe, atualizar dados se necessário
+        const lead = existingLead[0];
+        
+        const updates: Partial<Lead> = {
+          name: args.name || lead.name,
+          email: args.email || lead.email,
+          document: args.document || lead.document,
+          documentType: 'cpf',
+          updatedAt: new Date()
+        };
+        
+        // Adicionar fonte e temperatura se necessário
+        if (!lead.source || lead.source !== 'whatsapp_ai') {
+          updates.source = args.source || 'whatsapp_ai';
+        }
+        
+        if (args.temperature && ['hot', 'warm', 'cold'].includes(args.temperature)) {
+          updates.temperature = args.temperature;
+        }
+        
+        await services.leads.update(lead.id!, updates);
+        
+        logger.info('Lead existente atualizado', { 
+          leadId: lead.id,
+          updates,
+          component: 'CorrectedAgentFunctions'
+        });
+        
         return {
-          success: false,
-          message: 'CPF é obrigatório para cadastro do cliente',
-          client: null
+          success: true,
+          client: lead.id!, // Retornar ID para compatibilidade
+          clientData: { ...lead, ...updates },
+          message: 'Cliente atualizado com sucesso!',
+          isExisting: true
         };
       }
-      clientData.document = args.document;
-      clientData.documentType = 'cpf'; // padrão CPF para pessoa física
-
-      const client = await clientServiceWrapper.createOrUpdate(clientData);
       
-      console.log(`✅ [CLIENT] Cliente registrado com ID: ${client.id}`);
-      console.log(`🔍 [CLIENT] DEBUG - Tipo do client:`, typeof client);
-      console.log(`🔍 [CLIENT] DEBUG - Client.id:`, client.id);
-
+      // Criar novo Lead
+      const leadData: Omit<Lead, 'id'> = {
+        name: args.name,
+        phone: args.phone,
+        email: args.email || undefined,
+        document: args.document,
+        documentType: 'cpf',
+        source: (args.source as LeadSource) || LeadSource.WHATSAPP_AI,
+        status: LeadStatus.NEW,
+        temperature: (args.temperature as 'hot' | 'warm' | 'cold') || 'warm',
+        score: 60,
+        qualificationCriteria: {
+          budget: false,
+          authority: false,
+          need: false,
+          timeline: false
+        },
+        preferences: {
+          propertyType: [],
+          locations: [],
+          amenities: [],
+          priceRange: {}
+        },
+        tags: ['whatsapp', 'ai-agent'],
+        firstContactDate: new Date(),
+        lastContactDate: new Date(),
+        totalInteractions: 0,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      };
+      
+      // Adicionar interesses se fornecidos
+      if (args.interests) {
+        leadData.notes = args.interests;
+        leadData.tags = [...(leadData.tags || []), 'has-interests'];
+      }
+      
+      const createdLead = await services.leads.create(leadData);
+      
+      logger.info('Novo lead criado', { 
+        leadId: createdLead.id,
+        name: args.name,
+        phone: args.phone,
+        component: 'CorrectedAgentFunctions'
+      });
+      
       return {
         success: true,
-        client: client.id, // RETORNAR APENAS O ID STRING
-        clientData: { // Dados completos em campo separado se necessário
-          id: client.id,
-          name: client.name,
-          phone: client.phone,
-          email: client.email || undefined,
-          document: client.document || undefined,
-          tenantId: client.tenantId,
-          source: client.source || 'whatsapp',
-          createdAt: client.createdAt,
-          isActive: client.isActive
-        },
-        message: 'Cliente registrado com sucesso!'
+        client: createdLead.id!, // Retornar ID para compatibilidade 
+        clientData: createdLead,
+        message: 'Cliente registrado com sucesso no CRM!',
+        isExisting: false
       };
 
     } catch (error) {
-      // Client registration error handled
+      logger.error('Erro ao registrar cliente/lead', { 
+        error,
+        args,
+        tenantId,
+        component: 'CorrectedAgentFunctions',
+        function: 'registerClient'
+      });
+      
       return {
         success: false,
         message: 'Erro ao registrar cliente: ' + (error instanceof Error ? error.message : 'Erro desconhecido'),
@@ -664,12 +814,20 @@ export class CorrectedAgentFunctions {
 
   static async checkVisitAvailability(args: any, tenantId: string): Promise<any> {
     try {
-      console.log(`📅 [VISIT AVAILABILITY] Verificando disponibilidade para visitas:`, args);
+      logger.info('Verificando disponibilidade para visitas', { 
+        args,
+        tenantId,
+        component: 'CorrectedAgentFunctions',
+        function: 'checkVisitAvailability'
+      });
       
       const startDate = args.startDate ? new Date(args.startDate) : new Date();
       const days = args.days || 7;
       const endDate = new Date(startDate);
       endDate.setDate(endDate.getDate() + days);
+      
+      // Usar tenant-scoped services
+      const services = TenantServiceFactory.getServices(tenantId);
       
       // Converter preferência de horário para enum
       const preferredTimes: string[] = [];
@@ -687,12 +845,31 @@ export class CorrectedAgentFunctions {
         }
       }
       
-      // Usar o serviço real de visitas para verificar disponibilidade
-      const availableSlots = await visitService.checkAvailability(tenantId, {
-        startDate,
-        endDate,
-        preferredTimes: preferredTimes.length > 0 ? preferredTimes : undefined
-      });
+      // Verificar disponibilidade de visitas
+      // Como não temos serviço completo de visitas ainda, simular slots disponíveis
+      let availableSlots: any[] = [];
+      
+      try {
+        // Tentar usar serviço de visitas se disponível
+        if (services.visits && typeof services.visits.checkAvailability === 'function') {
+          availableSlots = await services.visits.checkAvailability({
+            startDate,
+            endDate,
+            preferredTimes: preferredTimes.length > 0 ? preferredTimes : undefined
+          });
+        } else {
+          // Gerar slots simulados
+          availableSlots = this.generateMockAvailableSlots(startDate, days, args.timePreference);
+        }
+      } catch (visitServiceError) {
+        logger.warn('Serviço de visitas não disponível, usando slots simulados', { 
+          error: visitServiceError,
+          component: 'CorrectedAgentFunctions'
+        });
+        
+        // Gerar slots simulados como fallback
+        availableSlots = this.generateMockAvailableSlots(startDate, days, args.timePreference);
+      }
       
       if (availableSlots.length === 0) {
         return {
@@ -719,7 +896,13 @@ export class CorrectedAgentFunctions {
         duration: slot.duration
       }));
       
-      console.log(`✅ [VISIT AVAILABILITY] ${formattedSlots.length} horários disponíveis encontrados`);
+      logger.info('Horários de visita encontrados', { 
+        totalSlots: formattedSlots.length,
+        startDate: startDate.toISOString().split('T')[0],
+        days,
+        timePreference: args.timePreference,
+        component: 'CorrectedAgentFunctions'
+      });
       
       return {
         success: true,
@@ -733,7 +916,14 @@ export class CorrectedAgentFunctions {
       };
       
     } catch (error) {
-      console.error('❌ [VISIT AVAILABILITY] Erro ao verificar disponibilidade:', error);
+      logger.error('Erro ao verificar disponibilidade de visitas', { 
+        error,
+        args,
+        tenantId,
+        component: 'CorrectedAgentFunctions',
+        function: 'checkVisitAvailability'
+      });
+      
       return {
         success: false,
         message: 'Erro ao verificar disponibilidade para visitas',
@@ -783,9 +973,39 @@ export class CorrectedAgentFunctions {
     return 'Outro';
   }
 
+  private static generateMockAvailableSlots(startDate: Date, days: number, timePreference?: string): any[] {
+    const slots = [];
+    const currentDate = new Date(startDate);
+    
+    for (let day = 0; day < days; day++) {
+      // Pular domingos (dia 0)
+      if (currentDate.getDay() !== 0) {
+        const availableTimes = this.generateTimeSlots('09:00', '18:00', timePreference);
+        
+        availableTimes.forEach(time => {
+          slots.push({
+            date: new Date(currentDate),
+            time,
+            duration: 60,
+            agentName: 'Consultor Disponível'
+          });
+        });
+      }
+      
+      currentDate.setDate(currentDate.getDate() + 1);
+    }
+    
+    return slots.slice(0, 15); // Limitar a 15 slots
+  }
+
   static async scheduleVisit(args: any, tenantId: string): Promise<any> {
     try {
-      console.log(`🏠 [VISIT] Agendando visita:`, args);
+      logger.info('Agendando visita presencial', { 
+        args,
+        tenantId,
+        component: 'CorrectedAgentFunctions',
+        function: 'scheduleVisit'
+      });
       
       // Validar dados obrigatórios
       if (!args.clientId || !args.propertyId || !args.visitDate || !args.visitTime) {
@@ -796,8 +1016,11 @@ export class CorrectedAgentFunctions {
         };
       }
 
+      // Usar tenant-scoped services
+      const services = TenantServiceFactory.getServices(tenantId);
+
       // 1. Verificar se propriedade existe e está ativa
-      const property = await propertyService.getById(args.propertyId);
+      const property = await services.properties.getById(args.propertyId);
       if (!property || !property.isActive) {
         return {
           success: false,
@@ -806,12 +1029,12 @@ export class CorrectedAgentFunctions {
         };
       }
 
-      // 2. Buscar dados do cliente
-      const client = await clientServiceWrapper.getById(args.clientId);
-      if (!client) {
+      // 2. Buscar dados do Lead (cliente)
+      const lead = await services.leads.getById(args.clientId);
+      if (!lead) {
         return {
           success: false,
-          message: 'Cliente não encontrado',
+          message: 'Cliente não encontrado no CRM',
           visit: null
         };
       }
@@ -828,74 +1051,72 @@ export class CorrectedAgentFunctions {
         };
       }
 
-      // 4. Criar visita no banco usando o serviço
-      const visitData = {
+      // 4. Criar visita usando modelo VisitAppointment completo
+      const visitData: Omit<VisitAppointment, 'id'> = {
         tenantId,
         clientId: args.clientId,
-        clientName: client.name,
-        clientPhone: client.phone,
+        clientName: lead.name,
+        clientPhone: lead.phone,
         propertyId: args.propertyId,
-        propertyName: property.title || 'Propriedade',
+        propertyName: property.title || property.name || 'Propriedade',
         propertyAddress: property.address || '',
         scheduledDate: new Date(args.visitDate),
         scheduledTime: args.visitTime,
-        duration: 60, // Duração padrão de 60 minutos
+        duration: args.duration || 60, // Duração padrão de 60 minutos
         status: VisitStatus.SCHEDULED,
         notes: args.notes || '',
-        clientRequests: args.notes ? [args.notes] : [],
+        clientRequests: args.clientRequests || (args.notes ? [args.notes] : []),
         confirmedByClient: true, // Cliente confirmou ao agendar via WhatsApp
         confirmedByAgent: false, // Aguardando confirmação da imobiliária
-        source: 'whatsapp' as const,
+        source: (args.source as 'whatsapp' | 'website' | 'phone' | 'manual') || 'whatsapp',
         createdAt: new Date(),
         updatedAt: new Date()
       };
 
-      // Salvar no Firebase
-      const createdVisit = await visitService.createVisit(visitData);
+      // Salvar no Firebase usando tenant-scoped service
+      const createdVisit = await services.visits.create(visitData);
       
-      console.log(`✅ [VISIT] Visita agendada com ID: ${createdVisit.id}`);
+      logger.info('Visita agendada com sucesso', { 
+        visitId: createdVisit.id,
+        clientId: args.clientId,
+        propertyId: args.propertyId,
+        visitDate: args.visitDate,
+        visitTime: args.visitTime,
+        component: 'CorrectedAgentFunctions'
+      });
 
-      // Atualizar lead no CRM se existir
+      // 5. Atualizar Lead no CRM
       try {
-        const lead = await crmService.getLeadByPhone(client.phone);
-        if (lead) {
-          await crmService.updateLead(lead.id, {
-            status: LeadStatus.OPPORTUNITY,
-            temperature: 'hot',
-            score: Math.max(lead.score, 85),
-            lastContactDate: new Date()
-          });
-          
-          // Criar interação no CRM
-          await crmService.createInteraction({
-            leadId: lead.id,
-            tenantId,
-            type: InteractionType.MEETING,
-            channel: 'whatsapp',
-            direction: 'inbound',
-            content: `Visita agendada para ${property.title} em ${new Date(args.visitDate).toLocaleDateString('pt-BR')} às ${args.visitTime}`,
-            userId: 'ai-agent',
-            userName: 'AI Agent',
-            metadata: {
-              visitId: createdVisit.id,
-              propertyId: args.propertyId,
-              visitDate: args.visitDate,
-              visitTime: args.visitTime
-            }
-          });
-        }
+        await services.leads.update(lead.id!, {
+          status: LeadStatus.OPPORTUNITY,
+          temperature: 'hot',
+          score: Math.max(lead.score, 85),
+          lastContactDate: new Date(),
+          updatedAt: new Date()
+        });
+        
+        logger.info('Lead atualizado após agendamento de visita', { 
+          leadId: lead.id,
+          newStatus: LeadStatus.OPPORTUNITY,
+          component: 'CorrectedAgentFunctions'
+        });
+        
       } catch (crmError) {
-        console.error('⚠️ [VISIT] Erro ao atualizar CRM:', crmError);
+        logger.error('Erro ao atualizar Lead após visita', { 
+          error: crmError,
+          leadId: lead.id,
+          component: 'CorrectedAgentFunctions'
+        });
         // Não falhar a visita por erro no CRM
       }
 
       return {
         success: true,
         visit: {
-          id: createdVisit.id,
+          id: createdVisit.id!,
           ...visitData
         },
-        message: `✅ Visita agendada com sucesso!\n📅 ${new Date(args.visitDate).toLocaleDateString('pt-BR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })} às ${args.visitTime}\n🏠 ${property.title || 'Propriedade'}\n📍 ${property.address}\n\nEm breve nosso consultor entrará em contato para confirmar! 📞`,
+        message: `✅ Visita agendada com sucesso!\n📅 ${new Date(args.visitDate).toLocaleDateString('pt-BR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })} às ${args.visitTime}\n🏠 ${property.title || property.name || 'Propriedade'}\n📍 ${property.address}\n\nEm breve nosso consultor entrará em contato para confirmar! 📞`,
         confirmationDetails: {
           visitId: createdVisit.id,
           date: args.visitDate,
@@ -906,7 +1127,7 @@ export class CorrectedAgentFunctions {
             day: 'numeric' 
           }),
           time: args.visitTime,
-          property: property.title || 'Propriedade',
+          property: property.title || property.name || 'Propriedade',
           address: property.address,
           neighborhood: property.neighborhood,
           contact: 'Nosso consultor entrará em contato para confirmar'
@@ -914,7 +1135,14 @@ export class CorrectedAgentFunctions {
       };
 
     } catch (error) {
-      console.error('❌ [VISIT] Erro ao agendar visita:', error);
+      logger.error('Erro ao agendar visita', { 
+        error,
+        args,
+        tenantId,
+        component: 'CorrectedAgentFunctions',
+        function: 'scheduleVisit'
+      });
+      
       return {
         success: false,
         message: 'Erro ao agendar visita: ' + (error instanceof Error ? error.message : 'Erro desconhecido'),
@@ -925,7 +1153,12 @@ export class CorrectedAgentFunctions {
 
   static async createReservation(args: any, tenantId: string): Promise<any> {
     try {
-      console.log(`📅 [RESERVATION] Criando reserva:`, args);
+      logger.info('Criando nova reserva', { 
+        args,
+        tenantId,
+        component: 'CorrectedAgentFunctions',
+        function: 'createReservation'
+      });
       
       // Validar dados obrigatórios
       if (!args.clientId || !args.propertyId || !args.checkIn || !args.checkOut) {
@@ -936,8 +1169,11 @@ export class CorrectedAgentFunctions {
         };
       }
 
+      // Usar tenant-scoped services
+      const services = TenantServiceFactory.getServices(tenantId);
+
       // 1. Verificar se propriedade existe e está ativa
-      const property = await propertyService.getById(args.propertyId);
+      const property = await services.properties.getById(args.propertyId);
       if (!property || !property.isActive) {
         return {
           success: false,
@@ -983,9 +1219,9 @@ export class CorrectedAgentFunctions {
       }
 
       // 3. Verificar conflitos com reservas existentes
-      const existingReservations = await reservationService.getWhere('propertyId', '==', args.propertyId);
+      const existingReservations = await services.reservations.getWhere('propertyId', '==', args.propertyId);
       const activeReservations = existingReservations.filter(r => 
-        r.status !== 'cancelled' && r.tenantId === tenantId
+        r.status !== 'cancelled'
       );
       
       for (const existingReservation of activeReservations) {
@@ -1007,24 +1243,24 @@ export class CorrectedAgentFunctions {
         }
       }
 
-      // 4. Criar reserva
-      const reservationData = {
-        tenantId,
+      // 4. Criar reserva usando modelo Reservation atualizado
+      const reservationData: Omit<Reservation, 'id'> = {
         propertyId: args.propertyId,
         clientId: args.clientId,
         checkIn,
         checkOut,
         guests: args.guests,
-        totalPrice: args.totalPrice,
-        status: 'confirmed' as const,
-        paymentStatus: 'pending' as const,
-        notes: args.notes || '',
+        nights,
+        totalAmount: args.totalPrice,
+        status: (args.status as any) || 'pending',
+        paymentMethod: args.paymentMethod || 'pix',
+        observations: args.notes || args.observations || '',
         source: 'whatsapp',
         createdAt: new Date(),
         updatedAt: new Date()
       };
 
-      const reservation = await reservationService.create(reservationData);
+      const reservation = await services.reservations.create(reservationData);
       
       // 5. ATUALIZAR DISPONIBILIDADE DA PROPRIEDADE
       try {
@@ -1040,7 +1276,7 @@ export class CorrectedAgentFunctions {
         }
         
         // Atualizar propriedade
-        await propertyService.update(args.propertyId, {
+        await services.properties.update(args.propertyId, {
           unavailableDates: newUnavailableDates,
           updatedAt: new Date()
         });
@@ -1090,7 +1326,14 @@ export class CorrectedAgentFunctions {
 
   static async classifyLeadStatus(args: any, tenantId: string): Promise<any> {
     try {
-      console.log(`🤖 [LEAD CLASSIFICATION] Classificando lead:`, args);
+      logger.info('Classificando status do Lead', { 
+        clientPhone: args.clientPhone,
+        conversationOutcome: args.conversationOutcome,
+        reason: args.reason,
+        tenantId,
+        component: 'CorrectedAgentFunctions',
+        function: 'classifyLeadStatus'
+      });
       
       // Validar dados obrigatórios
       if (!args.clientPhone || !args.conversationOutcome || !args.reason) {
@@ -1101,17 +1344,23 @@ export class CorrectedAgentFunctions {
         };
       }
 
+      // Usar tenant-scoped services
+      const services = TenantServiceFactory.getServices(tenantId);
+
       // 1. Buscar lead existente pelo telefone
-      let lead = await crmService.getLeadByPhone(args.clientPhone);
+      const existingLeads = await services.leads.getWhere('phone', '==', args.clientPhone);
+      let lead = existingLeads.length > 0 ? existingLeads[0] : null;
       
       if (!lead) {
         // Criar novo lead se não existir
-        console.log(`📱 [LEAD CLASSIFICATION] Criando novo lead para ${args.clientPhone}`);
-        lead = await crmService.createLead({
-          tenantId,
+        logger.info('Criando novo lead para classificação', { 
+          clientPhone: args.clientPhone,
+          component: 'CorrectedAgentFunctions'
+        });
+        
+        const newLeadData: Omit<Lead, 'id'> = {
           name: args.clientPhone, // Será atualizado quando obtivermos o nome
           phone: args.clientPhone,
-          whatsappNumber: args.clientPhone,
           status: LeadStatus.NEW,
           source: LeadSource.WHATSAPP_AI,
           score: 60,
@@ -1122,12 +1371,21 @@ export class CorrectedAgentFunctions {
             need: false,
             timeline: false
           },
-          preferences: {},
+          preferences: {
+            propertyType: [],
+            locations: [],
+            amenities: [],
+            priceRange: {}
+          },
+          tags: ['whatsapp', 'ai-classified'],
           firstContactDate: new Date(),
           lastContactDate: new Date(),
           totalInteractions: 0,
-          tags: ['whatsapp', 'ai-classified']
-        });
+          createdAt: new Date(),
+          updatedAt: new Date()
+        };
+        
+        lead = await services.leads.create(newLeadData);
       }
 
       // 2. Mapear outcome para status do CRM
@@ -1183,18 +1441,29 @@ export class CorrectedAgentFunctions {
           temperature = 'warm';
       }
 
+      // Usar newStatus do parâmetro se fornecido
+      if (args.newStatus && Object.values(LeadStatus).includes(args.newStatus)) {
+        newStatus = args.newStatus;
+      }
+      
+      // Usar temperature do parâmetro se fornecido
+      if (args.temperature && ['hot', 'warm', 'cold'].includes(args.temperature)) {
+        temperature = args.temperature;
+      }
+
       // 3. Preparar updates baseados no metadata
-      const updates: Partial<any> = {
+      const updates: Partial<Lead> = {
         status: newStatus,
         temperature,
         score,
-        lastContactDate: new Date()
+        lastContactDate: new Date(),
+        updatedAt: new Date()
       };
 
-      // Adicionar metadata específico se fornecido
+      // Processar metadata se fornecido
       if (args.metadata) {
         if (args.metadata.propertiesViewed?.length > 0) {
-          updates.tags = [...(lead.tags || []), 'viewed-properties'];
+          updates.tags = [...new Set([...(lead.tags || []), 'viewed-properties'])];
           // Aumentar score se visualizou propriedades
           updates.score = Math.min(100, (updates.score || score) + 10);
         }
@@ -1215,44 +1484,34 @@ export class CorrectedAgentFunctions {
         
         if (args.metadata.visitDate) {
           updates.preferences = {
-            ...lead.preferences,
+            ...updates.preferences || lead.preferences,
             moveInDate: new Date(args.metadata.visitDate)
           };
           updates.qualificationCriteria = {
-            ...lead.qualificationCriteria,
+            ...updates.qualificationCriteria || lead.qualificationCriteria,
             timeline: true
           };
         }
 
         if (args.metadata.objections?.length > 0) {
-          updates.tags = [...(lead.tags || []), 'has-objections'];
+          updates.tags = [...new Set([...(updates.tags || lead.tags || []), 'has-objections'])];
         }
       }
 
       // 4. Atualizar lead no CRM
-      const updatedLead = await crmService.updateLead(lead.id, updates);
+      await services.leads.update(lead.id!, updates);
 
-      // 5. Criar interação para registrar a classificação
-      await crmService.createInteraction({
+      logger.info('Lead classificado com sucesso', { 
         leadId: lead.id,
-        tenantId,
-        type: InteractionType.NOTE,
-        channel: 'whatsapp',
-        direction: 'inbound',
-        content: `IA classificou lead como: ${args.conversationOutcome}. Razão: ${args.reason}`,
-        userId: 'ai-classifier',
-        userName: 'AI Classifier',
-        aiAnalysis: {
-          summary: `Lead classificado automaticamente baseado no outcome: ${args.conversationOutcome}`,
-          keyPoints: [args.reason],
-          sentiment: args.conversationOutcome === 'lost_interest' ? -0.8 : 
-                    args.conversationOutcome === 'deal_closed' ? 0.9 : 0.5,
-          intent: [args.conversationOutcome],
-          suggestedActions: this.getSuggestedActionsForOutcome(args.conversationOutcome)
-        }
+        oldStatus: lead.status,
+        newStatus,
+        oldTemperature: lead.temperature,
+        newTemperature: temperature,
+        oldScore: lead.score,
+        newScore: updates.score,
+        outcome: args.conversationOutcome,
+        component: 'CorrectedAgentFunctions'
       });
-
-      console.log(`✅ [LEAD CLASSIFICATION] Lead ${lead.id} classificado como ${newStatus} (${temperature}, score: ${updates.score})`);
 
       return {
         success: true,
@@ -1272,7 +1531,14 @@ export class CorrectedAgentFunctions {
       };
 
     } catch (error) {
-      console.error('❌ [LEAD CLASSIFICATION] Erro ao classificar lead:', error);
+      logger.error('Erro ao classificar lead', { 
+        error,
+        args,
+        tenantId,
+        component: 'CorrectedAgentFunctions',
+        function: 'classifyLeadStatus'
+      });
+      
       return {
         success: false,
         message: 'Erro ao classificar lead: ' + (error instanceof Error ? error.message : 'Erro desconhecido'),

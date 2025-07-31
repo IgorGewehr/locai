@@ -458,7 +458,7 @@ export default function EnhancedFooter({ config, onScrollTop }: EnhancedFooterPr
                           color: social.color,
                           '&:hover': {
                             bgcolor: social.color,
-                            color: 'white',
+                            color: '#ffffff',
                             transform: 'translateY(-2px)',
                           },
                           transition: 'all 0.3s ease',
@@ -644,7 +644,7 @@ export default function EnhancedFooter({ config, onScrollTop }: EnhancedFooterPr
                     color: config.theme.primaryColor,
                     '&:hover': {
                       bgcolor: config.theme.primaryColor,
-                      color: 'white',
+                      color: '#ffffff',
                       transform: 'translateY(-2px)',
                     },
                     transition: 'all 0.3s ease',

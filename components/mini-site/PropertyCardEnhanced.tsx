@@ -340,7 +340,7 @@ export default function PropertyCardEnhanced({
                       top: '50%',
                       transform: 'translateY(-50%)',
                       bgcolor: alpha(theme.palette.common.black, 0.5),
-                      color: 'white',
+                      color: '#ffffff',
                       '&:hover': {
                         bgcolor: alpha(theme.palette.common.black, 0.7),
                       },
@@ -356,7 +356,7 @@ export default function PropertyCardEnhanced({
                       top: '50%',
                       transform: 'translateY(-50%)',
                       bgcolor: alpha(theme.palette.common.black, 0.5),
-                      color: 'white',
+                      color: '#ffffff',
                       '&:hover': {
                         bgcolor: alpha(theme.palette.common.black, 0.7),
                       },
@@ -388,7 +388,7 @@ export default function PropertyCardEnhanced({
                     icon={<Star sx={{ fontSize: 16 }} />}
                     sx={{
                       bgcolor: alpha(theme.palette.warning.main, 0.9),
-                      color: 'white',
+                      color: '#ffffff',
                       fontWeight: 600,
                       backdropFilter: 'blur(8px)',
                     }}
@@ -400,7 +400,7 @@ export default function PropertyCardEnhanced({
                     size="small"
                     sx={{
                       bgcolor: alpha(theme.palette.error.main, 0.9),
-                      color: 'white',
+                      color: '#ffffff',
                       fontWeight: 700,
                       backdropFilter: 'blur(8px)',
                     }}
@@ -413,7 +413,7 @@ export default function PropertyCardEnhanced({
                     icon={<CheckCircle sx={{ fontSize: 16 }} />}
                     sx={{
                       bgcolor: alpha(theme.palette.success.main, 0.9),
-                      color: 'white',
+                      color: '#ffffff',
                       fontWeight: 600,
                       backdropFilter: 'blur(8px)',
                     }}
@@ -472,7 +472,7 @@ export default function PropertyCardEnhanced({
                     icon={<PhotoCamera sx={{ fontSize: 16 }} />}
                     sx={{
                       bgcolor: alpha(theme.palette.common.black, 0.7),
-                      color: 'white',
+                      color: '#ffffff',
                       backdropFilter: 'blur(8px)',
                     }}
                   />
@@ -484,7 +484,7 @@ export default function PropertyCardEnhanced({
                     icon={<Videocam sx={{ fontSize: 16 }} />}
                     sx={{
                       bgcolor: alpha(theme.palette.common.black, 0.7),
-                      color: 'white',
+                      color: '#ffffff',
                       backdropFilter: 'blur(8px)',
                     }}
                   />
@@ -496,7 +496,7 @@ export default function PropertyCardEnhanced({
                     icon={<ThreeSixty sx={{ fontSize: 16 }} />}
                     sx={{
                       bgcolor: alpha(theme.palette.common.black, 0.7),
-                      color: 'white',
+                      color: '#ffffff',
                       backdropFilter: 'blur(8px)',
                     }}
                   />

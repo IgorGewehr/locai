@@ -111,6 +111,16 @@ const navigationItems: NavigationItem[] = [
     icon: <GroupWork sx={{ fontSize: 20 }} />,
   },
   {
+    text: 'Clientes',
+    href: '/dashboard/clients',
+    icon: <People sx={{ fontSize: 20 }} />,
+  },
+  {
+    text: 'Métricas',
+    href: '/dashboard/metrics',
+    icon: <Assessment sx={{ fontSize: 20 }} />,
+  },
+  {
     text: 'Financeiro',
     href: '/dashboard/financeiro',
     icon: <AccountBalance sx={{ fontSize: 20 }} />,

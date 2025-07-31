@@ -197,11 +197,11 @@ export default function PropertyDetailView({ property, config }: PropertyDetailV
                 left: 16,
                 top: '50%',
                 transform: 'translateY(-50%)',
-                backgroundColor: alpha('white', 0.9),
+                backgroundColor: alpha('#ffffff', 0.9),
                 color: config.theme.primaryColor,
                 zIndex: 2,
                 '&:hover': {
-                  backgroundColor: 'white',
+                  backgroundColor: '#ffffff',
                 },
               }}
               onClick={(e) => {
@@ -217,11 +217,11 @@ export default function PropertyDetailView({ property, config }: PropertyDetailV
                 right: 16,
                 top: '50%',
                 transform: 'translateY(-50%)',
-                backgroundColor: alpha('white', 0.9),
+                backgroundColor: alpha('#ffffff', 0.9),
                 color: config.theme.primaryColor,
                 zIndex: 2,
                 '&:hover': {
-                  backgroundColor: 'white',
+                  backgroundColor: '#ffffff',
                 },
               }}
               onClick={(e) => {
@@ -239,8 +239,8 @@ export default function PropertyDetailView({ property, config }: PropertyDetailV
           <Stack direction="row" spacing={1}>
             <IconButton
               sx={{
-                backgroundColor: alpha('white', 0.9),
-                '&:hover': { backgroundColor: 'white' },
+                backgroundColor: alpha('#ffffff', 0.9),
+                '&:hover': { backgroundColor: '#ffffff' },
               }}
               onClick={(e) => {
                 e.stopPropagation();
@@ -255,8 +255,8 @@ export default function PropertyDetailView({ property, config }: PropertyDetailV
             </IconButton>
             <IconButton
               sx={{
-                backgroundColor: alpha('white', 0.9),
-                '&:hover': { backgroundColor: 'white' },
+                backgroundColor: alpha('#ffffff', 0.9),
+                '&:hover': { backgroundColor: '#ffffff' },
               }}
               onClick={(e) => {
                 e.stopPropagation();
@@ -274,8 +274,8 @@ export default function PropertyDetailView({ property, config }: PropertyDetailV
             position: 'absolute',
             bottom: 16,
             left: 16,
-            backgroundColor: alpha('black', 0.7),
-            color: 'white',
+            backgroundColor: alpha('#000000', 0.7),
+            color: '#ffffff',
             px: 2,
             py: 1,
             borderRadius: 2,
@@ -348,7 +348,7 @@ export default function PropertyDetailView({ property, config }: PropertyDetailV
                 label="Propriedade em Destaque"
                 sx={{
                   background: `linear-gradient(135deg, ${config.theme.accentColor}, ${config.theme.primaryColor})`,
-                  color: 'white',
+                  color: '#ffffff',
                   fontWeight: 600,
                   mb: 2,
                 }}
@@ -502,7 +502,7 @@ export default function PropertyDetailView({ property, config }: PropertyDetailV
                 onClick={handleWhatsAppBooking}
                 sx={{
                   background: `linear-gradient(135deg, #25D366, #128C7E)`,
-                  color: 'white',
+                  color: '#ffffff',
                   py: 2,
                   fontSize: '1.1rem',
                   fontWeight: 600,
@@ -550,7 +550,7 @@ export default function PropertyDetailView({ property, config }: PropertyDetailV
         fullWidth
         PaperProps={{
           sx: {
-            backgroundColor: 'black',
+            backgroundColor: '#000000',
             boxShadow: 'none',
           },
         }}
@@ -561,10 +561,10 @@ export default function PropertyDetailView({ property, config }: PropertyDetailV
               position: 'absolute',
               top: 16,
               right: 16,
-              backgroundColor: alpha('white', 0.9),
+              backgroundColor: alpha('#ffffff', 0.9),
               zIndex: 3,
               '&:hover': {
-                backgroundColor: 'white',
+                backgroundColor: '#ffffff',
               },
             }}
             onClick={() => setShowImageModal(false)}
@@ -592,9 +592,9 @@ export default function PropertyDetailView({ property, config }: PropertyDetailV
                   left: 16,
                   top: '50%',
                   transform: 'translateY(-50%)',
-                  backgroundColor: alpha('white', 0.9),
+                  backgroundColor: alpha('#ffffff', 0.9),
                   '&:hover': {
-                    backgroundColor: 'white',
+                    backgroundColor: '#ffffff',
                   },
                 }}
                 onClick={() => handleImageNavigation('prev')}
@@ -607,9 +607,9 @@ export default function PropertyDetailView({ property, config }: PropertyDetailV
                   right: 16,
                   top: '50%',
                   transform: 'translateY(-50%)',
-                  backgroundColor: alpha('white', 0.9),
+                  backgroundColor: alpha('#ffffff', 0.9),
                   '&:hover': {
-                    backgroundColor: 'white',
+                    backgroundColor: '#ffffff',
                   },
                 }}
                 onClick={() => handleImageNavigation('next')}
@@ -629,7 +629,7 @@ export default function PropertyDetailView({ property, config }: PropertyDetailV
             bottom: 24,
             right: 24,
             background: `linear-gradient(135deg, #25D366, #128C7E)`,
-            color: 'white',
+            color: '#ffffff',
             '&:hover': {
               background: `linear-gradient(135deg, #128C7E, #075E54)`,
               transform: 'scale(1.1)',

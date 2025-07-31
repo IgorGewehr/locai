@@ -299,7 +299,7 @@ export const PropertyAmenities: React.FC = () => {
                                 }}
                               >
                                 {field.value?.includes(amenity) && (
-                                  <Check sx={{ fontSize: 16, color: 'white' }} />
+                                  <Check sx={{ fontSize: 16, color: '#ffffff' }} />
                                 )}
                               </Box>
                               <Typography variant="body2" sx={{ fontWeight: 500 }}>

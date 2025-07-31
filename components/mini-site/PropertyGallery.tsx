@@ -305,7 +305,7 @@ export default function PropertyGallery({
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              bgcolor: 'black',
+              bgcolor: '#000000',
             }}
           >
             <video
@@ -334,7 +334,7 @@ export default function PropertyGallery({
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              bgcolor: 'black',
+              bgcolor: '#000000',
             }}
           >
             <iframe
@@ -418,9 +418,9 @@ export default function PropertyGallery({
                   justifyContent: 'center',
                 }}
               >
-                {media.type === 'image' && <PhotoCamera sx={{ fontSize: 12, color: 'white' }} />}
-                {media.type === 'video' && <Videocam sx={{ fontSize: 12, color: 'white' }} />}
-                {media.type === 'virtual-tour' && <ThreeSixty sx={{ fontSize: 12, color: 'white' }} />}
+                {media.type === 'image' && <PhotoCamera sx={{ fontSize: 12, color: '#ffffff' }} />}
+                {media.type === 'video' && <Videocam sx={{ fontSize: 12, color: '#ffffff' }} />}
+                {media.type === 'virtual-tour' && <ThreeSixty sx={{ fontSize: 12, color: '#ffffff' }} />}
               </Box>
             </Box>
           ))}
@@ -491,9 +491,9 @@ export default function PropertyGallery({
                       gap: 0.5,
                     }}
                   >
-                    {media.type === 'image' && <PhotoCamera sx={{ fontSize: 16, color: 'white' }} />}
-                    {media.type === 'video' && <Videocam sx={{ fontSize: 16, color: 'white' }} />}
-                    {media.type === 'virtual-tour' && <ThreeSixty sx={{ fontSize: 16, color: 'white' }} />}
+                    {media.type === 'image' && <PhotoCamera sx={{ fontSize: 16, color: '#ffffff' }} />}
+                    {media.type === 'video' && <Videocam sx={{ fontSize: 16, color: '#ffffff' }} />}
+                    {media.type === 'virtual-tour' && <ThreeSixty sx={{ fontSize: 16, color: '#ffffff' }} />}
                   </Box>
 
                   {/* Title overlay */}
@@ -504,7 +504,7 @@ export default function PropertyGallery({
                       left: 0,
                       right: 0,
                       bgcolor: alpha(theme.palette.common.black, 0.7),
-                      color: 'white',
+                      color: '#ffffff',
                       p: 1,
                     }}
                   >
@@ -529,7 +529,7 @@ export default function PropertyGallery({
       fullScreen
       PaperProps={{
         sx: {
-          bgcolor: 'black',
+          bgcolor: '#000000',
           backgroundImage: 'none',
         },
       }}

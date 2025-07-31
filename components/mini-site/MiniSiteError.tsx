@@ -65,7 +65,7 @@ export default function MiniSiteError({ error, reset, isNotFound = false }: Mini
             boxShadow: '0 10px 30px rgba(0, 0, 0, 0.2)',
           }}
         >
-          <ErrorOutline sx={{ fontSize: 60, color: 'white' }} />
+          <ErrorOutline sx={{ fontSize: 60, color: '#ffffff' }} />
         </Box>
 
         <Typography

@@ -422,7 +422,7 @@ export default function PropertyDetailPage() {
                           top: '50%',
                           transform: 'translateY(-50%)',
                           bgcolor: 'rgba(0, 0, 0, 0.5)',
-                          color: 'white',
+                          color: '#ffffff',
                           '&:hover': {
                             bgcolor: 'rgba(0, 0, 0, 0.7)',
                           },
@@ -438,7 +438,7 @@ export default function PropertyDetailPage() {
                           top: '50%',
                           transform: 'translateY(-50%)',
                           bgcolor: 'rgba(0, 0, 0, 0.5)',
-                          color: 'white',
+                          color: '#ffffff',
                           '&:hover': {
                             bgcolor: 'rgba(0, 0, 0, 0.7)',
                           },
@@ -456,7 +456,7 @@ export default function PropertyDetailPage() {
                       bottom: 16,
                       right: 16,
                       bgcolor: 'rgba(0, 0, 0, 0.7)',
-                      color: 'white',
+                      color: '#ffffff',
                       px: 2,
                       py: 1,
                       borderRadius: 1,
@@ -473,7 +473,7 @@ export default function PropertyDetailPage() {
                       top: 16,
                       right: 16,
                       bgcolor: 'rgba(0, 0, 0, 0.5)',
-                      color: 'white',
+                      color: '#ffffff',
                       '&:hover': {
                         bgcolor: 'rgba(0, 0, 0, 0.7)',
                       },
@@ -777,9 +777,9 @@ export default function PropertyDetailPage() {
         fullScreen
         open={showGallery}
         onClose={() => setShowGallery(false)}
-        sx={{ bgcolor: 'black' }}
+        sx={{ bgcolor: '#000000' }}
       >
-        <Box sx={{ position: 'relative', height: '100vh', bgcolor: 'black' }}>
+        <Box sx={{ position: 'relative', height: '100vh', bgcolor: '#000000' }}>
           <IconButton
             onClick={() => setShowGallery(false)}
             sx={{
@@ -787,7 +787,7 @@ export default function PropertyDetailPage() {
               top: 16,
               right: 16,
               bgcolor: 'rgba(0, 0, 0, 0.5)',
-              color: 'white',
+              color: '#ffffff',
               zIndex: 1,
               '&:hover': {
                 bgcolor: 'rgba(0, 0, 0, 0.7)',
@@ -825,7 +825,7 @@ export default function PropertyDetailPage() {
                     position: 'absolute',
                     left: 16,
                     bgcolor: 'rgba(0, 0, 0, 0.5)',
-                    color: 'white',
+                    color: '#ffffff',
                     '&:hover': {
                       bgcolor: 'rgba(0, 0, 0, 0.7)',
                     },
@@ -839,7 +839,7 @@ export default function PropertyDetailPage() {
                     position: 'absolute',
                     right: 16,
                     bgcolor: 'rgba(0, 0, 0, 0.5)',
-                    color: 'white',
+                    color: '#ffffff',
                     '&:hover': {
                       bgcolor: 'rgba(0, 0, 0, 0.7)',
                     },

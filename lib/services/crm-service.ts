@@ -43,6 +43,32 @@ class CRMService {
     this.activityService = new FirestoreService<LeadActivity>('crm_activities');
   }
 
+  // Helper function to remove undefined fields from objects
+  private cleanDataForFirestore(data: any): any {
+    const cleaned: any = {};
+    
+    for (const [key, value] of Object.entries(data)) {
+      if (value !== undefined && value !== null) {
+        if (typeof value === 'object' && value.constructor === Object) {
+          // Recursively clean nested objects
+          const cleanedNested = this.cleanDataForFirestore(value);
+          if (Object.keys(cleanedNested).length > 0) {
+            cleaned[key] = cleanedNested;
+          }
+        } else if (Array.isArray(value)) {
+          // Only include non-empty arrays
+          if (value.length > 0) {
+            cleaned[key] = value;
+          }
+        } else {
+          cleaned[key] = value;
+        }
+      }
+    }
+    
+    return cleaned;
+  }
+
   // =============== LEAD MANAGEMENT ===============
 
   async createLead(data: Omit<Lead, 'id' | 'createdAt' | 'updatedAt'>): Promise<Lead> {
@@ -66,8 +92,11 @@ class CRMService {
       lastContactDate: new Date()
     };
 
+    // Clean data to remove undefined values
+    const cleanedLead = this.cleanDataForFirestore(lead);
+    
     const docRef = await addDoc(collection(db, 'crm_leads'), {
-      ...lead,
+      ...cleanedLead,
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp()
     });
@@ -95,8 +124,9 @@ class CRMService {
 
     const oldStatus = lead.status;
     
+    const cleanedUpdates = this.cleanDataForFirestore(updates);
     await updateDoc(doc(db, 'crm_leads', leadId), {
-      ...updates,
+      ...cleanedUpdates,
       updatedAt: serverTimestamp()
     });
 
@@ -185,9 +215,10 @@ class CRMService {
       updatedAt: new Date()
     };
 
+    const cleanedInteraction = this.cleanDataForFirestore(interaction);
     const docRef = await addDoc(collection(db, 'crm_interactions'), {
-      ...interaction,
-      createdAt: serverTimestamp(),
+      ...cleanedInteraction,
+      createdAt: serverTimestamp(),  
       updatedAt: serverTimestamp()
     });
 
@@ -254,13 +285,16 @@ class CRMService {
       updatedAt: new Date()
     };
 
-    const docRef = await addDoc(collection(db, 'crm_tasks'), {
+    const taskData = {
       ...task,
       dueDate: Timestamp.fromDate(data.dueDate),
       reminderDate: data.reminderDate ? Timestamp.fromDate(data.reminderDate) : null,
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp()
-    });
+    };
+    
+    const cleanedTaskData = this.cleanDataForFirestore(taskData);
+    const docRef = await addDoc(collection(db, 'crm_tasks'), cleanedTaskData);
 
     // Create activity
     if (data.leadId) {
@@ -277,8 +311,9 @@ class CRMService {
   }
 
   async updateTask(taskId: string, updates: Partial<Task>): Promise<void> {
+    const cleanedUpdates = this.cleanDataForFirestore(updates);
     await updateDoc(doc(db, 'crm_tasks', taskId), {
-      ...updates,
+      ...cleanedUpdates,
       updatedAt: serverTimestamp()
     });
 
@@ -413,8 +448,9 @@ class CRMService {
     };
 
     // Create client in Firebase
+    const cleanedClient = this.cleanDataForFirestore(client);
     const clientRef = await addDoc(collection(db, 'clients'), {
-      ...client,
+      ...cleanedClient,
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp()
     });
@@ -557,10 +593,13 @@ class CRMService {
       suggestedActions: this.getSuggestedActions(detectedIntents, sentiment)
     };
     
-    await updateDoc(doc(db, 'crm_interactions', interactionId), {
+    const updateData = {
       aiAnalysis,
       sentiment: sentiment > 0.3 ? 'positive' : sentiment < -0.3 ? 'negative' : 'neutral'
-    });
+    };
+    
+    const cleanedUpdateData = this.cleanDataForFirestore(updateData);
+    await updateDoc(doc(db, 'crm_interactions', interactionId), cleanedUpdateData);
   }
 
   private getSuggestedActions(intents: string[], sentiment: number): string[] {
@@ -588,8 +627,9 @@ class CRMService {
   // =============== ACTIVITIES ===============
 
   async createActivity(data: Omit<LeadActivity, 'id' | 'createdAt'>): Promise<void> {
+    const cleanedData = this.cleanDataForFirestore(data);
     await addDoc(collection(db, 'crm_activities'), {
-      ...data,
+      ...cleanedData,
       createdAt: serverTimestamp()
     });
   }

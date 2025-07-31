@@ -200,7 +200,7 @@ export default function TemplateSelector({
                         />
                       )}
                       
-                      <Box sx={{ textAlign: 'center', color: 'white' }}>
+                      <Box sx={{ textAlign: 'center', color: '#ffffff' }}>
                         <Typography variant="h4" fontWeight={700} sx={{ mb: 1 }}>
                           {template.name}
                         </Typography>
@@ -224,7 +224,7 @@ export default function TemplateSelector({
                         size="small"
                         sx={{
                           bgcolor: getCategoryColor(template.category),
-                          color: 'white',
+                          color: '#ffffff',
                           fontWeight: 500,
                         }}
                       />
@@ -319,7 +319,7 @@ export default function TemplateSelector({
                   mb: 2,
                 }}
               >
-                <Box sx={{ textAlign: 'center', color: 'white' }}>
+                <Box sx={{ textAlign: 'center', color: '#ffffff' }}>
                   <Typography variant="h3" fontWeight={700} sx={{ mb: 2 }}>
                     {previewTemplate.name}
                   </Typography>
@@ -340,7 +340,7 @@ export default function TemplateSelector({
                       <Chip
                         label={TEMPLATE_CATEGORIES.find(c => c.id === previewTemplate.category)?.name}
                         size="small"
-                        sx={{ bgcolor: getCategoryColor(previewTemplate.category), color: 'white' }}
+                        sx={{ bgcolor: getCategoryColor(previewTemplate.category), color: '#ffffff' }}
                       />
                     </Box>
                     <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>

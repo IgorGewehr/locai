@@ -132,12 +132,12 @@ export default function PropertyCard({ property, config, onWhatsAppClick }: Prop
                     height: 8,
                     borderRadius: '50%',
                     backgroundColor: currentImageIndex === index 
-                      ? 'white' 
-                      : alpha('white', 0.5),
+                      ? '#ffffff' 
+                      : alpha('#ffffff', 0.5),
                     cursor: 'pointer',
                     transition: 'all 0.3s ease',
                     '&:hover': {
-                      backgroundColor: 'white',
+                      backgroundColor: '#ffffff',
                     },
                   }}
                   onMouseEnter={() => handleImageHover(index)}
@@ -152,11 +152,11 @@ export default function PropertyCard({ property, config, onWhatsAppClick }: Prop
               position: 'absolute',
               top: 12,
               right: 12,
-              backgroundColor: alpha('white', 0.9),
+              backgroundColor: alpha('#ffffff', 0.9),
               backdropFilter: 'blur(10px)',
               color: isFavorited ? '#ff4757' : '#666',
               '&:hover': {
-                backgroundColor: 'white',
+                backgroundColor: '#ffffff',
                 transform: 'scale(1.1)',
               },
               transition: 'all 0.3s ease',
@@ -176,7 +176,7 @@ export default function PropertyCard({ property, config, onWhatsAppClick }: Prop
                 top: 12,
                 left: 12,
                 background: `linear-gradient(135deg, ${config.theme.accentColor}, ${config.theme.primaryColor})`,
-                color: 'white',
+                color: '#ffffff',
                 fontWeight: 600,
                 boxShadow: `0 4px 12px ${alpha(config.theme.accentColor, 0.3)}`,
               }}
@@ -203,7 +203,7 @@ export default function PropertyCard({ property, config, onWhatsAppClick }: Prop
             <Typography
               variant="body2"
               sx={{
-                color: 'white',
+                color: '#ffffff',
                 fontWeight: 600,
                 textShadow: '0 2px 8px rgba(0,0,0,0.3)',
               }}
@@ -327,7 +327,7 @@ export default function PropertyCard({ property, config, onWhatsAppClick }: Prop
               fullWidth={true}
               sx={{
                 background: `linear-gradient(135deg, #25D366, #128C7E)`,
-                color: 'white',
+                color: '#ffffff',
                 borderRadius: 2,
                 px: { xs: 3, sm: 2 },
                 py: { xs: 1.5, sm: 1 },

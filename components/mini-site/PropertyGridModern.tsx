@@ -43,6 +43,7 @@ import PropertyCardModern from './PropertyCardModern';
 import { miniSiteClientService } from '@/lib/services/mini-site-client-service';
 import { motion, AnimatePresence } from 'framer-motion';
 import HeroSection from './HeroSection';
+import { useThemeMode } from '@/contexts/ThemeContext';
 
 interface PropertyGridModernProps {
   properties: PublicProperty[];
@@ -51,11 +52,10 @@ interface PropertyGridModernProps {
 
 export default function PropertyGridModern({ properties: initialProperties, config }: PropertyGridModernProps) {
   const theme = useTheme();
+  const { mode } = useThemeMode();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
-  const [properties, setProperties] = useState<PublicProperty[]>(initialProperties);
+  const [properties] = useState<PublicProperty[]>(initialProperties);
   const [filteredProperties, setFilteredProperties] = useState<PublicProperty[]>(initialProperties);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [showFilters, setShowFilters] = useState(false);
   const [viewMode, setViewMode] = useState<'grid' | 'list'>('grid');
@@ -183,19 +183,6 @@ export default function PropertyGridModern({ properties: initialProperties, conf
     setSearchTerm('');
   };
 
-  const refreshProperties = async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      // Simular refresh - em um app real, você faria uma nova requisição
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      setProperties(initialProperties);
-    } catch (err) {
-      setError('Erro ao atualizar propriedades');
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const scrollToTop = () => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
@@ -218,18 +205,24 @@ export default function PropertyGridModern({ properties: initialProperties, conf
         featuredLocations={featuredLocations}
       />
 
-      <Container maxWidth="xl" sx={{ py: 4 }}>
+      <Container maxWidth="xl" sx={{ py: mode === 'light' ? 6 : 4 }}>
         {/* No Properties Notice */}
         {properties.length === 0 && (
           <Alert
             severity="info"
             sx={{
               mb: 3,
-              borderRadius: 2,
-              backgroundColor: alpha(config.theme.primaryColor, 0.1),
-              border: `1px solid ${alpha(config.theme.primaryColor, 0.2)}`,
+              borderRadius: '20px',
+              background: mode === 'light' 
+                ? 'rgba(59, 130, 246, 0.1)' 
+                : 'rgba(255, 255, 255, 0.08)',
+              backdropFilter: 'blur(20px)',
+              border: mode === 'light' 
+                ? '1px solid rgba(59, 130, 246, 0.2)' 
+                : '1px solid rgba(255, 255, 255, 0.15)',
+              color: mode === 'light' ? theme.palette.text.primary : '#ffffff',
               '& .MuiAlert-icon': {
-                color: config.theme.primaryColor,
+                color: '#8b5cf6',
               },
             }}
           >
@@ -240,130 +233,138 @@ export default function PropertyGridModern({ properties: initialProperties, conf
           </Alert>
         )}
 
-        {/* Demo Properties Notice */}
-        {properties.length > 0 && properties.some(p => p.id.startsWith('demo-')) && (
-          <Alert
-            severity="info"
-            sx={{
-              mb: 3,
-              borderRadius: 2,
-              backgroundColor: alpha(config.theme.primaryColor, 0.1),
-              border: `1px solid ${alpha(config.theme.primaryColor, 0.2)}`,
-              '& .MuiAlert-icon': {
-                color: config.theme.primaryColor,
-              },
-            }}
-          >
-            <Typography variant="body2">
-              <strong>Propriedades de Demonstração:</strong> Estas são propriedades de exemplo para você ver como o mini-site funciona. 
-              Cadastre suas propriedades reais no dashboard para substituí-las.
-            </Typography>
-          </Alert>
-        )}
 
-        {/* Control Bar - Only show if there are properties */}
+        {/* Quick Filters Bar - Only show if there are properties */}
         {properties.length > 0 && (
-          <Box sx={{ mb: 4 }}>
+          <Box sx={{ mb: 3 }}>
             <Stack 
               direction={{ xs: 'column', sm: 'row' }} 
-              spacing={2} 
+              spacing={mode === 'light' ? 3 : 2} 
               sx={{ 
-                justifyContent: 'center',
+                justifyContent: 'space-between',
                 alignItems: 'center',
                 flexWrap: 'wrap',
-                gap: 2
+                gap: mode === 'light' ? 3 : 2
               }}
             >
-              <Button
-                startIcon={<TuneRounded />}
-                onClick={() => setShowFilters(!showFilters)}
-                variant={showFilters ? 'contained' : 'outlined'}
-                sx={{
-                  borderRadius: 3,
-                  px: 3,
-                  py: 1.5,
-                  textTransform: 'none',
-                  fontWeight: 600,
-                  minWidth: 140,
-                  ...(showFilters ? {
-                    background: `linear-gradient(135deg, ${config.theme.primaryColor}, ${config.theme.accentColor})`,
-                    boxShadow: `0 4px 15px ${alpha(config.theme.primaryColor, 0.3)}`,
-                  } : {
-                    borderColor: config.theme.primaryColor,
-                    color: config.theme.primaryColor,
-                    '&:hover': {
-                      backgroundColor: alpha(config.theme.primaryColor, 0.04),
-                    },
-                  }),
-                }}
-              >
-                Filtros
-              </Button>
+              {/* Left Side - Quick Filters */}
+              <Stack direction="row" spacing={mode === 'light' ? 2 : 1} sx={{ flex: 1 }}>
+                <Button
+                  startIcon={<TuneRounded />}
+                  onClick={() => setShowFilters(!showFilters)}
+                  variant={showFilters ? 'contained' : 'outlined'}
+                  size="small"
+                  sx={{
+                    borderRadius: mode === 'light' ? '16px' : '12px',
+                    px: mode === 'light' ? 3 : 2,
+                    py: mode === 'light' ? 1.5 : 1,
+                    textTransform: 'none',
+                    fontWeight: mode === 'light' ? 500 : 600,
+                    ...(showFilters ? {
+                      background: 'linear-gradient(135deg, #8b5cf6, #6366f1)',
+                      boxShadow: '0 4px 12px rgba(139, 92, 246, 0.3)',
+                      border: '1px solid rgba(255, 255, 255, 0.1)',
+                      color: '#ffffff',
+                    } : {
+                      background: mode === 'light' 
+                        ? theme.palette.background.paper 
+                        : 'rgba(255, 255, 255, 0.08)',
+                      backdropFilter: 'blur(10px)',
+                      border: mode === 'light' 
+                        ? `1px solid ${theme.palette.divider}` 
+                        : '1px solid rgba(255, 255, 255, 0.15)',
+                      color: mode === 'light' ? theme.palette.text.primary : '#ffffff',
+                      '&:hover': {
+                        background: mode === 'light' 
+                          ? theme.palette.action.hover 
+                          : 'rgba(255, 255, 255, 0.12)',
+                      },
+                    }),
+                    transition: 'all 0.3s ease',
+                  }}
+                >
+                  Filtros
+                </Button>
+                
+                {hasActiveFilters && (
+                  <Button
+                    startIcon={<Clear />}
+                    onClick={clearAllFilters}
+                    size="small"
+                    sx={{
+                      borderRadius: '12px',
+                      px: 2,
+                      py: 1,
+                      textTransform: 'none',
+                      fontWeight: 600,
+                      background: 'rgba(239, 68, 68, 0.1)',
+                      backdropFilter: 'blur(10px)',
+                      border: '1px solid rgba(239, 68, 68, 0.3)',
+                      color: '#ef4444',
+                      '&:hover': {
+                        background: 'rgba(239, 68, 68, 0.15)',
+                      },
+                      transition: 'all 0.3s ease',
+                    }}
+                  >
+                    Limpar
+                  </Button>
+                )}
+              </Stack>
 
-            <Button
-              startIcon={<Refresh />}
-              onClick={refreshProperties}
-              disabled={loading}
-              variant="outlined"
-              sx={{
-                borderRadius: 3,
-                px: 3,
-                py: 1.5,
-                textTransform: 'none',
-                fontWeight: 600,
-                minWidth: 140,
-                borderColor: config.theme.accentColor,
-                color: config.theme.accentColor,
-                '&:hover': {
-                  backgroundColor: alpha(config.theme.accentColor, 0.04),
-                },
-              }}
-            >
-              Atualizar
-            </Button>
-
-            <Stack direction="row" spacing={1}>
-              <Button
-                startIcon={<ViewModule />}
-                onClick={() => setViewMode('grid')}
-                variant={viewMode === 'grid' ? 'contained' : 'outlined'}
-                size="small"
-                sx={{ 
-                  minWidth: 'auto',
-                  px: 2,
-                  borderRadius: 2,
-                  ...(viewMode === 'grid' ? {
-                    backgroundColor: config.theme.primaryColor,
-                  } : {
-                    borderColor: config.theme.primaryColor,
-                    color: config.theme.primaryColor,
-                  })
-                }}
-              >
-                Grade
-              </Button>
-              <Button
-                startIcon={<ViewList />}
-                onClick={() => setViewMode('list')}
-                variant={viewMode === 'list' ? 'contained' : 'outlined'}
-                size="small"
-                sx={{ 
-                  minWidth: 'auto',
-                  px: 2,
-                  borderRadius: 2,
-                  ...(viewMode === 'list' ? {
-                    backgroundColor: config.theme.primaryColor,
-                  } : {
-                    borderColor: config.theme.primaryColor,
-                    color: config.theme.primaryColor,
-                  })
-                }}
-              >
-                Lista
-              </Button>
+              {/* Right Side - View Mode */}
+              <Stack direction="row" spacing={1} sx={{ width: { xs: '100%', sm: 'auto' }, justifyContent: { xs: 'center', sm: 'flex-end' } }}>
+                <Button
+                  startIcon={<ViewModule />}
+                  onClick={() => setViewMode('grid')}
+                  variant={viewMode === 'grid' ? 'contained' : 'outlined'}
+                  size="small"
+                  sx={{ 
+                    minWidth: { xs: '80px', sm: 'auto' },
+                    px: { xs: 1.5, sm: 2 },
+                    borderRadius: '12px',
+                    fontSize: { xs: '0.75rem', sm: '0.875rem' },
+                    ...(viewMode === 'grid' ? {
+                      background: 'linear-gradient(135deg, #8b5cf6, #6366f1)',
+                      color: '#ffffff',
+                      boxShadow: '0 4px 12px rgba(139, 92, 246, 0.3)',
+                    } : {
+                      background: 'rgba(255, 255, 255, 0.08)',
+                      backdropFilter: 'blur(10px)',
+                      border: '1px solid rgba(255, 255, 255, 0.15)',
+                      color: 'rgba(255, 255, 255, 0.7)',
+                    })
+                  }}
+                >
+                  {isMobile ? '' : 'Grade'}
+                </Button>
+                <Button
+                  startIcon={<ViewList />}
+                  onClick={() => setViewMode('list')}
+                  variant={viewMode === 'list' ? 'contained' : 'outlined'}
+                  size="small"
+                  sx={{ 
+                    minWidth: { xs: '80px', sm: 'auto' },
+                    px: { xs: 1.5, sm: 2 },
+                    borderRadius: '12px',
+                    fontSize: { xs: '0.75rem', sm: '0.875rem' },
+                    ...(viewMode === 'list' ? {
+                      background: 'linear-gradient(135deg, #8b5cf6, #6366f1)',
+                      color: '#ffffff',
+                      boxShadow: '0 4px 12px rgba(139, 92, 246, 0.3)',
+                    } : {
+                      background: 'rgba(255, 255, 255, 0.08)',
+                      backdropFilter: 'blur(10px)',
+                      border: '1px solid rgba(255, 255, 255, 0.15)',
+                      color: 'rgba(255, 255, 255, 0.7)',
+                    })
+                  }}
+                >
+                  {isMobile ? '' : 'Lista'}
+                </Button>
+              </Stack>
             </Stack>
-          </Stack>
-        </Box>
+          </Box>
         )}
 
       {/* Enhanced Filters - Only show if there are properties */}
@@ -378,108 +379,101 @@ export default function PropertyGridModern({ properties: initialProperties, conf
           <Card 
             sx={{ 
               mb: 4,
-              background: 'rgba(255, 255, 255, 0.9)',
+              background: mode === 'light' 
+                ? theme.palette.background.paper 
+                : 'rgba(255, 255, 255, 0.08)',
               backdropFilter: 'blur(20px)',
-              borderRadius: 3,
-              border: `1px solid ${alpha(config.theme.primaryColor, 0.1)}`,
-              boxShadow: `0 8px 32px ${alpha(config.theme.primaryColor, 0.08)}`,
+              borderRadius: '20px',
+              border: mode === 'light' 
+                ? `1px solid ${theme.palette.divider}` 
+                : '1px solid rgba(255, 255, 255, 0.15)',
+              boxShadow: mode === 'light' 
+                ? theme.custom.elevation.medium 
+                : '0 16px 50px rgba(0, 0, 0, 0.4)',
             }}
           >
-            <CardContent sx={{ p: 4 }}>
-              <Typography variant="h6" sx={{ mb: 3, fontWeight: 600, color: config.theme.textColor }}>
-                Filtros Avançados
+            <CardContent sx={{ p: { xs: 2, md: 3 } }}>
+              <Typography variant="h6" sx={{ mb: 2, fontWeight: 600, color: mode === 'light' ? theme.palette.text.primary : '#ffffff', textAlign: 'center' }}>
+                Filtrar Propriedades
               </Typography>
               
-              <Grid container spacing={3}>
-                {/* Guests */}
-                <Grid item xs={12} sm={6} md={3}>
-                  <Typography variant="subtitle2" gutterBottom sx={{ fontWeight: 600, color: config.theme.primaryColor }}>
-                    <People sx={{ fontSize: 16, mr: 1 }} />
+              <Grid container spacing={2}>
+                {/* Essentials Row */}
+                <Grid item xs={6} sm={4} md={3}>
+                  <Typography variant="caption" sx={{ color: '#8b5cf6', fontWeight: 600, mb: 1, display: 'block', fontSize: { xs: '0.7rem', sm: '0.75rem' } }}>
                     Hóspedes
                   </Typography>
-                  <Stack direction="row" spacing={1}>
-                    <TextField
-                      size="small"
-                      label="Mín."
-                      type="number"
-                      value={filters.minGuests}
-                      onChange={(e) => setFilters(prev => ({ ...prev, minGuests: e.target.value }))}
-                      inputProps={{ min: 1, max: maxGuests }}
-                      sx={{ flex: 1 }}
-                    />
-                    <TextField
-                      size="small"
-                      label="Máx."
-                      type="number"
-                      value={filters.maxGuests}
-                      onChange={(e) => setFilters(prev => ({ ...prev, maxGuests: e.target.value }))}
-                      inputProps={{ min: 1, max: maxGuests }}
-                      sx={{ flex: 1 }}
-                    />
-                  </Stack>
+                  <TextField
+                    size="small"
+                    placeholder="Mín"
+                    type="number"
+                    value={filters.minGuests}
+                    onChange={(e) => setFilters(prev => ({ ...prev, minGuests: e.target.value }))}
+                    inputProps={{ min: 1, max: maxGuests }}
+                    fullWidth
+                    sx={{ 
+                      '& .MuiOutlinedInput-root': {
+                        background: 'rgba(255, 255, 255, 0.05)',
+                        backdropFilter: 'blur(10px)',
+                        border: '1px solid rgba(255, 255, 255, 0.1)',
+                        borderRadius: '12px',
+                        color: '#ffffff',
+                        '& fieldset': { border: 'none' },
+                        '&:hover': {
+                          background: 'rgba(255, 255, 255, 0.08)',
+                        },
+                        '&.Mui-focused': {
+                          background: 'rgba(255, 255, 255, 0.08)',
+                          border: '1px solid #8b5cf6',
+                        },
+                      },
+                      '& .MuiInputBase-input::placeholder': {
+                        color: 'rgba(255, 255, 255, 0.5)',
+                        opacity: 1,
+                      },
+                    }}
+                  />
                 </Grid>
 
-                {/* Bedrooms */}
-                <Grid item xs={12} sm={6} md={3}>
-                  <Typography variant="subtitle2" gutterBottom sx={{ fontWeight: 600, color: config.theme.primaryColor }}>
-                    <Bed sx={{ fontSize: 16, mr: 1 }} />
+                <Grid item xs={6} sm={4} md={3}>
+                  <Typography variant="caption" sx={{ color: '#8b5cf6', fontWeight: 600, mb: 1, display: 'block', fontSize: { xs: '0.7rem', sm: '0.75rem' } }}>
                     Quartos
                   </Typography>
-                  <Stack direction="row" spacing={1}>
-                    <TextField
-                      size="small"
-                      label="Mín."
-                      type="number"
-                      value={filters.minBedrooms}
-                      onChange={(e) => setFilters(prev => ({ ...prev, minBedrooms: e.target.value }))}
-                      inputProps={{ min: 0, max: maxBedrooms }}
-                      sx={{ flex: 1 }}
-                    />
-                    <TextField
-                      size="small"
-                      label="Máx."
-                      type="number"
-                      value={filters.maxBedrooms}
-                      onChange={(e) => setFilters(prev => ({ ...prev, maxBedrooms: e.target.value }))}
-                      inputProps={{ min: 0, max: maxBedrooms }}
-                      sx={{ flex: 1 }}
-                    />
-                  </Stack>
+                  <TextField
+                    size="small"
+                    placeholder="Mín"
+                    type="number"
+                    value={filters.minBedrooms}
+                    onChange={(e) => setFilters(prev => ({ ...prev, minBedrooms: e.target.value }))}
+                    inputProps={{ min: 0, max: maxBedrooms }}
+                    fullWidth
+                    sx={{ 
+                      '& .MuiOutlinedInput-root': {
+                        background: 'rgba(255, 255, 255, 0.05)',
+                        backdropFilter: 'blur(10px)',
+                        border: '1px solid rgba(255, 255, 255, 0.1)',
+                        borderRadius: '12px',
+                        color: '#ffffff',
+                        '& fieldset': { border: 'none' },
+                        '&:hover': {
+                          background: 'rgba(255, 255, 255, 0.08)',
+                        },
+                        '&.Mui-focused': {
+                          background: 'rgba(255, 255, 255, 0.08)',
+                          border: '1px solid #8b5cf6',
+                        },
+                      },
+                      '& .MuiInputBase-input::placeholder': {
+                        color: 'rgba(255, 255, 255, 0.5)',
+                        opacity: 1,
+                      },
+                    }}
+                  />
                 </Grid>
 
-                {/* Price Range */}
-                <Grid item xs={12} sm={6} md={3}>
-                  <Typography variant="subtitle2" gutterBottom sx={{ fontWeight: 600, color: config.theme.primaryColor }}>
-                    <AttachMoney sx={{ fontSize: 16, mr: 1 }} />
-                    Preço (R$)
-                  </Typography>
-                  <Stack direction="row" spacing={1}>
-                    <TextField
-                      size="small"
-                      label="Mín."
-                      type="number"
-                      value={filters.minPrice}
-                      onChange={(e) => setFilters(prev => ({ ...prev, minPrice: e.target.value }))}
-                      inputProps={{ min: priceRange.min, max: priceRange.max }}
-                      sx={{ flex: 1 }}
-                    />
-                    <TextField
-                      size="small"
-                      label="Máx."
-                      type="number"
-                      value={filters.maxPrice}
-                      onChange={(e) => setFilters(prev => ({ ...prev, maxPrice: e.target.value }))}
-                      inputProps={{ min: priceRange.min, max: priceRange.max }}
-                      sx={{ flex: 1 }}
-                    />
-                  </Stack>
-                </Grid>
-
-                {/* Location */}
-                <Grid item xs={12} sm={6} md={3}>
-                  <Typography variant="subtitle2" gutterBottom sx={{ fontWeight: 600, color: config.theme.primaryColor }}>
-                    <LocationOn sx={{ fontSize: 16, mr: 1 }} />
-                    Localização
+                <Grid item xs={6} sm={4} md={3}>
+                  <Typography variant="caption" sx={{ color: '#8b5cf6', fontWeight: 600, mb: 1, display: 'block', fontSize: { xs: '0.7rem', sm: '0.75rem' } }}>
+                    Cidade
                   </Typography>
                   <TextField
                     size="small"
@@ -488,83 +482,107 @@ export default function PropertyGridModern({ properties: initialProperties, conf
                     value={filters.location}
                     onChange={(e) => setFilters(prev => ({ ...prev, location: e.target.value }))}
                     SelectProps={{ native: true }}
+                    sx={{
+                      '& .MuiOutlinedInput-root': {
+                        background: 'rgba(255, 255, 255, 0.05)',
+                        backdropFilter: 'blur(10px)',
+                        border: '1px solid rgba(255, 255, 255, 0.1)',
+                        borderRadius: '12px',
+                        color: '#ffffff',
+                        '& fieldset': { border: 'none' },
+                        '&:hover': {
+                          background: 'rgba(255, 255, 255, 0.08)',
+                        },
+                        '&.Mui-focused': {
+                          background: 'rgba(255, 255, 255, 0.08)',
+                          border: '1px solid #8b5cf6',
+                        },
+                        '& select option': {
+                          background: '#1a1a1a',
+                          color: '#ffffff',
+                        },
+                      },
+                    }}
                   >
-                    <option value="">Todas as cidades</option>
+                    <option value="">Qualquer</option>
                     {locations.map(location => (
                       <option key={location} value={location}>{location}</option>
                     ))}
                   </TextField>
                 </Grid>
 
-                {/* Property Type */}
-                <Grid item xs={12} sm={6} md={3}>
-                  <Typography variant="subtitle2" gutterBottom sx={{ fontWeight: 600, color: config.theme.primaryColor }}>
-                    <Home sx={{ fontSize: 16, mr: 1 }} />
-                    Tipo
+                <Grid item xs={6} sm={4} md={3}>
+                  <Typography variant="caption" sx={{ color: '#8b5cf6', fontWeight: 600, mb: 1, display: 'block', fontSize: { xs: '0.7rem', sm: '0.75rem' } }}>
+                    Preço Máx (R$)
                   </Typography>
                   <TextField
                     size="small"
-                    select
+                    placeholder="Sem limite"
+                    type="number"
+                    value={filters.maxPrice}
+                    onChange={(e) => setFilters(prev => ({ ...prev, maxPrice: e.target.value }))}
+                    inputProps={{ min: priceRange.min, max: priceRange.max }}
                     fullWidth
-                    value={filters.propertyType}
-                    onChange={(e) => setFilters(prev => ({ ...prev, propertyType: e.target.value }))}
-                    SelectProps={{ native: true }}
-                  >
-                    <option value="">Todos os tipos</option>
-                    {propertyTypes.map(type => (
-                      <option key={type} value={type}>{type}</option>
-                    ))}
-                  </TextField>
+                    sx={{ 
+                      '& .MuiOutlinedInput-root': {
+                        background: 'rgba(255, 255, 255, 0.05)',
+                        backdropFilter: 'blur(10px)',
+                        border: '1px solid rgba(255, 255, 255, 0.1)',
+                        borderRadius: '12px',
+                        color: '#ffffff',
+                        '& fieldset': { border: 'none' },
+                        '&:hover': {
+                          background: 'rgba(255, 255, 255, 0.08)',
+                        },
+                        '&.Mui-focused': {
+                          background: 'rgba(255, 255, 255, 0.08)',
+                          border: '1px solid #8b5cf6',
+                        },
+                      },
+                      '& .MuiInputBase-input::placeholder': {
+                        color: 'rgba(255, 255, 255, 0.5)',
+                        opacity: 1,
+                      },
+                    }}
+                  />
                 </Grid>
 
                 {/* Amenities */}
-                <Grid item xs={12}>
-                  <Typography variant="subtitle2" gutterBottom sx={{ fontWeight: 600, color: config.theme.primaryColor }}>
-                    Comodidades
-                  </Typography>
-                  <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap', gap: 1 }}>
-                    {uniqueAmenities.slice(0, 15).map(amenity => (
-                      <Chip
-                        key={amenity}
-                        label={amenity}
-                        onClick={() => handleAmenityToggle(amenity)}
-                        variant={filters.amenities.includes(amenity) ? 'filled' : 'outlined'}
-                        sx={{
-                          borderRadius: 2,
-                          ...(filters.amenities.includes(amenity) ? {
-                            backgroundColor: config.theme.primaryColor,
-                            color: 'white',
-                          } : {
-                            borderColor: alpha(config.theme.primaryColor, 0.3),
-                            color: config.theme.primaryColor,
-                            '&:hover': {
-                              backgroundColor: alpha(config.theme.primaryColor, 0.04),
-                            },
-                          }),
-                        }}
-                      />
-                    ))}
-                  </Stack>
-                </Grid>
-
-                {/* Clear Filters */}
-                {hasActiveFilters && (
+                {uniqueAmenities.length > 0 && (
                   <Grid item xs={12}>
-                    <Button
-                      onClick={clearAllFilters}
-                      startIcon={<Clear />}
-                      sx={{
-                        color: theme.palette.warning.main,
-                        textTransform: 'none',
-                        fontWeight: 600,
-                        borderRadius: 2,
-                        '&:hover': {
-                          backgroundColor: alpha(theme.palette.warning.main, 0.04),
-                        },
-                      }}
-                    >
-                      Limpar Todos os Filtros
-                    </Button>
+                    <Typography variant="caption" sx={{ color: '#8b5cf6', fontWeight: 600, mb: 1, display: 'block' }}>
+                      Comodidades Principais
+                    </Typography>
+                    <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap', gap: 1 }}>
+                      {uniqueAmenities.slice(0, 8).map(amenity => (
+                        <Chip
+                          key={amenity}
+                          label={amenity}
+                          onClick={() => handleAmenityToggle(amenity)}
+                          size="small"
+                          sx={{
+                            borderRadius: '12px',
+                            fontSize: '0.75rem',
+                            ...(filters.amenities.includes(amenity) ? {
+                              background: 'linear-gradient(135deg, #8b5cf6, #6366f1)',
+                              color: '#ffffff',
+                              border: '1px solid rgba(255, 255, 255, 0.2)',
+                              boxShadow: '0 4px 12px rgba(139, 92, 246, 0.3)',
+                            } : {
+                              background: 'rgba(255, 255, 255, 0.05)',
+                              backdropFilter: 'blur(10px)',
+                              border: '1px solid rgba(255, 255, 255, 0.15)',
+                              color: 'rgba(255, 255, 255, 0.9)',
+                              '&:hover': {
+                                background: 'rgba(255, 255, 255, 0.08)',
+                                transform: 'scale(1.05)',
+                              },
+                            }),
+                            transition: 'all 0.2s ease',
+                          }}
+                        />
+                      ))}
+                    </Stack>
                   </Grid>
                 )}
               </Grid>
@@ -574,98 +592,60 @@ export default function PropertyGridModern({ properties: initialProperties, conf
       </Collapse>
       )}
 
-      {/* Results Header - Only show if there are properties */}
-      {properties.length > 0 && (
-        <Box sx={{ 
-          mb: 4, 
-          display: 'flex', 
-          justifyContent: 'space-between', 
-          alignItems: 'center',
-          flexWrap: 'wrap',
-          gap: 2
-        }}>
-        <Typography 
-          variant="h4" 
-          sx={{ 
-            fontWeight: 700,
-            color: config.theme.textColor,
-            fontSize: { xs: '1.5rem', md: '2rem' }
-          }}
-        >
-          {filteredProperties.length} {filteredProperties.length === 1 ? 'Propriedade' : 'Propriedades'}
-          {hasActiveFilters && (
-            <Chip 
-              label="Filtrada" 
-              size="small" 
-              sx={{ 
-                ml: 2,
-                backgroundColor: alpha(config.theme.accentColor, 0.1),
-                color: config.theme.accentColor,
-                fontWeight: 600
-              }} 
-            />
-          )}
-        </Typography>
-        
-        {loading && (
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <Box sx={{ width: 20, height: 20 }}>
-              <Box
-                sx={{
-                  width: 20,
-                  height: 20,
-                  border: `2px solid ${alpha(config.theme.primaryColor, 0.3)}`,
-                  borderTop: `2px solid ${config.theme.primaryColor}`,
-                  borderRadius: '50%',
-                  animation: 'spin 1s linear infinite',
-                  '@keyframes spin': {
-                    '0%': { transform: 'rotate(0deg)' },
-                    '100%': { transform: 'rotate(360deg)' },
-                  },
-                }}
+      {/* Results Header - Only show if there are properties and filters */}
+      {properties.length > 0 && (filteredProperties.length !== properties.length || hasActiveFilters) && (
+        <Box sx={{ mb: 3 }}>
+          <Typography 
+            variant="h6" 
+            sx={{ 
+              fontWeight: 600,
+              color: '#ffffff',
+              textAlign: 'center',
+              textShadow: '0 2px 8px rgba(0, 0, 0, 0.3)',
+            }}
+          >
+            {filteredProperties.length} de {properties.length} propriedades
+            {hasActiveFilters && (
+              <Chip 
+                label="com filtros" 
+                size="small" 
+                sx={{ 
+                  ml: 2,
+                  background: 'linear-gradient(135deg, #8b5cf6, #6366f1)',
+                  color: '#ffffff',
+                  fontWeight: 600,
+                  borderRadius: '12px',
+                  boxShadow: '0 4px 12px rgba(139, 92, 246, 0.3)',
+                  border: '1px solid rgba(255, 255, 255, 0.2)',
+                }} 
               />
-            </Box>
-            <Typography variant="body2" sx={{ color: config.theme.primaryColor }}>
-              Carregando...
-            </Typography>
-          </Box>
-        )}
-      </Box>
+            )}
+          </Typography>
+        </Box>
       )}
 
-      {/* Error Display */}
-      {error && (
-        <Alert 
-          severity="error" 
-          sx={{ 
-            mb: 3,
-            borderRadius: 2,
-            backgroundColor: alpha(theme.palette.error.main, 0.1),
-            border: `1px solid ${alpha(theme.palette.error.main, 0.2)}`,
-          }}
-        >
-          {error}
-        </Alert>
-      )}
 
       {/* Properties Display */}
       {filteredProperties.length > 0 ? (
-        <Grid container spacing={3}>
+        <Grid container spacing={{ xs: 2, sm: 2.5, md: 3 }} sx={{ alignItems: 'stretch' }}>
           <AnimatePresence>
             {filteredProperties.map((property, index) => (
               <Grid 
                 item 
                 xs={12} 
                 sm={viewMode === 'grid' ? 6 : 12} 
-                md={viewMode === 'grid' ? 4 : 12}
-                lg={viewMode === 'grid' ? 3 : 12}
+                md={viewMode === 'grid' ? 6 : 12}
+                lg={viewMode === 'grid' ? 4 : 12}
+                xl={viewMode === 'grid' ? 3 : 12}
                 key={property.id}
+                sx={{ display: 'flex' }}
               >
                 <motion.div
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -20 }}
-                  transition={{ duration: 0.3, delay: index * 0.1 }}
+                  transition={{ duration: 0.3, delay: Math.min(index * 0.05, 0.5) }}
+                  style={{ width: '100%', display: 'flex' }}
                 >
                   <PropertyCardModern
                     property={property}
@@ -689,15 +669,17 @@ export default function PropertyGridModern({ properties: initialProperties, conf
               textAlign: 'center', 
               py: 8,
               px: 4,
-              background: alpha(config.theme.primaryColor, 0.03),
-              borderRadius: 3,
-              border: `1px solid ${alpha(config.theme.primaryColor, 0.1)}`,
+              background: 'rgba(255, 255, 255, 0.05)',
+              backdropFilter: 'blur(20px)',
+              borderRadius: '20px',
+              border: '1px solid rgba(255, 255, 255, 0.15)',
+              boxShadow: '0 16px 50px rgba(0, 0, 0, 0.4)',
             }}
           >
-            <Typography variant="h5" sx={{ mb: 2, opacity: 0.7, fontWeight: 600 }}>
+            <Typography variant="h5" sx={{ mb: 2, color: '#ffffff', fontWeight: 600, textShadow: '0 2px 8px rgba(0, 0, 0, 0.3)' }}>
               Nenhuma propriedade encontrada
             </Typography>
-            <Typography variant="body1" sx={{ mb: 3, opacity: 0.6 }}>
+            <Typography variant="body1" sx={{ mb: 3, color: 'rgba(255, 255, 255, 0.7)' }}>
               Tente ajustar os filtros ou fazer uma nova busca
             </Typography>
             {hasActiveFilters && (
@@ -706,13 +688,20 @@ export default function PropertyGridModern({ properties: initialProperties, conf
                 variant="contained"
                 startIcon={<Clear />}
                 sx={{
-                  background: `linear-gradient(135deg, ${config.theme.primaryColor}, ${config.theme.accentColor})`,
-                  borderRadius: 3,
+                  background: 'linear-gradient(135deg, #8b5cf6, #6366f1)',
+                  borderRadius: '16px',
                   px: 4,
                   py: 1.5,
                   textTransform: 'none',
                   fontWeight: 600,
-                  boxShadow: `0 4px 15px ${alpha(config.theme.primaryColor, 0.3)}`,
+                  color: '#ffffff',
+                  boxShadow: '0 8px 24px rgba(139, 92, 246, 0.4)',
+                  border: '1px solid rgba(255, 255, 255, 0.1)',
+                  '&:hover': {
+                    boxShadow: '0 12px 32px rgba(139, 92, 246, 0.5)',
+                    transform: 'translateY(-2px)',
+                  },
+                  transition: 'all 0.3s ease',
                 }}
               >
                 Limpar Filtros
@@ -725,18 +714,22 @@ export default function PropertyGridModern({ properties: initialProperties, conf
         {/* Scroll to Top Button */}
         <Zoom in={showScrollTop}>
           <Fab
-            color="primary"
             size="medium"
             onClick={scrollToTop}
             sx={{
               position: 'fixed',
               bottom: 24,
               right: 24,
-              background: `linear-gradient(135deg, ${config.theme.primaryColor}, ${config.theme.accentColor})`,
+              background: 'linear-gradient(135deg, #8b5cf6, #6366f1)',
+              backdropFilter: 'blur(20px)',
+              border: '1px solid rgba(255, 255, 255, 0.15)',
+              color: '#ffffff',
+              boxShadow: '0 16px 50px rgba(0, 0, 0, 0.4)',
               '&:hover': {
-                transform: 'scale(1.1)',
+                transform: 'scale(1.1) translateY(-2px)',
+                boxShadow: '0 20px 60px rgba(139, 92, 246, 0.6)',
               },
-              transition: 'all 0.3s ease',
+              transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
             }}
           >
             <KeyboardArrowUp />

@@ -85,8 +85,8 @@ export default function MiniSiteLayoutNew({ config, children }: MiniSiteLayoutNe
   return (
     <Box sx={{ 
       minHeight: '100vh', 
-      bgcolor: config.theme.backgroundColor,
-      color: config.theme.textColor,
+      background: 'linear-gradient(135deg, #0a0a0a 0%, #1a1a1a 100%)',
+      color: '#ffffff',
       position: 'relative'
     }}>
       {/* Header */}
@@ -94,10 +94,11 @@ export default function MiniSiteLayoutNew({ config, children }: MiniSiteLayoutNe
         position="fixed"
         elevation={scrolled ? 4 : 0}
         sx={{
-          bgcolor: scrolled ? 'rgba(255, 255, 255, 0.95)' : 'rgba(255, 255, 255, 0.1)',
+          bgcolor: scrolled ? 'rgba(255, 255, 255, 0.08)' : 'rgba(255, 255, 255, 0.05)',
           backdropFilter: 'blur(20px)',
+          border: scrolled ? '1px solid rgba(255, 255, 255, 0.15)' : '1px solid rgba(255, 255, 255, 0.1)',
           transition: 'all 0.3s ease',
-          borderBottom: scrolled ? '1px solid rgba(0, 0, 0, 0.1)' : 'none',
+          boxShadow: scrolled ? '0 8px 24px rgba(0, 0, 0, 0.4)' : 'none',
         }}
       >
         <Container maxWidth="xl">
@@ -125,9 +126,9 @@ export default function MiniSiteLayoutNew({ config, children }: MiniSiteLayoutNe
                     variant="h6"
                     sx={{
                       fontWeight: 700,
-                      color: scrolled ? config.theme.textColor : '#fff',
+                      color: '#ffffff',
                       fontSize: { xs: '1.1rem', md: '1.3rem' },
-                      textShadow: !scrolled ? '0 2px 4px rgba(0, 0, 0, 0.3)' : 'none',
+                      textShadow: '0 2px 8px rgba(0, 0, 0, 0.6)',
                     }}
                   >
                     {config.contactInfo.businessName}
@@ -135,9 +136,9 @@ export default function MiniSiteLayoutNew({ config, children }: MiniSiteLayoutNe
                   <Typography
                     variant="caption"
                     sx={{
-                      color: scrolled ? config.theme.textColor : 'rgba(255, 255, 255, 0.8)',
+                      color: 'rgba(255, 255, 255, 0.7)',
                       fontSize: '0.75rem',
-                      textShadow: !scrolled ? '0 1px 2px rgba(0, 0, 0, 0.3)' : 'none',
+                      textShadow: '0 1px 4px rgba(0, 0, 0, 0.5)',
                     }}
                   >
                     {config.contactInfo.businessDescription}
@@ -162,15 +163,19 @@ export default function MiniSiteLayoutNew({ config, children }: MiniSiteLayoutNe
                       component={Link}
                       href={item.href}
                       sx={{
-                        color: scrolled ? config.theme.textColor : '#fff',
+                        color: '#ffffff',
                         fontWeight: 500,
-                        borderRadius: typeof config.theme.borderRadius === 'number' ? config.theme.borderRadius : 2,
+                        borderRadius: '12px',
                         px: 2,
                         py: 1,
                         textTransform: 'none',
                         fontSize: '0.95rem',
+                        transition: 'all 0.3s ease',
                         '&:hover': {
-                          bgcolor: scrolled ? 'rgba(0, 0, 0, 0.05)' : 'rgba(255, 255, 255, 0.1)',
+                          background: 'rgba(255, 255, 255, 0.08)',
+                          backdropFilter: 'blur(10px)',
+                          border: '1px solid rgba(255, 255, 255, 0.15)',
+                          transform: 'translateY(-1px)',
                         },
                       }}
                     >
@@ -192,19 +197,23 @@ export default function MiniSiteLayoutNew({ config, children }: MiniSiteLayoutNe
                 startIcon={<WhatsApp />}
                 onClick={handleWhatsAppClick}
                 sx={{
-                  bgcolor: '#25D366',
-                  color: '#fff',
+                  background: 'linear-gradient(135deg, #25D366, #128C7E)',
+                  color: '#ffffff',
                   fontWeight: 600,
-                  borderRadius: typeof config.theme.borderRadius === 'number' ? config.theme.borderRadius : 2,
+                  borderRadius: '16px',
                   px: { xs: 2, md: 3 },
                   py: 1,
                   textTransform: 'none',
                   fontSize: '0.9rem',
-                  boxShadow: '0 4px 12px rgba(37, 211, 102, 0.3)',
+                  boxShadow: '0 8px 24px rgba(37, 211, 102, 0.4)',
+                  backdropFilter: 'blur(10px)',
+                  border: '1px solid rgba(255, 255, 255, 0.1)',
                   '&:hover': {
-                    bgcolor: '#1da851',
-                    boxShadow: '0 6px 16px rgba(37, 211, 102, 0.4)',
+                    background: 'linear-gradient(135deg, #1da851, #0d5940)',
+                    boxShadow: '0 12px 32px rgba(37, 211, 102, 0.5)',
+                    transform: 'translateY(-2px) scale(1.02)',
                   },
+                  transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
                 }}
               >
                 {isMobile ? 'Falar' : 'Falar no WhatsApp'}
@@ -216,8 +225,17 @@ export default function MiniSiteLayoutNew({ config, children }: MiniSiteLayoutNe
               <IconButton
                 onClick={() => setMobileMenuOpen(true)}
                 sx={{
-                  color: scrolled ? config.theme.textColor : '#fff',
+                  color: '#ffffff',
                   ml: 1,
+                  background: 'rgba(255, 255, 255, 0.08)',
+                  backdropFilter: 'blur(10px)',
+                  border: '1px solid rgba(255, 255, 255, 0.15)',
+                  borderRadius: '12px',
+                  '&:hover': {
+                    background: 'rgba(255, 255, 255, 0.12)',
+                    transform: 'scale(1.05)',
+                  },
+                  transition: 'all 0.3s ease',
                 }}
               >
                 <MenuIcon />
@@ -235,18 +253,30 @@ export default function MiniSiteLayoutNew({ config, children }: MiniSiteLayoutNe
         sx={{
           '& .MuiDrawer-paper': {
             width: 280,
-            bgcolor: config.theme.backgroundColor,
-            color: config.theme.textColor,
-            borderRadius: `${typeof config.theme.borderRadius === 'number' ? config.theme.borderRadius : 2}px 0 0 ${typeof config.theme.borderRadius === 'number' ? config.theme.borderRadius : 2}px`,
+            background: 'linear-gradient(135deg, #0a0a0a 0%, #1a1a1a 100%)',
+            backdropFilter: 'blur(20px)',
+            color: '#ffffff',
+            borderRadius: '20px 0 0 20px',
+            border: '1px solid rgba(255, 255, 255, 0.15)',
           },
         }}
       >
         <Box sx={{ p: 2 }}>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-            <Typography variant="h6" sx={{ fontWeight: 700 }}>
+            <Typography variant="h6" sx={{ fontWeight: 700, color: '#ffffff' }}>
               Menu
             </Typography>
-            <IconButton onClick={() => setMobileMenuOpen(false)}>
+            <IconButton 
+              onClick={() => setMobileMenuOpen(false)}
+              sx={{
+                color: '#ffffff',
+                background: 'rgba(255, 255, 255, 0.08)',
+                backdropFilter: 'blur(10px)',
+                '&:hover': {
+                  background: 'rgba(255, 255, 255, 0.12)',
+                },
+              }}
+            >
               <CloseIcon />
             </IconButton>
           </Box>
@@ -259,11 +289,13 @@ export default function MiniSiteLayoutNew({ config, children }: MiniSiteLayoutNe
                 href={item.href}
                 onClick={() => setMobileMenuOpen(false)}
                 sx={{
-                  borderRadius: typeof config.theme.borderRadius === 'number' ? config.theme.borderRadius : 2,
+                  borderRadius: '12px',
                   mb: 1,
                   '&:hover': {
-                    bgcolor: 'rgba(0, 0, 0, 0.05)',
+                    background: 'rgba(255, 255, 255, 0.08)',
+                    backdropFilter: 'blur(10px)',
                   },
+                  transition: 'all 0.3s ease',
                 }}
               >
                 <ListItemText
@@ -271,6 +303,7 @@ export default function MiniSiteLayoutNew({ config, children }: MiniSiteLayoutNe
                   sx={{
                     '& .MuiTypography-root': {
                       fontWeight: 500,
+                      color: '#ffffff',
                     },
                   }}
                 />
@@ -278,7 +311,7 @@ export default function MiniSiteLayoutNew({ config, children }: MiniSiteLayoutNe
             ))}
           </List>
 
-          <Divider sx={{ my: 2 }} />
+          <Divider sx={{ my: 2, borderColor: 'rgba(255, 255, 255, 0.1)' }} />
 
           <Box sx={{ textAlign: 'center' }}>
             <Button
@@ -287,18 +320,22 @@ export default function MiniSiteLayoutNew({ config, children }: MiniSiteLayoutNe
               onClick={handleWhatsAppClick}
               fullWidth
               sx={{
-                bgcolor: '#25D366',
-                color: '#fff',
+                background: 'linear-gradient(135deg, #25D366, #128C7E)',
+                color: '#ffffff',
                 fontWeight: 600,
-                borderRadius: typeof config.theme.borderRadius === 'number' ? config.theme.borderRadius : 2,
+                borderRadius: '16px',
                 py: 1.5,
                 textTransform: 'none',
                 fontSize: '1rem',
-                boxShadow: '0 4px 12px rgba(37, 211, 102, 0.3)',
+                boxShadow: '0 8px 24px rgba(37, 211, 102, 0.4)',
+                backdropFilter: 'blur(10px)',
+                border: '1px solid rgba(255, 255, 255, 0.1)',
                 '&:hover': {
-                  bgcolor: '#1da851',
-                  boxShadow: '0 6px 16px rgba(37, 211, 102, 0.4)',
+                  background: 'linear-gradient(135deg, #1da851, #0d5940)',
+                  boxShadow: '0 12px 32px rgba(37, 211, 102, 0.5)',
+                  transform: 'translateY(-2px)',
                 },
+                transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
               }}
             >
               Falar no WhatsApp
@@ -308,7 +345,7 @@ export default function MiniSiteLayoutNew({ config, children }: MiniSiteLayoutNe
       </Drawer>
 
       {/* Main Content */}
-      <Box component="main" sx={{ pt: { xs: 8, md: 9 } }}>
+      <Box component="main" sx={{ pt: { xs: 7, md: 8 } }}>
         {children}
       </Box>
 
@@ -316,80 +353,57 @@ export default function MiniSiteLayoutNew({ config, children }: MiniSiteLayoutNe
       <Box
         component="footer"
         sx={{
-          bgcolor: config.theme.textColor,
-          color: config.theme.backgroundColor,
-          py: 4,
-          mt: 6,
+          background: 'rgba(255, 255, 255, 0.05)',
+          backdropFilter: 'blur(20px)',
+          border: '1px solid rgba(255, 255, 255, 0.1)',
+          color: '#ffffff',
+          py: 3,
+          mt: 4,
         }}
       >
         <Container maxWidth="xl">
-          <Stack spacing={3}>
-            <Stack
-              direction={{ xs: 'column', md: 'row' }}
-              justifyContent="space-between"
-              alignItems={{ xs: 'center', md: 'flex-start' }}
-              spacing={3}
-            >
-              <Box sx={{ textAlign: { xs: 'center', md: 'left' } }}>
-                <Typography variant="h6" sx={{ fontWeight: 700, mb: 1 }}>
-                  {config.contactInfo.businessName}
-                </Typography>
-                <Typography variant="body2" sx={{ opacity: 0.8, mb: 2 }}>
-                  {config.contactInfo.businessDescription}
-                </Typography>
-              </Box>
-
-              <Stack direction="row" spacing={2}>
-                {config.contactInfo.whatsappNumber && (
-                  <Tooltip title="WhatsApp">
-                    <IconButton
-                      onClick={handleWhatsAppClick}
-                      sx={{
-                        bgcolor: '#25D366',
-                        color: '#fff',
-                        '&:hover': {
-                          bgcolor: '#1da851',
-                        },
-                      }}
-                    >
-                      <WhatsApp />
-                    </IconButton>
-                  </Tooltip>
-                )}
-                {config.contactInfo.email && (
-                  <Tooltip title="Email">
-                    <IconButton
-                      component={Link}
-                      href={`mailto:${config.contactInfo.email}`}
-                      sx={{
-                        bgcolor: config.theme.primaryColor,
-                        color: '#fff',
-                        '&:hover': {
-                          bgcolor: config.theme.secondaryColor,
-                        },
-                      }}
-                    >
-                      <Email />
-                    </IconButton>
-                  </Tooltip>
-                )}
-              </Stack>
-            </Stack>
-
-            <Divider sx={{ bgcolor: 'rgba(255, 255, 255, 0.1)' }} />
-
-            <Stack
-              direction={{ xs: 'column', md: 'row' }}
-              justifyContent="space-between"
-              alignItems="center"
-              spacing={2}
-            >
-              <Typography variant="body2" sx={{ opacity: 0.7 }}>
-                © {new Date().getFullYear()} {config.contactInfo.businessName}. Todos os direitos reservados.
+          <Stack
+            direction={{ xs: 'column', md: 'row' }}
+            justifyContent="space-between"
+            alignItems="center"
+            spacing={2}
+          >
+            <Box sx={{ textAlign: { xs: 'center', md: 'left' } }}>
+              <Typography variant="body2" sx={{ color: 'rgba(255, 255, 255, 0.8)', fontWeight: 600 }}>
+                {config.contactInfo.businessName}
               </Typography>
-              <Typography variant="body2" sx={{ opacity: 0.7 }}>
-                Powered by LocAI
+              <Typography variant="caption" sx={{ color: 'rgba(255, 255, 255, 0.6)' }}>
+                © {new Date().getFullYear()} - Todos os direitos reservados
               </Typography>
+            </Box>
+
+            <Stack direction="row" spacing={2} alignItems="center">
+              {config.contactInfo.whatsappNumber && (
+                <Button
+                  startIcon={<WhatsApp />}
+                  onClick={handleWhatsAppClick}
+                  size="small"
+                  sx={{
+                    background: 'linear-gradient(135deg, #25D366, #128C7E)',
+                    color: '#ffffff',
+                    borderRadius: '12px',
+                    px: 2,
+                    py: 1,
+                    textTransform: 'none',
+                    fontSize: '0.875rem',
+                    fontWeight: 600,
+                    backdropFilter: 'blur(10px)',
+                    border: '1px solid rgba(255, 255, 255, 0.1)',
+                    '&:hover': {
+                      background: 'linear-gradient(135deg, #1da851, #0d5940)',
+                      transform: 'translateY(-1px)',
+                    },
+                    transition: 'all 0.3s ease',
+                  }}
+                >
+                  Contato
+                </Button>
+              )}
             </Stack>
           </Stack>
         </Container>
@@ -412,21 +426,24 @@ export default function MiniSiteLayoutNew({ config, children }: MiniSiteLayoutNe
           >
             <Tooltip title="Voltar ao topo">
               <Paper
-                elevation={4}
+                elevation={0}
                 sx={{
-                  borderRadius: '50%',
+                  borderRadius: '16px',
                   width: 56,
                   height: 56,
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  bgcolor: config.theme.primaryColor,
-                  color: '#fff',
+                  background: 'linear-gradient(135deg, #8b5cf6, #6366f1)',
+                  backdropFilter: 'blur(20px)',
+                  border: '1px solid rgba(255, 255, 255, 0.15)',
+                  color: '#ffffff',
                   cursor: 'pointer',
-                  transition: 'all 0.2s ease',
+                  boxShadow: '0 16px 50px rgba(0, 0, 0, 0.4)',
+                  transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
                   '&:hover': {
-                    bgcolor: config.theme.secondaryColor,
-                    transform: 'scale(1.1)',
+                    boxShadow: '0 20px 60px rgba(139, 92, 246, 0.6)',
+                    transform: 'scale(1.1) translateY(-2px)',
                   },
                 }}
                 onClick={scrollToTop}

@@ -8,11 +8,13 @@ const requiredEnvVars = [
   'FIREBASE_PROJECT_ID',
   'FIREBASE_CLIENT_EMAIL',
   'FIREBASE_PRIVATE_KEY',
+  'NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET',
 ];
 
 for (const envVar of requiredEnvVars) {
   if (!process.env[envVar]) {
-    throw new Error(`Missing required environment variable: ${envVar}`);
+    console.error(`❌ Missing Firebase environment variable: ${envVar}`);
+    throw new Error(`Missing required environment variable: ${envVar}. Please check your .env file.`);
   }
 }
 
@@ -21,8 +23,18 @@ let app: App;
 
 if (getApps().length === 0) {
   try {
+    console.log('🔥 Initializing Firebase Admin...');
+    console.log('📋 Project ID:', process.env.FIREBASE_PROJECT_ID);
+    console.log('📧 Client Email:', process.env.FIREBASE_CLIENT_EMAIL);
+    console.log('🗂️ Storage Bucket:', process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET);
+    
     // Parse the private key (handle escaped newlines)
     const privateKey = process.env.FIREBASE_PRIVATE_KEY!.replace(/\\n/g, '\n');
+    
+    // Validate private key format
+    if (!privateKey.includes('-----BEGIN PRIVATE KEY-----') || !privateKey.includes('-----END PRIVATE KEY-----')) {
+      throw new Error('Invalid FIREBASE_PRIVATE_KEY format. Must include BEGIN and END markers.');
+    }
 
     app = initializeApp({
       credential: cert({
@@ -33,11 +45,24 @@ if (getApps().length === 0) {
       projectId: process.env.FIREBASE_PROJECT_ID!,
       storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET!,
     });
+    
+    console.log('✅ Firebase Admin initialized successfully');
   } catch (error) {
-
-    throw new Error('Firebase Admin initialization failed');
+    console.error('❌ Firebase Admin initialization failed:', error);
+    console.error('📋 Environment check:');
+    console.error('  - FIREBASE_PROJECT_ID:', !!process.env.FIREBASE_PROJECT_ID);
+    console.error('  - FIREBASE_CLIENT_EMAIL:', !!process.env.FIREBASE_CLIENT_EMAIL);
+    console.error('  - FIREBASE_PRIVATE_KEY:', !!process.env.FIREBASE_PRIVATE_KEY);
+    console.error('  - STORAGE_BUCKET:', !!process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET);
+    
+    if (error instanceof Error) {
+      throw new Error(`Firebase Admin initialization failed: ${error.message}`);
+    } else {
+      throw new Error('Firebase Admin initialization failed with unknown error');
+    }
   }
 } else {
+  console.log('♻️ Using existing Firebase Admin app');
   app = getApps()[0];
 }
 

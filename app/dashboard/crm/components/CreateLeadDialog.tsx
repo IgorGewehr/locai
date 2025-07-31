@@ -84,15 +84,14 @@ export default function CreateLeadDialog({ open, onClose, onSuccess }: CreateLea
 
   const handleSubmit = async () => {
     try {
-      await crmService.createLead({
+      // Prepare data without undefined values
+      const leadData: any = {
         tenantId: user?.tenantId || '',
         name: formData.name,
         phone: formData.phone,
-        email: formData.email || undefined,
         whatsappNumber: formData.whatsappNumber || formData.phone,
         status: LeadStatus.NEW,
         source: formData.source,
-        sourceDetails: formData.sourceDetails || undefined,
         score: 50, // Initial score
         temperature: 'warm',
         qualificationCriteria: {
@@ -101,23 +100,56 @@ export default function CreateLeadDialog({ open, onClose, onSuccess }: CreateLea
           need: formData.need,
           timeline: formData.timeline,
         },
-        preferences: {
-          propertyType: formData.propertyType.length > 0 ? formData.propertyType : undefined,
-          location: formData.location.length > 0 ? formData.location : undefined,
-          priceRange: formData.priceMin && formData.priceMax
-            ? { min: parseFloat(formData.priceMin), max: parseFloat(formData.priceMax) }
-            : undefined,
-          bedrooms: formData.bedrooms
-            ? { min: parseInt(formData.bedrooms), max: parseInt(formData.bedrooms) + 2 }
-            : undefined,
-          moveInDate: formData.moveInDate ? new Date(formData.moveInDate) : undefined,
-        } as any,
+        preferences: {},
         tags: formData.tags,
         firstContactDate: new Date(),
         lastContactDate: new Date(),
         totalInteractions: 0,
-        assignedTo: user?.id,
-      } as any);
+      };
+
+      // Only add email if it has a value
+      if (formData.email && formData.email.trim()) {
+        leadData.email = formData.email.trim();
+      }
+
+      // Only add sourceDetails if it has a value  
+      if (formData.sourceDetails && formData.sourceDetails.trim()) {
+        leadData.sourceDetails = formData.sourceDetails.trim();
+      }
+
+      // Only add assignedTo if user.id exists
+      if (user?.id) {
+        leadData.assignedTo = user.id;
+      }
+
+      // Add preferences only if they have values
+      if (formData.propertyType.length > 0) {
+        leadData.preferences.propertyType = formData.propertyType;
+      }
+      
+      if (formData.location.length > 0) {
+        leadData.preferences.location = formData.location;
+      }
+      
+      if (formData.priceMin && formData.priceMax) {
+        leadData.preferences.priceRange = { 
+          min: parseFloat(formData.priceMin), 
+          max: parseFloat(formData.priceMax) 
+        };
+      }
+      
+      if (formData.bedrooms) {
+        leadData.preferences.bedrooms = { 
+          min: parseInt(formData.bedrooms), 
+          max: parseInt(formData.bedrooms) + 2 
+        };
+      }
+      
+      if (formData.moveInDate) {
+        leadData.preferences.moveInDate = new Date(formData.moveInDate);
+      }
+
+      await crmService.createLead(leadData);
       
       onSuccess();
       handleReset();

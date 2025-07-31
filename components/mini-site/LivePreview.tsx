@@ -148,7 +148,7 @@ export default function LivePreview({
         borderRadius: activeDevice === 'desktop' ? 0 : 2,
         overflow: 'hidden',
         position: 'relative',
-        background: config?.active ? 'white' : 'grey.100',
+        background: config?.active ? '#ffffff' : 'grey.100',
       }}
     >
       {config?.active ? (

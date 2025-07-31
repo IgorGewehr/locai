@@ -2,8 +2,8 @@
 
 import { useState, useEffect } from 'react';
 import { useTenant } from '@/contexts/TenantContext';
-import type { Client } from '@/lib/types';
-import { PaymentMethod } from '@/lib/types/reservation';
+import type { Lead } from '@/lib/types/crm';
+import type { Conversation } from '@/lib/types/conversation';
 import {
   Box,
   Typography,
@@ -54,6 +54,10 @@ import {
   CheckCircle,
   Edit,
   Refresh,
+  Chat,
+  History,
+  TrendingUp,
+  LocationOn,
 } from '@mui/icons-material';
 import { useRouter } from 'next/navigation';
 import { safeFormatDate, DateFormats } from '@/lib/utils/date-formatter';
@@ -66,14 +70,14 @@ interface ClientFormData {
   name: string;
   phone: string;
   email: string;
-  cpf?: string;
   notes?: string;
 }
 
 export default function ClientsPage() {
   const { user } = useAuth();
   const { services, isReady } = useTenant();
-  const [clients, setClients] = useState<Client[]>([]);
+  const [clients, setClients] = useState<Lead[]>([]);
+  const [conversations, setConversations] = useState<Conversation[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
@@ -82,21 +86,22 @@ export default function ClientsPage() {
   const [showDetailsDialog, setShowDetailsDialog] = useState(false);
   const [showImportDialog, setShowImportDialog] = useState(false);
   const [selectedTab, setSelectedTab] = useState(0);
-  const [selectedClient, setSelectedClient] = useState<Client | null>(null);
+  const [selectedClient, setSelectedClient] = useState<Lead | null>(null);
   const [filterOpen, setFilterOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [migrationMessage, setMigrationMessage] = useState<string | null>(null);
   const router = useRouter();
 
   const [formData, setFormData] = useState<ClientFormData>({
     name: '',
     phone: '',
     email: '',
-    cpf: '',
     notes: '',
   });
 
   useEffect(() => {
     loadClients();
+    loadConversations();
   }, [services, isReady]);
 
   const loadClients = async (isRefresh = false) => {
@@ -109,16 +114,38 @@ export default function ClientsPage() {
       }
       
       console.log('🔄 [Clients Dashboard] Carregando clientes...');
-      const clientsData = await services.clients.getAll();
-      console.log(`✅ [Clients Dashboard] ${clientsData.length} clientes carregados`, clientsData);
       
-      // Ordenar clientes: mais recentes primeiro
-      const sortedClients = clientsData.sort((a, b) => 
+      // 1. Carregar leads (nova estrutura)
+      const leadsData = await services.leads.getAll();
+      console.log(`📊 [Clients Dashboard] ${leadsData.length} leads carregados`);
+      
+      // 2. Carregar clientes antigos (se existirem)
+      let legacyClientsData: any[] = [];
+      try {
+        legacyClientsData = await services.clients.getAll();
+        console.log(`👥 [Clients Dashboard] ${legacyClientsData.length} clientes legados encontrados`);
+      } catch (clientsError) {
+        console.log('ℹ️ [Clients Dashboard] Nenhum cliente legado encontrado ou erro ao carregar:', clientsError);
+      }
+      
+      // 3. Migrar clientes legados para leads (se necessário)
+      const migratedClients = await migrateClientsToLeads(legacyClientsData, leadsData);
+      
+      // 4. Combinar todos os dados
+      const allClients = [...leadsData, ...migratedClients];
+      
+      // 5. Remover duplicatas por telefone (priorizar leads sobre clientes migrados)
+      const uniqueClients = removeDuplicatesByPhone(allClients);
+      
+      // 6. Ordenar clientes: mais recentes primeiro
+      const sortedClients = uniqueClients.sort((a, b) => 
         new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
       );
       
+      console.log(`✅ [Clients Dashboard] ${sortedClients.length} clientes únicos carregados`);
       setClients(sortedClients);
       setError(null);
+      
     } catch (error) {
       console.error('❌ [Clients Dashboard] Erro ao carregar clientes:', error);
       setError('Erro ao carregar clientes. Tente novamente.');
@@ -129,30 +156,132 @@ export default function ClientsPage() {
     }
   };
 
+  // Função para migrar clientes legados para formato Lead
+  const migrateClientsToLeads = async (legacyClients: any[], existingLeads: Lead[]): Promise<Lead[]> => {
+    if (!legacyClients.length || !services) return [];
+    
+    const migratedClients: Lead[] = [];
+    
+    for (const legacyClient of legacyClients) {
+      // Verificar se já existe um lead com este telefone
+      const existingLead = existingLeads.find(lead => lead.phone === legacyClient.phone);
+      
+      if (!existingLead) {
+        console.log(`🔄 [Migration] Migrando cliente legado: ${legacyClient.name} (${legacyClient.phone})`);
+        
+        // Converter cliente legado para formato Lead
+        const leadData: Omit<Lead, 'id'> = {
+          name: legacyClient.name || 'Cliente Migrado',
+          phone: legacyClient.phone,
+          email: legacyClient.email || undefined,
+          document: legacyClient.document || legacyClient.cpf || undefined,
+          documentType: 'cpf',
+          source: 'migrated' as any, // Fonte especial para clientes migrados
+          status: 'contacted' as any,
+          temperature: 'warm',
+          score: 50,
+          qualificationCriteria: {
+            budget: false,
+            authority: false,
+            need: false,
+            timeline: false
+          },
+          preferences: {
+            propertyType: [],
+            locations: [],
+            amenities: [],
+            priceRange: {}
+          },
+          tags: ['migrated', 'legacy_client'],
+          notes: legacyClient.notes || legacyClient.observations || 'Cliente migrado da estrutura anterior',
+          firstContactDate: legacyClient.createdAt || new Date(),
+          lastContactDate: legacyClient.updatedAt || legacyClient.createdAt || new Date(),
+          totalInteractions: 0,
+          createdAt: legacyClient.createdAt || new Date(),
+          updatedAt: new Date()
+        };
+        
+        try {
+          // Criar Lead no Firebase
+          const leadId = await services.leads.create(leadData);
+          
+          // Adicionar à lista de migrados
+          migratedClients.push({
+            id: leadId,
+            ...leadData
+          });
+          
+          console.log(`✅ [Migration] Cliente migrado com sucesso: ${leadData.name} → Lead ID: ${leadId}`);
+          
+        } catch (migrationError) {
+          console.error(`❌ [Migration] Erro ao migrar cliente ${legacyClient.name}:`, migrationError);
+        }
+      }
+    }
+    
+    if (migratedClients.length > 0) {
+      console.log(`🎉 [Migration] ${migratedClients.length} clientes migrados com sucesso!`);
+      setMigrationMessage(`✅ ${migratedClients.length} cliente${migratedClients.length > 1 ? 's' : ''} migrado${migratedClients.length > 1 ? 's' : ''} da estrutura anterior para o novo sistema CRM!`);
+    }
+    
+    return migratedClients;
+  };
+
+  // Função para remover duplicatas por telefone
+  const removeDuplicatesByPhone = (clients: Lead[]): Lead[] => {
+    const seen = new Set<string>();
+    return clients.filter(client => {
+      if (seen.has(client.phone)) {
+        return false;
+      }
+      seen.add(client.phone);
+      return true;
+    });
+  };
+
+  const loadConversations = async () => {
+    if (!services || !isReady) return;
+    
+    try {
+      console.log('🔄 [Clients Dashboard] Carregando conversações...');
+      const conversationsData = await services.conversations.getAll();
+      console.log(`✅ [Clients Dashboard] ${conversationsData.length} conversações carregadas`);
+      setConversations(conversationsData);
+    } catch (error) {
+      console.error('❌ [Clients Dashboard] Erro ao carregar conversações:', error);
+    }
+  };
+
   const handleAddClient = async () => {
     if (!services) return;
     
     try {
       console.log('➕ [Clients Dashboard] Criando novo cliente:', formData);
       
-      const clientData = {
+      const leadData = {
         name: formData.name,
         phone: formData.phone,
         email: formData.email || undefined,
-        document: formData.cpf || undefined,
         source: 'manual',
-        isActive: true,
-        totalReservations: 0,
-        totalSpent: 0,
+        status: 'new' as const,
+        temperature: 'warm' as const,
+        score: 50,
+        preferences: {
+          propertyType: [],
+          locations: [],
+          amenities: []
+        },
+        tags: ['manual_entry'],
+        notes: formData.notes || '',
         createdAt: new Date(),
         updatedAt: new Date()
       };
 
-      await services.clients.create(clientData as Omit<Client, 'id'>);
+      await services.leads.create(leadData as Omit<Lead, 'id'>);
       console.log('✅ [Clients Dashboard] Cliente criado');
       
       setShowAddDialog(false);
-      setFormData({ name: '', phone: '', email: '', cpf: '', notes: '' });
+      setFormData({ name: '', phone: '', email: '', notes: '' });
       
       // Recarregar lista
       await loadClients();
@@ -162,9 +291,22 @@ export default function ClientsPage() {
     }
   };
 
-  const handleClientClick = (client: Client) => {
+  const handleClientClick = (client: Lead) => {
     setSelectedClient(client);
     setShowDetailsDialog(true);
+  };
+
+  const handleViewConversation = (phone: string) => {
+    const conversation = conversations.find(conv => conv.whatsappPhone === phone);
+    if (conversation) {
+      router.push(`/dashboard/conversations/${conversation.id}`);
+    } else {
+      console.log('Nenhuma conversa encontrada para este cliente');
+    }
+  };
+
+  const getClientConversation = (phone: string) => {
+    return conversations.find(conv => conv.whatsappPhone === phone);
   };
 
   const handleWhatsAppClick = (phone: string, e: React.MouseEvent) => {
@@ -182,15 +324,25 @@ export default function ClientsPage() {
     window.location.href = `mailto:${email}`;
   };
 
-  const handleEditClick = (client: Client, e: React.MouseEvent) => {
+  const handleEditClick = (client: Lead, e: React.MouseEvent) => {
     e.stopPropagation();
     setSelectedClient(client);
     setShowEditDialog(true);
   };
 
-  const toggleFavorite = async (client: Client, e: React.MouseEvent) => {
+  const toggleFavorite = async (client: Lead, e: React.MouseEvent) => {
     e.stopPropagation();
-    // Implementation for favorite toggle
+    // Implementation for favorite toggle - could update tags
+    try {
+      const updatedTags = client.tags?.includes('favorite') 
+        ? client.tags.filter(tag => tag !== 'favorite')
+        : [...(client.tags || []), 'favorite'];
+      
+      await services.leads.update(client.id!, { tags: updatedTags });
+      await loadClients();
+    } catch (error) {
+      console.error('Erro ao favoritar cliente:', error);
+    }
   };
 
   const filteredClients = clients.filter(client => {
@@ -200,8 +352,10 @@ export default function ClientsPage() {
       client.phone.includes(searchTerm);
 
     if (selectedTab === 0) return matchesSearch; // Todos
-    if (selectedTab === 1) return matchesSearch && client.isActive; // Ativos
-    if (selectedTab === 2) return matchesSearch && client.source === 'whatsapp'; // WhatsApp
+    if (selectedTab === 1) return matchesSearch && ['won', 'opportunity', 'negotiation'].includes(client.status); // Ativos/Oportunidades
+    if (selectedTab === 2) return matchesSearch && client.source === 'whatsapp_ai'; // WhatsApp
+    if (selectedTab === 3) return matchesSearch && client.tags?.includes('favorite'); // Favoritos  
+    if (selectedTab === 4) return matchesSearch && client.source === 'migrated'; // Migrados
     return matchesSearch;
   });
 
@@ -306,8 +460,8 @@ export default function ClientsPage() {
           <Tab 
             label={
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                Ativos
-                <Chip label={clients.filter(c => c.isActive).length} size="small" color="success" />
+                Oportunidades
+                <Chip label={clients.filter(c => ['won', 'opportunity', 'negotiation'].includes(c.status)).length} size="small" color="success" />
               </Box>
             } 
           />
@@ -315,7 +469,23 @@ export default function ClientsPage() {
             label={
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                 WhatsApp
-                <Chip label={clients.filter(c => c.source === 'whatsapp').length} size="small" color="primary" />
+                <Chip label={clients.filter(c => c.source === 'whatsapp_ai').length} size="small" color="primary" />
+              </Box>
+            } 
+          />
+          <Tab 
+            label={
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                Favoritos
+                <Chip label={clients.filter(c => c.tags?.includes('favorite')).length} size="small" color="warning" />
+              </Box>
+            } 
+          />
+          <Tab 
+            label={
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                Migrados
+                <Chip label={clients.filter(c => c.source === 'migrated').length} size="small" color="info" />
               </Box>
             } 
           />
@@ -326,6 +496,16 @@ export default function ClientsPage() {
       {error && (
         <Alert severity="error" sx={{ mb: 3 }} onClose={() => setError(null)}>
           {error}
+        </Alert>
+      )}
+
+      {/* Migration Success Alert */}
+      {migrationMessage && (
+        <Alert severity="success" sx={{ mb: 3 }} onClose={() => setMigrationMessage(null)}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <History sx={{ fontSize: 20 }} />
+            {migrationMessage}
+          </Box>
         </Alert>
       )}
 
@@ -351,7 +531,7 @@ export default function ClientsPage() {
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <Box>
                 <Typography variant="h4" fontWeight={600}>
-                  {clients.filter(c => c.source === 'whatsapp').length}
+                  {clients.filter(c => c.source === 'whatsapp_ai').length}
                 </Typography>
                 <Typography variant="body2" color="text.secondary">
                   Via WhatsApp
@@ -366,13 +546,13 @@ export default function ClientsPage() {
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <Box>
                 <Typography variant="h4" fontWeight={600}>
-                  {clients.reduce((sum, c) => sum + c.totalReservations, 0)}
+                  {clients.filter(c => ['won', 'opportunity', 'negotiation'].includes(c.status)).length}
                 </Typography>
                 <Typography variant="body2" color="text.secondary">
-                  Total de Reservas
+                  Oportunidades
                 </Typography>
               </Box>
-              <Schedule sx={{ fontSize: 40, color: 'info.main', opacity: 0.7 }} />
+              <TrendingUp sx={{ fontSize: 40, color: 'info.main', opacity: 0.7 }} />
             </Box>
           </Card>
         </Grid>
@@ -381,13 +561,13 @@ export default function ClientsPage() {
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <Box>
                 <Typography variant="h4" fontWeight={600}>
-                  {clients.filter(c => c.isActive).length}
+                  {clients.filter(c => c.source === 'migrated').length}
                 </Typography>
                 <Typography variant="body2" color="text.secondary">
-                  Clientes Ativos
+                  Clientes Migrados
                 </Typography>
               </Box>
-              <CheckCircle sx={{ fontSize: 40, color: 'success.main', opacity: 0.7 }} />
+              <History sx={{ fontSize: 40, color: 'warning.main', opacity: 0.7 }} />
             </Box>
           </Card>
         </Grid>
@@ -433,7 +613,7 @@ export default function ClientsPage() {
                   <ListItemAvatar>
                     <Avatar 
                       sx={{ 
-                        bgcolor: client.source === 'whatsapp' ? 'success.main' : 'primary.main',
+                        bgcolor: client.source === 'whatsapp_ai' ? 'success.main' : 'primary.main',
                         width: 48,
                         height: 48,
                       }}
@@ -448,7 +628,7 @@ export default function ClientsPage() {
                         <Typography variant="subtitle1" fontWeight={500}>
                           {client.name}
                         </Typography>
-                        {client.source === 'whatsapp' && (
+                        {client.source === 'whatsapp_ai' && (
                           <Chip 
                             label="WhatsApp" 
                             size="small" 
@@ -456,27 +636,55 @@ export default function ClientsPage() {
                             sx={{ height: 20, fontSize: '0.7rem' }}
                           />
                         )}
+                        {client.source === 'migrated' && (
+                          <Chip 
+                            label="📤 Migrado" 
+                            size="small" 
+                            color="warning" 
+                            sx={{ height: 20, fontSize: '0.7rem' }}
+                          />
+                        )}
+                        {client.temperature && (
+                          <Chip 
+                            label={client.temperature === 'hot' ? '🔥 Quente' : client.temperature === 'warm' ? '🌡️ Morno' : '❄️ Frio'} 
+                            size="small" 
+                            color={client.temperature === 'hot' ? 'error' : client.temperature === 'warm' ? 'warning' : 'default'}
+                            sx={{ height: 20, fontSize: '0.7rem' }}
+                          />
+                        )}
+                        {client.tags?.includes('favorite') && (
+                          <Chip 
+                            label="⭐" 
+                            size="small" 
+                            color="warning"
+                            sx={{ height: 20, fontSize: '0.7rem', minWidth: 'auto', px: 0.5 }}
+                          />
+                        )}
                       </Box>
                     }
                     secondary={
                       <Box>
-                        <Typography variant="body2" color="text.secondary">
+                        <Typography variant="body2" color="text.secondary" component="span">
                           📱 {formatPhone(client.phone)}
                           {client.email && ` • 📧 ${client.email}`}
-                          {client.document && ` • 📄 CPF: ${client.document.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4')}`}
+                          {client.score && ` • 📊 Score: ${client.score}/100`}
                         </Typography>
                         <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mt: 0.5 }}>
-                          {(client.totalReservations || 0) > 0 ? (
-                            <Typography variant="caption" color="text.secondary">
-                              🏠 {client.totalReservations || 0} reserva{(client.totalReservations || 0) > 1 ? 's' : ''} • 
-                              💰 R$ {(client.totalSpent || 0).toLocaleString('pt-BR')} gastos
-                            </Typography>
-                          ) : (
-                            <Typography variant="caption" color="text.secondary">
-                              Novo cliente - Nenhuma reserva ainda
+                          <Typography variant="caption" color="text.secondary" component="span">
+                            Status: {client.status === 'new' ? '🆕 Novo' : 
+                                    client.status === 'contacted' ? '📞 Contatado' :
+                                    client.status === 'qualified' ? '✅ Qualificado' :
+                                    client.status === 'opportunity' ? '🎯 Oportunidade' :
+                                    client.status === 'negotiation' ? '💬 Negociação' :
+                                    client.status === 'won' ? '🎉 Convertido' :
+                                    client.status === 'lost' ? '❌ Perdido' : '📋 Em análise'}
+                          </Typography>
+                          {getClientConversation(client.phone) && (
+                            <Typography variant="caption" color="primary.main" sx={{ cursor: 'pointer' }} component="span">
+                              • 💬 Tem conversa WhatsApp
                             </Typography>
                           )}
-                          <Typography variant="caption" color="text.secondary">
+                          <Typography variant="caption" color="text.secondary" component="span">
                             • Cadastrado em {safeFormatDate(client.createdAt, DateFormats.SHORT, 'Não informado')}
                           </Typography>
                         </Box>
@@ -507,6 +715,19 @@ export default function ClientsPage() {
                         <Email />
                       </IconButton>
                     )}
+                    {getClientConversation(client.phone) && (
+                      <IconButton 
+                        size="small"
+                        color="primary"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleViewConversation(client.phone);
+                        }}
+                        title="Ver conversa WhatsApp"
+                      >
+                        <Chat />
+                      </IconButton>
+                    )}
                     <IconButton 
                       size="small"
                       onClick={(e) => handleEditClick(client, e)}
@@ -517,8 +738,9 @@ export default function ClientsPage() {
                     <IconButton 
                       size="small"
                       onClick={(e) => toggleFavorite(client, e)}
+                      title={client.tags?.includes('favorite') ? 'Remover dos favoritos' : 'Adicionar aos favoritos'}
                     >
-                      <StarBorder />
+                      {client.tags?.includes('favorite') ? <Star color="warning" /> : <StarBorder />}
                     </IconButton>
                   </Box>
                 </ListItemButton>
@@ -554,15 +776,6 @@ export default function ClientsPage() {
               />
             </Grid>
             <Grid item xs={12} sm={6}>
-              <TextField
-                fullWidth
-                label="CPF"
-                value={formData.cpf}
-                onChange={(e) => setFormData(prev => ({ ...prev, cpf: e.target.value }))}
-                placeholder="000.000.000-00"
-              />
-            </Grid>
-            <Grid item xs={12}>
               <TextField
                 fullWidth
                 label="E-mail"

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Card, 
   CardContent, 
@@ -56,6 +56,7 @@ import { PublicProperty, MiniSiteConfig } from '@/lib/types/mini-site';
 import Link from 'next/link';
 import LazyImage from './LazyImage';
 import { motion } from 'framer-motion';
+import { useThemeMode } from '@/contexts/ThemeContext';
 
 interface PropertyCardModernProps {
   property: PublicProperty;
@@ -93,33 +94,48 @@ export default function PropertyCardModern({
   viewMode = 'grid' 
 }: PropertyCardModernProps) {
   const theme = useTheme();
+  const { mode } = useThemeMode();
   const [isFavorited, setIsFavorited] = useState(false);
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
 
-  const mainImage = property.media.photos.find(photo => photo.isMain) || property.media.photos[0];
-  const images = property.media.photos.sort((a, b) => a.order - b.order);
+  // Safely handle photos array
+  const photos = property.media.photos || [];
+  const validPhotos = photos.filter(photo => photo && photo.url && photo.url.trim() !== '');
+  
+  const mainImage = validPhotos.find(photo => photo.isMain) || validPhotos[0];
+  const images = validPhotos.sort((a, b) => (a.order || 0) - (b.order || 0));
 
   const cardStyle = {
-    borderRadius: 3,
+    borderRadius: mode === 'light' ? '24px' : '20px',
     overflow: 'hidden',
-    background: 'rgba(255, 255, 255, 0.98)',
-    backdropFilter: 'blur(20px)',
-    border: `1px solid ${alpha(config.theme.primaryColor, 0.08)}`,
-    boxShadow: `0 8px 40px ${alpha(config.theme.primaryColor, 0.06)}`,
+    background: mode === 'light' 
+      ? theme.palette.background.paper 
+      : 'rgba(255, 255, 255, 0.08)',
+    backdropFilter: mode === 'light' ? 'blur(12px)' : 'blur(20px)',
+    border: mode === 'light' 
+      ? `2px solid ${theme.palette.divider}` 
+      : '1px solid rgba(255, 255, 255, 0.15)',
+    boxShadow: mode === 'light' 
+      ? theme.custom.elevation.low 
+      : '0 8px 32px rgba(0, 0, 0, 0.3)',
     transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
     position: 'relative' as const,
     height: '100%',
     display: 'flex',
-    flexDirection: viewMode === 'list' ? 'row' : 'column',
+    flexDirection: 'column',
+    minHeight: viewMode === 'list' ? (mode === 'light' ? 300 : 280) : (mode === 'light' ? 520 : 480),
+    maxHeight: viewMode === 'list' ? (mode === 'light' ? 340 : 320) : (mode === 'light' ? 560 : 520),
     '&:hover': {
-      transform: viewMode === 'grid' ? 'translateY(-8px)' : 'translateX(4px)',
-      boxShadow: `0 20px 60px ${alpha(config.theme.primaryColor, 0.12)}`,
-      '& .property-image': {
-        transform: 'scale(1.05)',
-      },
-      '& .property-overlay': {
-        opacity: 1,
-      },
+      transform: mode === 'light' ? 'translateY(-12px)' : 'translateY(-8px)',
+      boxShadow: mode === 'light' 
+        ? theme.custom.elevation.high 
+        : '0 16px 48px rgba(0, 0, 0, 0.4)',
+      background: mode === 'light' 
+        ? theme.palette.action.hover
+        : 'rgba(255, 255, 255, 0.12)',
+      border: mode === 'light'
+        ? '2px solid rgba(139, 92, 246, 0.4)'
+        : '1px solid rgba(139, 92, 246, 0.3)',
     },
   };
 
@@ -161,8 +177,17 @@ export default function PropertyCardModern({
   };
 
   const handleImageHover = (index: number) => {
-    setCurrentImageIndex(index);
+    if (index >= 0 && index < images.length) {
+      setCurrentImageIndex(index);
+    }
   };
+
+  // Reset image index if current index is out of bounds
+  useEffect(() => {
+    if (currentImageIndex >= images.length && images.length > 0) {
+      setCurrentImageIndex(0);
+    }
+  }, [images.length, currentImageIndex]);
 
   const getAmenityIcon = (amenity: string) => {
     return amenityIcons[amenity] || <MoreHoriz />;
@@ -172,18 +197,27 @@ export default function PropertyCardModern({
     <Box sx={{ 
       position: 'relative', 
       overflow: 'hidden',
-      width: viewMode === 'list' ? 300 : '100%',
-      minWidth: viewMode === 'list' ? 300 : 'auto',
-      height: viewMode === 'list' ? 200 : 280,
+      width: '100%',
+      height: viewMode === 'list' ? 200 : 320,
+      borderRadius: '16px 16px 0 0',
+      backgroundColor: 'rgba(255, 255, 255, 0.03)',
     }}>
       <LazyImage
-        src={images[currentImageIndex]?.url || mainImage?.url || '/placeholder-property.jpg'}
-        alt={property.name}
-        height={viewMode === 'list' ? '200px' : '280px'}
-        aspectRatio={viewMode === 'list' ? '3/2' : '16/9'}
+        src={images[currentImageIndex]?.url || mainImage?.url || 'https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?ixlib=rb-4.0.3&auto=format&fit=crop&w=1000&q=80'}
+        alt={images[currentImageIndex]?.alt || property.name}
+        width="100%"
+        height={viewMode === 'list' ? '200px' : '320px'}
+        objectFit="cover"
         className="property-image"
+        onError={() => {
+          console.warn('Failed to load image for property:', property.name);
+        }}
         sx={{
-          transition: 'transform 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
+          borderRadius: '16px 16px 0 0',
+          transition: 'transform 0.3s ease',
+          '&:hover': {
+            transform: 'scale(1.02)',
+          },
         }}
       />
       
@@ -192,32 +226,38 @@ export default function PropertyCardModern({
         <Box
           sx={{
             position: 'absolute',
-            bottom: 16,
+            bottom: 12,
             left: '50%',
             transform: 'translateX(-50%)',
             display: 'flex',
-            gap: 1,
-            zIndex: 2,
+            gap: 0.5,
+            zIndex: 3,
+            background: 'rgba(0, 0, 0, 0.6)',
+            backdropFilter: 'blur(10px)',
+            borderRadius: '12px',
+            padding: '6px 10px',
+            border: '1px solid rgba(255, 255, 255, 0.2)',
           }}
         >
           {images.slice(0, 5).map((_, index) => (
             <Box
               key={index}
               sx={{
-                width: 8,
-                height: 8,
+                width: 6,
+                height: 6,
                 borderRadius: '50%',
                 backgroundColor: currentImageIndex === index 
-                  ? 'white' 
-                  : alpha('white', 0.5),
+                  ? '#8b5cf6' 
+                  : alpha('#ffffff', 0.4),
                 cursor: 'pointer',
-                transition: 'all 0.3s ease',
+                transition: 'all 0.2s ease',
                 '&:hover': {
-                  backgroundColor: 'white',
-                  transform: 'scale(1.2)',
+                  backgroundColor: '#8b5cf6',
+                  transform: 'scale(1.3)',
                 },
               }}
               onMouseEnter={() => handleImageHover(index)}
+              onClick={() => setCurrentImageIndex(index)}
             />
           ))}
         </Box>
@@ -231,39 +271,46 @@ export default function PropertyCardModern({
           right: 12,
           display: 'flex',
           flexDirection: 'column',
-          gap: 1,
+          gap: 0.5,
+          zIndex: 2,
         }}
       >
         <IconButton
+          size="small"
           sx={{
-            backgroundColor: alpha('white', 0.9),
+            backgroundColor: 'rgba(0, 0, 0, 0.6)',
             backdropFilter: 'blur(10px)',
-            color: isFavorited ? '#ff4757' : '#666',
+            color: isFavorited ? '#ff4757' : '#ffffff',
+            width: 32,
+            height: 32,
             '&:hover': {
-              backgroundColor: 'white',
+              backgroundColor: 'rgba(0, 0, 0, 0.8)',
               transform: 'scale(1.1)',
             },
-            transition: 'all 0.3s ease',
+            transition: 'all 0.2s ease',
           }}
           onClick={handleFavoriteToggle}
         >
-          {isFavorited ? <Favorite /> : <FavoriteBorder />}
+          {isFavorited ? <Favorite fontSize="small" /> : <FavoriteBorder fontSize="small" />}
         </IconButton>
 
         <IconButton
+          size="small"
           sx={{
-            backgroundColor: alpha('white', 0.9),
+            backgroundColor: 'rgba(0, 0, 0, 0.6)',
             backdropFilter: 'blur(10px)',
-            color: '#666',
+            color: mode === 'light' ? theme.palette.text.primary : '#ffffff',
+            width: 32,
+            height: 32,
             '&:hover': {
-              backgroundColor: 'white',
+              backgroundColor: 'rgba(0, 0, 0, 0.8)',
               transform: 'scale(1.1)',
             },
-            transition: 'all 0.3s ease',
+            transition: 'all 0.2s ease',
           }}
           onClick={handleShare}
         >
-          <Share />
+          <Share fontSize="small" />
         </IconButton>
       </Box>
 
@@ -274,18 +321,23 @@ export default function PropertyCardModern({
             position: 'absolute',
             top: 12,
             left: 12,
+            zIndex: 2,
           }}
         >
           <Chip
             label="Destaque"
             size="small"
             sx={{
-              background: `linear-gradient(135deg, ${config.theme.accentColor}, ${config.theme.primaryColor})`,
-              color: 'white',
+              background: 'linear-gradient(135deg, #8b5cf6, #6366f1)',
+              color: mode === 'light' ? theme.palette.text.primary : '#ffffff',
               fontWeight: 600,
-              boxShadow: `0 4px 12px ${alpha(config.theme.accentColor, 0.3)}`,
+              fontSize: '0.75rem',
+              height: 24,
+              boxShadow: '0 4px 12px rgba(139, 92, 246, 0.4)',
+              backdropFilter: 'blur(10px)',
+              border: '1px solid rgba(255, 255, 255, 0.2)',
               '& .MuiChip-label': {
-                px: 2,
+                px: 1.5,
               },
             }}
           />
@@ -306,7 +358,7 @@ export default function PropertyCardModern({
             size="small"
             sx={{
               background: alpha(theme.palette.warning.main, 0.9),
-              color: 'white',
+              color: mode === 'light' ? theme.palette.text.primary : '#ffffff',
               fontWeight: 600,
               boxShadow: `0 4px 12px ${alpha(theme.palette.warning.main, 0.3)}`,
               '& .MuiChip-label': {
@@ -324,62 +376,45 @@ export default function PropertyCardModern({
             position: 'absolute',
             bottom: 12,
             right: 12,
+            zIndex: 2,
           }}
         >
           <Chip
             label={`${formatPrice(property.pricing.basePrice)}/noite`}
             sx={{
-              backgroundColor: alpha('white', 0.95),
-              backdropFilter: 'blur(10px)',
-              color: config.theme.primaryColor,
+              background: 'rgba(0, 0, 0, 0.8)',
+              backdropFilter: 'blur(15px)',
+              color: '#8b5cf6',
+              border: '1px solid rgba(139, 92, 246, 0.3)',
               fontWeight: 700,
-              fontSize: '0.875rem',
+              fontSize: '0.8rem',
+              height: 28,
               '& .MuiChip-label': {
-                px: 2,
+                px: 1.5,
               },
             }}
           />
         </Box>
       )}
 
-      {/* Hover Overlay */}
-      <Box
-        className="property-overlay"
-        sx={{
-          position: 'absolute',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          background: `linear-gradient(45deg, ${alpha(config.theme.primaryColor, 0.1)}, ${alpha(config.theme.accentColor, 0.1)})`,
-          opacity: 0,
-          transition: 'opacity 0.3s ease',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-        }}
-      >
-        <Typography
-          variant="body2"
-          sx={{
-            color: 'white',
-            fontWeight: 600,
-            textShadow: '0 2px 8px rgba(0,0,0,0.3)',
-          }}
-        >
-          Ver Detalhes
-        </Typography>
-      </Box>
     </Box>
   );
 
   const contentSection = (
     <CardContent sx={{ 
-      p: 3, 
+      p: mode === 'light' 
+        ? { xs: 3, sm: 3.5, md: 4 } 
+        : { xs: 2, sm: 2.5, md: 3 }, 
       flex: 1, 
       display: 'flex', 
       flexDirection: 'column',
-      gap: 2,
+      gap: mode === 'light' 
+        ? { xs: 2, sm: 2.5 } 
+        : { xs: 1.5, sm: 2 },
+      height: 'auto',
+      minHeight: viewMode === 'list' 
+        ? 'auto' 
+        : mode === 'light' ? 300 : 280,
     }}>
       {/* Property Name */}
       <Typography 
@@ -387,12 +422,14 @@ export default function PropertyCardModern({
         component="h3"
         sx={{ 
           fontWeight: 700,
-          color: config.theme.textColor,
+          color: mode === 'light' ? theme.palette.text.primary : '#ffffff',
           lineHeight: 1.3,
+          fontSize: { xs: '1rem', sm: '1.125rem', md: '1.25rem' },
           display: '-webkit-box',
           WebkitLineClamp: 2,
           WebkitBoxOrient: 'vertical',
           overflow: 'hidden',
+          textShadow: '0 2px 4px rgba(0, 0, 0, 0.3)',
         }}
       >
         {property.name}
@@ -400,36 +437,36 @@ export default function PropertyCardModern({
 
       {/* Location */}
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-        <LocationOn sx={{ fontSize: 18, color: config.theme.primaryColor }} />
-        <Typography variant="body2" sx={{ opacity: 0.8 }}>
+        <LocationOn sx={{ fontSize: 18, color: '#8b5cf6' }} />
+        <Typography variant="body2" sx={{ color: mode === 'light' ? theme.palette.text.secondary : 'rgba(255, 255, 255, 0.7)' }}>
           {property.location.city}, {property.location.state}
         </Typography>
       </Box>
 
       {/* Property Details */}
-      <Stack direction="row" spacing={3} sx={{ flexWrap: 'wrap' }}>
+      <Stack direction="row" spacing={mode === 'light' ? { xs: 3, sm: 4 } : { xs: 2, sm: 3 }} sx={{ flexWrap: 'wrap', gap: mode === 'light' ? { xs: 1.5, sm: 0 } : { xs: 1, sm: 0 } }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-          <People sx={{ fontSize: 16, color: config.theme.primaryColor }} />
-          <Typography variant="body2" sx={{ fontWeight: 600 }}>
+          <People sx={{ fontSize: 16, color: '#8b5cf6' }} />
+          <Typography variant="body2" sx={{ fontWeight: 600, color: mode === 'light' ? theme.palette.text.primary : 'rgba(255, 255, 255, 0.9)', fontSize: { xs: '0.75rem', sm: '0.875rem' } }}>
             {property.maxGuests} hóspedes
           </Typography>
         </Box>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-          <Bed sx={{ fontSize: 16, color: config.theme.primaryColor }} />
-          <Typography variant="body2" sx={{ fontWeight: 600 }}>
+          <Bed sx={{ fontSize: 16, color: '#8b5cf6' }} />
+          <Typography variant="body2" sx={{ fontWeight: 600, color: mode === 'light' ? theme.palette.text.primary : 'rgba(255, 255, 255, 0.9)', fontSize: { xs: '0.75rem', sm: '0.875rem' } }}>
             {property.bedrooms} quartos
           </Typography>
         </Box>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-          <Bathtub sx={{ fontSize: 16, color: config.theme.primaryColor }} />
-          <Typography variant="body2" sx={{ fontWeight: 600 }}>
+          <Bathtub sx={{ fontSize: 16, color: '#8b5cf6' }} />
+          <Typography variant="body2" sx={{ fontWeight: 600, color: mode === 'light' ? theme.palette.text.primary : 'rgba(255, 255, 255, 0.9)', fontSize: { xs: '0.75rem', sm: '0.875rem' } }}>
             {property.bathrooms} banheiros
           </Typography>
         </Box>
         {property.area && (
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-            <Square sx={{ fontSize: 16, color: config.theme.primaryColor }} />
-            <Typography variant="body2" sx={{ fontWeight: 600 }}>
+            <Square sx={{ fontSize: 16, color: '#8b5cf6' }} />
+            <Typography variant="body2" sx={{ fontWeight: 600, color: mode === 'light' ? theme.palette.text.primary : 'rgba(255, 255, 255, 0.9)', fontSize: { xs: '0.75rem', sm: '0.875rem' } }}>
               {property.area}m²
             </Typography>
           </Box>
@@ -440,54 +477,67 @@ export default function PropertyCardModern({
       <Typography 
         variant="body2" 
         sx={{ 
-          opacity: 0.8,
+          color: mode === 'light' ? theme.palette.text.secondary : 'rgba(255, 255, 255, 0.8)',
           display: '-webkit-box',
-          WebkitLineClamp: viewMode === 'list' ? 2 : 3,
+          WebkitLineClamp: viewMode === 'list' ? 2 : 2,
           WebkitBoxOrient: 'vertical',
           overflow: 'hidden',
-          lineHeight: 1.5,
+          lineHeight: 1.4,
+          fontSize: { xs: '0.8rem', sm: '0.875rem' },
+          mb: 1,
         }}
       >
         {property.description}
       </Typography>
 
       {/* Amenities Preview */}
-      <Box>
-        <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1, color: config.theme.textColor }}>
+      <Box sx={{ mt: 'auto' }}>
+        <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 1, color: mode === 'light' ? theme.palette.text.primary : '#ffffff', fontSize: { xs: '0.8rem', sm: '0.875rem' } }}>
           Comodidades
         </Typography>
-        <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap', gap: 1 }}>
-          {property.amenities.slice(0, viewMode === 'list' ? 6 : 4).map((amenity, index) => (
-            <Tooltip key={amenity} title={amenity} placement="top">
-              <Chip
-                icon={getAmenityIcon(amenity)}
-                label={amenity}
-                size="small"
-                sx={{
-                  backgroundColor: alpha(config.theme.primaryColor, 0.1),
-                  color: config.theme.primaryColor,
-                  border: `1px solid ${alpha(config.theme.primaryColor, 0.2)}`,
-                  fontSize: '0.75rem',
-                  '& .MuiChip-icon': {
-                    fontSize: 14,
-                  },
-                  '&:hover': {
-                    backgroundColor: alpha(config.theme.primaryColor, 0.15),
-                  },
-                }}
-              />
-            </Tooltip>
-          ))}
-          {property.amenities.length > (viewMode === 'list' ? 6 : 4) && (
+        <Stack direction="row" spacing={0.5} sx={{ flexWrap: 'wrap', gap: 0.5 }}>
+          {property.amenities.slice(0, viewMode === 'list' ? 4 : 3).map((amenity) => (
             <Chip
-              label={`+${property.amenities.length - (viewMode === 'list' ? 6 : 4)}`}
+              key={amenity}
+              label={amenity}
               size="small"
               sx={{
-                backgroundColor: alpha(config.theme.accentColor, 0.1),
-                color: config.theme.accentColor,
-                border: `1px solid ${alpha(config.theme.accentColor, 0.2)}`,
-                fontSize: '0.75rem',
+                background: 'rgba(139, 92, 246, 0.15)',
+                backdropFilter: 'blur(10px)',
+                color: mode === 'light' ? theme.palette.text.primary : 'rgba(255, 255, 255, 0.9)',
+                border: '1px solid rgba(139, 92, 246, 0.3)',
+                fontSize: { xs: '0.65rem', sm: '0.7rem' },
+                height: { xs: 20, sm: 24 },
+                borderRadius: '8px',
+                '& .MuiChip-label': {
+                  px: { xs: 0.5, sm: 1 },
+                },
+                '&:hover': {
+                  background: 'rgba(139, 92, 246, 0.25)',
+                },
+                transition: 'all 0.2s ease',
+              }}
+            />
+          ))}
+          {property.amenities.length > (viewMode === 'list' ? 4 : 3) && (
+            <Chip
+              label={`+${property.amenities.length - (viewMode === 'list' ? 4 : 3)}`}
+              size="small"
+              sx={{
+                background: 'linear-gradient(135deg, #8b5cf6, #6366f1)',
+                color: mode === 'light' ? theme.palette.text.primary : '#ffffff',
+                border: 'none',
+                fontSize: { xs: '0.65rem', sm: '0.7rem' },
+                height: { xs: 20, sm: 24 },
+                borderRadius: '8px',
                 fontWeight: 600,
+                '& .MuiChip-label': {
+                  px: { xs: 0.5, sm: 1 },
+                },
+                '&:hover': {
+                  transform: 'scale(1.05)',
+                },
+                transition: 'all 0.2s ease',
               }}
             />
           )}
@@ -495,34 +545,37 @@ export default function PropertyCardModern({
       </Box>
 
       {/* Pricing and Action */}
-      <Box sx={{ mt: 'auto' }}>
-        <Divider sx={{ mb: 2 }} />
+      <Box sx={{ mt: 1.5 }}>
+        <Divider sx={{ mb: 1.5, borderColor: 'rgba(255, 255, 255, 0.1)' }} />
         <Stack 
           direction={{ xs: 'column', sm: 'row' }} 
           justifyContent="space-between" 
           alignItems={{ xs: 'stretch', sm: 'center' }}
-          spacing={2}
+          spacing={mode === 'light' ? { xs: 2, sm: 3 } : { xs: 1.5, sm: 2 }}
         >
-          <Box>
+          <Box sx={{ minWidth: 0 }}>
             {config.features.showPricing && (
-              <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 1 }}>
+              <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 1, flexWrap: 'wrap' }}>
                 <Typography 
                   variant="h6" 
                   sx={{ 
                     fontWeight: 700,
-                    color: config.theme.primaryColor,
+                    color: '#8b5cf6',
+                    fontSize: { xs: '1rem', sm: '1.125rem' },
+                    textShadow: '0 2px 4px rgba(139, 92, 246, 0.3)',
+                    lineHeight: 1,
                   }}
                 >
                   {formatPrice(property.pricing.basePrice)}
                 </Typography>
-                <Typography variant="body2" sx={{ color: 'text.secondary' }}>
-                  por noite
+                <Typography variant="body2" sx={{ color: mode === 'light' ? theme.palette.text.secondary : 'rgba(255, 255, 255, 0.7)', fontSize: { xs: '0.75rem', sm: '0.875rem' } }}>
+                  /noite
                 </Typography>
               </Box>
             )}
             {property.pricing.minimumStay > 1 && (
-              <Typography variant="caption" sx={{ opacity: 0.7 }}>
-                Estadia mínima: {property.pricing.minimumStay} noites
+              <Typography variant="caption" sx={{ color: 'rgba(255, 255, 255, 0.5)', fontSize: { xs: '0.7rem', sm: '0.75rem' } }}>
+                Mín: {property.pricing.minimumStay} noites
               </Typography>
             )}
           </Box>
@@ -532,22 +585,30 @@ export default function PropertyCardModern({
             onClick={handleWhatsApp}
             fullWidth={viewMode === 'list'}
             sx={{
-              background: `linear-gradient(135deg, #25D366, #128C7E)`,
-              color: 'white',
-              borderRadius: 2,
-              px: 3,
-              py: 1.5,
+              background: 'linear-gradient(135deg, #25D366, #128C7E)',
+              color: '#ffffff',
+              borderRadius: mode === 'light' ? '20px' : '16px',
+              px: mode === 'light' ? { xs: 3, sm: 4 } : { xs: 2, sm: 3 },
+              py: mode === 'light' ? { xs: 1.5, sm: 2 } : { xs: 1, sm: 1.5 },
               textTransform: 'none',
-              fontSize: '0.875rem',
-              fontWeight: 600,
-              minWidth: 120,
-              boxShadow: `0 4px 12px ${alpha('#25D366', 0.3)}`,
+              fontSize: mode === 'light' ? { xs: '0.875rem', sm: '1rem' } : { xs: '0.8rem', sm: '0.875rem' },
+              fontWeight: mode === 'light' ? 500 : 600,
+              minWidth: mode === 'light' ? { xs: 120, sm: 140 } : { xs: 100, sm: 120 },
+              boxShadow: mode === 'light' 
+                ? '0 4px 16px rgba(37, 211, 102, 0.3)' 
+                : '0 8px 24px rgba(37, 211, 102, 0.4)',
+              backdropFilter: 'blur(10px)',
+              border: '1px solid rgba(255, 255, 255, 0.1)',
               '&:hover': {
-                background: `linear-gradient(135deg, #128C7E, #075E54)`,
-                transform: 'translateY(-1px)',
-                boxShadow: `0 6px 20px ${alpha('#25D366', 0.4)}`,
+                background: 'linear-gradient(135deg, #1da851, #0d5940)',
+                transform: mode === 'light' 
+                  ? 'translateY(-4px) scale(1.03)' 
+                  : 'translateY(-2px) scale(1.02)',
+                boxShadow: mode === 'light'
+                  ? '0 8px 24px rgba(37, 211, 102, 0.4)'
+                  : '0 12px 32px rgba(37, 211, 102, 0.5)',
               },
-              transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+              transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
             }}
           >
             Reservar
@@ -565,19 +626,17 @@ export default function PropertyCardModern({
       <Card sx={cardStyle}>
         <Link 
           href={`/site/${property.tenantId}/property/${property.id}`}
-          style={{ textDecoration: 'none', color: 'inherit', display: 'flex', height: '100%' }}
+          style={{ 
+            textDecoration: 'none', 
+            color: 'inherit', 
+            display: 'flex', 
+            flexDirection: 'column',
+            height: '100%',
+            overflow: 'hidden',
+          }}
         >
-          {viewMode === 'list' ? (
-            <>
-              {imageSection}
-              {contentSection}
-            </>
-          ) : (
-            <>
-              {imageSection}
-              {contentSection}
-            </>
-          )}
+          {imageSection}
+          {contentSection}
         </Link>
       </Card>
     </motion.div>

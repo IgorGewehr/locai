@@ -88,7 +88,7 @@ export default function MiniSiteLayout({ children, config }: MiniSiteLayoutProps
                   onClick={handleWhatsAppClick}
                   sx={{
                     background: `linear-gradient(135deg, #25D366, #128C7E)`,
-                    color: 'white',
+                    color: '#ffffff',
                     borderRadius: config.theme.borderRadius === 'extra-rounded' ? 3 : config.theme.borderRadius === 'rounded' ? 2 : 0,
                     px: 3,
                     py: 1,

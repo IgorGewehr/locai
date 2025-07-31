@@ -54,7 +54,7 @@ export default function MiniSitePage() {
         <Box sx={{ 
           textAlign: 'center', 
           mb: { xs: 4, sm: 5, md: 6 },
-          color: 'white',
+          color: '#ffffff',
         }}>
           <Box sx={{ 
             display: 'flex', 
@@ -76,7 +76,7 @@ export default function MiniSitePage() {
             >
               <Language sx={{ 
                 fontSize: { xs: 36, sm: 42, md: 48 }, 
-                color: 'white' 
+                color: '#ffffff' 
               }} />
             </Box>
           </Box>
@@ -148,7 +148,7 @@ export default function MiniSitePage() {
                   variant="h6" 
                   fontWeight={600} 
                   sx={{ 
-                    color: 'white', 
+                    color: '#ffffff', 
                     mb: { xs: 0.75, sm: 1 },
                     fontSize: { xs: '1rem', sm: '1.1rem' },
                   }}

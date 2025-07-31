@@ -356,7 +356,7 @@ export default function MiniSitePage() {
       <Box
         sx={{
           background: `linear-gradient(135deg, ${config.theme.primaryColor} 0%, ${config.theme.secondaryColor} 100%)`,
-          color: 'white',
+          color: '#ffffff',
           py: { xs: 6, md: 10 },
           position: 'relative',
           overflow: 'hidden',
@@ -749,7 +749,7 @@ export default function MiniSitePage() {
                           }}
                           sx={{
                             bgcolor: '#25D366',
-                            color: 'white',
+                            color: '#ffffff',
                             '&:hover': {
                               bgcolor: '#128C7E',
                             },

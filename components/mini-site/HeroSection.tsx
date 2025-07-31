@@ -19,17 +19,11 @@ import {
 } from '@mui/material';
 import {
   Search,
-  PlayArrow,
-  Pause,
-  VolumeOff,
-  VolumeUp,
   LocationOn,
-  TrendingUp,
-  Star,
   Home,
   KeyboardArrowDown,
 } from '@mui/icons-material';
-import { motion, useScroll, useTransform } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { MiniSiteConfig } from '@/lib/types/mini-site';
 
 interface HeroSectionProps {
@@ -48,16 +42,8 @@ export default function HeroSection({
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const [searchTerm, setSearchTerm] = useState('');
-  const [isVideoPlaying, setIsVideoPlaying] = useState(true);
-  const [isMuted, setIsMuted] = useState(true);
-  const videoRef = useRef<HTMLVideoElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
 
-  // Parallax effect
-  const { scrollY } = useScroll();
-  const y = useTransform(scrollY, [0, 500], [0, 150]);
-  const opacity = useTransform(scrollY, [0, 300], [1, 0]);
-  const scale = useTransform(scrollY, [0, 300], [1, 1.1]);
 
   // Auto-scroll to content
   const scrollToContent = () => {
@@ -72,23 +58,6 @@ export default function HeroSection({
     onSearch(searchTerm);
   };
 
-  const toggleVideo = () => {
-    if (videoRef.current) {
-      if (isVideoPlaying) {
-        videoRef.current.pause();
-      } else {
-        videoRef.current.play();
-      }
-      setIsVideoPlaying(!isVideoPlaying);
-    }
-  };
-
-  const toggleMute = () => {
-    if (videoRef.current) {
-      videoRef.current.muted = !isMuted;
-      setIsMuted(!isMuted);
-    }
-  };
 
   // Stats animation
   const statsVariants = {
@@ -104,106 +73,43 @@ export default function HeroSection({
     })
   };
 
-  const stats = [
-    { label: 'Propriedades', value: propertyCount, icon: <Home /> },
-    { label: 'Avaliação', value: '4.9', icon: <Star /> },
-    { label: 'Clientes Satisfeitos', value: '500+', icon: <TrendingUp /> },
-  ];
+  const stats = propertyCount > 0 ? [
+    { label: 'Propriedades Disponíveis', value: propertyCount, icon: <Home /> },
+  ] : [];
 
   return (
     <Box
       ref={containerRef}
       sx={{
         position: 'relative',
-        height: { xs: '100vh', md: '90vh' },
-        minHeight: { xs: 600, md: 700 },
+        height: { xs: '60vh', md: '50vh' },
+        minHeight: { xs: 400, md: 450 },
         overflow: 'hidden',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
+        background: 'linear-gradient(135deg, #0a0a0a 0%, #1a1a1a 100%)',
       }}
     >
-      {/* Video/Image Background */}
-      <motion.div
-        style={{ y, scale }}
-        className="hero-background"
+      {/* Background */}
+      <Box
         sx={{
           position: 'absolute',
           top: 0,
           left: 0,
           width: '100%',
-          height: '120%',
+          height: '100%',
           zIndex: 0,
         }}
       >
-        {config.heroMedia?.type === 'video' && config.heroMedia.url ? (
-          <>
-            <video
-              ref={videoRef}
-              autoPlay
-              muted
-              loop
-              playsInline
-              style={{
-                width: '100%',
-                height: '100%',
-                objectFit: 'cover',
-              }}
-            >
-              <source src={config.heroMedia.url} type="video/mp4" />
-            </video>
-            
-            {/* Video Controls */}
-            <Stack
-              direction="row"
-              spacing={1}
-              sx={{
-                position: 'absolute',
-                bottom: 20,
-                right: 20,
-                zIndex: 2,
-              }}
-            >
-              <IconButton
-                onClick={toggleVideo}
-                sx={{
-                  bgcolor: alpha(theme.palette.common.black, 0.5),
-                  color: 'white',
-                  '&:hover': {
-                    bgcolor: alpha(theme.palette.common.black, 0.7),
-                  },
-                }}
-              >
-                {isVideoPlaying ? <Pause /> : <PlayArrow />}
-              </IconButton>
-              <IconButton
-                onClick={toggleMute}
-                sx={{
-                  bgcolor: alpha(theme.palette.common.black, 0.5),
-                  color: 'white',
-                  '&:hover': {
-                    bgcolor: alpha(theme.palette.common.black, 0.7),
-                  },
-                }}
-              >
-                {isMuted ? <VolumeOff /> : <VolumeUp />}
-              </IconButton>
-            </Stack>
-          </>
-        ) : (
-          <Box
-            sx={{
-              width: '100%',
-              height: '100%',
-              background: config.heroMedia?.url 
-                ? `url(${config.heroMedia.url})`
-                : `linear-gradient(135deg, ${config.theme.primaryColor}, ${config.theme.accentColor})`,
-              backgroundSize: 'cover',
-              backgroundPosition: 'center',
-              filter: 'brightness(0.8)',
-            }}
-          />
-        )}
+        <Box
+          sx={{
+            width: '100%',
+            height: '100%',
+            background: 'linear-gradient(135deg, #8b5cf6, #6366f1)',
+            opacity: 0.1,
+          }}
+        />
 
         {/* Overlay Gradient */}
         <Box
@@ -214,17 +120,16 @@ export default function HeroSection({
             width: '100%',
             height: '100%',
             background: `linear-gradient(180deg, 
-              ${alpha(theme.palette.common.black, 0.3)} 0%, 
-              ${alpha(theme.palette.common.black, 0.5)} 50%,
-              ${alpha(theme.palette.common.black, 0.7)} 100%
+              rgba(0, 0, 0, 0.3) 0%, 
+              rgba(0, 0, 0, 0.5) 50%,
+              rgba(0, 0, 0, 0.7) 100%
             )`,
           }}
         />
-      </motion.div>
+      </Box>
 
       {/* Content */}
-      <motion.div style={{ opacity }}>
-        <Container maxWidth="lg" sx={{ position: 'relative', zIndex: 1 }}>
+      <Container maxWidth="lg" sx={{ position: 'relative', zIndex: 1 }}>
           <Stack spacing={4} alignItems="center" textAlign="center">
             {/* Animated Title */}
             <motion.div
@@ -235,15 +140,15 @@ export default function HeroSection({
               <Typography
                 variant="h1"
                 sx={{
-                  fontSize: { xs: '2.5rem', md: '4rem', lg: '5rem' },
+                  fontSize: { xs: '2rem', md: '3rem' },
                   fontWeight: 800,
-                  color: 'white',
+                  color: '#ffffff',
                   textShadow: '0 4px 20px rgba(0,0,0,0.3)',
                   mb: 2,
-                  lineHeight: 1.1,
+                  lineHeight: 1.2,
                 }}
               >
-                {config.heroTitle || 'Encontre seu Imóvel dos Sonhos'}
+                {config.heroTitle || 'Encontre seu Imóvel Ideal'}
               </Typography>
               <Typography
                 variant="h5"
@@ -274,22 +179,22 @@ export default function HeroSection({
                 sx={{
                   position: 'relative',
                   backdropFilter: 'blur(20px)',
-                  background: alpha(theme.palette.common.white, 0.95),
-                  borderRadius: 4,
+                  background: 'rgba(255, 255, 255, 0.08)',
+                  borderRadius: '20px',
                   overflow: 'hidden',
-                  boxShadow: '0 20px 60px rgba(0,0,0,0.2)',
-                  border: `1px solid ${alpha(theme.palette.common.white, 0.2)}`,
+                  boxShadow: '0 16px 50px rgba(0, 0, 0, 0.4)',
+                  border: '1px solid rgba(255, 255, 255, 0.15)',
                 }}
               >
                 <TextField
                   fullWidth
-                  placeholder="Buscar por localização, tipo de imóvel ou características..."
+                  placeholder={isMobile ? "Buscar propriedades..." : "Buscar por localização, tipo de imóvel ou características..."}
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
                   InputProps={{
                     startAdornment: (
                       <InputAdornment position="start">
-                        <Search sx={{ color: config.theme.primaryColor, fontSize: 28 }} />
+                        <Search sx={{ color: '#8b5cf6', fontSize: { xs: 24, md: 28 } }} />
                       </InputAdornment>
                     ),
                     endAdornment: (
@@ -297,27 +202,37 @@ export default function HeroSection({
                         <Button
                           type="submit"
                           variant="contained"
-                          size="large"
+                          size={isMobile ? 'medium' : 'large'}
                           sx={{
-                            borderRadius: 3,
-                            px: 4,
-                            py: 1.5,
-                            background: `linear-gradient(135deg, ${config.theme.primaryColor}, ${config.theme.accentColor})`,
-                            boxShadow: 'none',
+                            borderRadius: '16px',
+                            px: { xs: 2, md: 4 },
+                            py: { xs: 1, md: 1.5 },
+                            fontSize: { xs: '0.875rem', md: '1rem' },
+                            background: 'linear-gradient(135deg, #8b5cf6, #6366f1)',
+                            boxShadow: '0 8px 24px rgba(139, 92, 246, 0.4)',
+                            border: '1px solid rgba(255, 255, 255, 0.1)',
                             '&:hover': {
-                              boxShadow: `0 8px 20px ${alpha(config.theme.primaryColor, 0.3)}`,
+                              boxShadow: '0 12px 32px rgba(139, 92, 246, 0.5)',
+                              transform: 'translateY(-1px)',
                             },
+                            transition: 'all 0.3s ease',
                           }}
                         >
-                          Buscar
+                          {isMobile ? 'Buscar' : 'Buscar'}
                         </Button>
                       </InputAdornment>
                     ),
                     sx: {
-                      px: 3,
-                      py: 2,
-                      fontSize: '1.1rem',
+                      px: { xs: 2, md: 3 },
+                      py: { xs: 1.5, md: 2 },
+                      fontSize: { xs: '1rem', md: '1.1rem' },
+                      color: '#ffffff',
                       '& fieldset': { border: 'none' },
+                      '& .MuiInputBase-input::placeholder': {
+                        color: 'rgba(255, 255, 255, 0.7)',
+                        opacity: 1,
+                        fontSize: { xs: '0.9rem', md: '1.1rem' },
+                      },
                     }
                   }}
                 />
@@ -351,13 +266,16 @@ export default function HeroSection({
                         onSearch(location);
                       }}
                       sx={{
-                        bgcolor: alpha(theme.palette.common.white, 0.1),
-                        color: 'white',
+                        background: 'rgba(255, 255, 255, 0.1)',
+                        color: '#ffffff',
                         backdropFilter: 'blur(10px)',
-                        border: `1px solid ${alpha(theme.palette.common.white, 0.2)}`,
+                        border: '1px solid rgba(255, 255, 255, 0.2)',
+                        borderRadius: '12px',
                         '&:hover': {
-                          bgcolor: alpha(theme.palette.common.white, 0.2),
+                          background: 'rgba(255, 255, 255, 0.15)',
+                          transform: 'scale(1.05)',
                         },
+                        transition: 'all 0.2s ease',
                       }}
                     />
                   ))}
@@ -365,55 +283,38 @@ export default function HeroSection({
               )}
             </motion.div>
 
-            {/* Stats */}
-            <Grid container spacing={4} sx={{ mt: 2, maxWidth: 600 }}>
-              {stats.map((stat, index) => (
-                <Grid item xs={4} key={stat.label}>
-                  <motion.div
-                    custom={index}
-                    initial="hidden"
-                    animate="visible"
-                    variants={statsVariants}
-                  >
-                    <Stack alignItems="center" spacing={1}>
-                      <Box
-                        sx={{
-                          color: config.theme.accentColor,
-                          bgcolor: alpha(theme.palette.common.white, 0.1),
-                          borderRadius: 2,
-                          p: 1.5,
-                          backdropFilter: 'blur(10px)',
-                        }}
-                      >
-                        {stat.icon}
-                      </Box>
-                      <Typography
-                        variant="h4"
-                        sx={{
-                          fontWeight: 700,
-                          color: 'white',
-                          textShadow: '0 2px 10px rgba(0,0,0,0.3)',
-                        }}
-                      >
-                        {stat.value}
-                      </Typography>
-                      <Typography
-                        variant="body2"
-                        sx={{
-                          color: 'rgba(255,255,255,0.8)',
-                          fontWeight: 500,
-                        }}
-                      >
-                        {stat.label}
-                      </Typography>
-                    </Stack>
-                  </motion.div>
-                </Grid>
-              ))}
-            </Grid>
+            {/* Stats - Only show if there are properties */}
+            {stats.length > 0 && (
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.6, delay: 0.4 }}
+              >
+                <Box sx={{ mt: 4 }}>
+                  <Chip
+                    icon={<Home />}
+                    label={`${propertyCount} Propriedades Disponíveis`}
+                    sx={{
+                      background: 'rgba(255, 255, 255, 0.1)',
+                      backdropFilter: 'blur(10px)',
+                      border: '1px solid rgba(255, 255, 255, 0.2)',
+                      color: '#ffffff',
+                      fontSize: '1rem',
+                      fontWeight: 600,
+                      py: 3,
+                      px: 4,
+                      borderRadius: '16px',
+                      '& .MuiChip-icon': {
+                        color: '#8b5cf6',
+                        fontSize: 24,
+                      },
+                    }}
+                  />
+                </Box>
+              </motion.div>
+            )}
           </Stack>
         </Container>
-      </motion.div>
 
       {/* Scroll Indicator */}
       <motion.div
@@ -431,11 +332,15 @@ export default function HeroSection({
         <IconButton
           onClick={scrollToContent}
           sx={{
-            color: 'white',
-            bgcolor: alpha(theme.palette.common.white, 0.1),
-            backdropFilter: 'blur(10px)',
-            border: `1px solid ${alpha(theme.palette.common.white, 0.2)}`,
+            color: '#ffffff',
+            background: 'rgba(255, 255, 255, 0.08)',
+            backdropFilter: 'blur(20px)',
+            border: '1px solid rgba(255, 255, 255, 0.15)',
+            borderRadius: '16px',
+            width: 56,
+            height: 56,
             animation: 'bounce 2s infinite',
+            boxShadow: '0 8px 24px rgba(0, 0, 0, 0.2)',
             '@keyframes bounce': {
               '0%, 20%, 50%, 80%, 100%': {
                 transform: 'translateY(0)',
@@ -448,8 +353,10 @@ export default function HeroSection({
               },
             },
             '&:hover': {
-              bgcolor: alpha(theme.palette.common.white, 0.2),
+              background: 'rgba(255, 255, 255, 0.12)',
+              boxShadow: '0 12px 32px rgba(0, 0, 0, 0.3)',
             },
+            transition: 'all 0.3s ease',
           }}
         >
           <KeyboardArrowDown />
