@@ -9,22 +9,38 @@ export class AIService {
     this.tenantId = tenantId;
   }
 
-  // Método stub para compatibilidade
+  // Método stub para compatibilidade - MIGRATED TO SOFIA V4
   async processMessage(message: string, context: any): Promise<any> {
-    console.warn('AIService is deprecated. Use ProfessionalAgent instead.');
+    console.info('🚀 AIService redirecting to SofiaAgentV4 (Step 2 Complete)');
     
-    // Redirect to ProfessionalAgent
+    // Redirect to Sofia Agent V4 with Step 2 optimizations
     try {
-      const { ProfessionalAgent } = await import('@/lib/ai-agent/professional-agent');
-      const agent = new ProfessionalAgent();
+      const { sofiaAgentV4 } = await import('@/lib/ai-agent/sofia-agent-v4');
       
-      return await agent.processMessage({
+      const result = await sofiaAgentV4.processMessage({
         message,
         clientPhone: context.clientPhone || '+0000000000',
-        tenantId: this.tenantId
+        tenantId: this.tenantId,
+        metadata: {
+          source: 'whatsapp',
+          priority: 'normal'
+        }
       });
+      
+      // Convert Sofia V4 response to legacy format for compatibility
+      return {
+        reply: result.reply,
+        intent: result.metadata.stage,
+        confidence: result.metadata.leadScore / 100,
+        tokensUsed: result.tokensUsed,
+        fromCache: result.cacheHitRate === 100,
+        actions: result.actions,
+        responseTime: result.responseTime,
+        performanceScore: result.performanceScore,
+        functionsExecuted: result.functionsExecuted
+      };
     } catch (error) {
-      console.error('Error in AIService stub:', error);
+      console.error('❌ Error in SofiaV4 via AIService stub:', error);
       return {
         reply: 'Desculpe, estou com dificuldades técnicas. Tente novamente.',
         intent: 'error',

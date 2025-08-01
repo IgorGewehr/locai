@@ -1,7 +1,7 @@
 // app/api/webhook/whatsapp-optimized/route.ts
 
 import { NextRequest, NextResponse } from 'next/server';
-import { ProfessionalAgent } from '@/lib/ai-agent/professional-agent';
+import { sofiaAgentV4 } from '@/lib/ai-agent/sofia-agent-v4';
 import { AgentMonitor } from '@/lib/monitoring/agent-monitor';
 
 // Rate limiter simples e eficiente
@@ -28,7 +28,7 @@ class SimpleRateLimiter {
 }
 
 const rateLimiter = new SimpleRateLimiter();
-const agent = new ProfessionalAgent();
+// Sofia Agent V4 singleton instance already initialized
 
 // Webhook handler otimizado
 export async function POST(request: NextRequest) {
@@ -57,10 +57,14 @@ export async function POST(request: NextRequest) {
     }
 
     // Processar com agente reformulado
-    const response = await agent.processMessage({
+    const response = await sofiaAgentV4.processMessage({
       message: message.text,
       clientPhone: message.from,
-      tenantId
+      tenantId,
+      metadata: {
+        source: 'whatsapp',
+        priority: 'normal'
+      }
     });
 
     // Enviar resposta via WhatsApp
@@ -72,19 +76,33 @@ export async function POST(request: NextRequest) {
 
     const processingTime = Date.now() - startTime;
     
-    // Registrar métricas
-    AgentMonitor.recordRequest(response.tokensUsed, response.fromCache, processingTime);
+    // Registrar métricas Sofia V4
+    AgentMonitor.recordRequest(response.tokensUsed, response.cacheHitRate === 100, response.responseTime);
 
-    // Log para debugging (opcional)
+    // Log Sofia V4 performance metrics
     if (process.env.NODE_ENV === 'development') {
-      console.log(`Agent stats:`, agent.getAgentStats());
+      console.log(`📊 Sofia V4 Performance:`, {
+        responseTime: response.responseTime,
+        tokensUsed: response.tokensUsed,
+        originalTokens: response.originalTokens,
+        compressionRatio: response.compressionRatio,
+        cacheHitRate: response.cacheHitRate,
+        performanceScore: response.performanceScore,
+        functionsExecuted: response.functionsExecuted.length
+      });
     }
 
     return NextResponse.json({ 
       status: 'processed',
+      agent: 'Sofia V4',
       tokensUsed: response.tokensUsed,
-      fromCache: response.fromCache,
-      processingTime: `${processingTime}ms`
+      originalTokens: response.originalTokens,
+      compressionRatio: response.compressionRatio,
+      fromCache: response.cacheHitRate === 100,
+      cacheHitRate: response.cacheHitRate,
+      performanceScore: response.performanceScore,
+      functionsExecuted: response.functionsExecuted.length,
+      processingTime: `${response.responseTime}ms`
     });
 
   } catch (error) {

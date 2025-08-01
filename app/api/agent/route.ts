@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-// Using Sofia Agent V2
+// Using Sofia Agent V4 - Step 2 Complete with High Performance Optimizations
 import { 
   clientQueries 
 } from '@/lib/firebase/firestore';
@@ -234,15 +234,19 @@ export async function POST(request: NextRequest) {
       clientPreferences: client.preferences || {},
     };
 
-    // Process message with Sofia Agent V3 (FUNCTIONS CORRECTED VERSION)
-    const { sofiaAgentV3 } = await import('@/lib/ai-agent/sofia-agent-v3');
+    // Process message with Sofia Agent V4 (STEP 2 COMPLETE - HIGH PERFORMANCE)
+    const { sofiaAgentV4 } = await import('@/lib/ai-agent/sofia-agent-v4');
     
     try {
-      // Use Sofia agent to process the message
-      const result = await sofiaAgentV3.processMessage({
+      // Use Sofia agent V4 with all Step 2 optimizations
+      const result = await sofiaAgentV4.processMessage({
         message: validatedMessage,
         clientPhone: validatedPhone,
-        tenantId: validatedTenantId
+        tenantId: validatedTenantId,
+        metadata: {
+          source: isTest ? 'web' : 'whatsapp',
+          priority: 'normal'
+        }
       });
       
       // Send WhatsApp response (integrada no Professional Agent)
@@ -263,8 +267,6 @@ export async function POST(request: NextRequest) {
         // @ts-ignore - suppress type checking for conversation id
         conversationId: conversation.id!,
         tenantId: validatedTenantId,
-        // @ts-ignore - suppress type checking for tokensUsed property
-        tokensUsed: (result as any).tokensUsed,
         userAgent: request.headers.get('user-agent') || 'unknown',
         ip: request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || 'unknown'
       });
@@ -277,9 +279,17 @@ export async function POST(request: NextRequest) {
           // @ts-ignore - suppress type checking for conversation id
           conversationId: conversation.id!,
           clientId: client.id,
-          // @ts-ignore - suppress type checking for tokensUsed property
-          tokensUsed: (result as any).tokensUsed,
-          actions: result.actions?.length || 0
+          tokensUsed: result.tokensUsed,
+          originalTokens: result.originalTokens,
+          responseTime: result.responseTime,
+          compressionRatio: result.compressionRatio,
+          functionsExecuted: result.functionsExecuted,
+          actions: result.actions?.length || 0,
+          performanceScore: result.performanceScore,
+          cacheHitRate: result.cacheHitRate,
+          intent: result.metadata.stage,
+          confidence: result.metadata.leadScore / 100,
+          fromCache: result.cacheHitRate === 100
         }
       });
     } catch (error) {
