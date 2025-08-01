@@ -9,15 +9,15 @@ export class AIService {
     this.tenantId = tenantId;
   }
 
-  // Método stub para compatibilidade - MIGRATED TO SOFIA V4
+  // Método stub para compatibilidade - MIGRATED TO SOFIA MVP
   async processMessage(message: string, context: any): Promise<any> {
-    console.info('🚀 AIService redirecting to SofiaAgentV4 (Step 2 Complete)');
+    console.info('🚀 AIService redirecting to Sofia Agent MVP (Production Ready)');
     
-    // Redirect to Sofia Agent V4 with Step 2 optimizations
+    // Redirect to Sofia Agent MVP production version
     try {
-      const { sofiaAgentV4 } = await import('@/lib/ai-agent/sofia-agent-v4');
+      const { sofiaAgent } = await import('@/lib/ai-agent/sofia-agent');
       
-      const result = await sofiaAgentV4.processMessage({
+      const result = await sofiaAgent.processMessage({
         message,
         clientPhone: context.clientPhone || '+0000000000',
         tenantId: this.tenantId,
@@ -27,20 +27,20 @@ export class AIService {
         }
       });
       
-      // Convert Sofia V4 response to legacy format for compatibility
+      // Convert Sofia MVP response to legacy format for compatibility
       return {
         reply: result.reply,
         intent: result.metadata.stage,
-        confidence: result.metadata.leadScore / 100,
+        confidence: 0.8, // Fixed confidence for MVP
         tokensUsed: result.tokensUsed,
-        fromCache: result.cacheHitRate === 100,
+        fromCache: false, // No cache in MVP
         actions: result.actions,
         responseTime: result.responseTime,
-        performanceScore: result.performanceScore,
+        performanceScore: 85, // Fixed score for MVP
         functionsExecuted: result.functionsExecuted
       };
     } catch (error) {
-      console.error('❌ Error in SofiaV4 via AIService stub:', error);
+      console.error('❌ Error in Sofia MVP via AIService stub:', error);
       return {
         reply: 'Desculpe, estou com dificuldades técnicas. Tente novamente.',
         intent: 'error',

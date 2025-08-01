@@ -1,7 +1,7 @@
 // app/api/webhook/whatsapp-optimized/route.ts
 
 import { NextRequest, NextResponse } from 'next/server';
-import { sofiaAgentV4 } from '@/lib/ai-agent/sofia-agent-v4';
+import { sofiaAgent } from '@/lib/ai-agent/sofia-agent';
 import { AgentMonitor } from '@/lib/monitoring/agent-monitor';
 
 // Rate limiter simples e eficiente
@@ -56,8 +56,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ status: 'no_tenant' });
     }
 
-    // Processar com agente reformulado
-    const response = await sofiaAgentV4.processMessage({
+    // Processar com agente MVP
+    const response = await sofiaAgent.processMessage({
       message: message.text,
       clientPhone: message.from,
       tenantId,

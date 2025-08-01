@@ -184,17 +184,19 @@ export default function Header({ onMenuClick }: HeaderProps) {
         </IconButton>
 
         <Box sx={{ display: 'flex', alignItems: 'center', flexGrow: 1 }}>
-          <Typography 
-            variant="h6" 
-            component="div" 
-            sx={{ 
-              fontWeight: 600,
-              color: 'text.primary',
-              fontSize: { xs: '1rem', md: '1.125rem' },
+          <Box
+            component="img"
+            src="/logo.jpg"
+            alt="LocAI"
+            sx={{
+              height: { xs: 32, md: 40 },
+              width: 'auto',
+              maxWidth: { xs: 120, md: 160 },
+              objectFit: 'contain',
+              cursor: 'pointer',
             }}
-          >
-LocAI
-          </Typography>
+            onClick={() => router.push('/dashboard')}
+          />
         </Box>
 
         <Box sx={{ display: 'flex', alignItems: 'center', gap: { xs: 1, md: 1.5 } }}>

@@ -234,12 +234,12 @@ export async function POST(request: NextRequest) {
       clientPreferences: client.preferences || {},
     };
 
-    // Process message with Sofia Agent V4 (STEP 2 COMPLETE - HIGH PERFORMANCE)
-    const { sofiaAgentV4 } = await import('@/lib/ai-agent/sofia-agent-v4');
+    // Process message with Sofia Agent MVP (Production Ready)
+    const { sofiaAgent } = await import('@/lib/ai-agent/sofia-agent');
     
     try {
-      // Use Sofia agent V4 with all Step 2 optimizations
-      const result = await sofiaAgentV4.processMessage({
+      // Use Sofia agent MVP production version
+      const result = await sofiaAgent.processMessage({
         message: validatedMessage,
         clientPhone: validatedPhone,
         tenantId: validatedTenantId,

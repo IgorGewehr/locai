@@ -25,10 +25,25 @@ if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
 // @ts-ignore - suppress type checking for Firebase options
 const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
 
-// Initialize Firebase services
+// Initialize Firebase services with enhanced configurations
 export const db = getFirestore(app);
 export const storage = getStorage(app);
 export const auth = getAuth(app);
+
+// Enhanced connectivity configuration
+if (typeof window !== 'undefined') {
+  // Import the connectivity enhancer for client-side optimizations
+  import('./connectivity-enhancer').then(({ connectivityEnhancer }) => {
+    // The enhancer will automatically initialize and optimize the connection
+  }).catch(() => {
+    // Fallback if import fails - use basic configuration
+    import('firebase/firestore').then(({ enableNetwork }) => {
+      enableNetwork(db).catch(() => {
+        // Silent fallback
+      });
+    });
+  });
+}
 
 // Initialize Analytics (client-side only)
 export const analytics = typeof window !== 'undefined' && firebaseConfig.measurementId 

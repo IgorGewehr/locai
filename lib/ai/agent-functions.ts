@@ -1,18 +1,19 @@
-// lib/ai/agent-functions-corrected.ts
-// VERSÃO CORRIGIDA: 6 funções essenciais funcionais
+// lib/ai/agent-functions.ts
+// AGENT FUNCTIONS - PRODUCTION VERSION
+// Funções essenciais para o agente Sofia MVP
 
-import { OpenAI } from 'openai';
 import { propertyService } from '@/lib/services/property-service';
 import { reservationService } from '@/lib/services/reservation-service';
 import { clientServiceWrapper } from '@/lib/services/client-service';
 import { crmService } from '@/lib/services/crm-service';
 import { visitService } from '@/lib/services/visit-service';
-import { LeadStatus, LeadSource, InteractionType } from '@/lib/types/crm';
+import { LeadStatus } from '@/lib/types/crm';
 import { VisitStatus, TimePreference } from '@/lib/types/visit-appointment';
+import { logger } from '@/lib/utils/logger';
 
-// ===== TIPOS CORRIGIDOS =====
+// ===== TIPOS =====
 
-interface CorrectedAIFunction {
+interface AIFunction {
   name: string;
   description: string;
   parameters: {
@@ -22,9 +23,9 @@ interface CorrectedAIFunction {
   };
 }
 
-// ===== 5 FUNÇÕES ESSENCIAIS CORRIGIDAS =====
+// ===== DEFINIÇÕES DAS FUNÇÕES =====
 
-export const CORRECTED_AI_FUNCTIONS: CorrectedAIFunction[] = [
+export const AI_FUNCTIONS: AIFunction[] = [
   {
     name: 'search_properties',
     description: 'Buscar propriedades disponíveis com filtros básicos. SEMPRE ordena por preço crescente (mais baratas primeiro).',
@@ -38,7 +39,7 @@ export const CORRECTED_AI_FUNCTIONS: CorrectedAIFunction[] = [
         checkOut: { type: 'string', description: 'Data de check-out (YYYY-MM-DD)' },
         amenities: { type: 'array', items: { type: 'string' }, description: 'Lista de comodidades desejadas (opcional)' }
       },
-      required: ['guests'] // Localização pode ser opcional para busca geral
+      required: ['guests']
     }
   },
   {
@@ -167,15 +168,14 @@ export const CORRECTED_AI_FUNCTIONS: CorrectedAIFunction[] = [
   }
 ];
 
-// ===== IMPLEMENTAÇÕES CORRIGIDAS =====
+// ===== IMPLEMENTAÇÕES DAS FUNÇÕES =====
 
-export class CorrectedAgentFunctions {
+export class AgentFunctions {
   
   static async searchProperties(args: any, tenantId: string): Promise<any> {
     try {
-      // Property search initiated
+      logger.info('🔍 [search_properties] Iniciando busca', { args, tenantId });
       
-      // Buscar propriedades usando o service correto
       const searchFilters = {
         tenantId,
         location: args.location,
@@ -186,33 +186,28 @@ export class CorrectedAgentFunctions {
       };
       
       let properties = await propertyService.searchProperties(searchFilters);
-      // Properties found successfully
+      
+      if (properties.length === 0 && args.location) {
+        logger.info('🔍 [search_properties] Expandindo busca sem localização');
+        properties = await propertyService.searchProperties({
+          tenantId,
+          guests: args.guests,
+          checkIn: searchFilters.checkIn,
+          checkOut: searchFilters.checkOut,
+          maxPrice: args.budget
+        });
+      }
       
       if (properties.length === 0) {
-        // Tentar busca sem filtros de localização se não encontrou nada
-        if (args.location) {
-          // Expanding search without location filter
-          properties = await propertyService.searchProperties({
-            tenantId,
-            guests: args.guests,
-            checkIn: searchFilters.checkIn,
-            checkOut: searchFilters.checkOut,
-            maxPrice: args.budget
-          });
-        }
-        
-        if (properties.length === 0) {
-          return {
-            success: false,
-            message: 'Nenhuma propriedade encontrada para os critérios especificados',
-            properties: []
-          };
-        }
+        return {
+          success: false,
+          message: 'Nenhuma propriedade encontrada para os critérios especificados',
+          properties: []
+        };
       }
       
       // Filtrar por comodidades se especificadas
       if (args.amenities && Array.isArray(args.amenities) && args.amenities.length > 0) {
-        // Filtering by amenities
         properties = properties.filter(property => {
           const propertyAmenities = property.amenities || [];
           return args.amenities.some((amenity: string) => 
@@ -221,32 +216,30 @@ export class CorrectedAgentFunctions {
             )
           );
         });
-        // Amenities filter applied
       }
       
-      // Ordenar por preço CRESCENTE (mais baratas primeiro) - CAMPOS CORRETOS
+      // Ordenar por preço CRESCENTE
       properties.sort((a, b) => {
         const priceA = a.basePrice || 999999;
         const priceB = b.basePrice || 999999;
         return priceA - priceB;
       });
       
-      // Property prices calculated
+      // Filtrar propriedades vazias ou inválidas
+      const validProperties = properties.filter(p => p && p.id && p.isActive);
       
-      // Retornar dados formatados COM CAMPOS CORRETOS
-      const formattedProperties = properties.slice(0, 8).map(p => ({
-        id: p.id, // ID REAL do Firebase
-        name: p.title || p.name || 'Propriedade sem nome', // CAMPO CORRETO
-        location: p.city || p.location || 'Localização não informada', // CAMPO CORRETO
+      const formattedProperties = validProperties.slice(0, 8).map(p => ({
+        id: p.id,
+        name: p.title || p.name || 'Propriedade sem nome',
+        location: p.city || p.location || 'Localização não informada',
         bedrooms: p.bedrooms || 1,
         bathrooms: p.bathrooms || 1,
-        maxGuests: p.maxGuests || p.capacity || 2, // AMBOS OS CAMPOS
+        maxGuests: p.maxGuests || p.capacity || 2,
         basePrice: p.basePrice || 300,
         amenities: p.amenities || [],
-        type: p.type || p.category || 'apartment', // AMBOS OS CAMPOS
+        type: p.type || p.category || 'apartment',
         description: p.description || '',
         address: p.address || '',
-        // CAMPOS ADICIONAIS IMPORTANTES
         isActive: p.isActive,
         minimumNights: p.minimumNights || 1,
         cleaningFee: p.cleaningFee || 0,
@@ -254,20 +247,21 @@ export class CorrectedAgentFunctions {
         neighborhood: p.neighborhood || ''
       }));
       
-      // Properties formatted and sorted by price
+      logger.info('✅ [search_properties] Busca concluída', { 
+        found: formattedProperties.length,
+        total: validProperties.length
+      });
       
       return {
         success: true,
         count: formattedProperties.length,
         properties: formattedProperties,
         message: `Encontrei ${formattedProperties.length} opções ordenadas por preço (mais baratas primeiro)`,
-        // REFORÇO PARA A IA USAR IDs CORRETOS
-        availableIds: formattedProperties.map(p => p.id),
-        propertyList: formattedProperties.map((p, index) => `${index + 1}. ${p.name} (ID: ${p.id}) - R$${p.basePrice}/noite`)
+        availableIds: formattedProperties.map(p => p.id)
       };
         
     } catch (error) {
-      // Property search error handled
+      logger.error('❌ [search_properties] Erro na busca', { error });
       return {
         success: false,
         message: 'Erro interno ao buscar propriedades',
@@ -278,7 +272,7 @@ export class CorrectedAgentFunctions {
 
   static async sendPropertyMedia(args: any, tenantId: string): Promise<any> {
     try {
-      // Property media sending initiated
+      logger.info('📸 [send_property_media] Buscando mídia', { propertyId: args.propertyId });
       
       const property = await propertyService.getById(args.propertyId);
       
@@ -290,12 +284,10 @@ export class CorrectedAgentFunctions {
         };
       }
 
-      // Property found for media
-
       const maxPhotos = args.maxPhotos || 8;
-      const includeVideos = args.includeVideos !== false; // padrão true
+      const includeVideos = args.includeVideos !== false;
       
-      // Preparar fotos (ordenadas por order, main first)
+      // Preparar fotos
       let photos = (property.photos || []).slice();
       photos.sort((a, b) => {
         if (a.isMain && !b.isMain) return -1;
@@ -303,13 +295,12 @@ export class CorrectedAgentFunctions {
         return (a.order || 0) - (b.order || 0);
       });
       
-      // Limitar número de fotos
       photos = photos.slice(0, maxPhotos);
       
-      // Preparar vídeos (se solicitado)
+      // Preparar vídeos
       let videos = [];
       if (includeVideos && property.videos && property.videos.length > 0) {
-        videos = property.videos.slice(0, 3); // máximo 3 vídeos
+        videos = property.videos.slice(0, 3);
       }
 
       const mediaCount = photos.length + videos.length;
@@ -322,7 +313,10 @@ export class CorrectedAgentFunctions {
         };
       }
 
-      // Media prepared for sending
+      logger.info('✅ [send_property_media] Mídia preparada', { 
+        photos: photos.length, 
+        videos: videos.length 
+      });
 
       return {
         success: true,
@@ -351,7 +345,7 @@ export class CorrectedAgentFunctions {
       };
 
     } catch (error) {
-      // Media sending error handled
+      logger.error('❌ [send_property_media] Erro ao buscar mídia', { error });
       return {
         success: false,
         message: 'Erro ao buscar fotos e vídeos da propriedade',
@@ -362,7 +356,7 @@ export class CorrectedAgentFunctions {
 
   static async getPropertyDetails(args: any, tenantId: string): Promise<any> {
     try {
-      // Property details search initiated
+      logger.info('📋 [get_property_details] Buscando detalhes', { propertyId: args.propertyId });
       
       const property = await propertyService.getById(args.propertyId);
       
@@ -374,15 +368,15 @@ export class CorrectedAgentFunctions {
         };
       }
 
-      // Property details found
+      logger.info('✅ [get_property_details] Detalhes encontrados');
 
       return {
         success: true,
         property: {
           id: property.id,
-          name: property.title || property.name || 'Sem nome', // CAMPO CORRETO
+          name: property.title || property.name || 'Sem nome',
           description: property.description,
-          location: property.city || property.location, // CAMPO CORRETO 
+          location: property.city || property.location,
           address: property.address,
           neighborhood: property.neighborhood,
           bedrooms: property.bedrooms,
@@ -395,24 +389,21 @@ export class CorrectedAgentFunctions {
           photos: property.photos || [],
           videos: property.videos || [],
           cleaningFee: property.cleaningFee || 0,
-          // CAMPOS ADICIONAIS DE PRICING
           pricePerExtraGuest: property.pricePerExtraGuest || 0,
           weekendSurcharge: property.weekendSurcharge || 0,
           holidaySurcharge: property.holidaySurcharge || 0,
           decemberSurcharge: property.decemberSurcharge || 0,
           highSeasonSurcharge: property.highSeasonSurcharge || 0,
           highSeasonMonths: property.highSeasonMonths || [],
-          // DISPONIBILIDADE
           unavailableDates: property.unavailableDates || [],
           customPricing: property.customPricing || {},
-          // STATUS
           status: property.status,
           isActive: property.isActive
         }
       };
 
     } catch (error) {
-      // Property details error handled
+      logger.error('❌ [get_property_details] Erro ao buscar detalhes', { error });
       return {
         success: false,
         message: 'Erro ao buscar detalhes da propriedade',
@@ -423,9 +414,8 @@ export class CorrectedAgentFunctions {
 
   static async calculatePrice(args: any, tenantId: string): Promise<any> {
     try {
-      console.log(`💰 [PRICE] Calculando preço dinâmico:`, args);
+      logger.info('💰 [calculate_price] Calculando preço', { args });
       
-      // Validar parâmetros obrigatórios
       if (!args.propertyId || !args.checkIn || !args.checkOut) {
         return {
           success: false,
@@ -434,11 +424,9 @@ export class CorrectedAgentFunctions {
         };
       }
       
-      // Buscar propriedade
       const property = await propertyService.getById(args.propertyId);
       
       if (!property) {
-        console.log(`❌ [PRICE] Propriedade ${args.propertyId} não encontrada`);
         return {
           success: false,
           message: `Propriedade com ID ${args.propertyId} não encontrada`,
@@ -446,13 +434,10 @@ export class CorrectedAgentFunctions {
         };
       }
 
-      console.log(`✅ [PRICE] Propriedade encontrada: ${property.title || 'Sem nome'} (ID: ${property.id})`);
-
       // Calcular número de noites
       const checkIn = new Date(args.checkIn);
       const checkOut = new Date(args.checkOut);
-      const timeDiff = checkOut.getTime() - checkIn.getTime();
-      const nights = Math.ceil(timeDiff / (1000 * 60 * 60 * 24));
+      const nights = Math.ceil((checkOut.getTime() - checkIn.getTime()) / (1000 * 60 * 60 * 24));
 
       if (nights <= 0) {
         return {
@@ -464,8 +449,8 @@ export class CorrectedAgentFunctions {
 
       // Verificar disponibilidade
       const unavailableDates = property.unavailableDates || [];
-      const currentDate = new Date(checkIn);
       const conflicts = [];
+      const currentDate = new Date(checkIn);
       
       while (currentDate < checkOut) {
         const dateStr = currentDate.toISOString().split('T')[0];
@@ -484,42 +469,35 @@ export class CorrectedAgentFunctions {
         };
       }
 
-      // CÁLCULO DE PREÇOS DINÂMICOS
+      // Cálculo de preços dinâmicos
       const basePrice = property.basePrice || 300;
       let totalStay = 0;
       const dailyPrices = [];
-      const today = new Date();
       
-      // Calcular preço dia a dia
       const calcDate = new Date(checkIn);
       for (let i = 0; i < nights; i++) {
         const dateStr = calcDate.toISOString().split('T')[0];
         let dailyPrice = basePrice;
         
-        // 1. Preço customizado para data específica
+        // Preço customizado
         if (property.customPricing && property.customPricing[dateStr]) {
           dailyPrice = property.customPricing[dateStr];
         } else {
-          // 2. Surcharges sazonais
           const month = calcDate.getMonth() + 1;
           const dayOfWeek = calcDate.getDay();
           
-          // Fim de semana (sábado e domingo)
+          // Surcharges
           if ((dayOfWeek === 0 || dayOfWeek === 6) && property.weekendSurcharge) {
             dailyPrice *= (1 + property.weekendSurcharge / 100);
           }
           
-          // Dezembro
           if (month === 12 && property.decemberSurcharge) {
             dailyPrice *= (1 + property.decemberSurcharge / 100);
           }
           
-          // Alta temporada
-          if (property.highSeasonMonths && property.highSeasonMonths.includes(month) && property.highSeasonSurcharge) {
+          if (property.highSeasonMonths?.includes(month) && property.highSeasonSurcharge) {
             dailyPrice *= (1 + property.highSeasonSurcharge / 100);
           }
-          
-          // TODO: Implementar feriados se necessário
         }
         
         dailyPrice = Math.round(dailyPrice);
@@ -529,7 +507,7 @@ export class CorrectedAgentFunctions {
         calcDate.setDate(calcDate.getDate() + 1);
       }
 
-      // Hóspedes extras
+      // Taxas adicionais
       const guests = args.guests || 2;
       let extraGuestFee = 0;
       if (guests > property.maxGuests && property.pricePerExtraGuest) {
@@ -537,9 +515,8 @@ export class CorrectedAgentFunctions {
         extraGuestFee = extraGuests * property.pricePerExtraGuest * nights;
       }
 
-      // Taxas adicionais
       const cleaningFee = property.cleaningFee || 0;
-      const serviceFee = Math.round(totalStay * 0.05); // 5% taxa de serviço
+      const serviceFee = Math.round(totalStay * 0.05);
       const total = totalStay + extraGuestFee + cleaningFee + serviceFee;
 
       const calculation = {
@@ -549,7 +526,6 @@ export class CorrectedAgentFunctions {
         checkOut: args.checkOut,
         nights,
         guests,
-        // PREÇOS DINÂMICOS
         dailyPrices,
         averageDailyPrice: Math.round(totalStay / nights),
         subtotal: totalStay,
@@ -558,7 +534,6 @@ export class CorrectedAgentFunctions {
         serviceFee,
         total,
         currency: 'BRL',
-        // BREAKDOWN DETALHADO
         breakdown: {
           accommodation: `R$ ${totalStay} (hospedagem ${nights} noites)`,
           extraGuests: extraGuestFee > 0 ? `R$ ${extraGuestFee} (${guests - property.maxGuests} hóspedes extras)` : null,
@@ -566,25 +541,15 @@ export class CorrectedAgentFunctions {
           service: `R$ ${serviceFee} (taxa de serviço 5%)`,
           total: `R$ ${total} (total)`
         },
-        // INFORMAÇÕES ADICIONAIS
         minimumNights: property.minimumNights || 1,
-        meetsMinimum: nights >= (property.minimumNights || 1),
-        appliedSurcharges: []
+        meetsMinimum: nights >= (property.minimumNights || 1)
       };
-      
-      // Registrar surcharges aplicados
-      if (property.weekendSurcharge) calculation.appliedSurcharges.push(`Fim de semana: +${property.weekendSurcharge}%`);
-      if (property.decemberSurcharge) calculation.appliedSurcharges.push(`Dezembro: +${property.decemberSurcharge}%`);
-      if (property.highSeasonSurcharge && property.highSeasonMonths) {
-        const relevantMonths = property.highSeasonMonths.filter(m => 
-          dailyPrices.some(dp => new Date(dp.date).getMonth() + 1 === m)
-        );
-        if (relevantMonths.length > 0) {
-          calculation.appliedSurcharges.push(`Alta temporada: +${property.highSeasonSurcharge}%`);
-        }
-      }
 
-      console.log(`✅ [PRICE] Cálculo dinâmico: R$${total} para ${nights} noites (média: R$${calculation.averageDailyPrice}/dia)`);
+      logger.info('✅ [calculate_price] Cálculo concluído', { 
+        total, 
+        nights, 
+        averagePrice: calculation.averageDailyPrice 
+      });
 
       return {
         success: true,
@@ -593,10 +558,10 @@ export class CorrectedAgentFunctions {
       };
 
     } catch (error) {
-      // Price calculation error handled
+      logger.error('❌ [calculate_price] Erro no cálculo', { error });
       return {
         success: false,
-        message: 'Erro interno ao calcular preço: ' + (error instanceof Error ? error.message : 'Erro desconhecido'),
+        message: 'Erro interno ao calcular preço',
         calculation: null
       };
     }
@@ -604,21 +569,12 @@ export class CorrectedAgentFunctions {
 
   static async registerClient(args: any, tenantId: string): Promise<any> {
     try {
-      console.log(`👤 [CLIENT] Registrando cliente:`, { name: args.name, phone: args.phone });
+      logger.info('👤 [register_client] Registrando cliente', { 
+        name: args.name, 
+        phone: args.phone 
+      });
       
-      // Filtrar campos undefined para evitar erro no Firebase
-      const clientData: any = {
-        name: args.name,
-        phone: args.phone,
-        tenantId,
-        source: 'whatsapp'
-      };
-      
-      // Adicionar campos opcionais apenas se não forem undefined
-      if (args.email && args.email.trim() !== '') {
-        clientData.email = args.email;
-      }
-      // CPF agora é obrigatório
+      // Validar CPF obrigatório
       if (!args.document || args.document.trim() === '') {
         return {
           success: false,
@@ -626,37 +582,42 @@ export class CorrectedAgentFunctions {
           client: null
         };
       }
-      clientData.document = args.document;
-      clientData.documentType = 'cpf'; // padrão CPF para pessoa física
+      
+      const clientData: any = {
+        name: args.name,
+        phone: args.phone,
+        document: args.document,
+        documentType: 'cpf',
+        tenantId,
+        source: 'whatsapp'
+      };
+      
+      if (args.email && args.email.trim() !== '') {
+        clientData.email = args.email;
+      }
 
       const client = await clientServiceWrapper.createOrUpdate(clientData);
       
-      console.log(`✅ [CLIENT] Cliente registrado com ID: ${client.id}`);
-      console.log(`🔍 [CLIENT] DEBUG - Tipo do client:`, typeof client);
-      console.log(`🔍 [CLIENT] DEBUG - Client.id:`, client.id);
+      logger.info('✅ [register_client] Cliente registrado', { clientId: client.id });
 
       return {
         success: true,
-        client: client.id, // RETORNAR APENAS O ID STRING
-        clientData: { // Dados completos em campo separado se necessário
+        client: client.id,
+        clientData: {
           id: client.id,
           name: client.name,
           phone: client.phone,
           email: client.email || undefined,
-          document: client.document || undefined,
-          tenantId: client.tenantId,
-          source: client.source || 'whatsapp',
-          createdAt: client.createdAt,
-          isActive: client.isActive
+          document: client.document || undefined
         },
         message: 'Cliente registrado com sucesso!'
       };
 
     } catch (error) {
-      // Client registration error handled
+      logger.error('❌ [register_client] Erro ao registrar', { error });
       return {
         success: false,
-        message: 'Erro ao registrar cliente: ' + (error instanceof Error ? error.message : 'Erro desconhecido'),
+        message: 'Erro ao registrar cliente',
         client: null
       };
     }
@@ -664,14 +625,13 @@ export class CorrectedAgentFunctions {
 
   static async checkVisitAvailability(args: any, tenantId: string): Promise<any> {
     try {
-      console.log(`📅 [VISIT AVAILABILITY] Verificando disponibilidade para visitas:`, args);
+      logger.info('📅 [check_visit_availability] Verificando disponibilidade', { args });
       
       const startDate = args.startDate ? new Date(args.startDate) : new Date();
       const days = args.days || 7;
       const endDate = new Date(startDate);
       endDate.setDate(endDate.getDate() + days);
       
-      // Converter preferência de horário para enum
       const preferredTimes: string[] = [];
       if (args.timePreference) {
         switch (args.timePreference) {
@@ -687,7 +647,6 @@ export class CorrectedAgentFunctions {
         }
       }
       
-      // Usar o serviço real de visitas para verificar disponibilidade
       const availableSlots = await visitService.checkAvailability(tenantId, {
         startDate,
         endDate,
@@ -696,14 +655,13 @@ export class CorrectedAgentFunctions {
       
       if (availableSlots.length === 0) {
         return {
-          success: true, // Show alternative message
-          message: 'No momento não temos horários disponíveis para visita presencial. Que tal garantir sua reserva diretamente? Temos disponibilidade para as datas solicitadas e você pode conhecer o imóvel no check-in!',
+          success: true,
+          message: 'No momento não temos horários disponíveis para visita presencial. Que tal garantir sua reserva diretamente?',
           availableSlots: [],
           alternativeAction: 'direct_booking'
         };
       }
       
-      // Formatar slots para resposta
       const formattedSlots = availableSlots.slice(0, 15).map(slot => ({
         date: slot.date.toISOString().split('T')[0],
         dateFormatted: slot.date.toLocaleDateString('pt-BR', { 
@@ -719,7 +677,9 @@ export class CorrectedAgentFunctions {
         duration: slot.duration
       }));
       
-      console.log(`✅ [VISIT AVAILABILITY] ${formattedSlots.length} horários disponíveis encontrados`);
+      logger.info('✅ [check_visit_availability] Horários encontrados', { 
+        count: formattedSlots.length 
+      });
       
       return {
         success: true,
@@ -733,45 +693,12 @@ export class CorrectedAgentFunctions {
       };
       
     } catch (error) {
-      console.error('❌ [VISIT AVAILABILITY] Erro ao verificar disponibilidade:', error);
+      logger.error('❌ [check_visit_availability] Erro ao verificar', { error });
       return {
         success: false,
         message: 'Erro ao verificar disponibilidade para visitas',
         availableSlots: []
       };
-    }
-  }
-  
-  private static generateTimeSlots(startTime: string, endTime: string, preference?: string): string[] {
-    const slots = [];
-    const [startHour, startMin] = startTime.split(':').map(Number);
-    const [endHour, endMin] = endTime.split(':').map(Number);
-    
-    let currentHour = startHour;
-    const endTotalMin = endHour * 60 + endMin;
-    
-    while (currentHour * 60 < endTotalMin - 60) { // Deixar 1h de buffer no final
-      const timeStr = `${currentHour.toString().padStart(2, '0')}:00`;
-      
-      // Filtrar por preferência de horário se especificada
-      if (!preference || this.matchesTimePreference(timeStr, preference)) {
-        slots.push(timeStr);
-      }
-      
-      currentHour++;
-    }
-    
-    return slots;
-  }
-  
-  private static matchesTimePreference(time: string, preference: string): boolean {
-    const hour = parseInt(time.split(':')[0]);
-    
-    switch (preference) {
-      case 'morning': return hour >= 8 && hour < 12;
-      case 'afternoon': return hour >= 12 && hour < 18;
-      case 'evening': return hour >= 18 && hour < 21;
-      default: return true;
     }
   }
   
@@ -785,18 +712,16 @@ export class CorrectedAgentFunctions {
 
   static async scheduleVisit(args: any, tenantId: string): Promise<any> {
     try {
-      console.log(`🏠 [VISIT] Agendando visita:`, args);
+      logger.info('🏠 [schedule_visit] Agendando visita', { args });
       
-      // Validar dados obrigatórios
       if (!args.clientId || !args.propertyId || !args.visitDate || !args.visitTime) {
         return {
           success: false,
-          message: 'Dados obrigatórios faltando para agendar visita (clientId, propertyId, visitDate, visitTime)',
+          message: 'Dados obrigatórios faltando (clientId, propertyId, visitDate, visitTime)',
           visit: null
         };
       }
 
-      // 1. Verificar se propriedade existe e está ativa
       const property = await propertyService.getById(args.propertyId);
       if (!property || !property.isActive) {
         return {
@@ -806,7 +731,6 @@ export class CorrectedAgentFunctions {
         };
       }
 
-      // 2. Buscar dados do cliente
       const client = await clientServiceWrapper.getById(args.clientId);
       if (!client) {
         return {
@@ -816,11 +740,8 @@ export class CorrectedAgentFunctions {
         };
       }
 
-      // 3. Validar data da visita
       const visitDateTime = new Date(args.visitDate + 'T' + args.visitTime + ':00');
-      const now = new Date();
-      
-      if (visitDateTime < now) {
+      if (visitDateTime < new Date()) {
         return {
           success: false,
           message: 'Data da visita deve ser no futuro',
@@ -828,7 +749,6 @@ export class CorrectedAgentFunctions {
         };
       }
 
-      // 4. Criar visita no banco usando o serviço
       const visitData = {
         tenantId,
         clientId: args.clientId,
@@ -839,23 +759,22 @@ export class CorrectedAgentFunctions {
         propertyAddress: property.address || '',
         scheduledDate: new Date(args.visitDate),
         scheduledTime: args.visitTime,
-        duration: 60, // Duração padrão de 60 minutos
+        duration: 60,
         status: VisitStatus.SCHEDULED,
         notes: args.notes || '',
         clientRequests: args.notes ? [args.notes] : [],
-        confirmedByClient: true, // Cliente confirmou ao agendar via WhatsApp
-        confirmedByAgent: false, // Aguardando confirmação da imobiliária
+        confirmedByClient: true,
+        confirmedByAgent: false,
         source: 'whatsapp' as const,
         createdAt: new Date(),
         updatedAt: new Date()
       };
 
-      // Salvar no Firebase
       const createdVisit = await visitService.createVisit(visitData);
       
-      console.log(`✅ [VISIT] Visita agendada com ID: ${createdVisit.id}`);
+      logger.info('✅ [schedule_visit] Visita agendada', { visitId: createdVisit.id });
 
-      // Atualizar lead no CRM se existir
+      // Atualizar CRM
       try {
         const lead = await crmService.getLeadByPhone(client.phone);
         if (lead) {
@@ -865,28 +784,9 @@ export class CorrectedAgentFunctions {
             score: Math.max(lead.score, 85),
             lastContactDate: new Date()
           });
-          
-          // Criar interação no CRM
-          await crmService.createInteraction({
-            leadId: lead.id,
-            tenantId,
-            type: InteractionType.MEETING,
-            channel: 'whatsapp',
-            direction: 'inbound',
-            content: `Visita agendada para ${property.title} em ${new Date(args.visitDate).toLocaleDateString('pt-BR')} às ${args.visitTime}`,
-            userId: 'ai-agent',
-            userName: 'AI Agent',
-            metadata: {
-              visitId: createdVisit.id,
-              propertyId: args.propertyId,
-              visitDate: args.visitDate,
-              visitTime: args.visitTime
-            }
-          });
         }
       } catch (crmError) {
-        console.error('⚠️ [VISIT] Erro ao atualizar CRM:', crmError);
-        // Não falhar a visita por erro no CRM
+        logger.error('⚠️ [schedule_visit] Erro ao atualizar CRM', { crmError });
       }
 
       return {
@@ -895,29 +795,21 @@ export class CorrectedAgentFunctions {
           id: createdVisit.id,
           ...visitData
         },
-        message: `✅ Visita agendada com sucesso!\n📅 ${new Date(args.visitDate).toLocaleDateString('pt-BR', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })} às ${args.visitTime}\n🏠 ${property.title || 'Propriedade'}\n📍 ${property.address}\n\nEm breve nosso consultor entrará em contato para confirmar! 📞`,
+        message: `✅ Visita agendada com sucesso!\n📅 ${new Date(args.visitDate).toLocaleDateString('pt-BR')} às ${args.visitTime}\n🏠 ${property.title}\n📍 ${property.address}`,
         confirmationDetails: {
           visitId: createdVisit.id,
           date: args.visitDate,
-          dateFormatted: new Date(args.visitDate).toLocaleDateString('pt-BR', { 
-            weekday: 'long', 
-            year: 'numeric', 
-            month: 'long', 
-            day: 'numeric' 
-          }),
           time: args.visitTime,
           property: property.title || 'Propriedade',
-          address: property.address,
-          neighborhood: property.neighborhood,
-          contact: 'Nosso consultor entrará em contato para confirmar'
+          address: property.address
         }
       };
 
     } catch (error) {
-      console.error('❌ [VISIT] Erro ao agendar visita:', error);
+      logger.error('❌ [schedule_visit] Erro ao agendar', { error });
       return {
         success: false,
-        message: 'Erro ao agendar visita: ' + (error instanceof Error ? error.message : 'Erro desconhecido'),
+        message: 'Erro ao agendar visita',
         visit: null
       };
     }
@@ -925,18 +817,16 @@ export class CorrectedAgentFunctions {
 
   static async createReservation(args: any, tenantId: string): Promise<any> {
     try {
-      console.log(`📅 [RESERVATION] Criando reserva:`, args);
+      logger.info('📅 [create_reservation] Criando reserva', { args });
       
-      // Validar dados obrigatórios
       if (!args.clientId || !args.propertyId || !args.checkIn || !args.checkOut) {
         return {
           success: false,
-          message: 'Dados obrigatórios faltando para criar reserva',
+          message: 'Dados obrigatórios faltando',
           reservation: null
         };
       }
 
-      // 1. Verificar se propriedade existe e está ativa
       const property = await propertyService.getById(args.propertyId);
       if (!property || !property.isActive) {
         return {
@@ -946,12 +836,10 @@ export class CorrectedAgentFunctions {
         };
       }
 
-      // 2. Verificar disponibilidade das datas
       const checkIn = new Date(args.checkIn);
       const checkOut = new Date(args.checkOut);
       const nights = Math.ceil((checkOut.getTime() - checkIn.getTime()) / (1000 * 60 * 60 * 24));
       
-      // Verificar mínimo de noites
       if (nights < (property.minimumNights || 1)) {
         return {
           success: false,
@@ -960,7 +848,7 @@ export class CorrectedAgentFunctions {
         };
       }
 
-      // Verificar conflitos com datas indisponíveis
+      // Verificar disponibilidade
       const unavailableDates = property.unavailableDates || [];
       const dateConflicts = [];
       const currentDate = new Date(checkIn);
@@ -982,7 +870,7 @@ export class CorrectedAgentFunctions {
         };
       }
 
-      // 3. Verificar conflitos com reservas existentes
+      // Verificar conflitos com outras reservas
       const existingReservations = await reservationService.getWhere('propertyId', '==', args.propertyId);
       const activeReservations = existingReservations.filter(r => 
         r.status !== 'cancelled' && r.tenantId === tenantId
@@ -992,22 +880,15 @@ export class CorrectedAgentFunctions {
         const existingCheckIn = new Date(existingReservation.checkIn);
         const existingCheckOut = new Date(existingReservation.checkOut);
         
-        // Verificar sobreposição de datas
         if (checkIn < existingCheckOut && checkOut > existingCheckIn) {
           return {
             success: false,
-            message: `Conflito com reserva existente (${existingCheckIn.toISOString().split('T')[0]} - ${existingCheckOut.toISOString().split('T')[0]})`,
-            reservation: null,
-            conflict: {
-              reservationId: existingReservation.id,
-              checkIn: existingCheckIn.toISOString().split('T')[0],
-              checkOut: existingCheckOut.toISOString().split('T')[0]
-            }
+            message: `Conflito com reserva existente`,
+            reservation: null
           };
         }
       }
 
-      // 4. Criar reserva
       const reservationData = {
         tenantId,
         propertyId: args.propertyId,
@@ -1026,11 +907,8 @@ export class CorrectedAgentFunctions {
 
       const reservation = await reservationService.create(reservationData);
       
-      // 5. ATUALIZAR DISPONIBILIDADE DA PROPRIEDADE
+      // Atualizar disponibilidade da propriedade
       try {
-        console.log(`📅 [RESERVATION] Atualizando disponibilidade da propriedade ${args.propertyId}`);
-        
-        // Adicionar datas ocupadas ao array de datas indisponíveis
         const newUnavailableDates = [...(property.unavailableDates || [])];
         const reservationDate = new Date(checkIn);
         
@@ -1039,19 +917,17 @@ export class CorrectedAgentFunctions {
           reservationDate.setDate(reservationDate.getDate() + 1);
         }
         
-        // Atualizar propriedade
         await propertyService.update(args.propertyId, {
           unavailableDates: newUnavailableDates,
           updatedAt: new Date()
         });
         
-        console.log(`✅ [RESERVATION] Disponibilidade atualizada: ${nights} noites bloqueadas`);
+        logger.info('✅ [create_reservation] Disponibilidade atualizada');
       } catch (updateError) {
-        console.error('⚠️ [RESERVATION] Erro ao atualizar disponibilidade:', updateError);
-        // Não falhar a reserva por erro na atualização de disponibilidade
+        logger.error('⚠️ [create_reservation] Erro ao atualizar disponibilidade', { updateError });
       }
       
-      console.log(`✅ [RESERVATION] Reserva criada com ID: ${reservation.id}`);
+      logger.info('✅ [create_reservation] Reserva criada', { reservationId: reservation.id });
 
       return {
         success: true,
@@ -1066,23 +942,16 @@ export class CorrectedAgentFunctions {
           guests: args.guests,
           totalPrice: args.totalPrice,
           status: 'confirmed',
-          paymentStatus: 'pending',
-          notes: args.notes || '',
-          createdAt: reservation.createdAt
+          paymentStatus: 'pending'
         },
-        message: `Reserva criada com sucesso! Propriedade bloqueada para ${nights} noite(s).`,
-        blockedDates: {
-          from: args.checkIn,
-          to: args.checkOut,
-          nights
-        }
+        message: `Reserva criada com sucesso! Propriedade bloqueada para ${nights} noite(s).`
       };
 
     } catch (error) {
-      // Reservation creation error handled
+      logger.error('❌ [create_reservation] Erro ao criar reserva', { error });
       return {
         success: false,
-        message: 'Erro ao criar reserva: ' + (error instanceof Error ? error.message : 'Erro desconhecido'),
+        message: 'Erro ao criar reserva',
         reservation: null
       };
     }
@@ -1090,30 +959,27 @@ export class CorrectedAgentFunctions {
 
   static async classifyLeadStatus(args: any, tenantId: string): Promise<any> {
     try {
-      console.log(`🤖 [LEAD CLASSIFICATION] Classificando lead:`, args);
+      logger.info('🤖 [classify_lead_status] Classificando lead', { args });
       
-      // Validar dados obrigatórios
       if (!args.clientPhone || !args.conversationOutcome || !args.reason) {
         return {
           success: false,
-          message: 'Dados obrigatórios faltando para classificar lead (clientPhone, conversationOutcome, reason)',
+          message: 'Dados obrigatórios faltando',
           classification: null
         };
       }
 
-      // 1. Buscar lead existente pelo telefone
       let lead = await crmService.getLeadByPhone(args.clientPhone);
       
       if (!lead) {
-        // Criar novo lead se não existir
-        console.log(`📱 [LEAD CLASSIFICATION] Criando novo lead para ${args.clientPhone}`);
+        logger.info('📱 [classify_lead_status] Criando novo lead');
         lead = await crmService.createLead({
           tenantId,
-          name: args.clientPhone, // Será atualizado quando obtivermos o nome
+          name: args.clientPhone,
           phone: args.clientPhone,
           whatsappNumber: args.clientPhone,
           status: LeadStatus.NEW,
-          source: LeadSource.WHATSAPP_AI,
+          source: 'whatsapp_ai',
           score: 60,
           temperature: 'warm',
           qualificationCriteria: {
@@ -1130,7 +996,7 @@ export class CorrectedAgentFunctions {
         });
       }
 
-      // 2. Mapear outcome para status do CRM
+      // Mapear outcome para status
       let newStatus: LeadStatus;
       let temperature: 'cold' | 'warm' | 'hot' = lead.temperature;
       let score = lead.score;
@@ -1183,7 +1049,6 @@ export class CorrectedAgentFunctions {
           temperature = 'warm';
       }
 
-      // 3. Preparar updates baseados no metadata
       const updates: Partial<any> = {
         status: newStatus,
         temperature,
@@ -1191,68 +1056,14 @@ export class CorrectedAgentFunctions {
         lastContactDate: new Date()
       };
 
-      // Adicionar metadata específico se fornecido
-      if (args.metadata) {
-        if (args.metadata.propertiesViewed?.length > 0) {
-          updates.tags = [...(lead.tags || []), 'viewed-properties'];
-          // Aumentar score se visualizou propriedades
-          updates.score = Math.min(100, (updates.score || score) + 10);
-        }
-        
-        if (args.metadata.priceDiscussed) {
-          updates.preferences = {
-            ...lead.preferences,
-            priceRange: {
-              ...lead.preferences.priceRange,
-              max: args.metadata.priceDiscussed
-            }
-          };
-          updates.qualificationCriteria = {
-            ...lead.qualificationCriteria,
-            budget: true
-          };
-        }
-        
-        if (args.metadata.visitDate) {
-          updates.preferences = {
-            ...lead.preferences,
-            moveInDate: new Date(args.metadata.visitDate)
-          };
-          updates.qualificationCriteria = {
-            ...lead.qualificationCriteria,
-            timeline: true
-          };
-        }
+      await crmService.updateLead(lead.id, updates);
 
-        if (args.metadata.objections?.length > 0) {
-          updates.tags = [...(lead.tags || []), 'has-objections'];
-        }
-      }
-
-      // 4. Atualizar lead no CRM
-      const updatedLead = await crmService.updateLead(lead.id, updates);
-
-      // 5. Criar interação para registrar a classificação
-      await crmService.createInteraction({
-        leadId: lead.id,
-        tenantId,
-        type: InteractionType.NOTE,
-        channel: 'whatsapp',
-        direction: 'inbound',
-        content: `IA classificou lead como: ${args.conversationOutcome}. Razão: ${args.reason}`,
-        userId: 'ai-classifier',
-        userName: 'AI Classifier',
-        aiAnalysis: {
-          summary: `Lead classificado automaticamente baseado no outcome: ${args.conversationOutcome}`,
-          keyPoints: [args.reason],
-          sentiment: args.conversationOutcome === 'lost_interest' ? -0.8 : 
-                    args.conversationOutcome === 'deal_closed' ? 0.9 : 0.5,
-          intent: [args.conversationOutcome],
-          suggestedActions: this.getSuggestedActionsForOutcome(args.conversationOutcome)
-        }
+      logger.info('✅ [classify_lead_status] Lead classificado', { 
+        leadId: lead.id, 
+        newStatus, 
+        temperature, 
+        score 
       });
-
-      console.log(`✅ [LEAD CLASSIFICATION] Lead ${lead.id} classificado como ${newStatus} (${temperature}, score: ${updates.score})`);
 
       return {
         success: true,
@@ -1263,49 +1074,20 @@ export class CorrectedAgentFunctions {
           oldTemperature: lead.temperature,
           newTemperature: temperature,
           oldScore: lead.score,
-          newScore: updates.score,
+          newScore: score,
           outcome: args.conversationOutcome,
-          reason: args.reason,
-          suggestedActions: this.getSuggestedActionsForOutcome(args.conversationOutcome)
+          reason: args.reason
         },
-        message: `Lead classificado com sucesso! Status: ${newStatus}, Temperatura: ${temperature}, Score: ${updates.score}`
+        message: `Lead classificado com sucesso! Status: ${newStatus}, Temperatura: ${temperature}, Score: ${score}`
       };
 
     } catch (error) {
-      console.error('❌ [LEAD CLASSIFICATION] Erro ao classificar lead:', error);
+      logger.error('❌ [classify_lead_status] Erro ao classificar', { error });
       return {
         success: false,
-        message: 'Erro ao classificar lead: ' + (error instanceof Error ? error.message : 'Erro desconhecido'),
+        message: 'Erro ao classificar lead',
         classification: null
       };
-    }
-  }
-
-  private static getSuggestedActionsForOutcome(outcome: string): string[] {
-    switch (outcome) {
-      case 'deal_closed':
-        return ['Preparar contrato', 'Confirmar dados de pagamento', 'Agendar check-in'];
-      
-      case 'visit_scheduled':
-        return ['Confirmar visita por WhatsApp', 'Preparar propriedade para visita', 'Enviar informações de localização'];
-      
-      case 'price_negotiation':
-        return ['Preparar proposta com desconto', 'Verificar margem de negociação', 'Agendar ligação para negociar'];
-      
-      case 'wants_human_agent':
-        return ['Transferir para consultor humano', 'Agendar ligação', 'Priorizar contato'];
-      
-      case 'information_gathering':
-        return ['Enviar mais informações sobre propriedades', 'Agendar follow-up em 2 dias', 'Qualificar necessidades'];
-      
-      case 'no_reservation':
-        return ['Adicionar à lista de nutrição', 'Enviar conteúdo educativo', 'Follow-up em 1 semana'];
-      
-      case 'lost_interest':
-        return ['Marcar para follow-up em 30 dias', 'Analisar motivos da perda', 'Adicionar à campanha de reativação'];
-      
-      default:
-        return ['Fazer follow-up', 'Continuar nutrição'];
     }
   }
 
@@ -1317,7 +1099,7 @@ export class CorrectedAgentFunctions {
     tenantId: string
   ): Promise<any> {
     try {
-      console.log(`⚡ [EXECUTE] Executando função: ${functionName}`);
+      logger.info('⚡ [executeFunction] Executando', { functionName });
       
       switch (functionName) {
         case 'search_properties':
@@ -1351,7 +1133,7 @@ export class CorrectedAgentFunctions {
           throw new Error(`Função ${functionName} não implementada`);
       }
     } catch (error) {
-      // Function execution error handled
+      logger.error('❌ [executeFunction] Erro na execução', { functionName, error });
       return {
         success: false,
         message: `Erro na execução da função ${functionName}`,
@@ -1361,10 +1143,10 @@ export class CorrectedAgentFunctions {
   }
 }
 
-// ===== HELPER PARA OPENAI FUNCTION CALLING =====
+// ===== HELPER PARA OPENAI =====
 
-export function getCorrectedOpenAIFunctions(): any[] {
-  return CORRECTED_AI_FUNCTIONS.map(func => ({
+export function getOpenAIFunctions(): any[] {
+  return AI_FUNCTIONS.map(func => ({
     type: 'function',
     function: {
       name: func.name,

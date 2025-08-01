@@ -1,9 +1,7 @@
 // app/api/agent-professional/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-import { ProfessionalAgent } from '@/lib/ai-agent/professional-agent';
-import { AgentMonitor } from '@/lib/monitoring/agent-monitor';
-
-const agent = new ProfessionalAgent();
+import { sofiaAgent } from '@/lib/ai-agent/sofia-agent';
+// import { AgentMonitor } from '@/lib/monitoring/agent-monitor';
 
 export async function POST(request: NextRequest) {
   const startTime = Date.now();
@@ -20,35 +18,38 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Processar mensagem
-    const response = await agent.processMessage({
+    // Processar mensagem com Sofia MVP
+    const response = await sofiaAgent.processMessage({
       message,
       clientPhone,
-      tenantId
+      tenantId,
+      metadata: {
+        source: 'api',
+        priority: 'normal'
+      }
     });
 
     const processingTime = Date.now() - startTime;
 
-    // Registrar métricas
-    AgentMonitor.recordRequest(response.tokensUsed, response.fromCache, processingTime);
+    // Métricas simples (sem AgentMonitor)
+    console.log(`[Agent Professional] Response time: ${processingTime}ms, tokens: ${response.tokensUsed}`);
 
     return NextResponse.json({
       success: true,
       response: response.reply,
-      intent: response.intent,
-      confidence: response.confidence,
+      intent: response.metadata.stage,
+      confidence: 0.8, // Fixed confidence for MVP
       metadata: {
         tokensUsed: response.tokensUsed,
-        fromCache: response.fromCache,
+        fromCache: false, // No cache in MVP
         processingTime: `${processingTime}ms`,
-        actions: response.actions?.length || 0
+        actions: response.actions?.length || 0,
+        functionsExecuted: response.functionsExecuted.length
       }
     });
 
   } catch (error) {
     console.error('Agent error:', error);
-    
-    AgentMonitor.recordError();
     
     return NextResponse.json({
       success: false,

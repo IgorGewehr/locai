@@ -61,19 +61,68 @@ export class FirestoreService<T extends { id: string }> {
   }
 
   protected async query(queryRef: any): Promise<T[]> {
-    const querySnapshot = await getDocs(queryRef);
+    const querySnapshot = await this.executeWithRetry(() => getDocs(queryRef));
     return querySnapshot.docs.map(doc => ({
       id: doc.id,
       ...doc.data(),
     })) as T[];
   }
 
+  // Enhanced retry logic with exponential backoff
+  protected async executeWithRetry<T>(
+    operation: () => Promise<T>,
+    maxRetries: number = 3,
+    baseDelay: number = 1000
+  ): Promise<T> {
+    let lastError: Error;
+    
+    for (let attempt = 0; attempt <= maxRetries; attempt++) {
+      try {
+        // Add timeout wrapper for individual operations
+        return await Promise.race([
+          operation(),
+          new Promise<never>((_, reject) => 
+            setTimeout(() => reject(new Error('Operation timeout after 15 seconds')), 15000)
+          )
+        ]);
+      } catch (error) {
+        lastError = error as Error;
+        
+        // Don't retry on certain errors
+        if (error instanceof Error) {
+          const errorCode = (error as any).code;
+          if (errorCode === 'permission-denied' || 
+              errorCode === 'not-found' || 
+              errorCode === 'already-exists') {
+            throw error;
+          }
+        }
+        
+        // If this was the last attempt, throw the error
+        if (attempt === maxRetries) {
+          throw lastError;
+        }
+        
+        // Calculate delay with exponential backoff and jitter
+        const delay = baseDelay * Math.pow(2, attempt) + Math.random() * 1000;
+        
+        console.warn(`🔄 Firebase operation failed (attempt ${attempt + 1}/${maxRetries + 1}), retrying in ${Math.round(delay)}ms:`, lastError.message);
+        
+        await new Promise(resolve => setTimeout(resolve, delay));
+      }
+    }
+    
+    throw lastError!;
+  }
+
   async create(data: Omit<T, 'id'>): Promise<T> {
-    const docRef = await addDoc(collection(db, this.collectionName), {
-      ...data,
-      createdAt: Timestamp.now(),
-      updatedAt: Timestamp.now(),
-    });
+    const docRef = await this.executeWithRetry(() => 
+      addDoc(collection(db, this.collectionName), {
+        ...data,
+        createdAt: Timestamp.now(),
+        updatedAt: Timestamp.now(),
+      })
+    );
     return {
       id: docRef.id,
       ...data,
@@ -92,7 +141,7 @@ export class FirestoreService<T extends { id: string }> {
       updatedAt: Timestamp.now(),
     });
     
-    await setDoc(docRef, filteredData);
+    await this.executeWithRetry(() => setDoc(docRef, filteredData));
     return {
       ...data,
       id,
@@ -110,7 +159,7 @@ export class FirestoreService<T extends { id: string }> {
       updatedAt: Timestamp.now(),
     });
     
-    await updateDoc(docRef, filteredData);
+    await this.executeWithRetry(() => updateDoc(docRef, filteredData));
     const updated = await this.get(id);
     if (!updated) {
       throw new Error('Document not found after update');
@@ -148,7 +197,7 @@ export class FirestoreService<T extends { id: string }> {
 
   async get(id: string): Promise<T | null> {
     const docRef = doc(db, this.collectionName, id);
-    const docSnap = await getDoc(docRef);
+    const docSnap = await this.executeWithRetry(() => getDoc(docRef));
     
     if (docSnap.exists()) {
       return { id: docSnap.id, ...docSnap.data() } as T;

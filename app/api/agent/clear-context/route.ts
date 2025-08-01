@@ -12,11 +12,11 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Import Sofia agent V3
-    const { sofiaAgentV3 } = await import('@/lib/ai-agent/sofia-agent-v3');
+    // Import Sofia agent MVP
+    const { sofiaAgent } = await import('@/lib/ai-agent/sofia-agent');
     
     // Clear client context
-    await sofiaAgentV3.clearClientContext(
+    await sofiaAgent.clearClientContext(
       clientPhone, 
       tenantId || 'default-tenant'
     );
