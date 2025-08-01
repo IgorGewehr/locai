@@ -108,9 +108,7 @@ export default function ClientsPage() {
         setError(null);
       }
       
-      console.log('🔄 [Clients Dashboard] Carregando clientes...');
       const clientsData = await services.clients.getAll();
-      console.log(`✅ [Clients Dashboard] ${clientsData.length} clientes carregados`, clientsData);
       
       // Ordenar clientes: mais recentes primeiro
       const sortedClients = clientsData.sort((a, b) => 
@@ -120,7 +118,6 @@ export default function ClientsPage() {
       setClients(sortedClients);
       setError(null);
     } catch (error) {
-      console.error('❌ [Clients Dashboard] Erro ao carregar clientes:', error);
       setError('Erro ao carregar clientes. Tente novamente.');
       setClients([]);
     } finally {
@@ -133,7 +130,6 @@ export default function ClientsPage() {
     if (!services) return;
     
     try {
-      console.log('➕ [Clients Dashboard] Criando novo cliente:', formData);
       
       const clientData = {
         name: formData.name,
@@ -149,7 +145,6 @@ export default function ClientsPage() {
       };
 
       await services.clients.create(clientData as Omit<Client, 'id'>);
-      console.log('✅ [Clients Dashboard] Cliente criado');
       
       setShowAddDialog(false);
       setFormData({ name: '', phone: '', email: '', cpf: '', notes: '' });
@@ -157,7 +152,6 @@ export default function ClientsPage() {
       // Recarregar lista
       await loadClients();
     } catch (error) {
-      console.error('❌ [Clients Dashboard] Erro ao criar cliente:', error);
       alert(`Erro ao criar cliente: ${error instanceof Error ? error.message : 'Erro desconhecido'}`);
     }
   };
@@ -366,7 +360,7 @@ export default function ClientsPage() {
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <Box>
                 <Typography variant="h4" fontWeight={600}>
-                  {clients.reduce((sum, c) => sum + c.totalReservations, 0)}
+                  {clients.reduce((sum, c) => sum + (Number(c.totalReservations) || 0), 0)}
                 </Typography>
                 <Typography variant="body2" color="text.secondary">
                   Total de Reservas
@@ -466,10 +460,10 @@ export default function ClientsPage() {
                           {client.document && ` • 📄 CPF: ${client.document.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4')}`}
                         </Typography>
                         <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mt: 0.5 }}>
-                          {(client.totalReservations || 0) > 0 ? (
+                          {(Number(client.totalReservations) || 0) > 0 ? (
                             <Typography variant="caption" color="text.secondary">
-                              🏠 {client.totalReservations || 0} reserva{(client.totalReservations || 0) > 1 ? 's' : ''} • 
-                              💰 R$ {(client.totalSpent || 0).toLocaleString('pt-BR')} gastos
+                              🏠 {Number(client.totalReservations) || 0} reserva{(Number(client.totalReservations) || 0) > 1 ? 's' : ''} • 
+                              💰 R$ {(Number(client.totalSpent) || 0).toLocaleString('pt-BR')} gastos
                             </Typography>
                           ) : (
                             <Typography variant="caption" color="text.secondary">

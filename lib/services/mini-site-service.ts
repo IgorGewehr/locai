@@ -10,6 +10,7 @@ import { settingsService } from '@/lib/services/settings-service';
 import { db } from '@/lib/firebase/config';
 import { collection, query, where, getDocs, addDoc, updateDoc, doc, getDoc } from 'firebase/firestore';
 import { TenantServiceFactory } from '@/lib/firebase/firestore-v2';
+import { logger } from '@/lib/utils/logger';
 
 class MiniSiteService {
   private configService = new FirestoreService<MiniSiteConfig>('mini_site_configs');
@@ -169,7 +170,7 @@ class MiniSiteService {
    */
   async getPublicProperties(tenantId: string): Promise<PublicProperty[]> {
     try {
-      console.log('Fetching properties for tenant:', tenantId);
+      logger.info('Fetching properties for tenant', { tenantId, component: 'MiniSiteService' });
       
       // Try multi-tenant structure first
       try {
@@ -180,7 +181,11 @@ class MiniSiteService {
         const tenantSnapshot = await getDocs(tenantPropertiesQuery);
         
         if (!tenantSnapshot.empty) {
-          console.log('Found properties in tenant collection:', tenantSnapshot.size);
+          logger.info('Found properties in tenant collection', { 
+            tenantId, 
+            count: tenantSnapshot.size,
+            component: 'MiniSiteService' 
+          });
           const properties = tenantSnapshot.docs.map(doc => ({ 
             id: doc.id, 
             ...doc.data(),
@@ -190,7 +195,10 @@ class MiniSiteService {
           return properties.map(p => this.transformToPublicProperty(p));
         }
       } catch (tenantError) {
-        console.log('No properties in tenant collection, trying root collection...');
+        logger.info('No properties in tenant collection, trying root collection', { 
+          tenantId,
+          component: 'MiniSiteService'
+        });
       }
       
       // Fallback to root collection for backward compatibility
@@ -202,7 +210,11 @@ class MiniSiteService {
       const rootSnapshot = await getDocs(rootPropertiesQuery);
       
       if (!rootSnapshot.empty) {
-        console.log('Found properties in root collection:', rootSnapshot.size);
+        logger.info('Found properties in root collection', { 
+          tenantId,
+          count: rootSnapshot.size,
+          component: 'MiniSiteService'
+        });
         const properties = rootSnapshot.docs.map(doc => ({ 
           id: doc.id, 
           ...doc.data() 
@@ -211,7 +223,7 @@ class MiniSiteService {
         return properties.map(p => this.transformToPublicProperty(p));
       }
       
-      console.log('No properties found for tenant:', tenantId);
+      logger.warn('No properties found for tenant', { tenantId, component: 'MiniSiteService' });
       return [];
       
     } catch (error) {
@@ -242,7 +254,11 @@ class MiniSiteService {
           }
         }
       } catch (tenantError) {
-        console.log('Property not found in tenant collection, trying root...');
+        logger.info('Property not found in tenant collection, trying root', { 
+          tenantId,
+          propertyId,
+          component: 'MiniSiteService'
+        });
       }
       
       // Fallback to root collection

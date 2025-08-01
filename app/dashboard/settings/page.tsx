@@ -177,14 +177,7 @@ export default function SettingsPage() {
       if (response.ok) {
         const data = await response.json();
         
-        console.log('📊 Frontend: Status check response:', {
-          success: data.success,
-          connected: data.data?.connected,
-          status: data.data?.status,
-          hasQrCode: !!data.data?.qrCode,
-          phoneNumber: data.data?.phoneNumber,
-          businessName: data.data?.businessName
-        });
+        // WhatsApp status check completed
         
         const newSession = {
           connected: data.data?.connected || false,
@@ -198,12 +191,12 @@ export default function SettingsPage() {
         
         // If we have a QR code and dialog is not open, open it
         if (data.data?.qrCode && !qrDialogOpen && data.data?.status === 'qr') {
-          console.log('🔲 Frontend: QR Code found in status check, opening dialog');
+          // QR Code found in status check
           setQrDialogOpen(true);
         }
       }
     } catch (error) {
-      console.error('❌ Frontend: Error checking WhatsApp status:', error);
+      // Error checking WhatsApp status
     }
   };
 
@@ -211,7 +204,7 @@ export default function SettingsPage() {
     setLoading(true);
     setError(null);
     
-    console.log('🚀 Frontend: Starting WhatsApp initialization...');
+    // Starting WhatsApp initialization
     
     try {
       const response = await fetch('/api/whatsapp/session', {
@@ -221,14 +214,7 @@ export default function SettingsPage() {
 
       const data = await response.json();
       
-      console.log('📥 Frontend: API response:', {
-        success: data.success,
-        hasData: !!data.data,
-        status: data.data?.status,
-        hasQrCode: !!data.data?.qrCode,
-        qrCodeLength: data.data?.qrCode?.length,
-        connected: data.data?.connected
-      });
+      // API response received with connection data
       
       if (data.success) {
         // Update session state with all received data
@@ -240,22 +226,22 @@ export default function SettingsPage() {
         }));
         
         if (data.data.qrCode) {
-          console.log('🔲 Frontend: QR Code received, opening dialog');
+          // QR Code received, opening dialog
           setQrDialogOpen(true);
         } else if (data.data.connected) {
-          console.log('✅ Frontend: Already connected');
+          // Already connected to WhatsApp
           setSuccess('WhatsApp conectado com sucesso!');
           setTimeout(() => setSuccess(null), 3000);
         } else {
-          console.log('⏳ Frontend: Waiting for QR code...');
+          // Waiting for QR code generation
           setError('QR Code não foi gerado. Tente novamente.');
         }
       } else {
-        console.error('❌ Frontend: API error:', data.error);
+        // API error occurred
         setError(data.error || 'Falha ao inicializar WhatsApp');
       }
     } catch (error) {
-      console.error('❌ Frontend: Network error:', error);
+      // Network error occurred
       setError('Erro ao conectar com WhatsApp');
     } finally {
       setLoading(false);
@@ -885,11 +871,10 @@ export default function SettingsPage() {
                   padding: '16px'
                 }} 
                 onError={(e) => {
-                  console.error('❌ Frontend: Error loading QR code image:', e);
-                  console.log('🔍 Frontend: QR Code src:', whatsappSession.qrCode?.substring(0, 50) + '...');
+                  // Error loading QR code image
                 }}
                 onLoad={() => {
-                  console.log('✅ Frontend: QR Code image loaded successfully');
+                  // QR Code image loaded successfully
                 }}
               />
               

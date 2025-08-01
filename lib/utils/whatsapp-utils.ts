@@ -137,7 +137,8 @@ export function testGroupFilter() {
 
   console.log('================================');
   console.log(`Tests passed: ${passedTests}/${totalTests}`);
-  console.log(`Success rate: ${Math.round((passedTests / totalTests) * 100)}%`);
+  const successRate = totalTests > 0 ? Math.round((passedTests / totalTests) * 100) : 0;
+  console.log(`Success rate: ${successRate}%`);
 
   if (passedTests === totalTests) {
     console.log('🎉 All tests passed! Group filter is working correctly.');

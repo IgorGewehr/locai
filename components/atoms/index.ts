@@ -34,3 +34,6 @@ export type { OccupancyIndicatorProps } from './OccupancyIndicator/OccupancyIndi
 
 export { QuickActionButton } from './QuickActionButton/QuickActionButton'
 export type { QuickActionButtonProps } from './QuickActionButton/QuickActionButton'
+
+export { default as LoadingOverlay } from './LoadingOverlay'
+export { default as LoadingScreen } from './LoadingScreen'

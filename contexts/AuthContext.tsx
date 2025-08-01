@@ -3,7 +3,7 @@
 import React, { createContext, useContext, useEffect, useState, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import AuthService, { AuthUser } from '@/lib/firebase/auth';
-import { CircularProgress, Box } from '@mui/material';
+import LoadingScreen from '@/components/atoms/LoadingScreen';
 
 interface AuthContextType {
   user: AuthUser | null;
@@ -127,16 +127,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   if (loading) {
     return (
-      <Box
-        sx={{
-          display: 'flex',
-          justifyContent: 'center',
-          alignItems: 'center',
-          minHeight: '100vh',
-        }}
-      >
-        <CircularProgress />
-      </Box>
+      <LoadingScreen variant="default" message="Verificando autenticação..." />
     );
   }
 

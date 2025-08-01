@@ -3,9 +3,10 @@ import type { NextRequest } from 'next/server'
 import { jwtVerify } from 'jose'
 import { miniSiteMiddleware } from '@/middleware/mini-site'
 
-const JWT_SECRET = new TextEncoder().encode(
-  process.env.JWT_SECRET || 'your-secret-key'
-)
+if (!process.env.JWT_SECRET) {
+  throw new Error('JWT_SECRET environment variable is required for production security');
+}
+const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET)
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl

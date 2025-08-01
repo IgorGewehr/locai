@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/hooks/useAuth';
+// import { SimpleThemeToggle } from '@/components/atoms/SimpleThemeToggle/SimpleThemeToggle';
 import {
   AppBar,
   Box,
@@ -81,6 +82,11 @@ const navigationItems: NavigationItem[] = [
     href: '/dashboard/reservations',
     icon: <CalendarMonth sx={{ fontSize: 20 }} />,
   },
+  {
+    text: 'Clientes',
+    href: '/dashboard/clients',
+    icon: <People sx={{ fontSize: 20 }} />,
+  },
   // 🧪 ITEM DE TESTE - Condicional para desenvolvimento
   ...(SHOW_TEST_ROUTE ? [{
     text: 'Teste IA',
@@ -131,6 +137,11 @@ const navigationItems: NavigationItem[] = [
         icon: <NotificationsActive sx={{ fontSize: 18 }} />,
       },
     ],
+  },
+  {
+    text: 'Métricas',
+    href: '/dashboard/metrics',
+    icon: <Assessment sx={{ fontSize: 20 }} />,
   },
 ];
 
@@ -528,6 +539,9 @@ export default function TopAppBar({ onLogout }: TopAppBarProps) {
               </Tooltip>
             </Box>
 
+            {/* Theme Toggle - Disabled due to hydration issues */}
+            {/* <SimpleThemeToggle /> */}
+            
             <Divider 
               orientation="vertical" 
               flexItem 

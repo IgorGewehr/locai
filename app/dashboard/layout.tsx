@@ -17,11 +17,9 @@ export default function DashboardLayout({
 
   const handleLogout = async () => {
     try {
-      console.log('🚪 Iniciando logout...');
       await signOut();
-      console.log('✅ Logout realizado com sucesso');
     } catch (error) {
-      console.error('❌ Erro no logout:', error);
+      // Error handling without console.log for production
     }
   };
 

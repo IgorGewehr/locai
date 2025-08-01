@@ -674,4 +674,4 @@ export const darkTheme = createTheme({
   },
 }, ptBR);
 
-export default lightTheme;
+export default darkTheme;

@@ -3,7 +3,7 @@
 import { useEffect } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
-import { Box, CircularProgress } from '@mui/material';
+import LoadingScreen from '@/components/atoms/LoadingScreen';
 
 interface ProtectedRouteProps {
   children: React.ReactNode;
@@ -23,18 +23,7 @@ export default function ProtectedRoute({ children }: ProtectedRouteProps) {
   }, [user, loading, router, pathname]);
 
   if (loading) {
-    return (
-      <Box
-        sx={{
-          display: 'flex',
-          justifyContent: 'center',
-          alignItems: 'center',
-          minHeight: '100vh',
-        }}
-      >
-        <CircularProgress />
-      </Box>
-    );
+    return <LoadingScreen variant="creative" />;
   }
 
   if (!user) {

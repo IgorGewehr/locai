@@ -296,7 +296,10 @@ export default function InteractiveCharts({
                     axisLine={false}
                     tickLine={false}
                     tick={{ fill: theme.palette.text.secondary, fontSize: 12 }}
-                    tickFormatter={(value) => `${(value / 1000).toFixed(0)}k`}
+                    tickFormatter={(value) => {
+                      const num = Number(value);
+                      return isNaN(num) ? '0k' : `${(num / 1000).toFixed(0)}k`;
+                    }}
                   />
                   <ChartTooltip content={<CustomTooltip />} />
                   <Legend />
@@ -335,7 +338,10 @@ export default function InteractiveCharts({
                 <RechartsBarChart data={data.monthlyTrends} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke={alpha(theme.palette.divider, 0.3)} />
                   <XAxis dataKey="month" axisLine={false} tickLine={false} />
-                  <YAxis axisLine={false} tickLine={false} tickFormatter={(value) => `${(value / 1000).toFixed(0)}k`} />
+                  <YAxis axisLine={false} tickLine={false} tickFormatter={(value) => {
+                    const num = Number(value);
+                    return isNaN(num) ? '0k' : `${(num / 1000).toFixed(0)}k`;
+                  }} />
                   <ChartTooltip content={<CustomTooltip />} />
                   <Legend />
                   <Bar dataKey="receitas" fill="#10b981" name="Receitas" radius={[4, 4, 0, 0]} />
@@ -345,7 +351,10 @@ export default function InteractiveCharts({
                 <LineChart data={data.monthlyTrends} margin={{ top: 20, right: 30, left: 20, bottom: 5 }}>
                   <CartesianGrid strokeDasharray="3 3" stroke={alpha(theme.palette.divider, 0.3)} />
                   <XAxis dataKey="month" axisLine={false} tickLine={false} />
-                  <YAxis axisLine={false} tickLine={false} tickFormatter={(value) => `${(value / 1000).toFixed(0)}k`} />
+                  <YAxis axisLine={false} tickLine={false} tickFormatter={(value) => {
+                    const num = Number(value);
+                    return isNaN(num) ? '0k' : `${(num / 1000).toFixed(0)}k`;
+                  }} />
                   <ChartTooltip content={<CustomTooltip />} />
                   <Legend />
                   <Line type="monotone" dataKey="receitas" stroke="#10b981" strokeWidth={3} name="Receitas" dot={{ r: 6 }} />

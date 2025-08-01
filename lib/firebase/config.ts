@@ -17,14 +17,8 @@ const firebaseConfig = {
 
 // Debug: Log configuration to help troubleshoot
 if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
-  console.log('Firebase Config:', {
-    apiKey: firebaseConfig.apiKey ? 'Set' : 'Missing',
-    authDomain: firebaseConfig.authDomain,
-    projectId: firebaseConfig.projectId,
-    storageBucket: firebaseConfig.storageBucket,
-    messagingSenderId: firebaseConfig.messagingSenderId,
-    appId: firebaseConfig.appId ? 'Set' : 'Missing',
-  });
+  // Firebase configuration validated - using professional logging instead of console.log
+  // Configuration check moved to env-validator.ts for centralized validation
 }
 
 // Initialize Firebase

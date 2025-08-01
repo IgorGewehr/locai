@@ -48,6 +48,7 @@ import { VisitAppointment, VisitStatus, VISIT_STATUS_LABELS, VISIT_STATUS_COLORS
 import { useTenant } from '@/contexts/TenantContext';
 import { logger } from '@/lib/utils/logger';
 import DashboardBreadcrumb from '@/components/atoms/DashboardBreadcrumb';
+import CreateVisitDialog from './components/CreateVisitDialog';
 
 interface TabPanelProps {
   children?: React.ReactNode;
@@ -80,6 +81,7 @@ export default function VisitasPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedWeek, setSelectedWeek] = useState(new Date());
+  const [showCreateDialog, setShowCreateDialog] = useState(false);
 
   useEffect(() => {
     if (isReady && tenantId) {
@@ -157,29 +159,62 @@ export default function VisitasPage() {
       key={visit.id}
       sx={{
         mb: 2,
-        border: `2px solid ${VISIT_STATUS_COLORS[visit.status]}`,
+        border: `1px solid ${VISIT_STATUS_COLORS[visit.status]}40`,
+        borderLeft: `4px solid ${VISIT_STATUS_COLORS[visit.status]}`,
         borderRadius: 2,
         cursor: 'pointer',
-        transition: 'all 0.2s',
+        transition: 'all 0.3s ease',
+        background: 'rgba(255, 255, 255, 0.02)',
+        backdropFilter: 'blur(10px)',
         '&:hover': {
-          boxShadow: 3,
-          transform: 'translateY(-2px)'
+          boxShadow: `0 8px 24px ${VISIT_STATUS_COLORS[visit.status]}20`,
+          transform: 'translateY(-2px)',
+          borderColor: VISIT_STATUS_COLORS[visit.status],
         },
       }}
     >
-      <CardContent sx={{ p: 2 }}>
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1 }}>
+      <CardContent sx={{ p: { xs: 2, sm: 3 } }}>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
           <Box sx={{ flex: 1 }}>
-            <Typography variant="h6" sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
-              <Home fontSize="small" />
+            <Typography 
+              variant="h6" 
+              sx={{ 
+                display: 'flex', 
+                alignItems: 'center', 
+                gap: 1, 
+                mb: 1,
+                fontWeight: 600,
+                fontSize: { xs: '1.1rem', sm: '1.25rem' }
+              }}
+            >
+              <Home 
+                fontSize="small" 
+                sx={{ 
+                  color: 'primary.main',
+                  p: 0.5,
+                  borderRadius: 1,
+                  bgcolor: 'primary.main',
+                  color: 'white',
+                  fontSize: 16
+                }} 
+              />
               {visit.propertyName}
             </Typography>
-            <Typography variant="body2" color="text.secondary" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-              <Person fontSize="small" />
+            <Typography 
+              variant="body1" 
+              sx={{ 
+                display: 'flex', 
+                alignItems: 'center', 
+                gap: 1,
+                color: 'text.primary',
+                fontWeight: 500
+              }}
+            >
+              <Person fontSize="small" sx={{ color: 'text.secondary' }} />
               {visit.clientName}
             </Typography>
           </Box>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexDirection: 'column' }}>
             <Chip
               label={VISIT_STATUS_LABELS[visit.status]}
               size="small"
@@ -187,44 +222,86 @@ export default function VisitasPage() {
                 backgroundColor: VISIT_STATUS_COLORS[visit.status],
                 color: 'white',
                 fontWeight: 'bold',
+                fontSize: '0.75rem',
+                height: 24,
+                '& .MuiChip-label': {
+                  px: 1.5
+                }
               }}
             />
+            <Box sx={{ display: 'flex', gap: 0.5 }}>
+              <IconButton size="small" sx={{ p: 0.5, bgcolor: 'action.hover' }}>
+                <Visibility fontSize="small" />
+              </IconButton>
+              <IconButton size="small" sx={{ p: 0.5, bgcolor: 'action.hover' }}>
+                <Edit fontSize="small" />
+              </IconButton>
+            </Box>
           </Box>
         </Box>
 
-        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, mt: 1 }}>
+        <Box sx={{ 
+          display: 'grid', 
+          gridTemplateColumns: { xs: '1fr', sm: 'repeat(3, 1fr)' },
+          gap: 2, 
+          mt: 2,
+          p: 1.5,
+          bgcolor: 'rgba(255, 255, 255, 0.03)',
+          borderRadius: 1.5,
+          border: '1px solid rgba(255, 255, 255, 0.1)'
+        }}>
           {showDate && (
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-              <CalendarToday sx={{ fontSize: 16, color: 'text.secondary' }} />
-              <Typography variant="body2">
-                {format(new Date(visit.scheduledDate), "dd 'de' MMMM", { locale: ptBR })}
-              </Typography>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <CalendarToday sx={{ fontSize: 18, color: VISIT_STATUS_COLORS[visit.status] }} />
+              <Box>
+                <Typography variant="caption" color="text.secondary" display="block">
+                  Data
+                </Typography>
+                <Typography variant="body2" fontWeight={500}>
+                  {format(new Date(visit.scheduledDate), "dd/MM", { locale: ptBR })}
+                </Typography>
+              </Box>
             </Box>
           )}
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-            <AccessTime sx={{ fontSize: 16, color: 'text.secondary' }} />
-            <Typography variant="body2">
-              {formatTime(visit.scheduledTime)}
-            </Typography>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <AccessTime sx={{ fontSize: 18, color: VISIT_STATUS_COLORS[visit.status] }} />
+            <Box>
+              <Typography variant="caption" color="text.secondary" display="block">
+                Horário
+              </Typography>
+              <Typography variant="body2" fontWeight={500}>
+                {formatTime(visit.scheduledTime)}
+              </Typography>
+            </Box>
           </Box>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-            <Phone sx={{ fontSize: 16, color: 'text.secondary' }} />
-            <Typography variant="body2">
-              {visit.clientPhone}
-            </Typography>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <Phone sx={{ fontSize: 18, color: VISIT_STATUS_COLORS[visit.status] }} />
+            <Box>
+              <Typography variant="caption" color="text.secondary" display="block">
+                Contato
+              </Typography>
+              <Typography variant="body2" fontWeight={500}>
+                {visit.clientPhone}
+              </Typography>
+            </Box>
           </Box>
         </Box>
 
         {visit.notes && (
-          <Typography variant="body2" sx={{ 
-            mt: 1, 
-            p: 1, 
-            backgroundColor: 'grey.50', 
-            borderRadius: 1,
-            fontStyle: 'italic'
+          <Box sx={{ 
+            mt: 2, 
+            p: 1.5, 
+            backgroundColor: 'rgba(255, 255, 255, 0.05)', 
+            borderRadius: 1.5,
+            border: '1px solid rgba(255, 255, 255, 0.1)'
           }}>
-            {visit.notes}
-          </Typography>
+            <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 0.5 }}>
+              Observações:
+            </Typography>
+            <Typography variant="body2" sx={{ fontStyle: 'italic' }}>
+              {visit.notes}
+            </Typography>
+          </Box>
         )}
       </CardContent>
     </Card>
@@ -280,30 +357,87 @@ export default function VisitasPage() {
         ]} 
       />
 
-      {/* Header */}
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 4 }}>
+      {/* Enhanced Header */}
+      <Box sx={{ 
+        display: 'flex', 
+        justifyContent: 'space-between', 
+        alignItems: { xs: 'flex-start', md: 'center' },
+        flexDirection: { xs: 'column', md: 'row' },
+        mb: 4,
+        gap: { xs: 3, md: 0 }
+      }}>
         <Box>
-          <Typography variant="h4" fontWeight={700} sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-            <LocationOn sx={{ fontSize: 32, color: 'primary.main' }} />
+          <Typography 
+            variant="h4" 
+            fontWeight={700} 
+            sx={{ 
+              display: 'flex', 
+              alignItems: 'center', 
+              gap: 2,
+              mb: { xs: 1, md: 0.5 },
+              fontSize: { xs: '1.75rem', md: '2.125rem' }
+            }}
+          >
+            <LocationOn sx={{ fontSize: { xs: 28, md: 32 }, color: 'primary.main' }} />
             Agenda de Visitas
           </Typography>
-          <Typography variant="body1" color="text.secondary">
-            Gerencie os agendamentos de visitas às propriedades
+          <Typography 
+            variant="body1" 
+            color="text.secondary"
+            sx={{ fontSize: { xs: '0.875rem', md: '1rem' } }}
+          >
+            Gerencie os agendamentos de visitas às propriedades com Sofia IA
           </Typography>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 1 }}>
+            <Chip 
+              size="small" 
+              label="Integração Sofia IA" 
+              color="primary" 
+              variant="outlined"
+            />
+            <Chip 
+              size="small" 
+              label={`${visits.length} visitas cadastradas`} 
+              color="info" 
+              variant="outlined"
+            />
+          </Box>
         </Box>
-        <Box sx={{ display: 'flex', gap: 2 }}>
-          <IconButton onClick={loadVisits}>
-            <Refresh />
-          </IconButton>
+        <Box sx={{ 
+          display: 'flex', 
+          gap: 2,
+          flexDirection: { xs: 'column', sm: 'row' },
+          width: { xs: '100%', md: 'auto' }
+        }}>
+          <Button
+            variant="outlined"
+            startIcon={<Refresh />}
+            onClick={loadVisits}
+            disabled={loading}
+            sx={{ 
+              minWidth: { xs: 'auto', sm: 120 },
+              borderRadius: 2
+            }}
+          >
+            Atualizar
+          </Button>
           <Button
             variant="contained"
             startIcon={<Add />}
+            onClick={() => setShowCreateDialog(true)}
             sx={{ 
-              borderRadius: 3,
+              borderRadius: 2,
               px: 3,
               py: 1.5,
               fontSize: '1rem',
-              fontWeight: 600
+              fontWeight: 600,
+              background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+              '&:hover': {
+                background: 'linear-gradient(135deg, #5a67d8 0%, #6b47a8 100%)',
+                transform: 'translateY(-1px)',
+                boxShadow: '0 4px 12px rgba(102, 126, 234, 0.4)'
+              },
+              transition: 'all 0.2s ease'
             }}
           >
             Nova Visita
@@ -311,65 +445,125 @@ export default function VisitasPage() {
         </Box>
       </Box>
 
-      {/* Stats Cards */}
+      {/* Enhanced Stats Cards */}
       <Grid container spacing={3} sx={{ mb: 4 }}>
         <Grid item xs={12} sm={6} md={3}>
           <Card sx={{ 
             textAlign: 'center', 
-            p: 3,
+            p: { xs: 2, sm: 3 },
             background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-            color: 'white'
+            color: 'white',
+            position: 'relative',
+            overflow: 'hidden',
+            transition: 'all 0.3s ease',
+            '&:hover': {
+              transform: 'translateY(-4px)',
+              boxShadow: '0 12px 24px rgba(102, 126, 234, 0.4)'
+            },
+            '&::before': {
+              content: '""',
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              background: 'rgba(255, 255, 255, 0.1)',
+              opacity: 0,
+              transition: 'opacity 0.3s ease'
+            },
+            '&:hover::before': {
+              opacity: 1
+            }
           }}>
-            <Typography variant="h3" sx={{ fontWeight: 700, mb: 1 }}>
+            <CalendarToday sx={{ fontSize: 32, mb: 1, opacity: 0.8 }} />
+            <Typography variant="h3" sx={{ fontWeight: 700, mb: 1, fontSize: { xs: '2rem', sm: '2.5rem' } }}>
               {todayVisits.length}
             </Typography>
-            <Typography variant="body1" sx={{ opacity: 0.9 }}>
+            <Typography variant="body1" sx={{ opacity: 0.9, fontSize: { xs: '0.875rem', sm: '1rem' } }}>
               Visitas Hoje
             </Typography>
+            {todayVisits.length > 0 && (
+              <Typography variant="caption" sx={{ opacity: 0.7, display: 'block', mt: 0.5 }}>
+                Próxima: {todayVisits[0]?.scheduledTime ? formatTime(todayVisits[0].scheduledTime) : 'N/A'}
+              </Typography>
+            )}
           </Card>
         </Grid>
         <Grid item xs={12} sm={6} md={3}>
           <Card sx={{ 
             textAlign: 'center', 
-            p: 3,
+            p: { xs: 2, sm: 3 },
             background: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',
-            color: 'white'
+            color: 'white',
+            position: 'relative',
+            overflow: 'hidden',
+            transition: 'all 0.3s ease',
+            '&:hover': {
+              transform: 'translateY(-4px)',
+              boxShadow: '0 12px 24px rgba(240, 147, 251, 0.4)'
+            }
           }}>
-            <Typography variant="h3" sx={{ fontWeight: 700, mb: 1 }}>
+            <CheckCircle sx={{ fontSize: 32, mb: 1, opacity: 0.8 }} />
+            <Typography variant="h3" sx={{ fontWeight: 700, mb: 1, fontSize: { xs: '2rem', sm: '2.5rem' } }}>
               {getVisitsByStatus(VisitStatus.CONFIRMED).length}
             </Typography>
-            <Typography variant="body1" sx={{ opacity: 0.9 }}>
+            <Typography variant="body1" sx={{ opacity: 0.9, fontSize: { xs: '0.875rem', sm: '1rem' } }}>
               Confirmadas
             </Typography>
+            <Typography variant="caption" sx={{ opacity: 0.7, display: 'block', mt: 0.5 }}>
+              {Math.round((getVisitsByStatus(VisitStatus.CONFIRMED).length / (visits.length || 1)) * 100)}% do total
+            </Typography>
           </Card>
         </Grid>
         <Grid item xs={12} sm={6} md={3}>
           <Card sx={{ 
             textAlign: 'center', 
-            p: 3,
+            p: { xs: 2, sm: 3 },
             background: 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)',
-            color: 'white'
+            color: 'white',
+            position: 'relative',
+            overflow: 'hidden',
+            transition: 'all 0.3s ease',
+            '&:hover': {
+              transform: 'translateY(-4px)',
+              boxShadow: '0 12px 24px rgba(79, 172, 254, 0.4)'
+            }
           }}>
-            <Typography variant="h3" sx={{ fontWeight: 700, mb: 1 }}>
+            <Schedule sx={{ fontSize: 32, mb: 1, opacity: 0.8 }} />
+            <Typography variant="h3" sx={{ fontWeight: 700, mb: 1, fontSize: { xs: '2rem', sm: '2.5rem' } }}>
               {getVisitsByStatus(VisitStatus.SCHEDULED).length}
             </Typography>
-            <Typography variant="body1" sx={{ opacity: 0.9 }}>
+            <Typography variant="body1" sx={{ opacity: 0.9, fontSize: { xs: '0.875rem', sm: '1rem' } }}>
               Agendadas
+            </Typography>
+            <Typography variant="caption" sx={{ opacity: 0.7, display: 'block', mt: 0.5 }}>
+              Aguardando confirmação
             </Typography>
           </Card>
         </Grid>
         <Grid item xs={12} sm={6} md={3}>
           <Card sx={{ 
             textAlign: 'center', 
-            p: 3,
+            p: { xs: 2, sm: 3 },
             background: 'linear-gradient(135deg, #fa709a 0%, #fee140 100%)',
-            color: 'white'
+            color: 'white',
+            position: 'relative',
+            overflow: 'hidden',
+            transition: 'all 0.3s ease',
+            '&:hover': {
+              transform: 'translateY(-4px)',
+              boxShadow: '0 12px 24px rgba(250, 112, 154, 0.4)'
+            }
           }}>
-            <Typography variant="h3" sx={{ fontWeight: 700, mb: 1 }}>
+            <Event sx={{ fontSize: 32, mb: 1, opacity: 0.8 }} />
+            <Typography variant="h3" sx={{ fontWeight: 700, mb: 1, fontSize: { xs: '2rem', sm: '2.5rem' } }}>
               {upcomingVisits.length}
             </Typography>
-            <Typography variant="body1" sx={{ opacity: 0.9 }}>
+            <Typography variant="body1" sx={{ opacity: 0.9, fontSize: { xs: '0.875rem', sm: '1rem' } }}>
               Próximas
+            </Typography>
+            <Typography variant="caption" sx={{ opacity: 0.7, display: 'block', mt: 0.5 }}>
+              Próximos 7 dias
             </Typography>
           </Card>
         </Grid>
@@ -511,16 +705,31 @@ export default function VisitasPage() {
       {isMobile && (
         <Fab
           color="primary"
+          onClick={() => setShowCreateDialog(true)}
           sx={{
             position: 'fixed',
             bottom: 20,
             right: 20,
-            zIndex: 1000
+            zIndex: 1000,
+            background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+            '&:hover': {
+              background: 'linear-gradient(135deg, #5a67d8 0%, #6b47a8 100%)',
+            }
           }}
         >
           <Add />
         </Fab>
       )}
+
+      {/* Create Visit Dialog */}
+      <CreateVisitDialog
+        open={showCreateDialog}
+        onClose={() => setShowCreateDialog(false)}
+        onSuccess={() => {
+          loadVisits();
+          setShowCreateDialog(false);
+        }}
+      />
     </Box>
   );
 }

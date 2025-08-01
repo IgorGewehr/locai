@@ -162,8 +162,7 @@ export default function TestePage() {
     const startTime = Date.now();
 
     try {
-      const endpoint = '/api/agent'; // Usando Sofia AI Agent V3 com funções corrigidas
-      console.log('🚀 Enviando mensagem para Sofia V3:', inputMessage.trim());
+      const endpoint = '/api/agent';
       const response = await fetch(endpoint, {
         method: 'POST',
         headers: {
@@ -179,12 +178,8 @@ export default function TestePage() {
       });
 
       const data = await response.json();
-      
-      console.log('📥 Resposta da API:', data);
-      console.log('📊 Status:', response.status);
 
       if (!response.ok) {
-        console.error('❌ Erro da API:', data);
         throw new Error(data.error || 'Erro ao comunicar com o agente');
       }
 
@@ -216,7 +211,6 @@ export default function TestePage() {
       }));
 
     } catch (err) {
-      console.error('Erro ao enviar mensagem:', err);
       setError(err instanceof Error ? err.message : 'Erro desconhecido');
       
       const errorMessage: Message = {
@@ -247,7 +241,7 @@ export default function TestePage() {
           }),
         });
       } catch (error) {
-        console.error('Erro ao limpar contexto:', error);
+        // Erro ao limpar contexto ignorado
       }
     }
     
@@ -384,7 +378,7 @@ export default function TestePage() {
               {agentStats.intent && (
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                   <Chip 
-                    label={`${agentStats.intent} (${Math.round(agentStats.confidence * 100)}%)`} 
+                    label={`${agentStats.intent} (${Math.round((Number(agentStats.confidence) || 0) * 100)}%)`} 
                     size="small" 
                     sx={{ bgcolor: '#2196f3', color: 'white', fontSize: '0.75rem' }} 
                   />

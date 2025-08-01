@@ -63,32 +63,7 @@ interface Testimonial {
   verified?: boolean;
 }
 
-const testimonials: Testimonial[] = [
-  {
-    id: '1',
-    name: 'Maria Silva',
-    rating: 5,
-    comment: 'Excelente atendimento! Encontrei a casa dos meus sonhos rapidamente.',
-    date: '2024-01-15',
-    verified: true,
-  },
-  {
-    id: '2',
-    name: 'João Santos',
-    rating: 5,
-    comment: 'Profissionais competentes e propriedades de alta qualidade.',
-    date: '2024-01-10',
-    verified: true,
-  },
-  {
-    id: '3',
-    name: 'Ana Costa',
-    rating: 5,
-    comment: 'Processo de locação muito fácil e transparente. Recomendo!',
-    date: '2024-01-05',
-    verified: true,
-  },
-];
+const testimonials: Testimonial[] = [];
 
 export default function EnhancedFooter({ config, onScrollTop }: EnhancedFooterProps) {
   const theme = useTheme();
@@ -300,93 +275,95 @@ export default function EnhancedFooter({ config, onScrollTop }: EnhancedFooterPr
           </motion.div>
         </Box>
 
-        {/* Testimonials */}
-        <Box sx={{ py: 4 }}>
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.6 }}
-            viewport={{ once: true }}
-          >
-            <Typography
-              variant="h5"
-              sx={{
-                fontWeight: 700,
-                textAlign: 'center',
-                mb: 4,
-                color: config.theme.primaryColor,
-              }}
+        {/* Testimonials - Only show if there are testimonials */}
+        {testimonials.length > 0 && (
+          <Box sx={{ py: 4 }}>
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6 }}
+              viewport={{ once: true }}
             >
-              O que nossos clientes dizem
-            </Typography>
-            <Grid container spacing={3}>
-              {testimonials.map((testimonial, index) => (
-                <Grid item xs={12} md={4} key={testimonial.id}>
-                  <motion.div
-                    initial={{ opacity: 0, y: 20 }}
-                    whileInView={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.5, delay: index * 0.1 }}
-                    viewport={{ once: true }}
-                  >
-                    <Card
-                      sx={{
-                        height: '100%',
-                        background: alpha(theme.palette.background.paper, 0.7),
-                        backdropFilter: 'blur(20px)',
-                        border: `1px solid ${alpha(theme.palette.divider, 0.1)}`,
-                        borderRadius: 3,
-                        '&:hover': {
-                          transform: 'translateY(-4px)',
-                          boxShadow: `0 8px 32px ${alpha(theme.palette.common.black, 0.1)}`,
-                        },
-                        transition: 'all 0.3s ease',
-                      }}
+              <Typography
+                variant="h5"
+                sx={{
+                  fontWeight: 700,
+                  textAlign: 'center',
+                  mb: 4,
+                  color: config.theme.primaryColor,
+                }}
+              >
+                O que nossos clientes dizem
+              </Typography>
+              <Grid container spacing={3}>
+                {testimonials.map((testimonial, index) => (
+                  <Grid item xs={12} md={4} key={testimonial.id}>
+                    <motion.div
+                      initial={{ opacity: 0, y: 20 }}
+                      whileInView={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.5, delay: index * 0.1 }}
+                      viewport={{ once: true }}
                     >
-                      <CardContent sx={{ p: 3 }}>
-                        <Stack spacing={2}>
-                          <Stack direction="row" alignItems="center" spacing={2}>
-                            <Avatar
-                              src={testimonial.avatar}
-                              sx={{
-                                width: 48,
-                                height: 48,
-                                bgcolor: config.theme.primaryColor,
-                              }}
-                            >
-                              {testimonial.name.charAt(0)}
-                            </Avatar>
-                            <Box>
-                              <Stack direction="row" alignItems="center" spacing={1}>
-                                <Typography variant="subtitle1" fontWeight={600}>
-                                  {testimonial.name}
+                      <Card
+                        sx={{
+                          height: '100%',
+                          background: alpha(theme.palette.background.paper, 0.7),
+                          backdropFilter: 'blur(20px)',
+                          border: `1px solid ${alpha(theme.palette.divider, 0.1)}`,
+                          borderRadius: 3,
+                          '&:hover': {
+                            transform: 'translateY(-4px)',
+                            boxShadow: `0 8px 32px ${alpha(theme.palette.common.black, 0.1)}`,
+                          },
+                          transition: 'all 0.3s ease',
+                        }}
+                      >
+                        <CardContent sx={{ p: 3 }}>
+                          <Stack spacing={2}>
+                            <Stack direction="row" alignItems="center" spacing={2}>
+                              <Avatar
+                                src={testimonial.avatar}
+                                sx={{
+                                  width: 48,
+                                  height: 48,
+                                  bgcolor: config.theme.primaryColor,
+                                }}
+                              >
+                                {testimonial.name.charAt(0)}
+                              </Avatar>
+                              <Box>
+                                <Stack direction="row" alignItems="center" spacing={1}>
+                                  <Typography variant="subtitle1" fontWeight={600}>
+                                    {testimonial.name}
+                                  </Typography>
+                                  {testimonial.verified && (
+                                    <Verified sx={{ fontSize: 16, color: config.theme.primaryColor }} />
+                                  )}
+                                </Stack>
+                                <Typography variant="caption" color="text.secondary">
+                                  {new Date(testimonial.date).toLocaleDateString('pt-BR')}
                                 </Typography>
-                                {testimonial.verified && (
-                                  <Verified sx={{ fontSize: 16, color: config.theme.primaryColor }} />
-                                )}
-                              </Stack>
-                              <Typography variant="caption" color="text.secondary">
-                                {new Date(testimonial.date).toLocaleDateString('pt-BR')}
-                              </Typography>
-                            </Box>
+                              </Box>
+                            </Stack>
+                            <Rating
+                              value={testimonial.rating}
+                              readOnly
+                              size="small"
+                              sx={{ color: config.theme.primaryColor }}
+                            />
+                            <Typography variant="body2" color="text.secondary">
+                              "{testimonial.comment}"
+                            </Typography>
                           </Stack>
-                          <Rating
-                            value={testimonial.rating}
-                            readOnly
-                            size="small"
-                            sx={{ color: config.theme.primaryColor }}
-                          />
-                          <Typography variant="body2" color="text.secondary">
-                            "{testimonial.comment}"
-                          </Typography>
-                        </Stack>
-                      </CardContent>
-                    </Card>
-                  </motion.div>
-                </Grid>
-              ))}
-            </Grid>
-          </motion.div>
-        </Box>
+                        </CardContent>
+                      </Card>
+                    </motion.div>
+                  </Grid>
+                ))}
+              </Grid>
+            </motion.div>
+          </Box>
+        )}
 
         <Divider sx={{ my: 4, borderColor: alpha(theme.palette.divider, 0.1) }} />
 

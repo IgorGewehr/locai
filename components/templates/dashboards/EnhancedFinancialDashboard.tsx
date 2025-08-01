@@ -536,7 +536,10 @@ export default function EnhancedFinancialDashboard() {
                       </defs>
                       <CartesianGrid strokeDasharray="3 3" stroke={alpha(theme.palette.divider, 0.5)} />
                       <XAxis dataKey="month" stroke={theme.palette.text.secondary} />
-                      <YAxis stroke={theme.palette.text.secondary} tickFormatter={(value) => `${value / 1000}k`} />
+                      <YAxis stroke={theme.palette.text.secondary} tickFormatter={(value) => {
+                        const num = Number(value);
+                        return isNaN(num) ? '0k' : `${(num / 1000).toFixed(0)}k`;
+                      }} />
                       <ChartTooltip
                         formatter={(value: number) => formatCurrency(value)}
                         contentStyle={{

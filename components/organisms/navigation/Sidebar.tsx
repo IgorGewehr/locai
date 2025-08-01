@@ -137,6 +137,12 @@ const menuItems = [
     badge: null,
   },
   {
+    text: 'Métricas',
+    href: '/dashboard/metrics',
+    icon: <TrendingUp />,
+    badge: null,
+  },
+  {
     text: 'Teste',
     href: '/dashboard/teste',
     icon: <BugReport />,
