@@ -48,15 +48,12 @@ import {
   KeyboardArrowDown,
   WhatsApp,
   Circle,
-  SmartToy,
   Menu as MenuIcon,
   Close,
   ChevronRight,
 } from '@mui/icons-material';
 
-// 🧪 DESENVOLVIMENTO: Configuração para mostrar item de teste
-// Para PRODUÇÃO: Altere SHOW_TEST_ROUTE para false
-const SHOW_TEST_ROUTE = process.env.NODE_ENV === 'development';
+// 🧪 DESENVOLVIMENTO: Item de teste restaurado
 
 interface NavigationItem {
   text: string;
@@ -87,13 +84,11 @@ const navigationItems: NavigationItem[] = [
     href: '/dashboard/clients',
     icon: <People sx={{ fontSize: 20 }} />,
   },
-  // 🧪 ITEM DE TESTE - Condicional para desenvolvimento
-  ...(SHOW_TEST_ROUTE ? [{
+  {
     text: 'Teste IA',
     href: '/dashboard/teste',
-    icon: <SmartToy sx={{ fontSize: 20 }} />,
-    badge: '🧪' as string | number,
-  }] : []),
+    icon: <Chat sx={{ fontSize: 20 }} />,
+  },
   {
     text: 'Agenda',
     href: '/dashboard/agenda',
@@ -321,14 +316,20 @@ export default function TopAppBar({ onLogout }: TopAppBarProps) {
                 alignItems: 'center',
                 justifyContent: 'center',
                 boxShadow: '0 4px 16px rgba(6, 182, 212, 0.3)',
+                overflow: 'hidden',
               }}
             >
               <img 
-                src="/locai-logo.svg" 
+                src="/logo.jpg" 
                 alt="LocAI Logo" 
                 width={32} 
                 height={32}
-                style={{ borderRadius: 8 }}
+                style={{ 
+                  borderRadius: 8,
+                  objectFit: 'cover',
+                  width: '100%',
+                  height: '100%'
+                }}
               />
             </Box>
             <Typography
@@ -567,7 +568,7 @@ export default function TopAppBar({ onLogout }: TopAppBarProps) {
                     fontSize: { xs: '0.75rem', sm: '1rem' },
                   }}
                 >
-                  {user?.displayName?.charAt(0)?.toUpperCase() || user?.email?.charAt(0)?.toUpperCase() || 'U'}
+                  {'U'}
                 </Avatar>
               }
               endIcon={<ExpandMore sx={{ 
@@ -601,7 +602,7 @@ export default function TopAppBar({ onLogout }: TopAppBarProps) {
                     fontSize: { md: '0.8rem', lg: '0.875rem' },
                   }}
                 >
-                  {user?.displayName || user?.email?.split('@')[0] || 'Usuário'}
+                  {user?.displayName || user?.email || 'Usuário'}
                 </Typography>
                 <Typography 
                   variant="caption" 
@@ -613,7 +614,7 @@ export default function TopAppBar({ onLogout }: TopAppBarProps) {
                     fontSize: { md: '0.65rem', lg: '0.75rem' },
                   }}
                 >
-                  {user?.email || 'Admin'}
+                  {user?.email || 'user@example.com'}
                 </Typography>
               </Box>
             </Button>
@@ -765,14 +766,20 @@ export default function TopAppBar({ onLogout }: TopAppBarProps) {
                 alignItems: 'center',
                 justifyContent: 'center',
                 boxShadow: '0 4px 16px rgba(6, 182, 212, 0.3)',
+                overflow: 'hidden',
               }}
             >
               <img 
-                src="/locai-logo.svg" 
+                src="/logo.jpg" 
                 alt="LocAI Logo" 
                 width={28} 
                 height={28}
-                style={{ borderRadius: 6 }}
+                style={{ 
+                  borderRadius: 6,
+                  objectFit: 'cover',
+                  width: '100%',
+                  height: '100%'
+                }}
               />
             </Box>
             <Typography
@@ -811,7 +818,7 @@ export default function TopAppBar({ onLogout }: TopAppBarProps) {
               border: '2px solid rgba(6, 182, 212, 0.3)',
             }}
           >
-            {user?.displayName?.charAt(0)?.toUpperCase() || user?.email?.charAt(0)?.toUpperCase() || 'U'}
+            {'U'}
           </Avatar>
           <Box sx={{ flex: 1, minWidth: 0 }}>
             <Typography 
@@ -824,7 +831,7 @@ export default function TopAppBar({ onLogout }: TopAppBarProps) {
                 overflow: 'hidden',
               }}
             >
-              {user?.displayName || user?.email?.split('@')[0] || 'Usuário'}
+              {user?.displayName || user?.email || 'Usuário'}
             </Typography>
             <Typography 
               variant="body2" 
@@ -835,7 +842,7 @@ export default function TopAppBar({ onLogout }: TopAppBarProps) {
                 overflow: 'hidden',
               }}
             >
-              {user?.email || 'Admin'}
+              {user?.email || 'user@example.com'}
             </Typography>
           </Box>
         </Box>

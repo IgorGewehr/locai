@@ -30,18 +30,15 @@ export const db = getFirestore(app);
 export const storage = getStorage(app);
 export const auth = getAuth(app);
 
-// Enhanced connectivity configuration
+// Basic connectivity settings - conservative approach
 if (typeof window !== 'undefined') {
-  // Import the connectivity enhancer for client-side optimizations
-  import('./connectivity-enhancer').then(({ connectivityEnhancer }) => {
-    // The enhancer will automatically initialize and optimize the connection
-  }).catch(() => {
-    // Fallback if import fails - use basic configuration
-    import('firebase/firestore').then(({ enableNetwork }) => {
-      enableNetwork(db).catch(() => {
-        // Silent fallback
-      });
+  // Only enable basic network connectivity without complex persistence
+  import('firebase/firestore').then(({ enableNetwork }) => {
+    enableNetwork(db).catch(() => {
+      // Silent fallback if network enabling fails
     });
+  }).catch(() => {
+    // Fallback if import fails
   });
 }
 
@@ -50,17 +47,17 @@ export const analytics = typeof window !== 'undefined' && firebaseConfig.measure
   ? getAnalytics(app) 
   : null;
 
-// Enable offline persistence in production
-if (typeof window !== 'undefined' && process.env.NODE_ENV === 'production') {
-  import('firebase/firestore').then(({ enableNetwork, enableIndexedDbPersistence }) => {
-    enableIndexedDbPersistence(db).catch((err) => {
-      if (err.code === 'failed-precondition') {
-
-      } else if (err.code === 'unimplemented') {
-
-      }
-    });
-  });
-}
+// DISABLED: offline persistence - causes internal assertion failures
+// if (typeof window !== 'undefined' && process.env.NODE_ENV === 'production') {
+//   import('firebase/firestore').then(({ enableNetwork, enableIndexedDbPersistence }) => {
+//     enableIndexedDbPersistence(db).catch((err) => {
+//       if (err.code === 'failed-precondition') {
+//         // Multiple tabs open
+//       } else if (err.code === 'unimplemented') {
+//         // Not supported
+//       }
+//     });
+//   });
+// }
 
 export default app;

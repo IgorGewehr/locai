@@ -31,41 +31,27 @@ export class FirebaseConnectivityEnhancer {
   }
 
   /**
-   * Enhance Firestore connection with better timeout and retry settings
+   * Enhance Firestore connection with conservative settings - NO PERSISTENCE
    */
   async enhanceFirestoreConnection(): Promise<void> {
     if (typeof window === 'undefined') return;
 
     try {
       // Dynamic import to avoid SSR issues
-      const { getFirestore, enableNetwork, enableIndexedDbPersistence } = await import('firebase/firestore');
+      const { getFirestore, enableNetwork } = await import('firebase/firestore');
       const { getApp } = await import('firebase/app');
       
       const app = getApp();
       const db = getFirestore(app);
 
-      // Enable offline support for better resilience
-      if (this.options.enableOfflineSupport) {
-        try {
-          await enableIndexedDbPersistence(db);
-          logger.info('🔥 Firebase offline persistence enabled');
-        } catch (error) {
-          const err = error as any;
-          if (err.code === 'failed-precondition') {
-            logger.warn('⚠️ Firebase persistence failed - multiple tabs open');
-          } else if (err.code === 'unimplemented') {
-            logger.warn('⚠️ Firebase persistence not supported in this browser');
-          } else {
-            logger.error('❌ Firebase persistence setup failed:', err);
-          }
-        }
-      }
+      // SKIP offline persistence to avoid conflicts
+      logger.info('🔥 Firebase persistence skipped to avoid conflicts');
 
-      // Ensure network is enabled (in case it was disabled)
+      // Only ensure network is enabled
       await enableNetwork(db);
       logger.info('🌐 Firebase network connectivity enhanced');
 
-      // Setup connection monitoring
+      // Setup lightweight connection monitoring
       this.setupConnectionMonitoring();
 
     } catch (error) {
@@ -192,19 +178,19 @@ export class FirebaseConnectivityEnhancer {
   }
 }
 
-// Initialize the enhancer on client-side
-if (typeof window !== 'undefined') {
-  const enhancer = FirebaseConnectivityEnhancer.getInstance({
-    maxRetries: 4,
-    baseDelay: 1500,
-    timeoutMs: 25000, // 25 segundos
-    enableOfflineSupport: true
-  });
+// DISABLED: Initialize the enhancer on client-side - causing conflicts
+// if (typeof window !== 'undefined') {
+//   const enhancer = FirebaseConnectivityEnhancer.getInstance({
+//     maxRetries: 4,
+//     baseDelay: 1500,
+//     timeoutMs: 25000, // 25 segundos
+//     enableOfflineSupport: false // DISABLED
+//   });
 
-  // Enhance connection after a short delay to allow Firebase to initialize
-  setTimeout(() => {
-    enhancer.enhanceFirestoreConnection();
-  }, 2000);
-}
+//   // Enhance connection after a short delay to allow Firebase to initialize
+//   setTimeout(() => {
+//     enhancer.enhanceFirestoreConnection();
+//   }, 2000);
+// }
 
 export const connectivityEnhancer = FirebaseConnectivityEnhancer.getInstance();

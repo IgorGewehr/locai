@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import {
   Box,
   Typography,
@@ -90,22 +90,45 @@ export default function SettingsPage() {
   });
 
   useEffect(() => {
-    checkWhatsAppStatus();
+    let mounted = true;
+    
+    const safeCheckStatus = async () => {
+      if (mounted) {
+        await checkWhatsAppStatus();
+      }
+    };
+    
+    safeCheckStatus();
     
     // Check WhatsApp status every 10 seconds
-    const interval = setInterval(checkWhatsAppStatus, 10000);
-    return () => clearInterval(interval);
-  }, []);
+    const interval = setInterval(() => {
+      if (mounted) {
+        safeCheckStatus();
+      }
+    }, 10000);
+    
+    return () => {
+      mounted = false;
+      clearInterval(interval);
+    };
+  }, [checkWhatsAppStatus]);
 
   // Update profile data when user changes
   useEffect(() => {
     if (user) {
-      setProfileData({
-        displayName: user.displayName || '',
-        email: user.email || ''
+      setProfileData(prev => {
+        const newData = {
+          displayName: user.displayName || '',
+          email: user.email || ''
+        };
+        // Only update if the data actually changed
+        if (prev.displayName !== newData.displayName || prev.email !== newData.email) {
+          return newData;
+        }
+        return prev;
       });
     }
-  }, [user]);
+  }, [user?.displayName, user?.email]); // More specific dependencies
 
   const handleUpdateProfile = async () => {
     if (!user || !auth.currentUser) return;
@@ -171,7 +194,7 @@ export default function SettingsPage() {
     }
   };
 
-  const checkWhatsAppStatus = async () => {
+  const checkWhatsAppStatus = useCallback(async () => {
     try {
       const response = await fetch('/api/whatsapp/session');
       if (response.ok) {
@@ -187,7 +210,20 @@ export default function SettingsPage() {
           qrCode: data.data?.qrCode
         };
         
-        setWhatsappSession(newSession);
+        setWhatsappSession(prevSession => {
+          // Only update if the session data actually changed
+          const hasChanged = 
+            prevSession.connected !== newSession.connected ||
+            prevSession.phone !== newSession.phone ||
+            prevSession.name !== newSession.name ||
+            prevSession.status !== newSession.status ||
+            prevSession.qrCode !== newSession.qrCode;
+          
+          if (hasChanged) {
+            return newSession;
+          }
+          return prevSession;
+        });
         
         // If we have a QR code and dialog is not open, open it
         if (data.data?.qrCode && !qrDialogOpen && data.data?.status === 'qr') {
@@ -198,7 +234,7 @@ export default function SettingsPage() {
     } catch (error) {
       // Error checking WhatsApp status
     }
-  };
+  }, [qrDialogOpen]); // Only depend on qrDialogOpen
 
   const initializeWhatsApp = async () => {
     setLoading(true);
@@ -425,7 +461,15 @@ export default function SettingsPage() {
                     fullWidth
                     label="Nome de Exibição"
                     value={profileData.displayName}
-                    onChange={(e) => setProfileData(prev => ({ ...prev, displayName: e.target.value }))}
+                    onChange={(e) => {
+                      const newValue = e.target.value;
+                      setProfileData(prev => {
+                        if (prev.displayName !== newValue) {
+                          return { ...prev, displayName: newValue };
+                        }
+                        return prev;
+                      });
+                    }}
                     disabled={!editingProfile || profileLoading}
                     InputProps={{
                       startAdornment: (
@@ -515,7 +559,15 @@ export default function SettingsPage() {
                       label="Senha Atual"
                       type={showCurrentPassword ? 'text' : 'password'}
                       value={passwordData.currentPassword}
-                      onChange={(e) => setPasswordData(prev => ({ ...prev, currentPassword: e.target.value }))}
+                      onChange={(e) => {
+                        const newValue = e.target.value;
+                        setPasswordData(prev => {
+                          if (prev.currentPassword !== newValue) {
+                            return { ...prev, currentPassword: newValue };
+                          }
+                          return prev;
+                        });
+                      }}
                       disabled={profileLoading}
                       InputProps={{
                         startAdornment: (
@@ -541,7 +593,15 @@ export default function SettingsPage() {
                       label="Nova Senha"
                       type={showNewPassword ? 'text' : 'password'}
                       value={passwordData.newPassword}
-                      onChange={(e) => setPasswordData(prev => ({ ...prev, newPassword: e.target.value }))}
+                      onChange={(e) => {
+                        const newValue = e.target.value;
+                        setPasswordData(prev => {
+                          if (prev.newPassword !== newValue) {
+                            return { ...prev, newPassword: newValue };
+                          }
+                          return prev;
+                        });
+                      }}
                       disabled={profileLoading}
                       InputProps={{
                         startAdornment: (
@@ -568,7 +628,15 @@ export default function SettingsPage() {
                       label="Confirmar Nova Senha"
                       type={showConfirmPassword ? 'text' : 'password'}
                       value={passwordData.confirmPassword}
-                      onChange={(e) => setPasswordData(prev => ({ ...prev, confirmPassword: e.target.value }))}
+                      onChange={(e) => {
+                        const newValue = e.target.value;
+                        setPasswordData(prev => {
+                          if (prev.confirmPassword !== newValue) {
+                            return { ...prev, confirmPassword: newValue };
+                          }
+                          return prev;
+                        });
+                      }}
                       disabled={profileLoading}
                       error={passwordData.confirmPassword !== '' && passwordData.newPassword !== passwordData.confirmPassword}
                       InputProps={{

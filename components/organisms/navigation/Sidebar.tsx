@@ -108,6 +108,12 @@ const menuItems = [
     badge: null,
   },
   {
+    text: 'Teste IA',
+    href: '/dashboard/teste',
+    icon: <Chat />,
+    badge: null,
+  },
+  {
     text: 'Financeiro',
     href: '/dashboard/financeiro',
     icon: <AccountBalance />,
@@ -142,12 +148,7 @@ const menuItems = [
     icon: <TrendingUp />,
     badge: null,
   },
-  {
-    text: 'Teste',
-    href: '/dashboard/teste',
-    icon: <BugReport />,
-    badge: 'DEV',
-  },
+  // Teste restaurado para desenvolvimento
 ];
 
 const secondaryItems = [

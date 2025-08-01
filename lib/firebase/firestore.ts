@@ -106,7 +106,10 @@ export class FirestoreService<T extends { id: string }> {
         // Calculate delay with exponential backoff and jitter
         const delay = baseDelay * Math.pow(2, attempt) + Math.random() * 1000;
         
-        console.warn(`🔄 Firebase operation failed (attempt ${attempt + 1}/${maxRetries + 1}), retrying in ${Math.round(delay)}ms:`, lastError.message);
+        // Only log warning for timeout/network errors - reduce console spam
+        if (lastError.message.includes('timeout') || lastError.message.includes('unavailable')) {
+          console.warn(`🔄 Firebase retry ${attempt + 1}/${maxRetries + 1} in ${Math.round(delay)}ms`);
+        }
         
         await new Promise(resolve => setTimeout(resolve, delay));
       }

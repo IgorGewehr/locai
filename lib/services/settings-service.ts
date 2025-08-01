@@ -41,8 +41,11 @@ export interface WhatsAppSettings {
   verifyToken: string;
   connected: boolean;
   businessName?: string;
+  webhookUrl?: string;
+  mode?: 'business_api' | 'web';
   lastSync?: Date;
   updatedAt?: Date;
+  updatedBy?: string;
 }
 
 export interface MiniSiteSettings {
@@ -296,6 +299,9 @@ class SettingsService {
         accessToken: '',
         verifyToken: '',
         connected: false,
+        businessName: '',
+        webhookUrl: '',
+        mode: 'business_api',
       },
       miniSite: {
         active: true, // Ativo por padrão para permitir configuração e uso inicial
