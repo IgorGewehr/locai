@@ -28,7 +28,7 @@ interface AIFunction {
 // 🎯 Sistema inteligente para resolver IDs baseados em identificadores naturais
 
 class SmartResolver {
-  // Resolver ID do cliente por telefone, email ou nome
+  // Resolver ID do cliente por telefone, email ou nome - VERSÃO APRIMORADA
   static async resolveClientId(args: any, tenantId: string): Promise<string | null> {
     try {
       // Se já é um ID válido, validar e retornar
@@ -40,26 +40,45 @@ class SmartResolver {
         }
       }
 
-      // Tentar resolver por telefone
+      // PRIORIDADE 1: Tentar resolver por telefone (mais confiável)
       const phone = args.clientPhone || args.phone || args.whatsapp;
       if (phone) {
         const normalizedPhone = phone.replace(/\D/g, '');
         const clients = await clientServiceWrapper.getAll();
         const client = clients.find(c => {
           const clientPhone = c.phone?.replace(/\D/g, '') || c.whatsappNumber?.replace(/\D/g, '');
-          return clientPhone === normalizedPhone || clientPhone?.includes(normalizedPhone);
+          return clientPhone === normalizedPhone || 
+                 clientPhone?.includes(normalizedPhone) ||
+                 normalizedPhone.includes(clientPhone || '');
         });
         
         if (client?.id) {
           logger.info('✅ [SmartResolver] Cliente encontrado por telefone', {
             phone: phone.substring(0, 6) + '***',
-            clientId: client.id
+            clientId: client.id,
+            clientName: client.name
           });
           return client.id;
         }
       }
 
-      // Tentar resolver por email
+      // PRIORIDADE 2: Buscar no contexto da conversa
+      if (phone) {
+        const context = await conversationContextService.getContext(phone, tenantId);
+        if (context?.lastClientId) {
+          // Verificar se o cliente ainda existe
+          const client = await clientServiceWrapper.getById(context.lastClientId);
+          if (client) {
+            logger.info('✅ [SmartResolver] Cliente encontrado no contexto', {
+              clientId: context.lastClientId,
+              clientName: client.name
+            });
+            return context.lastClientId;
+          }
+        }
+      }
+
+      // PRIORIDADE 3: Tentar resolver por email
       const email = args.clientEmail || args.email;
       if (email) {
         const clients = await clientServiceWrapper.getAll();
@@ -68,42 +87,47 @@ class SmartResolver {
         if (client?.id) {
           logger.info('✅ [SmartResolver] Cliente encontrado por email', {
             email: email.substring(0, 3) + '***',
-            clientId: client.id
+            clientId: client.id,
+            clientName: client.name
           });
           return client.id;
         }
       }
 
-      // Tentar resolver por nome
+      // PRIORIDADE 4: Tentar resolver por nome (menos confiável)
       const name = args.clientName || args.name;
-      if (name) {
+      if (name && name.trim().length > 2) {
         const clients = await clientServiceWrapper.getAll();
-        const client = clients.find(c => 
-          c.name?.toLowerCase() === name.toLowerCase() ||
-          c.name?.toLowerCase().includes(name.toLowerCase())
+        
+        // Busca exata primeiro
+        let client = clients.find(c => 
+          c.name?.toLowerCase().trim() === name.toLowerCase().trim()
         );
+        
+        // Se não encontrou, busca parcial
+        if (!client) {
+          client = clients.find(c => 
+            c.name?.toLowerCase().includes(name.toLowerCase()) ||
+            name.toLowerCase().includes(c.name?.toLowerCase() || '')
+          );
+        }
         
         if (client?.id) {
           logger.info('✅ [SmartResolver] Cliente encontrado por nome', {
-            name: name.substring(0, 3) + '***',
+            searchName: name.substring(0, 3) + '***',
+            foundName: client.name?.substring(0, 3) + '***',
             clientId: client.id
           });
           return client.id;
         }
       }
 
-      // Buscar no contexto da conversa
-      if (args.clientPhone) {
-        const context = await conversationContextService.getContext(args.clientPhone, tenantId);
-        if (context?.lastClientId) {
-          logger.info('✅ [SmartResolver] Cliente encontrado no contexto', {
-            clientId: context.lastClientId
-          });
-          return context.lastClientId;
-        }
-      }
-
-      logger.warn('⚠️ [SmartResolver] Cliente não encontrado', { args });
+      logger.warn('⚠️ [SmartResolver] Cliente não encontrado para resolução', { 
+        hasPhone: !!phone,
+        hasEmail: !!email,
+        hasName: !!name,
+        hasClientId: !!args.clientId
+      });
       return null;
     } catch (error) {
       logger.error('❌ [SmartResolver] Erro ao resolver clientId', { error });
@@ -111,7 +135,7 @@ class SmartResolver {
     }
   }
 
-  // Resolver ID da propriedade por nome, endereço ou posição
+  // Resolver ID da propriedade por nome, endereço ou posição - VERSÃO APRIMORADA
   static async resolvePropertyId(args: any, tenantId: string): Promise<string | null> {
     try {
       // Se já é um ID válido, validar e retornar
@@ -131,28 +155,70 @@ class SmartResolver {
         return null;
       }
 
-      // Resolver por nome/título
+      // PRIORIDADE 1: Resolver por índice explícito ("primeira opção", "segunda", etc)
+      if (args.propertyIndex !== undefined && args.propertyIndex !== null) {
+        const index = parseInt(args.propertyIndex.toString());
+        if (properties[index]?.id) {
+          logger.info('✅ [SmartResolver] Propriedade encontrada por índice explícito', {
+            index,
+            propertyId: properties[index].id,
+            propertyName: properties[index].title
+          });
+          return properties[index].id;
+        }
+      }
+
+      // PRIORIDADE 2: Resolver por nome/título
       const propertyName = args.propertyName || args.propertyTitle || args.name || args.title;
       if (propertyName) {
         const searchName = propertyName.toLowerCase();
-        const property = properties.find(p => 
-          p.title?.toLowerCase().includes(searchName) ||
-          p.name?.toLowerCase().includes(searchName) ||
-          (searchName.includes('moderno') && p.title?.toLowerCase().includes('moderno')) ||
-          (searchName.includes('chalé') && p.title?.toLowerCase().includes('chalé')) ||
-          (searchName.includes('praia') && p.title?.toLowerCase().includes('praia'))
+        
+        // Busca exata primeiro
+        let property = properties.find(p => 
+          p.title?.toLowerCase() === searchName ||
+          p.name?.toLowerCase() === searchName
         );
+        
+        // Se não encontrou, busca por termos
+        if (!property) {
+          property = properties.find(p => 
+            p.title?.toLowerCase().includes(searchName) ||
+            p.name?.toLowerCase().includes(searchName) ||
+            (searchName.includes('moderno') && p.title?.toLowerCase().includes('moderno')) ||
+            (searchName.includes('chalé') && p.title?.toLowerCase().includes('chalé')) ||
+            (searchName.includes('praia') && p.title?.toLowerCase().includes('praia')) ||
+            (searchName.includes('centro') && p.title?.toLowerCase().includes('centro')) ||
+            (searchName.includes('montanha') && p.title?.toLowerCase().includes('montanha'))
+          );
+        }
         
         if (property?.id) {
           logger.info('✅ [SmartResolver] Propriedade encontrada por nome', {
             name: propertyName,
-            propertyId: property.id
+            propertyId: property.id,
+            propertyTitle: property.title
           });
           return property.id;
         }
       }
 
-      // Resolver por endereço
+      // PRIORIDADE 3: Buscar no contexto por propriedade interessada
+      if (args.clientPhone) {
+        const context = await conversationContextService.getContext(args.clientPhone, tenantId);
+        if (context?.interestedPropertyId) {
+          // Verificar se ainda existe
+          const property = properties.find(p => p.id === context.interestedPropertyId);
+          if (property) {
+            logger.info('✅ [SmartResolver] Propriedade encontrada no contexto', {
+              propertyId: context.interestedPropertyId,
+              propertyTitle: property.title
+            });
+            return context.interestedPropertyId;
+          }
+        }
+      }
+
+      // PRIORIDADE 4: Resolver por endereço
       const address = args.propertyAddress || args.address;
       if (address) {
         const searchAddress = address.toLowerCase();
@@ -169,33 +235,9 @@ class SmartResolver {
         }
       }
 
-      // Resolver por posição (primeira, segunda, etc)
-      if (args.propertyIndex !== undefined || args.position !== undefined) {
-        const index = args.propertyIndex || args.position || 0;
-        if (properties[index]?.id) {
-          logger.info('✅ [SmartResolver] Propriedade encontrada por índice', {
-            index,
-            propertyId: properties[index].id,
-            propertyName: properties[index].title
-          });
-          return properties[index].id;
-        }
-      }
-
-      // Buscar no contexto por propriedade interessada
-      if (args.clientPhone) {
-        const context = await conversationContextService.getContext(args.clientPhone, tenantId);
-        if (context?.interestedPropertyId) {
-          logger.info('✅ [SmartResolver] Propriedade encontrada no contexto', {
-            propertyId: context.interestedPropertyId
-          });
-          return context.interestedPropertyId;
-        }
-      }
-
-      // Se mencionou "primeira" ou não especificou, usar a primeira disponível
-      if ((args.useFirst || !propertyName) && properties.length > 0) {
-        logger.info('✅ [SmartResolver] Usando primeira propriedade como fallback', {
+      // FALLBACK: Usar primeira propriedade se nenhuma especificação
+      if (properties.length > 0) {
+        logger.info('🔄 [SmartResolver] Usando primeira propriedade como fallback', {
           propertyId: properties[0].id,
           propertyName: properties[0].title
         });
@@ -297,34 +339,45 @@ export const AI_FUNCTIONS: AIFunction[] = [
   },
   {
     name: 'schedule_visit',
-    description: 'Agendar visita presencial à propriedade após verificar disponibilidade',
+    description: 'Agendar visita presencial. SEMPRE executar quando cliente solicita agendamento de visita.',
     parameters: {
       type: 'object',
       properties: {
-        clientId: { type: 'string', description: 'ID do cliente (obtido da função register_client)' },
-        propertyId: { type: 'string', description: 'ID REAL da propriedade (ID real do Firebase)' },
+        clientName: { type: 'string', description: 'Nome do cliente interessado' },
+        clientPhone: { type: 'string', description: 'Telefone do cliente' },
+        clientEmail: { type: 'string', description: 'Email do cliente (opcional)' },
+        propertyName: { type: 'string', description: 'Nome ou descrição da propriedade (ex: "apartamento moderno", "primeira opção")' },
+        propertyIndex: { type: 'number', description: 'Posição da propriedade na lista (0=primeira, 1=segunda, etc)' },
         visitDate: { type: 'string', description: 'Data para visita (YYYY-MM-DD)' },
         visitTime: { type: 'string', description: 'Horário (HH:MM)' },
-        notes: { type: 'string', description: 'Observações e comodidades que cliente quer ver (opcional)' }
+        notes: { type: 'string', description: 'Observações especiais (opcional)' },
+        clientId: { type: 'string', description: 'ID do cliente se conhecido (opcional)' },
+        propertyId: { type: 'string', description: 'ID da propriedade se conhecido (opcional)' }
       },
-      required: ['clientId', 'propertyId', 'visitDate', 'visitTime']
+      required: ['visitDate', 'visitTime']
     }
   },
   {
     name: 'create_reservation',
-    description: 'Criar nova reserva APÓS registrar o cliente',
+    description: 'Criar reserva final. SEMPRE executar quando cliente confirma reserva.',
     parameters: {
       type: 'object',
       properties: {
-        clientId: { type: 'string', description: 'ID do cliente (obtido da função register_client)' },
-        propertyId: { type: 'string', description: 'ID REAL da propriedade (ID real do Firebase)' },
+        clientName: { type: 'string', description: 'Nome do cliente' },
+        clientPhone: { type: 'string', description: 'Telefone do cliente' },
+        clientEmail: { type: 'string', description: 'Email do cliente (opcional)' },
+        clientDocument: { type: 'string', description: 'CPF do cliente (opcional)' },
+        propertyName: { type: 'string', description: 'Nome da propriedade (ex: "apartamento moderno", "primeira opção")' },
+        propertyIndex: { type: 'number', description: 'Posição da propriedade na lista (0=primeira, 1=segunda)' },
         checkIn: { type: 'string', description: 'Data de check-in (YYYY-MM-DD)' },
         checkOut: { type: 'string', description: 'Data de check-out (YYYY-MM-DD)' },
         guests: { type: 'number', description: 'Número de hóspedes' },
-        totalPrice: { type: 'number', description: 'Preço total (obtido de calculate_price)' },
-        notes: { type: 'string', description: 'Observações adicionais (opcional)' }
+        totalPrice: { type: 'number', description: 'Preço total se conhecido (opcional)' },
+        notes: { type: 'string', description: 'Observações especiais (opcional)' },
+        clientId: { type: 'string', description: 'ID do cliente se conhecido (opcional)' },
+        propertyId: { type: 'string', description: 'ID da propriedade se conhecido (opcional)' }
       },
-      required: ['clientId', 'propertyId', 'checkIn', 'checkOut', 'guests', 'totalPrice']
+      required: ['checkIn', 'checkOut']
     }
   },
   {
@@ -1607,49 +1660,47 @@ export class AgentFunctions {
         tenantId
       });
 
-      // 🎯 SMART RESOLUTION: Resolver IDs inteligentemente
-      let resolvedClientId = args.clientId;
-      let resolvedPropertyId = args.propertyId;
+      // 🎯 SMART RESOLUTION V2: Resolver IDs com novos parâmetros flexíveis
+      logger.info('🔍 [schedule_visit] Iniciando Smart Resolution V2', {
+        hasClientName: !!args.clientName,
+        hasClientPhone: !!args.clientPhone,
+        hasPropertyName: !!args.propertyName,
+        hasPropertyIndex: args.propertyIndex !== undefined,
+        visitDate: args.visitDate,
+        visitTime: args.visitTime
+      });
 
-      // Resolver client ID se não fornecido ou inválido
-      if (!resolvedClientId || typeof resolvedClientId !== 'string' || resolvedClientId.length < 10) {
-        logger.info('🔍 [schedule_visit] Tentando resolver clientId...');
-        resolvedClientId = await SmartResolver.resolveClientId(args, tenantId);
+      // 1. RESOLVER CLIENT ID
+      let resolvedClientId = await SmartResolver.resolveClientId(args, tenantId);
+      
+      // Se não encontrou, tentar auto-registrar com dados fornecidos
+      if (!resolvedClientId && args.clientName && args.clientPhone) {
+        logger.info('🔄 [schedule_visit] Auto-registrando cliente para visita...');
+        const registerResult = await this.registerClient({
+          name: args.clientName,
+          phone: args.clientPhone,
+          email: args.clientEmail
+        }, tenantId);
         
-        if (!resolvedClientId) {
-          // Se não encontrou cliente, tentar auto-registrar se tiver dados
-          if ((args.clientName || args.name) && (args.clientPhone || args.phone)) {
-            logger.info('🔄 [schedule_visit] Auto-registrando cliente...');
-            const registerResult = await this.registerClient({
-              name: args.clientName || args.name,
-              phone: args.clientPhone || args.phone,
-              email: args.clientEmail || args.email
-            }, tenantId);
-            
-            if (registerResult.success && registerResult.client?.id) {
-              resolvedClientId = registerResult.client.id;
-              logger.info('✅ [schedule_visit] Cliente auto-registrado', { clientId: resolvedClientId });
-            }
-          }
+        if (registerResult.success && registerResult.client) {
+          resolvedClientId = registerResult.client;
+          logger.info('✅ [schedule_visit] Cliente auto-registrado', { 
+            clientId: resolvedClientId,
+            clientName: args.clientName
+          });
         }
       }
 
-      // Resolver property ID se não fornecido ou inválido
-      if (!resolvedPropertyId || typeof resolvedPropertyId !== 'string' || resolvedPropertyId.length < 10) {
-        logger.info('🔍 [schedule_visit] Tentando resolver propertyId...');
-        resolvedPropertyId = await SmartResolver.resolvePropertyId(args, tenantId);
-      }
-
-      // Validar dados essenciais após resolução
-      if (!resolvedClientId || !resolvedPropertyId || !args.visitDate || !args.visitTime) {
+      // 2. RESOLVER PROPERTY ID
+      let resolvedPropertyId = await SmartResolver.resolvePropertyId(args, tenantId);
+      
+      // 3. VALIDAR DADOS ESSENCIAIS
+      if (!args.visitDate || !args.visitTime) {
         const missing = [];
-        if (!resolvedClientId) missing.push('dados do cliente (nome e telefone)');
-        if (!resolvedPropertyId) missing.push('qual propriedade deseja visitar');
         if (!args.visitDate) missing.push('data da visita');
         if (!args.visitTime) missing.push('horário da visita');
 
-        logger.warn('⚠️ [schedule_visit] Dados faltando após resolução', { missing });
-
+        logger.warn('⚠️ [schedule_visit] Dados essenciais faltando', { missing });
         return {
           success: false,
           message: `Para agendar a visita preciso: ${missing.join(', ')}. Pode me informar?`,
@@ -1657,8 +1708,29 @@ export class AgentFunctions {
           missingData: missing
         };
       }
+      
+      // 4. VALIDAR RESOLUÇÕES
+      if (!resolvedClientId) {
+        logger.warn('⚠️ [schedule_visit] Não foi possível identificar o cliente');
+        return {
+          success: false,
+          message: 'Preciso dos seus dados para agendar a visita. Pode me informar seu nome e telefone?',
+          visit: null,
+          suggestion: 'provide_client_info'
+        };
+      }
+      
+      if (!resolvedPropertyId) {
+        logger.warn('⚠️ [schedule_visit] Não foi possível identificar a propriedade');
+        return {
+          success: false,
+          message: 'Preciso saber qual propriedade você quer visitar. Pode especificar?',
+          visit: null,
+          suggestion: 'search_properties'
+        };
+      }
 
-      // Validar propriedade
+      // 6. VALIDAR PROPRIEDADE RESOLVIDA
       const propertyValidation = await this.validatePropertyId(resolvedPropertyId, tenantId);
       if (!propertyValidation.isValid) {
         logger.warn('🚨 [schedule_visit] Propriedade inválida após resolução', {
@@ -1671,26 +1743,27 @@ export class AgentFunctions {
           suggestion: 'search_properties'
         };
       }
-
       const property = propertyValidation.property;
 
-      // Validar cliente
+      // 7. VALIDAR CLIENTE RESOLVIDO
       const client = await clientServiceWrapper.getById(resolvedClientId);
       if (!client) {
-        logger.warn('🚨 [schedule_visit] Cliente não encontrado após resolução', { 
+        logger.warn('🚨 [schedule_visit] Cliente inválido após resolução', { 
           clientId: resolvedClientId 
         });
         return {
           success: false,
-          message: 'Preciso dos seus dados para agendar. Pode me informar seu nome e telefone?',
+          message: 'Erro interno com dados do cliente. Pode tentar novamente?',
           visit: null,
           suggestion: 'register_client'
         };
       }
 
-      // Atualizar args com IDs resolvidos para continuar o fluxo normal
-      args.clientId = resolvedClientId;
-      args.propertyId = resolvedPropertyId;
+      // 5. CONTINUAR COM IDs RESOLVIDOS
+      logger.info('✅ [schedule_visit] IDs resolvidos com sucesso', {
+        clientId: resolvedClientId,
+        propertyId: resolvedPropertyId?.substring(0, 10) + '...'
+      });
 
       // Validar data e hora
       const visitDateTime = new Date(args.visitDate + 'T' + args.visitTime + ':00');
@@ -1711,10 +1784,10 @@ export class AgentFunctions {
 
       const visitData = {
         tenantId,
-        clientId: args.clientId,
+        clientId: resolvedClientId,
         clientName: client.name,
         clientPhone: client.phone,
-        propertyId: args.propertyId,
+        propertyId: resolvedPropertyId,
         propertyName: property.title || 'Propriedade',
         propertyAddress: property.address || '',
         scheduledDate: new Date(args.visitDate),
@@ -1787,8 +1860,8 @@ export class AgentFunctions {
     } catch (error) {
       logger.error('❌ [schedule_visit] Erro ao agendar', {
         error: error instanceof Error ? error.message : 'Unknown error',
-        clientId: args.clientId,
-        propertyId: args.propertyId?.substring(0, 10) + '...',
+        clientId: resolvedClientId,
+        propertyId: resolvedPropertyId?.substring(0, 10) + '...',
         tenantId
       });
       return {
@@ -1807,77 +1880,100 @@ export class AgentFunctions {
         tenantId
       });
 
-      // 🎯 SMART RESOLUTION: Resolver IDs inteligentemente
-      let resolvedClientId = args.clientId;
-      let resolvedPropertyId = args.propertyId;
+      // 🎯 SMART RESOLUTION V2: Sistema inteligente para reservas
+      logger.info('🔍 [create_reservation] Iniciando Smart Resolution V2', {
+        hasClientName: !!args.clientName,
+        hasClientPhone: !!args.clientPhone,
+        hasPropertyName: !!args.propertyName,
+        hasPropertyIndex: args.propertyIndex !== undefined,
+        checkIn: args.checkIn,
+        checkOut: args.checkOut
+      });
 
-      // Resolver client ID se não fornecido ou inválido
-      if (!resolvedClientId || typeof resolvedClientId !== 'string' || resolvedClientId.length < 10) {
-        logger.info('🔍 [create_reservation] Tentando resolver clientId...');
-        resolvedClientId = await SmartResolver.resolveClientId(args, tenantId);
+      // 1. RESOLVER CLIENT ID
+      let resolvedClientId = await SmartResolver.resolveClientId(args, tenantId);
+      
+      // Se não encontrou, tentar auto-registrar com dados fornecidos
+      if (!resolvedClientId && args.clientName && args.clientPhone) {
+        logger.info('🔄 [create_reservation] Auto-registrando cliente para reserva...');
+        const registerResult = await this.registerClient({
+          name: args.clientName,
+          phone: args.clientPhone,
+          email: args.clientEmail,
+          document: args.clientDocument
+        }, tenantId);
         
-        if (!resolvedClientId) {
-          // Se não encontrou cliente, tentar auto-registrar se tiver dados
-          if ((args.clientName || args.name) && (args.clientPhone || args.phone)) {
-            logger.info('🔄 [create_reservation] Auto-registrando cliente...');
-            const registerResult = await this.registerClient({
-              name: args.clientName || args.name,
-              phone: args.clientPhone || args.phone,
-              email: args.clientEmail || args.email,
-              document: args.clientDocument || args.cpf
-            }, tenantId);
-            
-            if (registerResult.success && registerResult.client?.id) {
-              resolvedClientId = registerResult.client.id;
-              logger.info('✅ [create_reservation] Cliente auto-registrado', { 
-                clientId: resolvedClientId,
-                clientName: registerResult.client.name
-              });
-            }
-          }
+        if (registerResult.success && registerResult.client) {
+          resolvedClientId = registerResult.client;
+          logger.info('✅ [create_reservation] Cliente auto-registrado', { 
+            clientId: resolvedClientId,
+            clientName: args.clientName
+          });
         }
       }
 
-      // Resolver property ID se não fornecido ou inválido
-      if (!resolvedPropertyId || typeof resolvedPropertyId !== 'string' || resolvedPropertyId.length < 10) {
-        logger.info('🔍 [create_reservation] Tentando resolver propertyId...');
-        
-        // Tentar pegar do contexto ou da última busca
-        if (args.clientPhone) {
-          const context = await conversationContextService.getContext(args.clientPhone, tenantId);
-          if (context?.interestedPropertyId) {
-            resolvedPropertyId = context.interestedPropertyId;
-            logger.info('✅ [create_reservation] PropertyId encontrado no contexto', {
-              propertyId: resolvedPropertyId
-            });
-          }
-        }
-        
-        // Se ainda não tem, tentar resolver pelos args
-        if (!resolvedPropertyId) {
-          resolvedPropertyId = await SmartResolver.resolvePropertyId(args, tenantId);
+      // 2. RESOLVER PROPERTY ID (com contexto prioritário)
+      let resolvedPropertyId = null;
+      
+      // Primeiro, tentar pegar do contexto (propriedade interessada)
+      if (args.clientPhone) {
+        const context = await conversationContextService.getContext(args.clientPhone, tenantId);
+        if (context?.interestedPropertyId) {
+          resolvedPropertyId = context.interestedPropertyId;
+          logger.info('✅ [create_reservation] PropertyId encontrado no contexto', {
+            propertyId: resolvedPropertyId
+          });
         }
       }
+      
+      // Se não encontrou no contexto, usar SmartResolver
+      if (!resolvedPropertyId) {
+        resolvedPropertyId = await SmartResolver.resolvePropertyId(args, tenantId);
+      }
 
-      // Validar dados essenciais após resolução
-      if (!resolvedClientId || !resolvedPropertyId || !args.checkIn || !args.checkOut) {
+      // 3. VALIDAR DADOS ESSENCIAIS
+      if (!args.checkIn || !args.checkOut) {
         const missing = [];
-        if (!resolvedClientId) missing.push('seus dados (nome, telefone e CPF)');
-        if (!resolvedPropertyId) missing.push('qual propriedade deseja reservar');
         if (!args.checkIn) missing.push('data de entrada');
         if (!args.checkOut) missing.push('data de saída');
 
-        logger.warn('⚠️ [create_reservation] Dados faltando após resolução', { missing });
-
+        logger.warn('⚠️ [create_reservation] Dados essenciais faltando', { missing });
         return {
           success: false,
-          message: `Para finalizar a reserva preciso: ${missing.join(', ')}. Pode me informar?`,
+          message: `Para criar a reserva preciso: ${missing.join(', ')}. Pode me informar?`,
           reservation: null,
           missingData: missing
         };
       }
+      
+      // 4. VALIDAR RESOLUÇÕES
+      if (!resolvedClientId) {
+        logger.warn('⚠️ [create_reservation] Não foi possível identificar o cliente');
+        return {
+          success: false,
+          message: 'Preciso dos seus dados completos para finalizar a reserva. Nome, telefone e CPF.',
+          reservation: null,
+          suggestion: 'register_client'
+        };
+      }
+      
+      if (!resolvedPropertyId) {
+        logger.warn('⚠️ [create_reservation] Não foi possível identificar a propriedade');
+        return {
+          success: false,
+          message: 'Preciso saber qual propriedade você quer reservar. Pode especificar?',
+          reservation: null,
+          suggestion: 'search_properties'
+        };
+      }
 
-      // Validar propriedade
+      // 5. CONTINUAR COM IDs RESOLVIDOS
+      logger.info('✅ [create_reservation] IDs resolvidos com sucesso', {
+        clientId: resolvedClientId,
+        propertyId: resolvedPropertyId?.substring(0, 10) + '...'
+      });
+
+      // 6. VALIDAR PROPRIEDADE RESOLVIDA
       const propertyValidation = await this.validatePropertyId(resolvedPropertyId, tenantId);
       if (!propertyValidation.isValid) {
         logger.warn('🚨 [create_reservation] Propriedade inválida após resolução', {
@@ -1890,13 +1986,12 @@ export class AgentFunctions {
           suggestion: 'search_properties'
         };
       }
-
       const property = propertyValidation.property;
 
-      // Validar cliente
+      // 7. VALIDAR CLIENTE RESOLVIDO
       const client = await clientServiceWrapper.getById(resolvedClientId);
       if (!client) {
-        logger.warn('🚨 [create_reservation] Cliente não encontrado após resolução', { 
+        logger.warn('🚨 [create_reservation] Cliente inválido após resolução', { 
           clientId: resolvedClientId 
         });
         return {
@@ -1983,8 +2078,8 @@ export class AgentFunctions {
 
       const reservationData = {
         tenantId,
-        propertyId: args.propertyId,
-        clientId: args.clientId,
+        propertyId: resolvedPropertyId,
+        clientId: resolvedClientId,
         checkIn,
         checkOut,
         guests: args.guests || 2,
@@ -2070,9 +2165,9 @@ export class AgentFunctions {
         reservation: {
           id: reservation.id,
           code: reservationData.reservationCode,
-          propertyId: args.propertyId,
+          propertyId: resolvedPropertyId,
           propertyName: property.title || 'Propriedade',
-          clientId: args.clientId,
+          clientId: resolvedClientId,
           clientName: client.name,
           checkIn: args.checkIn,
           checkOut: args.checkOut,
@@ -2095,8 +2190,8 @@ export class AgentFunctions {
     } catch (error) {
       logger.error('❌ [create_reservation] Erro ao criar reserva', {
         error: error instanceof Error ? error.message : 'Unknown error',
-        clientId: args.clientId,
-        propertyId: args.propertyId?.substring(0, 10) + '...',
+        clientId: resolvedClientId,
+        propertyId: resolvedPropertyId?.substring(0, 10) + '...',
         tenantId
       });
       return {
