@@ -1,0 +1,6 @@
+{
+  "message": "João Silva, 11987654321, 12345678901, joao@email.com",
+  "clientPhone": "5511888888888", 
+  "tenantId": "default-tenant",
+  "isTest": true
+}

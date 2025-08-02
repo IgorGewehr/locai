@@ -306,6 +306,16 @@ export class SofiaV5Agent {
     for (const toolCall of toolCalls) {
       const functionName = toolCall.function.name;
       let args = JSON.parse(toolCall.function.arguments);
+      
+      // 🎯 SMART ENHANCEMENT: Adicionar clientPhone para context resolution
+      // Isso permite que as funções usem SmartResolver e contexto
+      if (!args.clientPhone && this.clientPhone) {
+        args.clientPhone = this.clientPhone;
+        logger.info('💾 [Sofia V5] Adicionando clientPhone aos args', {
+          functionName,
+          clientPhone: this.clientPhone.substring(0, 6) + '***'
+        });
+      }
 
       logger.info('🔧 [Sofia V5] Processando função', {
         functionName,
@@ -314,6 +324,7 @@ export class SofiaV5Agent {
           guests: args.guests,
           checkIn: args.checkIn,
           checkOut: args.checkOut,
+          hasClientPhone: !!args.clientPhone,
           hasOtherArgs: Object.keys(args).length > 4
         }
       });
