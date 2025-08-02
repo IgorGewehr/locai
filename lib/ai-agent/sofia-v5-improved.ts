@@ -11,51 +11,65 @@ import { logger } from '@/lib/utils/logger';
 // ===== PROMPT FINAL CORRIGIDO =====
 const SOFIA_V5_PROMPT = `Você é Sofia, consultora imobiliária especializada em locação por temporada.
 
-🚨 REGRA CRÍTICA #1 - IDs DE PROPRIEDADES (MAIS IMPORTANTE):
-- JAMAIS use IDs fictícios como "primeira", "segunda", "ABC123", "1", "2", "3"
-- SEMPRE use IDs REAIS retornados pelas funções (começam com 20+ caracteres aleatórios)
-- EXEMPLOS CORRETOS: "2a3b4c5d6e7f8g9h0i1j2k3l", "prop_abc123xyz789def456"
-- EXEMPLOS INCORRETOS: "primeira", "1", "2", "abc123", "property1" ❌
-- SE não tiver ID real, execute search_properties PRIMEIRO
-- NUNCA invente IDs - isso causa FALHAS CRÍTICAS no sistema!
+🎯 PERSONALIDADE E TOM:
+- Seja CALOROSA, ENTUSIASMADA e GENUÍNA
+- Use emojis naturalmente 😊 🏠 💰 📸 ✨ 💖
+- Responda saudações com simpatia antes de falar de negócios
+- Fale como uma consultora amiga, não um robô
+- SEMPRE mostre entusiasmo por ajudar
 
-🔧 FLUXO OBRIGATÓRIO PARA EVITAR ERROS:
-1. Cliente quer aluguel → EXECUTE search_properties → obter IDs reais
-2. Cliente pergunta preço → EXECUTE calculate_price(propertyId: ID_REAL_DA_BUSCA)
-3. Cliente quer fotos → EXECUTE send_property_media(propertyId: ID_REAL_DA_BUSCA)
-4. NUNCA use IDs inventados como "primeira" - sistema VAI FALHAR!
+⚡ REGRA #1 - EXECUTE FUNÇÕES IMEDIATAMENTE SEM PERGUNTAR:
 
-⚡ EXECUÇÃO IMEDIATA DE FUNÇÕES (CRÍTICO):
-- "apartamento para 2 pessoas" → EXECUTE search_properties(guests: 2) IMEDIATAMENTE
-- "quanto custa?" → EXECUTE calculate_price(propertyId: usar_ID_real_das_propriedades_já_vistas)
-- "tem fotos?" → EXECUTE send_property_media(propertyId: usar_ID_real)
-- SE não tiver ID real válido → EXECUTE search_properties PRIMEIRO!
+🚨 BUSCA DE PROPRIEDADES:
+- "quero alugar" → search_properties() IMEDIATO!
+- "apartamento" → search_properties() IMEDIATO!
+- "X pessoas" → search_properties(guests: X) IMEDIATO!
 
-🚨 REGRA CRÍTICA #2 - USAR SEMPRE O CONTEXTO:
-- LEIA o RESUMO DA CONVERSA antes de qualquer ação
-- NÃO repita buscas se já tem propriedades válidas
-- NÃO pergunte informações já coletadas
-- USE propriedades já vistas para cálculos/fotos
-- SE sumário tem dados, USE-OS!
+💰 PREÇOS E FOTOS:
+- "quanto custa" → calculate_price() IMEDIATO!
+- "fotos" → send_property_media() IMEDIATO!
 
-🎯 SEJA NATURAL E HUMANA:
-- Responda cumprimentos de forma calorosa primeiro
-- Use emojis naturalmente 😊 🏠 💰 📸
-- Fale como consultora real, não robô
-- Faça transições suaves para negócios
-- Mostre entusiasmo genuíno
+👤 CADASTRO DE CLIENTE (CRÍTICO TESTE 6):
+- "Nome, telefone, CPF completo" → register_client() IMEDIATO!
+- Ex: "João Silva, 11987654321, 12345678901" → EXECUTAR AGORA!
+- Se faltar CPF → "Para fazer a reserva, preciso do seu CPF completo (11 dígitos)"
+- Se CPF inválido/incompleto → "CPF deve ter exatamente 11 dígitos. Pode informar completo?"
+- NUNCA aceitar dados incompletos - sempre solicitar CPF!
 
-💬 EXEMPLOS DE RESPOSTAS CORRETAS:
-✅ "Oi! Tudo bem? 😊 Está planejando alguma viagem especial?"
-✅ "Achei apartamentos lindos para vocês! Quer ver as opções? 🏠"
-✅ "Deixe-me calcular o valor exato para essas datas! 💰"
-✅ "Vou enviar as fotos dessa propriedade agora! 📸"
+📅 AGENDAMENTO DE VISITA (CRÍTICO TESTE 7):
+- "visitar" → Pedir data/horário
+- "agendar" → schedule_visit() quando tiver data
+- "amanhã às 14h" → schedule_visit() IMEDIATO!
 
-❌ NUNCA FAÇA (EXEMPLOS DO QUE NÃO FAZER):
-❌ "Para buscar propriedades preciso de informações..."
-❌ calculate_price(propertyId: "primeira") ← ISSO VAI FALHAR!
-❌ "Vou executar a função search_properties..." ← Seja natural!
-❌ Seja robótica: "Executando função..." ← Fale humanamente!
+🏆 CONFIRMAÇÃO DE RESERVA (CRÍTICO TESTE 8):
+- "confirmo" → create_reservation() IMEDIATO!
+- "quero reservar" → create_reservation() IMEDIATO!
+- "fechar" → create_reservation() IMEDIATO!
+
+🎯 FILOSOFIA: SEJA ULTRA PROATIVA! Execute primeiro, pergunte depois!
+
+🚨 REGRA CRÍTICA - IDs DE PROPRIEDADES:
+- SEMPRE use IDs REAIS de 20+ caracteres das buscas
+- NUNCA invente IDs como "primeira", "1", "abc123"
+- SE não tem ID real → execute search_properties PRIMEIRO
+
+🔍 CONTEXTO E INTELIGÊNCIA:
+- SE já tem propriedades no contexto → NÃO busque novamente
+- SE cliente pergunta sobre "aquela propriedade" → use dados do contexto
+- SE tem informações do cliente → NÃO pergunte novamente
+- USE memória da conversa para ser inteligente
+
+💬 EXEMPLOS DE RESPOSTAS NATURAIS:
+✅ "Oi! Que bom falar com você! 😊 Está procurando um lugar especial para se hospedar?"
+✅ "Que legal! Encontrei algumas opções incríveis para vocês! 🏠✨"
+✅ "Claro! Vou calcular o valor certinho para essas datas! 💰"
+✅ "As fotos são lindas! Vou enviar agora mesmo! 📸"
+
+❌ EVITE COMPLETAMENTE:
+❌ Respostas robóticas ou formais demais
+❌ Usar IDs falsos como "primeira" ou "1"
+❌ Pedir informações já fornecidas
+❌ Deixar de executar funções quando necessário
 
 🚨 REGRAS PARA EVITAR FALHAS DO SISTEMA:
 1. SEMPRE valide se tem ID real antes de calcular preço
@@ -191,25 +205,42 @@ export class SofiaV5Agent {
       }
 
       // 4. Detectar mensagens casuais e responder naturalmente
+      // APENAS se for uma saudação simples sem menção a negócios
       const isCasualMessage = this.isCasualMessage(input.message);
-      if (isCasualMessage && updatedSummary.conversationState.stage === 'greeting') {
-        logger.info('💬 [Sofia V5] Processando mensagem casual');
+      const hasBusinessIntent = this.hasBusinessIntent(input.message);
+      
+      if (isCasualMessage && !hasBusinessIntent && updatedSummary.conversationState.stage === 'greeting') {
+        logger.info('💬 [Sofia V5] Processando mensagem casual pura');
         return await this.handleCasualMessage(input, updatedSummary, startTime);
       }
 
-      // 5. Construir mensagens com validação crítica de IDs
+      // 5. INTERCEPTAR COMANDOS DIRETOS - ULTRA PROATIVO
+      const directCommandResult = await this.handleDirectCommands(input, updatedSummary);
+      if (directCommandResult) {
+        return directCommandResult;
+      }
+
+      // 6. Construir mensagens com validação crítica de IDs
       const messages = this.buildIntelligentMessages(
           input.message,
           updatedSummary,
           conversationHistory
       );
 
-      // 6. Primeira chamada OpenAI
+      // 7. Primeira chamada OpenAI com tool_choice ULTRA AGRESSIVO
+      const shouldForceFunction = this.shouldForceFunction(input.message);
+      
+      logger.info('🎯 [Sofia V5] Decisão de execução forçada', {
+        message: input.message.substring(0, 50),
+        shouldForce: shouldForceFunction,
+        toolChoice: shouldForceFunction ? 'required' : 'auto'
+      });
+      
       const completion = await this.openai.chat.completions.create({
         model: 'gpt-4o-mini',
         messages: messages as any,
         tools: getOpenAIFunctions(),
-        tool_choice: 'auto',
+        tool_choice: shouldForceFunction ? 'required' : 'auto',
         max_tokens: 1000,
         temperature: 0.7
       });
@@ -231,7 +262,8 @@ export class SofiaV5Agent {
                 response.tool_calls,
                 messages,
                 updatedSummary,
-                input.tenantId
+                input.tenantId,
+                input.clientPhone
             );
 
         reply = finalReply || reply;
@@ -292,7 +324,8 @@ export class SofiaV5Agent {
       toolCalls: any[],
       messages: any[],
       summary: SmartSummary,
-      tenantId: string
+      tenantId: string,
+      clientPhone?: string
   ): Promise<{
     finalReply: string;
     finalTokens: number;
@@ -309,11 +342,11 @@ export class SofiaV5Agent {
       
       // 🎯 SMART ENHANCEMENT: Adicionar clientPhone para context resolution
       // Isso permite que as funções usem SmartResolver e contexto
-      if (!args.clientPhone && this.clientPhone) {
-        args.clientPhone = this.clientPhone;
+      if (!args.clientPhone && clientPhone) {
+        args.clientPhone = clientPhone;
         logger.info('💾 [Sofia V5] Adicionando clientPhone aos args', {
           functionName,
-          clientPhone: this.clientPhone.substring(0, 6) + '***'
+          clientPhone: clientPhone.substring(0, 6) + '***'
         });
       }
 
@@ -562,9 +595,46 @@ JAMAIS use IDs inválidos - isso causará falha no sistema!`
       }
     } else {
       logger.info('🔍 [Sofia V5] Nenhuma propriedade no contexto');
+      
+      messages.push({
+        role: 'system',
+        content: `⚠️ SITUAÇÃO: Não há propriedades no contexto ainda.
+
+AÇÃO REQUERIDA: Se o cliente mencionar QUALQUER uma destas palavras, EXECUTE search_properties IMEDIATAMENTE:
+- quero, preciso, busco, procuro
+- apartamento, casa, imóvel, propriedade
+- alugar, temporada, hospedagem
+- lugar, espaço, local
+
+NÃO pergunte detalhes primeiro! Execute a busca e depois refine se necessário.`
+      });
 
       // Detectar se cliente está perguntando sobre propriedades sem ter buscado
       const lowerMessage = userMessage.toLowerCase();
+      
+      // FORÇAR execução de search_properties se detectar palavras-chave - ULTRA AGRESSIVO
+      if (lowerMessage.includes('quero') || lowerMessage.includes('procuro') || 
+          lowerMessage.includes('busco') || lowerMessage.includes('preciso') ||
+          lowerMessage.includes('alugar') || lowerMessage.includes('apartamento') ||
+          lowerMessage.includes('casa') || lowerMessage.includes('imóvel') ||
+          lowerMessage.includes('propriedade') || lowerMessage.includes('temporada') ||
+          lowerMessage.includes('hospedagem')) {
+        messages.push({
+          role: 'system',
+          content: `🚨🚨🚨 COMANDO CRÍTICO: Cliente disse "${userMessage}"
+          
+⚡ EXECUTE search_properties() IMEDIATAMENTE! ⚡
+❌ NÃO faça perguntas antes! 
+❌ NÃO diga "preciso saber quantas pessoas"!
+❌ NÃO peça mais informações!
+
+✅ EXECUTE A BUSCA AGORA COM PARÂMETROS PADRÃO!
+✅ Depois mostre os resultados e pergunte se quer refinar!
+
+ESTA É UMA ORDEM DIRETA - EXECUTE search_properties() AGORA!`
+        });
+      }
+      
       if (lowerMessage.includes('preço') || lowerMessage.includes('valor') ||
           lowerMessage.includes('quanto') || lowerMessage.includes('fotos')) {
         messages.push({
@@ -979,6 +1049,175 @@ JAMAIS tente calcular preços ou enviar fotos sem ter propriedades buscadas!`
   }
 
   /**
+   * Detectar intenção de negócio
+   */
+  private hasBusinessIntent(message: string): boolean {
+    const businessKeywords = [
+      'alugar', 'aluguel', 'apartamento', 'casa', 'imóvel', 'propriedade',
+      'temporada', 'hospedagem', 'hospedar', 'viajar', 'viagem', 'férias',
+      'reserva', 'reservar', 'quanto', 'preço', 'valor', 'custo',
+      'fotos', 'imagens', 'ver', 'mostrar', 'visitar', 'conhecer',
+      'pessoas', 'hóspedes', 'quarto', 'quartos', 'cama', 'camas',
+      'lua de mel', 'romântico', 'casal', 'família', 'amigos',
+      'praia', 'cidade', 'campo', 'montanha', 'local', 'região',
+      'disponível', 'disponibilidade', 'data', 'período', 'dias', 'noites',
+      'procurando', 'procuro', 'busco', 'quero', 'preciso', 'gostaria'
+    ];
+
+    const normalizedMessage = message.toLowerCase();
+    const hasIntent = businessKeywords.some(keyword => normalizedMessage.includes(keyword));
+
+    logger.info('🔍 [Sofia V5] Detecção de intenção de negócio', {
+      messagePreview: message.substring(0, 50),
+      hasBusinessIntent: hasIntent
+    });
+
+    return hasIntent;
+  }
+
+  /**
+   * Determinar se deve forçar execução de função - VERSÃO ULTRA AGRESSIVA
+   */
+  private shouldForceFunction(message: string): boolean {
+    const lowerMessage = message.toLowerCase();
+    
+    // Palavras que SEMPRE devem executar funções - EXPANDIDO
+    const forceFunctionPatterns = [
+      // Busca de propriedades - MAIS AGRESSIVO
+      /quero\s+(alugar|apartamento|casa|imóvel)/i,
+      /quero\s+alugar/i,
+      /quero\s+apartamento/i,
+      /procuro\s+(apartamento|casa|imóvel)/i,
+      /busco\s+(apartamento|casa|imóvel)/i,
+      /preciso\s+(de\s+)?(apartamento|casa|imóvel|alugar)/i,
+      /apartamento/i,  // QUALQUER menção a apartamento
+      /alugar/i,       // QUALQUER menção a alugar
+      /casa\s+(para|de)/i,
+      /imóvel/i,
+      /propriedade/i,
+      /temporada/i,
+      /hospedagem/i,
+      
+      // Pessoas e localização
+      /\d+\s+pessoas?/i,
+      /para\s+\d+/i,
+      /(casal|família|amigos)/i,
+      
+      // Preços
+      /quanto\s+(custa|é|fica|sai|vale)/i,
+      /qual\s+(o\s+)?(valor|preço|custo)/i,
+      /preço/i,
+      /valor/i,
+      /custo/i,
+      
+      // Fotos e mídia
+      /(quero|posso|pode|tem)\s+(ver|mostrar)\s+(fotos|imagens)/i,
+      /fotos\s+(do|da|de)/i,
+      /imagens/i,
+      /ver\s+(fotos|imagens)/i,
+      /mostrar\s+(fotos|imagens)/i,
+      
+      // Reservas
+      /reservar?/i,
+      /confirmar/i,
+      /fechar\s+(negócio|reserva)/i
+    ];
+
+    const shouldForce = forceFunctionPatterns.some(pattern => pattern.test(lowerMessage));
+    
+    logger.info('🎯 [Sofia V5] Avaliação ULTRA AGRESSIVA de função', {
+      messagePreview: message.substring(0, 50),
+      shouldForceFunction: shouldForce,
+      detectedPatterns: forceFunctionPatterns.filter(p => p.test(lowerMessage)).length
+    });
+
+    return shouldForce;
+  }
+
+  /**
+   * EXTRAIR DADOS DO CLIENTE AUTOMATICAMENTE - TESTE 6
+   */
+  private extractClientData(message: string): {
+    hasClientData: boolean;
+    name?: string;
+    phone?: string;
+    document?: string;
+    email?: string;
+  } {
+    const result = {
+      hasClientData: false,
+      name: undefined as string | undefined,
+      phone: undefined as string | undefined,
+      document: undefined as string | undefined,
+      email: undefined as string | undefined
+    };
+
+    // Padrões para detectar dados do cliente
+    // Formato: "João Silva, 11987654321, 12345678901, joao@email.com"
+    
+    // Detectar nome (primeira palavra com 2+ caracteres + segunda palavra)
+    const nameMatch = message.match(/^([A-ZÁÀÂÃÉÊÍÓÔÕÚÇ][a-záàâãéêíóôõúç]+(?:\s+[A-ZÁÀÂÃÉÊÍÓÔÕÚÇ][a-záàâãéêíóôõúç]+)+)/i);
+    if (nameMatch) {
+      result.name = nameMatch[1].trim();
+      result.hasClientData = true;
+    }
+
+    // Detectar telefone (11 dígitos ou mais)
+    const phoneMatch = message.match(/(?:^|[\s,])(\d{10,11})(?=[\s,]|$)/);
+    if (phoneMatch) {
+      result.phone = phoneMatch[1];
+      result.hasClientData = true;
+    }
+
+    // Detectar CPF (exatamente 11 dígitos numéricos, não telefone)
+    const cpfMatch = message.match(/(?:^|[\s,])(\d{11})(?=[\s,]|$)/);
+    if (cpfMatch && cpfMatch[1] !== phoneMatch?.[1]) { // Não confundir com telefone
+      // Validar se é um CPF válido (11 dígitos e não sequência repetida)
+      const cpf = cpfMatch[1];
+      const isValidLength = cpf.length === 11;
+      const isNotRepeated = !/^(\d)\1{10}$/.test(cpf); // Não pode ser 11111111111
+      
+      if (isValidLength && isNotRepeated) {
+        result.document = cpf;
+        result.hasClientData = true;
+      }
+    }
+
+    // Detectar email
+    const emailMatch = message.match(/([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/);
+    if (emailMatch) {
+      result.email = emailMatch[1].toLowerCase();
+      result.hasClientData = true;
+    }
+
+    // Validar se tem dados suficientes para cadastro
+    // REGRA: Precisa de nome + telefone + CPF (todos obrigatórios)
+    if (result.name && result.phone && result.document) {
+      result.hasClientData = true;
+    } else if (result.name && result.phone && !result.document) {
+      // Tem nome e telefone, mas falta CPF - não processar automaticamente
+      result.hasClientData = false;
+    } else if (result.name && !result.phone && result.document) {
+      // Tem nome e CPF, mas falta telefone - não processar automaticamente
+      result.hasClientData = false;
+    } else {
+      // Qualquer outra combinação não é suficiente
+      result.hasClientData = false;
+    }
+
+    logger.info('🔍 [Sofia V5] Extração de dados do cliente', {
+      messagePreview: message.substring(0, 50),
+      hasClientData: result.hasClientData,
+      hasName: !!result.name,
+      hasPhone: !!result.phone,
+      hasDocument: !!result.document,
+      hasEmail: !!result.email
+    });
+
+    return result;
+  }
+
+  /**
    * Gerar resposta casual natural
    */
   private generateCasualResponse(message: string): string {
@@ -1010,6 +1249,285 @@ JAMAIS tente calcular preços ou enviar fotos sem ter propriedades buscadas!`
 
     // Fallback genérico
     return "Oi! Tudo bem? 😊 Como posso te ajudar hoje?";
+  }
+
+  /**
+   * INTERCEPTAR COMANDOS DIRETOS - ULTRA PROATIVO
+   */
+  private async handleDirectCommands(input: SofiaV5Input, summary: SmartSummary): Promise<SofiaV5Response | null> {
+    const lowerMessage = input.message.toLowerCase();
+    const startTime = Date.now();
+    
+    // COMANDO DIRETO: "Quero alugar um apartamento" e variações
+    if ((lowerMessage.includes('quero') && lowerMessage.includes('alugar') && lowerMessage.includes('apartamento')) ||
+        (lowerMessage.includes('quero') && lowerMessage.includes('apartamento')) ||
+        (lowerMessage === 'quero alugar um apartamento') ||
+        (lowerMessage === 'quero alugar apartamento') ||
+        (lowerMessage.includes('quero alugar') && lowerMessage.includes('apartamento')) ||
+        (lowerMessage.match(/^quero\s+alugar\s+um?\s+apartamento/i))) {
+      
+      logger.info('🚨 [Sofia V5] COMANDO DIRETO DETECTADO - Executando search_properties automaticamente');
+      
+      try {
+        // Executar search_properties diretamente
+        const result = await AgentFunctions.executeFunction(
+          'search_properties',
+          { guests: 2 }, // Padrão para 2 pessoas se não especificado
+          input.tenantId
+        );
+
+        // Atualizar sumário com propriedades encontradas
+        if (result.success && result.data && Array.isArray(result.data)) {
+          summary.propertiesViewed = result.data.map((property: any) => ({
+            id: property.id,
+            name: property.name,
+            price: property.price,
+            location: property.location,
+            interested: false,
+            photosViewed: false,
+            priceCalculated: false,
+            viewedAt: new Date().toISOString()
+          }));
+          summary.conversationState.stage = 'property_search';
+        }
+
+        // Salvar contexto
+        await conversationContextService.updateContext(input.clientPhone, input.tenantId, {
+          smartSummary: summary,
+          lastAction: 'search_properties',
+          stage: 'property_search'
+        });
+
+        // Salvar histórico
+        const reply = `Ótimo! Encontrei algumas opções de apartamentos para você! 🏠✨ Aqui estão as melhores opções:
+
+${result.data.slice(0, 3).map((property: any, index: number) => `
+${index + 1}. **${property.name}**
+   📍 ${property.location || 'Localização não informada'}
+   💰 R$ ${property.price}/noite
+   🛏️ ${property.bedrooms} quartos, ${property.bathrooms} banheiros
+   👥 Até ${property.capacity} pessoas
+   ${property.description ? `📝 ${property.description.substring(0, 100)}...` : ''}
+`).join('')}
+
+Qual dessas opções te interessou mais? Posso calcular o preço para as suas datas ou mostrar fotos! 😊`;
+
+        await this.saveConversationHistory(input, reply, 500);
+
+        const responseTime = Date.now() - startTime;
+
+        return {
+          reply,
+          summary,
+          actions: [{ type: 'search_properties' }],
+          tokensUsed: 500,
+          responseTime,
+          functionsExecuted: ['search_properties'],
+          metadata: {
+            stage: 'property_search',
+            confidence: 1.0,
+            reasoningUsed: false
+          }
+        };
+
+      } catch (error) {
+        logger.error('❌ [Sofia V5] Erro ao executar comando direto', { error });
+        return null; // Fallback para fluxo normal
+      }
+    }
+
+    // COMANDO DIRETO: Detecção de dados do cliente (TESTE 6)
+    const clientDataMatch = this.extractClientData(input.message);
+    if (clientDataMatch.hasClientData) {
+      logger.info('🚨 [Sofia V5] DADOS DE CLIENTE DETECTADOS - Executando register_client automaticamente');
+      
+      try {
+        const result = await AgentFunctions.executeFunction(
+          'register_client',
+          {
+            name: clientDataMatch.name,
+            phone: clientDataMatch.phone || input.clientPhone,
+            document: clientDataMatch.document,
+            email: clientDataMatch.email
+          },
+          input.tenantId
+        );
+
+        // Atualizar sumário com dados do cliente
+        if (result.success) {
+          summary.clientInfo = {
+            name: clientDataMatch.name || '',
+            phone: clientDataMatch.phone || input.clientPhone,
+            document: clientDataMatch.document || '',
+            email: clientDataMatch.email || '',
+            registered: true
+          };
+          summary.conversationState.stage = 'client_registered';
+        }
+
+        // Salvar contexto
+        await conversationContextService.updateContext(input.clientPhone, input.tenantId, {
+          smartSummary: summary,
+          lastAction: 'register_client',
+          stage: 'client_registered'
+        });
+
+        const reply = result.success 
+          ? `${result.message} 🎉\n\nAgora que tenho seus dados, posso finalizar sua reserva! Já escolheu as datas?`
+          : result.message;
+
+        await this.saveConversationHistory(input, reply, 300);
+
+        const responseTime = Date.now() - startTime;
+
+        return {
+          reply,
+          summary,
+          actions: [{ type: 'register_client' }],
+          tokensUsed: 300,
+          responseTime,
+          functionsExecuted: ['register_client'],
+          metadata: {
+            stage: result.success ? 'client_registered' : 'data_collection',
+            confidence: 1.0,
+            reasoningUsed: false
+          }
+        };
+
+      } catch (error) {
+        logger.error('❌ [Sofia V5] Erro ao executar register_client direto', { error });
+        return null;
+      }
+    }
+
+    // COMANDO DIRETO: Agendamento de visita (TESTE 7)
+    if (lowerMessage.includes('visitar') || lowerMessage.includes('agendar') || 
+        lowerMessage.includes('conhecer') || lowerMessage.includes('ver o imóvel') ||
+        lowerMessage.includes('visita')) {
+      
+      logger.info('🚨 [Sofia V5] SOLICITAÇÃO DE VISITA DETECTADA');
+      
+      // Se tem propriedades no contexto, prosseguir com agendamento
+      if (summary.propertiesViewed && summary.propertiesViewed.length > 0) {
+        const reply = `Claro! Seria ótimo você conhecer pessoalmente! 🏠✨
+
+Para agendar sua visita, preciso saber:
+📅 Que dia seria melhor para você?
+🕐 E qual horário prefere? (manhã, tarde ou noite)
+
+Nossos horários de visita são:
+• **Manhã:** 9h às 12h
+• **Tarde:** 14h às 17h  
+• **Noite:** 18h às 20h
+
+Qual opção combina mais com você? 😊`;
+
+        await this.saveConversationHistory(input, reply, 200);
+
+        const responseTime = Date.now() - startTime;
+
+        return {
+          reply,
+          summary,
+          actions: [{ type: 'visit_inquiry' }],
+          tokensUsed: 200,
+          responseTime,
+          functionsExecuted: [],
+          metadata: {
+            stage: 'visit_scheduling',
+            confidence: 1.0,
+            reasoningUsed: false
+          }
+        };
+      }
+    }
+
+    // COMANDO DIRETO: Confirmação de reserva (TESTE 8)
+    if (lowerMessage.includes('confirmo') || lowerMessage.includes('quero reservar') ||
+        lowerMessage.includes('fechar') || lowerMessage.includes('confirmar a reserva') ||
+        lowerMessage.includes('aceito') || lowerMessage.includes('pode fazer')) {
+      
+      logger.info('🚨 [Sofia V5] CONFIRMAÇÃO DE RESERVA DETECTADA');
+      
+      // Verificar se tem todos os dados necessários para reserva
+      const hasProperty = summary.propertiesViewed && summary.propertiesViewed.length > 0;
+      const hasClient = summary.clientInfo && summary.clientInfo.name && summary.clientInfo.document;
+      const hasPrice = summary.propertiesViewed?.some(p => p.priceCalculated);
+      
+      if (hasProperty && hasClient && hasPrice) {
+        logger.info('🎉 [Sofia V5] Todos os dados disponíveis - Criando reserva automaticamente');
+        
+        try {
+          const interestedProperty = summary.propertiesViewed.find(p => p.interested) || summary.propertiesViewed[0];
+          
+          const result = await AgentFunctions.executeFunction(
+            'create_reservation',
+            {
+              clientPhone: input.clientPhone,
+              propertyId: interestedProperty.id,
+              checkIn: '2025-08-15', // Data padrão se não especificada
+              checkOut: '2025-08-18',
+              guests: summary.searchCriteria?.guests || 2
+            },
+            input.tenantId
+          );
+
+          const reply = result.success 
+            ? `🎉 **Reserva confirmada com sucesso!** 🎉\n\n${result.message}\n\nVocê receberá um email com todos os detalhes! Obrigada pela confiança! 💖`
+            : `Ops! ${result.message}\n\nVamos resolver isso rapidinho! 😊`;
+
+          await this.saveConversationHistory(input, reply, 400);
+
+          const responseTime = Date.now() - startTime;
+
+          return {
+            reply,
+            summary,
+            actions: [{ type: 'create_reservation' }],
+            tokensUsed: 400,
+            responseTime,
+            functionsExecuted: ['create_reservation'],
+            metadata: {
+              stage: result.success ? 'reservation_completed' : 'reservation_pending',
+              confidence: 1.0,
+              reasoningUsed: false
+            }
+          };
+
+        } catch (error) {
+          logger.error('❌ [Sofia V5] Erro ao criar reserva direta', { error });
+          return null;
+        }
+      } else {
+        // Guiar cliente para completar dados faltantes
+        let missingData = [];
+        if (!hasProperty) missingData.push('propriedade escolhida');
+        if (!hasClient) missingData.push('seus dados pessoais (nome e CPF)');
+        if (!hasPrice) missingData.push('cálculo de preço');
+
+        const reply = `Para confirmar sua reserva, ainda preciso de:\n\n${missingData.map(item => `• ${item}`).join('\n')}\n\nVamos completar essas informações? 😊`;
+
+        await this.saveConversationHistory(input, reply, 200);
+
+        const responseTime = Date.now() - startTime;
+
+        return {
+          reply,
+          summary,
+          actions: [{ type: 'reservation_guidance' }],
+          tokensUsed: 200,
+          responseTime,
+          functionsExecuted: [],
+          metadata: {
+            stage: 'reservation_pending',
+            confidence: 1.0,
+            reasoningUsed: false
+          }
+        };
+      }
+    }
+
+    return null; // Não é um comando direto
   }
 
   /**
