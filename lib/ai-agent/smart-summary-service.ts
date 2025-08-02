@@ -77,6 +77,25 @@ export class SmartSummaryService {
   }
 
   /**
+   * NOVA FUNÇÃO: Limpar cache para um cliente específico
+   */
+  clearCacheForClient(clientPhone: string): void {
+    // Remove todas as entradas de cache relacionadas ao cliente
+    const keysToDelete: string[] = [];
+    for (const [key, value] of this.summaryCache.entries()) {
+      if (key.includes(clientPhone.substring(0, 8))) {
+        keysToDelete.push(key);
+      }
+    }
+    
+    keysToDelete.forEach(key => this.summaryCache.delete(key));
+    
+    if (keysToDelete.length > 0) {
+      console.log(`🧹 [SmartSummary] Cache limpo: ${keysToDelete.length} entradas removidas para ${clientPhone.substring(0, 4)}***`);
+    }
+  }
+
+  /**
    * NOVA FUNÇÃO: Cache management
    */
   private getCacheKey(message: string, previousSummary: SmartSummary | null): string {

@@ -324,6 +324,43 @@ export class ConversationContextService {
     }
   }
 
+  // NOVA FUNÇÃO: Limpar contexto completamente
+  async clearClientContext(
+    clientPhone: string,
+    tenantId: string
+  ): Promise<void> {
+    try {
+      const conversationId = this.generateConversationId(clientPhone, tenantId);
+      
+      // Criar contexto completamente limpo
+      const cleanContext: ConversationDocument = {
+        id: conversationId,
+        clientPhone,
+        tenantId,
+        context: {
+          intent: 'greeting',
+          stage: 'greeting',
+          clientData: {},
+          interestedProperties: [],
+          lastActivity: Timestamp.now()
+        },
+        messageCount: 0,
+        tokensUsed: 0,
+        createdAt: Timestamp.now(),
+        updatedAt: Timestamp.now(),
+        status: 'active'
+      };
+
+      // Sobrescrever completamente o documento
+      await setDoc(doc(db, this.COLLECTION_NAME, conversationId), cleanContext);
+      
+      console.log(`🧹 [ContextService] Contexto completamente limpo para: ${clientPhone}`);
+    } catch (error) {
+      console.error('❌ [ContextService] Erro ao limpar contexto:', error);
+      throw error;
+    }
+  }
+
   // Limpar contextos expirados (para job agendado)
   async cleanupExpiredContexts(tenantId: string): Promise<number> {
     try {

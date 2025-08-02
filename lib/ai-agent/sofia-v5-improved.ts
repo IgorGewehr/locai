@@ -1037,6 +1037,34 @@ JAMAIS tente calcular preços ou enviar fotos sem ter propriedades buscadas!`
     if (phone.length <= 4) return phone;
     return phone.substring(0, 2) + '***' + phone.substring(phone.length - 2);
   }
+
+  /**
+   * NOVA FUNÇÃO: Limpar contexto do cliente
+   */
+  async clearClientContext(clientPhone: string, tenantId: string): Promise<void> {
+    try {
+      logger.info('🧹 [Sofia V5] Limpando contexto do cliente', {
+        clientPhone: this.maskPhone(clientPhone),
+        tenantId
+      });
+
+      // Limpar contexto completamente no serviço de contexto
+      await conversationContextService.clearClientContext(clientPhone, tenantId);
+      
+      // Limpar cache do SmartSummary também
+      smartSummaryService.clearCacheForClient(clientPhone);
+      
+      logger.info('✅ [Sofia V5] Contexto e cache limpos com sucesso', {
+        clientPhone: this.maskPhone(clientPhone)
+      });
+    } catch (error) {
+      logger.error('❌ [Sofia V5] Erro ao limpar contexto', {
+        error: error instanceof Error ? error.message : 'Unknown error',
+        clientPhone: this.maskPhone(clientPhone)
+      });
+      throw error;
+    }
+  }
 }
 
 // Exportar instância singleton
