@@ -474,20 +474,23 @@ IMPORTANTE:
       };
     }
 
-    // Preservar informações válidas do sumário anterior
+    // ✅ PRESERVAÇÃO CRÍTICA: Sempre manter informações do cliente
     if (previousSummary) {
-      // Preservar informações do cliente se não foram atualizadas
-      if (!summary.clientInfo.name && previousSummary.clientInfo.name) {
+      // CRÍTICO: Preservar informações do cliente SEMPRE (mesmo se summary vier vazio)
+      if (previousSummary.clientInfo.name) {
         summary.clientInfo.name = previousSummary.clientInfo.name;
       }
-      if (!summary.clientInfo.phone && previousSummary.clientInfo.phone) {
+      if (previousSummary.clientInfo.phone) {
         summary.clientInfo.phone = previousSummary.clientInfo.phone;
       }
-      if (!summary.clientInfo.document && previousSummary.clientInfo.document) {
+      if (previousSummary.clientInfo.document) {
         summary.clientInfo.document = previousSummary.clientInfo.document;
       }
-      if (!summary.clientInfo.email && previousSummary.clientInfo.email) {
+      if (previousSummary.clientInfo.email) {
         summary.clientInfo.email = previousSummary.clientInfo.email;
+      }
+      if (previousSummary.clientInfo.preferences) {
+        summary.clientInfo.preferences = previousSummary.clientInfo.preferences;
       }
 
       // Preservar critérios se não foram atualizados
@@ -511,6 +514,16 @@ IMPORTANTE:
 
       if (validPreviousProperties.length > 0 && summary.propertiesViewed.length === 0) {
         summary.propertiesViewed = validPreviousProperties;
+      }
+
+      // ✅ PROTEÇÃO DE STAGE: Evitar regressão se cliente já está registrado
+      if (previousSummary.clientInfo.name && summary.conversationState.stage === 'negotiation') {
+        // Se cliente já estava registrado, manter stage avançado
+        if (previousSummary.conversationState.stage === 'booking' || 
+            previousSummary.conversationState.stage === 'completed' ||
+            previousSummary.conversationState.stage === 'visit_scheduled') {
+          summary.conversationState.stage = previousSummary.conversationState.stage;
+        }
       }
 
       // Merge buying signals e objections

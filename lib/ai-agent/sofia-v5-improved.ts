@@ -146,7 +146,17 @@ export class SofiaV5Agent {
           input.tenantId
       );
 
-      const conversationHistory = this.getConversationHistory(context);
+      // Obter histórico real das mensagens salvas
+      const messageHistory = await conversationContextService.getMessageHistory(
+          input.clientPhone,
+          input.tenantId,
+          5 // Últimas 5 mensagens
+      );
+      
+      const conversationHistory = messageHistory.map(msg => ({
+          role: msg.role,
+          content: msg.content
+      }));
 
       // 2. Obter e atualizar sumário inteligente
       const currentSummary = context.context.smartSummary || null;

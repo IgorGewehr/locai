@@ -163,9 +163,11 @@ export class ConversationContextService {
 
       // ADICIONADO: Serializar smartSummary se presente
       if (cleanedUpdates.smartSummary) {
+        // Remove undefined values recursively
+        const cleanSmartSummary = this.removeUndefinedValues(cleanedUpdates.smartSummary);
         cleanedUpdates.smartSummary = {
-          ...cleanedUpdates.smartSummary,
-          lastUpdated: cleanedUpdates.smartSummary.lastUpdated?.toISOString() || new Date().toISOString()
+          ...cleanSmartSummary,
+          lastUpdated: cleanSmartSummary.lastUpdated?.toISOString() || new Date().toISOString()
         };
       }
       
@@ -357,6 +359,28 @@ export class ConversationContextService {
   // Helpers privados
   private generateConversationId(clientPhone: string, tenantId: string): string {
     return `${tenantId}_${clientPhone}`;
+  }
+
+  private removeUndefinedValues(obj: any): any {
+    if (obj === null || obj === undefined) {
+      return null;
+    }
+    
+    if (Array.isArray(obj)) {
+      return obj.map(item => this.removeUndefinedValues(item)).filter(item => item !== undefined);
+    }
+    
+    if (typeof obj === 'object') {
+      const cleaned: any = {};
+      for (const key in obj) {
+        if (obj.hasOwnProperty(key) && obj[key] !== undefined) {
+          cleaned[key] = this.removeUndefinedValues(obj[key]);
+        }
+      }
+      return cleaned;
+    }
+    
+    return obj;
   }
 
   private getDefaultContext(clientPhone: string, tenantId: string): ConversationDocument {
