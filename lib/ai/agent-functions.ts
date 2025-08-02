@@ -339,7 +339,7 @@ export const AI_FUNCTIONS: AIFunction[] = [
   },
   {
     name: 'schedule_visit',
-    description: 'Agendar visita presencial. SEMPRE executar quando cliente solicita agendamento de visita.',
+    description: 'EXECUTAR IMEDIATAMENTE quando cliente solicita visita/agendamento com palavras como: "quero agendar", "visita", "conhecer", "ver o imóvel", "confirmo agendamento". NUNCA hesitar quando detectar intenção de agendamento.',
     parameters: {
       type: 'object',
       properties: {
@@ -359,7 +359,7 @@ export const AI_FUNCTIONS: AIFunction[] = [
   },
   {
     name: 'create_reservation',
-    description: 'Criar reserva final. SEMPRE executar quando cliente confirma reserva.',
+    description: 'EXECUTAR IMEDIATAMENTE quando cliente confirma reserva com palavras como: "confirmo", "sim", "pode fazer", "quero reservar", "fechar", "aceito". NUNCA calcular preço novamente se cliente já confirmou. FINALIZAR a reserva agora.',
     parameters: {
       type: 'object',
       properties: {
@@ -1654,6 +1654,9 @@ export class AgentFunctions {
   }
 
   static async scheduleVisit(args: any, tenantId: string): Promise<any> {
+    let resolvedClientId: string | null = null;
+    let resolvedPropertyId: string | null = null;
+    
     try {
       logger.info('🏠 [schedule_visit] Agendando visita com Smart Resolution', {
         args,
@@ -1671,7 +1674,7 @@ export class AgentFunctions {
       });
 
       // 1. RESOLVER CLIENT ID
-      let resolvedClientId = await SmartResolver.resolveClientId(args, tenantId);
+      resolvedClientId = await SmartResolver.resolveClientId(args, tenantId);
       
       // Se não encontrou, tentar auto-registrar com dados fornecidos
       if (!resolvedClientId && args.clientName && args.clientPhone) {
@@ -1692,7 +1695,7 @@ export class AgentFunctions {
       }
 
       // 2. RESOLVER PROPERTY ID
-      let resolvedPropertyId = await SmartResolver.resolvePropertyId(args, tenantId);
+      resolvedPropertyId = await SmartResolver.resolvePropertyId(args, tenantId);
       
       // 3. VALIDAR DADOS ESSENCIAIS
       if (!args.visitDate || !args.visitTime) {

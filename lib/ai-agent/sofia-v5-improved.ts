@@ -667,6 +667,82 @@ JAMAIS tente calcular preços ou enviar fotos sem ter propriedades buscadas!`
       }
     }
 
+    // 🎯 NOVA DETECÇÃO INTELIGENTE DE CONFIRMAÇÕES
+    // Detectar confirmações de reserva
+    const reservationConfirmations = [
+      'confirmo reserva', 'pode fazer a reserva', 'sim pode fazer', 'quero reservar',
+      'fechar reserva', 'aceito', 'confirmo', 'pode fechar', 'sim confirmo',
+      'vamos fechar', 'pode fazer'
+    ];
+    
+    const hasReservationConfirmation = reservationConfirmations.some(phrase => 
+      lowerMessage.includes(phrase)
+    );
+
+    if (hasReservationConfirmation) {
+      // Se tem propriedades visualizadas e dados suficientes
+      if (summary.propertiesViewed.length > 0 && 
+          summary.searchCriteria.checkIn && 
+          summary.searchCriteria.checkOut &&
+          summary.searchCriteria.guests) {
+        
+        const validProperty = summary.propertiesViewed.find(p =>
+          p.id && p.id.length >= 15 && !this.isInvalidPropertyId(p.id)
+        );
+
+        if (validProperty) {
+          hints.push(`🎯 CONFIRMAÇÃO DETECTADA! EXECUTAR IMEDIATAMENTE: create_reservation`);
+          hints.push(`✅ USAR PROPRIEDADE: "${validProperty.id}"`);
+          hints.push(`✅ USAR DADOS DO CONTEXTO - CheckIn: ${summary.searchCriteria.checkIn}, CheckOut: ${summary.searchCriteria.checkOut}, Guests: ${summary.searchCriteria.guests}`);
+          hints.push(`🚨 CRÍTICO: NUNCA executar search_properties ou calculate_price quando cliente CONFIRMA reserva!`);
+        }
+      }
+    }
+
+    // Detectar confirmações de agendamento de visita
+    const visitConfirmations = [
+      'confirmo agendamento', 'confirmo visita', 'quero agendar', 'agendar visita',
+      'visita para', 'agendamento para', 'marcar visita'
+    ];
+    
+    const hasVisitConfirmation = visitConfirmations.some(phrase => 
+      lowerMessage.includes(phrase)
+    );
+
+    if (hasVisitConfirmation) {
+      // Detectar "primeira opção", "segunda opção"
+      const propertyReference = lowerMessage.match(/primeira\s+op[çc]ão|segunda\s+op[çc]ão|terceira\s+op[çc]ão/i);
+      const timeReference = lowerMessage.match(/(\d{1,2}h|\d{1,2}:\d{2})/);
+      const dateReference = lowerMessage.match(/amanh[ãa]|hoje|segunda|ter[çc]a|quarta|quinta|sexta|s[áa]bado|domingo/i);
+
+      if (propertyReference || timeReference || dateReference) {
+        hints.push(`🎯 AGENDAMENTO DETECTADO! EXECUTAR IMEDIATAMENTE: schedule_visit`);
+        if (summary.propertiesViewed.length > 0) {
+          const validProperty = summary.propertiesViewed.find(p =>
+            p.id && p.id.length >= 15 && !this.isInvalidPropertyId(p.id)
+          );
+          if (validProperty) {
+            hints.push(`✅ USAR PROPRIEDADE: "${validProperty.name}" (ID: ${validProperty.id})`);
+          }
+        }
+        hints.push(`🚨 CRÍTICO: NUNCA executar search_properties quando cliente CONFIRMA agendamento!`);
+      }
+    }
+
+    // Detectar quando cliente quer apenas VER opções (não confirmar)
+    const browsingIndicators = [
+      'quais opções', 'que tem disponível', 'mostrar propriedades', 'ver as opções',
+      'que apartamentos', 'o que tem', 'opções de'
+    ];
+    
+    const isBrowsing = browsingIndicators.some(phrase => 
+      lowerMessage.includes(phrase)
+    );
+
+    if (isBrowsing && summary.propertiesViewed.length === 0) {
+      hints.push(`🔍 NAVEGAÇÃO DETECTADA! EXECUTAR: search_properties`);
+    }
+
     return hints.length > 0 ? hints.join('\n') : null;
   }
 

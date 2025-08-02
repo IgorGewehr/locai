@@ -167,7 +167,11 @@ export class ConversationContextService {
         const cleanSmartSummary = this.removeUndefinedValues(cleanedUpdates.smartSummary);
         cleanedUpdates.smartSummary = {
           ...cleanSmartSummary,
-          lastUpdated: cleanSmartSummary.lastUpdated?.toISOString() || new Date().toISOString()
+          lastUpdated: cleanSmartSummary.lastUpdated instanceof Date 
+            ? cleanSmartSummary.lastUpdated.toISOString() 
+            : (typeof cleanSmartSummary.lastUpdated === 'string' 
+              ? cleanSmartSummary.lastUpdated 
+              : new Date().toISOString())
         };
       }
       
