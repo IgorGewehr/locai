@@ -14,6 +14,7 @@ import {
   serverTimestamp
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase/config';
+import { SmartSummary } from '@/lib/ai-agent/smart-summary-service';
 
 // ===== INTERFACES =====
 
@@ -32,6 +33,9 @@ export interface ConversationContextData {
   lastAction?: string;
   sentiment?: 'positive' | 'neutral' | 'negative';
   lastActivity: Timestamp;
+  // ADICIONADO: Suporte ao Smart Summary V5
+  smartSummary?: SmartSummary;
+  messageHistory?: Array<{ role: string; content: string }>;
 }
 
 export interface ConversationDocument {
@@ -78,6 +82,11 @@ export class ConversationContextService {
 
       if (docSnap.exists()) {
         const data = docSnap.data() as ConversationDocument;
+        
+        // ADICIONADO: Deserializar smartSummary se presente
+        if (data.context.smartSummary?.lastUpdated && typeof data.context.smartSummary.lastUpdated === 'string') {
+          data.context.smartSummary.lastUpdated = new Date(data.context.smartSummary.lastUpdated);
+        }
         
         // Verificar se o contexto ainda está ativo (dentro do TTL)
         const lastActivity = data.context.lastActivity.toDate();
@@ -151,6 +160,14 @@ export class ConversationContextService {
           cleanedUpdates[key] = value;
         }
       });
+
+      // ADICIONADO: Serializar smartSummary se presente
+      if (cleanedUpdates.smartSummary) {
+        cleanedUpdates.smartSummary = {
+          ...cleanedUpdates.smartSummary,
+          lastUpdated: cleanedUpdates.smartSummary.lastUpdated?.toISOString() || new Date().toISOString()
+        };
+      }
       
       await updateDoc(docRef, {
         'context': {
