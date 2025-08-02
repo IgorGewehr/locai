@@ -7,6 +7,8 @@ import { smartSummaryService, SmartSummary } from './smart-summary-service';
 import { getOpenAIFunctions, AgentFunctions } from '@/lib/ai/agent-functions';
 import { conversationContextService } from '@/lib/services/conversation-context-service';
 import { logger } from '@/lib/utils/logger';
+import {Simulate} from "react-dom/test-utils";
+import error = Simulate.error;
 
 // ===== PROMPT FINAL CORRIGIDO =====
 const SOFIA_V5_PROMPT = `Você é Sofia, consultora imobiliária especializada em locação por temporada.
@@ -1331,7 +1333,7 @@ Qual dessas opções te interessou mais? Posso calcular o preço para as suas da
         };
 
       } catch (error) {
-        logger.error('❌ [Sofia V5] Erro ao executar comando direto', { error });
+        logger.error('❌ [Sofia V5] Erro ao executar comando direto', {message: "", name: "", error });
         return null; // Fallback para fluxo normal
       }
     }

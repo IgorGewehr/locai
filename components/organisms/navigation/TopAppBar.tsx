@@ -86,7 +86,7 @@ const navigationItems: NavigationItem[] = [
   },
   {
     text: 'Teste IA',
-    href: '/dashboard/teste',
+    href: '/dashboard/ai-testing',
     icon: <Chat sx={{ fontSize: 20 }} />,
   },
   {

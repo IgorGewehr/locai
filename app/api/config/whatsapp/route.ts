@@ -3,6 +3,7 @@ import { getAuthFromCookie } from '@/lib/utils/auth-cookie';
 import { settingsService } from '@/lib/services/settings-service';
 import { z } from 'zod';
 import { logger } from '@/lib/utils/logger';
+import type { WhatsAppSettings } from '@/lib/types/whatsapp';
 
 // WhatsApp configuration validation schema
 const whatsappConfigSchema = z.object({
@@ -26,7 +27,7 @@ export async function GET(request: NextRequest) {
     logger.info('Fetching WhatsApp configuration', { tenantId });
 
     const settings = await settingsService.getSettings(tenantId);
-    const whatsappConfig = settings?.whatsapp || {};
+    const whatsappConfig = (settings?.whatsapp || {}) as Partial<WhatsAppSettings>;
 
     // Mask sensitive data
     const safeConfig = {
@@ -49,7 +50,9 @@ export async function GET(request: NextRequest) {
     });
 
   } catch (error) {
-    logger.error('Error fetching WhatsApp configuration', { error });
+    logger.error('Error fetching WhatsApp configuration', { 
+      error: error instanceof Error ? error.message : 'Unknown error' 
+    });
     return NextResponse.json(
       { success: false, error: 'Failed to fetch WhatsApp configuration' },
       { status: 500 }
@@ -111,7 +114,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    logger.error('Error saving WhatsApp configuration', { error });
+    logger.error('Error saving WhatsApp configuration', { 
+      error: error instanceof Error ? error.message : 'Unknown error' 
+    });
     return NextResponse.json(
       { success: false, error: 'Falha ao salvar configuração do WhatsApp' },
       { status: 500 }
@@ -134,7 +139,7 @@ export async function PUT(request: NextRequest) {
 
     // Get current settings
     const currentSettings = await settingsService.getSettings(tenantId);
-    const currentWhatsApp = currentSettings?.whatsapp || {};
+    const currentWhatsApp = (currentSettings?.whatsapp || {}) as Partial<WhatsAppSettings>;
 
     // Merge with new data (partial update)
     const updatedConfig = {
@@ -190,7 +195,9 @@ export async function PUT(request: NextRequest) {
       );
     }
 
-    logger.error('Error updating WhatsApp configuration', { error });
+    logger.error('Error updating WhatsApp configuration', { 
+      error: error instanceof Error ? error.message : 'Unknown error' 
+    });
     return NextResponse.json(
       { success: false, error: 'Falha ao atualizar configuração do WhatsApp' },
       { status: 500 }
@@ -210,7 +217,7 @@ export async function DELETE(request: NextRequest) {
     logger.info('Resetting WhatsApp configuration', { tenantId });
 
     // Reset WhatsApp settings
-    const resetConfig = {
+    const resetConfig: Partial<WhatsAppSettings> = {
       accessToken: '',
       phoneNumberId: '',
       verifyToken: '',
@@ -220,7 +227,6 @@ export async function DELETE(request: NextRequest) {
       connected: false,
       lastSync: null,
       updatedAt: new Date(),
-      updatedBy: auth.userId,
     };
 
     await settingsService.updateWhatsAppSettings(tenantId, resetConfig);
@@ -233,7 +239,9 @@ export async function DELETE(request: NextRequest) {
     });
 
   } catch (error) {
-    logger.error('Error resetting WhatsApp configuration', { error });
+    logger.error('Error resetting WhatsApp configuration', { 
+      error: error instanceof Error ? error.message : 'Unknown error' 
+    });
     return NextResponse.json(
       { success: false, error: 'Falha ao redefinir configuração do WhatsApp' },
       { status: 500 }

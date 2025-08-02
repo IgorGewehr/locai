@@ -3,6 +3,19 @@ import { NextResponse } from 'next/server'
 import { FirebaseError } from 'firebase/app'
 import { ValidationError } from './errors'
 
+// Classe para erros com dados adicionais
+export class ApiError extends Error {
+  requestId?: string;
+  statusCode?: number;
+  
+  constructor(message: string, requestId?: string, statusCode?: number) {
+    super(message);
+    this.name = 'ApiError';
+    this.requestId = requestId;
+    this.statusCode = statusCode;
+  }
+}
+
 export function handleApiError(error: unknown): NextResponse {
   // Validation errors
   if (error instanceof ValidationError) {

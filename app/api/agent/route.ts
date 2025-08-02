@@ -3,7 +3,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { validatePhoneNumber, validateMessageContent, validateTenantId } from '@/lib/utils/validation';
-import { handleApiError } from '@/lib/utils/api-errors';
+import { handleApiError, ApiError } from '@/lib/utils/api-errors';
 import { getRateLimitService, RATE_LIMITS } from '@/lib/services/rate-limit-service';
 import { logger } from '@/lib/utils/logger';
 
@@ -29,7 +29,7 @@ export async function POST(request: NextRequest) {
         requestId,
         error: error instanceof Error ? error.message : 'Unknown error'
       });
-      return handleApiError(new Error('Invalid request body - JSON malformed'));
+      return handleApiError(new ApiError('Invalid request body - JSON malformed', requestId, 400));
     }
 
     const { message, clientPhone, phone, tenantId: requestTenantId, isTest, metadata } = body;
@@ -71,7 +71,7 @@ export async function POST(request: NextRequest) {
         phone: clientPhone || phone,
         messageLength: message?.length
       });
-      return handleApiError(error);
+      return handleApiError(error instanceof Error ? error : new Error('Validation failed'));
     }
 
     // 3. Rate limiting (skip para modo teste)
@@ -175,7 +175,7 @@ export async function POST(request: NextRequest) {
         } catch (whatsappError) {
           logger.error('⚠️ [API] Erro no envio do WhatsApp', {
             requestId,
-            whatsappError: whatsappError instanceof Error ? whatsappError.message : 'Unknown WhatsApp error',
+            error: whatsappError instanceof Error ? whatsappError.message : 'Unknown WhatsApp error',
             phoneMasked: validatedPhone.substring(0, 4) + '***'
           });
           // Não bloquear resposta por erro do WhatsApp
@@ -299,7 +299,7 @@ export async function POST(request: NextRequest) {
         } catch (whatsappError) {
           logger.error('❌ [API] Falha ao enviar erro via WhatsApp', {
             requestId,
-            whatsappError: whatsappError instanceof Error ? whatsappError.message : 'Unknown error'
+            error: whatsappError instanceof Error ? whatsappError.message : 'Unknown error'
           });
         }
       }

@@ -343,7 +343,7 @@ export class WhatsAppSessionManager extends EventEmitter {
                         message.message?.extendedTextMessage?.text || 
                         '',
                 },
-                type: 'text',
+                type: 'text' as const,
               }],
             },
             field: 'messages',

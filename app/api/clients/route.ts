@@ -99,17 +99,17 @@ export async function GET(request: NextRequest) {
     if (search) {
       const searchLower = search.toLowerCase()
       filteredClients = filteredClients.filter(client => 
-        client.name?.toLowerCase().includes(searchLower) ||
-        client.email?.toLowerCase().includes(searchLower) ||
-        client.phone?.toLowerCase().includes(searchLower) ||
-        (client as any).document?.toLowerCase().includes(searchLower)
+        (client as Client).name?.toLowerCase().includes(searchLower) ||
+        (client as Client).email?.toLowerCase().includes(searchLower) ||
+        (client as Client).phone?.toLowerCase().includes(searchLower) ||
+        (client as Client).document?.toLowerCase().includes(searchLower)
       )
     }
 
     // Segment filter
     if (segment) {
       filteredClients = filteredClients.filter(client => 
-        (client as any).customerSegment === segment
+        (client as Client).customerSegment === segment
       )
     }
 
@@ -117,7 +117,7 @@ export async function GET(request: NextRequest) {
     if (isActive !== null) {
       const activeFilter = isActive === 'true'
       filteredClients = filteredClients.filter(client => 
-        client.isActive === activeFilter
+        (client as Client).isActive === activeFilter
       )
     }
 

@@ -76,7 +76,7 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
     // Create user document in global users collection
     // Note: Using 'global' as tenantId for users collection to maintain global access
     const userService = createMultiTenantService<User>('global', 'users');
-    const user = await userService.create({
+    const userData = {
       email: email.toLowerCase(),
       name,
       role,
@@ -87,7 +87,10 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
       createdAt: new Date(),
       lastLogin: new Date(),
       isActive: true,
-    });
+    };
+    
+    const userId = await userService.create(userData);
+    const user = { ...userData, id: userId } as User;
 
     // Generate JWT
     const jwt = generateJWT({

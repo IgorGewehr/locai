@@ -284,7 +284,7 @@ export async function DELETE(
     await services.clients.update(clientId, {
       isActive: false,
       updatedAt: new Date()
-    })
+    } as Partial<Client>)
 
     return NextResponse.json({
       success: true,

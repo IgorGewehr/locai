@@ -1,5 +1,18 @@
 // WhatsApp Business API Types
 
+export interface WhatsAppSettings {
+  accessToken: string;
+  phoneNumberId: string;
+  verifyToken: string;
+  businessName?: string;
+  webhookUrl?: string;
+  mode: 'business_api' | 'web';
+  connected?: boolean;
+  lastSync?: Date | null;
+  updatedAt?: Date;
+  updatedBy?: string;
+}
+
 export interface WhatsAppWebhookData {
   object: string;
   entry: Array<{

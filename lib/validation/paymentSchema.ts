@@ -34,7 +34,7 @@ export const paymentSchema = yup.object({
     .date()
     .when('status', {
       is: (status: PaymentStatus) => [PaymentStatus.PAID, PaymentStatus.PARTIAL].includes(status),
-      then: yup.date().required('Data de pagamento é obrigatória quando status é pago'),
+      then: (schema) => schema.required('Data de pagamento é obrigatória quando status é pago'),
     })
     .test('paid-date-validation', 'Data de pagamento deve ser posterior à criação', function(value) {
       if (!value || this.parent.status !== PaymentStatus.PAID) return true

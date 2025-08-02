@@ -109,7 +109,7 @@ const menuItems = [
   },
   {
     text: 'Teste IA',
-    href: '/dashboard/teste',
+    href: '/dashboard/ai-testing',
     icon: <Chat />,
     badge: null,
   },

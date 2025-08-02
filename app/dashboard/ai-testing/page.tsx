@@ -298,7 +298,7 @@ export default function TestePage() {
               🧪 Teste do Agente IA
             </Typography>
             <Chip 
-              label="🚀 Sofia AI V4"
+              label="🚀 Sofia AI V5"
               size="small"
               sx={{ 
                 bgcolor: '#4caf50', 
@@ -624,10 +624,10 @@ export default function TestePage() {
           />
           <Box sx={{ mt: 2, p: 2, bgcolor: 'rgba(76, 175, 80, 0.1)', borderRadius: 1, border: '1px solid #4caf50' }}>
             <Typography variant="body2" fontWeight={600} sx={{ color: '#4caf50' }}>
-              🚀 Sofia AI Agent V4 Ativo - Step 2 Complete
+              🚀 Sofia AI Agent V5 Ativo - Sistema Inteligente de Sumários
             </Typography>
             <Typography variant="caption" color="textSecondary">
-              Ultra-optimized prompts • Parallel execution • Smart cache • Response optimizer • Performance monitoring
+              Smart Summary System • Property ID Validation • Contextual Reasoning • Natural Conversation • Function Optimization
             </Typography>
           </Box>
         </DialogContent>
@@ -657,15 +657,15 @@ export default function TestePage() {
             <li>Simulação de cliente WhatsApp</li>
           </Typography>
           <Typography variant="h6" gutterBottom sx={{ mt: 2 }}>
-            Sofia AI Agent V4 - Step 2 Optimizations:
+            Sofia AI Agent V5 - Sistema Inteligente de Sumários:
           </Typography>
           <Typography variant="body2" component="ul" sx={{ pl: 2 }}>
-            <li>⚡ <strong>Ultra-optimized prompts</strong> - 1500→400 tokens (73% reduction)</li>
-            <li>🔄 <strong>Parallel execution</strong> - 50-80% time reduction</li>
-            <li>🚄 <strong>Smart cache system</strong> - 90%+ hit rate</li>
-            <li>🎯 <strong>Response optimizer</strong> - Quality-controlled compression</li>
-            <li>📊 <strong>Performance monitor</strong> - Real-time metrics & alerts</li>
-            <li>🧠 <strong>Advanced memory</strong> - Multi-layer caching (L1/L2/L3)</li>
+            <li>🧠 <strong>Smart Summary System</strong> - Memória contextual inteligente</li>
+            <li>🔍 <strong>Property ID Validation</strong> - Validação automática de IDs de propriedades</li>
+            <li>💭 <strong>Contextual Reasoning</strong> - Raciocínio baseado em contexto</li>
+            <li>💬 <strong>Natural Conversation</strong> - Conversação mais natural e fluida</li>
+            <li>⚡ <strong>Function Optimization</strong> - Execução otimizada de funções</li>
+            <li>🛠️ <strong>Error Recovery</strong> - Recuperação automática de erros</li>
           </Typography>
           <Typography variant="h6" gutterBottom sx={{ mt: 2 }}>
             Fluxo de teste completo:
