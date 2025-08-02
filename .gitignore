@@ -39,3 +39,31 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# test files (prevent pollution)
+test*.json
+test*.js
+test*.cjs
+debug*.cjs
+quick*.cjs
+*-test.js
+*-test.ts
+*.test.js
+*.test.ts
+
+# temporary files
+temp/
+tmp/
+*.tmp
+*.bak
+*-backup.*
+
+# logs
+*.log
+logs/
+
+# development
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
