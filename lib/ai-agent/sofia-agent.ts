@@ -9,6 +9,8 @@ import { conversationContextService } from '@/lib/services/conversation-context-
 import { logger } from '@/lib/utils/logger';
 import { SOFIA_PROMPT } from './sofia-prompt';
 import { SOFIA_PROMPT_V2, FUNCTION_PRIORITY_RULES } from './sofia-prompt-v2';
+import { SOFIA_HUMANIZED_PROMPT, shouldQualifyFirst, extractInfoFromMessage, generateHumanizedContext } from './sofia-prompt-humanized';
+import QualificationSystem from './qualification-system';
 import FallbackSystem from './fallback-system';
 import IntentDetector, { DetectedIntent } from './intent-detector';
 
@@ -133,7 +135,52 @@ export class SofiaAgent {
         return await this.handleCasualMessage(input, updatedSummary, startTime);
       }
 
-      // 5. ✨ NOVO: DETECÇÃO FORÇADA DE INTENÇÕES (ignora GPT quando necessário)
+      // 5. ✨ NOVO: SISTEMA DE QUALIFICAÇÃO HUMANIZADA
+      const isFirstInteraction = updatedSummary.conversationState.stage === 'greeting' || 
+                                updatedSummary.conversationState.stage === 'discovery';
+      const qualificationContext = {
+        hasLocation: !!updatedSummary.searchCriteria.location,
+        hasGuests: !!updatedSummary.searchCriteria.guests,
+        hasCheckIn: !!updatedSummary.searchCriteria.checkIn,
+        hasCheckOut: !!updatedSummary.searchCriteria.checkOut,
+        hasAmenities: updatedSummary.searchCriteria.amenities?.length > 0,
+        hasBudget: !!updatedSummary.searchCriteria.maxBudget,
+        hasPropertyType: !!updatedSummary.searchCriteria.propertyType,
+        messageHistory: conversationHistory.map(m => m.content)
+      };
+      
+      // Verificar se deve qualificar antes de buscar
+      if (QualificationSystem.shouldQualify(input.message, qualificationContext, isFirstInteraction)) {
+        logger.info('🎯 [Sofia] Qualificação necessária antes da busca');
+        
+        // Gerar pergunta de qualificação personalizada
+        const qualificationQuestion = QualificationSystem.generateQualificationQuestion(
+          input.message,
+          qualificationContext,
+          updatedSummary.clientInfo
+        );
+        
+        // Atualizar contexto com informações extraídas
+        const extractedInfo = QualificationSystem.extractContextFromMessage(input.message, qualificationContext);
+        
+        // Retornar resposta de qualificação sem executar busca
+        return {
+          reply: qualificationQuestion,
+          summary: updatedSummary,
+          actions: [],
+          tokensUsed: 50,
+          responseTime: Date.now() - startTime,
+          functionsExecuted: [],
+          metadata: {
+            stage: 'discovery',
+            confidence: 0.9,
+            reasoningUsed: true,
+            executionMode: 'qualification'
+          }
+        };
+      }
+      
+      // 6. DETECÇÃO FORÇADA DE INTENÇÕES (ignora GPT quando necessário)
       logger.info('🔍 [Sofia] Chamando IntentDetector', {
         message: input.message.substring(0, 50),
         clientPhone: input.clientPhone.substring(0, 6) + '***'
@@ -224,8 +271,8 @@ export class SofiaAgent {
           conversationHistory
       );
 
-      // 7. ✨ NOVO: Usar prompt melhorado para detecção mais precisa
-      const enhancedPrompt = this.buildEnhancedPrompt(updatedSummary);
+      // 7. ✨ NOVO: Usar prompt humanizado para respostas mais naturais
+      const enhancedPrompt = this.buildHumanizedPrompt(updatedSummary);
       
       // 8. Primeira chamada OpenAI com tool_choice ULTRA AGRESSIVO
       const shouldForceFunction = this.shouldForceFunction(input.message);
@@ -502,10 +549,13 @@ export class SofiaAgent {
       summary: SmartSummary,
       history: Array<{ role: string; content: string }>
   ): Array<{ role: string; content: string }> {
+    // Usar prompt humanizado ao invés do prompt padrão
+    const humanizedPrompt = this.buildHumanizedPrompt(summary);
+    
     const messages = [
       {
         role: 'system',
-        content: this.buildEnhancedPrompt(summary)
+        content: humanizedPrompt
       }
     ];
 
@@ -1748,6 +1798,25 @@ Qual opção combina mais com você? 😊`;
         error: error instanceof Error ? error.message : 'Unknown error'
       });
     }
+  }
+
+  /**
+   * Construir prompt humanizado
+   */
+  private buildHumanizedPrompt(summary: SmartSummary): string {
+    const hasProperties = summary.propertiesViewed.length > 0;
+    const propertyCount = summary.propertiesViewed.length;
+    const clientInfo = summary.clientInfo;
+    const lastAction = summary.nextBestAction.function || 'greeting';
+    
+    const context = generateHumanizedContext(
+      hasProperties,
+      propertyCount,
+      clientInfo,
+      lastAction
+    );
+    
+    return SOFIA_HUMANIZED_PROMPT.replace('{context}', context);
   }
 
   /**

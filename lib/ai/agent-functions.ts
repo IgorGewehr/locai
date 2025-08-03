@@ -1665,7 +1665,7 @@ export class AgentFunctions {
     try {
       logger.info('👤 [register_client] Registrando cliente', {
         name: args.name?.substring(0, 20) + '...',
-        phone: args.phone?.substring(0, 6) + '***',
+        phone: args.phone?.substring(0, 6) + '***' || args.clientPhone?.substring(0, 6) + '***',
         hasDocument: !!args.document,
         hasEmail: !!args.email,
         tenantId
@@ -1693,9 +1693,21 @@ export class AgentFunctions {
         };
       }
 
+      // Garantir que temos um phone válido (usar clientPhone como fallback)
+      const phoneNumber = args.phone || args.clientPhone || '';
+      if (!phoneNumber) {
+        logger.warn('❌ [register_client] Telefone não fornecido');
+        return {
+          success: false,
+          message: 'Preciso do seu telefone para o cadastro. Pode me informar?',
+          client: null,
+          missingData: ['phone']
+        };
+      }
+
       const clientData: any = {
         name: args.name.trim(),
-        phone: args.phone,
+        phone: phoneNumber,
         document: args.document.trim(),
         documentType: 'cpf',
         tenantId,
@@ -1891,7 +1903,7 @@ export class AgentFunctions {
       });
 
       // 1. RESOLVER CLIENT ID
-      resolvedClientId = await SmartResolver.resolveClientId(args, tenantId);
+      let resolvedClientId = await SmartResolver.resolveClientId(args, tenantId);
       
       // Se não encontrou, tentar auto-registrar com dados fornecidos
       if (!resolvedClientId && args.clientName && args.clientPhone) {
@@ -1912,7 +1924,7 @@ export class AgentFunctions {
       }
 
       // 2. RESOLVER PROPERTY ID
-      resolvedPropertyId = await SmartResolver.resolvePropertyId(args, tenantId);
+      let resolvedPropertyId = await SmartResolver.resolvePropertyId(args, tenantId);
       
       // 3. VALIDAR DADOS ESSENCIAIS
       if (!args.visitDate || !args.visitTime) {
