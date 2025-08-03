@@ -1,6 +1,6 @@
 // app/api/agent-professional/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-import { sofiaV5Agent } from '@/lib/ai-agent/sofia-v5-improved';
+import { sofiaAgent } from '@/lib/ai-agent/sofia-agent';
 // import { AgentMonitor } from '@/lib/monitoring/agent-monitor';
 
 export async function POST(request: NextRequest) {
@@ -19,7 +19,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Processar mensagem com Sofia MVP
-    const response = await sofiaV5Agent.processMessage({
+    const response = await sofiaAgent.processMessage({
       message,
       clientPhone,
       tenantId,
@@ -61,7 +61,7 @@ export async function POST(request: NextRequest) {
 
 export async function GET(request: NextRequest) {
   try {
-    const stats = sofiaV5Agent;
+    const stats = sofiaAgent;
     // const metrics = AgentMonitor.getMetrics();
     
     return NextResponse.json({

@@ -1,106 +1,23 @@
-// lib/ai-agent/sofia-v5-improved.ts
-// SOFIA V5 - AGENTE INTELIGENTE FINAL CORRIGIDO
-// Integra todas as correções críticas para IDs e contexto
+// lib/ai-agent/sofia-agent.ts
+// SOFIA - Agente conversacional inteligente para imobiliária
+// Sistema de detecção avançada de intenções com GPT-4o Mini
 
 import { OpenAI } from 'openai';
 import { smartSummaryService, SmartSummary } from './smart-summary-service';
 import { getOpenAIFunctions, AgentFunctions } from '@/lib/ai/agent-functions';
 import { conversationContextService } from '@/lib/services/conversation-context-service';
 import { logger } from '@/lib/utils/logger';
-import {Simulate} from "react-dom/test-utils";
-import error = Simulate.error;
+import { SOFIA_PROMPT } from './sofia-prompt';
+import { SOFIA_PROMPT_V2, FUNCTION_PRIORITY_RULES } from './sofia-prompt-v2';
+import FallbackSystem from './fallback-system';
+import IntentDetector, { DetectedIntent } from './intent-detector';
 
-// ===== PROMPT FINAL CORRIGIDO =====
-const SOFIA_V5_PROMPT = `Você é Sofia, consultora imobiliária especializada em locação por temporada.
-
-🎯 PERSONALIDADE E TOM:
-- Seja CALOROSA, ENTUSIASMADA e GENUÍNA
-- Use emojis naturalmente 😊 🏠 💰 📸 ✨ 💖
-- Responda saudações com simpatia antes de falar de negócios
-- Fale como uma consultora amiga, não um robô
-- SEMPRE mostre entusiasmo por ajudar
-
-⚡ REGRA #1 - EXECUTE FUNÇÕES IMEDIATAMENTE SEM PERGUNTAR:
-
-🚨 BUSCA DE PROPRIEDADES:
-- "quero alugar" → search_properties() IMEDIATO!
-- "apartamento" → search_properties() IMEDIATO!
-- "X pessoas" → search_properties(guests: X) IMEDIATO!
-
-💰 PREÇOS E FOTOS:
-- "quanto custa" → calculate_price() IMEDIATO!
-- "fotos" → send_property_media() IMEDIATO!
-
-👤 CADASTRO DE CLIENTE (CRÍTICO TESTE 6):
-- "Nome, telefone, CPF completo" → register_client() IMEDIATO!
-- Ex: "João Silva, 11987654321, 12345678901" → EXECUTAR AGORA!
-- Se faltar CPF → "Para fazer a reserva, preciso do seu CPF completo (11 dígitos)"
-- Se CPF inválido/incompleto → "CPF deve ter exatamente 11 dígitos. Pode informar completo?"
-- NUNCA aceitar dados incompletos - sempre solicitar CPF!
-
-📅 AGENDAMENTO DE VISITA (CRÍTICO TESTE 7):
-- "visitar" → Pedir data/horário
-- "agendar" → schedule_visit() quando tiver data
-- "amanhã às 14h" → schedule_visit() IMEDIATO!
-
-🏆 CONFIRMAÇÃO DE RESERVA (CRÍTICO TESTE 8):
-- "confirmo" → create_reservation() IMEDIATO!
-- "quero reservar" → create_reservation() IMEDIATO!
-- "fechar" → create_reservation() IMEDIATO!
-
-🎯 FILOSOFIA: SEJA ULTRA PROATIVA! Execute primeiro, pergunte depois!
-
-🚨 REGRA CRÍTICA - IDs DE PROPRIEDADES:
-- SEMPRE use IDs REAIS de 20+ caracteres das buscas
-- NUNCA invente IDs como "primeira", "1", "abc123"
-- SE não tem ID real → execute search_properties PRIMEIRO
-
-🔍 CONTEXTO E INTELIGÊNCIA:
-- SE já tem propriedades no contexto → NÃO busque novamente
-- SE cliente pergunta sobre "aquela propriedade" → use dados do contexto
-- SE tem informações do cliente → NÃO pergunte novamente
-- USE memória da conversa para ser inteligente
-
-💬 EXEMPLOS DE RESPOSTAS NATURAIS:
-✅ "Oi! Que bom falar com você! 😊 Está procurando um lugar especial para se hospedar?"
-✅ "Que legal! Encontrei algumas opções incríveis para vocês! 🏠✨"
-✅ "Claro! Vou calcular o valor certinho para essas datas! 💰"
-✅ "As fotos são lindas! Vou enviar agora mesmo! 📸"
-
-❌ EVITE COMPLETAMENTE:
-❌ Respostas robóticas ou formais demais
-❌ Usar IDs falsos como "primeira" ou "1"
-❌ Pedir informações já fornecidas
-❌ Deixar de executar funções quando necessário
-
-🚨 REGRAS PARA EVITAR FALHAS DO SISTEMA:
-1. SEMPRE valide se tem ID real antes de calcular preço
-2. SE não tem propriedades no resumo → EXECUTE search_properties
-3. SE cliente pergunta preço SEM propriedade escolhida → busque primeiro
-4. USE o ID EXATO retornado por search_properties
-5. JAMAIS invente ou abrevie IDs
-
-💰 FLUXO CORRETO PARA PREÇOS (EVITA ERROS):
-- Cliente: "quanto custa?"
-- Você: VERIFIQUE resumo → TEM propriedades? → SIM: use ID real → NÃO: busque primeiro
-- SEMPRE: calculate_price(propertyId: "ID_REAL_DE_20+_CARACTERES")
-
-📸 FLUXO CORRETO PARA FOTOS (EVITA ERROS):
-- Cliente: "tem fotos?"
-- Você: VERIFIQUE resumo → TEM propriedades? → SIM: use ID real → NÃO: busque primeiro
-- SEMPRE: send_property_media(propertyId: "ID_REAL_DE_20+_CARACTERES")
-
-🏆 REGRAS PARA RESERVAS:
-- SEMPRE calcule preço ANTES de criar reserva
-- USE propertyId REAL das propriedades já vistas
-- Confirme dados importantes antes de finalizar
-
-LEMBRE-SE: IDs reais são CRÍTICOS! Um ID errado = sistema falha = cliente frustrado!
-Use SEMPRE os IDs REAIS retornados pelas funções! Isso evita 90% dos problemas!`;
+// ===== PROMPT PRINCIPAL =====
+// Usando prompt importado do arquivo dedicado
 
 // ===== INTERFACES =====
 
-interface SofiaV5Input {
+interface SofiaInput {
   message: string;
   clientPhone: string;
   tenantId: string;
@@ -110,7 +27,7 @@ interface SofiaV5Input {
   };
 }
 
-interface SofiaV5Response {
+interface SofiaResponse {
   reply: string;
   summary: SmartSummary;
   actions?: any[];
@@ -126,9 +43,9 @@ interface SofiaV5Response {
 
 // ===== CLASSE PRINCIPAL =====
 
-export class SofiaV5Agent {
+export class SofiaAgent {
   private openai: OpenAI;
-  private static instance: SofiaV5Agent;
+  private static instance: SofiaAgent;
 
   constructor() {
     this.openai = new OpenAI({
@@ -136,15 +53,15 @@ export class SofiaV5Agent {
     });
   }
 
-  static getInstance(): SofiaV5Agent {
+  static getInstance(): SofiaAgent {
     if (!this.instance) {
       logger.info('🚀 [Sofia V5] Criando nova instância inteligente');
-      this.instance = new SofiaV5Agent();
+      this.instance = new SofiaAgent();
     }
     return this.instance;
   }
 
-  async processMessage(input: SofiaV5Input): Promise<SofiaV5Response> {
+  async processMessage(input: SofiaInput): Promise<SofiaResponse> {
     const startTime = Date.now();
     const functionsExecuted: string[] = [];
 
@@ -216,7 +133,85 @@ export class SofiaV5Agent {
         return await this.handleCasualMessage(input, updatedSummary, startTime);
       }
 
-      // 5. INTERCEPTAR COMANDOS DIRETOS - ULTRA PROATIVO
+      // 5. ✨ NOVO: DETECÇÃO FORÇADA DE INTENÇÕES (ignora GPT quando necessário)
+      logger.info('🔍 [Sofia] Chamando IntentDetector', {
+        message: input.message.substring(0, 50),
+        clientPhone: input.clientPhone.substring(0, 6) + '***'
+      });
+      
+      const forcedIntent = IntentDetector.detectIntent(
+        input.message, 
+        input.clientPhone, 
+        input.tenantId
+      );
+      
+      logger.info('🎯 [Sofia] Resultado do IntentDetector', {
+        hasIntent: !!forcedIntent,
+        function: forcedIntent?.function,
+        shouldForce: forcedIntent?.shouldForceExecution,
+        confidence: forcedIntent?.confidence,
+        reason: forcedIntent?.reason
+      });
+      
+      if (forcedIntent && forcedIntent.shouldForceExecution) {
+        logger.info('🎯 [Sofia] EXECUÇÃO FORÇADA detectada', {
+          function: forcedIntent.function,
+          confidence: forcedIntent.confidence,
+          reason: forcedIntent.reason
+        });
+        
+        try {
+          const result = await AgentFunctions.executeFunction(
+            forcedIntent.function,
+            forcedIntent.args,
+            input.tenantId
+          );
+          
+          const executionTime = Date.now() - startTime;
+          
+          // Atualizar sumário após execução forçada
+          const updatedSummaryFromForced = smartSummaryService.updateFromFunctionResult(
+            updatedSummary,
+            forcedIntent.function,
+            result,
+            input.message
+          );
+          
+          // Gerar resposta natural baseada no resultado
+          const naturalResponse = await this.generateNaturalResponse(
+            input.message,
+            result,
+            forcedIntent.function,
+            updatedSummaryFromForced
+          );
+          
+          return {
+            reply: naturalResponse,
+            summary: updatedSummaryFromForced,
+            actions: [result],
+            tokensUsed: 150, // Estimativa para execução forçada
+            responseTime: executionTime,
+            functionsExecuted: [forcedIntent.function],
+            metadata: {
+              stage: updatedSummaryFromForced.conversationState.stage,
+              confidence: forcedIntent.confidence,
+              reasoning: `Execução forçada: ${forcedIntent.reason}`,
+              reasoningUsed: true,
+              executionMode: 'forced_intent_detection'
+            }
+          };
+        } catch (error) {
+          logger.error('❌ [Sofia] Erro na execução forçada', {
+            function: forcedIntent.function,
+            error: error instanceof Error ? error.message : 'Unknown error'
+          });
+          
+          // Fallback para execução normal do GPT
+          logger.info('🔄 [Sofia] Fallback para execução normal após erro forçado');
+        }
+      }
+
+      // 6. INTERCEPTAR COMANDOS DIRETOS - ULTRA PROATIVO
       const directCommandResult = await this.handleDirectCommands(input, updatedSummary);
       if (directCommandResult) {
         return directCommandResult;
@@ -229,7 +224,10 @@ export class SofiaV5Agent {
           conversationHistory
       );
 
-      // 7. Primeira chamada OpenAI com tool_choice ULTRA AGRESSIVO
+      // 7. ✨ NOVO: Usar prompt melhorado para detecção mais precisa
+      const enhancedPrompt = this.buildEnhancedPrompt(updatedSummary);
+      
+      // 8. Primeira chamada OpenAI com tool_choice ULTRA AGRESSIVO
       const shouldForceFunction = this.shouldForceFunction(input.message);
       
       logger.info('🎯 [Sofia V5] Decisão de execução forçada', {
@@ -507,7 +505,7 @@ export class SofiaV5Agent {
     const messages = [
       {
         role: 'system',
-        content: SOFIA_V5_PROMPT
+        content: this.buildEnhancedPrompt(summary)
       }
     ];
 
@@ -1137,6 +1135,121 @@ JAMAIS tente calcular preços ou enviar fotos sem ter propriedades buscadas!`
   }
 
   /**
+   * ✨ NOVO: Construir prompt melhorado com contexto específico
+   */
+  private buildEnhancedPrompt(summary: SmartSummary): string {
+    const hasProperties = summary.propertiesViewed.length > 0;
+    const hasValidProperties = summary.propertiesViewed.filter(p => 
+      p.id && p.id.length >= 15 && !this.isInvalidPropertyId(p.id)
+    ).length > 0;
+
+    let contextualPrompt = SOFIA_PROMPT_V2;
+
+    // Adicionar contexto específico baseado no estado
+    if (hasValidProperties) {
+      const propertyList = summary.propertiesViewed
+        .filter(p => p.id && p.id.length >= 15)
+        .map((p, index) => `${index + 1}. ${p.name} (ID: ${p.id})`)
+        .join('\n');
+
+      contextualPrompt += `\n\n🏠 PROPRIEDADES NO CONTEXTO ATUAL:
+${propertyList}
+
+🧠 CONTEXTO ATIVO: Quando cliente mencionar "primeira", "segunda", "detalhes", "fotos", "preço" - 
+SEMPRE se refere às propriedades acima. NUNCA execute search_properties novamente!
+
+✅ USE:
+- "detalhes da primeira" → get_property_details(propertyId: "${summary.propertiesViewed[0]?.id}")
+- "fotos" → send_property_media(propertyId: "${summary.propertiesViewed[0]?.id}")  
+- "preço" → calculate_price(propertyId: "${summary.propertiesViewed[0]?.id}")`;
+    } else {
+      contextualPrompt += `\n\n🔍 CONTEXTO: Nenhuma propriedade no contexto ainda.
+Primeira busca ou nova busca necessária → search_properties()`;
+    }
+
+    // Adicionar regras de prioridade
+    contextualPrompt += `\n\n${FUNCTION_PRIORITY_RULES}`;
+
+    return contextualPrompt;
+  }
+
+  /**
+   * ✨ NOVO: Gerar resposta natural baseada no resultado da função
+   */
+  private async generateNaturalResponse(
+    userMessage: string,
+    functionResult: any,
+    functionName: string,
+    summary: SmartSummary
+  ): Promise<string> {
+    try {
+      // Usar GPT apenas para gerar resposta natural, sem executar funções
+      const responsePrompt = `Você é Sofia, consultora imobiliária calorosa e entusiasmada.
+
+SITUAÇÃO: O cliente disse "${userMessage}" e a função ${functionName} foi executada com sucesso.
+
+RESULTADO DA FUNÇÃO: ${JSON.stringify(functionResult, null, 2)}
+
+SUA TAREFA: Responder de forma natural e amigável sobre o resultado, como se você tivesse acabado de executar a ação.
+
+REGRAS:
+- Seja calorosa e use emojis 😊🏠💰
+- Máximo 3 linhas
+- Foque no resultado prático para o cliente
+- Não mencione aspectos técnicos
+- Seja entusiasmada e útil`;
+
+      const completion = await this.openai.chat.completions.create({
+        model: 'gpt-4o-mini',
+        messages: [
+          { role: 'system', content: responsePrompt },
+          { role: 'user', content: userMessage }
+        ],
+        max_tokens: 300,
+        temperature: 0.8
+      });
+
+      return completion.choices[0].message.content || 'Perfeito! Como posso ajudar mais? 😊';
+    } catch (error) {
+      logger.error('❌ [Sofia] Erro ao gerar resposta natural', { error });
+      
+      // Fallback simples baseado no tipo de função
+      const fallbackResponses = {
+        'search_properties': `${functionResult.success ? 
+          `Encontrei ${functionResult.count || 0} opções para você! 🏠✨` : 
+          'Não encontrei propriedades para esses critérios, mas podemos ajustar a busca! 😊'}`,
+        'get_property_details': `${functionResult.success ? 
+          'Aqui estão todos os detalhes da propriedade! 📋✨' : 
+          'Não consegui obter os detalhes agora, pode tentar novamente? 😅'}`,
+        'send_property_media': `${functionResult.success ? 
+          'Enviando as fotos da propriedade! 📸✨' : 
+          'Não consegui enviar as fotos agora, vou tentar novamente! 😊'}`,
+        'calculate_price': `${functionResult.success ? 
+          `O preço total fica R$ ${functionResult.calculation?.totalPrice || 'a calcular'}! 💰` : 
+          'Vou calcular o preço para você! 💰😊'}`,
+        'register_client': `${functionResult.success ? 
+          'Seu cadastro foi realizado com sucesso! 🎉👤' : 
+          'Vou finalizar seu cadastro! 😊'}`,
+        'check_visit_availability': `${functionResult.success ? 
+          'Verificando disponibilidade para visita! 📅✨' : 
+          'Vou verificar os horários disponíveis! 😊'}`,
+        'schedule_visit': `${functionResult.success ? 
+          'Visita agendada com sucesso! 📅🎉' : 
+          'Vou confirmar o agendamento da visita! 😊'}`,
+        'create_reservation': `${functionResult.success ? 
+          'Reserva confirmada! 🏆🎉' : 
+          'Vou finalizar sua reserva! 😊'}`,
+        'classify_lead_status': `${functionResult.success ? 
+          'Entendi seu interesse! Como posso ajudar mais? 😊' : 
+          'Obrigada pelo feedback! 😊'}`
+      };
+
+      return fallbackResponses[functionName as keyof typeof fallbackResponses] || 
+             'Pronto! Como posso ajudar mais? 😊✨';
+    }
+  }
+
+  /**
    * EXTRAIR DADOS DO CLIENTE AUTOMATICAMENTE - TESTE 6
    */
   private extractClientData(message: string): {
@@ -1256,7 +1369,7 @@ JAMAIS tente calcular preços ou enviar fotos sem ter propriedades buscadas!`
   /**
    * INTERCEPTAR COMANDOS DIRETOS - ULTRA PROATIVO
    */
-  private async handleDirectCommands(input: SofiaV5Input, summary: SmartSummary): Promise<SofiaV5Response | null> {
+  private async handleDirectCommands(input: SofiaInput, summary: SmartSummary): Promise<SofiaResponse | null> {
     const lowerMessage = input.message.toLowerCase();
     const startTime = Date.now();
     
@@ -1535,7 +1648,7 @@ Qual opção combina mais com você? 😊`;
   /**
    * Lidar com mensagens casuais
    */
-  private async handleCasualMessage(input: SofiaV5Input, summary: SmartSummary, startTime: number): Promise<SofiaV5Response> {
+  private async handleCasualMessage(input: SofiaInput, summary: SmartSummary, startTime: number): Promise<SofiaResponse> {
     const casualResponse = this.generateCasualResponse(input.message);
 
     await conversationContextService.updateContext(input.clientPhone, input.tenantId, {
@@ -1571,7 +1684,7 @@ Qual opção combina mais com você? 😊`;
   /**
    * Lidar com erros
    */
-  private handleError(error: any, input: SofiaV5Input, startTime: number): SofiaV5Response {
+  private handleError(error: any, input: SofiaInput, startTime: number): SofiaResponse {
     const responseTime = Date.now() - startTime;
 
     logger.error('❌ [Sofia V5] Erro ao processar mensagem', {
@@ -1612,7 +1725,7 @@ Qual opção combina mais com você? 😊`;
    * Salvar histórico da conversa
    */
   private async saveConversationHistory(
-      input: SofiaV5Input,
+      input: SofiaInput,
       reply: string,
       tokensUsed: number
   ): Promise<void> {
@@ -1675,4 +1788,4 @@ Qual opção combina mais com você? 😊`;
 }
 
 // Exportar instância singleton
-export const sofiaV5Agent = SofiaV5Agent.getInstance();
+export const sofiaAgent = SofiaAgent.getInstance();

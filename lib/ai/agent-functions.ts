@@ -11,6 +11,9 @@ import { LeadStatus } from '@/lib/types/crm';
 import { VisitStatus, TimePreference } from '@/lib/types/visit-appointment';
 import { logger } from '@/lib/utils/logger';
 import { conversationContextService } from '@/lib/services/conversation-context-service';
+import ConversationStateManager from '@/lib/ai-agent/conversation-state';
+import FallbackSystem from '@/lib/ai-agent/fallback-system';
+import { getDemoProperties, findDemoPropertyById } from '@/lib/ai-agent/demo-properties';
 
 // ===== TIPOS =====
 
@@ -258,7 +261,22 @@ class SmartResolver {
 export const AI_FUNCTIONS: AIFunction[] = [
   {
     name: 'search_properties',
-    description: 'Buscar propriedades disponíveis com filtros básicos. SEMPRE ordena por preço crescente (mais baratas primeiro).',
+    description: `Buscar propriedades disponíveis na base de dados. 
+    
+    🚨 USE APENAS QUANDO:
+    - Cliente faz PRIMEIRA busca ("quero alugar", "procuro apartamento")
+    - Cliente pede NOVA busca com critérios diferentes
+    - NÃO existem propriedades no contexto da conversa
+    
+    ❌ NÃO USE QUANDO:
+    - Cliente pergunta sobre propriedades já mostradas
+    - Cliente pede detalhes/fotos/preços de propriedade existente
+    - Já existem propriedades no resumo da conversa
+    
+    ✅ EXEMPLOS DE USO CORRETO:
+    - "quero alugar um apartamento" (primeira vez)
+    - "procuro algo em outra cidade" (novos critérios)
+    - "agora quero uma casa ao invés de apartamento" (mudança de critério)`,
     parameters: {
       type: 'object',
       properties: {
@@ -274,7 +292,22 @@ export const AI_FUNCTIONS: AIFunction[] = [
   },
   {
     name: 'send_property_media',
-    description: 'Enviar fotos e vídeos de uma propriedade específica para o cliente',
+    description: `Enviar fotos e vídeos de UMA propriedade específica. 
+    
+    📸 USE APENAS QUANDO cliente pede explicitamente mídia visual:
+    - "fotos", "imagens", "pictures", "fotografias"
+    - "vídeo", "vídeos", "tour virtual"
+    - "me mostra", "quero ver", "envia as fotos"
+    - "tem mais fotos?", "outras imagens"
+    
+    🚫 NÃO USE para:
+    - Perguntas sobre características da propriedade (use get_property_details)
+    - Perguntas sobre preços (use calculate_price)
+    
+    ✅ EXEMPLOS:
+    - "me manda as fotos" → send_property_media
+    - "quero ver as imagens do apartamento" → send_property_media
+    - "tem vídeo?" → send_property_media`,
     parameters: {
       type: 'object',
       properties: {
@@ -287,7 +320,21 @@ export const AI_FUNCTIONS: AIFunction[] = [
   },
   {
     name: 'get_property_details',
-    description: 'Obter detalhes completos de uma propriedade específica',
+    description: `Obter informações detalhadas de UMA propriedade ESPECÍFICA que JÁ FOI encontrada/mostrada anteriormente.
+    
+    🎯 USE QUANDO cliente pergunta sobre características específicas:
+    - "me conte mais sobre [propriedade]"
+    - "quantos quartos tem?"
+    - "qual o endereço/localização?"
+    - "tem piscina/garagem/pets permitidos?"
+    - "primeira opção", "segundo apartamento", "aquela casa"
+    
+    📋 REQUER: PropertyId de propriedade já conhecida/vista
+    
+    ✅ EXEMPLOS:
+    - "me fale mais sobre a primeira opção" → get_property_details
+    - "quantos quartos tem o apartamento?" → get_property_details
+    - "onde fica exatamente?" → get_property_details`,
     parameters: {
       type: 'object',
       properties: {
@@ -298,7 +345,20 @@ export const AI_FUNCTIONS: AIFunction[] = [
   },
   {
     name: 'calculate_price',
-    description: 'Calcular preço total de uma propriedade para período específico',
+    description: `Calcular preço total de estadia para período específico em UMA propriedade.
+    
+    💰 USE QUANDO cliente pergunta sobre valores/custos:
+    - "quanto fica", "quanto custa", "qual o valor"
+    - "preço para X dias", "valor total", "orçamento"
+    - "calcular", "valor da diária", "preço final"
+    - Menção a período específico + contexto de custo
+    
+    📊 REQUER: PropertyId + datas do período + número de hóspedes
+    
+    ✅ EXEMPLOS:
+    - "quanto fica 5 dias?" → calculate_price
+    - "qual o valor total para o fim de semana?" → calculate_price
+    - "preço para essas datas?" → calculate_price`,
     parameters: {
       type: 'object',
       properties: {
@@ -312,13 +372,26 @@ export const AI_FUNCTIONS: AIFunction[] = [
   },
   {
     name: 'register_client',
-    description: 'Registrar ou atualizar dados do cliente ANTES de criar reserva. SEMPRE solicitar CPF.',
+    description: `Registrar ou atualizar dados pessoais do cliente.
+    
+    👤 USE QUANDO cliente fornece dados pessoais:
+    - Nome completo + CPF (obrigatório para reservas)
+    - Email e telefone (opcionais)
+    - Cliente diz "quero me cadastrar" E fornece dados
+    
+    ⚠️ CRÍTICO: SEMPRE solicitar CPF completo (11 dígitos)
+    
+    ✅ EXEMPLOS:
+    - "João Silva, CPF 12345678900" → register_client
+    - "meu nome é Maria, CPF 98765432100, email maria@teste.com" → register_client
+    
+    ❌ NÃO EXECUTE se faltar nome OU CPF`,
     parameters: {
       type: 'object',
       properties: {
         name: { type: 'string', description: 'Nome completo do cliente' },
         phone: { type: 'string', description: 'Telefone do cliente (número do WhatsApp)' },
-        document: { type: 'string', description: 'CPF do cliente (OBRIGATÓRIO)' },
+        document: { type: 'string', description: 'CPF do cliente (OBRIGATÓRIO - 11 dígitos)' },
         email: { type: 'string', description: 'Email do cliente (opcional)' }
       },
       required: ['name', 'phone', 'document']
@@ -326,7 +399,18 @@ export const AI_FUNCTIONS: AIFunction[] = [
   },
   {
     name: 'check_visit_availability',
-    description: 'Verificar horários disponíveis para visita presencial na agenda da imobiliária',
+    description: `Verificar disponibilidade de horários para visita à propriedade.
+    
+    📅 USE QUANDO cliente PERGUNTA sobre possibilidade de visita (SEM data específica):
+    - "posso visitar?", "disponibilidade para visita"
+    - "que horários vocês têm?", "quando posso conhecer?"
+    - "agenda para visita", "como funciona a visita?"
+    
+    🚫 NÃO CONFUNDIR com schedule_visit (que é para marcar data específica)
+    
+    ✅ EXEMPLOS:
+    - "posso visitar o apartamento?" → check_visit_availability
+    - "que horários têm disponível?" → check_visit_availability`,
     parameters: {
       type: 'object',
       properties: {
@@ -339,7 +423,20 @@ export const AI_FUNCTIONS: AIFunction[] = [
   },
   {
     name: 'schedule_visit',
-    description: 'EXECUTAR IMEDIATAMENTE quando cliente solicita visita/agendamento com palavras como: "quero agendar", "visita", "conhecer", "ver o imóvel", "confirmo agendamento". NUNCA hesitar quando detectar intenção de agendamento.',
+    description: `Agendar visita em data e horário ESPECÍFICOS.
+    
+    📅 USE APENAS QUANDO cliente fornece data E horário definidos:
+    - "agendar para amanhã às 14h"
+    - "marcar visita segunda-feira 10h"
+    - "quero visitar dia 20 às 15h"
+    
+    ⚠️ REQUER: Data específica + horário específico
+    
+    ✅ EXEMPLOS:
+    - "agendar para amanhã às 14h" → schedule_visit
+    - "pode ser terça 15h?" → schedule_visit
+    
+    ❌ NÃO USE para perguntas genéricas sobre visita`,
     parameters: {
       type: 'object',
       properties: {
@@ -359,7 +456,19 @@ export const AI_FUNCTIONS: AIFunction[] = [
   },
   {
     name: 'create_reservation',
-    description: 'EXECUTAR IMEDIATAMENTE quando cliente confirma reserva com palavras como: "confirmo", "sim", "pode fazer", "quero reservar", "fechar", "aceito". NUNCA calcular preço novamente se cliente já confirmou. FINALIZAR a reserva agora.',
+    description: `Criar reserva definitiva após confirmação do cliente.
+    
+    🏆 USE QUANDO cliente confirma que quer reservar/fechar:
+    - "fazer reserva", "confirmar reserva", "quero reservar"
+    - "fechar negócio", "está fechado", "confirmado"
+    - "pode reservar", "vamos fechar", "está decidido"
+    
+    📋 REQUER: PropertyId + datas + dados do cliente + preço calculado
+    
+    ✅ EXEMPLOS:
+    - "quero confirmar a reserva" → create_reservation
+    - "está fechado, pode reservar" → create_reservation
+    - "vamos fechar o negócio" → create_reservation`,
     parameters: {
       type: 'object',
       properties: {
@@ -382,7 +491,20 @@ export const AI_FUNCTIONS: AIFunction[] = [
   },
   {
     name: 'classify_lead_status',
-    description: 'Classificar automaticamente o status do lead baseado no progresso da conversa e outcomes específicos',
+    description: `Classificar nível de interesse/status do lead baseado em sinais de compra.
+    
+    🎯 USE QUANDO cliente expressa sentimentos/intenções sobre a negociação:
+    - Interesse alto: "muito interessado", "adorei", "perfeito"
+    - Interesse médio: "gostei", "está bom", "talvez"
+    - Interesse baixo: "preciso pensar", "vou avaliar", "comparando opções"
+    - Negativo: "não serve", "muito caro", "não gostei"
+    
+    📊 Analisa temperatura do lead para estratégias de follow-up
+    
+    ✅ EXEMPLOS:
+    - "estou muito interessado!" → classify_lead_status
+    - "preciso pensar melhor" → classify_lead_status
+    - "adorei o apartamento" → classify_lead_status`,
     parameters: {
       type: 'object',
       properties: {
@@ -519,6 +641,20 @@ export class AgentFunctions {
         'default', 'example', 'test', 'sample', 'demo'
       ];
 
+      // ✨ NOVO: Verificar se é ID de propriedade demo primeiro
+      const demoProperty = findDemoPropertyById(propertyId);
+      if (demoProperty) {
+        logger.info('🎭 [PropertyValidation] Propriedade demo encontrada', {
+          propertyId: propertyId?.substring(0, 10) + '...',
+          propertyName: demoProperty.name?.substring(0, 30) + '...'
+        });
+        return {
+          isValid: true,
+          validId: propertyId,
+          property: demoProperty
+        };
+      }
+
       // Verificar se é um ID obviamente inválido
       if (!propertyId || invalidIds.includes(propertyId.toLowerCase()) || propertyId.length < 15) {
         logger.warn('🚨 [PropertyValidation] ID inválido detectado', {
@@ -617,7 +753,31 @@ export class AgentFunctions {
       const availableProperties = await propertyService.searchProperties(searchFilters);
 
       if (availableProperties.length === 0) {
-        logger.warn('⚠️ [AlternativeProperty] Nenhuma propriedade alternativa encontrada');
+        logger.warn('⚠️ [AlternativeProperty] Nenhuma propriedade real encontrada');
+        logger.info('🎭 [AlternativeProperty] Usando propriedades demo como alternativa');
+        
+        const demoProperties = getDemoProperties();
+        let filteredDemos = demoProperties;
+        
+        // Filtrar demos por critérios se especificados
+        if (guests) {
+          filteredDemos = filteredDemos.filter(p => p.guests >= guests);
+        }
+        
+        if (filteredDemos.length > 0) {
+          // Ordenar por preço (mais barata primeiro)
+          filteredDemos.sort((a, b) => (a.basePrice || 999999) - (b.basePrice || 999999));
+          
+          const selectedDemo = filteredDemos[0];
+          logger.info('✅ [AlternativeProperty] Propriedade demo selecionada', {
+            propertyId: selectedDemo.id?.substring(0, 10) + '...',
+            propertyName: selectedDemo.name?.substring(0, 30) + '...',
+            basePrice: selectedDemo.basePrice
+          });
+          return selectedDemo;
+        }
+        
+        logger.warn('⚠️ [AlternativeProperty] Nenhuma propriedade demo disponível');
         return null;
       }
 
@@ -684,20 +844,33 @@ export class AgentFunctions {
       }
 
       if (properties.length === 0) {
-        logger.warn('⚠️ [search_properties] Nenhuma propriedade encontrada', {
+        logger.warn('⚠️ [search_properties] Nenhuma propriedade encontrada na base real', {
           filters: searchFilters
         });
-        return {
-          success: false,
-          message: 'Nenhuma propriedade encontrada para os critérios especificados. Que tal tentar outras datas ou ampliar a busca?',
-          properties: [],
-          suggestions: [
-            'Tentar outras datas',
-            'Ampliar região de busca',
-            'Aumentar orçamento',
-            'Reduzir número de hóspedes'
-          ]
-        };
+        
+        // ✨ NOVO: Usar propriedades de demonstração para testes
+        logger.info('🎭 [search_properties] Usando propriedades de demonstração para testes');
+        properties = getDemoProperties();
+        
+        // Filtrar propriedades demo por localização se especificada
+        if (args.location) {
+          const locationLower = args.location.toLowerCase();
+          properties = properties.filter(p => 
+            p.location?.toLowerCase().includes(locationLower) ||
+            p.address?.toLowerCase().includes(locationLower)
+          );
+        }
+        
+        // Filtrar por número de hóspedes
+        if (args.guests) {
+          properties = properties.filter(p => p.guests >= args.guests);
+        }
+        
+        // Se ainda não tem propriedades após filtros, usar todas as demo
+        if (properties.length === 0) {
+          logger.info('🎭 [search_properties] Filtros muito restritivos, usando todas as demos');
+          properties = getDemoProperties();
+        }
       }
 
       // Filtrar por comodidades se especificadas
@@ -799,6 +972,12 @@ export class AgentFunctions {
         } catch (ctxError) {
           logger.warn('⚠️ [search_properties] Erro ao salvar no contexto', { ctxError });
         }
+      }
+
+      // ✨ NOVO: Atualizar estado da conversa com propriedades encontradas
+      const propertyIds = formattedProperties.map(p => p.id).filter(Boolean);
+      if (propertyIds.length > 0 && args.clientPhone) {
+        ConversationStateManager.updateAfterSearch(args.clientPhone, tenantId, propertyIds);
       }
 
       return {
@@ -1355,14 +1534,47 @@ export class AgentFunctions {
     try {
       logger.info('📋 [get_property_details] Buscando detalhes', {
         propertyId: args.propertyId?.substring(0, 10) + '...',
+        clientPhone: args.clientPhone?.substring(0, 6) + '***',
         tenantId
       });
 
+      let propertyId = args.propertyId;
+
+      // ✨ NOVO: Se não tem propertyId, tentar resolver pelo estado da conversa
+      if (!propertyId && args.clientPhone) {
+        propertyId = ConversationStateManager.resolvePropertyId(
+          args.clientPhone, 
+          tenantId, 
+          args.propertyIndex || args.propertyName
+        );
+        
+        if (propertyId) {
+          logger.info('✅ [get_property_details] PropertyId resolvido pelo estado', {
+            resolvedId: propertyId.substring(0, 10) + '...',
+            hint: args.propertyIndex || args.propertyName
+          });
+        }
+      }
+
+      if (!propertyId) {
+        logger.warn('🚨 [get_property_details] Nenhum propertyId disponível', {
+          hasClientPhone: !!args.clientPhone,
+          hasPropertyIndex: args.propertyIndex !== undefined,
+          hasPropertyName: !!args.propertyName
+        });
+        return {
+          success: false,
+          message: 'Para ver os detalhes, preciso que você especifique qual propriedade (ex: "primeira opção", "segundo apartamento"). Ou posso mostrar as opções disponíveis novamente?',
+          property: null,
+          suggestion: 'search_properties'
+        };
+      }
+
       // ✅ VALIDAR PROPERTY ID
-      const validation = await this.validatePropertyId(args.propertyId, tenantId);
+      const validation = await this.validatePropertyId(propertyId, tenantId);
       if (!validation.isValid) {
         logger.warn('🚨 [get_property_details] PropertyId inválido', {
-          propertyId: args.propertyId,
+          propertyId: propertyId,
           error: validation.error
         });
         return {
@@ -1374,6 +1586,11 @@ export class AgentFunctions {
       }
 
       const property = validation.property;
+
+      // ✨ NOVO: Atualizar propriedade em foco no estado
+      if (args.clientPhone) {
+        ConversationStateManager.setCurrentProperty(args.clientPhone, tenantId, propertyId);
+      }
 
       logger.info('✅ [get_property_details] Detalhes encontrados', {
         propertyId: property.id?.substring(0, 10) + '...',

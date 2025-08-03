@@ -134,9 +134,9 @@ export async function POST(request: NextRequest) {
       });
 
       // NOVA INTEGRAÇÃO: Sofia V5 com Sistema de Sumário Inteligente
-      const { sofiaV5Agent } = await import('@/lib/ai-agent/sofia-v5-improved');
+      const { sofiaAgent } = await import('@/lib/ai-agent/sofia-agent');
 
-      const result = await sofiaV5Agent.processMessage({
+      const result = await sofiaAgent.processMessage({
         message: validatedMessage,
         clientPhone: validatedPhone,
         tenantId: validatedTenantId,
