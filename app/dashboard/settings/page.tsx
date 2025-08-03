@@ -89,6 +89,49 @@ export default function SettingsPage() {
     status: 'disconnected'
   });
 
+  // Define checkWhatsAppStatus before using it in useEffect
+  const checkWhatsAppStatus = useCallback(async () => {
+    try {
+      const response = await fetch('/api/whatsapp/session');
+      if (response.ok) {
+        const data = await response.json();
+        
+        // WhatsApp status check completed
+        
+        const newSession = {
+          connected: data.data?.connected || false,
+          phone: data.data?.phoneNumber,
+          name: data.data?.businessName,
+          status: data.data?.status || 'disconnected',
+          qrCode: data.data?.qrCode
+        };
+        
+        setWhatsappSession(prevSession => {
+          // Only update if the session data actually changed
+          const hasChanged = 
+            prevSession.connected !== newSession.connected ||
+            prevSession.phone !== newSession.phone ||
+            prevSession.name !== newSession.name ||
+            prevSession.status !== newSession.status ||
+            prevSession.qrCode !== newSession.qrCode;
+          
+          if (hasChanged) {
+            return newSession;
+          }
+          return prevSession;
+        });
+        
+        // If we have a QR code and dialog is not open, open it
+        if (data.data?.qrCode && !qrDialogOpen && data.data?.status === 'qr') {
+          // QR Code found in status check
+          setQrDialogOpen(true);
+        }
+      }
+    } catch (error) {
+      // Error checking WhatsApp status
+    }
+  }, [qrDialogOpen]); // Only depend on qrDialogOpen
+
   useEffect(() => {
     let mounted = true;
     
@@ -193,48 +236,6 @@ export default function SettingsPage() {
       setProfileLoading(false);
     }
   };
-
-  const checkWhatsAppStatus = useCallback(async () => {
-    try {
-      const response = await fetch('/api/whatsapp/session');
-      if (response.ok) {
-        const data = await response.json();
-        
-        // WhatsApp status check completed
-        
-        const newSession = {
-          connected: data.data?.connected || false,
-          phone: data.data?.phoneNumber,
-          name: data.data?.businessName,
-          status: data.data?.status || 'disconnected',
-          qrCode: data.data?.qrCode
-        };
-        
-        setWhatsappSession(prevSession => {
-          // Only update if the session data actually changed
-          const hasChanged = 
-            prevSession.connected !== newSession.connected ||
-            prevSession.phone !== newSession.phone ||
-            prevSession.name !== newSession.name ||
-            prevSession.status !== newSession.status ||
-            prevSession.qrCode !== newSession.qrCode;
-          
-          if (hasChanged) {
-            return newSession;
-          }
-          return prevSession;
-        });
-        
-        // If we have a QR code and dialog is not open, open it
-        if (data.data?.qrCode && !qrDialogOpen && data.data?.status === 'qr') {
-          // QR Code found in status check
-          setQrDialogOpen(true);
-        }
-      }
-    } catch (error) {
-      // Error checking WhatsApp status
-    }
-  }, [qrDialogOpen]); // Only depend on qrDialogOpen
 
   const initializeWhatsApp = async () => {
     setLoading(true);
