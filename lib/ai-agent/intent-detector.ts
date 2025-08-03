@@ -33,7 +33,7 @@ export class IntentDetector {
     });
 
     // 1. DETECÇÃO DE CADASTRO (sempre forçar)
-    const clientDataMatch = this.detectClientRegistration(message);
+    const clientDataMatch = IntentDetector.detectClientRegistration(message);
     if (clientDataMatch) {
       return {
         function: 'register_client',
@@ -61,11 +61,11 @@ export class IntentDetector {
       logger.info('✅ [IntentDetector] TEM PROPRIEDADES - testando detecções específicas');
       
       // Detalhes da propriedade
-      const isDetails = this.isDetailsRequest(lowerMessage);
+      const isDetails = IntentDetector.isDetailsRequest(lowerMessage);
       logger.info('🔍 [IntentDetector] Teste detalhes', { isDetails, message: lowerMessage.substring(0, 30) });
       
       if (isDetails) {
-        const propertyIndex = this.extractPropertyIndex(lowerMessage);
+        const propertyIndex = IntentDetector.extractPropertyIndex(lowerMessage);
         const propertyId = conversationState.lastPropertyIds[propertyIndex] || conversationState.lastPropertyIds[0];
         
         logger.info('🎯 [IntentDetector] FORÇANDO get_property_details', { propertyIndex, propertyId: propertyId?.substring(0, 10) + '...' });
@@ -83,8 +83,8 @@ export class IntentDetector {
       }
 
       // Fotos/mídia
-      if (this.isMediaRequest(lowerMessage)) {
-        const propertyIndex = this.extractPropertyIndex(lowerMessage);
+      if (IntentDetector.isMediaRequest(lowerMessage)) {
+        const propertyIndex = IntentDetector.extractPropertyIndex(lowerMessage);
         const propertyId = conversationState.lastPropertyIds[propertyIndex] || conversationState.lastPropertyIds[0];
         
         return {
@@ -100,10 +100,10 @@ export class IntentDetector {
       }
 
       // Cálculo de preço
-      if (this.isPriceRequest(lowerMessage)) {
-        const propertyIndex = this.extractPropertyIndex(lowerMessage);
+      if (IntentDetector.isPriceRequest(lowerMessage)) {
+        const propertyIndex = IntentDetector.extractPropertyIndex(lowerMessage);
         const propertyId = conversationState.lastPropertyIds[propertyIndex] || conversationState.lastPropertyIds[0];
-        const dates = this.extractDates(message);
+        const dates = IntentDetector.extractDates(message);
         
         return {
           function: 'calculate_price',
@@ -111,9 +111,9 @@ export class IntentDetector {
           args: {
             propertyId,
             clientPhone,
-            checkIn: dates.checkIn || this.getDefaultCheckIn(),
-            checkOut: dates.checkOut || this.getDefaultCheckOut(),
-            guests: this.extractGuests(message) || 2
+            checkIn: dates.checkIn || IntentDetector.getDefaultCheckIn(),
+            checkOut: dates.checkOut || IntentDetector.getDefaultCheckOut(),
+            guests: IntentDetector.extractGuests(message) || 2
           },
           shouldForceExecution: true,
           reason: 'Pedido de preço com propriedades no contexto'
@@ -121,7 +121,7 @@ export class IntentDetector {
       }
 
       // Agendamento de visita com data/hora específica
-      const visitSchedule = this.detectVisitScheduling(message);
+      const visitSchedule = IntentDetector.detectVisitScheduling(message);
       if (visitSchedule) {
         const propertyId = conversationState.lastPropertyIds[0];
         
@@ -141,7 +141,7 @@ export class IntentDetector {
       }
 
       // Consulta de disponibilidade para visita (genérica)
-      if (this.isVisitAvailabilityRequest(lowerMessage)) {
+      if (IntentDetector.isVisitAvailabilityRequest(lowerMessage)) {
         return {
           function: 'check_visit_availability',
           confidence: 0.80,
@@ -154,9 +154,9 @@ export class IntentDetector {
       }
 
       // Criar reserva
-      if (this.isReservationRequest(lowerMessage)) {
+      if (IntentDetector.isReservationRequest(lowerMessage)) {
         const propertyId = conversationState.lastPropertyIds[0];
-        const dates = this.extractDates(message);
+        const dates = IntentDetector.extractDates(message);
         
         return {
           function: 'create_reservation',
@@ -164,9 +164,9 @@ export class IntentDetector {
           args: {
             propertyId,
             clientPhone,
-            checkIn: dates.checkIn || this.getDefaultCheckIn(),
-            checkOut: dates.checkOut || this.getDefaultCheckOut(),
-            guests: this.extractGuests(message) || 2
+            checkIn: dates.checkIn || IntentDetector.getDefaultCheckIn(),
+            checkOut: dates.checkOut || IntentDetector.getDefaultCheckOut(),
+            guests: IntentDetector.extractGuests(message) || 2
           },
           shouldForceExecution: true,
           reason: 'Pedido de reserva com propriedades no contexto'
@@ -176,8 +176,8 @@ export class IntentDetector {
 
     // 3. SE NÃO TEM PROPRIEDADES - detectar busca
     if (conversationState.lastPropertyIds.length === 0) {
-      if (this.isSearchRequest(lowerMessage)) {
-        const searchCriteria = this.extractSearchCriteria(message);
+      if (IntentDetector.isSearchRequest(lowerMessage)) {
+        const searchCriteria = IntentDetector.extractSearchCriteria(message);
         
         return {
           function: 'search_properties',
@@ -185,8 +185,8 @@ export class IntentDetector {
           args: {
             location: searchCriteria.location || 'Brasil',
             guests: searchCriteria.guests || 2,
-            checkIn: searchCriteria.checkIn || this.getDefaultCheckIn(),
-            checkOut: searchCriteria.checkOut || this.getDefaultCheckOut(),
+            checkIn: searchCriteria.checkIn || IntentDetector.getDefaultCheckIn(),
+            checkOut: searchCriteria.checkOut || IntentDetector.getDefaultCheckOut(),
             clientPhone
           },
           shouldForceExecution: true,
@@ -196,8 +196,8 @@ export class IntentDetector {
     }
 
     // 4. Classificação de interesse
-    if (this.isInterestExpression(lowerMessage)) {
-      const sentiment = this.analyzeSentiment(lowerMessage);
+    if (IntentDetector.isInterestExpression(lowerMessage)) {
+      const sentiment = IntentDetector.analyzeSentiment(lowerMessage);
       
       return {
         function: 'classify_lead_status',
@@ -368,7 +368,7 @@ export class IntentDetector {
     
     if (timeMatch || dateMatch) {
       return {
-        date: this.parseDate(dateMatch ? dateMatch[1] : 'amanhã'),
+        date: IntentDetector.parseDate(dateMatch ? dateMatch[1] : 'amanhã'),
         time: timeMatch ? `${timeMatch[1].padStart(2, '0')}:${(timeMatch[2] || '00').padStart(2, '0')}` : '14:00',
         extraArgs: {}
       };

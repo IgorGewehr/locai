@@ -10,11 +10,12 @@ import { SOFIA_CONFIG, getDefaultCheckIn, getDefaultCheckOut } from '@/lib/confi
 
 // Importar componentes essenciais
 import { smartSummaryService, SmartSummary } from './smart-summary-service';
-import { EnhancedIntentDetector, EnhancedIntent } from './intent-detector';
+import { IntentDetector, DetectedIntent } from './intent-detector';
 import { ConversationStateManager } from './conversation-state';
 import { loopPrevention } from './loop-prevention';
 import { dateValidator } from './date-validator';
 import { FallbackSystem } from './fallback-system';
+import { QualificationSystem } from './qualification-system';
 import { getOptimizedPrompt, generateResponseTemplate, ClientContext, ConversationContext } from './sofia-prompt';
 
 // ===== PROMPT PRINCIPAL =====
@@ -60,7 +61,7 @@ export class SofiaAgent {
 
   static getInstance(): SofiaAgent {
     if (!this.instance) {
-      logger.info('🚀 [Sofia V5] Criando nova instância inteligente');
+      logger.info('🚀 [Sofia V3] Criando nova instância inteligente');
       this.instance = new SofiaAgent();
     }
     return this.instance;
@@ -71,7 +72,7 @@ export class SofiaAgent {
     const functionsExecuted: string[] = [];
 
     try {
-      logger.info('💬 [Sofia V5] Processando mensagem', {
+      logger.info('💬 [Sofia V3] Processando mensagem', {
         clientPhone: this.maskPhone(input.clientPhone),
         messagePreview: input.message.substring(0, 50) + '...',
         source: input.metadata?.source || 'unknown',
@@ -104,7 +105,7 @@ export class SofiaAgent {
           conversationHistory
       );
 
-      logger.info('🧠 [Sofia V5] Sumário atualizado', {
+      logger.info('🧠 [Sofia V3] Sumário atualizado', {
         stage: updatedSummary.conversationState.stage,
         propertiesCount: updatedSummary.propertiesViewed.length,
         hasValidProperties: updatedSummary.propertiesViewed.filter(p =>
@@ -117,7 +118,7 @@ export class SofiaAgent {
       // 3. Validar consistência do sumário
       const validation = smartSummaryService.validateSummaryConsistency(updatedSummary);
       if (!validation.isValid) {
-        logger.warn('⚠️ [Sofia V5] Sumário inconsistente detectado', {
+        logger.warn('⚠️ [Sofia V3] Sumário inconsistente detectado', {
           issues: validation.issues,
           fixes: validation.fixes
         });
@@ -134,7 +135,7 @@ export class SofiaAgent {
       const hasBusinessIntent = this.hasBusinessIntent(input.message);
       
       if (isCasualMessage && !hasBusinessIntent && updatedSummary.conversationState.stage === 'greeting') {
-        logger.info('💬 [Sofia V5] Processando mensagem casual pura');
+        logger.info('💬 [Sofia V3] Processando mensagem casual pura');
         return await this.handleCasualMessage(input, updatedSummary, startTime);
       }
 
@@ -262,10 +263,16 @@ export class SofiaAgent {
       }
 
       // 6. INTERCEPTAR COMANDOS DIRETOS - ULTRA PROATIVO
+      logger.info('🔍 [Sofia V3] Iniciando verificação de comandos diretos');
       const directCommandResult = await this.handleDirectCommands(input, updatedSummary);
+      logger.info('🔍 [Sofia V3] Comandos diretos verificados', { 
+        hasResult: !!directCommandResult 
+      });
       if (directCommandResult) {
         return directCommandResult;
       }
+      
+      logger.info('🔍 [Sofia V3] Nenhum comando direto detectado, prosseguindo para OpenAI');
 
       // 6. Construir mensagens com validação crítica de IDs
       const messages = this.buildIntelligentMessages(
@@ -280,7 +287,7 @@ export class SofiaAgent {
       // 8. Primeira chamada OpenAI com tool_choice ULTRA AGRESSIVO
       const shouldForceFunction = this.shouldForceFunction(input.message);
       
-      logger.info('🎯 [Sofia V5] Decisão de execução forçada', {
+      logger.info('🎯 [Sofia V3] Decisão de execução forçada', {
         message: input.message.substring(0, 50),
         shouldForce: shouldForceFunction,
         toolChoice: shouldForceFunction ? 'required' : 'auto'
@@ -302,7 +309,7 @@ export class SofiaAgent {
 
       // 7. Processar function calls com validação crítica
       if (response.tool_calls && response.tool_calls.length > 0) {
-        logger.info('🔧 [Sofia V5] Processando function calls', {
+        logger.info('🔧 [Sofia V3] Processando function calls', {
           count: response.tool_calls.length,
           functions: response.tool_calls.map(tc => tc.function.name)
         });
@@ -337,7 +344,7 @@ export class SofiaAgent {
 
       const responseTime = Date.now() - startTime;
 
-      logger.info('✅ [Sofia V5] Mensagem processada com sucesso', {
+      logger.info('✅ [Sofia V3] Mensagem processada com sucesso', {
         responseTime: `${responseTime}ms`,
         tokensUsed: totalTokens,
         functionsExecuted,
@@ -394,13 +401,13 @@ export class SofiaAgent {
       // Isso permite que as funções usem SmartResolver e contexto
       if (!args.clientPhone && clientPhone) {
         args.clientPhone = clientPhone;
-        logger.info('💾 [Sofia V5] Adicionando clientPhone aos args', {
+        logger.info('💾 [Sofia V3] Adicionando clientPhone aos args', {
           functionName,
           clientPhone: clientPhone.substring(0, 6) + '***'
         });
       }
 
-      logger.info('🔧 [Sofia V5] Processando função', {
+      logger.info('🔧 [Sofia V3] Processando função', {
         functionName,
         args: {
           propertyId: args.propertyId?.substring(0, 10) + '...' || 'N/A',
@@ -416,7 +423,7 @@ export class SofiaAgent {
       const validationResult = this.validateAndFixArguments(args, updatedSummary, functionName);
 
       if (validationResult._skipExecution) {
-        logger.warn('⚠️ [Sofia V5] Execução de função pulada', {
+        logger.warn('⚠️ [Sofia V3] Execução de função pulada', {
           function: functionName,
           reason: validationResult._errorMessage || 'Dados já disponíveis'
         });
@@ -435,7 +442,7 @@ export class SofiaAgent {
       }
 
       if (validationResult._needsPropertySearch) {
-        logger.warn('⚠️ [Sofia V5] Precisa buscar propriedades primeiro');
+        logger.warn('⚠️ [Sofia V3] Precisa buscar propriedades primeiro');
 
         toolMessages.push({
           role: 'tool',
@@ -451,7 +458,7 @@ export class SofiaAgent {
       }
 
       if (validationResult._needsPriceCalculation) {
-        logger.warn('⚠️ [Sofia V5] Operação bloqueada - precisa calcular preço primeiro');
+        logger.warn('⚠️ [Sofia V3] Operação bloqueada - precisa calcular preço primeiro');
 
         toolMessages.push({
           role: 'tool',
@@ -507,7 +514,7 @@ export class SofiaAgent {
         });
 
       } catch (error) {
-        logger.error('❌ [Sofia V5] Erro na execução da função', {
+        logger.error('❌ [Sofia V3] Erro na execução da função', {
           functionName,
           error: error instanceof Error ? error.message : 'Unknown error',
           args: {
@@ -603,7 +610,7 @@ EXEMPLOS INCORRETOS (NUNCA USE):
       );
 
       if (validProperties.length > 0) {
-        logger.info('🏠 [Sofia V5] Propriedades válidas encontradas no contexto', {
+        logger.info('🏠 [Sofia V3] Propriedades válidas encontradas no contexto', {
           totalProperties: summary.propertiesViewed.length,
           validProperties: validProperties.length,
           firstValidId: validProperties[0].id?.substring(0, 10) + '...'
@@ -632,7 +639,7 @@ EXEMPLOS DE USO CORRETO:
 SE cliente não especificar qual propriedade, use a primeira: "${validProperties[0].id}"`
         });
       } else {
-        logger.warn('⚠️ [Sofia V5] Propriedades com IDs inválidos detectadas', {
+        logger.warn('⚠️ [Sofia V3] Propriedades com IDs inválidos detectadas', {
           totalProperties: summary.propertiesViewed.length,
           invalidIds: summary.propertiesViewed.map(p => p.id)
         });
@@ -647,7 +654,7 @@ JAMAIS use IDs inválidos - isso causará falha no sistema!`
         });
       }
     } else {
-      logger.info('🔍 [Sofia V5] Nenhuma propriedade no contexto');
+      logger.info('🔍 [Sofia V3] Nenhuma propriedade no contexto');
       
       messages.push({
         role: 'system',
@@ -879,7 +886,7 @@ JAMAIS tente calcular preços ou enviar fotos sem ter propriedades buscadas!`
   ): any {
     const fixedArgs = { ...args };
 
-    logger.info('🔍 [Sofia V5] Validando argumentos da função', {
+    logger.info('🔍 [Sofia V3] Validando argumentos da função', {
       functionName,
       hasPropertyId: !!args.propertyId,
       propertyId: args.propertyId?.substring(0, 10) + '...' || 'N/A',
@@ -892,7 +899,7 @@ JAMAIS tente calcular preços ou enviar fotos sem ter propriedades buscadas!`
       case 'get_property_details':
         // Validação crítica de propertyId
         if (!args.propertyId || this.isInvalidPropertyId(args.propertyId)) {
-          logger.warn('🚨 [Sofia V5] PropertyId inválido ou ausente', {
+          logger.warn('🚨 [Sofia V3] PropertyId inválido ou ausente', {
             provided: args.propertyId,
             isInvalid: this.isInvalidPropertyId(args.propertyId || ''),
             function: functionName
@@ -909,7 +916,7 @@ JAMAIS tente calcular preços ou enviar fotos sem ter propriedades buscadas!`
             const selectedProperty = interestedProperty || validProperties[0];
 
             fixedArgs.propertyId = selectedProperty.id;
-            logger.info('✅ [Sofia V5] PropertyId corrigido automaticamente', {
+            logger.info('✅ [Sofia V3] PropertyId corrigido automaticamente', {
               function: functionName,
               originalId: args.propertyId,
               correctedId: selectedProperty.id?.substring(0, 10) + '...',
@@ -918,7 +925,7 @@ JAMAIS tente calcular preços ou enviar fotos sem ter propriedades buscadas!`
             });
           } else {
             // Não tem propriedades válidas - precisa buscar primeiro
-            logger.warn('⚠️ [Sofia V5] Não há propriedades válidas no contexto', {
+            logger.warn('⚠️ [Sofia V3] Não há propriedades válidas no contexto', {
               totalProperties: summary.propertiesViewed.length,
               function: functionName
             });
@@ -935,12 +942,12 @@ JAMAIS tente calcular preços ou enviar fotos sem ter propriedades buscadas!`
             if (summary.searchCriteria.checkIn && summary.searchCriteria.checkOut) {
               fixedArgs.checkIn = summary.searchCriteria.checkIn;
               fixedArgs.checkOut = summary.searchCriteria.checkOut;
-              logger.info('✅ [Sofia V5] Datas preenchidas do contexto', {
+              logger.info('✅ [Sofia V3] Datas preenchidas do contexto', {
                 checkIn: fixedArgs.checkIn,
                 checkOut: fixedArgs.checkOut
               });
             } else {
-              logger.warn('⚠️ [Sofia V5] Datas não disponíveis', {
+              logger.warn('⚠️ [Sofia V3] Datas não disponíveis', {
                 hasCheckIn: !!args.checkIn,
                 hasCheckOut: !!args.checkOut,
                 summaryCheckIn: summary.searchCriteria.checkIn,
@@ -955,7 +962,7 @@ JAMAIS tente calcular preços ou enviar fotos sem ter propriedades buscadas!`
 
           if (!args.guests && summary.searchCriteria.guests) {
             fixedArgs.guests = summary.searchCriteria.guests;
-            logger.info('✅ [Sofia V5] Guests preenchido do contexto', { guests: fixedArgs.guests });
+            logger.info('✅ [Sofia V3] Guests preenchido do contexto', { guests: fixedArgs.guests });
           }
         }
         break;
@@ -964,7 +971,7 @@ JAMAIS tente calcular preços ou enviar fotos sem ter propriedades buscadas!`
         // Verificar se tem preço calculado
         const hasCalculatedPrice = summary.propertiesViewed.some(p => p.priceCalculated);
         if (!hasCalculatedPrice) {
-          logger.warn('⚠️ [Sofia V5] Tentativa de reserva sem preço calculado');
+          logger.warn('⚠️ [Sofia V3] Tentativa de reserva sem preço calculado');
           fixedArgs._needsPriceCalculation = true;
           return fixedArgs;
         }
@@ -977,7 +984,7 @@ JAMAIS tente calcular preços ou enviar fotos sem ter propriedades buscadas!`
 
           if (interestedProperty) {
             fixedArgs.propertyId = interestedProperty.id;
-            logger.info('✅ [Sofia V5] PropertyId para reserva corrigido', {
+            logger.info('✅ [Sofia V3] PropertyId para reserva corrigido', {
               correctedId: interestedProperty.id?.substring(0, 10) + '...',
               propertyName: interestedProperty.name
             });
@@ -1000,7 +1007,7 @@ JAMAIS tente calcular preços ou enviar fotos sem ter propriedades buscadas!`
                 (args.checkIn === currentCriteria.checkIn && args.checkOut === currentCriteria.checkOut);
 
             if (sameGuests && sameLocation && sameDates) {
-              logger.warn('⚠️ [Sofia V5] Busca desnecessária evitada', {
+              logger.warn('⚠️ [Sofia V3] Busca desnecessária evitada', {
                 existingProperties: summary.propertiesViewed.length,
                 validProperties: summary.propertiesViewed.filter(p =>
                     p.id && p.id.length >= 15 && !this.isInvalidPropertyId(p.id)
@@ -1017,7 +1024,7 @@ JAMAIS tente calcular preços ou enviar fotos sem ter propriedades buscadas!`
         break;
     }
 
-    logger.info('✅ [Sofia V5] Argumentos validados', {
+    logger.info('✅ [Sofia V3] Argumentos validados', {
       functionName,
       finalPropertyId: fixedArgs.propertyId?.substring(0, 10) + '...' || 'N/A',
       hasRequiredArgs: this.hasRequiredArgs(functionName, fixedArgs)
@@ -1068,7 +1075,7 @@ JAMAIS tente calcular preços ou enviar fotos sem ter propriedades buscadas!`
         /^[A-Z]{3}[0-9]{3}$/.test(id);
 
     if (isInvalid) {
-      logger.warn('🚨 [Sofia V5] ID inválido detectado', {
+      logger.warn('🚨 [Sofia V3] ID inválido detectado', {
         id,
         reason: invalidPatterns.includes(id.toLowerCase()) ? 'padrão conhecido' :
             id.length < 15 ? 'muito curto' : 'formato inválido'
@@ -1093,7 +1100,7 @@ JAMAIS tente calcular preços ou enviar fotos sem ter propriedades buscadas!`
     const normalizedMessage = message.trim().toLowerCase();
     const result = casualPatterns.some(pattern => pattern.test(normalizedMessage));
 
-    logger.info('🔍 [Sofia V5] Detecção de mensagem casual', {
+    logger.info('🔍 [Sofia V3] Detecção de mensagem casual', {
       message: normalizedMessage,
       isCasual: result
     });
@@ -1120,7 +1127,7 @@ JAMAIS tente calcular preços ou enviar fotos sem ter propriedades buscadas!`
     const normalizedMessage = message.toLowerCase();
     const hasIntent = businessKeywords.some(keyword => normalizedMessage.includes(keyword));
 
-    logger.info('🔍 [Sofia V5] Detecção de intenção de negócio', {
+    logger.info('🔍 [Sofia V3] Detecção de intenção de negócio', {
       messagePreview: message.substring(0, 50),
       hasBusinessIntent: hasIntent
     });
@@ -1178,7 +1185,7 @@ JAMAIS tente calcular preços ou enviar fotos sem ter propriedades buscadas!`
 
     const shouldForce = forceFunctionPatterns.some(pattern => pattern.test(lowerMessage));
     
-    logger.info('🎯 [Sofia V5] Avaliação ULTRA AGRESSIVA de função', {
+    logger.info('🎯 [Sofia V3] Avaliação ULTRA AGRESSIVA de função', {
       messagePreview: message.substring(0, 50),
       shouldForceFunction: shouldForce,
       detectedPatterns: forceFunctionPatterns.filter(p => p.test(lowerMessage)).length
@@ -1373,7 +1380,7 @@ REGRAS:
       result.hasClientData = false;
     }
 
-    logger.info('🔍 [Sofia V5] Extração de dados do cliente', {
+    logger.info('🔍 [Sofia V3] Extração de dados do cliente', {
       messagePreview: message.substring(0, 50),
       hasClientData: result.hasClientData,
       hasName: !!result.name,
@@ -1434,7 +1441,7 @@ REGRAS:
         (lowerMessage.includes('quero alugar') && lowerMessage.includes('apartamento')) ||
         (lowerMessage.match(/^quero\s+alugar\s+um?\s+apartamento/i))) {
       
-      logger.info('🚨 [Sofia V5] COMANDO DIRETO DETECTADO - Executando search_properties automaticamente');
+      logger.info('🚨 [Sofia V3] COMANDO DIRETO DETECTADO - Executando search_properties automaticamente');
       
       try {
         // Executar search_properties diretamente
@@ -1499,7 +1506,7 @@ Qual dessas opções te interessou mais? Posso calcular o preço para as suas da
         };
 
       } catch (error) {
-        logger.error('❌ [Sofia V5] Erro ao executar comando direto', {message: "", name: "", error });
+        logger.error('❌ [Sofia V3] Erro ao executar comando direto', {message: "", name: "", error });
         return null; // Fallback para fluxo normal
       }
     }
@@ -1507,7 +1514,7 @@ Qual dessas opções te interessou mais? Posso calcular o preço para as suas da
     // COMANDO DIRETO: Detecção de dados do cliente (TESTE 6)
     const clientDataMatch = this.extractClientData(input.message);
     if (clientDataMatch.hasClientData) {
-      logger.info('🚨 [Sofia V5] DADOS DE CLIENTE DETECTADOS - Executando register_client automaticamente');
+      logger.info('🚨 [Sofia V3] DADOS DE CLIENTE DETECTADOS - Executando register_client automaticamente');
       
       try {
         const result = await AgentFunctions.executeFunction(
@@ -1563,7 +1570,7 @@ Qual dessas opções te interessou mais? Posso calcular o preço para as suas da
         };
 
       } catch (error) {
-        logger.error('❌ [Sofia V5] Erro ao executar register_client direto', { error });
+        logger.error('❌ [Sofia V3] Erro ao executar register_client direto', { error });
         return null;
       }
     }
@@ -1573,7 +1580,7 @@ Qual dessas opções te interessou mais? Posso calcular o preço para as suas da
         lowerMessage.includes('conhecer') || lowerMessage.includes('ver o imóvel') ||
         lowerMessage.includes('visita')) {
       
-      logger.info('🚨 [Sofia V5] SOLICITAÇÃO DE VISITA DETECTADA');
+      logger.info('🚨 [Sofia V3] SOLICITAÇÃO DE VISITA DETECTADA');
       
       // Se tem propriedades no contexto, prosseguir com agendamento
       if (summary.propertiesViewed && summary.propertiesViewed.length > 0) {
@@ -1615,7 +1622,7 @@ Qual opção combina mais com você? 😊`;
         lowerMessage.includes('fechar') || lowerMessage.includes('confirmar a reserva') ||
         lowerMessage.includes('aceito') || lowerMessage.includes('pode fazer')) {
       
-      logger.info('🚨 [Sofia V5] CONFIRMAÇÃO DE RESERVA DETECTADA');
+      logger.info('🚨 [Sofia V3] CONFIRMAÇÃO DE RESERVA DETECTADA');
       
       // Verificar se tem todos os dados necessários para reserva
       const hasProperty = summary.propertiesViewed && summary.propertiesViewed.length > 0;
@@ -1623,7 +1630,7 @@ Qual opção combina mais com você? 😊`;
       const hasPrice = summary.propertiesViewed?.some(p => p.priceCalculated);
       
       if (hasProperty && hasClient && hasPrice) {
-        logger.info('🎉 [Sofia V5] Todos os dados disponíveis - Criando reserva automaticamente');
+        logger.info('🎉 [Sofia V3] Todos os dados disponíveis - Criando reserva automaticamente');
         
         try {
           const interestedProperty = summary.propertiesViewed.find(p => p.interested) || summary.propertiesViewed[0];
@@ -1663,7 +1670,7 @@ Qual opção combina mais com você? 😊`;
           };
 
         } catch (error) {
-          logger.error('❌ [Sofia V5] Erro ao criar reserva direta', { error });
+          logger.error('❌ [Sofia V3] Erro ao criar reserva direta', { error });
           return null;
         }
       } else {
@@ -1714,7 +1721,7 @@ Qual opção combina mais com você? 😊`;
 
     const responseTime = Date.now() - startTime;
 
-    logger.info('💬 [Sofia V5] Resposta casual gerada', {
+    logger.info('💬 [Sofia V3] Resposta casual gerada', {
       responseTime: `${responseTime}ms`,
       responseLength: casualResponse.length
     });
@@ -1740,7 +1747,7 @@ Qual opção combina mais com você? 😊`;
   private handleError(error: any, input: SofiaInput, startTime: number): SofiaResponse {
     const responseTime = Date.now() - startTime;
 
-    logger.error('❌ [Sofia V5] Erro ao processar mensagem', {
+    logger.error('❌ [Sofia V3] Erro ao processar mensagem', {
       error: error instanceof Error ? error.message : 'Unknown error',
       clientPhone: this.maskPhone(input.clientPhone),
       messagePreview: input.message.substring(0, 50) + '...',
@@ -1769,7 +1776,7 @@ Qual opção combina mais com você? 😊`;
     try {
       return context.context.messageHistory?.slice(-10) || [];
     } catch (error) {
-      logger.warn('⚠️ [Sofia V5] Erro ao obter histórico', { error });
+      logger.warn('⚠️ [Sofia V3] Erro ao obter histórico', { error });
       return [];
     }
   }
@@ -1797,7 +1804,7 @@ Qual opção combina mais com você? 😊`;
         })
       ]);
     } catch (error) {
-      logger.error('❌ [Sofia V5] Erro ao salvar histórico', {
+      logger.error('❌ [Sofia V3] Erro ao salvar histórico', {
         error: error instanceof Error ? error.message : 'Unknown error'
       });
     }
@@ -1835,7 +1842,7 @@ Qual opção combina mais com você? 😊`;
    */
   async clearClientContext(clientPhone: string, tenantId: string): Promise<void> {
     try {
-      logger.info('🧹 [Sofia V5] Limpando contexto do cliente', {
+      logger.info('🧹 [Sofia V3] Limpando contexto do cliente', {
         clientPhone: this.maskPhone(clientPhone),
         tenantId
       });
@@ -1846,11 +1853,11 @@ Qual opção combina mais com você? 😊`;
       // Limpar cache do SmartSummary também
       smartSummaryService.clearCacheForClient(clientPhone);
       
-      logger.info('✅ [Sofia V5] Contexto e cache limpos com sucesso', {
+      logger.info('✅ [Sofia V3] Contexto e cache limpos com sucesso', {
         clientPhone: this.maskPhone(clientPhone)
       });
     } catch (error) {
-      logger.error('❌ [Sofia V5] Erro ao limpar contexto', {
+      logger.error('❌ [Sofia V3] Erro ao limpar contexto', {
         error: error instanceof Error ? error.message : 'Unknown error',
         clientPhone: this.maskPhone(clientPhone)
       });

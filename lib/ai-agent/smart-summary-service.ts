@@ -1,5 +1,5 @@
 // lib/ai-agent/smart-summary-service.ts
-// SISTEMA DE SUMÁRIO INTELIGENTE - Sofia V5 CORRIGIDO
+// SISTEMA DE SUMÁRIO INTELIGENTE - Sofia V3 Consolidada
 // Extrai e mantém informações relevantes progressivamente com logs detalhados
 
 import OpenAI from 'openai';

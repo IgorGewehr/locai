@@ -1,5 +1,5 @@
 // app/api/agent/route.ts - VERSÃO CORRIGIDA
-// Integração com Sofia V5 + Sistema de Sumário Inteligente + Logs detalhados
+// Integração com Sofia V3 + Sistema de Sumário Inteligente + Logs detalhados
 
 import { NextRequest, NextResponse } from 'next/server';
 import { validatePhoneNumber, validateMessageContent, validateTenantId } from '@/lib/utils/validation';
@@ -124,16 +124,16 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // 4. Processar com Sofia V5 (versão corrigida com validações críticas)
+    // 4. Processar com Sofia V3 (versão corrigida com validações críticas)
     try {
-      logger.info('🤖 [API] Iniciando processamento com Sofia V5', {
+      logger.info('🤖 [API] Iniciando processamento com Sofia V3', {
         requestId,
         phoneMasked: validatedPhone.substring(0, 4) + '***',
         tenantId: validatedTenantId,
         source: metadata?.source || (isTest ? 'test' : 'api')
       });
 
-      // NOVA INTEGRAÇÃO: Sofia V5 com Sistema de Sumário Inteligente
+      // NOVA INTEGRAÇÃO: Sofia V3 com Sistema de Sumário Inteligente
       const { sofiaAgent } = await import('@/lib/ai-agent/sofia-agent');
 
       const result = await sofiaAgent.processMessage({
@@ -146,7 +146,7 @@ export async function POST(request: NextRequest) {
         }
       });
 
-      logger.info('✅ [API] Sofia V5 processamento concluído', {
+      logger.info('✅ [API] Sofia V3 processamento concluído', {
         requestId,
         responseTime: result.responseTime,
         tokensUsed: result.tokensUsed,
@@ -254,7 +254,7 @@ export async function POST(request: NextRequest) {
             smartSummaryEnabled: true,
             validationsPassed: true,
             rateLimitOk: !isTest,
-            cacheUsed: false // Sofia V5 não usa cache ainda
+            cacheUsed: false // Sofia V3 não usa cache ainda
           },
 
           // Metadata da requisição
@@ -279,7 +279,7 @@ export async function POST(request: NextRequest) {
     } catch (agentError) {
       const processingTime = Date.now() - startTime;
 
-      logger.error('❌ [API] Erro na Sofia V5', {
+      logger.error('❌ [API] Erro na Sofia V3', {
         requestId,
         error: agentError instanceof Error ? agentError.message : 'Unknown error',
         stack: agentError instanceof Error ? agentError.stack : undefined,
@@ -452,14 +452,14 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // Métricas gerais da Sofia V5
+    // Métricas gerais da Sofia V3
     if (action === 'metrics') {
       logger.info('📈 [API GET] Buscando métricas do sistema', { requestId });
 
       try {
         // Métricas básicas do sistema
         const metrics = {
-          version: 'Sofia V5',
+          version: 'Sofia V3',
           features: [
             'Smart Summary System',
             'Property ID Validation',
@@ -528,7 +528,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      message: 'Sofia V5 API está funcionando perfeitamente',
+      message: 'Sofia V3 API está funcionando perfeitamente',
       data: {
         version: '5.0.0',
         status: 'healthy',
