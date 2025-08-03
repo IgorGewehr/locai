@@ -1,18 +1,21 @@
 // lib/ai-agent/sofia-agent.ts
-// SOFIA - Agente conversacional inteligente para imobiliária
-// Sistema de detecção avançada de intenções com GPT-4o Mini
+// SOFIA V3 - Versão Final Consolidada e Otimizada
+// Agente de IA Conversacional com Detecção Aprimorada e Personalização
 
 import { OpenAI } from 'openai';
-import { smartSummaryService, SmartSummary } from './smart-summary-service';
 import { getOpenAIFunctions, AgentFunctions } from '@/lib/ai/agent-functions';
 import { conversationContextService } from '@/lib/services/conversation-context-service';
 import { logger } from '@/lib/utils/logger';
-import { SOFIA_PROMPT } from './sofia-prompt';
-import { SOFIA_PROMPT_V2, FUNCTION_PRIORITY_RULES } from './sofia-prompt-v2';
-import { SOFIA_HUMANIZED_PROMPT, shouldQualifyFirst, extractInfoFromMessage, generateHumanizedContext } from './sofia-prompt-humanized';
-import QualificationSystem from './qualification-system';
-import FallbackSystem from './fallback-system';
-import IntentDetector, { DetectedIntent } from './intent-detector';
+import { SOFIA_CONFIG, getDefaultCheckIn, getDefaultCheckOut } from '@/lib/config/sofia-config';
+
+// Importar componentes essenciais
+import { smartSummaryService, SmartSummary } from './smart-summary-service';
+import { EnhancedIntentDetector, EnhancedIntent } from './intent-detector';
+import { ConversationStateManager } from './conversation-state';
+import { loopPrevention } from './loop-prevention';
+import { dateValidator } from './date-validator';
+import { FallbackSystem } from './fallback-system';
+import { getOptimizedPrompt, generateResponseTemplate, ClientContext, ConversationContext } from './sofia-prompt';
 
 // ===== PROMPT PRINCIPAL =====
 // Usando prompt importado do arquivo dedicado

@@ -47,7 +47,8 @@
       "Bash(cp:*)",
       "Bash(npx ts-node:*)",
       "Bash(npx json-lint:*)",
-      "Bash(cat:*)"
+      "Bash(cat:*)",
+      "Bash(bash:*)"
     ],
     "deny": []
   }
