@@ -350,7 +350,7 @@ export default function PropertiesPage() {
                 <CardMedia
                   component="img"
                   height="200"
-                  image={property.photos[0]?.url || '/api/placeholder/400/300'}
+                  image={property.photos?.[0]?.url || '/api/placeholder/400/300'}
                   alt={property.title}
                   className="property-image"
                   sx={{ 

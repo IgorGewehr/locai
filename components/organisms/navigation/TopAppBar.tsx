@@ -321,7 +321,7 @@ export default function TopAppBar({ onLogout }: TopAppBarProps) {
             >
               <img 
                 src="/logo.jpg" 
-                alt="LocAI Logo" 
+                alt="AlugZap Logo" 
                 width={32} 
                 height={32}
                 style={{ 
@@ -341,7 +341,7 @@ export default function TopAppBar({ onLogout }: TopAppBarProps) {
                 display: { xs: 'none', sm: 'block' },
               }}
             >
-              LocAI
+              AlugZap
             </Typography>
           </Box>
 
@@ -771,7 +771,7 @@ export default function TopAppBar({ onLogout }: TopAppBarProps) {
             >
               <img 
                 src="/logo.jpg" 
-                alt="LocAI Logo" 
+                alt="AlugZap Logo" 
                 width={28} 
                 height={28}
                 style={{ 
@@ -790,7 +790,7 @@ export default function TopAppBar({ onLogout }: TopAppBarProps) {
                 fontSize: '1.125rem',
               }}
             >
-              LocAI
+              AlugZap
             </Typography>
           </Box>
           <IconButton 

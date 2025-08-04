@@ -38,7 +38,7 @@ import { PropertyAmenities } from '@/components/organisms/PropertyAmenities/Prop
 import { PropertyPricing } from '@/components/organisms/PropertyPricing/PropertyPricing';
 import PropertyMediaUpload from '@/components/organisms/PropertyMediaUpload/PropertyMediaUpload';
 import { Property, PricingRule, PropertyCategory, PaymentMethod, PropertyStatus, PropertyType } from '@/lib/types/property';
-import { propertyService } from '@/lib/firebase/firestore';
+import { useTenant } from '@/contexts/TenantContext';
 
 interface TabPanelProps {
   children?: React.ReactNode;
@@ -97,6 +97,7 @@ export default function EditPropertyPage() {
   const router = useRouter();
   const params = useParams();
   const propertyId = params?.id as string;
+  const { services, isReady } = useTenant();
   
   const [activeTab, setActiveTab] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -117,10 +118,10 @@ export default function EditPropertyPage() {
   useEffect(() => {
     // Load property data from Firebase
     const loadProperty = async () => {
-      if (!propertyId) return;
+      if (!propertyId || !services || !isReady) return;
       
       try {
-        const property = await propertyService.getById(propertyId);
+        const property = await services.properties.get(propertyId);
         
         if (!property) {
           setError('Propriedade não encontrada');
@@ -145,7 +146,7 @@ export default function EditPropertyPage() {
     };
 
     loadProperty();
-  }, [propertyId, reset]);
+  }, [propertyId, services, isReady, reset]);
 
   const onSubmit = async (data: Property) => {
     console.log('Form submitted with data:', data);

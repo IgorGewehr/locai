@@ -205,7 +205,7 @@ export default function LoadingScreen({
               mb: 4,
             }}
           >
-            LocAI
+            AlugZap
           </Typography>
 
           {/* Feature icons */}
@@ -394,7 +394,7 @@ export default function LoadingScreen({
             WebkitTextFillColor: 'transparent',
           }}
         >
-          LocAI
+          AlugZap
         </Typography>
 
         {/* Subtitle */}

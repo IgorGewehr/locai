@@ -1,8 +1,8 @@
 "use client";
 
 import { createContext, useContext, useState, useEffect, useCallback, useMemo, useRef } from "react";
-import { onAuthStateChanged, signOut } from "firebase/auth";
-import { doc, getDoc, updateDoc } from "firebase/firestore";
+import { onAuthStateChanged, signOut, signInWithEmailAndPassword, createUserWithEmailAndPassword, sendPasswordResetEmail, updateProfile } from "firebase/auth";
+import { doc, getDoc, updateDoc, setDoc } from "firebase/firestore";
 import { auth, db } from "@/lib/firebase/config";
 import { useRouter, usePathname } from "next/navigation";
 import { logger } from "@/lib/utils/logger";
@@ -34,6 +34,9 @@ interface AuthContextType {
   // Funções principais
   logout: () => Promise<void>;
   reloadUser: (forceRefresh?: boolean) => Promise<void>;
+  signIn: (email: string, password: string) => Promise<void>;
+  signUp: (email: string, password: string, name: string) => Promise<void>;
+  resetPassword: (email: string) => Promise<void>;
   
   // Verificações
   isAdmin: boolean;
@@ -411,6 +414,95 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     return user;
   }, [user]);
 
+  const signIn = useCallback(async (email: string, password: string): Promise<void> => {
+    try {
+      logger.info('🔐 [Auth] Iniciando login', { email });
+      
+      const result = await signInWithEmailAndPassword(auth, email, password);
+      
+      logger.info('✅ [Auth] Login realizado com sucesso', { 
+        uid: result.user.uid,
+        email: result.user.email 
+      });
+      
+      // O listener onAuthStateChanged vai processar o usuário automaticamente
+    } catch (error: any) {
+      logger.error('❌ [Auth] Erro no login', {
+        email,
+        error: error.message,
+        code: error.code
+      });
+      throw error;
+    }
+  }, []);
+
+  const signUp = useCallback(async (email: string, password: string, name: string): Promise<void> => {
+    try {
+      logger.info('👤 [Auth] Iniciando registro', { email, name });
+      
+      // Criar usuário no Firebase Auth
+      const result = await createUserWithEmailAndPassword(auth, email, password);
+      
+      // Atualizar perfil do usuário
+      await updateProfile(result.user, {
+        displayName: name
+      });
+      
+      // Criar documento do usuário no Firestore
+      const userData = {
+        email,
+        name,
+        fullName: name,
+        role: 'user',
+        isActive: true,
+        emailVerified: result.user.emailVerified,
+        plan: 'free',
+        createdAt: new Date(),
+        lastLogin: new Date(),
+        whatsappNumbers: [],
+        authProvider: 'email'
+      };
+      
+      await setDoc(doc(db, 'users', result.user.uid), userData);
+      
+      logger.info('✅ [Auth] Registro realizado com sucesso', { 
+        uid: result.user.uid,
+        email: result.user.email,
+        name 
+      });
+      
+      // O listener onAuthStateChanged vai processar o usuário automaticamente
+    } catch (error: any) {
+      logger.error('❌ [Auth] Erro no registro', {
+        email,
+        name,
+        error: error.message,
+        code: error.code
+      });
+      throw error;
+    }
+  }, []);
+
+  const resetPassword = useCallback(async (email: string): Promise<void> => {
+    try {
+      logger.info('🔐 [Auth] Enviando email de reset de senha', { email });
+      
+      await sendPasswordResetEmail(auth, email, {
+        url: `${window.location.origin}/login`,
+        handleCodeInApp: false,
+      });
+      
+      logger.info('✅ [Auth] Email de reset enviado', { email });
+    } catch (error: any) {
+      logger.error('❌ [Auth] Erro ao enviar email de reset', {
+        email,
+        error: error.message,
+        code: error.code
+      });
+      throw error;
+    }
+  }, []);
+
   // ===== CLEANUP =====
 
   useEffect(() => {
@@ -433,6 +525,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     // Funções principais
     logout,
     reloadUser,
+    signIn,
+    signUp,
+    resetPassword,
     
     // Verificações
     isAdmin: user?.role === 'admin',
@@ -446,6 +541,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     loading,
     logout,
     reloadUser,
+    signIn,
+    signUp,
+    resetPassword,
     getTenantId,
     getUserData
   ]);

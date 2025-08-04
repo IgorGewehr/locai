@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { clientService } from '@/lib/firebase/firestore';
+import { useTenant } from '@/contexts/TenantContext';
 import { clientServiceWrapper } from '@/lib/services/client-service';
 import type { Client } from '@/lib/types/client';
 import { CustomerSegment, AcquisitionSource } from '@/lib/types/client';

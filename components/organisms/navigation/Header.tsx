@@ -187,7 +187,7 @@ export default function Header({ onMenuClick }: HeaderProps) {
           <Box
             component="img"
             src="/logo.jpg"
-            alt="LocAI"
+            alt="AlugZap"
             sx={{
               height: { xs: 32, md: 40 },
               width: 'auto',

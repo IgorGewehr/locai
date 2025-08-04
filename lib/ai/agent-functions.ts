@@ -36,7 +36,7 @@ class SmartResolver {
     try {
       // Se já é um ID válido, validar e retornar
       if (args.clientId && typeof args.clientId === 'string' && args.clientId.length > 10) {
-        const client = await clientServiceWrapper.getById(args.clientId);
+        const client = await clientServiceWrapper.getById(args.clientId, tenantId);
         if (client) {
           logger.info('✅ [SmartResolver] ClientId já válido', { clientId: args.clientId });
           return args.clientId;
@@ -47,7 +47,7 @@ class SmartResolver {
       const phone = args.clientPhone || args.phone || args.whatsapp;
       if (phone) {
         const normalizedPhone = phone.replace(/\D/g, '');
-        const clients = await clientServiceWrapper.getAll();
+        const clients = await clientServiceWrapper.getAll(tenantId);
         const client = clients.find(c => {
           const clientPhone = c.phone?.replace(/\D/g, '') || c.whatsappNumber?.replace(/\D/g, '');
           return clientPhone === normalizedPhone || 
@@ -70,7 +70,7 @@ class SmartResolver {
         const context = await conversationContextService.getContext(phone, tenantId);
         if (context?.lastClientId) {
           // Verificar se o cliente ainda existe
-          const client = await clientServiceWrapper.getById(context.lastClientId);
+          const client = await clientServiceWrapper.getById(context.lastClientId, tenantId);
           if (client) {
             logger.info('✅ [SmartResolver] Cliente encontrado no contexto', {
               clientId: context.lastClientId,
@@ -84,7 +84,7 @@ class SmartResolver {
       // PRIORIDADE 3: Tentar resolver por email
       const email = args.clientEmail || args.email;
       if (email) {
-        const clients = await clientServiceWrapper.getAll();
+        const clients = await clientServiceWrapper.getAll(tenantId);
         const client = clients.find(c => c.email?.toLowerCase() === email.toLowerCase());
         
         if (client?.id) {
@@ -100,7 +100,7 @@ class SmartResolver {
       // PRIORIDADE 4: Tentar resolver por nome (menos confiável)
       const name = args.clientName || args.name;
       if (name && name.trim().length > 2) {
-        const clients = await clientServiceWrapper.getAll();
+        const clients = await clientServiceWrapper.getAll(tenantId);
         
         // Busca exata primeiro
         let client = clients.find(c => 
@@ -1978,7 +1978,7 @@ export class AgentFunctions {
       const property = propertyValidation.property;
 
       // 7. VALIDAR CLIENTE RESOLVIDO
-      const client = await clientServiceWrapper.getById(resolvedClientId);
+      const client = await clientServiceWrapper.getById(resolvedClientId, tenantId);
       if (!client) {
         logger.warn('🚨 [schedule_visit] Cliente inválido após resolução', { 
           clientId: resolvedClientId 
@@ -2221,7 +2221,7 @@ export class AgentFunctions {
       const property = propertyValidation.property;
 
       // 7. VALIDAR CLIENTE RESOLVIDO
-      const client = await clientServiceWrapper.getById(resolvedClientId);
+      const client = await clientServiceWrapper.getById(resolvedClientId, tenantId);
       if (!client) {
         logger.warn('🚨 [create_reservation] Cliente inválido após resolução', { 
           clientId: resolvedClientId 

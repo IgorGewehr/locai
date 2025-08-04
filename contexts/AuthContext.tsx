@@ -9,7 +9,7 @@ import { useAuth as useNewAuth, AuthProvider as NewAuthProvider } from '@/contex
 
 // Re-export the new auth hook and provider for backward compatibility
 export const useAuth = () => {
-  const { user, loading, logout } = useNewAuth();
+  const { user, loading, logout, signIn, signUp, resetPassword } = useNewAuth();
   
   // Map new auth interface to old interface for backward compatibility
   return {
@@ -22,9 +22,9 @@ export const useAuth = () => {
     } : null,
     loading,
     signOut: logout, // Map logout to signOut for compatibility
-    signIn: async () => { throw new Error('Use new AuthProvider for signIn'); },
-    signUp: async () => { throw new Error('Use new AuthProvider for signUp'); },
-    resetPassword: async () => { throw new Error('Use new AuthProvider for resetPassword'); }
+    signIn,
+    signUp,
+    resetPassword
   };
 };
 

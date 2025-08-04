@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { propertyService, reservationService } from '@/lib/firebase/firestore';
+import { useTenant } from '@/contexts/TenantContext';
 import type { Property, Reservation } from '@/lib/types';
 import {
   Box,
@@ -43,6 +43,7 @@ export default function PropertyViewPage() {
   const params = useParams();
   const router = useRouter();
   const propertyId = params.id as string;
+  const { services, isReady } = useTenant();
   
   const [property, setProperty] = useState<Property | null>(null);
   const [reservations, setReservations] = useState<Reservation[]>([]);
@@ -51,22 +52,23 @@ export default function PropertyViewPage() {
 
   useEffect(() => {
     const fetchProperty = async () => {
+      if (!services || !isReady) return;
+      
       try {
         setLoading(true);
-        const propertyData = await propertyService.getById(propertyId);
+        const propertyData = await services.properties.get(propertyId);
         if (propertyData) {
-          setProperty(propertyData);
+          setProperty(propertyData as Property);
           
           // Fetch reservations for this property
-          const allReservations = await reservationService.getAll();
-          const propertyReservations = allReservations.filter(
-            (res) => res.propertyId === propertyId
-          );
-          setReservations(propertyReservations.sort((a, b) => {
+          const allReservations = await services.reservations.getMany([
+            { field: 'propertyId', operator: '==', value: propertyId }
+          ]);
+          setReservations(allReservations.sort((a, b) => {
             const dateA = new Date(a.checkIn);
             const dateB = new Date(b.checkIn);
             return dateB.getTime() - dateA.getTime(); // Most recent first
-          }));
+          }) as Reservation[]);
         } else {
           setError('Propriedade não encontrada');
         }
@@ -81,7 +83,7 @@ export default function PropertyViewPage() {
     if (propertyId) {
       fetchProperty();
     }
-  }, [propertyId]);
+  }, [propertyId, services, isReady]);
 
   const getCategoryIcon = (category: string) => {
     switch (category) {

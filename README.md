@@ -1,4 +1,4 @@
-# LOCAI - Sistema Completo de Gestão Imobiliária com IA
+# ALUGZAP - Sistema Completo de Gestão Imobiliária com IA
 
 ## 📋 Índice
 
@@ -23,7 +23,7 @@
 
 ## 🎯 Visão Geral
 
-**LOCAI** é um sistema enterprise-grade de gestão imobiliária com inteligência artificial integrada. O sistema oferece:
+**ALUGZAP** é um sistema enterprise-grade de gestão imobiliária com inteligência artificial integrada. O sistema oferece:
 
 - 🤖 **Sofia AI**: Agente conversacional via WhatsApp para atendimento 24/7
 - 🏢 **Multi-tenant**: Isolamento completo entre empresas
