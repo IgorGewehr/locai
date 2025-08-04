@@ -2,8 +2,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { goalService } from '@/lib/services/goal-service'
 import { GoalStatus, GoalType, GoalCategory, NotificationChannel } from '@/lib/types/financial'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
+import { authMiddleware } from '@/lib/middleware/auth'
 import { handleApiError } from '@/lib/utils/api-errors'
 import { z } from 'zod'
 
@@ -37,17 +36,18 @@ const createGoalSchema = z.object({
 // GET - Listar metas ou buscar por ID
 export async function GET(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions)
-    if (!session?.user) {
+    // Check authentication and get tenantId
+    const authContext = await authMiddleware(request)
+    if (!authContext.authenticated || !authContext.tenantId) {
       return NextResponse.json(
-        { error: 'Não autorizado' },
+        { error: 'Authentication required', code: 'UNAUTHORIZED' },
         { status: 401 }
       )
     }
 
     const searchParams = request.nextUrl.searchParams
     const goalId = searchParams.get('id')
-    const tenantId = session.user.tenantId
+    const tenantId = authContext.tenantId
 
     // Buscar meta específica
     if (goalId) {
@@ -132,10 +132,11 @@ export async function GET(request: NextRequest) {
 // POST - Criar nova meta
 export async function POST(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions)
-    if (!session?.user) {
+    // Check authentication and get tenantId
+    const authContext = await authMiddleware(request)
+    if (!authContext.authenticated || !authContext.tenantId) {
       return NextResponse.json(
-        { error: 'Não autorizado' },
+        { error: 'Authentication required', code: 'UNAUTHORIZED' },
         { status: 401 }
       )
     }
@@ -169,8 +170,8 @@ export async function POST(request: NextRequest) {
         deviationThreshold: 10,
         recipients: []
       },
-      tenantId: session.user.tenantId,
-      createdBy: session.user.id,
+      tenantId: authContext.tenantId,
+      createdBy: authContext.userId || 'system',
       milestones: body.milestones || [],
       progress: 0,
       currentValue: 0,
@@ -196,10 +197,11 @@ export async function POST(request: NextRequest) {
 // PUT - Atualizar meta
 export async function PUT(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions)
-    if (!session?.user) {
+    // Check authentication and get tenantId
+    const authContext = await authMiddleware(request)
+    if (!authContext.authenticated || !authContext.tenantId) {
       return NextResponse.json(
-        { error: 'Não autorizado' },
+        { error: 'Authentication required', code: 'UNAUTHORIZED' },
         { status: 401 }
       )
     }
@@ -223,7 +225,7 @@ export async function PUT(request: NextRequest) {
       )
     }
 
-    if (existingGoal.tenantId !== session.user.tenantId) {
+    if (existingGoal.tenantId !== authContext.tenantId) {
       return NextResponse.json(
         { error: 'Acesso negado' },
         { status: 403 }
@@ -263,10 +265,11 @@ export async function PUT(request: NextRequest) {
 // DELETE - Deletar meta
 export async function DELETE(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions)
-    if (!session?.user) {
+    // Check authentication and get tenantId
+    const authContext = await authMiddleware(request)
+    if (!authContext.authenticated || !authContext.tenantId) {
       return NextResponse.json(
-        { error: 'Não autorizado' },
+        { error: 'Authentication required', code: 'UNAUTHORIZED' },
         { status: 401 }
       )
     }
@@ -290,7 +293,7 @@ export async function DELETE(request: NextRequest) {
       )
     }
 
-    if (existingGoal.tenantId !== session.user.tenantId) {
+    if (existingGoal.tenantId !== authContext.tenantId) {
       return NextResponse.json(
         { error: 'Acesso negado' },
         { status: 403 }

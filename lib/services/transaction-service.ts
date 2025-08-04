@@ -1,21 +1,7 @@
-import { FirestoreService } from '@/lib/firebase/firestore';
+import { TenantServiceFactory } from '@/lib/firebase/firestore-v2';
 import { Transaction } from '@/lib/types';
 import { 
-  collection, 
-  query, 
-  where, 
-  orderBy, 
-  limit, 
   Timestamp,
-  startAfter,
-  endBefore,
-  DocumentSnapshot,
-  QueryConstraint,
-  getDocs,
-  addDoc,
-  updateDoc,
-  doc,
-  serverTimestamp,
   writeBatch
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase/config';
@@ -191,7 +177,7 @@ class TransactionService extends FirestoreService<Transaction> {
 
     // Criar a primeira ocorrência se solicitado
     if (createFirstNow) {
-      await this.createRecurringInstance(parentRef.id, baseTransaction.date);
+      await this.createRecurringInstance(tenantId, parentRef.id, baseTransaction.date);
     }
 
     return parentRef.id;

@@ -1,5 +1,5 @@
 // lib/services/visit-service.ts
-import { FirestoreService } from '@/lib/firebase/firestore';
+import { TenantServiceFactory } from '@/lib/firebase/firestore-v2';
 import { 
   VisitAppointment, 
   VisitStatus, 
@@ -31,12 +31,8 @@ import { addDays, format, isAfter, isBefore, isSameDay, setHours, setMinutes, st
 import { logger } from '@/lib/utils/logger';
 
 class VisitService {
-  private visitService: FirestoreService<VisitAppointment>;
-  private scheduleService: FirestoreService<TenantVisitSchedule>;
-
-  constructor() {
-    this.visitService = new FirestoreService<VisitAppointment>('visit_appointments');
-    this.scheduleService = new FirestoreService<TenantVisitSchedule>('tenant_visit_schedules');
+  private getTenantService(tenantId: string) {
+    return new TenantServiceFactory(tenantId);
   }
 
   // =============== VISIT APPOINTMENT MANAGEMENT ===============
@@ -44,6 +40,8 @@ class VisitService {
   async createVisit(data: Omit<VisitAppointment, 'id' | 'createdAt' | 'updatedAt'>): Promise<VisitAppointment> {
     try {
       logger.info('Creating new visit appointment', { propertyId: data.propertyId, clientId: data.clientId });
+      
+      const services = this.getTenantService(data.tenantId);
       
       // Check for conflicts
       const hasConflict = await this.checkTimeConflict(
@@ -68,15 +66,10 @@ class VisitService {
         reminderSent: false
       };
 
-      const docRef = await addDoc(collection(db, 'visit_appointments'), {
-        ...visit,
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp()
-      });
-
-      const createdVisit = { id: docRef.id, ...visit } as VisitAppointment;
+      const visitId = await services.visits.create(visit);
+      const createdVisit = { id: visitId, ...visit } as VisitAppointment;
       
-      logger.info('Visit appointment created successfully', { visitId: docRef.id });
+      logger.info('Visit appointment created successfully', { visitId });
       
       return createdVisit;
     } catch (error) {
@@ -85,88 +78,80 @@ class VisitService {
     }
   }
 
-  async updateVisit(visitId: string, updates: Partial<VisitAppointment>): Promise<VisitAppointment> {
+  async updateVisit(visitId: string, updates: Partial<VisitAppointment>, tenantId: string): Promise<VisitAppointment> {
     try {
-      const visit = await this.visitService.getById(visitId);
+      const services = this.getTenantService(tenantId);
+      const visit = await services.visits.get(visitId);
       if (!visit) throw new Error('Visita não encontrada');
 
-      await updateDoc(doc(db, 'visit_appointments', visitId), {
+      const updatedData = {
         ...updates,
-        updatedAt: serverTimestamp()
-      });
+        updatedAt: new Date()
+      };
+
+      await services.visits.update(visitId, updatedData);
 
       logger.info('Visit appointment updated', { visitId, updates });
 
-      return { ...visit, ...updates } as VisitAppointment;
+      return { ...visit, ...updatedData } as VisitAppointment;
     } catch (error) {
       logger.error('Error updating visit appointment', { visitId, error });
       throw error;
     }
   }
 
-  async getVisitById(id: string): Promise<VisitAppointment | null> {
-    return this.visitService.getById(id);
+  async getVisitById(id: string, tenantId: string): Promise<VisitAppointment | null> {
+    const services = this.getTenantService(tenantId);
+    return services.visits.get(id);
   }
 
   async getVisitsByProperty(propertyId: string, tenantId: string): Promise<VisitAppointment[]> {
-    const q = query(
-      collection(db, 'visit_appointments'),
-      where('tenantId', '==', tenantId),
-      where('propertyId', '==', propertyId),
-      where('status', 'in', [VisitStatus.SCHEDULED, VisitStatus.CONFIRMED]),
-      orderBy('scheduledDate', 'asc')
-    );
+    const services = this.getTenantService(tenantId);
     
-    const snapshot = await getDocs(q);
-    return snapshot.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data()
-    } as VisitAppointment));
+    const visits = await services.visits.getMany([
+      { field: 'propertyId', operator: '==', value: propertyId },
+      { field: 'status', operator: 'in', value: [VisitStatus.SCHEDULED, VisitStatus.CONFIRMED] }
+    ]) as VisitAppointment[];
+    
+    // Sort by scheduled date ascending
+    return visits.sort((a, b) => new Date(a.scheduledDate).getTime() - new Date(b.scheduledDate).getTime());
   }
 
   async getVisitsByClient(clientId: string, tenantId: string): Promise<VisitAppointment[]> {
-    const q = query(
-      collection(db, 'visit_appointments'),
-      where('tenantId', '==', tenantId),
-      where('clientId', '==', clientId),
-      orderBy('scheduledDate', 'desc')
-    );
+    const services = this.getTenantService(tenantId);
     
-    const snapshot = await getDocs(q);
-    return snapshot.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data()
-    } as VisitAppointment));
+    const visits = await services.visits.getMany([
+      { field: 'clientId', operator: '==', value: clientId }
+    ]) as VisitAppointment[];
+    
+    // Sort by scheduled date descending
+    return visits.sort((a, b) => new Date(b.scheduledDate).getTime() - new Date(a.scheduledDate).getTime());
   }
 
   async getUpcomingVisits(tenantId: string, days: number = 7): Promise<VisitAppointment[]> {
     const today = startOfDay(new Date());
     const endDate = endOfDay(addDays(today, days));
     
-    const q = query(
-      collection(db, 'visit_appointments'),
-      where('tenantId', '==', tenantId),
-      where('scheduledDate', '>=', today),
-      where('scheduledDate', '<=', endDate),
-      where('status', 'in', [VisitStatus.SCHEDULED, VisitStatus.CONFIRMED]),
-      orderBy('scheduledDate', 'asc')
-    );
+    const services = this.getTenantService(tenantId);
     
-    const snapshot = await getDocs(q);
-    return snapshot.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data()
-    } as VisitAppointment));
+    const visits = await services.visits.getMany([
+      { field: 'scheduledDate', operator: '>=', value: today },
+      { field: 'scheduledDate', operator: '<=', value: endDate },
+      { field: 'status', operator: 'in', value: [VisitStatus.SCHEDULED, VisitStatus.CONFIRMED] }
+    ]) as VisitAppointment[];
+    
+    // Sort by scheduled date ascending
+    return visits.sort((a, b) => new Date(a.scheduledDate).getTime() - new Date(b.scheduledDate).getTime());
   }
 
-  async completeVisit(visitId: string, result: VisitResult): Promise<void> {
+  async completeVisit(visitId: string, result: VisitResult, tenantId: string): Promise<void> {
     await this.updateVisit(visitId, {
       status: VisitStatus.COMPLETED,
       visitResult: result
-    });
+    }, tenantId);
   }
 
-  async cancelVisit(visitId: string, cancelledBy: 'client' | 'agent', reason?: string): Promise<void> {
+  async cancelVisit(visitId: string, cancelledBy: 'client' | 'agent', reason?: string, tenantId: string): Promise<void> {
     const status = cancelledBy === 'client' ? 
       VisitStatus.CANCELLED_BY_CLIENT : 
       VisitStatus.CANCELLED_BY_AGENT;
@@ -174,13 +159,15 @@ class VisitService {
     await this.updateVisit(visitId, {
       status,
       notes: reason ? `Cancelamento: ${reason}` : undefined
-    });
+    }, tenantId);
   }
 
   // =============== AVAILABILITY MANAGEMENT ===============
 
   async getTenantSchedule(tenantId: string): Promise<TenantVisitSchedule | null> {
-    const schedules = await this.scheduleService.getWhere('tenantId', '==', tenantId);
+    const services = this.getTenantService(tenantId);
+    const schedules = await services.visitSchedules.getMany([]) as TenantVisitSchedule[];
+    
     if (schedules.length === 0) {
       // Return default schedule if none exists
       return this.getDefaultSchedule(tenantId);
@@ -278,19 +265,15 @@ class VisitService {
     startDate: Date,
     endDate: Date
   ): Promise<VisitAppointment[]> {
-    const q = query(
-      collection(db, 'visit_appointments'),
-      where('tenantId', '==', tenantId),
-      where('scheduledDate', '>=', startDate),
-      where('scheduledDate', '<=', endDate),
-      where('status', 'in', [VisitStatus.SCHEDULED, VisitStatus.CONFIRMED])
-    );
+    const services = this.getTenantService(tenantId);
     
-    const snapshot = await getDocs(q);
-    return snapshot.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data()
-    } as VisitAppointment));
+    const visits = await services.visits.getMany([
+      { field: 'scheduledDate', operator: '>=', value: startDate },
+      { field: 'scheduledDate', operator: '<=', value: endDate },
+      { field: 'status', operator: 'in', value: [VisitStatus.SCHEDULED, VisitStatus.CONFIRMED] }
+    ]) as VisitAppointment[];
+    
+    return visits;
   }
 
   private generateDaySlots(
@@ -401,8 +384,8 @@ class VisitService {
 
   // =============== INTEGRATION WITH RESERVATIONS ===============
 
-  async convertVisitToReservation(visitId: string, reservationId: string): Promise<void> {
-    const visit = await this.getVisitById(visitId);
+  async convertVisitToReservation(visitId: string, reservationId: string, tenantId: string): Promise<void> {
+    const visit = await this.getVisitById(visitId, tenantId);
     if (!visit) throw new Error('Visita não encontrada');
 
     await this.updateVisit(visitId, {
@@ -413,7 +396,7 @@ class VisitService {
         reservationId,
         completedAt: new Date()
       } as VisitResult
-    });
+    }, tenantId);
   }
 }
 

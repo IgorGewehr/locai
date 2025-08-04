@@ -36,7 +36,12 @@ export async function POST(request: NextRequest) {
     }
 
     const { action, domain } = await request.json();
-    const tenantId = auth.tenantId || 'default-tenant';
+    
+    if (!auth.tenantId) {
+      return NextResponse.json({ error: 'Tenant ID required' }, { status: 400 });
+    }
+
+    const tenantId = auth.tenantId;
 
     switch (action) {
       case 'validate':
@@ -78,7 +83,11 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const tenantId = auth.tenantId || 'default-tenant';
+    if (!auth.tenantId) {
+      return NextResponse.json({ error: 'Tenant ID required' }, { status: 400 });
+    }
+
+    const tenantId = auth.tenantId;
     const settings = await settingsService.getSettings(tenantId);
     
     const customDomain = settings?.miniSite?.customDomain;

@@ -1,11 +1,22 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { TenantServiceFactory } from '@/lib/firebase/firestore-v2'
 import { conversationService } from '@/lib/services/conversation-service'
+import { authMiddleware } from '@/lib/middleware/auth'
+import { handleApiError } from '@/lib/utils/api-errors'
 
 export async function GET(request: NextRequest) {
   try {
+    // Check authentication and get tenantId
+    const authContext = await authMiddleware(request)
+    if (!authContext.authenticated || !authContext.tenantId) {
+      return NextResponse.json(
+        { error: 'Authentication required', code: 'UNAUTHORIZED' },
+        { status: 401 }
+      )
+    }
+
     const { searchParams } = new URL(request.url)
-    const tenantId = searchParams.get('tenantId') || 'default'
+    const tenantId = authContext.tenantId
     const status = searchParams.get('status')
     const stage = searchParams.get('stage')
     const clientId = searchParams.get('clientId')
@@ -41,23 +52,25 @@ export async function GET(request: NextRequest) {
     })
 
   } catch (error) {
-    return NextResponse.json(
-      { 
-        error: 'Internal server error',
-        details: error instanceof Error ? error.message : 'Unknown error'
-      },
-      { status: 500 }
-    )
+    return handleApiError(error)
   }
 }
 
 export async function POST(request: NextRequest) {
   try {
+    // Check authentication and get tenantId
+    const authContext = await authMiddleware(request)
+    if (!authContext.authenticated || !authContext.tenantId) {
+      return NextResponse.json(
+        { error: 'Authentication required', code: 'UNAUTHORIZED' },
+        { status: 401 }
+      )
+    }
+
     const body = await request.json()
     const { 
       phoneNumber,
-      clientName,
-      tenantId = 'default'
+      clientName
     } = body
 
     if (!phoneNumber) {
@@ -66,6 +79,8 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       )
     }
+
+    const tenantId = authContext.tenantId
 
     // Check if conversation already exists
     const existingConversation = await conversationService.findActiveByPhone(phoneNumber, tenantId)
@@ -88,12 +103,6 @@ export async function POST(request: NextRequest) {
     })
 
   } catch (error) {
-    return NextResponse.json(
-      { 
-        error: 'Internal server error',
-        details: error instanceof Error ? error.message : 'Unknown error'
-      },
-      { status: 500 }
-    )
+    return handleApiError(error)
   }
 }

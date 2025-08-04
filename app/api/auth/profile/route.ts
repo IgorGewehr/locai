@@ -64,27 +64,14 @@ export async function PUT(request: NextRequest) {
     // Remove id from body to avoid overwriting
     const { id, ...profileData } = body;
 
-    // Update user profile in Firestore
+    // Update user profile in Firestore (global users collection only)
     await adminDb.collection('users').doc(auth.userId).set({
       ...profileData,
       email: auth.email, // Ensure email matches auth
+      tenantId: auth.tenantId, // Store tenant reference
       updatedAt: new Date().toISOString(),
       lastLogin: new Date().toISOString(),
     }, { merge: true });
-
-    // Also update tenant-specific user settings if needed
-    if (auth.tenantId && auth.tenantId !== 'default-tenant') {
-      await adminDb
-        .collection('tenants')
-        .doc(auth.tenantId)
-        .collection('users')
-        .doc(auth.userId)
-        .set({
-          ...profileData,
-          email: auth.email,
-          updatedAt: new Date().toISOString(),
-        }, { merge: true });
-    }
 
     return NextResponse.json({
       success: true,

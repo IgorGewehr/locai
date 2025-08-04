@@ -25,6 +25,7 @@ import {
 } from '@mui/icons-material';
 import type { DashboardStats } from '@/lib/types';
 import { db } from '@/lib/firebase/config';
+import { useAuth } from '@/contexts/AuthProvider';
 import { useTenant } from '@/contexts/TenantContext';
 import { collection, query, where, getDocs, Timestamp } from 'firebase/firestore';
 import MiniSiteWidget from '@/components/organisms/marketing/MiniSiteWidget';
@@ -189,7 +190,8 @@ function StatCard({ title, value, subtitle, icon, trend, color }: StatCardProps)
 }
 
 export default function DashboardPage() {
-  const { services, isReady } = useTenant();
+  const { user, isAuthenticated } = useAuth();
+  const { services, tenantId, isReady } = useTenant();
   const [stats, setStats] = useState<DashboardStats>(initialStats);
   const [loading, setLoading] = useState(true);
   const [whatsappStats, setWhatsappStats] = useState({
@@ -206,17 +208,17 @@ export default function DashboardPage() {
   });
 
   const fetchStats = async () => {
-    if (!services || !isReady) return;
+    if (!services || !tenantId || !isReady) return;
     
     setLoading(true);
     try {
       // Fetch properties
       const properties = await services.properties.getAll();
-      const activeProperties = properties.filter(p => p.isActive === true);
+      const activeProperties = properties.filter((p: any) => p.isActive === true);
 
       // Fetch reservations
       const reservations = await services.reservations.getAll();
-      const pendingReservations = reservations.filter(r => r.status === 'pending');
+      const pendingReservations = reservations.filter((r: any) => r.status === 'pending');
 
       // Calculate monthly revenue and trends
       const currentMonth = new Date().getMonth();
@@ -281,18 +283,18 @@ export default function DashboardPage() {
         // WhatsApp connection check handled
       }
 
-      // Fetch WhatsApp stats
+      // Fetch WhatsApp stats from tenant-isolated collections
       const today = new Date();
       today.setHours(0, 0, 0, 0);
 
       const messagesQuery = query(
-        collection(db, 'messages'),
+        collection(db, `tenants/${tenantId}/messages`),
         where('timestamp', '>=', Timestamp.fromDate(today))
       );
       const messagesSnapshot = await getDocs(messagesQuery);
 
       const conversationsQuery = query(
-        collection(db, 'conversations'),
+        collection(db, `tenants/${tenantId}/conversations`),
         where('status', '==', 'active')
       );
       const conversationsSnapshot = await getDocs(conversationsQuery);
@@ -343,8 +345,10 @@ export default function DashboardPage() {
   };
 
   useEffect(() => {
-    fetchStats();
-  }, [services, isReady]);
+    if (isReady && services && tenantId) {
+      fetchStats();
+    }
+  }, [isReady, services, tenantId]);
 
   const refreshStats = async () => {
     await fetchStats();
@@ -654,7 +658,7 @@ export default function DashboardPage() {
 
         {/* Third Row - Mini-Site Widget (Full Width) */}
         <Grid item xs={12}>
-          <MiniSiteWidgetFullWidth tenantId="default-tenant" />
+          <MiniSiteWidgetFullWidth tenantId={tenantId || "default-tenant"} />
         </Grid>
 
         {/* Quick Actions */}

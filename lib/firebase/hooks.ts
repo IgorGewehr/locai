@@ -64,14 +64,14 @@ export function useTenantFirestore<T>(
   collectionName: string,
   queryConstraints?: any[]
 ) {
-  const { currentTenant } = useTenant();
+  const { tenantId, isReady } = useTenant();
   const [data, setData] = useState<T | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
 
   useEffect(() => {
-    if (!currentTenant) {
-      logger.warn('No tenant found in useTenantFirestore', { collectionName });
+    if (!isReady || !tenantId) {
+      logger.warn('No tenant found in useTenantFirestore', { collectionName, tenantId, isReady });
       setLoading(false);
       return;
     }
@@ -80,7 +80,7 @@ export function useTenantFirestore<T>(
     setError(null);
 
     try {
-      const tenantPath = `tenants/${currentTenant.id}/${collectionName}`;
+      const tenantPath = `tenants/${tenantId}/${collectionName}`;
       const collectionRef = collection(db, tenantPath);
       let q = collectionRef as any;
 
@@ -101,7 +101,7 @@ export function useTenantFirestore<T>(
         (err) => {
           logger.error(`Error fetching ${collectionName}:`, { 
             error: err,
-            tenantId: currentTenant.id,
+            tenantId,
             collectionName 
           });
           setError(err as Error);
@@ -113,13 +113,13 @@ export function useTenantFirestore<T>(
     } catch (err) {
       logger.error(`Error setting up listener for ${collectionName}:`, {
         error: err,
-        tenantId: currentTenant.id,
+        tenantId,
         collectionName
       });
       setError(err as Error);
       setLoading(false);
     }
-  }, [collectionName, currentTenant, JSON.stringify(queryConstraints)]);
+  }, [collectionName, tenantId, isReady, JSON.stringify(queryConstraints)]);
 
   return { data, loading, error };
 }

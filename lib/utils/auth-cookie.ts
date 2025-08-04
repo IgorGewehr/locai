@@ -1,4 +1,6 @@
 import { NextRequest } from 'next/server';
+import { authService } from '@/lib/auth/auth-service';
+import { logger } from '@/lib/utils/logger';
 
 export interface AuthInfo {
   userId: string;
@@ -11,33 +13,56 @@ export async function getAuthFromCookie(request: NextRequest): Promise<AuthInfo 
     const authToken = request.cookies.get('auth-token')?.value;
     
     if (!authToken) {
+      logger.warn('No auth token found in cookies');
       return null;
     }
 
-    // Decode the simple base64 token
-    const decoded = Buffer.from(authToken, 'base64').toString('utf-8');
-    const [userId, email, timestamp] = decoded.split(':');
+    // Try to verify as JWT first
+    try {
+      const payload = await authService.verifyToken(authToken);
+      if (payload) {
+        logger.info('✅ JWT token verified from cookie', {
+          userId: payload.sub,
+          tenantId: payload.tenantId
+        });
+        
+        return {
+          userId: payload.sub,
+          email: payload.email,
+          tenantId: payload.tenantId,
+        };
+      }
+    } catch (jwtError) {
+      // If JWT fails, try base64 for backward compatibility
+      try {
+        const decoded = Buffer.from(authToken, 'base64').toString('utf-8');
+        const [userId, email, timestamp] = decoded.split(':');
 
-    if (!userId || !email) {
-      return null;
+        if (userId && email) {
+          // Check if token is not too old (7 days)
+          const tokenAge = Date.now() - parseInt(timestamp);
+          if (tokenAge <= 7 * 24 * 60 * 60 * 1000) {
+            logger.warn('Using legacy base64 token - should migrate to JWT', {
+              userId,
+              tenantId: userId
+            });
+            
+            return {
+              userId,
+              email,
+              tenantId: userId, // Use userId as tenantId for legacy tokens
+            };
+          }
+        }
+      } catch (base64Error) {
+        // Both JWT and base64 failed
+      }
     }
 
-    // Check if token is not too old (7 days)
-    const tokenAge = Date.now() - parseInt(timestamp);
-    if (tokenAge > 7 * 24 * 60 * 60 * 1000) {
-      return null;
-    }
-
-    // Use userId as tenantId (since each user is their own tenant)
-    const tenantId = request.headers.get('x-tenant-id') || userId;
-
-    return {
-      userId,
-      email,
-      tenantId,
-    };
+    logger.warn('Failed to parse auth token');
+    return null;
   } catch (error) {
-    console.error('Error parsing auth cookie:', error);
+    logger.error('Error parsing auth cookie:', error);
     return null;
   }
 }

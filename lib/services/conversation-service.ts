@@ -7,77 +7,55 @@ import {
   ConversationPriority,
   MessageStatus 
 } from '@/lib/types/conversation'
-import { FirestoreService } from '@/lib/firebase/firestore'
+import { TenantServiceFactory } from '@/lib/firebase/firestore-v2'
 import { Timestamp } from 'firebase/firestore'
 import { clientServiceWrapper } from './client-service'
 
-class ConversationService extends FirestoreService<Conversation> {
-  constructor() {
-    super('conversations')
+class ConversationService {
+  private getTenantService(tenantId: string) {
+    return new TenantServiceFactory(tenantId)
   }
 
-  async findByPhone(phoneNumber: string, tenantId?: string): Promise<Conversation | null> {
+  async findByPhone(phoneNumber: string, tenantId: string): Promise<Conversation | null> {
     try {
-      // Primeiro, tenta encontrar uma conversa ativa
-      let query = this.collection
-        .where('whatsappPhone', '==', phoneNumber)
-        .where('status', 'in', [ConversationStatus.ACTIVE, ConversationStatus.WAITING_CLIENT])
-
-      if (tenantId) {
-        query = query.where('tenantId', '==', tenantId)
+      if (!tenantId) {
+        throw new Error('TenantId is required for conversation lookup')
       }
 
-      let conversations = await this.query(query.limit(1))
+      const services = this.getTenantService(tenantId)
+      
+      // Primeiro, tenta encontrar uma conversa ativa
+      const activeConversations = await services.conversations.getMany([
+        { field: 'whatsappPhone', operator: '==', value: phoneNumber },
+        { field: 'status', operator: 'in', value: [ConversationStatus.ACTIVE, ConversationStatus.WAITING_CLIENT] }
+      ])
+
+      if (activeConversations.length > 0) {
+        return activeConversations[0] as Conversation
+      }
       
       // Se não encontrar ativa, busca a mais recente para esse número
-      if (conversations.length === 0) {
-        query = this.collection
-          .where('whatsappPhone', '==', phoneNumber)
-          .orderBy('lastMessageAt', 'desc')
+      const allConversations = await services.conversations.getMany([
+        { field: 'whatsappPhone', operator: '==', value: phoneNumber }
+      ])
+      
+      if (allConversations.length > 0) {
+        // Ordenar por lastMessageAt e pegar a mais recente
+        const sortedConversations = allConversations.sort((a: any, b: any) => {
+          const aTime = a.lastMessageAt?.toDate?.() || new Date(a.lastMessageAt || 0)
+          const bTime = b.lastMessageAt?.toDate?.() || new Date(b.lastMessageAt || 0)
+          return bTime.getTime() - aTime.getTime()
+        })
         
-        if (tenantId) {
-          query = query.where('tenantId', '==', tenantId)
-        }
-        
-        conversations = await this.query(query.limit(1))
+        const conversation = sortedConversations[0] as Conversation
         
         // Reativa a conversa mais recente
-        if (conversations.length > 0) {
-          const conversation = conversations[0]
-          await this.update(conversation.id, { status: ConversationStatus.ACTIVE })
-          
-          // Load messages from separate collection
-          const { messageService } = await import('@/lib/firebase/firestore')
-          const messages = await messageService.query(
-            messageService.collection
-              .where('conversationId', '==', conversation.id)
-              .orderBy('timestamp', 'desc')
-              .limit(20)
-          )
-          
-          // Add messages to conversation object
-          conversation.messages = messages.reverse() // Reverse to get chronological order
-          
-          return { ...conversation, status: ConversationStatus.ACTIVE }
-        }
+        await services.conversations.update(conversation.id!, { status: ConversationStatus.ACTIVE })
+        
+        return { ...conversation, status: ConversationStatus.ACTIVE }
       }
       
-      const conversation = conversations[0]
-      if (!conversation) return null
-      
-      // Load messages from separate collection
-      const { messageService } = await import('@/lib/firebase/firestore')
-      const messages = await messageService.query(
-        messageService.collection
-          .where('conversationId', '==', conversation.id)
-          .orderBy('timestamp', 'desc')
-          .limit(20)
-      )
-      
-      // Add messages to conversation object
-      conversation.messages = messages.reverse() // Reverse to get chronological order
-      
-      return conversation
+      return null
     } catch (error) {
       console.error('Error finding conversation by phone:', error)
       return null
@@ -86,13 +64,12 @@ class ConversationService extends FirestoreService<Conversation> {
 
   async findActiveByPhone(phoneNumber: string, tenantId: string): Promise<Conversation | null> {
     try {
-      const conversations = await this.query(
-        this.collection
-          .where('whatsappPhone', '==', phoneNumber)
-          .where('tenantId', '==', tenantId)
-          .where('status', '==', ConversationStatus.ACTIVE)
-          .limit(1)
-      )
+      const services = this.getTenantService(tenantId)
+      
+      const conversations = await services.conversations.getMany([
+        { field: 'whatsappPhone', operator: '==', value: phoneNumber },
+        { field: 'status', operator: '==', value: ConversationStatus.ACTIVE }
+      ])
 
       return conversations[0] || null
     } catch (error) {
@@ -100,8 +77,14 @@ class ConversationService extends FirestoreService<Conversation> {
     }
   }
 
-  async createNew(phoneNumber: string, clientName?: string, tenantId: string = 'default'): Promise<Conversation> {
+  async createNew(phoneNumber: string, clientName?: string, tenantId: string): Promise<Conversation> {
     try {
+      if (!tenantId) {
+        throw new Error('TenantId is required for conversation creation')
+      }
+
+      const services = this.getTenantService(tenantId)
+      
       // Find or create client
       let client = await clientServiceWrapper.findByPhone(phoneNumber, tenantId)
 
@@ -169,9 +152,52 @@ class ConversationService extends FirestoreService<Conversation> {
         tags: []
       }
 
-      return await this.create(conversation)
+      const conversationId = await services.conversations.create(conversation)
+      return { id: conversationId, ...conversation } as Conversation
     } catch (error) {
       throw error
+    }
+  }
+
+  // Métodos essenciais para compatibilidade com APIs existentes
+  async getActiveConversations(tenantId: string, limit: number = 50): Promise<Conversation[]> {
+    try {
+      const services = this.getTenantService(tenantId)
+      return await services.conversations.getMany([
+        { field: 'status', operator: '==', value: ConversationStatus.ACTIVE }
+      ]) as Conversation[]
+    } catch (error) {
+      return []
+    }
+  }
+
+  async searchConversations(tenantId: string, filters: any): Promise<Conversation[]> {
+    try {
+      const services = this.getTenantService(tenantId)
+      const conditions: any[] = []
+      
+      if (filters.status) {
+        conditions.push({ field: 'status', operator: '==', value: filters.status })
+      }
+      
+      if (filters.stage) {
+        conditions.push({ field: 'stage', operator: '==', value: filters.stage })
+      }
+
+      return await services.conversations.getMany(conditions) as Conversation[]
+    } catch (error) {
+      return []
+    }
+  }
+
+  async getConversationsByClient(clientId: string, tenantId: string): Promise<Conversation[]> {
+    try {
+      const services = this.getTenantService(tenantId)
+      return await services.conversations.getMany([
+        { field: 'clientId', operator: '==', value: clientId }
+      ]) as Conversation[]
+    } catch (error) {
+      return []
     }
   }
 

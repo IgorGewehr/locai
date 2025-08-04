@@ -21,6 +21,8 @@ import {
   DocumentReference,
 } from 'firebase/firestore';
 import { db } from './config';
+import { queryOptimizer, QueryFilter } from '@/lib/utils/query-optimizer';
+import { logger } from '@/lib/utils/logger';
 
 /**
  * Multi-tenant Firestore Service
@@ -187,6 +189,67 @@ export class MultiTenantFirestoreService<T extends { id?: string }> {
       id: doc.id,
       ...doc.data(),
     })) as T[];
+  }
+
+  /**
+   * Optimized query with performance optimizations
+   */
+  async getManyOptimized(
+    filters: QueryFilter[],
+    options?: {
+      orderBy?: { field: string; direction: 'asc' | 'desc' }[];
+      limit?: number;
+      startAfter?: any;
+    }
+  ): Promise<T[]> {
+    const startTime = Date.now();
+    
+    // Optimize the query using query optimizer
+    const optimizedQuery = queryOptimizer.optimizeQuery(filters, options);
+    
+    logger.info('Executing optimized query', {
+      tenantId: this.tenantId,
+      collection: this.collectionName,
+      filterCount: optimizedQuery.filters.length,
+      estimatedCost: optimizedQuery.estimatedCost,
+      reasoning: optimizedQuery.reasoning
+    });
+
+    // Build Firestore constraints from optimized filters
+    let constraints: any[] = optimizedQuery.filters.map(f => where(f.field, f.operator, f.value));
+    
+    if (optimizedQuery.orderBy) {
+      optimizedQuery.orderBy.forEach(orderByClause => {
+        constraints.push(orderBy(orderByClause.field, orderByClause.direction));
+      });
+    }
+    
+    if (optimizedQuery.limit) {
+      constraints.push(limit(optimizedQuery.limit));
+    }
+    
+    if (options?.startAfter) {
+      constraints.push(startAfter(options.startAfter));
+    }
+
+    const q = query(this.getCollectionRef(), ...constraints);
+    const querySnapshot = await getDocs(q);
+    
+    const results = querySnapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data(),
+    })) as T[];
+
+    const executionTime = Date.now() - startTime;
+    logger.info('Optimized query completed', {
+      tenantId: this.tenantId,
+      collection: this.collectionName,
+      resultCount: results.length,
+      executionTime: `${executionTime}ms`,
+      estimatedCost: optimizedQuery.estimatedCost
+    });
+
+    return results;
   }
 
   /**
@@ -365,5 +428,19 @@ export class TenantServiceFactory {
 
   get visits() {
     return this.createService('visits');
+  }
+
+  get visitSchedules() {
+    return this.createService('visitSchedules');
+  }
+
+  // Batch operations
+  getBatch() {
+    return writeBatch(db);
+  }
+
+  // Get a new document reference for batch operations
+  getNewDocRef(collectionName: string) {
+    return doc(collection(db, 'tenants', this.tenantId, collectionName));
   }
 }

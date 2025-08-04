@@ -1,4 +1,4 @@
-import { useAuth as useAuthContext } from '@/contexts/AuthContext';
+import { useAuth as useAuthContext } from '@/contexts/AuthProvider';
 
 export function useAuth() {
   const { user, loading } = useAuthContext();
@@ -7,8 +7,8 @@ export function useAuth() {
     user: user ? {
       id: user.uid || 'default-user',
       email: user.email || '',
-      name: user.displayName || '',
-      tenantId: user.tenantId || 'default-tenant',
+      name: user.name || user.fullName || '',
+      tenantId: user.tenantId || user.uid,
       role: user.role || 'user'
     } : null,
     loading,

@@ -3,9 +3,8 @@ import { withErrorHandler, successResponse } from '@/lib/middleware/error-handle
 import { applySecurityMeasures } from '@/lib/middleware/security';
 import { authRateLimit, applyRateLimitHeaders } from '@/lib/middleware/rate-limit';
 import { registerSchema } from '@/lib/validation/schemas';
-import { auth } from '@/lib/firebase/admin';
+import { auth, adminDb } from '@/lib/firebase/admin';
 import { generateJWT } from '@/lib/middleware/auth';
-import { createMultiTenantService } from '@/lib/firebase/firestore-v2';
 import bcrypt from 'bcryptjs';
 import { AuthenticationError, ConflictError } from '@/lib/utils/errors';
 
@@ -24,8 +23,7 @@ interface User {
   isActive: boolean;
 }
 
-// Note: Users collection remains global for authentication
-// But we'll use the multi-tenant service for consistency
+// Note: Users collection is global (users/[userId]) not tenant-scoped
 
 export const POST = withErrorHandler(async (request: NextRequest) => {
   // Skip rate limiting for simplification
@@ -73,9 +71,7 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
     // Hash password for local storage
     const passwordHash = await bcrypt.hash(password, 12);
 
-    // Create user document in global users collection
-    // Note: Using 'global' as tenantId for users collection to maintain global access
-    const userService = createMultiTenantService<User>('global', 'users');
+    // Create user document in global users collection (users/[userId])
     const userData = {
       email: email.toLowerCase(),
       name,
@@ -89,7 +85,9 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
       isActive: true,
     };
     
-    const userId = await userService.create(userData);
+    // Use Firebase Admin directly for global users collection
+    const userDocRef = await adminDb.collection('users').add(userData);
+    const userId = userDocRef.id;
     const user = { ...userData, id: userId } as User;
 
     // Generate JWT

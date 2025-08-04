@@ -9,7 +9,11 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const settings = await settingsService.getSettings(auth.tenantId || 'default-tenant');
+    if (!auth.tenantId) {
+      return NextResponse.json({ error: 'Tenant ID required' }, { status: 400 });
+    }
+
+    const settings = await settingsService.getSettings(auth.tenantId);
     
     // Get user profile for company info integration
     const { adminDb } = await import('@/lib/firebase/admin');
@@ -61,7 +65,11 @@ export async function PUT(request: NextRequest) {
     const body = await request.json();
     const { section, data } = body;
 
-    const tenantId = auth.tenantId || 'default-tenant';
+    if (!auth.tenantId) {
+      return NextResponse.json({ error: 'Tenant ID required' }, { status: 400 });
+    }
+
+    const tenantId = auth.tenantId;
 
     switch (section) {
       case 'company':
@@ -114,7 +122,12 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const tenantId = auth.tenantId || 'default-tenant';
+    
+    if (!auth.tenantId) {
+      return NextResponse.json({ error: 'Tenant ID required' }, { status: 400 });
+    }
+
+    const tenantId = auth.tenantId;
 
     await settingsService.saveSettings(tenantId, body);
 

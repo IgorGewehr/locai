@@ -3,7 +3,7 @@
 import { Box, Toolbar } from '@mui/material';
 import TopAppBar from '@/components/organisms/navigation/TopAppBar';
 import ProtectedRoute from '@/components/utilities/ProtectedRoute';
-import { useAuth } from '@/contexts/AuthContext';
+import { useAuth } from '@/contexts/AuthProvider';
 
 // Disable static generation for dashboard pages
 export const dynamic = 'force-dynamic';
@@ -13,11 +13,11 @@ export default function DashboardLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const { signOut } = useAuth();
+  const { logout } = useAuth();
 
   const handleLogout = async () => {
     try {
-      await signOut();
+      await logout();
     } catch (error) {
       // Error handling without console.log for production
     }
