@@ -21,9 +21,8 @@ import { Boom } from '@hapi/boom';
 import pino from 'pino';
 import * as fs from 'fs';
 import * as path from 'path';
-import { settingsService } from '@/lib/services/settings-service';
-import { db } from '@/lib/firebase/config';
-import { doc, updateDoc, setDoc, getDoc, onSnapshot, collection } from 'firebase/firestore';
+import { TenantServiceFactory } from '@/lib/firebase/firestore-v2';
+import { logger as utilLogger } from '@/lib/utils/logger';
 import { EventEmitter } from 'events';
 
 interface WhatsAppSession {
@@ -524,79 +523,124 @@ export class WhatsAppSessionManager extends EventEmitter {
     businessName?: string
   ) {
     try {
-      const settingsRef = doc(db, 'settings', tenantId);
-      const settingsDoc = await getDoc(settingsRef);
+      utilLogger.info('🔄 [SessionManager] Atualizando status da sessão', {
+        tenantId,
+        status,
+        hasQrCode: !!qrCode,
+        phoneNumber: phoneNumber?.substring(0, 6) + '***'
+      });
       
-      const currentSettings = settingsDoc.exists() ? settingsDoc.data() : {};
+      const { settings } = new TenantServiceFactory(tenantId);
+      const existingSettings = await settings.getAll();
       
       const whatsappSettings = {
-        ...currentSettings.whatsapp,
         connected: status === 'connected',
         status,
         lastSync: new Date(),
         qrCode: qrCode || null,
+        phoneNumber: phoneNumber || null,
+        businessName: businessName || null
       };
-      
-      if (phoneNumber) {
-        whatsappSettings.phoneNumber = phoneNumber;
-      }
-      
-      if (businessName) {
-        whatsappSettings.businessName = businessName;
-      }
       
       if (status === 'disconnected') {
         whatsappSettings.qrCode = null;
       }
       
-      await setDoc(settingsRef, {
-        ...currentSettings,
+      const settingsData = {
+        tenantId,
         whatsapp: whatsappSettings,
-      }, { merge: true });
+        updatedAt: new Date()
+      };
+      
+      if (existingSettings.length === 0) {
+        // Create new settings
+        await settings.create(settingsData);
+        utilLogger.info('✅ [SessionManager] Configurações criadas', { tenantId });
+      } else {
+        // Update existing settings
+        const existing = existingSettings[0];
+        await settings.update(existing.id!, {
+          ...existing,
+          whatsapp: whatsappSettings,
+          updatedAt: new Date()
+        });
+        utilLogger.info('✅ [SessionManager] Configurações atualizadas', { tenantId });
+      }
       
     } catch (error) {
-      this.logger.error(`Error updating session status for tenant ${tenantId}:`, error);
+      utilLogger.error('❌ [SessionManager] Erro ao atualizar status da sessão', {
+        tenantId,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
     }
   }
 
   // Listen to status changes for a specific tenant
   onStatusChange(tenantId: string, callback: (status: any) => void): () => void {
-    const settingsRef = doc(db, 'settings', tenantId);
-    
-    const unsubscribe = onSnapshot(settingsRef, (doc) => {
-      if (doc.exists()) {
-        const data = doc.data();
-        callback(data.whatsapp || {});
-      }
-    });
-    
-    this.statusListeners.set(tenantId, unsubscribe);
-    return unsubscribe;
+    try {
+      const { settings } = new TenantServiceFactory(tenantId);
+      
+      // Use the onSnapshot method from our tenant service
+      const unsubscribe = settings.onSnapshot((settingsArray) => {
+        if (settingsArray.length > 0) {
+          const settingsData = settingsArray[0];
+          callback((settingsData as any).whatsapp || {});
+        } else {
+          callback({});
+        }
+      });
+      
+      this.statusListeners.set(tenantId, unsubscribe);
+      return unsubscribe;
+    } catch (error) {
+      utilLogger.error('❌ [SessionManager] Erro ao configurar listener de status', {
+        tenantId,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+      
+      // Return a no-op function
+      return () => {};
+    }
   }
 
   // Get tenant ID by phone number
   async getTenantByPhoneNumber(phoneNumber: string): Promise<string | null> {
     try {
+      // First check in-memory sessions
       for (const [tenantId, session] of this.sessions.entries()) {
         if (session.phoneNumber === phoneNumber) {
           return tenantId;
         }
       }
       
-      // If not in memory, check Firestore  
-      // @ts-ignore - suppress type checking for collection.get method
-      const settingsSnapshot = await collection(db, 'settings').get();
+      // If not in memory, check Firestore for known tenants
+      const knownTenants = ['default']; // Add more tenants as needed
       
-      for (const doc of settingsSnapshot.docs) {
-        const data = doc.data();
-        if (data.whatsapp?.phoneNumber === phoneNumber) {
-          return doc.id;
+      for (const tenantId of knownTenants) {
+        try {
+          const { settings } = new TenantServiceFactory(tenantId);
+          const settingsArray = await settings.getAll();
+          
+          if (settingsArray.length > 0) {
+            const settingsData = settingsArray[0] as any;
+            if (settingsData.whatsapp?.phoneNumber === phoneNumber) {
+              return tenantId;
+            }
+          }
+        } catch (error) {
+          utilLogger.error('❌ [SessionManager] Erro ao verificar tenant', {
+            tenantId,
+            error: error instanceof Error ? error.message : 'Unknown error'
+          });
         }
       }
       
       return null;
     } catch (error) {
-      this.logger.error(`Error getting tenant by phone number ${phoneNumber}:`, error);
+      utilLogger.error('❌ [SessionManager] Erro ao buscar tenant por telefone', {
+        phoneNumber: phoneNumber.substring(0, 6) + '***',
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
       return null;
     }
   }

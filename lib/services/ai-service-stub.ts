@@ -11,13 +11,13 @@ export class AIService {
 
   // Método stub para compatibilidade - MIGRATED TO SOFIA MVP
   async processMessage(message: string, context: any): Promise<any> {
-    console.info('🚀 AIService redirecting to Sofia Agent MVP (Production Ready)');
     
     // Redirect to Sofia Agent MVP production version
     try {
-      const { sofiaAgent } = await import('@/lib/ai-agent/sofia-agent');
+      const { SofiaAgentV3 } = await import('@/lib/ai-agent/sofia-agent-v3');
       
-      const result = await sofiaAgent.processMessage({
+      const sofia = SofiaAgentV3.getInstance();
+      const result = await sofia.processMessage({
         message,
         clientPhone: context.clientPhone || '+0000000000',
         tenantId: this.tenantId,
@@ -40,7 +40,6 @@ export class AIService {
         functionsExecuted: result.functionsExecuted
       };
     } catch (error) {
-      console.error('❌ Error in Sofia MVP via AIService stub:', error);
       return {
         reply: 'Desculpe, estou com dificuldades técnicas. Tente novamente.',
         intent: 'error',

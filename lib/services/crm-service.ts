@@ -1,4 +1,4 @@
-import { FirestoreService } from '@/lib/firebase/firestore';
+import { TenantServiceFactory } from '@/lib/firebase/firestore-v2';
 import { 
   Lead, 
   LeadStatus, 
@@ -11,82 +11,85 @@ import {
   LeadSource
 } from '@/lib/types/crm';
 import { Client } from '@/lib/types';
-import { 
-  collection, 
-  query, 
-  where, 
-  orderBy,
-  limit,
-  getDocs,
-  addDoc,
-  updateDoc,
-  doc,
-  serverTimestamp,
-  Timestamp,
-  writeBatch,
-  onSnapshot
-} from 'firebase/firestore';
-import { db } from '@/lib/firebase/config';
 import { differenceInDays, addDays } from 'date-fns';
-import { conversationService } from '@/lib/firebase/firestore';
+import { logger } from '@/lib/utils/logger';
 
 class CRMService {
-  private leadService: FirestoreService<Lead>;
-  private interactionService: FirestoreService<Interaction>;
-  private taskService: FirestoreService<Task>;
-  private activityService: FirestoreService<LeadActivity>;
-
-  constructor() {
-    this.leadService = new FirestoreService<Lead>('crm_leads');
-    this.interactionService = new FirestoreService<Interaction>('crm_interactions');
-    this.taskService = new FirestoreService<Task>('crm_tasks');
-    this.activityService = new FirestoreService<LeadActivity>('crm_activities');
+  private getServices(tenantId: string) {
+    const serviceFactory = new TenantServiceFactory(tenantId);
+    return {
+      crmLeads: serviceFactory.crmLeads,
+      crmInteractions: serviceFactory.crmInteractions,
+      crmTasks: serviceFactory.crmTasks,
+      crmActivities: serviceFactory.crmActivities,
+      clients: serviceFactory.clients,
+      conversations: serviceFactory.conversations
+    };
   }
 
   // =============== LEAD MANAGEMENT ===============
 
-  async createLead(data: Omit<Lead, 'id' | 'createdAt' | 'updatedAt'>): Promise<Lead> {
-    // Check for duplicates by phone
-    const existingLead = await this.getLeadByPhone(data.phone);
-    if (existingLead) {
-      // Update existing lead instead
-      return this.updateLead(existingLead.id, data);
+  async createLead(data: Omit<Lead, 'id' | 'createdAt' | 'updatedAt'>, tenantId: string): Promise<Lead> {
+    try {
+      logger.info('📋 [CRMService] Criando novo lead', { 
+        tenantId, 
+        leadName: data.name,
+        source: data.source 
+      });
+
+      // Check for duplicates by phone
+      const existingLead = await this.getLeadByPhone(data.phone, tenantId);
+      if (existingLead) {
+        logger.info('♻️ [CRMService] Lead existente encontrado, atualizando', { 
+          tenantId, 
+          leadId: existingLead.id 
+        });
+        // Update existing lead instead
+        return this.updateLead(existingLead.id, data, tenantId);
+      }
+
+      const lead: Omit<Lead, 'id'> = {
+        ...data,
+        tenantId,
+        status: data.status || LeadStatus.NEW,
+        score: data.score || 50,
+        temperature: data.temperature || 'warm',
+        totalInteractions: 0,
+        tags: data.tags || [],
+        firstContactDate: new Date(),
+        lastContactDate: new Date()
+      };
+
+      const { crmLeads } = this.getServices(tenantId);
+      const leadId = await crmLeads.create(lead);
+
+      const createdLead = { id: leadId, ...lead, createdAt: new Date(), updatedAt: new Date() } as Lead;
+
+      // Create initial activity
+      await this.createActivity({
+        leadId,
+        type: 'status_change',
+        description: `Lead criado via ${data.source}`,
+        metadata: { source: data.source },
+        userId: data.assignedTo || 'system'
+      }, tenantId);
+
+      // Run AI scoring
+      await this.calculateLeadScore(createdLead, tenantId);
+
+      logger.info('✅ [CRMService] Lead criado com sucesso', { 
+        tenantId, 
+        leadId 
+      });
+
+      return createdLead;
+    } catch (error) {
+      logger.error('❌ [CRMService] Erro ao criar lead', {
+        tenantId,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+      throw error;
     }
-
-    const lead: Omit<Lead, 'id'> = {
-      ...data,
-      status: data.status || LeadStatus.NEW,
-      score: data.score || 50,
-      temperature: data.temperature || 'warm',
-      totalInteractions: 0,
-      tags: data.tags || [],
-      createdAt: new Date(),
-      updatedAt: new Date(),
-      firstContactDate: new Date(),
-      lastContactDate: new Date()
-    };
-
-    const docRef = await addDoc(collection(db, 'crm_leads'), {
-      ...lead,
-      createdAt: serverTimestamp(),
-      updatedAt: serverTimestamp()
-    });
-
-    const createdLead = { id: docRef.id, ...lead } as Lead;
-
-    // Create initial activity
-    await this.createActivity({
-      leadId: docRef.id,
-      type: 'status_change',
-      description: `Lead criado via ${data.source}`,
-      metadata: { source: data.source },
-      userId: data.assignedTo || 'system'
-    });
-
-    // Run AI scoring
-    await this.calculateLeadScore(createdLead);
-
-    return createdLead;
   }
 
   async updateLead(leadId: string, updates: Partial<Lead>): Promise<Lead> {

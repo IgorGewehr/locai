@@ -1,4 +1,4 @@
-import { FirestoreService } from '@/lib/firebase/firestore';
+import { TenantServiceFactory } from '@/lib/firebase/firestore-v2';
 import { 
   BillingSettings, 
   BillingReminder, 
@@ -9,21 +9,7 @@ import {
 } from '@/lib/types/billing';
 import { Transaction, Client } from '@/lib/types';
 import { Property } from '@/lib/types/property';
-import { transactionService } from './transaction-service';
-import { clientService, propertyService } from '@/lib/firebase/firestore';
-import { 
-  collection, 
-  query, 
-  where, 
-  getDocs,
-  addDoc,
-  updateDoc,
-  doc,
-  serverTimestamp,
-  Timestamp,
-  writeBatch
-} from 'firebase/firestore';
-import { db } from '@/lib/firebase/config';
+import { logger } from '@/lib/utils/logger';
 import { 
   format, 
   addDays, 
@@ -40,149 +26,184 @@ import {
 import { ptBR } from 'date-fns/locale';
 
 class BillingService {
-  private settingsService: FirestoreService<BillingSettings>;
-  private reminderService: FirestoreService<BillingReminder>;
-  private campaignService: FirestoreService<BillingCampaign>;
-
-  constructor() {
-    this.settingsService = new FirestoreService<BillingSettings>('billing_settings');
-    this.reminderService = new FirestoreService<BillingReminder>('billing_reminders');
-    this.campaignService = new FirestoreService<BillingCampaign>('billing_campaigns');
+  private getServices(tenantId: string) {
+    const serviceFactory = new TenantServiceFactory(tenantId);
+    return {
+      billingSettings: serviceFactory.billingSettings,
+      billingReminders: serviceFactory.billingReminders,
+      billingCampaigns: serviceFactory.billingCampaigns,
+      transactions: serviceFactory.transactions,
+      clients: serviceFactory.clients,
+      properties: serviceFactory.properties
+    };
   }
 
   // Obter configurações de cobrança
   async getSettings(tenantId: string): Promise<BillingSettings | null> {
-    const q = query(
-      collection(db, 'billing_settings'),
-      where('tenantId', '==', tenantId)
-    );
-    const snapshot = await getDocs(q);
-    
-    if (snapshot.empty) {
+    try {
+      logger.info('🔧 [BillingService] Obtendo configurações', { tenantId });
+      
+      const { billingSettings } = this.getServices(tenantId);
+      const settings = await billingSettings.getAll();
+      
+      if (settings.length === 0) {
+        logger.info('⚠️ [BillingService] Nenhuma configuração encontrada', { tenantId });
+        return null;
+      }
+      
+      return settings[0] as BillingSettings;
+    } catch (error) {
+      logger.error('❌ [BillingService] Erro ao obter configurações', {
+        tenantId,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
       return null;
     }
-    
-    return {
-      id: snapshot.docs[0].id,
-      ...snapshot.docs[0].data()
-    } as BillingSettings;
   }
 
   // Criar configurações padrão
   async createDefaultSettings(tenantId: string): Promise<BillingSettings> {
-    const defaultSettings: Omit<BillingSettings, 'id'> = {
-      tenantId,
-      enabled: false,
-      defaultReminderDays: 2,
-      defaultOverdueDays: 1,
-      maxReminders: 3,
-      sendTimeStart: '09:00',
-      sendTimeEnd: '18:00',
-      workDays: [1, 2, 3, 4, 5], // seg-sex
-      templates: {
-        beforeDue: {
-          id: 'before_due_default',
-          name: 'Lembrete antes do vencimento',
-          message: DEFAULT_TEMPLATES.beforeDue.friendly,
-          tone: 'friendly',
-          includePaymentLink: true,
-          includeInvoice: false
+    try {
+      logger.info('🔧 [BillingService] Criando configurações padrão', { tenantId });
+      
+      const defaultSettings: Omit<BillingSettings, 'id'> = {
+        tenantId,
+        enabled: false,
+        defaultReminderDays: 2,
+        defaultOverdueDays: 1,
+        maxReminders: 3,
+        sendTimeStart: '09:00',
+        sendTimeEnd: '18:00',
+        workDays: [1, 2, 3, 4, 5], // seg-sex
+        templates: {
+          beforeDue: {
+            id: 'before_due_default',
+            name: 'Lembrete antes do vencimento',
+            message: DEFAULT_TEMPLATES.beforeDue.friendly,
+            tone: 'friendly',
+            includePaymentLink: true,
+            includeInvoice: false
+          },
+          onDue: {
+            id: 'on_due_default',
+            name: 'Lembrete no vencimento',
+            message: DEFAULT_TEMPLATES.onDue.friendly,
+            tone: 'friendly',
+            includePaymentLink: true,
+            includeInvoice: false
+          },
+          overdue: {
+            id: 'overdue_default',
+            name: 'Cobrança em atraso',
+            message: DEFAULT_TEMPLATES.overdue.friendly,
+            tone: 'friendly',
+            includePaymentLink: true,
+            includeInvoice: true
+          },
+          receipt: {
+            id: 'receipt_default',
+            name: 'Confirmação de pagamento',
+            message: DEFAULT_TEMPLATES.receipt.friendly,
+            tone: 'friendly',
+            includePaymentLink: false,
+            includeInvoice: true
+          }
         },
-        onDue: {
-          id: 'on_due_default',
-          name: 'Lembrete no vencimento',
-          message: DEFAULT_TEMPLATES.onDue.friendly,
-          tone: 'friendly',
-          includePaymentLink: true,
-          includeInvoice: false
-        },
-        overdue: {
-          id: 'overdue_default',
-          name: 'Cobrança em atraso',
-          message: DEFAULT_TEMPLATES.overdue.friendly,
-          tone: 'friendly',
-          includePaymentLink: true,
-          includeInvoice: true
-        },
-        receipt: {
-          id: 'receipt_default',
-          name: 'Confirmação de pagamento',
-          message: DEFAULT_TEMPLATES.receipt.friendly,
-          tone: 'friendly',
-          includePaymentLink: false,
-          includeInvoice: true
+        transactionTypes: {
+          all: true,
+          reservation: true,
+          maintenance: true,
+          cleaning: true,
+          commission: true,
+          other: true
         }
-      },
-      transactionTypes: {
-        all: true,
-        reservation: true,
-        maintenance: true,
-        cleaning: true,
-        commission: true,
-        other: true
-      },
-      createdAt: new Date(),
-      updatedAt: new Date()
-    };
+      };
 
-    const docRef = await addDoc(collection(db, 'billing_settings'), {
-      ...defaultSettings,
-      createdAt: serverTimestamp(),
-      updatedAt: serverTimestamp()
-    });
+      const { billingSettings } = this.getServices(tenantId);
+      const settingsId = await billingSettings.create(defaultSettings);
 
-    return {
-      id: docRef.id,
-      ...defaultSettings
-    };
+      logger.info('✅ [BillingService] Configurações padrão criadas', { 
+        tenantId, 
+        settingsId 
+      });
+
+      return {
+        id: settingsId,
+        ...defaultSettings,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      };
+    } catch (error) {
+      logger.error('❌ [BillingService] Erro ao criar configurações padrão', {
+        tenantId,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+      throw error;
+    }
   }
 
   // Processar lembretes programados
-  async processScheduledReminders(): Promise<void> {
-    const now = new Date();
-    const currentHour = now.getHours();
-    const currentDay = getDay(now);
-
-    // Buscar todos os lembretes programados para hoje
-    const q = query(
-      collection(db, 'billing_reminders'),
-      where('status', '==', 'scheduled'),
-      where('scheduledDate', '>=', Timestamp.fromDate(startOfDay(now))),
-      where('scheduledDate', '<=', Timestamp.fromDate(endOfDay(now)))
-    );
-
-    const snapshot = await getDocs(q);
-    const reminders = snapshot.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data()
-    })) as BillingReminder[];
-
-    for (const reminder of reminders) {
-      // Verificar configurações do tenant
-      const settings = await this.getSettings(reminder.tenantId);
-      if (!settings || !settings.enabled) continue;
-
-      // Verificar horário de envio
-      const [startHour] = settings.sendTimeStart.split(':').map(Number);
-      const [endHour] = settings.sendTimeEnd.split(':').map(Number);
+  async processScheduledRemindersForTenant(tenantId: string): Promise<void> {
+    try {
+      logger.info('🔄 [BillingService] Processando lembretes programados', { tenantId });
       
-      if (currentHour < startHour || currentHour >= endHour) continue;
+      const now = new Date();
+      const currentHour = now.getHours();
+      const currentDay = getDay(now);
 
-      // Verificar dia da semana
-      if (!settings.workDays.includes(currentDay)) continue;
+      const { billingReminders } = this.getServices(tenantId);
+      
+      // Buscar lembretes programados para hoje
+      const reminders = await billingReminders.getMany([
+        { field: 'status', operator: '==', value: 'scheduled' },
+        { field: 'scheduledDate', operator: '>=', value: startOfDay(now) },
+        { field: 'scheduledDate', operator: '<=', value: endOfDay(now) }
+      ]);
 
-      // Enviar lembrete
-      await this.sendReminder(reminder);
+      logger.info('📊 [BillingService] Lembretes encontrados', { 
+        tenantId, 
+        count: reminders.length 
+      });
+
+      for (const reminder of reminders as BillingReminder[]) {
+        // Verificar configurações do tenant
+        const settings = await this.getSettings(tenantId);
+        if (!settings || !settings.enabled) continue;
+
+        // Verificar horário de envio
+        const [startHour] = settings.sendTimeStart.split(':').map(Number);
+        const [endHour] = settings.sendTimeEnd.split(':').map(Number);
+        
+        if (currentHour < startHour || currentHour >= endHour) continue;
+
+        // Verificar dia da semana
+        if (!settings.workDays.includes(currentDay)) continue;
+
+        // Enviar lembrete
+        await this.sendReminder(reminder, tenantId);
+      }
+    } catch (error) {
+      logger.error('❌ [BillingService] Erro ao processar lembretes', {
+        tenantId,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
     }
   }
 
   // Enviar lembrete via WhatsApp
-  async sendReminder(reminder: BillingReminder): Promise<void> {
+  async sendReminder(reminder: BillingReminder, tenantId: string): Promise<void> {
     try {
+      logger.info('📤 [BillingService] Enviando lembrete', { 
+        reminderId: reminder.id, 
+        tenantId 
+      });
+      
+      const { transactions, clients } = this.getServices(tenantId);
+      
       const [transaction, client, settings] = await Promise.all([
-        transactionService.getById(reminder.transactionId),
-        clientService.getById(reminder.clientId),
-        this.getSettings(reminder.tenantId)
+        transactions.get(reminder.transactionId),
+        clients.get(reminder.clientId),
+        this.getSettings(tenantId)
       ]);
 
       if (!transaction || !client || !settings) {
@@ -206,8 +227,9 @@ class BillingService {
       }
 
       // Preparar variáveis do template
+      const { properties } = this.getServices(tenantId);
       const property = transaction.propertyId 
-        ? await propertyService.getById(transaction.propertyId)
+        ? await properties.get(transaction.propertyId)
         : null;
 
       const variables = {
@@ -251,11 +273,11 @@ class BillingService {
       const result = await response.json();
 
       // Atualizar status do lembrete
-      await updateDoc(doc(db, 'billing_reminders', reminder.id), {
+      const { billingReminders } = this.getServices(tenantId);
+      await billingReminders.update(reminder.id!, {
         status: 'sent',
-        sentAt: serverTimestamp(),
-        whatsappMessageId: result.messageId,
-        updatedAt: serverTimestamp()
+        sentAt: new Date(),
+        whatsappMessageId: result.messageId
       });
 
       // Registrar no histórico da transação
@@ -265,18 +287,22 @@ class BillingService {
       });
 
     } catch (error) {
-      // TODO: Add proper logging - Erro ao enviar lembrete;
+      logger.error('❌ [BillingService] Erro ao enviar lembrete', {
+        reminderId: reminder.id,
+        tenantId,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
       
       // Atualizar status para falha
-      await updateDoc(doc(db, 'billing_reminders', reminder.id), {
+      const { billingReminders } = this.getServices(tenantId);
+      await billingReminders.update(reminder.id!, {
         status: 'failed',
         error: error instanceof Error ? error.message : 'Erro desconhecido',
         attemptCount: reminder.attemptCount + 1,
-        lastAttemptAt: serverTimestamp(),
+        lastAttemptAt: new Date(),
         nextRetryAt: reminder.attemptCount < 3 
-          ? Timestamp.fromDate(addDays(new Date(), 1))
-          : null,
-        updatedAt: serverTimestamp()
+          ? addDays(new Date(), 1)
+          : undefined
       });
     }
   }

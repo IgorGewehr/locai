@@ -133,10 +133,10 @@ export async function POST(request: NextRequest) {
         source: metadata?.source || (isTest ? 'test' : 'api')
       });
 
-      // 🔥 USANDO SOFIA V3 CORRIGIDA (SEM TIMEOUT)
-      const { SofiaAgentFixed } = await import('@/lib/ai-agent/sofia-agent-fixed');
+      // Usando Sofia V3 - Versão de Produção
+      const { SofiaAgentV3 } = await import('@/lib/ai-agent/sofia-agent-v3');
 
-      const sofia = SofiaAgentFixed.getInstance();
+      const sofia = SofiaAgentV3.getInstance();
       
       const result = await sofia.processMessage({
         message: validatedMessage,

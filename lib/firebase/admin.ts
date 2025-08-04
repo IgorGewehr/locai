@@ -34,7 +34,15 @@ if (getApps().length === 0) {
       storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET!,
     });
   } catch (error) {
-    console.error('Firebase Admin initialization error details:', error);
+    console.error('🔥 Firebase Admin initialization error details:', error);
+    
+    // Diagnóstico específico para chave privada
+    if (error instanceof Error && error.message.includes('private key')) {
+      console.error('❌ Erro específico: Problema na chave privada do Firebase');
+      console.error('💡 Verifique se FIREBASE_PRIVATE_KEY está correta e completa');
+      console.error('📖 Execute: node scripts/check-firebase-config.js para diagnosticar');
+    }
+    
     throw new Error(`Firebase Admin initialization failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
   }
 } else {

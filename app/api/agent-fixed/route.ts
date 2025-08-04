@@ -1,6 +1,6 @@
-// Endpoint usando Sofia V3 CORRIGIDA - sem componentes problemáticos
+// Endpoint usando Sofia V3 - Versão de Produção
 import { NextRequest, NextResponse } from 'next/server';
-import { SofiaAgentFixed } from '@/lib/ai-agent/sofia-agent-fixed';
+import { SofiaAgentV3 } from '@/lib/ai-agent/sofia-agent-v3';
 import { logger } from '@/lib/utils/logger';
 
 export async function POST(request: NextRequest) {
@@ -21,8 +21,8 @@ export async function POST(request: NextRequest) {
       tenantId
     });
 
-    // Usar Sofia V3 corrigida
-    const sofia = SofiaAgentFixed.getInstance();
+    // Usar Sofia V3
+    const sofia = SofiaAgentV3.getInstance();
     
     const response = await sofia.processMessage({
       message,

@@ -12,12 +12,12 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Import Sofia agent
-    const { sofiaAgent } = await import('@/lib/ai-agent/sofia-agent');
-    const { conversationContextService } = await import('@/lib/services/conversation-context-service');
+    // Import Sofia V3
+    const { SofiaAgentV3 } = await import('@/lib/ai-agent/sofia-agent-v3');
     
-    // Clear client context from Sofia and conversation service
-    await sofiaAgent.clearClientContext(
+    // Clear client context from Sofia
+    const sofia = SofiaAgentV3.getInstance();
+    await sofia.clearClientContext(
       clientPhone, 
       tenantId || 'default-tenant'
     );
@@ -28,7 +28,6 @@ export async function POST(request: NextRequest) {
     });
 
   } catch (error) {
-    console.error('Erro ao limpar contexto:', error);
     return NextResponse.json(
       { 
         success: false, 

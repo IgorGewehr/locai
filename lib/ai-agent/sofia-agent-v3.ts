@@ -1,8 +1,8 @@
-// Sofia Agent V3 - VERSÃO CORRIGIDA SEM TIMEOUT
-// Versão simplificada que funciona, sem componentes problemáticos
+// Sofia Agent V3 - Versão de Produção
+// Agente de IA conversacional otimizado para imobiliária
 
 import { OpenAI } from 'openai';
-import { getOpenAIFunctions, AgentFunctions } from '@/lib/ai/agent-functions';
+import { getTenantAwareOpenAIFunctions, executeTenantAwareFunction } from '@/lib/ai/tenant-aware-agent-functions';
 import { logger } from '@/lib/utils/logger';
 import { SOFIA_PROMPT } from './sofia-prompt';
 
@@ -31,9 +31,9 @@ interface SofiaResponse {
   };
 }
 
-export class SofiaAgentFixed {
+export class SofiaAgentV3 {
   private openai: OpenAI;
-  private static instance: SofiaAgentFixed;
+  private static instance: SofiaAgentV3;
 
   constructor() {
     this.openai = new OpenAI({
@@ -41,10 +41,10 @@ export class SofiaAgentFixed {
     });
   }
 
-  static getInstance(): SofiaAgentFixed {
+  static getInstance(): SofiaAgentV3 {
     if (!this.instance) {
-      logger.info('🚀 [Sofia V3 Fixed CORRIGIDA] Criando nova instância');
-      this.instance = new SofiaAgentFixed();
+      logger.info('🚀 [Sofia V3] Criando nova instância');
+      this.instance = new SofiaAgentV3();
     }
     return this.instance;
   }
@@ -54,7 +54,7 @@ export class SofiaAgentFixed {
     const functionsExecuted: string[] = [];
 
     try {
-      logger.info('💬 [Sofia V3 Fixed] Processando mensagem', {
+      logger.info('💬 [Sofia V3] Processando mensagem', {
         clientPhone: this.maskPhone(input.clientPhone),
         messagePreview: input.message.substring(0, 50) + '...',
         source: input.metadata?.source || 'unknown',
@@ -64,18 +64,12 @@ export class SofiaAgentFixed {
       // 1. Detectar se deve forçar função
       const shouldForce = this.shouldForceFunction(input.message);
       
-      logger.info('🎯 [Sofia V3 Fixed] Decisão de execução', {
+      logger.info('🎯 [Sofia V3] Decisão de execução', {
         message: input.message.substring(0, 50),
         shouldForce,
         toolChoice: shouldForce ? 'required' : 'auto'
       });
 
-      // 🚨 LOG CRÍTICO PARA DEBUG
-      console.log('🚨 SOFIA FIXED DEBUG:', {
-        message: input.message,
-        shouldForce,
-        toolChoice: shouldForce ? 'required' : 'auto'
-      });
 
       // 2. Preparar mensagens
       const messages = [
@@ -90,12 +84,12 @@ export class SofiaAgentFixed {
       ];
 
       // 3. Chamada OpenAI - DIRETA, SEM COMPONENTES COMPLEXOS
-      logger.info('🔄 [Sofia V3 Fixed] Chamando OpenAI...');
+      logger.info('🔄 [Sofia V3] Chamando OpenAI...');
       
       const completion = await this.openai.chat.completions.create({
         model: 'gpt-4o-mini',
         messages: messages as any,
-        tools: getOpenAIFunctions(),
+        tools: getTenantAwareOpenAIFunctions(),
         tool_choice: shouldForce ? 'required' : 'auto',
         max_tokens: 1000,
         temperature: 0.7
@@ -106,25 +100,17 @@ export class SofiaAgentFixed {
       const actions: any[] = [];
       let totalTokens = completion.usage?.total_tokens || 0;
 
-      logger.info('🔍 [Sofia V3 Fixed] Resposta OpenAI recebida', {
+      logger.info('🔍 [Sofia V3] Resposta OpenAI recebida', {
         hasToolCalls: !!response.tool_calls,
         toolCallsCount: response.tool_calls?.length || 0,
         hasContent: !!response.content,
         totalTokens
       });
 
-      // 🚨 LOG CRÍTICO APÓS OPENAI
-      console.log('🚨 SOFIA FIXED - RESPOSTA OPENAI:', {
-        hasToolCalls: !!response.tool_calls,
-        toolCallsCount: response.tool_calls?.length || 0,
-        toolCalls: response.tool_calls?.map(tc => tc.function.name) || [],
-        content: response.content,
-        totalTokens
-      });
 
       // 4. Processar funções se existirem
       if (response.tool_calls && response.tool_calls.length > 0) {
-        logger.info('🔧 [Sofia V3 Fixed] Processando funções', {
+        logger.info('🔧 [Sofia V3] Processando funções', {
           count: response.tool_calls.length,
           functions: response.tool_calls.map(tc => tc.function.name)
         });
@@ -135,13 +121,13 @@ export class SofiaAgentFixed {
             const functionName = toolCall.function.name;
             const functionArgs = JSON.parse(toolCall.function.arguments);
             
-            logger.info('⚙️ [Sofia V3 Fixed] Executando função', {
+            logger.info('⚙️ [Sofia V3] Executando função', {
               name: functionName,
               args: functionArgs
             });
 
-            // Executar função
-            const result = await AgentFunctions.executeFunction(
+            // Executar função tenant-aware
+            const result = await executeTenantAwareFunction(
               functionName, 
               functionArgs, 
               input.tenantId
@@ -150,19 +136,19 @@ export class SofiaAgentFixed {
             if (result.success) {
               functionsExecuted.push(functionName);
               actions.push({ type: functionName, result });
-              logger.info('✅ [Sofia V3 Fixed] Função executada', {
+              logger.info('✅ [Sofia V3] Função executada', {
                 name: functionName,
                 success: true
               });
             } else {
-              logger.warn('⚠️ [Sofia V3 Fixed] Função falhou', {
+              logger.warn('⚠️ [Sofia V3] Função falhou', {
                 name: functionName,
                 error: result.message
               });
             }
 
           } catch (error: any) {
-            logger.error('❌ [Sofia V3 Fixed] Erro ao executar função', {
+            logger.error('❌ [Sofia V3] Erro ao executar função', {
               function: toolCall.function.name,
               error: error.message
             });
@@ -177,7 +163,7 @@ export class SofiaAgentFixed {
 
       const responseTime = Date.now() - startTime;
 
-      logger.info('✅ [Sofia V3 Fixed] Mensagem processada com sucesso', {
+      logger.info('✅ [Sofia V3] Mensagem processada com sucesso', {
         responseTime: `${responseTime}ms`,
         tokensUsed: totalTokens,
         functionsExecuted: functionsExecuted.length,
@@ -230,7 +216,7 @@ export class SofiaAgentFixed {
     
     const shouldForce = (hasBusinessKeyword || hasName) && !isPureGreeting;
     
-    logger.info('🎯 [Sofia V3 Fixed] Avaliação de função', {
+    logger.info('🎯 [Sofia V3] Avaliação de função', {
       messagePreview: message.substring(0, 50),
       shouldForce,
       hasBusinessKeyword,
@@ -274,7 +260,7 @@ export class SofiaAgentFixed {
   private handleError(error: any, input: SofiaInput, startTime: number): SofiaResponse {
     const responseTime = Date.now() - startTime;
 
-    logger.error('❌ [Sofia V3 Fixed] Erro ao processar mensagem', {
+    logger.error('❌ [Sofia V3] Erro ao processar mensagem', {
       error: error instanceof Error ? error.message : 'Unknown error',
       stack: error instanceof Error ? error.stack : 'No stack trace',
       clientPhone: this.maskPhone(input.clientPhone),
@@ -282,13 +268,6 @@ export class SofiaAgentFixed {
       responseTime: `${responseTime}ms`
     });
 
-    // Log crítico para debug
-    console.error('🚨 ERRO CRÍTICO SOFIA FIXED:', {
-      message: error.message || error,
-      stack: error.stack,
-      type: typeof error,
-      name: error.name
-    });
 
     return {
       reply: 'Ops! Tive um probleminha técnico. Pode repetir sua mensagem? 🙏',
@@ -311,7 +290,14 @@ export class SofiaAgentFixed {
     }
     return phone;
   }
+  
+  // Método para limpar contexto do cliente
+  async clearClientContext(clientPhone: string, tenantId: string): Promise<void> {
+    logger.info('🗑️ [Sofia V3] Limpando contexto do cliente', {
+      clientPhone: this.maskPhone(clientPhone),
+      tenantId
+    });
+    // O contexto é limpo automaticamente em cada nova conversa
+    // Este método existe apenas para compatibilidade
+  }
 }
-
-// EXPORTAÇÃO ESSENCIAL - SEM ISSO A CLASSE NÃO É IMPORTADA!
-export { SofiaAgentFixed };
