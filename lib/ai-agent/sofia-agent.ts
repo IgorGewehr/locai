@@ -79,17 +79,20 @@ export class SofiaAgent {
         tenantId: input.tenantId
       });
 
-      // 1. Obter contexto e histórico
+      // 🔥 MODO EMERGENCIAL - BYPASS DOS COMPONENTES PROBLEMÁTICOS
+      logger.info('🚨 [Sofia V3] Modo emergencial - bypass de componentes complexos');
+      
+      // Comentar context service e smart summary que estão causando timeout
+      /*
       const context = await conversationContextService.getOrCreateContext(
           input.clientPhone,
           input.tenantId
       );
 
-      // Obter histórico real das mensagens salvas
       const messageHistory = await conversationContextService.getMessageHistory(
           input.clientPhone,
           input.tenantId,
-          5 // Últimas 5 mensagens
+          5
       );
       
       const conversationHistory = messageHistory.map(msg => ({
@@ -97,25 +100,30 @@ export class SofiaAgent {
           content: msg.content
       }));
 
-      // 2. Obter e atualizar sumário inteligente
       const currentSummary = context.context.smartSummary || null;
       let updatedSummary = await smartSummaryService.updateSummary(
           input.message,
           currentSummary,
           conversationHistory
       );
+      */
+      
+      // Versão simplificada - sem context service ou smart summary
+      const conversationHistory: any[] = [];
+      let updatedSummary = {
+        conversationState: { stage: 'active' },
+        clientInfo: { hasName: false, hasDocument: false },
+        searchCriteria: { guests: 2 },
+        propertiesViewed: []
+      };
 
-      logger.info('🧠 [Sofia V3] Sumário atualizado', {
+      logger.info('🧠 [Sofia V3] Sumário atualizado (modo simplificado)', {
         stage: updatedSummary.conversationState.stage,
-        propertiesCount: updatedSummary.propertiesViewed.length,
-        hasValidProperties: updatedSummary.propertiesViewed.filter(p =>
-            p.id && p.id.length >= 15 && !this.isInvalidPropertyId(p.id)
-        ).length,
-        guests: updatedSummary.searchCriteria.guests,
-        hasClientInfo: !!updatedSummary.clientInfo.name
+        guests: updatedSummary.searchCriteria.guests
       });
 
-      // 3. Validar consistência do sumário
+      // Comentar validações complexas que podem causar timeout
+      /*
       const validation = smartSummaryService.validateSummaryConsistency(updatedSummary);
       if (!validation.isValid) {
         logger.warn('⚠️ [Sofia V3] Sumário inconsistente detectado', {
@@ -123,14 +131,14 @@ export class SofiaAgent {
           fixes: validation.fixes
         });
 
-        // Aplicar correções automáticas
         if (validation.fixes.stageCorrection) {
           updatedSummary.conversationState.stage = validation.fixes.stageCorrection;
         }
       }
+      */
 
-      // 4. Detectar mensagens casuais e responder naturalmente
-      // APENAS se for uma saudação simples sem menção a negócios
+      // Comentar sistemas complexos de detecção e qualificação
+      /*
       const isCasualMessage = this.isCasualMessage(input.message);
       const hasBusinessIntent = this.hasBusinessIntent(input.message);
       
@@ -139,7 +147,6 @@ export class SofiaAgent {
         return await this.handleCasualMessage(input, updatedSummary, startTime);
       }
 
-      // 5. ✨ NOVO: SISTEMA DE QUALIFICAÇÃO HUMANIZADA
       const isFirstInteraction = updatedSummary.conversationState.stage === 'greeting' || 
                                 updatedSummary.conversationState.stage === 'discovery';
       const qualificationContext = {
@@ -147,48 +154,56 @@ export class SofiaAgent {
         hasGuests: !!updatedSummary.searchCriteria.guests,
         hasCheckIn: !!updatedSummary.searchCriteria.checkIn,
         hasCheckOut: !!updatedSummary.searchCriteria.checkOut,
+        */
+
+      // Comentar todo o sistema de qualificação complexo
+      /*
         hasAmenities: updatedSummary.searchCriteria.amenities?.length > 0,
         hasBudget: !!updatedSummary.searchCriteria.maxBudget,
         hasPropertyType: !!updatedSummary.searchCriteria.propertyType,
         messageHistory: conversationHistory.map(m => m.content)
       };
       
-      // Verificar se deve qualificar antes de buscar
-      if (QualificationSystem.shouldQualify(input.message, qualificationContext, isFirstInteraction)) {
-        logger.info('🎯 [Sofia] Qualificação necessária antes da busca');
-        
-        // Gerar pergunta de qualificação personalizada
-        const qualificationQuestion = QualificationSystem.generateQualificationQuestion(
-          input.message,
-          qualificationContext,
-          updatedSummary.clientInfo
-        );
-        
-        // Atualizar contexto com informações extraídas
-        const extractedInfo = QualificationSystem.extractContextFromMessage(input.message, qualificationContext);
-        
-        // Retornar resposta de qualificação sem executar busca
-        return {
-          reply: qualificationQuestion,
-          summary: updatedSummary,
-          actions: [],
-          tokensUsed: 50,
-          responseTime: Date.now() - startTime,
-          functionsExecuted: [],
-          metadata: {
-            stage: 'discovery',
-            confidence: 0.9,
-            reasoningUsed: true,
-            executionMode: 'qualification'
-          }
-        };
-      }
+      // PULAR TODA LÓGICA COMPLEXA - MODO EMERGENCIAL
+      logger.info('🚀 [Sofia V3] MODO EMERGENCIAL - Pulando para OpenAI direto');
+      */
       
-      // 6. DETECÇÃO FORÇADA DE INTENÇÕES (ignora GPT quando necessário)
-      logger.info('🔍 [Sofia] Chamando IntentDetector', {
+      // Preparar mensagens direto para OpenAI sem complexidade
+      const messages = [
+        {
+          role: 'system' as const,
+          content: SOFIA_PROMPT
+        },
+        {
+          role: 'user' as const,
+          content: input.message
+        }
+      ];
+
+      // Detectar se deve forçar função
+      const shouldForceFunction = this.shouldForceFunction(input.message);
+      
+      logger.info('🎯 [Sofia V3] Decisão de execução', {
         message: input.message.substring(0, 50),
-        clientPhone: input.clientPhone.substring(0, 6) + '***'
+        shouldForce: shouldForceFunction,
+        toolChoice: shouldForceFunction ? 'required' : 'auto'
       });
+      
+      logger.info('🔄 [Sofia V3] Chamando OpenAI diretamente...');
+      
+      // 🔥 LOG CRÍTICO ANTES DA CHAMADA OPENAI
+      console.log('🚨 ANTES DA CHAMADA OPENAI:', {
+        message: input.message,
+        shouldForce: shouldForceFunction,
+        messagesLength: messages.length,
+        messagesContent: messages.map(m => m.content.substring(0, 50))
+      });
+      
+      /*
+      // TODO: Comentar toda essa lógica complexa que estava causando timeout
+      if (QualificationSystem.shouldQualify(input.message, qualificationContext, isFirstInteraction)) {
+        return qualification logic
+      }
       
       const forcedIntent = IntentDetector.detectIntent(
         input.message, 
@@ -293,13 +308,25 @@ export class SofiaAgent {
         toolChoice: shouldForceFunction ? 'required' : 'auto'
       });
       
+      // 🔥 LOG CRÍTICO ANTES DA CHAMADA OPENAI REAL
+      console.log('🚨 FAZENDO CHAMADA OPENAI AGORA...');
+      
       const completion = await this.openai.chat.completions.create({
         model: 'gpt-4o-mini',
         messages: messages as any,
         tools: getOpenAIFunctions(),
-        tool_choice: shouldForceFunction ? 'required' : 'auto',
+        tool_choice: 'required', // 🔥 FORÇAR SEMPRE PARA DEBUG
         max_tokens: 1000,
         temperature: 0.7
+      });
+
+      // 🔥 LOG CRÍTICO DEPOIS DA CHAMADA OPENAI
+      console.log('🚨 RESPOSTA OPENAI RECEBIDA:', {
+        hasResponse: !!completion,
+        hasChoices: !!completion.choices,
+        choicesLength: completion.choices?.length,
+        hasMessage: !!completion.choices?.[0]?.message,
+        totalTokens: completion.usage?.total_tokens
       });
 
       const response = completion.choices[0].message;
@@ -307,40 +334,84 @@ export class SofiaAgent {
       const actions: any[] = [];
       let totalTokens = completion.usage?.total_tokens || 0;
 
-      // 7. Processar function calls com validação crítica
+      // 🔥 LOGS CRÍTICOS PARA DEBUG
+      logger.info('🔍 [Sofia V3] Resposta OpenAI recebida', {
+        hasToolCalls: !!response.tool_calls,
+        toolCallsCount: response.tool_calls?.length || 0,
+        hasContent: !!response.content,
+        totalTokens,
+        toolCallsDetails: response.tool_calls?.map(tc => ({
+          name: tc.function.name,
+          args: tc.function.arguments.substring(0, 100)
+        })) || []
+      });
+
+      // 7. Processar function calls - VERSÃO SIMPLIFICADA
       if (response.tool_calls && response.tool_calls.length > 0) {
-        logger.info('🔧 [Sofia V3] Processando function calls', {
+        logger.info('🔧 [Sofia V3] Processando function calls (modo simplificado)', {
           count: response.tool_calls.length,
           functions: response.tool_calls.map(tc => tc.function.name)
         });
 
-        const { finalReply, finalTokens, executedFunctions, updatedSummaryFromFunctions } =
-            await this.processFunctionCalls(
-                response.tool_calls,
-                messages,
-                updatedSummary,
-                input.tenantId,
-                input.clientPhone
+        // Processar cada função de forma simples, sem o sistema complexo
+        for (const toolCall of response.tool_calls) {
+          try {
+            const functionName = toolCall.function.name;
+            const functionArgs = JSON.parse(toolCall.function.arguments);
+            
+            logger.info('⚙️ [Sofia V3] Executando função', {
+              name: functionName,
+              args: functionArgs
+            });
+
+            // Executar função diretamente
+            const result = await AgentFunctions.executeFunction(
+              functionName, 
+              functionArgs, 
+              input.tenantId
             );
 
-        reply = finalReply || reply;
-        totalTokens += finalTokens;
-        functionsExecuted.push(...executedFunctions);
-        actions.push(...executedFunctions.map(f => ({ type: f })));
+            if (result.success) {
+              functionsExecuted.push(functionName);
+              actions.push({ type: functionName, result });
+              logger.info('✅ [Sofia V3] Função executada com sucesso', {
+                name: functionName
+              });
+              
+              // Gerar resposta baseada na função executada
+              if (functionName === 'search_properties') {
+                reply = "Encontrei algumas opções incríveis para você! 🏠 Vou mostrar as propriedades disponíveis que combinam com o que está procurando. ✨";
+              } else if (functionName === 'calculate_price') {
+                reply = "Calculei o valor para você! 💰 Vou enviar os detalhes do orçamento completo.";
+              } else {
+                reply = "Perfeito! Executei a ação solicitada. 😊";
+              }
+            } else {
+              logger.warn('⚠️ [Sofia V3] Função falhou', {
+                name: functionName,
+                error: result.message
+              });
+            }
 
-        // Usar sumário atualizado pelas funções
-        updatedSummary = updatedSummaryFromFunctions;
+          } catch (error: any) {
+            logger.error('❌ [Sofia V3] Erro ao executar função', {
+              function: toolCall.function.name,
+              error: error.message
+            });
+          }
+        }
       }
 
-      // 8. Salvar contexto atualizado
+      // Comentar operações de context service que podem estar causando timeout
+      /*
       await conversationContextService.updateContext(input.clientPhone, input.tenantId, {
         smartSummary: updatedSummary,
         lastAction: functionsExecuted[functionsExecuted.length - 1] || 'chat',
         stage: updatedSummary.conversationState.stage
       });
 
-      // 9. Salvar histórico
       await this.saveConversationHistory(input, reply, totalTokens);
+      */
 
       const responseTime = Date.now() - startTime;
 
@@ -1141,49 +1212,31 @@ JAMAIS tente calcular preços ou enviar fotos sem ter propriedades buscadas!`
   private shouldForceFunction(message: string): boolean {
     const lowerMessage = message.toLowerCase();
     
-    // Palavras que SEMPRE devem executar funções - EXPANDIDO
-    const forceFunctionPatterns = [
-      // Busca de propriedades - MAIS AGRESSIVO
-      /quero\s+(alugar|apartamento|casa|imóvel)/i,
-      /quero\s+alugar/i,
-      /quero\s+apartamento/i,
-      /procuro\s+(apartamento|casa|imóvel)/i,
-      /busco\s+(apartamento|casa|imóvel)/i,
-      /preciso\s+(de\s+)?(apartamento|casa|imóvel|alugar)/i,
-      /apartamento/i,  // QUALQUER menção a apartamento
-      /alugar/i,       // QUALQUER menção a alugar
-      /casa\s+(para|de)/i,
-      /imóvel/i,
-      /propriedade/i,
-      /temporada/i,
-      /hospedagem/i,
-      
-      // Pessoas e localização
-      /\d+\s+pessoas?/i,
-      /para\s+\d+/i,
-      /(casal|família|amigos)/i,
-      
-      // Preços
-      /quanto\s+(custa|é|fica|sai|vale)/i,
-      /qual\s+(o\s+)?(valor|preço|custo)/i,
-      /preço/i,
-      /valor/i,
-      /custo/i,
-      
-      // Fotos e mídia
-      /(quero|posso|pode|tem)\s+(ver|mostrar)\s+(fotos|imagens)/i,
-      /fotos\s+(do|da|de)/i,
-      /imagens/i,
-      /ver\s+(fotos|imagens)/i,
-      /mostrar\s+(fotos|imagens)/i,
-      
-      // Reservas
-      /reservar?/i,
-      /confirmar/i,
-      /fechar\s+(negócio|reserva)/i
+    // ⚡ ESTRATÉGIA: SEMPRE FORCE FUNÇÕES QUANDO POSSÍVEL
+    // Se a mensagem menciona QUALQUER palavra relacionada a negócio imobiliário
+    const businessKeywords = [
+      'alugar', 'apartamento', 'casa', 'imóvel', 'propriedade', 'temporada',
+      'hospedagem', 'quarto', 'studio', 'kitnet', 'flat', 'loft',
+      'fotos', 'imagens', 'ver', 'mostrar', 'preço', 'valor', 'quanto',
+      'reservar', 'confirmar', 'fechar', 'agendar', 'visita',
+      'localização', 'endereço', 'região', 'bairro', 'centro', 'praia',
+      'pessoas', 'hóspedes', 'casal', 'família', 'amigos',
+      'dias', 'semana', 'mês', 'período', 'data', 'dezembro', 'janeiro',
+      'disponível', 'disponibilidade', 'vago', 'livre'
     ];
-
-    const shouldForce = forceFunctionPatterns.some(pattern => pattern.test(lowerMessage));
+    
+    // Nomes próprios (cadastro de cliente)
+    const hasName = /\b[A-Z][a-z]+\s+[A-Z][a-z]+/.test(message);
+    
+    // Contém qualquer palavra de negócio?
+    const hasBusinessKeyword = businessKeywords.some(keyword => 
+      lowerMessage.includes(keyword)
+    );
+    
+    // Saudações puras (sem keywords de negócio) - não forçar
+    const isPureGreeting = /^(oi|olá|boa\s+(tarde|noite|dia)|hello|hi)(\s*[!.?]?\s*)?$/i.test(message.trim());
+    
+    const shouldForce = (hasBusinessKeyword || hasName) && !isPureGreeting;
     
     logger.info('🎯 [Sofia V3] Avaliação ULTRA AGRESSIVA de função', {
       messagePreview: message.substring(0, 50),
@@ -1749,9 +1802,19 @@ Qual opção combina mais com você? 😊`;
 
     logger.error('❌ [Sofia V3] Erro ao processar mensagem', {
       error: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : 'No stack trace',
+      errorName: error instanceof Error ? error.name : typeof error,
       clientPhone: this.maskPhone(input.clientPhone),
       messagePreview: input.message.substring(0, 50) + '...',
       responseTime: `${responseTime}ms`
+    });
+
+    // 🔥 LOG CRÍTICO PARA DEBUG - FORÇAR CONSOLE
+    console.error('🚨 ERRO CRÍTICO SOFIA:', {
+      message: error.message || error,
+      stack: error.stack,
+      type: typeof error,
+      name: error.name
     });
 
     return {

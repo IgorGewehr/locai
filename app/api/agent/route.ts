@@ -133,10 +133,12 @@ export async function POST(request: NextRequest) {
         source: metadata?.source || (isTest ? 'test' : 'api')
       });
 
-      // NOVA INTEGRAÇÃO: Sofia V3 com Sistema de Sumário Inteligente
-      const { sofiaAgent } = await import('@/lib/ai-agent/sofia-agent');
+      // 🔥 USANDO SOFIA V3 CORRIGIDA (SEM TIMEOUT)
+      const { SofiaAgentFixed } = await import('@/lib/ai-agent/sofia-agent-fixed');
 
-      const result = await sofiaAgent.processMessage({
+      const sofia = SofiaAgentFixed.getInstance();
+      
+      const result = await sofia.processMessage({
         message: validatedMessage,
         clientPhone: validatedPhone,
         tenantId: validatedTenantId,

@@ -34,8 +34,8 @@ if (getApps().length === 0) {
       storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET!,
     });
   } catch (error) {
-
-    throw new Error('Firebase Admin initialization failed');
+    console.error('Firebase Admin initialization error details:', error);
+    throw new Error(`Firebase Admin initialization failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
   }
 } else {
   app = getApps()[0];
