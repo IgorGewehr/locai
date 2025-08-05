@@ -171,6 +171,48 @@ class ConversationStateManager {
   }
 
   /**
+   * Atualizar propriedade atual (alias para setCurrentProperty)
+   */
+  static updateCurrentProperty(
+    clientPhone: string,
+    tenantId: string,
+    propertyId: string,
+    isInterested: boolean = false
+  ): void {
+    this.setCurrentProperty(clientPhone, tenantId, propertyId, isInterested);
+  }
+
+  /**
+   * Atualizar estado após agendamento de visita
+   */
+  static updateAfterVisitScheduled(
+    clientPhone: string,
+    tenantId: string,
+    visitInfo: {
+      visitId: string;
+      propertyId: string;
+      scheduledDate: string;
+      scheduledTime: string;
+    }
+  ): void {
+    const state = this.getState(clientPhone, tenantId);
+    
+    state.currentPropertyId = visitInfo.propertyId;
+    state.interestedPropertyId = visitInfo.propertyId; // Se agendou visita, demonstrou interesse
+    state.conversationPhase = 'visiting';
+    state.lastFunction = 'schedule_visit';
+    state.updatedAt = new Date();
+    
+    logger.info('📅 [ConversationState] Visita agendada', {
+      clientPhone: clientPhone.substring(0, 6) + '***',
+      visitId: visitInfo.visitId.substring(0, 10) + '...',
+      propertyId: visitInfo.propertyId.substring(0, 10) + '...',
+      scheduledDate: visitInfo.scheduledDate,
+      scheduledTime: visitInfo.scheduledTime
+    });
+  }
+
+  /**
    * Resolver ID da propriedade baseado no contexto
    */
   static resolvePropertyId(
@@ -235,6 +277,49 @@ class ConversationStateManager {
   }
 
   /**
+   * Atualizar estado após criação de transação financeira
+   */
+  static updateAfterTransaction(
+    clientPhone: string,
+    tenantId: string,
+    transactionInfo: {
+      transactionId: string;
+      reservationId: string;
+      advanceAmount: number;
+      totalAmount: number;
+      paymentMethod: string;
+      status: string;
+    }
+  ): void {
+    const state = this.getState(clientPhone, tenantId);
+    
+    // Atualizar fase da conversa - após criar transação, conversa está em fase de booking/pagamento
+    state.conversationPhase = 'booking';
+    state.lastFunction = 'create_transaction';
+    state.updatedAt = new Date();
+    
+    // Adicionar informações da transação ao estado (pode ser útil para referências futuras)
+    (state as any).lastTransaction = {
+      transactionId: transactionInfo.transactionId,
+      reservationId: transactionInfo.reservationId,
+      advanceAmount: transactionInfo.advanceAmount,
+      totalAmount: transactionInfo.totalAmount,
+      paymentMethod: transactionInfo.paymentMethod,
+      status: transactionInfo.status,
+      createdAt: new Date().toISOString()
+    };
+    
+    logger.info('💳 [ConversationState] Transação registrada', {
+      clientPhone: clientPhone.substring(0, 6) + '***',
+      transactionId: transactionInfo.transactionId.substring(0, 10) + '...',
+      reservationId: transactionInfo.reservationId.substring(0, 10) + '...',
+      advanceAmount: transactionInfo.advanceAmount,
+      paymentMethod: transactionInfo.paymentMethod,
+      status: transactionInfo.status
+    });
+  }
+
+  /**
    * Obter resumo do estado atual
    */
   static getStateSummary(clientPhone: string, tenantId: string): any {
@@ -248,7 +333,8 @@ class ConversationStateManager {
       hasClient: !!state.clientInfo?.name,
       hasPriceCalculation: !!state.lastPriceCalculation,
       lastFunction: state.lastFunction,
-      propertiesCount: state.lastPropertyIds.length
+      propertiesCount: state.lastPropertyIds.length,
+      hasTransaction: !!(state as any).lastTransaction
     };
   }
 }

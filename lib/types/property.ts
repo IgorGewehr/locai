@@ -30,6 +30,10 @@ export interface Property {
   // Acréscimos por forma de pagamento
   paymentMethodSurcharges: Record<PaymentMethod, number>
   
+  // Configurações financeiras da reserva
+  advancePaymentPercentage: number // Percentual do valor total que deve ser pago antecipadamente (ex: 10 = 10%)
+  paymentMethodDiscounts?: Record<PaymentMethod, number> // Descontos por método (ex: PIX = 10% desconto)
+  
   // Mídias
   photos: PropertyPhoto[]
   videos: PropertyVideo[]

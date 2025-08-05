@@ -4,7 +4,7 @@ import React, { useEffect, useState } from 'react';
 import { Box, Alert, Container } from '@mui/material';
 import { useParams } from 'next/navigation';
 import { MiniSiteConfig, PublicProperty } from '@/lib/types/mini-site';
-import MiniSiteLayoutNew from '@/components/mini-site/MiniSiteLayoutNew';
+import MiniSiteLayout from '@/components/mini-site/MiniSiteLayout';
 import PropertyDetailView from '@/components/mini-site/PropertyDetailView';
 import PropertyDetailSkeleton from '@/components/mini-site/PropertyDetailSkeleton';
 import ErrorBoundary from '@/components/mini-site/ErrorBoundary';
@@ -154,10 +154,9 @@ export default function PropertyDetailPage() {
 
   return (
     <ErrorBoundary>
-      <MiniSiteLayoutNew config={config}>
-        <Breadcrumbs items={breadcrumbItems} config={config} />
+      <MiniSiteLayout config={config} breadcrumbs={breadcrumbItems}>
         <PropertyDetailView property={property} config={config} />
-      </MiniSiteLayoutNew>
+      </MiniSiteLayout>
     </ErrorBoundary>
   );
 }

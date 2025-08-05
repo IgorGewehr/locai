@@ -48,7 +48,8 @@
       "Bash(npx ts-node:*)",
       "Bash(npx json-lint:*)",
       "Bash(cat:*)",
-      "Bash(bash:*)"
+      "Bash(bash:*)",
+      "WebFetch(domain:localhost)"
     ],
     "deny": []
   }

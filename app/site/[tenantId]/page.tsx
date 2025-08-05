@@ -4,8 +4,8 @@ import React, { useEffect, useState } from 'react';
 import { Box, Alert, Container } from '@mui/material';
 import { useParams } from 'next/navigation';
 import { MiniSiteConfig, PublicProperty } from '@/lib/types/mini-site';
-import MiniSiteLayoutNew from '@/components/mini-site/MiniSiteLayoutNew';
-import PropertyGridModern from '@/components/mini-site/PropertyGridModern';
+import MiniSiteLayout from '@/components/mini-site/MiniSiteLayout';
+import PropertyGrid from '@/components/mini-site/PropertyGrid';
 import PropertyGridSkeleton from '@/components/mini-site/PropertyGridSkeleton';
 import ErrorBoundary from '@/components/mini-site/ErrorBoundary';
 import MiniSiteError from '@/components/mini-site/MiniSiteError';
@@ -113,9 +113,9 @@ export default function MiniSitePage() {
 
   return (
     <ErrorBoundary>
-      <MiniSiteLayoutNew config={config}>
-        <PropertyGridModern properties={properties} config={config} />
-      </MiniSiteLayoutNew>
+      <MiniSiteLayout config={config}>
+        <PropertyGrid properties={properties} config={config} />
+      </MiniSiteLayout>
     </ErrorBoundary>
   );
 }
