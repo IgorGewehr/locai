@@ -347,10 +347,35 @@ export async function createReservation(args: CreateReservationArgs, tenantId: s
       if (!clientId) {
         const newClientData = {
           name: args.clientName || 'Cliente WhatsApp',
-          phone: args.clientPhone,
+          phone: args.clientPhone || '',
           email: args.clientEmail,
+          document: '',
+          documentType: 'cpf' as const,
           whatsappNumber: args.clientPhone,
-          tenantId
+          
+          // Campos obrigatórios da interface Client
+          preferences: {
+            preferredPaymentMethod: 'pix' as const,
+            petOwner: false,
+            smoker: false,
+            communicationPreference: 'whatsapp' as const,
+            marketingOptIn: true
+          },
+          totalReservations: 0,
+          totalSpent: 0,
+          averageRating: 0,
+          lifetimeValue: 0,
+          whatsappConversations: [],
+          customerSegment: 'new' as const,
+          acquisitionSource: 'whatsapp' as const,
+          isActive: true,
+          isVip: false,
+          tags: [],
+          notes: '',
+          reviews: [],
+          tenantId,
+          createdAt: new Date(),
+          updatedAt: new Date()
         };
         
         clientId = await clientService.create(newClientData);
@@ -402,19 +427,47 @@ export async function createReservation(args: CreateReservationArgs, tenantId: s
       totalPrice = property.basePrice * nights + (property.cleaningFee || 0);
     }
 
-    // Criar reserva
+    // Criar reserva com todos os campos obrigatórios da interface
+    const nights = Math.ceil((checkOutDate.getTime() - checkInDate.getTime()) / (1000 * 60 * 60 * 24));
+    
     const reservationData: Omit<Reservation, 'id'> = {
       propertyId: args.propertyId,
       clientId,
+      status: 'pending',
+      
+      // Datas
       checkIn: checkInDate,
       checkOut: checkOutDate,
-      guests: args.guests,
-      totalPrice: totalPrice || 0,
-      status: 'pending',
-      source: 'whatsapp',
-      tenantId,
       createdAt: new Date(),
-      updatedAt: new Date()
+      updatedAt: new Date(),
+      
+      // Hóspedes
+      guests: args.guests,
+      guestDetails: [], // Lista vazia inicialmente
+      
+      // Financeiro
+      totalAmount: totalPrice || 0,
+      paidAmount: 0, // Ainda não foi pago
+      pendingAmount: totalPrice || 0, // Todo o valor está pendente
+      paymentMethod: 'pix', // Padrão
+      paymentPlan: 'full', // Pagamento à vista por padrão
+      payments: [], // Nenhum pagamento ainda
+      
+      // Analytics
+      nights,
+      paymentStatus: 'pending',
+      
+      // Extras
+      extraServices: [],
+      specialRequests: '',
+      observations: '',
+      
+      // Origem
+      source: 'whatsapp',
+      agentId: 'sofia-ai',
+      
+      // Metadados
+      tenantId
     };
 
     const reservationId = await reservationService.create(reservationData);
@@ -431,12 +484,13 @@ export async function createReservation(args: CreateReservationArgs, tenantId: s
       reservation: {
         id: reservationId,
         propertyId: args.propertyId,
-        propertyName: property.name,
+        propertyName: property.title, // Property interface usa 'title'
         clientId,
         checkIn: args.checkIn,
         checkOut: args.checkOut,
         guests: args.guests,
-        totalPrice: args.totalPrice,
+        totalAmount: totalPrice || 0,
+        nights,
         status: 'pending'
       },
       tenantId
@@ -509,14 +563,38 @@ export async function registerClient(args: RegisterClientArgs, tenantId: string)
         tenantId
       };
     } else {
-      // Criar novo cliente
+      // Criar novo cliente com campos obrigatórios da interface Client
       const clientData = {
         name: args.name,
-        phone: args.phone,
+        phone: args.phone || '',
         email: args.email,
-        document: args.document,
+        document: args.document || '',
+        documentType: 'cpf' as const,
         whatsappNumber: args.whatsappNumber || args.phone,
-        tenantId
+        
+        // Campos obrigatórios da interface Client
+        preferences: {
+          preferredPaymentMethod: 'pix' as const,
+          petOwner: false,
+          smoker: false,
+          communicationPreference: 'whatsapp' as const,
+          marketingOptIn: true
+        },
+        totalReservations: 0,
+        totalSpent: 0,
+        averageRating: 0,
+        lifetimeValue: 0,
+        whatsappConversations: [],
+        customerSegment: 'new' as const,
+        acquisitionSource: 'whatsapp' as const,
+        isActive: true,
+        isVip: false,
+        tags: [],
+        notes: '',
+        reviews: [],
+        tenantId,
+        createdAt: new Date(),
+        updatedAt: new Date()
       };
 
       const clientId = await clientService.create(clientData);
@@ -874,13 +952,13 @@ export async function scheduleVisit(args: ScheduleVisitArgs, tenantId: string): 
       clientName: client?.name || args.clientName || 'Cliente WhatsApp',
       clientPhone: client?.phone || args.clientPhone || '',
       propertyId: args.propertyId,
-      propertyName: property.name,
-      propertyAddress: `${property.address || ''}, ${property.neighborhood}`,
+      propertyName: property.title, // Property interface usa 'title'
+      propertyAddress: `${property.address || ''}, ${property.neighborhood || ''}`.trim(),
       scheduledDate: visitDateTime,
       scheduledTime: args.visitTime || '14:00',
       duration: 60,
-      status: VisitStatus.SCHEDULED,
-      notes: args.notes || `Visita agendada via WhatsApp - ${property.name}`,
+      status: 'scheduled', // VisitStatus enum value
+      notes: args.notes || `Visita agendada via WhatsApp - ${property.title}`,
       source: 'whatsapp',
       createdAt: new Date(),
       updatedAt: new Date()
@@ -911,8 +989,8 @@ export async function scheduleVisit(args: ScheduleVisitArgs, tenantId: string): 
       visit: {
         id: visitId,
         propertyId: args.propertyId,
-        propertyName: property.name,
-        propertyAddress: `${property.address}, ${property.neighborhood}`,
+        propertyName: property.title, // Property interface usa 'title'
+        propertyAddress: `${property.address || ''}, ${property.neighborhood || ''}`.trim(),
         clientId,
         scheduledDate: formattedDate,
         scheduledTime: formattedTime,
@@ -1665,7 +1743,7 @@ export async function createTransaction(args: CreateTransactionArgs, tenantId: s
         reservationId = reservationId || recentReservation.id!;
         clientId = clientId || recentReservation.clientId;
         propertyId = propertyId || recentReservation.propertyId;
-        totalAmount = totalAmount || recentReservation.totalPrice;
+        totalAmount = totalAmount || recentReservation.totalAmount;
       }
     }
     
@@ -1734,7 +1812,7 @@ export async function createTransaction(args: CreateTransactionArgs, tenantId: s
     const transactionData: CreateFinancialMovementInput = {
       type: 'income',
       category: 'rent',
-      description: `Pagamento antecipado - ${property.name || property.title} (${advancePercentage}%)`,
+      description: `Pagamento antecipado - ${property.title} (${advancePercentage}%)`,
       amount: finalAdvanceAmount,
       dueDate,
       propertyId: args.propertyId,
@@ -1774,7 +1852,7 @@ export async function createTransaction(args: CreateTransactionArgs, tenantId: s
       transaction: {
         id: transactionId,
         reservationId: args.reservationId,
-        propertyName: property.name || property.title,
+        propertyName: property.title,
         clientName: client.name,
         totalAmount: args.totalAmount,
         advanceAmount: finalAdvanceAmount,
