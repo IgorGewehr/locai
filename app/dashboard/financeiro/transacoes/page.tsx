@@ -82,6 +82,7 @@ import {
   AccountCircle,
   Home,
   CalendarToday,
+  Campaign,
 } from '@mui/icons-material';
 import { Transaction, Client, Property, Reservation } from '@/lib/types';
 import { useTenant } from '@/contexts/TenantContext';
@@ -124,7 +125,7 @@ export default function TransactionsPage() {
     amount: yup.number().positive('Valor deve ser positivo').required('Valor é obrigatório'),
     type: yup.string().oneOf(['income', 'expense']).required('Tipo é obrigatório'),
     category: yup.string().required('Categoria é obrigatória'),
-    status: yup.string().oneOf(['pending', 'completed', 'cancelled']).required('Status é obrigatório'),
+    status: yup.string().oneOf(['pending', 'paid', 'overdue', 'cancelled']).required('Status é obrigatório'),
     paymentMethod: yup.string().required('Método de pagamento é obrigatório'),
     clientId: yup.string(),
     reservationId: yup.string(),
@@ -213,11 +214,21 @@ export default function TransactionsPage() {
     if (!services) return;
     
     try {
+      // Map form status to valid MovementStatus
+      const mappedStatus = data.status === 'completed' ? 'paid' : data.status;
+      
       const newTransaction = {
         ...data,
+        status: mappedStatus,
+        dueDate: new Date(), // Add required dueDate
         date: new Date(),
         createdAt: new Date(),
         updatedAt: new Date(),
+        createdBy: 'user', // Add required field
+        isRecurring: false, // Add required field
+        isInstallment: false, // Add required field
+        autoCharge: false, // Add required field
+        remindersSent: 0, // Add required field
         // Only include IDs if they have values
         ...(data.clientId && { clientId: data.clientId }),
         ...(data.reservationId && { reservationId: data.reservationId }),
@@ -269,10 +280,13 @@ export default function TransactionsPage() {
   // Helper functions for icons and categories
   const getCategoryIcon = (category: string) => {
     switch (category) {
-      case 'reservation': return <Receipt />;
+      case 'rent': return <Receipt />;
+      case 'reservation': return <Receipt />; // For backward compatibility
       case 'maintenance': return <Build />;
       case 'cleaning': return <CleaningServices />;
       case 'commission': return <Percent />;
+      case 'utilities': return <Build />;
+      case 'marketing': return <Campaign />;
       case 'refund': return <Undo />;
       default: return <MoreHoriz />;
     }
@@ -301,10 +315,12 @@ export default function TransactionsPage() {
 
 
   const categories = [
-    { value: 'reservation', label: 'Reserva', icon: <Receipt /> },
-    { value: 'maintenance', label: 'Manutenção', icon: <Build /> },
+    { value: 'rent', label: 'Aluguel', icon: <Receipt /> },
     { value: 'cleaning', label: 'Limpeza', icon: <CleaningServices /> },
+    { value: 'maintenance', label: 'Manutenção', icon: <Build /> },
     { value: 'commission', label: 'Comissão', icon: <Percent /> },
+    { value: 'utilities', label: 'Utilidades', icon: <Build /> },
+    { value: 'marketing', label: 'Marketing', icon: <Campaign /> },
     { value: 'refund', label: 'Reembolso', icon: <Undo /> },
     { value: 'other', label: 'Outros', icon: <MoreHoriz /> },
   ];
@@ -320,8 +336,9 @@ export default function TransactionsPage() {
 
   const statusOptions = [
     { value: 'pending', label: 'Pendente', icon: <Schedule />, color: 'warning' as const },
-    { value: 'completed', label: 'Concluída', icon: <CheckCircle />, color: 'success' as const },
-    { value: 'cancelled', label: 'Cancelada', icon: <Error />, color: 'error' as const },
+    { value: 'paid', label: 'Pago', icon: <CheckCircle />, color: 'success' as const },
+    { value: 'overdue', label: 'Vencido', icon: <Error />, color: 'error' as const },
+    { value: 'cancelled', label: 'Cancelada', icon: <Cancel />, color: 'default' as const },
   ];
 
   const steps = [
@@ -353,8 +370,8 @@ export default function TransactionsPage() {
         description: `Pagamento - Reserva #${reservation.id.slice(-8)}`,
         amount: reservation.totalAmount,
         type: 'income',
-        category: 'reservation',
-        status: reservation.paymentStatus === 'paid' ? 'completed' : 'pending',
+        category: 'rent',
+        status: reservation.paymentStatus === 'paid' ? 'paid' : 'pending',
         paymentMethod: reservation.paymentMethod || 'pix',
         clientId: reservation.clientId,
         reservationId: reservation.id,
@@ -416,8 +433,11 @@ export default function TransactionsPage() {
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'completed': return 'success';
+      case 'paid': return 'success';
+      case 'completed': return 'success'; // For backward compatibility
       case 'pending': return 'warning';
+      case 'overdue': return 'error';
+      case 'cancelled': return 'default';
       case 'failed': return 'error';
       default: return 'default';
     }
@@ -425,8 +445,11 @@ export default function TransactionsPage() {
 
   const getStatusLabel = (status: string) => {
     switch (status) {
-      case 'completed': return 'Concluída';
+      case 'paid': return 'Pago';
+      case 'completed': return 'Concluída'; // For backward compatibility
       case 'pending': return 'Pendente';
+      case 'overdue': return 'Vencido';
+      case 'cancelled': return 'Cancelado';
       case 'failed': return 'Falhou';
       default: return status;
     }
@@ -434,10 +457,13 @@ export default function TransactionsPage() {
 
   const getCategoryLabel = (category: string) => {
     switch (category) {
-      case 'reservation': return 'Reserva';
+      case 'rent': return 'Aluguel';
+      case 'reservation': return 'Reserva'; // For backward compatibility
       case 'maintenance': return 'Manutenção';
       case 'cleaning': return 'Limpeza';
       case 'commission': return 'Comissão';
+      case 'utilities': return 'Utilidades';
+      case 'marketing': return 'Marketing';
       case 'refund': return 'Reembolso';
       case 'other': return 'Outros';
       default: return category;

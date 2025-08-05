@@ -15,7 +15,7 @@ export class AIService {
     
     // Redirect to Sofia Agent MVP production version
     try {
-      const { sofiaAgent } = await import('@/lib/ai-agent/sofia-agent');
+      const { sofiaAgent } = await import('@/lib/ai-agent/sofia-agent-v4');
       
       const result = await sofiaAgent.processMessage({
         message,

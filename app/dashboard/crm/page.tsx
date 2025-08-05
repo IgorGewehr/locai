@@ -219,9 +219,9 @@ export default function CRMPage() {
       [destStatus]: [...prev[destStatus], { ...sourceLead, status: destStatus }]
     }));
 
-    // Update in backend
+    // Update in backend using tenant services
     try {
-      await crmService.updateLead(leadId, { status: destStatus });
+      await services.leads.update(leadId, { status: destStatus });
     } catch (error) {
       console.error('Error updating lead status:', error);
       // Revert on error

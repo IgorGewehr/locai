@@ -453,28 +453,24 @@ export default function ClientsPage() {
                       </Box>
                     }
                     secondary={
-                      <Box>
-                        <Typography variant="body2" color="text.secondary">
+                      <>
+                        <Typography variant="body2" color="text.secondary" component="span" sx={{ display: 'block' }}>
                           📱 {formatPhone(client.phone)}
                           {client.email && ` • 📧 ${client.email}`}
                           {client.document && ` • 📄 CPF: ${client.document.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4')}`}
                         </Typography>
-                        <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mt: 0.5 }}>
+                        <Typography variant="caption" color="text.secondary" component="span" sx={{ display: 'block', mt: 0.5 }}>
                           {(Number(client.totalReservations) || 0) > 0 ? (
-                            <Typography variant="caption" color="text.secondary">
+                            <>
                               🏠 {Number(client.totalReservations) || 0} reserva{(Number(client.totalReservations) || 0) > 1 ? 's' : ''} • 
                               💰 R$ {(Number(client.totalSpent) || 0).toLocaleString('pt-BR')} gastos
-                            </Typography>
+                            </>
                           ) : (
-                            <Typography variant="caption" color="text.secondary">
-                              Novo cliente - Nenhuma reserva ainda
-                            </Typography>
+                            'Novo cliente - Nenhuma reserva ainda'
                           )}
-                          <Typography variant="caption" color="text.secondary">
-                            • Cadastrado em {safeFormatDate(client.createdAt, DateFormats.SHORT, 'Não informado')}
-                          </Typography>
-                        </Box>
-                      </Box>
+                          {' • Cadastrado em ' + safeFormatDate(client.createdAt, DateFormats.SHORT, 'Não informado')}
+                        </Typography>
+                      </>
                     }
                     secondaryTypographyProps={{ component: 'div' }}
                   />
