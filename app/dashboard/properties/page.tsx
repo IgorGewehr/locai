@@ -350,12 +350,26 @@ export default function PropertiesPage() {
                 <CardMedia
                   component="img"
                   height="200"
-                  image={property.photos?.[0]?.url || '/api/placeholder/400/300'}
+                  image={(() => {
+                    // Safe image URL with multiple fallbacks
+                    const imageUrl = property.photos?.[0]?.url;
+                    if (imageUrl && imageUrl.startsWith('http')) {
+                      return imageUrl;
+                    }
+                    // Fallback to placeholder
+                    return 'https://via.placeholder.com/400x300/e5e7eb/9ca3af?text=Sem+Imagem';
+                  })()}
                   alt={property.title}
                   className="property-image"
+                  onError={(e) => {
+                    // Additional fallback if image fails to load
+                    const target = e.target as HTMLImageElement;
+                    target.src = 'https://via.placeholder.com/400x300/e5e7eb/9ca3af?text=Erro+ao+Carregar';
+                  }}
                   sx={{ 
                     objectFit: 'cover',
                     transition: 'transform 0.3s ease-in-out',
+                    backgroundColor: '#f5f5f5',
                   }}
                 />
 

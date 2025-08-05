@@ -376,7 +376,19 @@ export default function TransactionsPage() {
         clientId: reservation.clientId,
         reservationId: reservation.id,
         propertyId: reservation.propertyId,
-        notes: `Check-in: ${format(reservation.checkIn, 'dd/MM/yyyy')} - Check-out: ${format(reservation.checkOut, 'dd/MM/yyyy')}`,
+        notes: (() => {
+          try {
+            const checkIn = reservation.checkIn instanceof Date ? reservation.checkIn : new Date(reservation.checkIn);
+            const checkOut = reservation.checkOut instanceof Date ? reservation.checkOut : new Date(reservation.checkOut);
+            
+            if (!isNaN(checkIn.getTime()) && !isNaN(checkOut.getTime())) {
+              return `Check-in: ${format(checkIn, 'dd/MM/yyyy')} - Check-out: ${format(checkOut, 'dd/MM/yyyy')}`;
+            }
+            return `Reserva #${reservation.id.slice(-8)}`;
+          } catch (error) {
+            return `Reserva #${reservation.id.slice(-8)}`;
+          }
+        })(),
       });
       
       // Also set the selected client if not already selected
@@ -1145,8 +1157,15 @@ export default function TransactionsPage() {
                         <Autocomplete
                           options={filteredReservations}
                           getOptionLabel={(option) => {
-                            const checkIn = option.checkIn instanceof Date ? option.checkIn : new Date(option.checkIn);
-                            return `#${option.id.slice(-8)} - ${format(checkIn, 'dd/MM/yyyy')} - R$ ${(option.totalAmount || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
+                            try {
+                              const checkIn = option.checkIn instanceof Date ? option.checkIn : new Date(option.checkIn);
+                              if (isNaN(checkIn.getTime())) {
+                                return `#${option.id.slice(-8)} - R$ ${(option.totalAmount || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
+                              }
+                              return `#${option.id.slice(-8)} - ${format(checkIn, 'dd/MM/yyyy')} - R$ ${(option.totalAmount || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
+                            } catch (error) {
+                              return `#${option.id.slice(-8)} - R$ ${(option.totalAmount || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
+                            }
                           }}
                           value={selectedReservation}
                           onChange={(_, newValue) => {
@@ -1176,8 +1195,20 @@ export default function TransactionsPage() {
                           )}
                           renderOption={(props, option) => {
                             const { key, ...otherProps } = props;
-                            const checkIn = option.checkIn instanceof Date ? option.checkIn : new Date(option.checkIn);
-                            const checkOut = option.checkOut instanceof Date ? option.checkOut : new Date(option.checkOut);
+                            
+                            // Safe date formatting with validation
+                            let dateRange = 'Datas não informadas';
+                            try {
+                              const checkIn = option.checkIn instanceof Date ? option.checkIn : new Date(option.checkIn);
+                              const checkOut = option.checkOut instanceof Date ? option.checkOut : new Date(option.checkOut);
+                              
+                              if (!isNaN(checkIn.getTime()) && !isNaN(checkOut.getTime())) {
+                                dateRange = `${format(checkIn, 'dd/MM/yyyy')} - ${format(checkOut, 'dd/MM/yyyy')}`;
+                              }
+                            } catch (error) {
+                              // Keep default value
+                            }
+                            
                             return (
                               <Box component="li" key={key} {...otherProps}>
                                 <ListItemAvatar>
@@ -1190,7 +1221,7 @@ export default function TransactionsPage() {
                                     Reserva #{option.id.slice(-8)} - {option.status}
                                   </Typography>
                                   <Typography variant="body2" color="text.secondary">
-                                    {format(checkIn, 'dd/MM/yyyy')} - {format(checkOut, 'dd/MM/yyyy')}
+                                    {dateRange}
                                   </Typography>
                                   <Typography variant="body2" color="text.secondary">
                                     R$ {(option.totalAmount || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })} - {option.paymentStatus}

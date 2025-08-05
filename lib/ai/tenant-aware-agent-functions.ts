@@ -144,26 +144,26 @@ export async function searchProperties(args: SearchPropertiesArgs, tenantId: str
       filteredProperties = filteredProperties.filter(property => 
         property.city?.toLowerCase().includes(location) ||
         property.neighborhood?.toLowerCase().includes(location) ||
-        property.state?.toLowerCase().includes(location)
+        property.address?.toLowerCase().includes(location)
       );
     }
 
     if (args.guests) {
       filteredProperties = filteredProperties.filter(property => 
-        (property.maxGuests || 0) >= args.guests
+        (property.maxGuests || 0) >= args.guests!
       );
     }
 
     if (args.maxPrice) {
       filteredProperties = filteredProperties.filter(property => 
-        (property.pricing?.basePrice || 0) <= args.maxPrice
+        (property.basePrice || 0) <= args.maxPrice!
       );
     }
 
     if (args.propertyType) {
       const type = args.propertyType.toLowerCase();
       filteredProperties = filteredProperties.filter(property => 
-        property.type?.toLowerCase().includes(type)
+        property.category?.toLowerCase().includes(type)
       );
     }
 
@@ -181,15 +181,19 @@ export async function searchProperties(args: SearchPropertiesArgs, tenantId: str
       success: true,
       properties: limitedProperties.map(p => ({
         id: p.id,
-        name: p.name,
-        location: `${p.neighborhood}, ${p.city}`,
+        name: p.title, // Property interface usa 'title', não 'name'
+        location: `${p.neighborhood || ''}, ${p.city || ''}`.replace(/^, |, $/, ''),
         maxGuests: p.maxGuests,
         bedrooms: p.bedrooms,
         bathrooms: p.bathrooms,
-        basePrice: p.pricing?.basePrice || 0,
+        basePrice: p.basePrice || 0, // Property interface tem basePrice direto
         amenities: p.amenities?.slice(0, 5) || [],
         description: p.description?.substring(0, 200) || '',
-        images: p.images?.slice(0, 3) || []
+        images: p.photos?.slice(0, 3).map(photo => ({
+          id: photo.id,
+          url: photo.url,
+          caption: photo.caption
+        })) || [] // Property interface usa 'photos', não 'images'
       })),
       totalFound: filteredProperties.length,
       tenantId
@@ -246,8 +250,8 @@ export async function calculatePrice(args: CalculatePriceArgs, tenantId: string)
     const checkOutDate = new Date(args.checkOut);
     const nights = Math.ceil((checkOutDate.getTime() - checkInDate.getTime()) / (1000 * 60 * 60 * 24));
     
-    const basePrice = property.pricing?.basePrice || 0;
-    const cleaningFee = property.pricing?.cleaningFee || 0;
+    const basePrice = property.basePrice || 0; // Property interface tem basePrice direto
+    const cleaningFee = property.cleaningFee || 0; // Property interface tem cleaningFee direto
     const serviceFee = Math.round(basePrice * nights * 0.1); // 10% taxa de serviço
     
     const subtotal = basePrice * nights;
@@ -264,8 +268,8 @@ export async function calculatePrice(args: CalculatePriceArgs, tenantId: string)
       success: true,
       property: {
         id: property.id,
-        name: property.name,
-        location: `${property.neighborhood}, ${property.city}`
+        name: property.title, // Property interface usa 'title', não 'name'
+        location: `${property.neighborhood || ''}, ${property.city || ''}`.replace(/^, |, $/, '')
       },
       pricing: {
         basePrice,
@@ -362,17 +366,55 @@ export async function createReservation(args: CreateReservationArgs, tenantId: s
       };
     }
 
+    // Validar datas
+    const checkInDate = new Date(args.checkIn);
+    const checkOutDate = new Date(args.checkOut);
+    
+    if (checkInDate >= checkOutDate) {
+      return {
+        success: false,
+        error: 'Data de check-out deve ser após o check-in',
+        tenantId
+      };
+    }
+    
+    if (checkInDate < new Date()) {
+      return {
+        success: false,
+        error: 'Data de check-in não pode ser no passado',
+        tenantId
+      };
+    }
+    
+    // Validar número de hóspedes
+    if (args.guests > property.maxGuests) {
+      return {
+        success: false,
+        error: `Máximo de ${property.maxGuests} hóspedes para esta propriedade`,
+        tenantId
+      };
+    }
+
+    // Calcular preço se não foi fornecido
+    let totalPrice = args.totalPrice;
+    if (!totalPrice && property.basePrice) {
+      const nights = Math.ceil((checkOutDate.getTime() - checkInDate.getTime()) / (1000 * 60 * 60 * 24));
+      totalPrice = property.basePrice * nights + (property.cleaningFee || 0);
+    }
+
     // Criar reserva
     const reservationData: Omit<Reservation, 'id'> = {
       propertyId: args.propertyId,
       clientId,
-      checkIn: new Date(args.checkIn),
-      checkOut: new Date(args.checkOut),
+      checkIn: checkInDate,
+      checkOut: checkOutDate,
       guests: args.guests,
-      totalPrice: args.totalPrice || 0,
+      totalPrice: totalPrice || 0,
       status: 'pending',
       source: 'whatsapp',
-      tenantId
+      tenantId,
+      createdAt: new Date(),
+      updatedAt: new Date()
     };
 
     const reservationId = await reservationService.create(reservationData);
@@ -567,7 +609,7 @@ export async function getPropertyDetails(args: GetPropertyDetailsArgs, tenantId:
     logger.info('✅ [TenantAgent] get_property_details concluída', {
       tenantId,
       propertyId: property.id,
-      propertyName: property.name
+      propertyName: property.title
     });
 
     // Retornar detalhes completos formatados
@@ -575,56 +617,44 @@ export async function getPropertyDetails(args: GetPropertyDetailsArgs, tenantId:
       success: true,
       property: {
         id: property.id,
-        name: property.name,
-        type: property.type,
+        name: property.title, // Property interface usa 'title'
+        type: property.category, // Property interface usa 'category'
         description: property.description,
         // Localização
         location: {
           address: property.address,
           neighborhood: property.neighborhood,
           city: property.city,
-          state: property.state,
-          zipCode: property.zipCode,
-          coordinates: property.coordinates
         },
         // Especificações
         specs: {
           bedrooms: property.bedrooms,
           bathrooms: property.bathrooms,
-          suites: property.suites,
-          parkingSpaces: property.parkingSpaces,
-          area: property.area,
           maxGuests: property.maxGuests
         },
         // Comodidades
         amenities: property.amenities || [],
         // Regras
         rules: {
-          checkInTime: property.checkInTime || '14:00',
-          checkOutTime: property.checkOutTime || '12:00',
-          smokingAllowed: property.smokingAllowed || false,
-          petsAllowed: property.petsAllowed || false,
-          eventsAllowed: property.eventsAllowed || false,
-          additionalRules: property.additionalRules
+          petsAllowed: property.allowsPets || false,
+          minimumNights: property.minimumNights || 1
         },
         // Preços
         pricing: {
-          basePrice: property.pricing?.basePrice || 0,
-          weekendPrice: property.pricing?.weekendPrice,
-          monthlyDiscount: property.pricing?.monthlyDiscount,
-          cleaningFee: property.pricing?.cleaningFee || 0,
-          securityDeposit: property.pricing?.securityDeposit || 0
+          basePrice: property.basePrice || 0, // Property interface tem basePrice direto
+          cleaningFee: property.cleaningFee || 0, // Property interface tem cleaningFee direto
+          pricePerExtraGuest: property.pricePerExtraGuest || 0
         },
         // Mídia
         media: {
-          photos: property.images?.length || 0,
-          mainPhoto: property.images?.[0],
+          photos: property.photos?.length || 0, // Property interface usa 'photos'
+          mainPhoto: property.photos?.[0],
           videos: property.videos?.length || 0
         },
         // Status
         availability: {
           isActive: property.isActive,
-          instantBooking: property.instantBooking || false
+          isFeatured: property.isFeatured || false
         }
       },
       tenantId
@@ -1617,8 +1647,39 @@ export async function createTransaction(args: CreateTransactionArgs, tenantId: s
     const reservationService = serviceFactory.reservations;
     const financialService = serviceFactory.get<FinancialMovement>('financial_movements');
 
+    // Se não temos todos os IDs, tentar recuperar do contexto ou reserva mais recente
+    let reservationId = args.reservationId;
+    let clientId = args.clientId;
+    let propertyId = args.propertyId;
+    let totalAmount = args.totalAmount;
+    
+    // Se faltam dados, buscar reserva mais recente do cliente
+    if (!reservationId || !propertyId || !totalAmount) {
+      const recentReservations = await reservationService.getMany(
+        [{ field: 'status', operator: '==', value: 'pending' }],
+        { limit: 1, orderBy: { field: 'createdAt', direction: 'desc' } }
+      ) as Reservation[];
+      
+      if (recentReservations.length > 0) {
+        const recentReservation = recentReservations[0];
+        reservationId = reservationId || recentReservation.id!;
+        clientId = clientId || recentReservation.clientId;
+        propertyId = propertyId || recentReservation.propertyId;
+        totalAmount = totalAmount || recentReservation.totalPrice;
+      }
+    }
+    
+    // Verificar se temos os dados mínimos
+    if (!reservationId || !propertyId || !totalAmount) {
+      return {
+        success: false,
+        error: 'Dados insuficientes para criar transação. Certifique-se de que existe uma reserva pendente.',
+        tenantId
+      };
+    }
+
     // Verificar se reserva existe
-    const reservation = await reservationService.get(args.reservationId) as Reservation;
+    const reservation = await reservationService.get(reservationId) as Reservation;
     if (!reservation) {
       return {
         success: false,
@@ -1626,9 +1687,14 @@ export async function createTransaction(args: CreateTransactionArgs, tenantId: s
         tenantId
       };
     }
+    
+    // Usar dados da reserva se não foram fornecidos
+    clientId = clientId || reservation.clientId;
+    propertyId = propertyId || reservation.propertyId;
+    totalAmount = totalAmount || reservation.totalPrice;
 
     // Verificar se cliente existe
-    const client = await clientService.get(args.clientId) as Client;
+    const client = await clientService.get(clientId) as Client;
     if (!client) {
       return {
         success: false,
@@ -1638,7 +1704,7 @@ export async function createTransaction(args: CreateTransactionArgs, tenantId: s
     }
 
     // Verificar se propriedade existe
-    const property = await propertyService.get(args.propertyId) as Property;
+    const property = await propertyService.get(propertyId) as Property;
     if (!property) {
       return {
         success: false,

@@ -99,7 +99,28 @@ export class IntentDetector {
         };
       }
 
-      // Cálculo de preço
+      // Orçamento detalhado (generate_quote) tem prioridade sobre calculate_price
+      if (IntentDetector.isDetailedQuoteRequest(lowerMessage)) {
+        const propertyIndex = IntentDetector.extractPropertyIndex(lowerMessage);
+        const propertyId = conversationState.lastPropertyIds[propertyIndex] || conversationState.lastPropertyIds[0];
+        const dates = IntentDetector.extractDatesFromQuote(message);
+        
+        return {
+          function: 'generate_quote',
+          confidence: 0.95,
+          args: {
+            propertyId,
+            checkIn: dates.checkIn || IntentDetector.getDefaultCheckIn(),
+            checkOut: dates.checkOut || IntentDetector.getDefaultCheckOut(),
+            guests: IntentDetector.extractGuests(message) || 2,
+            includeDetails: true
+          },
+          shouldForceExecution: true,
+          reason: 'Pedido de orçamento detalhado com datas específicas'
+        };
+      }
+
+      // Cálculo de preço simples
       if (IntentDetector.isPriceRequest(lowerMessage)) {
         const propertyIndex = IntentDetector.extractPropertyIndex(lowerMessage);
         const propertyId = conversationState.lastPropertyIds[propertyIndex] || conversationState.lastPropertyIds[0];
@@ -171,6 +192,24 @@ export class IntentDetector {
           shouldForceExecution: true,
           reason: 'Pedido de reserva com propriedades no contexto'
         };
+      }
+
+      // Detectar método de pagamento (após reserva criada)
+      if (IntentDetector.isPaymentMethodMention(lowerMessage) && conversationState.conversationPhase === 'booking') {
+        const paymentMethod = IntentDetector.extractPaymentMethod(message);
+        
+        if (paymentMethod) {
+          return {
+            function: 'create_transaction',
+            confidence: 0.90,
+            args: {
+              paymentMethod,
+              clientPhone
+            },
+            shouldForceExecution: true,
+            reason: 'Método de pagamento mencionado após reserva'
+          };
+        }
       }
     }
 
@@ -272,6 +311,16 @@ export class IntentDetector {
       'quanto sai', 'quanto é'
     ];
     
+    // Detectar se é pedido de orçamento detalhado (para generate_quote)
+    const isDetailedQuote = text.includes('do dia') || text.includes('até') || 
+                           text.includes('período') || text.includes('entre') ||
+                           text.includes('orçamento');
+    
+    // Se tem datas específicas, não é price simples
+    if (isDetailedQuote) {
+      return false; // Deixar para generate_quote
+    }
+    
     return priceKeywords.some(keyword => text.includes(keyword));
   }
 
@@ -300,10 +349,22 @@ export class IntentDetector {
     const reservationKeywords = [
       'fazer reserva', 'confirmar reserva', 'quero reservar',
       'fechar negócio', 'está fechado', 'confirmado',
-      'pode reservar', 'vamos fechar', 'está decidido'
+      'pode reservar', 'vamos fechar', 'está decidido',
+      'quero fechar', 'confirmo', 'topo', 'bora fechar'
     ];
     
     return reservationKeywords.some(keyword => text.includes(keyword));
+  }
+
+  private static isDetailedQuoteRequest(text: string): boolean {
+    const quoteKeywords = [
+      'quanto fica do dia', 'quanto fica de', 'valor do dia',
+      'orçamento do dia', 'preço do dia', 'entre os dias',
+      'período de', 'temporada', 'quanto sai de',
+      'me faça um orçamento', 'quero um orçamento'
+    ];
+    
+    return quoteKeywords.some(keyword => text.includes(keyword));
   }
 
   private static isInterestExpression(text: string): boolean {
@@ -336,6 +397,37 @@ export class IntentDetector {
     const checkOut = new Date(tomorrow.getTime() + 3 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
     
     return { checkIn, checkOut };
+  }
+
+  private static extractDatesFromQuote(message: string): { checkIn?: string; checkOut?: string } {
+    const text = message.toLowerCase();
+    
+    // Tentar extrair padrão "do dia X ao dia Y"
+    const rangeMatch = message.match(/do\s+dia\s+(\d{1,2})(?:\/(\d{1,2}))?(?:\/(\d{2,4}))?\s+(?:ao|até)\s+(?:dia\s+)?(\d{1,2})(?:\/(\d{1,2}))?(?:\/(\d{2,4}))?/i);
+    
+    if (rangeMatch) {
+      const currentDate = new Date();
+      const currentYear = currentDate.getFullYear();
+      const currentMonth = currentDate.getMonth() + 1;
+      
+      // Extrair data inicial
+      const startDay = parseInt(rangeMatch[1]);
+      const startMonth = rangeMatch[2] ? parseInt(rangeMatch[2]) : currentMonth;
+      const startYear = rangeMatch[3] ? parseInt(rangeMatch[3]) : currentYear;
+      
+      // Extrair data final
+      const endDay = parseInt(rangeMatch[4]);
+      const endMonth = rangeMatch[5] ? parseInt(rangeMatch[5]) : startMonth;
+      const endYear = rangeMatch[6] ? parseInt(rangeMatch[6]) : startYear;
+      
+      const checkIn = new Date(startYear, startMonth - 1, startDay).toISOString().split('T')[0];
+      const checkOut = new Date(endYear, endMonth - 1, endDay).toISOString().split('T')[0];
+      
+      return { checkIn, checkOut };
+    }
+    
+    // Fallback para método básico
+    return this.extractDates(message);
   }
 
   private static extractGuests(message: string): number | null {
@@ -391,6 +483,28 @@ export class IntentDetector {
       default:
         return tomorrow.toISOString().split('T')[0];
     }
+  }
+
+  private static isPaymentMethodMention(text: string): boolean {
+    const paymentKeywords = [
+      'pix', 'cartão', 'dinheiro', 'transferência',
+      'débito', 'crédito', 'pagamento', 'pagar',
+      'forma de pagamento', 'como pago', 'vou pagar'
+    ];
+    
+    return paymentKeywords.some(keyword => text.includes(keyword));
+  }
+
+  private static extractPaymentMethod(message: string): string | null {
+    const text = message.toLowerCase();
+    
+    if (text.includes('pix')) return 'pix';
+    if (text.includes('cartão de crédito') || text.includes('crédito')) return 'credit_card';
+    if (text.includes('cartão de débito') || text.includes('débito')) return 'debit_card';
+    if (text.includes('dinheiro') || text.includes('espécie')) return 'cash';
+    if (text.includes('transferência') || text.includes('ted') || text.includes('doc')) return 'bank_transfer';
+    
+    return null;
   }
 
   private static analyzeSentiment(text: string): any {

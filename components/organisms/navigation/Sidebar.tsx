@@ -249,7 +249,7 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
 
       <Divider sx={{ borderColor: 'rgba(255, 255, 255, 0.08)' }} />
 
-      <Box sx={{ flex: 1, overflowY: 'auto', py: 2, ...scrollbarStyles.hidden }}>
+      <Box sx={{ flex: 1, overflowY: 'auto', py: 2, ...scrollbarStyles.sidebar }}>
         <List sx={{ px: { xs: 1.5, md: 2 } }}>
           {menuItems.map((item) => (
             <Box key={item.href}>

@@ -274,11 +274,18 @@ export class SofiaMVP {
         }
       }
 
-      // 6. FALLBACK SIMPLES SE NECESSÁRIO
-      if (functionsExecuted.length === 0 && intentDetected?.shouldForceExecution) {
-        logger.warn('⚠️ [Sofia MVP] Nenhuma função executada - usando fallback');
-        reply = this.getNoExecutionFallback(intentDetected.function, conversationState);
-        fallbackUsed = true;
+      // 6. FALLBACK INTELIGENTE SE NECESSÁRIO
+      if (functionsExecuted.length === 0) {
+        if (intentDetected?.shouldForceExecution) {
+          logger.warn('⚠️ [Sofia MVP] Nenhuma função executada - usando fallback específico');
+          reply = this.getNoExecutionFallback(intentDetected.function, conversationState);
+          fallbackUsed = true;
+        } else if (!reply || reply.trim() === '') {
+          // Se GPT não gerou resposta adequada
+          logger.warn('⚠️ [Sofia MVP] Resposta vazia do GPT - usando fallback contextual');
+          reply = this.getContextualFallback(input.message, conversationState);
+          fallbackUsed = true;
+        }
       }
 
       // 7. SALVAR HISTÓRICO
@@ -467,39 +474,82 @@ export class SofiaMVP {
         const propCount = properties.length;
         
         if (propCount > 0) {
-          let response = `Encontrei ${propCount} opções perfeitas! 🏠\n\n`;
+          let response = propCount === 1 
+            ? `Encontrei uma opção perfeita para você! 🏠\n\n`
+            : `Encontrei ${propCount} opções incríveis! 🏠✨\n\n`;
           
           properties.forEach((prop: any, index: number) => {
             response += `${index + 1}. **${prop.name}**\n`;
             response += `   📍 ${prop.location}\n`;
-            response += `   🛏️ ${prop.bedrooms} quartos | 🚿 ${prop.bathrooms} banheiros\n`;
-            response += `   👥 Até ${prop.maxGuests} hóspedes\n`;
-            response += `   💰 R$ ${prop.basePrice}/diária\n`;
+            response += `   🛏️ ${prop.bedrooms} quarto${prop.bedrooms > 1 ? 's' : ''} | 🚿 ${prop.bathrooms} banheiro${prop.bathrooms > 1 ? 's' : ''}\n`;
+            response += `   👥 Até ${prop.maxGuests} hóspede${prop.maxGuests > 1 ? 's' : ''}\n`;
+            response += `   💰 A partir de R$ ${prop.basePrice}/noite\n`;
             if (prop.amenities && prop.amenities.length > 0) {
-              response += `   ✨ ${prop.amenities.slice(0, 3).join(', ')}\n`;
+              const amenitiesDisplay = prop.amenities.slice(0, 3).join(', ');
+              response += `   ✨ ${amenitiesDisplay}`;
+              if (prop.amenities.length > 3) {
+                response += ` +${prop.amenities.length - 3}`;
+              }
+              response += '\n';
             }
             response += '\n';
           });
           
-          response += 'Qual te interessa mais? Posso mostrar fotos e calcular preços! 📸';
+          response += propCount === 1 
+            ? 'Gostou? Posso mostrar fotos ou calcular o valor para suas datas! 📸💰'
+            : 'Qual te chamou mais atenção? Posso mostrar fotos, detalhes ou calcular preços! 📸';
           return response;
         } else {
-          return `Não encontrei opções com esses critérios. Vamos ajustar a busca? 🔍`;
+          return `Hmm, não encontrei nada com esses critérios específicos. 🤔\n\nQue tal ajustarmos a busca? Você pode:\n• Flexibilizar as datas\n• Considerar outra região\n• Ajustar o número de hóspedes\n\nComo prefere? 😊`;
         }
       
       case 'calculate_price':
-        const price = actions[0]?.result?.pricing?.totalPrice;
-        if (price) {
-          return `Valor calculado: R$ ${price.toFixed(2)} 💰 Quer prosseguir?`;
+        const priceResult = actions[0]?.result;
+        if (priceResult?.pricing) {
+          const { basePrice, nights, subtotal, cleaningFee, serviceFee, totalPrice } = priceResult.pricing;
+          let response = `💰 **Cálculo Rápido**\n\n`;
+          response += `📅 ${nights} noite${nights > 1 ? 's' : ''}\n`;
+          response += `🏠 R$ ${basePrice}/noite × ${nights} = R$ ${subtotal}\n`;
+          if (cleaningFee > 0) response += `🧹 Taxa limpeza: R$ ${cleaningFee}\n`;
+          if (serviceFee > 0) response += `📋 Taxa serviço: R$ ${serviceFee}\n`;
+          response += `\n💵 **Total: R$ ${totalPrice.toFixed(2)}**\n\n`;
+          response += `Gostou do valor? Para um orçamento detalhado com possíveis descontos, é só pedir! 😊`;
+          return response;
         } else {
-          return `Dificuldade para calcular. Pode repetir as datas? 📅`;
+          return `Ops! Tive um probleminha no cálculo. 🤔\n\nPode me confirmar:\n• Data de entrada\n• Data de saída\n• Quantos hóspedes?\n\nAssim consigo calcular certinho! 📅`;
         }
       
       case 'create_reservation':
-        return `Reserva criada com sucesso! 📝 Em breve envio os detalhes.`;
+        const reservationResult = actions[0]?.result;
+        if (reservationResult?.reservation) {
+          const { propertyName, checkIn, checkOut, guests, totalPrice } = reservationResult.reservation;
+          let response = `✅ **Reserva Confirmada!**\n\n`;
+          response += `🏠 ${propertyName}\n`;
+          response += `📅 ${new Date(checkIn).toLocaleDateString('pt-BR')} até ${new Date(checkOut).toLocaleDateString('pt-BR')}\n`;
+          response += `👥 ${guests} hóspede${guests > 1 ? 's' : ''}\n`;
+          if (totalPrice) {
+            response += `💰 Valor total: R$ ${totalPrice.toFixed(2)}\n`;
+          }
+          response += `\nAgora vamos ao pagamento! Qual forma prefere?\n`;
+          response += `• 💚 **PIX** (pode ter desconto!)\n`;
+          response += `• 💳 **Cartão** de crédito/débito\n`;
+          response += `• 💵 **Transferência** bancária\n\n`;
+          response += `Me diz qual prefere que já preparo tudo! 😊`;
+          return response;
+        }
+        return `✅ Reserva confirmada! Agora me diz: qual forma de pagamento prefere? PIX, cartão ou transferência? 💳`;
       
       case 'register_client':
-        return `Dados registrados! 👤 Agora posso te ajudar melhor.`;
+        const clientResult = actions[0]?.result;
+        if (clientResult?.client) {
+          const { name, isNew } = clientResult.client;
+          if (isNew) {
+            return `Prazer, ${name}! 😊 Acabei de criar seu cadastro.\n\nAgora consigo personalizar ainda mais suas opções! Em que posso ajudar?`;
+          } else {
+            return `Oi ${name}! Que bom ter você de volta! 🎉\n\nJá tenho seu cadastro aqui. Como posso ajudar hoje?`;
+          }
+        }
+        return `✅ Cadastro atualizado! Agora consigo te ajudar melhor. 😊`;
       
       case 'get_property_details':
         const details = actions[0]?.result?.property;
@@ -752,6 +802,39 @@ export class SofiaMVP {
         fallbackUsed: true
       }
     };
+  }
+
+  private getContextualFallback(message: string, state: ConversationState): string {
+    const lowerMessage = message.toLowerCase();
+    
+    // Saudações
+    if (lowerMessage.includes('oi') || lowerMessage.includes('olá') || lowerMessage.includes('bom dia') || 
+        lowerMessage.includes('boa tarde') || lowerMessage.includes('boa noite')) {
+      if (state.clientInfo?.name) {
+        return `Oi ${state.clientInfo.name}! 😊 Como posso ajudar você hoje?`;
+      }
+      return `Oi! Seja bem-vindo! 😊 Sou a Sofia, sua consultora de imóveis. Em que posso ajudar?`;
+    }
+    
+    // Agradecimentos
+    if (lowerMessage.includes('obrigad') || lowerMessage.includes('valeu') || lowerMessage.includes('thanks')) {
+      return `Por nada! 😊 Estou aqui sempre que precisar. Algo mais em que posso ajudar?`;
+    }
+    
+    // Dúvidas genéricas
+    if (lowerMessage.includes('?')) {
+      if (state.lastPropertyIds.length > 0) {
+        return `Ótima pergunta! Sobre qual das propriedades você quer saber mais? Ou prefere ver outras opções? 🏠`;
+      }
+      return `Claro! Me conta mais detalhes para eu poder ajudar melhor. Que tipo de imóvel você procura? 😊`;
+    }
+    
+    // Fallback genérico baseado no estado
+    if (state.lastPropertyIds.length > 0) {
+      return `Legal! Sobre as propriedades que mostrei, você quer:\n• Ver fotos 📸\n• Calcular preços 💰\n• Conhecer mais detalhes 📋\n• Ver outras opções 🔍\n\nO que prefere?`;
+    }
+    
+    return `Entendi! Para te ajudar melhor, me conta:\n• Que tipo de imóvel procura?\n• Em qual cidade?\n• Para quantas pessoas?\n\nAssim consigo encontrar as melhores opções! 🏠✨`;
   }
 
   private maskPhone(phone: string): string {

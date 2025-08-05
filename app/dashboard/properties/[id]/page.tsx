@@ -165,9 +165,23 @@ export default function PropertyViewPage() {
               <CardMedia
                 component="img"
                 height={400}
-                image={property.photos[0].url}
+                image={(() => {
+                  // Safe image URL with validation
+                  const imageUrl = property.photos[0]?.url;
+                  if (imageUrl && imageUrl.startsWith('http')) {
+                    return imageUrl;
+                  }
+                  return 'https://via.placeholder.com/800x400/e5e7eb/9ca3af?text=Imagem+Principal';
+                })()}
                 alt={property.title || property.name}
-                sx={{ objectFit: 'cover' }}
+                onError={(e) => {
+                  const target = e.target as HTMLImageElement;
+                  target.src = 'https://via.placeholder.com/800x400/e5e7eb/9ca3af?text=Erro+ao+Carregar';
+                }}
+                sx={{ 
+                  objectFit: 'cover',
+                  backgroundColor: '#f5f5f5',
+                }}
               />
             </Card>
           )}
@@ -487,15 +501,26 @@ export default function PropertyViewPage() {
                 
                 <ImageList variant="masonry" cols={2} gap={8}>
                   {property.photos.slice(1).map((photo, index) => (
-                    <ImageListItem key={index}>
+                    <ImageListItem key={photo.id || index}>
                       <img
-                        src={photo.url}
-                        alt={photo.title || `Foto ${index + 2}`}
+                        src={(() => {
+                          // Safe image URL validation for gallery
+                          if (photo.url && photo.url.startsWith('http')) {
+                            return photo.url;
+                          }
+                          return `https://via.placeholder.com/300x200/e5e7eb/9ca3af?text=Foto+${index + 2}`;
+                        })()}
+                        alt={photo.caption || `Foto ${index + 2}`}
                         loading="lazy"
+                        onError={(e) => {
+                          const target = e.target as HTMLImageElement;
+                          target.src = `https://via.placeholder.com/300x200/e5e7eb/9ca3af?text=Erro+${index + 2}`;
+                        }}
                         style={{
                           borderRadius: '8px',
                           width: '100%',
-                          height: 'auto'
+                          height: 'auto',
+                          backgroundColor: '#f5f5f5',
                         }}
                       />
                     </ImageListItem>
