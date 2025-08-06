@@ -12,19 +12,10 @@ const nextConfig = {
   compress: true,
   reactStrictMode: false,
   
-  // Disable static optimization completely
-  trailingSlash: false,
-  skipTrailingSlashRedirect: true,
-  
-  // Disable static optimization completely
-  output: 'standalone',
-  
-  // Prevent pages/_document generation
-  distDir: '.next',
+  // Build configuration - remove standalone for API routes
   
   typescript: {
-    // !! CUIDADO !!
-    // Permite que a build de produção seja gerada com sucesso mesmo que seu projeto tenha erros de tipo.
+    // Allow production builds to pass with type errors
     ignoreBuildErrors: true,
   },
   
@@ -52,68 +43,11 @@ const nextConfig = {
     ],
   },
   
-  // Security headers
-  async headers() {
-    return [
-      {
-        source: '/(.*)',
-        headers: [
-          {
-            key: 'X-Frame-Options',
-            value: 'DENY',
-          },
-          {
-            key: 'X-Content-Type-Options',
-            value: 'nosniff',
-          },
-          {
-            key: 'Referrer-Policy',
-            value: 'strict-origin-when-cross-origin',
-          },
-          {
-            key: 'X-XSS-Protection',
-            value: '1; mode=block',
-          },
-          {
-            key: 'Content-Security-Policy',
-            value: "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://apis.google.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https: blob:; connect-src 'self' https://api.openai.com https://firestore.googleapis.com https://firebasestorage.googleapis.com https://identitytoolkit.googleapis.com https://securetoken.googleapis.com wss://*.firebaseio.com; frame-src 'none'; object-src 'none';",
-          },
-          {
-            key: 'Permissions-Policy',
-            value: 'camera=(), microphone=(), geolocation=()',
-          },
-        ],
-      },
-      {
-        source: '/api/(.*)',
-        headers: [
-          {
-            key: 'Access-Control-Allow-Origin',
-            value: '*',
-          },
-          {
-            key: 'Access-Control-Allow-Methods',
-            value: 'GET, POST, PUT, DELETE, OPTIONS',
-          },
-          {
-            key: 'Access-Control-Allow-Headers',
-            value: 'Content-Type, Authorization, X-Requested-With, X-Tenant-Id',
-          },
-          {
-            key: 'Access-Control-Allow-Credentials',
-            value: 'true',
-          },
-        ],
-      },
-    ];
-  },
-  
   // Server external packages  
   serverExternalPackages: ['keyv', 'cacheable'],
   
-  // Webpack configuration
+  // Simple webpack configuration
   webpack: (config, { isServer }) => {
-    // Add any custom webpack config here
     if (!isServer) {
       config.resolve.fallback = {
         ...config.resolve.fallback,
@@ -123,32 +57,8 @@ const nextConfig = {
       };
     }
     
-    // Block next/document completely in App Router
-    config.resolve.alias = {
-      ...config.resolve.alias,
-      'next/document': false,
-    };
-    
-    // Add plugin to prevent Html Context usage
-    config.plugins = config.plugins || [];
-    config.plugins.push({
-      apply: (compiler) => {
-        compiler.hooks.normalModuleFactory.tap('BlockDocumentPlugin', (factory) => {
-          factory.hooks.beforeResolve.tapAsync('BlockDocumentPlugin', (data, callback) => {
-            if (data.request === 'next/document' || 
-                data.request.includes('html-context') ||
-                data.request.includes('_document')) {
-              return callback(null, false); // Block the resolution
-            }
-            callback();
-          });
-        });
-      }
-    });
-    
     return config;
   },
-  
   
   // Redirects
   async redirects() {

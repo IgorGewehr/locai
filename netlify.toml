@@ -1,114 +1,33 @@
-# Netlify configuration for Next.js 15 App Router
-
 [build]
-  # Build command
   command = "npm run build"
-  
-  # Directory to publish
   publish = ".next"
 
-# Environment variables for build
 [build.environment]
-  # Node version for build
   NODE_VERSION = "20"
-  
-  # Next.js build optimization
   NEXT_TELEMETRY_DISABLED = "1"
-  
-  # Memory allocation for build
   NODE_OPTIONS = "--max-old-space-size=4096"
-  
-  # NPM cache optimization
-  NPM_CONFIG_CACHE = "/opt/build/cache/npm"
-  CYPRESS_CACHE_FOLDER = "/opt/build/cache/cypress"
-  
-  # Build-specific flags to prevent runtime issues
   RUNTIME_ENV = "build"
   SKIP_FIRESTORE_BUILD = "true"
-  
-  # Force App Router mode
-  NEXT_PRIVATE_STANDALONE = "true"
-  NEXT_PRIVATE_APP_ROUTER = "true"
-  
-  # Prevent Next.js from generating pages/_document
-  NEXT_PRIVATE_PAGES_DIR = ""
 
-# Headers configuration
+[functions]
+  node_bundler = "esbuild"
+  external_node_modules = ["firebase-admin", "sharp"]
+  included_files = ["lib/**", "app/api/**"]
+
 [[headers]]
   for = "/*"
   [headers.values]
-    # Security headers
     X-Frame-Options = "DENY"
     X-Content-Type-Options = "nosniff"
     X-XSS-Protection = "1; mode=block"
-    Referrer-Policy = "strict-origin-when-cross-origin"
-    Permissions-Policy = "camera=(), microphone=(), geolocation=()"
-    
-    # CORS headers for API
-    Access-Control-Allow-Origin = "*"
-    Access-Control-Allow-Methods = "GET, POST, PUT, DELETE, OPTIONS"
-    Access-Control-Allow-Headers = "Content-Type, Authorization, X-Requested-With"
 
 [[headers]]
   for = "/api/*"
   [headers.values]
-    # API specific headers
     Cache-Control = "no-store, no-cache, must-revalidate"
-    Access-Control-Max-Age = "86400"
 
-# Redirects for API routes
 [[redirects]]
-  from = "/api/*"
-  to = "/.netlify/functions/:splat"
-  status = 200
-  force = true
-
-# Redirect www to non-www
-[[redirects]]
-  from = "https://www.yourdomain.com/*"
-  to = "https://yourdomain.com/:splat"
+  from = "/admin"
+  to = "/dashboard"
   status = 301
   force = true
-
-# Handle SPA routing for dashboard
-[[redirects]]
-  from = "/dashboard/*"
-  to = "/dashboard"
-  status = 200
-
-# Function configuration
-[functions]
-  # Directory containing serverless functions
-  directory = "netlify/functions"
-  
-  # Node bundler for better performance
-  node_bundler = "esbuild"
-  
-  # Include files in functions
-  included_files = ["lib/**", "app/api/**"]
-  
-  # External node modules
-  external_node_modules = ["firebase-admin", "sharp"]
-
-# Environment variable validation
-[context.production.environment]
-  # These are placeholders - actual values should be set in Netlify UI
-  NEXT_PUBLIC_TENANT_ID = "REQUIRED - Set in Netlify dashboard"
-  TENANT_ID = "REQUIRED - Set in Netlify dashboard"
-  JWT_SECRET = "REQUIRED - Set in Netlify dashboard (min 32 chars)"
-  OPENAI_API_KEY = "REQUIRED - Set in Netlify dashboard"
-  
-# Development context
-[context.deploy-preview]
-  command = "npm run build"
-  
-[context.branch-deploy]
-  command = "npm run build"
-
-# Dev settings
-[dev]
-  command = "npm run dev"
-  targetPort = 3000
-  port = 8888
-  publish = ".next/standalone"
-  autoLaunch = true
