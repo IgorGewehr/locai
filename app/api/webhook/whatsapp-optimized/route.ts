@@ -1,7 +1,7 @@
 // app/api/webhook/whatsapp-optimized/route.ts
 
 import { NextRequest, NextResponse } from 'next/server';
-import { sofiaAgentV4 } from '@/lib/ai-agent/sofia-agent-v4';
+import { sofiaAgent } from '@/lib/ai-agent/sofia-agent';
 import { AgentMonitor } from '@/lib/monitoring/agent-monitor';
 import { resolveTenantFromPhone } from '@/lib/utils/tenant-extractor';
 import { logger } from '@/lib/utils/logger';
@@ -63,7 +63,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Processar com Sofia V4 Multi-Tenant
-    const response = await sofiaAgentV4.processMessage({
+    const response = await sofiaAgent.processMessage({
       message: message.text,
       clientPhone: message.from,
       tenantId,

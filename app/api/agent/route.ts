@@ -138,10 +138,10 @@ export async function POST(request: NextRequest) {
         source: metadata?.source || (isTest ? 'test' : 'api')
       });
 
-      // INTEGRAÇÃO MVP: Sofia MVP (Versão Pronta para Produção)
-      const { sofiaMVP } = await import('@/lib/ai-agent/sofia-agent-mvp');
+      // INTEGRAÇÃO SOFIA: Versão de Produção com Few-Shot Prompting
+      const { sofiaAgent } = await import('@/lib/ai-agent/sofia-agent');
 
-      const result = await sofiaMVP.processMessage({
+      const result = await sofiaAgent.processMessage({
         message: validatedMessage,
         clientPhone: validatedPhone,
         tenantId: validatedTenantId,

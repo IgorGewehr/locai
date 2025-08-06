@@ -1,6 +1,6 @@
 // lib/services/ai-service-stub.ts
 // STUB para compatibilidade com sistema antigo
-// Use ProfessionalAgent para novas implementações
+// Redireciona para Sofia Agent (Produção)
 
 export class AIService {
   private tenantId: string;
@@ -9,13 +9,13 @@ export class AIService {
     this.tenantId = tenantId;
   }
 
-  // Método stub para compatibilidade - MIGRATED TO SOFIA MVP
+  // Método stub para compatibilidade - Redireciona para Sofia Agent
   async processMessage(message: string, context: any): Promise<any> {
-    console.info('🚀 AIService redirecting to Sofia Agent MVP (Production Ready)');
+    console.info('🚀 AIService redirecting to Sofia Agent (Production)');
     
-    // Redirect to Sofia Agent MVP production version
+    // Redirect to Sofia Agent production version
     try {
-      const { sofiaAgent } = await import('@/lib/ai-agent/sofia-agent-v4');
+      const { sofiaAgent } = await import('@/lib/ai-agent/sofia-agent');
       
       const result = await sofiaAgent.processMessage({
         message,

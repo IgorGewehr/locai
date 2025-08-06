@@ -1,6 +1,6 @@
-// lib/ai-agent/sofia-agent-mvp.ts
-// SOFIA MVP - Versão simplificada PRONTA PARA PRODUÇÃO
-// Inclui apenas funcionalidades essenciais e testadas
+// lib/ai-agent/sofia-agent.ts
+// SOFIA Agent - Versão de Produção
+// Sistema completo com Few-Shot Prompting e funções otimizadas
 
 import { OpenAI } from 'openai';
 import { getTenantAwareOpenAIFunctions, executeTenantAwareFunction } from '@/lib/ai/tenant-aware-agent-functions';
@@ -44,9 +44,9 @@ interface SofiaResponse {
 
 // ===== CLASSE PRINCIPAL MVP =====
 
-export class SofiaMVP {
+export class SofiaAgent {
   private openai: OpenAI;
-  private static instance: SofiaMVP;
+  private static instance: SofiaAgent;
 
   constructor() {
     this.openai = new OpenAI({
@@ -54,10 +54,10 @@ export class SofiaMVP {
     });
   }
 
-  static getInstance(): SofiaMVP {
+  static getInstance(): SofiaAgent {
     if (!this.instance) {
-      logger.info('🚀 [Sofia MVP] Criando instância para produção');
-      this.instance = new SofiaMVP();
+      logger.info('🚀 [Sofia] Criando instância para produção');
+      this.instance = new SofiaAgent();
     }
     return this.instance;
   }
@@ -863,4 +863,4 @@ export class SofiaMVP {
 }
 
 // Export da instância singleton
-export const sofiaMVP = SofiaMVP.getInstance();
+export const sofiaAgent = SofiaAgent.getInstance();
