@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { billingService } from '@/lib/services/billing-service';
+import { createBillingService } from '@/lib/services/billing-service';
 import { auth } from '@/lib/firebase/admin';
 
 export async function GET(request: NextRequest) {
@@ -15,6 +15,8 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Token inválido' }, { status: 401 });
     }
     const decodedToken = await auth.verifyIdToken(token);
+    const tenantId = decodedToken.uid; // Use the user ID as tenant ID
+    const billingService = createBillingService(tenantId);
     
     // Buscar parâmetros da query
     const { searchParams } = new URL(request.url);
@@ -57,6 +59,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Token inválido' }, { status: 401 });
     }
     const decodedToken = await auth.verifyIdToken(token);
+    const tenantId = decodedToken.uid; // Use the user ID as tenant ID
+    const billingService = createBillingService(tenantId);
     
     const body = await request.json();
     const { action } = body;

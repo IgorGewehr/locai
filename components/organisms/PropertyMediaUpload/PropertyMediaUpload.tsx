@@ -248,10 +248,24 @@ export default function PropertyMediaUpload() {
                     {photos.map((photo: PropertyPhoto, index: number) => (
                       <ImageListItem key={photo.id}>
                         <img
-                          src={photo.url}
+                          src={(() => {
+                            // Safe image URL validation for uploads
+                            if (photo.url && (photo.url.startsWith('http') || photo.url.startsWith('blob:'))) {
+                              return photo.url;
+                            }
+                            return `https://via.placeholder.com/164x164/e5e7eb/9ca3af?text=Foto+${index + 1}`;
+                          })()}
                           alt={photo.caption || `Foto ${index + 1}`}
                           loading="lazy"
-                          style={{ height: '164px', objectFit: 'cover' }}
+                          onError={(e) => {
+                            const target = e.target as HTMLImageElement;
+                            target.src = `https://via.placeholder.com/164x164/e5e7eb/9ca3af?text=Erro+${index + 1}`;
+                          }}
+                          style={{ 
+                            height: '164px', 
+                            objectFit: 'cover',
+                            backgroundColor: '#f5f5f5',
+                          }}
                         />
                         <ImageListItemBar
                           title={photo.caption || `Foto ${index + 1}`}

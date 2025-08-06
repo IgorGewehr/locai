@@ -1,18 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { advancedMetricsService } from '@/lib/services/advanced-metrics-service';
-import { getTenantId } from '@/lib/utils/tenant';
+import { authMiddleware } from '@/lib/middleware/auth';
+import { handleApiError } from '@/lib/utils/api-errors';
 import { logger } from '@/lib/utils/logger';
 
 export async function GET(request: NextRequest) {
   try {
-    const tenantId = getTenantId();
-    
-    if (!tenantId) {
+    // Check authentication and get tenantId
+    const authContext = await authMiddleware(request)
+    if (!authContext.authenticated || !authContext.tenantId) {
       return NextResponse.json(
-        { success: false, error: 'Tenant ID is required' },
-        { status: 400 }
-      );
+        { error: 'Authentication required', code: 'UNAUTHORIZED' },
+        { status: 401 }
+      )
     }
+
+    const tenantId = authContext.tenantId
 
     logger.info('Generating advanced metrics', { tenantId });
 
@@ -35,32 +38,30 @@ export async function GET(request: NextRequest) {
       }
     });
 
-  } catch (error: any) {
-    logger.error('Failed to generate advanced metrics', {
-      error: error.message,
-      stack: error.stack,
-    });
-
-    return NextResponse.json(
-      { 
-        success: false, 
-        error: 'Failed to generate advanced metrics',
-        details: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
-      },
-      { status: 500 }
-    );
+  } catch (error) {
+    return handleApiError(error)
   }
 }
 
 export async function POST(request: NextRequest) {
   try {
+    // Check authentication and get tenantId
+    const authContext = await authMiddleware(request)
+    if (!authContext.authenticated || !authContext.tenantId) {
+      return NextResponse.json(
+        { error: 'Authentication required', code: 'UNAUTHORIZED' },
+        { status: 401 }
+      )
+    }
+
+    const tenantId = authContext.tenantId
     const body = await request.json();
     const { action, parameters } = body;
 
     switch (action) {
       case 'refresh-cache':
         // Clear cache and regenerate metrics
-        logger.info('Refreshing metrics cache');
+        logger.info('Refreshing metrics cache', { tenantId });
         return NextResponse.json({
           success: true,
           message: 'Cache refreshed successfully',
@@ -69,13 +70,6 @@ export async function POST(request: NextRequest) {
 
       case 'export-data':
         // Export raw metrics data
-        const tenantId = getTenantId();
-        if (!tenantId) {
-          return NextResponse.json(
-            { success: false, error: 'Tenant ID is required' },
-            { status: 400 }
-          );
-        }
 
         const exportData = await advancedMetricsService.getAdvancedMetrics(tenantId);
         
@@ -93,18 +87,7 @@ export async function POST(request: NextRequest) {
         );
     }
 
-  } catch (error: any) {
-    logger.error('Failed to process advanced metrics request', {
-      error: error.message,
-    });
-
-    return NextResponse.json(
-      { 
-        success: false, 
-        error: 'Failed to process request',
-        details: process.env.NODE_ENV === 'development' ? error.message : 'Internal server error'
-      },
-      { status: 500 }
-    );
+  } catch (error) {
+    return handleApiError(error)
   }
 }

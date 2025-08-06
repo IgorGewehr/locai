@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { propertyService, reservationService } from '@/lib/firebase/firestore';
+import { useTenant } from '@/contexts/TenantContext';
 import type { Property, Reservation } from '@/lib/types';
 import {
   Box,
@@ -43,6 +43,7 @@ export default function PropertyViewPage() {
   const params = useParams();
   const router = useRouter();
   const propertyId = params.id as string;
+  const { services, isReady } = useTenant();
   
   const [property, setProperty] = useState<Property | null>(null);
   const [reservations, setReservations] = useState<Reservation[]>([]);
@@ -51,22 +52,23 @@ export default function PropertyViewPage() {
 
   useEffect(() => {
     const fetchProperty = async () => {
+      if (!services || !isReady) return;
+      
       try {
         setLoading(true);
-        const propertyData = await propertyService.getById(propertyId);
+        const propertyData = await services.properties.get(propertyId);
         if (propertyData) {
-          setProperty(propertyData);
+          setProperty(propertyData as Property);
           
           // Fetch reservations for this property
-          const allReservations = await reservationService.getAll();
-          const propertyReservations = allReservations.filter(
-            (res) => res.propertyId === propertyId
-          );
-          setReservations(propertyReservations.sort((a, b) => {
+          const allReservations = await services.reservations.getMany([
+            { field: 'propertyId', operator: '==', value: propertyId }
+          ]);
+          setReservations(allReservations.sort((a, b) => {
             const dateA = new Date(a.checkIn);
             const dateB = new Date(b.checkIn);
             return dateB.getTime() - dateA.getTime(); // Most recent first
-          }));
+          }) as Reservation[]);
         } else {
           setError('Propriedade não encontrada');
         }
@@ -81,7 +83,7 @@ export default function PropertyViewPage() {
     if (propertyId) {
       fetchProperty();
     }
-  }, [propertyId]);
+  }, [propertyId, services, isReady]);
 
   const getCategoryIcon = (category: string) => {
     switch (category) {
@@ -163,9 +165,23 @@ export default function PropertyViewPage() {
               <CardMedia
                 component="img"
                 height={400}
-                image={property.photos[0].url}
+                image={(() => {
+                  // Safe image URL with validation
+                  const imageUrl = property.photos[0]?.url;
+                  if (imageUrl && imageUrl.startsWith('http')) {
+                    return imageUrl;
+                  }
+                  return 'https://via.placeholder.com/800x400/e5e7eb/9ca3af?text=Imagem+Principal';
+                })()}
                 alt={property.title || property.name}
-                sx={{ objectFit: 'cover' }}
+                onError={(e) => {
+                  const target = e.target as HTMLImageElement;
+                  target.src = 'https://via.placeholder.com/800x400/e5e7eb/9ca3af?text=Erro+ao+Carregar';
+                }}
+                sx={{ 
+                  objectFit: 'cover',
+                  backgroundColor: '#f5f5f5',
+                }}
               />
             </Card>
           )}
@@ -485,15 +501,26 @@ export default function PropertyViewPage() {
                 
                 <ImageList variant="masonry" cols={2} gap={8}>
                   {property.photos.slice(1).map((photo, index) => (
-                    <ImageListItem key={index}>
+                    <ImageListItem key={photo.id || index}>
                       <img
-                        src={photo.url}
-                        alt={photo.title || `Foto ${index + 2}`}
+                        src={(() => {
+                          // Safe image URL validation for gallery
+                          if (photo.url && photo.url.startsWith('http')) {
+                            return photo.url;
+                          }
+                          return `https://via.placeholder.com/300x200/e5e7eb/9ca3af?text=Foto+${index + 2}`;
+                        })()}
+                        alt={photo.caption || `Foto ${index + 2}`}
                         loading="lazy"
+                        onError={(e) => {
+                          const target = e.target as HTMLImageElement;
+                          target.src = `https://via.placeholder.com/300x200/e5e7eb/9ca3af?text=Erro+${index + 2}`;
+                        }}
                         style={{
                           borderRadius: '8px',
                           width: '100%',
-                          height: 'auto'
+                          height: 'auto',
+                          backgroundColor: '#f5f5f5',
                         }}
                       />
                     </ImageListItem>

@@ -1,8 +1,8 @@
 // lib/middleware/auth.ts
 import { NextRequest } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
-import jwt from 'jsonwebtoken'
+import { authService } from '@/lib/auth/auth-service'
+import { resolveTenantId } from '@/lib/utils/tenant-extractor'
+import { logger } from '@/lib/utils/logger'
 
 export interface AuthContext {
   authenticated: boolean
@@ -21,70 +21,103 @@ export interface AuthUser {
 }
 
 export async function validateAuth(req: NextRequest): Promise<AuthContext> {
-  // Check if it's a WhatsApp webhook request
-  const isWhatsApp = req.headers.get('x-whatsapp-signature') !== null ||
-                     req.url.includes('/api/webhook/whatsapp')
-
-  if (isWhatsApp) {
-    // WhatsApp webhooks don't need session auth but should be verified separately
-    return {
-      authenticated: true,
-      isWhatsApp: true
-    }
-  }
-
-  // Check for API key authentication
-  const apiKey = req.headers.get('x-api-key')
-  if (apiKey && process.env.API_KEY) {
-    if (apiKey === process.env.API_KEY) {
-      // Extract tenant from API key or header
-      const tenantId = req.headers.get('x-tenant-id') || process.env.TENANT_ID
-      if (!tenantId) {
-        throw new Error('Tenant ID is required for API key authentication')
-      }
-      return {
-        authenticated: true,
-        tenantId,
-        role: 'api'
-      }
-    }
-  }
-
-  // Check for Bearer token
-  const authHeader = req.headers.get('authorization')
-  if (authHeader?.startsWith('Bearer ')) {
-    const token = authHeader.substring(7)
-    
-    try {
-      const decoded = jwt.verify(token, process.env.JWT_SECRET || 'secret') as any
-      return {
-        authenticated: true,
-        userId: decoded.userId,
-        tenantId: decoded.tenantId,
-        role: decoded.role
-      }
-    } catch (error) {
-      // Invalid token
-    }
-  }
-
-  // Check for session authentication
   try {
-    const session = await getServerSession(authOptions)
-    if (session?.user) {
+    logger.info('🔐 [AuthMiddleware] Validando autenticação', {
+      url: req.url,
+      method: req.method
+    });
+
+    // Check if it's a WhatsApp webhook request
+    const isWhatsApp = req.headers.get('x-whatsapp-signature') !== null ||
+                       req.url.includes('/api/webhook/whatsapp')
+
+    if (isWhatsApp) {
+      logger.info('📱 [AuthMiddleware] Requisição WhatsApp detectada');
       return {
         authenticated: true,
-        userId: session.user.id,
-        tenantId: session.user.tenantId,
-        role: session.user.role
+        isWhatsApp: true
       }
+    }
+
+    // Usar o sistema de extração dinâmica de tenantId
+    const authContext = await resolveTenantId(req);
+    
+    // Se conseguiu extrair tenantId, significa que há autenticação válida
+    if (authContext) {
+      logger.info('✅ [AuthMiddleware] Autenticação via cookie/token válida', {
+        tenantId: authContext
+      });
+      
+      // Tentar obter mais detalhes do token se disponível
+      const authToken = req.cookies.get('auth-token')?.value || 
+                       req.headers.get('authorization')?.substring(7);
+      
+      if (authToken) {
+        try {
+          const payload = await authService.verifyToken(authToken);
+          if (payload) {
+            return {
+              authenticated: true,
+              userId: payload.sub,
+              tenantId: payload.tenantId,
+              role: payload.role
+            };
+          }
+        } catch (error) {
+          // Token pode ser base64 legacy, mas ainda válido
+        }
+      }
+      
+      // Mesmo sem detalhes completos, se temos tenantId, está autenticado
+      return {
+        authenticated: true,
+        tenantId: authContext,
+        userId: authContext, // Usar tenantId como userId se não tiver
+        role: 'user'
+      };
+    }
+    
+    // Check for Bearer token explicitly
+    const authHeader = req.headers.get('authorization')
+    if (authHeader?.startsWith('Bearer ')) {
+      const token = authHeader.substring(7)
+      
+      try {
+        const payload = await authService.verifyToken(token);
+        if (payload) {
+          logger.info('✅ [AuthMiddleware] Token Bearer JWT válido', {
+            userId: payload.sub,
+            tenantId: payload.tenantId,
+            role: payload.role
+          });
+
+          return {
+            authenticated: true,
+            userId: payload.sub,
+            tenantId: payload.tenantId,
+            role: payload.role
+          }
+        }
+      } catch (error) {
+        logger.warn('⚠️ [AuthMiddleware] Token Bearer JWT inválido', {
+          error: error instanceof Error ? error.message : 'Unknown error'
+        });
+      }
+    }
+
+    // Não usar fallback - forçar autenticação apropriada
+    logger.warn('❌ [AuthMiddleware] Autenticação falhou - nenhum token válido encontrado');
+    return {
+      authenticated: false
     }
   } catch (error) {
-    // Session check failed
-  }
-
-  return {
-    authenticated: false
+    logger.error('❌ [AuthMiddleware] Erro na validação', {
+      error: error instanceof Error ? error.message : 'Unknown error'
+    });
+    
+    return {
+      authenticated: false
+    }
   }
 }
 
@@ -114,10 +147,9 @@ export async function authMiddleware(req: NextRequest): Promise<AuthContext> {
   return validateAuth(req)
 }
 
-// Generate JWT token utility
-export function generateJWT(payload: any): string {
-  const secret = process.env.JWT_SECRET || 'secret'
-  return jwt.sign(payload, secret, { expiresIn: '24h' })
+// Generate JWT token utility (using authService)
+export async function generateJWT(user: AuthUser): Promise<string> {
+  return await authService.generateToken(user);
 }
 
 // Higher-order function for protecting API routes

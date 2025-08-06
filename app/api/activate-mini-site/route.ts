@@ -3,7 +3,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { settingsService } from '@/lib/services/settings-service';
+import { createSettingsService } from '@/lib/services/settings-service';
 import { getAuthFromCookie } from '@/lib/utils/auth-cookie';
 
 export async function POST(request: NextRequest) {
@@ -39,6 +39,7 @@ export async function POST(request: NextRequest) {
     console.log(`🚀 Activating mini-site for user: ${tenantId}`);
 
     // Activate mini-site (this will create settings if not exists)
+    const settingsService = createSettingsService(tenantId);
     await settingsService.updateMiniSiteSettings(tenantId, {
       active: true,
       title: 'Minha Imobiliária',

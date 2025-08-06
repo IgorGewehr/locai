@@ -1,7 +1,7 @@
 'use client';
 
 import { ReactNode } from 'react';
-import { AuthProvider } from '@/contexts/AuthContext';
+import { AuthProvider } from '@/contexts/AuthProvider';
 import { TenantProvider } from '@/contexts/TenantContext';
 import { ThemeProvider } from '@mui/material/styles';
 import { CssBaseline } from '@mui/material';

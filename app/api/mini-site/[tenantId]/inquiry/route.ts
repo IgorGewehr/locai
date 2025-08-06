@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { miniSiteService } from '@/lib/services/mini-site-service';
+import { TenantServiceFactory } from '@/lib/firebase/firestore-v2';
 
 export async function POST(
   request: NextRequest,
@@ -26,8 +26,11 @@ export async function POST(
     }
 
     // Create inquiry using miniSiteService (server-side only)
-    const inquiryId = await miniSiteService.createInquiry({
+    const services = new TenantServiceFactory(tenantId);
+    const inquiryId = await services.miniSite.createInquiry({
       tenantId,
+      status: 'new',
+      source: 'mini-site',
       propertyId: inquiryData.propertyId,
       clientInfo: {
         name: inquiryData.clientName,

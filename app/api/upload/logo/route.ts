@@ -40,9 +40,13 @@ export async function POST(request: NextRequest) {
     const arrayBuffer = await file.arrayBuffer();
     const buffer = Buffer.from(arrayBuffer);
 
+    if (!auth.tenantId) {
+      return NextResponse.json({ error: 'Tenant ID required' }, { status: 400 });
+    }
+
     // Upload to Firebase Storage
     const storageService = new StorageService();
-    const tenantId = auth.tenantId || 'default-tenant';
+    const tenantId = auth.tenantId;
     const filename = `logos/${tenantId}_${Date.now()}.${file.type.split('/')[1]}`;
     const url = await storageService.uploadFile(file as any, filename);
 

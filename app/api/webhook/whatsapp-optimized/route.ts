@@ -1,8 +1,10 @@
 // app/api/webhook/whatsapp-optimized/route.ts
 
 import { NextRequest, NextResponse } from 'next/server';
-import { SofiaAgentV3 } from '@/lib/ai-agent/sofia-agent-v3';
+import { sofiaAgent } from '@/lib/ai-agent/sofia-agent';
 import { AgentMonitor } from '@/lib/monitoring/agent-monitor';
+import { resolveTenantFromPhone } from '@/lib/utils/tenant-extractor';
+import { logger } from '@/lib/utils/logger';
 
 // Rate limiter simples e eficiente
 class SimpleRateLimiter {
@@ -45,19 +47,23 @@ export async function POST(request: NextRequest) {
 
     // Rate limiting
     if (!rateLimiter.isAllowed(message.from)) {
-      console.log(`Rate limit exceeded for ${message.from}`);
+      logger.warn('⚠️ [WhatsApp] Rate limit excedido', {
+        phone: message.from.substring(0, 6) + '***'
+      });
       return NextResponse.json({ status: 'rate_limited' });
     }
 
-    // Obter tenantId
-    const tenantId = await getTenantFromPhone(message.from);
+    // NOVO: Obter tenantId dinamicamente
+    const tenantId = await resolveTenantFromPhone(message.from);
     if (!tenantId) {
+      logger.error('❌ [WhatsApp] Tenant não encontrado para telefone', {
+        phone: message.from.substring(0, 6) + '***'
+      });
       return NextResponse.json({ status: 'no_tenant' });
     }
 
-    // Processar com agente Sofia V3
-    const sofia = SofiaAgentV3.getInstance();
-    const response = await sofia.processMessage({
+    // Processar com Sofia V4 Multi-Tenant
+    const response = await sofiaAgent.processMessage({
       message: message.text,
       clientPhone: message.from,
       tenantId,
@@ -77,36 +83,40 @@ export async function POST(request: NextRequest) {
     const processingTime = Date.now() - startTime;
     
     // Registrar métricas Sofia V4
-    AgentMonitor.recordRequest(response.tokensUsed, response.cacheHitRate === 100, response.responseTime);
+    AgentMonitor.recordRequest(response.tokensUsed, false, response.responseTime);
 
     // Log Sofia V4 performance metrics
-    if (process.env.NODE_ENV === 'development') {
-      console.log(`📊 Sofia V4 Performance:`, {
-        responseTime: response.responseTime,
-        tokensUsed: response.tokensUsed,
-        originalTokens: response.originalTokens,
-        compressionRatio: response.compressionRatio,
-        cacheHitRate: response.cacheHitRate,
-        performanceScore: response.performanceScore,
-        functionsExecuted: response.functionsExecuted.length
-      });
-    }
+    logger.info('📊 [WhatsApp] Sofia V4 processamento concluído', {
+      responseTime: response.responseTime,
+      tokensUsed: response.tokensUsed,
+      functionsExecuted: response.functionsExecuted.length,
+      functionsNames: response.functionsExecuted,
+      stage: response.metadata.stage,
+      confidence: Math.round(response.metadata.confidence * 100),
+      tenantId,
+      phone: message.from.substring(0, 6) + '***',
+      totalProcessingTime: processingTime
+    });
 
     return NextResponse.json({ 
       status: 'processed',
-      agent: 'Sofia V4',
+      agent: 'Sofia V4 Multi-Tenant',
       tokensUsed: response.tokensUsed,
-      originalTokens: response.originalTokens,
-      compressionRatio: response.compressionRatio,
-      fromCache: response.cacheHitRate === 100,
-      cacheHitRate: response.cacheHitRate,
-      performanceScore: response.performanceScore,
       functionsExecuted: response.functionsExecuted.length,
-      processingTime: `${response.responseTime}ms`
+      functionsNames: response.functionsExecuted,
+      stage: response.metadata.stage,
+      confidence: Math.round(response.metadata.confidence * 100),
+      reasoningUsed: response.metadata.reasoningUsed,
+      tenantId,
+      processingTime: `${response.responseTime}ms`,
+      totalProcessingTime: `${processingTime}ms`
     });
 
   } catch (error) {
-    console.error('Webhook error:', error);
+    logger.error('❌ [WhatsApp] Erro no webhook', {
+      error: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined
+    });
     AgentMonitor.recordError();
     return NextResponse.json({ status: 'error' }, { status: 500 });
   }
@@ -131,25 +141,6 @@ function extractWhatsAppMessage(body: any): { from: string; text: string } | nul
   }
 }
 
-async function getTenantFromPhone(phone: string): Promise<string | null> {
-  // Integrar com sua lógica existente
-  try {
-    // Por enquanto, usar tenant padrão
-    return process.env.TENANT_ID || 'default';
-    
-    // TODO: Implementar busca real no Firestore
-    // const { firestore } = await import('@/lib/firebase/firestore');
-    // const snapshot = await firestore
-    //   .collection('tenants')
-    //   .where('whatsappNumber', '==', phone)
-    //   .limit(1)
-    //   .get();
-    // return snapshot.empty ? null : snapshot.docs[0].id;
-  } catch (error) {
-    console.error('Error getting tenant:', error);
-    return process.env.TENANT_ID || 'default';
-  }
-}
 
 async function sendWhatsAppMessage(params: { to: string; message: string; tenantId: string }) {
   try {

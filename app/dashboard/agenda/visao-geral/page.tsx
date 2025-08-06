@@ -65,7 +65,9 @@ import {
   isAfter,
   eachDayOfInterval,
   getDay,
+  isValid,
 } from 'date-fns';
+import { safeFormatDate, safeParseDate } from '@/lib/utils/dateUtils';
 import { ptBR } from 'date-fns/locale';
 import { useTenant } from '@/contexts/TenantContext';
 import { useRouter } from 'next/navigation';
@@ -128,19 +130,22 @@ export default function AgendaVisaoGeralPage() {
           const visits = data.data || [];
           
           visits.forEach((visit: any) => {
-            allEvents.push({
-              id: visit.id,
-              type: 'visit',
-              title: `Visita - ${visit.propertyName}`,
-              subtitle: visit.clientName,
-              date: new Date(visit.scheduledDate),
-              time: visit.scheduledTime,
-              endTime: addHours(visit.scheduledTime, 1),
-              status: visit.status,
-              color: '#8b5cf6',
-              location: visit.propertyAddress,
-              participants: [visit.clientName],
-            });
+            const scheduledDate = safeParseDate(visit.scheduledDate);
+            if (scheduledDate && visit.scheduledTime) {
+              allEvents.push({
+                id: visit.id,
+                type: 'visit',
+                title: `Visita - ${visit.propertyName}`,
+                subtitle: visit.clientName,
+                date: scheduledDate,
+                time: visit.scheduledTime,
+                endTime: addHours(visit.scheduledTime, 1),
+                status: visit.status,
+                color: '#8b5cf6',
+                location: visit.propertyAddress,
+                participants: [visit.clientName],
+              });
+            }
           });
         }
       } catch (error) {
@@ -151,29 +156,49 @@ export default function AgendaVisaoGeralPage() {
       try {
         const reservations = await services.reservations.getAll();
         reservations.forEach((reservation: any) => {
-          allEvents.push({
-            id: reservation.id,
-            type: 'reservation',
-            title: `Reserva - ${reservation.propertyName || 'Propriedade'}`,
-            subtitle: reservation.clientName || 'Cliente',
-            date: new Date(reservation.checkIn),
-            time: '14:00',
-            endTime: '12:00',
-            status: reservation.status,
-            color: '#3b82f6',
-            location: reservation.propertyAddress,
-            participants: [reservation.clientName],
-          });
+          const checkInDate = safeParseDate(reservation.checkIn);
+          if (checkInDate) {
+            allEvents.push({
+              id: reservation.id,
+              type: 'reservation',
+              title: `Reserva - ${reservation.propertyName || 'Propriedade'}`,
+              subtitle: reservation.clientName || 'Cliente',
+              date: checkInDate,
+              time: '14:00',
+              endTime: '12:00',
+              status: reservation.status,
+              color: '#3b82f6',
+              location: reservation.propertyAddress,
+              participants: [reservation.clientName],
+            });
+          }
         });
       } catch (error) {
         console.error('Error loading reservations:', error);
       }
       
-      // Sort events by date and time
+      // Sort events by date and time (with safety checks)
       allEvents.sort((a, b) => {
-        const dateA = new Date(`${format(a.date, 'yyyy-MM-dd')} ${a.time}`);
-        const dateB = new Date(`${format(b.date, 'yyyy-MM-dd')} ${b.time}`);
-        return dateA.getTime() - dateB.getTime();
+        try {
+          // Safely format dates and validate them
+          const dateStrA = isValid(a.date) ? format(a.date, 'yyyy-MM-dd') : '1970-01-01';
+          const dateStrB = isValid(b.date) ? format(b.date, 'yyyy-MM-dd') : '1970-01-01';
+          
+          const dateA = new Date(`${dateStrA} ${a.time || '00:00'}`);
+          const dateB = new Date(`${dateStrB} ${b.time || '00:00'}`);
+          
+          // Additional validation for the constructed dates
+          if (!isValid(dateA) || !isValid(dateB)) {
+            // Fallback to original date comparison
+            return a.date.getTime() - b.date.getTime();
+          }
+          
+          return dateA.getTime() - dateB.getTime();
+        } catch (error) {
+          console.error('Error sorting events:', error, { eventA: a.id, eventB: b.id });
+          // Fallback sorting by original date
+          return a.date.getTime() - b.date.getTime();
+        }
       });
       
       setEvents(allEvents);

@@ -58,7 +58,7 @@ import {
   Cancel,
 } from '@mui/icons-material';
 import { Lead, LeadStatus, Interaction, LeadActivity, Task } from '@/lib/types/crm';
-import { crmService } from '@/lib/services/crm-service';
+import { useTenantServices } from '@/lib/hooks/useTenantServices';
 import { scrollbarStyles } from '@/styles/scrollbarStyles';
 import { safeFormatDate, DateFormats } from '@/lib/utils/date-formatter';
 import { ptBR } from 'date-fns/locale';

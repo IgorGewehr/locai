@@ -1,15 +1,26 @@
 import { Client } from '@/lib/types';
-import { clientService } from '@/lib/firebase/firestore';
+import { TenantServiceFactory } from '@/lib/firebase/firestore-v2';
+import { logger } from '@/lib/utils/logger';
 
 export class ClientService {
+  private getTenantService(tenantId: string) {
+    return new TenantServiceFactory(tenantId).clients;
+  }
+
   async createOrUpdate(clientData: {
     name: string;
     email?: string;
     document?: string;
     phone: string;
-    tenantId?: string;
+    tenantId: string; // Agora obrigatório
     source?: string;
   }): Promise<Client> {
+    logger.info('👤 [ClientService] Criar/atualizar cliente', {
+      tenantId: clientData.tenantId,
+      phone: clientData.phone.substring(0, 6) + '***',
+      hasEmail: !!clientData.email
+    });
+
     // Check if client exists using findByPhone which considers tenantId
     const existingClient = await this.findByPhone(clientData.phone, clientData.tenantId);
     
@@ -17,7 +28,7 @@ export class ClientService {
     const cleanedData: any = {
       name: clientData.name,
       phone: clientData.phone,
-      tenantId: clientData.tenantId || 'default',
+      tenantId: clientData.tenantId,
       source: clientData.source || 'whatsapp'
     };
     
@@ -29,6 +40,8 @@ export class ClientService {
       cleanedData.document = clientData.document;
     }
     
+    const tenantClientService = this.getTenantService(clientData.tenantId);
+
     if (existingClient) {
       // Update existing client with new data (preserving existing data)
       const updatedData = {
@@ -36,7 +49,13 @@ export class ClientService {
         ...cleanedData,
         updatedAt: new Date()
       };
-      await clientService.update(existingClient.id, updatedData);
+      await tenantClientService.update(existingClient.id!, updatedData);
+      
+      logger.info('✅ [ClientService] Cliente atualizado', {
+        tenantId: clientData.tenantId,
+        clientId: existingClient.id
+      });
+      
       return updatedData;
     } else {
       // Create new client
@@ -59,7 +78,12 @@ export class ClientService {
         updatedAt: new Date()
       };
       
-      const id = await clientService.create(newClientData as any);
+      const id = await tenantClientService.create(newClientData as any);
+      
+      logger.info('✅ [ClientService] Novo cliente criado', {
+        tenantId: clientData.tenantId,
+        clientId: id
+      });
       
       return {
         id,
@@ -68,40 +92,40 @@ export class ClientService {
     }
   }
 
-  async getById(id: string): Promise<Client | null> {
-    return clientService.getById(id);
+  async getById(id: string, tenantId: string): Promise<Client | null> {
+    const tenantClientService = this.getTenantService(tenantId);
+    return await tenantClientService.get(id) as Client | null;
   }
 
-  async update(id: string, client: Partial<Client>): Promise<void> {
-    return clientService.update(id, client);
+  async update(id: string, client: Partial<Client>, tenantId: string): Promise<void> {
+    const tenantClientService = this.getTenantService(tenantId);
+    return await tenantClientService.update(id, client);
   }
 
-  async delete(id: string): Promise<void> {
-    return clientService.delete(id);
+  async delete(id: string, tenantId: string): Promise<void> {
+    const tenantClientService = this.getTenantService(tenantId);
+    return await tenantClientService.delete(id);
   }
 
-  async getAll(): Promise<Client[]> {
-    return clientService.getAll();
+  async getAll(tenantId: string): Promise<Client[]> {
+    const tenantClientService = this.getTenantService(tenantId);
+    return await tenantClientService.getAll() as Client[];
   }
 
-  async findByPhone(phoneNumber: string, tenantId?: string): Promise<Client | null> {
+  async findByPhone(phoneNumber: string, tenantId: string): Promise<Client | null> {
     try {
-      let clients: Client[];
-      
-      if (tenantId) {
-        // Use compound query when tenantId is provided to prevent duplicates across tenants
-        clients = await clientService.getMany([
-          { field: 'phone', operator: '==', value: phoneNumber },
-          { field: 'tenantId', operator: '==', value: tenantId }
-        ]);
-      } else {
-        // Fallback to simple query
-        clients = await clientService.getWhere('phone', '==', phoneNumber);
-      }
+      const tenantClientService = this.getTenantService(tenantId);
+      const clients = await tenantClientService.getMany([
+        { field: 'phone', operator: '==', value: phoneNumber }
+      ]) as Client[];
       
       return clients.length > 0 ? clients[0] : null;
     } catch (error) {
-      console.error('Error finding client by phone:', error);
+      logger.error('❌ [ClientService] Erro ao buscar cliente por telefone', {
+        phone: phoneNumber.substring(0, 6) + '***',
+        tenantId,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
       return null;
     }
   }
@@ -111,7 +135,7 @@ export class ClientService {
     email?: string;
     document?: string;
     phone: string;
-    tenantId?: string;
+    tenantId: string; // Agora obrigatório
     source?: string;
     createdAt?: Date;
     updatedAt?: Date;
@@ -122,11 +146,13 @@ export class ClientService {
       throw new Error(`Cliente com telefone ${clientData.phone} já existe. Use createOrUpdate() para atualizar dados existentes.`);
     }
     
+    const tenantClientService = this.getTenantService(clientData.tenantId);
+    
     // Filtrar campos undefined para evitar erro no Firebase
     const cleanedData: any = {
       name: clientData.name,
       phone: clientData.phone,
-      tenantId: clientData.tenantId || 'default',
+      tenantId: clientData.tenantId,
       source: clientData.source || 'whatsapp',
       preferences: {
         communicationPreference: 'whatsapp',
@@ -153,7 +179,12 @@ export class ClientService {
       cleanedData.document = clientData.document;
     }
     
-    const id = await clientService.create(cleanedData as any);
+    const id = await tenantClientService.create(cleanedData as any);
+    
+    logger.info('✅ [ClientService] Cliente criado', {
+      tenantId: clientData.tenantId,
+      clientId: id
+    });
     
     return {
       id,

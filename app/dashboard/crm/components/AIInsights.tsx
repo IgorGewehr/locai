@@ -46,7 +46,7 @@ import {
 import { Lead } from '@/lib/types/crm';
 import { format, differenceInDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { crmService } from '@/lib/services/crm-service';
+import { useTenantServices } from '@/lib/hooks/useTenantServices';
 import { useAuth } from '@/lib/hooks/useAuth';
 
 interface AIInsightsProps {

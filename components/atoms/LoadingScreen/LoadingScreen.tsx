@@ -1,36 +1,42 @@
 'use client';
 
-import { Box, Typography, LinearProgress, useTheme, alpha, keyframes } from '@mui/material';
-import { Home, SmartToy, Analytics, CalendarMonth } from '@mui/icons-material';
+import { Box, useTheme, keyframes } from '@mui/material';
 import { useState, useEffect } from 'react';
 
 const fadeIn = keyframes`
   from {
     opacity: 0;
-    transform: translateY(20px);
+    transform: scale(0.9) translateY(10px);
   }
   to {
     opacity: 1;
-    transform: translateY(0);
+    transform: scale(1) translateY(0);
   }
 `;
 
-const pulse = keyframes`
-  0% {
+const breathe = keyframes`
+  0%, 100% {
     transform: scale(1);
-    opacity: 1;
+    opacity: 0.8;
   }
   50% {
-    transform: scale(1.1);
+    transform: scale(1.08);
+    opacity: 1;
+  }
+`;
+
+const ripple = keyframes`
+  0% {
+    transform: scale(0.8);
     opacity: 0.8;
   }
   100% {
-    transform: scale(1);
-    opacity: 1;
+    transform: scale(3.5);
+    opacity: 0;
   }
 `;
 
-const rotate = keyframes`
+const spin = keyframes`
   from {
     transform: rotate(0deg);
   }
@@ -39,84 +45,62 @@ const rotate = keyframes`
   }
 `;
 
-const shimmer = keyframes`
+const floatUp = keyframes`
   0% {
-    background-position: -200% 0;
+    transform: translateY(0) scale(1);
+    opacity: 0;
+  }
+  50% {
+    opacity: 1;
   }
   100% {
-    background-position: 200% 0;
+    transform: translateY(-100px) scale(0);
+    opacity: 0;
+  }
+`;
+
+const morphShape = keyframes`
+  0%, 100% {
+    border-radius: 50% 50% 50% 50%;
+  }
+  25% {
+    border-radius: 60% 40% 30% 70%;
+  }
+  50% {
+    border-radius: 30% 60% 70% 40%;
+  }
+  75% {
+    border-radius: 40% 30% 60% 50%;
+  }
+`;
+
+const gradientShift = keyframes`
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
   }
 `;
 
 interface LoadingScreenProps {
-  message?: string;
-  showProgress?: boolean;
   variant?: 'default' | 'minimal' | 'creative';
 }
 
-const loadingMessages = [
-  'Preparando seu dashboard...',
-  'Conectando com Sofia IA...',
-  'Carregando suas propriedades...',
-  'Sincronizando agenda...',
-  'Atualizando métricas...',
-  'Quase lá...'
-];
-
-const features = [
-  { icon: Home, label: 'Propriedades', color: '#667eea' },
-  { icon: SmartToy, label: 'Sofia IA', color: '#764ba2' },
-  { icon: Analytics, label: 'Analytics', color: '#f093fb' },
-  { icon: CalendarMonth, label: 'Agenda', color: '#4facfe' }
-];
-
-export default function LoadingScreen({ 
-  message, 
-  showProgress = true, 
-  variant = 'default' 
-}: LoadingScreenProps) {
+export default function LoadingScreen({ variant = 'default' }: LoadingScreenProps) {
   const theme = useTheme();
-  const [progress, setProgress] = useState(0);
-  const [currentMessageIndex, setCurrentMessageIndex] = useState(0);
-  const [dots, setDots] = useState('');
+  const [particles, setParticles] = useState<Array<{ id: number; delay: number }>>([]);
 
   useEffect(() => {
-    // Simulate progress
-    const timer = setInterval(() => {
-      setProgress((prevProgress) => {
-        if (prevProgress >= 95) {
-          return prevProgress;
-        }
-        const increment = Math.random() * 15;
-        return Math.min(prevProgress + increment, 95);
-      });
-    }, 500);
-
-    return () => {
-      clearInterval(timer);
-    };
-  }, []);
-
-  useEffect(() => {
-    // Rotate messages
-    const messageTimer = setInterval(() => {
-      setCurrentMessageIndex((prev) => (prev + 1) % loadingMessages.length);
-    }, 2000);
-
-    return () => {
-      clearInterval(messageTimer);
-    };
-  }, []);
-
-  useEffect(() => {
-    // Animate dots
-    const dotsTimer = setInterval(() => {
-      setDots((prev) => (prev.length >= 3 ? '' : prev + '.'));
-    }, 400);
-
-    return () => {
-      clearInterval(dotsTimer);
-    };
+    // Generate floating particles
+    const newParticles = Array.from({ length: 8 }, (_, i) => ({
+      id: i,
+      delay: i * 0.8,
+    }));
+    setParticles(newParticles);
   }, []);
 
   if (variant === 'minimal') {
@@ -131,25 +115,49 @@ export default function LoadingScreen({
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          bgcolor: theme.palette.background.default,
+          background: `linear-gradient(135deg, 
+            ${theme.palette.mode === 'dark' ? '#0a0a0a' : '#fafafa'} 0%, 
+            ${theme.palette.mode === 'dark' ? '#1a1a1a' : '#f0f0f0'} 100%)`,
           zIndex: 9999,
+          overflow: 'hidden',
         }}
       >
-        <Box sx={{ textAlign: 'center' }}>
+        {/* Central loading element */}
+        <Box
+          sx={{
+            position: 'relative',
+            width: 80,
+            height: 80,
+            animation: `${fadeIn} 1s ease-out`,
+          }}
+        >
+          {/* Main pulsing circle */}
           <Box
             sx={{
-              width: 60,
-              height: 60,
-              margin: '0 auto 24px',
+              position: 'absolute',
+              inset: 0,
               borderRadius: '50%',
-              border: `3px solid ${alpha(theme.palette.primary.main, 0.1)}`,
-              borderTopColor: theme.palette.primary.main,
-              animation: `${rotate} 1s linear infinite`,
+              background: `linear-gradient(135deg, 
+                ${theme.palette.primary.main}40, 
+                ${theme.palette.secondary.main}40)`,
+              animation: `${breathe} 2s ease-in-out infinite, ${morphShape} 8s ease-in-out infinite`,
             }}
           />
-          <Typography variant="body1" color="text.secondary">
-            Carregando{dots}
-          </Typography>
+          
+          {/* Ripple effects */}
+          {[...Array(3)].map((_, i) => (
+            <Box
+              key={i}
+              sx={{
+                position: 'absolute',
+                inset: -10,
+                borderRadius: '50%',
+                border: `1px solid ${theme.palette.primary.main}20`,
+                animation: `${ripple} 3s ease-out infinite`,
+                animationDelay: `${i * 1}s`,
+              }}
+            />
+          ))}
         </Box>
       </Box>
     );
@@ -167,147 +175,74 @@ export default function LoadingScreen({
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          bgcolor: theme.palette.background.default,
+          background: `linear-gradient(135deg, 
+            ${theme.palette.mode === 'dark' ? '#0a0a0a' : '#fafafa'} 0%, 
+            ${theme.palette.mode === 'dark' ? '#1a1a1a' : '#f0f0f0'} 100%)`,
           zIndex: 9999,
           overflow: 'hidden',
         }}
       >
-        {/* Background animation */}
-        <Box
-          sx={{
-            position: 'absolute',
-            top: '50%',
-            left: '50%',
-            transform: 'translate(-50%, -50%)',
-            width: '200%',
-            height: '200%',
-            background: `radial-gradient(circle at center, ${alpha(theme.palette.primary.main, 0.1)} 0%, transparent 70%)`,
-            animation: `${pulse} 3s ease-in-out infinite`,
-          }}
-        />
+        {/* Floating particles */}
+        {particles.map((particle) => (
+          <Box
+            key={particle.id}
+            sx={{
+              position: 'absolute',
+              width: Math.random() * 6 + 2,
+              height: Math.random() * 6 + 2,
+              borderRadius: '50%',
+              background: theme.palette.primary.main,
+              left: `${Math.random() * 100}%`,
+              top: '100%',
+              animation: `${floatUp} ${4 + Math.random() * 2}s ease-out infinite`,
+              animationDelay: `${particle.delay}s`,
+              opacity: 0.6,
+            }}
+          />
+        ))}
 
+        {/* Central morphing shape */}
         <Box
           sx={{
             position: 'relative',
-            textAlign: 'center',
-            animation: `${fadeIn} 0.6s ease-out`,
+            width: 120,
+            height: 120,
+            animation: `${fadeIn} 1.2s ease-out`,
           }}
         >
-          {/* Logo or Brand */}
-          <Typography
-            variant="h3"
-            sx={{
-              fontWeight: 800,
-              background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-              backgroundClip: 'text',
-              WebkitBackgroundClip: 'text',
-              WebkitTextFillColor: 'transparent',
-              mb: 4,
-            }}
-          >
-            LocAI
-          </Typography>
-
-          {/* Feature icons */}
           <Box
             sx={{
-              display: 'flex',
-              gap: 3,
-              justifyContent: 'center',
-              mb: 4,
+              position: 'absolute',
+              inset: 0,
+              background: `linear-gradient(45deg, 
+                ${theme.palette.primary.main}, 
+                ${theme.palette.secondary.main}, 
+                ${theme.palette.primary.main})`,
+              backgroundSize: '300% 300%',
+              animation: `${morphShape} 6s ease-in-out infinite, ${gradientShift} 3s ease-in-out infinite`,
+              opacity: 0.8,
+              filter: 'blur(1px)',
             }}
-          >
-            {features.map((feature, index) => {
-              const Icon = feature.icon;
-              return (
-                <Box
-                  key={feature.label}
-                  sx={{
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'center',
-                    gap: 1,
-                    animation: `${fadeIn} 0.6s ease-out`,
-                    animationDelay: `${index * 0.1}s`,
-                    animationFillMode: 'both',
-                  }}
-                >
-                  <Box
-                    sx={{
-                      width: 50,
-                      height: 50,
-                      borderRadius: 2,
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      bgcolor: alpha(feature.color, 0.1),
-                      border: `1px solid ${alpha(feature.color, 0.2)}`,
-                      animation: `${pulse} 2s ease-in-out infinite`,
-                      animationDelay: `${index * 0.2}s`,
-                    }}
-                  >
-                    <Icon sx={{ color: feature.color, fontSize: 24 }} />
-                  </Box>
-                  <Typography
-                    variant="caption"
-                    sx={{
-                      color: 'text.secondary',
-                      fontSize: '0.75rem',
-                    }}
-                  >
-                    {feature.label}
-                  </Typography>
-                </Box>
-              );
-            })}
-          </Box>
-
-          {/* Loading message */}
-          <Typography
-            variant="body1"
+          />
+          
+          {/* Inner glow */}
+          <Box
             sx={{
-              color: 'text.secondary',
-              mb: 3,
-              minHeight: 24,
+              position: 'absolute',
+              inset: 20,
+              borderRadius: '50%',
+              background: `radial-gradient(circle, 
+                ${theme.palette.background.paper}80 30%, 
+                transparent 70%)`,
+              animation: `${breathe} 3s ease-in-out infinite`,
             }}
-          >
-            {loadingMessages[currentMessageIndex]}
-          </Typography>
-
-          {/* Progress */}
-          {showProgress && (
-            <Box sx={{ width: 300, mx: 'auto' }}>
-              <LinearProgress
-                variant="determinate"
-                value={progress}
-                sx={{
-                  height: 4,
-                  borderRadius: 2,
-                  bgcolor: alpha(theme.palette.primary.main, 0.1),
-                  '& .MuiLinearProgress-bar': {
-                    borderRadius: 2,
-                    background: 'linear-gradient(90deg, #667eea 0%, #764ba2 100%)',
-                  },
-                }}
-              />
-              <Typography
-                variant="caption"
-                sx={{
-                  color: 'text.secondary',
-                  mt: 1,
-                  display: 'block',
-                }}
-              >
-                {Math.round(progress)}%
-              </Typography>
-            </Box>
-          )}
+          />
         </Box>
       </Box>
     );
   }
 
-  // Default variant
+  // Default modern variant
   return (
     <Box
       sx={{
@@ -317,176 +252,121 @@ export default function LoadingScreen({
         right: 0,
         bottom: 0,
         display: 'flex',
-        flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'center',
-        bgcolor: theme.palette.background.default,
+        background: `linear-gradient(135deg, 
+          ${theme.palette.mode === 'dark' ? '#0a0a0a' : '#fafafa'} 0%, 
+          ${theme.palette.mode === 'dark' ? '#1a1a1a' : '#f0f0f0'} 100%)`,
         zIndex: 9999,
-        background: `
-          radial-gradient(ellipse at top left, ${alpha('#667eea', 0.15)} 0%, transparent 50%),
-          radial-gradient(ellipse at bottom right, ${alpha('#764ba2', 0.15)} 0%, transparent 50%),
-          ${theme.palette.background.default}
-        `,
+        overflow: 'hidden',
+        willChange: 'opacity',
+        // Melhorar performance das animações
+        backfaceVisibility: 'hidden',
+        transform: 'translateZ(0)',
       }}
     >
+      {/* Background pattern */}
       <Box
         sx={{
-          textAlign: 'center',
-          maxWidth: 400,
-          px: 3,
-          animation: `${fadeIn} 0.6s ease-out`,
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          opacity: 0.03,
+          background: `
+            radial-gradient(circle at 25% 25%, ${theme.palette.primary.main} 0%, transparent 50%),
+            radial-gradient(circle at 75% 75%, ${theme.palette.secondary.main} 0%, transparent 50%),
+            radial-gradient(circle at 50% 50%, ${theme.palette.primary.main} 0%, transparent 30%)
+          `,
+          animation: `${gradientShift} 8s ease-in-out infinite`,
+        }}
+      />
+
+      {/* Main loading container */}
+      <Box
+        sx={{
+          position: 'relative',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          animation: `${fadeIn} 1.2s cubic-bezier(0.4, 0, 0.2, 1)`,
+          willChange: 'transform, opacity',
+          transform: 'translateZ(0)',
         }}
       >
-        {/* Logo with animation */}
+        {/* Outer rotating ring */}
         <Box
           sx={{
-            position: 'relative',
-            width: 120,
-            height: 120,
-            margin: '0 auto 32px',
+            position: 'absolute',
+            width: 100,
+            height: 100,
+            border: `2px solid ${theme.palette.primary.main}20`,
+            borderTopColor: `${theme.palette.primary.main}70`,
+            borderRightColor: `${theme.palette.secondary.main}50`,
+            borderRadius: '50%',
+            animation: `${spin} 2s linear infinite, ${breathe} 4s ease-in-out infinite`,
+            willChange: 'transform',
+            transform: 'translateZ(0)',
           }}
-        >
-          <Box
-            sx={{
-              position: 'absolute',
-              inset: 0,
-              borderRadius: '50%',
-              background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-              opacity: 0.1,
-              animation: `${pulse} 2s ease-in-out infinite`,
-            }}
-          />
-          <Box
-            sx={{
-              position: 'absolute',
-              inset: 10,
-              borderRadius: '50%',
-              background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-              opacity: 0.2,
-              animation: `${pulse} 2s ease-in-out infinite`,
-              animationDelay: '0.1s',
-            }}
-          />
-          <Box
-            sx={{
-              position: 'absolute',
-              inset: 20,
-              borderRadius: '50%',
-              background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-            }}
-          >
-            <SmartToy sx={{ fontSize: 48, color: 'white' }} />
-          </Box>
-        </Box>
+        />
 
-        {/* Title */}
-        <Typography
-          variant="h4"
-          sx={{
-            fontWeight: 700,
-            mb: 1,
-            background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-            backgroundClip: 'text',
-            WebkitBackgroundClip: 'text',
-            WebkitTextFillColor: 'transparent',
-          }}
-        >
-          LocAI
-        </Typography>
-
-        {/* Subtitle */}
-        <Typography
-          variant="body1"
-          sx={{
-            color: 'text.secondary',
-            mb: 4,
-          }}
-        >
-          Sistema Inteligente de Gestão Imobiliária
-        </Typography>
-
-        {/* Loading message with shimmer effect */}
+        {/* Inner morphing shape */}
         <Box
           sx={{
-            position: 'relative',
-            overflow: 'hidden',
-            p: 2,
-            borderRadius: 2,
-            bgcolor: alpha(theme.palette.primary.main, 0.05),
-            border: `1px solid ${alpha(theme.palette.primary.main, 0.1)}`,
-            mb: 3,
+            width: 60,
+            height: 60,
+            background: `linear-gradient(135deg, 
+              ${theme.palette.primary.main}90, 
+              ${theme.palette.secondary.main}90)`,
+            animation: `${morphShape} 8s ease-in-out infinite, ${breathe} 3s ease-in-out infinite`,
+            filter: 'blur(0.3px)',
+            boxShadow: `0 0 30px ${theme.palette.primary.main}30`,
+            willChange: 'transform, border-radius',
+            transform: 'translateZ(0)',
           }}
-        >
-          <Typography
-            variant="body2"
-            sx={{
-              color: 'text.primary',
-              position: 'relative',
-              zIndex: 1,
-            }}
-          >
-            {message || loadingMessages[currentMessageIndex]}
-          </Typography>
+        />
+
+        {/* Central dot */}
+        <Box
+          sx={{
+            position: 'absolute',
+            width: 10,
+            height: 10,
+            borderRadius: '50%',
+            background: theme.palette.background.paper,
+            animation: `${breathe} 2s ease-in-out infinite`,
+            boxShadow: `
+              0 0 20px ${theme.palette.primary.main}60,
+              0 0 40px ${theme.palette.primary.main}30,
+              inset 0 0 10px ${theme.palette.primary.main}20
+            `,
+            border: `1px solid ${theme.palette.primary.main}30`,
+          }}
+        />
+
+        {/* Ambient particles */}
+        {[...Array(6)].map((_, i) => (
           <Box
+            key={i}
             sx={{
               position: 'absolute',
-              top: 0,
-              left: 0,
-              right: 0,
-              bottom: 0,
-              background: `linear-gradient(90deg, transparent 0%, ${alpha(
-                theme.palette.primary.main,
-                0.1
-              )} 50%, transparent 100%)`,
-              backgroundSize: '200% 100%',
-              animation: `${shimmer} 2s linear infinite`,
+              width: Math.random() * 2 + 2,
+              height: Math.random() * 2 + 2,
+              borderRadius: '50%',
+              background: i % 2 === 0 ? theme.palette.primary.main : theme.palette.secondary.main,
+              opacity: 0.6,
+              left: `${50 + Math.cos((i * 2 * Math.PI) / 6) * 45}px`,
+              top: `${50 + Math.sin((i * 2 * Math.PI) / 6) * 45}px`,
+              animation: `
+                ${breathe} ${2 + Math.random()}s ease-in-out infinite,
+                ${spin} ${8 + Math.random() * 4}s linear infinite
+              `,
+              animationDelay: `${i * 0.4}s`,
+              boxShadow: `0 0 10px currentColor`,
             }}
           />
-        </Box>
-
-        {/* Progress bar */}
-        {showProgress && (
-          <Box sx={{ width: '100%' }}>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-              <Typography variant="caption" color="text.secondary">
-                Carregando recursos
-              </Typography>
-              <Typography variant="caption" color="text.secondary">
-                {Math.round(progress)}%
-              </Typography>
-            </Box>
-            <LinearProgress
-              variant="determinate"
-              value={progress}
-              sx={{
-                height: 6,
-                borderRadius: 3,
-                bgcolor: alpha(theme.palette.primary.main, 0.1),
-                '& .MuiLinearProgress-bar': {
-                  borderRadius: 3,
-                  background: 'linear-gradient(90deg, #667eea 0%, #764ba2 100%)',
-                  boxShadow: `0 2px 8px ${alpha('#667eea', 0.4)}`,
-                },
-              }}
-            />
-          </Box>
-        )}
-
-        {/* Tips */}
-        <Typography
-          variant="caption"
-          sx={{
-            color: 'text.secondary',
-            mt: 4,
-            display: 'block',
-            fontStyle: 'italic',
-          }}
-        >
-          💡 Dica: Use Sofia IA para agendar visitas automaticamente via WhatsApp
-        </Typography>
+        ))}
       </Box>
     </Box>
   );

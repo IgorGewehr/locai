@@ -77,23 +77,26 @@ export class TranscriptionService {
 
       // 3. Download audio file with retry
       const audioBuffer = await withRetry(
-        () => withTimeout(
-          this.whatsappClient.downloadMedia(mediaDetails.url),
-          20000,
-          'Download audio file'
-        ),
+        async () => {
+          // Note: downloadMedia method needs to be implemented in WhatsAppClient
+          // For now, we'll use a mock implementation
+          const response = await fetch(mediaDetails.url);
+          if (!response.ok) throw new Error(`Failed to download media: ${response.statusText}`);
+          return await response.arrayBuffer();
+        },
         3,
         2000
       )
 
       // 4. Validate audio buffer
-      if (!audioBuffer || audioBuffer.length === 0) {
+      const buffer = audioBuffer as ArrayBuffer;
+      if (!buffer || buffer.byteLength === 0) {
         throw new ValidationError('Audio file is empty or corrupted', 'audioFile')
       }
 
-      if (audioBuffer.length > this.MAX_AUDIO_SIZE) {
+      if (buffer.byteLength > this.MAX_AUDIO_SIZE) {
         throw new ValidationError(
-          `Audio file too large: ${(audioBuffer.length / 1024 / 1024).toFixed(1)}MB. Max: 25MB`,
+          `Audio file too large: ${(buffer.byteLength / 1024 / 1024).toFixed(1)}MB. Max: 25MB`,
           'audioSize'
         )
       }
@@ -105,7 +108,7 @@ export class TranscriptionService {
         async () => {
           // Convert buffer to File object with proper MIME type
           const audioFile = new File(
-            [audioBuffer], 
+            [buffer], 
             `audio_${audioId}.${this.getFileExtension(mediaDetails.mime_type)}`, 
             { type: mediaDetails.mime_type || 'audio/ogg' }
           )

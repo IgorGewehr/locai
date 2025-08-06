@@ -182,12 +182,25 @@ export default function ReservationsPage() {
         const reservationsWithDetails: ReservationWithDetails[] = reservationsData.map(reservation => {
           const property = propertiesMap.get(reservation.propertyId);
           const client = clientsMap.get(reservation.clientId);
-          const checkInDate = new Date(reservation.checkIn);
-          const checkOutDate = new Date(reservation.checkOut);
+          
+          // Convert Firebase Timestamps to JavaScript Dates
+          const checkInDate = reservation.checkIn instanceof Date 
+            ? reservation.checkIn 
+            : reservation.checkIn?.toDate ? reservation.checkIn.toDate() : new Date(reservation.checkIn);
+          const checkOutDate = reservation.checkOut instanceof Date 
+            ? reservation.checkOut 
+            : reservation.checkOut?.toDate ? reservation.checkOut.toDate() : new Date(reservation.checkOut);
+          const createdAtDate = reservation.createdAt instanceof Date
+            ? reservation.createdAt
+            : reservation.createdAt?.toDate ? reservation.createdAt.toDate() : new Date(reservation.createdAt);
+            
           const nights = Math.ceil((checkOutDate.getTime() - checkInDate.getTime()) / (1000 * 60 * 60 * 24));
 
           return {
             ...reservation,
+            checkIn: checkInDate,
+            checkOut: checkOutDate,
+            createdAt: createdAtDate,
             propertyName: property?.title || 'Propriedade não encontrada',
             clientName: client?.name || 'Cliente não encontrado',
             clientPhone: client?.phone || 'Telefone não encontrado',
@@ -226,12 +239,25 @@ export default function ReservationsPage() {
       const reservationsWithDetails: ReservationWithDetails[] = reservationsData.map(reservation => {
         const property = propertiesMap.get(reservation.propertyId);
         const client = clientsMap.get(reservation.clientId);
-        const checkInDate = new Date(reservation.checkIn);
-        const checkOutDate = new Date(reservation.checkOut);
+        
+        // Convert Firebase Timestamps to JavaScript Dates
+        const checkInDate = reservation.checkIn instanceof Date 
+          ? reservation.checkIn 
+          : reservation.checkIn?.toDate ? reservation.checkIn.toDate() : new Date(reservation.checkIn);
+        const checkOutDate = reservation.checkOut instanceof Date 
+          ? reservation.checkOut 
+          : reservation.checkOut?.toDate ? reservation.checkOut.toDate() : new Date(reservation.checkOut);
+        const createdAtDate = reservation.createdAt instanceof Date
+          ? reservation.createdAt
+          : reservation.createdAt?.toDate ? reservation.createdAt.toDate() : new Date(reservation.createdAt);
+          
         const nights = Math.ceil((checkOutDate.getTime() - checkInDate.getTime()) / (1000 * 60 * 60 * 24));
 
         return {
           ...reservation,
+          checkIn: checkInDate,
+          checkOut: checkOutDate,
+          createdAt: createdAtDate,
           propertyName: property?.title || 'Propriedade não encontrada',
           clientName: client?.name || 'Cliente não encontrado',
           clientPhone: client?.phone || 'Telefone não encontrado',

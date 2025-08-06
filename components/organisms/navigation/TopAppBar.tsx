@@ -148,7 +148,9 @@ export default function TopAppBar({ onLogout }: TopAppBarProps) {
   const pathname = usePathname();
   const router = useRouter();
   const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down('lg'));
+  // Breakpoint personalizado: monitores menores que 27" (1680px) usam sidebar móvel
+  // 32" = ~2560px, 27" = ~1680px, 24" = ~1366px
+  const isMobile = useMediaQuery('(max-width: 1680px)');
   const { user } = useAuth();
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [profileAnchorEl, setProfileAnchorEl] = useState<null | HTMLElement>(null);
@@ -286,7 +288,7 @@ export default function TopAppBar({ onLogout }: TopAppBarProps) {
           scrollbarWidth: 'none',
           minHeight: { xs: 56, sm: 64 },
         }}>
-          {/* Mobile Menu Button */}
+          {/* Mobile Menu Button - Shows on screens smaller than 1680px */}
           {isMobile && (
             <IconButton
               onClick={handleMobileDrawerToggle}
@@ -321,7 +323,7 @@ export default function TopAppBar({ onLogout }: TopAppBarProps) {
             >
               <img 
                 src="/logo.jpg" 
-                alt="LocAI Logo" 
+                alt="AlugZap Logo" 
                 width={32} 
                 height={32}
                 style={{ 
@@ -341,13 +343,13 @@ export default function TopAppBar({ onLogout }: TopAppBarProps) {
                 display: { xs: 'none', sm: 'block' },
               }}
             >
-              LocAI
+              AlugZap
             </Typography>
           </Box>
 
-          {/* Navigation Items */}
+          {/* Navigation Items - Hidden on screens smaller than 1680px */}
           <Box sx={{ 
-            display: { xs: 'none', lg: 'flex' }, 
+            display: isMobile ? 'none' : 'flex',
             alignItems: 'center', 
             gap: 1, 
             flex: 1 
@@ -524,8 +526,8 @@ export default function TopAppBar({ onLogout }: TopAppBarProps) {
               </Button>
             </Tooltip>
 
-            {/* Mini-Site */}
-            <Box sx={{ display: { xs: 'none', lg: 'block' } }}>
+            {/* Mini-Site - Hidden on smaller screens */}
+            <Box sx={{ display: isMobile ? 'none' : 'block' }}>
               <Tooltip title="Mini-Site">
                 <IconButton
                   onClick={() => router.push('/dashboard/mini-site')}
@@ -548,7 +550,7 @@ export default function TopAppBar({ onLogout }: TopAppBarProps) {
               flexItem 
               sx={{ 
                 borderColor: 'rgba(255, 255, 255, 0.2)', 
-                display: { xs: 'none', lg: 'block' },
+                display: isMobile ? 'none' : 'block',
                 height: { sm: 32, md: 40 },
                 alignSelf: 'center',
               }} 
@@ -771,7 +773,7 @@ export default function TopAppBar({ onLogout }: TopAppBarProps) {
             >
               <img 
                 src="/logo.jpg" 
-                alt="LocAI Logo" 
+                alt="AlugZap Logo" 
                 width={28} 
                 height={28}
                 style={{ 
@@ -790,7 +792,7 @@ export default function TopAppBar({ onLogout }: TopAppBarProps) {
                 fontSize: '1.125rem',
               }}
             >
-              LocAI
+              AlugZap
             </Typography>
           </Box>
           <IconButton 

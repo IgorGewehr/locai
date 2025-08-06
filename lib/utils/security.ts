@@ -188,13 +188,13 @@ export class SecurityUtils {
   static getClientIP(request: NextRequest): string {
     const forwarded = request.headers.get('x-forwarded-for');
     const real = request.headers.get('x-real-ip');
-    const remote = request.ip;
+    // NextRequest doesn't have ip property directly, use forwarded headers
     
     if (forwarded) {
       return forwarded.split(',')[0].trim();
     }
     
-    return real || remote || 'unknown';
+    return real || 'unknown';
   }
 
   // Generate secure session ID

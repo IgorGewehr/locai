@@ -462,7 +462,19 @@ export default function TransactionDetailPage() {
                     {reservation.propertyName}
                   </Typography>
                   <Typography variant="body2" color="text.secondary">
-                    {format(reservation.checkIn, 'dd/MM/yyyy')} - {format(reservation.checkOut, 'dd/MM/yyyy')}
+                    {(() => {
+                      try {
+                        const checkIn = reservation.checkIn instanceof Date ? reservation.checkIn : new Date(reservation.checkIn);
+                        const checkOut = reservation.checkOut instanceof Date ? reservation.checkOut : new Date(reservation.checkOut);
+                        
+                        if (!isNaN(checkIn.getTime()) && !isNaN(checkOut.getTime())) {
+                          return `${format(checkIn, 'dd/MM/yyyy')} - ${format(checkOut, 'dd/MM/yyyy')}`;
+                        }
+                        return 'Datas não informadas';
+                      } catch (error) {
+                        return 'Datas não informadas';
+                      }
+                    })()}
                   </Typography>
                   <Chip
                     label={reservation.status}

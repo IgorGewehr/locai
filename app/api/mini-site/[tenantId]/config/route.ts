@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { settingsService } from '@/lib/services/settings-service';
+import { TenantServiceFactory } from '@/lib/firebase/firestore-v2';
 
 export async function GET(
   request: NextRequest,
@@ -16,7 +16,8 @@ export async function GET(
     }
 
     // Get tenant settings directly (server-side only)
-    const settings = await settingsService.getSettings(tenantId);
+    const services = new TenantServiceFactory(tenantId);
+    const settings = await services.settings.getSettings(tenantId);
     
     if (!settings || !settings.miniSite) {
       return NextResponse.json(

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { settingsService } from '@/lib/services/settings-service';
+import { TenantServiceFactory } from '@/lib/firebase/firestore-v2';
 import { getAuthFromCookie } from '@/lib/utils/auth-cookie';
 
 export async function GET(request: NextRequest) {
@@ -9,7 +9,12 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const settings = await settingsService.getSettings(auth.tenantId || 'default-tenant');
+    if (!auth.tenantId) {
+      return NextResponse.json({ error: 'Tenant ID required' }, { status: 400 });
+    }
+
+    const services = new TenantServiceFactory(auth.tenantId);
+    const settings = await services.settings.getSettings(auth.tenantId);
     
     // Get user profile for company info integration
     const { adminDb } = await import('@/lib/firebase/admin');
@@ -61,20 +66,25 @@ export async function PUT(request: NextRequest) {
     const body = await request.json();
     const { section, data } = body;
 
-    const tenantId = auth.tenantId || 'default-tenant';
+    if (!auth.tenantId) {
+      return NextResponse.json({ error: 'Tenant ID required' }, { status: 400 });
+    }
+
+    const tenantId = auth.tenantId;
 
     switch (section) {
       case 'company':
-        await settingsService.updateCompanySettings(tenantId, data);
+        const services = new TenantServiceFactory(tenantId);
+        await services.settings.updateCompanySettings(tenantId, data);
         break;
       case 'ai':
-        await settingsService.updateAISettings(tenantId, data);
+        await services.settings.updateAISettings(tenantId, data);
         break;
       case 'billing':
-        await settingsService.updateBillingSettings(tenantId, data);
+        await services.settings.updateBillingSettings(tenantId, data);
         break;
       case 'miniSite':
-        await settingsService.updateMiniSiteSettings(tenantId, data);
+        await services.settings.updateMiniSiteSettings(tenantId, data);
         break;
       case 'whatsapp':
         // WhatsApp settings should be updated through the dedicated endpoint
@@ -83,7 +93,7 @@ export async function PUT(request: NextRequest) {
           { status: 400 }
         );
       case 'all':
-        await settingsService.saveSettings(tenantId, data);
+        await services.settings.saveSettings(tenantId, data);
         break;
       default:
         return NextResponse.json(
@@ -114,9 +124,15 @@ export async function POST(request: NextRequest) {
     }
 
     const body = await request.json();
-    const tenantId = auth.tenantId || 'default-tenant';
+    
+    if (!auth.tenantId) {
+      return NextResponse.json({ error: 'Tenant ID required' }, { status: 400 });
+    }
 
-    await settingsService.saveSettings(tenantId, body);
+    const tenantId = auth.tenantId;
+
+    const services = new TenantServiceFactory(tenantId);
+    await services.settings.saveSettings(tenantId, body);
 
     return NextResponse.json({
       success: true,

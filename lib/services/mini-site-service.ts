@@ -3,7 +3,7 @@
  * Handles all mini-site related operations including configuration, analytics, and public data access
  */
 
-import { FirestoreService } from '@/lib/firebase/firestore';
+import { MultiTenantFirestoreService } from '@/lib/firebase/firestore-v2';
 import { MiniSiteConfig, PublicProperty, MiniSiteInquiry, MiniSiteAnalytics } from '@/lib/types/mini-site';
 import { Property } from '@/lib/types';
 import { settingsService } from '@/lib/services/settings-service';
@@ -13,9 +13,17 @@ import { TenantServiceFactory } from '@/lib/firebase/firestore-v2';
 import { logger } from '@/lib/utils/logger';
 
 class MiniSiteService {
-  private configService = new FirestoreService<MiniSiteConfig>('mini_site_configs');
-  private inquiryService = new FirestoreService<MiniSiteInquiry>('mini_site_inquiries');
-  private analyticsService = new FirestoreService<MiniSiteAnalytics>('mini_site_analytics');
+  private configService: MultiTenantFirestoreService<MiniSiteConfig>;
+  private inquiryService: MultiTenantFirestoreService<MiniSiteInquiry>;
+  private analyticsService: MultiTenantFirestoreService<MiniSiteAnalytics>;
+  private tenantId: string;
+
+  constructor(tenantId: string) {
+    this.tenantId = tenantId;
+    this.configService = new MultiTenantFirestoreService<MiniSiteConfig>(tenantId, 'mini_site_configs');
+    this.inquiryService = new MultiTenantFirestoreService<MiniSiteInquiry>(tenantId, 'mini_site_inquiries');
+    this.analyticsService = new MultiTenantFirestoreService<MiniSiteAnalytics>(tenantId, 'mini_site_analytics');
+  }
 
   /**
    * Get mini-site configuration for a tenant
@@ -660,4 +668,5 @@ class MiniSiteService {
   }
 }
 
-export const miniSiteService = new MiniSiteService();
+// Factory function for creating tenant-scoped mini-site service
+export const createMiniSiteService = (tenantId: string) => new MiniSiteService(tenantId);

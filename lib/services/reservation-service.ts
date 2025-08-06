@@ -1,4 +1,4 @@
-import { FirestoreService } from '@/lib/firebase/firestore'
+import { TenantServiceFactory } from '@/lib/firebase/firestore-v2'
 import { Reservation, ReservationStatus, PaymentStatus } from '@/lib/types/reservation'
 import { Property } from '@/lib/types/property'
 import { ValidationError } from '@/lib/utils/errors'
@@ -6,12 +6,8 @@ import { CheckAvailabilityInput } from '@/lib/validations/reservation'
 import { eachDayOfInterval, format } from 'date-fns'
 
 class ReservationService {
-  private reservationDb: FirestoreService<Reservation>
-  private propertyDb: FirestoreService<Property>
-
-  constructor() {
-    this.reservationDb = new FirestoreService<Reservation>('reservations')
-    this.propertyDb = new FirestoreService<Property>('properties')
+  private getTenantService(tenantId: string) {
+    return new TenantServiceFactory(tenantId)
   }
 
   /**
@@ -22,11 +18,14 @@ class ReservationService {
     checkIn: Date;
     checkOut: Date;
     excludeReservationId?: string;
+    tenantId: string;
   }): Promise<boolean> {
-    const { propertyId, checkIn, checkOut, excludeReservationId } = input
+    const { propertyId, checkIn, checkOut, excludeReservationId, tenantId } = input as any
+    
+    const services = this.getTenantService(tenantId)
     
     // Get all reservations for this property
-    const reservations = await this.reservationDb.getMany([
+    const reservations = await services.reservations.getMany([
       { field: 'propertyId', operator: '==', value: propertyId },
       { field: 'status', operator: 'in', value: [
         ReservationStatus.CONFIRMED,
@@ -65,8 +64,9 @@ class ReservationService {
   /**
    * Validate property capacity
    */
-  async validatePropertyCapacity(propertyId: string, guests: number): Promise<void> {
-    const property = await this.propertyDb.get(propertyId)
+  async validatePropertyCapacity(propertyId: string, guests: number, tenantId: string): Promise<void> {
+    const services = this.getTenantService(tenantId)
+    const property = await services.properties.get(propertyId)
     
     if (!property) {
       throw new ValidationError('Propriedade não encontrada', 'propertyId')
@@ -107,7 +107,8 @@ class ReservationService {
     propertyId: string,
     checkIn: Date,
     checkOut: Date,
-    guests: number
+    guests: number,
+    tenantId: string
   ): Promise<{
     nights: number
     baseAmount: number
@@ -115,7 +116,8 @@ class ReservationService {
     securityDeposit: number
     totalAmount: number
   }> {
-    const property = await this.propertyDb.get(propertyId)
+    const services = this.getTenantService(tenantId)
+    const property = await services.properties.get(propertyId)
     
     if (!property) {
       throw new ValidationError('Propriedade não encontrada', 'propertyId')
@@ -152,8 +154,8 @@ class ReservationService {
    * Get active reservations count for analytics
    */
   async getActiveReservationsCount(tenantId: string): Promise<number> {
-    const reservations = await this.reservationDb.getMany([
-      { field: 'tenantId', operator: '==', value: tenantId },
+    const services = this.getTenantService(tenantId)
+    const reservations = await services.reservations.getMany([
       { field: 'status', operator: 'in', value: [
         ReservationStatus.CONFIRMED,
         ReservationStatus.CHECKED_IN
@@ -170,9 +172,11 @@ class ReservationService {
     propertyId: string,
     checkIn: Date,
     checkOut: Date,
+    tenantId: string,
     excludeId?: string
   ): Promise<Reservation[]> {
-    const reservations = await this.reservationDb.getMany([
+    const services = this.getTenantService(tenantId)
+    const reservations = await services.reservations.getMany([
       { field: 'propertyId', operator: '==', value: propertyId },
       { field: 'status', operator: 'in', value: [
         ReservationStatus.CONFIRMED,
@@ -198,8 +202,9 @@ class ReservationService {
   /**
    * Update reservation payment status based on payments
    */
-  async updatePaymentStatus(reservationId: string, paidAmount: number): Promise<void> {
-    const reservation = await this.reservationDb.get(reservationId)
+  async updatePaymentStatus(reservationId: string, paidAmount: number, tenantId: string): Promise<void> {
+    const services = this.getTenantService(tenantId)
+    const reservation = await services.reservations.get(reservationId)
     
     if (!reservation) {
       throw new ValidationError('Reserva não encontrada', 'reservationId')
@@ -218,7 +223,7 @@ class ReservationService {
       updates.paymentStatus = PaymentStatus.PARTIAL
     }
 
-    await this.reservationDb.update(reservationId, updates)
+    await services.reservations.update(reservationId, updates)
   }
 
   /**
@@ -294,9 +299,11 @@ class ReservationService {
    */
   async syncReservationWithUnavailableDates(
     reservationId: string,
+    tenantId: string,
     action: 'add' | 'remove' = 'add'
   ): Promise<void> {
-    const reservation = await this.reservationDb.get(reservationId)
+    const services = this.getTenantService(tenantId)
+    const reservation = await services.reservations.get(reservationId)
     
     if (!reservation) {
       throw new ValidationError('Reserva não encontrada', 'reservationId')
@@ -311,7 +318,7 @@ class ReservationService {
       return
     }
 
-    const property = await this.propertyDb.get(reservation.propertyId)
+    const property = await services.properties.get(reservation.propertyId)
     
     if (!property) {
       throw new ValidationError('Propriedade não encontrada', 'propertyId')
@@ -348,7 +355,7 @@ class ReservationService {
       .sort((a, b) => a.getTime() - b.getTime())
 
     // Update property with new unavailable dates
-    await this.propertyDb.update(reservation.propertyId, {
+    await services.properties.update(reservation.propertyId, {
       unavailableDates: updatedUnavailableDates,
       updatedAt: new Date()
     })
@@ -369,11 +376,15 @@ class ReservationService {
     status: ReservationStatus;
     tenantId: string;
   }): Promise<Reservation> {
+    const { tenantId } = reservationData;
+    const services = this.getTenantService(tenantId);
+
     // Validate availability
     const isAvailable = await this.checkAvailability({
       propertyId: reservationData.propertyId,
       checkIn: reservationData.checkIn,
-      checkOut: reservationData.checkOut
+      checkOut: reservationData.checkOut,
+      tenantId
     });
 
     if (!isAvailable) {
@@ -381,14 +392,15 @@ class ReservationService {
     }
 
     // Validate property capacity
-    await this.validatePropertyCapacity(reservationData.propertyId, reservationData.guests);
+    await this.validatePropertyCapacity(reservationData.propertyId, reservationData.guests, tenantId);
 
     // Calculate pricing
     const pricing = await this.calculatePricing(
       reservationData.propertyId,
       reservationData.checkIn,
       reservationData.checkOut,
-      reservationData.guests
+      reservationData.guests,
+      tenantId
     );
 
     // Generate confirmation code
@@ -406,12 +418,12 @@ class ReservationService {
       updatedAt: new Date()
     };
 
-    const id = await this.reservationDb.create(reservation);
+    const id = await services.reservations.create(reservation);
     const createdReservation = { ...reservation, id } as Reservation;
 
     // Sync with property unavailable dates
     if (reservationData.status === ReservationStatus.CONFIRMED) {
-      await this.syncReservationWithUnavailableDates(id, 'add');
+      await this.syncReservationWithUnavailableDates(id, tenantId, 'add');
     }
 
     return createdReservation;
@@ -422,9 +434,11 @@ class ReservationService {
    */
   async updateReservationStatus(
     reservationId: string,
-    newStatus: ReservationStatus
+    newStatus: ReservationStatus,
+    tenantId: string
   ): Promise<void> {
-    const reservation = await this.reservationDb.get(reservationId)
+    const services = this.getTenantService(tenantId)
+    const reservation = await services.reservations.get(reservationId)
     
     if (!reservation) {
       throw new ValidationError('Reserva não encontrada', 'reservationId')
@@ -433,7 +447,7 @@ class ReservationService {
     const oldStatus = reservation.status
 
     // Update reservation status
-    await this.reservationDb.update(reservationId, {
+    await services.reservations.update(reservationId, {
       status: newStatus,
       updatedAt: new Date()
     })
@@ -444,13 +458,13 @@ class ReservationService {
       oldStatus !== ReservationStatus.CONFIRMED
     ) {
       // Add dates to unavailable when confirming
-      await this.syncReservationWithUnavailableDates(reservationId, 'add')
+      await this.syncReservationWithUnavailableDates(reservationId, tenantId, 'add')
     } else if (
       [ReservationStatus.CANCELLED, ReservationStatus.NO_SHOW].includes(newStatus) &&
       [ReservationStatus.CONFIRMED, ReservationStatus.PENDING].includes(oldStatus)
     ) {
       // Remove dates from unavailable when cancelling
-      await this.syncReservationWithUnavailableDates(reservationId, 'remove')
+      await this.syncReservationWithUnavailableDates(reservationId, tenantId, 'remove')
     }
   }
 }

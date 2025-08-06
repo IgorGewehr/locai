@@ -30,13 +30,11 @@ export const safeFormatDate = (
     
     // Check if date is valid
     if (!isValid(dateObj)) {
-      console.warn('Invalid date provided to safeFormatDate:', date);
       return fallback;
     }
     
     return format(dateObj, formatString, { locale: ptBR });
   } catch (error) {
-    console.error('Date formatting error:', error, 'for date:', date);
     return fallback;
   }
 };
@@ -65,7 +63,6 @@ export const safeParseDate = (date: any): Date | null => {
     
     return dateObj;
   } catch (error) {
-    console.error('Date parsing error:', error, 'for date:', date);
     return null;
   }
 };

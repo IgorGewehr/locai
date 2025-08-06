@@ -37,7 +37,6 @@ export function safeFormatDate(
 
     return format(date, formatString, { locale: ptBR });
   } catch (error) {
-    console.warn('Date formatting error:', error, 'for value:', dateValue);
     return fallback;
   }
 }

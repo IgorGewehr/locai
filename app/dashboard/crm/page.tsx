@@ -73,11 +73,10 @@ import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import { useRouter } from 'next/navigation';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { crmService } from '@/lib/services/crm-service';
 import { Lead, LeadStatus, Task, TaskStatus, Interaction } from '@/lib/types/crm';
 import { Client } from '@/lib/types';
 import { useAuth } from '@/lib/hooks/useAuth';
-import { useTenant } from '@/contexts/TenantContext';
+import { useTenantServices } from '@/lib/hooks/useTenantServices';
 import { scrollbarStyles } from '@/styles/scrollbarStyles';
 import LeadDetailsDrawer from './components/LeadDetailsDrawer';
 import CreateLeadDialog from './components/CreateLeadDialog';
@@ -219,9 +218,9 @@ export default function CRMPage() {
       [destStatus]: [...prev[destStatus], { ...sourceLead, status: destStatus }]
     }));
 
-    // Update in backend
+    // Update in backend using tenant services
     try {
-      await crmService.updateLead(leadId, { status: destStatus });
+      await services.leads.update(leadId, { status: destStatus });
     } catch (error) {
       console.error('Error updating lead status:', error);
       // Revert on error

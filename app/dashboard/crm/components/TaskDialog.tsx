@@ -22,7 +22,7 @@ import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDateFns } from '@mui/x-date-pickers/AdapterDateFns';
 import { ptBR } from 'date-fns/locale';
 import { TaskPriority } from '@/lib/types/crm';
-import { crmService } from '@/lib/services/crm-service';
+import { useTenantServices } from '@/lib/hooks/useTenantServices';
 import { useAuth } from '@/lib/hooks/useAuth';
 import { addDays } from 'date-fns';
 

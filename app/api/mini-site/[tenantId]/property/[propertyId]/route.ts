@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { miniSiteService } from '@/lib/services/mini-site-service';
+import { TenantServiceFactory } from '@/lib/firebase/firestore-v2';
 
 export async function GET(
   request: NextRequest,
@@ -16,7 +16,8 @@ export async function GET(
     }
 
     // Get specific property
-    const property = await miniSiteService.getPublicProperty(tenantId, propertyId);
+    const services = new TenantServiceFactory(tenantId);
+    const property = await services.miniSite.getPublicProperty(tenantId, propertyId);
 
     if (!property) {
       return NextResponse.json(
@@ -26,7 +27,7 @@ export async function GET(
     }
 
     // Record page view
-    await miniSiteService.recordPageView(tenantId, propertyId);
+    await services.miniSite.recordPageView(tenantId, propertyId);
 
     return NextResponse.json({
       success: true,

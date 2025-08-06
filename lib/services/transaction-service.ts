@@ -1,22 +1,21 @@
-import { FirestoreService } from '@/lib/firebase/firestore';
+import { MultiTenantFirestoreService } from '@/lib/firebase/firestore-v2';
 import { Transaction } from '@/lib/types';
 import { 
-  collection, 
-  query, 
-  where, 
-  orderBy, 
-  limit, 
   Timestamp,
+  writeBatch,
+  query,
+  where,
+  orderBy,
+  limit,
   startAfter,
-  endBefore,
+  getDocs,
   DocumentSnapshot,
   QueryConstraint,
-  getDocs,
+  collection,
   addDoc,
-  updateDoc,
   doc,
-  serverTimestamp,
-  writeBatch
+  updateDoc,
+  serverTimestamp
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase/config';
 import { startOfMonth, endOfMonth, addMonths, addWeeks, addYears, isBefore } from 'date-fns';
@@ -61,9 +60,9 @@ interface TransactionStats {
   byProperty: Record<string, { income: number; expense: number; balance: number }>;
 }
 
-class TransactionService extends FirestoreService<Transaction> {
-  constructor() {
-    super('transactions');
+class TransactionService extends MultiTenantFirestoreService<Transaction> {
+  constructor(tenantId: string) {
+    super(tenantId, 'transactions');
   }
 
   async getFiltered(filters: TransactionFilters, pageSize = 50, lastDoc?: DocumentSnapshot): Promise<{
@@ -123,7 +122,7 @@ class TransactionService extends FirestoreService<Transaction> {
       constraints.push(startAfter(lastDoc));
     }
 
-    const q = query(collection(db, this.collectionName), ...constraints);
+    const q = query(this.getCollectionRef(), ...constraints);
     const snapshot = await getDocs(q);
     
     const transactions = snapshot.docs.slice(0, pageSize).map(doc => ({
@@ -140,7 +139,7 @@ class TransactionService extends FirestoreService<Transaction> {
 
   async getByDateRange(startDate: Date, endDate: Date): Promise<Transaction[]> {
     const q = query(
-      collection(db, this.collectionName),
+      this.getCollectionRef(),
       where('date', '>=', Timestamp.fromDate(startDate)),
       where('date', '<=', Timestamp.fromDate(endDate)),
       orderBy('date', 'desc')
@@ -155,7 +154,7 @@ class TransactionService extends FirestoreService<Transaction> {
 
   async getRecurring(): Promise<Transaction[]> {
     const q = query(
-      collection(db, this.collectionName),
+      this.getCollectionRef(),
       where('isRecurring', '==', true),
       where('parentTransactionId', '==', null),
       orderBy('date', 'desc')
@@ -182,7 +181,7 @@ class TransactionService extends FirestoreService<Transaction> {
       createdByAI: false
     };
 
-    const parentRef = await addDoc(collection(db, this.collectionName), {
+    const parentRef = await addDoc(this.getCollectionRef(), {
       ...parentTransaction,
       date: serverTimestamp(),
       createdAt: serverTimestamp(),
@@ -215,7 +214,7 @@ class TransactionService extends FirestoreService<Transaction> {
     delete (instance as any).recurringType;
     delete (instance as any).recurringEndDate;
 
-    const ref = await addDoc(collection(db, this.collectionName), {
+    const ref = await addDoc(this.getCollectionRef(), {
       ...instance,
       date: Timestamp.fromDate(date),
       createdAt: serverTimestamp(),
@@ -237,7 +236,7 @@ class TransactionService extends FirestoreService<Transaction> {
 
       // Verificar última instância criada
       const lastInstanceQuery = query(
-        collection(db, this.collectionName),
+        this.getCollectionRef(),
         where('parentTransactionId', '==', transaction.id),
         orderBy('date', 'desc'),
         limit(1)
@@ -286,7 +285,7 @@ class TransactionService extends FirestoreService<Transaction> {
         delete (newInstance as any).recurringType;
         delete (newInstance as any).recurringEndDate;
 
-        batch.set(doc(collection(db, this.collectionName)), newInstance);
+        batch.set(doc(this.getCollectionRef()), newInstance);
 
         // Próxima data
         switch (transaction.recurringType) {
@@ -307,7 +306,7 @@ class TransactionService extends FirestoreService<Transaction> {
   }
 
   async confirmTransaction(transactionId: string, confirmedBy: string): Promise<void> {
-    await updateDoc(doc(db, this.collectionName, transactionId), {
+    await updateDoc(this.getDocRef(transactionId), {
       status: 'completed',
       confirmedBy,
       confirmedAt: serverTimestamp(),
@@ -325,7 +324,7 @@ class TransactionService extends FirestoreService<Transaction> {
       updates.notes = reason;
     }
 
-    await updateDoc(doc(db, this.collectionName, transactionId), updates);
+    await updateDoc(this.getDocRef(transactionId), updates);
   }
 
   async getStats(filters?: TransactionFilters): Promise<TransactionStats> {
@@ -439,11 +438,12 @@ class TransactionService extends FirestoreService<Transaction> {
         updates.confirmedAt = serverTimestamp();
       }
 
-      batch.update(doc(db, this.collectionName, id), updates);
+      batch.update(this.getDocRef(id), updates);
     });
 
     await batch.commit();
   }
 }
 
-export const transactionService = new TransactionService();
+// Factory function for creating tenant-scoped transaction service
+export const createTransactionService = (tenantId: string) => new TransactionService(tenantId);

@@ -320,8 +320,8 @@ export default function LoginPage() {
             }}>
               <Box
                 sx={{
-                  width: 64,
-                  height: 64,
+                  width: { xs: 56, sm: 64 },
+                  height: { xs: 56, sm: 64 },
                   borderRadius: 3,
                   background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)',
                   display: 'flex',
@@ -329,12 +329,28 @@ export default function LoginPage() {
                   justifyContent: 'center',
                   color: 'white',
                   fontWeight: 800,
-                  fontSize: '1.5rem',
+                  fontSize: { xs: '1.25rem', sm: '1.5rem' },
                   mr: { xs: 0, sm: 3 },
                   boxShadow: '0 8px 32px rgba(99, 102, 241, 0.3)',
+                  position: 'relative',
+                  overflow: 'hidden',
+                  '&::before': {
+                    content: '""',
+                    position: 'absolute',
+                    top: '-50%',
+                    left: '-50%',
+                    width: '200%',
+                    height: '200%',
+                    background: 'linear-gradient(45deg, transparent, rgba(255,255,255,0.1), transparent)',
+                    animation: 'shine 3s infinite',
+                  },
+                  '@keyframes shine': {
+                    '0%': { transform: 'rotate(0deg)' },
+                    '100%': { transform: 'rotate(360deg)' },
+                  },
                 }}
               >
-                LA
+                AZ
               </Box>
               <Box>
                 <Typography 
@@ -346,18 +362,20 @@ export default function LoginPage() {
                     WebkitBackgroundClip: 'text',
                     WebkitTextFillColor: 'transparent',
                     mb: 0.5,
-                    fontSize: { xs: '2rem', sm: '2.5rem', md: '3rem' },
+                    fontSize: { xs: '1.75rem', sm: '2.25rem', md: '2.75rem' },
+                    textShadow: '0 0 30px rgba(165, 180, 252, 0.5)',
                   }}
                 >
-                  LocAI
+                  AlugZap
                 </Typography>
                 <Typography 
                   variant="subtitle1" 
                   sx={{ 
                     color: 'rgba(255, 255, 255, 0.7)', 
                     fontWeight: 500,
-                    fontSize: { xs: '0.875rem', sm: '1rem' },
-                    display: { xs: 'none', sm: 'block' },
+                    fontSize: { xs: '0.75rem', sm: '0.875rem' },
+                    display: { xs: 'block', sm: 'block' },
+                    textAlign: { xs: 'center', sm: 'left' },
                   }}
                 >
                   Enterprise Real Estate AI
@@ -404,6 +422,44 @@ export default function LoginPage() {
               width: '100%',
             }}
           >
+            {/* Mobile Logo */}
+            <Box sx={{ 
+              display: { xs: 'flex', sm: 'none' }, 
+              alignItems: 'center', 
+              justifyContent: 'center', 
+              mb: 3,
+              gap: 2,
+            }}>
+              <Box
+                sx={{
+                  width: 48,
+                  height: 48,
+                  borderRadius: 2,
+                  background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  color: 'white',
+                  fontWeight: 800,
+                  fontSize: '1.1rem',
+                  boxShadow: '0 8px 32px rgba(99, 102, 241, 0.3)',
+                }}
+              >
+                AZ
+              </Box>
+              <Typography 
+                variant="h4" 
+                sx={{
+                  fontWeight: 800,
+                  background: 'linear-gradient(135deg, #ffffff 0%, #a5b4fc 100%)',
+                  backgroundClip: 'text',
+                  WebkitBackgroundClip: 'text',
+                  WebkitTextFillColor: 'transparent',
+                }}
+              >
+                AlugZap
+              </Typography>
+            </Box>
             {/* Glass Card */}
             <Box
               sx={{
@@ -414,6 +470,21 @@ export default function LoginPage() {
                 overflow: 'hidden',
                 boxShadow: '0 24px 48px rgba(0, 0, 0, 0.4)',
                 mx: { xs: 1, sm: 0 },
+                position: 'relative',
+                '&::before': {
+                  content: '""',
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  height: '1px',
+                  background: 'linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent)',
+                },
+                transition: 'all 0.3s ease',
+                '&:hover': {
+                  transform: 'translateY(-2px)',
+                  boxShadow: '0 32px 64px rgba(0, 0, 0, 0.5)',
+                },
               }}
             >
               {/* Mode Selector */}
@@ -949,7 +1020,7 @@ export default function LoginPage() {
                 }}
               >
                 <AutoAwesome sx={{ fontSize: 16 }} />
-                © 2024 LocAI. Todos os direitos reservados.
+                © 2024 AlugZap. Todos os direitos reservados.
               </Typography>
             </Box>
           </Box>

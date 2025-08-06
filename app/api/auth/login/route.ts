@@ -3,9 +3,9 @@ import { withErrorHandler, successResponse } from '@/lib/middleware/error-handle
 import { applySecurityMeasures } from '@/lib/middleware/security';
 import { authRateLimit, applyRateLimitHeaders } from '@/lib/middleware/rate-limit';
 import { loginSchema } from '@/lib/validation/schemas';
-import { auth } from '@/lib/firebase/admin';
+import { auth, adminDb } from '@/lib/firebase/admin';
 import { generateJWT } from '@/lib/middleware/auth';
-import { createMultiTenantService } from '@/lib/firebase/firestore-v2';
+import { AuthUser } from '@/lib/middleware/auth';
 import bcrypt from 'bcryptjs';
 import { z } from 'zod';
 
@@ -23,8 +23,7 @@ interface User {
   isActive: boolean;
 }
 
-// Note: Users collection remains global for authentication
-// But we'll use the multi-tenant service for consistency
+// Note: Users collection is global (users/[userId]) not tenant-scoped
 
 export const POST = withErrorHandler(async (request: NextRequest) => {
   // For simplification, skip rate limiting for now
@@ -51,33 +50,53 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
         tenantId: effectiveTenantId,
       });
 
-      // For simplification, always create/get user
+      // Get or create user in global collection
       let user;
       try {
-        // Try to get user by some ID or create new one using global user service
-        const userService = createMultiTenantService<User>('global', 'users');
-        user = await userService.create({
-          email: firebaseUser.email!,
-          name: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'User',
-          role: firebaseUser.customClaims?.role || 'user',
-          tenantId: effectiveTenantId,
-          firebaseUid: firebaseUser.uid,
-          createdAt: new Date(),
-          lastLogin: new Date(),
-          isActive: true,
-        });
+        // Try to get existing user
+        const userDoc = await adminDb.collection('users').doc(firebaseUser.uid).get();
+        
+        if (userDoc.exists) {
+          user = { id: userDoc.id, ...userDoc.data() } as User;
+          // Update last login
+          await adminDb.collection('users').doc(firebaseUser.uid).update({
+            lastLogin: new Date()
+          });
+        } else {
+          // Create new user in global collection
+          const userData = {
+            email: firebaseUser.email!,
+            name: firebaseUser.displayName || firebaseUser.email?.split('@')[0] || 'User',
+            role: firebaseUser.customClaims?.role || 'user',
+            tenantId: effectiveTenantId,
+            firebaseUid: firebaseUser.uid,
+            createdAt: new Date(),
+            lastLogin: new Date(),
+            isActive: true,
+          };
+          
+          await adminDb.collection('users').doc(firebaseUser.uid).set(userData);
+          user = { id: firebaseUser.uid, ...userData } as User;
+        }
       } catch (error) {
-        // User might already exist or other error, use fallback
-        user = { id: firebaseUser.uid, email: firebaseUser.email } as any;
+        // Fallback if there's an error
+        user = { 
+          id: firebaseUser.uid, 
+          email: firebaseUser.email,
+          name: firebaseUser.displayName || 'User',
+          role: 'user',
+          tenantId: effectiveTenantId
+        } as any;
       }
 
       // Generate JWT
-      const jwt = generateJWT({
-        uid: user.id,
-        email: user.email,
-        tenantId: user.tenantId,
+      const jwt = await generateJWT({
+        id: user.id, // user.id is actually the Firebase UID
+        email: user.email || '',
+        name: user.name,
         role: user.role,
-      });
+        tenantId: user.tenantId
+      } as AuthUser);
 
       const response = successResponse({
         user: {

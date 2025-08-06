@@ -2,18 +2,23 @@ import { NextRequest, NextResponse } from 'next/server';
 import { logger } from '@/lib/utils/logger';
 import { TenantServiceFactory } from '@/lib/firebase/firestore-v2';
 import { VisitAppointment, VisitStatus } from '@/lib/types/visit-appointment';
+import { authMiddleware } from '@/lib/middleware/auth';
+import { handleApiError } from '@/lib/utils/api-errors';
+import { safeParseDate } from '@/lib/utils/dateUtils';
+import { isValid } from 'date-fns';
 
 export async function GET(request: NextRequest) {
   try {
-    const searchParams = request.nextUrl.searchParams;
-    const tenantId = searchParams.get('tenantId');
-
-    if (!tenantId) {
+    // Check authentication and get tenantId
+    const authContext = await authMiddleware(request)
+    if (!authContext.authenticated || !authContext.tenantId) {
       return NextResponse.json(
-        { error: 'tenantId é obrigatório' },
-        { status: 400 }
-      );
+        { error: 'Authentication required', code: 'UNAUTHORIZED' },
+        { status: 401 }
+      )
     }
+
+    const tenantId = authContext.tenantId
 
     logger.info('Buscando visitas', {
       tenantId,
@@ -25,11 +30,26 @@ export async function GET(request: NextRequest) {
     const visitsService = factory.createService<VisitAppointment>('visits');
     const visits = await visitsService.getAll();
 
-    // Ordenar por data mais recente
+    // Ordenar por data mais recente (com validação de datas)
     const sortedVisits = visits.sort((a, b) => {
-      const dateA = new Date(a.scheduledDate);
-      const dateB = new Date(b.scheduledDate);
-      return dateB.getTime() - dateA.getTime();
+      const dateA = safeParseDate(a.scheduledDate);
+      const dateB = safeParseDate(b.scheduledDate);
+      
+      // Se ambas as datas são válidas, comparar normalmente
+      if (dateA && dateB && isValid(dateA) && isValid(dateB)) {
+        return dateB.getTime() - dateA.getTime();
+      }
+      
+      // Se apenas uma data é válida, ela vem primeiro
+      if (dateA && isValid(dateA) && (!dateB || !isValid(dateB))) {
+        return -1; // dateA vem primeiro
+      }
+      if (dateB && isValid(dateB) && (!dateA || !isValid(dateA))) {
+        return 1; // dateB vem primeiro
+      }
+      
+      // Se ambas são inválidas, manter ordem original
+      return 0;
     });
 
     return NextResponse.json({
@@ -38,30 +58,22 @@ export async function GET(request: NextRequest) {
     });
 
   } catch (error) {
-    logger.error('Erro ao buscar visitas', {
-      error: error instanceof Error ? error.message : 'Erro desconhecido',
-      component: 'VisitsAPI',
-      operation: 'GET'
-    });
-
-    return NextResponse.json(
-      { error: 'Erro interno do servidor' },
-      { status: 500 }
-    );
+    return handleApiError(error)
   }
 }
 
 export async function POST(request: NextRequest) {
   try {
-    const searchParams = request.nextUrl.searchParams;
-    const tenantId = searchParams.get('tenantId');
-
-    if (!tenantId) {
+    // Check authentication and get tenantId
+    const authContext = await authMiddleware(request)
+    if (!authContext.authenticated || !authContext.tenantId) {
       return NextResponse.json(
-        { error: 'tenantId é obrigatório' },
-        { status: 400 }
-      );
+        { error: 'Authentication required', code: 'UNAUTHORIZED' },
+        { status: 401 }
+      )
     }
+
+    const tenantId = authContext.tenantId
 
     const body = await request.json();
 
@@ -111,15 +123,6 @@ export async function POST(request: NextRequest) {
     }, { status: 201 });
 
   } catch (error) {
-    logger.error('Erro ao criar visita', {
-      error: error instanceof Error ? error.message : 'Erro desconhecido',
-      component: 'VisitsAPI',
-      operation: 'POST'
-    });
-
-    return NextResponse.json(
-      { error: 'Erro interno do servidor' },
-      { status: 500 }
-    );
+    return handleApiError(error)
   }
 }

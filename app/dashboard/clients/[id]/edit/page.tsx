@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
-import { clientService } from '@/lib/firebase/firestore';
+import { useTenant } from '@/contexts/TenantContext';
 import { clientServiceWrapper } from '@/lib/services/client-service';
 import type { Client } from '@/lib/types/client';
 import {
@@ -27,6 +27,7 @@ export default function EditClientPage() {
   const params = useParams();
   const router = useRouter();
   const clientId = params.id as string;
+  const { services, isReady } = useTenant();
   
   const [client, setClient] = useState<Client | null>(null);
   const [loading, setLoading] = useState(true);
@@ -44,9 +45,11 @@ export default function EditClientPage() {
 
   useEffect(() => {
     const fetchClient = async () => {
+      if (!services || !isReady) return;
+      
       try {
         setLoading(true);
-        const clientData = await clientService.getById(clientId);
+        const clientData = await services.clients.get(clientId);
         if (clientData) {
           setClient(clientData as any);
           setFormData({
@@ -70,7 +73,7 @@ export default function EditClientPage() {
     if (clientId) {
       fetchClient();
     }
-  }, [clientId]);
+  }, [clientId, services, isReady]);
 
   const handleInputChange = (field: keyof typeof formData, value: string) => {
     setFormData(prev => ({

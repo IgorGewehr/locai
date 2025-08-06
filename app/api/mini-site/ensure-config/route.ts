@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { settingsService } from '@/lib/services/settings-service';
-import { useTenant } from '@/contexts/TenantContext';
+import { TenantServiceFactory } from '@/lib/firebase/firestore-v2';
 
 export async function GET(request: NextRequest) {
   try {
@@ -18,7 +17,8 @@ export async function GET(request: NextRequest) {
     console.log('Ensuring mini-site config for tenant:', tenantId);
 
     // Get current settings
-    let currentSettings = await settingsService.getSettings(tenantId);
+    const services = new TenantServiceFactory(tenantId);
+    let currentSettings = await services.settings.getSettings(tenantId);
     
     // If no settings exist or no mini-site config, create default
     if (!currentSettings || !currentSettings.miniSite) {
@@ -42,12 +42,12 @@ export async function GET(request: NextRequest) {
         updatedAt: new Date()
       };
       
-      await settingsService.saveSettings(tenantId, {
+      await services.settings.saveSettings(tenantId, {
         miniSite: defaultMiniSiteConfig
       });
       
       // Refetch to ensure we have the updated settings
-      currentSettings = await settingsService.getSettings(tenantId);
+      currentSettings = await services.settings.getSettings(tenantId);
     }
 
     const miniSiteUrl = `${request.nextUrl.origin}/site/${tenantId}`;

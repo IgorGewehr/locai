@@ -91,7 +91,7 @@ export class SmartSummaryService {
     keysToDelete.forEach(key => this.summaryCache.delete(key));
     
     if (keysToDelete.length > 0) {
-      console.log(`🧹 [SmartSummary] Cache limpo: ${keysToDelete.length} entradas removidas para ${clientPhone.substring(0, 4)}***`);
+      logger.info(`🧹 [SmartSummary] Cache limpo: ${keysToDelete.length} entradas removidas para ${clientPhone.substring(0, 4)}***`);
     }
   }
 

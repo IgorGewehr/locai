@@ -37,3 +37,4 @@ export type { QuickActionButtonProps } from './QuickActionButton/QuickActionButt
 
 export { default as LoadingOverlay } from './LoadingOverlay'
 export { default as LoadingScreen } from './LoadingScreen'
+export { default as SafeImage } from './SafeImage'

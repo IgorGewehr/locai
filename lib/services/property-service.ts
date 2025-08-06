@@ -1,8 +1,12 @@
 import { Property } from '@/lib/types/property';
-import { propertyService as firebasePropertyService } from '@/lib/firebase/firestore';
+import { TenantServiceFactory } from '@/lib/firebase/firestore-v2';
 import { reservationService } from './reservation-service';
+import { logger } from '@/lib/utils/logger';
 
 export class PropertyService {
+  private getTenantService(tenantId: string) {
+    return new TenantServiceFactory(tenantId).properties;
+  }
   async searchProperties(filters: {
     location?: string;
     checkIn?: Date;
@@ -11,13 +15,19 @@ export class PropertyService {
     maxPrice?: number;
     amenities?: string[];
     propertyType?: string;
-    tenantId?: string;
+    tenantId: string; // Agora obrigatório
   }): Promise<Property[]> {
     try {
-      // Get properties filtered by tenant if tenantId is provided
-      let properties = filters.tenantId 
-        ? await firebasePropertyService.getAllByTenant(filters.tenantId)
-        : await firebasePropertyService.getAll();
+      logger.info('🔍 [PropertyService] Buscando propriedades', {
+        tenantId: filters.tenantId,
+        location: filters.location,
+        guests: filters.guests,
+        hasDateRange: !!(filters.checkIn && filters.checkOut)
+      });
+
+      // Usar serviço específico do tenant
+      const tenantPropertyService = this.getTenantService(filters.tenantId);
+      let properties = await tenantPropertyService.getAll() as Property[];
       
       // Filter by active status
       properties = properties.filter(p => p.isActive);
@@ -86,60 +96,72 @@ export class PropertyService {
         return priceA - priceB;
       });
       
-      console.log(`📊 PropertyService: ${properties.length} propriedades ordenadas por preço`);
-      if (properties.length > 0) {
-        console.log(`💰 Preços: ${properties.slice(0, 3).map(p => `R$${p.basePrice || p.pricing?.basePrice || 0}`).join(', ')}`);
-      }
+      logger.info('✅ [PropertyService] Busca concluída', {
+        tenantId: filters.tenantId,
+        totalFound: properties.length,
+        topPrices: properties.slice(0, 3).map(p => p.basePrice || p.pricing?.basePrice || 0)
+      });
       
       return properties;
     } catch (error) {
-      console.error('Error searching properties:', error);
+      logger.error('❌ [PropertyService] Erro na busca', {
+        tenantId: filters.tenantId,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
       return [];
     }
   }
 
-  async getById(id: string): Promise<Property | null> {
-    return firebasePropertyService.getById(id);
+  async getById(id: string, tenantId: string): Promise<Property | null> {
+    const tenantPropertyService = this.getTenantService(tenantId);
+    return await tenantPropertyService.get(id) as Property | null;
   }
 
-  async create(property: Omit<Property, 'id'>): Promise<string> {
-    return firebasePropertyService.create(property);
+  async create(property: Omit<Property, 'id'>, tenantId: string): Promise<string> {
+    const tenantPropertyService = this.getTenantService(tenantId);
+    const propertyData = { ...property, tenantId };
+    return await tenantPropertyService.create(propertyData);
   }
 
-  async update(id: string, property: Partial<Property>): Promise<void> {
-    return firebasePropertyService.update(id, property);
+  async update(id: string, property: Partial<Property>, tenantId: string): Promise<void> {
+    const tenantPropertyService = this.getTenantService(tenantId);
+    return await tenantPropertyService.update(id, property);
   }
 
-  async delete(id: string): Promise<void> {
-    return firebasePropertyService.delete(id);
+  async delete(id: string, tenantId: string): Promise<void> {
+    const tenantPropertyService = this.getTenantService(tenantId);
+    return await tenantPropertyService.delete(id);
   }
 
-  async getActiveProperties(tenantId?: string): Promise<Property[]> {
-    const properties = tenantId 
-      ? await firebasePropertyService.getAllByTenant(tenantId)
-      : await firebasePropertyService.getAll();
-    return properties.filter(p => p.isActive);
+  async getActiveProperties(tenantId: string): Promise<Property[]> {
+    const tenantPropertyService = this.getTenantService(tenantId);
+    const properties = await tenantPropertyService.getMany([
+      { field: 'isActive', operator: '==', value: true }
+    ]) as Property[];
+    
+    logger.info('🏠 [PropertyService] Propriedades ativas obtidas', {
+      tenantId,
+      count: properties.length
+    });
+    
+    return properties;
   }
 
   async findSimilar(propertyId: string, options: {
     budget?: number;
     locations?: string[];
-    tenantId?: string;
+    tenantId: string; // Agora obrigatório
   }): Promise<Property[]> {
     try {
       // Get the original property
-      const originalProperty = await this.getById(propertyId);
+      const originalProperty = await this.getById(propertyId, options.tenantId);
       if (!originalProperty) {
         return [];
       }
       
-      // Get all properties
-      let properties = await firebasePropertyService.getAll();
-      
-      // Filter by tenant if provided
-      if (options.tenantId) {
-        properties = properties.filter(p => p.tenantId === options.tenantId);
-      }
+      // Get all properties from tenant
+      const tenantPropertyService = this.getTenantService(options.tenantId);
+      let properties = await tenantPropertyService.getAll() as Property[];
       
       // Filter by active status and exclude original
       properties = properties.filter(p => p.isActive && p.id !== propertyId);
@@ -202,7 +224,11 @@ export class PropertyService {
       
       return scoredProperties.slice(0, 5).map(item => item.property);
     } catch (error) {
-      console.error('Error finding similar properties:', error);
+      logger.error('❌ [PropertyService] Erro ao buscar propriedades similares', {
+        propertyId,
+        tenantId: options.tenantId,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
       return [];
     }
   }

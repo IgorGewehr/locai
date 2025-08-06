@@ -24,6 +24,8 @@ import {
   Tooltip,
   Alert,
   useTheme,
+  Tab,
+  Tabs,
 } from '@mui/material';
 import {
   Analytics,
@@ -55,6 +57,8 @@ import {
 import { useTenant } from '@/contexts/TenantContext';
 import { format, parseISO, isSameDay, differenceInDays, startOfWeek, endOfWeek } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import AIMetricsDashboard from '@/components/organisms/metrics/AIMetricsDashboard';
+import EnhancedMetricsDashboard from '@/components/organisms/metrics/EnhancedMetricsDashboard';
 
 interface MetricCard {
   title: string;
@@ -248,6 +252,7 @@ export default function MetricsPage() {
   const [topAmenities, setTopAmenities] = useState<AmenityStats[]>([]);
   const [holidayStats, setHolidayStats] = useState<HolidayStats[]>([]);
   const [aiInsights, setAiInsights] = useState<AIInsight[]>([]);
+  const [tabValue, setTabValue] = useState(0);
 
   const loadMetrics = async () => {
     if (!services || !isReady) return;
@@ -561,6 +566,33 @@ export default function MetricsPage() {
           <Refresh sx={{ color: '#8b5cf6', fontSize: 24 }} />
         </IconButton>
       </Box>
+
+      {/* Tabs */}
+      <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 4 }}>
+        <Tabs 
+          value={tabValue} 
+          onChange={(e, newValue) => setTabValue(newValue)}
+          sx={{
+            '& .MuiTab-root': {
+              color: 'rgba(255, 255, 255, 0.7)',
+              fontWeight: 500,
+              '&.Mui-selected': {
+                color: '#8b5cf6',
+              }
+            },
+            '& .MuiTabs-indicator': {
+              backgroundColor: '#8b5cf6',
+            }
+          }}
+        >
+          <Tab label="Métricas Gerais" />
+          <Tab label="Inteligência de Conversas" />
+          <Tab label="IA Avançada" />
+        </Tabs>
+      </Box>
+
+      {/* Tab Content */}
+      {tabValue === 0 && (
 
       <Grid container spacing={{ xs: 3, md: 4 }}>
         {/* Main Metrics Row */}
@@ -996,6 +1028,17 @@ export default function MetricsPage() {
           </Grid>
         )}
       </Grid>
+      )}
+
+      {/* AI Insights Tab */}
+      {tabValue === 1 && (
+        <AIMetricsDashboard />
+      )}
+
+      {/* Enhanced AI Tab */}
+      {tabValue === 2 && (
+        <EnhancedMetricsDashboard />
+      )}
     </Box>
   );
 }

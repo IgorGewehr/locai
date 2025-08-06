@@ -27,7 +27,7 @@ import {
   Clear
 } from '@mui/icons-material';
 import { PublicProperty, MiniSiteConfig } from '@/lib/types/mini-site';
-import PropertyCard from './PropertyCard';
+import PropertyCardModern from './PropertyCardModern';
 import { miniSiteClientService } from '@/lib/services/mini-site-client-service';
 
 interface PropertyGridProps {
@@ -426,10 +426,11 @@ export default function PropertyGrid({ properties: initialProperties, config }: 
         <Grid container spacing={3}>
           {filteredProperties.map((property) => (
             <Grid item xs={12} sm={6} md={4} lg={3} key={property.id}>
-              <PropertyCard
+              <PropertyCardModern
                 property={property}
                 config={config}
                 onWhatsAppClick={handleWhatsAppClick}
+                viewMode="grid"
               />
             </Grid>
           ))}

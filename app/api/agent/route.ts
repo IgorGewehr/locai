@@ -3,9 +3,11 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { validatePhoneNumber, validateMessageContent, validateTenantId } from '@/lib/utils/validation';
-import { handleApiError, ApiError } from '@/lib/utils/api-errors';
+import { handleApiError } from '@/lib/utils/api-errors';
+import { APIError } from '@/lib/utils/custom-error';
 import { getRateLimitService, RATE_LIMITS } from '@/lib/services/rate-limit-service';
 import { logger } from '@/lib/utils/logger';
+import { resolveTenantId } from '@/lib/utils/tenant-extractor';
 
 export async function POST(request: NextRequest) {
   const startTime = Date.now();
@@ -29,7 +31,11 @@ export async function POST(request: NextRequest) {
         requestId,
         error: error instanceof Error ? error.message : 'Unknown error'
       });
-      return handleApiError(new ApiError('Invalid request body - JSON malformed', requestId, 400));
+      return handleApiError(new APIError('Invalid request body - JSON malformed', {
+        requestId,
+        statusCode: 400,
+        error: 'INVALID_JSON'
+      }));
     }
 
     const { message, clientPhone, phone, tenantId: requestTenantId, isTest, metadata } = body;
@@ -54,9 +60,13 @@ export async function POST(request: NextRequest) {
       validatedMessage = validateMessageContent(message);
       // Use either clientPhone or phone parameter
       validatedPhone = validatePhoneNumber(clientPhone || phone);
-      // Get tenant ID from request or environment
-      const tenantId = requestTenantId || process.env.TENANT_ID || 'default-tenant';
-      validatedTenantId = validateTenantId(tenantId);
+      
+      // NOVO: Resolve tenantId dinamicamente (Auth > Body > Env)
+      const resolvedTenantId = await resolveTenantId(request, body);
+      if (!resolvedTenantId) {
+        throw new Error('TenantId não pôde ser determinado. Usuário deve estar autenticado.');
+      }
+      validatedTenantId = validateTenantId(resolvedTenantId);
 
       logger.info('✅ [API] Validações concluídas', {
         requestId,
@@ -124,21 +134,19 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // 4. Processar com Sofia V3 (versão corrigida com validações críticas)
+    // 4. Processar com Sofia MVP (versão pronta para produção)
     try {
-      logger.info('🤖 [API] Iniciando processamento com Sofia V3', {
+      logger.info('🤖 [API] Iniciando processamento com Sofia MVP', {
         requestId,
         phoneMasked: validatedPhone.substring(0, 4) + '***',
         tenantId: validatedTenantId,
         source: metadata?.source || (isTest ? 'test' : 'api')
       });
 
-      // Usando Sofia V3 - Versão de Produção
-      const { SofiaAgentV3 } = await import('@/lib/ai-agent/sofia-agent-v3');
+      // INTEGRAÇÃO SOFIA: Versão de Produção com Few-Shot Prompting
+      const { sofiaAgent } = await import('@/lib/ai-agent/sofia-agent');
 
-      const sofia = SofiaAgentV3.getInstance();
-      
-      const result = await sofia.processMessage({
+      const result = await sofiaAgent.processMessage({
         message: validatedMessage,
         clientPhone: validatedPhone,
         tenantId: validatedTenantId,
@@ -148,7 +156,7 @@ export async function POST(request: NextRequest) {
         }
       });
 
-      logger.info('✅ [API] Sofia V3 processamento concluído', {
+      logger.info('✅ [API] Sofia MVP processamento concluído', {
         requestId,
         responseTime: result.responseTime,
         tokensUsed: result.tokensUsed,
@@ -272,7 +280,7 @@ export async function POST(request: NextRequest) {
         headers: {
           'X-Request-ID': requestId,
           'X-Processing-Time': `${totalProcessingTime}ms`,
-          'X-Sofia-Version': '5.0',
+          'X-Sofia-Version': 'MVP-1.0',
           'X-Tokens-Used': result.tokensUsed.toString(),
           'X-Functions-Executed': result.functionsExecuted.length.toString()
         }
@@ -281,7 +289,7 @@ export async function POST(request: NextRequest) {
     } catch (agentError) {
       const processingTime = Date.now() - startTime;
 
-      logger.error('❌ [API] Erro na Sofia V3', {
+      logger.error('❌ [API] Erro na Sofia MVP', {
         requestId,
         error: agentError instanceof Error ? agentError.message : 'Unknown error',
         stack: agentError instanceof Error ? agentError.stack : undefined,
@@ -461,14 +469,17 @@ export async function GET(request: NextRequest) {
       try {
         // Métricas básicas do sistema
         const metrics = {
-          version: 'Sofia V3',
+          version: 'Sofia MVP-1.0',
           features: [
-            'Smart Summary System',
-            'Property ID Validation',
-            'Contextual Reasoning',
+            'Multi-Tenant Architecture',
+            'Tenant-Isolated Functions',
+            'Property Search with Tenant Scope',
+            'Price Calculation per Tenant',
+            'Reservation Management',
+            'Client Registration with Deduplication',
             'Natural Conversation',
-            'Function Optimization',
-            'Error Recovery'
+            'Error Recovery',
+            'Structured Logging'
           ],
           uptime: process.uptime(),
           timestamp: new Date().toISOString(),
@@ -509,7 +520,7 @@ export async function GET(request: NextRequest) {
           headers: {
             'X-Request-ID': requestId,
             'X-Action': 'metrics',
-            'X-Sofia-Version': '5.0'
+            'X-Sofia-Version': 'MVP-1.0'
           }
         });
       } catch (error) {
@@ -530,18 +541,21 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      message: 'Sofia V3 API está funcionando perfeitamente',
+      message: 'Sofia MVP Multi-Tenant API está funcionando perfeitamente',
       data: {
-        version: '5.0.0',
+        version: 'MVP-1.0',
         status: 'healthy',
         timestamp: new Date().toISOString(),
         features: {
-          smartSummary: true,
-          propertyValidation: true,
-          contextualReasoning: true,
+          multiTenantArchitecture: true,
+          tenantIsolatedFunctions: true,
+          propertySearchTenantScoped: true,
+          priceCalculationPerTenant: true,
+          reservationManagement: true,
+          clientRegistrationDeduplication: true,
           naturalConversation: true,
-          functionOptimization: true,
-          errorRecovery: true
+          errorRecovery: true,
+          structuredLogging: true
         },
         endpoints: {
           'POST /api/agent': 'Processar mensagens',
@@ -558,7 +572,7 @@ export async function GET(request: NextRequest) {
       headers: {
         'X-Request-ID': requestId,
         'X-Action': 'health_check',
-        'X-Sofia-Version': '5.0',
+        'X-Sofia-Version': 'MVP-1.0',
         'X-Status': 'healthy'
       }
     });

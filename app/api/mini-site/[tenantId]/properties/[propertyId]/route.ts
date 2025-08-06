@@ -4,7 +4,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { miniSiteService } from '@/lib/services/mini-site-service';
+import { TenantServiceFactory } from '@/lib/firebase/firestore-v2';
 
 export async function GET(
   request: NextRequest,
@@ -40,10 +40,11 @@ export async function GET(
       Object.entries(utmParams).filter(([_, value]) => value !== undefined)
     ) as Record<string, string>;
 
-    await miniSiteService.recordPageView(tenantId, propertyId, filteredUtmParams);
+    const services = new TenantServiceFactory(tenantId);
+    await services.miniSite.recordPageView(tenantId, propertyId, filteredUtmParams);
 
     // Get mini-site configuration
-    const config = await miniSiteService.getConfig(tenantId);
+    const config = await services.miniSite.getConfig(tenantId);
     if (!config) {
       return NextResponse.json(
         { error: 'Mini-site not found or inactive' },
@@ -52,7 +53,7 @@ export async function GET(
     }
 
     // Get property details
-    const property = await miniSiteService.getPublicProperty(tenantId, propertyId);
+    const property = await services.miniSite.getPublicProperty(tenantId, propertyId);
     if (!property) {
       return NextResponse.json(
         { error: 'Property not found' },

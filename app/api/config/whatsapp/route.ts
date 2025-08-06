@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthFromCookie } from '@/lib/utils/auth-cookie';
-import { settingsService } from '@/lib/services/settings-service';
+import { createSettingsService } from '@/lib/services/settings-service';
 import { z } from 'zod';
 import { logger } from '@/lib/utils/logger';
 import type { WhatsAppSettings } from '@/lib/types/whatsapp';
@@ -26,6 +26,7 @@ export async function GET(request: NextRequest) {
     const tenantId = auth.tenantId || 'default-tenant';
     logger.info('Fetching WhatsApp configuration', { tenantId });
 
+    const settingsService = createSettingsService(tenantId);
     const settings = await settingsService.getSettings(tenantId);
     const whatsappConfig = (settings?.whatsapp || {}) as Partial<WhatsAppSettings>;
 
@@ -86,6 +87,7 @@ export async function POST(request: NextRequest) {
     };
 
     // Save to settings
+    const settingsService = createSettingsService(tenantId);
     await settingsService.updateWhatsAppSettings(tenantId, whatsappSettings);
 
     logger.info('WhatsApp configuration saved successfully', { tenantId });
@@ -138,6 +140,7 @@ export async function PUT(request: NextRequest) {
     logger.info('Updating WhatsApp configuration', { tenantId });
 
     // Get current settings
+    const settingsService = createSettingsService(tenantId);
     const currentSettings = await settingsService.getSettings(tenantId);
     const currentWhatsApp = (currentSettings?.whatsapp || {}) as Partial<WhatsAppSettings>;
 
@@ -229,6 +232,7 @@ export async function DELETE(request: NextRequest) {
       updatedAt: new Date(),
     };
 
+    const settingsService = createSettingsService(tenantId);
     await settingsService.updateWhatsAppSettings(tenantId, resetConfig);
 
     logger.info('WhatsApp configuration reset successfully', { tenantId });

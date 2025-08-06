@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { settingsService } from '@/lib/services/settings-service';
+import { TenantServiceFactory } from '@/lib/firebase/firestore-v2';
 
 export async function POST(request: NextRequest) {
   try {
@@ -16,10 +16,11 @@ export async function POST(request: NextRequest) {
     console.log('Activating mini-site for tenant:', tenantId);
 
     // Get current settings
-    const currentSettings = await settingsService.getSettings(tenantId);
+    const services = new TenantServiceFactory(tenantId);
+    const currentSettings = await services.settings.getSettings(tenantId);
     
     // Update mini-site settings to activate
-    await settingsService.updateMiniSiteSettings(tenantId, {
+    await services.settings.updateMiniSiteSettings(tenantId, {
       active: true,
       whatsappNumber: currentSettings?.whatsapp?.phoneNumberId || '',
       companyEmail: currentSettings?.company?.email || '',

@@ -1,4 +1,4 @@
-import { TenantServiceFactory } from '@/lib/firebase/firestore-v2';
+import { MultiTenantFirestoreService } from '@/lib/firebase/firestore-v2';
 import { 
   Lead, 
   LeadStatus, 
@@ -11,85 +11,84 @@ import {
   LeadSource
 } from '@/lib/types/crm';
 import { Client } from '@/lib/types';
+import { 
+  collection, 
+  query, 
+  where, 
+  orderBy,
+  limit,
+  getDocs,
+  addDoc,
+  updateDoc,
+  doc,
+  serverTimestamp,
+  Timestamp,
+  writeBatch,
+  onSnapshot
+} from 'firebase/firestore';
+import { db } from '@/lib/firebase/config';
 import { differenceInDays, addDays } from 'date-fns';
-import { logger } from '@/lib/utils/logger';
+import { conversationService } from '@/lib/firebase/firestore';
 
 class CRMService {
-  private getServices(tenantId: string) {
-    const serviceFactory = new TenantServiceFactory(tenantId);
-    return {
-      crmLeads: serviceFactory.crmLeads,
-      crmInteractions: serviceFactory.crmInteractions,
-      crmTasks: serviceFactory.crmTasks,
-      crmActivities: serviceFactory.crmActivities,
-      clients: serviceFactory.clients,
-      conversations: serviceFactory.conversations
-    };
+  private leadService: MultiTenantFirestoreService<Lead>;
+  private interactionService: MultiTenantFirestoreService<Interaction>;
+  private taskService: MultiTenantFirestoreService<Task>;
+  private activityService: MultiTenantFirestoreService<LeadActivity>;
+  private tenantId: string;
+
+  constructor(tenantId: string) {
+    this.tenantId = tenantId;
+    this.leadService = new MultiTenantFirestoreService<Lead>(tenantId, 'crm_leads');
+    this.interactionService = new MultiTenantFirestoreService<Interaction>(tenantId, 'crm_interactions');
+    this.taskService = new MultiTenantFirestoreService<Task>(tenantId, 'crm_tasks');
+    this.activityService = new MultiTenantFirestoreService<LeadActivity>(tenantId, 'crm_activities');
   }
 
   // =============== LEAD MANAGEMENT ===============
 
-  async createLead(data: Omit<Lead, 'id' | 'createdAt' | 'updatedAt'>, tenantId: string): Promise<Lead> {
-    try {
-      logger.info('📋 [CRMService] Criando novo lead', { 
-        tenantId, 
-        leadName: data.name,
-        source: data.source 
-      });
-
-      // Check for duplicates by phone
-      const existingLead = await this.getLeadByPhone(data.phone, tenantId);
-      if (existingLead) {
-        logger.info('♻️ [CRMService] Lead existente encontrado, atualizando', { 
-          tenantId, 
-          leadId: existingLead.id 
-        });
-        // Update existing lead instead
-        return this.updateLead(existingLead.id, data, tenantId);
-      }
-
-      const lead: Omit<Lead, 'id'> = {
-        ...data,
-        tenantId,
-        status: data.status || LeadStatus.NEW,
-        score: data.score || 50,
-        temperature: data.temperature || 'warm',
-        totalInteractions: 0,
-        tags: data.tags || [],
-        firstContactDate: new Date(),
-        lastContactDate: new Date()
-      };
-
-      const { crmLeads } = this.getServices(tenantId);
-      const leadId = await crmLeads.create(lead);
-
-      const createdLead = { id: leadId, ...lead, createdAt: new Date(), updatedAt: new Date() } as Lead;
-
-      // Create initial activity
-      await this.createActivity({
-        leadId,
-        type: 'status_change',
-        description: `Lead criado via ${data.source}`,
-        metadata: { source: data.source },
-        userId: data.assignedTo || 'system'
-      }, tenantId);
-
-      // Run AI scoring
-      await this.calculateLeadScore(createdLead, tenantId);
-
-      logger.info('✅ [CRMService] Lead criado com sucesso', { 
-        tenantId, 
-        leadId 
-      });
-
-      return createdLead;
-    } catch (error) {
-      logger.error('❌ [CRMService] Erro ao criar lead', {
-        tenantId,
-        error: error instanceof Error ? error.message : 'Unknown error'
-      });
-      throw error;
+  async createLead(data: Omit<Lead, 'id' | 'createdAt' | 'updatedAt'>): Promise<Lead> {
+    // Check for duplicates by phone
+    const existingLead = await this.getLeadByPhone(data.phone);
+    if (existingLead) {
+      // Update existing lead instead
+      return this.updateLead(existingLead.id, data);
     }
+
+    const lead: Omit<Lead, 'id'> = {
+      ...data,
+      status: data.status || LeadStatus.NEW,
+      score: data.score || 50,
+      temperature: data.temperature || 'warm',
+      totalInteractions: 0,
+      tags: data.tags || [],
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      firstContactDate: new Date(),
+      lastContactDate: new Date()
+    };
+
+    const docRef = await addDoc(collection(db, 'crm_leads'), {
+      ...lead,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp()
+    });
+
+    const createdLead = { id: docRef.id, ...lead } as Lead;
+
+    // Create initial activity
+    await this.createActivity({
+      leadId: docRef.id,
+      type: 'status_change',
+      description: `Lead criado via ${data.source}`,
+      metadata: { source: data.source },
+      userId: data.assignedTo || 'system'
+    });
+
+    // Run AI scoring
+    await this.calculateLeadScore(createdLead);
+
+    return createdLead;
   }
 
   async updateLead(leadId: string, updates: Partial<Lead>): Promise<Lead> {
@@ -695,4 +694,8 @@ class CRMService {
   }
 }
 
-export const crmService = new CRMService();
+// Factory function for creating tenant-scoped CRM service
+export const createCRMService = (tenantId: string) => new CRMService(tenantId);
+
+// Backward compatibility - use with default tenant
+export const crmService = new CRMService(process.env.DEFAULT_TENANT_ID || 'default');
