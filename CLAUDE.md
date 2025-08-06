@@ -101,7 +101,7 @@ The heart of the application is Sofia, an intelligent conversational agent speci
 - **Context Updates**: Real-time context updates based on function executions
 - **Error Resilience**: Handles undefined values and index errors gracefully
 
-**Function Integration (`lib/ai/agent-functions.ts`)**:
+**Function Integration (`lib/ai/tenant-aware-agent-functions.ts`)**:
 - **4 Essential Functions**: search_properties, calculate_price, create_reservation, register_client
 - **Proper Error Handling**: All functions include try-catch with fallbacks
 - **Service Integration**: Uses propertyService.getActiveProperties for reliable data access
@@ -464,7 +464,7 @@ Required environment variables (see `.env.example`):
 When extending the system:
 1. **Multi-tenant Development**: Always use TenantServiceFactory and useTenant() hook
 2. **Logging**: Use structured logger from `lib/utils/logger.ts` instead of console.log
-3. **New agent functions**: Add to `lib/ai/agent-functions.ts` with proper error handling
+3. **New agent functions**: Add to `lib/ai/tenant-aware-agent-functions.ts` with proper error handling
 4. **Database operations**: Use tenant-scoped services from TenantServiceFactory
 5. **API endpoints**: Follow existing patterns in `app/api/` with comprehensive error handling
 6. **UI components**: Follow atomic design structure:
@@ -548,7 +548,7 @@ When extending the system:
 
 ### Key Files to Know
 - **Sofia AI Agent**: `lib/ai-agent/sofia-agent-v3.ts` - Main conversational AI (GPT-4o Mini) 
-- **Agent Functions**: `lib/ai/agent-functions.ts` - Essential AI functions
+- **Agent Functions**: `lib/ai/tenant-aware-agent-functions.ts` - Essential AI functions
 - **Context Service**: `lib/services/conversation-context-service.ts` - Memory management
 - **API Route**: `app/api/agent/route.ts` - Main agent endpoint
 - **Property Service**: `lib/services/property-service.ts` - Property operations
@@ -561,7 +561,7 @@ When extending the system:
 
 ### Common Tasks
 1. **Modify Sofia's Responses**: Edit system prompt in `lib/ai-agent/sofia-agent-v3.ts`
-2. **Add AI Function**: Add to ESSENTIAL_AI_FUNCTIONS in `lib/ai/agent-functions.ts`
+2. **Add AI Function**: Add to ESSENTIAL_AI_FUNCTIONS in `lib/ai/tenant-aware-agent-functions.ts`
 3. **Update Context Logic**: Modify `updateContextFromFunction` in Sofia agent
 4. **New API Route**: Add to `app/api/` following patterns with proper logging
 5. **UI Component**: Use atomic design in `components/` with tenant context

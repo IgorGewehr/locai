@@ -31,12 +31,12 @@ export async function POST(request: NextRequest) {
     // Teste 2: Tentar importar Sofia Fixed
     console.log('🔥 [SIMPLE TEST] Tentando importar Sofia Fixed...');
     try {
-      const { SofiaAgentFixed } = await import('@/lib/ai-agent/sofia-agent-fixed');
+      const { SofiaAgentV3 } = await import('@/lib/ai-agent/sofia-agent-v3');
       console.log('🔥 [SIMPLE TEST] Sofia Fixed importada com sucesso!');
       
       // Teste 3: Criar instância
       console.log('🔥 [SIMPLE TEST] Tentando criar instância...');
-      const sofia = SofiaAgentFixed.getInstance();
+      const sofia = new SofiaAgentV3('default-tenant');
       console.log('🔥 [SIMPLE TEST] Instância criada com sucesso!');
       
       return NextResponse.json({

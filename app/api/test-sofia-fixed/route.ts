@@ -8,10 +8,10 @@ export async function POST(request: NextRequest) {
     const { message } = await request.json();
     
     console.log('🔥 [TEST] Importando Sofia Fixed...');
-    const { SofiaAgentFixed } = await import('@/lib/ai-agent/sofia-agent-fixed');
+    const { SofiaAgentV3 } = await import('@/lib/ai-agent/sofia-agent-v3');
     
     console.log('🔥 [TEST] Criando instância...');
-    const sofia = SofiaAgentFixed.getInstance();
+    const sofia = new SofiaAgentV3('default-tenant');
     
     console.log('🔥 [TEST] Processando mensagem:', message);
     const result = await sofia.processMessage({

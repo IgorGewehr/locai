@@ -1,7 +1,7 @@
 // Endpoint DEBUG - Sofia simplificada para identificar problema
 import { NextRequest, NextResponse } from 'next/server';
 import { OpenAI } from 'openai';
-import { getOpenAIFunctions } from '@/lib/ai/agent-functions';
+import { getTenantAwareOpenAIFunctions } from '@/lib/ai/tenant-aware-agent-functions';
 
 export async function POST(request: NextRequest) {
   try {
@@ -28,7 +28,7 @@ NUNCA pergunte detalhes - sempre execute com dados padrão.`;
     const completion = await openai.chat.completions.create({
       model: 'gpt-4o-mini',
       messages,
-      tools: getOpenAIFunctions(),
+      tools: getTenantAwareOpenAIFunctions(),
       tool_choice: 'required',
       max_tokens: 1000,
       temperature: 0.7
