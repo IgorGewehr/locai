@@ -1,7 +1,7 @@
 // app/api/webhook/whatsapp-optimized/route.ts
 
 import { NextRequest, NextResponse } from 'next/server';
-import { sofiaAgent } from '@/lib/ai-agent/sofia-agent';
+import { SofiaAgentV3 } from '@/lib/ai-agent/sofia-agent-v3';
 import { AgentMonitor } from '@/lib/monitoring/agent-monitor';
 import { resolveTenantFromPhone } from '@/lib/utils/tenant-extractor';
 import { logger } from '@/lib/utils/logger';
@@ -62,7 +62,8 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ status: 'no_tenant' });
     }
 
-    // Processar com Sofia V4 Multi-Tenant
+    // Processar com Sofia V3 Multi-Tenant
+    const sofiaAgent = SofiaAgentV3.getInstance();
     const response = await sofiaAgent.processMessage({
       message: message.text,
       clientPhone: message.from,
@@ -85,8 +86,8 @@ export async function POST(request: NextRequest) {
     // Registrar métricas Sofia V4
     AgentMonitor.recordRequest(response.tokensUsed, false, response.responseTime);
 
-    // Log Sofia V4 performance metrics
-    logger.info('📊 [WhatsApp] Sofia V4 processamento concluído', {
+    // Log Sofia V3 performance metrics
+    logger.info('📊 [WhatsApp] Sofia V3 processamento concluído', {
       responseTime: response.responseTime,
       tokensUsed: response.tokensUsed,
       functionsExecuted: response.functionsExecuted.length,
@@ -100,7 +101,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ 
       status: 'processed',
-      agent: 'Sofia V4 Multi-Tenant',
+      agent: 'Sofia V3 Multi-Tenant',
       tokensUsed: response.tokensUsed,
       functionsExecuted: response.functionsExecuted.length,
       functionsNames: response.functionsExecuted,
