@@ -1,4 +1,4 @@
-import { FirestoreService } from '@/lib/firebase/firestore';
+import { MultiTenantFirestoreService } from '@/lib/firebase/firestore-v2';
 import { 
   BillingSettings, 
   BillingReminder, 
@@ -40,14 +40,16 @@ import {
 import { ptBR } from 'date-fns/locale';
 
 class BillingService {
-  private settingsService: FirestoreService<BillingSettings>;
-  private reminderService: FirestoreService<BillingReminder>;
-  private campaignService: FirestoreService<BillingCampaign>;
+  private settingsService: MultiTenantFirestoreService<BillingSettings>;
+  private reminderService: MultiTenantFirestoreService<BillingReminder>;
+  private campaignService: MultiTenantFirestoreService<BillingCampaign>;
+  private tenantId: string;
 
-  constructor() {
-    this.settingsService = new FirestoreService<BillingSettings>('billing_settings');
-    this.reminderService = new FirestoreService<BillingReminder>('billing_reminders');
-    this.campaignService = new FirestoreService<BillingCampaign>('billing_campaigns');
+  constructor(tenantId: string) {
+    this.tenantId = tenantId;
+    this.settingsService = new MultiTenantFirestoreService<BillingSettings>(tenantId, 'billing_settings');
+    this.reminderService = new MultiTenantFirestoreService<BillingReminder>(tenantId, 'billing_reminders');
+    this.campaignService = new MultiTenantFirestoreService<BillingCampaign>(tenantId, 'billing_campaigns');
   }
 
   // Obter configurações de cobrança
@@ -697,4 +699,5 @@ class BillingService {
   }
 }
 
-export const billingService = new BillingService();
+// Factory function for creating tenant-scoped billing service
+export const createBillingService = (tenantId: string) => new BillingService(tenantId);

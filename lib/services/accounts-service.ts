@@ -1,4 +1,4 @@
-import { FirestoreService } from '@/lib/firebase/firestore';
+import { MultiTenantFirestoreService } from '@/lib/firebase/firestore-v2';
 import { Account, AccountStatus, BankAccount, BankTransaction, CostCenter, Commission, FinancialAlert, AlertType } from '@/lib/types/accounts';
 import { 
   collection, 
@@ -21,15 +21,15 @@ import { db } from '@/lib/firebase/config';
 import { startOfMonth, endOfMonth, addDays, differenceInDays, isAfter, isBefore, format } from 'date-fns';
 
 // Accounts Payable/Receivable Service
-export class AccountsService extends FirestoreService<Account> {
-  constructor() {
-    super('accounts');
+export class AccountsService extends MultiTenantFirestoreService<Account> {
+  constructor(tenantId: string) {
+    super(tenantId, 'accounts');
   }
 
   async getOverdue(): Promise<Account[]> {
     const today = new Date();
     const q = query(
-      collection(db, this.collectionName),
+      this.getCollectionRef(),
       where('status', 'in', [AccountStatus.PENDING, AccountStatus.PARTIALLY_PAID]),
       where('dueDate', '<', Timestamp.fromDate(today)),
       orderBy('dueDate', 'asc')
@@ -53,7 +53,7 @@ export class AccountsService extends FirestoreService<Account> {
     const futureDate = addDays(today, days);
     
     const q = query(
-      collection(db, this.collectionName),
+      this.getCollectionRef(),
       where('status', 'in', [AccountStatus.PENDING, AccountStatus.PARTIALLY_PAID]),
       where('dueDate', '>=', Timestamp.fromDate(today)),
       where('dueDate', '<=', Timestamp.fromDate(futureDate)),
@@ -227,9 +227,9 @@ export class AccountsService extends FirestoreService<Account> {
 }
 
 // Bank Reconciliation Service
-export class BankService extends FirestoreService<BankAccount> {
-  constructor() {
-    super('bank_accounts');
+export class BankService extends MultiTenantFirestoreService<BankAccount> {
+  constructor(tenantId: string) {
+    super(tenantId, 'bank_accounts');
   }
 
   async importTransactions(bankAccountId: string, transactions: Partial<BankTransaction>[]): Promise<void> {
@@ -470,9 +470,9 @@ export class BankService extends FirestoreService<BankAccount> {
 }
 
 // Cost Center Service
-export class CostCenterService extends FirestoreService<CostCenter> {
-  constructor() {
-    super('cost_centers');
+export class CostCenterService extends MultiTenantFirestoreService<CostCenter> {
+  constructor(tenantId: string) {
+    super(tenantId, 'cost_centers');
   }
 
   async getHierarchy(): Promise<CostCenter[]> {
@@ -525,9 +525,9 @@ export class CostCenterService extends FirestoreService<CostCenter> {
 }
 
 // Commission Service
-export class CommissionService extends FirestoreService<Commission> {
-  constructor() {
-    super('commissions');
+export class CommissionService extends MultiTenantFirestoreService<Commission> {
+  constructor(tenantId: string) {
+    super(tenantId, 'commissions');
   }
 
   async calculateCommissions(month: Date): Promise<Commission[]> {
@@ -671,9 +671,9 @@ export class CommissionService extends FirestoreService<Commission> {
 }
 
 // Financial Alerts Service
-export class AlertsService extends FirestoreService<FinancialAlert> {
-  constructor() {
-    super('financial_alerts');
+export class AlertsService extends MultiTenantFirestoreService<FinancialAlert> {
+  constructor(tenantId: string) {
+    super(tenantId, 'financial_alerts');
   }
 
   async checkAndCreateAlerts(): Promise<void> {
@@ -788,8 +788,9 @@ export class AlertsService extends FirestoreService<FinancialAlert> {
 }
 
 // Export service instances
-export const accountsService = new AccountsService();
-export const bankService = new BankService();
-export const costCenterService = new CostCenterService();
-export const commissionService = new CommissionService();
-export const alertsService = new AlertsService();
+// Factory functions for creating tenant-scoped services
+export const createAccountsService = (tenantId: string) => new AccountsService(tenantId);
+export const createBankService = (tenantId: string) => new BankService(tenantId);
+export const createCostCenterService = (tenantId: string) => new CostCenterService(tenantId);
+export const createCommissionService = (tenantId: string) => new CommissionService(tenantId);
+export const createAlertsService = (tenantId: string) => new AlertsService(tenantId);

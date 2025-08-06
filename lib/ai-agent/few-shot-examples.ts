@@ -293,4 +293,4 @@ SEMPRE seja:
 ✅ Natural e humana
 ✅ Focada no benefício do cliente
 ✅ Direcionada para próxima ação
-✅ Entusiasmada e acolhedora`;`
+✅ Entusiasmada e acolhedora`;

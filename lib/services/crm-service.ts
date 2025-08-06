@@ -1,4 +1,4 @@
-import { FirestoreService } from '@/lib/firebase/firestore';
+import { MultiTenantFirestoreService } from '@/lib/firebase/firestore-v2';
 import { 
   Lead, 
   LeadStatus, 
@@ -31,16 +31,18 @@ import { differenceInDays, addDays } from 'date-fns';
 import { conversationService } from '@/lib/firebase/firestore';
 
 class CRMService {
-  private leadService: FirestoreService<Lead>;
-  private interactionService: FirestoreService<Interaction>;
-  private taskService: FirestoreService<Task>;
-  private activityService: FirestoreService<LeadActivity>;
+  private leadService: MultiTenantFirestoreService<Lead>;
+  private interactionService: MultiTenantFirestoreService<Interaction>;
+  private taskService: MultiTenantFirestoreService<Task>;
+  private activityService: MultiTenantFirestoreService<LeadActivity>;
+  private tenantId: string;
 
-  constructor() {
-    this.leadService = new FirestoreService<Lead>('crm_leads');
-    this.interactionService = new FirestoreService<Interaction>('crm_interactions');
-    this.taskService = new FirestoreService<Task>('crm_tasks');
-    this.activityService = new FirestoreService<LeadActivity>('crm_activities');
+  constructor(tenantId: string) {
+    this.tenantId = tenantId;
+    this.leadService = new MultiTenantFirestoreService<Lead>(tenantId, 'crm_leads');
+    this.interactionService = new MultiTenantFirestoreService<Interaction>(tenantId, 'crm_interactions');
+    this.taskService = new MultiTenantFirestoreService<Task>(tenantId, 'crm_tasks');
+    this.activityService = new MultiTenantFirestoreService<LeadActivity>(tenantId, 'crm_activities');
   }
 
   // =============== LEAD MANAGEMENT ===============
@@ -692,4 +694,5 @@ class CRMService {
   }
 }
 
-export const crmService = new CRMService();
+// Factory function for creating tenant-scoped CRM service
+export const createCRMService = (tenantId: string) => new CRMService(tenantId);

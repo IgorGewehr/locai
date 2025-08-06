@@ -6,7 +6,7 @@ import { TenantServiceFactory } from '@/lib/firebase/firestore-v2';
 import { logger } from '@/lib/utils/logger';
 import { Property } from '@/lib/types/property';
 import { Client } from '@/lib/types/client';
-import { Reservation } from '@/lib/types/reservation';
+import { Reservation, ReservationStatus, ReservationSource, PaymentMethod, PaymentStatus } from '@/lib/types/reservation';
 
 // ===== INTERFACES =====
 
@@ -124,7 +124,9 @@ export async function searchProperties(args: SearchPropertiesArgs, tenantId: str
         location: args.location,
         guests: args.guests,
         maxPrice: args.maxPrice,
-        propertyType: args.propertyType
+        propertyType: args.propertyType,
+        checkIn: args.checkIn,
+        checkOut: args.checkOut
       }
     });
 
@@ -219,12 +221,31 @@ export async function searchProperties(args: SearchPropertiesArgs, tenantId: str
  */
 export async function calculatePrice(args: CalculatePriceArgs, tenantId: string): Promise<any> {
   try {
+    // Importar ConversationStateManager para acessar contexto
+    const { default: ConversationStateManager } = await import('@/lib/ai-agent/conversation-state');
+    
+    // Se não tem datas, tentar pegar do contexto
+    let checkIn = args.checkIn;
+    let checkOut = args.checkOut;
+    let guests = args.guests;
+    
+    if (!checkIn || !checkOut || !guests) {
+      // Buscar do contexto (assumindo que temos acesso ao clientPhone de alguma forma)
+      const state = ConversationStateManager.getState(args.propertyId, tenantId); // Temporário
+      if (state.searchCriteria) {
+        checkIn = checkIn || state.searchCriteria.checkIn || new Date().toISOString().split('T')[0];
+        checkOut = checkOut || state.searchCriteria.checkOut || new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+        guests = guests || state.searchCriteria.guests || 2;
+      }
+    }
+    
     logger.info('💰 [TenantAgent] calculate_price iniciada', {
       tenantId,
       propertyId: args.propertyId,
-      checkIn: args.checkIn,
-      checkOut: args.checkOut,
-      guests: args.guests
+      checkIn,
+      checkOut,
+      guests,
+      fromContext: !args.checkIn || !args.checkOut || !args.guests
     });
 
     const serviceFactory = new TenantServiceFactory(tenantId);
@@ -246,8 +267,8 @@ export async function calculatePrice(args: CalculatePriceArgs, tenantId: string)
     }
 
     // Calcular preço baseado na propriedade
-    const checkInDate = new Date(args.checkIn);
-    const checkOutDate = new Date(args.checkOut);
+    const checkInDate = new Date(checkIn);
+    const checkOutDate = new Date(checkOut);
     const nights = Math.ceil((checkOutDate.getTime() - checkInDate.getTime()) / (1000 * 60 * 60 * 24));
     
     const basePrice = property.basePrice || 0; // Property interface tem basePrice direto
@@ -280,8 +301,8 @@ export async function calculatePrice(args: CalculatePriceArgs, tenantId: string)
         totalPrice
       },
       dates: {
-        checkIn: args.checkIn,
-        checkOut: args.checkOut
+        checkIn,
+        checkOut
       },
       tenantId
     };
@@ -433,7 +454,7 @@ export async function createReservation(args: CreateReservationArgs, tenantId: s
     const reservationData: Omit<Reservation, 'id'> = {
       propertyId: args.propertyId,
       clientId,
-      status: 'pending',
+      status: ReservationStatus.PENDING,
       
       // Datas
       checkIn: checkInDate,
@@ -449,13 +470,26 @@ export async function createReservation(args: CreateReservationArgs, tenantId: s
       totalAmount: totalPrice || 0,
       paidAmount: 0, // Ainda não foi pago
       pendingAmount: totalPrice || 0, // Todo o valor está pendente
-      paymentMethod: 'pix', // Padrão
-      paymentPlan: 'full', // Pagamento à vista por padrão
+      paymentMethod: PaymentMethod.PIX, // Padrão
+      paymentPlan: {
+        totalAmount: totalPrice || 0,
+        installments: [{
+          number: 1,
+          amount: totalPrice || 0,
+          dueDate: new Date(),
+          description: 'Pagamento único',
+          isPaid: false
+        }],
+        paymentMethod: PaymentMethod.PIX,
+        feePercentage: 0,
+        totalFees: 0,
+        description: 'Pagamento à vista'
+      }, // Pagamento à vista por padrão
       payments: [], // Nenhum pagamento ainda
       
       // Analytics
       nights,
-      paymentStatus: 'pending',
+      paymentStatus: PaymentStatus.PENDING,
       
       // Extras
       extraServices: [],
@@ -463,7 +497,7 @@ export async function createReservation(args: CreateReservationArgs, tenantId: s
       observations: '',
       
       // Origem
-      source: 'whatsapp',
+      source: ReservationSource.WHATSAPP_AI,
       agentId: 'sofia-ai',
       
       // Metadados
@@ -957,7 +991,7 @@ export async function scheduleVisit(args: ScheduleVisitArgs, tenantId: string): 
       scheduledDate: visitDateTime,
       scheduledTime: args.visitTime || '14:00',
       duration: 60,
-      status: 'scheduled', // VisitStatus enum value
+      status: VisitStatus.SCHEDULED, // VisitStatus enum value
       notes: args.notes || `Visita agendada via WhatsApp - ${property.title}`,
       source: 'whatsapp',
       createdAt: new Date(),
@@ -994,7 +1028,7 @@ export async function scheduleVisit(args: ScheduleVisitArgs, tenantId: string): 
         clientId,
         scheduledDate: formattedDate,
         scheduledTime: formattedTime,
-        status: 'scheduled'
+        status: VisitStatus.SCHEDULED
       },
       message: `Visita agendada com sucesso para ${formattedDate} às ${formattedTime}!`,
       instructions: 'Enviaremos uma confirmação com todos os detalhes por WhatsApp.',

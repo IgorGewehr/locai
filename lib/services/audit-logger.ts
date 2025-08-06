@@ -1,4 +1,4 @@
-import { FirestoreService } from '@/lib/firebase/firestore';
+import { MultiTenantFirestoreService } from '@/lib/firebase/firestore-v2';
 import { NextRequest } from 'next/server';
 
 export interface AuditLog {
@@ -33,14 +33,16 @@ interface AuditContext {
 }
 
 class AuditLogger {
-  private auditService: FirestoreService<AuditLog>;
+  private auditService: MultiTenantFirestoreService<AuditLog>;
   private batchQueue: AuditLog[] = [];
   private batchTimer: NodeJS.Timeout | null = null;
   private readonly BATCH_SIZE = 50;
   private readonly BATCH_DELAY = 5000; // 5 seconds
+  private tenantId: string;
 
-  constructor() {
-    this.auditService = new FirestoreService<AuditLog>('audit_logs');
+  constructor(tenantId: string) {
+    this.tenantId = tenantId;
+    this.auditService = new MultiTenantFirestoreService<AuditLog>(tenantId, 'audit_logs');
   }
 
   // Extract IP address from request
@@ -429,7 +431,8 @@ class AuditLogger {
 }
 
 // Export singleton instance
-export const auditLogger = new AuditLogger();
+// Factory function for creating tenant-scoped audit logger
+export const createAuditLogger = (tenantId: string) => new AuditLogger(tenantId);
 
 // Middleware helper
 export function withAuditLogging(

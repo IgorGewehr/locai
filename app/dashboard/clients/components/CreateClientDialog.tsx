@@ -39,7 +39,7 @@ interface FormData {
   name: string;
   phone: string;
   email: string;
-  cpf: string;
+  document: string;
   notes: string;
 }
 
@@ -51,7 +51,7 @@ export default function CreateClientDialog({ open, onClose, onSuccess }: CreateC
     name: '',
     phone: '',
     email: '',
-    cpf: '',
+    document: '',
     notes: '',
   });
 
@@ -61,7 +61,7 @@ export default function CreateClientDialog({ open, onClose, onSuccess }: CreateC
       name: '',
       phone: '',
       email: '',
-      cpf: '',
+      document: '',
       notes: '',
     });
     setError(null);
@@ -87,7 +87,7 @@ export default function CreateClientDialog({ open, onClose, onSuccess }: CreateC
         name: formData.name.trim(),
         phone: formData.phone.replace(/\D/g, ''),
         email: formData.email.trim() || undefined,
-        document: formData.cpf.replace(/\D/g, '') || undefined,
+        document: formData.document.replace(/\D/g, '') || undefined,
         notes: formData.notes.trim() || undefined,
         source: 'manual' as const,
         isActive: true,
@@ -131,7 +131,7 @@ export default function CreateClientDialog({ open, onClose, onSuccess }: CreateC
 
   const handleCPFChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const formatted = formatCPF(e.target.value);
-    setFormData(prev => ({ ...prev, cpf: formatted }));
+    setFormData(prev => ({ ...prev, document: formatted }));
   };
 
   return (
@@ -225,7 +225,7 @@ export default function CreateClientDialog({ open, onClose, onSuccess }: CreateC
               <TextField
                 fullWidth
                 label="CPF"
-                value={formData.cpf}
+                value={formData.document}
                 onChange={handleCPFChange}
                 placeholder="000.000.000-00"
                 disabled={loading}

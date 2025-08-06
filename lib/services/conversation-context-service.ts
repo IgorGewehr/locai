@@ -66,9 +66,16 @@ export interface MessageHistoryItem {
 // ===== SERVICE CLASS =====
 
 export class ConversationContextService {
-  private readonly COLLECTION_NAME = 'conversation_contexts';
-  private readonly MESSAGES_COLLECTION = 'conversation_messages';
   private readonly CONTEXT_TTL_HOURS = 1; // Contexto ativo por 1 hora
+  
+  // Métodos para construir paths multi-tenant
+  private getContextCollectionPath(tenantId: string): string {
+    return `tenants/${tenantId}/conversation_contexts`;
+  }
+  
+  private getMessagesCollectionPath(tenantId: string): string {
+    return `tenants/${tenantId}/conversation_messages`;
+  }
 
   // Obter ou criar contexto de conversa
   async getOrCreateContext(
@@ -77,7 +84,8 @@ export class ConversationContextService {
   ): Promise<ConversationDocument> {
     try {
       const conversationId = this.generateConversationId(clientPhone, tenantId);
-      const docRef = doc(db, this.COLLECTION_NAME, conversationId);
+      const collectionPath = this.getContextCollectionPath(tenantId);
+      const docRef = doc(db, collectionPath, conversationId);
       const docSnap = await getDoc(docRef);
 
       if (docSnap.exists()) {
@@ -135,7 +143,8 @@ export class ConversationContextService {
     };
 
     try {
-      await setDoc(doc(db, this.COLLECTION_NAME, conversationId), newContext);
+      const collectionPath = this.getContextCollectionPath(tenantId);
+      await setDoc(doc(db, collectionPath, conversationId), newContext);
       return newContext;
     } catch (error) {
       console.error('❌ [ContextService] Erro ao criar contexto:', error);
@@ -151,7 +160,16 @@ export class ConversationContextService {
   ): Promise<void> {
     try {
       const conversationId = this.generateConversationId(clientPhone, tenantId);
-      const docRef = doc(db, this.COLLECTION_NAME, conversationId);
+      const collectionPath = this.getContextCollectionPath(tenantId);
+      const docRef = doc(db, collectionPath, conversationId);
+      
+      // Verificar se o documento existe primeiro
+      const docSnap = await getDoc(docRef);
+      
+      if (!docSnap.exists()) {
+        console.log(`⚠️ [ContextService] Contexto não existe para ${clientPhone}, criando...`);
+        await this.createNewContext(clientPhone, tenantId, conversationId);
+      }
       
       // Clean updates to remove undefined values
       const cleanedUpdates: any = {};
@@ -215,21 +233,38 @@ export class ConversationContextService {
         ...(message.fromCache !== undefined && { fromCache: message.fromCache })
       };
 
-      // Salvar mensagem
+      // Salvar mensagem na collection de mensagens do tenant
+      const messagesCollectionPath = this.getMessagesCollectionPath(tenantId);
       await setDoc(
-        doc(collection(db, this.MESSAGES_COLLECTION)), 
+        doc(collection(db, messagesCollectionPath)), 
         messageDoc
       );
 
       // Atualizar contador de mensagens e última mensagem
-      const contextRef = doc(db, this.COLLECTION_NAME, conversationId);
-      await updateDoc(contextRef, {
-        messageCount: message.role === 'user' ? 
-          (await getDoc(contextRef)).data()?.messageCount + 1 || 1 : 
-          (await getDoc(contextRef)).data()?.messageCount || 0,
-        lastMessage: message.content.substring(0, 100),
-        updatedAt: serverTimestamp()
-      });
+      const contextCollectionPath = this.getContextCollectionPath(tenantId);
+      const contextRef = doc(db, contextCollectionPath, conversationId);
+      const contextDoc = await getDoc(contextRef);
+      
+      if (contextDoc.exists()) {
+        // Documento existe, pode atualizar
+        const currentMessageCount = contextDoc.data()?.messageCount || 0;
+        await updateDoc(contextRef, {
+          messageCount: message.role === 'user' ? currentMessageCount + 1 : currentMessageCount,
+          lastMessage: message.content.substring(0, 100),
+          updatedAt: serverTimestamp()
+        });
+      } else {
+        // Documento não existe, precisa criar o contexto primeiro
+        console.log(`⚠️ [ContextService] Contexto não existe para ${clientPhone}, criando...`);
+        await this.createNewContext(clientPhone, tenantId, conversationId);
+        
+        // Agora atualizar com a informação da mensagem
+        await updateDoc(contextRef, {
+          messageCount: message.role === 'user' ? 1 : 0,
+          lastMessage: message.content.substring(0, 100),
+          updatedAt: serverTimestamp()
+        });
+      }
 
       console.log(`💬 [ContextService] Mensagem salva: ${message.role} - ${message.content.substring(0, 50)}...`);
     } catch (error) {
@@ -247,8 +282,9 @@ export class ConversationContextService {
       const conversationId = this.generateConversationId(clientPhone, tenantId);
       
       // Fallback approach - get all messages for conversation and sort manually
+      const messagesCollectionPath = this.getMessagesCollectionPath(tenantId);
       const q = query(
-        collection(db, this.MESSAGES_COLLECTION),
+        collection(db, messagesCollectionPath),
         where('conversationId', '==', conversationId)
       );
 
@@ -295,13 +331,23 @@ export class ConversationContextService {
   ): Promise<void> {
     try {
       const conversationId = this.generateConversationId(clientPhone, tenantId);
-      const docRef = doc(db, this.COLLECTION_NAME, conversationId);
+      const collectionPath = this.getContextCollectionPath(tenantId);
+      const docRef = doc(db, collectionPath, conversationId);
       
       const docSnap = await getDoc(docRef);
       if (docSnap.exists()) {
         const currentTokens = docSnap.data().tokensUsed || 0;
         await updateDoc(docRef, {
           tokensUsed: currentTokens + tokens,
+          updatedAt: serverTimestamp()
+        });
+      } else {
+        // Documento não existe, criar primeiro
+        console.log(`⚠️ [ContextService] Contexto não existe para ${clientPhone}, criando...`);
+        const newContext = await this.createNewContext(clientPhone, tenantId, conversationId);
+        // Agora atualizar com os tokens
+        await updateDoc(docRef, {
+          tokensUsed: tokens,
           updatedAt: serverTimestamp()
         });
       }
@@ -317,7 +363,18 @@ export class ConversationContextService {
   ): Promise<void> {
     try {
       const conversationId = this.generateConversationId(clientPhone, tenantId);
-      await updateDoc(doc(db, this.COLLECTION_NAME, conversationId), {
+      const collectionPath = this.getContextCollectionPath(tenantId);
+      const docRef = doc(db, collectionPath, conversationId);
+      
+      // Verificar se o documento existe primeiro
+      const docSnap = await getDoc(docRef);
+      
+      if (!docSnap.exists()) {
+        console.log(`⚠️ [ContextService] Contexto não existe para ${clientPhone}, criando...`);
+        await this.createNewContext(clientPhone, tenantId, conversationId);
+      }
+      
+      await updateDoc(docRef, {
         status: 'completed',
         updatedAt: serverTimestamp()
       });
@@ -356,7 +413,8 @@ export class ConversationContextService {
       };
 
       // Sobrescrever completamente o documento
-      await setDoc(doc(db, this.COLLECTION_NAME, conversationId), cleanContext);
+      const collectionPath = this.getContextCollectionPath(tenantId);
+      await setDoc(doc(db, collectionPath, conversationId), cleanContext);
       
       console.log(`🧹 [ContextService] Contexto completamente limpo para: ${clientPhone}`);
     } catch (error) {
@@ -371,9 +429,9 @@ export class ConversationContextService {
       const expirationTime = new Date();
       expirationTime.setHours(expirationTime.getHours() - this.CONTEXT_TTL_HOURS);
       
+      const collectionPath = this.getContextCollectionPath(tenantId);
       const q = query(
-        collection(db, this.COLLECTION_NAME),
-        where('tenantId', '==', tenantId),
+        collection(db, collectionPath),
         where('context.lastActivity', '<', Timestamp.fromDate(expirationTime)),
         where('status', '==', 'active')
       );
@@ -399,7 +457,9 @@ export class ConversationContextService {
 
   // Helpers privados
   private generateConversationId(clientPhone: string, tenantId: string): string {
-    return `${tenantId}_${clientPhone}`;
+    // Agora que usamos collections por tenant, não precisamos incluir tenantId no ID
+    // Isso torna os IDs mais limpos e evita redundância
+    return clientPhone;
   }
 
   private removeUndefinedValues(obj: any): any {
@@ -425,8 +485,9 @@ export class ConversationContextService {
   }
 
   private getDefaultContext(clientPhone: string, tenantId: string): ConversationDocument {
+    const conversationId = this.generateConversationId(clientPhone, tenantId);
     return {
-      id: this.generateConversationId(clientPhone, tenantId),
+      id: conversationId,
       clientPhone,
       tenantId,
       context: {

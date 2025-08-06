@@ -22,6 +22,15 @@ export interface ConversationState {
     document?: string;
     id?: string;
   };
+  // NOVO: Dados da busca para reutilizar
+  searchCriteria?: {
+    checkIn?: string;
+    checkOut?: string;
+    guests?: number;
+    location?: string;
+    maxPrice?: number;
+    propertyType?: string;
+  };
   conversationPhase: 'searching' | 'viewing_details' | 'calculating_price' | 'booking' | 'visiting';
   lastFunction: string;
   createdAt: Date;
@@ -62,6 +71,27 @@ class ConversationStateManager {
     }
     
     return this.states.get(key)!;
+  }
+
+  /**
+   * Atualizar critérios de busca
+   */
+  static updateSearchCriteria(
+    clientPhone: string,
+    tenantId: string,
+    criteria: Partial<ConversationState['searchCriteria']>
+  ): void {
+    const state = this.getState(clientPhone, tenantId);
+    
+    state.searchCriteria = {
+      ...state.searchCriteria,
+      ...criteria
+    };
+    
+    logger.info('🔍 [ConversationState] Critérios de busca atualizados', {
+      clientPhone: clientPhone.substring(0, 6) + '***',
+      criteria: state.searchCriteria
+    });
   }
 
   /**

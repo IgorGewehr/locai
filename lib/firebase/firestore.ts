@@ -346,15 +346,63 @@ export class FirestoreService<T extends { id: string }> {
   }
 }
 
-// Specific services
+// ⚠️ DEPRECATED LEGACY SERVICES ⚠️
+// These services are NOT multi-tenant aware and should be replaced with TenantServiceFactory
+// Use: const { services } = useTenant(); services.properties.getAll()
+// Instead of: propertyService.getAll()
+
+/**
+ * @deprecated Use TenantServiceFactory.properties instead
+ * This service does not respect tenant isolation
+ */
 export const propertyService = new FirestoreService<Property>(COLLECTIONS.PROPERTIES);
+
+/**
+ * @deprecated Use TenantServiceFactory.reservations instead
+ * This service does not respect tenant isolation
+ */
 export const reservationService = new FirestoreService<Reservation>(COLLECTIONS.RESERVATIONS);
+
+/**
+ * @deprecated Use TenantServiceFactory.clients instead
+ * This service does not respect tenant isolation
+ */
 export const clientService = new FirestoreService<Client>(COLLECTIONS.CLIENTS);
+
+/**
+ * @deprecated Use TenantServiceFactory.conversations instead
+ * This service does not respect tenant isolation
+ */
 export const conversationService = new FirestoreService<Conversation>(COLLECTIONS.CONVERSATIONS);
+
+/**
+ * @deprecated Use TenantServiceFactory.messages instead
+ * This service does not respect tenant isolation
+ */
 export const messageService = new FirestoreService<Message>(COLLECTIONS.MESSAGES);
+
+/**
+ * @deprecated Use TenantServiceFactory.createService('amenities') instead
+ * This service does not respect tenant isolation
+ */
 export const amenityService = new FirestoreService<Amenity>(COLLECTIONS.AMENITIES);
+
+/**
+ * @deprecated Use TenantServiceFactory.payments instead
+ * This service does not respect tenant isolation
+ */
 export const paymentService = new FirestoreService<Payment>(COLLECTIONS.PAYMENTS);
+
+/**
+ * @deprecated Use TenantServiceFactory.transactions instead
+ * This service does not respect tenant isolation
+ */
 export const transactionFirestoreService = new FirestoreService<Transaction>(COLLECTIONS.TRANSACTIONS);
+
+/**
+ * @deprecated Use TenantServiceFactory.transactions instead
+ * This service does not respect tenant isolation
+ */
 export const transactionService = transactionFirestoreService;
 
 // Specialized methods

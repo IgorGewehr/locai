@@ -1,4 +1,4 @@
-import { FirestoreService } from '@/lib/firebase/firestore';
+import { MultiTenantFirestoreService } from '@/lib/firebase/firestore-v2';
 import { adminDb } from '@/lib/firebase/admin';
 
 export interface CompanySettings {
@@ -79,10 +79,12 @@ export interface TenantSettings {
 }
 
 class SettingsService {
-  private service: FirestoreService<TenantSettings>;
+  private service: MultiTenantFirestoreService<TenantSettings>;
+  private tenantId: string;
 
-  constructor() {
-    this.service = new FirestoreService<TenantSettings>('settings');
+  constructor(tenantId: string) {
+    this.tenantId = tenantId;
+    this.service = new MultiTenantFirestoreService<TenantSettings>(tenantId, 'settings');
   }
 
   // Get all settings for a tenant
@@ -325,4 +327,5 @@ class SettingsService {
   }
 }
 
-export const settingsService = new SettingsService();
+// Factory function for creating tenant-scoped settings service
+export const createSettingsService = (tenantId: string) => new SettingsService(tenantId);

@@ -23,6 +23,13 @@ import {
 import { db } from './config';
 import { queryOptimizer, QueryFilter } from '@/lib/utils/query-optimizer';
 import { logger } from '@/lib/utils/logger';
+import { createTransactionService } from '@/lib/services/transaction-service';
+import { createAccountsService, createBankService, createCostCenterService, createCommissionService, createAlertsService } from '@/lib/services/accounts-service';
+import { createCRMService } from '@/lib/services/crm-service';
+import { createBillingService } from '@/lib/services/billing-service';
+import { createSettingsService } from '@/lib/services/settings-service';
+import { createMiniSiteService } from '@/lib/services/mini-site-service';
+import { createAuditLogger } from '@/lib/services/audit-logger';
 
 /**
  * Multi-tenant Firestore Service
@@ -40,14 +47,14 @@ export class MultiTenantFirestoreService<T extends { id?: string }> {
   /**
    * Get the collection reference for this tenant
    */
-  private getCollectionRef(): CollectionReference {
+  protected getCollectionRef(): CollectionReference {
     return collection(db, 'tenants', this.tenantId, this.collectionName);
   }
 
   /**
    * Get a document reference
    */
-  private getDocRef(docId: string): DocumentReference {
+  protected getDocRef(docId: string): DocumentReference {
     return doc(db, 'tenants', this.tenantId, this.collectionName, docId);
   }
 
@@ -399,7 +406,48 @@ export class TenantServiceFactory {
   }
 
   get transactions() {
-    return this.createService<import('@/lib/types').Transaction>('transactions');
+    return createTransactionService(this.tenantId);
+  }
+
+  // Specialized Services
+  get accounts() {
+    return createAccountsService(this.tenantId);
+  }
+
+  get banks() {
+    return createBankService(this.tenantId);
+  }
+
+  get costCenters() {
+    return createCostCenterService(this.tenantId);
+  }
+
+  get commissions() {
+    return createCommissionService(this.tenantId);
+  }
+
+  get alerts() {
+    return createAlertsService(this.tenantId);
+  }
+
+  get crm() {
+    return createCRMService(this.tenantId);
+  }
+
+  get billing() {
+    return createBillingService(this.tenantId);
+  }
+
+  get settings() {
+    return createSettingsService(this.tenantId);
+  }
+
+  get miniSite() {
+    return createMiniSiteService(this.tenantId);
+  }
+
+  get auditLogger() {
+    return createAuditLogger(this.tenantId);
   }
 
   get payments() {
