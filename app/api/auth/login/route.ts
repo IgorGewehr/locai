@@ -5,6 +5,7 @@ import { authRateLimit, applyRateLimitHeaders } from '@/lib/middleware/rate-limi
 import { loginSchema } from '@/lib/validation/schemas';
 import { auth, adminDb } from '@/lib/firebase/admin';
 import { generateJWT } from '@/lib/middleware/auth';
+import { AuthUser } from '@/lib/middleware/auth';
 import bcrypt from 'bcryptjs';
 import { z } from 'zod';
 
@@ -89,12 +90,13 @@ export const POST = withErrorHandler(async (request: NextRequest) => {
       }
 
       // Generate JWT
-      const jwt = generateJWT({
-        uid: user.id,
-        email: user.email,
-        tenantId: user.tenantId,
+      const jwt = await generateJWT({
+        id: user.id, // user.id is actually the Firebase UID
+        email: user.email || '',
+        name: user.name,
         role: user.role,
-      });
+        tenantId: user.tenantId
+      } as AuthUser);
 
       const response = successResponse({
         user: {

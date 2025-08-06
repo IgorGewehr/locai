@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { billingService } from '@/lib/services/billing-service';
+import { createBillingService } from '@/lib/services/billing-service';
 import { authMiddleware } from '@/lib/middleware/auth';
 import { handleApiError } from '@/lib/utils/api-errors';
 import { adminDb } from '@/lib/firebase/admin';
@@ -53,6 +53,7 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     
     // Criar campanha
+    const billingService = createBillingService(tenantId);
     const campaignId = await billingService.createCampaign({
       ...body,
       tenantId,

@@ -73,7 +73,7 @@ class VisitService {
       
       return createdVisit;
     } catch (error) {
-      logger.error('Error creating visit appointment', { error });
+      logger.error('Error creating visit appointment', error instanceof Error ? error : new Error('Unknown error'));
       throw error;
     }
   }
@@ -95,7 +95,7 @@ class VisitService {
 
       return { ...visit, ...updatedData } as VisitAppointment;
     } catch (error) {
-      logger.error('Error updating visit appointment', { visitId, error });
+      logger.error('Error updating visit appointment', error instanceof Error ? error : new Error('Unknown error'), { visitId });
       throw error;
     }
   }
@@ -255,7 +255,7 @@ class VisitService {
       
       return availableSlots;
     } catch (error) {
-      logger.error('Error checking availability', { error });
+      logger.error('Error checking availability', error instanceof Error ? error : new Error('Unknown error'));
       throw error;
     }
   }

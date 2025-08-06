@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { conversationService } from '@/lib/services/conversation-service'
+import { resolveTenantId } from '@/lib/utils/tenant-extractor'
 
 export async function GET(
   request: NextRequest,
@@ -8,8 +9,9 @@ export async function GET(
   try {
     const resolvedParams = await params
     const conversationId = resolvedParams.id
+    const tenantId = await resolveTenantId(request)
 
-    const conversation = await conversationService.getById(conversationId)
+    const conversation = await conversationService.getById(conversationId, tenantId)
 
     if (!conversation) {
       return NextResponse.json(
@@ -42,12 +44,12 @@ export async function PUT(
     const resolvedParams = await params
     const conversationId = resolvedParams.id
     const body = await request.json()
+    const tenantId = await resolveTenantId(request)
 
-    const updatedConversation = await conversationService.update(conversationId, body)
+    await conversationService.update(conversationId, body, tenantId)
 
     return NextResponse.json({
       success: true,
-      conversation: updatedConversation,
       message: 'Conversation updated successfully'
     })
 
@@ -69,8 +71,9 @@ export async function DELETE(
   try {
     const resolvedParams = await params
     const conversationId = resolvedParams.id
+    const tenantId = await resolveTenantId(request)
 
-    await conversationService.delete(conversationId)
+    await conversationService.delete(conversationId, tenantId)
 
     return NextResponse.json({
       success: true,

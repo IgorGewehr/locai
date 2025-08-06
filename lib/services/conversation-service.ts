@@ -201,9 +201,9 @@ class ConversationService {
     }
   }
 
-  async addMessage(conversationId: string, messageData: Partial<Message>): Promise<Message> {
+  async addMessage(conversationId: string, messageData: Partial<Message>, tenantId: string): Promise<Message> {
     try {
-      const conversation = await this.getById(conversationId)
+      const conversation = await this.getById(conversationId, tenantId)
       if (!conversation) {
         throw new Error('Conversation not found')
       }
@@ -250,7 +250,7 @@ class ConversationService {
         })
       )
 
-      await this.update(conversationId, filteredUpdateData)
+      await this.update(conversationId, filteredUpdateData, tenantId)
 
       return message
     } catch (error) {
@@ -258,7 +258,7 @@ class ConversationService {
     }
   }
 
-  async updateMessageStatus(messageId: string, status: string, timestamp: Date): Promise<void> {
+  async updateMessageStatus(messageId: string, status: string, timestamp: Date, tenantId: string): Promise<void> {
     try {
       // Find conversation containing this message
       const conversations = await this.query(
@@ -293,13 +293,13 @@ class ConversationService {
       )
       
       if (Object.keys(filteredUpdateData).length > 0) {
-        await this.update(conversation.id, filteredUpdateData)
+        await this.update(conversation.id, filteredUpdateData, tenantId)
       }
     } catch (error) {
       }
   }
 
-  async updateConversationFromAI(conversationId: string, aiResponse: any): Promise<void> {
+  async updateConversationFromAI(conversationId: string, aiResponse: any, tenantId: string): Promise<void> {
     try {
       const updates: Partial<Conversation> = {
         lastMessageAt: new Date()
@@ -342,13 +342,13 @@ class ConversationService {
       )
 
       if (Object.keys(filteredUpdates).length > 0) {
-        await this.update(conversationId, filteredUpdates)
+        await this.update(conversationId, filteredUpdates, tenantId)
       }
     } catch (error) {
       }
   }
 
-  async escalateToHuman(conversationId: string, reason: string, urgency: string = 'medium'): Promise<void> {
+  async escalateToHuman(conversationId: string, reason: string, tenantId: string, urgency: string = 'medium'): Promise<void> {
     try {
       await this.update(conversationId, {
         status: ConversationStatus.ESCALATED,
@@ -359,7 +359,7 @@ class ConversationService {
           followUpRequired: true,
           notes: `Escalated to human: ${reason}`
         }
-      })
+      }, tenantId)
 
       } catch (error) {
       throw error
@@ -459,29 +459,29 @@ class ConversationService {
     }
   }
 
-  async updateContext(conversationId: string, context: any): Promise<void> {
+  async updateContext(conversationId: string, context: any, tenantId: string): Promise<void> {
     try {
-      await this.update(conversationId, { context })
+      await this.update(conversationId, { context }, tenantId)
     } catch (error) {
       throw error
     }
   }
 
-  async completeConversation(conversationId: string, outcome: any): Promise<void> {
+  async completeConversation(conversationId: string, outcome: any, tenantId: string): Promise<void> {
     try {
       await this.update(conversationId, {
         status: ConversationStatus.COMPLETED,
         endedAt: new Date(),
         outcome
-      })
+      }, tenantId)
     } catch (error) {
       throw error
     }
   }
 
-  async getRecentMessages(conversationId: string, limit: number = 10): Promise<Message[]> {
+  async getRecentMessages(conversationId: string, tenantId: string, limit: number = 10): Promise<Message[]> {
     try {
-      const conversation = await this.getById(conversationId)
+      const conversation = await this.getById(conversationId, tenantId)
       if (!conversation) return []
 
       return (conversation.messages || [])
@@ -492,8 +492,8 @@ class ConversationService {
     }
   }
 
-  // Override the toFirestore method to handle Date objects
-  protected override toFirestore(data: any): any {
+  // Method to handle Date objects for Firestore
+  protected toFirestore(data: any): any {
     const result = { ...data }
 
     // Convert Date objects to Firestore Timestamps
@@ -523,8 +523,8 @@ class ConversationService {
     return result
   }
 
-  // Override the fromFirestore method to handle Timestamps
-  protected override fromFirestore(data: any): any {
+  // Method to handle Timestamps from Firestore
+  protected fromFirestore(data: any): any {
     const result = { ...data }
 
     // Convert Firestore Timestamps to Date objects
@@ -552,6 +552,51 @@ class ConversationService {
     }
 
     return result
+  }
+
+  // Basic CRUD methods that are being called but were missing
+  async getById(conversationId: string, tenantId: string): Promise<Conversation | null> {
+    try {
+      if (!tenantId) {
+        throw new Error('TenantId is required for conversation lookup')
+      }
+
+      const services = this.getTenantService(tenantId)
+      const doc = await services.conversations.getById(conversationId)
+      return doc ? this.fromFirestore(doc) : null
+    } catch (error) {
+      console.error('Error getting conversation by ID:', error)
+      return null
+    }
+  }
+
+  async update(conversationId: string, updates: Partial<Conversation>, tenantId: string): Promise<void> {
+    try {
+      if (!tenantId) {
+        throw new Error('TenantId is required for conversation update')
+      }
+
+      const services = this.getTenantService(tenantId)
+      const firestoreData = this.toFirestore(updates)
+      await services.conversations.update(conversationId, firestoreData)
+    } catch (error) {
+      console.error('Error updating conversation:', error)
+      throw error
+    }
+  }
+
+  async delete(conversationId: string, tenantId: string): Promise<void> {
+    try {
+      if (!tenantId) {
+        throw new Error('TenantId is required for conversation deletion')
+      }
+
+      const services = this.getTenantService(tenantId)
+      await services.conversations.delete(conversationId)
+    } catch (error) {
+      console.error('Error deleting conversation:', error)
+      throw error
+    }
   }
 }
 

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { TenantServiceFactory } from '@/lib/firebase/firestore-v2'
+import type { Message } from '@/lib/types/conversation'
 
 export async function GET(
   request: NextRequest,
@@ -14,7 +15,7 @@ export async function GET(
     const services = new TenantServiceFactory(tenantId)
 
     // Get messages for this conversation
-    const messages = await services.messages.getWhere('conversationId', '==', conversationId)
+    const messages = await services.messages.getWhere('conversationId', '==', conversationId) as Message[]
     
     // Sort messages by timestamp
     const sortedMessages = messages

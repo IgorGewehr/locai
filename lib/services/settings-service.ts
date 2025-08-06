@@ -1,5 +1,4 @@
 import { MultiTenantFirestoreService } from '@/lib/firebase/firestore-v2';
-import { adminDb } from '@/lib/firebase/admin';
 
 export interface CompanySettings {
   name: string;
@@ -137,11 +136,16 @@ class SettingsService {
 
   // Update WhatsApp settings
   async updateWhatsAppSettings(tenantId: string, settings: Partial<WhatsAppSettings>): Promise<void> {
+    // Get current settings first to ensure required fields are maintained
+    const current = await this.service.get(tenantId);
+    const currentWhatsApp = current?.whatsapp || {};
+    
     await this.service.update(tenantId, {
       whatsapp: {
+        ...currentWhatsApp,
         ...settings,
         updatedAt: new Date(),
-      },
+      } as WhatsAppSettings,
       updatedAt: new Date(),
     });
   }
@@ -245,14 +249,13 @@ class SettingsService {
   // Get WhatsApp credentials securely (server-side only)
   async getWhatsAppCredentials(tenantId: string): Promise<WhatsAppSettings | null> {
     try {
-      // Use admin SDK for secure access
-      const doc = await adminDb.collection('settings').doc(tenantId).get();
-      if (!doc.exists) {
+      // Use tenant service for secure access
+      const settings = await this.service.getById(tenantId);
+      if (!settings) {
         return null;
       }
       
-      const data = doc.data();
-      return data?.whatsapp || null;
+      return settings.whatsapp || null;
     } catch (error) {
       console.error('Error getting WhatsApp credentials:', error);
       return null;
@@ -329,3 +332,6 @@ class SettingsService {
 
 // Factory function for creating tenant-scoped settings service
 export const createSettingsService = (tenantId: string) => new SettingsService(tenantId);
+
+// Backward compatibility - use with default tenant  
+export const settingsService = new SettingsService(process.env.DEFAULT_TENANT_ID || 'default');

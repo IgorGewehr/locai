@@ -5,7 +5,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthFromCookie } from '@/lib/utils/auth-cookie';
-import { settingsService } from '@/lib/services/settings-service';
+import { TenantServiceFactory } from '@/lib/firebase/firestore-v2';
 
 interface DomainValidation {
   domain: string;
@@ -88,7 +88,8 @@ export async function GET(request: NextRequest) {
     }
 
     const tenantId = auth.tenantId;
-    const settings = await settingsService.getSettings(tenantId);
+    const services = new TenantServiceFactory(tenantId);
+    const settings = await services.settings.getSettings(tenantId);
     
     const customDomain = settings?.miniSite?.customDomain;
     
@@ -158,7 +159,8 @@ async function validateCustomDomain(domain: string): Promise<DomainValidation> {
 async function configureCustomDomain(tenantId: string, domain: string): Promise<DomainValidation> {
   try {
     // Save domain to settings
-    await settingsService.updateMiniSiteSettings(tenantId, {
+    const services = new TenantServiceFactory(tenantId);
+    await services.settings.updateMiniSiteSettings(tenantId, {
       customDomain: domain,
     });
 
@@ -269,7 +271,8 @@ async function checkDomainStatus(domain: string): Promise<DomainValidation> {
 }
 
 async function removeCustomDomain(tenantId: string): Promise<void> {
-  await settingsService.updateMiniSiteSettings(tenantId, {
+  const services = new TenantServiceFactory(tenantId);
+  await services.settings.updateMiniSiteSettings(tenantId, {
     customDomain: '',
   });
 }

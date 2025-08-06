@@ -29,17 +29,18 @@ export const clientSchema = yup.object({
   document: yup
     .string()
     .required('Documento é obrigatório')
-    .when('documentType', {
-      is: 'cpf',
-      then: yup.string()
-        .matches(/^\d{3}\.\d{3}\.\d{3}-\d{2}$/, 'CPF deve ter formato válido (000.000.000-00)')
-        .test('cpf', 'CPF inválido', validateCPF),
-    })
-    .when('documentType', {
-      is: 'cnpj',
-      then: yup.string()
-        .matches(/^\d{2}\.\d{3}\.\d{3}\/\d{4}-\d{2}$/, 'CNPJ deve ter formato válido (00.000.000/0000-00)')
-        .test('cnpj', 'CNPJ inválido', validateCNPJ),
+    .when('documentType', ([documentType], schema) => {
+      if (documentType === 'cpf') {
+        return schema
+          .matches(/^\d{3}\.\d{3}\.\d{3}-\d{2}$/, 'CPF deve ter formato válido (000.000.000-00)')
+          .test('cpf', 'CPF inválido', validateCPF);
+      }
+      if (documentType === 'cnpj') {
+        return schema
+          .matches(/^\d{2}\.\d{3}\.\d{3}\/\d{4}-\d{2}$/, 'CNPJ deve ter formato válido (00.000.000/0000-00)')
+          .test('cnpj', 'CNPJ inválido', validateCNPJ);
+      }
+      return schema;
     }),
   
   documentType: yup

@@ -3,7 +3,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { miniSiteService } from '@/lib/services/mini-site-service';
+import { TenantServiceFactory } from '@/lib/firebase/firestore-v2';
 
 export async function GET(request: NextRequest) {
   try {
@@ -11,10 +11,11 @@ export async function GET(request: NextRequest) {
     const tenantId = searchParams.get('tenantId') || 'default-tenant';
     
     // Buscar configuração
-    const config = await miniSiteService.getConfig(tenantId);
+    const services = new TenantServiceFactory(tenantId);
+    const config = await services.miniSite.getConfig(tenantId);
     
     // Buscar propriedades
-    const properties = await miniSiteService.getPublicProperties(tenantId);
+    const properties = await services.miniSite.getPublicProperties(tenantId);
     
     // Calcular status
     const isActive = config?.isActive || false;

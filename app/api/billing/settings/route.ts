@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { billingService } from '@/lib/services/billing-service';
+import { createBillingService } from '@/lib/services/billing-service';
 import { authMiddleware } from '@/lib/middleware/auth';
 import { handleApiError } from '@/lib/utils/api-errors';
 
@@ -15,6 +15,7 @@ export async function GET(request: NextRequest) {
     }
 
     const tenantId = authContext.tenantId
+    const billingService = createBillingService(tenantId);
 
     // Buscar configurações
     let settings = await billingService.getSettings(tenantId);
@@ -42,6 +43,7 @@ export async function PUT(request: NextRequest) {
     }
 
     const tenantId = authContext.tenantId
+    const billingService = createBillingService(tenantId);
 
     const body = await request.json();
     const { simpleConfig, settings } = body;

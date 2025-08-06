@@ -696,3 +696,6 @@ class CRMService {
 
 // Factory function for creating tenant-scoped CRM service
 export const createCRMService = (tenantId: string) => new CRMService(tenantId);
+
+// Backward compatibility - use with default tenant
+export const crmService = new CRMService(process.env.DEFAULT_TENANT_ID || 'default');

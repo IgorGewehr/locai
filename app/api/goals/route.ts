@@ -157,6 +157,8 @@ export async function POST(request: NextRequest) {
 
     const goalData = {
       ...validationResult.data,
+      name: validationResult.data.name || 'Meta sem nome',
+      type: (validationResult.data.type as any) || 'revenue',
       description: validationResult.data.description || '',
       metric: validationResult.data.metric as any,
       frequency: validationResult.data.frequency as any,

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { miniSiteService } from '@/lib/services/mini-site-service';
+import { TenantServiceFactory } from '@/lib/firebase/firestore-v2';
 
 export async function GET(
   request: NextRequest,
@@ -16,7 +16,8 @@ export async function GET(
     }
 
     // Get public properties for the tenant
-    const properties = await miniSiteService.getPublicProperties(tenantId);
+    const services = new TenantServiceFactory(tenantId);
+    const properties = await services.miniSite.getPublicProperties(tenantId);
 
     return NextResponse.json({
       success: true,

@@ -63,15 +63,15 @@ class TenantPhoneMappingService {
         return defaultTenant;
       }
 
-      logger.error('❌ [TenantMapping] Nenhum tenant encontrado para telefone', {
+      logger.error('❌ [TenantMapping] Nenhum tenant encontrado para telefone', undefined, {
         phone: clientPhone.substring(0, 6) + '***'
       });
       return null;
 
     } catch (error) {
-      logger.error('❌ [TenantMapping] Erro ao resolver tenant', {
-        phone: clientPhone.substring(0, 6) + '***',
-        error: error instanceof Error ? error.message : 'Unknown error'
+      logger.error('❌ [TenantMapping] Erro ao resolver tenant', 
+        error instanceof Error ? error : new Error('Unknown error'), {
+        phone: clientPhone.substring(0, 6) + '***'
       });
       return null;
     }
@@ -97,9 +97,8 @@ class TenantPhoneMappingService {
 
       return null;
     } catch (error) {
-      logger.error('❌ [TenantMapping] Erro ao buscar mapeamento direto', {
-        error: error instanceof Error ? error.message : 'Unknown error'
-      });
+      logger.error('❌ [TenantMapping] Erro ao buscar mapeamento direto', 
+        error instanceof Error ? error : new Error('Unknown error'));
       return null;
     }
   }
@@ -136,9 +135,8 @@ class TenantPhoneMappingService {
 
       return null;
     } catch (error) {
-      logger.error('❌ [TenantMapping] Erro ao buscar tenant por config', {
-        error: error instanceof Error ? error.message : 'Unknown error'
-      });
+      logger.error('❌ [TenantMapping] Erro ao buscar tenant por config', 
+        error instanceof Error ? error : new Error('Unknown error'));
       return null;
     }
   }
@@ -166,10 +164,10 @@ class TenantPhoneMappingService {
         tenantId
       });
     } catch (error) {
-      logger.error('❌ [TenantMapping] Erro ao criar mapeamento', {
+      logger.error('❌ [TenantMapping] Erro ao criar mapeamento', 
+        error instanceof Error ? error : new Error('Unknown error'), {
         phone: phone.substring(0, 6) + '***',
-        tenantId,
-        error: error instanceof Error ? error.message : 'Unknown error'
+        tenantId
       });
     }
   }
@@ -210,9 +208,9 @@ class TenantPhoneMappingService {
         });
       }
     } catch (error) {
-      logger.error('❌ [TenantMapping] Erro ao atualizar config WhatsApp', {
-        tenantId,
-        error: error instanceof Error ? error.message : 'Unknown error'
+      logger.error('❌ [TenantMapping] Erro ao atualizar config WhatsApp', 
+        error instanceof Error ? error : new Error('Unknown error'), {
+        tenantId
       });
     }
   }
@@ -232,9 +230,8 @@ class TenantPhoneMappingService {
         updatedAt: doc.data().updatedAt?.toDate(),
       })) as PhoneTenantMapping[];
     } catch (error) {
-      logger.error('❌ [TenantMapping] Erro ao listar mapeamentos', {
-        error: error instanceof Error ? error.message : 'Unknown error'
-      });
+      logger.error('❌ [TenantMapping] Erro ao listar mapeamentos', 
+        error instanceof Error ? error : new Error('Unknown error'));
       return [];
     }
   }

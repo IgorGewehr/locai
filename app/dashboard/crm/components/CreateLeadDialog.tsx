@@ -34,7 +34,7 @@ import {
   LocalOffer,
 } from '@mui/icons-material';
 import { LeadSource, LeadStatus } from '@/lib/types/crm';
-import { crmService } from '@/lib/services/crm-service';
+import { useTenantServices } from '@/lib/hooks/useTenantServices';
 import { useAuth } from '@/lib/hooks/useAuth';
 
 interface CreateLeadDialogProps {

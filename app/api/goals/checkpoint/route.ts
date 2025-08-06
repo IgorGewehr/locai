@@ -60,6 +60,8 @@ export async function POST(request: NextRequest) {
     // Adicionar checkpoint
     await goalService.addCheckpoint(goalId, {
       ...checkpointData,
+      value: checkpointData.value || 0,
+      automated: checkpointData.automated || false,
       notes: checkpointData.notes || ''
     })
 

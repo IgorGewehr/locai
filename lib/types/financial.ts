@@ -471,25 +471,28 @@ export const GOAL_STATUS_LABELS = {
 
 // Relatórios
 export interface FinancialReport {
-  id: string
+  id?: string
   type: ReportType
   period: DateRange
-  generatedAt: Date
-  generatedBy: string
+  generatedAt?: Date
+  generatedBy?: string
   
   // Dados do relatório
-  summary: FinancialSummary
-  metrics: FinancialMetrics
-  cashFlow: CashFlow
+  summary?: FinancialSummary
+  metrics?: FinancialMetrics
+  cashFlow?: CashFlow
+  
+  // Flexible data property for various report types
+  data?: any
   
   // Configurações
-  includeProjections: boolean
-  includeComparisons: boolean
-  groupBy: 'day' | 'week' | 'month' | 'quarter'
+  includeProjections?: boolean
+  includeComparisons?: boolean
+  groupBy?: 'day' | 'week' | 'month' | 'quarter'
   
   // Export
   exportUrl?: string
-  format: 'pdf' | 'excel' | 'csv'
+  format?: 'pdf' | 'excel' | 'csv'
 }
 
 export enum ReportType {

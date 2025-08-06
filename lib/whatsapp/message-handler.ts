@@ -172,9 +172,9 @@ export class WhatsAppMessageHandler {
       }
 
       // Find or create conversation
-      let conversation = await this.conversationService.findByPhone(phoneNumber)
+      let conversation = await this.conversationService.findByPhone(phoneNumber, this.tenantId)
       if (!conversation) {
-        conversation = await this.conversationService.createNew(phoneNumber, undefined)
+        conversation = await this.conversationService.createNew(phoneNumber, undefined, this.tenantId)
       }
 
       // Salva apenas a mensagem combinada no banco
@@ -188,7 +188,8 @@ export class WhatsAppMessageHandler {
           timestamp: new Date(parseInt(lastMessage.timestamp) * 1000),
           status: MessageStatus.RECEIVED,
           isFromAI: false
-        }
+        },
+        this.tenantId
       )
 
       // Process with AI (with timeout) - usando conteúdo combinado
@@ -224,10 +225,10 @@ export class WhatsAppMessageHandler {
         responseData.confidence = aiResponse.confidence
       }
 
-      await this.conversationService.addMessage(conversation.id, responseData)
+      await this.conversationService.addMessage(conversation.id, responseData, this.tenantId)
 
       // Update conversation context and analytics
-      await this.conversationService.updateConversationFromAI(conversation.id, aiResponse)
+      await this.conversationService.updateConversationFromAI(conversation.id, aiResponse, this.tenantId)
 
     } catch (error) {
       console.error('❌ Error in processQueuedMessages:', error)
@@ -691,7 +692,8 @@ Não perca essa oportunidade! 🚀
       await this.conversationService.updateMessageStatus(
         status.id,
         status.status,
-        new Date(parseInt(status.timestamp) * 1000)
+        new Date(parseInt(status.timestamp) * 1000),
+        this.tenantId
       )
 
       } catch (error) {
@@ -831,7 +833,8 @@ Não perca essa oportunidade! 🚀
   private async isBillingResponse(content: string, phoneNumber: string): Promise<boolean> {
     // Check if there are active billing reminders for this phone number
     try {
-      const { billingService } = await import('@/lib/services/billing-service')
+      const { createBillingService } = await import('@/lib/services/billing-service')
+      const billingService = createBillingService(this.tenantId)
       const reminders = await billingService.getActiveRemindersForPhone(phoneNumber)
       
       if (reminders.length === 0) {
@@ -891,7 +894,8 @@ Não perca essa oportunidade! 🚀
     conversation: any
   ): Promise<void> {
     try {
-      const { billingService } = await import('@/lib/services/billing-service')
+      const { createBillingService } = await import('@/lib/services/billing-service')
+      const billingService = createBillingService(this.tenantId)
       
       // Determine sentiment of the response
       let sentiment: 'positive' | 'negative' | 'neutral' = 'neutral'

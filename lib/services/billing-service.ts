@@ -9,7 +9,7 @@ import {
 } from '@/lib/types/billing';
 import { Transaction, Client } from '@/lib/types';
 import { Property } from '@/lib/types/property';
-import { transactionService } from './transaction-service';
+import { createTransactionService } from './transaction-service';
 import { clientService, propertyService } from '@/lib/firebase/firestore';
 import { 
   collection, 
@@ -43,6 +43,7 @@ class BillingService {
   private settingsService: MultiTenantFirestoreService<BillingSettings>;
   private reminderService: MultiTenantFirestoreService<BillingReminder>;
   private campaignService: MultiTenantFirestoreService<BillingCampaign>;
+  private transactionService: ReturnType<typeof createTransactionService>;
   private tenantId: string;
 
   constructor(tenantId: string) {
@@ -50,6 +51,7 @@ class BillingService {
     this.settingsService = new MultiTenantFirestoreService<BillingSettings>(tenantId, 'billing_settings');
     this.reminderService = new MultiTenantFirestoreService<BillingReminder>(tenantId, 'billing_reminders');
     this.campaignService = new MultiTenantFirestoreService<BillingCampaign>(tenantId, 'billing_campaigns');
+    this.transactionService = createTransactionService(tenantId);
   }
 
   // Obter configurações de cobrança
@@ -182,7 +184,7 @@ class BillingService {
   async sendReminder(reminder: BillingReminder): Promise<void> {
     try {
       const [transaction, client, settings] = await Promise.all([
-        transactionService.getById(reminder.transactionId),
+        this.transactionService.getById(reminder.transactionId),
         clientService.getById(reminder.clientId),
         this.getSettings(reminder.tenantId)
       ]);
@@ -291,7 +293,8 @@ class BillingService {
       const settings = await this.getSettings(tenantId);
       if (!settings || !settings.enabled) continue;
 
-      // Buscar transações pendentes
+      // Buscar transações pendentes  
+      const transactionService = createTransactionService(tenantId);
       const transactions = await transactionService.getFiltered({
         status: 'pending',
         type: 'income'
@@ -454,6 +457,7 @@ class BillingService {
     if (sentiment === 'positive' && isPaymentConfirmation) {
       // Cliente confirmou pagamento - marcar transação como paga
       try {
+        const transactionService = createTransactionService(latestReminder.tenantId);
         await transactionService.confirmTransaction(latestReminder.transactionId, 'client_confirmation');
         
         // Enviar confirmação de recebimento
@@ -701,3 +705,6 @@ class BillingService {
 
 // Factory function for creating tenant-scoped billing service
 export const createBillingService = (tenantId: string) => new BillingService(tenantId);
+
+// Backward compatibility - use with default tenant
+export const billingService = new BillingService(process.env.DEFAULT_TENANT_ID || 'default');

@@ -59,9 +59,9 @@ export async function GET(request: NextRequest) {
     });
 
   } catch (error) {
-    logger.error('❌ [Admin] Erro ao listar mapeamentos', {
-      requestId,
-      error: error instanceof Error ? error.message : 'Unknown error'
+    logger.error('❌ [Admin] Erro ao listar mapeamentos', 
+      error instanceof Error ? error : new Error('Unknown error'), {
+      requestId
     });
 
     return NextResponse.json({
@@ -136,9 +136,9 @@ export async function POST(request: NextRequest) {
     });
 
   } catch (error) {
-    logger.error('❌ [Admin] Erro ao configurar WhatsApp', {
-      requestId,
-      error: error instanceof Error ? error.message : 'Unknown error'
+    logger.error('❌ [Admin] Erro ao configurar WhatsApp', 
+      error instanceof Error ? error : new Error('Unknown error'), {
+      requestId
     });
 
     return NextResponse.json({
@@ -213,9 +213,9 @@ export async function PUT(request: NextRequest) {
     });
 
   } catch (error) {
-    logger.error('❌ [Admin] Erro ao criar mapeamento', {
-      requestId,
-      error: error instanceof Error ? error.message : 'Unknown error'
+    logger.error('❌ [Admin] Erro ao criar mapeamento', 
+      error instanceof Error ? error : new Error('Unknown error'), {
+      requestId
     });
 
     return NextResponse.json({

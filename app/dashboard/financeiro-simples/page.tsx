@@ -61,8 +61,7 @@ import { ptBR } from 'date-fns/locale';
 import { Transaction, Client, Reservation } from '@/lib/types';
 import { Property } from '@/lib/types/property';
 import { BillingSettings, SimpleBillingConfig } from '@/lib/types/billing';
-import { billingService } from '@/lib/services/billing-service';
-import { useTenant } from '@/contexts/TenantContext';
+import { useTenantServices } from '@/lib/hooks/useTenantServices';
 import { useAuth } from '@/lib/hooks/useAuth';
 
 interface TransactionWithDetails extends Transaction {

@@ -4,7 +4,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { miniSiteService } from '@/lib/services/mini-site-service';
+import { TenantServiceFactory } from '@/lib/firebase/firestore-v2';
 import { z } from 'zod';
 
 const inquirySchema = z.object({
@@ -54,10 +54,11 @@ export async function GET(
       Object.entries(utmParams).filter(([_, value]) => value !== undefined)
     ) as Record<string, string>;
 
-    await miniSiteService.recordPageView(tenantId, undefined, filteredUtmParams);
+    const services = new TenantServiceFactory(tenantId);
+    await services.miniSite.recordPageView(tenantId, undefined, filteredUtmParams);
 
     // Get mini-site configuration
-    const config = await miniSiteService.getConfig(tenantId);
+    const config = await services.miniSite.getConfig(tenantId);
     if (!config) {
       return NextResponse.json(
         { error: 'Mini-site not found or inactive' },
@@ -72,7 +73,7 @@ export async function GET(
     });
 
     // Get public properties
-    const properties = await miniSiteService.getPublicProperties(tenantId);
+    const properties = await services.miniSite.getPublicProperties(tenantId);
 
     return NextResponse.json({
       success: true,
@@ -118,10 +119,11 @@ export async function POST(
       ...validatedData
     };
     
-    const inquiryId = await miniSiteService.createInquiry(inquiryData);
+    const services = new TenantServiceFactory(tenantId);
+    const inquiryId = await services.miniSite.createInquiry(inquiryData);
 
     // Generate WhatsApp booking URL
-    const config = await miniSiteService.getConfig(tenantId);
+    const config = await services.miniSite.getConfig(tenantId);
     if (!config) {
       return NextResponse.json(
         { error: 'Mini-site configuration not found' },
@@ -129,7 +131,7 @@ export async function POST(
       );
     }
 
-    const property = await miniSiteService.getPublicProperty(tenantId, validatedData.propertyId);
+    const property = await services.miniSite.getPublicProperty(tenantId, validatedData.propertyId);
     if (!property) {
       return NextResponse.json(
         { error: 'Property not found' },
@@ -137,7 +139,7 @@ export async function POST(
       );
     }
 
-    const whatsappUrl = miniSiteService.generateWhatsAppBookingUrl(
+    const whatsappUrl = services.miniSite.generateWhatsAppBookingUrl(
       config.contactInfo.whatsappNumber,
       property.name,
       validatedData.inquiryDetails.checkIn.toLocaleDateString('pt-BR'),

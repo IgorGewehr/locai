@@ -3,7 +3,8 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { validatePhoneNumber, validateMessageContent, validateTenantId } from '@/lib/utils/validation';
-import { handleApiError, ApiError } from '@/lib/utils/api-errors';
+import { handleApiError } from '@/lib/utils/api-errors';
+import { APIError } from '@/lib/utils/custom-error';
 import { getRateLimitService, RATE_LIMITS } from '@/lib/services/rate-limit-service';
 import { logger } from '@/lib/utils/logger';
 import { resolveTenantId } from '@/lib/utils/tenant-extractor';
@@ -30,7 +31,11 @@ export async function POST(request: NextRequest) {
         requestId,
         error: error instanceof Error ? error.message : 'Unknown error'
       });
-      return handleApiError(new ApiError('Invalid request body - JSON malformed', requestId, 400));
+      return handleApiError(new APIError('Invalid request body - JSON malformed', {
+        requestId,
+        statusCode: 400,
+        error: 'INVALID_JSON'
+      }));
     }
 
     const { message, clientPhone, phone, tenantId: requestTenantId, isTest, metadata } = body;

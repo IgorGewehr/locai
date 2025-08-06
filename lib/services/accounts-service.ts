@@ -790,6 +790,9 @@ export class AlertsService extends MultiTenantFirestoreService<FinancialAlert> {
 // Export service instances
 // Factory functions for creating tenant-scoped services
 export const createAccountsService = (tenantId: string) => new AccountsService(tenantId);
+
+// Backward compatibility - use with default tenant
+export const accountsService = new AccountsService(process.env.DEFAULT_TENANT_ID || 'default');
 export const createBankService = (tenantId: string) => new BankService(tenantId);
 export const createCostCenterService = (tenantId: string) => new CostCenterService(tenantId);
 export const createCommissionService = (tenantId: string) => new CommissionService(tenantId);

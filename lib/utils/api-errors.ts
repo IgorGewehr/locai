@@ -2,27 +2,37 @@
 import { NextResponse } from 'next/server'
 import { FirebaseError } from 'firebase/app'
 import { ValidationError } from './errors'
+import { APIError } from './custom-error'
 
-// Classe para erros com dados adicionais
-export class ApiError extends Error {
-  requestId?: string;
-  statusCode?: number;
-  
-  constructor(message: string, requestId?: string, statusCode?: number) {
-    super(message);
-    this.name = 'ApiError';
-    this.requestId = requestId;
-    this.statusCode = statusCode;
-  }
-}
+// Re-export the consolidated APIError class for backward compatibility
+export { APIError as ApiError } from './custom-error'
 
 export function handleApiError(error: unknown): NextResponse {
+  // APIError with custom properties
+  if (error instanceof APIError) {
+    return NextResponse.json(
+      { 
+        error: error.message,
+        code: error.error || 'API_ERROR',
+        requestId: error.requestId,
+        uid: error.uid,
+        phone: error.phone ? error.phone.substring(0, 6) + '***' : undefined
+      },
+      { 
+        status: error.statusCode || 500,
+        headers: {
+          ...(error.requestId && { 'X-Request-ID': error.requestId })
+        }
+      }
+    )
+  }
+
   // Validation errors
   if (error instanceof ValidationError) {
     return NextResponse.json(
       { 
         error: error.message,
-        field: error.field,
+        field: error.context?.field,
         code: 'VALIDATION_ERROR'
       },
       { status: 400 }

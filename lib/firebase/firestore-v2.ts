@@ -23,13 +23,6 @@ import {
 import { db } from './config';
 import { queryOptimizer, QueryFilter } from '@/lib/utils/query-optimizer';
 import { logger } from '@/lib/utils/logger';
-import { createTransactionService } from '@/lib/services/transaction-service';
-import { createAccountsService, createBankService, createCostCenterService, createCommissionService, createAlertsService } from '@/lib/services/accounts-service';
-import { createCRMService } from '@/lib/services/crm-service';
-import { createBillingService } from '@/lib/services/billing-service';
-import { createSettingsService } from '@/lib/services/settings-service';
-import { createMiniSiteService } from '@/lib/services/mini-site-service';
-import { createAuditLogger } from '@/lib/services/audit-logger';
 
 /**
  * Multi-tenant Firestore Service
@@ -384,102 +377,113 @@ export class TenantServiceFactory {
     return new MultiTenantFirestoreService<T>(this.tenantId, collectionName);
   }
 
-  // Convenience methods for common collections
+  // Convenience methods for common collections with proper types
   get properties() {
-    return this.createService('properties');
+    return this.createService<import('@/lib/types/property').Property>('properties');
   }
 
   get clients() {
-    return this.createService('clients');
+    return this.createService<import('@/lib/types/client').Client>('clients');
   }
 
   get reservations() {
-    return this.createService('reservations');
+    return this.createService<import('@/lib/types/reservation').Reservation>('reservations');
   }
 
   get conversations() {
-    return this.createService('conversations');
+    return this.createService<import('@/lib/types/conversation').Conversation>('conversations');
   }
 
   get messages() {
-    return this.createService('messages');
+    return this.createService<import('@/lib/types/conversation').Message>('messages');
   }
 
   get transactions() {
+    const { createTransactionService } = require('@/lib/services/transaction-service');
     return createTransactionService(this.tenantId);
   }
 
   // Specialized Services
   get accounts() {
+    const { createAccountsService } = require('@/lib/services/accounts-service');
     return createAccountsService(this.tenantId);
   }
 
   get banks() {
+    const { createBankService } = require('@/lib/services/accounts-service');
     return createBankService(this.tenantId);
   }
 
   get costCenters() {
+    const { createCostCenterService } = require('@/lib/services/accounts-service');
     return createCostCenterService(this.tenantId);
   }
 
   get commissions() {
+    const { createCommissionService } = require('@/lib/services/accounts-service');
     return createCommissionService(this.tenantId);
   }
 
   get alerts() {
+    const { createAlertsService } = require('@/lib/services/accounts-service');
     return createAlertsService(this.tenantId);
   }
 
   get crm() {
+    const { createCRMService } = require('@/lib/services/crm-service');
     return createCRMService(this.tenantId);
   }
 
   get billing() {
+    const { createBillingService } = require('@/lib/services/billing-service');
     return createBillingService(this.tenantId);
   }
 
   get settings() {
+    const { createSettingsService } = require('@/lib/services/settings-service');
     return createSettingsService(this.tenantId);
   }
 
   get miniSite() {
+    const { createMiniSiteService } = require('@/lib/services/mini-site-service');
     return createMiniSiteService(this.tenantId);
   }
 
   get auditLogger() {
+    const { createAuditLogger } = require('@/lib/services/audit-logger');
     return createAuditLogger(this.tenantId);
   }
 
   get payments() {
-    return this.createService('payments');
+    return this.createService<import('@/lib/types/financial').Payment>('payments');
   }
 
   get goals() {
-    return this.createService('goals');
+    return this.createService<import('@/lib/types/financial').FinancialGoal>('goals');
   }
 
   get leads() {
-    return this.createService('leads');
+    return this.createService<import('@/lib/types/crm').Lead>('leads');
   }
 
   get tasks() {
-    return this.createService('tasks');
+    return this.createService<import('@/lib/types/crm').Task>('tasks');
   }
 
   get automations() {
-    return this.createService('automations');
+    return this.createService<import('@/lib/types/automation').AutomationWorkflow>('automations');
   }
 
   get analytics() {
-    return this.createService('analytics');
+    return this.createService<any>('analytics');
   }
 
   get visits() {
-    return this.createService('visits');
+    return this.createService<import('@/lib/types/visit-appointment').VisitAppointment>('visits');
   }
 
   get visitSchedules() {
-    return this.createService('visitSchedules');
+    return this.createService<import('@/lib/types/visit-appointment').TenantVisitSchedule>('visitSchedules');
   }
 
   // Batch operations

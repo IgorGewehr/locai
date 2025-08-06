@@ -81,9 +81,10 @@ export interface ProductionCheckResult {
 export function runProductionChecks(): ProductionCheckResult {
   const results = PRODUCTION_CHECKS.map(check => {
     const passed = check.check();
+    const status: 'pass' | 'fail' | 'warn' = passed ? 'pass' : (check.required ? 'fail' : 'warn');
     return {
       name: check.name,
-      status: passed ? 'pass' : (check.required ? 'fail' : 'warn'),
+      status,
       message: check.message,
       required: check.required
     };

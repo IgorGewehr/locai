@@ -21,7 +21,6 @@ import { Boom } from '@hapi/boom';
 import pino from 'pino';
 import * as fs from 'fs';
 import * as path from 'path';
-import { settingsService } from '@/lib/services/settings-service';
 import { db } from '@/lib/firebase/config';
 import { doc, updateDoc, setDoc, getDoc, onSnapshot, collection } from 'firebase/firestore';
 import { EventEmitter } from 'events';

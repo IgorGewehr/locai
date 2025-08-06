@@ -4,6 +4,7 @@
 import { NextRequest } from 'next/server';
 import { authService } from '@/lib/auth/auth-service';
 import { logger } from '@/lib/utils/logger';
+import { TenantError, APIError } from '@/lib/utils/custom-error';
 
 export interface TenantContext {
   tenantId: string;
@@ -71,9 +72,8 @@ export async function extractTenantFromAuth(request: NextRequest): Promise<Tenan
     return null;
 
   } catch (error) {
-    logger.error('❌ [TenantExtractor] Erro ao extrair tenantId', {
-      error: error instanceof Error ? error.message : 'Unknown error'
-    });
+    logger.error('❌ [TenantExtractor] Erro ao extrair tenantId', 
+      error instanceof Error ? error : new Error('Unknown error'));
     return null;
   }
 }
@@ -103,9 +103,8 @@ export function extractTenantFromBody(body: any): string | null {
     return null;
 
   } catch (error) {
-    logger.error('❌ [TenantExtractor] Erro ao extrair tenantId do body', {
-      error: error instanceof Error ? error.message : 'Unknown error'
-    });
+    logger.error('❌ [TenantExtractor] Erro ao extrair tenantId do body', 
+      error instanceof Error ? error : new Error('Unknown error'));
     return null;
   }
 }
@@ -136,9 +135,8 @@ export async function resolveTenantId(request: NextRequest, body?: any): Promise
     return null;
 
   } catch (error) {
-    logger.error('❌ [TenantExtractor] Erro ao resolver tenantId', {
-      error: error instanceof Error ? error.message : 'Unknown error'
-    });
+    logger.error('❌ [TenantExtractor] Erro ao resolver tenantId', 
+      error instanceof Error ? error : new Error('Unknown error'));
     return null;
   }
 }
@@ -175,9 +173,8 @@ export async function requireAuthAndTenant(request: NextRequest): Promise<
     return { tenantContext, authResult };
 
   } catch (error) {
-    logger.error('❌ [TenantExtractor] Erro na autenticação/tenant', {
-      error: error instanceof Error ? error.message : 'Unknown error'
-    });
+    logger.error('❌ [TenantExtractor] Erro na autenticação/tenant', 
+      error instanceof Error ? error : new Error('Unknown error'));
 
     return { 
       error: {
@@ -210,15 +207,15 @@ export async function resolveTenantFromPhone(phone: string): Promise<string | nu
       return tenantId;
     }
 
-    logger.error('❌ [TenantExtractor] Não foi possível resolver tenant por telefone', {
+    logger.error('❌ [TenantExtractor] Não foi possível resolver tenant por telefone', undefined, {
       phone: phone.substring(0, 6) + '***'
     });
     return null;
 
   } catch (error) {
-    logger.error('❌ [TenantExtractor] Erro ao resolver tenant por telefone', {
-      phone: phone.substring(0, 6) + '***',
-      error: error instanceof Error ? error.message : 'Unknown error'
+    logger.error('❌ [TenantExtractor] Erro ao resolver tenant por telefone', 
+      error instanceof Error ? error : new Error('Unknown error'), {
+      phone: phone.substring(0, 6) + '***'
     });
     return null;
   }
