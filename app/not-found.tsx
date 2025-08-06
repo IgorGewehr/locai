@@ -1,34 +1,50 @@
-import { Metadata } from 'next';
+'use client';
 
-export const metadata: Metadata = {
-  title: '404 - Página não encontrada',
-};
+import Link from 'next/link';
 
 export default function NotFound() {
   return (
-    <html lang="pt-BR">
-      <body style={{ margin: 0, fontFamily: 'system-ui, -apple-system, sans-serif' }}>
-        <div style={{ 
-          display: 'flex', 
-          flexDirection: 'column', 
-          alignItems: 'center', 
-          justifyContent: 'center', 
-          minHeight: '100vh'
-        }}>
-          <h1 style={{ fontSize: '4rem', margin: '0 0 1rem 0' }}>404</h1>
-          <h2 style={{ fontSize: '1.5rem', margin: '0 0 1rem 0' }}>Página não encontrada</h2>
-          <p style={{ margin: '0 0 2rem 0' }}>A página que você está procurando não existe.</p>
-          <a href="/dashboard" style={{ 
-            padding: '0.75rem 1.5rem', 
-            backgroundColor: '#1976d2', 
-            color: 'white', 
-            textDecoration: 'none',
-            borderRadius: '4px'
-          }}>
-            Ir para Dashboard
-          </a>
-        </div>
-      </body>
-    </html>
+    <div style={{ 
+      display: 'flex', 
+      flexDirection: 'column', 
+      alignItems: 'center', 
+      justifyContent: 'center', 
+      minHeight: '100vh',
+      fontFamily: 'system-ui, -apple-system, sans-serif',
+      backgroundColor: '#f9f9f9',
+      padding: '2rem'
+    }}>
+      <h1 style={{ 
+        fontSize: '4rem', 
+        margin: '0 0 1rem 0',
+        color: '#333'
+      }}>
+        404
+      </h1>
+      <h2 style={{ 
+        fontSize: '1.5rem', 
+        margin: '0 0 1rem 0',
+        color: '#666'
+      }}>
+        Página não encontrada
+      </h2>
+      <p style={{ 
+        margin: '0 0 2rem 0',
+        textAlign: 'center',
+        color: '#888'
+      }}>
+        A página que você está procurando não existe.
+      </p>
+      <Link href="/dashboard" style={{ 
+        padding: '0.75rem 1.5rem', 
+        backgroundColor: '#1976d2', 
+        color: 'white', 
+        textDecoration: 'none',
+        borderRadius: '4px',
+        transition: 'background-color 0.2s'
+      }}>
+        Ir para Dashboard
+      </Link>
+    </div>
   );
 }

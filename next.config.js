@@ -16,8 +16,11 @@ const nextConfig = {
   trailingSlash: false,
   skipTrailingSlashRedirect: true,
   
-  // Completely disable static optimization
+  // Disable static optimization completely
   output: 'standalone',
+  
+  // Prevent pages/_document generation
+  distDir: '.next',
   
   typescript: {
     // !! CUIDADO !!
@@ -119,6 +122,29 @@ const nextConfig = {
         tls: false,
       };
     }
+    
+    // Block next/document completely in App Router
+    config.resolve.alias = {
+      ...config.resolve.alias,
+      'next/document': false,
+    };
+    
+    // Add plugin to prevent Html Context usage
+    config.plugins = config.plugins || [];
+    config.plugins.push({
+      apply: (compiler) => {
+        compiler.hooks.normalModuleFactory.tap('BlockDocumentPlugin', (factory) => {
+          factory.hooks.beforeResolve.tapAsync('BlockDocumentPlugin', (data, callback) => {
+            if (data.request === 'next/document' || 
+                data.request.includes('html-context') ||
+                data.request.includes('_document')) {
+              return callback(null, false); // Block the resolution
+            }
+            callback();
+          });
+        });
+      }
+    });
     
     return config;
   },

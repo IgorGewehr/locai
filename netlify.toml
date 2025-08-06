@@ -25,6 +25,13 @@
   # Build-specific flags to prevent runtime issues
   RUNTIME_ENV = "build"
   SKIP_FIRESTORE_BUILD = "true"
+  
+  # Force App Router mode
+  NEXT_PRIVATE_STANDALONE = "true"
+  NEXT_PRIVATE_APP_ROUTER = "true"
+  
+  # Prevent Next.js from generating pages/_document
+  NEXT_PRIVATE_PAGES_DIR = ""
 
 # Headers configuration
 [[headers]]
