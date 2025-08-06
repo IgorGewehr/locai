@@ -88,8 +88,11 @@ class Logger {
       console.log(coloredMessage);
     }
 
-    // Production logging
-    if (this.config.enableFirestore && process.env.NODE_ENV === 'production') {
+    // Production logging - but not during build
+    if (this.config.enableFirestore && 
+        process.env.NODE_ENV === 'production' && 
+        process.env.RUNTIME_ENV !== 'build' &&
+        !process.env.SKIP_FIRESTORE_BUILD) {
       await this.writeToFirestore(entry);
     }
 
@@ -140,8 +143,18 @@ class Logger {
 
   private async writeToFirestore(entry: LogEntry) {
     try {
+      // Skip Firestore logging during build time
+      if (typeof window === 'undefined' && !process.env.RUNTIME_ENV) {
+        return;
+      }
+
       // Only log important events to Firestore to avoid costs
       if (entry.level < LogLevel.INFO) return;
+
+      // Skip if no Firebase config available
+      if (!process.env.NEXT_PUBLIC_FIREBASE_API_KEY) {
+        return;
+      }
 
       const { initializeApp, getApps } = await import('firebase/app');
       const { getFirestore, collection, addDoc } = await import('firebase/firestore');
@@ -153,26 +166,33 @@ class Logger {
 
       const db = getFirestore(app);
       
-      await addDoc(collection(db, 'system_logs'), {
+      // Filter out undefined values
+      const logData = {
         level: LogLevel[entry.level],
         message: entry.message,
         timestamp: entry.timestamp,
         context: entry.context || {},
         tenantId: entry.tenantId || 'default',
-        userId: entry.userId,
-        requestId: entry.requestId,
-        component: entry.component,
-        operation: entry.operation,
-        duration: entry.duration,
-        error: entry.error ? {
-          message: entry.error.message,
-          stack: entry.error.stack,
-          name: entry.error.name
-        } : undefined
-      });
+        ...(entry.userId && { userId: entry.userId }),
+        ...(entry.requestId && { requestId: entry.requestId }),
+        ...(entry.component && { component: entry.component }),
+        ...(entry.operation && { operation: entry.operation }),
+        ...(entry.duration && { duration: entry.duration }),
+        ...(entry.error && {
+          error: {
+            message: entry.error.message,
+            stack: entry.error.stack,
+            name: entry.error.name
+          }
+        })
+      };
+      
+      await addDoc(collection(db, 'system_logs'), logData);
     } catch (error) {
-      // Fallback to console if Firestore fails
-      console.error('Failed to write to Firestore:', error);
+      // Fallback to console if Firestore fails - but don't log during build
+      if (typeof window !== 'undefined' || process.env.RUNTIME_ENV) {
+        console.error('Failed to write to Firestore:', error);
+      }
     }
   }
 

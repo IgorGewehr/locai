@@ -21,6 +21,10 @@
   # NPM cache optimization
   NPM_CONFIG_CACHE = "/opt/build/cache/npm"
   CYPRESS_CACHE_FOLDER = "/opt/build/cache/cypress"
+  
+  # Build-specific flags to prevent runtime issues
+  RUNTIME_ENV = "build"
+  SKIP_FIRESTORE_BUILD = "true"
 
 # Headers configuration
 [[headers]]
