@@ -622,9 +622,15 @@ export class SofiaAgent {
           // CRM AUTO-UPDATE: Cliente criou reserva
           this.updateLeadStatusAuto(clientPhone, tenantId, 'proposal_sent', 'Reserva criada - aguardando pagamento');
           
-          // Registrar conversão para métricas
-          const { AgentMonitor } = await import('@/lib/monitoring/agent-monitor');
-          AgentMonitor.recordReservationConversion(tenantId, result.reservation.totalAmount);
+          // Registrar conversão para métricas em background
+          setImmediate(async () => {
+            try {
+              const { AgentMonitor } = await import('@/lib/monitoring/agent-monitor');
+              AgentMonitor.recordReservationConversion(tenantId, result.reservation.totalAmount);
+            } catch (error) {
+              // Fail silently para não afetar o fluxo principal
+            }
+          });
         }
         break;
       
@@ -646,9 +652,15 @@ export class SofiaAgent {
           // CRM AUTO-UPDATE: Cliente fechou negócio
           this.updateLeadStatusAuto(clientPhone, tenantId, 'won', 'Pagamento processado - lead convertido');
           
-          // Registrar conversão de pagamento para métricas
-          const { AgentMonitor } = await import('@/lib/monitoring/agent-monitor');
-          AgentMonitor.recordPaymentConversion(tenantId);
+          // Registrar conversão de pagamento para métricas em background
+          setImmediate(async () => {
+            try {
+              const { AgentMonitor } = await import('@/lib/monitoring/agent-monitor');
+              AgentMonitor.recordPaymentConversion(tenantId);
+            } catch (error) {
+              // Fail silently para não afetar o fluxo principal
+            }
+          });
         }
         break;
     }

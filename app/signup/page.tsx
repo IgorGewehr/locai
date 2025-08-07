@@ -108,12 +108,38 @@ export default function SignupPage() {
     }
   };
 
+  const darkFieldStyles = {
+    '& .MuiOutlinedInput-root': {
+      borderRadius: 2,
+      backgroundColor: '#1a1a1a',
+      '& fieldset': {
+        borderColor: '#404040',
+      },
+      '&:hover fieldset': {
+        borderColor: '#525252',
+      },
+      '&.Mui-focused fieldset': {
+        borderColor: '#3b82f6',
+        borderWidth: 2,
+      },
+    },
+    '& .MuiInputLabel-root': {
+      color: '#a1a1a1',
+      '&.Mui-focused': {
+        color: '#3b82f6',
+      },
+    },
+    '& .MuiOutlinedInput-input': {
+      color: '#ffffff',
+    },
+  };
+
   if (success) {
     return (
       <Box
         sx={{
           minHeight: '100vh',
-          background: '#ffffff',
+          background: '#0a0a0a',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
@@ -126,10 +152,10 @@ export default function SignupPage() {
             <Box
               sx={{
                 textAlign: 'center',
-                background: '#ffffff',
+                background: '#111111',
                 borderRadius: 3,
-                boxShadow: '0 1px 3px rgba(0, 0, 0, 0.12), 0 1px 2px rgba(0, 0, 0, 0.24)',
-                border: '1px solid #e5e7eb',
+                boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3), 0 4px 16px rgba(0, 0, 0, 0.2)',
+                border: '1px solid #333333',
                 overflow: 'hidden',
                 maxWidth: 420,
                 mx: 'auto',
@@ -150,7 +176,7 @@ export default function SignupPage() {
                     borderRadius: 2,
                     overflow: 'hidden',
                     position: 'relative',
-                    border: '1px solid #e5e7eb',
+                    border: '1px solid #333333',
                   }}
                 >
                   <Image
@@ -180,7 +206,7 @@ export default function SignupPage() {
               <Typography 
                 variant="body1" 
                 sx={{
-                  color: '#6b7280',
+                  color: '#a1a1a1',
                   mb: 4,
                 }}
               >
@@ -199,7 +225,7 @@ export default function SignupPage() {
     <Box
       sx={{
         minHeight: '100vh',
-        background: '#ffffff',
+        background: '#0a0a0a',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
@@ -217,8 +243,8 @@ export default function SignupPage() {
           bottom: 0,
           opacity: 0.4,
           backgroundImage: `
-            radial-gradient(circle at 25% 25%, #f3f4f6 0%, transparent 50%),
-            radial-gradient(circle at 75% 75%, #f9fafb 0%, transparent 50%)
+            radial-gradient(circle at 25% 25%, #1a1a1a 0%, transparent 50%),
+            radial-gradient(circle at 75% 75%, #262626 0%, transparent 50%)
           `,
           zIndex: 0,
         }}
@@ -229,10 +255,10 @@ export default function SignupPage() {
           <Box
             sx={{
               textAlign: 'center',
-              background: '#ffffff',
+              background: '#111111',
               borderRadius: 3,
-              boxShadow: '0 1px 3px rgba(0, 0, 0, 0.12), 0 1px 2px rgba(0, 0, 0, 0.24)',
-              border: '1px solid #e5e7eb',
+              boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3), 0 4px 16px rgba(0, 0, 0, 0.2)',
+              border: '1px solid #333333',
               overflow: 'hidden',
               maxWidth: 420,
               mx: 'auto',
@@ -254,7 +280,7 @@ export default function SignupPage() {
                     borderRadius: 2,
                     overflow: 'hidden',
                     position: 'relative',
-                    border: '1px solid #e5e7eb',
+                    border: '1px solid #333333',
                   }}
                 >
                   <Image
@@ -273,7 +299,7 @@ export default function SignupPage() {
                 variant="h4" 
                 sx={{
                   fontWeight: 700,
-                  color: '#111827',
+                  color: '#ffffff',
                   mb: 1,
                   fontSize: { xs: '1.5rem', sm: '1.75rem' },
                 }}
@@ -284,7 +310,7 @@ export default function SignupPage() {
               <Typography 
                 variant="body1" 
                 sx={{
-                  color: '#6b7280',
+                  color: '#a1a1a1',
                   fontWeight: 400,
                   fontSize: '0.95rem',
                 }}
@@ -308,28 +334,7 @@ export default function SignupPage() {
                         variant="outlined"
                         error={!!form.formState.errors.name}
                         helperText={form.formState.errors.name?.message}
-                        sx={{
-                          '& .MuiOutlinedInput-root': {
-                            borderRadius: 2,
-                            backgroundColor: '#f9fafb',
-                            '& fieldset': {
-                              borderColor: '#d1d5db',
-                            },
-                            '&:hover fieldset': {
-                              borderColor: '#9ca3af',
-                            },
-                            '&.Mui-focused fieldset': {
-                              borderColor: '#2563eb',
-                              borderWidth: 2,
-                            },
-                          },
-                          '& .MuiInputLabel-root': {
-                            color: '#6b7280',
-                            '&.Mui-focused': {
-                              color: '#2563eb',
-                            },
-                          },
-                        }}
+                        sx={darkFieldStyles}
                       />
                     )}
                   />
@@ -346,28 +351,7 @@ export default function SignupPage() {
                         variant="outlined"
                         error={!!form.formState.errors.email}
                         helperText={form.formState.errors.email?.message}
-                        sx={{
-                          '& .MuiOutlinedInput-root': {
-                            borderRadius: 2,
-                            backgroundColor: '#f9fafb',
-                            '& fieldset': {
-                              borderColor: '#d1d5db',
-                            },
-                            '&:hover fieldset': {
-                              borderColor: '#9ca3af',
-                            },
-                            '&.Mui-focused fieldset': {
-                              borderColor: '#2563eb',
-                              borderWidth: 2,
-                            },
-                          },
-                          '& .MuiInputLabel-root': {
-                            color: '#6b7280',
-                            '&.Mui-focused': {
-                              color: '#2563eb',
-                            },
-                          },
-                        }}
+                        sx={darkFieldStyles}
                       />
                     )}
                   />
@@ -391,35 +375,14 @@ export default function SignupPage() {
                                 onClick={() => setShowPassword(!showPassword)}
                                 edge="end"
                                 size="small"
-                                sx={{ color: '#6b7280' }}
+                                sx={{ color: '#a1a1a1' }}
                               >
                                 {showPassword ? <VisibilityOff /> : <Visibility />}
                               </IconButton>
                             </InputAdornment>
                           ),
                         }}
-                        sx={{
-                          '& .MuiOutlinedInput-root': {
-                            borderRadius: 2,
-                            backgroundColor: '#f9fafb',
-                            '& fieldset': {
-                              borderColor: '#d1d5db',
-                            },
-                            '&:hover fieldset': {
-                              borderColor: '#9ca3af',
-                            },
-                            '&.Mui-focused fieldset': {
-                              borderColor: '#2563eb',
-                              borderWidth: 2,
-                            },
-                          },
-                          '& .MuiInputLabel-root': {
-                            color: '#6b7280',
-                            '&.Mui-focused': {
-                              color: '#2563eb',
-                            },
-                          },
-                        }}
+                        sx={darkFieldStyles}
                       />
                     )}
                   />
@@ -443,35 +406,14 @@ export default function SignupPage() {
                                 onClick={() => setShowConfirmPassword(!showConfirmPassword)}
                                 edge="end"
                                 size="small"
-                                sx={{ color: '#6b7280' }}
+                                sx={{ color: '#a1a1a1' }}
                               >
                                 {showConfirmPassword ? <VisibilityOff /> : <Visibility />}
                               </IconButton>
                             </InputAdornment>
                           ),
                         }}
-                        sx={{
-                          '& .MuiOutlinedInput-root': {
-                            borderRadius: 2,
-                            backgroundColor: '#f9fafb',
-                            '& fieldset': {
-                              borderColor: '#d1d5db',
-                            },
-                            '&:hover fieldset': {
-                              borderColor: '#9ca3af',
-                            },
-                            '&.Mui-focused fieldset': {
-                              borderColor: '#2563eb',
-                              borderWidth: 2,
-                            },
-                          },
-                          '& .MuiInputLabel-root': {
-                            color: '#6b7280',
-                            '&.Mui-focused': {
-                              color: '#2563eb',
-                            },
-                          },
-                        }}
+                        sx={darkFieldStyles}
                       />
                     )}
                   />
@@ -481,11 +423,11 @@ export default function SignupPage() {
                       severity="error" 
                       sx={{
                         borderRadius: 2,
-                        backgroundColor: '#fef2f2',
-                        border: '1px solid #fecaca',
-                        color: '#dc2626',
+                        backgroundColor: '#2d1b1b',
+                        border: '1px solid #7f1d1d',
+                        color: '#f87171',
                         '& .MuiAlert-icon': {
-                          color: '#dc2626',
+                          color: '#f87171',
                         },
                       }}
                     >
@@ -505,16 +447,16 @@ export default function SignupPage() {
                       textTransform: 'none',
                       fontWeight: 600,
                       fontSize: '1rem',
-                      backgroundColor: '#2563eb',
+                      backgroundColor: '#3b82f6',
                       color: '#ffffff',
                       boxShadow: 'none',
                       '&:hover': {
-                        backgroundColor: '#1d4ed8',
+                        backgroundColor: '#2563eb',
                         boxShadow: 'none',
                       },
                       '&:disabled': {
-                        backgroundColor: '#9ca3af',
-                        color: '#ffffff',
+                        backgroundColor: '#525252',
+                        color: '#a1a1a1',
                       },
                     }}
                   >
@@ -522,12 +464,12 @@ export default function SignupPage() {
                   </Button>
 
                   <Box sx={{ textAlign: 'center' }}>
-                    <Typography variant="body2" sx={{ color: '#6b7280', mb: 2 }}>
+                    <Typography variant="body2" sx={{ color: '#a1a1a1', mb: 2 }}>
                       Já tem uma conta?{' '}
                       <NextLink href="/login" passHref>
                         <Link
                           sx={{
-                            color: '#2563eb',
+                            color: '#3b82f6',
                             textDecoration: 'none',
                             fontWeight: 500,
                             '&:hover': {
@@ -555,7 +497,7 @@ export default function SignupPage() {
               <Typography
                 variant="caption"
                 sx={{ 
-                  color: '#9ca3af',
+                  color: '#525252',
                   display: 'block',
                   textAlign: 'center',
                   fontSize: '0.75rem',

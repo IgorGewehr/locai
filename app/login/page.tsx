@@ -175,11 +175,37 @@ export default function LoginPage() {
     }
   };
 
+  const darkFieldStyles = {
+    '& .MuiOutlinedInput-root': {
+      borderRadius: 2,
+      backgroundColor: '#1a1a1a',
+      '& fieldset': {
+        borderColor: '#404040',
+      },
+      '&:hover fieldset': {
+        borderColor: '#525252',
+      },
+      '&.Mui-focused fieldset': {
+        borderColor: '#3b82f6',
+        borderWidth: 2,
+      },
+    },
+    '& .MuiInputLabel-root': {
+      color: '#a1a1a1',
+      '&.Mui-focused': {
+        color: '#3b82f6',
+      },
+    },
+    '& .MuiOutlinedInput-input': {
+      color: '#ffffff',
+    },
+  };
+
   return (
     <Box
       sx={{
         minHeight: '100vh',
-        background: '#ffffff',
+        background: '#0a0a0a',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
@@ -197,8 +223,8 @@ export default function LoginPage() {
           bottom: 0,
           opacity: 0.4,
           backgroundImage: `
-            radial-gradient(circle at 25% 25%, #f3f4f6 0%, transparent 50%),
-            radial-gradient(circle at 75% 75%, #f9fafb 0%, transparent 50%)
+            radial-gradient(circle at 25% 25%, #1a1a1a 0%, transparent 50%),
+            radial-gradient(circle at 75% 75%, #262626 0%, transparent 50%)
           `,
           zIndex: 0,
         }}
@@ -209,10 +235,10 @@ export default function LoginPage() {
           <Box
             sx={{
               textAlign: 'center',
-              background: '#ffffff',
+              background: '#111111',
               borderRadius: 3,
-              boxShadow: '0 1px 3px rgba(0, 0, 0, 0.12), 0 1px 2px rgba(0, 0, 0, 0.24)',
-              border: '1px solid #e5e7eb',
+              boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3), 0 4px 16px rgba(0, 0, 0, 0.2)',
+              border: '1px solid #333333',
               overflow: 'hidden',
               maxWidth: 420,
               mx: 'auto',
@@ -234,7 +260,7 @@ export default function LoginPage() {
                     borderRadius: 2,
                     overflow: 'hidden',
                     position: 'relative',
-                    border: '1px solid #e5e7eb',
+                    border: '1px solid #333333',
                   }}
                 >
                   <Image
@@ -253,7 +279,7 @@ export default function LoginPage() {
                 variant="h4" 
                 sx={{
                   fontWeight: 700,
-                  color: '#111827',
+                  color: '#ffffff',
                   mb: 1,
                   fontSize: { xs: '1.5rem', sm: '1.75rem' },
                 }}
@@ -264,7 +290,7 @@ export default function LoginPage() {
               <Typography 
                 variant="body1" 
                 sx={{
-                  color: '#6b7280',
+                  color: '#a1a1a1',
                   fontWeight: 400,
                   fontSize: '0.95rem',
                 }}
@@ -274,14 +300,14 @@ export default function LoginPage() {
             </Box>
 
             {/* Tabs */}
-            <Box sx={{ borderBottom: '1px solid #f3f4f6', mb: 0 }}>
+            <Box sx={{ borderBottom: '1px solid #333333', mb: 0 }}>
               <Tabs
                 value={activeTab}
                 onChange={(_, newValue) => setActiveTab(newValue)}
                 centered
                 sx={{
                   '& .MuiTabs-indicator': {
-                    backgroundColor: '#2563eb',
+                    backgroundColor: '#3b82f6',
                     height: 2,
                   },
                   '& .MuiTab-root': {
@@ -289,9 +315,9 @@ export default function LoginPage() {
                     fontWeight: 500,
                     fontSize: '0.95rem',
                     minHeight: 48,
-                    color: '#6b7280',
+                    color: '#a1a1a1',
                     '&.Mui-selected': {
-                      color: '#2563eb',
+                      color: '#3b82f6',
                     },
                   },
                 }}
@@ -322,28 +348,7 @@ export default function LoginPage() {
                                 variant="outlined"
                                 error={!!loginForm.formState.errors.email}
                                 helperText={loginForm.formState.errors.email?.message}
-                                sx={{
-                                  '& .MuiOutlinedInput-root': {
-                                    borderRadius: 2,
-                                    backgroundColor: '#f9fafb',
-                                    '& fieldset': {
-                                      borderColor: '#d1d5db',
-                                    },
-                                    '&:hover fieldset': {
-                                      borderColor: '#9ca3af',
-                                    },
-                                    '&.Mui-focused fieldset': {
-                                      borderColor: '#2563eb',
-                                      borderWidth: 2,
-                                    },
-                                  },
-                                  '& .MuiInputLabel-root': {
-                                    color: '#6b7280',
-                                    '&.Mui-focused': {
-                                      color: '#2563eb',
-                                    },
-                                  },
-                                }}
+                                sx={darkFieldStyles}
                               />
                             )}
                           />
@@ -367,35 +372,14 @@ export default function LoginPage() {
                                         onClick={() => setShowPassword(!showPassword)}
                                         edge="end"
                                         size="small"
-                                        sx={{ color: '#6b7280' }}
+                                        sx={{ color: '#a1a1a1' }}
                                       >
                                         {showPassword ? <VisibilityOff /> : <Visibility />}
                                       </IconButton>
                                     </InputAdornment>
                                   ),
                                 }}
-                                sx={{
-                                  '& .MuiOutlinedInput-root': {
-                                    borderRadius: 2,
-                                    backgroundColor: '#f9fafb',
-                                    '& fieldset': {
-                                      borderColor: '#d1d5db',
-                                    },
-                                    '&:hover fieldset': {
-                                      borderColor: '#9ca3af',
-                                    },
-                                    '&.Mui-focused fieldset': {
-                                      borderColor: '#2563eb',
-                                      borderWidth: 2,
-                                    },
-                                  },
-                                  '& .MuiInputLabel-root': {
-                                    color: '#6b7280',
-                                    '&.Mui-focused': {
-                                      color: '#2563eb',
-                                    },
-                                  },
-                                }}
+                                sx={darkFieldStyles}
                               />
                             )}
                           />
@@ -407,7 +391,7 @@ export default function LoginPage() {
                               variant="body2"
                               onClick={() => setShowForgotPassword(true)}
                               sx={{ 
-                                color: '#2563eb',
+                                color: '#3b82f6',
                                 textDecoration: 'none',
                                 fontSize: '0.875rem',
                                 fontWeight: 500,
@@ -425,11 +409,11 @@ export default function LoginPage() {
                               severity="error" 
                               sx={{
                                 borderRadius: 2,
-                                backgroundColor: '#fef2f2',
-                                border: '1px solid #fecaca',
-                                color: '#dc2626',
+                                backgroundColor: '#2d1b1b',
+                                border: '1px solid #7f1d1d',
+                                color: '#f87171',
                                 '& .MuiAlert-icon': {
-                                  color: '#dc2626',
+                                  color: '#f87171',
                                 },
                               }}
                             >
@@ -449,16 +433,16 @@ export default function LoginPage() {
                               textTransform: 'none',
                               fontWeight: 600,
                               fontSize: '1rem',
-                              backgroundColor: '#2563eb',
+                              backgroundColor: '#3b82f6',
                               color: '#ffffff',
                               boxShadow: 'none',
                               '&:hover': {
-                                backgroundColor: '#1d4ed8',
+                                backgroundColor: '#2563eb',
                                 boxShadow: 'none',
                               },
                               '&:disabled': {
-                                backgroundColor: '#9ca3af',
-                                color: '#ffffff',
+                                backgroundColor: '#525252',
+                                color: '#a1a1a1',
                               },
                             }}
                           >
@@ -485,28 +469,7 @@ export default function LoginPage() {
                                 variant="outlined"
                                 error={!!registerForm.formState.errors.name}
                                 helperText={registerForm.formState.errors.name?.message}
-                                sx={{
-                                  '& .MuiOutlinedInput-root': {
-                                    borderRadius: 2,
-                                    backgroundColor: '#f9fafb',
-                                    '& fieldset': {
-                                      borderColor: '#d1d5db',
-                                    },
-                                    '&:hover fieldset': {
-                                      borderColor: '#9ca3af',
-                                    },
-                                    '&.Mui-focused fieldset': {
-                                      borderColor: '#2563eb',
-                                      borderWidth: 2,
-                                    },
-                                  },
-                                  '& .MuiInputLabel-root': {
-                                    color: '#6b7280',
-                                    '&.Mui-focused': {
-                                      color: '#2563eb',
-                                    },
-                                  },
-                                }}
+                                sx={darkFieldStyles}
                               />
                             )}
                           />
@@ -523,28 +486,7 @@ export default function LoginPage() {
                                 variant="outlined"
                                 error={!!registerForm.formState.errors.email}
                                 helperText={registerForm.formState.errors.email?.message}
-                                sx={{
-                                  '& .MuiOutlinedInput-root': {
-                                    borderRadius: 2,
-                                    backgroundColor: '#f9fafb',
-                                    '& fieldset': {
-                                      borderColor: '#d1d5db',
-                                    },
-                                    '&:hover fieldset': {
-                                      borderColor: '#9ca3af',
-                                    },
-                                    '&.Mui-focused fieldset': {
-                                      borderColor: '#2563eb',
-                                      borderWidth: 2,
-                                    },
-                                  },
-                                  '& .MuiInputLabel-root': {
-                                    color: '#6b7280',
-                                    '&.Mui-focused': {
-                                      color: '#2563eb',
-                                    },
-                                  },
-                                }}
+                                sx={darkFieldStyles}
                               />
                             )}
                           />
@@ -568,35 +510,14 @@ export default function LoginPage() {
                                         onClick={() => setShowPassword(!showPassword)}
                                         edge="end"
                                         size="small"
-                                        sx={{ color: '#6b7280' }}
+                                        sx={{ color: '#a1a1a1' }}
                                       >
                                         {showPassword ? <VisibilityOff /> : <Visibility />}
                                       </IconButton>
                                     </InputAdornment>
                                   ),
                                 }}
-                                sx={{
-                                  '& .MuiOutlinedInput-root': {
-                                    borderRadius: 2,
-                                    backgroundColor: '#f9fafb',
-                                    '& fieldset': {
-                                      borderColor: '#d1d5db',
-                                    },
-                                    '&:hover fieldset': {
-                                      borderColor: '#9ca3af',
-                                    },
-                                    '&.Mui-focused fieldset': {
-                                      borderColor: '#2563eb',
-                                      borderWidth: 2,
-                                    },
-                                  },
-                                  '& .MuiInputLabel-root': {
-                                    color: '#6b7280',
-                                    '&.Mui-focused': {
-                                      color: '#2563eb',
-                                    },
-                                  },
-                                }}
+                                sx={darkFieldStyles}
                               />
                             )}
                           />
@@ -620,35 +541,14 @@ export default function LoginPage() {
                                         onClick={() => setShowConfirmPassword(!showConfirmPassword)}
                                         edge="end"
                                         size="small"
-                                        sx={{ color: '#6b7280' }}
+                                        sx={{ color: '#a1a1a1' }}
                                       >
                                         {showConfirmPassword ? <VisibilityOff /> : <Visibility />}
                                       </IconButton>
                                     </InputAdornment>
                                   ),
                                 }}
-                                sx={{
-                                  '& .MuiOutlinedInput-root': {
-                                    borderRadius: 2,
-                                    backgroundColor: '#f9fafb',
-                                    '& fieldset': {
-                                      borderColor: '#d1d5db',
-                                    },
-                                    '&:hover fieldset': {
-                                      borderColor: '#9ca3af',
-                                    },
-                                    '&.Mui-focused fieldset': {
-                                      borderColor: '#2563eb',
-                                      borderWidth: 2,
-                                    },
-                                  },
-                                  '& .MuiInputLabel-root': {
-                                    color: '#6b7280',
-                                    '&.Mui-focused': {
-                                      color: '#2563eb',
-                                    },
-                                  },
-                                }}
+                                sx={darkFieldStyles}
                               />
                             )}
                           />
@@ -658,11 +558,11 @@ export default function LoginPage() {
                               severity="error" 
                               sx={{
                                 borderRadius: 2,
-                                backgroundColor: '#fef2f2',
-                                border: '1px solid #fecaca',
-                                color: '#dc2626',
+                                backgroundColor: '#2d1b1b',
+                                border: '1px solid #7f1d1d',
+                                color: '#f87171',
                                 '& .MuiAlert-icon': {
-                                  color: '#dc2626',
+                                  color: '#f87171',
                                 },
                               }}
                             >
@@ -682,16 +582,16 @@ export default function LoginPage() {
                               textTransform: 'none',
                               fontWeight: 600,
                               fontSize: '1rem',
-                              backgroundColor: '#2563eb',
+                              backgroundColor: '#3b82f6',
                               color: '#ffffff',
                               boxShadow: 'none',
                               '&:hover': {
-                                backgroundColor: '#1d4ed8',
+                                backgroundColor: '#2563eb',
                                 boxShadow: 'none',
                               },
                               '&:disabled': {
-                                backgroundColor: '#9ca3af',
-                                color: '#ffffff',
+                                backgroundColor: '#525252',
+                                color: '#a1a1a1',
                               },
                             }}
                           >
@@ -711,7 +611,7 @@ export default function LoginPage() {
                         variant="h6" 
                         sx={{
                           fontWeight: 600,
-                          color: '#111827',
+                          color: '#ffffff',
                           mb: 1,
                         }}
                       >
@@ -720,7 +620,7 @@ export default function LoginPage() {
                       <Typography 
                         variant="body2" 
                         sx={{
-                          color: '#6b7280',
+                          color: '#a1a1a1',
                         }}
                       >
                         Digite seu email e enviaremos um link para redefinir sua senha.
@@ -734,28 +634,7 @@ export default function LoginPage() {
                       variant="outlined"
                       value={forgotEmail}
                       onChange={(e) => setForgotEmail(e.target.value)}
-                      sx={{
-                        '& .MuiOutlinedInput-root': {
-                          borderRadius: 2,
-                          backgroundColor: '#f9fafb',
-                          '& fieldset': {
-                            borderColor: '#d1d5db',
-                          },
-                          '&:hover fieldset': {
-                            borderColor: '#9ca3af',
-                          },
-                          '&.Mui-focused fieldset': {
-                            borderColor: '#2563eb',
-                            borderWidth: 2,
-                          },
-                        },
-                        '& .MuiInputLabel-root': {
-                          color: '#6b7280',
-                          '&.Mui-focused': {
-                            color: '#2563eb',
-                          },
-                        },
-                      }}
+                      sx={darkFieldStyles}
                     />
 
                     {error && (
@@ -763,11 +642,11 @@ export default function LoginPage() {
                         severity="error" 
                         sx={{
                           borderRadius: 2,
-                          backgroundColor: '#fef2f2',
-                          border: '1px solid #fecaca',
-                          color: '#dc2626',
+                          backgroundColor: '#2d1b1b',
+                          border: '1px solid #7f1d1d',
+                          color: '#f87171',
                           '& .MuiAlert-icon': {
-                            color: '#dc2626',
+                            color: '#f87171',
                           },
                         }}
                       >
@@ -789,11 +668,11 @@ export default function LoginPage() {
                           borderRadius: 2,
                           textTransform: 'none',
                           fontWeight: 600,
-                          borderColor: '#d1d5db',
-                          color: '#6b7280',
+                          borderColor: '#404040',
+                          color: '#a1a1a1',
                           '&:hover': {
-                            borderColor: '#9ca3af',
-                            backgroundColor: '#f9fafb',
+                            borderColor: '#525252',
+                            backgroundColor: '#1a1a1a',
                           },
                         }}
                       >
@@ -811,16 +690,16 @@ export default function LoginPage() {
                           textTransform: 'none',
                           fontWeight: 600,
                           fontSize: '1rem',
-                          backgroundColor: '#2563eb',
+                          backgroundColor: '#3b82f6',
                           color: '#ffffff',
                           boxShadow: 'none',
                           '&:hover': {
-                            backgroundColor: '#1d4ed8',
+                            backgroundColor: '#2563eb',
                             boxShadow: 'none',
                           },
                           '&:disabled': {
-                            backgroundColor: '#9ca3af',
-                            color: '#ffffff',
+                            backgroundColor: '#525252',
+                            color: '#a1a1a1',
                           },
                         }}
                       >
@@ -843,7 +722,7 @@ export default function LoginPage() {
               <Typography
                 variant="caption"
                 sx={{ 
-                  color: '#9ca3af',
+                  color: '#525252',
                   display: 'block',
                   textAlign: 'center',
                   fontSize: '0.75rem',
