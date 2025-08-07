@@ -175,7 +175,8 @@ export class SofiaAgent {
         const result = await executeTenantAwareFunction(
           intentDetected.function,
           intentDetected.args,
-          input.tenantId
+          input.tenantId,
+          input.clientPhone
         );
 
         if (result.success) {
@@ -190,6 +191,17 @@ export class SofiaAgent {
           );
 
           const reply = this.generateContextualResponse([intentDetected.function], [result]);
+        } else {
+          // Tratar falha na função com fallback
+          fallbackUsed = true;
+          logger.warn('⚠️ [Sofia] Função falhou, usando fallback', {
+            function: intentDetected.function,
+            error: result.error,
+            clientPhone: this.maskPhone(input.clientPhone)
+          });
+          
+          const fallbackReply = this.generateFallbackResponse(intentDetected.function, result.error);
+          const reply = fallbackReply;
 
           // Salvar no histórico
           await this.saveMessageHistory(input, reply, 0);
@@ -284,7 +296,8 @@ export class SofiaAgent {
             const result = await executeTenantAwareFunction(
               functionName,
               functionArgs,
-              input.tenantId
+              input.tenantId,
+              input.clientPhone
             );
 
             if (result.success) {
@@ -298,6 +311,17 @@ export class SofiaAgent {
                 functionName,
                 result
               );
+            } else {
+              // Tratar falha na função
+              fallbackUsed = true;
+              logger.warn('⚠️ [Sofia] Tool call falhou', {
+                function: functionName,
+                error: result.error,
+                clientPhone: this.maskPhone(input.clientPhone)
+              });
+              
+              // Adicionar informação de fallback para resposta
+              actions.push({ type: functionName, result: { ...result, fallback: true } });
             }
 
           } catch (error: any) {
@@ -495,6 +519,19 @@ export class SofiaAgent {
         if (result.properties && result.properties.length > 0) {
           const propertyIds = result.properties.map((p: any) => p.id);
           ConversationStateManager.updateAfterSearch(clientPhone, tenantId, propertyIds);
+          
+          // CRM AUTO-UPDATE: Cliente está engaged após ver propriedades
+          this.updateLeadStatusAuto(clientPhone, tenantId, 'engaged', 'Visualizou propriedades');
+          
+          // Marcar que deve auto-calcular preços se tiver dados suficientes
+          const state = ConversationStateManager.getState(clientPhone, tenantId);
+          if (state.searchCriteria?.checkIn && state.searchCriteria?.checkOut && state.searchCriteria?.guests) {
+            // Auto-cálculo será feito no próximo processamento se necessário
+            logger.info('🔄 [Sofia] Contexto preparado para auto-cálculo de preços', {
+              clientPhone: clientPhone.substring(0, 6) + '***',
+              hasSearchCriteria: true
+            });
+          }
         }
         break;
 
@@ -560,6 +597,34 @@ export class SofiaAgent {
               scheduledTime: result.visit.scheduledTime
             }
           );
+          
+          // CRM AUTO-UPDATE: Cliente agendou visita
+          this.updateLeadStatusAuto(clientPhone, tenantId, 'visit_scheduled', 'Agendou visita');
+        }
+        break;
+      
+      case 'create_reservation':
+        if (result.reservation) {
+          ConversationStateManager.updateAfterReservation(
+            clientPhone,
+            tenantId,
+            {
+              reservationId: result.reservation.id,
+              propertyId: result.reservation.propertyId,
+              clientId: result.reservation.clientId,
+              checkIn: result.reservation.checkIn,
+              checkOut: result.reservation.checkOut,
+              totalAmount: result.reservation.totalAmount,
+              status: result.reservation.status
+            }
+          );
+          
+          // CRM AUTO-UPDATE: Cliente criou reserva
+          this.updateLeadStatusAuto(clientPhone, tenantId, 'proposal_sent', 'Reserva criada - aguardando pagamento');
+          
+          // Registrar conversão para métricas
+          const { AgentMonitor } = await import('@/lib/monitoring/agent-monitor');
+          AgentMonitor.recordReservationConversion(tenantId, result.reservation.totalAmount);
         }
         break;
       
@@ -577,9 +642,94 @@ export class SofiaAgent {
               status: 'pending'
             }
           );
+          
+          // CRM AUTO-UPDATE: Cliente fechou negócio
+          this.updateLeadStatusAuto(clientPhone, tenantId, 'won', 'Pagamento processado - lead convertido');
+          
+          // Registrar conversão de pagamento para métricas
+          const { AgentMonitor } = await import('@/lib/monitoring/agent-monitor');
+          AgentMonitor.recordPaymentConversion(tenantId);
         }
         break;
     }
+  }
+
+  /**
+   * Auto-atualizar status do lead no CRM (execução em background)
+   */
+  private updateLeadStatusAuto(
+    clientPhone: string, 
+    tenantId: string, 
+    newStatus: string, 
+    reason: string
+  ): void {
+    // Executar em background para não afetar performance da conversa
+    setImmediate(async () => {
+      try {
+        const { updateLeadStatus } = await import('@/lib/ai/tenant-aware-agent-functions');
+        
+        const result = await updateLeadStatus({
+          clientPhone: clientPhone,
+          newStatus: newStatus,
+          reason: reason,
+          notes: `Auto-update via Sofia Agent: ${reason}`
+        }, tenantId);
+
+        if (result.success) {
+          logger.info('🎯 [Sofia CRM] Lead status auto-atualizado', {
+            clientPhone: clientPhone.substring(0, 6) + '***',
+            tenantId,
+            oldStatus: result.lead?.oldStatus,
+            newStatus: newStatus,
+            reason: reason
+          });
+          
+          // Registrar métrica de update de lead
+          const { AgentMonitor } = await import('@/lib/monitoring/agent-monitor');
+          AgentMonitor.recordLeadUpdated(tenantId);
+        } else {
+          logger.warn('⚠️ [Sofia CRM] Falha no auto-update do lead', {
+            clientPhone: clientPhone.substring(0, 6) + '***',
+            tenantId,
+            newStatus,
+            error: result.error
+          });
+        }
+      } catch (error) {
+        logger.error('❌ [Sofia CRM] Erro no auto-update do lead', {
+          clientPhone: clientPhone.substring(0, 6) + '***',
+          tenantId,
+          newStatus,
+          error: error instanceof Error ? error.message : 'Unknown error'
+        });
+      }
+    });
+  }
+
+  /**
+   * Gerar resposta de fallback quando função falha
+   */
+  private generateFallbackResponse(functionName: string, error?: string): string {
+    const fallbackResponses: Record<string, string> = {
+      'search_properties': 'Ops! Tive um probleminha ao buscar propriedades. Pode me dizer novamente qual cidade você prefere? 😊',
+      'calculate_price': 'Desculpe, não consegui calcular o preço agora. Pode me confirmar as datas de check-in e check-out? 📅',
+      'create_reservation': 'Ops! Houve um problema ao criar a reserva. Vamos tentar novamente? Posso confirmar os dados? 🏠',
+      'register_client': 'Tive uma dificuldade ao registrar seus dados. Pode me confirmar seu nome completo? 👤',
+      'get_property_details': 'Não consegui acessar os detalhes desta propriedade agora. Quer ver outras opções? 🏠',
+      'send_property_media': 'Ops! Não consegui enviar as fotos agora. Posso te contar sobre as comodidades? 📸',
+      'schedule_visit': 'Tive um problema ao agendar a visita. Pode me confirmar a data e horário desejados? 📅',
+      'create_transaction': 'Houve um problema ao processar o pagamento. Vamos tentar outro método? 💳'
+    };
+
+    const fallback = fallbackResponses[functionName] || 
+      'Ops! Tive um pequeno problema técnico. Pode repetir sua solicitação? 🙏';
+    
+    logger.info('🔄 [Sofia] Fallback response gerada', {
+      functionName,
+      error: error?.substring(0, 50) + '...'
+    });
+    
+    return fallback;
   }
 
   private generateContextualResponse(
@@ -587,6 +737,12 @@ export class SofiaAgent {
     actions: any[]
   ): string {
     const mainFunction = functionsExecuted[0];
+    const mainResult = actions[0]?.result;
+    
+    // Verificar se alguma função falhou
+    if (mainResult?.fallback) {
+      return this.generateFallbackResponse(mainFunction, mainResult.error);
+    }
     
     switch (mainFunction) {
       case 'search_properties':

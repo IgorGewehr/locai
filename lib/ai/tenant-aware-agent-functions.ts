@@ -25,6 +25,7 @@ interface CalculatePriceArgs {
   checkIn: string;
   checkOut: string;
   guests?: number;
+  clientPhone?: string; // Para acessar contexto da conversa
 }
 
 interface CreateReservationArgs {
@@ -356,15 +357,29 @@ export async function calculatePrice(args: CalculatePriceArgs, tenantId: string)
     let checkOut = args.checkOut;
     let guests = args.guests;
     
-    if (!checkIn || !checkOut || !guests) {
-      // Buscar do contexto (assumindo que temos acesso ao clientPhone de alguma forma)
-      const state = ConversationStateManager.getState(args.propertyId, tenantId); // Temporário
+    if ((!checkIn || !checkOut || !guests) && args.clientPhone) {
+      // Buscar do contexto usando o clientPhone correto
+      const state = ConversationStateManager.getState(args.clientPhone, tenantId);
       if (state.searchCriteria) {
         checkIn = checkIn || state.searchCriteria.checkIn || new Date().toISOString().split('T')[0];
         checkOut = checkOut || state.searchCriteria.checkOut || new Date(Date.now() + 3 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
         guests = guests || state.searchCriteria.guests || 2;
+      } else if (state.lastPriceCalculation) {
+        // Usar dados do último cálculo de preço se disponível
+        checkIn = checkIn || state.lastPriceCalculation.checkIn;
+        checkOut = checkOut || state.lastPriceCalculation.checkOut;
+        guests = guests || 2;
       }
     }
+    
+    // Fallback para valores padrão se ainda não tem dados
+    if (!checkIn) checkIn = new Date().toISOString().split('T')[0];
+    if (!checkOut) {
+      const tomorrow = new Date();
+      tomorrow.setDate(tomorrow.getDate() + 1);
+      checkOut = tomorrow.toISOString().split('T')[0];
+    }
+    if (!guests) guests = 2;
     
     logger.info('💰 [TenantAgent] calculate_price iniciada', {
       tenantId,
@@ -4039,14 +4054,27 @@ export async function updateTask(args: UpdateTaskArgs, tenantId: string): Promis
 export async function executeTenantAwareFunction(
   functionName: string, 
   args: any, 
-  tenantId: string
+  tenantId: string,
+  contextClientPhone?: string
 ): Promise<any> {
   switch (functionName) {
     case 'search_properties':
       return await searchProperties(args, tenantId);
     case 'calculate_price':
+      // Garantir que clientPhone esteja disponível para contexto
+      if (!args.clientPhone && contextClientPhone) {
+        args.clientPhone = contextClientPhone;
+      }
       return await calculatePrice(args, tenantId);
     case 'create_reservation':
+      // Garantir que clientPhone esteja disponível
+      if (!args.clientPhone && contextClientPhone) {
+        args.clientPhone = contextClientPhone;
+        logger.info('🔄 [TenantAgent] clientPhone corrigido do contexto', {
+          tenantId,
+          contextPhone: contextClientPhone.substring(0, 6) + '***'
+        });
+      }
       return await createReservation(args, tenantId);
     case 'register_client':
       return await registerClient(args, tenantId);

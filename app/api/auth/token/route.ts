@@ -28,11 +28,12 @@ export async function POST(request: NextRequest) {
     // Gerar token JWT
     const token = await authService.generateToken(user);
 
-    logger.info('✅ [TokenAPI] Token JWT gerado com sucesso', {
-      userId: uid,
-      tenantId,
-      role: user.role
-    });
+    // Log reduzido - apenas em debug
+    if (process.env.LOG_LEVEL === 'debug') {
+      logger.info('✅ [TokenAPI] Token JWT gerado', {
+        userId: uid.substring(0, 8) + '***'
+      });
+    }
 
     // Criar resposta com o token
     const response = NextResponse.json({ token, success: true });

@@ -22,10 +22,12 @@ export interface AuthUser {
 
 export async function validateAuth(req: NextRequest): Promise<AuthContext> {
   try {
-    logger.info('🔐 [AuthMiddleware] Validando autenticação', {
-      url: req.url,
-      method: req.method
-    });
+    // Log reduzido - apenas em debug
+    if (process.env.LOG_LEVEL === 'debug') {
+      logger.info('🔐 [AuthMiddleware] Validating', {
+        method: req.method
+      });
+    }
 
     // Check if it's a WhatsApp webhook request
     const isWhatsApp = req.headers.get('x-whatsapp-signature') !== null ||
@@ -44,9 +46,11 @@ export async function validateAuth(req: NextRequest): Promise<AuthContext> {
     
     // Se conseguiu extrair tenantId, significa que há autenticação válida
     if (authContext) {
-      logger.info('✅ [AuthMiddleware] Autenticação via cookie/token válida', {
-        tenantId: authContext
-      });
+      if (process.env.LOG_LEVEL === 'debug') {
+        logger.info('✅ [AuthMiddleware] Autenticação via cookie/token válida', {
+          tenantId: authContext
+        });
+      }
       
       // Tentar obter mais detalhes do token se disponível
       const authToken = req.cookies.get('auth-token')?.value || 
@@ -85,11 +89,13 @@ export async function validateAuth(req: NextRequest): Promise<AuthContext> {
       try {
         const payload = await authService.verifyToken(token);
         if (payload) {
-          logger.info('✅ [AuthMiddleware] Token Bearer JWT válido', {
-            userId: payload.sub,
-            tenantId: payload.tenantId,
-            role: payload.role
-          });
+          if (process.env.LOG_LEVEL === 'debug') {
+            logger.info('✅ [AuthMiddleware] Token Bearer JWT válido', {
+              userId: payload.sub,
+              tenantId: payload.tenantId,
+              role: payload.role
+            });
+          }
 
           return {
             authenticated: true,

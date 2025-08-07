@@ -25,11 +25,12 @@ export async function extractTenantFromAuth(request: NextRequest): Promise<Tenan
       const payload = await authService.verifyToken(token);
       
       if (payload) {
-        logger.info('✅ [TenantExtractor] TenantId extraído do Authorization header', {
-          tenantId: payload.tenantId,
-          userId: payload.sub,
-          email: payload.email?.substring(0, 10) + '***'
-        });
+        // Log reduzido - apenas em debug
+        if (process.env.LOG_LEVEL === 'debug') {
+          logger.info('✅ [TenantExtractor] Auth header', {
+            userId: payload.sub?.substring(0, 8) + '***'
+          });
+        }
 
         return {
           tenantId: payload.tenantId,
@@ -52,11 +53,12 @@ export async function extractTenantFromAuth(request: NextRequest): Promise<Tenan
         const payload = await authService.verifyToken(token);
         
         if (payload) {
-          logger.info('✅ [TenantExtractor] TenantId extraído do cookie', {
-            tenantId: payload.tenantId,
-            userId: payload.sub,
-            email: payload.email?.substring(0, 10) + '***'
-          });
+          // Log reduzido - apenas em debug
+          if (process.env.LOG_LEVEL === 'debug') {
+            logger.info('✅ [TenantExtractor] Cookie auth', {
+              userId: payload.sub?.substring(0, 8) + '***'
+            });
+          }
 
           return {
             tenantId: payload.tenantId,
@@ -85,17 +87,21 @@ export function extractTenantFromBody(body: any): string | null {
   try {
     // 1. Tentar do campo tenantId direto
     if (body.tenantId) {
-      logger.info('✅ [TenantExtractor] TenantId extraído do body', {
-        tenantId: body.tenantId
-      });
+      if (process.env.LOG_LEVEL === 'debug') {
+        logger.info('✅ [TenantExtractor] TenantId extraído do body', {
+          tenantId: body.tenantId
+        });
+      }
       return body.tenantId;
     }
 
     // 2. Tentar extrair do metadata
     if (body.metadata?.tenantId) {
-      logger.info('✅ [TenantExtractor] TenantId extraído do metadata', {
-        tenantId: body.metadata.tenantId
-      });
+      if (process.env.LOG_LEVEL === 'debug') {
+        logger.info('✅ [TenantExtractor] TenantId extraído do metadata', {
+          tenantId: body.metadata.tenantId
+        });
+      }
       return body.metadata.tenantId;
     }
 
@@ -164,11 +170,13 @@ export async function requireAuthAndTenant(request: NextRequest): Promise<
       userRole: authResult.user.role
     };
 
-    logger.info('✅ [TenantExtractor] Autenticação e tenant validados', {
-      tenantId: tenantContext.tenantId,
-      userId: tenantContext.userId,
-      role: tenantContext.userRole
-    });
+    if (process.env.LOG_LEVEL === 'debug') {
+      logger.info('✅ [TenantExtractor] Autenticação e tenant validados', {
+        tenantId: tenantContext.tenantId,
+        userId: tenantContext.userId,
+        role: tenantContext.userRole
+      });
+    }
 
     return { tenantContext, authResult };
 

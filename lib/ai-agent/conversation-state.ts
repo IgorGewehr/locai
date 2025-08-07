@@ -243,6 +243,45 @@ class ConversationStateManager {
   }
 
   /**
+   * Atualizar estado após criação de reserva
+   */
+  static updateAfterReservation(
+    clientPhone: string,
+    tenantId: string,
+    reservationInfo: {
+      reservationId: string;
+      propertyId: string;
+      clientId: string;
+      checkIn: string;
+      checkOut: string;
+      totalAmount: number;
+      status: string;
+    }
+  ): void {
+    const state = this.getState(clientPhone, tenantId);
+    state.currentPropertyId = reservationInfo.propertyId;
+    state.conversationPhase = 'booking';
+    state.lastFunction = 'create_reservation';
+    state.updatedAt = new Date();
+    
+    // Atualizar informações do cliente se disponível
+    if (reservationInfo.clientId && !state.clientInfo?.id) {
+      if (!state.clientInfo) state.clientInfo = {};
+      state.clientInfo.id = reservationInfo.clientId;
+    }
+    
+    this.saveState(state);
+    
+    logger.info('📝 [ConversationState] Reserva criada registrada', {
+      clientPhone: clientPhone.substring(0, 6) + '***',
+      propertyId: reservationInfo.propertyId.substring(0, 10) + '...',
+      reservationId: reservationInfo.reservationId.substring(0, 10) + '...',
+      totalAmount: reservationInfo.totalAmount,
+      status: reservationInfo.status
+    });
+  }
+
+  /**
    * Resolver ID da propriedade baseado no contexto
    */
   static resolvePropertyId(

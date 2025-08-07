@@ -21,10 +21,12 @@ export async function getAuthFromCookie(request: NextRequest): Promise<AuthInfo 
     try {
       const payload = await authService.verifyToken(authToken);
       if (payload) {
-        logger.info('✅ JWT token verified from cookie', {
-          userId: payload.sub,
-          tenantId: payload.tenantId
-        });
+        // Log reduzido - apenas em debug
+        if (process.env.LOG_LEVEL === 'debug') {
+          logger.info('✅ JWT verified', {
+            userId: payload.sub?.substring(0, 8) + '***'
+          });
+        }
         
         return {
           userId: payload.sub,

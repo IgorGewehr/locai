@@ -4,6 +4,7 @@
 import { createLead, updateLead } from '@/lib/ai/tenant-aware-agent-functions';
 import { logger } from '@/lib/utils/logger';
 import { TenantServiceFactory } from '@/lib/firebase/firestore-v2';
+import { AgentMonitor } from '@/lib/monitoring/agent-monitor';
 
 /**
  * Interface para mensagem WhatsApp recebida
@@ -84,6 +85,9 @@ export async function processWhatsAppLeadMiddleware(
         }
       }, tenantId);
 
+      // Registrar métricas CRM
+      AgentMonitor.recordLeadUpdated(tenantId);
+
       // Registrar nova interação
       await registerInteraction(leadId, message, tenantId);
       
@@ -111,6 +115,9 @@ export async function processWhatsAppLeadMiddleware(
       if (createLeadResult.success) {
         leadId = createLeadResult.leadId;
         leadData = createLeadResult.lead;
+        
+        // Registrar métricas CRM
+        AgentMonitor.recordLeadCreated(tenantId);
         
         logger.info('✅ [LeadMiddleware] Lead criado automaticamente com sucesso', {
           tenantId,

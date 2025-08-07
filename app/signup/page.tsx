@@ -5,219 +5,568 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
 import {
   Box,
-  Button,
-  Container,
-  Divider,
-  Paper,
   TextField,
+  Button,
   Typography,
-  Link,
   Alert,
+  CircularProgress,
+  Container,
   InputAdornment,
   IconButton,
+  Link,
+  Stack,
+  Fade,
+  useMediaQuery,
+  useTheme,
 } from '@mui/material';
-import { useForm } from 'react-hook-form';
+import {
+  Visibility,
+  VisibilityOff,
+  ArrowForward,
+  ArrowBack,
+} from '@mui/icons-material';
+import { useForm, Controller } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
 import * as yup from 'yup';
+import Image from 'next/image';
 import NextLink from 'next/link';
-import { Visibility, VisibilityOff, Person, Email, Lock } from '@mui/icons-material';
 
-const schema = yup.object({
-  name: yup.string().required('Nome é obrigatório').min(2, 'Nome deve ter pelo menos 2 caracteres'),
-  email: yup.string().required('Email é obrigatório').email('Email inválido'),
-  password: yup.string().required('Senha é obrigatória').min(6, 'Senha deve ter pelo menos 6 caracteres'),
-  confirmPassword: yup.string()
-    .required('Confirmação de senha é obrigatória')
-    .oneOf([yup.ref('password')], 'Senhas não coincidem'),
+const registerSchema = yup.object().shape({
+  name: yup.string().required('Nome é obrigatório'),
+  email: yup
+    .string()
+    .email('Email inválido')
+    .required('Email é obrigatório'),
+  password: yup
+    .string()
+    .min(6, 'Senha deve ter pelo menos 6 caracteres')
+    .required('Senha é obrigatória'),
+  confirmPassword: yup
+    .string()
+    .oneOf([yup.ref('password')], 'As senhas devem ser iguais')
+    .required('Confirmação de senha é obrigatória'),
 });
 
-type FormData = yup.InferType<typeof schema>;
+interface RegisterFormData {
+  name: string;
+  email: string;
+  password: string;
+  confirmPassword: string;
+}
 
-export default function SignUpPage() {
+export default function SignupPage() {
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-  const { signUp } = useAuth();
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState(false);
+  
   const router = useRouter();
+  const { signUp } = useAuth();
 
-  const {
-    register,
-    handleSubmit,
-    formState: { errors },
-  } = useForm<FormData>({
-    resolver: yupResolver(schema),
+  const form = useForm<RegisterFormData>({
+    resolver: yupResolver(registerSchema),
+    defaultValues: {
+      name: '',
+      email: '',
+      password: '',
+      confirmPassword: '',
+    },
   });
 
-  const onSubmit = async (data: FormData) => {
-    setLoading(true);
-    setError('');
-
+  const handleRegister = async (data: RegisterFormData) => {
     try {
+      setIsLoading(true);
+      setError(null);
+      
       await signUp(data.email, data.password, data.name);
+      setSuccess(true);
+      // Redirect to login after 2 seconds
+      setTimeout(() => {
+        router.push('/login');
+      }, 2000);
     } catch (err: any) {
-      setError(
-        err.code === 'auth/email-already-in-use'
-          ? 'Este email já está em uso'
-          : err.code === 'auth/weak-password'
-          ? 'Senha muito fraca'
-          : err.code === 'auth/invalid-email'
-          ? 'Email inválido'
-          : 'Erro ao criar conta. Tente novamente.'
-      );
+      let errorMessage = 'Erro ao criar conta';
+      
+      if (err.code === 'auth/network-request-failed') {
+        errorMessage = 'Erro de conexão. Verifique sua internet.';
+      } else if (err.code === 'auth/email-already-in-use') {
+        errorMessage = 'Este email já está em uso.';
+      } else if (err.code === 'auth/weak-password') {
+        errorMessage = 'A senha é muito fraca.';
+      } else if (err.code === 'auth/invalid-email') {
+        errorMessage = 'Email inválido.';
+      } else if (err.message) {
+        errorMessage = err.message;
+      }
+      
+      setError(errorMessage);
     } finally {
-      setLoading(false);
+      setIsLoading(false);
     }
   };
 
-  return (
-    <Container
-      maxWidth="sm"
-      sx={{
-        minHeight: '100vh',
-        display: 'flex',
-        alignItems: 'center',
-        py: 4,
-      }}
-    >
-      <Paper
-        elevation={3}
+  if (success) {
+    return (
+      <Box
         sx={{
-          width: '100%',
-          p: 4,
-          borderRadius: 2,
+          minHeight: '100vh',
+          background: '#ffffff',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          position: 'relative',
+          px: 2,
         }}
       >
-        <Box sx={{ mb: 4, textAlign: 'center' }}>
-          <Typography variant="h4" component="h1" gutterBottom fontWeight="bold">
-            Criar Conta
-          </Typography>
-          <Typography variant="subtitle1" color="text.secondary">
-            Crie sua conta para começar a usar o agente imobiliário IA
-          </Typography>
-        </Box>
+        <Container maxWidth="sm" sx={{ position: 'relative', zIndex: 1 }}>
+          <Fade in timeout={800}>
+            <Box
+              sx={{
+                textAlign: 'center',
+                background: '#ffffff',
+                borderRadius: 3,
+                boxShadow: '0 1px 3px rgba(0, 0, 0, 0.12), 0 1px 2px rgba(0, 0, 0, 0.24)',
+                border: '1px solid #e5e7eb',
+                overflow: 'hidden',
+                maxWidth: 420,
+                mx: 'auto',
+                p: { xs: 4, sm: 5 },
+              }}
+            >
+              <Box
+                sx={{
+                  display: 'flex',
+                  justifyContent: 'center',
+                  mb: 3,
+                }}
+              >
+                <Box
+                  sx={{
+                    width: 56,
+                    height: 56,
+                    borderRadius: 2,
+                    overflow: 'hidden',
+                    position: 'relative',
+                    border: '1px solid #e5e7eb',
+                  }}
+                >
+                  <Image
+                    src="/logo.jpg"
+                    alt="Logo"
+                    fill
+                    style={{
+                      objectFit: 'cover',
+                    }}
+                    priority
+                  />
+                </Box>
+              </Box>
 
-        {error && (
-          <Alert severity="error" sx={{ mb: 3 }}>
-            {error}
-          </Alert>
-        )}
+              <Typography 
+                variant="h4" 
+                sx={{
+                  fontWeight: 700,
+                  color: '#16a34a',
+                  mb: 2,
+                  fontSize: { xs: '1.5rem', sm: '1.75rem' },
+                }}
+              >
+                Conta criada com sucesso!
+              </Typography>
 
-        <Box component="form" onSubmit={handleSubmit(onSubmit)} noValidate>
-          <TextField
-            {...register('name')}
-            fullWidth
-            label="Nome completo"
-            margin="normal"
-            error={!!errors.name}
-            helperText={errors.name?.message}
-            InputProps={{
-              startAdornment: (
-                <InputAdornment position="start">
-                  <Person />
-                </InputAdornment>
-              ),
+              <Typography 
+                variant="body1" 
+                sx={{
+                  color: '#6b7280',
+                  mb: 4,
+                }}
+              >
+                Redirecionando você para a página de login...
+              </Typography>
+
+              <CircularProgress sx={{ color: '#16a34a' }} />
+            </Box>
+          </Fade>
+        </Container>
+      </Box>
+    );
+  }
+
+  return (
+    <Box
+      sx={{
+        minHeight: '100vh',
+        background: '#ffffff',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        position: 'relative',
+        px: 2,
+      }}
+    >
+      {/* Background Pattern - Subtle */}
+      <Box
+        sx={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          opacity: 0.4,
+          backgroundImage: `
+            radial-gradient(circle at 25% 25%, #f3f4f6 0%, transparent 50%),
+            radial-gradient(circle at 75% 75%, #f9fafb 0%, transparent 50%)
+          `,
+          zIndex: 0,
+        }}
+      />
+
+      <Container maxWidth="sm" sx={{ position: 'relative', zIndex: 1 }}>
+        <Fade in timeout={800}>
+          <Box
+            sx={{
+              textAlign: 'center',
+              background: '#ffffff',
+              borderRadius: 3,
+              boxShadow: '0 1px 3px rgba(0, 0, 0, 0.12), 0 1px 2px rgba(0, 0, 0, 0.24)',
+              border: '1px solid #e5e7eb',
+              overflow: 'hidden',
+              maxWidth: 420,
+              mx: 'auto',
             }}
-          />
-
-          <TextField
-            {...register('email')}
-            fullWidth
-            label="Email"
-            type="email"
-            margin="normal"
-            error={!!errors.email}
-            helperText={errors.email?.message}
-            InputProps={{
-              startAdornment: (
-                <InputAdornment position="start">
-                  <Email />
-                </InputAdornment>
-              ),
-            }}
-          />
-
-          <TextField
-            {...register('password')}
-            fullWidth
-            label="Senha"
-            type={showPassword ? 'text' : 'password'}
-            margin="normal"
-            error={!!errors.password}
-            helperText={errors.password?.message}
-            InputProps={{
-              startAdornment: (
-                <InputAdornment position="start">
-                  <Lock />
-                </InputAdornment>
-              ),
-              endAdornment: (
-                <InputAdornment position="end">
-                  <IconButton
-                    onClick={() => setShowPassword(!showPassword)}
-                    edge="end"
-                  >
-                    {showPassword ? <VisibilityOff /> : <Visibility />}
-                  </IconButton>
-                </InputAdornment>
-              ),
-            }}
-          />
-
-          <TextField
-            {...register('confirmPassword')}
-            fullWidth
-            label="Confirmar senha"
-            type={showConfirmPassword ? 'text' : 'password'}
-            margin="normal"
-            error={!!errors.confirmPassword}
-            helperText={errors.confirmPassword?.message}
-            InputProps={{
-              startAdornment: (
-                <InputAdornment position="start">
-                  <Lock />
-                </InputAdornment>
-              ),
-              endAdornment: (
-                <InputAdornment position="end">
-                  <IconButton
-                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                    edge="end"
-                  >
-                    {showConfirmPassword ? <VisibilityOff /> : <Visibility />}
-                  </IconButton>
-                </InputAdornment>
-              ),
-            }}
-          />
-
-          <Button
-            type="submit"
-            fullWidth
-            variant="contained"
-            size="large"
-            disabled={loading}
-            sx={{ mt: 3, mb: 2, py: 1.5 }}
           >
-            {loading ? 'Criando conta...' : 'Criar Conta'}
-          </Button>
+            {/* Header com Logo */}
+            <Box sx={{ p: { xs: 4, sm: 5 }, pb: { xs: 2, sm: 3 } }}>
+              <Box
+                sx={{
+                  display: 'flex',
+                  justifyContent: 'center',
+                  mb: 3,
+                }}
+              >
+                <Box
+                  sx={{
+                    width: 56,
+                    height: 56,
+                    borderRadius: 2,
+                    overflow: 'hidden',
+                    position: 'relative',
+                    border: '1px solid #e5e7eb',
+                  }}
+                >
+                  <Image
+                    src="/logo.jpg"
+                    alt="Logo"
+                    fill
+                    style={{
+                      objectFit: 'cover',
+                    }}
+                    priority
+                  />
+                </Box>
+              </Box>
 
-          <Divider sx={{ my: 3 }}>
-            <Typography variant="body2" color="text.secondary">
-              ou
-            </Typography>
-          </Divider>
+              <Typography 
+                variant="h4" 
+                sx={{
+                  fontWeight: 700,
+                  color: '#111827',
+                  mb: 1,
+                  fontSize: { xs: '1.5rem', sm: '1.75rem' },
+                }}
+              >
+                Criar conta
+              </Typography>
 
-          <Box sx={{ textAlign: 'center' }}>
-            <Typography variant="body2" color="text.secondary">
-              Já tem uma conta?{' '}
-              <Link component={NextLink} href="/login" underline="hover">
-                Faça login
-              </Link>
-            </Typography>
+              <Typography 
+                variant="body1" 
+                sx={{
+                  color: '#6b7280',
+                  fontWeight: 400,
+                  fontSize: '0.95rem',
+                }}
+              >
+                Preencha os dados para criar sua conta
+              </Typography>
+            </Box>
+
+            {/* Form */}
+            <Box sx={{ p: { xs: 4, sm: 5 }, pt: { xs: 3, sm: 4 } }}>
+              <form onSubmit={form.handleSubmit(handleRegister)}>
+                <Stack spacing={3}>
+                  <Controller
+                    name="name"
+                    control={form.control}
+                    render={({ field }) => (
+                      <TextField
+                        {...field}
+                        fullWidth
+                        label="Nome completo"
+                        variant="outlined"
+                        error={!!form.formState.errors.name}
+                        helperText={form.formState.errors.name?.message}
+                        sx={{
+                          '& .MuiOutlinedInput-root': {
+                            borderRadius: 2,
+                            backgroundColor: '#f9fafb',
+                            '& fieldset': {
+                              borderColor: '#d1d5db',
+                            },
+                            '&:hover fieldset': {
+                              borderColor: '#9ca3af',
+                            },
+                            '&.Mui-focused fieldset': {
+                              borderColor: '#2563eb',
+                              borderWidth: 2,
+                            },
+                          },
+                          '& .MuiInputLabel-root': {
+                            color: '#6b7280',
+                            '&.Mui-focused': {
+                              color: '#2563eb',
+                            },
+                          },
+                        }}
+                      />
+                    )}
+                  />
+
+                  <Controller
+                    name="email"
+                    control={form.control}
+                    render={({ field }) => (
+                      <TextField
+                        {...field}
+                        fullWidth
+                        label="Email"
+                        type="email"
+                        variant="outlined"
+                        error={!!form.formState.errors.email}
+                        helperText={form.formState.errors.email?.message}
+                        sx={{
+                          '& .MuiOutlinedInput-root': {
+                            borderRadius: 2,
+                            backgroundColor: '#f9fafb',
+                            '& fieldset': {
+                              borderColor: '#d1d5db',
+                            },
+                            '&:hover fieldset': {
+                              borderColor: '#9ca3af',
+                            },
+                            '&.Mui-focused fieldset': {
+                              borderColor: '#2563eb',
+                              borderWidth: 2,
+                            },
+                          },
+                          '& .MuiInputLabel-root': {
+                            color: '#6b7280',
+                            '&.Mui-focused': {
+                              color: '#2563eb',
+                            },
+                          },
+                        }}
+                      />
+                    )}
+                  />
+
+                  <Controller
+                    name="password"
+                    control={form.control}
+                    render={({ field }) => (
+                      <TextField
+                        {...field}
+                        fullWidth
+                        label="Senha"
+                        type={showPassword ? 'text' : 'password'}
+                        variant="outlined"
+                        error={!!form.formState.errors.password}
+                        helperText={form.formState.errors.password?.message}
+                        InputProps={{
+                          endAdornment: (
+                            <InputAdornment position="end">
+                              <IconButton
+                                onClick={() => setShowPassword(!showPassword)}
+                                edge="end"
+                                size="small"
+                                sx={{ color: '#6b7280' }}
+                              >
+                                {showPassword ? <VisibilityOff /> : <Visibility />}
+                              </IconButton>
+                            </InputAdornment>
+                          ),
+                        }}
+                        sx={{
+                          '& .MuiOutlinedInput-root': {
+                            borderRadius: 2,
+                            backgroundColor: '#f9fafb',
+                            '& fieldset': {
+                              borderColor: '#d1d5db',
+                            },
+                            '&:hover fieldset': {
+                              borderColor: '#9ca3af',
+                            },
+                            '&.Mui-focused fieldset': {
+                              borderColor: '#2563eb',
+                              borderWidth: 2,
+                            },
+                          },
+                          '& .MuiInputLabel-root': {
+                            color: '#6b7280',
+                            '&.Mui-focused': {
+                              color: '#2563eb',
+                            },
+                          },
+                        }}
+                      />
+                    )}
+                  />
+
+                  <Controller
+                    name="confirmPassword"
+                    control={form.control}
+                    render={({ field }) => (
+                      <TextField
+                        {...field}
+                        fullWidth
+                        label="Confirmar senha"
+                        type={showConfirmPassword ? 'text' : 'password'}
+                        variant="outlined"
+                        error={!!form.formState.errors.confirmPassword}
+                        helperText={form.formState.errors.confirmPassword?.message}
+                        InputProps={{
+                          endAdornment: (
+                            <InputAdornment position="end">
+                              <IconButton
+                                onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                                edge="end"
+                                size="small"
+                                sx={{ color: '#6b7280' }}
+                              >
+                                {showConfirmPassword ? <VisibilityOff /> : <Visibility />}
+                              </IconButton>
+                            </InputAdornment>
+                          ),
+                        }}
+                        sx={{
+                          '& .MuiOutlinedInput-root': {
+                            borderRadius: 2,
+                            backgroundColor: '#f9fafb',
+                            '& fieldset': {
+                              borderColor: '#d1d5db',
+                            },
+                            '&:hover fieldset': {
+                              borderColor: '#9ca3af',
+                            },
+                            '&.Mui-focused fieldset': {
+                              borderColor: '#2563eb',
+                              borderWidth: 2,
+                            },
+                          },
+                          '& .MuiInputLabel-root': {
+                            color: '#6b7280',
+                            '&.Mui-focused': {
+                              color: '#2563eb',
+                            },
+                          },
+                        }}
+                      />
+                    )}
+                  />
+
+                  {error && (
+                    <Alert 
+                      severity="error" 
+                      sx={{
+                        borderRadius: 2,
+                        backgroundColor: '#fef2f2',
+                        border: '1px solid #fecaca',
+                        color: '#dc2626',
+                        '& .MuiAlert-icon': {
+                          color: '#dc2626',
+                        },
+                      }}
+                    >
+                      {error}
+                    </Alert>
+                  )}
+
+                  <Button
+                    type="submit"
+                    fullWidth
+                    size="large"
+                    disabled={isLoading}
+                    endIcon={isLoading ? <CircularProgress size={16} color="inherit" /> : <ArrowForward />}
+                    sx={{
+                      py: 1.8,
+                      borderRadius: 2,
+                      textTransform: 'none',
+                      fontWeight: 600,
+                      fontSize: '1rem',
+                      backgroundColor: '#2563eb',
+                      color: '#ffffff',
+                      boxShadow: 'none',
+                      '&:hover': {
+                        backgroundColor: '#1d4ed8',
+                        boxShadow: 'none',
+                      },
+                      '&:disabled': {
+                        backgroundColor: '#9ca3af',
+                        color: '#ffffff',
+                      },
+                    }}
+                  >
+                    {isLoading ? 'Criando conta...' : 'Criar conta'}
+                  </Button>
+
+                  <Box sx={{ textAlign: 'center' }}>
+                    <Typography variant="body2" sx={{ color: '#6b7280', mb: 2 }}>
+                      Já tem uma conta?{' '}
+                      <NextLink href="/login" passHref>
+                        <Link
+                          sx={{
+                            color: '#2563eb',
+                            textDecoration: 'none',
+                            fontWeight: 500,
+                            '&:hover': {
+                              textDecoration: 'underline',
+                            },
+                          }}
+                        >
+                          Entre aqui
+                        </Link>
+                      </NextLink>
+                    </Typography>
+                  </Box>
+                </Stack>
+              </form>
+            </Box>
+
+            {/* Footer */}
+            <Box 
+              sx={{ 
+                px: { xs: 4, sm: 5 },
+                pb: { xs: 4, sm: 5 },
+                pt: 0,
+              }}
+            >
+              <Typography
+                variant="caption"
+                sx={{ 
+                  color: '#9ca3af',
+                  display: 'block',
+                  textAlign: 'center',
+                  fontSize: '0.75rem',
+                }}
+              >
+                © 2024 Locai. Todos os direitos reservados.
+              </Typography>
+            </Box>
           </Box>
-        </Box>
-      </Paper>
-    </Container>
+        </Fade>
+      </Container>
+    </Box>
   );
 }
