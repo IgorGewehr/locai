@@ -106,10 +106,137 @@ interface CreateTransactionArgs {
   notes?: string;
 }
 
+// ===== INTERFACES CRM MANAGEMENT =====
+
+interface CreateLeadArgs {
+  phone: string;
+  whatsappNumber?: string;
+  name?: string;
+  email?: string;
+  source?: 'whatsapp_ai' | 'website' | 'referral' | 'social_media' | 'manual';
+  sourceDetails?: string;
+  initialInteraction?: string;
+  preferences?: {
+    propertyType?: string[];
+    location?: string[];
+    priceRange?: { min: number; max: number };
+    bedrooms?: { min: number; max: number };
+  };
+}
+
+interface UpdateLeadArgs {
+  leadId?: string;
+  clientPhone?: string; // Alternativa se não tiver leadId
+  updates: {
+    name?: string;
+    email?: string;
+    status?: string;
+    score?: number;
+    temperature?: 'cold' | 'warm' | 'hot';
+    clientId?: string; // Para linkar com cliente criado
+    preferences?: {
+      propertyType?: string[];
+      location?: string[];
+      priceRange?: { min: number; max: number };
+      bedrooms?: { min: number; max: number };
+      amenities?: string[];
+    };
+    tags?: string[];
+    notes?: string;
+  };
+}
+
+interface CreateTaskArgs {
+  leadId?: string;
+  clientId?: string;
+  title: string;
+  description?: string;
+  type: 'call' | 'email' | 'meeting' | 'follow_up' | 'document' | 'other';
+  priority: 'low' | 'medium' | 'high' | 'urgent';
+  dueDate: string; // ISO date string
+  reminderDate?: string;
+  assignedTo?: string; // User ID, defaults to system user
+  notes?: string;
+}
+
+interface UpdateTaskArgs {
+  taskId: string;
+  updates: {
+    status?: 'pending' | 'in_progress' | 'completed' | 'cancelled';
+    notes?: string;
+    outcome?: string;
+    completedAt?: string;
+    priority?: 'low' | 'medium' | 'high' | 'urgent';
+  };
+}
+
+// ===== INTERFACES ANALYTICS & GOALS =====
+
+interface GenerateReportArgs {
+  reportType: 'financial' | 'crm' | 'properties' | 'occupancy' | 'custom';
+  period: {
+    startDate: string; // ISO date
+    endDate: string;   // ISO date
+  };
+  metrics?: string[]; // Métricas específicas a incluir
+  format?: 'summary' | 'detailed' | 'insights';
+  includeComparison?: boolean; // Comparar com período anterior
+  includeForecasting?: boolean; // Incluir projeções
+}
+
+interface TrackMetricsArgs {
+  metricType: 'revenue' | 'occupancy' | 'conversion' | 'lead_score' | 'customer_satisfaction';
+  period?: 'today' | 'week' | 'month' | 'quarter' | 'year';
+  includeGrowth?: boolean;
+  includeTrends?: boolean;
+  clientPhone?: string; // Para métricas específicas de cliente
+}
+
+interface CreateGoalArgs {
+  name: string;
+  description?: string;
+  type: 'revenue' | 'occupancy' | 'bookings' | 'average_ticket' | 'customer_acquisition';
+  targetValue: number;
+  period: {
+    startDate: string;
+    endDate: string;
+  };
+  frequency: 'daily' | 'weekly' | 'monthly' | 'quarterly' | 'yearly';
+  notifications?: boolean;
+}
+
+interface UpdateGoalProgressArgs {
+  goalId?: string;
+  goalName?: string; // Alternativa para buscar por nome
+  currentValue?: number; // Atualizar valor atual
+  addProgress?: number;  // Adicionar ao progresso atual
+  notes?: string;
+  milestone?: {
+    name: string;
+    achieved: boolean;
+    date?: string;
+  };
+}
+
+interface AnalyzePerformanceArgs {
+  analysisType: 'properties' | 'financial' | 'crm' | 'overall';
+  period: {
+    startDate: string;
+    endDate: string;
+  };
+  includeRecommendations?: boolean;
+  includeAiInsights?: boolean;
+  compareWithPrevious?: boolean;
+}
+
 // ===== IMPORTS ADICIONAIS =====
 import { VisitAppointment, VisitStatus } from '@/lib/types/visit-appointment';
 import { Lead, LeadStatus, InteractionType } from '@/lib/types/crm';
 import { FinancialMovement, CreateFinancialMovementInput } from '@/lib/types/financial-movement';
+import { FinancialGoal, GoalType, GoalCategory, GoalMetric, GoalStatus } from '@/lib/types/financial';
+import { Transaction } from '@/lib/types';
+import { startOfDay, endOfDay, subDays, subWeeks, subMonths, format, differenceInDays } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
 
 // ===== FUNÇÕES ESSENCIAIS MULTI-TENANT =====
 
@@ -2412,8 +2539,1500 @@ export function getTenantAwareOpenAIFunctions() {
           required: ['reservationId', 'clientId', 'propertyId', 'totalAmount', 'paymentMethod']
         }
       }
+    },
+    {
+      type: 'function' as const,
+      function: {
+        name: 'create_lead',
+        description: 'Criar um novo lead no CRM (executado automaticamente no primeiro contato WhatsApp)',
+        parameters: {
+          type: 'object',
+          properties: {
+            phone: {
+              type: 'string',
+              description: 'Número de telefone do lead (obrigatório)'
+            },
+            whatsappNumber: {
+              type: 'string',
+              description: 'Número do WhatsApp (opcional, padrão é o phone)'
+            },
+            name: {
+              type: 'string',
+              description: 'Nome do lead (opcional, padrão: "Lead WhatsApp")'
+            },
+            email: {
+              type: 'string',
+              description: 'Email do lead (opcional)'
+            },
+            source: {
+              type: 'string',
+              enum: ['whatsapp_ai', 'website', 'referral', 'social_media', 'manual'],
+              description: 'Origem do lead'
+            },
+            initialInteraction: {
+              type: 'string',
+              description: 'Primeira mensagem/interação do cliente (opcional)'
+            },
+            preferences: {
+              type: 'object',
+              description: 'Preferências iniciais do cliente (opcional)',
+              properties: {
+                propertyType: {
+                  type: 'array',
+                  items: { type: 'string' },
+                  description: 'Tipos de propriedade preferidos'
+                },
+                location: {
+                  type: 'array',
+                  items: { type: 'string' },
+                  description: 'Localizações preferidas'
+                },
+                priceRange: {
+                  type: 'object',
+                  properties: {
+                    min: { type: 'number' },
+                    max: { type: 'number' }
+                  }
+                }
+              }
+            }
+          },
+          required: ['phone']
+        }
+      }
+    },
+    {
+      type: 'function' as const,
+      function: {
+        name: 'update_lead',
+        description: 'Atualizar informações de um lead existente no CRM',
+        parameters: {
+          type: 'object',
+          properties: {
+            leadId: {
+              type: 'string',
+              description: 'ID do lead (opcional se usar clientPhone)'
+            },
+            clientPhone: {
+              type: 'string',
+              description: 'Telefone do cliente para buscar o lead (alternativa ao leadId)'
+            },
+            updates: {
+              type: 'object',
+              description: 'Campos a serem atualizados',
+              properties: {
+                name: {
+                  type: 'string',
+                  description: 'Nome atualizado do lead'
+                },
+                email: {
+                  type: 'string',
+                  description: 'Email atualizado do lead'
+                },
+                status: {
+                  type: 'string',
+                  enum: ['new', 'contacted', 'qualified', 'opportunity', 'negotiation', 'won', 'lost'],
+                  description: 'Novo status no pipeline CRM'
+                },
+                temperature: {
+                  type: 'string',
+                  enum: ['cold', 'warm', 'hot'],
+                  description: 'Temperatura do lead baseada no interesse'
+                },
+                clientId: {
+                  type: 'string',
+                  description: 'ID do cliente para linkar o lead quando cliente for criado'
+                },
+                preferences: {
+                  type: 'object',
+                  description: 'Preferências atualizadas do cliente'
+                },
+                notes: {
+                  type: 'string',
+                  description: 'Observações sobre o lead'
+                }
+              }
+            }
+          },
+          required: ['updates']
+        }
+      }
+    },
+    {
+      type: 'function' as const,
+      function: {
+        name: 'create_task',
+        description: 'Criar tarefa de follow-up para lead ou cliente',
+        parameters: {
+          type: 'object',
+          properties: {
+            leadId: {
+              type: 'string',
+              description: 'ID do lead (opcional se usar clientId)'
+            },
+            clientId: {
+              type: 'string',
+              description: 'ID do cliente (opcional se usar leadId)'
+            },
+            title: {
+              type: 'string',
+              description: 'Título da tarefa'
+            },
+            description: {
+              type: 'string',
+              description: 'Descrição detalhada da tarefa (opcional)'
+            },
+            type: {
+              type: 'string',
+              enum: ['call', 'email', 'meeting', 'follow_up', 'document', 'other'],
+              description: 'Tipo da tarefa'
+            },
+            priority: {
+              type: 'string',
+              enum: ['low', 'medium', 'high', 'urgent'],
+              description: 'Prioridade da tarefa'
+            },
+            dueDate: {
+              type: 'string',
+              description: 'Data limite da tarefa (formato ISO: YYYY-MM-DD ou YYYY-MM-DDTHH:mm:ss)'
+            },
+            reminderDate: {
+              type: 'string',
+              description: 'Data do lembrete (formato ISO, opcional)'
+            },
+            notes: {
+              type: 'string',
+              description: 'Observações sobre a tarefa (opcional)'
+            }
+          },
+          required: ['title', 'type', 'priority', 'dueDate']
+        }
+      }
+    },
+    {
+      type: 'function' as const,
+      function: {
+        name: 'update_task',
+        description: 'Atualizar status e informações de uma tarefa',
+        parameters: {
+          type: 'object',
+          properties: {
+            taskId: {
+              type: 'string',
+              description: 'ID da tarefa a ser atualizada'
+            },
+            updates: {
+              type: 'object',
+              description: 'Campos a serem atualizados',
+              properties: {
+                status: {
+                  type: 'string',
+                  enum: ['pending', 'in_progress', 'completed', 'cancelled'],
+                  description: 'Novo status da tarefa'
+                },
+                notes: {
+                  type: 'string',
+                  description: 'Observações sobre a atualização'
+                },
+                outcome: {
+                  type: 'string',
+                  description: 'Resultado da tarefa (usado quando completada)'
+                },
+                priority: {
+                  type: 'string',
+                  enum: ['low', 'medium', 'high', 'urgent'],
+                  description: 'Nova prioridade da tarefa'
+                }
+              }
+            }
+          },
+          required: ['taskId', 'updates']
+        }
+      }
+    },
+    {
+      type: 'function' as const,
+      function: {
+        name: 'generate_report',
+        description: 'Gerar relatório detalhado de performance (financeiro, CRM, ocupação, propriedades)',
+        parameters: {
+          type: 'object',
+          properties: {
+            reportType: {
+              type: 'string',
+              enum: ['financial', 'crm', 'occupancy', 'properties'],
+              description: 'Tipo do relatório a ser gerado'
+            },
+            period: {
+              type: 'object',
+              properties: {
+                startDate: {
+                  type: 'string',
+                  description: 'Data de início do período (YYYY-MM-DD)'
+                },
+                endDate: {
+                  type: 'string', 
+                  description: 'Data de fim do período (YYYY-MM-DD)'
+                }
+              },
+              required: ['startDate', 'endDate']
+            },
+            format: {
+              type: 'string',
+              enum: ['summary', 'detailed'],
+              description: 'Formato do relatório (padrão: summary)'
+            },
+            includeInsights: {
+              type: 'boolean',
+              description: 'Incluir insights e recomendações no relatório'
+            }
+          },
+          required: ['reportType', 'period']
+        }
+      }
+    },
+    {
+      type: 'function' as const,
+      function: {
+        name: 'track_metrics',
+        description: 'Rastrear métricas específicas de performance e KPIs em tempo real',
+        parameters: {
+          type: 'object',
+          properties: {
+            metrics: {
+              type: 'array',
+              items: {
+                type: 'string',
+                enum: ['revenue', 'occupancy_rate', 'adr', 'revpar', 'conversion_rate', 'lead_score', 'response_time']
+              },
+              description: 'Lista de métricas a serem rastreadas'
+            },
+            period: {
+              type: 'object',
+              properties: {
+                startDate: {
+                  type: 'string',
+                  description: 'Data de início (YYYY-MM-DD)'
+                },
+                endDate: {
+                  type: 'string',
+                  description: 'Data de fim (YYYY-MM-DD)'
+                }
+              },
+              required: ['startDate', 'endDate']
+            },
+            compareWith: {
+              type: 'string',
+              enum: ['previous_period', 'same_period_last_year', 'target'],
+              description: 'Comparar com período anterior, mesmo período do ano passado, ou meta'
+            }
+          },
+          required: ['metrics', 'period']
+        }
+      }
+    },
+    {
+      type: 'function' as const,
+      function: {
+        name: 'create_goal',
+        description: 'Criar uma nova meta financeira ou operacional para acompanhamento',
+        parameters: {
+          type: 'object',
+          properties: {
+            name: {
+              type: 'string',
+              description: 'Nome da meta (ex: "Receita Q1 2024")'
+            },
+            description: {
+              type: 'string',
+              description: 'Descrição detalhada da meta'
+            },
+            type: {
+              type: 'string',
+              enum: ['revenue', 'occupancy', 'bookings', 'average_ticket', 'customer_acquisition'],
+              description: 'Tipo da meta'
+            },
+            targetValue: {
+              type: 'number',
+              description: 'Valor alvo da meta'
+            },
+            currentValue: {
+              type: 'number',
+              description: 'Valor atual (opcional, padrão: 0)'
+            },
+            period: {
+              type: 'object',
+              properties: {
+                startDate: {
+                  type: 'string',
+                  description: 'Data de início (YYYY-MM-DD)'
+                },
+                endDate: {
+                  type: 'string',
+                  description: 'Data de fim (YYYY-MM-DD)'
+                }
+              },
+              required: ['startDate', 'endDate']
+            },
+            frequency: {
+              type: 'string',
+              enum: ['daily', 'weekly', 'monthly', 'quarterly'],
+              description: 'Frequência de acompanhamento'
+            }
+          },
+          required: ['name', 'type', 'targetValue', 'period', 'frequency']
+        }
+      }
+    },
+    {
+      type: 'function' as const,
+      function: {
+        name: 'update_goal_progress',
+        description: 'Atualizar o progresso de uma meta existente com novos valores',
+        parameters: {
+          type: 'object',
+          properties: {
+            goalId: {
+              type: 'string',
+              description: 'ID da meta a ser atualizada'
+            },
+            currentValue: {
+              type: 'number',
+              description: 'Novo valor atual da meta'
+            },
+            notes: {
+              type: 'string',
+              description: 'Observações sobre o progresso (opcional)'
+            },
+            milestones: {
+              type: 'array',
+              items: {
+                type: 'object',
+                properties: {
+                  name: {
+                    type: 'string',
+                    description: 'Nome do marco'
+                  },
+                  targetValue: {
+                    type: 'number',
+                    description: 'Valor alvo do marco'
+                  },
+                  achieved: {
+                    type: 'boolean',
+                    description: 'Se o marco foi alcançado'
+                  }
+                }
+              },
+              description: 'Marcos intermediários da meta'
+            }
+          },
+          required: ['goalId', 'currentValue']
+        }
+      }
+    },
+    {
+      type: 'function' as const,
+      function: {
+        name: 'analyze_performance',
+        description: 'Analisar performance geral do negócio com insights automáticos e recomendações',
+        parameters: {
+          type: 'object',
+          properties: {
+            analysisType: {
+              type: 'string',
+              enum: ['overall', 'revenue', 'crm', 'properties', 'trends'],
+              description: 'Tipo de análise a ser realizada'
+            },
+            period: {
+              type: 'object',
+              properties: {
+                startDate: {
+                  type: 'string',
+                  description: 'Data de início (YYYY-MM-DD)'
+                },
+                endDate: {
+                  type: 'string',
+                  description: 'Data de fim (YYYY-MM-DD)'
+                }
+              },
+              required: ['startDate', 'endDate']
+            },
+            includeRecommendations: {
+              type: 'boolean',
+              description: 'Incluir recomendações específicas na análise'
+            },
+            focusAreas: {
+              type: 'array',
+              items: {
+                type: 'string',
+                enum: ['revenue_optimization', 'cost_reduction', 'conversion_improvement', 'customer_retention']
+              },
+              description: 'Áreas específicas para focar a análise'
+            }
+          },
+          required: ['analysisType', 'period']
+        }
+      }
     }
   ];
+}
+
+// ===== FUNÇÕES ANALYTICS & GOALS =====
+
+/**
+ * FUNÇÃO ANALYTICS 1: Gerar relatório detalhado de performance
+ */
+export async function generateReport(args: GenerateReportArgs, tenantId: string): Promise<any> {
+  try {
+    logger.info('📊 [Analytics] generate_report iniciada', {
+      tenantId,
+      reportType: args.reportType,
+      period: args.period,
+      format: args.format || 'summary'
+    });
+
+    const serviceFactory = new TenantServiceFactory(tenantId);
+    const startDate = new Date(args.period.startDate);
+    const endDate = new Date(args.period.endDate);
+    
+    let reportData: any = {
+      reportType: args.reportType,
+      period: args.period,
+      generatedAt: new Date(),
+      summary: {},
+      details: {},
+      insights: [],
+      recommendations: []
+    };
+
+    switch (args.reportType) {
+      case 'financial':
+        reportData = await generateFinancialReport(serviceFactory, startDate, endDate, args);
+        break;
+        
+      case 'crm':
+        reportData = await generateCRMReport(serviceFactory, startDate, endDate, args);
+        break;
+        
+      case 'properties':
+        reportData = await generatePropertiesReport(serviceFactory, startDate, endDate, args);
+        break;
+        
+      case 'occupancy':
+        reportData = await generateOccupancyReport(serviceFactory, startDate, endDate, args);
+        break;
+        
+      default:
+        reportData = await generateOverallReport(serviceFactory, startDate, endDate, args);
+    }
+
+    // Adicionar comparação com período anterior se solicitado
+    if (args.includeComparison) {
+      const periodLength = differenceInDays(endDate, startDate);
+      const previousStart = subDays(startDate, periodLength + 1);
+      const previousEnd = subDays(startDate, 1);
+      
+      const previousData = await generateSimpleReport(serviceFactory, previousStart, previousEnd, args.reportType);
+      reportData.comparison = {
+        previous: previousData,
+        growth: calculateGrowthMetrics(reportData.summary, previousData.summary)
+      };
+    }
+
+    logger.info('✅ [Analytics] Relatório gerado com sucesso', {
+      tenantId,
+      reportType: args.reportType,
+      summaryKeys: Object.keys(reportData.summary),
+      insightsCount: reportData.insights.length
+    });
+
+    return {
+      success: true,
+      message: `Relatório ${args.reportType} gerado com sucesso`,
+      report: reportData,
+      tenantId
+    };
+
+  } catch (error) {
+    logger.error('❌ [Analytics] Erro ao gerar relatório', error instanceof Error ? error : undefined, {
+      tenantId,
+      reportType: args.reportType,
+      error: error instanceof Error ? error.message : String(error)
+    });
+
+    return {
+      success: false,
+      error: `Erro ao gerar relatório: ${error instanceof Error ? error.message : String(error)}`,
+      tenantId
+    };
+  }
+}
+
+/**
+ * FUNÇÃO ANALYTICS 2: Acompanhar métricas em tempo real
+ */
+export async function trackMetrics(args: TrackMetricsArgs, tenantId: string): Promise<any> {
+  try {
+    logger.info('📈 [Analytics] track_metrics iniciada', {
+      tenantId,
+      metricType: args.metricType,
+      period: args.period || 'month',
+      clientPhone: args.clientPhone
+    });
+
+    const serviceFactory = new TenantServiceFactory(tenantId);
+    const now = new Date();
+    
+    // Calcular período baseado no argumento
+    let startDate: Date;
+    let endDate: Date = now;
+    
+    switch (args.period) {
+      case 'today':
+        startDate = startOfDay(now);
+        endDate = endOfDay(now);
+        break;
+      case 'week':
+        startDate = subWeeks(now, 1);
+        break;
+      case 'quarter':
+        startDate = subMonths(now, 3);
+        break;
+      case 'year':
+        startDate = subMonths(now, 12);
+        break;
+      default: // month
+        startDate = subMonths(now, 1);
+    }
+
+    let metrics: any = {
+      metricType: args.metricType,
+      period: args.period || 'month',
+      dateRange: { startDate, endDate },
+      value: 0,
+      trend: 'neutral',
+      insights: []
+    };
+
+    // Buscar métricas específicas por tipo
+    switch (args.metricType) {
+      case 'revenue':
+        metrics = await calculateRevenueMetrics(serviceFactory, startDate, endDate, args);
+        break;
+        
+      case 'occupancy':
+        metrics = await calculateOccupancyMetrics(serviceFactory, startDate, endDate, args);
+        break;
+        
+      case 'conversion':
+        metrics = await calculateConversionMetrics(serviceFactory, startDate, endDate, args);
+        break;
+        
+      case 'lead_score':
+        metrics = await calculateLeadScoreMetrics(serviceFactory, startDate, endDate, args);
+        break;
+        
+      case 'customer_satisfaction':
+        metrics = await calculateSatisfactionMetrics(serviceFactory, startDate, endDate, args);
+        break;
+    }
+
+    // Adicionar tendências se solicitado
+    if (args.includeTrends) {
+      metrics.trends = await calculateTrends(serviceFactory, startDate, endDate, args.metricType);
+    }
+
+    logger.info('✅ [Analytics] Métricas calculadas com sucesso', {
+      tenantId,
+      metricType: args.metricType,
+      value: metrics.value,
+      trend: metrics.trend
+    });
+
+    return {
+      success: true,
+      message: `Métricas de ${args.metricType} calculadas com sucesso`,
+      metrics,
+      tenantId
+    };
+
+  } catch (error) {
+    logger.error('❌ [Analytics] Erro ao calcular métricas', error instanceof Error ? error : undefined, {
+      tenantId,
+      metricType: args.metricType,
+      error: error instanceof Error ? error.message : String(error)
+    });
+
+    return {
+      success: false,
+      error: `Erro ao calcular métricas: ${error instanceof Error ? error.message : String(error)}`,
+      tenantId
+    };
+  }
+}
+
+/**
+ * FUNÇÃO GOALS 1: Criar meta financeira/operacional
+ */
+export async function createGoal(args: CreateGoalArgs, tenantId: string): Promise<any> {
+  try {
+    logger.info('🎯 [Goals] create_goal iniciada', {
+      tenantId,
+      name: args.name,
+      type: args.type,
+      targetValue: args.targetValue,
+      frequency: args.frequency
+    });
+
+    const serviceFactory = new TenantServiceFactory(tenantId);
+    const goalService = serviceFactory.goals;
+    
+    const now = new Date();
+    const startDate = new Date(args.period.startDate);
+    const endDate = new Date(args.period.endDate);
+
+    // Mapear tipos para enums corretos
+    const goalTypeMap: Record<string, GoalType> = {
+      'revenue': GoalType.REVENUE,
+      'occupancy': GoalType.OCCUPANCY,
+      'bookings': GoalType.BOOKINGS,
+      'average_ticket': GoalType.AVERAGE_TICKET,
+      'customer_acquisition': GoalType.CUSTOMER_ACQUISITION
+    };
+
+    const newGoal: Partial<FinancialGoal> = {
+      tenantId,
+      name: args.name,
+      description: args.description,
+      type: goalTypeMap[args.type] || GoalType.REVENUE,
+      category: GoalCategory.FINANCIAL,
+      metric: GoalMetric.TOTAL_REVENUE, // Padrão, pode ser refinado
+      targetValue: args.targetValue,
+      currentValue: 0,
+      startValue: 0,
+      period: { startDate, endDate },
+      frequency: args.frequency as any,
+      status: GoalStatus.ACTIVE,
+      progress: 0,
+      checkpoints: [],
+      milestones: [],
+      alerts: [],
+      notificationSettings: {
+        enabled: args.notifications ?? true,
+        triggers: ['milestone_reached', 'goal_achieved', 'goal_at_risk'],
+        recipients: ['owner'],
+        methods: ['in_app', 'email']
+      },
+      createdAt: now,
+      updatedAt: now,
+      createdBy: 'sofia-ai'
+    };
+
+    const goalId = await goalService.create(newGoal);
+    const createdGoal = await goalService.getById(goalId);
+
+    logger.info('✅ [Goals] Meta criada com sucesso', {
+      tenantId,
+      goalId,
+      name: args.name,
+      targetValue: args.targetValue
+    });
+
+    return {
+      success: true,
+      message: 'Meta criada com sucesso',
+      goal: createdGoal,
+      goalId,
+      tenantId
+    };
+
+  } catch (error) {
+    logger.error('❌ [Goals] Erro ao criar meta', error instanceof Error ? error : undefined, {
+      tenantId,
+      name: args.name,
+      error: error instanceof Error ? error.message : String(error)
+    });
+
+    return {
+      success: false,
+      error: `Erro ao criar meta: ${error instanceof Error ? error.message : String(error)}`,
+      tenantId
+    };
+  }
+}
+
+/**
+ * FUNÇÃO GOALS 2: Atualizar progresso da meta
+ */
+export async function updateGoalProgress(args: UpdateGoalProgressArgs, tenantId: string): Promise<any> {
+  try {
+    logger.info('📈 [Goals] update_goal_progress iniciada', {
+      tenantId,
+      goalId: args.goalId,
+      goalName: args.goalName,
+      currentValue: args.currentValue,
+      addProgress: args.addProgress
+    });
+
+    const serviceFactory = new TenantServiceFactory(tenantId);
+    const goalService = serviceFactory.goals;
+    
+    let goalId = args.goalId;
+    
+    // Se não tem goalId, buscar por nome
+    if (!goalId && args.goalName) {
+      const goals = await goalService.getMany([
+        { field: 'name', operator: '==', value: args.goalName }
+      ]);
+      
+      if (goals.length === 0) {
+        return {
+          success: false,
+          error: 'Meta não encontrada com este nome',
+          tenantId
+        };
+      }
+      
+      goalId = goals[0].id;
+    }
+    
+    if (!goalId) {
+      return {
+        success: false,
+        error: 'goalId ou goalName obrigatório',
+        tenantId
+      };
+    }
+
+    // Buscar meta atual
+    const currentGoal = await goalService.getById(goalId);
+    if (!currentGoal) {
+      return {
+        success: false,
+        error: 'Meta não encontrada',
+        tenantId
+      };
+    }
+
+    // Calcular novo valor
+    let newCurrentValue = currentGoal.currentValue;
+    if (args.currentValue !== undefined) {
+      newCurrentValue = args.currentValue;
+    } else if (args.addProgress !== undefined) {
+      newCurrentValue = currentGoal.currentValue + args.addProgress;
+    }
+
+    // Calcular novo progresso
+    const newProgress = Math.min((newCurrentValue / currentGoal.targetValue) * 100, 100);
+    
+    // Preparar updates
+    const updates: Partial<FinancialGoal> = {
+      currentValue: newCurrentValue,
+      progress: newProgress,
+      updatedAt: new Date()
+    };
+
+    // Adicionar milestone se fornecido
+    if (args.milestone) {
+      const milestones = [...currentGoal.milestones];
+      milestones.push({
+        id: Date.now().toString(),
+        name: args.milestone.name,
+        targetValue: newCurrentValue,
+        achieved: args.milestone.achieved,
+        achievedAt: args.milestone.achieved ? new Date(args.milestone.date || Date.now()) : undefined,
+        description: args.notes
+      });
+      updates.milestones = milestones;
+    }
+
+    // Atualizar status baseado no progresso
+    if (newProgress >= 100) {
+      updates.status = GoalStatus.ACHIEVED;
+    } else if (newProgress >= 75) {
+      updates.status = GoalStatus.ON_TRACK;
+    } else if (newProgress < 25) {
+      updates.status = GoalStatus.AT_RISK;
+    }
+
+    // Executar update
+    await goalService.update(goalId, updates);
+
+    const updatedGoal = await goalService.getById(goalId);
+
+    logger.info('✅ [Goals] Progresso da meta atualizado com sucesso', {
+      tenantId,
+      goalId,
+      newCurrentValue,
+      newProgress: newProgress.toFixed(1),
+      status: updates.status
+    });
+
+    return {
+      success: true,
+      message: 'Progresso da meta atualizado com sucesso',
+      goal: updatedGoal,
+      goalId,
+      previousValue: currentGoal.currentValue,
+      newValue: newCurrentValue,
+      progressChange: newProgress - currentGoal.progress,
+      tenantId
+    };
+
+  } catch (error) {
+    logger.error('❌ [Goals] Erro ao atualizar progresso da meta', error instanceof Error ? error : undefined, {
+      tenantId,
+      goalId: args.goalId,
+      error: error instanceof Error ? error.message : String(error)
+    });
+
+    return {
+      success: false,
+      error: `Erro ao atualizar progresso: ${error instanceof Error ? error.message : String(error)}`,
+      tenantId
+    };
+  }
+}
+
+/**
+ * FUNÇÃO ANALYTICS 3: Análise de performance com insights IA
+ */
+export async function analyzePerformance(args: AnalyzePerformanceArgs, tenantId: string): Promise<any> {
+  try {
+    logger.info('🔍 [Analytics] analyze_performance iniciada', {
+      tenantId,
+      analysisType: args.analysisType,
+      period: args.period,
+      includeRecommendations: args.includeRecommendations
+    });
+
+    const serviceFactory = new TenantServiceFactory(tenantId);
+    const startDate = new Date(args.period.startDate);
+    const endDate = new Date(args.period.endDate);
+    
+    let analysis: any = {
+      analysisType: args.analysisType,
+      period: args.period,
+      performanceScore: 0,
+      keyMetrics: {},
+      trends: [],
+      insights: [],
+      recommendations: [],
+      riskFactors: [],
+      opportunities: []
+    };
+
+    // Realizar análise específica por tipo
+    switch (args.analysisType) {
+      case 'financial':
+        analysis = await analyzeFinancialPerformance(serviceFactory, startDate, endDate, args);
+        break;
+        
+      case 'crm':
+        analysis = await analyzeCRMPerformance(serviceFactory, startDate, endDate, args);
+        break;
+        
+      case 'properties':
+        analysis = await analyzePropertiesPerformance(serviceFactory, startDate, endDate, args);
+        break;
+        
+      default: // overall
+        analysis = await analyzeOverallPerformance(serviceFactory, startDate, endDate, args);
+    }
+
+    // Adicionar insights de IA se solicitado
+    if (args.includeAiInsights) {
+      analysis.aiInsights = await generateAIInsights(analysis, tenantId);
+    }
+
+    // Comparação com período anterior se solicitado
+    if (args.compareWithPrevious) {
+      const periodLength = differenceInDays(endDate, startDate);
+      const previousStart = subDays(startDate, periodLength + 1);
+      const previousEnd = subDays(startDate, 1);
+      
+      const previousAnalysis = await analyzeSimplePerformance(serviceFactory, previousStart, previousEnd, args.analysisType);
+      analysis.comparison = {
+        previous: previousAnalysis,
+        improvements: comparePerformance(analysis, previousAnalysis)
+      };
+    }
+
+    logger.info('✅ [Analytics] Análise de performance concluída', {
+      tenantId,
+      analysisType: args.analysisType,
+      performanceScore: analysis.performanceScore,
+      insightsCount: analysis.insights.length,
+      recommendationsCount: analysis.recommendations.length
+    });
+
+    return {
+      success: true,
+      message: `Análise de performance ${args.analysisType} concluída`,
+      analysis,
+      tenantId
+    };
+
+  } catch (error) {
+    logger.error('❌ [Analytics] Erro na análise de performance', error instanceof Error ? error : undefined, {
+      tenantId,
+      analysisType: args.analysisType,
+      error: error instanceof Error ? error.message : String(error)
+    });
+
+    return {
+      success: false,
+      error: `Erro na análise: ${error instanceof Error ? error.message : String(error)}`,
+      tenantId
+    };
+  }
+}
+
+// ===== HELPER FUNCTIONS FOR ANALYTICS =====
+
+async function generateFinancialReport(serviceFactory: any, startDate: Date, endDate: Date, args: GenerateReportArgs) {
+  const transactions = await serviceFactory.transactions.getMany([
+    { field: 'date', operator: '>=', value: startDate },
+    { field: 'date', operator: '<=', value: endDate }
+  ]);
+
+  const totalRevenue = transactions
+    .filter((t: Transaction) => t.type === 'income' && t.status === 'completed')
+    .reduce((sum: number, t: Transaction) => sum + t.amount, 0);
+
+  const totalExpenses = transactions
+    .filter((t: Transaction) => t.type === 'expense' && t.status === 'completed')
+    .reduce((sum: number, t: Transaction) => sum + t.amount, 0);
+
+  return {
+    reportType: 'financial',
+    summary: {
+      totalRevenue,
+      totalExpenses,
+      netProfit: totalRevenue - totalExpenses,
+      transactionCount: transactions.length,
+      averageTransaction: transactions.length > 0 ? totalRevenue / transactions.length : 0
+    },
+    insights: [
+      totalRevenue > totalExpenses ? 'Período lucrativo com resultado positivo' : 'Atenção: despesas superiores à receita',
+      `Foram processadas ${transactions.length} transações no período`
+    ],
+    recommendations: [
+      totalExpenses > totalRevenue * 0.7 ? 'Considere revisar e otimizar custos operacionais' : 'Margem de lucro saudável',
+      'Continue monitorando o fluxo de caixa regularmente'
+    ]
+  };
+}
+
+async function generateCRMReport(serviceFactory: any, startDate: Date, endDate: Date, args: GenerateReportArgs) {
+  const leads = await serviceFactory.leads.getMany([
+    { field: 'createdAt', operator: '>=', value: startDate },
+    { field: 'createdAt', operator: '<=', value: endDate }
+  ]);
+
+  const totalLeads = leads.length;
+  const convertedLeads = leads.filter((l: Lead) => l.status === LeadStatus.WON).length;
+  const conversionRate = totalLeads > 0 ? (convertedLeads / totalLeads) * 100 : 0;
+
+  return {
+    reportType: 'crm',
+    summary: {
+      totalLeads,
+      convertedLeads,
+      conversionRate,
+      averageScore: leads.reduce((sum: number, l: Lead) => sum + (l.score || 0), 0) / totalLeads || 0,
+      hotLeads: leads.filter((l: Lead) => l.temperature === 'hot').length
+    },
+    insights: [
+      `Taxa de conversão de ${conversionRate.toFixed(1)}% ${conversionRate > 15 ? '(excelente)' : conversionRate > 8 ? '(boa)' : '(pode melhorar)'}`,
+      `${leads.filter((l: Lead) => l.temperature === 'hot').length} leads quentes necessitam atenção prioritária`
+    ],
+    recommendations: [
+      conversionRate < 10 ? 'Implemente estratégias de nurturing para melhorar conversão' : 'Mantenha o bom trabalho de conversão',
+      'Foque nos leads quentes para maximizar resultados'
+    ]
+  };
+}
+
+async function calculateRevenueMetrics(serviceFactory: any, startDate: Date, endDate: Date, args: TrackMetricsArgs) {
+  const transactions = await serviceFactory.transactions.getMany([
+    { field: 'date', operator: '>=', value: startDate },
+    { field: 'date', operator: '<=', value: endDate },
+    { field: 'type', operator: '==', value: 'income' },
+    { field: 'status', operator: '==', value: 'completed' }
+  ]);
+
+  const totalRevenue = transactions.reduce((sum: number, t: Transaction) => sum + t.amount, 0);
+  
+  return {
+    metricType: 'revenue',
+    value: totalRevenue,
+    trend: 'positive', // Simplificado, poderia calcular baseado em comparação
+    insights: [
+      `Receita total de R$ ${totalRevenue.toLocaleString('pt-BR')} no período`,
+      `Média de R$ ${(totalRevenue / Math.max(transactions.length, 1)).toLocaleString('pt-BR')} por transação`
+    ],
+    breakdown: {
+      transactionCount: transactions.length,
+      averageTicket: totalRevenue / Math.max(transactions.length, 1)
+    }
+  };
+}
+
+async function calculateConversionMetrics(serviceFactory: any, startDate: Date, endDate: Date, args: TrackMetricsArgs) {
+  const leads = await serviceFactory.leads.getAll();
+  const totalLeads = leads.length;
+  const convertedLeads = leads.filter((l: Lead) => l.status === LeadStatus.WON).length;
+  const conversionRate = totalLeads > 0 ? (convertedLeads / totalLeads) * 100 : 0;
+
+  return {
+    metricType: 'conversion',
+    value: conversionRate,
+    trend: conversionRate > 15 ? 'positive' : conversionRate > 8 ? 'neutral' : 'negative',
+    insights: [
+      `Taxa de conversão atual: ${conversionRate.toFixed(1)}%`,
+      `${convertedLeads} leads convertidos de ${totalLeads} total`
+    ],
+    breakdown: {
+      totalLeads,
+      convertedLeads,
+      pipelineHealth: conversionRate > 10 ? 'saudável' : 'precisa atenção'
+    }
+  };
+}
+
+function calculateGrowthMetrics(current: any, previous: any) {
+  const growth: any = {};
+  
+  for (const key in current) {
+    if (typeof current[key] === 'number' && typeof previous[key] === 'number') {
+      const currentValue = current[key];
+      const previousValue = previous[key];
+      
+      if (previousValue !== 0) {
+        growth[key] = ((currentValue - previousValue) / previousValue) * 100;
+      } else {
+        growth[key] = currentValue > 0 ? 100 : 0;
+      }
+    }
+  }
+  
+  return growth;
+}
+
+async function generateSimpleReport(serviceFactory: any, startDate: Date, endDate: Date, reportType: string) {
+  // Versão simplificada para comparação
+  const transactions = await serviceFactory.transactions.getMany([
+    { field: 'date', operator: '>=', value: startDate },
+    { field: 'date', operator: '<=', value: endDate }
+  ]);
+
+  const totalRevenue = transactions
+    .filter((t: Transaction) => t.type === 'income' && t.status === 'completed')
+    .reduce((sum: number, t: Transaction) => sum + t.amount, 0);
+
+  return {
+    summary: {
+      totalRevenue,
+      transactionCount: transactions.length
+    }
+  };
+}
+
+// ===== FUNÇÕES CRM MANAGEMENT =====
+
+/**
+ * FUNÇÃO CRM 1: Criar novo lead (chamada automaticamente no primeiro contato WhatsApp)
+ */
+export async function createLead(args: CreateLeadArgs, tenantId: string): Promise<any> {
+  try {
+    logger.info('🎯 [CRM] create_lead iniciada', {
+      tenantId,
+      phone: args.phone,
+      source: args.source || 'whatsapp_ai'
+    });
+
+    const serviceFactory = new TenantServiceFactory(tenantId);
+    const leadService = serviceFactory.leads;
+    
+    // Verificar se lead já existe com este telefone
+    const existingLeads = await leadService.getMany([
+      { field: 'phone', operator: '==', value: args.phone }
+    ]);
+
+    if (existingLeads.length > 0) {
+      logger.info('🔄 [CRM] Lead já existe, retornando existente', {
+        tenantId,
+        phone: args.phone,
+        existingLeadId: existingLeads[0].id
+      });
+
+      return {
+        success: true,
+        message: 'Lead já existe no sistema',
+        lead: existingLeads[0],
+        action: 'found_existing',
+        tenantId
+      };
+    }
+
+    // Criar novo lead
+    const now = new Date();
+    const newLead: Partial<Lead> = {
+      tenantId,
+      name: args.name || 'Lead WhatsApp',
+      email: args.email,
+      phone: args.phone,
+      whatsappNumber: args.whatsappNumber || args.phone,
+      
+      // Status inicial
+      status: LeadStatus.NEW,
+      source: args.source === 'whatsapp_ai' ? 'whatsapp_ai' : args.source || 'whatsapp_ai',
+      sourceDetails: args.sourceDetails || 'Primeiro contato via WhatsApp AI',
+      
+      // Pontuação inicial
+      score: 25, // Score inicial baixo, aumenta com interações
+      temperature: 'warm', // Começa warm por ser WhatsApp
+      qualificationCriteria: {
+        budget: false,
+        authority: false,
+        need: false,
+        timeline: false
+      },
+      
+      // Preferências iniciais
+      preferences: args.preferences || {},
+      
+      // Dados de contato
+      firstContactDate: now,
+      lastContactDate: now,
+      totalInteractions: 1,
+      
+      // Metadata
+      tags: ['whatsapp', 'new_contact'],
+      createdAt: now,
+      updatedAt: now
+    };
+
+    const leadId = await leadService.create(newLead);
+
+    // Registrar interação inicial
+    if (args.initialInteraction) {
+      const interactionService = serviceFactory.interactions;
+      await interactionService.create({
+        leadId,
+        tenantId,
+        type: InteractionType.WHATSAPP_MESSAGE,
+        channel: 'whatsapp',
+        direction: 'inbound',
+        content: args.initialInteraction,
+        userId: 'sofia-ai',
+        userName: 'Sofia AI',
+        sentiment: 'neutral',
+        createdAt: now,
+        updatedAt: now
+      });
+    }
+
+    logger.info('✅ [CRM] Lead criado com sucesso', {
+      tenantId,
+      leadId,
+      phone: args.phone,
+      name: args.name
+    });
+
+    const createdLead = await leadService.getById(leadId);
+
+    return {
+      success: true,
+      message: 'Lead criado com sucesso',
+      lead: createdLead,
+      leadId,
+      action: 'created',
+      tenantId
+    };
+
+  } catch (error) {
+    logger.error('❌ [CRM] Erro ao criar lead', error instanceof Error ? error : undefined, {
+      tenantId,
+      phone: args.phone,
+      error: error instanceof Error ? error.message : String(error)
+    });
+
+    return {
+      success: false,
+      error: `Erro ao criar lead: ${error instanceof Error ? error.message : String(error)}`,
+      tenantId
+    };
+  }
+}
+
+/**
+ * FUNÇÃO CRM 2: Atualizar informações do lead
+ */
+export async function updateLead(args: UpdateLeadArgs, tenantId: string): Promise<any> {
+  try {
+    logger.info('🔄 [CRM] update_lead iniciada', {
+      tenantId,
+      leadId: args.leadId,
+      clientPhone: args.clientPhone,
+      updateKeys: Object.keys(args.updates)
+    });
+
+    const serviceFactory = new TenantServiceFactory(tenantId);
+    const leadService = serviceFactory.leads;
+    
+    let leadId = args.leadId;
+    
+    // Se não tem leadId, buscar por telefone
+    if (!leadId && args.clientPhone) {
+      const leads = await leadService.getMany([
+        { field: 'phone', operator: '==', value: args.clientPhone }
+      ]);
+      
+      if (leads.length === 0) {
+        return {
+          success: false,
+          error: 'Lead não encontrado com este telefone',
+          tenantId
+        };
+      }
+      
+      leadId = leads[0].id;
+    }
+    
+    if (!leadId) {
+      return {
+        success: false,
+        error: 'leadId ou clientPhone obrigatório',
+        tenantId
+      };
+    }
+
+    // Buscar lead atual
+    const currentLead = await leadService.getById(leadId);
+    if (!currentLead) {
+      return {
+        success: false,
+        error: 'Lead não encontrado',
+        tenantId
+      };
+    }
+
+    // Preparar updates
+    const updates: Partial<Lead> = {
+      ...args.updates,
+      updatedAt: new Date()
+    };
+
+    // Atualizar interações se mudou status
+    if (args.updates.status && args.updates.status !== currentLead.status) {
+      updates.lastContactDate = new Date();
+    }
+
+    // Atualizar score baseado em novas informações
+    if (args.updates.preferences || args.updates.email || args.updates.name) {
+      let scoreBonus = 0;
+      if (args.updates.email && !currentLead.email) scoreBonus += 10;
+      if (args.updates.name && currentLead.name === 'Lead WhatsApp') scoreBonus += 10;
+      if (args.updates.preferences) scoreBonus += 15;
+      
+      updates.score = Math.min((currentLead.score || 0) + scoreBonus, 100);
+    }
+
+    // Executar update
+    await leadService.update(leadId, updates);
+
+    const updatedLead = await leadService.getById(leadId);
+
+    logger.info('✅ [CRM] Lead atualizado com sucesso', {
+      tenantId,
+      leadId,
+      updatedFields: Object.keys(updates),
+      newScore: updatedLead?.score
+    });
+
+    return {
+      success: true,
+      message: 'Lead atualizado com sucesso',
+      lead: updatedLead,
+      leadId,
+      tenantId
+    };
+
+  } catch (error) {
+    logger.error('❌ [CRM] Erro ao atualizar lead', error instanceof Error ? error : undefined, {
+      tenantId,
+      leadId: args.leadId,
+      error: error instanceof Error ? error.message : String(error)
+    });
+
+    return {
+      success: false,
+      error: `Erro ao atualizar lead: ${error instanceof Error ? error.message : String(error)}`,
+      tenantId
+    };
+  }
+}
+
+/**
+ * FUNÇÃO CRM 3: Criar tarefa de follow-up
+ */
+export async function createTask(args: CreateTaskArgs, tenantId: string): Promise<any> {
+  try {
+    logger.info('📋 [CRM] create_task iniciada', {
+      tenantId,
+      leadId: args.leadId,
+      clientId: args.clientId,
+      title: args.title,
+      type: args.type,
+      priority: args.priority
+    });
+
+    const serviceFactory = new TenantServiceFactory(tenantId);
+    const taskService = serviceFactory.tasks;
+    
+    if (!args.leadId && !args.clientId) {
+      return {
+        success: false,
+        error: 'leadId ou clientId obrigatório',
+        tenantId
+      };
+    }
+
+    const now = new Date();
+    const dueDate = new Date(args.dueDate);
+    const reminderDate = args.reminderDate ? new Date(args.reminderDate) : undefined;
+
+    const newTask = {
+      tenantId,
+      title: args.title,
+      description: args.description,
+      type: args.type,
+      priority: args.priority as any,
+      
+      // Assignment
+      assignedTo: args.assignedTo || 'sofia-ai',
+      assignedBy: 'sofia-ai',
+      leadId: args.leadId,
+      clientId: args.clientId,
+      
+      // Scheduling
+      dueDate,
+      reminderDate,
+      
+      // Status
+      status: 'pending' as any,
+      
+      // Metadata
+      tags: [args.type, `priority_${args.priority}`],
+      notes: args.notes,
+      createdAt: now,
+      updatedAt: now
+    };
+
+    const taskId = await taskService.create(newTask);
+
+    logger.info('✅ [CRM] Task criada com sucesso', {
+      tenantId,
+      taskId,
+      title: args.title,
+      dueDate: args.dueDate
+    });
+
+    const createdTask = await taskService.getById(taskId);
+
+    return {
+      success: true,
+      message: 'Task criada com sucesso',
+      task: createdTask,
+      taskId,
+      tenantId
+    };
+
+  } catch (error) {
+    logger.error('❌ [CRM] Erro ao criar task', error instanceof Error ? error : undefined, {
+      tenantId,
+      leadId: args.leadId,
+      error: error instanceof Error ? error.message : String(error)
+    });
+
+    return {
+      success: false,
+      error: `Erro ao criar task: ${error instanceof Error ? error.message : String(error)}`,
+      tenantId
+    };
+  }
+}
+
+/**
+ * FUNÇÃO CRM 4: Atualizar status de tarefa
+ */
+export async function updateTask(args: UpdateTaskArgs, tenantId: string): Promise<any> {
+  try {
+    logger.info('📝 [CRM] update_task iniciada', {
+      tenantId,
+      taskId: args.taskId,
+      updateKeys: Object.keys(args.updates)
+    });
+
+    const serviceFactory = new TenantServiceFactory(tenantId);
+    const taskService = serviceFactory.tasks;
+    
+    // Buscar task atual
+    const currentTask = await taskService.getById(args.taskId);
+    if (!currentTask) {
+      return {
+        success: false,
+        error: 'Task não encontrada',
+        tenantId
+      };
+    }
+
+    // Preparar updates
+    const updates: any = {
+      ...args.updates,
+      updatedAt: new Date()
+    };
+
+    // Se completando task, adicionar timestamp
+    if (args.updates.status === 'completed' && !args.updates.completedAt) {
+      updates.completedAt = new Date();
+    }
+
+    // Executar update
+    await taskService.update(args.taskId, updates);
+
+    const updatedTask = await taskService.getById(args.taskId);
+
+    logger.info('✅ [CRM] Task atualizada com sucesso', {
+      tenantId,
+      taskId: args.taskId,
+      newStatus: args.updates.status,
+      completed: args.updates.status === 'completed'
+    });
+
+    return {
+      success: true,
+      message: 'Task atualizada com sucesso',
+      task: updatedTask,
+      taskId: args.taskId,
+      tenantId
+    };
+
+  } catch (error) {
+    logger.error('❌ [CRM] Erro ao atualizar task', error instanceof Error ? error : undefined, {
+      tenantId,
+      taskId: args.taskId,
+      error: error instanceof Error ? error.message : String(error)
+    });
+
+    return {
+      success: false,
+      error: `Erro ao atualizar task: ${error instanceof Error ? error.message : String(error)}`,
+      tenantId
+    };
+  }
 }
 
 // Executar função baseada no nome
@@ -2447,6 +4066,24 @@ export async function executeTenantAwareFunction(
       return await generateQuote(args, tenantId);
     case 'create_transaction':
       return await createTransaction(args, tenantId);
+    case 'create_lead':
+      return await createLead(args, tenantId);
+    case 'update_lead':
+      return await updateLead(args, tenantId);
+    case 'create_task':
+      return await createTask(args, tenantId);
+    case 'update_task':
+      return await updateTask(args, tenantId);
+    case 'generate_report':
+      return await generateReport(args, tenantId);
+    case 'track_metrics':
+      return await trackMetrics(args, tenantId);
+    case 'create_goal':
+      return await createGoal(args, tenantId);
+    case 'update_goal_progress':
+      return await updateGoalProgress(args, tenantId);
+    case 'analyze_performance':
+      return await analyzePerformance(args, tenantId);
     default:
       logger.error('❌ [TenantAgent] Função desconhecida', {
         functionName,
