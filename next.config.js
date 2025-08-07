@@ -19,6 +19,10 @@ const nextConfig = {
   // Remove output config for Netlify deployment
   // output: 'standalone',
   
+  // Skip problematic pages during static generation
+  skipMiddlewareUrlNormalize: true,
+  skipTrailingSlashRedirect: true,
+  
   typescript: {
     // !! CUIDADO !!
     // Permite que a build de produção seja gerada com sucesso mesmo que seu projeto tenha erros de tipo.
@@ -110,22 +114,22 @@ const nextConfig = {
   
   // Webpack configuration
   webpack: (config, { isServer }) => {
-    // Add any custom webpack config here
+    // Resolve package conflicts and prevent problematic imports
+    config.resolve.alias = {
+      ...config.resolve.alias,
+      'next/document': false,
+    };
+    
+    // Add fallbacks for client-side and prevent document imports
     if (!isServer) {
       config.resolve.fallback = {
         ...config.resolve.fallback,
         fs: false,
         net: false,
         tls: false,
+        'next/document': false,
       };
     }
-    
-    // Resolve package version conflicts
-    config.resolve.alias = {
-      ...config.resolve.alias,
-    };
-    
-    // Webpack configuration simplificada (removido código deprecated)
     
     return config;
   },
