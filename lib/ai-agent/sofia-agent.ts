@@ -5,7 +5,7 @@
 import { OpenAI } from 'openai';
 import { getTenantAwareOpenAIFunctions, executeTenantAwareFunction } from '@/lib/ai/tenant-aware-agent-functions';
 import { logger } from '@/lib/utils/logger';
-import { SOFIA_PROMPT } from './sofia-prompt-optimized';
+import { SOFIA_PROMPT } from './sofia-prompt';
 import { FEW_SHOT_EXAMPLES } from './few-shot-examples';
 import { UnifiedContextManager } from './unified-context-manager';
 

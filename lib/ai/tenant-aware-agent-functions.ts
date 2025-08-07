@@ -892,7 +892,86 @@ export async function sendPropertyMedia(args: SendPropertyMediaArgs, tenantId: s
 }
 
 /**
- * FUNÇÃO 7: Agendar visita à propriedade
+ * FUNÇÃO 7: Verificar disponibilidade para visitas
+ */
+export async function checkVisitAvailability(args: { visitDate: string; propertyId?: string }, tenantId: string): Promise<any> {
+  try {
+    logger.info('🕐 [TenantAgent] check_visit_availability iniciada', {
+      tenantId,
+      visitDate: args.visitDate,
+      propertyId: args.propertyId
+    });
+
+    const serviceFactory = new TenantServiceFactory(tenantId);
+    const visitService = serviceFactory.get<VisitAppointment>('visits');
+    
+    const requestedDate = new Date(args.visitDate);
+    
+    // Verificar se a data é futura
+    if (requestedDate <= new Date()) {
+      return {
+        success: false,
+        error: 'Por favor, escolha uma data futura para a visita.',
+        tenantId
+      };
+    }
+    
+    // Buscar visitas já agendadas na data
+    const startOfDay = new Date(requestedDate);
+    startOfDay.setHours(0, 0, 0, 0);
+    
+    const endOfDay = new Date(requestedDate);
+    endOfDay.setHours(23, 59, 59, 999);
+    
+    const existingVisits = await visitService.getMany([
+      { field: 'scheduledDate', operator: '>=', value: startOfDay },
+      { field: 'scheduledDate', operator: '<=', value: endOfDay },
+      { field: 'status', operator: '!=', value: 'cancelled_by_client' },
+      { field: 'status', operator: '!=', value: 'cancelled_by_agent' }
+    ]) as VisitAppointment[];
+
+    // Definir horários de funcionamento (9h às 18h)
+    const workingHours = ['09:00', '10:00', '11:00', '14:00', '15:00', '16:00', '16:30', '17:00', '17:30', '18:00'];
+    
+    // Filtrar horários já ocupados
+    const occupiedTimes = existingVisits.map(visit => visit.scheduledTime);
+    const availableTimes = workingHours.filter(time => !occupiedTimes.includes(time));
+    
+    logger.info('✅ [TenantAgent] check_visit_availability concluída', {
+      tenantId,
+      visitDate: args.visitDate,
+      totalSlots: workingHours.length,
+      occupiedSlots: occupiedTimes.length,
+      availableSlots: availableTimes.length
+    });
+
+    return {
+      success: true,
+      date: args.visitDate,
+      availableTimes,
+      occupiedTimes,
+      totalAvailable: availableTimes.length,
+      workingDay: availableTimes.length > 0,
+      suggestedTimes: availableTimes.slice(0, 3), // Top 3 sugestões
+      tenantId
+    };
+
+  } catch (error) {
+    logger.error('❌ [TenantAgent] Erro em check_visit_availability', {
+      tenantId,
+      error: error instanceof Error ? error.message : 'Unknown error'
+    });
+
+    return {
+      success: false,
+      error: 'Erro ao verificar disponibilidade. Por favor, tente novamente.',
+      tenantId
+    };
+  }
+}
+
+/**
+ * FUNÇÃO 8: Agendar visita à propriedade
  */
 export async function scheduleVisit(args: ScheduleVisitArgs, tenantId: string): Promise<any> {
   try {
@@ -2125,6 +2204,27 @@ export function getTenantAwareOpenAIFunctions() {
     {
       type: 'function' as const,
       function: {
+        name: 'check_visit_availability',
+        description: 'Verificar horários disponíveis para visita em uma data específica',
+        parameters: {
+          type: 'object',
+          properties: {
+            visitDate: {
+              type: 'string',
+              description: 'Data da visita (YYYY-MM-DD)'
+            },
+            propertyId: {
+              type: 'string',
+              description: 'ID da propriedade (opcional)'
+            }
+          },
+          required: ['visitDate']
+        }
+      }
+    },
+    {
+      type: 'function' as const,
+      function: {
         name: 'schedule_visit',
         description: 'Agendar uma visita para conhecer a propriedade',
         parameters: {
@@ -2335,6 +2435,8 @@ export async function executeTenantAwareFunction(
       return await getPropertyDetails(args, tenantId);
     case 'send_property_media':
       return await sendPropertyMedia(args, tenantId);
+    case 'check_visit_availability':
+      return await checkVisitAvailability(args, tenantId);
     case 'schedule_visit':
       return await scheduleVisit(args, tenantId);
     case 'classify_lead':
