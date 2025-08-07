@@ -62,6 +62,7 @@ export default function SignupPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
   
   const router = useRouter();
   const { signUp } = useAuth();
@@ -83,10 +84,10 @@ export default function SignupPage() {
       
       await signUp(data.email, data.password, data.name);
       setSuccess(true);
-      // Redirect to login after 2 seconds
-      setTimeout(() => {
-        router.push('/login');
-      }, 2000);
+      setIsProcessing(true);
+      
+      // O AuthProvider vai automaticamente redirecionar para o dashboard
+      // Não precisamos mais redirecionar para login
     } catch (err: any) {
       let errorMessage = 'Erro ao criar conta';
       
@@ -210,7 +211,7 @@ export default function SignupPage() {
                   mb: 4,
                 }}
               >
-                Redirecionando você para a página de login...
+                Carregando seus dados e redirecionando para o dashboard...
               </Typography>
 
               <CircularProgress sx={{ color: '#16a34a' }} />
@@ -439,28 +440,33 @@ export default function SignupPage() {
                     type="submit"
                     fullWidth
                     size="large"
-                    disabled={isLoading}
-                    endIcon={isLoading ? <CircularProgress size={16} color="inherit" /> : <ArrowForward />}
+                    disabled={isLoading || isProcessing}
+                    endIcon={
+                      isLoading || isProcessing ? 
+                        <CircularProgress size={16} color="inherit" /> : 
+                        <ArrowForward />
+                    }
                     sx={{
                       py: 1.8,
                       borderRadius: 2,
                       textTransform: 'none',
                       fontWeight: 600,
                       fontSize: '1rem',
-                      backgroundColor: '#3b82f6',
+                      backgroundColor: isProcessing ? '#16a34a' : '#3b82f6',
                       color: '#ffffff',
                       boxShadow: 'none',
                       '&:hover': {
-                        backgroundColor: '#2563eb',
+                        backgroundColor: isProcessing ? '#16a34a' : '#2563eb',
                         boxShadow: 'none',
                       },
                       '&:disabled': {
-                        backgroundColor: '#525252',
-                        color: '#a1a1a1',
+                        backgroundColor: isProcessing ? '#16a34a' : '#525252',
+                        color: '#ffffff',
+                        opacity: isProcessing ? 1 : 0.6,
                       },
                     }}
                   >
-                    {isLoading ? 'Criando conta...' : 'Criar conta'}
+                    {isProcessing ? 'Redirecionando...' : isLoading ? 'Criando conta...' : 'Criar conta'}
                   </Button>
 
                   <Box sx={{ textAlign: 'center' }}>

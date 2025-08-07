@@ -85,13 +85,19 @@ export default function LoginPage() {
   const [activeTab, setActiveTab] = useState(0); // 0 = login, 1 = register
   const [showForgotPassword, setShowForgotPassword] = useState(false);
   const [forgotEmail, setForgotEmail] = useState('');
+  const [success, setSuccess] = useState<string | null>(null);
+  const [loginSuccess, setLoginSuccess] = useState(false);
+  const [registerSuccess, setRegisterSuccess] = useState(false);
   
   const router = useRouter();
   const { signIn, signUp, resetPassword } = useAuth();
 
-  // Clear error when tab changes
+  // Clear error and success when tab changes
   useEffect(() => {
     setError(null);
+    setSuccess(null);
+    setLoginSuccess(false);
+    setRegisterSuccess(false);
   }, [activeTab]);
 
   const loginForm = useForm<LoginFormData>({
@@ -116,10 +122,33 @@ export default function LoginPage() {
     try {
       setIsLoading(true);
       setError(null);
+      setSuccess(null);
+      
       await signIn(data.email, data.password);
+      
+      // Mostrar feedback de sucesso enquanto processa
+      setLoginSuccess(true);
+      setSuccess('Login realizado com sucesso! Carregando dados...');
+      
+      // O AuthProvider vai processar e redirecionar automaticamente
     } catch (err: any) {
-      setError('Email ou senha incorretos');
-    } finally {
+      let errorMessage = 'Email ou senha incorretos';
+      
+      if (err.code === 'auth/network-request-failed') {
+        errorMessage = 'Erro de conexão. Verifique sua internet.';
+      } else if (err.code === 'auth/user-disabled') {
+        errorMessage = 'Esta conta foi desativada.';
+      } else if (err.code === 'auth/user-not-found') {
+        errorMessage = 'Email não encontrado.';
+      } else if (err.code === 'auth/wrong-password') {
+        errorMessage = 'Senha incorreta.';
+      } else if (err.code === 'auth/invalid-credential') {
+        errorMessage = 'Email ou senha incorretos.';
+      } else if (err.code === 'auth/too-many-requests') {
+        errorMessage = 'Muitas tentativas. Tente novamente mais tarde.';
+      }
+      
+      setError(errorMessage);
       setIsLoading(false);
     }
   };
@@ -128,11 +157,15 @@ export default function LoginPage() {
     try {
       setIsLoading(true);
       setError(null);
+      setSuccess(null);
       
       await signUp(data.email, data.password, data.name);
-      // Switch to login after successful registration
-      setActiveTab(0);
-      loginForm.setValue('email', data.email);
+      
+      // Mostrar feedback de sucesso
+      setRegisterSuccess(true);
+      setSuccess('Conta criada com sucesso! Redirecionando para o dashboard...');
+      
+      // O AuthProvider vai processar e redirecionar automaticamente para dashboard
     } catch (err: any) {
       let errorMessage = 'Erro ao criar conta';
       
@@ -144,12 +177,13 @@ export default function LoginPage() {
         errorMessage = 'A senha é muito fraca.';
       } else if (err.code === 'auth/invalid-email') {
         errorMessage = 'Email inválido.';
+      } else if (err.code === 'auth/operation-not-allowed') {
+        errorMessage = 'Criação de conta não permitida no momento.';
       } else if (err.message) {
         errorMessage = err.message;
       }
       
       setError(errorMessage);
-    } finally {
       setIsLoading(false);
     }
   };
@@ -168,6 +202,7 @@ export default function LoginPage() {
       setForgotEmail('');
       // Show success message
       setError(null);
+      setSuccess('Email de recuperação enviado! Verifique sua caixa de entrada.');
     } catch (err: any) {
       setError('Erro ao enviar email de recuperação');
     } finally {
@@ -421,32 +456,54 @@ export default function LoginPage() {
                             </Alert>
                           )}
 
+                          {success && (
+                            <Alert 
+                              severity="success" 
+                              sx={{
+                                borderRadius: 2,
+                                backgroundColor: '#1b2d1b',
+                                border: '1px solid #16a34a',
+                                color: '#4ade80',
+                                '& .MuiAlert-icon': {
+                                  color: '#4ade80',
+                                },
+                              }}
+                            >
+                              {success}
+                            </Alert>
+                          )}
+
                           <Button
                             type="submit"
                             fullWidth
                             size="large"
-                            disabled={isLoading}
-                            endIcon={isLoading ? <CircularProgress size={16} color="inherit" /> : <ArrowForward />}
+                            disabled={isLoading || loginSuccess}
+                            endIcon={
+                              isLoading || loginSuccess ? 
+                                <CircularProgress size={16} color="inherit" /> : 
+                                <ArrowForward />
+                            }
                             sx={{
                               py: 1.8,
                               borderRadius: 2,
                               textTransform: 'none',
                               fontWeight: 600,
                               fontSize: '1rem',
-                              backgroundColor: '#3b82f6',
+                              backgroundColor: loginSuccess ? '#16a34a' : '#3b82f6',
                               color: '#ffffff',
                               boxShadow: 'none',
                               '&:hover': {
-                                backgroundColor: '#2563eb',
+                                backgroundColor: loginSuccess ? '#16a34a' : '#2563eb',
                                 boxShadow: 'none',
                               },
                               '&:disabled': {
-                                backgroundColor: '#525252',
-                                color: '#a1a1a1',
+                                backgroundColor: loginSuccess ? '#16a34a' : '#525252',
+                                color: '#ffffff',
+                                opacity: loginSuccess ? 1 : 0.6,
                               },
                             }}
                           >
-                            {isLoading ? 'Entrando...' : 'Entrar'}
+                            {loginSuccess ? 'Redirecionando...' : isLoading ? 'Entrando...' : 'Entrar'}
                           </Button>
                         </Stack>
                       </form>
@@ -570,32 +627,54 @@ export default function LoginPage() {
                             </Alert>
                           )}
 
+                          {success && (
+                            <Alert 
+                              severity="success" 
+                              sx={{
+                                borderRadius: 2,
+                                backgroundColor: '#1b2d1b',
+                                border: '1px solid #16a34a',
+                                color: '#4ade80',
+                                '& .MuiAlert-icon': {
+                                  color: '#4ade80',
+                                },
+                              }}
+                            >
+                              {success}
+                            </Alert>
+                          )}
+
                           <Button
                             type="submit"
                             fullWidth
                             size="large"
-                            disabled={isLoading}
-                            endIcon={isLoading ? <CircularProgress size={16} color="inherit" /> : <ArrowForward />}
+                            disabled={isLoading || registerSuccess}
+                            endIcon={
+                              isLoading || registerSuccess ? 
+                                <CircularProgress size={16} color="inherit" /> : 
+                                <ArrowForward />
+                            }
                             sx={{
                               py: 1.8,
                               borderRadius: 2,
                               textTransform: 'none',
                               fontWeight: 600,
                               fontSize: '1rem',
-                              backgroundColor: '#3b82f6',
+                              backgroundColor: registerSuccess ? '#16a34a' : '#3b82f6',
                               color: '#ffffff',
                               boxShadow: 'none',
                               '&:hover': {
-                                backgroundColor: '#2563eb',
+                                backgroundColor: registerSuccess ? '#16a34a' : '#2563eb',
                                 boxShadow: 'none',
                               },
                               '&:disabled': {
-                                backgroundColor: '#525252',
-                                color: '#a1a1a1',
+                                backgroundColor: registerSuccess ? '#16a34a' : '#525252',
+                                color: '#ffffff',
+                                opacity: registerSuccess ? 1 : 0.6,
                               },
                             }}
                           >
-                            {isLoading ? 'Criando conta...' : 'Criar conta'}
+                            {registerSuccess ? 'Redirecionando...' : isLoading ? 'Criando conta...' : 'Criar conta'}
                           </Button>
                         </Stack>
                       </form>
