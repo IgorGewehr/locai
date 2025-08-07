@@ -91,6 +91,9 @@ export class WhatsAppSessionManager extends EventEmitter {
       this.logger.info(`🔄 Destroying existing session for tenant ${tenantId}`);
       await this.destroySession(tenantId);
     }
+    
+    // Add small delay to ensure cleanup is complete
+    await new Promise(resolve => setTimeout(resolve, 500));
 
     const session: WhatsAppSession = {
       socket: null,
@@ -176,6 +179,7 @@ export class WhatsAppSessionManager extends EventEmitter {
       if (qr) {
         this.logger.info(`🔲 QR Code generated for tenant ${tenantId}`);
         this.logger.info(`📄 QR Code length: ${qr.length} characters`);
+        this.logger.info(`🔍 QR Code content preview: ${qr.substring(0, 50)}...`);
         
         try {
           // Import QRCode library dynamically
@@ -194,6 +198,8 @@ export class WhatsAppSessionManager extends EventEmitter {
           });
           
           this.logger.info(`🎨 QR Code data URL generated successfully`);
+          this.logger.info(`📈 Data URL length: ${qrDataUrl.length}`);
+          this.logger.info(`🎯 Data URL prefix: ${qrDataUrl.substring(0, 30)}...`);
           
           session.qrCode = qrDataUrl;
           session.status = 'qr';
@@ -206,8 +212,10 @@ export class WhatsAppSessionManager extends EventEmitter {
           this.logger.info(`✅ QR Code saved and emitted for tenant ${tenantId}`);
         } catch (error) {
           this.logger.error(`❌ Error generating QR code data URL:`, error);
+          this.logger.error(`🛠️ Error details:`, error instanceof Error ? error.message : String(error));
           
           // Fallback: save raw QR string
+          this.logger.info(`🔄 Using raw QR string as fallback`);
           session.qrCode = qr;
           session.status = 'qr';
           session.lastActivity = new Date();
@@ -523,17 +531,21 @@ export class WhatsAppSessionManager extends EventEmitter {
     businessName?: string
   ) {
     try {
-      const settingsRef = doc(db, 'settings', tenantId);
+      // Use tenant-scoped settings collection
+      const settingsRef = doc(db, `tenants/${tenantId}/settings`, 'whatsapp');
       const settingsDoc = await getDoc(settingsRef);
       
-      const currentSettings = settingsDoc.exists() ? settingsDoc.data() : {};
+      // Also update the root settings for backward compatibility
+      const rootSettingsRef = doc(db, 'settings', tenantId);
+      const rootSettingsDoc = await getDoc(rootSettingsRef);
       
+      // Prepare WhatsApp settings data
       const whatsappSettings = {
-        ...currentSettings.whatsapp,
         connected: status === 'connected',
         status,
         lastSync: new Date(),
         qrCode: qrCode || null,
+        tenantId,
       };
       
       if (phoneNumber) {
@@ -548,24 +560,51 @@ export class WhatsAppSessionManager extends EventEmitter {
         whatsappSettings.qrCode = null;
       }
       
-      await setDoc(settingsRef, {
-        ...currentSettings,
+      this.logger.info(`💾 Updating session status in Firebase:`, {
+        tenantId,
+        status,
+        hasQrCode: !!qrCode,
+        qrCodeLength: qrCode?.length
+      });
+      
+      // Update tenant-scoped settings
+      await setDoc(settingsRef, whatsappSettings, { merge: true });
+      
+      // Update root settings for backward compatibility
+      const rootCurrentSettings = rootSettingsDoc.exists() ? rootSettingsDoc.data() : {};
+      await setDoc(rootSettingsRef, {
+        ...rootCurrentSettings,
         whatsapp: whatsappSettings,
       }, { merge: true });
       
+      this.logger.info(`✅ Session status updated in Firebase for tenant ${tenantId}`);
+      
     } catch (error) {
-      this.logger.error(`Error updating session status for tenant ${tenantId}:`, error);
+      this.logger.error(`❌ Error updating session status for tenant ${tenantId}:`, error);
+      this.logger.error(`🛠️ Error details:`, error instanceof Error ? error.message : String(error));
     }
   }
 
   // Listen to status changes for a specific tenant
   onStatusChange(tenantId: string, callback: (status: any) => void): () => void {
-    const settingsRef = doc(db, 'settings', tenantId);
+    // Listen to tenant-scoped settings first, fallback to root
+    const settingsRef = doc(db, `tenants/${tenantId}/settings`, 'whatsapp');
     
     const unsubscribe = onSnapshot(settingsRef, (doc) => {
       if (doc.exists()) {
         const data = doc.data();
-        callback(data.whatsapp || {});
+        callback(data || {});
+      } else {
+        // Fallback to root settings
+        const rootSettingsRef = doc(db, 'settings', tenantId);
+        const rootUnsubscribe = onSnapshot(rootSettingsRef, (rootDoc) => {
+          if (rootDoc.exists()) {
+            const rootData = rootDoc.data();
+            callback(rootData.whatsapp || {});
+          }
+        });
+        // Store the root unsubscribe function
+        this.statusListeners.set(tenantId + '_root', rootUnsubscribe);
       }
     });
     
@@ -583,8 +622,8 @@ export class WhatsAppSessionManager extends EventEmitter {
       }
       
       // If not in memory, check Firestore  
-      // @ts-ignore - suppress type checking for collection.get method
-      const settingsSnapshot = await collection(db, 'settings').get();
+      const { getDocs } = await import('firebase/firestore');
+      const settingsSnapshot = await getDocs(collection(db, 'settings'));
       
       for (const doc of settingsSnapshot.docs) {
         const data = doc.data();

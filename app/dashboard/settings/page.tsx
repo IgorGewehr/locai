@@ -24,6 +24,8 @@ import {
   InputAdornment,
   Grid,
   Divider,
+  LinearProgress,
+  Fade,
 } from '@mui/material';
 import {
   WhatsApp,
@@ -64,6 +66,8 @@ export default function SettingsPage() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [qrDialogOpen, setQrDialogOpen] = useState(false);
+  const [connecting, setConnecting] = useState(false);
+  const [connectionProgress, setConnectionProgress] = useState(0);
 
   // Profile states
   const [profileLoading, setProfileLoading] = useState(false);
@@ -91,12 +95,17 @@ export default function SettingsPage() {
 
   // Define checkWhatsAppStatus before using it in useEffect
   const checkWhatsAppStatus = useCallback(async () => {
+    if (!tenantId || !isReady) {
+      console.log('⏳ Tenant not ready yet, skipping WhatsApp status check');
+      return;
+    }
+    
     try {
+      console.log('📡 Checking WhatsApp status for tenant:', tenantId);
       const response = await fetch('/api/whatsapp/session');
       if (response.ok) {
         const data = await response.json();
-        
-        // WhatsApp status check completed
+        console.log('📊 WhatsApp status response:', data);
         
         const newSession = {
           connected: data.data?.connected || false,
@@ -123,14 +132,14 @@ export default function SettingsPage() {
         
         // If we have a QR code and dialog is not open, open it
         if (data.data?.qrCode && !qrDialogOpen && data.data?.status === 'qr') {
-          // QR Code found in status check
+          console.log('🔲 Auto-opening QR dialog, QR found in status check');
           setQrDialogOpen(true);
         }
       }
     } catch (error) {
-      // Error checking WhatsApp status
+      console.error('❌ Error checking WhatsApp status:', error);
     }
-  }, [qrDialogOpen]); // Only depend on qrDialogOpen
+  }, [qrDialogOpen, tenantId, isReady]); // Include tenantId and isReady in dependencies
 
   useEffect(() => {
     let mounted = true;
@@ -239,21 +248,27 @@ export default function SettingsPage() {
 
   const initializeWhatsApp = async () => {
     setLoading(true);
+    setConnecting(true);
     setError(null);
-    
-    // Starting WhatsApp initialization
+    setSuccess(null);
+    setConnectionProgress(0);
     
     try {
+      setConnectionProgress(10);
+      setSuccess('Inicializando conexão WhatsApp...');
+      
       const response = await fetch('/api/whatsapp/session', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
       });
 
+      setConnectionProgress(30);
       const data = await response.json();
       
-      // API response received with connection data
-      
       if (data.success) {
+        setConnectionProgress(60);
+        setSuccess('Processando dados de sessão...');
+        
         // Update session state with all received data
         setWhatsappSession(prev => ({ 
           ...prev, 
@@ -262,26 +277,39 @@ export default function SettingsPage() {
           status: data.data.status || 'connecting'
         }));
         
+        setConnectionProgress(80);
+        
         if (data.data.qrCode) {
-          // QR Code received, opening dialog
+          console.log('✅ QR Code received, opening dialog');
+          console.log('📄 QR Code type:', data.data.qrCode.startsWith('data:') ? 'Data URL' : 'Raw String');
+          setConnectionProgress(100);
+          setSuccess('QR Code gerado! Escaneie com seu WhatsApp.');
           setQrDialogOpen(true);
         } else if (data.data.connected) {
-          // Already connected to WhatsApp
+          setConnectionProgress(100);
           setSuccess('WhatsApp conectado com sucesso!');
           setTimeout(() => setSuccess(null), 3000);
         } else {
-          // Waiting for QR code generation
-          setError('QR Code não foi gerado. Tente novamente.');
+          console.log('❌ No QR Code in response:', data.data);
+          setConnectionProgress(100);
+          setError('QR Code não foi gerado. Aguarde alguns segundos e tente novamente.');
         }
       } else {
-        // API error occurred
-        setError(data.error || 'Falha ao inicializar WhatsApp');
+        setConnectionProgress(0);
+        setError(data.error || 'Falha ao inicializar WhatsApp. Tente novamente.');
       }
-    } catch (error) {
-      // Network error occurred
-      setError('Erro ao conectar com WhatsApp');
+    } catch (error: any) {
+      setConnectionProgress(0);
+      setError('Erro de conexão. Verifique sua internet e tente novamente.');
     } finally {
       setLoading(false);
+      // Keep progress visible longer to show status
+      setTimeout(() => {
+        setConnecting(false);
+        if (!whatsappSession.qrCode && !whatsappSession.connected) {
+          setConnectionProgress(0);
+        }
+      }, 3000);
     }
   };
 
@@ -825,20 +853,78 @@ export default function SettingsPage() {
             </CardContent>
           </Card>
 
+          {/* Connection Progress */}
+          {connecting && (
+            <Card sx={{ 
+              mb: 3,
+              background: 'rgba(37, 211, 102, 0.1)',
+              border: '1px solid rgba(37, 211, 102, 0.2)',
+            }}>
+              <CardContent sx={{ p: 3 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+                  <CircularProgress 
+                    size={24} 
+                    sx={{ color: '#25d366', mr: 2 }} 
+                  />
+                  <Typography variant="body2" sx={{ color: '#25d366', fontWeight: 600 }}>
+                    Conectando ao WhatsApp...
+                  </Typography>
+                </Box>
+                
+                <LinearProgress 
+                  variant="determinate" 
+                  value={connectionProgress} 
+                  sx={{
+                    height: 8,
+                    borderRadius: 4,
+                    backgroundColor: 'rgba(37, 211, 102, 0.2)',
+                    '& .MuiLinearProgress-bar': {
+                      backgroundColor: '#25d366',
+                      borderRadius: 4,
+                    },
+                  }}
+                />
+                
+                <Typography 
+                  variant="caption" 
+                  sx={{ 
+                    display: 'block', 
+                    mt: 1, 
+                    color: 'text.secondary',
+                    textAlign: 'center' 
+                  }}
+                >
+                  {connectionProgress}% concluído
+                </Typography>
+              </CardContent>
+            </Card>
+          )}
+
           {/* Actions */}
           <Stack direction={isMobile ? 'column' : 'row'} spacing={2}>
             {!whatsappSession.connected && (
               <Button
                 variant="contained"
+                size="large"
                 startIcon={loading ? <CircularProgress size={20} color="inherit" /> : <QrCode />}
                 onClick={initializeWhatsApp}
-                disabled={loading}
+                disabled={loading || connecting}
                 sx={{
-                  backgroundColor: '#25d366',
-                  '&:hover': { backgroundColor: '#128c7e' },
+                  backgroundColor: connecting ? '#16a34a' : '#25d366',
+                  '&:hover': { 
+                    backgroundColor: connecting ? '#16a34a' : '#128c7e' 
+                  },
+                  '&:disabled': {
+                    backgroundColor: connecting ? '#16a34a' : '#9ca3af',
+                    color: '#ffffff',
+                    opacity: connecting ? 1 : 0.6,
+                  },
+                  py: 1.5,
+                  px: 4,
+                  fontWeight: 600,
                 }}
               >
-                {loading ? 'Conectando...' : 'Conectar WhatsApp'}
+                {connecting ? 'Conectando...' : loading ? 'Processando...' : 'Conectar WhatsApp'}
               </Button>
             )}
 
@@ -959,18 +1045,20 @@ export default function SettingsPage() {
               </Typography>
               
               {/* Debug info in development */}
-              <Typography 
-                variant="caption" 
-                sx={{ 
-                  color: 'rgba(255, 255, 255, 0.5)', 
-                  display: 'block', 
-                  mt: 2,
-                  fontFamily: 'monospace'
-                }}
-              >
-                Debug: QR Type: {whatsappSession.qrCode?.startsWith('data:') ? 'Data URL' : 'Raw String'} | 
-                Length: {whatsappSession.qrCode?.length}
-              </Typography>
+              {process.env.NODE_ENV === 'development' && (
+                <Typography 
+                  variant="caption" 
+                  sx={{ 
+                    color: 'rgba(255, 255, 255, 0.5)', 
+                    display: 'block', 
+                    mt: 2,
+                    fontFamily: 'monospace'
+                  }}
+                >
+                  Debug: QR Type: {whatsappSession.qrCode?.startsWith('data:') ? 'Data URL' : 'Raw String'} | 
+                  Length: {whatsappSession.qrCode?.length}
+                </Typography>
+              )}
             </Box>
           ) : (
             <Box>

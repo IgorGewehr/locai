@@ -11,13 +11,12 @@ const CACHE_DURATION = 5000; // 5 seconds
 // GET /api/whatsapp/session - Get session status
 export async function GET(request: NextRequest) {
   try {
-    // For now, skip auth in development
-    // const user = await verifyAuth(request);
-    // if (!user) {
-    //   return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    // }
+    const user = await verifyAuth(request);
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
 
-    const tenantId = 'default';
+    const tenantId = user.tenantId || user.uid;
     
     // Check cache first
     const cached = statusCache.get(tenantId);
@@ -52,18 +51,19 @@ export async function GET(request: NextRequest) {
 // POST /api/whatsapp/session - Initialize session
 export async function POST(request: NextRequest) {
   try {
-    // For now, skip auth in development
-    // const user = await verifyAuth(request);
-    // if (!user) {
-    //   return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    // }
+    const user = await verifyAuth(request);
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
 
-    const tenantId = 'default';
+    const tenantId = user.tenantId || user.uid;
     
     console.log(`🚀 API: Initializing session for tenant ${tenantId}`);
+    console.log(`🔍 API: Session manager available:`, !!whatsappSessionManager);
     
     // Initialize the session
     await whatsappSessionManager.initializeSession(tenantId);
+    console.log(`✅ API: Session initialization request completed`);
 
     // Wait longer for QR code generation with polling
     let attempts = 0;
@@ -92,7 +92,10 @@ export async function POST(request: NextRequest) {
       connected: status.connected,
       status: status.status,
       hasQrCode: !!status.qrCode,
-      qrCodeLength: status.qrCode?.length
+      qrCodeLength: status.qrCode?.length,
+      qrCodePrefix: status.qrCode?.substring(0, 30),
+      phoneNumber: status.phoneNumber,
+      businessName: status.businessName
     });
 
     return NextResponse.json({
@@ -111,13 +114,12 @@ export async function POST(request: NextRequest) {
 // DELETE /api/whatsapp/session - Disconnect session
 export async function DELETE(request: NextRequest) {
   try {
-    // For now, skip auth in development
-    // const user = await verifyAuth(request);
-    // if (!user) {
-    //   return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
-    // }
+    const user = await verifyAuth(request);
+    if (!user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
 
-    const tenantId = 'default';
+    const tenantId = user.tenantId || user.uid;
     
     await whatsappSessionManager.disconnectSession(tenantId);
 
