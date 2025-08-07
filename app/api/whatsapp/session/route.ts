@@ -61,23 +61,25 @@ export async function POST(request: NextRequest) {
     console.log(`🚀 API: Initializing session for tenant ${tenantId}`);
     console.log(`🔍 API: Session manager available:`, !!whatsappSessionManager);
     
-    // Initialize the session
+    // Initialize the session (non-blocking)
     await whatsappSessionManager.initializeSession(tenantId);
-    console.log(`✅ API: Session initialization request completed`);
+    console.log(`✅ API: Session initialization started`);
 
-    // Wait longer for QR code generation with polling
+    // Optimized polling with shorter intervals and adaptive timing
     let attempts = 0;
-    const maxAttempts = 15; // 15 seconds total
+    const maxAttempts = 20; // More attempts but faster intervals
     let status = null;
+    const delays = [100, 200, 300, 500, 500]; // Progressive delays
     
     while (attempts < maxAttempts) {
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      const delay = delays[Math.min(attempts, delays.length - 1)];
+      await new Promise(resolve => setTimeout(resolve, delay));
       status = await whatsappSessionManager.getSessionStatus(tenantId);
       
-      console.log(`📊 API: Status check ${attempts + 1}/${maxAttempts}: ${status.status}, QR present: ${!!status.qrCode}`);
+      console.log(`📊 API: Check ${attempts + 1}: ${status.status}, QR: ${!!status.qrCode}`);
       
-      if (status.qrCode || status.connected || status.status === 'connected') {
-        console.log(`✅ API: Session ready after ${attempts + 1} seconds`);
+      if (status.qrCode || status.connected) {
+        console.log(`✅ API: Ready after ${attempts + 1} checks`);
         break;
       }
       

@@ -92,8 +92,8 @@ export class WhatsAppSessionManager extends EventEmitter {
       await this.destroySession(tenantId);
     }
     
-    // Add small delay to ensure cleanup is complete
-    await new Promise(resolve => setTimeout(resolve, 500));
+    // Optimized: Smaller delay for faster initialization
+    await new Promise(resolve => setTimeout(resolve, 200));
 
     const session: WhatsAppSession = {
       socket: null,
@@ -111,10 +111,17 @@ export class WhatsAppSessionManager extends EventEmitter {
     await this.updateSessionStatus(tenantId, 'connecting');
 
     try {
-      await this.connectSession(tenantId);
-      this.logger.info(`✅ Session initialization completed for tenant ${tenantId}`);
+      // Start connection in background - don't wait for completion
+      this.connectSession(tenantId).catch(error => {
+        this.logger.error(`❌ Background connection failed for tenant ${tenantId}:`, error);
+        session.status = 'disconnected';
+        this.emit('status', tenantId, 'disconnected');
+        this.updateSessionStatus(tenantId, 'disconnected');
+      });
+      
+      this.logger.info(`🚀 Session initialization started for tenant ${tenantId}`);
     } catch (error) {
-      this.logger.error(`❌ Failed to initialize session for tenant ${tenantId}:`, error);
+      this.logger.error(`❌ Failed to start session for tenant ${tenantId}:`, error);
       session.status = 'disconnected';
       this.emit('status', tenantId, 'disconnected');
       await this.updateSessionStatus(tenantId, 'disconnected');
@@ -185,16 +192,17 @@ export class WhatsAppSessionManager extends EventEmitter {
           // Import QRCode library dynamically
           const QRCode = require('qrcode');
           
-          // Generate QR code as data URL
+          // Generate QR code as data URL with optimized settings
           const qrDataUrl = await QRCode.toDataURL(qr, {
             type: 'image/png',
-            quality: 0.92,
-            margin: 1,
+            quality: 0.8, // Reduced for faster generation
+            margin: 2, // Better scanning margin
             color: {
               dark: '#000000',
               light: '#FFFFFF'
             },
-            width: 256
+            width: 280, // Optimal size for scanning
+            errorCorrectionLevel: 'M' // Medium error correction for better performance
           });
           
           this.logger.info(`🎨 QR Code data URL generated successfully`);

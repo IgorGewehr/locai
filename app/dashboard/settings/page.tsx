@@ -69,6 +69,7 @@ export default function SettingsPage() {
   const [qrDialogOpen, setQrDialogOpen] = useState(false);
   const [connecting, setConnecting] = useState(false);
   const [connectionProgress, setConnectionProgress] = useState(0);
+  const [qrExpireTimer, setQrExpireTimer] = useState<NodeJS.Timeout | null>(null);
 
   // Profile states
   const [profileLoading, setProfileLoading] = useState(false);
@@ -94,19 +95,16 @@ export default function SettingsPage() {
     status: 'disconnected'
   });
 
-  // Define checkWhatsAppStatus before using it in useEffect
+  // Optimized status checking with better responsiveness
   const checkWhatsAppStatus = useCallback(async () => {
     if (!tenantId || !isReady) {
-      console.log('⏳ Tenant not ready yet, skipping WhatsApp status check');
       return;
     }
     
     try {
-      console.log('📡 Checking WhatsApp status for tenant:', tenantId);
       const response = await ApiClient.get('/api/whatsapp/session');
       if (response.ok) {
         const data = await response.json();
-        console.log('📊 WhatsApp status response:', data);
         
         const newSession = {
           connected: data.data?.connected || false,
@@ -117,28 +115,24 @@ export default function SettingsPage() {
         };
         
         setWhatsappSession(prevSession => {
-          // Only update if the session data actually changed
+          // Optimized change detection
           const hasChanged = 
             prevSession.connected !== newSession.connected ||
-            prevSession.phone !== newSession.phone ||
-            prevSession.name !== newSession.name ||
             prevSession.status !== newSession.status ||
-            prevSession.qrCode !== newSession.qrCode;
+            (newSession.qrCode && prevSession.qrCode !== newSession.qrCode);
           
           if (hasChanged) {
+            // Auto-open QR dialog if we get a new QR code
+            if (newSession.qrCode && newSession.status === 'qr' && !qrDialogOpen) {
+              setTimeout(() => setQrDialogOpen(true), 300);
+            }
             return newSession;
           }
           return prevSession;
         });
-        
-        // If we have a QR code and dialog is not open, open it
-        if (data.data?.qrCode && !qrDialogOpen && data.data?.status === 'qr') {
-          console.log('🔲 Auto-opening QR dialog, QR found in status check');
-          setQrDialogOpen(true);
-        }
       }
     } catch (error) {
-      console.error('❌ Error checking WhatsApp status:', error);
+      console.error('Status check failed:', error);
     }
   }, [qrDialogOpen, tenantId, isReady]); // Include tenantId and isReady in dependencies
 
@@ -153,12 +147,17 @@ export default function SettingsPage() {
     
     safeCheckStatus();
     
-    // Check WhatsApp status every 10 seconds
+    // Optimized polling - faster when connecting, slower when stable
+    let pollInterval = 3000; // Start with 3 seconds
     const interval = setInterval(() => {
       if (mounted) {
         safeCheckStatus();
+        // Adaptive polling: slow down if connected or disconnected
+        if (whatsappSession.connected || whatsappSession.status === 'disconnected') {
+          pollInterval = Math.min(pollInterval + 2000, 15000); // Max 15s
+        }
       }
-    }, 10000);
+    }, pollInterval);
     
     return () => {
       mounted = false;
@@ -255,19 +254,21 @@ export default function SettingsPage() {
     setConnectionProgress(0);
     
     try {
-      setConnectionProgress(10);
-      setSuccess('Inicializando conexão WhatsApp...');
+      // Faster initial feedback
+      setConnectionProgress(15);
+      setSuccess('Conectando com WhatsApp...');
       
+      // Start the connection process
       const response = await ApiClient.post('/api/whatsapp/session');
-
-      setConnectionProgress(30);
+      setConnectionProgress(40);
+      
       const data = await response.json();
       
       if (data.success) {
-        setConnectionProgress(60);
-        setSuccess('Processando dados de sessão...');
+        setConnectionProgress(70);
+        setSuccess('Processando QR Code...');
         
-        // Update session state with all received data
+        // Update session state immediately
         setWhatsappSession(prev => ({ 
           ...prev, 
           ...data.data,
@@ -275,44 +276,59 @@ export default function SettingsPage() {
           status: data.data.status || 'connecting'
         }));
         
-        setConnectionProgress(80);
-        
         if (data.data.qrCode) {
           console.log('✅ QR Code received, opening dialog');
-          console.log('📄 QR Code type:', data.data.qrCode.startsWith('data:') ? 'Data URL' : 'Raw String');
           setConnectionProgress(100);
-          setSuccess('QR Code gerado! Escaneie com seu WhatsApp.');
-          setQrDialogOpen(true);
+          setSuccess('QR Code pronto!');
+          
+          // Start QR code expiration timer (2 minutes)
+          if (qrExpireTimer) clearTimeout(qrExpireTimer);
+          const timer = setTimeout(() => {
+            setSuccess('QR Code expirado. Gerando novo...');
+            initializeWhatsApp();
+          }, 120000); // 2 minutes
+          setQrExpireTimer(timer);
+          
+          // Open dialog immediately for better UX
+          setTimeout(() => setQrDialogOpen(true), 200);
         } else if (data.data.connected) {
           setConnectionProgress(100);
-          setSuccess('WhatsApp conectado com sucesso!');
-          setTimeout(() => setSuccess(null), 3000);
+          setSuccess('Já conectado!');
+          setTimeout(() => setSuccess(null), 2000);
         } else {
-          console.log('❌ No QR Code in response:', data.data);
-          setConnectionProgress(100);
-          setError('QR Code não foi gerado. Aguarde alguns segundos e tente novamente.');
+          // More helpful message
+          setConnectionProgress(85);
+          setSuccess('Aguarde, gerando QR Code...');
+          // Keep polling for QR code
+          setTimeout(() => checkWhatsAppStatus(), 1000);
         }
       } else {
         setConnectionProgress(0);
-        setError(data.error || 'Falha ao inicializar WhatsApp. Tente novamente.');
+        setError(data.error || 'Falha ao conectar. Tente novamente.');
       }
     } catch (error: any) {
       setConnectionProgress(0);
-      setError('Erro de conexão. Verifique sua internet e tente novamente.');
+      setError('Erro de conexão. Verifique sua internet.');
     } finally {
       setLoading(false);
-      // Keep progress visible longer to show status
+      // Optimized cleanup timing
       setTimeout(() => {
         setConnecting(false);
         if (!whatsappSession.qrCode && !whatsappSession.connected) {
           setConnectionProgress(0);
         }
-      }, 3000);
+      }, 2000);
     }
   };
 
   const disconnectWhatsApp = async () => {
     setLoading(true);
+    
+    // Clear QR expiration timer
+    if (qrExpireTimer) {
+      clearTimeout(qrExpireTimer);
+      setQrExpireTimer(null);
+    }
     
     try {
       const response = await ApiClient.delete('/api/whatsapp/session');
@@ -326,11 +342,11 @@ export default function SettingsPage() {
           status: 'disconnected'
         });
         setQrDialogOpen(false);
-        setSuccess('WhatsApp desconectado com sucesso');
-        setTimeout(() => setSuccess(null), 3000);
+        setSuccess('WhatsApp desconectado');
+        setTimeout(() => setSuccess(null), 2000);
       }
     } catch (error) {
-      setError('Erro ao desconectar WhatsApp');
+      setError('Erro ao desconectar');
     } finally {
       setLoading(false);
     }
@@ -1077,21 +1093,27 @@ export default function SettingsPage() {
                 backgroundColor: 'white',
                 borderRadius: 3,
                 border: '1px solid rgba(255,255,255,0.1)',
-                boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
+                boxShadow: '0 8px 25px -5px rgba(0, 0, 0, 0.2)',
+                transition: 'transform 0.2s ease, box-shadow 0.2s ease',
+                '&:hover': {
+                  transform: 'scale(1.02)',
+                  boxShadow: '0 12px 35px -5px rgba(0, 0, 0, 0.3)',
+                }
               }}>
                 <img 
                   src={whatsappSession.qrCode} 
-                  alt="QR Code" 
+                  alt="QR Code WhatsApp" 
                   style={{ 
-                    width: '240px',
-                    height: '240px',
+                    width: '260px', // Slightly larger for better scanning
+                    height: '260px',
                     display: 'block',
                   }} 
+                  loading="eager" // Priority loading
                   onError={(e) => {
                     console.log('QR Code image failed to load');
                   }}
                   onLoad={() => {
-                    console.log('QR Code image loaded successfully');
+                    console.log('QR Code ready for scanning');
                   }}
                 />
               </Box>
@@ -1103,10 +1125,21 @@ export default function SettingsPage() {
                   mb: 2, 
                   color: '#ffffff',
                   fontWeight: 500,
-                  fontSize: '0.95rem'
+                  fontSize: '1rem'
                 }}
               >
-                Use o WhatsApp no seu celular para escanear
+                Escaneie com seu WhatsApp
+              </Typography>
+              
+              <Typography 
+                variant="body2" 
+                sx={{ 
+                  color: 'rgba(255, 255, 255, 0.7)',
+                  fontSize: '0.85rem',
+                  mb: 3
+                }}
+              >
+                O QR Code expira em 2 minutos
               </Typography>
               
               <Box sx={{ 
