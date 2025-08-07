@@ -8,6 +8,7 @@ import { logger } from '@/lib/utils/logger';
 import { SOFIA_PROMPT } from './sofia-prompt';
 import { FEW_SHOT_EXAMPLES } from './few-shot-examples';
 import { UnifiedContextManager } from './unified-context-manager';
+import { smartSummaryService, SmartSummary } from './smart-summary-service';
 
 // ===== COMPONENTES ESSENCIAIS APENAS =====
 import IntentDetector, { DetectedIntent } from './intent-detector';
@@ -28,7 +29,7 @@ interface SofiaInput {
 
 interface SofiaResponse {
   reply: string;
-  summary: any;
+  summary: SmartSummary;
   actions?: any[];
   tokensUsed: number;
   responseTime: number;
@@ -48,6 +49,7 @@ interface SofiaResponse {
 export class SofiaAgent {
   private openai: OpenAI;
   private static instance: SofiaAgent;
+  private summaryCache = new Map<string, SmartSummary>();
 
   constructor() {
     this.openai = new OpenAI({
@@ -71,10 +73,43 @@ export class SofiaAgent {
     let fallbackUsed = false;
 
     try {
-      logger.info('💬 [Sofia MVP] Processando mensagem', {
+      logger.info('💬 [Sofia] Processando mensagem', {
         clientPhone: this.maskPhone(input.clientPhone),
         messagePreview: input.message.substring(0, 50) + '...',
         tenantId: input.tenantId
+      });
+
+      // ===== SMART SUMMARY INTEGRATION =====
+      // Obter summary anterior do cache ou criar novo
+      const cacheKey = `${input.tenantId}:${input.clientPhone}`;
+      let previousSummary = this.summaryCache.get(cacheKey) || null;
+      
+      // Obter histórico de mensagens
+      const unifiedContext = await UnifiedContextManager.getContext(input.clientPhone, input.tenantId);
+      const messageHistory = unifiedContext.messageHistory.slice(-6); // Últimas 6 mensagens
+      
+      // Adicionar mensagem atual ao histórico
+      const currentHistory = [
+        ...messageHistory,
+        { role: 'user', content: input.message }
+      ];
+
+      // Atualizar summary com a nova mensagem
+      const updatedSummary = await smartSummaryService.updateSummary(
+        input.message,
+        previousSummary,
+        currentHistory
+      );
+      
+      // Salvar no cache
+      this.summaryCache.set(cacheKey, updatedSummary);
+
+      logger.info('🧠 [Sofia] Summary atualizado', {
+        stage: updatedSummary.conversationState.stage,
+        guests: updatedSummary.searchCriteria.guests,
+        hasClientName: !!updatedSummary.clientInfo.name,
+        propertiesCount: updatedSummary.propertiesViewed.length,
+        nextAction: updatedSummary.nextBestAction.action
       });
 
       // 1. DETECTAR INTENÇÃO (funcionalidade testada)
@@ -103,7 +138,7 @@ export class SofiaAgent {
 
           return {
             reply: this.getLoopFallbackMessage(intentDetected.function),
-            summary: this.createSimpleSummary(input.tenantId, input.clientPhone),
+            summary: updatedSummary,
             actions: [],
             tokensUsed: 0,
             responseTime: Date.now() - startTime,
@@ -159,9 +194,20 @@ export class SofiaAgent {
           // Salvar no histórico
           await this.saveMessageHistory(input, reply, 0);
 
+          // Atualizar summary com resultado da função
+          const updatedSummaryWithResult = await smartSummaryService.updateSummaryWithFunctionResult(
+            updatedSummary,
+            intentDetected.function,
+            intentDetected.args,
+            result
+          );
+          
+          // Salvar no cache
+          this.summaryCache.set(cacheKey, updatedSummaryWithResult);
+
           return {
             reply,
-            summary: this.createSimpleSummary(input.tenantId, input.clientPhone),
+            summary: updatedSummaryWithResult,
             actions: [{ type: intentDetected.function, result }],
             tokensUsed: 0,
             responseTime: Date.now() - startTime,
@@ -178,18 +224,13 @@ export class SofiaAgent {
         }
       }
 
-      // 4. USAR GPT COM CONTEXTO BÁSICO
-      logger.info('🧠 [Sofia MVP] Usando GPT');
-      
-      // Usar contexto unificado
-      const unifiedContext = await UnifiedContextManager.getContext(input.clientPhone, input.tenantId);
-      const conversationState = unifiedContext.memoryState;
-      const messageHistory = unifiedContext.messageHistory.slice(-3); // Últimas 3 mensagens
+      // 4. USAR GPT COM CONTEXTO INTELIGENTE
+      logger.info('🧠 [Sofia] Usando GPT com SmartSummary');
 
       const messages = [
         {
           role: 'system' as const,
-          content: this.buildMVPPrompt(input.tenantId, conversationState, messageHistory, intentDetected)
+          content: this.buildSmartPrompt(input.tenantId, updatedSummary, intentDetected)
         },
         {
           role: 'user' as const,
@@ -300,16 +341,35 @@ export class SofiaAgent {
         fallbackUsed
       });
 
+      // Atualizar summary com resultados das funções executadas  
+      let finalSummary = updatedSummary;
+      if (functionsExecuted.length > 0) {
+        for (let i = 0; i < functionsExecuted.length; i++) {
+          const functionName = functionsExecuted[i];
+          const result = actions[i]?.result;
+          if (result) {
+            finalSummary = await smartSummaryService.updateSummaryWithFunctionResult(
+              finalSummary,
+              functionName,
+              {}, // args podem ser passados se necessário
+              result
+            );
+          }
+        }
+        // Salvar summary final no cache
+        this.summaryCache.set(cacheKey, finalSummary);
+      }
+
       return {
         reply,
-        summary: this.createSimpleSummary(input.tenantId, input.clientPhone),
+        summary: finalSummary,
         actions,
         tokensUsed: totalTokens,
         responseTime,
         functionsExecuted,
         metadata: {
-          stage: functionsExecuted.length > 0 ? 'function_executed' : 'conversation',
-          confidence: intentDetected?.confidence || 0.7,
+          stage: finalSummary.conversationState.stage,
+          confidence: finalSummary.nextBestAction.confidence,
           reasoningUsed: true,
           intentDetected,
           loopPrevented,
@@ -322,7 +382,68 @@ export class SofiaAgent {
     }
   }
 
-  // ===== MÉTODOS AUXILIARES SIMPLIFICADOS =====
+  // ===== MÉTODOS AUXILIARES INTELIGENTES =====
+
+  private buildSmartPrompt(
+    tenantId: string,
+    summary: SmartSummary,
+    intentDetected: DetectedIntent | null
+  ): string {
+    // Usar o formatForPrompt do SmartSummary que é muito inteligente
+    const summaryContext = smartSummaryService.formatForPrompt(summary);
+    
+    let prompt = `${SOFIA_PROMPT}\n\n${FEW_SHOT_EXAMPLES}\n\n`;
+    prompt += `IMPORTANTE: Você está operando para o tenant ${tenantId}.\n\n`;
+    prompt += `${summaryContext}\n\n`;
+
+    // Adicionar intenção detectada se houver
+    if (intentDetected) {
+      prompt += `🎯 INTENÇÃO DETECTADA:\n`;
+      prompt += `- Função sugerida: ${intentDetected.function}\n`;
+      prompt += `- Confiança: ${(intentDetected.confidence * 100).toFixed(1)}%\n`;
+      prompt += `- Considere executar esta função se apropriada.\n\n`;
+    }
+
+    // Instruções baseadas no stage atual
+    prompt += `📋 INSTRUÇÕES CONTEXTUAIS:\n`;
+    switch (summary.conversationState.stage) {
+      case 'greeting':
+        prompt += `- Seja acolhedora e descubra as necessidades\n`;
+        prompt += `- Pergunte sobre localização, datas, número de pessoas\n`;
+        break;
+      case 'discovery':
+        prompt += `- Colete informações faltantes para busca\n`;
+        prompt += `- Execute search_properties quando tiver dados suficientes\n`;
+        break;
+      case 'presentation':
+        prompt += `- Apresente as propriedades encontradas\n`;
+        prompt += `- Envie fotos com send_property_media se solicitado\n`;
+        break;
+      case 'engagement':
+        prompt += `- Cliente demonstrou interesse, aprofunde o engajamento\n`;
+        prompt += `- Calcule preços com calculate_price se solicitado\n`;
+        break;
+      case 'negotiation':
+        prompt += `- Foque em fechar o negócio\n`;
+        prompt += `- Registre o cliente se necessário\n`;
+        break;
+      case 'booking':
+        prompt += `- Finalize a reserva com create_reservation\n`;
+        prompt += `- Confirme todos os detalhes\n`;
+        break;
+      case 'completed':
+        prompt += `- Acompanhe pagamento e forneça suporte\n`;
+        break;
+    }
+
+    prompt += `\n💡 LEMBRE-SE:\n`;
+    prompt += `- Respostas concisas (máximo 3 linhas)\n`;
+    prompt += `- Use IDs REAIS das propriedades quando disponíveis\n`;
+    prompt += `- Seja natural, amigável e eficiente\n`;
+    prompt += `- NUNCA invente informações\n`;
+
+    return prompt;
+  }
 
   private buildMVPPrompt(
     tenantId: string,
@@ -779,15 +900,19 @@ export class SofiaAgent {
   ): SofiaResponse {
     const responseTime = Date.now() - startTime;
 
-    logger.error('❌ [Sofia MVP] Erro no processamento', {
+    logger.error('❌ [Sofia] Erro no processamento', {
       error: error instanceof Error ? error.message : 'Unknown error',
       clientPhone: this.maskPhone(input.clientPhone),
       responseTime: `${responseTime}ms`
     });
 
+    // Tentar obter summary do cache ou criar vazio
+    const cacheKey = `${input.tenantId}:${input.clientPhone}`;
+    const fallbackSummary = this.summaryCache.get(cacheKey) || smartSummaryService.createEmptySummary();
+
     return {
       reply: 'Ops! Probleminha técnico. Pode repetir sua mensagem? 🙏',
-      summary: this.createSimpleSummary(input.tenantId, input.clientPhone),
+      summary: fallbackSummary,
       actions: [],
       tokensUsed: 0,
       responseTime,
