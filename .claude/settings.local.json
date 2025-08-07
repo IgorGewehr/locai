@@ -50,7 +50,10 @@
       "Bash(cat:*)",
       "Bash(bash:*)",
       "WebFetch(domain:localhost)",
-      "Bash(killall:*)"
+      "Bash(killall:*)",
+      "Bash(NODE_ENV=production npm run build)",
+      "Bash(export NODE_ENV=production)",
+      "Bash(NODE_OPTIONS=\"--max_old_space_size=4096\" npm run build)"
     ],
     "deny": []
   }

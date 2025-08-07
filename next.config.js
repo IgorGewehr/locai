@@ -16,13 +16,6 @@ const nextConfig = {
   trailingSlash: false,
   skipTrailingSlashRedirect: true,
   
-  // Remove output config for Netlify deployment
-  // output: 'standalone',
-  
-  // Skip problematic pages during static generation
-  skipMiddlewareUrlNormalize: true,
-  skipTrailingSlashRedirect: true,
-  
   // Use default Next.js error pages to avoid prerendering issues
   generateBuildId: async () => {
     return 'build-' + Date.now()
@@ -116,37 +109,6 @@ const nextConfig = {
   
   // Server external packages  
   serverExternalPackages: ['keyv', 'cacheable'],
-  
-  // Webpack configuration
-  webpack: (config, { isServer, webpack }) => {
-    // Aggressively prevent any next/document imports
-    config.resolve.alias = {
-      ...config.resolve.alias,
-      'next/document': require.resolve('./lib/utils/empty-module.js'),
-    };
-    
-    // Add plugin to replace problematic imports
-    config.plugins.push(
-      new webpack.NormalModuleReplacementPlugin(
-        /next\/document/,
-        require.resolve('./lib/utils/empty-module.js')
-      )
-    );
-    
-    // Add fallbacks for client-side
-    if (!isServer) {
-      config.resolve.fallback = {
-        ...config.resolve.fallback,
-        fs: false,
-        net: false,
-        tls: false,
-        'next/document': false,
-      };
-    }
-    
-    return config;
-  },
-  
   
   // Redirects
   async redirects() {
