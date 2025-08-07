@@ -16,8 +16,8 @@ const nextConfig = {
   trailingSlash: false,
   skipTrailingSlashRedirect: true,
   
-  // Standalone output for server-side features
-  output: 'standalone',
+  // Remove output config for Netlify deployment
+  // output: 'standalone',
   
   typescript: {
     // !! CUIDADO !!

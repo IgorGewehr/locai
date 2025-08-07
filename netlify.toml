@@ -4,8 +4,8 @@
   # Build command
   command = "npm run build"
   
-  # Directory to publish
-  publish = ".next"
+  # Directory to publish - não precisa especificar, Netlify detecta automaticamente
+  # publish = ".next"
 
 # Environment variables for build
 [build.environment]
@@ -45,12 +45,8 @@
     Cache-Control = "no-store, no-cache, must-revalidate"
     Access-Control-Max-Age = "86400"
 
-# Redirects for API routes
-[[redirects]]
-  from = "/api/*"
-  to = "/.netlify/functions/:splat"
-  status = 200
-  force = true
+# Next.js API routes funcionam automaticamente no Netlify
+# Não precisa redirecionar para functions
 
 # Redirect www to non-www
 [[redirects]]
@@ -65,19 +61,9 @@
   to = "/dashboard"
   status = 200
 
-# Function configuration
-[functions]
-  # Directory containing serverless functions
-  directory = "netlify/functions"
-  
-  # Node bundler for better performance
-  node_bundler = "esbuild"
-  
-  # Include files in functions
-  included_files = ["lib/**", "app/api/**"]
-  
-  # External node modules
-  external_node_modules = ["firebase-admin", "sharp"]
+# Next.js functions são gerenciadas automaticamente
+# [functions]
+#   directory = "netlify/functions"
 
 # Environment variable validation
 [context.production.environment]
