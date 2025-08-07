@@ -2,7 +2,6 @@
   "name": "agente-imobiliaria",
   "version": "0.1.0",
   "private": true,
-  "type": "module",
   "scripts": {
     "dev": "next dev --turbo",
     "dev:fast": "next dev --turbo --port 3000",
