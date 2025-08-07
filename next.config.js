@@ -23,6 +23,11 @@ const nextConfig = {
   skipMiddlewareUrlNormalize: true,
   skipTrailingSlashRedirect: true,
   
+  // Use default Next.js error pages to avoid prerendering issues
+  generateBuildId: async () => {
+    return 'build-' + Date.now()
+  },
+  
   typescript: {
     // !! CUIDADO !!
     // Permite que a build de produção seja gerada com sucesso mesmo que seu projeto tenha erros de tipo.
@@ -113,14 +118,22 @@ const nextConfig = {
   serverExternalPackages: ['keyv', 'cacheable'],
   
   // Webpack configuration
-  webpack: (config, { isServer }) => {
-    // Resolve package conflicts and prevent problematic imports
+  webpack: (config, { isServer, webpack }) => {
+    // Aggressively prevent any next/document imports
     config.resolve.alias = {
       ...config.resolve.alias,
-      'next/document': false,
+      'next/document': require.resolve('./lib/utils/empty-module.js'),
     };
     
-    // Add fallbacks for client-side and prevent document imports
+    // Add plugin to replace problematic imports
+    config.plugins.push(
+      new webpack.NormalModuleReplacementPlugin(
+        /next\/document/,
+        require.resolve('./lib/utils/empty-module.js')
+      )
+    );
+    
+    // Add fallbacks for client-side
     if (!isServer) {
       config.resolve.fallback = {
         ...config.resolve.fallback,
