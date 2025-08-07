@@ -115,16 +115,28 @@ export default function SettingsPage() {
         };
         
         setWhatsappSession(prevSession => {
-          // Optimized change detection
+          // Enhanced change detection with logging
           const hasChanged = 
             prevSession.connected !== newSession.connected ||
             prevSession.status !== newSession.status ||
             (newSession.qrCode && prevSession.qrCode !== newSession.qrCode);
           
           if (hasChanged) {
-            // Auto-open QR dialog if we get a new QR code
+            console.log('🔄 [FRONTEND] Session state changed:', {
+              from: { status: prevSession.status, hasQR: !!prevSession.qrCode },
+              to: { status: newSession.status, hasQR: !!newSession.qrCode },
+              dialogOpen: qrDialogOpen
+            });
+            
+            // Enhanced auto-open QR dialog logic
             if (newSession.qrCode && newSession.status === 'qr' && !qrDialogOpen) {
-              setTimeout(() => setQrDialogOpen(true), 300);
+              console.log('📺 [FRONTEND] Auto-opening QR dialog from status check');
+              setQrDialogOpen(true);
+              // Additional fallback
+              setTimeout(() => {
+                console.log('📺 [FRONTEND] Dialog fallback from status check');
+                setQrDialogOpen(true);
+              }, 300);
             }
             return newSession;
           }
@@ -277,7 +289,14 @@ export default function SettingsPage() {
         }));
         
         if (data.data.qrCode) {
-          console.log('✅ QR Code received, opening dialog');
+          console.log('✅ [FRONTEND] QR Code received:', {
+            hasQrCode: !!data.data.qrCode,
+            qrCodeType: data.data.qrCode.startsWith('data:') ? 'DataURL' : 'Raw',
+            length: data.data.qrCode.length,
+            status: data.data.status,
+            isProduction: process.env.NODE_ENV === 'production'
+          });
+          
           setConnectionProgress(100);
           setSuccess('QR Code pronto!');
           
@@ -289,18 +308,70 @@ export default function SettingsPage() {
           }, 120000); // 2 minutes
           setQrExpireTimer(timer);
           
-          // Open dialog immediately for better UX
-          setTimeout(() => setQrDialogOpen(true), 200);
+          // CRITICAL: Force dialog open with multiple fallbacks
+          console.log('📺 [FRONTEND] Opening QR dialog...');
+          setQrDialogOpen(true); // Immediate
+          
+          // Fallback mechanisms for production
+          setTimeout(() => {
+            console.log('📺 [FRONTEND] Dialog fallback 1');
+            setQrDialogOpen(true);
+          }, 100);
+          
+          setTimeout(() => {
+            console.log('📺 [FRONTEND] Dialog fallback 2');
+            setQrDialogOpen(true);
+          }, 500);
         } else if (data.data.connected) {
           setConnectionProgress(100);
           setSuccess('Já conectado!');
           setTimeout(() => setSuccess(null), 2000);
         } else {
-          // More helpful message
+          // More helpful message with retry mechanism
           setConnectionProgress(85);
           setSuccess('Aguarde, gerando QR Code...');
-          // Keep polling for QR code
-          setTimeout(() => checkWhatsAppStatus(), 1000);
+          
+          // Enhanced retry logic for production
+          let retryAttempts = 0;
+          const maxRetries = 5;
+          const retryInterval = setInterval(async () => {
+            console.log(`🔄 [FRONTEND] QR retry attempt ${retryAttempts + 1}/${maxRetries}`);
+            
+            try {
+              await checkWhatsAppStatus();
+              
+              // Check if we got the QR code
+              const currentStatus = await ApiClient.get('/api/whatsapp/session');
+              if (currentStatus.ok) {
+                const currentData = await currentStatus.json();
+                if (currentData.data?.qrCode) {
+                  console.log('✅ [FRONTEND] QR Code found in retry');
+                  clearInterval(retryInterval);
+                  
+                  setWhatsappSession(prev => ({
+                    ...prev,
+                    ...currentData.data,
+                    qrCode: currentData.data.qrCode,
+                    status: 'qr'
+                  }));
+                  
+                  setQrDialogOpen(true);
+                  setSuccess('QR Code pronto!');
+                  return;
+                }
+              }
+            } catch (error) {
+              console.error('❌ [FRONTEND] Retry failed:', error);
+            }
+            
+            retryAttempts++;
+            if (retryAttempts >= maxRetries) {
+              console.log('❌ [FRONTEND] Max retries reached');
+              clearInterval(retryInterval);
+              setError('Não foi possível gerar QR Code. Tente novamente.');
+              setConnectionProgress(0);
+            }
+          }, 2000); // Check every 2 seconds
         }
       } else {
         setConnectionProgress(0);

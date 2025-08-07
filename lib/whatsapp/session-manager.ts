@@ -54,7 +54,15 @@ export class WhatsAppSessionManager extends EventEmitter {
   constructor() {
     super();
     this.ensureSessionDirectory();
-    this.startCleanupInterval();
+    
+    // Only start cleanup interval in non-serverless environments
+    if (!this.isServerlessEnvironment()) {
+      this.startCleanupInterval();
+    }
+  }
+  
+  private isServerlessEnvironment(): boolean {
+    return !!(process.env.NETLIFY || process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME);
   }
 
   private ensureSessionDirectory() {
@@ -78,7 +86,11 @@ export class WhatsAppSessionManager extends EventEmitter {
   }
 
   async initializeSession(tenantId: string): Promise<void> {
-    this.logger.info(`🚀 Initializing WhatsApp session for tenant ${tenantId}`);
+    const isProduction = process.env.NODE_ENV === 'production';
+    const isServerless = this.isServerlessEnvironment();
+    
+    this.logger.info(`🚀 [${isProduction ? 'PROD' : 'DEV'}] Initializing WhatsApp session for tenant ${tenantId}`);
+    this.logger.info(`🌐 Environment: serverless=${isServerless}, prod=${isProduction}`);
     
     // Always destroy existing session before creating new one to ensure clean state
     if (this.sessions.has(tenantId)) {
@@ -92,8 +104,10 @@ export class WhatsAppSessionManager extends EventEmitter {
       await this.destroySession(tenantId);
     }
     
-    // Optimized: Smaller delay for faster initialization
-    await new Promise(resolve => setTimeout(resolve, 200));
+    // Serverless optimization: no delay needed
+    if (!isServerless) {
+      await new Promise(resolve => setTimeout(resolve, 200));
+    }
 
     const session: WhatsAppSession = {
       socket: null,
@@ -189,21 +203,43 @@ export class WhatsAppSessionManager extends EventEmitter {
         this.logger.info(`🔍 QR Code content preview: ${qr.substring(0, 50)}...`);
         
         try {
-          // Import QRCode library dynamically
-          const QRCode = require('qrcode');
+          // Test QR generation capability first in production
+          if (process.env.NODE_ENV === 'production') {
+            const { testQRGeneration } = await import('./qr-test');
+            const testResult = await testQRGeneration();
+            if (!testResult.success) {
+              this.logger.error('🧪 QR generation test failed:', testResult.error);
+            } else {
+              this.logger.info('🧪 QR generation test passed');
+            }
+          }
           
-          // Generate QR code as data URL with optimized settings
-          const qrDataUrl = await QRCode.toDataURL(qr, {
-            type: 'image/png',
-            quality: 0.8, // Reduced for faster generation
-            margin: 2, // Better scanning margin
+          // Import QRCode library with fallback
+          let QRCode;
+          try {
+            QRCode = require('qrcode');
+            this.logger.info('📦 QRCode loaded via require');
+          } catch (requireError) {
+            this.logger.warn('📦 QRCode require failed, trying dynamic import');
+            QRCode = await import('qrcode');
+            this.logger.info('📦 QRCode loaded via dynamic import');
+          }
+          
+          // Generate QR code as data URL with production-optimized settings
+          const qrOptions = {
+            type: 'image/png' as const,
+            quality: process.env.NODE_ENV === 'production' ? 0.7 : 0.8,
+            margin: 2,
             color: {
               dark: '#000000',
               light: '#FFFFFF'
             },
-            width: 280, // Optimal size for scanning
-            errorCorrectionLevel: 'M' // Medium error correction for better performance
-          });
+            width: 280,
+            errorCorrectionLevel: 'M' as const
+          };
+          
+          this.logger.info(`🎨 Generating QR with options:`, qrOptions);
+          const qrDataUrl = await QRCode.toDataURL(qr, qrOptions);
           
           this.logger.info(`🎨 QR Code data URL generated successfully`);
           this.logger.info(`📈 Data URL length: ${qrDataUrl.length}`);

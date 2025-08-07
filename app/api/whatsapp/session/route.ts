@@ -50,16 +50,20 @@ export async function GET(request: NextRequest) {
 
 // POST /api/whatsapp/session - Initialize session
 export async function POST(request: NextRequest) {
+  const isProduction = process.env.NODE_ENV === 'production';
+  
   try {
     const user = await verifyAuth(request);
     if (!user) {
+      console.error('Authentication failed in WhatsApp session API');
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const tenantId = user.tenantId || user.uid;
     
-    console.log(`🚀 API: Initializing session for tenant ${tenantId}`);
-    console.log(`🔍 API: Session manager available:`, !!whatsappSessionManager);
+    console.log(`🚀 [${isProduction ? 'PROD' : 'DEV'}] Initializing WhatsApp session for tenant:`, tenantId);
+    console.log(`🔍 Session manager available:`, !!whatsappSessionManager);
+    console.log(`🌍 Environment: ${process.env.NODE_ENV}`);
     
     // Initialize the session (non-blocking)
     await whatsappSessionManager.initializeSession(tenantId);
@@ -90,7 +94,7 @@ export async function POST(request: NextRequest) {
       status = await whatsappSessionManager.getSessionStatus(tenantId);
     }
 
-    console.log(`📤 API: Returning status:`, {
+    const responseData = {
       connected: status.connected,
       status: status.status,
       hasQrCode: !!status.qrCode,
@@ -98,16 +102,43 @@ export async function POST(request: NextRequest) {
       qrCodePrefix: status.qrCode?.substring(0, 30),
       phoneNumber: status.phoneNumber,
       businessName: status.businessName
-    });
+    };
+    
+    console.log(`📤 [${isProduction ? 'PROD' : 'DEV'}] Returning status:`, responseData);
+    
+    // Additional production logging
+    if (isProduction) {
+      console.log(`🔥 PROD STATUS:`, {
+        tenant: tenantId,
+        hasQR: !!status.qrCode,
+        status: status.status,
+        timestamp: new Date().toISOString()
+      });
+    }
 
     return NextResponse.json({
       success: true,
       data: status,
     });
   } catch (error) {
-    console.error('❌ API: Error initializing session:', error);
+    console.error(`❌ [${isProduction ? 'PROD' : 'DEV'}] Error initializing session:`, error);
+    console.error('Error stack:', error instanceof Error ? error.stack : 'No stack');
+    
+    // Enhanced error reporting for production
+    if (isProduction) {
+      console.error('🔥 PROD ERROR DETAILS:', {
+        message: error instanceof Error ? error.message : String(error),
+        name: error instanceof Error ? error.name : 'Unknown',
+        timestamp: new Date().toISOString()
+      });
+    }
+    
     return NextResponse.json(
-      { success: false, error: 'Failed to initialize session' },
+      { 
+        success: false, 
+        error: 'Failed to initialize session',
+        details: isProduction ? undefined : error instanceof Error ? error.message : String(error)
+      },
       { status: 500 }
     );
   }

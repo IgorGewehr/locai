@@ -107,8 +107,31 @@ const nextConfig = {
     ];
   },
   
-  // Server external packages  
-  serverExternalPackages: ['keyv', 'cacheable'],
+  // Server external packages - Include WhatsApp dependencies
+  serverExternalPackages: ['keyv', 'cacheable', '@whiskeysockets/baileys', 'qrcode'],
+  
+  // Webpack configuration for production optimization
+  webpack: (config, { isServer, dev }) => {
+    // Production optimizations for QR Code and WhatsApp
+    if (!dev) {
+      // Optimize QRCode imports
+      config.resolve.alias = {
+        ...config.resolve.alias,
+        'qrcode': require.resolve('qrcode'),
+      };
+    }
+    
+    // Ensure proper module resolution
+    config.resolve.fallback = {
+      ...config.resolve.fallback,
+      fs: false,
+      net: false,
+      tls: false,
+      crypto: false,
+    };
+    
+    return config;
+  },
   
   // Redirects
   async redirects() {

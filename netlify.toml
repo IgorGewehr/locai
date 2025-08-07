@@ -1,10 +1,10 @@
 # Netlify configuration for Next.js 15 App Router
 
 [build]
-  # Build command
+  # Build command  
   command = "npm run build"
   
-  # Publish directory for Next.js
+  # Publish directory for Next.js static files
   publish = ".next"
 
 # Essential Next.js plugin for Netlify
@@ -36,7 +36,11 @@
 [functions]
   # Ensure API routes work properly
   node_bundler = "esbuild"
-  included_files = ["lib/**", "app/**", ".env"]
+  included_files = ["lib/**", "app/**", ".env", "node_modules/@whiskeysockets/baileys/**", "node_modules/qrcode/**"]
+  
+  # Increase timeout for WhatsApp session initialization
+  [functions."api/whatsapp/session"]
+    timeout = 60
 
 # Headers configuration
 [[headers]]
