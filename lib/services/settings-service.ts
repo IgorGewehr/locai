@@ -35,13 +35,10 @@ export interface BillingSettings {
 }
 
 export interface WhatsAppSettings {
-  phoneNumberId: string;
-  accessToken: string;
-  verifyToken: string;
   connected: boolean;
   businessName?: string;
   webhookUrl?: string;
-  mode?: 'business_api' | 'web';
+  mode: 'web';
   lastSync?: Date;
   updatedAt?: Date;
   updatedBy?: string;
@@ -300,13 +297,10 @@ class SettingsService {
         customMessage: 'Olá {nome}, seu aluguel de {valor} vence em {dias} dias. Utilize o código PIX abaixo para pagamento.',
       },
       whatsapp: {
-        phoneNumberId: '',
-        accessToken: '',
-        verifyToken: '',
         connected: false,
         businessName: '',
         webhookUrl: '',
-        mode: 'business_api',
+        mode: 'web',
       },
       miniSite: {
         active: true, // Ativo por padrão para permitir configuração e uso inicial

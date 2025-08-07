@@ -49,9 +49,7 @@ export async function POST(request: NextRequest) {
     return response;
 
   } catch (error) {
-    logger.error('❌ [TokenAPI] Erro ao gerar token', {
-      error: error instanceof Error ? error.message : 'Unknown error'
-    });
+    logger.error('❌ [TokenAPI] Erro ao gerar token', error instanceof Error ? error : undefined);
 
     return NextResponse.json(
       { error: 'Failed to generate token' },

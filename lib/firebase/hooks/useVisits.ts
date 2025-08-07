@@ -37,7 +37,7 @@ export function useVisits() {
         setError(null);
       },
       (err) => {
-        logger.error('Error fetching visits', { error: err });
+        logger.error('Error fetching visits', err as Error);
         setError(err as Error);
         setLoading(false);
       }
@@ -90,7 +90,7 @@ export function useUpcomingVisits(days: number = 7) {
         setError(null);
       },
       (err) => {
-        logger.error('Error fetching upcoming visits', { error: err });
+        logger.error('Error fetching upcoming visits', err as Error);
         setError(err as Error);
         setLoading(false);
       }
@@ -141,7 +141,7 @@ export function useTodayVisits() {
         setError(null);
       },
       (err) => {
-        logger.error('Error fetching today visits', { error: err });
+        logger.error('Error fetching today visits', err as Error);
         setError(err as Error);
         setLoading(false);
       }

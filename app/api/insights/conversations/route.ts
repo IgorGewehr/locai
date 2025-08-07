@@ -33,9 +33,8 @@ async function handler(req: NextRequest, context: any) {
     });
 
   } catch (error) {
-    logger.error('❌ [API] Error fetching conversation insights', {
-      tenantId,
-      error: error instanceof Error ? error.message : 'Unknown error'
+    logger.error('❌ [API] Error fetching conversation insights', error instanceof Error ? error : undefined, {
+      tenantId
     });
 
     return NextResponse.json(

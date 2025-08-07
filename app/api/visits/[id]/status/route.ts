@@ -57,8 +57,7 @@ export async function PATCH(
     });
 
   } catch (error) {
-    logger.error('Erro ao atualizar status da visita', {
-      error: error instanceof Error ? error.message : 'Erro desconhecido',
+    logger.error('Erro ao atualizar status da visita', error instanceof Error ? error : undefined, {
       visitId: params.id,
       component: 'VisitsAPI',
       operation: 'PATCH_STATUS'

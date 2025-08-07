@@ -1,5 +1,5 @@
 import { WhatsAppClient } from './client'
-import { WhatsAppWebhookData, WhatsAppIncomingMessage } from '@/lib/types/whatsapp'
+// Note: Using WhatsApp Web - removed Business API types
 import { AIResponse } from '@/lib/types/ai'
 import { Message, MessageType, MessageStatus } from '@/lib/types/conversation'
 import { ConversationService } from '@/lib/services/conversation-service'
@@ -26,7 +26,7 @@ export class WhatsAppMessageHandler {
   private tenantId: string
   
   // Sistema de delay para agrupar mensagens múltiplas
-  private messageQueue: Map<string, { messages: WhatsAppIncomingMessage[], timeout: NodeJS.Timeout }> = new Map()
+  private messageQueue: Map<string, { messages: any[], timeout: NodeJS.Timeout }> = new Map()
   private readonly MESSAGE_DELAY = 10000 // 10 segundos
 
   constructor(
@@ -62,7 +62,7 @@ export class WhatsAppMessageHandler {
     }
   }
 
-  async handleWebhook(webhookData: WhatsAppWebhookData): Promise<void> {
+  async handleWebhook(webhookData: any): Promise<void> {
     // Initialize client if needed
     await this.initializeClient()
     
@@ -70,7 +70,7 @@ export class WhatsAppMessageHandler {
     await this.handleIncomingMessage(webhookData)
   }
   
-  async handleIncomingMessage(webhookData: WhatsAppWebhookData): Promise<void> {
+  async handleIncomingMessage(webhookData: any): Promise<void> {
     try {
       const { message, from, contact } = this.extractMessageData(webhookData)
 
@@ -114,7 +114,7 @@ export class WhatsAppMessageHandler {
   }
 
   // Método para enfileirar mensagens com delay
-  private async queueMessageWithDelay(phoneNumber: string, message: WhatsAppIncomingMessage): Promise<void> {
+  private async queueMessageWithDelay(phoneNumber: string, message: any): Promise<void> {
     console.log(`📥 Queueing message from ${phoneNumber} with ${this.MESSAGE_DELAY/1000}s delay`);
     
     // Limpa timeout anterior se existir
@@ -145,7 +145,7 @@ export class WhatsAppMessageHandler {
   }
 
   // Processa mensagens agrupadas
-  private async processQueuedMessages(phoneNumber: string, messages: WhatsAppIncomingMessage[]): Promise<void> {
+  private async processQueuedMessages(phoneNumber: string, messages: any[]): Promise<void> {
     if (this.processingConversations.has(phoneNumber)) {
       console.log(`⏳ Already processing conversation for ${phoneNumber}, skipping queued messages`);
       return;
@@ -238,7 +238,7 @@ export class WhatsAppMessageHandler {
   }
 
   // Combina o conteúdo de múltiplas mensagens
-  private async combineMessageContents(messages: WhatsAppIncomingMessage[]): Promise<string> {
+  private async combineMessageContents(messages: any[]): Promise<string> {
     const contents: string[] = []
     
     for (const message of messages) {
@@ -296,7 +296,7 @@ export class WhatsAppMessageHandler {
     }
   }
 
-  private extractMessageData(webhookData: WhatsAppWebhookData): { message: WhatsAppIncomingMessage | null, from: string | null, contact: any | null } {
+  private extractMessageData(webhookData: any): { message: any | null, from: string | null, contact: any | null } {
     const entry = webhookData.entry?.[0]
     const change = entry?.changes?.[0]
     const value = change?.value
@@ -312,7 +312,7 @@ export class WhatsAppMessageHandler {
     return { message, from, contact }
   }
 
-  private getMessageType(message: WhatsAppIncomingMessage): MessageType {
+  private getMessageType(message: any): MessageType {
     switch (message.type) {
       case 'text':
         return MessageType.TEXT
@@ -333,7 +333,7 @@ export class WhatsAppMessageHandler {
     }
   }
 
-  private getMediaCaption(message: WhatsAppIncomingMessage): string {
+  private getMediaCaption(message: any): string {
     switch (message.type) {
       case 'image':
         return message.image?.caption || ''
@@ -348,7 +348,7 @@ export class WhatsAppMessageHandler {
     }
   }
 
-  private async getMediaUrl(message: WhatsAppIncomingMessage): Promise<string | undefined> {
+  private async getMediaUrl(message: any): Promise<string | undefined> {
     try {
       let mediaId: string | undefined
 
@@ -380,7 +380,7 @@ export class WhatsAppMessageHandler {
     }
   }
 
-  private shouldSkipAIProcessing(message: WhatsAppIncomingMessage): boolean {
+  private shouldSkipAIProcessing(message: any): boolean {
     // Skip AI processing only for message types that truly don't need responses
     const skipTypes = ['sticker', 'reaction'] // Audio now supported!
     return skipTypes.includes(message.type)
@@ -678,7 +678,7 @@ Não perca essa oportunidade! 🚀
     await this.whatsappClient.sendText(to, discountText)
   }
 
-  async handleStatusUpdate(webhookData: WhatsAppWebhookData): Promise<void> {
+  async handleStatusUpdate(webhookData: any): Promise<void> {
     try {
       const entry = webhookData.entry?.[0]
       const change = entry?.changes?.[0]
@@ -700,7 +700,7 @@ Não perca essa oportunidade! 🚀
       }
   }
 
-  async handleError(webhookData: WhatsAppWebhookData): Promise<void> {
+  async handleError(webhookData: any): Promise<void> {
     // Log error for monitoring
     // You can integrate with your error tracking system here
   }

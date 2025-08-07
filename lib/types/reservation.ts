@@ -19,6 +19,7 @@ export interface Reservation {
   
   // Financeiro
   totalAmount: number
+  totalPrice: number // Compatibility field for index.ts type
   paidAmount: number
   pendingAmount: number
   paymentMethod: PaymentMethod

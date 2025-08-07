@@ -56,7 +56,7 @@ export async function POST(request: NextRequest) {
     // NOVO: Obter tenantId dinamicamente
     const tenantId = await resolveTenantFromPhone(message.from);
     if (!tenantId) {
-      logger.error('❌ [WhatsApp] Tenant não encontrado para telefone', {
+      logger.error('❌ [WhatsApp] Tenant não encontrado para telefone', undefined, {
         phone: message.from.substring(0, 6) + '***'
       });
       return NextResponse.json({ status: 'no_tenant' });
@@ -113,10 +113,7 @@ export async function POST(request: NextRequest) {
     });
 
   } catch (error) {
-    logger.error('❌ [WhatsApp] Erro no webhook', {
-      error: error instanceof Error ? error.message : 'Unknown error',
-      stack: error instanceof Error ? error.stack : undefined
-    });
+    logger.error('❌ [WhatsApp] Erro no webhook', error instanceof Error ? error : undefined);
     AgentMonitor.recordError();
     return NextResponse.json({ status: 'error' }, { status: 500 });
   }

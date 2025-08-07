@@ -32,16 +32,14 @@ export async function GET(request: NextRequest) {
       };
     }
     
-    // Remove sensitive data before sending to client
+    // Remove sensitive data before sending to client - WhatsApp Web only
     if (settings?.whatsapp) {
       settings.whatsapp = {
         ...settings.whatsapp,
-        accessToken: settings.whatsapp.accessToken ? '***' : '', // Mask token
-        phoneNumberId: settings.whatsapp.phoneNumberId,
-        verifyToken: settings.whatsapp.verifyToken ? '***' : '', // Mask token
         connected: settings.whatsapp.connected,
         businessName: settings.whatsapp.businessName || '',
         lastSync: settings.whatsapp.lastSync || new Date(),
+        mode: 'web',
       };
     }
 

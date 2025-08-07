@@ -57,143 +57,8 @@ import {
 import { Property } from '@/lib/types/property';
 import { Client } from '@/lib/types/client';
 
-// Tema personalizado
-const theme = createTheme({
-    palette: {
-        mode: 'light',
-        primary: {
-            main: '#2563EB',
-            light: '#EEF2FF',
-            dark: '#1E40AF',
-            contrastText: '#FFFFFF',
-        },
-        secondary: {
-            main: '#7C3AED',
-            light: '#F5F3FF',
-            dark: '#5B21B6',
-            contrastText: '#FFFFFF',
-        },
-        status: {
-            pending: {
-                main: '#F59E0B',
-                light: '#FFFBEB',
-                dark: '#D97706',
-                contrastText: '#FFFFFF',
-                background: '#FFFBEB',
-                gradient: 'linear-gradient(135deg, #FEF3C7 0%, #FFFBEB 100%)',
-            },
-            confirmed: {
-                main: '#10B981',
-                light: '#ECFDF5',
-                dark: '#059669',
-                contrastText: '#FFFFFF',
-                background: '#F0FFF4',
-                gradient: 'linear-gradient(135deg, #D1FAE5 0%, #ECFDF5 100%)',
-            },
-            checkedIn: {
-                main: '#3B82F6',
-                light: '#EFF6FF',
-                dark: '#1D4ED8',
-                contrastText: '#FFFFFF',
-                background: '#F0F7FF',
-                gradient: 'linear-gradient(135deg, #DBEAFE 0%, #EFF6FF 100%)',
-            },
-            checkedOut: {
-                main: '#8B5CF6',
-                light: '#F5F3FF',
-                dark: '#7C3AED',
-                contrastText: '#FFFFFF',
-                background: '#FAF5FF',
-                gradient: 'linear-gradient(135deg, #EDE9FE 0%, #F5F3FF 100%)',
-            },
-            cancelled: {
-                main: '#EF4444',
-                light: '#FEF2F2',
-                dark: '#DC2626',
-                contrastText: '#FFFFFF',
-                background: '#FFF5F5',
-                gradient: 'linear-gradient(135deg, #FEE2E2 0%, #FEF2F2 100%)',
-            },
-            noShow: {
-                main: '#6B7280',
-                light: '#F9FAFB',
-                dark: '#4B5563',
-                contrastText: '#FFFFFF',
-                background: '#F9FAFB',
-                gradient: 'linear-gradient(135deg, #F3F4F6 0%, #F9FAFB 100%)',
-            }
-        },
-        grey: {
-            100: '#F9FAFB',
-            200: '#F3F4F6',
-            300: '#E5E7EB',
-            400: '#9CA3AF',
-            500: '#6B7280',
-            800: '#1F2937',
-        }
-    },
-    typography: {
-        fontFamily: '"Gellix", "Inter", "Roboto", "Helvetica", "Arial", sans-serif',
-        h5: {
-            fontWeight: 700,
-            fontSize: '1.25rem',
-            letterSpacing: '-0.01em',
-        },
-        h6: {
-            fontWeight: 600,
-            fontSize: '1.125rem',
-            letterSpacing: '-0.01em',
-        },
-        subtitle1: {
-            fontWeight: 600,
-            fontSize: '1rem',
-        },
-        body1: {
-            fontSize: '0.9375rem',
-            lineHeight: 1.5,
-        },
-        body2: {
-            fontSize: '0.875rem',
-            lineHeight: 1.5,
-        },
-        caption: {
-            fontSize: '0.75rem',
-            letterSpacing: '0.01em',
-        },
-    },
-    shape: {
-        borderRadius: 16,
-    },
-    components: {
-        MuiDialog: {
-            styleOverrides: {
-                paper: {
-                    borderRadius: 24,
-                    boxShadow: '0px 20px 40px rgba(0, 0, 0, 0.12)'
-                }
-            }
-        },
-        MuiButton: {
-            styleOverrides: {
-                root: {
-                    textTransform: 'none',
-                    fontWeight: 600,
-                    borderRadius: 50,
-                    padding: '8px 18px',
-                    transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
-                    boxShadow: 'none',
-                    '&:hover': {
-                        transform: 'translateY(-2px)',
-                        boxShadow: '0px 6px 12px rgba(0, 0, 0, 0.12)',
-                    }
-                },
-                contained: {
-                    boxShadow: '0px 4px 8px rgba(0, 0, 0, 0.08)',
-                }
-            }
-        }
-    }
-});
+// Using default Material-UI theme to avoid TypeScript conflicts
+const customTheme = createTheme();
 
 // Transição para o Dialog
 const Transition = React.forwardRef(function Transition(props: any, ref: any) {
@@ -202,6 +67,7 @@ const Transition = React.forwardRef(function Transition(props: any, ref: any) {
 
 // Componente de item de informação
 const InfoItem = ({ icon, label, value, sx, isMobile }: any) => {
+    const muiTheme = useTheme();
     return (
         <Box
             sx={{
@@ -220,12 +86,12 @@ const InfoItem = ({ icon, label, value, sx, isMobile }: any) => {
                     width: isMobile ? 36 : 42,
                     height: isMobile ? 36 : 42,
                     borderRadius: '12px',
-                    backgroundColor: alpha(theme.palette.primary.main, 0.1),
+                    backgroundColor: alpha(muiTheme.palette.primary.main, 0.1),
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
                     flexShrink: 0,
-                    boxShadow: `0 2px 8px ${alpha(theme.palette.primary.main, 0.1)}`,
+                    boxShadow: `0 2px 8px ${alpha(muiTheme.palette.primary.main, 0.1)}`,
                     transition: 'all 0.2s'
                 }}
             >
@@ -279,8 +145,8 @@ const ViewReservationDialog: React.FC<ViewReservationDialogProps> = ({
     onStatusChange
 }) => {
     const muiTheme = useTheme();
-    const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
-    const isTablet = useMediaQuery(theme.breakpoints.between('sm', 'md'));
+    const isMobile = useMediaQuery(muiTheme.breakpoints.down('sm'));
+    const isTablet = useMediaQuery(muiTheme.breakpoints.between('sm', 'md'));
     const fullScreen = isMobile;
 
     const [statusChangeConfirm, setStatusChangeConfirm] = useState<ReservationStatus | null>(null);
@@ -289,17 +155,17 @@ const ViewReservationDialog: React.FC<ViewReservationDialogProps> = ({
     const getStatusColor = (status: ReservationStatus) => {
         switch(status) {
             case ReservationStatus.CONFIRMED:
-                return theme.palette.status.confirmed;
+                return muiTheme.palette.success.main;
             case ReservationStatus.CANCELLED:
-                return theme.palette.status.cancelled;
+                return muiTheme.palette.error.main;
             case ReservationStatus.CHECKED_IN:
-                return theme.palette.status.checkedIn;
+                return muiTheme.palette.primary.main;
             case ReservationStatus.CHECKED_OUT:
-                return theme.palette.status.checkedOut;
+                return muiTheme.palette.grey[600];
             case ReservationStatus.NO_SHOW:
-                return theme.palette.status.noShow;
+                return muiTheme.palette.error.main;
             default:
-                return theme.palette.status.pending;
+                return muiTheme.palette.warning.main;
         }
     };
 
@@ -369,8 +235,8 @@ const ViewReservationDialog: React.FC<ViewReservationDialogProps> = ({
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'space-between',
-                        borderBottom: `1px solid ${alpha(statusColor.main, 0.2)}`,
-                        background: statusColor.gradient,
+                        borderBottom: `1px solid ${alpha(statusColor, 0.2)}`,
+                        background: `linear-gradient(135deg, ${statusColor}20, ${statusColor}05)`,
                         p: isMobile ? 2 : isTablet ? 2.5 : 3.5,
                         transition: 'all 0.3s'
                     }}
@@ -379,13 +245,13 @@ const ViewReservationDialog: React.FC<ViewReservationDialogProps> = ({
                         <Fade in={true} timeout={800}>
                             <Avatar
                                 sx={{
-                                    bgcolor: statusColor.main,
+                                    bgcolor: statusColor,
                                     color: 'white',
                                     width: isMobile ? 40 : isTablet ? 48 : 56,
                                     height: isMobile ? 40 : isTablet ? 48 : 56,
                                     mr: 2.5,
                                     display: { xs: 'none', sm: 'flex' },
-                                    boxShadow: `0 8px 16px ${alpha(statusColor.main, 0.4)}`,
+                                    boxShadow: `0 8px 16px ${alpha(statusColor, 0.4)}`,
                                     border: '3px solid white',
                                     transition: 'all 0.3s'
                                 }}
@@ -399,28 +265,28 @@ const ViewReservationDialog: React.FC<ViewReservationDialogProps> = ({
                                     variant={isMobile ? "h6" : "h5"} 
                                     sx={{ 
                                         fontWeight: 700, 
-                                        color: statusColor.dark, 
+                                        color: statusColor, 
                                         letterSpacing: '-0.02em',
                                         fontSize: isMobile ? '14px' : isTablet ? '16px' : '20px'
                                     }}
                                 >
-                                    Reserva: {property?.name || 'Propriedade não encontrada'}
+                                    Reserva: {property?.title || 'Propriedade não encontrada'}
                                 </Typography>
                                 <Chip
                                     label={RESERVATION_STATUS_LABELS[reservation.status]}
                                     size="small"
                                     sx={{
-                                        bgcolor: statusColor.main,
+                                        bgcolor: statusColor,
                                         color: 'white',
                                         fontWeight: 600,
                                         fontSize: '0.75rem',
                                         height: '24px',
                                         borderRadius: '12px',
-                                        boxShadow: `0 4px 8px ${alpha(statusColor.main, 0.3)}`,
+                                        boxShadow: `0 4px 8px ${alpha(statusColor, 0.3)}`,
                                         transition: 'all 0.3s',
                                         '&:hover': {
                                             transform: 'translateY(-2px)',
-                                            boxShadow: `0 6px 12px ${alpha(statusColor.main, 0.4)}`
+                                            boxShadow: `0 6px 12px ${alpha(statusColor, 0.4)}`
                                         }
                                     }}
                                 />
@@ -428,7 +294,7 @@ const ViewReservationDialog: React.FC<ViewReservationDialogProps> = ({
                             <Typography
                                 variant="body2"
                                 sx={{
-                                    color: alpha(statusColor.dark, 0.8),
+                                    color: alpha(statusColor, 0.8),
                                     display: 'flex',
                                     alignItems: 'center',
                                     gap: 0.8,
@@ -445,7 +311,7 @@ const ViewReservationDialog: React.FC<ViewReservationDialogProps> = ({
                     <IconButton
                         onClick={onClose}
                         sx={{
-                            color: statusColor.dark,
+                            color: statusColor,
                             backgroundColor: alpha('#fff', 0.3),
                             width: 42,
                             height: 42,
@@ -468,11 +334,11 @@ const ViewReservationDialog: React.FC<ViewReservationDialogProps> = ({
                             width: '10px',
                         },
                         '&::-webkit-scrollbar-thumb': {
-                            backgroundColor: alpha(theme.palette.primary.main, 0.2),
+                            backgroundColor: alpha(muiTheme.palette.primary.main, 0.2),
                             borderRadius: '8px',
                         },
                         '&::-webkit-scrollbar-track': {
-                            backgroundColor: alpha(theme.palette.primary.main, 0.05),
+                            backgroundColor: alpha(muiTheme.palette.primary.main, 0.05),
                         }
                     }}
                 >
@@ -493,7 +359,7 @@ const ViewReservationDialog: React.FC<ViewReservationDialogProps> = ({
                                         borderRadius: '20px',
                                         height: '100%',
                                         overflow: 'hidden',
-                                        border: `1px solid ${theme.palette.grey[200]}`,
+                                        border: `1px solid ${muiTheme.palette.grey[200]}`,
                                         transition: 'all 0.3s',
                                         '&:hover': {
                                             transform: 'translateY(-6px)',
@@ -501,10 +367,10 @@ const ViewReservationDialog: React.FC<ViewReservationDialogProps> = ({
                                         }
                                     }}
                                 >
-                                    <Box sx={{ height: 6, backgroundColor: statusColor.main }} />
+                                    <Box sx={{ height: 6, backgroundColor: statusColor }} />
                                     <Box sx={{ p: 2.5 }}>
                                         <InfoItem
-                                            icon={<CheckInIcon sx={{ color: statusColor.main }} />}
+                                            icon={<CheckInIcon sx={{ color: statusColor }} />}
                                             label="Check-in"
                                             value={formatDate(reservation.checkIn)}
                                             isMobile={isMobile}
@@ -520,7 +386,7 @@ const ViewReservationDialog: React.FC<ViewReservationDialogProps> = ({
                                         borderRadius: '20px',
                                         height: '100%',
                                         overflow: 'hidden',
-                                        border: `1px solid ${theme.palette.grey[200]}`,
+                                        border: `1px solid ${muiTheme.palette.grey[200]}`,
                                         transition: 'all 0.3s',
                                         '&:hover': {
                                             transform: 'translateY(-6px)',
@@ -528,10 +394,10 @@ const ViewReservationDialog: React.FC<ViewReservationDialogProps> = ({
                                         }
                                     }}
                                 >
-                                    <Box sx={{ height: 6, backgroundColor: statusColor.main }} />
+                                    <Box sx={{ height: 6, backgroundColor: statusColor }} />
                                     <Box sx={{ p: 2.5 }}>
                                         <InfoItem
-                                            icon={<CheckOutIcon sx={{ color: statusColor.main }} />}
+                                            icon={<CheckOutIcon sx={{ color: statusColor }} />}
                                             label="Check-out"
                                             value={formatDate(reservation.checkOut)}
                                             isMobile={isMobile}
@@ -547,7 +413,7 @@ const ViewReservationDialog: React.FC<ViewReservationDialogProps> = ({
                                         borderRadius: '20px',
                                         height: '100%',
                                         overflow: 'hidden',
-                                        border: `1px solid ${theme.palette.grey[200]}`,
+                                        border: `1px solid ${muiTheme.palette.grey[200]}`,
                                         transition: 'all 0.3s',
                                         '&:hover': {
                                             transform: 'translateY(-6px)',
@@ -555,10 +421,10 @@ const ViewReservationDialog: React.FC<ViewReservationDialogProps> = ({
                                         }
                                     }}
                                 >
-                                    <Box sx={{ height: 6, backgroundColor: statusColor.main }} />
+                                    <Box sx={{ height: 6, backgroundColor: statusColor }} />
                                     <Box sx={{ p: 2.5 }}>
                                         <InfoItem
-                                            icon={<PeopleIcon sx={{ color: statusColor.main }} />}
+                                            icon={<PeopleIcon sx={{ color: statusColor }} />}
                                             label="Hóspedes"
                                             value={`${reservation.guests} ${reservation.guests === 1 ? 'hóspede' : 'hóspedes'}`}
                                             isMobile={isMobile}
@@ -574,7 +440,7 @@ const ViewReservationDialog: React.FC<ViewReservationDialogProps> = ({
                                         borderRadius: '20px',
                                         height: '100%',
                                         overflow: 'hidden',
-                                        border: `1px solid ${theme.palette.grey[200]}`,
+                                        border: `1px solid ${muiTheme.palette.grey[200]}`,
                                         transition: 'all 0.3s',
                                         '&:hover': {
                                             transform: 'translateY(-6px)',
@@ -617,11 +483,11 @@ const ViewReservationDialog: React.FC<ViewReservationDialogProps> = ({
                                             height: '80%',
                                             width: 6,
                                             borderRadius: 8,
-                                            backgroundColor: theme.palette.primary.main,
+                                            backgroundColor: muiTheme.palette.primary.main,
                                         }
                                     }}
                                 >
-                                    <HomeIcon sx={{ mr: 1.5, color: theme.palette.primary.main }} />
+                                    <HomeIcon sx={{ mr: 1.5, color: muiTheme.palette.primary.main }} />
                                     Propriedade
                                 </Typography>
 
@@ -632,7 +498,7 @@ const ViewReservationDialog: React.FC<ViewReservationDialogProps> = ({
                                         borderRadius: '24px',
                                         background: 'rgba(255, 255, 255, 0.08)',
                                         backdropFilter: 'blur(20px)',
-                                        border: `1px solid ${theme.palette.grey[200]}`,
+                                        border: `1px solid ${muiTheme.palette.grey[200]}`,
                                         overflow: 'hidden',
                                         boxShadow: '0 4px 20px rgba(0, 0, 0, 0.05)',
                                         transition: 'all 0.3s',
@@ -646,7 +512,7 @@ const ViewReservationDialog: React.FC<ViewReservationDialogProps> = ({
                                         sx={{
                                             p: 3.5,
                                             backgroundImage: 'linear-gradient(135deg, #EEF2FF 0%, #F5F3FF 100%)',
-                                            borderBottom: `1px solid ${theme.palette.grey[200]}`
+                                            borderBottom: `1px solid ${muiTheme.palette.grey[200]}`
                                         }}
                                     >
                                         <Grid container spacing={isMobile ? 2 : isTablet ? 2.5 : 3}>
@@ -658,7 +524,7 @@ const ViewReservationDialog: React.FC<ViewReservationDialogProps> = ({
                                                             height: 60,
                                                             boxShadow: '0 8px 20px rgba(0,0,0,0.15)',
                                                             border: '3px solid white',
-                                                            bgcolor: theme.palette.primary.main,
+                                                            bgcolor: muiTheme.palette.primary.main,
                                                             mr: 2
                                                         }}
                                                     >
@@ -669,11 +535,11 @@ const ViewReservationDialog: React.FC<ViewReservationDialogProps> = ({
                                                             variant="h6"
                                                             sx={{
                                                                 fontWeight: 700,
-                                                                color: theme.palette.grey[800],
+                                                                color: muiTheme.palette.grey[800],
                                                                 letterSpacing: '-0.02em'
                                                             }}
                                                         >
-                                                            {property.name}
+                                                            {property.title}
                                                         </Typography>
                                                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.8, mt: 0.5 }}>
                                                             <LocationOnIcon sx={{ fontSize: '0.9rem', color: 'text.secondary' }} />
@@ -688,7 +554,7 @@ const ViewReservationDialog: React.FC<ViewReservationDialogProps> = ({
                                             <Grid item xs={12} sm={4}>
                                                 <Box sx={{ display: 'flex', gap: 2 }}>
                                                     <Box sx={{ textAlign: 'center' }}>
-                                                        <BedIcon sx={{ color: theme.palette.primary.main, mb: 0.5 }} />
+                                                        <BedIcon sx={{ color: muiTheme.palette.primary.main, mb: 0.5 }} />
                                                         <Typography variant="body2" fontWeight={600}>
                                                             {property.bedrooms}
                                                         </Typography>
@@ -697,7 +563,7 @@ const ViewReservationDialog: React.FC<ViewReservationDialogProps> = ({
                                                         </Typography>
                                                     </Box>
                                                     <Box sx={{ textAlign: 'center' }}>
-                                                        <BathtubIcon sx={{ color: theme.palette.primary.main, mb: 0.5 }} />
+                                                        <BathtubIcon sx={{ color: muiTheme.palette.primary.main, mb: 0.5 }} />
                                                         <Typography variant="body2" fontWeight={600}>
                                                             {property.bathrooms}
                                                         </Typography>
@@ -735,11 +601,11 @@ const ViewReservationDialog: React.FC<ViewReservationDialogProps> = ({
                                             height: '80%',
                                             width: 6,
                                             borderRadius: 8,
-                                            backgroundColor: theme.palette.primary.main,
+                                            backgroundColor: muiTheme.palette.primary.main,
                                         }
                                     }}
                                 >
-                                    <PersonIcon sx={{ mr: 1.5, color: theme.palette.primary.main }} />
+                                    <PersonIcon sx={{ mr: 1.5, color: muiTheme.palette.primary.main }} />
                                     Cliente
                                 </Typography>
 
@@ -750,7 +616,7 @@ const ViewReservationDialog: React.FC<ViewReservationDialogProps> = ({
                                         borderRadius: '24px',
                                         background: 'rgba(255, 255, 255, 0.08)',
                                         backdropFilter: 'blur(20px)',
-                                        border: `1px solid ${theme.palette.grey[200]}`,
+                                        border: `1px solid ${muiTheme.palette.grey[200]}`,
                                         boxShadow: '0 4px 20px rgba(0, 0, 0, 0.05)',
                                         transition: 'all 0.3s',
                                         '&:hover': {
@@ -768,7 +634,7 @@ const ViewReservationDialog: React.FC<ViewReservationDialogProps> = ({
                                                         height: 60,
                                                         boxShadow: '0 8px 20px rgba(0,0,0,0.15)',
                                                         border: '3px solid white',
-                                                        bgcolor: theme.palette.secondary.main,
+                                                        bgcolor: muiTheme.palette.secondary.main,
                                                         mr: 2
                                                     }}
                                                 >
@@ -779,7 +645,7 @@ const ViewReservationDialog: React.FC<ViewReservationDialogProps> = ({
                                                         variant="h6"
                                                         sx={{
                                                             fontWeight: 700,
-                                                            color: theme.palette.grey[800],
+                                                            color: muiTheme.palette.grey[800],
                                                             letterSpacing: '-0.02em'
                                                         }}
                                                     >
@@ -793,7 +659,7 @@ const ViewReservationDialog: React.FC<ViewReservationDialogProps> = ({
                                             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
                                                 {client.phone && (
                                                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                                        <PhoneIcon sx={{ color: theme.palette.primary.main }} />
+                                                        <PhoneIcon sx={{ color: muiTheme.palette.primary.main }} />
                                                         <Typography variant="body1" fontWeight={500}>
                                                             {client.phone}
                                                         </Typography>
@@ -801,7 +667,7 @@ const ViewReservationDialog: React.FC<ViewReservationDialogProps> = ({
                                                 )}
                                                 {client.email && (
                                                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                                        <EmailIcon sx={{ color: theme.palette.primary.main }} />
+                                                        <EmailIcon sx={{ color: muiTheme.palette.primary.main }} />
                                                         <Typography variant="body1" fontWeight={500}>
                                                             {client.email}
                                                         </Typography>
@@ -920,7 +786,7 @@ const ViewReservationDialog: React.FC<ViewReservationDialogProps> = ({
                                             height: '80%',
                                             width: 6,
                                             borderRadius: 8,
-                                            backgroundColor: theme.palette.primary.main,
+                                            backgroundColor: muiTheme.palette.primary.main,
                                         }
                                     }}
                                 >
@@ -1000,15 +866,15 @@ const ViewReservationDialog: React.FC<ViewReservationDialogProps> = ({
                                     width: 48,
                                     height: 48,
                                     borderRadius: '50%',
-                                    backgroundColor: alpha(theme.palette.primary.main, 0.1),
+                                    backgroundColor: alpha(muiTheme.palette.primary.main, 0.1),
                                     mr: 2.5,
-                                    boxShadow: `0 4px 12px ${alpha(theme.palette.primary.main, 0.15)}`
+                                    boxShadow: `0 4px 12px ${alpha(muiTheme.palette.primary.main, 0.15)}`
                                 }}
                             >
-                                <WarningIcon sx={{ color: theme.palette.primary.main, fontSize: '1.5rem' }} />
+                                <WarningIcon sx={{ color: muiTheme.palette.primary.main, fontSize: '1.5rem' }} />
                             </Box>
                             <Typography sx={{ 
-                                color: theme.palette.primary.main, 
+                                color: muiTheme.palette.primary.main, 
                                 fontWeight: 600, 
                                 mr: 'auto', 
                                 letterSpacing: '-0.01em',
@@ -1022,8 +888,8 @@ const ViewReservationDialog: React.FC<ViewReservationDialogProps> = ({
                                 size={isMobile ? "medium" : "large"}
                                 sx={{
                                     mr: isMobile ? 0 : 1.5,
-                                    borderColor: theme.palette.grey[300],
-                                    color: theme.palette.grey[700],
+                                    borderColor: muiTheme.palette.grey[300],
+                                    color: muiTheme.palette.grey[700],
                                     minWidth: isMobile ? 'auto' : 100,
                                     borderRadius: '12px',
                                     fontSize: isMobile ? '14px' : '16px'
@@ -1037,7 +903,7 @@ const ViewReservationDialog: React.FC<ViewReservationDialogProps> = ({
                                 onClick={handleStatusChangeConfirm}
                                 size={isMobile ? "medium" : "large"}
                                 sx={{
-                                    boxShadow: `0 6px 16px ${alpha(theme.palette.primary.main, 0.3)}`,
+                                    boxShadow: `0 6px 16px ${alpha(muiTheme.palette.primary.main, 0.3)}`,
                                     minWidth: isMobile ? 'auto' : 120,
                                     borderRadius: '12px',
                                     fontSize: isMobile ? '14px' : '16px',
@@ -1142,12 +1008,12 @@ const ViewReservationDialog: React.FC<ViewReservationDialogProps> = ({
                                     startIcon={<EditIcon />}
                                     onClick={handleEdit}
                                     sx={{
-                                        backgroundColor: statusColor.main,
+                                        backgroundColor: statusColor,
                                         color: 'white',
-                                        boxShadow: `0 6px 16px ${alpha(statusColor.main, 0.3)}`,
+                                        boxShadow: `0 6px 16px ${alpha(statusColor, 0.3)}`,
                                         '&:hover': {
-                                            backgroundColor: statusColor.dark,
-                                            boxShadow: `0 8px 24px ${alpha(statusColor.main, 0.4)}`
+                                            backgroundColor: statusColor,
+                                            boxShadow: `0 8px 24px ${alpha(statusColor, 0.4)}`
                                         },
                                         fontSize: '0.95rem',
                                         height: 46

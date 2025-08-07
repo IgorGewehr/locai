@@ -1,6 +1,6 @@
 import { WhatsAppMessage, WhatsAppTemplate, WhatsAppMediaResponse, WhatsAppMediaDetails, WhatsAppError } from '@/lib/types/whatsapp'
 import { withTimeout } from '@/lib/utils/async'
-import { whatsappSessionManager } from './session-manager'
+import { whatsappSessionManager } from './session-manager-wrapper'
 
 export class WhatsAppClient {
   private tenantId: string

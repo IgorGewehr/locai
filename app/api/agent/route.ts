@@ -27,9 +27,8 @@ export async function POST(request: NextRequest) {
     try {
       body = await request.json();
     } catch (error) {
-      logger.error('❌ [API] Erro ao fazer parse do JSON', {
-        requestId,
-        error: error instanceof Error ? error.message : 'Unknown error'
+      logger.error('❌ [API] Erro ao fazer parse do JSON', error instanceof Error ? error : undefined, {
+        requestId
       });
       return handleApiError(new APIError('Invalid request body - JSON malformed', {
         requestId,
@@ -75,9 +74,8 @@ export async function POST(request: NextRequest) {
         messageLength: validatedMessage.length
       });
     } catch (error) {
-      logger.error('❌ [API] Falha na validação', {
+      logger.error('❌ [API] Falha na validação', error instanceof Error ? error : undefined, {
         requestId,
-        error: error instanceof Error ? error.message : 'Unknown error',
         phone: clientPhone || phone,
         messageLength: message?.length
       });
@@ -183,9 +181,8 @@ export async function POST(request: NextRequest) {
 
           logger.info('✅ [API] WhatsApp enviado com sucesso', { requestId });
         } catch (whatsappError) {
-          logger.error('⚠️ [API] Erro no envio do WhatsApp', {
+          logger.error('⚠️ [API] Erro no envio do WhatsApp', whatsappError instanceof Error ? whatsappError : undefined, {
             requestId,
-            error: whatsappError instanceof Error ? whatsappError.message : 'Unknown WhatsApp error',
             phoneMasked: validatedPhone.substring(0, 4) + '***'
           });
           // Não bloquear resposta por erro do WhatsApp
@@ -289,10 +286,8 @@ export async function POST(request: NextRequest) {
     } catch (agentError) {
       const processingTime = Date.now() - startTime;
 
-      logger.error('❌ [API] Erro na Sofia MVP', {
+      logger.error('❌ [API] Erro na Sofia MVP', agentError instanceof Error ? agentError : undefined, {
         requestId,
-        error: agentError instanceof Error ? agentError.message : 'Unknown error',
-        stack: agentError instanceof Error ? agentError.stack : undefined,
         phoneMasked: validatedPhone.substring(0, 4) + '***',
         processingTime: `${processingTime}ms`
       });
@@ -307,9 +302,8 @@ export async function POST(request: NextRequest) {
           await sendWhatsAppMessage(validatedPhone, errorMessage);
           logger.info('📱 [API] Mensagem de erro enviada via WhatsApp', { requestId });
         } catch (whatsappError) {
-          logger.error('❌ [API] Falha ao enviar erro via WhatsApp', {
-            requestId,
-            error: whatsappError instanceof Error ? whatsappError.message : 'Unknown error'
+          logger.error('❌ [API] Falha ao enviar erro via WhatsApp', whatsappError instanceof Error ? whatsappError : undefined, {
+            requestId
           });
         }
       }
@@ -341,10 +335,8 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     const processingTime = Date.now() - startTime;
 
-    logger.error('❌ [API] Erro interno crítico', {
+    logger.error('❌ [API] Erro interno crítico', error instanceof Error ? error : undefined, {
       requestId,
-      error: error instanceof Error ? error.message : 'Unknown error',
-      stack: error instanceof Error ? error.stack : undefined,
       processingTime: `${processingTime}ms`
     });
 
@@ -439,9 +431,8 @@ export async function GET(request: NextRequest) {
           }
         });
       } catch (error) {
-        logger.error('❌ [API GET] Erro ao buscar sumário', {
+        logger.error('❌ [API GET] Erro ao buscar sumário', error instanceof Error ? error : undefined, {
           requestId,
-          error: error instanceof Error ? error.message : 'Unknown error',
           clientPhoneMasked: clientPhone.substring(0, 4) + '***'
         });
 
@@ -524,9 +515,8 @@ export async function GET(request: NextRequest) {
           }
         });
       } catch (error) {
-        logger.error('❌ [API GET] Erro ao coletar métricas', {
-          requestId,
-          error: error instanceof Error ? error.message : 'Unknown error'
+        logger.error('❌ [API GET] Erro ao coletar métricas', error instanceof Error ? error : undefined, {
+          requestId
         });
 
         return NextResponse.json({
@@ -578,9 +568,8 @@ export async function GET(request: NextRequest) {
     });
 
   } catch (error) {
-    logger.error('❌ [API GET] Erro interno', {
-      requestId,
-      error: error instanceof Error ? error.message : 'Unknown error'
+    logger.error('❌ [API GET] Erro interno', error instanceof Error ? error : undefined, {
+      requestId
     });
 
     return NextResponse.json({

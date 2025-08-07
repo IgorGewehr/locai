@@ -1,6 +1,6 @@
 // Endpoint temporário para testar funções individualmente
 import { NextRequest, NextResponse } from 'next/server';
-import { AgentFunctions } from '@/lib/ai/tenant-aware-agent-functions';
+import { executeTenantAwareFunction } from '@/lib/ai/tenant-aware-agent-functions';
 import { logger } from '@/lib/utils/logger';
 
 export async function POST(request: NextRequest) {
@@ -22,7 +22,7 @@ export async function POST(request: NextRequest) {
     });
 
     const startTime = Date.now();
-    const result = await AgentFunctions.executeFunction(functionName, args || {}, tenantId);
+    const result = await executeTenantAwareFunction(functionName, args || {}, tenantId);
     const executionTime = Date.now() - startTime;
 
     logger.info('✅ [TestFunctions] Função executada', {
@@ -40,10 +40,7 @@ export async function POST(request: NextRequest) {
     });
 
   } catch (error: any) {
-    logger.error('❌ [TestFunctions] Erro na execução', {
-      error: error.message,
-      stack: error.stack
-    });
+    logger.error('❌ [TestFunctions] Erro na execução', error instanceof Error ? error : new Error(String(error)));
 
     return NextResponse.json({
       success: false,

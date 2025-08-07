@@ -42,7 +42,7 @@ export function useFirestore<T>(
           setLoading(false);
         },
         (err) => {
-          logger.error(`Error fetching ${collectionName}:`, { error: err, collectionName });
+          logger.error(`Error fetching ${collectionName}:`, err as Error, { collectionName });
           setError(err as Error);
           setLoading(false);
         }
@@ -50,7 +50,7 @@ export function useFirestore<T>(
 
       return unsubscribe;
     } catch (err) {
-      logger.error(`Error setting up listener for ${collectionName}:`, { error: err, collectionName });
+      logger.error(`Error setting up listener for ${collectionName}:`, err as Error, { collectionName });
       setError(err as Error);
       setLoading(false);
     }

@@ -131,8 +131,7 @@ export default function AgendaPage() {
             setShowEventoModal(false);
             setReservaSelecionada(null);
         } catch (error) {
-            logger.error('Erro ao salvar reserva', { 
-                error,
+            logger.error('Erro ao salvar reserva', error as Error, { 
                 component: 'AgendaPage',
                 operation: 'handleSaveReservation'
             });

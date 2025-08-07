@@ -117,13 +117,38 @@ const nextConfig = {
         fs: false,
         net: false,
         tls: false,
+        crypto: false,
+        stream: false,
+        util: false,
+        buffer: false,
+        process: false,
       };
     }
     
-    // Resolve package version conflicts
+    // Resolve package version conflicts and baileys issues
     config.resolve.alias = {
       ...config.resolve.alias,
+      // Completely disable problematic packages during build
+      '@whiskeysockets/baileys': false,
+      'link-preview-js': false,
+      'cheerio': false,
+      'entities': false,
+      'dom-serializer': false,
+      'htmlparser2': false,
     };
+    
+    // Add externals for server-side to prevent bundling
+    if (isServer) {
+      config.externals = config.externals || [];
+      config.externals.push(
+        '@whiskeysockets/baileys',
+        'link-preview-js',
+        'cheerio',
+        'entities',
+        'dom-serializer',
+        'htmlparser2'
+      );
+    }
     
     // RADICAL FIX: Mock next/document to prevent Html import errors
     config.resolve.alias['next/document'] = false;

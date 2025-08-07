@@ -44,8 +44,7 @@ export async function GET(
     });
 
   } catch (error) {
-    logger.error('Erro ao buscar visita', {
-      error: error instanceof Error ? error.message : 'Erro desconhecido',
+    logger.error('Erro ao buscar visita', error instanceof Error ? error : undefined, {
       visitId: params.id,
       component: 'VisitsAPI',
       operation: 'GET_BY_ID'
@@ -95,8 +94,7 @@ export async function PUT(
     });
 
   } catch (error) {
-    logger.error('Erro ao atualizar visita', {
-      error: error instanceof Error ? error.message : 'Erro desconhecido',
+    logger.error('Erro ao atualizar visita', error instanceof Error ? error : undefined, {
       visitId: params.id,
       component: 'VisitsAPI',
       operation: 'PUT'
@@ -143,8 +141,7 @@ export async function DELETE(
     });
 
   } catch (error) {
-    logger.error('Erro ao excluir visita', {
-      error: error instanceof Error ? error.message : 'Erro desconhecido',
+    logger.error('Erro ao excluir visita', error instanceof Error ? error : undefined, {
       visitId: params.id,
       component: 'VisitsAPI',
       operation: 'DELETE'

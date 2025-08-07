@@ -13,8 +13,8 @@ export async function sendWhatsAppMessage(
       // Media attachment included
     }
     
-    // WhatsApp Business API integration point
-    // Supports WhatsApp Business API or Baileys
+    // WhatsApp Web integration point
+    // Uses Baileys for WhatsApp Web connection
     
     // Para testes, apenas loggar
     if (process.env.NODE_ENV === 'development') {
@@ -40,8 +40,8 @@ export async function sendWhatsAppMedia(
   try {
     // WhatsApp media sending initiated
     
-    // WhatsApp media service integration point
-    // await whatsappService.sendMedia(phoneNumber, mediaUrl, caption);
+    // WhatsApp Web media service integration point
+    // await whatsappWebService.sendMedia(phoneNumber, mediaUrl, caption);
     
     return true;
   } catch (error) {

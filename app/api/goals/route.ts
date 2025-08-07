@@ -162,6 +162,7 @@ export async function POST(request: NextRequest) {
       description: validationResult.data.description || '',
       metric: validationResult.data.metric as any,
       frequency: validationResult.data.frequency as any,
+      status: 'active' as const,
       notificationSettings: validationResult.data.notificationSettings || {
         enabled: false,
         frequency: 'daily',

@@ -45,7 +45,26 @@ if (getApps().length === 0) {
 export const adminDb = getFirestore(app);
 export const db = adminDb; // Export as 'db' for backward compatibility
 export const auth = getAuth(app);
-export const storage = getStorage(app);
+
+// Initialize storage with error handling
+let storage: any;
+try {
+  storage = getStorage(app);
+} catch (error) {
+  console.warn('⚠️ Cloud Storage not available:', error instanceof Error ? error.message : 'Unknown error');
+  // Create a mock storage service for development
+  storage = {
+    bucket: () => ({
+      file: () => ({
+        upload: () => Promise.reject(new Error('Storage not configured')),
+        delete: () => Promise.reject(new Error('Storage not configured')),
+        getSignedUrl: () => Promise.reject(new Error('Storage not configured'))
+      })
+    })
+  };
+}
+
+export { storage };
 
 // Configure Firestore settings for production
 if (process.env.NODE_ENV === 'production') {

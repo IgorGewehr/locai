@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { whatsappSessionManager } from '@/lib/whatsapp/session-manager';
 import { getTenantId } from '@/lib/utils/tenant';
 import { verifyAuth } from '@/lib/utils/auth';
 import { z } from 'zod';
@@ -28,7 +27,12 @@ export async function GET(request: NextRequest) {
       });
     }
     
-    const status = await whatsappSessionManager.getSessionStatus(tenantId);
+    // WhatsApp Web temporarily disabled due to dependency issues
+    const status = {
+      status: 'disabled',
+      connected: false,
+      message: 'WhatsApp Web temporarily disabled - dependency issues being resolved'
+    };
     
     // Cache the result
     statusCache.set(tenantId, {
@@ -60,43 +64,18 @@ export async function POST(request: NextRequest) {
 
     const tenantId = 'default';
     
-    console.log(`🚀 API: Initializing session for tenant ${tenantId}`);
+    console.log(`🚀 API: Session initialization requested for tenant ${tenantId}`);
     
-    // Initialize the session
-    await whatsappSessionManager.initializeSession(tenantId);
-
-    // Wait longer for QR code generation with polling
-    let attempts = 0;
-    const maxAttempts = 15; // 15 seconds total
-    let status = null;
-    
-    while (attempts < maxAttempts) {
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      status = await whatsappSessionManager.getSessionStatus(tenantId);
-      
-      console.log(`📊 API: Status check ${attempts + 1}/${maxAttempts}: ${status.status}, QR present: ${!!status.qrCode}`);
-      
-      if (status.qrCode || status.connected || status.status === 'connected') {
-        console.log(`✅ API: Session ready after ${attempts + 1} seconds`);
-        break;
-      }
-      
-      attempts++;
-    }
-    
-    if (!status) {
-      status = await whatsappSessionManager.getSessionStatus(tenantId);
-    }
-
-    console.log(`📤 API: Returning status:`, {
-      connected: status.connected,
-      status: status.status,
-      hasQrCode: !!status.qrCode,
-      qrCodeLength: status.qrCode?.length
-    });
+    // WhatsApp Web temporarily disabled
+    const status = {
+      status: 'disabled',
+      connected: false,
+      message: 'WhatsApp Web temporarily disabled - dependency issues being resolved'
+    };
 
     return NextResponse.json({
-      success: true,
+      success: false,
+      message: 'WhatsApp Web temporarily disabled',
       data: status,
     });
   } catch (error) {
@@ -119,11 +98,10 @@ export async function DELETE(request: NextRequest) {
 
     const tenantId = 'default';
     
-    await whatsappSessionManager.disconnectSession(tenantId);
-
+    // WhatsApp Web temporarily disabled
     return NextResponse.json({
       success: true,
-      message: 'Session disconnected successfully',
+      message: 'WhatsApp Web temporarily disabled - no active session to disconnect',
     });
   } catch (error) {
     console.error('Error disconnecting session:', error);

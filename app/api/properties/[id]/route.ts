@@ -130,6 +130,7 @@ export async function PUT(
     if (validatedData.photos) {
       sanitizedUpdate.photos = validatedData.photos.map(photo => ({
         ...photo,
+        id: photo.id || `photo_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`,
         caption: photo.caption ? sanitizeUserInput(photo.caption) : ''
       }))
     }

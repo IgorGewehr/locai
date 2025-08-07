@@ -141,7 +141,7 @@ export default function LoginPage() {
   }, [registerData]);
 
   const loginForm = useForm<LoginFormData>({
-    resolver: yupResolver(loginSchema),
+    resolver: yupResolver(loginSchema) as any,
     defaultValues: {
       email: '',
       password: '',
@@ -150,7 +150,7 @@ export default function LoginPage() {
 
 
   const resetForm = useForm<ResetFormData>({
-    resolver: yupResolver(resetSchema),
+    resolver: yupResolver(resetSchema) as any,
     defaultValues: {
       email: '',
     },

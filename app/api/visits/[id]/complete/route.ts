@@ -58,8 +58,7 @@ export async function POST(
     });
 
   } catch (error) {
-    logger.error('Erro ao completar visita', {
-      error: error instanceof Error ? error.message : 'Erro desconhecido',
+    logger.error('Erro ao completar visita', error instanceof Error ? error : undefined, {
       visitId: params.id,
       component: 'VisitsAPI',
       operation: 'POST_COMPLETE'

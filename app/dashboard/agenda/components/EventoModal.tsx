@@ -194,8 +194,7 @@ const EventoModal: React.FC<EventoModalProps> = ({
             await onSave(reservationData);
             onClose();
         } catch (error) {
-            logger.error('Erro ao salvar reserva', { 
-                error, 
+            logger.error('Erro ao salvar reserva', error as Error, { 
                 component: 'EventoModal',
                 operation: 'handleSave',
                 reservationData 
@@ -303,7 +302,7 @@ const EventoModal: React.FC<EventoModalProps> = ({
                                         value={getSelectedProperty() || null}
                                         onChange={(_, value) => handleChange('propertyId', value?.id || '')}
                                         options={properties || []}
-                                        getOptionLabel={(option) => option.name}
+                                        getOptionLabel={(option) => option.title}
                                         renderInput={(params) => (
                                             <TextField
                                                 {...params}
