@@ -16,7 +16,7 @@ const nextConfig = {
   trailingSlash: false,
   skipTrailingSlashRedirect: true,
   
-  // Completely disable static optimization
+  // Standalone output for server-side features
   output: 'standalone',
   
   typescript: {
