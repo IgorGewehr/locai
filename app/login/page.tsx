@@ -30,6 +30,7 @@ import {
   PersonAdd,
   LockReset,
   ArrowForward,
+  CheckCircle,
 } from '@mui/icons-material';
 import { useForm, Controller } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
@@ -88,6 +89,7 @@ export default function LoginPage() {
   const [success, setSuccess] = useState<string | null>(null);
   const [loginSuccess, setLoginSuccess] = useState(false);
   const [registerSuccess, setRegisterSuccess] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
   
   const router = useRouter();
   const { signIn, signUp, resetPassword } = useAuth();
@@ -126,11 +128,14 @@ export default function LoginPage() {
       
       await signIn(data.email, data.password);
       
-      // Mostrar feedback de sucesso enquanto processa
+      // Notion-style minimal feedback
       setLoginSuccess(true);
-      setSuccess('Login realizado com sucesso! Carregando dados...');
+      setIsProcessing(true);
       
-      // O AuthProvider vai processar e redirecionar automaticamente
+      // Short success state before redirect
+      setTimeout(() => {
+        // AuthProvider handles redirect
+      }, 600);
     } catch (err: any) {
       let errorMessage = 'Email ou senha incorretos';
       
@@ -477,11 +482,28 @@ export default function LoginPage() {
                             type="submit"
                             fullWidth
                             size="large"
-                            disabled={isLoading || loginSuccess}
-                            endIcon={
-                              isLoading || loginSuccess ? 
-                                <CircularProgress size={16} color="inherit" /> : 
-                                <ArrowForward />
+                            disabled={isLoading || isProcessing}
+                            startIcon={
+                              isLoading ? (
+                                <Box 
+                                  sx={{ 
+                                    width: 14, 
+                                    height: 14, 
+                                    border: '1.5px solid rgba(255,255,255,0.3)',
+                                    borderTop: '1.5px solid white',
+                                    borderRadius: '50%',
+                                    animation: 'spin 0.8s linear infinite',
+                                    '@keyframes spin': {
+                                      '0%': { transform: 'rotate(0deg)' },
+                                      '100%': { transform: 'rotate(360deg)' }
+                                    }
+                                  }} 
+                                />
+                              ) : isProcessing ? (
+                                <CheckCircle sx={{ fontSize: 16, color: 'white' }} />
+                              ) : (
+                                <LoginIcon sx={{ fontSize: 16 }} />
+                              )
                             }
                             sx={{
                               py: 1.8,
@@ -489,21 +511,24 @@ export default function LoginPage() {
                               textTransform: 'none',
                               fontWeight: 600,
                               fontSize: '1rem',
-                              backgroundColor: loginSuccess ? '#16a34a' : '#3b82f6',
+                              backgroundColor: isProcessing ? '#10b981' : (isLoading ? '#6b7280' : '#1f2937'),
                               color: '#ffffff',
                               boxShadow: 'none',
+                              border: '1px solid rgba(255,255,255,0.1)',
+                              transition: 'all 0.15s ease',
                               '&:hover': {
-                                backgroundColor: loginSuccess ? '#16a34a' : '#2563eb',
+                                backgroundColor: isProcessing ? '#10b981' : (isLoading ? '#6b7280' : '#374151'),
                                 boxShadow: 'none',
+                                transform: isLoading || isProcessing ? 'none' : 'translateY(-1px)',
                               },
                               '&:disabled': {
-                                backgroundColor: loginSuccess ? '#16a34a' : '#525252',
+                                backgroundColor: isProcessing ? '#10b981' : '#6b7280',
                                 color: '#ffffff',
-                                opacity: loginSuccess ? 1 : 0.6,
+                                opacity: 1,
                               },
                             }}
                           >
-                            {loginSuccess ? 'Redirecionando...' : isLoading ? 'Entrando...' : 'Entrar'}
+                            {isProcessing ? 'Logado' : isLoading ? 'Verificando...' : 'Entrar'}
                           </Button>
                         </Stack>
                       </form>
@@ -649,10 +674,27 @@ export default function LoginPage() {
                             fullWidth
                             size="large"
                             disabled={isLoading || registerSuccess}
-                            endIcon={
-                              isLoading || registerSuccess ? 
-                                <CircularProgress size={16} color="inherit" /> : 
-                                <ArrowForward />
+                            startIcon={
+                              isLoading ? (
+                                <Box 
+                                  sx={{ 
+                                    width: 14, 
+                                    height: 14, 
+                                    border: '1.5px solid rgba(255,255,255,0.3)',
+                                    borderTop: '1.5px solid white',
+                                    borderRadius: '50%',
+                                    animation: 'spin 0.8s linear infinite',
+                                    '@keyframes spin': {
+                                      '0%': { transform: 'rotate(0deg)' },
+                                      '100%': { transform: 'rotate(360deg)' }
+                                    }
+                                  }} 
+                                />
+                              ) : registerSuccess ? (
+                                <CheckCircle sx={{ fontSize: 16, color: 'white' }} />
+                              ) : (
+                                <PersonAdd sx={{ fontSize: 16 }} />
+                              )
                             }
                             sx={{
                               py: 1.8,
@@ -660,17 +702,18 @@ export default function LoginPage() {
                               textTransform: 'none',
                               fontWeight: 600,
                               fontSize: '1rem',
-                              backgroundColor: registerSuccess ? '#16a34a' : '#3b82f6',
+                              backgroundColor: registerSuccess ? '#10b981' : (isLoading ? '#6b7280' : '#1f2937'),
                               color: '#ffffff',
                               boxShadow: 'none',
                               '&:hover': {
-                                backgroundColor: registerSuccess ? '#16a34a' : '#2563eb',
+                                backgroundColor: registerSuccess ? '#10b981' : (isLoading ? '#6b7280' : '#374151'),
+                                transform: isLoading || registerSuccess ? 'none' : 'translateY(-1px)',
                                 boxShadow: 'none',
                               },
                               '&:disabled': {
-                                backgroundColor: registerSuccess ? '#16a34a' : '#525252',
+                                backgroundColor: registerSuccess ? '#10b981' : '#6b7280',
                                 color: '#ffffff',
-                                opacity: registerSuccess ? 1 : 0.6,
+                                opacity: 1,
                               },
                             }}
                           >

@@ -47,6 +47,7 @@ import { useTenant } from '@/contexts/TenantContext';
 import DashboardBreadcrumb from '@/components/atoms/DashboardBreadcrumb';
 import { updateProfile, updatePassword, EmailAuthProvider, reauthenticateWithCredential } from 'firebase/auth';
 import { auth } from '@/lib/firebase/config';
+import { ApiClient } from '@/lib/utils/api-client';
 
 interface WhatsAppSession {
   connected: boolean;
@@ -102,7 +103,7 @@ export default function SettingsPage() {
     
     try {
       console.log('📡 Checking WhatsApp status for tenant:', tenantId);
-      const response = await fetch('/api/whatsapp/session');
+      const response = await ApiClient.get('/api/whatsapp/session');
       if (response.ok) {
         const data = await response.json();
         console.log('📊 WhatsApp status response:', data);
@@ -257,10 +258,7 @@ export default function SettingsPage() {
       setConnectionProgress(10);
       setSuccess('Inicializando conexão WhatsApp...');
       
-      const response = await fetch('/api/whatsapp/session', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-      });
+      const response = await ApiClient.post('/api/whatsapp/session');
 
       setConnectionProgress(30);
       const data = await response.json();
@@ -317,9 +315,7 @@ export default function SettingsPage() {
     setLoading(true);
     
     try {
-      const response = await fetch('/api/whatsapp/session', {
-        method: 'DELETE'
-      });
+      const response = await ApiClient.delete('/api/whatsapp/session');
 
       if (response.ok) {
         setWhatsappSession({
@@ -853,48 +849,62 @@ export default function SettingsPage() {
             </CardContent>
           </Card>
 
-          {/* Connection Progress */}
+          {/* Connection Progress - Notion Style */}
           {connecting && (
             <Card sx={{ 
               mb: 3,
-              background: 'rgba(37, 211, 102, 0.1)',
-              border: '1px solid rgba(37, 211, 102, 0.2)',
+              background: 'rgba(16, 185, 129, 0.05)',
+              border: '1px solid rgba(16, 185, 129, 0.15)',
+              borderRadius: 2,
             }}>
-              <CardContent sx={{ p: 3 }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-                  <CircularProgress 
-                    size={24} 
-                    sx={{ color: '#25d366', mr: 2 }} 
+              <CardContent sx={{ p: 2.5 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', mb: 1.5 }}>
+                  <Box 
+                    sx={{ 
+                      width: 16, 
+                      height: 16, 
+                      border: '2px solid rgba(16, 185, 129, 0.3)',
+                      borderTop: '2px solid #10b981',
+                      borderRadius: '50%',
+                      animation: 'spin 1s linear infinite',
+                      mr: 1.5,
+                      '@keyframes spin': {
+                        '0%': { transform: 'rotate(0deg)' },
+                        '100%': { transform: 'rotate(360deg)' }
+                      }
+                    }} 
                   />
-                  <Typography variant="body2" sx={{ color: '#25d366', fontWeight: 600 }}>
-                    Conectando ao WhatsApp...
+                  <Typography variant="body2" sx={{ color: '#10b981', fontWeight: 500, fontSize: '0.875rem' }}>
+                    Gerando QR Code...
                   </Typography>
                 </Box>
                 
-                <LinearProgress 
-                  variant="determinate" 
-                  value={connectionProgress} 
-                  sx={{
-                    height: 8,
-                    borderRadius: 4,
-                    backgroundColor: 'rgba(37, 211, 102, 0.2)',
-                    '& .MuiLinearProgress-bar': {
-                      backgroundColor: '#25d366',
-                      borderRadius: 4,
-                    },
-                  }}
-                />
+                <Box sx={{ 
+                  height: 3,
+                  backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                  borderRadius: 1.5,
+                  overflow: 'hidden',
+                  mb: 1
+                }}>
+                  <Box sx={{
+                    height: '100%',
+                    width: `${connectionProgress}%`,
+                    backgroundColor: '#10b981',
+                    borderRadius: 1.5,
+                    transition: 'width 0.3s ease',
+                  }} />
+                </Box>
                 
                 <Typography 
                   variant="caption" 
                   sx={{ 
-                    display: 'block', 
-                    mt: 1, 
-                    color: 'text.secondary',
-                    textAlign: 'center' 
+                    color: '#6b7280',
+                    fontSize: '0.75rem',
+                    textAlign: 'center',
+                    display: 'block'
                   }}
                 >
-                  {connectionProgress}% concluído
+                  {connectionProgress < 100 ? 'Conectando com WhatsApp...' : 'QR Code pronto!'}
                 </Typography>
               </CardContent>
             </Card>
@@ -906,35 +916,83 @@ export default function SettingsPage() {
               <Button
                 variant="contained"
                 size="large"
-                startIcon={loading ? <CircularProgress size={20} color="inherit" /> : <QrCode />}
+                startIcon={
+                  loading ? (
+                    <Box 
+                      sx={{ 
+                        width: 16, 
+                        height: 16, 
+                        border: '2px solid rgba(255,255,255,0.3)',
+                        borderTop: '2px solid white',
+                        borderRadius: '50%',
+                        animation: 'spin 0.8s linear infinite',
+                        '@keyframes spin': {
+                          '0%': { transform: 'rotate(0deg)' },
+                          '100%': { transform: 'rotate(360deg)' }
+                        }
+                      }} 
+                    />
+                  ) : connecting ? (
+                    <CheckCircle sx={{ fontSize: 18 }} />
+                  ) : (
+                    <QrCode sx={{ fontSize: 18 }} />
+                  )
+                }
                 onClick={initializeWhatsApp}
                 disabled={loading || connecting}
                 sx={{
-                  backgroundColor: connecting ? '#16a34a' : '#25d366',
-                  '&:hover': { 
-                    backgroundColor: connecting ? '#16a34a' : '#128c7e' 
-                  },
-                  '&:disabled': {
-                    backgroundColor: connecting ? '#16a34a' : '#9ca3af',
-                    color: '#ffffff',
-                    opacity: connecting ? 1 : 0.6,
-                  },
+                  backgroundColor: connecting ? '#10b981' : (loading ? '#6b7280' : '#25d366'),
+                  color: '#ffffff',
+                  border: '1px solid rgba(255,255,255,0.1)',
+                  borderRadius: 2,
                   py: 1.5,
                   px: 4,
                   fontWeight: 600,
+                  fontSize: '0.875rem',
+                  textTransform: 'none',
+                  transition: 'all 0.15s ease',
+                  '&:hover': { 
+                    backgroundColor: connecting ? '#10b981' : (loading ? '#6b7280' : '#22c55e'),
+                    transform: loading || connecting ? 'none' : 'translateY(-1px)',
+                  },
+                  '&:disabled': {
+                    backgroundColor: connecting ? '#10b981' : '#6b7280',
+                    color: '#ffffff',
+                    opacity: 1,
+                  },
                 }}
               >
-                {connecting ? 'Conectando...' : loading ? 'Processando...' : 'Conectar WhatsApp'}
+                {connecting ? 'Gerando QR...' : loading ? 'Preparando...' : 'Conectar WhatsApp'}
               </Button>
             )}
 
             <Button
               variant="outlined"
-              startIcon={<Refresh />}
+              startIcon={<Refresh sx={{ fontSize: 16 }} />}
               onClick={checkWhatsAppStatus}
               disabled={loading}
+              sx={{
+                borderColor: 'rgba(255,255,255,0.15)',
+                color: 'rgba(255,255,255,0.8)',
+                borderRadius: 2,
+                py: 1.5,
+                px: 3,
+                fontWeight: 500,
+                fontSize: '0.875rem',
+                textTransform: 'none',
+                transition: 'all 0.15s ease',
+                '&:hover': {
+                  borderColor: 'rgba(255,255,255,0.25)',
+                  backgroundColor: 'rgba(255,255,255,0.05)',
+                  transform: loading ? 'none' : 'translateY(-1px)',
+                },
+                '&:disabled': {
+                  borderColor: 'rgba(255,255,255,0.1)',
+                  color: 'rgba(255,255,255,0.5)',
+                },
+              }}
             >
-              Atualizar Status
+              Atualizar
             </Button>
           </Stack>
 
@@ -969,80 +1027,110 @@ export default function SettingsPage() {
         fullScreen={isMobile}
         PaperProps={{
           sx: {
-            background: 'rgba(30, 41, 59, 0.95)',
-            backdropFilter: 'blur(20px)',
+            background: '#1a1a1a',
             border: '1px solid rgba(255, 255, 255, 0.1)',
-            borderRadius: { xs: 0, sm: 2 },
-            m: { xs: 0, sm: 2 },
+            borderRadius: 3,
+            boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.4), 0 10px 10px -5px rgba(0, 0, 0, 0.2)',
           }
         }}
       >
-        <DialogTitle sx={{ 
-          display: 'flex', 
-          alignItems: 'center', 
-          justifyContent: 'space-between',
-          color: 'white',
-          p: { xs: 2, sm: 3 },
-        }}>
-          <Box sx={{ display: 'flex', alignItems: 'center' }}>
-            <WhatsApp sx={{ 
-              color: '#25d366', 
-              mr: 1,
-              fontSize: { xs: 20, sm: 24 },
-            }} />
-            <Typography 
-              variant="h6" 
-              sx={{ fontSize: { xs: '1.125rem', sm: '1.25rem' } }}
-            >
-              Conectar WhatsApp
-            </Typography>
-          </Box>
+        <DialogTitle 
+          sx={{ 
+            display: 'flex', 
+            alignItems: 'center', 
+            justifyContent: 'space-between',
+            color: '#ffffff',
+            p: 3,
+            pb: 2,
+            fontSize: '1.125rem',
+            fontWeight: 600,
+          }}
+        >
+          Escanear QR Code
           <IconButton 
             onClick={() => setQrDialogOpen(false)} 
             sx={{ 
-              color: 'white',
-              p: { xs: 1, sm: 1.5 },
+              color: 'rgba(255,255,255,0.7)',
+              p: 1,
+              borderRadius: 2,
+              ml: 2,
+              '&:hover': {
+                color: '#ffffff',
+                backgroundColor: 'rgba(255,255,255,0.1)',
+              },
             }}
           >
-            <Close sx={{ fontSize: { xs: 20, sm: 24 } }} />
+            <Close sx={{ fontSize: 20 }} />
           </IconButton>
         </DialogTitle>
         
         <DialogContent sx={{ 
           textAlign: 'center', 
-          py: { xs: 3, sm: 4 },
-          px: { xs: 2, sm: 3 },
+          py: 3,
+          px: 3,
         }}>
           {whatsappSession.qrCode ? (
             <Box>
-              <img 
-                src={whatsappSession.qrCode} 
-                alt="QR Code" 
-                style={{ 
-                  maxWidth: '100%', 
-                  height: 'auto', 
-                  borderRadius: '8px',
-                  backgroundColor: 'white',
-                  padding: '16px'
-                }} 
-                onError={(e) => {
-                  // Error loading QR code image
-                }}
-                onLoad={() => {
-                  // QR Code image loaded successfully
-                }}
-              />
+              <Box sx={{
+                display: 'inline-block',
+                p: 2,
+                backgroundColor: 'white',
+                borderRadius: 3,
+                border: '1px solid rgba(255,255,255,0.1)',
+                boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
+              }}>
+                <img 
+                  src={whatsappSession.qrCode} 
+                  alt="QR Code" 
+                  style={{ 
+                    width: '240px',
+                    height: '240px',
+                    display: 'block',
+                  }} 
+                  onError={(e) => {
+                    console.log('QR Code image failed to load');
+                  }}
+                  onLoad={() => {
+                    console.log('QR Code image loaded successfully');
+                  }}
+                />
+              </Box>
               
-              <Typography variant="h6" sx={{ mt: 3, mb: 2, color: 'white' }}>
-                Escaneie o QR Code
+              <Typography 
+                variant="body1" 
+                sx={{ 
+                  mt: 3, 
+                  mb: 2, 
+                  color: '#ffffff',
+                  fontWeight: 500,
+                  fontSize: '0.95rem'
+                }}
+              >
+                Use o WhatsApp no seu celular para escanear
               </Typography>
               
-              <Typography variant="body2" sx={{ color: 'rgba(255, 255, 255, 0.7)' }}>
-                1. Abra o WhatsApp no seu telefone<br/>
-                2. Menu → Dispositivos conectados<br/>
-                3. "Conectar dispositivo"<br/>
-                4. Escaneie este código
-              </Typography>
+              <Box sx={{ 
+                display: 'inline-flex',
+                flexDirection: 'column',
+                gap: 1,
+                p: 2,
+                backgroundColor: 'rgba(255,255,255,0.05)',
+                borderRadius: 2,
+                border: '1px solid rgba(255,255,255,0.1)'
+              }}>
+                <Typography variant="body2" sx={{ color: 'rgba(255, 255, 255, 0.8)', fontSize: '0.8rem', textAlign: 'left' }}>
+                  1. Abra o WhatsApp
+                </Typography>
+                <Typography variant="body2" sx={{ color: 'rgba(255, 255, 255, 0.8)', fontSize: '0.8rem', textAlign: 'left' }}>
+                  2. Menu → Dispositivos conectados
+                </Typography>
+                <Typography variant="body2" sx={{ color: 'rgba(255, 255, 255, 0.8)', fontSize: '0.8rem', textAlign: 'left' }}>
+                  3. Toque em "Conectar dispositivo"
+                </Typography>
+                <Typography variant="body2" sx={{ color: 'rgba(255, 255, 255, 0.8)', fontSize: '0.8rem', textAlign: 'left' }}>
+                  4. Aponte a câmera para este QR Code
+                </Typography>
+              </Box>
               
               {/* Debug info in development */}
               {process.env.NODE_ENV === 'development' && (
@@ -1061,32 +1149,71 @@ export default function SettingsPage() {
               )}
             </Box>
           ) : (
-            <Box>
-              <CircularProgress size={60} sx={{ mb: 2, color: '#25d366' }} />
-              <Typography sx={{ color: 'white' }}>Gerando QR Code...</Typography>
+            <Box sx={{ py: 4 }}>
+              <Box 
+                sx={{ 
+                  width: 40, 
+                  height: 40, 
+                  border: '3px solid rgba(16, 185, 129, 0.3)',
+                  borderTop: '3px solid #10b981',
+                  borderRadius: '50%',
+                  animation: 'spin 1s linear infinite',
+                  mx: 'auto',
+                  mb: 3,
+                  '@keyframes spin': {
+                    '0%': { transform: 'rotate(0deg)' },
+                    '100%': { transform: 'rotate(360deg)' }
+                  }
+                }} 
+              />
+              <Typography sx={{ color: '#ffffff', fontWeight: 500, mb: 1 }}>Gerando QR Code...</Typography>
               <Typography 
-                variant="caption" 
-                sx={{ color: 'rgba(255, 255, 255, 0.5)', display: 'block', mt: 1 }}
+                variant="body2" 
+                sx={{ color: 'rgba(255, 255, 255, 0.6)', fontSize: '0.85rem' }}
               >
-                Status: {whatsappSession.status}
+                Aguarde alguns segundos
               </Typography>
             </Box>
           )}
         </DialogContent>
         
-        <DialogActions sx={{ p: 3 }}>
-          <Button onClick={() => setQrDialogOpen(false)} sx={{ color: 'rgba(255, 255, 255, 0.7)' }}>
+        <DialogActions sx={{ p: 3, pt: 2 }}>
+          <Button 
+            onClick={() => setQrDialogOpen(false)} 
+            sx={{ 
+              color: 'rgba(255, 255, 255, 0.7)',
+              textTransform: 'none',
+              fontWeight: 500,
+              px: 3,
+              py: 1,
+              borderRadius: 2,
+              '&:hover': {
+                color: '#ffffff',
+                backgroundColor: 'rgba(255, 255, 255, 0.1)',
+              },
+            }}
+          >
             Fechar
           </Button>
           <Button 
             onClick={initializeWhatsApp} 
             variant="contained"
             sx={{
-              backgroundColor: '#25d366',
-              '&:hover': { backgroundColor: '#128c7e' },
+              backgroundColor: '#10b981',
+              color: '#ffffff',
+              textTransform: 'none',
+              fontWeight: 600,
+              px: 4,
+              py: 1,
+              borderRadius: 2,
+              border: '1px solid rgba(255,255,255,0.1)',
+              '&:hover': { 
+                backgroundColor: '#059669',
+                transform: 'translateY(-1px)',
+              },
             }}
           >
-            Gerar Novo QR Code
+            Gerar novo QR
           </Button>
         </DialogActions>
       </Dialog>

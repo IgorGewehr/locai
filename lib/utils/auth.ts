@@ -1,5 +1,5 @@
 import { NextRequest } from 'next/server';
-import { auth } from '@/lib/firebase/auth';
+import { auth as adminAuth } from '@/lib/firebase/admin';
 import { User } from 'firebase/auth';
 
 export async function verifyAuth(request: NextRequest): Promise<User | null> {
@@ -16,15 +16,16 @@ export async function verifyAuth(request: NextRequest): Promise<User | null> {
     }
 
     // Verify the token with Firebase Admin
-    const decodedToken = await auth.verifyIdToken(token);
+    const decodedToken = await adminAuth.verifyIdToken(token);
     
-    // Return user data
+    // Return user data with tenantId
     return {
       uid: decodedToken.uid,
       email: decodedToken.email || null,
       displayName: decodedToken.name || null,
       photoURL: decodedToken.picture || null,
-    } as User;
+      tenantId: decodedToken.uid, // Use UID as tenantId
+    } as User & { tenantId: string };
   } catch (error) {
     console.error('Auth verification error:', error);
     return null;

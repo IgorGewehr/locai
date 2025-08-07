@@ -24,6 +24,8 @@ import {
   VisibilityOff,
   ArrowForward,
   ArrowBack,
+  CheckCircle,
+  PersonAdd,
 } from '@mui/icons-material';
 import { useForm, Controller } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
@@ -441,10 +443,27 @@ export default function SignupPage() {
                     fullWidth
                     size="large"
                     disabled={isLoading || isProcessing}
-                    endIcon={
-                      isLoading || isProcessing ? 
-                        <CircularProgress size={16} color="inherit" /> : 
-                        <ArrowForward />
+                    startIcon={
+                      isLoading ? (
+                        <Box 
+                          sx={{ 
+                            width: 14, 
+                            height: 14, 
+                            border: '1.5px solid rgba(255,255,255,0.3)',
+                            borderTop: '1.5px solid white',
+                            borderRadius: '50%',
+                            animation: 'spin 0.8s linear infinite',
+                            '@keyframes spin': {
+                              '0%': { transform: 'rotate(0deg)' },
+                              '100%': { transform: 'rotate(360deg)' }
+                            }
+                          }} 
+                        />
+                      ) : isProcessing ? (
+                        <CheckCircle sx={{ fontSize: 16, color: 'white' }} />
+                      ) : (
+                        <PersonAdd sx={{ fontSize: 16 }} />
+                      )
                     }
                     sx={{
                       py: 1.8,
@@ -452,21 +471,24 @@ export default function SignupPage() {
                       textTransform: 'none',
                       fontWeight: 600,
                       fontSize: '1rem',
-                      backgroundColor: isProcessing ? '#16a34a' : '#3b82f6',
+                      backgroundColor: isProcessing ? '#10b981' : (isLoading ? '#6b7280' : '#1f2937'),
                       color: '#ffffff',
                       boxShadow: 'none',
+                      border: '1px solid rgba(255,255,255,0.1)',
+                      transition: 'all 0.15s ease',
                       '&:hover': {
-                        backgroundColor: isProcessing ? '#16a34a' : '#2563eb',
+                        backgroundColor: isProcessing ? '#10b981' : (isLoading ? '#6b7280' : '#374151'),
                         boxShadow: 'none',
+                        transform: isLoading || isProcessing ? 'none' : 'translateY(-1px)',
                       },
                       '&:disabled': {
-                        backgroundColor: isProcessing ? '#16a34a' : '#525252',
+                        backgroundColor: isProcessing ? '#10b981' : '#6b7280',
                         color: '#ffffff',
-                        opacity: isProcessing ? 1 : 0.6,
+                        opacity: 1,
                       },
                     }}
                   >
-                    {isProcessing ? 'Redirecionando...' : isLoading ? 'Criando conta...' : 'Criar conta'}
+                    {isProcessing ? 'Conta criada' : isLoading ? 'Criando...' : 'Criar conta'}
                   </Button>
 
                   <Box sx={{ textAlign: 'center' }}>
