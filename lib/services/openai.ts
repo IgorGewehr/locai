@@ -445,3 +445,6 @@ ${JSON.stringify(context.clientPreferences, null, 2)}
 
 const openaiService = new OpenAIService();
 export default openaiService;
+
+// Export da instância OpenAI para uso direto em outros serviços
+export { openai };

@@ -31,7 +31,8 @@ import { PropertySpecs } from '@/components/organisms/PropertySpecs/PropertySpec
 import { PropertyAmenities } from '@/components/organisms/PropertyAmenities/PropertyAmenities';
 import { PropertyPricing } from '@/components/organisms/PropertyPricing/PropertyPricing';
 import PropertyMediaUpload from '@/components/organisms/PropertyMediaUpload/PropertyMediaUpload';
-import { Property, PricingRule, PropertyCategory, PaymentMethod, PropertyStatus, PropertyType } from '@/lib/types/property';
+import { Property, PricingRule, PropertyCategory, PropertyStatus, PropertyType } from '@/lib/types/property';
+import { PaymentMethod } from '@/lib/types/common';
 import { useTenant } from '@/contexts/TenantContext';
 
 const steps = [

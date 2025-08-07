@@ -1,5 +1,6 @@
 import { z } from 'zod'
-import { PropertyCategory, PaymentMethod } from '@/lib/types/property'
+import { PropertyCategory } from '@/lib/types/property'
+import { PaymentMethod } from '@/lib/types/common'
 
 // Schema for property photo
 export const PropertyPhotoSchema = z.object({

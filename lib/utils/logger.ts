@@ -153,23 +153,30 @@ class Logger {
 
       const db = getFirestore(app);
       
-      await addDoc(collection(db, 'system_logs'), {
+      // Remove undefined fields to prevent Firestore errors
+      const logData: any = {
         level: LogLevel[entry.level],
         message: entry.message,
         timestamp: entry.timestamp,
         context: entry.context || {},
-        tenantId: entry.tenantId || 'default',
-        userId: entry.userId,
-        requestId: entry.requestId,
-        component: entry.component,
-        operation: entry.operation,
-        duration: entry.duration,
-        error: entry.error ? {
+        tenantId: entry.tenantId || 'default'
+      };
+
+      // Only add fields that are not undefined
+      if (entry.userId) logData.userId = entry.userId;
+      if (entry.requestId) logData.requestId = entry.requestId;
+      if (entry.component) logData.component = entry.component;
+      if (entry.operation) logData.operation = entry.operation;
+      if (entry.duration) logData.duration = entry.duration;
+      if (entry.error) {
+        logData.error = {
           message: entry.error.message,
           stack: entry.error.stack,
           name: entry.error.name
-        } : undefined
-      });
+        };
+      }
+
+      await addDoc(collection(db, 'system_logs'), logData);
     } catch (error) {
       // Fallback to console if Firestore fails
       console.error('Failed to write to Firestore:', error);
