@@ -129,14 +129,17 @@ export default function SettingsPage() {
             });
             
             // Enhanced auto-open QR dialog logic
-            if (newSession.qrCode && newSession.status === 'qr' && !qrDialogOpen) {
+            if (newSession.qrCode && (newSession.status === 'qr' || newSession.status === 'connecting')) {
               console.log('📺 [FRONTEND] Auto-opening QR dialog from status check');
+              console.log('📺 [FRONTEND] Current dialog state:', qrDialogOpen);
               setQrDialogOpen(true);
-              // Additional fallback
-              setTimeout(() => {
-                console.log('📺 [FRONTEND] Dialog fallback from status check');
-                setQrDialogOpen(true);
-              }, 300);
+              // Additional fallback for production
+              if (process.env.NODE_ENV === 'production') {
+                setTimeout(() => {
+                  console.log('📺 [FRONTEND] Production fallback - forcing dialog open');
+                  setQrDialogOpen(true);
+                }, 100);
+              }
             }
             return newSession;
           }
@@ -146,7 +149,7 @@ export default function SettingsPage() {
     } catch (error) {
       console.error('Status check failed:', error);
     }
-  }, [qrDialogOpen, tenantId, isReady]); // Include tenantId and isReady in dependencies
+  }, [tenantId, isReady]); // Remove qrDialogOpen to avoid circular dependency
 
   useEffect(() => {
     let mounted = true;
@@ -176,6 +179,16 @@ export default function SettingsPage() {
       clearInterval(interval);
     };
   }, [checkWhatsAppStatus]);
+
+  // Monitor QR code changes and auto-open dialog
+  useEffect(() => {
+    if (whatsappSession.qrCode && !qrDialogOpen) {
+      console.log('🔍 [FRONTEND] QR Code detected in session, opening dialog');
+      console.log('🔍 [FRONTEND] QR Code type:', whatsappSession.qrCode.startsWith('data:') ? 'DataURL' : 'Raw');
+      console.log('🔍 [FRONTEND] Environment:', process.env.NODE_ENV);
+      setQrDialogOpen(true);
+    }
+  }, [whatsappSession.qrCode]); // Only depend on qrCode changes
 
   // Update profile data when user changes
   useEffect(() => {
@@ -309,19 +322,33 @@ export default function SettingsPage() {
           setQrExpireTimer(timer);
           
           // CRITICAL: Force dialog open with multiple fallbacks
-          console.log('📺 [FRONTEND] Opening QR dialog...');
-          setQrDialogOpen(true); // Immediate
+          console.log('📺 [FRONTEND] Opening QR dialog with QR Code ready');
+          console.log('📺 [FRONTEND] Current dialog state before opening:', qrDialogOpen);
           
-          // Fallback mechanisms for production
-          setTimeout(() => {
-            console.log('📺 [FRONTEND] Dialog fallback 1');
-            setQrDialogOpen(true);
-          }, 100);
+          // Force state update with callback to ensure it happens
+          setQrDialogOpen(current => {
+            console.log('📺 [FRONTEND] Dialog state transition:', current, '->', true);
+            return true;
+          });
           
-          setTimeout(() => {
-            console.log('📺 [FRONTEND] Dialog fallback 2');
-            setQrDialogOpen(true);
-          }, 500);
+          // Production-specific fallbacks
+          if (process.env.NODE_ENV === 'production' || process.env.NEXT_PUBLIC_BASE_URL?.includes('netlify')) {
+            console.log('📺 [FRONTEND] Production environment detected - adding extra fallbacks');
+            
+            // Use requestAnimationFrame for next paint
+            requestAnimationFrame(() => {
+              console.log('📺 [FRONTEND] RAF fallback executing');
+              setQrDialogOpen(true);
+            });
+            
+            // Multiple timed fallbacks
+            [50, 150, 300, 500].forEach(delay => {
+              setTimeout(() => {
+                console.log(`📺 [FRONTEND] Timed fallback at ${delay}ms`);
+                setQrDialogOpen(true);
+              }, delay);
+            });
+          }
         } else if (data.data.connected) {
           setConnectionProgress(100);
           setSuccess('Já conectado!');
@@ -348,14 +375,26 @@ export default function SettingsPage() {
                   console.log('✅ [FRONTEND] QR Code found in retry');
                   clearInterval(retryInterval);
                   
-                  setWhatsappSession(prev => ({
-                    ...prev,
-                    ...currentData.data,
-                    qrCode: currentData.data.qrCode,
-                    status: 'qr'
-                  }));
+                  setWhatsappSession(prev => {
+                    console.log('✅ [FRONTEND] Updating session with QR from retry');
+                    return {
+                      ...prev,
+                      ...currentData.data,
+                      qrCode: currentData.data.qrCode,
+                      status: 'qr'
+                    };
+                  });
                   
+                  // Force dialog open in production
+                  console.log('📺 [FRONTEND] Opening dialog from retry success');
                   setQrDialogOpen(true);
+                  
+                  // Extra insurance for production
+                  if (process.env.NODE_ENV === 'production') {
+                    requestAnimationFrame(() => setQrDialogOpen(true));
+                    setTimeout(() => setQrDialogOpen(true), 50);
+                  }
+                  
                   setSuccess('QR Code pronto!');
                   return;
                 }
@@ -1106,6 +1145,12 @@ export default function SettingsPage() {
       </Card>
 
       {/* QR Code Dialog */}
+      {console.log('🎭 [FRONTEND] Dialog render check:', { 
+        qrDialogOpen, 
+        hasQrCode: !!whatsappSession.qrCode,
+        status: whatsappSession.status,
+        env: process.env.NODE_ENV 
+      })}
       <Dialog
         open={qrDialogOpen}
         onClose={() => setQrDialogOpen(false)}
