@@ -1,0 +1,16 @@
+# API routes - serve from Next.js functions
+/api/*  /.netlify/functions/:splat  200
+
+# Static assets - serve directly
+/_next/*  /_next/:splat  200
+/icons/*  /icons/:splat  200
+/*.ico  /:splat  200
+/*.svg  /:splat  200
+/*.png  /:splat  200
+/*.jpg  /:splat  200
+/*.jpeg  /:splat  200
+/*.webp  /:splat  200
+/*.webmanifest  /:splat  200
+
+# Client-side routing fallback - serve index.html for all other routes
+/*  /index.html  200

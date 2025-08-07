@@ -4,8 +4,12 @@
   # Build command
   command = "npm run build"
   
-  # Directory to publish - não precisa especificar, Netlify detecta automaticamente
-  # publish = ".next"
+  # Publish directory for Next.js
+  publish = ".next"
+
+# Essential Next.js plugin for Netlify
+[[plugins]]
+  package = "@netlify/plugin-nextjs"
 
 # Environment variables for build
 [build.environment]
@@ -28,6 +32,12 @@
   # Next.js build cache
   NETLIFY_NEXT_PLUGIN_CACHE = "true"
 
+# Functions configuration for API routes
+[functions]
+  # Ensure API routes work properly
+  node_bundler = "esbuild"
+  included_files = ["lib/**", "app/**", ".env"]
+
 # Headers configuration
 [[headers]]
   for = "/*"
@@ -38,38 +48,16 @@
     X-XSS-Protection = "1; mode=block"
     Referrer-Policy = "strict-origin-when-cross-origin"
     Permissions-Policy = "camera=(), microphone=(), geolocation=()"
-    
-    # CORS headers for API
-    Access-Control-Allow-Origin = "*"
-    Access-Control-Allow-Methods = "GET, POST, PUT, DELETE, OPTIONS"
-    Access-Control-Allow-Headers = "Content-Type, Authorization, X-Requested-With"
 
 [[headers]]
   for = "/api/*"
   [headers.values]
     # API specific headers
     Cache-Control = "no-store, no-cache, must-revalidate"
+    Access-Control-Allow-Origin = "*"
+    Access-Control-Allow-Methods = "GET, POST, PUT, DELETE, OPTIONS"
+    Access-Control-Allow-Headers = "Content-Type, Authorization, X-Requested-With, X-Tenant-Id"
     Access-Control-Max-Age = "86400"
-
-# Next.js API routes funcionam automaticamente no Netlify
-# Não precisa redirecionar para functions
-
-# Redirect www to non-www
-[[redirects]]
-  from = "https://www.yourdomain.com/*"
-  to = "https://yourdomain.com/:splat"
-  status = 301
-  force = true
-
-# Handle SPA routing for dashboard
-[[redirects]]
-  from = "/dashboard/*"
-  to = "/dashboard"
-  status = 200
-
-# Next.js functions são gerenciadas automaticamente
-# [functions]
-#   directory = "netlify/functions"
 
 # Environment variable validation
 [context.production.environment]
@@ -91,5 +79,4 @@
   command = "npm run dev"
   targetPort = 3000
   port = 8888
-  publish = ".next/standalone"
   autoLaunch = true
