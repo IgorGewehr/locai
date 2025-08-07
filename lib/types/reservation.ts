@@ -1,5 +1,6 @@
 // lib/types/reservation.ts
 import { Property } from './property'
+import { PaymentMethod } from './common'
 
 export interface Reservation {
   id: string
@@ -63,14 +64,8 @@ export enum ReservationSource {
   EMAIL = 'email'
 }
 
-export enum PaymentMethod {
-  PIX = 'pix',
-  CREDIT_CARD = 'credit_card',
-  DEBIT_CARD = 'debit_card',
-  CASH = 'cash',
-  BANK_TRANSFER = 'bank_transfer',
-  BANK_SLIP = 'bank_slip'
-}
+// PaymentMethod importado de common.ts  
+export { PaymentMethod } from './common'
 
 export interface GuestDetail {
   id: string
@@ -173,14 +168,8 @@ export const PAYMENT_STATUS_LABELS = {
   [PaymentStatus.PARTIAL]: 'Parcial'
 }
 
-export const PAYMENT_METHOD_LABELS = {
-  [PaymentMethod.PIX]: 'PIX',
-  [PaymentMethod.CREDIT_CARD]: 'Cartão de Crédito',
-  [PaymentMethod.DEBIT_CARD]: 'Cartão de Débito',
-  [PaymentMethod.CASH]: 'Dinheiro',
-  [PaymentMethod.BANK_TRANSFER]: 'Transferência',
-  [PaymentMethod.BANK_SLIP]: 'Boleto'
-}
+// PAYMENT_METHOD_LABELS movido para common.ts
+export { PAYMENT_METHOD_LABELS } from './common'
 
 export const RESERVATION_SOURCE_LABELS = {
   [ReservationSource.WHATSAPP_AI]: 'WhatsApp IA',

@@ -1,5 +1,5 @@
 // lib/types/client.ts
-import { PaymentMethod } from './reservation'
+import { PaymentMethod } from './common'
 
 export interface Client {
   id: string

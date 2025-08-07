@@ -1,4 +1,6 @@
 // lib/types/property.ts
+import { PaymentMethod } from './common'
+
 export interface Property {
   id: string
   title: string
@@ -78,12 +80,8 @@ export enum PropertyType {
   MIXED = 'mixed'
 }
 
-export enum PaymentMethod {
-  CREDIT_CARD = 'credit_card',
-  PIX = 'pix',
-  CASH = 'cash',
-  BANK_TRANSFER = 'bank_transfer'
-}
+// PaymentMethod movido para um arquivo comum para evitar duplicação
+// Veja: lib/types/common.ts
 
 export interface PropertyPhoto {
   id: string
@@ -140,12 +138,8 @@ export const PROPERTY_CATEGORIES_LABELS = {
   [PropertyCategory.CONDO]: 'Condomínio'
 }
 
-export const PAYMENT_METHODS_LABELS = {
-  [PaymentMethod.CREDIT_CARD]: 'Cartão de Crédito',
-  [PaymentMethod.PIX]: 'PIX',
-  [PaymentMethod.CASH]: 'Dinheiro',
-  [PaymentMethod.BANK_TRANSFER]: 'Transferência Bancária'
-}
+// PAYMENT_METHODS_LABELS movido para common.ts
+export { PAYMENT_METHOD_LABELS as PAYMENT_METHODS_LABELS } from './common'
 
 export const COMMON_AMENITIES = [
   'Wi-Fi',

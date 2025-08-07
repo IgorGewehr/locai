@@ -833,26 +833,26 @@ export async function sendPropertyMedia(args: SendPropertyMediaArgs, tenantId: s
     }
 
     const mediaType = args.mediaType || 'photos';
-    const photos = property.images || [];
+    const photos = property.photos || [];
     const videos = property.videos || [];
 
     let mediaToSend: any[] = [];
     let mediaDescription = '';
 
     if (mediaType === 'photos' || mediaType === 'all') {
-      mediaToSend.push(...photos.map(url => ({ type: 'photo', url })));
+      mediaToSend.push(...photos.map(photo => ({ type: 'photo', url: photo.url, caption: photo.caption })));
       mediaDescription = `${photos.length} foto(s)`;
     }
 
     if (mediaType === 'videos' || mediaType === 'all') {
-      mediaToSend.push(...videos.map(url => ({ type: 'video', url })));
+      mediaToSend.push(...videos.map(video => ({ type: 'video', url: video.url, title: video.title })));
       mediaDescription += mediaDescription ? ` e ${videos.length} vídeo(s)` : `${videos.length} vídeo(s)`;
     }
 
     if (mediaToSend.length === 0) {
       return {
         success: false,
-        error: `Desculpe, não há ${mediaType === 'videos' ? 'vídeos' : 'fotos'} disponíveis para ${property.name} no momento.`,
+        error: `Desculpe, não há ${mediaType === 'videos' ? 'vídeos' : 'fotos'} disponíveis para ${property.title} no momento.`,
         tenantId
       };
     }
@@ -868,13 +868,13 @@ export async function sendPropertyMedia(args: SendPropertyMediaArgs, tenantId: s
       success: true,
       property: {
         id: property.id,
-        name: property.name,
+        name: property.title,
         location: `${property.neighborhood}, ${property.city}`
       },
       media: mediaToSend.slice(0, 10), // Limitar a 10 mídias por vez
       totalMedia: mediaToSend.length,
       mediaDescription,
-      caption: `📸 ${property.name} - ${mediaDescription}\n📍 ${property.neighborhood}, ${property.city}\n💰 A partir de R$ ${property.pricing?.basePrice || 0}/noite`,
+      caption: `📸 ${property.title} - ${mediaDescription}\n📍 ${property.neighborhood}, ${property.city}\n💰 A partir de R$ ${property.basePrice || 0}/noite`,
       tenantId
     };
   } catch (error) {
@@ -1427,7 +1427,7 @@ export async function generateQuote(args: GenerateQuoteArgs, tenantId: string): 
       quote,
       property: {
         id: property.id,
-        name: property.name || property.title,
+        name: property.title,
         location: `${property.neighborhood}, ${property.city}`,
         maxGuests: property.maxGuests,
         minimumNights: property.minimumNights
@@ -1833,11 +1833,12 @@ export async function createTransaction(args: CreateTransactionArgs, tenantId: s
     let finalAdvanceAmount = advanceAmount;
     let discount = 0;
     
-    if (property.paymentMethodDiscounts && property.paymentMethodDiscounts[args.paymentMethod]) {
-      const discountPercentage = property.paymentMethodDiscounts[args.paymentMethod];
-      discount = Math.round(advanceAmount * (discountPercentage / 100));
-      finalAdvanceAmount = advanceAmount - discount;
-    }
+    // TODO: Implementar descontos por método de pagamento quando Property interface for atualizada
+    // if (property.paymentMethodDiscounts && property.paymentMethodDiscounts[args.paymentMethod]) {
+    //   const discountPercentage = property.paymentMethodDiscounts[args.paymentMethod];
+    //   discount = Math.round(advanceAmount * (discountPercentage / 100));
+    //   finalAdvanceAmount = advanceAmount - discount;
+    // }
 
     // Preparar dados da transação
     const dueDate = new Date();
@@ -1892,7 +1893,7 @@ export async function createTransaction(args: CreateTransactionArgs, tenantId: s
         advanceAmount: finalAdvanceAmount,
         remainingAmount,
         discount,
-        discountPercentage: property.paymentMethodDiscounts?.[args.paymentMethod] || 0,
+        discountPercentage: 0, // TODO: Implementar quando Property interface for atualizada
         paymentMethod: args.paymentMethod,
         dueDate: dueDate.toISOString().split('T')[0],
         status: 'pending',

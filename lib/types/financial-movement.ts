@@ -12,13 +12,8 @@ export type MovementCategory =
   | 'refund'         // Reembolso
   | 'other'          // Outros
 
-export type PaymentMethod = 
-  | 'pix' 
-  | 'bank_transfer' 
-  | 'credit_card' 
-  | 'debit_card' 
-  | 'cash' 
-  | 'stripe'
+// PaymentMethod importado de common.ts
+import { PaymentMethod } from './common'
 
 export interface FinancialMovement {
   // Identificação
@@ -207,14 +202,8 @@ export const MOVEMENT_CATEGORIES: Record<MovementCategory, string> = {
   other: 'Outros'
 }
 
-export const PAYMENT_METHODS: Record<PaymentMethod, string> = {
-  pix: 'PIX',
-  bank_transfer: 'Transferência Bancária',
-  credit_card: 'Cartão de Crédito',
-  debit_card: 'Cartão de Débito',
-  cash: 'Dinheiro',
-  stripe: 'Stripe'
-}
+// PAYMENT_METHODS movido para common.ts
+export { PAYMENT_METHOD_LABELS as PAYMENT_METHODS } from './common'
 
 export const MOVEMENT_STATUS: Record<MovementStatus, string> = {
   pending: 'Pendente',

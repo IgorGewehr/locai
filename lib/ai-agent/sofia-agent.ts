@@ -5,8 +5,9 @@
 import { OpenAI } from 'openai';
 import { getTenantAwareOpenAIFunctions, executeTenantAwareFunction } from '@/lib/ai/tenant-aware-agent-functions';
 import { logger } from '@/lib/utils/logger';
-import { SOFIA_PROMPT } from './sofia-prompt';
-import { conversationContextService } from '@/lib/services/conversation-context-service';
+import { SOFIA_PROMPT } from './sofia-prompt-optimized';
+import { FEW_SHOT_EXAMPLES } from './few-shot-examples';
+import { UnifiedContextManager } from './unified-context-manager';
 
 // ===== COMPONENTES ESSENCIAIS APENAS =====
 import IntentDetector, { DetectedIntent } from './intent-detector';
@@ -180,12 +181,10 @@ export class SofiaAgent {
       // 4. USAR GPT COM CONTEXTO BÁSICO
       logger.info('🧠 [Sofia MVP] Usando GPT');
       
-      const conversationState = ConversationStateManager.getState(input.clientPhone, input.tenantId);
-      const messageHistory = await conversationContextService.getMessageHistory(
-        input.clientPhone,
-        input.tenantId,
-        3 // Reduzido para MVP
-      );
+      // Usar contexto unificado
+      const unifiedContext = await UnifiedContextManager.getContext(input.clientPhone, input.tenantId);
+      const conversationState = unifiedContext.memoryState;
+      const messageHistory = unifiedContext.messageHistory.slice(-3); // Últimas 3 mensagens
 
       const messages = [
         {
@@ -331,7 +330,7 @@ export class SofiaAgent {
     messageHistory: any[],
     intentDetected: DetectedIntent | null
   ): string {
-    let prompt = `${SOFIA_PROMPT}\n\n`;
+    let prompt = `${SOFIA_PROMPT}\n\n${FEW_SHOT_EXAMPLES}\n\n`;
     prompt += `IMPORTANTE: Você está operando para o tenant ${tenantId}.\n\n`;
 
     // Adicionar contexto básico de estado
