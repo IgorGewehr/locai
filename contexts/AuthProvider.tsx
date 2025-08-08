@@ -105,44 +105,23 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     const uid = authUser.uid;
     
     try {
-      logger.info('🔍 [Auth] Buscando dados do usuário', { uid });
-      
       // Buscar dados existentes
-      logger.info('🔍 [Auth] Criando referência do usuário', { uid, collection: 'users' });
       const userRef = doc(db, 'users', uid);
-      
-      logger.info('🔍 [Auth] Executando getDoc', { uid });
-      let userSnap;
-      try {
-        userSnap = await getDoc(userRef);
-        logger.info('✅ [Auth] getDoc executado com sucesso', { uid, exists: userSnap.exists() });
-      } catch (getDocError) {
-        logger.error('❌ [Auth] Erro específico no getDoc', {
-          uid,
-          error: getDocError instanceof Error ? getDocError.message : 'Unknown getDoc error',
-          errorCode: (getDocError as any)?.code,
-          errorStack: getDocError instanceof Error ? getDocError.stack : undefined
-        });
-        throw getDocError;
-      }
+      const userSnap = await getDoc(userRef);
       
       if (userSnap.exists()) {
         const userData = userSnap.data();
         
         // Atualizar último login
-        logger.info('🔄 [Auth] Atualizando último login', { uid });
         await updateDoc(userRef, {
           lastLogin: new Date(),
           emailVerified: authUser.emailVerified
         }).catch(error => {
           logger.warn('⚠️ [Auth] Erro ao atualizar último login', { 
             uid,
-            error: error instanceof Error ? error.message : 'Unknown error',
-            errorCode: (error as any)?.code 
+            error: error instanceof Error ? error.message : 'Unknown error'
           });
         });
-        
-        logger.info('✅ [Auth] Usuário existente encontrado', { uid, email: userData.email });
         
         return {
           uid,
@@ -162,8 +141,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       }
       
       // Criar novo usuário
-      logger.info('🔧 [Auth] Criando novo usuário', { uid, email: authUser.email });
-      
       const [firstName, ...lastNameArray] = (authUser.displayName || '').split(' ');
       const lastName = lastNameArray.join(' ');
       
@@ -183,10 +160,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         authProvider: authUser.providerData?.[0]?.providerId === 'google.com' ? 'google' : 'email'
       };
       
-      logger.info('🔧 [Auth] Executando setDoc para novo usuário', { uid, data: newUserData });
       await setDoc(userRef, newUserData, { merge: true });
-      
-      logger.info('✅ [Auth] Novo usuário criado', { uid, email: authUser.email });
       
       return {
         uid,
@@ -207,10 +181,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     } catch (error) {
       logger.error('❌ [Auth] Erro ao buscar/criar usuário', {
         uid,
-        error: error instanceof Error ? error.message : 'Unknown error',
-        errorCode: (error as any)?.code,
-        errorStack: error instanceof Error ? error.stack : undefined,
-        step: 'getUserOrCreateData'
+        error: error instanceof Error ? error.message : 'Unknown error'
       });
       throw error;
     }
@@ -260,13 +231,11 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       if (!isMounted) return;
       
       if (processingRef.current) {
-        logger.warn('⚠️ [Auth] Processamento já em andamento, pulando');
         return;
       }
       
       try {
         processingRef.current = true;
-        logger.info('👤 [Auth] Processando usuário autenticado', { uid: authUser.uid });
         
         // Buscar dados do usuário com cache
         const userData = await getCachedUser(authUser.uid, () => getUserOrCreateData(authUser));
@@ -302,23 +271,15 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           logger.error('❌ [Auth] Erro ao criar token JWT', { error });
         }
         
-        logger.info('✅ [Auth] Usuário autenticado processado', {
-          uid: userData.uid,
-          tenantId: userData.tenantId,
-          role: userData.role
-        });
-        
         // Redirecionamento
         setTimeout(() => {
           if (!isMounted) return;
           
           if (shouldRedirectToApp(userData, pathname)) {
-            logger.info('🔄 [Auth] Redirecionando para dashboard');
             router.push('/dashboard');
           } else {
             const authRedirect = shouldRedirectToAuth(userData, pathname);
             if (authRedirect) {
-              logger.info('🔄 [Auth] Redirecionando para login', { reason: authRedirect.reason });
               router.push(authRedirect.redirect);
             }
           }
