@@ -334,19 +334,22 @@ export default function CreateVisitDialog({ open, onClose, onSuccess }: CreateVi
                   onChange={(_, newValue) => setSelectedProperty(newValue)}
                   options={properties}
                   getOptionLabel={(option) => option.title}
-                  renderOption={(props, option) => (
-                    <Box component="li" {...props}>
-                      <Box>
-                        <Typography variant="body1">{option.title}</Typography>
-                        {option.address && (
-                          <Typography variant="caption" color="text.secondary">
-                            <LocationOn sx={{ fontSize: 12, mr: 0.5 }} />
-                            {option.address}
-                          </Typography>
-                        )}
+                  renderOption={(props, option) => {
+                    const { key, ...otherProps } = props;
+                    return (
+                      <Box component="li" key={key} {...otherProps}>
+                        <Box>
+                          <Typography variant="body1">{option.title}</Typography>
+                          {option.address && (
+                            <Typography variant="caption" color="text.secondary">
+                              <LocationOn sx={{ fontSize: 12, mr: 0.5 }} />
+                              {option.address}
+                            </Typography>
+                          )}
+                        </Box>
                       </Box>
-                    </Box>
-                  )}
+                    );
+                  }}
                   renderInput={(params) => (
                     <TextField
                       {...params}
@@ -395,17 +398,20 @@ export default function CreateVisitDialog({ open, onClose, onSuccess }: CreateVi
                     onChange={(_, newValue) => handleClientChange(newValue)}
                     options={clients}
                     getOptionLabel={(option) => option.name}
-                    renderOption={(props, option) => (
-                      <Box component="li" {...props}>
-                        <Box>
-                          <Typography variant="body1">{option.name}</Typography>
-                          <Typography variant="caption" color="text.secondary">
-                            <Phone sx={{ fontSize: 12, mr: 0.5 }} />
-                            {option.phone}
-                          </Typography>
+                    renderOption={(props, option) => {
+                      const { key, ...otherProps } = props;
+                      return (
+                        <Box component="li" key={key} {...otherProps}>
+                          <Box>
+                            <Typography variant="body1">{option.name}</Typography>
+                            <Typography variant="caption" color="text.secondary">
+                              <Phone sx={{ fontSize: 12, mr: 0.5 }} />
+                              {option.phone}
+                            </Typography>
+                          </Box>
                         </Box>
-                      </Box>
-                    )}
+                      );
+                    }}
                     renderInput={(params) => (
                       <TextField
                         {...params}

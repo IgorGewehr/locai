@@ -320,18 +320,21 @@ const EventoModal: React.FC<EventoModalProps> = ({
                                                 }}
                                             />
                                         )}
-                                        renderOption={(props, option) => (
-                                            <Box component="li" {...props}>
-                                                <Box>
-                                                    <Typography variant="body1" fontWeight={500}>
-                                                        {option.name}
-                                                    </Typography>
-                                                    <Typography variant="caption" color="text.secondary">
-                                                        {option.address} • {option.bedrooms} quartos
-                                                    </Typography>
+                                        renderOption={(props, option) => {
+                                            const { key, ...otherProps } = props;
+                                            return (
+                                                <Box component="li" key={key} {...otherProps}>
+                                                    <Box>
+                                                        <Typography variant="body1" fontWeight={500}>
+                                                            {option.name}
+                                                        </Typography>
+                                                        <Typography variant="caption" color="text.secondary">
+                                                            {option.address} • {option.bedrooms} quartos
+                                                        </Typography>
+                                                    </Box>
                                                 </Box>
-                                            </Box>
-                                        )}
+                                            );
+                                        }}
                                     />
                                 </FormControl>
                             </Grid>
@@ -359,18 +362,21 @@ const EventoModal: React.FC<EventoModalProps> = ({
                                                 }}
                                             />
                                         )}
-                                        renderOption={(props, option) => (
-                                            <Box component="li" {...props}>
-                                                <Box>
-                                                    <Typography variant="body1" fontWeight={500}>
-                                                        {option.name}
-                                                    </Typography>
-                                                    <Typography variant="caption" color="text.secondary">
-                                                        {option.phone} • {option.email}
-                                                    </Typography>
+                                        renderOption={(props, option) => {
+                                            const { key, ...otherProps } = props;
+                                            return (
+                                                <Box component="li" key={key} {...otherProps}>
+                                                    <Box>
+                                                        <Typography variant="body1" fontWeight={500}>
+                                                            {option.name}
+                                                        </Typography>
+                                                        <Typography variant="caption" color="text.secondary">
+                                                            {option.phone} • {option.email}
+                                                        </Typography>
+                                                    </Box>
                                                 </Box>
-                                            </Box>
-                                        )}
+                                            );
+                                        }}
                                     />
                                 </FormControl>
                             </Grid>
