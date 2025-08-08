@@ -108,18 +108,38 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       logger.info('🔍 [Auth] Buscando dados do usuário', { uid });
       
       // Buscar dados existentes
+      logger.info('🔍 [Auth] Criando referência do usuário', { uid, collection: 'users' });
       const userRef = doc(db, 'users', uid);
-      const userSnap = await getDoc(userRef);
+      
+      logger.info('🔍 [Auth] Executando getDoc', { uid });
+      let userSnap;
+      try {
+        userSnap = await getDoc(userRef);
+        logger.info('✅ [Auth] getDoc executado com sucesso', { uid, exists: userSnap.exists() });
+      } catch (getDocError) {
+        logger.error('❌ [Auth] Erro específico no getDoc', {
+          uid,
+          error: getDocError instanceof Error ? getDocError.message : 'Unknown getDoc error',
+          errorCode: (getDocError as any)?.code,
+          errorStack: getDocError instanceof Error ? getDocError.stack : undefined
+        });
+        throw getDocError;
+      }
       
       if (userSnap.exists()) {
         const userData = userSnap.data();
         
         // Atualizar último login
+        logger.info('🔄 [Auth] Atualizando último login', { uid });
         await updateDoc(userRef, {
           lastLogin: new Date(),
           emailVerified: authUser.emailVerified
         }).catch(error => {
-          logger.warn('⚠️ [Auth] Erro ao atualizar último login', { error: error.message });
+          logger.warn('⚠️ [Auth] Erro ao atualizar último login', { 
+            uid,
+            error: error instanceof Error ? error.message : 'Unknown error',
+            errorCode: (error as any)?.code 
+          });
         });
         
         logger.info('✅ [Auth] Usuário existente encontrado', { uid, email: userData.email });
@@ -163,7 +183,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         authProvider: authUser.providerData?.[0]?.providerId === 'google.com' ? 'google' : 'email'
       };
       
-      await updateDoc(userRef, newUserData, { merge: true });
+      logger.info('🔧 [Auth] Executando setDoc para novo usuário', { uid, data: newUserData });
+      await setDoc(userRef, newUserData, { merge: true });
       
       logger.info('✅ [Auth] Novo usuário criado', { uid, email: authUser.email });
       
@@ -186,7 +207,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     } catch (error) {
       logger.error('❌ [Auth] Erro ao buscar/criar usuário', {
         uid,
-        error: error instanceof Error ? error.message : 'Unknown error'
+        error: error instanceof Error ? error.message : 'Unknown error',
+        errorCode: (error as any)?.code,
+        errorStack: error instanceof Error ? error.stack : undefined,
+        step: 'getUserOrCreateData'
       });
       throw error;
     }
@@ -233,7 +257,12 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     logger.info('🔐 [Auth] Inicializando listener de autenticação', { pathname });
     
     const handleAuthenticatedUser = async (authUser: any) => {
-      if (!isMounted || processingRef.current) return;
+      if (!isMounted) return;
+      
+      if (processingRef.current) {
+        logger.warn('⚠️ [Auth] Processamento já em andamento, pulando');
+        return;
+      }
       
       try {
         processingRef.current = true;
@@ -303,6 +332,13 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         
         if (isMounted) {
           setUser(null);
+          // Tentar novamente após um erro
+          setTimeout(() => {
+            if (isMounted && authUser) {
+              logger.info('🔄 [Auth] Tentando reprocessar usuário após erro');
+              processingRef.current = false; // Liberar para nova tentativa
+            }
+          }, 1000);
         }
       } finally {
         processingRef.current = false;
@@ -327,6 +363,12 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     try {
       unsubscribe = onAuthStateChanged(auth, async (authUser) => {
         if (!isMounted) return;
+        
+        logger.info('🔔 [Auth] onAuthStateChanged disparado', { 
+          hasUser: !!authUser,
+          uid: authUser?.uid,
+          processing: processingRef.current 
+        });
         
         try {
           if (authUser) {
@@ -425,7 +467,16 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         email: result.user.email 
       });
       
-      // O listener onAuthStateChanged vai processar o usuário automaticamente
+      // Forçar reprocessamento do usuário após login
+      logger.info('🔄 [Auth] Forçando reprocessamento do usuário logado');
+      
+      // O listener onAuthStateChanged deveria processar automaticamente, 
+      // mas vamos tentar forçar se necessário
+      setTimeout(() => {
+        if (result.user && mountedRef.current) {
+          logger.info('🔧 [Auth] Timeout - verificando se usuário foi processado');
+        }
+      }, 2000);
     } catch (error: any) {
       logger.error('❌ [Auth] Erro no login', {
         email,
