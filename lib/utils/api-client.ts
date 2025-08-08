@@ -6,21 +6,28 @@ import { auth } from '@/lib/firebase/config';
 export class ApiClient {
   private static async getAuthHeaders(): Promise<HeadersInit> {
     try {
-      const user = auth.currentUser;
-      if (user) {
-        const token = await user.getIdToken();
+      // Check if user is authenticated
+      if (!auth.currentUser) {
+        console.warn('⚠️ [ApiClient] No authenticated user found');
         return {
-          'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
         };
       }
+
+      // Force token refresh to ensure it's valid
+      const token = await auth.currentUser.getIdToken(true);
+      console.log('✅ [ApiClient] Token obtained for user:', auth.currentUser.email);
+      
+      return {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      };
     } catch (error) {
-      console.warn('Failed to get auth token:', error);
+      console.error('❌ [ApiClient] Failed to get auth token:', error);
+      return {
+        'Content-Type': 'application/json',
+      };
     }
-    
-    return {
-      'Content-Type': 'application/json',
-    };
   }
 
   static async fetch(url: string, options: RequestInit = {}): Promise<Response> {

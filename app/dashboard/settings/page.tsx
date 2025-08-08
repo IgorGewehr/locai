@@ -98,13 +98,19 @@ export default function SettingsPage() {
   // Optimized status checking with better responsiveness
   const checkWhatsAppStatus = useCallback(async () => {
     if (!tenantId || !isReady) {
+      console.log('🚫 [Settings] Not checking status - tenantId:', !!tenantId, 'isReady:', isReady);
       return;
     }
     
+    console.log('🔄 [Settings] Checking WhatsApp status...');
+    
     try {
       const response = await ApiClient.get('/api/whatsapp/session');
+      console.log('📡 [Settings] API Response status:', response.status);
+      
       if (response.ok) {
         const data = await response.json();
+        console.log('📋 [Settings] GET Response data:', JSON.stringify(data, null, 2));
         
         const newSession = {
           connected: data.data?.connected || false,
@@ -113,6 +119,8 @@ export default function SettingsPage() {
           status: data.data?.status || 'disconnected',
           qrCode: data.data?.qrCode
         };
+        
+        console.log('📋 [Settings] New session state:', newSession);
         
         setWhatsappSession(prevSession => {
           // Optimized change detection
@@ -130,14 +138,22 @@ export default function SettingsPage() {
           }
           return prevSession;
         });
+      } else {
+        console.error('❌ [Settings] API request failed with status:', response.status);
+        const errorData = await response.text();
+        console.error('❌ [Settings] Error response:', errorData);
       }
     } catch (error) {
-      console.error('Status check failed:', error);
+      console.error('❌ [Settings] Status check failed:', error);
     }
   }, [qrDialogOpen, tenantId, isReady]); // Include tenantId and isReady in dependencies
 
   useEffect(() => {
     let mounted = true;
+    
+    console.log('🔧 [Settings] Component mounted, checking auth state');
+    console.log('👤 [Settings] User:', user ? { uid: user.uid, email: user.email } : null);
+    console.log('🏢 [Settings] TenantId:', tenantId, 'IsReady:', isReady);
     
     const safeCheckStatus = async () => {
       if (mounted) {
@@ -145,7 +161,11 @@ export default function SettingsPage() {
       }
     };
     
-    safeCheckStatus();
+    if (user && tenantId && isReady) {
+      safeCheckStatus();
+    } else {
+      console.log('⏳ [Settings] Waiting for auth/tenant to be ready');
+    }
     
     // Optimized polling - faster when connecting, slower when stable
     let pollInterval = 3000; // Start with 3 seconds
@@ -247,6 +267,9 @@ export default function SettingsPage() {
   };
 
   const initializeWhatsApp = async () => {
+    console.log('🚀 [Settings] Starting WhatsApp initialization');
+    console.log('👤 [Settings] User:', !!user, 'TenantId:', !!tenantId);
+    
     setLoading(true);
     setConnecting(true);
     setError(null);
@@ -258,15 +281,22 @@ export default function SettingsPage() {
       setConnectionProgress(15);
       setSuccess('Conectando com WhatsApp...');
       
+      console.log('📡 [Settings] Making POST request to /api/whatsapp/session');
+      
       // Start the connection process
       const response = await ApiClient.post('/api/whatsapp/session');
+      console.log('📡 [Settings] POST Response status:', response.status);
       setConnectionProgress(40);
       
       const data = await response.json();
+      console.log('📋 [Settings] POST Response data:', JSON.stringify(data, null, 2));
       
       if (data.success) {
         setConnectionProgress(70);
         setSuccess('Processando QR Code...');
+        
+        console.log('📋 [Settings] QR Code present:', !!data.data?.qrCode);
+        console.log('📋 [Settings] Status:', data.data?.status);
         
         // Update session state immediately
         setWhatsappSession(prev => ({ 
