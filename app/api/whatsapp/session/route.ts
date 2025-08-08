@@ -12,11 +12,6 @@ const CACHE_DURATION = 5000; // 5 seconds
 // FORÇAR HABILITADO PARA PRODUÇÃO - OVERRIDE DEFINITIVO
 const WHATSAPP_WEB_DISABLED = false; // SEMPRE HABILITADO - NUNCA MAIS DISABLED!
 
-console.log('🔧 [WhatsApp Session API] Configuration:', {
-  DISABLE_WHATSAPP_WEB: process.env.DISABLE_WHATSAPP_WEB,
-  WHATSAPP_WEB_DISABLED,
-  NODE_ENV: process.env.NODE_ENV
-});
 
 // STRATEGIC SESSION MANAGER - PRODUCTION READY FOR NETLIFY
 let sessionManager: any = null;
@@ -52,11 +47,6 @@ async function getSessionManager() {
 // GET /api/whatsapp/session - Get session status
 export async function GET(request: NextRequest) {
   try {
-    console.log('🔍 [API GET] Environment check:', {
-      DISABLE_WHATSAPP_WEB: process.env.DISABLE_WHATSAPP_WEB,
-      WHATSAPP_WEB_DISABLED,
-      NODE_ENV: process.env.NODE_ENV
-    });
 
     const user = await verifyAuth(request);
     if (!user) {
@@ -116,11 +106,6 @@ export async function GET(request: NextRequest) {
 // POST /api/whatsapp/session - Initialize session
 export async function POST(request: NextRequest) {
   try {
-    console.log('🔍 [API POST] Environment check:', {
-      DISABLE_WHATSAPP_WEB: process.env.DISABLE_WHATSAPP_WEB,
-      WHATSAPP_WEB_DISABLED,
-      NODE_ENV: process.env.NODE_ENV
-    });
 
     const user = await verifyAuth(request);
     if (!user) {

@@ -453,13 +453,13 @@ export default function ClientsPage() {
                       </Box>
                     }
                     secondary={
-                      <>
-                        <Typography variant="body2" color="text.secondary" component="span" sx={{ display: 'block' }}>
+                      <Box>
+                        <Box sx={{ display: 'block' }}>
                           📱 {formatPhone(client.phone)}
                           {client.email && ` • 📧 ${client.email}`}
                           {client.document && ` • 📄 CPF: ${client.document.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4')}`}
-                        </Typography>
-                        <Typography variant="caption" color="text.secondary" component="span" sx={{ display: 'block', mt: 0.5 }}>
+                        </Box>
+                        <Box sx={{ display: 'block', mt: 0.5, fontSize: '0.75rem', color: 'text.secondary' }}>
                           {(Number(client.totalReservations) || 0) > 0 ? (
                             <>
                               🏠 {Number(client.totalReservations) || 0} reserva{(Number(client.totalReservations) || 0) > 1 ? 's' : ''} • 
@@ -469,8 +469,8 @@ export default function ClientsPage() {
                             'Novo cliente - Nenhuma reserva ainda'
                           )}
                           {' • Cadastrado em ' + safeFormatDate(client.createdAt, DateFormats.SHORT, 'Não informado')}
-                        </Typography>
-                      </>
+                        </Box>
+                      </Box>
                     }
                     secondaryTypographyProps={{ component: 'div' }}
                   />

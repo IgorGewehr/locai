@@ -93,18 +93,6 @@ const navigationItems: NavigationItem[] = [
     text: 'Agenda',
     href: '/dashboard/agenda',
     icon: <Event sx={{ fontSize: 20 }} />,
-    submenu: [
-      {
-        text: 'Visão Geral',
-        href: '/dashboard/agenda/visao-geral',
-        icon: <Event sx={{ fontSize: 18 }} />,
-      },
-      {
-        text: 'Visitas',
-        href: '/dashboard/agenda/visitas',
-        icon: <Schedule sx={{ fontSize: 18 }} />,
-      },
-    ],
   },
   {
     text: 'CRM',

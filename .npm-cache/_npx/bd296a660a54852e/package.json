@@ -1,0 +1,10 @@
+{
+  "dependencies": {
+    "kill-port": "^2.0.1"
+  },
+  "_npx": {
+    "packages": [
+      "kill-port"
+    ]
+  }
+}

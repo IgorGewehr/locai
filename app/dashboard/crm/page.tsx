@@ -77,6 +77,7 @@ import { Lead, LeadStatus, Task, TaskStatus, Interaction } from '@/lib/types/crm
 import { Client } from '@/lib/types';
 import { useAuth } from '@/lib/hooks/useAuth';
 import { useTenantServices } from '@/lib/hooks/useTenantServices';
+import { useTenant } from '@/contexts/TenantContext';
 import { scrollbarStyles } from '@/styles/scrollbarStyles';
 import LeadDetailsDrawer from './components/LeadDetailsDrawer';
 import CreateLeadDialog from './components/CreateLeadDialog';

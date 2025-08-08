@@ -6,24 +6,19 @@ export async function verifyAuth(request: NextRequest): Promise<User | null> {
   try {
     // Check for authorization header
     const authHeader = request.headers.get('authorization');
-    console.log('🔍 [Auth] Authorization header:', authHeader ? 'Present' : 'Missing');
     
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      console.warn('⚠️ [Auth] Missing or invalid authorization header');
       return null;
     }
 
     const token = authHeader.split(' ')[1];
     if (!token) {
-      console.warn('⚠️ [Auth] Missing token in authorization header');
       return null;
     }
 
-    console.log('🔑 [Auth] Verifying token:', token.substring(0, 20) + '...');
 
     // Verify the token with Firebase Admin
     const decodedToken = await adminAuth.verifyIdToken(token);
-    console.log('✅ [Auth] Token verified for user:', decodedToken.uid);
     
     // Return user data with tenantId
     return {

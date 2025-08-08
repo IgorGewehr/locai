@@ -211,6 +211,111 @@ export const scrollbarStyles = {
       },
     },
   },
+
+  // Modern light scrollbar (elegante como na agenda)
+  light: {
+    scrollbarWidth: 'thin',
+    scrollbarColor: 'rgba(99, 102, 241, 0.2) transparent',
+    
+    // Mobile: scrollbar ultra minimalista
+    '@media (max-width: 768px)': {
+      '&::-webkit-scrollbar': {
+        width: '2px',
+      },
+      '&::-webkit-scrollbar-track': {
+        background: 'transparent',
+      },
+      '&::-webkit-scrollbar-thumb': {
+        background: 'rgba(99, 102, 241, 0.15)',
+        borderRadius: '1px',
+        transition: 'all 0.3s ease',
+        '&:hover': {
+          background: 'rgba(99, 102, 241, 0.3)',
+        },
+      },
+    },
+    
+    // Desktop: scrollbar moderna e elegante
+    '@media (min-width: 769px)': {
+      '&::-webkit-scrollbar': {
+        width: '4px',
+      },
+      '&::-webkit-scrollbar-track': {
+        background: 'rgba(248, 250, 252, 0.3)',
+        borderRadius: '2px',
+        margin: '8px 0',
+      },
+      '&::-webkit-scrollbar-thumb': {
+        background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.2) 0%, rgba(139, 92, 246, 0.2) 100%)',
+        borderRadius: '2px',
+        border: '1px solid rgba(99, 102, 241, 0.1)',
+        transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+        '&:hover': {
+          background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.4) 0%, rgba(139, 92, 246, 0.4) 100%)',
+          transform: 'scaleX(1.2)',
+          boxShadow: '0 2px 8px rgba(99, 102, 241, 0.3)',
+        },
+        '&:active': {
+          background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.6) 0%, rgba(139, 92, 246, 0.6) 100%)',
+        },
+      },
+    },
+  },
+
+  // Dark sidebar scrollbar - ultra minimalista e fina
+  darkSidebar: {
+    scrollbarWidth: 'thin',
+    scrollbarColor: 'rgba(148, 163, 184, 0.2) transparent',
+    
+    // Mobile: scrollbar invisível até interação
+    '@media (max-width: 768px)': {
+      '&::-webkit-scrollbar': {
+        width: '1px',
+      },
+      '&::-webkit-scrollbar-track': {
+        background: 'transparent',
+      },
+      '&::-webkit-scrollbar-thumb': {
+        background: 'transparent',
+        borderRadius: '0.5px',
+        transition: 'all 0.3s ease',
+      },
+      // Aparece apenas durante scroll ou hover
+      '&:hover::-webkit-scrollbar-thumb': {
+        background: 'rgba(148, 163, 184, 0.3)',
+      },
+      '&::-webkit-scrollbar-thumb:active': {
+        background: 'rgba(148, 163, 184, 0.5)',
+      },
+    },
+    
+    // Desktop: scrollbar ultra fina e discreta
+    '@media (min-width: 769px)': {
+      '&::-webkit-scrollbar': {
+        width: '2px',
+      },
+      '&::-webkit-scrollbar-track': {
+        background: 'transparent',
+        margin: '4px 0',
+      },
+      '&::-webkit-scrollbar-thumb': {
+        background: 'rgba(148, 163, 184, 0.15)',
+        borderRadius: '1px',
+        transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+        '&:hover': {
+          background: 'rgba(148, 163, 184, 0.3)',
+          width: '3px',
+        },
+        '&:active': {
+          background: 'rgba(148, 163, 184, 0.5)',
+        },
+      },
+      // Efeito de fade in/out
+      '&:not(:hover)::-webkit-scrollbar-thumb': {
+        background: 'rgba(148, 163, 184, 0.08)',
+      },
+    },
+  },
 };
 
 // Mobile-friendly scrollbar (hidden on small screens)

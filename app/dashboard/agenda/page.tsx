@@ -16,6 +16,18 @@ import {
     IconButton,
     useTheme,
     useMediaQuery,
+    Paper,
+    Stack,
+    Avatar,
+    Divider,
+    ToggleButton,
+    ToggleButtonGroup,
+    Tooltip,
+    Badge,
+    Tabs,
+    Tab,
+    Fade,
+    Grow,
 } from '@mui/material';
 import {
     CalendarToday,
@@ -25,592 +37,948 @@ import {
     Phone,
     AccessTime,
     Refresh,
+    Event,
+    Group,
+    AttachMoney,
+    CheckCircle,
+    Schedule,
+    Warning,
+    NavigateBefore,
+    NavigateNext,
+    CalendarMonth,
+    ViewDay,
+    ViewWeek,
+    LocationOn,
+    Email,
+    WhatsApp,
+    DirectionsCar,
+    Groups,
+    TrendingUp,
+    AutoAwesome,
 } from '@mui/icons-material';
 import { useReservations, useProperties, useClients } from '@/lib/firebase/hooks';
 import { useTodayVisits, useUpcomingVisits } from '@/lib/firebase/hooks/useVisits';
 import { Reservation, ReservationStatus, RESERVATION_STATUS_LABELS } from '@/lib/types/reservation';
 import { Property } from '@/lib/types/property';
 import { Client } from '@/lib/types/client';
-import { VisitAppointment, VISIT_STATUS_LABELS } from '@/lib/types/visit-appointment';
+import { VisitAppointment, VISIT_STATUS_LABELS, VisitStatus } from '@/lib/types/visit-appointment';
 import EventoModal from './components/EventoModal';
 import ViewReservationDialog from './components/ViewReservationDialog';
-import { format, isToday, isSameDay, addDays } from 'date-fns';
+import CreateVisitDialog from './components/CreateVisitDialog';
+import { format, isToday, isSameDay, addDays, startOfWeek, endOfWeek, startOfMonth, endOfMonth, eachDayOfInterval, isSameWeek, isSameMonth, parseISO, subMonths, addMonths, subWeeks, addWeeks } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import DashboardBreadcrumb from '@/components/atoms/DashboardBreadcrumb';
 import { useTenant } from '@/contexts/TenantContext';
+import { useRouter } from 'next/navigation';
 
-export default function AgendaPage() {
+// Unified event interface for calendar
+interface AgendaEvent {
+    id: string;
+    title: string;
+    subtitle?: string;
+    date: Date;
+    type: 'reservation' | 'visit';
+    status: string;
+    statusColor: string;
+    icon: React.ReactNode;
+    details: Reservation | VisitAppointment;
+}
+
+export default function UnifiedAgendaPage() {
     const theme = useTheme();
+    const router = useRouter();
     const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+    const { services, isReady } = useTenant();
     
-    // Estados simplificados
-    const [currentDate] = useState(new Date());
+    // Estados principais
+    const [currentDate, setCurrentDate] = useState(new Date());
+    const [viewMode, setViewMode] = useState<'day' | 'week' | 'month'>('week');
+    const [selectedTab, setSelectedTab] = useState(0);
     const [showEventoModal, setShowEventoModal] = useState(false);
+    const [showVisitDialog, setShowVisitDialog] = useState(false);
     const [reservaSelecionada, setReservaSelecionada] = useState<Reservation | null>(null);
     const [showReservationDialog, setShowReservationDialog] = useState(false);
-    const [selectedReservation, setSelectedReservation] = useState<Reservation | null>(null);
-
-    // Hooks do Firestore
-    const { data: reservations, loading: loadingReservations, error: reservationsError } = useReservations();
-    const { data: properties } = useProperties();
-    const { data: clients } = useClients();
-    const { data: todayVisits, loading: loadingTodayVisits } = useTodayVisits();
-    const { data: upcomingVisits, loading: loadingUpcomingVisits } = useUpcomingVisits(7);
-
-    // Funções auxiliares para filtrar reservas
-    const getTodayReservations = () => {
-        if (!reservations) return [];
-        const today = new Date();
-        return reservations.filter(reservation => {
-            const checkIn = new Date(reservation.checkIn);
-            const checkOut = new Date(reservation.checkOut);
-            return isSameDay(checkIn, today) || isSameDay(checkOut, today) || 
-                   (checkIn <= today && checkOut >= today);
-        });
-    };
-
-    const getUpcomingReservations = () => {
-        if (!reservations) return [];
-        const today = new Date();
-        return reservations
-            .filter(reservation => new Date(reservation.checkIn) > today)
-            .sort((a, b) => new Date(a.checkIn).getTime() - new Date(b.checkIn).getTime())
-            .slice(0, 5);
-    };
-
-    const getRecentReservations = () => {
-        if (!reservations) return [];
-        return reservations
-            .sort((a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime())
-            .slice(0, 10);
-    };
-
-    // Handlers
-    const handleCreateReservation = () => {
-        setReservaSelecionada(null);
-        setShowEventoModal(true);
-    };
-
-    const handleViewReservation = (reservation: Reservation) => {
-        setSelectedReservation(reservation);
-        setShowReservationDialog(true);
-    };
-
-    const handleEditReservation = (reservation: Reservation) => {
-        setReservaSelecionada(reservation);
-        setShowEventoModal(true);
-    };
-
-    const handleCloseReservationModal = () => {
-        setShowEventoModal(false);
-        setReservaSelecionada(null);
-    };
-
-    const { services } = useTenant();
-
-    const handleSaveReservation = async (reservationData: any) => {
-        try {
-            logger.info('Salvando reserva', { 
-                reservationData,
-                component: 'AgendaPage',
-                operation: 'handleSaveReservation'
-            });
-
-            if (!services) {
-                throw new Error('Serviços não disponíveis');
+    const [selectedVisit, setSelectedVisit] = useState<VisitAppointment | null>(null);
+    const [allVisits, setAllVisits] = useState<VisitAppointment[]>([]);
+    const [loadingVisits, setLoadingVisits] = useState(true);
+    
+    // Hooks de dados
+    const { 
+        reservations: allReservations, 
+        loading: loadingReservations 
+    } = useReservations();
+    const { properties } = useProperties();
+    const { clients } = useClients();
+    const todayVisits = useTodayVisits();
+    const upcomingVisits = useUpcomingVisits(7);
+    
+    // Carregar todas as visitas
+    useEffect(() => {
+        const loadVisits = async () => {
+            if (!isReady || !services) return;
+            
+            try {
+                setLoadingVisits(true);
+                const response = await fetch('/api/visits');
+                const data = await response.json();
+                
+                if (data.success) {
+                    setAllVisits(data.data);
+                }
+            } catch (error) {
+                logger.error('Error loading visits:', error);
+            } finally {
+                setLoadingVisits(false);
             }
+        };
+        
+        loadVisits();
+    }, [isReady, services]);
 
-            // Se tem ID, é uma atualização
-            if (reservationData.id) {
-                await services.reservations.update(reservationData.id, reservationData);
-            } else {
-                // Senão, é uma nova reserva
-                await services.reservations.create(reservationData);
-            }
-
-            setShowEventoModal(false);
-            setReservaSelecionada(null);
-        } catch (error) {
-            logger.error('Erro ao salvar reserva', { 
-                error,
-                component: 'AgendaPage',
-                operation: 'handleSaveReservation'
-            });
-            throw error;
-        }
-    };
-
-    const handleEditFromDialog = (reservation: Reservation) => {
-        setShowReservationDialog(false);
-        setReservaSelecionada(reservation);
-        setShowEventoModal(true);
-    };
-
-    const handleStatusChange = async (reservationId: string, newStatus: ReservationStatus) => {
-        try {
-            logger.info('Alterando status da reserva', { 
-                reservationId,
-                newStatus,
-                component: 'AgendaPage',
-                operation: 'handleStatusChange'
-            });
-            setShowReservationDialog(false);
-        } catch (error) {
-            logger.error('Erro ao alterar status da reserva', { 
-                error,
-                reservationId,
-                newStatus,
-                component: 'AgendaPage',
-                operation: 'handleStatusChange'
+    // Converter dados em eventos unificados
+    const getAllEvents = (): AgendaEvent[] => {
+        const events: AgendaEvent[] = [];
+        
+        // Adicionar reservas como eventos (com verificação de segurança)
+        if (allReservations && Array.isArray(allReservations)) {
+            allReservations.forEach(reservation => {
+                const property = properties?.find(p => p.id === reservation.propertyId);
+                const client = clients?.find(c => c.id === reservation.clientId);
+                
+                const checkInDate = reservation.checkIn instanceof Date 
+                    ? reservation.checkIn 
+                    : new Date(reservation.checkIn);
+                    
+                events.push({
+                    id: reservation.id,
+                    title: property?.name || 'Propriedade',
+                    subtitle: client?.name || 'Cliente',
+                    date: checkInDate,
+                    type: 'reservation',
+                    status: reservation.status,
+                    statusColor: getReservationStatusColor(reservation.status),
+                    icon: <Home />,
+                    details: reservation
+                });
             });
         }
+        
+        // Adicionar visitas como eventos (com verificação de segurança)
+        if (allVisits && Array.isArray(allVisits)) {
+            allVisits.forEach(visit => {
+                const visitDate = typeof visit.date === 'string' 
+                    ? parseISO(visit.date)
+                    : visit.date instanceof Date 
+                        ? visit.date 
+                        : new Date(visit.date);
+                        
+                events.push({
+                    id: visit.id,
+                    title: visit.clientName,
+                    subtitle: visit.propertyAddress,
+                    date: visitDate,
+                    type: 'visit',
+                    status: visit.status,
+                    statusColor: getVisitStatusColor(visit.status),
+                    icon: <DirectionsCar />,
+                    details: visit
+                });
+            });
+        }
+        
+        return events.sort((a, b) => a.date.getTime() - b.date.getTime());
     };
-
-    // Cores por status
-    const getStatusColors = (status: ReservationStatus) => {
-        switch(status) {
-            case ReservationStatus.CONFIRMED:
-                return { bg: '#E8F5E9', color: '#388E3C', border: '#4CAF50' };
-            case ReservationStatus.CANCELLED:
-                return { bg: '#FFEBEE', color: '#D32F2F', border: '#F44336' };
-            case ReservationStatus.CHECKED_IN:
-                return { bg: '#FFF8E1', color: '#F57C00', border: '#FFA000' };
-            case ReservationStatus.CHECKED_OUT:
-                return { bg: '#E3F2FD', color: '#1976D2', border: '#2196F3' };
+    
+    const getReservationStatusColor = (status: ReservationStatus) => {
+        const colors = {
+            [ReservationStatus.CONFIRMED]: 'success',
+            [ReservationStatus.PENDING]: 'warning',
+            [ReservationStatus.CANCELLED]: 'error',
+            [ReservationStatus.COMPLETED]: 'info',
+        };
+        return colors[status] || 'default';
+    };
+    
+    const getVisitStatusColor = (status: VisitStatus) => {
+        const colors = {
+            [VisitStatus.SCHEDULED]: 'info',
+            [VisitStatus.CONFIRMED]: 'success',
+            [VisitStatus.COMPLETED]: 'default',
+            [VisitStatus.CANCELLED]: 'error',
+            [VisitStatus.NO_SHOW]: 'warning',
+        };
+        return colors[status] || 'default';
+    };
+    
+    // Filtrar eventos por período
+    const getFilteredEvents = () => {
+        switch (viewMode) {
+            case 'day':
+                return allEvents.filter(event => isSameDay(event.date, currentDate));
+            case 'week':
+                const weekStart = startOfWeek(currentDate, { locale: ptBR });
+                const weekEnd = endOfWeek(currentDate, { locale: ptBR });
+                return allEvents.filter(event => 
+                    event.date >= weekStart && event.date <= weekEnd
+                );
+            case 'month':
+                return allEvents.filter(event => isSameMonth(event.date, currentDate));
             default:
-                return { bg: '#F3E5F5', color: '#7B1FA2', border: '#9C27B0' };
+                return allEvents;
         }
     };
+    
+    // Estatísticas (calculadas apenas quando os dados estão carregados)
+    const allEvents = React.useMemo(() => {
+        if (loadingReservations || loadingVisits) return [];
+        return getAllEvents();
+    }, [allReservations, allVisits, properties, clients, loadingReservations, loadingVisits]);
 
-    // Componente de card de reserva
-    const ReservationCard = ({ reservation, compact = false }: { reservation: Reservation; compact?: boolean }) => {
-        const property = properties?.find(p => p.id === reservation.propertyId);
-        const client = clients?.find(c => c.id === reservation.clientId);
-        const colors = getStatusColors(reservation.status);
-
-        return (
-            <Card
-                sx={{
-                    mb: 2,
-                    border: `2px solid ${colors.border}`,
-                    borderRadius: 2,
-                    cursor: 'pointer',
-                    transition: 'all 0.2s',
-                    '&:hover': {
-                        boxShadow: 3,
-                        transform: 'translateY(-2px)'
-                    }
-                }}
-                onClick={() => handleViewReservation(reservation)}
-            >
-                <CardContent sx={{ p: compact ? 2 : 3 }}>
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
-                        <Box sx={{ flex: 1 }}>
-                            <Typography variant="h6" sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                                <Home />
-                                {property?.name || 'Propriedade não encontrada'}
-                            </Typography>
-                            <Typography variant="body2" color="text.secondary" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                <Person />
-                                {client?.name || 'Cliente não encontrado'}
-                            </Typography>
-                        </Box>
-                        <Chip
-                            label={RESERVATION_STATUS_LABELS[reservation.status]}
-                            sx={{
-                                backgroundColor: colors.bg,
-                                color: colors.color,
-                                border: `1px solid ${colors.border}`,
-                                fontWeight: 600
-                            }}
-                        />
-                    </Box>
-
-                    <Grid container spacing={2}>
-                        <Grid item xs={12} sm={4}>
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                <CalendarToday sx={{ color: 'text.secondary', fontSize: 20 }} />
-                                <Box>
-                                    <Typography variant="body2" fontWeight={500}>
-                                        Check-in
-                                    </Typography>
-                                    <Typography variant="caption" color="text.secondary">
-                                        {format(new Date(reservation.checkIn), "dd/MM/yyyy", { locale: ptBR })}
-                                    </Typography>
-                                </Box>
-                            </Box>
-                        </Grid>
-                        <Grid item xs={12} sm={4}>
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                <AccessTime sx={{ color: 'text.secondary', fontSize: 20 }} />
-                                <Box>
-                                    <Typography variant="body2" fontWeight={500}>
-                                        Check-out
-                                    </Typography>
-                                    <Typography variant="caption" color="text.secondary">
-                                        {format(new Date(reservation.checkOut), "dd/MM/yyyy", { locale: ptBR })}
-                                    </Typography>
-                                </Box>
-                            </Box>
-                        </Grid>
-                        <Grid item xs={12} sm={4}>
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                <Person sx={{ color: 'text.secondary', fontSize: 20 }} />
-                                <Box>
-                                    <Typography variant="body2" fontWeight={500}>
-                                        {reservation.guests} hóspede{reservation.guests !== 1 ? 's' : ''}
-                                    </Typography>
-                                    <Typography variant="caption" color="text.secondary">
-                                        R$ {reservation.totalAmount?.toLocaleString('pt-BR') || '0,00'}
-                                    </Typography>
-                                </Box>
-                            </Box>
-                        </Grid>
-                    </Grid>
-
-                    {reservation.observations && (
-                        <Typography variant="body2" sx={{ 
-                            mt: 2, 
-                            p: 1.5, 
-                            backgroundColor: 'grey.50', 
-                            borderRadius: 1,
-                            fontStyle: 'italic'
-                        }}>
-                            "{reservation.observations}"
-                        </Typography>
-                    )}
-                </CardContent>
-            </Card>
-        );
+    const todayEvents = React.useMemo(() => 
+        allEvents.filter(e => isToday(e.date)), 
+        [allEvents]
+    );
+    
+    const weekEvents = React.useMemo(() => {
+        const weekStart = startOfWeek(new Date(), { locale: ptBR });
+        const weekEnd = endOfWeek(new Date(), { locale: ptBR });
+        return allEvents.filter(e => e.date >= weekStart && e.date <= weekEnd);
+    }, [allEvents]);
+    
+    const monthEvents = React.useMemo(() => 
+        allEvents.filter(e => isSameMonth(e.date, new Date())), 
+        [allEvents]
+    );
+    
+    const handleEventClick = (event: AgendaEvent) => {
+        if (event.type === 'reservation') {
+            setReservaSelecionada(event.details as Reservation);
+            setShowReservationDialog(true);
+        } else {
+            setSelectedVisit(event.details as VisitAppointment);
+            // Podemos adicionar um dialog de visualização de visita aqui
+        }
     };
-
-    if (loadingReservations) {
+    
+    const handleNavigate = (direction: 'prev' | 'next') => {
+        switch (viewMode) {
+            case 'day':
+                setCurrentDate(direction === 'next' 
+                    ? addDays(currentDate, 1) 
+                    : addDays(currentDate, -1)
+                );
+                break;
+            case 'week':
+                setCurrentDate(direction === 'next'
+                    ? addWeeks(currentDate, 1)
+                    : subWeeks(currentDate, 1)
+                );
+                break;
+            case 'month':
+                setCurrentDate(direction === 'next'
+                    ? addMonths(currentDate, 1)
+                    : subMonths(currentDate, 1)
+                );
+                break;
+        }
+    };
+    
+    const getDateRangeText = () => {
+        switch (viewMode) {
+            case 'day':
+                return format(currentDate, "EEEE, d 'de' MMMM 'de' yyyy", { locale: ptBR });
+            case 'week':
+                const weekStart = startOfWeek(currentDate, { locale: ptBR });
+                const weekEnd = endOfWeek(currentDate, { locale: ptBR });
+                if (isSameMonth(weekStart, weekEnd)) {
+                    return `${format(weekStart, 'd')} - ${format(weekEnd, "d 'de' MMMM", { locale: ptBR })}`;
+                } else {
+                    return `${format(weekStart, "d 'de' MMM", { locale: ptBR })} - ${format(weekEnd, "d 'de' MMM", { locale: ptBR })}`;
+                }
+            case 'month':
+                return format(currentDate, "MMMM 'de' yyyy", { locale: ptBR });
+            default:
+                return '';
+        }
+    };
+    
+    const renderCalendarView = () => {
+        const events = getFilteredEvents();
+        
+        switch (viewMode) {
+            case 'day':
+                return (
+                    <Box sx={{ mt: 3 }}>
+                        <Typography variant="h6" sx={{ mb: 2 }}>
+                            {events.length} evento(s) para hoje
+                        </Typography>
+                        <Stack spacing={3}>
+                            {events.map(event => (
+                                <Card 
+                                    key={event.id}
+                                    sx={{ 
+                                        bgcolor: 'background.paper',
+                                        border: '1px solid',
+                                        borderColor: 'divider',
+                                        borderLeft: '4px solid',
+                                        borderLeftColor: `${event.statusColor}.main`,
+                                        cursor: 'pointer',
+                                        transition: 'all 0.2s ease',
+                                        boxShadow: 1,
+                                        '&:hover': {
+                                            boxShadow: 2,
+                                            borderColor: `${event.statusColor}.main`
+                                        }
+                                    }}
+                                    onClick={() => handleEventClick(event)}
+                                >
+                                    <CardContent sx={{ p: 3 }}>
+                                        <Stack direction="row" alignItems="center" spacing={2}>
+                                            <Avatar sx={{ 
+                                                bgcolor: `${event.statusColor}.main`,
+                                                width: 40,
+                                                height: 40
+                                            }}>
+                                                {event.icon}
+                                            </Avatar>
+                                            <Box sx={{ flex: 1 }}>
+                                                <Typography variant="subtitle1" fontWeight={600} gutterBottom>
+                                                    {event.title}
+                                                </Typography>
+                                                <Typography variant="body2" color="text.secondary" gutterBottom>
+                                                    {event.subtitle}
+                                                </Typography>
+                                                <Typography variant="caption" color="text.secondary">
+                                                    {format(event.date, 'HH:mm')} • {event.type === 'reservation' ? 'Reserva' : 'Visita'}
+                                                </Typography>
+                                            </Box>
+                                            <Chip 
+                                                label={event.status}
+                                                variant="outlined"
+                                                size="small"
+                                                sx={{
+                                                    borderColor: `${event.statusColor}.main`,
+                                                    color: `${event.statusColor}.main`,
+                                                    bgcolor: `${event.statusColor}.50`
+                                                }}
+                                            />
+                                        </Stack>
+                                    </CardContent>
+                                </Card>
+                            ))}
+                            {events.length === 0 && (
+                                <Box sx={{ 
+                                    textAlign: 'center', 
+                                    py: 6, 
+                                    bgcolor: 'background.default',
+                                    borderRadius: 2,
+                                    border: '1px dashed',
+                                    borderColor: 'divider'
+                                }}>
+                                    <Typography variant="body2" color="text.secondary" gutterBottom>
+                                        Nenhum evento agendado para este dia
+                                    </Typography>
+                                    <Typography variant="caption" color="text.secondary">
+                                        Clique nos botões acima para criar uma nova reserva ou visita
+                                    </Typography>
+                                </Box>
+                            )}
+                        </Stack>
+                    </Box>
+                );
+                
+            case 'week':
+                const weekDays = eachDayOfInterval({
+                    start: startOfWeek(currentDate, { locale: ptBR }),
+                    end: endOfWeek(currentDate, { locale: ptBR })
+                });
+                
+                return (
+                    <Grid container spacing={2} sx={{ mt: 2 }}>
+                        {weekDays.map(day => {
+                            const dayEvents = events.filter(e => isSameDay(e.date, day));
+                            const isToday = isSameDay(day, new Date());
+                            
+                            return (
+                                <Grid item xs={12} sm={6} md={12/7} key={day.toISOString()}>
+                                    <Paper 
+                                        sx={{ 
+                                            p: 2,
+                                            minHeight: 220,
+                                            bgcolor: 'background.paper',
+                                            border: '1px solid',
+                                            borderColor: isToday ? 'primary.main' : 'divider',
+                                            borderWidth: isToday ? '2px' : '1px',
+                                            borderTop: isToday ? '4px solid' : '1px solid',
+                                            borderTopColor: isToday ? 'primary.main' : 'divider',
+                                            boxShadow: isToday ? 2 : 1,
+                                            transition: 'all 0.2s ease'
+                                        }}
+                                    >
+                                        <Typography 
+                                            variant="subtitle2" 
+                                            fontWeight={600}
+                                            color="text.secondary"
+                                            sx={{ mb: 0.5, textTransform: 'capitalize' }}
+                                        >
+                                            {format(day, 'EEE', { locale: ptBR })}
+                                        </Typography>
+                                        <Typography 
+                                            variant="h5" 
+                                            fontWeight={isToday ? 700 : 500}
+                                            color={isToday ? 'primary.main' : 'text.primary'}
+                                            sx={{ mb: 2 }}
+                                        >
+                                            {format(day, 'd')}
+                                        </Typography>
+                                        
+                                        <Stack spacing={1}>
+                                            {dayEvents.slice(0, 4).map(event => (
+                                                <Box
+                                                    key={event.id}
+                                                    sx={{
+                                                        p: 1,
+                                                        borderRadius: 1,
+                                                        bgcolor: 'background.default',
+                                                        border: '1px solid',
+                                                        borderColor: 'divider',
+                                                        borderLeft: '3px solid',
+                                                        borderLeftColor: `${event.statusColor}.main`,
+                                                        cursor: 'pointer',
+                                                        transition: 'all 0.2s ease',
+                                                        '&:hover': {
+                                                            borderColor: `${event.statusColor}.main`,
+                                                            bgcolor: `${event.statusColor}.50`,
+                                                            transform: 'translateX(2px)'
+                                                        }
+                                                    }}
+                                                    onClick={() => handleEventClick(event)}
+                                                >
+                                                    <Typography variant="caption" fontWeight={600} color={`${event.statusColor}.main`}>
+                                                        {format(event.date, 'HH:mm')}
+                                                    </Typography>
+                                                    <Typography variant="caption" display="block" noWrap fontWeight={500}>
+                                                        {event.title}
+                                                    </Typography>
+                                                </Box>
+                                            ))}
+                                            {dayEvents.length > 4 && (
+                                                <Typography variant="caption" color="text.secondary" sx={{ textAlign: 'center', py: 0.5 }}>
+                                                    +{dayEvents.length - 4} mais evento(s)
+                                                </Typography>
+                                            )}
+                                        </Stack>
+                                    </Paper>
+                                </Grid>
+                            );
+                        })}
+                    </Grid>
+                );
+                
+            case 'month':
+                const monthStart = startOfMonth(currentDate);
+                const monthEnd = endOfMonth(currentDate);
+                const calendarStart = startOfWeek(monthStart, { locale: ptBR });
+                const calendarEnd = endOfWeek(monthEnd, { locale: ptBR });
+                const calendarDays = eachDayOfInterval({ start: calendarStart, end: calendarEnd });
+                
+                return (
+                    <Box sx={{ mt: 3 }}>
+                        <Grid container>
+                            {['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'].map(day => (
+                                <Grid item xs={12/7} key={day}>
+                                    <Typography 
+                                        variant="subtitle2" 
+                                        fontWeight={600}
+                                        align="center"
+                                        sx={{ py: 1 }}
+                                    >
+                                        {day}
+                                    </Typography>
+                                </Grid>
+                            ))}
+                        </Grid>
+                        <Grid container>
+                            {calendarDays.map(day => {
+                                const dayEvents = events.filter(e => isSameDay(e.date, day));
+                                const isCurrentMonth = isSameMonth(day, currentDate);
+                                const isToday = isSameDay(day, new Date());
+                                
+                                return (
+                                    <Grid item xs={12/7} key={day.toISOString()}>
+                                        <Paper
+                                            variant="outlined"
+                                            sx={{
+                                                minHeight: 100,
+                                                p: 1,
+                                                m: 0.5,
+                                                opacity: isCurrentMonth ? 1 : 0.5,
+                                                bgcolor: isToday ? 'primary.50' : 'background.paper',
+                                                borderColor: isToday ? 'primary.main' : 'divider',
+                                                borderWidth: isToday ? 2 : 1,
+                                            }}
+                                        >
+                                            <Typography 
+                                                variant="body2" 
+                                                fontWeight={isToday ? 700 : 400}
+                                                color={isToday ? 'primary.main' : 'text.primary'}
+                                            >
+                                                {format(day, 'd')}
+                                            </Typography>
+                                            
+                                            {dayEvents.slice(0, 2).map(event => (
+                                                <Chip
+                                                    key={event.id}
+                                                    label={event.title}
+                                                    size="small"
+                                                    color={event.statusColor as any}
+                                                    sx={{ 
+                                                        mt: 0.5,
+                                                        width: '100%',
+                                                        height: 20,
+                                                        fontSize: '0.65rem',
+                                                        cursor: 'pointer'
+                                                    }}
+                                                    onClick={() => handleEventClick(event)}
+                                                />
+                                            ))}
+                                            {dayEvents.length > 2 && (
+                                                <Typography 
+                                                    variant="caption" 
+                                                    color="text.secondary"
+                                                    sx={{ display: 'block', mt: 0.5 }}
+                                                >
+                                                    +{dayEvents.length - 2}
+                                                </Typography>
+                                            )}
+                                        </Paper>
+                                    </Grid>
+                                );
+                            })}
+                        </Grid>
+                    </Box>
+                );
+        }
+    };
+    
+    if (loadingReservations || loadingVisits) {
         return (
             <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '60vh' }}>
-                <CircularProgress size={60} />
+                <CircularProgress />
             </Box>
         );
     }
-
-    if (reservationsError) {
-        return (
-            <Box sx={{ p: 3 }}>
-                <Alert severity="error" sx={{ mb: 2 }}>
-                    Erro ao carregar reservas: {reservationsError}
-                </Alert>
-            </Box>
-        );
-    }
-
-    const todayReservations = getTodayReservations();
-    const upcomingReservations = getUpcomingReservations();
-    const recentReservations = getRecentReservations();
-
+    
     return (
-        <Box sx={{ p: 3 }}>
+        <Box sx={{ width: '100%', ...scrollbarStyles.light }}>
             <DashboardBreadcrumb 
                 items={[
                     { label: 'Dashboard', href: '/dashboard' },
-                    { label: 'Agenda', href: '/dashboard/agenda' }
+                    { label: 'Agenda' }
                 ]} 
             />
-
-            {/* Header */}
+            
+            {/* Header Clean e Profissional */}
             <Box sx={{ 
-                display: 'flex', 
-                flexDirection: { xs: 'column', md: 'row' },
-                justifyContent: 'space-between', 
-                alignItems: { xs: 'flex-start', md: 'center' }, 
                 mb: 4,
-                gap: { xs: 2, md: 0 }
+                p: 3,
+                bgcolor: 'background.paper',
+                borderRadius: 2,
+                border: '1px solid',
+                borderColor: 'divider',
+                boxShadow: 1
             }}>
-                <Box>
-                    <Typography 
-                        variant="h4" 
-                        fontWeight={700} 
-                        sx={{ 
-                            display: 'flex', 
-                            alignItems: 'center', 
-                            gap: 2,
-                            fontSize: { xs: '1.5rem', sm: '2rem', md: '2.125rem' }
-                        }}
-                    >
-                        <CalendarToday sx={{ fontSize: { xs: 24, sm: 28, md: 32 }, color: 'primary.main' }} />
-                        Agenda de Reservas
-                    </Typography>
-                    <Typography variant="body1" color="text.secondary" sx={{ fontSize: { xs: '0.875rem', md: '1rem' } }}>
-                        Gerencie todas as suas reservas de forma organizada
-                    </Typography>
-                </Box>
-                <Box sx={{ display: 'flex', gap: 1, alignSelf: { xs: 'stretch', md: 'auto' } }}>
-                    <IconButton onClick={() => window.location.reload()}>
-                        <Refresh />
-                    </IconButton>
-                    <Button
-                        variant="contained"
-                        startIcon={<Add />}
-                        onClick={handleCreateReservation}
-                        sx={{ 
-                            borderRadius: 3,
-                            px: 3,
-                            py: 1.5,
-                            fontSize: '1rem',
-                            fontWeight: 600
-                        }}
-                    >
-                        Nova Reserva
-                    </Button>
-                </Box>
+                <Stack direction="row" justifyContent="space-between" alignItems="center" flexWrap="wrap" gap={2}>
+                    <Box>
+                        <Typography variant="h4" fontWeight={600} gutterBottom color="text.primary">
+                            Agenda
+                        </Typography>
+                        <Typography variant="body1" color="text.secondary">
+                            Gerencie reservas e visitas em um só lugar
+                        </Typography>
+                    </Box>
+                    
+                    <Stack direction="row" spacing={2}>
+                        <Button
+                            variant="contained"
+                            startIcon={<Add />}
+                            onClick={() => setShowEventoModal(true)}
+                            sx={{
+                                bgcolor: 'primary.main',
+                                boxShadow: 1,
+                                '&:hover': {
+                                    boxShadow: 2
+                                }
+                            }}
+                        >
+                            Nova Reserva
+                        </Button>
+                        <Button
+                            variant="outlined"
+                            startIcon={<DirectionsCar />}
+                            onClick={() => {
+                                console.log('Clicando em Nova Visita');
+                                setShowVisitDialog(true);
+                            }}
+                            sx={{
+                                borderColor: 'divider',
+                                color: 'text.primary',
+                                '&:hover': {
+                                    bgcolor: 'action.hover',
+                                    borderColor: 'primary.main'
+                                }
+                            }}
+                        >
+                            Nova Visita
+                        </Button>
+                    </Stack>
+                </Stack>
             </Box>
-
-            {/* Stats Cards */}
-            <Grid container spacing={{ xs: 2, md: 3 }} sx={{ mb: 4 }}>
-                <Grid item xs={6} sm={6} md={3}>
+            
+            {/* Cards de estatísticas clean */}
+            <Grid container spacing={3} sx={{ mb: 4 }}>
+                <Grid item xs={12} sm={6} md={3}>
                     <Card sx={{ 
-                        textAlign: 'center', 
-                        p: { xs: 2, md: 3 },
-                        background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-                        color: 'white'
+                        bgcolor: 'background.paper',
+                        border: '1px solid',
+                        borderColor: 'divider',
+                        boxShadow: 1,
+                        '&:hover': {
+                            boxShadow: 2,
+                            borderColor: 'primary.main'
+                        },
+                        transition: 'all 0.2s ease'
                     }}>
-                        <Typography variant="h3" sx={{ fontWeight: 700, mb: 1, fontSize: { xs: '1.75rem', md: '3rem' } }}>
-                            {todayReservations.length}
-                        </Typography>
-                        <Typography variant="body1" sx={{ opacity: 0.9, fontSize: { xs: '0.875rem', md: '1rem' } }}>
-                            Reservas Hoje
-                        </Typography>
+                        <CardContent sx={{ p: 3 }}>
+                            <Stack direction="row" justifyContent="space-between" alignItems="center">
+                                <Box>
+                                    <Typography variant="h4" fontWeight={600} color="primary.main">
+                                        {todayEvents.length}
+                                    </Typography>
+                                    <Typography variant="body2" color="text.secondary">
+                                        Eventos Hoje
+                                    </Typography>
+                                </Box>
+                                <CalendarToday sx={{ fontSize: 32, color: 'primary.main', opacity: 0.7 }} />
+                            </Stack>
+                        </CardContent>
                     </Card>
                 </Grid>
-                <Grid item xs={6} sm={6} md={3}>
+                
+                <Grid item xs={12} sm={6} md={3}>
                     <Card sx={{ 
-                        textAlign: 'center', 
-                        p: { xs: 2, md: 3 },
-                        background: 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)',
-                        color: 'white'
+                        bgcolor: 'background.paper',
+                        border: '1px solid',
+                        borderColor: 'divider',
+                        boxShadow: 1,
+                        '&:hover': {
+                            boxShadow: 2,
+                            borderColor: 'secondary.main'
+                        },
+                        transition: 'all 0.2s ease'
                     }}>
-                        <Typography variant="h3" sx={{ fontWeight: 700, mb: 1, fontSize: { xs: '1.75rem', md: '3rem' } }}>
-                            {upcomingReservations.length}
-                        </Typography>
-                        <Typography variant="body1" sx={{ opacity: 0.9, fontSize: { xs: '0.875rem', md: '1rem' } }}>
-                            Próximas Reservas
-                        </Typography>
+                        <CardContent sx={{ p: 3 }}>
+                            <Stack direction="row" justifyContent="space-between" alignItems="center">
+                                <Box>
+                                    <Typography variant="h4" fontWeight={600} color="secondary.main">
+                                        {weekEvents.length}
+                                    </Typography>
+                                    <Typography variant="body2" color="text.secondary">
+                                        Esta Semana
+                                    </Typography>
+                                </Box>
+                                <ViewWeek sx={{ fontSize: 32, color: 'secondary.main', opacity: 0.7 }} />
+                            </Stack>
+                        </CardContent>
                     </Card>
                 </Grid>
-                <Grid item xs={6} sm={6} md={3}>
+                
+                <Grid item xs={12} sm={6} md={3}>
                     <Card sx={{ 
-                        textAlign: 'center', 
-                        p: { xs: 2, md: 3 },
-                        background: 'linear-gradient(135deg, #4facfe 0%, #00f2fe 100%)',
-                        color: 'white'
+                        bgcolor: 'background.paper',
+                        border: '1px solid',
+                        borderColor: 'divider',
+                        boxShadow: 1,
+                        '&:hover': {
+                            boxShadow: 2,
+                            borderColor: 'info.main'
+                        },
+                        transition: 'all 0.2s ease'
                     }}>
-                        <Typography variant="h3" sx={{ fontWeight: 700, mb: 1, fontSize: { xs: '1.75rem', md: '3rem' } }}>
-                            {reservations?.length || 0}
-                        </Typography>
-                        <Typography variant="body1" sx={{ opacity: 0.9, fontSize: { xs: '0.875rem', md: '1rem' } }}>
-                            Total de Reservas
-                        </Typography>
+                        <CardContent sx={{ p: 3 }}>
+                            <Stack direction="row" justifyContent="space-between" alignItems="center">
+                                <Box>
+                                    <Typography variant="h4" fontWeight={600} color="info.main">
+                                        {monthEvents.length}
+                                    </Typography>
+                                    <Typography variant="body2" color="text.secondary">
+                                        Este Mês
+                                    </Typography>
+                                </Box>
+                                <CalendarMonth sx={{ fontSize: 32, color: 'info.main', opacity: 0.7 }} />
+                            </Stack>
+                        </CardContent>
                     </Card>
                 </Grid>
-                <Grid item xs={6} sm={6} md={3}>
+                
+                <Grid item xs={12} sm={6} md={3}>
                     <Card sx={{ 
-                        textAlign: 'center', 
-                        p: { xs: 2, md: 3 },
-                        background: 'linear-gradient(135deg, #fa709a 0%, #fee140 100%)',
-                        color: 'white'
+                        bgcolor: 'background.paper',
+                        border: '1px solid',
+                        borderColor: 'divider',
+                        boxShadow: 1,
+                        '&:hover': {
+                            boxShadow: 2,
+                            borderColor: 'success.main'
+                        },
+                        transition: 'all 0.2s ease'
                     }}>
-                        <Typography variant="h3" sx={{ fontWeight: 700, mb: 1, fontSize: { xs: '1.75rem', md: '3rem' } }}>
-                            {reservations?.filter(r => r.status === ReservationStatus.CONFIRMED).length || 0}
-                        </Typography>
-                        <Typography variant="body1" sx={{ opacity: 0.9, fontSize: { xs: '0.875rem', md: '1rem' } }}>
-                            Confirmadas
-                        </Typography>
+                        <CardContent sx={{ p: 3 }}>
+                            <Stack direction="row" justifyContent="space-between" alignItems="center">
+                                <Box>
+                                    <Typography variant="h4" fontWeight={600} color="success.main">
+                                        {allEvents.filter(e => e.type === 'visit').length}
+                                    </Typography>
+                                    <Typography variant="body2" color="text.secondary">
+                                        Total Visitas
+                                    </Typography>
+                                </Box>
+                                <DirectionsCar sx={{ fontSize: 32, color: 'success.main', opacity: 0.7 }} />
+                            </Stack>
+                        </CardContent>
                     </Card>
                 </Grid>
             </Grid>
-
-            {/* Conteúdo principal */}
-            <Grid container spacing={{ xs: 2, md: 4 }}>
-                {/* Reservas de hoje */}
-                <Grid item xs={12} lg={6}>
-                    <Typography variant="h5" fontWeight={600} sx={{ mb: 3, display: 'flex', alignItems: 'center', gap: 1 }}>
-                        <CalendarToday color="primary" />
-                        Reservas de Hoje
-                    </Typography>
+            
+            {/* Controles de visualização clean */}
+            <Paper sx={{ 
+                p: 3, 
+                mb: 3, 
+                bgcolor: 'background.paper',
+                border: '1px solid',
+                borderColor: 'divider',
+                boxShadow: 1
+            }}>
+                <Stack direction="row" justifyContent="space-between" alignItems="center" flexWrap="wrap" gap={2}>
+                    <Stack direction="row" alignItems="center" spacing={2}>
+                        <IconButton 
+                            onClick={() => handleNavigate('prev')}
+                            sx={{
+                                bgcolor: 'action.hover',
+                                '&:hover': {
+                                    bgcolor: 'action.selected'
+                                }
+                            }}
+                        >
+                            <NavigateBefore />
+                        </IconButton>
+                        
+                        <Typography variant="h6" fontWeight={500} sx={{ minWidth: 250, textAlign: 'center' }}>
+                            {getDateRangeText()}
+                        </Typography>
+                        
+                        <IconButton 
+                            onClick={() => handleNavigate('next')}
+                            sx={{
+                                bgcolor: 'action.hover',
+                                '&:hover': {
+                                    bgcolor: 'action.selected'
+                                }
+                            }}
+                        >
+                            <NavigateNext />
+                        </IconButton>
+                        
+                        <Button
+                            variant="outlined"
+                            size="small"
+                            onClick={() => setCurrentDate(new Date())}
+                            sx={{ 
+                                ml: 2,
+                                borderColor: 'divider',
+                                color: 'text.primary',
+                                '&:hover': {
+                                    bgcolor: 'action.hover',
+                                    borderColor: 'primary.main'
+                                }
+                            }}
+                        >
+                            Hoje
+                        </Button>
+                    </Stack>
                     
-                    {todayReservations.length === 0 ? (
-                        <Alert severity="info" sx={{ borderRadius: 2 }}>
-                            Nenhuma reserva para hoje.
-                        </Alert>
-                    ) : (
-                        <Box sx={{ maxHeight: '500px', overflow: 'auto', ...scrollbarStyles.hidden }}>
-                            {todayReservations.map(reservation => (
-                                <ReservationCard key={reservation.id} reservation={reservation} compact />
+                    <ToggleButtonGroup
+                        value={viewMode}
+                        exclusive
+                        onChange={(_, newMode) => newMode && setViewMode(newMode)}
+                        size="small"
+                        sx={{
+                            '& .MuiToggleButton-root': {
+                                border: '1px solid',
+                                borderColor: 'divider',
+                                color: 'text.secondary',
+                                '&:hover': {
+                                    bgcolor: 'action.hover',
+                                    borderColor: 'primary.main'
+                                },
+                                '&.Mui-selected': {
+                                    bgcolor: 'primary.main',
+                                    color: 'primary.contrastText',
+                                    borderColor: 'primary.main',
+                                    '&:hover': {
+                                        bgcolor: 'primary.dark'
+                                    }
+                                }
+                            }
+                        }}
+                    >
+                        <ToggleButton value="day">
+                            <ViewDay sx={{ mr: 1 }} />
+                            Dia
+                        </ToggleButton>
+                        <ToggleButton value="week">
+                            <ViewWeek sx={{ mr: 1 }} />
+                            Semana
+                        </ToggleButton>
+                        <ToggleButton value="month">
+                            <CalendarMonth sx={{ mr: 1 }} />
+                            Mês
+                        </ToggleButton>
+                    </ToggleButtonGroup>
+                </Stack>
+            </Paper>
+            
+            {/* Área de calendário clean */}
+            <Paper sx={{ 
+                p: 3,
+                bgcolor: 'background.paper',
+                border: '1px solid',
+                borderColor: 'divider',
+                boxShadow: 1
+            }}>
+                {renderCalendarView()}
+            </Paper>
+            
+            {/* Lista de eventos do dia (sidebar clean em desktop) */}
+            {!isMobile && (
+                <Paper sx={{ 
+                    position: 'fixed',
+                    right: 20,
+                    top: 100,
+                    width: 320,
+                    maxHeight: 'calc(100vh - 120px)',
+                    overflowY: 'auto',
+                    p: 3,
+                    bgcolor: 'background.paper',
+                    border: '1px solid',
+                    borderColor: 'divider',
+                    boxShadow: 2,
+                    ...scrollbarStyles.light
+                }}>
+                    <Typography variant="h6" fontWeight={600} gutterBottom color="text.primary">
+                        Próximos Eventos
+                    </Typography>
+                    <Divider sx={{ mb: 2, borderColor: 'divider' }} />
+                    <Stack spacing={2}>
+                        {allEvents
+                            .filter(e => e.date >= new Date())
+                            .slice(0, 6)
+                            .map(event => (
+                                <Box
+                                    key={event.id}
+                                    sx={{
+                                        p: 2,
+                                        borderRadius: 2,
+                                        bgcolor: 'background.default',
+                                        border: '1px solid',
+                                        borderColor: 'divider',
+                                        cursor: 'pointer',
+                                        transition: 'all 0.2s ease',
+                                        '&:hover': {
+                                            borderColor: `${event.statusColor}.main`,
+                                            bgcolor: `${event.statusColor}.50`,
+                                            transform: 'translateX(-2px)',
+                                            boxShadow: 1
+                                        }
+                                    }}
+                                    onClick={() => handleEventClick(event)}
+                                >
+                                    <Stack direction="row" spacing={2} alignItems="center">
+                                        <Avatar 
+                                            sx={{ 
+                                                width: 28, 
+                                                height: 28,
+                                                bgcolor: `${event.statusColor}.main`,
+                                                color: 'white'
+                                            }}
+                                        >
+                                            {event.icon}
+                                        </Avatar>
+                                        <Box sx={{ flex: 1, minWidth: 0 }}>
+                                            <Typography variant="subtitle2" fontWeight={500} noWrap>
+                                                {event.title}
+                                            </Typography>
+                                            <Typography variant="caption" color="text.secondary" display="block">
+                                                {format(event.date, "d 'de' MMM 'às' HH:mm", { locale: ptBR })}
+                                            </Typography>
+                                            <Chip 
+                                                label={event.type === 'reservation' ? 'Reserva' : 'Visita'}
+                                                size="small"
+                                                variant="outlined"
+                                                sx={{
+                                                    mt: 0.5,
+                                                    height: 20,
+                                                    fontSize: '0.7rem',
+                                                    borderColor: `${event.statusColor}.main`,
+                                                    color: `${event.statusColor}.main`
+                                                }}
+                                            />
+                                        </Box>
+                                    </Stack>
+                                </Box>
                             ))}
-                        </Box>
-                    )}
-                </Grid>
-
-                {/* Próximas reservas */}
-                <Grid item xs={12} lg={6}>
-                    <Typography variant="h5" fontWeight={600} sx={{ mb: 3, display: 'flex', alignItems: 'center', gap: 1 }}>
-                        <AccessTime color="primary" />
-                        Próximas Reservas
-                    </Typography>
-                    
-                    {upcomingReservations.length === 0 ? (
-                        <Alert severity="info" sx={{ borderRadius: 2 }}>
-                            Nenhuma reserva próxima agendada.
-                        </Alert>
-                    ) : (
-                        <Box sx={{ maxHeight: '500px', overflow: 'auto', ...scrollbarStyles.hidden }}>
-                            {upcomingReservations.map(reservation => (
-                                <ReservationCard key={reservation.id} reservation={reservation} compact />
-                            ))}
-                        </Box>
-                    )}
-                </Grid>
-
-                {/* Visitas Agendadas */}
-                <Grid item xs={12}>
-                    <Typography variant="h5" fontWeight={600} sx={{ mb: 3, display: 'flex', alignItems: 'center', gap: 1 }}>
-                        <CalendarToday color="secondary" />
-                        Visitas Agendadas ({(todayVisits?.length || 0) + (upcomingVisits?.length || 0)})
-                    </Typography>
-                    
-                    {!todayVisits?.length && !upcomingVisits?.length ? (
-                        <Alert severity="info" sx={{ borderRadius: 2 }}>
-                            Nenhuma visita agendada.
-                        </Alert>
-                    ) : (
-                        <Grid container spacing={2}>
-                            {/* Visitas de hoje */}
-                            {todayVisits && todayVisits.length > 0 && (
-                                <Grid item xs={12} md={6}>
-                                    <Typography variant="h6" sx={{ mb: 2, color: 'secondary.main' }}>
-                                        Hoje
-                                    </Typography>
-                                    {todayVisits.map((visit) => (
-                                        <Card key={visit.id} sx={{ mb: 2, border: '1px solid', borderColor: 'secondary.light' }}>
-                                            <CardContent>
-                                                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1 }}>
-                                                    <Typography variant="subtitle1" fontWeight={600}>
-                                                        {visit.propertyName}
-                                                    </Typography>
-                                                    <Chip 
-                                                        label={VISIT_STATUS_LABELS[visit.status]} 
-                                                        size="small"
-                                                        color="secondary"
-                                                    />
-                                                </Box>
-                                                <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-                                                    <Person sx={{ fontSize: 16, mr: 0.5, verticalAlign: 'middle' }} />
-                                                    {visit.clientName} - {visit.clientPhone}
-                                                </Typography>
-                                                <Typography variant="body2" color="text.secondary">
-                                                    <AccessTime sx={{ fontSize: 16, mr: 0.5, verticalAlign: 'middle' }} />
-                                                    {visit.scheduledTime}
-                                                </Typography>
-                                                {visit.notes && (
-                                                    <Typography variant="caption" sx={{ mt: 1, display: 'block', fontStyle: 'italic' }}>
-                                                        {visit.notes}
-                                                    </Typography>
-                                                )}
-                                            </CardContent>
-                                        </Card>
-                                    ))}
-                                </Grid>
-                            )}
-                            
-                            {/* Próximas visitas */}
-                            {upcomingVisits && upcomingVisits.length > 0 && (
-                                <Grid item xs={12} md={6}>
-                                    <Typography variant="h6" sx={{ mb: 2, color: 'secondary.main' }}>
-                                        Próximos Dias
-                                    </Typography>
-                                    {upcomingVisits.map((visit) => (
-                                        <Card key={visit.id} sx={{ mb: 2, border: '1px solid', borderColor: 'secondary.light' }}>
-                                            <CardContent>
-                                                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1 }}>
-                                                    <Typography variant="subtitle1" fontWeight={600}>
-                                                        {visit.propertyName}
-                                                    </Typography>
-                                                    <Chip 
-                                                        label={format(new Date(visit.scheduledDate), 'dd/MM', { locale: ptBR })} 
-                                                        size="small"
-                                                        variant="outlined"
-                                                        color="secondary"
-                                                    />
-                                                </Box>
-                                                <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-                                                    <Person sx={{ fontSize: 16, mr: 0.5, verticalAlign: 'middle' }} />
-                                                    {visit.clientName} - {visit.clientPhone}
-                                                </Typography>
-                                                <Typography variant="body2" color="text.secondary">
-                                                    <AccessTime sx={{ fontSize: 16, mr: 0.5, verticalAlign: 'middle' }} />
-                                                    {format(new Date(visit.scheduledDate), 'EEEE', { locale: ptBR })} às {visit.scheduledTime}
-                                                </Typography>
-                                                {visit.notes && (
-                                                    <Typography variant="caption" sx={{ mt: 1, display: 'block', fontStyle: 'italic' }}>
-                                                        {visit.notes}
-                                                    </Typography>
-                                                )}
-                                            </CardContent>
-                                        </Card>
-                                    ))}
-                                </Grid>
-                            )}
-                        </Grid>
-                    )}
-                </Grid>
-
-                {/* Todas as reservas */}
-                <Grid item xs={12}>
-                    <Typography variant="h5" fontWeight={600} sx={{ mb: 3, display: 'flex', alignItems: 'center', gap: 1 }}>
-                        <Home color="primary" />
-                        Todas as Reservas ({reservations?.length || 0})
-                    </Typography>
-                    
-                    {recentReservations.length === 0 ? (
-                        <Alert severity="info" sx={{ borderRadius: 2 }}>
-                            Nenhuma reserva cadastrada ainda.
-                            <Button 
-                                variant="outlined" 
-                                startIcon={<Add />}
-                                onClick={handleCreateReservation}
-                                sx={{ ml: 2 }}
-                            >
-                                Criar primeira reserva
-                            </Button>
-                        </Alert>
-                    ) : (
-                        <Box>
-                            {recentReservations.map(reservation => (
-                                <ReservationCard key={reservation.id} reservation={reservation} />
-                            ))}
-                        </Box>
-                    )}
-                </Grid>
-            </Grid>
-
-            {/* Modal para criar/editar reservas */}
+                        {allEvents.filter(e => e.date >= new Date()).length === 0 && (
+                            <Box sx={{ textAlign: 'center', py: 3 }}>
+                                <Typography variant="body2" color="text.secondary">
+                                    Nenhum evento próximo
+                                </Typography>
+                            </Box>
+                        )}
+                    </Stack>
+                </Paper>
+            )}
+            
+            {/* Diálogos */}
             <EventoModal
-                isOpen={showEventoModal}
-                onClose={handleCloseReservationModal}
-                onSave={handleSaveReservation}
-                reservation={reservaSelecionada}
-                properties={properties}
-                clients={clients}
+                open={showEventoModal}
+                onClose={() => setShowEventoModal(false)}
+                reservaSelecionada={reservaSelecionada}
             />
-
-            {/* Dialog para visualizar reserva */}
-            <ViewReservationDialog
-                open={showReservationDialog}
-                onClose={() => setShowReservationDialog(false)}
-                reservation={selectedReservation}
-                property={selectedReservation ? properties?.find(p => p.id === selectedReservation.propertyId) : undefined}
-                client={selectedReservation ? clients?.find(c => c.id === selectedReservation.clientId) : undefined}
-                onEdit={handleEditFromDialog}
-                onStatusChange={handleStatusChange}
+            
+            <CreateVisitDialog
+                open={showVisitDialog}
+                onClose={() => {
+                    console.log('Fechando dialog de visita');
+                    setShowVisitDialog(false);
+                }}
+                onSuccess={() => {
+                    console.log('Visita criada com sucesso');
+                    setShowVisitDialog(false);
+                    // Recarregar visitas
+                    window.location.reload();
+                }}
             />
+            
+            {reservaSelecionada && (
+                <ViewReservationDialog
+                    open={showReservationDialog}
+                    onClose={() => {
+                        setShowReservationDialog(false);
+                        setReservaSelecionada(null);
+                    }}
+                    reservation={reservaSelecionada}
+                />
+            )}
         </Box>
     );
 }

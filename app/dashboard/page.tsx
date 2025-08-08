@@ -829,7 +829,7 @@ export default function DashboardPage() {
                       transform: 'scale(0.98)',
                     }
                   }}
-                  onClick={() => window.location.href = '/dashboard/agenda/visitas'}
+                  onClick={() => window.location.href = '/dashboard/agenda'}
                 />
               </Box>
             </CardContent>

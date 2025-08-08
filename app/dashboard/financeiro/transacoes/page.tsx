@@ -211,7 +211,10 @@ export default function TransactionsPage() {
   };
 
   const handleCreateTransaction = async (data: any) => {
-    if (!services) return;
+    if (!services) {
+      alert('Serviços não disponíveis. Por favor, tente novamente.');
+      return;
+    }
     
     try {
       // Map form status to valid MovementStatus
@@ -242,11 +245,16 @@ export default function TransactionsPage() {
       setSelectedClient(null);
       setSelectedReservation(null);
       setNewTransactionOpen(false);
+      setActiveStep(0); // Reset step to initial
       
       // Reload transactions
       await loadTransactions();
+      
+      // Show success feedback
+      alert('Transação criada com sucesso!');
     } catch (error) {
       console.error('Error creating transaction:', error);
+      alert(`Erro ao criar transação: ${error instanceof Error ? error.message : 'Erro desconhecido'}`);
     }
   };
 

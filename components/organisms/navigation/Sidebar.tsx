@@ -76,18 +76,6 @@ const menuItems = [
     href: '/dashboard/agenda',
     icon: <Event />,
     badge: null,
-    submenu: [
-      {
-        text: 'Visão Geral',
-        href: '/dashboard/agenda',
-        icon: <Event />,
-      },
-      {
-        text: 'Visitas',
-        href: '/dashboard/agenda/visitas',
-        icon: <Schedule />,
-      },
-    ],
   },
   {
     text: 'Conversas',
@@ -249,7 +237,7 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
 
       <Divider sx={{ borderColor: 'rgba(255, 255, 255, 0.08)' }} />
 
-      <Box sx={{ flex: 1, overflowY: 'auto', py: 2, ...scrollbarStyles.sidebar }}>
+      <Box sx={{ flex: 1, overflowY: 'auto', py: 2, ...scrollbarStyles.darkSidebar }}>
         <List sx={{ px: { xs: 1.5, md: 2 } }}>
           {menuItems.map((item) => (
             <Box key={item.href}>
