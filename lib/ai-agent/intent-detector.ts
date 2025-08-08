@@ -213,23 +213,32 @@ export class IntentDetector {
       }
     }
 
-    // 3. SE NÃO TEM PROPRIEDADES - detectar busca
+    // 3. SE NÃO TEM PROPRIEDADES - NÃO EXECUTAR BUSCA SEM INFORMAÇÕES MÍNIMAS
     if (conversationState.lastPropertyIds.length === 0) {
       if (IntentDetector.isSearchRequest(lowerMessage)) {
         const searchCriteria = IntentDetector.extractSearchCriteria(message);
+        
+        // ❌ NÃO executar busca sem informações mínimas - deixar GPT perguntar primeiro
+        if (!searchCriteria.location && !searchCriteria.checkIn && !searchCriteria.checkOut) {
+          logger.info('🚫 [IntentDetector] Busca sem informações mínimas - deixando GPT perguntar', {
+            searchCriteria,
+            message: message.substring(0, 50)
+          });
+          return null; // Deixar GPT perguntar informações primeiro
+        }
         
         return {
           function: 'search_properties',
           confidence: 0.85,
           args: {
-            location: searchCriteria.location || 'Brasil',
-            guests: searchCriteria.guests || 2,
-            checkIn: searchCriteria.checkIn || IntentDetector.getDefaultCheckIn(),
-            checkOut: searchCriteria.checkOut || IntentDetector.getDefaultCheckOut(),
+            location: searchCriteria.location,
+            guests: searchCriteria.guests,
+            checkIn: searchCriteria.checkIn,
+            checkOut: searchCriteria.checkOut,
             clientPhone
           },
           shouldForceExecution: true,
-          reason: 'Primeira busca ou nova busca necessária'
+          reason: 'Busca com informações suficientes fornecidas pelo usuário'
         };
       }
     }
@@ -325,14 +334,15 @@ export class IntentDetector {
   }
 
   private static isSearchRequest(text: string): boolean {
-    const searchKeywords = [
-      'quero alugar', 'procuro', 'busco', 'preciso',
-      'apartamento', 'casa', 'imóvel', 'propriedade',
-      'temporada', 'hospedagem', 'para alugar',
-      'disponível', 'opções'
+    // Apenas buscar se for uma mensagem muito específica sobre busca
+    const specificSearchKeywords = [
+      'buscar propriedades', 'procurar imóveis', 'encontrar apartamentos',
+      'ver opções disponíveis', 'mostrar propriedades', 'listar imóveis'
     ];
     
-    return searchKeywords.some(keyword => text.includes(keyword));
+    // Se mensagem contém busca específica -> executar busca
+    // Se é genérica como "quero alugar um apto" -> deixar GPT perguntar informações
+    return specificSearchKeywords.some(keyword => text.includes(keyword));
   }
 
   private static isVisitAvailabilityRequest(text: string): boolean {

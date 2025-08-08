@@ -238,6 +238,7 @@ export default function TestePage() {
           },
           body: JSON.stringify({
             clientPhone: session.phone,
+            tenantId: user?.tenantId || 'default-tenant'
           }),
         });
       } catch (error) {

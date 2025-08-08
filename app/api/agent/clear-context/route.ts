@@ -5,6 +5,11 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const { clientPhone, tenantId } = body;
 
+    console.log('🧹 [ClearContext] Limpando contexto:', {
+      clientPhone: clientPhone?.substring(0, 6) + '***',
+      tenantId: tenantId?.substring(0, 8) + '***'
+    });
+
     if (!clientPhone) {
       return NextResponse.json(
         { success: false, error: 'clientPhone is required' },
@@ -13,14 +18,26 @@ export async function POST(request: NextRequest) {
     }
 
     // Import Sofia agent
-    const { sofiaAgent } = await import('@/lib/ai-agent/sofia-agent');
-    const { conversationContextService } = await import('@/lib/services/conversation-context-service');
+    const { SofiaAgent } = await import('@/lib/ai-agent/sofia-agent');
+    const ConversationStateManager = (await import('@/lib/ai-agent/conversation-state')).default;
+    const { loopPrevention } = await import('@/lib/ai-agent/loop-prevention');
     
-    // Clear client context from Sofia and conversation service
-    await sofiaAgent.clearClientContext(
-      clientPhone, 
-      tenantId || 'default-tenant'
-    );
+    // Clear from all services
+    const sofiaAgent = SofiaAgent.getInstance();
+    
+    // Clear conversation state
+    ConversationStateManager.clearState(clientPhone, tenantId || 'default-tenant');
+    
+    // Clear loop prevention
+    loopPrevention.clearClientHistory(clientPhone);
+    
+    // Clear Sofia's summary cache
+    if (sofiaAgent.summaryCache) {
+      const cacheKey = `${tenantId || 'default-tenant'}:${clientPhone}`;
+      sofiaAgent.summaryCache.delete(cacheKey);
+    }
+    
+    console.log('✅ [ClearContext] Contexto limpo com sucesso');
 
     return NextResponse.json({
       success: true,

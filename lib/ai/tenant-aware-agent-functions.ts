@@ -1443,12 +1443,21 @@ export async function classifyLead(args: ClassifyLeadArgs, tenantId: string): Pr
   } catch (error) {
     logger.error('❌ [TenantAgent] Erro em classify_lead', {
       tenantId,
-      error: error instanceof Error ? error.message : 'Unknown error'
+      clientPhone: args.clientPhone?.substring(0, 6) + '***',
+      interactionType: args.interactionType,
+      error: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined
     });
 
     return {
       success: false,
       error: 'Erro ao classificar lead',
+      data: {
+        clientPhone: args.clientPhone,
+        interactionType: args.interactionType,
+        processed: false,
+        errorDetails: error instanceof Error ? error.message : 'Unknown error'
+      },
       tenantId
     };
   }
