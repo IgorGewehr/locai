@@ -225,8 +225,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     let isMounted = true;
     let unsubscribe: (() => void) | null = null;
     
-    logger.info('🔐 [Auth] Inicializando listener de autenticação', { pathname });
-    
     const handleAuthenticatedUser = async (authUser: any) => {
       if (!isMounted) return;
       
@@ -293,13 +291,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         
         if (isMounted) {
           setUser(null);
-          // Tentar novamente após um erro
-          setTimeout(() => {
-            if (isMounted && authUser) {
-              logger.info('🔄 [Auth] Tentando reprocessar usuário após erro');
-              processingRef.current = false; // Liberar para nova tentativa
-            }
-          }, 1000);
         }
       } finally {
         processingRef.current = false;
@@ -309,14 +300,11 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     const handleUnauthenticatedUser = () => {
       if (!isMounted) return;
       
-      logger.info('🚫 [Auth] Usuário não autenticado');
-      
       setUser(null);
       invalidateUserCache();
       
       const authRedirect = shouldRedirectToAuth(null, pathname);
       if (authRedirect) {
-        logger.info('🔄 [Auth] Redirecionando usuário não autenticado', { reason: authRedirect.reason });
         router.push(authRedirect.redirect);
       }
     };
@@ -324,12 +312,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     try {
       unsubscribe = onAuthStateChanged(auth, async (authUser) => {
         if (!isMounted) return;
-        
-        logger.info('🔔 [Auth] onAuthStateChanged disparado', { 
-          hasUser: !!authUser,
-          uid: authUser?.uid,
-          processing: processingRef.current 
-        });
         
         try {
           if (authUser) {
@@ -389,8 +371,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     if (!user?.uid) return;
     
     try {
-      logger.info('🔄 [Auth] Recarregando dados do usuário', { forceRefresh });
-      
       if (forceRefresh) {
         invalidateUserCache(user.uid);
       }
@@ -400,8 +380,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       
       const userData = await getCachedUser(user.uid, () => getUserOrCreateData(authUser));
       setUser(userData);
-      
-      logger.info('✅ [Auth] Dados do usuário recarregados');
     } catch (error) {
       logger.error('❌ [Auth] Erro ao recarregar usuário', {
         error: error instanceof Error ? error.message : 'Unknown error'
@@ -423,21 +401,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       
       const result = await signInWithEmailAndPassword(auth, email, password);
       
-      logger.info('✅ [Auth] Login realizado com sucesso', { 
-        uid: result.user.uid,
-        email: result.user.email 
-      });
-      
-      // Forçar reprocessamento do usuário após login
-      logger.info('🔄 [Auth] Forçando reprocessamento do usuário logado');
-      
-      // O listener onAuthStateChanged deveria processar automaticamente, 
-      // mas vamos tentar forçar se necessário
-      setTimeout(() => {
-        if (result.user && mountedRef.current) {
-          logger.info('🔧 [Auth] Timeout - verificando se usuário foi processado');
-        }
-      }, 2000);
+      // O listener onAuthStateChanged vai processar o usuário automaticamente
     } catch (error: any) {
       logger.error('❌ [Auth] Erro no login', {
         email,
