@@ -1,8 +1,29 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { whatsappSessionManager } from '@/lib/whatsapp/session-manager';
 import { getTenantId } from '@/lib/utils/tenant';
 import { verifyAuth } from '@/lib/utils/auth';
 import { z } from 'zod';
+
+// Use mock version for production, full version for development
+const getSessionManager = async () => {
+  const isProduction = process.env.NODE_ENV === 'production';
+  const isServerless = !!(process.env.NETLIFY || process.env.VERCEL);
+  
+  if (isProduction || isServerless) {
+    console.log('🚀 Using WhatsAppSessionManagerMock for production/serverless');
+    const { whatsappSessionManager } = await import('@/lib/whatsapp/session-manager-mock');
+    return whatsappSessionManager;
+  } else {
+    console.log('🚀 Using full WhatsAppSessionManager for development');
+    try {
+      const { whatsappSessionManager } = await import('@/lib/whatsapp/session-manager');
+      return whatsappSessionManager;
+    } catch (error) {
+      console.log('⚠️ Full session manager not available, using mock');
+      const { whatsappSessionManager } = await import('@/lib/whatsapp/session-manager-mock');
+      return whatsappSessionManager;
+    }
+  }
+};
 
 // Simple cache to prevent excessive API calls
 const statusCache = new Map<string, { data: any; timestamp: number }>();
@@ -27,6 +48,7 @@ export async function GET(request: NextRequest) {
       });
     }
     
+    const whatsappSessionManager = await getSessionManager();
     const status = await whatsappSessionManager.getSessionStatus(tenantId);
     
     // Cache the result
@@ -60,6 +82,7 @@ export async function POST(request: NextRequest) {
     }
 
     const tenantId = user.tenantId || user.uid;
+    const whatsappSessionManager = await getSessionManager();
     
     console.log(`🚀 [${isProduction ? 'PROD' : 'DEV'}] Initializing WhatsApp session for tenant:`, tenantId);
     console.log(`🔍 Session manager available:`, !!whatsappSessionManager);
@@ -153,6 +176,7 @@ export async function DELETE(request: NextRequest) {
     }
 
     const tenantId = user.tenantId || user.uid;
+    const whatsappSessionManager = await getSessionManager();
     
     await whatsappSessionManager.disconnectSession(tenantId);
 
