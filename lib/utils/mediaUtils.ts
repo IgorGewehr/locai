@@ -20,13 +20,13 @@ export function generateUniqueId(): string {
   return `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
 }
 
-export function createPhotoFromFile(file: File, url: string, order: number): PropertyPhoto {
+export function createPhotoFromFile(file: File, url: string, order: number, isMain: boolean = false): PropertyPhoto {
   return {
     id: generateUniqueId(),
     url,
     filename: file.name,
     order,
-    isMain: order === 0,
+    isMain,
     caption: '',
   }
 }

@@ -185,8 +185,6 @@ export class WhatsAppSessionManager extends EventEmitter {
       
       if (qr) {
         this.logger.info(`🔲 QR Code generated for tenant ${tenantId}`);
-        this.logger.info(`📄 QR Code length: ${qr.length} characters`);
-        this.logger.info(`🔍 QR Code content preview: ${qr.substring(0, 50)}...`);
         
         try {
           // Import QRCode library dynamically
@@ -195,19 +193,15 @@ export class WhatsAppSessionManager extends EventEmitter {
           // Generate QR code as data URL with optimized settings
           const qrDataUrl = await QRCode.toDataURL(qr, {
             type: 'image/png',
-            quality: 0.8, // Reduced for faster generation
-            margin: 2, // Better scanning margin
+            quality: 0.8,
+            margin: 2,
             color: {
               dark: '#000000',
               light: '#FFFFFF'
             },
-            width: 280, // Optimal size for scanning
-            errorCorrectionLevel: 'M' // Medium error correction for better performance
+            width: 280,
+            errorCorrectionLevel: 'M'
           });
-          
-          this.logger.info(`🎨 QR Code data URL generated successfully`);
-          this.logger.info(`📈 Data URL length: ${qrDataUrl.length}`);
-          this.logger.info(`🎯 Data URL prefix: ${qrDataUrl.substring(0, 30)}...`);
           
           session.qrCode = qrDataUrl;
           session.status = 'qr';
@@ -217,13 +211,10 @@ export class WhatsAppSessionManager extends EventEmitter {
           this.emit('status', tenantId, 'qr');
           await this.updateSessionStatus(tenantId, 'qr', qrDataUrl);
           
-          this.logger.info(`✅ QR Code saved and emitted for tenant ${tenantId}`);
         } catch (error) {
-          this.logger.error(`❌ Error generating QR code data URL:`, error);
-          this.logger.error(`🛠️ Error details:`, error instanceof Error ? error.message : String(error));
+          this.logger.error(`❌ Error generating QR code:`, error instanceof Error ? error.message : 'Unknown error');
           
           // Fallback: save raw QR string
-          this.logger.info(`🔄 Using raw QR string as fallback`);
           session.qrCode = qr;
           session.status = 'qr';
           session.lastActivity = new Date();
@@ -321,15 +312,10 @@ export class WhatsAppSessionManager extends EventEmitter {
 
   private async processIncomingMessage(tenantId: string, message: proto.IWebMessageInfo) {
     try {
-      this.logger.info(`📨 Processing incoming message for tenant ${tenantId}`);
-      this.logger.info(`Message from: ${message.key.remoteJid}`);
-      this.logger.info(`Message content: ${message.message?.conversation || message.message?.extendedTextMessage?.text || 'No text content'}`);
-      
       // Check if message should be processed (not from groups)
       const { shouldProcessMessage } = await import('@/lib/utils/whatsapp-utils');
       
       if (!shouldProcessMessage(message.key.remoteJid || '')) {
-        this.logger.info(`🚫 Ignoring message from: ${message.key.remoteJid} (group or invalid)`);
         return;
       }
       
@@ -366,57 +352,44 @@ export class WhatsAppSessionManager extends EventEmitter {
         }],
       };
       
-      this.logger.info(`🔄 Calling message handler with formatted message`);
       await handler.handleWebhook(formattedMessage);
-      this.logger.info(`✅ Message processed successfully`);
     } catch (error) {
-      this.logger.error(`❌ Error processing message for tenant ${tenantId}:`, error);
-      this.logger.error(`Error stack:`, error instanceof Error ? error.stack : 'No stack trace');
+      this.logger.error(`❌ Error processing message for tenant ${tenantId}:`, error instanceof Error ? error.message : 'Unknown error');
     }
   }
 
   async sendMessage(tenantId: string, phoneNumber: string, message: string, mediaUrl?: string): Promise<boolean> {
-    this.logger.info(`📤 Attempting to send message for tenant ${tenantId} to ${phoneNumber}`);
-    
     const session = this.sessions.get(tenantId);
     if (!session || !session.socket || session.status !== 'connected') {
-      this.logger.error(`❌ WhatsApp not connected for tenant ${tenantId}. Status: ${session?.status}`);
       throw new Error('WhatsApp not connected');
     }
 
     try {
       const jid = phoneNumber.includes('@') ? phoneNumber : `${phoneNumber}@s.whatsapp.net`;
-      this.logger.info(`📱 Sending to JID: ${jid}`);
       
       let content: WAMessageContent;
       
       if (mediaUrl) {
         // Handle media messages
-        this.logger.info(`📥 Fetching media from: ${mediaUrl}`);
         const response = await fetch(mediaUrl);
         
         if (!response.ok) {
-          this.logger.error(`❌ Failed to fetch media: ${response.status} ${response.statusText}`);
           throw new Error(`Failed to fetch media: ${response.status} ${response.statusText}`);
         }
         
         const buffer = await response.arrayBuffer();
-        this.logger.info(`📁 Downloaded media size: ${buffer.byteLength} bytes`);
         
         if (mediaUrl.includes('.jpg') || mediaUrl.includes('.jpeg') || mediaUrl.includes('.png') || mediaUrl.includes('.webp')) {
-          this.logger.info(`📸 Sending as image`);
           content = {
             image: Buffer.from(buffer),
             caption: message,
           } as any;
         } else if (mediaUrl.includes('.mp4') || mediaUrl.includes('.mov')) {
-          this.logger.info(`🎥 Sending as video`);
           content = {
             video: Buffer.from(buffer),
             caption: message,
           } as any;
         } else {
-          this.logger.info(`📄 Sending as document`);
           content = {
             document: Buffer.from(buffer),
             caption: message,
@@ -429,13 +402,11 @@ export class WhatsAppSessionManager extends EventEmitter {
         } as any;
       }
       
-      this.logger.info(`📨 Sending message content:`, content);
       await session.socket.sendMessage(jid, content as any);
       session.lastActivity = new Date();
-      this.logger.info(`✅ Message sent successfully!`);
       return true;
     } catch (error) {
-      this.logger.error(`❌ Failed to send message for tenant ${tenantId}:`, error);
+      this.logger.error(`❌ Failed to send message for tenant ${tenantId}:`, error instanceof Error ? error.message : 'Unknown error');
       throw error;
     }
   }
@@ -568,13 +539,6 @@ export class WhatsAppSessionManager extends EventEmitter {
         whatsappSettings.qrCode = null;
       }
       
-      this.logger.info(`💾 Updating session status in Firebase:`, {
-        tenantId,
-        status,
-        hasQrCode: !!qrCode,
-        qrCodeLength: qrCode?.length
-      });
-      
       // Update tenant-scoped settings
       await setDoc(settingsRef, whatsappSettings, { merge: true });
       
@@ -585,11 +549,8 @@ export class WhatsAppSessionManager extends EventEmitter {
         whatsapp: whatsappSettings,
       }, { merge: true });
       
-      this.logger.info(`✅ Session status updated in Firebase for tenant ${tenantId}`);
-      
     } catch (error) {
-      this.logger.error(`❌ Error updating session status for tenant ${tenantId}:`, error);
-      this.logger.error(`🛠️ Error details:`, error instanceof Error ? error.message : String(error));
+      this.logger.error(`❌ Error updating session status for tenant ${tenantId}:`, error instanceof Error ? error.message : 'Unknown error');
     }
   }
 

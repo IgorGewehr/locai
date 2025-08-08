@@ -65,18 +65,36 @@ export default function PropertyMediaUpload() {
     
     try {
       clearError();
+      
+      // Create immediate preview with blob URLs
+      const previewPhotos: PropertyPhoto[] = acceptedFiles.map((file, index) => ({
+        id: `temp-${Date.now()}-${index}`,
+        url: URL.createObjectURL(file), // Blob URL for immediate preview
+        filename: file.name,
+        order: photos.length + index,
+        isMain: photos.length === 0 && index === 0, // First photo is main
+        caption: '',
+      }));
+
+      // Add photos with preview URLs immediately
+      setValue('photos', [...photos, ...previewPhotos]);
+      
+      // Upload files in background and replace URLs
       const uploadResults = await uploadFiles(acceptedFiles, 'image');
       
-      const newPhotos: PropertyPhoto[] = uploadResults.map((result, index) => 
-        createPhotoFromFile(
-          acceptedFiles[index], 
-          result.url, 
-          photos.length + index
-        )
-      );
+      // Replace blob URLs with Firebase URLs
+      const finalPhotos: PropertyPhoto[] = uploadResults.map((result, index) => ({
+        ...previewPhotos[index],
+        url: result.url, // Replace with Firebase URL
+      }));
 
-      setValue('photos', [...photos, ...newPhotos]);
+      // Update with final URLs
+      const updatedPhotos = [...photos, ...finalPhotos];
+      setValue('photos', updatedPhotos);
+      
     } catch (error) {
+      // Remove preview photos on error
+      setValue('photos', photos);
       console.error('Error uploading photos:', error);
     }
   }, [photos, setValue, uploadFiles, clearError]);
@@ -86,18 +104,37 @@ export default function PropertyMediaUpload() {
     
     try {
       clearError();
+      
+      // Create immediate preview with blob URLs
+      const previewVideos: PropertyVideo[] = acceptedFiles.map((file, index) => ({
+        id: `temp-${Date.now()}-${index}`,
+        url: URL.createObjectURL(file), // Blob URL for immediate preview
+        filename: file.name,
+        title: file.name.replace(/\.[^/.]+$/, ''), // Remove extension
+        order: videos.length + index,
+        duration: 0,
+        thumbnail: '',
+      }));
+
+      // Add videos with preview URLs immediately
+      setValue('videos', [...videos, ...previewVideos]);
+      
+      // Upload files in background and replace URLs
       const uploadResults = await uploadFiles(acceptedFiles, 'video');
       
-      const newVideos: PropertyVideo[] = uploadResults.map((result, index) => 
-        createVideoFromFile(
-          acceptedFiles[index], 
-          result.url, 
-          videos.length + index
-        )
-      );
+      // Replace blob URLs with Firebase URLs
+      const finalVideos: PropertyVideo[] = uploadResults.map((result, index) => ({
+        ...previewVideos[index],
+        url: result.url, // Replace with Firebase URL
+      }));
 
-      setValue('videos', [...videos, ...newVideos]);
+      // Update with final URLs
+      const updatedVideos = [...videos, ...finalVideos];
+      setValue('videos', updatedVideos);
+      
     } catch (error) {
+      // Remove preview videos on error
+      setValue('videos', videos);
       console.error('Error uploading videos:', error);
     }
   }, [videos, setValue, uploadFiles, clearError]);
