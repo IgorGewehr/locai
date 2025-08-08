@@ -118,9 +118,46 @@ export class PropertyService {
   }
 
   async create(property: Omit<Property, 'id'>, tenantId: string): Promise<string> {
-    const tenantPropertyService = this.getTenantService(tenantId);
-    const propertyData = { ...property, tenantId };
-    return await tenantPropertyService.create(propertyData);
+    try {
+      logger.info('🏠 [PropertyService] Creating new property', {
+        tenantId,
+        title: property.title,
+        photosCount: property.photos?.length || 0,
+        videosCount: property.videos?.length || 0,
+        hasPhotos: !!(property.photos && property.photos.length > 0)
+      });
+
+      // Log photo URLs to debug persistence
+      if (property.photos && property.photos.length > 0) {
+        logger.info('📸 [PropertyService] Property photos being saved', {
+          photosData: property.photos.map(photo => ({
+            id: photo.id,
+            filename: photo.filename,
+            isFirebaseUrl: photo.url.includes('firebasestorage.googleapis.com'),
+            isBlobUrl: photo.url.startsWith('blob:'),
+            urlPreview: photo.url.substring(0, 50) + '...'
+          }))
+        });
+      }
+
+      const tenantPropertyService = this.getTenantService(tenantId);
+      const propertyData = { ...property, tenantId };
+      const propertyId = await tenantPropertyService.create(propertyData);
+
+      logger.info('✅ [PropertyService] Property created successfully', {
+        propertyId,
+        tenantId
+      });
+
+      return propertyId;
+    } catch (error) {
+      logger.error('❌ [PropertyService] Error creating property', {
+        tenantId,
+        error: error instanceof Error ? error.message : 'Unknown error',
+        photosCount: property.photos?.length || 0
+      });
+      throw error;
+    }
   }
 
   async update(id: string, property: Partial<Property>, tenantId: string): Promise<void> {

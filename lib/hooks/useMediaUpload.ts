@@ -104,27 +104,35 @@ export function useMediaUpload(): UseMediaUploadReturn {
         }
       }
 
+      console.log(`[MediaUpload] Starting upload of ${files.length} files (${type})`);
+
       const uploadPromises = files.map(async (file, index) => {
+        console.log(`[MediaUpload] Processing file ${index + 1}/${files.length}: ${file.name}`);
+        
         try {
           // Compress images if needed
           let fileToUpload = file
           if (isImageFile(file) && file.size > 2 * 1024 * 1024) { // 2MB threshold
+            console.log(`[MediaUpload] Compressing image: ${file.name}`);
             fileToUpload = await compressImage(file, 0.8)
           }
 
           const fileName = `${generateUniqueId()}-${file.name}`
           const storageRef = ref(storage, `properties/${type}s/${fileName}`)
+          console.log(`[MediaUpload] Upload path: properties/${type}s/${fileName}`);
           
           // Try primary method: uploadBytesResumable
           try {
+            console.log(`[MediaUpload] Attempting primary upload for: ${file.name}`);
             return await new Promise<UploadedFile>((resolve, reject) => {
               const uploadTask = uploadBytesResumable(storageRef, fileToUpload);
               
               // Set a timeout to prevent hanging
               const uploadTimeout = setTimeout(() => {
+                console.log(`[MediaUpload] Primary upload timeout for: ${file.name}`);
                 uploadTask.cancel();
                 reject(new Error('PRIMARY_TIMEOUT'));
-              }, 15000);
+              }, 30000); // Increased timeout
               
               uploadTask.on('state_changed',
                 // Progress callback
@@ -144,21 +152,27 @@ export function useMediaUpload(): UseMediaUploadReturn {
                   
                   try {
                     const url = await getDownloadURL(uploadTask.snapshot.ref);
+                    console.log(`[MediaUpload] Primary upload successful for: ${file.name}`);
+                    console.log(`[MediaUpload] URL obtained: ${url.substring(0, 50)}...`);
                     resolve({
                       name: file.name,
                       url,
                       size: file.size,
                     });
                   } catch (urlError) {
+                    console.error(`[MediaUpload] Error getting download URL for: ${file.name}`, urlError);
                     reject(new Error('PRIMARY_FAILED'));
                   }
                 }
               );
             });
           } catch (primaryError) {
+            console.log(`[MediaUpload] Primary upload failed for: ${file.name}, trying fallback`);
             // Try fallback method: uploadString with data URL
             try {
+              console.log(`[MediaUpload] Attempting fallback upload for: ${file.name}`);
               const result = await uploadWithDataUrl(fileToUpload, type);
+              console.log(`[MediaUpload] Fallback upload successful for: ${file.name}`);
               
               // Update progress for fallback
               const overallProgress = ((index + 1) * 100) / files.length;
@@ -166,6 +180,7 @@ export function useMediaUpload(): UseMediaUploadReturn {
               
               return result;
             } catch (fallbackError) {
+              console.error(`[MediaUpload] Fallback upload failed for: ${file.name}`, fallbackError);
               throw new Error(`Erro ao enviar ${file.name}. Tente novamente.`);
             }
           }
@@ -175,14 +190,20 @@ export function useMediaUpload(): UseMediaUploadReturn {
       })
 
       try {
+        console.log(`[MediaUpload] Executing ${uploadPromises.length} upload promises`);
         const results = await Promise.all(uploadPromises)
+        console.log(`[MediaUpload] All uploads completed successfully. Total: ${results.length}`);
         return results
       } catch (batchError) {
+        console.error('[MediaUpload] Batch upload failed, trying API fallback', batchError);
         // Last resort: API upload for all files
         try {
+          console.log('[MediaUpload] Attempting API upload fallback');
           const apiResults = await uploadViaAPI(files, type);
+          console.log('[MediaUpload] API upload successful');
           return apiResults;
         } catch (apiError) {
+          console.error('[MediaUpload] API upload also failed', apiError);
           throw new Error('Falha em todos os métodos de upload. Verifique sua conexão.');
         }
       }

@@ -63,6 +63,8 @@ export default function PropertyMediaUpload() {
   const onDropPhotos = useCallback(async (acceptedFiles: File[]) => {
     if (acceptedFiles.length === 0) return;
     
+    console.log(`[PropertyMediaUpload] Starting photo upload: ${acceptedFiles.length} files`);
+    
     try {
       clearError();
       
@@ -76,11 +78,14 @@ export default function PropertyMediaUpload() {
         caption: '',
       }));
 
+      console.log('[PropertyMediaUpload] Created preview photos, updating form');
       // Add photos with preview URLs immediately
       setValue('photos', [...photos, ...previewPhotos]);
       
+      console.log('[PropertyMediaUpload] Starting Firebase upload...');
       // Upload files in background and replace URLs
       const uploadResults = await uploadFiles(acceptedFiles, 'image');
+      console.log(`[PropertyMediaUpload] Firebase upload complete: ${uploadResults.length} results`);
       
       // Replace blob URLs with Firebase URLs
       const finalPhotos: PropertyPhoto[] = uploadResults.map((result, index) => ({
@@ -88,14 +93,30 @@ export default function PropertyMediaUpload() {
         url: result.url, // Replace with Firebase URL
       }));
 
-      // Update with final URLs
+      console.log('[PropertyMediaUpload] Updating form with Firebase URLs');
+      // Update with final URLs - maintain existing photos
       const updatedPhotos = [...photos, ...finalPhotos];
-      setValue('photos', updatedPhotos);
+      setValue('photos', updatedPhotos, { shouldValidate: true });
+      
+      // Verify Firebase URLs are properly set
+      console.log('[PropertyMediaUpload] Final photos validation:', {
+        totalPhotos: updatedPhotos.length,
+        firebaseUrls: updatedPhotos.filter(p => p.url.includes('firebasestorage.googleapis.com')).length,
+        blobUrls: updatedPhotos.filter(p => p.url.startsWith('blob:')).length,
+        photoData: updatedPhotos.map(p => ({
+          id: p.id,
+          filename: p.filename,
+          urlType: p.url.includes('firebasestorage.googleapis.com') ? 'firebase' : (p.url.startsWith('blob:') ? 'blob' : 'other')
+        }))
+      });
+      
+      console.log('[PropertyMediaUpload] Photo upload process completed successfully');
       
     } catch (error) {
-      // Remove preview photos on error
+      console.error('[PropertyMediaUpload] Error uploading photos:', error);
+      // Remove preview photos on error - keep existing photos
       setValue('photos', photos);
-      console.error('Error uploading photos:', error);
+      // The error will be shown by the useMediaUpload hook
     }
   }, [photos, setValue, uploadFiles, clearError]);
 
