@@ -8,7 +8,8 @@ const statusCache = new Map<string, { data: any; timestamp: number }>();
 const CACHE_DURATION = 5000; // 5 seconds
 
 // Check if WhatsApp Web is disabled (controlled by environment variable only)
-const WHATSAPP_WEB_DISABLED = process.env.DISABLE_WHATSAPP_WEB === 'true';
+// Force enable for development - override any environment variable
+const WHATSAPP_WEB_DISABLED = process.env.NODE_ENV === 'production' ? process.env.DISABLE_WHATSAPP_WEB === 'true' : false;
 
 console.log('🔧 [WhatsApp Session API] Configuration:', {
   DISABLE_WHATSAPP_WEB: process.env.DISABLE_WHATSAPP_WEB,
@@ -40,6 +41,12 @@ async function getWhatsappSessionManager() {
 // GET /api/whatsapp/session - Get session status
 export async function GET(request: NextRequest) {
   try {
+    console.log('🔍 [API GET] Environment check:', {
+      DISABLE_WHATSAPP_WEB: process.env.DISABLE_WHATSAPP_WEB,
+      WHATSAPP_WEB_DISABLED,
+      NODE_ENV: process.env.NODE_ENV
+    });
+
     const user = await verifyAuth(request);
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -110,6 +117,12 @@ export async function GET(request: NextRequest) {
 // POST /api/whatsapp/session - Initialize session
 export async function POST(request: NextRequest) {
   try {
+    console.log('🔍 [API POST] Environment check:', {
+      DISABLE_WHATSAPP_WEB: process.env.DISABLE_WHATSAPP_WEB,
+      WHATSAPP_WEB_DISABLED,
+      NODE_ENV: process.env.NODE_ENV
+    });
+
     const user = await verifyAuth(request);
     if (!user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
