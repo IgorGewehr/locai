@@ -7,15 +7,21 @@ import { z } from 'zod';
 const statusCache = new Map<string, { data: any; timestamp: number }>();
 const CACHE_DURATION = 5000; // 5 seconds
 
-// Check if WhatsApp Web is disabled (for production compatibility)
-const WHATSAPP_WEB_DISABLED = process.env.DISABLE_WHATSAPP_WEB === 'true' || process.env.NODE_ENV === 'production';
+// Check if WhatsApp Web is disabled (controlled by environment variable only)
+const WHATSAPP_WEB_DISABLED = process.env.DISABLE_WHATSAPP_WEB === 'true';
+
+console.log('🔧 [WhatsApp Session API] Configuration:', {
+  DISABLE_WHATSAPP_WEB: process.env.DISABLE_WHATSAPP_WEB,
+  WHATSAPP_WEB_DISABLED,
+  NODE_ENV: process.env.NODE_ENV
+});
 
 // Lazy import WhatsApp session manager (only when needed and available)
 let whatsappSessionManager: any = null;
 
 async function getWhatsappSessionManager() {
   if (WHATSAPP_WEB_DISABLED) {
-    throw new Error('WhatsApp Web is disabled in production environment');
+    throw new Error('WhatsApp Web is disabled by configuration');
   }
   
   if (!whatsappSessionManager) {
@@ -51,7 +57,7 @@ export async function GET(request: NextRequest) {
           qrCode: null,
           phoneNumber: null,
           businessName: null,
-          message: 'WhatsApp Web is disabled in production. Use WhatsApp Business API instead.'
+          message: 'WhatsApp Web is disabled by configuration.'
         },
       });
     }
@@ -83,7 +89,7 @@ export async function GET(request: NextRequest) {
     
     // Return graceful error response
     const errorMessage = WHATSAPP_WEB_DISABLED 
-      ? 'WhatsApp Web is disabled in production environment'
+      ? 'WhatsApp Web is disabled by configuration'
       : 'Failed to get session status';
       
     return NextResponse.json({
@@ -115,14 +121,14 @@ export async function POST(request: NextRequest) {
     if (WHATSAPP_WEB_DISABLED) {
       return NextResponse.json({
         success: false,
-        error: 'WhatsApp Web is disabled in production',
+        error: 'WhatsApp Web is disabled by configuration',
         data: {
           connected: false,
           status: 'disabled',
           qrCode: null,
           phoneNumber: null,
           businessName: null,
-          message: 'WhatsApp Web functionality is not available in production. Please use WhatsApp Business API integration instead.'
+          message: 'WhatsApp Web functionality is disabled by configuration.'
         }
       }, { status: 200 }); // Return 200 for graceful degradation
     }
@@ -179,7 +185,7 @@ export async function POST(request: NextRequest) {
     console.error('❌ API: Error initializing session:', error);
     
     const errorMessage = WHATSAPP_WEB_DISABLED 
-      ? 'WhatsApp Web is disabled in production environment'
+      ? 'WhatsApp Web is disabled by configuration'
       : 'Failed to initialize session';
     
     return NextResponse.json({
@@ -210,7 +216,7 @@ export async function DELETE(request: NextRequest) {
     if (WHATSAPP_WEB_DISABLED) {
       return NextResponse.json({
         success: true,
-        message: 'WhatsApp Web is disabled - no active session to disconnect',
+        message: 'WhatsApp Web is disabled by configuration - no active session to disconnect',
       });
     }
     
