@@ -77,9 +77,20 @@ const propertySchema = yup.object().shape({
   allowsPets: yup.boolean().default(false),
   paymentMethodSurcharges: yup.object().shape({
     [PaymentMethod.CREDIT_CARD]: yup.number().min(0).default(0),
+    [PaymentMethod.DEBIT_CARD]: yup.number().min(0).default(0),
     [PaymentMethod.PIX]: yup.number().min(0).default(0),
     [PaymentMethod.CASH]: yup.number().min(0).default(0),
     [PaymentMethod.BANK_TRANSFER]: yup.number().min(0).default(0),
+    [PaymentMethod.BANK_SLIP]: yup.number().min(0).default(0),
+    [PaymentMethod.STRIPE]: yup.number().min(0).default(0),
+  }).default({
+    [PaymentMethod.CREDIT_CARD]: 0,
+    [PaymentMethod.DEBIT_CARD]: 0,
+    [PaymentMethod.PIX]: 0,
+    [PaymentMethod.CASH]: 0,
+    [PaymentMethod.BANK_TRANSFER]: 0,
+    [PaymentMethod.BANK_SLIP]: 0,
+    [PaymentMethod.STRIPE]: 0,
   }),
   photos: yup.array().min(1, 'Deve ter pelo menos 1 foto').required('Pelo menos uma foto é obrigatória'),
   videos: yup.array().default([]),
@@ -115,20 +126,39 @@ export default function CreatePropertyPage() {
       pricePerExtraGuest: 0,
       minimumNights: 1,
       cleaningFee: 0,
+      // Analytics fields with defaults
+      status: PropertyStatus.ACTIVE,
+      type: PropertyType.RESIDENTIAL,
+      neighborhood: '',
+      city: '',
+      capacity: 2,
+      // Arrays
       amenities: [],
-      isFeatured: false,
-      allowsPets: false,
-      paymentMethodSurcharges: {
-        [PaymentMethod.CREDIT_CARD]: 0,
-        [PaymentMethod.PIX]: 0,
-        [PaymentMethod.CASH]: 0,
-        [PaymentMethod.BANK_TRANSFER]: 0,
-      },
       photos: [],
       videos: [],
       unavailableDates: [],
       customPricing: {},
+      // Booleans
+      isFeatured: false,
+      allowsPets: false,
       isActive: true,
+      // Payment configurations
+      advancePaymentPercentage: 0,
+      paymentMethodSurcharges: {
+        [PaymentMethod.CREDIT_CARD]: 0,
+        [PaymentMethod.DEBIT_CARD]: 0,
+        [PaymentMethod.PIX]: 0,
+        [PaymentMethod.CASH]: 0,
+        [PaymentMethod.BANK_TRANSFER]: 0,
+        [PaymentMethod.BANK_SLIP]: 0,
+        [PaymentMethod.STRIPE]: 0,
+      },
+      // Optional surcharges
+      weekendSurcharge: 0,
+      holidaySurcharge: 0,
+      decemberSurcharge: 0,
+      highSeasonSurcharge: 0,
+      highSeasonMonths: [],
     },
   });
 
@@ -172,10 +202,36 @@ export default function CreatePropertyPage() {
     setError(null);
 
     try {
+      // Ensure all payment methods have valid values (no undefined)
+      const cleanPaymentMethodSurcharges = {
+        [PaymentMethod.CREDIT_CARD]: Number(data.paymentMethodSurcharges?.[PaymentMethod.CREDIT_CARD]) || 0,
+        [PaymentMethod.DEBIT_CARD]: Number(data.paymentMethodSurcharges?.[PaymentMethod.DEBIT_CARD]) || 0,
+        [PaymentMethod.PIX]: Number(data.paymentMethodSurcharges?.[PaymentMethod.PIX]) || 0,
+        [PaymentMethod.CASH]: Number(data.paymentMethodSurcharges?.[PaymentMethod.CASH]) || 0,
+        [PaymentMethod.BANK_TRANSFER]: Number(data.paymentMethodSurcharges?.[PaymentMethod.BANK_TRANSFER]) || 0,
+        [PaymentMethod.BANK_SLIP]: Number(data.paymentMethodSurcharges?.[PaymentMethod.BANK_SLIP]) || 0,
+        [PaymentMethod.STRIPE]: Number(data.paymentMethodSurcharges?.[PaymentMethod.STRIPE]) || 0,
+      };
+
       // Create property using tenant services
       const propertyData = {
         ...data,
+        paymentMethodSurcharges: cleanPaymentMethodSurcharges,
         pricingRules,
+        // Ensure required fields have proper defaults
+        status: data.status || PropertyStatus.ACTIVE,
+        type: data.type || PropertyType.RESIDENTIAL,
+        neighborhood: data.neighborhood || '',
+        city: data.city || '',
+        capacity: data.capacity || data.maxGuests,
+        advancePaymentPercentage: data.advancePaymentPercentage || 0,
+        // Clean arrays
+        photos: data.photos || [],
+        videos: data.videos || [],
+        amenities: data.amenities || [],
+        unavailableDates: data.unavailableDates || [],
+        customPricing: data.customPricing || {},
+        // Timestamps
         createdAt: new Date(),
         updatedAt: new Date(),
       };
@@ -188,6 +244,7 @@ export default function CreatePropertyPage() {
         router.push('/dashboard/properties');
       }
     } catch (err) {
+      console.error('Error creating property:', err);
       setError(err instanceof Error ? err.message : 'Erro ao criar propriedade');
     } finally {
       setLoading(false);

@@ -34,8 +34,14 @@ if (getApps().length === 0) {
       storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET!,
     });
   } catch (error) {
-
-    throw new Error('Firebase Admin initialization failed');
+    console.error('Firebase Admin initialization error:', {
+      hasProjectId: !!process.env.FIREBASE_PROJECT_ID,
+      hasClientEmail: !!process.env.FIREBASE_CLIENT_EMAIL,
+      hasPrivateKey: !!process.env.FIREBASE_PRIVATE_KEY,
+      privateKeyLength: process.env.FIREBASE_PRIVATE_KEY?.length || 0,
+      error: error instanceof Error ? error.message : 'Unknown error'
+    });
+    throw new Error(`Firebase Admin initialization failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
   }
 } else {
   app = getApps()[0];

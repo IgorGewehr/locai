@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { whatsappSessionManager } from '@/lib/whatsapp/session-manager';
 import { getTenantId } from '@/lib/utils/tenant';
 import { verifyAuth } from '@/lib/utils/auth';
 import { z } from 'zod';
@@ -7,6 +6,30 @@ import { z } from 'zod';
 // Simple cache to prevent excessive API calls
 const statusCache = new Map<string, { data: any; timestamp: number }>();
 const CACHE_DURATION = 5000; // 5 seconds
+
+// Check if WhatsApp Web is disabled (for production compatibility)
+const WHATSAPP_WEB_DISABLED = process.env.DISABLE_WHATSAPP_WEB === 'true' || process.env.NODE_ENV === 'production';
+
+// Lazy import WhatsApp session manager (only when needed and available)
+let whatsappSessionManager: any = null;
+
+async function getWhatsappSessionManager() {
+  if (WHATSAPP_WEB_DISABLED) {
+    throw new Error('WhatsApp Web is disabled in production environment');
+  }
+  
+  if (!whatsappSessionManager) {
+    try {
+      const { whatsappSessionManager: manager } = await import('@/lib/whatsapp/session-manager');
+      whatsappSessionManager = manager;
+    } catch (error) {
+      console.error('Failed to load WhatsApp session manager:', error);
+      throw new Error('WhatsApp Web functionality is not available in this environment');
+    }
+  }
+  
+  return whatsappSessionManager;
+}
 
 // GET /api/whatsapp/session - Get session status
 export async function GET(request: NextRequest) {
@@ -18,6 +41,21 @@ export async function GET(request: NextRequest) {
 
     const tenantId = user.tenantId || user.uid;
     
+    // Return disabled status if WhatsApp Web is disabled
+    if (WHATSAPP_WEB_DISABLED) {
+      return NextResponse.json({
+        success: true,
+        data: {
+          connected: false,
+          status: 'disabled',
+          qrCode: null,
+          phoneNumber: null,
+          businessName: null,
+          message: 'WhatsApp Web is disabled in production. Use WhatsApp Business API instead.'
+        },
+      });
+    }
+    
     // Check cache first
     const cached = statusCache.get(tenantId);
     if (cached && (Date.now() - cached.timestamp) < CACHE_DURATION) {
@@ -27,7 +65,8 @@ export async function GET(request: NextRequest) {
       });
     }
     
-    const status = await whatsappSessionManager.getSessionStatus(tenantId);
+    const manager = await getWhatsappSessionManager();
+    const status = await manager.getSessionStatus(tenantId);
     
     // Cache the result
     statusCache.set(tenantId, {
@@ -41,10 +80,24 @@ export async function GET(request: NextRequest) {
     });
   } catch (error) {
     console.error('Error getting session status:', error);
-    return NextResponse.json(
-      { success: false, error: 'Failed to get session status' },
-      { status: 500 }
-    );
+    
+    // Return graceful error response
+    const errorMessage = WHATSAPP_WEB_DISABLED 
+      ? 'WhatsApp Web is disabled in production environment'
+      : 'Failed to get session status';
+      
+    return NextResponse.json({
+      success: false, 
+      error: errorMessage,
+      data: {
+        connected: false,
+        status: 'error',
+        qrCode: null,
+        phoneNumber: null,
+        businessName: null,
+        message: errorMessage
+      }
+    }, { status: 200 }); // Return 200 for graceful degradation
   }
 }
 
@@ -58,11 +111,29 @@ export async function POST(request: NextRequest) {
 
     const tenantId = user.tenantId || user.uid;
     
+    // Return disabled response if WhatsApp Web is disabled
+    if (WHATSAPP_WEB_DISABLED) {
+      return NextResponse.json({
+        success: false,
+        error: 'WhatsApp Web is disabled in production',
+        data: {
+          connected: false,
+          status: 'disabled',
+          qrCode: null,
+          phoneNumber: null,
+          businessName: null,
+          message: 'WhatsApp Web functionality is not available in production. Please use WhatsApp Business API integration instead.'
+        }
+      }, { status: 200 }); // Return 200 for graceful degradation
+    }
+    
     console.log(`🚀 API: Initializing session for tenant ${tenantId}`);
-    console.log(`🔍 API: Session manager available:`, !!whatsappSessionManager);
+    
+    const manager = await getWhatsappSessionManager();
+    console.log(`🔍 API: Session manager loaded successfully`);
     
     // Initialize the session (non-blocking)
-    await whatsappSessionManager.initializeSession(tenantId);
+    await manager.initializeSession(tenantId);
     console.log(`✅ API: Session initialization started`);
 
     // Optimized polling with shorter intervals and adaptive timing
@@ -74,7 +145,7 @@ export async function POST(request: NextRequest) {
     while (attempts < maxAttempts) {
       const delay = delays[Math.min(attempts, delays.length - 1)];
       await new Promise(resolve => setTimeout(resolve, delay));
-      status = await whatsappSessionManager.getSessionStatus(tenantId);
+      status = await manager.getSessionStatus(tenantId);
       
       console.log(`📊 API: Check ${attempts + 1}: ${status.status}, QR: ${!!status.qrCode}`);
       
@@ -87,7 +158,7 @@ export async function POST(request: NextRequest) {
     }
     
     if (!status) {
-      status = await whatsappSessionManager.getSessionStatus(tenantId);
+      status = await manager.getSessionStatus(tenantId);
     }
 
     console.log(`📤 API: Returning status:`, {
@@ -106,10 +177,23 @@ export async function POST(request: NextRequest) {
     });
   } catch (error) {
     console.error('❌ API: Error initializing session:', error);
-    return NextResponse.json(
-      { success: false, error: 'Failed to initialize session' },
-      { status: 500 }
-    );
+    
+    const errorMessage = WHATSAPP_WEB_DISABLED 
+      ? 'WhatsApp Web is disabled in production environment'
+      : 'Failed to initialize session';
+    
+    return NextResponse.json({
+      success: false, 
+      error: errorMessage,
+      data: {
+        connected: false,
+        status: 'error',
+        qrCode: null,
+        phoneNumber: null,
+        businessName: null,
+        message: error instanceof Error ? error.message : errorMessage
+      }
+    }, { status: 200 }); // Return 200 for graceful degradation
   }
 }
 
@@ -123,7 +207,15 @@ export async function DELETE(request: NextRequest) {
 
     const tenantId = user.tenantId || user.uid;
     
-    await whatsappSessionManager.disconnectSession(tenantId);
+    if (WHATSAPP_WEB_DISABLED) {
+      return NextResponse.json({
+        success: true,
+        message: 'WhatsApp Web is disabled - no active session to disconnect',
+      });
+    }
+    
+    const manager = await getWhatsappSessionManager();
+    await manager.disconnectSession(tenantId);
 
     return NextResponse.json({
       success: true,
@@ -131,9 +223,9 @@ export async function DELETE(request: NextRequest) {
     });
   } catch (error) {
     console.error('Error disconnecting session:', error);
-    return NextResponse.json(
-      { success: false, error: 'Failed to disconnect session' },
-      { status: 500 }
-    );
+    return NextResponse.json({
+      success: true, // Still return success for graceful degradation
+      message: 'Session disconnect attempted',
+    });
   }
 }

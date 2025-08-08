@@ -97,6 +97,15 @@ async function checkWhatsAppConnection(): Promise<{ status: 'up' | 'down' | 'war
   const start = Date.now();
 
   try {
+    // Check if WhatsApp Web is disabled (production compatibility)
+    if (process.env.DISABLE_WHATSAPP_WEB === 'true') {
+      return {
+        status: 'up',
+        responseTime: Date.now() - start,
+        message: 'WhatsApp Web disabled for production compatibility',
+      };
+    }
+
     const requiredEnvVars = [
       'WHATSAPP_ACCESS_TOKEN',
       'WHATSAPP_PHONE_NUMBER_ID',
