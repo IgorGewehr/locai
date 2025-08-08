@@ -1,0 +1,71 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Allow authenticated users to access their tenant data
+    match /tenants/{tenantId}/{document=**} {
+      allow read, write: if request.auth != null && 
+        (request.auth.uid == tenantId || 
+         request.auth.token.tenantId == tenantId ||
+         resource.data.tenantId == tenantId);
+    }
+    
+    // Allow authenticated users to access their own user document
+    match /users/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+    
+    // System logs - only write for authenticated users, no read access needed
+    match /system_logs/{document} {
+      allow write: if request.auth != null;
+      allow read: if false; // No read access to system logs
+    }
+    
+    // Tenant-scoped system logs
+    match /tenants/{tenantId}/system_logs/{document} {
+      allow write: if request.auth != null && 
+        (request.auth.uid == tenantId || 
+         request.auth.token.tenantId == tenantId);
+      allow read: if false; // No read access to system logs
+    }
+    
+    // Public mini-site data (read-only)
+    match /tenants/{tenantId}/mini_site_config/{document} {
+      allow read: if true; // Public read access for mini-sites
+      allow write: if request.auth != null && 
+        (request.auth.uid == tenantId || 
+         request.auth.token.tenantId == tenantId);
+    }
+    
+    // Public properties for mini-sites (read-only)
+    match /tenants/{tenantId}/properties/{document} {
+      allow read: if resource.data.status == 'active' || 
+        (request.auth != null && 
+         (request.auth.uid == tenantId || 
+          request.auth.token.tenantId == tenantId));
+      allow write: if request.auth != null && 
+        (request.auth.uid == tenantId || 
+         request.auth.token.tenantId == tenantId);
+    }
+    
+    // Mini-site analytics (write-only for public)
+    match /tenants/{tenantId}/mini_site_analytics/{document} {
+      allow write: if true; // Allow public writes for analytics
+      allow read: if request.auth != null && 
+        (request.auth.uid == tenantId || 
+         request.auth.token.tenantId == tenantId);
+    }
+    
+    // Inquiries from mini-sites (write-only for public)
+    match /tenants/{tenantId}/inquiries/{document} {
+      allow write: if true; // Allow public writes for inquiries
+      allow read: if request.auth != null && 
+        (request.auth.uid == tenantId || 
+         request.auth.token.tenantId == tenantId);
+    }
+    
+    // Default deny all other documents
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

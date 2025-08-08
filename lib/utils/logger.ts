@@ -41,8 +41,8 @@ class Logger {
       minLevel: process.env.NODE_ENV === 'production' ? LogLevel.INFO : LogLevel.DEBUG,
       enableConsole: process.env.NODE_ENV !== 'production',
       enableFile: false, // Set to true if you want file logging
-      enableFirestore: process.env.NODE_ENV === 'production',
-      enableSentry: process.env.NODE_ENV === 'production',
+      enableFirestore: false, // Temporarily disabled to avoid permissions issues
+      enableSentry: false, // Temporarily disabled until properly configured
       maxLogSize: 1000,
       ...config
     };
@@ -143,43 +143,65 @@ class Logger {
       // Only log important events to Firestore to avoid costs
       if (entry.level < LogLevel.INFO) return;
 
-      const { initializeApp, getApps } = await import('firebase/app');
-      const { getFirestore, collection, addDoc } = await import('firebase/firestore');
-
-      const apps = getApps();
-      const app = apps.length > 0 ? apps[0] : initializeApp({
-        // Firebase config would be here
-      });
-
-      const db = getFirestore(app);
-      
-      // Remove undefined fields to prevent Firestore errors
-      const logData: any = {
-        level: LogLevel[entry.level],
-        message: entry.message,
-        timestamp: entry.timestamp,
-        context: entry.context || {},
-        tenantId: entry.tenantId || 'default'
-      };
-
-      // Only add fields that are not undefined
-      if (entry.userId) logData.userId = entry.userId;
-      if (entry.requestId) logData.requestId = entry.requestId;
-      if (entry.component) logData.component = entry.component;
-      if (entry.operation) logData.operation = entry.operation;
-      if (entry.duration) logData.duration = entry.duration;
-      if (entry.error) {
-        logData.error = {
-          message: entry.error.message,
-          stack: entry.error.stack,
-          name: entry.error.name
-        };
+      // Skip Firestore logging if we're already in a browser environment without proper config
+      if (typeof window !== 'undefined' && !process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID) {
+        return;
       }
 
-      await addDoc(collection(db, 'system_logs'), logData);
+      const { db } = await import('@/lib/firebase/config');
+      const { collection, addDoc, serverTimestamp } = await import('firebase/firestore');
+
+      // Sanitize data to ensure no undefined values
+      const sanitizeValue = (value: any): any => {
+        if (value === undefined || value === null) return null;
+        if (value instanceof Error) {
+          return {
+            message: value.message || 'Unknown error',
+            stack: value.stack || '',
+            name: value.name || 'Error'
+          };
+        }
+        if (typeof value === 'object' && !Array.isArray(value) && !(value instanceof Date)) {
+          const sanitized: any = {};
+          for (const key in value) {
+            if (value.hasOwnProperty(key)) {
+              const sanitizedValue = sanitizeValue(value[key]);
+              if (sanitizedValue !== undefined) {
+                sanitized[key] = sanitizedValue;
+              }
+            }
+          }
+          return Object.keys(sanitized).length > 0 ? sanitized : null;
+        }
+        return value;
+      };
+
+      const logData = {
+        level: LogLevel[entry.level] || 'UNKNOWN',
+        message: entry.message || 'No message',
+        timestamp: serverTimestamp(),
+        context: sanitizeValue(entry.context) || {},
+        tenantId: entry.tenantId || 'default',
+        userId: entry.userId || null,
+        requestId: entry.requestId || null,
+        component: entry.component || null,
+        operation: entry.operation || null,
+        duration: entry.duration || null,
+        error: entry.error ? sanitizeValue(entry.error) : null,
+        environment: process.env.NODE_ENV || 'unknown'
+      };
+
+      // Use tenant-scoped collection if tenantId is available
+      const collectionPath = entry.tenantId && entry.tenantId !== 'default' 
+        ? `tenants/${entry.tenantId}/system_logs`
+        : 'system_logs';
+
+      await addDoc(collection(db, collectionPath), logData);
     } catch (error) {
-      // Fallback to console if Firestore fails
-      console.error('Failed to write to Firestore:', error);
+      // Silently fail in production to avoid console spam
+      if (process.env.NODE_ENV !== 'production') {
+        console.error('Failed to write to Firestore:', error);
+      }
     }
   }
 

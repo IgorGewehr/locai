@@ -1145,12 +1145,6 @@ export default function SettingsPage() {
       </Card>
 
       {/* QR Code Dialog */}
-      {console.log('🎭 [FRONTEND] Dialog render check:', { 
-        qrDialogOpen, 
-        hasQrCode: !!whatsappSession.qrCode,
-        status: whatsappSession.status,
-        env: process.env.NODE_ENV 
-      })}
       <Dialog
         open={qrDialogOpen}
         onClose={() => setQrDialogOpen(false)}
