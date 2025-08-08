@@ -2,14 +2,15 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getTenantId } from '@/lib/utils/tenant';
 import { verifyAuth } from '@/lib/utils/auth';
 import { z } from 'zod';
+import { loadWhatsAppDependency, getProductionMessage, PRODUCTION_CONFIG } from '@/lib/utils/production-utils';
 
 // Simple cache to prevent excessive API calls
 const statusCache = new Map<string, { data: any; timestamp: number }>();
 const CACHE_DURATION = 5000; // 5 seconds
 
 // Check if WhatsApp Web is disabled (controlled by environment variable only)
-// Force enable for development - override any environment variable
-const WHATSAPP_WEB_DISABLED = process.env.NODE_ENV === 'production' ? process.env.DISABLE_WHATSAPP_WEB === 'true' : false;
+// SEMPRE HABILITADO - usuário controla via variável de ambiente
+const WHATSAPP_WEB_DISABLED = process.env.DISABLE_WHATSAPP_WEB === 'true';
 
 console.log('🔧 [WhatsApp Session API] Configuration:', {
   DISABLE_WHATSAPP_WEB: process.env.DISABLE_WHATSAPP_WEB,
@@ -17,25 +18,27 @@ console.log('🔧 [WhatsApp Session API] Configuration:', {
   NODE_ENV: process.env.NODE_ENV
 });
 
-// Lazy import WhatsApp session manager (only when needed and available)
-let whatsappSessionManager: any = null;
+// STRATEGIC SESSION MANAGER - PRODUCTION READY FOR NETLIFY
+let sessionManager: any = null;
 
-async function getWhatsappSessionManager() {
+async function getSessionManager() {
   if (WHATSAPP_WEB_DISABLED) {
     throw new Error('WhatsApp Web is disabled by configuration');
   }
   
-  if (!whatsappSessionManager) {
-    try {
-      const { whatsappSessionManager: manager } = await import('@/lib/whatsapp/session-manager');
-      whatsappSessionManager = manager;
-    } catch (error) {
-      console.error('Failed to load WhatsApp session manager:', error);
+  if (!sessionManager) {
+    const result = await loadWhatsAppDependency();
+    
+    if (!result.available) {
+      console.error('❌ [API] WhatsApp dependency failed:', result.error);
       throw new Error('WhatsApp Web functionality is not available in this environment');
     }
+    
+    sessionManager = result.manager;
+    console.log('✅ [API] WhatsApp manager loaded successfully for', PRODUCTION_CONFIG.environment.platform);
   }
   
-  return whatsappSessionManager;
+  return sessionManager;
 }
 
 // GET /api/whatsapp/session - Get session status
@@ -78,7 +81,7 @@ export async function GET(request: NextRequest) {
       });
     }
     
-    const manager = await getWhatsappSessionManager();
+    const manager = await getSessionManager();
     const status = await manager.getSessionStatus(tenantId);
     
     // Cache the result
@@ -148,10 +151,10 @@ export async function POST(request: NextRequest) {
     
     console.log(`🚀 API: Initializing session for tenant ${tenantId}`);
     
-    const manager = await getWhatsappSessionManager();
-    console.log(`🔍 API: Session manager loaded successfully`);
+    const manager = await getSessionManager();
+    console.log(`🔍 API: ProductionSessionManager loaded successfully`);
     
-    // Initialize the session (non-blocking)
+    // Initialize the session (optimized for production)
     await manager.initializeSession(tenantId);
     console.log(`✅ API: Session initialization started`);
 
@@ -233,7 +236,7 @@ export async function DELETE(request: NextRequest) {
       });
     }
     
-    const manager = await getWhatsappSessionManager();
+    const manager = await getSessionManager();
     await manager.disconnectSession(tenantId);
 
     return NextResponse.json({

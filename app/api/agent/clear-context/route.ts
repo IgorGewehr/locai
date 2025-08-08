@@ -32,9 +32,11 @@ export async function POST(request: NextRequest) {
     loopPrevention.clearClientHistory(clientPhone);
     
     // Clear Sofia's summary cache
-    if (sofiaAgent.summaryCache) {
+    try {
       const cacheKey = `${tenantId || 'default-tenant'}:${clientPhone}`;
-      sofiaAgent.summaryCache.delete(cacheKey);
+      (sofiaAgent as any).summaryCache?.delete(cacheKey);
+    } catch (error) {
+      // Ignore cache clearing errors
     }
     
     console.log('✅ [ClearContext] Contexto limpo com sucesso');
