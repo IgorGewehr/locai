@@ -77,7 +77,7 @@ export default function CreateVisitDialog({ open, onClose, onSuccess }: CreateVi
   const [clientEmail, setClientEmail] = useState('');
   const [notes, setNotes] = useState('');
   const [duration, setDuration] = useState(60);
-  const [isNewClient, setIsNewClient] = useState(true);
+  const [isNewClient, setIsNewClient] = useState(false);
   const [sendWhatsAppConfirmation, setSendWhatsAppConfirmation] = useState(true);
   
   // Options
@@ -172,7 +172,7 @@ export default function CreateVisitDialog({ open, onClose, onSuccess }: CreateVi
         source: 'manual'
       };
 
-      const response = await fetch(`/api/visits?tenantId=${tenantId}`, {
+      const response = await fetch('/api/visits', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -254,7 +254,7 @@ export default function CreateVisitDialog({ open, onClose, onSuccess }: CreateVi
     setClientEmail('');
     setNotes('');
     setDuration(60);
-    setIsNewClient(true);
+    setIsNewClient(false);
     setSendWhatsAppConfirmation(true);
     setError(null);
     onClose();

@@ -48,6 +48,7 @@ import {
   StepContent,
   Fade,
   Slide,
+  Snackbar,
 } from '@mui/material';
 import ModernButton from '@/components/atoms/ModernButton';
 import {
@@ -111,6 +112,13 @@ export default function TransactionsPage() {
   const [newTransactionOpen, setNewTransactionOpen] = useState(false);
   const [activeStep, setActiveStep] = useState(0);
   const [transactionType, setTransactionType] = useState<'income' | 'expense'>('income');
+  
+  // Snackbar state
+  const [snackbar, setSnackbar] = useState<{open: boolean, message: string, severity: 'success' | 'error'}>({
+    open: false,
+    message: '',
+    severity: 'success'
+  });
   
   // Client and reservation data
   const [allClients, setAllClients] = useState<Client[]>([]);
@@ -239,7 +247,11 @@ export default function TransactionsPage() {
 
   const handleCreateTransaction = async (data: any) => {
     if (!services) {
-      alert('Serviços não disponíveis. Por favor, tente novamente.');
+      setSnackbar({
+        open: true,
+        message: 'Serviços não disponíveis. Por favor, tente novamente.',
+        severity: 'error'
+      });
       return;
     }
     
@@ -278,10 +290,18 @@ export default function TransactionsPage() {
       await loadTransactions();
       
       // Show success feedback
-      alert('Transação criada com sucesso!');
+      setSnackbar({
+        open: true,
+        message: 'Transação criada com sucesso!',
+        severity: 'success'
+      });
     } catch (error) {
       console.error('Error creating transaction:', error);
-      alert(`Erro ao criar transação: ${error instanceof Error ? error.message : 'Erro desconhecido'}`);
+      setSnackbar({
+        open: true,
+        message: `Erro ao criar transação: ${error instanceof Error ? error.message : 'Erro desconhecido'}`,
+        severity: 'error'
+      });
     }
   };
 
@@ -400,31 +420,37 @@ export default function TransactionsPage() {
     setSelectedReservation(reservation);
     
     if (reservation) {
-      // Auto-fill form fields based on reservation
-      reset({
-        description: `Pagamento - Reserva #${reservation.id.slice(-8)}`,
-        amount: reservation.totalAmount,
-        type: 'income',
-        category: 'rent',
-        status: reservation.paymentStatus === 'paid' ? 'paid' : 'pending',
-        paymentMethod: reservation.paymentMethod || 'pix',
-        clientId: reservation.clientId,
-        reservationId: reservation.id,
-        propertyId: reservation.propertyId,
-        notes: (() => {
-          try {
-            const checkIn = reservation.checkIn instanceof Date ? reservation.checkIn : new Date(reservation.checkIn);
-            const checkOut = reservation.checkOut instanceof Date ? reservation.checkOut : new Date(reservation.checkOut);
-            
-            if (!isNaN(checkIn.getTime()) && !isNaN(checkOut.getTime())) {
-              return `Check-in: ${format(checkIn, 'dd/MM/yyyy')} - Check-out: ${format(checkOut, 'dd/MM/yyyy')}`;
+      // Only auto-fill if user hasn't made changes to avoid conflicts
+      const currentFormData = control._getWatch();
+      const isFormEmpty = !currentFormData.description && !currentFormData.amount;
+      
+      if (isFormEmpty) {
+        // Auto-fill form fields based on reservation
+        reset({
+          description: `Pagamento - Reserva #${reservation.id.slice(-8)}`,
+          amount: reservation.totalAmount,
+          type: 'income',
+          category: 'rent',
+          status: reservation.paymentStatus === 'paid' ? 'paid' : 'pending',
+          paymentMethod: reservation.paymentMethod || 'pix',
+          clientId: reservation.clientId,
+          reservationId: reservation.id,
+          propertyId: reservation.propertyId,
+          notes: (() => {
+            try {
+              const checkIn = reservation.checkIn instanceof Date ? reservation.checkIn : new Date(reservation.checkIn);
+              const checkOut = reservation.checkOut instanceof Date ? reservation.checkOut : new Date(reservation.checkOut);
+              
+              if (!isNaN(checkIn.getTime()) && !isNaN(checkOut.getTime())) {
+                return `Check-in: ${format(checkIn, 'dd/MM/yyyy')} - Check-out: ${format(checkOut, 'dd/MM/yyyy')}`;
+              }
+              return `Reserva #${reservation.id.slice(-8)}`;
+            } catch (error) {
+              return `Reserva #${reservation.id.slice(-8)}`;
             }
-            return `Reserva #${reservation.id.slice(-8)}`;
-          } catch (error) {
-            return `Reserva #${reservation.id.slice(-8)}`;
-          }
-        })(),
-      });
+          })(),
+        });
+      }
       
       // Also set the selected client if not already selected
       if (!selectedClient && reservation.clientId) {
@@ -1348,6 +1374,22 @@ export default function TransactionsPage() {
           </DialogActions>
         </form>
       </Dialog>
+      
+      {/* Success/Error Snackbar */}
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={6000}
+        onClose={() => setSnackbar(prev => ({ ...prev, open: false }))}
+        anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
+      >
+        <Alert 
+          onClose={() => setSnackbar(prev => ({ ...prev, open: false }))}
+          severity={snackbar.severity}
+          sx={{ width: '100%', borderRadius: 2 }}
+        >
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
     </Box>
   );
 }

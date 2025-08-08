@@ -16,6 +16,9 @@ import {
   InputAdornment,
   IconButton,
   Divider,
+  Snackbar,
+  Fade,
+  Slide,
 } from '@mui/material';
 import {
   Person,
@@ -43,10 +46,18 @@ interface FormData {
   notes: string;
 }
 
+interface FormErrors {
+  name?: string;
+  phone?: string;
+  email?: string;
+}
+
 export default function CreateClientDialog({ open, onClose, onSuccess }: CreateClientDialogProps) {
   const { services, isReady } = useTenant();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
+  const [formErrors, setFormErrors] = useState<FormErrors>({});
   const [formData, setFormData] = useState<FormData>({
     name: '',
     phone: '',
@@ -65,12 +76,43 @@ export default function CreateClientDialog({ open, onClose, onSuccess }: CreateC
       notes: '',
     });
     setError(null);
+    setSuccess(null);
+    setFormErrors({});
     onClose();
   };
 
+  const validateForm = (): boolean => {
+    const errors: FormErrors = {};
+    
+    if (!formData.name.trim()) {
+      errors.name = 'Nome é obrigatório';
+    } else if (formData.name.trim().length < 2) {
+      errors.name = 'Nome deve ter pelo menos 2 caracteres';
+    }
+    
+    if (!formData.phone.trim()) {
+      errors.phone = 'Telefone é obrigatório';
+    } else if (formData.phone.replace(/\D/g, '').length < 10) {
+      errors.phone = 'Telefone deve ter pelo menos 10 dígitos';
+    }
+    
+    if (formData.email.trim() && !isValidEmail(formData.email)) {
+      errors.email = 'E-mail deve ter um formato válido';
+    }
+    
+    setFormErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
+  const isValidEmail = (email: string): boolean => {
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    return emailRegex.test(email);
+  };
+
   const handleSubmit = async () => {
-    if (!formData.name || !formData.phone) {
-      setError('Nome e telefone são obrigatórios');
+    // Validar formulário antes de enviar
+    if (!validateForm()) {
+      setError('Por favor, corrija os campos destacados em vermelho');
       return;
     }
 
@@ -81,14 +123,13 @@ export default function CreateClientDialog({ open, onClose, onSuccess }: CreateC
 
     setLoading(true);
     setError(null);
+    setSuccess(null);
 
     try {
-      const clientData = {
+      // Preparar dados do cliente - CORRIGIDO: campos opcionais tratados corretamente
+      const clientData: Partial<Client> = {
         name: formData.name.trim(),
         phone: formData.phone.replace(/\D/g, ''),
-        email: formData.email.trim() || undefined,
-        document: formData.document.replace(/\D/g, '') || undefined,
-        notes: formData.notes.trim() || undefined,
         source: 'manual' as const,
         isActive: true,
         totalReservations: 0,
@@ -98,12 +139,30 @@ export default function CreateClientDialog({ open, onClose, onSuccess }: CreateC
         updatedAt: new Date(),
       };
 
+      // Adicionar campos opcionais apenas se preenchidos
+      if (formData.email.trim()) {
+        clientData.email = formData.email.trim();
+      }
+      
+      if (formData.document.replace(/\D/g, '')) {
+        clientData.document = formData.document.replace(/\D/g, '');
+      }
+      
+      if (formData.notes.trim()) {
+        clientData.notes = formData.notes.trim();
+      }
+
       await services.clients.create(clientData as Omit<Client, 'id'>);
-      onSuccess();
-      handleClose();
+      
+      setSuccess('Cliente criado com sucesso!');
+      setTimeout(() => {
+        onSuccess();
+        handleClose();
+      }, 1000);
+      
     } catch (error) {
       console.error('Error creating client:', error);
-      setError(error instanceof Error ? error.message : 'Erro ao criar cliente');
+      setError(error instanceof Error ? error.message : 'Erro ao criar cliente. Verifique os dados e tente novamente.');
     } finally {
       setLoading(false);
     }
@@ -132,6 +191,42 @@ export default function CreateClientDialog({ open, onClose, onSuccess }: CreateC
   const handleCPFChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const formatted = formatCPF(e.target.value);
     setFormData(prev => ({ ...prev, document: formatted }));
+  };
+
+  const handleNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setFormData(prev => ({ ...prev, name: value }));
+    
+    // Validação em tempo real
+    if (formErrors.name) {
+      if (value.trim() && value.trim().length >= 2) {
+        setFormErrors(prev => ({ ...prev, name: undefined }));
+      }
+    }
+  };
+
+  const handleEmailChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    setFormData(prev => ({ ...prev, email: value }));
+    
+    // Validação em tempo real
+    if (formErrors.email) {
+      if (!value.trim() || isValidEmail(value)) {
+        setFormErrors(prev => ({ ...prev, email: undefined }));
+      }
+    }
+  };
+
+  const handlePhoneChangeWithValidation = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const formatted = formatPhone(e.target.value);
+    setFormData(prev => ({ ...prev, phone: formatted }));
+    
+    // Validação em tempo real
+    if (formErrors.phone) {
+      if (formatted.replace(/\D/g, '').length >= 10) {
+        setFormErrors(prev => ({ ...prev, phone: undefined }));
+      }
+    }
   };
 
   return (
@@ -175,6 +270,12 @@ export default function CreateClientDialog({ open, onClose, onSuccess }: CreateC
             {error}
           </Alert>
         )}
+        
+        {success && (
+          <Alert severity="success" sx={{ mb: 3 }}>
+            {success}
+          </Alert>
+        )}
 
         <Box sx={{ mb: 3 }}>
           <Typography variant="h6" sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
@@ -186,17 +287,33 @@ export default function CreateClientDialog({ open, onClose, onSuccess }: CreateC
             <Grid item xs={12}>
               <TextField
                 fullWidth
-                label="Nome Completo"
+                label="Nome Completo *"
                 value={formData.name}
-                onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
+                onChange={handleNameChange}
                 required
                 disabled={loading}
+                error={!!formErrors.name}
+                helperText={formErrors.name}
                 InputProps={{
                   startAdornment: (
                     <InputAdornment position="start">
-                      <Person color="primary" />
+                      <Person color={formErrors.name ? "error" : "primary"} />
                     </InputAdornment>
                   ),
+                }}
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    transition: 'all 0.3s ease',
+                    '&:hover': {
+                      boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+                    },
+                    '&.Mui-focused': {
+                      boxShadow: '0 4px 12px rgba(25, 118, 210, 0.2)',
+                    },
+                    '&.Mui-error': {
+                      boxShadow: '0 4px 12px rgba(211, 47, 47, 0.2)',
+                    },
+                  }
                 }}
               />
             </Grid>
@@ -204,19 +321,35 @@ export default function CreateClientDialog({ open, onClose, onSuccess }: CreateC
             <Grid item xs={12} sm={6}>
               <TextField
                 fullWidth
-                label="Telefone"
+                label="Telefone *"
                 value={formData.phone}
-                onChange={handlePhoneChange}
+                onChange={handlePhoneChangeWithValidation}
                 placeholder="(11) 99999-9999"
                 required
                 disabled={loading}
+                error={!!formErrors.phone}
+                helperText={formErrors.phone}
                 inputProps={{ maxLength: 15 }}
                 InputProps={{
                   startAdornment: (
                     <InputAdornment position="start">
-                      <Phone color="primary" />
+                      <Phone color={formErrors.phone ? "error" : "primary"} />
                     </InputAdornment>
                   ),
+                }}
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    transition: 'all 0.3s ease',
+                    '&:hover': {
+                      boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+                    },
+                    '&.Mui-focused': {
+                      boxShadow: '0 4px 12px rgba(25, 118, 210, 0.2)',
+                    },
+                    '&.Mui-error': {
+                      boxShadow: '0 4px 12px rgba(211, 47, 47, 0.2)',
+                    },
+                  }
                 }}
               />
             </Grid>
@@ -224,7 +357,7 @@ export default function CreateClientDialog({ open, onClose, onSuccess }: CreateC
             <Grid item xs={12} sm={6}>
               <TextField
                 fullWidth
-                label="CPF"
+                label="CPF (opcional)"
                 value={formData.document}
                 onChange={handleCPFChange}
                 placeholder="000.000.000-00"
@@ -237,23 +370,50 @@ export default function CreateClientDialog({ open, onClose, onSuccess }: CreateC
                     </InputAdornment>
                   ),
                 }}
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    transition: 'all 0.3s ease',
+                    '&:hover': {
+                      boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+                    },
+                    '&.Mui-focused': {
+                      boxShadow: '0 4px 12px rgba(25, 118, 210, 0.2)',
+                    },
+                  }
+                }}
               />
             </Grid>
             
             <Grid item xs={12}>
               <TextField
                 fullWidth
-                label="E-mail"
+                label="E-mail (opcional)"
                 type="email"
                 value={formData.email}
-                onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
+                onChange={handleEmailChange}
                 disabled={loading}
+                error={!!formErrors.email}
+                helperText={formErrors.email}
                 InputProps={{
                   startAdornment: (
                     <InputAdornment position="start">
-                      <Email color="primary" />
+                      <Email color={formErrors.email ? "error" : "primary"} />
                     </InputAdornment>
                   ),
+                }}
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    transition: 'all 0.3s ease',
+                    '&:hover': {
+                      boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+                    },
+                    '&.Mui-focused': {
+                      boxShadow: '0 4px 12px rgba(25, 118, 210, 0.2)',
+                    },
+                    '&.Mui-error': {
+                      boxShadow: '0 4px 12px rgba(211, 47, 47, 0.2)',
+                    },
+                  }
                 }}
               />
             </Grid>
@@ -270,7 +430,7 @@ export default function CreateClientDialog({ open, onClose, onSuccess }: CreateC
           
           <TextField
             fullWidth
-            label="Observações"
+            label="Observações (opcional)"
             multiline
             rows={3}
             value={formData.notes}
@@ -283,6 +443,17 @@ export default function CreateClientDialog({ open, onClose, onSuccess }: CreateC
                   <Description color="primary" />
                 </InputAdornment>
               ),
+            }}
+            sx={{
+              '& .MuiOutlinedInput-root': {
+                transition: 'all 0.3s ease',
+                '&:hover': {
+                  boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+                },
+                '&.Mui-focused': {
+                  boxShadow: '0 4px 12px rgba(25, 118, 210, 0.2)',
+                },
+              }
             }}
           />
         </Box>
@@ -304,15 +475,32 @@ export default function CreateClientDialog({ open, onClose, onSuccess }: CreateC
         <Button
           onClick={handleSubmit}
           variant="contained"
-          disabled={loading || !formData.name || !formData.phone || !services || !isReady}
-          startIcon={loading ? <CircularProgress size={20} /> : <PersonAdd />}
+          disabled={loading || !formData.name.trim() || !formData.phone.replace(/\D/g, '') || !services || !isReady}
+          startIcon={loading ? <CircularProgress size={20} color="inherit" /> : <PersonAdd />}
           sx={{
             borderRadius: '50px',
-            px: 3,
-            boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
+            px: 4,
+            py: 1.5,
+            background: loading 
+              ? 'linear-gradient(45deg, #ccc 30%, #eee 90%)'
+              : 'linear-gradient(45deg, #2196F3 30%, #21CBF3 90%)',
+            boxShadow: loading 
+              ? 'none'
+              : '0 8px 24px rgba(33, 150, 243, 0.3)',
+            transition: 'all 0.3s ease',
+            '&:hover': {
+              transform: loading ? 'none' : 'translateY(-2px)',
+              boxShadow: loading 
+                ? 'none'
+                : '0 12px 32px rgba(33, 150, 243, 0.4)',
+            },
+            '&:disabled': {
+              background: 'linear-gradient(45deg, #ccc 30%, #eee 90%)',
+              color: '#999',
+            }
           }}
         >
-          {loading ? 'Criando...' : 'Criar Cliente'}
+          {loading ? 'Criando Cliente...' : success ? '✓ Cliente Criado!' : 'Criar Cliente'}
         </Button>
       </DialogActions>
     </Dialog>

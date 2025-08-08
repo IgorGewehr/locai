@@ -408,17 +408,55 @@ export async function calculatePrice(args: CalculatePriceArgs, tenantId: string)
       };
     }
 
-    // Calcular preço baseado na propriedade
+    // Calcular preço usando preços dinâmicos (fim de semana, feriados, customizados)
     const checkInDate = new Date(checkIn);
     const checkOutDate = new Date(checkOut);
     const nights = Math.ceil((checkOutDate.getTime() - checkInDate.getTime()) / (1000 * 60 * 60 * 24));
     
-    const basePrice = property.basePrice || 0; // Property interface tem basePrice direto
-    const cleaningFee = property.cleaningFee || 0; // Property interface tem cleaningFee direto
-    const serviceFee = Math.round(basePrice * nights * 0.1); // 10% taxa de serviço
+    // Verificar se número de hóspedes excede a capacidade
+    const capacity = property.capacity || property.maxGuests || 2;
+    const extraGuestFee = guests > capacity ? 
+      (guests - capacity) * (property.pricePerExtraGuest || 0) * nights : 0;
     
-    const subtotal = basePrice * nights;
-    const totalPrice = subtotal + cleaningFee + serviceFee;
+    // CÁLCULO CORRETO: usar preços dinâmicos dia a dia
+    const dailyBreakdown = [];
+    let subtotal = 0;
+    let weekendSurcharge = 0;
+    let holidaySurcharge = 0;
+    let customPricingSurcharge = 0;
+    
+    const currentDate = new Date(checkIn);
+    
+    for (let i = 0; i < nights; i++) {
+      const dayPrice = calculateDayPrice(property, currentDate);
+      dailyBreakdown.push({
+        date: new Date(currentDate),
+        basePrice: property.basePrice || 0,
+        finalPrice: dayPrice.finalPrice,
+        reason: dayPrice.reason
+      });
+      
+      subtotal += dayPrice.finalPrice;
+      
+      // Registrar sobretaxas para breakdown
+      if (dayPrice.isWeekend && !dayPrice.isHoliday) {
+        weekendSurcharge += (dayPrice.finalPrice - (property.basePrice || 0));
+      }
+      
+      if (dayPrice.isHoliday) {
+        holidaySurcharge += (dayPrice.finalPrice - (property.basePrice || 0));
+      }
+      
+      if (dayPrice.reason === 'Preço customizado') {
+        customPricingSurcharge += (dayPrice.finalPrice - (property.basePrice || 0));
+      }
+      
+      currentDate.setDate(currentDate.getDate() + 1);
+    }
+    
+    const cleaningFee = property.cleaningFee || 0;
+    const serviceFee = Math.round((subtotal + extraGuestFee) * 0.1); // 10% sobre subtotal + hóspedes extras
+    const totalPrice = subtotal + extraGuestFee + cleaningFee + serviceFee;
 
     logger.info('✅ [TenantAgent] calculate_price concluída', {
       tenantId,
@@ -435,12 +473,23 @@ export async function calculatePrice(args: CalculatePriceArgs, tenantId: string)
         location: `${property.neighborhood || ''}, ${property.city || ''}`.replace(/^, |, $/, '')
       },
       pricing: {
-        basePrice,
+        basePrice: property.basePrice || 0,
         nights,
         subtotal,
+        extraGuestFee,
         cleaningFee,
         serviceFee,
-        totalPrice
+        totalPrice,
+        guests,
+        capacity,
+        extraGuests: guests > capacity ? guests - capacity : 0,
+        surcharges: {
+          weekend: weekendSurcharge,
+          holiday: holidaySurcharge,
+          customPricing: customPricingSurcharge
+        },
+        dailyBreakdown,
+        averagePricePerNight: Math.round(subtotal / nights)
       },
       dates: {
         checkIn,

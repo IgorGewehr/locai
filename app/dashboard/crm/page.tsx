@@ -464,23 +464,75 @@ export default function CRMPage() {
             </Badge>
           </IconButton>
           
-          <ModernButton
-            variant="gradient"
+          <Button
+            variant="contained"
             size="large"
-            icon={<Add />}
+            startIcon={<Add />}
             onClick={() => setCreateLeadOpen(true)}
             sx={{
-              background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)',
-              boxShadow: '0 8px 24px rgba(99, 102, 241, 0.4)',
+              background: 'linear-gradient(135deg, #FF6B6B 0%, #FF8E53 50%, #FF6B9D 100%)',
+              border: 'none',
+              borderRadius: '16px',
+              px: 3,
+              py: 1.5,
+              minWidth: 140,
+              boxShadow: '0 8px 24px rgba(255, 107, 107, 0.35)',
+              textTransform: 'none',
+              fontSize: '1rem',
+              fontWeight: 600,
+              position: 'relative',
+              overflow: 'hidden',
+              transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+              '&::before': {
+                content: '""',
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                background: 'linear-gradient(135deg, rgba(255,255,255,0.2) 0%, rgba(255,255,255,0.05) 100%)',
+                borderRadius: '16px',
+                zIndex: 0,
+              },
               '&:hover': {
-                background: 'linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%)',
-                transform: 'translateY(-2px)',
-                boxShadow: '0 12px 32px rgba(99, 102, 241, 0.5)',
+                background: 'linear-gradient(135deg, #FF5252 0%, #FF7043 50%, #E91E63 100%)',
+                transform: 'translateY(-3px) scale(1.02)',
+                boxShadow: '0 16px 40px rgba(255, 107, 107, 0.5)',
+                '& .MuiSvgIcon-root': {
+                  transform: 'rotate(90deg) scale(1.1)',
+                }
+              },
+              '&:active': {
+                transform: 'translateY(-1px) scale(0.98)',
+                boxShadow: '0 8px 20px rgba(255, 107, 107, 0.4)',
+              },
+              '& .MuiSvgIcon-root': {
+                fontSize: '1.25rem',
+                transition: 'all 0.3s ease',
+                zIndex: 1,
+                position: 'relative',
+              },
+              '& .MuiButton-startIcon': {
+                marginRight: 1,
+              },
+              '&::after': {
+                content: '"✨"',
+                position: 'absolute',
+                top: '50%',
+                right: 12,
+                transform: 'translateY(-50%)',
+                fontSize: '0.875rem',
+                opacity: 0.8,
+                animation: 'pulse 2s infinite',
+                '@keyframes pulse': {
+                  '0%, 100%': { opacity: 0.8, transform: 'translateY(-50%) scale(1)' },
+                  '50%': { opacity: 1, transform: 'translateY(-50%) scale(1.1)' },
+                },
               }
             }}
           >
             Novo Lead
-          </ModernButton>
+          </Button>
         </Box>
       </Box>
 

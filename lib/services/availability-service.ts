@@ -1,0 +1,454 @@
+// lib/services/availability-service.ts
+import { 
+  AvailabilityPeriod, 
+  AvailabilityStatus, 
+  AvailabilityQuery,
+  AvailabilityResponse,
+  AvailabilityCalendarDay,
+  BulkAvailabilityUpdate,
+  AvailabilityUpdate
+} from '@/lib/types/availability';
+import { TenantServiceFactory } from '@/lib/firebase/firestore-v2';
+import { logger } from '@/lib/utils/logger';
+import { startOfDay, endOfDay, addDays, isWeekend, isToday, isPast, eachDayOfInterval, isSameDay, format, differenceInDays } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
+import { Reservation } from '@/lib/types/reservation';
+import { isHoliday } from '@/lib/utils/holidays';
+
+export class AvailabilityService {
+  private tenantId: string;
+  private factory: TenantServiceFactory;
+
+  constructor(tenantId: string) {
+    this.tenantId = tenantId;
+    this.factory = new TenantServiceFactory(tenantId);
+  }
+
+  /**
+   * Get availability for a property within a date range
+   */
+  async getAvailability(query: AvailabilityQuery): Promise<AvailabilityResponse> {
+    try {
+      logger.info('📅 Getting property availability', {
+        tenantId: this.tenantId,
+        propertyId: query.propertyId,
+        dateRange: `${format(query.startDate, 'yyyy-MM-dd')} to ${format(query.endDate, 'yyyy-MM-dd')}`
+      });
+
+      const availabilityService = this.factory.createService<AvailabilityPeriod>('availability');
+      const reservationService = this.factory.createService<Reservation>('reservations');
+
+      // Get all availability periods for this property
+      const availabilityPeriods = await availabilityService.getMany([
+        { field: 'propertyId', operator: '==', value: query.propertyId },
+        { field: 'startDate', operator: '<=', value: query.endDate },
+        { field: 'endDate', operator: '>=', value: query.startDate }
+      ]);
+
+      // Get reservations if requested
+      let reservations: Reservation[] = [];
+      if (query.includeReservations) {
+        reservations = await reservationService.getMany([
+          { field: 'propertyId', operator: '==', value: query.propertyId },
+          { field: 'checkIn', operator: '<=', value: query.endDate },
+          { field: 'checkOut', operator: '>=', value: query.startDate },
+          { field: 'status', operator: 'in', value: ['confirmed', 'pending'] }
+        ]);
+      }
+
+      // Generate calendar days
+      const calendar = await this.generateCalendarDays(
+        query.propertyId,
+        query.startDate,
+        query.endDate,
+        availabilityPeriods,
+        reservations
+      );
+
+      // Calculate summary statistics
+      const totalDays = calendar.length;
+      const availableDays = calendar.filter(day => day.status === AvailabilityStatus.AVAILABLE).length;
+      const reservedDays = calendar.filter(day => day.status === AvailabilityStatus.RESERVED).length;
+      const blockedDays = calendar.filter(day => 
+        day.status === AvailabilityStatus.BLOCKED || day.status === AvailabilityStatus.MAINTENANCE
+      ).length;
+      const occupancyRate = totalDays > 0 ? ((reservedDays / totalDays) * 100) : 0;
+
+      const response: AvailabilityResponse = {
+        propertyId: query.propertyId,
+        periods: availabilityPeriods,
+        calendar,
+        summary: {
+          totalDays,
+          availableDays,
+          reservedDays,
+          blockedDays,
+          occupancyRate
+        }
+      };
+
+      logger.info('✅ Availability retrieved successfully', {
+        tenantId: this.tenantId,
+        propertyId: query.propertyId,
+        summary: response.summary
+      });
+
+      return response;
+
+    } catch (error) {
+      logger.error('❌ Error getting availability', {
+        tenantId: this.tenantId,
+        propertyId: query.propertyId,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+      throw error;
+    }
+  }
+
+  /**
+   * Update availability for a date range
+   */
+  async updateAvailability(update: AvailabilityUpdate, createdBy: string): Promise<void> {
+    try {
+      logger.info('📝 Updating property availability', {
+        tenantId: this.tenantId,
+        propertyId: update.propertyId,
+        dateRange: `${format(update.startDate, 'yyyy-MM-dd')} to ${format(update.endDate, 'yyyy-MM-dd')}`,
+        status: update.status
+      });
+
+      const availabilityService = this.factory.createService<AvailabilityPeriod>('availability');
+
+      // Remove existing overlapping periods
+      await this.removeOverlappingPeriods(update.propertyId, update.startDate, update.endDate);
+
+      // Create new availability period
+      const newPeriod: Omit<AvailabilityPeriod, 'id'> = {
+        propertyId: update.propertyId,
+        startDate: startOfDay(update.startDate),
+        endDate: endOfDay(update.endDate),
+        status: update.status,
+        reason: update.reason,
+        notes: update.notes,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        createdBy
+      };
+
+      await availabilityService.create(newPeriod);
+
+      logger.info('✅ Availability updated successfully', {
+        tenantId: this.tenantId,
+        propertyId: update.propertyId,
+        status: update.status
+      });
+
+    } catch (error) {
+      logger.error('❌ Error updating availability', {
+        tenantId: this.tenantId,
+        propertyId: update.propertyId,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+      throw error;
+    }
+  }
+
+  /**
+   * Bulk update availability for multiple dates
+   */
+  async bulkUpdateAvailability(updates: BulkAvailabilityUpdate, createdBy: string): Promise<void> {
+    try {
+      logger.info('📝 Bulk updating property availability', {
+        tenantId: this.tenantId,
+        propertyId: updates.propertyId,
+        updatesCount: updates.updates.length
+      });
+
+      // Group consecutive dates with same status
+      const groupedUpdates = this.groupConsecutiveDates(updates.updates);
+
+      // Apply each group as a date range update
+      for (const group of groupedUpdates) {
+        await this.updateAvailability({
+          propertyId: updates.propertyId,
+          startDate: group.startDate,
+          endDate: group.endDate,
+          status: group.status,
+          reason: group.reason
+        }, createdBy);
+      }
+
+      logger.info('✅ Bulk availability update completed', {
+        tenantId: this.tenantId,
+        propertyId: updates.propertyId,
+        groupsCreated: groupedUpdates.length
+      });
+
+    } catch (error) {
+      logger.error('❌ Error in bulk availability update', {
+        tenantId: this.tenantId,
+        propertyId: updates.propertyId,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+      throw error;
+    }
+  }
+
+  /**
+   * Check if dates are available for booking
+   */
+  async checkAvailability(propertyId: string, checkIn: Date, checkOut: Date): Promise<boolean> {
+    try {
+      const query: AvailabilityQuery = {
+        propertyId,
+        startDate: checkIn,
+        endDate: checkOut,
+        includeReservations: true
+      };
+
+      const availability = await this.getAvailability(query);
+      
+      // Check if all days in the range are available
+      const unavailableDays = availability.calendar.filter(day => 
+        day.status !== AvailabilityStatus.AVAILABLE
+      );
+
+      const isAvailable = unavailableDays.length === 0;
+
+      logger.info('🔍 Availability check completed', {
+        tenantId: this.tenantId,
+        propertyId,
+        dateRange: `${format(checkIn, 'yyyy-MM-dd')} to ${format(checkOut, 'yyyy-MM-dd')}`,
+        isAvailable,
+        unavailableDaysCount: unavailableDays.length
+      });
+
+      return isAvailable;
+
+    } catch (error) {
+      logger.error('❌ Error checking availability', {
+        tenantId: this.tenantId,
+        propertyId,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+      return false;
+    }
+  }
+
+  /**
+   * Sync availability with reservation changes
+   */
+  async syncWithReservation(reservationId: string, propertyId: string, checkIn: Date, checkOut: Date, action: 'create' | 'cancel'): Promise<void> {
+    try {
+      logger.info('🔄 Syncing availability with reservation', {
+        tenantId: this.tenantId,
+        reservationId,
+        propertyId,
+        action
+      });
+
+      if (action === 'create') {
+        // Block dates for confirmed reservation
+        await this.updateAvailability({
+          propertyId,
+          startDate: checkIn,
+          endDate: checkOut,
+          status: AvailabilityStatus.RESERVED,
+          reason: `Reserva ${reservationId.slice(-8)}`
+        }, 'system');
+
+        // Update the availability period with reservation ID
+        const availabilityService = this.factory.createService<AvailabilityPeriod>('availability');
+        const periods = await availabilityService.getMany([
+          { field: 'propertyId', operator: '==', value: propertyId },
+          { field: 'startDate', operator: '<=', value: checkOut },
+          { field: 'endDate', operator: '>=', value: checkIn },
+          { field: 'status', operator: '==', value: AvailabilityStatus.RESERVED }
+        ]);
+
+        // Update the period with reservation ID
+        for (const period of periods) {
+          await availabilityService.update(period.id, {
+            reservationId,
+            updatedAt: new Date()
+          });
+        }
+
+      } else if (action === 'cancel') {
+        // Free up dates when reservation is cancelled
+        await this.updateAvailability({
+          propertyId,
+          startDate: checkIn,
+          endDate: checkOut,
+          status: AvailabilityStatus.AVAILABLE,
+          reason: 'Reserva cancelada'
+        }, 'system');
+      }
+
+      logger.info('✅ Availability synced with reservation', {
+        tenantId: this.tenantId,
+        reservationId,
+        action
+      });
+
+    } catch (error) {
+      logger.error('❌ Error syncing availability with reservation', {
+        tenantId: this.tenantId,
+        reservationId,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+      throw error;
+    }
+  }
+
+  /**
+   * Generate calendar days for a date range
+   */
+  private async generateCalendarDays(
+    propertyId: string,
+    startDate: Date,
+    endDate: Date,
+    availabilityPeriods: AvailabilityPeriod[],
+    reservations: Reservation[]
+  ): Promise<AvailabilityCalendarDay[]> {
+    const days: AvailabilityCalendarDay[] = [];
+    const dateRange = eachDayOfInterval({ start: startDate, end: endDate });
+
+    for (const date of dateRange) {
+      // Find availability period for this date
+      const availabilityPeriod = availabilityPeriods.find(period =>
+        date >= startOfDay(period.startDate) && date <= endOfDay(period.endDate)
+      );
+
+      // Find reservation for this date
+      const reservation = reservations.find(res =>
+        date >= startOfDay(res.checkIn as Date) && date < startOfDay(res.checkOut as Date)
+      );
+
+      let status = AvailabilityStatus.AVAILABLE;
+      let reservationId: string | undefined;
+      let reason: string | undefined;
+
+      if (availabilityPeriod) {
+        status = availabilityPeriod.status;
+        reservationId = availabilityPeriod.reservationId;
+        reason = availabilityPeriod.reason;
+      } else if (reservation) {
+        status = AvailabilityStatus.RESERVED;
+        reservationId = reservation.id;
+        reason = `Reserva #${reservation.id.slice(-8)}`;
+      }
+
+      const calendarDay: AvailabilityCalendarDay = {
+        date,
+        status,
+        isWeekend: isWeekend(date),
+        isHoliday: isHoliday(date),
+        isToday: isToday(date),
+        isPast: isPast(date),
+        reservationId,
+        reason
+      };
+
+      days.push(calendarDay);
+    }
+
+    return days;
+  }
+
+  /**
+   * Remove overlapping availability periods
+   */
+  private async removeOverlappingPeriods(propertyId: string, startDate: Date, endDate: Date): Promise<void> {
+    const availabilityService = this.factory.createService<AvailabilityPeriod>('availability');
+    
+    const overlappingPeriods = await availabilityService.getMany([
+      { field: 'propertyId', operator: '==', value: propertyId },
+      { field: 'startDate', operator: '<=', value: endDate },
+      { field: 'endDate', operator: '>=', value: startDate }
+    ]);
+
+    // Delete overlapping periods
+    for (const period of overlappingPeriods) {
+      await availabilityService.delete(period.id);
+    }
+  }
+
+  /**
+   * Group consecutive dates with same status
+   */
+  private groupConsecutiveDates(updates: Array<{ date: Date; status: AvailabilityStatus; reason?: string }>) {
+    if (updates.length === 0) return [];
+
+    // Sort by date
+    updates.sort((a, b) => a.date.getTime() - b.date.getTime());
+
+    const groups = [];
+    let currentGroup = {
+      startDate: updates[0].date,
+      endDate: updates[0].date,
+      status: updates[0].status,
+      reason: updates[0].reason
+    };
+
+    for (let i = 1; i < updates.length; i++) {
+      const update = updates[i];
+      const prevUpdate = updates[i - 1];
+      
+      // Check if consecutive date with same status
+      const isConsecutive = differenceInDays(update.date, prevUpdate.date) === 1;
+      const isSameStatus = update.status === prevUpdate.status;
+      const isSameReason = update.reason === prevUpdate.reason;
+
+      if (isConsecutive && isSameStatus && isSameReason) {
+        // Extend current group
+        currentGroup.endDate = update.date;
+      } else {
+        // Start new group
+        groups.push(currentGroup);
+        currentGroup = {
+          startDate: update.date,
+          endDate: update.date,
+          status: update.status,
+          reason: update.reason
+        };
+      }
+    }
+
+    // Add last group
+    groups.push(currentGroup);
+
+    return groups;
+  }
+
+  /**
+   * Get availability summary for multiple properties
+   */
+  async getPropertiesAvailabilitySummary(propertyIds: string[], dateRange: { start: Date; end: Date }) {
+    try {
+      const summaries = await Promise.all(
+        propertyIds.map(async (propertyId) => {
+          const availability = await this.getAvailability({
+            propertyId,
+            startDate: dateRange.start,
+            endDate: dateRange.end,
+            includeReservations: true
+          });
+          
+          return {
+            propertyId,
+            ...availability.summary
+          };
+        })
+      );
+
+      return summaries;
+    } catch (error) {
+      logger.error('❌ Error getting properties availability summary', {
+        tenantId: this.tenantId,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+      throw error;
+    }
+  }
+}

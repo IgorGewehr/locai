@@ -112,28 +112,29 @@ export default function UnifiedAgendaPage() {
     const todayVisits = useTodayVisits();
     const upcomingVisits = useUpcomingVisits(7);
     
+    // Função para carregar visitas
+    const loadVisits = async () => {
+        if (!isReady || !services) return;
+        
+        try {
+            setLoadingVisits(true);
+            const response = await fetch('/api/visits');
+            const data = await response.json();
+            
+            if (data.success) {
+                setAllVisits(data.data);
+            } else {
+                logger.error('Failed to load visits:', data.error);
+            }
+        } catch (error) {
+            logger.error('Error loading visits:', error);
+        } finally {
+            setLoadingVisits(false);
+        }
+    };
+
     // Carregar todas as visitas
     useEffect(() => {
-        const loadVisits = async () => {
-            if (!isReady || !services) return;
-            
-            try {
-                setLoadingVisits(true);
-                const response = await fetch('/api/visits');
-                const data = await response.json();
-                
-                if (data.success) {
-                    setAllVisits(data.data);
-                } else {
-                    logger.error('Failed to load visits:', data.error);
-                }
-            } catch (error) {
-                logger.error('Error loading visits:', error);
-            } finally {
-                setLoadingVisits(false);
-            }
-        };
-        
         loadVisits();
     }, [isReady, services]);
 
@@ -859,10 +860,9 @@ export default function UnifiedAgendaPage() {
                     setShowVisitDialog(false);
                 }}
                 onSuccess={() => {
-                    console.log('Visita criada com sucesso');
                     setShowVisitDialog(false);
-                    // Recarregar visitas
-                    window.location.reload();
+                    // Recarregar visitas sem reload da página
+                    loadVisits();
                 }}
             />
             
