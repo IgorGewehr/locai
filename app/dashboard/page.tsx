@@ -32,6 +32,7 @@ import MiniSiteWidget from '@/components/organisms/marketing/MiniSiteWidget';
 import MiniSiteWidgetFullWidth from '@/components/organisms/marketing/MiniSiteWidgetFullWidth';
 import AgendaCard from '@/components/organisms/dashboards/AgendaCard';
 import CRMCard from '@/components/organisms/dashboards/CRMCard';
+import CreateVisitDialog from './agenda/components/CreateVisitDialog';
 
 const initialStats: DashboardStats = {
   totalProperties: 0,
@@ -194,6 +195,7 @@ export default function DashboardPage() {
   const { services, tenantId, isReady } = useTenant();
   const [stats, setStats] = useState<DashboardStats>(initialStats);
   const [loading, setLoading] = useState(true);
+  const [showVisitDialog, setShowVisitDialog] = useState(false);
   const [whatsappStats, setWhatsappStats] = useState({
     messagesTotal: 0,
     activeConversations: 0,
@@ -476,7 +478,7 @@ export default function DashboardPage() {
 
         {/* Second Row - Detailed Information Cards (3 Equal Cards) */}
         <Grid item xs={12} lg={4}>
-          <AgendaCard />
+          <AgendaCard onCreateEvent={() => setShowVisitDialog(true)} />
         </Grid>
         
         <Grid item xs={12} lg={4}>
@@ -836,6 +838,16 @@ export default function DashboardPage() {
           </Card>
         </Grid>
       </Grid>
+
+      {/* Dialog para criar nova visita */}
+      <CreateVisitDialog
+        open={showVisitDialog}
+        onClose={() => setShowVisitDialog(false)}
+        onSuccess={() => {
+          setShowVisitDialog(false);
+          // Recarregar dados se necessário
+        }}
+      />
     </Box>
   );
 }

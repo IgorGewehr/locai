@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { format } from 'date-fns';
+import { format, isValid } from 'date-fns';
 import {
   Box,
   Card,
@@ -132,6 +132,33 @@ export default function TransactionsPage() {
     propertyId: yup.string(),
     notes: yup.string(),
   });
+
+  // Função para formatar data de forma segura
+  const formatSafeDate = (date: any): string => {
+    if (!date) return 'Data inválida';
+    
+    let dateObj: Date;
+    
+    if (date instanceof Date) {
+      dateObj = date;
+    } else if (typeof date === 'string') {
+      dateObj = new Date(date);
+    } else if (date?.toDate && typeof date.toDate === 'function') {
+      // Firestore Timestamp
+      dateObj = date.toDate();
+    } else if (date?.seconds) {
+      // Firestore Timestamp object
+      dateObj = new Date(date.seconds * 1000);
+    } else {
+      dateObj = new Date(date);
+    }
+    
+    if (!isValid(dateObj)) {
+      return 'Data inválida';
+    }
+    
+    return format(dateObj, 'dd/MM/yyyy');
+  };
   
   // Form setup
   const {
@@ -585,7 +612,7 @@ export default function TransactionsPage() {
                 paginatedTransactions.map((transaction) => (
                   <TableRow key={transaction.id} hover>
                     <TableCell>
-                      {format(transaction.date, 'dd/MM/yyyy')}
+                      {formatSafeDate(transaction.date)}
                     </TableCell>
                     <TableCell>
                       <Box>
@@ -714,7 +741,7 @@ export default function TransactionsPage() {
                   </Box>
                   <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
                     <Typography variant="body2" color="text.secondary">Data:</Typography>
-                    <Typography variant="body2">{format(selectedTransaction.date, 'dd/MM/yyyy')}</Typography>
+                    <Typography variant="body2">{formatSafeDate(selectedTransaction.date)}</Typography>
                   </Box>
                   <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
                     <Typography variant="body2" color="text.secondary">Status:</Typography>

@@ -124,6 +124,8 @@ export default function UnifiedAgendaPage() {
                 
                 if (data.success) {
                     setAllVisits(data.data);
+                } else {
+                    logger.error('Failed to load visits:', data.error);
                 }
             } catch (error) {
                 logger.error('Error loading visits:', error);
@@ -166,11 +168,14 @@ export default function UnifiedAgendaPage() {
         // Adicionar visitas como eventos (com verificação de segurança)
         if (allVisits && Array.isArray(allVisits)) {
             allVisits.forEach(visit => {
-                const visitDate = typeof visit.date === 'string' 
-                    ? parseISO(visit.date)
-                    : visit.date instanceof Date 
-                        ? visit.date 
-                        : new Date(visit.date);
+                // Usar scheduledDate ao invés de date
+                const visitDate = visit.scheduledDate 
+                    ? (typeof visit.scheduledDate === 'string' 
+                        ? parseISO(visit.scheduledDate)
+                        : visit.scheduledDate instanceof Date 
+                            ? visit.scheduledDate 
+                            : new Date(visit.scheduledDate))
+                    : new Date();
                         
                 events.push({
                     id: visit.id,
@@ -178,8 +183,8 @@ export default function UnifiedAgendaPage() {
                     subtitle: visit.propertyAddress,
                     date: visitDate,
                     type: 'visit',
-                    status: visit.status,
-                    statusColor: getVisitStatusColor(visit.status),
+                    status: visit.status || 'scheduled',
+                    statusColor: getVisitStatusColor(visit.status || 'scheduled'),
                     icon: <DirectionsCar />,
                     details: visit
                 });
@@ -598,40 +603,20 @@ export default function UnifiedAgendaPage() {
                         </Typography>
                     </Box>
                     
-                    <Stack direction="row" spacing={2}>
-                        <Button
-                            variant="contained"
-                            startIcon={<Add />}
-                            onClick={() => setShowEventoModal(true)}
-                            sx={{
-                                bgcolor: 'primary.main',
-                                boxShadow: 1,
-                                '&:hover': {
-                                    boxShadow: 2
-                                }
-                            }}
-                        >
-                            Nova Reserva
-                        </Button>
-                        <Button
-                            variant="outlined"
-                            startIcon={<DirectionsCar />}
-                            onClick={() => {
-                                console.log('Clicando em Nova Visita');
-                                setShowVisitDialog(true);
-                            }}
-                            sx={{
-                                borderColor: 'divider',
-                                color: 'text.primary',
-                                '&:hover': {
-                                    bgcolor: 'action.hover',
-                                    borderColor: 'primary.main'
-                                }
-                            }}
-                        >
-                            Nova Visita
-                        </Button>
-                    </Stack>
+                    <Button
+                        variant="contained"
+                        startIcon={<DirectionsCar />}
+                        onClick={() => setShowVisitDialog(true)}
+                        sx={{
+                            bgcolor: 'primary.main',
+                            boxShadow: 1,
+                            '&:hover': {
+                                boxShadow: 2
+                            }
+                        }}
+                    >
+                        Nova Visita
+                    </Button>
                 </Stack>
             </Box>
             

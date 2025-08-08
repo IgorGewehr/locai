@@ -48,7 +48,7 @@ export default function AgendaCard({ onCreateEvent }: AgendaCardProps) {
     
     try {
       setLoading(true);
-      const response = await fetch(`/api/visits?tenantId=${tenantId}&limit=50&upcoming=true`);
+      const response = await fetch('/api/visits');
       
       if (response.ok) {
         const data = await response.json();
