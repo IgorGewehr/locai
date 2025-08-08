@@ -119,12 +119,15 @@ export class FirestoreService<T extends { id: string }> {
   }
 
   async create(data: Omit<T, 'id'>): Promise<T> {
+    // Filter out undefined values to prevent Firestore errors
+    const filteredData = this.filterUndefinedValues({
+      ...data,
+      createdAt: Timestamp.now(),
+      updatedAt: Timestamp.now(),
+    });
+
     const docRef = await this.executeWithRetry(() => 
-      addDoc(collection(db, this.collectionName), {
-        ...data,
-        createdAt: Timestamp.now(),
-        updatedAt: Timestamp.now(),
-      })
+      addDoc(collection(db, this.collectionName), filteredData)
     );
     return {
       id: docRef.id,

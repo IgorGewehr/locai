@@ -1,0 +1,57 @@
+// Regras do Firestore para DESENVOLVIMENTO
+// COPIE ESTAS REGRAS NO FIREBASE CONSOLE > FIRESTORE DATABASE > RULES
+
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // DESENVOLVIMENTO - Acesso total para testar
+    // ⚠️  CUIDADO: Não use em produção!
+    match /{document=**} {
+      allow read, write: if true;
+    }
+    
+    // Alternativa mais segura para desenvolvimento:
+    // Descomente as regras abaixo e comente a regra acima
+    
+    /*
+    // Multi-tenant structure: tenants/{tenantId}/collections/{collection}
+    match /tenants/{tenantId} {
+      // Allow admin access to tenant data
+      allow read, write: if request.auth != null;
+      
+      match /{collection}/{document} {
+        allow read, write: if request.auth != null;
+        
+        match /{subcollection}/{subdocument} {
+          allow read, write: if request.auth != null;
+        }
+      }
+    }
+    
+    // Public collections (mini-sites, etc)
+    match /public/{document} {
+      allow read: if true;
+      allow write: if request.auth != null;
+    }
+    
+    // Users collection
+    match /users/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+    */
+  }
+}
+
+/*
+INSTRUÇÕES PARA APLICAR:
+
+1. Acesse: https://console.firebase.google.com/
+2. Selecione seu projeto: locai-c5e8a
+3. Vá em Firestore Database > Rules
+4. Copie o conteúdo acima (sem estes comentários)
+5. Clique em "Publish"
+
+NOTA: Essas regras são para DESENVOLVIMENTO.
+Para produção, use regras mais restritivas baseadas em autenticação.
+*/

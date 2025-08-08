@@ -143,8 +143,9 @@ export async function POST(request: NextRequest) {
         source: metadata?.source || (isTest ? 'test' : 'api')
       });
 
-      // INTEGRAÇÃO SOFIA: Versão de Produção com Few-Shot Prompting
-      const { sofiaAgent } = await import('@/lib/ai-agent/sofia-agent');
+      // INTEGRAÇÃO SOFIA V3: Versão moderna otimizada
+      const { SofiaAgentV3 } = await import('@/lib/ai-agent/sofia-agent-v3');
+      const sofiaAgent = SofiaAgentV3.getInstance();
 
       const result = await sofiaAgent.processMessage({
         message: validatedMessage,

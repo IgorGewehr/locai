@@ -495,4 +495,58 @@ export class TenantServiceFactory {
   getNewDocRef(collectionName: string) {
     return doc(collection(db, 'tenants', this.tenantId, collectionName));
   }
+
+  get settings() {
+    return this.createService('settings');
+  }
+
+  get billingSettings() {
+    return this.createService('billing_settings');
+  }
+
+  get billingReminders() {
+    return this.createService('billing_reminders');
+  }
+
+  get billingCampaigns() {
+    return this.createService('billing_campaigns');
+  }
+
+  get miniSiteConfigs() {
+    return this.createService('mini_site_configs');
+  }
+
+  get auditLogs() {
+    return this.createService('audit_logs');
+  }
+
+  get requestLogs() {    
+    return this.createService('request_logs');
+  }
+
+  // CRM Collections
+  get crmLeads() {
+    return this.createService('crm_leads');
+  }
+
+  get crmInteractions() {
+    return this.createService('crm_interactions');
+  }
+
+  get crmTasks() {
+    return this.createService('crm_tasks');
+  }
+
+  get crmActivities() {
+    return this.createService('crm_activities');
+  }
+
+  // Visit Collections
+  get visitAppointments() {
+    return this.createService('visit_appointments');
+  }
+
+  get tenantVisitSchedules() {
+    return this.createService('tenant_visit_schedules');
+  }
 }

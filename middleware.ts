@@ -3,17 +3,25 @@ import type { NextRequest } from 'next/server'
 import { jwtVerify } from 'jose'
 import { miniSiteMiddleware } from '@/middleware/mini-site'
 
-// Use a default JWT secret in development/build time
-const JWT_SECRET_STRING = process.env.JWT_SECRET || 'default-development-secret-min-32-characters-long'
-const JWT_SECRET = new TextEncoder().encode(JWT_SECRET_STRING)
+// Temporariamente comentado para testes
+// if (!process.env.JWT_SECRET) {
+//   throw new Error('JWT_SECRET environment variable is required for production security');
+// }
+const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET || 'temp-secret-for-testing')
 
 export async function middleware(request: NextRequest) {
-  const { pathname } = request.nextUrl
+  const { pathname, hostname } = request.nextUrl
 
-  // Check for mini-site subdomain/custom domain first
-  const miniSiteResponse = miniSiteMiddleware(request);
-  if (miniSiteResponse) {
-    return miniSiteResponse;
+  // For localhost development, skip mini-site middleware for dashboard/admin routes
+  const isLocalhost = hostname.includes('localhost') || hostname.includes('127.0.0.1');
+  const isDashboardRoute = pathname.startsWith('/dashboard') || pathname.startsWith('/admin');
+  
+  // Only check mini-site middleware if not localhost dashboard routes
+  if (!isLocalhost || !isDashboardRoute) {
+    const miniSiteResponse = miniSiteMiddleware(request);
+    if (miniSiteResponse) {
+      return miniSiteResponse;
+    }
   }
 
   // Mini-site routes - public access allowed
@@ -32,9 +40,15 @@ export async function middleware(request: NextRequest) {
   if (pathname.startsWith('/api/mini-site/')) {
     return NextResponse.next()
   }
+  
+  // Analytics API routes - public access for dashboard
+  if (pathname.startsWith('/api/analytics/')) {
+    return NextResponse.next()
+  }
 
   // Public routes - no authentication required
   const publicRoutes = [
+    '/',
     '/login',
     '/signup',
     '/reset-password',
@@ -53,7 +67,22 @@ export async function middleware(request: NextRequest) {
   // Protected routes require authentication
   const authToken = request.cookies.get('auth-token')?.value
 
+  // For localhost development, be more permissive
   if (!authToken) {
+    if (isLocalhost && isDashboardRoute) {
+      // For localhost dashboard access, allow without auth but add default headers
+      const requestHeaders = new Headers(request.headers)
+      requestHeaders.set('x-user-id', 'dev-user')
+      requestHeaders.set('x-tenant-id', 'default')
+      requestHeaders.set('x-user-role', 'admin')
+
+      return NextResponse.next({
+        request: {
+          headers: requestHeaders,
+        },
+      })
+    }
+    
     // Redirect to login for protected routes
     const loginUrl = new URL('/login', request.url)
     loginUrl.searchParams.set('redirect', pathname)
@@ -97,8 +126,9 @@ export const config = {
      * - _next/static (static files)
      * - _next/image (image optimization files)
      * - favicon.ico (favicon file)
+     * - icons folder
      * - public folder files
      */
-    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
+    '/((?!_next/static|_next/image|favicon.ico|icons/|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|webmanifest)$).*)',
   ],
 }

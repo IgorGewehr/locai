@@ -1,10 +1,9 @@
 // app/api/webhook/whatsapp-optimized/route.ts
 
 import { NextRequest, NextResponse } from 'next/server';
-import { sofiaAgent } from '@/lib/ai-agent/sofia-agent';
+import { SofiaAgentV3 } from '@/lib/ai-agent/sofia-agent-v3';
 import { AgentMonitor } from '@/lib/monitoring/agent-monitor';
 import { resolveTenantFromPhone } from '@/lib/utils/tenant-extractor';
-import { processWhatsAppLeadMiddleware, enrichSofiaContext } from '@/lib/middleware/whatsapp-lead-middleware';
 import { logger } from '@/lib/utils/logger';
 
 // Rate limiter simples e eficiente
@@ -63,54 +62,32 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ status: 'no_tenant' });
     }
 
-    // MIDDLEWARE CRM: Criar/atualizar lead automaticamente ANTES da Sofia
-    logger.info('🎯 [WhatsApp] Executando middleware CRM automático', {
-      phone: message.from.substring(0, 6) + '***',
-      tenantId
-    });
-
-    const leadContext = await processWhatsAppLeadMiddleware({
-      from: message.from,
-      body: message.text,
-      name: undefined, // WhatsApp webhook geralmente não inclui nome
-      timestamp: Math.floor(Date.now() / 1000)
-    }, tenantId);
-
-    // Processar com Sofia V4 Multi-Tenant com contexto CRM enriquecido
-    const enrichedMetadata = enrichSofiaContext({
-      source: 'whatsapp',
-      priority: 'normal'
-    }, leadContext);
-
+    // Processar com Sofia V3 Multi-Tenant
+    const sofiaAgent = SofiaAgentV3.getInstance();
     const response = await sofiaAgent.processMessage({
       message: message.text,
       clientPhone: message.from,
       tenantId,
-      metadata: enrichedMetadata
+      metadata: {
+        source: 'whatsapp',
+        priority: 'normal'
+      }
     });
 
-    // Enviar resposta via WhatsApp usando o novo sender
-    const { sendWhatsAppMessage } = await import('@/lib/whatsapp/message-sender');
-    await sendWhatsAppMessage(message.from, response.reply, undefined, tenantId);
+    // Enviar resposta via WhatsApp
+    await sendWhatsAppMessage({
+      to: message.from,
+      message: response.reply,
+      tenantId
+    });
 
     const processingTime = Date.now() - startTime;
     
-    // Registrar métricas Sofia V4 + CRM
-    AgentMonitor.recordRequest(
-      response.tokensUsed, 
-      false, 
-      response.responseTime,
-      tenantId,
-      response.functionsExecuted
-    );
+    // Registrar métricas Sofia V4
+    AgentMonitor.recordRequest(response.tokensUsed, false, response.responseTime);
 
-    // Registrar sucesso das funções executadas
-    response.functionsExecuted.forEach(func => {
-      AgentMonitor.recordFunctionSuccess(func);
-    });
-
-    // Log Sofia V4 performance metrics com dados CRM
-    logger.info('📊 [WhatsApp] Sofia V4 + CRM processamento concluído', {
+    // Log Sofia V3 performance metrics
+    logger.info('📊 [WhatsApp] Sofia V3 processamento concluído', {
       responseTime: response.responseTime,
       tokensUsed: response.tokensUsed,
       functionsExecuted: response.functionsExecuted.length,
@@ -119,18 +96,12 @@ export async function POST(request: NextRequest) {
       confidence: Math.round(response.metadata.confidence * 100),
       tenantId,
       phone: message.from.substring(0, 6) + '***',
-      totalProcessingTime: processingTime,
-      // Métricas CRM
-      leadId: leadContext.leadId?.substring(0, 8) + '***',
-      isNewLead: leadContext.isNewLead,
-      leadScore: leadContext.leadScore,
-      leadTemperature: leadContext.leadTemperature,
-      totalInteractions: leadContext.totalInteractions
+      totalProcessingTime: processingTime
     });
 
     return NextResponse.json({ 
       status: 'processed',
-      agent: 'Sofia V4 Multi-Tenant',
+      agent: 'Sofia V3 Multi-Tenant',
       tokensUsed: response.tokensUsed,
       functionsExecuted: response.functionsExecuted.length,
       functionsNames: response.functionsExecuted,

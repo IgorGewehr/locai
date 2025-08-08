@@ -1,82 +1,33 @@
-# Netlify configuration for Next.js 15 App Router
-
 [build]
-  # Build command
   command = "npm run build"
-  
-  # Publish directory for Next.js
   publish = ".next"
 
-# Essential Next.js plugin for Netlify
-[[plugins]]
-  package = "@netlify/plugin-nextjs"
-
-# Environment variables for build
 [build.environment]
-  # Node version for build
   NODE_VERSION = "20"
-  
-  # Set NODE_ENV to production
-  NODE_ENV = "production"
-  
-  # Next.js build optimization
   NEXT_TELEMETRY_DISABLED = "1"
-  
-  # Memory allocation for build
   NODE_OPTIONS = "--max-old-space-size=4096"
-  
-  # NPM cache optimization
-  NPM_CONFIG_CACHE = "/opt/build/cache/npm"
-  CYPRESS_CACHE_FOLDER = "/opt/build/cache/cypress"
-  
-  # Next.js build cache
-  NETLIFY_NEXT_PLUGIN_CACHE = "true"
+  RUNTIME_ENV = "build"
+  SKIP_FIRESTORE_BUILD = "true"
 
-# Functions configuration for API routes
 [functions]
-  # Ensure API routes work properly
   node_bundler = "esbuild"
-  included_files = ["lib/**", "app/**", ".env"]
+  external_node_modules = ["firebase-admin", "sharp"]
+  included_files = ["lib/**", "app/api/**"]
 
-# Headers configuration
 [[headers]]
   for = "/*"
   [headers.values]
-    # Security headers
     X-Frame-Options = "DENY"
     X-Content-Type-Options = "nosniff"
     X-XSS-Protection = "1; mode=block"
-    Referrer-Policy = "strict-origin-when-cross-origin"
-    Permissions-Policy = "camera=(), microphone=(), geolocation=()"
 
 [[headers]]
   for = "/api/*"
   [headers.values]
-    # API specific headers
     Cache-Control = "no-store, no-cache, must-revalidate"
-    Access-Control-Allow-Origin = "*"
-    Access-Control-Allow-Methods = "GET, POST, PUT, DELETE, OPTIONS"
-    Access-Control-Allow-Headers = "Content-Type, Authorization, X-Requested-With, X-Tenant-Id"
-    Access-Control-Max-Age = "86400"
 
-# Environment variable validation
-[context.production.environment]
-  # These are placeholders - actual values should be set in Netlify UI
-  NEXT_PUBLIC_TENANT_ID = "REQUIRED - Set in Netlify dashboard"
-  TENANT_ID = "REQUIRED - Set in Netlify dashboard"
-  JWT_SECRET = "REQUIRED - Set in Netlify dashboard (min 32 chars)"
-  OPENAI_API_KEY = "REQUIRED - Set in Netlify dashboard"
-  
-# Development context
-[context.deploy-preview]
-  command = "npm run build"
-  
-[context.branch-deploy]
-  command = "npm run build"
-
-# Dev settings
-[dev]
-  command = "npm run dev"
-  targetPort = 3000
-  port = 8888
-  autoLaunch = true
+[[redirects]]
+  from = "/admin"
+  to = "/dashboard"
+  status = 301
+  force = true

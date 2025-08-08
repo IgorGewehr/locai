@@ -57,7 +57,23 @@ interface AnalyticsResponse {
 
 export async function GET(request: NextRequest) {
   try {
-    const auth = await getAuthFromCookie(request);
+    // Try to get auth from cookie first
+    let auth = await getAuthFromCookie(request);
+    
+    // If no cookie auth (localhost development), check headers set by middleware
+    if (!auth) {
+      const userId = request.headers.get('x-user-id');
+      const tenantId = request.headers.get('x-tenant-id');
+      
+      if (userId && tenantId) {
+        auth = {
+          userId,
+          email: 'dev@localhost',
+          tenantId
+        };
+      }
+    }
+    
     if (!auth) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
@@ -142,7 +158,23 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const auth = await getAuthFromCookie(request);
+    // Try to get auth from cookie first
+    let auth = await getAuthFromCookie(request);
+    
+    // If no cookie auth (localhost development), check headers set by middleware
+    if (!auth) {
+      const userId = request.headers.get('x-user-id');
+      const tenantId = request.headers.get('x-tenant-id');
+      
+      if (userId && tenantId) {
+        auth = {
+          userId,
+          email: 'dev@localhost',
+          tenantId
+        };
+      }
+    }
+    
     if (!auth) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }

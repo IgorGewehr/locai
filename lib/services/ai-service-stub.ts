@@ -15,7 +15,8 @@ export class AIService {
     
     // Redirect to Sofia Agent production version
     try {
-      const { sofiaAgent } = await import('@/lib/ai-agent/sofia-agent');
+      const { SofiaAgentV3 } = await import('@/lib/ai-agent/sofia-agent-v3');
+      const sofiaAgent = SofiaAgentV3.getInstance();
       
       const result = await sofiaAgent.processMessage({
         message,
@@ -40,7 +41,7 @@ export class AIService {
         functionsExecuted: result.functionsExecuted
       };
     } catch (error) {
-      console.error('❌ Error in Sofia MVP via AIService stub:', error);
+      console.error('❌ Error in Sofia V3 via AIService stub:', error);
       return {
         reply: 'Desculpe, estou com dificuldades técnicas. Tente novamente.',
         intent: 'error',

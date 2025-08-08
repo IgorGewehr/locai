@@ -101,7 +101,7 @@ The heart of the application is Sofia, an intelligent conversational agent speci
 - **Context Updates**: Real-time context updates based on function executions
 - **Error Resilience**: Handles undefined values and index errors gracefully
 
-**Function Integration (`lib/ai/agent-functions.ts`)**:
+**Function Integration (`lib/ai/tenant-aware-agent-functions.ts`)**:
 - **4 Essential Functions**: search_properties, calculate_price, create_reservation, register_client
 - **Proper Error Handling**: All functions include try-catch with fallbacks
 - **Service Integration**: Uses propertyService.getActiveProperties for reliable data access
@@ -464,7 +464,7 @@ Required environment variables (see `.env.example`):
 When extending the system:
 1. **Multi-tenant Development**: Always use TenantServiceFactory and useTenant() hook
 2. **Logging**: Use structured logger from `lib/utils/logger.ts` instead of console.log
-3. **New agent functions**: Add to `lib/ai/agent-functions.ts` with proper error handling
+3. **New agent functions**: Add to `lib/ai/tenant-aware-agent-functions.ts` with proper error handling
 4. **Database operations**: Use tenant-scoped services from TenantServiceFactory
 5. **API endpoints**: Follow existing patterns in `app/api/` with comprehensive error handling
 6. **UI components**: Follow atomic design structure:
@@ -547,14 +547,13 @@ When extending the system:
 ## Quick Reference
 
 ### Key Files to Know
-- **Sofia AI Agent**: `lib/ai-agent/sofia-agent-v2.ts` - Main conversational AI (GPT-4o Mini)
-- **Agent Functions**: `lib/ai/agent-functions.ts` - 4 essential functions
+- **Sofia AI Agent**: `lib/ai-agent/sofia-agent-v3.ts` - Main conversational AI (GPT-4o Mini) 
+- **Agent Functions**: `lib/ai/tenant-aware-agent-functions.ts` - Essential AI functions
 - **Context Service**: `lib/services/conversation-context-service.ts` - Memory management
 - **API Route**: `app/api/agent/route.ts` - Main agent endpoint
-- **Test Interface**: `app/dashboard/teste/page.tsx` - Testing interface
 - **Property Service**: `lib/services/property-service.ts` - Property operations
 - **WhatsApp**: `lib/whatsapp/message-sender.ts` - Message sending
-- **Mini-Site**: `app/[domain]/page.tsx` - Public site entry
+- **Mini-Site**: `app/mini-site/[tenantId]/page.tsx` - Public site entry
 - **Auth**: `lib/auth/auth-service.ts` - Authentication logic
 - **Logger**: `lib/utils/logger.ts` - Professional logging system
 - **TenantServiceFactory**: `lib/services/tenant-service-factory.ts` - Multi-tenant services
@@ -562,22 +561,13 @@ When extending the system:
 
 ### Common Tasks
 1. **Modify Sofia's Responses**: Edit system prompt in `lib/ai-agent/sofia-agent-v3.ts`
-2. **Add AI Function**: Add to ESSENTIAL_AI_FUNCTIONS in `lib/ai/agent-functions.ts`
+2. **Add AI Function**: Add to ESSENTIAL_AI_FUNCTIONS in `lib/ai/tenant-aware-agent-functions.ts`
 3. **Update Context Logic**: Modify `updateContextFromFunction` in Sofia agent
-4. **Test Sofia**: Use `/dashboard/teste` interface with clear context button
-5. **New API Route**: Add to `app/api/` following patterns with proper logging
-6. **UI Component**: Use atomic design in `components/` with tenant context
-7. **Database Model**: Extend types in `lib/types/` for multi-tenant support
-8. **Mini-Site Feature**: Update `app/[domain]/` routes
-9. **Add Logging**: Use logger.info(), logger.error() etc. instead of console.log
-10. **Multi-tenant Service**: Use TenantServiceFactory.getService() for tenant-scoped operations
-11. **Tenant Context**: Use useTenant() hook in components for tenant awareness
+4. **New API Route**: Add to `app/api/` following patterns with proper logging
+5. **UI Component**: Use atomic design in `components/` with tenant context
+6. **Database Model**: Extend types in `lib/types/` for multi-tenant support
+7. **Mini-Site Feature**: Update `app/mini-site/[tenantId]/` routes
+8. **Add Logging**: Use logger.info(), logger.error() etc. instead of console.log
+9. **Multi-tenant Service**: Use TenantServiceFactory.getService() for tenant-scoped operations
+10. **Tenant Context**: Use useTenant() hook in components for tenant awareness
 
-### Sofia Testing Flow
-1. Access `/dashboard/teste`
-2. Click "Iniciar Conversa" 
-3. Test conversation flow:
-   - "ola quero um ap" (should ask for city)
-   - "florianopolis" (should search properties)
-   - "quero um apartamento barato" (should show options)
-4. Use "Refresh" button to clear context between tests

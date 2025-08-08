@@ -1,0 +1,88 @@
+// Regras do Firestore para PRODUÇÃO
+// COPIE ESTAS REGRAS NO FIREBASE CONSOLE > FIRESTORE DATABASE > RULES
+
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Multi-tenant structure: tenants/{tenantId}/collections
+    match /tenants/{tenantId} {
+      // Tenant-level access control
+      allow read, write: if request.auth != null && 
+        (request.auth.token.tenant_id == tenantId || 
+         request.auth.token.admin == true);
+      
+      // Collections within tenant
+      match /{collection}/{document} {
+        allow read, write: if request.auth != null && 
+          (request.auth.token.tenant_id == tenantId || 
+           request.auth.token.admin == true);
+        
+        // Subcollections
+        match /{subcollection}/{subdocument} {
+          allow read, write: if request.auth != null && 
+            (request.auth.token.tenant_id == tenantId || 
+             request.auth.token.admin == true);
+        }
+      }
+    }
+    
+    // Public mini-site data (read-only for public)
+    match /tenants/{tenantId}/public/{document} {
+      allow read: if true; // Public read access
+      allow write: if request.auth != null && 
+        (request.auth.token.tenant_id == tenantId || 
+         request.auth.token.admin == true);
+    }
+    
+    // User profiles
+    match /users/{userId} {
+      allow read, write: if request.auth != null && 
+        (request.auth.uid == userId || request.auth.token.admin == true);
+    }
+    
+    // System-wide settings (admin only)
+    match /system/{document} {
+      allow read, write: if request.auth != null && 
+        request.auth.token.admin == true;
+    }
+    
+    // WhatsApp session data (restricted)
+    match /whatsapp_sessions/{sessionId} {
+      allow read, write: if request.auth != null && 
+        request.auth.token.admin == true;
+    }
+    
+    // Analytics data (tenant-specific)
+    match /analytics/{tenantId}/{document} {
+      allow read, write: if request.auth != null && 
+        (request.auth.token.tenant_id == tenantId || 
+         request.auth.token.admin == true);
+    }
+    
+    // Deny everything else
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
+
+/*
+INSTRUÇÕES PARA PRODUÇÃO:
+
+1. Configure custom claims no Firebase Auth:
+   - tenant_id: ID do tenant do usuário
+   - admin: true para administradores
+
+2. Exemplo de custom claims:
+   {
+     "tenant_id": "default-tenant",
+     "admin": false,
+     "role": "user"
+   }
+
+3. Para admin SDK (server-side), use regras de admin ou 
+   configure um service account com permissões adequadas.
+
+4. Teste sempre em ambiente de desenvolvimento antes de aplicar.
+*/
