@@ -179,7 +179,7 @@ export async function POST(request: NextRequest) {
           });
 
           const { sendWhatsAppMessage } = await import('@/lib/whatsapp/message-sender');
-          await sendWhatsAppMessage(validatedPhone, result.reply);
+          await sendWhatsAppMessage(validatedPhone, result.reply, undefined, validatedTenantId);
 
           logger.info('✅ [API] WhatsApp enviado com sucesso', { requestId });
         } catch (whatsappError) {
@@ -304,7 +304,7 @@ export async function POST(request: NextRequest) {
       if (!isTest) {
         try {
           const { sendWhatsAppMessage } = await import('@/lib/whatsapp/message-sender');
-          await sendWhatsAppMessage(validatedPhone, errorMessage);
+          await sendWhatsAppMessage(validatedPhone, errorMessage, undefined, validatedTenantId);
           logger.info('📱 [API] Mensagem de erro enviada via WhatsApp', { requestId });
         } catch (whatsappError) {
           logger.error('❌ [API] Falha ao enviar erro via WhatsApp', {

@@ -98,7 +98,7 @@ export class ProductionSessionManager extends EventEmitter {
       
     } catch (error) {
       logger.error('❌ [ProductionSession] Erro ao carregar Baileys, usando fallback', {
-        error: error instanceof Error ? error.message : 'Unknown'
+        errorMessage: error instanceof Error ? error.message : 'Unknown'
       });
       
       // Fallback mesmo em desenvolvimento
@@ -212,7 +212,9 @@ export class ProductionSessionManager extends EventEmitter {
       const { whatsappSessionManager } = await import('./session-manager');
       return await whatsappSessionManager.sendMessage(tenantId, phoneNumber, message);
     } catch (error) {
-      logger.error('❌ [ProductionSession] Erro ao enviar mensagem', { error });
+      logger.error('❌ [ProductionSession] Erro ao enviar mensagem', { 
+        errorMessage: error instanceof Error ? error.message : 'Unknown' 
+      });
       throw error;
     }
   }
@@ -232,7 +234,9 @@ export class ProductionSessionManager extends EventEmitter {
       const { whatsappSessionManager } = await import('./session-manager');
       await whatsappSessionManager.disconnectSession(tenantId);
     } catch (error) {
-      logger.error('❌ [ProductionSession] Erro ao desconectar', { error });
+      logger.error('❌ [ProductionSession] Erro ao desconectar', { 
+        errorMessage: error instanceof Error ? error.message : 'Unknown' 
+      });
     }
   }
 

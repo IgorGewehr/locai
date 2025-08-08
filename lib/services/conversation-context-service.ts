@@ -101,14 +101,24 @@ export class ConversationContextService {
         const hoursSinceLastActivity = (Date.now() - lastActivity.getTime()) / (1000 * 60 * 60);
         
         if (hoursSinceLastActivity < this.CONTEXT_TTL_HOURS) {
-          console.log(`📊 [ContextService] Contexto existente recuperado para ${clientPhone}`);
+          logger.info('📊 [ContextService] Contexto existente recuperado', {
+            clientPhone: clientPhone.substring(0, 6) + '***',
+            tenantId: tenantId.substring(0, 8) + '***'
+          });
           return { ...data, id: docSnap.id };
         } else {
-          console.log(`⏰ [ContextService] Contexto expirado para ${clientPhone}, criando novo`);
+          logger.info('⏰ [ContextService] Contexto expirado, criando novo', {
+            clientPhone: clientPhone.substring(0, 6) + '***',
+            tenantId: tenantId.substring(0, 8) + '***',
+            hoursSinceLastActivity
+          });
           return await this.createNewContext(clientPhone, tenantId, conversationId);
         }
       } else {
-        console.log(`🆕 [ContextService] Criando novo contexto para ${clientPhone}`);
+        logger.info('🆕 [ContextService] Criando novo contexto', {
+          clientPhone: clientPhone.substring(0, 6) + '***',
+          tenantId: tenantId.substring(0, 8) + '***'
+        });
         return await this.createNewContext(clientPhone, tenantId, conversationId);
       }
     } catch (error) {
@@ -167,7 +177,10 @@ export class ConversationContextService {
       const docSnap = await getDoc(docRef);
       
       if (!docSnap.exists()) {
-        console.log(`⚠️ [ContextService] Contexto não existe para ${clientPhone}, criando...`);
+        logger.warn('⚠️ [ContextService] Contexto não existe, criando...', {
+          clientPhone: clientPhone.substring(0, 6) + '***',
+          tenantId: tenantId.substring(0, 8) + '***'
+        });
         await this.createNewContext(clientPhone, tenantId, conversationId);
       }
       
@@ -201,7 +214,10 @@ export class ConversationContextService {
         'updatedAt': serverTimestamp()
       });
       
-      console.log(`✅ [ContextService] Contexto atualizado para ${clientPhone}`);
+      logger.info('✅ [ContextService] Contexto atualizado', {
+        clientPhone: clientPhone.substring(0, 6) + '***',
+        tenantId: tenantId.substring(0, 8) + '***'
+      });
     } catch (error) {
       console.error('❌ [ContextService] Erro ao atualizar contexto:', error);
     }
@@ -255,7 +271,10 @@ export class ConversationContextService {
         });
       } else {
         // Documento não existe, precisa criar o contexto primeiro
-        console.log(`⚠️ [ContextService] Contexto não existe para ${clientPhone}, criando...`);
+        logger.warn('⚠️ [ContextService] Contexto não existe, criando...', {
+          clientPhone: clientPhone.substring(0, 6) + '***',
+          tenantId: tenantId.substring(0, 8) + '***'
+        });
         await this.createNewContext(clientPhone, tenantId, conversationId);
         
         // Agora atualizar com a informação da mensagem
@@ -266,7 +285,11 @@ export class ConversationContextService {
         });
       }
 
-      console.log(`💬 [ContextService] Mensagem salva: ${message.role} - ${message.content.substring(0, 50)}...`);
+      logger.info('💬 [ContextService] Mensagem salva', {
+        role: message.role,
+        contentPreview: message.content.substring(0, 50) + '...',
+        clientPhone: clientPhone.substring(0, 6) + '***'
+      });
     } catch (error) {
       console.error('❌ [ContextService] Erro ao salvar mensagem:', error);
     }
@@ -311,13 +334,16 @@ export class ConversationContextService {
       // Reverter para ordem cronológica
       limitedMessages.reverse();
       
-      console.log(`📜 [ContextService] ${limitedMessages.length} mensagens recuperadas do histórico`);
+      logger.info('📜 [ContextService] Mensagens recuperadas do histórico', {
+        messageCount: limitedMessages.length,
+        clientPhone: clientPhone.substring(0, 6) + '***'
+      });
       return limitedMessages;
     } catch (error) {
       console.error('❌ [ContextService] Erro ao obter histórico:', error);
       // If index error, return empty array to not break the flow
       if (error instanceof Error && error.message.includes('index')) {
-        console.log('⚠️ [ContextService] Índice não disponível, retornando histórico vazio');
+        logger.warn('⚠️ [ContextService] Índice não disponível, retornando histórico vazio');
       }
       return [];
     }
@@ -343,7 +369,10 @@ export class ConversationContextService {
         });
       } else {
         // Documento não existe, criar primeiro
-        console.log(`⚠️ [ContextService] Contexto não existe para ${clientPhone}, criando...`);
+        logger.warn('⚠️ [ContextService] Contexto não existe, criando...', {
+          clientPhone: clientPhone.substring(0, 6) + '***',
+          tenantId: tenantId.substring(0, 8) + '***'
+        });
         const newContext = await this.createNewContext(clientPhone, tenantId, conversationId);
         // Agora atualizar com os tokens
         await updateDoc(docRef, {
@@ -370,7 +399,10 @@ export class ConversationContextService {
       const docSnap = await getDoc(docRef);
       
       if (!docSnap.exists()) {
-        console.log(`⚠️ [ContextService] Contexto não existe para ${clientPhone}, criando...`);
+        logger.warn('⚠️ [ContextService] Contexto não existe, criando...', {
+          clientPhone: clientPhone.substring(0, 6) + '***',
+          tenantId: tenantId.substring(0, 8) + '***'
+        });
         await this.createNewContext(clientPhone, tenantId, conversationId);
       }
       
@@ -379,7 +411,10 @@ export class ConversationContextService {
         updatedAt: serverTimestamp()
       });
       
-      console.log(`✅ [ContextService] Conversa marcada como concluída: ${clientPhone}`);
+      logger.info('✅ [ContextService] Conversa marcada como concluída', {
+        clientPhone: clientPhone.substring(0, 6) + '***',
+        tenantId: tenantId.substring(0, 8) + '***'
+      });
     } catch (error) {
       console.error('❌ [ContextService] Erro ao marcar conversa como concluída:', error);
     }
@@ -416,7 +451,10 @@ export class ConversationContextService {
       const collectionPath = this.getContextCollectionPath(tenantId);
       await setDoc(doc(db, collectionPath, conversationId), cleanContext);
       
-      console.log(`🧹 [ContextService] Contexto completamente limpo para: ${clientPhone}`);
+      logger.info('🧹 [ContextService] Contexto completamente limpo', {
+        clientPhone: clientPhone.substring(0, 6) + '***',
+        tenantId: tenantId.substring(0, 8) + '***'
+      });
     } catch (error) {
       console.error('❌ [ContextService] Erro ao limpar contexto:', error);
       throw error;
@@ -447,7 +485,9 @@ export class ConversationContextService {
         cleanedCount++;
       }
       
-      console.log(`🧹 [ContextService] ${cleanedCount} contextos expirados marcados como inativos`);
+      logger.info('🧹 [ContextService] Contextos expirados marcados como inativos', {
+        cleanedCount
+      });
       return cleanedCount;
     } catch (error) {
       console.error('❌ [ContextService] Erro ao limpar contextos expirados:', error);

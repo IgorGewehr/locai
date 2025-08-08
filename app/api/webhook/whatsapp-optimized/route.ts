@@ -89,12 +89,9 @@ export async function POST(request: NextRequest) {
       metadata: enrichedMetadata
     });
 
-    // Enviar resposta via WhatsApp
-    await sendWhatsAppMessage({
-      to: message.from,
-      message: response.reply,
-      tenantId
-    });
+    // Enviar resposta via WhatsApp usando o novo sender
+    const { sendWhatsAppMessage } = await import('@/lib/whatsapp/message-sender');
+    await sendWhatsAppMessage(message.from, response.reply, undefined, tenantId);
 
     const processingTime = Date.now() - startTime;
     
