@@ -14,6 +14,8 @@ import { smartSummaryService, SmartSummary } from './smart-summary-service';
 import IntentDetector, { DetectedIntent } from './intent-detector';
 import ConversationStateManager, { ConversationState } from './conversation-state';
 import { loopPrevention } from './loop-prevention';
+import { sofiaAnalytics } from '@/lib/services/sofia-analytics-service';
+import { parallelExecutionService } from '@/lib/ai/parallel-execution-service';
 
 // ===== INTERFACES SIMPLIFICADAS =====
 
@@ -79,10 +81,32 @@ export class SofiaAgent {
         tenantId: input.tenantId
       });
 
-      // ===== SMART SUMMARY INTEGRATION =====
-      // Obter summary anterior do cache ou criar novo
+      // ===== ANALYTICS TRACKING - START =====
+      const conversationId = `${input.clientPhone}_${Date.now()}`;
+      
+      // Iniciar tracking se for primeira mensagem da conversa
       const cacheKey = `${input.tenantId}:${input.clientPhone}`;
       let previousSummary = this.summaryCache.get(cacheKey) || null;
+      
+      if (!previousSummary) {
+        // Nova conversa - iniciar tracking
+        await sofiaAnalytics.startConversation(
+          input.tenantId,
+          conversationId,
+          input.clientPhone
+        );
+      }
+      
+      // Rastrear mensagem do cliente
+      await sofiaAnalytics.trackMessage(
+        input.tenantId,
+        conversationId,
+        true, // isFromClient
+        undefined // sem tempo de resposta para mensagem do cliente
+      );
+      
+      // ===== SMART SUMMARY INTEGRATION =====
+      // Obter summary anterior do cache ou criar novo
       
       // Obter histórico de mensagens
       const unifiedContext = await UnifiedContextManager.getContext(input.clientPhone, input.tenantId);
@@ -118,6 +142,15 @@ export class SofiaAgent {
         input.clientPhone,
         input.tenantId
       );
+      
+      // Rastrear intenção detectada
+      if (intentDetected?.intent) {
+        await sofiaAnalytics.trackIntent(
+          input.tenantId,
+          conversationId,
+          intentDetected.intent
+        );
+      }
 
       // 2. VERIFICAR PREVENÇÃO DE LOOP (funcionalidade testada)
       if (intentDetected?.shouldForceExecution) {
@@ -181,6 +214,14 @@ export class SofiaAgent {
 
         if (result.success) {
           functionsExecuted.push(intentDetected.function);
+          
+          // Rastrear execução da função no analytics
+          await sofiaAnalytics.trackFunctionCall(
+            input.tenantId,
+            conversationId,
+            intentDetected.function,
+            result
+          );
           
           // Atualizar estado da conversa
           this.updateConversationState(
@@ -264,8 +305,63 @@ export class SofiaAgent {
       const actions: any[] = [];
       let totalTokens = completion.usage?.total_tokens || 0;
 
-      // 5. PROCESSAR TOOL CALLS COM PREVENÇÃO DE LOOP SIMPLES
+      // 5. PROCESSAR TOOL CALLS COM PREVENÇÃO DE LOOP E PARALELIZAÇÃO
       if (response.tool_calls && response.tool_calls.length > 0) {
+        // Verificar se temos search_properties e calculate_price para paralelizar
+        const searchCall = response.tool_calls.find(tc => tc.function.name === 'search_properties');
+        const calculateCall = response.tool_calls.find(tc => tc.function.name === 'calculate_price');
+        
+        if (searchCall && calculateCall) {
+          // EXECUÇÃO PARALELA OTIMIZADA
+          logger.info('⚡ [Sofia] Detectada oportunidade de paralelização');
+          
+          const searchArgs = JSON.parse(searchCall.function.arguments);
+          const calculateArgs = JSON.parse(calculateCall.function.arguments);
+          
+          const parallelResult = await parallelExecutionService.searchAndCalculateParallel(
+            searchArgs,
+            calculateArgs,
+            input.tenantId,
+            input.clientPhone
+          );
+          
+          if (parallelResult.searchResult.success) {
+            functionsExecuted.push('search_properties');
+            actions.push({ type: 'search_properties', result: parallelResult.searchResult });
+            
+            await sofiaAnalytics.trackFunctionCall(
+              input.tenantId,
+              conversationId,
+              'search_properties',
+              parallelResult.searchResult
+            );
+          }
+          
+          if (parallelResult.calculateResult?.success) {
+            functionsExecuted.push('calculate_price');
+            actions.push({ type: 'calculate_price', result: parallelResult.calculateResult });
+            
+            await sofiaAnalytics.trackFunctionCall(
+              input.tenantId,
+              conversationId,
+              'calculate_price',
+              parallelResult.calculateResult
+            );
+          }
+          
+          logger.info('✅ [Sofia] Execução paralela concluída', {
+            executionTime: parallelResult.executionTime,
+            searchSuccess: parallelResult.searchResult.success,
+            calculateSuccess: parallelResult.calculateResult?.success
+          });
+          
+          // Remover essas tool calls da lista para não processar novamente
+          response.tool_calls = response.tool_calls.filter(
+            tc => tc.function.name !== 'search_properties' && tc.function.name !== 'calculate_price'
+          );
+        }
+        
+        // Processar demais tool calls normalmente
         for (const toolCall of response.tool_calls) {
           try {
             const functionName = toolCall.function.name;
@@ -303,6 +399,14 @@ export class SofiaAgent {
             if (result.success) {
               functionsExecuted.push(functionName);
               actions.push({ type: functionName, result });
+              
+              // Rastrear execução da função no analytics
+              await sofiaAnalytics.trackFunctionCall(
+                input.tenantId,
+                conversationId,
+                functionName,
+                result
+              );
 
               // Atualizar estado
               this.updateConversationState(
@@ -352,10 +456,30 @@ export class SofiaAgent {
         }
       }
 
-      // 7. SALVAR HISTÓRICO
+      // 7. SALVAR HISTÓRICO E ANALYTICS
       await this.saveMessageHistory(input, reply, totalTokens);
-
+      
+      // Rastrear mensagem de resposta da Sofia
       const responseTime = Date.now() - startTime;
+      await sofiaAnalytics.trackMessage(
+        input.tenantId,
+        conversationId,
+        false, // não é do cliente
+        responseTime
+      );
+      
+      // Atualizar contexto do analytics com o summary
+      if (updatedSummary) {
+        await sofiaAnalytics.updateContext(
+          input.tenantId,
+          conversationId,
+          {
+            searchFilters: updatedSummary.searchCriteria,
+            interestedProperties: updatedSummary.propertiesViewed,
+            sentiment: updatedSummary.conversationState.sentiment
+          }
+        );
+      }
 
       logger.info('✅ [Sofia MVP] Processamento completo', {
         responseTime: `${responseTime}ms`,

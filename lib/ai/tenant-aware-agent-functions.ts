@@ -7,6 +7,8 @@ import { logger } from '@/lib/utils/logger';
 import { Property } from '@/lib/types/property';
 import { Client } from '@/lib/types/client';
 import { Reservation, ReservationStatus, ReservationSource, PaymentMethod, PaymentStatus } from '@/lib/types/reservation';
+import { propertyCache } from '@/lib/cache/property-cache-manager';
+import { leadScoringService } from '@/lib/services/lead-scoring-service';
 
 // ===== INTERFACES =====
 
@@ -258,6 +260,28 @@ export async function searchProperties(args: SearchPropertiesArgs, tenantId: str
       }
     });
 
+    // Verificar cache primeiro
+    const cachedProperties = propertyCache.get(tenantId, args);
+    if (cachedProperties) {
+      logger.info('✅ [TenantAgent] Propriedades obtidas do cache', {
+        tenantId,
+        count: cachedProperties.length,
+        cacheStats: propertyCache.getStats()
+      });
+      
+      // Retornar do cache (economiza 200-500ms)
+      return {
+        success: true,
+        properties: cachedProperties.slice(0, 10), // Limitar a 10 resultados
+        totalFound: cachedProperties.length,
+        fromCache: true,
+        message: cachedProperties.length > 0 
+          ? `Encontrei ${cachedProperties.length} propriedades disponíveis!` 
+          : 'Não encontrei propriedades com esses critérios.',
+        tenantId
+      };
+    }
+
     const serviceFactory = new TenantServiceFactory(tenantId);
     const propertyService = serviceFactory.properties;
     
@@ -299,12 +323,23 @@ export async function searchProperties(args: SearchPropertiesArgs, tenantId: str
 
     // Limitar resultados para não sobrecarregar
     const limitedProperties = filteredProperties.slice(0, 5);
+    
+    // Armazenar no cache para próximas buscas (TTL de 5 minutos)
+    if (filteredProperties.length > 0) {
+      propertyCache.set(tenantId, args, filteredProperties);
+      logger.debug('💾 [TenantAgent] Propriedades armazenadas no cache', {
+        tenantId,
+        count: filteredProperties.length,
+        ttl: '5 minutos'
+      });
+    }
 
     logger.info('✅ [TenantAgent] search_properties concluída', {
       tenantId,
       totalProperties: allProperties.length,
       filteredCount: filteredProperties.length,
-      returnedCount: limitedProperties.length
+      returnedCount: limitedProperties.length,
+      cacheStats: propertyCache.getStats()
     });
 
     return {
@@ -774,6 +809,44 @@ export async function registerClient(args: RegisterClientArgs, tenantId: string)
         tenantId,
         clientId: existingClient.id
       });
+      
+      // Verificar se já existe um lead para este cliente e atualizar
+      const leadService = serviceFactory.leads;
+      const existingLeads = await leadService.getMany([
+        { field: 'phone', operator: '==', value: args.phone }
+      ]);
+      
+      if (existingLeads.length > 0) {
+        // Atualizar lead existente com score dinâmico
+        const existingLead = existingLeads[0];
+        
+        // Calcular novo score baseado em informações atualizadas
+        const scoringFactors = {
+          messagesExchanged: existingLead.interactions?.length || 5,
+          hasPhone: !!args.phone,
+          hasEmail: !!args.email || !!existingLead.email,
+          hasDocument: !!args.document,
+          source: existingLead.source || 'whatsapp_ai' as const,
+          returningClient: true // Cliente retornando
+        };
+        
+        const scoreResult = leadScoringService.calculateScore(scoringFactors);
+        
+        await leadService.update(existingLead.id!, {
+          clientId: existingClient.id,
+          name: args.name,
+          email: args.email || existingLead.email,
+          score: scoreResult.score,
+          temperature: scoreResult.temperature
+        });
+        
+        logger.info('📈 [TenantAgent] Lead score atualizado', {
+          leadId: existingLead.id,
+          oldScore: existingLead.score,
+          newScore: scoreResult.score,
+          temperature: scoreResult.temperature
+        });
+      }
 
       return {
         success: true,
@@ -828,6 +901,65 @@ export async function registerClient(args: RegisterClientArgs, tenantId: string)
         tenantId,
         clientId
       });
+      
+      // Criar lead automaticamente no CRM
+      try {
+        const leadService = serviceFactory.leads;
+        
+        // Calcular score dinâmico para o novo lead
+        const scoringFactors = {
+          messagesExchanged: 3, // Assumindo que houve pelo menos 3 mensagens para chegar ao registro
+          hasPhone: !!args.phone,
+          hasEmail: !!args.email,
+          hasDocument: !!args.document,
+          source: 'whatsapp_ai' as const,
+          budgetDefined: false, // Será atualizado se tiver contexto
+          checkInDateDefined: false, // Será atualizado se tiver contexto
+          guestsCountDefined: false // Será atualizado se tiver contexto
+        };
+        
+        const scoreResult = leadScoringService.calculateScore(scoringFactors);
+        
+        const leadData = {
+          name: args.name,
+          phone: args.phone || '',
+          whatsappNumber: args.whatsappNumber || args.phone || '',
+          email: args.email,
+          source: 'whatsapp_ai' as const,
+          sourceDetails: 'Cadastrado automaticamente pela Sofia durante conversa no WhatsApp',
+          status: 'new' as const,
+          temperature: scoreResult.temperature,
+          score: scoreResult.score,
+          clientId: clientId,
+          assignedTo: '',
+          preferences: {
+            propertyType: [],
+            location: [],
+            priceRange: { min: 0, max: 0 },
+            bedrooms: { min: 0, max: 0 }
+          },
+          interactions: [],
+          tasks: [],
+          notes: `Lead criado automaticamente quando cliente foi registrado pela Sofia. ${scoreResult.insights.join('. ')}`,
+          tags: ['sofia-registered', 'whatsapp', scoreResult.temperature],
+          tenantId
+        };
+        
+        const leadId = await leadService.create(leadData);
+        
+        logger.info('📋 [TenantAgent] Lead criado automaticamente no CRM', {
+          tenantId,
+          clientId,
+          leadId
+        });
+      } catch (leadError) {
+        // Não falhar a operação se não conseguir criar o lead
+        logger.warn('⚠️ [TenantAgent] Não foi possível criar lead no CRM', {
+          tenantId,
+          clientId,
+          error: leadError instanceof Error ? leadError.message : 'Unknown error'
+        });
+      }
 
       return {
         success: true,
