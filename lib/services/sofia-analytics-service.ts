@@ -1,6 +1,6 @@
 // lib/services/sofia-analytics-service.ts
 import { logger } from '@/lib/utils/logger'
-import { db } from '@/lib/firebase'
+import { db } from '@/lib/firebase/config'
 import { collection, doc, setDoc, updateDoc, increment, serverTimestamp, getDoc, query, where, getDocs, orderBy, limit, Timestamp } from 'firebase/firestore'
 import { AgentContext } from '@/lib/types/ai'
 
