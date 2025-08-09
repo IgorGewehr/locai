@@ -149,6 +149,41 @@ interface UpdateLeadArgs {
   };
 }
 
+// ===== NOVAS INTERFACES CRÍTICAS =====
+
+interface CancelReservationArgs {
+  reservationId?: string;
+  clientPhone?: string; // Para buscar reserva pelo telefone
+  reason?: string;
+  refundAmount?: number;
+  refundPercentage?: number;
+}
+
+interface ModifyReservationArgs {
+  reservationId?: string;
+  clientPhone?: string;
+  updates: {
+    checkIn?: string;
+    checkOut?: string;
+    guests?: number;
+    totalPrice?: number;
+    status?: ReservationStatus;
+    notes?: string;
+  };
+}
+
+interface GetPoliciesArgs {
+  policyType?: 'cancellation' | 'payment' | 'check_in' | 'general' | 'all';
+  propertyId?: string; // Para políticas específicas da propriedade
+}
+
+interface CheckAvailabilityArgs {
+  propertyId: string;
+  checkIn: string;
+  checkOut: string;
+  guests?: number;
+}
+
 interface CreateTaskArgs {
   leadId?: string;
   clientId?: string;
@@ -4240,6 +4275,325 @@ export async function updateTask(args: UpdateTaskArgs, tenantId: string): Promis
   }
 }
 
+// ===== FUNÇÕES CRÍTICAS IMPLEMENTADAS =====
+
+// Função para cancelar reserva
+async function cancelReservation(args: CancelReservationArgs, tenantId: string) {
+  try {
+    logger.info('🚫 [CancelReservation] Iniciando cancelamento', {
+      tenantId,
+      hasReservationId: !!args.reservationId,
+      hasClientPhone: !!args.clientPhone
+    });
+
+    const reservationService = TenantServiceFactory.getReservationService(tenantId);
+    
+    // Buscar reserva por ID ou telefone do cliente
+    let reservation;
+    if (args.reservationId) {
+      reservation = await reservationService.getById(args.reservationId);
+    } else if (args.clientPhone) {
+      // Buscar última reserva ativa do cliente
+      const reservations = await reservationService.getAll({
+        orderBy: 'createdAt',
+        orderDirection: 'desc',
+        limit: 1
+      });
+      
+      reservation = reservations.find(r => 
+        r.clientPhone === args.clientPhone && 
+        ['pending', 'confirmed'].includes(r.status)
+      );
+    }
+
+    if (!reservation) {
+      return {
+        success: false,
+        error: 'Reserva não encontrada ou já cancelada',
+        tenantId
+      };
+    }
+
+    // Atualizar status para cancelada
+    await reservationService.update(reservation.id, {
+      status: 'cancelled' as ReservationStatus,
+      cancelledAt: new Date(),
+      cancellationReason: args.reason || 'Solicitado pelo cliente',
+      refundAmount: args.refundAmount,
+      refundPercentage: args.refundPercentage,
+      updatedAt: new Date()
+    });
+
+    logger.info('✅ [CancelReservation] Reserva cancelada', {
+      reservationId: reservation.id,
+      propertyName: reservation.propertyName
+    });
+
+    return {
+      success: true,
+      data: {
+        reservationId: reservation.id,
+        propertyName: reservation.propertyName,
+        checkIn: reservation.checkIn,
+        checkOut: reservation.checkOut,
+        status: 'cancelled',
+        refundAmount: args.refundAmount,
+        message: 'Reserva cancelada com sucesso'
+      },
+      tenantId
+    };
+
+  } catch (error) {
+    logger.error('❌ [CancelReservation] Erro', { error, tenantId });
+    return {
+      success: false,
+      error: 'Erro ao cancelar reserva',
+      tenantId
+    };
+  }
+}
+
+// Função para modificar reserva
+async function modifyReservation(args: ModifyReservationArgs, tenantId: string) {
+  try {
+    logger.info('✏️ [ModifyReservation] Iniciando modificação', {
+      tenantId,
+      hasReservationId: !!args.reservationId,
+      updates: Object.keys(args.updates || {})
+    });
+
+    const reservationService = TenantServiceFactory.getReservationService(tenantId);
+    
+    // Buscar reserva
+    let reservation;
+    if (args.reservationId) {
+      reservation = await reservationService.getById(args.reservationId);
+    } else if (args.clientPhone) {
+      const reservations = await reservationService.getAll({
+        orderBy: 'createdAt',
+        orderDirection: 'desc',
+        limit: 1
+      });
+      
+      reservation = reservations.find(r => 
+        r.clientPhone === args.clientPhone && 
+        ['pending', 'confirmed'].includes(r.status)
+      );
+    }
+
+    if (!reservation) {
+      return {
+        success: false,
+        error: 'Reserva não encontrada ou não pode ser modificada',
+        tenantId
+      };
+    }
+
+    // Aplicar modificações
+    const updates: any = {
+      ...args.updates,
+      updatedAt: new Date()
+    };
+
+    // Se mudou datas, recalcular preço
+    if (args.updates.checkIn || args.updates.checkOut) {
+      const propertyService = TenantServiceFactory.getPropertyService(tenantId);
+      const property = await propertyService.getById(reservation.propertyId);
+      
+      if (property) {
+        const checkIn = args.updates.checkIn || reservation.checkIn;
+        const checkOut = args.updates.checkOut || reservation.checkOut;
+        const nights = Math.ceil((new Date(checkOut).getTime() - new Date(checkIn).getTime()) / (1000 * 60 * 60 * 24));
+        
+        updates.totalPrice = property.basePrice * nights;
+        updates.nights = nights;
+      }
+    }
+
+    await reservationService.update(reservation.id, updates);
+
+    logger.info('✅ [ModifyReservation] Reserva modificada', {
+      reservationId: reservation.id,
+      modifications: Object.keys(args.updates || {})
+    });
+
+    return {
+      success: true,
+      data: {
+        reservationId: reservation.id,
+        propertyName: reservation.propertyName,
+        updates: args.updates,
+        message: 'Reserva modificada com sucesso'
+      },
+      tenantId
+    };
+
+  } catch (error) {
+    logger.error('❌ [ModifyReservation] Erro', { error, tenantId });
+    return {
+      success: false,
+      error: 'Erro ao modificar reserva',
+      tenantId
+    };
+  }
+}
+
+// Função para obter políticas
+async function getPolicies(args: GetPoliciesArgs, tenantId: string) {
+  try {
+    logger.info('📋 [GetPolicies] Buscando políticas', {
+      tenantId,
+      policyType: args.policyType || 'all'
+    });
+
+    const policies: any = {
+      cancellation: {
+        title: 'Política de Cancelamento',
+        rules: [
+          'Cancelamento até 7 dias antes: reembolso total',
+          'Cancelamento entre 3-7 dias: reembolso de 50%',
+          'Cancelamento com menos de 3 dias: sem reembolso',
+          'Casos de força maior serão analisados individualmente'
+        ]
+      },
+      payment: {
+        title: 'Política de Pagamento',
+        rules: [
+          'Pagamento de 30% no ato da reserva',
+          'Restante até 24h antes do check-in',
+          'Aceitamos Pix, cartão de crédito e débito',
+          'Parcelamento em até 3x sem juros no cartão'
+        ]
+      },
+      check_in: {
+        title: 'Política de Check-in/Check-out',
+        rules: [
+          'Check-in: a partir das 14h',
+          'Check-out: até às 11h',
+          'Late check-out sujeito a disponibilidade e taxa adicional',
+          'Documento com foto obrigatório no check-in'
+        ]
+      },
+      general: {
+        title: 'Regras Gerais',
+        rules: [
+          'Proibido fumar dentro do imóvel',
+          'Animais de estimação mediante consulta prévia',
+          'Festas e eventos não permitidos',
+          'Visitantes devem ser informados previamente',
+          'Multa de R$ 500 por violação das regras'
+        ]
+      }
+    };
+
+    // Retornar política específica ou todas
+    let selectedPolicies;
+    if (args.policyType && args.policyType !== 'all') {
+      selectedPolicies = { [args.policyType]: policies[args.policyType] };
+    } else {
+      selectedPolicies = policies;
+    }
+
+    return {
+      success: true,
+      data: {
+        policies: selectedPolicies,
+        propertyId: args.propertyId,
+        message: 'Políticas recuperadas com sucesso'
+      },
+      tenantId
+    };
+
+  } catch (error) {
+    logger.error('❌ [GetPolicies] Erro', { error, tenantId });
+    return {
+      success: false,
+      error: 'Erro ao buscar políticas',
+      tenantId
+    };
+  }
+}
+
+// Função para verificar disponibilidade
+async function checkAvailability(args: CheckAvailabilityArgs, tenantId: string) {
+  try {
+    logger.info('🔍 [CheckAvailability] Verificando disponibilidade', {
+      tenantId,
+      propertyId: args.propertyId,
+      checkIn: args.checkIn,
+      checkOut: args.checkOut
+    });
+
+    const propertyService = TenantServiceFactory.getPropertyService(tenantId);
+    const reservationService = TenantServiceFactory.getReservationService(tenantId);
+    
+    // Verificar se propriedade existe
+    const property = await propertyService.getById(args.propertyId);
+    if (!property) {
+      return {
+        success: false,
+        error: 'Propriedade não encontrada',
+        tenantId
+      };
+    }
+
+    // Buscar reservas conflitantes
+    const existingReservations = await reservationService.getAll({
+      orderBy: 'checkIn',
+      orderDirection: 'asc'
+    });
+
+    const checkInDate = new Date(args.checkIn);
+    const checkOutDate = new Date(args.checkOut);
+    
+    const conflictingReservations = existingReservations.filter(r => {
+      if (r.propertyId !== args.propertyId) return false;
+      if (r.status === 'cancelled') return false;
+      
+      const resCheckIn = new Date(r.checkIn);
+      const resCheckOut = new Date(r.checkOut);
+      
+      // Verifica sobreposição de datas
+      return !(checkOutDate <= resCheckIn || checkInDate >= resCheckOut);
+    });
+
+    const isAvailable = conflictingReservations.length === 0;
+
+    logger.info('✅ [CheckAvailability] Verificação concluída', {
+      propertyId: args.propertyId,
+      isAvailable,
+      conflicts: conflictingReservations.length
+    });
+
+    return {
+      success: true,
+      data: {
+        propertyId: args.propertyId,
+        propertyName: property.name,
+        checkIn: args.checkIn,
+        checkOut: args.checkOut,
+        isAvailable,
+        conflictingDates: conflictingReservations.map(r => ({
+          checkIn: r.checkIn,
+          checkOut: r.checkOut
+        })),
+        message: isAvailable 
+          ? `Propriedade disponível para as datas selecionadas!`
+          : `Propriedade não disponível para essas datas. Temos conflitos com outras reservas.`
+      },
+      tenantId
+    };
+
+  } catch (error) {
+    logger.error('❌ [CheckAvailability] Erro', { error, tenantId });
+    return {
+      success: false,
+      error: 'Erro ao verificar disponibilidade',
+      tenantId
+    };
+  }
+}
+
 // Executar função baseada no nome
 export async function executeTenantAwareFunction(
   functionName: string, 
@@ -4302,6 +4656,28 @@ export async function executeTenantAwareFunction(
       return await updateGoalProgress(args, tenantId);
     case 'analyze_performance':
       return await analyzePerformance(args, tenantId);
+    
+    // FUNÇÕES CRÍTICAS ADICIONADAS
+    case 'cancel_reservation':
+      // Garantir clientPhone se disponível
+      if (!args.clientPhone && contextClientPhone) {
+        args.clientPhone = contextClientPhone;
+      }
+      return await cancelReservation(args, tenantId);
+    
+    case 'modify_reservation':
+      // Garantir clientPhone se disponível
+      if (!args.clientPhone && contextClientPhone) {
+        args.clientPhone = contextClientPhone;
+      }
+      return await modifyReservation(args, tenantId);
+    
+    case 'get_policies':
+      return await getPolicies(args, tenantId);
+    
+    case 'check_availability':
+      return await checkAvailability(args, tenantId);
+    
     default:
       logger.error('❌ [TenantAgent] Função desconhecida', {
         functionName,

@@ -16,6 +16,7 @@ import ConversationStateManager, { ConversationState } from './conversation-stat
 import { loopPrevention } from './loop-prevention';
 import { sofiaAnalytics } from '@/lib/services/sofia-analytics-service';
 import { parallelExecutionService } from '@/lib/ai/parallel-execution-service';
+import { enhancedIntentDetector, type EnhancedIntentResult } from './enhanced-intent-detector';
 
 // ===== INTERFACES SIMPLIFICADAS =====
 
@@ -52,6 +53,7 @@ export class SofiaAgent {
   private openai: OpenAI;
   private static instance: SofiaAgent;
   private summaryCache = new Map<string, SmartSummary>();
+  private useEnhancedDetection: boolean = true; // Feature flag
 
   constructor() {
     this.openai = new OpenAI({
@@ -135,6 +137,42 @@ export class SofiaAgent {
         propertiesCount: updatedSummary.propertiesViewed.length,
         nextAction: updatedSummary.nextBestAction.action
       });
+
+      // NOVA LÓGICA: Enhanced Intent Detection com A/B Testing
+      if (this.useEnhancedDetection && Math.random() < 0.3) { // 30% A/B testing
+        logger.info('🎯 [Sofia] Usando Enhanced Intent Detection', { 
+          clientPhone: this.maskPhone(input.clientPhone) 
+        });
+        
+        const enhancedIntent = await this.processWithEnhancedDetection(
+          input, 
+          updatedSummary, 
+          conversationId
+        );
+        
+        if (enhancedIntent) {
+          // Rastrear mensagem de resposta
+          await sofiaAnalytics.trackMessage(
+            input.tenantId,
+            conversationId,
+            false, // isFromClient
+            enhancedIntent.responseTime
+          );
+          
+          // Finalizar conversa se necessário
+          if (enhancedIntent.metadata.stage === 'completed') {
+            await sofiaAnalytics.endConversation(
+              input.tenantId,
+              conversationId,
+              'completed'
+            );
+          }
+          
+          return enhancedIntent;
+        }
+        
+        logger.info('🔄 [Sofia] Enhanced falhou, usando método original');
+      }
 
       // 1. DETECTAR INTENÇÃO (funcionalidade testada)
       intentDetected = IntentDetector.detectIntent(
@@ -1159,6 +1197,233 @@ export class SofiaAgent {
       default:
         return `Acabamos de fazer essa ação! 😊 Em que mais posso ajudar?`;
     }
+  }
+
+  // NOVO MÉTODO: Processar com Enhanced Detection
+  private async processWithEnhancedDetection(
+    input: SofiaInput, 
+    context: SmartSummary, 
+    conversationId: string
+  ): Promise<SofiaResponse | null> {
+    const startTime = Date.now();
+    
+    try {
+      // 1. Detectar intenção com LangChain
+      const enhancedIntent = await enhancedIntentDetector.detectIntent({
+        message: input.message,
+        conversationContext: context,
+        tenantId: input.tenantId,
+        clientPhone: input.clientPhone
+      });
+
+      // 2. Se confiança baixa, usar método original
+      if (!enhancedIntent.function || enhancedIntent.confidence < 0.8) {
+        logger.info('⚠️ [Sofia Enhanced] Confiança baixa, usando fallback', {
+          function: enhancedIntent.function,
+          confidence: enhancedIntent.confidence
+        });
+        return null; // Vai usar método original
+      }
+
+      // 3. Executar função detectada
+      logger.info('🔧 [Sofia Enhanced] Executando função detectada', {
+        function: enhancedIntent.function,
+        confidence: enhancedIntent.confidence,
+        parameters: Object.keys(enhancedIntent.parameters)
+      });
+
+      const functionResult = await executeTenantAwareFunction(
+        enhancedIntent.function,
+        enhancedIntent.parameters,
+        input.tenantId,
+        input.clientPhone
+      );
+
+      if (!functionResult.success) {
+        logger.error('❌ [Sofia Enhanced] Falha na execução da função', {
+          function: enhancedIntent.function,
+          error: functionResult.error
+        });
+        return null; // Fallback para método original
+      }
+
+      // Rastrear execução da função
+      await sofiaAnalytics.trackFunctionCall(
+        input.tenantId,
+        conversationId,
+        enhancedIntent.function,
+        functionResult
+      );
+
+      // 4. Gerar resposta humanizada mantendo personalidade
+      const humanizedResponse = await this.generateHumanizedResponse(
+        functionResult,
+        input,
+        enhancedIntent,
+        context
+      );
+
+      // 5. Atualizar contexto
+      await this.updateContextWithEnhancedResult(
+        input.clientPhone,
+        input.tenantId,
+        enhancedIntent,
+        functionResult
+      );
+
+      const responseTime = Date.now() - startTime;
+
+      logger.info('✅ [Sofia Enhanced] Processamento concluído com sucesso', {
+        function: enhancedIntent.function,
+        confidence: enhancedIntent.confidence,
+        responseTime: `${responseTime}ms`
+      });
+
+      // Atualizar summary com resultado
+      const updatedSummary = await smartSummaryService.updateSummaryWithFunctionResult(
+        context,
+        enhancedIntent.function,
+        enhancedIntent.parameters,
+        functionResult
+      );
+      
+      // Salvar no cache
+      const cacheKey = `${input.tenantId}:${input.clientPhone}`;
+      this.summaryCache.set(cacheKey, updatedSummary);
+
+      return {
+        reply: humanizedResponse,
+        summary: updatedSummary,
+        actions: [{
+          type: enhancedIntent.function,
+          parameters: enhancedIntent.parameters,
+          result: functionResult
+        }],
+        tokensUsed: 0,
+        responseTime,
+        functionsExecuted: [enhancedIntent.function],
+        metadata: {
+          stage: 'enhanced_detection',
+          confidence: enhancedIntent.confidence,
+          reasoningUsed: false,
+          enhancedDetection: true,
+          detectionConfidence: enhancedIntent.confidence,
+          detectedFunction: enhancedIntent.function
+        }
+      };
+
+    } catch (error) {
+      logger.error('🚨 [Sofia Enhanced] Erro crítico', {
+        error: error instanceof Error ? error.message : 'Unknown'
+      });
+      return null; // Fallback para método original
+    }
+  }
+
+  // NOVO MÉTODO: Gerar resposta humanizada
+  private async generateHumanizedResponse(
+    functionResult: any,
+    input: SofiaInput,
+    intent: EnhancedIntentResult,
+    context: SmartSummary
+  ): Promise<string> {
+    
+    const humanizationPrompt = `
+PERSONALIDADE: Sofia - atendente imobiliária super simpática, descontraída, eficiente e genuinamente prestativa.
+
+TAREFA: Transformar o resultado da função em uma resposta NATURAL, HUMANIZADA e CONVERSACIONAL.
+
+CONTEXTO:
+- Função executada: ${intent.function}
+- Confiança da detecção: ${intent.confidence}
+- Mensagem original: "${input.message}"
+- Resultado da função: ${JSON.stringify(functionResult.data)}
+
+DIRETRIZES RÍGIDAS:
+✅ Seja NATURAL e CONVERSACIONAL (como uma pessoa real falaria)
+✅ Use emojis moderadamente e contextualmente  
+✅ Faça perguntas para continuar engajamento
+✅ Seja PROATIVA em sugestões úteis
+✅ Mantenha tom brasileiro descontraído
+✅ Mostre entusiasmo genuíno pelo que oferece
+
+❌ JAMAIS seja robótica, formal ou corporativa
+❌ JAMAIS mencione "baseado em dados", "conforme análise", "sistema detectou"
+❌ JAMAIS use linguagem técnica ou processual
+❌ NÃO seja genérica - seja específica e útil
+
+EXEMPLOS DE TOM CORRETO:
+- "Opa! Achei umas opções incríveis pra você! 🏖️"
+- "Nossa, que legal! Tenho certeza que vai adorar essas opções!"
+- "Perfeito! Olha só o que encontrei..."
+
+RESPOSTA HUMANIZADA (mantenha a naturalidade da Sofia):
+`;
+
+    try {
+      const completion = await this.openai.chat.completions.create({
+        model: 'gpt-4o-mini',
+        messages: [
+          { role: 'system', content: humanizationPrompt },
+          { role: 'user', content: 'Gere a resposta humanizada.' }
+        ],
+        max_tokens: 300,
+        temperature: 0.7
+      });
+      
+      return completion.choices[0]?.message?.content || this.generateBasicHumanResponse(functionResult, intent.function!);
+      
+    } catch (error) {
+      logger.error('❌ [Sofia Enhanced] Erro na humanização', { error });
+      
+      // Fallback para resposta básica mas humanizada
+      return this.generateBasicHumanResponse(functionResult, intent.function!);
+    }
+  }
+
+  // NOVO MÉTODO: Atualizar contexto com resultado enhanced
+  private async updateContextWithEnhancedResult(
+    clientPhone: string,
+    tenantId: string,
+    intent: EnhancedIntentResult,
+    functionResult: any
+  ): Promise<void> {
+    try {
+      const contextUpdate = {
+        lastIntent: intent.function,
+        lastIntentConfidence: intent.confidence,
+        lastFunctionResult: functionResult.success,
+        enhancedDetectionUsed: true,
+        timestamp: new Date()
+      };
+
+      // Usar o UnifiedContextManager para atualizar
+      await UnifiedContextManager.updateContext(clientPhone, tenantId, contextUpdate);
+      
+    } catch (error) {
+      logger.error('❌ [Sofia Enhanced] Erro ao atualizar contexto', { error });
+      // Não bloquear o fluxo por erro de contexto
+    }
+  }
+
+  // NOVO MÉTODO: Gerar resposta básica humanizada
+  private generateBasicHumanResponse(functionResult: any, functionName: string): string {
+    const responses: Record<string, string> = {
+      search_properties: "Opa! Encontrei algumas opções legais pra você! 😊",
+      calculate_price: "Pronto! Calculei o preço pra você! 💰",
+      get_property_details: "Aqui estão os detalhes que você pediu! 🏠",
+      send_property_media: "Vou te enviar as fotos agora! 📸",
+      create_reservation: "Perfeito! Vamos finalizar sua reserva! ✅",
+      register_client: "Ótimo! Cadastro realizado com sucesso! 👍",
+      schedule_visit: "Show! Vamos agendar sua visita! 📅",
+      check_availability: "Deixa eu verificar a disponibilidade pra você! 🔍",
+      get_contact_info: "Aqui estão as informações de contato! 📞",
+      cancel_reservation: "Entendi, vou cancelar a reserva pra você! ❌",
+      modify_reservation: "Beleza! Vou ajustar sua reserva! ✏️",
+      get_policies: "Aqui estão as políticas e regras! 📋"
+    };
+
+    return responses[functionName] || "Prontinho! Consegui processar sua solicitação! 😊";
   }
 
   private getNoExecutionFallback(functionName: string, state: ConversationState): string {
