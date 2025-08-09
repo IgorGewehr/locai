@@ -6,6 +6,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { TenantServiceFactory } from '@/lib/firebase/firestore-v2';
 import { z } from 'zod';
+import { getCacheManager, cacheKeys, cacheTTL } from '@/lib/utils/cache-manager';
+import { checkRateLimit, rateLimitConfigs } from '@/lib/utils/rate-limiter';
+import { logger } from '@/lib/utils/logger';
 
 const inquirySchema = z.object({
   propertyId: z.string().min(1),
@@ -32,6 +35,18 @@ export async function GET(
   { params }: { params: Promise<{ tenantId: string }> }
 ): Promise<NextResponse> {
   try {
+    // Check rate limit
+    const rateLimitResult = checkRateLimit(request, rateLimitConfigs.miniSite);
+    if (!rateLimitResult.allowed) {
+      return NextResponse.json(
+        { error: rateLimitConfigs.miniSite.message },
+        { 
+          status: 429,
+          headers: rateLimitResult.headers
+        }
+      );
+    }
+
     const { searchParams } = new URL(request.url);
     const { tenantId } = await params;
 
@@ -54,11 +69,23 @@ export async function GET(
       Object.entries(utmParams).filter(([_, value]) => value !== undefined)
     ) as Record<string, string>;
 
+    const cache = getCacheManager();
     const services = new TenantServiceFactory(tenantId);
+    
+    // Record page view (don't cache this)
     await services.miniSite.recordPageView(tenantId, undefined, filteredUtmParams);
 
-    // Get mini-site configuration
-    const config = await services.miniSite.getConfig(tenantId);
+    // Try to get config from cache
+    const configCacheKey = cacheKeys.miniSiteConfig(tenantId);
+    let config = cache.get(configCacheKey);
+    
+    if (!config) {
+      // Get from database and cache it
+      config = await services.miniSite.getConfig(tenantId);
+      if (config) {
+        cache.set(configCacheKey, config, cacheTTL.config);
+      }
+    }
     if (!config) {
       return NextResponse.json(
         { error: 'Mini-site not found or inactive' },
@@ -66,14 +93,39 @@ export async function GET(
       );
     }
 
-    // For debugging - always allow access if config exists
-    console.log(`Mini-site config for ${tenantId}:`, {
-      isActive: config.isActive,
-      businessName: config.contactInfo.businessName
-    });
+    // Check if mini-site is active (production check)
+    const isProduction = process.env.NODE_ENV === 'production';
+    const isConfigActive = config.isActive === true;
+    
+    if (isProduction && !isConfigActive) {
+      logger.warn('🚫 [MiniSite] Access denied - not active', { 
+        tenantId,
+        isActive: isConfigActive 
+      });
+      return NextResponse.json(
+        { error: 'Mini-site não está ativo' },
+        { status: 403, headers: rateLimitResult.headers }
+      );
+    } else if (!isConfigActive) {
+      logger.info('🔧 [MiniSite] Dev mode - allowing inactive site', { tenantId });
+    }
 
-    // Get public properties
-    const properties = await services.miniSite.getPublicProperties(tenantId);
+    // Try to get properties from cache
+    const propertiesCacheKey = cacheKeys.miniSiteProperties(tenantId);
+    let properties = cache.get(propertiesCacheKey);
+    
+    if (!properties) {
+      // Get from database and cache it
+      properties = await services.miniSite.getPublicProperties(tenantId);
+      cache.set(propertiesCacheKey, properties, cacheTTL.properties);
+    }
+    
+    logger.info('✅ [MiniSite] Data loaded', {
+      tenantId,
+      isActive: isConfigActive,
+      propertyCount: properties?.length || 0,
+      cached: !!cache.get(propertiesCacheKey)
+    });
 
     return NextResponse.json({
       success: true,
@@ -81,10 +133,19 @@ export async function GET(
         config,
         properties
       }
+    }, {
+      headers: {
+        ...rateLimitResult.headers,
+        'Cache-Control': 'public, max-age=60, s-maxage=300',
+        'X-Cache-Status': cache.get(configCacheKey) ? 'HIT' : 'MISS'
+      }
     });
 
   } catch (error) {
-    console.error('Error in mini-site API:', error);
+    logger.error('❌ [MiniSite] API error', {
+      error: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined
+    });
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }
@@ -97,6 +158,17 @@ export async function POST(
   { params }: { params: Promise<{ tenantId: string }> }
 ): Promise<NextResponse> {
   try {
+    // Check rate limit for inquiry
+    const rateLimitResult = checkRateLimit(request, rateLimitConfigs.miniSiteInquiry);
+    if (!rateLimitResult.allowed) {
+      return NextResponse.json(
+        { error: rateLimitConfigs.miniSiteInquiry.message },
+        { 
+          status: 429,
+          headers: rateLimitResult.headers
+        }
+      );
+    }
     const { tenantId } = await params;
     const body = await request.json();
 

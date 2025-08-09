@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 import { jwtVerify } from 'jose'
 import { miniSiteMiddleware } from '@/middleware/mini-site'
+import { logger } from '@/lib/utils/logger'
 
 // Use a default JWT secret in development/build time
 const JWT_SECRET_STRING = process.env.JWT_SECRET || 'default-development-secret-min-32-characters-long'
@@ -13,12 +14,16 @@ export async function middleware(request: NextRequest) {
   // Check for mini-site subdomain/custom domain first
   const miniSiteResponse = miniSiteMiddleware(request);
   if (miniSiteResponse) {
+    // Add security headers to mini-site response
+    addSecurityHeaders(miniSiteResponse, pathname);
     return miniSiteResponse;
   }
 
   // Mini-site routes - public access allowed
   if (pathname.startsWith('/mini-site/')) {
-    return NextResponse.next()
+    const response = NextResponse.next()
+    addSecurityHeaders(response, pathname);
+    return response
   }
 
   // Legacy site routes - redirect to mini-site
@@ -77,16 +82,59 @@ export async function middleware(request: NextRequest) {
     requestHeaders.set('x-tenant-id', (payload.tenantId as string) || (payload.sub as string)) // Use userId as tenantId if no specific tenantId
     requestHeaders.set('x-user-role', payload.role as string)
 
-    return NextResponse.next({
+    const response = NextResponse.next({
       request: {
         headers: requestHeaders,
       },
     })
+    
+    // Add security headers
+    addSecurityHeaders(response, pathname);
+    return response
   } catch (error) {
     // Invalid token - redirect to login
     const loginUrl = new URL('/login', request.url)
     loginUrl.searchParams.set('redirect', pathname)
     return NextResponse.redirect(loginUrl)
+  }
+}
+
+/**
+ * Add security headers to response
+ */
+function addSecurityHeaders(response: NextResponse, pathname: string): void {
+  // Basic security headers
+  response.headers.set('X-Frame-Options', 'DENY');
+  response.headers.set('X-Content-Type-Options', 'nosniff');
+  response.headers.set('X-XSS-Protection', '1; mode=block');
+  response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
+  
+  // Content Security Policy for mini-site routes
+  if (pathname.startsWith('/site/') || pathname.startsWith('/mini-site/')) {
+    response.headers.set(
+      'Content-Security-Policy',
+      "default-src 'self'; " +
+      "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.googletagmanager.com https://www.google-analytics.com; " +
+      "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; " +
+      "font-src 'self' https://fonts.gstatic.com; " +
+      "img-src 'self' data: https: blob:; " +
+      "connect-src 'self' https://firebasestorage.googleapis.com https://*.firebaseio.com wss://*.firebaseio.com https://www.google-analytics.com; " +
+      "frame-ancestors 'none';"
+    );
+  }
+
+  // Permissions Policy
+  response.headers.set(
+    'Permissions-Policy',
+    'camera=(), microphone=(), geolocation=(), interest-cohort=()'
+  );
+
+  // HSTS for production
+  if (process.env.NODE_ENV === 'production') {
+    response.headers.set(
+      'Strict-Transport-Security',
+      'max-age=31536000; includeSubDomains; preload'
+    );
   }
 }
 
