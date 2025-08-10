@@ -344,10 +344,20 @@ export const PropertyPricing: React.FC = () => {
                   Marque as datas em que o imóvel não estará disponível para reserva.
                   Útil para bloqueios pessoais, manutenção ou reservas existentes.
                 </Typography>
-                <AvailabilityCalendar
-                  unavailableDates={unavailableDates}
-                  onDatesChange={handleUnavailableDatesChange}
-                />
+                {/* Temporarily disabled - needs propertyId to work properly */}
+                <Box sx={{ 
+                  p: 3, 
+                  backgroundColor: 'rgba(255, 152, 0, 0.1)',
+                  borderRadius: 1,
+                  border: '1px solid rgba(255, 152, 0, 0.3)'
+                }}>
+                  <Typography variant="body2" color="warning.main">
+                    ⚠️ A configuração de disponibilidade estará disponível após salvar o imóvel.
+                  </Typography>
+                  <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
+                    Você poderá marcar datas indisponíveis na página de edição do imóvel.
+                  </Typography>
+                </Box>
               </Box>
             )}
 

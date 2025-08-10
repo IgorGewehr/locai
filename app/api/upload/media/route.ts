@@ -3,11 +3,23 @@ import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { storage } from '@/lib/firebase/config';
 import { generateUniqueId } from '@/lib/utils/mediaUtils';
 import { logger } from '@/lib/utils/logger';
+import { verifyAuth } from '@/lib/utils/auth';
 
 export async function POST(request: NextRequest) {
   logger.info('📤 [MediaUploadAPI] Fallback upload API called');
   
   try {
+    // Verify authentication
+    const user = await verifyAuth(request);
+    if (!user) {
+      return NextResponse.json(
+        { error: 'Não autorizado' },
+        { status: 401 }
+      );
+    }
+    
+    const tenantId = user.tenantId || user.uid;
+    
     const formData = await request.formData();
     const files = formData.getAll('files') as File[];
     const type = formData.get('type') as string;
@@ -56,7 +68,9 @@ export async function POST(request: NextRequest) {
     // Process uploads
     const uploadPromises = files.map(async (file) => {
       const fileName = `${generateUniqueId()}-${file.name}`;
-      const storageRef = ref(storage, `properties/${type}s/${fileName}`);
+      // Use multi-tenant path structure
+      const storagePath = `tenants/${tenantId}/properties/${type}s/${fileName}`;
+      const storageRef = ref(storage, storagePath);
       
       logger.info('📤 [MediaUploadAPI] Uploading file via fallback', {
         fileName,

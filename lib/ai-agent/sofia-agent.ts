@@ -17,6 +17,7 @@ import { loopPrevention } from './loop-prevention';
 import { sofiaAnalytics } from '@/lib/services/sofia-analytics-service';
 import { parallelExecutionService } from '@/lib/ai/parallel-execution-service';
 import { enhancedIntentDetector, type EnhancedIntentResult } from './enhanced-intent-detector';
+import { ENHANCED_INTENT_CONFIG } from '@/lib/config/enhanced-intent-config';
 
 // ===== INTERFACES SIMPLIFICADAS =====
 
@@ -53,7 +54,7 @@ export class SofiaAgent {
   private openai: OpenAI;
   private static instance: SofiaAgent;
   private summaryCache = new Map<string, SmartSummary>();
-  private useEnhancedDetection: boolean = true; // Feature flag
+  private useEnhancedDetection: boolean = ENHANCED_INTENT_CONFIG.enabled; // Usa config centralizada
 
   constructor() {
     this.openai = new OpenAI({
@@ -138,10 +139,14 @@ export class SofiaAgent {
         nextAction: updatedSummary.nextBestAction.action
       });
 
-      // NOVA LÓGICA: Enhanced Intent Detection com A/B Testing
-      if (this.useEnhancedDetection && Math.random() < 0.3) { // 30% A/B testing
+      // NOVA LÓGICA: Enhanced Intent Detection - Configuração Centralizada
+      const useEnhanced = this.useEnhancedDetection && ENHANCED_INTENT_CONFIG.abTestPercentage >= 100;
+      
+      if (useEnhanced) {
         logger.info('🎯 [Sofia] Usando Enhanced Intent Detection', { 
-          clientPhone: this.maskPhone(input.clientPhone) 
+          clientPhone: this.maskPhone(input.clientPhone),
+          enhancedActive: `${ENHANCED_INTENT_CONFIG.abTestPercentage}%`,
+          confidenceThreshold: ENHANCED_INTENT_CONFIG.confidenceThreshold
         });
         
         const enhancedIntent = await this.processWithEnhancedDetection(
@@ -1217,10 +1222,11 @@ export class SofiaAgent {
       });
 
       // 2. Se confiança baixa, usar método original
-      if (!enhancedIntent.function || enhancedIntent.confidence < 0.8) {
+      if (!enhancedIntent.function || enhancedIntent.confidence < ENHANCED_INTENT_CONFIG.confidenceThreshold) {
         logger.info('⚠️ [Sofia Enhanced] Confiança baixa, usando fallback', {
           function: enhancedIntent.function,
-          confidence: enhancedIntent.confidence
+          confidence: enhancedIntent.confidence,
+          threshold: ENHANCED_INTENT_CONFIG.confidenceThreshold
         });
         return null; // Vai usar método original
       }

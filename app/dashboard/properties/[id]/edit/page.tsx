@@ -37,6 +37,7 @@ import { PropertySpecs } from '@/components/organisms/PropertySpecs/PropertySpec
 import { PropertyAmenities } from '@/components/organisms/PropertyAmenities/PropertyAmenities';
 import { PropertyPricing } from '@/components/organisms/PropertyPricing/PropertyPricing';
 import PropertyMediaUpload from '@/components/organisms/PropertyMediaUpload/PropertyMediaUpload';
+import AvailabilityCalendar from '@/components/organisms/AvailabilityCalendar/AvailabilityCalendar';
 import { Property, PricingRule, PropertyCategory, PaymentMethod, PropertyStatus, PropertyType } from '@/lib/types/property';
 import { useTenant } from '@/contexts/TenantContext';
 
@@ -284,12 +285,13 @@ export default function EditPropertyPage() {
       {/* Tabs */}
       <Card>
         <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
-          <Tabs value={activeTab} onChange={(_, newValue) => setActiveTab(newValue)}>
+          <Tabs value={activeTab} onChange={(_, newValue) => setActiveTab(newValue)} variant="scrollable" scrollButtons="auto">
             <Tab label="Informações Básicas" />
             <Tab label="Especificações" />
             <Tab label="Comodidades" />
             <Tab label="Precificação" />
             <Tab label="Mídia" />
+            <Tab label="Disponibilidade" />
           </Tabs>
         </Box>
 
@@ -312,6 +314,22 @@ export default function EditPropertyPage() {
 
           <TabPanel value={activeTab} index={4}>
             <PropertyMediaUpload />
+          </TabPanel>
+
+          <TabPanel value={activeTab} index={5}>
+            <Box>
+              <Typography variant="h6" gutterBottom>
+                Gerenciar Disponibilidade
+              </Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+                Configure as datas disponíveis, bloqueadas ou em manutenção para este imóvel.
+              </Typography>
+              <AvailabilityCalendar 
+                propertyId={propertyId} 
+                showLegend={true}
+                showStats={true}
+              />
+            </Box>
           </TabPanel>
         </CardContent>
       </Card>

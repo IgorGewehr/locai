@@ -9,6 +9,7 @@ import {
   compressImage,
   isImageFile
 } from '@/lib/utils/mediaUtils'
+import { useTenant } from '@/contexts/TenantContext'
 
 export interface UploadedFile {
   name: string
@@ -28,6 +29,7 @@ export function useMediaUpload(): UseMediaUploadReturn {
   const [uploading, setUploading] = useState(false)
   const [progress, setProgress] = useState(0)
   const [error, setError] = useState<string | null>(null)
+  const { tenantId } = useTenant()
 
   // Helper function to convert file to data URL
   const fileToDataUrl = (file: File): Promise<string> => {
@@ -43,7 +45,9 @@ export function useMediaUpload(): UseMediaUploadReturn {
   const uploadWithDataUrl = async (file: File, type: 'image' | 'video'): Promise<UploadedFile> => {
     const dataUrl = await fileToDataUrl(file);
     const fileName = `${generateUniqueId()}-${file.name}`;
-    const storageRef = ref(storage, `properties/${type}s/${fileName}`);
+    // Use multi-tenant path structure
+    const storagePath = `tenants/${tenantId}/properties/${type}s/${fileName}`;
+    const storageRef = ref(storage, storagePath);
 
     const snapshot = await uploadString(storageRef, dataUrl, 'data_url');
     const url = await getDownloadURL(snapshot.ref);
@@ -118,8 +122,10 @@ export function useMediaUpload(): UseMediaUploadReturn {
           }
 
           const fileName = `${generateUniqueId()}-${file.name}`
-          const storageRef = ref(storage, `properties/${type}s/${fileName}`)
-          console.log(`[MediaUpload] Upload path: properties/${type}s/${fileName}`);
+          // Use multi-tenant path structure
+          const storagePath = `tenants/${tenantId}/properties/${type}s/${fileName}`;
+          const storageRef = ref(storage, storagePath)
+          console.log(`[MediaUpload] Upload path: ${storagePath}`);
           
           // Try primary method: uploadBytesResumable
           try {

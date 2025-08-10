@@ -33,7 +33,8 @@ export function detectProductionEnvironment(): ProductionEnvironment {
   else if (isProduction) platform = 'production';
 
   const canUseFileSystem = !isServerless;
-  const canUseBaileys = !isServerless && !isNetlify;
+  // Allow Baileys to be used everywhere - let it fail gracefully if not available
+  const canUseBaileys = true; // Changed to always try Baileys first
 
   return {
     isNetlify,
@@ -59,29 +60,7 @@ export async function loadWhatsAppDependency(): Promise<{
     canUseFileSystem: env.canUseFileSystem
   });
 
-  // Se é ambiente que não suporta Baileys, usar ProductionSessionManager
-  if (!env.canUseBaileys) {
-    try {
-      const { productionSessionManager } = await import('@/lib/whatsapp/production-session-manager');
-      
-      logger.info('✅ [ProductionUtils] ProductionSessionManager carregado (modo compatibilidade)');
-      
-      return {
-        available: true,
-        manager: productionSessionManager,
-      };
-    } catch (error) {
-      logger.error('❌ [ProductionUtils] Erro ao carregar ProductionSessionManager', { error });
-      
-      return {
-        available: false,
-        manager: null,
-        error: error instanceof Error ? error.message : 'Unknown error'
-      };
-    }
-  }
-
-  // Tentar carregar Baileys completo (desenvolvimento/produção local)
+  // Always try to load real Baileys first, regardless of environment
   try {
     const { whatsappSessionManager } = await import('@/lib/whatsapp/session-manager');
     
@@ -92,18 +71,25 @@ export async function loadWhatsAppDependency(): Promise<{
       manager: whatsappSessionManager,
     };
   } catch (error) {
-    logger.warn('⚠️ [ProductionUtils] Baileys não disponível, usando fallback', { error });
+    logger.warn('⚠️ [ProductionUtils] Baileys não disponível, tentando ProductionSessionManager', { 
+      error: error instanceof Error ? error.message : 'Unknown',
+      platform: env.platform 
+    });
     
-    // Fallback para ProductionSessionManager mesmo em desenvolvimento
+    // Fallback to ProductionSessionManager which will also try to use real Baileys internally
     try {
       const { productionSessionManager } = await import('@/lib/whatsapp/production-session-manager');
+      
+      logger.info('✅ [ProductionUtils] ProductionSessionManager carregado como fallback');
       
       return {
         available: true,
         manager: productionSessionManager,
       };
     } catch (fallbackError) {
-      logger.error('❌ [ProductionUtils] Todos os fallbacks falharam', { fallbackError });
+      logger.error('❌ [ProductionUtils] Todos os fallbacks falharam', { 
+        fallbackError: fallbackError instanceof Error ? fallbackError.message : 'Unknown' 
+      });
       
       return {
         available: false,
@@ -121,9 +107,9 @@ export function createProductionConfig() {
     // WhatsApp Web configuration
     whatsapp: {
       enabled: !process.env.DISABLE_WHATSAPP_WEB,
-      useFallback: env.isServerless || env.isNetlify,
+      useFallback: false, // Always try real Baileys first
       sessionPath: env.canUseFileSystem ? '.sessions' : null,
-      qrCodeMethod: env.isServerless ? 'svg' : 'canvas',
+      qrCodeMethod: 'canvas', // Always try canvas first, fallback to SVG if needed
     },
     
     // API configuration

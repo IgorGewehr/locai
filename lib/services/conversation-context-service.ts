@@ -15,6 +15,7 @@ import {
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase/config';
 import { SmartSummary } from '@/lib/ai-agent/smart-summary-service';
+import { logger } from '@/lib/utils/logger';
 
 // ===== INTERFACES =====
 
