@@ -33,7 +33,7 @@ import {
 } from '@/lib/types/property'
 import { useFormContext } from 'react-hook-form'
 import PricingCalendar from '@/components/organisms/PricingCalendar/PricingCalendar'
-import AvailabilityCalendar from '@/components/organisms/AvailabilityCalendar/AvailabilityCalendar'
+import SimpleAvailabilityPicker from '@/components/organisms/SimpleAvailabilityPicker/SimpleAvailabilityPicker'
 import { PricingSurcharges } from '@/components/organisms/PricingSurcharges'
 
 export const PropertyPricing: React.FC = () => {
@@ -344,20 +344,12 @@ export const PropertyPricing: React.FC = () => {
                   Marque as datas em que o imóvel não estará disponível para reserva.
                   Útil para bloqueios pessoais, manutenção ou reservas existentes.
                 </Typography>
-                {/* Temporarily disabled - needs propertyId to work properly */}
-                <Box sx={{ 
-                  p: 3, 
-                  backgroundColor: 'rgba(255, 152, 0, 0.1)',
-                  borderRadius: 1,
-                  border: '1px solid rgba(255, 152, 0, 0.3)'
-                }}>
-                  <Typography variant="body2" color="warning.main">
-                    ⚠️ A configuração de disponibilidade estará disponível após salvar o imóvel.
-                  </Typography>
-                  <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
-                    Você poderá marcar datas indisponíveis na página de edição do imóvel.
-                  </Typography>
-                </Box>
+                <SimpleAvailabilityPicker
+                  unavailableDates={unavailableDates}
+                  onDatesChange={handleUnavailableDatesChange}
+                  showLegend={true}
+                  height={450}
+                />
               </Box>
             )}
 

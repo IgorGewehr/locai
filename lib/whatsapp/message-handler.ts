@@ -538,15 +538,28 @@ export class WhatsAppMessageHandler {
   }
 
   private async sendPropertyMedia(to: string, mediaData: any): Promise<void> {
-    const { photos, videos, propertyName } = mediaData
+    // The function now returns media array instead of separate photos/videos
+    const { media, property, caption, totalMedia } = mediaData
+    const propertyName = property?.name || 'Propriedade'
+    
+    // Separate photos and videos from the media array
+    const photos = media?.filter((m: any) => m.type === 'photo') || []
+    const videos = media?.filter((m: any) => m.type === 'video') || []
+
+    // Send initial caption if provided
+    if (caption) {
+      await this.whatsappClient.sendText(to, caption)
+      await this.delay(1000)
+    }
 
     // Send photos with captions
-    if (photos && photos.length > 0) {
+    if (photos.length > 0) {
       for (const [index, photo] of photos.entries()) {
+        const photoCaption = photo.caption || `${propertyName} - Foto ${index + 1}/${photos.length}`
         await this.whatsappClient.sendImage(
           to,
           photo.url,
-          `${propertyName} - Foto ${index + 1}/${photos.length}`
+          photoCaption
         )
 
         // Add delay between photos
@@ -557,15 +570,24 @@ export class WhatsAppMessageHandler {
     }
 
     // Send videos
-    if (videos && videos.length > 0) {
+    if (videos.length > 0) {
       for (const video of videos) {
+        const videoCaption = `${propertyName} - ${video.title || 'Vídeo'}`
         await this.whatsappClient.sendVideo(
           to,
           video.url,
-          `${propertyName} - ${video.title || 'Vídeo'}`
+          videoCaption
         )
         await this.delay(2000)
       }
+    }
+
+    // Send a message if no media was found
+    if (photos.length === 0 && videos.length === 0) {
+      await this.whatsappClient.sendText(
+        to,
+        `Desculpe, não há mídia disponível para ${propertyName} no momento.`
+      )
     }
   }
 

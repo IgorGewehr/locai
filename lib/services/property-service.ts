@@ -2,6 +2,9 @@ import { Property } from '@/lib/types/property';
 import { TenantServiceFactory } from '@/lib/firebase/firestore-v2';
 import { reservationService } from './reservation-service';
 import { logger } from '@/lib/utils/logger';
+import { AvailabilityService } from './availability-service';
+import { AvailabilityStatus } from '@/lib/types/availability';
+import { startOfDay, endOfDay, eachDayOfInterval, isSameDay } from 'date-fns';
 
 export class PropertyService {
   private getTenantService(tenantId: string) {
@@ -117,6 +120,49 @@ export class PropertyService {
     return await tenantPropertyService.get(id) as Property | null;
   }
 
+  /**
+   * Group consecutive dates into date ranges for efficient storage
+   */
+  private groupConsecutiveDates(dates: Date[]): Array<{ startDate: Date; endDate: Date }> {
+    if (dates.length === 0) return [];
+    
+    // Sort dates
+    const sortedDates = [...dates].sort((a, b) => a.getTime() - b.getTime());
+    
+    const groups: Array<{ startDate: Date; endDate: Date }> = [];
+    let currentGroupStart = sortedDates[0];
+    let currentGroupEnd = sortedDates[0];
+    
+    for (let i = 1; i < sortedDates.length; i++) {
+      const currentDate = sortedDates[i];
+      const prevDate = sortedDates[i - 1];
+      
+      // Check if dates are consecutive (1 day apart)
+      const daysDiff = Math.floor((currentDate.getTime() - prevDate.getTime()) / (1000 * 60 * 60 * 24));
+      
+      if (daysDiff === 1) {
+        // Extend current group
+        currentGroupEnd = currentDate;
+      } else {
+        // Save current group and start new one
+        groups.push({
+          startDate: startOfDay(currentGroupStart),
+          endDate: endOfDay(currentGroupEnd)
+        });
+        currentGroupStart = currentDate;
+        currentGroupEnd = currentDate;
+      }
+    }
+    
+    // Save last group
+    groups.push({
+      startDate: startOfDay(currentGroupStart),
+      endDate: endOfDay(currentGroupEnd)
+    });
+    
+    return groups;
+  }
+
   async create(property: Omit<Property, 'id'>, tenantId: string): Promise<string> {
     try {
       logger.info('🏠 [PropertyService] Creating new property', {
@@ -148,6 +194,43 @@ export class PropertyService {
         propertyId,
         tenantId
       });
+
+      // Sync unavailableDates to availability collection if provided
+      if (property.unavailableDates && property.unavailableDates.length > 0) {
+        try {
+          logger.info('📅 [PropertyService] Syncing unavailable dates to availability collection', {
+            propertyId,
+            datesCount: property.unavailableDates.length
+          });
+
+          const availabilityService = new AvailabilityService(tenantId);
+          
+          // Group consecutive dates for efficiency
+          const groupedDates = this.groupConsecutiveDates(property.unavailableDates);
+          
+          // Create availability periods for each group
+          for (const group of groupedDates) {
+            await availabilityService.updateAvailability({
+              propertyId,
+              startDate: group.startDate,
+              endDate: group.endDate,
+              status: AvailabilityStatus.BLOCKED,
+              reason: 'Bloqueado durante criação do imóvel'
+            }, 'system');
+          }
+
+          logger.info('✅ [PropertyService] Unavailable dates synced successfully', {
+            propertyId,
+            periodsCreated: groupedDates.length
+          });
+        } catch (syncError) {
+          // Don't fail property creation if sync fails
+          logger.warn('⚠️ [PropertyService] Failed to sync unavailable dates', {
+            propertyId,
+            error: syncError instanceof Error ? syncError.message : 'Unknown error'
+          });
+        }
+      }
 
       return propertyId;
     } catch (error) {
