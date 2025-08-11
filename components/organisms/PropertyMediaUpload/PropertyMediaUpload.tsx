@@ -63,7 +63,13 @@ export default function PropertyMediaUpload() {
   const onDropPhotos = useCallback(async (acceptedFiles: File[]) => {
     if (acceptedFiles.length === 0) return;
     
-    console.log(`[PropertyMediaUpload] Starting photo upload: ${acceptedFiles.length} files`);
+    console.log(`🖼️ [PropertyMediaUpload] Starting photo upload`, {
+      filesCount: acceptedFiles.length,
+      fileNames: acceptedFiles.map(f => f.name),
+      fileSizes: acceptedFiles.map(f => f.size),
+      fileTypes: acceptedFiles.map(f => f.type),
+      existingPhotosCount: photos.length
+    });
     
     try {
       clearError();
@@ -78,14 +84,30 @@ export default function PropertyMediaUpload() {
         caption: '',
       }));
 
-      console.log('[PropertyMediaUpload] Created preview photos, updating form');
+      console.log('🖼️ [PropertyMediaUpload] Created preview photos', {
+        previewCount: previewPhotos.length,
+        previewData: previewPhotos.map(p => ({
+          id: p.id,
+          filename: p.filename,
+          isBlobUrl: p.url.startsWith('blob:')
+        }))
+      });
+      
       // Add photos with preview URLs immediately
       setValue('photos', [...photos, ...previewPhotos]);
       
-      console.log('[PropertyMediaUpload] Starting Firebase upload...');
+      console.log('🚀 [PropertyMediaUpload] Starting Firebase upload...');
       // Upload files in background and replace URLs
       const uploadResults = await uploadFiles(acceptedFiles, 'image');
-      console.log(`[PropertyMediaUpload] Firebase upload complete: ${uploadResults.length} results`);
+      console.log(`✅ [PropertyMediaUpload] Firebase upload complete`, {
+        resultsCount: uploadResults.length,
+        uploadedFiles: uploadResults.map(r => ({
+          name: r.name,
+          url: r.url,
+          size: r.size,
+          isFirebaseUrl: r.url.includes('firebasestorage.googleapis.com')
+        }))
+      });
       
       // Replace blob URLs with Firebase URLs
       const finalPhotos: PropertyPhoto[] = uploadResults.map((result, index) => ({

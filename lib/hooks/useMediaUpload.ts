@@ -30,6 +30,18 @@ export function useMediaUpload(): UseMediaUploadReturn {
   const [progress, setProgress] = useState(0)
   const [error, setError] = useState<string | null>(null)
   const { tenantId } = useTenant()
+  
+  console.log('🎬 [useMediaUpload] Hook initialized', {
+    tenantId,
+    hasValidTenant: !!tenantId,
+    tenantIdType: typeof tenantId,
+    tenantIdLength: tenantId?.length || 0
+  })
+  
+  // Validate tenant ID
+  if (!tenantId) {
+    console.error('❌ [useMediaUpload] No tenant ID available!');
+  }
 
   // Helper function to convert file to data URL
   const fileToDataUrl = (file: File): Promise<string> => {
@@ -43,14 +55,38 @@ export function useMediaUpload(): UseMediaUploadReturn {
 
   // Fallback method using base64/data URL
   const uploadWithDataUrl = async (file: File, type: 'image' | 'video'): Promise<UploadedFile> => {
+    console.log('📤 [uploadWithDataUrl] Starting data URL upload', {
+      fileName: file.name,
+      fileSize: file.size,
+      fileType: file.type,
+      tenantId
+    });
+    
     const dataUrl = await fileToDataUrl(file);
+    console.log('🔄 [uploadWithDataUrl] File converted to data URL', {
+      dataUrlLength: dataUrl.length,
+      dataUrlPreview: dataUrl.substring(0, 50) + '...'
+    });
+    
     const fileName = `${generateUniqueId()}-${file.name}`;
     // Use multi-tenant path structure
     const storagePath = `tenants/${tenantId}/properties/${type}s/${fileName}`;
+    console.log('📁 [uploadWithDataUrl] Storage path created', { storagePath });
+    
     const storageRef = ref(storage, storagePath);
 
     const snapshot = await uploadString(storageRef, dataUrl, 'data_url');
+    console.log('✅ [uploadWithDataUrl] Upload to Firebase successful', {
+      fullPath: snapshot.ref.fullPath,
+      bucket: snapshot.ref.bucket
+    });
+    
     const url = await getDownloadURL(snapshot.ref);
+    console.log('🔗 [uploadWithDataUrl] Download URL obtained', {
+      url,
+      urlLength: url.length,
+      isFirebaseUrl: url.includes('firebasestorage.googleapis.com')
+    });
     
     return {
       name: file.name,
@@ -85,6 +121,22 @@ export function useMediaUpload(): UseMediaUploadReturn {
     files: File[], 
     type: 'image' | 'video'
   ): Promise<UploadedFile[]> => {
+    console.log('🚀 [uploadFiles] Starting upload process', {
+      filesCount: files.length,
+      type,
+      tenantId,
+      hasTenantId: !!tenantId,
+      fileNames: files.map(f => f.name),
+      fileSizes: files.map(f => f.size),
+      fileTypes: files.map(f => f.type)
+    });
+    
+    if (!tenantId) {
+      const error = 'Cannot upload files: No tenant ID available';
+      console.error('❌ [uploadFiles]', error);
+      throw new Error(error);
+    }
+    
     setUploading(true)
     setError(null)
     setProgress(0)
@@ -95,7 +147,36 @@ export function useMediaUpload(): UseMediaUploadReturn {
     try {
       // Check authentication first
       if (!auth.currentUser) {
+        console.error('❌ [uploadFiles] No authenticated user');
         throw new Error('Você precisa estar autenticado para fazer upload de arquivos')
+      }
+      
+      console.log('✅ [uploadFiles] User authenticated', {
+        uid: auth.currentUser.uid,
+        email: auth.currentUser.email,
+        emailVerified: auth.currentUser.emailVerified,
+        isAnonymous: auth.currentUser.isAnonymous,
+        metadata: auth.currentUser.metadata,
+        providerId: auth.currentUser.providerId,
+        tenantId: (auth.currentUser as any).tenantId
+      });
+      
+      // Get fresh auth token to check permissions
+      try {
+        const token = await auth.currentUser.getIdToken();
+        console.log('🔑 [uploadFiles] Auth token obtained', {
+          hasToken: !!token,
+          tokenLength: token?.length
+        });
+        
+        const tokenResult = await auth.currentUser.getIdTokenResult();
+        console.log('🔍 [uploadFiles] Token claims', {
+          claims: tokenResult.claims,
+          expirationTime: tokenResult.expirationTime,
+          issuedAtTime: tokenResult.issuedAtTime
+        });
+      } catch (tokenError) {
+        console.error('❌ [uploadFiles] Failed to get auth token', tokenError);
       }
       
       // Validate files
@@ -124,14 +205,95 @@ export function useMediaUpload(): UseMediaUploadReturn {
           const fileName = `${generateUniqueId()}-${file.name}`
           // Use multi-tenant path structure
           const storagePath = `tenants/${tenantId}/properties/${type}s/${fileName}`;
-          const storageRef = ref(storage, storagePath)
-          console.log(`[MediaUpload] Upload path: ${storagePath}`);
+          console.log(`🎯 [MediaUpload] Creating storage reference`, {
+            fileName,
+            storagePath,
+            tenantId,
+            type,
+            originalFileName: file.name
+          });
+          
+          // Check if storage is initialized
+          if (!storage) {
+            console.error('❌ [MediaUpload] Firebase Storage not initialized!');
+            throw new Error('Storage not initialized');
+          }
+          
+          console.log(`🔧 [MediaUpload] Creating storage reference`, {
+            hasStorage: !!storage,
+            storagePath,
+            storageType: typeof storage,
+            storageApp: (storage as any).app?.name
+          });
+          
+          const storageRef = ref(storage, storagePath);
+          
+          console.log(`📍 [MediaUpload] Storage reference created`, {
+            fullPath: storageRef.fullPath,
+            bucket: storageRef.bucket,
+            name: storageRef.name,
+            hasRef: !!storageRef
+          });
           
           // Try primary method: uploadBytesResumable
           try {
             console.log(`[MediaUpload] Attempting primary upload for: ${file.name}`);
+            console.log(`🆕 [MediaUpload] Before uploadBytesResumable call`, {
+              storageRefExists: !!storageRef,
+              fileExists: !!fileToUpload,
+              storageExists: !!storage,
+              fileType: fileToUpload.type,
+              fileSize: fileToUpload.size
+            });
+            
+            // Test simple uploadBytes first
+            console.log(`🧪 [MediaUpload] Testing simple uploadBytes first`);
+            try {
+              const testSnapshot = await uploadBytes(storageRef, fileToUpload);
+              console.log(`✅ [MediaUpload] Simple uploadBytes successful!`, {
+                fullPath: testSnapshot.ref.fullPath,
+                bucket: testSnapshot.ref.bucket
+              });
+              const testUrl = await getDownloadURL(testSnapshot.ref);
+              console.log(`🎉 [MediaUpload] Got URL from simple upload:`, testUrl);
+              return {
+                name: file.name,
+                url: testUrl,
+                size: file.size
+              };
+            } catch (simpleError) {
+              console.error(`❌ [MediaUpload] Simple uploadBytes failed`, {
+                error: simpleError,
+                errorMessage: simpleError instanceof Error ? simpleError.message : 'Unknown',
+                errorCode: (simpleError as any)?.code
+              });
+              // Continue to resumable upload
+            }
+            
             return await new Promise<UploadedFile>((resolve, reject) => {
-              const uploadTask = uploadBytesResumable(storageRef, fileToUpload);
+              console.log(`📤 [MediaUpload] Creating upload task`, {
+                fileName: file.name,
+                fileSize: fileToUpload.size,
+                storageRefPath: storageRef.fullPath
+              });
+              
+              let uploadTask;
+              try {
+                uploadTask = uploadBytesResumable(storageRef, fileToUpload);
+                console.log(`✅ [MediaUpload] Upload task created`, {
+                  hasUploadTask: !!uploadTask,
+                  taskState: (uploadTask as any).state
+                });
+              } catch (taskError) {
+                console.error(`❌ [MediaUpload] Failed to create upload task`, {
+                  error: taskError,
+                  errorMessage: taskError instanceof Error ? taskError.message : 'Unknown',
+                  errorCode: (taskError as any)?.code,
+                  errorName: (taskError as any)?.name,
+                  errorStack: taskError instanceof Error ? taskError.stack : undefined
+                });
+                throw new Error('TASK_CREATION_FAILED');
+              }
               
               // Set a timeout to prevent hanging
               const uploadTimeout = setTimeout(() => {
@@ -145,35 +307,77 @@ export function useMediaUpload(): UseMediaUploadReturn {
                 (snapshot) => {
                   const fileProgress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
                   const overallProgress = ((index * 100) + fileProgress) / files.length;
+                  console.log(`📊 [MediaUpload] Upload progress`, {
+                    fileName: file.name,
+                    fileProgress: `${fileProgress.toFixed(2)}%`,
+                    overallProgress: `${overallProgress.toFixed(2)}%`,
+                    bytesTransferred: snapshot.bytesTransferred,
+                    totalBytes: snapshot.totalBytes,
+                    state: snapshot.state
+                  });
                   setProgress(overallProgress);
                 },
                 // Error callback
                 (error) => {
                   clearTimeout(uploadTimeout);
-                  reject(new Error('PRIMARY_FAILED'));
+                  console.error(`❌ [MediaUpload] Primary upload failed`, {
+                    fileName: file.name,
+                    hasError: !!error,
+                    errorType: typeof error,
+                    errorCode: error?.code || (error as any)?.code || 'NO_CODE',
+                    errorMessage: error?.message || (error as any)?.message || 'NO_MESSAGE',
+                    errorName: error?.name || (error as any)?.name || 'NO_NAME',
+                    serverResponse: (error as any)?.serverResponse || 'NO_RESPONSE',
+                    customData: (error as any)?.customData || 'NO_CUSTOM_DATA',
+                    fullError: error || 'ERROR_IS_UNDEFINED',
+                    errorString: error ? error.toString() : 'NO_ERROR_STRING',
+                    errorKeys: error ? Object.keys(error) : []
+                  });
+                  reject(new Error(`PRIMARY_FAILED: ${error?.message || error?.code || 'Unknown error'}` ));
                 },
                 // Success callback
                 async () => {
                   clearTimeout(uploadTimeout);
+                  console.log(`✅ [MediaUpload] Upload task completed for: ${file.name}`);
                   
                   try {
                     const url = await getDownloadURL(uploadTask.snapshot.ref);
-                    console.log(`[MediaUpload] Primary upload successful for: ${file.name}`);
-                    console.log(`[MediaUpload] URL obtained: ${url.substring(0, 50)}...`);
+                    console.log(`🎉 [MediaUpload] Primary upload successful`, {
+                      fileName: file.name,
+                      url,
+                      urlLength: url.length,
+                      isFirebaseUrl: url.includes('firebasestorage.googleapis.com'),
+                      fullPath: uploadTask.snapshot.ref.fullPath,
+                      bucket: uploadTask.snapshot.ref.bucket
+                    });
                     resolve({
                       name: file.name,
                       url,
                       size: file.size,
                     });
                   } catch (urlError) {
-                    console.error(`[MediaUpload] Error getting download URL for: ${file.name}`, urlError);
+                    console.error(`❌ [MediaUpload] Error getting download URL`, {
+                      fileName: file.name,
+                      error: urlError,
+                      errorMessage: urlError instanceof Error ? urlError.message : 'Unknown',
+                      snapshot: uploadTask.snapshot
+                    });
                     reject(new Error('PRIMARY_FAILED'));
                   }
                 }
               );
             });
           } catch (primaryError) {
-            console.log(`[MediaUpload] Primary upload failed for: ${file.name}, trying fallback`);
+            console.error(`[MediaUpload] Primary upload exception caught`, {
+              fileName: file.name,
+              errorMessage: primaryError instanceof Error ? primaryError.message : 'Unknown',
+              errorType: typeof primaryError,
+              errorString: primaryError ? primaryError.toString() : 'NO_ERROR',
+              isPrimaryTimeout: primaryError instanceof Error && primaryError.message === 'PRIMARY_TIMEOUT',
+              isPrimaryFailed: primaryError instanceof Error && primaryError.message.includes('PRIMARY_FAILED'),
+              isTaskCreationFailed: primaryError instanceof Error && primaryError.message === 'TASK_CREATION_FAILED'
+            });
+            console.log(`[MediaUpload] Trying fallback method for: ${file.name}`);
             // Try fallback method: uploadString with data URL
             try {
               console.log(`[MediaUpload] Attempting fallback upload for: ${file.name}`);
@@ -221,7 +425,7 @@ export function useMediaUpload(): UseMediaUploadReturn {
       setUploading(false)
       setProgress(0)
     }
-  }, [])
+  }, [tenantId])
 
   const clearError = useCallback(() => {
     setError(null)

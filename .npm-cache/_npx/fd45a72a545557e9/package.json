@@ -1,0 +1,10 @@
+{
+  "dependencies": {
+    "tsx": "^4.20.3"
+  },
+  "_npx": {
+    "packages": [
+      "tsx"
+    ]
+  }
+}

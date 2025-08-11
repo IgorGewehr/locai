@@ -30,17 +30,16 @@ export const db = getFirestore(app);
 export const storage = getStorage(app);
 export const auth = getAuth(app);
 
-// Basic connectivity settings - conservative approach
-if (typeof window !== 'undefined') {
-  // Only enable basic network connectivity without complex persistence
-  import('firebase/firestore').then(({ enableNetwork }) => {
-    enableNetwork(db).catch(() => {
-      // Silent fallback if network enabling fails
-    });
-  }).catch(() => {
-    // Fallback if import fails
-  });
+// Validate storage bucket configuration silently
+if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
+  if (!firebaseConfig.storageBucket || firebaseConfig.storageBucket === 'undefined') {
+    console.error('❌ [Firebase] Storage bucket is not configured!');
+  }
 }
+
+// Basic connectivity settings - disabled to prevent INTERNAL ASSERTION FAILED
+// Network is enabled by default in Firestore
+// Removed enableNetwork call that was causing initialization issues
 
 // Initialize Analytics (client-side only)
 export const analytics = typeof window !== 'undefined' && firebaseConfig.measurementId 
