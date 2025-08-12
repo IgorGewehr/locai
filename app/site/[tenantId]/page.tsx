@@ -102,6 +102,48 @@ export default function MiniSitePage() {
     );
   }
 
+  // Provide a default config to prevent undefined errors
+  const safeConfig: MiniSiteConfig = config || {
+    id: tenantId,
+    tenantId,
+    active: true,
+    contactInfo: {
+      businessName: 'Carregando...',
+      whatsappNumber: '',
+      phoneNumber: '',
+      email: '',
+      address: '',
+      workingHours: '',
+    },
+    theme: {
+      primaryColor: '#2563eb',
+      secondaryColor: '#64748b',
+      backgroundColor: '#ffffff',
+      textColor: '#1e293b',
+      borderRadius: 12,
+      fontFamily: 'Inter, sans-serif',
+    },
+    seo: {
+      title: 'Mini-site',
+      description: '',
+      keywords: [],
+    },
+    features: {
+      showPrices: true,
+      showAvailability: true,
+      showPropertyDetails: true,
+      showContactForm: true,
+      showWhatsAppButton: true,
+      showSocialMedia: false,
+      showTestimonials: false,
+      showBlog: false,
+      showNewsletter: false,
+      showPolicies: false,
+    },
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  };
+
   if (!config) {
     return (
       <MiniSiteError 
@@ -113,8 +155,8 @@ export default function MiniSitePage() {
 
   return (
     <ErrorBoundary>
-      <MiniSiteLayout config={config}>
-        <PropertyGrid properties={properties} config={config} />
+      <MiniSiteLayout config={safeConfig}>
+        <PropertyGrid properties={properties} config={safeConfig} />
       </MiniSiteLayout>
     </ErrorBoundary>
   );
