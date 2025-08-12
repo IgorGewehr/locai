@@ -115,9 +115,19 @@ export default function PropertyMediaUpload() {
         url: result.url, // Replace with Firebase URL
       }));
 
+      // VALIDATION: Only accept Firebase URLs
+      const validFirebasePhotos = finalPhotos.filter(photo => 
+        photo.url.includes('firebasestorage.googleapis.com')
+      );
+
+      if (validFirebasePhotos.length !== finalPhotos.length) {
+        console.warn('[PropertyMediaUpload] Some photos do not have valid Firebase URLs');
+        console.warn('Invalid photos:', finalPhotos.filter(p => !p.url.includes('firebasestorage.googleapis.com')));
+      }
+
       console.log('[PropertyMediaUpload] Updating form with Firebase URLs');
-      // Update with final URLs - maintain existing photos
-      const updatedPhotos = [...photos, ...finalPhotos];
+      // Update with final URLs - maintain existing photos + only valid Firebase photos
+      const updatedPhotos = [...photos, ...validFirebasePhotos];
       setValue('photos', updatedPhotos, { shouldValidate: true });
       
       // Verify Firebase URLs are properly set

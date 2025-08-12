@@ -29,12 +29,12 @@ gcloud config set project locai-76dcf
 
 # Aplicar CORS
 Write-Host "🚀 Aplicando configuração CORS..." -ForegroundColor Yellow
-gsutil cors set cors.json gs://locai-76dcf.appspot.com
+gsutil cors set cors.json gs://locai-76dcf.firebasestorage.app
 
 # Verificar
 Write-Host ""
 Write-Host "🔍 Verificando configuração..." -ForegroundColor Yellow
-gsutil cors get gs://locai-76dcf.appspot.com
+gsutil cors get gs://locai-76dcf.firebasestorage.app
 
 Write-Host ""
 Write-Host "✅ CORS configurado com sucesso!" -ForegroundColor Green

@@ -237,9 +237,13 @@ export default function CreatePropertyPage() {
         city: data.city || '',
         capacity: data.capacity || data.maxGuests,
         advancePaymentPercentage: data.advancePaymentPercentage || 0,
-        // Clean arrays
-        photos: data.photos || [],
-        videos: data.videos || [],
+        // Clean arrays and filter invalid URLs
+        photos: (data.photos || []).filter(photo => 
+          photo.url && photo.url.includes('firebasestorage.googleapis.com')
+        ),
+        videos: (data.videos || []).filter(video => 
+          video.url && video.url.includes('firebasestorage.googleapis.com')
+        ),
         amenities: data.amenities || [],
         unavailableDates: data.unavailableDates || [],
         customPricing: data.customPricing || {},

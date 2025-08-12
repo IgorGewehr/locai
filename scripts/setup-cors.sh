@@ -24,7 +24,7 @@ echo "✅ gsutil found!"
 echo ""
 
 # Get the storage bucket name
-BUCKET_NAME="locai-76dcf.appspot.com"
+BUCKET_NAME="locai-76dcf.firebasestorage.app"
 echo "📦 Storage bucket: gs://$BUCKET_NAME"
 echo ""
 
