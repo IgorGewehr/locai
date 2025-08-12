@@ -41,6 +41,8 @@ git push origin main
 
 ### 3. Configurar Variáveis de Ambiente
 
+⚠️ **IMPORTANTE: O Railway agora usa Node.js 20 automaticamente** (configurado via `nixpacks.toml`)
+
 No Railway Dashboard, adicione todas as variáveis do Netlify:
 
 ```bash
