@@ -164,6 +164,13 @@ export class WhatsAppSessionManager extends EventEmitter {
         creds: state.creds,
         keys: makeCacheableSignalKeyStore(state.keys, this.logger),
       },
+      browser: ['WhatsApp Web', 'Chrome', '120.0.0'],
+      connectTimeoutMs: 60000,
+      qrTimeout: 120000, // 2 minutes for QR code
+      defaultQueryTimeoutMs: undefined,
+      keepAliveIntervalMs: 10000,
+      markOnlineOnConnect: true,
+      syncFullHistory: false,
       generateHighQualityLinkPreview: true,
       getMessage: async (key: WAMessageKey) => {
         if (store) {
@@ -190,17 +197,17 @@ export class WhatsAppSessionManager extends EventEmitter {
           // Import QRCode library dynamically
           const QRCode = require('qrcode');
           
-          // Generate QR code as data URL with optimized settings
+          // Generate QR code as data URL with optimized settings for WhatsApp
           const qrDataUrl = await QRCode.toDataURL(qr, {
             type: 'image/png',
-            quality: 0.8,
-            margin: 2,
+            quality: 1.0, // Maximum quality for better scanning
+            margin: 1, // Smaller margin for larger QR
             color: {
               dark: '#000000',
               light: '#FFFFFF'
             },
-            width: 280,
-            errorCorrectionLevel: 'M'
+            width: 350, // Larger size for better scanning
+            errorCorrectionLevel: 'L' // Lower error correction for simpler QR
           });
           
           session.qrCode = qrDataUrl;

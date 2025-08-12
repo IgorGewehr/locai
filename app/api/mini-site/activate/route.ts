@@ -3,10 +3,12 @@ import { TenantServiceFactory } from '@/lib/firebase/firestore-v2';
 import { logger } from '@/lib/utils/logger';
 
 export async function POST(request: NextRequest) {
+  let tenantId: string | undefined;
+  
   try {
     // Get tenant ID from request body
     const body = await request.json();
-    const tenantId = body.tenantId || 'default';
+    tenantId = body.tenantId || 'default';
     
     if (!tenantId) {
       return NextResponse.json(
@@ -38,7 +40,7 @@ export async function POST(request: NextRequest) {
 
   } catch (error) {
     logger.error('❌ [MiniSite] Error activating', {
-      tenantId: body.tenantId,
+      tenantId: tenantId || 'unknown',
       error: error instanceof Error ? error.message : 'Unknown error'
     });
     return NextResponse.json(
