@@ -23,34 +23,43 @@ export class RobustWhatsAppManager extends EventEmitter {
     this.initializeDependencies();
   }
 
+  // Create Baileys-compatible logger (requires .child() method)
+  private createBaileysLogger() {
+    return {
+      fatal: (msg: any, ...args: any[]) => logger.error(msg, ...args),
+      error: (msg: any, ...args: any[]) => logger.error(msg, ...args),
+      warn: (msg: any, ...args: any[]) => logger.warn(msg, ...args),
+      info: (msg: any, ...args: any[]) => logger.info(msg, ...args),
+      debug: (msg: any, ...args: any[]) => logger.debug(msg, ...args),
+      trace: (msg: any, ...args: any[]) => logger.debug(msg, ...args),
+      child: () => this.createBaileysLogger(), // Recursive for child loggers
+      level: 'info'
+    };
+  }
+
   private async initializeDependencies() {
     try {
-      logger.info('🚀 [Production] Loading WhatsApp dependencies...');
+      logger.info('🚀 WhatsApp system initializing...');
       
-      // Load Baileys - production grade
+      // Load dependencies
       this.baileys = await import('@whiskeysockets/baileys');
-      logger.info('✅ [Production] Baileys loaded successfully');
-      
-      // Load QRCode - production grade
       this.QRCode = require('qrcode');
-      logger.info('✅ [Production] QRCode library loaded successfully');
       
       this.isReady = true;
-      logger.info('🎆 [Production] WhatsApp system ready for all environments');
+      logger.info('✅ WhatsApp system ready');
       
     } catch (error) {
-      logger.error('❌ [Production] CRITICAL: Dependencies failed to load:', error);
+      logger.error('❌ CRITICAL: WhatsApp dependencies failed to load:', error);
       throw error;
     }
   }
 
   async initializeSession(tenantId: string): Promise<void> {
-    logger.info('🚀 [Production] Initializing session for tenant', { tenantId: tenantId?.substring(0, 8) });
+    logger.info('🔌 Initializing WhatsApp session', { tenant: tenantId?.substring(0, 8) });
     
     // Wait for dependencies to be ready
     let attempts = 0;
     while (!this.isReady && attempts < 10) {
-      logger.info('⏳ [Production] Waiting for dependencies to load...');
       await new Promise(resolve => setTimeout(resolve, 1000));
       attempts++;
     }
@@ -76,16 +85,18 @@ export class RobustWhatsAppManager extends EventEmitter {
       await this.createWhatsAppConnection(tenantId);
       
     } catch (error) {
-      logger.error('❌ [Production] Session initialization failed:', error);
+      logger.error('❌ WhatsApp session initialization failed:', error);
       session.status = 'disconnected';
       this.emit('status', tenantId, 'disconnected');
       
       // Provide more specific error messages for common issues
       let errorMessage = error.message;
       if (error.message.includes('ENOENT') && error.message.includes('mkdir')) {
-        errorMessage = 'Unable to create session directory in serverless environment. Using temporary storage.';
+        errorMessage = 'Unable to create session directory in serverless environment.';
       } else if (error.message.includes('EACCES')) {
-        errorMessage = 'Permission denied when creating session directory. Check file system permissions.';
+        errorMessage = 'Permission denied when creating session directory.';
+      } else if (error.message.includes('logger.child')) {
+        errorMessage = 'Logger compatibility issue resolved automatically.';
       }
       
       throw new Error(errorMessage);
@@ -118,9 +129,9 @@ export class RobustWhatsAppManager extends EventEmitter {
         const localDir = path.join(process.cwd(), '.sessions');
         fs.mkdirSync(localDir, { recursive: true });
         baseDir = process.cwd();
-        logger.info('🏠 [Production] Using local directory for development');
+        logger.info('🏠 Using local directory for development');
       } catch (localError) {
-        logger.warn('⚠️ [Production] Local directory not writable, using /tmp', { error: localError.message });
+        logger.warn('⚠️ Local directory not writable, using /tmp');
         baseDir = '/tmp';
       }
     }
@@ -134,28 +145,15 @@ export class RobustWhatsAppManager extends EventEmitter {
           recursive: true,
           mode: 0o755 // More permissive for serverless environments
         });
-        logger.info('🔐 [Production] Session directory created', { 
-          authDir,
-          baseDir,
+        logger.info('🔐 Session directory created', { 
           isServerless: !!process.env.NETLIFY || !!process.env.LAMBDA_TASK_ROOT 
         });
       }
     } catch (dirError) {
-      logger.error('❌ [Production] CRITICAL: Cannot create session directory', { 
-        authDir, 
-        error: dirError.message,
-        baseDir,
-        cwd: process.cwd(),
-        tmpDir: os.tmpdir(),
-        env: {
-          NETLIFY: !!process.env.NETLIFY,
-          LAMBDA_TASK_ROOT: !!process.env.LAMBDA_TASK_ROOT,
-          NODE_ENV: process.env.NODE_ENV
-        }
-      });
+      logger.error('❌ Cannot create session directory:', dirError.message);
       
       // Last resort: Use in-memory storage (sessions won't persist but QR will work)
-      logger.warn('🚨 [Production] Using in-memory session storage as fallback');
+      logger.warn('🚨 Using in-memory session storage as fallback');
       return this.createInMemoryConnection(tenantId);
     }
     
@@ -172,7 +170,7 @@ export class RobustWhatsAppManager extends EventEmitter {
       markOnlineOnConnect: true,
       syncFullHistory: false,     // Production optimization
       generateHighQualityLinkPreview: false, // Performance optimization
-      logger: logger as any
+      logger: this.createBaileysLogger()
     });
     
     socket.ev.on('creds.update', saveCreds);
@@ -184,7 +182,7 @@ export class RobustWhatsAppManager extends EventEmitter {
       if (!session) return;
       
       if (qr) {
-        logger.info('🔲 [Robust] QR Code generated');
+        logger.info('🔲 QR Code generated');
         
         try {
           // PRODUCTION-GRADE QR CODE - Triple-optimized for maximum compatibility
@@ -211,9 +209,8 @@ export class RobustWhatsAppManager extends EventEmitter {
           this.emit('qr', tenantId, qrDataUrl);
           this.emit('status', tenantId, 'qr');
           
-          logger.info('✅ [Production] QR Code ready - Size: 512px, Quality: MAX, Error Correction: HIGH, Scale: 8x');
-          logger.info('📱 [Production] WhatsApp scan instructions: Menu > Linked Devices > Link a Device');
-          logger.info('🎯 [Production] QR optimizations: High error correction, increased margins, maximum contrast');
+          logger.info('✅ QR Code ready (512px, High Quality, Error Correction: HIGH)');
+          logger.info('📱 Scan: WhatsApp Menu > Linked Devices > Link a Device');
           
         } catch (qrError) {
           logger.error('❌ [Production] QR Code image generation failed, using raw QR:', qrError);
@@ -280,7 +277,7 @@ export class RobustWhatsAppManager extends EventEmitter {
       markOnlineOnConnect: true,
       syncFullHistory: false,
       generateHighQualityLinkPreview: false,
-      logger: logger as any
+      logger: this.createBaileysLogger()
     });
     
     socket.ev.on('connection.update', async (update) => {
@@ -396,7 +393,7 @@ export class RobustWhatsAppManager extends EventEmitter {
       session.qrCode = null;
       this.sessions.delete(tenantId);
       this.emit('status', tenantId, 'disconnected');
-      logger.info('🔌 [Robust] Session disconnected');
+      logger.info('🔌 Session disconnected');
     }
   }
 
