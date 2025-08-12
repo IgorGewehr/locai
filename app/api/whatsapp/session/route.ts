@@ -17,27 +17,17 @@ const WHATSAPP_WEB_DISABLED = false; // SEMPRE HABILITADO - NUNCA MAIS DISABLED!
 let sessionManager: any = null;
 
 async function getSessionManager() {
-  // WhatsApp Web NUNCA DISABLED - SEMPRE RETORNA MANAGER
+  // ALWAYS USE REAL WHATSAPP SESSION MANAGER
   
   if (!sessionManager) {
     try {
-      const result = await loadWhatsAppDependency();
-      
-      if (!result.available) {
-        console.warn('⚠️ [API] WhatsApp dependency failed, using fallback:', result.error);
-        // FALLBACK: Usar ProductionSessionManager diretamente
-        const { productionSessionManager } = await import('@/lib/whatsapp/production-session-manager');
-        sessionManager = productionSessionManager;
-      } else {
-        sessionManager = result.manager;
-      }
-      
-      console.log('✅ [API] WhatsApp manager loaded successfully for', PRODUCTION_CONFIG.environment.platform);
+      // Import the singleton instance
+      const { whatsappSessionManager } = await import('@/lib/whatsapp/session-manager-instance');
+      sessionManager = whatsappSessionManager;
+      console.log('✅ [API] Real WhatsApp session manager loaded successfully');
     } catch (error) {
-      console.warn('⚠️ [API] Usando fallback final devido a erro:', error);
-      // FALLBACK FINAL: Sempre ter um manager disponível
-      const { productionSessionManager } = await import('@/lib/whatsapp/production-session-manager');
-      sessionManager = productionSessionManager;
+      console.error('❌ [API] Critical error loading WhatsApp session manager:', error);
+      throw new Error('WhatsApp session manager failed to load');
     }
   }
   
