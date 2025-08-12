@@ -116,8 +116,9 @@ export async function POST(request: NextRequest) {
     logger.info(`🔍 SessionManager loaded`);
     
     // Initialize the session (optimized for production)
+    logger.info(`🔥 STARTING SESSION INITIALIZATION FOR ${tenantId}`);
     await manager.initializeSession(tenantId);
-    logger.info(`✅ Session initialization started`);
+    logger.info(`✅ Session initialization completed successfully`);
 
     // Optimized polling with shorter intervals and adaptive timing
     let attempts = 0;
@@ -158,7 +159,13 @@ export async function POST(request: NextRequest) {
       data: status,
     });
   } catch (error) {
-    logger.error('❌ Error initializing session:', error);
+    logger.error('🚨 CRITICAL ERROR IN SESSION INITIALIZATION:', {
+      error: error.message,
+      stack: error.stack,
+      tenantId,
+      errorType: error.constructor.name,
+      timestamp: new Date().toISOString()
+    });
     
     const errorMessage = WHATSAPP_WEB_DISABLED 
       ? 'WhatsApp Web is disabled by configuration'

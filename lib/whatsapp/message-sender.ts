@@ -3,6 +3,10 @@
 
 import { logger } from '@/lib/utils/logger';
 import { createSettingsService } from '@/lib/services/settings-service';
+import { whatsAppCloudAPI } from './whatsapp-cloud-api';
+
+// Use Baileys by default (works perfectly in Railway)
+const USE_BAILEYS = process.env.WHATSAPP_USE_CLOUD_API !== 'true';
 
 /**
  * Send WhatsApp message using WhatsApp Web API (Baileys)
@@ -25,75 +29,95 @@ export async function sendWhatsAppMessage(
       tenantId: resolvedTenantId.substring(0, 8) + '***'
     });
 
-    // Get tenant WhatsApp settings
-    const settingsService = createSettingsService(resolvedTenantId);
-    const settings = await settingsService.getSettings(resolvedTenantId);
-    
-    if (!settings?.whatsapp?.connected) {
-      logger.warn('⚠️ [WhatsAppSender] WhatsApp não conectado para tenant', {
-        tenantId: resolvedTenantId.substring(0, 8) + '***',
-        whatsappConnected: settings?.whatsapp?.connected || false
-      });
-      return false;
-    }
-
-    // Use production session manager for reliability
-    const { productionSessionManager } = await import('./production-session-manager');
-    
-    // Check session status
-    const sessionStatus = await productionSessionManager.getSessionStatus(resolvedTenantId);
-    
-    if (!sessionStatus.connected) {
-      logger.warn('⚠️ [WhatsAppSender] Sessão WhatsApp não conectada', {
-        tenantId: resolvedTenantId.substring(0, 8) + '***',
-        sessionStatus: sessionStatus.status,
-        phoneNumber: sessionStatus.phoneNumber?.substring(0, 6) + '***' || null
-      });
+    // Use Baileys first (preferred for Railway production)
+    if (USE_BAILEYS) {
+      logger.info('📱 Using Baileys WhatsApp Web (Railway production-ready)');
       
-      // Try to use regular session manager as fallback
-      try {
-        const { whatsappSessionManager } = await import('./session-manager');
-        const result = await whatsappSessionManager.sendMessage(
-          resolvedTenantId,
-          phoneNumber,
-          message,
-          mediaUrl
-        );
-        
-        if (result) {
-          logger.info('✅ [WhatsAppSender] Mensagem enviada via session manager fallback');
-          return true;
-        }
-      } catch (fallbackError) {
-        logger.error('❌ [WhatsAppSender] Erro no fallback session manager', {
-          errorMessage: fallbackError instanceof Error ? fallbackError.message : 'Unknown'
+      // Get tenant WhatsApp settings
+      const settingsService = createSettingsService(resolvedTenantId);
+      const settings = await settingsService.getSettings(resolvedTenantId);
+      
+      if (!settings?.whatsapp?.connected) {
+        logger.warn('⚠️ [WhatsAppSender] WhatsApp não conectado para tenant', {
+          tenantId: resolvedTenantId.substring(0, 8) + '***',
+          whatsappConnected: settings?.whatsapp?.connected || false
         });
       }
+
+      // Use production session manager for reliability
+      const { productionSessionManager } = await import('./production-session-manager');
       
-      return false;
+      // Check session status
+      const sessionStatus = await productionSessionManager.getSessionStatus(resolvedTenantId);
+      
+      if (sessionStatus.connected) {
+        // Send message using production session manager
+        const success = await productionSessionManager.sendMessage(
+          resolvedTenantId,
+          phoneNumber,
+          message
+        );
+
+        if (success) {
+          logger.info('✅ [WhatsAppSender] Mensagem enviada via Baileys', {
+            phoneNumber: phoneNumber.substring(0, 6) + '***',
+            messageLength: message.length,
+            tenantId: resolvedTenantId.substring(0, 8) + '***'
+          });
+          return true;
+        }
+      } else {
+        logger.warn('⚠️ [WhatsAppSender] Sessão Baileys não conectada', {
+          tenantId: resolvedTenantId.substring(0, 8) + '***',
+          sessionStatus: sessionStatus.status,
+          phoneNumber: sessionStatus.phoneNumber?.substring(0, 6) + '***' || null
+        });
+        
+        // Try to use regular session manager as fallback
+        try {
+          const { whatsappSessionManager } = await import('./session-manager');
+          const result = await whatsappSessionManager.sendMessage(
+            resolvedTenantId,
+            phoneNumber,
+            message,
+            mediaUrl
+          );
+          
+          if (result) {
+            logger.info('✅ [WhatsAppSender] Mensagem enviada via session manager fallback');
+            return true;
+          }
+        } catch (fallbackError) {
+          logger.error('❌ [WhatsAppSender] Erro no fallback session manager', {
+            errorMessage: fallbackError instanceof Error ? fallbackError.message : 'Unknown'
+          });
+        }
+      }
     }
 
-    // Send message using production session manager
-    const success = await productionSessionManager.sendMessage(
-      resolvedTenantId,
-      phoneNumber,
-      message
-    );
-
-    if (success) {
-      logger.info('✅ [WhatsAppSender] Mensagem enviada com sucesso', {
-        phoneNumber: phoneNumber.substring(0, 6) + '***',
-        messageLength: message.length,
-        tenantId: resolvedTenantId.substring(0, 8) + '***'
-      });
-    } else {
-      logger.error('❌ [WhatsAppSender] Falha ao enviar mensagem', {
-        phoneNumber: phoneNumber.substring(0, 6) + '***',
-        tenantId: resolvedTenantId.substring(0, 8) + '***'
-      });
+    // Fallback to Cloud API if configured and Baileys failed
+    if (process.env.WHATSAPP_ACCESS_TOKEN) {
+      logger.info('☁️ Using WhatsApp Cloud API (serverless compatible)');
+      
+      // Format phone number for WhatsApp (remove + and spaces)
+      const formattedPhone = phoneNumber.replace(/\D/g, '');
+      
+      // Send via Cloud API
+      if (mediaUrl) {
+        return await whatsAppCloudAPI.sendImage(formattedPhone, mediaUrl, message);
+      } else {
+        return await whatsAppCloudAPI.sendMessage(formattedPhone, message);
+      }
     }
-
-    return success;
+    
+    // Final fallback: warn about configuration
+    logger.warn('⚠️ Nenhum método de envio WhatsApp disponível', {
+      useBaileys: USE_BAILEYS,
+      hasCloudApiToken: !!process.env.WHATSAPP_ACCESS_TOKEN,
+      tenantId: resolvedTenantId.substring(0, 8) + '***'
+    });
+    
+    return false;
     
   } catch (error) {
     logger.error('❌ [WhatsAppSender] Erro crítico ao enviar mensagem', {
