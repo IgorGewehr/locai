@@ -57,37 +57,7 @@ export class RobustWhatsAppManager extends EventEmitter {
   async initializeSession(tenantId: string): Promise<void> {
     logger.info('🔌 Initializing WhatsApp session', { tenant: tenantId?.substring(0, 8) });
     
-    // Check if external server is available
-    const { externalWhatsAppClient } = await import('./external-whatsapp-client');
-    const serverAvailable = await externalWhatsAppClient.checkServerHealth();
-    
-    if (serverAvailable) {
-      logger.info('☁️ Using external WhatsApp server (production-ready)');
-      
-      // Start session on external server
-      const started = await externalWhatsAppClient.startSession(tenantId);
-      if (started) {
-        // Update local session state
-        const session: RobustSession = {
-          status: 'connecting',
-          qrCode: null,
-          phoneNumber: null,
-          businessName: null,
-          lastActivity: new Date(),
-          retryCount: 0
-        };
-        
-        this.sessions.set(tenantId, session);
-        this.emit('status', tenantId, 'connecting');
-        
-        // Poll for QR code from external server
-        this.pollExternalSessionStatus(tenantId);
-        return;
-      }
-    }
-    
-    // Fallback to local Baileys (development only)
-    logger.warn('⚠️ External server not available, falling back to local Baileys');
+    logger.info('📱 Using Baileys directly (Railway production-ready)');
     
     // Wait for dependencies to be ready
     let attempts = 0;
@@ -487,63 +457,6 @@ export class RobustWhatsAppManager extends EventEmitter {
     }
   }
 
-  // Poll external server for session status and QR code
-  private async pollExternalSessionStatus(tenantId: string): Promise<void> {
-    const { externalWhatsAppClient } = await import('./external-whatsapp-client');
-    let attempts = 0;
-    const maxAttempts = 60; // 1 minute of polling
-
-    const poll = async () => {
-      if (attempts >= maxAttempts) {
-        logger.warn('⏰ Polling timeout for external session');
-        return;
-      }
-
-      try {
-        const externalStatus = await externalWhatsAppClient.getSessionStatus(tenantId);
-        const session = this.sessions.get(tenantId);
-        
-        if (!session) return;
-
-        // Update local session with external data
-        session.status = externalStatus.status as any;
-        session.qrCode = externalStatus.qrCode;
-        session.phoneNumber = externalStatus.phoneNumber;
-        session.businessName = externalStatus.businessName;
-        session.lastActivity = new Date();
-
-        // Emit events for UI updates
-        this.emit('status', tenantId, session.status);
-        
-        if (session.qrCode) {
-          this.emit('qr', tenantId, session.qrCode);
-          logger.info('🔲 QR Code received from external server');
-        }
-
-        if (session.status === 'connected') {
-          logger.info('✅ External WhatsApp session connected');
-          return; // Stop polling
-        }
-
-        if (session.status === 'disconnected') {
-          logger.warn('❌ External session disconnected');
-          return; // Stop polling
-        }
-
-        // Continue polling
-        attempts++;
-        setTimeout(poll, 2000); // Poll every 2 seconds
-
-      } catch (error) {
-        logger.error('Error polling external session:', error);
-        attempts++;
-        setTimeout(poll, 5000); // Retry in 5 seconds on error
-      }
-    };
-
-    // Start polling
-    poll();
-  }
 
   async getSessionStatus(tenantId: string): Promise<{
     connected: boolean;
