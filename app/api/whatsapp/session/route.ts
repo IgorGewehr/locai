@@ -3,6 +3,7 @@ import { getTenantId } from '@/lib/utils/tenant';
 import { verifyAuth } from '@/lib/utils/auth';
 import { z } from 'zod';
 import { loadWhatsAppDependency, getProductionMessage, PRODUCTION_CONFIG } from '@/lib/utils/production-utils';
+import { logger } from '@/lib/utils/logger';
 
 // Simple cache to prevent excessive API calls
 const statusCache = new Map<string, { data: any; timestamp: number }>();
@@ -13,21 +14,20 @@ const CACHE_DURATION = 5000; // 5 seconds
 const WHATSAPP_WEB_DISABLED = false; // SEMPRE HABILITADO - NUNCA MAIS DISABLED!
 
 
-// STRATEGIC SESSION MANAGER - PRODUCTION READY FOR NETLIFY
+// PRODUCTION-GRADE SESSION MANAGER - UNIFIED FOR ALL ENVIRONMENTS
 let sessionManager: any = null;
 
 async function getSessionManager() {
-  // ALWAYS USE REAL WHATSAPP SESSION MANAGER
+  // ALWAYS USE ROBUST SESSION MANAGER - NO FALLBACKS, NO ENVIRONMENT DETECTION
   
   if (!sessionManager) {
     try {
-      // Import the singleton instance
-      const { whatsappSessionManager } = await import('@/lib/whatsapp/session-manager-instance');
-      sessionManager = whatsappSessionManager;
-      console.log('✅ [API] Real WhatsApp session manager loaded successfully');
+      const { robustWhatsAppManager } = await import('@/lib/whatsapp/robust-session-manager');
+      sessionManager = robustWhatsAppManager;
+      logger.info('✅ [API] Production-grade WhatsApp manager loaded');
     } catch (error) {
-      console.error('❌ [API] Critical error loading WhatsApp session manager:', error);
-      throw new Error('WhatsApp session manager failed to load');
+      logger.error('❌ [API] CRITICAL: Production manager failed to load:', error);
+      throw new Error(`Production WhatsApp manager failed: ${error.message}`);
     }
   }
   
@@ -71,7 +71,7 @@ export async function GET(request: NextRequest) {
       data: status,
     });
   } catch (error) {
-    console.error('Error getting session status:', error);
+    logger.error('Error getting session status:', error);
     
     // Return graceful error response
     const errorMessage = WHATSAPP_WEB_DISABLED 
@@ -107,14 +107,14 @@ export async function POST(request: NextRequest) {
     // WhatsApp Web SEMPRE HABILITADO - NUNCA RETORNAR DISABLED
     // Este check foi removido para garantir funcionamento em produção
     
-    console.log(`🚀 API: Initializing session for tenant ${tenantId}`);
+    logger.info(`🚀 API: Initializing session for tenant ${tenantId}`);
     
     const manager = await getSessionManager();
-    console.log(`🔍 API: ProductionSessionManager loaded successfully`);
+    logger.info(`🔍 API: ProductionSessionManager loaded successfully`);
     
     // Initialize the session (optimized for production)
     await manager.initializeSession(tenantId);
-    console.log(`✅ API: Session initialization started`);
+    logger.info(`✅ API: Session initialization started`);
 
     // Optimized polling with shorter intervals and adaptive timing
     let attempts = 0;
@@ -127,10 +127,10 @@ export async function POST(request: NextRequest) {
       await new Promise(resolve => setTimeout(resolve, delay));
       status = await manager.getSessionStatus(tenantId);
       
-      console.log(`📊 API: Check ${attempts + 1}: ${status.status}, QR: ${!!status.qrCode}`);
+      logger.info(`📊 API: Check ${attempts + 1}: ${status.status}, QR: ${!!status.qrCode}`);
       
       if (status.qrCode || status.connected) {
-        console.log(`✅ API: Ready after ${attempts + 1} checks`);
+        logger.info(`✅ API: Ready after ${attempts + 1} checks`);
         break;
       }
       
@@ -141,7 +141,7 @@ export async function POST(request: NextRequest) {
       status = await manager.getSessionStatus(tenantId);
     }
 
-    console.log(`📤 API: Returning status:`, {
+    logger.info(`📤 API: Returning status:`, {
       connected: status.connected,
       status: status.status,
       hasQrCode: !!status.qrCode,
@@ -156,7 +156,7 @@ export async function POST(request: NextRequest) {
       data: status,
     });
   } catch (error) {
-    console.error('❌ API: Error initializing session:', error);
+    logger.error('❌ API: Error initializing session:', error);
     
     const errorMessage = WHATSAPP_WEB_DISABLED 
       ? 'WhatsApp Web is disabled by configuration'
@@ -197,7 +197,7 @@ export async function DELETE(request: NextRequest) {
       message: 'Session disconnected successfully',
     });
   } catch (error) {
-    console.error('Error disconnecting session:', error);
+    logger.error('Error disconnecting session:', error);
     return NextResponse.json({
       success: true, // Still return success for graceful degradation
       message: 'Session disconnect attempted',
