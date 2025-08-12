@@ -41,7 +41,7 @@ git push origin main
 
 ### 3. Configurar Variáveis de Ambiente
 
-⚠️ **IMPORTANTE: O Railway agora usa Node.js 20 automaticamente** (configurado via `nixpacks.toml`)
+⚠️ **IMPORTANTE: O Railway agora usa Node.js 20 automaticamente** (configurado via `Dockerfile`)
 
 No Railway Dashboard, adicione todas as variáveis do Netlify:
 
@@ -92,13 +92,15 @@ NODE_ENV=production
 
 ## 🔧 Configurações Railway
 
-O arquivo `railway.json` já está configurado:
+O arquivo `railway.json` e `Dockerfile` já estão configurados:
 
+**`railway.json`:**
 ```json
 {
   "$schema": "https://railway.app/railway.schema.json",
   "build": {
-    "builder": "NIXPACKS"
+    "builder": "DOCKERFILE",
+    "dockerfilePath": "Dockerfile"
   },
   "deploy": {
     "numReplicas": 1,
@@ -108,6 +110,12 @@ O arquivo `railway.json` já está configurado:
   }
 }
 ```
+
+**`Dockerfile`:**
+- Node.js 20 Alpine (otimizado)
+- Sessões Baileys com permissões corretas
+- Health check para monitoramento
+- Segurança com usuário não-root
 
 ## 📊 Monitoramento
 
