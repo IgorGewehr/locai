@@ -107,7 +107,15 @@ export async function POST(request: NextRequest) {
     // WhatsApp Web SEMPRE HABILITADO - NUNCA RETORNAR DISABLED
     // Este check foi removido para garantir funcionamento em produção
     
-    logger.info(`🚀 API: Initializing session for tenant ${tenantId}`);
+    logger.info(`🚀 API: Initializing session for tenant ${tenantId}`, {
+      environment: {
+        NODE_ENV: process.env.NODE_ENV,
+        NETLIFY: !!process.env.NETLIFY,
+        LAMBDA_TASK_ROOT: !!process.env.LAMBDA_TASK_ROOT,
+        cwd: process.cwd(),
+        tmpDir: require('os').tmpdir()
+      }
+    });
     
     const manager = await getSessionManager();
     logger.info(`🔍 API: ProductionSessionManager loaded successfully`);

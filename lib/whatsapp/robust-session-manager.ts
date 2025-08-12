@@ -79,25 +79,84 @@ export class RobustWhatsAppManager extends EventEmitter {
       logger.error('❌ [Production] Session initialization failed:', error);
       session.status = 'disconnected';
       this.emit('status', tenantId, 'disconnected');
-      throw error;
+      
+      // Provide more specific error messages for common issues
+      let errorMessage = error.message;
+      if (error.message.includes('ENOENT') && error.message.includes('mkdir')) {
+        errorMessage = 'Unable to create session directory in serverless environment. Using temporary storage.';
+      } else if (error.message.includes('EACCES')) {
+        errorMessage = 'Permission denied when creating session directory. Check file system permissions.';
+      }
+      
+      throw new Error(errorMessage);
     }
   }
   
   private async createWhatsAppConnection(tenantId: string): Promise<void> {
     const { default: makeWASocket, useMultiFileAuthState, DisconnectReason } = this.baileys;
     
-    // Create auth directory with production-grade security
+    // Create auth directory with serverless environment support
     const fs = require('fs');
     const path = require('path');
-    const authDir = path.join(process.cwd(), '.sessions', `robust-${tenantId}`);
+    const os = require('os');
     
-    // Ensure directory exists with proper permissions
-    if (!fs.existsSync(authDir)) {
-      fs.mkdirSync(authDir, { 
-        recursive: true,
-        mode: 0o700 // Secure directory permissions
+    // Detect writable directory - CRITICAL FOR SERVERLESS (Netlify, Vercel, etc.)
+    let baseDir: string;
+    
+    // Try different writable locations in order of preference
+    const writablePaths = [
+      '/tmp',                    // Standard serverless writable dir
+      os.tmpdir(),              // OS temp directory
+      process.env.LAMBDA_TASK_ROOT ? '/tmp' : process.cwd() // Lambda detection
+    ];
+    
+    baseDir = writablePaths[0]; // Use /tmp for serverless by default
+    
+    // In local development, try to use project directory
+    if (process.env.NODE_ENV === 'development' || !process.env.NETLIFY) {
+      try {
+        const localDir = path.join(process.cwd(), '.sessions');
+        fs.mkdirSync(localDir, { recursive: true });
+        baseDir = process.cwd();
+        logger.info('🏠 [Production] Using local directory for development');
+      } catch (localError) {
+        logger.warn('⚠️ [Production] Local directory not writable, using /tmp', { error: localError.message });
+        baseDir = '/tmp';
+      }
+    }
+    
+    const authDir = path.join(baseDir, '.sessions', `robust-${tenantId}`);
+    
+    try {
+      // Ensure directory exists with proper permissions
+      if (!fs.existsSync(authDir)) {
+        fs.mkdirSync(authDir, { 
+          recursive: true,
+          mode: 0o755 // More permissive for serverless environments
+        });
+        logger.info('🔐 [Production] Session directory created', { 
+          authDir,
+          baseDir,
+          isServerless: !!process.env.NETLIFY || !!process.env.LAMBDA_TASK_ROOT 
+        });
+      }
+    } catch (dirError) {
+      logger.error('❌ [Production] CRITICAL: Cannot create session directory', { 
+        authDir, 
+        error: dirError.message,
+        baseDir,
+        cwd: process.cwd(),
+        tmpDir: os.tmpdir(),
+        env: {
+          NETLIFY: !!process.env.NETLIFY,
+          LAMBDA_TASK_ROOT: !!process.env.LAMBDA_TASK_ROOT,
+          NODE_ENV: process.env.NODE_ENV
+        }
       });
-      logger.info('🔐 [Production] Secure session directory created', { authDir });
+      
+      // Last resort: Use in-memory storage (sessions won't persist but QR will work)
+      logger.warn('🚨 [Production] Using in-memory session storage as fallback');
+      return this.createInMemoryConnection(tenantId);
     }
     
     const { state, saveCreds } = await useMultiFileAuthState(authDir);
@@ -200,6 +259,101 @@ export class RobustWhatsAppManager extends EventEmitter {
           } else {
             logger.error('❌ [Production] Max reconnection attempts reached');
           }
+        }
+      }
+    });
+  }
+
+  // Fallback method for when file system is not available
+  private async createInMemoryConnection(tenantId: string): Promise<void> {
+    const { default: makeWASocket, DisconnectReason } = this.baileys;
+    
+    logger.warn('⚠️ [Production] Creating in-memory WhatsApp connection (no session persistence)');
+    
+    const socket = makeWASocket({
+      printQRInTerminal: false,
+      browser: ['LocAI WhatsApp', 'Chrome', '120.0.0'],
+      connectTimeoutMs: 120000,
+      qrTimeout: 180000,
+      defaultQueryTimeoutMs: 60000,
+      keepAliveIntervalMs: 25000,
+      markOnlineOnConnect: true,
+      syncFullHistory: false,
+      generateHighQualityLinkPreview: false,
+      logger: logger as any
+    });
+    
+    socket.ev.on('connection.update', async (update) => {
+      const { connection, lastDisconnect, qr } = update;
+      const session = this.sessions.get(tenantId);
+      
+      if (!session) return;
+      
+      if (qr) {
+        logger.info('🔲 [In-Memory] QR Code generated');
+        
+        try {
+          // Same high-quality QR generation
+          const qrDataUrl = await this.QRCode.toDataURL(qr, {
+            type: 'image/png',
+            quality: 1.0,
+            margin: 4,
+            width: 512,
+            errorCorrectionLevel: 'H',
+            color: {
+              dark: '#000000',
+              light: '#FFFFFF'
+            },
+            scale: 8,
+            rendererOpts: {
+              quality: 1.0
+            }
+          });
+          
+          session.qrCode = qrDataUrl;
+          session.status = 'qr';
+          session.lastActivity = new Date();
+          
+          this.emit('qr', tenantId, qrDataUrl);
+          this.emit('status', tenantId, 'qr');
+          
+          logger.info('✅ [In-Memory] QR Code ready - In-memory fallback mode');
+          
+        } catch (qrError) {
+          logger.error('❌ [In-Memory] QR Code generation failed:', qrError);
+          session.qrCode = qr;
+          session.status = 'qr';
+          this.emit('qr', tenantId, qr);
+        }
+      }
+      
+      if (connection === 'open') {
+        session.status = 'connected';
+        session.qrCode = null;
+        session.phoneNumber = socket.user?.id?.split(':')[0] || null;
+        session.businessName = socket.user?.name || 'WhatsApp Business';
+        session.retryCount = 0;
+        
+        this.emit('connected', tenantId, session.phoneNumber);
+        this.emit('status', tenantId, 'connected');
+        
+        logger.info('✅ [In-Memory] WhatsApp connected successfully (no persistence)');
+      }
+      
+      if (connection === 'close') {
+        const disconnectReason = (lastDisconnect?.error as any)?.output?.statusCode;
+        const shouldReconnect = disconnectReason !== DisconnectReason.loggedOut;
+        
+        if (shouldReconnect && session.retryCount < 3) { // Fewer retries for in-memory
+          session.retryCount++;
+          const delay = 5000 * session.retryCount;
+          
+          logger.info(`🔄 [In-Memory] Reconnecting... (${session.retryCount}/3)`);
+          setTimeout(() => this.createInMemoryConnection(tenantId), delay);
+        } else {
+          session.status = 'disconnected';
+          this.emit('status', tenantId, 'disconnected');
+          logger.warn('🚪 [In-Memory] Connection closed');
         }
       }
     });
