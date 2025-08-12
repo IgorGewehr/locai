@@ -55,7 +55,8 @@
       "Bash(export NODE_ENV=production)",
       "Bash(NODE_OPTIONS=\"--max_old_space_size=4096\" npm run build)",
       "Bash(npx kill-port:*)",
-      "Bash(firebase --version)"
+      "Bash(firebase --version)",
+      "Bash(git reset:*)"
     ],
     "deny": []
   }
