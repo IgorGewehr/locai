@@ -13,7 +13,7 @@ const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY || "AIzaSyAnbezjy0Q7pB4vxP6VwZQr8YV8jV5V2V4",
   authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN || "locai-a01b3.firebaseapp.com",
   projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID || "locai-a01b3",
-  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET || "locai-a01b3.appspot.com",
+  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET || "locai-76dcf.firebasestorage.app",
   messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID || "1031984350698",
   appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID || "1:1031984350698:web:49b9a9b6b4b6a9b6a9b6a9"
 };

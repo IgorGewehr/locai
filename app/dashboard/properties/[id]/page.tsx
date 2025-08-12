@@ -171,12 +171,16 @@ export default function PropertyViewPage() {
                   if (imageUrl && imageUrl.startsWith('http')) {
                     return imageUrl;
                   }
-                  return 'https://via.placeholder.com/800x400/e5e7eb/9ca3af?text=Imagem+Principal';
+                  // Use a data URI as fallback to avoid network requests
+                  return 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iODAwIiBoZWlnaHQ9IjQwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iODAwIiBoZWlnaHQ9IjQwMCIgZmlsbD0iI2U1ZTdlYiIvPjx0ZXh0IHRleHQtYW5jaG9yPSJtaWRkbGUiIHg9IjQwMCIgeT0iMjAwIiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMjQiIGZpbGw9IiM5Y2EzYWYiPkltYWdlbSBQcmluY2lwYWw8L3RleHQ+PC9zdmc+';
                 })()}
                 alt={property.title || property.name}
                 onError={(e) => {
                   const target = e.target as HTMLImageElement;
-                  target.src = 'https://via.placeholder.com/800x400/e5e7eb/9ca3af?text=Erro+ao+Carregar';
+                  // Set onError to null to prevent infinite loop
+                  target.onerror = null;
+                  // Use a data URI as final fallback
+                  target.src = 'data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iODAwIiBoZWlnaHQ9IjQwMCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48cmVjdCB3aWR0aD0iODAwIiBoZWlnaHQ9IjQwMCIgZmlsbD0iI2Y1ZjVmNSIvPjx0ZXh0IHRleHQtYW5jaG9yPSJtaWRkbGUiIHg9IjQwMCIgeT0iMjAwIiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iMjQiIGZpbGw9IiM5Y2EzYWYiPkVycm8gYW8gQ2FycmVnYXI8L3RleHQ+PC9zdmc+';
                 }}
                 sx={{ 
                   objectFit: 'cover',
@@ -508,13 +512,17 @@ export default function PropertyViewPage() {
                           if (photo.url && photo.url.startsWith('http')) {
                             return photo.url;
                           }
-                          return `https://via.placeholder.com/300x200/e5e7eb/9ca3af?text=Foto+${index + 2}`;
+                          // Use data URI to avoid network requests
+                          return `data:image/svg+xml;base64,${btoa(`<svg width="300" height="200" xmlns="http://www.w3.org/2000/svg"><rect width="300" height="200" fill="#e5e7eb"/><text text-anchor="middle" x="150" y="100" font-family="Arial" font-size="18" fill="#9ca3af">Foto ${index + 2}</text></svg>`)}`;
                         })()}
                         alt={photo.caption || `Foto ${index + 2}`}
                         loading="lazy"
                         onError={(e) => {
                           const target = e.target as HTMLImageElement;
-                          target.src = `https://via.placeholder.com/300x200/e5e7eb/9ca3af?text=Erro+${index + 2}`;
+                          // Prevent infinite loop by removing the error handler
+                          target.onerror = null;
+                          // Use data URI as fallback
+                          target.src = `data:image/svg+xml;base64,${btoa(`<svg width="300" height="200" xmlns="http://www.w3.org/2000/svg"><rect width="300" height="200" fill="#f5f5f5"/><text text-anchor="middle" x="150" y="100" font-family="Arial" font-size="18" fill="#9ca3af">Erro ${index + 2}</text></svg>`)}`;
                         }}
                         style={{
                           borderRadius: '8px',
