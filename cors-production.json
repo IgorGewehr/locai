@@ -1,0 +1,23 @@
+[
+  {
+    "origin": [
+      "http://localhost:3000",
+      "http://localhost:3002",
+      "https://locai-76dcf.firebaseapp.com",
+      "https://locai-76dcf.web.app",
+      "https://yourdomain.com"
+    ],
+    "method": ["GET", "HEAD", "PUT", "POST", "DELETE"],
+    "maxAgeSeconds": 3600,
+    "responseHeader": [
+      "Content-Type",
+      "Access-Control-Allow-Origin",
+      "Access-Control-Allow-Headers",
+      "Access-Control-Allow-Methods",
+      "Access-Control-Max-Age",
+      "Access-Control-Allow-Credentials",
+      "x-goog-content-length-range",
+      "x-goog-resumable"
+    ]
+  }
+]

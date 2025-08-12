@@ -2,11 +2,24 @@ import { NextRequest, NextResponse } from 'next/server';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { storage } from '@/lib/firebase/config';
 import { generateUniqueId } from '@/lib/utils/mediaUtils';
+import { logger } from '@/lib/utils/logger';
+import { verifyAuth } from '@/lib/utils/auth';
 
 export async function POST(request: NextRequest) {
-  console.log('📤 Fallback upload API called');
+  logger.info('📤 [MediaUploadAPI] Fallback upload API called');
   
   try {
+    // Verify authentication
+    const user = await verifyAuth(request);
+    if (!user) {
+      return NextResponse.json(
+        { error: 'Não autorizado' },
+        { status: 401 }
+      );
+    }
+    
+    const tenantId = user.tenantId || user.uid;
+    
     const formData = await request.formData();
     const files = formData.getAll('files') as File[];
     const type = formData.get('type') as string;
@@ -25,7 +38,11 @@ export async function POST(request: NextRequest) {
       );
     }
     
-    console.log(`📁 Processing ${files.length} ${type}(s) via fallback API`);
+    logger.info('📁 [MediaUploadAPI] Processing files via fallback API', {
+      fileCount: files.length,
+      type,
+      filenames: files.map(f => f.name)
+    });
     
     const maxSizeInMB = type === 'image' ? 10 : 50;
     const maxSizeInBytes = maxSizeInMB * 1024 * 1024;
@@ -51,9 +68,15 @@ export async function POST(request: NextRequest) {
     // Process uploads
     const uploadPromises = files.map(async (file) => {
       const fileName = `${generateUniqueId()}-${file.name}`;
-      const storageRef = ref(storage, `properties/${type}s/${fileName}`);
+      // Use multi-tenant path structure
+      const storagePath = `tenants/${tenantId}/properties/${type}s/${fileName}`;
+      const storageRef = ref(storage, storagePath);
       
-      console.log(`📤 Uploading ${fileName} via fallback API`);
+      logger.info('📤 [MediaUploadAPI] Uploading file via fallback', {
+        fileName,
+        fileSize: file.size,
+        contentType: file.type
+      });
       
       // Convert File to ArrayBuffer for server-side upload
       const arrayBuffer = await file.arrayBuffer();
@@ -67,7 +90,10 @@ export async function POST(request: NextRequest) {
       // Get download URL
       const downloadURL = await getDownloadURL(uploadResult.ref);
       
-      console.log(`✅ Fallback upload successful: ${fileName}`);
+      logger.info('✅ [MediaUploadAPI] Fallback upload successful', {
+        fileName,
+        downloadURL: downloadURL.substring(0, 50) + '...'
+      });
       
       return {
         name: file.name,
@@ -78,7 +104,10 @@ export async function POST(request: NextRequest) {
     
     const results = await Promise.all(uploadPromises);
     
-    console.log(`🎉 All fallback uploads completed successfully`);
+    logger.info('🎉 [MediaUploadAPI] All fallback uploads completed', {
+      totalFiles: results.length,
+      totalSize: results.reduce((sum, r) => sum + r.size, 0)
+    });
     
     return NextResponse.json({
       success: true,
@@ -86,7 +115,10 @@ export async function POST(request: NextRequest) {
     });
     
   } catch (error) {
-    console.error('❌ Fallback upload API error:', error);
+    logger.error('❌ [MediaUploadAPI] Fallback upload error', {
+      error: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined
+    });
     
     let errorMessage = 'Erro no upload';
     if (error instanceof Error) {

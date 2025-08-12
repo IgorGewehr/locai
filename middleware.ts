@@ -2,31 +2,28 @@ import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 import { jwtVerify } from 'jose'
 import { miniSiteMiddleware } from '@/middleware/mini-site'
+import { logger } from '@/lib/utils/logger'
 
-// Temporariamente comentado para testes
-// if (!process.env.JWT_SECRET) {
-//   throw new Error('JWT_SECRET environment variable is required for production security');
-// }
-const JWT_SECRET = new TextEncoder().encode(process.env.JWT_SECRET || 'temp-secret-for-testing')
+// Use a default JWT secret in development/build time
+const JWT_SECRET_STRING = process.env.JWT_SECRET || 'default-development-secret-min-32-characters-long'
+const JWT_SECRET = new TextEncoder().encode(JWT_SECRET_STRING)
 
 export async function middleware(request: NextRequest) {
-  const { pathname, hostname } = request.nextUrl
+  const { pathname } = request.nextUrl
 
-  // For localhost development, skip mini-site middleware for dashboard/admin routes
-  const isLocalhost = hostname.includes('localhost') || hostname.includes('127.0.0.1');
-  const isDashboardRoute = pathname.startsWith('/dashboard') || pathname.startsWith('/admin');
-  
-  // Only check mini-site middleware if not localhost dashboard routes
-  if (!isLocalhost || !isDashboardRoute) {
-    const miniSiteResponse = miniSiteMiddleware(request);
-    if (miniSiteResponse) {
-      return miniSiteResponse;
-    }
+  // Check for mini-site subdomain/custom domain first
+  const miniSiteResponse = miniSiteMiddleware(request);
+  if (miniSiteResponse) {
+    // Add security headers to mini-site response
+    addSecurityHeaders(miniSiteResponse, pathname);
+    return miniSiteResponse;
   }
 
   // Mini-site routes - public access allowed
   if (pathname.startsWith('/mini-site/')) {
-    return NextResponse.next()
+    const response = NextResponse.next()
+    addSecurityHeaders(response, pathname);
+    return response
   }
 
   // Legacy site routes - redirect to mini-site
@@ -40,15 +37,9 @@ export async function middleware(request: NextRequest) {
   if (pathname.startsWith('/api/mini-site/')) {
     return NextResponse.next()
   }
-  
-  // Analytics API routes - public access for dashboard
-  if (pathname.startsWith('/api/analytics/')) {
-    return NextResponse.next()
-  }
 
   // Public routes - no authentication required
   const publicRoutes = [
-    '/',
     '/login',
     '/signup',
     '/reset-password',
@@ -67,22 +58,7 @@ export async function middleware(request: NextRequest) {
   // Protected routes require authentication
   const authToken = request.cookies.get('auth-token')?.value
 
-  // For localhost development, be more permissive
   if (!authToken) {
-    if (isLocalhost && isDashboardRoute) {
-      // For localhost dashboard access, allow without auth but add default headers
-      const requestHeaders = new Headers(request.headers)
-      requestHeaders.set('x-user-id', 'dev-user')
-      requestHeaders.set('x-tenant-id', 'default')
-      requestHeaders.set('x-user-role', 'admin')
-
-      return NextResponse.next({
-        request: {
-          headers: requestHeaders,
-        },
-      })
-    }
-    
     // Redirect to login for protected routes
     const loginUrl = new URL('/login', request.url)
     loginUrl.searchParams.set('redirect', pathname)
@@ -106,16 +82,59 @@ export async function middleware(request: NextRequest) {
     requestHeaders.set('x-tenant-id', (payload.tenantId as string) || (payload.sub as string)) // Use userId as tenantId if no specific tenantId
     requestHeaders.set('x-user-role', payload.role as string)
 
-    return NextResponse.next({
+    const response = NextResponse.next({
       request: {
         headers: requestHeaders,
       },
     })
+    
+    // Add security headers
+    addSecurityHeaders(response, pathname);
+    return response
   } catch (error) {
     // Invalid token - redirect to login
     const loginUrl = new URL('/login', request.url)
     loginUrl.searchParams.set('redirect', pathname)
     return NextResponse.redirect(loginUrl)
+  }
+}
+
+/**
+ * Add security headers to response
+ */
+function addSecurityHeaders(response: NextResponse, pathname: string): void {
+  // Basic security headers
+  response.headers.set('X-Frame-Options', 'DENY');
+  response.headers.set('X-Content-Type-Options', 'nosniff');
+  response.headers.set('X-XSS-Protection', '1; mode=block');
+  response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
+  
+  // Content Security Policy for mini-site routes
+  if (pathname.startsWith('/site/') || pathname.startsWith('/mini-site/')) {
+    response.headers.set(
+      'Content-Security-Policy',
+      "default-src 'self'; " +
+      "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://www.googletagmanager.com https://www.google-analytics.com; " +
+      "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; " +
+      "font-src 'self' https://fonts.gstatic.com; " +
+      "img-src 'self' data: https: blob:; " +
+      "connect-src 'self' https://firebasestorage.googleapis.com https://*.firebaseio.com wss://*.firebaseio.com https://www.google-analytics.com; " +
+      "frame-ancestors 'none';"
+    );
+  }
+
+  // Permissions Policy
+  response.headers.set(
+    'Permissions-Policy',
+    'camera=(), microphone=(), geolocation=(), interest-cohort=()'
+  );
+
+  // HSTS for production
+  if (process.env.NODE_ENV === 'production') {
+    response.headers.set(
+      'Strict-Transport-Security',
+      'max-age=31536000; includeSubDomains; preload'
+    );
   }
 }
 
@@ -126,9 +145,8 @@ export const config = {
      * - _next/static (static files)
      * - _next/image (image optimization files)
      * - favicon.ico (favicon file)
-     * - icons folder
      * - public folder files
      */
-    '/((?!_next/static|_next/image|favicon.ico|icons/|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico|webmanifest)$).*)',
+    '/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
   ],
 }

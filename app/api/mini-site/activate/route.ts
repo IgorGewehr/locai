@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { TenantServiceFactory } from '@/lib/firebase/firestore-v2';
+import { logger } from '@/lib/utils/logger';
 
 export async function POST(request: NextRequest) {
   try {
@@ -13,7 +14,7 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       );
     }
-    console.log('Activating mini-site for tenant:', tenantId);
+    logger.info('🚀 [MiniSite] Activating mini-site', { tenantId });
 
     // Get current settings
     const services = new TenantServiceFactory(tenantId);
@@ -36,7 +37,10 @@ export async function POST(request: NextRequest) {
     });
 
   } catch (error) {
-    console.error('Error activating mini-site:', error);
+    logger.error('❌ [MiniSite] Error activating', {
+      tenantId: body.tenantId,
+      error: error instanceof Error ? error.message : 'Unknown error'
+    });
     return NextResponse.json(
       { error: 'Failed to activate mini-site' },
       { status: 500 }

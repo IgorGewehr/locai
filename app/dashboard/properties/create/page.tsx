@@ -34,6 +34,7 @@ import PropertyMediaUpload from '@/components/organisms/PropertyMediaUpload/Prop
 import { Property, PricingRule, PropertyCategory, PropertyStatus, PropertyType } from '@/lib/types/property';
 import { PaymentMethod } from '@/lib/types/common';
 import { useTenant } from '@/contexts/TenantContext';
+import { propertyService } from '@/lib/services/property-service';
 
 const steps = [
   'Informações Básicas',
@@ -106,7 +107,7 @@ const propertySchema = yup.object().shape({
 
 export default function CreatePropertyPage() {
   const router = useRouter();
-  const { services, isReady } = useTenant();
+  const { services, tenantId, isReady } = useTenant();
   const [activeStep, setActiveStep] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -193,7 +194,7 @@ export default function CreatePropertyPage() {
   };
 
   const handleSave = async (data: Property) => {
-    if (!isReady || !services) {
+    if (!isReady || !services || !tenantId) {
       setError('Serviços não estão prontos. Tente novamente.');
       return;
     }
@@ -202,6 +203,17 @@ export default function CreatePropertyPage() {
     setError(null);
 
     try {
+      console.log('[CreateProperty] Form data received:', {
+        title: data.title,
+        photosCount: data.photos?.length || 0,
+        photosData: data.photos?.map(p => ({
+          id: p.id,
+          filename: p.filename,
+          urlType: p.url.includes('firebasestorage.googleapis.com') ? 'firebase' : (p.url.startsWith('blob:') ? 'blob' : 'other'),
+          urlPreview: p.url.substring(0, 50) + '...'
+        }))
+      });
+
       // Ensure all payment methods have valid values (no undefined)
       const cleanPaymentMethodSurcharges = {
         [PaymentMethod.CREDIT_CARD]: Number(data.paymentMethodSurcharges?.[PaymentMethod.CREDIT_CARD]) || 0,
@@ -213,7 +225,7 @@ export default function CreatePropertyPage() {
         [PaymentMethod.STRIPE]: Number(data.paymentMethodSurcharges?.[PaymentMethod.STRIPE]) || 0,
       };
 
-      // Create property using tenant services
+      // Create property using PropertyService with enhanced logging
       const propertyData = {
         ...data,
         paymentMethodSurcharges: cleanPaymentMethodSurcharges,
@@ -225,9 +237,13 @@ export default function CreatePropertyPage() {
         city: data.city || '',
         capacity: data.capacity || data.maxGuests,
         advancePaymentPercentage: data.advancePaymentPercentage || 0,
-        // Clean arrays
-        photos: data.photos || [],
-        videos: data.videos || [],
+        // Clean arrays and filter invalid URLs
+        photos: (data.photos || []).filter(photo => 
+          photo.url && photo.url.includes('firebasestorage.googleapis.com')
+        ),
+        videos: (data.videos || []).filter(video => 
+          video.url && video.url.includes('firebasestorage.googleapis.com')
+        ),
         amenities: data.amenities || [],
         unavailableDates: data.unavailableDates || [],
         customPricing: data.customPricing || {},
@@ -236,10 +252,13 @@ export default function CreatePropertyPage() {
         updatedAt: new Date(),
       };
       
-      const createdProperty = await services.properties.create(propertyData);
+      // Use PropertyService instead of direct tenant service for enhanced logging
+      const propertyId = await propertyService.create(propertyData, tenantId);
       
-      if (createdProperty && createdProperty.id) {
-        router.push(`/dashboard/properties/${createdProperty.id}`);
+      console.log('[CreateProperty] Property created successfully', { propertyId });
+      
+      if (propertyId) {
+        router.push(`/dashboard/properties/${propertyId}`);
       } else {
         router.push('/dashboard/properties');
       }

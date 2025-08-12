@@ -122,20 +122,23 @@ export class AvailabilityService {
       // Remove existing overlapping periods
       await this.removeOverlappingPeriods(update.propertyId, update.startDate, update.endDate);
 
-      // Create new availability period
+      // Create new availability period with cleaned data
       const newPeriod: Omit<AvailabilityPeriod, 'id'> = {
         propertyId: update.propertyId,
         startDate: startOfDay(update.startDate),
         endDate: endOfDay(update.endDate),
         status: update.status,
-        reason: update.reason,
-        notes: update.notes,
+        reason: update.reason || null,
+        notes: update.notes || null,
         createdAt: new Date(),
         updatedAt: new Date(),
         createdBy
       };
 
-      await availabilityService.create(newPeriod);
+      // Filter out undefined values before saving
+      const cleanPeriod = this.filterUndefinedValues(newPeriod);
+
+      await availabilityService.create(cleanPeriod);
 
       logger.info('✅ Availability updated successfully', {
         tenantId: this.tenantId,
@@ -192,6 +195,31 @@ export class AvailabilityService {
       });
       throw error;
     }
+  }
+
+  /**
+   * Filter out undefined values to prevent Firestore errors
+   */
+  private filterUndefinedValues(obj: any): any {
+    if (obj === null || obj === undefined) {
+      return null;
+    }
+    
+    if (Array.isArray(obj)) {
+      return obj.map(item => this.filterUndefinedValues(item));
+    }
+    
+    if (typeof obj === 'object' && obj.constructor === Object) {
+      const filtered: any = {};
+      for (const [key, value] of Object.entries(obj)) {
+        if (value !== undefined) {
+          filtered[key] = this.filterUndefinedValues(value);
+        }
+      }
+      return filtered;
+    }
+    
+    return obj;
   }
 
   /**

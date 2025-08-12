@@ -162,9 +162,13 @@ export default function MiniSiteConfigPanel() {
       
       if (data.success) {
         setSuccess(true);
-        if (data.miniSiteUrl) {
-          window.open(data.miniSiteUrl, '_blank');
-        }
+        setMiniSiteUrl(data.miniSiteUrl);
+        // Aguardar um momento antes de abrir para garantir que as configurações foram salvas
+        setTimeout(() => {
+          if (data.miniSiteUrl) {
+            window.open(data.miniSiteUrl, '_blank');
+          }
+        }, 1000);
       } else {
         throw new Error(data.error || 'Erro ao ativar mini-site');
       }

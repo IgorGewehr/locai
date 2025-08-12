@@ -106,7 +106,10 @@ class MiniSiteService {
 
       return config;
     } catch (error) {
-      console.error('Error fetching mini-site config:', error);
+      logger.error('❌ [MiniSiteService] Error fetching config', {
+        tenantId,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
       throw new Error('Failed to fetch mini-site configuration');
     }
   }
@@ -235,7 +238,10 @@ class MiniSiteService {
       return [];
       
     } catch (error) {
-      console.error('Error fetching public properties:', error);
+      logger.error('❌ [MiniSiteService] Error fetching public properties', {
+        tenantId,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
       return [];
     }
   }

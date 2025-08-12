@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { TenantServiceFactory } from '@/lib/firebase/firestore-v2';
+import { logger } from '@/lib/utils/logger';
 
 export async function GET(request: NextRequest) {
   try {
@@ -14,7 +15,7 @@ export async function GET(request: NextRequest) {
       );
     }
     
-    console.log('Ensuring mini-site config for tenant:', tenantId);
+    logger.info('🌐 [MiniSite] Ensuring config', { tenantId });
 
     // Get current settings
     const services = new TenantServiceFactory(tenantId);
@@ -22,7 +23,7 @@ export async function GET(request: NextRequest) {
     
     // If no settings exist or no mini-site config, create default
     if (!currentSettings || !currentSettings.miniSite) {
-      console.log('Creating default mini-site settings for tenant:', tenantId);
+      logger.info('🏗️ [MiniSite] Creating default settings', { tenantId });
       
       const defaultMiniSiteConfig = {
         active: false,
@@ -52,7 +53,11 @@ export async function GET(request: NextRequest) {
 
     const miniSiteUrl = `${request.nextUrl.origin}/site/${tenantId}`;
     
-    console.log('Returning mini-site config for tenant:', tenantId);
+    logger.info('✅ [MiniSite] Config loaded successfully', {
+      tenantId,
+      isActive: currentSettings.miniSite?.active || false,
+      miniSiteUrl
+    });
     
     return NextResponse.json({
       success: true,
@@ -62,7 +67,10 @@ export async function GET(request: NextRequest) {
     });
 
   } catch (error) {
-    console.error('Error ensuring mini-site config:', error);
+    logger.error('❌ [MiniSite] Error ensuring config', {
+      error: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined
+    });
     return NextResponse.json(
       { 
         success: false,

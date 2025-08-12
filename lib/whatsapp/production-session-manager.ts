@@ -63,25 +63,43 @@ export class ProductionSessionManager extends EventEmitter {
   private async initializeProductionSession(tenantId: string): Promise<void> {
     logger.info('🌐 [ProductionSession] Modo Produção/Serverless ativado');
 
-    const session: ProductionSession = {
-      status: 'qr',
-      qrCode: await this.generateFallbackQRCode(tenantId),
-      phoneNumber: null,
-      businessName: null,
-      lastActivity: new Date(),
-      isProduction: true,
-      fallbackMode: true,
-    };
+    try {
+      // Try to use real Baileys even in production
+      const baileys = await import('@whiskeysockets/baileys');
+      const { WhatsAppSessionManager } = await import('./session-manager');
+      
+      logger.info('✅ [ProductionSession] Baileys loaded successfully in production');
+      
+      // Use real session manager even in production
+      const sessionManager = new WhatsAppSessionManager();
+      return sessionManager.initializeSession(tenantId);
+      
+    } catch (error) {
+      logger.warn('⚠️ [ProductionSession] Baileys not available in production, using fallback', {
+        errorMessage: error instanceof Error ? error.message : 'Unknown'
+      });
+      
+      // Only use fallback if Baileys really can't be loaded
+      const session: ProductionSession = {
+        status: 'qr',
+        qrCode: await this.generateRealQRCodeOrFallback(tenantId),
+        phoneNumber: null,
+        businessName: null,
+        lastActivity: new Date(),
+        isProduction: true,
+        fallbackMode: true,
+      };
 
-    this.sessions.set(tenantId, session);
-    
-    // Simular QR code gerado
-    setTimeout(() => {
-      this.emit('qr', tenantId, session.qrCode);
-      this.emit('status', tenantId, 'qr');
-    }, 500);
+      this.sessions.set(tenantId, session);
+      
+      // Simular QR code gerado
+      setTimeout(() => {
+        this.emit('qr', tenantId, session.qrCode);
+        this.emit('status', tenantId, 'qr');
+      }, 500);
 
-    logger.info('✅ [ProductionSession] Sessão produção inicializada');
+      logger.info('✅ [ProductionSession] Sessão produção inicializada com fallback');
+    }
   }
 
   private async initializeLocalSession(tenantId: string): Promise<void> {
@@ -106,25 +124,79 @@ export class ProductionSessionManager extends EventEmitter {
     }
   }
 
-  private async generateFallbackQRCode(tenantId: string): Promise<string> {
+  private async generateRealQRCodeOrFallback(tenantId: string): Promise<string> {
+    // Enhanced fallback for production environments
+    logger.warn('⚠️ [ProductionSession] Generating placeholder QR for production environment');
+    
     try {
-      // Tentar usar QRCode library se disponível
-      const QRCode = await import('qrcode');
+      // Try to import and use real Baileys even in fallback mode
+      const baileys = await import('@whiskeysockets/baileys');
+      const { default: makeWASocket, useMultiFileAuthState } = baileys;
       
-      const qrText = `https://wa.me/qr/${tenantId}-${Date.now()}`;
+      // Create a temporary session just to get a valid QR
+      const authDir = `.sessions-temp/${tenantId}`;
+      const { state, saveCreds } = await useMultiFileAuthState(authDir);
       
-      return await QRCode.toDataURL(qrText, {
-        margin: 2,
-        width: 280,
-        errorCorrectionLevel: 'M' as any
+      const socket = makeWASocket({
+        auth: state,
+        printQRInTerminal: false,
+        browser: ['WhatsApp Web', 'Chrome', '120.0.0'],
+        connectTimeoutMs: 60000,
+        qrTimeout: 60000,
+        defaultQueryTimeoutMs: undefined,
+        logger: logger as any
+      });
+      
+      // Wait for QR event
+      return new Promise((resolve) => {
+        const timeout = setTimeout(() => {
+          socket.end();
+          resolve(this.generateErrorQR());
+        }, 10000); // 10 second timeout
+        
+        socket.ev.on('connection.update', async (update) => {
+          if (update.qr) {
+            clearTimeout(timeout);
+            const QRCode = await import('qrcode');
+            const qrDataUrl = await QRCode.toDataURL(update.qr, {
+              width: 350,
+              margin: 1,
+              errorCorrectionLevel: 'L'
+            });
+            socket.end();
+            resolve(qrDataUrl);
+          }
+        });
       });
       
     } catch (error) {
-      logger.warn('⚠️ [ProductionSession] QRCode lib não disponível, usando fallback SVG');
-      
-      // SVG QR code fallback para produção
-      return this.generateSVGQRCode(tenantId);
+      logger.error('❌ [ProductionSession] Failed to generate real QR in fallback:', error);
+      return this.generateErrorQR();
     }
+  }
+  
+  private generateErrorQR(): string {
+    // Return a clear error message as SVG
+    return 'data:image/svg+xml;base64,' + Buffer.from(`
+      <svg width="350" height="350" viewBox="0 0 350 350" xmlns="http://www.w3.org/2000/svg">
+        <rect width="350" height="350" fill="#f8f8f8"/>
+        <rect x="10" y="10" width="330" height="330" fill="#ffffff" stroke="#e0e0e0" stroke-width="2"/>
+        <text x="175" y="150" font-family="Arial" font-size="16" text-anchor="middle" fill="#ff0000">
+          ❌ QR Code Error
+        </text>
+        <text x="175" y="180" font-family="Arial" font-size="12" text-anchor="middle" fill="#666">
+          Unable to generate WhatsApp QR
+        </text>
+        <text x="175" y="200" font-family="Arial" font-size="11" text-anchor="middle" fill="#999">
+          Please check server logs
+        </text>
+      </svg>
+    `).toString('base64');
+  }
+
+  private async generateFallbackQRCode(tenantId: string): Promise<string> {
+    // This method is deprecated, use generateRealQRCodeOrFallback instead
+    return this.generateRealQRCodeOrFallback(tenantId);
   }
 
   private generateSVGQRCode(tenantId: string): string {
@@ -156,6 +228,25 @@ export class ProductionSessionManager extends EventEmitter {
     qrCode: string | null;
     message?: string;
   }> {
+    // First try to get status from real session manager
+    try {
+      const { whatsappSessionManager } = await import('./session-manager');
+      const status = await whatsappSessionManager.getSessionStatus(tenantId);
+      
+      logger.info('📊 [ProductionSession] Getting status from real session manager', {
+        connected: status.connected,
+        status: status.status,
+        hasQrCode: !!status.qrCode
+      });
+      
+      return status;
+    } catch (error) {
+      logger.warn('⚠️ [ProductionSession] Real session manager not available, using fallback status', {
+        errorMessage: error instanceof Error ? error.message : 'Unknown'
+      });
+    }
+    
+    // Fallback to local session storage
     const session = this.sessions.get(tenantId);
     
     if (!session) {
@@ -181,8 +272,8 @@ export class ProductionSessionManager extends EventEmitter {
       return {
         ...baseResponse,
         message: this.isServerless 
-          ? 'Modo compatibilidade Netlify - QR Code gerado com sucesso'
-          : 'Modo produção ativo - Conecte via QR Code'
+          ? 'Modo compatibilidade Netlify - Verifique a configuração do servidor'
+          : 'Modo produção ativo - Verifique a configuração do WhatsApp'
       };
     }
 
@@ -190,6 +281,17 @@ export class ProductionSessionManager extends EventEmitter {
   }
 
   async sendMessage(tenantId: string, phoneNumber: string, message: string): Promise<boolean> {
+    // Always try to use real session manager first
+    try {
+      const { whatsappSessionManager } = await import('./session-manager');
+      return await whatsappSessionManager.sendMessage(tenantId, phoneNumber, message);
+    } catch (error) {
+      logger.warn('⚠️ [ProductionSession] Real session manager not available for sending', { 
+        errorMessage: error instanceof Error ? error.message : 'Unknown' 
+      });
+    }
+    
+    // Fallback to local session
     const session = this.sessions.get(tenantId);
     
     if (!session) {
@@ -207,19 +309,23 @@ export class ProductionSessionManager extends EventEmitter {
       return true;
     }
 
-    // Em desenvolvimento, usar session manager real
-    try {
-      const { whatsappSessionManager } = await import('./session-manager');
-      return await whatsappSessionManager.sendMessage(tenantId, phoneNumber, message);
-    } catch (error) {
-      logger.error('❌ [ProductionSession] Erro ao enviar mensagem', { 
-        errorMessage: error instanceof Error ? error.message : 'Unknown' 
-      });
-      throw error;
-    }
+    throw new Error('Cannot send message: WhatsApp not connected');
   }
 
   async disconnectSession(tenantId: string): Promise<void> {
+    // Always try to use real session manager first
+    try {
+      const { whatsappSessionManager } = await import('./session-manager');
+      await whatsappSessionManager.disconnectSession(tenantId);
+      logger.info('✅ [ProductionSession] Disconnected via real session manager');
+      return;
+    } catch (error) {
+      logger.warn('⚠️ [ProductionSession] Real session manager not available for disconnect', { 
+        errorMessage: error instanceof Error ? error.message : 'Unknown' 
+      });
+    }
+    
+    // Fallback to local session
     const session = this.sessions.get(tenantId);
     if (!session) return;
 
@@ -227,16 +333,6 @@ export class ProductionSessionManager extends EventEmitter {
       this.sessions.delete(tenantId);
       logger.info('🔌 [ProductionSession] Sessão produção desconectada');
       return;
-    }
-
-    // Em desenvolvimento, usar session manager real
-    try {
-      const { whatsappSessionManager } = await import('./session-manager');
-      await whatsappSessionManager.disconnectSession(tenantId);
-    } catch (error) {
-      logger.error('❌ [ProductionSession] Erro ao desconectar', { 
-        errorMessage: error instanceof Error ? error.message : 'Unknown' 
-      });
     }
   }
 

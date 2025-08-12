@@ -13,16 +13,25 @@ import {
 
 const pulse = keyframes`
   0% {
-    transform: scale(1);
-    opacity: 1;
+    transform: scale(0.95);
+    opacity: 0.7;
   }
   50% {
     transform: scale(1.05);
-    opacity: 0.8;
+    opacity: 1;
   }
   100% {
-    transform: scale(1);
-    opacity: 1;
+    transform: scale(0.95);
+    opacity: 0.7;
+  }
+`;
+
+const rotate = keyframes`
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
   }
 `;
 
@@ -64,41 +73,60 @@ const LoadingOverlay: React.FC<LoadingOverlayProps> = ({
         position: 'relative',
       }}
     >
-      {/* Loading animation */}
+      {/* Loading animation - Smooth Sphere */}
       <Box
         sx={{
           position: 'relative',
-          width: 80,
-          height: 80,
+          width: 100,
+          height: 100,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
         }}
       >
+        {/* Outer glow effect */}
         <Box
           sx={{
             position: 'absolute',
-            inset: 0,
+            width: '100%',
+            height: '100%',
             borderRadius: '50%',
-            background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-            opacity: 0.2,
-            animation: `${pulse} 2s ease-in-out infinite`,
+            background: 'radial-gradient(circle at center, rgba(102, 126, 234, 0.4) 0%, transparent 70%)',
+            filter: 'blur(20px)',
+            animation: `${pulse} 2.5s ease-in-out infinite`,
           }}
         />
+        
+        {/* Rotating gradient ring */}
         <Box
           sx={{
             position: 'absolute',
-            inset: 10,
+            width: '90%',
+            height: '90%',
             borderRadius: '50%',
-            background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-            opacity: 0.3,
-            animation: `${pulse} 2s ease-in-out infinite`,
-            animationDelay: '0.2s',
+            background: 'conic-gradient(from 0deg, transparent, #667eea, #764ba2, transparent)',
+            animation: `${rotate} 3s linear infinite`,
+            opacity: 0.6,
+            '&::after': {
+              content: '""',
+              position: 'absolute',
+              inset: '10%',
+              borderRadius: '50%',
+              background: theme.palette.background.default,
+            }
           }}
         />
+        
+        {/* Inner sphere with gradient */}
         <Box
           sx={{
             position: 'absolute',
-            inset: 20,
+            width: '70%',
+            height: '70%',
             borderRadius: '50%',
-            background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+            background: 'radial-gradient(circle at 30% 30%, #764ba2, #667eea)',
+            boxShadow: '0 0 40px rgba(102, 126, 234, 0.5), inset 0 0 20px rgba(118, 75, 162, 0.3)',
+            animation: `${pulse} 2s ease-in-out infinite`,
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
@@ -106,11 +134,11 @@ const LoadingOverlay: React.FC<LoadingOverlayProps> = ({
         >
           <CircularProgress
             size={40}
-            thickness={4}
+            thickness={3}
             sx={{
-              color: 'white',
+              color: 'rgba(255, 255, 255, 0.9)',
               '& .MuiCircularProgress-circle': {
-                strokeLinecap: 'round'
+                strokeLinecap: 'round',
               }
             }}
           />
