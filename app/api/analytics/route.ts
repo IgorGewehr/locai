@@ -7,7 +7,7 @@ import { startOfMonth, endOfMonth, subMonths, format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { z } from 'zod';
 import { authMiddleware } from '@/lib/middleware/auth';
-import { rateLimiters } from '@/lib/utils/rate-limiter';
+import { checkRateLimit, rateLimitConfigs } from '@/lib/utils/rate-limiter';
 import { handleApiError } from '@/lib/utils/api-errors';
 import { ValidationError } from '@/lib/utils/errors';
 
@@ -38,10 +38,13 @@ const PAYMENT_METHOD_COLORS = {
 export async function GET(request: NextRequest) {
   try {
     // Apply rate limiting
-    await rateLimiters.api.checkLimit({
-      ip: request.headers.get('x-forwarded-for') || request.headers.get('x-real-ip') || 'unknown',
-      headers: request.headers
-    });
+    const { allowed } = checkRateLimit(request, rateLimitConfigs.api);
+    if (!allowed) {
+      return NextResponse.json(
+        { error: 'Rate limit exceeded' },
+        { status: 429 }
+      );
+    }
 
     // Check authentication
     const authContext = await authMiddleware(request);

@@ -10,27 +10,28 @@ WORKDIR /app
 # Copy package files
 COPY package*.json ./
 
-# Install dependencies
-RUN npm ci --only=production && npm cache clean --force
-
-# Create non-root user
-RUN addgroup -g 1001 -S nodejs
-RUN adduser -S nextjs -u 1001
+# Install dependencies (production + dev for build)
+RUN npm ci && npm cache clean --force
 
 # Copy application code
-COPY --chown=nextjs:nodejs . .
+COPY . .
 
-# Create .next directory with proper permissions
-RUN mkdir -p .next && chown -R nextjs:nodejs .next
+# Create necessary directories with proper permissions
+RUN mkdir -p .next .sessions && \
+    chmod -R 755 .next .sessions
 
-# Create sessions directory for WhatsApp (Baileys)
-RUN mkdir -p .sessions && chown -R nextjs:nodejs .sessions
-
-# Switch to non-root user
-USER nextjs
-
-# Build the application
+# Build the application as root (to avoid permission issues)
 RUN npm run build
+
+# Create non-root user after build
+RUN addgroup -g 1001 -S nodejs && \
+    adduser -S nextjs -u 1001
+
+# Change ownership of built files to nextjs user
+RUN chown -R nextjs:nodejs /app
+
+# Switch to non-root user for runtime
+USER nextjs
 
 # Expose port
 EXPOSE 3000
