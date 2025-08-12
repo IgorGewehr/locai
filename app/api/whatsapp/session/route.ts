@@ -130,7 +130,10 @@ export async function POST(request: NextRequest) {
       await new Promise(resolve => setTimeout(resolve, delay));
       status = await manager.getSessionStatus(tenantId);
       
-      logger.debug(`📊 Status check ${attempts + 1}: ${status.status}`);
+      // Only log every 5th check to reduce noise
+      if (attempts % 5 === 0) {
+        logger.debug(`📊 Status check ${attempts + 1}: ${status.status}`);
+      }
       
       if (status.qrCode || status.connected) {
         logger.info(`✅ Ready after ${attempts + 1} checks`);

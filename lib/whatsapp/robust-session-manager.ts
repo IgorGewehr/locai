@@ -60,13 +60,17 @@ export class RobustWhatsAppManager extends EventEmitter {
     // Wait for dependencies to be ready
     let attempts = 0;
     while (!this.isReady && attempts < 10) {
+      logger.debug(`⏳ Waiting for dependencies... (${attempts + 1}/10)`);
       await new Promise(resolve => setTimeout(resolve, 1000));
       attempts++;
     }
     
     if (!this.isReady) {
+      logger.error('❌ WhatsApp dependencies failed to load after 10 seconds');
       throw new Error('WhatsApp dependencies failed to load after 10 seconds');
     }
+    
+    logger.info('✅ Dependencies ready, creating session...');
     
     // Reset session
     const session: RobustSession = {
@@ -82,12 +86,29 @@ export class RobustWhatsAppManager extends EventEmitter {
     this.emit('status', tenantId, 'connecting');
     
     try {
-      await this.createWhatsAppConnection(tenantId);
+      // Add timeout for connection creation (CRITICAL for production)
+      await Promise.race([
+        this.createWhatsAppConnection(tenantId),
+        new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('WhatsApp connection timeout after 30 seconds')), 30000)
+        )
+      ]);
       
     } catch (error) {
       logger.error('❌ WhatsApp session initialization failed:', error);
       session.status = 'disconnected';
       this.emit('status', tenantId, 'disconnected');
+      
+      // Emergency fallback to in-memory mode for ANY error
+      if (error.message.includes('timeout') || error.message.includes('ENOENT') || error.message.includes('EACCES')) {
+        logger.warn('🚨 Connection failed, trying emergency in-memory mode');
+        try {
+          await this.createInMemoryConnection(tenantId);
+          return; // Success with in-memory
+        } catch (fallbackError) {
+          logger.error('❌ Even in-memory fallback failed:', fallbackError);
+        }
+      }
       
       // Provide more specific error messages for common issues
       let errorMessage = error.message;
@@ -95,8 +116,8 @@ export class RobustWhatsAppManager extends EventEmitter {
         errorMessage = 'Unable to create session directory in serverless environment.';
       } else if (error.message.includes('EACCES')) {
         errorMessage = 'Permission denied when creating session directory.';
-      } else if (error.message.includes('logger.child')) {
-        errorMessage = 'Logger compatibility issue resolved automatically.';
+      } else if (error.message.includes('timeout')) {
+        errorMessage = 'WhatsApp connection timed out. Please try again.';
       }
       
       throw new Error(errorMessage);
@@ -104,7 +125,10 @@ export class RobustWhatsAppManager extends EventEmitter {
   }
   
   private async createWhatsAppConnection(tenantId: string): Promise<void> {
+    logger.info('🔧 Creating WhatsApp connection...');
+    
     const { default: makeWASocket, useMultiFileAuthState, DisconnectReason } = this.baileys;
+    logger.debug('📦 Baileys modules imported successfully');
     
     // Create auth directory with serverless environment support
     const fs = require('fs');
@@ -157,8 +181,11 @@ export class RobustWhatsAppManager extends EventEmitter {
       return this.createInMemoryConnection(tenantId);
     }
     
+    logger.info('📁 Setting up authentication state...');
     const { state, saveCreds } = await useMultiFileAuthState(authDir);
+    logger.debug('🔐 Auth state configured successfully');
     
+    logger.info('🔌 Creating WhatsApp socket...');
     const socket = makeWASocket({
       auth: state,
       printQRInTerminal: false,
@@ -173,15 +200,35 @@ export class RobustWhatsAppManager extends EventEmitter {
       logger: this.createBaileysLogger()
     });
     
-    socket.ev.on('creds.update', saveCreds);
+    logger.info('✅ WhatsApp socket created, setting up event listeners...');
     
+    socket.ev.on('creds.update', saveCreds);
+    logger.debug('👂 Credentials update listener registered');
+    
+    // Emergency QR timeout fallback (CRITICAL for production)
+    const qrTimeout = setTimeout(() => {
+      const session = this.sessions.get(tenantId);
+      if (session && session.status === 'connecting' && !session.qrCode) {
+        logger.warn('⏰ QR generation timeout - forcing disconnect');
+        session.status = 'disconnected';
+        this.emit('status', tenantId, 'disconnected');
+      }
+    }, 20000); // 20 seconds timeout
+
     socket.ev.on('connection.update', async (update) => {
       const { connection, lastDisconnect, qr } = update;
       const session = this.sessions.get(tenantId);
       
       if (!session) return;
       
+      logger.debug('📡 Connection update received', { 
+        connection, 
+        hasQr: !!qr,
+        disconnectReason: lastDisconnect?.error?.message 
+      });
+      
       if (qr) {
+        clearTimeout(qrTimeout); // Clear timeout since QR was generated
         logger.info('🔲 QR Code generated');
         
         try {
