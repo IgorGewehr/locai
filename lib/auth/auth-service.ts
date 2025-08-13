@@ -24,13 +24,16 @@ export interface AuthTokenPayload {
 }
 
 class AuthService {
-  private secret: Uint8Array;
+  private secret: Uint8Array | null = null;
 
-  constructor() {
-    if (!process.env.JWT_SECRET) {
-      throw new Error('JWT_SECRET environment variable is required');
+  private getSecret(): Uint8Array {
+    if (!this.secret) {
+      if (!process.env.JWT_SECRET) {
+        throw new Error('JWT_SECRET environment variable is required');
+      }
+      this.secret = new TextEncoder().encode(process.env.JWT_SECRET);
     }
-    this.secret = new TextEncoder().encode(process.env.JWT_SECRET);
+    return this.secret;
   }
 
   async generateToken(user: User): Promise<string> {
@@ -46,14 +49,14 @@ class AuthService {
       .setProtectedHeader({ alg: 'HS256' })
       .setIssuedAt()
       .setExpirationTime('7d') // 7 days
-      .sign(this.secret);
+      .sign(this.getSecret());
 
     return token;
   }
 
   async verifyToken(token: string): Promise<AuthTokenPayload | null> {
     try {
-      const { payload } = await jwtVerify(token, this.secret);
+      const { payload } = await jwtVerify(token, this.getSecret());
       return payload as AuthTokenPayload;
     } catch (error) {
 
