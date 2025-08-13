@@ -57,7 +57,8 @@
       "Bash(npx kill-port:*)",
       "Bash(firebase --version)",
       "Bash(git reset:*)",
-      "Bash(JWT_SECRET=test npm run build)"
+      "Bash(JWT_SECRET=test npm run build)",
+      "Bash(JWT_SECRET=temp-secret-for-testing-sofia-fixed-123456789-production-ready-secure-key npm run build)"
     ],
     "deny": []
   }
