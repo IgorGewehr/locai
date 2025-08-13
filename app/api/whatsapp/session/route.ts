@@ -18,16 +18,27 @@ const WHATSAPP_WEB_DISABLED = false; // SEMPRE HABILITADO - NUNCA MAIS DISABLED!
 let sessionManager: any = null;
 
 async function getSessionManager() {
-  // ALWAYS USE ROBUST SESSION MANAGER - NO FALLBACKS, NO ENVIRONMENT DETECTION
+  // USE STRATEGIC SESSION MANAGER WITH GUARANTEED INITIALIZATION
   
   if (!sessionManager) {
     try {
-      const { robustWhatsAppManager } = await import('@/lib/whatsapp/robust-session-manager');
-      sessionManager = robustWhatsAppManager;
-      logger.info('✅ WhatsApp manager loaded');
+      logger.info('🔧 Loading Strategic Session Manager...');
+      const { strategicSessionManager } = await import('@/lib/whatsapp/strategic-session-manager');
+      sessionManager = strategicSessionManager;
+      logger.info('✅ Strategic WhatsApp manager loaded');
     } catch (error) {
-      logger.error('❌ WhatsApp manager failed to load:', error);
-      throw new Error(`Production WhatsApp manager failed: ${error.message}`);
+      logger.error('❌ Strategic WhatsApp manager failed to load:', error);
+      
+      // Fallback to robust manager
+      try {
+        logger.info('🔄 Falling back to Robust Session Manager...');
+        const { robustWhatsAppManager } = await import('@/lib/whatsapp/robust-session-manager');
+        sessionManager = robustWhatsAppManager;
+        logger.info('✅ Fallback WhatsApp manager loaded');
+      } catch (fallbackError) {
+        logger.error('❌ All WhatsApp managers failed to load:', fallbackError);
+        throw new Error(`WhatsApp manager initialization failed: ${fallbackError.message}`);
+      }
     }
   }
   
