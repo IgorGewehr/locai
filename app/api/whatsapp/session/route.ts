@@ -14,35 +14,55 @@ const CACHE_DURATION = 1000; // 1 second only (Railway can handle more requests)
 const WHATSAPP_WEB_DISABLED = false; // SEMPRE HABILITADO - NUNCA MAIS DISABLED!
 
 
-// PRODUCTION-GRADE SESSION MANAGER - UNIFIED FOR ALL ENVIRONMENTS
+// STRATEGIC SESSION MANAGER - ALWAYS FRESH LOAD
 let sessionManager: any = null;
 
+// Clear session manager cache to force reload
+function clearSessionManagerCache() {
+  sessionManager = null;
+  logger.info('🧹 [CACHE] Session manager cache cleared');
+  console.log('🧹 [CACHE] Session manager cache cleared');
+}
+
 async function getSessionManager() {
-  // USE STRATEGIC SESSION MANAGER WITH GUARANTEED INITIALIZATION
+  // FORCE STRATEGIC SESSION MANAGER - ALWAYS RELOAD
+  clearSessionManagerCache(); // Always clear cache
   
-  if (!sessionManager) {
+  try {
+    logger.info('🚀 [FORCE] Loading Strategic Session Manager...');
+    console.log('🚀 [FORCE] Loading Strategic Session Manager...'); // Force console log
+    
+    const { strategicSessionManager } = await import('@/lib/whatsapp/strategic-session-manager');
+    sessionManager = strategicSessionManager;
+    
+    logger.info('✅ [FORCE] Strategic WhatsApp manager loaded successfully');
+    console.log('✅ [FORCE] Strategic WhatsApp manager loaded successfully'); // Force console log
+    
+    return sessionManager;
+    
+  } catch (strategicError) {
+    logger.error('❌ [FORCE] Strategic manager failed:', strategicError);
+    console.error('❌ [FORCE] Strategic manager failed:', strategicError); // Force console log
+    
+    // Emergency fallback to robust manager
     try {
-      logger.info('🔧 Loading Strategic Session Manager...');
-      const { strategicSessionManager } = await import('@/lib/whatsapp/strategic-session-manager');
-      sessionManager = strategicSessionManager;
-      logger.info('✅ Strategic WhatsApp manager loaded');
-    } catch (error) {
-      logger.error('❌ Strategic WhatsApp manager failed to load:', error);
+      logger.info('🆘 [EMERGENCY] Falling back to Robust Session Manager...');
+      console.log('🆘 [EMERGENCY] Falling back to Robust Session Manager...'); // Force console log
       
-      // Fallback to robust manager
-      try {
-        logger.info('🔄 Falling back to Robust Session Manager...');
-        const { robustWhatsAppManager } = await import('@/lib/whatsapp/robust-session-manager');
-        sessionManager = robustWhatsAppManager;
-        logger.info('✅ Fallback WhatsApp manager loaded');
-      } catch (fallbackError) {
-        logger.error('❌ All WhatsApp managers failed to load:', fallbackError);
-        throw new Error(`WhatsApp manager initialization failed: ${fallbackError.message}`);
-      }
+      const { robustWhatsAppManager } = await import('@/lib/whatsapp/robust-session-manager');
+      sessionManager = robustWhatsAppManager;
+      
+      logger.info('✅ [EMERGENCY] Fallback manager loaded');
+      console.log('✅ [EMERGENCY] Fallback manager loaded'); // Force console log
+      
+      return sessionManager;
+      
+    } catch (fallbackError) {
+      logger.error('💥 [CRITICAL] All managers failed:', fallbackError);
+      console.error('💥 [CRITICAL] All managers failed:', fallbackError); // Force console log
+      throw new Error(`All WhatsApp managers failed: ${fallbackError.message}`);
     }
   }
-  
-  return sessionManager;
 }
 
 // GET /api/whatsapp/session - Get session status
@@ -107,29 +127,46 @@ export async function GET(request: NextRequest) {
 // POST /api/whatsapp/session - Initialize session
 export async function POST(request: NextRequest) {
   try {
+    console.log('🔥 [API POST] WhatsApp session initialization requested');
+    logger.info('🔥 [API POST] WhatsApp session initialization requested');
 
     const user = await verifyAuth(request);
     if (!user) {
+      console.log('❌ [API POST] Unauthorized request');
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const tenantId = user.tenantId || user.uid;
+    console.log('👤 [API POST] User authenticated:', { 
+      tenant: tenantId?.substring(0, 8) + '***' 
+    });
+    logger.info('👤 [API POST] User authenticated:', { 
+      tenant: tenantId?.substring(0, 8) + '***' 
+    });
     
     // WhatsApp Web SEMPRE HABILITADO - NUNCA RETORNAR DISABLED
     // Este check foi removido para garantir funcionamento em produção
     
-    logger.info(`🚀 Initializing WhatsApp session`, { 
+    console.log('🚀 [API POST] Starting session initialization process');
+    logger.info(`🚀 [API POST] Initializing WhatsApp session`, { 
       tenant: tenantId?.substring(0, 8),
-      env: process.env.NODE_ENV 
+      env: process.env.NODE_ENV,
+      railway: !!process.env.RAILWAY_PROJECT_ID
     });
     
+    console.log('📦 [API POST] Loading session manager...');
     const manager = await getSessionManager();
-    logger.info(`🔍 SessionManager loaded`);
+    console.log('✅ [API POST] Session manager loaded successfully');
+    logger.info(`✅ [API POST] SessionManager loaded`);
     
     // Initialize the session (optimized for production)
-    logger.info(`🔥 STARTING SESSION INITIALIZATION FOR ${tenantId}`);
+    console.log(`🔥 [API POST] STARTING SESSION INITIALIZATION FOR ${tenantId?.substring(0, 8)}***`);
+    logger.info(`🔥 [API POST] STARTING SESSION INITIALIZATION FOR ${tenantId}`);
+    
     await manager.initializeSession(tenantId);
-    logger.info(`✅ Session initialization completed successfully`);
+    
+    console.log(`✅ [API POST] Session initialization completed successfully`);
+    logger.info(`✅ [API POST] Session initialization completed successfully`);
 
     // RAILWAY OPTIMIZED: Faster polling with more frequent checks
     let attempts = 0;
