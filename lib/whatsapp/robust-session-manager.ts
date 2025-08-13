@@ -29,12 +29,34 @@ export class RobustWhatsAppManager extends EventEmitter {
   // Create Baileys-compatible logger (requires .child() method)
   private createBaileysLogger() {
     return {
-      fatal: (msg: any, ...args: any[]) => logger.error(msg, ...args),
-      error: (msg: any, ...args: any[]) => logger.error(msg, ...args),
-      warn: (msg: any, ...args: any[]) => logger.warn(msg, ...args),
-      info: (msg: any, ...args: any[]) => logger.info(msg, ...args),
-      debug: (msg: any, ...args: any[]) => logger.debug(msg, ...args),
-      trace: (msg: any, ...args: any[]) => logger.debug(msg, ...args),
+      fatal: (msg: any, ...args: any[]) => {
+        logger.error(`[Baileys FATAL] ${msg}`, ...args);
+        console.error(`[Baileys FATAL] ${msg}`, ...args); // Ensure we see critical Baileys errors
+      },
+      error: (msg: any, ...args: any[]) => {
+        logger.error(`[Baileys ERROR] ${msg}`, ...args);
+        console.error(`[Baileys ERROR] ${msg}`, ...args); // Ensure we see Baileys errors
+      },
+      warn: (msg: any, ...args: any[]) => {
+        logger.warn(`[Baileys WARN] ${msg}`, ...args);
+        console.warn(`[Baileys WARN] ${msg}`, ...args); // Ensure we see Baileys warnings
+      },
+      info: (msg: any, ...args: any[]) => {
+        logger.info(`[Baileys INFO] ${msg}`, ...args);
+        console.log(`[Baileys INFO] ${msg}`, ...args); // Ensure we see Baileys info
+      },
+      debug: (msg: any, ...args: any[]) => {
+        // Only log debug in development to avoid spam
+        if (process.env.NODE_ENV === 'development') {
+          logger.debug(`[Baileys DEBUG] ${msg}`, ...args);
+        }
+      },
+      trace: (msg: any, ...args: any[]) => {
+        // Only log trace in development to avoid spam
+        if (process.env.NODE_ENV === 'development') {
+          logger.debug(`[Baileys TRACE] ${msg}`, ...args);
+        }
+      },
       child: () => this.createBaileysLogger(), // Recursive for child loggers
       level: 'info'
     };
@@ -245,24 +267,49 @@ export class RobustWhatsAppManager extends EventEmitter {
     });
     
     logger.info('🔌 Creating WhatsApp socket with production config...');
-    const socket = makeWASocket({
+    
+    let socket;
+    try {
+      socket = makeWASocket({
       auth: state,
-      printQRInTerminal: false,
+      printQRInTerminal: false, // We handle QR ourselves
       browser: ['LocAI WhatsApp', 'Chrome', '120.0.0'], // Brand identity
-      connectTimeoutMs: 120000,  // 2 minutes for production stability
-      qrTimeout: 180000,         // 3 minutes QR timeout - production grade
-      defaultQueryTimeoutMs: 60000,
-      keepAliveIntervalMs: 25000, // Aggressive keep-alive for production
+      connectTimeoutMs: 60000,   // 1 minute connection timeout for Railway
+      qrTimeout: 120000,         // 2 minutes QR timeout for Railway  
+      defaultQueryTimeoutMs: 30000, // 30s query timeout for Railway
+      keepAliveIntervalMs: 25000, // 25s keep-alive
       markOnlineOnConnect: true,
       syncFullHistory: false,     // Production optimization
       generateHighQualityLinkPreview: false, // Performance optimization
+      shouldIgnoreJid: () => false, // Don't ignore any JIDs
+      shouldSyncHistoryMessage: () => false, // Don't sync history
       logger: this.createBaileysLogger()
     });
+      
+      logger.info('✅ WhatsApp socket created successfully');
+      
+    } catch (socketError) {
+      logger.error('❌ CRITICAL: Failed to create WhatsApp socket:', socketError);
+      throw new Error(`Socket creation failed: ${socketError.message}`);
+    }
     
-    logger.info('✅ WhatsApp socket created, setting up event listeners...');
+    logger.info('🎧 Setting up event listeners...');
     
-    socket.ev.on('creds.update', saveCreds);
-    logger.debug('👂 Credentials update listener registered');
+    // Add error handler first to catch any immediate errors
+    socket.ev.on('connection.error', (error) => {
+      logger.error('🚨 WhatsApp connection error:', error);
+      const session = this.sessions.get(tenantId);
+      if (session) {
+        session.status = 'disconnected';
+        this.emit('status', tenantId, 'disconnected');
+      }
+    });
+    
+    socket.ev.on('creds.update', (creds) => {
+      logger.info('🔑 Credentials updated', { hasCreds: !!creds });
+      saveCreds();
+    });
+    logger.info('👂 Event listeners registered successfully');
     
     // Emergency QR timeout fallback - RAILWAY OPTIMIZED
     const qrTimeout = setTimeout(() => {
