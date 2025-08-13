@@ -19,8 +19,11 @@ export class RobustWhatsAppManager extends EventEmitter {
 
   constructor() {
     super();
-    // Load dependencies immediately - no async constructor issues
-    this.initializeDependencies();
+    // Start dependency loading (but don't wait in constructor)
+    this.initializeDependencies().catch(error => {
+      logger.error('❌ Constructor dependency loading failed:', error);
+      this.isReady = false;
+    });
   }
 
   // Create Baileys-compatible logger (requires .child() method)
@@ -41,38 +44,65 @@ export class RobustWhatsAppManager extends EventEmitter {
     try {
       logger.info('🚀 WhatsApp system initializing...');
       
-      // Load dependencies
-      this.baileys = await import('@whiskeysockets/baileys');
-      this.QRCode = require('qrcode');
-      
-      this.isReady = true;
-      logger.info('✅ WhatsApp system ready');
+      // Load dependencies with retry logic
+      let attempts = 0;
+      while (attempts < 3) {
+        try {
+          this.baileys = await import('@whiskeysockets/baileys');
+          this.QRCode = require('qrcode');
+          
+          // Verify critical functions exist
+          if (!this.baileys.default || !this.baileys.useMultiFileAuthState || !this.baileys.DisconnectReason) {
+            throw new Error('Baileys modules are incomplete');
+          }
+          
+          if (typeof this.QRCode.toDataURL !== 'function') {
+            throw new Error('QRCode module is incomplete');
+          }
+          
+          this.isReady = true;
+          logger.info('✅ WhatsApp system ready');
+          return;
+          
+        } catch (loadError) {
+          attempts++;
+          logger.warn(`⚠️ Dependency load attempt ${attempts} failed: ${loadError.message}`);
+          
+          if (attempts >= 3) {
+            throw loadError;
+          }
+          
+          // Wait before retry
+          await new Promise(resolve => setTimeout(resolve, 1000 * attempts));
+        }
+      }
       
     } catch (error) {
-      logger.error('❌ CRITICAL: WhatsApp dependencies failed to load:', error);
+      logger.error('❌ CRITICAL: WhatsApp dependencies failed to load after 3 attempts:', error);
+      this.isReady = false;
       throw error;
     }
   }
 
   async initializeSession(tenantId: string): Promise<void> {
-    logger.info('🔌 Initializing WhatsApp session', { tenant: tenantId?.substring(0, 8) });
+    logger.info('🔌 Initializing WhatsApp session', { 
+      tenant: tenantId?.substring(0, 8),
+      environment: process.env.NODE_ENV,
+      railway: !!process.env.RAILWAY_PROJECT_ID
+    });
     
-    logger.info('📱 Using Baileys directly (Railway production-ready)');
-    
-    // Wait for dependencies to be ready
-    let attempts = 0;
-    while (!this.isReady && attempts < 10) {
-      logger.debug(`⏳ Waiting for dependencies... (${attempts + 1}/10)`);
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      attempts++;
+    // Ensure dependencies are loaded (they load in constructor but wait if needed)
+    if (!this.isReady) {
+      logger.info('⏳ Dependencies not ready, forcing initialization...');
+      await this.initializeDependencies();
     }
     
     if (!this.isReady) {
-      logger.error('❌ WhatsApp dependencies failed to load after 10 seconds');
-      throw new Error('WhatsApp dependencies failed to load after 10 seconds');
+      logger.error('❌ WhatsApp dependencies failed to initialize');
+      throw new Error('WhatsApp dependencies failed to initialize');
     }
     
-    logger.info('✅ Dependencies ready, creating session...');
+    logger.info('✅ Dependencies confirmed ready, creating session...');
     
     // Reset session
     const session: RobustSession = {
@@ -136,10 +166,14 @@ export class RobustWhatsAppManager extends EventEmitter {
   }
   
   private async createWhatsAppConnection(tenantId: string): Promise<void> {
-    logger.info('🔧 Creating WhatsApp connection...');
+    logger.info('🔧 Creating WhatsApp connection...', { tenantId: tenantId?.substring(0, 8) });
     
     const { default: makeWASocket, useMultiFileAuthState, DisconnectReason } = this.baileys;
-    logger.debug('📦 Baileys modules imported successfully');
+    logger.info('📦 Baileys modules extracted successfully', {
+      makeWASocket: typeof makeWASocket,
+      useMultiFileAuthState: typeof useMultiFileAuthState,
+      DisconnectReason: typeof DisconnectReason
+    });
     
     // Create auth directory with serverless environment support
     const fs = require('fs');
@@ -202,11 +236,15 @@ export class RobustWhatsAppManager extends EventEmitter {
       return this.createInMemoryConnection(tenantId);
     }
     
-    logger.info('📁 Setting up authentication state...');
+    logger.info('📁 Setting up authentication state...', { authDir });
     const { state, saveCreds } = await useMultiFileAuthState(authDir);
-    logger.debug('🔐 Auth state configured successfully');
+    logger.info('🔐 Auth state configured successfully', {
+      hasState: !!state,
+      hasSaveCreds: typeof saveCreds === 'function',
+      keysCount: state?.keys ? Object.keys(state.keys).length : 0
+    });
     
-    logger.info('🔌 Creating WhatsApp socket...');
+    logger.info('🔌 Creating WhatsApp socket with production config...');
     const socket = makeWASocket({
       auth: state,
       printQRInTerminal: false,
@@ -240,19 +278,29 @@ export class RobustWhatsAppManager extends EventEmitter {
       const { connection, lastDisconnect, qr } = update;
       const session = this.sessions.get(tenantId);
       
-      if (!session) return;
-      
-      logger.debug('📡 Connection update received', { 
+      logger.info('📡 Connection update received', { 
+        tenantId: tenantId?.substring(0, 8),
         connection, 
         hasQr: !!qr,
-        disconnectReason: lastDisconnect?.error?.message 
+        qrLength: qr?.length || 0,
+        disconnectReason: lastDisconnect?.error?.message,
+        hasSession: !!session
       });
+      
+      if (!session) {
+        logger.warn('⚠️ No session found for tenant, ignoring update');
+        return;
+      }
       
       if (qr) {
         clearTimeout(qrTimeout); // Clear timeout since QR was generated
-        logger.info('🔲 QR Code generated');
+        logger.info('🔲 QR Code received from Baileys', {
+          qrLength: qr.length,
+          qrPreview: qr.substring(0, 50) + '...'
+        });
         
         try {
+          logger.info('🎨 Converting QR to data URL...');
           // PRODUCTION-GRADE QR CODE - Triple-optimized for maximum compatibility
           const qrDataUrl = await this.QRCode.toDataURL(qr, {
             type: 'image/png',
@@ -268,6 +316,11 @@ export class RobustWhatsAppManager extends EventEmitter {
             rendererOpts: {
               quality: 1.0             // Maximum renderer quality
             }
+          });
+          
+          logger.info('✅ QR Data URL generated', {
+            dataUrlLength: qrDataUrl.length,
+            dataUrlPreview: qrDataUrl.substring(0, 50) + '...'
           });
           
           session.qrCode = qrDataUrl;
@@ -478,7 +531,17 @@ export class RobustWhatsAppManager extends EventEmitter {
   }> {
     const session = this.sessions.get(tenantId);
     
+    logger.info('📊 Session status check', {
+      tenantId: tenantId?.substring(0, 8),
+      hasSession: !!session,
+      sessionStatus: session?.status,
+      hasQrCode: !!session?.qrCode,
+      qrCodeLength: session?.qrCode?.length,
+      lastActivity: session?.lastActivity?.toISOString()
+    });
+    
     if (!session) {
+      logger.info('❌ No session found for tenant', { tenantId: tenantId?.substring(0, 8) });
       return {
         connected: false,
         status: 'disconnected',
@@ -489,13 +552,22 @@ export class RobustWhatsAppManager extends EventEmitter {
       };
     }
     
-    return {
+    const statusResult = {
       connected: session.status === 'connected',
       status: session.status,
       phoneNumber: session.phoneNumber,
       businessName: session.businessName,
       qrCode: session.qrCode,
     };
+    
+    logger.info('✅ Returning session status', {
+      tenantId: tenantId?.substring(0, 8),
+      connected: statusResult.connected,
+      status: statusResult.status,
+      hasQrCode: !!statusResult.qrCode
+    });
+    
+    return statusResult;
   }
 
   async disconnectSession(tenantId: string): Promise<void> {
