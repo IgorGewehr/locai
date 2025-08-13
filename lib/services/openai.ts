@@ -27,9 +27,14 @@ export interface AgentResponse {
   mediaUrls?: string[];
 }
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
+function getOpenAIClient() {
+  if (!process.env.OPENAI_API_KEY) {
+    throw new Error('OPENAI_API_KEY environment variable is not set');
+  }
+  return new OpenAI({
+    apiKey: process.env.OPENAI_API_KEY,
+  });
+}
 
 export class OpenAIService {
   private systemPrompt = `
@@ -246,6 +251,7 @@ Sempre use as funções disponíveis para fornecer informações precisas e atua
         { role: 'user' as const, content: message },
       ];
 
+      const openai = getOpenAIClient();
       const response = await openai.chat.completions.create({
         model: 'gpt-4o-mini',
         messages,
@@ -322,6 +328,7 @@ ${JSON.stringify(context.clientPreferences, null, 2)}
 
   async generatePropertyDescription(property: Property): Promise<string> {
     try {
+      const openai = getOpenAIClient();
       const response = await openai.chat.completions.create({
         model: 'gpt-4o-mini',
         messages: [
@@ -357,6 +364,7 @@ ${JSON.stringify(context.clientPreferences, null, 2)}
 
   async generateWelcomeMessage(clientName?: string): Promise<string> {
     try {
+      const openai = getOpenAIClient();
       const response = await openai.chat.completions.create({
         model: 'gpt-4o-mini',
         messages: [
@@ -384,6 +392,7 @@ ${JSON.stringify(context.clientPreferences, null, 2)}
 
   async moderateContent(content: string): Promise<{ flagged: boolean; categories: string[] }> {
     try {
+      const openai = getOpenAIClient();
       const response = await openai.moderations.create({
         input: content,
       });
@@ -409,6 +418,7 @@ ${JSON.stringify(context.clientPreferences, null, 2)}
     guests?: number;
   }> {
     try {
+      const openai = getOpenAIClient();
       const response = await openai.chat.completions.create({
         model: 'gpt-4o-mini',
         messages: [
@@ -445,6 +455,3 @@ ${JSON.stringify(context.clientPreferences, null, 2)}
 
 const openaiService = new OpenAIService();
 export default openaiService;
-
-// Export da instância OpenAI para uso direto em outros serviços
-export { openai };

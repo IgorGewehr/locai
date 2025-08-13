@@ -27,16 +27,20 @@ export class TranscriptionService {
   private readonly MAX_AUDIO_DURATION = 300 // 5 minutes
 
   constructor(whatsappClient: WhatsAppClient) {
-    if (!process.env.OPENAI_API_KEY) {
-      throw new Error('OPENAI_API_KEY is required for audio processing')
-    }
-
-    this.openai = new OpenAI({
-      apiKey: process.env.OPENAI_API_KEY
-    })
     this.whatsappClient = whatsappClient
+  }
 
+  private getOpenAI(): OpenAI {
+    if (!this.openai) {
+      if (!process.env.OPENAI_API_KEY) {
+        throw new Error('OPENAI_API_KEY is required for audio processing')
+      }
+      this.openai = new OpenAI({
+        apiKey: process.env.OPENAI_API_KEY
+      })
     }
+    return this.openai
+  }
 
   /**
    * Transcribe WhatsApp audio message with professional error handling and caching
@@ -114,7 +118,7 @@ export class TranscriptionService {
           )
 
           return await withTimeout(
-            this.openai.audio.transcriptions.create({
+            this.getOpenAI().audio.transcriptions.create({
               file: audioFile,
               model: 'whisper-1',
               language: 'pt', // Portuguese
@@ -263,7 +267,7 @@ export class TranscriptionService {
       // Generate audio response using OpenAI TTS
       const audioResponse = await withRetry(
         () => withTimeout(
-          this.openai.audio.speech.create({
+          this.getOpenAI().audio.speech.create({
             model: audioPrefs.voiceModel,
             voice: audioPrefs.voice,
             input: cleanText,

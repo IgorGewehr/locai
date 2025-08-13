@@ -57,9 +57,19 @@ export class SofiaAgent {
   private useEnhancedDetection: boolean = ENHANCED_INTENT_CONFIG.enabled; // Usa config centralizada
 
   constructor() {
-    this.openai = new OpenAI({
-      apiKey: process.env.OPENAI_API_KEY,
-    });
+    // Initialize openai client lazily in getOpenAI method
+  }
+
+  private getOpenAI(): OpenAI {
+    if (!this.openai) {
+      if (!process.env.OPENAI_API_KEY) {
+        throw new Error('OPENAI_API_KEY environment variable is not set');
+      }
+      this.openai = new OpenAI({
+        apiKey: process.env.OPENAI_API_KEY,
+      });
+    }
+    return this.openai;
   }
 
   static getInstance(): SofiaAgent {
@@ -334,7 +344,7 @@ export class SofiaAgent {
         }
       ];
 
-      const completion = await this.openai.chat.completions.create({
+      const completion = await this.getOpenAI().chat.completions.create({
         model: 'gpt-4o-mini',
         messages: messages as any,
         tools: getTenantAwareOpenAIFunctions(),
@@ -1367,7 +1377,7 @@ RESPOSTA HUMANIZADA (mantenha a naturalidade da Sofia):
 `;
 
     try {
-      const completion = await this.openai.chat.completions.create({
+      const completion = await this.getOpenAI().chat.completions.create({
         model: 'gpt-4o-mini',
         messages: [
           { role: 'system', content: humanizationPrompt },
