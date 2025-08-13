@@ -12,19 +12,19 @@ const envSchema = z.object({
   NEXTAUTH_URL: z.string().url().optional(),
   NEXTAUTH_SECRET: z.string().min(32).optional(),
 
-  // Firebase Client
-  NEXT_PUBLIC_FIREBASE_API_KEY: z.string().min(1),
-  NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: z.string().min(1),
-  NEXT_PUBLIC_FIREBASE_PROJECT_ID: z.string().min(1),
-  NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET: z.string().min(1),
-  NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: z.string().min(1),
-  NEXT_PUBLIC_FIREBASE_APP_ID: z.string().min(1),
+  // Firebase Client (optional - now hardcoded)
+  NEXT_PUBLIC_FIREBASE_API_KEY: z.string().min(1).optional(),
+  NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN: z.string().min(1).optional(),
+  NEXT_PUBLIC_FIREBASE_PROJECT_ID: z.string().min(1).optional(),
+  NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET: z.string().min(1).optional(),
+  NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID: z.string().min(1).optional(),
+  NEXT_PUBLIC_FIREBASE_APP_ID: z.string().min(1).optional(),
   NEXT_PUBLIC_FIREBASE_MEASUREMENT_ID: z.string().optional(),
 
-  // Firebase Admin
-  FIREBASE_PROJECT_ID: z.string().min(1),
-  FIREBASE_CLIENT_EMAIL: z.string().email(),
-  FIREBASE_PRIVATE_KEY: z.string().min(1),
+  // Firebase Admin (optional - now hardcoded)
+  FIREBASE_PROJECT_ID: z.string().min(1).optional(),
+  FIREBASE_CLIENT_EMAIL: z.string().email().optional(),
+  FIREBASE_PRIVATE_KEY: z.string().min(1).optional(),
 
   // OpenAI
   OPENAI_API_KEY: z.string().regex(/^sk-/, 'Invalid OpenAI API key format'),
