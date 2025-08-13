@@ -88,11 +88,11 @@ export class RobustWhatsAppManager extends EventEmitter {
     this.emit('status', tenantId, 'connecting');
     
     try {
-      // Add timeout for connection creation (CRITICAL for production)
+      // Add timeout for connection creation - RAILWAY OPTIMIZED
       await Promise.race([
         this.createWhatsAppConnection(tenantId),
         new Promise((_, reject) => 
-          setTimeout(() => reject(new Error('WhatsApp connection timeout after 30 seconds')), 30000)
+          setTimeout(() => reject(new Error('WhatsApp connection timeout after 15 seconds')), 15000)
         )
       ]);
       
@@ -146,29 +146,39 @@ export class RobustWhatsAppManager extends EventEmitter {
     const path = require('path');
     const os = require('os');
     
-    // Detect writable directory - CRITICAL FOR SERVERLESS (Netlify, Vercel, etc.)
+    // Detect environment - RAILWAY OPTIMIZED
     let baseDir: string;
     
-    // Try different writable locations in order of preference
-    const writablePaths = [
-      '/tmp',                    // Standard serverless writable dir
-      os.tmpdir(),              // OS temp directory
-      process.env.LAMBDA_TASK_ROOT ? '/tmp' : process.cwd() // Lambda detection
-    ];
-    
-    baseDir = writablePaths[0]; // Use /tmp for serverless by default
-    
-    // In local development, try to use project directory
-    if (process.env.NODE_ENV === 'development' || !process.env.NETLIFY) {
+    // RAILWAY/PERSISTENT SERVER: Use app directory (.sessions was created in Dockerfile)
+    if (process.env.RAILWAY_PROJECT_ID || process.env.NODE_ENV === 'production') {
       try {
-        const localDir = path.join(process.cwd(), '.sessions');
-        fs.mkdirSync(localDir, { recursive: true });
+        const railwayDir = path.join(process.cwd(), '.sessions');
+        // Test if we can write to the directory
+        fs.mkdirSync(railwayDir, { recursive: true });
+        fs.accessSync(railwayDir, fs.constants.W_OK);
         baseDir = process.cwd();
-        logger.info('🏠 Using local directory for development');
-      } catch (localError) {
-        logger.warn('⚠️ Local directory not writable, using /tmp');
+        logger.info('🚂 [Railway] Using persistent session directory', { path: railwayDir });
+      } catch (railwayError) {
+        logger.warn('⚠️ [Railway] App directory not writable, using /tmp');
         baseDir = '/tmp';
       }
+    }
+    // DEVELOPMENT: Use project directory
+    else if (process.env.NODE_ENV === 'development') {
+      try {
+        const devDir = path.join(process.cwd(), '.sessions');
+        fs.mkdirSync(devDir, { recursive: true });
+        baseDir = process.cwd();
+        logger.info('🏠 [Dev] Using local directory');
+      } catch (devError) {
+        logger.warn('⚠️ [Dev] Local directory not writable, using /tmp');
+        baseDir = '/tmp';
+      }
+    }
+    // FALLBACK: Use tmp (for serverless/other environments)
+    else {
+      baseDir = '/tmp';
+      logger.info('📦 [Fallback] Using tmp directory');
     }
     
     const authDir = path.join(baseDir, '.sessions', `robust-${tenantId}`);
@@ -216,15 +226,15 @@ export class RobustWhatsAppManager extends EventEmitter {
     socket.ev.on('creds.update', saveCreds);
     logger.debug('👂 Credentials update listener registered');
     
-    // Emergency QR timeout fallback (CRITICAL for production)
+    // Emergency QR timeout fallback - RAILWAY OPTIMIZED
     const qrTimeout = setTimeout(() => {
       const session = this.sessions.get(tenantId);
       if (session && session.status === 'connecting' && !session.qrCode) {
-        logger.warn('⏰ QR generation timeout - forcing disconnect');
+        logger.warn('⏰ QR generation timeout after 10s - forcing disconnect');
         session.status = 'disconnected';
         this.emit('status', tenantId, 'disconnected');
       }
-    }, 20000); // 20 seconds timeout
+    }, 10000); // 10 seconds timeout for Railway
 
     socket.ev.on('connection.update', async (update) => {
       const { connection, lastDisconnect, qr } = update;

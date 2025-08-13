@@ -5,9 +5,9 @@ import { z } from 'zod';
 import { loadWhatsAppDependency, getProductionMessage, PRODUCTION_CONFIG } from '@/lib/utils/production-utils';
 import { logger } from '@/lib/utils/logger';
 
-// Simple cache to prevent excessive API calls
+// Simple cache to prevent excessive API calls - RAILWAY OPTIMIZED
 const statusCache = new Map<string, { data: any; timestamp: number }>();
-const CACHE_DURATION = 5000; // 5 seconds
+const CACHE_DURATION = 1000; // 1 second only (Railway can handle more requests)
 
 // Check if WhatsApp Web is disabled (controlled by environment variable only)
 // FORÇAR HABILITADO PARA PRODUÇÃO - OVERRIDE DEFINITIVO
@@ -120,24 +120,24 @@ export async function POST(request: NextRequest) {
     await manager.initializeSession(tenantId);
     logger.info(`✅ Session initialization completed successfully`);
 
-    // Optimized polling with shorter intervals and adaptive timing
+    // RAILWAY OPTIMIZED: Faster polling with more frequent checks
     let attempts = 0;
-    const maxAttempts = 20; // More attempts but faster intervals
+    const maxAttempts = 30; // More attempts for Railway
     let status = null;
-    const delays = [100, 200, 300, 500, 500]; // Progressive delays
+    const delays = [50, 100, 200, 300, 500]; // Faster initial delays for Railway
     
     while (attempts < maxAttempts) {
       const delay = delays[Math.min(attempts, delays.length - 1)];
       await new Promise(resolve => setTimeout(resolve, delay));
       status = await manager.getSessionStatus(tenantId);
       
-      // Only log every 5th check to reduce noise
-      if (attempts % 5 === 0) {
-        logger.debug(`📊 Status check ${attempts + 1}: ${status.status}`);
+      // Log more frequently for debugging in production
+      if (attempts % 3 === 0) {
+        logger.info(`🔍 [Railway] Status check ${attempts + 1}: ${status.status}, QR: ${!!status.qrCode}`);
       }
       
       if (status.qrCode || status.connected) {
-        logger.info(`✅ Ready after ${attempts + 1} checks`);
+        logger.info(`✅ [Railway] Ready after ${attempts + 1} checks (${delay * attempts}ms)`);
         break;
       }
       
