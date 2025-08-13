@@ -11,7 +11,7 @@ npm install
 # Start development
 npm run dev
 
-# Access at http://localhost:3000
+# Access at http://localhost:8080
 ```
 
 **Key Areas:**
@@ -693,7 +693,7 @@ node scripts/test-enhanced-direct.js
 node scripts/test-enhanced-complete.js
 
 # API endpoint test
-curl -X POST http://localhost:3000/api/enhanced-intent/test \
+curl -X POST http://localhost:8080/api/enhanced-intent/test \
   -H "Content-Type: application/json" \
   -d '{"message": "quero cancelar minha reserva"}'
 ```
