@@ -1,9 +1,22 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getTenantId } from '@/lib/utils/tenant';
-import { verifyAuth } from '@/lib/utils/auth';
+import { verifyAuth as verifyAuthDefault } from '@/lib/utils/auth';
+import { verifyAuthRailway } from '@/lib/utils/auth-railway';
 import { z } from 'zod';
 import { loadWhatsAppDependency, getProductionMessage, PRODUCTION_CONFIG } from '@/lib/utils/production-utils';
 import { logger } from '@/lib/utils/logger';
+
+// RAILWAY FIX: Use hardcoded auth for Railway production
+async function getAuthVerifier() {
+  const isRailwayProduction = !!process.env.RAILWAY_PROJECT_ID && process.env.NODE_ENV === 'production';
+  
+  if (isRailwayProduction) {
+    logger.info('🚂 [Railway Auth] Using hardcoded Firebase Admin auth for Railway production');
+    return verifyAuthRailway;
+  }
+  
+  return verifyAuthDefault;
+}
 
 // Simple cache to prevent excessive API calls - RAILWAY OPTIMIZED
 const statusCache = new Map<string, { data: any; timestamp: number }>();
@@ -100,9 +113,11 @@ async function getSessionManager() {
 // GET /api/whatsapp/session - Get session status
 export async function GET(request: NextRequest) {
   try {
-
+    // Use Railway-specific auth if in Railway production
+    const verifyAuth = await getAuthVerifier();
     const user = await verifyAuth(request);
     if (!user) {
+      logger.warn('🚫 [GET] User authentication failed');
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -162,9 +177,12 @@ export async function POST(request: NextRequest) {
     console.log('🔥 [API POST] WhatsApp session initialization requested');
     logger.info('🔥 [API POST] WhatsApp session initialization requested');
 
+    // Use Railway-specific auth if in Railway production
+    const verifyAuth = await getAuthVerifier();
     const user = await verifyAuth(request);
     if (!user) {
       console.log('❌ [API POST] Unauthorized request');
+      logger.warn('🚫 [POST] User authentication failed');
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -269,8 +287,11 @@ export async function POST(request: NextRequest) {
 // DELETE /api/whatsapp/session - Disconnect session
 export async function DELETE(request: NextRequest) {
   try {
+    // Use Railway-specific auth if in Railway production
+    const verifyAuth = await getAuthVerifier();
     const user = await verifyAuth(request);
     if (!user) {
+      logger.warn('🚫 [DELETE] User authentication failed');
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
