@@ -5,14 +5,9 @@ import { loadWhatsAppDependency, getProductionMessage, PRODUCTION_CONFIG } from 
 import { logger } from '@/lib/utils/logger';
 
 // RAILWAY FIX: Always use hardcoded auth for Railway production
-// Check multiple Railway indicators
-const isRailway = !!(
-  process.env.RAILWAY_PROJECT_ID || 
-  process.env.RAILWAY_ENVIRONMENT || 
-  process.env.RAILWAY_PUBLIC_DOMAIN ||
-  process.env.RAILWAY_SERVICE_NAME
-);
+// HARDCODE: Force Railway detection since env vars aren't available during build
 const isProduction = process.env.NODE_ENV === 'production';
+const isRailway = true; // FORCE TRUE - Railway build doesn't expose env vars during build
 const isRailwayProduction = isRailway && isProduction;
 
 // Log the environment for debugging
