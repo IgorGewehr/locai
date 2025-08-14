@@ -167,21 +167,46 @@ export default function SettingsPage() {
       console.log('⏳ [Settings] Waiting for auth/tenant to be ready');
     }
     
-    // Optimized polling - faster when connecting, slower when stable
-    let pollInterval = 3000; // Start with 3 seconds
-    const interval = setInterval(() => {
-      if (mounted) {
-        safeCheckStatus();
-        // Adaptive polling: slow down if connected or disconnected
-        if (whatsappSession.connected || whatsappSession.status === 'disconnected') {
-          pollInterval = Math.min(pollInterval + 2000, 15000); // Max 15s
-        }
+    // Railway-optimized polling with adaptive intervals
+    let timeoutId: NodeJS.Timeout;
+    
+    const scheduleNextCheck = () => {
+      if (!mounted) return;
+      
+      // Determine optimal polling interval based on status
+      let nextInterval = 5000; // Default 5 seconds for Railway
+      
+      switch (whatsappSession.status) {
+        case 'connecting':
+        case 'initializing':
+          nextInterval = 2000; // Fast polling when connecting
+          break;
+        case 'qr':
+          nextInterval = 3000; // Medium polling when waiting for QR scan
+          break;
+        case 'connected':
+          nextInterval = 30000; // Slow polling when connected (30s)
+          break;
+        case 'disconnected':
+        case 'error':
+        default:
+          nextInterval = 10000; // Standard polling when disconnected
       }
-    }, pollInterval);
+      
+      timeoutId = setTimeout(async () => {
+        if (mounted) {
+          await safeCheckStatus();
+          scheduleNextCheck(); // Schedule next check
+        }
+      }, nextInterval);
+    };
+    
+    // Start the adaptive polling
+    scheduleNextCheck();
     
     return () => {
       mounted = false;
-      clearInterval(interval);
+      clearTimeout(timeoutId);
     };
   }, [checkWhatsAppStatus]);
 

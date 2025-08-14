@@ -25,42 +25,74 @@ function clearSessionManagerCache() {
 }
 
 async function getSessionManager() {
-  // FORCE STRATEGIC SESSION MANAGER - ALWAYS RELOAD
+  // PRODUCTION OPTIMIZATION: Use Railway QR Manager for production
   clearSessionManagerCache(); // Always clear cache
   
   try {
-    logger.info('🚀 [FORCE] Loading Strategic Session Manager...');
-    console.log('🚀 [FORCE] Loading Strategic Session Manager...'); // Force console log
+    // Check if we're in Railway production environment
+    const isRailwayProduction = !!process.env.RAILWAY_PROJECT_ID && process.env.NODE_ENV === 'production';
     
-    const { strategicSessionManager } = await import('@/lib/whatsapp/strategic-session-manager');
-    sessionManager = strategicSessionManager;
+    if (isRailwayProduction) {
+      logger.info('🚂 [RAILWAY] Loading Railway QR Session Manager for production...');
+      console.log('🚂 [RAILWAY] Loading Railway QR Session Manager for production...'); // Force console log
+      
+      const { railwayQRSessionManager } = await import('@/lib/whatsapp/railway-qr-session-manager');
+      sessionManager = railwayQRSessionManager;
+      
+      logger.info('✅ [RAILWAY] Railway QR manager loaded successfully for production');
+      console.log('✅ [RAILWAY] Railway QR manager loaded successfully for production'); // Force console log
+      
+      return sessionManager;
+    } else {
+      // Use Strategic Session Manager for development/staging
+      logger.info('🚀 [STRATEGIC] Loading Strategic Session Manager for development...');
+      console.log('🚀 [STRATEGIC] Loading Strategic Session Manager for development...'); // Force console log
+      
+      const { strategicSessionManager } = await import('@/lib/whatsapp/strategic-session-manager');
+      sessionManager = strategicSessionManager;
+      
+      logger.info('✅ [STRATEGIC] Strategic WhatsApp manager loaded successfully');
+      console.log('✅ [STRATEGIC] Strategic WhatsApp manager loaded successfully'); // Force console log
+      
+      return sessionManager;
+    }
     
-    logger.info('✅ [FORCE] Strategic WhatsApp manager loaded successfully');
-    console.log('✅ [FORCE] Strategic WhatsApp manager loaded successfully'); // Force console log
+  } catch (primaryError) {
+    logger.error('❌ [PRIMARY] Primary manager failed:', primaryError);
+    console.error('❌ [PRIMARY] Primary manager failed:', primaryError); // Force console log
     
-    return sessionManager;
-    
-  } catch (strategicError) {
-    logger.error('❌ [FORCE] Strategic manager failed:', strategicError);
-    console.error('❌ [FORCE] Strategic manager failed:', strategicError); // Force console log
-    
-    // Emergency fallback to robust manager
+    // Emergency fallback to strategic manager
     try {
-      logger.info('🆘 [EMERGENCY] Falling back to Robust Session Manager...');
-      console.log('🆘 [EMERGENCY] Falling back to Robust Session Manager...'); // Force console log
+      logger.info('🆘 [EMERGENCY] Falling back to Strategic Session Manager...');
+      console.log('🆘 [EMERGENCY] Falling back to Strategic Session Manager...'); // Force console log
       
-      const { robustWhatsAppManager } = await import('@/lib/whatsapp/robust-session-manager');
-      sessionManager = robustWhatsAppManager;
+      const { strategicSessionManager } = await import('@/lib/whatsapp/strategic-session-manager');
+      sessionManager = strategicSessionManager;
       
-      logger.info('✅ [EMERGENCY] Fallback manager loaded');
-      console.log('✅ [EMERGENCY] Fallback manager loaded'); // Force console log
+      logger.info('✅ [EMERGENCY] Strategic fallback loaded');
+      console.log('✅ [EMERGENCY] Strategic fallback loaded'); // Force console log
       
       return sessionManager;
       
-    } catch (fallbackError) {
-      logger.error('💥 [CRITICAL] All managers failed:', fallbackError);
-      console.error('💥 [CRITICAL] All managers failed:', fallbackError); // Force console log
-      throw new Error(`All WhatsApp managers failed: ${fallbackError.message}`);
+    } catch (strategicError) {
+      // Final fallback to robust manager
+      try {
+        logger.info('🚨 [FINAL] Falling back to Robust Session Manager...');
+        console.log('🚨 [FINAL] Falling back to Robust Session Manager...'); // Force console log
+        
+        const { robustWhatsAppManager } = await import('@/lib/whatsapp/robust-session-manager');
+        sessionManager = robustWhatsAppManager;
+        
+        logger.info('✅ [FINAL] Robust fallback loaded');
+        console.log('✅ [FINAL] Robust fallback loaded'); // Force console log
+        
+        return sessionManager;
+        
+      } catch (fallbackError) {
+        logger.error('💥 [CRITICAL] All managers failed:', fallbackError);
+        console.error('💥 [CRITICAL] All managers failed:', fallbackError); // Force console log
+        throw new Error(`All WhatsApp managers failed: ${fallbackError.message}`);
+      }
     }
   }
 }
