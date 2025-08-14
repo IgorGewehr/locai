@@ -24,6 +24,7 @@
     "fix-agent": "node scripts/fix-agent-issues.js",
     "migrate-firebase": "node scripts/migrate-firebase-structure.js",
     "test-whatsapp-qr": "node scripts/test-whatsapp-qr.js",
+    "test-railway-qr": "node scripts/test-railway-qr.js",
     "test-sofia": "node scripts/test-sofia-agent.js"
   },
   "dependencies": {

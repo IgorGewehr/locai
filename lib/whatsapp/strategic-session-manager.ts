@@ -45,7 +45,12 @@ export class StrategicSessionManager extends EventEmitter {
   }
 
   private async initializeDependencies(): Promise<void> {
-    logger.info('🔧 [Strategic] Initializing dependencies...');
+    logger.info('🔧 [Strategic] Initializing dependencies...', {
+      nodeVersion: process.version,
+      platform: process.platform,
+      isRailway: !!process.env.RAILWAY_PROJECT_ID,
+      env: process.env.NODE_ENV
+    });
     
     try {
       // Load Baileys with timeout
@@ -57,27 +62,84 @@ export class StrategicSessionManager extends EventEmitter {
       
       this.baileys = await Promise.race([baileysPromise, timeoutPromise]);
       
-      // Verify critical functions
-      if (!this.baileys.default || !this.baileys.useMultiFileAuthState || !this.baileys.DisconnectReason) {
+      // Verify critical functions - handle both import and require patterns
+      const hasDirectExports = this.baileys.makeWASocket && this.baileys.useMultiFileAuthState;
+      const hasDefaultExports = this.baileys.default && typeof this.baileys.default === 'function';
+      
+      if (!hasDirectExports && !hasDefaultExports) {
         throw new Error('Baileys modules incomplete after import');
       }
       
-      logger.info('✅ [Strategic] Baileys loaded successfully');
+      // Normalize exports for consistent usage
+      if (hasDirectExports) {
+        // Direct exports from dynamic import
+        this.baileys.default = this.baileys.makeWASocket;
+      }
       
-      // Load QRCode
+      logger.info('✅ [Strategic] Baileys loaded successfully', {
+        hasDefault: !!this.baileys.default,
+        hasAuthState: !!this.baileys.useMultiFileAuthState,
+        hasDisconnect: !!this.baileys.DisconnectReason
+      });
+      
+      // Load QRCode with multiple strategies
       logger.info('📦 [Strategic] Loading QRCode...');
-      this.QRCode = require('qrcode');
       
-      if (typeof this.QRCode.toDataURL !== 'function') {
-        throw new Error('QRCode toDataURL function not available');
+      try {
+        // Strategy 1: Normal require
+        this.QRCode = require('qrcode');
+      } catch (requireError) {
+        logger.warn('⚠️ [Strategic] Normal require failed, trying import...', requireError.message);
+        
+        // Strategy 2: Dynamic import
+        const qrModule = await import('qrcode');
+        this.QRCode = qrModule.default || qrModule;
+      }
+      
+      // Verify QRCode functions
+      const requiredFunctions = ['toDataURL', 'toString', 'toCanvas'];
+      const availableFunctions = requiredFunctions.filter(fn => typeof this.QRCode[fn] === 'function');
+      
+      logger.info('📊 [Strategic] QRCode functions available:', {
+        required: requiredFunctions,
+        available: availableFunctions,
+        hasAll: availableFunctions.length === requiredFunctions.length
+      });
+      
+      if (!this.QRCode || typeof this.QRCode.toDataURL !== 'function') {
+        throw new Error(`QRCode toDataURL function not available. Available: ${availableFunctions.join(', ')}`);
       }
       
       logger.info('✅ [Strategic] QRCode loaded successfully');
       
-      // Test QR generation
-      const testQR = await this.QRCode.toDataURL('test', { width: 256, margin: 4 });
+      // Test QR generation with multiple configurations
+      logger.info('🧪 [Strategic] Testing QR generation...');
+      
+      const testConfigs = [
+        { width: 256, margin: 4 },
+        { width: 128 },
+        {}
+      ];
+      
+      let testQR = null;
+      for (let i = 0; i < testConfigs.length; i++) {
+        try {
+          testQR = await this.QRCode.toDataURL('test-qr-railway', testConfigs[i]);
+          if (testQR && testQR.length > 100) {
+            logger.info(`✅ [Strategic] QR test passed with config ${i + 1}`, {
+              configUsed: testConfigs[i],
+              qrLength: testQR.length,
+              qrPrefix: testQR.substring(0, 50)
+            });
+            break;
+          }
+        } catch (testError) {
+          logger.warn(`⚠️ [Strategic] QR test config ${i + 1} failed:`, testError.message);
+        }
+      }
+      
       if (!testQR || testQR.length < 100) {
-        throw new Error('QR generation test failed');
+        throw new Error('QR generation test failed with all configurations');
       }
       
       logger.info('✅ [Strategic] QR generation test passed');
@@ -88,7 +150,9 @@ export class StrategicSessionManager extends EventEmitter {
     } catch (error) {
       logger.error('❌ [Strategic] Dependency initialization failed:', {
         error: error.message,
-        stack: error.stack
+        stack: error.stack,
+        nodeVersion: process.version,
+        isRailway: !!process.env.RAILWAY_PROJECT_ID
       });
       this.isReady = false;
       this.initializationPromise = null; // Reset to allow retry
@@ -139,7 +203,10 @@ export class StrategicSessionManager extends EventEmitter {
   private async createStrategicConnection(tenantId: string): Promise<void> {
     logger.info('🔌 [Strategic] Creating WhatsApp connection...');
     
-    const { default: makeWASocket, useMultiFileAuthState, DisconnectReason } = this.baileys;
+    // Handle both import patterns
+    const makeWASocket = this.baileys.default || this.baileys.makeWASocket;
+    const useMultiFileAuthState = this.baileys.useMultiFileAuthState;
+    const DisconnectReason = this.baileys.DisconnectReason;
     
     // Strategic directory setup for Railway
     const fs = require('fs');
@@ -219,22 +286,79 @@ export class StrategicSessionManager extends EventEmitter {
 
       if (update.qr) {
         clearTimeout(qrTimeoutId);
-        logger.info('🔲 [Strategic] QR received, processing...');
+        logger.info('🔲 [Strategic] QR received, processing...', {
+          qrType: typeof update.qr,
+          qrLength: update.qr?.length,
+          qrSample: update.qr?.substring(0, 50),
+          isRailway: !!process.env.RAILWAY_PROJECT_ID
+        });
         
         session.connectionAttempts++;
         
         try {
-          const qrDataUrl = await this.QRCode.toDataURL(update.qr, {
-            type: 'image/png',
-            quality: 1.0,
-            margin: 4,
-            width: 512,
-            errorCorrectionLevel: 'H',
-            color: {
-              dark: '#000000',
-              light: '#FFFFFF'
+          // Ensure QRCode is loaded
+          if (!this.QRCode || typeof this.QRCode.toDataURL !== 'function') {
+            logger.warn('⚠️ [Strategic] QRCode not loaded, reloading...');
+            this.QRCode = require('qrcode');
+          }
+
+          // Multiple attempts with different configurations
+          let qrDataUrl = null;
+          const qrConfigs = [
+            // Config 1: High quality with error correction
+            {
+              type: 'image/png',
+              quality: 1.0,
+              margin: 4,
+              width: 512,
+              errorCorrectionLevel: 'H',
+              color: { dark: '#000000', light: '#FFFFFF' }
+            },
+            // Config 2: Standard quality
+            {
+              type: 'image/png',
+              quality: 0.92,
+              margin: 2,
+              width: 256,
+              errorCorrectionLevel: 'M'
+            },
+            // Config 3: Minimal config
+            { width: 256, margin: 4 }
+          ];
+
+          for (let i = 0; i < qrConfigs.length; i++) {
+            try {
+              logger.info(`🔧 [Strategic] Trying QR config ${i + 1}...`);
+              qrDataUrl = await this.QRCode.toDataURL(update.qr, qrConfigs[i]);
+              
+              if (qrDataUrl && qrDataUrl.length > 100) {
+                logger.info(`✅ [Strategic] QR generated with config ${i + 1}`);
+                break;
+              }
+            } catch (configError) {
+              logger.warn(`⚠️ [Strategic] Config ${i + 1} failed:`, configError.message);
             }
-          });
+          }
+
+          // Final fallback: convert manually if all configs fail
+          if (!qrDataUrl || qrDataUrl.length < 100) {
+            logger.warn('⚠️ [Strategic] All QR configs failed, using manual conversion');
+            
+            // Try terminal format as last resort
+            const terminalQR = await this.QRCode.toString(update.qr, { type: 'terminal' });
+            logger.info('📱 [Strategic] Terminal QR generated:', {
+              terminalLength: terminalQR?.length
+            });
+            
+            // Create a basic data URL manually
+            const canvas = await this.QRCode.toCanvas(update.qr, { width: 256 });
+            if (canvas) {
+              qrDataUrl = canvas.toDataURL('image/png');
+            } else {
+              // Ultimate fallback: use raw QR string
+              qrDataUrl = `data:text/plain;base64,${Buffer.from(update.qr).toString('base64')}`;
+            }
+          }
 
           session.qrCode = qrDataUrl;
           session.status = 'qr';
@@ -246,16 +370,26 @@ export class StrategicSessionManager extends EventEmitter {
           logger.info('✅ [Strategic] QR ready!', {
             tenantId: tenantId?.substring(0, 8),
             attempt: session.connectionAttempts,
-            qrLength: qrDataUrl.length
+            qrLength: qrDataUrl?.length || 0,
+            qrPrefix: qrDataUrl?.substring(0, 30),
+            isDataUrl: qrDataUrl?.startsWith('data:')
           });
 
         } catch (qrError) {
-          logger.error('❌ [Strategic] QR conversion failed:', qrError);
-          // Use raw QR as fallback
+          logger.error('❌ [Strategic] QR conversion failed:', {
+            error: qrError.message,
+            stack: qrError.stack,
+            qrType: typeof update.qr,
+            qrLength: update.qr?.length
+          });
+          
+          // Use raw QR as absolute fallback
           session.qrCode = update.qr;
           session.status = 'qr';
           this.emit('qr', tenantId, update.qr);
           this.emit('status', tenantId, 'qr');
+          
+          logger.warn('⚠️ [Strategic] Using raw QR as fallback');
         }
       }
 
