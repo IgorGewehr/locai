@@ -47,12 +47,50 @@ export async function middleware(request: NextRequest) {
     '/api/webhook/whatsapp-web',
     '/api/auth',
     '/api/agent',
-    '/api/whatsapp/session',
+    '/api/public/',
+    '/api/auth-test',
+    '/api/diagnostic/'
+  ]
+
+  // Special handling for WhatsApp and other auth-protected API routes
+  const authProtectedApiRoutes = [
+    '/api/whatsapp/',
     '/api/config/whatsapp'
   ]
 
+  // Check if this is a public route
   if (publicRoutes.some(route => pathname === route || pathname.startsWith(route))) {
-    return NextResponse.next()
+    const response = NextResponse.next();
+    
+    // Add Railway-specific CORS headers for public API routes
+    if (pathname.startsWith('/api/')) {
+      const isRailway = !!process.env.RAILWAY_PROJECT_ID;
+      const allowedOrigin = isRailway ? 'https://www.alugazap.com' : '*';
+      
+      response.headers.set('Access-Control-Allow-Origin', allowedOrigin);
+      response.headers.set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+      response.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, X-Tenant-Id, Origin, Accept');
+      response.headers.set('Access-Control-Allow-Credentials', 'true');
+      response.headers.set('X-Railway-Public-Route', 'true');
+    }
+    
+    return response;
+  }
+
+  // For auth-protected API routes, let them handle their own authentication
+  if (authProtectedApiRoutes.some(route => pathname.startsWith(route))) {
+    const response = NextResponse.next();
+    
+    // Add Railway-specific headers for debugging
+    const isRailway = !!process.env.RAILWAY_PROJECT_ID;
+    if (isRailway) {
+      response.headers.set('X-Railway-Auth-Route', 'true');
+      response.headers.set('Access-Control-Allow-Origin', 'https://www.alugazap.com');
+      response.headers.set('Access-Control-Allow-Credentials', 'true');
+      response.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, X-Tenant-Id, Origin, Accept');
+    }
+    
+    return response;
   }
 
   // Protected routes require authentication
