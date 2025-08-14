@@ -5,31 +5,55 @@ import { loadWhatsAppDependency, getProductionMessage, PRODUCTION_CONFIG } from 
 import { logger } from '@/lib/utils/logger';
 
 // RAILWAY FIX: Always use hardcoded auth for Railway production
-const isRailwayProduction = !!process.env.RAILWAY_PROJECT_ID && process.env.NODE_ENV === 'production';
+// Check multiple Railway indicators
+const isRailway = !!(
+  process.env.RAILWAY_PROJECT_ID || 
+  process.env.RAILWAY_ENVIRONMENT || 
+  process.env.RAILWAY_PUBLIC_DOMAIN ||
+  process.env.RAILWAY_SERVICE_NAME
+);
+const isProduction = process.env.NODE_ENV === 'production';
+const isRailwayProduction = isRailway && isProduction;
 
 // Log the environment for debugging
 logger.info('🌍 [WhatsApp Session] Environment check:', {
-  isRailway: !!process.env.RAILWAY_PROJECT_ID,
-  nodeEnv: process.env.NODE_ENV,
+  isRailway,
+  isProduction,
   isRailwayProduction,
-  railwayProjectId: process.env.RAILWAY_PROJECT_ID ? 'present' : 'missing'
+  railwayProjectId: process.env.RAILWAY_PROJECT_ID ? 'present' : 'missing',
+  railwayEnvironment: process.env.RAILWAY_ENVIRONMENT ? 'present' : 'missing',
+  railwayDomain: process.env.RAILWAY_PUBLIC_DOMAIN ? 'present' : 'missing'
 });
 
 // Force console logging for Railway
 console.log('🌍 [WhatsApp Session] Environment check:', {
-  isRailway: !!process.env.RAILWAY_PROJECT_ID,
-  nodeEnv: process.env.NODE_ENV,
+  isRailway,
+  isProduction,
   isRailwayProduction,
-  railwayProjectId: process.env.RAILWAY_PROJECT_ID ? 'present' : 'missing'
+  railwayProjectId: process.env.RAILWAY_PROJECT_ID ? 'present' : 'missing',
+  railwayEnvironment: process.env.RAILWAY_ENVIRONMENT ? 'present' : 'missing',
+  railwayDomain: process.env.RAILWAY_PUBLIC_DOMAIN ? 'present' : 'missing'
 });
 
 // Import the correct auth based on environment
+// FORÇA RAILWAY AUTH EM PRODUÇÃO - já que a detecção pode falhar no build
 let verifyAuth: any;
-if (isRailwayProduction) {
+const forceRailwayAuth = isProduction; // Use Railway auth em QUALQUER produção
+
+if (forceRailwayAuth || isRailwayProduction) {
   logger.info('🚂 [INIT] Loading Railway hardcoded auth for production');
   console.log('🚂 [INIT] Loading Railway hardcoded auth for production');
-  const railwayAuth = require('@/lib/utils/auth-railway');
-  verifyAuth = railwayAuth.verifyAuthRailway;
+  try {
+    const railwayAuth = require('@/lib/utils/auth-railway');
+    verifyAuth = railwayAuth.verifyAuthRailway;
+    logger.info('✅ [INIT] Railway auth loaded successfully');
+    console.log('✅ [INIT] Railway auth loaded successfully');
+  } catch (error) {
+    logger.error('❌ [INIT] Railway auth failed, falling back to standard:', error);
+    console.log('❌ [INIT] Railway auth failed, falling back to standard:', error);
+    const standardAuth = require('@/lib/utils/auth');
+    verifyAuth = standardAuth.verifyAuth;
+  }
 } else {
   logger.info('🔐 [INIT] Loading standard auth for development');
   console.log('🔐 [INIT] Loading standard auth for development');

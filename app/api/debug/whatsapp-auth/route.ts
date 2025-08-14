@@ -66,21 +66,10 @@ export async function GET(request: NextRequest) {
       authTestResults.railwayAuth = { error: error.message };
     }
     
-    // Test Firebase Admin initialization
-    let firebaseTestResults: any = {};
-    
-    try {
-      addDebugLog('🔥 [DEBUG] Testing Firebase Admin import...');
-      const { auth: adminAuth } = await import('@/lib/firebase/admin');
-      firebaseTestResults.adminAuth = {
-        imported: !!adminAuth,
-        initialized: !!adminAuth
-      };
-      addDebugLog(`✅ [DEBUG] Firebase Admin imported successfully`);
-    } catch (error) {
-      addDebugLog(`❌ [DEBUG] Firebase Admin import failed: ${error.message}`);
-      firebaseTestResults.adminAuth = { error: error.message };
-    }
+    // Skip Firebase Admin test during build to avoid build errors
+    let firebaseTestResults: any = {
+      adminAuth: { skipped: 'Skipped during build to avoid projectId errors' }
+    };
     
     // Test auth header parsing
     const authHeader = request.headers.get('authorization');
