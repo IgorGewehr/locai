@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server';
 import { auth as adminAuth } from '@/lib/firebase/admin';
 import { User } from 'firebase/auth';
+import { logger } from '@/lib/utils/logger';
 
 export async function verifyAuth(request: NextRequest): Promise<User | null> {
   try {
@@ -24,13 +25,12 @@ export async function verifyAuth(request: NextRequest): Promise<User | null> {
       checkRevoked: isRailway && process.env.NODE_ENV === 'production'
     };
 
-    // Verify the token with Firebase Admin with Railway timeout
-    const tokenPromise = adminAuth.verifyIdToken(token, verifyOptions);
-    const timeoutPromise = new Promise((_, reject) => {
-      setTimeout(() => reject(new Error('Auth verification timeout')), 10000); // 10s timeout for Railway
-    });
-
-    const decodedToken = await Promise.race([tokenPromise, timeoutPromise]);
+    // Verify the token with Firebase Admin - remove timeout that causes issues
+    if (!adminAuth) {
+      throw new Error('Firebase Admin Auth not initialized');
+    }
+    
+    const decodedToken = await adminAuth.verifyIdToken(token, verifyOptions);
     
     // Enhanced user data for Railway
     return {
@@ -49,11 +49,14 @@ export async function verifyAuth(request: NextRequest): Promise<User | null> {
     } as User & { tenantId: string };
   } catch (error) {
     // Enhanced error logging for Railway debugging
-    console.error('❌ [Auth] Token verification error:', {
-      error: error.message,
+    logger.error('❌ [Auth] Token verification error:', {
+      error: error instanceof Error ? error.message : 'Unknown error',
+      errorCode: error?.code,
       isRailway: !!process.env.RAILWAY_PROJECT_ID,
       hasToken: !!(request.headers.get('authorization')?.split(' ')[1]),
-      userAgent: request.headers.get('user-agent')?.substring(0, 100)
+      tokenLength: request.headers.get('authorization')?.split(' ')[1]?.length,
+      userAgent: request.headers.get('user-agent')?.substring(0, 100),
+      adminAuthInitialized: !!adminAuth
     });
     return null;
   }
