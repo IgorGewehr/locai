@@ -52,22 +52,29 @@ initializeFirebaseAdmin();
 export async function verifyAuthRailway(request: NextRequest): Promise<User | null> {
   try {
     logger.info('🔐 [Auth Railway] Starting auth verification with hardcoded Firebase Admin');
+    console.log('🔐 [Auth Railway] Starting auth verification with hardcoded Firebase Admin'); // Force console
     
     // Check for authorization header
     const authHeader = request.headers.get('authorization');
     
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      logger.warn('⚠️ [Auth Railway] No valid authorization header');
+      logger.warn('⚠️ [Auth Railway] No valid authorization header', {
+        hasHeader: !!authHeader,
+        headerPrefix: authHeader?.substring(0, 20)
+      });
+      console.log('⚠️ [Auth Railway] No valid authorization header'); // Force console
       return null;
     }
 
     const token = authHeader.split(' ')[1];
     if (!token) {
       logger.warn('⚠️ [Auth Railway] No token found in authorization header');
+      console.log('⚠️ [Auth Railway] No token found in authorization header'); // Force console
       return null;
     }
 
     logger.info('🔍 [Auth Railway] Token received, length:', token.length);
+    console.log('🔍 [Auth Railway] Token received, length:', token.length); // Force console
 
     // Ensure Firebase Admin is initialized
     if (!adminAuth) {

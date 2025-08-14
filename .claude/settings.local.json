@@ -62,7 +62,8 @@
       "Bash(JWT_SECRET=test-secret-for-sofia-fixed-123456789-production-ready-secure-key npm run build)",
       "Bash(export JWT_SECRET=test-secret-for-sofia-fixed-123456789-production-ready-secure-key)",
       "WebFetch(domain:www.alugazap.com)",
-      "Bash(railway logs:*)"
+      "Bash(railway logs:*)",
+      "Bash(git restore:*)"
     ],
     "deny": [],
     "defaultMode": "acceptEdits"

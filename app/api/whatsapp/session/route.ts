@@ -1,21 +1,40 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getTenantId } from '@/lib/utils/tenant';
-import { verifyAuth as verifyAuthDefault } from '@/lib/utils/auth';
-import { verifyAuthRailway } from '@/lib/utils/auth-railway';
 import { z } from 'zod';
 import { loadWhatsAppDependency, getProductionMessage, PRODUCTION_CONFIG } from '@/lib/utils/production-utils';
 import { logger } from '@/lib/utils/logger';
 
-// RAILWAY FIX: Use hardcoded auth for Railway production
-async function getAuthVerifier() {
-  const isRailwayProduction = !!process.env.RAILWAY_PROJECT_ID && process.env.NODE_ENV === 'production';
-  
-  if (isRailwayProduction) {
-    logger.info('🚂 [Railway Auth] Using hardcoded Firebase Admin auth for Railway production');
-    return verifyAuthRailway;
-  }
-  
-  return verifyAuthDefault;
+// RAILWAY FIX: Always use hardcoded auth for Railway production
+const isRailwayProduction = !!process.env.RAILWAY_PROJECT_ID && process.env.NODE_ENV === 'production';
+
+// Log the environment for debugging
+logger.info('🌍 [WhatsApp Session] Environment check:', {
+  isRailway: !!process.env.RAILWAY_PROJECT_ID,
+  nodeEnv: process.env.NODE_ENV,
+  isRailwayProduction,
+  railwayProjectId: process.env.RAILWAY_PROJECT_ID ? 'present' : 'missing'
+});
+
+// Force console logging for Railway
+console.log('🌍 [WhatsApp Session] Environment check:', {
+  isRailway: !!process.env.RAILWAY_PROJECT_ID,
+  nodeEnv: process.env.NODE_ENV,
+  isRailwayProduction,
+  railwayProjectId: process.env.RAILWAY_PROJECT_ID ? 'present' : 'missing'
+});
+
+// Import the correct auth based on environment
+let verifyAuth: any;
+if (isRailwayProduction) {
+  logger.info('🚂 [INIT] Loading Railway hardcoded auth for production');
+  console.log('🚂 [INIT] Loading Railway hardcoded auth for production');
+  const railwayAuth = require('@/lib/utils/auth-railway');
+  verifyAuth = railwayAuth.verifyAuthRailway;
+} else {
+  logger.info('🔐 [INIT] Loading standard auth for development');
+  console.log('🔐 [INIT] Loading standard auth for development');
+  const standardAuth = require('@/lib/utils/auth');
+  verifyAuth = standardAuth.verifyAuth;
 }
 
 // Simple cache to prevent excessive API calls - RAILWAY OPTIMIZED
@@ -113,13 +132,23 @@ async function getSessionManager() {
 // GET /api/whatsapp/session - Get session status
 export async function GET(request: NextRequest) {
   try {
-    // Use Railway-specific auth if in Railway production
-    const verifyAuth = await getAuthVerifier();
+    logger.info('📥 [GET] WhatsApp session status request received');
+    logger.info('🔐 [GET] Using auth method:', isRailwayProduction ? 'Railway Hardcoded' : 'Standard');
+    
     const user = await verifyAuth(request);
     if (!user) {
-      logger.warn('🚫 [GET] User authentication failed');
+      logger.warn('🚫 [GET] User authentication failed', {
+        hasAuthHeader: !!request.headers.get('authorization'),
+        isRailway: isRailwayProduction
+      });
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
+    
+    logger.info('✅ [GET] User authenticated:', {
+      uid: user.uid,
+      email: user.email,
+      tenantId: user.tenantId
+    });
 
     const tenantId = user.tenantId || user.uid;
     
@@ -176,15 +205,23 @@ export async function POST(request: NextRequest) {
   try {
     console.log('🔥 [API POST] WhatsApp session initialization requested');
     logger.info('🔥 [API POST] WhatsApp session initialization requested');
+    logger.info('🔐 [POST] Using auth method:', isRailwayProduction ? 'Railway Hardcoded' : 'Standard');
 
-    // Use Railway-specific auth if in Railway production
-    const verifyAuth = await getAuthVerifier();
     const user = await verifyAuth(request);
     if (!user) {
       console.log('❌ [API POST] Unauthorized request');
-      logger.warn('🚫 [POST] User authentication failed');
+      logger.warn('🚫 [POST] User authentication failed', {
+        hasAuthHeader: !!request.headers.get('authorization'),
+        isRailway: isRailwayProduction
+      });
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
+    
+    logger.info('✅ [POST] User authenticated:', {
+      uid: user.uid,
+      email: user.email,
+      tenantId: user.tenantId
+    });
 
     const tenantId = user.tenantId || user.uid;
     console.log('👤 [API POST] User authenticated:', { 
@@ -287,13 +324,23 @@ export async function POST(request: NextRequest) {
 // DELETE /api/whatsapp/session - Disconnect session
 export async function DELETE(request: NextRequest) {
   try {
-    // Use Railway-specific auth if in Railway production
-    const verifyAuth = await getAuthVerifier();
+    logger.info('🗑️ [DELETE] WhatsApp session disconnect requested');
+    logger.info('🔐 [DELETE] Using auth method:', isRailwayProduction ? 'Railway Hardcoded' : 'Standard');
+    
     const user = await verifyAuth(request);
     if (!user) {
-      logger.warn('🚫 [DELETE] User authentication failed');
+      logger.warn('🚫 [DELETE] User authentication failed', {
+        hasAuthHeader: !!request.headers.get('authorization'),
+        isRailway: isRailwayProduction
+      });
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
+    
+    logger.info('✅ [DELETE] User authenticated:', {
+      uid: user.uid,
+      email: user.email,
+      tenantId: user.tenantId
+    });
 
     const tenantId = user.tenantId || user.uid;
     
