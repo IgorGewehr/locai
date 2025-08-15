@@ -69,6 +69,7 @@ export default function SettingsPage() {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [qrDialogOpen, setQrDialogOpen] = useState(false);
+  const [userClosedDialog, setUserClosedDialog] = useState(false); // Track if user manually closed
   const [connecting, setConnecting] = useState(false);
   const [connectionProgress, setConnectionProgress] = useState(0);
   const [qrExpireTimer, setQrExpireTimer] = useState<NodeJS.Timeout | null>(null);
@@ -92,12 +93,17 @@ export default function SettingsPage() {
     confirmPassword: ''
   });
 
-  // Auto-open QR dialog when QR code is available
+  // Auto-open QR dialog when QR code is available (only if user didn't close it manually)
   useEffect(() => {
-    if (whatsappSession.qrCode && whatsappSession.status === 'qr' && !qrDialogOpen) {
+    if (whatsappSession.qrCode && whatsappSession.status === 'qr' && !qrDialogOpen && !userClosedDialog) {
       setTimeout(() => setQrDialogOpen(true), 300);
     }
-  }, [whatsappSession.qrCode, whatsappSession.status, qrDialogOpen]);
+    
+    // Reset the flag when QR code is no longer available or status changes
+    if (!whatsappSession.qrCode || whatsappSession.status !== 'qr') {
+      setUserClosedDialog(false);
+    }
+  }, [whatsappSession.qrCode, whatsappSession.status, qrDialogOpen, userClosedDialog]);
 
   // Initial status refresh when component mounts
   useEffect(() => {
@@ -196,6 +202,7 @@ export default function SettingsPage() {
     setError(null);
     setSuccess(null);
     setConnectionProgress(0);
+    setUserClosedDialog(false); // Reset the flag when starting new connection
     
     try {
       // Faster initial feedback
@@ -286,6 +293,7 @@ export default function SettingsPage() {
 
       if (response.ok) {
         setQrDialogOpen(false);
+        setUserClosedDialog(false); // Reset flag on disconnect
         setSuccess('WhatsApp desconectado');
         setTimeout(() => setSuccess(null), 2000);
         // Refresh status to update all components
@@ -811,6 +819,23 @@ export default function SettingsPage() {
             </CardContent>
           </Card>
 
+          {/* QR Available Alert - Show when user closed dialog but QR is still available */}
+          {!whatsappSession.connected && whatsappSession.qrCode && userClosedDialog && (
+            <Alert 
+              severity="info" 
+              sx={{ 
+                mb: 3,
+                backgroundColor: 'rgba(245, 158, 11, 0.1)',
+                border: '1px solid rgba(245, 158, 11, 0.3)',
+                '& .MuiAlert-icon': {
+                  color: '#f59e0b',
+                },
+              }}
+            >
+              QR Code disponível! Clique em "Mostrar QR Code" para continuar a conexão.
+            </Alert>
+          )}
+
           {/* Connection Progress - Notion Style */}
           {connecting && (
             <Card sx={{ 
@@ -874,7 +899,38 @@ export default function SettingsPage() {
 
           {/* Actions */}
           <Stack direction={isMobile ? 'column' : 'row'} spacing={2}>
-            {!whatsappSession.connected && (
+            {/* Show QR button if user closed dialog but QR is still available */}
+            {!whatsappSession.connected && whatsappSession.qrCode && userClosedDialog && (
+              <Button
+                variant="contained"
+                size="large"
+                startIcon={<QrCode sx={{ fontSize: 18 }} />}
+                onClick={() => {
+                  setQrDialogOpen(true);
+                  setUserClosedDialog(false);
+                }}
+                sx={{
+                  backgroundColor: '#f59e0b',
+                  color: '#ffffff',
+                  border: '1px solid rgba(255,255,255,0.1)',
+                  borderRadius: 2,
+                  py: 1.5,
+                  px: 4,
+                  fontWeight: 600,
+                  fontSize: '0.875rem',
+                  textTransform: 'none',
+                  transition: 'all 0.15s ease',
+                  '&:hover': { 
+                    backgroundColor: '#f97316',
+                    transform: 'translateY(-1px)',
+                  },
+                }}
+              >
+                Mostrar QR Code
+              </Button>
+            )}
+            
+            {!whatsappSession.connected && !whatsappSession.qrCode && (
               <Button
                 variant="contained"
                 size="large"
@@ -983,7 +1039,10 @@ export default function SettingsPage() {
       {/* QR Code Dialog */}
       <Dialog
         open={qrDialogOpen}
-        onClose={() => setQrDialogOpen(false)}
+        onClose={() => {
+          setQrDialogOpen(false);
+          setUserClosedDialog(true); // Mark that user manually closed
+        }}
         maxWidth="sm"
         fullWidth
         fullScreen={isMobile}
@@ -1010,7 +1069,10 @@ export default function SettingsPage() {
         >
           Escanear QR Code
           <IconButton 
-            onClick={() => setQrDialogOpen(false)} 
+            onClick={() => {
+              setQrDialogOpen(false);
+              setUserClosedDialog(true); // Mark that user manually closed
+            }} 
             sx={{ 
               color: 'rgba(255,255,255,0.7)',
               p: 1,
@@ -1158,7 +1220,10 @@ export default function SettingsPage() {
         
         <DialogActions sx={{ p: 3, pt: 2 }}>
           <Button 
-            onClick={() => setQrDialogOpen(false)} 
+            onClick={() => {
+              setQrDialogOpen(false);
+              setUserClosedDialog(true); // Mark that user manually closed
+            }} 
             sx={{ 
               color: 'rgba(255, 255, 255, 0.7)',
               textTransform: 'none',
