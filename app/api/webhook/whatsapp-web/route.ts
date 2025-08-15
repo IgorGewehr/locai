@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { whatsappSessionManager } from '@/lib/whatsapp/session-manager'
+import { logger } from '@/lib/utils/logger'
 
 // This webhook is called internally by the session manager when messages arrive
 export async function POST(request: NextRequest) {
@@ -19,7 +19,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ success: true })
   } catch (error) {
-    console.error('WhatsApp Web webhook error:', error)
+    logger.error('WhatsApp Web webhook error:', error)
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

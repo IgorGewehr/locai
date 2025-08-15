@@ -18,6 +18,7 @@ import { verifyAuthRailway } from '@/lib/utils/auth-railway';
 // Select the correct auth based on environment
 // FORÇA RAILWAY AUTH EM PRODUÇÃO - já que a detecção pode falhar no build
 const forceRailwayAuth = isProduction; // Use Railway auth em QUALQUER produção
+const isRailwayProduction = !!process.env.RAILWAY_PROJECT_ID && isProduction;
 const verifyAuth = (forceRailwayAuth || isRailwayProduction) ? verifyAuthRailway : standardVerifyAuth;
 
 
@@ -41,19 +42,23 @@ async function getWhatsAppClient(tenantId: string) {
   }
   
   try {
-    logger.info('🏭 Creating WhatsApp client via factory', {
+    logger.info('🏭 [API Session] Creating WhatsApp client', {
       tenantId: tenantId.substring(0, 8) + '***',
       useExternal: useExternalService,
       hasExternalConfig,
-      microserviceUrl: process.env.WHATSAPP_MICROSERVICE_URL
+      microserviceUrl: process.env.WHATSAPP_MICROSERVICE_URL ? '✅ Set' : '❌ Missing',
+      endpoint: 'GET /api/whatsapp/session',
+      clientSelection: 'via_factory'
     });
     
     const client = createWhatsAppClient(tenantId);
     clientCache.set(tenantId, client);
     
-    logger.info('✅ WhatsApp client created successfully', {
+    logger.info('✅ [API Session] WhatsApp client created', {
       tenantId: tenantId.substring(0, 8) + '***',
-      clientType: getWhatsAppClientConfig().type
+      clientType: getWhatsAppClientConfig().type,
+      factoryResult: 'success',
+      nextStep: 'get_connection_status'
     });
     
     return client;
@@ -100,7 +105,11 @@ export async function GET(request: NextRequest) {
       status = await client.getConnectionStatus();
     } catch (error) {
       // Fallback for clients that don't have this method
-      logger.warn('Client does not have getConnectionStatus, using basic status');
+      logger.warn('⚠️ [API Session] Client missing getConnectionStatus method', {
+        tenantId: tenantId.substring(0, 8) + '***',
+        clientType: getWhatsAppClientConfig().type,
+        fallback: 'basic_status'
+      });
       status = { connected: false };
     }
     
@@ -160,12 +169,14 @@ export async function POST(request: NextRequest) {
     // WhatsApp Web SEMPRE HABILITADO - NUNCA RETORNAR DISABLED
     // Este check foi removido para garantir funcionamento em produção
     
-    logger.info('🚀 [API POST] Initializing WhatsApp session', { 
-      tenant: tenantId?.substring(0, 8) + '***',
-      env: process.env.NODE_ENV,
+    logger.info('🚀 [API Session POST] Starting session initialization', { 
+      tenantId: tenantId?.substring(0, 8) + '***',
+      environment: process.env.NODE_ENV,
       useExternal: useExternalService,
       hasExternalConfig,
-      clientType: getWhatsAppClientConfig().type
+      clientType: getWhatsAppClientConfig().type,
+      endpoint: 'POST /api/whatsapp/session',
+      microserviceUrl: process.env.WHATSAPP_MICROSERVICE_URL
     });
     
     // Get WhatsApp client via factory

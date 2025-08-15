@@ -13,26 +13,40 @@ export function createWhatsAppClient(tenantId: string = 'default') {
     process.env.WHATSAPP_MICROSERVICE_API_KEY
   );
 
-  logger.info('🏭 Creating WhatsApp client', {
+  logger.info('🏭 [WhatsApp Factory] Initializing client creation', {
     tenantId,
     useExternal,
     hasExternalConfig,
-    microserviceUrl: process.env.WHATSAPP_MICROSERVICE_URL
+    microserviceUrl: process.env.WHATSAPP_MICROSERVICE_URL ? '✅ Configured' : '❌ Missing',
+    apiKey: process.env.WHATSAPP_MICROSERVICE_API_KEY ? '✅ Configured' : '❌ Missing',
+    environment: process.env.NODE_ENV
   });
 
   // Se configurado para usar serviço externo e tem as configurações necessárias
   if (useExternal && hasExternalConfig) {
     try {
-      logger.info('🌐 Creating external WhatsApp client', { tenantId });
+      logger.info('🌐 [WhatsApp Factory] Creating EXTERNAL microservice client', {
+        tenantId,
+        microserviceUrl: process.env.WHATSAPP_MICROSERVICE_URL,
+        clientType: 'external_microservice'
+      });
       return new ExternalClientAdapter(tenantId);
     } catch (error) {
-      logger.error('❌ Failed to create external client, falling back to local:', error);
+      logger.error('❌ [WhatsApp Factory] External client creation failed - FALLING BACK to local', {
+        tenantId,
+        error: error.message,
+        fallbackType: 'local_baileys'
+      });
       // Fallback para cliente local
     }
   }
 
   // Fallback para implementação local
-  logger.info('🏠 Creating local WhatsApp client', { tenantId });
+  logger.info('🏠 [WhatsApp Factory] Creating LOCAL Baileys client', {
+    tenantId,
+    reason: useExternal ? 'fallback_from_external' : 'configured_for_local',
+    clientType: 'local_baileys'
+  });
   return new WhatsAppClient(tenantId);
 }
 

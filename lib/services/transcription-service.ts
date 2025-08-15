@@ -1,5 +1,5 @@
 import { OpenAI } from 'openai'
-import { WhatsAppClient } from '@/lib/whatsapp/client'
+import { createWhatsAppClient } from '@/lib/whatsapp/whatsapp-client-factory'
 import { withTimeout, withRetry } from '@/lib/utils/async'
 import { ValidationError, NetworkError } from '@/lib/utils/errors'
 import { validateMessageContent } from '@/lib/utils/validation'
@@ -21,13 +21,13 @@ interface AudioPreferences {
 
 export class TranscriptionService {
   private openai: OpenAI
-  private whatsappClient: WhatsAppClient
+  private whatsappClient: any
   private audioCache: Map<string, string> = new Map()
   private readonly MAX_AUDIO_SIZE = 25 * 1024 * 1024 // 25MB WhatsApp limit
   private readonly MAX_AUDIO_DURATION = 300 // 5 minutes
 
-  constructor(whatsappClient: WhatsAppClient) {
-    this.whatsappClient = whatsappClient
+  constructor(whatsappClient?: any) {
+    this.whatsappClient = whatsappClient || createWhatsAppClient('default')
   }
 
   private getOpenAI(): OpenAI {

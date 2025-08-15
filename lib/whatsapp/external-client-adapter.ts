@@ -23,10 +23,12 @@ export class ExternalClientAdapter {
 
     this.client = new ExternalWhatsAppClient(config);
 
-    logger.info('🔗 External WhatsApp client adapter initialized', {
+    logger.info('🔗 [External Adapter] WhatsApp client adapter initialized', {
       tenantId,
       baseUrl: config.baseUrl,
-      hasApiKey: !!config.apiKey
+      hasApiKey: !!config.apiKey,
+      timeout: config.timeout,
+      adapterId: `adapter_${tenantId.substring(0, 8)}`
     });
   }
 
@@ -73,7 +75,13 @@ export class ExternalClientAdapter {
       }
 
     } catch (error) {
-      logger.error('❌ External adapter send message failed:', error);
+      logger.error('❌ [External Adapter] Message send failed', {
+        tenantId: this.tenantId,
+        to: to.substring(0, 6) + '***',
+        messageType: message.type,
+        error: error.message,
+        adapterStep: 'send_message'
+      });
       throw new WhatsAppError(500, `Failed to send message: ${error.message}`);
     }
   }
@@ -164,7 +172,11 @@ export class ExternalClientAdapter {
    */
   async initializeSession(): Promise<{ qrCode?: string; connected: boolean }> {
     try {
-      logger.info('🔄 Initializing session via external service', { tenantId: this.tenantId });
+      logger.info('🔄 [External Adapter] Starting session initialization', {
+        tenantId: this.tenantId,
+        baseUrl: this.client.getConfig().baseUrl,
+        step: 'initialize_session'
+      });
       
       const result = await this.client.initializeSession();
       
@@ -174,7 +186,11 @@ export class ExternalClientAdapter {
       };
 
     } catch (error) {
-      logger.error('❌ Failed to initialize session via external service:', error);
+      logger.error('❌ [External Adapter] Session initialization failed', {
+        tenantId: this.tenantId,
+        error: error.message,
+        step: 'initialize_session_error'
+      });
       return { connected: false };
     }
   }
@@ -185,7 +201,10 @@ export class ExternalClientAdapter {
   async disconnect(): Promise<void> {
     try {
       await this.client.disconnect();
-      logger.info('✅ Session disconnected via external service', { tenantId: this.tenantId });
+      logger.info('✅ [External Adapter] Session disconnected successfully', {
+        tenantId: this.tenantId,
+        step: 'disconnect_complete'
+      });
     } catch (error) {
       logger.error('❌ Failed to disconnect session:', error);
     }

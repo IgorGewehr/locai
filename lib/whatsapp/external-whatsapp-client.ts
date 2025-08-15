@@ -58,29 +58,34 @@ export class ExternalWhatsAppClient {
 
     // Interceptor para logging
     this.client.interceptors.request.use((config) => {
-      logger.info('🌐 External WhatsApp API request', {
+      logger.info('🌐 [HTTP Client] Making request to microservice', {
         method: config.method?.toUpperCase(),
         url: config.url,
-        tenantId: this.config.tenantId
+        tenantId: this.config.tenantId,
+        baseUrl: this.config.baseUrl,
+        hasAuth: !!config.headers?.Authorization
       });
       return config;
     });
 
     this.client.interceptors.response.use(
       (response) => {
-        logger.info('✅ External WhatsApp API success', {
+        logger.info('✅ [HTTP Client] Microservice request successful', {
           status: response.status,
           url: response.config.url,
-          tenantId: this.config.tenantId
+          tenantId: this.config.tenantId,
+          responseTime: Date.now()
         });
         return response;
       },
       (error) => {
-        logger.error('❌ External WhatsApp API error', {
+        logger.error('❌ [HTTP Client] Microservice request failed', {
           status: error.response?.status,
+          statusText: error.response?.statusText,
           message: error.message,
           url: error.config?.url,
-          tenantId: this.config.tenantId
+          tenantId: this.config.tenantId,
+          responseData: error.response?.data
         });
         return Promise.reject(error);
       }
@@ -92,9 +97,11 @@ export class ExternalWhatsAppClient {
    */
   async initializeSession(): Promise<{ qrCode?: string; connected: boolean; sessionId?: string }> {
     try {
-      logger.info('🚀 Initializing WhatsApp session via external service', {
+      logger.info('🚀 [HTTP Client] Initializing session with microservice', {
         tenantId: this.config.tenantId,
-        baseUrl: this.config.baseUrl
+        baseUrl: this.config.baseUrl,
+        endpoint: `/sessions/${this.config.tenantId}/start`,
+        step: 'session_init_start'
       });
 
       const response = await this.client.post(`/sessions/${this.config.tenantId}/start`);
@@ -122,7 +129,12 @@ export class ExternalWhatsAppClient {
       throw new Error(response.data.message || 'Failed to start session');
 
     } catch (error) {
-      logger.error('❌ Failed to initialize external WhatsApp session:', error);
+      logger.error('❌ [HTTP Client] Session initialization failed', {
+        tenantId: this.config.tenantId,
+        error: error.message,
+        step: 'session_init_error',
+        response: error.response?.data
+      });
       throw new Error(`Session initialization failed: ${error.message}`);
     }
   }
