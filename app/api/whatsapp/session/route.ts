@@ -72,8 +72,9 @@ async function getSessionManager() {
   clearSessionManagerCache(); // Always clear cache
   
   try {
-    // Check if we're in Railway production environment
-    const isRailwayProduction = !!process.env.RAILWAY_PROJECT_ID && process.env.NODE_ENV === 'production';
+    // FORCE Railway QR Manager in production (Railway env vars not available during build)
+    const isProduction = process.env.NODE_ENV === 'production';
+    const isRailwayProduction = isProduction; // FORCE: Always use Railway manager in production
     
     if (isRailwayProduction) {
       logger.info('🚂 [RAILWAY] Loading Railway QR Session Manager for production...');
