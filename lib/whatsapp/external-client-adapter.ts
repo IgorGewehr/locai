@@ -149,20 +149,35 @@ export class ExternalClientAdapter {
   }
 
   /**
-   * Get connection status
+   * Get connection status with QR code support
    */
-  async getConnectionStatus(): Promise<{ connected: boolean; phone?: string; name?: string }> {
+  async getConnectionStatus(): Promise<{ connected: boolean; phone?: string; name?: string; status?: string; qrCode?: string }> {
     try {
       const status = await this.client.getSessionStatus();
+      
+      logger.info('🔍 [External Adapter] Session status retrieved', {
+        tenantId: this.tenantId.substring(0, 8) + '***',
+        connected: status.connected,
+        status: status.status,
+        hasQR: !!status.qrCode,
+        phoneNumber: status.phoneNumber ? '✅ Set' : '❌ Missing',
+        businessName: status.businessName ? '✅ Set' : '❌ Missing'
+      });
       
       return {
         connected: status.connected,
         phone: status.phoneNumber,
-        name: status.businessName
+        name: status.businessName,
+        status: status.status,
+        qrCode: status.qrCode
       };
 
     } catch (error) {
-      logger.error('❌ Failed to get connection status:', error);
+      logger.error('❌ [External Adapter] Failed to get connection status', {
+        tenantId: this.tenantId.substring(0, 8) + '***',
+        error: error.message,
+        step: 'get_connection_status_error'
+      });
       return { connected: false };
     }
   }
