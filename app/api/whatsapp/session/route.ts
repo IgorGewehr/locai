@@ -68,25 +68,79 @@ function clearSessionManagerCache() {
 }
 
 async function getSessionManager() {
-  // PRODUCTION OPTIMIZATION: Use Railway QR Manager for production
+  // PRODUCTION OPTIMIZATION: Use Railway-compatible Baileys socket for production
   clearSessionManagerCache(); // Always clear cache
   
   try {
-    // FORCE Railway QR Manager in production (Railway env vars not available during build)
+    // FORCE Railway compatibility in production
     const isProduction = process.env.NODE_ENV === 'production';
     const isRailwayProduction = isProduction; // FORCE: Always use Railway manager in production
     
     if (isRailwayProduction) {
-      logger.info('🚂 [RAILWAY] Loading Railway QR Session Manager for production...');
-      console.log('🚂 [RAILWAY] Loading Railway QR Session Manager for production...'); // Force console log
+      logger.info('🚂 [RAILWAY] Loading Railway-compatible Baileys socket for production...');
+      console.log('🚂 [RAILWAY] Loading Railway-compatible Baileys socket for production...'); // Force console log
       
-      const { railwayQRSessionManager } = await import('@/lib/whatsapp/railway-qr-session-manager');
-      sessionManager = railwayQRSessionManager;
-      
-      logger.info('✅ [RAILWAY] Railway QR manager loaded successfully for production');
-      console.log('✅ [RAILWAY] Railway QR manager loaded successfully for production'); // Force console log
-      
-      return sessionManager;
+      // Try the new Railway-compatible socket first
+      try {
+        const { RailwayBaileysSocket } = await import('@/lib/whatsapp/railway-baileys-socket');
+        await RailwayBaileysSocket.initialize();
+        
+        // Create a session manager wrapper for the Railway socket
+        sessionManager = {
+          getQRCode: async () => {
+            try {
+              const result = await RailwayBaileysSocket.createSocketWithQR({
+                timeout: 120000, // 2 minutes
+                enableLogging: true,
+                browser: ['Railway Production', 'Chrome', '120.0.6099.109']
+              });
+              
+              if (result.success && result.qrCode) {
+                return {
+                  success: true,
+                  qrCode: result.qrCode,
+                  message: 'QR code generated successfully with Railway-compatible socket'
+                };
+              } else {
+                throw new Error(result.reason || 'QR generation failed');
+              }
+            } catch (error) {
+              logger.error('❌ [RAILWAY-SOCKET] QR generation failed', { error: error.message });
+              throw error;
+            }
+          },
+          
+          getStatus: async () => {
+            return {
+              connected: false,
+              qr: null,
+              message: 'Railway-compatible socket manager active'
+            };
+          }
+        };
+        
+        logger.info('✅ [RAILWAY] Railway-compatible Baileys socket loaded successfully');
+        console.log('✅ [RAILWAY] Railway-compatible Baileys socket loaded successfully'); // Force console log
+        
+        return sessionManager;
+        
+      } catch (railwaySocketError) {
+        logger.warn('⚠️ [RAILWAY] Railway socket failed, falling back to Railway QR manager', { 
+          error: railwaySocketError.message 
+        });
+        console.warn('⚠️ [RAILWAY] Railway socket failed, falling back to Railway QR manager', { 
+          error: railwaySocketError.message 
+        });
+        
+        // Fallback to original Railway QR manager
+        const { railwayQRSessionManager } = await import('@/lib/whatsapp/railway-qr-session-manager');
+        sessionManager = railwayQRSessionManager;
+        
+        logger.info('✅ [RAILWAY] Railway QR manager fallback loaded');
+        console.log('✅ [RAILWAY] Railway QR manager fallback loaded'); // Force console log
+        
+        return sessionManager;
+      }
     } else {
       // Use Strategic Session Manager for development/staging
       logger.info('🚀 [STRATEGIC] Loading Strategic Session Manager for development...');
