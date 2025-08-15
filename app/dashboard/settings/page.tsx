@@ -44,6 +44,7 @@ import {
 } from '@mui/icons-material';
 import { useAuth } from '@/lib/hooks/useAuth';
 import { useTenant } from '@/contexts/TenantContext';
+import { useWhatsAppStatus } from '@/contexts/WhatsAppStatusContext';
 import DashboardBreadcrumb from '@/components/atoms/DashboardBreadcrumb';
 import { updateProfile, updatePassword, EmailAuthProvider, reauthenticateWithCredential } from 'firebase/auth';
 import { auth } from '@/lib/firebase/config';
@@ -62,6 +63,7 @@ export default function SettingsPage() {
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const { user } = useAuth();
   const { tenantId, isReady } = useTenant();
+  const { status: whatsappSession, refreshStatus, isRefreshing } = useWhatsAppStatus();
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -90,125 +92,19 @@ export default function SettingsPage() {
     confirmPassword: ''
   });
 
-  const [whatsappSession, setWhatsappSession] = useState<WhatsAppSession>({
-    connected: false,
-    status: 'disconnected'
-  });
-
-  // Optimized status checking with better responsiveness
-  const checkWhatsAppStatus = useCallback(async () => {
-    if (!tenantId || !isReady) {
-      console.log('🚫 [Settings] Not checking status - tenantId:', !!tenantId, 'isReady:', isReady);
-      return;
-    }
-    
-    console.log('🔄 [Settings] Checking WhatsApp status...');
-    
-    try {
-      const response = await ApiClient.get('/api/whatsapp/session');
-      console.log('📡 [Settings] API Response status:', response.status);
-      
-      if (response.ok) {
-        const data = await response.json();
-        console.log('📋 [Settings] GET Response data:', JSON.stringify(data, null, 2));
-        
-        const newSession = {
-          connected: data.data?.connected || false,
-          phone: data.data?.phoneNumber,
-          name: data.data?.businessName,
-          status: data.data?.status || 'disconnected',
-          qrCode: data.data?.qrCode
-        };
-        
-        console.log('📋 [Settings] New session state:', newSession);
-        
-        setWhatsappSession(prevSession => {
-          // Optimized change detection
-          const hasChanged = 
-            prevSession.connected !== newSession.connected ||
-            prevSession.status !== newSession.status ||
-            (newSession.qrCode && prevSession.qrCode !== newSession.qrCode);
-          
-          if (hasChanged) {
-            // Auto-open QR dialog if we get a new QR code
-            if (newSession.qrCode && newSession.status === 'qr' && !qrDialogOpen) {
-              setTimeout(() => setQrDialogOpen(true), 300);
-            }
-            return newSession;
-          }
-          return prevSession;
-        });
-      } else {
-        console.error('❌ [Settings] API request failed with status:', response.status);
-        const errorData = await response.text();
-        console.error('❌ [Settings] Error response:', errorData);
-      }
-    } catch (error) {
-      console.error('❌ [Settings] Status check failed:', error);
-    }
-  }, [qrDialogOpen, tenantId, isReady]); // Include tenantId and isReady in dependencies
-
+  // Auto-open QR dialog when QR code is available
   useEffect(() => {
-    let mounted = true;
-    
-    console.log('🔧 [Settings] Component mounted, checking auth state');
-    console.log('👤 [Settings] User:', user ? { uid: user.uid, email: user.email } : null);
-    console.log('🏢 [Settings] TenantId:', tenantId, 'IsReady:', isReady);
-    
-    const safeCheckStatus = async () => {
-      if (mounted) {
-        await checkWhatsAppStatus();
-      }
-    };
-    
-    if (user && tenantId && isReady) {
-      safeCheckStatus();
-    } else {
-      console.log('⏳ [Settings] Waiting for auth/tenant to be ready');
+    if (whatsappSession.qrCode && whatsappSession.status === 'qr' && !qrDialogOpen) {
+      setTimeout(() => setQrDialogOpen(true), 300);
     }
-    
-    // Railway-optimized polling with adaptive intervals
-    let timeoutId: NodeJS.Timeout;
-    
-    const scheduleNextCheck = () => {
-      if (!mounted) return;
-      
-      // Determine optimal polling interval based on status
-      let nextInterval = 5000; // Default 5 seconds for Railway
-      
-      switch (whatsappSession.status) {
-        case 'connecting':
-        case 'initializing':
-          nextInterval = 2000; // Fast polling when connecting
-          break;
-        case 'qr':
-          nextInterval = 3000; // Medium polling when waiting for QR scan
-          break;
-        case 'connected':
-          nextInterval = 30000; // Slow polling when connected (30s)
-          break;
-        case 'disconnected':
-        case 'error':
-        default:
-          nextInterval = 10000; // Standard polling when disconnected
-      }
-      
-      timeoutId = setTimeout(async () => {
-        if (mounted) {
-          await safeCheckStatus();
-          scheduleNextCheck(); // Schedule next check
-        }
-      }, nextInterval);
-    };
-    
-    // Start the adaptive polling
-    scheduleNextCheck();
-    
-    return () => {
-      mounted = false;
-      clearTimeout(timeoutId);
-    };
-  }, [checkWhatsAppStatus]);
+  }, [whatsappSession.qrCode, whatsappSession.status, qrDialogOpen]);
+
+  // Initial status refresh when component mounts
+  useEffect(() => {
+    if (user && tenantId && isReady) {
+      refreshStatus();
+    }
+  }, [user, tenantId, isReady, refreshStatus]);
 
   // Update profile data when user changes
   useEffect(() => {
@@ -354,8 +250,8 @@ export default function SettingsPage() {
           // More helpful message
           setConnectionProgress(85);
           setSuccess('Aguarde, gerando QR Code...');
-          // Keep polling for QR code
-          setTimeout(() => checkWhatsAppStatus(), 1000);
+          // Refresh status after initializing
+          setTimeout(() => refreshStatus(), 1000);
         }
       } else {
         setConnectionProgress(0);
@@ -389,16 +285,11 @@ export default function SettingsPage() {
       const response = await ApiClient.delete('/api/whatsapp/session');
 
       if (response.ok) {
-        setWhatsappSession({
-          connected: false,
-          phone: undefined,
-          name: undefined,
-          qrCode: undefined,
-          status: 'disconnected'
-        });
         setQrDialogOpen(false);
         setSuccess('WhatsApp desconectado');
         setTimeout(() => setSuccess(null), 2000);
+        // Refresh status to update all components
+        refreshStatus();
       }
     } catch (error) {
       setError('Erro ao desconectar');
@@ -1040,8 +931,8 @@ export default function SettingsPage() {
             <Button
               variant="outlined"
               startIcon={<Refresh sx={{ fontSize: 16 }} />}
-              onClick={checkWhatsAppStatus}
-              disabled={loading}
+              onClick={refreshStatus}
+              disabled={isRefreshing || loading}
               sx={{
                 borderColor: 'rgba(255,255,255,0.15)',
                 color: 'rgba(255,255,255,0.8)',
