@@ -24,11 +24,11 @@ export class RailwayQRSessionManager extends EventEmitter {
   private isReady: boolean = false;
   private initializationPromise: Promise<void> | null = null;
   
-  // RAILWAY OPTIMIZED TIMEOUTS
-  private readonly INITIALIZATION_TIMEOUT = 120000; // 2 minutes for Railway
-  private readonly QR_TIMEOUT = 180000; // 3 minutes for QR generation
-  private readonly CONNECTION_TIMEOUT = 60000; // 1 minute for connection
-  private readonly RETRY_DELAY = 10000; // 10 seconds between retries
+  // RAILWAY OPTIMIZED TIMEOUTS - INCREASED FOR BETTER QR GENERATION
+  private readonly INITIALIZATION_TIMEOUT = 180000; // 3 minutes for Railway
+  private readonly QR_TIMEOUT = 300000; // 5 minutes for QR generation
+  private readonly CONNECTION_TIMEOUT = 90000; // 1.5 minutes for connection
+  private readonly RETRY_DELAY = 15000; // 15 seconds between retries
   private readonly MAX_RETRIES = 5; // More retries for Railway
 
   constructor() {
@@ -347,23 +347,28 @@ export class RailwayQRSessionManager extends EventEmitter {
     
     logger.info('✅ [Railway QR] Creating Railway-optimized socket...');
     
+    logger.info('🔌 [Railway QR] Creating socket with optimized config...');
     const socket = makeWASocket({
       auth: state,
-      printQRInTerminal: false,
+      printQRInTerminal: false, // CRITICAL: Don't print to terminal
       browser: ['LocAI Railway', 'Chrome', '120.0.0'],
-      // RAILWAY OPTIMIZED TIMEOUTS
+      // RAILWAY OPTIMIZED TIMEOUTS - INCREASED
       connectTimeoutMs: this.CONNECTION_TIMEOUT,
       qrTimeout: this.QR_TIMEOUT,
-      defaultQueryTimeoutMs: 30000,
-      keepAliveIntervalMs: 25000,
+      defaultQueryTimeoutMs: 45000, // Increased
+      keepAliveIntervalMs: 30000, // Increased
       markOnlineOnConnect: true,
       syncFullHistory: false,
       generateHighQualityLinkPreview: false,
       // Additional Railway optimizations
-      retryRequestDelayMs: 1000,
-      maxMsgRetryCount: 3,
+      retryRequestDelayMs: 2000, // Increased
+      maxMsgRetryCount: 5, // Increased
+      // FORCE QR GENERATION
+      shouldIgnoreJid: () => false,
+      shouldSyncHistoryMessage: () => false,
       logger: this.createRailwayLogger()
     });
+    logger.info('✅ [Railway QR] Socket created successfully');
 
     const session = this.sessions.get(tenantId)!;
     session.status = 'connecting';
@@ -617,9 +622,8 @@ export class RailwayQRSessionManager extends EventEmitter {
         logger.info('[Railway Baileys INFO]', ...args);
       },
       debug: (...args: any[]) => {
-        if (process.env.NODE_ENV === 'development') {
-          logger.debug('[Railway Baileys DEBUG]', ...args);
-        }
+        // Enable debug in production for QR troubleshooting
+        logger.info('[Railway Baileys DEBUG]', ...args);
       },
       trace: () => {}, // Silent for Railway
       child: () => this.createRailwayLogger(),

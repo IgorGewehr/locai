@@ -35,12 +35,12 @@ export async function GET(request: NextRequest) {
       }, { status: 500 });
     }
     
-    // Test 3: Check session status multiple times
-    logger.info('🔍 [TEST] Checking session status...');
+    // Test 3: Check session status multiple times with longer intervals
+    logger.info('🔍 [TEST] Checking session status (extended monitoring)...');
     let statusChecks = [];
     
-    for (let i = 0; i < 5; i++) {
-      await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1 second
+    for (let i = 0; i < 15; i++) {
+      await new Promise(resolve => setTimeout(resolve, 3000)); // Wait 3 seconds
       
       try {
         const status = await railwayQRSessionManager.getSessionStatus(testTenantId);
