@@ -3,12 +3,12 @@ import { getTenantId } from '@/lib/utils/tenant';
 import { z } from 'zod';
 import { loadWhatsAppDependency, getProductionMessage, PRODUCTION_CONFIG } from '@/lib/utils/production-utils';
 import { logger } from '@/lib/utils/logger';
+import { createWhatsAppClient, getWhatsAppClientConfig, checkExternalServiceHealth } from '@/lib/whatsapp/whatsapp-client-factory';
 
-// RAILWAY FIX: Always use hardcoded auth for Railway production
-// HARDCODE: Force Railway detection since env vars aren't available during build
+// MICROSERVICE FIX: Use external microservice if configured, fallback to local
 const isProduction = process.env.NODE_ENV === 'production';
-const isRailway = true; // FORCE TRUE - Railway build doesn't expose env vars during build
-const isRailwayProduction = isRailway && isProduction;
+const useExternalService = process.env.WHATSAPP_USE_EXTERNAL === 'true';
+const hasExternalConfig = !!(process.env.WHATSAPP_MICROSERVICE_URL && process.env.WHATSAPP_MICROSERVICE_API_KEY);
 
 
 // Import both auth methods
@@ -21,58 +21,52 @@ const forceRailwayAuth = isProduction; // Use Railway auth em QUALQUER produçã
 const verifyAuth = (forceRailwayAuth || isRailwayProduction) ? verifyAuthRailway : standardVerifyAuth;
 
 
-// Simple cache to prevent excessive API calls - RAILWAY OPTIMIZED
+// Simple cache to prevent excessive API calls - MICROSERVICE OPTIMIZED
 const statusCache = new Map<string, { data: any; timestamp: number }>();
-const CACHE_DURATION = 1000; // 1 second only (Railway can handle more requests)
+const CACHE_DURATION = useExternalService ? 2000 : 1000; // Longer cache for external service
 
-// Check if WhatsApp Web is disabled (controlled by environment variable only)
-// FORÇAR HABILITADO PARA PRODUÇÃO - OVERRIDE DEFINITIVO
-const WHATSAPP_WEB_DISABLED = false; // SEMPRE HABILITADO - NUNCA MAIS DISABLED!
+// WhatsApp Web is always enabled now - either via external microservice or local
+const WHATSAPP_WEB_DISABLED = false;
 
 
-// STRATEGIC SESSION MANAGER - ALWAYS FRESH LOAD
-let sessionManager: any = null;
+// MICROSERVICE CLIENT - USE FACTORY FOR AUTOMATIC SELECTION
+let whatsappClient: any = null;
+const clientCache = new Map<string, any>();
 
-// Clear session manager cache to force reload
-function clearSessionManagerCache() {
-  sessionManager = null;
-}
-
-async function getSessionManager() {
-  clearSessionManagerCache();
+// Get WhatsApp client using the factory (external microservice or local)
+async function getWhatsAppClient(tenantId: string) {
+  // Cache clients per tenant
+  if (clientCache.has(tenantId)) {
+    return clientCache.get(tenantId);
+  }
   
   try {
-    const isProduction = process.env.NODE_ENV === 'production';
+    logger.info('🏭 Creating WhatsApp client via factory', {
+      tenantId: tenantId.substring(0, 8) + '***',
+      useExternal: useExternalService,
+      hasExternalConfig,
+      microserviceUrl: process.env.WHATSAPP_MICROSERVICE_URL
+    });
     
-    if (isProduction) {
-      // Try Railway-optimized manager for production
-      try {
-        const { railwayQRSessionManager } = await import('@/lib/whatsapp/railway-qr-session-manager');
-        sessionManager = railwayQRSessionManager;
-        return sessionManager;
-      } catch (error) {
-        logger.error('Railway manager failed, falling back to strategic', { error: error.message });
-      }
-    }
+    const client = createWhatsAppClient(tenantId);
+    clientCache.set(tenantId, client);
     
-    // Use Strategic Session Manager for development or as fallback
-    const { strategicSessionManager } = await import('@/lib/whatsapp/strategic-session-manager');
-    sessionManager = strategicSessionManager;
-    return sessionManager;
+    logger.info('✅ WhatsApp client created successfully', {
+      tenantId: tenantId.substring(0, 8) + '***',
+      clientType: getWhatsAppClientConfig().type
+    });
     
-  } catch (primaryError) {
-    logger.error('Primary manager failed:', primaryError);
+    return client;
     
-    // Final fallback to robust manager
-    try {
-      const { robustWhatsAppManager } = await import('@/lib/whatsapp/robust-session-manager');
-      sessionManager = robustWhatsAppManager;
-      return sessionManager;
-    } catch (fallbackError) {
-      logger.error('All managers failed:', fallbackError);
-      throw new Error(`All WhatsApp managers failed: ${fallbackError.message}`);
-    }
+  } catch (error) {
+    logger.error('❌ Failed to create WhatsApp client:', error);
+    throw new Error(`Failed to create WhatsApp client: ${error.message}`);
   }
+}
+
+// Clear client cache
+function clearClientCache() {
+  clientCache.clear();
 }
 
 // GET /api/whatsapp/session - Get session status
@@ -98,18 +92,37 @@ export async function GET(request: NextRequest) {
       });
     }
     
-    const manager = await getSessionManager();
-    const status = await manager.getSessionStatus(tenantId);
+    const client = await getWhatsAppClient(tenantId);
+    
+    let status;
+    try {
+      // Try getConnectionStatus first (for external client)
+      status = await client.getConnectionStatus();
+    } catch (error) {
+      // Fallback for clients that don't have this method
+      logger.warn('Client does not have getConnectionStatus, using basic status');
+      status = { connected: false };
+    }
+    
+    // Convert to expected format
+    const formattedStatus = {
+      connected: status.connected || false,
+      status: status.connected ? 'connected' : 'disconnected',
+      phoneNumber: status.phone || null,
+      businessName: status.name || null,
+      qrCode: status.qrCode || null,
+      message: status.connected ? 'Connected successfully' : useExternalService ? 'External microservice ready' : 'Local client ready'
+    };
     
     // Cache the result
     statusCache.set(tenantId, {
-      data: status,
+      data: formattedStatus,
       timestamp: Date.now(),
     });
 
     return NextResponse.json({
       success: true,
-      data: status,
+      data: formattedStatus,
     });
   } catch (error) {
     logger.error('Error getting session status:', error);
@@ -147,53 +160,79 @@ export async function POST(request: NextRequest) {
     // WhatsApp Web SEMPRE HABILITADO - NUNCA RETORNAR DISABLED
     // Este check foi removido para garantir funcionamento em produção
     
-    console.log('🚀 [API POST] Starting session initialization process');
-    logger.info(`🚀 [API POST] Initializing WhatsApp session`, { 
-      tenant: tenantId?.substring(0, 8),
+    logger.info('🚀 [API POST] Initializing WhatsApp session', { 
+      tenant: tenantId?.substring(0, 8) + '***',
       env: process.env.NODE_ENV,
-      railway: !!process.env.RAILWAY_PROJECT_ID
+      useExternal: useExternalService,
+      hasExternalConfig,
+      clientType: getWhatsAppClientConfig().type
     });
     
-    console.log('📦 [API POST] Loading session manager...');
-    const manager = await getSessionManager();
-    console.log('✅ [API POST] Session manager loaded successfully');
-    logger.info(`✅ [API POST] SessionManager loaded`);
+    // Get WhatsApp client via factory
+    const client = await getWhatsAppClient(tenantId);
+    logger.info('✅ [API POST] WhatsApp client loaded successfully');
     
-    // Initialize the session (optimized for production)
-    console.log(`🔥 [API POST] STARTING SESSION INITIALIZATION FOR ${tenantId?.substring(0, 8)}***`);
-    logger.info(`🔥 [API POST] STARTING SESSION INITIALIZATION FOR ${tenantId}`);
+    // Initialize the session
+    logger.info(`🔥 [API POST] Starting session initialization for ${tenantId.substring(0, 8)}***`);
     
-    await manager.initializeSession(tenantId);
+    const initResult = await client.initializeSession();
     
-    console.log(`✅ [API POST] Session initialization completed successfully`);
-    logger.info(`✅ [API POST] Session initialization completed successfully`);
+    logger.info('✅ [API POST] Session initialization completed');
 
-    // RAILWAY OPTIMIZED: Faster polling with more frequent checks
-    let attempts = 0;
-    const maxAttempts = 30; // More attempts for Railway
-    let status = null;
-    const delays = [50, 100, 200, 300, 500]; // Faster initial delays for Railway
+    // Handle different responses based on client type
+    let status;
     
-    while (attempts < maxAttempts) {
-      const delay = delays[Math.min(attempts, delays.length - 1)];
-      await new Promise(resolve => setTimeout(resolve, delay));
-      status = await manager.getSessionStatus(tenantId);
+    if (useExternalService && hasExternalConfig) {
+      // External microservice - format response
+      status = {
+        connected: initResult.connected,
+        status: initResult.connected ? 'connected' : (initResult.qrCode ? 'qr' : 'connecting'),
+        phoneNumber: null,
+        businessName: null,
+        qrCode: initResult.qrCode || null
+      };
       
-      // Log more frequently for debugging in production
-      if (attempts % 3 === 0) {
-        logger.info(`🔍 [Railway] Status check ${attempts + 1}: ${status.status}, QR: ${!!status.qrCode}`);
+      // If no QR immediately, try polling the microservice
+      if (!initResult.qrCode && !initResult.connected) {
+        logger.info('🔄 [External] Polling for QR code...');
+        
+        try {
+          for (let i = 0; i < 10; i++) {
+            await new Promise(resolve => setTimeout(resolve, 2000));
+            const pollStatus = await client.getConnectionStatus();
+            
+            if (pollStatus.qrCode || pollStatus.connected) {
+              status.qrCode = pollStatus.qrCode;
+              status.connected = pollStatus.connected;
+              status.status = pollStatus.connected ? 'connected' : 'qr';
+              break;
+            }
+          }
+        } catch (pollError) {
+          logger.warn('Polling failed:', pollError);
+        }
       }
-      
-      if (status.qrCode || status.connected) {
-        logger.info(`✅ [Railway] Ready after ${attempts + 1} checks (${delay * attempts}ms)`);
-        break;
+    } else {
+      // Local client - get status
+      try {
+        const connectionStatus = await client.getConnectionStatus();
+        status = {
+          connected: connectionStatus.connected,
+          status: connectionStatus.connected ? 'connected' : 'connecting',
+          phoneNumber: connectionStatus.phone,
+          businessName: connectionStatus.name,
+          qrCode: initResult.qrCode || null
+        };
+      } catch (error) {
+        logger.warn('Local client getConnectionStatus failed, using basic status');
+        status = {
+          connected: false,
+          status: 'connecting',
+          phoneNumber: null,
+          businessName: null,
+          qrCode: initResult.qrCode || null
+        };
       }
-      
-      attempts++;
-    }
-    
-    if (!status) {
-      status = await manager.getSessionStatus(tenantId);
     }
 
 
@@ -235,8 +274,11 @@ export async function DELETE(request: NextRequest) {
     
     // WhatsApp Web SEMPRE HABILITADO - NUNCA RETORNAR DISABLED
     
-    const manager = await getSessionManager();
-    await manager.disconnectSession(tenantId);
+    const client = await getWhatsAppClient(tenantId);
+    await client.disconnect();
+    
+    // Clear from cache
+    clientCache.delete(tenantId);
 
     return NextResponse.json({
       success: true,
