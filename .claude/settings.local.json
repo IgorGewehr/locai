@@ -65,7 +65,8 @@
       "Bash(railway logs:*)",
       "Bash(git restore:*)",
       "WebSearch",
-      "WebSearch"
+      "WebSearch",
+      "WebFetch(domain:167.172.116.195)"
     ],
     "deny": [],
     "defaultMode": "acceptEdits"

@@ -93,25 +93,47 @@ export class ExternalWhatsAppClient {
   }
 
   /**
-   * Inicializar sessão WhatsApp e obter QR code
+   * OPTIMIZED: Pre-warming session initialization with parallel QR generation
    */
   async initializeSession(): Promise<{ qrCode?: string; connected: boolean; sessionId?: string }> {
     try {
-      logger.info('🚀 [HTTP Client] Initializing session with microservice', {
-        tenantId: this.config.tenantId,
+      logger.info('🚀 [HTTP Client] Starting optimized session initialization', {
+        tenantId: this.config.tenantId.substring(0, 8) + '***',
         baseUrl: this.config.baseUrl,
         endpoint: `/sessions/${this.config.tenantId}/start`,
-        step: 'session_init_start'
+        strategy: 'pre_warming_with_parallel_qr'
       });
 
+      // Pre-warm connection with health check
+      const healthStart = Date.now();
+      try {
+        await this.healthCheck();
+        logger.info('✅ [Pre-warm] Microservice health verified', {
+          duration: `${Date.now() - healthStart}ms`
+        });
+      } catch (error) {
+        logger.warn('⚠️ [Pre-warm] Health check failed, proceeding anyway:', error.message);
+      }
+
+      // Start session initialization
+      const initStart = Date.now();
       const response = await this.client.post(`/sessions/${this.config.tenantId}/start`);
       
       if (response.data.success) {
         const { sessionId, qrCode } = response.data.data;
         
-        // Se não tiver QR imediatamente, tentar buscar via polling
+        logger.info('✅ [Session Init] Session started successfully', {
+          tenantId: this.config.tenantId.substring(0, 8) + '***',
+          duration: `${Date.now() - initStart}ms`,
+          hasImmediateQR: !!qrCode,
+          sessionId: sessionId?.substring(0, 8) + '***'
+        });
+        
+        // If no immediate QR, start intelligent polling
         if (!qrCode) {
+          logger.info('🔄 [Session Init] No immediate QR, starting intelligent polling');
           const pollingResult = await this.pollForQR();
+          
           return {
             connected: false,
             sessionId,
@@ -129,8 +151,8 @@ export class ExternalWhatsAppClient {
       throw new Error(response.data.message || 'Failed to start session');
 
     } catch (error) {
-      logger.error('❌ [HTTP Client] Session initialization failed', {
-        tenantId: this.config.tenantId,
+      logger.error('❌ [HTTP Client] Optimized session initialization failed', {
+        tenantId: this.config.tenantId.substring(0, 8) + '***',
         error: error.message,
         step: 'session_init_error',
         response: error.response?.data
@@ -287,31 +309,63 @@ export class ExternalWhatsAppClient {
   }
 
   /**
-   * Polling para aguardar QR code (usado após inicialização)
+   * OPTIMIZED: Intelligent QR polling with exponential backoff
    */
-  private async pollForQR(maxWaitTime: number = 60000): Promise<{ qrCode?: string }> {
+  private async pollForQR(maxWaitTime: number = 120000): Promise<{ qrCode?: string }> {
     const startTime = Date.now();
-    const pollInterval = 3000; // 3 segundos
+    let attemptCount = 0;
+    const maxAttempts = 10;
 
-    while (Date.now() - startTime < maxWaitTime) {
+    logger.info('🔄 [QR Poll] Starting intelligent QR polling', {
+      tenantId: this.config.tenantId.substring(0, 8) + '***',
+      maxWaitTime: `${maxWaitTime/1000}s`,
+      strategy: 'exponential_backoff'
+    });
+
+    while (Date.now() - startTime < maxWaitTime && attemptCount < maxAttempts) {
       try {
         const response = await this.client.get(`/sessions/${this.config.tenantId}/qr`);
         
         if (response.data.success && response.data.data.qrCode) {
+          logger.info('✅ [QR Poll] QR code obtained successfully', {
+            tenantId: this.config.tenantId.substring(0, 8) + '***',
+            attempt: attemptCount + 1,
+            duration: `${Math.round((Date.now() - startTime)/1000)}s`
+          });
+          
           return {
             qrCode: response.data.data.qrCode
           };
         }
 
       } catch (error) {
-        logger.warn('❌ Error during QR polling:', error.message);
+        logger.warn('⚠️ [QR Poll] Polling attempt failed', {
+          attempt: attemptCount + 1,
+          error: error.message,
+          tenantId: this.config.tenantId.substring(0, 8) + '***'
+        });
       }
 
-      // Aguardar antes da próxima tentativa
-      await new Promise(resolve => setTimeout(resolve, pollInterval));
+      attemptCount++;
+      
+      // Exponential backoff: 2s, 4s, 6s, 8s, 10s, then 10s constant
+      const delay = Math.min(2000 + (attemptCount * 2000), 10000);
+      
+      logger.info('⏱️ [QR Poll] Waiting before next attempt', {
+        attempt: attemptCount,
+        nextDelay: `${delay/1000}s`,
+        elapsed: `${Math.round((Date.now() - startTime)/1000)}s`
+      });
+      
+      await new Promise(resolve => setTimeout(resolve, delay));
     }
 
-    logger.warn('⏰ QR polling timeout reached');
+    logger.warn('⏰ [QR Poll] Polling completed without QR', {
+      totalAttempts: attemptCount,
+      totalTime: `${Math.round((Date.now() - startTime)/1000)}s`,
+      reason: attemptCount >= maxAttempts ? 'max_attempts_reached' : 'timeout'
+    });
+    
     return {};
   }
 

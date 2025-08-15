@@ -22,9 +22,10 @@ const isRailwayProduction = !!process.env.RAILWAY_PROJECT_ID && isProduction;
 const verifyAuth = (forceRailwayAuth || isRailwayProduction) ? verifyAuthRailway : standardVerifyAuth;
 
 
-// Simple cache to prevent excessive API calls - MICROSERVICE OPTIMIZED
-const statusCache = new Map<string, { data: any; timestamp: number }>();
-const CACHE_DURATION = useExternalService ? 2000 : 1000; // Longer cache for external service
+// OPTIMIZED: Cache to prevent excessive API calls with intelligent duration
+const statusCache = new Map<string, { data: any; timestamp: number; lastQRGeneration?: number }>();
+const CACHE_DURATION = useExternalService ? 10000 : 5000; // 10s for external, 5s for local
+const QR_CACHE_DURATION = 45000; // QR codes cached for 45s to match regeneration cycle
 
 // WhatsApp Web is always enabled now - either via external microservice or local
 const WHATSAPP_WEB_DISABLED = false;
@@ -88,13 +89,26 @@ export async function GET(request: NextRequest) {
     // WhatsApp Web SEMPRE HABILITADO - NUNCA RETORNAR DISABLED
     // Este check foi removido para garantir funcionamento em produção
     
-    // Check cache first
+    // OPTIMIZED: Intelligent cache with QR-aware duration
     const cached = statusCache.get(tenantId);
-    if (cached && (Date.now() - cached.timestamp) < CACHE_DURATION) {
-      return NextResponse.json({
-        success: true,
-        data: cached.data,
-      });
+    if (cached) {
+      const cacheAge = Date.now() - cached.timestamp;
+      const isQRPresent = !!cached.data.qrCode;
+      const effectiveDuration = isQRPresent ? QR_CACHE_DURATION : CACHE_DURATION;
+      
+      if (cacheAge < effectiveDuration) {
+        logger.info('✅ [Cache Hit] Returning cached status', {
+          tenantId: tenantId.substring(0, 8) + '***',
+          cacheAge: `${Math.round(cacheAge/1000)}s`,
+          hasQR: isQRPresent,
+          effectiveDuration: `${effectiveDuration/1000}s`
+        });
+        
+        return NextResponse.json({
+          success: true,
+          data: cached.data,
+        });
+      }
     }
     
     const client = await getWhatsAppClient(tenantId);
@@ -123,10 +137,18 @@ export async function GET(request: NextRequest) {
       message: status.connected ? 'Connected successfully' : useExternalService ? 'External microservice ready' : 'Local client ready'
     };
     
-    // Cache the result
+    // OPTIMIZED: Cache with QR generation tracking
     statusCache.set(tenantId, {
       data: formattedStatus,
       timestamp: Date.now(),
+      lastQRGeneration: formattedStatus.qrCode ? Date.now() : cached?.lastQRGeneration
+    });
+    
+    logger.info('📦 [Cache Update] Status cached', {
+      tenantId: tenantId.substring(0, 8) + '***',
+      status: formattedStatus.status,
+      hasQR: !!formattedStatus.qrCode,
+      cacheStrategy: formattedStatus.qrCode ? 'QR_EXTENDED' : 'STANDARD'
     });
 
     return NextResponse.json({
