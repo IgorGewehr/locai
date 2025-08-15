@@ -39,11 +39,11 @@ export class RobustWhatsAppManager extends EventEmitter {
       },
       warn: (msg: any, ...args: any[]) => {
         logger.warn(`[Baileys WARN] ${msg}`, ...args);
-        console.warn(`[Baileys WARN] ${msg}`, ...args); // Ensure we see Baileys warnings
+        // Ensure we see Baileys warnings
       },
       info: (msg: any, ...args: any[]) => {
         logger.info(`[Baileys INFO] ${msg}`, ...args);
-        console.log(`[Baileys INFO] ${msg}`, ...args); // Ensure we see Baileys info
+        // Ensure we see Baileys info
       },
       debug: (msg: any, ...args: any[]) => {
         // Only log debug in development to avoid spam
@@ -64,9 +64,7 @@ export class RobustWhatsAppManager extends EventEmitter {
 
   private async initializeDependencies() {
     try {
-      logger.info('🚀 WhatsApp system initializing...');
       
-      // Load dependencies with retry logic
       let attempts = 0;
       while (attempts < 3) {
         try {
@@ -123,10 +121,7 @@ export class RobustWhatsAppManager extends EventEmitter {
       logger.error('❌ WhatsApp dependencies failed to initialize');
       throw new Error('WhatsApp dependencies failed to initialize');
     }
-    
-    logger.info('✅ Dependencies confirmed ready, creating session...');
-    
-    // Reset session
+
     const session: RobustSession = {
       status: 'connecting',
       qrCode: null,
@@ -191,13 +186,7 @@ export class RobustWhatsAppManager extends EventEmitter {
     logger.info('🔧 Creating WhatsApp connection...', { tenantId: tenantId?.substring(0, 8) });
     
     const { default: makeWASocket, useMultiFileAuthState, DisconnectReason } = this.baileys;
-    logger.info('📦 Baileys modules extracted successfully', {
-      makeWASocket: typeof makeWASocket,
-      useMultiFileAuthState: typeof useMultiFileAuthState,
-      DisconnectReason: typeof DisconnectReason
-    });
     
-    // Create auth directory with serverless environment support
     const fs = require('fs');
     const path = require('path');
     const os = require('os');
@@ -292,10 +281,7 @@ export class RobustWhatsAppManager extends EventEmitter {
       logger.error('❌ CRITICAL: Failed to create WhatsApp socket:', socketError);
       throw new Error(`Socket creation failed: ${socketError.message}`);
     }
-    
-    logger.info('🎧 Setting up event listeners...');
-    
-    // Add error handler first to catch any immediate errors
+
     socket.ev.on('connection.error', (error) => {
       logger.error('🚨 WhatsApp connection error:', error);
       const session = this.sessions.get(tenantId);
@@ -309,9 +295,7 @@ export class RobustWhatsAppManager extends EventEmitter {
       logger.info('🔑 Credentials updated', { hasCreds: !!creds });
       saveCreds();
     });
-    logger.info('👂 Event listeners registered successfully');
     
-    // Emergency QR timeout fallback - RAILWAY OPTIMIZED
     const qrTimeout = setTimeout(() => {
       const session = this.sessions.get(tenantId);
       if (session && session.status === 'connecting' && !session.qrCode) {
@@ -347,8 +331,7 @@ export class RobustWhatsAppManager extends EventEmitter {
         });
         
         try {
-          logger.info('🎨 Converting QR to data URL...');
-          // PRODUCTION-GRADE QR CODE - Triple-optimized for maximum compatibility
+          
           const qrDataUrl = await this.QRCode.toDataURL(qr, {
             type: 'image/png',
             quality: 1.0,              // Maximum quality
@@ -566,7 +549,6 @@ export class RobustWhatsAppManager extends EventEmitter {
       throw error;
     }
   }
-
 
   async getSessionStatus(tenantId: string): Promise<{
     connected: boolean;

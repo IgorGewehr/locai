@@ -23,8 +23,7 @@ export class StrategicSessionManager extends EventEmitter {
 
   constructor() {
     super();
-    logger.info('🚀 [Strategic] Session manager created');
-    // Don't start initialization in constructor - wait for first use
+    
   }
 
   // GUARANTEED INITIALIZATION - Only initialize when needed
@@ -75,23 +74,14 @@ export class StrategicSessionManager extends EventEmitter {
         // Direct exports from dynamic import
         this.baileys.default = this.baileys.makeWASocket;
       }
-      
-      logger.info('✅ [Strategic] Baileys loaded successfully', {
-        hasDefault: !!this.baileys.default,
-        hasAuthState: !!this.baileys.useMultiFileAuthState,
-        hasDisconnect: !!this.baileys.DisconnectReason
-      });
-      
-      // Load QRCode with multiple strategies
+
       logger.info('📦 [Strategic] Loading QRCode...');
       
       try {
         // Strategy 1: Normal require
         this.QRCode = require('qrcode');
       } catch (requireError) {
-        logger.warn('⚠️ [Strategic] Normal require failed, trying import...', requireError.message);
         
-        // Strategy 2: Dynamic import
         const qrModule = await import('qrcode');
         this.QRCode = qrModule.default || qrModule;
       }
@@ -109,10 +99,7 @@ export class StrategicSessionManager extends EventEmitter {
       if (!this.QRCode || typeof this.QRCode.toDataURL !== 'function') {
         throw new Error(`QRCode toDataURL function not available. Available: ${availableFunctions.join(', ')}`);
       }
-      
-      logger.info('✅ [Strategic] QRCode loaded successfully');
-      
-      // Test QR generation with multiple configurations
+
       logger.info('🧪 [Strategic] Testing QR generation...');
       
       const testConfigs = [
@@ -173,9 +160,6 @@ export class StrategicSessionManager extends EventEmitter {
       throw new Error('Dependencies failed to initialize after multiple attempts');
     }
 
-    logger.info('✅ [Strategic] Dependencies confirmed ready, proceeding...');
-
-    // Create session
     const session: StrategicSession = {
       status: 'connecting',
       qrCode: null,
@@ -201,9 +185,7 @@ export class StrategicSessionManager extends EventEmitter {
   }
 
   private async createStrategicConnection(tenantId: string): Promise<void> {
-    logger.info('🔌 [Strategic] Creating WhatsApp connection...');
     
-    // Handle both import patterns
     const makeWASocket = this.baileys.default || this.baileys.makeWASocket;
     const useMultiFileAuthState = this.baileys.useMultiFileAuthState;
     const DisconnectReason = this.baileys.DisconnectReason;
@@ -259,9 +241,6 @@ export class StrategicSessionManager extends EventEmitter {
       throw new Error(`Socket creation failed: ${socketError.message}`);
     }
 
-    logger.info('✅ [Strategic] Socket created, setting up handlers...');
-
-    // QR timeout handler
     const qrTimeoutId = setTimeout(() => {
       const session = this.sessions.get(tenantId);
       if (session && session.status === 'connecting' && !session.qrCode) {
@@ -342,15 +321,9 @@ export class StrategicSessionManager extends EventEmitter {
 
           // Final fallback: convert manually if all configs fail
           if (!qrDataUrl || qrDataUrl.length < 100) {
-            logger.warn('⚠️ [Strategic] All QR configs failed, using manual conversion');
             
-            // Try terminal format as last resort
             const terminalQR = await this.QRCode.toString(update.qr, { type: 'terminal' });
-            logger.info('📱 [Strategic] Terminal QR generated:', {
-              terminalLength: terminalQR?.length
-            });
             
-            // Create a basic data URL manually
             const canvas = await this.QRCode.toCanvas(update.qr, { width: 256 });
             if (canvas) {
               qrDataUrl = canvas.toDataURL('image/png');
@@ -455,16 +428,13 @@ export class StrategicSessionManager extends EventEmitter {
       },
       warn: (...args: any[]) => {
         logger.warn('[Baileys WARN]', ...args);
-        console.warn('[Baileys WARN]', ...args);
-      },
+        },
       info: (...args: any[]) => {
         logger.info('[Baileys INFO]', ...args);
-        console.log('[Baileys INFO]', ...args);
-      },
+        },
       debug: (...args: any[]) => {
         if (process.env.NODE_ENV === 'development') {
-          console.log('[Baileys DEBUG]', ...args);
-        }
+          }
       },
       trace: () => {}, // Silent trace
       child: () => this.createStrategicLogger(),

@@ -10,25 +10,6 @@ const isProduction = process.env.NODE_ENV === 'production';
 const isRailway = true; // FORCE TRUE - Railway build doesn't expose env vars during build
 const isRailwayProduction = isRailway && isProduction;
 
-// Log the environment for debugging
-logger.info('🌍 [WhatsApp Session] Environment check:', {
-  isRailway,
-  isProduction,
-  isRailwayProduction,
-  railwayProjectId: process.env.RAILWAY_PROJECT_ID ? 'present' : 'missing',
-  railwayEnvironment: process.env.RAILWAY_ENVIRONMENT ? 'present' : 'missing',
-  railwayDomain: process.env.RAILWAY_PUBLIC_DOMAIN ? 'present' : 'missing'
-});
-
-// Force console logging for Railway
-console.log('🌍 [WhatsApp Session] Environment check:', {
-  isRailway,
-  isProduction,
-  isRailwayProduction,
-  railwayProjectId: process.env.RAILWAY_PROJECT_ID ? 'present' : 'missing',
-  railwayEnvironment: process.env.RAILWAY_ENVIRONMENT ? 'present' : 'missing',
-  railwayDomain: process.env.RAILWAY_PUBLIC_DOMAIN ? 'present' : 'missing'
-});
 
 // Import both auth methods
 import { verifyAuth as standardVerifyAuth } from '@/lib/utils/auth';
@@ -39,14 +20,6 @@ import { verifyAuthRailway } from '@/lib/utils/auth-railway';
 const forceRailwayAuth = isProduction; // Use Railway auth em QUALQUER produção
 const verifyAuth = (forceRailwayAuth || isRailwayProduction) ? verifyAuthRailway : standardVerifyAuth;
 
-// Log which auth method was selected
-if (forceRailwayAuth || isRailwayProduction) {
-  logger.info('🚂 [INIT] Using Railway hardcoded auth for production');
-  console.log('🚂 [INIT] Using Railway hardcoded auth for production');
-} else {
-  logger.info('🔐 [INIT] Using standard auth for development');
-  console.log('🔐 [INIT] Using standard auth for development');
-}
 
 // Simple cache to prevent excessive API calls - RAILWAY OPTIMIZED
 const statusCache = new Map<string, { data: any; timestamp: number }>();
@@ -63,195 +36,41 @@ let sessionManager: any = null;
 // Clear session manager cache to force reload
 function clearSessionManagerCache() {
   sessionManager = null;
-  logger.info('🧹 [CACHE] Session manager cache cleared');
-  console.log('🧹 [CACHE] Session manager cache cleared');
 }
 
 async function getSessionManager() {
-  // PRODUCTION OPTIMIZATION: Use Railway-compatible Baileys socket for production
-  clearSessionManagerCache(); // Always clear cache
+  clearSessionManagerCache();
   
   try {
-    // FORCE Railway compatibility in production
     const isProduction = process.env.NODE_ENV === 'production';
-    const isRailwayProduction = isProduction; // FORCE: Always use Railway manager in production
     
-    if (isRailwayProduction) {
-      logger.info('🚂 [RAILWAY] Loading Railway-compatible Baileys socket for production...');
-      console.log('🚂 [RAILWAY] Loading Railway-compatible Baileys socket for production...'); // Force console log
-      
-      // Try the new Railway 428 fix first, then fallback to other solutions
+    if (isProduction) {
+      // Try Railway-optimized manager for production
       try {
-        const { Railway428Fix } = await import('@/lib/whatsapp/railway-428-fix');
-        
-        // Create a session manager wrapper for the Railway 428 fix
-        sessionManager = {
-          getQRCode: async () => {
-            try {
-              logger.info('🚨 [RAILWAY-428] Attempting QR generation with 428 fix...');
-              console.log('🚨 [RAILWAY-428] Attempting QR generation with 428 fix...');
-              
-              const result = await Railway428Fix.testConnection();
-              
-              if (result.success && result.qrCode) {
-                logger.info('✅ [RAILWAY-428] QR generated successfully with 428 fix!');
-                console.log('✅ [RAILWAY-428] QR generated successfully with 428 fix!');
-                
-                return {
-                  success: true,
-                  qrCode: result.qrCode,
-                  message: 'QR code generated successfully with Railway 428 fix'
-                };
-              } else {
-                throw new Error(result.reason || 'QR generation failed with 428 fix');
-              }
-            } catch (error) {
-              logger.error('❌ [RAILWAY-428] 428 fix failed', { error: error.message });
-              console.error('❌ [RAILWAY-428] 428 fix failed', { error: error.message });
-              
-              // If it's a 428 error, don't fallback - we need to fix this specifically
-              if (error.message.includes('428')) {
-                throw new Error(`428 Precondition Required error: ${error.message}`);
-              }
-              
-              throw error;
-            }
-          },
-          
-          getStatus: async () => {
-            return {
-              connected: false,
-              qr: null,
-              message: 'Railway 428 fix manager active'
-            };
-          }
-        };
-        
-        logger.info('✅ [RAILWAY] Railway 428 fix loaded successfully');
-        console.log('✅ [RAILWAY] Railway 428 fix loaded successfully'); // Force console log
-        
-        return sessionManager;
-        
-      } catch (railway428Error) {
-        logger.warn('⚠️ [RAILWAY] 428 fix failed, falling back to Railway socket', { 
-          error: railway428Error.message 
-        });
-        console.warn('⚠️ [RAILWAY] 428 fix failed, falling back to Railway socket', { 
-          error: railway428Error.message 
-        });
-        
-        // Fallback to Railway-compatible socket
-        try {
-          const { RailwayBaileysSocket } = await import('@/lib/whatsapp/railway-baileys-socket');
-          await RailwayBaileysSocket.initialize();
-          
-          // Create a session manager wrapper for the Railway socket
-          sessionManager = {
-            getQRCode: async () => {
-              try {
-                const result = await RailwayBaileysSocket.createSocketWithQR({
-                  timeout: 180000, // 3 minutes
-                  enableLogging: true,
-                  browser: ['Railway Production', 'Chrome', '120.0.6099.109']
-                });
-                
-                if (result.success && result.qrCode) {
-                  return {
-                    success: true,
-                    qrCode: result.qrCode,
-                    message: 'QR code generated successfully with Railway-compatible socket'
-                  };
-                } else {
-                  throw new Error(result.reason || 'QR generation failed');
-                }
-              } catch (error) {
-                logger.error('❌ [RAILWAY-SOCKET] QR generation failed', { error: error.message });
-                throw error;
-              }
-            },
-            
-            getStatus: async () => {
-              return {
-                connected: false,
-                qr: null,
-                message: 'Railway-compatible socket manager active'
-              };
-            }
-          };
-          
-          logger.info('✅ [RAILWAY] Railway-compatible Baileys socket loaded as fallback');
-          console.log('✅ [RAILWAY] Railway-compatible Baileys socket loaded as fallback'); // Force console log
-          
-          return sessionManager;
-        
-      } catch (railwaySocketError) {
-        logger.warn('⚠️ [RAILWAY] Railway socket failed, falling back to Railway QR manager', { 
-          error: railwaySocketError.message 
-        });
-        console.warn('⚠️ [RAILWAY] Railway socket failed, falling back to Railway QR manager', { 
-          error: railwaySocketError.message 
-        });
-        
-        // Fallback to original Railway QR manager
         const { railwayQRSessionManager } = await import('@/lib/whatsapp/railway-qr-session-manager');
         sessionManager = railwayQRSessionManager;
-        
-        logger.info('✅ [RAILWAY] Railway QR manager fallback loaded');
-        console.log('✅ [RAILWAY] Railway QR manager fallback loaded'); // Force console log
-        
         return sessionManager;
-        }
+      } catch (error) {
+        logger.error('Railway manager failed, falling back to strategic', { error: error.message });
       }
-    } else {
-      // Use Strategic Session Manager for development/staging
-      logger.info('🚀 [STRATEGIC] Loading Strategic Session Manager for development...');
-      console.log('🚀 [STRATEGIC] Loading Strategic Session Manager for development...'); // Force console log
-      
-      const { strategicSessionManager } = await import('@/lib/whatsapp/strategic-session-manager');
-      sessionManager = strategicSessionManager;
-      
-      logger.info('✅ [STRATEGIC] Strategic WhatsApp manager loaded successfully');
-      console.log('✅ [STRATEGIC] Strategic WhatsApp manager loaded successfully'); // Force console log
-      
-      return sessionManager;
     }
     
-  } catch (primaryError) {
-    logger.error('❌ [PRIMARY] Primary manager failed:', primaryError);
-    console.error('❌ [PRIMARY] Primary manager failed:', primaryError); // Force console log
+    // Use Strategic Session Manager for development or as fallback
+    const { strategicSessionManager } = await import('@/lib/whatsapp/strategic-session-manager');
+    sessionManager = strategicSessionManager;
+    return sessionManager;
     
-    // Emergency fallback to strategic manager
+  } catch (primaryError) {
+    logger.error('Primary manager failed:', primaryError);
+    
+    // Final fallback to robust manager
     try {
-      logger.info('🆘 [EMERGENCY] Falling back to Strategic Session Manager...');
-      console.log('🆘 [EMERGENCY] Falling back to Strategic Session Manager...'); // Force console log
-      
-      const { strategicSessionManager } = await import('@/lib/whatsapp/strategic-session-manager');
-      sessionManager = strategicSessionManager;
-      
-      logger.info('✅ [EMERGENCY] Strategic fallback loaded');
-      console.log('✅ [EMERGENCY] Strategic fallback loaded'); // Force console log
-      
+      const { robustWhatsAppManager } = await import('@/lib/whatsapp/robust-session-manager');
+      sessionManager = robustWhatsAppManager;
       return sessionManager;
-      
-    } catch (strategicError) {
-      // Final fallback to robust manager
-      try {
-        logger.info('🚨 [FINAL] Falling back to Robust Session Manager...');
-        console.log('🚨 [FINAL] Falling back to Robust Session Manager...'); // Force console log
-        
-        const { robustWhatsAppManager } = await import('@/lib/whatsapp/robust-session-manager');
-        sessionManager = robustWhatsAppManager;
-        
-        logger.info('✅ [FINAL] Robust fallback loaded');
-        console.log('✅ [FINAL] Robust fallback loaded'); // Force console log
-        
-        return sessionManager;
-        
-      } catch (fallbackError) {
-        logger.error('💥 [CRITICAL] All managers failed:', fallbackError);
-        console.error('💥 [CRITICAL] All managers failed:', fallbackError); // Force console log
-        throw new Error(`All WhatsApp managers failed: ${fallbackError.message}`);
-      }
+    } catch (fallbackError) {
+      logger.error('All managers failed:', fallbackError);
+      throw new Error(`All WhatsApp managers failed: ${fallbackError.message}`);
     }
   }
 }
@@ -259,23 +78,11 @@ async function getSessionManager() {
 // GET /api/whatsapp/session - Get session status
 export async function GET(request: NextRequest) {
   try {
-    logger.info('📥 [GET] WhatsApp session status request received');
-    logger.info('🔐 [GET] Using auth method:', isRailwayProduction ? 'Railway Hardcoded' : 'Standard');
     
     const user = await verifyAuth(request);
     if (!user) {
-      logger.warn('🚫 [GET] User authentication failed', {
-        hasAuthHeader: !!request.headers.get('authorization'),
-        isRailway: isRailwayProduction
-      });
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
-    
-    logger.info('✅ [GET] User authenticated:', {
-      uid: user.uid,
-      email: user.email,
-      tenantId: user.tenantId
-    });
 
     const tenantId = user.tenantId || user.uid;
     
@@ -330,33 +137,12 @@ export async function GET(request: NextRequest) {
 // POST /api/whatsapp/session - Initialize session
 export async function POST(request: NextRequest) {
   try {
-    console.log('🔥 [API POST] WhatsApp session initialization requested');
-    logger.info('🔥 [API POST] WhatsApp session initialization requested');
-    logger.info('🔐 [POST] Using auth method:', isRailwayProduction ? 'Railway Hardcoded' : 'Standard');
-
     const user = await verifyAuth(request);
     if (!user) {
-      console.log('❌ [API POST] Unauthorized request');
-      logger.warn('🚫 [POST] User authentication failed', {
-        hasAuthHeader: !!request.headers.get('authorization'),
-        isRailway: isRailwayProduction
-      });
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
-    
-    logger.info('✅ [POST] User authenticated:', {
-      uid: user.uid,
-      email: user.email,
-      tenantId: user.tenantId
-    });
 
     const tenantId = user.tenantId || user.uid;
-    console.log('👤 [API POST] User authenticated:', { 
-      tenant: tenantId?.substring(0, 8) + '***' 
-    });
-    logger.info('👤 [API POST] User authenticated:', { 
-      tenant: tenantId?.substring(0, 8) + '***' 
-    });
     
     // WhatsApp Web SEMPRE HABILITADO - NUNCA RETORNAR DISABLED
     // Este check foi removido para garantir funcionamento em produção
@@ -410,24 +196,13 @@ export async function POST(request: NextRequest) {
       status = await manager.getSessionStatus(tenantId);
     }
 
-    logger.info(`📤 Returning session status`, {
-      status: status.status,
-      hasQrCode: !!status.qrCode,
-      connected: status.connected
-    });
 
     return NextResponse.json({
       success: true,
       data: status,
     });
   } catch (error) {
-    logger.error('🚨 CRITICAL ERROR IN SESSION INITIALIZATION:', {
-      error: error.message,
-      stack: error.stack,
-      tenantId,
-      errorType: error.constructor.name,
-      timestamp: new Date().toISOString()
-    });
+    logger.error('Session initialization error:', error);
     
     const errorMessage = WHATSAPP_WEB_DISABLED 
       ? 'WhatsApp Web is disabled by configuration'
@@ -451,23 +226,10 @@ export async function POST(request: NextRequest) {
 // DELETE /api/whatsapp/session - Disconnect session
 export async function DELETE(request: NextRequest) {
   try {
-    logger.info('🗑️ [DELETE] WhatsApp session disconnect requested');
-    logger.info('🔐 [DELETE] Using auth method:', isRailwayProduction ? 'Railway Hardcoded' : 'Standard');
-    
     const user = await verifyAuth(request);
     if (!user) {
-      logger.warn('🚫 [DELETE] User authentication failed', {
-        hasAuthHeader: !!request.headers.get('authorization'),
-        isRailway: isRailwayProduction
-      });
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
-    
-    logger.info('✅ [DELETE] User authenticated:', {
-      uid: user.uid,
-      email: user.email,
-      tenantId: user.tenantId
-    });
 
     const tenantId = user.tenantId || user.uid;
     

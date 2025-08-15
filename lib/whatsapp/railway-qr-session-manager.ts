@@ -33,8 +33,7 @@ export class RailwayQRSessionManager extends EventEmitter {
 
   constructor() {
     super();
-    logger.info('🚂 [Railway QR] Session manager created for production');
-    this.setMaxListeners(50); // Railway can handle more listeners
+    this.setMaxListeners(50);
   }
 
   // GUARANTEED INITIALIZATION WITH RAILWAY OPTIMIZATIONS
@@ -44,7 +43,6 @@ export class RailwayQRSessionManager extends EventEmitter {
     }
 
     if (this.initializationPromise) {
-      logger.info('⏳ [Railway QR] Waiting for existing initialization...');
       return this.initializationPromise;
     }
 
@@ -54,15 +52,7 @@ export class RailwayQRSessionManager extends EventEmitter {
 
   private async initializeDependenciesWithTimeout(): Promise<void> {
     const startTime = Date.now();
-    logger.info('🔧 [Railway QR] Starting dependency initialization...', {
-      nodeVersion: process.version,
-      platform: process.platform,
-      isRailway: !!process.env.RAILWAY_PROJECT_ID,
-      env: process.env.NODE_ENV,
-      timeout: this.INITIALIZATION_TIMEOUT
-    });
-
-    // Wrap initialization with timeout
+    
     const initPromise = this.initializeDependencies();
     const timeoutPromise = new Promise<never>((_, reject) => {
       setTimeout(() => {
@@ -133,9 +123,6 @@ export class RailwayQRSessionManager extends EventEmitter {
         throw new Error(`Missing Baileys functions: ${missingFunctions.join(', ')}`);
       }
 
-      logger.info('✅ [Railway QR] Baileys validation passed');
-
-      // STRATEGY 2: Load QRCode with multiple strategies and comprehensive testing
       logger.info('📦 [Railway QR] Loading QRCode with multiple strategies...');
       
       const qrStrategies = [
