@@ -1,12 +1,14 @@
 import { WhatsAppMessage, WhatsAppTemplate, WhatsAppMediaResponse, WhatsAppMediaDetails, WhatsAppError } from '@/lib/types/whatsapp'
 import { withTimeout } from '@/lib/utils/async'
 import { whatsappSessionManager } from './session-manager'
+import { logger } from '@/lib/utils/logger'
 
 export class WhatsAppClient {
   private tenantId: string
 
   constructor(tenantId: string = 'default') {
     this.tenantId = tenantId
+    logger.info('🏠 Local WhatsApp client initialized', { tenantId })
   }
 
   /**
