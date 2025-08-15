@@ -47,7 +47,11 @@ function initializeFirebaseAdmin() {
 }
 
 // Initialize on module load
-initializeFirebaseAdmin();
+try {
+  initializeFirebaseAdmin();
+} catch (error) {
+  console.error('❌ [Auth Railway] Failed to initialize on module load:', error);
+}
 
 export async function verifyAuthRailway(request: NextRequest): Promise<User | null> {
   try {
@@ -144,3 +148,9 @@ export function requireAuthRailway(handler: Function) {
     return handler(request, ...args);
   };
 }
+
+// Explicit module exports for require() compatibility
+module.exports = {
+  verifyAuthRailway,
+  requireAuthRailway
+};

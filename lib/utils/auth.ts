@@ -1,7 +1,17 @@
 import { NextRequest } from 'next/server';
-import { auth as adminAuth } from '@/lib/firebase/admin';
 import { User } from 'firebase/auth';
 import { logger } from '@/lib/utils/logger';
+import { getAuth } from 'firebase-admin/auth';
+import { getApps } from 'firebase-admin/app';
+
+// Get admin auth dynamically to avoid null issues
+function getAdminAuth() {
+  const apps = getApps();
+  if (apps.length === 0) {
+    throw new Error('Firebase Admin not initialized');
+  }
+  return getAuth(apps[0]);
+}
 
 export async function verifyAuth(request: NextRequest): Promise<User | null> {
   try {
@@ -26,9 +36,7 @@ export async function verifyAuth(request: NextRequest): Promise<User | null> {
     };
 
     // Verify the token with Firebase Admin - remove timeout that causes issues
-    if (!adminAuth) {
-      throw new Error('Firebase Admin Auth not initialized');
-    }
+    const adminAuth = getAdminAuth();
     
     const decodedToken = await adminAuth.verifyIdToken(token, verifyOptions);
     
@@ -56,7 +64,7 @@ export async function verifyAuth(request: NextRequest): Promise<User | null> {
       hasToken: !!(request.headers.get('authorization')?.split(' ')[1]),
       tokenLength: request.headers.get('authorization')?.split(' ')[1]?.length,
       userAgent: request.headers.get('user-agent')?.substring(0, 100),
-      adminAuthInitialized: !!adminAuth
+      adminAuthInitialized: getApps().length > 0
     });
     return null;
   }
@@ -78,3 +86,9 @@ export function requireAuth(handler: Function) {
     return handler(request, ...args);
   };
 }
+
+// Explicit module exports for require() compatibility
+module.exports = {
+  verifyAuth,
+  requireAuth
+};

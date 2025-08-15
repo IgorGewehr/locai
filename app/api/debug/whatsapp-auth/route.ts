@@ -43,9 +43,11 @@ export async function GET(request: NextRequest) {
       authTestResults.standardAuth = {
         imported: !!standardAuth,
         hasVerifyAuth: !!standardAuth.verifyAuth,
-        type: typeof standardAuth.verifyAuth
+        type: typeof standardAuth.verifyAuth,
+        keys: Object.keys(standardAuth),
+        exports: standardAuth
       };
-      addDebugLog(`✅ [DEBUG] Standard auth imported successfully`);
+      addDebugLog(`✅ [DEBUG] Standard auth imported: keys=${Object.keys(standardAuth).join(',')}`);
     } catch (error) {
       addDebugLog(`❌ [DEBUG] Standard auth import failed: ${error.message}`);
       authTestResults.standardAuth = { error: error.message };
@@ -58,9 +60,11 @@ export async function GET(request: NextRequest) {
       authTestResults.railwayAuth = {
         imported: !!railwayAuth,
         hasVerifyAuthRailway: !!railwayAuth.verifyAuthRailway,
-        type: typeof railwayAuth.verifyAuthRailway
+        type: typeof railwayAuth.verifyAuthRailway,
+        keys: Object.keys(railwayAuth),
+        exports: railwayAuth
       };
-      addDebugLog(`✅ [DEBUG] Railway auth imported successfully`);
+      addDebugLog(`✅ [DEBUG] Railway auth imported: keys=${Object.keys(railwayAuth).join(',')}`);
     } catch (error) {
       addDebugLog(`❌ [DEBUG] Railway auth import failed: ${error.message}`);
       authTestResults.railwayAuth = { error: error.message };
