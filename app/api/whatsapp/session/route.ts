@@ -130,9 +130,9 @@ export async function GET(request: NextRequest) {
     // Convert to expected format
     const formattedStatus = {
       connected: status.connected || false,
-      status: status.connected ? 'connected' : 'disconnected',
-      phoneNumber: status.phone || null,
-      businessName: status.name || null,
+      status: status.status || (status.connected ? 'connected' : 'disconnected'),
+      phoneNumber: status.phone || status.phoneNumber || null,
+      businessName: status.name || status.businessName || null,
       qrCode: status.qrCode || null,
       message: status.connected ? 'Connected successfully' : useExternalService ? 'External microservice ready' : 'Local client ready'
     };
