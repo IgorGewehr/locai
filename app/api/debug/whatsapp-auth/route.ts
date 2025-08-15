@@ -39,15 +39,15 @@ export async function GET(request: NextRequest) {
     try {
       // Test standard auth import
       addDebugLog('📦 [DEBUG] Testing standard auth import...');
-      const standardAuth = require('@/lib/utils/auth');
+      const { verifyAuth, requireAuth } = await import('@/lib/utils/auth');
       authTestResults.standardAuth = {
-        imported: !!standardAuth,
-        hasVerifyAuth: !!standardAuth.verifyAuth,
-        type: typeof standardAuth.verifyAuth,
-        keys: Object.keys(standardAuth),
-        exports: standardAuth
+        imported: true,
+        hasVerifyAuth: !!verifyAuth,
+        hasRequireAuth: !!requireAuth,
+        verifyAuthType: typeof verifyAuth,
+        requireAuthType: typeof requireAuth
       };
-      addDebugLog(`✅ [DEBUG] Standard auth imported: keys=${Object.keys(standardAuth).join(',')}`);
+      addDebugLog(`✅ [DEBUG] Standard auth imported successfully`);
     } catch (error) {
       addDebugLog(`❌ [DEBUG] Standard auth import failed: ${error.message}`);
       authTestResults.standardAuth = { error: error.message };
@@ -56,15 +56,15 @@ export async function GET(request: NextRequest) {
     try {
       // Test Railway auth import
       addDebugLog('📦 [DEBUG] Testing Railway auth import...');
-      const railwayAuth = require('@/lib/utils/auth-railway');
+      const { verifyAuthRailway, requireAuthRailway } = await import('@/lib/utils/auth-railway');
       authTestResults.railwayAuth = {
-        imported: !!railwayAuth,
-        hasVerifyAuthRailway: !!railwayAuth.verifyAuthRailway,
-        type: typeof railwayAuth.verifyAuthRailway,
-        keys: Object.keys(railwayAuth),
-        exports: railwayAuth
+        imported: true,
+        hasVerifyAuthRailway: !!verifyAuthRailway,
+        hasRequireAuthRailway: !!requireAuthRailway,
+        verifyAuthRailwayType: typeof verifyAuthRailway,
+        requireAuthRailwayType: typeof requireAuthRailway
       };
-      addDebugLog(`✅ [DEBUG] Railway auth imported: keys=${Object.keys(railwayAuth).join(',')}`);
+      addDebugLog(`✅ [DEBUG] Railway auth imported successfully`);
     } catch (error) {
       addDebugLog(`❌ [DEBUG] Railway auth import failed: ${error.message}`);
       authTestResults.railwayAuth = { error: error.message };
@@ -136,8 +136,8 @@ export async function POST(request: NextRequest) {
     if (isRailwayProduction) {
       addDebugLog('🚂 [DEBUG POST] Testing Railway auth...');
       try {
-        const railwayAuth = require('@/lib/utils/auth-railway');
-        const user = await railwayAuth.verifyAuthRailway(request);
+        const { verifyAuthRailway } = await import('@/lib/utils/auth-railway');
+        const user = await verifyAuthRailway(request);
         authResult = {
           method: 'Railway',
           success: !!user,
@@ -159,8 +159,8 @@ export async function POST(request: NextRequest) {
     } else {
       addDebugLog('🔐 [DEBUG POST] Testing standard auth...');
       try {
-        const standardAuth = require('@/lib/utils/auth');
-        const user = await standardAuth.verifyAuth(request);
+        const { verifyAuth } = await import('@/lib/utils/auth');
+        const user = await verifyAuth(request);
         authResult = {
           method: 'Standard',
           success: !!user,

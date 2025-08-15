@@ -148,9 +148,3 @@ export function requireAuthRailway(handler: Function) {
     return handler(request, ...args);
   };
 }
-
-// Explicit module exports for require() compatibility
-module.exports = {
-  verifyAuthRailway,
-  requireAuthRailway
-};

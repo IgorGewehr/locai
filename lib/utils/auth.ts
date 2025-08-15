@@ -86,9 +86,3 @@ export function requireAuth(handler: Function) {
     return handler(request, ...args);
   };
 }
-
-// Explicit module exports for require() compatibility
-module.exports = {
-  verifyAuth,
-  requireAuth
-};

@@ -30,30 +30,22 @@ console.log('🌍 [WhatsApp Session] Environment check:', {
   railwayDomain: process.env.RAILWAY_PUBLIC_DOMAIN ? 'present' : 'missing'
 });
 
-// Import the correct auth based on environment
-// FORÇA RAILWAY AUTH EM PRODUÇÃO - já que a detecção pode falhar no build
-let verifyAuth: any;
-const forceRailwayAuth = isProduction; // Use Railway auth em QUALQUER produção
+// Import both auth methods
+import { verifyAuth as standardVerifyAuth } from '@/lib/utils/auth';
+import { verifyAuthRailway } from '@/lib/utils/auth-railway';
 
+// Select the correct auth based on environment
+// FORÇA RAILWAY AUTH EM PRODUÇÃO - já que a detecção pode falhar no build
+const forceRailwayAuth = isProduction; // Use Railway auth em QUALQUER produção
+const verifyAuth = (forceRailwayAuth || isRailwayProduction) ? verifyAuthRailway : standardVerifyAuth;
+
+// Log which auth method was selected
 if (forceRailwayAuth || isRailwayProduction) {
-  logger.info('🚂 [INIT] Loading Railway hardcoded auth for production');
-  console.log('🚂 [INIT] Loading Railway hardcoded auth for production');
-  try {
-    const railwayAuth = require('@/lib/utils/auth-railway');
-    verifyAuth = railwayAuth.verifyAuthRailway;
-    logger.info('✅ [INIT] Railway auth loaded successfully');
-    console.log('✅ [INIT] Railway auth loaded successfully');
-  } catch (error) {
-    logger.error('❌ [INIT] Railway auth failed, falling back to standard:', error);
-    console.log('❌ [INIT] Railway auth failed, falling back to standard:', error);
-    const standardAuth = require('@/lib/utils/auth');
-    verifyAuth = standardAuth.verifyAuth;
-  }
+  logger.info('🚂 [INIT] Using Railway hardcoded auth for production');
+  console.log('🚂 [INIT] Using Railway hardcoded auth for production');
 } else {
-  logger.info('🔐 [INIT] Loading standard auth for development');
-  console.log('🔐 [INIT] Loading standard auth for development');
-  const standardAuth = require('@/lib/utils/auth');
-  verifyAuth = standardAuth.verifyAuth;
+  logger.info('🔐 [INIT] Using standard auth for development');
+  console.log('🔐 [INIT] Using standard auth for development');
 }
 
 // Simple cache to prevent excessive API calls - RAILWAY OPTIMIZED
