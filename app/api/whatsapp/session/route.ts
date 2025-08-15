@@ -80,32 +80,40 @@ async function getSessionManager() {
       logger.info('🚂 [RAILWAY] Loading Railway-compatible Baileys socket for production...');
       console.log('🚂 [RAILWAY] Loading Railway-compatible Baileys socket for production...'); // Force console log
       
-      // Try the new Railway-compatible socket first
+      // Try the new Railway 428 fix first, then fallback to other solutions
       try {
-        const { RailwayBaileysSocket } = await import('@/lib/whatsapp/railway-baileys-socket');
-        await RailwayBaileysSocket.initialize();
+        const { Railway428Fix } = await import('@/lib/whatsapp/railway-428-fix');
         
-        // Create a session manager wrapper for the Railway socket
+        // Create a session manager wrapper for the Railway 428 fix
         sessionManager = {
           getQRCode: async () => {
             try {
-              const result = await RailwayBaileysSocket.createSocketWithQR({
-                timeout: 120000, // 2 minutes
-                enableLogging: true,
-                browser: ['Railway Production', 'Chrome', '120.0.6099.109']
-              });
+              logger.info('🚨 [RAILWAY-428] Attempting QR generation with 428 fix...');
+              console.log('🚨 [RAILWAY-428] Attempting QR generation with 428 fix...');
+              
+              const result = await Railway428Fix.testConnection();
               
               if (result.success && result.qrCode) {
+                logger.info('✅ [RAILWAY-428] QR generated successfully with 428 fix!');
+                console.log('✅ [RAILWAY-428] QR generated successfully with 428 fix!');
+                
                 return {
                   success: true,
                   qrCode: result.qrCode,
-                  message: 'QR code generated successfully with Railway-compatible socket'
+                  message: 'QR code generated successfully with Railway 428 fix'
                 };
               } else {
-                throw new Error(result.reason || 'QR generation failed');
+                throw new Error(result.reason || 'QR generation failed with 428 fix');
               }
             } catch (error) {
-              logger.error('❌ [RAILWAY-SOCKET] QR generation failed', { error: error.message });
+              logger.error('❌ [RAILWAY-428] 428 fix failed', { error: error.message });
+              console.error('❌ [RAILWAY-428] 428 fix failed', { error: error.message });
+              
+              // If it's a 428 error, don't fallback - we need to fix this specifically
+              if (error.message.includes('428')) {
+                throw new Error(`428 Precondition Required error: ${error.message}`);
+              }
+              
               throw error;
             }
           },
@@ -114,15 +122,67 @@ async function getSessionManager() {
             return {
               connected: false,
               qr: null,
-              message: 'Railway-compatible socket manager active'
+              message: 'Railway 428 fix manager active'
             };
           }
         };
         
-        logger.info('✅ [RAILWAY] Railway-compatible Baileys socket loaded successfully');
-        console.log('✅ [RAILWAY] Railway-compatible Baileys socket loaded successfully'); // Force console log
+        logger.info('✅ [RAILWAY] Railway 428 fix loaded successfully');
+        console.log('✅ [RAILWAY] Railway 428 fix loaded successfully'); // Force console log
         
         return sessionManager;
+        
+      } catch (railway428Error) {
+        logger.warn('⚠️ [RAILWAY] 428 fix failed, falling back to Railway socket', { 
+          error: railway428Error.message 
+        });
+        console.warn('⚠️ [RAILWAY] 428 fix failed, falling back to Railway socket', { 
+          error: railway428Error.message 
+        });
+        
+        // Fallback to Railway-compatible socket
+        try {
+          const { RailwayBaileysSocket } = await import('@/lib/whatsapp/railway-baileys-socket');
+          await RailwayBaileysSocket.initialize();
+          
+          // Create a session manager wrapper for the Railway socket
+          sessionManager = {
+            getQRCode: async () => {
+              try {
+                const result = await RailwayBaileysSocket.createSocketWithQR({
+                  timeout: 180000, // 3 minutes
+                  enableLogging: true,
+                  browser: ['Railway Production', 'Chrome', '120.0.6099.109']
+                });
+                
+                if (result.success && result.qrCode) {
+                  return {
+                    success: true,
+                    qrCode: result.qrCode,
+                    message: 'QR code generated successfully with Railway-compatible socket'
+                  };
+                } else {
+                  throw new Error(result.reason || 'QR generation failed');
+                }
+              } catch (error) {
+                logger.error('❌ [RAILWAY-SOCKET] QR generation failed', { error: error.message });
+                throw error;
+              }
+            },
+            
+            getStatus: async () => {
+              return {
+                connected: false,
+                qr: null,
+                message: 'Railway-compatible socket manager active'
+              };
+            }
+          };
+          
+          logger.info('✅ [RAILWAY] Railway-compatible Baileys socket loaded as fallback');
+          console.log('✅ [RAILWAY] Railway-compatible Baileys socket loaded as fallback'); // Force console log
+          
+          return sessionManager;
         
       } catch (railwaySocketError) {
         logger.warn('⚠️ [RAILWAY] Railway socket failed, falling back to Railway QR manager', { 
