@@ -82,36 +82,7 @@ export class Railway428Fix {
       shouldSyncHistoryMessage: () => false,
       shouldIgnoreJid: () => false,
       
-      // Custom socket creation with proper headers
-      makeSocket: (config: any) => {
-        logger.info('🔧 [428-FIX] Creating socket with 428 fix headers...');
-        
-        const ws = require('ws');
-        const wsUrl = 'wss://web.whatsapp.com/ws/chat';
-        
-        const wsOptions = {
-          headers: this.getWebSocketHeaders(),
-          origin: 'https://web.whatsapp.com',
-          followRedirects: true,
-          handshakeTimeout: 90000, // 1.5 minutes
-          perMessageDeflate: false,
-          skipUTF8Validation: true,
-          maxPayload: 100 * 1024 * 1024, // 100MB
-          
-          // Additional options to avoid 428
-          rejectUnauthorized: true,
-          checkServerIdentity: () => undefined, // Skip server identity check
-          servername: 'web.whatsapp.com'
-        };
-
-        logger.debug('🔧 [428-FIX] WebSocket options', {
-          url: wsUrl,
-          headersCount: Object.keys(wsOptions.headers).length,
-          timeout: wsOptions.handshakeTimeout
-        });
-
-        return new ws(wsUrl, [], wsOptions);
-      },
+      // Note: Custom socket creation removed due to Baileys compatibility issues
 
       // Auth state configuration
       auth: {

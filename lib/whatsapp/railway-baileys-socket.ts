@@ -112,30 +112,7 @@ export class RailwayBaileysSocket {
         userDevicesCache: new Map(),
         
         // Add logger if enabled
-        ...(socketLogger && { logger: socketLogger }),
-
-        // Railway-specific connection options
-        makeSocket: (config: any) => {
-          // Use Railway-compatible WebSocket creation
-          return RailwayWebSocketPolyfill.createCompatibleWebSocket(
-            config.url || 'wss://web.whatsapp.com/ws/chat',
-            config.protocols,
-            {
-              followRedirects: true,
-              handshakeTimeout: 60000, // 1 minute handshake
-              perMessageDeflate: false,
-              skipUTF8Validation: true,
-              maxPayload: 100 * 1024 * 1024, // 100MB
-              headers: {
-                'User-Agent': 'WhatsApp/2.2412.54 Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.6099.109 Safari/537.36',
-                'Accept-Language': 'pt-BR,pt;q=0.9,en;q=0.8',
-                'Cache-Control': 'no-cache',
-                'Pragma': 'no-cache',
-                'Sec-WebSocket-Extensions': 'permessage-deflate; client_max_window_bits'
-              }
-            }
-          );
-        }
+        ...(socketLogger && { logger: socketLogger })
       };
 
       logger.debug('🔧 [RAILWAY-BAILEYS] Socket config prepared', {

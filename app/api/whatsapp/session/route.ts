@@ -200,6 +200,7 @@ async function getSessionManager() {
         console.log('✅ [RAILWAY] Railway QR manager fallback loaded'); // Force console log
         
         return sessionManager;
+        }
       }
     } else {
       // Use Strategic Session Manager for development/staging
