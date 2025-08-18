@@ -73,6 +73,7 @@ export default function SettingsPage() {
   const [connecting, setConnecting] = useState(false);
   const [connectionProgress, setConnectionProgress] = useState(0);
   const [qrExpireTimer, setQrExpireTimer] = useState<NodeJS.Timeout | null>(null);
+  const [localQrSession, setLocalQrSession] = useState<WhatsAppSession | null>(null);
 
   // Profile states
   const [profileLoading, setProfileLoading] = useState(false);
@@ -93,17 +94,33 @@ export default function SettingsPage() {
     confirmPassword: ''
   });
 
+  // Get current session (local QR takes priority over context)
+  const currentSession = localQrSession && localQrSession.qrCode ? localQrSession : whatsappSession;
+  
+  // Debug logging
+  useEffect(() => {
+    console.log('🔍 [Settings Debug] Current session:', {
+      hasLocalQr: !!localQrSession?.qrCode,
+      hasContextQr: !!whatsappSession.qrCode,
+      currentHasQr: !!currentSession.qrCode,
+      currentStatus: currentSession.status,
+      currentConnected: currentSession.connected
+    });
+  }, [localQrSession, whatsappSession, currentSession]);
+
   // Auto-open QR dialog when QR code is available (only if user didn't close it manually)
   useEffect(() => {
-    if (whatsappSession.qrCode && whatsappSession.status === 'qr' && !qrDialogOpen && !userClosedDialog) {
+    // Open dialog if QR code is available, regardless of status
+    if (currentSession.qrCode && !currentSession.connected && !qrDialogOpen && !userClosedDialog) {
       setTimeout(() => setQrDialogOpen(true), 300);
     }
     
-    // Reset the flag when QR code is no longer available or status changes
-    if (!whatsappSession.qrCode || whatsappSession.status !== 'qr') {
+    // Reset the flag when QR code is no longer available or connected
+    if (!currentSession.qrCode || currentSession.connected) {
       setUserClosedDialog(false);
+      setLocalQrSession(null); // Clear local QR session
     }
-  }, [whatsappSession.qrCode, whatsappSession.status, qrDialogOpen, userClosedDialog]);
+  }, [currentSession.qrCode, currentSession.connected, qrDialogOpen, userClosedDialog]);
 
   // Initial status refresh when component mounts
   useEffect(() => {
@@ -226,13 +243,8 @@ export default function SettingsPage() {
         console.log('📋 [Settings] QR Code present:', !!data.data?.qrCode);
         console.log('📋 [Settings] Status:', data.data?.status);
         
-        // Update session state immediately
-        setWhatsappSession(prev => ({ 
-          ...prev, 
-          ...data.data,
-          qrCode: data.data.qrCode,
-          status: data.data.status || 'connecting'
-        }));
+        // Force refresh status to update context
+        setTimeout(() => refreshStatus(), 100);
         
         if (data.data.qrCode) {
           console.log('✅ QR Code received, opening dialog');
@@ -246,6 +258,18 @@ export default function SettingsPage() {
             initializeWhatsApp();
           }, 120000); // 2 minutes
           setQrExpireTimer(timer);
+          
+          // Store QR data locally for immediate display
+          const qrData = {
+            qrCode: data.data.qrCode,
+            connected: false,
+            status: 'qr',
+            phoneNumber: null,
+            businessName: null
+          };
+          
+          // Update local state
+          setLocalQrSession(qrData);
           
           // Open dialog immediately for better UX
           setTimeout(() => setQrDialogOpen(true), 200);
@@ -272,7 +296,7 @@ export default function SettingsPage() {
       // Optimized cleanup timing
       setTimeout(() => {
         setConnecting(false);
-        if (!whatsappSession.qrCode && !whatsappSession.connected) {
+        if (!currentSession.qrCode && !currentSession.connected) {
           setConnectionProgress(0);
         }
       }, 2000);
@@ -307,7 +331,7 @@ export default function SettingsPage() {
   };
 
   const getStatusIcon = () => {
-    switch (whatsappSession.status) {
+    switch (currentSession.status) {
       case 'connected':
         return <CheckCircle sx={{ color: '#22c55e', fontSize: 24 }} />;
       case 'connecting':
@@ -320,7 +344,7 @@ export default function SettingsPage() {
   };
 
   const getStatusText = () => {
-    switch (whatsappSession.status) {
+    switch (currentSession.status) {
       case 'connected':
         return 'Conectado';
       case 'connecting':
@@ -333,7 +357,7 @@ export default function SettingsPage() {
   };
 
   const getStatusColor = () => {
-    switch (whatsappSession.status) {
+    switch (currentSession.status) {
       case 'connected':
         return '#22c55e';
       case 'connecting':
@@ -772,13 +796,13 @@ export default function SettingsPage() {
                     >
                       {getStatusText()}
                     </Typography>
-                    {whatsappSession.name && whatsappSession.phone && (
+                    {currentSession.name && currentSession.phone && (
                       <Typography 
                         variant="body2" 
                         color="text.secondary"
                         sx={{ fontSize: { xs: '0.8rem', sm: '0.875rem' } }}
                       >
-                        {whatsappSession.name} • {whatsappSession.phone}
+                        {currentSession.name} • {currentSession.phone}
                       </Typography>
                     )}
                   </Box>
@@ -791,7 +815,7 @@ export default function SettingsPage() {
                   alignSelf: { xs: 'flex-end', sm: 'center' },
                 }}>
                   <Chip
-                    label={whatsappSession.connected ? 'Ativo' : 'Inativo'}
+                    label={currentSession.connected ? 'Ativo' : 'Inativo'}
                     size="small"
                     sx={{
                       backgroundColor: `${getStatusColor()}20`,
@@ -803,7 +827,7 @@ export default function SettingsPage() {
                   />
                   
                   <Switch
-                    checked={whatsappSession.connected}
+                    checked={currentSession.connected}
                     onChange={(e) => {
                       if (e.target.checked) {
                         initializeWhatsApp();
@@ -820,7 +844,7 @@ export default function SettingsPage() {
           </Card>
 
           {/* QR Available Alert - Show when user closed dialog but QR is still available */}
-          {!whatsappSession.connected && whatsappSession.qrCode && userClosedDialog && (
+          {!currentSession.connected && currentSession.qrCode && userClosedDialog && (
             <Alert 
               severity="info" 
               sx={{ 
@@ -900,7 +924,7 @@ export default function SettingsPage() {
           {/* Actions */}
           <Stack direction={isMobile ? 'column' : 'row'} spacing={2}>
             {/* Show QR button if user closed dialog but QR is still available */}
-            {!whatsappSession.connected && whatsappSession.qrCode && userClosedDialog && (
+            {!currentSession.connected && currentSession.qrCode && userClosedDialog && (
               <Button
                 variant="contained"
                 size="large"
@@ -930,7 +954,7 @@ export default function SettingsPage() {
               </Button>
             )}
             
-            {!whatsappSession.connected && !whatsappSession.qrCode && (
+            {!currentSession.connected && !currentSession.qrCode && (
               <Button
                 variant="contained"
                 size="large"
@@ -1093,7 +1117,7 @@ export default function SettingsPage() {
           py: 3,
           px: 3,
         }}>
-          {whatsappSession.qrCode ? (
+          {currentSession.qrCode ? (
             <Box>
               <Box sx={{
                 display: 'inline-block',
@@ -1109,7 +1133,7 @@ export default function SettingsPage() {
                 }
               }}>
                 <img 
-                  src={whatsappSession.qrCode} 
+                  src={currentSession.qrCode} 
                   alt="QR Code WhatsApp" 
                   style={{ 
                     width: '260px', // Slightly larger for better scanning
@@ -1184,8 +1208,8 @@ export default function SettingsPage() {
                     fontFamily: 'monospace'
                   }}
                 >
-                  Debug: QR Type: {whatsappSession.qrCode?.startsWith('data:') ? 'Data URL' : 'Raw String'} | 
-                  Length: {whatsappSession.qrCode?.length}
+                  Debug: QR Type: {currentSession.qrCode?.startsWith('data:') ? 'Data URL' : 'Raw String'} | 
+                  Length: {currentSession.qrCode?.length}
                 </Typography>
               )}
             </Box>
