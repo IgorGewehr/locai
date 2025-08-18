@@ -58,24 +58,28 @@ export class ExternalWhatsAppClient {
 
     // Interceptor para logging
     this.client.interceptors.request.use((config) => {
-      logger.info('🌐 [HTTP Client] Making request to microservice', {
-        method: config.method?.toUpperCase(),
-        url: config.url,
-        tenantId: this.config.tenantId,
-        baseUrl: this.config.baseUrl,
-        hasAuth: !!config.headers?.Authorization
-      });
+      if (process.env.NEXT_PUBLIC_DEBUG_API === 'true') {
+        logger.info('🌐 [HTTP Client] Making request to microservice', {
+          method: config.method?.toUpperCase(),
+          url: config.url,
+          tenantId: this.config.tenantId,
+          baseUrl: this.config.baseUrl,
+          hasAuth: !!config.headers?.Authorization
+        });
+      }
       return config;
     });
 
     this.client.interceptors.response.use(
       (response) => {
-        logger.info('✅ [HTTP Client] Microservice request successful', {
-          status: response.status,
-          url: response.config.url,
-          tenantId: this.config.tenantId,
-          responseTime: Date.now()
-        });
+        if (process.env.NEXT_PUBLIC_DEBUG_API === 'true') {
+          logger.info('✅ [HTTP Client] Microservice request successful', {
+            status: response.status,
+            url: response.config.url,
+            tenantId: this.config.tenantId,
+            responseTime: Date.now()
+          });
+        }
         return response;
       },
       (error) => {

@@ -49,7 +49,8 @@ export async function middleware(request: NextRequest) {
     '/api/agent',
     '/api/public/',
     '/api/auth-test',
-    '/api/diagnostic/'
+    '/api/diagnostic/',
+    '/api/test-whatsapp-noauth'
   ]
 
   // Special handling for WhatsApp and other auth-protected API routes
