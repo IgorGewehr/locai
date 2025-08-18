@@ -1,61 +1,66 @@
-# ALUGZAP - Sistema Completo de Gestão Imobiliária com IA
+# LOCAI - Sistema Enterprise de Gestão Imobiliária com IA
 
-## 📋 Índice
+## 📋 Índice Completo
 
-1. [Visão Geral](#visão-geral)
-2. [Arquitetura do Sistema](#arquitetura-do-sistema)
-3. [Componentes Frontend](#componentes-frontend)
-4. [API Routes](#api-routes)
-5. [Páginas e Navegação](#páginas-e-navegação)
-6. [Serviços e Business Logic](#serviços-e-business-logic)
-7. [Sistema de Tipos](#sistema-de-tipos)
-8. [Utilitários](#utilitários)
-9. [Hooks Customizados](#hooks-customizados)
-10. [Contextos e Estado Global](#contextos-e-estado-global)
-11. [Sofia - Agente de IA](#sofia---agente-de-ia)
-12. [Integração WhatsApp](#integração-whatsapp)
-13. [Sistema Multi-tenant](#sistema-multi-tenant)
-14. [Dashboard - Análise Detalhada](#dashboard---análise-detalhada)
-15. [Segurança e Performance](#segurança-e-performance)
-16. [Deploy e Configuração](#deploy-e-configuração)
+1. [Visão Geral](#-visão-geral)
+2. [Arquitetura do Sistema](#-arquitetura-do-sistema)
+3. [Estrutura de Diretórios Detalhada](#-estrutura-de-diretórios-detalhada)
+4. [Componentes Frontend](#-componentes-frontend)
+5. [API Routes](#-api-routes)
+6. [Sistema de IA - Sofia](#-sistema-de-ia---sofia)
+7. [Serviços e Business Logic](#-serviços-e-business-logic)
+8. [Sistema de Tipos](#-sistema-de-tipos)
+9. [Utilitários e Helpers](#-utilitários-e-helpers)
+10. [Hooks e Contextos](#-hooks-e-contextos)
+11. [WhatsApp Integration](#-whatsapp-integration)
+12. [Sistema Multi-tenant](#-sistema-multi-tenant)
+13. [Dashboard e Páginas](#-dashboard-e-páginas)
+14. [Segurança e Performance](#-segurança-e-performance)
+15. [Deploy e Configuração](#-deploy-e-configuração)
 
 ---
 
 ## 🎯 Visão Geral
 
-**ALUGZAP** é um sistema enterprise-grade de gestão imobiliária com inteligência artificial integrada. O sistema oferece:
+**LOCAI** é um sistema enterprise-grade de gestão imobiliária com inteligência artificial, desenvolvido com arquitetura moderna e foco em performance e escalabilidade.
 
-- 🤖 **Sofia AI**: Agente conversacional via WhatsApp para atendimento 24/7
-- 🏢 **Multi-tenant**: Isolamento completo entre empresas
-- 📊 **CRM Completo**: Gestão de leads com Kanban board
-- 💰 **Gestão Financeira**: Metas, cobranças, relatórios
-- 🌐 **Mini-sites**: Sites públicos personalizáveis por tenant
-- 📱 **WhatsApp Integration**: Business API + WhatsApp Web
-- 🔒 **Enterprise Security**: Autenticação, rate limiting, validação
+### ✨ Principais Características
 
-### Stack Tecnológico
+- 🤖 **Sofia AI v5.0**: Agente com LangChain Enhanced Intent Detection
+- 🎯 **20 Funções de IA**: Cobertura completa de operações
+- 🏢 **Multi-tenant**: Isolamento total entre organizações
+- 📱 **WhatsApp Duplo**: Business API + Web (Baileys)
+- 📊 **CRM Avançado**: Lead scoring dinâmico com 20+ fatores
+- 💰 **Gestão Financeira**: Metas, cobranças, campanhas
+- 🌐 **Mini-sites**: Sites públicos com domínios customizados
+- ⚡ **Performance**: Cache LRU, execução paralela, otimizações
+- 🔒 **Segurança Enterprise**: Rate limiting, sanitização, validação
+
+### 📊 Stack Tecnológico
 
 ```typescript
 {
   "frontend": {
-    "framework": "Next.js 15.3.5",
+    "framework": "Next.js 15.3.5 (App Router)",
     "language": "TypeScript 5.3.0",
     "ui": "Material-UI v5.15.0",
     "styling": "Emotion CSS-in-JS",
     "forms": "React Hook Form + Yup",
-    "state": "React Context + Zustand"
+    "state": "React Context + Zustand",
+    "charts": "Recharts + Chart.js"
   },
   "backend": {
-    "runtime": "Node.js",
+    "runtime": "Node.js 20+",
     "database": "Firebase Firestore v10.7.0",
     "storage": "Firebase Storage",
-    "auth": "Firebase Auth",
-    "ai": "OpenAI GPT-4o Mini"
+    "auth": "Firebase Auth + JWT",
+    "ai": "OpenAI GPT-4o Mini + LangChain v0.3.30"
   },
   "integrations": {
-    "whatsapp": ["Business API", "Baileys (Web)"],
-    "payments": "Stripe",
-    "analytics": "Custom + Firebase"
+    "whatsapp": ["Business API", "Baileys v6.7.18"],
+    "payments": "Stripe v14.0.0",
+    "analytics": "Custom + Firebase",
+    "cache": "LRU Cache + Redis"
   }
 }
 ```
@@ -64,37 +69,107 @@
 
 ## 🏗️ Arquitetura do Sistema
 
-### Estrutura de Diretórios
+### Arquitetura de Alto Nível
 
 ```
-locai/
-├── app/                        # Next.js App Router
-│   ├── api/                    # API Routes (40+ endpoints)
-│   ├── dashboard/              # Admin Interface (30+ pages)
-│   ├── mini-site/              # Public Sites
-│   └── (auth)/                 # Authentication Pages
-├── components/                 # Atomic Design Pattern
-│   ├── atoms/                  # Basic Components (17)
-│   ├── molecules/              # Composite Components (13)
-│   ├── organisms/              # Complex Components (25+)
-│   ├── templates/              # Page Layouts (3)
-│   └── mini-site/              # Public Site Components (20+)
-├── lib/                        # Core Business Logic
-│   ├── services/               # Business Services (35+)
-│   ├── types/                  # TypeScript Types (15+)
-│   ├── utils/                  # Utilities (25+)
-│   ├── hooks/                  # Custom Hooks (8)
-│   ├── ai-agent/               # Sofia AI System
-│   ├── firebase/               # Firebase Integration
-│   └── whatsapp/               # WhatsApp Integration
-├── contexts/                   # Global State (4)
-├── public/                     # Static Assets
-└── scripts/                    # Build & Deploy Scripts
+┌─────────────────────────────────────────────────────────┐
+│                    Frontend (Next.js)                    │
+│  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌────────┐ │
+│  │Dashboard │  │Mini-site │  │   Auth   │  │  API   │ │
+│  └──────────┘  └──────────┘  └──────────┘  └────────┘ │
+└─────────────────────────────────────────────────────────┘
+                            │
+┌─────────────────────────────────────────────────────────┐
+│                    Business Layer                        │
+│  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌────────┐ │
+│  │Sofia AI  │  │Services  │  │  Cache   │  │  Auth  │ │
+│  └──────────┘  └──────────┘  └──────────┘  └────────┘ │
+└─────────────────────────────────────────────────────────┘
+                            │
+┌─────────────────────────────────────────────────────────┐
+│                    Data Layer                            │
+│  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌────────┐ │
+│  │Firestore │  │ Storage  │  │  Redis   │  │Stripe  │ │
+│  └──────────┘  └──────────┘  └──────────┘  └────────┘ │
+└─────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## 🎨 Componentes Frontend
+## 📁 Estrutura de Diretórios Detalhada
+
+### 🏢 Estrutura de Diretórios Completa
+
+```
+locai/
+├── .next/                      # Build files (Next.js)
+├── .sessions/                  # WhatsApp session data
+├── app/                        # Next.js 15 App Router
+│   ├── api/                    # 60+ API Routes
+│   │   ├── agent/              # AI agent endpoints
+│   │   ├── auth/               # Authentication
+│   │   ├── billing/            # Financial campaigns
+│   │   ├── clients/            # Client management
+│   │   ├── conversations/      # Chat management
+│   │   ├── goals/              # Financial goals
+│   │   ├── metrics/            # Analytics & KPIs
+│   │   ├── mini-site/          # Public site APIs
+│   │   ├── properties/         # Property CRUD
+│   │   ├── upload/             # Media upload
+│   │   ├── visits/             # Schedule visits
+│   │   └── webhook/            # WhatsApp webhooks
+│   ├── dashboard/              # Admin interface (15+ pages)
+│   │   ├── agenda/             # Visit scheduling
+│   │   ├── analytics/          # Business metrics
+│   │   ├── clients/            # Client management
+│   │   ├── conversations/      # Chat history
+│   │   ├── crm/                # Lead pipeline
+│   │   ├── financeiro/         # Financial dashboard
+│   │   ├── properties/         # Property management
+│   │   ├── reservations/       # Booking management
+│   │   ├── settings/           # System config
+│   │   └── teste/              # Sofia testing
+│   ├── mini-site/              # Public tenant sites
+│   ├── login/                  # Authentication
+│   └── signup/                 # Registration
+├── components/                 # Atomic Design Pattern
+│   ├── atoms/                  # 25+ basic components
+│   ├── molecules/              # 15+ compound components
+│   ├── organisms/              # 30+ complex components
+│   ├── templates/              # 5+ page layouts
+│   └── mini-site/              # 20+ public site components
+├── contexts/                   # Global state management
+│   ├── AuthContext.tsx         # Authentication state
+│   ├── TenantContext.tsx       # Multi-tenant context
+│   ├── ThemeContext.tsx        # Theme management
+│   └── WhatsAppStatusContext.tsx # WhatsApp connection
+├── lib/                        # Core business logic
+│   ├── ai-agent/               # Sofia AI system (15 files)
+│   ├── ai/                     # AI functions (2 files)
+│   ├── auth/                   # Auth services
+│   ├── cache/                  # Property cache manager
+│   ├── config/                 # Configuration files
+│   ├── firebase/               # Firebase integration
+│   ├── hooks/                  # Custom React hooks (10+)
+│   ├── middleware/             # API middleware (6 files)
+│   ├── monitoring/             # System monitoring
+│   ├── services/               # Business services (40+ files)
+│   ├── types/                  # TypeScript types (20+ files)
+│   ├── utils/                  # Utilities (35+ files)
+│   ├── validation/             # Zod schemas
+│   └── whatsapp/               # WhatsApp integration (12 files)
+├── public/                     # Static assets
+├── scripts/                    # Build & deploy scripts (25+)
+├── styles/                     # Global styles
+└── Configuration Files
+    ├── package.json            # Dependencies
+    ├── tsconfig.json           # TypeScript config
+    ├── next.config.js          # Next.js config
+    ├── .env.example            # Environment template
+    ├── CLAUDE.md               # AI instructions
+    ├── SOFIA.md                # Sofia documentation
+    └── README.md               # This file
+```
 
 ### Hierarquia Atomic Design
 

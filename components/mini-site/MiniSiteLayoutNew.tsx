@@ -71,8 +71,8 @@ export default function MiniSiteLayoutNew({ config, children }: MiniSiteLayoutNe
   };
 
   const handleWhatsAppClick = () => {
-    const message = encodeURIComponent(`Olá! Vim pelo site ${config.contactInfo.businessName} e gostaria de mais informações sobre os imóveis disponíveis.`);
-    window.open(`https://wa.me/55${config.contactInfo.whatsappNumber}?text=${message}`, '_blank');
+    const message = encodeURIComponent(`Olá! Vim pelo site ${config?.contactInfo?.businessName || 'seu site'} e gostaria de mais informações sobre os imóveis disponíveis.`);
+    window.open(`https://wa.me/55${config?.contactInfo?.whatsappNumber || ''}?text=${message}`, '_blank');
   };
 
   const menuItems = [
@@ -85,8 +85,8 @@ export default function MiniSiteLayoutNew({ config, children }: MiniSiteLayoutNe
   return (
     <Box sx={{ 
       minHeight: '100vh', 
-      bgcolor: config.theme.backgroundColor,
-      color: config.theme.textColor,
+      bgcolor: config?.theme?.backgroundColor || '#ffffff',
+      color: config?.theme?.textColor || '#1a1a1a',
       position: 'relative'
     }}>
       {/* Header */}
@@ -108,14 +108,14 @@ export default function MiniSiteLayoutNew({ config, children }: MiniSiteLayoutNe
               transition={{ duration: 0.5 }}
             >
               <Stack direction="row" alignItems="center" spacing={2}>
-                {config.contactInfo.businessLogo && (
+                {config?.contactInfo?.businessLogo && (
                   <Avatar
-                    src={config.contactInfo.businessLogo}
-                    alt={config.contactInfo.businessName}
+                    src={config?.contactInfo?.businessLogo}
+                    alt={config?.contactInfo?.businessName || 'Logo'}
                     sx={{ 
                       width: 48, 
                       height: 48,
-                      borderRadius: typeof config.theme.borderRadius === 'number' ? config.theme.borderRadius : 2,
+                      borderRadius: typeof config?.theme?.borderRadius === 'number' ? config?.theme?.borderRadius : 2,
                       boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)'
                     }}
                   />
@@ -125,22 +125,22 @@ export default function MiniSiteLayoutNew({ config, children }: MiniSiteLayoutNe
                     variant="h6"
                     sx={{
                       fontWeight: 700,
-                      color: scrolled ? config.theme.textColor : '#fff',
+                      color: scrolled ? (config?.theme?.textColor || '#1a1a1a') : '#fff',
                       fontSize: { xs: '1.1rem', md: '1.3rem' },
                       textShadow: !scrolled ? '0 2px 4px rgba(0, 0, 0, 0.3)' : 'none',
                     }}
                   >
-                    {config.contactInfo.businessName}
+                    {config?.contactInfo?.businessName || 'Carregando...'}
                   </Typography>
                   <Typography
                     variant="caption"
                     sx={{
-                      color: scrolled ? config.theme.textColor : 'rgba(255, 255, 255, 0.8)',
+                      color: scrolled ? (config?.theme?.textColor || '#1a1a1a') : 'rgba(255, 255, 255, 0.8)',
                       fontSize: '0.75rem',
                       textShadow: !scrolled ? '0 1px 2px rgba(0, 0, 0, 0.3)' : 'none',
                     }}
                   >
-                    {config.contactInfo.businessDescription}
+                    {config?.contactInfo?.businessDescription || ''}
                   </Typography>
                 </Box>
               </Stack>
@@ -162,9 +162,9 @@ export default function MiniSiteLayoutNew({ config, children }: MiniSiteLayoutNe
                       component={Link}
                       href={item.href}
                       sx={{
-                        color: scrolled ? config.theme.textColor : '#fff',
+                        color: scrolled ? (config?.theme?.textColor || '#1a1a1a') : '#fff',
                         fontWeight: 500,
-                        borderRadius: typeof config.theme.borderRadius === 'number' ? config.theme.borderRadius : 2,
+                        borderRadius: typeof config?.theme?.borderRadius === 'number' ? config?.theme?.borderRadius : 2,
                         px: 2,
                         py: 1,
                         textTransform: 'none',
@@ -195,7 +195,7 @@ export default function MiniSiteLayoutNew({ config, children }: MiniSiteLayoutNe
                   bgcolor: '#25D366',
                   color: '#fff',
                   fontWeight: 600,
-                  borderRadius: typeof config.theme.borderRadius === 'number' ? config.theme.borderRadius : 2,
+                  borderRadius: typeof config?.theme?.borderRadius === 'number' ? config?.theme?.borderRadius : 2,
                   px: { xs: 2, md: 3 },
                   py: 1,
                   textTransform: 'none',
@@ -216,7 +216,7 @@ export default function MiniSiteLayoutNew({ config, children }: MiniSiteLayoutNe
               <IconButton
                 onClick={() => setMobileMenuOpen(true)}
                 sx={{
-                  color: scrolled ? config.theme.textColor : '#fff',
+                  color: scrolled ? (config?.theme?.textColor || '#1a1a1a') : '#fff',
                   ml: 1,
                 }}
               >
@@ -235,9 +235,9 @@ export default function MiniSiteLayoutNew({ config, children }: MiniSiteLayoutNe
         sx={{
           '& .MuiDrawer-paper': {
             width: 280,
-            bgcolor: config.theme.backgroundColor,
-            color: config.theme.textColor,
-            borderRadius: `${typeof config.theme.borderRadius === 'number' ? config.theme.borderRadius : 2}px 0 0 ${typeof config.theme.borderRadius === 'number' ? config.theme.borderRadius : 2}px`,
+            bgcolor: config?.theme?.backgroundColor || '#ffffff',
+            color: config?.theme?.textColor || '#1a1a1a',
+            borderRadius: `${typeof config?.theme?.borderRadius === 'number' ? config?.theme?.borderRadius : 2}px 0 0 ${typeof config?.theme?.borderRadius === 'number' ? config?.theme?.borderRadius : 2}px`,
           },
         }}
       >
@@ -259,7 +259,7 @@ export default function MiniSiteLayoutNew({ config, children }: MiniSiteLayoutNe
                 href={item.href}
                 onClick={() => setMobileMenuOpen(false)}
                 sx={{
-                  borderRadius: typeof config.theme.borderRadius === 'number' ? config.theme.borderRadius : 2,
+                  borderRadius: typeof config?.theme?.borderRadius === 'number' ? config?.theme?.borderRadius : 2,
                   mb: 1,
                   '&:hover': {
                     bgcolor: 'rgba(0, 0, 0, 0.05)',
@@ -290,7 +290,7 @@ export default function MiniSiteLayoutNew({ config, children }: MiniSiteLayoutNe
                 bgcolor: '#25D366',
                 color: '#fff',
                 fontWeight: 600,
-                borderRadius: typeof config.theme.borderRadius === 'number' ? config.theme.borderRadius : 2,
+                borderRadius: typeof config?.theme?.borderRadius === 'number' ? config?.theme?.borderRadius : 2,
                 py: 1.5,
                 textTransform: 'none',
                 fontSize: '1rem',
@@ -316,8 +316,8 @@ export default function MiniSiteLayoutNew({ config, children }: MiniSiteLayoutNe
       <Box
         component="footer"
         sx={{
-          bgcolor: config.theme.textColor,
-          color: config.theme.backgroundColor,
+          bgcolor: config?.theme?.textColor || '#1a1a1a',
+          color: config?.theme?.backgroundColor || '#ffffff',
           py: 4,
           mt: 6,
         }}
@@ -332,15 +332,15 @@ export default function MiniSiteLayoutNew({ config, children }: MiniSiteLayoutNe
             >
               <Box sx={{ textAlign: { xs: 'center', md: 'left' } }}>
                 <Typography variant="h6" sx={{ fontWeight: 700, mb: 1 }}>
-                  {config.contactInfo.businessName}
+                  {config?.contactInfo?.businessName || ''}
                 </Typography>
                 <Typography variant="body2" sx={{ opacity: 0.8, mb: 2 }}>
-                  {config.contactInfo.businessDescription}
+                  {config?.contactInfo?.businessDescription || ''}
                 </Typography>
               </Box>
 
               <Stack direction="row" spacing={2}>
-                {config.contactInfo.whatsappNumber && (
+                {config?.contactInfo?.whatsappNumber && (
                   <Tooltip title="WhatsApp">
                     <IconButton
                       onClick={handleWhatsAppClick}
@@ -356,16 +356,16 @@ export default function MiniSiteLayoutNew({ config, children }: MiniSiteLayoutNe
                     </IconButton>
                   </Tooltip>
                 )}
-                {config.contactInfo.email && (
+                {config?.contactInfo?.email && (
                   <Tooltip title="Email">
                     <IconButton
                       component={Link}
-                      href={`mailto:${config.contactInfo.email}`}
+                      href={`mailto:${config?.contactInfo?.email || ''}`}
                       sx={{
-                        bgcolor: config.theme.primaryColor,
+                        bgcolor: config?.theme?.primaryColor || '#1976d2',
                         color: '#fff',
                         '&:hover': {
-                          bgcolor: config.theme.secondaryColor,
+                          bgcolor: config?.theme?.secondaryColor || '#dc004e',
                         },
                       }}
                     >
@@ -385,7 +385,7 @@ export default function MiniSiteLayoutNew({ config, children }: MiniSiteLayoutNe
               spacing={2}
             >
               <Typography variant="body2" sx={{ opacity: 0.7 }}>
-                © {new Date().getFullYear()} {config.contactInfo.businessName}. Todos os direitos reservados.
+                © {new Date().getFullYear()} {config?.contactInfo?.businessName || ''}. Todos os direitos reservados.
               </Typography>
               <Typography variant="body2" sx={{ opacity: 0.7 }}>
                 Powered by LocAI
@@ -420,12 +420,12 @@ export default function MiniSiteLayoutNew({ config, children }: MiniSiteLayoutNe
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  bgcolor: config.theme.primaryColor,
+                  bgcolor: config?.theme?.primaryColor || '#1976d2',
                   color: '#fff',
                   cursor: 'pointer',
                   transition: 'all 0.2s ease',
                   '&:hover': {
-                    bgcolor: config.theme.secondaryColor,
+                    bgcolor: config?.theme?.secondaryColor || '#dc004e',
                     transform: 'scale(1.1)',
                   },
                 }}

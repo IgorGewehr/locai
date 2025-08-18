@@ -53,6 +53,7 @@ import {
 import { useParams } from 'next/navigation';
 import { MiniSiteConfig, PublicProperty } from '@/lib/types/mini-site';
 import { formatCurrency } from '@/lib/utils/format';
+import { getDefaultMiniSiteConfig } from '@/lib/utils/mini-site-defaults';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useRouter } from 'next/navigation';
 
@@ -318,7 +319,7 @@ export default function MiniSitePage() {
 
   if (loading) {
     return (
-      <MiniSiteLayoutNew config={config || {} as MiniSiteConfig}>
+      <MiniSiteLayoutNew config={config || getDefaultMiniSiteConfig(tenantId)}>
         <Box sx={{ minHeight: '100vh', bgcolor: '#f8fafc' }}>
           <Container maxWidth="lg" sx={{ py: 4 }}>
             <motion.div
@@ -344,7 +345,7 @@ export default function MiniSitePage() {
 
   if (error) {
     return (
-      <MiniSiteLayoutNew config={config || {} as MiniSiteConfig}>
+      <MiniSiteLayoutNew config={config || getDefaultMiniSiteConfig(tenantId)}>
         <Box sx={{ minHeight: '100vh', bgcolor: '#f8fafc', display: 'flex', alignItems: 'center' }}>
           <Container maxWidth="sm">
             <motion.div

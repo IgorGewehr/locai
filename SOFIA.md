@@ -1,30 +1,30 @@
-# SOFIA - Documentação Técnica Completa v5.0
+# SOFIA - Sistema de IA Avançado com LangChain Enhanced Intent Detection v5.0
 
-> **Sofia v5.0** - Agente de IA Conversacional com Enhanced Intent Detection  
+> **Sofia v5.0** - Agente de IA Conversacional Enterprise-Grade  
 > **Versão**: 5.0.0 (Agosto 2025)  
-> **Status**: Produção Enterprise-Grade com LangChain  
-> **Modelo**: GPT-4o Mini + LangChain Intent Detection  
-> **Arquitetura**: Multi-tenant com WhatsApp Web Real + Enhanced Detection
+> **Status**: 🟢 PRODUÇÃO com LangChain Enhanced Detection  
+> **Modelo**: GPT-4o Mini + @langchain/openai v0.6.7  
+> **Performance**: <1s resposta | 80%+ precisão | 100% ativo
 
 ---
 
-## 📋 Índice
+## 📋 Índice Completo
 
 1. [Visão Geral](#-visão-geral)
-2. [🎯 NEW: Enhanced Intent Detection](#-new-enhanced-intent-detection)
+2. [🎯 Enhanced Intent Detection com LangChain](#-enhanced-intent-detection-com-langchain)
 3. [Arquitetura Enterprise v5](#-arquitetura-enterprise-v5)
-4. [Estrutura de Arquivos](#-estrutura-de-arquivos)
-5. [Componentes Principais](#-componentes-principais)
-6. [Sistema de Detecção de Intenção](#-sistema-de-detecção-de-intenção)
-7. [Funções de IA (20 Funções)](#-funções-de-ia)
-8. [Performance Optimizations](#-performance-optimizations)
-9. [Sistema de Memória e Contexto](#-sistema-de-memória-e-contexto)
-10. [WhatsApp Web Integration](#-whatsapp-web-integration)
-11. [Multi-tenant Architecture](#-multi-tenant-architecture)
-12. [Sistema de Logs Profissional](#-sistema-de-logs-profissional)
-13. [Testing e Debug](#-testing-e-debug)
-14. [Deployment](#-deployment)
-15. [Métricas e KPIs](#-métricas-e-kpis)
+4. [Estrutura Detalhada de Arquivos](#-estrutura-detalhada-de-arquivos)
+5. [Sistema de Funções (20 Funções)](#-sistema-de-funções-20-funções)
+6. [Performance Optimizations](#-performance-optimizations)
+7. [Sistema de Memória e Contexto](#-sistema-de-memória-e-contexto)
+8. [Fluxo de Processamento](#-fluxo-de-processamento)
+9. [WhatsApp Integration](#-whatsapp-integration)
+10. [Multi-tenant Architecture](#-multi-tenant-architecture)
+11. [Sistema de Logs e Monitoramento](#-sistema-de-logs-e-monitoramento)
+12. [Testing e Debug](#-testing-e-debug)
+13. [Deployment e Configuração](#-deployment-e-configuração)
+14. [Métricas e KPIs](#-métricas-e-kpis)
+15. [Troubleshooting](#-troubleshooting)
 
 ---
 

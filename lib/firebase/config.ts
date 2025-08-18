@@ -1,8 +1,15 @@
 import { initializeApp, getApps, getApp } from 'firebase/app';
-import { getFirestore } from 'firebase/firestore';
+import { 
+  getFirestore,
+  initializeFirestore,
+  memoryLocalCache,
+  persistentLocalCache,
+  persistentMultipleTabManager
+} from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
 import { getAuth } from 'firebase/auth';
 import { getAnalytics } from 'firebase/analytics';
+import { logger } from '@/lib/utils/logger';
 
 // Hardcoded Firebase configuration
 const firebaseConfig = {
@@ -27,7 +34,28 @@ if (typeof window !== 'undefined' && process.env.NODE_ENV === 'development') {
 const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
 
 // Initialize Firebase services with enhanced configurations
-export const db = getFirestore(app);
+let db: ReturnType<typeof getFirestore>;
+
+try {
+  // Try to initialize with optimized settings
+  if (typeof window !== 'undefined' && !getApps().some(a => a.name === '[DEFAULT]')) {
+    // Client-side: Use memory cache to avoid IndexedDB issues
+    db = initializeFirestore(app, {
+      localCache: memoryLocalCache(),
+      ignoreUndefinedProperties: true,
+    });
+    logger.info('🔥 Firestore initialized with memory cache');
+  } else {
+    // Server-side or already initialized: Use standard initialization
+    db = getFirestore(app);
+  }
+} catch (error) {
+  // Fallback to standard initialization
+  logger.warn('⚠️ Using standard Firestore initialization');
+  db = getFirestore(app);
+}
+
+export { db };
 export const storage = getStorage(app);
 export const auth = getAuth(app);
 
