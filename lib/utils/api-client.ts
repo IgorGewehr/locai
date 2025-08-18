@@ -5,6 +5,8 @@ import { auth } from '@/lib/firebase/config';
  */
 export class ApiClient {
   private static tokenCache: { token: string; expiry: number; email: string } | null = null;
+  private static isProduction = process.env.NODE_ENV === 'production';
+  private static debug = process.env.NEXT_PUBLIC_DEBUG_API === 'true';
   
   private static async getAuthHeaders(): Promise<HeadersInit> {
     try {
@@ -24,7 +26,7 @@ export class ApiClient {
       if (this.tokenCache && 
           this.tokenCache.expiry > now + 60000 && // 1 minute buffer
           this.tokenCache.email === currentEmail) {
-        console.log('🔄 [ApiClient] Using cached token for user:', currentEmail);
+        if (this.debug) console.log('🔄 [ApiClient] Using cached token for user:', currentEmail);
         return {
           'Authorization': `Bearer ${this.tokenCache.token}`,
           'Content-Type': 'application/json',
@@ -37,7 +39,7 @@ export class ApiClient {
       
       for (let attempt = 1; attempt <= maxRetries; attempt++) {
         try {
-          console.log(`🔄 [ApiClient] Getting token attempt ${attempt}/${maxRetries} for user:`, currentEmail);
+          if (this.debug) console.log(`🔄 [ApiClient] Getting token attempt ${attempt}/${maxRetries} for user:`, currentEmail);
           
           // Strategy 1: Force refresh
           if (attempt === 1) {
@@ -66,10 +68,12 @@ export class ApiClient {
                 email: currentEmail || 'unknown'
               };
               
-              console.log('✅ [ApiClient] Fresh token obtained for user:', currentEmail, {
-                tokenLength: token.length,
-                expiresIn: Math.round((expiry - now) / 1000 / 60) + ' minutes'
-              });
+              if (this.debug) {
+                console.log('✅ [ApiClient] Fresh token obtained for user:', currentEmail, {
+                  tokenLength: token.length,
+                  expiresIn: Math.round((expiry - now) / 1000 / 60) + ' minutes'
+                });
+              }
               
               return {
                 'Authorization': `Bearer ${token}`,
@@ -137,7 +141,7 @@ export class ApiClient {
           },
         };
 
-        console.log(`🌐 [ApiClient] Making request attempt ${attempt}/${maxRetries} to:`, url);
+        if (this.debug) console.log(`🌐 [ApiClient] Making request attempt ${attempt}/${maxRetries} to:`, url);
         
         const response = await fetch(url, config);
         
@@ -155,7 +159,7 @@ export class ApiClient {
         if (!response.ok) {
           console.warn(`⚠️ [ApiClient] Request failed with status ${response.status} on attempt ${attempt}`);
         } else {
-          console.log(`✅ [ApiClient] Request successful on attempt ${attempt}`);
+          if (this.debug) console.log(`✅ [ApiClient] Request successful on attempt ${attempt}`);
         }
         
         return response;

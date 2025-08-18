@@ -71,6 +71,7 @@ export function OptimizedQRManager({
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const startTimeRef = useRef<number | null>(null);
   const responseTimesRef = useRef<number[]>([]);
+  const isInitializingRef = useRef(false);
 
   // OPTIMIZED: Intelligent polling with exponential backoff
   const INITIAL_POLL_INTERVAL = 5000; // 5s instead of 3s
@@ -166,7 +167,8 @@ export function OptimizedQRManager({
 
   const startPolling = useCallback(() => {
     if (pollingIntervalRef.current) {
-      clearInterval(pollingIntervalRef.current);
+      clearTimeout(pollingIntervalRef.current);
+      pollingIntervalRef.current = null;
     }
 
     let attemptCount = 0;
@@ -196,11 +198,14 @@ export function OptimizedQRManager({
       const nextInterval = calculateNextPollInterval(attemptCount);
       pollingIntervalRef.current = setTimeout(poll, nextInterval);
       
-      logger.info('⏱️ [QR Manager] Next poll scheduled', {
-        attempt: attemptCount,
-        nextInterval: `${nextInterval/1000}s`,
-        elapsed: startTimeRef.current ? `${Math.round((Date.now() - startTimeRef.current)/1000)}s` : 'unknown'
-      });
+      // Only log in debug mode to reduce console noise
+      if (process.env.NEXT_PUBLIC_DEBUG_QR === 'true') {
+        logger.info('⏱️ [QR Manager] Next poll scheduled', {
+          attempt: attemptCount,
+          nextInterval: `${nextInterval/1000}s`,
+          elapsed: startTimeRef.current ? `${Math.round((Date.now() - startTimeRef.current)/1000)}s` : 'unknown'
+        });
+      }
     };
 
     // Start immediately
@@ -209,12 +214,19 @@ export function OptimizedQRManager({
 
   const stopPolling = useCallback(() => {
     if (pollingIntervalRef.current) {
-      clearInterval(pollingIntervalRef.current);
+      clearTimeout(pollingIntervalRef.current);
       pollingIntervalRef.current = null;
     }
   }, []);
 
   const initializeSession = useCallback(async () => {
+    // Prevent multiple simultaneous initializations
+    if (isInitializingRef.current) {
+      logger.warn('⚠️ [QR Manager] Session initialization already in progress');
+      return;
+    }
+    
+    isInitializingRef.current = true;
     setLoading(true);
     setError(null);
     setRetryCount(0);
@@ -246,6 +258,7 @@ export function OptimizedQRManager({
       setError(error.message);
     } finally {
       setLoading(false);
+      isInitializingRef.current = false;
     }
   }, [apiClient, startPolling]);
 
@@ -257,14 +270,21 @@ export function OptimizedQRManager({
   // Effect to start session when dialog opens
   useEffect(() => {
     if (open) {
-      initializeSession();
+      // Add a small delay to prevent immediate initialization on rapid open/close
+      const initTimer = setTimeout(() => {
+        if (open) {
+          initializeSession();
+        }
+      }, 100);
+      
+      return () => {
+        clearTimeout(initTimer);
+        stopPolling();
+      };
     } else {
       stopPolling();
+      isInitializingRef.current = false;
     }
-
-    return () => {
-      stopPolling();
-    };
   }, [open, initializeSession, stopPolling]);
 
   const getStatusColor = () => {

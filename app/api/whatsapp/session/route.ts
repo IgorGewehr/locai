@@ -23,9 +23,10 @@ const verifyAuth = (forceRailwayAuth || isRailwayProduction) ? verifyAuthRailway
 
 
 // OPTIMIZED: Cache to prevent excessive API calls with intelligent duration
-const statusCache = new Map<string, { data: any; timestamp: number; lastQRGeneration?: number }>();
+const statusCache = new Map<string, { data: any; timestamp: number; lastQRGeneration?: number; initInProgress?: boolean }>();
 const CACHE_DURATION = useExternalService ? 10000 : 5000; // 10s for external, 5s for local
-const QR_CACHE_DURATION = 45000; // QR codes cached for 45s to match regeneration cycle
+const QR_CACHE_DURATION = 60000; // QR codes cached for 60s to prevent regeneration loops
+const INIT_COOLDOWN = 30000; // 30s cooldown between session initializations
 
 // WhatsApp Web is always enabled now - either via external microservice or local
 const WHATSAPP_WEB_DISABLED = false;
@@ -43,24 +44,30 @@ async function getWhatsAppClient(tenantId: string) {
   }
   
   try {
-    logger.info('🏭 [API Session] Creating WhatsApp client', {
-      tenantId: tenantId.substring(0, 8) + '***',
-      useExternal: useExternalService,
-      hasExternalConfig,
-      microserviceUrl: process.env.WHATSAPP_MICROSERVICE_URL ? '✅ Set' : '❌ Missing',
-      endpoint: 'GET /api/whatsapp/session',
-      clientSelection: 'via_factory'
-    });
+    // Only log client creation in debug mode
+    if (process.env.NEXT_PUBLIC_DEBUG_API === 'true') {
+      logger.info('🏭 [API Session] Creating WhatsApp client', {
+        tenantId: tenantId.substring(0, 8) + '***',
+        useExternal: useExternalService,
+        hasExternalConfig,
+        microserviceUrl: process.env.WHATSAPP_MICROSERVICE_URL ? '✅ Set' : '❌ Missing',
+        endpoint: 'GET /api/whatsapp/session',
+        clientSelection: 'via_factory'
+      });
+    }
     
     const client = createWhatsAppClient(tenantId);
     clientCache.set(tenantId, client);
     
-    logger.info('✅ [API Session] WhatsApp client created', {
-      tenantId: tenantId.substring(0, 8) + '***',
-      clientType: getWhatsAppClientConfig().type,
-      factoryResult: 'success',
-      nextStep: 'get_connection_status'
-    });
+    // Only log client creation success in debug mode
+    if (process.env.NEXT_PUBLIC_DEBUG_API === 'true') {
+      logger.info('✅ [API Session] WhatsApp client created', {
+        tenantId: tenantId.substring(0, 8) + '***',
+        clientType: getWhatsAppClientConfig().type,
+        factoryResult: 'success',
+        nextStep: 'get_connection_status'
+      });
+    }
     
     return client;
     
@@ -97,12 +104,15 @@ export async function GET(request: NextRequest) {
       const effectiveDuration = isQRPresent ? QR_CACHE_DURATION : CACHE_DURATION;
       
       if (cacheAge < effectiveDuration) {
-        logger.info('✅ [Cache Hit] Returning cached status', {
-          tenantId: tenantId.substring(0, 8) + '***',
-          cacheAge: `${Math.round(cacheAge/1000)}s`,
-          hasQR: isQRPresent,
-          effectiveDuration: `${effectiveDuration/1000}s`
-        });
+        // Only log cache hits in debug mode
+        if (process.env.NEXT_PUBLIC_DEBUG_API === 'true') {
+          logger.info('✅ [Cache Hit] Returning cached status', {
+            tenantId: tenantId.substring(0, 8) + '***',
+            cacheAge: `${Math.round(cacheAge/1000)}s`,
+            hasQR: isQRPresent,
+            effectiveDuration: `${effectiveDuration/1000}s`
+          });
+        }
         
         return NextResponse.json({
           success: true,
@@ -144,12 +154,15 @@ export async function GET(request: NextRequest) {
       lastQRGeneration: formattedStatus.qrCode ? Date.now() : cached?.lastQRGeneration
     });
     
-    logger.info('📦 [Cache Update] Status cached', {
-      tenantId: tenantId.substring(0, 8) + '***',
-      status: formattedStatus.status,
-      hasQR: !!formattedStatus.qrCode,
-      cacheStrategy: formattedStatus.qrCode ? 'QR_EXTENDED' : 'STANDARD'
-    });
+    // Only log cache updates in debug mode
+    if (process.env.NEXT_PUBLIC_DEBUG_API === 'true') {
+      logger.info('📦 [Cache Update] Status cached', {
+        tenantId: tenantId.substring(0, 8) + '***',
+        status: formattedStatus.status,
+        hasQR: !!formattedStatus.qrCode,
+        cacheStrategy: formattedStatus.qrCode ? 'QR_EXTENDED' : 'STANDARD'
+      });
+    }
 
     return NextResponse.json({
       success: true,
@@ -187,6 +200,42 @@ export async function POST(request: NextRequest) {
     }
 
     const tenantId = user.tenantId || user.uid;
+    
+    // Check if there's a recent QR or initialization in progress
+    const cached = statusCache.get(tenantId);
+    if (cached) {
+      // If QR was generated recently, return it instead of generating new one
+      if (cached.data?.qrCode && (Date.now() - cached.timestamp < QR_CACHE_DURATION)) {
+        logger.info('🔄 [Session POST] Returning existing QR to prevent regeneration', {
+          tenantId: tenantId.substring(0, 8) + '***',
+          qrAge: `${Math.round((Date.now() - cached.timestamp)/1000)}s`
+        });
+        return NextResponse.json({
+          success: true,
+          data: cached.data,
+        });
+      }
+      
+      // If initialization is in progress, wait and return cached data
+      if (cached.initInProgress && (Date.now() - cached.timestamp < INIT_COOLDOWN)) {
+        logger.warn('⚠️ [Session POST] Initialization already in progress', {
+          tenantId: tenantId.substring(0, 8) + '***',
+          cooldownRemaining: `${Math.round((INIT_COOLDOWN - (Date.now() - cached.timestamp))/1000)}s`
+        });
+        return NextResponse.json({
+          success: true,
+          data: cached.data || { status: 'initializing', message: 'Session initialization in progress' },
+        });
+      }
+    }
+    
+    // Mark initialization as in progress
+    statusCache.set(tenantId, {
+      data: cached?.data || { status: 'initializing' },
+      timestamp: Date.now(),
+      initInProgress: true,
+      lastQRGeneration: cached?.lastQRGeneration
+    });
     
     // WhatsApp Web SEMPRE HABILITADO - NUNCA RETORNAR DISABLED
     // Este check foi removido para garantir funcionamento em produção
@@ -269,6 +318,14 @@ export async function POST(request: NextRequest) {
     }
 
 
+    // Update cache with the new status and clear init flag
+    statusCache.set(tenantId, {
+      data: status,
+      timestamp: Date.now(),
+      lastQRGeneration: status.qrCode ? Date.now() : cached?.lastQRGeneration,
+      initInProgress: false
+    });
+    
     return NextResponse.json({
       success: true,
       data: status,

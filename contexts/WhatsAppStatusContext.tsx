@@ -93,7 +93,7 @@ export function WhatsAppStatusProvider({ children }: { children: React.ReactNode
         interval = 10000; // Medium polling when disconnected
         break;
       case 'connected':
-        interval = 30000; // Slow polling when stable
+        interval = 60000; // Slow polling when stable (1 minute)
         break;
     }
 
