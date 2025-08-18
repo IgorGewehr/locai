@@ -74,6 +74,7 @@ export default function SettingsPage() {
   const [connectionProgress, setConnectionProgress] = useState(0);
   const [qrExpireTimer, setQrExpireTimer] = useState<NodeJS.Timeout | null>(null);
   const [localQrSession, setLocalQrSession] = useState<WhatsAppSession | null>(null);
+  const [connectionCheckInterval, setConnectionCheckInterval] = useState<NodeJS.Timeout | null>(null);
 
   // Profile states
   const [profileLoading, setProfileLoading] = useState(false);
@@ -107,6 +108,44 @@ export default function SettingsPage() {
       currentConnected: currentSession.connected
     });
   }, [localQrSession, whatsappSession, currentSession]);
+
+  // Monitor connection status changes for automatic dialog closing
+  useEffect(() => {
+    if (currentSession.connected && qrDialogOpen) {
+      // Connection successful! Show success feedback and close dialog
+      console.log('🎉 [Settings] Connection successful, closing QR dialog');
+      
+      // Clear any existing timers
+      if (qrExpireTimer) {
+        clearTimeout(qrExpireTimer);
+        setQrExpireTimer(null);
+      }
+      if (connectionCheckInterval) {
+        clearInterval(connectionCheckInterval);
+        setConnectionCheckInterval(null);
+      }
+      
+      // Show success message
+      setSuccess('🎉 WhatsApp conectado com sucesso!');
+      setConnectionProgress(100);
+      
+      // Clear local QR session since we're connected
+      setLocalQrSession(null);
+      
+      // Close dialog after a brief success display
+      setTimeout(() => {
+        setQrDialogOpen(false);
+        setUserClosedDialog(false);
+        setConnecting(false);
+        setConnectionProgress(0);
+      }, 2000);
+      
+      // Clear success message after a bit longer
+      setTimeout(() => {
+        setSuccess(null);
+      }, 4000);
+    }
+  }, [currentSession.connected, qrDialogOpen, qrExpireTimer, connectionCheckInterval]);
 
   // Auto-open QR dialog when QR code is available (only if user didn't close it manually)
   useEffect(() => {
@@ -273,6 +312,14 @@ export default function SettingsPage() {
           
           // Open dialog immediately for better UX
           setTimeout(() => setQrDialogOpen(true), 200);
+          
+          // Start polling for connection status every 3 seconds
+          const checkConnection = setInterval(() => {
+            console.log('🔄 [Settings] Checking connection status while QR is displayed');
+            refreshStatus();
+          }, 3000);
+          
+          setConnectionCheckInterval(checkConnection);
         } else if (data.data.connected) {
           setConnectionProgress(100);
           setSuccess('Já conectado!');
@@ -306,10 +353,14 @@ export default function SettingsPage() {
   const disconnectWhatsApp = async () => {
     setLoading(true);
     
-    // Clear QR expiration timer
+    // Clear all timers
     if (qrExpireTimer) {
       clearTimeout(qrExpireTimer);
       setQrExpireTimer(null);
+    }
+    if (connectionCheckInterval) {
+      clearInterval(connectionCheckInterval);
+      setConnectionCheckInterval(null);
     }
     
     try {
@@ -1066,6 +1117,16 @@ export default function SettingsPage() {
         onClose={() => {
           setQrDialogOpen(false);
           setUserClosedDialog(true); // Mark that user manually closed
+          
+          // Clear timers when dialog is closed manually
+          if (qrExpireTimer) {
+            clearTimeout(qrExpireTimer);
+            setQrExpireTimer(null);
+          }
+          if (connectionCheckInterval) {
+            clearInterval(connectionCheckInterval);
+            setConnectionCheckInterval(null);
+          }
         }}
         maxWidth="sm"
         fullWidth
@@ -1096,6 +1157,16 @@ export default function SettingsPage() {
             onClick={() => {
               setQrDialogOpen(false);
               setUserClosedDialog(true); // Mark that user manually closed
+              
+              // Clear timers when dialog is closed manually
+              if (qrExpireTimer) {
+                clearTimeout(qrExpireTimer);
+                setQrExpireTimer(null);
+              }
+              if (connectionCheckInterval) {
+                clearInterval(connectionCheckInterval);
+                setConnectionCheckInterval(null);
+              }
             }} 
             sx={{ 
               color: 'rgba(255,255,255,0.7)',
@@ -1117,7 +1188,50 @@ export default function SettingsPage() {
           py: 3,
           px: 3,
         }}>
-          {currentSession.qrCode ? (
+          {currentSession.connected ? (
+            // Success state
+            <Box sx={{ textAlign: 'center', py: 4 }}>
+              <Box sx={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                width: 120,
+                height: 120,
+                backgroundColor: '#22c55e',
+                borderRadius: '50%',
+                mb: 3,
+                animation: 'success-pulse 1s ease-in-out',
+                '@keyframes success-pulse': {
+                  '0%': { transform: 'scale(0.8)', opacity: 0.7 },
+                  '50%': { transform: 'scale(1.1)', opacity: 1 },
+                  '100%': { transform: 'scale(1)', opacity: 1 },
+                }
+              }}>
+                <CheckCircle sx={{ fontSize: 60, color: 'white' }} />
+              </Box>
+              
+              <Typography 
+                variant="h6" 
+                sx={{ 
+                  color: '#22c55e',
+                  fontWeight: 600,
+                  mb: 1
+                }}
+              >
+                Conectado com Sucesso!
+              </Typography>
+              
+              <Typography 
+                variant="body2" 
+                sx={{ 
+                  color: 'rgba(255,255,255,0.7)',
+                  mb: 2
+                }}
+              >
+                Seu WhatsApp foi conectado à plataforma
+              </Typography>
+            </Box>
+          ) : currentSession.qrCode ? (
             <Box>
               <Box sx={{
                 display: 'inline-block',
