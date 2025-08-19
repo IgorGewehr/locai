@@ -1,12 +1,14 @@
-// WhatsApp Web Message Sender - Real Implementation
-// Integração completa com Baileys WhatsApp Web API
+// WhatsApp Web Message Sender - Microservice Integration
+// Integração com WhatsApp Microservice na DigitalOcean
 
 import { logger } from '@/lib/utils/logger';
 import { createSettingsService } from '@/lib/services/settings-service';
 import { whatsAppCloudAPI } from './whatsapp-cloud-api';
+import { whatsappMicroserviceClient } from './microservice-client';
 
-// Use Baileys by default (works perfectly in Railway)
-const USE_BAILEYS = process.env.WHATSAPP_USE_CLOUD_API !== 'true';
+// Use microservice for production (DigitalOcean)
+const USE_MICROSERVICE = process.env.WHATSAPP_USE_MICROSERVICE !== 'false';
+const USE_BAILEYS = process.env.WHATSAPP_USE_CLOUD_API !== 'true' && !USE_MICROSERVICE;
 
 /**
  * Send WhatsApp message using WhatsApp Web API (Baileys)
@@ -26,10 +28,40 @@ export async function sendWhatsAppMessage(
       phoneNumber: phoneNumber.substring(0, 6) + '***',
       messageLength: message.length,
       hasMedia: !!mediaUrl,
-      tenantId: resolvedTenantId.substring(0, 8) + '***'
+      tenantId: resolvedTenantId.substring(0, 8) + '***',
+      usesMicroservice: USE_MICROSERVICE
     });
 
-    // Use Baileys first (preferred for Railway production)
+    // PRIORIDADE 1: Use microservice (DigitalOcean production)
+    if (USE_MICROSERVICE) {
+      logger.info('🚀 Using WhatsApp Microservice (DigitalOcean production)');
+      
+      try {
+        const success = await whatsappMicroserviceClient.sendMessage(
+          resolvedTenantId,
+          phoneNumber,
+          message,
+          mediaUrl
+        );
+        
+        if (success) {
+          logger.info('✅ [WhatsAppSender] Mensagem enviada via microservice', {
+            phoneNumber: phoneNumber.substring(0, 6) + '***',
+            tenantId: resolvedTenantId.substring(0, 8) + '***'
+          });
+          return true;
+        } else {
+          logger.warn('⚠️ [WhatsAppSender] Microservice falhou ao enviar mensagem');
+        }
+      } catch (error) {
+        logger.error('❌ [WhatsAppSender] Erro ao usar microservice', {
+          errorMessage: error instanceof Error ? error.message : 'Unknown',
+          tenantId: resolvedTenantId.substring(0, 8) + '***'
+        });
+      }
+    }
+
+    // PRIORIDADE 2: Use Baileys local (fallback)
     if (USE_BAILEYS) {
       logger.info('📱 Using Baileys WhatsApp Web (Railway production-ready)');
       

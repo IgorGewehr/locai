@@ -3921,7 +3921,7 @@ export async function createLead(args: CreateLeadArgs, tenantId: string): Promis
     const newLead: Partial<Lead> = {
       tenantId,
       name: args.name || 'Lead WhatsApp',
-      email: args.email,
+      email: args.email || '', // Firestore não aceita undefined
       phone: args.phone,
       whatsappNumber: args.whatsappNumber || args.phone,
       
