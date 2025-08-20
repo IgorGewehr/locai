@@ -67,7 +67,15 @@ export function VisitsDebugPanel() {
 
     // Test 3: API GET /api/visits
     try {
-      const response = await fetch('/api/visits');
+      // Obter token do localStorage
+      const token = localStorage.getItem('auth_token');
+      
+      const response = await fetch('/api/visits', {
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token && { 'Authorization': `Bearer ${token}` })
+        }
+      });
       const data = await response.json();
       
       newResults.push({
@@ -104,10 +112,14 @@ export function VisitsDebugPanel() {
 
     try {
       // Fazemos uma tentativa de POST para ver se a API aceita
+      // Obter token do localStorage
+      const token = localStorage.getItem('auth_token');
+      
       const response = await fetch('/api/visits', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          ...(token && { 'Authorization': `Bearer ${token}` })
         },
         body: JSON.stringify(mockData)
       });

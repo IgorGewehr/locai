@@ -265,13 +265,18 @@ export const PropertyPricing: React.FC = () => {
               </Typography>
               <FormField
                 name={`paymentMethodSurcharges.${method}`}
-                label="Acréscimo (%)"
+                label="Acréscimo/Desconto (%)"
                 type="number"
                 size="small"
+                inputProps={{
+                  min: -50,
+                  max: 100,
+                  step: 0.1
+                }}
                 InputProps={{
                   endAdornment: <InputAdornment position="end">%</InputAdornment>,
                 }}
-                helperText="0% = sem acréscimo"
+                helperText="Positivo = acréscimo, Negativo = desconto"
                 sx={{
                   '& .MuiInputLabel-root': {
                     fontSize: '0.75rem',
@@ -399,7 +404,7 @@ export const PropertyPricing: React.FC = () => {
                     Bloqueie datas de manutenção preventivamente
                   </Typography>
                   <Typography component="li" variant="body2">
-                    PIX normalmente tem desconto (0-5% menos)
+                    PIX: use valores negativos para descontos (-3% = 3% desconto)
                   </Typography>
                 </Box>
               </Grid>

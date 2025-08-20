@@ -23,10 +23,14 @@ export function useVisits() {
 
       logger.info('🔄 [useVisits] Fetching visits via API', { tenantId });
 
+      // Obter token do localStorage
+      const token = localStorage.getItem('auth_token');
+      
       const response = await fetch('/api/visits', {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
+          ...(token && { 'Authorization': `Bearer ${token}` })
         }
       });
 
@@ -89,10 +93,14 @@ export function useUpcomingVisits(days: number = 7) {
 
       logger.info('🔄 [useUpcomingVisits] Fetching upcoming visits via API', { tenantId, days });
 
+      // Obter token do localStorage
+      const token = localStorage.getItem('auth_token');
+
       const response = await fetch(`/api/visits?days=${days}`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
+          ...(token && { 'Authorization': `Bearer ${token}` })
         }
       });
 
@@ -163,10 +171,14 @@ export function useTodayVisits() {
 
       logger.info('🔄 [useTodayVisits] Fetching today visits via API', { tenantId });
 
+      // Obter token do localStorage
+      const token = localStorage.getItem('auth_token');
+
       const response = await fetch('/api/visits?days=1', {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
+          ...(token && { 'Authorization': `Bearer ${token}` })
         }
       });
 

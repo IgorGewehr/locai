@@ -86,10 +86,10 @@ export const propertySchema = yup.object({
   paymentMethodSurcharges: yup
     .object()
     .shape({
-      [PaymentMethod.CREDIT_CARD]: yup.number().min(0).max(50),
-      [PaymentMethod.PIX]: yup.number().min(0).max(50),
-      [PaymentMethod.CASH]: yup.number().min(0).max(50),
-      [PaymentMethod.BANK_TRANSFER]: yup.number().min(0).max(50),
+      [PaymentMethod.CREDIT_CARD]: yup.number().min(-50, 'Desconto máximo de 50%').max(100, 'Acréscimo máximo de 100%'),
+      [PaymentMethod.PIX]: yup.number().min(-50, 'Desconto máximo de 50%').max(100, 'Acréscimo máximo de 100%'),
+      [PaymentMethod.CASH]: yup.number().min(-50, 'Desconto máximo de 50%').max(100, 'Acréscimo máximo de 100%'),
+      [PaymentMethod.BANK_TRANSFER]: yup.number().min(-50, 'Desconto máximo de 50%').max(100, 'Acréscimo máximo de 100%'),
     }),
   
   photos: yup

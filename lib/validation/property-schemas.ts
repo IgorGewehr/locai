@@ -38,10 +38,10 @@ export const PropertyVideoSchema = z.object({
 export const PropertyPhotoUpdateSchema = PropertyPhotoSchema
 export const PropertyVideoUpdateSchema = PropertyVideoSchema
 
-// Schema for payment surcharges
+// Schema for payment surcharges (permite valores negativos para descontos)
 export const PaymentSurchargesSchema = z.record(
   z.nativeEnum(PaymentMethod),
-  z.number().min(0).max(100)
+  z.number().min(-50, 'Desconto máximo de 50%').max(100, 'Acréscimo máximo de 100%')
 )
 
 // Schema for creating a property
