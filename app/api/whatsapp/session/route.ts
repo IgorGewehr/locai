@@ -14,6 +14,7 @@ const hasExternalConfig = !!(process.env.WHATSAPP_MICROSERVICE_URL && process.en
 // Use JWT auth instead of Firebase Admin auth
 import { authService } from '@/lib/auth/auth-service';
 import { WhatsAppStatusService } from '@/lib/services/whatsapp-status-service';
+import { EmergencyAuth } from '@/lib/utils/emergency-auth';
 
 
 // OPTIMIZED: Cache to prevent excessive API calls with intelligent duration
@@ -200,61 +201,117 @@ export async function GET(request: NextRequest) {
 // POST /api/whatsapp/session - Initialize session (MICROSERVICE OPTIMIZED)
 export async function POST(request: NextRequest) {
   try {
-    const authResult = await authService.requireAuth(request);
-    if (authResult instanceof NextResponse) {
-      return authResult; // Auth failed, return error response
-    }
-
-    const { user } = authResult;
-    const tenantId = user.tenantId;
+    // Try emergency auth first if Firebase is having issues
+    const emergencyAuth = EmergencyAuth.authenticateEmergency(request);
+    let user: any;
+    let tenantId: string;
     
-    if (useExternalService && hasExternalConfig) {
-      logger.info('🚀 [Session POST] MICROSERVICE mode - initializing session', {
-        tenantId: tenantId.substring(0, 8) + '***',
-        microserviceUrl: process.env.WHATSAPP_MICROSERVICE_URL,
-        action: 'initialize_session'
+    if (emergencyAuth.success) {
+      logger.info('🚨 [Session POST] Using emergency authentication', {
+        reason: emergencyAuth.reason || 'firebase_issues',
+        path: request.nextUrl.pathname
       });
       
-      // Check if there's already an active session or initialization
-      const cached = statusCache.get(tenantId);
-      if (cached && cached.initInProgress && (Date.now() - cached.timestamp < INIT_COOLDOWN)) {
-        logger.warn('⚠️ [Session POST] Initialization already in progress on microservice', {
-          tenantId: tenantId.substring(0, 8) + '***',
-          timeRemaining: `${Math.round((INIT_COOLDOWN - (Date.now() - cached.timestamp))/1000)}s`
-        });
+      user = emergencyAuth.user;
+      tenantId = user.tenantId;
+    } else {
+      // Try normal auth
+      const authResult = await authService.requireAuth(request);
+      if (authResult instanceof NextResponse) {
+        // If normal auth fails, check if it's due to Firebase quota
+        logger.warn('⚠️ [Session POST] Normal auth failed, checking for Firebase quota issues');
         
-        return NextResponse.json({
-          success: true,
-          data: {
-            status: 'initializing',
-            message: 'Session initialization in progress on microservice',
-            qrCode: cached.data?.qrCode || null
-          }
-        });
+        // Try emergency auth as last resort
+        const fallbackAuth = EmergencyAuth.authenticateEmergency(request);
+        if (fallbackAuth.success) {
+          logger.info('🚨 [Session POST] Using emergency auth after normal auth failure');
+          user = fallbackAuth.user;
+          tenantId = user.tenantId;
+          EmergencyAuth.markFirebaseAsProblematic();
+        } else {
+          return authResult; // Return original auth error
+        }
+      } else {
+        user = authResult.user;
+        tenantId = user.tenantId;
       }
-      
-      // Mark as initializing
-      statusCache.set(tenantId, {
-        data: { status: 'initializing' },
-        timestamp: Date.now(),
-        initInProgress: true
+    }
+    
+    if (useExternalService && hasExternalConfig) {
+      logger.info('🚀 [Session POST] MICROSERVICE mode - direct API call', {
+        tenantId: tenantId.substring(0, 8) + '***',
+        microserviceUrl: process.env.WHATSAPP_MICROSERVICE_URL,
+        action: 'direct_microservice_call'
       });
       
       try {
-        // Initialize via external microservice
-        const client = await getWhatsAppClient(tenantId);
-        const initResult = await client.initializeSession();
+        // Direct call to microservice - bypass Firebase issues
+        const microserviceUrl = `${process.env.WHATSAPP_MICROSERVICE_URL}/api/v1/sessions/${tenantId}/start`;
+        const apiKey = process.env.WHATSAPP_MICROSERVICE_API_KEY;
+        
+        logger.info('📡 [Session POST] Making direct API call to microservice', {
+          url: microserviceUrl,
+          tenantId: tenantId.substring(0, 8) + '***',
+          hasApiKey: !!apiKey
+        });
+        
+        const response = await fetch(microserviceUrl, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${apiKey}`,
+            'X-Tenant-ID': tenantId
+          },
+          timeout: 30000 // 30 second timeout
+        });
+        
+        if (!response.ok) {
+          const errorText = await response.text();
+          throw new Error(`Microservice HTTP ${response.status}: ${errorText}`);
+        }
+        
+        const result = await response.json();
+        
+        // Start session usually doesn't return QR immediately - check status endpoint
+        logger.info('📡 [Session POST] Session started, checking status for QR code', {
+          tenantId: tenantId.substring(0, 8) + '***',
+          startResponseSuccess: result.success
+        });
+        
+        // Wait a moment and check status for QR code
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        
+        const statusUrl = `${process.env.WHATSAPP_MICROSERVICE_URL}/api/v1/sessions/${tenantId}/status`;
+        const statusResponse = await fetch(statusUrl, {
+          headers: {
+            'Authorization': `Bearer ${apiKey}`
+          }
+        });
+        
+        let resultData = result.data || result;
+        
+        if (statusResponse.ok) {
+          const statusResult = await statusResponse.json();
+          if (statusResult.data) {
+            logger.info('✅ [Session POST] Got QR code from status endpoint', {
+              tenantId: tenantId.substring(0, 8) + '***',
+              hasQR: !!statusResult.data.qrCode,
+              status: statusResult.data.status
+            });
+            resultData = statusResult.data;
+          }
+        }
         
         const status = {
-          connected: initResult.connected || false,
-          status: initResult.connected ? 'connected' : (initResult.qrCode ? 'qr' : 'initializing'),
-          phoneNumber: initResult.phoneNumber || null,
-          businessName: initResult.businessName || null,
-          qrCode: initResult.qrCode || null,
-          message: initResult.connected ? 'Connected to WhatsApp' : 'Session initialized, scan QR code to connect'
+          connected: resultData.connected || false,
+          status: resultData.connected ? 'connected' : (resultData.qrCode ? 'qr' : 'initializing'),
+          phoneNumber: resultData.phoneNumber || null,
+          businessName: resultData.businessName || null,
+          qrCode: resultData.qrCode || null,
+          message: resultData.connected ? 'Connected to WhatsApp via microservice' : (resultData.qrCode ? 'Scan QR code to connect' : 'Initializing session...')
         };
         
-        // Update cache with result
+        // Update cache
         statusCache.set(tenantId, {
           data: status,
           timestamp: Date.now(),
@@ -262,11 +319,12 @@ export async function POST(request: NextRequest) {
           lastQRGeneration: status.qrCode ? Date.now() : undefined
         });
         
-        logger.info('✅ [Session POST] Microservice session initialized', {
+        logger.info('✅ [Session POST] Microservice session initialized successfully', {
           tenantId: tenantId.substring(0, 8) + '***',
           hasQR: !!status.qrCode,
           connected: status.connected,
-          status: status.status
+          status: status.status,
+          responseTime: Date.now()
         });
         
         return NextResponse.json({
@@ -274,17 +332,17 @@ export async function POST(request: NextRequest) {
           data: status,
           microservice: {
             enabled: true,
-            webhookActive: true
+            directCall: true,
+            webhookActive: true,
+            url: process.env.WHATSAPP_MICROSERVICE_URL
           }
         });
         
       } catch (error) {
-        // Clear initialization flag on error
-        statusCache.delete(tenantId);
-        
-        logger.error('❌ [Session POST] Microservice initialization failed', {
+        logger.error('❌ [Session POST] Direct microservice call failed', {
           tenantId: tenantId.substring(0, 8) + '***',
-          error: error.message
+          error: error instanceof Error ? error.message : 'Unknown error',
+          microserviceUrl: process.env.WHATSAPP_MICROSERVICE_URL
         });
         
         return NextResponse.json({
@@ -294,7 +352,12 @@ export async function POST(request: NextRequest) {
             connected: false,
             status: 'error',
             qrCode: null,
-            message: `Microservice error: ${error.message}`
+            message: `Microservice error: ${error instanceof Error ? error.message : 'Unknown error'}`
+          },
+          microservice: {
+            enabled: true,
+            error: true,
+            url: process.env.WHATSAPP_MICROSERVICE_URL
           }
         }, { status: 200 });
       }

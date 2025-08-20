@@ -1,6 +1,7 @@
 import { ExternalWhatsAppClient } from './external-whatsapp-client';
 import { logger } from '@/lib/utils/logger';
 import { WhatsAppMessage, WhatsAppTemplate, WhatsAppMediaResponse, WhatsAppMediaDetails, WhatsAppError } from '@/lib/types/whatsapp';
+import { MicroserviceAuthAdapter } from './microservice-auth-adapter';
 
 /**
  * Adapter para integrar ExternalWhatsAppClient com a interface existente do LocAI
@@ -149,27 +150,47 @@ export class ExternalClientAdapter {
   }
 
   /**
-   * Get connection status with QR code support
+   * Get connection status with QR code support via microservice
    */
   async getConnectionStatus(): Promise<{ connected: boolean; phone?: string; name?: string; status?: string; qrCode?: string }> {
     try {
-      const status = await this.client.getSessionStatus();
-      
-      logger.info('🔍 [External Adapter] Session status retrieved', {
+      logger.info('🔍 [External Adapter] Getting session status from microservice', {
         tenantId: this.tenantId.substring(0, 8) + '***',
-        connected: status.connected,
-        status: status.status,
-        hasQR: !!status.qrCode,
-        phoneNumber: status.phoneNumber ? '✅ Set' : '❌ Missing',
-        businessName: status.businessName ? '✅ Set' : '❌ Missing'
+        microserviceUrl: process.env.WHATSAPP_MICROSERVICE_URL
+      });
+      
+      const url = `${process.env.WHATSAPP_MICROSERVICE_URL}/api/v1/sessions/${this.tenantId}/status`;
+      
+      const response = await MicroserviceAuthAdapter.fetch(url, {
+        method: 'GET'
+      }, this.tenantId);
+      
+      if (!response.ok) {
+        logger.warn('⚠️ [External Adapter] Failed to get status from microservice', {
+          tenantId: this.tenantId.substring(0, 8) + '***',
+          status: response.status,
+          statusText: response.statusText
+        });
+        return { connected: false, status: 'error' };
+      }
+      
+      const result = await response.json();
+      
+      logger.info('✅ [External Adapter] Session status retrieved from microservice', {
+        tenantId: this.tenantId.substring(0, 8) + '***',
+        connected: result.connected,
+        status: result.status,
+        hasQR: !!result.qrCode,
+        phoneNumber: result.phoneNumber ? '✅ Set' : '❌ Missing',
+        businessName: result.businessName ? '✅ Set' : '❌ Missing'
       });
       
       return {
-        connected: status.connected,
-        phone: status.phoneNumber,
-        name: status.businessName,
-        status: status.status,
-        qrCode: status.qrCode
+        connected: result.connected || false,
+        phone: result.phoneNumber,
+        name: result.businessName,
+        status: result.status,
+        qrCode: result.qrCode
       };
 
     } catch (error) {
@@ -183,27 +204,45 @@ export class ExternalClientAdapter {
   }
 
   /**
-   * Initialize WhatsApp session
+   * Initialize WhatsApp session via microservice
    */
   async initializeSession(): Promise<{ qrCode?: string; connected: boolean }> {
     try {
-      logger.info('🔄 [External Adapter] Starting session initialization', {
+      logger.info('🔄 [External Adapter] Starting session initialization via microservice', {
         tenantId: this.tenantId,
-        baseUrl: this.client.getConfig().baseUrl,
+        microserviceUrl: process.env.WHATSAPP_MICROSERVICE_URL,
         step: 'initialize_session'
       });
       
-      const result = await this.client.initializeSession();
+      const url = `${process.env.WHATSAPP_MICROSERVICE_URL}/api/v1/sessions/${this.tenantId}/start`;
+      
+      const response = await MicroserviceAuthAdapter.fetch(url, {
+        method: 'POST'
+      }, this.tenantId);
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(`HTTP ${response.status}: ${errorData.message || errorData.error}`);
+      }
+      
+      const result = await response.json();
+      
+      logger.info('✅ [External Adapter] Session initialization successful', {
+        tenantId: this.tenantId,
+        hasQR: !!result.qrCode,
+        connected: result.connected,
+        status: result.status
+      });
       
       return {
         qrCode: result.qrCode,
-        connected: result.connected
+        connected: result.connected || false
       };
 
     } catch (error) {
       logger.error('❌ [External Adapter] Session initialization failed', {
         tenantId: this.tenantId,
-        error: error.message,
+        error: error instanceof Error ? error.message : 'Unknown error',
         step: 'initialize_session_error'
       });
       return { connected: false };
