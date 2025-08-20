@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createWhatsAppClient } from '@/lib/whatsapp/whatsapp-client-factory';
 import { getTenantId } from '@/lib/utils/tenant';
-import { verifyAuth } from '@/lib/utils/auth';
+import { authService } from '@/lib/auth/auth-service';
 import { z } from 'zod';
 
 const sendMessageSchema = z.object({
@@ -13,12 +13,13 @@ const sendMessageSchema = z.object({
 // POST /api/whatsapp/send - Send message
 export async function POST(request: NextRequest) {
   try {
-    const user = await verifyAuth(request);
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const authResult = await authService.requireAuth(request);
+    if (authResult instanceof NextResponse) {
+      return authResult; // Auth failed, return error response
     }
 
-    const tenantId = user.tenantId || user.uid || 'default';
+    const { user } = authResult;
+    const tenantId = user.tenantId;
     const body = await request.json();
     
     // Validate input

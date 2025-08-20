@@ -3,19 +3,20 @@
 // This endpoint helps debug QR generation issues in production
 
 import { NextRequest, NextResponse } from 'next/server';
-import { verifyAuth } from '@/lib/utils/auth';
+import { authService } from '@/lib/auth/auth-service';
 import { logger } from '@/lib/utils/logger';
 
 export async function GET(request: NextRequest) {
   try {
     logger.info('🔍 [DIAGNOSTIC] WhatsApp diagnostic endpoint called');
 
-    const user = await verifyAuth(request);
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const authResult = await authService.requireAuth(request);
+    if (authResult instanceof NextResponse) {
+      return authResult; // Auth failed, return error response
     }
 
-    const tenantId = user.tenantId || user.uid;
+    const { user } = authResult;
+    const tenantId = user.tenantId;
     
     // Diagnostic information
     const diagnostics = {
@@ -206,13 +207,15 @@ function generateRecommendations(diagnostics: any): string[] {
 // POST method for testing specific scenarios
 export async function POST(request: NextRequest) {
   try {
-    const user = await verifyAuth(request);
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const authResult = await authService.requireAuth(request);
+    if (authResult instanceof NextResponse) {
+      return authResult; // Auth failed, return error response
     }
 
+    const { user } = authResult;
+
     const body = await request.json();
-    const tenantId = user.tenantId || user.uid;
+    const tenantId = user.tenantId;
 
     logger.info('🧪 [DIAGNOSTIC POST] Running specific test scenario');
 

@@ -3,22 +3,20 @@ import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { storage } from '@/lib/firebase/config';
 import { generateUniqueId } from '@/lib/utils/mediaUtils';
 import { logger } from '@/lib/utils/logger';
-import { verifyAuth } from '@/lib/utils/auth';
+import { authService } from '@/lib/auth/auth-service';
 
 export async function POST(request: NextRequest) {
   logger.info('📤 [MediaUploadAPI] Fallback upload API called');
   
   try {
     // Verify authentication
-    const user = await verifyAuth(request);
-    if (!user) {
-      return NextResponse.json(
-        { error: 'Não autorizado' },
-        { status: 401 }
-      );
+    const authResult = await authService.requireAuth(request);
+    if (authResult instanceof NextResponse) {
+      return authResult; // Auth failed, return error response
     }
-    
-    const tenantId = user.tenantId || user.uid;
+
+    const { user } = authResult;
+    const tenantId = user.tenantId;
     
     const formData = await request.formData();
     const files = formData.getAll('files') as File[];

@@ -11,8 +11,8 @@ const useExternalService = process.env.WHATSAPP_USE_EXTERNAL === 'true';
 const hasExternalConfig = !!(process.env.WHATSAPP_MICROSERVICE_URL && process.env.WHATSAPP_MICROSERVICE_API_KEY);
 
 
-// Use standard auth
-import { verifyAuth } from '@/lib/utils/auth';
+// Use JWT auth instead of Firebase Admin auth
+import { authService } from '@/lib/auth/auth-service';
 
 
 // OPTIMIZED: Cache to prevent excessive API calls with intelligent duration
@@ -79,12 +79,13 @@ function clearClientCache() {
 export async function GET(request: NextRequest) {
   try {
     
-    const user = await verifyAuth(request);
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const authResult = await authService.requireAuth(request);
+    if (authResult instanceof NextResponse) {
+      return authResult; // Auth failed, return error response
     }
 
-    const tenantId = user.tenantId || user.uid;
+    const { user } = authResult;
+    const tenantId = user.tenantId;
     
     // WhatsApp Web SEMPRE HABILITADO - NUNCA RETORNAR DISABLED
     // Este check foi removido para garantir funcionamento em produção
@@ -187,12 +188,13 @@ export async function GET(request: NextRequest) {
 // POST /api/whatsapp/session - Initialize session
 export async function POST(request: NextRequest) {
   try {
-    const user = await verifyAuth(request);
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const authResult = await authService.requireAuth(request);
+    if (authResult instanceof NextResponse) {
+      return authResult; // Auth failed, return error response
     }
 
-    const tenantId = user.tenantId || user.uid;
+    const { user } = authResult;
+    const tenantId = user.tenantId;
     
     // Check if there's a recent QR or initialization in progress
     const cached = statusCache.get(tenantId);
@@ -348,12 +350,13 @@ export async function POST(request: NextRequest) {
 // DELETE /api/whatsapp/session - Disconnect session
 export async function DELETE(request: NextRequest) {
   try {
-    const user = await verifyAuth(request);
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const authResult = await authService.requireAuth(request);
+    if (authResult instanceof NextResponse) {
+      return authResult; // Auth failed, return error response
     }
 
-    const tenantId = user.tenantId || user.uid;
+    const { user } = authResult;
+    const tenantId = user.tenantId;
     
     // WhatsApp Web SEMPRE HABILITADO - NUNCA RETORNAR DISABLED
     
