@@ -68,24 +68,37 @@ async function processIncomingMessage(tenantId: string, messageData: any) {
     logger.info('📨 Processing incoming message from microservice', {
       tenantId,
       from: messageData.from?.substring(0, 6) + '***',
-      messageId: messageData.id
+      messageId: messageData.messageId || messageData.id
     })
 
-    // Aqui você pode integrar com seu sistema de processamento de mensagens
-    // Por exemplo, chamar seu AI agent para responder automaticamente
+    // Integração com Sofia Agent para processamento automático
+    const { sofiaAgent } = await import('@/lib/ai-agent/sofia-agent')
     
-    // Formato esperado do messageData:
-    // {
-    //   from: "+5511999999999",
-    //   id: "message-id",
-    //   timestamp: 1692123456789,
-    //   text: "Mensagem do usuário",
-    //   type: "text"
-    // }
+    const response = await sofiaAgent.processMessage({
+      message: messageData.message || messageData.text,
+      clientPhone: messageData.from,
+      tenantId,
+      metadata: {
+        source: 'whatsapp-microservice',
+        priority: 'high',
+        skipHeavyProcessing: true // Otimização para webhooks
+      }
+    })
 
-    // TODO: Integrar com o sistema de mensagens existente
-    // const messageHandler = new MessageHandler(tenantId)
-    // await messageHandler.handleIncomingMessage(messageData)
+    // Enviar resposta de volta ao microservice via API
+    await sendResponseToMicroservice({
+      tenantId,
+      to: messageData.from,
+      message: response.reply,
+      originalMessageId: messageData.messageId || messageData.id
+    })
+
+    logger.info('✅ Message processed and response sent to microservice', {
+      tenantId,
+      from: messageData.from?.substring(0, 6) + '***',
+      responseTime: response.responseTime,
+      functionsExecuted: response.functionsExecuted.length
+    })
     
   } catch (error) {
     logger.error('❌ Error processing incoming message:', error)
@@ -138,6 +151,62 @@ async function processQRCode(tenantId: string, qrData: any) {
     
   } catch (error) {
     logger.error('❌ Error processing QR code:', error)
+  }
+}
+
+/**
+ * Enviar resposta de volta ao microservice WhatsApp
+ */
+async function sendResponseToMicroservice(params: {
+  tenantId: string
+  to: string
+  message: string
+  originalMessageId: string
+}) {
+  try {
+    const microserviceUrl = process.env.WHATSAPP_MICROSERVICE_URL
+    const apiKey = process.env.WHATSAPP_MICROSERVICE_API_KEY
+    
+    if (!microserviceUrl) {
+      logger.warn('⚠️ WHATSAPP_MICROSERVICE_URL not configured, skipping response')
+      return
+    }
+
+    const response = await fetch(`${microserviceUrl}/api/v1/messages/${params.tenantId}/send`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`,
+        'X-Tenant-ID': params.tenantId
+      },
+      body: JSON.stringify({
+        to: params.to,
+        message: params.message,
+        type: 'text'
+      }),
+      // Timeout agressivo para não bloquear webhook
+      signal: AbortSignal.timeout(5000)
+    })
+
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}: ${response.statusText}`)
+    }
+
+    const result = await response.json()
+    
+    logger.info('✅ Response sent to microservice', {
+      tenantId: params.tenantId,
+      to: params.to.substring(0, 6) + '***',
+      messageId: result.messageId,
+      originalMessageId: params.originalMessageId
+    })
+
+  } catch (error) {
+    logger.error('❌ Error sending response to microservice:', {
+      error: error instanceof Error ? error.message : 'Unknown error',
+      tenantId: params.tenantId,
+      to: params.to.substring(0, 6) + '***'
+    })
   }
 }
 

@@ -3213,6 +3213,128 @@ export function getTenantAwareOpenAIFunctions() {
           required: ['analysisType', 'period']
         }
       }
+    },
+    
+    // ===== FUNÇÕES CRÍTICAS ADICIONAIS =====
+    {
+      type: 'function' as const,
+      function: {
+        name: 'cancel_reservation',
+        description: 'Cancelar uma reserva existente com política de reembolso',
+        parameters: {
+          type: 'object',
+          properties: {
+            reservationId: {
+              type: 'string',
+              description: 'ID da reserva a ser cancelada'
+            },
+            clientPhone: {
+              type: 'string',
+              description: 'Telefone do cliente para verificação'
+            },
+            reason: {
+              type: 'string',
+              description: 'Motivo do cancelamento'
+            },
+            refundRequested: {
+              type: 'boolean',
+              description: 'Se o cliente deseja reembolso'
+            }
+          },
+          required: ['reservationId', 'clientPhone']
+        }
+      }
+    },
+    {
+      type: 'function' as const,
+      function: {
+        name: 'modify_reservation',
+        description: 'Modificar datas, hóspedes ou propriedade de uma reserva',
+        parameters: {
+          type: 'object',
+          properties: {
+            reservationId: {
+              type: 'string',
+              description: 'ID da reserva a ser modificada'
+            },
+            clientPhone: {
+              type: 'string',
+              description: 'Telefone do cliente para verificação'
+            },
+            newCheckIn: {
+              type: 'string',
+              description: 'Nova data de check-in (YYYY-MM-DD)'
+            },
+            newCheckOut: {
+              type: 'string',
+              description: 'Nova data de check-out (YYYY-MM-DD)'
+            },
+            newGuests: {
+              type: 'number',
+              description: 'Novo número de hóspedes'
+            },
+            newPropertyId: {
+              type: 'string',
+              description: 'Nova propriedade (se aplicável)'
+            },
+            reason: {
+              type: 'string',
+              description: 'Motivo da modificação'
+            }
+          },
+          required: ['reservationId', 'clientPhone']
+        }
+      }
+    },
+    {
+      type: 'function' as const,
+      function: {
+        name: 'get_policies',
+        description: 'Obter políticas de cancelamento, pagamento e check-in/check-out',
+        parameters: {
+          type: 'object',
+          properties: {
+            policyType: {
+              type: 'string',
+              enum: ['cancellation', 'payment', 'checkin', 'general', 'all'],
+              description: 'Tipo específico de política ou todas'
+            },
+            propertyId: {
+              type: 'string',
+              description: 'ID da propriedade (para políticas específicas)'
+            }
+          }
+        }
+      }
+    },
+    {
+      type: 'function' as const,
+      function: {
+        name: 'check_availability',
+        description: 'Verificar disponibilidade em tempo real de uma propriedade específica',
+        parameters: {
+          type: 'object',
+          properties: {
+            propertyId: {
+              type: 'string',
+              description: 'ID da propriedade a verificar'
+            },
+            checkIn: {
+              type: 'string',
+              description: 'Data de check-in (YYYY-MM-DD)'
+            },
+            checkOut: {
+              type: 'string',
+              description: 'Data de check-out (YYYY-MM-DD)'
+            },
+            guests: {
+              type: 'number',
+              description: 'Número de hóspedes'
+            }
+          },
+          required: ['propertyId', 'checkIn', 'checkOut']
+        }
+      }
     }
   ];
 }
