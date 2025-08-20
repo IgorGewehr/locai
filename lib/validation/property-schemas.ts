@@ -12,6 +12,16 @@ export const PropertyPhotoSchema = z.object({
   caption: z.string().optional(),
 })
 
+// Schema for property photo update (more flexible)
+export const PropertyPhotoUpdateSchema = z.object({
+  id: z.string(),
+  url: z.string().min(1, 'URL é obrigatória'), // Aceita blob: ou https:
+  filename: z.string(),
+  order: z.number().int().min(0),
+  isMain: z.boolean(),
+  caption: z.string().optional(),
+})
+
 // Schema for property video
 export const PropertyVideoSchema = z.object({
   id: z.string(),
@@ -21,6 +31,17 @@ export const PropertyVideoSchema = z.object({
   duration: z.number().optional(),
   order: z.number().int().min(0),
   thumbnail: z.string().url('URL inválida').optional(),
+})
+
+// Schema for property video update (more flexible)
+export const PropertyVideoUpdateSchema = z.object({
+  id: z.string(),
+  url: z.string().min(1, 'URL é obrigatória'), // Aceita blob: ou https:
+  filename: z.string(),
+  title: z.string(),
+  duration: z.number().optional(),
+  order: z.number().int().min(0),
+  thumbnail: z.string().optional(), // Mais flexível para thumbnail
 })
 
 // Schema for payment surcharges
@@ -107,8 +128,16 @@ export const CreatePropertySchema = z.object({
   isActive: z.boolean().default(true),
 })
 
-// Schema for updating a property (all fields optional)
-export const UpdatePropertySchema = CreatePropertySchema.partial()
+// Schema for updating a property (all fields optional with flexible media)
+export const UpdatePropertySchema = CreatePropertySchema.partial().extend({
+  photos: z.array(PropertyPhotoUpdateSchema)
+    .max(30, 'Máximo de 30 fotos')
+    .optional(),
+  
+  videos: z.array(PropertyVideoUpdateSchema)
+    .max(5, 'Máximo de 5 vídeos')
+    .optional(),
+})
 
 // Schema for property search/filter
 export const PropertySearchSchema = z.object({

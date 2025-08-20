@@ -218,15 +218,11 @@ export default function MiniSitePage() {
         if (value) utmParams[param] = value;
       });
 
-      // Record page view via API
+      // Record page view via existing API that already handles analytics
       try {
-        await fetch(`/api/mini-site/${tenantId}/analytics`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ 
-            action: 'page_view',
-            utmParams 
-          })
+        const queryParams = new URLSearchParams(utmParams);
+        await fetch(`/api/mini-site/${tenantId}?${queryParams}`, {
+          method: 'GET'
         });
       } catch (err) {
         console.warn('Failed to record page view:', err);
@@ -672,73 +668,6 @@ export default function MiniSitePage() {
                   zIndex: 1,
                 }}
               />
-              
-              <Box sx={{ position: 'relative', zIndex: 2 }}>
-                <Stack direction={{ xs: 'column', md: 'row' }} spacing={3} alignItems="center">
-                  <Box sx={{ flex: 1 }}>
-                    <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 2 }}>
-                      <LocalOffer />
-                      <Chip label="Oferta Especial" color="secondary" sx={{ fontWeight: 600 }} />
-                    </Stack>
-                    <Typography variant="h4" sx={{ fontWeight: 800, mb: 2 }}>
-                      Reserve Hoje e Ganhe 15% de Desconto
-                    </Typography>
-                    <Typography variant="body1" sx={{ mb: 3, opacity: 0.9 }}>
-                      Válido para reservas feitas até o final do mês. Não perca essa oportunidade única!
-                    </Typography>
-                    <Stack direction="row" spacing={2}>
-                      <Button
-                        variant="contained"
-                        size="large"
-                        startIcon={<WhatsApp />}
-                        onClick={() => {
-                          const message = encodeURIComponent(
-                            `Olá! Vi a promoção de 15% de desconto no site ${config.contactInfo.businessName}. Gostaria de fazer uma reserva!`
-                          );
-                          window.open(`https://wa.me/${config.contactInfo.whatsappNumber?.replace(/\D/g, '')}?text=${message}`, '_blank');
-                        }}
-                        sx={{
-                          bgcolor: 'rgba(255, 255, 255, 0.2)',
-                          color: 'white',
-                          backdropFilter: 'blur(10px)',
-                          border: '1px solid rgba(255, 255, 255, 0.3)',
-                          fontWeight: 600,
-                          px: 3,
-                          py: 1.5,
-                          '&:hover': {
-                            bgcolor: 'rgba(255, 255, 255, 0.3)',
-                            transform: 'translateY(-2px)',
-                          },
-                        }}
-                      >
-                        Aproveitar Oferta
-                      </Button>
-                      <Button
-                        variant="outlined"
-                        size="large"
-                        endIcon={<ArrowDownward />}
-                        onClick={() => document.getElementById('properties')?.scrollIntoView({ behavior: 'smooth' })}
-                        sx={{
-                          borderColor: 'rgba(255, 255, 255, 0.5)',
-                          color: 'white',
-                          fontWeight: 600,
-                          px: 3,
-                          py: 1.5,
-                          '&:hover': {
-                            borderColor: 'white',
-                            bgcolor: 'rgba(255, 255, 255, 0.1)',
-                          },
-                        }}
-                      >
-                        Ver Propriedades
-                      </Button>
-                    </Stack>
-                  </Box>
-                  <Box sx={{ display: { xs: 'none', md: 'block' } }}>
-                    <Celebration sx={{ fontSize: 120, opacity: 0.7 }} />
-                  </Box>
-                </Stack>
-              </Box>
             </Paper>
           </motion.div>
         </Container>

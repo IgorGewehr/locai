@@ -109,8 +109,7 @@ export default function EditPropertyPage() {
   const [pricingRules, setPricingRules] = useState<PricingRule[]>([]);
 
   const methods = useForm<Property>({
-    // Temporarily remove validation to debug
-    // resolver: yupResolver(propertySchema) as any,
+    resolver: yupResolver(propertySchema) as any,
     mode: 'onChange',
   });
 
@@ -155,13 +154,79 @@ export default function EditPropertyPage() {
     setError(null);
 
     try {
+      // Filtrar apenas fotos com URLs válidas do Firebase
+      const validPhotos = data.photos?.filter(photo => 
+        photo.url && 
+        photo.id &&
+        photo.filename &&
+        typeof photo.order === 'number' &&
+        typeof photo.isMain === 'boolean' &&
+        (photo.url.includes('firebasestorage.googleapis.com') || 
+         photo.url.startsWith('https://'))
+      ) || [];
+
+      const validVideos = data.videos?.filter(video => 
+        video.url && 
+        video.id &&
+        video.filename &&
+        video.title &&
+        typeof video.order === 'number' &&
+        (video.url.includes('firebasestorage.googleapis.com') || 
+         video.url.startsWith('https://'))
+      ) || [];
+
+      // Limpar dados para envio - remover campos undefined/null
+      const cleanData: any = {};
+      
+      // Copiar apenas campos definidos
+      Object.keys(data).forEach(key => {
+        const value = (data as any)[key];
+        if (value !== undefined && value !== null) {
+          cleanData[key] = value;
+        }
+      });
+      
+      // Sobrescrever com dados limpos obrigatórios
+      cleanData.photos = validPhotos;
+      cleanData.videos = validVideos;
+      cleanData.amenities = data.amenities || [];
+      cleanData.unavailableDates = data.unavailableDates || [];
+      cleanData.customPricing = data.customPricing || {};
+      
+      // Garantir booleans são definidos
+      if (data.isFeatured !== undefined) cleanData.isFeatured = data.isFeatured;
+      if (data.allowsPets !== undefined) cleanData.allowsPets = data.allowsPets;
+      if (data.isActive !== undefined) cleanData.isActive = data.isActive;
+      
+      // Garantir números opcionais válidos apenas se definidos
+      if (data.pricePerExtraGuest !== undefined && data.pricePerExtraGuest !== null) {
+        cleanData.pricePerExtraGuest = data.pricePerExtraGuest;
+      }
+      if (data.minimumNights !== undefined && data.minimumNights !== null) {
+        cleanData.minimumNights = data.minimumNights;
+      }
+      if (data.cleaningFee !== undefined && data.cleaningFee !== null) {
+        cleanData.cleaningFee = data.cleaningFee;
+      }
+
+      // Debug: mostrar dados sendo enviados
+      console.log('🔍 [Debug] Dados limpos para envio:', {
+        totalPhotos: data.photos?.length || 0,
+        validPhotos: validPhotos.length,
+        totalVideos: data.videos?.length || 0,
+        validVideos: validVideos.length,
+        invalidPhotos: data.photos?.filter(p => !p.url?.includes('firebasestorage') && !p.url?.startsWith('https://')) || [],
+        samplePhoto: validPhotos[0],
+        cleanDataKeys: Object.keys(cleanData),
+      });
+
       const response = await fetch(`/api/properties/${propertyId}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          ...data,
+          ...cleanData,
           pricingRules,
           updatedAt: new Date(),
         }),
@@ -170,7 +235,20 @@ export default function EditPropertyPage() {
       const responseData = await response.json();
 
       if (!response.ok) {
-        throw new Error(responseData.error || 'Erro ao salvar alterações');
+        // Mostrar detalhes de validação se disponíveis
+        let errorMessage = responseData.error || 'Erro ao salvar alterações';
+        
+        if (responseData.code === 'VALIDATION_ERROR' && responseData.details) {
+          console.error('❌ [Debug] Detalhes de validação:', responseData.details);
+          errorMessage += '. Verifique os dados inseridos e tente novamente.';
+          
+          // Log detalhado para debug
+          if (responseData.details.fieldErrors) {
+            console.error('Campos com erro:', responseData.details.fieldErrors);
+          }
+        }
+        
+        throw new Error(errorMessage);
       }
 
       setSuccessMessage('Alterações salvas com sucesso!');
