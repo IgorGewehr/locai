@@ -71,7 +71,7 @@ export function WhatsAppStatusProvider({ children }: { children: React.ReactNode
     }
   }, [tenantId, isReady, isRefreshing]);
 
-  // Smart polling based on current status
+  // Smart polling based on current status (MICROSERVICE OPTIMIZED)
   useEffect(() => {
     if (!tenantId || !isReady) return;
 
@@ -80,21 +80,32 @@ export function WhatsAppStatusProvider({ children }: { children: React.ReactNode
       clearTimeout(pollTimeoutId);
     }
 
-    // Determine polling interval based on status
-    let interval = 30000; // Default 30 seconds when connected
+    // MICROSERVICE MODE: Minimal polling since webhooks handle real-time updates
+    let interval = 300000; // Default 5 minutes for microservice mode
     
     switch (status.status) {
+      case 'microservice_mode':
+        interval = 300000; // 5 minutes - webhooks handle updates
+        break;
       case 'connecting':
       case 'qr':
-        interval = 3000; // Fast polling when actively connecting
+        interval = 8000; // Slower polling when connecting (8s instead of 3s)
         break;
       case 'disconnected':
       case 'error':
-        interval = 10000; // Medium polling when disconnected
+        interval = 30000; // 30 seconds when disconnected
         break;
       case 'connected':
-        interval = 60000; // Slow polling when stable (1 minute)
+        interval = 120000; // 2 minutes when stable (reduced from 1 minute)
         break;
+      default:
+        interval = 60000; // 1 minute for unknown states
+    }
+
+    // Skip polling entirely if microservice mode is detected
+    if (status.status === 'microservice_mode') {
+      console.log('🌐 [WhatsAppStatus] Microservice mode detected - minimal polling enabled');
+      interval = 600000; // 10 minutes - very infrequent checks
     }
 
     // Schedule next status check

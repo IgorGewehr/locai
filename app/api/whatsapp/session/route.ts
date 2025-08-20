@@ -13,6 +13,7 @@ const hasExternalConfig = !!(process.env.WHATSAPP_MICROSERVICE_URL && process.en
 
 // Use JWT auth instead of Firebase Admin auth
 import { authService } from '@/lib/auth/auth-service';
+import { WhatsAppStatusService } from '@/lib/services/whatsapp-status-service';
 
 
 // OPTIMIZED: Cache to prevent excessive API calls with intelligent duration
@@ -75,10 +76,9 @@ function clearClientCache() {
   clientCache.clear();
 }
 
-// GET /api/whatsapp/session - Get session status
+// GET /api/whatsapp/session - Get session status (MICROSERVICE MODE)
 export async function GET(request: NextRequest) {
   try {
-    
     const authResult = await authService.requireAuth(request);
     if (authResult instanceof NextResponse) {
       return authResult; // Auth failed, return error response
@@ -87,105 +87,117 @@ export async function GET(request: NextRequest) {
     const { user } = authResult;
     const tenantId = user.tenantId;
     
-    // WhatsApp Web SEMPRE HABILITADO - NUNCA RETORNAR DISABLED
-    // Este check foi removido para garantir funcionamento em produção
+    // MICROSERVICE MODE: Only return cached status or query external service
+    // No more polling loops - frontend should use webhooks for real-time updates
     
-    // OPTIMIZED: Intelligent cache with QR-aware duration
-    const cached = statusCache.get(tenantId);
-    if (cached) {
-      const cacheAge = Date.now() - cached.timestamp;
-      const isQRPresent = !!cached.data.qrCode;
-      const effectiveDuration = isQRPresent ? QR_CACHE_DURATION : CACHE_DURATION;
+    if (useExternalService && hasExternalConfig) {
+      logger.info('🌐 [Session GET] Using MICROSERVICE mode - checking real-time status', {
+        tenantId: tenantId.substring(0, 8) + '***',
+        microserviceUrl: process.env.WHATSAPP_MICROSERVICE_URL
+      });
       
-      if (cacheAge < effectiveDuration) {
-        // Only log cache hits in debug mode
-        if (process.env.NEXT_PUBLIC_DEBUG_API === 'true') {
-          logger.info('✅ [Cache Hit] Returning cached status', {
-            tenantId: tenantId.substring(0, 8) + '***',
-            cacheAge: `${Math.round(cacheAge/1000)}s`,
-            hasQR: isQRPresent,
-            effectiveDuration: `${effectiveDuration/1000}s`
-          });
-        }
+      // Check if we have real-time status from webhooks
+      const realtimeStatus = WhatsAppStatusService.getStatus(tenantId);
+      
+      if (realtimeStatus) {
+        logger.info('✅ [Session GET] Returning real-time status from webhooks', {
+          tenantId: tenantId.substring(0, 8) + '***',
+          status: realtimeStatus.status,
+          connected: realtimeStatus.connected,
+          hasQR: !!realtimeStatus.qrCode
+        });
         
         return NextResponse.json({
           success: true,
-          data: cached.data,
+          data: {
+            connected: realtimeStatus.connected,
+            status: realtimeStatus.status,
+            phoneNumber: realtimeStatus.phoneNumber || null,
+            businessName: realtimeStatus.businessName || null,
+            qrCode: realtimeStatus.qrCode || null,
+            message: realtimeStatus.connected ? 'Connected via microservice' : 'Status from microservice webhooks'
+          },
+          microservice: {
+            enabled: true,
+            realtimeStatus: true,
+            lastUpdated: realtimeStatus.lastUpdated
+          }
         });
       }
-    }
-    
-    const client = await getWhatsAppClient(tenantId);
-    
-    let status;
-    try {
-      // Try getConnectionStatus first (for external client)
-      status = await client.getConnectionStatus();
-    } catch (error) {
-      // Fallback for clients that don't have this method
-      logger.warn('⚠️ [API Session] Client missing getConnectionStatus method', {
-        tenantId: tenantId.substring(0, 8) + '***',
-        clientType: getWhatsAppClientConfig().type,
-        fallback: 'basic_status'
+      
+      // No real-time status yet - return microservice mode indicator
+      return NextResponse.json({
+        success: true,
+        data: {
+          connected: false,
+          status: 'microservice_mode',
+          phoneNumber: null,
+          businessName: null,
+          qrCode: null,
+          message: 'WhatsApp microservice ready. Use POST to initialize session.'
+        },
+        microservice: {
+          enabled: true,
+          url: process.env.WHATSAPP_MICROSERVICE_URL,
+          webhookEndpoint: '/api/webhook/whatsapp-microservice',
+          realtimeStatus: false
+        }
       });
-      status = { connected: false };
     }
     
-    // Convert to expected format
+    // Fallback for local mode (only if external service is not configured)
+    logger.warn('⚠️ [Session GET] External service not configured, falling back to local client');
+    
+    const cached = statusCache.get(tenantId);
+    if (cached && (Date.now() - cached.timestamp < CACHE_DURATION)) {
+      return NextResponse.json({
+        success: true,
+        data: cached.data,
+      });
+    }
+    
+    // Only for local fallback - should be rare
+    const client = await getWhatsAppClient(tenantId);
+    const status = await client.getConnectionStatus();
+    
     const formattedStatus = {
       connected: status.connected || false,
-      status: status.status || (status.connected ? 'connected' : 'disconnected'),
-      phoneNumber: status.phone || status.phoneNumber || null,
-      businessName: status.name || status.businessName || null,
+      status: status.status || 'disconnected',
+      phoneNumber: status.phone || null,
+      businessName: status.name || null,
       qrCode: status.qrCode || null,
-      message: status.connected ? 'Connected successfully' : useExternalService ? 'External microservice ready' : 'Local client ready'
+      message: 'Local fallback mode - consider configuring microservice'
     };
     
-    // OPTIMIZED: Cache with QR generation tracking
     statusCache.set(tenantId, {
       data: formattedStatus,
-      timestamp: Date.now(),
-      lastQRGeneration: formattedStatus.qrCode ? Date.now() : cached?.lastQRGeneration
+      timestamp: Date.now()
     });
-    
-    // Only log cache updates in debug mode
-    if (process.env.NEXT_PUBLIC_DEBUG_API === 'true') {
-      logger.info('📦 [Cache Update] Status cached', {
-        tenantId: tenantId.substring(0, 8) + '***',
-        status: formattedStatus.status,
-        hasQR: !!formattedStatus.qrCode,
-        cacheStrategy: formattedStatus.qrCode ? 'QR_EXTENDED' : 'STANDARD'
-      });
-    }
 
     return NextResponse.json({
       success: true,
       data: formattedStatus,
     });
+    
   } catch (error) {
     logger.error('Error getting session status:', error);
     
-    // Return graceful error response
-    const errorMessage = WHATSAPP_WEB_DISABLED 
-      ? 'WhatsApp Web is disabled by configuration'
-      : 'Failed to get session status';
-      
     return NextResponse.json({
       success: false, 
-      error: errorMessage,
+      error: 'Failed to get session status',
       data: {
         connected: false,
         status: 'error',
         qrCode: null,
         phoneNumber: null,
         businessName: null,
-        message: errorMessage
+        message: 'Service error - check microservice connection'
       }
     }, { status: 200 }); // Return 200 for graceful degradation
   }
 }
 
-// POST /api/whatsapp/session - Initialize session
+// POST /api/whatsapp/session - Initialize session (MICROSERVICE OPTIMIZED)
 export async function POST(request: NextRequest) {
   try {
     const authResult = await authService.requireAuth(request);
@@ -196,128 +208,116 @@ export async function POST(request: NextRequest) {
     const { user } = authResult;
     const tenantId = user.tenantId;
     
-    // Check if there's a recent QR or initialization in progress
-    const cached = statusCache.get(tenantId);
-    if (cached) {
-      // If QR was generated recently, return it instead of generating new one
-      if (cached.data?.qrCode && (Date.now() - cached.timestamp < QR_CACHE_DURATION)) {
-        logger.info('🔄 [Session POST] Returning existing QR to prevent regeneration', {
+    if (useExternalService && hasExternalConfig) {
+      logger.info('🚀 [Session POST] MICROSERVICE mode - initializing session', {
+        tenantId: tenantId.substring(0, 8) + '***',
+        microserviceUrl: process.env.WHATSAPP_MICROSERVICE_URL,
+        action: 'initialize_session'
+      });
+      
+      // Check if there's already an active session or initialization
+      const cached = statusCache.get(tenantId);
+      if (cached && cached.initInProgress && (Date.now() - cached.timestamp < INIT_COOLDOWN)) {
+        logger.warn('⚠️ [Session POST] Initialization already in progress on microservice', {
           tenantId: tenantId.substring(0, 8) + '***',
-          qrAge: `${Math.round((Date.now() - cached.timestamp)/1000)}s`
+          timeRemaining: `${Math.round((INIT_COOLDOWN - (Date.now() - cached.timestamp))/1000)}s`
         });
+        
         return NextResponse.json({
           success: true,
-          data: cached.data,
+          data: {
+            status: 'initializing',
+            message: 'Session initialization in progress on microservice',
+            qrCode: cached.data?.qrCode || null
+          }
         });
       }
       
-      // If initialization is in progress, wait and return cached data
-      if (cached.initInProgress && (Date.now() - cached.timestamp < INIT_COOLDOWN)) {
-        logger.warn('⚠️ [Session POST] Initialization already in progress', {
-          tenantId: tenantId.substring(0, 8) + '***',
-          cooldownRemaining: `${Math.round((INIT_COOLDOWN - (Date.now() - cached.timestamp))/1000)}s`
+      // Mark as initializing
+      statusCache.set(tenantId, {
+        data: { status: 'initializing' },
+        timestamp: Date.now(),
+        initInProgress: true
+      });
+      
+      try {
+        // Initialize via external microservice
+        const client = await getWhatsAppClient(tenantId);
+        const initResult = await client.initializeSession();
+        
+        const status = {
+          connected: initResult.connected || false,
+          status: initResult.connected ? 'connected' : (initResult.qrCode ? 'qr' : 'initializing'),
+          phoneNumber: initResult.phoneNumber || null,
+          businessName: initResult.businessName || null,
+          qrCode: initResult.qrCode || null,
+          message: initResult.connected ? 'Connected to WhatsApp' : 'Session initialized, scan QR code to connect'
+        };
+        
+        // Update cache with result
+        statusCache.set(tenantId, {
+          data: status,
+          timestamp: Date.now(),
+          initInProgress: false,
+          lastQRGeneration: status.qrCode ? Date.now() : undefined
         });
+        
+        logger.info('✅ [Session POST] Microservice session initialized', {
+          tenantId: tenantId.substring(0, 8) + '***',
+          hasQR: !!status.qrCode,
+          connected: status.connected,
+          status: status.status
+        });
+        
         return NextResponse.json({
           success: true,
-          data: cached.data || { status: 'initializing', message: 'Session initialization in progress' },
+          data: status,
+          microservice: {
+            enabled: true,
+            webhookActive: true
+          }
         });
+        
+      } catch (error) {
+        // Clear initialization flag on error
+        statusCache.delete(tenantId);
+        
+        logger.error('❌ [Session POST] Microservice initialization failed', {
+          tenantId: tenantId.substring(0, 8) + '***',
+          error: error.message
+        });
+        
+        return NextResponse.json({
+          success: false,
+          error: 'Failed to initialize session with microservice',
+          data: {
+            connected: false,
+            status: 'error',
+            qrCode: null,
+            message: `Microservice error: ${error.message}`
+          }
+        }, { status: 200 });
       }
     }
     
-    // Mark initialization as in progress
-    statusCache.set(tenantId, {
-      data: cached?.data || { status: 'initializing' },
-      timestamp: Date.now(),
-      initInProgress: true,
-      lastQRGeneration: cached?.lastQRGeneration
-    });
+    // Fallback to local mode (rare case)
+    logger.warn('⚠️ [Session POST] Using local fallback mode');
     
-    // WhatsApp Web SEMPRE HABILITADO - NUNCA RETORNAR DISABLED
-    // Este check foi removido para garantir funcionamento em produção
-    
-    logger.info('🚀 [API Session POST] Starting session initialization', { 
-      tenantId: tenantId?.substring(0, 8) + '***',
-      environment: process.env.NODE_ENV,
-      useExternal: useExternalService,
-      hasExternalConfig,
-      clientType: getWhatsAppClientConfig().type,
-      endpoint: 'POST /api/whatsapp/session',
-      microserviceUrl: process.env.WHATSAPP_MICROSERVICE_URL
-    });
-    
-    // Get WhatsApp client via factory
     const client = await getWhatsAppClient(tenantId);
-    logger.info('✅ [API POST] WhatsApp client loaded successfully');
-    
-    // Initialize the session
-    logger.info(`🔥 [API POST] Starting session initialization for ${tenantId.substring(0, 8)}***`);
-    
     const initResult = await client.initializeSession();
     
-    logger.info('✅ [API POST] Session initialization completed');
-
-    // Handle different responses based on client type
-    let status;
+    const status = {
+      connected: initResult.connected || false,
+      status: initResult.connected ? 'connected' : 'connecting',
+      phoneNumber: null,
+      businessName: null,
+      qrCode: initResult.qrCode || null,
+      message: 'Local fallback - consider configuring microservice'
+    };
     
-    if (useExternalService && hasExternalConfig) {
-      // External microservice - format response
-      status = {
-        connected: initResult.connected,
-        status: initResult.connected ? 'connected' : (initResult.qrCode ? 'qr' : 'connecting'),
-        phoneNumber: null,
-        businessName: null,
-        qrCode: initResult.qrCode || null
-      };
-      
-      // If no QR immediately, try polling the microservice
-      if (!initResult.qrCode && !initResult.connected) {
-        logger.info('🔄 [External] Polling for QR code...');
-        
-        try {
-          for (let i = 0; i < 10; i++) {
-            await new Promise(resolve => setTimeout(resolve, 2000));
-            const pollStatus = await client.getConnectionStatus();
-            
-            if (pollStatus.qrCode || pollStatus.connected) {
-              status.qrCode = pollStatus.qrCode;
-              status.connected = pollStatus.connected;
-              status.status = pollStatus.connected ? 'connected' : 'qr';
-              break;
-            }
-          }
-        } catch (pollError) {
-          logger.warn('Polling failed:', pollError);
-        }
-      }
-    } else {
-      // Local client - get status
-      try {
-        const connectionStatus = await client.getConnectionStatus();
-        status = {
-          connected: connectionStatus.connected,
-          status: connectionStatus.connected ? 'connected' : 'connecting',
-          phoneNumber: connectionStatus.phone,
-          businessName: connectionStatus.name,
-          qrCode: initResult.qrCode || null
-        };
-      } catch (error) {
-        logger.warn('Local client getConnectionStatus failed, using basic status');
-        status = {
-          connected: false,
-          status: 'connecting',
-          phoneNumber: null,
-          businessName: null,
-          qrCode: initResult.qrCode || null
-        };
-      }
-    }
-
-
-    // Update cache with the new status and clear init flag
     statusCache.set(tenantId, {
       data: status,
       timestamp: Date.now(),
-      lastQRGeneration: status.qrCode ? Date.now() : cached?.lastQRGeneration,
       initInProgress: false
     });
     
@@ -325,25 +325,22 @@ export async function POST(request: NextRequest) {
       success: true,
       data: status,
     });
+    
   } catch (error) {
     logger.error('Session initialization error:', error);
     
-    const errorMessage = WHATSAPP_WEB_DISABLED 
-      ? 'WhatsApp Web is disabled by configuration'
-      : 'Failed to initialize session';
-    
     return NextResponse.json({
       success: false, 
-      error: errorMessage,
+      error: 'Failed to initialize session',
       data: {
         connected: false,
         status: 'error',
         qrCode: null,
         phoneNumber: null,
         businessName: null,
-        message: error instanceof Error ? error.message : errorMessage
+        message: error instanceof Error ? error.message : 'Unknown error'
       }
-    }, { status: 200 }); // Return 200 for graceful degradation
+    }, { status: 200 });
   }
 }
 

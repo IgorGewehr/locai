@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import crypto from 'crypto'
 import { logger } from '@/lib/utils/logger'
+import { WhatsAppStatusService } from '@/lib/services/whatsapp-status-service'
 
 /**
  * Webhook para receber mensagens do WhatsApp Microservice no DigitalOcean
@@ -33,6 +34,12 @@ export async function POST(request: NextRequest) {
       event: body.event,
       tenantId: body.tenantId
     })
+
+    // Atualizar status via service antes de processar eventos
+    WhatsAppStatusService.updateStatusFromWebhook(body.tenantId, {
+      event: body.event,
+      ...body.data
+    });
 
     // Processar diferentes tipos de eventos
     if (body.event === 'message') {
