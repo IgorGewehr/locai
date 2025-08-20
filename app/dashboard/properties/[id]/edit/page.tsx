@@ -154,70 +154,42 @@ export default function EditPropertyPage() {
     setError(null);
 
     try {
-      // Filtrar apenas fotos com URLs válidas do Firebase
-      const validPhotos = data.photos?.filter(photo => 
-        photo.url && 
-        photo.id &&
-        photo.filename &&
-        typeof photo.order === 'number' &&
-        typeof photo.isMain === 'boolean' &&
-        (photo.url.includes('firebasestorage.googleapis.com') || 
-         photo.url.startsWith('https://'))
-      ) || [];
+      // ✅ NOVA ABORDAGEM: Filtros simples como no Dart
+      // Aceitar qualquer URL válida, sem restrições específicas do Firebase
+      const validPhotos = Array.isArray(data.photos) 
+        ? data.photos.filter(url => 
+            typeof url === 'string' && 
+            url.trim().length > 0 &&
+            (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('blob:'))
+          )
+        : [];
 
-      const validVideos = data.videos?.filter(video => 
-        video.url && 
-        video.id &&
-        video.filename &&
-        video.title &&
-        typeof video.order === 'number' &&
-        (video.url.includes('firebasestorage.googleapis.com') || 
-         video.url.startsWith('https://'))
-      ) || [];
+      const validVideos = Array.isArray(data.videos)
+        ? data.videos.filter(url =>
+            typeof url === 'string' && 
+            url.trim().length > 0 &&
+            (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('blob:'))
+          )
+        : [];
 
-      // Limpar dados para envio - remover campos undefined/null
-      const cleanData: any = {};
-      
-      // Copiar apenas campos definidos
-      Object.keys(data).forEach(key => {
-        const value = (data as any)[key];
-        if (value !== undefined && value !== null) {
-          cleanData[key] = value;
-        }
-      });
-      
-      // Sobrescrever com dados limpos obrigatórios
-      cleanData.photos = validPhotos;
-      cleanData.videos = validVideos;
-      cleanData.amenities = data.amenities || [];
-      cleanData.unavailableDates = data.unavailableDates || [];
-      cleanData.customPricing = data.customPricing || {};
-      
-      // Garantir booleans são definidos
-      if (data.isFeatured !== undefined) cleanData.isFeatured = data.isFeatured;
-      if (data.allowsPets !== undefined) cleanData.allowsPets = data.allowsPets;
-      if (data.isActive !== undefined) cleanData.isActive = data.isActive;
-      
-      // Garantir números opcionais válidos apenas se definidos
-      if (data.pricePerExtraGuest !== undefined && data.pricePerExtraGuest !== null) {
-        cleanData.pricePerExtraGuest = data.pricePerExtraGuest;
-      }
-      if (data.minimumNights !== undefined && data.minimumNights !== null) {
-        cleanData.minimumNights = data.minimumNights;
-      }
-      if (data.cleaningFee !== undefined && data.cleaningFee !== null) {
-        cleanData.cleaningFee = data.cleaningFee;
-      }
+      // ✅ NOVA ABORDAGEM: Preparação direta como no Dart
+      const cleanData: any = {
+        ...data,
+        photos: validPhotos,     // Arrays simples de URLs
+        videos: validVideos,     // Arrays simples de URLs
+        amenities: data.amenities || [],
+        unavailableDates: data.unavailableDates || [],
+        customPricing: data.customPricing || {},
+      };
 
-      // Debug: mostrar dados sendo enviados
-      console.log('🔍 [Debug] Dados limpos para envio:', {
-        totalPhotos: data.photos?.length || 0,
+      // ✅ Debug simplificado
+      console.log('🔍 [Sofia Media Fix] Dados sendo enviados:', {
+        totalPhotos: Array.isArray(data.photos) ? data.photos.length : 0,
         validPhotos: validPhotos.length,
-        totalVideos: data.videos?.length || 0,
+        totalVideos: Array.isArray(data.videos) ? data.videos.length : 0,
         validVideos: validVideos.length,
-        invalidPhotos: data.photos?.filter(p => !p.url?.includes('firebasestorage') && !p.url?.startsWith('https://')) || [],
-        samplePhoto: validPhotos[0],
-        cleanDataKeys: Object.keys(cleanData),
+        samplePhotoUrl: validPhotos[0],
+        dataKeys: Object.keys(cleanData),
       });
 
       const response = await fetch(`/api/properties/${propertyId}`, {

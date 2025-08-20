@@ -1,7 +1,6 @@
 // lib/firebase/hooks/useVisits.ts
+// Hook corrigido para usar estrutura multi-tenant e API REST
 import { useState, useEffect } from 'react';
-import { collection, query, where, orderBy, onSnapshot } from 'firebase/firestore';
-import { db } from '@/lib/firebase/config';
 import { VisitAppointment } from '@/lib/types/visit-appointment';
 import { useTenant } from '@/contexts/TenantContext';
 import { logger } from '@/lib/utils/logger';
@@ -12,41 +11,64 @@ export function useVisits() {
   const [error, setError] = useState<Error | null>(null);
   const { tenantId } = useTenant();
 
-  useEffect(() => {
+  const fetchVisits = async () => {
     if (!tenantId) {
       setLoading(false);
       return;
     }
 
-    const q = query(
-      collection(db, 'visit_appointments'),
-      where('tenantId', '==', tenantId),
-      orderBy('scheduledDate', 'desc')
-    );
+    try {
+      setLoading(true);
+      setError(null);
 
-    const unsubscribe = onSnapshot(
-      q,
-      (snapshot) => {
-        const visitsData = snapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data()
-        } as VisitAppointment));
-        
-        setVisits(visitsData);
-        setLoading(false);
-        setError(null);
-      },
-      (err) => {
-        logger.error('Error fetching visits', { error: err });
-        setError(err as Error);
-        setLoading(false);
+      logger.info('🔄 [useVisits] Fetching visits via API', { tenantId });
+
+      const response = await fetch('/api/visits', {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
-    );
 
-    return () => unsubscribe();
+      const result = await response.json();
+      
+      if (result.success) {
+        setVisits(result.data || []);
+        logger.info('✅ [useVisits] Visits fetched successfully', { 
+          tenantId, 
+          count: result.data?.length || 0 
+        });
+      } else {
+        throw new Error(result.error || 'Failed to fetch visits');
+      }
+
+    } catch (err) {
+      logger.error('❌ [useVisits] Error fetching visits', { 
+        tenantId, 
+        error: err instanceof Error ? err.message : 'Unknown error' 
+      });
+      setError(err as Error);
+      setVisits([]); // Clear visits on error
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchVisits();
   }, [tenantId]);
 
-  return { data: visits, loading, error };
+  // Return refetch function for manual refresh
+  return { 
+    data: visits, 
+    loading, 
+    error, 
+    refetch: fetchVisits 
+  };
 }
 
 export function useUpcomingVisits(days: number = 7) {
@@ -55,51 +77,72 @@ export function useUpcomingVisits(days: number = 7) {
   const [error, setError] = useState<Error | null>(null);
   const { tenantId } = useTenant();
 
-  useEffect(() => {
+  const fetchUpcomingVisits = async () => {
     if (!tenantId) {
       setLoading(false);
       return;
     }
 
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    
-    const endDate = new Date();
-    endDate.setDate(endDate.getDate() + days);
-    endDate.setHours(23, 59, 59, 999);
+    try {
+      setLoading(true);
+      setError(null);
 
-    const q = query(
-      collection(db, 'visit_appointments'),
-      where('tenantId', '==', tenantId),
-      where('scheduledDate', '>=', today),
-      where('scheduledDate', '<=', endDate),
-      where('status', 'in', ['scheduled', 'confirmed']),
-      orderBy('scheduledDate', 'asc')
-    );
+      logger.info('🔄 [useUpcomingVisits] Fetching upcoming visits via API', { tenantId, days });
 
-    const unsubscribe = onSnapshot(
-      q,
-      (snapshot) => {
-        const visitsData = snapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data()
-        } as VisitAppointment));
-        
-        setVisits(visitsData);
-        setLoading(false);
-        setError(null);
-      },
-      (err) => {
-        logger.error('Error fetching upcoming visits', { error: err });
-        setError(err as Error);
-        setLoading(false);
+      const response = await fetch(`/api/visits?days=${days}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
-    );
 
-    return () => unsubscribe();
+      const result = await response.json();
+      
+      if (result.success) {
+        // Filter for only upcoming visits with appropriate status
+        const upcomingVisits = (result.data || []).filter((visit: VisitAppointment) => {
+          const visitDate = new Date(visit.scheduledDate);
+          const now = new Date();
+          return visitDate >= now && ['scheduled', 'confirmed'].includes(visit.status);
+        });
+
+        setVisits(upcomingVisits);
+        logger.info('✅ [useUpcomingVisits] Upcoming visits fetched successfully', { 
+          tenantId, 
+          days,
+          count: upcomingVisits.length 
+        });
+      } else {
+        throw new Error(result.error || 'Failed to fetch upcoming visits');
+      }
+
+    } catch (err) {
+      logger.error('❌ [useUpcomingVisits] Error fetching upcoming visits', { 
+        tenantId, 
+        days,
+        error: err instanceof Error ? err.message : 'Unknown error' 
+      });
+      setError(err as Error);
+      setVisits([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchUpcomingVisits();
   }, [tenantId, days]);
 
-  return { data: visits, loading, error };
+  return { 
+    data: visits, 
+    loading, 
+    error, 
+    refetch: fetchUpcomingVisits 
+  };
 }
 
 export function useTodayVisits() {
@@ -108,47 +151,72 @@ export function useTodayVisits() {
   const [error, setError] = useState<Error | null>(null);
   const { tenantId } = useTenant();
 
-  useEffect(() => {
+  const fetchTodayVisits = async () => {
     if (!tenantId) {
       setLoading(false);
       return;
     }
 
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    
-    const tomorrow = new Date(today);
-    tomorrow.setDate(tomorrow.getDate() + 1);
+    try {
+      setLoading(true);
+      setError(null);
 
-    const q = query(
-      collection(db, 'visit_appointments'),
-      where('tenantId', '==', tenantId),
-      where('scheduledDate', '>=', today),
-      where('scheduledDate', '<', tomorrow),
-      orderBy('scheduledDate', 'asc')
-    );
+      logger.info('🔄 [useTodayVisits] Fetching today visits via API', { tenantId });
 
-    const unsubscribe = onSnapshot(
-      q,
-      (snapshot) => {
-        const visitsData = snapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data()
-        } as VisitAppointment));
-        
-        setVisits(visitsData);
-        setLoading(false);
-        setError(null);
-      },
-      (err) => {
-        logger.error('Error fetching today visits', { error: err });
-        setError(err as Error);
-        setLoading(false);
+      const response = await fetch('/api/visits?days=1', {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
       }
-    );
 
-    return () => unsubscribe();
+      const result = await response.json();
+      
+      if (result.success) {
+        // Filter for only today's visits
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        const tomorrow = new Date(today);
+        tomorrow.setDate(tomorrow.getDate() + 1);
+
+        const todayVisits = (result.data || []).filter((visit: VisitAppointment) => {
+          const visitDate = new Date(visit.scheduledDate);
+          return visitDate >= today && visitDate < tomorrow;
+        });
+
+        setVisits(todayVisits);
+        logger.info('✅ [useTodayVisits] Today visits fetched successfully', { 
+          tenantId, 
+          count: todayVisits.length 
+        });
+      } else {
+        throw new Error(result.error || 'Failed to fetch today visits');
+      }
+
+    } catch (err) {
+      logger.error('❌ [useTodayVisits] Error fetching today visits', { 
+        tenantId, 
+        error: err instanceof Error ? err.message : 'Unknown error' 
+      });
+      setError(err as Error);
+      setVisits([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchTodayVisits();
   }, [tenantId]);
 
-  return { data: visits, loading, error };
+  return { 
+    data: visits, 
+    loading, 
+    error, 
+    refetch: fetchTodayVisits 
+  };
 }

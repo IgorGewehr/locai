@@ -36,9 +36,13 @@ export interface Property {
   advancePaymentPercentage: number // Percentual do valor total que deve ser pago antecipadamente (ex: 10 = 10%)
   paymentMethodDiscounts?: Record<PaymentMethod, number> // Descontos por método (ex: PIX = 10% desconto)
   
-  // Mídias
-  photos: PropertyPhoto[]
-  videos: PropertyVideo[]
+  // Mídias - Nova estrutura simplificada (compatível com Dart)
+  photos: string[] // URLs simples como no projeto Dart
+  videos: string[] // URLs simples como no projeto Dart
+  
+  // DEPRECATED: Compatibilidade com estrutura antiga (será removido)
+  photos_legacy?: PropertyPhoto[]
+  videos_legacy?: PropertyVideo[]
   
   // Disponibilidade e preços
   unavailableDates: Date[]
@@ -177,3 +181,72 @@ export const COMMON_AMENITIES = [
   'Detector de Fumaça',
   'Kit Primeiro Socorros'
 ]
+
+// ============================================================================
+// UTILITÁRIOS DE MIGRAÇÃO - Compatibilidade entre estruturas antiga e nova
+// ============================================================================
+
+/**
+ * Extrai URLs de PropertyPhoto[] para string[] (migração para estrutura simples)
+ */
+export function extractPhotoUrls(photos: PropertyPhoto[] | string[] | undefined): string[] {
+  if (!photos || photos.length === 0) return [];
+  if (typeof photos[0] === 'string') return photos as string[];
+  return (photos as PropertyPhoto[])
+    .filter(photo => photo && photo.url && photo.url.startsWith('http'))
+    .map(photo => photo.url);
+}
+
+/**
+ * Extrai URLs de PropertyVideo[] para string[] (migração para estrutura simples)
+ */
+export function extractVideoUrls(videos: PropertyVideo[] | string[] | undefined): string[] {
+  if (!videos || videos.length === 0) return [];
+  if (typeof videos[0] === 'string') return videos as string[];
+  return (videos as PropertyVideo[])
+    .filter(video => video && video.url && video.url.startsWith('http'))
+    .map(video => video.url);
+}
+
+/**
+ * Converte URLs simples para PropertyPhoto[] (compatibilidade reversa)
+ */
+export function urlsToPropertyPhotos(urls: string[]): PropertyPhoto[] {
+  return urls.map((url, index) => ({
+    id: `migrated-${Date.now()}-${index}`,
+    url,
+    filename: url.split('/').pop() || `photo-${index + 1}`,
+    order: index,
+    isMain: index === 0,
+    caption: ''
+  }));
+}
+
+/**
+ * Converte URLs simples para PropertyVideo[] (compatibilidade reversa)
+ */
+export function urlsToPropertyVideos(urls: string[]): PropertyVideo[] {
+  return urls.map((url, index) => ({
+    id: `migrated-${Date.now()}-${index}`,
+    url,
+    filename: url.split('/').pop() || `video-${index + 1}`,
+    title: `Video ${index + 1}`,
+    order: index,
+    duration: 0,
+    thumbnail: ''
+  }));
+}
+
+/**
+ * Normaliza propriedade para usar nova estrutura, mantendo compatibilidade
+ */
+export function normalizePropertyMedia(property: any): Property {
+  return {
+    ...property,
+    photos: extractPhotoUrls(property.photos || property.photos_legacy || property.images),
+    videos: extractVideoUrls(property.videos || property.videos_legacy),
+    // Manter dados legacy para compatibilidade
+    photos_legacy: property.photos_legacy,
+    videos_legacy: property.videos_legacy
+  };
+}

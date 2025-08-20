@@ -2,47 +2,41 @@ import { z } from 'zod'
 import { PropertyCategory } from '@/lib/types/property'
 import { PaymentMethod } from '@/lib/types/common'
 
-// Schema for property photo
+// ============================================================================
+// SCHEMAS SIMPLIFICADOS - Compatível com estrutura do Dart
+// ============================================================================
+
+// Schema simples para URLs de mídia (como List<String> no Dart)
+export const MediaUrlSchema = z.string()
+  .min(1, 'URL é obrigatória')
+  .refine(
+    (url) => url.startsWith('http://') || url.startsWith('https://') || url.startsWith('blob:'),
+    'URL deve ser válida (http, https ou blob)'
+  )
+
+// DEPRECATED: Schemas antigos mantidos para compatibilidade
 export const PropertyPhotoSchema = z.object({
   id: z.string(),
-  url: z.string().url('URL inválida'),
+  url: MediaUrlSchema, // ✅ Usa validação simplificada
   filename: z.string(),
   order: z.number().int().min(0),
   isMain: z.boolean(),
   caption: z.string().optional(),
 })
 
-// Schema for property photo update (more flexible)
-export const PropertyPhotoUpdateSchema = z.object({
-  id: z.string(),
-  url: z.string().min(1, 'URL é obrigatória'), // Aceita blob: ou https:
-  filename: z.string(),
-  order: z.number().int().min(0),
-  isMain: z.boolean(),
-  caption: z.string().optional(),
-})
-
-// Schema for property video
 export const PropertyVideoSchema = z.object({
   id: z.string(),
-  url: z.string().url('URL inválida'),
+  url: MediaUrlSchema, // ✅ Usa validação simplificada
   filename: z.string(),
   title: z.string(),
   duration: z.number().optional(),
   order: z.number().int().min(0),
-  thumbnail: z.string().url('URL inválida').optional(),
+  thumbnail: z.string().optional(),
 })
 
-// Schema for property video update (more flexible)
-export const PropertyVideoUpdateSchema = z.object({
-  id: z.string(),
-  url: z.string().min(1, 'URL é obrigatória'), // Aceita blob: ou https:
-  filename: z.string(),
-  title: z.string(),
-  duration: z.number().optional(),
-  order: z.number().int().min(0),
-  thumbnail: z.string().optional(), // Mais flexível para thumbnail
-})
+// Aliases for backward compatibility
+export const PropertyPhotoUpdateSchema = PropertyPhotoSchema
+export const PropertyVideoUpdateSchema = PropertyVideoSchema
 
 // Schema for payment surcharges
 export const PaymentSurchargesSchema = z.record(
@@ -112,13 +106,18 @@ export const CreatePropertySchema = z.object({
   
   paymentMethodSurcharges: PaymentSurchargesSchema.default({}),
   
-  photos: z.array(PropertyPhotoSchema)
+  // ✅ NOVA ESTRUTURA SIMPLIFICADA (como Dart)
+  photos: z.array(MediaUrlSchema)
     .max(30, 'Máximo de 30 fotos')
     .default([]),
   
-  videos: z.array(PropertyVideoSchema)
+  videos: z.array(MediaUrlSchema)
     .max(5, 'Máximo de 5 vídeos')
     .default([]),
+  
+  // DEPRECATED: Compatibilidade com estrutura antiga
+  photos_legacy: z.array(PropertyPhotoSchema).optional(),
+  videos_legacy: z.array(PropertyVideoSchema).optional(),
   
   unavailableDates: z.array(z.coerce.date()).default([]),
   
@@ -130,13 +129,18 @@ export const CreatePropertySchema = z.object({
 
 // Schema for updating a property (all fields optional with flexible media)
 export const UpdatePropertySchema = CreatePropertySchema.partial().extend({
-  photos: z.array(PropertyPhotoUpdateSchema)
+  // ✅ NOVA ESTRUTURA SIMPLIFICADA (como Dart)
+  photos: z.array(MediaUrlSchema)
     .max(30, 'Máximo de 30 fotos')
     .optional(),
   
-  videos: z.array(PropertyVideoUpdateSchema)
+  videos: z.array(MediaUrlSchema)
     .max(5, 'Máximo de 5 vídeos')
     .optional(),
+  
+  // DEPRECATED: Compatibilidade com estrutura antiga
+  photos_legacy: z.array(PropertyPhotoSchema).optional(),
+  videos_legacy: z.array(PropertyVideoSchema).optional(),
 })
 
 // Schema for property search/filter
