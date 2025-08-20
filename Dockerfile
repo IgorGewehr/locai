@@ -1,4 +1,4 @@
-# LocAI - Railway Deployment Dockerfile
+# LocAI - Production Deployment Dockerfile
 FROM node:20-alpine
 
 # Install dumb-init for proper signal handling
@@ -20,8 +20,8 @@ COPY . .
 RUN mkdir -p .next .sessions && \
     chmod -R 755 .next .sessions
 
-# Set temporary build environment variables (will be overridden by Railway)
-ENV JWT_SECRET=temporary-build-secret-will-be-replaced-by-railway \
+# Set temporary build environment variables (will be overridden in production)
+ENV JWT_SECRET=temporary-build-secret-will-be-replaced \
     NEXT_PUBLIC_APP_URL=https://localhost:3000 \
     DEFAULT_TENANT_ID=default-tenant \
     NODE_ENV=production

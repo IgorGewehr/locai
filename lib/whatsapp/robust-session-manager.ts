@@ -107,8 +107,7 @@ export class RobustWhatsAppManager extends EventEmitter {
   async initializeSession(tenantId: string): Promise<void> {
     logger.info('🔌 Initializing WhatsApp session', { 
       tenant: tenantId?.substring(0, 8),
-      environment: process.env.NODE_ENV,
-      railway: !!process.env.RAILWAY_PROJECT_ID
+      environment: process.env.NODE_ENV
     });
     
     // Ensure dependencies are loaded (they load in constructor but wait if needed)
@@ -135,7 +134,7 @@ export class RobustWhatsAppManager extends EventEmitter {
     this.emit('status', tenantId, 'connecting');
     
     try {
-      // Add timeout for connection creation - RAILWAY OPTIMIZED
+      // Add timeout for connection creation
       await Promise.race([
         this.createWhatsAppConnection(tenantId),
         new Promise((_, reject) => 
@@ -191,20 +190,20 @@ export class RobustWhatsAppManager extends EventEmitter {
     const path = require('path');
     const os = require('os');
     
-    // Detect environment - RAILWAY OPTIMIZED
+    // Detect environment and setup session directory
     let baseDir: string;
     
-    // RAILWAY/PERSISTENT SERVER: Use app directory (.sessions was created in Dockerfile)
-    if (process.env.RAILWAY_PROJECT_ID || process.env.NODE_ENV === 'production') {
+    // PRODUCTION: Use app directory (.sessions directory)
+    if (process.env.NODE_ENV === 'production') {
       try {
-        const railwayDir = path.join(process.cwd(), '.sessions');
+        const prodDir = path.join(process.cwd(), '.sessions');
         // Test if we can write to the directory
-        fs.mkdirSync(railwayDir, { recursive: true });
-        fs.accessSync(railwayDir, fs.constants.W_OK);
-        baseDir = process.cwd();
-        logger.info('🚂 [Railway] Using persistent session directory', { path: railwayDir });
-      } catch (railwayError) {
-        logger.warn('⚠️ [Railway] App directory not writable, using /tmp');
+        fs.mkdirSync(prodDir, { recursive: true });
+        fs.accessSync(prodDir, fs.constants.W_OK);
+        baseDir = prodDir;
+        logger.info('🗂️ [Production] Using persistent session directory', { path: prodDir });
+      } catch (prodError) {
+        logger.warn('⚠️ [Production] App directory not writable, using /tmp');
         baseDir = '/tmp';
       }
     }

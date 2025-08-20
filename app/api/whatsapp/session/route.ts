@@ -11,15 +11,8 @@ const useExternalService = process.env.WHATSAPP_USE_EXTERNAL === 'true';
 const hasExternalConfig = !!(process.env.WHATSAPP_MICROSERVICE_URL && process.env.WHATSAPP_MICROSERVICE_API_KEY);
 
 
-// Import both auth methods
-import { verifyAuth as standardVerifyAuth } from '@/lib/utils/auth';
-import { verifyAuthRailway } from '@/lib/utils/auth-railway';
-
-// Select the correct auth based on environment
-// FORÇA RAILWAY AUTH EM PRODUÇÃO - já que a detecção pode falhar no build
-const forceRailwayAuth = isProduction; // Use Railway auth em QUALQUER produção
-const isRailwayProduction = !!process.env.RAILWAY_PROJECT_ID && isProduction;
-const verifyAuth = (forceRailwayAuth || isRailwayProduction) ? verifyAuthRailway : standardVerifyAuth;
+// Use standard auth
+import { verifyAuth } from '@/lib/utils/auth';
 
 
 // OPTIMIZED: Cache to prevent excessive API calls with intelligent duration
@@ -135,8 +128,6 @@ export async function GET(request: NextRequest) {
         fallback: 'basic_status'
       });
       status = { connected: false };
-    }
-    
     // Convert to expected format
     const formattedStatus = {
       connected: status.connected || false,

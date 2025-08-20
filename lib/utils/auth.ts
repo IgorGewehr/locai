@@ -27,12 +27,9 @@ export async function verifyAuth(request: NextRequest): Promise<User | null> {
       return null;
     }
 
-    // Enhanced token verification for Railway production
-    const isRailway = !!process.env.RAILWAY_PROJECT_ID;
-    
-    // Railway optimization: Use checkRevoked only in production for performance
+    // Token verification options
     const verifyOptions = {
-      checkRevoked: isRailway && process.env.NODE_ENV === 'production'
+      checkRevoked: process.env.NODE_ENV === 'production'
     };
 
     // Verify the token with Firebase Admin - remove timeout that causes issues
@@ -40,27 +37,19 @@ export async function verifyAuth(request: NextRequest): Promise<User | null> {
     
     const decodedToken = await adminAuth.verifyIdToken(token, verifyOptions);
     
-    // Enhanced user data for Railway
+    // Return user data
     return {
       uid: decodedToken.uid,
       email: decodedToken.email || null,
       displayName: decodedToken.name || null,
       photoURL: decodedToken.picture || null,
       tenantId: decodedToken.uid, // Use UID as tenantId
-      // Railway metadata
-      _railwayAuth: {
-        verified: true,
-        timestamp: Date.now(),
-        issuedAt: decodedToken.iat,
-        expiresAt: decodedToken.exp
-      }
     } as User & { tenantId: string };
   } catch (error) {
-    // Enhanced error logging for Railway debugging
+    // Error logging
     logger.error('❌ [Auth] Token verification error:', {
       error: error instanceof Error ? error.message : 'Unknown error',
       errorCode: error?.code,
-      isRailway: !!process.env.RAILWAY_PROJECT_ID,
       hasToken: !!(request.headers.get('authorization')?.split(' ')[1]),
       tokenLength: request.headers.get('authorization')?.split(' ')[1]?.length,
       userAgent: request.headers.get('user-agent')?.substring(0, 100),
