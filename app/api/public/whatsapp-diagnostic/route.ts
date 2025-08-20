@@ -1,4 +1,4 @@
-// PUBLIC DIAGNOSTIC ENDPOINT FOR RAILWAY WHATSAPP TROUBLESHOOTING
+// PUBLIC DIAGNOSTIC ENDPOINT FOR WHATSAPP TROUBLESHOOTING
 // Access via: GET https://www.alugazap.com/api/public/whatsapp-diagnostic
 // No authentication required - safe for production debugging
 
@@ -15,10 +15,7 @@ export async function GET(request: NextRequest) {
         nodeVersion: process.version,
         platform: process.platform,
         env: process.env.NODE_ENV,
-        isRailway: !!process.env.RAILWAY_PROJECT_ID,
-        railwayProjectId: process.env.RAILWAY_PROJECT_ID ? 'present' : 'missing',
         cwd: process.cwd(),
-        hasVolume: !!process.env.RAILWAY_VOLUME_MOUNT_PATH,
         memoryUsage: process.memoryUsage(),
         uptime: process.uptime()
       },
@@ -208,25 +205,27 @@ export async function GET(request: NextRequest) {
     try {
       logger.info('🧪 [PUBLIC] Testing session manager load in Railway...');
       
-      // Test Railway QR manager if in Railway production
-      if (process.env.RAILWAY_PROJECT_ID && process.env.NODE_ENV === 'production') {
-        const { railwayQRSessionManager } = await import('@/lib/whatsapp/railway-qr-session-manager');
+      // Test session manager in production
+      if (process.env.NODE_ENV === 'production') {
+        const { RobustWhatsAppManager } = await import('@/lib/whatsapp/robust-session-manager');
+        const sessionManager = new RobustWhatsAppManager();
         diagnostics.tests.sessionManagerLoad = {
           success: true,
-          manager: 'railway-qr',
-          hasManager: !!railwayQRSessionManager,
-          managerType: typeof railwayQRSessionManager
+          manager: 'robust-whatsapp',
+          hasManager: !!sessionManager,
+          managerType: typeof sessionManager
         };
-        logger.info('✅ [PUBLIC] Railway QR Session manager load successful');
+        logger.info('✅ [PUBLIC] Session manager load successful');
       } else {
-        const { strategicSessionManager } = await import('@/lib/whatsapp/strategic-session-manager');
+        const { RobustWhatsAppManager } = await import('@/lib/whatsapp/robust-session-manager');
+        const devSessionManager = new RobustWhatsAppManager();
         diagnostics.tests.sessionManagerLoad = {
           success: true,
-          manager: 'strategic',
-          hasManager: !!strategicSessionManager,
-          managerType: typeof strategicSessionManager
+          manager: 'robust-whatsapp',
+          hasManager: !!devSessionManager,
+          managerType: typeof devSessionManager
         };
-        logger.info('✅ [PUBLIC] Strategic Session manager load successful');
+        logger.info('✅ [PUBLIC] Session manager load successful');
       }
       
     } catch (smError) {

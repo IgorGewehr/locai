@@ -129,12 +129,13 @@ export async function GET(request: NextRequest) {
     // Test 5: Session Manager Load
     try {
       logger.info('🧪 [DIAGNOSTIC] Testing session manager load...');
-      const { strategicSessionManager } = await import('@/lib/whatsapp/strategic-session-manager');
+      const { RobustWhatsAppManager } = await import('@/lib/whatsapp/robust-session-manager');
+      const sessionManager = new RobustWhatsAppManager();
       
       diagnostics.tests.sessionManagerLoad = {
         success: true,
-        hasManager: !!strategicSessionManager,
-        managerType: typeof strategicSessionManager
+        hasManager: !!sessionManager,
+        managerType: typeof sessionManager
       };
       logger.info('✅ [DIAGNOSTIC] Session manager load successful');
     } catch (smError) {
@@ -218,11 +219,11 @@ export async function POST(request: NextRequest) {
     // Test full session initialization flow
     if (body.test === 'full-session-init') {
       try {
-        const { strategicSessionManager } = await import('@/lib/whatsapp/strategic-session-manager');
+        const { RobustWhatsAppManager } = await import('@/lib/whatsapp/robust-session-manager');
+        const sessionManager = new RobustWhatsAppManager();
         
         // Just test the initialization without actually connecting
-        const manager = strategicSessionManager;
-        const status = await manager.getSessionStatus(tenantId);
+        const status = await sessionManager.getSessionStatus(tenantId);
         
         return NextResponse.json({
           success: true,

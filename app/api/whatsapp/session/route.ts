@@ -128,6 +128,8 @@ export async function GET(request: NextRequest) {
         fallback: 'basic_status'
       });
       status = { connected: false };
+    }
+    
     // Convert to expected format
     const formattedStatus = {
       connected: status.connected || false,
