@@ -17,11 +17,12 @@ import { WhatsAppStatusService } from '@/lib/services/whatsapp-status-service';
 import { EmergencyAuth } from '@/lib/utils/emergency-auth';
 
 
-// OPTIMIZED: Cache to prevent excessive API calls with intelligent duration
+// ANTI-LOOP: Cache agressivo para prevenir chamadas excessivas
 const statusCache = new Map<string, { data: any; timestamp: number; lastQRGeneration?: number; initInProgress?: boolean }>();
-const CACHE_DURATION = useExternalService ? 10000 : 5000; // 10s for external, 5s for local
-const QR_CACHE_DURATION = 60000; // QR codes cached for 60s to prevent regeneration loops
-const INIT_COOLDOWN = 30000; // 30s cooldown between session initializations
+const CACHE_DURATION = 30000; // 30s cache para ambos os modos
+const QR_CACHE_DURATION = 300000; // QR codes cached for 5 minutos
+const INIT_COOLDOWN = 60000; // 1 minuto cooldown entre inicializações
+const RATE_LIMIT = new Map<string, number>(); // Rate limiting por tenant
 
 // WhatsApp Web is always enabled now - either via external microservice or local
 const WHATSAPP_WEB_DISABLED = false;
@@ -91,22 +92,41 @@ export async function GET(request: NextRequest) {
     // MICROSERVICE MODE: Only return cached status or query external service
     // No more polling loops - frontend should use webhooks for real-time updates
     
+    // RATE LIMITING: Prevenir chamadas excessivas por tenant
+    const lastCall = RATE_LIMIT.get(tenantId) || 0;
+    const now = Date.now();
+    if (now - lastCall < 5000) { // 5s entre chamadas por tenant
+      const cached = statusCache.get(tenantId);
+      if (cached) {
+        return NextResponse.json({
+          success: true,
+          data: cached.data,
+          cached: true,
+          rateLimited: true
+        });
+      }
+    }
+    RATE_LIMIT.set(tenantId, now);
+    
     if (useExternalService && hasExternalConfig) {
-      logger.info('🌐 [Session GET] Using MICROSERVICE mode - checking real-time status', {
-        tenantId: tenantId.substring(0, 8) + '***',
-        microserviceUrl: process.env.WHATSAPP_MICROSERVICE_URL
-      });
+      // Log reduzido - apenas em debug
+      if (process.env.NEXT_PUBLIC_DEBUG_API === 'true') {
+        logger.info('🌐 [Session GET] MICROSERVICE mode', {
+          tenantId: tenantId.substring(0, 8) + '***'
+        });
+      }
       
       // Check if we have real-time status from webhooks
       const realtimeStatus = WhatsAppStatusService.getStatus(tenantId);
       
       if (realtimeStatus) {
-        logger.info('✅ [Session GET] Returning real-time status from webhooks', {
-          tenantId: tenantId.substring(0, 8) + '***',
-          status: realtimeStatus.status,
-          connected: realtimeStatus.connected,
-          hasQR: !!realtimeStatus.qrCode
-        });
+        // Log apenas quando necessário
+        if (process.env.NEXT_PUBLIC_DEBUG_API === 'true') {
+          logger.info('✅ [Session GET] Webhook status', {
+            tenantId: tenantId.substring(0, 8) + '***',
+            status: realtimeStatus.status
+          });
+        }
         
         return NextResponse.json({
           success: true,
@@ -146,8 +166,11 @@ export async function GET(request: NextRequest) {
       });
     }
     
-    // Fallback for local mode (only if external service is not configured)
-    logger.warn('⚠️ [Session GET] External service not configured, falling back to local client');
+    // Fallback para modo local - log apenas uma vez por sessão
+    if (!statusCache.has(`${tenantId}_fallback_warned`)) {
+      logger.warn('⚠️ [Session GET] Fallback to local client', { tenantId: tenantId.substring(0, 8) + '***' });
+      statusCache.set(`${tenantId}_fallback_warned`, { data: true, timestamp: now });
+    }
     
     const cached = statusCache.get(tenantId);
     if (cached && (Date.now() - cached.timestamp < CACHE_DURATION)) {
@@ -198,62 +221,56 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// POST /api/whatsapp/session - Initialize session (MICROSERVICE OPTIMIZED)
+// POST /api/whatsapp/session - Initialize session (ANTI-LOOP)
 export async function POST(request: NextRequest) {
   try {
-    // Try emergency auth first if Firebase is having issues
-    const emergencyAuth = EmergencyAuth.authenticateEmergency(request);
-    let user: any;
-    let tenantId: string;
-    
-    if (emergencyAuth.success) {
-      logger.info('🚨 [Session POST] Using emergency authentication', {
-        reason: emergencyAuth.reason || 'firebase_issues',
-        path: request.nextUrl.pathname
-      });
-      
-      user = emergencyAuth.user;
-      tenantId = user.tenantId;
-    } else {
-      // Try normal auth
-      const authResult = await authService.requireAuth(request);
-      if (authResult instanceof NextResponse) {
-        // If normal auth fails, check if it's due to Firebase quota
-        logger.warn('⚠️ [Session POST] Normal auth failed, checking for Firebase quota issues');
-        
-        // Try emergency auth as last resort
-        const fallbackAuth = EmergencyAuth.authenticateEmergency(request);
-        if (fallbackAuth.success) {
-          logger.info('🚨 [Session POST] Using emergency auth after normal auth failure');
-          user = fallbackAuth.user;
-          tenantId = user.tenantId;
-          EmergencyAuth.markFirebaseAsProblematic();
-        } else {
-          return authResult; // Return original auth error
-        }
-      } else {
-        user = authResult.user;
-        tenantId = user.tenantId;
-      }
+    // Auth simplificado
+    const authResult = await authService.requireAuth(request);
+    if (authResult instanceof NextResponse) {
+      return authResult;
     }
     
-    if (useExternalService && hasExternalConfig) {
-      logger.info('🚀 [Session POST] MICROSERVICE mode - direct API call', {
-        tenantId: tenantId.substring(0, 8) + '***',
-        microserviceUrl: process.env.WHATSAPP_MICROSERVICE_URL,
-        action: 'direct_microservice_call'
+    const { user } = authResult;
+    const tenantId = user.tenantId;
+    
+    // PREVENIR LOOPS: Verificar cooldown de inicialização
+    const cached = statusCache.get(tenantId);
+    if (cached?.initInProgress) {
+      return NextResponse.json({
+        success: false,
+        error: 'Initialization already in progress',
+        data: {
+          connected: false,
+          status: 'initializing',
+          message: 'Please wait, initialization in progress'
+        }
       });
-      
+    }
+    
+    // Verificar cooldown
+    if (cached?.timestamp && (Date.now() - cached.timestamp < INIT_COOLDOWN)) {
+      return NextResponse.json({
+        success: false,
+        error: 'Too many initialization attempts',
+        data: {
+          connected: false,
+          status: 'rate_limited', 
+          message: 'Please wait before trying again'
+        }
+      });
+    }
+    
+    // Marcar como em progresso
+    statusCache.set(tenantId, {
+      data: { status: 'initializing' },
+      timestamp: Date.now(),
+      initInProgress: true
+    });
+    
+    if (useExternalService && hasExternalConfig) {
       try {
-        // Direct call to microservice - bypass Firebase issues
         const microserviceUrl = `${process.env.WHATSAPP_MICROSERVICE_URL}/api/v1/sessions/${tenantId}/start`;
         const apiKey = process.env.WHATSAPP_MICROSERVICE_API_KEY;
-        
-        logger.info('📡 [Session POST] Making direct API call to microservice', {
-          url: microserviceUrl,
-          tenantId: tenantId.substring(0, 8) + '***',
-          hasApiKey: !!apiKey
-        });
         
         const response = await fetch(microserviceUrl, {
           method: 'POST',
@@ -273,13 +290,8 @@ export async function POST(request: NextRequest) {
         const result = await response.json();
         
         // Start session usually doesn't return QR immediately - check status endpoint
-        logger.info('📡 [Session POST] Session started, checking status for QR code', {
-          tenantId: tenantId.substring(0, 8) + '***',
-          startResponseSuccess: result.success
-        });
-        
-        // Wait a moment and check status for QR code
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        // Aguardar 2s para QR code aparecer
+        await new Promise(resolve => setTimeout(resolve, 2000));
         
         const statusUrl = `${process.env.WHATSAPP_MICROSERVICE_URL}/api/v1/sessions/${tenantId}/status`;
         const statusResponse = await fetch(statusUrl, {
@@ -293,11 +305,6 @@ export async function POST(request: NextRequest) {
         if (statusResponse.ok) {
           const statusResult = await statusResponse.json();
           if (statusResult.data) {
-            logger.info('✅ [Session POST] Got QR code from status endpoint', {
-              tenantId: tenantId.substring(0, 8) + '***',
-              hasQR: !!statusResult.data.qrCode,
-              status: statusResult.data.status
-            });
             resultData = statusResult.data;
           }
         }
@@ -319,13 +326,13 @@ export async function POST(request: NextRequest) {
           lastQRGeneration: status.qrCode ? Date.now() : undefined
         });
         
-        logger.info('✅ [Session POST] Microservice session initialized successfully', {
-          tenantId: tenantId.substring(0, 8) + '***',
-          hasQR: !!status.qrCode,
-          connected: status.connected,
-          status: status.status,
-          responseTime: Date.now()
-        });
+        // Log apenas em debug
+        if (process.env.NEXT_PUBLIC_DEBUG_API === 'true') {
+          logger.info('✅ [Session POST] Initialized', { 
+            tenantId: tenantId.substring(0, 8) + '***',
+            hasQR: !!status.qrCode 
+          });
+        }
         
         return NextResponse.json({
           success: true,

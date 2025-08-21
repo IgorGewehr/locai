@@ -1,49 +1,33 @@
-// WhatsApp Business API Types
+// WhatsApp Types - APENAS Baileys Microservice
 
 export interface WhatsAppSettings {
-  accessToken: string;
-  phoneNumberId: string;
-  verifyToken: string;
   businessName?: string;
   webhookUrl?: string;
-  mode: 'business_api' | 'web';
+  mode: 'baileys_microservice';
   connected?: boolean;
   lastSync?: Date | null;
   updatedAt?: Date;
   updatedBy?: string;
+  tenantId: string;
 }
 
-export interface WhatsAppWebhookData {
-  object: string;
-  entry: Array<{
-    id: string;
-    changes: Array<{
-      value: {
-        messaging_product: string;
-        metadata: {
-          display_phone_number: string;
-          phone_number_id: string;
-        };
-        contacts?: Array<{
-          profile: {
-            name: string;
-          };
-          wa_id: string;
-        }>;
-        messages?: WhatsAppIncomingMessage[];
-        statuses?: Array<{
-          id: string;
-          status: string;
-          timestamp: string;
-          recipient_id: string;
-        }>;
-      };
-      field: string;
-    }>;
-  }>;
+// WhatsApp Microservice Webhook Data
+export interface WhatsAppMicroserviceWebhook {
+  event: 'message' | 'status_change' | 'qr_code';
+  tenantId: string;
+  data: {
+    from?: string;
+    message?: string;
+    messageId?: string;
+    status?: 'connected' | 'disconnected' | 'qr';
+    qrCode?: string;
+    phoneNumber?: string;
+    businessName?: string;
+  };
 }
 
-export interface WhatsAppIncomingMessage {
+// Baileys Message Types
+export interface BaileysIncomingMessage {
   id: string;
   from: string;
   timestamp: string;
@@ -53,38 +37,30 @@ export interface WhatsAppIncomingMessage {
   };
   image?: {
     caption?: string;
-    mime_type: string;
-    sha256: string;
-    id: string;
+    mimetype: string;
+    url?: string;
   };
   video?: {
     caption?: string;
-    mime_type: string;
-    sha256: string;
-    id: string;
+    mimetype: string;
+    url?: string;
   };
   audio?: {
-    mime_type: string;
-    sha256: string;
-    id: string;
-    voice: boolean;
+    mimetype: string;
+    url?: string;
+    ptt?: boolean; // push to talk
   };
   document?: {
     caption?: string;
-    filename: string;
-    mime_type: string;
-    sha256: string;
-    id: string;
+    filename?: string;
+    mimetype: string;
+    url?: string;
   };
   location?: {
-    latitude: number;
-    longitude: number;
+    degreesLatitude: number;
+    degreesLongitude: number;
     name?: string;
     address?: string;
-  };
-  context?: {
-    from: string;
-    id: string;
   };
 }
 
