@@ -23,6 +23,7 @@ import {
     Refresh,
     WhatsApp, Settings,
 } from '@mui/icons-material';
+import WhatsAppStatusIndicator from '@/components/molecules/whatsapp/WhatsAppStatusIndicator';
 import type { DashboardStats } from '@/lib/types';
 import { db } from '@/lib/firebase/config';
 import { useAuth } from '@/contexts/AuthProvider';
@@ -373,24 +374,39 @@ export default function DashboardPage() {
             Visão geral do sistema imobiliário
           </Typography>
         </Box>
-        <IconButton 
-          onClick={refreshStats} 
-          disabled={loading}
-          sx={{
-            background: 'rgba(99, 102, 241, 0.1)',
-            border: '1px solid rgba(99, 102, 241, 0.2)',
-            borderRadius: '12px',
-            p: { xs: 1.5, md: 2 },
-            width: { xs: 48, md: 56 },
-            height: { xs: 48, md: 56 },
-            '&:hover': {
-              background: 'rgba(99, 102, 241, 0.2)',
-              transform: 'scale(1.05)',
-            }
-          }}
-        >
-          <Refresh sx={{ color: '#6366f1', fontSize: { xs: 20, md: 24 } }} />
-        </IconButton>
+        
+        {/* WhatsApp Status no Mobile, Refresh no Desktop */}
+        <Box sx={{ display: { xs: 'block', md: 'none' } }}>
+          {/* Mostrar WhatsApp Status apenas no mobile */}
+          <WhatsAppStatusIndicator 
+            variant="full"
+            size="medium"
+            clickable={true}
+            onRefresh={refreshStats}
+          />
+        </Box>
+        
+        <Box sx={{ display: { xs: 'none', md: 'block' } }}>
+          {/* Mostrar botão Refresh apenas no desktop */}
+          <IconButton 
+            onClick={refreshStats} 
+            disabled={loading}
+            sx={{
+              background: 'rgba(99, 102, 241, 0.1)',
+              border: '1px solid rgba(99, 102, 241, 0.2)',
+              borderRadius: '12px',
+              p: { xs: 1.5, md: 2 },
+              width: { xs: 48, md: 56 },
+              height: { xs: 48, md: 56 },
+              '&:hover': {
+                background: 'rgba(99, 102, 241, 0.2)',
+                transform: 'scale(1.05)',
+              }
+            }}
+          >
+            <Refresh sx={{ color: '#6366f1', fontSize: { xs: 20, md: 24 } }} />
+          </IconButton>
+        </Box>
       </Box>
 
       {loading && (
