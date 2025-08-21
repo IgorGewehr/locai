@@ -1,14 +1,11 @@
-// WhatsApp Web Message Sender - Microservice Integration
-// Integração com WhatsApp Microservice na DigitalOcean
+// WhatsApp Message Sender - APENAS Baileys via Microservice
+// Integração EXCLUSIVA com WhatsApp Microservice na DigitalOcean usando Baileys
 
 import { logger } from '@/lib/utils/logger';
-import { createSettingsService } from '@/lib/services/settings-service';
-import { whatsAppCloudAPI } from './whatsapp-cloud-api';
 import { whatsappMicroserviceClient } from './microservice-client';
 
-// Use microservice for production (DigitalOcean)
-const USE_MICROSERVICE = process.env.WHATSAPP_USE_MICROSERVICE !== 'false';
-const USE_BAILEYS = process.env.WHATSAPP_USE_CLOUD_API !== 'true' && !USE_MICROSERVICE;
+// APENAS Baileys via microservice (DigitalOcean)
+const USE_MICROSERVICE = true; // Sempre true, é o único método suportado
 
 /**
  * Send WhatsApp message using WhatsApp Web API (Baileys)
@@ -32,124 +29,27 @@ export async function sendWhatsAppMessage(
       usesMicroservice: USE_MICROSERVICE
     });
 
-    // PRIORIDADE 1: Use microservice (DigitalOcean production)
-    if (USE_MICROSERVICE) {
-      logger.info('🚀 Using WhatsApp Microservice (DigitalOcean production)');
-      
-      try {
-        const success = await whatsappMicroserviceClient.sendMessage(
-          resolvedTenantId,
-          phoneNumber,
-          message,
-          mediaUrl
-        );
-        
-        if (success) {
-          logger.info('✅ [WhatsAppSender] Mensagem enviada via microservice', {
-            phoneNumber: phoneNumber.substring(0, 6) + '***',
-            tenantId: resolvedTenantId.substring(0, 8) + '***'
-          });
-          return true;
-        } else {
-          logger.warn('⚠️ [WhatsAppSender] Microservice falhou ao enviar mensagem');
-        }
-      } catch (error) {
-        logger.error('❌ [WhatsAppSender] Erro ao usar microservice', {
-          errorMessage: error instanceof Error ? error.message : 'Unknown',
-          tenantId: resolvedTenantId.substring(0, 8) + '***'
-        });
-      }
-    }
-
-    // PRIORIDADE 2: Use Baileys local (fallback)
-    if (USE_BAILEYS) {
-      logger.info('📱 Using Baileys WhatsApp Web (Railway production-ready)');
-      
-      // Get tenant WhatsApp settings
-      const settingsService = createSettingsService(resolvedTenantId);
-      const settings = await settingsService.getSettings(resolvedTenantId);
-      
-      if (!settings?.whatsapp?.connected) {
-        logger.warn('⚠️ [WhatsAppSender] WhatsApp não conectado para tenant', {
-          tenantId: resolvedTenantId.substring(0, 8) + '***',
-          whatsappConnected: settings?.whatsapp?.connected || false
-        });
-      }
-
-      // Use production session manager for reliability
-      const { productionSessionManager } = await import('./production-session-manager');
-      
-      // Check session status
-      const sessionStatus = await productionSessionManager.getSessionStatus(resolvedTenantId);
-      
-      if (sessionStatus.connected) {
-        // Send message using production session manager
-        const success = await productionSessionManager.sendMessage(
-          resolvedTenantId,
-          phoneNumber,
-          message
-        );
-
-        if (success) {
-          logger.info('✅ [WhatsAppSender] Mensagem enviada via Baileys', {
-            phoneNumber: phoneNumber.substring(0, 6) + '***',
-            messageLength: message.length,
-            tenantId: resolvedTenantId.substring(0, 8) + '***'
-          });
-          return true;
-        }
-      } else {
-        logger.warn('⚠️ [WhatsAppSender] Sessão Baileys não conectada', {
-          tenantId: resolvedTenantId.substring(0, 8) + '***',
-          sessionStatus: sessionStatus.status,
-          phoneNumber: sessionStatus.phoneNumber?.substring(0, 6) + '***' || null
-        });
-        
-        // Try to use regular session manager as fallback
-        try {
-          const { whatsappSessionManager } = await import('./session-manager');
-          const result = await whatsappSessionManager.sendMessage(
-            resolvedTenantId,
-            phoneNumber,
-            message,
-            mediaUrl
-          );
-          
-          if (result) {
-            logger.info('✅ [WhatsAppSender] Mensagem enviada via session manager fallback');
-            return true;
-          }
-        } catch (fallbackError) {
-          logger.error('❌ [WhatsAppSender] Erro no fallback session manager', {
-            errorMessage: fallbackError instanceof Error ? fallbackError.message : 'Unknown'
-          });
-        }
-      }
-    }
-
-    // Fallback to Cloud API if configured and Baileys failed
-    if (process.env.WHATSAPP_ACCESS_TOKEN) {
-      logger.info('☁️ Using WhatsApp Cloud API (serverless compatible)');
-      
-      // Format phone number for WhatsApp (remove + and spaces)
-      const formattedPhone = phoneNumber.replace(/\D/g, '');
-      
-      // Send via Cloud API
-      if (mediaUrl) {
-        return await whatsAppCloudAPI.sendImage(formattedPhone, mediaUrl, message);
-      } else {
-        return await whatsAppCloudAPI.sendMessage(formattedPhone, message);
-      }
-    }
+    // ÚNICO MÉTODO: Use microservice Baileys (DigitalOcean)
+    logger.info('🚀 Using WhatsApp Microservice with Baileys (DigitalOcean)');
     
-    // Final fallback: warn about configuration
-    logger.warn('⚠️ Nenhum método de envio WhatsApp disponível', {
-      useBaileys: USE_BAILEYS,
-      hasCloudApiToken: !!process.env.WHATSAPP_ACCESS_TOKEN,
-      tenantId: resolvedTenantId.substring(0, 8) + '***'
-    });
+    const success = await whatsappMicroserviceClient.sendMessage(
+      resolvedTenantId,
+      phoneNumber,
+      message,
+      mediaUrl
+    );
     
-    return false;
+    if (success) {
+      logger.info('✅ [WhatsAppSender] Mensagem enviada via microservice Baileys', {
+        phoneNumber: phoneNumber.substring(0, 6) + '***',
+        tenantId: resolvedTenantId.substring(0, 8) + '***'
+      });
+      return true;
+    } else {
+      logger.error('❌ [WhatsAppSender] Microservice Baileys falhou ao enviar mensagem');
+      return false;
+    }
+
     
   } catch (error) {
     logger.error('❌ [WhatsAppSender] Erro crítico ao enviar mensagem', {

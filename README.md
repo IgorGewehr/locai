@@ -50,7 +50,7 @@ LOCAI é uma plataforma técnica completa para gestão de imóveis de temporada,
 
 - **Sofia AI Agent**: Assistente conversacional com 20 funções de negócio
 - **Multi-tenant**: Isolamento completo de dados por organização
-- **WhatsApp Integration**: Via microserviço externo usando Baileys
+- **WhatsApp Integration**: APENAS Baileys via microserviço Node.js no DigitalOcean
 - **CRM Completo**: Pipeline de leads com scoring automático
 - **Mini-sites**: Sites públicos com domínios customizados
 - **Dashboard Analítico**: Métricas e KPIs em tempo real
@@ -408,27 +408,33 @@ export async function searchProperties(
 
 ### Arquitetura WhatsApp
 
-O sistema utiliza **apenas Baileys** através de um **microserviço externo**, eliminando dependência do WhatsApp Business API.
+O sistema utiliza **EXCLUSIVAMENTE Baileys** através de um **microserviço Node.js** rodando em DigitalOcean. **NÃO há suporte ao WhatsApp Business API**.
 
 ```typescript
 interface WhatsAppArchitecture {
   microservice: {
     url: 'http://167.172.116.195:3000';
-    technology: 'Baileys v6.7.18';
+    technology: 'Baileys v6.7.18 (WhatsApp Web)';
     deployment: 'DigitalOcean Droplet';
+    folder: '../whatsapp-microservice/' // Pasta irmã do locai
     features: [
-      'Session management',
-      'QR code generation', 
-      'Multi-tenant support',
-      'Auto-reconnection',
-      'Message queue'
+      'Sessões multi-tenant isoladas',
+      'QR code generation automático', 
+      'Auto-reconnection resiliente',
+      'Queue de mensagens',
+      'Webhook callbacks'
+    ];
+    limitations: [
+      'Não suporta WhatsApp Business API',
+      'Apenas WhatsApp Web (Baileys)',
+      'Requer QR code scan manual'
     ];
   };
   
   integration: {
     webhook: '/api/webhook/whatsapp-microservice';
     client: 'WhatsAppMicroserviceClient';
-    authentication: 'API Key + tenant headers';
+    authentication: 'Bearer token + X-Tenant-ID header';
     events: ['message', 'status_change', 'qr_code'];
   };
 }
@@ -707,10 +713,15 @@ FIREBASE_SERVICE_ACCOUNT_KEY=
 # OpenAI
 OPENAI_API_KEY=
 
-# WhatsApp Microservice
+# WhatsApp - APENAS Baileys Microservice
 WHATSAPP_MICROSERVICE_URL=http://167.172.116.195:3000
-WHATSAPP_MICROSERVICE_API_KEY=
-WHATSAPP_WEBHOOK_SECRET=
+WHATSAPP_MICROSERVICE_API_KEY=your-api-key
+WHATSAPP_WEBHOOK_SECRET=your-webhook-secret
+
+# IMPORTANTE: NÃO configurar - WhatsApp Business API não é suportado
+# WHATSAPP_ACCESS_TOKEN=# NÃO USAR
+# WHATSAPP_PHONE_NUMBER_ID=# NÃO USAR  
+# WHATSAPP_VERIFY_TOKEN=# NÃO USAR
 
 # Application
 NEXT_PUBLIC_APP_URL=http://localhost:8080

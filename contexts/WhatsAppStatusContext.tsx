@@ -108,10 +108,11 @@ export function WhatsAppStatusProvider({ children }: { children: React.ReactNode
       interval = 600000; // 10 minutes - very infrequent checks
     }
 
-    // Schedule next status check
-    const timeoutId = setTimeout(() => {
-      refreshStatus();
-    }, interval);
+    // DISABLED: Schedule next status check to stop loop
+    // const timeoutId = setTimeout(() => {
+    //   refreshStatus();
+    // }, interval);
+    const timeoutId = null; // LOOP DISABLED
 
     setPollTimeoutId(timeoutId);
 

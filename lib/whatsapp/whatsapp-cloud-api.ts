@@ -1,9 +1,9 @@
 /**
- * WhatsApp Cloud API - Official WhatsApp Business API
- * Compatible with serverless environments (Netlify, Vercel, etc.)
+ * ARQUIVO OBSOLETO - NÃO USADO
+ * Este arquivo foi mantido apenas para compatibilidade histórica
+ * O sistema usa APENAS Baileys via microserviço externo
  * 
- * This replaces Baileys for production use as Baileys requires persistent connections
- * which are not possible in serverless functions.
+ * @deprecated Usar microservice-client.ts ou external-whatsapp-client.ts
  */
 
 import { logger } from '@/lib/utils/logger';
