@@ -74,12 +74,9 @@ export default function Header({ onMenuClick }: HeaderProps) {
   useEffect(() => {
     let interval: NodeJS.Timeout;
     
-    // Only check status if not on settings page (to avoid conflicts)
-    const isSettingsPage = window.location.pathname.includes('/settings');
-    if (!isSettingsPage) {
-      checkWhatsAppStatus();
-      interval = setInterval(checkWhatsAppStatus, 30000); // Check every 30 seconds
-    }
+    // DESABILITADO: Verificação de status do WhatsApp removida para evitar 401
+    // O status agora deve vir via webhook ou ser verificado apenas quando necessário
+    // Remover chamadas desnecessárias que causam loop de erros 401
     
     return () => {
       if (interval) {
@@ -88,37 +85,13 @@ export default function Header({ onMenuClick }: HeaderProps) {
     };
   }, []);
   
+  // Função removida - não fazer polling do status do WhatsApp
+  // O status deve vir via WebSocket ou ser verificado apenas quando o usuário clicar
   const checkWhatsAppStatus = async () => {
-    try {
-      // First check Web session
-      const sessionResponse = await fetch('/api/whatsapp/session', {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        credentials: 'include', // Include cookies for authentication
-      });
-      
-      if (sessionResponse.ok) {
-        const sessionData = await sessionResponse.json();
-        if (sessionData.data) {
-          setWhatsappStatus(sessionData.data.status);
-          if (sessionData.data.connected) {
-            setConnectionType('web');
-            return;
-          }
-        }
-      }
-      
-      // Only WhatsApp Web is available
-      setWhatsappStatus('disconnected');
-      setConnectionType(null);
-    } catch (error) {
-      console.error('Error checking WhatsApp status:', error);
-      // Set disconnected status on error
-      setWhatsappStatus('disconnected');
-      setConnectionType(null);
-    }
+    // REMOVIDO: Polling causava erros 401 repetidos
+    // Status agora deve ser gerenciado via WhatsAppStatusService ou contexto global
+    setWhatsappStatus('disconnected');
+    setConnectionType(null);
   };
   
   const getStatusDisplay = () => {
@@ -200,8 +173,8 @@ export default function Header({ onMenuClick }: HeaderProps) {
         </Box>
 
         <Box sx={{ display: 'flex', alignItems: 'center', gap: { xs: 1, md: 1.5 } }}>
-          {/* WhatsApp Status */}
-          <Tooltip title={`Tipo de conexão: ${connectionType === 'web' ? 'WhatsApp Web' : 'WhatsApp Business API'}`}>
+          {/* WhatsApp Status - Clique para verificar */}
+          <Tooltip title="Clique para verificar status do WhatsApp">
             <Box
               sx={{
                 display: 'flex',
@@ -209,18 +182,21 @@ export default function Header({ onMenuClick }: HeaderProps) {
                 px: { xs: 1.5, md: 2 },
                 py: { xs: 0.5, md: 0.75 },
                 borderRadius: 2,
-                backgroundColor: getStatusDisplay().bgColor,
-                color: 'white',
+                backgroundColor: 'action.hover',
+                color: 'text.secondary',
                 cursor: 'pointer',
                 transition: 'all 0.3s ease',
                 minHeight: { xs: 36, md: 40 },
                 '&:hover': {
-                  opacity: 0.9,
+                  backgroundColor: 'action.selected',
                 },
               }}
-              onClick={() => router.push('/dashboard/settings')}
+              onClick={() => {
+                // Navegar para settings onde o status será verificado
+                router.push('/dashboard/settings');
+              }}
             >
-              {getStatusDisplay().icon}
+              <WhatsApp sx={{ fontSize: { xs: 16, md: 20 }, mr: 1 }} />
               <Typography 
                 variant="caption" 
                 fontWeight={500}
@@ -229,7 +205,7 @@ export default function Header({ onMenuClick }: HeaderProps) {
                   display: { xs: 'none', sm: 'block' }
                 }}
               >
-                {getStatusDisplay().text}
+                WhatsApp
               </Typography>
             </Box>
           </Tooltip>

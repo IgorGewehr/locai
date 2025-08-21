@@ -261,29 +261,9 @@ export default function DashboardPage() {
         }, 0);
       const occupancyRate = totalDays > 0 ? (occupiedDays / totalDays) * 100 : 0;
 
-      // Check WhatsApp connection status
-      let whatsappConnected = false;
-      try {
-        // First check Web session
-        const sessionResponse = await fetch('/api/whatsapp/session');
-        if (sessionResponse.ok) {
-          const sessionData = await sessionResponse.json();
-          if (sessionData.data && sessionData.data.connected) {
-            whatsappConnected = true;
-          }
-        }
-        
-        // If Web is not connected, check API
-        if (!whatsappConnected) {
-          const apiResponse = await fetch('/api/config/whatsapp');
-          if (apiResponse.ok) {
-            const apiData = await apiResponse.json();
-            whatsappConnected = apiData.status === 'connected';
-          }
-        }
-      } catch (error) {
-        // WhatsApp connection check handled
-      }
+      // WhatsApp connection status - REMOVIDO para evitar erros 401
+      // O status deve ser verificado apenas na página de settings quando necessário
+      let whatsappConnected = false; // Sempre false por enquanto
 
       // Fetch WhatsApp stats from tenant-isolated collections
       const today = new Date();
