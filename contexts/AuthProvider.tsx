@@ -351,19 +351,49 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   const logout = useCallback(async () => {
     try {
-      logger.info('🚪 [Auth] Iniciando logout');
+      logger.info('🚪 [Auth] Iniciando logout completo');
       
-      await signOut(auth);
-      
+      // 1. LIMPAR ESTADO LOCAL primeiro
       setUser(null);
+      setLoading(false);
       invalidateUserCache();
       
-      logger.info('✅ [Auth] Logout realizado com sucesso');
-      router.push('/');
+      // 2. LIMPAR TOKENS E STORAGE
+      localStorage.removeItem('auth_token');
+      localStorage.removeItem('firebase-auth');
+      sessionStorage.clear();
+      
+      // 3. LIMPAR COOKIES via API
+      try {
+        await fetch('/api/auth/logout', {
+          method: 'POST',
+          credentials: 'include'
+        });
+      } catch (error) {
+        // Ignorar erro de API, continuar logout
+      }
+      
+      // 4. SIGN OUT Firebase (por último para evitar loop)
+      await signOut(auth);
+      
+      // 5. GARANTIR redirecionamento
+      setTimeout(() => {
+        window.location.href = '/login'; // Forçar recarregamento completo
+      }, 100);
+      
+      logger.info('✅ [Auth] Logout completo realizado');
+      
     } catch (error) {
-      logger.error('❌ [Auth] Erro ao fazer logout', {
+      logger.error('❌ [Auth] Erro no logout', {
         error: error instanceof Error ? error.message : 'Unknown error'
       });
+      
+      // LOGOUT FORÇADO em caso de erro
+      setUser(null);
+      invalidateUserCache();
+      localStorage.clear();
+      sessionStorage.clear();
+      window.location.href = '/login';
     }
   }, [router]);
 

@@ -86,11 +86,6 @@ const navigationItems: NavigationItem[] = [
     icon: <People sx={{ fontSize: 20 }} />,
   },
   {
-    text: 'Teste IA',
-    href: '/dashboard/ai-testing',
-    icon: <Chat sx={{ fontSize: 20 }} />,
-  },
-  {
     text: 'Agenda',
     href: '/dashboard/agenda',
     icon: <Event sx={{ fontSize: 20 }} />,

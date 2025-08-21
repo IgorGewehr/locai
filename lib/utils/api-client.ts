@@ -12,7 +12,7 @@ export class ApiClient {
     try {
       // Check if user is authenticated
       if (!auth.currentUser) {
-        console.warn('⚠️ [ApiClient] No authenticated user found');
+        if (this.debug) console.warn('⚠️ [ApiClient] No authenticated user found');
         this.tokenCache = null;
         return {
           'Content-Type': 'application/json',
