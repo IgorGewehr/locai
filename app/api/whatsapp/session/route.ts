@@ -6,16 +6,16 @@ import { WhatsAppMicroserviceClient } from '@/lib/whatsapp/microservice-client';
 /**
  * WhatsApp Session API - APENAS Baileys Microservice
  * 
- * Estratégia:
- * - GET: Retorna status atual da sessão (com cache inteligente)
- * - POST: Inicia nova sessão WhatsApp (com rate limiting)
- * - DELETE: Desconecta sessão ativa
+ * Estrategia:
+ * - GET: Retorna status atual da sessao (com cache inteligente)
+ * - POST: Inicia nova sessao WhatsApp (com rate limiting)
+ * - DELETE: Desconecta sessao ativa
  * 
  * Anti-patterns evitados:
  * - Polling excessivo
- * - Logs desnecessários  
- * - Múltiplas inicializações simultâneas
- * - Chamadas sem autenticação
+ * - Logs desnecessarios  
+ * - Multiplas inicializacoes simultaneas
+ * - Chamadas sem autenticacao
  */
 
 // Cache inteligente por tenant
@@ -31,19 +31,19 @@ const rateLimiter = new Map<string, {
   attempts: number;
 }>();
 
-// Configurações otimizadas
+// Configuracoes otimizadas
 const CACHE_TTL = 30000; // 30s cache
 const RATE_LIMIT_WINDOW = 5000; // 5s entre chamadas
-const MAX_INIT_ATTEMPTS = 3; // Máximo 3 tentativas de inicialização
-const INIT_COOLDOWN = 60000; // 1 minuto entre inicializações
+const MAX_INIT_ATTEMPTS = 3; // Maximo 3 tentativas de inicializacao
+const INIT_COOLDOWN = 60000; // 1 minuto entre inicializacoes
 
 /**
  * GET /api/whatsapp/session
- * Retorna status atual da sessão WhatsApp
+ * Retorna status atual da sessao WhatsApp
  */
 export async function GET(request: NextRequest) {
   try {
-    // 1. AUTENTICAÇÃO obrigatória
+    // 1. AUTENTICACAO obrigatoria
     const authResult = await authService.requireAuth(request);
     if (authResult instanceof NextResponse) {
       return authResult;
@@ -57,7 +57,7 @@ export async function GET(request: NextRequest) {
     const rateLimit = rateLimiter.get(tenantId);
     
     if (rateLimit && (now - rateLimit.lastRequest) < RATE_LIMIT_WINDOW) {
-      // Retornar cache se disponível durante rate limit
+      // Retornar cache se disponivel durante rate limit
       const cached = sessionCache.get(tenantId);
       if (cached) {
         return NextResponse.json({
@@ -75,7 +75,7 @@ export async function GET(request: NextRequest) {
       attempts: (rateLimit?.attempts || 0) + 1
     });
 
-    // 3. VERIFICAR CACHE válido
+    // 3. VERIFICAR CACHE valido
     const cached = sessionCache.get(tenantId);
     if (cached && (now - cached.timestamp) < CACHE_TTL) {
       return NextResponse.json({
@@ -85,7 +85,7 @@ export async function GET(request: NextRequest) {
       });
     }
 
-    // 4. BUSCAR STATUS no microserviço
+    // 4. BUSCAR STATUS no microservico
     const microserviceClient = new WhatsAppMicroserviceClient();
     const sessionStatus = await microserviceClient.getSessionStatus(tenantId);
 
@@ -109,7 +109,7 @@ export async function GET(request: NextRequest) {
 
     // 7. LOG apenas em debug
     if (process.env.NEXT_PUBLIC_DEBUG_API === 'true') {
-      logger.info('=Ê Session status retrieved', {
+      logger.info('âœ… Session status retrieved', {
         tenantId: tenantId.substring(0, 8) + '***',
         status: sessionStatus.status,
         connected: sessionStatus.connected
@@ -122,7 +122,7 @@ export async function GET(request: NextRequest) {
     });
 
   } catch (error) {
-    logger.error('L Error getting session status', {
+    logger.error('âŒ Error getting session status', {
       error: error instanceof Error ? error.message : 'Unknown error'
     });
 
@@ -145,11 +145,11 @@ export async function GET(request: NextRequest) {
 
 /**
  * POST /api/whatsapp/session
- * Inicia nova sessão WhatsApp
+ * Inicia nova sessao WhatsApp
  */
 export async function POST(request: NextRequest) {
   try {
-    // 1. AUTENTICAÇÃO obrigatória
+    // 1. AUTENTICACAO obrigatoria
     const authResult = await authService.requireAuth(request);
     if (authResult instanceof NextResponse) {
       return authResult;
@@ -158,7 +158,7 @@ export async function POST(request: NextRequest) {
     const { user } = authResult;
     const tenantId = user.tenantId;
 
-    // 2. VERIFICAR RATE LIMITING agressivo para inicialização
+    // 2. VERIFICAR RATE LIMITING agressivo para inicializacao
     const now = Date.now();
     const rateLimit = rateLimiter.get(tenantId);
     
@@ -178,17 +178,17 @@ export async function POST(request: NextRequest) {
             }
           }, { status: 429 });
         } else {
-          // Reset contador após cooldown
+          // Reset contador apos cooldown
           rateLimiter.delete(tenantId);
         }
       }
     }
 
-    // 3. VERIFICAR se já há inicialização em progresso
+    // 3. VERIFICAR se ja ha inicializacao em progresso
     const cached = sessionCache.get(tenantId);
     if (cached && cached.status === 'initializing') {
       const timeSinceInit = now - cached.timestamp;
-      if (timeSinceInit < 30000) { // 30s de proteção
+      if (timeSinceInit < 30000) { // 30s de protecao
         return NextResponse.json({
           success: false,
           error: 'Initialization already in progress',
@@ -208,12 +208,12 @@ export async function POST(request: NextRequest) {
       status: 'initializing'
     });
 
-    // 5. INICIAR SESSÃO no microserviço
+    // 5. INICIAR SESSAO no microservico
     const microserviceClient = new WhatsAppMicroserviceClient();
     const initResult = await microserviceClient.startSession(tenantId);
 
     if (!initResult.success) {
-      // Remover cache de inicialização em caso de erro
+      // Remover cache de inicializacao em caso de erro
       sessionCache.delete(tenantId);
       
       return NextResponse.json({
@@ -260,7 +260,7 @@ export async function POST(request: NextRequest) {
       attempts: (rateLimit?.attempts || 0) + 1
     });
 
-    logger.info(' Session initialization completed', {
+    logger.info('âœ… Session initialization completed', {
       tenantId: tenantId.substring(0, 8) + '***',
       status: responseData.status,
       hasQR: !!responseData.qrCode
@@ -272,7 +272,7 @@ export async function POST(request: NextRequest) {
     });
 
   } catch (error) {
-    logger.error('L Error initializing session', {
+    logger.error('âŒ Error initializing session', {
       error: error instanceof Error ? error.message : 'Unknown error'
     });
 
@@ -303,11 +303,11 @@ export async function POST(request: NextRequest) {
 
 /**
  * DELETE /api/whatsapp/session  
- * Desconecta sessão WhatsApp ativa
+ * Desconecta sessao WhatsApp ativa
  */
 export async function DELETE(request: NextRequest) {
   try {
-    // 1. AUTENTICAÇÃO obrigatória
+    // 1. AUTENTICACAO obrigatoria
     const authResult = await authService.requireAuth(request);
     if (authResult instanceof NextResponse) {
       return authResult;
@@ -316,7 +316,7 @@ export async function DELETE(request: NextRequest) {
     const { user } = authResult;
     const tenantId = user.tenantId;
 
-    // 2. DESCONECTAR no microserviço
+    // 2. DESCONECTAR no microservico
     const microserviceClient = new WhatsAppMicroserviceClient();
     const success = await microserviceClient.disconnectSession(tenantId);
 
@@ -325,7 +325,7 @@ export async function DELETE(request: NextRequest) {
     rateLimiter.delete(tenantId);
 
     if (success) {
-      logger.info('= Session disconnected successfully', {
+      logger.info('âœ… Session disconnected successfully', {
         tenantId: tenantId.substring(0, 8) + '***'
       });
 
@@ -347,7 +347,7 @@ export async function DELETE(request: NextRequest) {
     }
 
   } catch (error) {
-    logger.error('L Error disconnecting session', {
+    logger.error('âŒ Error disconnecting session', {
       error: error instanceof Error ? error.message : 'Unknown error'
     });
 
