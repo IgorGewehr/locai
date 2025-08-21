@@ -26,20 +26,55 @@ export class ApiClient {
       if (this.tokenCache && 
           this.tokenCache.expiry > now + 60000 && // 1 minute buffer
           this.tokenCache.email === currentEmail) {
-        if (this.debug) console.log('🔄 [ApiClient] Using cached token for user:', currentEmail);
+        if (this.debug) console.log('🔄 [ApiClient] Using cached JWT token for user:', currentEmail);
         return {
           'Authorization': `Bearer ${this.tokenCache.token}`,
           'Content-Type': 'application/json',
         };
       }
 
-      // Get fresh token with multiple retry strategies
+      // Strategy 1: Try to get JWT token from localStorage first
+      const storedToken = localStorage.getItem('auth_token');
+      if (storedToken) {
+        try {
+          // Parse JWT to check expiry
+          const payload = JSON.parse(atob(storedToken.split('.')[1]));
+          const expiry = (payload.exp || 0) * 1000; // Convert to milliseconds
+          
+          if (expiry > now + 60000) { // 1 minute buffer
+            // Cache the token
+            this.tokenCache = {
+              token: storedToken,
+              expiry,
+              email: currentEmail || 'unknown'
+            };
+            
+            if (this.debug) {
+              console.log('✅ [ApiClient] Using stored JWT token for user:', currentEmail, {
+                tokenLength: storedToken.length,
+                expiresIn: Math.round((expiry - now) / 1000 / 60) + ' minutes'
+              });
+            }
+            
+            return {
+              'Authorization': `Bearer ${storedToken}`,
+              'Content-Type': 'application/json',
+            };
+          } else {
+            if (this.debug) console.log('⚠️ [ApiClient] Stored JWT token expired, will try Firebase token fallback');
+          }
+        } catch (parseError) {
+          if (this.debug) console.warn('⚠️ [ApiClient] Could not parse stored JWT token:', parseError);
+        }
+      }
+
+      // Strategy 2: Fallback to Firebase ID Token if no valid JWT
       let token = null;
       const maxRetries = 3;
       
       for (let attempt = 1; attempt <= maxRetries; attempt++) {
         try {
-          if (this.debug) console.log(`🔄 [ApiClient] Getting token attempt ${attempt}/${maxRetries} for user:`, currentEmail);
+          if (this.debug) console.log(`🔄 [ApiClient] Getting Firebase token attempt ${attempt}/${maxRetries} for user:`, currentEmail);
           
           // Strategy 1: Force refresh
           if (attempt === 1) {
@@ -56,12 +91,60 @@ export class ApiClient {
           }
           
           if (token && token.length > 100) {
-            // Parse token to get expiry (basic JWT parsing)
+            // Since we got Firebase token, try to generate JWT via API
+            try {
+              if (this.debug) console.log('🔄 [ApiClient] Converting Firebase token to JWT...');
+              
+              const jwtResponse = await fetch('/api/auth/token', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Authorization': `Bearer ${token}` // Use Firebase token for this call
+                },
+                body: JSON.stringify({
+                  uid: auth.currentUser.uid,
+                  email: auth.currentUser.email,
+                  name: auth.currentUser.displayName || auth.currentUser.email,
+                  role: 'user',
+                  tenantId: auth.currentUser.uid
+                })
+              });
+              
+              if (jwtResponse.ok) {
+                const { token: jwtToken } = await jwtResponse.json();
+                localStorage.setItem('auth_token', jwtToken);
+                
+                // Parse JWT to get expiry
+                const jwtPayload = JSON.parse(atob(jwtToken.split('.')[1]));
+                const jwtExpiry = (jwtPayload.exp || 0) * 1000;
+                
+                this.tokenCache = {
+                  token: jwtToken,
+                  expiry: jwtExpiry,
+                  email: currentEmail || 'unknown'
+                };
+                
+                if (this.debug) {
+                  console.log('✅ [ApiClient] JWT token generated and cached for user:', currentEmail);
+                }
+                
+                return {
+                  'Authorization': `Bearer ${jwtToken}`,
+                  'Content-Type': 'application/json',
+                };
+              } else {
+                if (this.debug) console.warn('⚠️ [ApiClient] JWT generation failed, using Firebase token');
+              }
+            } catch (jwtError) {
+              if (this.debug) console.warn('⚠️ [ApiClient] JWT generation error:', jwtError);
+            }
+            
+            // Fallback: Use Firebase token directly
             try {
               const payload = JSON.parse(atob(token.split('.')[1]));
               const expiry = (payload.exp || 0) * 1000; // Convert to milliseconds
               
-              // Cache the token
+              // Cache the Firebase token
               this.tokenCache = {
                 token,
                 expiry,
@@ -69,7 +152,7 @@ export class ApiClient {
               };
               
               if (this.debug) {
-                console.log('✅ [ApiClient] Fresh token obtained for user:', currentEmail, {
+                console.log('⚠️ [ApiClient] Using Firebase token as fallback for user:', currentEmail, {
                   tokenLength: token.length,
                   expiresIn: Math.round((expiry - now) / 1000 / 60) + ' minutes'
                 });
@@ -80,7 +163,7 @@ export class ApiClient {
                 'Content-Type': 'application/json',
               };
             } catch (parseError) {
-              console.warn('⚠️ [ApiClient] Could not parse token expiry, using anyway:', parseError);
+              console.warn('⚠️ [ApiClient] Could not parse Firebase token expiry, using anyway:', parseError);
               
               // Use token anyway with shorter cache time
               this.tokenCache = {
