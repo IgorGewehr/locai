@@ -227,10 +227,29 @@ export async function POST(request: NextRequest) {
       }, { status: 500 });
     }
 
-    // 6. AGUARDAR e verificar status
-    await new Promise(resolve => setTimeout(resolve, 2000));
+    // 6. AGUARDAR e verificar status com retry para QR code
+    let sessionStatus;
+    let attempts = 0;
+    const maxAttempts = 15; // 15 tentativas = ~30 segundos máximo
     
-    const sessionStatus = await microserviceClient.getSessionStatus(tenantId);
+    do {
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      sessionStatus = await microserviceClient.getSessionStatus(tenantId);
+      attempts++;
+      
+      logger.info('🔍 [Session] Checking for QR code', {
+        attempt: attempts,
+        hasQR: !!sessionStatus.qrCode,
+        status: sessionStatus.status,
+        connected: sessionStatus.connected
+      });
+      
+      // Se já conectado ou tem QR code, sair do loop
+      if (sessionStatus.connected || sessionStatus.qrCode) {
+        break;
+      }
+      
+    } while (attempts < maxAttempts && !sessionStatus.connected && !sessionStatus.qrCode);
 
     // 7. FORMATAR RESPOSTA final
     const responseData = {
@@ -263,7 +282,9 @@ export async function POST(request: NextRequest) {
     logger.info('✅ Session initialization completed', {
       tenantId: tenantId.substring(0, 8) + '***',
       status: responseData.status,
-      hasQR: !!responseData.qrCode
+      hasQR: !!responseData.qrCode,
+      attempts,
+      totalTime: attempts * 2 + 's'
     });
 
     return NextResponse.json({
