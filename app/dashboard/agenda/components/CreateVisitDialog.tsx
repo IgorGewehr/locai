@@ -177,14 +177,10 @@ export default function CreateVisitDialog({ open, onClose, onSuccess }: CreateVi
         tenantId 
       });
 
-      // Obter token do localStorage
-      const token = localStorage.getItem('auth_token');
-
       const response = await fetch('/api/visits', {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json',
-          ...(token && { 'Authorization': `Bearer ${token}` })
+          'Content-Type': 'application/json'
         },
         body: JSON.stringify(visitData),
       });
