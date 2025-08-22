@@ -24,7 +24,7 @@ export async function GET(
       tenantId,
       environment: {
         NODE_ENV: process.env.NODE_ENV,
-        RAILWAY_PROJECT_ID: process.env.RAILWAY_PROJECT_ID ? 'SET' : 'NOT_SET',
+        NODE_ENV: process.env.NODE_ENV,
       },
       tests: {
         config: null as any,

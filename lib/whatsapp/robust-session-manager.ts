@@ -262,9 +262,9 @@ export class RobustWhatsAppManager extends EventEmitter {
       auth: state,
       printQRInTerminal: false, // We handle QR ourselves
       browser: ['LocAI WhatsApp', 'Chrome', '120.0.0'], // Brand identity
-      connectTimeoutMs: 60000,   // 1 minute connection timeout for Railway
-      qrTimeout: 120000,         // 2 minutes QR timeout for Railway  
-      defaultQueryTimeoutMs: 30000, // 30s query timeout for Railway
+      connectTimeoutMs: 60000,   // 1 minute connection timeout for production
+      qrTimeout: 120000,         // 2 minutes QR timeout for production  
+      defaultQueryTimeoutMs: 30000, // 30s query timeout for production
       keepAliveIntervalMs: 25000, // 25s keep-alive
       markOnlineOnConnect: true,
       syncFullHistory: false,     // Production optimization
@@ -302,7 +302,7 @@ export class RobustWhatsAppManager extends EventEmitter {
         session.status = 'disconnected';
         this.emit('status', tenantId, 'disconnected');
       }
-    }, 10000); // 10 seconds timeout for Railway
+    }, 10000); // 10 seconds timeout for production
 
     socket.ev.on('connection.update', async (update) => {
       const { connection, lastDisconnect, qr } = update;

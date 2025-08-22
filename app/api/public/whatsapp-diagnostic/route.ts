@@ -33,9 +33,9 @@ export async function GET(request: NextRequest) {
       errors: []
     };
 
-    // Test 1: Baileys Import (Railway Production Test)
+    // Test 1: Baileys Import (Production Test)
     try {
-      logger.info('🧪 [PUBLIC] Testing Baileys import in Railway...');
+      logger.info('🧪 [PUBLIC] Testing Baileys import in production...');
       
       const importStrategies = [
         () => import('@whiskeysockets/baileys'),
@@ -62,16 +62,16 @@ export async function GET(request: NextRequest) {
           keysAvailable: Object.keys(baileysModule || {}).length
         };
         diagnostics.tests.baileysImport = true;
-        logger.info('✅ [PUBLIC] Baileys import successful in Railway');
+        logger.info('✅ [PUBLIC] Baileys import successful in production');
       }
     } catch (error) {
-      logger.error('❌ [PUBLIC] Baileys import failed in Railway:', error);
+      logger.error('❌ [PUBLIC] Baileys import failed in production:', error);
       diagnostics.errors.push(`Baileys critical: ${error.message}`);
     }
 
-    // Test 2: QRCode Import (Railway Production Test)
+    // Test 2: QRCode Import (Production Test)
     try {
-      logger.info('🧪 [PUBLIC] Testing QRCode import in Railway...');
+      logger.info('🧪 [PUBLIC] Testing QRCode import in production...');
       
       const qrStrategies = [
         () => require('qrcode'),
@@ -97,11 +97,11 @@ export async function GET(request: NextRequest) {
           functionsAvailable: Object.keys(QRCode).filter(key => typeof QRCode[key] === 'function').length
         };
         diagnostics.tests.qrcodeImport = true;
-        logger.info('✅ [PUBLIC] QRCode import successful in Railway');
+        logger.info('✅ [PUBLIC] QRCode import successful in production');
         
-        // Test 3: QR Generation in Railway Production
+        // Test 3: QR Generation in Production
         try {
-          logger.info('🧪 [PUBLIC] Testing QR generation in Railway production...');
+          logger.info('🧪 [PUBLIC] Testing QR generation in production...');
           
           const testConfigs = [
             { width: 256, margin: 4, errorCorrectionLevel: 'M' },
@@ -111,7 +111,7 @@ export async function GET(request: NextRequest) {
           
           for (let configIndex = 0; configIndex < testConfigs.length; configIndex++) {
             try {
-              const testData = `railway-production-test-${Date.now()}`;
+              const testData = `production-test-${Date.now()}`;
               const testQR = await Promise.race([
                 QRCode.toDataURL(testData, testConfigs[configIndex]),
                 new Promise((_, reject) => {
@@ -128,7 +128,7 @@ export async function GET(request: NextRequest) {
                   isValidDataUrl: testQR.startsWith('data:image/png;base64,'),
                   generationTime: 'under 10s'
                 };
-                logger.info('✅ [PUBLIC] QR generation successful in Railway production');
+                logger.info('✅ [PUBLIC] QR generation successful in production');
                 break;
               }
             } catch (configError) {
@@ -146,20 +146,20 @@ export async function GET(request: NextRequest) {
         }
       }
     } catch (error) {
-      logger.error('❌ [PUBLIC] QRCode import failed in Railway:', error);
+      logger.error('❌ [PUBLIC] QRCode import failed in production:', error);
       diagnostics.errors.push(`QRCode critical: ${error.message}`);
     }
 
-    // Test 4: File System (Railway Production Test)
+    // Test 4: File System (Production Test)
     try {
-      logger.info('🧪 [PUBLIC] Testing file system in Railway production...');
+      logger.info('🧪 [PUBLIC] Testing file system in production...');
       const fs = require('fs');
       const path = require('path');
       
       const testDirs = [
-        // Railway volume mount
-        process.env.RAILWAY_VOLUME_MOUNT_PATH ? 
-          path.join(process.env.RAILWAY_VOLUME_MOUNT_PATH, '.diagnostic-test') : null,
+        // Volume mount
+        process.env.VOLUME_MOUNT_PATH ? 
+          path.join(process.env.VOLUME_MOUNT_PATH, '.diagnostic-test') : null,
         // Project directory
         path.join(process.cwd(), '.diagnostic-test'),
         // /tmp fallback
@@ -170,11 +170,11 @@ export async function GET(request: NextRequest) {
       for (const testDir of testDirs) {
         try {
           fs.mkdirSync(testDir, { recursive: true, mode: 0o755 });
-          fs.writeFileSync(path.join(testDir, 'test.txt'), 'railway-diagnostic');
+          fs.writeFileSync(path.join(testDir, 'test.txt'), 'production-diagnostic');
           const testContent = fs.readFileSync(path.join(testDir, 'test.txt'), 'utf8');
           fs.rmSync(testDir, { recursive: true, force: true });
           
-          if (testContent === 'railway-diagnostic') {
+          if (testContent === 'production-diagnostic') {
             workingDir = testDir;
             break;
           }
@@ -187,23 +187,23 @@ export async function GET(request: NextRequest) {
         success: !!workingDir,
         workingDirectory: workingDir,
         testedDirectories: testDirs.length,
-        hasRailwayVolume: !!process.env.RAILWAY_VOLUME_MOUNT_PATH,
-        volumePath: process.env.RAILWAY_VOLUME_MOUNT_PATH || 'not available'
+        hasVolume: !!process.env.VOLUME_MOUNT_PATH,
+        volumePath: process.env.VOLUME_MOUNT_PATH || 'not available'
       };
       
       if (workingDir) {
-        logger.info('✅ [PUBLIC] File system test successful in Railway');
+        logger.info('✅ [PUBLIC] File system test successful in production');
       }
       
     } catch (fsError) {
-      logger.error('❌ [PUBLIC] File system test failed in Railway:', fsError);
+      logger.error('❌ [PUBLIC] File system test failed in production:', fsError);
       diagnostics.errors.push(`File system critical: ${fsError.message}`);
       diagnostics.tests.fileSystem = { success: false, error: fsError.message };
     }
 
     // Test 5: Session Manager Load
     try {
-      logger.info('🧪 [PUBLIC] Testing session manager load in Railway...');
+      logger.info('🧪 [PUBLIC] Testing session manager load in production...');
       
       // Test session manager in production
       if (process.env.NODE_ENV === 'production') {
@@ -229,7 +229,7 @@ export async function GET(request: NextRequest) {
       }
       
     } catch (smError) {
-      logger.error('❌ [PUBLIC] Session manager load failed in Railway:', smError);
+      logger.error('❌ [PUBLIC] Session manager load failed in production:', smError);
       diagnostics.errors.push(`Session manager: ${smError.message}`);
       diagnostics.tests.sessionManagerLoad = { success: false, error: smError.message };
     }
@@ -258,10 +258,10 @@ export async function GET(request: NextRequest) {
       passedTests: Object.values(diagnostics.tests).filter(test => 
         test === true || (typeof test === 'object' && test.success)
       ).length,
-      recommendations: generateRailwayRecommendations(diagnostics)
+      recommendations: generateProductionRecommendations(diagnostics)
     };
 
-    logger.info('🎯 [PUBLIC] Railway diagnostic completed', {
+    logger.info('🎯 [PUBLIC] Production diagnostic completed', {
       totalErrors: diagnostics.errors.length,
       successfulTests: summary.passedTests,
       criticalIssues: summary.criticalIssues.length
@@ -269,7 +269,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      message: 'Railway WhatsApp Production Diagnostic Complete',
+      message: 'WhatsApp Production Diagnostic Complete',
       diagnostics,
       summary
     });
@@ -281,41 +281,41 @@ export async function GET(request: NextRequest) {
       success: false,
       error: 'Public diagnostic failed',
       message: error.message,
-      isRailway: !!process.env.RAILWAY_PROJECT_ID,
+      isProduction: process.env.NODE_ENV === 'production',
       environment: process.env.NODE_ENV
     }, { status: 500 });
   }
 }
 
-function generateRailwayRecommendations(diagnostics: any): string[] {
+function generateProductionRecommendations(diagnostics: any): string[] {
   const recommendations = [];
 
   if (!diagnostics.tests.baileysImport) {
-    recommendations.push('CRITICAL: Baileys package not loading in Railway - check node_modules and package installation');
+    recommendations.push('CRITICAL: Baileys package not loading - check node_modules and package installation');
   }
 
   if (!diagnostics.tests.qrcodeImport) {
-    recommendations.push('CRITICAL: QRCode package not loading in Railway - check Canvas dependencies');
+    recommendations.push('CRITICAL: QRCode package not loading - check Canvas dependencies');
   }
 
   if (diagnostics.tests.qrGeneration && !diagnostics.tests.qrGeneration.success) {
-    recommendations.push('CRITICAL: QR generation failing - check Canvas/Cairo dependencies in Railway');
+    recommendations.push('CRITICAL: QR generation failing - check Canvas/Cairo dependencies');
   }
 
   if (!diagnostics.tests.fileSystem || !diagnostics.tests.fileSystem.success) {
-    recommendations.push('WARNING: File system issues - check Railway volume mounts and permissions');
+    recommendations.push('WARNING: File system issues - check volume mounts and permissions');
   }
 
   if (!diagnostics.tests.authSystem || !diagnostics.tests.authSystem.success) {
     recommendations.push('WARNING: Authentication system issues - check Firebase configuration');
   }
 
-  if (diagnostics.environment.isRailway && diagnostics.errors.length > 0) {
-    recommendations.push('Railway specific: Consider adding build dependencies: canvas, cairo, pango');
+  if (diagnostics.environment.isProduction && diagnostics.errors.length > 0) {
+    recommendations.push('Production specific: Consider adding build dependencies: canvas, cairo, pango');
   }
 
-  if (diagnostics.environment.isRailway && !diagnostics.environment.hasVolume) {
-    recommendations.push('Railway optimization: Enable volume mount for persistent WhatsApp sessions');
+  if (diagnostics.environment.isProduction && !diagnostics.environment.hasVolume) {
+    recommendations.push('Production optimization: Enable volume mount for persistent WhatsApp sessions');
   }
 
   if (recommendations.length === 0) {

@@ -3,7 +3,7 @@ import { logger } from '@/lib/utils/logger';
 
 /**
  * WhatsApp Debugging Endpoint - Production Safe
- * Diagnoses WhatsApp Baileys integration issues on Railway
+ * Diagnoses WhatsApp Baileys integration issues in production
  */
 export async function GET(request: NextRequest) {
   try {
@@ -11,7 +11,7 @@ export async function GET(request: NextRequest) {
       timestamp: new Date().toISOString(),
       environment: {
         NODE_ENV: process.env.NODE_ENV,
-        RAILWAY_PROJECT_ID: process.env.RAILWAY_PROJECT_ID ? 'SET' : 'NOT_SET',
+        NODE_ENV: process.env.NODE_ENV,
         platform: process.platform,
         nodeVersion: process.version
       },
@@ -53,18 +53,18 @@ export async function GET(request: NextRequest) {
       const fs = require('fs');
       const path = require('path');
       
-      // Test Railway directory creation
+      // Test production directory creation
       let baseDir: string;
       let canWrite = false;
       
-      if (process.env.RAILWAY_PROJECT_ID || process.env.NODE_ENV === 'production') {
-        const railwayDir = path.join(process.cwd(), '.sessions');
+      if (process.env.NODE_ENV === 'production') {
+        const prodDir = path.join(process.cwd(), '.sessions');
         try {
-          fs.mkdirSync(railwayDir, { recursive: true });
-          fs.accessSync(railwayDir, fs.constants.W_OK);
-          baseDir = railwayDir;
+          fs.mkdirSync(prodDir, { recursive: true });
+          fs.accessSync(prodDir, fs.constants.W_OK);
+          baseDir = prodDir;
           canWrite = true;
-        } catch (railwayError) {
+        } catch (prodError) {
           baseDir = '/tmp/.sessions';
           fs.mkdirSync(baseDir, { recursive: true });
           canWrite = true;

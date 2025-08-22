@@ -774,7 +774,7 @@ npm run generate-password-hash  # Geração de hash de senha
 
 ```typescript
 interface DeploymentConfig {
-  platforms: ['Vercel', 'Railway', 'DigitalOcean'];
+  platforms: ['Netlify', 'Vercel', 'DigitalOcean'];
   requirements: {
     node: '>=20.0.0';
     npm: '>=9.0.0';

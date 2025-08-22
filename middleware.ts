@@ -63,16 +63,16 @@ export async function middleware(request: NextRequest) {
   if (publicRoutes.some(route => pathname === route || pathname.startsWith(route))) {
     const response = NextResponse.next();
     
-    // Add Railway-specific CORS headers for public API routes
+    // Add CORS headers for public API routes
     if (pathname.startsWith('/api/')) {
-      const isRailway = !!process.env.RAILWAY_PROJECT_ID;
-      const allowedOrigin = isRailway ? 'https://www.alugazap.com' : '*';
+      const isProduction = process.env.NODE_ENV === 'production';
+      const allowedOrigin = isProduction ? 'https://www.alugazap.com' : '*';
       
       response.headers.set('Access-Control-Allow-Origin', allowedOrigin);
       response.headers.set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
       response.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, X-Tenant-Id, Origin, Accept');
       response.headers.set('Access-Control-Allow-Credentials', 'true');
-      response.headers.set('X-Railway-Public-Route', 'true');
+      response.headers.set('X-Public-Route', 'true');
     }
     
     return response;
@@ -82,10 +82,10 @@ export async function middleware(request: NextRequest) {
   if (authProtectedApiRoutes.some(route => pathname.startsWith(route))) {
     const response = NextResponse.next();
     
-    // Add Railway-specific headers for debugging
-    const isRailway = !!process.env.RAILWAY_PROJECT_ID;
-    if (isRailway) {
-      response.headers.set('X-Railway-Auth-Route', 'true');
+    // Add production headers for debugging
+    const isProduction = process.env.NODE_ENV === 'production';
+    if (isProduction) {
+      response.headers.set('X-Production-Auth-Route', 'true');
       response.headers.set('Access-Control-Allow-Origin', 'https://www.alugazap.com');
       response.headers.set('Access-Control-Allow-Credentials', 'true');
       response.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, X-Tenant-Id, Origin, Accept');

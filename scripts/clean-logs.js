@@ -5,7 +5,6 @@ const path = require('path');
 
 // Files to clean
 const filesToClean = [
-  './lib/whatsapp/railway-qr-session-manager.ts',
   './lib/whatsapp/strategic-session-manager.ts',
   './lib/whatsapp/robust-session-manager.ts',
   './lib/whatsapp/optimized-session-manager.ts'

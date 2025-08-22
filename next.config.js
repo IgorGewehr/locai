@@ -88,8 +88,8 @@ const nextConfig = {
         headers: [
           {
             key: 'Access-Control-Allow-Origin',
-            value: process.env.RAILWAY_PROJECT_ID 
-              ? 'https://www.alugazap.com' 
+            value: process.env.NODE_ENV === 'production'
+              ? 'https://alugazap.com, https://www.alugazap.com' 
               : '*',
           },
           {

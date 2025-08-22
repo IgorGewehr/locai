@@ -1,4 +1,4 @@
-// AUTH TEST ENDPOINT FOR DEBUGGING RAILWAY 401 ISSUES
+// AUTH TEST ENDPOINT FOR DEBUGGING PRODUCTION 401 ISSUES
 // Simple endpoint to test Firebase Auth token verification
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -34,7 +34,7 @@ export async function GET(request: NextRequest) {
           hasAuthHeader: !!authHeader,
           authHeaderLength: authHeader?.length,
           timestamp: new Date().toISOString(),
-          isRailway: !!process.env.RAILWAY_PROJECT_ID
+          isProduction: process.env.NODE_ENV === 'production'
         }
       }, { status: 401 });
     }
@@ -80,9 +80,8 @@ export async function GET(request: NextRequest) {
       tokenInfo,
       debug: {
         timestamp: new Date().toISOString(),
-        isRailway: !!process.env.RAILWAY_PROJECT_ID,
-        environment: process.env.NODE_ENV,
-        railwayProjectId: process.env.RAILWAY_PROJECT_ID?.substring(0, 8) + '***'
+        isProduction: process.env.NODE_ENV === 'production',
+        environment: process.env.NODE_ENV
       }
     });
     
@@ -95,7 +94,7 @@ export async function GET(request: NextRequest) {
       error: error.message,
       debug: {
         timestamp: new Date().toISOString(),
-        isRailway: !!process.env.RAILWAY_PROJECT_ID,
+        isProduction: process.env.NODE_ENV === 'production',
         environment: process.env.NODE_ENV
       }
     }, { status: 500 });

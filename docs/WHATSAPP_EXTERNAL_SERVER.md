@@ -117,7 +117,7 @@ npm install
 npm start
 ```
 
-#### B) **Railway** (Grátis)
+#### B) **Render** (Grátis)
 ```dockerfile
 # Dockerfile
 FROM node:20-alpine
@@ -138,7 +138,7 @@ CMD ["npm", "start"]
 ```typescript
 // lib/whatsapp/external-whatsapp-api.ts
 export class ExternalWhatsAppAPI {
-  private baseUrl = process.env.WHATSAPP_SERVER_URL; // https://seu-servidor.railway.app
+  private baseUrl = process.env.WHATSAPP_SERVER_URL; // https://seu-servidor.ondigitalocean.app
   
   async startSession(tenantId: string): Promise<boolean> {
     const response = await fetch(`${this.baseUrl}/sessions/${tenantId}/start`, {
@@ -233,7 +233,7 @@ class WhatsAppMultiTenant {
 | Solução | Custo Mensal | Complexidade | Multi-tenant |
 |---------|-------------|--------------|---------------|
 | Servidor DigitalOcean | $6 | Média | ✅ Ilimitado |
-| Railway/Render | $0-$20 | Baixa | ✅ Ilimitado |
+| Render/Heroku | $0-$20 | Baixa | ✅ Ilimitado |
 | 360Dialog BSP | €49 | Baixa | ✅ Com limites |
 | Twilio | Por uso | Baixa | ✅ Por número |
 | Chat API | $29 | Muito Baixa | ✅ Incluído |
@@ -242,7 +242,7 @@ class WhatsAppMultiTenant {
 
 **Para seu caso (SaaS multi-tenant):**
 
-1. **Melhor opção**: Servidor Railway/Render + Baileys próprio
+1. **Melhor opção**: Servidor DigitalOcean/Render + Baileys próprio
 2. **Mais simples**: Chat API ou WhatsMate  
 3. **Mais robusta**: 360Dialog BSP
 
@@ -251,7 +251,7 @@ class WhatsAppMultiTenant {
 Vou implementar a **Opção 1** agora mesmo:
 - Servidor externo com Baileys
 - APIs REST para comunicação
-- Deploy no Railway (grátis)
+- Deploy no DigitalOcean (droplet $6/mês)
 - Integração com seu Netlify
 
 Esta é a ÚNICA forma de ter QR code dinâmico para cada cliente!

@@ -26,8 +26,7 @@ export async function GET(request: NextRequest) {
         nodeVersion: process.version,
         platform: process.platform,
         env: process.env.NODE_ENV,
-        isRailway: !!process.env.RAILWAY_PROJECT_ID,
-        railwayProjectId: process.env.RAILWAY_PROJECT_ID?.substring(0, 8) + '***',
+        isProduction: process.env.NODE_ENV === 'production',
         cwd: process.cwd(),
         tmpDir: '/tmp'
       },
@@ -193,8 +192,8 @@ function generateRecommendations(diagnostics: any): string[] {
     recommendations.push('Check file system permissions and available disk space');
   }
 
-  if (diagnostics.environment.isRailway && diagnostics.errors.length > 0) {
-    recommendations.push('Consider Railway-specific fixes for Node.js modules');
+  if (diagnostics.environment.isProduction && diagnostics.errors.length > 0) {
+    recommendations.push('Consider production-specific fixes for Node.js modules');
   }
 
   if (recommendations.length === 0) {
