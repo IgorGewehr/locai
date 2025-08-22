@@ -242,31 +242,16 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         
         setUser(userData);
         
-        // Gerar token JWT para o usuário autenticado
+        // Armazenar Firebase ID token diretamente
         try {
-          const response = await fetch('/api/auth/token', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              uid: userData.uid,
-              email: userData.email,
-              name: userData.name,
-              role: userData.role,
-              tenantId: userData.tenantId
-            })
+          const firebaseIdToken = await authUser.getIdToken();
+          localStorage.setItem('auth_token', firebaseIdToken);
+          logger.info('✅ [Auth] Firebase ID token armazenado', {
+            userId: userData.uid,
+            tenantId: userData.tenantId
           });
-          
-          if (response.ok) {
-            const { token } = await response.json();
-            // O cookie é configurado pelo servidor, apenas salvar no localStorage
-            localStorage.setItem('auth_token', token);
-            logger.info('✅ [Auth] Token JWT criado e armazenado', {
-              userId: userData.uid,
-              tenantId: userData.tenantId
-            });
-          }
         } catch (error) {
-          logger.error('❌ [Auth] Erro ao criar token JWT', { error });
+          logger.error('❌ [Auth] Erro ao obter Firebase ID token', { error });
         }
         
         // Redirecionamento

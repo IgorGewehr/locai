@@ -97,17 +97,6 @@ export default function SettingsPage() {
 
   // Get current session (local QR takes priority over context)
   const currentSession = localQrSession && localQrSession.qrCode ? localQrSession : whatsappSession;
-  
-  // Debug logging
-  useEffect(() => {
-    console.log('🔍 [Settings Debug] Current session:', {
-      hasLocalQr: !!localQrSession?.qrCode,
-      hasContextQr: !!whatsappSession.qrCode,
-      currentHasQr: !!currentSession.qrCode,
-      currentStatus: currentSession.status,
-      currentConnected: currentSession.connected
-    });
-  }, [localQrSession, whatsappSession, currentSession]);
 
   // Monitor connection status changes for automatic dialog closing
   useEffect(() => {

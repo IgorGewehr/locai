@@ -34,8 +34,8 @@ const rateLimiter = new Map<string, {
 // Configuracoes otimizadas
 const CACHE_TTL = 30000; // 30s cache
 const RATE_LIMIT_WINDOW = 5000; // 5s entre chamadas
-const MAX_INIT_ATTEMPTS = 3; // Maximo 3 tentativas de inicializacao
-const INIT_COOLDOWN = 60000; // 1 minuto entre inicializacoes
+const MAX_INIT_ATTEMPTS = 5; // Maximo 5 tentativas de inicializacao
+const INIT_COOLDOWN = 30000; // 30 segundos entre inicializacoes
 
 /**
  * GET /api/whatsapp/session
@@ -158,29 +158,29 @@ export async function POST(request: NextRequest) {
     const { user } = authResult;
     const tenantId = user.tenantId;
 
-    // 2. VERIFICAR RATE LIMITING agressivo para inicializacao
+    // 2. VERIFICAR RATE LIMITING para inicializacao
     const now = Date.now();
     const rateLimit = rateLimiter.get(tenantId);
     
     if (rateLimit) {
-      // Verificar tentativas excessivas
-      if (rateLimit.attempts >= MAX_INIT_ATTEMPTS) {
-        const timeSinceLastAttempt = now - rateLimit.lastRequest;
-        if (timeSinceLastAttempt < INIT_COOLDOWN) {
-          return NextResponse.json({
-            success: false,
-            error: 'Too many initialization attempts',
-            data: {
-              connected: false,
-              status: 'rate_limited',
-              retryAfter: Math.ceil((INIT_COOLDOWN - timeSinceLastAttempt) / 1000),
-              message: 'Please wait before trying again'
-            }
-          }, { status: 429 });
-        } else {
-          // Reset contador apos cooldown
-          rateLimiter.delete(tenantId);
-        }
+      // Verificar se passou tempo suficiente desde ultima tentativa
+      const timeSinceLastAttempt = now - rateLimit.lastRequest;
+      
+      // Reset contador se passou tempo suficiente
+      if (timeSinceLastAttempt > INIT_COOLDOWN) {
+        rateLimiter.delete(tenantId);
+      } else if (rateLimit.attempts >= MAX_INIT_ATTEMPTS) {
+        // Apenas bloquear se ainda dentro do cooldown E excedeu tentativas
+        return NextResponse.json({
+          success: false,
+          error: 'Too many initialization attempts',
+          data: {
+            connected: false,
+            status: 'rate_limited',
+            retryAfter: Math.ceil((INIT_COOLDOWN - timeSinceLastAttempt) / 1000),
+            message: 'Please wait before trying again'
+          }
+        }, { status: 429 });
       }
     }
 

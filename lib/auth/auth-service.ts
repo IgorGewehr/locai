@@ -135,69 +135,52 @@ class AuthService {
 
     const token = authHeader.substring(7);
     
-    // First try to verify as our custom JWT
-    let payload = await this.verifyToken(token);
-    
-    // If custom JWT fails, try Firebase token verification
-    if (!payload) {
-      try {
-        // Try to verify as Firebase ID token
-        const admin = await import('firebase-admin');
-        
-        // Initialize Firebase Admin if not already done
-        if (!admin.apps.length) {
-          // Use service account from environment or default credentials
-          const serviceAccount = process.env.FIREBASE_SERVICE_ACCOUNT_KEY 
-            ? JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY)
-            : undefined;
-            
-          admin.initializeApp({
-            credential: serviceAccount 
-              ? admin.credential.cert(serviceAccount)
-              : admin.credential.applicationDefault(),
-            projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID
-          });
-        }
-        
-        const decodedToken = await admin.auth().verifyIdToken(token);
-        
-        if (decodedToken) {
-          // Convert Firebase token to our user format
-          const user: User = {
-            id: decodedToken.uid,
-            email: decodedToken.email || '',
-            name: decodedToken.name || decodedToken.email?.split('@')[0] || '',
-            role: 'user',
-            tenantId: decodedToken.uid,
-            createdAt: new Date(),
-          };
+    try {
+      // Verify directly as Firebase ID token (simplified approach)
+      const admin = await import('firebase-admin');
+      
+      // Initialize Firebase Admin if not already done
+      if (!admin.apps.length) {
+        // Use service account from environment or default credentials
+        const serviceAccount = process.env.FIREBASE_SERVICE_ACCOUNT_KEY 
+          ? JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_KEY)
+          : undefined;
           
-          return { user, token };
-        }
-      } catch (firebaseError) {
-        console.warn('⚠️ [AuthService] Firebase token verification also failed:', firebaseError);
+        admin.initializeApp({
+          credential: serviceAccount 
+            ? admin.credential.cert(serviceAccount)
+            : admin.credential.applicationDefault(),
+          projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID
+        });
       }
       
-      return NextResponse.json(
-        { 
-          success: false, 
-          error: 'Token inválido ou expirado',
-          code: 'INVALID_TOKEN' 
-        },
-        { status: 401 }
-      );
+      const decodedToken = await admin.auth().verifyIdToken(token);
+      
+      if (decodedToken) {
+        // Convert Firebase token to our user format
+        const user: User = {
+          id: decodedToken.uid,
+          email: decodedToken.email || '',
+          name: decodedToken.name || decodedToken.email?.split('@')[0] || '',
+          role: 'user',
+          tenantId: decodedToken.uid,
+          createdAt: new Date(),
+        };
+        
+        return { user, token };
+      }
+    } catch (firebaseError) {
+      console.warn('⚠️ [AuthService] Firebase token verification failed:', firebaseError);
     }
-
-    const user: User = {
-      id: payload.sub,
-      email: payload.email,
-      name: payload.name,
-      role: payload.role as 'admin' | 'user',
-      tenantId: payload.tenantId,
-      createdAt: new Date(payload.iat * 1000),
-    };
-
-    return { user, token };
+    
+    return NextResponse.json(
+      { 
+        success: false, 
+        error: 'Token inválido ou expirado',
+        code: 'INVALID_TOKEN' 
+      },
+      { status: 401 }
+    );
   }
 
   async requireRole(user: User, requiredRole: 'admin' | 'user'): Promise<boolean> {
