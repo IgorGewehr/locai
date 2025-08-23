@@ -92,7 +92,14 @@ export default function LoginPage() {
   const [isProcessing, setIsProcessing] = useState(false);
   
   const router = useRouter();
-  const { signIn, signUp, resetPassword } = useAuth();
+  const { signIn, signUp, resetPassword, user, loading } = useAuth();
+
+  // Redirect if already authenticated
+  useEffect(() => {
+    if (!loading && user) {
+      router.push('/dashboard');
+    }
+  }, [user, loading, router]);
 
   // Clear error and success when tab changes
   useEffect(() => {
@@ -132,9 +139,9 @@ export default function LoginPage() {
       setLoginSuccess(true);
       setIsProcessing(true);
       
-      // Short success state before redirect
+      // Redirect to dashboard after successful login
       setTimeout(() => {
-        // AuthProvider handles redirect
+        router.push('/dashboard');
       }, 600);
     } catch (err: any) {
       let errorMessage = 'Email ou senha incorretos';
@@ -170,7 +177,10 @@ export default function LoginPage() {
       setRegisterSuccess(true);
       setSuccess('Conta criada com sucesso! Redirecionando para o dashboard...');
       
-      // O AuthProvider vai processar e redirecionar automaticamente para dashboard
+      // Redirect to dashboard after successful registration
+      setTimeout(() => {
+        router.push('/dashboard');
+      }, 1000);
     } catch (err: any) {
       let errorMessage = 'Erro ao criar conta';
       

@@ -194,8 +194,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     if (!userData || !userData.isActive) return false;
     
     const publicRoutes = ['/', '/login', '/signup', '/reset-password'];
-    const isInPublicRoute = publicRoutes.includes(currentPath);
+    const isInPublicRoute = publicRoutes.some(route => currentPath === route || currentPath.startsWith(route));
     
+    // Redirecionar para dashboard se estiver em rota pública e autenticado
     return isInPublicRoute;
   }, []);
 
@@ -254,19 +255,31 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           logger.error('❌ [Auth] Erro ao obter Firebase ID token', { error });
         }
         
-        // Redirecionamento
+        // Redirecionamento mais robusto
         setTimeout(() => {
           if (!isMounted) return;
           
+          // Se usuário está autenticado e em rota pública, redirecionar para dashboard
           if (shouldRedirectToApp(userData, pathname)) {
+            logger.info('🔄 [Auth] Redirecionando usuário autenticado para dashboard', {
+              from: pathname,
+              to: '/dashboard',
+              userId: userData.uid
+            });
             router.push('/dashboard');
           } else {
+            // Verificar se precisa redirecionar para login
             const authRedirect = shouldRedirectToAuth(userData, pathname);
             if (authRedirect) {
+              logger.info('🔄 [Auth] Redirecionando para login', {
+                from: pathname,
+                to: authRedirect.redirect,
+                reason: authRedirect.reason
+              });
               router.push(authRedirect.redirect);
             }
           }
-        }, 500);
+        }, 300);
         
       } catch (error) {
         logger.error('❌ [Auth] Erro ao processar usuário autenticado', {
