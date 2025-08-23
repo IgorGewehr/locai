@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getAuthFromCookie } from '@/lib/utils/auth-cookie';
+import { validateFirebaseAuth } from '@/lib/middleware/firebase-auth';
 import { createSettingsService } from '@/lib/services/settings-service';
 import { z } from 'zod';
 import { logger } from '@/lib/utils/logger';
@@ -17,8 +17,8 @@ const whatsappConfigSchema = z.object({
 // GET /api/config/whatsapp - Get WhatsApp configuration
 export async function GET(request: NextRequest) {
   try {
-    const auth = await getAuthFromCookie(request);
-    if (!auth) {
+    const auth = await validateFirebaseAuth(request);
+    if (!auth.authenticated) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -61,8 +61,8 @@ export async function GET(request: NextRequest) {
 // POST /api/config/whatsapp - Save WhatsApp configuration
 export async function POST(request: NextRequest) {
   try {
-    const auth = await getAuthFromCookie(request);
-    if (!auth) {
+    const auth = await validateFirebaseAuth(request);
+    if (!auth.authenticated) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -126,8 +126,8 @@ export async function POST(request: NextRequest) {
 // PUT /api/config/whatsapp - Update WhatsApp configuration
 export async function PUT(request: NextRequest) {
   try {
-    const auth = await getAuthFromCookie(request);
-    if (!auth) {
+    const auth = await validateFirebaseAuth(request);
+    if (!auth.authenticated) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -208,8 +208,8 @@ export async function PUT(request: NextRequest) {
 // DELETE /api/config/whatsapp - Reset WhatsApp configuration
 export async function DELETE(request: NextRequest) {
   try {
-    const auth = await getAuthFromCookie(request);
-    if (!auth) {
+    const auth = await validateFirebaseAuth(request);
+    if (!auth.authenticated) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 

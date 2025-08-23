@@ -1,20 +1,24 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { withAuth } from '@/lib/middleware/auth';
+import { validateFirebaseAuth } from '@/lib/middleware/firebase-auth';
 import { advancedAIInsightsService } from '@/lib/services/advanced-ai-insights';
 import { logger } from '@/lib/utils/logger';
 
-async function handler(req: NextRequest, context: any) {
-  const { user } = context;
-  const tenantId = user.tenantId;
-
-  if (!tenantId) {
-    return NextResponse.json(
-      { error: 'Tenant ID not found' },
-      { status: 400 }
-    );
-  }
-
+export async function GET(req: NextRequest) {
   try {
+    const auth = await validateFirebaseAuth(req);
+    if (!auth.authenticated) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+    
+    const tenantId = auth.tenantId;
+
+    if (!tenantId) {
+      return NextResponse.json(
+        { error: 'Tenant ID not found' },
+        { status: 400 }
+      );
+    }
+
     const { searchParams } = new URL(req.url);
     const type = searchParams.get('type') || 'insights';
     const days = parseInt(searchParams.get('days') || '30');
@@ -23,7 +27,7 @@ async function handler(req: NextRequest, context: any) {
       tenantId,
       type,
       days,
-      userId: user.uid
+      userId: auth.userId
     });
 
     let data;
@@ -78,7 +82,7 @@ async function handler(req: NextRequest, context: any) {
 
   } catch (error) {
     logger.error('❌ [API] Error fetching advanced insights', {
-      tenantId,
+      tenantId: auth?.tenantId,
       error: error instanceof Error ? error.message : 'Unknown error'
     });
 
@@ -91,5 +95,3 @@ async function handler(req: NextRequest, context: any) {
     );
   }
 }
-
-export const GET = withAuth(handler);

@@ -4,16 +4,16 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { createSettingsService } from '@/lib/services/settings-service';
-import { getAuthFromCookie } from '@/lib/utils/auth-cookie';
+import { validateFirebaseAuth } from '@/lib/middleware/firebase-auth';
 
 export async function POST(request: NextRequest) {
   try {
     console.log('🚀 Starting mini-site activation process');
     
-    let auth = await getAuthFromCookie(request);
+    let auth = await validateFirebaseAuth(request);
     
     // If no auth from cookie, try to get from headers (for testing)
-    if (!auth) {
+    if (!auth.authenticated) {
       const authHeader = request.headers.get('authorization');
       if (authHeader?.startsWith('Bearer ')) {
         const token = authHeader.substring(7);
@@ -29,7 +29,7 @@ export async function POST(request: NextRequest) {
     }
     
     // If still no auth, return error
-    if (!auth) {
+    if (!auth.authenticated) {
       console.log('❌ No authentication found');
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
