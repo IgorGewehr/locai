@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthProvider';
+import { ApiClient } from '@/lib/utils/api-client';
 import {
   Card,
   CardContent,
@@ -61,7 +62,7 @@ export default function MiniSiteWidgetFullWidth({ tenantId = 'demo' }: MiniSiteW
       setLoading(true);
       
       // Load mini-site config
-      const configResponse = await fetch('/api/settings');
+      const configResponse = await ApiClient.get('/api/settings');
       if (configResponse.ok) {
         const settings = await configResponse.json();
         if (settings?.miniSite) {
@@ -85,7 +86,7 @@ export default function MiniSiteWidgetFullWidth({ tenantId = 'demo' }: MiniSiteW
       
       // Load analytics
       try {
-        const analyticsResponse = await fetch('/api/analytics/mini-site');
+        const analyticsResponse = await ApiClient.get('/api/analytics/mini-site');
         if (analyticsResponse.ok) {
           const analyticsData = await analyticsResponse.json();
           setAnalytics(analyticsData);

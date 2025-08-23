@@ -1,11 +1,10 @@
 import { auth } from '@/lib/firebase/config';
 
 /**
- * API client with automatic token injection
+ * API client with Firebase Auth integration
  */
 export class ApiClient {
   private static tokenCache: { token: string; expiry: number; email: string } | null = null;
-  private static isProduction = process.env.NODE_ENV === 'production';
   private static debug = process.env.NEXT_PUBLIC_DEBUG_API === 'true';
   
   private static async getAuthHeaders(): Promise<HeadersInit> {
@@ -22,53 +21,18 @@ export class ApiClient {
       const currentEmail = auth.currentUser.email;
       const now = Date.now();
       
-      // Check if we have a valid cached token
+      // Check if we have a valid cached Firebase token
       if (this.tokenCache && 
           this.tokenCache.expiry > now + 60000 && // 1 minute buffer
           this.tokenCache.email === currentEmail) {
-        if (this.debug) console.log('🔄 [ApiClient] Using cached JWT token for user:', currentEmail);
+        if (this.debug) console.log('🔄 [ApiClient] Using cached Firebase token for user:', currentEmail);
         return {
           'Authorization': `Bearer ${this.tokenCache.token}`,
           'Content-Type': 'application/json',
         };
       }
 
-      // Strategy 1: Try to get JWT token from localStorage first
-      const storedToken = localStorage.getItem('auth_token');
-      if (storedToken) {
-        try {
-          // Parse JWT to check expiry
-          const payload = JSON.parse(atob(storedToken.split('.')[1]));
-          const expiry = (payload.exp || 0) * 1000; // Convert to milliseconds
-          
-          if (expiry > now + 60000) { // 1 minute buffer
-            // Cache the token
-            this.tokenCache = {
-              token: storedToken,
-              expiry,
-              email: currentEmail || 'unknown'
-            };
-            
-            if (this.debug) {
-              console.log('✅ [ApiClient] Using stored JWT token for user:', currentEmail, {
-                tokenLength: storedToken.length,
-                expiresIn: Math.round((expiry - now) / 1000 / 60) + ' minutes'
-              });
-            }
-            
-            return {
-              'Authorization': `Bearer ${storedToken}`,
-              'Content-Type': 'application/json',
-            };
-          } else {
-            if (this.debug) console.log('⚠️ [ApiClient] Stored JWT token expired, will try Firebase token fallback');
-          }
-        } catch (parseError) {
-          if (this.debug) console.warn('⚠️ [ApiClient] Could not parse stored JWT token:', parseError);
-        }
-      }
-
-      // Strategy 2: Fallback to Firebase ID Token if no valid JWT
+      // Get Firebase ID Token
       let token = null;
       const maxRetries = 3;
       
@@ -76,70 +40,21 @@ export class ApiClient {
         try {
           if (this.debug) console.log(`🔄 [ApiClient] Getting Firebase token attempt ${attempt}/${maxRetries} for user:`, currentEmail);
           
-          // Strategy 1: Force refresh
+          // Try to get fresh Firebase token
           if (attempt === 1) {
-            token = await auth.currentUser.getIdToken(true);
+            token = await auth.currentUser.getIdToken(true); // Force refresh
           }
-          // Strategy 2: Use cached token
           else if (attempt === 2) {
-            token = await auth.currentUser.getIdToken(false);
+            token = await auth.currentUser.getIdToken(false); // Use cached
           }
-          // Strategy 3: Wait and force refresh again
           else {
+            // Wait and force refresh again
             await new Promise(resolve => setTimeout(resolve, 1000));
             token = await auth.currentUser.getIdToken(true);
           }
           
           if (token && token.length > 100) {
-            // Since we got Firebase token, try to generate JWT via API
-            try {
-              if (this.debug) console.log('🔄 [ApiClient] Converting Firebase token to JWT...');
-              
-              const jwtResponse = await fetch('/api/auth/token', {
-                method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json',
-                  'Authorization': `Bearer ${token}` // Use Firebase token for this call
-                },
-                body: JSON.stringify({
-                  uid: auth.currentUser.uid,
-                  email: auth.currentUser.email,
-                  name: auth.currentUser.displayName || auth.currentUser.email,
-                  role: 'user',
-                  tenantId: auth.currentUser.uid
-                })
-              });
-              
-              if (jwtResponse.ok) {
-                const { token: jwtToken } = await jwtResponse.json();
-                localStorage.setItem('auth_token', jwtToken);
-                
-                // Parse JWT to get expiry
-                const jwtPayload = JSON.parse(atob(jwtToken.split('.')[1]));
-                const jwtExpiry = (jwtPayload.exp || 0) * 1000;
-                
-                this.tokenCache = {
-                  token: jwtToken,
-                  expiry: jwtExpiry,
-                  email: currentEmail || 'unknown'
-                };
-                
-                if (this.debug) {
-                  console.log('✅ [ApiClient] JWT token generated and cached for user:', currentEmail);
-                }
-                
-                return {
-                  'Authorization': `Bearer ${jwtToken}`,
-                  'Content-Type': 'application/json',
-                };
-              } else {
-                if (this.debug) console.warn('⚠️ [ApiClient] JWT generation failed, using Firebase token');
-              }
-            } catch (jwtError) {
-              if (this.debug) console.warn('⚠️ [ApiClient] JWT generation error:', jwtError);
-            }
-            
-            // Fallback: Use Firebase token directly
+            // Parse Firebase token to get expiry
             try {
               const payload = JSON.parse(atob(token.split('.')[1]));
               const expiry = (payload.exp || 0) * 1000; // Convert to milliseconds
@@ -152,7 +67,7 @@ export class ApiClient {
               };
               
               if (this.debug) {
-                console.log('⚠️ [ApiClient] Using Firebase token as fallback for user:', currentEmail, {
+                console.log('✅ [ApiClient] Firebase token obtained for user:', currentEmail, {
                   tokenLength: token.length,
                   expiresIn: Math.round((expiry - now) / 1000 / 60) + ' minutes'
                 });
@@ -168,7 +83,7 @@ export class ApiClient {
               // Use token anyway with shorter cache time
               this.tokenCache = {
                 token,
-                expiry: now + (30 * 60 * 1000), // 30 minutes
+                expiry: now + (30 * 60 * 1000), // 30 minutes default
                 email: currentEmail || 'unknown'
               };
               
@@ -190,10 +105,10 @@ export class ApiClient {
         }
       }
       
-      throw new Error('All token acquisition attempts failed');
+      throw new Error('All Firebase token acquisition attempts failed');
       
     } catch (error) {
-      console.error('❌ [ApiClient] Failed to get auth token after all retries:', {
+      console.error('❌ [ApiClient] Failed to get Firebase auth token:', {
         error: error.message,
         user: auth.currentUser?.email,
         uid: auth.currentUser?.uid

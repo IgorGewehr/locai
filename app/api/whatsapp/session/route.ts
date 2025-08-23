@@ -44,13 +44,15 @@ const INIT_COOLDOWN = 30000; // 30 segundos entre inicializacoes
 export async function GET(request: NextRequest) {
   try {
     // 1. AUTENTICACAO obrigatoria
-    const authResult = await authService.requireAuth(request);
-    if (authResult instanceof NextResponse) {
-      return authResult;
+    const authContext = await validateFirebaseAuth(request);
+    if (!authContext.authenticated || !authContext.tenantId) {
+      return NextResponse.json({
+        success: false,
+        error: 'Unauthorized'
+      }, { status: 401 });
     }
 
-    const { user } = authResult;
-    const tenantId = user.tenantId;
+    const tenantId = authContext.tenantId;
 
     // 2. RATE LIMITING por tenant
     const now = Date.now();
@@ -89,6 +91,26 @@ export async function GET(request: NextRequest) {
     const microserviceClient = new WhatsAppMicroserviceClient();
     const sessionStatus = await microserviceClient.getSessionStatus(tenantId);
 
+    if (!sessionStatus) {
+      logger.error('❌ [WhatsApp Session API] Status retornado é null/undefined', {
+        tenantId: tenantId.substring(0, 8) + '***'
+      });
+      
+      return NextResponse.json({
+        success: false,
+        error: 'Failed to get session status - null response',
+        data: {
+          connected: false,
+          status: 'error',
+          phoneNumber: null,
+          businessName: null,
+          qrCode: null,
+          lastUpdated: new Date().toISOString(),
+          message: 'Microservice returned null/undefined status'
+        }
+      }, { status: 200 });
+    }
+
     // 5. FORMATAR RESPOSTA padronizada
     const responseData = {
       connected: sessionStatus.connected,
@@ -123,7 +145,10 @@ export async function GET(request: NextRequest) {
 
   } catch (error) {
     logger.error('❌ Error getting session status', {
-      error: error instanceof Error ? error.message : 'Unknown error'
+      error: error instanceof Error ? error.message : 'Unknown error',
+      errorStack: error instanceof Error ? error.stack : undefined,
+      errorType: typeof error,
+      errorDetails: error
     });
 
     // Resposta de erro graceful
@@ -150,13 +175,15 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     // 1. AUTENTICACAO obrigatoria
-    const authResult = await authService.requireAuth(request);
-    if (authResult instanceof NextResponse) {
-      return authResult;
+    const authContext = await validateFirebaseAuth(request);
+    if (!authContext.authenticated || !authContext.tenantId) {
+      return NextResponse.json({
+        success: false,
+        error: 'Unauthorized'
+      }, { status: 401 });
     }
 
-    const { user } = authResult;
-    const tenantId = user.tenantId;
+    const tenantId = authContext.tenantId;
 
     // 2. VERIFICAR RATE LIMITING para inicializacao
     const now = Date.now();
@@ -329,13 +356,15 @@ export async function POST(request: NextRequest) {
 export async function DELETE(request: NextRequest) {
   try {
     // 1. AUTENTICACAO obrigatoria
-    const authResult = await authService.requireAuth(request);
-    if (authResult instanceof NextResponse) {
-      return authResult;
+    const authContext = await validateFirebaseAuth(request);
+    if (!authContext.authenticated || !authContext.tenantId) {
+      return NextResponse.json({
+        success: false,
+        error: 'Unauthorized'
+      }, { status: 401 });
     }
 
-    const { user } = authResult;
-    const tenantId = user.tenantId;
+    const tenantId = authContext.tenantId;
 
     // 2. DESCONECTAR no microservico
     const microserviceClient = new WhatsAppMicroserviceClient();

@@ -4,6 +4,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import { ApiClient } from '@/lib/utils/api-client';
 import {
   Paper,
   Typography,
@@ -67,15 +68,7 @@ export function VisitsDebugPanel() {
 
     // Test 3: API GET /api/visits
     try {
-      // Obter token do localStorage
-      const token = localStorage.getItem('auth_token');
-      
-      const response = await fetch('/api/visits', {
-        headers: {
-          'Content-Type': 'application/json',
-          ...(token && { 'Authorization': `Bearer ${token}` })
-        }
-      });
+      const response = await ApiClient.get('/api/visits');
       const data = await response.json();
       
       newResults.push({
@@ -112,17 +105,7 @@ export function VisitsDebugPanel() {
 
     try {
       // Fazemos uma tentativa de POST para ver se a API aceita
-      // Obter token do localStorage
-      const token = localStorage.getItem('auth_token');
-      
-      const response = await fetch('/api/visits', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(token && { 'Authorization': `Bearer ${token}` })
-        },
-        body: JSON.stringify(mockData)
-      });
+      const response = await ApiClient.post('/api/visits', mockData);
 
       const data = await response.json();
       

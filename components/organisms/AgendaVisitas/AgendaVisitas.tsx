@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { ApiClient } from '@/lib/utils/api-client';
 import {
   Box,
   Paper,
@@ -110,9 +111,9 @@ export default function AgendaVisitas({ onCreateVisit, onEditVisit, onViewVisit 
 
       // Carregar visitas, propriedades e clientes
       const [visitsResponse, propertiesResponse, clientsResponse] = await Promise.all([
-        fetch(`/api/visits?tenantId=${tenantId}`),
-        fetch(`/api/properties?tenantId=${tenantId}`),
-        fetch(`/api/clients?tenantId=${tenantId}`),
+        ApiClient.get(`/api/visits?tenantId=${tenantId}`),
+        ApiClient.get(`/api/properties?tenantId=${tenantId}`),
+        ApiClient.get(`/api/clients?tenantId=${tenantId}`),
       ]);
 
       if (!visitsResponse.ok || !propertiesResponse.ok || !clientsResponse.ok) {

@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { ApiClient } from '@/lib/utils/api-client';
 import {
   Dialog,
   DialogTitle,
@@ -177,13 +178,7 @@ export default function CreateVisitDialog({ open, onClose, onSuccess }: CreateVi
         tenantId 
       });
 
-      const response = await fetch('/api/visits', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(visitData),
-      });
+      const response = await ApiClient.post('/api/visits', visitData);
 
       const data = await response.json();
       

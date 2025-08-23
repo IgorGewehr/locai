@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { VisitAppointment } from '@/lib/types/visit-appointment';
 import { useTenant } from '@/contexts/TenantContext';
 import { logger } from '@/lib/utils/logger';
+import { ApiClient } from '@/lib/utils/api-client';
 
 export function useVisits() {
   const [visits, setVisits] = useState<VisitAppointment[]>([]);
@@ -22,17 +23,8 @@ export function useVisits() {
       setError(null);
 
       logger.info('🔄 [useVisits] Fetching visits via API', { tenantId });
-
-      // Obter token do localStorage
-      const token = localStorage.getItem('auth_token');
       
-      const response = await fetch('/api/visits', {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(token && { 'Authorization': `Bearer ${token}` })
-        }
-      });
+      const response = await ApiClient.get('/api/visits');
 
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
@@ -93,16 +85,7 @@ export function useUpcomingVisits(days: number = 7) {
 
       logger.info('🔄 [useUpcomingVisits] Fetching upcoming visits via API', { tenantId, days });
 
-      // Obter token do localStorage
-      const token = localStorage.getItem('auth_token');
-
-      const response = await fetch(`/api/visits?days=${days}`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(token && { 'Authorization': `Bearer ${token}` })
-        }
-      });
+      const response = await ApiClient.get(`/api/visits?days=${days}`);
 
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
@@ -171,16 +154,7 @@ export function useTodayVisits() {
 
       logger.info('🔄 [useTodayVisits] Fetching today visits via API', { tenantId });
 
-      // Obter token do localStorage
-      const token = localStorage.getItem('auth_token');
-
-      const response = await fetch('/api/visits?days=1', {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(token && { 'Authorization': `Bearer ${token}` })
-        }
-      });
+      const response = await ApiClient.get('/api/visits?days=1');
 
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);

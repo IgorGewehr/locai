@@ -15,10 +15,22 @@ interface MicroserviceResponse {
 
 interface SessionStatus {
   connected: boolean;
-  status: 'disconnected' | 'connecting' | 'connected' | 'qr_available';
+  status: 'disconnected' | 'connecting' | 'connected' | 'qr_available' | 'not_found';
   qrCode?: string;
   phone?: string;
   businessName?: string;
+}
+
+interface MicroserviceSessionResponse {
+  success: boolean;
+  data: {
+    connected: boolean;
+    status: string;
+    qrCode?: string;
+    phone?: string;
+    businessName?: string;
+  };
+  timestamp: string;
 }
 
 export class WhatsAppMicroserviceClient {
@@ -106,6 +118,11 @@ export class WhatsAppMicroserviceClient {
     try {
       const url = `${this.baseUrl}/api/v1/sessions/${tenantId}/status`;
       
+      logger.info('🔍 [MicroserviceClient] Consultando status da sessão', {
+        url,
+        tenantId: tenantId.substring(0, 8) + '***'
+      });
+
       const response = await fetch(url, {
         method: 'GET',
         headers: {
@@ -115,9 +132,12 @@ export class WhatsAppMicroserviceClient {
       });
 
       if (!response.ok) {
-        logger.error('❌ [MicroserviceClient] Erro ao verificar status', {
+        const errorText = await response.text();
+        logger.error('❌ [MicroserviceClient] Erro HTTP ao verificar status', {
           status: response.status,
-          statusText: response.statusText
+          statusText: response.statusText,
+          errorBody: errorText,
+          url
         });
         return {
           connected: false,
@@ -125,20 +145,72 @@ export class WhatsAppMicroserviceClient {
         };
       }
 
-      const status: SessionStatus = await response.json();
+      const responseText = await response.text();
       
-      logger.info('📊 [MicroserviceClient] Status da sessão', {
+      if (!responseText) {
+        logger.error('❌ [MicroserviceClient] Resposta vazia do microservice', {
+          url,
+          status: response.status
+        });
+        return {
+          connected: false,
+          status: 'disconnected'
+        };
+      }
+
+      let microserviceResponse: MicroserviceSessionResponse;
+      try {
+        microserviceResponse = JSON.parse(responseText);
+      } catch (parseError) {
+        logger.error('❌ [MicroserviceClient] Erro ao parsear resposta JSON', {
+          responseText,
+          parseError: parseError instanceof Error ? parseError.message : 'Unknown parse error'
+        });
+        return {
+          connected: false,
+          status: 'disconnected'
+        };
+      }
+      
+      // Validar estrutura da resposta
+      if (typeof microserviceResponse !== 'object' || microserviceResponse === null || !microserviceResponse.data) {
+        logger.error('❌ [MicroserviceClient] Resposta inválida do microservice', {
+          responseType: typeof microserviceResponse,
+          responseData: microserviceResponse
+        });
+        return {
+          connected: false,
+          status: 'disconnected'
+        };
+      }
+
+      const statusData = microserviceResponse.data;
+
+      // Garantir valores padrão
+      const normalizedStatus: SessionStatus = {
+        connected: Boolean(statusData.connected),
+        status: (statusData.status as any) || 'disconnected',
+        qrCode: statusData.qrCode || undefined,
+        phone: statusData.phone || undefined,
+        businessName: statusData.businessName || undefined
+      };
+      
+      logger.info('📊 [MicroserviceClient] Status da sessão obtido com sucesso', {
         tenantId: tenantId.substring(0, 8) + '***',
-        connected: status.connected,
-        status: status.status,
-        hasQrCode: !!status.qrCode
+        connected: normalizedStatus.connected,
+        status: normalizedStatus.status,
+        hasQrCode: !!normalizedStatus.qrCode,
+        hasPhone: !!normalizedStatus.phone
       });
 
-      return status;
+      return normalizedStatus;
 
     } catch (error) {
-      logger.error('❌ [MicroserviceClient] Erro ao verificar status', {
-        errorMessage: error instanceof Error ? error.message : 'Unknown error'
+      logger.error('❌ [MicroserviceClient] Erro crítico ao verificar status', {
+        errorMessage: error instanceof Error ? error.message : 'Unknown error',
+        errorStack: error instanceof Error ? error.stack : undefined,
+        tenantId: tenantId.substring(0, 8) + '***',
+        baseUrl: this.baseUrl
       });
       return {
         connected: false,
