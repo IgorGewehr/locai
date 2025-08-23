@@ -1,0 +1,96 @@
+// Middleware simplificado usando apenas Firebase Auth
+import { NextRequest } from 'next/server'
+import { auth as adminAuth } from '@/lib/firebase/admin'
+import { logger } from '@/lib/utils/logger'
+
+export interface FirebaseAuthContext {
+  authenticated: boolean
+  userId?: string
+  email?: string
+  tenantId?: string
+  role?: string
+  token?: string
+}
+
+/**
+ * Valida o token Firebase da requisição
+ * O token pode vir de:
+ * 1. Header Authorization: Bearer <token>
+ * 2. Header X-Firebase-Token: <token>
+ */
+export async function validateFirebaseAuth(req: NextRequest): Promise<FirebaseAuthContext> {
+  try {
+    // Extrair token do header
+    let token: string | null = null
+    
+    const authHeader = req.headers.get('authorization')
+    if (authHeader?.startsWith('Bearer ')) {
+      token = authHeader.substring(7)
+    } else {
+      token = req.headers.get('x-firebase-token')
+    }
+    
+    if (!token) {
+      logger.debug('🔒 [FirebaseAuth] Nenhum token encontrado')
+      return { authenticated: false }
+    }
+    
+    // Verificar token com Firebase Admin SDK
+    if (!adminAuth) {
+      logger.error('❌ [FirebaseAuth] Firebase Admin não inicializado')
+      return { authenticated: false }
+    }
+    
+    const decodedToken = await adminAuth.verifyIdToken(token)
+    
+    // O tenantId é o próprio UID do usuário (conforme CLAUDE.md)
+    const tenantId = decodedToken.uid
+    
+    logger.debug('✅ [FirebaseAuth] Token válido', {
+      userId: decodedToken.uid,
+      email: decodedToken.email,
+      tenantId
+    })
+    
+    return {
+      authenticated: true,
+      userId: decodedToken.uid,
+      email: decodedToken.email,
+      tenantId,
+      role: decodedToken.role || 'user',
+      token
+    }
+  } catch (error) {
+    logger.warn('⚠️ [FirebaseAuth] Token inválido', {
+      error: error instanceof Error ? error.message : 'Unknown error'
+    })
+    
+    return { authenticated: false }
+  }
+}
+
+/**
+ * Middleware helper para APIs que requerem autenticação
+ */
+export async function requireAuth(req: NextRequest): Promise<FirebaseAuthContext> {
+  const authContext = await validateFirebaseAuth(req)
+  
+  if (!authContext.authenticated) {
+    throw new Error('Authentication required')
+  }
+  
+  return authContext
+}
+
+/**
+ * Extrai o tenantId da requisição autenticada
+ */
+export async function getTenantId(req: NextRequest): Promise<string> {
+  const authContext = await requireAuth(req)
+  
+  if (!authContext.tenantId) {
+    throw new Error('Tenant ID not found')
+  }
+  
+  return authContext.tenantId
+}

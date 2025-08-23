@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { AvailabilityService } from '@/lib/services/availability-service';
-import { authMiddleware } from '@/lib/middleware/auth';
+import { validateFirebaseAuth } from '@/lib/middleware/firebase-auth';
 import { logger } from '@/lib/utils/logger';
 
 export async function GET(request: NextRequest) {
   try {
     // Check authentication and get tenantId
-    const authContext = await authMiddleware(request);
+    const authContext = await validateFirebaseAuth(request);
     if (!authContext.authenticated || !authContext.tenantId) {
       return NextResponse.json(
         { error: 'Authentication required', code: 'UNAUTHORIZED' },

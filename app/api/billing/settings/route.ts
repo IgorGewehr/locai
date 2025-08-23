@@ -1,12 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createBillingService } from '@/lib/services/billing-service';
-import { authMiddleware } from '@/lib/middleware/auth';
+import { validateFirebaseAuth } from '@/lib/middleware/firebase-auth';
 import { handleApiError } from '@/lib/utils/api-errors';
 
 export async function GET(request: NextRequest) {
   try {
     // Check authentication and get tenantId
-    const authContext = await authMiddleware(request)
+    const authContext = await validateFirebaseAuth(request)
     if (!authContext.authenticated || !authContext.tenantId) {
       return NextResponse.json(
         { error: 'Authentication required', code: 'UNAUTHORIZED' },
@@ -34,7 +34,7 @@ export async function GET(request: NextRequest) {
 export async function PUT(request: NextRequest) {
   try {
     // Check authentication and get tenantId
-    const authContext = await authMiddleware(request)
+    const authContext = await validateFirebaseAuth(request)
     if (!authContext.authenticated || !authContext.tenantId) {
       return NextResponse.json(
         { error: 'Authentication required', code: 'UNAUTHORIZED' },

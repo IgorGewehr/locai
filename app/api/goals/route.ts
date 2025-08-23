@@ -2,7 +2,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { goalService } from '@/lib/services/goal-service'
 import { GoalStatus, GoalType, GoalCategory, NotificationChannel } from '@/lib/types/financial'
-import { authMiddleware } from '@/lib/middleware/auth'
+import { validateFirebaseAuth } from '@/lib/middleware/firebase-auth'
 import { handleApiError } from '@/lib/utils/api-errors'
 import { z } from 'zod'
 
@@ -37,7 +37,7 @@ const createGoalSchema = z.object({
 export async function GET(request: NextRequest) {
   try {
     // Check authentication and get tenantId
-    const authContext = await authMiddleware(request)
+    const authContext = await validateFirebaseAuth(request)
     if (!authContext.authenticated || !authContext.tenantId) {
       return NextResponse.json(
         { error: 'Authentication required', code: 'UNAUTHORIZED' },
@@ -133,7 +133,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     // Check authentication and get tenantId
-    const authContext = await authMiddleware(request)
+    const authContext = await validateFirebaseAuth(request)
     if (!authContext.authenticated || !authContext.tenantId) {
       return NextResponse.json(
         { error: 'Authentication required', code: 'UNAUTHORIZED' },
@@ -200,7 +200,7 @@ export async function POST(request: NextRequest) {
 export async function PUT(request: NextRequest) {
   try {
     // Check authentication and get tenantId
-    const authContext = await authMiddleware(request)
+    const authContext = await validateFirebaseAuth(request)
     if (!authContext.authenticated || !authContext.tenantId) {
       return NextResponse.json(
         { error: 'Authentication required', code: 'UNAUTHORIZED' },
@@ -268,7 +268,7 @@ export async function PUT(request: NextRequest) {
 export async function DELETE(request: NextRequest) {
   try {
     // Check authentication and get tenantId
-    const authContext = await authMiddleware(request)
+    const authContext = await validateFirebaseAuth(request)
     if (!authContext.authenticated || !authContext.tenantId) {
       return NextResponse.json(
         { error: 'Authentication required', code: 'UNAUTHORIZED' },

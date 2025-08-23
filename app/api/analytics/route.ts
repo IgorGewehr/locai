@@ -6,7 +6,7 @@ import { PaymentMethod, PaymentStatus } from '@/lib/types/reservation';
 import { startOfMonth, endOfMonth, subMonths, format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { z } from 'zod';
-import { authMiddleware } from '@/lib/middleware/auth';
+import { validateFirebaseAuth } from '@/lib/middleware/firebase-auth';
 import { checkRateLimit, rateLimitConfigs } from '@/lib/utils/rate-limiter';
 import { handleApiError } from '@/lib/utils/api-errors';
 import { ValidationError } from '@/lib/utils/errors';
@@ -47,7 +47,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Check authentication
-    const authContext = await authMiddleware(request);
+    const authContext = await validateFirebaseAuth(request);
 
     if (!authContext.authenticated) {
       return NextResponse.json({ error: 'Authentication required' }, { status: 401 });

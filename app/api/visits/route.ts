@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { logger } from '@/lib/utils/logger';
 import { TenantServiceFactory } from '@/lib/firebase/firestore-v2';
 import { VisitAppointment, VisitStatus } from '@/lib/types/visit-appointment';
-import { authMiddleware } from '@/lib/middleware/auth';
+import { validateFirebaseAuth } from '@/lib/middleware/firebase-auth';
 import { handleApiError } from '@/lib/utils/api-errors';
 import { safeParseDate, safeFormatDate } from '@/lib/utils/dateUtils';
 import { isValid } from 'date-fns';
@@ -10,7 +10,7 @@ import { isValid } from 'date-fns';
 export async function GET(request: NextRequest) {
   try {
     // Check authentication and get tenantId
-    const authContext = await authMiddleware(request)
+    const authContext = await validateFirebaseAuth(request)
     if (!authContext.authenticated || !authContext.tenantId) {
       return NextResponse.json(
         { error: 'Authentication required', code: 'UNAUTHORIZED' },
@@ -72,7 +72,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     // Check authentication and get tenantId
-    const authContext = await authMiddleware(request)
+    const authContext = await validateFirebaseAuth(request)
     if (!authContext.authenticated || !authContext.tenantId) {
       return NextResponse.json(
         { error: 'Authentication required', code: 'UNAUTHORIZED' },

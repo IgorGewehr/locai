@@ -38,6 +38,9 @@ interface AuthContextType {
   signUp: (email: string, password: string, name: string) => Promise<void>;
   resetPassword: (email: string) => Promise<void>;
   
+  // Token Firebase
+  getFirebaseToken: () => Promise<string | null>;
+  
   // Verificações
   isAdmin: boolean;
   isAuthenticated: boolean;
@@ -243,39 +246,16 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         
         setUser(userData);
         
-        // Armazenar Firebase ID token e criar cookie JWT
+        // Armazenar Firebase ID token
         try {
           const firebaseIdToken = await authUser.getIdToken();
           localStorage.setItem('auth_token', firebaseIdToken);
-          
-          // Criar cookie JWT para o middleware
-          const response = await fetch('/api/auth/token', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${firebaseIdToken}`
-            },
-            body: JSON.stringify({
-              uid: userData.uid,
-              email: userData.email,
-              name: userData.name,
-              role: userData.role,
-              tenantId: userData.tenantId
-            })
+          logger.info('✅ [Auth] Firebase ID token armazenado', {
+            userId: userData.uid,
+            tenantId: userData.tenantId
           });
-          
-          if (response.ok) {
-            logger.info('✅ [Auth] Cookie JWT criado com sucesso', {
-              userId: userData.uid,
-              tenantId: userData.tenantId
-            });
-          } else {
-            logger.warn('⚠️ [Auth] Erro ao criar cookie JWT', {
-              status: response.status
-            });
-          }
         } catch (error) {
-          logger.error('❌ [Auth] Erro ao obter Firebase ID token ou criar cookie', { error });
+          logger.error('❌ [Auth] Erro ao obter Firebase ID token', { error });
         }
         
         // Redirecionamento mais robusto
@@ -384,17 +364,14 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       localStorage.removeItem('firebase-auth');
       sessionStorage.clear();
       
-      // 3. LIMPAR COOKIES via API (importante para remover auth-token)
+      // 3. LIMPAR COOKIES via API (opcional, mantido para limpeza)
       try {
-        const response = await fetch('/api/auth/logout', {
+        await fetch('/api/auth/logout', {
           method: 'POST',
           credentials: 'include'
         });
-        if (response.ok) {
-          logger.info('✅ [Auth] Cookies removidos via API');
-        }
       } catch (error) {
-        logger.warn('⚠️ [Auth] Erro ao remover cookies via API, continuando logout');
+        // Ignorar erro, não é crítico
       }
       
       // 4. SIGN OUT Firebase (por último para evitar loop)
@@ -448,6 +425,25 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const getUserData = useCallback(() => {
     return user;
   }, [user]);
+
+  const getFirebaseToken = useCallback(async (): Promise<string | null> => {
+    try {
+      const currentUser = auth.currentUser;
+      if (!currentUser) {
+        logger.debug('🔒 [Auth] Nenhum usuário autenticado');
+        return null;
+      }
+      
+      const token = await currentUser.getIdToken();
+      logger.debug('✅ [Auth] Token Firebase obtido');
+      return token;
+    } catch (error) {
+      logger.error('❌ [Auth] Erro ao obter token Firebase', {
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+      return null;
+    }
+  }, []);
 
   const signIn = useCallback(async (email: string, password: string): Promise<void> => {
     try {
@@ -559,6 +555,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     signUp,
     resetPassword,
     
+    // Token Firebase
+    getFirebaseToken,
+    
     // Verificações
     isAdmin: user?.role === 'admin',
     isAuthenticated: !!user,
@@ -574,6 +573,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     signIn,
     signUp,
     resetPassword,
+    getFirebaseToken,
     getTenantId,
     getUserData
   ]);

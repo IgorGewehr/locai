@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { TenantServiceFactory } from '@/lib/firebase/firestore-v2'
 import { handleApiError } from '@/lib/utils/api-errors'
 import { sanitizeUserInput } from '@/lib/utils/validation'
-import { authMiddleware } from '@/lib/middleware/auth'
+import { validateFirebaseAuth } from '@/lib/middleware/firebase-auth'
 import { UpdatePropertySchema } from '@/lib/validation/property-schemas'
 import type { Property } from '@/lib/types/property'
 
@@ -24,7 +24,7 @@ export async function GET(
     }
 
     // Check authentication and get tenantId
-    const authContext = await authMiddleware(request)
+    const authContext = await validateFirebaseAuth(request)
     if (!authContext.authenticated || !authContext.tenantId) {
       return NextResponse.json(
         { error: 'Authentication required', code: 'UNAUTHORIZED' },
@@ -75,7 +75,7 @@ export async function PUT(
     const body = await request.json()
 
     // Check authentication and get tenantId
-    const authContext = await authMiddleware(request)
+    const authContext = await validateFirebaseAuth(request)
     if (!authContext.authenticated || !authContext.tenantId) {
       return NextResponse.json(
         { error: 'Authentication required', code: 'UNAUTHORIZED' },
@@ -187,7 +187,7 @@ export async function DELETE(
     }
 
     // Check authentication and get tenantId
-    const authContext = await authMiddleware(request)
+    const authContext = await validateFirebaseAuth(request)
     if (!authContext.authenticated || !authContext.tenantId) {
       return NextResponse.json(
         { error: 'Authentication required', code: 'UNAUTHORIZED' },

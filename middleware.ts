@@ -1,12 +1,7 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
-import { jwtVerify } from 'jose'
 import { miniSiteMiddleware } from '@/middleware/mini-site'
 import { logger } from '@/lib/utils/logger'
-
-// Use a default JWT secret in development/build time
-const JWT_SECRET_STRING = process.env.JWT_SECRET || 'default-development-secret-min-32-characters-long'
-const JWT_SECRET = new TextEncoder().encode(JWT_SECRET_STRING)
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
@@ -94,48 +89,13 @@ export async function middleware(request: NextRequest) {
     return response;
   }
 
-  // Protected routes require authentication
-  const authToken = request.cookies.get('auth-token')?.value
-
-  if (!authToken) {
-    // Redirect to login for protected routes
-    const loginUrl = new URL('/login', request.url)
-    loginUrl.searchParams.set('redirect', pathname)
-    return NextResponse.redirect(loginUrl)
-  }
-
-  try {
-    // Verify the token using jose directly (Edge Runtime compatible)
-    const { payload } = await jwtVerify(authToken, JWT_SECRET)
-    
-    if (!payload || !payload.sub) {
-      // Invalid token - redirect to login
-      const loginUrl = new URL('/login', request.url)
-      loginUrl.searchParams.set('redirect', pathname)
-      return NextResponse.redirect(loginUrl)
-    }
-    
-    // Add user info to headers for downstream use
-    const requestHeaders = new Headers(request.headers)
-    requestHeaders.set('x-user-id', payload.sub as string)
-    requestHeaders.set('x-tenant-id', (payload.tenantId as string) || (payload.sub as string)) // Use userId as tenantId if no specific tenantId
-    requestHeaders.set('x-user-role', payload.role as string)
-
-    const response = NextResponse.next({
-      request: {
-        headers: requestHeaders,
-      },
-    })
-    
-    // Add security headers
-    addSecurityHeaders(response, pathname);
-    return response
-  } catch (error) {
-    // Invalid token - redirect to login
-    const loginUrl = new URL('/login', request.url)
-    loginUrl.searchParams.set('redirect', pathname)
-    return NextResponse.redirect(loginUrl)
-  }
+  // For protected routes, just pass through
+  // Authentication will be handled by AuthProvider on the client side
+  const response = NextResponse.next()
+  
+  // Add security headers
+  addSecurityHeaders(response, pathname);
+  return response
 }
 
 /**

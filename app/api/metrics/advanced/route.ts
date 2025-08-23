@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 // TEMPORARILY DISABLED TO FIX BUILD ISSUES
 // import { advancedMetricsService } from '@/lib/services/advanced-metrics-service';
-// import { authMiddleware } from '@/lib/middleware/auth';
+// import { validateFirebaseAuth } from '@/lib/middleware/firebase-auth';
 // import { handleApiError } from '@/lib/utils/api-errors';
 import { logger } from '@/lib/utils/logger';
 
