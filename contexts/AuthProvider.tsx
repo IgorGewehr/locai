@@ -243,16 +243,39 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         
         setUser(userData);
         
-        // Armazenar Firebase ID token diretamente
+        // Armazenar Firebase ID token e criar cookie JWT
         try {
           const firebaseIdToken = await authUser.getIdToken();
           localStorage.setItem('auth_token', firebaseIdToken);
-          logger.info('✅ [Auth] Firebase ID token armazenado', {
-            userId: userData.uid,
-            tenantId: userData.tenantId
+          
+          // Criar cookie JWT para o middleware
+          const response = await fetch('/api/auth/token', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${firebaseIdToken}`
+            },
+            body: JSON.stringify({
+              uid: userData.uid,
+              email: userData.email,
+              name: userData.name,
+              role: userData.role,
+              tenantId: userData.tenantId
+            })
           });
+          
+          if (response.ok) {
+            logger.info('✅ [Auth] Cookie JWT criado com sucesso', {
+              userId: userData.uid,
+              tenantId: userData.tenantId
+            });
+          } else {
+            logger.warn('⚠️ [Auth] Erro ao criar cookie JWT', {
+              status: response.status
+            });
+          }
         } catch (error) {
-          logger.error('❌ [Auth] Erro ao obter Firebase ID token', { error });
+          logger.error('❌ [Auth] Erro ao obter Firebase ID token ou criar cookie', { error });
         }
         
         // Redirecionamento mais robusto
@@ -361,14 +384,17 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       localStorage.removeItem('firebase-auth');
       sessionStorage.clear();
       
-      // 3. LIMPAR COOKIES via API
+      // 3. LIMPAR COOKIES via API (importante para remover auth-token)
       try {
-        await fetch('/api/auth/logout', {
+        const response = await fetch('/api/auth/logout', {
           method: 'POST',
           credentials: 'include'
         });
+        if (response.ok) {
+          logger.info('✅ [Auth] Cookies removidos via API');
+        }
       } catch (error) {
-        // Ignorar erro de API, continuar logout
+        logger.warn('⚠️ [Auth] Erro ao remover cookies via API, continuando logout');
       }
       
       // 4. SIGN OUT Firebase (por último para evitar loop)
