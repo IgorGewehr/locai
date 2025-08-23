@@ -3,7 +3,7 @@
 // This endpoint helps debug QR generation issues in production
 
 import { NextRequest, NextResponse } from 'next/server';
-import { authService } from '@/lib/auth/auth-service';
+import { validateFirebaseAuth } from '@/lib/middleware/firebase-auth';
 import { logger } from '@/lib/utils/logger';
 
 export async function GET(request: NextRequest) {

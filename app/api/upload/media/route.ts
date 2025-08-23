@@ -3,7 +3,7 @@ import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { storage } from '@/lib/firebase/config';
 import { generateUniqueId } from '@/lib/utils/mediaUtils';
 import { logger } from '@/lib/utils/logger';
-import { authService } from '@/lib/auth/auth-service';
+import { validateFirebaseAuth } from '@/lib/middleware/firebase-auth';
 
 export async function POST(request: NextRequest) {
   logger.info('📤 [MediaUploadAPI] Fallback upload API called');

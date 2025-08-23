@@ -2,7 +2,7 @@
 // Utilitário para extrair tenantId dinamicamente do usuário autenticado
 
 import { NextRequest } from 'next/server';
-import { authService } from '@/lib/auth/auth-service';
+import { validateFirebaseAuth } from '@/lib/middleware/firebase-auth';
 import { logger } from '@/lib/utils/logger';
 import { TenantError, APIError } from '@/lib/utils/custom-error';
 
@@ -22,7 +22,7 @@ export async function extractTenantFromAuth(request: NextRequest): Promise<Tenan
     const authHeader = request.headers.get('authorization');
     if (authHeader && authHeader.startsWith('Bearer ')) {
       const token = authHeader.substring(7);
-      const payload = await authService.verifyToken(token);
+      const payload = await validateFirebaseAuth(token);
       
       if (payload) {
         // Log reduzido - apenas em debug
@@ -50,7 +50,7 @@ export async function extractTenantFromAuth(request: NextRequest): Promise<Tenan
       
       if (authCookie) {
         const token = authCookie.split('=')[1];
-        const payload = await authService.verifyToken(token);
+        const payload = await validateFirebaseAuth(token);
         
         if (payload) {
           // Log reduzido - apenas em debug

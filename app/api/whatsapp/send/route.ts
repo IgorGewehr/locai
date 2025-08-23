@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createWhatsAppClient } from '@/lib/whatsapp/whatsapp-client-factory';
 import { getTenantId } from '@/lib/utils/tenant';
-import { authService } from '@/lib/auth/auth-service';
+import { validateFirebaseAuth } from '@/lib/middleware/firebase-auth';
 import { z } from 'zod';
 
 const sendMessageSchema = z.object({

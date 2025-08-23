@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { authService } from '@/lib/auth/auth-service';
+import { validateFirebaseAuth } from '@/lib/middleware/firebase-auth';
 import { apiResponse } from '@/lib/utils/api-response';
 
 export async function GET(request: NextRequest) {

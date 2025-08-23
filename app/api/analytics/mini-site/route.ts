@@ -4,7 +4,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getAuthFromCookie } from '@/lib/utils/auth-cookie';
+import { validateFirebaseAuth } from '@/lib/middleware/firebase-auth';
 import { TenantServiceFactory } from '@/lib/firebase/firestore-v2';
 import { MiniSiteAnalytics, MiniSiteAnalyticsEvent } from '@/lib/types/mini-site';
 import { logger } from '@/lib/utils/logger';
