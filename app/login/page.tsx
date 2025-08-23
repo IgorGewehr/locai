@@ -139,9 +139,21 @@ export default function LoginPage() {
       setLoginSuccess(true);
       setIsProcessing(true);
       
-      // Redirect to dashboard after successful login
+      // Redirect to saved path or dashboard after successful login
       setTimeout(() => {
-        router.push('/dashboard');
+        let targetPath = '/dashboard';
+        
+        try {
+          const savedPath = localStorage.getItem('redirectPath');
+          if (savedPath && savedPath.startsWith('/dashboard')) {
+            targetPath = savedPath;
+            localStorage.removeItem('redirectPath'); // Limpar após usar
+          }
+        } catch (error) {
+          // Se der erro ao acessar localStorage, usar dashboard padrão
+        }
+        
+        router.push(targetPath);
       }, 600);
     } catch (err: any) {
       let errorMessage = 'Email ou senha incorretos';
@@ -177,9 +189,21 @@ export default function LoginPage() {
       setRegisterSuccess(true);
       setSuccess('Conta criada com sucesso! Redirecionando para o dashboard...');
       
-      // Redirect to dashboard after successful registration
+      // Redirect to saved path or dashboard after successful registration
       setTimeout(() => {
-        router.push('/dashboard');
+        let targetPath = '/dashboard';
+        
+        try {
+          const savedPath = localStorage.getItem('redirectPath');
+          if (savedPath && savedPath.startsWith('/dashboard')) {
+            targetPath = savedPath;
+            localStorage.removeItem('redirectPath'); // Limpar após usar
+          }
+        } catch (error) {
+          // Se der erro ao acessar localStorage, usar dashboard padrão
+        }
+        
+        router.push(targetPath);
       }, 1000);
     } catch (err: any) {
       let errorMessage = 'Erro ao criar conta';

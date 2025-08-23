@@ -262,14 +262,34 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         setTimeout(() => {
           if (!isMounted) return;
           
-          // Se usuário está autenticado e em rota pública, redirecionar para dashboard
+          // Se usuário está autenticado e em rota pública, redirecionar
           if (shouldRedirectToApp(userData, pathname)) {
-            logger.info('🔄 [Auth] Redirecionando usuário autenticado para dashboard', {
-              from: pathname,
-              to: '/dashboard',
-              userId: userData.uid
-            });
-            router.push('/dashboard');
+            // Verificar se há um redirectPath salvo
+            let targetPath = '/dashboard';
+            
+            try {
+              const savedPath = localStorage.getItem('redirectPath');
+              if (savedPath && savedPath.startsWith('/dashboard')) {
+                targetPath = savedPath;
+                localStorage.removeItem('redirectPath'); // Limpar após usar
+                logger.info('🔄 [Auth] Redirecionando para path salvo', {
+                  from: pathname,
+                  to: targetPath,
+                  userId: userData.uid
+                });
+              } else {
+                logger.info('🔄 [Auth] Redirecionando usuário autenticado para dashboard', {
+                  from: pathname,
+                  to: targetPath,
+                  userId: userData.uid
+                });
+              }
+            } catch (error) {
+              // Se der erro ao acessar localStorage, usar dashboard padrão
+              logger.warn('⚠️ [Auth] Erro ao acessar localStorage para redirectPath');
+            }
+            
+            router.push(targetPath);
           } else {
             // Verificar se precisa redirecionar para login
             const authRedirect = shouldRedirectToAuth(userData, pathname);
