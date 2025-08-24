@@ -116,43 +116,100 @@ export async function POST(request: NextRequest) {
  */
 async function processIncomingMessage(tenantId: string, messageData: any) {
   try {
+    const messageId = messageData.messageId || messageData.id;
+    const clientPhone = messageData.from;
+    const message = messageData.message || messageData.text;
+
+    // Validações básicas para evitar loops
+    if (!messageId || !clientPhone || !message || message.trim() === '') {
+      logger.warn('⚠️ Invalid message data, skipping', {
+        tenantId: tenantId?.substring(0, 8) + '***',
+        hasMessageId: !!messageId,
+        hasClientPhone: !!clientPhone,
+        hasMessage: !!message
+      });
+      return;
+    }
+
+    // Filtro adicional: ignorar mensagens muito curtas que podem ser ruído
+    if (message.trim().length < 2) {
+      logger.info('📞 Message too short, ignoring', {
+        tenantId: tenantId?.substring(0, 8) + '***',
+        clientPhone: clientPhone?.substring(0, 6) + '***',
+        messageLength: message.length
+      });
+      return;
+    }
+
     logger.info('📨 Processing incoming message from microservice', {
-      tenantId,
-      from: messageData.from?.substring(0, 6) + '***',
-      messageId: messageData.messageId || messageData.id
+      tenantId: tenantId?.substring(0, 8) + '***',
+      from: clientPhone?.substring(0, 6) + '***',
+      messageId: messageId?.substring(0, 8) + '***',
+      messageLength: message.length
     })
 
-    // Integração com Sofia Agent para processamento automático
-    const { sofiaAgent } = await import('@/lib/ai-agent/sofia-agent')
-    
-    const response = await sofiaAgent.processMessage({
-      message: messageData.message || messageData.text,
-      clientPhone: messageData.from,
+    // Usar serviço de deduplicação para agrupar mensagens sequenciais
+    const { MessageDeduplicationService } = await import('@/lib/services/message-deduplication-service');
+    const deduplicationService = MessageDeduplicationService.getInstance();
+
+    await deduplicationService.addMessage(
       tenantId,
-      metadata: {
-        source: 'whatsapp-microservice',
-        priority: 'high',
-        skipHeavyProcessing: true // Otimização para webhooks
+      clientPhone,
+      message,
+      messageId,
+      async (groupedMessages: string[], messageIds: string[]) => {
+        // Callback executado quando o grupo de mensagens está pronto para processamento
+        const combinedMessage = groupedMessages.join('\n\n');
+        
+        logger.info('🔀 Processing grouped messages', {
+          tenantId: tenantId?.substring(0, 8) + '***',
+          clientPhone: clientPhone?.substring(0, 6) + '***',
+          messageCount: groupedMessages.length,
+          combinedLength: combinedMessage.length,
+          firstMessageId: messageIds[0]?.substring(0, 8) + '***'
+        });
+
+        // Integração com Sofia Agent para processamento automático
+        const { sofiaAgent } = await import('@/lib/ai-agent/sofia-agent');
+        
+        const response = await sofiaAgent.processMessage({
+          message: combinedMessage,
+          clientPhone,
+          tenantId,
+          metadata: {
+            source: 'whatsapp-microservice',
+            priority: 'high',
+            skipHeavyProcessing: true,
+            messageIds,
+            isGroupedMessage: groupedMessages.length > 1
+          }
+        });
+
+        // Enviar resposta de volta ao microservice
+        await sendResponseToMicroservice({
+          tenantId,
+          to: clientPhone,
+          message: response.reply,
+          originalMessageId: messageIds[0] // Usar o primeiro messageId como referência
+        });
+
+        logger.info('✅ Grouped messages processed and response sent', {
+          tenantId: tenantId?.substring(0, 8) + '***',
+          clientPhone: clientPhone?.substring(0, 6) + '***',
+          messageCount: groupedMessages.length,
+          responseTime: response.responseTime,
+          functionsExecuted: response.functionsExecuted.length,
+          replyLength: response.reply?.length || 0
+        });
       }
-    })
-
-    // Enviar resposta de volta ao microservice via API
-    await sendResponseToMicroservice({
-      tenantId,
-      to: messageData.from,
-      message: response.reply,
-      originalMessageId: messageData.messageId || messageData.id
-    })
-
-    logger.info('✅ Message processed and response sent to microservice', {
-      tenantId,
-      from: messageData.from?.substring(0, 6) + '***',
-      responseTime: response.responseTime,
-      functionsExecuted: response.functionsExecuted.length
-    })
+    );
     
   } catch (error) {
-    logger.error('❌ Error processing incoming message:', error)
+    logger.error('❌ Error processing incoming message:', {
+      error: error instanceof Error ? error.message : 'Unknown error',
+      tenantId: tenantId?.substring(0, 8) + '***',
+      messageId: messageData.messageId?.substring(0, 8) + '***'
+    });
   }
 }
 

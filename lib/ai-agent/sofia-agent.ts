@@ -54,6 +54,7 @@ export class SofiaAgent {
   private openai: OpenAI;
   private static instance: SofiaAgent;
   private summaryCache = new Map<string, SmartSummary>();
+  private messageHistory = new Map<string, Array<{ message: string, timestamp: number }>>();
   private useEnhancedDetection: boolean = ENHANCED_INTENT_CONFIG.enabled; // Usa config centralizada
 
   constructor() {
@@ -88,10 +89,58 @@ export class SofiaAgent {
     let fallbackUsed = false;
 
     try {
+      // ===== FILTROS ANTI-LOOP =====
+      // Detectar se a mensagem parece ser do próprio bot
+      if (this.isBotMessage(input.message)) {
+        logger.warn('🚫 [Sofia] Mensagem detectada como sendo do próprio bot, ignorando', {
+          clientPhone: this.maskPhone(input.clientPhone),
+          messagePreview: input.message.substring(0, 50) + '...',
+          tenantId: input.tenantId
+        });
+        
+        return {
+          reply: '', // Resposta vazia para evitar loop
+          summary: { stage: 'ignored', summary: 'Mensagem do próprio bot ignorada', nextAction: null },
+          tokensUsed: 0,
+          responseTime: Date.now() - startTime,
+          functionsExecuted: [],
+          metadata: {
+            stage: 'bot_message_filtered',
+            confidence: 1.0,
+            reasoningUsed: false,
+            loopPrevented: true
+          }
+        };
+      }
+
+      // Verificar mensagens muito repetitivas ou suspeitas
+      if (this.isSuspiciousMessage(input.message, input.clientPhone)) {
+        logger.warn('🚫 [Sofia] Mensagem suspeita detectada, aplicando throttling', {
+          clientPhone: this.maskPhone(input.clientPhone),
+          messagePreview: input.message.substring(0, 50) + '...',
+          tenantId: input.tenantId
+        });
+        
+        return {
+          reply: 'Por favor, aguarde um momento antes de enviar outra mensagem.',
+          summary: { stage: 'throttled', summary: 'Mensagem throttled por suspeita', nextAction: null },
+          tokensUsed: 0,
+          responseTime: Date.now() - startTime,
+          functionsExecuted: [],
+          metadata: {
+            stage: 'message_throttled',
+            confidence: 1.0,
+            reasoningUsed: false,
+            loopPrevented: true
+          }
+        };
+      }
+
       logger.info('💬 [Sofia] Processando mensagem', {
         clientPhone: this.maskPhone(input.clientPhone),
         messagePreview: input.message.substring(0, 50) + '...',
-        tenantId: input.tenantId
+        tenantId: input.tenantId,
+        source: input.metadata?.source || 'unknown'
       });
 
       // ===== ANALYTICS TRACKING - START =====
@@ -1532,6 +1581,81 @@ RESPOSTA HUMANIZADA (mantenha a naturalidade da Sofia):
     }
     
     return `Entendi! Para te ajudar melhor, me conta:\n• Que tipo de imóvel procura?\n• Em qual cidade?\n• Para quantas pessoas?\n\nAssim consigo encontrar as melhores opções! 🏠✨`;
+  }
+
+  /**
+   * Detecta se a mensagem parece ser do próprio bot
+   */
+  private isBotMessage(message: string): boolean {
+    const botPatterns = [
+      /olá.{0,20}sofia/i,
+      /sou.{0,20}sofia/i,
+      /como.{0,20}posso.{0,20}ajud/i,
+      /encontrei.{0,20}propriedades/i,
+      /calculei.{0,20}pre[çc]o/i,
+      /aqui.{0,20}est[ãá].{0,20}pre[çc]o/i,
+      /para.{0,20}mais.{0,20}informa[çc][õo]es/i,
+      /gostaria.{0,20}de.{0,20}agendar/i,
+      /reserva.{0,20}confirmada/i,
+      /WhatsApp.*Bot/i,
+      /Mensagem.{0,20}automática/i,
+      /Bot.{0,20}AlugZap/i,
+      /Sofia.{0,20}AI/i
+    ];
+
+    // Verificar padrões específicos do bot
+    const containsBotPattern = botPatterns.some(pattern => pattern.test(message));
+    
+    // Verificar se contém muitos emojis (típico de respostas do bot)
+    const emojiCount = (message.match(/[\u{1f300}-\u{1f5ff}\u{1f900}-\u{1f9ff}\u{1f600}-\u{1f64f}\u{1f680}-\u{1f6ff}\u{2600}-\u{26ff}\u{2700}-\u{27bf}]/gu) || []).length;
+    const hasLotsOfEmojis = emojiCount > 3 && message.length < 200;
+    
+    // Verificar se contém formatação típica de bot (bullets, listas)
+    const hasTypicalBotFormatting = /[•\-\*]\s+.+(\n[•\-\*]\s+.+){2,}/g.test(message);
+    
+    return containsBotPattern || hasLotsOfEmojis || hasTypicalBotFormatting;
+  }
+
+  /**
+   * Detecta mensagens suspeitas ou repetitivas
+   */
+  private isSuspiciousMessage(message: string, clientPhone: string): boolean {
+    const now = Date.now();
+    const historyKey = `${clientPhone}`;
+    const history = this.messageHistory.get(historyKey) || [];
+    
+    // Limpar histórico antigo (últimas 5 minutos)
+    const recentHistory = history.filter(entry => now - entry.timestamp < 300000);
+    
+    // Verificar se a mesma mensagem foi enviada recentemente
+    const hasDuplicate = recentHistory.some(entry => 
+      entry.message === message && now - entry.timestamp < 30000 // 30 segundos
+    );
+    
+    // Verificar muitas mensagens em pouco tempo
+    const recentCount = recentHistory.filter(entry => now - entry.timestamp < 60000).length; // 1 minuto
+    const isTooFrequent = recentCount > 10;
+    
+    // Verificar mensagem muito curta e repetitiva
+    const isTooShort = message.trim().length < 3 && recentCount > 3;
+    
+    // Atualizar histórico
+    recentHistory.push({ message, timestamp: now });
+    this.messageHistory.set(historyKey, recentHistory.slice(-20)); // Manter apenas últimas 20
+    
+    if (hasDuplicate || isTooFrequent || isTooShort) {
+      logger.warn('🚨 [Sofia] Mensagem suspeita detectada', {
+        clientPhone: this.maskPhone(clientPhone),
+        hasDuplicate,
+        isTooFrequent,
+        isTooShort,
+        recentCount,
+        messageLength: message.length
+      });
+      return true;
+    }
+    
+    return false;
   }
 
   private maskPhone(phone: string): string {
