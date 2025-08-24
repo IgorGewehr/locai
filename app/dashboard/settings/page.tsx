@@ -155,7 +155,7 @@ export default function SettingsPage() {
     if (user && tenantId && isReady) {
       refreshStatus();
     }
-  }, [user, tenantId, isReady, refreshStatus]);
+  }, [user, tenantId, isReady]); // Removed refreshStatus to prevent infinite loop
 
   // Update profile data when user changes
   useEffect(() => {
@@ -271,8 +271,8 @@ export default function SettingsPage() {
         console.log('📋 [Settings] QR Code present:', !!data.data?.qrCode);
         console.log('📋 [Settings] Status:', data.data?.status);
         
-        // Force refresh status to update context
-        setTimeout(() => refreshStatus(), 100);
+        // Force refresh status to update context - reduced frequency
+        setTimeout(() => refreshStatus(), 2000);
         
         if (data.data.qrCode) {
           console.log('✅ QR Code received, opening dialog');
@@ -302,11 +302,11 @@ export default function SettingsPage() {
           // Open dialog immediately for better UX
           setTimeout(() => setQrDialogOpen(true), 200);
           
-          // Start polling for connection status every 3 seconds
+          // Start polling for connection status every 5 seconds - reduced frequency
           const checkConnection = setInterval(() => {
             console.log('🔄 [Settings] Checking connection status while QR is displayed');
             refreshStatus();
-          }, 3000);
+          }, 5000);
           
           setConnectionCheckInterval(checkConnection);
         } else if (data.data.connected) {
@@ -317,8 +317,8 @@ export default function SettingsPage() {
           // More helpful message
           setConnectionProgress(85);
           setSuccess('Aguarde, gerando QR Code...');
-          // Refresh status after initializing
-          setTimeout(() => refreshStatus(), 1000);
+          // Refresh status after initializing - reduced frequency
+          setTimeout(() => refreshStatus(), 3000);
         }
       } else {
         setConnectionProgress(0);

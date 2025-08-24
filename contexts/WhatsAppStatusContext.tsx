@@ -30,11 +30,16 @@ export function WhatsAppStatusProvider({ children }: { children: React.ReactNode
   });
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [pollTimeoutId, setPollTimeoutId] = useState<NodeJS.Timeout | null>(null);
+  const [lastRefresh, setLastRefresh] = useState<number>(0);
 
   const refreshStatus = useCallback(async () => {
-    if (!tenantId || !isReady || isRefreshing) {
+    const now = Date.now();
+    // Prevent calls more frequent than every 5 seconds
+    if (!tenantId || !isReady || isRefreshing || (now - lastRefresh < 5000)) {
       return;
     }
+
+    setLastRefresh(now);
 
     setIsRefreshing(true);
     try {
@@ -108,11 +113,10 @@ export function WhatsAppStatusProvider({ children }: { children: React.ReactNode
       interval = 600000; // 10 minutes - very infrequent checks
     }
 
-    // DISABLED: Schedule next status check to stop loop
-    // const timeoutId = setTimeout(() => {
-    //   refreshStatus();
-    // }, interval);
-    const timeoutId = null; // LOOP DISABLED
+    // Schedule next status check with intelligent intervals
+    const timeoutId = setTimeout(() => {
+      refreshStatus();
+    }, interval);
 
     setPollTimeoutId(timeoutId);
 
@@ -121,14 +125,14 @@ export function WhatsAppStatusProvider({ children }: { children: React.ReactNode
         clearTimeout(timeoutId);
       }
     };
-  }, [status.status, tenantId, isReady, refreshStatus]);
+  }, [status.status, tenantId, isReady]); // Removed refreshStatus to prevent infinite loop
 
-  // Initial status check
+  // Initial status check - run only once when tenant is ready
   useEffect(() => {
     if (tenantId && isReady) {
       refreshStatus();
     }
-  }, [tenantId, isReady, refreshStatus]);
+  }, [tenantId, isReady]); // Removed refreshStatus to prevent infinite loop
 
   // Cleanup on unmount
   useEffect(() => {

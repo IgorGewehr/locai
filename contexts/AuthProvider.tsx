@@ -197,7 +197,12 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     if (!userData || !userData.isActive) return false;
     
     const publicRoutes = ['/', '/login', '/signup', '/reset-password'];
-    const isInPublicRoute = publicRoutes.some(route => currentPath === route || currentPath.startsWith(route));
+    const isInPublicRoute = publicRoutes.some(route => {
+      if (route === '/') {
+        return currentPath === '/'; // Exact match for root
+      }
+      return currentPath === route || currentPath.startsWith(route + '/'); // Avoid startsWith conflicts
+    });
     
     // Redirecionar para dashboard se estiver em rota pública e autenticado
     return isInPublicRoute;
