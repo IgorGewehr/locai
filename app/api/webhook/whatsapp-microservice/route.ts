@@ -9,25 +9,69 @@ import { WhatsAppStatusService } from '@/lib/services/whatsapp-status-service'
  */
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json()
+    // Ler o body como text primeiro para preservar o formato original
+    const rawBody = await request.text()
+    const body = JSON.parse(rawBody)
     
-    // Verificar assinatura do webhook para segurança
+    // Autenticação para microservice - aceita tanto API Key quanto HMAC signature
+    const authHeader = request.headers.get('Authorization')
     const signature = request.headers.get('X-Webhook-Signature')
+    const tenantId = request.headers.get('X-Tenant-ID')
+    const apiKey = process.env.WHATSAPP_MICROSERVICE_API_KEY
     const secret = process.env.WHATSAPP_WEBHOOK_SECRET
     
-    if (secret && signature) {
-      const expectedSignature = crypto
+    let authenticated = false
+    
+    // Método 1: Verificar API Key (mais simples)
+    if (authHeader && authHeader.startsWith('Bearer ') && apiKey) {
+      const token = authHeader.slice(7)
+      if (token === apiKey) {
+        authenticated = true
+        logger.info('✅ Microservice authenticated via API Key', {
+          tenantId: tenantId?.substring(0, 8) + '***'
+        })
+      }
+    }
+    
+    // Método 2: Verificar HMAC signature (fallback)
+    if (!authenticated && secret && signature) {
+      const expectedSignature = 'sha256=' + crypto
         .createHmac('sha256', secret)
-        .update(JSON.stringify(body))
+        .update(rawBody, 'utf8')
         .digest('hex')
       
-      if (signature !== expectedSignature) {
-        logger.error('❌ Invalid webhook signature from microservice')
-        return NextResponse.json(
-          { error: 'Invalid signature' },
-          { status: 401 }
-        )
+      if (signature === expectedSignature) {
+        authenticated = true
+        logger.info('✅ Microservice authenticated via HMAC signature', {
+          tenantId: tenantId?.substring(0, 8) + '***'
+        })
+      } else {
+        // Debug para entender a diferença
+        logger.warn('🔍 HMAC signature mismatch', {
+          received: signature,
+          expected: expectedSignature,
+          rawBodyLength: rawBody.length,
+          tenantId: tenantId?.substring(0, 8) + '***'
+        })
       }
+    }
+    
+    // Rejeitar se não autenticado
+    if (!authenticated) {
+      logger.error('❌ Microservice authentication failed', {
+        hasAuthHeader: !!authHeader,
+        hasSignature: !!signature,
+        hasApiKey: !!apiKey,
+        hasSecret: !!secret,
+        tenantId: tenantId?.substring(0, 8) + '***'
+      })
+      return NextResponse.json(
+        { 
+          error: 'Authentication required',
+          message: 'Valid API Key or HMAC signature required'
+        },
+        { status: 401 }
+      )
     }
     
     logger.info('📨 Received webhook from WhatsApp microservice', {
