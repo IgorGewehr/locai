@@ -53,7 +53,8 @@ export class QualificationSystem {
     }
     
     // Se faltam informações essenciais, qualificar
-    const missingEssentials = !context.hasLocation || !context.hasGuests;
+    // Priorizando datas e número de hóspedes ao invés de localização
+    const missingEssentials = (!context.hasCheckIn || !context.hasCheckOut) || !context.hasGuests;
     
     return hasSearchIntent && missingEssentials;
   }
@@ -115,24 +116,27 @@ export class QualificationSystem {
       response += 'Será um prazer ajudar você a encontrar o imóvel perfeito! ';
     }
     
-    // Adicionar perguntas baseadas no que falta
+    // Adicionar perguntas baseadas no que falta - priorizando datas e guests
     const missingFields: string[] = [];
     
-    if (!context.hasLocation) {
-      missingFields.push('em qual cidade ou região vocês preferem');
+    // PRIORIDADE 1: Datas (mais importante)
+    if (!context.hasCheckIn || !context.hasCheckOut) {
+      missingFields.push('para quais datas vocês precisam (check-in e check-out)');
     }
     
+    // PRIORIDADE 2: Número de hóspedes
     if (!context.hasGuests && !hasCouple && !hasSolo) {
       missingFields.push('quantas pessoas vão se hospedar');
     }
     
-    if (!context.hasPropertyType && !hasApto && !hasCasa) {
-      missingFields.push('se preferem casa ou apartamento');
+    // PRIORIDADE 3: Comodidades específicas
+    if (!context.hasAmenities) {
+      missingFields.push('quais comodidades são essenciais (piscina, ar-condicionado, churrasqueira, wi-fi...)');
     }
     
-    // Adicionar pergunta sobre comodidades de forma natural
-    if (!context.hasAmenities) {
-      missingFields.push('se buscam algo específico como piscina, churrasqueira ou ar-condicionado');
+    // PRIORIDADE 4: Tipo de propriedade
+    if (!context.hasPropertyType && !hasApto && !hasCasa) {
+      missingFields.push('se preferem casa ou apartamento');
     }
     
     // Construir pergunta final
@@ -256,15 +260,18 @@ export class QualificationSystem {
   static hasEnoughInfoForSearch(message: string): boolean {
     const normalizedMessage = message.toLowerCase();
     
-    // Se tem localização específica
-    const hasSpecificLocation = /florianópolis|são paulo|rio|balneário|bombinhas/i.test(normalizedMessage);
+    // Se tem datas específicas (MAIS IMPORTANTE)
+    const hasSpecificDates = /\d{1,2}[/-]\d{1,2}|\d{1,2}\s+de\s+\w+|próxim[ao]\s+(semana|mês)/i.test(normalizedMessage);
     
     // Se tem número de pessoas específico
     const hasSpecificGuests = /\d+\s*(pessoas?|hóspedes?)/.test(normalizedMessage) ||
                               /esposa|marido|casal|família|sozinho/i.test(normalizedMessage);
     
-    // Se tem ambos, pode buscar direto
-    return hasSpecificLocation && hasSpecificGuests;
+    // Se tem comodidades específicas
+    const hasSpecificAmenities = /piscina|churrasqueira|ar[\s-]condicionado|wi-?fi|garagem/i.test(normalizedMessage);
+    
+    // Se tem pelo menos datas OU (guests + amenities), pode buscar direto
+    return hasSpecificDates || (hasSpecificGuests && hasSpecificAmenities);
   }
 }
 

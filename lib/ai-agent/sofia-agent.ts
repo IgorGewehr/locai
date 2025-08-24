@@ -659,7 +659,7 @@ export class SofiaAgent {
     switch (summary.conversationState.stage) {
       case 'greeting':
         prompt += `- Seja acolhedora e descubra as necessidades\n`;
-        prompt += `- Pergunte sobre localização, datas, número de pessoas\n`;
+        prompt += `- Pergunte sobre datas (check-in/check-out), número de pessoas e comodidades desejadas\n`;
         break;
       case 'discovery':
         prompt += `- Colete informações faltantes para busca\n`;
@@ -949,7 +949,7 @@ export class SofiaAgent {
    */
   private generateFallbackResponse(functionName: string, error?: string): string {
     const fallbackResponses: Record<string, string> = {
-      'search_properties': 'Ops! Tive um probleminha ao buscar propriedades. Pode me dizer novamente qual cidade você prefere? 😊',
+      'search_properties': 'Ops! Tive um probleminha ao buscar propriedades. Pode me confirmar as datas e quantas pessoas vão se hospedar? 😊',
       'calculate_price': 'Desculpe, não consegui calcular o preço agora. Pode me confirmar as datas de check-in e check-out? 📅',
       'create_reservation': 'Ops! Houve um problema ao criar a reserva. Vamos tentar novamente? Posso confirmar os dados? 🏠',
       'register_client': 'Tive uma dificuldade ao registrar seus dados. Pode me confirmar seu nome completo? 👤',
@@ -1499,13 +1499,13 @@ RESPOSTA HUMANIZADA (mantenha a naturalidade da Sofia):
         case 'send_property_media':
         case 'schedule_visit':
         case 'generate_quote':
-          return `Para isso, primeiro preciso te mostrar as propriedades! Me conte: que tipo de imóvel você procura e em qual cidade? 🏠`;
+          return `Para isso, primeiro preciso te mostrar as propriedades! Me conte: para quais datas você precisa e quantas pessoas vão se hospedar? 🏠`;
         case 'create_reservation':
-          return `Para fazer uma reserva, primeiro vamos encontrar o imóvel ideal! Em qual cidade você está procurando? 🏠`;
+          return `Para fazer uma reserva, primeiro vamos encontrar o imóvel ideal! Quais são suas datas de check-in e check-out? 🏠`;
         case 'create_transaction':
           return `Para criar uma transação, primeiro preciso processar uma reserva! Vamos encontrar o imóvel ideal para você? 🏠`;
         default:
-          return `Vamos começar? Me conte que tipo de imóvel você procura e em qual cidade! 😊`;
+          return `Vamos começar? Me conte suas datas de hospedagem e quantas pessoas vão se hospedar! 😊`;
       }
     }
     
@@ -1580,7 +1580,7 @@ RESPOSTA HUMANIZADA (mantenha a naturalidade da Sofia):
       return `Legal! Sobre as propriedades que mostrei, você quer:\n• Ver fotos 📸\n• Calcular preços 💰\n• Conhecer mais detalhes 📋\n• Ver outras opções 🔍\n\nO que prefere?`;
     }
     
-    return `Entendi! Para te ajudar melhor, me conta:\n• Que tipo de imóvel procura?\n• Em qual cidade?\n• Para quantas pessoas?\n\nAssim consigo encontrar as melhores opções! 🏠✨`;
+    return `Entendi! Para te ajudar melhor, me conta:\n• Para quais datas você precisa? (check-in e check-out)\n• Quantas pessoas vão se hospedar?\n• Que comodidades são importantes? (piscina, ar-condicionado, churrasqueira...)\n• Qual tipo de imóvel prefere?\n\nAssim consigo encontrar as melhores opções! 🏠✨`;
   }
 
   /**
