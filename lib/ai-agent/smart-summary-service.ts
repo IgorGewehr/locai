@@ -370,7 +370,6 @@ FORMATO DE RESPOSTA (JSON obrigatório):
     "guests": número_de_pessoas_extraído,
     "checkIn": "YYYY-MM-DD",
     "checkOut": "YYYY-MM-DD",
-    "location": "cidade/região",
     "budget": valor_numérico,
     ... 
   },
@@ -441,7 +440,6 @@ INSTRUÇÕES ESPECÍFICAS:
      * SEMPRE procure números + "pessoas" primeiro
      * Se mencionado qualquer número de pessoas, OBRIGATÓRIO incluir em searchCriteria.guests
    - Datas: qualquer menção temporal específica (formato YYYY-MM-DD)
-   - Localização: cidade, bairro, região específica
    - Orçamento: valores monetários mencionados
    - Tipo: apartamento, casa, studio, etc.
 

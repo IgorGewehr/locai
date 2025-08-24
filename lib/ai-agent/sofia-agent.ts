@@ -1393,6 +1393,46 @@ export class SofiaAgent {
     context: SmartSummary
   ): Promise<string> {
     
+    // Hard-coded response for simple initial messages to avoid OpenAI confusion
+    const simpleMessagePatterns = [
+      'quero um imovel',
+      'quero um imóvel', 
+      'preciso de um imovel',
+      'preciso de um imóvel',
+      'quero alugar',
+      'quero um apartamento',
+      'quero uma casa',
+      'procuro um imovel',
+      'procuro um imóvel',
+      'busco um imovel',
+      'busco um imóvel',
+      'to procurando',
+      'tô procurando',
+      'estou procurando',
+      'gostaria de alugar',
+      'preciso alugar',
+      'quero reservar',
+      'interesse em',
+      'tenho interesse'
+    ];
+    
+    const normalizedMessage = input.message.toLowerCase()
+      .trim()
+      .replace(/[^\w\s]/g, '') // Remove pontuação
+      .replace(/\s+/g, ' '); // Normaliza espaços
+    
+    logger.info('🔍 [Sofia] Verificando mensagem para hard-coded response', {
+      originalMessage: input.message,
+      normalizedMessage,
+      matchesAny: simpleMessagePatterns.some(pattern => normalizedMessage.includes(pattern))
+    });
+    
+    // Verificar se algum padrão simples está presente
+    if (simpleMessagePatterns.some(pattern => normalizedMessage.includes(pattern))) {
+      logger.info('✅ [Sofia] Usando resposta hard-coded para mensagem inicial');
+      return "Olá, perfeito! Estou aqui para te ajudar. Pode me dar mais alguns detalhes como número de hóspedes, data de check-in e check-out, preferência por ar-condicionado nos quartos, piscina? 😊";
+    }
+    
     const humanizationPrompt = `
 PERSONALIDADE: Sofia - atendente imobiliária super simpática, descontraída, eficiente e genuinamente prestativa.
 
@@ -1400,29 +1440,43 @@ TAREFA: Transformar o resultado da função em uma resposta NATURAL, HUMANIZADA 
 
 CONTEXTO:
 - Função executada: ${intent.function}
-- Confiança da detecção: ${intent.confidence}
+- Confiança da detecção: ${intent.confidence}  
 - Mensagem original: "${input.message}"
 - Resultado da função: ${JSON.stringify(functionResult.data)}
 
-DIRETRIZES RÍGIDAS:
-✅ Seja NATURAL e CONVERSACIONAL (como uma pessoa real falaria)
-✅ Use emojis moderadamente e contextualmente  
-✅ Faça perguntas para continuar engajamento
-✅ Seja PROATIVA em sugestões úteis
-✅ Mantenha tom brasileiro descontraído
-✅ Mostre entusiasmo genuíno pelo que oferece
+🚫 REGRA ABSOLUTA - JAMAIS QUEBRAR:
+NUNCA, EM HIPÓTESE ALGUMA, PERGUNTE SOBRE:
+- Localização, região, cidade, bairro, zona
+- Tipo de imóvel (apartamento, casa, etc.) se não foi mencionado
+- "Onde você gostaria", "qual região", "que bairro"
+- "Em que cidade", "qual localização", "onde procura"
 
-❌ JAMAIS seja robótica, formal ou corporativa
-❌ JAMAIS mencione "baseado em dados", "conforme análise", "sistema detectou"
-❌ JAMAIS use linguagem técnica ou processual
-❌ NÃO seja genérica - seja específica e útil
+✅ SEMPRE FOQUE APENAS EM:
+- Datas de check-in e check-out
+- Número de hóspedes/pessoas
+- Comodidades específicas (piscina, ar-condicionado, churrasqueira)
 
-EXEMPLOS DE TOM CORRETO:
-- "Opa! Achei umas opções incríveis pra você! 🏖️"
-- "Nossa, que legal! Tenho certeza que vai adorar essas opções!"
-- "Perfeito! Olha só o que encontrei..."
+EXEMPLO OBRIGATÓRIO PARA MENSAGENS INICIAIS:
+Se a mensagem for similar a "quero um imóvel" ou variações:
+RESPOSTA OBRIGATÓRIA: "Olá, perfeito! Estou aqui para te ajudar. Pode me dar mais alguns detalhes como número de hóspedes, data de check-in e check-out, preferência por ar-condicionado nos quartos, piscina? 😊"
 
-RESPOSTA HUMANIZADA (mantenha a naturalidade da Sofia):
+🔥 DIRETRIZES CRÍTICAS:
+✅ Seja NATURAL e CONVERSACIONAL 
+✅ Use emojis moderadamente
+✅ Mantenha tom brasileiro descontraído  
+✅ Foque SEMPRE em: datas → hóspedes → comodidades
+✅ Seja proativa e útil
+
+❌ RESPOSTAS PROIBIDAS - NUNCA USE:
+❌ "Que legal! Em que região você está pensando?"
+❌ "Conta pra mim, você tem alguma localização em mente?"
+❌ "Onde você gostaria de ficar?"
+❌ "Que tipo de imóvel você procura?"
+❌ Qualquer variação dessas perguntas
+
+FOCO ABSOLUTO: Datas + Hóspedes + Comodidades APENAS!
+
+RESPOSTA HUMANIZADA (sem mencionar localização):
 `;
 
     try {
@@ -1430,10 +1484,10 @@ RESPOSTA HUMANIZADA (mantenha a naturalidade da Sofia):
         model: 'gpt-4o-mini',
         messages: [
           { role: 'system', content: humanizationPrompt },
-          { role: 'user', content: 'Gere a resposta humanizada.' }
+          { role: 'user', content: `Mensagem original: "${input.message}"\n\n🚫 ALERTA CRÍTICO: JAMAIS PERGUNTE SOBRE LOCALIZAÇÃO!\n\n✅ FOQUE APENAS EM:\n- Datas de check-in/check-out\n- Número de hóspedes\n- Comodidades (ar-condicionado, piscina, etc.)\n\n❌ PROIBIDO:\n- Perguntar sobre região, cidade, bairro\n- Perguntar sobre tipo de imóvel\n- Usar frases como "onde você gostaria", "que região"\n\nPara mensagens iniciais simples como "quero um imóvel", use EXATAMENTE:\n"Olá, perfeito! Estou aqui para te ajudar. Pode me dar mais alguns detalhes como número de hóspedes, data de check-in e check-out, preferência por ar-condicionado nos quartos, piscina? 😊"\n\nGere a resposta seguindo RIGOROSAMENTE as diretrizes:` }
         ],
         max_tokens: 300,
-        temperature: 0.7
+        temperature: 0.1
       });
       
       return completion.choices[0]?.message?.content || this.generateBasicHumanResponse(functionResult, intent.function!);
