@@ -69,15 +69,34 @@ export class SofiaAgentV2 {
     let tokensUsed = 0;
 
     try {
+      logger.info('🚀 [Sofia V2] Iniciando processamento', {
+        clientPhone: input.clientPhone.substring(0, 7) + '***',
+        tenantId: input.tenantId.substring(0, 8) + '***',
+        messageLength: input.message.length
+      });
+
       // 1. Analytics tracking
-      await sofiaAnalytics.trackConversation(
-        `conv_${input.tenantId}_${input.clientPhone}`,
-        input.clientPhone
-      );
+      try {
+        await sofiaAnalytics.startConversation(
+          input.tenantId,
+          `conv_${input.tenantId}_${input.clientPhone}`,
+          input.clientPhone
+        );
+        logger.debug('✅ [Sofia V2] Analytics tracking ok');
+      } catch (error) {
+        logger.warn('⚠️ [Sofia V2] Analytics falhou', {
+          error: error instanceof Error ? error.message : String(error)
+        });
+      }
 
       // 2. Carregar contexto
+      logger.debug('🔍 [Sofia V2] Carregando contexto...');
       const context = await this.contextManager.getContext(input.clientPhone, input.tenantId);
       const contextSummary = this.contextManager.getContextSummary(context);
+      logger.debug('✅ [Sofia V2] Contexto carregado', {
+        stage: context.stage,
+        summary: contextSummary
+      });
 
       logger.info('💬 [Sofia V2] Processando mensagem', {
         clientPhone: input.clientPhone.substring(0, 7) + '***',
@@ -88,37 +107,38 @@ export class SofiaAgentV2 {
       // 3. Tentar Enhanced Intent Detection primeiro
       if (ENHANCED_INTENT_CONFIG.enabled) {
         try {
-          const enhancedResult = await enhancedIntentDetector.detectIntent(
-            input.message,
-            input.tenantId,
-            input.clientPhone
-          );
+          const enhancedResult = await enhancedIntentDetector.detectIntent({
+            message: input.message,
+            conversationContext: context,
+            tenantId: input.tenantId,
+            clientPhone: input.clientPhone
+          });
 
           if (enhancedResult.confidence >= ENHANCED_INTENT_CONFIG.confidenceThreshold) {
             logger.info('🎯 [Sofia V2] Enhanced Intent detectado', {
-              function: enhancedResult.functionName,
+              function: enhancedResult.function,
               confidence: enhancedResult.confidence
             });
 
             const functionResult = await executeTenantAwareFunction(
-              enhancedResult.functionName!,
+              enhancedResult.function!,
               enhancedResult.parameters || {},
               input.tenantId
             );
 
-            functionsExecuted.push(enhancedResult.functionName!);
+            functionsExecuted.push(enhancedResult.function!);
 
             // Atualizar contexto baseado na função executada
             await this.updateContextFromFunction(
               input.clientPhone,
               input.tenantId,
-              enhancedResult.functionName!,
+              enhancedResult.function!,
               enhancedResult.parameters || {},
               functionResult
             );
 
             const reply = this.generateReplyFromFunction(
-              enhancedResult.functionName!,
+              enhancedResult.function!,
               functionResult,
               context
             );

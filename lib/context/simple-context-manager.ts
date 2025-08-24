@@ -37,12 +37,25 @@ interface SimpleContext {
 
 export class SimpleContextManager {
   private static instance: SimpleContextManager;
-  private firestoreService: FirestoreService<SimpleContext>;
+  private firestoreServices = new Map<string, FirestoreService<SimpleContext>>();
   private localCache = new Map<string, SimpleContext>();
   private readonly CACHE_TTL = 30 * 60 * 1000; // 30 minutos
 
   constructor() {
-    this.firestoreService = new FirestoreService<SimpleContext>('simple_contexts');
+    // Constructor vazio - serviços serão criados por tenant
+  }
+
+  private getFirestoreService(tenantId: string): FirestoreService<SimpleContext> {
+    if (!this.firestoreServices.has(tenantId)) {
+      // Multi-tenant: usar coleção específica do tenant
+      const collectionPath = `tenants/${tenantId}/simple_contexts`;
+      this.firestoreServices.set(tenantId, new FirestoreService<SimpleContext>(collectionPath));
+      logger.debug('🔧 [SimpleContext] Firestore service criado', {
+        tenantId: tenantId.substring(0, 8) + '***',
+        collectionPath
+      });
+    }
+    return this.firestoreServices.get(tenantId)!;
   }
 
   static getInstance(): SimpleContextManager {
@@ -77,7 +90,8 @@ export class SimpleContextManager {
 
     // Buscar no Firestore
     try {
-      const stored = await this.firestoreService.get(contextId);
+      const firestoreService = this.getFirestoreService(tenantId);
+      const stored = await firestoreService.get(contextId);
       if (stored && !this.isContextExpired(stored)) {
         this.localCache.set(contextId, stored);
         logger.debug('📋 [SimpleContext] Firestore hit', {
@@ -137,13 +151,23 @@ export class SimpleContextManager {
     this.localCache.set(contextId, updatedContext);
     
     try {
-      await this.firestoreService.update(contextId, updatedContext);
+      const firestoreService = this.getFirestoreService(tenantId);
       
-      logger.debug('📋 [SimpleContext] Contexto atualizado', {
+      // Verificar se existe para decidir entre set e update
+      const existing = await firestoreService.get(contextId);
+      
+      if (existing) {
+        await firestoreService.update(contextId, updatedContext);
+      } else {
+        await firestoreService.set(contextId, updatedContext);
+      }
+      
+      logger.debug('📋 [SimpleContext] Contexto salvo', {
         contextId,
         stage: updatedContext.stage,
         guests: updatedContext.guests,
-        hasClientName: !!updatedContext.clientName
+        hasClientName: !!updatedContext.clientName,
+        isNew: !existing
       });
     } catch (error) {
       logger.error('❌ [SimpleContext] Erro ao salvar contexto', {
