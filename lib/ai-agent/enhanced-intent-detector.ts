@@ -117,6 +117,7 @@ IMPORTANTE:
 - Seja PRECISO na detecção de função
 - Use contexto da conversa para melhor precisão
 
+
 FUNÇÕES DISPONÍVEIS:
 1. search_properties - buscar/filtrar propriedades por critérios (comodidades, hóspedes, datas)
 2. calculate_price - calcular preços, valores, orçamentos para período específico
