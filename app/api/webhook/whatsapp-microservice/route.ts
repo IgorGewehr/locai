@@ -148,61 +148,58 @@ async function processIncomingMessage(tenantId: string, messageData: any) {
       messageLength: message.length
     })
 
-    // Usar serviço de deduplicação para agrupar mensagens sequenciais
-    const { MessageDeduplicationService } = await import('@/lib/services/message-deduplication-service');
-    const deduplicationService = MessageDeduplicationService.getInstance();
+    // BYPASS TEMPORÁRIO: Processar diretamente sem deduplicação para debug
+    // TODO: Reativar deduplicação após resolver problema de múltiplas respostas
+    
+    logger.info('🔀 Processing message directly (deduplication bypassed)', {
+      tenantId: tenantId?.substring(0, 8) + '***',
+      clientPhone: clientPhone?.substring(0, 6) + '***',
+      messageLength: message.length,
+      messageId: messageId?.substring(0, 8) + '***'
+    });
 
-    await deduplicationService.addMessage(
-      tenantId,
-      clientPhone,
+    // Integração com Sofia Agent para processamento automático
+    const { sofiaAgent } = await import('@/lib/ai-agent/sofia-agent');
+    
+    const response = await sofiaAgent.processMessage({
       message,
-      messageId,
-      async (groupedMessages: string[], messageIds: string[]) => {
-        // Callback executado quando o grupo de mensagens está pronto para processamento
-        const combinedMessage = groupedMessages.join('\n\n');
-        
-        logger.info('🔀 Processing grouped messages', {
-          tenantId: tenantId?.substring(0, 8) + '***',
-          clientPhone: clientPhone?.substring(0, 6) + '***',
-          messageCount: groupedMessages.length,
-          combinedLength: combinedMessage.length,
-          firstMessageId: messageIds[0]?.substring(0, 8) + '***'
-        });
-
-        // Integração com Sofia Agent para processamento automático
-        const { sofiaAgent } = await import('@/lib/ai-agent/sofia-agent');
-        
-        const response = await sofiaAgent.processMessage({
-          message: combinedMessage,
-          clientPhone,
-          tenantId,
-          metadata: {
-            source: 'whatsapp-microservice',
-            priority: 'high',
-            skipHeavyProcessing: true,
-            messageIds,
-            isGroupedMessage: groupedMessages.length > 1
-          }
-        });
-
-        // Enviar resposta de volta ao microservice
-        await sendResponseToMicroservice({
-          tenantId,
-          to: clientPhone,
-          message: response.reply,
-          originalMessageId: messageIds[0] // Usar o primeiro messageId como referência
-        });
-
-        logger.info('✅ Grouped messages processed and response sent', {
-          tenantId: tenantId?.substring(0, 8) + '***',
-          clientPhone: clientPhone?.substring(0, 6) + '***',
-          messageCount: groupedMessages.length,
-          responseTime: response.responseTime,
-          functionsExecuted: response.functionsExecuted.length,
-          replyLength: response.reply?.length || 0
-        });
+      clientPhone,
+      tenantId,
+      metadata: {
+        source: 'whatsapp-microservice',
+        priority: 'high',
+        skipHeavyProcessing: true,
+        messageId,
+        bypassDeduplication: true // Flag para indicar bypass
       }
-    );
+    });
+
+    // Verificar se resposta não está vazia (evitar envio de respostas vazias)
+    if (!response.reply || response.reply.trim() === '') {
+      logger.warn('⚠️ Empty response from Sofia, skipping send', {
+        tenantId: tenantId?.substring(0, 8) + '***',
+        clientPhone: clientPhone?.substring(0, 6) + '***',
+        messageId: messageId?.substring(0, 8) + '***'
+      });
+      return;
+    }
+
+    // Enviar resposta de volta ao microservice
+    await sendResponseToMicroservice({
+      tenantId,
+      to: clientPhone,
+      message: response.reply,
+      originalMessageId: messageId
+    });
+
+    logger.info('✅ Message processed and response sent', {
+      tenantId: tenantId?.substring(0, 8) + '***',
+      clientPhone: clientPhone?.substring(0, 6) + '***',
+      responseTime: response.responseTime,
+      functionsExecuted: response.functionsExecuted.length,
+      replyLength: response.reply?.length || 0,
+      stage: response.metadata?.stage
+    });
     
   } catch (error) {
     logger.error('❌ Error processing incoming message:', {

@@ -71,6 +71,9 @@
       "Read(//mnt/c/Users/Administrador/Documents/Projetos/**)"
     ],
     "deny": [],
-    "defaultMode": "acceptEdits"
+    "defaultMode": "acceptEdits",
+    "additionalDirectories": [
+      "/mnt/c/Users/Administrador/Documents/Projetos/whatsapp-microservice"
+    ]
   }
 }

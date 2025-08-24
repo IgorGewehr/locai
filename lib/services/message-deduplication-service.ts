@@ -165,7 +165,18 @@ export class MessageDeduplicationService {
     onProcess: (groupedMessages: string[], messageIds: string[]) => Promise<void>
   ): Promise<void> {
     const pending = this.pendingMessages.get(key);
-    if (!pending) return;
+    if (!pending) {
+      logger.warn('⚠️ [Deduplication] Pending message group not found', { key });
+      return;
+    }
+
+    // Remover do cache ANTES de processar para evitar reprocessamento
+    this.pendingMessages.delete(key);
+    
+    // Limpar timeout se existir
+    if (pending.timeoutId) {
+      clearTimeout(pending.timeoutId);
+    }
 
     try {
       // Marcar todas as mensagens como processadas
@@ -173,30 +184,29 @@ export class MessageDeduplicationService {
         this.markMessageAsProcessed(messageId, pending.clientPhone);
       }
 
-      // Processar grupo de mensagens
-      await onProcess(pending.messages, pending.messageIds);
-      
-      logger.info('✅ Message group processed successfully', {
+      logger.info('🔄 [Deduplication] Processing message group', {
         tenantId: pending.tenantId?.substring(0, 8) + '***',
         clientPhone: pending.clientPhone?.substring(0, 6) + '***',
         groupSize: pending.messages.length,
         messageIds: pending.messageIds.map(id => id?.substring(0, 8) + '***')
       });
+
+      // Processar grupo de mensagens (apenas uma vez)
+      await onProcess(pending.messages, pending.messageIds);
       
-    } catch (error) {
-      logger.error('❌ Error processing message group', {
+      logger.info('✅ [Deduplication] Message group processed successfully', {
         tenantId: pending.tenantId?.substring(0, 8) + '***',
         clientPhone: pending.clientPhone?.substring(0, 6) + '***',
-        error: error instanceof Error ? error.message : 'Unknown error'
+        groupSize: pending.messages.length
       });
-    } finally {
-      // Limpar timeout se existir
-      if (pending.timeoutId) {
-        clearTimeout(pending.timeoutId);
-      }
       
-      // Remover do cache
-      this.pendingMessages.delete(key);
+    } catch (error) {
+      logger.error('❌ [Deduplication] Error processing message group', {
+        tenantId: pending.tenantId?.substring(0, 8) + '***',
+        clientPhone: pending.clientPhone?.substring(0, 6) + '***',
+        error: error instanceof Error ? error.message : 'Unknown error',
+        groupSize: pending.messages.length
+      });
     }
   }
 
