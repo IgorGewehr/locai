@@ -391,7 +391,7 @@ async function sendResponseToMicroservice(params: {
 }
 
 /**
- * Verificação de webhook (similar ao padrão do WhatsApp Business API)
+ * Verificação de webhook (similar ao padrão do WhatsApp Business API) --
  */
 export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url)
