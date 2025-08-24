@@ -169,8 +169,8 @@ export async function POST(request: NextRequest) {
         reasoningUsed: result.metadata.reasoningUsed
       });
 
-      // 5. Enviar resposta via WhatsApp (se não for teste)
-      if (!isTest) {
+      // 5. Enviar resposta via WhatsApp (se não for teste e se há resposta para enviar)
+      if (!isTest && result.reply && result.reply.trim().length > 0) {
         try {
           logger.info('📱 [API] Enviando resposta via WhatsApp', {
             requestId,
@@ -190,6 +190,8 @@ export async function POST(request: NextRequest) {
           });
           // Não bloquear resposta por erro do WhatsApp
         }
+      } else if (!isTest) {
+        logger.info('📦 [API] Resposta vazia (batching) - WhatsApp não enviado', { requestId });
       } else {
         logger.info('🧪 [API] Modo teste - WhatsApp não enviado', { requestId });
       }
