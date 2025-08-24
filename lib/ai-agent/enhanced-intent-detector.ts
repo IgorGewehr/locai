@@ -144,9 +144,11 @@ MENSAGEM USUÁRIO: "${message}"
 CONTEXTO CONVERSA: ${contextSummary}
 
 EXEMPLOS DE DETECÇÃO:
-- "quanto custa pra 4 pessoas?" → calculate_price
+- "quanto custa pra 4 pessoas?" → calculate_price {guests: 4}
 - "tem foto?" → send_property_media
-- "quero algo em floripa" → search_properties
+- "quero algo em floripa" → search_properties {location: "floripa"}
+- "preciso de 2 quartos" → search_properties {bedrooms: 2}
+- "apartamento com 3 quartos para 6 pessoas" → search_properties {bedrooms: 3, guests: 6}
 - "qual endereço?" → get_property_details
 - "quero reservar" → create_reservation
 - "quero cancelar minha reserva" → cancel_reservation
@@ -158,6 +160,13 @@ EXEMPLOS DE DETECÇÃO:
 - "me manda um orçamento" → generate_quote
 - "sou João da Silva" → register_client
 - "quero pagar com pix" → create_transaction
+
+PARÂMETROS IMPORTANTES PARA search_properties:
+- bedrooms: número de quartos (1, 2, 3, etc.)
+- guests: número de hóspedes/pessoas
+- location: localização (cidade, bairro)
+- maxPrice: orçamento máximo
+- amenities: comodidades desejadas
 
 CRITÉRIOS DE CONFIANÇA:
 - 0.9+: Intenção muito clara

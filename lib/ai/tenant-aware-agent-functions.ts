@@ -15,6 +15,7 @@ import { leadScoringService } from '@/lib/services/lead-scoring-service';
 interface SearchPropertiesArgs {
   location?: string;
   guests?: number;
+  bedrooms?: number;
   checkIn?: string;
   checkOut?: string;
   maxPrice?: number;
@@ -288,6 +289,7 @@ export async function searchProperties(args: SearchPropertiesArgs, tenantId: str
       filters: {
         location: args.location,
         guests: args.guests,
+        bedrooms: args.bedrooms,
         maxPrice: args.maxPrice,
         propertyType: args.propertyType,
         checkIn: args.checkIn,
@@ -343,6 +345,12 @@ export async function searchProperties(args: SearchPropertiesArgs, tenantId: str
       );
     }
 
+    if (args.bedrooms) {
+      filteredProperties = filteredProperties.filter(property => 
+        (property.bedrooms || 0) >= args.bedrooms!
+      );
+    }
+
     if (args.maxPrice) {
       filteredProperties = filteredProperties.filter(property => 
         (property.basePrice || 0) <= args.maxPrice!
@@ -386,7 +394,8 @@ export async function searchProperties(args: SearchPropertiesArgs, tenantId: str
         maxGuests: p.maxGuests,
         bedrooms: p.bedrooms,
         bathrooms: p.bathrooms,
-        basePrice: p.basePrice || 0, // Property interface tem basePrice direto
+        pricePerNight: p.basePrice || 0, // Corrigir para pricePerNight na resposta
+        basePrice: p.basePrice || 0, // Manter basePrice também
         amenities: p.amenities?.slice(0, 5) || [],
         description: p.description?.substring(0, 200) || '',
         images: p.photos?.slice(0, 3).map(photo => ({

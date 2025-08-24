@@ -263,9 +263,13 @@ export class SofiaAgentV2 {
         if (result?.properties?.length > 0) {
           const count = result.properties.length;
           const guest_text = context.guests ? ` para ${context.guests} pessoas` : '';
-          return `Perfeito! Encontrei ${count} opções${guest_text}. Vou te mostrar as melhores:\n\n${result.properties.slice(0, 3).map((p: any, i: number) => 
-            `${i + 1}. **${p.name}**\n📍 ${p.location}\n💰 A partir de R$ ${p.pricePerNight}/noite\n🏠 ${p.bedrooms} quartos, ${p.bathrooms} banheiros\n${p.amenities?.slice(0, 3).join(', ') || ''}\n`
-          ).join('\n')}Gostaria de ver fotos ou calcular preços para suas datas?`;
+          return `Perfeito! Encontrei ${count} opções${guest_text}. Vou te mostrar as melhores:\n\n${result.properties.slice(0, 3).map((p: any, i: number) => {
+            // Corrigir preço undefined
+            const price = p.pricePerNight || p.basePrice || 0;
+            const priceText = price > 0 ? `R$ ${price}` : 'Consulte';
+            
+            return `${i + 1}. **${p.name}**\n📍 ${p.location}\n💰 A partir de ${priceText}/noite\n🏠 ${p.bedrooms} quartos, ${p.bathrooms} banheiros\n${p.amenities?.slice(0, 3).join(', ') || ''}\n`;
+          }).join('\n')}Gostaria de ver fotos ou calcular preços para suas datas?`;
         } else {
           return 'Não encontrei propriedades com esses critérios. Pode me dar mais detalhes sobre o que procura?';
         }
