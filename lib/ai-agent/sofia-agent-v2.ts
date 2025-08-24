@@ -114,7 +114,14 @@ export class SofiaAgentV2 {
             clientPhone: input.clientPhone
           });
 
-          if (enhancedResult.confidence >= ENHANCED_INTENT_CONFIG.confidenceThreshold) {
+          // Log para debug
+          logger.debug('🎯 [Sofia V2] Enhanced result', {
+            function: enhancedResult.function,
+            confidence: enhancedResult.confidence,
+            hasParameters: !!enhancedResult.parameters
+          });
+
+          if (enhancedResult.confidence >= ENHANCED_INTENT_CONFIG.confidenceThreshold && enhancedResult.function) {
             logger.info('🎯 [Sofia V2] Enhanced Intent detectado', {
               function: enhancedResult.function,
               confidence: enhancedResult.confidence
@@ -159,6 +166,41 @@ export class SofiaAgentV2 {
                 contextSummary
               }
             };
+          } else {
+            // Enhanced Intent não detectou função válida
+            logger.info('🔄 [Sofia V2] Enhanced Intent baixa confidence', {
+              function: enhancedResult.function,
+              confidence: enhancedResult.confidence,
+              threshold: ENHANCED_INTENT_CONFIG.confidenceThreshold
+            });
+            
+            // Para perguntas de contexto/memória, tentar resposta direta
+            if (enhancedResult.confidence < 0.5) {
+              const contextReply = this.generateContextBasedResponse(input.message, context);
+              if (contextReply !== 'Como posso ajudar você hoje?') {
+                // Encontrou uma resposta contextual específica
+                logger.info('✅ [Sofia V2] Resposta contextual gerada', {
+                  replyLength: contextReply.length
+                });
+                
+                // Salvar mensagens
+                await this.contextManager.addMessage(input.clientPhone, input.tenantId, 'user', input.message);
+                await this.contextManager.addMessage(input.clientPhone, input.tenantId, 'assistant', contextReply);
+
+                return {
+                  reply: contextReply,
+                  tokensUsed: 0,
+                  responseTime: Date.now() - startTime,
+                  functionsExecuted,
+                  metadata: {
+                    stage: context.stage,
+                    confidence: 0.8, // Alta confidence para resposta contextual
+                    reasoningUsed: false,
+                    contextSummary
+                  }
+                };
+              }
+            }
           }
         } catch (error) {
           logger.warn('⚠️ [Sofia V2] Enhanced Intent falhou, usando GPT', {
@@ -168,8 +210,26 @@ export class SofiaAgentV2 {
       }
 
       // 4. Fallback para GPT tradicional
-      const reply = await this.processWithGPT(input, context);
-      tokensUsed = 5000; // Estimativa
+      logger.info('🔄 [Sofia V2] Usando GPT fallback', {
+        reason: 'Enhanced Intent baixa confidence ou função não encontrada',
+        clientPhone: input.clientPhone.substring(0, 7) + '***'
+      });
+      
+      let reply: string;
+      try {
+        reply = await this.processWithGPT(input, context);
+        tokensUsed = 5000; // Estimativa
+        logger.info('✅ [Sofia V2] GPT fallback funcionou', {
+          replyLength: reply.length
+        });
+      } catch (error) {
+        logger.error('❌ [Sofia V2] GPT fallback falhou', {
+          error: error instanceof Error ? error.message : String(error)
+        });
+        
+        // Fallback inteligente baseado no contexto e mensagem
+        reply = this.generateContextBasedResponse(input.message, context);
+      }
 
       // Salvar mensagens
       await this.contextManager.addMessage(input.clientPhone, input.tenantId, 'user', input.message);
@@ -300,7 +360,8 @@ export class SofiaAgentV2 {
     
     const messages = [
       { role: 'system' as const, content: SOFIA_PROMPT + '\n\n' + contextPrompt },
-      ...context.recentMessages.map((msg: any) => ({
+      // Safely handle recentMessages that might be undefined
+      ...(context.recentMessages || []).map((msg: any) => ({
         role: msg.role as 'user' | 'assistant',
         content: msg.content
       })),
@@ -317,6 +378,57 @@ export class SofiaAgentV2 {
 
     const response = completion.choices[0]?.message?.content || 'Como posso ajudar?';
     return response;
+  }
+
+  private generateContextBasedResponse(message: string, context: any): string {
+    const msgLower = message.toLowerCase();
+    
+    // Detectar perguntas sobre contexto/memória
+    if (msgLower.includes('quantas pessoas') || msgLower.includes('quantos hóspedes')) {
+      if (context.guests) {
+        return `Você pediu o apartamento para ${context.guests} pessoas. Gostaria de calcular o preço ou precisa de mais alguma informação?`;
+      } else {
+        return 'Não tenho informação sobre o número de pessoas. Para quantas pessoas você precisa do apartamento?';
+      }
+    }
+    
+    if (msgLower.includes('quais datas') || msgLower.includes('quando') || msgLower.includes('check')) {
+      if (context.checkIn && context.checkOut) {
+        return `Você informou as datas de ${context.checkIn} a ${context.checkOut}. Gostaria de calcular o preço para essas datas?`;
+      } else {
+        return 'Não tenho informação sobre as datas. Para quais datas você precisa do apartamento?';
+      }
+    }
+    
+    if (msgLower.includes('qual nome') || msgLower.includes('meu nome')) {
+      if (context.clientName) {
+        return `Você se identificou como ${context.clientName}. Como posso ajudar?`;
+      } else {
+        return 'Não tenho seu nome cadastrado. Pode me dizer como devo chamá-lo?';
+      }
+    }
+    
+    if (msgLower.includes('orçamento') || msgLower.includes('quanto custa')) {
+      if (context.budget) {
+        return `Seu orçamento informado foi de R$ ${context.budget}. Gostaria de ver propriedades nessa faixa de preço?`;
+      } else if (context.guests) {
+        return `Você pediu para ${context.guests} pessoas. Gostaria de calcular o preço ou tem algum orçamento em mente?`;
+      } else {
+        return 'Para calcular o preço, preciso saber para quantas pessoas e quais datas. Pode me informar?';
+      }
+    }
+    
+    // Resposta geral com contexto disponível
+    const contextParts = [];
+    if (context.guests) contextParts.push(`${context.guests} pessoas`);
+    if (context.checkIn && context.checkOut) contextParts.push(`datas: ${context.checkIn} a ${context.checkOut}`);
+    if (context.clientName) contextParts.push(`cliente: ${context.clientName}`);
+    
+    if (contextParts.length > 0) {
+      return `Tenho essas informações suas: ${contextParts.join(', ')}. Como posso ajudar com mais alguma coisa?`;
+    }
+    
+    return 'Como posso ajudar você hoje?';
   }
 
   private buildContextPrompt(context: any): string {
