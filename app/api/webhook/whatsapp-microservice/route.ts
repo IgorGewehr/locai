@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import crypto from 'crypto'
 import { logger } from '@/lib/utils/logger'
 import { WhatsAppStatusService } from '@/lib/services/whatsapp-status-service'
+import { deduplicationCache } from '@/lib/cache/deduplication-cache'
 
 /**
  * Webhook para receber mensagens do WhatsApp Microservice no DigitalOcean
@@ -148,10 +149,19 @@ async function processIncomingMessage(tenantId: string, messageData: any) {
       messageLength: message.length
     })
 
-    // BYPASS TEMPORÁRIO: Processar diretamente sem deduplicação para debug
-    // TODO: Reativar deduplicação após resolver problema de múltiplas respostas
+    // REATIVADO: Sistema de deduplicação usando cache centralizado
+    if (deduplicationCache.isDuplicate(tenantId, messageId)) {
+      logger.info('🔁 Message already processed, skipping', {
+        tenantId: tenantId?.substring(0, 8) + '***',
+        messageId: messageId?.substring(0, 8) + '***'
+      });
+      return; // Ignorar mensagem duplicada
+    }
     
-    logger.info('🔀 Processing message directly (deduplication bypassed)', {
+    // Marcar mensagem como processada
+    deduplicationCache.markAsProcessed(tenantId, messageId);
+    
+    logger.info('✅ Processing new message', {
       tenantId: tenantId?.substring(0, 8) + '***',
       clientPhone: clientPhone?.substring(0, 6) + '***',
       messageLength: message.length,

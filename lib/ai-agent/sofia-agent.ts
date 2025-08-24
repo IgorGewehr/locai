@@ -7,7 +7,7 @@ import { getTenantAwareOpenAIFunctions, executeTenantAwareFunction } from '@/lib
 import { logger } from '@/lib/utils/logger';
 import { SOFIA_PROMPT } from './sofia-prompt';
 import { FEW_SHOT_EXAMPLES } from './few-shot-examples';
-import { UnifiedContextManager } from './unified-context-manager';
+// REMOVIDO: UnifiedContextManager - usando apenas ConversationContextService
 import { smartSummaryService, SmartSummary } from './smart-summary-service';
 
 // ===== COMPONENTES ESSENCIAIS APENAS =====
@@ -18,8 +18,9 @@ import { sofiaAnalytics } from '@/lib/services/sofia-analytics-service';
 import { parallelExecutionService } from '@/lib/ai/parallel-execution-service';
 import { enhancedIntentDetector, type EnhancedIntentResult } from './enhanced-intent-detector';
 import { ENHANCED_INTENT_CONFIG } from '@/lib/config/enhanced-intent-config';
-import { messageBatchingSystem, type BatchResult } from './message-batching-system';
+// REMOVIDO: messageBatchingSystem - desabilitado temporariamente
 import { FallbackSystem, type FallbackResponse } from './fallback-system';
+import { conversationContextService } from '@/lib/services/conversation-context-service';
 
 // ===== INTERFACES SIMPLIFICADAS =====
 
@@ -97,13 +98,17 @@ export class SofiaAgent {
     let fallbackUsed = false;
 
     try {
-      // ===== MESSAGE BATCHING SYSTEM =====
-      // Agrupar mensagens consecutivas do mesmo cliente
-      const batchResult = await messageBatchingSystem.addMessage(
-        input.clientPhone,
-        input.tenantId,
-        input.message
-      );
+      // ===== MESSAGE BATCHING SYSTEM - DESABILITADO =====
+      // PROBLEMA IDENTIFICADO: Batching causando perda de contexto
+      // TODO: Reimplementar com lógica melhorada após estabilizar fluxo
+      
+      // Por enquanto, processar mensagem imediatamente
+      const batchResult = {
+        shouldProcess: true,
+        combinedMessage: input.message,
+        messagesInBatch: 1,
+        waitTime: 0
+      };
 
       if (!batchResult.shouldProcess) {
         logger.info('📦 [Sofia] Mensagem adicionada ao batch, aguardando mais mensagens');
@@ -206,12 +211,35 @@ export class SofiaAgent {
       });
 
       // ===== ANALYTICS TRACKING - START =====
-      const conversationId = `${input.clientPhone}_${Date.now()}`;
+      // CORRIGIDO: Usar ID consistente baseado apenas no telefone
+      const conversationId = `conv_${input.tenantId}_${input.clientPhone}`;
+      
+      // Tentar carregar summary anterior primeiro
+      let previousSummary = null;
+      
+      // Tentar carregar contexto existente ANTES de inicializar como null
+      try {
+        const existingContext = await conversationContextService.getOrCreateContext(
+          input.clientPhone, 
+          input.tenantId
+        );
+        
+        if (existingContext?.context?.smartSummary) {
+          previousSummary = existingContext.context.smartSummary;
+          logger.info('📥 [Sofia] Summary anterior encontrado', {
+            stage: previousSummary.conversationState.stage,
+            guests: previousSummary.searchCriteria?.guests,
+            propertiesCount: previousSummary.propertiesViewed?.length || 0,
+            hasClientName: !!previousSummary.clientInfo?.name
+          });
+        }
+      } catch (error) {
+        logger.warn('⚠️ [Sofia] Erro ao carregar contexto anterior', {
+          error: error instanceof Error ? error.message : String(error)
+        });
+      }
       
       // Iniciar tracking se for primeira mensagem da conversa
-      const cacheKey = `${input.tenantId}:${input.clientPhone}`;
-      let previousSummary = this.summaryCache.get(cacheKey) || null;
-      
       if (!previousSummary) {
         // Nova conversa - iniciar tracking
         try {
@@ -227,20 +255,18 @@ export class SofiaAgent {
         }
       }
       
-      // Rastrear mensagem do cliente
-      try {
-        await sofiaAnalytics.trackMessage(
-          input.tenantId,
-          conversationId,
-          true, // isFromClient
-          undefined // sem tempo de resposta para mensagem do cliente
-        );
-      } catch (error) {
+      // Rastrear mensagem do cliente - não bloquear fluxo
+      sofiaAnalytics.trackMessage(
+        input.tenantId,
+        conversationId,
+        true, // isFromClient
+        undefined // sem tempo de resposta para mensagem do cliente
+      ).catch(error => {
         logger.error('❌ [Sofia] Erro no analytics tracking', {
           error: error instanceof Error ? error.message : String(error),
           clientPhone: this.maskPhone(input.clientPhone)
         });
-      }
+      });
       
       logger.info('📊 [Sofia] Analytics tracking concluído', {
         clientPhone: this.maskPhone(input.clientPhone),
@@ -248,47 +274,22 @@ export class SofiaAgent {
       });
       
       // ===== SMART SUMMARY INTEGRATION =====
-      // Obter summary anterior do cache OU do Firebase (para persistência)
-      if (!previousSummary) {
-        try {
-          // Tentar carregar do Firebase
-          const conversationContext = await conversationContextService.getOrCreateContext(
-            input.clientPhone, 
-            input.tenantId
-          );
-          
-          if (conversationContext?.context?.smartSummary) {
-            previousSummary = conversationContext.context.smartSummary;
-            // Salvar no cache para próximas requisições
-            this.summaryCache.set(cacheKey, previousSummary);
-            
-            logger.info('📥 [Sofia] Summary carregado do Firebase', {
-              stage: previousSummary.conversationState.stage,
-              propertiesCount: previousSummary.propertiesViewed.length,
-              hasClientName: !!previousSummary.clientInfo.name
-            });
-          }
-        } catch (error) {
-          logger.error('❌ [Sofia] Erro ao carregar contexto do Firebase', {
-            error: error instanceof Error ? error.message : String(error),
-            clientPhone: this.maskPhone(input.clientPhone)
-          });
-          // Continuar sem summary anterior
-        }
-      }
+      // Summary anterior já foi carregado no início do método
       
-      // Obter histórico de mensagens
-      logger.info('📋 [Sofia] Carregando contexto unificado', {
+      // ATUALIZADO: Usar apenas ConversationContextService para contexto
+      logger.info('📋 [Sofia] Carregando contexto do ConversationContextService', {
         clientPhone: this.maskPhone(input.clientPhone),
         tenantId: input.tenantId.substring(0, 8) + '***'
       });
       
-      const unifiedContext = await UnifiedContextManager.getContext(input.clientPhone, input.tenantId);
-      const messageHistory = unifiedContext.messageHistory.slice(-6); // Últimas 6 mensagens
+      // Usar método com cache unificado
+      const contextDoc = await conversationContextService.getContextWithCache(input.clientPhone, input.tenantId);
+      const messageHistory = contextDoc.context.messageHistory || [];
       
       logger.info('📋 [Sofia] Contexto carregado', {
         historyLength: messageHistory.length,
-        hasMemoryState: !!unifiedContext.memoryState
+        hasContext: !!contextDoc,
+        hasSmartSummary: !!contextDoc.context.smartSummary
       });
       
       // Adicionar mensagem atual ao histórico
@@ -298,30 +299,48 @@ export class SofiaAgent {
       ];
 
       // Atualizar summary com a nova mensagem
-      const updatedSummary = await smartSummaryService.updateSummary(
-        input.message,
-        previousSummary,
-        currentHistory
-      );
+      let updatedSummary;
+      try {
+        updatedSummary = await smartSummaryService.updateSummary(
+          input.message,
+          previousSummary,
+          currentHistory
+        );
+      } catch (error) {
+        logger.error('❌ [Sofia] Erro ao atualizar summary, usando anterior', {
+          error: error instanceof Error ? error.message : String(error)
+        });
+        // Usar summary anterior ou criar novo básico
+        updatedSummary = previousSummary || {
+          conversationState: { stage: 'greeting' },
+          searchCriteria: {},
+          clientInfo: {},
+          propertiesViewed: [],
+          nextBestAction: { action: 'greet', confidence: 0.5 }
+        };
+      }
       
-      // Salvar no cache E no Firebase (persistência)
-      this.summaryCache.set(cacheKey, updatedSummary);
-      
-      // Salvar summary no Firebase para persistência entre sessões (async sem bloquear)
-      conversationContextService.updateContext(
-        input.clientPhone,
-        input.tenantId,
-        { smartSummary: updatedSummary }
-      ).then(() => {
-        logger.info('💾 [Sofia] Summary persistido no Firebase', {
+      // CORRIGIDO: Salvar summary com await para garantir persistência
+      try {
+        await conversationContextService.updateContext(
+          input.clientPhone,
+          input.tenantId,
+          { smartSummary: updatedSummary }
+        );
+        
+        // Limpar cache local para forçar reload na próxima requisição
+        conversationContextService.clearLocalCache(input.clientPhone, input.tenantId);
+        
+        logger.info('💾 [Sofia] Summary persistido com sucesso', {
           stage: updatedSummary.conversationState.stage,
           tenantId: input.tenantId.substring(0, 8) + '***'
         });
-      }).catch((error) => {
+      } catch (error) {
         logger.error('❌ [Sofia] Erro ao persistir summary', {
           error: error instanceof Error ? error.message : String(error)
         });
-      });
+        // Continuar mesmo com erro de persistência
+      }
 
       logger.info('🧠 [Sofia] Summary atualizado', {
         stage: updatedSummary.conversationState.stage,
@@ -473,7 +492,12 @@ export class SofiaAgent {
               { ...result, isEmpty: true }
             );
             
-            this.summaryCache.set(cacheKey, updatedSummaryWithResult);
+            // Cache removido - persistindo diretamente no ConversationContextService
+            await conversationContextService.updateContext(
+              input.clientPhone,
+              input.tenantId,
+              { smartSummary: updatedSummaryWithResult }
+            );
 
             return {
               reply,
@@ -525,8 +549,10 @@ export class SofiaAgent {
           const fallbackResponse = this.getAdvancedFallbackResponse(intentDetected.function, intentDetected.args, result.error);
           const reply = fallbackResponse.reply;
 
-          // Salvar no histórico
-          await this.saveMessageHistory(input, reply, 0);
+          // Salvar no histórico - não bloquear fluxo
+          this.saveMessageHistory(input, reply, 0).catch(error => {
+            logger.error('❌ [Sofia] Erro ao salvar histórico', { error });
+          });
 
           // Atualizar summary com resultado da função
           const updatedSummaryWithResult = await smartSummaryService.updateSummaryWithFunctionResult(
@@ -537,7 +563,12 @@ export class SofiaAgent {
           );
           
           // Salvar no cache
-          this.summaryCache.set(cacheKey, updatedSummaryWithResult);
+          // Cache removido - persistindo diretamente no ConversationContextService
+          await conversationContextService.updateContext(
+            input.clientPhone,
+            input.tenantId,
+            { smartSummary: updatedSummaryWithResult }
+          );
 
           return {
             reply,
@@ -786,7 +817,12 @@ export class SofiaAgent {
           }
         }
         // Salvar summary final no cache
-        this.summaryCache.set(cacheKey, finalSummary);
+        // Cache removido - persistindo diretamente no ConversationContextService
+        await conversationContextService.updateContext(
+          input.clientPhone,
+          input.tenantId,
+          { smartSummary: finalSummary }
+        );
       }
 
       return {
@@ -1595,8 +1631,7 @@ export class SofiaAgent {
       );
       
       // Salvar no cache
-      const cacheKey = `${input.tenantId}:${input.clientPhone}`;
-      this.summaryCache.set(cacheKey, updatedSummary);
+      // Cache removido - usando apenas ConversationContextService
 
       // 6. SALVAR HISTÓRICO DE MENSAGENS (CRÍTICO PARA MEMÓRIA!)
       await this.saveMessageHistory(input, humanizedResponse, 0);
@@ -1766,8 +1801,8 @@ RESPOSTA HUMANIZADA (sem mencionar localização):
         timestamp: new Date()
       };
 
-      // Usar o UnifiedContextManager para atualizar
-      await UnifiedContextManager.updateContext(clientPhone, tenantId, contextUpdate);
+      // Usar o ConversationContextService para atualizar
+      await conversationContextService.updateContext(clientPhone, tenantId, contextUpdate);
       
     } catch (error) {
       logger.error('❌ [Sofia Enhanced] Erro ao atualizar contexto', { error });
@@ -1835,9 +1870,8 @@ RESPOSTA HUMANIZADA (sem mencionar localização):
       responseTime: `${responseTime}ms`
     });
 
-    // Tentar obter summary do cache ou criar vazio
-    const cacheKey = `${input.tenantId}:${input.clientPhone}`;
-    const fallbackSummary = this.summaryCache.get(cacheKey) || smartSummaryService.createEmptySummary();
+    // Usar summary vazio para erro - evitar outro await que pode falhar
+    const fallbackSummary = smartSummaryService.createEmptySummary();
 
     return {
       reply: 'Ops! Probleminha técnico. Pode repetir sua mensagem? 🙏',

@@ -210,6 +210,9 @@ export class SmartSummaryService {
       // Validar e corrigir estrutura
       updatedSummary = this.validateAndFixSummary(updatedSummary, previousSummary);
 
+      // 🚨 PRESERVAÇÃO FORÇADA - aplicar antes de outras correções
+      updatedSummary = this.forcePreservePreviousInfo(updatedSummary, previousSummary);
+
       // Aplicar inteligência de datas
       updatedSummary = this.applyDateIntelligence(updatedSummary, currentMessage);
 
@@ -264,6 +267,97 @@ export class SmartSummaryService {
       // Fallback: retorna sumário anterior ou básico
       return previousSummary || this.createEmptySummary();
     }
+  }
+
+  /**
+   * 🚨 NOVA FUNÇÃO CRÍTICA: Preservação forçada de informações anteriores
+   */
+  private forcePreservePreviousInfo(updatedSummary: SmartSummary, previousSummary: SmartSummary | null): SmartSummary {
+    if (!previousSummary) return updatedSummary;
+
+    // Preservar critérios de busca cruciais
+    if (previousSummary.searchCriteria) {
+      // Preservar guests se havia sido definido antes
+      if (previousSummary.searchCriteria.guests && previousSummary.searchCriteria.guests > 0) {
+        if (!updatedSummary.searchCriteria.guests || updatedSummary.searchCriteria.guests <= 0 || 
+            updatedSummary.searchCriteria.guests !== previousSummary.searchCriteria.guests) {
+          // Preservar valor anterior SEMPRE, evitando sobrescrita incorreta
+          updatedSummary.searchCriteria.guests = previousSummary.searchCriteria.guests;
+          logger.info('🔒 [SmartSummary] Guests preservado (era diferente)', {
+            preserved: previousSummary.searchCriteria.guests,
+            wasGoing: updatedSummary.searchCriteria.guests || 'undefined'
+          });
+        }
+      }
+
+      // Preservar checkIn se havia sido definido
+      if (previousSummary.searchCriteria.checkIn) {
+        if (!updatedSummary.searchCriteria.checkIn) {
+          updatedSummary.searchCriteria.checkIn = previousSummary.searchCriteria.checkIn;
+          logger.info('🔒 [SmartSummary] CheckIn preservado', {
+            preserved: previousSummary.searchCriteria.checkIn
+          });
+        }
+      }
+
+      // Preservar checkOut se havia sido definido  
+      if (previousSummary.searchCriteria.checkOut) {
+        if (!updatedSummary.searchCriteria.checkOut) {
+          updatedSummary.searchCriteria.checkOut = previousSummary.searchCriteria.checkOut;
+          logger.info('🔒 [SmartSummary] CheckOut preservado', {
+            preserved: previousSummary.searchCriteria.checkOut
+          });
+        }
+      }
+
+      // Preservar budget se havia sido definido
+      if (previousSummary.searchCriteria.budget && previousSummary.searchCriteria.budget > 0) {
+        if (!updatedSummary.searchCriteria.budget || updatedSummary.searchCriteria.budget <= 0) {
+          updatedSummary.searchCriteria.budget = previousSummary.searchCriteria.budget;
+          logger.info('🔒 [SmartSummary] Budget preservado', {
+            preserved: previousSummary.searchCriteria.budget
+          });
+        }
+      }
+
+      // Preservar location se havia sido definido
+      if (previousSummary.searchCriteria.location) {
+        if (!updatedSummary.searchCriteria.location) {
+          updatedSummary.searchCriteria.location = previousSummary.searchCriteria.location;
+          logger.info('🔒 [SmartSummary] Location preservado', {
+            preserved: previousSummary.searchCriteria.location
+          });
+        }
+      }
+    }
+
+    // Preservar informações do cliente
+    if (previousSummary.clientInfo) {
+      if (previousSummary.clientInfo.name && !updatedSummary.clientInfo.name) {
+        updatedSummary.clientInfo.name = previousSummary.clientInfo.name;
+      }
+      if (previousSummary.clientInfo.email && !updatedSummary.clientInfo.email) {
+        updatedSummary.clientInfo.email = previousSummary.clientInfo.email;
+      }
+      if (previousSummary.clientInfo.phone && !updatedSummary.clientInfo.phone) {
+        updatedSummary.clientInfo.phone = previousSummary.clientInfo.phone;
+      }
+    }
+
+    // Preservar propriedades vistas (merge sem duplicar)
+    if (previousSummary.propertiesViewed && previousSummary.propertiesViewed.length > 0) {
+      const existingIds = updatedSummary.propertiesViewed.map(p => p.id);
+      const toPreserve = previousSummary.propertiesViewed.filter(p => !existingIds.includes(p.id));
+      updatedSummary.propertiesViewed.push(...toPreserve);
+      
+      if (toPreserve.length > 0) {
+        logger.info('🔒 [SmartSummary] Propriedades preservadas', {
+          preserved: toPreserve.length
+        });
+      }
+    }
+
+    return updatedSummary;
   }
 
   /**
@@ -357,11 +451,15 @@ OUTRAS REGRAS:
 1. SE a mensagem é apenas cumprimento/casual ("Oi", "Como está?", "Tudo bem?") 
    → NÃO FORCE contexto comercial
    → Mantenha stage como 'greeting' até haver intenção comercial real
-2. SEMPRE preserve informações já coletadas
-3. ADICIONE novas informações sem sobrescrever antigas
+2. 🚨 PRESERVAÇÃO CRÍTICA: JAMAIS apague informações já coletadas
+   → Se guests já é 2, mantenha 2 (não mude para null)
+   → Se checkIn já foi definido, preserve a data
+   → Se nome do cliente foi capturado, mantenha
+3. ADICIONE apenas NOVAS informações - nunca sobrescreva
 4. Detecte SINAIS DE COMPRA e OBJEÇÕES
 5. Identifique URGÊNCIA temporal
 6. Retorne JSON válido SEMPRE
+7. 🔒 REGRA OURO: Informação capturada = informação PERMANENTE
 
 FORMATO DE RESPOSTA (JSON obrigatório):
 {
@@ -415,6 +513,13 @@ MENSAGEM ATUAL: "${currentMessage}"
 
 SUMÁRIO ANTERIOR: ${previousSummary ? JSON.stringify(previousSummary, null, 2) : 'null'}
 
+🚨🚨🚨 REGRA FUNDAMENTAL - LEIA ISSO PRIMEIRO:
+SE EXISTE SUMÁRIO ANTERIOR com informações (guests, checkIn, checkOut, budget):
+- COPIE EXATAMENTE essas informações para o novo sumário
+- JAMAIS as apague, modifique ou sobrescreva
+- APENAS ADICIONE novas informações da mensagem atual
+- Exemplo: Se anterior tem guests=2, novo deve ter guests=2 (não 4, não null)
+
 CONTEXTO (últimas mensagens):
 ${recentHistory}
 
@@ -424,24 +529,24 @@ INSTRUÇÕES ESPECÍFICAS:
    - Nome, telefone, CPF, email
    - Preferências mencionadas
 
-2. CRITÉRIOS DE BUSCA:
-   - Pessoas: CRÍTICO! Extrair número de pessoas DA MENSAGEM ATUAL:
-     * "2 pessoas" = 2
-     * "3 pessoas" = 3
-     * "apartamento 2 pessoas" = 2
-     * "apartamento para 2" = 2
-     * "eu e minha esposa" = 2
-     * "eu e meu marido" = 2 
-     * "com minha esposa" = 2
-     * "para mim e minha esposa" = 2
-     * "nós dois" = 2
-     * "casal" = 2
-     * "família" = 4 (padrão)
-     * SEMPRE procure números + "pessoas" primeiro
-     * Se mencionado qualquer número de pessoas, OBRIGATÓRIO incluir em searchCriteria.guests
-   - Datas: qualquer menção temporal específica (formato YYYY-MM-DD)
-   - Orçamento: valores monetários mencionados
-   - Tipo: apartamento, casa, studio, etc.
+2. 🚨 CRITÉRIOS DE BUSCA - REGRA CRÍTICA DE PRESERVAÇÃO:
+   
+   🔒 PRIMEIRO: PRESERVE tudo do SUMÁRIO ANTERIOR
+   - Se SUMÁRIO ANTERIOR tem guests=2, MANTENHA 2 (não mude para 4 ou null)
+   - Se SUMÁRIO ANTERIOR tem checkIn="2025-09-12", MANTENHA a data
+   - Se SUMÁRIO ANTERIOR tem checkOut="2025-09-16", MANTENHA a data  
+   - Se SUMÁRIO ANTERIOR tem budget=400, MANTENHA o valor
+   
+   🆕 SEGUNDO: ADICIONE apenas NOVAS informações da mensagem atual:
+   - Pessoas: Extrair SE mencionado na mensagem atual:
+     * "2 pessoas" = 2 | "3 pessoas" = 3 | "eu e minha esposa" = 2
+     * "casal" = 2 | "família" = 4 | "nós dois" = 2
+     * ⚠️ SE JÁ EXISTE no sumário anterior, NÃO SOBRESCREVER
+   - Datas: SE nova data mencionada na mensagem atual
+   - Orçamento: SE novo valor mencionado na mensagem atual
+   - Tipo: SE novo tipo mencionado na mensagem atual
+   
+   🚨 NUNCA APAGUE INFORMAÇÕES JÁ COLETADAS
 
 3. PROPRIEDADES VISTAS:
    - VALIDAR IDs: use apenas IDs REAIS (15+ caracteres), marque inválidos como "INVALID_ID"
@@ -1064,6 +1169,13 @@ Confiança: ${Math.round(summary.nextBestAction.confidence * 100)}%
 ⚠️ OBJEÇÕES: ${summary.conversationState.objections.join(', ') || 'Nenhuma'}
 
 ⚠️ IMPORTANTE: ${summary.propertiesViewed.length > 0 ? 'Use os IDs REAIS mostrados acima!' : 'Execute search_properties para obter propriedades!'}
+
+🚨 REGRAS RÍGIDAS DE CONTEXTO:
+- SE o cliente JÁ informou número de pessoas, NÃO pergunte novamente
+- SE as datas JÁ estão definidas, NÃO peça confirmação
+- SE o orçamento foi informado, USE essa informação
+- REUTILIZE todas as informações já capturadas no resumo acima
+- EVITE perguntas repetitivas - CONFIE no contexto existente
 `.trim();
 
     // Adicionar alertas se há problemas

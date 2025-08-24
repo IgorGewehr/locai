@@ -134,19 +134,19 @@ export async function POST(request: NextRequest) {
       });
     }
 
-    // 4. Processar com Sofia MVP (versão pronta para produção)
+    // 4. Processar com Sofia V2 (versão simplificada com contexto eficiente)
     try {
-      logger.info('🤖 [API] Iniciando processamento com Sofia MVP', {
+      logger.info('🤖 [API] Iniciando processamento com Sofia V2', {
         requestId,
         phoneMasked: validatedPhone.substring(0, 4) + '***',
         tenantId: validatedTenantId,
         source: metadata?.source || (isTest ? 'test' : 'api')
       });
 
-      // INTEGRAÇÃO SOFIA: Versão de Produção com Few-Shot Prompting
-      const { sofiaAgent } = await import('@/lib/ai-agent/sofia-agent');
+      // Nova versão com contexto simplificado
+      const { sofiaAgentV2 } = await import('@/lib/ai-agent/sofia-agent-v2');
 
-      const result = await sofiaAgent.processMessage({
+      const result = await sofiaAgentV2.processMessage({
         message: validatedMessage,
         clientPhone: validatedPhone,
         tenantId: validatedTenantId,
@@ -156,7 +156,7 @@ export async function POST(request: NextRequest) {
         }
       });
 
-      logger.info('✅ [API] Sofia MVP processamento concluído', {
+      logger.info('✅ [API] Sofia V2 processamento concluído', {
         requestId,
         responseTime: result.responseTime,
         tokensUsed: result.tokensUsed,
@@ -165,7 +165,7 @@ export async function POST(request: NextRequest) {
         stage: result.metadata.stage,
         confidence: Math.round(result.metadata.confidence * 100),
         replyLength: result.reply.length,
-        hasActions: result.actions && result.actions.length > 0,
+        contextSummary: result.metadata.contextSummary,
         reasoningUsed: result.metadata.reasoningUsed
       });
 
@@ -198,7 +198,7 @@ export async function POST(request: NextRequest) {
 
       const totalProcessingTime = Date.now() - startTime;
 
-      // 6. Log de sucesso detalhado
+      // 6. Log de sucesso simplificado
       logger.info('🎉 [API] Requisição processada com sucesso', {
         requestId,
         totalProcessingTime: `${totalProcessingTime}ms`,
@@ -210,11 +210,7 @@ export async function POST(request: NextRequest) {
         phoneMasked: validatedPhone.substring(0, 4) + '***',
         tenantId: validatedTenantId,
         isTest,
-        hasValidProperties: result.summary?.propertiesViewed?.filter(p =>
-            p.id && p.id.length >= 15
-        ).length || 0,
-        summaryStage: result.summary?.conversationState?.stage,
-        hasClientInfo: !!result.summary?.clientInfo?.name
+        contextSummary: result.metadata.contextSummary
       });
 
       // 7. Resposta melhorada com dados do sumário inteligente
@@ -228,35 +224,11 @@ export async function POST(request: NextRequest) {
           functionsExecuted: result.functionsExecuted,
           actions: result.actions?.length || 0,
 
-          // DADOS DO SUMÁRIO INTELIGENTE (NOVOS)
+          // DADOS SIMPLIFICADOS DO CONTEXTO
           conversationStage: result.metadata.stage,
           confidence: Math.round(result.metadata.confidence * 100),
-          clientInfo: {
-            hasName: !!result.summary?.clientInfo?.name,
-            hasDocument: !!result.summary?.clientInfo?.document,
-            hasEmail: !!result.summary?.clientInfo?.email,
-            guestsIdentified: !!result.summary?.searchCriteria?.guests
-          },
-          searchProgress: {
-            propertiesViewed: result.summary?.propertiesViewed?.length || 0,
-            validProperties: result.summary?.propertiesViewed?.filter(p =>
-                p.id && p.id.length >= 15
-            ).length || 0,
-            hasInterestedProperty: result.summary?.propertiesViewed?.some(p => p.interested) || false,
-            priceCalculated: result.summary?.propertiesViewed?.some(p => p.priceCalculated) || false,
-            photosViewed: result.summary?.propertiesViewed?.some(p => p.photosViewed) || false
-          },
-          context: {
-            nextRecommendedAction: result.summary?.nextBestAction?.action,
-            actionReason: result.summary?.nextBestAction?.reason,
-            urgencyLevel: result.summary?.conversationState?.urgency,
-            buyingSignals: result.summary?.conversationState?.buyingSignals?.length || 0,
-            objections: result.summary?.conversationState?.objections?.length || 0,
-            location: result.summary?.searchCriteria?.location,
-            checkIn: result.summary?.searchCriteria?.checkIn,
-            checkOut: result.summary?.searchCriteria?.checkOut,
-            guests: result.summary?.searchCriteria?.guests
-          },
+          contextSummary: result.metadata.contextSummary,
+          reasoningUsed: result.metadata.reasoningUsed,
 
           // Métricas de performance
           performance: {

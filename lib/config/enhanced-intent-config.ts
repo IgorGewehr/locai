@@ -1,31 +1,31 @@
-// Configuração do Enhanced Intent Detection
+// Configuração do Enhanced Intent Detection - OTIMIZADA
 
 export const ENHANCED_INTENT_CONFIG = {
-  // Feature flag principal - true para ativar, false para desativar completamente
+  // Feature flag principal - SEMPRE ATIVO
   enabled: true,
   
-  // Porcentagem de A/B testing (0-100)
-  // 100 = sempre usa Enhanced
-  // 0 = nunca usa Enhanced
+  // Porcentagem de A/B testing - 100% COBERTURA
+  // Todos usam Enhanced Intent Detection
   abTestPercentage: 100,
   
-  // Threshold mínimo de confiança para executar função
-  confidenceThreshold: 0.8,
+  // Threshold mínimo de confiança - AJUSTADO PARA 0.75
+  // Melhor equilíbrio entre precisão e cobertura
+  confidenceThreshold: 0.75,
   
-  // Timeout em millisegundos
-  timeout: 10000,
+  // Timeout em millisegundos - REDUZIDO PARA MELHOR PERFORMANCE
+  timeout: 5000,
   
-  // Modelo GPT a usar
+  // Modelo GPT a usar - MANTIDO
   model: 'gpt-4o-mini',
   
-  // Temperatura do modelo (0-1)
+  // Temperatura do modelo - MANTIDA BAIXA PARA PRECISÃO
   temperature: 0.1,
   
-  // Máximo de tokens na resposta
-  maxTokens: 300,
+  // Máximo de tokens na resposta - OTIMIZADO
+  maxTokens: 200,
   
-  // Log detalhado para debug
-  debugMode: false,
+  // Log detalhado para debug - ATIVADO TEMPORARIAMENTE
+  debugMode: true,
   
   // Funções disponíveis (pode desativar específicas se necessário)
   availableFunctions: {
