@@ -89,7 +89,9 @@ export async function POST(request: NextRequest) {
 
         // ✅ PROCESSAR DIFERENTES TIPOS DE EVENTOS
         if (body.event === 'message') {
-            await processIncomingMessageViaN8N(body.tenantId, body.data)
+            // TEMPORARIAMENTE: Usar Sofia diretamente sem passar pelo n8n
+            // await processIncomingMessageViaN8N(body.tenantId, body.data)
+            await processMessageDirectly(body.tenantId, body.data)
         } else if (body.event === 'status_change') {
             await processStatusChange(body.tenantId, body.data)
         } else if (body.event === 'qr_code') {
@@ -172,9 +174,9 @@ async function processIncomingMessageViaN8N(tenantId: string, messageData: any) 
                 tenantId: tenantId?.substring(0, 8) + '***'
             });
 
-            // ⚠️ FALLBACK para Sofia Agent (manter funcionalidade atual)
-            logger.warn('⚠️ N8N not configured, falling back to Sofia Agent');
-            return await processWithSofiaFallback(tenantId, messageData);
+            // ⚠️ FALLBACK DESABILITADO - usando processMessageDirectly como entrada principal
+            logger.warn('⚠️ N8N not configured - this should not be called when using direct Sofia processing');
+            return; // Não processar novamente
         }
 
         logger.info('🚀 Sending message to N8N workflow', {
@@ -231,22 +233,81 @@ async function processIncomingMessageViaN8N(tenantId: string, messageData: any) 
             stack: error instanceof Error ? error.stack?.substring(0, 200) : undefined
         });
 
-        // ⚠️ FALLBACK em caso de erro com N8N
-        logger.warn('⚠️ N8N call failed, falling back to Sofia Agent');
-        return await processWithSofiaFallback(tenantId, messageData);
+        // ⚠️ FALLBACK DESABILITADO - usando processMessageDirectly como entrada principal
+        logger.warn('⚠️ N8N call failed - this should not be called when using direct Sofia processing');
+        return; // Não processar novamente
     }
 }
 
 /**
- * 🛡️ FUNÇÃO DE FALLBACK: Manter Sofia Agent funcionando se N8N falhar
+ * 📨 PROCESSAR MENSAGEM DIRETAMENTE COM SOFIA (SEM N8N)
  */
-async function processWithSofiaFallback(tenantId: string, messageData: any) {
+async function processMessageDirectly(tenantId: string, messageData: any) {
     try {
         const messageId = messageData.messageId || messageData.id;
         const clientPhone = messageData.from;
         const message = messageData.message || messageData.text;
 
-        logger.info('🤖 Processing with Sofia Agent fallback', {
+        // ✅ VALIDAÇÕES BÁSICAS
+        if (!messageId || !clientPhone || !message || message.trim() === '') {
+            logger.warn('⚠️ Invalid message data, skipping', {
+                tenantId: tenantId?.substring(0, 8) + '***',
+                hasMessageId: !!messageId,
+                hasClientPhone: !!clientPhone,
+                hasMessage: !!message
+            });
+            return;
+        }
+
+        // Filtro adicional: ignorar mensagens muito curtas que podem ser ruído
+        if (message.trim().length < 2) {
+            logger.info('📞 Message too short, ignoring', {
+                tenantId: tenantId?.substring(0, 8) + '***',
+                clientPhone: clientPhone?.substring(0, 6) + '***',
+                messageLength: message.length
+            });
+            return;
+        }
+
+        logger.info('📨 Processing message directly with Sofia', {
+            tenantId: tenantId?.substring(0, 8) + '***',
+            from: clientPhone?.substring(0, 6) + '***',
+            messageId: messageId?.substring(0, 8) + '***',
+            messageLength: message.length
+        })
+
+        // ✅ SISTEMA DE DEDUPLICAÇÃO
+        if (deduplicationCache.isDuplicate(tenantId, messageId)) {
+            logger.info('🔁 Message already processed, skipping', {
+                tenantId: tenantId?.substring(0, 8) + '***',
+                messageId: messageId?.substring(0, 8) + '***'
+            });
+            return;
+        }
+
+        deduplicationCache.markAsProcessed(tenantId, messageId);
+
+        // 🤖 PROCESSAR COM SOFIA DIRETAMENTE
+        await processSofiaMessage(tenantId, messageData);
+
+    } catch (error) {
+        logger.error('❌ Error processing message directly:', {
+            error: error instanceof Error ? error.message : 'Unknown error',
+            tenantId: tenantId?.substring(0, 8) + '***'
+        });
+    }
+}
+
+/**
+ * 🤖 PROCESSAR MENSAGEM COM SOFIA AGENT
+ */
+async function processSofiaMessage(tenantId: string, messageData: any) {
+    try {
+        const messageId = messageData.messageId || messageData.id;
+        const clientPhone = messageData.from;
+        const message = messageData.message || messageData.text;
+
+        logger.info('🤖 Processing with Sofia Agent (direct mode)', {
             tenantId: tenantId?.substring(0, 8) + '***',
             clientPhone: clientPhone?.substring(0, 6) + '***'
         });
@@ -269,7 +330,7 @@ async function processWithSofiaFallback(tenantId: string, messageData: any) {
 
         // Verificar se resposta não está vazia
         if (!response.reply || response.reply.trim() === '') {
-            logger.warn('⚠️ Empty response from Sofia fallback', {
+            logger.warn('⚠️ Empty response from Sofia Agent', {
                 tenantId: tenantId?.substring(0, 8) + '***',
                 clientPhone: clientPhone?.substring(0, 6) + '***'
             });
@@ -284,7 +345,7 @@ async function processWithSofiaFallback(tenantId: string, messageData: any) {
             originalMessageId: messageId
         });
 
-        logger.info('✅ Sofia fallback message processed successfully', {
+        logger.info('✅ Sofia Agent message processed successfully', {
             tenantId: tenantId?.substring(0, 8) + '***',
             clientPhone: clientPhone?.substring(0, 6) + '***',
             responseTime: response.responseTime,
@@ -292,7 +353,7 @@ async function processWithSofiaFallback(tenantId: string, messageData: any) {
         });
 
     } catch (error) {
-        logger.error('❌ Sofia fallback also failed:', {
+        logger.error('❌ Sofia Agent processing failed:', {
             error: error instanceof Error ? error.message : 'Unknown error',
             tenantId: tenantId?.substring(0, 8) + '***'
         });
@@ -374,7 +435,7 @@ async function sendResponseToMicroservice(params: {
 
         const result = await response.json()
 
-        logger.info('✅ Fallback response sent to microservice', {
+        logger.info('✅ Response sent to microservice', {
             tenantId: params.tenantId,
             to: params.to.substring(0, 6) + '***',
             messageId: result.messageId,
@@ -382,7 +443,7 @@ async function sendResponseToMicroservice(params: {
         })
 
     } catch (error) {
-        logger.error('❌ Error sending fallback response to microservice:', {
+        logger.error('❌ Error sending response to microservice:', {
             error: error instanceof Error ? error.message : 'Unknown error',
             tenantId: params.tenantId,
             to: params.to.substring(0, 6) + '***'
