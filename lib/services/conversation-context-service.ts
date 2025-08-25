@@ -67,7 +67,10 @@ export interface MessageHistoryItem {
 // ===== SERVICE CLASS =====
 
 export class ConversationContextService {
-  private readonly CONTEXT_TTL_HOURS = 1; // Contexto ativo por 1 hora
+  private readonly CONTEXT_TTL_HOURS = 24; // Contexto ativo por 24 horas - corrigido para evitar perda de contexto
+  private static instance: ConversationContextService;
+  private contextCache = new Map<string, ConversationDocument>();
+  private readonly CACHE_TTL_MS = 5 * 60 * 1000; // Cache local de 5 minutos
   
   // Métodos para construir paths multi-tenant
   private getContextCollectionPath(tenantId: string): string {
@@ -123,7 +126,7 @@ export class ConversationContextService {
         return await this.createNewContext(clientPhone, tenantId, conversationId);
       }
     } catch (error) {
-      console.error('❌ [ContextService] Erro ao obter/criar contexto:', error);
+      logger.error('❌ [ContextService] Erro ao obter/criar contexto:', error);
       // Retornar contexto padrão em caso de erro
       return this.getDefaultContext(clientPhone, tenantId);
     }
@@ -158,7 +161,7 @@ export class ConversationContextService {
       await setDoc(doc(db, collectionPath, conversationId), newContext);
       return newContext;
     } catch (error) {
-      console.error('❌ [ContextService] Erro ao criar contexto:', error);
+      logger.error('❌ [ContextService] Erro ao criar contexto:', error);
       return newContext; // Retorna mesmo se falhar salvar
     }
   }
@@ -545,7 +548,51 @@ export class ConversationContextService {
       status: 'active'
     };
   }
+  
+  // Singleton pattern para garantir instância única
+  static getInstance(): ConversationContextService {
+    if (!this.instance) {
+      this.instance = new ConversationContextService();
+    }
+    return this.instance;
+  }
+
+  // Método para obter contexto com cache unificado
+  async getContextWithCache(
+    clientPhone: string,
+    tenantId: string
+  ): Promise<ConversationDocument> {
+    const cacheKey = `${tenantId}:${clientPhone}`;
+    const cached = this.contextCache.get(cacheKey);
+    
+    // Verificar cache local primeiro
+    if (cached && (Date.now() - cached.updatedAt.toMillis() < this.CACHE_TTL_MS)) {
+      logger.info('📦 [ContextService] Contexto obtido do cache local', {
+        clientPhone: clientPhone.substring(0, 6) + '***'
+      });
+      return cached;
+    }
+    
+    // Buscar do Firebase
+    const context = await this.getOrCreateContext(clientPhone, tenantId);
+    
+    // Atualizar cache local
+    this.contextCache.set(cacheKey, context);
+    
+    return context;
+  }
+
+  // Limpar cache local
+  clearLocalCache(clientPhone?: string, tenantId?: string): void {
+    if (clientPhone && tenantId) {
+      const cacheKey = `${tenantId}:${clientPhone}`;
+      this.contextCache.delete(cacheKey);
+    } else {
+      this.contextCache.clear();
+    }
+    logger.info('🧹 [ContextService] Cache local limpo');
+  }
 }
 
 // Exportar instância singleton
-export const conversationContextService = new ConversationContextService();
+export const conversationContextService = ConversationContextService.getInstance();

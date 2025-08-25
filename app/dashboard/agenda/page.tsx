@@ -57,7 +57,7 @@ import {
     AutoAwesome,
 } from '@mui/icons-material';
 import { useReservations, useProperties, useClients } from '@/lib/firebase/hooks';
-import { useTodayVisits, useUpcomingVisits } from '@/lib/firebase/hooks/useVisits';
+import { useVisits, useTodayVisits, useUpcomingVisits } from '@/lib/firebase/hooks/useVisits';
 import { Reservation, ReservationStatus, RESERVATION_STATUS_LABELS } from '@/lib/types/reservation';
 import { Property } from '@/lib/types/property';
 import { Client } from '@/lib/types/client';
@@ -65,6 +65,7 @@ import { VisitAppointment, VISIT_STATUS_LABELS, VisitStatus } from '@/lib/types/
 import EventoModal from './components/EventoModal';
 import ViewReservationDialog from './components/ViewReservationDialog';
 import CreateVisitDialog from './components/CreateVisitDialog';
+import { VisitsDebugPanel } from '@/components/debug/VisitsDebugPanel';
 import { format, isToday, isSameDay, addDays, startOfWeek, endOfWeek, startOfMonth, endOfMonth, eachDayOfInterval, isSameWeek, isSameMonth, parseISO, subMonths, addMonths, subWeeks, addWeeks } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import DashboardBreadcrumb from '@/components/atoms/DashboardBreadcrumb';
@@ -112,31 +113,14 @@ export default function UnifiedAgendaPage() {
     const todayVisits = useTodayVisits();
     const upcomingVisits = useUpcomingVisits(7);
     
-    // Função para carregar visitas
-    const loadVisits = async () => {
-        if (!isReady || !services) return;
-        
-        try {
-            setLoadingVisits(true);
-            const response = await fetch('/api/visits');
-            const data = await response.json();
-            
-            if (data.success) {
-                setAllVisits(data.data);
-            } else {
-                logger.error('Failed to load visits:', data.error);
-            }
-        } catch (error) {
-            logger.error('Error loading visits:', error);
-        } finally {
-            setLoadingVisits(false);
-        }
-    };
+    // ✅ CORREÇÃO: Usar hook corrigido em vez de fetch manual
+    const allVisitsHook = useVisits();
 
-    // Carregar todas as visitas
+    // Sincronizar estado local com hook
     useEffect(() => {
-        loadVisits();
-    }, [isReady, services]);
+        setAllVisits(allVisitsHook.data || []);
+        setLoadingVisits(allVisitsHook.loading);
+    }, [allVisitsHook.data, allVisitsHook.loading]);
 
     // Converter dados em eventos unificados
     const getAllEvents = (): AgendaEvent[] => {
@@ -621,6 +605,11 @@ export default function UnifiedAgendaPage() {
                 </Stack>
             </Box>
             
+            {/* 🧪 DEBUG: Painel de testes (apenas desenvolvimento) */}
+            {process.env.NODE_ENV === 'development' && (
+                <VisitsDebugPanel />
+            )}
+            
             {/* Cards de estatísticas clean */}
             <Grid container spacing={3} sx={{ mb: 4 }}>
                 <Grid item xs={12} sm={6} md={3}>
@@ -856,13 +845,14 @@ export default function UnifiedAgendaPage() {
             <CreateVisitDialog
                 open={showVisitDialog}
                 onClose={() => {
-                    console.log('Fechando dialog de visita');
+                    logger.info('🔄 [Agenda] Fechando dialog de visita');
                     setShowVisitDialog(false);
                 }}
                 onSuccess={() => {
                     setShowVisitDialog(false);
-                    // Recarregar visitas sem reload da página
-                    loadVisits();
+                    // ✅ CORREÇÃO: Usar refetch do hook para recarregar visitas
+                    logger.info('✅ [Agenda] Visita criada, atualizando lista');
+                    allVisitsHook.refetch();
                 }}
             />
             

@@ -1,25 +1,24 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getAuthFromCookie } from '@/lib/utils/auth-cookie';
+import { validateFirebaseAuth } from '@/lib/middleware/firebase-auth';
 import { createSettingsService } from '@/lib/services/settings-service';
 import { z } from 'zod';
 import { logger } from '@/lib/utils/logger';
 import type { WhatsAppSettings } from '@/lib/types/whatsapp';
 
-// WhatsApp configuration validation schema
+// WhatsApp configuration validation schema - APENAS Baileys Microservice
 const whatsappConfigSchema = z.object({
-  accessToken: z.string().min(1, 'Access Token é obrigatório'),
-  phoneNumberId: z.string().min(1, 'Phone Number ID é obrigatório'),
-  verifyToken: z.string().min(1, 'Verify Token é obrigatório'),
+  // NÃO há configuração para Business API - apenas para Baileys via microservice
   businessName: z.string().optional(),
   webhookUrl: z.string().url().optional(),
-  mode: z.enum(['business_api', 'web']).default('business_api'),
+  mode: z.enum(['baileys_microservice']).default('baileys_microservice'),
+  tenantId: z.string().min(1, 'Tenant ID é obrigatório'),
 });
 
 // GET /api/config/whatsapp - Get WhatsApp configuration
 export async function GET(request: NextRequest) {
   try {
-    const auth = await getAuthFromCookie(request);
-    if (!auth) {
+    const auth = await validateFirebaseAuth(request);
+    if (!auth.authenticated) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -30,19 +29,17 @@ export async function GET(request: NextRequest) {
     const settings = await settingsService.getSettings(tenantId);
     const whatsappConfig = (settings?.whatsapp || {}) as Partial<WhatsAppSettings>;
 
-    // Mask sensitive data
+    // Dados seguros - apenas Baileys microservice
     const safeConfig = {
       ...whatsappConfig,
-      accessToken: whatsappConfig.accessToken ? '***' : '',
-      verifyToken: whatsappConfig.verifyToken ? '***' : '',
-      phoneNumberId: whatsappConfig.phoneNumberId || '',
       businessName: whatsappConfig.businessName || '',
       webhookUrl: whatsappConfig.webhookUrl || '',
-      mode: whatsappConfig.mode || 'business_api',
+      mode: 'baileys_microservice',
       connected: whatsappConfig.connected || false,
       lastSync: whatsappConfig.lastSync || null,
-      // Include configuration status
-      isConfigured: !!(whatsappConfig.accessToken && whatsappConfig.phoneNumberId && whatsappConfig.verifyToken),
+      // Status baseado na conexão do microservice
+      isConfigured: true, // Sempre configurado via microservice
+      microserviceUrl: process.env.WHATSAPP_MICROSERVICE_URL ? 'Configurado' : 'Não configurado',
     };
 
     return NextResponse.json({
@@ -64,8 +61,8 @@ export async function GET(request: NextRequest) {
 // POST /api/config/whatsapp - Save WhatsApp configuration
 export async function POST(request: NextRequest) {
   try {
-    const auth = await getAuthFromCookie(request);
-    if (!auth) {
+    const auth = await validateFirebaseAuth(request);
+    if (!auth.authenticated) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -129,8 +126,8 @@ export async function POST(request: NextRequest) {
 // PUT /api/config/whatsapp - Update WhatsApp configuration
 export async function PUT(request: NextRequest) {
   try {
-    const auth = await getAuthFromCookie(request);
-    if (!auth) {
+    const auth = await validateFirebaseAuth(request);
+    if (!auth.authenticated) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -211,8 +208,8 @@ export async function PUT(request: NextRequest) {
 // DELETE /api/config/whatsapp - Reset WhatsApp configuration
 export async function DELETE(request: NextRequest) {
   try {
-    const auth = await getAuthFromCookie(request);
-    if (!auth) {
+    const auth = await validateFirebaseAuth(request);
+    if (!auth.authenticated) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 

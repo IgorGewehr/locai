@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useAuth } from '@/lib/hooks/useAuth';
+import { ApiClient } from '@/lib/utils/api-client';
 import { UserProfile as ExtendedUserProfile } from '@/lib/types/user';
 import {
   Box,
@@ -152,17 +153,13 @@ export default function ProfilePage() {
         // Also update company settings if company info changed
         if (profile.company || profile.phone) {
           try {
-            await fetch('/api/settings', {
-              method: 'PUT',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                section: 'company',
-                data: {
-                  name: profile.company,
-                  phone: profile.phone,
-                  email: profile.email,
-                }
-              })
+            await ApiClient.put('/api/settings', {
+              section: 'company',
+              data: {
+                name: profile.company,
+                phone: profile.phone,
+                email: profile.email,
+              }
             });
           } catch (settingsError) {
             console.log('Settings sync failed, but profile saved:', settingsError);

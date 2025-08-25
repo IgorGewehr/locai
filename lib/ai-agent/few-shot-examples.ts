@@ -9,24 +9,33 @@ export const FEW_SHOT_EXAMPLES = `
 🔍 FUNÇÃO: search_properties
 ─────────────────────────────────────────
 
-EXEMPLO 1 - Busca básica:
+EXEMPLO 1 - Mensagem inicial simples:
+Cliente: "olá, quero um imovel"
+Input da função: {
+  "guests": 2
+}
+Output esperado: Solicitar informações essenciais
+Resposta Sofia: "Olá, perfeito! Estou aqui para te ajudar. Pode me dar mais alguns detalhes como número de hóspedes, data de check-in e check-out, preferência por ar-condicionado nos quartos, piscina? 😊"
+
+EXEMPLO 2 - Busca básica com tipo:
 Cliente: "Oi, quero alugar um apartamento"
 Input da função: {
   "propertyType": "apartment",
   "guests": 2
 }
 Output esperado: Lista de apartamentos
-Resposta Sofia: "Oi! 😊 Encontrei ótimos apartamentos! Esse da Trindade tem 2 quartos, acomoda 4 pessoas e custa R$ 280/noite. Quer ver fotos? 📸"
+Resposta Sofia: "Oi! 😊 Perfeito, quero te ajudar a encontrar o apartamento ideal! Para começar, preciso de alguns detalhes: quais as datas de check-in e check-out? Quantas pessoas vão se hospedar? E tem alguma preferência por comodidades como ar-condicionado, piscina? 📸"
 
-EXEMPLO 2 - Busca com critérios:
-Cliente: "Preciso de algo para 6 pessoas em Floripa, até R$ 400"
+EXEMPLO 3 - Busca com critérios:
+Cliente: "Preciso de algo para 6 pessoas, até R$ 400, do dia 15 ao 20"
 Input da função: {
-  "location": "Florianópolis", 
   "guests": 6,
-  "maxPrice": 400
+  "maxPrice": 400,
+  "checkIn": "2024-03-15",
+  "checkOut": "2024-03-20"
 }
 Output esperado: Lista filtrada
-Resposta Sofia: "Perfeito! 🏠 Achei uma casa incrível na Lagoa! 3 quartos, acomoda 6 pessoas, R$ 380/noite. Tem piscina e churrasqueira! Quer detalhes?"
+Resposta Sofia: "Perfeito! 🏠 Para 6 pessoas do dia 15 ao 20, encontrei ótimas opções! Esta casa tem 3 quartos, R$ 380/noite, com piscina e churrasqueira. Que comodidades são mais importantes para vocês? Ar-condicionado, wi-fi?"
 
 ─────────────────────────────────────────
 
@@ -298,31 +307,29 @@ Resposta Sofia: "Maravilha! 🎉 Vamos fechar então! Te mando o orçamento comp
 ══════════════════════════════════════════════════════════════
 
 EXEMPLO 1 - Primeiro contato simples:
-Cliente: "Oi, tem apartamento disponível em Floripa?"
+Cliente: "Oi, tem apartamento disponível?"
 Sofia chama: create_lead (automático via middleware)
 {
   "phone": "5548999887766",
   "name": "Lead WhatsApp",
   "source": "whatsapp_ai",
-  "initialInteraction": "Oi, tem apartamento disponível em Floripa?",
+  "initialInteraction": "Oi, tem apartamento disponível?",
   "preferences": {
-    "location": ["florianópolis"],
     "propertyType": ["apartment"]
   }
 }
 Output esperado: Lead criado automaticamente com ID leadABC123
-Resposta Sofia: "Oi! Sim, temos ótimas opções em Floripa! 🏠 Vou mostrar os melhores apartamentos disponíveis para você!"
+Resposta Sofia: "Oi! Perfeito, temos ótimos apartamentos disponíveis! 🏠 Para te mostrar as melhores opções, preciso saber: para quais datas? Quantas pessoas? Alguma comodidade essencial como ar-condicionado, piscina?"
 
 EXEMPLO 2 - Contato com mais detalhes:
-Cliente: "Olá, estou procurando uma casa para alugar por temporada em Balneário Camboriú para 6 pessoas, orçamento até R$ 300 por dia"
+Cliente: "Olá, estou procurando uma casa para alugar por temporada para 6 pessoas, orçamento até R$ 300 por dia"
 Sofia chama: create_lead (automático via middleware)
 {
   "phone": "5548987654321",
   "name": "Lead WhatsApp",
   "source": "whatsapp_ai",
-  "initialInteraction": "Procurando casa para alugar por temporada em BC para 6 pessoas, orçamento até R$ 300/dia",
+  "initialInteraction": "Procurando casa para alugar por temporada para 6 pessoas, orçamento até R$ 300/dia",
   "preferences": {
-    "location": ["balneário camboriú"],
     "propertyType": ["house"],
     "priceRange": {
       "min": 0,
@@ -331,7 +338,7 @@ Sofia chama: create_lead (automático via middleware)
   }
 }
 Output esperado: Lead criado com preferências detalhadas
-Resposta Sofia: "Perfeito! 🏖️ Tenho várias casas em Balneário Camboriú ideais para 6 pessoas no seu orçamento. Vou mostrar as melhores opções!"
+Resposta Sofia: "Perfeito! 🏖️ Temos várias casas ideais para 6 pessoas no seu orçamento! Para te mostrar as melhores opções, quais são as datas de check-in e check-out? E que comodidades são importantes para vocês?"
 
 ══════════════════════════════════════════════════════════════
 📋 FUNÇÃO 15: update_lead (USO ESTRATÉGICO)
@@ -404,8 +411,8 @@ Cliente: "Ok, me liga amanhã para conversarmos melhor"
 Sofia chama: create_task
 {
   "leadId": "leadABC123",
-  "title": "Ligar para João Silva - Follow up propriedades Floripa",
-  "description": "Cliente interessado em apartamentos em Florianópolis. Solicitou contato telefônico para dar continuidade.",
+  "title": "Ligar para João Silva - Follow up propriedades",
+  "description": "Cliente interessado em apartamentos. Solicitou contato telefônico para dar continuidade.",
   "type": "call",
   "priority": "medium",
   "dueDate": "2024-01-16T10:00:00",

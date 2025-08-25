@@ -61,9 +61,9 @@ const propertySchema = yup.object().shape({
   bathrooms: yup.number().min(1, 'Deve ter pelo menos 1 banheiro').required('Número de banheiros é obrigatório'),
   maxGuests: yup.number().min(1, 'Deve acomodar pelo menos 1 hóspede').required('Número máximo de hóspedes é obrigatório'),
   basePrice: yup.number().min(1, 'Preço deve ser maior que 0').required('Preço base é obrigatório'),
-  pricePerExtraGuest: yup.number().min(0, 'Preço não pode ser negativo').required(),
+  pricePerExtraGuest: yup.number().min(0, 'Preço não pode ser negativo'),
   minimumNights: yup.number().min(1, 'Deve ter pelo menos 1 noite').required('Número mínimo de noites é obrigatório'),
-  cleaningFee: yup.number().min(0, 'Taxa não pode ser negativa').required(),
+  cleaningFee: yup.number().min(0, 'Taxa não pode ser negativa'),
   
   // Analytics fields
   status: yup.string().oneOf(Object.values(PropertyStatus)).default(PropertyStatus.ACTIVE),
@@ -185,7 +185,7 @@ export default function CreatePropertyPage() {
       case 2: // Amenities
         return true; // Optional
       case 3: // Pricing
-        return await trigger(['basePrice', 'pricePerExtraGuest', 'minimumNights', 'cleaningFee', 'paymentMethodSurcharges']);
+        return await trigger(['basePrice', 'minimumNights']);
       case 4: // Media
         return await trigger(['photos']);
       default:

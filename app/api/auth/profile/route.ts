@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { adminDb } from '@/lib/firebase/admin';
-import { getAuthFromCookie } from '@/lib/utils/auth-cookie';
+import { validateFirebaseAuth } from '@/lib/middleware/firebase-auth';
 
 export async function GET(request: NextRequest) {
   try {
-    const auth = await getAuthFromCookie(request);
-    if (!auth) {
+    const auth = await validateFirebaseAuth(request);
+    if (!auth.authenticated) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -54,8 +54,8 @@ export async function GET(request: NextRequest) {
 
 export async function PUT(request: NextRequest) {
   try {
-    const auth = await getAuthFromCookie(request);
-    if (!auth) {
+    const auth = await validateFirebaseAuth(request);
+    if (!auth.authenticated) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 

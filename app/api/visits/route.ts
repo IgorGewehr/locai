@@ -2,15 +2,15 @@ import { NextRequest, NextResponse } from 'next/server';
 import { logger } from '@/lib/utils/logger';
 import { TenantServiceFactory } from '@/lib/firebase/firestore-v2';
 import { VisitAppointment, VisitStatus } from '@/lib/types/visit-appointment';
-import { authMiddleware } from '@/lib/middleware/auth';
+import { validateFirebaseAuth } from '@/lib/middleware/firebase-auth';
 import { handleApiError } from '@/lib/utils/api-errors';
-import { safeParseDate } from '@/lib/utils/dateUtils';
+import { safeParseDate, safeFormatDate } from '@/lib/utils/dateUtils';
 import { isValid } from 'date-fns';
 
 export async function GET(request: NextRequest) {
   try {
     // Check authentication and get tenantId
-    const authContext = await authMiddleware(request)
+    const authContext = await validateFirebaseAuth(request)
     if (!authContext.authenticated || !authContext.tenantId) {
       return NextResponse.json(
         { error: 'Authentication required', code: 'UNAUTHORIZED' },
@@ -52,9 +52,16 @@ export async function GET(request: NextRequest) {
       return 0;
     });
 
+    // Add formatted dates for frontend consumption
+    const visitsWithFormattedDates = sortedVisits.map(visit => ({
+      ...visit,
+      scheduledDateFormatted: safeFormatDate(visit.scheduledDate, 'dd/MM/yyyy'),
+      scheduledDateTimeFormatted: safeFormatDate(visit.scheduledDate, 'dd/MM/yyyy HH:mm')
+    }));
+
     return NextResponse.json({
       success: true,
-      data: sortedVisits
+      data: visitsWithFormattedDates
     });
 
   } catch (error) {
@@ -65,7 +72,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     // Check authentication and get tenantId
-    const authContext = await authMiddleware(request)
+    const authContext = await validateFirebaseAuth(request)
     if (!authContext.authenticated || !authContext.tenantId) {
       return NextResponse.json(
         { error: 'Authentication required', code: 'UNAUTHORIZED' },
@@ -85,6 +92,24 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Validate phone format (basic)
+    const phoneRegex = /^\+?[1-9]\d{1,14}$/;
+    if (!phoneRegex.test(body.clientPhone.replace(/\D/g, ''))) {
+      return NextResponse.json(
+        { error: 'Formato de telefone inválido' },
+        { status: 400 }
+      );
+    }
+
+    // Validate time format (HH:MM)
+    const timeRegex = /^([01]?[0-9]|2[0-3]):[0-5][0-9]$/;
+    if (!timeRegex.test(body.scheduledTime)) {
+      return NextResponse.json(
+        { error: 'Formato de horário inválido (use HH:MM)' },
+        { status: 400 }
+      );
+    }
+
     logger.info('Criando nova visita', {
       tenantId,
       clientName: body.clientName,
@@ -96,6 +121,26 @@ export async function POST(request: NextRequest) {
     const factory = new TenantServiceFactory(tenantId);
     const visitsService = factory.createService<VisitAppointment>('visits');
 
+    // Validate and parse scheduledDate safely
+    const parsedDate = safeParseDate(body.scheduledDate);
+    if (!parsedDate || !isValid(parsedDate)) {
+      return NextResponse.json(
+        { error: 'Data de agendamento inválida' },
+        { status: 400 }
+      );
+    }
+
+    // Prevent scheduling visits in the past (allow same day)
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    if (parsedDate < today) {
+      return NextResponse.json(
+        { error: 'Não é possível agendar visitas em datas passadas' },
+        { status: 400 }
+      );
+    }
+
+    const now = new Date();
     const visitData = {
       tenantId,
       clientName: body.clientName,
@@ -104,14 +149,16 @@ export async function POST(request: NextRequest) {
       propertyId: body.propertyId,
       propertyName: body.propertyName || 'Propriedade',
       propertyAddress: body.propertyAddress || '',
-      scheduledDate: new Date(body.scheduledDate),
+      scheduledDate: parsedDate,
       scheduledTime: body.scheduledTime,
       duration: body.duration || 60,
       status: VisitStatus.SCHEDULED,
       notes: body.notes || '',
       source: body.source || 'manual',
       confirmedByClient: false,
-      confirmedByAgent: false
+      confirmedByAgent: false,
+      createdAt: now,
+      updatedAt: now
     };
 
     const visitId = await visitsService.create(visitData);

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { whatsappSessionManager } from '@/lib/whatsapp/session-manager';
+import { createWhatsAppClient } from '@/lib/whatsapp/whatsapp-client-factory';
 import { getTenantId } from '@/lib/utils/tenant';
-import { verifyAuth } from '@/lib/utils/auth';
+import { validateFirebaseAuth } from '@/lib/middleware/firebase-auth';
 import { z } from 'zod';
 
 const sendMessageSchema = z.object({
@@ -13,12 +13,13 @@ const sendMessageSchema = z.object({
 // POST /api/whatsapp/send - Send message
 export async function POST(request: NextRequest) {
   try {
-    const user = await verifyAuth(request);
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    const authResult = await authService.requireAuth(request);
+    if (authResult instanceof NextResponse) {
+      return authResult; // Auth failed, return error response
     }
 
-    const tenantId = 'default';
+    const { user } = authResult;
+    const tenantId = user.tenantId;
     const body = await request.json();
     
     // Validate input
@@ -32,8 +33,11 @@ export async function POST(request: NextRequest) {
 
     const { phoneNumber, message, mediaUrl } = validation.data;
     
+    // Create WhatsApp client using factory
+    const whatsappClient = createWhatsAppClient(tenantId);
+    
     // Check if session is connected
-    const status = await whatsappSessionManager.getSessionStatus(tenantId);
+    const status = await whatsappClient.getConnectionStatus();
     if (!status.connected) {
       return NextResponse.json(
         { success: false, error: 'WhatsApp not connected' },
@@ -42,7 +46,11 @@ export async function POST(request: NextRequest) {
     }
 
     // Send message
-    await whatsappSessionManager.sendMessage(tenantId, phoneNumber, message, mediaUrl);
+    if (mediaUrl) {
+      await whatsappClient.sendImage(phoneNumber, mediaUrl, message);
+    } else {
+      await whatsappClient.sendText(phoneNumber, message);
+    }
 
     return NextResponse.json({
       success: true,

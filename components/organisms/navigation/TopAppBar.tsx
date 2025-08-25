@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/hooks/useAuth';
+import { useWhatsAppStatus } from '@/contexts/WhatsAppStatusContext';
 // import { SimpleThemeToggle } from '@/components/atoms/SimpleThemeToggle/SimpleThemeToggle';
 import {
   AppBar,
@@ -85,11 +86,6 @@ const navigationItems: NavigationItem[] = [
     icon: <People sx={{ fontSize: 20 }} />,
   },
   {
-    text: 'Teste IA',
-    href: '/dashboard/ai-testing',
-    icon: <Chat sx={{ fontSize: 20 }} />,
-  },
-  {
     text: 'Agenda',
     href: '/dashboard/agenda',
     icon: <Event sx={{ fontSize: 20 }} />,
@@ -144,7 +140,7 @@ export default function TopAppBar({ onLogout }: TopAppBarProps) {
   const [profileAnchorEl, setProfileAnchorEl] = useState<null | HTMLElement>(null);
   const [activeSubmenu, setActiveSubmenu] = useState<string | null>(null);
   const [submenuAnchorEl, setSubmenuAnchorEl] = useState<{ [key: string]: HTMLElement | null }>({});
-  const [whatsappStatus, setWhatsappStatus] = useState<'connected' | 'disconnected' | 'connecting'>('disconnected');
+  const { status: whatsappStatus } = useWhatsAppStatus();
   
   // Mobile drawer states
   const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
@@ -156,34 +152,12 @@ export default function TopAppBar({ onLogout }: TopAppBarProps) {
     setSubmenuAnchorEl({});
   }, [pathname]);
 
-  // Check WhatsApp status
-  useEffect(() => {
-    const checkWhatsAppStatus = async () => {
-      try {
-        const response = await fetch('/api/whatsapp/session');
-        if (response.ok) {
-          const data = await response.json();
-          if (data.success && data.data) {
-            setWhatsappStatus(data.data.connected ? 'connected' : 'disconnected');
-          }
-        }
-      } catch (error) {
-        console.error('Error checking WhatsApp status:', error);
-        setWhatsappStatus('disconnected');
-      }
-    };
-
-    checkWhatsAppStatus();
-    // Check status every 30 seconds
-    const interval = setInterval(checkWhatsAppStatus, 30000);
-    return () => clearInterval(interval);
-  }, []);
-
   const getWhatsAppStatusColor = () => {
-    switch (whatsappStatus) {
+    switch (whatsappStatus.status) {
       case 'connected':
         return '#22c55e';
       case 'connecting':
+      case 'qr':
         return '#f59e0b';
       default:
         return '#ef4444';
@@ -191,11 +165,13 @@ export default function TopAppBar({ onLogout }: TopAppBarProps) {
   };
 
   const getWhatsAppStatusText = () => {
-    switch (whatsappStatus) {
+    switch (whatsappStatus.status) {
       case 'connected':
         return 'WhatsApp Conectado';
       case 'connecting':
         return 'Conectando...';
+      case 'qr':
+        return 'Aguardando QR Code';
       default:
         return 'WhatsApp Desconectado';
     }
@@ -491,8 +467,8 @@ export default function TopAppBar({ onLogout }: TopAppBarProps) {
                   />
                 }
                 sx={{
-                  color: whatsappStatus === 'connected' ? '#22c55e' : 'rgba(255, 255, 255, 0.8)',
-                  backgroundColor: whatsappStatus === 'connected' 
+                  color: whatsappStatus.status === 'connected' ? '#22c55e' : 'rgba(255, 255, 255, 0.8)',
+                  backgroundColor: whatsappStatus.status === 'connected' 
                     ? 'rgba(34, 197, 94, 0.1)' 
                     : 'rgba(255, 255, 255, 0.05)',
                   borderRadius: 2,
@@ -504,7 +480,7 @@ export default function TopAppBar({ onLogout }: TopAppBarProps) {
                   transition: 'all 0.2s',
                   minWidth: { xs: 'auto', sm: 'unset' },
                   '&:hover': {
-                    backgroundColor: whatsappStatus === 'connected'
+                    backgroundColor: whatsappStatus.status === 'connected'
                       ? 'rgba(34, 197, 94, 0.15)'
                       : 'rgba(255, 255, 255, 0.1)',
                   },
@@ -843,16 +819,16 @@ export default function TopAppBar({ onLogout }: TopAppBarProps) {
           mx: 2,
           mt: 2,
           borderRadius: 2,
-          background: whatsappStatus === 'connected' 
+          background: whatsappStatus.status === 'connected' 
             ? 'rgba(34, 197, 94, 0.1)' 
             : 'rgba(239, 68, 68, 0.1)',
-          border: `1px solid ${whatsappStatus === 'connected' ? 'rgba(34, 197, 94, 0.2)' : 'rgba(239, 68, 68, 0.2)'}`,
+          border: `1px solid ${whatsappStatus.status === 'connected' ? 'rgba(34, 197, 94, 0.2)' : 'rgba(239, 68, 68, 0.2)'}`,
           display: 'flex',
           alignItems: 'center',
           gap: 2,
         }}>
           <WhatsApp sx={{ 
-            color: whatsappStatus === 'connected' ? '#22c55e' : '#ef4444',
+            color: whatsappStatus.status === 'connected' ? '#22c55e' : '#ef4444',
             fontSize: 20,
           }} />
           <Box sx={{ flex: 1 }}>
@@ -860,7 +836,7 @@ export default function TopAppBar({ onLogout }: TopAppBarProps) {
               variant="body2" 
               sx={{ 
                 fontWeight: 600, 
-                color: whatsappStatus === 'connected' ? '#22c55e' : '#ef4444',
+                color: whatsappStatus.status === 'connected' ? '#22c55e' : '#ef4444',
                 fontSize: '0.875rem',
               }}
             >

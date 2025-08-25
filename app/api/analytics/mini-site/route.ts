@@ -4,7 +4,7 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getAuthFromCookie } from '@/lib/utils/auth-cookie';
+import { validateFirebaseAuth } from '@/lib/middleware/firebase-auth';
 import { TenantServiceFactory } from '@/lib/firebase/firestore-v2';
 import { MiniSiteAnalytics, MiniSiteAnalyticsEvent } from '@/lib/types/mini-site';
 import { logger } from '@/lib/utils/logger';
@@ -57,24 +57,8 @@ interface AnalyticsResponse {
 
 export async function GET(request: NextRequest) {
   try {
-    // Try to get auth from cookie first
-    let auth = await getAuthFromCookie(request);
-    
-    // If no cookie auth (localhost development), check headers set by middleware
-    if (!auth) {
-      const userId = request.headers.get('x-user-id');
-      const tenantId = request.headers.get('x-tenant-id');
-      
-      if (userId && tenantId) {
-        auth = {
-          userId,
-          email: 'dev@localhost',
-          tenantId
-        };
-      }
-    }
-    
-    if (!auth) {
+    const auth = await validateFirebaseAuth(request);
+    if (!auth.authenticated) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
@@ -158,24 +142,8 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    // Try to get auth from cookie first
-    let auth = await getAuthFromCookie(request);
-    
-    // If no cookie auth (localhost development), check headers set by middleware
-    if (!auth) {
-      const userId = request.headers.get('x-user-id');
-      const tenantId = request.headers.get('x-tenant-id');
-      
-      if (userId && tenantId) {
-        auth = {
-          userId,
-          email: 'dev@localhost',
-          tenantId
-        };
-      }
-    }
-    
-    if (!auth) {
+    const auth = await validateFirebaseAuth(request);
+    if (!auth.authenticated) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 

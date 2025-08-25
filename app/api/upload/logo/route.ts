@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getAuthFromCookie } from '@/lib/utils/auth-cookie';
+import { validateFirebaseAuth } from '@/lib/middleware/firebase-auth';
 import { StorageService } from '@/lib/firebase/storage';
 
 export async function POST(request: NextRequest) {
   try {
-    const auth = await getAuthFromCookie(request);
-    if (!auth) {
+    const auth = await validateFirebaseAuth(request);
+    if (!auth.authenticated) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 

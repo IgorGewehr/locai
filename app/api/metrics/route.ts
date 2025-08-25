@@ -3,13 +3,13 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { AgentMonitor } from '@/lib/monitoring/agent-monitor';
-import { validateAuth } from '@/lib/middleware/auth';
+import { validateFirebaseAuth } from '@/lib/middleware/firebase-auth';
 import { logger } from '@/lib/utils/logger';
 
 export async function GET(request: NextRequest) {
   try {
     // Validar autenticação
-    const authContext = await validateAuth(request);
+    const authContext = await validateFirebaseAuth(request);
     if (!authContext.authenticated) {
       return NextResponse.json(
         { error: 'Unauthorized' },
@@ -50,7 +50,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     // Validar autenticação
-    const authContext = await validateAuth(request);
+    const authContext = await validateFirebaseAuth(request);
     if (!authContext.authenticated) {
       return NextResponse.json(
         { error: 'Unauthorized' },

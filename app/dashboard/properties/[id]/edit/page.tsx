@@ -109,8 +109,7 @@ export default function EditPropertyPage() {
   const [pricingRules, setPricingRules] = useState<PricingRule[]>([]);
 
   const methods = useForm<Property>({
-    // Temporarily remove validation to debug
-    // resolver: yupResolver(propertySchema) as any,
+    resolver: yupResolver(propertySchema) as any,
     mode: 'onChange',
   });
 
@@ -155,13 +154,51 @@ export default function EditPropertyPage() {
     setError(null);
 
     try {
+      // ✅ NOVA ABORDAGEM: Filtros simples como no Dart
+      // Aceitar qualquer URL válida, sem restrições específicas do Firebase
+      const validPhotos = Array.isArray(data.photos) 
+        ? data.photos.filter(url => 
+            typeof url === 'string' && 
+            url.trim().length > 0 &&
+            (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('blob:'))
+          )
+        : [];
+
+      const validVideos = Array.isArray(data.videos)
+        ? data.videos.filter(url =>
+            typeof url === 'string' && 
+            url.trim().length > 0 &&
+            (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('blob:'))
+          )
+        : [];
+
+      // ✅ NOVA ABORDAGEM: Preparação direta como no Dart
+      const cleanData: any = {
+        ...data,
+        photos: validPhotos,     // Arrays simples de URLs
+        videos: validVideos,     // Arrays simples de URLs
+        amenities: data.amenities || [],
+        unavailableDates: data.unavailableDates || [],
+        customPricing: data.customPricing || {},
+      };
+
+      // ✅ Debug simplificado
+      console.log('🔍 [Sofia Media Fix] Dados sendo enviados:', {
+        totalPhotos: Array.isArray(data.photos) ? data.photos.length : 0,
+        validPhotos: validPhotos.length,
+        totalVideos: Array.isArray(data.videos) ? data.videos.length : 0,
+        validVideos: validVideos.length,
+        samplePhotoUrl: validPhotos[0],
+        dataKeys: Object.keys(cleanData),
+      });
+
       const response = await fetch(`/api/properties/${propertyId}`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          ...data,
+          ...cleanData,
           pricingRules,
           updatedAt: new Date(),
         }),
@@ -170,7 +207,20 @@ export default function EditPropertyPage() {
       const responseData = await response.json();
 
       if (!response.ok) {
-        throw new Error(responseData.error || 'Erro ao salvar alterações');
+        // Mostrar detalhes de validação se disponíveis
+        let errorMessage = responseData.error || 'Erro ao salvar alterações';
+        
+        if (responseData.code === 'VALIDATION_ERROR' && responseData.details) {
+          console.error('❌ [Debug] Detalhes de validação:', responseData.details);
+          errorMessage += '. Verifique os dados inseridos e tente novamente.';
+          
+          // Log detalhado para debug
+          if (responseData.details.fieldErrors) {
+            console.error('Campos com erro:', responseData.details.fieldErrors);
+          }
+        }
+        
+        throw new Error(errorMessage);
       }
 
       setSuccessMessage('Alterações salvas com sucesso!');

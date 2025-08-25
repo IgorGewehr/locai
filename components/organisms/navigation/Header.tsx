@@ -1,20 +1,20 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { useAuth } from '@/contexts/AuthContext';
+import { useAuth } from '@/contexts/AuthProvider';
 import { getTenantId } from '@/lib/utils/tenant';
+import WhatsAppStatusIndicator from '@/components/molecules/whatsapp/WhatsAppStatusIndicator';
 import {
   AppBar,
   Toolbar,
-  Typography,
   IconButton,
   Menu,
   MenuItem,
   Avatar,
   Box,
   Badge,
-  Tooltip,
+  Typography,
   Divider,
 } from '@mui/material';
 import {
@@ -23,11 +23,6 @@ import {
   AccountCircle,
   Settings,
   Logout,
-  WhatsApp,
-  CheckCircle,
-  Error as ErrorIcon,
-  Sync as SyncIcon,
-  QrCode2,
 } from '@mui/icons-material';
 
 interface HeaderProps {
@@ -38,8 +33,6 @@ interface HeaderProps {
 export default function Header({ onMenuClick }: HeaderProps) {
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [notificationsCount] = useState(0);
-  const [whatsappStatus, setWhatsappStatus] = useState<'disconnected' | 'connecting' | 'qr' | 'connected'>('disconnected');
-  const [connectionType, setConnectionType] = useState<'web' | null>('web');
   const router = useRouter();
   const { user, signOut } = useAuth();
   const tenantId = getTenantId();
@@ -56,7 +49,7 @@ export default function Header({ onMenuClick }: HeaderProps) {
     try {
       await signOut();
     } catch (error) {
-
+      console.error('Erro ao fazer logout:', error);
     }
     handleClose();
   };
@@ -69,89 +62,6 @@ export default function Header({ onMenuClick }: HeaderProps) {
   const handleProfile = () => {
     router.push('/dashboard/profile');
     handleClose();
-  };
-  
-  useEffect(() => {
-    let interval: NodeJS.Timeout;
-    
-    // Only check status if not on settings page (to avoid conflicts)
-    const isSettingsPage = window.location.pathname.includes('/settings');
-    if (!isSettingsPage) {
-      checkWhatsAppStatus();
-      interval = setInterval(checkWhatsAppStatus, 30000); // Check every 30 seconds
-    }
-    
-    return () => {
-      if (interval) {
-        clearInterval(interval);
-      }
-    };
-  }, []);
-  
-  const checkWhatsAppStatus = async () => {
-    try {
-      // First check Web session
-      const sessionResponse = await fetch('/api/whatsapp/session', {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        credentials: 'include', // Include cookies for authentication
-      });
-      
-      if (sessionResponse.ok) {
-        const sessionData = await sessionResponse.json();
-        if (sessionData.data) {
-          setWhatsappStatus(sessionData.data.status);
-          if (sessionData.data.connected) {
-            setConnectionType('web');
-            return;
-          }
-        }
-      }
-      
-      // Only WhatsApp Web is available
-      setWhatsappStatus('disconnected');
-      setConnectionType(null);
-    } catch (error) {
-      console.error('Error checking WhatsApp status:', error);
-      // Set disconnected status on error
-      setWhatsappStatus('disconnected');
-      setConnectionType(null);
-    }
-  };
-  
-  const getStatusDisplay = () => {
-    switch (whatsappStatus) {
-      case 'connected':
-        return {
-          icon: <CheckCircle sx={{ fontSize: 16, mr: 1 }} />,
-          text: 'WhatsApp Conectado',
-          color: 'success.main',
-          bgColor: 'success.main',
-        };
-      case 'qr':
-        return {
-          icon: <QrCode2 sx={{ fontSize: 16, mr: 1 }} />,
-          text: 'Aguardando QR Code',
-          color: 'warning.main',
-          bgColor: 'warning.main',
-        };
-      case 'connecting':
-        return {
-          icon: <SyncIcon sx={{ fontSize: 16, mr: 1, animation: 'spin 1s linear infinite' }} />,
-          text: 'Conectando...',
-          color: 'info.main',
-          bgColor: 'info.main',
-        };
-      default:
-        return {
-          icon: <ErrorIcon sx={{ fontSize: 16, mr: 1 }} />,
-          text: 'WhatsApp Desconectado',
-          color: 'error.main',
-          bgColor: 'error.main',
-        };
-    }
   };
 
   return (
@@ -200,39 +110,12 @@ export default function Header({ onMenuClick }: HeaderProps) {
         </Box>
 
         <Box sx={{ display: 'flex', alignItems: 'center', gap: { xs: 1, md: 1.5 } }}>
-          {/* WhatsApp Status */}
-          <Tooltip title={`Tipo de conexão: ${connectionType === 'web' ? 'WhatsApp Web' : 'WhatsApp Business API'}`}>
-            <Box
-              sx={{
-                display: 'flex',
-                alignItems: 'center',
-                px: { xs: 1.5, md: 2 },
-                py: { xs: 0.5, md: 0.75 },
-                borderRadius: 2,
-                backgroundColor: getStatusDisplay().bgColor,
-                color: 'white',
-                cursor: 'pointer',
-                transition: 'all 0.3s ease',
-                minHeight: { xs: 36, md: 40 },
-                '&:hover': {
-                  opacity: 0.9,
-                },
-              }}
-              onClick={() => router.push('/dashboard/settings')}
-            >
-              {getStatusDisplay().icon}
-              <Typography 
-                variant="caption" 
-                fontWeight={500}
-                sx={{ 
-                  fontSize: { xs: '0.7rem', md: '0.75rem' },
-                  display: { xs: 'none', sm: 'block' }
-                }}
-              >
-                {getStatusDisplay().text}
-              </Typography>
-            </Box>
-          </Tooltip>
+          {/* WhatsApp Status - Usando o novo componente */}
+          <WhatsAppStatusIndicator 
+            variant="compact"
+            size="medium"
+            clickable={true}
+          />
 
           {/* Notifications */}
           <IconButton 
@@ -336,22 +219,4 @@ export default function Header({ onMenuClick }: HeaderProps) {
       </Toolbar>
     </AppBar>
   );
-}
-
-// Add CSS animation for spinning icon
-const globalStyles = `
-  @keyframes spin {
-    from {
-      transform: rotate(0deg);
-    }
-    to {
-      transform: rotate(360deg);
-    }
-  }
-`;
-
-if (typeof window !== 'undefined') {
-  const style = document.createElement('style');
-  style.textContent = globalStyles;
-  document.head.appendChild(style);
 }

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { authMiddleware } from '@/lib/middleware/auth';
+import { validateFirebaseAuth } from '@/lib/middleware/firebase-auth';
 import { performanceOptimizer } from '@/lib/services/performance-optimizations';
 import { handleApiError } from '@/lib/utils/api-errors';
 import { logger } from '@/lib/utils/logger';
@@ -7,7 +7,7 @@ import { logger } from '@/lib/utils/logger';
 export async function GET(request: NextRequest) {
   try {
     // Check authentication and get tenantId
-    const authContext = await authMiddleware(request);
+    const authContext = await validateFirebaseAuth(request);
     if (!authContext.authenticated || !authContext.tenantId) {
       return NextResponse.json(
         { error: 'Authentication required', code: 'UNAUTHORIZED' },
@@ -58,7 +58,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     // Check authentication and get tenantId
-    const authContext = await authMiddleware(request);
+    const authContext = await validateFirebaseAuth(request);
     if (!authContext.authenticated || !authContext.tenantId) {
       return NextResponse.json(
         { error: 'Authentication required', code: 'UNAUTHORIZED' },

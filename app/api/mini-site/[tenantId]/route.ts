@@ -72,8 +72,16 @@ export async function GET(
     const cache = getCacheManager();
     const services = new TenantServiceFactory(tenantId);
     
-    // Record page view (don't cache this)
-    await services.miniSite.recordPageView(tenantId, undefined, filteredUtmParams);
+    // Record page view (don't cache this) - with error handling
+    try {
+      await services.miniSite.recordPageView(tenantId, undefined, filteredUtmParams);
+    } catch (pageViewError) {
+      logger.warn('⚠️ [MiniSite] Page view recording failed', { 
+        tenantId, 
+        error: pageViewError.message 
+      });
+      // Continue anyway - page view recording is not critical
+    }
 
     // Try to get config from cache
     const configCacheKey = cacheKeys.miniSiteConfig(tenantId);
@@ -81,9 +89,17 @@ export async function GET(
     
     if (!config) {
       // Get from database and cache it
-      config = await services.miniSite.getConfig(tenantId);
-      if (config) {
-        cache.set(configCacheKey, config, cacheTTL.config);
+      try {
+        config = await services.miniSite.getConfig(tenantId);
+        if (config) {
+          cache.set(configCacheKey, config, cacheTTL.config);
+        }
+      } catch (configError) {
+        logger.error('❌ [MiniSite] Config fetch failed', { 
+          tenantId, 
+          error: configError.message 
+        });
+        throw configError; // Re-throw config errors as they are critical
       }
     }
     if (!config) {
@@ -116,9 +132,23 @@ export async function GET(
     
     if (!properties) {
       // Get from database and cache it
-      properties = await services.miniSite.getPublicProperties(tenantId);
-      cache.set(propertiesCacheKey, properties, cacheTTL.properties);
+      try {
+        properties = await services.miniSite.getPublicProperties(tenantId);
+        if (properties && properties.length > 0) {
+          cache.set(propertiesCacheKey, properties, cacheTTL.properties);
+        }
+      } catch (propertiesError) {
+        logger.error('❌ [MiniSite] Properties fetch failed', { 
+          tenantId, 
+          error: propertiesError.message 
+        });
+        // Use empty array as fallback for properties
+        properties = [];
+      }
     }
+    
+    // Ensure properties is always an array
+    properties = Array.isArray(properties) ? properties : [];
     
     logger.info('✅ [MiniSite] Data loaded', {
       tenantId,

@@ -1,4 +1,4 @@
-import { Property } from '@/lib/types/property';
+import { Property, normalizePropertyMedia, extractPhotoUrls, extractVideoUrls } from '@/lib/types/property';
 import { TenantServiceFactory } from '@/lib/firebase/firestore-v2';
 import { reservationService } from './reservation-service';
 import { logger } from '@/lib/utils/logger';
@@ -117,7 +117,21 @@ export class PropertyService {
 
   async getById(id: string, tenantId: string): Promise<Property | null> {
     const tenantPropertyService = this.getTenantService(tenantId);
-    return await tenantPropertyService.get(id) as Property | null;
+    const rawProperty = await tenantPropertyService.get(id);
+    
+    if (!rawProperty) return null;
+    
+    // ✅ NORMALIZAÇÃO: Compatibilidade entre estruturas antiga e nova
+    const normalizedProperty = normalizePropertyMedia(rawProperty as any);
+    
+    logger.info('Property normalized', {
+      tenantId,
+      propertyId: id,
+      photosCount: normalizedProperty.photos?.length || 0,
+      videosCount: normalizedProperty.videos?.length || 0
+    });
+    
+    return normalizedProperty as Property;
   }
 
   /**
@@ -255,16 +269,22 @@ export class PropertyService {
 
   async getActiveProperties(tenantId: string): Promise<Property[]> {
     const tenantPropertyService = this.getTenantService(tenantId);
-    const properties = await tenantPropertyService.getMany([
+    const rawProperties = await tenantPropertyService.getMany([
       { field: 'isActive', operator: '==', value: true }
     ]) as Property[];
     
-    logger.info('🏠 [PropertyService] Propriedades ativas obtidas', {
+    // ✅ NORMALIZAÇÃO: Aplicar a todas as propriedades
+    const normalizedProperties = rawProperties.map(property => 
+      normalizePropertyMedia(property as any)
+    ) as Property[];
+    
+    logger.info('🏠 [PropertyService] Propriedades ativas obtidas e normalizadas', {
       tenantId,
-      count: properties.length
+      count: normalizedProperties.length,
+      totalPhotos: normalizedProperties.reduce((sum, p) => sum + (p.photos?.length || 0), 0)
     });
     
-    return properties;
+    return normalizedProperties;
   }
 
   async findSimilar(propertyId: string, options: {

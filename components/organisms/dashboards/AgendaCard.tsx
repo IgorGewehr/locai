@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { ApiClient } from '@/lib/utils/api-client';
 import {
   Card,
   CardContent,
@@ -48,7 +49,7 @@ export default function AgendaCard({ onCreateEvent }: AgendaCardProps) {
     
     try {
       setLoading(true);
-      const response = await fetch('/api/visits');
+      const response = await ApiClient.get('/api/visits');
       
       if (response.ok) {
         const data = await response.json();

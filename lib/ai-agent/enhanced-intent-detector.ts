@@ -117,8 +117,9 @@ IMPORTANTE:
 - Seja PRECISO na detecção de função
 - Use contexto da conversa para melhor precisão
 
+
 FUNÇÕES DISPONÍVEIS:
-1. search_properties - buscar/filtrar propriedades por critérios (cidade, hóspedes, datas)
+1. search_properties - buscar/filtrar propriedades por critérios (comodidades, hóspedes, datas)
 2. calculate_price - calcular preços, valores, orçamentos para período específico
 3. get_property_details - obter detalhes completos de uma propriedade específica
 4. send_property_media - enviar fotos, vídeos, imagens da propriedade
@@ -136,15 +137,18 @@ FUNÇÕES DISPONÍVEIS:
 16. update_lead - atualizar informações de lead existente
 17. classify_lead - classificar lead (quente, morno, frio)
 18. update_lead_status - atualizar status do lead no funil
+19. Sem dados suficiente para qualquer função prosseguir com as mensagen
 
 MENSAGEM USUÁRIO: "${message}"
 
 CONTEXTO CONVERSA: ${contextSummary}
 
 EXEMPLOS DE DETECÇÃO:
-- "quanto custa pra 4 pessoas?" → calculate_price
+- "quanto custa pra 4 pessoas?" → calculate_price {guests: 4}
 - "tem foto?" → send_property_media
-- "quero algo em floripa" → search_properties
+- "quero algo em floripa" → search_properties {location: "floripa"}
+- "preciso de 2 quartos" → search_properties {bedrooms: 2}
+- "apartamento com 3 quartos para 6 pessoas" → search_properties {bedrooms: 3, guests: 6}
 - "qual endereço?" → get_property_details
 - "quero reservar" → create_reservation
 - "quero cancelar minha reserva" → cancel_reservation
@@ -156,6 +160,13 @@ EXEMPLOS DE DETECÇÃO:
 - "me manda um orçamento" → generate_quote
 - "sou João da Silva" → register_client
 - "quero pagar com pix" → create_transaction
+
+PARÂMETROS IMPORTANTES PARA search_properties:
+- bedrooms: número de quartos (1, 2, 3, etc.)
+- guests: número de hóspedes/pessoas
+- location: localização (cidade, bairro)
+- maxPrice: orçamento máximo
+- amenities: comodidades desejadas
 
 CRITÉRIOS DE CONFIANÇA:
 - 0.9+: Intenção muito clara

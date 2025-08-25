@@ -1,7 +1,16 @@
 // Advanced AI Insights Service - Next-Generation Business Intelligence
 // Uses GPT-4 to analyze conversation patterns and generate actionable insights
 
-import openaiService from './openai';
+import { OpenAI } from 'openai';
+
+function getOpenAIClient() {
+  if (!process.env.OPENAI_API_KEY) {
+    throw new Error('OPENAI_API_KEY environment variable is not set');
+  }
+  return new OpenAI({
+    apiKey: process.env.OPENAI_API_KEY,
+  });
+}
 import { Timestamp, collection, query, where, getDocs, orderBy } from 'firebase/firestore';
 import { db } from '@/lib/firebase/config';
 import { logger } from '@/lib/utils/logger';
@@ -115,7 +124,8 @@ class AdvancedAIInsightsService {
 
   private async analyzeWithGPT4(prompt: string, data: any): Promise<any> {
     try {
-      const response = await openaiService.chat.completions.create({
+      const openai = getOpenAIClient();
+      const response = await openai.chat.completions.create({
         model: 'gpt-4o-mini',
         messages: [
           {

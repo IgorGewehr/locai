@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { TenantServiceFactory } from '@/lib/firebase/firestore-v2'
 import { handleApiError } from '@/lib/utils/api-errors'
 import { sanitizeUserInput } from '@/lib/utils/validation'
-import { authMiddleware } from '@/lib/middleware/auth'
+import { validateFirebaseAuth } from '@/lib/middleware/firebase-auth'
 import { UpdatePropertySchema } from '@/lib/validation/property-schemas'
 import type { Property } from '@/lib/types/property'
 
@@ -24,7 +24,7 @@ export async function GET(
     }
 
     // Check authentication and get tenantId
-    const authContext = await authMiddleware(request)
+    const authContext = await validateFirebaseAuth(request)
     if (!authContext.authenticated || !authContext.tenantId) {
       return NextResponse.json(
         { error: 'Authentication required', code: 'UNAUTHORIZED' },
@@ -75,7 +75,7 @@ export async function PUT(
     const body = await request.json()
 
     // Check authentication and get tenantId
-    const authContext = await authMiddleware(request)
+    const authContext = await validateFirebaseAuth(request)
     if (!authContext.authenticated || !authContext.tenantId) {
       return NextResponse.json(
         { error: 'Authentication required', code: 'UNAUTHORIZED' },
@@ -112,45 +112,48 @@ export async function PUT(
 
     const validatedData = validationResult.data
 
-    // Sanitize text fields if provided
-    const sanitizedUpdate: Partial<Property> = {}
+    // ✅ NOVA ABORDAGEM: Processamento direto como no Dart
+    // Sanitizar apenas campos de texto, preservar URLs das mídias intactas
+    const finalUpdate: any = {
+      ...validatedData,
+      updatedAt: new Date(),
+    }
     
+    // Sanitizar apenas campos de texto (não URLs)
     if (validatedData.title) {
-      sanitizedUpdate.title = sanitizeUserInput(validatedData.title)
+      finalUpdate.title = sanitizeUserInput(validatedData.title)
     }
     if (validatedData.description) {
-      sanitizedUpdate.description = sanitizeUserInput(validatedData.description)
+      finalUpdate.description = sanitizeUserInput(validatedData.description)
     }
     if (validatedData.address) {
-      sanitizedUpdate.address = sanitizeUserInput(validatedData.address)
+      finalUpdate.address = sanitizeUserInput(validatedData.address)
     }
     if (validatedData.amenities) {
-      sanitizedUpdate.amenities = validatedData.amenities.map(a => sanitizeUserInput(a))
+      finalUpdate.amenities = validatedData.amenities.map(a => sanitizeUserInput(a))
     }
-    if (validatedData.photos) {
-      sanitizedUpdate.photos = validatedData.photos.map(photo => ({
-        ...photo,
-        caption: photo.caption ? sanitizeUserInput(photo.caption) : ''
-      }))
+    
+    // ✅ MÍDIAS: Processar como arrays simples (como Dart)
+    if (validatedData.photos && Array.isArray(validatedData.photos)) {
+      // Filtrar apenas URLs inválidas, manter URLs válidas intactas
+      finalUpdate.photos = validatedData.photos.filter(url => 
+        typeof url === 'string' && 
+        url.trim().length > 0 &&
+        (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('blob:'))
+      )
     }
-    if (validatedData.videos) {
-      sanitizedUpdate.videos = validatedData.videos.map(video => ({
-        id: video.id,
-        url: video.url,
-        filename: video.filename,
-        title: sanitizeUserInput(video.title),
-        order: video.order,
-        ...(video.duration !== undefined && { duration: video.duration }),
-        ...(video.thumbnail !== undefined && { thumbnail: video.thumbnail })
-      }))
+    
+    if (validatedData.videos && Array.isArray(validatedData.videos)) {
+      // Filtrar apenas URLs inválidas, manter URLs válidas intactas  
+      finalUpdate.videos = validatedData.videos.filter(url =>
+        typeof url === 'string' && 
+        url.trim().length > 0 &&
+        (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('blob:'))
+      )
     }
 
-    // Update property
-    await services.properties.update(resolvedParams.id, {
-      ...(validatedData as any),
-      ...sanitizedUpdate,
-      updatedAt: new Date(),
-    })
+    // ✅ UPDATE DIRETO: Uma única operação como no Dart
+    await services.properties.update(resolvedParams.id, finalUpdate)
 
     // Get updated property
     const updatedProperty = await services.properties.getById(resolvedParams.id)
@@ -184,7 +187,7 @@ export async function DELETE(
     }
 
     // Check authentication and get tenantId
-    const authContext = await authMiddleware(request)
+    const authContext = await validateFirebaseAuth(request)
     if (!authContext.authenticated || !authContext.tenantId) {
       return NextResponse.json(
         { error: 'Authentication required', code: 'UNAUTHORIZED' },

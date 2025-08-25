@@ -1,216 +1,437 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getTenantId } from '@/lib/utils/tenant';
-import { verifyAuth } from '@/lib/utils/auth';
-import { z } from 'zod';
-import { loadWhatsAppDependency, getProductionMessage, PRODUCTION_CONFIG } from '@/lib/utils/production-utils';
+import { validateFirebaseAuth } from '@/lib/middleware/firebase-auth';
+import { logger } from '@/lib/utils/logger';
+import { WhatsAppMicroserviceClient } from '@/lib/whatsapp/microservice-client';
 
-// Simple cache to prevent excessive API calls
-const statusCache = new Map<string, { data: any; timestamp: number }>();
-const CACHE_DURATION = 5000; // 5 seconds
+/**
+ * WhatsApp Session API - APENAS Baileys Microservice
+ * 
+ * Estrategia:
+ * - GET: Retorna status atual da sessao (com cache inteligente)
+ * - POST: Inicia nova sessao WhatsApp (com rate limiting)
+ * - DELETE: Desconecta sessao ativa
+ * 
+ * Anti-patterns evitados:
+ * - Polling excessivo
+ * - Logs desnecessarios  
+ * - Multiplas inicializacoes simultaneas
+ * - Chamadas sem autenticacao
+ */
 
-// Check if WhatsApp Web is disabled (controlled by environment variable only)
-// FORÇAR HABILITADO PARA PRODUÇÃO - OVERRIDE DEFINITIVO
-const WHATSAPP_WEB_DISABLED = false; // SEMPRE HABILITADO - NUNCA MAIS DISABLED!
+// Cache inteligente por tenant
+const sessionCache = new Map<string, {
+  data: any;
+  timestamp: number;
+  status: string;
+}>();
 
+// Rate limiting por tenant
+const rateLimiter = new Map<string, {
+  lastRequest: number;
+  attempts: number;
+}>();
 
-// STRATEGIC SESSION MANAGER - PRODUCTION READY FOR NETLIFY
-let sessionManager: any = null;
+// Configuracoes otimizadas
+const CACHE_TTL = 30000; // 30s cache
+const RATE_LIMIT_WINDOW = 5000; // 5s entre chamadas
+const MAX_INIT_ATTEMPTS = 5; // Maximo 5 tentativas de inicializacao
+const INIT_COOLDOWN = 30000; // 30 segundos entre inicializacoes
 
-async function getSessionManager() {
-  // WhatsApp Web NUNCA DISABLED - SEMPRE RETORNA MANAGER
-  
-  if (!sessionManager) {
-    try {
-      const result = await loadWhatsAppDependency();
-      
-      if (!result.available) {
-        console.warn('⚠️ [API] WhatsApp dependency failed, using fallback:', result.error);
-        // FALLBACK: Usar ProductionSessionManager diretamente
-        const { productionSessionManager } = await import('@/lib/whatsapp/production-session-manager');
-        sessionManager = productionSessionManager;
-      } else {
-        sessionManager = result.manager;
-      }
-      
-      console.log('✅ [API] WhatsApp manager loaded successfully for', PRODUCTION_CONFIG.environment.platform);
-    } catch (error) {
-      console.warn('⚠️ [API] Usando fallback final devido a erro:', error);
-      // FALLBACK FINAL: Sempre ter um manager disponível
-      const { productionSessionManager } = await import('@/lib/whatsapp/production-session-manager');
-      sessionManager = productionSessionManager;
-    }
-  }
-  
-  return sessionManager;
-}
-
-// GET /api/whatsapp/session - Get session status
+/**
+ * GET /api/whatsapp/session
+ * Retorna status atual da sessao WhatsApp
+ */
 export async function GET(request: NextRequest) {
   try {
-
-    const user = await verifyAuth(request);
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    // 1. AUTENTICACAO obrigatoria
+    const authContext = await validateFirebaseAuth(request);
+    if (!authContext.authenticated || !authContext.tenantId) {
+      return NextResponse.json({
+        success: false,
+        error: 'Unauthorized'
+      }, { status: 401 });
     }
 
-    const tenantId = user.tenantId || user.uid;
+    const tenantId = authContext.tenantId;
+
+    // 2. RATE LIMITING por tenant
+    const now = Date.now();
+    const rateLimit = rateLimiter.get(tenantId);
     
-    // WhatsApp Web SEMPRE HABILITADO - NUNCA RETORNAR DISABLED
-    // Este check foi removido para garantir funcionamento em produção
-    
-    // Check cache first
-    const cached = statusCache.get(tenantId);
-    if (cached && (Date.now() - cached.timestamp) < CACHE_DURATION) {
+    if (rateLimit && (now - rateLimit.lastRequest) < RATE_LIMIT_WINDOW) {
+      // Retornar cache se disponivel durante rate limit
+      const cached = sessionCache.get(tenantId);
+      if (cached) {
+        return NextResponse.json({
+          success: true,
+          data: cached.data,
+          cached: true,
+          rateLimited: true
+        });
+      }
+    }
+
+    // Atualizar rate limiter
+    rateLimiter.set(tenantId, {
+      lastRequest: now,
+      attempts: (rateLimit?.attempts || 0) + 1
+    });
+
+    // 3. VERIFICAR CACHE valido
+    const cached = sessionCache.get(tenantId);
+    if (cached && (now - cached.timestamp) < CACHE_TTL) {
       return NextResponse.json({
         success: true,
         data: cached.data,
+        cached: true
       });
     }
-    
-    const manager = await getSessionManager();
-    const status = await manager.getSessionStatus(tenantId);
-    
-    // Cache the result
-    statusCache.set(tenantId, {
-      data: status,
-      timestamp: Date.now(),
+
+    // 4. BUSCAR STATUS no microservico
+    const microserviceClient = new WhatsAppMicroserviceClient();
+    const sessionStatus = await microserviceClient.getSessionStatus(tenantId);
+
+    if (!sessionStatus) {
+      logger.error('❌ [WhatsApp Session API] Status retornado é null/undefined', {
+        tenantId: tenantId.substring(0, 8) + '***'
+      });
+      
+      return NextResponse.json({
+        success: false,
+        error: 'Failed to get session status - null response',
+        data: {
+          connected: false,
+          status: 'error',
+          phoneNumber: null,
+          businessName: null,
+          qrCode: null,
+          lastUpdated: new Date().toISOString(),
+          message: 'Microservice returned null/undefined status'
+        }
+      }, { status: 200 });
+    }
+
+    // 5. FORMATAR RESPOSTA padronizada
+    const responseData = {
+      connected: sessionStatus.connected,
+      status: sessionStatus.status,
+      phoneNumber: sessionStatus.phone || null,
+      businessName: sessionStatus.businessName || null,
+      qrCode: sessionStatus.qrCode || null,
+      lastUpdated: new Date().toISOString(),
+      source: 'microservice'
+    };
+
+    // 6. ATUALIZAR CACHE
+    sessionCache.set(tenantId, {
+      data: responseData,
+      timestamp: now,
+      status: sessionStatus.status
     });
+
+    // 7. LOG apenas em debug
+    if (process.env.NEXT_PUBLIC_DEBUG_API === 'true') {
+      logger.info('✅ Session status retrieved', {
+        tenantId: tenantId.substring(0, 8) + '***',
+        status: sessionStatus.status,
+        connected: sessionStatus.connected
+      });
+    }
 
     return NextResponse.json({
       success: true,
-      data: status,
+      data: responseData
     });
+
   } catch (error) {
-    console.error('Error getting session status:', error);
-    
-    // Return graceful error response
-    const errorMessage = WHATSAPP_WEB_DISABLED 
-      ? 'WhatsApp Web is disabled by configuration'
-      : 'Failed to get session status';
-      
+    logger.error('❌ Error getting session status', {
+      error: error instanceof Error ? error.message : 'Unknown error',
+      errorStack: error instanceof Error ? error.stack : undefined,
+      errorType: typeof error,
+      errorDetails: error
+    });
+
+    // Resposta de erro graceful
     return NextResponse.json({
-      success: false, 
-      error: errorMessage,
+      success: false,
+      error: 'Failed to get session status',
       data: {
         connected: false,
         status: 'error',
-        qrCode: null,
         phoneNumber: null,
         businessName: null,
-        message: errorMessage
+        qrCode: null,
+        lastUpdated: new Date().toISOString(),
+        message: 'Service temporarily unavailable'
       }
-    }, { status: 200 }); // Return 200 for graceful degradation
+    }, { status: 200 }); // 200 para graceful degradation
   }
 }
 
-// POST /api/whatsapp/session - Initialize session
+/**
+ * POST /api/whatsapp/session
+ * Inicia nova sessao WhatsApp
+ */
 export async function POST(request: NextRequest) {
   try {
-
-    const user = await verifyAuth(request);
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    // 1. AUTENTICACAO obrigatoria
+    const authContext = await validateFirebaseAuth(request);
+    if (!authContext.authenticated || !authContext.tenantId) {
+      return NextResponse.json({
+        success: false,
+        error: 'Unauthorized'
+      }, { status: 401 });
     }
 
-    const tenantId = user.tenantId || user.uid;
-    
-    // WhatsApp Web SEMPRE HABILITADO - NUNCA RETORNAR DISABLED
-    // Este check foi removido para garantir funcionamento em produção
-    
-    console.log(`🚀 API: Initializing session for tenant ${tenantId}`);
-    
-    const manager = await getSessionManager();
-    console.log(`🔍 API: ProductionSessionManager loaded successfully`);
-    
-    // Initialize the session (optimized for production)
-    await manager.initializeSession(tenantId);
-    console.log(`✅ API: Session initialization started`);
+    const tenantId = authContext.tenantId;
 
-    // Optimized polling with shorter intervals and adaptive timing
-    let attempts = 0;
-    const maxAttempts = 20; // More attempts but faster intervals
-    let status = null;
-    const delays = [100, 200, 300, 500, 500]; // Progressive delays
+    // 2. VERIFICAR RATE LIMITING para inicializacao
+    const now = Date.now();
+    const rateLimit = rateLimiter.get(tenantId);
     
-    while (attempts < maxAttempts) {
-      const delay = delays[Math.min(attempts, delays.length - 1)];
-      await new Promise(resolve => setTimeout(resolve, delay));
-      status = await manager.getSessionStatus(tenantId);
+    if (rateLimit) {
+      // Verificar se passou tempo suficiente desde ultima tentativa
+      const timeSinceLastAttempt = now - rateLimit.lastRequest;
       
-      console.log(`📊 API: Check ${attempts + 1}: ${status.status}, QR: ${!!status.qrCode}`);
+      // Reset contador se passou tempo suficiente
+      if (timeSinceLastAttempt > INIT_COOLDOWN) {
+        rateLimiter.delete(tenantId);
+      } else if (rateLimit.attempts >= MAX_INIT_ATTEMPTS) {
+        // Apenas bloquear se ainda dentro do cooldown E excedeu tentativas
+        return NextResponse.json({
+          success: false,
+          error: 'Too many initialization attempts',
+          data: {
+            connected: false,
+            status: 'rate_limited',
+            retryAfter: Math.ceil((INIT_COOLDOWN - timeSinceLastAttempt) / 1000),
+            message: 'Please wait before trying again'
+          }
+        }, { status: 429 });
+      }
+    }
+
+    // 3. VERIFICAR se ja ha inicializacao em progresso
+    const cached = sessionCache.get(tenantId);
+    if (cached && cached.status === 'initializing') {
+      const timeSinceInit = now - cached.timestamp;
+      if (timeSinceInit < 30000) { // 30s de protecao
+        return NextResponse.json({
+          success: false,
+          error: 'Initialization already in progress',
+          data: {
+            connected: false,
+            status: 'initializing',
+            message: 'Please wait for current initialization to complete'
+          }
+        });
+      }
+    }
+
+    // 4. MARCAR como inicializando
+    sessionCache.set(tenantId, {
+      data: { status: 'initializing', connected: false },
+      timestamp: now,
+      status: 'initializing'
+    });
+
+    // 5. INICIAR SESSAO no microservico
+    const microserviceClient = new WhatsAppMicroserviceClient();
+    const initResult = await microserviceClient.startSession(tenantId);
+
+    if (!initResult.success) {
+      // Remover cache de inicializacao em caso de erro
+      sessionCache.delete(tenantId);
       
-      if (status.qrCode || status.connected) {
-        console.log(`✅ API: Ready after ${attempts + 1} checks`);
+      return NextResponse.json({
+        success: false,
+        error: 'Failed to start session',
+        data: {
+          connected: false,
+          status: 'error',
+          message: 'Could not initialize WhatsApp session'
+        }
+      }, { status: 500 });
+    }
+
+    // 6. AGUARDAR e verificar status com retry para QR code
+    let sessionStatus;
+    let attempts = 0;
+    const maxAttempts = 15; // 15 tentativas = ~30 segundos máximo
+    
+    do {
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      sessionStatus = await microserviceClient.getSessionStatus(tenantId);
+      attempts++;
+      
+      logger.info('🔍 [Session] Checking for QR code', {
+        attempt: attempts,
+        hasQR: !!sessionStatus.qrCode,
+        status: sessionStatus.status,
+        connected: sessionStatus.connected
+      });
+      
+      // Se já conectado ou tem QR code, sair do loop
+      if (sessionStatus.connected || sessionStatus.qrCode) {
         break;
       }
       
-      attempts++;
-    }
-    
-    if (!status) {
-      status = await manager.getSessionStatus(tenantId);
-    }
+    } while (attempts < maxAttempts && !sessionStatus.connected && !sessionStatus.qrCode);
 
-    console.log(`📤 API: Returning status:`, {
-      connected: status.connected,
-      status: status.status,
-      hasQrCode: !!status.qrCode,
-      qrCodeLength: status.qrCode?.length,
-      qrCodePrefix: status.qrCode?.substring(0, 30),
-      phoneNumber: status.phoneNumber,
-      businessName: status.businessName
+    // 7. FORMATAR RESPOSTA final
+    const responseData = {
+      connected: sessionStatus.connected,
+      status: sessionStatus.connected ? 'connected' : (sessionStatus.qrCode ? 'qr_ready' : 'initializing'),
+      phoneNumber: sessionStatus.phone || null,
+      businessName: sessionStatus.businessName || null,
+      qrCode: sessionStatus.qrCode || null,
+      lastUpdated: new Date().toISOString(),
+      message: sessionStatus.connected 
+        ? 'WhatsApp connected successfully' 
+        : sessionStatus.qrCode 
+          ? 'Scan QR code to connect'
+          : 'Initializing connection...'
+    };
+
+    // 8. ATUALIZAR CACHE com resultado final
+    sessionCache.set(tenantId, {
+      data: responseData,
+      timestamp: now,
+      status: responseData.status
+    });
+
+    // 9. ATUALIZAR RATE LIMITER
+    rateLimiter.set(tenantId, {
+      lastRequest: now,
+      attempts: (rateLimit?.attempts || 0) + 1
+    });
+
+    logger.info('✅ Session initialization completed', {
+      tenantId: tenantId.substring(0, 8) + '***',
+      status: responseData.status,
+      hasQR: !!responseData.qrCode,
+      attempts,
+      totalTime: attempts * 2 + 's'
     });
 
     return NextResponse.json({
       success: true,
-      data: status,
+      data: responseData
     });
+
   } catch (error) {
-    console.error('❌ API: Error initializing session:', error);
+    logger.error('❌ Error initializing session', {
+      error: error instanceof Error ? error.message : 'Unknown error'
+    });
+
+    // Limpar cache em caso de erro
+    const tenantId = request.url.includes('tenantId=') 
+      ? new URL(request.url).searchParams.get('tenantId') 
+      : 'unknown';
     
-    const errorMessage = WHATSAPP_WEB_DISABLED 
-      ? 'WhatsApp Web is disabled by configuration'
-      : 'Failed to initialize session';
-    
+    if (tenantId !== 'unknown') {
+      sessionCache.delete(tenantId);
+    }
+
     return NextResponse.json({
-      success: false, 
-      error: errorMessage,
+      success: false,
+      error: 'Session initialization failed',
       data: {
         connected: false,
         status: 'error',
-        qrCode: null,
         phoneNumber: null,
         businessName: null,
-        message: error instanceof Error ? error.message : errorMessage
+        qrCode: null,
+        lastUpdated: new Date().toISOString(),
+        message: 'Failed to initialize WhatsApp session'
       }
-    }, { status: 200 }); // Return 200 for graceful degradation
+    }, { status: 500 });
   }
 }
 
-// DELETE /api/whatsapp/session - Disconnect session
+/**
+ * DELETE /api/whatsapp/session  
+ * Desconecta sessao WhatsApp ativa
+ */
 export async function DELETE(request: NextRequest) {
   try {
-    const user = await verifyAuth(request);
-    if (!user) {
-      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    // 1. AUTENTICACAO obrigatoria
+    const authContext = await validateFirebaseAuth(request);
+    if (!authContext.authenticated || !authContext.tenantId) {
+      return NextResponse.json({
+        success: false,
+        error: 'Unauthorized'
+      }, { status: 401 });
     }
 
-    const tenantId = user.tenantId || user.uid;
-    
-    // WhatsApp Web SEMPRE HABILITADO - NUNCA RETORNAR DISABLED
-    
-    const manager = await getSessionManager();
-    await manager.disconnectSession(tenantId);
+    const tenantId = authContext.tenantId;
 
+    // 2. DESCONECTAR no microservico
+    const microserviceClient = new WhatsAppMicroserviceClient();
+    const success = await microserviceClient.disconnectSession(tenantId);
+
+    // 3. LIMPAR CACHE local
+    sessionCache.delete(tenantId);
+    rateLimiter.delete(tenantId);
+
+    if (success) {
+      logger.info('✅ Session disconnected successfully', {
+        tenantId: tenantId.substring(0, 8) + '***'
+      });
+
+      return NextResponse.json({
+        success: true,
+        message: 'Session disconnected successfully',
+        data: {
+          connected: false,
+          status: 'disconnected',
+          lastUpdated: new Date().toISOString()
+        }
+      });
+    } else {
+      return NextResponse.json({
+        success: false,
+        error: 'Failed to disconnect session',
+        message: 'Could not disconnect WhatsApp session'
+      }, { status: 500 });
+    }
+
+  } catch (error) {
+    logger.error('❌ Error disconnecting session', {
+      error: error instanceof Error ? error.message : 'Unknown error'
+    });
+
+    // Graceful degradation - sempre retornar sucesso
     return NextResponse.json({
       success: true,
-      message: 'Session disconnected successfully',
-    });
-  } catch (error) {
-    console.error('Error disconnecting session:', error);
-    return NextResponse.json({
-      success: true, // Still return success for graceful degradation
       message: 'Session disconnect attempted',
+      data: {
+        connected: false,
+        status: 'disconnected',
+        lastUpdated: new Date().toISOString()
+      }
     });
   }
+}
+
+/**
+ * Cleanup: Remover cache antigo periodicamente
+ */
+if (typeof setInterval !== 'undefined') {
+  setInterval(() => {
+    const now = Date.now();
+    const CLEANUP_THRESHOLD = 300000; // 5 minutos
+    
+    for (const [key, value] of sessionCache.entries()) {
+      if (now - value.timestamp > CLEANUP_THRESHOLD) {
+        sessionCache.delete(key);
+      }
+    }
+    
+    for (const [key, value] of rateLimiter.entries()) {
+      if (now - value.lastRequest > CLEANUP_THRESHOLD) {
+        rateLimiter.delete(key);
+      }
+    }
+  }, 300000); // Cleanup a cada 5 minutos
 }

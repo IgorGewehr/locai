@@ -434,6 +434,14 @@ export class TenantServiceFactory {
     return createCRMService(this.tenantId);
   }
 
+  get leads() {
+    return this.createService<import('@/lib/types/lead').Lead>('leads');
+  }
+
+  get interactions() {
+    return this.createService<import('@/lib/types/lead').Interaction>('interactions');
+  }
+
   get billing() {
     const { createBillingService } = require('@/lib/services/billing-service');
     return createBillingService(this.tenantId);

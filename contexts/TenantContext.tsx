@@ -21,31 +21,38 @@ export function TenantProvider({ children }: { children: ReactNode }) {
   const [tenantId, setTenantId] = useState<string | null>(null);
   const [services, setServices] = useState<TenantServiceFactory | null>(null);
   const [isReady, setIsReady] = useState(false);
+  const debug = process.env.NEXT_PUBLIC_DEBUG_TENANT === 'true';
 
   useEffect(() => {
-    console.log('🌐 [TenantContext] Effect triggered', {
-      hasUser: !!user,
-      userTenantId: user?.tenantId,
-      userUid: user?.uid,
-      userId: user?.id,
-      currentTenantId: tenantId
-    });
+    if (debug) {
+      console.log('🌐 [TenantContext] Effect triggered', {
+        hasUser: !!user,
+        userTenantId: user?.tenantId,
+        userUid: user?.uid,
+        userId: user?.id,
+        currentTenantId: tenantId
+      });
+    }
     
     if (user) {
       // Use tenantId if available, otherwise use uid as tenantId
       const id = user.tenantId || user.uid || user.id;
       
-      console.log('🎯 [TenantContext] Tenant ID determined', {
-        determinedId: id,
-        source: user.tenantId ? 'tenantId' : (user.uid ? 'uid' : 'id')
-      });
+      if (debug) {
+        console.log('🎯 [TenantContext] Tenant ID determined', {
+          determinedId: id,
+          source: user.tenantId ? 'tenantId' : (user.uid ? 'uid' : 'id')
+        });
+      }
       
       // Only update if tenantId actually changes
       if (tenantId !== id) {
-        console.log('🔄 [TenantContext] Updating tenant', {
-          oldId: tenantId,
-          newId: id
-        });
+        if (debug) {
+          console.log('🔄 [TenantContext] Updating tenant', {
+            oldId: tenantId,
+            newId: id
+          });
+        }
         
         setTenantId(id);
         
@@ -56,7 +63,9 @@ export function TenantProvider({ children }: { children: ReactNode }) {
         setIsReady(true);
       }
     } else {
-      console.log('⚠️ [TenantContext] No user, clearing tenant');
+      if (debug) {
+        console.log('⚠️ [TenantContext] No user, clearing tenant');
+      }
       setTenantId(null);
       setServices(null);
       setIsReady(false);

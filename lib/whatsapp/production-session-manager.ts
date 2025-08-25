@@ -63,42 +63,53 @@ export class ProductionSessionManager extends EventEmitter {
   private async initializeProductionSession(tenantId: string): Promise<void> {
     logger.info('🌐 [ProductionSession] Modo Produção/Serverless ativado');
 
+    // SKIP FALLBACK - Try to use real session manager directly
     try {
-      // Try to use real Baileys even in production
-      const baileys = await import('@whiskeysockets/baileys');
-      const { WhatsAppSessionManager } = await import('./session-manager');
-      
-      logger.info('✅ [ProductionSession] Baileys loaded successfully in production');
-      
-      // Use real session manager even in production
-      const sessionManager = new WhatsAppSessionManager();
-      return sessionManager.initializeSession(tenantId);
-      
-    } catch (error) {
-      logger.warn('⚠️ [ProductionSession] Baileys not available in production, using fallback', {
-        errorMessage: error instanceof Error ? error.message : 'Unknown'
+      const { whatsappSessionManager } = await import('./session-manager');
+      logger.info('✅ [ProductionSession] Using real WhatsApp session manager in production');
+      return await whatsappSessionManager.initializeSession(tenantId);
+    } catch (sessionError) {
+      logger.warn('⚠️ [ProductionSession] Real session manager failed, trying Baileys directly', {
+        errorMessage: sessionError instanceof Error ? sessionError.message : 'Unknown'
       });
       
-      // Only use fallback if Baileys really can't be loaded
-      const session: ProductionSession = {
-        status: 'qr',
-        qrCode: await this.generateRealQRCodeOrFallback(tenantId),
-        phoneNumber: null,
-        businessName: null,
-        lastActivity: new Date(),
-        isProduction: true,
-        fallbackMode: true,
-      };
+      try {
+        // Try to use Baileys directly
+        const baileys = await import('@whiskeysockets/baileys');
+        const { WhatsAppSessionManager } = await import('./session-manager');
+        
+        logger.info('✅ [ProductionSession] Baileys loaded successfully, creating new instance');
+        
+        // Use real session manager even in production
+        const sessionManager = new WhatsAppSessionManager();
+        return await sessionManager.initializeSession(tenantId);
+        
+      } catch (error) {
+        logger.error('❌ [ProductionSession] All real WhatsApp methods failed, using fallback', {
+          errorMessage: error instanceof Error ? error.message : 'Unknown',
+          stack: error instanceof Error ? error.stack : undefined
+        });
+        
+        // Only use fallback if everything else fails
+        const session: ProductionSession = {
+          status: 'qr',
+          qrCode: this.generateErrorQR('Real WhatsApp connection failed'),
+          phoneNumber: null,
+          businessName: null,
+          lastActivity: new Date(),
+          isProduction: true,
+          fallbackMode: true,
+        };
 
-      this.sessions.set(tenantId, session);
-      
-      // Simular QR code gerado
-      setTimeout(() => {
-        this.emit('qr', tenantId, session.qrCode);
-        this.emit('status', tenantId, 'qr');
-      }, 500);
+        this.sessions.set(tenantId, session);
+        
+        setTimeout(() => {
+          this.emit('qr', tenantId, session.qrCode);
+          this.emit('status', tenantId, 'qr');
+        }, 500);
 
-      logger.info('✅ [ProductionSession] Sessão produção inicializada com fallback');
+        logger.info('✅ [ProductionSession] Sessão produção inicializada com fallback');
+      }
     }
   }
 
@@ -197,6 +208,25 @@ export class ProductionSessionManager extends EventEmitter {
   private async generateFallbackQRCode(tenantId: string): Promise<string> {
     // This method is deprecated, use generateRealQRCodeOrFallback instead
     return this.generateRealQRCodeOrFallback(tenantId);
+  }
+
+  private generateErrorQR(message: string = 'WhatsApp connection failed'): string {
+    // Return a clear error message as SVG
+    return 'data:image/svg+xml;base64,' + Buffer.from(`
+      <svg width="350" height="350" viewBox="0 0 350 350" xmlns="http://www.w3.org/2000/svg">
+        <rect width="350" height="350" fill="#f8f8f8"/>
+        <rect x="10" y="10" width="330" height="330" fill="#ffffff" stroke="#e0e0e0" stroke-width="2"/>
+        <text x="175" y="150" font-family="Arial" font-size="16" text-anchor="middle" fill="#ff0000">
+          ❌ QR Code Error
+        </text>
+        <text x="175" y="180" font-family="Arial" font-size="12" text-anchor="middle" fill="#666">
+          ${message}
+        </text>
+        <text x="175" y="200" font-family="Arial" font-size="11" text-anchor="middle" fill="#999">
+          Check console for details
+        </text>
+      </svg>
+    `).toString('base64');
   }
 
   private generateSVGQRCode(tenantId: string): string {

@@ -22,18 +22,19 @@ export class FallbackSystem {
   static handleEmptySearch(searchArgs: any): FallbackResponse {
     logger.info('🔄 [Fallback] Lidando com busca vazia', { searchArgs });
     
-    const location = searchArgs.location || 'na região escolhida';
     const guests = searchArgs.guests || 'para o número de hóspedes';
+    const dates = searchArgs.checkIn && searchArgs.checkOut ? 
+      `de ${searchArgs.checkIn} a ${searchArgs.checkOut}` : 'para as datas solicitadas';
     
     return {
       success: false,
-      reply: `Infelizmente não encontrei nenhuma propriedade disponível ${location} ${guests} para as datas solicitadas. 😔
+      reply: `Infelizmente não encontrei nenhuma propriedade disponível ${guests} ${dates}. 😔
 
 Mas não desanime! Posso te ajudar de outras formas:
 
 ✨ Tentar outras datas próximas
-✨ Ampliar a região de busca
 ✨ Ajustar o número de hóspedes
+✨ Buscar propriedades com diferentes comodidades
 ✨ Verificar opções com outros critérios
 
 O que você prefere fazer? Estou aqui para encontrar a melhor solução! 🏠💖`,
@@ -57,12 +58,12 @@ O que você prefere fazer? Estou aqui para encontrar a melhor solução! 🏠�
       reply: `Para ver os detalhes de uma propriedade, primeiro preciso te mostrar as opções disponíveis! 😊
 
 Vamos fazer uma busca? Me conte:
-🏠 Que tipo de imóvel você procura?
-📍 Em qual cidade/região?
-📅 Para quais datas?
-👥 Quantas pessoas?
+📅 Para quais datas você precisa? (check-in e check-out)
+👥 Quantas pessoas vão se hospedar?
+✨ Que comodidades são importantes? (piscina, ar-condicionado, churrasqueira...)
+💰 Qual seu orçamento?
 
-Com essas informações posso encontrar as melhores opções para você! ✨`,
+Com essas informações posso encontrar as melhores opções para você! 🏠✨`,
       suggestion: 'search_properties',
       metadata: {
         fallbackType: 'no_properties_for_details',
@@ -83,10 +84,10 @@ Com essas informações posso encontrar as melhores opções para você! ✨`,
       reply: `Adoraria te mostrar fotos das propriedades! 📸 Mas primeiro preciso saber qual imóvel te interessa.
 
 Vamos começar? Me conte:
-🏠 Apartamento, casa ou que tipo de imóvel?
-📍 Em qual cidade você está procurando?
-📅 Para quais datas?
-👥 Quantos hóspedes?
+📅 Quais são suas datas de check-in e check-out?
+👥 Quantos hóspedes vão se hospedar?
+✨ Quais comodidades são essenciais? (piscina, ar-condicionado, wi-fi...)
+🏠 Apartamento, casa ou outro tipo de imóvel?
 
 Assim que eu encontrar as opções, posso te enviar todas as fotos! ✨📷`,
       suggestion: 'search_properties',
@@ -109,10 +110,10 @@ Assim que eu encontrar as opções, posso te enviar todas as fotos! ✨📷`,
       reply: `Para calcular o preço preciso saber qual propriedade te interessa! 💰
 
 Vamos fazer uma busca primeiro? Me conte:
-🏠 Que tipo de imóvel você quer?
-📍 Em qual cidade/região?
-📅 Quais as datas da sua estadia?
+📅 Quais as datas da sua estadia? (check-in e check-out)
 👥 Quantas pessoas vão ficar?
+✨ Que comodidades você precisa? (piscina, ar-condicionado, churrasqueira...)
+🏠 Que tipo de imóvel você quer?
 
 Com essas informações encontro as opções e calculo o preço exato para você! 😊✨`,
       suggestion: 'search_properties',
@@ -135,9 +136,9 @@ Com essas informações encontro as opções e calculo o preço exato para você
       reply: `Para agendar uma visita, primeiro preciso saber qual propriedade te interessa! 🏠
 
 Que tal começarmos por uma busca? Me conte:
-📍 Em qual cidade você quer o imóvel?
-📅 Para quais datas?
-👥 Quantas pessoas?
+📅 Para quais datas você precisa do imóvel?
+👥 Quantas pessoas vão se hospedar?
+✨ Quais comodidades são importantes?
 🏠 Apartamento, casa ou outro tipo?
 
 Assim que encontrar as opções, posso verificar a disponibilidade para visita! 😊📅`,
@@ -161,11 +162,11 @@ Assim que encontrar as opções, posso verificar a disponibilidade para visita! 
       reply: `Fico feliz que você queira fazer uma reserva! 🎉 Mas primeiro preciso saber qual propriedade te interessa.
 
 Vamos encontrar o imóvel perfeito? Me conte:
-🏠 Que tipo de propriedade você procura?
-📍 Em qual cidade/região?
-📅 Para quais datas?
-👥 Quantos hóspedes?
+📅 Para quais datas você precisa? (check-in e check-out)
+👥 Quantos hóspedes vão se hospedar?
+✨ Que comodidades são essenciais? (piscina, ar-condicionado, wi-fi...)
 💰 Qual seu orçamento aproximado?
+🏠 Que tipo de propriedade você procura?
 
 Assim que encontrar as opções ideais, posso fazer sua reserva na hora! ✨`,
       suggestion: 'search_properties',
@@ -262,9 +263,9 @@ O que você gostaria de fazer? 😊✨`,
         reply: `Entendi que você quer alugar um imóvel! 🏠 Vou te ajudar a encontrar a opção perfeita.
 
 Me conte mais detalhes:
-📍 Em qual cidade você está procurando?
-📅 Para quais datas?
+📅 Para quais datas você precisa? (check-in e check-out)
 👥 Quantas pessoas vão ficar?
+✨ Quais comodidades são importantes para vocês?
 💰 Qual seu orçamento aproximado?
 
 Com essas informações posso te mostrar as melhores opções! ✨`,

@@ -9,7 +9,7 @@ import {
   AutomationCondition,
   ConditionOperator
 } from '@/lib/types/automation'
-import { WhatsAppClient } from '@/lib/whatsapp/client'
+import { createWhatsAppClient } from '@/lib/whatsapp/whatsapp-client-factory'
 import { AIService } from '@/lib/services/ai-service-stub'
 import { conversationService } from '@/lib/services/conversation-service'
 import { clientServiceWrapper } from '@/lib/services/client-service'
@@ -17,13 +17,13 @@ import { db } from '@/lib/firebase/config'
 import { collection, doc, addDoc, updateDoc, getDocs, query, where } from 'firebase/firestore'
 
 export class AutomationEngine {
-  private whatsappClient: WhatsAppClient
+  private whatsappClient: any
   private aiService: AIService
   private activeAutomations: Map<string, Automation> = new Map()
   private tenantId: string
 
-  constructor(whatsappClient: WhatsAppClient, aiService: AIService, tenantId: string) {
-    this.whatsappClient = whatsappClient
+  constructor(whatsappClient: any, aiService: AIService, tenantId: string) {
+    this.whatsappClient = whatsappClient || createWhatsAppClient(tenantId)
     this.aiService = aiService
     this.tenantId = tenantId
   }

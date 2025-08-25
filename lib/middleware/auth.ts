@@ -1,170 +1,95 @@
-// lib/middleware/auth.ts
-import { NextRequest } from 'next/server'
-import { authService } from '@/lib/auth/auth-service'
-import { resolveTenantId } from '@/lib/utils/tenant-extractor'
-import { logger } from '@/lib/utils/logger'
+/**
+ * Arquivo de compatibilidade para migração
+ * Redireciona todas as chamadas para o novo sistema Firebase Auth
+ */
 
-export interface AuthContext {
-  authenticated: boolean
-  userId?: string
-  tenantId?: string
-  role?: string
-  isWhatsApp?: boolean
-}
+import { NextRequest } from 'next/server';
+import { 
+  validateFirebaseAuth as validateAuth,
+  requireAuth as requireFirebaseAuth,
+  getTenantId as getFirebaseTenantId,
+  FirebaseAuthContext
+} from '@/lib/middleware/firebase-auth';
+import { logger } from '@/lib/utils/logger';
+
+// Re-export tipos com nomes compatíveis
+export interface AuthContext extends FirebaseAuthContext {}
 
 export interface AuthUser {
-  id: string
-  email: string
-  name: string
-  role: string
-  tenantId: string
+  id: string;
+  email: string;
+  name: string;
+  role: string;
+  tenantId: string;
 }
 
+/**
+ * Valida autenticação - compatibilidade com código antigo
+ * @deprecated Use validateFirebaseAuth
+ */
 export async function validateAuth(req: NextRequest): Promise<AuthContext> {
-  try {
-    // Log reduzido - apenas em debug
-    if (process.env.LOG_LEVEL === 'debug') {
-      logger.info('🔐 [AuthMiddleware] Validating', {
-        method: req.method
-      });
-    }
-
-    // Check if it's a WhatsApp webhook request
-    const isWhatsApp = req.headers.get('x-whatsapp-signature') !== null ||
-                       req.url.includes('/api/webhook/whatsapp')
-
-    if (isWhatsApp) {
-      logger.info('📱 [AuthMiddleware] Requisição WhatsApp detectada');
-      return {
-        authenticated: true,
-        isWhatsApp: true
-      }
-    }
-
-    // Usar o sistema de extração dinâmica de tenantId
-    const authContext = await resolveTenantId(req);
-    
-    // Se conseguiu extrair tenantId, significa que há autenticação válida
-    if (authContext) {
-      if (process.env.LOG_LEVEL === 'debug') {
-        logger.info('✅ [AuthMiddleware] Autenticação via cookie/token válida', {
-          tenantId: authContext
-        });
-      }
-      
-      // Tentar obter mais detalhes do token se disponível
-      const authToken = req.cookies.get('auth-token')?.value || 
-                       req.headers.get('authorization')?.substring(7);
-      
-      if (authToken) {
-        try {
-          const payload = await authService.verifyToken(authToken);
-          if (payload) {
-            return {
-              authenticated: true,
-              userId: payload.sub,
-              tenantId: payload.tenantId,
-              role: payload.role
-            };
-          }
-        } catch (error) {
-          // Token pode ser base64 legacy, mas ainda válido
-        }
-      }
-      
-      // Mesmo sem detalhes completos, se temos tenantId, está autenticado
-      return {
-        authenticated: true,
-        tenantId: authContext,
-        userId: authContext, // Usar tenantId como userId se não tiver
-        role: 'user'
-      };
-    }
-    
-    // Check for Bearer token explicitly
-    const authHeader = req.headers.get('authorization')
-    if (authHeader?.startsWith('Bearer ')) {
-      const token = authHeader.substring(7)
-      
-      try {
-        const payload = await authService.verifyToken(token);
-        if (payload) {
-          if (process.env.LOG_LEVEL === 'debug') {
-            logger.info('✅ [AuthMiddleware] Token Bearer JWT válido', {
-              userId: payload.sub,
-              tenantId: payload.tenantId,
-              role: payload.role
-            });
-          }
-
-          return {
-            authenticated: true,
-            userId: payload.sub,
-            tenantId: payload.tenantId,
-            role: payload.role
-          }
-        }
-      } catch (error) {
-        logger.warn('⚠️ [AuthMiddleware] Token Bearer JWT inválido', {
-          error: error instanceof Error ? error.message : 'Unknown error'
-        });
-      }
-    }
-
-    // Não usar fallback - forçar autenticação apropriada
-    logger.warn('❌ [AuthMiddleware] Autenticação falhou - nenhum token válido encontrado');
-    return {
-      authenticated: false
-    }
-  } catch (error) {
-    logger.error('❌ [AuthMiddleware] Erro na validação', {
-      error: error instanceof Error ? error.message : 'Unknown error'
-    });
-    
-    return {
-      authenticated: false
-    }
-  }
+  logger.debug('⚠️ lib/middleware/auth sendo usado - migrar para firebase-auth');
+  return await validateAuth(req);
 }
 
+/**
+ * Middleware de autenticação
+ * @deprecated Use validateFirebaseAuth
+ */
+export async function authMiddleware(req: NextRequest): Promise<AuthContext> {
+  return await validateAuth(req);
+}
+
+/**
+ * Requer autenticação
+ * @deprecated Use requireAuth do firebase-auth
+ */
 export function requireAuth(authContext: AuthContext): void {
   if (!authContext.authenticated) {
-    throw new Error('Authentication required')
+    throw new Error('Authentication required');
   }
 }
 
+/**
+ * Requer tenant
+ * @deprecated Use getTenantId do firebase-auth
+ */
 export function requireTenant(authContext: AuthContext): string {
   if (!authContext.tenantId) {
-    throw new Error('Tenant ID required')
+    throw new Error('Tenant ID required');
   }
-  return authContext.tenantId
+  return authContext.tenantId;
 }
 
+/**
+ * Requer role específica
+ */
 export function requireRole(authContext: AuthContext, allowedRoles: string[]): void {
-  requireAuth(authContext)
+  requireAuth(authContext);
   
   if (!authContext.role || !allowedRoles.includes(authContext.role)) {
-    throw new Error('Insufficient permissions')
+    throw new Error('Insufficient permissions');
   }
 }
 
-// Auth middleware function
-export async function authMiddleware(req: NextRequest): Promise<AuthContext> {
-  return validateAuth(req)
-}
-
-// Generate JWT token utility (using authService)
+/**
+ * Gera JWT - não mais necessário com Firebase
+ * @deprecated Firebase Auth gerencia tokens automaticamente
+ */
 export async function generateJWT(user: AuthUser): Promise<string> {
-  return await authService.generateToken(user);
+  logger.warn('⚠️ generateJWT chamado - não necessário com Firebase Auth');
+  return 'firebase-token-placeholder';
 }
 
-// Higher-order function for protecting API routes
+/**
+ * HOC para proteger rotas
+ */
 export function withAuth<T extends any[], R>(
   handler: (req: NextRequest, authContext: AuthContext, ...args: T) => Promise<R>
 ) {
   return async (req: NextRequest, ...args: T): Promise<R> => {
-    const authContext = await validateAuth(req)
-    requireAuth(authContext)
-    return handler(req, authContext, ...args)
-  }
+    const authContext = await validateAuth(req);
+    requireAuth(authContext);
+    return handler(req, authContext, ...args);
+  };
 }

@@ -1,4 +1,4 @@
-import { WhatsAppClient } from './client'
+import { createWhatsAppClient } from './whatsapp-client-factory'
 import { WhatsAppWebhookData, WhatsAppIncomingMessage } from '@/lib/types/whatsapp'
 import { AIResponse } from '@/lib/types/ai'
 import { Message, MessageType, MessageStatus } from '@/lib/types/conversation'
@@ -55,7 +55,7 @@ export class WhatsAppMessageHandler {
     if (!this.whatsappClient) {
       console.log('🔧 Initializing WhatsApp client for tenant:', this.tenantId);
       // Create WhatsApp client with Web support
-      this.whatsappClient = new WhatsAppClient(this.tenantId)
+      this.whatsappClient = createWhatsAppClient(this.tenantId)
       this.transcriptionService = new TranscriptionService(this.whatsappClient)
       this.automationService = new AutomationService(this.tenantId, this.whatsappClient, this.aiService)
       console.log('✅ WhatsApp client initialized successfully');

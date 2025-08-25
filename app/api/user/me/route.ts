@@ -3,13 +3,13 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { getAuthFromCookie } from '@/lib/utils/auth-cookie';
+import { validateFirebaseAuth } from '@/lib/middleware/firebase-auth';
 
 export async function GET(request: NextRequest) {
   try {
-    const auth = await getAuthFromCookie(request);
+    const auth = await validateFirebaseAuth(request);
     
-    if (!auth) {
+    if (!auth.authenticated) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 

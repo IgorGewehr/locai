@@ -1,5 +1,5 @@
 import { AutomationEngine } from '@/lib/automation/workflow-engine'
-import { WhatsAppClient } from '@/lib/whatsapp/client'
+import { createWhatsAppClient } from '@/lib/whatsapp/whatsapp-client-factory'
 import { AIService } from '@/lib/services/ai-service-stub'
 import { Automation, AutomationExecution, TriggerType } from '@/lib/types/automation'
 
@@ -7,9 +7,11 @@ export class AutomationService {
   private automationEngine: AutomationEngine
   private tenantId: string
 
-  constructor(tenantId: string, whatsappClient: WhatsAppClient, aiService: AIService) {
+  constructor(tenantId: string, whatsappClient?: any, aiService?: AIService) {
     this.tenantId = tenantId
-    this.automationEngine = new AutomationEngine(whatsappClient, aiService, tenantId)
+    const client = whatsappClient || createWhatsAppClient(tenantId)
+    const ai = aiService || new AIService(tenantId)
+    this.automationEngine = new AutomationEngine(client, ai, tenantId)
 
     // Load automations on initialization
     this.initialize()

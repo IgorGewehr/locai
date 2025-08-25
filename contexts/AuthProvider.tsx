@@ -38,6 +38,9 @@ interface AuthContextType {
   signUp: (email: string, password: string, name: string) => Promise<void>;
   resetPassword: (email: string) => Promise<void>;
   
+  // Token Firebase
+  getFirebaseToken: () => Promise<string | null>;
+  
   // Verificações
   isAdmin: boolean;
   isAuthenticated: boolean;
@@ -194,8 +197,14 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     if (!userData || !userData.isActive) return false;
     
     const publicRoutes = ['/', '/login', '/signup', '/reset-password'];
-    const isInPublicRoute = publicRoutes.includes(currentPath);
+    const isInPublicRoute = publicRoutes.some(route => {
+      if (route === '/') {
+        return currentPath === '/'; // Exact match for root
+      }
+      return currentPath === route || currentPath.startsWith(route + '/'); // Avoid startsWith conflicts
+    });
     
+    // Redirecionar para dashboard se estiver em rota pública e autenticado
     return isInPublicRoute;
   }, []);
 
@@ -242,46 +251,63 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         
         setUser(userData);
         
-        // Gerar token JWT para o usuário autenticado
+        // Armazenar Firebase ID token
         try {
-          const response = await fetch('/api/auth/token', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              uid: userData.uid,
-              email: userData.email,
-              name: userData.name,
-              role: userData.role,
-              tenantId: userData.tenantId
-            })
+          const firebaseIdToken = await authUser.getIdToken();
+          localStorage.setItem('auth_token', firebaseIdToken);
+          logger.info('✅ [Auth] Firebase ID token armazenado', {
+            userId: userData.uid,
+            tenantId: userData.tenantId
           });
-          
-          if (response.ok) {
-            const { token } = await response.json();
-            // O cookie é configurado pelo servidor, apenas salvar no localStorage
-            localStorage.setItem('auth_token', token);
-            logger.info('✅ [Auth] Token JWT criado e armazenado', {
-              userId: userData.uid,
-              tenantId: userData.tenantId
-            });
-          }
         } catch (error) {
-          logger.error('❌ [Auth] Erro ao criar token JWT', { error });
+          logger.error('❌ [Auth] Erro ao obter Firebase ID token', { error });
         }
         
-        // Redirecionamento
+        // Redirecionamento mais robusto
         setTimeout(() => {
           if (!isMounted) return;
           
+          // Se usuário está autenticado e em rota pública, redirecionar
           if (shouldRedirectToApp(userData, pathname)) {
-            router.push('/dashboard');
+            // Verificar se há um redirectPath salvo
+            let targetPath = '/dashboard';
+            
+            try {
+              const savedPath = localStorage.getItem('redirectPath');
+              if (savedPath && savedPath.startsWith('/dashboard')) {
+                targetPath = savedPath;
+                localStorage.removeItem('redirectPath'); // Limpar após usar
+                logger.info('🔄 [Auth] Redirecionando para path salvo', {
+                  from: pathname,
+                  to: targetPath,
+                  userId: userData.uid
+                });
+              } else {
+                logger.info('🔄 [Auth] Redirecionando usuário autenticado para dashboard', {
+                  from: pathname,
+                  to: targetPath,
+                  userId: userData.uid
+                });
+              }
+            } catch (error) {
+              // Se der erro ao acessar localStorage, usar dashboard padrão
+              logger.warn('⚠️ [Auth] Erro ao acessar localStorage para redirectPath');
+            }
+            
+            router.push(targetPath);
           } else {
+            // Verificar se precisa redirecionar para login
             const authRedirect = shouldRedirectToAuth(userData, pathname);
             if (authRedirect) {
+              logger.info('🔄 [Auth] Redirecionando para login', {
+                from: pathname,
+                to: authRedirect.redirect,
+                reason: authRedirect.reason
+              });
               router.push(authRedirect.redirect);
             }
           }
-        }, 500);
+        }, 300);
         
       } catch (error) {
         logger.error('❌ [Auth] Erro ao processar usuário autenticado', {
@@ -351,19 +377,49 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   const logout = useCallback(async () => {
     try {
-      logger.info('🚪 [Auth] Iniciando logout');
+      logger.info('🚪 [Auth] Iniciando logout completo');
       
-      await signOut(auth);
-      
+      // 1. LIMPAR ESTADO LOCAL primeiro
       setUser(null);
+      setLoading(false);
       invalidateUserCache();
       
-      logger.info('✅ [Auth] Logout realizado com sucesso');
-      router.push('/');
+      // 2. LIMPAR TOKENS E STORAGE
+      localStorage.removeItem('auth_token');
+      localStorage.removeItem('firebase-auth');
+      sessionStorage.clear();
+      
+      // 3. LIMPAR COOKIES via API (opcional, mantido para limpeza)
+      try {
+        await fetch('/api/auth/logout', {
+          method: 'POST',
+          credentials: 'include'
+        });
+      } catch (error) {
+        // Ignorar erro, não é crítico
+      }
+      
+      // 4. SIGN OUT Firebase (por último para evitar loop)
+      await signOut(auth);
+      
+      // 5. GARANTIR redirecionamento
+      setTimeout(() => {
+        window.location.href = '/login'; // Forçar recarregamento completo
+      }, 100);
+      
+      logger.info('✅ [Auth] Logout completo realizado');
+      
     } catch (error) {
-      logger.error('❌ [Auth] Erro ao fazer logout', {
+      logger.error('❌ [Auth] Erro no logout', {
         error: error instanceof Error ? error.message : 'Unknown error'
       });
+      
+      // LOGOUT FORÇADO em caso de erro
+      setUser(null);
+      invalidateUserCache();
+      localStorage.clear();
+      sessionStorage.clear();
+      window.location.href = '/login';
     }
   }, [router]);
 
@@ -394,6 +450,25 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const getUserData = useCallback(() => {
     return user;
   }, [user]);
+
+  const getFirebaseToken = useCallback(async (): Promise<string | null> => {
+    try {
+      const currentUser = auth.currentUser;
+      if (!currentUser) {
+        logger.debug('🔒 [Auth] Nenhum usuário autenticado');
+        return null;
+      }
+      
+      const token = await currentUser.getIdToken();
+      logger.debug('✅ [Auth] Token Firebase obtido');
+      return token;
+    } catch (error) {
+      logger.error('❌ [Auth] Erro ao obter token Firebase', {
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+      return null;
+    }
+  }, []);
 
   const signIn = useCallback(async (email: string, password: string): Promise<void> => {
     try {
@@ -505,6 +580,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     signUp,
     resetPassword,
     
+    // Token Firebase
+    getFirebaseToken,
+    
     // Verificações
     isAdmin: user?.role === 'admin',
     isAuthenticated: !!user,
@@ -520,6 +598,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     signIn,
     signUp,
     resetPassword,
+    getFirebaseToken,
     getTenantId,
     getUserData
   ]);

@@ -192,25 +192,13 @@ export class WhatsAppSessionManager extends EventEmitter {
       
       if (qr) {
         this.logger.info(`🔲 QR Code generated for tenant ${tenantId}`);
-        this.logger.info(`📊 QR Code details - Length: ${qr.length}, First 50 chars: ${qr.substring(0, 50)}`);
         
         try {
           // Import QRCode library dynamically
           const QRCode = require('qrcode');
           
-          // IMPORTANT: Ensure the QR string is properly formatted
-          // WhatsApp QR codes should start with specific prefixes
-          let qrString = qr;
-          
-          // Log the QR format for debugging
-          if (qr.includes(',')) {
-            this.logger.info('✅ QR appears to be in correct WhatsApp format (contains comma)');
-          } else {
-            this.logger.warn('⚠️ QR might be in unexpected format (no comma found)');
-          }
-          
           // Generate QR code as data URL with optimized settings for WhatsApp
-          const qrDataUrl = await QRCode.toDataURL(qrString, {
+          const qrDataUrl = await QRCode.toDataURL(qr, {
             type: 'image/png',
             quality: 1.0, // Maximum quality for better scanning
             margin: 1, // Smaller margin for larger QR
@@ -226,8 +214,6 @@ export class WhatsAppSessionManager extends EventEmitter {
           session.status = 'qr';
           session.lastActivity = new Date();
           
-          this.logger.info(`✅ QR Code data URL generated successfully`);
-          
           this.emit('qr', tenantId, qrDataUrl);
           this.emit('status', tenantId, 'qr');
           await this.updateSessionStatus(tenantId, 'qr', qrDataUrl);
@@ -235,34 +221,14 @@ export class WhatsAppSessionManager extends EventEmitter {
         } catch (error) {
           this.logger.error(`❌ Error generating QR code:`, error instanceof Error ? error.message : 'Unknown error');
           
-          // Fallback: Try to generate QR from raw string
-          try {
-            const QRCode = require('qrcode');
-            // Force generation even if format seems wrong
-            const fallbackQr = await QRCode.toDataURL(qr, {
-              type: 'image/png',
-              width: 350,
-              errorCorrectionLevel: 'L'
-            });
-            
-            session.qrCode = fallbackQr;
-            session.status = 'qr';
-            session.lastActivity = new Date();
-            
-            this.emit('qr', tenantId, fallbackQr);
-            this.emit('status', tenantId, 'qr');
-            await this.updateSessionStatus(tenantId, 'qr', fallbackQr);
-          } catch (fallbackError) {
-            // Last resort: save raw QR string
-            this.logger.error(`❌ Fallback QR generation also failed:`, fallbackError);
-            session.qrCode = qr;
-            session.status = 'qr';
-            session.lastActivity = new Date();
-            
-            this.emit('qr', tenantId, qr);
-            this.emit('status', tenantId, 'qr');
-            await this.updateSessionStatus(tenantId, 'qr', qr);
-          }
+          // Fallback: save raw QR string
+          session.qrCode = qr;
+          session.status = 'qr';
+          session.lastActivity = new Date();
+          
+          this.emit('qr', tenantId, qr);
+          this.emit('status', tenantId, 'qr');
+          await this.updateSessionStatus(tenantId, 'qr', qr);
         }
       }
 

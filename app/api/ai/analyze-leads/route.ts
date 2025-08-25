@@ -3,11 +3,18 @@ import { OpenAI } from 'openai';
 import { Lead } from '@/lib/types/crm';
 import { logger } from '@/lib/utils/logger';
 
-const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
-});
-
 export async function POST(request: NextRequest) {
+  // Initialize OpenAI client inside the function to avoid build-time execution
+  if (!process.env.OPENAI_API_KEY) {
+    return NextResponse.json(
+      { error: 'OpenAI API key not configured' },
+      { status: 500 }
+    );
+  }
+
+  const openai = new OpenAI({
+    apiKey: process.env.OPENAI_API_KEY,
+  });
   try {
     const { leads } = await request.json();
 

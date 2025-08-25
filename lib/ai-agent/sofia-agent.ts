@@ -7,7 +7,7 @@ import { getTenantAwareOpenAIFunctions, executeTenantAwareFunction } from '@/lib
 import { logger } from '@/lib/utils/logger';
 import { SOFIA_PROMPT } from './sofia-prompt';
 import { FEW_SHOT_EXAMPLES } from './few-shot-examples';
-import { UnifiedContextManager } from './unified-context-manager';
+// REMOVIDO: UnifiedContextManager - usando apenas ConversationContextService
 import { smartSummaryService, SmartSummary } from './smart-summary-service';
 
 // ===== COMPONENTES ESSENCIAIS APENAS =====
@@ -18,6 +18,9 @@ import { sofiaAnalytics } from '@/lib/services/sofia-analytics-service';
 import { parallelExecutionService } from '@/lib/ai/parallel-execution-service';
 import { enhancedIntentDetector, type EnhancedIntentResult } from './enhanced-intent-detector';
 import { ENHANCED_INTENT_CONFIG } from '@/lib/config/enhanced-intent-config';
+// REMOVIDO: messageBatchingSystem - desabilitado temporariamente
+import { FallbackSystem, type FallbackResponse } from './fallback-system';
+import { conversationContextService } from '@/lib/services/conversation-context-service';
 
 // ===== INTERFACES SIMPLIFICADAS =====
 
@@ -54,12 +57,29 @@ export class SofiaAgent {
   private openai: OpenAI;
   private static instance: SofiaAgent;
   private summaryCache = new Map<string, SmartSummary>();
+  private messageHistory = new Map<string, Array<{ message: string, timestamp: number }>>();
   private useEnhancedDetection: boolean = ENHANCED_INTENT_CONFIG.enabled; // Usa config centralizada
+  
+  // Anti-spam system
+  private recentMessages = new Map<string, Array<{ message: string, timestamp: number, normalized: string }>>();
+  private readonly MAX_RECENT_MESSAGES = 5;
+  private readonly REPETITION_TIME_WINDOW = 60000; // 1 minute
+  private readonly SIMILARITY_THRESHOLD = 0.8;
 
   constructor() {
-    this.openai = new OpenAI({
-      apiKey: process.env.OPENAI_API_KEY,
-    });
+    // Initialize openai client lazily in getOpenAI method
+  }
+
+  private getOpenAI(): OpenAI {
+    if (!this.openai) {
+      if (!process.env.OPENAI_API_KEY) {
+        throw new Error('OPENAI_API_KEY environment variable is not set');
+      }
+      this.openai = new OpenAI({
+        apiKey: process.env.OPENAI_API_KEY,
+      });
+    }
+    return this.openai;
   }
 
   static getInstance(): SofiaAgent {
@@ -78,42 +98,199 @@ export class SofiaAgent {
     let fallbackUsed = false;
 
     try {
+      // ===== MESSAGE BATCHING SYSTEM - DESABILITADO =====
+      // PROBLEMA IDENTIFICADO: Batching causando perda de contexto
+      // TODO: Reimplementar com lógica melhorada após estabilizar fluxo
+      
+      // Por enquanto, processar mensagem imediatamente
+      const batchResult = {
+        shouldProcess: true,
+        combinedMessage: input.message,
+        messagesInBatch: 1,
+        waitTime: 0
+      };
+
+      if (!batchResult.shouldProcess) {
+        logger.info('📦 [Sofia] Mensagem adicionada ao batch, aguardando mais mensagens');
+        
+        return {
+          reply: '', // Resposta vazia - não enviar nada ainda
+          summary: { stage: 'batching', summary: 'Mensagem em batch', nextAction: null },
+          tokensUsed: 0,
+          responseTime: Date.now() - startTime,
+          functionsExecuted: [],
+          metadata: {
+            stage: 'message_batching',
+            confidence: 1.0,
+            reasoningUsed: false,
+            batchInfo: {
+              messagesInBatch: batchResult.messagesInBatch,
+              waitingForMore: true
+            }
+          }
+        };
+      }
+
+      // Usar a mensagem combinada do batch
+      const processedMessage = batchResult.combinedMessage;
+      const batchDelay = batchResult.waitTime || 0;
+
+      logger.info('📦 [Sofia] Processando batch de mensagens', {
+        originalMessage: input.message.substring(0, 30) + '...',
+        combinedMessage: processedMessage.substring(0, 50) + '...',
+        messagesInBatch: batchResult.messagesInBatch,
+        batchDelay: `${batchDelay}ms`
+      });
+
+      // Aplicar delay natural se necessário
+      if (batchDelay > 0) {
+        await new Promise(resolve => setTimeout(resolve, batchDelay));
+      }
+
+      // Atualizar input com mensagem combinada
+      input.message = processedMessage;
+      // ===== FILTROS ANTI-LOOP =====
+      // Detectar se a mensagem parece ser do próprio bot
+      if (this.isBotMessage(input.message)) {
+        logger.warn('🚫 [Sofia] Mensagem detectada como sendo do próprio bot, ignorando', {
+          clientPhone: this.maskPhone(input.clientPhone),
+          messagePreview: input.message.substring(0, 50) + '...',
+          tenantId: input.tenantId
+        });
+        
+        return {
+          reply: '', // Resposta vazia para evitar loop
+          summary: { stage: 'ignored', summary: 'Mensagem do próprio bot ignorada', nextAction: null },
+          tokensUsed: 0,
+          responseTime: Date.now() - startTime,
+          functionsExecuted: [],
+          metadata: {
+            stage: 'bot_message_filtered',
+            confidence: 1.0,
+            reasoningUsed: false,
+            loopPrevented: true
+          }
+        };
+      }
+
+          // Verificar mensagens muito repetitivas ou suspeitas (versão melhorada)
+      const repetitionCheck = this.checkForRepetitiveMessage(input.message, input.clientPhone);
+      if (repetitionCheck.isRepetitive) {
+        logger.warn('🚫 [Sofia] Mensagem repetitiva detectada', {
+          clientPhone: this.maskPhone(input.clientPhone),
+          messagePreview: input.message.substring(0, 50) + '...',
+          similarity: repetitionCheck.similarity,
+          reason: repetitionCheck.reason
+        });
+        
+        return {
+          reply: repetitionCheck.isExactMatch 
+            ? 'Acabei de responder essa pergunta! 😊 Tem algo mais específico que posso te ajudar?'
+            : 'Vejo que está com pressa! 😅 Para te ajudar melhor, pode reformular sua pergunta com mais detalhes?',
+          summary: { stage: 'repetition_detected', summary: 'Mensagem repetitiva detectada', nextAction: null },
+          tokensUsed: 0,
+          responseTime: Date.now() - startTime,
+          functionsExecuted: [],
+          metadata: {
+            stage: 'message_repetition',
+            confidence: 1.0,
+            reasoningUsed: false,
+            loopPrevented: true
+          }
+        };
+      }
+
+      // Adicionar mensagem ao histórico anti-spam
+      this.addToRecentMessages(input.message, input.clientPhone);
+
       logger.info('💬 [Sofia] Processando mensagem', {
         clientPhone: this.maskPhone(input.clientPhone),
         messagePreview: input.message.substring(0, 50) + '...',
-        tenantId: input.tenantId
+        tenantId: input.tenantId,
+        source: input.metadata?.source || 'unknown'
       });
 
       // ===== ANALYTICS TRACKING - START =====
-      const conversationId = `${input.clientPhone}_${Date.now()}`;
+      // CORRIGIDO: Usar ID consistente baseado apenas no telefone
+      const conversationId = `conv_${input.tenantId}_${input.clientPhone}`;
       
-      // Iniciar tracking se for primeira mensagem da conversa
-      const cacheKey = `${input.tenantId}:${input.clientPhone}`;
-      let previousSummary = this.summaryCache.get(cacheKey) || null;
+      // Tentar carregar summary anterior primeiro
+      let previousSummary = null;
       
-      if (!previousSummary) {
-        // Nova conversa - iniciar tracking
-        await sofiaAnalytics.startConversation(
-          input.tenantId,
-          conversationId,
-          input.clientPhone
+      // Tentar carregar contexto existente ANTES de inicializar como null
+      try {
+        const existingContext = await conversationContextService.getOrCreateContext(
+          input.clientPhone, 
+          input.tenantId
         );
+        
+        if (existingContext?.context?.smartSummary) {
+          previousSummary = existingContext.context.smartSummary;
+          logger.info('📥 [Sofia] Summary anterior encontrado', {
+            stage: previousSummary.conversationState.stage,
+            guests: previousSummary.searchCriteria?.guests,
+            propertiesCount: previousSummary.propertiesViewed?.length || 0,
+            hasClientName: !!previousSummary.clientInfo?.name
+          });
+        }
+      } catch (error) {
+        logger.warn('⚠️ [Sofia] Erro ao carregar contexto anterior', {
+          error: error instanceof Error ? error.message : String(error)
+        });
       }
       
-      // Rastrear mensagem do cliente
-      await sofiaAnalytics.trackMessage(
+      // Iniciar tracking se for primeira mensagem da conversa
+      if (!previousSummary) {
+        // Nova conversa - iniciar tracking
+        try {
+          await sofiaAnalytics.startConversation(
+            input.tenantId,
+            conversationId,
+            input.clientPhone
+          );
+        } catch (error) {
+          logger.error('❌ [Sofia] Erro ao iniciar tracking da conversa', {
+            error: error instanceof Error ? error.message : String(error)
+          });
+        }
+      }
+      
+      // Rastrear mensagem do cliente - não bloquear fluxo
+      sofiaAnalytics.trackMessage(
         input.tenantId,
         conversationId,
         true, // isFromClient
         undefined // sem tempo de resposta para mensagem do cliente
-      );
+      ).catch(error => {
+        logger.error('❌ [Sofia] Erro no analytics tracking', {
+          error: error instanceof Error ? error.message : String(error),
+          clientPhone: this.maskPhone(input.clientPhone)
+        });
+      });
+      
+      logger.info('📊 [Sofia] Analytics tracking concluído', {
+        clientPhone: this.maskPhone(input.clientPhone),
+        conversationId: conversationId.substring(0, 20) + '***'
+      });
       
       // ===== SMART SUMMARY INTEGRATION =====
-      // Obter summary anterior do cache ou criar novo
+      // Summary anterior já foi carregado no início do método
       
-      // Obter histórico de mensagens
-      const unifiedContext = await UnifiedContextManager.getContext(input.clientPhone, input.tenantId);
-      const messageHistory = unifiedContext.messageHistory.slice(-6); // Últimas 6 mensagens
+      // ATUALIZADO: Usar apenas ConversationContextService para contexto
+      logger.info('📋 [Sofia] Carregando contexto do ConversationContextService', {
+        clientPhone: this.maskPhone(input.clientPhone),
+        tenantId: input.tenantId.substring(0, 8) + '***'
+      });
+      
+      // Usar método com cache unificado
+      const contextDoc = await conversationContextService.getContextWithCache(input.clientPhone, input.tenantId);
+      const messageHistory = contextDoc.context.messageHistory || [];
+      
+      logger.info('📋 [Sofia] Contexto carregado', {
+        historyLength: messageHistory.length,
+        hasContext: !!contextDoc,
+        hasSmartSummary: !!contextDoc.context.smartSummary
+      });
       
       // Adicionar mensagem atual ao histórico
       const currentHistory = [
@@ -122,14 +299,48 @@ export class SofiaAgent {
       ];
 
       // Atualizar summary com a nova mensagem
-      const updatedSummary = await smartSummaryService.updateSummary(
-        input.message,
-        previousSummary,
-        currentHistory
-      );
+      let updatedSummary;
+      try {
+        updatedSummary = await smartSummaryService.updateSummary(
+          input.message,
+          previousSummary,
+          currentHistory
+        );
+      } catch (error) {
+        logger.error('❌ [Sofia] Erro ao atualizar summary, usando anterior', {
+          error: error instanceof Error ? error.message : String(error)
+        });
+        // Usar summary anterior ou criar novo básico
+        updatedSummary = previousSummary || {
+          conversationState: { stage: 'greeting' },
+          searchCriteria: {},
+          clientInfo: {},
+          propertiesViewed: [],
+          nextBestAction: { action: 'greet', confidence: 0.5 }
+        };
+      }
       
-      // Salvar no cache
-      this.summaryCache.set(cacheKey, updatedSummary);
+      // CORRIGIDO: Salvar summary com await para garantir persistência
+      try {
+        await conversationContextService.updateContext(
+          input.clientPhone,
+          input.tenantId,
+          { smartSummary: updatedSummary }
+        );
+        
+        // Limpar cache local para forçar reload na próxima requisição
+        conversationContextService.clearLocalCache(input.clientPhone, input.tenantId);
+        
+        logger.info('💾 [Sofia] Summary persistido com sucesso', {
+          stage: updatedSummary.conversationState.stage,
+          tenantId: input.tenantId.substring(0, 8) + '***'
+        });
+      } catch (error) {
+        logger.error('❌ [Sofia] Erro ao persistir summary', {
+          error: error instanceof Error ? error.message : String(error)
+        });
+        // Continuar mesmo com erro de persistência
+      }
 
       logger.info('🧠 [Sofia] Summary atualizado', {
         stage: updatedSummary.conversationState.stage,
@@ -256,6 +467,56 @@ export class SofiaAgent {
         );
 
         if (result.success) {
+          // Verificar se é resultado vazio e usar fallback apropriado
+          const isEmpty = this.isEmptyFunctionResult(intentDetected.function, result);
+          
+          if (isEmpty) {
+            fallbackUsed = true;
+            logger.info('📭 [Sofia] Resultado vazio detectado, usando fallback', {
+              function: intentDetected.function,
+              clientPhone: this.maskPhone(input.clientPhone)
+            });
+            
+            // Usar FallbackSystem para resultados vazios
+            const fallbackResponse = this.getAdvancedFallbackResponse(intentDetected.function, intentDetected.args);
+            const reply = fallbackResponse.reply;
+
+            // Salvar no histórico
+            await this.saveMessageHistory(input, reply, 0);
+
+            // Atualizar summary
+            const updatedSummaryWithResult = await smartSummaryService.updateSummaryWithFunctionResult(
+              updatedSummary,
+              intentDetected.function,
+              intentDetected.args,
+              { ...result, isEmpty: true }
+            );
+            
+            // Cache removido - persistindo diretamente no ConversationContextService
+            await conversationContextService.updateContext(
+              input.clientPhone,
+              input.tenantId,
+              { smartSummary: updatedSummaryWithResult }
+            );
+
+            return {
+              reply,
+              summary: updatedSummaryWithResult,
+              actions: [{ type: intentDetected.function, result: { ...result, isEmpty: true } }],
+              tokensUsed: 0,
+              responseTime: Date.now() - startTime,
+              functionsExecuted: [intentDetected.function],
+              metadata: {
+                stage: 'empty_result_fallback',
+                confidence: intentDetected.confidence,
+                reasoningUsed: false,
+                intentDetected,
+                loopPrevented: false,
+                fallbackUsed: true
+              }
+            };
+          }
+          
           functionsExecuted.push(intentDetected.function);
           
           // Rastrear execução da função no analytics
@@ -284,11 +545,14 @@ export class SofiaAgent {
             clientPhone: this.maskPhone(input.clientPhone)
           });
           
-          const fallbackReply = this.generateFallbackResponse(intentDetected.function, result.error);
-          const reply = fallbackReply;
+          // Usar FallbackSystem avançado
+          const fallbackResponse = this.getAdvancedFallbackResponse(intentDetected.function, intentDetected.args, result.error);
+          const reply = fallbackResponse.reply;
 
-          // Salvar no histórico
-          await this.saveMessageHistory(input, reply, 0);
+          // Salvar no histórico - não bloquear fluxo
+          this.saveMessageHistory(input, reply, 0).catch(error => {
+            logger.error('❌ [Sofia] Erro ao salvar histórico', { error });
+          });
 
           // Atualizar summary com resultado da função
           const updatedSummaryWithResult = await smartSummaryService.updateSummaryWithFunctionResult(
@@ -299,7 +563,12 @@ export class SofiaAgent {
           );
           
           // Salvar no cache
-          this.summaryCache.set(cacheKey, updatedSummaryWithResult);
+          // Cache removido - persistindo diretamente no ConversationContextService
+          await conversationContextService.updateContext(
+            input.clientPhone,
+            input.tenantId,
+            { smartSummary: updatedSummaryWithResult }
+          );
 
           return {
             reply,
@@ -334,7 +603,7 @@ export class SofiaAgent {
         }
       ];
 
-      const completion = await this.openai.chat.completions.create({
+      const completion = await this.getOpenAI().chat.completions.create({
         model: 'gpt-4o-mini',
         messages: messages as any,
         tools: getTenantAwareOpenAIFunctions(),
@@ -548,7 +817,12 @@ export class SofiaAgent {
           }
         }
         // Salvar summary final no cache
-        this.summaryCache.set(cacheKey, finalSummary);
+        // Cache removido - persistindo diretamente no ConversationContextService
+        await conversationContextService.updateContext(
+          input.clientPhone,
+          input.tenantId,
+          { smartSummary: finalSummary }
+        );
       }
 
       return {
@@ -600,7 +874,7 @@ export class SofiaAgent {
     switch (summary.conversationState.stage) {
       case 'greeting':
         prompt += `- Seja acolhedora e descubra as necessidades\n`;
-        prompt += `- Pergunte sobre localização, datas, número de pessoas\n`;
+        prompt += `- Pergunte sobre datas (check-in/check-out), número de pessoas e comodidades desejadas\n`;
         break;
       case 'discovery':
         prompt += `- Colete informações faltantes para busca\n`;
@@ -890,7 +1164,7 @@ export class SofiaAgent {
    */
   private generateFallbackResponse(functionName: string, error?: string): string {
     const fallbackResponses: Record<string, string> = {
-      'search_properties': 'Ops! Tive um probleminha ao buscar propriedades. Pode me dizer novamente qual cidade você prefere? 😊',
+      'search_properties': 'Ops! Tive um probleminha ao buscar propriedades. Pode me confirmar as datas e quantas pessoas vão se hospedar? 😊',
       'calculate_price': 'Desculpe, não consegui calcular o preço agora. Pode me confirmar as datas de check-in e check-out? 📅',
       'create_reservation': 'Ops! Houve um problema ao criar a reserva. Vamos tentar novamente? Posso confirmar os dados? 🏠',
       'register_client': 'Tive uma dificuldade ao registrar seus dados. Pode me confirmar seu nome completo? 👤',
@@ -909,6 +1183,60 @@ export class SofiaAgent {
     });
     
     return fallback;
+  }
+
+  /**
+   * Verificar se resultado da função está vazio
+   */
+  private isEmptyFunctionResult(functionName: string, result: any): boolean {
+    switch (functionName) {
+      case 'search_properties':
+        return !result.properties || result.properties.length === 0;
+      
+      case 'get_property_details':
+        return !result.property;
+      
+      case 'send_property_media':
+        return !result.media || result.media.length === 0;
+      
+      case 'calculate_price':
+        return !result.pricing || result.pricing.totalPrice == null;
+        
+      default:
+        // Para outras funções, assumir que não está vazio se success = true
+        return false;
+    }
+  }
+
+  /**
+   * Gerar resposta de fallback avançada usando FallbackSystem
+   */
+  private getAdvancedFallbackResponse(functionName: string, args: any, error?: string): FallbackResponse {
+    // Usar o sistema de fallback avançado
+    switch (functionName) {
+      case 'search_properties':
+        return FallbackSystem.handleEmptySearch(args);
+      
+      case 'get_property_details':
+        return FallbackSystem.handleNoPropertiesForDetails();
+      
+      case 'send_property_media':
+        return FallbackSystem.handleNoPropertiesForMedia();
+      
+      case 'calculate_price':
+        return FallbackSystem.handleNoPropertiesForPrice();
+      
+      case 'schedule_visit':
+      case 'check_visit_availability':
+        return FallbackSystem.handleNoPropertiesForVisit();
+      
+      case 'create_reservation':
+        return FallbackSystem.handleNoPropertiesForReservation();
+      
+      default:
+        // Para funções não mapeadas, usar fallback genérico de erro
+        return FallbackSystem.handleFunctionError(functionName, error || 'Unknown error');
+    }
   }
 
   private generateContextualResponse(
@@ -955,7 +1283,10 @@ export class SofiaAgent {
             : 'Qual te chamou mais atenção? Posso mostrar fotos, detalhes ou calcular preços! 📸';
           return response;
         } else {
-          return `Hmm, não encontrei nada com esses critérios específicos. 🤔\n\nQue tal ajustarmos a busca? Você pode:\n• Flexibilizar as datas\n• Considerar outra região\n• Ajustar o número de hóspedes\n\nComo prefere? 😊`;
+          // Usar FallbackSystem para resultados vazios de busca
+          const searchArgs = actions[0]?.result?.searchArgs || {};
+          const fallbackResponse = FallbackSystem.handleEmptySearch(searchArgs);
+          return fallbackResponse.reply;
         }
       
       case 'calculate_price':
@@ -971,7 +1302,9 @@ export class SofiaAgent {
           response += `Gostou do valor? Para um orçamento detalhado com possíveis descontos, é só pedir! 😊`;
           return response;
         } else {
-          return `Ops! Tive um probleminha no cálculo. 🤔\n\nPode me confirmar:\n• Data de entrada\n• Data de saída\n• Quantos hóspedes?\n\nAssim consigo calcular certinho! 📅`;
+          // Usar FallbackSystem para falha no cálculo de preço
+          const fallbackResponse = FallbackSystem.handleNoPropertiesForPrice();
+          return fallbackResponse.reply;
         }
       
       case 'create_reservation':
@@ -1020,7 +1353,9 @@ export class SofiaAgent {
           response += `Quer ver as fotos? 📸 Ou calcular o preço para suas datas?`;
           return response;
         } else {
-          return `Aqui estão todos os detalhes da propriedade! 📋 Em que mais posso ajudar?`;
+          // Usar FallbackSystem para quando não há propriedade para mostrar detalhes
+          const fallbackResponse = FallbackSystem.handleNoPropertiesForDetails();
+          return fallbackResponse.reply;
         }
       
       case 'send_property_media':
@@ -1028,7 +1363,9 @@ export class SofiaAgent {
         if (media?.media?.length > 0) {
           return `📸 Enviando ${media.mediaDescription} de **${media.property?.name}**! Que tal? Posso calcular preços ou agendar uma visita!`;
         } else {
-          return `Fotos enviadas! 📸 Gostou do que viu? Quer agendar uma visita?`;
+          // Usar FallbackSystem para quando não há mídia para enviar
+          const fallbackResponse = FallbackSystem.handleNoPropertiesForMedia();
+          return fallbackResponse.reply;
         }
       
       case 'schedule_visit':
@@ -1294,8 +1631,15 @@ export class SofiaAgent {
       );
       
       // Salvar no cache
-      const cacheKey = `${input.tenantId}:${input.clientPhone}`;
-      this.summaryCache.set(cacheKey, updatedSummary);
+      // Cache removido - usando apenas ConversationContextService
+
+      // 6. SALVAR HISTÓRICO DE MENSAGENS (CRÍTICO PARA MEMÓRIA!)
+      await this.saveMessageHistory(input, humanizedResponse, 0);
+
+      logger.info('💾 [Sofia Enhanced] Mensagens salvas no histórico', {
+        clientPhone: this.maskPhone(input.clientPhone),
+        tenantId: input.tenantId.substring(0, 8) + '***'
+      });
 
       return {
         reply: humanizedResponse,
@@ -1334,6 +1678,46 @@ export class SofiaAgent {
     context: SmartSummary
   ): Promise<string> {
     
+    // Hard-coded response for simple initial messages to avoid OpenAI confusion
+    const simpleMessagePatterns = [
+      'quero um imovel',
+      'quero um imóvel', 
+      'preciso de um imovel',
+      'preciso de um imóvel',
+      'quero alugar',
+      'quero um apartamento',
+      'quero uma casa',
+      'procuro um imovel',
+      'procuro um imóvel',
+      'busco um imovel',
+      'busco um imóvel',
+      'to procurando',
+      'tô procurando',
+      'estou procurando',
+      'gostaria de alugar',
+      'preciso alugar',
+      'quero reservar',
+      'interesse em',
+      'tenho interesse'
+    ];
+    
+    const normalizedMessage = input.message.toLowerCase()
+      .trim()
+      .replace(/[^\w\s]/g, '') // Remove pontuação
+      .replace(/\s+/g, ' '); // Normaliza espaços
+    
+    logger.info('🔍 [Sofia] Verificando mensagem para hard-coded response', {
+      originalMessage: input.message,
+      normalizedMessage,
+      matchesAny: simpleMessagePatterns.some(pattern => normalizedMessage.includes(pattern))
+    });
+    
+    // Verificar se algum padrão simples está presente
+    if (simpleMessagePatterns.some(pattern => normalizedMessage.includes(pattern))) {
+      logger.info('✅ [Sofia] Usando resposta hard-coded para mensagem inicial');
+      return "Olá, perfeito! Estou aqui para te ajudar. Pode me dar mais alguns detalhes como número de hóspedes, data de check-in e check-out, preferência por ar-condicionado nos quartos, piscina? 😊";
+    }
+    
     const humanizationPrompt = `
 PERSONALIDADE: Sofia - atendente imobiliária super simpática, descontraída, eficiente e genuinamente prestativa.
 
@@ -1341,40 +1725,54 @@ TAREFA: Transformar o resultado da função em uma resposta NATURAL, HUMANIZADA 
 
 CONTEXTO:
 - Função executada: ${intent.function}
-- Confiança da detecção: ${intent.confidence}
+- Confiança da detecção: ${intent.confidence}  
 - Mensagem original: "${input.message}"
 - Resultado da função: ${JSON.stringify(functionResult.data)}
 
-DIRETRIZES RÍGIDAS:
-✅ Seja NATURAL e CONVERSACIONAL (como uma pessoa real falaria)
-✅ Use emojis moderadamente e contextualmente  
-✅ Faça perguntas para continuar engajamento
-✅ Seja PROATIVA em sugestões úteis
-✅ Mantenha tom brasileiro descontraído
-✅ Mostre entusiasmo genuíno pelo que oferece
+🚫 REGRA ABSOLUTA - JAMAIS QUEBRAR:
+NUNCA, EM HIPÓTESE ALGUMA, PERGUNTE SOBRE:
+- Localização, região, cidade, bairro, zona
+- Tipo de imóvel (apartamento, casa, etc.) se não foi mencionado
+- "Onde você gostaria", "qual região", "que bairro"
+- "Em que cidade", "qual localização", "onde procura"
 
-❌ JAMAIS seja robótica, formal ou corporativa
-❌ JAMAIS mencione "baseado em dados", "conforme análise", "sistema detectou"
-❌ JAMAIS use linguagem técnica ou processual
-❌ NÃO seja genérica - seja específica e útil
+✅ SEMPRE FOQUE APENAS EM:
+- Datas de check-in e check-out
+- Número de hóspedes/pessoas
+- Comodidades específicas (piscina, ar-condicionado, churrasqueira)
 
-EXEMPLOS DE TOM CORRETO:
-- "Opa! Achei umas opções incríveis pra você! 🏖️"
-- "Nossa, que legal! Tenho certeza que vai adorar essas opções!"
-- "Perfeito! Olha só o que encontrei..."
+EXEMPLO OBRIGATÓRIO PARA MENSAGENS INICIAIS:
+Se a mensagem for similar a "quero um imóvel" ou variações:
+RESPOSTA OBRIGATÓRIA: "Olá, perfeito! Estou aqui para te ajudar. Pode me dar mais alguns detalhes como número de hóspedes, data de check-in e check-out, preferência por ar-condicionado nos quartos, piscina? 😊"
 
-RESPOSTA HUMANIZADA (mantenha a naturalidade da Sofia):
+🔥 DIRETRIZES CRÍTICAS:
+✅ Seja NATURAL e CONVERSACIONAL 
+✅ Use emojis moderadamente
+✅ Mantenha tom brasileiro descontraído  
+✅ Foque SEMPRE em: datas → hóspedes → comodidades
+✅ Seja proativa e útil
+
+❌ RESPOSTAS PROIBIDAS - NUNCA USE:
+❌ "Que legal! Em que região você está pensando?"
+❌ "Conta pra mim, você tem alguma localização em mente?"
+❌ "Onde você gostaria de ficar?"
+❌ "Que tipo de imóvel você procura?"
+❌ Qualquer variação dessas perguntas
+
+FOCO ABSOLUTO: Datas + Hóspedes + Comodidades APENAS!
+
+RESPOSTA HUMANIZADA (sem mencionar localização):
 `;
 
     try {
-      const completion = await this.openai.chat.completions.create({
+      const completion = await this.getOpenAI().chat.completions.create({
         model: 'gpt-4o-mini',
         messages: [
           { role: 'system', content: humanizationPrompt },
-          { role: 'user', content: 'Gere a resposta humanizada.' }
+          { role: 'user', content: `Mensagem original: "${input.message}"\n\n🚫 ALERTA CRÍTICO: JAMAIS PERGUNTE SOBRE LOCALIZAÇÃO!\n\n✅ FOQUE APENAS EM:\n- Datas de check-in/check-out\n- Número de hóspedes\n- Comodidades (ar-condicionado, piscina, etc.)\n\n❌ PROIBIDO:\n- Perguntar sobre região, cidade, bairro\n- Perguntar sobre tipo de imóvel\n- Usar frases como "onde você gostaria", "que região"\n\nPara mensagens iniciais simples como "quero um imóvel", use EXATAMENTE:\n"Olá, perfeito! Estou aqui para te ajudar. Pode me dar mais alguns detalhes como número de hóspedes, data de check-in e check-out, preferência por ar-condicionado nos quartos, piscina? 😊"\n\nGere a resposta seguindo RIGOROSAMENTE as diretrizes:` }
         ],
         max_tokens: 300,
-        temperature: 0.7
+        temperature: 0.1
       });
       
       return completion.choices[0]?.message?.content || this.generateBasicHumanResponse(functionResult, intent.function!);
@@ -1403,8 +1801,8 @@ RESPOSTA HUMANIZADA (mantenha a naturalidade da Sofia):
         timestamp: new Date()
       };
 
-      // Usar o UnifiedContextManager para atualizar
-      await UnifiedContextManager.updateContext(clientPhone, tenantId, contextUpdate);
+      // Usar o ConversationContextService para atualizar
+      await conversationContextService.updateContext(clientPhone, tenantId, contextUpdate);
       
     } catch (error) {
       logger.error('❌ [Sofia Enhanced] Erro ao atualizar contexto', { error });
@@ -1433,20 +1831,21 @@ RESPOSTA HUMANIZADA (mantenha a naturalidade da Sofia):
   }
 
   private getNoExecutionFallback(functionName: string, state: ConversationState): string {
+    // Usar FallbackSystem avançado para quando a função não é executada
     if (state.lastPropertyIds.length === 0) {
       switch (functionName) {
         case 'get_property_details':
+          return FallbackSystem.handleNoPropertiesForDetails().reply;
         case 'calculate_price':
+          return FallbackSystem.handleNoPropertiesForPrice().reply;
         case 'send_property_media':
+          return FallbackSystem.handleNoPropertiesForMedia().reply;
         case 'schedule_visit':
-        case 'generate_quote':
-          return `Para isso, primeiro preciso te mostrar as propriedades! Me conte: que tipo de imóvel você procura e em qual cidade? 🏠`;
+          return FallbackSystem.handleNoPropertiesForVisit().reply;
         case 'create_reservation':
-          return `Para fazer uma reserva, primeiro vamos encontrar o imóvel ideal! Em qual cidade você está procurando? 🏠`;
-        case 'create_transaction':
-          return `Para criar uma transação, primeiro preciso processar uma reserva! Vamos encontrar o imóvel ideal para você? 🏠`;
+          return FallbackSystem.handleNoPropertiesForReservation().reply;
         default:
-          return `Vamos começar? Me conte que tipo de imóvel você procura e em qual cidade! 😊`;
+          return FallbackSystem.handleNoFunctionExecuted('Gostaria de encontrar um imóvel').reply;
       }
     }
     
@@ -1464,14 +1863,15 @@ RESPOSTA HUMANIZADA (mantenha a naturalidade da Sofia):
     const responseTime = Date.now() - startTime;
 
     logger.error('❌ [Sofia] Erro no processamento', {
-      error: error instanceof Error ? error.message : 'Unknown error',
+      error: error instanceof Error ? error.message : (error ? String(error) : 'Unknown error'),
+      stack: error instanceof Error ? error.stack : undefined,
+      errorType: typeof error,
       clientPhone: this.maskPhone(input.clientPhone),
       responseTime: `${responseTime}ms`
     });
 
-    // Tentar obter summary do cache ou criar vazio
-    const cacheKey = `${input.tenantId}:${input.clientPhone}`;
-    const fallbackSummary = this.summaryCache.get(cacheKey) || smartSummaryService.createEmptySummary();
+    // Usar summary vazio para erro - evitar outro await que pode falhar
+    const fallbackSummary = smartSummaryService.createEmptySummary();
 
     return {
       reply: 'Ops! Probleminha técnico. Pode repetir sua mensagem? 🙏',
@@ -1521,7 +1921,212 @@ RESPOSTA HUMANIZADA (mantenha a naturalidade da Sofia):
       return `Legal! Sobre as propriedades que mostrei, você quer:\n• Ver fotos 📸\n• Calcular preços 💰\n• Conhecer mais detalhes 📋\n• Ver outras opções 🔍\n\nO que prefere?`;
     }
     
-    return `Entendi! Para te ajudar melhor, me conta:\n• Que tipo de imóvel procura?\n• Em qual cidade?\n• Para quantas pessoas?\n\nAssim consigo encontrar as melhores opções! 🏠✨`;
+    // Usar FallbackSystem para quando GPT não consegue processar a mensagem
+    return FallbackSystem.handleNoFunctionExecuted(message).reply;
+  }
+
+  /**
+   * Detecta se a mensagem parece ser do próprio bot
+   */
+  private isBotMessage(message: string): boolean {
+    const botPatterns = [
+      /olá.{0,20}sofia/i,
+      /sou.{0,20}sofia/i,
+      /como.{0,20}posso.{0,20}ajud/i,
+      /encontrei.{0,20}propriedades/i,
+      /calculei.{0,20}pre[çc]o/i,
+      /aqui.{0,20}est[ãá].{0,20}pre[çc]o/i,
+      /para.{0,20}mais.{0,20}informa[çc][õo]es/i,
+      /gostaria.{0,20}de.{0,20}agendar/i,
+      /reserva.{0,20}confirmada/i,
+      /WhatsApp.*Bot/i,
+      /Mensagem.{0,20}automática/i,
+      /Bot.{0,20}AlugZap/i,
+      /Sofia.{0,20}AI/i
+    ];
+
+    // Verificar padrões específicos do bot
+    const containsBotPattern = botPatterns.some(pattern => pattern.test(message));
+    
+    // Verificar se contém muitos emojis (típico de respostas do bot)
+    const emojiCount = (message.match(/[\u{1f300}-\u{1f5ff}\u{1f900}-\u{1f9ff}\u{1f600}-\u{1f64f}\u{1f680}-\u{1f6ff}\u{2600}-\u{26ff}\u{2700}-\u{27bf}]/gu) || []).length;
+    const hasLotsOfEmojis = emojiCount > 3 && message.length < 200;
+    
+    // Verificar se contém formatação típica de bot (bullets, listas)
+    const hasTypicalBotFormatting = /[•\-\*]\s+.+(\n[•\-\*]\s+.+){2,}/g.test(message);
+    
+    return containsBotPattern || hasLotsOfEmojis || hasTypicalBotFormatting;
+  }
+
+  /**
+   * Detecta mensagens suspeitas ou repetitivas
+   */
+  // ===== ANTI-SPAM E DETECÇÃO DE REPETIÇÃO =====
+
+  private checkForRepetitiveMessage(message: string, clientPhone: string): {
+    isRepetitive: boolean;
+    isExactMatch: boolean;
+    similarity: number;
+    reason: string;
+  } {
+    const key = `${clientPhone}`;
+    const recentMessages = this.recentMessages.get(key) || [];
+    const now = Date.now();
+    
+    // Limpar mensagens antigas
+    const validMessages = recentMessages.filter(
+      msg => now - msg.timestamp < this.REPETITION_TIME_WINDOW
+    );
+    
+    if (validMessages.length === 0) {
+      return { isRepetitive: false, isExactMatch: false, similarity: 0, reason: '' };
+    }
+
+    const normalizedCurrent = this.normalizeMessage(message);
+    
+    // Verificar match exato
+    const exactMatch = validMessages.find(msg => 
+      msg.normalized === normalizedCurrent
+    );
+    
+    if (exactMatch) {
+      return {
+        isRepetitive: true,
+        isExactMatch: true,
+        similarity: 1.0,
+        reason: 'Mensagem idêntica enviada recentemente'
+      };
+    }
+
+    // Verificar similaridade alta
+    let maxSimilarity = 0;
+    for (const recentMsg of validMessages) {
+      const similarity = this.calculateSimilarity(normalizedCurrent, recentMsg.normalized);
+      if (similarity > maxSimilarity) {
+        maxSimilarity = similarity;
+      }
+    }
+
+    if (maxSimilarity > this.SIMILARITY_THRESHOLD) {
+      return {
+        isRepetitive: true,
+        isExactMatch: false,
+        similarity: maxSimilarity,
+        reason: `Mensagem muito similar (${Math.round(maxSimilarity * 100)}%)`
+      };
+    }
+
+    return { isRepetitive: false, isExactMatch: false, similarity: maxSimilarity, reason: '' };
+  }
+
+  private addToRecentMessages(message: string, clientPhone: string): void {
+    const key = `${clientPhone}`;
+    const recentMessages = this.recentMessages.get(key) || [];
+    const now = Date.now();
+    
+    // Adicionar nova mensagem
+    recentMessages.push({
+      message: message,
+      timestamp: now,
+      normalized: this.normalizeMessage(message)
+    });
+    
+    // Manter apenas as mensagens mais recentes
+    const validMessages = recentMessages
+      .filter(msg => now - msg.timestamp < this.REPETITION_TIME_WINDOW)
+      .slice(-this.MAX_RECENT_MESSAGES);
+    
+    this.recentMessages.set(key, validMessages);
+  }
+
+  private normalizeMessage(message: string): string {
+    return message
+      .toLowerCase()
+      .trim()
+      .replace(/[^\w\s]/g, '') // Remove pontuação
+      .replace(/\s+/g, ' ') // Normaliza espaços
+      .substring(0, 100); // Limita tamanho
+  }
+
+  private calculateSimilarity(str1: string, str2: string): number {
+    if (str1 === str2) return 1.0;
+    if (str1.length === 0 || str2.length === 0) return 0.0;
+
+    // Levenshtein distance simplificado
+    const longer = str1.length > str2.length ? str1 : str2;
+    const shorter = str1.length > str2.length ? str2 : str1;
+    
+    if (longer.length === 0) return 1.0;
+
+    const distance = this.levenshteinDistance(longer, shorter);
+    return (longer.length - distance) / longer.length;
+  }
+
+  private levenshteinDistance(str1: string, str2: string): number {
+    const matrix: number[][] = [];
+    
+    for (let i = 0; i <= str2.length; i++) {
+      matrix[i] = [i];
+    }
+    
+    for (let j = 0; j <= str1.length; j++) {
+      matrix[0][j] = j;
+    }
+    
+    for (let i = 1; i <= str2.length; i++) {
+      for (let j = 1; j <= str1.length; j++) {
+        if (str2.charAt(i - 1) === str1.charAt(j - 1)) {
+          matrix[i][j] = matrix[i - 1][j - 1];
+        } else {
+          matrix[i][j] = Math.min(
+            matrix[i - 1][j - 1] + 1,
+            matrix[i][j - 1] + 1,
+            matrix[i - 1][j] + 1
+          );
+        }
+      }
+    }
+    
+    return matrix[str2.length][str1.length];
+  }
+
+  private isSuspiciousMessage(message: string, clientPhone: string): boolean {
+    const now = Date.now();
+    const historyKey = `${clientPhone}`;
+    const history = this.messageHistory.get(historyKey) || [];
+    
+    // Limpar histórico antigo (últimas 5 minutos)
+    const recentHistory = history.filter(entry => now - entry.timestamp < 300000);
+    
+    // Verificar se a mesma mensagem foi enviada recentemente
+    const hasDuplicate = recentHistory.some(entry => 
+      entry.message === message && now - entry.timestamp < 30000 // 30 segundos
+    );
+    
+    // Verificar muitas mensagens em pouco tempo
+    const recentCount = recentHistory.filter(entry => now - entry.timestamp < 60000).length; // 1 minuto
+    const isTooFrequent = recentCount > 10;
+    
+    // Verificar mensagem muito curta e repetitiva
+    const isTooShort = message.trim().length < 3 && recentCount > 3;
+    
+    // Atualizar histórico
+    recentHistory.push({ message, timestamp: now });
+    this.messageHistory.set(historyKey, recentHistory.slice(-20)); // Manter apenas últimas 20
+    
+    if (hasDuplicate || isTooFrequent || isTooShort) {
+      logger.warn('🚨 [Sofia] Mensagem suspeita detectada', {
+        clientPhone: this.maskPhone(clientPhone),
+        hasDuplicate,
+        isTooFrequent,
+        isTooShort,
+        recentCount,
+        messageLength: message.length
+      });
+      return true;
+    }
+    
+    return false;
   }
 
   private maskPhone(phone: string): string {

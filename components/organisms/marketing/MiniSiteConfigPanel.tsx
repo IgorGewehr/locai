@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { ApiClient } from '@/lib/utils/api-client';
 import {
   Card,
   CardContent,
@@ -119,12 +120,8 @@ export default function MiniSiteConfigPanel() {
       setError('');
       setSuccess(false);
 
-      const response = await fetch('/api/settings', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          miniSite: config
-        })
+      const response = await ApiClient.put('/api/settings', {
+        miniSite: config
       });
 
       if (response.ok) {

@@ -55,8 +55,26 @@
       "Bash(export NODE_ENV=production)",
       "Bash(NODE_OPTIONS=\"--max_old_space_size=4096\" npm run build)",
       "Bash(npx kill-port:*)",
-      "Bash(firebase --version)"
+      "Bash(firebase --version)",
+      "Bash(git reset:*)",
+      "Bash(JWT_SECRET=test npm run build)",
+      "Bash(JWT_SECRET=temp-secret-for-testing-sofia-fixed-123456789-production-ready-secure-key npm run build)",
+      "Bash(JWT_SECRET=test-secret-for-sofia-fixed-123456789-production-ready-secure-key npm run build)",
+      "Bash(export JWT_SECRET=test-secret-for-sofia-fixed-123456789-production-ready-secure-key)",
+      "WebFetch(domain:www.alugazap.com)",
+      "Bash(pm2 logs:*)",
+      "Bash(git restore:*)",
+      "WebSearch",
+      "WebSearch",
+      "WebFetch(domain:167.172.116.195)",
+      "Bash(pm2 list:*)",
+      "Read(//mnt/c/Users/Administrador/Documents/Projetos/**)",
+      "Bash(npx pm2 list:*)"
     ],
-    "deny": []
+    "deny": [],
+    "defaultMode": "acceptEdits",
+    "additionalDirectories": [
+      "/mnt/c/Users/Administrador/Documents/Projetos/whatsapp-microservice"
+    ]
   }
 }

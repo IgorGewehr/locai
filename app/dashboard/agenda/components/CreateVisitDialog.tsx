@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { ApiClient } from '@/lib/utils/api-client';
 import {
   Dialog,
   DialogTitle,
@@ -172,18 +173,35 @@ export default function CreateVisitDialog({ open, onClose, onSuccess }: CreateVi
         source: 'manual'
       };
 
-      const response = await fetch('/api/visits', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(visitData),
+      logger.info('📝 [CreateVisitDialog] Enviando dados da visita', { 
+        visitData, 
+        tenantId 
       });
 
+      const response = await ApiClient.post('/api/visits', visitData);
+
       const data = await response.json();
+      
+      logger.info('📡 [CreateVisitDialog] Resposta da API', { 
+        status: response.status,
+        success: data.success,
+        hasData: !!data.data 
+      });
 
       if (!response.ok) {
+        logger.error('❌ [CreateVisitDialog] Erro na API', { 
+          status: response.status,
+          error: data.error,
+          details: data 
+        });
         throw new Error(data.error || 'Erro ao criar visita');
+      }
+
+      if (data.success) {
+        logger.info('✅ [CreateVisitDialog] Visita criada com sucesso', { 
+          visitId: data.data?.id,
+          propertyId: data.data?.propertyId 
+        });
       }
 
       // If it's a new client, create the client record

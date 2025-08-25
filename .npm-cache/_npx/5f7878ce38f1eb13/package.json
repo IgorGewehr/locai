@@ -1,0 +1,10 @@
+{
+  "dependencies": {
+    "pm2": "^6.0.8"
+  },
+  "_npx": {
+    "packages": [
+      "pm2"
+    ]
+  }
+}

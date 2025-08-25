@@ -53,13 +53,16 @@ class TenantPhoneMappingService {
         return tenantByWhatsApp;
       }
 
-      // 3. Usar tenant padrão (apenas desenvolvimento)
-      if (process.env.NODE_ENV === 'development') {
-        const defaultTenant = process.env.DEFAULT_TENANT_ID || 'default-tenant';
-        logger.warn('⚠️ [TenantMapping] Usando tenant padrão (desenvolvimento)', {
+      // 3. Usar tenant padrão (fallback para produção)
+      const defaultTenant = process.env.DEFAULT_TENANT_ID || 'U11UvXr67vWnDtDpDaaJDTuEcxo2';
+      if (defaultTenant) {
+        logger.warn('⚠️ [TenantMapping] Usando tenant padrão (fallback)', {
           tenantId: defaultTenant,
-          phone: clientPhone.substring(0, 6) + '***'
+          phone: clientPhone.substring(0, 6) + '***',
+          env: process.env.NODE_ENV || 'unknown'
         });
+        // Criar mapeamento para otimizar próximas consultas
+        await this.createMapping(clientPhone, defaultTenant);
         return defaultTenant;
       }
 

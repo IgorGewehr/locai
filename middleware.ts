@@ -1,12 +1,7 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
-import { jwtVerify } from 'jose'
 import { miniSiteMiddleware } from '@/middleware/mini-site'
 import { logger } from '@/lib/utils/logger'
-
-// Use a default JWT secret in development/build time
-const JWT_SECRET_STRING = process.env.JWT_SECRET || 'default-development-secret-min-32-characters-long'
-const JWT_SECRET = new TextEncoder().encode(JWT_SECRET_STRING)
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
@@ -47,56 +42,60 @@ export async function middleware(request: NextRequest) {
     '/api/webhook/whatsapp-web',
     '/api/auth',
     '/api/agent',
-    '/api/whatsapp/session',
+    '/api/public/',
+    '/api/auth-test',
+    '/api/diagnostic/',
+    '/api/test-whatsapp-noauth'
+  ]
+
+  // Special handling for WhatsApp and other auth-protected API routes
+  const authProtectedApiRoutes = [
+    '/api/whatsapp/',
     '/api/config/whatsapp'
   ]
 
+  // Check if this is a public route
   if (publicRoutes.some(route => pathname === route || pathname.startsWith(route))) {
-    return NextResponse.next()
-  }
-
-  // Protected routes require authentication
-  const authToken = request.cookies.get('auth-token')?.value
-
-  if (!authToken) {
-    // Redirect to login for protected routes
-    const loginUrl = new URL('/login', request.url)
-    loginUrl.searchParams.set('redirect', pathname)
-    return NextResponse.redirect(loginUrl)
-  }
-
-  try {
-    // Verify the token using jose directly (Edge Runtime compatible)
-    const { payload } = await jwtVerify(authToken, JWT_SECRET)
+    const response = NextResponse.next();
     
-    if (!payload || !payload.sub) {
-      // Invalid token - redirect to login
-      const loginUrl = new URL('/login', request.url)
-      loginUrl.searchParams.set('redirect', pathname)
-      return NextResponse.redirect(loginUrl)
+    // Add CORS headers for public API routes
+    if (pathname.startsWith('/api/')) {
+      const isProduction = process.env.NODE_ENV === 'production';
+      const allowedOrigin = isProduction ? 'https://www.alugazap.com' : '*';
+      
+      response.headers.set('Access-Control-Allow-Origin', allowedOrigin);
+      response.headers.set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+      response.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, X-Tenant-Id, Origin, Accept');
+      response.headers.set('Access-Control-Allow-Credentials', 'true');
+      response.headers.set('X-Public-Route', 'true');
     }
     
-    // Add user info to headers for downstream use
-    const requestHeaders = new Headers(request.headers)
-    requestHeaders.set('x-user-id', payload.sub as string)
-    requestHeaders.set('x-tenant-id', (payload.tenantId as string) || (payload.sub as string)) // Use userId as tenantId if no specific tenantId
-    requestHeaders.set('x-user-role', payload.role as string)
-
-    const response = NextResponse.next({
-      request: {
-        headers: requestHeaders,
-      },
-    })
-    
-    // Add security headers
-    addSecurityHeaders(response, pathname);
-    return response
-  } catch (error) {
-    // Invalid token - redirect to login
-    const loginUrl = new URL('/login', request.url)
-    loginUrl.searchParams.set('redirect', pathname)
-    return NextResponse.redirect(loginUrl)
+    return response;
   }
+
+  // For auth-protected API routes, let them handle their own authentication
+  if (authProtectedApiRoutes.some(route => pathname.startsWith(route))) {
+    const response = NextResponse.next();
+    
+    // Add production headers for debugging
+    const isProduction = process.env.NODE_ENV === 'production';
+    if (isProduction) {
+      response.headers.set('X-Production-Auth-Route', 'true');
+      response.headers.set('Access-Control-Allow-Origin', 'https://www.alugazap.com');
+      response.headers.set('Access-Control-Allow-Credentials', 'true');
+      response.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, X-Tenant-Id, Origin, Accept');
+    }
+    
+    return response;
+  }
+
+  // For protected routes, just pass through
+  // Authentication will be handled by AuthProvider on the client side
+  const response = NextResponse.next()
+  
+  // Add security headers
+  addSecurityHeaders(response, pathname);
+  return response
 }
 
 /**

@@ -89,10 +89,26 @@ class SettingsService {
   // Get all settings for a tenant
   async getSettings(tenantId: string): Promise<TenantSettings | null> {
     try {
-      const doc = await this.service.getById(tenantId);
+      // Try to get settings using tenantId as document ID first
+      let doc = await this.service.getById(tenantId);
+      
       if (!doc) {
-        // Return default settings if none exist
-        return this.getDefaultSettings(tenantId);
+        // If not found, try to get the first settings document for this tenant
+        const allSettings = await this.service.getAll();
+        doc = allSettings.find(s => s.id === tenantId) || allSettings[0] || null;
+      }
+      
+      if (!doc) {
+        // Return default settings if none exist and create them
+        const defaultSettings = this.getDefaultSettings(tenantId);
+        try {
+          // Try to create default settings in the database
+          await this.service.create(defaultSettings);
+          return defaultSettings;
+        } catch (createError) {
+          console.warn('Could not create default settings, returning in-memory defaults:', createError);
+          return defaultSettings;
+        }
       }
       return doc;
     } catch (error) {

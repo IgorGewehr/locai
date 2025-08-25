@@ -3,7 +3,7 @@ import { TenantServiceFactory } from '@/lib/firebase/firestore-v2';
 import { logger } from '@/lib/utils/logger';
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://localhost:3000';
+  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'https://localhost:8080';
   
   try {
     // Get all active tenants with mini-sites
