@@ -81,7 +81,7 @@ export async function POST(request: NextRequest) {
         phone: clientPhone || phone,
         messageLength: message?.length
       });
-      return handleApiError(error instanceof Error ? error : new Error('Validation failed'));
+      return handleApiError(error instanceof Error ? error : new Error('Validation failed ---'));
     }
 
     // 3. Rate limiting (skip para modo teste)
