@@ -227,7 +227,10 @@ export class WhatsAppMicroserviceClient {
       const url = `${this.baseUrl}/api/v1/sessions/${tenantId}/start`;
       
       logger.info('🚀 [MicroserviceClient] Iniciando sessão WhatsApp', {
-        tenantId: tenantId.substring(0, 8) + '***'
+        tenantId: tenantId.substring(0, 8) + '***',
+        url,
+        baseUrl: this.baseUrl,
+        hasApiKey: !!this.apiKey
       });
 
       const response = await fetch(url, {
@@ -235,6 +238,17 @@ export class WhatsAppMicroserviceClient {
         headers: {
           'Authorization': `Bearer ${this.apiKey}`,
           'X-Tenant-ID': tenantId
+        },
+        signal: AbortSignal.timeout(15000) // 15s timeout
+      });
+
+      logger.info('🌐 [MicroserviceClient] Response received', {
+        status: response.status,
+        ok: response.ok,
+        statusText: response.statusText,
+        headers: {
+          contentType: response.headers.get('content-type'),
+          contentLength: response.headers.get('content-length')
         }
       });
 
@@ -242,16 +256,35 @@ export class WhatsAppMicroserviceClient {
         const errorText = await response.text();
         logger.error('❌ [MicroserviceClient] Erro ao iniciar sessão', {
           status: response.status,
-          error: errorText
+          statusText: response.statusText,
+          error: errorText,
+          url
         });
-        return { success: false };
+        throw new Error(`HTTP ${response.status}: ${errorText}`);
       }
 
-      const result = await response.json();
+      const responseText = await response.text();
+      logger.info('📄 [MicroserviceClient] Raw response', {
+        responseLength: responseText.length,
+        responsePreview: responseText.substring(0, 200)
+      });
+
+      let result;
+      try {
+        result = JSON.parse(responseText);
+      } catch (parseError) {
+        logger.error('❌ [MicroserviceClient] JSON parse error', {
+          parseError: parseError instanceof Error ? parseError.message : 'Unknown',
+          responseText: responseText.substring(0, 500)
+        });
+        throw new Error(`Invalid JSON response: ${parseError}`);
+      }
       
       logger.info('✅ [MicroserviceClient] Sessão iniciada', {
         hasQrCode: !!result.qrCode,
-        status: result.status
+        status: result.status,
+        success: result.success,
+        resultKeys: Object.keys(result)
       });
 
       return {
@@ -260,10 +293,13 @@ export class WhatsAppMicroserviceClient {
       };
 
     } catch (error) {
-      logger.error('❌ [MicroserviceClient] Erro ao iniciar sessão', {
-        errorMessage: error instanceof Error ? error.message : 'Unknown error'
+      logger.error('❌ [MicroserviceClient] Erro crítico ao iniciar sessão', {
+        errorMessage: error instanceof Error ? error.message : 'Unknown error',
+        errorStack: error instanceof Error ? error.stack?.substring(0, 500) : undefined,
+        errorType: typeof error,
+        tenantId: tenantId.substring(0, 8) + '***'
       });
-      return { success: false };
+      throw error; // Re-throw para capturar no nível superior
     }
   }
 

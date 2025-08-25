@@ -49,8 +49,8 @@ export async function GET(request: NextRequest) {
       return authResult;
     }
 
-    const { user } = authResult;
-    const tenantId = user.tenantId;
+    // authResult é diretamente o FirebaseAuthContext
+    const tenantId = authResult.tenantId;
 
     // 2. RATE LIMITING por tenant
     const now = Date.now();
@@ -171,15 +171,28 @@ export async function GET(request: NextRequest) {
  * Inicia nova sessao WhatsApp
  */
 export async function POST(request: NextRequest) {
+  logger.info('🚀 [Session API] POST request received');
+  
   try {
     // 1. AUTENTICACAO obrigatoria
+    logger.info('🔐 [Session API] Starting auth');
+    
     const authResult = await authService.requireAuth(request);
+    logger.info('✅ [Session API] Auth successful', {
+      authenticated: authResult?.authenticated,
+      hasTenantId: !!authResult?.tenantId
+    });
+    
     if (authResult instanceof NextResponse) {
       return authResult;
     }
 
-    const { user } = authResult;
-    const tenantId = user.tenantId;
+    // authResult é diretamente o FirebaseAuthContext
+    const tenantId = authResult.tenantId;
+    
+    logger.info('🎯 [Session API] Processing for tenant', {
+      tenantId: tenantId?.substring(0, 8) + '***'
+    });
 
     // 2. VERIFICAR RATE LIMITING para inicializacao
     const now = Date.now();
@@ -232,7 +245,16 @@ export async function POST(request: NextRequest) {
     });
 
     // 5. INICIAR SESSAO no microservico
+    logger.info('🎯 [Session API] Criando microservice client', {
+      tenantId: tenantId.substring(0, 8) + '***'
+    });
+
     const microserviceClient = new WhatsAppMicroserviceClient();
+    
+    logger.info('🚀 [Session API] Chamando startSession', {
+      tenantId: tenantId.substring(0, 8) + '***'
+    });
+
     const initResult = await microserviceClient.startSession(tenantId);
 
     if (!initResult.success) {
@@ -357,8 +379,8 @@ export async function DELETE(request: NextRequest) {
       return authResult;
     }
 
-    const { user } = authResult;
-    const tenantId = user.tenantId;
+    // authResult é diretamente o FirebaseAuthContext
+    const tenantId = authResult.tenantId;
 
     // 2. DESCONECTAR no microservico
     const microserviceClient = new WhatsAppMicroserviceClient();
