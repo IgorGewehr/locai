@@ -5,10 +5,10 @@ import { WhatsAppStatusService } from '@/lib/services/whatsapp-status-service'
 import { deduplicationCache } from '@/lib/cache/deduplication-cache'
 
 /**
- * Webhook para receber mensagens do WhatsApp Microservice no DigitalOcean
- * Este endpoint é chamado quando mensagens chegam no microserviço
- *
- * NOVA VERSÃO: Integrada com N8N Workflow
+ * Webhook para receber mensagens do WhatsApp Microservice
+ * Este endpoint recebe eventos do microserviço e encaminha mensagens para o N8N
+ * 
+ * Fluxo: WhatsApp -> Microservice -> Este Webhook -> N8N -> Processamento
  */
 export async function POST(request: NextRequest) {
     try {
@@ -89,9 +89,8 @@ export async function POST(request: NextRequest) {
 
         // ✅ PROCESSAR DIFERENTES TIPOS DE EVENTOS
         if (body.event === 'message') {
-            // TEMPORARIAMENTE: Usar Sofia diretamente sem passar pelo n8n
-            // await processIncomingMessageViaN8N(body.tenantId, body.data)
-            await processMessageDirectly(body.tenantId, body.data)
+            // Encaminhar mensagem para N8N processar
+            await processIncomingMessageViaN8N(body.tenantId, body.data)
         } else if (body.event === 'status_change') {
             await processStatusChange(body.tenantId, body.data)
         } else if (body.event === 'qr_code') {
@@ -174,9 +173,9 @@ async function processIncomingMessageViaN8N(tenantId: string, messageData: any) 
                 tenantId: tenantId?.substring(0, 8) + '***'
             });
 
-            // ⚠️ FALLBACK DESABILITADO - usando processMessageDirectly como entrada principal
-            logger.warn('⚠️ N8N not configured - this should not be called when using direct Sofia processing');
-            return; // Não processar novamente
+            // Se N8N não estiver configurado, apenas logar erro
+            logger.error('❌ N8N not configured - unable to process message');
+            return;
         }
 
         logger.info('🚀 Sending message to N8N workflow', {
@@ -233,130 +232,8 @@ async function processIncomingMessageViaN8N(tenantId: string, messageData: any) 
             stack: error instanceof Error ? error.stack?.substring(0, 200) : undefined
         });
 
-        // ⚠️ FALLBACK DESABILITADO - usando processMessageDirectly como entrada principal
-        logger.warn('⚠️ N8N call failed - this should not be called when using direct Sofia processing');
-        return; // Não processar novamente
-    }
-}
-
-/**
- * 📨 PROCESSAR MENSAGEM DIRETAMENTE COM SOFIA (SEM N8N)
- */
-async function processMessageDirectly(tenantId: string, messageData: any) {
-    try {
-        const messageId = messageData.messageId || messageData.id;
-        const clientPhone = messageData.from;
-        const message = messageData.message || messageData.text;
-
-        // ✅ VALIDAÇÕES BÁSICAS
-        if (!messageId || !clientPhone || !message || message.trim() === '') {
-            logger.warn('⚠️ Invalid message data, skipping', {
-                tenantId: tenantId?.substring(0, 8) + '***',
-                hasMessageId: !!messageId,
-                hasClientPhone: !!clientPhone,
-                hasMessage: !!message
-            });
-            return;
-        }
-
-        // Filtro adicional: ignorar mensagens muito curtas que podem ser ruído
-        if (message.trim().length < 2) {
-            logger.info('📞 Message too short, ignoring', {
-                tenantId: tenantId?.substring(0, 8) + '***',
-                clientPhone: clientPhone?.substring(0, 6) + '***',
-                messageLength: message.length
-            });
-            return;
-        }
-
-        logger.info('📨 Processing message directly with Sofia', {
-            tenantId: tenantId?.substring(0, 8) + '***',
-            from: clientPhone?.substring(0, 6) + '***',
-            messageId: messageId?.substring(0, 8) + '***',
-            messageLength: message.length
-        })
-
-        // ✅ SISTEMA DE DEDUPLICAÇÃO
-        if (deduplicationCache.isDuplicate(tenantId, messageId)) {
-            logger.info('🔁 Message already processed, skipping', {
-                tenantId: tenantId?.substring(0, 8) + '***',
-                messageId: messageId?.substring(0, 8) + '***'
-            });
-            return;
-        }
-
-        deduplicationCache.markAsProcessed(tenantId, messageId);
-
-        // 🤖 PROCESSAR COM SOFIA DIRETAMENTE
-        await processSofiaMessage(tenantId, messageData);
-
-    } catch (error) {
-        logger.error('❌ Error processing message directly:', {
-            error: error instanceof Error ? error.message : 'Unknown error',
-            tenantId: tenantId?.substring(0, 8) + '***'
-        });
-    }
-}
-
-/**
- * 🤖 PROCESSAR MENSAGEM COM SOFIA AGENT
- */
-async function processSofiaMessage(tenantId: string, messageData: any) {
-    try {
-        const messageId = messageData.messageId || messageData.id;
-        const clientPhone = messageData.from;
-        const message = messageData.message || messageData.text;
-
-        logger.info('🤖 Processing with Sofia Agent (direct mode)', {
-            tenantId: tenantId?.substring(0, 8) + '***',
-            clientPhone: clientPhone?.substring(0, 6) + '***'
-        });
-
-        // Importar Sofia Agent dinamicamente
-        const { sofiaAgent } = await import('@/lib/ai-agent/sofia-agent');
-
-        const response = await sofiaAgent.processMessage({
-            message,
-            clientPhone,
-            tenantId,
-            metadata: {
-                source: 'whatsapp-microservice-fallback',
-                priority: 'high',
-                skipHeavyProcessing: true,
-                messageId,
-                bypassDeduplication: true
-            }
-        });
-
-        // Verificar se resposta não está vazia
-        if (!response.reply || response.reply.trim() === '') {
-            logger.warn('⚠️ Empty response from Sofia Agent', {
-                tenantId: tenantId?.substring(0, 8) + '***',
-                clientPhone: clientPhone?.substring(0, 6) + '***'
-            });
-            return;
-        }
-
-        // Enviar resposta via microservice
-        await sendResponseToMicroservice({
-            tenantId,
-            to: clientPhone,
-            message: response.reply,
-            originalMessageId: messageId
-        });
-
-        logger.info('✅ Sofia Agent message processed successfully', {
-            tenantId: tenantId?.substring(0, 8) + '***',
-            clientPhone: clientPhone?.substring(0, 6) + '***',
-            responseTime: response.responseTime,
-            replyLength: response.reply.length
-        });
-
-    } catch (error) {
-        logger.error('❌ Sofia Agent processing failed:', {
-            error: error instanceof Error ? error.message : 'Unknown error',
-            tenantId: tenantId?.substring(0, 8) + '***'
-        });
+        // Se falhar ao chamar N8N, apenas logar erro
+        logger.error('❌ N8N call failed - message not processed');
     }
 }
 
@@ -396,63 +273,7 @@ async function processQRCode(tenantId: string, qrData: any) {
 }
 
 /**
- * 📤 FUNÇÃO PARA FALLBACK: Enviar resposta de volta ao microservice WhatsApp
- */
-async function sendResponseToMicroservice(params: {
-    tenantId: string
-    to: string
-    message: string
-    originalMessageId: string
-}) {
-    try {
-        const microserviceUrl = process.env.WHATSAPP_MICROSERVICE_URL
-        const apiKey = process.env.WHATSAPP_MICROSERVICE_API_KEY
-
-        if (!microserviceUrl) {
-            logger.warn('⚠️ WHATSAPP_MICROSERVICE_URL not configured, skipping response')
-            return
-        }
-
-        const response = await fetch(`${microserviceUrl}/api/v1/messages/${params.tenantId}/send`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${apiKey}`,
-                'X-Tenant-ID': params.tenantId
-            },
-            body: JSON.stringify({
-                to: params.to,
-                message: params.message,
-                type: 'text'
-            }),
-            // Timeout agressivo para não bloquear webhook
-            signal: AbortSignal.timeout(5000)
-        })
-
-        if (!response.ok) {
-            throw new Error(`HTTP ${response.status}: ${response.statusText}`)
-        }
-
-        const result = await response.json()
-
-        logger.info('✅ Response sent to microservice', {
-            tenantId: params.tenantId,
-            to: params.to.substring(0, 6) + '***',
-            messageId: result.messageId,
-            originalMessageId: params.originalMessageId
-        })
-
-    } catch (error) {
-        logger.error('❌ Error sending response to microservice:', {
-            error: error instanceof Error ? error.message : 'Unknown error',
-            tenantId: params.tenantId,
-            to: params.to.substring(0, 6) + '***'
-        })
-    }
-}
-
-/**
- * Verificação de webhook (similar ao padrão do WhatsApp Business API) --
+ * Verificação de webhook (similar ao padrão do WhatsApp Business API)
  */
 export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url)

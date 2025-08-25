@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { validateFirebaseAuth } from '@/lib/middleware/firebase-auth';
+import { authService } from '@/lib/auth/auth-service';
 import { logger } from '@/lib/utils/logger';
 import { WhatsAppMicroserviceClient } from '@/lib/whatsapp/microservice-client';
 
@@ -44,15 +44,13 @@ const INIT_COOLDOWN = 30000; // 30 segundos entre inicializacoes
 export async function GET(request: NextRequest) {
   try {
     // 1. AUTENTICACAO obrigatoria
-    const authContext = await validateFirebaseAuth(request);
-    if (!authContext.authenticated || !authContext.tenantId) {
-      return NextResponse.json({
-        success: false,
-        error: 'Unauthorized'
-      }, { status: 401 });
+    const authResult = await authService.requireAuth(request);
+    if (authResult instanceof NextResponse) {
+      return authResult;
     }
 
-    const tenantId = authContext.tenantId;
+    const { user } = authResult;
+    const tenantId = user.tenantId;
 
     // 2. RATE LIMITING por tenant
     const now = Date.now();
@@ -175,15 +173,13 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     // 1. AUTENTICACAO obrigatoria
-    const authContext = await validateFirebaseAuth(request);
-    if (!authContext.authenticated || !authContext.tenantId) {
-      return NextResponse.json({
-        success: false,
-        error: 'Unauthorized'
-      }, { status: 401 });
+    const authResult = await authService.requireAuth(request);
+    if (authResult instanceof NextResponse) {
+      return authResult;
     }
 
-    const tenantId = authContext.tenantId;
+    const { user } = authResult;
+    const tenantId = user.tenantId;
 
     // 2. VERIFICAR RATE LIMITING para inicializacao
     const now = Date.now();
@@ -356,15 +352,13 @@ export async function POST(request: NextRequest) {
 export async function DELETE(request: NextRequest) {
   try {
     // 1. AUTENTICACAO obrigatoria
-    const authContext = await validateFirebaseAuth(request);
-    if (!authContext.authenticated || !authContext.tenantId) {
-      return NextResponse.json({
-        success: false,
-        error: 'Unauthorized'
-      }, { status: 401 });
+    const authResult = await authService.requireAuth(request);
+    if (authResult instanceof NextResponse) {
+      return authResult;
     }
 
-    const tenantId = authContext.tenantId;
+    const { user } = authResult;
+    const tenantId = user.tenantId;
 
     // 2. DESCONECTAR no microservico
     const microserviceClient = new WhatsAppMicroserviceClient();

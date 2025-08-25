@@ -1,52 +1,81 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { logger } from '@/lib/utils/logger';
 
-// Import the specific function - need to check the exact export
-async function cancelReservation(args: any, tenantId: string): Promise<any> {
-  // This function will need to be exported from tenant-aware-agent-functions
-  const { executeTenantAwareFunction } = await import('@/lib/ai/tenant-aware-agent-functions');
-  return await executeTenantAwareFunction('cancel_reservation', args, tenantId);
-}
+
 
 export async function POST(request: NextRequest) {
+  const startTime = Date.now();
+  const requestId = `cancel_reservation_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
+  
   try {
     const body = await request.json();
     const { tenantId, ...args } = body;
 
+    logger.info('🚫 [CANCEL-RESERVATION] Iniciando execução', {
+      requestId,
+      tenantId: tenantId?.substring(0, 8) + '***',
+      params: args,
+      paramsCount: Object.keys(args).length,
+      source: request.headers.get('x-source') || 'unknown'
+    });
+
     if (!tenantId) {
+      logger.warn('⚠️ [CANCEL-RESERVATION] TenantId não fornecido', { requestId });
       return NextResponse.json(
-        { error: 'TenantId is required' },
+        { 
+          success: false,
+          error: 'TenantId is required',
+          requestId 
+        },
         { status: 400 }
       );
     }
 
-    logger.info('❌ [API] Cancel Reservation called', {
-      tenantId,
-      args: JSON.stringify(args)
-    });
-
     const result = await cancelReservation(args, tenantId);
+    const processingTime = Date.now() - startTime;
 
-    logger.info('✅ [API] Cancel Reservation completed', {
-      tenantId,
-      reservationId: args.reservationId
+    logger.info('✅ [CANCEL-RESERVATION] Execução concluída com sucesso', {
+      requestId,
+      tenantId: tenantId.substring(0, 8) + '***',
+      result: {
+        hasResult: !!result,
+        resultType: typeof result,
+        resultKeys: result && typeof result === 'object' ? Object.keys(result) : []
+      },
+      performance: {
+        processingTime: `${processingTime}ms`
+      }
     });
 
     return NextResponse.json({
       success: true,
-      data: result
+      data: result,
+      meta: {
+        requestId,
+        processingTime,
+        timestamp: new Date().toISOString()
+      }
     });
 
   } catch (error) {
-    logger.error('❌ [API] Cancel Reservation failed', {
+    const processingTime = Date.now() - startTime;
+    
+    logger.error('❌ [CANCEL-RESERVATION] Falha na execução', {
+      requestId,
       error: error instanceof Error ? error.message : 'Unknown error',
-      stack: error instanceof Error ? error.stack : undefined
+      stack: error instanceof Error ? error.stack?.substring(0, 500) : undefined,
+      processingTime: `${processingTime}ms`,
+      errorType: error instanceof Error ? error.constructor.name : typeof error
     });
 
     return NextResponse.json(
       { 
         success: false,
-        error: 'Internal server error' 
+        error: 'cancel-reservation failed',
+        requestId,
+        details: process.env.NODE_ENV === 'development' ? 
+          error instanceof Error ? error.message : 'Unknown error' : 
+          undefined
       },
       { status: 500 }
     );

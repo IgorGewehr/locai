@@ -119,8 +119,8 @@ IMPORTANTE:
 
 
 FUNÇÕES DISPONÍVEIS:
-1. search_properties - buscar/filtrar propriedades por critérios (comodidades, hóspedes, datas)
-2. calculate_price - calcular preços, valores, orçamentos para período específico
+1. search_properties - buscar/filtrar propriedades por critérios (comodidades, hóspedes, datas) (os users tem propriedades sempre na mesma cidade, então evite o filtro de local, prefire outros filtros)
+2. calculate_price - calcular preços, valores, orçamentos para período específico 
 3. get_property_details - obter detalhes completos de uma propriedade específica
 4. send_property_media - enviar fotos, vídeos, imagens da propriedade
 5. create_reservation - criar/confirmar uma reserva
@@ -137,7 +137,7 @@ FUNÇÕES DISPONÍVEIS:
 16. update_lead - atualizar informações de lead existente
 17. classify_lead - classificar lead (quente, morno, frio)
 18. update_lead_status - atualizar status do lead no funil
-19. Sem dados suficiente para qualquer função prosseguir com as mensagen
+19. Sem dados suficiente para qualquer função prosseguir com a conversa.
 
 MENSAGEM USUÁRIO: "${message}"
 

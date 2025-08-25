@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { validateFirebaseAuth } from '@/lib/middleware/firebase-auth';
+import { authService } from '@/lib/auth/auth-service';
 import { logger } from '@/lib/utils/logger';
 import { WhatsAppMicroserviceClient } from '@/lib/whatsapp/microservice-client';
 
