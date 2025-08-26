@@ -134,15 +134,6 @@ async function processIncomingMessageViaN8N(tenantId: string, messageData: any) 
             return;
         }
 
-        // Filtro adicional: ignorar mensagens muito curtas que podem ser ruído
-        if (message.trim().length < 2) {
-            logger.info('📞 Message too short, ignoring', {
-                tenantId: tenantId?.substring(0, 8) + '***',
-                clientPhone: clientPhone?.substring(0, 6) + '***',
-                messageLength: message.length
-            });
-            return;
-        }
 
         logger.info('📨 Processing incoming message via N8N', {
             tenantId: tenantId?.substring(0, 8) + '***',
@@ -166,17 +157,6 @@ async function processIncomingMessageViaN8N(tenantId: string, messageData: any) 
         const n8nWebhookUrl = process.env.N8N_WEBHOOK_URL;
         const n8nSecret = process.env.N8N_WEBHOOK_SECRET;
 
-        if (!n8nWebhookUrl || !n8nSecret) {
-            logger.error('❌ N8N configuration missing', {
-                hasWebhookUrl: !!n8nWebhookUrl,
-                hasSecret: !!n8nSecret,
-                tenantId: tenantId?.substring(0, 8) + '***'
-            });
-
-            // Se N8N não estiver configurado, apenas logar erro
-            logger.error('❌ N8N not configured - unable to process message');
-            return;
-        }
 
         logger.info('🚀 Sending message to N8N workflow', {
             url: n8nWebhookUrl.substring(0, 50) + '...',
@@ -201,7 +181,7 @@ async function processIncomingMessageViaN8N(tenantId: string, messageData: any) 
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                'x-webhook-signature': n8nSecret, // N8N vai validar isso (minúsculo!)
+                'x-webhook-signature': n8nSecret,
                 'X-Tenant-ID': tenantId,
                 'User-Agent': 'LocAI-Frontend/1.0'
             },
