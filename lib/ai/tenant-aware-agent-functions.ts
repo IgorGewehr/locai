@@ -1834,18 +1834,34 @@ export async function generateQuote(args: GenerateQuoteArgs, tenantId: string): 
   try {
     logger.info('💰 [TenantAgent] generate_quote iniciada', {
       tenantId,
-      propertyId: args.propertyId?.substring(0, 10) + '...',
-      checkIn: args.checkIn,
-      checkOut: args.checkOut,
-      guests: args.guests,
-      paymentMethod: args.paymentMethod
+      propertyId: args?.propertyId?.substring(0, 10) + '...',
+      checkIn: args?.checkIn,
+      checkOut: args?.checkOut,
+      guests: args?.guests,
+      paymentMethod: args?.paymentMethod,
+      argsType: typeof args,
+      argsIsNull: args === null,
+      argsIsUndefined: args === undefined
     });
 
+    logger.info('🏗️ [TenantAgent] Iniciando serviceFactory', { tenantId });
     const serviceFactory = new TenantServiceFactory(tenantId);
+    logger.info('🏗️ [TenantAgent] ServiceFactory criado, criando propertyService', { tenantId });
     const propertyService = serviceFactory.properties;
+    logger.info('🏗️ [TenantAgent] PropertyService criado', { tenantId });
     
     // Buscar propriedade
+    logger.info('🔍 [TenantAgent] Buscando propriedade', { 
+      tenantId, 
+      propertyId: args.propertyId 
+    });
     const property = await propertyService.get(args.propertyId) as Property;
+    logger.info('🔍 [TenantAgent] Propriedade obtida', { 
+      tenantId, 
+      propertyId: args.propertyId,
+      hasProperty: !!property,
+      propertyName: property?.name
+    });
     if (!property) {
       return {
         success: false,
@@ -1878,15 +1894,54 @@ export async function generateQuote(args: GenerateQuoteArgs, tenantId: string): 
     // Calcular preços dinâmicos
     let quote;
     try {
+      logger.info('🧮 [TenantAgent] Iniciando cálculo detalhado', {
+        tenantId,
+        propertyId: args.propertyId,
+        propertyBasePrice: property.basePrice,
+        hasCustomPricing: !!(property.customPricing && Object.keys(property.customPricing).length > 0),
+        customPricingCount: property.customPricing ? Object.keys(property.customPricing).length : 0
+      });
+      
       quote = calculateDetailedQuote(property, checkInDate, checkOutDate, args.guests, args.paymentMethod);
+      
       if (!quote) {
+        logger.error('❌ [TenantAgent] calculateDetailedQuote retornou undefined', {
+          tenantId,
+          propertyId: args.propertyId,
+          propertyData: {
+            id: property.id,
+            basePrice: property.basePrice,
+            hasCustomPricing: !!(property.customPricing && Object.keys(property.customPricing).length > 0)
+          }
+        });
         throw new Error('calculateDetailedQuote retornou undefined');
       }
+      
+      logger.info('✅ [TenantAgent] Cálculo detalhado concluído', {
+        tenantId,
+        propertyId: args.propertyId,
+        nights: quote.nights,
+        totalPrice: quote.pricing?.totalPrice,
+        customPricingSurcharge: quote.surcharges?.customPricing
+      });
     } catch (error) {
       logger.error('❌ [TenantAgent] Erro em calculateDetailedQuote', {
         tenantId,
         propertyId: args.propertyId,
-        error: error instanceof Error ? error.message : 'Unknown error'
+        error: error instanceof Error ? error.message : 'Unknown error',
+        stack: error instanceof Error ? error.stack?.substring(0, 500) : undefined,
+        propertyData: {
+          id: property?.id,
+          basePrice: property?.basePrice,
+          maxGuests: property?.maxGuests,
+          minimumNights: property?.minimumNights
+        },
+        dateValidation: {
+          checkInDate: checkInDate.toISOString(),
+          checkOutDate: checkOutDate.toISOString(),
+          guests: args.guests,
+          paymentMethod: args.paymentMethod
+        }
       });
       
       return {
@@ -1920,7 +1975,7 @@ export async function generateQuote(args: GenerateQuoteArgs, tenantId: string): 
     logger.info('✅ [TenantAgent] generate_quote concluída', {
       tenantId,
       propertyId: args.propertyId,
-      nights
+      nights: quote.nights
     });
 
     return {
@@ -1938,7 +1993,17 @@ export async function generateQuote(args: GenerateQuoteArgs, tenantId: string): 
   } catch (error) {
     logger.error('❌ [TenantAgent] Erro em generate_quote', {
       tenantId,
-      error: error instanceof Error ? error.message : 'Unknown error'
+      error: error instanceof Error ? error.message : 'Unknown error',
+      errorType: typeof error,
+      errorValue: error,
+      stack: error instanceof Error ? error.stack : undefined,
+      args: args ? {
+        propertyId: args.propertyId,
+        checkIn: args.checkIn,
+        checkOut: args.checkOut,
+        guests: args.guests,
+        paymentMethod: args.paymentMethod
+      } : 'undefined args'
     });
 
     return {
@@ -1959,7 +2024,17 @@ function calculateDetailedQuote(
   guests: number,
   paymentMethod?: string
 ): any {
-  const nights = Math.ceil((checkOut.getTime() - checkIn.getTime()) / (1000 * 60 * 60 * 24));
+  try {
+    logger.info('🧮 [calculateDetailedQuote] Iniciando cálculo', {
+      propertyId: property?.id,
+      basePrice: property?.basePrice,
+      checkIn: checkIn?.toISOString(),
+      checkOut: checkOut?.toISOString(),
+      guests,
+      paymentMethod
+    });
+    
+    const nights = Math.ceil((checkOut.getTime() - checkIn.getTime()) / (1000 * 60 * 60 * 24));
   
   if (nights < (property.minimumNights || 1)) {
     throw new Error(`Estadia mínima de ${property.minimumNights || 1} noite(s)`);
@@ -2057,7 +2132,7 @@ function calculateDetailedQuote(
       weekend: weekendSurcharge,
       holiday: holidaySurcharge,
       seasonal: seasonalSurcharge,
-      customPricing: customPricingSurcharge || 0,
+      customPricing: typeof customPricingSurcharge === 'number' ? customPricingSurcharge : 0,
       payment: paymentSurcharge
     },
     paymentMethod,
@@ -2072,6 +2147,22 @@ function calculateDetailedQuote(
       }
     }
   };
+  } catch (error) {
+    logger.error('❌ [calculateDetailedQuote] Erro no cálculo detalhado', {
+      error: error instanceof Error ? error.message : 'Unknown error',
+      errorType: typeof error,
+      stack: error instanceof Error ? error.stack : undefined,
+      propertyId: property?.id,
+      basePrice: property?.basePrice,
+      checkIn: checkIn?.toISOString(),
+      checkOut: checkOut?.toISOString(),
+      guests,
+      paymentMethod
+    });
+    
+    // Re-throw the error so that the calling function can handle it
+    throw error;
+  }
 }
 
 /**
@@ -4482,7 +4573,7 @@ export async function updateTask(args: UpdateTaskArgs, tenantId: string): Promis
 // ===== FUNÇÕES CRÍTICAS IMPLEMENTADAS =====
 
 // Função para cancelar reserva
-async function cancelReservation(args: CancelReservationArgs, tenantId: string) {
+export async function cancelReservation(args: CancelReservationArgs, tenantId: string) {
   try {
     logger.info('🚫 [CancelReservation] Iniciando cancelamento', {
       tenantId,
@@ -4559,7 +4650,7 @@ async function cancelReservation(args: CancelReservationArgs, tenantId: string) 
 }
 
 // Função para modificar reserva
-async function modifyReservation(args: ModifyReservationArgs, tenantId: string) {
+export async function modifyReservation(args: ModifyReservationArgs, tenantId: string) {
   try {
     logger.info('✏️ [ModifyReservation] Iniciando modificação', {
       tenantId,
