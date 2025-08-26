@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { modifyReservation } from '@/lib/ai/tenant-aware-agent-functions';
 import { logger } from '@/lib/utils/logger';
 
 

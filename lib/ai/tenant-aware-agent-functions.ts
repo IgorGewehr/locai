@@ -99,6 +99,12 @@ interface GenerateQuoteArgs {
   paymentMethod?: string;
 }
 
+interface CheckAvailabilityArgs {
+  propertyId: string;
+  checkIn: string;
+  checkOut: string;
+}
+
 // Função para criar transação financeira
 interface CreateTransactionArgs {
   reservationId: string;
@@ -1914,8 +1920,7 @@ export async function generateQuote(args: GenerateQuoteArgs, tenantId: string): 
     logger.info('✅ [TenantAgent] generate_quote concluída', {
       tenantId,
       propertyId: args.propertyId,
-      totalPrice: quote.totalPrice,
-      nights: quote.nights
+      nights
     });
 
     return {
@@ -1970,6 +1975,7 @@ function calculateDetailedQuote(
   let weekendSurcharge = 0;
   let holidaySurcharge = 0;
   let seasonalSurcharge = 0;
+  let customPricingSurcharge = 0;
   
   const currentDate = new Date(checkIn);
   
@@ -1988,16 +1994,21 @@ function calculateDetailedQuote(
     
     subtotal += dayPrice.finalPrice;
     
-    if (dayPrice.isWeekend && !dayPrice.isHoliday) {
+    if (dayPrice.isWeekend && !dayPrice.isHoliday && dayPrice.reason !== 'Preço customizado') {
       weekendSurcharge += (dayPrice.finalPrice - (property.basePrice || 0));
     }
     
-    if (dayPrice.isHoliday) {
+    if (dayPrice.isHoliday && dayPrice.reason !== 'Preço customizado') {
       holidaySurcharge += (dayPrice.finalPrice - (property.basePrice || 0));
     }
     
-    if (dayPrice.isSeason) {
+    if (dayPrice.isSeason && dayPrice.reason !== 'Preço customizado') {
       seasonalSurcharge += (dayPrice.finalPrice - (property.basePrice || 0));
+    }
+    
+    // Contabilizar custom pricing surcharge
+    if (dayPrice.reason === 'Preço customizado') {
+      customPricingSurcharge += (dayPrice.finalPrice - (property.basePrice || 0));
     }
     
     currentDate.setDate(currentDate.getDate() + 1);
@@ -2046,6 +2057,7 @@ function calculateDetailedQuote(
       weekend: weekendSurcharge,
       holiday: holidaySurcharge,
       seasonal: seasonalSurcharge,
+      customPricing: customPricingSurcharge || 0,
       payment: paymentSurcharge
     },
     paymentMethod,
@@ -4634,7 +4646,7 @@ async function modifyReservation(args: ModifyReservationArgs, tenantId: string) 
 }
 
 // Função para obter políticas
-async function getPolicies(args: GetPoliciesArgs, tenantId: string) {
+export async function getPolicies(args: GetPoliciesArgs, tenantId: string) {
   try {
     logger.info('📋 [GetPolicies] Buscando políticas', {
       tenantId,
@@ -4710,125 +4722,113 @@ async function getPolicies(args: GetPoliciesArgs, tenantId: string) {
 }
 
 // Função para verificar disponibilidade
-async function checkAvailability(args: CheckAvailabilityArgs, tenantId: string) {
+// CORRIGIDA: Agora usa AvailabilityService que é o sistema real de disponibilidade
+export async function checkAvailability(args: CheckAvailabilityArgs, tenantId: string) {
   try {
-    // Definir checkOut padrão (1 noite se não fornecido)
-    const checkOutDate = args.checkOut 
-      ? args.checkOut 
-      : (() => {
-          const date = new Date(args.checkIn);
-          date.setDate(date.getDate() + 1);
-          return date.toISOString().split('T')[0];
-        })();
-
-    logger.info('🔍 [CheckAvailability] Verificando disponibilidade', {
+    logger.info('🔍 [CheckAvailability] Verificando disponibilidade da propriedade', {
       tenantId,
-      propertyId: args.propertyId || 'all',
+      propertyId: args.propertyId,
       checkIn: args.checkIn,
-      checkOut: checkOutDate,
-      guests: args.guests
+      checkOut: args.checkOut
     });
+
+    // Importar o AvailabilityService dinamicamente
+    const { AvailabilityService } = await import('@/lib/services/availability-service');
+    const availabilityService = new AvailabilityService(tenantId);
 
     const serviceFactory = new TenantServiceFactory(tenantId);
     const propertyService = serviceFactory.properties;
-    const reservationService = serviceFactory.reservations;
     
-    // Se propertyId específico fornecido, verificar se existe
-    if (args.propertyId) {
-      const property = await propertyService.get(args.propertyId);
-      if (!property) {
-        return {
-          success: false,
-          error: 'Propriedade não encontrada',
-          tenantId
-        };
-      }
-    }
-
-    // Buscar reservas conflitantes
-    const existingReservations = await reservationService.getAll();
-
-    const checkInDate = new Date(args.checkIn);
-    const checkOutDateObj = new Date(checkOutDate);
-    
-    if (args.propertyId) {
-      // Verificar propriedade específica
-      const conflictingReservations = existingReservations.filter(r => {
-        if (r.propertyId !== args.propertyId) return false;
-        if (r.status === 'cancelled') return false;
-        
-        const resCheckIn = new Date(r.checkIn);
-        const resCheckOut = new Date(r.checkOut);
-        
-        // Verifica sobreposição de datas
-        return !(checkOutDateObj <= resCheckIn || checkInDate >= resCheckOut);
+    // Buscar a propriedade para validações básicas
+    const property = await propertyService.get(args.propertyId);
+    if (!property) {
+      logger.warn('❌ [CheckAvailability] Propriedade não encontrada', {
+        tenantId,
+        propertyId: args.propertyId
       });
-
-      const isAvailable = conflictingReservations.length === 0;
-      
       return {
-        success: true,
-        available: isAvailable,
-        propertyId: args.propertyId,
-        checkIn: args.checkIn,
-        checkOut: checkOutDate,
-        conflicts: conflictingReservations.length,
-        message: isAvailable 
-          ? 'Propriedade disponível para as datas solicitadas!'
-          : 'Propriedade não disponível - há conflito com reservas existentes.',
-        tenantId
-      };
-    } else {
-      // Verificar todas as propriedades disponíveis
-      const allProperties = await propertyService.getAll();
-      const availableProperties = [];
-      
-      for (const property of allProperties) {
-        const conflicts = existingReservations.filter(r => {
-          if (r.propertyId !== property.id) return false;
-          if (r.status === 'cancelled') return false;
-          
-          const resCheckIn = new Date(r.checkIn);
-          const resCheckOut = new Date(r.checkOut);
-          
-          return !(checkOutDateObj <= resCheckIn || checkInDate >= resCheckOut);
-        });
-        
-        if (conflicts.length === 0) {
-          // Verificar se atende aos critérios de hóspedes
-          if (!args.guests || property.maxGuests >= args.guests) {
-            availableProperties.push({
-              id: property.id,
-              name: property.title,
-              maxGuests: property.maxGuests,
-              basePrice: property.basePrice
-            });
-          }
-        }
-      }
-      
-      return {
-        success: true,
-        available: availableProperties.length > 0,
-        availableProperties,
-        totalAvailable: availableProperties.length,
-        checkIn: args.checkIn,
-        checkOut: checkOutDate,
-        guests: args.guests,
-        message: availableProperties.length > 0 
-          ? `Encontrei ${availableProperties.length} propriedade(s) disponível(is) para suas datas!`
-          : 'Não há propriedades disponíveis para as datas solicitadas.',
+        success: false,
+        error: 'Propriedade não encontrada',
         tenantId
       };
     }
 
-    logger.info('✅ [CheckAvailability] Verificação concluída');
+
+    // Converter datas de string para Date
+    const checkInDate = new Date(args.checkIn);
+    const checkOutDate = new Date(args.checkOut);
+    
+    // Validar datas
+    if (isNaN(checkInDate.getTime()) || isNaN(checkOutDate.getTime())) {
+      return {
+        success: false,
+        error: 'Formato de data inválido',
+        tenantId
+      };
+    }
+
+    if (checkInDate >= checkOutDate) {
+      return {
+        success: false,
+        error: 'Data de check-in deve ser anterior à data de check-out',
+        tenantId
+      };
+    }
+
+    // Verificar se a propriedade está ativa
+    if (!property.isActive) {
+      return {
+        success: true,
+        available: false,
+        propertyId: args.propertyId,
+        propertyName: property.title,
+        checkIn: args.checkIn,
+        checkOut: args.checkOut,
+        reason: 'Propriedade não está ativa',
+        message: 'Esta propriedade não está disponível para reservas no momento.',
+        tenantId
+      };
+    }
+
+    // Usar o sistema real de disponibilidade (AvailabilityService)
+    const isAvailable = await availabilityService.checkAvailability(args.propertyId, checkInDate, checkOutDate);
+
+    // Calcular número de noites
+    const totalNights = Math.ceil((checkOutDate.getTime() - checkInDate.getTime()) / (1000 * 60 * 60 * 24));
+    
+    logger.info('✅ [CheckAvailability] Verificação concluída', {
+      tenantId,
+      propertyId: args.propertyId,
+      propertyName: property.title,
+      available: isAvailable,
+      totalNights,
+      dateRange: `${args.checkIn} a ${args.checkOut}`
+    });
+
+    return {
+      success: true,
+      available: isAvailable,
+      propertyId: args.propertyId,
+      propertyName: property.title,
+      checkIn: args.checkIn,
+      checkOut: args.checkOut,
+      totalNights,
+      reason: isAvailable ? null : 'Propriedade não disponível para as datas solicitadas',
+      message: isAvailable 
+        ? `Propriedade "${property.title}" está disponível para as datas solicitadas (${totalNights} noites)!`
+        : `Propriedade "${property.title}" não está disponível para o período de ${args.checkIn} a ${args.checkOut}`,
+      tenantId
+    };
 
   } catch (error) {
-    logger.error('❌ [CheckAvailability] Erro', { error, tenantId });
+    logger.error('❌ [CheckAvailability] Erro ao verificar disponibilidade', { 
+      error: error instanceof Error ? error.message : 'Unknown error',
+      tenantId,
+      propertyId: args.propertyId
+    });
     return {
       success: false,
-      error: 'Erro ao verificar disponibilidade',
+      error: 'Erro ao verificar disponibilidade da propriedade',
       tenantId
     };
   }

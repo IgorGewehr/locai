@@ -33,6 +33,7 @@ import {
 } from '@mui/material';
 import ModernButton from '@/components/atoms/ModernButton';
 import ModernFAB from '@/components/atoms/ModernFAB';
+import PropertyPriceDisplay from '@/components/atoms/PropertyPriceDisplay';
 import {
   Add,
   Search,
@@ -525,12 +526,7 @@ export default function PropertiesPage() {
                       {property.maxGuests}
                     </Typography>
                   </Box>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                    <AttachMoney fontSize="small" color="success" />
-                    <Typography variant="body2" fontWeight={700} color="success.main">
-                      R$ {property.basePrice}
-                    </Typography>
-                  </Box>
+                  <PropertyPriceDisplay property={property} variant="compact" />
                 </Box>
 
                 {/* Additional Info */}

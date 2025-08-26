@@ -3,6 +3,9 @@
 import { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { useTenant } from '@/contexts/TenantContext';
+import PropertyPriceDisplay from '@/components/atoms/PropertyPriceDisplay';
+import PropertyAvailabilityInfo from '@/components/molecules/PropertyAvailabilityInfo';
+import AvailabilityCalendar from '@/components/organisms/AvailabilityCalendar/AvailabilityCalendar';
 import type { Property, Reservation } from '@/lib/types';
 import {
   Box,
@@ -294,22 +297,8 @@ export default function PropertyViewPage() {
           {/* Pricing */}
           <Card sx={{ mb: 3 }}>
             <CardContent>
-              <Typography variant="h6" gutterBottom>
-                Preços e Taxas
-              </Typography>
-              <Divider sx={{ mb: 2 }} />
-              
-              <Box display="flex" alignItems="center" gap={1} mb={2}>
-                <AttachMoney color="primary" />
-                <Box>
-                  <Typography variant="body2" color="text.secondary">
-                    Preço base por noite
-                  </Typography>
-                  <Typography variant="h5" color="primary">
-                    {formatCurrency(property.basePrice || 0)}
-                  </Typography>
-                </Box>
-              </Box>
+              <PropertyPriceDisplay property={property} variant="detailed" />
+              <Divider sx={{ my: 2 }} />
 
               {property.cleaningFee && (
                 <Box mb={1}>
@@ -332,6 +321,13 @@ export default function PropertyViewPage() {
                   Mínimo de noites: {property.minimumNights || 1}
                 </Typography>
               </Box>
+            </CardContent>
+          </Card>
+
+          {/* Availability and Custom Pricing */}
+          <Card sx={{ mb: 3 }}>
+            <CardContent>
+              <PropertyAvailabilityInfo property={property} variant="detailed" />
             </CardContent>
           </Card>
 
@@ -493,52 +489,70 @@ export default function PropertyViewPage() {
               )}
             </CardContent>
           </Card>
-
-          {/* Additional Images */}
-          {property.photos && property.photos.length > 1 && (
-            <Card>
-              <CardContent>
-                <Typography variant="h6" gutterBottom>
-                  Galeria de Fotos
-                </Typography>
-                <Divider sx={{ mb: 2 }} />
-                
-                <ImageList variant="masonry" cols={2} gap={8}>
-                  {property.photos.slice(1).map((photo, index) => (
-                    <ImageListItem key={photo.id || index}>
-                      <img
-                        src={(() => {
-                          // Safe image URL validation for gallery
-                          if (photo.url && photo.url.startsWith('http')) {
-                            return photo.url;
-                          }
-                          // Use data URI to avoid network requests
-                          return `data:image/svg+xml;base64,${btoa(`<svg width="300" height="200" xmlns="http://www.w3.org/2000/svg"><rect width="300" height="200" fill="#e5e7eb"/><text text-anchor="middle" x="150" y="100" font-family="Arial" font-size="18" fill="#9ca3af">Foto ${index + 2}</text></svg>`)}`;
-                        })()}
-                        alt={photo.caption || `Foto ${index + 2}`}
-                        loading="lazy"
-                        onError={(e) => {
-                          const target = e.target as HTMLImageElement;
-                          // Prevent infinite loop by removing the error handler
-                          target.onerror = null;
-                          // Use data URI as fallback
-                          target.src = `data:image/svg+xml;base64,${btoa(`<svg width="300" height="200" xmlns="http://www.w3.org/2000/svg"><rect width="300" height="200" fill="#f5f5f5"/><text text-anchor="middle" x="150" y="100" font-family="Arial" font-size="18" fill="#9ca3af">Erro ${index + 2}</text></svg>`)}`;
-                        }}
-                        style={{
-                          borderRadius: '8px',
-                          width: '100%',
-                          height: 'auto',
-                          backgroundColor: '#f5f5f5',
-                        }}
-                      />
-                    </ImageListItem>
-                  ))}
-                </ImageList>
-              </CardContent>
-            </Card>
-          )}
         </Grid>
       </Grid>
+
+      {/* Availability Calendar */}
+      <Box mt={4}>
+        <Card>
+          <CardContent>
+            <AvailabilityCalendar
+              propertyId={propertyId}
+              height={500}
+              showLegend={true}
+              showStats={true}
+            />
+          </CardContent>
+        </Card>
+      </Box>
+
+      {/* Additional Images */}
+      {property.photos && property.photos.length > 1 && (
+        <Box mt={4}>
+          <Card>
+            <CardContent>
+              <Typography variant="h6" gutterBottom>
+                Galeria de Fotos
+              </Typography>
+              <Divider sx={{ mb: 2 }} />
+              
+              <ImageList variant="masonry" cols={4} gap={8}>
+                {property.photos.slice(1).map((photo, index) => (
+                  <ImageListItem key={`photo-${index}`}>
+                    <img
+                      src={(() => {
+                        // Safe image URL validation for gallery
+                        if (typeof photo === 'string' && photo.startsWith('http')) {
+                          return photo;
+                        } else if (typeof photo === 'object' && photo.url && photo.url.startsWith('http')) {
+                          return photo.url;
+                        }
+                        // Use data URI to avoid network requests
+                        return `data:image/svg+xml;base64,${btoa(`<svg width="300" height="200" xmlns="http://www.w3.org/2000/svg"><rect width="300" height="200" fill="#e5e7eb"/><text text-anchor="middle" x="150" y="100" font-family="Arial" font-size="18" fill="#9ca3af">Foto ${index + 2}</text></svg>`)}`;
+                      })()}
+                      alt={typeof photo === 'object' ? (photo.caption || `Foto ${index + 2}`) : `Foto ${index + 2}`}
+                      loading="lazy"
+                      onError={(e) => {
+                        const target = e.target as HTMLImageElement;
+                        // Prevent infinite loop by removing the error handler
+                        target.onerror = null;
+                        // Use data URI as fallback
+                        target.src = `data:image/svg+xml;base64,${btoa(`<svg width="300" height="200" xmlns="http://www.w3.org/2000/svg"><rect width="300" height="200" fill="#f5f5f5"/><text text-anchor="middle" x="150" y="100" font-family="Arial" font-size="18" fill="#9ca3af">Erro ${index + 2}</text></svg>`)}`;
+                      }}
+                      style={{
+                        borderRadius: '8px',
+                        width: '100%',
+                        height: 'auto',
+                        backgroundColor: '#f5f5f5',
+                      }}
+                    />
+                  </ImageListItem>
+                ))}
+              </ImageList>
+            </CardContent>
+          </Card>
+        </Box>
+      )}
     </Box>
   );
 }
