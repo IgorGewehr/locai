@@ -282,7 +282,7 @@ export default function TopAppBar({ onLogout }: TopAppBarProps) {
             >
               <img 
                 src="/logo.jpg" 
-                alt="AlugZap Logo" 
+                alt="AlugaZap Logo" 
                 width={32} 
                 height={32}
                 style={{ 
@@ -302,7 +302,7 @@ export default function TopAppBar({ onLogout }: TopAppBarProps) {
                 display: { xs: 'none', sm: 'block' },
               }}
             >
-              AlugZap
+              AlugaZap
             </Typography>
           </Box>
 
@@ -732,7 +732,7 @@ export default function TopAppBar({ onLogout }: TopAppBarProps) {
             >
               <img 
                 src="/logo.jpg" 
-                alt="AlugZap Logo" 
+                alt="AlugaZap Logo" 
                 width={28} 
                 height={28}
                 style={{ 
@@ -751,7 +751,7 @@ export default function TopAppBar({ onLogout }: TopAppBarProps) {
                 fontSize: '1.125rem',
               }}
             >
-              AlugZap
+              AlugaZap
             </Typography>
           </Box>
           <IconButton 

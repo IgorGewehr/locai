@@ -231,7 +231,7 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
                 textShadow: '0 1px 2px rgba(0, 0, 0, 0.2)',
               }}
             >
-              AluGazap
+              AlugaZap
             </Typography>
             <Typography 
               variant="caption" 

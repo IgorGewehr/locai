@@ -599,7 +599,7 @@ export default function EnhancedFooter({ config, onScrollTop }: EnhancedFooterPr
                 © 2024 {config.contactInfo.businessName}. Todos os direitos reservados.
               </Typography>
               <Chip
-                label="Powered by AluGazap"
+                label="Powered by AlugaZap"
                 size="small"
                 sx={{
                   bgcolor: alpha('#06b6d4', 0.1),

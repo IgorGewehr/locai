@@ -4940,7 +4940,8 @@ export async function checkAvailability(args: CheckAvailabilityArgs, tenantId: s
 
     // 🎯 VERIFICAÇÃO INTELIGENTE DE DISPONIBILIDADE
     // Foco apenas em conflitos reais (reservas confirmadas)
-    const reservationService = factory.createService<Reservation>('reservations');
+    const serviceFactory = new TenantServiceFactory(tenantId);
+    const reservationService = serviceFactory.reservations;
     
     const conflictingReservations = await reservationService.getMany([
       { field: 'propertyId', operator: '==', value: property.id },

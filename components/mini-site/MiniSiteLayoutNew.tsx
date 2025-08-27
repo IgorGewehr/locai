@@ -409,7 +409,7 @@ export default function MiniSiteLayoutNew({ config, children }: MiniSiteLayoutNe
                 © {new Date().getFullYear()} {config?.contactInfo?.businessName || ''}. Todos os direitos reservados.
               </Typography>
               <Typography variant="body2" sx={{ opacity: 0.7 }}>
-                Powered by AluGazap
+                Powered by AlugaZap
               </Typography>
             </Stack>
           </Stack>
