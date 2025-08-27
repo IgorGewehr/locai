@@ -34,8 +34,8 @@ const rateLimiter = new Map<string, {
 // Configuracoes otimizadas
 const CACHE_TTL = 30000; // 30s cache
 const RATE_LIMIT_WINDOW = 5000; // 5s entre chamadas
-const MAX_INIT_ATTEMPTS = 5; // Maximo 5 tentativas de inicializacao
-const INIT_COOLDOWN = 30000; // 30 segundos entre inicializacoes
+const MAX_INIT_ATTEMPTS = 10; // Maximo 10 tentativas de inicializacao
+const INIT_COOLDOWN = 10000; // 10 segundos entre inicializacoes
 
 /**
  * GET /api/whatsapp/session
@@ -207,6 +207,13 @@ export async function POST(request: NextRequest) {
         rateLimiter.delete(tenantId);
       } else if (rateLimit.attempts >= MAX_INIT_ATTEMPTS) {
         // Apenas bloquear se ainda dentro do cooldown E excedeu tentativas
+        logger.warn('⚠️ [Session] Rate limit atingido', {
+          tenantId: tenantId.substring(0, 8) + '***',
+          attempts: rateLimit.attempts,
+          timeSinceLastAttempt: Math.ceil(timeSinceLastAttempt / 1000) + 's',
+          retryAfter: Math.ceil((INIT_COOLDOWN - timeSinceLastAttempt) / 1000) + 's'
+        });
+
         return NextResponse.json({
           success: false,
           error: 'Too many initialization attempts',
@@ -214,7 +221,10 @@ export async function POST(request: NextRequest) {
             connected: false,
             status: 'rate_limited',
             retryAfter: Math.ceil((INIT_COOLDOWN - timeSinceLastAttempt) / 1000),
-            message: 'Please wait before trying again'
+            attempts: rateLimit.attempts,
+            maxAttempts: MAX_INIT_ATTEMPTS,
+            message: `Aguarde ${Math.ceil((INIT_COOLDOWN - timeSinceLastAttempt) / 1000)} segundos antes de tentar novamente`,
+            resetUrl: '/api/whatsapp/session/reset'
           }
         }, { status: 429 });
       }

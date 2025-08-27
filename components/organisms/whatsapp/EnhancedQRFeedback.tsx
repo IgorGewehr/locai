@@ -37,6 +37,9 @@ import {
   Schedule,
   ConnectedTv,
 } from '@mui/icons-material';
+import { WhatsAppConnectionFeedback } from '@/components/molecules/whatsapp/WhatsAppConnectionFeedback';
+import { useWhatsAppConnectionStatus } from '@/lib/hooks/useWhatsAppConnectionStatus';
+import { WhatsAppConnectionToast } from '@/components/atoms/WhatsAppConnectionToast';
 
 interface QRStatus {
   connected: boolean;
@@ -73,6 +76,18 @@ export function EnhancedQRFeedback({
   const [connectionProgress, setConnectionProgress] = useState(0);
   const [timeElapsed, setTimeElapsed] = useState(0);
   const [userInteracted, setUserInteracted] = useState(false);
+  const [lastQRCode, setLastQRCode] = useState<string | null>(null);
+  const [connectionAttempts, setConnectionAttempts] = useState(0);
+  const [showConnectionToast, setShowConnectionToast] = useState(false);
+  
+  // 🚀 HOOK DE MONITORAMENTO EM TEMPO REAL
+  const {
+    status: realtimeStatus,
+    isConnecting: realtimeConnecting,
+    onConnectionChange,
+    startMonitoring,
+    stopMonitoring
+  } = useWhatsAppConnectionStatus(apiClient);
 
   // 🎯 MELHORIAS VISUAIS SEM MICROSERVICE
   const [pulseAnimation, setPulseAnimation] = useState(true);
@@ -108,27 +123,48 @@ export function EnhancedQRFeedback({
     }
   }, [scanStep]);
 
-  // Simular progresso inteligente baseado no estado
+  // ✨ FEEDBACK INTELIGENTE - detecta mudanças no QR e status de conexão
   const updateScanStep = useCallback((status: QRStatus) => {
     if (status.connected) {
       setScanStep('success');
       setConnectionProgress(100);
       setUserInteracted(true);
-    } else if (status.qrCode) {
-      if (scanStep === 'loading') {
-        setScanStep('qr_ready');
-        setEstimatedTime(45); // 45s para escanear + conectar
+      setEstimatedTime(0);
+      return;
+    } 
+    
+    if (status.qrCode) {
+      // Detectar novo QR code
+      if (status.qrCode !== lastQRCode) {
+        setLastQRCode(status.qrCode);
+        if (scanStep === 'loading') {
+          setScanStep('qr_ready');
+          setEstimatedTime(45);
+          setConnectionAttempts(0);
+        }
       }
       
-      // Detectar quando usuário começou a escanear (baseado em timeElapsed)
-      if (timeElapsed > 10 && scanStep === 'qr_ready' && !userInteracted) {
+      // Auto-detectar início do scan baseado no tempo e interação
+      if (timeElapsed > 8 && scanStep === 'qr_ready' && !userInteracted) {
         setScanStep('scanning');
         setUserInteracted(true);
-        setConnectionProgress(20);
-        setEstimatedTime(15); // 15s para finalizar conexão
+        setConnectionProgress(25);
+        setEstimatedTime(20);
+        setConnectionAttempts(prev => prev + 1);
       }
+      
+      // Detectar provável conexão em andamento
+      if (scanStep === 'scanning' && timeElapsed > 15 && connectionProgress < 70) {
+        setScanStep('connecting');
+        setConnectionProgress(75);
+        setEstimatedTime(10);
+      }
+    } else if (!status.connected && scanStep !== 'loading') {
+      // Reset se perdeu QR code mas não está conectado
+      setScanStep('loading');
+      setConnectionProgress(0);
     }
-  }, [scanStep, timeElapsed, userInteracted]);
+  }, [scanStep, timeElapsed, userInteracted, lastQRCode, connectionProgress]);
 
   const checkStatus = useCallback(async (): Promise<void> => {
     try {
@@ -136,21 +172,37 @@ export function EnhancedQRFeedback({
       
       if (response.data?.success) {
         const status: QRStatus = response.data.data;
+        const wasConnected = qrStatus?.connected;
+        
         setQrStatus(status);
         setError(null);
         
         updateScanStep(status);
 
-        if (status.connected && status.phoneNumber) {
-          onSuccess(status.phoneNumber, status.businessName || 'WhatsApp Business');
+        // 🎉 FEEDBACK IMEDIATO ao conectar
+        if (status.connected && status.phoneNumber && !wasConnected) {
+          // Mostrar feedback visual de sucesso
+          setScanStep('success');
+          setConnectionProgress(100);
+          
+          // Chamar onSuccess após um breve delay para mostrar animação
+          setTimeout(() => {
+            onSuccess(status.phoneNumber, status.businessName || 'WhatsApp Business');
+          }, 1500);
           return;
         }
+      } else {
+        // Lidar com resposta não bem-sucedida
+        setError(response.data?.error || 'Falha ao verificar status');
       }
     } catch (error: any) {
-      setError(error.message);
-      setScanStep('loading');
+      console.error('Erro ao verificar status:', error);
+      setError(error.message || 'Erro de conexão');
+      if (scanStep !== 'success') {
+        setScanStep('loading');
+      }
     }
-  }, [apiClient, onSuccess, updateScanStep]);
+  }, [apiClient, onSuccess, updateScanStep, qrStatus?.connected, scanStep]);
 
   const initializeSession = useCallback(async () => {
     setLoading(true);
@@ -159,35 +211,96 @@ export function EnhancedQRFeedback({
     setConnectionProgress(0);
     setTimeElapsed(0);
     setUserInteracted(false);
+    setLastQRCode(null);
+    setConnectionAttempts(0);
     
     try {
       const response = await apiClient.post('/api/whatsapp/session');
       
       if (response.data?.success) {
-        // Iniciar polling
-        const pollInterval = setInterval(checkStatus, 3000);
+        // ⚡ POLLING OTIMIZADO com feedback imediato
+        const pollInterval = setInterval(() => {
+          checkStatus().catch(err => {
+            console.error('Polling error:', err);
+          });
+        }, 2000); // 2s para feedback mais rápido
+        
+        // Primeira verificação imediata
+        setTimeout(() => checkStatus(), 500);
         
         return () => clearInterval(pollInterval);
+      } else {
+        throw new Error(response.data?.error || 'Falha ao inicializar sessão');
       }
     } catch (error: any) {
-      setError(error.message);
+      console.error('Erro ao inicializar:', error);
+      setError(error.message || 'Erro ao inicializar sessão');
       setScanStep('loading');
     } finally {
       setLoading(false);
     }
   }, [apiClient, checkStatus]);
 
+  // 🎉 FEEDBACK INSTANTÂNEO DE CONEXÃO
+  useEffect(() => {
+    const removeListener = onConnectionChange((connected: boolean) => {
+      if (connected) {
+        console.log('🎉 CONEXÃO DETECTADA INSTANTANEAMENTE!');
+        setScanStep('success');
+        setConnectionProgress(100);
+        setUserInteracted(true);
+        
+        // 🚀 MOSTRAR TOAST IMEDIATAMENTE
+        setShowConnectionToast(true);
+        
+        // Usar dados em tempo real se disponíveis
+        if (realtimeStatus?.phoneNumber) {
+          setTimeout(() => {
+            onSuccess(
+              realtimeStatus.phoneNumber!,
+              realtimeStatus.businessName || 'WhatsApp Business'
+            );
+          }, 2000); // Aumentado para 2s para mostrar toast
+        }
+      }
+    });
+    
+    return removeListener;
+  }, [onConnectionChange, onSuccess, realtimeStatus]);
+  
+  // Sincronizar com status em tempo real
+  useEffect(() => {
+    if (realtimeStatus) {
+      setQrStatus(realtimeStatus);
+      
+      // Priorizar status em tempo real sobre polling manual
+      if (realtimeStatus.connected && scanStep !== 'success') {
+        setScanStep('success');
+        setConnectionProgress(100);
+      } else if (realtimeStatus.qrCode && scanStep === 'loading') {
+        setScanStep('qr_ready');
+      }
+    }
+  }, [realtimeStatus, scanStep]);
+
   // Effect para inicializar quando dialog abre
   useEffect(() => {
     if (open) {
+      // Iniciar monitoramento em tempo real
+      startMonitoring();
+      
       const cleanup = initializeSession();
-      return cleanup;
+      return () => {
+        cleanup?.();
+        stopMonitoring();
+      };
     } else {
       setScanStep('loading');
       setTimeElapsed(0);
       setUserInteracted(false);
+      stopMonitoring();
     }
-  }, [open, initializeSession]);
+  }, [open, initializeSession, startMonitoring, stopMonitoring]);
 
   // 🎨 COMPONENTES VISUAIS MELHORADOS
 
@@ -227,15 +340,36 @@ export function EnhancedQRFeedback({
               }}
             />
             
-            {/* Overlay com instruções animadas */}
-            <Fade in={scanStep === 'qr_ready'}>
+            {/* Overlay com instruções animadas e feedback de progresso */}
+            <Fade in={scanStep === 'qr_ready' || scanStep === 'scanning'}>
               <Box sx={{ mt: 2 }}>
-                <Typography variant="h6" color="primary" gutterBottom>
-                  📱 Escaneie com seu WhatsApp
-                </Typography>
-                <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-                  Abra o WhatsApp → Mais opções (⋮) → Dispositivos conectados → Conectar dispositivo
-                </Typography>
+                {scanStep === 'qr_ready' && (
+                  <>
+                    <Typography variant="h6" color="primary" gutterBottom>
+                      📱 Escaneie com seu WhatsApp
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                      Abra o WhatsApp → Mais opções (⋮) → Dispositivos conectados → Conectar dispositivo
+                    </Typography>
+                    <Typography variant="caption" color="warning.main" sx={{ 
+                      display: 'flex', alignItems: 'center', gap: 0.5, justifyContent: 'center'
+                    }}>
+                      <Schedule fontSize="small" />
+                      Aguardando scan... ({Math.max(0, estimatedTime - timeElapsed)}s)
+                    </Typography>
+                  </>
+                )}
+                
+                {scanStep === 'scanning' && (
+                  <Box sx={{ textAlign: 'center' }}>
+                    <Typography variant="h6" color="success.main" gutterBottom>
+                      ✨ Detectamos o scan!
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      Conectando ao WhatsApp...
+                    </Typography>
+                  </Box>
+                )}
               </Box>
             </Fade>
           </>
@@ -257,27 +391,65 @@ export function EnhancedQRFeedback({
       );
     }
 
-    if (scanStep === 'scanning') {
+    if (scanStep === 'scanning' || scanStep === 'connecting') {
       return (
         <Box sx={{ textAlign: 'center', mt: 2 }}>
           <LinearProgress 
             variant="determinate" 
             value={connectionProgress}
             sx={{ 
+              height: 10, 
+              borderRadius: 5,
+              bgcolor: 'rgba(37, 211, 102, 0.1)',
+              '& .MuiLinearProgress-bar': {
+                bgcolor: '#25D366',
+                borderRadius: 5,
+                transition: 'width 0.3s ease-in-out'
+              }
+            }}
+          />
+          <Typography variant="body1" sx={{ mt: 1, fontWeight: 'bold' }}>
+            {scanStep === 'scanning' ? '🔄 Escaneando...' : '🔗 Conectando...'} {Math.round(connectionProgress)}%
+          </Typography>
+          <Typography variant="caption" color="success.main" sx={{ display: 'block', mt: 0.5 }}>
+            ⏱️ Tempo restante: ~{Math.max(0, estimatedTime - timeElapsed)}s
+          </Typography>
+          
+          {connectionAttempts > 0 && (
+            <Typography variant="caption" color="info.main" sx={{ display: 'block', mt: 0.5 }}>
+              💫 Tentativa #{connectionAttempts}
+            </Typography>
+          )}
+        </Box>
+      );
+    }
+    
+    if (scanStep === 'success') {
+      return (
+        <Box sx={{ textAlign: 'center', mt: 2 }}>
+          <CheckCircleIcon 
+            sx={{ 
+              fontSize: 60, 
+              color: 'success.main',
+              animation: 'bounce 0.6s ease-in-out'
+            }} 
+          />
+          <Typography variant="h5" color="success.main" sx={{ mt: 1, fontWeight: 'bold' }}>
+            🎉 Conectado!
+          </Typography>
+          <LinearProgress 
+            variant="determinate" 
+            value={100}
+            sx={{ 
               height: 8, 
               borderRadius: 4,
               bgcolor: 'rgba(37, 211, 102, 0.1)',
               '& .MuiLinearProgress-bar': {
                 bgcolor: '#25D366'
-              }
+              },
+              mt: 1
             }}
           />
-          <Typography variant="body2" sx={{ mt: 1 }}>
-            Conectando... {Math.round(connectionProgress)}%
-          </Typography>
-          <Typography variant="caption" color="text.secondary">
-            Tempo estimado: ~{Math.max(0, estimatedTime - timeElapsed)}s
-          </Typography>
         </Box>
       );
     }
@@ -310,7 +482,7 @@ export function EnhancedQRFeedback({
           return { 
             label: 'Conectando...', 
             color: 'warning' as const, 
-            icon: <ConnectedTv /> 
+            icon: <CircularProgress size={16} /> 
           };
         case 'success':
           return { 
@@ -341,6 +513,11 @@ export function EnhancedQRFeedback({
             '0%': { opacity: 1 },
             '50%': { opacity: 0.7 },
             '100%': { opacity: 1 }
+          },
+          '@keyframes bounce': {
+            '0%, 20%, 50%, 80%, 100%': { transform: 'translateY(0)' },
+            '40%': { transform: 'translateY(-10px)' },
+            '60%': { transform: 'translateY(-5px)' }
           }
         }}
       />
@@ -374,11 +551,29 @@ export function EnhancedQRFeedback({
         </Stack>
 
         {timeElapsed > 0 && (
-          <Box sx={{ mt: 2, p: 1, bgcolor: 'primary.main', color: 'primary.contrastText', borderRadius: 1 }}>
-            <Typography variant="caption" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-              <Schedule fontSize="small" />
-              Tempo decorrido: {Math.floor(timeElapsed / 60)}m {timeElapsed % 60}s
-            </Typography>
+          <Box sx={{ mt: 2, p: 1.5, bgcolor: 'primary.main', color: 'primary.contrastText', borderRadius: 1 }}>
+            <Stack direction="row" spacing={2} alignItems="center">
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                <Schedule fontSize="small" />
+                <Typography variant="caption">
+                  {Math.floor(timeElapsed / 60)}m {timeElapsed % 60}s
+                </Typography>
+              </Box>
+              
+              {scanStep === 'scanning' && (
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                  <SignalWifi4Bar fontSize="small" />
+                  <Typography variant="caption">Escaneando</Typography>
+                </Box>
+              )}
+              
+              {connectionAttempts > 0 && (
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                  <SpeedIcon fontSize="small" />
+                  <Typography variant="caption">#{connectionAttempts}</Typography>
+                </Box>
+              )}
+            </Stack>
           </Box>
         )}
       </CardContent>
@@ -439,13 +634,15 @@ export function EnhancedQRFeedback({
           <QRCodeDisplay />
           <ProgressIndicator />
           
-          {scanStep === 'success' && qrStatus?.connected && (
-            <Alert severity="success" icon={<CheckCircleIcon />}>
-              <Typography variant="subtitle2">✅ Conectado com sucesso!</Typography>
-              <Typography variant="body2">📞 {qrStatus.phoneNumber}</Typography>
-              <Typography variant="body2">🏢 {qrStatus.businessName}</Typography>
-            </Alert>
-          )}
+          {/* 🎯 FEEDBACK VISUAL MELHORADO - Prioriza status em tempo real */}
+          <WhatsAppConnectionFeedback
+            connected={realtimeStatus?.connected || qrStatus?.connected || false}
+            phoneNumber={realtimeStatus?.phoneNumber || qrStatus?.phoneNumber}
+            businessName={realtimeStatus?.businessName || qrStatus?.businessName}
+            scanStep={scanStep}
+            timeElapsed={timeElapsed}
+            connectionProgress={connectionProgress}
+          />
 
           {(scanStep === 'qr_ready' || scanStep === 'scanning') && <InstructionsCard />}
         </Stack>
@@ -471,6 +668,16 @@ export function EnhancedQRFeedback({
           </Button>
         )}
       </DialogActions>
+      
+      {/* 🚀 TOAST DE CONEXÃO INSTANTÂNEA */}
+      <WhatsAppConnectionToast
+        show={showConnectionToast}
+        connected={realtimeStatus?.connected || qrStatus?.connected || false}
+        phoneNumber={realtimeStatus?.phoneNumber || qrStatus?.phoneNumber}
+        businessName={realtimeStatus?.businessName || qrStatus?.businessName}
+        onClose={() => setShowConnectionToast(false)}
+        autoHideDuration={3000}
+      />
     </Dialog>
   );
 }
