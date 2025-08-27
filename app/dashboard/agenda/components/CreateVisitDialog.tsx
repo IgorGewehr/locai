@@ -154,10 +154,13 @@ export default function CreateVisitDialog({ open, onClose, onSuccess }: CreateVi
       setLoading(true);
       setError(null);
 
-      // Combine date and time
-      const scheduledDateTime = new Date(selectedDate);
-      scheduledDateTime.setHours(selectedTime.getHours());
-      scheduledDateTime.setMinutes(selectedTime.getMinutes());
+      // Combine date and time - Corrigir timezone mantendo data original
+      // Extrair data do ISO string para manter consistência com input original
+      const dateStr = selectedDate.toISOString().split('T')[0]; // YYYY-MM-DD original
+      const timeStr = selectedTime.toTimeString().slice(0, 5); // HH:MM
+      
+      // Criar data no timezone local brasileiro
+      const scheduledDateTime = new Date(dateStr + 'T' + timeStr + ':00-03:00');
 
       const visitData = {
         clientName,

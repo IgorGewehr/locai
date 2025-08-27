@@ -40,6 +40,7 @@ import PropertyMediaUpload from '@/components/organisms/PropertyMediaUpload/Prop
 import AvailabilityCalendar from '@/components/organisms/AvailabilityCalendar/AvailabilityCalendar';
 import { Property, PricingRule, PropertyCategory, PaymentMethod, PropertyStatus, PropertyType } from '@/lib/types/property';
 import { useTenant } from '@/contexts/TenantContext';
+import { ApiClient } from '@/lib/utils/api-client';
 
 interface TabPanelProps {
   children?: React.ReactNode;
@@ -192,16 +193,10 @@ export default function EditPropertyPage() {
         dataKeys: Object.keys(cleanData),
       });
 
-      const response = await fetch(`/api/properties/${propertyId}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          ...cleanData,
-          pricingRules,
-          updatedAt: new Date(),
-        }),
+      const response = await ApiClient.put(`/api/properties/${propertyId}`, {
+        ...cleanData,
+        pricingRules,
+        updatedAt: new Date(),
       });
 
       const responseData = await response.json();

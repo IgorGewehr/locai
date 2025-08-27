@@ -117,8 +117,7 @@ export default function SettingsPage() {
       setSuccess('🎉 WhatsApp conectado com sucesso!');
       setConnectionProgress(100);
       
-      // Clear local QR session since we're connected
-      setLocalQrSession(null);
+      // Connection successful - context will handle cleanup
       
       // Close dialog after a brief success display
       setTimeout(() => {

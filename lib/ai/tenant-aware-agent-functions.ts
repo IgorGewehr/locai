@@ -560,8 +560,9 @@ export async function calculatePrice(args: CalculatePriceArgs, tenantId: string)
     });
 
     // Calcular preço usando preços dinâmicos (fim de semana, feriados, customizados)
-    const checkInDate = new Date(checkIn);
-    const checkOutDate = new Date(checkOut);
+    // Corrigir timezone para manter a data local
+    const checkInDate = new Date(checkIn + 'T12:00:00-03:00');
+    const checkOutDate = new Date(checkOut + 'T12:00:00-03:00');
     const nights = Math.ceil((checkOutDate.getTime() - checkInDate.getTime()) / (1000 * 60 * 60 * 24));
     
     // Verificar se número de hóspedes excede a capacidade
@@ -759,9 +760,10 @@ export async function createReservation(args: CreateReservationArgs, tenantId: s
       };
     }
 
-    // Validar datas
-    const checkInDate = new Date(args.checkIn);
-    const checkOutDate = new Date(args.checkOut);
+    // Validar datas - Corrigir timezone para manter a data local
+    // Usar formato ISO com timezone local para evitar conversão UTC
+    const checkInDate = new Date(args.checkIn + 'T12:00:00-03:00');
+    const checkOutDate = new Date(args.checkOut + 'T12:00:00-03:00');
     
     if (checkInDate >= checkOutDate) {
       return {
@@ -4902,9 +4904,9 @@ export async function checkAvailability(args: CheckAvailabilityArgs, tenantId: s
       propertyId: property.id
     });
 
-    // Converter datas de string para Date
-    const checkInDate = new Date(args.checkIn);
-    const checkOutDate = new Date(args.checkOut);
+    // Converter datas de string para Date - Corrigir timezone
+    const checkInDate = new Date(args.checkIn + 'T12:00:00-03:00');
+    const checkOutDate = new Date(args.checkOut + 'T12:00:00-03:00');
     
     // Validar datas
     if (isNaN(checkInDate.getTime()) || isNaN(checkOutDate.getTime())) {
@@ -5016,6 +5018,115 @@ export async function checkAvailability(args: CheckAvailabilityArgs, tenantId: s
   }
 }
 
+// Função para agendar reunião/evento geral
+export async function scheduleMeeting(args: any, tenantId: string) {
+  try {
+    logger.info('🤝 [ScheduleMeeting] Agendando reunião', {
+      tenantId: tenantId.substring(0, 8) + '***',
+      clientName: args.clientName,
+      title: args.title,
+      scheduledDate: args.scheduledDate,
+      scheduledTime: args.scheduledTime
+    });
+
+    const serviceFactory = new TenantServiceFactory(tenantId);
+    const meetingService = serviceFactory.createService('meetings');
+
+    // Validar campos obrigatórios
+    if (!args.clientName || !args.scheduledDate || !args.scheduledTime || !args.title) {
+      return {
+        success: false,
+        error: 'Campos obrigatórios: clientName, scheduledDate, scheduledTime, title',
+        tenantId
+      };
+    }
+
+    // Corrigir timezone para data/hora
+    const dateStr = args.scheduledDate; // YYYY-MM-DD
+    const timeStr = args.scheduledTime; // HH:MM
+    const scheduledDateTime = new Date(dateStr + 'T' + timeStr + ':00-03:00');
+
+    // Validar se a data não está no passado
+    const now = new Date();
+    if (scheduledDateTime < now) {
+      return {
+        success: false,
+        error: 'Não é possível agendar reunião no passado',
+        tenantId
+      };
+    }
+
+    // Preparar dados da reunião - simplificado para contato futuro
+    const meetingData = {
+      tenantId,
+      clientName: args.clientName,
+      clientPhone: args.clientPhone || null,
+      clientEmail: args.clientEmail || null,
+      scheduledDate: scheduledDateTime,
+      scheduledTime: args.scheduledTime,
+      duration: args.duration || 60, // padrão 60 minutos
+      title: args.title,
+      description: args.description || '',
+      type: args.type || 'follow_up', // padrão follow-up para contato
+      status: 'scheduled', // status inicial
+      requiresConfirmation: true,
+      confirmedByClient: false,
+      confirmedByAgent: false,
+      source: 'ai_agent',
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      agentNotes: `Contato agendado via IA: ${args.description || 'Cliente solicitou contato nesta data/hora'}`,
+      participants: []
+    };
+
+    // Criar reunião no banco
+    const meetingId = await meetingService.create(meetingData);
+
+    // Gerar mensagem de confirmação simplificada
+    const confirmationMessage = `✅ Contato agendado com sucesso!
+📅 Data: ${scheduledDateTime.toLocaleDateString('pt-BR')}
+🕒 Horário: ${args.scheduledTime}
+👤 Cliente: ${args.clientName}
+📋 Assunto: ${args.title}
+${args.clientPhone ? `📱 Telefone: ${args.clientPhone}` : ''}
+
+ID do agendamento: ${meetingId}`;
+
+    logger.info('✅ [ScheduleMeeting] Reunião criada com sucesso', {
+      tenantId: tenantId.substring(0, 8) + '***',
+      meetingId,
+      scheduledDateTime: scheduledDateTime.toISOString(),
+      clientName: args.clientName
+    });
+
+    return {
+      success: true,
+      data: {
+        meetingId,
+        scheduledDate: args.scheduledDate,
+        scheduledTime: args.scheduledTime,
+        title: args.title,
+        clientName: args.clientName,
+        confirmationMessage
+      },
+      tenantId
+    };
+
+  } catch (error) {
+    logger.error('❌ [ScheduleMeeting] Erro ao agendar reunião', {
+      error: error instanceof Error ? error.message : 'Unknown error',
+      tenantId: tenantId.substring(0, 8) + '***',
+      args
+    });
+
+    return {
+      success: false,
+      error: 'Erro ao agendar reunião. Tente novamente.',
+      tenantId
+    };
+  }
+}
+
 // Executar função baseada no nome
 export async function executeTenantAwareFunction(
   functionName: string, 
@@ -5099,6 +5210,9 @@ export async function executeTenantAwareFunction(
     
     case 'check_availability':
       return await checkAvailability(args, tenantId);
+    
+    case 'schedule_meeting':
+      return await scheduleMeeting(args, tenantId);
     
     default:
       logger.error('❌ [TenantAgent] Função desconhecida', {
