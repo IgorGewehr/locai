@@ -96,10 +96,32 @@ export async function PUT(
       )
     }
 
+    // Log dados recebidos para debug
+    console.log('[API] Update data received:', {
+      hasPhotos: !!body.photos,
+      photosCount: body.photos?.length || 0,
+      photosTypes: body.photos?.map(p => typeof p),
+      hasVideos: !!body.videos,
+      videosCount: body.videos?.length || 0
+    });
+
     // Validate update data
     const validationResult = UpdatePropertySchema.safeParse(body)
     
     if (!validationResult.success) {
+      console.error('[API] Validation failed:', {
+        error: validationResult.error.flatten(),
+        receivedData: {
+          title: body.title,
+          photosCount: body.photos?.length || 0,
+          photosData: body.photos?.map(p => ({
+            type: typeof p,
+            hasUrl: !!(typeof p === 'string' ? p : p?.url),
+            structure: typeof p === 'object' ? Object.keys(p || {}) : 'string'
+          }))
+        }
+      });
+      
       return NextResponse.json(
         { 
           error: 'Dados inválidos', 
@@ -133,23 +155,36 @@ export async function PUT(
       finalUpdate.amenities = validatedData.amenities.map(a => sanitizeUserInput(a))
     }
     
-    // ✅ MÍDIAS: Processar como arrays simples (como Dart)
+    // ✅ MÍDIAS: Processar tanto objetos PropertyPhoto/Video quanto strings
     if (validatedData.photos && Array.isArray(validatedData.photos)) {
-      // Filtrar apenas URLs inválidas, manter URLs válidas intactas
-      finalUpdate.photos = validatedData.photos.filter(url => 
-        typeof url === 'string' && 
-        url.trim().length > 0 &&
-        (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('blob:'))
-      )
+      console.log('[API] Processing photos:', {
+        count: validatedData.photos.length,
+        types: validatedData.photos.map(p => typeof p),
+        sample: validatedData.photos[0]
+      });
+
+      // Aceitar tanto objetos PropertyPhoto quanto strings
+      finalUpdate.photos = validatedData.photos.filter(photo => {
+        const url = typeof photo === 'string' ? photo : photo?.url;
+        return url && 
+          url.trim().length > 0 &&
+          (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('blob:'));
+      });
     }
     
     if (validatedData.videos && Array.isArray(validatedData.videos)) {
-      // Filtrar apenas URLs inválidas, manter URLs válidas intactas  
-      finalUpdate.videos = validatedData.videos.filter(url =>
-        typeof url === 'string' && 
-        url.trim().length > 0 &&
-        (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('blob:'))
-      )
+      console.log('[API] Processing videos:', {
+        count: validatedData.videos.length,
+        types: validatedData.videos.map(v => typeof v)
+      });
+
+      // Aceitar tanto objetos PropertyVideo quanto strings
+      finalUpdate.videos = validatedData.videos.filter(video => {
+        const url = typeof video === 'string' ? video : video?.url;
+        return url && 
+          url.trim().length > 0 &&
+          (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('blob:'));
+      });
     }
 
     // ✅ UPDATE DIRETO: Uma única operação como no Dart

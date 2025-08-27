@@ -41,27 +41,34 @@ export default function PropertyMediaUpload() {
   const videos: PropertyVideo[] = watch('videos') || [];
   const { uploadFiles, uploading, progress, error, clearError } = useMediaUpload();
   
-  console.log('🎬 [PropertyMediaUpload] Component rendered', {
-    photosCount: photos.length,
-    videosCount: videos.length,
-    uploading,
-    hasError: !!error,
-    progress
-  });
   const [selectedMedia, setSelectedMedia] = useState<PropertyPhoto | PropertyVideo | null>(null);
   const [captionDialogOpen, setCaptionDialogOpen] = useState(false);
   const [tempCaption, setTempCaption] = useState('');
 
+  // Create local SVG placeholder for images
+  const createImagePlaceholder = (text: string, width: number = 164, height: number = 164) => {
+    const svg = `
+      <svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">
+        <rect width="100%" height="100%" fill="#e5e7eb"/>
+        <text x="50%" y="50%" font-family="Arial, sans-serif" font-size="14" 
+              fill="#9ca3af" text-anchor="middle" dominant-baseline="middle">
+          ${text}
+        </text>
+      </svg>
+    `;
+    return `data:image/svg+xml;base64,${btoa(svg)}`;
+  };
+
   // Cleanup blob URLs on unmount
   useEffect(() => {
     return () => {
-      photos.forEach(photo => {
-        if (photo.url.startsWith('blob:')) {
+      photos?.forEach(photo => {
+        if (photo?.url?.startsWith('blob:')) {
           URL.revokeObjectURL(photo.url);
         }
       });
-      videos.forEach(video => {
-        if (video.url.startsWith('blob:')) {
+      videos?.forEach(video => {
+        if (video?.url?.startsWith('blob:')) {
           URL.revokeObjectURL(video.url);
         }
       });
@@ -86,7 +93,6 @@ export default function PropertyMediaUpload() {
     });
     
     try {
-      console.log('🚀 [PropertyMediaUpload] Clearing error and starting upload process');
       clearError();
       
       // Create immediate preview with blob URLs
@@ -102,9 +108,9 @@ export default function PropertyMediaUpload() {
       console.log('🖼️ [PropertyMediaUpload] Created preview photos', {
         previewCount: previewPhotos.length,
         previewData: previewPhotos.map(p => ({
-          id: p.id,
-          filename: p.filename,
-          isBlobUrl: p.url.startsWith('blob:')
+          id: p?.id,
+          filename: p?.filename,
+          isBlobUrl: p?.url?.startsWith('blob:') || false
         }))
       });
       
@@ -132,12 +138,12 @@ export default function PropertyMediaUpload() {
 
       // VALIDATION: Only accept Firebase URLs
       const validFirebasePhotos = finalPhotos.filter(photo => 
-        photo.url.includes('firebasestorage.googleapis.com')
+        photo?.url?.includes('firebasestorage.googleapis.com') || false
       );
 
       if (validFirebasePhotos.length !== finalPhotos.length) {
         console.warn('[PropertyMediaUpload] Some photos do not have valid Firebase URLs');
-        console.warn('Invalid photos:', finalPhotos.filter(p => !p.url.includes('firebasestorage.googleapis.com')));
+        console.warn('Invalid photos:', finalPhotos.filter(p => !p?.url?.includes('firebasestorage.googleapis.com')));
       }
 
       console.log('[PropertyMediaUpload] Updating form with Firebase URLs');
@@ -148,12 +154,12 @@ export default function PropertyMediaUpload() {
       // Verify Firebase URLs are properly set
       console.log('[PropertyMediaUpload] Final photos validation:', {
         totalPhotos: updatedPhotos.length,
-        firebaseUrls: updatedPhotos.filter(p => p.url.includes('firebasestorage.googleapis.com')).length,
-        blobUrls: updatedPhotos.filter(p => p.url.startsWith('blob:')).length,
+        firebaseUrls: updatedPhotos.filter(p => p?.url?.includes('firebasestorage.googleapis.com')).length,
+        blobUrls: updatedPhotos.filter(p => p?.url?.startsWith('blob:')).length,
         photoData: updatedPhotos.map(p => ({
-          id: p.id,
-          filename: p.filename,
-          urlType: p.url.includes('firebasestorage.googleapis.com') ? 'firebase' : (p.url.startsWith('blob:') ? 'blob' : 'other')
+          id: p?.id,
+          filename: p?.filename,
+          urlType: p?.url?.includes('firebasestorage.googleapis.com') ? 'firebase' : (p?.url?.startsWith('blob:') ? 'blob' : 'other')
         }))
       });
       
@@ -233,7 +239,7 @@ export default function PropertyMediaUpload() {
   const handleDeletePhoto = (index: number) => {
     const photoToDelete = photos[index];
     // Cleanup blob URL if it exists
-    if (photoToDelete?.url.startsWith('blob:')) {
+    if (photoToDelete?.url?.startsWith('blob:')) {
       URL.revokeObjectURL(photoToDelete.url);
     }
     
@@ -244,7 +250,7 @@ export default function PropertyMediaUpload() {
   const handleDeleteVideo = (index: number) => {
     const videoToDelete = videos[index];
     // Cleanup blob URL if it exists
-    if (videoToDelete?.url.startsWith('blob:')) {
+    if (videoToDelete?.url?.startsWith('blob:')) {
       URL.revokeObjectURL(videoToDelete.url);
     }
     
@@ -357,20 +363,20 @@ export default function PropertyMediaUpload() {
                   </Typography>
                   <ImageList sx={{ width: '100%', height: 300 }} cols={4} rowHeight={164}>
                     {photos.map((photo: PropertyPhoto, index: number) => (
-                      <ImageListItem key={photo.id}>
+                      <ImageListItem key={photo?.id || `photo-${index}`}>
                         <img
                           src={(() => {
                             // Safe image URL validation for uploads
-                            if (photo.url && (photo.url.startsWith('http') || photo.url.startsWith('blob:'))) {
+                            if (photo?.url && (photo.url.startsWith('http') || photo.url.startsWith('blob:'))) {
                               return photo.url;
                             }
-                            return `https://via.placeholder.com/164x164/e5e7eb/9ca3af?text=Foto+${index + 1}`;
+                            return createImagePlaceholder(`Foto ${index + 1}`);
                           })()}
-                          alt={photo.caption || `Foto ${index + 1}`}
+                          alt={photo?.caption || `Foto ${index + 1}`}
                           loading="lazy"
                           onError={(e) => {
                             const target = e.target as HTMLImageElement;
-                            target.src = `https://via.placeholder.com/164x164/e5e7eb/9ca3af?text=Erro+${index + 1}`;
+                            target.src = createImagePlaceholder(`Erro ${index + 1}`);
                           }}
                           style={{ 
                             height: '164px', 
@@ -379,8 +385,8 @@ export default function PropertyMediaUpload() {
                           }}
                         />
                         <ImageListItemBar
-                          title={photo.caption || `Foto ${index + 1}`}
-                          subtitle={photo.isMain ? 'Foto principal' : ''}
+                          title={photo?.caption || `Foto ${index + 1}`}
+                          subtitle={photo?.isMain ? 'Foto principal' : ''}
                           actionIcon={
                             <Box>
                               <IconButton

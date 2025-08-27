@@ -16,21 +16,21 @@ export const MediaUrlSchema = z.string()
 
 // DEPRECATED: Schemas antigos mantidos para compatibilidade
 export const PropertyPhotoSchema = z.object({
-  id: z.string(),
+  id: z.string().optional(),
   url: MediaUrlSchema, // ✅ Usa validação simplificada
-  filename: z.string(),
-  order: z.number().int().min(0),
-  isMain: z.boolean(),
+  filename: z.string().optional(),
+  order: z.number().int().min(0).optional(),
+  isMain: z.boolean().optional(),
   caption: z.string().optional(),
 })
 
 export const PropertyVideoSchema = z.object({
-  id: z.string(),
+  id: z.string().optional(),
   url: MediaUrlSchema, // ✅ Usa validação simplificada
-  filename: z.string(),
-  title: z.string(),
+  filename: z.string().optional(),
+  title: z.string().optional(),
   duration: z.number().optional(),
-  order: z.number().int().min(0),
+  order: z.number().int().min(0).optional(),
   thumbnail: z.string().optional(),
 })
 
@@ -129,12 +129,22 @@ export const CreatePropertySchema = z.object({
 
 // Schema for updating a property (all fields optional with flexible media)
 export const UpdatePropertySchema = CreatePropertySchema.partial().extend({
-  // ✅ NOVA ESTRUTURA SIMPLIFICADA (como Dart)
-  photos: z.array(MediaUrlSchema)
+  // ✅ SCHEMA FLEXÍVEL: Aceita tanto objetos PropertyPhoto/Video quanto strings
+  photos: z.array(
+    z.union([
+      MediaUrlSchema, // String URL
+      PropertyPhotoSchema, // Objeto PropertyPhoto completo
+    ])
+  )
     .max(30, 'Máximo de 30 fotos')
     .optional(),
   
-  videos: z.array(MediaUrlSchema)
+  videos: z.array(
+    z.union([
+      MediaUrlSchema, // String URL  
+      PropertyVideoSchema, // Objeto PropertyVideo completo
+    ])
+  )
     .max(5, 'Máximo de 5 vídeos')
     .optional(),
   

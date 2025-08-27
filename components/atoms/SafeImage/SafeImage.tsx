@@ -35,17 +35,29 @@ export default function SafeImage({
   const [imageState, setImageState] = useState<'loading' | 'loaded' | 'error'>('loading');
   const [currentSrc, setCurrentSrc] = useState(src);
 
+  // Create local SVG placeholder
+  const createLocalPlaceholder = (text: string, w: number = 400, h: number = 300) => {
+    const svg = `
+      <svg width="${w}" height="${h}" xmlns="http://www.w3.org/2000/svg">
+        <rect width="100%" height="100%" fill="#e5e7eb"/>
+        <text x="50%" y="50%" font-family="Arial, sans-serif" font-size="16" 
+              fill="#9ca3af" text-anchor="middle" dominant-baseline="middle">
+          ${text}
+        </text>
+      </svg>
+    `;
+    return `data:image/svg+xml;base64,${btoa(svg)}`;
+  };
+
   // Validate and get safe image URL
   const getSafeImageUrl = (url?: string) => {
-    if (url && (url.startsWith('http') || url.startsWith('data:'))) {
+    if (url && (url.startsWith('http') || url.startsWith('data:') || url.startsWith('blob:'))) {
       return url;
     }
-    // Create placeholder with encoded text
-    const encodedText = encodeURIComponent(fallbackText);
-    const dimensions = typeof width === 'number' && typeof height === 'number' 
-      ? `${width}x${height}` 
-      : '400x300';
-    return `https://via.placeholder.com/${dimensions}/e5e7eb/9ca3af?text=${encodedText}`;
+    // Create local SVG placeholder
+    const w = typeof width === 'number' ? width : 400;
+    const h = typeof height === 'number' ? height : 300;
+    return createLocalPlaceholder(fallbackText, w, h);
   };
 
   const handleImageLoad = () => {

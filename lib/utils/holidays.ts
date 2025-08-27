@@ -44,8 +44,15 @@ export const BRAZILIAN_HOLIDAYS = [
 ];
 
 export function isHoliday(date: Date): boolean {
-  const dateString = format(date, 'yyyy-MM-dd');
-  return BRAZILIAN_HOLIDAYS.some(holiday => holiday.date === dateString);
+  if (!date || !(date instanceof Date) || isNaN(date.getTime())) {
+    return false;
+  }
+  try {
+    const dateString = format(date, 'yyyy-MM-dd');
+    return BRAZILIAN_HOLIDAYS.some(holiday => holiday.date === dateString);
+  } catch (error) {
+    return false;
+  }
 }
 
 export function getHolidayName(date: Date): string | null {

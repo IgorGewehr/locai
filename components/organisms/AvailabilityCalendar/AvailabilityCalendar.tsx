@@ -140,6 +140,7 @@ export default function AvailabilityCalendar({
       logger.warn('❌ Cannot load calendar data - missing requirements', {
         hasService: !!availabilityService,
         propertyId: propertyId || 'undefined',
+        propertyIdType: typeof propertyId,
         tenantId
       });
       return;

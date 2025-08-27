@@ -121,12 +121,6 @@ export default function EditPropertyPage() {
     const loadProperty = async () => {
       if (!propertyId || !services || !isReady) return;
       
-      console.log('🏠 [EditPropertyPage] Loading property data', {
-        propertyId,
-        hasServices: !!services,
-        tenantId,
-        isReady
-      });
       
       try {
         const property = await services.properties.get(propertyId);
@@ -162,43 +156,45 @@ export default function EditPropertyPage() {
     setError(null);
 
     try {
-      // ✅ NOVA ABORDAGEM: Filtros simples como no Dart
-      // Aceitar qualquer URL válida, sem restrições específicas do Firebase
-      const validPhotos = Array.isArray(data.photos) 
-        ? data.photos.filter(url => 
-            typeof url === 'string' && 
-            url.trim().length > 0 &&
-            (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('blob:'))
-          )
-        : [];
+      // ✅ CORREÇÃO: Manter mesma lógica da criação - preservar objetos PropertyPhoto/PropertyVideo
+      console.log('[EditProperty] Processing media data...', {
+        photosCount: data.photos?.length || 0,
+        videosCount: data.videos?.length || 0,
+        photosTypes: data.photos?.map(p => typeof p),
+        videosTypes: data.videos?.map(v => typeof v)
+      });
 
-      const validVideos = Array.isArray(data.videos)
-        ? data.videos.filter(url =>
-            typeof url === 'string' && 
-            url.trim().length > 0 &&
-            (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('blob:'))
-          )
-        : [];
+      // Filtrar apenas URLs Firebase válidas, mantendo estrutura de objeto
+      const validPhotos = (data.photos || []).filter(photo => {
+        const url = typeof photo === 'string' ? photo : photo?.url;
+        return url && url.includes('firebasestorage.googleapis.com');
+      });
 
-      // ✅ NOVA ABORDAGEM: Preparação direta como no Dart
+      const validVideos = (data.videos || []).filter(video => {
+        const url = typeof video === 'string' ? video : video?.url;
+        return url && url.includes('firebasestorage.googleapis.com');
+      });
+
+      console.log('[EditProperty] Filtered media:', {
+        validPhotosCount: validPhotos.length,
+        validVideosCount: validVideos.length,
+        photosData: validPhotos.map(p => ({
+          type: typeof p,
+          hasUrl: !!(typeof p === 'string' ? p : p?.url),
+          isFirebase: (typeof p === 'string' ? p : p?.url)?.includes('firebasestorage.googleapis.com')
+        }))
+      });
+
+      // ✅ CORREÇÃO: Manter consistência com criação - preservar objetos completos
       const cleanData: any = {
         ...data,
-        photos: validPhotos,     // Arrays simples de URLs
-        videos: validVideos,     // Arrays simples de URLs
+        photos: validPhotos,        // Manter objetos PropertyPhoto completos
+        videos: validVideos,        // Manter objetos PropertyVideo completos
         amenities: data.amenities || [],
         unavailableDates: data.unavailableDates || [],
         customPricing: data.customPricing || {},
       };
 
-      // ✅ Debug simplificado
-      console.log('🔍 [Sofia Media Fix] Dados sendo enviados:', {
-        totalPhotos: Array.isArray(data.photos) ? data.photos.length : 0,
-        validPhotos: validPhotos.length,
-        totalVideos: Array.isArray(data.videos) ? data.videos.length : 0,
-        validVideos: validVideos.length,
-        samplePhotoUrl: validPhotos[0],
-        dataKeys: Object.keys(cleanData),
-      });
 
       const response = await ApiClient.put(`/api/properties/${propertyId}`, {
         ...cleanData,
