@@ -133,7 +133,7 @@ export default function EnhancedFooter({ config, onScrollTop }: EnhancedFooterPr
     <Box
       component="footer"
       sx={{
-        background: `linear-gradient(135deg, ${alpha(config.theme.primaryColor, 0.05)}, ${alpha(config.theme.accentColor, 0.02)})`,
+        background: `linear-gradient(135deg, ${alpha('#06b6d4', 0.05)}, ${alpha('#22c55e', 0.02)})`,
         backdropFilter: 'blur(20px)',
         borderTop: `1px solid ${alpha(theme.palette.divider, 0.1)}`,
         position: 'relative',
@@ -149,7 +149,7 @@ export default function EnhancedFooter({ config, onScrollTop }: EnhancedFooterPr
           right: -100,
           width: 200,
           height: 200,
-          background: `radial-gradient(circle, ${alpha(config.theme.primaryColor, 0.1)}, transparent)`,
+          background: `radial-gradient(circle, ${alpha('#06b6d4', 0.1)}, transparent)`,
           borderRadius: '50%',
           filter: 'blur(40px)',
         }}
@@ -161,7 +161,7 @@ export default function EnhancedFooter({ config, onScrollTop }: EnhancedFooterPr
           left: -50,
           width: 150,
           height: 150,
-          background: `radial-gradient(circle, ${alpha(config.theme.accentColor, 0.1)}, transparent)`,
+          background: `radial-gradient(circle, ${alpha('#22c55e', 0.1)}, transparent)`,
           borderRadius: '50%',
           filter: 'blur(30px)',
         }}
@@ -181,7 +181,7 @@ export default function EnhancedFooter({ config, onScrollTop }: EnhancedFooterPr
               sx={{
                 fontWeight: 700,
                 mb: 2,
-                background: `linear-gradient(135deg, ${config.theme.primaryColor}, ${config.theme.accentColor})`,
+                background: `linear-gradient(135deg, ${'#06b6d4'}, ${'#22c55e'})`,
                 WebkitBackgroundClip: 'text',
                 WebkitTextFillColor: 'transparent',
                 backgroundClip: 'text',
@@ -201,7 +201,7 @@ export default function EnhancedFooter({ config, onScrollTop }: EnhancedFooterPr
                   mx: 'auto',
                   borderRadius: 3,
                   '& .MuiAlert-icon': {
-                    color: config.theme.primaryColor,
+                    color: '#06b6d4',
                   },
                 }}
               >
@@ -231,7 +231,7 @@ export default function EnhancedFooter({ config, onScrollTop }: EnhancedFooterPr
                   InputProps={{
                     startAdornment: (
                       <InputAdornment position="start">
-                        <Email sx={{ color: config.theme.primaryColor }} />
+                        <Email sx={{ color: '#06b6d4' }} />
                       </InputAdornment>
                     ),
                   }}
@@ -241,10 +241,10 @@ export default function EnhancedFooter({ config, onScrollTop }: EnhancedFooterPr
                       bgcolor: alpha(theme.palette.background.paper, 0.8),
                       backdropFilter: 'blur(10px)',
                       '&:hover fieldset': {
-                        borderColor: config.theme.primaryColor,
+                        borderColor: '#06b6d4',
                       },
                       '&.Mui-focused fieldset': {
-                        borderColor: config.theme.primaryColor,
+                        borderColor: '#06b6d4',
                       },
                     },
                   }}
@@ -259,11 +259,11 @@ export default function EnhancedFooter({ config, onScrollTop }: EnhancedFooterPr
                     borderRadius: 3,
                     px: 4,
                     minWidth: 140,
-                    background: `linear-gradient(135deg, ${config.theme.primaryColor}, ${config.theme.accentColor})`,
+                    background: `linear-gradient(135deg, ${'#06b6d4'}, ${'#22c55e'})`,
                     '&:hover': {
-                      background: `linear-gradient(135deg, ${config.theme.primaryColor}, ${config.theme.accentColor})`,
+                      background: `linear-gradient(135deg, ${'#06b6d4'}, ${'#22c55e'})`,
                       transform: 'translateY(-2px)',
-                      boxShadow: `0 8px 24px ${alpha(config.theme.primaryColor, 0.3)}`,
+                      boxShadow: `0 8px 24px ${alpha('#06b6d4', 0.3)}`,
                     },
                     transition: 'all 0.3s ease',
                   }}
@@ -290,7 +290,7 @@ export default function EnhancedFooter({ config, onScrollTop }: EnhancedFooterPr
                   fontWeight: 700,
                   textAlign: 'center',
                   mb: 4,
-                  color: config.theme.primaryColor,
+                  color: '#06b6d4',
                 }}
               >
                 O que nossos clientes dizem
@@ -326,7 +326,7 @@ export default function EnhancedFooter({ config, onScrollTop }: EnhancedFooterPr
                                 sx={{
                                   width: 48,
                                   height: 48,
-                                  bgcolor: config.theme.primaryColor,
+                                  bgcolor: '#06b6d4',
                                 }}
                               >
                                 {testimonial.name.charAt(0)}
@@ -337,7 +337,7 @@ export default function EnhancedFooter({ config, onScrollTop }: EnhancedFooterPr
                                     {testimonial.name}
                                   </Typography>
                                   {testimonial.verified && (
-                                    <Verified sx={{ fontSize: 16, color: config.theme.primaryColor }} />
+                                    <Verified sx={{ fontSize: 16, color: '#06b6d4' }} />
                                   )}
                                 </Stack>
                                 <Typography variant="caption" color="text.secondary">
@@ -349,7 +349,7 @@ export default function EnhancedFooter({ config, onScrollTop }: EnhancedFooterPr
                               value={testimonial.rating}
                               readOnly
                               size="small"
-                              sx={{ color: config.theme.primaryColor }}
+                              sx={{ color: '#06b6d4' }}
                             />
                             <Typography variant="body2" color="text.secondary">
                               "{testimonial.comment}"
@@ -406,14 +406,14 @@ export default function EnhancedFooter({ config, onScrollTop }: EnhancedFooterPr
 
                   <Stack spacing={2}>
                     <Stack direction="row" alignItems="center" spacing={1}>
-                      <WhatsApp sx={{ color: config.theme.primaryColor }} />
+                      <WhatsApp sx={{ color: '#06b6d4' }} />
                       <Typography variant="body2">
                         +55 {config.contactInfo.whatsappNumber}
                       </Typography>
                     </Stack>
                     {config.contactInfo.email && (
                       <Stack direction="row" alignItems="center" spacing={1}>
-                        <Email sx={{ color: config.theme.primaryColor }} />
+                        <Email sx={{ color: '#06b6d4' }} />
                         <Typography variant="body2">
                           {config.contactInfo.email}
                         </Typography>
@@ -457,7 +457,7 @@ export default function EnhancedFooter({ config, onScrollTop }: EnhancedFooterPr
                 transition={{ duration: 0.5, delay: 0.1 }}
                 viewport={{ once: true }}
               >
-                <Typography variant="h6" fontWeight={700} sx={{ mb: 2, color: config.theme.primaryColor }}>
+                <Typography variant="h6" fontWeight={700} sx={{ mb: 2, color: '#06b6d4' }}>
                   Links Rápidos
                 </Typography>
                 <Stack spacing={1}>
@@ -469,7 +469,7 @@ export default function EnhancedFooter({ config, onScrollTop }: EnhancedFooterPr
                       sx={{
                         color: 'text.secondary',
                         '&:hover': {
-                          color: config.theme.primaryColor,
+                          color: '#06b6d4',
                           transform: 'translateX(4px)',
                         },
                         transition: 'all 0.3s ease',
@@ -490,13 +490,13 @@ export default function EnhancedFooter({ config, onScrollTop }: EnhancedFooterPr
                 transition={{ duration: 0.5, delay: 0.2 }}
                 viewport={{ once: true }}
               >
-                <Typography variant="h6" fontWeight={700} sx={{ mb: 2, color: config.theme.primaryColor }}>
+                <Typography variant="h6" fontWeight={700} sx={{ mb: 2, color: '#06b6d4' }}>
                   Nossos Serviços
                 </Typography>
                 <Stack spacing={1}>
                   {services.map((service) => (
                     <Stack key={service.name} direction="row" alignItems="center" spacing={1}>
-                      <Box sx={{ color: config.theme.primaryColor, fontSize: 16 }}>
+                      <Box sx={{ color: '#06b6d4', fontSize: 16 }}>
                         {service.icon}
                       </Box>
                       <Typography variant="body2" color="text.secondary">
@@ -516,24 +516,24 @@ export default function EnhancedFooter({ config, onScrollTop }: EnhancedFooterPr
                 transition={{ duration: 0.5, delay: 0.3 }}
                 viewport={{ once: true }}
               >
-                <Typography variant="h6" fontWeight={700} sx={{ mb: 2, color: config.theme.primaryColor }}>
+                <Typography variant="h6" fontWeight={700} sx={{ mb: 2, color: '#06b6d4' }}>
                   Confiança & Segurança
                 </Typography>
                 <Stack spacing={2}>
                   <Stack direction="row" alignItems="center" spacing={1}>
-                    <Security sx={{ color: config.theme.primaryColor }} />
+                    <Security sx={{ color: '#06b6d4' }} />
                     <Typography variant="body2">
                       Transações 100% Seguras
                     </Typography>
                   </Stack>
                   <Stack direction="row" alignItems="center" spacing={1}>
-                    <Schedule sx={{ color: config.theme.primaryColor }} />
+                    <Schedule sx={{ color: '#06b6d4' }} />
                     <Typography variant="body2">
                       Suporte 24/7
                     </Typography>
                   </Stack>
                   <Stack direction="row" alignItems="center" spacing={1}>
-                    <Verified sx={{ color: config.theme.primaryColor }} />
+                    <Verified sx={{ color: '#06b6d4' }} />
                     <Typography variant="body2">
                       Imóveis Verificados
                     </Typography>
@@ -547,11 +547,11 @@ export default function EnhancedFooter({ config, onScrollTop }: EnhancedFooterPr
                           sx={{
                             p: 2,
                             textAlign: 'center',
-                            bgcolor: alpha(config.theme.primaryColor, 0.05),
+                            bgcolor: alpha('#06b6d4', 0.05),
                             borderRadius: 2,
                           }}
                         >
-                          <Typography variant="h6" fontWeight={700} color={config.theme.primaryColor}>
+                          <Typography variant="h6" fontWeight={700} color={'#06b6d4'}>
                             500+
                           </Typography>
                           <Typography variant="caption" color="text.secondary">
@@ -564,11 +564,11 @@ export default function EnhancedFooter({ config, onScrollTop }: EnhancedFooterPr
                           sx={{
                             p: 2,
                             textAlign: 'center',
-                            bgcolor: alpha(config.theme.accentColor, 0.05),
+                            bgcolor: alpha('#22c55e', 0.05),
                             borderRadius: 2,
                           }}
                         >
-                          <Typography variant="h6" fontWeight={700} color={config.theme.accentColor}>
+                          <Typography variant="h6" fontWeight={700} color={'#22c55e'}>
                             4.9★
                           </Typography>
                           <Typography variant="caption" color="text.secondary">
@@ -599,11 +599,11 @@ export default function EnhancedFooter({ config, onScrollTop }: EnhancedFooterPr
                 © 2024 {config.contactInfo.businessName}. Todos os direitos reservados.
               </Typography>
               <Chip
-                label="Powered by LocAI"
+                label="Powered by AluGazap"
                 size="small"
                 sx={{
-                  bgcolor: alpha(config.theme.primaryColor, 0.1),
-                  color: config.theme.primaryColor,
+                  bgcolor: alpha('#06b6d4', 0.1),
+                  color: '#06b6d4',
                   fontWeight: 600,
                 }}
               />
@@ -617,10 +617,10 @@ export default function EnhancedFooter({ config, onScrollTop }: EnhancedFooterPr
                 <IconButton
                   onClick={onScrollTop}
                   sx={{
-                    bgcolor: alpha(config.theme.primaryColor, 0.1),
-                    color: config.theme.primaryColor,
+                    bgcolor: alpha('#06b6d4', 0.1),
+                    color: '#06b6d4',
                     '&:hover': {
-                      bgcolor: config.theme.primaryColor,
+                      bgcolor: '#06b6d4',
                       color: 'white',
                       transform: 'translateY(-2px)',
                     },

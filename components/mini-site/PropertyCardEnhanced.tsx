@@ -125,7 +125,7 @@ export default function PropertyCardEnhanced({
           boxShadow: `0 8px 32px ${alpha(theme.palette.common.black, 0.1)}`,
           '&:hover': {
             transform: 'translateY(-8px) rotateX(5deg)',
-            boxShadow: `0 20px 60px ${alpha(config.theme.primaryColor, 0.2)}`,
+            boxShadow: `0 20px 60px ${alpha('#06b6d4', 0.2)}`,
             '& .property-image': {
               transform: 'scale(1.1)',
             },
@@ -149,12 +149,12 @@ export default function PropertyCardEnhanced({
       case 'gradient':
         return {
           ...baseStyles,
-          background: `linear-gradient(135deg, ${alpha(config.theme.primaryColor, 0.1)}, ${alpha(config.theme.accentColor, 0.05)})`,
-          border: `1px solid ${alpha(config.theme.primaryColor, 0.2)}`,
+          background: `linear-gradient(135deg, ${alpha('#06b6d4', 0.1)}, ${alpha('#22c55e', 0.05)})`,
+          border: `1px solid ${alpha('#06b6d4', 0.2)}`,
           '&:hover': {
             transform: 'translateY(-8px) scale(1.02)',
-            background: `linear-gradient(135deg, ${alpha(config.theme.primaryColor, 0.15)}, ${alpha(config.theme.accentColor, 0.08)})`,
-            boxShadow: `0 20px 40px ${alpha(config.theme.primaryColor, 0.2)}`,
+            background: `linear-gradient(135deg, ${alpha('#06b6d4', 0.15)}, ${alpha('#22c55e', 0.08)})`,
+            boxShadow: `0 20px 40px ${alpha('#06b6d4', 0.2)}`,
           },
         };
 
@@ -164,7 +164,7 @@ export default function PropertyCardEnhanced({
           boxShadow: 'none',
           border: `1px solid ${theme.palette.divider}`,
           '&:hover': {
-            borderColor: config.theme.primaryColor,
+            borderColor: '#06b6d4',
             '& .property-image': {
               filter: 'brightness(1.1)',
             },
@@ -534,7 +534,7 @@ export default function PropertyCardEnhanced({
                   variant="h6"
                   sx={{
                     fontWeight: 700,
-                    color: config.theme.primaryColor,
+                    color: '#06b6d4',
                   }}
                 >
                   {formatPrice(property.pricing.basePrice)}
@@ -627,11 +627,11 @@ export default function PropertyCardEnhanced({
                           size="small"
                           icon={amenityConfig?.icon}
                           sx={{
-                            bgcolor: alpha(amenityConfig?.color || config.theme.primaryColor, 0.1),
-                            color: amenityConfig?.color || config.theme.primaryColor,
+                            bgcolor: alpha(amenityConfig?.color || '#06b6d4', 0.1),
+                            color: amenityConfig?.color || '#06b6d4',
                             fontWeight: 500,
                             '& .MuiChip-icon': {
-                              color: amenityConfig?.color || config.theme.primaryColor,
+                              color: amenityConfig?.color || '#06b6d4',
                             },
                           }}
                         />
@@ -681,11 +681,11 @@ export default function PropertyCardEnhanced({
                   variant="outlined"
                   fullWidth
                   sx={{
-                    borderColor: config.theme.primaryColor,
-                    color: config.theme.primaryColor,
+                    borderColor: '#06b6d4',
+                    color: '#06b6d4',
                     '&:hover': {
-                      borderColor: config.theme.primaryColor,
-                      bgcolor: alpha(config.theme.primaryColor, 0.04),
+                      borderColor: '#06b6d4',
+                      bgcolor: alpha('#06b6d4', 0.04),
                     },
                   }}
                 >

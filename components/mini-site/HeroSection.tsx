@@ -197,7 +197,7 @@ export default function HeroSection({
               height: '100%',
               background: config.heroMedia?.url 
                 ? `url(${config.heroMedia.url})`
-                : `linear-gradient(135deg, ${config.theme.primaryColor}, ${config.theme.accentColor})`,
+                : `linear-gradient(135deg, ${'#06b6d4'}, ${'#22c55e'})`,
               backgroundSize: 'cover',
               backgroundPosition: 'center',
               filter: 'brightness(0.8)',
@@ -289,7 +289,7 @@ export default function HeroSection({
                   InputProps={{
                     startAdornment: (
                       <InputAdornment position="start">
-                        <Search sx={{ color: config.theme.primaryColor, fontSize: 28 }} />
+                        <Search sx={{ color: '#06b6d4', fontSize: 28 }} />
                       </InputAdornment>
                     ),
                     endAdornment: (
@@ -302,10 +302,10 @@ export default function HeroSection({
                             borderRadius: 3,
                             px: 4,
                             py: 1.5,
-                            background: `linear-gradient(135deg, ${config.theme.primaryColor}, ${config.theme.accentColor})`,
+                            background: `linear-gradient(135deg, ${'#06b6d4'}, ${'#22c55e'})`,
                             boxShadow: 'none',
                             '&:hover': {
-                              boxShadow: `0 8px 20px ${alpha(config.theme.primaryColor, 0.3)}`,
+                              boxShadow: `0 8px 20px ${alpha('#06b6d4', 0.3)}`,
                             },
                           }}
                         >
@@ -378,7 +378,7 @@ export default function HeroSection({
                     <Stack alignItems="center" spacing={1}>
                       <Box
                         sx={{
-                          color: config.theme.accentColor,
+                          color: '#22c55e',
                           bgcolor: alpha(theme.palette.common.white, 0.1),
                           borderRadius: 2,
                           p: 1.5,

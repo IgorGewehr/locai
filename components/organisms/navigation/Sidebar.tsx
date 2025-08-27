@@ -130,12 +130,6 @@ const menuItems = [
     icon: <Language />,
     badge: null,
   },
-  {
-    text: 'Métricas',
-    href: '/dashboard/metrics',
-    icon: <TrendingUp />,
-    badge: null,
-  },
   // Teste restaurado para desenvolvimento
 ];
 
@@ -188,7 +182,25 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
         borderBottom: '1px solid rgba(255, 255, 255, 0.06)',
         boxShadow: '0 2px 12px rgba(0, 0, 0, 0.15)',
       }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+        <Box 
+          component={Link}
+          href="/dashboard"
+          sx={{ 
+            display: 'flex', 
+            alignItems: 'center', 
+            gap: 1.5,
+            textDecoration: 'none',
+            cursor: 'pointer',
+            borderRadius: 2,
+            p: 1,
+            mx: -1,
+            transition: 'all 0.2s ease',
+            '&:hover': {
+              transform: 'scale(1.02)',
+              bgcolor: 'rgba(255, 255, 255, 0.05)',
+            }
+          }}
+        >
           <Box
             sx={{
               width: { xs: 36, md: 40 },
@@ -219,7 +231,7 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
                 textShadow: '0 1px 2px rgba(0, 0, 0, 0.2)',
               }}
             >
-              LocAI
+              AluGazap
             </Typography>
             <Typography 
               variant="caption" 
@@ -237,7 +249,17 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
 
       <Divider sx={{ borderColor: 'rgba(255, 255, 255, 0.08)' }} />
 
-      <Box sx={{ flex: 1, overflowY: 'auto', py: 2, ...scrollbarStyles.darkSidebar }}>
+      <Box sx={{ 
+        flex: 1, 
+        overflowY: 'auto', 
+        py: 2,
+        // Scrollbar invisível mas funcional
+        '&::-webkit-scrollbar': {
+          display: 'none'
+        },
+        '-ms-overflow-style': 'none',
+        'scrollbar-width': 'none',
+      }}>
         <List sx={{ px: { xs: 1.5, md: 2 } }}>
           {menuItems.map((item) => (
             <Box key={item.href}>

@@ -20,7 +20,7 @@ export async function GET(request: NextRequest) {
 
     const tenantId = authContext.tenantId
 
-    logger.info('Buscando visitas', {
+    logger.info('🔍 Buscando visitas', {
       tenantId,
       component: 'VisitsAPI',
       operation: 'GET'
@@ -29,6 +29,17 @@ export async function GET(request: NextRequest) {
     const factory = new TenantServiceFactory(tenantId);
     const visitsService = factory.createService<VisitAppointment>('visits');
     const visits = await visitsService.getAll();
+    
+    logger.info('📊 Visitas encontradas', {
+      tenantId,
+      count: visits.length,
+      firstVisit: visits[0] ? {
+        id: visits[0].id,
+        clientName: visits[0].clientName,
+        scheduledDate: visits[0].scheduledDate,
+        status: visits[0].status
+      } : null
+    });
 
     // Ordenar por data mais recente (com validação de datas)
     const sortedVisits = visits.sort((a, b) => {
@@ -141,7 +152,7 @@ export async function POST(request: NextRequest) {
     }
 
     const now = new Date();
-    const visitData = {
+    const visitData: Omit<VisitAppointment, 'id'> = {
       tenantId,
       clientName: body.clientName,
       clientPhone: body.clientPhone,
@@ -149,7 +160,7 @@ export async function POST(request: NextRequest) {
       propertyId: body.propertyId,
       propertyName: body.propertyName || 'Propriedade',
       propertyAddress: body.propertyAddress || '',
-      scheduledDate: parsedDate,
+      scheduledDate: parsedDate.toISOString(), // Convert to ISO string for storage
       scheduledTime: body.scheduledTime,
       duration: body.duration || 60,
       status: VisitStatus.SCHEDULED,
@@ -161,8 +172,19 @@ export async function POST(request: NextRequest) {
       updatedAt: now
     };
 
+    logger.info('📝 Creating visit with data:', { visitData });
+
     const visitId = await visitsService.create(visitData);
+    
+    logger.info('✅ Visit created with ID:', { visitId, tenantId });
+    
     const newVisit = await visitsService.get(visitId);
+    
+    logger.info('📤 Retrieved created visit:', { 
+      visitId, 
+      hasVisit: !!newVisit,
+      visitStatus: newVisit?.status 
+    });
 
     return NextResponse.json({
       success: true,

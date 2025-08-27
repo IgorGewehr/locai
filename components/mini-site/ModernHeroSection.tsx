@@ -62,9 +62,9 @@ export default function ModernHeroSection({
         position: 'relative',
         minHeight: { xs: '60vh', md: '75vh' },
         background: `linear-gradient(135deg, 
-          ${config.theme.primaryColor}10 0%,
-          ${config.theme.accentColor}15 50%,
-          ${config.theme.primaryColor}08 100%
+          ${'#06b6d4'}10 0%,
+          ${'#22c55e'}15 50%,
+          ${'#06b6d4'}08 100%
         )`,
         overflow: 'hidden',
         display: 'flex',
@@ -81,7 +81,7 @@ export default function ModernHeroSection({
           width: { xs: 200, md: 400 },
           height: { xs: 200, md: 400 },
           borderRadius: '50%',
-          background: `linear-gradient(135deg, ${alpha(config.theme.primaryColor, 0.1)}, ${alpha(config.theme.accentColor, 0.05)})`,
+          background: `linear-gradient(135deg, ${alpha('#06b6d4', 0.1)}, ${alpha('#22c55e', 0.05)})`,
           zIndex: 0,
           animation: 'float 6s ease-in-out infinite',
           '@keyframes float': {
@@ -98,7 +98,7 @@ export default function ModernHeroSection({
           width: { xs: 150, md: 300 },
           height: { xs: 150, md: 300 },
           borderRadius: '50%',
-          background: `linear-gradient(135deg, ${alpha(config.theme.accentColor, 0.08)}, ${alpha(config.theme.primaryColor, 0.04)})`,
+          background: `linear-gradient(135deg, ${alpha('#22c55e', 0.08)}, ${alpha('#06b6d4', 0.04)})`,
           zIndex: 0,
           animation: 'float 8s ease-in-out infinite reverse',
         }}
@@ -120,13 +120,13 @@ export default function ModernHeroSection({
                     label="Propriedades Verificadas"
                     color="primary"
                     sx={{
-                      background: `linear-gradient(135deg, ${config.theme.primaryColor}, ${config.theme.accentColor})`,
+                      background: `linear-gradient(135deg, ${'#06b6d4'}, ${'#22c55e'})`,
                       color: 'white',
                       fontWeight: 600,
                       px: 2,
                       py: 1,
                       fontSize: '0.9rem',
-                      boxShadow: `0 4px 20px ${alpha(config.theme.primaryColor, 0.3)}`,
+                      boxShadow: `0 4px 20px ${alpha('#06b6d4', 0.3)}`,
                     }}
                   />
                 </Box>
@@ -137,7 +137,7 @@ export default function ModernHeroSection({
                   sx={{
                     fontWeight: 900,
                     lineHeight: 1.1,
-                    background: `linear-gradient(135deg, ${config.theme.primaryColor}, ${config.theme.accentColor})`,
+                    background: `linear-gradient(135deg, ${'#06b6d4'}, ${'#22c55e'})`,
                     WebkitBackgroundClip: 'text',
                     WebkitTextFillColor: 'transparent',
                     backgroundClip: 'text',
@@ -176,7 +176,7 @@ export default function ModernHeroSection({
                         InputProps={{
                           startAdornment: (
                             <InputAdornment position="start">
-                              <Search sx={{ color: config.theme.primaryColor }} />
+                              <Search sx={{ color: '#06b6d4' }} />
                             </InputAdornment>
                           ),
                         }}
@@ -191,12 +191,12 @@ export default function ModernHeroSection({
                             transition: 'all 0.3s ease',
                             '&:hover': {
                               backgroundColor: 'rgba(255, 255, 255, 0.95)',
-                              border: `2px solid ${alpha(config.theme.primaryColor, 0.2)}`,
+                              border: `2px solid ${alpha('#06b6d4', 0.2)}`,
                             },
                             '&.Mui-focused': {
                               backgroundColor: 'white',
-                              border: `2px solid ${config.theme.primaryColor}`,
-                              boxShadow: `0 8px 32px ${alpha(config.theme.primaryColor, 0.2)}`,
+                              border: `2px solid ${'#06b6d4'}`,
+                              boxShadow: `0 8px 32px ${alpha('#06b6d4', 0.2)}`,
                             },
                           },
                         }}
@@ -206,8 +206,8 @@ export default function ModernHeroSection({
                         startIcon={<FilterList />}
                         onClick={onToggleFilters}
                         sx={{
-                          borderColor: alpha(config.theme.primaryColor, 0.3),
-                          color: config.theme.primaryColor,
+                          borderColor: alpha('#06b6d4', 0.3),
+                          color: '#06b6d4',
                           backgroundColor: 'rgba(255, 255, 255, 0.9)',
                           backdropFilter: 'blur(10px)',
                           borderRadius: 3,
@@ -215,10 +215,10 @@ export default function ModernHeroSection({
                           py: 1.5,
                           minWidth: 140,
                           fontWeight: 600,
-                          border: `2px solid ${alpha(config.theme.primaryColor, 0.2)}`,
+                          border: `2px solid ${alpha('#06b6d4', 0.2)}`,
                           '&:hover': {
-                            backgroundColor: alpha(config.theme.primaryColor, 0.08),
-                            borderColor: config.theme.primaryColor,
+                            backgroundColor: alpha('#06b6d4', 0.08),
+                            borderColor: '#06b6d4',
                           },
                         }}
                       >
@@ -240,7 +240,7 @@ export default function ModernHeroSection({
                     sx={{ mt: 4 }}
                   >
                     <Box sx={{ textAlign: { xs: 'center', sm: 'left' } }}>
-                      <Typography variant="h4" sx={{ fontWeight: 800, color: config.theme.primaryColor }}>
+                      <Typography variant="h4" sx={{ fontWeight: 800, color: '#06b6d4' }}>
                         {stats.totalProperties}+
                       </Typography>
                       <Typography variant="body2" sx={{ color: 'text.secondary' }}>
@@ -248,7 +248,7 @@ export default function ModernHeroSection({
                       </Typography>
                     </Box>
                     <Box sx={{ textAlign: { xs: 'center', sm: 'left' } }}>
-                      <Typography variant="h4" sx={{ fontWeight: 800, color: config.theme.accentColor }}>
+                      <Typography variant="h4" sx={{ fontWeight: 800, color: '#22c55e' }}>
                         {stats.satisfactionRate}★
                       </Typography>
                       <Typography variant="body2" sx={{ color: 'text.secondary' }}>
@@ -279,7 +279,7 @@ export default function ModernHeroSection({
               <Stack spacing={3}>
                 {[
                   {
-                    icon: <TrendingUp sx={{ fontSize: 28, color: config.theme.primaryColor }} />,
+                    icon: <TrendingUp sx={{ fontSize: 28, color: '#06b6d4' }} />,
                     title: 'Melhor Preço',
                     description: 'Preços competitivos e transparentes',
                   },
@@ -320,7 +320,7 @@ export default function ModernHeroSection({
                           sx={{
                             p: 1.5,
                             borderRadius: 2,
-                            background: `${alpha(config.theme.primaryColor, 0.1)}`,
+                            background: `${alpha('#06b6d4', 0.1)}`,
                           }}
                         >
                           {feature.icon}
@@ -361,7 +361,7 @@ export default function ModernHeroSection({
           sx={{
             background: 'rgba(255, 255, 255, 0.9)',
             backdropFilter: 'blur(10px)',
-            color: config.theme.primaryColor,
+            color: '#06b6d4',
             '&:hover': {
               background: 'white',
               transform: 'scale(1.1)',

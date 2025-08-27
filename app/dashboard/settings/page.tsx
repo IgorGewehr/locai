@@ -73,7 +73,6 @@ export default function SettingsPage() {
   const [connecting, setConnecting] = useState(false);
   const [connectionProgress, setConnectionProgress] = useState(0);
   const [qrExpireTimer, setQrExpireTimer] = useState<NodeJS.Timeout | null>(null);
-  const [localQrSession, setLocalQrSession] = useState<WhatsAppSession | null>(null);
   const [connectionCheckInterval, setConnectionCheckInterval] = useState<NodeJS.Timeout | null>(null);
 
   // Profile states
@@ -95,8 +94,8 @@ export default function SettingsPage() {
     confirmPassword: ''
   });
 
-  // Get current session (local QR takes priority over context)
-  const currentSession = localQrSession && localQrSession.qrCode ? localQrSession : whatsappSession;
+  // Use the same status from context as TopAppBar
+  const currentSession = whatsappSession;
 
   // Monitor connection status changes for automatic dialog closing
   useEffect(() => {
@@ -146,7 +145,6 @@ export default function SettingsPage() {
     // Reset the flag when QR code is no longer available or connected
     if (!currentSession.qrCode || currentSession.connected) {
       setUserClosedDialog(false);
-      setLocalQrSession(null); // Clear local QR session
     }
   }, [currentSession.qrCode, currentSession.connected, qrDialogOpen, userClosedDialog]);
 
@@ -271,8 +269,8 @@ export default function SettingsPage() {
         console.log('📋 [Settings] QR Code present:', !!data.data?.qrCode);
         console.log('📋 [Settings] Status:', data.data?.status);
         
-        // Force refresh status to update context - reduced frequency
-        setTimeout(() => refreshStatus(), 2000);
+        // Force refresh status to update context immediately
+        await refreshStatus();
         
         if (data.data.qrCode) {
           console.log('✅ QR Code received, opening dialog');
@@ -287,26 +285,14 @@ export default function SettingsPage() {
           }, 120000); // 2 minutes
           setQrExpireTimer(timer);
           
-          // Store QR data locally for immediate display
-          const qrData = {
-            qrCode: data.data.qrCode,
-            connected: false,
-            status: 'qr',
-            phoneNumber: null,
-            businessName: null
-          };
-          
-          // Update local state
-          setLocalQrSession(qrData);
-          
           // Open dialog immediately for better UX
           setTimeout(() => setQrDialogOpen(true), 200);
           
-          // Start polling for connection status every 5 seconds - reduced frequency
+          // Start polling for connection status every 3 seconds for faster sync
           const checkConnection = setInterval(() => {
             console.log('🔄 [Settings] Checking connection status while QR is displayed');
             refreshStatus();
-          }, 5000);
+          }, 3000);
           
           setConnectionCheckInterval(checkConnection);
         } else if (data.data.connected) {
@@ -317,8 +303,8 @@ export default function SettingsPage() {
           // More helpful message
           setConnectionProgress(85);
           setSuccess('Aguarde, gerando QR Code...');
-          // Refresh status after initializing - reduced frequency
-          setTimeout(() => refreshStatus(), 3000);
+          // Refresh status after initializing immediately
+          await refreshStatus();
         }
       } else {
         setConnectionProgress(0);
@@ -375,6 +361,7 @@ export default function SettingsPage() {
       case 'connected':
         return <CheckCircle sx={{ color: '#22c55e', fontSize: 24 }} />;
       case 'connecting':
+      case 'qr':
         return <CircularProgress size={24} />;
       case 'error':
         return <ErrorIcon sx={{ color: '#ef4444', fontSize: 24 }} />;
@@ -386,13 +373,15 @@ export default function SettingsPage() {
   const getStatusText = () => {
     switch (currentSession.status) {
       case 'connected':
-        return 'Conectado';
+        return 'WhatsApp Conectado';
       case 'connecting':
         return 'Conectando...';
+      case 'qr':
+        return 'Aguardando QR Code';
       case 'error':
         return 'Erro na conexão';
       default:
-        return 'Desconectado';
+        return 'WhatsApp Desconectado';
     }
   };
 
@@ -401,11 +390,12 @@ export default function SettingsPage() {
       case 'connected':
         return '#22c55e';
       case 'connecting':
+      case 'qr':
         return '#f59e0b';
       case 'error':
         return '#ef4444';
       default:
-        return '#6b7280';
+        return '#ef4444';
     }
   };
 

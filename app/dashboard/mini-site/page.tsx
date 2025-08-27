@@ -26,7 +26,7 @@ const featureCards = [
   {
     icon: <Palette sx={{ fontSize: 40 }} />,
     title: 'Personalização',
-    description: 'Customize cores, textos e informações da sua marca',
+    description: 'Customize textos e informações da sua marca',
   },
   {
     icon: <Settings sx={{ fontSize: 40 }} />,

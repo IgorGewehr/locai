@@ -579,8 +579,8 @@ export default function PropertyDetailView({ property, config }: PropertyDetailV
             color: 'text.secondary',
             textTransform: 'none',
             '&:hover': {
-              backgroundColor: alpha(config.theme.primaryColor, 0.08),
-              color: config.theme.primaryColor,
+              backgroundColor: alpha('#06b6d4', 0.08),
+              color: '#06b6d4',
             },
           }}
         >
@@ -607,7 +607,7 @@ export default function PropertyDetailView({ property, config }: PropertyDetailV
               top: 100,
               borderRadius: 3,
               boxShadow: `0 8px 40px ${alpha('#000', 0.08)}`,
-              border: `1px solid ${alpha(config.theme.primaryColor, 0.08)}`,
+              border: `1px solid ${alpha('#06b6d4', 0.08)}`,
             }}
           >
             <CardContent sx={{ p: 3 }}>
@@ -618,7 +618,7 @@ export default function PropertyDetailView({ property, config }: PropertyDetailV
                   component="h1"
                   sx={{
                     fontWeight: 700,
-                    color: config.theme.textColor,
+                    color: '#e2e8f0',
                     flex: 1,
                     mr: 2,
                   }}
@@ -639,7 +639,7 @@ export default function PropertyDetailView({ property, config }: PropertyDetailV
                     onClick={handleShare}
                     sx={{
                       color: 'text.secondary',
-                      '&:hover': { color: config.theme.primaryColor },
+                      '&:hover': { color: '#06b6d4' },
                     }}
                   >
                     <Share />
@@ -650,7 +650,7 @@ export default function PropertyDetailView({ property, config }: PropertyDetailV
               {/* Location & Rating */}
               <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                  <LocationOn sx={{ fontSize: 16, color: config.theme.primaryColor }} />
+                  <LocationOn sx={{ fontSize: 16, color: '#06b6d4' }} />
                   <Typography variant="body2" color="text.secondary">
                     {property.location.city}, {property.location.state}
                   </Typography>
@@ -671,32 +671,32 @@ export default function PropertyDetailView({ property, config }: PropertyDetailV
                   gap: 2,
                   p: 2,
                   mb: 3,
-                  backgroundColor: alpha(config.theme.primaryColor, 0.03),
+                  backgroundColor: alpha('#06b6d4', 0.03),
                   borderRadius: 2,
-                  border: `1px solid ${alpha(config.theme.primaryColor, 0.08)}`,
+                  border: `1px solid ${alpha('#06b6d4', 0.08)}`,
                 }}
               >
                 <Box sx={{ textAlign: 'center' }}>
-                  <People sx={{ fontSize: 20, color: config.theme.primaryColor, mb: 0.5 }} />
+                  <People sx={{ fontSize: 20, color: '#06b6d4', mb: 0.5 }} />
                   <Typography variant="caption" sx={{ fontWeight: 600, display: 'block' }}>
                     {property.maxGuests} hóspedes
                   </Typography>
                 </Box>
                 <Box sx={{ textAlign: 'center' }}>
-                  <Bed sx={{ fontSize: 20, color: config.theme.primaryColor, mb: 0.5 }} />
+                  <Bed sx={{ fontSize: 20, color: '#06b6d4', mb: 0.5 }} />
                   <Typography variant="caption" sx={{ fontWeight: 600, display: 'block' }}>
                     {property.bedrooms} quartos
                   </Typography>
                 </Box>
                 <Box sx={{ textAlign: 'center' }}>
-                  <Bathtub sx={{ fontSize: 20, color: config.theme.primaryColor, mb: 0.5 }} />
+                  <Bathtub sx={{ fontSize: 20, color: '#06b6d4', mb: 0.5 }} />
                   <Typography variant="caption" sx={{ fontWeight: 600, display: 'block' }}>
                     {property.bathrooms} banheiros
                   </Typography>
                 </Box>
                 {property.area && (
                   <Box sx={{ textAlign: 'center' }}>
-                    <Square sx={{ fontSize: 20, color: config.theme.primaryColor, mb: 0.5 }} />
+                    <Square sx={{ fontSize: 20, color: '#06b6d4', mb: 0.5 }} />
                     <Typography variant="caption" sx={{ fontWeight: 600, display: 'block' }}>
                       {property.area}m²
                     </Typography>
@@ -712,7 +712,7 @@ export default function PropertyDetailView({ property, config }: PropertyDetailV
                       variant="h4"
                       sx={{
                         fontWeight: 800,
-                        background: `linear-gradient(135deg, ${config.theme.primaryColor}, ${config.theme.accentColor})`,
+                        background: `linear-gradient(135deg, ${'#06b6d4'}, ${'#22c55e'})`,
                         WebkitBackgroundClip: 'text',
                         WebkitTextFillColor: 'transparent',
                         backgroundClip: 'text',
@@ -803,7 +803,7 @@ export default function PropertyDetailView({ property, config }: PropertyDetailV
               <Card sx={{ borderRadius: 3, mb: 4 }}>
                 <CardContent sx={{ p: 4 }}>
                   <Typography variant="h6" gutterBottom sx={{ fontWeight: 700, display: 'flex', alignItems: 'center', gap: 1 }}>
-                    <Info sx={{ color: config.theme.primaryColor }} />
+                    <Info sx={{ color: '#06b6d4' }} />
                     Sobre esta propriedade
                   </Typography>
                   <Typography
@@ -823,14 +823,14 @@ export default function PropertyDetailView({ property, config }: PropertyDetailV
               <Card sx={{ borderRadius: 3, mb: 4 }}>
                 <CardContent sx={{ p: 4 }}>
                   <Typography variant="h6" gutterBottom sx={{ fontWeight: 700, display: 'flex', alignItems: 'center', gap: 1 }}>
-                    <CheckCircle sx={{ color: config.theme.primaryColor }} />
+                    <CheckCircle sx={{ color: '#06b6d4' }} />
                     Comodidades ({property.amenities.length})
                   </Typography>
                   <Grid container spacing={2}>
                     {property.amenities.map((amenity, index) => (
                       <Grid item xs={12} sm={6} key={index}>
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, py: 1 }}>
-                          {amenityIcons[amenity] || <Check sx={{ color: config.theme.primaryColor }} />}
+                          {amenityIcons[amenity] || <Check sx={{ color: '#06b6d4' }} />}
                           <Typography variant="body2">{amenity}</Typography>
                         </Box>
                       </Grid>
@@ -843,7 +843,7 @@ export default function PropertyDetailView({ property, config }: PropertyDetailV
               <Card sx={{ borderRadius: 3 }}>
                 <CardContent sx={{ p: 4 }}>
                   <Typography variant="h6" gutterBottom sx={{ fontWeight: 700, display: 'flex', alignItems: 'center', gap: 1 }}>
-                    <Policy sx={{ color: config.theme.primaryColor }} />
+                    <Policy sx={{ color: '#06b6d4' }} />
                     Regras da casa e políticas
                   </Typography>
                   
@@ -856,7 +856,7 @@ export default function PropertyDetailView({ property, config }: PropertyDetailV
                     <AccordionDetails>
                       <Stack spacing={1}>
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                          <Schedule sx={{ fontSize: 20, color: config.theme.primaryColor }} />
+                          <Schedule sx={{ fontSize: 20, color: '#06b6d4' }} />
                           <Box>
                             <Typography variant="body2" fontWeight={600}>Check-in: 15:00 - 22:00</Typography>
                             <Typography variant="caption" color="text.secondary">
@@ -865,7 +865,7 @@ export default function PropertyDetailView({ property, config }: PropertyDetailV
                           </Box>
                         </Box>
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                          <Schedule sx={{ fontSize: 20, color: config.theme.primaryColor }} />
+                          <Schedule sx={{ fontSize: 20, color: '#06b6d4' }} />
                           <Box>
                             <Typography variant="body2" fontWeight={600}>Check-out: até 11:00</Typography>
                             <Typography variant="caption" color="text.secondary">
@@ -916,7 +916,7 @@ export default function PropertyDetailView({ property, config }: PropertyDetailV
                     <AccordionDetails>
                       <Stack spacing={1}>
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                          <Group sx={{ fontSize: 20, color: config.theme.primaryColor }} />
+                          <Group sx={{ fontSize: 20, color: '#06b6d4' }} />
                           <Typography variant="body2">
                             Máximo de {property.maxGuests} hóspedes
                           </Typography>
@@ -953,7 +953,7 @@ export default function PropertyDetailView({ property, config }: PropertyDetailV
               <Card sx={{ borderRadius: 3, mb: 3 }}>
                 <CardContent sx={{ p: 3 }}>
                   <Typography variant="h6" gutterBottom sx={{ fontWeight: 700, display: 'flex', alignItems: 'center', gap: 1 }}>
-                    <Map sx={{ color: config.theme.primaryColor }} />
+                    <Map sx={{ color: '#06b6d4' }} />
                     Localização
                   </Typography>
                   <Box
@@ -984,7 +984,7 @@ export default function PropertyDetailView({ property, config }: PropertyDetailV
               <Card sx={{ borderRadius: 3, mb: 3 }}>
                 <CardContent sx={{ p: 3 }}>
                   <Typography variant="h6" gutterBottom sx={{ fontWeight: 700, display: 'flex', alignItems: 'center', gap: 1 }}>
-                    <Security sx={{ color: config.theme.primaryColor }} />
+                    <Security sx={{ color: '#06b6d4' }} />
                     Segurança
                   </Typography>
                   <Stack spacing={2}>
@@ -1008,11 +1008,11 @@ export default function PropertyDetailView({ property, config }: PropertyDetailV
               <Card sx={{ borderRadius: 3 }}>
                 <CardContent sx={{ p: 3 }}>
                   <Typography variant="h6" gutterBottom sx={{ fontWeight: 700, display: 'flex', alignItems: 'center', gap: 1 }}>
-                    <Person sx={{ color: config.theme.primaryColor }} />
+                    <Person sx={{ color: '#06b6d4' }} />
                     Anfitrião
                   </Typography>
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
-                    <Avatar sx={{ width: 50, height: 50, bgcolor: config.theme.primaryColor }}>
+                    <Avatar sx={{ width: 50, height: 50, bgcolor: '#06b6d4' }}>
                       {config.contactInfo.businessName.charAt(0)}
                     </Avatar>
                     <Box>
@@ -1036,11 +1036,11 @@ export default function PropertyDetailView({ property, config }: PropertyDetailV
                     startIcon={<WhatsApp />}
                     onClick={handleWhatsAppClick}
                     sx={{
-                      borderColor: config.theme.primaryColor,
-                      color: config.theme.primaryColor,
+                      borderColor: '#06b6d4',
+                      color: '#06b6d4',
                       textTransform: 'none',
                       '&:hover': {
-                        backgroundColor: alpha(config.theme.primaryColor, 0.08),
+                        backgroundColor: alpha('#06b6d4', 0.08),
                       },
                     }}
                   >

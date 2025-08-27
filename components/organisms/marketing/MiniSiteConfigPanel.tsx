@@ -23,7 +23,6 @@ import {
 import {
   Save,
   Language,
-  Palette,
   ContentCopy,
   OpenInNew,
   Visibility,
@@ -35,9 +34,6 @@ interface MiniSiteConfig {
   active: boolean;
   title: string;
   description: string;
-  primaryColor: string;
-  secondaryColor: string;
-  accentColor: string;
   whatsappNumber: string;
   companyEmail: string;
   showPrices: boolean;
@@ -53,9 +49,6 @@ export default function MiniSiteConfigPanel() {
     active: false,
     title: 'Minha Imobiliária',
     description: 'Encontre o imóvel perfeito para você',
-    primaryColor: '#1976d2',
-    secondaryColor: '#dc004e',
-    accentColor: '#ed6c02',
     whatsappNumber: '',
     companyEmail: '',
     showPrices: true,
@@ -560,133 +553,6 @@ export default function MiniSiteConfigPanel() {
                     },
                   }}
                 />
-              </Stack>
-            </Box>
-
-            <Divider sx={{ borderColor: 'rgba(255, 255, 255, 0.1)' }} />
-
-            {/* Colors */}
-            <Box>
-              <Typography variant="subtitle2" fontWeight={600} sx={{ mb: 2, color: 'white' }}>
-                Cores do Tema
-              </Typography>
-              <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
-                <Box sx={{ flex: 1 }}>
-                  <Typography variant="caption" sx={{ color: 'rgba(255, 255, 255, 0.7)' }}>
-                    Cor Primária
-                  </Typography>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 1 }}>
-                    <Box
-                      sx={{
-                        width: 40,
-                        height: 40,
-                        borderRadius: 2,
-                        bgcolor: config.primaryColor,
-                        border: '2px solid rgba(255, 255, 255, 0.2)',
-                        boxShadow: '0 4px 12px rgba(0, 0, 0, 0.3)',
-                      }}
-                    />
-                    <TextField
-                      value={config.primaryColor}
-                      onChange={(e) => setConfig({ ...config, primaryColor: e.target.value })}
-                      size="small"
-                      sx={{ 
-                        flex: 1,
-                        '& .MuiOutlinedInput-root': {
-                          backgroundColor: 'rgba(255, 255, 255, 0.05)',
-                          color: 'white',
-                          '& fieldset': {
-                            borderColor: 'rgba(255, 255, 255, 0.2)',
-                          },
-                          '&:hover fieldset': {
-                            borderColor: 'rgba(255, 255, 255, 0.3)',
-                          },
-                          '&.Mui-focused fieldset': {
-                            borderColor: '#06b6d4',
-                          },
-                        },
-                      }}
-                    />
-                  </Box>
-                </Box>
-                
-                <Box sx={{ flex: 1 }}>
-                  <Typography variant="caption" sx={{ color: 'rgba(255, 255, 255, 0.7)' }}>
-                    Cor Secundária
-                  </Typography>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 1 }}>
-                    <Box
-                      sx={{
-                        width: 40,
-                        height: 40,
-                        borderRadius: 2,
-                        bgcolor: config.secondaryColor,
-                        border: '2px solid rgba(255, 255, 255, 0.2)',
-                        boxShadow: '0 4px 12px rgba(0, 0, 0, 0.3)',
-                      }}
-                    />
-                    <TextField
-                      value={config.secondaryColor}
-                      onChange={(e) => setConfig({ ...config, secondaryColor: e.target.value })}
-                      size="small"
-                      sx={{ 
-                        flex: 1,
-                        '& .MuiOutlinedInput-root': {
-                          backgroundColor: 'rgba(255, 255, 255, 0.05)',
-                          color: 'white',
-                          '& fieldset': {
-                            borderColor: 'rgba(255, 255, 255, 0.2)',
-                          },
-                          '&:hover fieldset': {
-                            borderColor: 'rgba(255, 255, 255, 0.3)',
-                          },
-                          '&.Mui-focused fieldset': {
-                            borderColor: '#06b6d4',
-                          },
-                        },
-                      }}
-                    />
-                  </Box>
-                </Box>
-                
-                <Box sx={{ flex: 1 }}>
-                  <Typography variant="caption" sx={{ color: 'rgba(255, 255, 255, 0.7)' }}>
-                    Cor de Destaque
-                  </Typography>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 1 }}>
-                    <Box
-                      sx={{
-                        width: 40,
-                        height: 40,
-                        borderRadius: 2,
-                        bgcolor: config.accentColor,
-                        border: '2px solid rgba(255, 255, 255, 0.2)',
-                        boxShadow: '0 4px 12px rgba(0, 0, 0, 0.3)',
-                      }}
-                    />
-                    <TextField
-                      value={config.accentColor}
-                      onChange={(e) => setConfig({ ...config, accentColor: e.target.value })}
-                      size="small"
-                      sx={{ 
-                        flex: 1,
-                        '& .MuiOutlinedInput-root': {
-                          backgroundColor: 'rgba(255, 255, 255, 0.05)',
-                          color: 'white',
-                          '& fieldset': {
-                            borderColor: 'rgba(255, 255, 255, 0.2)',
-                          },
-                          '&:hover fieldset': {
-                            borderColor: 'rgba(255, 255, 255, 0.3)',
-                          },
-                          '&.Mui-focused fieldset': {
-                            borderColor: '#06b6d4',
-                          },
-                        },
-                      }}
-                    />
-                  </Box>
-                </Box>
               </Stack>
             </Box>
 

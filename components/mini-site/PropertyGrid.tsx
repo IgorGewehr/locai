@@ -37,8 +37,12 @@ interface PropertyGridProps {
 
 export default function PropertyGrid({ properties: initialProperties, config }: PropertyGridProps) {
   const theme = useTheme();
-  const [properties, setProperties] = useState<PublicProperty[]>(initialProperties);
-  const [filteredProperties, setFilteredProperties] = useState<PublicProperty[]>(initialProperties);
+  // Deduplicate properties by ID to prevent duplicate keys
+  const deduplicatedProperties = initialProperties.filter((property, index, self) => 
+    self.findIndex(p => p.id === property.id) === index
+  );
+  const [properties, setProperties] = useState<PublicProperty[]>(deduplicatedProperties);
+  const [filteredProperties, setFilteredProperties] = useState<PublicProperty[]>(deduplicatedProperties);
   const [loading, setLoading] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
   const [showFilters, setShowFilters] = useState(false);
@@ -153,10 +157,10 @@ export default function PropertyGrid({ properties: initialProperties, config }: 
   );
 
   const heroStyle = {
-    background: `linear-gradient(135deg, ${alpha(config.theme.primaryColor, 0.1)}, ${alpha(config.theme.secondaryColor, 0.05)})`,
+    background: `linear-gradient(135deg, ${alpha('#06b6d4', 0.1)}, ${alpha('#0891b2', 0.05)})`,
     backdropFilter: 'blur(20px)',
     borderRadius: config.theme.borderRadius === 'extra-rounded' ? 4 : config.theme.borderRadius === 'rounded' ? 2 : 0,
-    border: `1px solid ${alpha(config.theme.primaryColor, 0.1)}`,
+    border: `1px solid ${alpha('#06b6d4', 0.1)}`,
     mb: 4,
     p: 4,
   };
@@ -171,7 +175,7 @@ export default function PropertyGrid({ properties: initialProperties, config }: 
           sx={{ 
             fontWeight: 700,
             mb: 2,
-            background: `linear-gradient(135deg, ${config.theme.primaryColor}, ${config.theme.accentColor})`,
+            background: `linear-gradient(135deg, ${'#06b6d4'}, ${'#22c55e'})`,
             WebkitBackgroundClip: 'text',
             WebkitTextFillColor: 'transparent',
             backgroundClip: 'text',
@@ -203,7 +207,7 @@ export default function PropertyGrid({ properties: initialProperties, config }: 
             InputProps={{
               startAdornment: (
                 <InputAdornment position="start">
-                  <Search sx={{ color: config.theme.primaryColor }} />
+                  <Search sx={{ color: '#06b6d4' }} />
                 </InputAdornment>
               ),
               endAdornment: searchTerm && (
@@ -224,10 +228,10 @@ export default function PropertyGrid({ properties: initialProperties, config }: 
                 backgroundColor: 'rgba(255, 255, 255, 0.8)',
                 backdropFilter: 'blur(10px)',
                 '&:hover fieldset': {
-                  borderColor: config.theme.primaryColor,
+                  borderColor: '#06b6d4',
                 },
                 '&.Mui-focused fieldset': {
-                  borderColor: config.theme.primaryColor,
+                  borderColor: '#06b6d4',
                 },
               },
             }}
@@ -246,10 +250,10 @@ export default function PropertyGrid({ properties: initialProperties, config }: 
               py: 1,
               textTransform: 'none',
               ...(showFilters ? {
-                background: `linear-gradient(135deg, ${config.theme.primaryColor}, ${config.theme.accentColor})`,
+                background: `linear-gradient(135deg, ${'#06b6d4'}, ${'#22c55e'})`,
               } : {
-                borderColor: config.theme.primaryColor,
-                color: config.theme.primaryColor,
+                borderColor: '#06b6d4',
+                color: '#06b6d4',
               }),
             }}
           >
@@ -267,7 +271,7 @@ export default function PropertyGrid({ properties: initialProperties, config }: 
             background: 'rgba(255, 255, 255, 0.8)',
             backdropFilter: 'blur(20px)',
             borderRadius: config.theme.borderRadius === 'extra-rounded' ? 3 : config.theme.borderRadius === 'rounded' ? 2 : 0,
-            border: `1px solid ${alpha(config.theme.primaryColor, 0.1)}`,
+            border: `1px solid ${alpha('#06b6d4', 0.1)}`,
           }}
         >
           <Grid container spacing={3}>
@@ -380,11 +384,11 @@ export default function PropertyGrid({ properties: initialProperties, config }: 
                     variant={filters.amenities.includes(amenity) ? 'filled' : 'outlined'}
                     sx={{
                       ...(filters.amenities.includes(amenity) ? {
-                        backgroundColor: config.theme.primaryColor,
+                        backgroundColor: '#06b6d4',
                         color: 'white',
                       } : {
-                        borderColor: alpha(config.theme.primaryColor, 0.3),
-                        color: config.theme.primaryColor,
+                        borderColor: alpha('#06b6d4', 0.3),
+                        color: '#06b6d4',
                       }),
                     }}
                   />
@@ -424,8 +428,8 @@ export default function PropertyGrid({ properties: initialProperties, config }: 
       {/* Property Grid */}
       {filteredProperties.length > 0 ? (
         <Grid container spacing={3}>
-          {filteredProperties.map((property) => (
-            <Grid item xs={12} sm={6} md={4} lg={3} key={property.id}>
+          {filteredProperties.map((property, index) => (
+            <Grid item xs={12} sm={6} md={4} lg={3} key={`${property.id}-${index}`}>
               <PropertyCardModern
                 property={property}
                 config={config}
@@ -440,9 +444,9 @@ export default function PropertyGrid({ properties: initialProperties, config }: 
           sx={{ 
             textAlign: 'center', 
             py: 8,
-            background: alpha(config.theme.primaryColor, 0.03),
+            background: alpha('#06b6d4', 0.03),
             borderRadius: 3,
-            border: `1px solid ${alpha(config.theme.primaryColor, 0.1)}`,
+            border: `1px solid ${alpha('#06b6d4', 0.1)}`,
           }}
         >
           <Typography variant="h6" sx={{ mb: 2, opacity: 0.7 }}>
@@ -456,8 +460,8 @@ export default function PropertyGrid({ properties: initialProperties, config }: 
               onClick={clearAllFilters}
               variant="outlined"
               sx={{
-                borderColor: config.theme.primaryColor,
-                color: config.theme.primaryColor,
+                borderColor: '#06b6d4',
+                color: '#06b6d4',
               }}
             >
               Limpar Filtros

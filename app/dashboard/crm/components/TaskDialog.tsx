@@ -42,6 +42,7 @@ export default function TaskDialog({
   onSuccess,
 }: TaskDialogProps) {
   const { user } = useAuth();
+  const services = useTenantServices();
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -52,9 +53,10 @@ export default function TaskDialog({
   });
 
   const handleSubmit = async () => {
+    if (!services) return;
+    
     try {
-      await crmService.createTask({
-        tenantId: user?.tenantId || '',
+      await services.tasks.create({
         title: formData.title,
         description: formData.description,
         type: formData.type,
@@ -71,7 +73,7 @@ export default function TaskDialog({
       onSuccess();
       handleReset();
     } catch (error) {
-      console.error('Error creating task:', error);
+      console.error('Erro ao criar tarefa:', error);
     }
   };
 

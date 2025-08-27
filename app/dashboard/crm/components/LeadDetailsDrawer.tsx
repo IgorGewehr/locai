@@ -78,6 +78,7 @@ export default function LeadDetailsDrawer({
   onUpdate,
 }: LeadDetailsDrawerProps) {
   const { user } = useAuth();
+  const services = useTenantServices();
   const [tab, setTab] = useState(0);
   const [interactions, setInteractions] = useState<Interaction[]>([]);
   const [activities, setActivities] = useState<LeadActivity[]>([]);
@@ -95,24 +96,28 @@ export default function LeadDetailsDrawer({
   }, [open, lead]);
 
   const loadLeadData = async () => {
+    if (!services) return;
+    
     try {
       setLoading(true);
-      const [interactionsData, activitiesData] = await Promise.all([
-        crmService.getLeadInteractions(lead.id),
-        crmService.getLeadActivities(lead.id),
+      const [interactionsData, tasksData] = await Promise.all([
+        services.interactions.getWhere('leadId', '==', lead.id),
+        services.tasks.getWhere('leadId', '==', lead.id),
       ]);
       setInteractions(interactionsData);
-      setActivities(activitiesData);
+      setTasks(tasksData);
     } catch (error) {
-      console.error('Error loading lead data:', error);
+      console.error('Erro ao carregar dados do lead:', error);
     } finally {
       setLoading(false);
     }
   };
 
   const handleSaveEdit = async () => {
+    if (!services) return;
+    
     try {
-      await crmService.updateLead(lead.id, {
+      await services.leads.update(lead.id, {
         name: editedLead.name,
         email: editedLead.email,
         phone: editedLead.phone,
@@ -120,19 +125,20 @@ export default function LeadDetailsDrawer({
         temperature: editedLead.temperature,
         preferences: editedLead.preferences,
         tags: editedLead.tags,
+        updatedAt: new Date(),
       } as any);
       setEditMode(false);
       onUpdate();
     } catch (error) {
-      console.error('Error updating lead:', error);
+      console.error('Erro ao atualizar lead:', error);
     }
   };
 
   const handleAddNote = async () => {
-    if (!note.trim()) return;
+    if (!note.trim() || !services) return;
 
     try {
-      await crmService.createInteraction({
+      await services.interactions.create({
         leadId: lead.id,
         tenantId: lead.tenantId,
         type: 'note' as any,
@@ -140,11 +146,13 @@ export default function LeadDetailsDrawer({
         content: note,
         userId: user?.id || '',
         userName: user?.name || 'Usuário',
+        createdAt: new Date(),
+        updatedAt: new Date(),
       });
       setNote('');
       loadLeadData();
     } catch (error) {
-      console.error('Error adding note:', error);
+      console.error('Erro ao adicionar nota:', error);
     }
   };
 

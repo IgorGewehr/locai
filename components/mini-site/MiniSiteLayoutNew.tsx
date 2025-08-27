@@ -55,6 +55,17 @@ export default function MiniSiteLayoutNew({ config, children }: MiniSiteLayoutNe
   const [scrolled, setScrolled] = useState(false);
   const [showScrollTop, setShowScrollTop] = useState(false);
 
+  // Use dashboard theme colors as defaults
+  const themeColors = {
+    primary: config?.theme?.primaryColor || theme.palette.primary.main || '#2563eb',
+    secondary: config?.theme?.secondaryColor || theme.palette.secondary.main || '#64748b',
+    accent: config?.theme?.accentColor || theme.palette.tertiary?.main || '#10b981',
+    background: theme.palette.background.default || '#f8fafc',
+    paper: theme.palette.background.paper || '#ffffff',
+    text: theme.palette.text.primary || '#0f172a',
+    textSecondary: theme.palette.text.secondary || '#475569',
+  };
+
   useEffect(() => {
     const handleScroll = () => {
       const offset = window.scrollY;
@@ -85,19 +96,21 @@ export default function MiniSiteLayoutNew({ config, children }: MiniSiteLayoutNe
   return (
     <Box sx={{ 
       minHeight: '100vh', 
-      bgcolor: config?.theme?.backgroundColor || '#ffffff',
-      color: config?.theme?.textColor || '#1a1a1a',
-      position: 'relative'
+      bgcolor: themeColors.background,
+      color: themeColors.text,
+      position: 'relative',
+      fontFamily: theme.typography.fontFamily, // Use Inter font
     }}>
       {/* Header */}
       <AppBar
         position="fixed"
-        elevation={scrolled ? 4 : 0}
+        elevation={0}
         sx={{
-          bgcolor: scrolled ? 'rgba(255, 255, 255, 0.95)' : 'rgba(255, 255, 255, 0.1)',
+          bgcolor: scrolled ? themeColors.paper : 'rgba(255, 255, 255, 0.1)',
           backdropFilter: 'blur(20px)',
-          transition: 'all 0.3s ease',
-          borderBottom: scrolled ? '1px solid rgba(0, 0, 0, 0.1)' : 'none',
+          transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+          borderBottom: scrolled ? `1px solid ${theme.palette.divider}` : 'none',
+          boxShadow: scrolled ? theme.custom?.elevation?.low || '0 1px 2px 0 rgba(0, 0, 0, 0.05)' : 'none',
         }}
       >
         <Container maxWidth="xl">
@@ -124,9 +137,10 @@ export default function MiniSiteLayoutNew({ config, children }: MiniSiteLayoutNe
                   <Typography
                     variant="h6"
                     sx={{
-                      fontWeight: 700,
-                      color: scrolled ? (config?.theme?.textColor || '#1a1a1a') : '#fff',
-                      fontSize: { xs: '1.1rem', md: '1.3rem' },
+                      fontWeight: 600,
+                      color: scrolled ? themeColors.text : '#fff',
+                      fontSize: { xs: '1.1rem', md: '1.25rem' },
+                      letterSpacing: '-0.01em',
                       textShadow: !scrolled ? '0 2px 4px rgba(0, 0, 0, 0.3)' : 'none',
                     }}
                   >
@@ -135,8 +149,9 @@ export default function MiniSiteLayoutNew({ config, children }: MiniSiteLayoutNe
                   <Typography
                     variant="caption"
                     sx={{
-                      color: scrolled ? (config?.theme?.textColor || '#1a1a1a') : 'rgba(255, 255, 255, 0.8)',
+                      color: scrolled ? themeColors.textSecondary : 'rgba(255, 255, 255, 0.8)',
                       fontSize: '0.75rem',
+                      letterSpacing: '0.03em',
                       textShadow: !scrolled ? '0 1px 2px rgba(0, 0, 0, 0.3)' : 'none',
                     }}
                   >
@@ -162,15 +177,17 @@ export default function MiniSiteLayoutNew({ config, children }: MiniSiteLayoutNe
                       component={Link}
                       href={item.href}
                       sx={{
-                        color: scrolled ? (config?.theme?.textColor || '#1a1a1a') : '#fff',
+                        color: scrolled ? themeColors.text : '#fff',
                         fontWeight: 500,
-                        borderRadius: typeof config?.theme?.borderRadius === 'number' ? config?.theme?.borderRadius : 2,
+                        borderRadius: theme.shape.borderRadius / 2, // 6px like dashboard
                         px: 2,
                         py: 1,
                         textTransform: 'none',
-                        fontSize: '0.95rem',
+                        fontSize: '0.875rem',
+                        letterSpacing: '0.01em',
+                        transition: 'all 0.2s ease-in-out',
                         '&:hover': {
-                          bgcolor: scrolled ? 'rgba(0, 0, 0, 0.05)' : 'rgba(255, 255, 255, 0.1)',
+                          bgcolor: scrolled ? theme.palette.action.hover : 'rgba(255, 255, 255, 0.1)',
                         },
                       }}
                     >
@@ -194,16 +211,18 @@ export default function MiniSiteLayoutNew({ config, children }: MiniSiteLayoutNe
                 sx={{
                   bgcolor: '#25D366',
                   color: '#fff',
-                  fontWeight: 600,
-                  borderRadius: typeof config?.theme?.borderRadius === 'number' ? config?.theme?.borderRadius : 2,
+                  fontWeight: 500,
+                  borderRadius: theme.shape.borderRadius / 2, // 6px like dashboard
                   px: { xs: 2, md: 3 },
                   py: 1,
                   textTransform: 'none',
-                  fontSize: '0.9rem',
-                  boxShadow: '0 4px 12px rgba(37, 211, 102, 0.3)',
+                  fontSize: '0.875rem',
+                  letterSpacing: '0.01em',
+                  boxShadow: 'none',
+                  transition: 'all 0.2s ease-in-out',
                   '&:hover': {
                     bgcolor: '#1da851',
-                    boxShadow: '0 6px 16px rgba(37, 211, 102, 0.4)',
+                    boxShadow: 'none',
                   },
                 }}
               >
@@ -235,9 +254,10 @@ export default function MiniSiteLayoutNew({ config, children }: MiniSiteLayoutNe
         sx={{
           '& .MuiDrawer-paper': {
             width: 280,
-            bgcolor: config?.theme?.backgroundColor || '#ffffff',
-            color: config?.theme?.textColor || '#1a1a1a',
-            borderRadius: `${typeof config?.theme?.borderRadius === 'number' ? config?.theme?.borderRadius : 2}px 0 0 ${typeof config?.theme?.borderRadius === 'number' ? config?.theme?.borderRadius : 2}px`,
+            bgcolor: themeColors.paper,
+            color: themeColors.text,
+            borderRadius: `${theme.shape.borderRadius}px 0 0 ${theme.shape.borderRadius}px`,
+            boxShadow: theme.custom?.elevation?.medium || '0 4px 6px -1px rgba(0, 0, 0, 0.07), 0 2px 4px -1px rgba(0, 0, 0, 0.04)',
           },
         }}
       >
@@ -316,10 +336,11 @@ export default function MiniSiteLayoutNew({ config, children }: MiniSiteLayoutNe
       <Box
         component="footer"
         sx={{
-          bgcolor: config?.theme?.textColor || '#1a1a1a',
-          color: config?.theme?.backgroundColor || '#ffffff',
+          bgcolor: themeColors.text,
+          color: themeColors.paper,
           py: 4,
           mt: 6,
+          borderTop: `1px solid ${theme.palette.divider}`,
         }}
       >
         <Container maxWidth="xl">
@@ -388,7 +409,7 @@ export default function MiniSiteLayoutNew({ config, children }: MiniSiteLayoutNe
                 © {new Date().getFullYear()} {config?.contactInfo?.businessName || ''}. Todos os direitos reservados.
               </Typography>
               <Typography variant="body2" sx={{ opacity: 0.7 }}>
-                Powered by LocAI
+                Powered by AluGazap
               </Typography>
             </Stack>
           </Stack>
@@ -412,7 +433,7 @@ export default function MiniSiteLayoutNew({ config, children }: MiniSiteLayoutNe
           >
             <Tooltip title="Voltar ao topo">
               <Paper
-                elevation={4}
+                elevation={0}
                 sx={{
                   borderRadius: '50%',
                   width: 56,
@@ -420,13 +441,15 @@ export default function MiniSiteLayoutNew({ config, children }: MiniSiteLayoutNe
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  bgcolor: config?.theme?.primaryColor || '#1976d2',
+                  bgcolor: themeColors.primary,
                   color: '#fff',
                   cursor: 'pointer',
-                  transition: 'all 0.2s ease',
+                  transition: 'all 0.2s ease-in-out',
+                  boxShadow: theme.custom?.elevation?.medium || '0 4px 6px -1px rgba(0, 0, 0, 0.07), 0 2px 4px -1px rgba(0, 0, 0, 0.04)',
+                  border: `1px solid ${theme.palette.divider}`,
                   '&:hover': {
-                    bgcolor: config?.theme?.secondaryColor || '#dc004e',
-                    transform: 'scale(1.1)',
+                    bgcolor: themeColors.secondary,
+                    transform: 'translateY(-2px)',
                   },
                 }}
                 onClick={scrollToTop}

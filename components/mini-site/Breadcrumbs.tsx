@@ -51,7 +51,7 @@ export default function Breadcrumbs({ items, config }: BreadcrumbsProps) {
           separator={
             <NavigateNext 
               sx={{ 
-                color: alpha(config.theme.primaryColor, 0.6),
+                color: alpha('#06b6d4', 0.6),
                 fontSize: 16,
               }} 
             />
@@ -75,13 +75,13 @@ export default function Breadcrumbs({ items, config }: BreadcrumbsProps) {
                     display: 'flex',
                     alignItems: 'center',
                     gap: 0.5,
-                    color: config.theme.primaryColor,
+                    color: '#06b6d4',
                     fontWeight: 600,
                     px: { xs: 1, sm: 1.5 },
                     py: 0.5,
                     borderRadius: 1,
-                    backgroundColor: alpha(config.theme.primaryColor, 0.1),
-                    border: `1px solid ${alpha(config.theme.primaryColor, 0.2)}`,
+                    backgroundColor: alpha('#06b6d4', 0.1),
+                    border: `1px solid ${alpha('#06b6d4', 0.2)}`,
                     maxWidth: { xs: '200px', sm: 'none' },
                   }}
                 >
@@ -92,7 +92,7 @@ export default function Breadcrumbs({ items, config }: BreadcrumbsProps) {
                         display: 'flex',
                         alignItems: 'center',
                         fontSize: { xs: 16, sm: 18 },
-                        color: config.theme.primaryColor,
+                        color: '#06b6d4',
                       }}
                     >
                       {item.icon}
@@ -101,7 +101,7 @@ export default function Breadcrumbs({ items, config }: BreadcrumbsProps) {
                   <Typography
                     variant="body2"
                     sx={{
-                      color: config.theme.primaryColor,
+                      color: '#06b6d4',
                       fontWeight: 600,
                       fontSize: { xs: '0.8rem', sm: '0.875rem' },
                       whiteSpace: 'nowrap',
@@ -124,7 +124,7 @@ export default function Breadcrumbs({ items, config }: BreadcrumbsProps) {
                   display: 'flex',
                   alignItems: 'center',
                   gap: 0.5,
-                  color: alpha(config.theme.textColor, 0.7),
+                  color: alpha('#e2e8f0', 0.7),
                   textDecoration: 'none',
                   px: { xs: 1, sm: 1.5 },
                   py: 0.5,
@@ -132,8 +132,8 @@ export default function Breadcrumbs({ items, config }: BreadcrumbsProps) {
                   transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
                   maxWidth: { xs: '150px', sm: 'none' },
                   '&:hover': {
-                    backgroundColor: alpha(config.theme.primaryColor, 0.05),
-                    color: config.theme.primaryColor,
+                    backgroundColor: alpha('#06b6d4', 0.05),
+                    color: '#06b6d4',
                     transform: { xs: 'none', sm: 'translateY(-1px)' },
                   },
                 }}

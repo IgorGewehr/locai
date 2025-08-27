@@ -117,11 +117,6 @@ const navigationItems: NavigationItem[] = [
       },
     ],
   },
-  {
-    text: 'Métricas',
-    href: '/dashboard/metrics',
-    icon: <Assessment sx={{ fontSize: 20 }} />,
-  },
 ];
 
 interface TopAppBarProps {

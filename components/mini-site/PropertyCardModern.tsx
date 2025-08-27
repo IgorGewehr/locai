@@ -134,10 +134,10 @@ export default function PropertyCardModern({
     overflow: 'hidden',
     background: 'rgba(255, 255, 255, 0.95)',
     backdropFilter: 'blur(20px)',
-    border: `1px solid ${alpha(config.theme.primaryColor, 0.12)}`,
+    border: `1px solid ${alpha('#06b6d4', 0.12)}`,
     boxShadow: `
-      0 4px 20px -2px ${alpha(config.theme.primaryColor, 0.08)},
-      0 8px 40px -12px ${alpha(config.theme.primaryColor, 0.15)}
+      0 4px 20px -2px ${alpha('#06b6d4', 0.08)},
+      0 8px 40px -12px ${alpha('#06b6d4', 0.15)}
     `,
     transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
     position: 'relative' as const,
@@ -147,8 +147,8 @@ export default function PropertyCardModern({
     '&:hover': {
       transform: viewMode === 'grid' ? 'translateY(-12px)' : 'translateX(8px)',
       boxShadow: `
-        0 8px 40px -4px ${alpha(config.theme.primaryColor, 0.16)},
-        0 16px 60px -12px ${alpha(config.theme.primaryColor, 0.25)}
+        0 8px 40px -4px ${alpha('#06b6d4', 0.16)},
+        0 16px 60px -12px ${alpha('#06b6d4', 0.25)}
       `,
       '& .property-image': {
         transform: 'scale(1.08)',
@@ -336,7 +336,7 @@ export default function PropertyCardModern({
             '&:hover': {
               backgroundColor: '#ffffff',
               transform: 'scale(1.15)',
-              color: config.theme.primaryColor,
+              color: '#06b6d4',
             },
             transition: 'all 0.3s ease',
           }}
@@ -415,7 +415,7 @@ export default function PropertyCardModern({
           left: 0,
           right: 0,
           bottom: 0,
-          background: `linear-gradient(45deg, ${alpha(config.theme.primaryColor, 0.15)}, ${alpha(config.theme.accentColor, 0.15)})`,
+          background: `linear-gradient(45deg, ${alpha('#06b6d4', 0.15)}, ${alpha('#22c55e', 0.15)})`,
           opacity: 0,
           transition: 'opacity 0.3s ease',
           display: 'flex',
@@ -435,11 +435,11 @@ export default function PropertyCardModern({
             boxShadow: `0 4px 20px ${alpha('#000', 0.15)}`,
           }}
         >
-          <Visibility sx={{ fontSize: 18, color: config.theme.primaryColor }} />
+          <Visibility sx={{ fontSize: 18, color: '#06b6d4' }} />
           <Typography
             variant="body2"
             sx={{
-              color: config.theme.primaryColor,
+              color: '#06b6d4',
               fontWeight: 600,
             }}
           >
@@ -465,7 +465,7 @@ export default function PropertyCardModern({
           component="h3"
           sx={{ 
             fontWeight: 700,
-            color: config.theme.textColor,
+            color: '#e2e8f0',
             lineHeight: 1.3,
             display: '-webkit-box',
             WebkitLineClamp: 2,
@@ -484,7 +484,7 @@ export default function PropertyCardModern({
       {/* Location & Rating */}
       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.8 }}>
-          <LocationOn sx={{ fontSize: 16, color: config.theme.primaryColor }} />
+          <LocationOn sx={{ fontSize: 16, color: '#06b6d4' }} />
           <Typography variant="body2" sx={{ color: theme.palette.text.secondary, fontWeight: 500 }}>
             {property.location.city}, {property.location.state}
           </Typography>
@@ -509,33 +509,33 @@ export default function PropertyCardModern({
           gridTemplateColumns: 'repeat(auto-fit, minmax(80px, 1fr))',
           gap: 2,
           p: 2,
-          backgroundColor: alpha(config.theme.primaryColor, 0.03),
+          backgroundColor: alpha('#06b6d4', 0.03),
           borderRadius: 2,
-          border: `1px solid ${alpha(config.theme.primaryColor, 0.08)}`,
+          border: `1px solid ${alpha('#06b6d4', 0.08)}`,
         }}
       >
         <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.5 }}>
-          <People sx={{ fontSize: 18, color: config.theme.primaryColor }} />
-          <Typography variant="caption" sx={{ fontWeight: 600, color: config.theme.textColor }}>
+          <People sx={{ fontSize: 18, color: '#06b6d4' }} />
+          <Typography variant="caption" sx={{ fontWeight: 600, color: '#e2e8f0' }}>
             {property.maxGuests} hóspedes
           </Typography>
         </Box>
         <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.5 }}>
-          <Bed sx={{ fontSize: 18, color: config.theme.primaryColor }} />
-          <Typography variant="caption" sx={{ fontWeight: 600, color: config.theme.textColor }}>
+          <Bed sx={{ fontSize: 18, color: '#06b6d4' }} />
+          <Typography variant="caption" sx={{ fontWeight: 600, color: '#e2e8f0' }}>
             {property.bedrooms} quartos
           </Typography>
         </Box>
         <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.5 }}>
-          <Bathtub sx={{ fontSize: 18, color: config.theme.primaryColor }} />
-          <Typography variant="caption" sx={{ fontWeight: 600, color: config.theme.textColor }}>
+          <Bathtub sx={{ fontSize: 18, color: '#06b6d4' }} />
+          <Typography variant="caption" sx={{ fontWeight: 600, color: '#e2e8f0' }}>
             {property.bathrooms} banheiros
           </Typography>
         </Box>
         {property.area && (
           <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.5 }}>
-            <Square sx={{ fontSize: 18, color: config.theme.primaryColor }} />
-            <Typography variant="caption" sx={{ fontWeight: 600, color: config.theme.textColor }}>
+            <Square sx={{ fontSize: 18, color: '#06b6d4' }} />
+            <Typography variant="caption" sx={{ fontWeight: 600, color: '#e2e8f0' }}>
               {property.area}m²
             </Typography>
           </Box>
@@ -559,7 +559,7 @@ export default function PropertyCardModern({
 
       {/* Top Amenities */}
       <Box>
-        <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1.5, color: config.theme.textColor }}>
+        <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1.5, color: '#e2e8f0' }}>
           Principais Comodidades
         </Typography>
         <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap', gap: 1 }}>
@@ -571,18 +571,18 @@ export default function PropertyCardModern({
               size="small"
               variant="outlined"
               sx={{
-                backgroundColor: alpha(config.theme.primaryColor, 0.08),
-                color: config.theme.primaryColor,
-                borderColor: alpha(config.theme.primaryColor, 0.2),
+                backgroundColor: alpha('#06b6d4', 0.08),
+                color: '#06b6d4',
+                borderColor: alpha('#06b6d4', 0.2),
                 fontSize: '0.75rem',
                 fontWeight: 500,
                 '& .MuiChip-icon': {
                   fontSize: 14,
-                  color: config.theme.primaryColor,
+                  color: '#06b6d4',
                 },
                 '&:hover': {
-                  backgroundColor: alpha(config.theme.primaryColor, 0.12),
-                  borderColor: config.theme.primaryColor,
+                  backgroundColor: alpha('#06b6d4', 0.12),
+                  borderColor: '#06b6d4',
                 },
                 transition: 'all 0.2s ease',
               }}
@@ -593,8 +593,8 @@ export default function PropertyCardModern({
               label={`+${property.amenities.length - (viewMode === 'list' ? 5 : 4)}`}
               size="small"
               sx={{
-                backgroundColor: alpha(config.theme.accentColor, 0.1),
-                color: config.theme.accentColor,
+                backgroundColor: alpha('#22c55e', 0.1),
+                color: '#22c55e',
                 fontWeight: 600,
                 fontSize: '0.75rem',
               }}
@@ -605,7 +605,7 @@ export default function PropertyCardModern({
 
       {/* Pricing and CTA */}
       <Box sx={{ mt: 'auto' }}>
-        <Divider sx={{ mb: 2.5, borderColor: alpha(config.theme.primaryColor, 0.1) }} />
+        <Divider sx={{ mb: 2.5, borderColor: alpha('#06b6d4', 0.1) }} />
         <Stack 
           direction={{ xs: 'column', sm: 'row' }} 
           justifyContent="space-between" 
@@ -619,8 +619,8 @@ export default function PropertyCardModern({
                   variant="h5" 
                   sx={{ 
                     fontWeight: 800,
-                    color: config.theme.primaryColor,
-                    background: `linear-gradient(135deg, ${config.theme.primaryColor}, ${config.theme.accentColor})`,
+                    color: '#06b6d4',
+                    background: `linear-gradient(135deg, ${'#06b6d4'}, ${'#22c55e'})`,
                     backgroundClip: 'text',
                     textFillColor: 'transparent',
                   }}

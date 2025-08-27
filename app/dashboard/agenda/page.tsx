@@ -65,7 +65,6 @@ import { VisitAppointment, VISIT_STATUS_LABELS, VisitStatus } from '@/lib/types/
 import EventoModal from './components/EventoModal';
 import ViewReservationDialog from './components/ViewReservationDialog';
 import CreateVisitDialog from './components/CreateVisitDialog';
-import { VisitsDebugPanel } from '@/components/debug/VisitsDebugPanel';
 import { format, isToday, isSameDay, addDays, startOfWeek, endOfWeek, startOfMonth, endOfMonth, eachDayOfInterval, isSameWeek, isSameMonth, parseISO, subMonths, addMonths, subWeeks, addWeeks } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import DashboardBreadcrumb from '@/components/atoms/DashboardBreadcrumb';
@@ -118,9 +117,28 @@ export default function UnifiedAgendaPage() {
 
     // Sincronizar estado local com hook
     useEffect(() => {
-        setAllVisits(allVisitsHook.data || []);
+        const visits = allVisitsHook.data || [];
+        logger.info('📅 [Agenda] Visitas atualizadas', {
+            count: visits.length,
+            firstVisit: visits[0] ? {
+                id: visits[0].id,
+                clientName: visits[0].clientName,
+                scheduledDate: visits[0].scheduledDate
+            } : null
+        });
+        setAllVisits(visits);
         setLoadingVisits(allVisitsHook.loading);
     }, [allVisitsHook.data, allVisitsHook.loading]);
+
+    // Auto-refresh a cada 30 segundos
+    useEffect(() => {
+        const interval = setInterval(() => {
+            logger.info('🔄 [Agenda] Auto-refresh de visitas');
+            allVisitsHook.refetch();
+        }, 30000); // 30 segundos
+
+        return () => clearInterval(interval);
+    }, []);
 
     // Converter dados em eventos unificados
     const getAllEvents = (): AgendaEvent[] => {
@@ -588,27 +606,43 @@ export default function UnifiedAgendaPage() {
                         </Typography>
                     </Box>
                     
-                    <Button
-                        variant="contained"
-                        startIcon={<DirectionsCar />}
-                        onClick={() => setShowVisitDialog(true)}
-                        sx={{
-                            bgcolor: 'primary.main',
-                            boxShadow: 1,
-                            '&:hover': {
-                                boxShadow: 2
-                            }
-                        }}
-                    >
-                        Nova Visita
-                    </Button>
+                    <Stack direction="row" spacing={2}>
+                        <Button
+                            variant="outlined"
+                            startIcon={<Refresh />}
+                            onClick={() => {
+                                logger.info('🔄 [Agenda] Refresh manual');
+                                allVisitsHook.refetch();
+                            }}
+                            sx={{
+                                borderColor: 'divider',
+                                color: 'text.secondary',
+                                '&:hover': {
+                                    borderColor: 'primary.main',
+                                    bgcolor: 'action.hover'
+                                }
+                            }}
+                        >
+                            Atualizar
+                        </Button>
+                        
+                        <Button
+                            variant="contained"
+                            startIcon={<DirectionsCar />}
+                            onClick={() => setShowVisitDialog(true)}
+                            sx={{
+                                bgcolor: 'primary.main',
+                                boxShadow: 1,
+                                '&:hover': {
+                                    boxShadow: 2
+                                }
+                            }}
+                        >
+                            Nova Visita
+                        </Button>
+                    </Stack>
                 </Stack>
             </Box>
-            
-            {/* 🧪 DEBUG: Painel de testes (apenas desenvolvimento) */}
-            {process.env.NODE_ENV === 'development' && (
-                <VisitsDebugPanel />
-            )}
             
             {/* Cards de estatísticas clean */}
             <Grid container spacing={3} sx={{ mb: 4 }}>
@@ -848,11 +882,15 @@ export default function UnifiedAgendaPage() {
                     logger.info('🔄 [Agenda] Fechando dialog de visita');
                     setShowVisitDialog(false);
                 }}
-                onSuccess={() => {
+                onSuccess={async () => {
                     setShowVisitDialog(false);
                     // ✅ CORREÇÃO: Usar refetch do hook para recarregar visitas
                     logger.info('✅ [Agenda] Visita criada, atualizando lista');
-                    allVisitsHook.refetch();
+                    
+                    // Aguardar um momento antes de fazer refetch para garantir que o Firebase sincronizou
+                    setTimeout(() => {
+                        allVisitsHook.refetch();
+                    }, 1000);
                 }}
             />
             

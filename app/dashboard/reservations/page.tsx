@@ -103,12 +103,12 @@ export default function ReservationsPage() {
       if (typeFilter === 'visit') {
         filtered = filtered.filter(reservation => 
           reservation.status === 'visit' || 
-          (reservation.totalPrice === 0 && reservation.status === 'pending')
+          ((reservation.totalPrice || 0) === 0 && reservation.status === 'pending')
         );
       } else if (typeFilter === 'reservation') {
         filtered = filtered.filter(reservation => 
           reservation.status !== 'visit' && 
-          !(reservation.totalPrice === 0 && reservation.status === 'pending')
+          !((reservation.totalPrice || 0) === 0 && reservation.status === 'pending')
         );
       }
     }
@@ -428,7 +428,7 @@ export default function ReservationsPage() {
                 </TableRow>
               ) : (
                 filteredReservations.map((reservation) => {
-                  const isVisit = reservation.status === 'visit' || (reservation.totalPrice === 0 && reservation.status === 'pending');
+                  const isVisit = reservation.status === 'visit' || ((reservation.totalPrice || 0) === 0 && reservation.status === 'pending');
                   
                   return (
                   <TableRow key={reservation.id} hover>
@@ -512,7 +512,7 @@ export default function ReservationsPage() {
 
                   <TableCell sx={{ px: { xs: 1, sm: 2 } }}>
                     <Typography variant="body2" fontWeight="bold" sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem' } }}>
-                      R$ {reservation.totalPrice.toLocaleString('pt-BR')}
+                      R$ {(reservation.totalPrice || 0).toLocaleString('pt-BR')}
                     </Typography>
                   </TableCell>
 
@@ -638,7 +638,7 @@ export default function ReservationsPage() {
                 <Typography variant="h6" gutterBottom>
                   Financeiro
                 </Typography>
-                <Typography><strong>Valor Total:</strong> R$ {selectedReservation.totalPrice.toLocaleString('pt-BR')}</Typography>
+                <Typography><strong>Valor Total:</strong> R$ {(selectedReservation.totalPrice || 0).toLocaleString('pt-BR')}</Typography>
                 <Typography><strong>Status Pagamento:</strong> {selectedReservation.paymentStatus}</Typography>
               </Grid>
 

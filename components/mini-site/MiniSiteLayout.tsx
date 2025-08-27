@@ -79,7 +79,7 @@ const FloatingWhatsAppButton = ({ config }: { config: MiniSiteConfig }) => {
                 borderRadius: 2,
                 p: 2,
                 boxShadow: `0 8px 32px ${alpha('#000', 0.12)}`,
-                border: `1px solid ${alpha(config.theme.primaryColor, 0.1)}`,
+                border: `1px solid ${alpha('#06b6d4', 0.1)}`,
                 minWidth: 200,
                 maxWidth: 280,
               }}
@@ -212,12 +212,12 @@ export default function MiniSiteLayout({
       ${alpha('#fff', 0.9)} 100%
     )`,
     backdropFilter: 'blur(20px)',
-    borderBottom: `1px solid ${alpha(config.theme.primaryColor, 0.08)}`,
+    borderBottom: `1px solid ${alpha('#06b6d4', 0.08)}`,
     boxShadow: `0 4px 20px -2px ${alpha('#000', 0.05)}`,
   };
 
   const logoStyle = {
-    background: `linear-gradient(135deg, ${config.theme.primaryColor}, ${config.theme.accentColor})`,
+    background: `linear-gradient(135deg, #06b6d4, #22c55e)`,
     WebkitBackgroundClip: 'text',
     WebkitTextFillColor: 'transparent',
     backgroundClip: 'text',
@@ -238,11 +238,11 @@ export default function MiniSiteLayout({
       sx={{ 
         minHeight: '100vh',
         background: `linear-gradient(135deg, 
-          ${config.theme.backgroundColor} 0%, 
-          ${alpha(config.theme.primaryColor, 0.02)} 50%,
-          ${alpha(config.theme.accentColor, 0.02)} 100%
+          #0f172a 0%, 
+          ${alpha('#06b6d4', 0.02)} 50%,
+          ${alpha('#22c55e', 0.02)} 100%
         )`,
-        color: config.theme.textColor,
+        color: '#e2e8f0',
         position: 'relative',
       }}
     >
@@ -308,8 +308,8 @@ export default function MiniSiteLayout({
                       textTransform: 'none',
                       fontWeight: 500,
                       '&:hover': {
-                        backgroundColor: alpha(config.theme.primaryColor, 0.08),
-                        color: config.theme.primaryColor,
+                        backgroundColor: alpha('#06b6d4', 0.08),
+                        color: '#06b6d4',
                       },
                       transition: 'all 0.2s ease',
                     }}
@@ -353,10 +353,10 @@ export default function MiniSiteLayout({
                 <IconButton
                   onClick={handleMobileMenuClick}
                   sx={{
-                    color: config.theme.primaryColor,
-                    backgroundColor: alpha(config.theme.primaryColor, 0.08),
+                    color: '#06b6d4',
+                    backgroundColor: alpha('#06b6d4', 0.08),
                     '&:hover': {
-                      backgroundColor: alpha(config.theme.primaryColor, 0.12),
+                      backgroundColor: alpha('#06b6d4', 0.12),
                     },
                   }}
                 >
@@ -373,7 +373,7 @@ export default function MiniSiteLayout({
                 separator="›"
                 sx={{
                   '& .MuiBreadcrumbs-separator': {
-                    color: alpha(config.theme.primaryColor, 0.4),
+                    color: alpha('#06b6d4', 0.4),
                     mx: 1,
                   },
                 }}
@@ -385,11 +385,11 @@ export default function MiniSiteLayout({
                       component={Link}
                       href={crumb.href}
                       sx={{
-                        color: alpha(config.theme.primaryColor, 0.7),
+                        color: alpha('#06b6d4', 0.7),
                         textDecoration: 'none',
                         fontSize: '0.85rem',
                         '&:hover': {
-                          color: config.theme.primaryColor,
+                          color: '#06b6d4',
                           textDecoration: 'underline',
                         },
                       }}
@@ -423,7 +423,7 @@ export default function MiniSiteLayout({
             borderRadius: 3,
             minWidth: 200,
             boxShadow: `0 8px 40px ${alpha('#000', 0.12)}`,
-            border: `1px solid ${alpha(config.theme.primaryColor, 0.1)}`,
+            border: `1px solid ${alpha('#06b6d4', 0.1)}`,
           }
         }}
       >
@@ -437,8 +437,8 @@ export default function MiniSiteLayout({
               gap: 2,
               py: 1.5,
               '&:hover': {
-                backgroundColor: alpha(config.theme.primaryColor, 0.08),
-                color: config.theme.primaryColor,
+                backgroundColor: alpha('#06b6d4', 0.08),
+                color: '#06b6d4',
               },
             }}
           >
@@ -482,10 +482,10 @@ export default function MiniSiteLayout({
           py: 6,
           background: `linear-gradient(135deg, 
             ${alpha('#000', 0.02)} 0%, 
-            ${alpha(config.theme.primaryColor, 0.03)} 100%
+            ${alpha('#06b6d4', 0.03)} 100%
           )`,
           backdropFilter: 'blur(20px)',
-          borderTop: `1px solid ${alpha(config.theme.primaryColor, 0.08)}`,
+          borderTop: `1px solid ${alpha('#06b6d4', 0.08)}`,
         }}
       >
         <Container maxWidth="xl">
@@ -494,8 +494,8 @@ export default function MiniSiteLayout({
             <Box sx={{ mb: 4 }}>
               <Typography variant="h5" gutterBottom sx={{ 
                 fontWeight: 700, 
-                color: config.theme.primaryColor,
-                background: `linear-gradient(135deg, ${config.theme.primaryColor}, ${config.theme.accentColor})`,
+                color: '#06b6d4',
+                background: `linear-gradient(135deg, #06b6d4, #22c55e)`,
                 WebkitBackgroundClip: 'text',
                 WebkitTextFillColor: 'transparent',
                 backgroundClip: 'text',
@@ -529,7 +529,7 @@ export default function MiniSiteLayout({
                   label={config.contactInfo.address}
                   variant="outlined"
                   sx={{
-                    borderColor: alpha(config.theme.primaryColor, 0.2),
+                    borderColor: alpha('#06b6d4', 0.2),
                     color: 'text.secondary',
                   }}
                 />
@@ -540,7 +540,7 @@ export default function MiniSiteLayout({
                   label={config.contactInfo.businessHours}
                   variant="outlined"
                   sx={{
-                    borderColor: alpha(config.theme.primaryColor, 0.2),
+                    borderColor: alpha('#06b6d4', 0.2),
                     color: 'text.secondary',
                   }}
                 />
@@ -550,8 +550,8 @@ export default function MiniSiteLayout({
                 label="Propriedades Verificadas"
                 color="primary"
                 sx={{
-                  background: `linear-gradient(135deg, ${alpha(config.theme.primaryColor, 0.1)}, ${alpha(config.theme.accentColor, 0.1)})`,
-                  color: config.theme.primaryColor,
+                  background: `linear-gradient(135deg, ${alpha('#06b6d4', 0.1)}, ${alpha('#22c55e', 0.1)})`,
+                  color: '#06b6d4',
                   fontWeight: 600,
                 }}
               />
@@ -590,16 +590,16 @@ export default function MiniSiteLayout({
                   variant="outlined"
                   size="large"
                   sx={{
-                    borderColor: alpha(config.theme.primaryColor, 0.3),
-                    color: config.theme.primaryColor,
+                    borderColor: alpha('#06b6d4', 0.3),
+                    color: '#06b6d4',
                     borderRadius: 2.5,
                     px: 4,
                     py: 1.5,
                     textTransform: 'none',
                     fontWeight: 600,
                     '&:hover': {
-                      backgroundColor: alpha(config.theme.primaryColor, 0.08),
-                      borderColor: config.theme.primaryColor,
+                      backgroundColor: alpha('#06b6d4', 0.08),
+                      borderColor: '#06b6d4',
                       transform: 'translateY(-2px)',
                     },
                     transition: 'all 0.3s ease',
@@ -677,7 +677,7 @@ export default function MiniSiteLayout({
             {/* Copyright */}
             <Box sx={{ 
               pt: 4, 
-              borderTop: `1px solid ${alpha(config.theme.primaryColor, 0.1)}` 
+              borderTop: `1px solid ${alpha('#06b6d4', 0.1)}` 
             }}>
               <Typography variant="caption" sx={{ color: 'text.secondary', lineHeight: 1.6 }}>
                 © 2024 {config.contactInfo.businessName}. Todos os direitos reservados.

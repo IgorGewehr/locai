@@ -306,16 +306,16 @@ export default function PropertyDetailPage() {
 
   if (loading) {
     return (
-      <Box sx={{ minHeight: '100vh', bgcolor: '#f5f5f5' }}>
+      <Box sx={{ minHeight: '100vh', bgcolor: '#f8fafc' }}>
         <Container maxWidth="lg" sx={{ py: 4 }}>
-          <Skeleton variant="rectangular" height={400} sx={{ mb: 4, borderRadius: 2 }} />
+          <Skeleton variant="rectangular" height={400} sx={{ mb: 4, borderRadius: 3 }} />
           <Grid container spacing={4}>
             <Grid item xs={12} md={8}>
               <Skeleton variant="text" width={300} height={40} sx={{ mb: 2 }} />
               <Skeleton variant="text" width="100%" height={100} />
             </Grid>
             <Grid item xs={12} md={4}>
-              <Skeleton variant="rectangular" height={200} sx={{ borderRadius: 2 }} />
+              <Skeleton variant="rectangular" height={200} sx={{ borderRadius: 3 }} />
             </Grid>
           </Grid>
         </Container>
@@ -325,7 +325,7 @@ export default function PropertyDetailPage() {
 
   if (error) {
     return (
-      <Box sx={{ minHeight: '100vh', bgcolor: '#f5f5f5', display: 'flex', alignItems: 'center' }}>
+      <Box sx={{ minHeight: '100vh', bgcolor: '#f8fafc', display: 'flex', alignItems: 'center' }}>
         <Container maxWidth="sm">
           <Alert severity="error" sx={{ mb: 2 }}>
             {error}
@@ -345,7 +345,11 @@ export default function PropertyDetailPage() {
   if (!property || !config) return null;
 
   return (
-    <Box sx={{ minHeight: '100vh', bgcolor: '#f5f5f5' }}>
+    <Box sx={{ 
+      minHeight: '100vh', 
+      bgcolor: '#f8fafc', // dashboard background
+      fontFamily: '"Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", "Roboto", sans-serif',
+    }}>
       {/* Header */}
       <Box
         sx={{
