@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Box,
   Container,
@@ -106,11 +106,13 @@ export default function PropertyDetailPage() {
   });
 
   useEffect(() => {
-    loadPropertyData();
-    recordPageView();
-  }, [tenantId, propertyId]);
+    if (tenantId && propertyId) {
+      loadPropertyData();
+      recordPageView();
+    }
+  }, [tenantId, propertyId, loadPropertyData, recordPageView]);
 
-  const loadPropertyData = async () => {
+  const loadPropertyData = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
@@ -177,9 +179,9 @@ export default function PropertyDetailPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [tenantId, propertyId]);
 
-  const recordPageView = async () => {
+  const recordPageView = useCallback(async () => {
     try {
       // Record page view via API (opcional - pode ser removido para simplicidade)
       try {
@@ -198,7 +200,7 @@ export default function PropertyDetailPage() {
     } catch (error) {
       console.error('Error recording page view:', error);
     }
-  };
+  }, [tenantId, propertyId]);
 
   const handlePrevImage = () => {
     if (!property) return;

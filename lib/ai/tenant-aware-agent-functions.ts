@@ -5048,38 +5048,7 @@ export async function scheduleMeeting(args: any, tenantId: string) {
     // Criar data/hora no timezone do Brasil (-03:00)
     const scheduledDateTime = new Date(dateStr + 'T' + timeStr + ':00-03:00');
     
-    // Obter data/hora atual no timezone do Brasil
-    const now = new Date();
-    
-    // Adicionar 1 minuto de tolerância para evitar problemas com pequenas diferenças de tempo
-    const nowWithTolerance = new Date(now.getTime() - 60000); // 1 minuto antes
-    
-    // Validar se a data está no passado
-    if (scheduledDateTime <= nowWithTolerance) {
-      logger.warn('⚠️ [ScheduleMeeting] Tentativa de agendamento no passado', {
-        scheduledDateTime: scheduledDateTime.toISOString(),
-        scheduledDateTimeLocal: scheduledDateTime.toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' }),
-        now: now.toISOString(),
-        nowLocal: now.toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' }),
-        inputDate: args.scheduledDate,
-        inputTime: args.scheduledTime,
-        comparison: `${scheduledDateTime.getTime()} <= ${nowWithTolerance.getTime()}`
-      });
-      
-      return {
-        success: false,
-        error: 'Não é possível agendar reunião no passado',
-        tenantId,
-        debug: {
-          scheduledDateTime: scheduledDateTime.toISOString(),
-          currentTime: now.toISOString(),
-          inputDate: args.scheduledDate,
-          inputTime: args.scheduledTime
-        }
-      };
-    }
-    
-    logger.info('✅ [ScheduleMeeting] Data válida para agendamento', {
+    logger.info('✅ [ScheduleMeeting] Agendamento aceito sem validação de data', {
       scheduledDateTime: scheduledDateTime.toISOString(),
       scheduledDateTimeLocal: scheduledDateTime.toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' }),
       inputDate: args.scheduledDate,
