@@ -117,7 +117,7 @@ interface RegisterClientArgs {
 }
 
 interface GetPropertyDetailsArgs {
-  propertyName?: string; // Mudado de propertyId para propertyName
+  propertyName: string; // Mudado de propertyId para propertyName - OBRIGATÓRIO
   propertyIndex?: number;
   propertyReference?: string;
 }
@@ -1117,39 +1117,26 @@ export async function registerClient(args: RegisterClientArgs, tenantId: string)
 export async function getPropertyDetails(args: GetPropertyDetailsArgs, tenantId: string): Promise<any> {
   try {
     logger.info('🏠 [TenantAgent] get_property_details iniciada', {
-      tenantId,
+      tenantId: tenantId.substring(0, 8) + '***',
       propertyName: args.propertyName,
       propertyIndex: args.propertyIndex,
-      propertyReference: args.propertyReference
+      propertyReference: args.propertyReference,
+      argsReceived: JSON.stringify(args),
+      argsType: typeof args
     });
 
-    let property: Property | null = null;
+    // 🔍 VALIDAR ENTRADA
+    if (!args.propertyName || typeof args.propertyName !== 'string') {
+      return {
+        success: false,
+        error: 'PropertyName é obrigatório e deve ser uma string',
+        receivedArgs: args,
+        tenantId
+      };
+    }
 
-    // 🔍 BUSCAR POR NOME (prioridade)
-    if (args.propertyName) {
-      property = await findPropertyByName(args.propertyName, tenantId);
-    }
-    
-    // Se não encontrou por nome e tem referência/índice, buscar nas últimas propriedades mostradas
-    if (!property && (args.propertyIndex !== undefined || args.propertyReference)) {
-      const serviceFactory = new TenantServiceFactory(tenantId);
-      const propertyService = serviceFactory.properties;
-      
-      const recentProperties = await propertyService.getMany(
-        [{ field: 'isActive', operator: '==', value: true }],
-        { limit: 10, orderBy: { field: 'updatedAt', direction: 'desc' } }
-      ) as Property[];
-      
-      if (args.propertyIndex !== undefined && args.propertyIndex >= 0 && args.propertyIndex < recentProperties.length) {
-        property = recentProperties[args.propertyIndex];
-      } else if (args.propertyReference === 'primeira' && recentProperties.length > 0) {
-        property = recentProperties[0];
-      } else if (args.propertyReference === 'segunda' && recentProperties.length > 1) {
-        property = recentProperties[1];
-      } else if (args.propertyReference === 'última' && recentProperties.length > 0) {
-        property = recentProperties[recentProperties.length - 1];
-      }
-    }
+    // 🔍 BUSCAR PROPRIEDADE POR NOME (obrigatório)
+    const property = await findPropertyByName(args.propertyName, tenantId);
 
     if (!property) {
       logger.warn('⚠️ [TenantAgent] Propriedade não encontrada', {
@@ -1157,9 +1144,7 @@ export async function getPropertyDetails(args: GetPropertyDetailsArgs, tenantId:
         searchArgs: args
       });
 
-      const errorMessage = args.propertyName 
-        ? `Propriedade "${args.propertyName}" não encontrada. Verifique o nome ou faça uma nova busca.`
-        : 'Propriedade não encontrada. Por favor, seja mais específico ou faça uma nova busca.';
+      const errorMessage = `Propriedade "${args.propertyName}" não encontrada. Verifique o nome e tente novamente.`;
 
       return {
         success: false,
@@ -1169,7 +1154,7 @@ export async function getPropertyDetails(args: GetPropertyDetailsArgs, tenantId:
     }
 
     logger.info('✅ [TenantAgent] get_property_details concluída', {
-      tenantId,
+      tenantId: tenantId.substring(0, 8) + '***',
       searchTerm: args.propertyName,
       foundProperty: property.title,
       propertyId: property.id
@@ -2783,7 +2768,7 @@ export function getTenantAwareOpenAIFunctions() {
               description: 'Referência como "primeira", "segunda", "última"'
             }
           },
-          required: []
+          required: ['propertyName']
         }
       }
     },
@@ -4917,11 +4902,6 @@ export async function checkAvailability(args: CheckAvailabilityArgs, tenantId: s
       propertyId: property.id
     });
 
-    // Importar o AvailabilityService dinamicamente
-    const { AvailabilityService } = await import('@/lib/services/availability-service');
-    const availabilityService = new AvailabilityService(tenantId);
-
-
     // Converter datas de string para Date
     const checkInDate = new Date(args.checkIn);
     const checkOutDate = new Date(args.checkOut);
@@ -4958,20 +4938,52 @@ export async function checkAvailability(args: CheckAvailabilityArgs, tenantId: s
       };
     }
 
-    // Usar o sistema real de disponibilidade (AvailabilityService)
-    const isAvailable = await availabilityService.checkAvailability(property.id!, checkInDate, checkOutDate);
+    // 🎯 VERIFICAÇÃO INTELIGENTE DE DISPONIBILIDADE
+    // Foco apenas em conflitos reais (reservas confirmadas)
+    const reservationService = factory.createService<Reservation>('reservations');
+    
+    const conflictingReservations = await reservationService.getMany([
+      { field: 'propertyId', operator: '==', value: property.id },
+      { field: 'status', operator: 'in', value: ['confirmed', 'pending'] },
+      // Buscar reservas que se sobrepõem ao período solicitado
+      { field: 'checkIn', operator: '<', value: checkOutDate },
+      { field: 'checkOut', operator: '>', value: checkInDate }
+    ]);
+
+    const isAvailable = conflictingReservations.length === 0;
+    
+    // Log detalhado para debug
+    logger.info('🔍 [CheckAvailability] Verificação inteligente', {
+      tenantId,
+      searchName: args.propertyName,
+      foundProperty: property.title,
+      propertyId: property.id,
+      dateRange: `${args.checkIn} a ${args.checkOut}`,
+      conflictingReservations: conflictingReservations.length,
+      reservationIds: conflictingReservations.map(r => r.id),
+      available: isAvailable
+    });
 
     // Calcular número de noites
     const totalNights = Math.ceil((checkOutDate.getTime() - checkInDate.getTime()) / (1000 * 60 * 60 * 24));
     
-    logger.info('✅ [CheckAvailability] Verificação concluída', {
-      tenantId,
+    // Motivo da indisponibilidade (se houver)
+    let unavailabilityReason = null;
+    if (!isAvailable && conflictingReservations.length > 0) {
+      const conflictReservation = conflictingReservations[0];
+      unavailabilityReason = `Conflito com reserva ${conflictReservation.id.slice(-8)} (${new Date(conflictReservation.checkIn as Date).toLocaleDateString('pt-BR')} a ${new Date(conflictReservation.checkOut as Date).toLocaleDateString('pt-BR')})`;
+    }
+    
+    logger.info('✅ [CheckAvailability] Verificação inteligente concluída', {
+      tenantId: tenantId.substring(0, 8) + '***',
       searchName: args.propertyName,
       foundProperty: property.title,
       propertyId: property.id,
       available: isAvailable,
       totalNights,
-      dateRange: `${args.checkIn} a ${args.checkOut}`
+      dateRange: `${args.checkIn} a ${args.checkOut}`,
+      conflictingCount: conflictingReservations.length,
+      unavailabilityReason
     });
 
     return {
@@ -4982,10 +4994,10 @@ export async function checkAvailability(args: CheckAvailabilityArgs, tenantId: s
       checkIn: args.checkIn,
       checkOut: args.checkOut,
       totalNights,
-      reason: isAvailable ? null : 'Propriedade não disponível para as datas solicitadas',
+      reason: isAvailable ? null : (unavailabilityReason || 'Propriedade não disponível para as datas solicitadas'),
       message: isAvailable 
-        ? `Propriedade "${property.title}" está disponível para as datas solicitadas (${totalNights} noites)!`
-        : `Propriedade "${property.title}" não está disponível para o período de ${args.checkIn} a ${args.checkOut}`,
+        ? `Propriedade "${property.title}" está DISPONÍVEL para as datas solicitadas (${totalNights} noites)!`
+        : `Propriedade "${property.title}" está INDISPONÍVEL para o período de ${args.checkIn} a ${args.checkOut}${unavailabilityReason ? `. ${unavailabilityReason}` : ''}`,
       tenantId
     };
 
