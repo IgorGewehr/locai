@@ -99,7 +99,7 @@ export default function EditPropertyPage() {
   const router = useRouter();
   const params = useParams();
   const propertyId = params?.id as string;
-  const { services, isReady } = useTenant();
+  const { services, tenantId, isReady } = useTenant();
   
   const [activeTab, setActiveTab] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -120,6 +120,13 @@ export default function EditPropertyPage() {
     // Load property data from Firebase
     const loadProperty = async () => {
       if (!propertyId || !services || !isReady) return;
+      
+      console.log('🏠 [EditPropertyPage] Loading property data', {
+        propertyId,
+        hasServices: !!services,
+        tenantId,
+        isReady
+      });
       
       try {
         const property = await services.properties.get(propertyId);

@@ -129,7 +129,9 @@ export interface ScheduleFollowUpResponse {
 }
 
 export interface GetPropertyDetailsArgs {
-  propertyId: string;
+  propertyName: string;
+  propertyIndex?: number;
+  propertyReference?: string;
 }
 
 export interface GetPropertyDetailsResponse {

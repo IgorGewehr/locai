@@ -136,7 +136,14 @@ export default function AvailabilityCalendar({
 
   // Load calendar data
   const loadCalendarData = useCallback(async () => {
-    if (!availabilityService || !propertyId) return;
+    if (!availabilityService || !propertyId || propertyId.trim() === '') {
+      logger.warn('❌ Cannot load calendar data - missing requirements', {
+        hasService: !!availabilityService,
+        propertyId: propertyId || 'undefined',
+        tenantId
+      });
+      return;
+    }
 
     try {
       setSyncStatus(CalendarSyncStatus.SYNCING);

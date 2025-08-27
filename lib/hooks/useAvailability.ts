@@ -33,7 +33,14 @@ export function useAvailability({
   const availabilityService = tenantId ? new AvailabilityService(tenantId) : null;
 
   const fetchAvailability = useCallback(async () => {
-    if (!availabilityService || !propertyId || !startDate || !endDate) {
+    if (!availabilityService || !propertyId || propertyId.trim() === '' || !startDate || !endDate) {
+      logger.warn('❌ Cannot fetch availability - missing requirements', {
+        hasService: !!availabilityService,
+        propertyId: propertyId || 'undefined',
+        hasStartDate: !!startDate,
+        hasEndDate: !!endDate,
+        tenantId
+      });
       return;
     }
 
@@ -73,7 +80,12 @@ export function useAvailability({
 
   // Check if a specific date range is available
   const checkAvailability = useCallback(async (checkIn: Date, checkOut: Date): Promise<boolean> => {
-    if (!availabilityService || !propertyId) {
+    if (!availabilityService || !propertyId || propertyId.trim() === '') {
+      logger.warn('❌ Cannot check availability - missing requirements', {
+        hasService: !!availabilityService,
+        propertyId: propertyId || 'undefined',
+        tenantId
+      });
       return false;
     }
 
@@ -183,7 +195,12 @@ export function useAvailabilityCheck(propertyId?: string) {
   const availabilityService = tenantId ? new AvailabilityService(tenantId) : null;
 
   const checkAvailability = useCallback(async (checkIn: Date, checkOut: Date): Promise<boolean> => {
-    if (!availabilityService || !propertyId) {
+    if (!availabilityService || !propertyId || propertyId.trim() === '') {
+      logger.warn('❌ Cannot check availability - missing requirements in useAvailabilityCheck', {
+        hasService: !!availabilityService,
+        propertyId: propertyId || 'undefined',
+        tenantId
+      });
       return false;
     }
 

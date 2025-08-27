@@ -40,6 +40,14 @@ export default function PropertyMediaUpload() {
   const photos: PropertyPhoto[] = watch('photos') || [];
   const videos: PropertyVideo[] = watch('videos') || [];
   const { uploadFiles, uploading, progress, error, clearError } = useMediaUpload();
+  
+  console.log('🎬 [PropertyMediaUpload] Component rendered', {
+    photosCount: photos.length,
+    videosCount: videos.length,
+    uploading,
+    hasError: !!error,
+    progress
+  });
   const [selectedMedia, setSelectedMedia] = useState<PropertyPhoto | PropertyVideo | null>(null);
   const [captionDialogOpen, setCaptionDialogOpen] = useState(false);
   const [tempCaption, setTempCaption] = useState('');
@@ -61,17 +69,24 @@ export default function PropertyMediaUpload() {
   }, [photos, videos]);
 
   const onDropPhotos = useCallback(async (acceptedFiles: File[]) => {
-    if (acceptedFiles.length === 0) return;
+    if (acceptedFiles.length === 0) {
+      console.log('⚠️ [PropertyMediaUpload] No files accepted for upload');
+      return;
+    }
     
     console.log(`🖼️ [PropertyMediaUpload] Starting photo upload`, {
       filesCount: acceptedFiles.length,
       fileNames: acceptedFiles.map(f => f.name),
       fileSizes: acceptedFiles.map(f => f.size),
       fileTypes: acceptedFiles.map(f => f.type),
-      existingPhotosCount: photos.length
+      existingPhotosCount: photos.length,
+      uploading,
+      hasUploadFunction: !!uploadFiles,
+      hasSetValueFunction: !!setValue
     });
     
     try {
+      console.log('🚀 [PropertyMediaUpload] Clearing error and starting upload process');
       clearError();
       
       // Create immediate preview with blob URLs
@@ -197,7 +212,10 @@ export default function PropertyMediaUpload() {
     accept: {
       'image/*': ['.jpeg', '.jpg', '.png', '.webp'],
     },
-    disabled: uploading,
+    disabled: uploading, // Só desabilitar se realmente estiver fazendo upload
+    multiple: true,
+    noClick: false,
+    preventDropOnDocument: true,
   });
 
   const { getRootProps: getVideoRootProps, getInputProps: getVideoInputProps } = useDropzone({
@@ -207,6 +225,9 @@ export default function PropertyMediaUpload() {
     },
     disabled: uploading,
     maxFiles: 3,
+    multiple: true,
+    noClick: false,
+    preventDropOnDocument: true,
   });
 
   const handleDeletePhoto = (index: number) => {

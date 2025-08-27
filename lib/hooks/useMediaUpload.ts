@@ -69,9 +69,10 @@ export function useMediaUpload(): UseMediaUploadReturn {
     });
     
     const fileName = `${generateUniqueId()}-${file.name}`;
-    // Use multi-tenant path structure
-    const storagePath = `tenants/${tenantId}/properties/${type}s/${fileName}`;
-    console.log('📁 [uploadWithDataUrl] Storage path created', { storagePath });
+    // Use multi-tenant path structure with effective tenant ID
+    const effectiveTenantId = tenantId || (auth.currentUser?.uid);
+    const storagePath = `tenants/${effectiveTenantId}/properties/${type}s/${fileName}`;
+    console.log('📁 [uploadWithDataUrl] Storage path created', { storagePath, effectiveTenantId });
     
     const storageRef = ref(storage, storagePath);
 
@@ -128,11 +129,22 @@ export function useMediaUpload(): UseMediaUploadReturn {
       hasTenantId: !!tenantId,
       fileNames: files.map(f => f.name),
       fileSizes: files.map(f => f.size),
-      fileTypes: files.map(f => f.type)
+      fileTypes: files.map(f => f.type),
+      authUser: auth.currentUser?.uid,
+      hasAuth: !!auth.currentUser
     });
     
-    if (!tenantId) {
-      const error = 'Cannot upload files: No tenant ID available';
+    // Fallback para usar o UID do usuário se tenantId não estiver disponível
+    let effectiveTenantId = tenantId;
+    if (!effectiveTenantId && auth.currentUser) {
+      effectiveTenantId = auth.currentUser.uid;
+      console.log('⚠️ [uploadFiles] Using fallback tenantId from auth user', {
+        fallbackTenantId: effectiveTenantId
+      });
+    }
+    
+    if (!effectiveTenantId) {
+      const error = 'Cannot upload files: No tenant ID available and no authenticated user';
       console.error('❌ [uploadFiles]', error);
       throw new Error(error);
     }
@@ -204,11 +216,12 @@ export function useMediaUpload(): UseMediaUploadReturn {
 
           const fileName = `${generateUniqueId()}-${file.name}`
           // Use multi-tenant path structure
-          const storagePath = `tenants/${tenantId}/properties/${type}s/${fileName}`;
+          const storagePath = `tenants/${effectiveTenantId}/properties/${type}s/${fileName}`;
           console.log(`🎯 [MediaUpload] Creating storage reference`, {
             fileName,
             storagePath,
             tenantId,
+            effectiveTenantId,
             type,
             originalFileName: file.name
           });

@@ -170,9 +170,9 @@ class Logger {
       if (entry.duration) logData.duration = entry.duration;
       if (entry.error) {
         logData.error = {
-          message: entry.error.message,
-          stack: entry.error.stack,
-          name: entry.error.name
+          message: entry.error.message || 'Unknown error',
+          stack: entry.error.stack || 'No stack trace',
+          name: entry.error.name || 'Error'
         };
       }
 
