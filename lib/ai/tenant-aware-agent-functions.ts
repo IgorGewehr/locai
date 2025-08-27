@@ -7,6 +7,7 @@ import { logger } from '@/lib/utils/logger';
 import { Property } from '@/lib/types/property';
 import { Client } from '@/lib/types/client';
 import { Reservation, ReservationStatus, ReservationSource, PaymentMethod, PaymentStatus } from '@/lib/types/reservation';
+import { VisitAppointment, VisitStatus } from '@/lib/types/visit-appointment';
 import { propertyCache } from '@/lib/cache/property-cache-manager';
 import { leadScoringService } from '@/lib/services/lead-scoring-service';
 
@@ -5018,19 +5019,30 @@ export async function checkAvailability(args: CheckAvailabilityArgs, tenantId: s
   }
 }
 
-// Função para agendar reunião/evento geral
+// Função para agendar reunião/evento geral - USANDO MESMA ESTRUTURA DA scheduleVisit
 export async function scheduleMeeting(args: any, tenantId: string) {
   try {
-    logger.info('🤝 [ScheduleMeeting] Agendando reunião', {
+    logger.info('🤝 [ScheduleMeeting] Agendando evento/visita', {
       tenantId: tenantId.substring(0, 8) + '***',
       clientName: args.clientName,
       title: args.title,
       scheduledDate: args.scheduledDate,
-      scheduledTime: args.scheduledTime
+      scheduledTime: args.scheduledTime,
+      propertyId: args.propertyId,
+      fullArgs: args,
+      argsKeys: Object.keys(args)
     });
 
     const serviceFactory = new TenantServiceFactory(tenantId);
-    const meetingService = serviceFactory.createService('meetings');
+    const clientService = serviceFactory.clients;
+    const visitService = serviceFactory.get<VisitAppointment>('visits'); // ✅ MESMA COLEÇÃO QUE scheduleVisit
+    
+    // Se tiver propertyId, buscar dados da propriedade
+    let propertyData = null;
+    if (args.propertyId) {
+      const propertyService = serviceFactory.properties;
+      propertyData = await propertyService.get(args.propertyId) as Property;
+    }
 
     // Validar campos obrigatórios
     if (!args.clientName || !args.scheduledDate || !args.scheduledTime || !args.title) {
@@ -5045,55 +5057,120 @@ export async function scheduleMeeting(args: any, tenantId: string) {
     const dateStr = args.scheduledDate; // YYYY-MM-DD
     const timeStr = args.scheduledTime; // HH:MM
     
-    // Criar data/hora no timezone do Brasil (-03:00)
-    const scheduledDateTime = new Date(dateStr + 'T' + timeStr + ':00-03:00');
+    logger.info('📅 [ScheduleMeeting] Processando data e hora', {
+      dateStr,
+      timeStr,
+      dateStrType: typeof dateStr,
+      timeStrType: typeof timeStr
+    });
     
-    logger.info('✅ [ScheduleMeeting] Agendamento aceito sem validação de data', {
+    // Criar data/hora no timezone do Brasil (-03:00)
+    const dateTimeString = dateStr + 'T' + timeStr + ':00-03:00';
+    const scheduledDateTime = new Date(dateTimeString);
+    
+    logger.info('✅ [ScheduleMeeting] Data processada', {
+      dateTimeString,
       scheduledDateTime: scheduledDateTime.toISOString(),
       scheduledDateTimeLocal: scheduledDateTime.toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' }),
-      inputDate: args.scheduledDate,
-      inputTime: args.scheduledTime
+      isValidDate: !isNaN(scheduledDateTime.getTime())
     });
 
-    // Preparar dados da reunião - simplificado para contato futuro
-    const meetingData = {
+    // Resolver ou criar cliente (MESMA LÓGICA DA scheduleVisit)
+    let clientId = args.clientId;
+    
+    if (!clientId && (args.clientPhone || args.clientName)) {
+      // Tentar encontrar cliente existente por telefone
+      if (args.clientPhone) {
+        const existingClients = await clientService.getMany([
+          { field: 'phone', operator: '==', value: args.clientPhone }
+        ]) as Client[];
+        
+        if (existingClients.length > 0) {
+          clientId = existingClients[0].id!;
+          logger.info('✅ [ScheduleMeeting] Cliente existente encontrado', { tenantId, clientId });
+        }
+      }
+      
+      // Criar novo cliente se não encontrou
+      if (!clientId) {
+        const newClientData = {
+          name: args.clientName,
+          phone: args.clientPhone,
+          whatsappNumber: args.clientPhone,
+          tenantId
+        };
+        
+        clientId = await clientService.create(newClientData);
+        logger.info('✅ [ScheduleMeeting] Novo cliente criado', { tenantId, clientId });
+      }
+    }
+
+    if (!clientId) {
+      return {
+        success: false,
+        error: 'Cliente não identificado. Por favor, forneça nome e telefone.',
+        tenantId
+      };
+    }
+
+    // Obter dados do cliente para preenchimento completo
+    const client = await clientService.get(clientId) as Client;
+
+    // ✅ CRIAR EVENTO USANDO ESTRUTURA VisitAppointment (mesmo formato que scheduleVisit)
+    const visitData: Omit<VisitAppointment, 'id'> = {
       tenantId,
-      clientName: args.clientName,
-      clientPhone: args.clientPhone || null,
-      clientEmail: args.clientEmail || null,
+      clientId,
+      clientName: client?.name || args.clientName,
+      clientPhone: client?.phone || args.clientPhone || '',
+      
+      // Se tem propertyId, é uma visita; senão, evento genérico
+      propertyId: args.propertyId || 'GENERIC_EVENT',
+      propertyName: propertyData?.title || args.title, // Usar título como "propriedade"
+      propertyAddress: propertyData?.address || args.location || 'Local a definir',
+      
       scheduledDate: scheduledDateTime,
       scheduledTime: args.scheduledTime,
-      duration: args.duration || 60, // padrão 60 minutos
-      title: args.title,
-      description: args.description || '',
-      type: args.type || 'follow_up', // padrão follow-up para contato
-      status: 'scheduled', // status inicial
-      requiresConfirmation: true,
-      confirmedByClient: false,
-      confirmedByAgent: false,
-      source: 'ai_agent',
+      duration: args.duration || 60,
+      status: VisitStatus.SCHEDULED,
+      notes: args.description || `${args.title} - Agendado via IA`,
+      source: 'whatsapp', // Mesmo source da scheduleVisit
       createdAt: new Date(),
       updatedAt: new Date(),
-      agentNotes: `Contato agendado via IA: ${args.description || 'Cliente solicitou contato nesta data/hora'}`,
-      participants: []
+      
+      // Campos específicos para eventos genéricos
+      confirmedByClient: false,
+      confirmedByAgent: false
     };
 
-    // Criar reunião no banco
-    const meetingId = await meetingService.create(meetingData);
+    // Salvar no banco (MESMA COLEÇÃO visits)
+    logger.info('💾 [ScheduleMeeting] Salvando na coleção visits', {
+      visitData: {
+        ...visitData,
+        tenantId: tenantId.substring(0, 8) + '***'
+      },
+      hasService: !!visitService
+    });
+    
+    const visitId = await visitService.create(visitData);
+    
+    logger.info('✅ [ScheduleMeeting] Evento salvo na coleção visits', {
+      visitId,
+      tenantId: tenantId.substring(0, 8) + '***'
+    });
 
-    // Gerar mensagem de confirmação simplificada
-    const confirmationMessage = `✅ Contato agendado com sucesso!
+    // Gerar mensagem de confirmação
+    const confirmationMessage = `✅ ${propertyData ? 'Visita' : 'Evento'} agendado${propertyData ? 'a' : ''} com sucesso!
 📅 Data: ${scheduledDateTime.toLocaleDateString('pt-BR')}
 🕒 Horário: ${args.scheduledTime}
 👤 Cliente: ${args.clientName}
-📋 Assunto: ${args.title}
+${propertyData ? `🏠 Propriedade: ${propertyData.title}` : `📋 Assunto: ${args.title}`}
 ${args.clientPhone ? `📱 Telefone: ${args.clientPhone}` : ''}
 
-ID do agendamento: ${meetingId}`;
+ID do agendamento: ${visitId}`;
 
-    logger.info('✅ [ScheduleMeeting] Reunião criada com sucesso', {
+    logger.info('✅ [ScheduleMeeting] Evento criado com sucesso', {
       tenantId: tenantId.substring(0, 8) + '***',
-      meetingId,
+      visitId,
       scheduledDateTime: scheduledDateTime.toISOString(),
       clientName: args.clientName
     });
@@ -5101,18 +5178,19 @@ ID do agendamento: ${meetingId}`;
     return {
       success: true,
       data: {
-        meetingId,
+        visitId, // Mudança: era meetingId, agora é visitId
         scheduledDate: args.scheduledDate,
         scheduledTime: args.scheduledTime,
         title: args.title,
         clientName: args.clientName,
+        propertyName: propertyData?.title || args.title,
         confirmationMessage
       },
       tenantId
     };
 
   } catch (error) {
-    logger.error('❌ [ScheduleMeeting] Erro ao agendar reunião', {
+    logger.error('❌ [ScheduleMeeting] Erro ao agendar evento', {
       error: error instanceof Error ? error.message : 'Unknown error',
       tenantId: tenantId.substring(0, 8) + '***',
       args
@@ -5120,7 +5198,7 @@ ID do agendamento: ${meetingId}`;
 
     return {
       success: false,
-      error: 'Erro ao agendar reunião. Tente novamente.',
+      error: 'Erro ao agendar evento. Tente novamente.',
       tenantId
     };
   }
