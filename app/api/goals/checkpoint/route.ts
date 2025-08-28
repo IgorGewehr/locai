@@ -1,8 +1,7 @@
 // app/api/goals/checkpoint/route.ts
 import { NextRequest, NextResponse } from 'next/server'
 import { goalService } from '@/lib/services/goal-service'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
+import { validateFirebaseAuth } from '@/lib/middleware/firebase-auth'
 import { handleApiError } from '@/lib/utils/api-errors'
 import { z } from 'zod'
 
@@ -17,8 +16,8 @@ const checkpointSchema = z.object({
 // POST - Adicionar checkpoint a uma meta
 export async function POST(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions)
-    if (!session?.user) {
+    const authContext = await validateFirebaseAuth(request)
+    if (!authContext.authenticated || !authContext.tenantId) {
       return NextResponse.json(
         { error: 'Não autorizado' },
         { status: 401 }
@@ -50,7 +49,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    if (goal.tenantId !== session.user.tenantId) {
+    if (goal.tenantId !== authContext.tenantId) {
       return NextResponse.json(
         { error: 'Acesso negado' },
         { status: 403 }
