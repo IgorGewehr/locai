@@ -97,7 +97,7 @@ export default function Header({ onMenuClick }: HeaderProps) {
           <Box
             component="img"
             src="/logo.jpg"
-            alt="AlugZap"
+            alt="AlugaZap"
             sx={{
               height: { xs: 32, md: 40 },
               width: 'auto',

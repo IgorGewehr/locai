@@ -4,6 +4,7 @@ import { handleApiError } from '@/lib/utils/api-errors'
 import { sanitizeUserInput } from '@/lib/utils/validation'
 import { validateFirebaseAuth } from '@/lib/middleware/firebase-auth'
 import { UpdatePropertySchema } from '@/lib/validation/property-schemas'
+import { logger } from '@/lib/utils/logger'
 import type { Property } from '@/lib/types/property'
 
 // GET /api/properties/[id] - Get a single property by ID
@@ -60,6 +61,7 @@ export async function PUT(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const startTime = Date.now();
   try {
     const resolvedParams = await params
     if (!resolvedParams.id) {
@@ -72,10 +74,14 @@ export async function PUT(
       )
     }
 
+    const parseTime = Date.now();
     const body = await request.json()
+    logger.debug('⏱️ [API] JSON parsing', { time: Date.now() - parseTime + 'ms' });
 
     // Check authentication and get tenantId
+    const authTime = Date.now();
     const authContext = await validateFirebaseAuth(request)
+    logger.debug('⏱️ [API] Authentication', { time: Date.now() - authTime + 'ms' });
     if (!authContext.authenticated || !authContext.tenantId) {
       return NextResponse.json(
         { error: 'Authentication required', code: 'UNAUTHORIZED' },
@@ -96,10 +102,28 @@ export async function PUT(
       )
     }
 
+    // Log dados recebidos para debug
+    console.log('[API] Update data received:', {
+      hasPhotos: !!body.photos,
+      photosCount: body.photos?.length || 0,
+      photosTypes: body.photos?.map(p => typeof p),
+      hasVideos: !!body.videos,
+      videosCount: body.videos?.length || 0
+    });
+
     // Validate update data
+    const validationTime = Date.now();
     const validationResult = UpdatePropertySchema.safeParse(body)
+    logger.debug('⏱️ [API] Validation', { time: Date.now() - validationTime + 'ms' });
     
     if (!validationResult.success) {
+      const totalTime = Date.now() - startTime;
+      logger.error('❌ [API] Validation failed', {
+        time: totalTime + 'ms',
+        fieldErrors: validationResult.error.flatten().fieldErrors,
+        formErrors: validationResult.error.flatten().formErrors
+      });
+      
       return NextResponse.json(
         { 
           error: 'Dados inválidos', 
@@ -133,30 +157,80 @@ export async function PUT(
       finalUpdate.amenities = validatedData.amenities.map(a => sanitizeUserInput(a))
     }
     
-    // ✅ MÍDIAS: Processar como arrays simples (como Dart)
+    // ✅ MÍDIAS: Processar tanto objetos PropertyPhoto/Video quanto strings
     if (validatedData.photos && Array.isArray(validatedData.photos)) {
-      // Filtrar apenas URLs inválidas, manter URLs válidas intactas
-      finalUpdate.photos = validatedData.photos.filter(url => 
-        typeof url === 'string' && 
-        url.trim().length > 0 &&
-        (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('blob:'))
-      )
+      console.log('[API] Processing photos:', {
+        count: validatedData.photos.length,
+        types: validatedData.photos.map(p => typeof p),
+        sample: validatedData.photos[0]
+      });
+
+      // Aceitar tanto objetos PropertyPhoto quanto strings
+      finalUpdate.photos = validatedData.photos.filter(photo => {
+        const url = typeof photo === 'string' ? photo : photo?.url;
+        return url && 
+          url.trim().length > 0 &&
+          (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('blob:'));
+      });
     }
     
     if (validatedData.videos && Array.isArray(validatedData.videos)) {
-      // Filtrar apenas URLs inválidas, manter URLs válidas intactas  
-      finalUpdate.videos = validatedData.videos.filter(url =>
-        typeof url === 'string' && 
-        url.trim().length > 0 &&
-        (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('blob:'))
-      )
+      console.log('[API] Processing videos:', {
+        count: validatedData.videos.length,
+        types: validatedData.videos.map(v => typeof v)
+      });
+
+      // Aceitar tanto objetos PropertyVideo quanto strings
+      finalUpdate.videos = validatedData.videos.filter(video => {
+        const url = typeof video === 'string' ? video : video?.url;
+        return url && 
+          url.trim().length > 0 &&
+          (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('blob:'));
+      });
     }
 
     // ✅ UPDATE DIRETO: Uma única operação como no Dart
-    await services.properties.update(resolvedParams.id, finalUpdate)
+    const updateTime = Date.now();
+    try {
+      await services.properties.update(resolvedParams.id, finalUpdate)
+      logger.debug('⏱️ [API] Database update', { time: Date.now() - updateTime + 'ms' });
+    } catch (updateError) {
+      logger.error('❌ [API] Database update failed', {
+        error: updateError instanceof Error ? updateError.message : 'Unknown error',
+        propertyId: resolvedParams.id,
+        updateData: {
+          hasTitle: !!finalUpdate.title,
+          hasDescription: !!finalUpdate.description,
+          bedrooms: finalUpdate.bedrooms,
+          bathrooms: finalUpdate.bathrooms,
+          photosCount: finalUpdate.photos?.length || 0
+        }
+      });
+      
+      // Return more specific error for database update failures
+      return NextResponse.json(
+        { 
+          error: 'Erro ao atualizar propriedade no banco de dados', 
+          code: 'DATABASE_UPDATE_ERROR',
+          details: { 
+            dbError: updateError instanceof Error ? updateError.message : 'Unknown database error' 
+          } 
+        },
+        { status: 500 }
+      )
+    }
 
     // Get updated property
+    const fetchTime = Date.now();
     const updatedProperty = await services.properties.getById(resolvedParams.id)
+    logger.debug('⏱️ [API] Final fetch', { time: Date.now() - fetchTime + 'ms' });
+
+    const totalTime = Date.now() - startTime;
+    logger.info('✅ [API] Property update completed', {
+      propertyId: resolvedParams.id,
+      totalTime: totalTime + 'ms',
+      tenantId: authContext.tenantId
+    });
 
     return NextResponse.json({
       success: true,

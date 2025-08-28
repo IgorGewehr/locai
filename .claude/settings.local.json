@@ -69,7 +69,13 @@
       "WebFetch(domain:167.172.116.195)",
       "Bash(pm2 list:*)",
       "Read(//mnt/c/Users/Administrador/Documents/Projetos/**)",
-      "Bash(npx pm2 list:*)"
+      "Bash(npx pm2 list:*)",
+      "Read(//mnt/c/Users/Administrador/Documents/Projetos/**)",
+      "Bash(do)",
+      "Bash(if ! grep -q \"tenant-aware-agent-functions\" \"$file\")",
+      "Bash(then)",
+      "Bash(fi)",
+      "Bash(python3:*)"
     ],
     "deny": [],
     "defaultMode": "acceptEdits",

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { validateFirebaseAuth } from '@/lib/middleware/firebase-auth';
+import { authService } from '@/lib/auth/auth-service';
 import { logger } from '@/lib/utils/logger';
 import { WhatsAppMicroserviceClient } from '@/lib/whatsapp/microservice-client';
 
@@ -34,8 +34,8 @@ const rateLimiter = new Map<string, {
 // Configuracoes otimizadas
 const CACHE_TTL = 30000; // 30s cache
 const RATE_LIMIT_WINDOW = 5000; // 5s entre chamadas
-const MAX_INIT_ATTEMPTS = 5; // Maximo 5 tentativas de inicializacao
-const INIT_COOLDOWN = 30000; // 30 segundos entre inicializacoes
+const MAX_INIT_ATTEMPTS = 10; // Maximo 10 tentativas de inicializacao
+const INIT_COOLDOWN = 10000; // 10 segundos entre inicializacoes
 
 /**
  * GET /api/whatsapp/session
@@ -44,15 +44,13 @@ const INIT_COOLDOWN = 30000; // 30 segundos entre inicializacoes
 export async function GET(request: NextRequest) {
   try {
     // 1. AUTENTICACAO obrigatoria
-    const authContext = await validateFirebaseAuth(request);
-    if (!authContext.authenticated || !authContext.tenantId) {
-      return NextResponse.json({
-        success: false,
-        error: 'Unauthorized'
-      }, { status: 401 });
+    const authResult = await authService.requireAuth(request);
+    if (authResult instanceof NextResponse) {
+      return authResult;
     }
 
-    const tenantId = authContext.tenantId;
+    // authResult é diretamente o FirebaseAuthContext
+    const tenantId = authResult.tenantId;
 
     // 2. RATE LIMITING por tenant
     const now = Date.now();
@@ -173,17 +171,28 @@ export async function GET(request: NextRequest) {
  * Inicia nova sessao WhatsApp
  */
 export async function POST(request: NextRequest) {
+  logger.info('🚀 [Session API] POST request received');
+  
   try {
     // 1. AUTENTICACAO obrigatoria
-    const authContext = await validateFirebaseAuth(request);
-    if (!authContext.authenticated || !authContext.tenantId) {
-      return NextResponse.json({
-        success: false,
-        error: 'Unauthorized'
-      }, { status: 401 });
+    logger.info('🔐 [Session API] Starting auth');
+    
+    const authResult = await authService.requireAuth(request);
+    logger.info('✅ [Session API] Auth successful', {
+      authenticated: authResult?.authenticated,
+      hasTenantId: !!authResult?.tenantId
+    });
+    
+    if (authResult instanceof NextResponse) {
+      return authResult;
     }
 
-    const tenantId = authContext.tenantId;
+    // authResult é diretamente o FirebaseAuthContext
+    const tenantId = authResult.tenantId;
+    
+    logger.info('🎯 [Session API] Processing for tenant', {
+      tenantId: tenantId?.substring(0, 8) + '***'
+    });
 
     // 2. VERIFICAR RATE LIMITING para inicializacao
     const now = Date.now();
@@ -198,6 +207,13 @@ export async function POST(request: NextRequest) {
         rateLimiter.delete(tenantId);
       } else if (rateLimit.attempts >= MAX_INIT_ATTEMPTS) {
         // Apenas bloquear se ainda dentro do cooldown E excedeu tentativas
+        logger.warn('⚠️ [Session] Rate limit atingido', {
+          tenantId: tenantId.substring(0, 8) + '***',
+          attempts: rateLimit.attempts,
+          timeSinceLastAttempt: Math.ceil(timeSinceLastAttempt / 1000) + 's',
+          retryAfter: Math.ceil((INIT_COOLDOWN - timeSinceLastAttempt) / 1000) + 's'
+        });
+
         return NextResponse.json({
           success: false,
           error: 'Too many initialization attempts',
@@ -205,7 +221,10 @@ export async function POST(request: NextRequest) {
             connected: false,
             status: 'rate_limited',
             retryAfter: Math.ceil((INIT_COOLDOWN - timeSinceLastAttempt) / 1000),
-            message: 'Please wait before trying again'
+            attempts: rateLimit.attempts,
+            maxAttempts: MAX_INIT_ATTEMPTS,
+            message: `Aguarde ${Math.ceil((INIT_COOLDOWN - timeSinceLastAttempt) / 1000)} segundos antes de tentar novamente`,
+            resetUrl: '/api/whatsapp/session/reset'
           }
         }, { status: 429 });
       }
@@ -236,7 +255,16 @@ export async function POST(request: NextRequest) {
     });
 
     // 5. INICIAR SESSAO no microservico
+    logger.info('🎯 [Session API] Criando microservice client', {
+      tenantId: tenantId.substring(0, 8) + '***'
+    });
+
     const microserviceClient = new WhatsAppMicroserviceClient();
+    
+    logger.info('🚀 [Session API] Chamando startSession', {
+      tenantId: tenantId.substring(0, 8) + '***'
+    });
+
     const initResult = await microserviceClient.startSession(tenantId);
 
     if (!initResult.success) {
@@ -356,15 +384,13 @@ export async function POST(request: NextRequest) {
 export async function DELETE(request: NextRequest) {
   try {
     // 1. AUTENTICACAO obrigatoria
-    const authContext = await validateFirebaseAuth(request);
-    if (!authContext.authenticated || !authContext.tenantId) {
-      return NextResponse.json({
-        success: false,
-        error: 'Unauthorized'
-      }, { status: 401 });
+    const authResult = await authService.requireAuth(request);
+    if (authResult instanceof NextResponse) {
+      return authResult;
     }
 
-    const tenantId = authContext.tenantId;
+    // authResult é diretamente o FirebaseAuthContext
+    const tenantId = authResult.tenantId;
 
     // 2. DESCONECTAR no microservico
     const microserviceClient = new WhatsAppMicroserviceClient();

@@ -129,7 +129,9 @@ export interface ScheduleFollowUpResponse {
 }
 
 export interface GetPropertyDetailsArgs {
-  propertyId: string;
+  propertyName: string;
+  propertyIndex?: number;
+  propertyReference?: string;
 }
 
 export interface GetPropertyDetailsResponse {
@@ -180,6 +182,34 @@ export interface CreatePendingTransactionResponse {
   error?: string;
 }
 
+export interface ScheduleMeetingArgs {
+  clientName: string;
+  clientPhone?: string;
+  clientEmail?: string;
+  scheduledDate: string;      // YYYY-MM-DD format
+  scheduledTime: string;      // HH:MM format
+  duration?: number;          // minutos, padrão 60
+  title: string;
+  description: string;
+  type?: string;              // padrão 'consultation'
+  isOnline?: boolean;         // padrão false
+  meetingLink?: string;       // se isOnline = true
+  location?: string;          // se isOnline = false
+}
+
+export interface ScheduleMeetingResponse {
+  success: boolean;
+  data?: {
+    meetingId: string;
+    scheduledDate: string;
+    scheduledTime: string;
+    title: string;
+    clientName: string;
+    confirmationMessage: string;
+  };
+  error?: string;
+}
+
 // Union type for all function arguments
 export type AIFunctionArgs = 
   | SearchPropertiesArgs
@@ -191,7 +221,8 @@ export type AIFunctionArgs =
   | ScheduleFollowUpArgs
   | GetPropertyDetailsArgs
   | SuggestAlternativesArgs
-  | CreatePendingTransactionArgs;
+  | CreatePendingTransactionArgs
+  | ScheduleMeetingArgs;
 
 // Union type for all function responses
 export type AIFunctionResponse = 
@@ -204,7 +235,8 @@ export type AIFunctionResponse =
   | ScheduleFollowUpResponse
   | GetPropertyDetailsResponse
   | SuggestAlternativesResponse
-  | CreatePendingTransactionResponse;
+  | CreatePendingTransactionResponse
+  | ScheduleMeetingResponse;
 
 // Helper type for function execution
 export interface AIFunctionCall {

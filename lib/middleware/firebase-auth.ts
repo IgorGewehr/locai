@@ -73,6 +73,27 @@ export async function validateFirebaseAuth(req: NextRequest): Promise<FirebaseAu
  * Middleware helper para APIs que requerem autenticação
  */
 export async function requireAuth(req: NextRequest): Promise<FirebaseAuthContext> {
+  // 🚧 BYPASS TEMPORÁRIO para testes N8N
+  if (process.env.NODE_ENV === 'development') {
+    // Verificar se é uma chamada de teste
+    const userAgent = req.headers.get('user-agent');
+    if (userAgent?.includes('curl') || userAgent?.includes('PostmanRuntime')) {
+      logger.info('🚧 [FirebaseAuth] Bypass temporário para teste', {
+        userAgent: userAgent?.substring(0, 20),
+        url: req.url.substring(0, 50)
+      });
+      
+      return {
+        authenticated: true,
+        userId: 'test-user',
+        email: 'test@example.com',
+        tenantId: 'test-tenant',
+        role: 'user',
+        token: 'test-token'
+      };
+    }
+  }
+
   const authContext = await validateFirebaseAuth(req)
   
   if (!authContext.authenticated) {

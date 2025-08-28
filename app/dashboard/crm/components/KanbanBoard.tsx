@@ -25,6 +25,8 @@ import {
   AccessTime,
   ChevronLeft,
   ChevronRight,
+  ArrowBack,
+  ArrowForward,
 } from '@mui/icons-material';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import { Lead, LeadStatus } from '@/lib/types/crm';
@@ -37,6 +39,7 @@ interface KanbanBoardProps {
   onDragEnd: (result: any) => void;
   onLeadClick: (lead: Lead) => void;
   onQuickAction: (lead: Lead, action: string) => void;
+  onMoveLeadToStatus?: (lead: Lead, newStatus: LeadStatus) => void;
   getTemperatureIcon: (temperature: string) => React.ReactNode;
   loading: boolean;
 }
@@ -47,6 +50,7 @@ export default function KanbanBoard({
   onDragEnd,
   onLeadClick,
   onQuickAction,
+  onMoveLeadToStatus,
   getTemperatureIcon,
   loading,
 }: KanbanBoardProps) {
@@ -467,6 +471,79 @@ export default function KanbanBoard({
                                         />
                                       )}
                                     </Box>
+
+                                    {/* Lead Stage Navigation */}
+                                    {onMoveLeadToStatus && (
+                                      <Box sx={{ display: 'flex', gap: 0.5, justifyContent: 'center', mb: 1 }}>
+                                        {/* Botão Voltar Fase */}
+                                        {statusColumns.findIndex(s => s.id === column.id) > 0 && (
+                                          <Tooltip title="Voltar fase">
+                                            <IconButton
+                                              size="small"
+                                              onClick={(e) => {
+                                                e.stopPropagation();
+                                                const currentIndex = statusColumns.findIndex(s => s.id === column.id);
+                                                const prevStatus = statusColumns[currentIndex - 1]?.id;
+                                                if (prevStatus && onMoveLeadToStatus) {
+                                                  onMoveLeadToStatus(lead, prevStatus);
+                                                }
+                                              }}
+                                              sx={{
+                                                background: 'rgba(156, 163, 175, 0.2)',
+                                                color: '#9ca3af',
+                                                border: '1px solid rgba(156, 163, 175, 0.3)',
+                                                '&:hover': {
+                                                  background: 'rgba(156, 163, 175, 0.3)',
+                                                  transform: 'scale(1.1)',
+                                                }
+                                              }}
+                                            >
+                                              <ArrowBack sx={{ fontSize: 16 }} />
+                                            </IconButton>
+                                          </Tooltip>
+                                        )}
+                                        
+                                        <Typography 
+                                          variant="caption" 
+                                          sx={{ 
+                                            color: 'rgba(255, 255, 255, 0.6)',
+                                            alignSelf: 'center',
+                                            mx: 1,
+                                            fontSize: '0.75rem'
+                                          }}
+                                        >
+                                          Mover fase
+                                        </Typography>
+                                        
+                                        {/* Botão Avançar Fase */}
+                                        {statusColumns.findIndex(s => s.id === column.id) < statusColumns.length - 1 && (
+                                          <Tooltip title="Avançar fase">
+                                            <IconButton
+                                              size="small"
+                                              onClick={(e) => {
+                                                e.stopPropagation();
+                                                const currentIndex = statusColumns.findIndex(s => s.id === column.id);
+                                                const nextStatus = statusColumns[currentIndex + 1]?.id;
+                                                if (nextStatus && onMoveLeadToStatus) {
+                                                  onMoveLeadToStatus(lead, nextStatus);
+                                                }
+                                              }}
+                                              sx={{
+                                                background: 'rgba(34, 197, 94, 0.2)',
+                                                color: '#22c55e',
+                                                border: '1px solid rgba(34, 197, 94, 0.3)',
+                                                '&:hover': {
+                                                  background: 'rgba(34, 197, 94, 0.3)',
+                                                  transform: 'scale(1.1)',
+                                                }
+                                              }}
+                                            >
+                                              <ArrowForward sx={{ fontSize: 16 }} />
+                                            </IconButton>
+                                          </Tooltip>
+                                        )}
+                                      </Box>
+                                    )}
 
                                     {/* Quick Actions */}
                                     <Box sx={{ display: 'flex', gap: 1, justifyContent: 'center' }}>

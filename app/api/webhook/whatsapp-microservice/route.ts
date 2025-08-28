@@ -5,10 +5,10 @@ import { WhatsAppStatusService } from '@/lib/services/whatsapp-status-service'
 import { deduplicationCache } from '@/lib/cache/deduplication-cache'
 
 /**
- * Webhook para receber mensagens do WhatsApp Microservice no DigitalOcean
- * Este endpoint é chamado quando mensagens chegam no microserviço
- *
- * NOVA VERSÃO: Integrada com N8N Workflow
+ * Webhook para receber mensagens do WhatsApp Microservice
+ * Este endpoint recebe eventos do microserviço e encaminha mensagens para o N8N
+ * 
+ * Fluxo: WhatsApp -> Microservice -> Este Webhook -> N8N -> Processamento
  */
 export async function POST(request: NextRequest) {
     try {
@@ -89,6 +89,7 @@ export async function POST(request: NextRequest) {
 
         // ✅ PROCESSAR DIFERENTES TIPOS DE EVENTOS
         if (body.event === 'message') {
+            // Encaminhar mensagem para N8N processar
             await processIncomingMessageViaN8N(body.tenantId, body.data)
         } else if (body.event === 'status_change') {
             await processStatusChange(body.tenantId, body.data)
@@ -133,15 +134,6 @@ async function processIncomingMessageViaN8N(tenantId: string, messageData: any) 
             return;
         }
 
-        // Filtro adicional: ignorar mensagens muito curtas que podem ser ruído
-        if (message.trim().length < 2) {
-            logger.info('📞 Message too short, ignoring', {
-                tenantId: tenantId?.substring(0, 8) + '***',
-                clientPhone: clientPhone?.substring(0, 6) + '***',
-                messageLength: message.length
-            });
-            return;
-        }
 
         logger.info('📨 Processing incoming message via N8N', {
             tenantId: tenantId?.substring(0, 8) + '***',
@@ -165,17 +157,6 @@ async function processIncomingMessageViaN8N(tenantId: string, messageData: any) 
         const n8nWebhookUrl = process.env.N8N_WEBHOOK_URL;
         const n8nSecret = process.env.N8N_WEBHOOK_SECRET;
 
-        if (!n8nWebhookUrl || !n8nSecret) {
-            logger.error('❌ N8N configuration missing', {
-                hasWebhookUrl: !!n8nWebhookUrl,
-                hasSecret: !!n8nSecret,
-                tenantId: tenantId?.substring(0, 8) + '***'
-            });
-
-            // ⚠️ FALLBACK para Sofia Agent (manter funcionalidade atual)
-            logger.warn('⚠️ N8N not configured, falling back to Sofia Agent');
-            return await processWithSofiaFallback(tenantId, messageData);
-        }
 
         logger.info('🚀 Sending message to N8N workflow', {
             url: n8nWebhookUrl.substring(0, 50) + '...',
@@ -200,7 +181,7 @@ async function processIncomingMessageViaN8N(tenantId: string, messageData: any) 
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                'x-webhook-signature': n8nSecret, // N8N vai validar isso (minúsculo!)
+                'x-webhook-signature': n8nSecret,
                 'X-Tenant-ID': tenantId,
                 'User-Agent': 'LocAI-Frontend/1.0'
             },
@@ -231,71 +212,8 @@ async function processIncomingMessageViaN8N(tenantId: string, messageData: any) 
             stack: error instanceof Error ? error.stack?.substring(0, 200) : undefined
         });
 
-        // ⚠️ FALLBACK em caso de erro com N8N
-        logger.warn('⚠️ N8N call failed, falling back to Sofia Agent');
-        return await processWithSofiaFallback(tenantId, messageData);
-    }
-}
-
-/**
- * 🛡️ FUNÇÃO DE FALLBACK: Manter Sofia Agent funcionando se N8N falhar
- */
-async function processWithSofiaFallback(tenantId: string, messageData: any) {
-    try {
-        const messageId = messageData.messageId || messageData.id;
-        const clientPhone = messageData.from;
-        const message = messageData.message || messageData.text;
-
-        logger.info('🤖 Processing with Sofia Agent fallback', {
-            tenantId: tenantId?.substring(0, 8) + '***',
-            clientPhone: clientPhone?.substring(0, 6) + '***'
-        });
-
-        // Importar Sofia Agent dinamicamente
-        const { sofiaAgent } = await import('@/lib/ai-agent/sofia-agent');
-
-        const response = await sofiaAgent.processMessage({
-            message,
-            clientPhone,
-            tenantId,
-            metadata: {
-                source: 'whatsapp-microservice-fallback',
-                priority: 'high',
-                skipHeavyProcessing: true,
-                messageId,
-                bypassDeduplication: true
-            }
-        });
-
-        // Verificar se resposta não está vazia
-        if (!response.reply || response.reply.trim() === '') {
-            logger.warn('⚠️ Empty response from Sofia fallback', {
-                tenantId: tenantId?.substring(0, 8) + '***',
-                clientPhone: clientPhone?.substring(0, 6) + '***'
-            });
-            return;
-        }
-
-        // Enviar resposta via microservice
-        await sendResponseToMicroservice({
-            tenantId,
-            to: clientPhone,
-            message: response.reply,
-            originalMessageId: messageId
-        });
-
-        logger.info('✅ Sofia fallback message processed successfully', {
-            tenantId: tenantId?.substring(0, 8) + '***',
-            clientPhone: clientPhone?.substring(0, 6) + '***',
-            responseTime: response.responseTime,
-            replyLength: response.reply.length
-        });
-
-    } catch (error) {
-        logger.error('❌ Sofia fallback also failed:', {
-            error: error instanceof Error ? error.message : 'Unknown error',
-            tenantId: tenantId?.substring(0, 8) + '***'
-        });
+        // Se falhar ao chamar N8N, apenas logar erro
+        logger.error('❌ N8N call failed - message not processed');
     }
 }
 
@@ -335,63 +253,7 @@ async function processQRCode(tenantId: string, qrData: any) {
 }
 
 /**
- * 📤 FUNÇÃO PARA FALLBACK: Enviar resposta de volta ao microservice WhatsApp
- */
-async function sendResponseToMicroservice(params: {
-    tenantId: string
-    to: string
-    message: string
-    originalMessageId: string
-}) {
-    try {
-        const microserviceUrl = process.env.WHATSAPP_MICROSERVICE_URL
-        const apiKey = process.env.WHATSAPP_MICROSERVICE_API_KEY
-
-        if (!microserviceUrl) {
-            logger.warn('⚠️ WHATSAPP_MICROSERVICE_URL not configured, skipping response')
-            return
-        }
-
-        const response = await fetch(`${microserviceUrl}/api/v1/messages/${params.tenantId}/send`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${apiKey}`,
-                'X-Tenant-ID': params.tenantId
-            },
-            body: JSON.stringify({
-                to: params.to,
-                message: params.message,
-                type: 'text'
-            }),
-            // Timeout agressivo para não bloquear webhook
-            signal: AbortSignal.timeout(5000)
-        })
-
-        if (!response.ok) {
-            throw new Error(`HTTP ${response.status}: ${response.statusText}`)
-        }
-
-        const result = await response.json()
-
-        logger.info('✅ Fallback response sent to microservice', {
-            tenantId: params.tenantId,
-            to: params.to.substring(0, 6) + '***',
-            messageId: result.messageId,
-            originalMessageId: params.originalMessageId
-        })
-
-    } catch (error) {
-        logger.error('❌ Error sending fallback response to microservice:', {
-            error: error instanceof Error ? error.message : 'Unknown error',
-            tenantId: params.tenantId,
-            to: params.to.substring(0, 6) + '***'
-        })
-    }
-}
-
-/**
- * Verificação de webhook (similar ao padrão do WhatsApp Business API) --
+ * Verificação de webhook (similar ao padrão do WhatsApp Business API)
  */
 export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url)

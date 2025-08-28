@@ -52,6 +52,8 @@ export class MicroserviceAuthAdapter {
         ...headers,
         ...options.headers,
       },
+      // Add explicit timeout to prevent hanging requests
+      signal: options.signal || AbortSignal.timeout(10000), // 10 seconds timeout
     };
     
     logger.info('🌐 [Microservice] Making authenticated request', {

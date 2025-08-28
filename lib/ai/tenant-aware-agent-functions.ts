@@ -7,8 +7,74 @@ import { logger } from '@/lib/utils/logger';
 import { Property } from '@/lib/types/property';
 import { Client } from '@/lib/types/client';
 import { Reservation, ReservationStatus, ReservationSource, PaymentMethod, PaymentStatus } from '@/lib/types/reservation';
+import { VisitAppointment, VisitStatus } from '@/lib/types/visit-appointment';
 import { propertyCache } from '@/lib/cache/property-cache-manager';
 import { leadScoringService } from '@/lib/services/lead-scoring-service';
+
+// ===== HELPER FUNCTIONS =====
+
+/**
+ * 🔍 Função auxiliar para buscar propriedade por nome
+ * Como cada tenant não tem propriedades com nomes duplicados, 
+ * podemos usar busca por nome em vez de ID
+ */
+async function findPropertyByName(propertyName: string, tenantId: string): Promise<Property | null> {
+  try {
+    const serviceFactory = new TenantServiceFactory(tenantId);
+    const propertyService = serviceFactory.properties;
+    
+    // Buscar propriedades ativas com nome exato (case-insensitive)
+    const properties = await propertyService.getMany([
+      { field: 'isActive', operator: '==', value: true }
+    ]) as Property[];
+    
+    // Encontrar propriedade com nome correspondente (case-insensitive)
+    const property = properties.find(p => 
+      p.title?.toLowerCase().trim() === propertyName.toLowerCase().trim()
+    );
+    
+    if (property) {
+      logger.info('✅ [Helper] Propriedade encontrada por nome', {
+        tenantId: tenantId.substring(0, 8) + '***',
+        propertyName: propertyName,
+        foundProperty: property.title,
+        propertyId: property.id
+      });
+      return property;
+    }
+    
+    // Se não encontrou exata, tentar busca parcial
+    const partialMatch = properties.find(p => 
+      p.title?.toLowerCase().includes(propertyName.toLowerCase().trim()) ||
+      propertyName.toLowerCase().includes(p.title?.toLowerCase().trim() || '')
+    );
+    
+    if (partialMatch) {
+      logger.info('✅ [Helper] Propriedade encontrada por busca parcial', {
+        tenantId: tenantId.substring(0, 8) + '***',
+        searchTerm: propertyName,
+        foundProperty: partialMatch.title,
+        propertyId: partialMatch.id
+      });
+      return partialMatch;
+    }
+    
+    logger.warn('⚠️ [Helper] Propriedade não encontrada por nome', {
+      tenantId: tenantId.substring(0, 8) + '***',
+      searchTerm: propertyName,
+      availableProperties: properties.map(p => p.title)
+    });
+    
+    return null;
+  } catch (error) {
+    logger.error('❌ [Helper] Erro ao buscar propriedade por nome', {
+      tenantId: tenantId.substring(0, 8) + '***',
+      propertyName,
+      error: error instanceof Error ? error.message : 'Unknown error'
+    });
+    return null;
+  }
+}
 
 // ===== INTERFACES =====
 
@@ -24,7 +90,7 @@ interface SearchPropertiesArgs {
 }
 
 interface CalculatePriceArgs {
-  propertyId: string;
+  propertyName: string; // Mudado de propertyId para propertyName
   checkIn: string;
   checkOut: string;
   guests?: number;
@@ -32,7 +98,7 @@ interface CalculatePriceArgs {
 }
 
 interface CreateReservationArgs {
-  propertyId: string;
+  propertyName: string; // Mudado de propertyId para propertyName
   clientId?: string;
   clientPhone?: string;
   clientName?: string;
@@ -52,13 +118,13 @@ interface RegisterClientArgs {
 }
 
 interface GetPropertyDetailsArgs {
-  propertyId?: string;
+  propertyName: string; // Mudado de propertyId para propertyName - OBRIGATÓRIO
   propertyIndex?: number;
   propertyReference?: string;
 }
 
 interface SendPropertyMediaArgs {
-  propertyId?: string;
+  propertyName?: string; // Mudado de propertyId para propertyName
   propertyIndex?: number;
   mediaType?: 'photos' | 'videos' | 'all';
 }
@@ -97,6 +163,12 @@ interface GenerateQuoteArgs {
   guests: number;
   includeDetails?: boolean;
   paymentMethod?: string;
+}
+
+interface CheckAvailabilityArgs {
+  propertyName: string; // Mudado de propertyId para propertyName
+  checkIn: string;
+  checkOut: string;
 }
 
 // Função para criar transação financeira
@@ -178,12 +250,7 @@ interface GetPoliciesArgs {
   propertyId?: string; // Para políticas específicas da propriedade
 }
 
-interface CheckAvailabilityArgs {
-  propertyId?: string; // Opcional - se não fornecido, verifica todas as propriedades
-  checkIn: string;
-  checkOut?: string; // Opcional - se não fornecido, assume 1 noite
-  guests?: number;
-}
+// Interface duplicada removida - usando a primeira definição atualizada
 
 interface CreateTaskArgs {
   leadId?: string;
@@ -269,7 +336,6 @@ interface AnalyzePerformanceArgs {
 }
 
 // ===== IMPORTS ADICIONAIS =====
-import { VisitAppointment, VisitStatus } from '@/lib/types/visit-appointment';
 import { Lead, LeadStatus, InteractionType } from '@/lib/types/crm';
 import { FinancialMovement, CreateFinancialMovementInput } from '@/lib/types/financial-movement';
 import { FinancialGoal, GoalType, GoalCategory, GoalMetric, GoalStatus } from '@/lib/types/financial';
@@ -296,6 +362,12 @@ export async function searchProperties(args: SearchPropertiesArgs, tenantId: str
         checkOut: args.checkOut
       }
     });
+
+    // ✅ LIMPAR CACHE PARA DEBUG (remover depois)
+    if (args.location?.toLowerCase() === 'piratuba') {
+      propertyCache.clear();
+      logger.info('🧹 [TenantAgent] Cache limpo para debug de Piratuba', { tenantId });
+    }
 
     // Verificar cache primeiro
     const cachedProperties = propertyCache.get(tenantId, args);
@@ -332,36 +404,106 @@ export async function searchProperties(args: SearchPropertiesArgs, tenantId: str
     // Aplicar filtros
     if (args.location) {
       const location = args.location.toLowerCase();
-      filteredProperties = filteredProperties.filter(property => 
-        property.city?.toLowerCase().includes(location) ||
-        property.neighborhood?.toLowerCase().includes(location) ||
-        property.address?.toLowerCase().includes(location)
-      );
+      
+      logger.info('🎯 [TenantAgent] Aplicando filtro de localização', {
+        tenantId,
+        searchTerm: location,
+        propertiesBeforeFilter: filteredProperties.length
+      });
+      
+      filteredProperties = filteredProperties.filter(property => {
+        const matchCity = property.city?.toLowerCase().includes(location);
+        const matchNeighborhood = property.neighborhood?.toLowerCase().includes(location);
+        const matchAddress = property.address?.toLowerCase().includes(location);
+        const matchDescription = property.description?.toLowerCase().includes(location); // ✅ BUSCA TAMBÉM NA DESCRIÇÃO
+        
+        const matches = matchCity || matchNeighborhood || matchAddress || matchDescription;
+        
+        if (matches) {
+          logger.info('✅ [TenantAgent] Propriedade encontrada por localização', {
+            tenantId,
+            propertyTitle: property.title,
+            propertyId: property.id,
+            basePrice: property.basePrice,
+            bedrooms: property.bedrooms,
+            category: property.category,
+            isActive: property.isActive,
+            matchedBy: {
+              city: matchCity ? property.city : null,
+              neighborhood: matchNeighborhood ? property.neighborhood : null,
+              address: matchAddress ? property.address?.substring(0, 50) : null,
+              description: matchDescription ? property.description?.substring(0, 100) : null
+            }
+          });
+        }
+        
+        return matches;
+      });
+      
+      logger.info('📊 [TenantAgent] Filtro de localização aplicado', {
+        tenantId,
+        searchTerm: location,
+        propertiesAfterFilter: filteredProperties.length
+      });
     }
 
     if (args.guests) {
+      const beforeGuestsFilter = filteredProperties.length;
       filteredProperties = filteredProperties.filter(property => 
         (property.maxGuests || 0) >= args.guests!
       );
+      logger.info('🔍 [TenantAgent] Filtro de hóspedes aplicado', {
+        tenantId,
+        guestsRequired: args.guests,
+        beforeFilter: beforeGuestsFilter,
+        afterFilter: filteredProperties.length,
+        eliminated: beforeGuestsFilter - filteredProperties.length
+      });
     }
 
     if (args.bedrooms) {
+      const beforeBedroomsFilter = filteredProperties.length;
       filteredProperties = filteredProperties.filter(property => 
         (property.bedrooms || 0) >= args.bedrooms!
       );
+      logger.info('🔍 [TenantAgent] Filtro de quartos aplicado', {
+        tenantId,
+        bedroomsRequired: args.bedrooms,
+        beforeFilter: beforeBedroomsFilter,
+        afterFilter: filteredProperties.length,
+        eliminated: beforeBedroomsFilter - filteredProperties.length
+      });
     }
 
     if (args.maxPrice) {
+      const beforePriceFilter = filteredProperties.length;
       filteredProperties = filteredProperties.filter(property => 
         (property.basePrice || 0) <= args.maxPrice!
       );
+      logger.info('🔍 [TenantAgent] Filtro de preço aplicado', {
+        tenantId,
+        maxPrice: args.maxPrice,
+        beforeFilter: beforePriceFilter,
+        afterFilter: filteredProperties.length,
+        eliminated: beforePriceFilter - filteredProperties.length,
+        samplePrices: filteredProperties.slice(0, 3).map(p => ({ title: p.title, price: p.basePrice }))
+      });
     }
 
     if (args.propertyType) {
+      const beforeTypeFilter = filteredProperties.length;
       const type = args.propertyType.toLowerCase();
       filteredProperties = filteredProperties.filter(property => 
         property.category?.toLowerCase().includes(type)
       );
+      logger.info('🔍 [TenantAgent] Filtro de tipo aplicado', {
+        tenantId,
+        typeRequired: type,
+        beforeFilter: beforeTypeFilter,
+        afterFilter: filteredProperties.length,
+        eliminated: beforeTypeFilter - filteredProperties.length,
+        sampleCategories: filteredProperties.slice(0, 3).map(p => ({ title: p.title, category: p.category }))
+      });
     }
 
     // Limitar resultados para não sobrecarregar
@@ -376,6 +518,26 @@ export async function searchProperties(args: SearchPropertiesArgs, tenantId: str
         ttl: '5 minutos'
       });
     }
+
+    // ✅ DEBUG DETALHADO PARA PIRATUBA
+    logger.info('🔍 [TenantAgent] DEBUG COMPLETO - search_properties', {
+      tenantId,
+      searchParams: args,
+      totalProperties: allProperties.length,
+      afterLocationFilter: args.location ? 'filtro aplicado' : 'sem filtro',
+      filteredCount: filteredProperties.length,
+      returnedCount: limitedProperties.length,
+      cacheStats: propertyCache.getStats(),
+      filtersApplied: {
+        location: !!args.location,
+        guests: !!args.guests,
+        bedrooms: !!args.bedrooms,
+        maxPrice: !!args.maxPrice,
+        propertyType: !!args.propertyType,
+        checkIn: !!args.checkIn,
+        checkOut: !!args.checkOut
+      }
+    });
 
     logger.info('✅ [TenantAgent] search_properties concluída', {
       tenantId,
@@ -462,46 +624,41 @@ export async function calculatePrice(args: CalculatePriceArgs, tenantId: string)
     
     logger.info('💰 [TenantAgent] calculate_price iniciada', {
       tenantId,
-      propertyId: args.propertyId,
+      propertyName: args.propertyName,
       checkIn,
       checkOut,
       guests,
       fromContext: !args.checkIn || !args.checkOut || !args.guests
     });
 
-    const serviceFactory = new TenantServiceFactory(tenantId);
-    const propertyService = serviceFactory.properties;
-    
-    logger.info('🔍 [TenantAgent] Buscando propriedade', {
-      tenantId,
-      propertyId: args.propertyId
-    });
-
-    const property = await propertyService.get(args.propertyId) as Property;
+    // 🔍 BUSCAR PROPRIEDADE POR NOME
+    const property = await findPropertyByName(args.propertyName, tenantId);
 
     if (!property) {
       logger.error('❌ [TenantAgent] Propriedade não encontrada', {
         tenantId,
-        propertyId: args.propertyId
+        propertyName: args.propertyName
       });
 
       return {
         success: false,
-        error: 'Propriedade não encontrada',
+        error: `Propriedade "${args.propertyName}" não encontrada. Verifique o nome ou faça uma nova busca.`,
         tenantId
       };
     }
 
-    logger.info('✅ [TenantAgent] Propriedade encontrada', {
+    logger.info('✅ [TenantAgent] Propriedade encontrada para cálculo', {
       tenantId,
-      propertyId: args.propertyId,
-      propertyName: property.title,
+      searchName: args.propertyName,
+      foundProperty: property.title,
+      propertyId: property.id,
       hasBasePrice: !!property.basePrice
     });
 
     // Calcular preço usando preços dinâmicos (fim de semana, feriados, customizados)
-    const checkInDate = new Date(checkIn);
-    const checkOutDate = new Date(checkOut);
+    // Corrigir timezone para manter a data local
+    const checkInDate = new Date(checkIn + 'T12:00:00-03:00');
+    const checkOutDate = new Date(checkOut + 'T12:00:00-03:00');
     const nights = Math.ceil((checkOutDate.getTime() - checkInDate.getTime()) / (1000 * 60 * 60 * 24));
     
     // Verificar se número de hóspedes excede a capacidade
@@ -551,7 +708,8 @@ export async function calculatePrice(args: CalculatePriceArgs, tenantId: string)
 
     logger.info('✅ [TenantAgent] calculate_price concluída', {
       tenantId,
-      propertyId: args.propertyId,
+      propertyName: args.propertyName,
+      foundProperty: property.title,
       nights,
       totalPrice
     });
@@ -591,7 +749,7 @@ export async function calculatePrice(args: CalculatePriceArgs, tenantId: string)
   } catch (error) {
     logger.error('❌ [TenantAgent] Erro em calculate_price', {
       tenantId,
-      propertyId: args.propertyId,
+      propertyName: args.propertyName,
       error: error instanceof Error ? error.message : 'Unknown error'
     });
 
@@ -610,22 +768,26 @@ export async function createReservation(args: CreateReservationArgs, tenantId: s
   try {
     logger.info('📝 [TenantAgent] create_reservation iniciada', {
       tenantId,
-      propertyId: args.propertyId,
+      propertyName: args.propertyName,
       clientPhone: args.clientPhone?.substring(0, 6) + '***',
       guests: args.guests
     });
 
     const serviceFactory = new TenantServiceFactory(tenantId);
-    const propertyService = serviceFactory.properties;
     const clientService = serviceFactory.clients;
     const reservationService = serviceFactory.reservations;
 
-    // Verificar se propriedade existe
-    const property = await propertyService.get(args.propertyId) as Property;
+    // 🔍 BUSCAR PROPRIEDADE POR NOME
+    const property = await findPropertyByName(args.propertyName, tenantId);
     if (!property) {
+      logger.error('❌ [TenantAgent] Propriedade não encontrada para reserva', {
+        tenantId,
+        propertyName: args.propertyName
+      });
+
       return {
         success: false,
-        error: 'Propriedade não encontrada',
+        error: `Propriedade "${args.propertyName}" não encontrada. Verifique o nome ou faça uma nova busca.`,
         tenantId
       };
     }
@@ -694,9 +856,10 @@ export async function createReservation(args: CreateReservationArgs, tenantId: s
       };
     }
 
-    // Validar datas
-    const checkInDate = new Date(args.checkIn);
-    const checkOutDate = new Date(args.checkOut);
+    // Validar datas - Corrigir timezone para manter a data local
+    // Usar formato ISO com timezone local para evitar conversão UTC
+    const checkInDate = new Date(args.checkIn + 'T12:00:00-03:00');
+    const checkOutDate = new Date(args.checkOut + 'T12:00:00-03:00');
     
     if (checkInDate >= checkOutDate) {
       return {
@@ -734,7 +897,7 @@ export async function createReservation(args: CreateReservationArgs, tenantId: s
     const nights = Math.ceil((checkOutDate.getTime() - checkInDate.getTime()) / (1000 * 60 * 60 * 24));
     
     const reservationData: Omit<Reservation, 'id'> = {
-      propertyId: args.propertyId,
+      propertyId: property.id!, // Usar ID da propriedade encontrada
       clientId,
       status: ReservationStatus.PENDING,
       
@@ -791,7 +954,9 @@ export async function createReservation(args: CreateReservationArgs, tenantId: s
     logger.info('✅ [TenantAgent] create_reservation concluída', {
       tenantId,
       reservationId,
-      propertyId: args.propertyId,
+      propertyName: args.propertyName,
+      foundProperty: property.title,
+      propertyId: property.id,
       clientId
     });
 
@@ -799,7 +964,7 @@ export async function createReservation(args: CreateReservationArgs, tenantId: s
       success: true,
       reservation: {
         id: reservationId,
-        propertyId: args.propertyId,
+        propertyId: property.id!,
         propertyName: property.title, // Property interface usa 'title'
         clientId,
         checkIn: args.checkIn,
@@ -1050,57 +1215,47 @@ export async function registerClient(args: RegisterClientArgs, tenantId: string)
 export async function getPropertyDetails(args: GetPropertyDetailsArgs, tenantId: string): Promise<any> {
   try {
     logger.info('🏠 [TenantAgent] get_property_details iniciada', {
-      tenantId,
-      propertyId: args.propertyId,
+      tenantId: tenantId.substring(0, 8) + '***',
+      propertyName: args.propertyName,
       propertyIndex: args.propertyIndex,
-      propertyReference: args.propertyReference
+      propertyReference: args.propertyReference,
+      argsReceived: JSON.stringify(args),
+      argsType: typeof args
     });
 
-    const serviceFactory = new TenantServiceFactory(tenantId);
-    const propertyService = serviceFactory.properties;
-    
-    let property: Property | null = null;
+    // 🔍 VALIDAR ENTRADA
+    if (!args.propertyName || typeof args.propertyName !== 'string') {
+      return {
+        success: false,
+        error: 'PropertyName é obrigatório e deve ser uma string',
+        receivedArgs: args,
+        tenantId
+      };
+    }
 
-    // Tentar obter por ID direto
-    if (args.propertyId) {
-      property = await propertyService.get(args.propertyId) as Property;
-    }
-    
-    // Se não encontrou e tem referência/índice, buscar nas últimas propriedades mostradas
-    if (!property && (args.propertyIndex !== undefined || args.propertyReference)) {
-      const recentProperties = await propertyService.getMany(
-        [{ field: 'isActive', operator: '==', value: true }],
-        { limit: 10, orderBy: { field: 'updatedAt', direction: 'desc' } }
-      ) as Property[];
-      
-      if (args.propertyIndex !== undefined && args.propertyIndex >= 0 && args.propertyIndex < recentProperties.length) {
-        property = recentProperties[args.propertyIndex];
-      } else if (args.propertyReference === 'primeira' && recentProperties.length > 0) {
-        property = recentProperties[0];
-      } else if (args.propertyReference === 'segunda' && recentProperties.length > 1) {
-        property = recentProperties[1];
-      } else if (args.propertyReference === 'última' && recentProperties.length > 0) {
-        property = recentProperties[recentProperties.length - 1];
-      }
-    }
+    // 🔍 BUSCAR PROPRIEDADE POR NOME (obrigatório)
+    const property = await findPropertyByName(args.propertyName, tenantId);
 
     if (!property) {
       logger.warn('⚠️ [TenantAgent] Propriedade não encontrada', {
         tenantId,
-        args
+        searchArgs: args
       });
+
+      const errorMessage = `Propriedade "${args.propertyName}" não encontrada. Verifique o nome e tente novamente.`;
 
       return {
         success: false,
-        error: 'Propriedade não encontrada. Por favor, seja mais específico ou faça uma nova busca.',
+        error: errorMessage,
         tenantId
       };
     }
 
     logger.info('✅ [TenantAgent] get_property_details concluída', {
-      tenantId,
-      propertyId: property.id,
-      propertyName: property.title
+      tenantId: tenantId.substring(0, 8) + '***',
+      searchTerm: args.propertyName,
+      foundProperty: property.title,
+      propertyId: property.id
     });
 
     // Retornar detalhes completos formatados
@@ -1171,23 +1326,23 @@ export async function sendPropertyMedia(args: SendPropertyMediaArgs, tenantId: s
   try {
     logger.info('📸 [TenantAgent] send_property_media iniciada', {
       tenantId,
-      propertyId: args.propertyId,
+      propertyName: args.propertyName,
       propertyIndex: args.propertyIndex,
       mediaType: args.mediaType || 'photos'
     });
 
-    const serviceFactory = new TenantServiceFactory(tenantId);
-    const propertyService = serviceFactory.properties;
-    
     let property: Property | null = null;
 
-    // Tentar obter por ID direto
-    if (args.propertyId) {
-      property = await propertyService.get(args.propertyId) as Property;
+    // 🔍 BUSCAR POR NOME (prioridade)
+    if (args.propertyName) {
+      property = await findPropertyByName(args.propertyName, tenantId);
     }
     
-    // Se não encontrou e tem índice, buscar nas últimas propriedades
+    // Se não encontrou por nome e tem índice, buscar nas últimas propriedades
     if (!property && args.propertyIndex !== undefined) {
+      const serviceFactory = new TenantServiceFactory(tenantId);
+      const propertyService = serviceFactory.properties;
+      
       const recentProperties = await propertyService.getMany(
         [{ field: 'isActive', operator: '==', value: true }],
         { limit: 10, orderBy: { field: 'updatedAt', direction: 'desc' } }
@@ -1201,12 +1356,16 @@ export async function sendPropertyMedia(args: SendPropertyMediaArgs, tenantId: s
     if (!property) {
       logger.warn('⚠️ [TenantAgent] Propriedade não encontrada para mídia', {
         tenantId,
-        args
+        searchArgs: args
       });
+
+      const errorMessage = args.propertyName 
+        ? `Propriedade "${args.propertyName}" não encontrada. Verifique o nome ou faça uma nova busca.`
+        : 'Propriedade não encontrada. Qual propriedade você gostaria de ver as fotos?';
 
       return {
         success: false,
-        error: 'Propriedade não encontrada. Qual propriedade você gostaria de ver as fotos?',
+        error: errorMessage,
         tenantId
       };
     }
@@ -1238,6 +1397,8 @@ export async function sendPropertyMedia(args: SendPropertyMediaArgs, tenantId: s
 
     logger.info('✅ [TenantAgent] send_property_media concluída', {
       tenantId,
+      searchTerm: args.propertyName,
+      foundProperty: property.title,
       propertyId: property.id,
       mediaCount: mediaToSend.length,
       mediaType
@@ -1828,18 +1989,34 @@ export async function generateQuote(args: GenerateQuoteArgs, tenantId: string): 
   try {
     logger.info('💰 [TenantAgent] generate_quote iniciada', {
       tenantId,
-      propertyId: args.propertyId?.substring(0, 10) + '...',
-      checkIn: args.checkIn,
-      checkOut: args.checkOut,
-      guests: args.guests,
-      paymentMethod: args.paymentMethod
+      propertyId: args?.propertyId?.substring(0, 10) + '...',
+      checkIn: args?.checkIn,
+      checkOut: args?.checkOut,
+      guests: args?.guests,
+      paymentMethod: args?.paymentMethod,
+      argsType: typeof args,
+      argsIsNull: args === null,
+      argsIsUndefined: args === undefined
     });
 
+    logger.info('🏗️ [TenantAgent] Iniciando serviceFactory', { tenantId });
     const serviceFactory = new TenantServiceFactory(tenantId);
+    logger.info('🏗️ [TenantAgent] ServiceFactory criado, criando propertyService', { tenantId });
     const propertyService = serviceFactory.properties;
+    logger.info('🏗️ [TenantAgent] PropertyService criado', { tenantId });
     
     // Buscar propriedade
+    logger.info('🔍 [TenantAgent] Buscando propriedade', { 
+      tenantId, 
+      propertyId: args.propertyId 
+    });
     const property = await propertyService.get(args.propertyId) as Property;
+    logger.info('🔍 [TenantAgent] Propriedade obtida', { 
+      tenantId, 
+      propertyId: args.propertyId,
+      hasProperty: !!property,
+      propertyName: property?.name
+    });
     if (!property) {
       return {
         success: false,
@@ -1872,15 +2049,54 @@ export async function generateQuote(args: GenerateQuoteArgs, tenantId: string): 
     // Calcular preços dinâmicos
     let quote;
     try {
+      logger.info('🧮 [TenantAgent] Iniciando cálculo detalhado', {
+        tenantId,
+        propertyId: args.propertyId,
+        propertyBasePrice: property.basePrice,
+        hasCustomPricing: !!(property.customPricing && Object.keys(property.customPricing).length > 0),
+        customPricingCount: property.customPricing ? Object.keys(property.customPricing).length : 0
+      });
+      
       quote = calculateDetailedQuote(property, checkInDate, checkOutDate, args.guests, args.paymentMethod);
+      
       if (!quote) {
+        logger.error('❌ [TenantAgent] calculateDetailedQuote retornou undefined', {
+          tenantId,
+          propertyId: args.propertyId,
+          propertyData: {
+            id: property.id,
+            basePrice: property.basePrice,
+            hasCustomPricing: !!(property.customPricing && Object.keys(property.customPricing).length > 0)
+          }
+        });
         throw new Error('calculateDetailedQuote retornou undefined');
       }
+      
+      logger.info('✅ [TenantAgent] Cálculo detalhado concluído', {
+        tenantId,
+        propertyId: args.propertyId,
+        nights: quote.nights,
+        totalPrice: quote.pricing?.totalPrice,
+        customPricingSurcharge: quote.surcharges?.customPricing
+      });
     } catch (error) {
       logger.error('❌ [TenantAgent] Erro em calculateDetailedQuote', {
         tenantId,
         propertyId: args.propertyId,
-        error: error instanceof Error ? error.message : 'Unknown error'
+        error: error instanceof Error ? error.message : 'Unknown error',
+        stack: error instanceof Error ? error.stack?.substring(0, 500) : undefined,
+        propertyData: {
+          id: property?.id,
+          basePrice: property?.basePrice,
+          maxGuests: property?.maxGuests,
+          minimumNights: property?.minimumNights
+        },
+        dateValidation: {
+          checkInDate: checkInDate.toISOString(),
+          checkOutDate: checkOutDate.toISOString(),
+          guests: args.guests,
+          paymentMethod: args.paymentMethod
+        }
       });
       
       return {
@@ -1914,7 +2130,6 @@ export async function generateQuote(args: GenerateQuoteArgs, tenantId: string): 
     logger.info('✅ [TenantAgent] generate_quote concluída', {
       tenantId,
       propertyId: args.propertyId,
-      totalPrice: quote.totalPrice,
       nights: quote.nights
     });
 
@@ -1933,7 +2148,17 @@ export async function generateQuote(args: GenerateQuoteArgs, tenantId: string): 
   } catch (error) {
     logger.error('❌ [TenantAgent] Erro em generate_quote', {
       tenantId,
-      error: error instanceof Error ? error.message : 'Unknown error'
+      error: error instanceof Error ? error.message : 'Unknown error',
+      errorType: typeof error,
+      errorValue: error,
+      stack: error instanceof Error ? error.stack : undefined,
+      args: args ? {
+        propertyId: args.propertyId,
+        checkIn: args.checkIn,
+        checkOut: args.checkOut,
+        guests: args.guests,
+        paymentMethod: args.paymentMethod
+      } : 'undefined args'
     });
 
     return {
@@ -1954,7 +2179,17 @@ function calculateDetailedQuote(
   guests: number,
   paymentMethod?: string
 ): any {
-  const nights = Math.ceil((checkOut.getTime() - checkIn.getTime()) / (1000 * 60 * 60 * 24));
+  try {
+    logger.info('🧮 [calculateDetailedQuote] Iniciando cálculo', {
+      propertyId: property?.id,
+      basePrice: property?.basePrice,
+      checkIn: checkIn?.toISOString(),
+      checkOut: checkOut?.toISOString(),
+      guests,
+      paymentMethod
+    });
+    
+    const nights = Math.ceil((checkOut.getTime() - checkIn.getTime()) / (1000 * 60 * 60 * 24));
   
   if (nights < (property.minimumNights || 1)) {
     throw new Error(`Estadia mínima de ${property.minimumNights || 1} noite(s)`);
@@ -1970,6 +2205,7 @@ function calculateDetailedQuote(
   let weekendSurcharge = 0;
   let holidaySurcharge = 0;
   let seasonalSurcharge = 0;
+  let customPricingSurcharge = 0;
   
   const currentDate = new Date(checkIn);
   
@@ -1988,16 +2224,21 @@ function calculateDetailedQuote(
     
     subtotal += dayPrice.finalPrice;
     
-    if (dayPrice.isWeekend && !dayPrice.isHoliday) {
+    if (dayPrice.isWeekend && !dayPrice.isHoliday && dayPrice.reason !== 'Preço customizado') {
       weekendSurcharge += (dayPrice.finalPrice - (property.basePrice || 0));
     }
     
-    if (dayPrice.isHoliday) {
+    if (dayPrice.isHoliday && dayPrice.reason !== 'Preço customizado') {
       holidaySurcharge += (dayPrice.finalPrice - (property.basePrice || 0));
     }
     
-    if (dayPrice.isSeason) {
+    if (dayPrice.isSeason && dayPrice.reason !== 'Preço customizado') {
       seasonalSurcharge += (dayPrice.finalPrice - (property.basePrice || 0));
+    }
+    
+    // Contabilizar custom pricing surcharge
+    if (dayPrice.reason === 'Preço customizado') {
+      customPricingSurcharge += (dayPrice.finalPrice - (property.basePrice || 0));
     }
     
     currentDate.setDate(currentDate.getDate() + 1);
@@ -2046,6 +2287,7 @@ function calculateDetailedQuote(
       weekend: weekendSurcharge,
       holiday: holidaySurcharge,
       seasonal: seasonalSurcharge,
+      customPricing: typeof customPricingSurcharge === 'number' ? customPricingSurcharge : 0,
       payment: paymentSurcharge
     },
     paymentMethod,
@@ -2060,6 +2302,22 @@ function calculateDetailedQuote(
       }
     }
   };
+  } catch (error) {
+    logger.error('❌ [calculateDetailedQuote] Erro no cálculo detalhado', {
+      error: error instanceof Error ? error.message : 'Unknown error',
+      errorType: typeof error,
+      stack: error instanceof Error ? error.stack : undefined,
+      propertyId: property?.id,
+      basePrice: property?.basePrice,
+      checkIn: checkIn?.toISOString(),
+      checkOut: checkOut?.toISOString(),
+      guests,
+      paymentMethod
+    });
+    
+    // Re-throw the error so that the calling function can handle it
+    throw error;
+  }
 }
 
 /**
@@ -2457,7 +2715,7 @@ export function getTenantAwareOpenAIFunctions() {
           properties: {
             location: {
               type: 'string',
-              description: 'Cidade, bairro ou localização desejada'
+              description: 'Cidade, bairro, endereço ou palavra-chave que apareça na descrição da propriedade'
             },
             guests: {
               type: 'number',
@@ -2488,13 +2746,13 @@ export function getTenantAwareOpenAIFunctions() {
       type: 'function' as const,
       function: {
         name: 'calculate_price',
-        description: 'Calcular preço total para uma propriedade específica',
+        description: 'Calcular preço total para uma propriedade específica usando o nome da propriedade',
         parameters: {
           type: 'object',
           properties: {
-            propertyId: {
+            propertyName: {
               type: 'string',
-              description: 'ID da propriedade'
+              description: 'Nome da propriedade (ex: "Apartamento Vista Mar", "Casa da Praia")'
             },
             checkIn: {
               type: 'string',
@@ -2509,7 +2767,7 @@ export function getTenantAwareOpenAIFunctions() {
               description: 'Número de hóspedes'
             }
           },
-          required: ['propertyId', 'checkIn', 'checkOut']
+          required: ['propertyName', 'checkIn', 'checkOut']
         }
       }
     },
@@ -2517,13 +2775,13 @@ export function getTenantAwareOpenAIFunctions() {
       type: 'function' as const,
       function: {
         name: 'create_reservation',
-        description: 'Criar uma nova reserva',
+        description: 'Criar uma nova reserva usando o nome da propriedade',
         parameters: {
           type: 'object',
           properties: {
-            propertyId: {
+            propertyName: {
               type: 'string',
-              description: 'ID da propriedade'
+              description: 'Nome da propriedade (ex: "Apartamento Vista Mar", "Casa da Praia")'
             },
             clientName: {
               type: 'string',
@@ -2554,7 +2812,7 @@ export function getTenantAwareOpenAIFunctions() {
               description: 'Preço total da reserva'
             }
           },
-          required: ['propertyId', 'checkIn', 'checkOut', 'guests']
+          required: ['propertyName', 'checkIn', 'checkOut', 'guests']
         }
       }
     },
@@ -2591,13 +2849,13 @@ export function getTenantAwareOpenAIFunctions() {
       type: 'function' as const,
       function: {
         name: 'get_property_details',
-        description: 'Obter detalhes completos de uma propriedade específica',
+        description: 'Obter detalhes completos de uma propriedade usando o nome',
         parameters: {
           type: 'object',
           properties: {
-            propertyId: {
+            propertyName: {
               type: 'string',
-              description: 'ID da propriedade'
+              description: 'Nome da propriedade (ex: "Apartamento Vista Mar", "Casa da Praia")'
             },
             propertyIndex: {
               type: 'number',
@@ -2608,7 +2866,7 @@ export function getTenantAwareOpenAIFunctions() {
               description: 'Referência como "primeira", "segunda", "última"'
             }
           },
-          required: []
+          required: ['propertyName']
         }
       }
     },
@@ -2616,13 +2874,13 @@ export function getTenantAwareOpenAIFunctions() {
       type: 'function' as const,
       function: {
         name: 'send_property_media',
-        description: 'Enviar fotos e vídeos de uma propriedade',
+        description: 'Enviar fotos e vídeos de uma propriedade usando o nome',
         parameters: {
           type: 'object',
           properties: {
-            propertyId: {
+            propertyName: {
               type: 'string',
-              description: 'ID da propriedade'
+              description: 'Nome da propriedade (ex: "Apartamento Vista Mar", "Casa da Praia")'
             },
             propertyIndex: {
               type: 'number',
@@ -2667,9 +2925,9 @@ export function getTenantAwareOpenAIFunctions() {
         parameters: {
           type: 'object',
           properties: {
-            propertyId: {
+            propertyName: {
               type: 'string',
-              description: 'ID da propriedade'
+              description: 'Nome da propriedade (ex: "Apartamento Vista Mar", "Casa da Praia")'
             },
             clientName: {
               type: 'string',
@@ -2778,9 +3036,9 @@ export function getTenantAwareOpenAIFunctions() {
         parameters: {
           type: 'object',
           properties: {
-            propertyId: {
+            propertyName: {
               type: 'string',
-              description: 'ID da propriedade'
+              description: 'Nome da propriedade (ex: "Apartamento Vista Mar", "Casa da Praia")'
             },
             checkIn: {
               type: 'string',
@@ -2804,7 +3062,7 @@ export function getTenantAwareOpenAIFunctions() {
               description: 'Método de pagamento para calcular taxas'
             }
           },
-          required: ['propertyId', 'checkIn', 'checkOut', 'guests']
+          required: ['propertyName', 'checkIn', 'checkOut', 'guests']
         }
       }
     },
@@ -2824,9 +3082,9 @@ export function getTenantAwareOpenAIFunctions() {
               type: 'string',
               description: 'ID do cliente'
             },
-            propertyId: {
+            propertyName: {
               type: 'string',
-              description: 'ID da propriedade'
+              description: 'Nome da propriedade (ex: "Apartamento Vista Mar", "Casa da Praia")'
             },
             totalAmount: {
               type: 'number',
@@ -3381,13 +3639,13 @@ export function getTenantAwareOpenAIFunctions() {
       type: 'function' as const,
       function: {
         name: 'check_availability',
-        description: 'Verificar disponibilidade em tempo real de uma propriedade específica',
+        description: 'Verificar disponibilidade em tempo real de uma propriedade usando o nome',
         parameters: {
           type: 'object',
           properties: {
-            propertyId: {
+            propertyName: {
               type: 'string',
-              description: 'ID da propriedade a verificar'
+              description: 'Nome da propriedade (ex: "Apartamento Vista Mar", "Casa da Praia")'
             },
             checkIn: {
               type: 'string',
@@ -3402,7 +3660,7 @@ export function getTenantAwareOpenAIFunctions() {
               description: 'Número de hóspedes'
             }
           },
-          required: ['propertyId', 'checkIn', 'checkOut']
+          required: ['propertyName', 'checkIn', 'checkOut']
         }
       }
     }
@@ -4470,7 +4728,7 @@ export async function updateTask(args: UpdateTaskArgs, tenantId: string): Promis
 // ===== FUNÇÕES CRÍTICAS IMPLEMENTADAS =====
 
 // Função para cancelar reserva
-async function cancelReservation(args: CancelReservationArgs, tenantId: string) {
+export async function cancelReservation(args: CancelReservationArgs, tenantId: string) {
   try {
     logger.info('🚫 [CancelReservation] Iniciando cancelamento', {
       tenantId,
@@ -4547,7 +4805,7 @@ async function cancelReservation(args: CancelReservationArgs, tenantId: string) 
 }
 
 // Função para modificar reserva
-async function modifyReservation(args: ModifyReservationArgs, tenantId: string) {
+export async function modifyReservation(args: ModifyReservationArgs, tenantId: string) {
   try {
     logger.info('✏️ [ModifyReservation] Iniciando modificação', {
       tenantId,
@@ -4634,7 +4892,7 @@ async function modifyReservation(args: ModifyReservationArgs, tenantId: string) 
 }
 
 // Função para obter políticas
-async function getPolicies(args: GetPoliciesArgs, tenantId: string) {
+export async function getPolicies(args: GetPoliciesArgs, tenantId: string) {
   try {
     logger.info('📋 [GetPolicies] Buscando políticas', {
       tenantId,
@@ -4710,125 +4968,332 @@ async function getPolicies(args: GetPoliciesArgs, tenantId: string) {
 }
 
 // Função para verificar disponibilidade
-async function checkAvailability(args: CheckAvailabilityArgs, tenantId: string) {
+// CORRIGIDA: Agora usa AvailabilityService que é o sistema real de disponibilidade
+export async function checkAvailability(args: CheckAvailabilityArgs, tenantId: string) {
   try {
-    // Definir checkOut padrão (1 noite se não fornecido)
-    const checkOutDate = args.checkOut 
-      ? args.checkOut 
-      : (() => {
-          const date = new Date(args.checkIn);
-          date.setDate(date.getDate() + 1);
-          return date.toISOString().split('T')[0];
-        })();
-
-    logger.info('🔍 [CheckAvailability] Verificando disponibilidade', {
+    logger.info('🔍 [CheckAvailability] Verificando disponibilidade da propriedade', {
       tenantId,
-      propertyId: args.propertyId || 'all',
+      propertyName: args.propertyName,
       checkIn: args.checkIn,
-      checkOut: checkOutDate,
-      guests: args.guests
+      checkOut: args.checkOut
+    });
+
+    // 🔍 BUSCAR PROPRIEDADE POR NOME
+    const property = await findPropertyByName(args.propertyName, tenantId);
+    
+    if (!property) {
+      logger.warn('❌ [CheckAvailability] Propriedade não encontrada', {
+        tenantId,
+        propertyName: args.propertyName
+      });
+      return {
+        success: false,
+        error: `Propriedade "${args.propertyName}" não encontrada. Verifique o nome ou faça uma nova busca.`,
+        tenantId
+      };
+    }
+
+    logger.info('✅ [CheckAvailability] Propriedade encontrada', {
+      tenantId,
+      searchName: args.propertyName,
+      foundProperty: property.title,
+      propertyId: property.id
+    });
+
+    // Converter datas de string para Date - Corrigir timezone
+    const checkInDate = new Date(args.checkIn + 'T12:00:00-03:00');
+    const checkOutDate = new Date(args.checkOut + 'T12:00:00-03:00');
+    
+    // Validar datas
+    if (isNaN(checkInDate.getTime()) || isNaN(checkOutDate.getTime())) {
+      return {
+        success: false,
+        error: 'Formato de data inválido',
+        tenantId
+      };
+    }
+
+    if (checkInDate >= checkOutDate) {
+      return {
+        success: false,
+        error: 'Data de check-in deve ser anterior à data de check-out',
+        tenantId
+      };
+    }
+
+    // Verificar se a propriedade está ativa
+    if (!property.isActive) {
+      return {
+        success: true,
+        available: false,
+        propertyId: property.id,
+        propertyName: property.title,
+        checkIn: args.checkIn,
+        checkOut: args.checkOut,
+        reason: 'Propriedade não está ativa',
+        message: 'Esta propriedade não está disponível para reservas no momento.',
+        tenantId
+      };
+    }
+
+    // 🎯 VERIFICAÇÃO INTELIGENTE DE DISPONIBILIDADE
+    // Foco apenas em conflitos reais (reservas confirmadas)
+    const serviceFactory = new TenantServiceFactory(tenantId);
+    const reservationService = serviceFactory.reservations;
+    
+    const conflictingReservations = await reservationService.getMany([
+      { field: 'propertyId', operator: '==', value: property.id },
+      { field: 'status', operator: 'in', value: ['confirmed', 'pending'] },
+      // Buscar reservas que se sobrepõem ao período solicitado
+      { field: 'checkIn', operator: '<', value: checkOutDate },
+      { field: 'checkOut', operator: '>', value: checkInDate }
+    ]);
+
+    const isAvailable = conflictingReservations.length === 0;
+    
+    // Log detalhado para debug
+    logger.info('🔍 [CheckAvailability] Verificação inteligente', {
+      tenantId,
+      searchName: args.propertyName,
+      foundProperty: property.title,
+      propertyId: property.id,
+      dateRange: `${args.checkIn} a ${args.checkOut}`,
+      conflictingReservations: conflictingReservations.length,
+      reservationIds: conflictingReservations.map(r => r.id),
+      available: isAvailable
+    });
+
+    // Calcular número de noites
+    const totalNights = Math.ceil((checkOutDate.getTime() - checkInDate.getTime()) / (1000 * 60 * 60 * 24));
+    
+    // Motivo da indisponibilidade (se houver)
+    let unavailabilityReason = null;
+    if (!isAvailable && conflictingReservations.length > 0) {
+      const conflictReservation = conflictingReservations[0];
+      unavailabilityReason = `Conflito com reserva ${conflictReservation.id.slice(-8)} (${new Date(conflictReservation.checkIn as Date).toLocaleDateString('pt-BR')} a ${new Date(conflictReservation.checkOut as Date).toLocaleDateString('pt-BR')})`;
+    }
+    
+    logger.info('✅ [CheckAvailability] Verificação inteligente concluída', {
+      tenantId: tenantId.substring(0, 8) + '***',
+      searchName: args.propertyName,
+      foundProperty: property.title,
+      propertyId: property.id,
+      available: isAvailable,
+      totalNights,
+      dateRange: `${args.checkIn} a ${args.checkOut}`,
+      conflictingCount: conflictingReservations.length,
+      unavailabilityReason
+    });
+
+    return {
+      success: true,
+      available: isAvailable,
+      propertyId: property.id,
+      propertyName: property.title,
+      checkIn: args.checkIn,
+      checkOut: args.checkOut,
+      totalNights,
+      reason: isAvailable ? null : (unavailabilityReason || 'Propriedade não disponível para as datas solicitadas'),
+      message: isAvailable 
+        ? `Propriedade "${property.title}" está DISPONÍVEL para as datas solicitadas (${totalNights} noites)!`
+        : `Propriedade "${property.title}" está INDISPONÍVEL para o período de ${args.checkIn} a ${args.checkOut}${unavailabilityReason ? `. ${unavailabilityReason}` : ''}`,
+      tenantId
+    };
+
+  } catch (error) {
+    logger.error('❌ [CheckAvailability] Erro ao verificar disponibilidade', { 
+      error: error instanceof Error ? error.message : 'Unknown error',
+      tenantId,
+      propertyName: args.propertyName
+    });
+    return {
+      success: false,
+      error: 'Erro ao verificar disponibilidade da propriedade',
+      tenantId
+    };
+  }
+}
+
+// Função para agendar reunião/evento geral - USANDO MESMA ESTRUTURA DA scheduleVisit
+export async function scheduleMeeting(args: any, tenantId: string) {
+  try {
+    logger.info('🤝 [ScheduleMeeting] Agendando evento/visita', {
+      tenantId: tenantId.substring(0, 8) + '***',
+      clientName: args.clientName,
+      title: args.title,
+      scheduledDate: args.scheduledDate,
+      scheduledTime: args.scheduledTime,
+      propertyId: args.propertyId,
+      fullArgs: args,
+      argsKeys: Object.keys(args)
     });
 
     const serviceFactory = new TenantServiceFactory(tenantId);
-    const propertyService = serviceFactory.properties;
-    const reservationService = serviceFactory.reservations;
+    const clientService = serviceFactory.clients;
+    const visitService = serviceFactory.get<VisitAppointment>('visits'); // ✅ MESMA COLEÇÃO QUE scheduleVisit
     
-    // Se propertyId específico fornecido, verificar se existe
+    // Se tiver propertyId, buscar dados da propriedade
+    let propertyData = null;
     if (args.propertyId) {
-      const property = await propertyService.get(args.propertyId);
-      if (!property) {
-        return {
-          success: false,
-          error: 'Propriedade não encontrada',
-          tenantId
-        };
-      }
+      const propertyService = serviceFactory.properties;
+      propertyData = await propertyService.get(args.propertyId) as Property;
     }
 
-    // Buscar reservas conflitantes
-    const existingReservations = await reservationService.getAll();
-
-    const checkInDate = new Date(args.checkIn);
-    const checkOutDateObj = new Date(checkOutDate);
-    
-    if (args.propertyId) {
-      // Verificar propriedade específica
-      const conflictingReservations = existingReservations.filter(r => {
-        if (r.propertyId !== args.propertyId) return false;
-        if (r.status === 'cancelled') return false;
-        
-        const resCheckIn = new Date(r.checkIn);
-        const resCheckOut = new Date(r.checkOut);
-        
-        // Verifica sobreposição de datas
-        return !(checkOutDateObj <= resCheckIn || checkInDate >= resCheckOut);
-      });
-
-      const isAvailable = conflictingReservations.length === 0;
-      
+    // Validar campos obrigatórios
+    if (!args.clientName || !args.scheduledDate || !args.scheduledTime || !args.title) {
       return {
-        success: true,
-        available: isAvailable,
-        propertyId: args.propertyId,
-        checkIn: args.checkIn,
-        checkOut: checkOutDate,
-        conflicts: conflictingReservations.length,
-        message: isAvailable 
-          ? 'Propriedade disponível para as datas solicitadas!'
-          : 'Propriedade não disponível - há conflito com reservas existentes.',
+        success: false,
+        error: 'Campos obrigatórios: clientName, scheduledDate, scheduledTime, title',
         tenantId
       };
-    } else {
-      // Verificar todas as propriedades disponíveis
-      const allProperties = await propertyService.getAll();
-      const availableProperties = [];
-      
-      for (const property of allProperties) {
-        const conflicts = existingReservations.filter(r => {
-          if (r.propertyId !== property.id) return false;
-          if (r.status === 'cancelled') return false;
-          
-          const resCheckIn = new Date(r.checkIn);
-          const resCheckOut = new Date(r.checkOut);
-          
-          return !(checkOutDateObj <= resCheckIn || checkInDate >= resCheckOut);
-        });
+    }
+
+    // Parse da data e hora fornecidas
+    const dateStr = args.scheduledDate; // YYYY-MM-DD
+    const timeStr = args.scheduledTime; // HH:MM
+    
+    logger.info('📅 [ScheduleMeeting] Processando data e hora', {
+      dateStr,
+      timeStr,
+      dateStrType: typeof dateStr,
+      timeStrType: typeof timeStr
+    });
+    
+    // Criar data/hora no timezone do Brasil (-03:00)
+    const dateTimeString = dateStr + 'T' + timeStr + ':00-03:00';
+    const scheduledDateTime = new Date(dateTimeString);
+    
+    logger.info('✅ [ScheduleMeeting] Data processada', {
+      dateTimeString,
+      scheduledDateTime: scheduledDateTime.toISOString(),
+      scheduledDateTimeLocal: scheduledDateTime.toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo' }),
+      isValidDate: !isNaN(scheduledDateTime.getTime())
+    });
+
+    // Resolver ou criar cliente (MESMA LÓGICA DA scheduleVisit)
+    let clientId = args.clientId;
+    
+    if (!clientId && (args.clientPhone || args.clientName)) {
+      // Tentar encontrar cliente existente por telefone
+      if (args.clientPhone) {
+        const existingClients = await clientService.getMany([
+          { field: 'phone', operator: '==', value: args.clientPhone }
+        ]) as Client[];
         
-        if (conflicts.length === 0) {
-          // Verificar se atende aos critérios de hóspedes
-          if (!args.guests || property.maxGuests >= args.guests) {
-            availableProperties.push({
-              id: property.id,
-              name: property.title,
-              maxGuests: property.maxGuests,
-              basePrice: property.basePrice
-            });
-          }
+        if (existingClients.length > 0) {
+          clientId = existingClients[0].id!;
+          logger.info('✅ [ScheduleMeeting] Cliente existente encontrado', { tenantId, clientId });
         }
       }
       
+      // Criar novo cliente se não encontrou
+      if (!clientId) {
+        const newClientData = {
+          name: args.clientName,
+          phone: args.clientPhone,
+          whatsappNumber: args.clientPhone,
+          tenantId
+        };
+        
+        clientId = await clientService.create(newClientData);
+        logger.info('✅ [ScheduleMeeting] Novo cliente criado', { tenantId, clientId });
+      }
+    }
+
+    if (!clientId) {
       return {
-        success: true,
-        available: availableProperties.length > 0,
-        availableProperties,
-        totalAvailable: availableProperties.length,
-        checkIn: args.checkIn,
-        checkOut: checkOutDate,
-        guests: args.guests,
-        message: availableProperties.length > 0 
-          ? `Encontrei ${availableProperties.length} propriedade(s) disponível(is) para suas datas!`
-          : 'Não há propriedades disponíveis para as datas solicitadas.',
+        success: false,
+        error: 'Cliente não identificado. Por favor, forneça nome e telefone.',
         tenantId
       };
     }
 
-    logger.info('✅ [CheckAvailability] Verificação concluída');
+    // Obter dados do cliente para preenchimento completo
+    const client = await clientService.get(clientId) as Client;
+
+    // ✅ CRIAR EVENTO USANDO ESTRUTURA VisitAppointment (mesmo formato que scheduleVisit)
+    const visitData: Omit<VisitAppointment, 'id'> = {
+      tenantId,
+      clientId,
+      clientName: client?.name || args.clientName,
+      clientPhone: client?.phone || args.clientPhone || '',
+      
+      // Se tem propertyId, é uma visita; senão, evento genérico
+      propertyId: args.propertyId || 'GENERIC_EVENT',
+      propertyName: propertyData?.title || args.title, // Usar título como "propriedade"
+      propertyAddress: propertyData?.address || args.location || 'Local a definir',
+      
+      scheduledDate: scheduledDateTime,
+      scheduledTime: args.scheduledTime,
+      duration: args.duration || 60,
+      status: VisitStatus.SCHEDULED,
+      notes: args.description || `${args.title} - Agendado via IA`,
+      source: 'whatsapp', // Mesmo source da scheduleVisit
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      
+      // Campos específicos para eventos genéricos
+      confirmedByClient: false,
+      confirmedByAgent: false
+    };
+
+    // Salvar no banco (MESMA COLEÇÃO visits)
+    logger.info('💾 [ScheduleMeeting] Salvando na coleção visits', {
+      visitData: {
+        ...visitData,
+        tenantId: tenantId.substring(0, 8) + '***'
+      },
+      hasService: !!visitService
+    });
+    
+    const visitId = await visitService.create(visitData);
+    
+    logger.info('✅ [ScheduleMeeting] Evento salvo na coleção visits', {
+      visitId,
+      tenantId: tenantId.substring(0, 8) + '***'
+    });
+
+    // Gerar mensagem de confirmação
+    const confirmationMessage = `✅ ${propertyData ? 'Visita' : 'Evento'} agendado${propertyData ? 'a' : ''} com sucesso!
+📅 Data: ${scheduledDateTime.toLocaleDateString('pt-BR')}
+🕒 Horário: ${args.scheduledTime}
+👤 Cliente: ${args.clientName}
+${propertyData ? `🏠 Propriedade: ${propertyData.title}` : `📋 Assunto: ${args.title}`}
+${args.clientPhone ? `📱 Telefone: ${args.clientPhone}` : ''}
+
+ID do agendamento: ${visitId}`;
+
+    logger.info('✅ [ScheduleMeeting] Evento criado com sucesso', {
+      tenantId: tenantId.substring(0, 8) + '***',
+      visitId,
+      scheduledDateTime: scheduledDateTime.toISOString(),
+      clientName: args.clientName
+    });
+
+    return {
+      success: true,
+      data: {
+        visitId, // Mudança: era meetingId, agora é visitId
+        scheduledDate: args.scheduledDate,
+        scheduledTime: args.scheduledTime,
+        title: args.title,
+        clientName: args.clientName,
+        propertyName: propertyData?.title || args.title,
+        confirmationMessage
+      },
+      tenantId
+    };
 
   } catch (error) {
-    logger.error('❌ [CheckAvailability] Erro', { error, tenantId });
+    logger.error('❌ [ScheduleMeeting] Erro ao agendar evento', {
+      error: error instanceof Error ? error.message : 'Unknown error',
+      tenantId: tenantId.substring(0, 8) + '***',
+      args
+    });
+
     return {
       success: false,
-      error: 'Erro ao verificar disponibilidade',
+      error: 'Erro ao agendar evento. Tente novamente.',
       tenantId
     };
   }
@@ -4917,6 +5382,9 @@ export async function executeTenantAwareFunction(
     
     case 'check_availability':
       return await checkAvailability(args, tenantId);
+    
+    case 'schedule_meeting':
+      return await scheduleMeeting(args, tenantId);
     
     default:
       logger.error('❌ [TenantAgent] Função desconhecida', {

@@ -176,21 +176,24 @@ export class ExternalClientAdapter {
       
       const result = await response.json();
       
+      // Handle both response formats (with and without data wrapper)
+      const sessionData = result.data || result;
+      
       logger.info('✅ [External Adapter] Session status retrieved from microservice', {
         tenantId: this.tenantId.substring(0, 8) + '***',
-        connected: result.connected,
-        status: result.status,
-        hasQR: !!result.qrCode,
-        phoneNumber: result.phoneNumber ? '✅ Set' : '❌ Missing',
-        businessName: result.businessName ? '✅ Set' : '❌ Missing'
+        connected: sessionData.connected,
+        status: sessionData.status,
+        hasQR: !!sessionData.qrCode,
+        phoneNumber: sessionData.phoneNumber ? '✅ Set' : '❌ Missing',
+        businessName: sessionData.businessName ? '✅ Set' : '❌ Missing'
       });
       
       return {
-        connected: result.connected || false,
-        phone: result.phoneNumber,
-        name: result.businessName,
-        status: result.status,
-        qrCode: result.qrCode
+        connected: sessionData.connected || false,
+        phone: sessionData.phoneNumber,
+        name: sessionData.businessName,
+        status: sessionData.status,
+        qrCode: sessionData.qrCode
       };
 
     } catch (error) {

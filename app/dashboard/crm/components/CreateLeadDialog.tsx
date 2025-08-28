@@ -47,6 +47,7 @@ const steps = ['Informações Básicas', 'Preferências', 'Qualificação'];
 
 export default function CreateLeadDialog({ open, onClose, onSuccess }: CreateLeadDialogProps) {
   const { user } = useAuth();
+  const services = useTenantServices();
   const [activeStep, setActiveStep] = useState(0);
   const [formData, setFormData] = useState({
     // Basic Info
@@ -83,9 +84,10 @@ export default function CreateLeadDialog({ open, onClose, onSuccess }: CreateLea
   };
 
   const handleSubmit = async () => {
+    if (!services) return;
+    
     try {
-      await crmService.createLead({
-        tenantId: user?.tenantId || '',
+      await services.leads.create({
         name: formData.name,
         phone: formData.phone,
         email: formData.email || undefined,
@@ -117,12 +119,14 @@ export default function CreateLeadDialog({ open, onClose, onSuccess }: CreateLea
         lastContactDate: new Date(),
         totalInteractions: 0,
         assignedTo: user?.id,
+        createdAt: new Date(),
+        updatedAt: new Date(),
       } as any);
       
       onSuccess();
       handleReset();
     } catch (error) {
-      console.error('Error creating lead:', error);
+      console.error('Erro ao criar lead:', error);
     }
   };
 

@@ -307,14 +307,14 @@ export default function FloatingActionButtons({
               ariaLabel="Ações de contato"
               sx={{
                 '& .MuiSpeedDial-fab': {
-                  background: `linear-gradient(135deg, ${config.theme.primaryColor}, ${config.theme.accentColor})`,
+                  background: `linear-gradient(135deg, ${'#06b6d4'}, ${'#22c55e'})`,
                   color: 'white',
                   '&:hover': {
-                    background: `linear-gradient(135deg, ${config.theme.primaryColor}, ${config.theme.accentColor})`,
+                    background: `linear-gradient(135deg, ${'#06b6d4'}, ${'#22c55e'})`,
                     transform: 'scale(1.1)',
                   },
                   transition: 'all 0.3s ease',
-                  boxShadow: `0 8px 24px ${alpha(config.theme.primaryColor, 0.3)}`,
+                  boxShadow: `0 8px 24px ${alpha('#06b6d4', 0.3)}`,
                 },
               }}
               icon={<SpeedDialIcon />}
@@ -416,7 +416,7 @@ export default function FloatingActionButtons({
                 startIcon={<Send />}
                 sx={{
                   borderRadius: 2,
-                  background: `linear-gradient(135deg, ${config.theme.primaryColor}, ${config.theme.accentColor})`,
+                  background: `linear-gradient(135deg, ${'#06b6d4'}, ${'#22c55e'})`,
                 }}
               >
                 Enviar
@@ -503,7 +503,7 @@ export default function FloatingActionButtons({
                     startIcon={<Calculate />}
                     sx={{
                       borderRadius: 2,
-                      background: `linear-gradient(135deg, ${config.theme.primaryColor}, ${config.theme.accentColor})`,
+                      background: `linear-gradient(135deg, ${'#06b6d4'}, ${'#22c55e'})`,
                     }}
                   >
                     Calcular
@@ -515,7 +515,7 @@ export default function FloatingActionButtons({
                       sx={{
                         p: 3,
                         borderRadius: 2,
-                        background: alpha(config.theme.primaryColor, 0.05),
+                        background: alpha('#06b6d4', 0.05),
                       }}
                     >
                       <Stack spacing={2}>
@@ -539,7 +539,7 @@ export default function FloatingActionButtons({
                           <Typography variant="h6" fontWeight={700}>
                             Total:
                           </Typography>
-                          <Typography variant="h6" fontWeight={700} color={config.theme.primaryColor}>
+                          <Typography variant="h6" fontWeight={700} color={'#06b6d4'}>
                             {new Intl.NumberFormat('pt-BR', {
                               style: 'currency',
                               currency: 'BRL',

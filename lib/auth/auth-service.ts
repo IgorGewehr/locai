@@ -3,7 +3,11 @@
  * Redireciona chamadas antigas para o novo sistema Firebase Auth
  */
 
-import { validateFirebaseAuth } from '@/lib/middleware/firebase-auth';
+import { 
+  validateFirebaseAuth, 
+  requireAuth as firebaseRequireAuth,
+  getTenantId
+} from '@/lib/middleware/firebase-auth';
 import { logger } from '@/lib/utils/logger';
 
 export const authService = {
@@ -20,5 +24,15 @@ export const authService = {
   async generateToken(user: any) {
     logger.warn('⚠️ authService.generateToken chamado - não mais necessário com Firebase Auth');
     return 'firebase-token-placeholder';
+  },
+
+  // ✅ ADICIONAR requireAuth que estava faltando
+  async requireAuth(request: any) {
+    try {
+      return await firebaseRequireAuth(request);
+    } catch (error) {
+      logger.error('❌ Error in requireAuth:', error);
+      throw error;
+    }
   }
 };

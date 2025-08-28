@@ -93,7 +93,29 @@ export function VisitsDebugPanel() {
       });
     }
 
-    // Test 4: Teste de criação (sem realmente criar)
+    // Test 4: Verificar se há visitas no hook
+    if (visitsHook.data && visitsHook.data.length > 0) {
+      newResults.push({
+        test: 'Visitas no Hook',
+        status: 'success',
+        message: `${visitsHook.data.length} visitas encontradas`,
+        details: visitsHook.data.slice(0, 3).map(v => ({
+          id: v.id,
+          clientName: v.clientName,
+          scheduledDate: v.scheduledDate,
+          status: v.status
+        }))
+      });
+    } else {
+      newResults.push({
+        test: 'Visitas no Hook',
+        status: 'error',
+        message: 'Nenhuma visita encontrada no hook',
+        details: { dataLength: 0 }
+      });
+    }
+
+    // Test 5: Teste de criação (sem realmente criar)
     const mockData = {
       clientName: 'Debug Test Client',
       clientPhone: '+5511999999999',

@@ -319,49 +319,24 @@ export class WhatsAppSessionManager extends EventEmitter {
 
   private async processIncomingMessage(tenantId: string, message: proto.IWebMessageInfo) {
     try {
-      // Check if message should be processed (not from groups)
-      const { shouldProcessMessage } = await import('@/lib/utils/whatsapp-utils');
+      // 🚫 DESATIVADO: Processamento Sofia removido
+      // Este método foi desativado porque agora usamos N8N como processador principal
+      // Mensagens são processadas via: WhatsApp -> Microservice -> N8N
       
-      if (!shouldProcessMessage(message.key.remoteJid || '')) {
-        return;
-      }
+      this.logger.info('📨 Message received from WhatsApp Web but processing is disabled', {
+        tenantId: tenantId?.substring(0, 8) + '***',
+        from: message.key.remoteJid?.substring(0, 10) + '***',
+        messageId: message.key.id?.substring(0, 8) + '***',
+        hasMessage: !!message.message,
+        note: 'Messages are now processed via microservice -> N8N workflow'
+      });
       
-      // Import our existing message handler
-      const { WhatsAppMessageHandler } = await import('./message-handler');
-      const handler = new WhatsAppMessageHandler(tenantId);
+      // 💡 NOTA: Para usar WhatsApp Web, configure o microservice para receber mensagens
+      // O microservice deve estar configurado para escutar este WhatsApp Web session
       
-      // Convert Baileys message format to our expected format
-      const formattedMessage = {
-        object: 'whatsapp_business_account',
-        entry: [{
-          id: tenantId,
-          changes: [{
-            value: {
-              messaging_product: 'whatsapp',
-              metadata: {
-                display_phone_number: this.sessions.get(tenantId)?.phoneNumber || '',
-                phone_number_id: tenantId,
-              },
-              messages: [{
-                from: message.key.remoteJid?.replace('@s.whatsapp.net', '') || '',
-                id: message.key.id || '',
-                timestamp: String(message.messageTimestamp || Date.now() / 1000),
-                text: {
-                  body: message.message?.conversation || 
-                        message.message?.extendedTextMessage?.text || 
-                        '',
-                },
-                type: 'text' as const,
-              }],
-            },
-            field: 'messages',
-          }],
-        }],
-      };
-      
-      await handler.handleWebhook(formattedMessage);
+      return; // 🚫 NÃO processar com Sofia
     } catch (error) {
-      this.logger.error(`❌ Error processing message for tenant ${tenantId}:`, error instanceof Error ? error.message : 'Unknown error');
+      this.logger.error(`❌ Error in processIncomingMessage for tenant ${tenantId}:`, error instanceof Error ? error.message : 'Unknown error');
     }
   }
 

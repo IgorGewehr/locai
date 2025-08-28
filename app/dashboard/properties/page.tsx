@@ -33,6 +33,7 @@ import {
 } from '@mui/material';
 import ModernButton from '@/components/atoms/ModernButton';
 import ModernFAB from '@/components/atoms/ModernFAB';
+import PropertyPriceDisplay from '@/components/atoms/PropertyPriceDisplay';
 import {
   Add,
   Search,
@@ -78,6 +79,20 @@ export default function PropertiesPage() {
   const [selectedProperty, setSelectedProperty] = useState<Property | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const { services, isReady } = useTenant();
+
+  // Create local SVG placeholder for property images
+  const createPropertyPlaceholder = (text: string, width: number = 400, height: number = 300) => {
+    const svg = `
+      <svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">
+        <rect width="100%" height="100%" fill="#e5e7eb"/>
+        <text x="50%" y="50%" font-family="Arial, sans-serif" font-size="16" 
+              fill="#9ca3af" text-anchor="middle" dominant-baseline="middle">
+          ${text}
+        </text>
+      </svg>
+    `;
+    return `data:image/svg+xml;base64,${btoa(svg)}`;
+  };
 
   // Load properties from Firebase
   useEffect(() => {
@@ -356,15 +371,15 @@ export default function PropertiesPage() {
                     if (imageUrl && imageUrl.startsWith('http')) {
                       return imageUrl;
                     }
-                    // Fallback to placeholder
-                    return 'https://via.placeholder.com/400x300/e5e7eb/9ca3af?text=Sem+Imagem';
+                    // Fallback to local placeholder
+                    return createPropertyPlaceholder('Sem Imagem');
                   })()}
                   alt={property.title}
                   className="property-image"
                   onError={(e) => {
                     // Additional fallback if image fails to load
                     const target = e.target as HTMLImageElement;
-                    target.src = 'https://via.placeholder.com/400x300/e5e7eb/9ca3af?text=Erro+ao+Carregar';
+                    target.src = createPropertyPlaceholder('Erro ao Carregar');
                   }}
                   sx={{ 
                     objectFit: 'cover',
@@ -525,12 +540,7 @@ export default function PropertiesPage() {
                       {property.maxGuests}
                     </Typography>
                   </Box>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                    <AttachMoney fontSize="small" color="success" />
-                    <Typography variant="body2" fontWeight={700} color="success.main">
-                      R$ {property.basePrice}
-                    </Typography>
-                  </Box>
+                  <PropertyPriceDisplay property={property} variant="compact" />
                 </Box>
 
                 {/* Additional Info */}

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   Box,
   Card,
@@ -132,11 +132,22 @@ export default function AvailabilityCalendar({
     occupancyRate: 0
   });
 
-  const availabilityService = tenantId ? new AvailabilityService(tenantId) : null;
+  const availabilityService = useMemo(() => 
+    tenantId ? new AvailabilityService(tenantId) : null, 
+    [tenantId]
+  );
 
   // Load calendar data
   const loadCalendarData = useCallback(async () => {
-    if (!availabilityService || !propertyId) return;
+    if (!availabilityService || !propertyId || propertyId.trim() === '') {
+      logger.warn('❌ Cannot load calendar data - missing requirements', {
+        hasService: !!availabilityService,
+        propertyId: propertyId || 'undefined',
+        propertyIdType: typeof propertyId,
+        tenantId
+      });
+      return;
+    }
 
     try {
       setSyncStatus(CalendarSyncStatus.SYNCING);

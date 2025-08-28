@@ -48,8 +48,8 @@ export default function PropertyCard({ property, config, onWhatsAppClick }: Prop
     overflow: 'hidden',
     background: 'rgba(255, 255, 255, 0.95)',
     backdropFilter: 'blur(20px)',
-    border: `1px solid ${alpha(config.theme.primaryColor, 0.1)}`,
-    boxShadow: `0 8px 40px ${alpha(config.theme.primaryColor, 0.08)}`,
+    border: `1px solid ${alpha('#06b6d4', 0.1)}`,
+    boxShadow: `0 8px 40px ${alpha('#06b6d4', 0.08)}`,
     transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
     position: 'relative' as const,
     height: '100%',
@@ -57,7 +57,7 @@ export default function PropertyCard({ property, config, onWhatsAppClick }: Prop
     flexDirection: 'column',
     '&:hover': {
       transform: { xs: 'none', sm: 'translateY(-8px)' },
-      boxShadow: `0 20px 60px ${alpha(config.theme.primaryColor, 0.15)}`,
+      boxShadow: `0 20px 60px ${alpha('#06b6d4', 0.15)}`,
       '& .property-image': {
         transform: { xs: 'none', sm: 'scale(1.05)' },
       },
@@ -175,10 +175,10 @@ export default function PropertyCard({ property, config, onWhatsAppClick }: Prop
                 position: 'absolute',
                 top: 12,
                 left: 12,
-                background: `linear-gradient(135deg, ${config.theme.accentColor}, ${config.theme.primaryColor})`,
+                background: `linear-gradient(135deg, ${'#22c55e'}, ${'#06b6d4'})`,
                 color: 'white',
                 fontWeight: 600,
-                boxShadow: `0 4px 12px ${alpha(config.theme.accentColor, 0.3)}`,
+                boxShadow: `0 4px 12px ${alpha('#22c55e', 0.3)}`,
               }}
             />
           )}
@@ -192,7 +192,7 @@ export default function PropertyCard({ property, config, onWhatsAppClick }: Prop
               left: 0,
               right: 0,
               bottom: 0,
-              background: `linear-gradient(45deg, ${alpha(config.theme.primaryColor, 0.1)}, ${alpha(config.theme.accentColor, 0.1)})`,
+              background: `linear-gradient(45deg, ${alpha('#06b6d4', 0.1)}, ${alpha('#22c55e', 0.1)})`,
               opacity: 0,
               transition: 'opacity 0.3s ease',
               display: 'flex',
@@ -221,7 +221,7 @@ export default function PropertyCard({ property, config, onWhatsAppClick }: Prop
             sx={{ 
               fontWeight: 700,
               mb: 1,
-              color: config.theme.textColor,
+              color: '#e2e8f0',
               lineHeight: 1.3,
             }}
           >
@@ -230,7 +230,7 @@ export default function PropertyCard({ property, config, onWhatsAppClick }: Prop
 
           {/* Location */}
           <Box sx={{ display: 'flex', alignItems: 'center', mb: 2, opacity: 0.8 }}>
-            <LocationOn sx={{ fontSize: 16, mr: 0.5, color: config.theme.primaryColor }} />
+            <LocationOn sx={{ fontSize: 16, mr: 0.5, color: '#06b6d4' }} />
             <Typography variant="body2">
               {property.location.city}, {property.location.state}
             </Typography>
@@ -239,20 +239,20 @@ export default function PropertyCard({ property, config, onWhatsAppClick }: Prop
           {/* Property Details */}
           <Stack direction="row" spacing={{ xs: 1, sm: 2 }} sx={{ mb: 2, flexWrap: 'wrap', gap: 1 }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-              <People sx={{ fontSize: 16, color: config.theme.primaryColor }} />
+              <People sx={{ fontSize: 16, color: '#06b6d4' }} />
               <Typography variant="body2">{property.maxGuests || 0}</Typography>
             </Box>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-              <Bed sx={{ fontSize: 16, color: config.theme.primaryColor }} />
+              <Bed sx={{ fontSize: 16, color: '#06b6d4' }} />
               <Typography variant="body2">{property.bedrooms || 0}</Typography>
             </Box>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-              <Bathtub sx={{ fontSize: 16, color: config.theme.primaryColor }} />
+              <Bathtub sx={{ fontSize: 16, color: '#06b6d4' }} />
               <Typography variant="body2">{property.bathrooms || 0}</Typography>
             </Box>
             {property.area && (
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                <Square sx={{ fontSize: 16, color: config.theme.primaryColor }} />
+                <Square sx={{ fontSize: 16, color: '#06b6d4' }} />
                 <Typography variant="body2">{property.area}m²</Typography>
               </Box>
             )}
@@ -267,9 +267,9 @@ export default function PropertyCard({ property, config, onWhatsAppClick }: Prop
                   label={amenity}
                   size="small"
                   sx={{
-                    backgroundColor: alpha(config.theme.primaryColor, 0.1),
-                    color: config.theme.primaryColor,
-                    border: `1px solid ${alpha(config.theme.primaryColor, 0.2)}`,
+                    backgroundColor: alpha('#06b6d4', 0.1),
+                    color: '#06b6d4',
+                    border: `1px solid ${alpha('#06b6d4', 0.2)}`,
                     fontSize: '0.75rem',
                   }}
                 />
@@ -279,9 +279,9 @@ export default function PropertyCard({ property, config, onWhatsAppClick }: Prop
                   label={`+${property.amenities.length - 3}`}
                   size="small"
                   sx={{
-                    backgroundColor: alpha(config.theme.accentColor, 0.1),
-                    color: config.theme.accentColor,
-                    border: `1px solid ${alpha(config.theme.accentColor, 0.2)}`,
+                    backgroundColor: alpha('#22c55e', 0.1),
+                    color: '#22c55e',
+                    border: `1px solid ${alpha('#22c55e', 0.2)}`,
                     fontSize: '0.75rem',
                   }}
                 />
@@ -304,7 +304,7 @@ export default function PropertyCard({ property, config, onWhatsAppClick }: Prop
                   variant="h6" 
                   sx={{ 
                     fontWeight: 700,
-                    color: config.theme.primaryColor,
+                    color: '#06b6d4',
                     mb: 0.5,
                   }}
                 >

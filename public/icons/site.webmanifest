@@ -1,6 +1,6 @@
 {
-  "name": "AlugZap - Real Estate AI Agent",
-  "short_name": "AlugZap",
+  "name": "AlugaZap - Real Estate AI Agent",
+  "short_name": "AlugaZap",
   "description": "AI-powered real estate rental platform",
   "start_url": "/",
   "display": "standalone",

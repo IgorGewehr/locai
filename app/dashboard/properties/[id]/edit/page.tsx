@@ -40,6 +40,7 @@ import PropertyMediaUpload from '@/components/organisms/PropertyMediaUpload/Prop
 import AvailabilityCalendar from '@/components/organisms/AvailabilityCalendar/AvailabilityCalendar';
 import { Property, PricingRule, PropertyCategory, PaymentMethod, PropertyStatus, PropertyType } from '@/lib/types/property';
 import { useTenant } from '@/contexts/TenantContext';
+import { ApiClient } from '@/lib/utils/api-client';
 
 interface TabPanelProps {
   children?: React.ReactNode;
@@ -98,7 +99,7 @@ export default function EditPropertyPage() {
   const router = useRouter();
   const params = useParams();
   const propertyId = params?.id as string;
-  const { services, isReady } = useTenant();
+  const { services, tenantId, isReady } = useTenant();
   
   const [activeTab, setActiveTab] = useState(0);
   const [loading, setLoading] = useState(true);
@@ -119,6 +120,7 @@ export default function EditPropertyPage() {
     // Load property data from Firebase
     const loadProperty = async () => {
       if (!propertyId || !services || !isReady) return;
+      
       
       try {
         const property = await services.properties.get(propertyId);
@@ -149,60 +151,79 @@ export default function EditPropertyPage() {
   }, [propertyId, services, isReady, reset]);
 
   const onSubmit = async (data: Property) => {
-    console.log('Form submitted with data:', data);
+    console.log('Form submitted with data:', {
+      ...data,
+      photosCount: data.photos?.length || 0,
+      videosCount: data.videos?.length || 0,
+      photosTypes: data.photos?.map(p => typeof p) || [],
+      videosTypes: data.videos?.map(v => typeof v) || []
+    });
     setSaving(true);
     setError(null);
 
     try {
-      // ✅ NOVA ABORDAGEM: Filtros simples como no Dart
-      // Aceitar qualquer URL válida, sem restrições específicas do Firebase
-      const validPhotos = Array.isArray(data.photos) 
-        ? data.photos.filter(url => 
-            typeof url === 'string' && 
-            url.trim().length > 0 &&
-            (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('blob:'))
-          )
-        : [];
+      // ✅ CORREÇÃO: Manter mesma lógica da criação - preservar objetos PropertyPhoto/PropertyVideo
+      console.log('[EditProperty] Processing media data...', {
+        photosCount: data.photos?.length || 0,
+        videosCount: data.videos?.length || 0,
+        photosTypes: data.photos?.map(p => typeof p),
+        videosTypes: data.videos?.map(v => typeof v)
+      });
 
-      const validVideos = Array.isArray(data.videos)
-        ? data.videos.filter(url =>
-            typeof url === 'string' && 
-            url.trim().length > 0 &&
-            (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('blob:'))
-          )
-        : [];
+      // Filtrar apenas URLs Firebase válidas, mantendo estrutura de objeto
+      const validPhotos = (data.photos || []).filter(photo => {
+        const url = typeof photo === 'string' ? photo : photo?.url;
+        return url && url.includes('firebasestorage.googleapis.com');
+      });
 
-      // ✅ NOVA ABORDAGEM: Preparação direta como no Dart
+      const validVideos = (data.videos || []).filter(video => {
+        const url = typeof video === 'string' ? video : video?.url;
+        return url && url.includes('firebasestorage.googleapis.com');
+      });
+
+      console.log('[EditProperty] Filtered media:', {
+        validPhotosCount: validPhotos.length,
+        validVideosCount: validVideos.length,
+        photosData: validPhotos.map(p => ({
+          type: typeof p,
+          hasUrl: !!(typeof p === 'string' ? p : p?.url),
+          isFirebase: (typeof p === 'string' ? p : p?.url)?.includes('firebasestorage.googleapis.com')
+        }))
+      });
+
+      // ✅ CORREÇÃO: Manter consistência com criação - preservar objetos completos
       const cleanData: any = {
         ...data,
-        photos: validPhotos,     // Arrays simples de URLs
-        videos: validVideos,     // Arrays simples de URLs
+        photos: validPhotos,        // Manter objetos PropertyPhoto completos
+        videos: validVideos,        // Manter objetos PropertyVideo completos
         amenities: data.amenities || [],
         unavailableDates: data.unavailableDates || [],
         customPricing: data.customPricing || {},
       };
 
-      // ✅ Debug simplificado
-      console.log('🔍 [Sofia Media Fix] Dados sendo enviados:', {
-        totalPhotos: Array.isArray(data.photos) ? data.photos.length : 0,
-        validPhotos: validPhotos.length,
-        totalVideos: Array.isArray(data.videos) ? data.videos.length : 0,
-        validVideos: validVideos.length,
-        samplePhotoUrl: validPhotos[0],
-        dataKeys: Object.keys(cleanData),
+
+      const finalPayload = {
+        ...cleanData,
+        pricingRules,
+        updatedAt: new Date(),
+      };
+
+      console.log('[EditProperty] Sending to API:', {
+        hasPhotos: !!finalPayload.photos,
+        photosCount: finalPayload.photos?.length || 0,
+        photosPreview: finalPayload.photos?.slice(0, 2).map(p => ({
+          type: typeof p,
+          hasUrl: !!(typeof p === 'string' ? p : p?.url),
+          urlPrefix: (typeof p === 'string' ? p : p?.url)?.substring(0, 50)
+        })),
+        hasVideos: !!finalPayload.videos,
+        videosCount: finalPayload.videos?.length || 0,
+        title: finalPayload.title,
+        description: finalPayload.description,
+        address: finalPayload.address
       });
 
-      const response = await fetch(`/api/properties/${propertyId}`, {
-        method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          ...cleanData,
-          pricingRules,
-          updatedAt: new Date(),
-        }),
-      });
+      const response = await ApiClient.put(`/api/properties/${propertyId}`, finalPayload);
 
       const responseData = await response.json();
 

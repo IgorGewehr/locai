@@ -1,6 +1,6 @@
 {
-  "name": "LocAI - Sistema de Reservas",
-  "short_name": "LocAI",
+  "name": "AlugaZap - Sistema de Reservas",
+  "short_name": "AlugaZap",
   "description": "Sistema inteligente de reservas e gestão de propriedades",
   "start_url": "/",
   "display": "standalone",

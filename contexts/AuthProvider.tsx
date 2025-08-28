@@ -35,7 +35,7 @@ interface AuthContextType {
   logout: () => Promise<void>;
   reloadUser: (forceRefresh?: boolean) => Promise<void>;
   signIn: (email: string, password: string) => Promise<void>;
-  signUp: (email: string, password: string, name: string) => Promise<void>;
+  signUp: (email: string, password: string, name: string, extraData?: { free?: number }) => Promise<void>;
   resetPassword: (email: string) => Promise<void>;
   
   // Token Firebase
@@ -263,38 +263,45 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           logger.error('❌ [Auth] Erro ao obter Firebase ID token', { error });
         }
         
-        // Redirecionamento mais robusto
+        // Redirecionamento inteligente e suave
         setTimeout(() => {
           if (!isMounted) return;
           
+          // NOVO: Evitar redirecionamentos múltiplos
+          const isAlreadyRedirecting = sessionStorage.getItem('redirecting');
+          if (isAlreadyRedirecting) {
+            sessionStorage.removeItem('redirecting');
+            return;
+          }
+          
           // Se usuário está autenticado e em rota pública, redirecionar
           if (shouldRedirectToApp(userData, pathname)) {
-            // Verificar se há um redirectPath salvo
             let targetPath = '/dashboard';
             
             try {
               const savedPath = localStorage.getItem('redirectPath');
               if (savedPath && savedPath.startsWith('/dashboard')) {
                 targetPath = savedPath;
-                localStorage.removeItem('redirectPath'); // Limpar após usar
+                localStorage.removeItem('redirectPath');
                 logger.info('🔄 [Auth] Redirecionando para path salvo', {
                   from: pathname,
                   to: targetPath,
                   userId: userData.uid
                 });
               } else {
-                logger.info('🔄 [Auth] Redirecionando usuário autenticado para dashboard', {
+                logger.info('🔄 [Auth] Usuário autenticado redirecionando para dashboard', {
                   from: pathname,
                   to: targetPath,
                   userId: userData.uid
                 });
               }
             } catch (error) {
-              // Se der erro ao acessar localStorage, usar dashboard padrão
-              logger.warn('⚠️ [Auth] Erro ao acessar localStorage para redirectPath');
+              logger.warn('⚠️ [Auth] Erro ao acessar localStorage');
             }
             
-            router.push(targetPath);
+            // Marcar que está redirecionando
+            sessionStorage.setItem('redirecting', 'true');
+            router.replace(targetPath); // replace em vez de push
           } else {
             // Verificar se precisa redirecionar para login
             const authRedirect = shouldRedirectToAuth(userData, pathname);
@@ -304,10 +311,17 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
                 to: authRedirect.redirect,
                 reason: authRedirect.reason
               });
-              router.push(authRedirect.redirect);
+              
+              // Salvar path atual para redirecionar depois do login
+              if (pathname.startsWith('/dashboard')) {
+                localStorage.setItem('redirectPath', pathname);
+              }
+              
+              sessionStorage.setItem('redirecting', 'true');
+              router.replace(authRedirect.redirect); // replace em vez de push
             }
           }
-        }, 300);
+        }, 150); // Reduzir delay para mais fluidez
         
       } catch (error) {
         logger.error('❌ [Auth] Erro ao processar usuário autenticado', {
@@ -487,9 +501,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     }
   }, []);
 
-  const signUp = useCallback(async (email: string, password: string, name: string): Promise<void> => {
+  const signUp = useCallback(async (email: string, password: string, name: string, extraData?: { free?: number }): Promise<void> => {
     try {
-      logger.info('👤 [Auth] Iniciando registro', { email, name });
+      logger.info('👤 [Auth] Iniciando registro', { email, name, extraData });
       
       // Criar usuário no Firebase Auth
       const result = await createUserWithEmailAndPassword(auth, email, password);
@@ -499,8 +513,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         displayName: name
       });
       
-      // Criar documento do usuário no Firestore
-      const userData = {
+      // Criar documento do usuário no Firestore com dados extras opcionais
+      const userData: any = {
         email,
         name,
         fullName: name,
@@ -513,13 +527,24 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         whatsappNumbers: [],
         authProvider: 'email'
       };
+
+      // ✅ Adicionar campo 'free' se fornecido nas sub-rotas especiais
+      if (extraData?.free !== undefined) {
+        userData.free = extraData.free;
+        logger.info('🎁 [Auth] Adicionando campo free ao tenant', { 
+          free: extraData.free,
+          route: extraData.free === 1 ? '/ccreate/0n3fr33' : extraData.free === 7 ? '/ccreate/7r3fr33' : 'unknown'
+        });
+      }
       
       await setDoc(doc(db, 'users', result.user.uid), userData);
       
       logger.info('✅ [Auth] Registro realizado com sucesso', { 
         uid: result.user.uid,
         email: result.user.email,
-        name 
+        name,
+        hasFreeField: extraData?.free !== undefined,
+        freeValue: extraData?.free
       });
       
       // O listener onAuthStateChanged vai processar o usuário automaticamente

@@ -371,7 +371,7 @@ export default function MiniSitePage() {
     <MiniSiteLayoutNew config={config}>
       <Box sx={{ 
         minHeight: '100vh', 
-        background: 'linear-gradient(135deg, #f8fafc 0%, #e2e8f0 50%, #f1f5f9 100%)',
+        background: theme.palette.background.default,
       }}>
         {/* Modern Hero Section */}
         <Box
@@ -379,9 +379,9 @@ export default function MiniSitePage() {
             position: 'relative',
             minHeight: { xs: '60vh', md: '75vh' },
             background: `linear-gradient(135deg, 
-              ${config.theme.primaryColor}10 0%,
-              ${config.theme.accentColor}15 50%,
-              ${config.theme.primaryColor}08 100%
+              ${theme.palette.primary.main}10 0%,
+              ${theme.palette.tertiary?.main || '#10b981'}15 50%,
+              ${theme.palette.primary.main}08 100%
             )`,
             overflow: 'hidden',
             display: 'flex',
@@ -398,7 +398,7 @@ export default function MiniSitePage() {
               width: { xs: 200, md: 400 },
               height: { xs: 200, md: 400 },
               borderRadius: '50%',
-              background: `linear-gradient(135deg, ${alpha(config.theme.primaryColor, 0.1)}, ${alpha(config.theme.accentColor, 0.05)})`,
+              background: `linear-gradient(135deg, ${alpha(theme.palette.primary.main, 0.1)}, ${alpha(theme.palette.tertiary?.main || '#10b981', 0.05)})`,
               zIndex: 0,
               animation: 'float 6s ease-in-out infinite',
               '@keyframes float': {
@@ -424,13 +424,15 @@ export default function MiniSitePage() {
                         label="Propriedades Verificadas"
                         color="primary"
                         sx={{
-                          background: `linear-gradient(135deg, ${config.theme.primaryColor}, ${config.theme.accentColor})`,
+                          background: `linear-gradient(135deg, ${theme.palette.primary.main}, ${theme.palette.tertiary?.main || '#10b981'})`,
                           color: 'white',
-                          fontWeight: 600,
+                          fontWeight: 500,
+                          borderRadius: theme.shape.borderRadius / 2, // 6px like dashboard
                           px: 2,
                           py: 1,
-                          fontSize: '0.9rem',
-                          boxShadow: `0 4px 20px ${alpha(config.theme.primaryColor, 0.3)}`,
+                          fontSize: '0.875rem',
+                          letterSpacing: '0.01em',
+                          boxShadow: 'none',
                         }}
                       />
                     </Box>
@@ -439,9 +441,10 @@ export default function MiniSitePage() {
                     <Typography
                       variant={isMobile ? 'h3' : 'h2'}
                       sx={{
-                        fontWeight: 900,
-                        lineHeight: 1.1,
-                        background: `linear-gradient(135deg, ${config.theme.primaryColor}, ${config.theme.accentColor})`,
+                        fontWeight: 600,
+                        lineHeight: 1.2,
+                        letterSpacing: '-0.02em',
+                        background: `linear-gradient(135deg, ${theme.palette.primary.main}, ${theme.palette.tertiary?.main || '#10b981'})`,
                         WebkitBackgroundClip: 'text',
                         WebkitTextFillColor: 'transparent',
                         backgroundClip: 'text',
@@ -455,9 +458,10 @@ export default function MiniSitePage() {
                     <Typography
                       variant="h5"
                       sx={{
-                        color: 'text.secondary',
+                        color: theme.palette.text.secondary,
                         fontWeight: 400,
-                        lineHeight: 1.4,
+                        lineHeight: 1.45,
+                        letterSpacing: '0.00938em',
                         maxWidth: 500,
                       }}
                     >
@@ -475,27 +479,29 @@ export default function MiniSitePage() {
                           InputProps={{
                             startAdornment: (
                               <InputAdornment position="start">
-                                <Search sx={{ color: config.theme.primaryColor }} />
+                                <Search sx={{ color: theme.palette.primary.main }} />
                               </InputAdornment>
                             ),
                           }}
                           sx={{
                             '& .MuiOutlinedInput-root': {
-                              backgroundColor: 'rgba(255, 255, 255, 0.9)',
-                              backdropFilter: 'blur(10px)',
-                              borderRadius: 3,
-                              border: `2px solid transparent`,
-                              fontSize: '1.1rem',
-                              py: 0.5,
-                              transition: 'all 0.3s ease',
+                              backgroundColor: theme.palette.background.paper,
+                              borderRadius: theme.shape.borderRadius / 2, // 6px like dashboard
+                              border: `1px solid ${theme.palette.divider}`,
+                              fontSize: '0.875rem',
+                              transition: 'all 0.2s ease-in-out',
+                              '& input': {
+                                padding: '12px 14px',
+                              },
                               '&:hover': {
-                                backgroundColor: 'rgba(255, 255, 255, 0.95)',
-                                border: `2px solid ${alpha(config.theme.primaryColor, 0.2)}`,
+                                borderColor: theme.palette.secondary.main,
+                                backgroundColor: theme.palette.background.paper,
                               },
                               '&.Mui-focused': {
-                                backgroundColor: 'white',
-                                border: `2px solid ${config.theme.primaryColor}`,
-                                boxShadow: `0 8px 32px ${alpha(config.theme.primaryColor, 0.2)}`,
+                                backgroundColor: theme.palette.background.paper,
+                                borderColor: theme.palette.primary.main,
+                                borderWidth: 1,
+                                boxShadow: 'none',
                               },
                             },
                           }}
@@ -505,19 +511,23 @@ export default function MiniSitePage() {
                           startIcon={<FilterList />}
                           onClick={() => setShowFilters(!showFilters)}
                           sx={{
-                            borderColor: alpha(config.theme.primaryColor, 0.3),
-                            color: config.theme.primaryColor,
-                            backgroundColor: 'rgba(255, 255, 255, 0.9)',
-                            backdropFilter: 'blur(10px)',
-                            borderRadius: 3,
+                            borderColor: theme.palette.divider,
+                            color: theme.palette.text.secondary,
+                            backgroundColor: theme.palette.background.paper,
+                            borderRadius: theme.shape.borderRadius / 2, // 6px like dashboard
                             px: 3,
                             py: 1.5,
                             minWidth: 140,
-                            fontWeight: 600,
-                            border: `2px solid ${alpha(config.theme.primaryColor, 0.2)}`,
+                            fontWeight: 500,
+                            fontSize: '0.875rem',
+                            letterSpacing: '0.01em',
+                            textTransform: 'none',
+                            boxShadow: 'none',
+                            transition: 'all 0.2s ease-in-out',
                             '&:hover': {
-                              backgroundColor: alpha(config.theme.primaryColor, 0.08),
-                              borderColor: config.theme.primaryColor,
+                              backgroundColor: theme.palette.action.hover,
+                              borderColor: theme.palette.secondary.main,
+                              boxShadow: 'none',
                             },
                           }}
                         >
@@ -537,11 +547,18 @@ export default function MiniSitePage() {
                   transition={{ duration: 0.8, delay: 0.4 }}
                 >
                   <Stack spacing={2}>
-                    <Box sx={{ textAlign: 'center', p: 3, background: 'rgba(255,255,255,0.9)', borderRadius: 3 }}>
-                      <Typography variant="h3" sx={{ fontWeight: 800, color: config.theme.primaryColor }}>
+                    <Box sx={{ 
+                      textAlign: 'center', 
+                      p: 3, 
+                      background: theme.palette.background.paper, 
+                      borderRadius: theme.shape.borderRadius + 4, // 12px like dashboard cards
+                      border: `1px solid ${theme.palette.divider}`,
+                      boxShadow: theme.custom?.elevation?.low || '0 1px 2px 0 rgba(0, 0, 0, 0.05)',
+                    }}>
+                      <Typography variant="h3" sx={{ fontWeight: 600, color: theme.palette.primary.main, letterSpacing: '-0.01em' }}>
                         {stats.totalProperties}+
                       </Typography>
-                      <Typography variant="body1" sx={{ color: 'text.secondary' }}>
+                      <Typography variant="body1" sx={{ color: theme.palette.text.secondary }}>
                         Propriedades Disponíveis
                       </Typography>
                     </Box>
@@ -557,11 +574,11 @@ export default function MiniSitePage() {
           <Grid container spacing={3}>
             {[
               {
-                icon: <TrendingUp sx={{ fontSize: 32, color: config.theme.primaryColor }} />,
+                icon: <TrendingUp sx={{ fontSize: 32, color: theme.palette.primary.main }} />,
                 title: 'Propriedades Disponíveis',
                 value: stats.totalProperties.toString(),
                 subtitle: 'Imóveis verificados',
-                gradient: `linear-gradient(135deg, ${alpha(config.theme.primaryColor, 0.1)}, ${alpha(config.theme.primaryColor, 0.05)})`,
+                gradient: `linear-gradient(135deg, ${alpha(theme.palette.primary.main, 0.1)}, ${alpha(theme.palette.primary.main, 0.05)})`,
               },
               {
                 icon: <AttachMoney sx={{ fontSize: 32, color: '#22c55e' }} />,
@@ -594,29 +611,31 @@ export default function MiniSitePage() {
                   <Card
                     sx={{
                       background: stat.gradient,
-                      borderRadius: 3,
-                      border: `1px solid ${alpha('#000', 0.05)}`,
+                      borderRadius: theme.shape.borderRadius + 4, // 12px like dashboard
+                      border: `1px solid ${theme.palette.divider}`,
                       p: 3,
                       textAlign: 'center',
                       height: '100%',
-                      transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                      transition: 'all 0.2s ease-in-out',
                       cursor: 'pointer',
+                      boxShadow: 'none',
                       '&:hover': {
-                        transform: 'translateY(-8px)',
-                        boxShadow: theme.shadows[8],
+                        transform: 'translateY(-4px)',
+                        boxShadow: theme.custom?.elevation?.medium || '0 4px 6px -1px rgba(0, 0, 0, 0.07), 0 2px 4px -1px rgba(0, 0, 0, 0.04)',
+                        borderColor: theme.palette.secondary.main,
                       },
                     }}
                   >
                     <Box sx={{ mb: 2 }}>
                       {stat.icon}
                     </Box>
-                    <Typography variant="h4" sx={{ fontWeight: 800, mb: 0.5 }}>
+                    <Typography variant="h4" sx={{ fontWeight: 600, mb: 0.5, letterSpacing: '-0.005em' }}>
                       {stat.value}
                     </Typography>
-                    <Typography variant="body2" sx={{ fontWeight: 600, mb: 0.5 }}>
+                    <Typography variant="body2" sx={{ fontWeight: 500, mb: 0.5, fontSize: '0.875rem' }}>
                       {stat.title}
                     </Typography>
-                    <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+                    <Typography variant="caption" sx={{ color: theme.palette.text.secondary, fontSize: '0.75rem', letterSpacing: '0.03em' }}>
                       {stat.subtitle}
                     </Typography>
                   </Card>
@@ -634,10 +653,12 @@ export default function MiniSitePage() {
             transition={{ duration: 0.6 }}
           >
             <Paper
+              elevation={0}
               sx={{
-                background: `linear-gradient(135deg, ${config.theme.primaryColor}, ${config.theme.accentColor})`,
+                background: `linear-gradient(135deg, ${theme.palette.primary.main}, ${theme.palette.tertiary?.main || '#10b981'})`,
                 color: 'white',
-                borderRadius: 4,
+                borderRadius: theme.shape.borderRadius + 8, // 16px for special sections
+                border: `1px solid ${theme.palette.divider}`,
                 p: 4,
                 position: 'relative',
                 overflow: 'hidden',
@@ -686,14 +707,14 @@ export default function MiniSitePage() {
                   elevation={0} 
                   sx={{ 
                     p: 4, 
-                    borderRadius: 3,
-                    border: `1px solid ${alpha('#000', 0.08)}`,
-                    background: 'rgba(255, 255, 255, 0.8)',
-                    backdropFilter: 'blur(20px)',
+                    borderRadius: theme.shape.borderRadius + 4, // 12px like dashboard
+                    border: `1px solid ${theme.palette.divider}`,
+                    background: theme.palette.background.paper,
+                    boxShadow: theme.custom?.elevation?.low || '0 1px 2px 0 rgba(0, 0, 0, 0.05)',
                   }}
                 >
                   <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-                    <Typography variant="h6" sx={{ fontWeight: 700 }}>
+                    <Typography variant="h6" sx={{ fontWeight: 600, letterSpacing: '-0.01em' }}>
                       Filtros Avançados
                     </Typography>
                     <Stack direction="row" spacing={1}>
@@ -760,10 +781,25 @@ export default function MiniSitePage() {
                         min={0}
                         max={maxPrice}
                         sx={{ 
-                          color: config.theme.primaryColor,
+                          color: theme.palette.primary.main,
+                          height: 4,
                           '& .MuiSlider-thumb': {
-                            width: 20,
-                            height: 20,
+                            width: 16,
+                            height: 16,
+                            backgroundColor: theme.palette.primary.main,
+                            border: `2px solid ${theme.palette.background.paper}`,
+                            '&:hover': {
+                              boxShadow: `0 0 0 6px ${alpha(theme.palette.primary.main, 0.1)}`,
+                            },
+                          },
+                          '& .MuiSlider-track': {
+                            height: 4,
+                            borderRadius: 2,
+                          },
+                          '& .MuiSlider-rail': {
+                            height: 4,
+                            borderRadius: 2,
+                            backgroundColor: theme.palette.divider,
                           },
                         }}
                       />
@@ -785,10 +821,13 @@ export default function MiniSitePage() {
                             color={filters.amenities.includes(amenity) ? 'primary' : 'default'}
                             variant={filters.amenities.includes(amenity) ? 'filled' : 'outlined'}
                             sx={{
-                              borderRadius: 2,
-                              transition: 'all 0.2s ease',
+                              borderRadius: theme.shape.borderRadius / 2, // 6px like dashboard
+                              height: 28,
+                              fontSize: '0.8125rem',
+                              fontWeight: 500,
+                              transition: 'all 0.2s ease-in-out',
                               '&:hover': {
-                                transform: 'scale(1.05)',
+                                transform: 'translateY(-1px)',
                               },
                             }}
                           />
@@ -806,13 +845,13 @@ export default function MiniSitePage() {
         <Container maxWidth="lg" sx={{ py: 4 }} id="properties">
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 4 }}>
             <Box>
-              <Typography variant="h3" sx={{ fontWeight: 800, mb: 1 }}>
+              <Typography variant="h3" sx={{ fontWeight: 600, mb: 1, letterSpacing: '-0.01em' }}>
                 {filteredProperties.length === 0 
                   ? 'Nenhuma propriedade encontrada'
                   : `${filteredProperties.length} propriedade${filteredProperties.length > 1 ? 's' : ''} ${filteredProperties.length > 1 ? 'encontradas' : 'encontrada'}`
                 }
               </Typography>
-              <Typography variant="body1" color="text.secondary">
+              <Typography variant="body1" sx={{ color: theme.palette.text.secondary, lineHeight: 1.6 }}>
                 Propriedades verificadas e prontas para reserva
               </Typography>
             </Box>
@@ -821,7 +860,12 @@ export default function MiniSitePage() {
                 icon={<Verified />}
                 label="Todas Verificadas"
                 color="success"
-                sx={{ fontWeight: 600 }}
+                sx={{ 
+                  fontWeight: 500,
+                  fontSize: '0.8125rem',
+                  height: 28,
+                  borderRadius: theme.shape.borderRadius / 2, // 6px like dashboard
+                }}
               />
             </Box>
           </Box>
@@ -836,9 +880,9 @@ export default function MiniSitePage() {
                 severity="info" 
                 sx={{ 
                   mb: 4, 
-                  borderRadius: 3,
-                  background: `linear-gradient(135deg, ${alpha(config.theme.primaryColor, 0.05)}, ${alpha(config.theme.accentColor, 0.05)})`,
-                  border: `1px solid ${alpha(config.theme.primaryColor, 0.1)}`,
+                  borderRadius: theme.shape.borderRadius,
+                  background: `linear-gradient(135deg, ${alpha(theme.palette.primary.main, 0.05)}, ${alpha(theme.palette.tertiary?.main || '#10b981', 0.05)})`,
+                  border: `1px solid ${alpha(theme.palette.primary.main, 0.1)}`,
                 }}
               >
                 Tente ajustar os filtros para encontrar mais propriedades que atendam seus critérios.
@@ -867,16 +911,17 @@ export default function MiniSitePage() {
                         height: '100%',
                         display: 'flex',
                         flexDirection: 'column',
-                        borderRadius: 4,
+                        borderRadius: theme.shape.borderRadius + 4, // 12px like dashboard
                         overflow: 'hidden',
                         cursor: 'pointer',
-                        border: `1px solid ${alpha('#000', 0.08)}`,
-                        background: 'rgba(255, 255, 255, 0.95)',
-                        backdropFilter: 'blur(20px)',
-                        transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
+                        border: `1px solid ${theme.palette.divider}`,
+                        background: theme.palette.background.paper,
+                        boxShadow: 'none',
+                        transition: 'all 0.2s ease-in-out',
                         '&:hover': {
-                          boxShadow: `0 20px 40px ${alpha('#000', 0.15)}`,
+                          boxShadow: theme.custom?.elevation?.medium || '0 4px 6px -1px rgba(0, 0, 0, 0.07), 0 2px 4px -1px rgba(0, 0, 0, 0.04)',
                           transform: 'translateY(-4px)',
+                          borderColor: theme.palette.secondary.main,
                         },
                       }}
                     >
@@ -890,10 +935,10 @@ export default function MiniSitePage() {
                         }}
                       />
                       <CardContent sx={{ flex: 1, p: 3 }}>
-                        <Typography variant="h6" sx={{ fontWeight: 700, mb: 1 }}>
+                        <Typography variant="h6" sx={{ fontWeight: 600, mb: 1, letterSpacing: '-0.01em' }}>
                           {property.name}
                         </Typography>
-                        <Typography variant="body2" sx={{ color: 'text.secondary', mb: 2 }}>
+                        <Typography variant="body2" sx={{ color: theme.palette.text.secondary, mb: 2, lineHeight: 1.57 }}>
                           {property.location.city}, {property.location.state}
                         </Typography>
                         <Stack direction="row" spacing={2} sx={{ mb: 2 }}>
@@ -910,9 +955,9 @@ export default function MiniSitePage() {
                             <Typography variant="body2">{property.maxGuests}</Typography>
                           </Stack>
                         </Stack>
-                        <Typography variant="h5" sx={{ fontWeight: 800, color: config.theme.primaryColor }}>
+                        <Typography variant="h5" sx={{ fontWeight: 600, color: theme.palette.primary.main, letterSpacing: '-0.005em' }}>
                           {formatCurrency(property.pricing.basePrice)}
-                          <Typography component="span" variant="body2" sx={{ color: 'text.secondary', ml: 0.5 }}>
+                          <Typography component="span" variant="body2" sx={{ color: theme.palette.text.secondary, ml: 0.5, fontSize: '0.875rem' }}>
                             /noite
                           </Typography>
                         </Typography>
@@ -931,11 +976,11 @@ export default function MiniSitePage() {
               transition={{ duration: 0.6 }}
             >
               <Box sx={{ textAlign: 'center', py: 12 }}>
-                <AutoAwesome sx={{ fontSize: 100, color: 'text.disabled', mb: 3 }} />
-                <Typography variant="h4" sx={{ fontWeight: 700, mb: 2 }}>
+                <AutoAwesome sx={{ fontSize: 100, color: theme.palette.action.disabled, mb: 3 }} />
+                <Typography variant="h4" sx={{ fontWeight: 600, mb: 2, letterSpacing: '-0.005em' }}>
                   Em breve novas propriedades!
                 </Typography>
-                <Typography variant="body1" color="text.secondary" sx={{ mb: 4 }}>
+                <Typography variant="body1" sx={{ color: theme.palette.text.secondary, mb: 4, lineHeight: 1.6 }}>
                   Estamos preparando incríveis opções para você.
                 </Typography>
                 <Button
@@ -949,10 +994,20 @@ export default function MiniSitePage() {
                     window.open(`https://wa.me/${config.contactInfo.whatsappNumber?.replace(/\D/g, '')}?text=${message}`, '_blank');
                   }}
                   sx={{
-                    background: `linear-gradient(135deg, #25D366, #128C7E)`,
+                    bgcolor: '#25D366',
+                    color: '#ffffff',
                     px: 4,
                     py: 1.5,
-                    fontWeight: 600,
+                    fontWeight: 500,
+                    fontSize: '1rem',
+                    letterSpacing: '0.01em',
+                    textTransform: 'none',
+                    borderRadius: theme.shape.borderRadius / 2, // 6px like dashboard
+                    boxShadow: 'none',
+                    '&:hover': {
+                      bgcolor: '#1da851',
+                      boxShadow: 'none',
+                    },
                   }}
                 >
                   Ser Avisado

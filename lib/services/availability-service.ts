@@ -32,11 +32,29 @@ export class AvailabilityService {
       logger.info('📅 Getting property availability', {
         tenantId: this.tenantId,
         propertyId: query.propertyId,
+        propertyIdType: typeof query.propertyId,
+        queryKeys: Object.keys(query),
         dateRange: `${format(query.startDate, 'yyyy-MM-dd')} to ${format(query.endDate, 'yyyy-MM-dd')}`
+      });
+
+      logger.info('🔧 Creating services', {
+        tenantId: this.tenantId,
+        propertyId: query.propertyId,
+        hasFactory: !!this.factory
       });
 
       const availabilityService = this.factory.createService<AvailabilityPeriod>('availability');
       const reservationService = this.factory.createService<Reservation>('reservations');
+
+      logger.info('📊 Getting availability periods', {
+        tenantId: this.tenantId,
+        propertyId: query.propertyId,
+        queryFilters: [
+          { field: 'propertyId', operator: '==', value: query.propertyId },
+          { field: 'startDate', operator: '<=', value: query.endDate },
+          { field: 'endDate', operator: '>=', value: query.startDate }
+        ]
+      });
 
       // Get all availability periods for this property
       const availabilityPeriods = await availabilityService.getMany([
@@ -45,18 +63,44 @@ export class AvailabilityService {
         { field: 'endDate', operator: '>=', value: query.startDate }
       ]);
 
+      logger.info('✅ Got availability periods', {
+        tenantId: this.tenantId,
+        propertyId: query.propertyId,
+        periodsCount: availabilityPeriods ? availabilityPeriods.length : 'undefined'
+      });
+
       // Get reservations if requested
       let reservations: Reservation[] = [];
       if (query.includeReservations) {
+        logger.info('🏨 Getting reservations', {
+          tenantId: this.tenantId,
+          propertyId: query.propertyId,
+          includeReservations: true
+        });
+
         reservations = await reservationService.getMany([
           { field: 'propertyId', operator: '==', value: query.propertyId },
           { field: 'checkIn', operator: '<=', value: query.endDate },
           { field: 'checkOut', operator: '>=', value: query.startDate },
           { field: 'status', operator: 'in', value: ['confirmed', 'pending'] }
         ]);
+
+        logger.info('✅ Got reservations', {
+          tenantId: this.tenantId,
+          propertyId: query.propertyId,
+          reservationsCount: reservations ? reservations.length : 'undefined'
+        });
       }
 
       // Generate calendar days
+      logger.info('📅 Generating calendar days', {
+        tenantId: this.tenantId,
+        propertyId: query.propertyId,
+        dateRange: `${query.startDate?.toISOString()} to ${query.endDate?.toISOString()}`,
+        periodsCount: availabilityPeriods?.length || 0,
+        reservationsCount: reservations?.length || 0
+      });
+
       const calendar = await this.generateCalendarDays(
         query.propertyId,
         query.startDate,
@@ -65,13 +109,19 @@ export class AvailabilityService {
         reservations
       );
 
+      logger.info('✅ Calendar days generated', {
+        tenantId: this.tenantId,
+        propertyId: query.propertyId,
+        calendarDays: calendar ? calendar.length : 'undefined'
+      });
+
       // Calculate summary statistics
-      const totalDays = calendar.length;
-      const availableDays = calendar.filter(day => day.status === AvailabilityStatus.AVAILABLE).length;
-      const reservedDays = calendar.filter(day => day.status === AvailabilityStatus.RESERVED).length;
-      const blockedDays = calendar.filter(day => 
-        day.status === AvailabilityStatus.BLOCKED || day.status === AvailabilityStatus.MAINTENANCE
-      ).length;
+      const totalDays = calendar?.length || 0;
+      const availableDays = calendar?.filter(day => day?.status === AvailabilityStatus.AVAILABLE).length || 0;
+      const reservedDays = calendar?.filter(day => day?.status === AvailabilityStatus.RESERVED).length || 0;
+      const blockedDays = calendar?.filter(day => 
+        day?.status === AvailabilityStatus.BLOCKED || day?.status === AvailabilityStatus.MAINTENANCE
+      ).length || 0;
       const occupancyRate = totalDays > 0 ? ((reservedDays / totalDays) * 100) : 0;
 
       const response: AvailabilityResponse = {
@@ -99,7 +149,11 @@ export class AvailabilityService {
       logger.error('❌ Error getting availability', {
         tenantId: this.tenantId,
         propertyId: query.propertyId,
-        error: error instanceof Error ? error.message : 'Unknown error'
+        error: error instanceof Error ? error.message : 'Unknown error',
+        errorType: typeof error,
+        errorConstructor: error?.constructor?.name,
+        stack: error instanceof Error ? error.stack?.substring(0, 500) : undefined,
+        fullError: error
       });
       throw error;
     }
@@ -339,46 +393,119 @@ export class AvailabilityService {
     availabilityPeriods: AvailabilityPeriod[],
     reservations: Reservation[]
   ): Promise<AvailabilityCalendarDay[]> {
+    logger.info('🔍 Generating calendar days', {
+      propertyId: propertyId,
+      propertyIdType: typeof propertyId,
+      startDate: startDate?.toISOString(),
+      endDate: endDate?.toISOString(),
+      periodsCount: availabilityPeriods?.length,
+      reservationsCount: reservations?.length
+    });
+
     const days: AvailabilityCalendarDay[] = [];
+    
+    try {
+      const dateRange = eachDayOfInterval({ start: startDate, end: endDate });
+      logger.info('✅ Date range created', {
+        daysCount: dateRange?.length,
+        firstDay: dateRange?.[0]?.toISOString(),
+        lastDay: dateRange?.[dateRange.length - 1]?.toISOString()
+      });
+    } catch (error) {
+      logger.error('❌ Error creating date range', {
+        error: error instanceof Error ? error.message : 'Unknown error',
+        startDate: startDate?.toISOString(),
+        endDate: endDate?.toISOString()
+      });
+      throw error;
+    }
+
     const dateRange = eachDayOfInterval({ start: startDate, end: endDate });
 
     for (const date of dateRange) {
-      // Find availability period for this date
-      const availabilityPeriod = availabilityPeriods.find(period =>
-        date >= startOfDay(period.startDate) && date <= endOfDay(period.endDate)
-      );
+      try {
+        // Find availability period for this date
+        const availabilityPeriod = availabilityPeriods?.find(period => {
+          if (!period?.startDate || !period?.endDate) {
+            logger.warn('⚠️ Invalid period found', {
+              period: period,
+              hasStartDate: !!period?.startDate,
+              hasEndDate: !!period?.endDate
+            });
+            return false;
+          }
+          try {
+            return date >= startOfDay(period.startDate) && date <= endOfDay(period.endDate);
+          } catch (error) {
+            logger.error('❌ Error in period date comparison', {
+              error: error instanceof Error ? error.message : 'Unknown error',
+              periodStartDate: period.startDate,
+              periodEndDate: period.endDate,
+              currentDate: date?.toISOString()
+            });
+            return false;
+          }
+        });
 
-      // Find reservation for this date
-      const reservation = reservations.find(res =>
-        date >= startOfDay(res.checkIn as Date) && date < startOfDay(res.checkOut as Date)
-      );
+        // Find reservation for this date
+        const reservation = reservations?.find(res => {
+          if (!res?.checkIn || !res?.checkOut) {
+            logger.warn('⚠️ Invalid reservation found', {
+              reservationId: res?.id,
+              hasCheckIn: !!res?.checkIn,
+              hasCheckOut: !!res?.checkOut
+            });
+            return false;
+          }
+          try {
+            return date >= startOfDay(res.checkIn as Date) && date < startOfDay(res.checkOut as Date);
+          } catch (error) {
+            logger.error('❌ Error in reservation date comparison', {
+              error: error instanceof Error ? error.message : 'Unknown error',
+              reservationCheckIn: res.checkIn,
+              reservationCheckOut: res.checkOut,
+              currentDate: date?.toISOString()
+            });
+            return false;
+          }
+        });
 
-      let status = AvailabilityStatus.AVAILABLE;
-      let reservationId: string | undefined;
-      let reason: string | undefined;
+        let status = AvailabilityStatus.AVAILABLE;
+        let reservationId: string | undefined;
+        let reason: string | undefined;
 
-      if (availabilityPeriod) {
-        status = availabilityPeriod.status;
-        reservationId = availabilityPeriod.reservationId;
-        reason = availabilityPeriod.reason;
-      } else if (reservation) {
-        status = AvailabilityStatus.RESERVED;
-        reservationId = reservation.id;
-        reason = `Reserva #${reservation.id.slice(-8)}`;
+        if (availabilityPeriod) {
+          status = availabilityPeriod.status;
+          reservationId = availabilityPeriod.reservationId;
+          reason = availabilityPeriod.reason;
+        } else if (reservation) {
+          status = AvailabilityStatus.RESERVED;
+          reservationId = reservation.id;
+          reason = `Reserva #${reservation.id.slice(-8)}`;
+        }
+
+        const calendarDay: AvailabilityCalendarDay = {
+          date,
+          status,
+          isWeekend: isWeekend(date),
+          isHoliday: isHoliday(date),
+          isToday: isToday(date),
+          isPast: isPast(date),
+          reservationId,
+          reason
+        };
+
+        days.push(calendarDay);
+
+      } catch (dayError) {
+        logger.error('❌ Error processing calendar day', {
+          error: dayError instanceof Error ? dayError.message : 'Unknown error',
+          date: date?.toISOString(),
+          stack: dayError instanceof Error ? dayError.stack?.substring(0, 500) : undefined
+        });
+        // Continue with next day instead of breaking
+        continue;
       }
-
-      const calendarDay: AvailabilityCalendarDay = {
-        date,
-        status,
-        isWeekend: isWeekend(date),
-        isHoliday: isHoliday(date),
-        isToday: isToday(date),
-        isPast: isPast(date),
-        reservationId,
-        reason
-      };
-
-      days.push(calendarDay);
     }
 
     return days;

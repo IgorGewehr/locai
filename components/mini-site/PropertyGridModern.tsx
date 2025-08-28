@@ -52,8 +52,12 @@ interface PropertyGridModernProps {
 export default function PropertyGridModern({ properties: initialProperties, config }: PropertyGridModernProps) {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
-  const [properties, setProperties] = useState<PublicProperty[]>(initialProperties);
-  const [filteredProperties, setFilteredProperties] = useState<PublicProperty[]>(initialProperties);
+  // Deduplicate properties by ID to prevent duplicate keys
+  const deduplicatedProperties = initialProperties.filter((property, index, self) => 
+    self.findIndex(p => p.id === property.id) === index
+  );
+  const [properties, setProperties] = useState<PublicProperty[]>(deduplicatedProperties);
+  const [filteredProperties, setFilteredProperties] = useState<PublicProperty[]>(deduplicatedProperties);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
@@ -226,10 +230,10 @@ export default function PropertyGridModern({ properties: initialProperties, conf
             sx={{
               mb: 3,
               borderRadius: 2,
-              backgroundColor: alpha(config.theme.primaryColor, 0.1),
-              border: `1px solid ${alpha(config.theme.primaryColor, 0.2)}`,
+              backgroundColor: alpha('#06b6d4', 0.1),
+              border: `1px solid ${alpha('#06b6d4', 0.2)}`,
               '& .MuiAlert-icon': {
-                color: config.theme.primaryColor,
+                color: '#06b6d4',
               },
             }}
           >
@@ -247,10 +251,10 @@ export default function PropertyGridModern({ properties: initialProperties, conf
             sx={{
               mb: 3,
               borderRadius: 2,
-              backgroundColor: alpha(config.theme.primaryColor, 0.1),
-              border: `1px solid ${alpha(config.theme.primaryColor, 0.2)}`,
+              backgroundColor: alpha('#06b6d4', 0.1),
+              border: `1px solid ${alpha('#06b6d4', 0.2)}`,
               '& .MuiAlert-icon': {
-                color: config.theme.primaryColor,
+                color: '#06b6d4',
               },
             }}
           >
@@ -286,13 +290,13 @@ export default function PropertyGridModern({ properties: initialProperties, conf
                   fontWeight: 600,
                   minWidth: 140,
                   ...(showFilters ? {
-                    background: `linear-gradient(135deg, ${config.theme.primaryColor}, ${config.theme.accentColor})`,
-                    boxShadow: `0 4px 15px ${alpha(config.theme.primaryColor, 0.3)}`,
+                    background: `linear-gradient(135deg, ${'#06b6d4'}, ${'#22c55e'})`,
+                    boxShadow: `0 4px 15px ${alpha('#06b6d4', 0.3)}`,
                   } : {
-                    borderColor: config.theme.primaryColor,
-                    color: config.theme.primaryColor,
+                    borderColor: '#06b6d4',
+                    color: '#06b6d4',
                     '&:hover': {
-                      backgroundColor: alpha(config.theme.primaryColor, 0.04),
+                      backgroundColor: alpha('#06b6d4', 0.04),
                     },
                   }),
                 }}
@@ -312,10 +316,10 @@ export default function PropertyGridModern({ properties: initialProperties, conf
                 textTransform: 'none',
                 fontWeight: 600,
                 minWidth: 140,
-                borderColor: config.theme.accentColor,
-                color: config.theme.accentColor,
+                borderColor: '#22c55e',
+                color: '#22c55e',
                 '&:hover': {
-                  backgroundColor: alpha(config.theme.accentColor, 0.04),
+                  backgroundColor: alpha('#22c55e', 0.04),
                 },
               }}
             >
@@ -333,10 +337,10 @@ export default function PropertyGridModern({ properties: initialProperties, conf
                   px: 2,
                   borderRadius: 2,
                   ...(viewMode === 'grid' ? {
-                    backgroundColor: config.theme.primaryColor,
+                    backgroundColor: '#06b6d4',
                   } : {
-                    borderColor: config.theme.primaryColor,
-                    color: config.theme.primaryColor,
+                    borderColor: '#06b6d4',
+                    color: '#06b6d4',
                   })
                 }}
               >
@@ -352,10 +356,10 @@ export default function PropertyGridModern({ properties: initialProperties, conf
                   px: 2,
                   borderRadius: 2,
                   ...(viewMode === 'list' ? {
-                    backgroundColor: config.theme.primaryColor,
+                    backgroundColor: '#06b6d4',
                   } : {
-                    borderColor: config.theme.primaryColor,
-                    color: config.theme.primaryColor,
+                    borderColor: '#06b6d4',
+                    color: '#06b6d4',
                   })
                 }}
               >
@@ -381,19 +385,19 @@ export default function PropertyGridModern({ properties: initialProperties, conf
               background: 'rgba(255, 255, 255, 0.9)',
               backdropFilter: 'blur(20px)',
               borderRadius: 3,
-              border: `1px solid ${alpha(config.theme.primaryColor, 0.1)}`,
-              boxShadow: `0 8px 32px ${alpha(config.theme.primaryColor, 0.08)}`,
+              border: `1px solid ${alpha('#06b6d4', 0.1)}`,
+              boxShadow: `0 8px 32px ${alpha('#06b6d4', 0.08)}`,
             }}
           >
             <CardContent sx={{ p: 4 }}>
-              <Typography variant="h6" sx={{ mb: 3, fontWeight: 600, color: config.theme.textColor }}>
+              <Typography variant="h6" sx={{ mb: 3, fontWeight: 600, color: '#e2e8f0' }}>
                 Filtros Avançados
               </Typography>
               
               <Grid container spacing={3}>
                 {/* Guests */}
                 <Grid item xs={12} sm={6} md={3}>
-                  <Typography variant="subtitle2" gutterBottom sx={{ fontWeight: 600, color: config.theme.primaryColor }}>
+                  <Typography variant="subtitle2" gutterBottom sx={{ fontWeight: 600, color: '#06b6d4' }}>
                     <People sx={{ fontSize: 16, mr: 1 }} />
                     Hóspedes
                   </Typography>
@@ -421,7 +425,7 @@ export default function PropertyGridModern({ properties: initialProperties, conf
 
                 {/* Bedrooms */}
                 <Grid item xs={12} sm={6} md={3}>
-                  <Typography variant="subtitle2" gutterBottom sx={{ fontWeight: 600, color: config.theme.primaryColor }}>
+                  <Typography variant="subtitle2" gutterBottom sx={{ fontWeight: 600, color: '#06b6d4' }}>
                     <Bed sx={{ fontSize: 16, mr: 1 }} />
                     Quartos
                   </Typography>
@@ -449,7 +453,7 @@ export default function PropertyGridModern({ properties: initialProperties, conf
 
                 {/* Price Range */}
                 <Grid item xs={12} sm={6} md={3}>
-                  <Typography variant="subtitle2" gutterBottom sx={{ fontWeight: 600, color: config.theme.primaryColor }}>
+                  <Typography variant="subtitle2" gutterBottom sx={{ fontWeight: 600, color: '#06b6d4' }}>
                     <AttachMoney sx={{ fontSize: 16, mr: 1 }} />
                     Preço (R$)
                   </Typography>
@@ -477,7 +481,7 @@ export default function PropertyGridModern({ properties: initialProperties, conf
 
                 {/* Location */}
                 <Grid item xs={12} sm={6} md={3}>
-                  <Typography variant="subtitle2" gutterBottom sx={{ fontWeight: 600, color: config.theme.primaryColor }}>
+                  <Typography variant="subtitle2" gutterBottom sx={{ fontWeight: 600, color: '#06b6d4' }}>
                     <LocationOn sx={{ fontSize: 16, mr: 1 }} />
                     Localização
                   </Typography>
@@ -498,7 +502,7 @@ export default function PropertyGridModern({ properties: initialProperties, conf
 
                 {/* Property Type */}
                 <Grid item xs={12} sm={6} md={3}>
-                  <Typography variant="subtitle2" gutterBottom sx={{ fontWeight: 600, color: config.theme.primaryColor }}>
+                  <Typography variant="subtitle2" gutterBottom sx={{ fontWeight: 600, color: '#06b6d4' }}>
                     <Home sx={{ fontSize: 16, mr: 1 }} />
                     Tipo
                   </Typography>
@@ -519,7 +523,7 @@ export default function PropertyGridModern({ properties: initialProperties, conf
 
                 {/* Amenities */}
                 <Grid item xs={12}>
-                  <Typography variant="subtitle2" gutterBottom sx={{ fontWeight: 600, color: config.theme.primaryColor }}>
+                  <Typography variant="subtitle2" gutterBottom sx={{ fontWeight: 600, color: '#06b6d4' }}>
                     Comodidades
                   </Typography>
                   <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap', gap: 1 }}>
@@ -532,13 +536,13 @@ export default function PropertyGridModern({ properties: initialProperties, conf
                         sx={{
                           borderRadius: 2,
                           ...(filters.amenities.includes(amenity) ? {
-                            backgroundColor: config.theme.primaryColor,
+                            backgroundColor: '#06b6d4',
                             color: 'white',
                           } : {
-                            borderColor: alpha(config.theme.primaryColor, 0.3),
-                            color: config.theme.primaryColor,
+                            borderColor: alpha('#06b6d4', 0.3),
+                            color: '#06b6d4',
                             '&:hover': {
-                              backgroundColor: alpha(config.theme.primaryColor, 0.04),
+                              backgroundColor: alpha('#06b6d4', 0.04),
                             },
                           }),
                         }}
@@ -588,7 +592,7 @@ export default function PropertyGridModern({ properties: initialProperties, conf
           variant="h4" 
           sx={{ 
             fontWeight: 700,
-            color: config.theme.textColor,
+            color: '#e2e8f0',
             fontSize: { xs: '1.5rem', md: '2rem' }
           }}
         >
@@ -599,8 +603,8 @@ export default function PropertyGridModern({ properties: initialProperties, conf
               size="small" 
               sx={{ 
                 ml: 2,
-                backgroundColor: alpha(config.theme.accentColor, 0.1),
-                color: config.theme.accentColor,
+                backgroundColor: alpha('#22c55e', 0.1),
+                color: '#22c55e',
                 fontWeight: 600
               }} 
             />
@@ -614,8 +618,8 @@ export default function PropertyGridModern({ properties: initialProperties, conf
                 sx={{
                   width: 20,
                   height: 20,
-                  border: `2px solid ${alpha(config.theme.primaryColor, 0.3)}`,
-                  borderTop: `2px solid ${config.theme.primaryColor}`,
+                  border: `2px solid ${alpha('#06b6d4', 0.3)}`,
+                  borderTop: `2px solid ${'#06b6d4'}`,
                   borderRadius: '50%',
                   animation: 'spin 1s linear infinite',
                   '@keyframes spin': {
@@ -625,7 +629,7 @@ export default function PropertyGridModern({ properties: initialProperties, conf
                 }}
               />
             </Box>
-            <Typography variant="body2" sx={{ color: config.theme.primaryColor }}>
+            <Typography variant="body2" sx={{ color: '#06b6d4' }}>
               Carregando...
             </Typography>
           </Box>
@@ -659,7 +663,7 @@ export default function PropertyGridModern({ properties: initialProperties, conf
                 sm={viewMode === 'grid' ? 6 : 12} 
                 md={viewMode === 'grid' ? 4 : 12}
                 lg={viewMode === 'grid' ? 3 : 12}
-                key={property.id}
+                key={`${property.id}-${index}`}
               >
                 <motion.div
                   initial={{ opacity: 0, y: 20 }}
@@ -689,9 +693,9 @@ export default function PropertyGridModern({ properties: initialProperties, conf
               textAlign: 'center', 
               py: 8,
               px: 4,
-              background: alpha(config.theme.primaryColor, 0.03),
+              background: alpha('#06b6d4', 0.03),
               borderRadius: 3,
-              border: `1px solid ${alpha(config.theme.primaryColor, 0.1)}`,
+              border: `1px solid ${alpha('#06b6d4', 0.1)}`,
             }}
           >
             <Typography variant="h5" sx={{ mb: 2, opacity: 0.7, fontWeight: 600 }}>
@@ -706,13 +710,13 @@ export default function PropertyGridModern({ properties: initialProperties, conf
                 variant="contained"
                 startIcon={<Clear />}
                 sx={{
-                  background: `linear-gradient(135deg, ${config.theme.primaryColor}, ${config.theme.accentColor})`,
+                  background: `linear-gradient(135deg, ${'#06b6d4'}, ${'#22c55e'})`,
                   borderRadius: 3,
                   px: 4,
                   py: 1.5,
                   textTransform: 'none',
                   fontWeight: 600,
-                  boxShadow: `0 4px 15px ${alpha(config.theme.primaryColor, 0.3)}`,
+                  boxShadow: `0 4px 15px ${alpha('#06b6d4', 0.3)}`,
                 }}
               >
                 Limpar Filtros
@@ -732,7 +736,7 @@ export default function PropertyGridModern({ properties: initialProperties, conf
               position: 'fixed',
               bottom: 24,
               right: 24,
-              background: `linear-gradient(135deg, ${config.theme.primaryColor}, ${config.theme.accentColor})`,
+              background: `linear-gradient(135deg, ${'#06b6d4'}, ${'#22c55e'})`,
               '&:hover': {
                 transform: 'scale(1.1)',
               },

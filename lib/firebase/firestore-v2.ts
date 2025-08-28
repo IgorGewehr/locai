@@ -434,12 +434,8 @@ export class TenantServiceFactory {
     return createCRMService(this.tenantId);
   }
 
-  get leads() {
-    return this.createService<import('@/lib/types/lead').Lead>('leads');
-  }
-
   get interactions() {
-    return this.createService<import('@/lib/types/lead').Interaction>('interactions');
+    return this.createService<import('@/lib/types/crm').Interaction>('interactions');
   }
 
   get billing() {
@@ -502,10 +498,6 @@ export class TenantServiceFactory {
   // Get a new document reference for batch operations
   getNewDocRef(collectionName: string) {
     return doc(collection(db, 'tenants', this.tenantId, collectionName));
-  }
-
-  get settings() {
-    return this.createService('settings');
   }
 
   get billingSettings() {

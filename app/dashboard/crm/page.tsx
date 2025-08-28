@@ -97,7 +97,8 @@ const statusColumns = [
 
 export default function CRMPage() {
   const { user } = useAuth();
-  const { services, isReady } = useTenant();
+  const services = useTenantServices();
+  const { isReady } = useTenant();
   const router = useRouter();
   const [view, setView] = useState<'pipeline' | 'list' | 'clients' | 'analytics'>('pipeline');
   const [leads, setLeads] = useState<Record<LeadStatus, Lead[]>>({
@@ -158,7 +159,7 @@ export default function CRMPage() {
 
       setLeads(leadsByStatus);
     } catch (error) {
-      console.error('Error loading leads:', error);
+      console.error('Erro ao carregar leads:', error);
     } finally {
       setLoading(false);
     }
@@ -172,7 +173,7 @@ export default function CRMPage() {
       const userTasks = await services.tasks.getWhere('assignedTo', '==', user.id);
       setTasks(userTasks);
     } catch (error) {
-      console.error('Error loading tasks:', error);
+      console.error('Erro ao carregar tarefas:', error);
     }
   };
 
@@ -183,7 +184,7 @@ export default function CRMPage() {
       const hot = await services.leads.getWhere('temperature', '==', 'hot');
       setHotLeads(hot);
     } catch (error) {
-      console.error('Error loading hot leads:', error);
+      console.error('Erro ao carregar leads quentes:', error);
     }
   };
 
@@ -194,7 +195,7 @@ export default function CRMPage() {
       const clientList = await services.clients.getAll();
       setClients(clientList);
     } catch (error) {
-      console.error('Error loading clients:', error);
+      console.error('Erro ao carregar clientes:', error);
     }
   };
 
@@ -221,9 +222,31 @@ export default function CRMPage() {
 
     // Update in backend using tenant services
     try {
-      await services.leads.update(leadId, { status: destStatus });
+      await services.leads.update(leadId, { status: destStatus, updatedAt: new Date() });
     } catch (error) {
-      console.error('Error updating lead status:', error);
+      console.error('Erro ao atualizar status do lead:', error);
+      // Revert on error
+      loadLeads();
+    }
+  };
+
+  const handleMoveLeadToStatus = async (lead: Lead, newStatus: LeadStatus) => {
+    if (!services) return;
+    
+    const oldStatus = lead.status;
+    
+    // Update local state optimistically
+    setLeads(prev => ({
+      ...prev,
+      [oldStatus]: prev[oldStatus].filter(l => l.id !== lead.id),
+      [newStatus]: [...prev[newStatus], { ...lead, status: newStatus }]
+    }));
+
+    // Update in backend
+    try {
+      await services.leads.update(lead.id, { status: newStatus, updatedAt: new Date() });
+    } catch (error) {
+      console.error('Erro ao mover lead para nova fase:', error);
       // Revert on error
       loadLeads();
     }
@@ -613,6 +636,7 @@ export default function CRMPage() {
           onDragEnd={handleDragEnd}
           onLeadClick={handleLeadClick}
           onQuickAction={handleQuickAction}
+          onMoveLeadToStatus={handleMoveLeadToStatus}
           getTemperatureIcon={getTemperatureIcon}
           loading={loading}
         />

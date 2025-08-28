@@ -7,7 +7,7 @@ export const fetchCache = 'force-no-store';
 export const runtime = 'nodejs';
 
 export const metadata: Metadata = {
-  title: 'AlugZap',
+  title: 'AlugaZap',
   description: 'Sistema completo de gestão para imobiliária com agente IA integrado ao WhatsApp',
   keywords: 'imobiliária, gestão, propriedades, WhatsApp, IA, reservas',
 };
