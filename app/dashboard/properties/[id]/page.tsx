@@ -5,7 +5,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { useTenant } from '@/contexts/TenantContext';
 import PropertyPriceDisplay from '@/components/atoms/PropertyPriceDisplay';
 import PropertyAvailabilityInfo from '@/components/molecules/PropertyAvailabilityInfo';
-import AvailabilityCalendar from '@/components/organisms/AvailabilityCalendar/AvailabilityCalendar';
+// import AvailabilityCalendar from '@/components/organisms/AvailabilityCalendar/AvailabilityCalendar';
 import type { Property, Reservation } from '@/lib/types';
 import {
   Box,
@@ -492,7 +492,8 @@ export default function PropertyViewPage() {
         </Grid>
       </Grid>
 
-      {/* Availability Calendar */}
+      {/* Availability Calendar - Temporarily disabled during component restructure */}
+      {/* 
       <Box mt={4}>
         <Card>
           <CardContent>
@@ -505,6 +506,7 @@ export default function PropertyViewPage() {
           </CardContent>
         </Card>
       </Box>
+      */}
 
       {/* Additional Images */}
       {property.photos && property.photos.length > 1 && (

@@ -220,13 +220,13 @@ export default function HelpPage() {
     const getTypeIcon = (type: string) => {
         switch (type) {
             case 'bug':
-                return <BugIcon sx={{ color: '#f44336' }} />;
+                return <BugIcon sx={{ color: 'error.main' }} />;
             case 'feedback':
-                return <FeedbackIcon sx={{ color: '#2196f3' }} />;
+                return <FeedbackIcon sx={{ color: 'primary.main' }} />;
             case 'support':
-                return <SupportIcon sx={{ color: '#ff9800' }} />;
+                return <SupportIcon sx={{ color: 'warning.main' }} />;
             default:
-                return <MessageIcon sx={{ color: '#9e9e9e' }} />;
+                return <MessageIcon sx={{ color: 'text.secondary' }} />;
         }
     };
 
@@ -298,17 +298,17 @@ export default function HelpPage() {
 
     // Render do formulário
     const renderNewTicketForm = () => (
-        <Paper elevation={0} sx={{
+        <Paper elevation={1} sx={{
             p: 4,
-            borderRadius: '18px',
-            backgroundColor: '#FFFFFF',
-            boxShadow: '0px 2px 8px rgba(0, 0, 0, 0.05)'
+            borderRadius: 3,
+            backgroundColor: 'background.paper',
+            border: '1px solid',
+            borderColor: 'divider'
         }}>
             <Typography variant="h6" sx={{
-                color: "#1852FE",
+                color: "primary.main",
                 mb: 3,
-                fontFamily: "Gellix, sans-serif",
-                fontWeight: 500,
+                fontWeight: 600,
                 display: 'flex',
                 alignItems: 'center',
                 gap: 1
@@ -334,7 +334,7 @@ export default function HelpPage() {
                                 sx={{
                                     borderRadius: '8px',
                                     '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
-                                        borderColor: '#1852FE',
+                                        borderColor: 'primary.main',
                                     },
                                 }}
                             >
@@ -356,7 +356,7 @@ export default function HelpPage() {
                                 sx={{
                                     borderRadius: '8px',
                                     '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
-                                        borderColor: '#1852FE',
+                                        borderColor: 'primary.main',
                                     },
                                 }}
                             >
@@ -381,11 +381,11 @@ export default function HelpPage() {
                         '& .MuiOutlinedInput-root': {
                             borderRadius: '8px',
                             '&.Mui-focused fieldset': {
-                                borderColor: '#1852FE',
+                                borderColor: 'primary.main',
                             },
                         },
                         '& .MuiInputLabel-root.Mui-focused': {
-                            color: '#1852FE',
+                            color: 'primary.main',
                         },
                     }}
                 />
@@ -404,11 +404,11 @@ export default function HelpPage() {
                         '& .MuiOutlinedInput-root': {
                             borderRadius: '8px',
                             '&.Mui-focused fieldset': {
-                                borderColor: '#1852FE',
+                                borderColor: 'primary.main',
                             },
                         },
                         '& .MuiInputLabel-root.Mui-focused': {
-                            color: '#1852FE',
+                            color: 'primary.main',
                         },
                     }}
                 />
@@ -419,16 +419,15 @@ export default function HelpPage() {
                     disabled={loading}
                     startIcon={loading ? <CircularProgress size={16} /> : <SendIcon />}
                     sx={{
-                        bgcolor: "#1852FE",
+                        bgcolor: "primary.main",
                         color: "white",
-                        fontFamily: "Gellix, sans-serif",
                         textTransform: "none",
                         fontWeight: 500,
                         px: 4,
                         py: 1.2,
-                        borderRadius: "8px",
+                        borderRadius: 2,
                         '&:hover': {
-                            bgcolor: "#0039CB",
+                            bgcolor: "primary.dark",
                         },
                     }}
                 >
@@ -440,17 +439,17 @@ export default function HelpPage() {
 
     // Render do histórico
     const renderTicketsHistory = () => (
-        <Paper elevation={0} sx={{
+        <Paper elevation={1} sx={{
             p: 4,
-            borderRadius: '18px',
-            backgroundColor: '#FFFFFF',
-            boxShadow: '0px 2px 8px rgba(0, 0, 0, 0.05)'
+            borderRadius: 3,
+            backgroundColor: 'background.paper',
+            border: '1px solid',
+            borderColor: 'divider'
         }}>
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
                 <Typography variant="h6" sx={{
-                    color: "#1852FE",
-                    fontFamily: "Gellix, sans-serif",
-                    fontWeight: 500,
+                    color: "primary.main",
+                    fontWeight: 600,
                     display: 'flex',
                     alignItems: 'center',
                     gap: 1
@@ -464,8 +463,8 @@ export default function HelpPage() {
                     onClick={loadUserTickets}
                     disabled={loading}
                     sx={{
-                        borderColor: '#1852FE',
-                        color: '#1852FE',
+                        borderColor: 'primary.main',
+                        color: 'primary.main',
                         textTransform: 'none'
                     }}
                 >
@@ -504,15 +503,16 @@ export default function HelpPage() {
                             button
                             onClick={() => handleTicketClick(ticket)}
                             sx={{
-                                borderRadius: '8px',
+                                borderRadius: 2,
                                 mb: 1,
-                                border: '1px solid rgba(0, 0, 0, 0.08)',
+                                border: '1px solid',
+                                borderColor: 'divider',
                                 backgroundColor: ticket.hasUnreadAdminResponses
-                                    ? 'rgba(24, 82, 254, 0.04)'
+                                    ? 'rgba(37, 99, 235, 0.04)'
                                     : 'transparent',
                                 transition: 'all 0.2s ease',
                                 '&:hover': {
-                                    backgroundColor: 'rgba(24, 82, 254, 0.08)',
+                                    backgroundColor: 'rgba(37, 99, 235, 0.08)',
                                     transform: 'translateY(-1px)',
                                     boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)'
                                 }
@@ -631,8 +631,8 @@ export default function HelpPage() {
                         <Box sx={{
                             mb: 3,
                             p: 2,
-                            borderRadius: '12px',
-                            backgroundColor: '#f5f5f5'
+                            borderRadius: 3,
+                            backgroundColor: 'action.hover'
                         }}>
                             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
                                 <Avatar sx={{ width: 32, height: 32 }}>
@@ -660,8 +660,8 @@ export default function HelpPage() {
                                         p: 2,
                                         borderRadius: '12px',
                                         backgroundColor: response.isAdmin
-                                            ? 'rgba(24, 82, 254, 0.1)'
-                                            : '#f5f5f5',
+                                            ? 'rgba(37, 99, 235, 0.1)'
+                                            : 'action.hover',
                                         ml: response.isAdmin ? 0 : 4,
                                         mr: response.isAdmin ? 4 : 0
                                     }}
@@ -670,7 +670,7 @@ export default function HelpPage() {
                                         <Avatar sx={{
                                             width: 32,
                                             height: 32,
-                                            backgroundColor: response.isAdmin ? '#1852FE' : '#666'
+                                            backgroundColor: response.isAdmin ? 'primary.main' : 'text.secondary'
                                         }}>
                                             {response.isAdmin ? 'A' : response.authorName?.charAt(0) || 'U'}
                                         </Avatar>
@@ -699,8 +699,9 @@ export default function HelpPage() {
                     {!['resolved', 'closed'].includes(selectedTicket.status) && (
                         <Box sx={{
                             p: 2,
-                            borderTop: '1px solid rgba(0, 0, 0, 0.12)',
-                            backgroundColor: '#fafafa'
+                            borderTop: '1px solid',
+                            borderTopColor: 'divider',
+                            backgroundColor: 'background.default'
                         }}>
                             <Box sx={{ display: 'flex', gap: 1 }}>
                                 <TextField
@@ -712,8 +713,8 @@ export default function HelpPage() {
                                     onChange={(e) => setNewResponse(e.target.value)}
                                     sx={{
                                         '& .MuiOutlinedInput-root': {
-                                            borderRadius: '8px',
-                                            backgroundColor: 'white'
+                                            borderRadius: 2,
+                                            backgroundColor: 'background.paper'
                                         }
                                     }}
                                 />
@@ -722,10 +723,10 @@ export default function HelpPage() {
                                     onClick={handleSendResponse}
                                     disabled={!newResponse.trim()}
                                     sx={{
-                                        bgcolor: '#1852FE',
+                                        bgcolor: 'primary.main',
                                         minWidth: '60px',
                                         height: '56px',
-                                        borderRadius: '8px'
+                                        borderRadius: 2
                                     }}
                                 >
                                     <SendIcon />
@@ -738,8 +739,9 @@ export default function HelpPage() {
                     {['resolved', 'closed'].includes(selectedTicket.status) && (
                         <Box sx={{
                             p: 2,
-                            borderTop: '1px solid rgba(0, 0, 0, 0.12)',
-                            backgroundColor: '#f0f7ff',
+                            borderTop: '1px solid',
+                            borderTopColor: 'divider',
+                            backgroundColor: 'success.light',
                             textAlign: 'center'
                         }}>
                             <Typography variant="body2" color="success.main" sx={{ fontWeight: 600 }}>
@@ -756,7 +758,13 @@ export default function HelpPage() {
     };
 
     return (
-        <Box sx={{ maxWidth: "1000px", mx: "auto", p: 3 }}>
+        <Box sx={{ 
+            maxWidth: "1000px", 
+            mx: "auto", 
+            p: 3,
+            minHeight: '100vh',
+            backgroundColor: 'background.default'
+        }}>
             {/* Loading backdrop */}
             <Backdrop sx={{ color: '#fff', zIndex: (theme) => theme.zIndex.drawer + 1 }} open={loadingTicket}>
                 <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
@@ -772,10 +780,9 @@ export default function HelpPage() {
                 variant="h4"
                 component="h1"
                 sx={{
-                    color: "#1852FE",
+                    color: "text.primary",
                     mb: 2,
                     fontWeight: 600,
-                    fontFamily: "Gellix, sans-serif",
                     fontSize: { xs: '24px', md: '28px' }
                 }}
             >
@@ -785,43 +792,46 @@ export default function HelpPage() {
             <Typography
                 variant="subtitle1"
                 sx={{
-                    color: "#111E5A",
+                    color: "text.secondary",
                     mb: 4,
-                    fontFamily: "Gellix, sans-serif"
                 }}
             >
                 Como podemos ajudar você hoje?
             </Typography>
 
             {/* Card de contato direto */}
-            <Card sx={{ mb: 4, borderRadius: "12px", boxShadow: 'none', border: '1px solid rgba(66, 133, 244, 0.2)' }}>
+            <Card sx={{ 
+                mb: 4, 
+                borderRadius: 3, 
+                boxShadow: 'none', 
+                border: '1px solid', 
+                borderColor: 'divider',
+                backgroundColor: 'background.paper'
+            }}>
                 <CardContent>
                     <Typography
                         variant="h6"
                         sx={{
-                            color: "#1852FE",
+                            color: "primary.main",
                             mb: 2,
-                            fontFamily: "Gellix, sans-serif",
-                            fontWeight: 500
+                            fontWeight: 600
                         }}
                     >
                         Contato Direto
                     </Typography>
                     <Typography
                         sx={{
-                            color: "#111E5A",
+                            color: "text.primary",
                             mb: 1,
-                            fontFamily: "Gellix, sans-serif"
                         }}
                     >
                         Para entrar em contato diretamente com nossa equipe:
                     </Typography>
                     <Typography
                         sx={{
-                            color: "#1852FE",
+                            color: "primary.main",
                             fontWeight: 600,
                             mb: 0,
-                            fontFamily: "Gellix, sans-serif",
                             fontSize: '16px',
                             letterSpacing: '0.2px'
                         }}
@@ -841,14 +851,13 @@ export default function HelpPage() {
                     sx={{
                         '& .MuiTab-root': {
                             textTransform: 'none',
-                            fontFamily: 'Gellix, sans-serif',
                             fontWeight: 500
                         },
                         '& .Mui-selected': {
-                            color: '#1852FE !important'
+                            color: 'primary.main !important'
                         },
                         '& .MuiTabs-indicator': {
-                            backgroundColor: '#1852FE'
+                            backgroundColor: 'primary.main'
                         }
                     }}
                 >
@@ -892,7 +901,7 @@ export default function HelpPage() {
                         width: '100%',
                         borderRadius: '8px',
                         '& .MuiAlert-icon': {
-                            color: '#1852FE'
+                            color: 'primary.main'
                         }
                     }}
                 >

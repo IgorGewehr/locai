@@ -84,10 +84,10 @@ export const PropertyBasicInfo: React.FC = () => {
                   placeholder="Ex: Apartamento moderno com vista para o mar"
                   error={!!errors.title}
                   helperText={
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span style={{ display: 'flex', justifyContent: 'space-between' }}>
                       <span>{errors.title?.message || 'Título atrativo que destaque o diferencial'}</span>
                       <span>{titleLength}/100</span>
-                    </Box>
+                    </span>
                   }
                   onBlur={() => handleFieldBlur('title')}
                   InputProps={{
@@ -147,10 +147,10 @@ export const PropertyBasicInfo: React.FC = () => {
                   placeholder="Descreva as características únicas, comodidades, localização e experiências que o hóspede terá..."
                   error={!!errors.description}
                   helperText={
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
+                    <span style={{ display: 'flex', justifyContent: 'space-between' }}>
                       <span>{errors.description?.message || 'Seja detalhado e persuasivo'}</span>
                       <span>{descLength}/2000</span>
-                    </Box>
+                    </span>
                   }
                   onBlur={() => handleFieldBlur('description')}
                   InputProps={{

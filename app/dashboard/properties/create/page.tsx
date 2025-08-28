@@ -26,11 +26,11 @@ import {
 import { useForm, FormProvider } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
 import * as yup from 'yup';
-import { PropertyBasicInfo } from '@/components/organisms/PropertyBasicInfo/PropertyBasicInfo';
-import { PropertySpecs } from '@/components/organisms/PropertySpecs/PropertySpecs';
-import { PropertyAmenities } from '@/components/organisms/PropertyAmenities/PropertyAmenities';
-import { PropertyPricing } from '@/components/organisms/PropertyPricing/PropertyPricing';
-import PropertyMediaUpload from '@/components/organisms/PropertyMediaUpload/PropertyMediaUpload';
+import { PropertyBasicInfo } from '@/components/organisms/PropertyEdit/BasicInfo';
+import { PropertySpecs } from '@/components/organisms/PropertyEdit/Specs';
+import { PropertyAmenities } from '@/components/organisms/PropertyEdit/Amenities';
+import { PropertyPricing } from '@/components/organisms/PropertyEdit/Pricing';
+import { PropertyMedia as PropertyMediaUpload } from '@/components/organisms/PropertyEdit/Media';
 import { Property, PricingRule, PropertyCategory, PropertyStatus, PropertyType } from '@/lib/types/property';
 import { PaymentMethod } from '@/lib/types/common';
 import { useTenant } from '@/contexts/TenantContext';
