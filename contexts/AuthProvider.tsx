@@ -15,6 +15,7 @@ interface User {
   name: string;
   fullName: string;
   role: 'admin' | 'user' | 'agent';
+  isAdmin: boolean; // Computed property for convenience
   tenantId: string; // UID do usuário = tenantId
   isActive: boolean;
   emailVerified: boolean;
@@ -132,6 +133,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           name: userData.name || userData.fullName || '',
           fullName: userData.fullName || userData.name || '',
           role: userData.role || 'user',
+          isAdmin: (userData.role || 'user') === 'admin', // Computed property
           tenantId: uid, // UID = tenantId
           isActive: userData.isActive !== false,
           emailVerified: authUser.emailVerified,
@@ -171,6 +173,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         name: newUserData.name,
         fullName: newUserData.fullName,
         role: 'user',
+        isAdmin: false, // New users are not admin by default
         tenantId: uid,
         isActive: true,
         emailVerified: authUser.emailVerified,

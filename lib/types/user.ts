@@ -4,7 +4,8 @@ export interface UserProfile extends FirebaseUser {
   // Extended profile fields
   phone?: string;
   company?: string;
-  role?: string;
+  role?: UserRole;
+  isAdmin?: boolean; // Computed property for convenience
   avatar?: string;
   settings?: {
     notifications?: boolean;
@@ -25,6 +26,8 @@ export interface AuthUser {
   photoURL: string | null;
   phoneNumber: string | null;
   emailVerified: boolean;
+  role?: UserRole;
+  isAdmin?: boolean; // Computed property for convenience
 }
 
 export type UserRole = 'admin' | 'agent' | 'user';

@@ -167,11 +167,11 @@ export default function CreateAccountPage() {
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        px: 3,
-        py: 4,
+        px: 2,
+        py: 3,
       }}
     >
-      <Container maxWidth="sm">
+      <Container maxWidth="md">
         <Fade in timeout={600}>
           <Box
             sx={{
@@ -179,76 +179,122 @@ export default function CreateAccountPage() {
               borderRadius: '12px',
               boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 10px 20px -5px rgba(0, 0, 0, 0.08)',
               border: '1px solid #e5e7eb',
-              maxWidth: 400,
+              maxWidth: 800,
               mx: 'auto',
               overflow: 'hidden',
             }}
           >
-            {/* Header */}
-            <Box sx={{ pt: 8, px: 8, pb: 2, textAlign: 'center' }}>
-              {/* Logo */}
-              <Box
+            <Box sx={{ display: 'flex', flexDirection: { xs: 'column', md: 'row' } }}>
+              {/* Left Side - Promotional */}
+              <Box 
                 sx={{
+                  flex: 1,
+                  backgroundColor: '#000000',
+                  color: 'white',
+                  p: { xs: 4, md: 6 },
                   display: 'flex',
+                  flexDirection: 'column',
                   justifyContent: 'center',
-                  mb: 6,
                 }}
               >
-                <Box
-                  sx={{
-                    width: 40,
-                    height: 40,
-                    borderRadius: '8px',
-                    overflow: 'hidden',
-                    position: 'relative',
-                    border: '1px solid #e5e7eb',
-                  }}
-                >
-                  <Image
-                    src="/logo.jpg"
-                    alt="Locai"
-                    fill
-                    style={{
-                      objectFit: 'cover',
+                <Box sx={{ textAlign: 'center', mb: 4 }}>
+                  <Box
+                    sx={{
+                      width: 48,
+                      height: 48,
+                      borderRadius: '10px',
+                      overflow: 'hidden',
+                      position: 'relative',
+                      border: '2px solid #ffffff',
+                      mx: 'auto',
+                      mb: 4,
                     }}
-                    priority
-                  />
+                  >
+                    <Image
+                      src="/logo.jpg"
+                      alt="Locai"
+                      fill
+                      style={{
+                        objectFit: 'cover',
+                      }}
+                      priority
+                    />
+                  </Box>
+
+                  <Typography 
+                    variant="h3" 
+                    sx={{
+                      fontWeight: 700,
+                      mb: 2,
+                      fontSize: { xs: '24px', md: '28px' },
+                      letterSpacing: '-0.02em',
+                    }}
+                  >
+                    Comece agora
+                  </Typography>
+
+                  <Typography 
+                    sx={{
+                      fontSize: '16px',
+                      lineHeight: 1.5,
+                      opacity: 0.9,
+                      mb: 4,
+                    }}
+                  >
+                    Crie sua conta e tenha acesso completo à plataforma.
+                  </Typography>
+
+                  <Box sx={{ textAlign: 'left', '& > *': { mb: 1.5 } }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                      <CheckCircle sx={{ fontSize: 20 }} />
+                      <Typography sx={{ fontSize: '14px', fontWeight: 500 }}>
+                        Configuração rápida
+                      </Typography>
+                    </Box>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                      <CheckCircle sx={{ fontSize: 20 }} />
+                      <Typography sx={{ fontSize: '14px', fontWeight: 500 }}>
+                        Acesso a todos os recursos
+                      </Typography>
+                    </Box>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                      <CheckCircle sx={{ fontSize: 20 }} />
+                      <Typography sx={{ fontSize: '14px', fontWeight: 500 }}>
+                        Suporte completo
+                      </Typography>
+                    </Box>
+                  </Box>
                 </Box>
               </Box>
 
-              {/* Title */}
-              <Typography 
-                variant="h4" 
-                sx={{
-                  fontWeight: 600,
-                  color: '#111827',
-                  mb: 2,
-                  fontSize: '24px',
-                  letterSpacing: '-0.01em',
-                  lineHeight: 1.2,
-                }}
-              >
-                Criar conta
-              </Typography>
+              {/* Right Side - Form */}
+              <Box sx={{ flex: 1, p: { xs: 4, md: 6 } }}>
+                <Typography 
+                  variant="h5" 
+                  sx={{
+                    fontWeight: 600,
+                    color: '#111827',
+                    mb: 1,
+                    fontSize: '20px',
+                    letterSpacing: '-0.01em',
+                  }}
+                >
+                  Criar conta
+                </Typography>
 
-              <Typography 
-                variant="body2" 
-                sx={{
-                  color: '#6b7280',
-                  fontSize: '15px',
-                  lineHeight: 1.4,
-                  fontWeight: 400,
-                  mb: 6,
-                }}
-              >
-                Comece gratuitamente. Sem cartão de crédito.
-              </Typography>
-            </Box>
+                <Typography 
+                  variant="body2" 
+                  sx={{
+                    color: '#6b7280',
+                    fontSize: '14px',
+                    mb: 4,
+                  }}
+                >
+                  Preencha os dados para começar
+                </Typography>
 
-            {/* Form */}
-            <Box sx={{ px: 8, pb: 8 }}>
-              <form onSubmit={registerForm.handleSubmit(handleRegister)}>
-                <Stack spacing={5}>
+                <form onSubmit={registerForm.handleSubmit(handleRegister)}>
+                  <Stack spacing={4}>
                   <Controller
                     name="name"
                     control={registerForm.control}
@@ -259,10 +305,9 @@ export default function CreateAccountPage() {
                           sx={{
                             color: '#374151',
                             fontWeight: 500,
-                            mb: 1.5,
-                            fontSize: '14px',
+                            mb: 1,
+                            fontSize: '13px',
                             display: 'block',
-                            lineHeight: 1.4,
                           }}
                         >
                           Nome completo
@@ -297,10 +342,9 @@ export default function CreateAccountPage() {
                           sx={{
                             color: '#374151',
                             fontWeight: 500,
-                            mb: 1.5,
-                            fontSize: '14px',
+                            mb: 1,
+                            fontSize: '13px',
                             display: 'block',
-                            lineHeight: 1.4,
                           }}
                         >
                           Email
@@ -336,10 +380,9 @@ export default function CreateAccountPage() {
                           sx={{
                             color: '#374151',
                             fontWeight: 500,
-                            mb: 1.5,
-                            fontSize: '14px',
+                            mb: 1,
+                            fontSize: '13px',
                             display: 'block',
-                            lineHeight: 1.4,
                           }}
                         >
                           Senha
@@ -387,10 +430,9 @@ export default function CreateAccountPage() {
                           sx={{
                             color: '#374151',
                             fontWeight: 500,
-                            mb: 1.5,
-                            fontSize: '14px',
+                            mb: 1,
+                            fontSize: '13px',
                             display: 'block',
-                            lineHeight: 1.4,
                           }}
                         >
                           Confirmar senha
@@ -526,46 +568,37 @@ export default function CreateAccountPage() {
                   >
                     {registerSuccess ? 'Conta criada!' : isLoading ? 'Criando conta...' : 'Criar conta'}
                   </Button>
-                </Stack>
-              </form>
-            </Box>
+                  </Stack>
+                </form>
 
-            {/* Footer */}
-            <Box 
-              sx={{ 
-                px: 8,
-                pb: 8,
-                pt: 6,
-                borderTop: '1px solid #f3f4f6',
-                textAlign: 'center',
-              }}
-            >
-              <Typography
-                variant="body2"
-                sx={{ 
-                  color: '#6b7280',
-                  fontSize: '14px',
-                  fontWeight: 400,
-                  lineHeight: 1.4,
-                }}
-              >
-                Já tem uma conta?{' '}
-                <Typography
-                  component="span"
-                  onClick={() => router.push('/login')}
-                  sx={{
-                    color: '#000000',
-                    fontWeight: 500,
-                    cursor: 'pointer',
-                    textDecoration: 'none',
-                    '&:hover': {
-                      textDecoration: 'underline',
-                    }
-                  }}
-                >
-                  Entre aqui
-                </Typography>
-              </Typography>
+                {/* Footer */}
+                <Box sx={{ mt: 4, pt: 4, borderTop: '1px solid #f3f4f6', textAlign: 'center' }}>
+                  <Typography
+                    variant="body2"
+                    sx={{ 
+                      color: '#6b7280',
+                      fontSize: '13px',
+                    }}
+                  >
+                    Já tem uma conta?{' '}
+                    <Typography
+                      component="span"
+                      onClick={() => router.push('/login')}
+                      sx={{
+                        color: '#000000',
+                        fontWeight: 500,
+                        cursor: 'pointer',
+                        textDecoration: 'none',
+                        '&:hover': {
+                          textDecoration: 'underline',
+                        }
+                      }}
+                    >
+                      Entre aqui
+                    </Typography>
+                  </Typography>
+                </Box>
+              </Box>
             </Box>
           </Box>
         </Fade>

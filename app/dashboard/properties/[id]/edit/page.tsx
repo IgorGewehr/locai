@@ -1,16 +1,14 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import {
   Box,
-  Card,
-  CardContent,
+  Container,
+  Paper,
+  Tabs,
+  Tab,
   Typography,
-  Stepper,
-  Step,
-  StepLabel,
-  StepContent,
   Button,
   Alert,
   CircularProgress,
@@ -19,762 +17,729 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
-  Paper,
-  Divider,
+  Snackbar,
+  IconButton,
+  Tooltip,
   LinearProgress,
+  Badge,
+  useTheme,
+  alpha,
+  Fade,
+  Zoom,
+  Grid,
 } from '@mui/material';
 import {
   Save,
-  Cancel,
-  Home,
-  Apartment,
-  Villa,
-  House,
+  Close,
   CheckCircle,
-  Schedule,
-  Block,
-  NavigateNext,
-  NavigateBefore,
-  Info,
-  Settings,
-  Star,
-  AttachMoney,
-  PhotoLibrary,
-  CalendarMonth,
+  Error as ErrorIcon,
   Warning,
+  Info as InfoIcon,
+  Home,
+  AttachMoney,
+  Star,
+  Image,
+  CalendarMonth,
+  Settings,
+  AutorenewOutlined,
+  CloudDone,
+  CloudUpload,
+  History,
+  Check,
 } from '@mui/icons-material';
 import { useForm, FormProvider } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
 import * as yup from 'yup';
-import { PropertyBasicInfo } from '@/components/organisms/PropertyBasicInfo/PropertyBasicInfo';
-import { PropertySpecs } from '@/components/organisms/PropertySpecs/PropertySpecs';
-import { PropertyAmenities } from '@/components/organisms/PropertyAmenities/PropertyAmenities';
-import { PropertyPricing } from '@/components/organisms/PropertyPricing/PropertyPricing';
-import PropertyMediaUpload from '@/components/organisms/PropertyMediaUpload/PropertyMediaUpload';
-import AvailabilityCalendar from '@/components/organisms/AvailabilityCalendar/AvailabilityCalendar';
-import { Property, PricingRule, PropertyCategory, PropertyStatus, PropertyType } from '@/lib/types/property';
 import { useTenant } from '@/contexts/TenantContext';
 import { ApiClient } from '@/lib/utils/api-client';
 import { logger } from '@/lib/utils/logger';
+import { Property, PropertyCategory } from '@/lib/types/property';
+import { PaymentMethod } from '@/lib/types/common';
+import { propertySchema } from '@/lib/validation/propertySchema';
+import { usePropertyValidation } from '@/hooks/usePropertyValidation';
+import { validateBeforeSave } from '@/lib/validation/property-validation-v2';
+import { debounce } from 'lodash';
 
-interface ValidationResult {
-  isValid: boolean;
-  errors: string[];
-  warnings: string[];
-}
+// Components for each tab
+import { PropertyBasicInfo } from '@/components/organisms/PropertyEdit/BasicInfo';
+import { PropertySpecs } from '@/components/organisms/PropertyEdit/Specs';
+import { PropertyAmenities } from '@/components/organisms/PropertyEdit/Amenities';
+import { PropertyPricing } from '@/components/organisms/PropertyEdit/Pricing';
+import { PropertyMedia } from '@/components/organisms/PropertyEdit/Media';
+import { PropertyAvailability } from '@/components/organisms/PropertyEdit/Availability';
 
-interface StepData {
+interface TabConfig {
+  id: string;
   label: string;
-  description: string;
   icon: React.ReactNode;
-  fields: string[];
-  validate: (data: Partial<Property>) => ValidationResult;
+  component: React.ReactNode;
+  fields: (keyof Property)[];
+  required?: boolean;
 }
 
-const steps: StepData[] = [
+const tabsConfig: TabConfig[] = [
   {
-    label: 'Informações Básicas',
-    description: 'Título, descrição e endereço da propriedade',
-    icon: <Info />,
+    id: 'basic',
+    label: 'Informações',
+    icon: <Home />,
+    component: <PropertyBasicInfo />,
     fields: ['title', 'description', 'address', 'category'],
-    validate: (data) => {
-      const errors: string[] = [];
-      const warnings: string[] = [];
-      
-      if (!data.title?.trim()) errors.push('Título é obrigatório');
-      else if (data.title.length < 10) warnings.push('Título muito curto (recomendado: mín. 10 caracteres)');
-      
-      if (!data.description?.trim()) errors.push('Descrição é obrigatória');
-      else if (data.description.length < 50) warnings.push('Descrição muito curta (recomendado: mín. 50 caracteres)');
-      
-      if (!data.address?.trim()) errors.push('Endereço é obrigatório');
-      if (!data.category) errors.push('Categoria é obrigatória');
-      
-      return { isValid: errors.length === 0, errors, warnings };
-    }
+    required: true,
   },
   {
+    id: 'specs',
     label: 'Especificações',
-    description: 'Quartos, banheiros e capacidade',
     icon: <Settings />,
+    component: <PropertySpecs />,
     fields: ['bedrooms', 'bathrooms', 'maxGuests'],
-    validate: (data) => {
-      const errors: string[] = [];
-      const warnings: string[] = [];
-      
-      if (!data.bedrooms || data.bedrooms < 1) errors.push('Deve ter pelo menos 1 quarto');
-      if (!data.bathrooms || data.bathrooms < 1) errors.push('Deve ter pelo menos 1 banheiro');
-      if (!data.maxGuests || data.maxGuests < 1) errors.push('Deve acomodar pelo menos 1 hóspede');
-      
-      if (data.maxGuests && data.bedrooms && data.maxGuests > data.bedrooms * 3) {
-        warnings.push('Capacidade muito alta para o número de quartos');
-      }
-      
-      return { isValid: errors.length === 0, errors, warnings };
-    }
+    required: true,
   },
   {
-    label: 'Comodidades',
-    description: 'Facilidades e serviços oferecidos',
-    icon: <Star />,
-    fields: ['amenities', 'allowsPets', 'isFeatured'],
-    validate: (data) => {
-      const errors: string[] = [];
-      const warnings: string[] = [];
-      
-      if (!data.amenities || data.amenities.length === 0) {
-        warnings.push('Adicione algumas comodidades para tornar a propriedade mais atrativa');
-      }
-      
-      return { isValid: true, errors, warnings };
-    }
-  },
-  {
-    label: 'Precificação',
-    description: 'Preços e taxas da propriedade',
+    id: 'pricing',
+    label: 'Preços',
     icon: <AttachMoney />,
-    fields: ['basePrice', 'pricePerExtraGuest', 'minimumNights', 'cleaningFee'],
-    validate: (data) => {
-      const errors: string[] = [];
-      const warnings: string[] = [];
-      
-      if (!data.basePrice || data.basePrice <= 0) errors.push('Preço base é obrigatório e deve ser maior que 0');
-      if (data.pricePerExtraGuest && data.pricePerExtraGuest < 0) errors.push('Preço por pessoa extra não pode ser negativo');
-      if (data.cleaningFee && data.cleaningFee < 0) errors.push('Taxa de limpeza não pode ser negativa');
-      if (data.minimumNights && data.minimumNights < 1) errors.push('Mínimo de noites deve ser pelo menos 1');
-      
-      if (data.basePrice && data.basePrice < 50) warnings.push('Preço muito baixo - verifique se está correto');
-      if (data.basePrice && data.basePrice > 1000) warnings.push('Preço muito alto - verifique se está correto');
-      
-      return { isValid: errors.length === 0, errors, warnings };
-    }
+    component: <PropertyPricing />,
+    fields: ['basePrice', 'pricePerExtraGuest', 'cleaningFee', 'minimumNights'],
+    required: true,
   },
   {
+    id: 'amenities',
+    label: 'Comodidades',
+    icon: <Star />,
+    component: <PropertyAmenities />,
+    fields: ['amenities', 'isFeatured', 'allowsPets'],
+  },
+  {
+    id: 'media',
     label: 'Mídia',
-    description: 'Fotos e vídeos da propriedade',
-    icon: <PhotoLibrary />,
+    icon: <Image />,
+    component: <PropertyMedia />,
     fields: ['photos', 'videos'],
-    validate: (data) => {
-      const errors: string[] = [];
-      const warnings: string[] = [];
-      
-      if (!data.photos || data.photos.length === 0) {
-        warnings.push('Adicione pelo menos uma foto para melhorar a apresentação');
-      } else if (data.photos.length < 3) {
-        warnings.push('Recomendado: adicione pelo menos 3 fotos');
-      }
-      
-      return { isValid: true, errors, warnings };
-    }
   },
   {
+    id: 'availability',
     label: 'Disponibilidade',
-    description: 'Configuração de datas e status',
     icon: <CalendarMonth />,
+    component: <PropertyAvailability />,
     fields: ['isActive', 'unavailableDates'],
-    validate: (data) => {
-      const errors: string[] = [];
-      const warnings: string[] = [];
-      
-      if (data.isActive === undefined) errors.push('Status da propriedade deve ser definido');
-      
-      return { isValid: errors.length === 0, errors, warnings };
+  },
+];
+
+// Enhanced validation with specific field schemas
+const createFieldSchema = (fields: (keyof Property)[]) => {
+  const schemaFields: any = {};
+  fields.forEach(field => {
+    if (propertySchema.fields[field as any]) {
+      schemaFields[field] = propertySchema.fields[field as any];
     }
-  }
-];
-
-const propertyTypes = [
-  { value: PropertyCategory.APARTMENT, label: 'Apartamento', icon: <Apartment /> },
-  { value: PropertyCategory.HOUSE, label: 'Casa', icon: <House /> },
-  { value: PropertyCategory.VILLA, label: 'Villa', icon: <Villa /> },
-  { value: PropertyCategory.STUDIO, label: 'Studio', icon: <Home /> },
-];
-
-const propertySchema = yup.object().shape({
-  title: yup.string().required('Título é obrigatório'),
-  description: yup.string().required('Descrição é obrigatória'),
-  address: yup.string().required('Endereço é obrigatório'),
-  category: yup.string().oneOf(Object.values(PropertyCategory)).required('Categoria é obrigatória'),
-  bedrooms: yup.number().min(1, 'Deve ter pelo menos 1 quarto').required('Número de quartos é obrigatório'),
-  bathrooms: yup.number().min(1, 'Deve ter pelo menos 1 banheiro').required('Número de banheiros é obrigatório'),
-  maxGuests: yup.number().min(1, 'Deve acomodar pelo menos 1 hóspede').required('Número máximo de hóspedes é obrigatório'),
-  basePrice: yup.number().min(1, 'Preço deve ser maior que 0').required('Preço base é obrigatório'),
-  pricePerExtraGuest: yup.number().min(0, 'Preço não pode ser negativo').nullable(),
-  minimumNights: yup.number().min(1, 'Deve ter pelo menos 1 noite').nullable(),
-  cleaningFee: yup.number().min(0, 'Taxa não pode ser negativa').nullable(),
-  
-  // Optional fields with proper defaults
-  amenities: yup.array().of(yup.string()).nullable(),
-  isFeatured: yup.boolean().nullable(),
-  allowsPets: yup.boolean().nullable(),
-  photos: yup.array().nullable(), // Remove required validation for photos
-  videos: yup.array().nullable(),
-  unavailableDates: yup.array().nullable(),
-  customPricing: yup.object().nullable(),
-  isActive: yup.boolean().nullable(),
-});
+  });
+  return yup.object(schemaFields);
+};
 
 export default function EditPropertyPage() {
   const router = useRouter();
   const params = useParams();
   const propertyId = params?.id as string;
   const { services, tenantId, isReady } = useTenant();
-  
-  const [activeStep, setActiveStep] = useState(0);
+  const theme = useTheme();
+
+  const [activeTab, setActiveTab] = useState(0);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [autoSaving, setAutoSaving] = useState(false);
+  const [lastSaved, setLastSaved] = useState<Date | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [successMessage, setSuccessMessage] = useState<string | null>(null);
-  const [showStatusDialog, setShowStatusDialog] = useState(false);
-  const [pricingRules, setPricingRules] = useState<PricingRule[]>([]);
-  const [stepValidations, setStepValidations] = useState<ValidationResult[]>([]);
-  const [showValidationDialog, setShowValidationDialog] = useState(false);
-  const [validationSummary, setValidationSummary] = useState<ValidationResult>({ isValid: true, errors: [], warnings: [] });
+  const [success, setSuccess] = useState<string | null>(null);
+  const [tabErrors, setTabErrors] = useState<Record<string, number>>({});
+  const [showExitDialog, setShowExitDialog] = useState(false);
+  const [originalData, setOriginalData] = useState<Property | null>(null);
 
   const methods = useForm<Property>({
     resolver: yupResolver(propertySchema) as any,
     mode: 'onChange',
   });
 
-  const { handleSubmit, reset, formState: { isDirty, errors } } = methods;
+  const { handleSubmit, reset, watch, formState: { errors, isDirty, isValid } } = methods;
 
+  // Enhanced validation hook
+  const { 
+    validateProperty, 
+    validationResult, 
+    getFieldErrors, 
+    hasFieldError,
+    isValidating: validatingCustom
+  } = usePropertyValidation({
+    strict: false,
+    autoFix: true,
+    realTimeValidation: true,
+  });
+
+  // Watch all form values for changes
+  const watchedValues = watch();
+
+  // Calculate tab errors
   useEffect(() => {
-    // Load property data from Firebase
+    const newTabErrors: Record<string, number> = {};
+    
+    tabsConfig.forEach(tab => {
+      let errorCount = 0;
+      tab.fields.forEach(field => {
+        if (errors[field]) {
+          errorCount++;
+        }
+      });
+      if (errorCount > 0) {
+        newTabErrors[tab.id] = errorCount;
+      }
+    });
+    
+    setTabErrors(newTabErrors);
+    
+    // Log validation state for debugging
+    if (Object.keys(errors).length > 0) {
+      logger.warn('Property form validation errors', { 
+        propertyId, 
+        errors: Object.keys(errors).map(key => ({
+          field: key,
+          message: errors[key as keyof Property]?.message
+        }))
+      });
+    }
+  }, [errors, propertyId]);
+
+  // Load property data
+  useEffect(() => {
     const loadProperty = async () => {
       if (!propertyId || !services || !isReady) return;
       
+      logger.info('Loading property for editing', { propertyId, tenantId });
       
       try {
         const property = await services.properties.get(propertyId);
         
         if (!property) {
+          logger.error('Property not found', { propertyId });
           setError('Propriedade não encontrada');
           setLoading(false);
           return;
         }
 
-        // Convert dates back to Date objects
+        // Convert dates and ensure all fields have proper defaults
         const propertyData = {
           ...property,
+          amenities: property.amenities || [],
+          photos: property.photos || [],
+          videos: property.videos || [],
           unavailableDates: (property as any).unavailableDates?.map((date: any) => 
             date instanceof Date ? date : date.toDate ? date.toDate() : new Date(date)
           ) || [],
+          paymentMethodSurcharges: property.paymentMethodSurcharges || {
+            [PaymentMethod.PIX]: 0,
+            [PaymentMethod.CREDIT_CARD]: 0,
+            [PaymentMethod.DEBIT_CARD]: 0,
+            [PaymentMethod.CASH]: 0,
+            [PaymentMethod.BANK_TRANSFER]: 0,
+            [PaymentMethod.BANK_SLIP]: 0,
+            [PaymentMethod.STRIPE]: 0,
+          },
         };
         
-        reset(propertyData as unknown as Property);
+        logger.info('Property loaded successfully', { 
+          propertyId, 
+          title: propertyData.title,
+          hasPhotos: propertyData.photos.length > 0,
+          photosCount: propertyData.photos.length
+        });
+        
+        setOriginalData(propertyData as Property);
+        reset(propertyData as Property);
         setLoading(false);
       } catch (err) {
+        logger.error('Error loading property', { 
+          propertyId, 
+          error: err instanceof Error ? err.message : String(err) 
+        });
         setError('Erro ao carregar propriedade');
         setLoading(false);
       }
     };
 
     loadProperty();
-  }, [propertyId, services, isReady, reset]);
+  }, [propertyId, services, isReady, reset, tenantId]);
 
-  const validateAllSteps = (data: Partial<Property>) => {
-    const allValidations = steps.map(step => step.validate(data));
-    setStepValidations(allValidations);
-    
-    const allErrors = allValidations.flatMap(v => v.errors);
-    const allWarnings = allValidations.flatMap(v => v.warnings);
-    
-    return {
-      isValid: allErrors.length === 0,
-      errors: allErrors,
-      warnings: allWarnings
-    };
-  };
+  // Auto-save functionality with debounce
+  const autoSave = useCallback(
+    debounce(async (data: Property) => {
+      if (!isDirty || !isValid || saving) return;
+      
+      setAutoSaving(true);
+      logger.info('Auto-saving property changes', { propertyId, title: data.title });
+      
+      try {
+        const response = await ApiClient.put(`/api/properties/${propertyId}`, {
+          ...data,
+          updatedAt: new Date(),
+        });
+        
+        if (response.ok) {
+          setLastSaved(new Date());
+          setAutoSaving(false);
+          logger.info('Property auto-saved successfully', { propertyId });
+        }
+      } catch (err) {
+        logger.error('Auto-save failed', { 
+          propertyId, 
+          error: err instanceof Error ? err.message : String(err) 
+        });
+        setAutoSaving(false);
+      }
+    }, 3000),
+    [propertyId, isDirty, isValid, saving]
+  );
 
-  const validateCurrentStep = (data: Partial<Property>) => {
-    return steps[activeStep]?.validate(data) || { isValid: true, errors: [], warnings: [] };
-  };
+  // Watch for changes and trigger auto-save
+  useEffect(() => {
+    if (isDirty && isValid && !loading) {
+      autoSave(watchedValues as Property);
+    }
+  }, [watchedValues, isDirty, isValid, loading, autoSave]);
 
-  const correctCommonIssues = (data: Property): Property => {
-    const corrected = { ...data };
-    
-    // Corrigir campos numéricos
-    if (corrected.bedrooms && corrected.bedrooms < 1) corrected.bedrooms = 1;
-    if (corrected.bathrooms && corrected.bathrooms < 1) corrected.bathrooms = 1;
-    if (corrected.maxGuests && corrected.maxGuests < 1) corrected.maxGuests = 1;
-    if (corrected.minimumNights && corrected.minimumNights < 1) corrected.minimumNights = 1;
-    if (corrected.basePrice && corrected.basePrice <= 0) corrected.basePrice = 100;
-    if (corrected.pricePerExtraGuest && corrected.pricePerExtraGuest < 0) corrected.pricePerExtraGuest = 0;
-    if (corrected.cleaningFee && corrected.cleaningFee < 0) corrected.cleaningFee = 0;
-    
-    // Corrigir strings vazias
-    if (!corrected.title?.trim()) corrected.title = 'Propriedade sem título';
-    if (!corrected.description?.trim()) corrected.description = 'Descrição a ser preenchida';
-    if (!corrected.address?.trim()) corrected.address = 'Endereço a ser informado';
-    
-    // Garantir arrays válidos
-    corrected.amenities = corrected.amenities || [];
-    corrected.photos = corrected.photos || [];
-    corrected.videos = corrected.videos || [];
-    corrected.unavailableDates = corrected.unavailableDates || [];
-    
-    // Status padrão
-    if (corrected.isActive === undefined) corrected.isActive = true;
-    if (corrected.allowsPets === undefined) corrected.allowsPets = false;
-    if (corrected.isFeatured === undefined) corrected.isFeatured = false;
-    
-    return corrected;
-  };
-
+  // Main save function with enhanced validation
   const onSubmit = async (data: Property) => {
-    logger.info('Starting property edit submission', { propertyId, title: data.title });
+    logger.info('Starting property save with enhanced validation', { 
+      propertyId, 
+      title: data.title,
+      isDirty,
+      isValid 
+    });
+    
     setSaving(true);
     setError(null);
 
     try {
-      // Validar todos os steps
-      const fullValidation = validateAllSteps(data);
-      setValidationSummary(fullValidation);
+      // Enhanced validation and sanitization
+      const { isValid: customValid, sanitizedProperty, validationResult } = await validateBeforeSave(data);
       
-      if (!fullValidation.isValid) {
-        setShowValidationDialog(true);
-        setSaving(false);
-        return;
+      if (!customValid && validationResult.errors) {
+        const errorMessages = Object.values(validationResult.errors)
+          .flat()
+          .join(', ');
+        throw new Error(`Validação falhou: ${errorMessages}`);
       }
-      
-      // Corrigir problemas comuns automaticamente
-      const correctedData = correctCommonIssues(data);
-      
-      // Processar mídia
-      const validPhotos = (correctedData.photos || []).filter((photo: any) => {
-        const url = typeof photo === 'string' ? photo : photo?.url;
-        return url && url.includes('firebasestorage.googleapis.com');
-      });
 
-      const validVideos = (correctedData.videos || []).filter((video: any) => {
-        const url = typeof video === 'string' ? video : video?.url;
-        return url && url.includes('firebasestorage.googleapis.com');
-      });
-
-      const cleanData: any = {
-        ...correctedData,
-        photos: validPhotos,
-        videos: validVideos,
-        amenities: correctedData.amenities || [],
-        unavailableDates: correctedData.unavailableDates || [],
-        customPricing: correctedData.customPricing || {},
-      };
-
-      const finalPayload = {
-        ...cleanData,
-        pricingRules,
+      // Additional processing
+      const processedData = {
+        ...sanitizedProperty,
+        // Ensure Firebase storage URLs only
+        photos: (sanitizedProperty.photos || []).filter(p => 
+          p && typeof p === 'string' && p.includes('firebasestorage')
+        ),
+        videos: (sanitizedProperty.videos || []).filter(v => 
+          v && typeof v === 'string' && v.includes('firebasestorage')
+        ),
+        // Metadata
         updatedAt: new Date(),
+        tenantId,
       };
 
-      logger.info('Sending property edit request', {
+      logger.info('Submitting enhanced validated property update', { 
         propertyId,
-        title: finalPayload.title,
-        hasPhotos: !!finalPayload.photos?.length,
-        photosCount: finalPayload.photos?.length || 0
+        hasPhotos: processedData.photos.length > 0,
+        photosCount: processedData.photos.length,
+        amenitiesCount: processedData.amenities?.length || 0,
+        fixedIssues: validationResult.fixedIssues.length,
+        warningsCount: Object.keys(validationResult.warnings).length,
       });
 
-      const response = await ApiClient.put(`/api/properties/${propertyId}`, finalPayload);
+      const response = await ApiClient.put(`/api/properties/${propertyId}`, processedData);
       const responseData = await response.json();
 
       if (!response.ok) {
-        let errorMessage = responseData.error || 'Erro ao salvar alterações';
-        
-        if (responseData.code === 'VALIDATION_ERROR' && responseData.details) {
-          logger.error('Property validation error', responseData.details);
-          errorMessage += '. Dados corrigidos automaticamente - tente novamente.';
-          
-          // Auto-corrigir e tentar novamente
-          const reCorrectedData = correctCommonIssues(data);
-          reset(reCorrectedData as unknown as Property);
-        }
-        
-        throw new Error(errorMessage);
+        throw new Error(responseData.error || 'Erro ao salvar propriedade');
       }
 
-      setSuccessMessage('Propriedade atualizada com sucesso!');
-      reset(correctedData as unknown as Property);
+      logger.info('Property updated successfully with enhanced validation', { 
+        propertyId, 
+        title: data.title,
+        appliedFixes: validationResult.fixedIssues
+      });
       
+      // Show fixes applied if any
+      if (validationResult.fixedIssues.length > 0) {
+        setSuccess(`Propriedade atualizada com sucesso! ${validationResult.fixedIssues.length} correção(ões) aplicada(s) automaticamente.`);
+      } else {
+        setSuccess('Propriedade atualizada com sucesso!');
+      }
+      
+      setLastSaved(new Date());
+      reset(processedData as Property);
+      
+      // Redirect after success
       setTimeout(() => {
         router.push('/dashboard/properties');
       }, 2000);
     } catch (err) {
-      logger.error('Error updating property', { errorMessage: err instanceof Error ? err.message : String(err), propertyId });
-      setError(err instanceof Error ? err.message : 'Erro desconhecido ao salvar');
+      logger.error('Enhanced property save failed', { 
+        propertyId,
+        error: err instanceof Error ? err.message : String(err) 
+      });
+      setError(err instanceof Error ? err.message : 'Erro ao salvar propriedade');
     } finally {
       setSaving(false);
     }
   };
 
-  const handleStatusChange = (newStatus: boolean) => {
-    methods.setValue('isActive', newStatus, { shouldDirty: true });
-    setShowStatusDialog(false);
+  // Handle tab change with validation
+  const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
+    logger.debug('Tab change', { from: activeTab, to: newValue });
+    setActiveTab(newValue);
   };
 
-  const getStatusChip = () => {
-    const isActive = methods.watch('isActive');
+  // Calculate completion percentage
+  const getCompletionPercentage = useMemo(() => {
+    const totalFields = tabsConfig.reduce((acc, tab) => acc + tab.fields.length, 0);
+    let completedFields = 0;
     
-    return (
-      <Chip
-        label={isActive ? 'Ativo' : 'Inativo'}
-        color={isActive ? 'success' : 'error'}
-        icon={isActive ? <CheckCircle /> : <Block />}
-        onClick={() => setShowStatusDialog(true)}
-        sx={{ cursor: 'pointer' }}
-      />
-    );
-  };
+    tabsConfig.forEach(tab => {
+      tab.fields.forEach(field => {
+        const value = watchedValues[field];
+        if (value !== undefined && value !== null && value !== '' && 
+            (!Array.isArray(value) || value.length > 0)) {
+          completedFields++;
+        }
+      });
+    });
+    
+    return Math.round((completedFields / totalFields) * 100);
+  }, [watchedValues]);
 
-  const handleNext = () => {
-    const currentData = methods.getValues();
-    const currentValidation = validateCurrentStep(currentData);
-    
-    if (!currentValidation.isValid) {
-      setError(`Complete corretamente o passo atual: ${currentValidation.errors.join(', ')}`);
-      return;
-    }
-    
-    setError(null);
-    setActiveStep((prev) => Math.min(prev + 1, steps.length - 1));
-  };
-
-  const handleBack = () => {
-    setActiveStep((prev) => Math.max(prev - 1, 0));
-    setError(null);
-  };
-
-  const handleStepClick = (stepIndex: number) => {
-    // Permitir navegar apenas para steps já validados ou o próximo
-    const currentData = methods.getValues();
-    let canNavigate = true;
-    
-    for (let i = 0; i < stepIndex; i++) {
-      const stepValidation = steps[i].validate(currentData);
-      if (!stepValidation.isValid) {
-        canNavigate = false;
-        setError(`Complete o passo "${steps[i].label}" antes de prosseguir`);
-        return;
-      }
-    }
-    
-    if (canNavigate) {
-      setActiveStep(stepIndex);
-      setError(null);
+  // Handle navigation away
+  const handleExit = () => {
+    if (isDirty) {
+      setShowExitDialog(true);
+    } else {
+      router.push('/dashboard/properties');
     }
   };
 
+  const confirmExit = () => {
+    logger.info('User exiting without saving', { propertyId, isDirty });
+    setShowExitDialog(false);
+    router.push('/dashboard/properties');
+  };
+
+  // Loading state
   if (loading) {
     return (
-      <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '50vh', gap: 2 }}>
-        <CircularProgress />
-        <Typography>Carregando dados da propriedade...</Typography>
+      <Box sx={{ 
+        display: 'flex', 
+        flexDirection: 'column', 
+        alignItems: 'center', 
+        justifyContent: 'center', 
+        minHeight: '50vh', 
+        gap: 2 
+      }}>
+        <CircularProgress size={48} />
+        <Typography variant="h6" color="text.secondary">
+          Carregando propriedade...
+        </Typography>
       </Box>
     );
   }
 
-  if (error && !methods.formState.isSubmitted) {
+  // Error state
+  if (error && !originalData) {
     return (
-      <Box sx={{ p: 3 }}>
-        <Alert severity="error" sx={{ mb: 2 }}>
+      <Container maxWidth="lg" sx={{ py: 4 }}>
+        <Alert 
+          severity="error" 
+          action={
+            <Button color="inherit" size="small" onClick={() => router.push('/dashboard/properties')}>
+              Voltar
+            </Button>
+          }
+        >
           {error}
         </Alert>
-        <Button variant="outlined" onClick={() => router.push('/dashboard/properties')}>
-          Voltar para Propriedades
-        </Button>
-      </Box>
+      </Container>
     );
   }
-
-  const getStepProgress = () => {
-    const currentData = methods.getValues();
-    const validSteps = steps.filter((step, index) => {
-      if (index > activeStep) return false;
-      return step.validate(currentData).isValid;
-    }).length;
-    return (validSteps / steps.length) * 100;
-  };
 
   return (
     <FormProvider {...methods}>
-      <Box>
+      <Container maxWidth="lg" sx={{ py: 3 }}>
         {/* Header */}
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-          <Box>
-            <Typography variant="h4" component="h1" fontWeight="bold">
-              Editar Propriedade
-            </Typography>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mt: 1 }}>
-              <Typography variant="h6" color="text.secondary">
-                {methods.watch('title') || 'Nova propriedade'}
+        <Paper 
+          elevation={0} 
+          sx={{ 
+            p: 3, 
+            mb: 3, 
+            borderRadius: 2,
+            background: `linear-gradient(135deg, ${alpha(theme.palette.primary.main, 0.1)} 0%, ${alpha(theme.palette.secondary.main, 0.1)} 100%)`,
+          }}
+        >
+          <Grid container alignItems="center" spacing={2}>
+            <Grid item xs>
+              <Typography variant="h4" fontWeight="bold" gutterBottom>
+                Editar Propriedade
               </Typography>
-              {getStatusChip()}
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
+                <Typography variant="h6" color="text.secondary">
+                  {watchedValues.title || 'Sem título'}
+                </Typography>
+                <Chip
+                  size="small"
+                  label={watchedValues.isActive ? 'Ativa' : 'Inativa'}
+                  color={watchedValues.isActive ? 'success' : 'default'}
+                  icon={watchedValues.isActive ? <CheckCircle /> : <ErrorIcon />}
+                />
+                {isDirty && (
+                  <Chip
+                    size="small"
+                    label="Alterações não salvas"
+                    color="warning"
+                    icon={<Warning />}
+                  />
+                )}
+                {lastSaved && (
+                  <Chip
+                    size="small"
+                    label={`Salvo às ${lastSaved.toLocaleTimeString('pt-BR')}`}
+                    color="info"
+                    icon={<CloudDone />}
+                    variant="outlined"
+                  />
+                )}
+              </Box>
+            </Grid>
+            <Grid item>
+              <Box sx={{ display: 'flex', gap: 1 }}>
+                <Tooltip title="Descartar alterações">
+                  <IconButton onClick={handleExit} disabled={saving}>
+                    <Close />
+                  </IconButton>
+                </Tooltip>
+                <Button
+                  variant="contained"
+                  startIcon={saving ? <CircularProgress size={20} color="inherit" /> : <Save />}
+                  onClick={handleSubmit(onSubmit)}
+                  disabled={saving || !isDirty || !isValid}
+                  size="large"
+                >
+                  {saving ? 'Salvando...' : 'Salvar Alterações'}
+                </Button>
+              </Box>
+            </Grid>
+          </Grid>
+          
+          {/* Progress bar */}
+          <Box sx={{ mt: 3 }}>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+              <Typography variant="caption" color="text.secondary">
+                Progresso do preenchimento
+              </Typography>
+              <Typography variant="caption" color="text.secondary">
+                {getCompletionPercentage}% completo
+              </Typography>
             </Box>
+            <LinearProgress 
+              variant="determinate" 
+              value={getCompletionPercentage} 
+              sx={{ 
+                height: 8, 
+                borderRadius: 4,
+                backgroundColor: alpha(theme.palette.primary.main, 0.1),
+                '& .MuiLinearProgress-bar': {
+                  borderRadius: 4,
+                  background: `linear-gradient(90deg, ${theme.palette.primary.main}, ${theme.palette.secondary.main})`,
+                }
+              }}
+            />
           </Box>
-          <Button
-            variant="outlined"
-            startIcon={<Cancel />}
-            onClick={() => router.push('/dashboard/properties')}
-            disabled={saving}
+        </Paper>
+
+        {/* Auto-save indicator */}
+        <Fade in={autoSaving}>
+          <Alert 
+            severity="info" 
+            icon={<AutorenewOutlined />}
+            sx={{ mb: 2 }}
           >
-            Cancelar
-          </Button>
-        </Box>
+            Salvando automaticamente...
+          </Alert>
+        </Fade>
 
-        {/* Progress Bar */}
-        <Box sx={{ mb: 3 }}>
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-            <Typography variant="body2" color="text.secondary">
-              Progresso da edição
-            </Typography>
-            <Typography variant="body2" color="text.secondary">
-              {Math.round(getStepProgress())}% concluído
-            </Typography>
-          </Box>
-          <LinearProgress variant="determinate" value={getStepProgress()} sx={{ height: 6, borderRadius: 3 }} />
-        </Box>
-
-        {/* Alerts */}
+        {/* Error/Success messages */}
         {error && (
-          <Alert severity="error" sx={{ mb: 3 }} onClose={() => setError(null)}>
+          <Alert 
+            severity="error" 
+            sx={{ mb: 2 }}
+            onClose={() => setError(null)}
+          >
             {error}
           </Alert>
         )}
 
-        {successMessage && (
-          <Alert severity="success" sx={{ mb: 3 }} onClose={() => setSuccessMessage(null)}>
-            {successMessage}
+        {success && (
+          <Alert 
+            severity="success" 
+            sx={{ mb: 2 }}
+            onClose={() => setSuccess(null)}
+          >
+            {success}
           </Alert>
         )}
 
-        {methods.formState.isDirty && !successMessage && (
-          <Alert severity="info" sx={{ mb: 3 }}>
-            Você tem alterações não salvas. Complete todos os passos para salvar.
-          </Alert>
-        )}
-
-        {/* Stepper */}
-        <Card>
-          <CardContent>
-            <Stepper activeStep={activeStep} orientation="vertical">
-              {steps.map((step, index) => {
-                const currentData = methods.getValues();
-                const stepValidation = step.validate(currentData);
-                const isCompleted = stepValidation.isValid;
-                const hasWarnings = stepValidation.warnings.length > 0;
-
-                return (
-                  <Step key={step.label} completed={isCompleted}>
-                    <StepLabel
-                      optional={
-                        hasWarnings && (
-                          <Typography variant="caption" color="warning.main">
-                            {stepValidation.warnings.length} aviso(s)
-                          </Typography>
-                        )
-                      }
-                      error={!isCompleted && stepValidation.errors.length > 0}
-                      onClick={() => handleStepClick(index)}
-                      sx={{ cursor: 'pointer' }}
+        {/* Main content */}
+        <Paper sx={{ borderRadius: 2 }}>
+          {/* Tabs */}
+          <Tabs
+            value={activeTab}
+            onChange={handleTabChange}
+            variant="scrollable"
+            scrollButtons="auto"
+            sx={{
+              borderBottom: 1,
+              borderColor: 'divider',
+              '& .MuiTab-root': {
+                minHeight: 64,
+                textTransform: 'none',
+                fontSize: '0.95rem',
+                fontWeight: 500,
+              },
+            }}
+          >
+            {tabsConfig.map((tab, index) => (
+              <Tab
+                key={tab.id}
+                label={
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <Badge 
+                      badgeContent={tabErrors[tab.id]} 
+                      color="error"
+                      sx={{ 
+                        '& .MuiBadge-badge': { 
+                          fontSize: '0.7rem',
+                          minWidth: 16,
+                          height: 16,
+                        } 
+                      }}
                     >
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                        {step.icon}
-                        <Box>
-                          <Typography variant="subtitle1" fontWeight={index === activeStep ? 600 : 400}>
-                            {step.label}
-                          </Typography>
-                          <Typography variant="body2" color="text.secondary">
-                            {step.description}
-                          </Typography>
-                        </Box>
-                      </Box>
-                    </StepLabel>
-                    <StepContent>
-                      {/* Current Step Content */}
-                      {index === 0 && <PropertyBasicInfo />}
-                      {index === 1 && <PropertySpecs />}
-                      {index === 2 && <PropertyAmenities />}
-                      {index === 3 && <PropertyPricing />}
-                      {index === 4 && <PropertyMediaUpload />}
-                      {index === 5 && (
-                        <Box>
-                          <Typography variant="h6" gutterBottom>
-                            Gerenciar Disponibilidade e Status
-                          </Typography>
-                          <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-                            Configure o status da propriedade e datas de disponibilidade.
-                          </Typography>
-                          <AvailabilityCalendar 
-                            propertyId={propertyId} 
-                            showLegend={true}
-                            showStats={true}
-                          />
-                        </Box>
+                      {tab.icon}
+                    </Badge>
+                    <Box>
+                      <Typography variant="body2">
+                        {tab.label}
+                      </Typography>
+                      {tab.required && (
+                        <Typography variant="caption" color="text.secondary">
+                          Obrigatório
+                        </Typography>
                       )}
+                    </Box>
+                  </Box>
+                }
+                icon={
+                  Object.keys(errors).some(key => 
+                    tab.fields.includes(key as keyof Property)
+                  ) ? <ErrorIcon color="error" fontSize="small" /> : 
+                  tab.fields.every(field => {
+                    const value = watchedValues[field];
+                    return value !== undefined && value !== null && value !== '' &&
+                           (!Array.isArray(value) || value.length > 0);
+                  }) ? <CheckCircle color="success" fontSize="small" /> : null
+                }
+                iconPosition="end"
+              />
+            ))}
+          </Tabs>
 
-                      {/* Step Validation Messages */}
-                      {stepValidation.errors.length > 0 && (
-                        <Alert severity="error" sx={{ mt: 2 }}>
-                          <Typography variant="body2" fontWeight={600} gutterBottom>
-                            Corrija os seguintes problemas:
-                          </Typography>
-                          <ul style={{ margin: 0, paddingLeft: 20 }}>
-                            {stepValidation.errors.map((error, idx) => (
-                              <li key={idx}>{error}</li>
-                            ))}
-                          </ul>
-                        </Alert>
-                      )}
+          {/* Tab Content */}
+          <Box sx={{ p: 4, minHeight: 400 }}>
+            {tabsConfig.map((tab, index) => (
+              <div
+                key={tab.id}
+                role="tabpanel"
+                hidden={activeTab !== index}
+              >
+                {activeTab === index && (
+                  <Fade in timeout={300}>
+                    <Box>{tab.component}</Box>
+                  </Fade>
+                )}
+              </div>
+            ))}
+          </Box>
 
-                      {stepValidation.warnings.length > 0 && (
-                        <Alert severity="warning" sx={{ mt: 2 }}>
-                          <Typography variant="body2" fontWeight={600} gutterBottom>
-                            Recomendações:
-                          </Typography>
-                          <ul style={{ margin: 0, paddingLeft: 20 }}>
-                            {stepValidation.warnings.map((warning, idx) => (
-                              <li key={idx}>{warning}</li>
-                            ))}
-                          </ul>
-                        </Alert>
-                      )}
+          {/* Navigation buttons */}
+          <Box 
+            sx={{ 
+              p: 3, 
+              borderTop: 1, 
+              borderColor: 'divider',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+            }}
+          >
+            <Button
+              variant="text"
+              onClick={() => setActiveTab(Math.max(0, activeTab - 1))}
+              disabled={activeTab === 0}
+            >
+              Anterior
+            </Button>
+            
+            <Box sx={{ display: 'flex', gap: 1 }}>
+              {tabsConfig.map((_, index) => (
+                <Box
+                  key={index}
+                  sx={{
+                    width: 8,
+                    height: 8,
+                    borderRadius: '50%',
+                    bgcolor: index === activeTab ? 'primary.main' : 'grey.300',
+                    transition: 'all 0.3s',
+                    cursor: 'pointer',
+                  }}
+                  onClick={() => setActiveTab(index)}
+                />
+              ))}
+            </Box>
+            
+            <Button
+              variant="contained"
+              onClick={() => setActiveTab(Math.min(tabsConfig.length - 1, activeTab + 1))}
+              disabled={activeTab === tabsConfig.length - 1}
+            >
+              Próximo
+            </Button>
+          </Box>
+        </Paper>
 
-                      {/* Navigation Buttons */}
-                      <Box sx={{ mb: 2, mt: 3 }}>
-                        <Box sx={{ display: 'flex', gap: 2 }}>
-                          <Button
-                            disabled={activeStep === 0}
-                            onClick={handleBack}
-                            startIcon={<NavigateBefore />}
-                          >
-                            Anterior
-                          </Button>
-                          {activeStep < steps.length - 1 ? (
-                            <Button
-                              variant="contained"
-                              onClick={handleNext}
-                              endIcon={<NavigateNext />}
-                              disabled={!stepValidation.isValid}
-                            >
-                              Próximo
-                            </Button>
-                          ) : (
-                            <Button
-                              variant="contained"
-                              color="primary"
-                              startIcon={saving ? <CircularProgress size={20} /> : <Save />}
-                              onClick={handleSubmit(onSubmit)}
-                              disabled={saving || !stepValidation.isValid}
-                              size="large"
-                            >
-                              {saving ? 'Salvando...' : 'Finalizar Edição'}
-                            </Button>
-                          )}
-                        </Box>
-                      </Box>
-                    </StepContent>
-                  </Step>
-                );
-              })}
-            </Stepper>
-          </CardContent>
-        </Card>
-
-        {/* Validation Summary Dialog */}
-        <Dialog open={showValidationDialog} onClose={() => setShowValidationDialog(false)} maxWidth="md" fullWidth>
+        {/* Exit confirmation dialog */}
+        <Dialog open={showExitDialog} onClose={() => setShowExitDialog(false)}>
           <DialogTitle>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-              <Warning color="error" />
-              Problemas encontrados
+              <Warning color="warning" />
+              Alterações não salvas
             </Box>
           </DialogTitle>
           <DialogContent>
-            <Typography variant="body1" gutterBottom>
-              A propriedade possui alguns problemas que precisam ser corrigidos:
-            </Typography>
-            
-            {validationSummary.errors.length > 0 && (
-              <Paper sx={{ p: 2, mb: 2, bgcolor: 'error.light', color: 'error.contrastText' }}>
-                <Typography variant="subtitle2" fontWeight={600} gutterBottom>
-                  Erros que impedem o salvamento:
-                </Typography>
-                <ul style={{ margin: 0, paddingLeft: 20 }}>
-                  {validationSummary.errors.map((error, idx) => (
-                    <li key={idx}>{error}</li>
-                  ))}
-                </ul>
-              </Paper>
-            )}
-            
-            {validationSummary.warnings.length > 0 && (
-              <Paper sx={{ p: 2, mb: 2, bgcolor: 'warning.light', color: 'warning.contrastText' }}>
-                <Typography variant="subtitle2" fontWeight={600} gutterBottom>
-                  Avisos e recomendações:
-                </Typography>
-                <ul style={{ margin: 0, paddingLeft: 20 }}>
-                  {validationSummary.warnings.map((warning, idx) => (
-                    <li key={idx}>{warning}</li>
-                  ))}
-                </ul>
-              </Paper>
-            )}
-
-            <Typography variant="body2" color="text.secondary">
-              Volte aos passos indicados para corrigir os problemas, ou clique em "Corrigir automaticamente" 
-              para que o sistema tente corrigir os problemas mais comuns.
+            <Typography>
+              Você tem alterações não salvas. Deseja realmente sair sem salvar?
             </Typography>
           </DialogContent>
           <DialogActions>
-            <Button onClick={() => setShowValidationDialog(false)}>
-              Voltar para correção
+            <Button onClick={() => setShowExitDialog(false)}>
+              Continuar Editando
             </Button>
-            <Button 
-              variant="contained" 
-              onClick={() => {
-                const correctedData = correctCommonIssues(methods.getValues());
-                methods.reset(correctedData as unknown as Property);
-                setShowValidationDialog(false);
-                setError('Dados corrigidos automaticamente. Revise e salve novamente.');
-              }}
-            >
-              Corrigir automaticamente
+            <Button onClick={confirmExit} color="error" variant="contained">
+              Sair sem Salvar
             </Button>
           </DialogActions>
         </Dialog>
-
-        {/* Status Change Dialog */}
-        <Dialog open={showStatusDialog} onClose={() => setShowStatusDialog(false)}>
-          <DialogTitle>Alterar Status da Propriedade</DialogTitle>
-          <DialogContent>
-            <Typography variant="body2" sx={{ mb: 3 }}>
-              Selecione o novo status para a propriedade:
-            </Typography>
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-              <Button
-                variant={methods.watch('isActive') ? 'contained' : 'outlined'}
-                color="success"
-                startIcon={<CheckCircle />}
-                onClick={() => handleStatusChange(true)}
-                fullWidth
-              >
-                Ativo - Disponível para reservas
-              </Button>
-              <Button
-                variant={!methods.watch('isActive') ? 'contained' : 'outlined'}
-                color="error"
-                startIcon={<Block />}
-                onClick={() => handleStatusChange(false)}
-                fullWidth
-              >
-                Inativo - Não disponível
-              </Button>
-            </Box>
-          </DialogContent>
-          <DialogActions>
-            <Button onClick={() => setShowStatusDialog(false)}>
-              Cancelar
-            </Button>
-          </DialogActions>
-        </Dialog>
-      </Box>
+      </Container>
     </FormProvider>
   );
 }

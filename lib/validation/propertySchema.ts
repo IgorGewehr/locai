@@ -1,6 +1,7 @@
 // lib/validation/propertySchema.ts
 import * as yup from 'yup'
-import { PropertyCategory, PaymentMethod } from '@/lib/types/property'
+import { PropertyCategory } from '@/lib/types/property'
+import { PaymentMethod } from '@/lib/types/common'
 
 export const propertySchema = yup.object({
   title: yup

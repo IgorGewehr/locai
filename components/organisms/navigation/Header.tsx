@@ -23,6 +23,7 @@ import {
   AccountCircle,
   Settings,
   Logout,
+  HelpOutline,
 } from '@mui/icons-material';
 
 interface HeaderProps {
@@ -61,6 +62,11 @@ export default function Header({ onMenuClick }: HeaderProps) {
 
   const handleProfile = () => {
     router.push('/dashboard/profile');
+    handleClose();
+  };
+
+  const handleHelp = () => {
+    router.push('/dashboard/help');
     handleClose();
   };
 
@@ -116,6 +122,22 @@ export default function Header({ onMenuClick }: HeaderProps) {
             size="medium"
             clickable={true}
           />
+
+          {/* Help Button */}
+          <IconButton 
+            color="inherit" 
+            onClick={handleHelp}
+            sx={{
+              color: 'text.secondary',
+              p: { xs: 1, md: 1.5 },
+              '&:hover': {
+                backgroundColor: 'action.hover',
+              }
+            }}
+            title="Central de Ajuda"
+          >
+            <HelpOutline sx={{ fontSize: { xs: 20, md: 24 } }} />
+          </IconButton>
 
           {/* Notifications */}
           <IconButton 
@@ -208,6 +230,10 @@ export default function Header({ onMenuClick }: HeaderProps) {
             <MenuItem onClick={handleSettings} sx={{ py: 1.5 }}>
               <Settings sx={{ mr: 2, fontSize: 20, color: 'text.secondary' }} />
               <Typography variant="body2">Configurações</Typography>
+            </MenuItem>
+            <MenuItem onClick={handleHelp} sx={{ py: 1.5 }}>
+              <HelpOutline sx={{ mr: 2, fontSize: 20, color: 'text.secondary' }} />
+              <Typography variant="body2">Central de Ajuda</Typography>
             </MenuItem>
             <Divider />
             <MenuItem onClick={handleLogout} sx={{ py: 1.5, color: 'error.main' }}>
