@@ -35,7 +35,7 @@ interface AuthContextType {
   logout: () => Promise<void>;
   reloadUser: (forceRefresh?: boolean) => Promise<void>;
   signIn: (email: string, password: string) => Promise<void>;
-  signUp: (email: string, password: string, name: string) => Promise<void>;
+  signUp: (email: string, password: string, name: string, extraData?: { free?: number }) => Promise<void>;
   resetPassword: (email: string) => Promise<void>;
   
   // Token Firebase
@@ -294,7 +294,16 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
               logger.warn('⚠️ [Auth] Erro ao acessar localStorage para redirectPath');
             }
             
-            router.push(targetPath);
+            // ✅ NOVO: Evitar redirecionamentos múltiplos
+            const isAlreadyRedirecting = sessionStorage.getItem('redirecting');
+            if (isAlreadyRedirecting) {
+              sessionStorage.removeItem('redirecting');
+              return;
+            }
+            
+            console.log('🔄 [AuthProvider] Redirecting authenticated user to dashboard');
+            sessionStorage.setItem('redirecting', 'true');
+            router.replace(targetPath); // ✅ replace em vez de push
           } else {
             // Verificar se precisa redirecionar para login
             const authRedirect = shouldRedirectToAuth(userData, pathname);
@@ -304,10 +313,19 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
                 to: authRedirect.redirect,
                 reason: authRedirect.reason
               });
-              router.push(authRedirect.redirect);
+              // ✅ NOVO: Evitar redirecionamentos múltiplos
+              const isAlreadyRedirecting = sessionStorage.getItem('redirecting');
+              if (isAlreadyRedirecting) {
+                sessionStorage.removeItem('redirecting');
+                return;
+              }
+              
+              console.log('🔄 [AuthProvider] Redirecting unauthenticated user to login');
+              sessionStorage.setItem('redirecting', 'true');
+              router.replace(authRedirect.redirect); // ✅ replace em vez de push
             }
           }
-        }, 300);
+        }, 150); // ✅ Reduzido de 300ms para 150ms
         
       } catch (error) {
         logger.error('❌ [Auth] Erro ao processar usuário autenticado', {
@@ -331,7 +349,16 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       
       const authRedirect = shouldRedirectToAuth(null, pathname);
       if (authRedirect) {
-        router.push(authRedirect.redirect);
+        // ✅ NOVO: Evitar redirecionamentos múltiplos
+        const isAlreadyRedirecting = sessionStorage.getItem('redirecting');
+        if (isAlreadyRedirecting) {
+          sessionStorage.removeItem('redirecting');
+          return;
+        }
+        
+        console.log('🔄 [AuthProvider] Redirecting unauthenticated user to login (no user)');
+        sessionStorage.setItem('redirecting', 'true');
+        router.replace(authRedirect.redirect); // ✅ replace em vez de push
       }
     };
     
@@ -487,7 +514,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     }
   }, []);
 
-  const signUp = useCallback(async (email: string, password: string, name: string): Promise<void> => {
+  const signUp = useCallback(async (email: string, password: string, name: string, extraData?: { free?: number }): Promise<void> => {
     try {
       logger.info('👤 [Auth] Iniciando registro', { email, name });
       
@@ -500,7 +527,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       });
       
       // Criar documento do usuário no Firestore
-      const userData = {
+      const userData: any = {
         email,
         name,
         fullName: name,
@@ -513,6 +540,11 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         whatsappNumbers: [],
         authProvider: 'email'
       };
+      
+      // ✅ NOVA LÓGICA: Adicionar campo free se fornecido
+      if (extraData?.free !== undefined) {
+        userData.free = extraData.free;
+      }
       
       await setDoc(doc(db, 'users', result.user.uid), userData);
       

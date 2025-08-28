@@ -94,10 +94,19 @@ export default function LoginPage() {
   const router = useRouter();
   const { signIn, signUp, resetPassword, user, loading } = useAuth();
 
-  // Redirect if already authenticated
+  // ✅ CORREÇÃO: Evitar redirect loop no useEffect
   useEffect(() => {
     if (!loading && user) {
-      router.push('/dashboard');
+      // ✅ NOVO: Evitar redirecionamentos múltiplos
+      const isAlreadyRedirecting = sessionStorage.getItem('redirecting');
+      if (isAlreadyRedirecting) {
+        sessionStorage.removeItem('redirecting');
+        return;
+      }
+      
+      console.log('🔄 [LoginPage] User authenticated, redirecting to dashboard');
+      sessionStorage.setItem('redirecting', 'true');
+      router.replace('/dashboard'); // ✅ replace em vez de push
     }
   }, [user, loading, router]);
 
@@ -139,8 +148,12 @@ export default function LoginPage() {
       setLoginSuccess(true);
       setIsProcessing(true);
       
-      // Redirect to saved path or dashboard after successful login
+      // ✅ MELHORADO: Redirect com feedback suave
       setTimeout(() => {
+        // ✅ NOVO: Evitar redirecionamentos múltiplos
+        const isAlreadyRedirecting = sessionStorage.getItem('redirecting');
+        if (isAlreadyRedirecting) return;
+        
         let targetPath = '/dashboard';
         
         try {
@@ -153,8 +166,10 @@ export default function LoginPage() {
           // Se der erro ao acessar localStorage, usar dashboard padrão
         }
         
-        router.push(targetPath);
-      }, 600);
+        console.log('🔄 [LoginPage] Login success, redirecting to:', targetPath);
+        sessionStorage.setItem('redirecting', 'true');
+        router.replace(targetPath); // ✅ replace em vez de push
+      }, 500); // ✅ Reduzido de 600ms para 500ms
     } catch (err: any) {
       let errorMessage = 'Email ou senha incorretos';
       
@@ -189,8 +204,12 @@ export default function LoginPage() {
       setRegisterSuccess(true);
       setSuccess('Conta criada com sucesso! Redirecionando para o dashboard...');
       
-      // Redirect to saved path or dashboard after successful registration
+      // ✅ MELHORADO: Redirect com feedback suave
       setTimeout(() => {
+        // ✅ NOVO: Evitar redirecionamentos múltiplos
+        const isAlreadyRedirecting = sessionStorage.getItem('redirecting');
+        if (isAlreadyRedirecting) return;
+        
         let targetPath = '/dashboard';
         
         try {
@@ -203,8 +222,10 @@ export default function LoginPage() {
           // Se der erro ao acessar localStorage, usar dashboard padrão
         }
         
-        router.push(targetPath);
-      }, 1000);
+        console.log('🔄 [LoginPage] Register success, redirecting to:', targetPath);
+        sessionStorage.setItem('redirecting', 'true');
+        router.replace(targetPath); // ✅ replace em vez de push
+      }, 800); // ✅ Reduzido de 1000ms para 800ms
     } catch (err: any) {
       let errorMessage = 'Erro ao criar conta';
       
@@ -274,6 +295,53 @@ export default function LoginPage() {
       color: '#ffffff',
     },
   };
+
+  // ✅ NOVO: Se está redirecionando ou processando, mostrar loading suave
+  if ((loginSuccess && isProcessing) || (registerSuccess)) {
+    return (
+      <Box
+        sx={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: '#0a0a0a',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          zIndex: 9999,
+        }}
+      >
+        <CircularProgress 
+          sx={{ 
+            color: '#10b981', 
+            mb: 2,
+            '& .MuiCircularProgress-circle': {
+              strokeLinecap: 'round',
+            }
+          }} 
+          size={40}
+        />
+        <Typography 
+          variant="h6" 
+          sx={{ 
+            color: '#10b981', 
+            fontWeight: 500,
+            textAlign: 'center',
+            animation: 'fadeIn 0.5s ease-in',
+            '@keyframes fadeIn': {
+              '0%': { opacity: 0, transform: 'translateY(10px)' },
+              '100%': { opacity: 1, transform: 'translateY(0)' }
+            }
+          }}
+        >
+          {loginSuccess ? 'Entrando no dashboard...' : 'Criando sua conta...'}
+        </Typography>
+      </Box>
+    );
+  }
 
   return (
     <Box
@@ -549,11 +617,16 @@ export default function LoginPage() {
                               color: '#ffffff',
                               boxShadow: 'none',
                               border: '1px solid rgba(255,255,255,0.1)',
-                              transition: 'all 0.15s ease',
+                              // ✅ MELHORADO: Transição mais suave com cubic-bezier
+                              transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
                               '&:hover': {
                                 backgroundColor: isProcessing ? '#10b981' : (isLoading ? '#6b7280' : '#374151'),
-                                boxShadow: 'none',
-                                transform: isLoading || isProcessing ? 'none' : 'translateY(-1px)',
+                                boxShadow: isLoading || isProcessing ? 'none' : '0 4px 12px rgba(59, 130, 246, 0.15)',
+                                transform: isLoading || isProcessing ? 'none' : 'translateY(-1px) scale(1.02)',
+                              },
+                              '&:active': {
+                                transform: isLoading || isProcessing ? 'none' : 'translateY(0) scale(0.98)',
+                                transition: 'all 0.1s ease',
                               },
                               '&:disabled': {
                                 backgroundColor: isProcessing ? '#10b981' : '#6b7280',
@@ -739,10 +812,17 @@ export default function LoginPage() {
                               backgroundColor: registerSuccess ? '#10b981' : (isLoading ? '#6b7280' : '#1f2937'),
                               color: '#ffffff',
                               boxShadow: 'none',
+                              border: '1px solid rgba(255,255,255,0.1)',
+                              // ✅ MELHORADO: Transição mais suave com cubic-bezier
+                              transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
                               '&:hover': {
                                 backgroundColor: registerSuccess ? '#10b981' : (isLoading ? '#6b7280' : '#374151'),
-                                transform: isLoading || registerSuccess ? 'none' : 'translateY(-1px)',
-                                boxShadow: 'none',
+                                boxShadow: isLoading || registerSuccess ? 'none' : '0 4px 12px rgba(59, 130, 246, 0.15)',
+                                transform: isLoading || registerSuccess ? 'none' : 'translateY(-1px) scale(1.02)',
+                              },
+                              '&:active': {
+                                transform: isLoading || registerSuccess ? 'none' : 'translateY(0) scale(0.98)',
+                                transition: 'all 0.1s ease',
                               },
                               '&:disabled': {
                                 backgroundColor: registerSuccess ? '#10b981' : '#6b7280',
