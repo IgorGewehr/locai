@@ -10,7 +10,14 @@ import { PaymentMethod } from '@/lib/types/common'
 export const MediaUrlSchema = z.string()
   .min(1, 'URL é obrigatória')
   .refine(
-    (url) => url.startsWith('http://') || url.startsWith('https://') || url.startsWith('blob:'),
+    (url) => {
+      try {
+        // Aceitar URLs válidas (HTTP/HTTPS) e blob URLs para preview
+        return url.startsWith('http://') || url.startsWith('https://') || url.startsWith('blob:');
+      } catch {
+        return false;
+      }
+    },
     'URL deve ser válida (http, https ou blob)'
   )
 
@@ -128,30 +135,50 @@ export const CreatePropertySchema = z.object({
 })
 
 // Schema for updating a property (all fields optional with flexible media)
-export const UpdatePropertySchema = CreatePropertySchema.partial().extend({
-  // ✅ SCHEMA FLEXÍVEL: Aceita tanto objetos PropertyPhoto/Video quanto strings
-  photos: z.array(
-    z.union([
-      MediaUrlSchema, // String URL
-      PropertyPhotoSchema, // Objeto PropertyPhoto completo
-    ])
-  )
-    .max(30, 'Máximo de 30 fotos')
-    .optional(),
+export const UpdatePropertySchema = z.object({
+  // ✅ CAMPOS BÁSICOS - VALIDAÇÕES FLEXÍVEIS PARA UPDATE
+  title: z.string().min(1, 'Título não pode estar vazio').optional(),
+  description: z.string().optional(), // SEM validação mínima
+  address: z.string().optional(),     // SEM validação mínima
+  category: z.nativeEnum(PropertyCategory).optional(),
   
-  videos: z.array(
-    z.union([
-      MediaUrlSchema, // String URL  
-      PropertyVideoSchema, // Objeto PropertyVideo completo
-    ])
-  )
-    .max(5, 'Máximo de 5 vídeos')
-    .optional(),
+  // ✅ NÚMEROS - VALIDAÇÕES BÁSICAS
+  bedrooms: z.number().int().min(0).max(20).optional(),
+  bathrooms: z.number().int().min(0).max(20).optional(),
+  maxGuests: z.number().int().min(1).max(50).optional(),
+  basePrice: z.number().positive().max(100000).optional(),
+  pricePerExtraGuest: z.number().min(0).max(10000).optional(),
+  minimumNights: z.number().int().min(1).max(365).optional(),
+  cleaningFee: z.number().min(0).max(10000).optional(),
   
-  // DEPRECATED: Compatibilidade com estrutura antiga
+  // ✅ ARRAYS E OUTROS
+  amenities: z.array(z.string()).max(50).optional(),
+  isFeatured: z.boolean().optional(),
+  allowsPets: z.boolean().optional(),
+  paymentMethodSurcharges: PaymentSurchargesSchema.optional(),
+  
+  // ✅ MÍDIA - SUPER FLEXÍVEL
+  photos: z.array(z.any()).max(30, 'Máximo de 30 fotos').optional(),
+  videos: z.array(z.any()).max(5, 'Máximo de 5 vídeos').optional(),
+  
+  // ✅ DATAS E PREÇOS CUSTOMIZADOS
+  unavailableDates: z.array(z.coerce.date()).optional(),
+  customPricing: z.record(z.string(), z.number().positive()).optional(),
+  isActive: z.boolean().optional(),
+  
+  // ✅ CAMPOS EXTRAS (que podem vir do formulário)
+  city: z.string().optional(),
+  neighborhood: z.string().optional(),
+  highSeasonMonths: z.array(z.number()).optional(),
+  pricingRules: z.array(z.any()).optional(),
+  updatedAt: z.date().optional(),
+  id: z.string().optional(),
+  tenantId: z.string().optional(),
+  
+  // DEPRECATED: Compatibilidade
   photos_legacy: z.array(PropertyPhotoSchema).optional(),
   videos_legacy: z.array(PropertyVideoSchema).optional(),
-})
+}).passthrough() // ✅ PERMITE CAMPOS EXTRAS NÃO DECLARADOS
 
 // Schema for property search/filter
 export const PropertySearchSchema = z.object({

@@ -196,11 +196,28 @@ export default function EditPropertyPage() {
       };
 
 
-      const response = await ApiClient.put(`/api/properties/${propertyId}`, {
+      const finalPayload = {
         ...cleanData,
         pricingRules,
         updatedAt: new Date(),
+      };
+
+      console.log('[EditProperty] Sending to API:', {
+        hasPhotos: !!finalPayload.photos,
+        photosCount: finalPayload.photos?.length || 0,
+        photosPreview: finalPayload.photos?.slice(0, 2).map(p => ({
+          type: typeof p,
+          hasUrl: !!(typeof p === 'string' ? p : p?.url),
+          urlPrefix: (typeof p === 'string' ? p : p?.url)?.substring(0, 50)
+        })),
+        hasVideos: !!finalPayload.videos,
+        videosCount: finalPayload.videos?.length || 0,
+        title: finalPayload.title,
+        description: finalPayload.description,
+        address: finalPayload.address
       });
+
+      const response = await ApiClient.put(`/api/properties/${propertyId}`, finalPayload);
 
       const responseData = await response.json();
 

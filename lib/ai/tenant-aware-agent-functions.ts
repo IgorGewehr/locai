@@ -398,11 +398,42 @@ export async function searchProperties(args: SearchPropertiesArgs, tenantId: str
     // Aplicar filtros
     if (args.location) {
       const location = args.location.toLowerCase();
-      filteredProperties = filteredProperties.filter(property => 
-        property.city?.toLowerCase().includes(location) ||
-        property.neighborhood?.toLowerCase().includes(location) ||
-        property.address?.toLowerCase().includes(location)
-      );
+      
+      logger.info('🎯 [TenantAgent] Aplicando filtro de localização', {
+        tenantId,
+        searchTerm: location,
+        propertiesBeforeFilter: filteredProperties.length
+      });
+      
+      filteredProperties = filteredProperties.filter(property => {
+        const matchCity = property.city?.toLowerCase().includes(location);
+        const matchNeighborhood = property.neighborhood?.toLowerCase().includes(location);
+        const matchAddress = property.address?.toLowerCase().includes(location);
+        const matchDescription = property.description?.toLowerCase().includes(location); // ✅ BUSCA TAMBÉM NA DESCRIÇÃO
+        
+        const matches = matchCity || matchNeighborhood || matchAddress || matchDescription;
+        
+        if (matches) {
+          logger.info('✅ [TenantAgent] Propriedade encontrada por localização', {
+            tenantId,
+            propertyTitle: property.title,
+            matchedBy: {
+              city: matchCity ? property.city : null,
+              neighborhood: matchNeighborhood ? property.neighborhood : null,
+              address: matchAddress ? property.address?.substring(0, 50) : null,
+              description: matchDescription ? property.description?.substring(0, 100) : null
+            }
+          });
+        }
+        
+        return matches;
+      });
+      
+      logger.info('📊 [TenantAgent] Filtro de localização aplicado', {
+        tenantId,
+        searchTerm: location,
+        propertiesAfterFilter: filteredProperties.length
+      });
     }
 
     if (args.guests) {
@@ -2619,7 +2650,7 @@ export function getTenantAwareOpenAIFunctions() {
           properties: {
             location: {
               type: 'string',
-              description: 'Cidade, bairro ou localização desejada'
+              description: 'Cidade, bairro, endereço ou palavra-chave que apareça na descrição da propriedade'
             },
             guests: {
               type: 'number',

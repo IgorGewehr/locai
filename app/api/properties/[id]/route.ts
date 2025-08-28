@@ -106,17 +106,33 @@ export async function PUT(
     });
 
     // Validate update data
+    console.log('[DEBUG-SCHEMA] Testing with small values...');
+    console.log('[DEBUG-SCHEMA] Body description:', body.description);
+    console.log('[DEBUG-SCHEMA] Body address:', body.address);
+    console.log('[DEBUG-SCHEMA] Schema import working correctly');
+    
     const validationResult = UpdatePropertySchema.safeParse(body)
+    
+    console.log('[DEBUG-SCHEMA] Validation result:', {
+      success: validationResult.success,
+      hasErrors: !validationResult.success,
+      errorFields: !validationResult.success ? Object.keys(validationResult.error.flatten().fieldErrors) : []
+    });
     
     if (!validationResult.success) {
       console.error('[API] Validation failed:', {
         error: validationResult.error.flatten(),
+        fieldErrors: validationResult.error.flatten().fieldErrors,
         receivedData: {
           title: body.title,
           photosCount: body.photos?.length || 0,
-          photosData: body.photos?.map(p => ({
+          photosData: body.photos?.map((p, index) => ({
+            index,
             type: typeof p,
             hasUrl: !!(typeof p === 'string' ? p : p?.url),
+            url: typeof p === 'string' ? p : p?.url,
+            urlLength: (typeof p === 'string' ? p : p?.url)?.length,
+            urlStartsWith: (typeof p === 'string' ? p : p?.url)?.substring(0, 50),
             structure: typeof p === 'object' ? Object.keys(p || {}) : 'string'
           }))
         }

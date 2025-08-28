@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   Box,
   Card,
@@ -132,7 +132,10 @@ export default function AvailabilityCalendar({
     occupancyRate: 0
   });
 
-  const availabilityService = tenantId ? new AvailabilityService(tenantId) : null;
+  const availabilityService = useMemo(() => 
+    tenantId ? new AvailabilityService(tenantId) : null, 
+    [tenantId]
+  );
 
   // Load calendar data
   const loadCalendarData = useCallback(async () => {
