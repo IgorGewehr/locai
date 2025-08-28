@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import {
   Box,
@@ -53,6 +53,7 @@ import * as yup from 'yup';
 import { useTenant } from '@/contexts/TenantContext';
 import { ApiClient } from '@/lib/utils/api-client';
 import { logger } from '@/lib/utils/logger';
+import { generateLocationField } from '@/lib/utils/locationUtils';
 import { Property, PropertyCategory } from '@/lib/types/property';
 import { PaymentMethod } from '@/lib/types/common';
 import { propertySchema } from '@/lib/validation/propertySchema';
@@ -157,9 +158,30 @@ export default function EditPropertyPage() {
   const methods = useForm<Property>({
     resolver: yupResolver(propertySchema) as any,
     mode: 'onChange',
+    shouldUnregister: false,
+    shouldFocusError: true,
   });
 
-  const { handleSubmit, reset, watch, formState: { errors, isDirty, isValid } } = methods;
+  const { handleSubmit, reset, watch, formState: { errors, isDirty, isValid, dirtyFields } } = methods;
+
+  // Debug form state
+  const formValues = watch();
+  React.useEffect(() => {
+    logger.debug('Form state debug', { 
+      isDirty, 
+      isValid, 
+      dirtyFieldsCount: Object.keys(dirtyFields || {}).length,
+      dirtyFields: Object.keys(dirtyFields || {}),
+      errorCount: Object.keys(errors || {}).length,
+      errorFields: Object.keys(errors || {}),
+      // Sample form values to debug
+      sampleValues: {
+        title: formValues?.title,
+        basePrice: formValues?.basePrice,
+        category: formValues?.category
+      }
+    });
+  }, [isDirty, isValid, dirtyFields, errors, formValues]);
 
   // Enhanced validation hook
   const { 
@@ -267,6 +289,43 @@ export default function EditPropertyPage() {
     loadProperty();
   }, [propertyId, services, isReady, reset, tenantId]);
 
+  // Test submit function
+  const testSubmit = useCallback(async () => {
+    try {
+      setSaving(true);
+      const currentData = methods.getValues();
+      logger.info('🧪 Test submit started', { 
+        propertyId, 
+        hasTitle: !!currentData.title,
+        hasBasePrice: !!currentData.basePrice 
+      });
+
+      // Simple API call test
+      const response = await fetch(`/api/properties/${propertyId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...currentData,
+          updatedAt: new Date()
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error(`API error: ${response.status}`);
+      }
+
+      const result = await response.json();
+      logger.info('🧪 Test submit success', { result: !!result.success });
+      setSuccess('Teste de salvamento funcionou!');
+
+    } catch (error) {
+      logger.error('🧪 Test submit failed', { error });
+      setError(`Teste falhou: ${error.message}`);
+    } finally {
+      setSaving(false);
+    }
+  }, [propertyId, methods]);
+
   // Auto-save functionality with debounce
   const autoSave = useCallback(
     debounce(async (data: Property) => {
@@ -304,9 +363,9 @@ export default function EditPropertyPage() {
     }
   }, [watchedValues, isDirty, isValid, loading, autoSave]);
 
-  // Main save function with enhanced validation
+  // Simplified save function for debugging
   const onSubmit = async (data: Property) => {
-    logger.info('Starting property save with enhanced validation', { 
+    logger.info('🚀 Starting property save (simplified)', { 
       propertyId, 
       title: data.title,
       isDirty,
@@ -317,71 +376,69 @@ export default function EditPropertyPage() {
     setError(null);
 
     try {
-      // Enhanced validation and sanitization
-      const { isValid: customValid, sanitizedProperty, validationResult } = await validateBeforeSave(data);
-      
-      if (!customValid && validationResult.errors) {
-        const errorMessages = Object.values(validationResult.errors)
-          .flat()
-          .join(', ');
-        throw new Error(`Validação falhou: ${errorMessages}`);
-      }
-
-      // Additional processing
+      // Simple data processing
       const processedData = {
-        ...sanitizedProperty,
-        // Ensure Firebase storage URLs only
-        photos: (sanitizedProperty.photos || []).filter(p => 
-          p && typeof p === 'string' && p.includes('firebasestorage')
-        ),
-        videos: (sanitizedProperty.videos || []).filter(v => 
-          v && typeof v === 'string' && v.includes('firebasestorage')
-        ),
-        // Metadata
+        ...data,
         updatedAt: new Date(),
         tenantId,
+        // Generate concatenated location field for search
+        location: generateLocationField({
+          address: data.address,
+          neighborhood: data.neighborhood,
+          city: data.city,
+          title: data.title,
+          description: data.description
+        }),
       };
 
-      logger.info('Submitting enhanced validated property update', { 
+      logger.info('📤 Making API request', { 
         propertyId,
-        hasPhotos: processedData.photos.length > 0,
-        photosCount: processedData.photos.length,
-        amenitiesCount: processedData.amenities?.length || 0,
-        fixedIssues: validationResult.fixedIssues.length,
-        warningsCount: Object.keys(validationResult.warnings).length,
+        url: `/api/properties/${propertyId}`,
+        method: 'PUT'
       });
 
-      const response = await ApiClient.put(`/api/properties/${propertyId}`, processedData);
-      const responseData = await response.json();
+      const response = await fetch(`/api/properties/${propertyId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(processedData),
+      });
+
+      logger.info('📥 API response', { 
+        status: response.status,
+        ok: response.ok,
+        statusText: response.statusText
+      });
 
       if (!response.ok) {
-        throw new Error(responseData.error || 'Erro ao salvar propriedade');
+        const errorText = await response.text();
+        logger.error('API error response', { 
+          status: response.status, 
+          errorText: errorText.substring(0, 500)
+        });
+        throw new Error(`HTTP ${response.status}: ${errorText}`);
       }
 
-      logger.info('Property updated successfully with enhanced validation', { 
+      const responseData = await response.json();
+      logger.info('✅ Property updated successfully', { 
         propertyId, 
-        title: data.title,
-        appliedFixes: validationResult.fixedIssues
+        success: responseData.success
       });
       
-      // Show fixes applied if any
-      if (validationResult.fixedIssues.length > 0) {
-        setSuccess(`Propriedade atualizada com sucesso! ${validationResult.fixedIssues.length} correção(ões) aplicada(s) automaticamente.`);
-      } else {
-        setSuccess('Propriedade atualizada com sucesso!');
-      }
-      
+      setSuccess('Propriedade atualizada com sucesso!');
       setLastSaved(new Date());
-      reset(processedData as Property);
       
-      // Redirect after success
+      // Don't redirect immediately in debug mode
       setTimeout(() => {
         router.push('/dashboard/properties');
-      }, 2000);
+      }, 3000);
+      
     } catch (err) {
-      logger.error('Enhanced property save failed', { 
+      logger.error('❌ Property save failed', { 
         propertyId,
-        error: err instanceof Error ? err.message : String(err) 
+        error: err instanceof Error ? err.message : String(err),
+        stack: err instanceof Error ? err.stack : undefined
       });
       setError(err instanceof Error ? err.message : 'Erro ao salvar propriedade');
     } finally {
@@ -467,7 +524,7 @@ export default function EditPropertyPage() {
 
   return (
     <FormProvider {...methods}>
-      <Container maxWidth="lg" sx={{ py: 3 }}>
+      <Container maxWidth="xl" sx={{ py: 3, px: { xs: 2, sm: 3 } }}>
         {/* Header */}
         <Paper 
           elevation={0} 
@@ -523,11 +580,47 @@ export default function EditPropertyPage() {
                   variant="contained"
                   startIcon={saving ? <CircularProgress size={20} color="inherit" /> : <Save />}
                   onClick={handleSubmit(onSubmit)}
-                  disabled={saving || !isDirty || !isValid}
+                  disabled={saving || !isValid}
                   size="large"
+                  title={`Estado: isDirty=${isDirty}, isValid=${isValid}, saving=${saving}`}
                 >
                   {saving ? 'Salvando...' : 'Salvar Alterações'}
                 </Button>
+                {/* Botões de teste temporário */}
+                {process.env.NODE_ENV === 'development' && (
+                  <Box sx={{ display: 'flex', gap: 1, ml: 2 }}>
+                    <Button
+                      variant="outlined"
+                      color="secondary"
+                      startIcon={<Save />}
+                      onClick={testSubmit}
+                      disabled={saving}
+                      size="small"
+                    >
+                      Test API
+                    </Button>
+                    <Button
+                      variant="outlined"
+                      color="warning"
+                      startIcon={<Save />}
+                      onClick={() => {
+                        const currentData = methods.getValues();
+                        logger.info('Force save test', { currentData });
+                        onSubmit(currentData);
+                      }}
+                      disabled={saving}
+                      size="small"
+                    >
+                      Force Submit
+                    </Button>
+                  </Box>
+                )}
+                {/* Debug info */}
+                {process.env.NODE_ENV === 'development' && (
+                  <Typography variant="caption" color="text.secondary" sx={{ ml: 2 }}>
+                    Debug: dirty={isDirty ? '✓' : '✗'}, valid={isValid ? '✓' : '✗'}, fields={Object.keys(dirtyFields || {}).length}
+                  </Typography>
+                )}
               </Box>
             </Grid>
           </Grid>

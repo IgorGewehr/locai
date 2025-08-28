@@ -45,8 +45,7 @@ export async function GET(request: NextRequest) {
     const userId = searchParams.get('userId');
     const search = searchParams.get('search');
 
-    logger.info('🎫 Buscando tickets', { 
-      tenantId, 
+    logger.tenantInfo('🎫 Buscando tickets', tenantId, { 
       page, 
       limit, 
       filters: { status, priority, type, assignedTo, userId, search }
@@ -137,12 +136,12 @@ export async function GET(request: NextRequest) {
       totalPages,
     };
 
-    logger.info('✅ Tickets encontrados', { count: tickets.length, total });
+    logger.tenantInfo('✅ Tickets encontrados', tenantId, { count: tickets.length, total });
     
     return NextResponse.json(response);
 
   } catch (error) {
-    logger.error('❌ Erro ao buscar tickets', { error: error.message });
+    logger.tenantError('❌ Erro ao buscar tickets', error, tenantId, { endpoint: 'GET /api/tickets' });
     return NextResponse.json(
       { error: 'Erro interno do servidor' },
       { status: 500 }
@@ -176,8 +175,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    logger.info('🎫 Criando novo ticket', { 
-      tenantId, 
+    logger.tenantInfo('🎫 Criando novo ticket', tenantId, { 
       userId, 
       subject: ticketData.subject 
     });
@@ -211,7 +209,7 @@ export async function POST(request: NextRequest) {
     const ticketsRef = collection(db, `tenants/${tenantId}/tickets`);
     const docRef = await addDoc(ticketsRef, newTicket);
 
-    logger.info('✅ Ticket criado', { ticketId: docRef.id });
+    logger.tenantInfo('✅ Ticket criado', tenantId, { ticketId: docRef.id });
     
     return NextResponse.json({ 
       id: docRef.id,
@@ -219,7 +217,7 @@ export async function POST(request: NextRequest) {
     }, { status: 201 });
 
   } catch (error) {
-    logger.error('❌ Erro ao criar ticket', { error: error.message });
+    logger.tenantError('❌ Erro ao criar ticket', error, tenantId, { endpoint: 'POST /api/tickets' });
     return NextResponse.json(
       { error: 'Erro interno do servidor' },
       { status: 500 }

@@ -24,7 +24,7 @@ export class TicketService {
     ticketData: CreateTicketRequest
   ): Promise<{ id: string }> {
     try {
-      logger.info('🎫 Criando ticket', { tenantId, userId, subject: ticketData.subject });
+      logger.tenantInfo('🎫 Criando ticket', tenantId, { userId, subject: ticketData.subject });
 
       const response = await fetch(this.baseUrl, {
         method: 'POST',
@@ -46,11 +46,11 @@ export class TicketService {
       }
 
       const result = await response.json();
-      logger.info('✅ Ticket criado', { ticketId: result.id });
+      logger.tenantInfo('✅ Ticket criado', tenantId, { ticketId: result.id });
       
       return result;
     } catch (error) {
-      logger.error('❌ Erro ao criar ticket', { error: error.message });
+      logger.tenantError('❌ Erro ao criar ticket', error, tenantId, { service: 'TicketService.createTicket' });
       throw error;
     }
   }
@@ -89,7 +89,7 @@ export class TicketService {
         searchParams.set('search', filters.search);
       }
 
-      logger.info('🎫 Buscando tickets', { tenantId, filters, page, limit });
+      logger.tenantInfo('🎫 Buscando tickets', tenantId, { filters, page, limit });
 
       const response = await fetch(`${this.baseUrl}?${searchParams.toString()}`);
 
@@ -99,11 +99,11 @@ export class TicketService {
       }
 
       const result = await response.json();
-      logger.info('✅ Tickets encontrados', { count: result.tickets.length, total: result.total });
+      logger.tenantInfo('✅ Tickets encontrados', tenantId, { count: result.tickets.length, total: result.total });
       
       return result;
     } catch (error) {
-      logger.error('❌ Erro ao buscar tickets', { error: error.message });
+      logger.tenantError('❌ Erro ao buscar tickets', error, tenantId, { service: 'TicketService.getTickets' });
       throw error;
     }
   }

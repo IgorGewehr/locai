@@ -16,6 +16,9 @@ import {
   ToggleButtonGroup,
   Alert,
   Divider,
+  IconButton,
+  Card,
+  CardContent,
 } from '@mui/material';
 import {
   AttachMoney,
@@ -28,10 +31,13 @@ import {
   Weekend,
   CalendarMonth,
   Info,
+  Add,
+  Remove,
 } from '@mui/icons-material';
 import { useFormContext, Controller } from 'react-hook-form';
 import { PaymentMethod, PAYMENT_METHOD_LABELS } from '@/lib/types/common';
 import { logger } from '@/lib/utils/logger';
+import PricingCalendar from '@/components/organisms/PricingCalendar/PricingCalendar';
 
 export const PropertyPricing: React.FC = () => {
   const theme = useTheme();
@@ -42,6 +48,10 @@ export const PropertyPricing: React.FC = () => {
   const pricePerExtraGuest = watch('pricePerExtraGuest');
   const minimumNights = watch('minimumNights');
   const paymentMethodSurcharges = watch('paymentMethodSurcharges') || {};
+  const customPricing = watch('customPricing') || {};
+  const weekendSurcharge = watch('weekendSurcharge') || 30;
+  const holidaySurcharge = watch('holidaySurcharge') || 50;
+  const decemberSurcharge = watch('decemberSurcharge') || 10;
   
   const [totalExample, setTotalExample] = useState(0);
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<PaymentMethod>(PaymentMethod.PIX);
@@ -75,6 +85,11 @@ export const PropertyPricing: React.FC = () => {
   const handleSurchargeChange = (method: PaymentMethod, value: number) => {
     setValue(`paymentMethodSurcharges.${method}`, value);
     logger.debug('Payment surcharge updated', { method, value });
+  };
+
+  const handleCustomPricingChange = (prices: Record<string, number>) => {
+    setValue('customPricing', prices);
+    logger.debug('Custom pricing updated', { priceCount: Object.keys(prices).length });
   };
 
   return (
@@ -226,59 +241,124 @@ export const PropertyPricing: React.FC = () => {
               Configure percentuais de acréscimo (positivo) ou desconto (negativo) para cada método
             </Typography>
 
-            <Grid container spacing={2}>
-              {Object.entries(PAYMENT_METHOD_LABELS).map(([method, label]) => (
-                <Grid item xs={12} sm={6} md={4} key={method}>
-                  <Box sx={{ mb: 2 }}>
-                    <Typography variant="subtitle2" gutterBottom>
-                      {label}
-                    </Typography>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                      <Slider
-                        value={paymentMethodSurcharges[method as PaymentMethod] || 0}
-                        onChange={(_, value) => handleSurchargeChange(method as PaymentMethod, value as number)}
-                        min={-20}
-                        max={20}
-                        step={1}
-                        marks={[
-                          { value: -20, label: '-20%' },
-                          { value: 0, label: '0%' },
-                          { value: 20, label: '+20%' },
-                        ]}
-                        valueLabelDisplay="auto"
-                        valueLabelFormat={(value) => `${value > 0 ? '+' : ''}${value}%`}
-                        sx={{
-                          flex: 1,
-                          '& .MuiSlider-track': {
-                            backgroundColor: 
-                              (paymentMethodSurcharges[method as PaymentMethod] || 0) > 0 
-                                ? theme.palette.warning.main 
-                                : (paymentMethodSurcharges[method as PaymentMethod] || 0) < 0
-                                  ? theme.palette.success.main
-                                  : theme.palette.grey[400],
-                          },
-                          '& .MuiSlider-thumb': {
-                            backgroundColor: 
-                              (paymentMethodSurcharges[method as PaymentMethod] || 0) > 0 
-                                ? theme.palette.warning.main 
-                                : (paymentMethodSurcharges[method as PaymentMethod] || 0) < 0
-                                  ? theme.palette.success.main
-                                  : theme.palette.grey[600],
-                          },
-                        }}
-                      />
-                      {(paymentMethodSurcharges[method as PaymentMethod] || 0) !== 0 && (
-                        <Chip
-                          label={`${paymentMethodSurcharges[method as PaymentMethod] > 0 ? '+' : ''}${paymentMethodSurcharges[method as PaymentMethod]}%`}
-                          size="small"
-                          color={(paymentMethodSurcharges[method as PaymentMethod] || 0) > 0 ? 'warning' : 'success'}
-                          icon={(paymentMethodSurcharges[method as PaymentMethod] || 0) > 0 ? <TrendingUp /> : <TrendingDown />}
-                        />
-                      )}
-                    </Box>
-                  </Box>
-                </Grid>
-              ))}
+            <Grid container spacing={3}>
+              {Object.entries(PAYMENT_METHOD_LABELS).map(([method, label]) => {
+                const currentValue = paymentMethodSurcharges[method as PaymentMethod] || 0;
+                const isPositive = currentValue > 0;
+                const isNegative = currentValue < 0;
+                
+                return (
+                  <Grid item xs={12} sm={6} md={4} key={method}>
+                    <Card 
+                      elevation={0}
+                      sx={{
+                        border: '1px solid',
+                        borderColor: 
+                          isPositive ? theme.palette.warning.light :
+                          isNegative ? theme.palette.success.light :
+                          theme.palette.divider,
+                        backgroundColor: 
+                          isPositive ? alpha(theme.palette.warning.main, 0.05) :
+                          isNegative ? alpha(theme.palette.success.main, 0.05) :
+                          'transparent',
+                        transition: 'all 0.2s',
+                      }}
+                    >
+                      <CardContent sx={{ p: 2 }}>
+                        <Typography variant="subtitle2" fontWeight={600} gutterBottom>
+                          {label}
+                        </Typography>
+                        
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 1 }}>
+                          <IconButton
+                            size="small"
+                            onClick={() => handleSurchargeChange(method as PaymentMethod, Math.max(-20, currentValue - 1))}
+                            disabled={currentValue <= -20}
+                            sx={{
+                              backgroundColor: alpha(theme.palette.error.main, 0.1),
+                              '&:hover': { backgroundColor: alpha(theme.palette.error.main, 0.2) }
+                            }}
+                          >
+                            <Remove fontSize="small" />
+                          </IconButton>
+                          
+                          <TextField
+                            size="small"
+                            value={currentValue}
+                            onChange={(e) => {
+                              const value = parseInt(e.target.value) || 0;
+                              if (value >= -20 && value <= 20) {
+                                handleSurchargeChange(method as PaymentMethod, value);
+                              }
+                            }}
+                            inputProps={{
+                              style: { textAlign: 'center', fontWeight: 600 },
+                              min: -20,
+                              max: 20
+                            }}
+                            InputProps={{
+                              endAdornment: <InputAdornment position="end">%</InputAdornment>,
+                            }}
+                            sx={{
+                              minWidth: 80,
+                              '& .MuiOutlinedInput-root': {
+                                backgroundColor: 'background.paper',
+                                '& fieldset': {
+                                  borderColor: 
+                                    isPositive ? theme.palette.warning.main :
+                                    isNegative ? theme.palette.success.main :
+                                    theme.palette.divider,
+                                },
+                              },
+                              '& .MuiInputBase-input': {
+                                color: 
+                                  isPositive ? theme.palette.warning.dark :
+                                  isNegative ? theme.palette.success.dark :
+                                  'text.primary',
+                              }
+                            }}
+                          />
+                          
+                          <IconButton
+                            size="small"
+                            onClick={() => handleSurchargeChange(method as PaymentMethod, Math.min(20, currentValue + 1))}
+                            disabled={currentValue >= 20}
+                            sx={{
+                              backgroundColor: alpha(theme.palette.success.main, 0.1),
+                              '&:hover': { backgroundColor: alpha(theme.palette.success.main, 0.2) }
+                            }}
+                          >
+                            <Add fontSize="small" />
+                          </IconButton>
+                        </Box>
+                        
+                        {currentValue !== 0 && (
+                          <Box sx={{ mt: 2, textAlign: 'center' }}>
+                            <Chip
+                              size="small"
+                              label={
+                                isPositive ? `+${currentValue}% Acréscimo` :
+                                isNegative ? `${currentValue}% Desconto` :
+                                'Sem alteração'
+                              }
+                              color={isPositive ? 'warning' : isNegative ? 'success' : 'default'}
+                              icon={isPositive ? <TrendingUp /> : isNegative ? <TrendingDown /> : undefined}
+                            />
+                          </Box>
+                        )}
+                        
+                        <Box sx={{ mt: 1, textAlign: 'center' }}>
+                          <Typography variant="caption" color="text.secondary">
+                            {currentValue === 0 && 'Clique +/- ou digite um valor'}
+                            {isPositive && `Cliente pagará ${currentValue}% a mais`}
+                            {isNegative && `Cliente ganha ${Math.abs(currentValue)}% de desconto`}
+                          </Typography>
+                        </Box>
+                      </CardContent>
+                    </Card>
+                  </Grid>
+                );
+              })}
             </Grid>
           </Paper>
         </Grid>
@@ -462,6 +542,37 @@ export const PropertyPricing: React.FC = () => {
           </Paper>
         </Grid>
 
+        {/* Custom Pricing Calendar */}
+        <Grid item xs={12}>
+          <Paper
+            elevation={0}
+            sx={{
+              p: 3,
+              backgroundColor: alpha(theme.palette.primary.main, 0.05),
+              border: `1px solid ${alpha(theme.palette.primary.main, 0.2)}`,
+              borderRadius: 2,
+            }}
+          >
+            <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <CalendarMonth />
+              Preços Dinâmicos por Data
+            </Typography>
+            
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+              Configure preços específicos para datas especiais, fins de semana ou feriados
+            </Typography>
+
+            <PricingCalendar
+              basePrice={Number(basePrice) || 0}
+              specialPrices={customPricing}
+              onPricesChange={handleCustomPricingChange}
+              weekendSurcharge={weekendSurcharge}
+              holidaySurcharge={holidaySurcharge}
+              decemberSurcharge={decemberSurcharge}
+            />
+          </Paper>
+        </Grid>
+
         {/* Tips */}
         <Grid item xs={12}>
           <Alert severity="info" icon={<Info />}>
@@ -479,7 +590,7 @@ export const PropertyPricing: React.FC = () => {
                 Considere cobrar menos nos primeiros meses para ganhar avaliações
               </Typography>
               <Typography component="li" variant="body2">
-                Ajuste preços sazonais baseado na demanda local
+                Use o calendário acima para definir preços especiais para datas de alta demanda
               </Typography>
             </Box>
           </Alert>

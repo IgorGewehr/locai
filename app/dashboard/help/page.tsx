@@ -112,7 +112,7 @@ export default function HelpPage() {
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         
-        // Debug logging
+        // Debug logging with tenant context
         logger.info('🔍 Debug handleSubmit', {
             hasUser: !!user,
             userUid: user?.uid,

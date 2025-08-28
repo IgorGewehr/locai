@@ -35,6 +35,7 @@ import { Property, PricingRule, PropertyCategory, PropertyStatus, PropertyType }
 import { PaymentMethod } from '@/lib/types/common';
 import { useTenant } from '@/contexts/TenantContext';
 import { propertyService } from '@/lib/services/property-service';
+import { generateLocationField } from '@/lib/utils/locationUtils';
 
 const steps = [
   'Informações Básicas',
@@ -209,8 +210,8 @@ export default function CreatePropertyPage() {
         photosData: data.photos?.map(p => ({
           id: p.id,
           filename: p.filename,
-          urlType: p.url.includes('firebasestorage.googleapis.com') ? 'firebase' : (p.url.startsWith('blob:') ? 'blob' : 'other'),
-          urlPreview: p.url.substring(0, 50) + '...'
+          urlType: (p.url && p.url.includes('firebasestorage.googleapis.com')) ? 'firebase' : ((p.url && p.url.startsWith('blob:')) ? 'blob' : 'other'),
+          urlPreview: (p.url || '').substring(0, 50) + '...'
         }))
       });
 
@@ -237,12 +238,20 @@ export default function CreatePropertyPage() {
         city: data.city || '',
         capacity: data.capacity || data.maxGuests,
         advancePaymentPercentage: data.advancePaymentPercentage || 0,
+        // Generate concatenated location field for search
+        location: generateLocationField({
+          address: data.address,
+          neighborhood: data.neighborhood,
+          city: data.city,
+          title: data.title,
+          description: data.description
+        }),
         // Clean arrays and filter invalid URLs
         photos: (data.photos || []).filter(photo => 
-          photo.url && photo.url.includes('firebasestorage.googleapis.com')
+          photo && photo.url && photo.url.includes('firebasestorage.googleapis.com')
         ),
         videos: (data.videos || []).filter(video => 
-          video.url && video.url.includes('firebasestorage.googleapis.com')
+          video && video.url && video.url.includes('firebasestorage.googleapis.com')
         ),
         amenities: data.amenities || [],
         unavailableDates: data.unavailableDates || [],

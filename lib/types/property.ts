@@ -6,6 +6,7 @@ export interface Property {
   title: string
   description: string
   address: string
+  location?: string  // Campo concatenado para busca (address + neighborhood + city)
   category: PropertyCategory
   bedrooms: number
   bathrooms: number

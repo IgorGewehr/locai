@@ -143,31 +143,34 @@ class Logger {
       // Only log important events to Firestore to avoid costs
       if (entry.level < LogLevel.INFO) return;
 
-      const { initializeApp, getApps } = await import('firebase/app');
-      const { getFirestore, collection, addDoc } = await import('firebase/firestore');
+      // Use existing Firebase config instead of re-initializing
+      const { db } = await import('@/lib/firebase/config');
+      const { collection, addDoc, serverTimestamp } = await import('firebase/firestore');
 
-      const apps = getApps();
-      const app = apps.length > 0 ? apps[0] : initializeApp({
-        // Firebase config would be here
-      });
-
-      const db = getFirestore(app);
+      // Clean data to prevent undefined field errors
+      const cleanContext = this.cleanFirestoreData(entry.context || {});
+      
+      // Determine collection path - use tenant-scoped if available
+      const tenantId = entry.tenantId || entry.context?.tenantId || 'system';
+      const collectionPath = tenantId === 'system' 
+        ? 'system_logs' 
+        : `tenants/${tenantId}/system_logs`;
       
       // Remove undefined fields to prevent Firestore errors
       const logData: any = {
         level: LogLevel[entry.level],
-        message: entry.message,
-        timestamp: entry.timestamp,
-        context: entry.context || {},
-        tenantId: entry.tenantId || 'default'
+        message: entry.message || 'No message',
+        timestamp: serverTimestamp(), // Use server timestamp to avoid conflicts
+        context: cleanContext,
+        tenantId: tenantId
       };
 
-      // Only add fields that are not undefined
+      // Only add fields that have values
       if (entry.userId) logData.userId = entry.userId;
       if (entry.requestId) logData.requestId = entry.requestId;
       if (entry.component) logData.component = entry.component;
       if (entry.operation) logData.operation = entry.operation;
-      if (entry.duration) logData.duration = entry.duration;
+      if (typeof entry.duration === 'number') logData.duration = entry.duration;
       if (entry.error) {
         logData.error = {
           message: entry.error.message || 'Unknown error',
@@ -176,11 +179,29 @@ class Logger {
         };
       }
 
-      await addDoc(collection(db, 'system_logs'), logData);
+      // Use addDoc which generates unique IDs automatically
+      await addDoc(collection(db, collectionPath), logData);
     } catch (error) {
-      // Fallback to console if Firestore fails
-      console.error('Failed to write to Firestore:', error);
+      // Fallback to console if Firestore fails - but don't log recursively
+      if (process.env.NODE_ENV === 'development') {
+        console.error('Failed to write to Firestore:', error);
+      }
     }
+  }
+
+  // Helper method to clean data for Firestore (remove undefined values)
+  private cleanFirestoreData(obj: any): any {
+    if (obj === null || obj === undefined) return {};
+    if (typeof obj !== 'object') return obj;
+    if (Array.isArray(obj)) return obj.map(item => this.cleanFirestoreData(item));
+    
+    const cleaned: any = {};
+    for (const [key, value] of Object.entries(obj)) {
+      if (value !== undefined && value !== null) {
+        cleaned[key] = this.cleanFirestoreData(value);
+      }
+    }
+    return cleaned;
   }
 
   private async sendToSentry(entry: LogEntry) {
@@ -217,6 +238,19 @@ class Logger {
   critical(message: string, error?: Error, context?: Record<string, any>) {
     const entry = this.createLogEntry(LogLevel.CRITICAL, message, context, error);
     this.writeLog(entry);
+  }
+
+  // Tenant-aware logging methods
+  tenantInfo(message: string, tenantId: string, context?: Record<string, any>) {
+    this.info(message, { ...context, tenantId });
+  }
+
+  tenantError(message: string, error: Error, tenantId: string, context?: Record<string, any>) {
+    this.error(message, error, { ...context, tenantId });
+  }
+
+  tenantWarn(message: string, tenantId: string, context?: Record<string, any>) {
+    this.warn(message, { ...context, tenantId });
   }
 
   // Performance monitoring

@@ -399,17 +399,31 @@ export async function searchProperties(args: SearchPropertiesArgs, tenantId: str
     if (args.location) {
       const location = args.location.toLowerCase();
       
-      logger.info('🎯 [TenantAgent] Aplicando filtro de localização', {
+      logger.info('🎯 [TenantAgent] Aplicando filtro de localização (com campo location concatenado)', {
         tenantId,
         searchTerm: location,
         propertiesBeforeFilter: filteredProperties.length
       });
       
       filteredProperties = filteredProperties.filter(property => {
+        // ✅ NOVA ABORDAGEM: Use o campo location concatenado primeiro (mais eficiente)
+        if (property.location) {
+          const matchLocation = property.location.toLowerCase().includes(location);
+          if (matchLocation) {
+            logger.debug('📍 [TenantAgent] Match encontrado via campo location', {
+              propertyId: property.id,
+              searchTerm: location,
+              locationField: property.location.substring(0, 100) + '...'
+            });
+            return true;
+          }
+        }
+        
+        // ✅ FALLBACK: Busca nos campos individuais para propriedades antigas
         const matchCity = property.city?.toLowerCase().includes(location);
         const matchNeighborhood = property.neighborhood?.toLowerCase().includes(location);
         const matchAddress = property.address?.toLowerCase().includes(location);
-        const matchDescription = property.description?.toLowerCase().includes(location); // ✅ BUSCA TAMBÉM NA DESCRIÇÃO
+        const matchDescription = property.description?.toLowerCase().includes(location);
         
         const matches = matchCity || matchNeighborhood || matchAddress || matchDescription;
         

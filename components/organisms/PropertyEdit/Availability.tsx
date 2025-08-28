@@ -31,6 +31,9 @@ import {
   TrendingUp,
   TrendingDown,
   AttachMoney,
+  Block,
+  LocalOffer,
+  Clear,
 } from '@mui/icons-material';
 import { useFormContext, Controller } from 'react-hook-form';
 import { Calendar } from 'react-calendar';
@@ -294,34 +297,52 @@ export const PropertyAvailability: React.FC = () => {
 
             {/* Action Buttons */}
             {dateRange && (
-              <Box sx={{ mt: 3, display: 'flex', gap: 2, flexWrap: 'wrap' }}>
-                <Button
-                  variant="contained"
-                  color="error"
-                  startIcon={<EventBusy />}
-                  onClick={handleAddUnavailableDates}
-                >
-                  Marcar como Indisponível
-                </Button>
-                <Button
-                  variant="outlined"
-                  startIcon={<AttachMoney />}
-                  onClick={() => {
-                    const price = prompt('Digite o preço customizado para o período:');
-                    if (price && !isNaN(Number(price))) {
-                      setCustomPrice(Number(price));
-                      handleAddCustomPricing();
-                    }
-                  }}
-                >
-                  Definir Preço Especial
-                </Button>
-                <Button
-                  variant="text"
-                  onClick={() => setDateRange(null)}
-                >
-                  Cancelar
-                </Button>
+              <Box sx={{ 
+                mt: 3, 
+                p: 2, 
+                bgcolor: alpha(theme.palette.info.main, 0.05),
+                borderRadius: 2,
+                border: `1px solid ${alpha(theme.palette.info.main, 0.2)}`,
+              }}>
+                <Typography variant="subtitle2" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <CalendarMonth fontSize="small" />
+                  Período selecionado: {format(dateRange[0], 'dd/MM')} - {format(dateRange[1], 'dd/MM')}
+                </Typography>
+                
+                <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mt: 2 }}>
+                  <Button
+                    variant="contained"
+                    color="error"
+                    startIcon={<Block />}
+                    onClick={handleAddUnavailableDates}
+                    size="small"
+                  >
+                    Bloquear Período
+                  </Button>
+                  <Button
+                    variant="contained"
+                    color="success"
+                    startIcon={<LocalOffer />}
+                    onClick={() => {
+                      const price = prompt('Digite o preço customizado (R$):');
+                      if (price && !isNaN(Number(price)) && Number(price) > 0) {
+                        setCustomPrice(Number(price));
+                        handleAddCustomPricing();
+                      }
+                    }}
+                    size="small"
+                  >
+                    Preço Especial
+                  </Button>
+                  <Button
+                    variant="outlined"
+                    startIcon={<Clear />}
+                    onClick={() => setDateRange(null)}
+                    size="small"
+                  >
+                    Cancelar
+                  </Button>
+                </Box>
               </Box>
             )}
           </Paper>
@@ -342,13 +363,16 @@ export const PropertyAvailability: React.FC = () => {
                 }}
               >
                 <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
-                  <Typography variant="subtitle2">
+                  <Typography variant="subtitle2" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <Block fontSize="small" />
                     Datas Bloqueadas ({unavailableDates.length})
                   </Typography>
                   {unavailableDates.length > 0 && (
-                    <IconButton size="small" onClick={handleClearUnavailableDates}>
-                      <Delete fontSize="small" />
-                    </IconButton>
+                    <Tooltip title="Limpar todas as datas bloqueadas">
+                      <IconButton size="small" onClick={handleClearUnavailableDates} color="error">
+                        <Clear fontSize="small" />
+                      </IconButton>
+                    </Tooltip>
                   )}
                 </Box>
                 
@@ -395,7 +419,8 @@ export const PropertyAvailability: React.FC = () => {
                   borderRadius: 2,
                 }}
               >
-                <Typography variant="subtitle2" gutterBottom>
+                <Typography variant="subtitle2" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <LocalOffer fontSize="small" />
                   Preços Especiais ({Object.keys(customPricing).length})
                 </Typography>
                 
