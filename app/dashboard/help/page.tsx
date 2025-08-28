@@ -47,7 +47,7 @@ import {
     ContactSupport as ContactIcon
 } from '@mui/icons-material';
 import { useTenant } from '@/contexts/TenantContext';
-import { useAuth } from '@/contexts/AuthContext';
+import { useAuth } from '@/contexts/AuthProvider';
 import { ticketService } from '@/lib/services/ticket-service';
 import { 
     Ticket, 
@@ -111,7 +111,26 @@ export default function HelpPage() {
     // Enviar novo ticket
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+        
+        // Debug logging
+        logger.info('🔍 Debug handleSubmit', {
+            hasUser: !!user,
+            userUid: user?.uid,
+            userName: user?.name,
+            userEmail: user?.email,
+            hasTenant: !!tenant,
+            tenantId: tenant?.id,
+            subject: newTicket.subject?.trim(),
+            content: newTicket.content?.trim()
+        });
+        
         if (!user?.uid || !tenant?.id || !newTicket.subject.trim() || !newTicket.content.trim()) {
+            logger.warn('⚠️ Validação falhou no handleSubmit', {
+                missingUser: !user?.uid,
+                missingTenant: !tenant?.id,
+                missingSubject: !newTicket.subject.trim(),
+                missingContent: !newTicket.content.trim()
+            });
             return;
         }
 
@@ -124,7 +143,7 @@ export default function HelpPage() {
             await ticketService.createTicket(
                 tenant.id,
                 user.uid,
-                user.displayName || user.email,
+                user.name || user.email,
                 user.email,
                 newTicket
             );
@@ -144,8 +163,12 @@ export default function HelpPage() {
             }, 1500);
 
         } catch (error) {
-            logger.error('❌ Erro ao enviar ticket', { error: error.message });
-            setError('Erro ao enviar mensagem: ' + error.message);
+            logger.error('❌ Erro ao enviar ticket', { 
+                error: error.message,
+                errorType: typeof error,
+                errorString: String(error)
+            });
+            setError('Erro ao enviar mensagem: ' + (error instanceof Error ? error.message : String(error)));
         } finally {
             setLoading(false);
         }
@@ -191,7 +214,7 @@ export default function HelpPage() {
                 content: newResponse.trim(),
                 isAdmin: user.isAdmin || false, // Use the computed property
                 authorId: user.uid,
-                authorName: user.displayName || user.email,
+                authorName: user.name || user.email,
                 authorEmail: user.email
             });
 
@@ -416,7 +439,7 @@ export default function HelpPage() {
                 <Button
                     type="submit"
                     variant="contained"
-                    disabled={loading}
+                    disabled={loading || !newTicket.subject.trim() || !newTicket.content.trim()}
                     startIcon={loading ? <CircularProgress size={16} /> : <SendIcon />}
                     sx={{
                         bgcolor: "primary.main",
@@ -636,7 +659,7 @@ export default function HelpPage() {
                         }}>
                             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
                                 <Avatar sx={{ width: 32, height: 32 }}>
-                                    {user?.displayName?.charAt(0) || user?.email?.charAt(0) || 'U'}
+                                    {user?.name?.charAt(0) || user?.email?.charAt(0) || 'U'}
                                 </Avatar>
                                 <Typography variant="subtitle2" fontWeight={600}>
                                     Você
@@ -836,7 +859,7 @@ export default function HelpPage() {
                             letterSpacing: '0.2px'
                         }}
                     >
-                        mediconobolso@gmail.com
+                        alugazap.ai@gmail.com
                     </Typography>
                 </CardContent>
             </Card>

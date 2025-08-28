@@ -377,7 +377,7 @@ const PricingCalendar: React.FC<PricingCalendarProps> = ({
               InputProps={{
                 startAdornment: <InputAdornment position="start">R$</InputAdornment>,
               }}
-              helperText={`Valor base: R$ ${(basePrice || 0).toFixed(2)}`}
+              helperText={`Valor base: R$ ${(Number(basePrice) || 0).toFixed(2)}`}
             />
             
             {selectionMode === 'range' && (

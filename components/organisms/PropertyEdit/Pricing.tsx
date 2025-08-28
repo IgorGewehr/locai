@@ -52,14 +52,18 @@ export const PropertyPricing: React.FC = () => {
     const guests = 2;
     const extraGuests = Math.max(0, guests - 2);
     
-    const subtotal = (basePrice || 0) * nights;
-    const extraGuestFee = (pricePerExtraGuest || 0) * extraGuests * nights;
-    const cleaning = cleaningFee || 0;
-    const surcharge = paymentMethodSurcharges[selectedPaymentMethod] || 0;
-    const surchargeAmount = (subtotal + extraGuestFee) * (surcharge / 100);
+    const basePriceNum = Number(basePrice) || 0;
+    const pricePerExtraGuestNum = Number(pricePerExtraGuest) || 0;
+    const cleaningFeeNum = Number(cleaningFee) || 0;
+    const surchargeNum = Number(paymentMethodSurcharges[selectedPaymentMethod]) || 0;
+    
+    const subtotal = basePriceNum * nights;
+    const extraGuestFee = pricePerExtraGuestNum * extraGuests * nights;
+    const cleaning = cleaningFeeNum;
+    const surchargeAmount = (subtotal + extraGuestFee) * (surchargeNum / 100);
     
     const total = subtotal + extraGuestFee + cleaning + surchargeAmount;
-    setTotalExample(total);
+    setTotalExample(Number(total) || 0);
     
     logger.debug('Price calculation updated', { 
       basePrice, 
@@ -444,10 +448,10 @@ export const PropertyPricing: React.FC = () => {
                     Total Estimado
                   </Typography>
                   <Typography variant="h3" color="success.main" fontWeight={700}>
-                    R$ {totalExample.toFixed(2)}
+                    R$ {(Number(totalExample) || 0).toFixed(2)}
                   </Typography>
                   <Typography variant="caption" color="text.secondary">
-                    Base: R$ {((basePrice || 0) * 3).toFixed(2)} + Limpeza: R$ {(cleaningFee || 0).toFixed(2)}
+                    Base: R$ {(Number(basePrice || 0) * 3).toFixed(2)} + Limpeza: R$ {Number(cleaningFee || 0).toFixed(2)}
                     {paymentMethodSurcharges[selectedPaymentMethod] !== 0 && 
                       ` ${paymentMethodSurcharges[selectedPaymentMethod] > 0 ? '+' : ''}${paymentMethodSurcharges[selectedPaymentMethod]}%`
                     }
