@@ -336,7 +336,6 @@ interface AnalyzePerformanceArgs {
 }
 
 // ===== IMPORTS ADICIONAIS =====
-import { VisitAppointment, VisitStatus } from '@/lib/types/visit-appointment';
 import { Lead, LeadStatus, InteractionType } from '@/lib/types/crm';
 import { FinancialMovement, CreateFinancialMovementInput } from '@/lib/types/financial-movement';
 import { FinancialGoal, GoalType, GoalCategory, GoalMetric, GoalStatus } from '@/lib/types/financial';
