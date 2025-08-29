@@ -1492,7 +1492,7 @@ export async function checkVisitAvailability(args: { visitDate: string; property
     });
 
     const serviceFactory = new TenantServiceFactory(tenantId);
-    const visitService = serviceFactory.get<VisitAppointment>('visits');
+    const visitService = serviceFactory.visits;
     
     const requestedDate = new Date(args.visitDate);
     
@@ -1575,7 +1575,7 @@ export async function scheduleVisit(args: ScheduleVisitArgs, tenantId: string): 
     const serviceFactory = new TenantServiceFactory(tenantId);
     const propertyService = serviceFactory.properties;
     const clientService = serviceFactory.clients;
-    const visitService = serviceFactory.get<VisitAppointment>('visits');
+    const visitService = serviceFactory.visits;
     
     // Verificar se propriedade existe
     const property = await propertyService.get(args.propertyId) as Property;
@@ -1730,7 +1730,7 @@ export async function classifyLead(args: ClassifyLeadArgs, tenantId: string): Pr
 
     const serviceFactory = new TenantServiceFactory(tenantId);
     const clientService = serviceFactory.clients;
-    const leadService = serviceFactory.get<Lead>('leads');
+    const leadService = serviceFactory.leads;
     
     // Buscar cliente existente
     const existingClients = await clientService.getMany([
@@ -1923,7 +1923,7 @@ export async function updateLeadStatus(args: UpdateLeadStatusArgs, tenantId: str
     });
 
     const serviceFactory = new TenantServiceFactory(tenantId);
-    const leadService = serviceFactory.get<Lead>('leads');
+    const leadService = serviceFactory.leads;
     
     // Buscar lead existente
     const existingLeads = await leadService.getMany([
@@ -2580,7 +2580,7 @@ export async function createTransaction(args: CreateTransactionArgs, tenantId: s
     const propertyService = serviceFactory.properties;
     const clientService = serviceFactory.clients;
     const reservationService = serviceFactory.reservations;
-    const financialService = serviceFactory.get<FinancialMovement>('financial_movements');
+    const financialService = serviceFactory.financialMovements;
 
     // Se não temos todos os IDs, tentar recuperar do contexto ou reserva mais recente
     let reservationId = args.reservationId;
@@ -5179,7 +5179,7 @@ export async function scheduleMeeting(args: any, tenantId: string) {
 
     const serviceFactory = new TenantServiceFactory(tenantId);
     const clientService = serviceFactory.clients;
-    const visitService = serviceFactory.get<VisitAppointment>('visits'); // ✅ MESMA COLEÇÃO QUE scheduleVisit
+    const visitService = serviceFactory.visits; // ✅ MESMA COLEÇÃO QUE scheduleVisit
     
     // Se tiver propertyId, buscar dados da propriedade
     let propertyData = null;
@@ -6597,7 +6597,7 @@ export async function checkAgendaAvailability(args: CheckAgendaAvailabilityArgs,
     });
 
     const serviceFactory = new TenantServiceFactory(tenantId);
-    const visitService = serviceFactory.get<VisitAppointment>('visits');
+    const visitService = serviceFactory.visits;
 
     // Configurar range de datas baseado nos parâmetros
     let startDate: Date;

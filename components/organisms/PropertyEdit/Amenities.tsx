@@ -80,7 +80,8 @@ const AMENITY_CATEGORIES = {
 
 export const PropertyAmenities: React.FC = () => {
   const theme = useTheme();
-  const { control, watch, setValue } = useFormContext();
+  const formContext = useFormContext();
+  const { control, watch, setValue } = formContext || {};
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('essentials');
   const [customAmenity, setCustomAmenity] = useState('');
@@ -116,20 +117,26 @@ export const PropertyAmenities: React.FC = () => {
       ? current.filter((a: string) => a !== amenity)
       : [...current, amenity];
     
-    setValue('amenities', updated);
+    if (setValue && typeof setValue === 'function') {
+      setValue('amenities', updated);
+    }
     logger.debug('Amenity toggled', { amenity, selected: !current.includes(amenity) });
   };
 
   const handleAddCustom = () => {
     if (customAmenity.trim() && !selectedAmenities.includes(customAmenity.trim())) {
-      setValue('amenities', [...selectedAmenities, customAmenity.trim()]);
+      if (setValue && typeof setValue === 'function') {
+        setValue('amenities', [...selectedAmenities, customAmenity.trim()]);
+      }
       setCustomAmenity('');
       logger.info('Custom amenity added', { amenity: customAmenity.trim() });
     }
   };
 
   const handleRemoveAmenity = (amenity: string) => {
-    setValue('amenities', selectedAmenities.filter((a: string) => a !== amenity));
+    if (setValue && typeof setValue === 'function') {
+      setValue('amenities', selectedAmenities.filter((a: string) => a !== amenity));
+    }
     logger.debug('Amenity removed', { amenity });
   };
 

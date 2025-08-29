@@ -59,7 +59,8 @@ interface MediaValidationResult {
 
 export const PropertyMedia: React.FC = () => {
   const theme = useTheme();
-  const { watch, setValue } = useFormContext();
+  const formContext = useFormContext();
+  const { watch, setValue } = formContext || {};
   
   // Media upload hooks - using the unified production-ready hook
   const photoUploadConfig = useMemo(() => ({
@@ -183,7 +184,9 @@ export const PropertyMedia: React.FC = () => {
       
       if (results.length > 0) {
         const newPhotos = [...photos, ...results.map(r => r.url)];
-        setValue('photos', newPhotos);
+        if (setValue && typeof setValue === 'function') {
+          setValue('photos', newPhotos);
+        }
         
         logger.info('Photos uploaded and added to form', { 
           uploadedCount: results.length,
@@ -217,7 +220,9 @@ export const PropertyMedia: React.FC = () => {
       
       if (results.length > 0) {
         const newVideos = [...videos, ...results.map(r => r.url)];
-        setValue('videos', newVideos);
+        if (setValue && typeof setValue === 'function') {
+          setValue('videos', newVideos);
+        }
         
         logger.info('Videos uploaded and added to form', { 
           uploadedCount: results.length,
@@ -265,13 +270,17 @@ export const PropertyMedia: React.FC = () => {
   // Remove handlers
   const handleRemovePhoto = useCallback((index: number) => {
     const updated = photos.filter((_: any, i: number) => i !== index);
-    setValue('photos', updated);
+    if (setValue && typeof setValue === 'function') {
+      setValue('photos', updated);
+    }
     logger.info('Photo removed', { index, remaining: updated.length });
   }, [photos, setValue]);
 
   const handleRemoveVideo = useCallback((index: number) => {
     const updated = videos.filter((_: any, i: number) => i !== index);
-    setValue('videos', updated);
+    if (setValue && typeof setValue === 'function') {
+      setValue('videos', updated);
+    }
     logger.info('Video removed', { index, remaining: updated.length });
   }, [videos, setValue]);
 
@@ -280,7 +289,9 @@ export const PropertyMedia: React.FC = () => {
     const reordered = [...photos];
     const [mainPhoto] = reordered.splice(index, 1);
     reordered.unshift(mainPhoto);
-    setValue('photos', reordered);
+    if (setValue && typeof setValue === 'function') {
+      setValue('photos', reordered);
+    }
     logger.info('Main photo changed', { newMainIndex: index });
   }, [photos, setValue]);
 

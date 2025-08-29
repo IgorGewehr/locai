@@ -41,7 +41,8 @@ import PricingCalendar from '@/components/organisms/PricingCalendar/PricingCalen
 
 export const PropertyPricing: React.FC = () => {
   const theme = useTheme();
-  const { control, watch, setValue, formState: { errors } } = useFormContext();
+  const formContext = useFormContext();
+  const { control, watch, setValue, formState: { errors } = {} } = formContext || {};
   
   const basePrice = watch('basePrice');
   const cleaningFee = watch('cleaningFee');
@@ -83,12 +84,16 @@ export const PropertyPricing: React.FC = () => {
   }, [basePrice, cleaningFee, pricePerExtraGuest, paymentMethodSurcharges, selectedPaymentMethod]);
 
   const handleSurchargeChange = (method: PaymentMethod, value: number) => {
-    setValue(`paymentMethodSurcharges.${method}`, value);
+    if (setValue && typeof setValue === 'function') {
+      setValue(`paymentMethodSurcharges.${method}`, value);
+    }
     logger.debug('Payment surcharge updated', { method, value });
   };
 
   const handleCustomPricingChange = (prices: Record<string, number>) => {
-    setValue('customPricing', prices);
+    if (setValue && typeof setValue === 'function') {
+      setValue('customPricing', prices);
+    }
     logger.debug('Custom pricing updated', { priceCount: Object.keys(prices).length });
   };
 

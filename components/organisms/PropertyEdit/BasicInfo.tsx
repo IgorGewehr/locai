@@ -48,8 +48,14 @@ export const PropertyBasicInfo: React.FC = () => {
 
   // Real-time validation trigger
   const handleFieldBlur = async (fieldName: string) => {
-    const isValid = await trigger(fieldName);
-    logger.debug('Field validation', { field: fieldName, isValid });
+    try {
+      if (trigger && typeof trigger === 'function') {
+        const isValid = await trigger(fieldName);
+        logger.debug('Field validation', { field: fieldName, isValid });
+      }
+    } catch (error) {
+      logger.error('Error triggering field validation', { field: fieldName, error });
+    }
   };
 
   return (

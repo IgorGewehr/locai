@@ -466,6 +466,10 @@ export class TenantServiceFactory {
     return this.createService<import('@/lib/types/financial').FinancialGoal>('goals');
   }
 
+  get financialMovements() {
+    return this.createService<import('@/lib/types/financial').FinancialMovement>('financial_movements');
+  }
+
   get leads() {
     return this.createService<import('@/lib/types/crm').Lead>('leads');
   }

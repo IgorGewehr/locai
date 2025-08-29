@@ -174,7 +174,7 @@ export default function EditPropertyPage() {
     },
   });
 
-  const { handleSubmit, reset, watch, formState: { errors, isDirty, isValid, dirtyFields } } = methods;
+  const { handleSubmit, reset, watch, trigger, formState: { errors, isDirty, isValid, dirtyFields } } = methods;
   const watchedValues = watch();
 
   // Section completion calculation
