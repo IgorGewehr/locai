@@ -48,42 +48,54 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Validar valores dos parâmetros
+    // Validar valores dos parâmetros (convertendo para numbers se necessário)
+    const year = parseInt(String(args.year));
+    const month = parseInt(String(args.month));
+    const day = args.day ? parseInt(String(args.day)) : null;
+    
     const currentYear = new Date().getFullYear();
-    if (args.year < currentYear - 1 || args.year > currentYear + 5) {
+    if (isNaN(year) || year < currentYear - 1 || year > currentYear + 5) {
       return NextResponse.json(
         { 
           success: false,
-          error: 'Year must be between ' + (currentYear - 1) + ' and ' + (currentYear + 5),
+          error: 'Year must be a valid number between ' + (currentYear - 1) + ' and ' + (currentYear + 5),
           requestId 
         },
         { status: 400 }
       );
     }
 
-    if (args.month < 1 || args.month > 12) {
+    if (isNaN(month) || month < 1 || month > 12) {
       return NextResponse.json(
         { 
           success: false,
-          error: 'Month must be between 1 and 12',
+          error: 'Month must be a valid number between 1 and 12',
           requestId 
         },
         { status: 400 }
       );
     }
 
-    if (args.day && (args.day < 1 || args.day > 31)) {
+    if (day && (isNaN(day) || day < 1 || day > 31)) {
       return NextResponse.json(
         { 
           success: false,
-          error: 'Day must be between 1 and 31',
+          error: 'Day must be a valid number between 1 and 31',
           requestId 
         },
         { status: 400 }
       );
     }
 
-    const result = await checkAgendaAvailability(args, tenantId);
+    // Atualizar args com valores convertidos
+    const convertedArgs = {
+      ...args,
+      year,
+      month,
+      day
+    };
+
+    const result = await checkAgendaAvailability(convertedArgs, tenantId);
     const processingTime = Date.now() - startTime;
 
     logger.info('✅ [CHECK-AGENDA-AVAILABILITY] Execução concluída com sucesso', {

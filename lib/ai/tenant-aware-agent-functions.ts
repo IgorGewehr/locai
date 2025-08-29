@@ -6596,24 +6596,48 @@ export async function checkAgendaAvailability(args: CheckAgendaAvailabilityArgs,
       requestType: args.day ? 'single_day' : 'full_month'
     });
 
+    logger.info('🔧 [CheckAgendaAvailability] Criando service factory', { tenantId: tenantId.substring(0, 8) + '***' });
     const serviceFactory = new TenantServiceFactory(tenantId);
+    
+    logger.info('🔧 [CheckAgendaAvailability] Obtendo visitService');
     const visitService = serviceFactory.visits;
+    
+    logger.info('🔧 [CheckAgendaAvailability] VisitService obtido com sucesso', { 
+      hasVisitService: !!visitService,
+      visitServiceType: typeof visitService
+    });
 
-    // Configurar range de datas baseado nos parâmetros
+    // Configurar range de datas baseado nos parâmetros (convertendo strings para numbers)
+    const year = parseInt(String(args.year));
+    const month = parseInt(String(args.month));
+    const day = args.day ? parseInt(String(args.day)) : null;
+    
+    logger.info('🔧 [CheckAgendaAvailability] Parâmetros convertidos', {
+      originalArgs: args,
+      convertedYear: year,
+      convertedMonth: month,
+      convertedDay: day,
+      types: {
+        year: typeof year,
+        month: typeof month,
+        day: typeof day
+      }
+    });
+
     let startDate: Date;
     let endDate: Date;
     let queryLabel: string;
 
-    if (args.day) {
+    if (day) {
       // Consulta de um dia específico
-      startDate = new Date(args.year, args.month - 1, args.day, 0, 0, 0);
-      endDate = new Date(args.year, args.month - 1, args.day, 23, 59, 59);
+      startDate = new Date(year, month - 1, day, 0, 0, 0);
+      endDate = new Date(year, month - 1, day, 23, 59, 59);
       queryLabel = startDate.toLocaleDateString('pt-BR');
     } else {
       // Consulta de mês completo
-      startDate = new Date(args.year, args.month - 1, 1, 0, 0, 0);
-      endDate = new Date(args.year, args.month, 0, 23, 59, 59); // Último dia do mês
-      queryLabel = `${args.month.toString().padStart(2, '0')}/${args.year}`;
+      startDate = new Date(year, month - 1, 1, 0, 0, 0);
+      endDate = new Date(year, month, 0, 23, 59, 59); // Último dia do mês
+      queryLabel = `${month.toString().padStart(2, '0')}/${year}`;
     }
 
     logger.info('🔍 [CheckAgendaAvailability] Range de consulta definido', {
@@ -6627,12 +6651,25 @@ export async function checkAgendaAvailability(args: CheckAgendaAvailabilityArgs,
     // Considera apenas status ativos: scheduled, confirmed, in_progress
     const activeStatuses = ['scheduled', 'confirmed', 'in_progress'];
     
+    logger.info('🔍 [CheckAgendaAvailability] Iniciando consulta ao banco de dados', {
+      tenantId: tenantId.substring(0, 8) + '***',
+      startDate: startDate.toISOString(),
+      endDate: endDate.toISOString(),
+      activeStatuses
+    });
+    
     const appointments = await visitService.getMany([
       { field: 'tenantId', operator: '==', value: tenantId },
       { field: 'scheduledDate', operator: '>=', value: startDate },
       { field: 'scheduledDate', operator: '<=', value: endDate },
       { field: 'status', operator: 'in', value: activeStatuses }
     ]) as VisitAppointment[];
+    
+    logger.info('✅ [CheckAgendaAvailability] Consulta ao banco concluída', {
+      tenantId: tenantId.substring(0, 8) + '***',
+      appointmentsCount: appointments?.length || 0,
+      hasAppointments: !!appointments
+    });
 
     logger.info('📊 [CheckAgendaAvailability] Agendamentos encontrados', {
       tenantId: tenantId.substring(0, 8) + '***',
@@ -6721,15 +6758,24 @@ export async function checkAgendaAvailability(args: CheckAgendaAvailabilityArgs,
 
   } catch (error) {
     logger.error('❌ [CheckAgendaAvailability] Erro ao verificar disponibilidade da agenda', {
-      error: error instanceof Error ? error.message : 'Unknown error',
+      error: error instanceof Error ? {
+        name: error.name,
+        message: error.message,
+        stack: error.stack?.substring(0, 500)
+      } : String(error),
       tenantId: tenantId.substring(0, 8) + '***',
-      args
+      args,
+      errorType: typeof error,
+      isErrorInstance: error instanceof Error
     });
+    
+    console.error('[DEBUG-CHECK-AGENDA] Full error details:', error);
+    
     return {
       success: false,
       occupiedSlots: [],
       totalOccupied: 0,
-      error: 'Erro ao verificar disponibilidade da agenda',
+      error: `Erro ao verificar disponibilidade da agenda: ${error instanceof Error ? error.message : String(error)}`,
       tenantId
     };
   }
