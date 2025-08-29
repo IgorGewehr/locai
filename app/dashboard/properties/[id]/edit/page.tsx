@@ -282,9 +282,26 @@ export default function EditPropertyPage() {
 
       try {
         const token = await getFirebaseToken();
+        console.log('🔍 [AUTO-SAVE DEBUG] Token obtained:', { 
+          hasToken: !!token, 
+          tokenLength: token?.length
+        });
+        
         if (!token) {
           throw new Error('Token de autenticação não disponível');
         }
+
+        const autoSaveData = {
+          ...data,
+          updatedAt: new Date(),
+          tenantId,
+        };
+
+        console.log('🔍 [AUTO-SAVE DEBUG] Sending data:', {
+          propertyId,
+          dataKeys: Object.keys(autoSaveData),
+          dirtyFields: Object.keys(dirtyFields)
+        });
 
         const response = await fetch(`/api/properties/${propertyId}`, {
           method: 'PUT',
@@ -292,11 +309,7 @@ export default function EditPropertyPage() {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${token}`,
           },
-          body: JSON.stringify({
-            ...data,
-            updatedAt: new Date(),
-            tenantId,
-          }),
+          body: JSON.stringify(autoSaveData),
         });
 
         if (response.ok) {
@@ -364,9 +377,26 @@ export default function EditPropertyPage() {
       };
 
       const token = await getFirebaseToken();
+      console.log('🔍 [DEBUG] Token obtained:', { 
+        hasToken: !!token, 
+        tokenLength: token?.length,
+        tokenStart: token?.substring(0, 20) + '...'
+      });
+      
       if (!token) {
         throw new Error('Token de autenticação não disponível');
       }
+
+      console.log('🔍 [DEBUG] Sending data:', {
+        propertyId,
+        dataKeys: Object.keys(processedData),
+        hasPhotos: !!processedData.photos,
+        photosCount: processedData.photos?.length,
+        hasVideos: !!processedData.videos,
+        videosCount: processedData.videos?.length,
+        titleLength: processedData.title?.length,
+        descriptionLength: processedData.description?.length
+      });
 
       const response = await fetch(`/api/properties/${propertyId}`, {
         method: 'PUT',

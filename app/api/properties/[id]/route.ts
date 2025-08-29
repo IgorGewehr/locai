@@ -72,15 +72,34 @@ export async function PUT(
       )
     }
 
-    const body = await request.json()
+    // ✅ LOG DE ENTRADA COM HEADERS DE AUTENTICAÇÃO
+    console.log('[🔍 API-REQUEST] Iniciando PUT request:', {
+      propertyId: resolvedParams.id,
+      hasAuthHeader: !!request.headers.get('authorization'),
+      hasTokenHeader: !!request.headers.get('x-firebase-token'),
+      contentType: request.headers.get('content-type'),
+      userAgent: request.headers.get('user-agent')?.substring(0, 50)
+    });
 
-    // Check authentication and get tenantId
-    const authContext = await validateFirebaseAuth(request)
+    const body = await request.json();
+
+    // ✅ AUTENTICAÇÃO COM DEBUG MELHORADO
+    console.log('[🔍 API-AUTH] Validando autenticação...');
+    const authContext = await validateFirebaseAuth(request);
+    
+    console.log('[🔍 API-AUTH] Resultado da autenticação:', {
+      authenticated: authContext.authenticated,
+      hasTenantId: !!authContext.tenantId,
+      hasUserId: !!authContext.userId,
+      tenantId: authContext.tenantId?.substring(0, 10) + '...'
+    });
+    
     if (!authContext.authenticated || !authContext.tenantId) {
+      console.warn('[⚠️ API-AUTH] Autenticação falhou');
       return NextResponse.json(
         { error: 'Authentication required', code: 'UNAUTHORIZED' },
         { status: 401 }
-      )
+      );
     }
 
     const services = new TenantServiceFactory(authContext.tenantId)
@@ -107,18 +126,24 @@ export async function PUT(
       bodyKeys: Object.keys(body)
     });
 
-    // Validate update data
-    console.log('[DEBUG-SCHEMA] Testing with small values...');
-    console.log('[DEBUG-SCHEMA] Body description:', body.description);
-    console.log('[DEBUG-SCHEMA] Body address:', body.address);
-    console.log('[DEBUG-SCHEMA] Schema import working correctly');
+    // ✅ VALIDAÇÃO MELHORADA COM DEBUG DETALHADO
+    console.log('[🔍 API-VALIDATION] Iniciando validação:', {
+      bodyKeys: Object.keys(body),
+      bodyTypes: Object.keys(body).reduce((acc, key) => {
+        acc[key] = typeof body[key];
+        return acc;
+      }, {}),
+      photosType: Array.isArray(body.photos) ? `array[${body.photos.length}]` : typeof body.photos,
+      videosType: Array.isArray(body.videos) ? `array[${body.videos.length}]` : typeof body.videos
+    });
     
-    const validationResult = UpdatePropertySchema.safeParse(body)
+    const validationResult = UpdatePropertySchema.safeParse(body);
     
-    console.log('[DEBUG-SCHEMA] Validation result:', {
+    console.log('[🔍 API-VALIDATION] Resultado da validação:', {
       success: validationResult.success,
-      hasErrors: !validationResult.success,
-      errorFields: !validationResult.success ? Object.keys(validationResult.error.flatten().fieldErrors) : []
+      errorCount: !validationResult.success ? Object.keys(validationResult.error.flatten().fieldErrors).length : 0,
+      errorFields: !validationResult.success ? Object.keys(validationResult.error.flatten().fieldErrors) : [],
+      firstError: !validationResult.success ? validationResult.error.issues[0] : null
     });
     
     if (!validationResult.success) {

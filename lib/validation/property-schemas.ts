@@ -136,30 +136,58 @@ export const CreatePropertySchema = z.object({
 
 // Schema for updating a property (all fields optional with flexible media)
 export const UpdatePropertySchema = z.object({
-  // ✅ CAMPOS BÁSICOS - VALIDAÇÕES FLEXÍVEIS PARA UPDATE
-  title: z.string().min(1, 'Título não pode estar vazio').optional(),
-  description: z.string().optional(), // SEM validação mínima
-  address: z.string().optional(),     // SEM validação mínima
+  // ✅ CAMPOS BÁSICOS - ULTRA FLEXÍVEIS PARA UPDATE  
+  title: z.union([z.string(), z.undefined(), z.null()]).optional(),
+  description: z.union([z.string(), z.undefined(), z.null()]).optional(),
+  address: z.union([z.string(), z.undefined(), z.null()]).optional(),
   category: z.nativeEnum(PropertyCategory).optional(),
   
-  // ✅ NÚMEROS - VALIDAÇÕES BÁSICAS
-  bedrooms: z.number().int().min(0).max(20).optional(),
-  bathrooms: z.number().int().min(0).max(20).optional(),
-  maxGuests: z.number().int().min(1).max(50).optional(),
-  basePrice: z.number().positive().max(100000).optional(),
-  pricePerExtraGuest: z.number().min(0).max(10000).optional(),
-  minimumNights: z.number().int().min(1).max(365).optional(),
-  cleaningFee: z.number().min(0).max(10000).optional(),
+  // ✅ NÚMEROS - CONVERSÃO AUTOMÁTICA E VALIDAÇÃO FLEXÍVEL
+  bedrooms: z.union([z.number(), z.string(), z.undefined(), z.null()])
+    .transform(val => val === null || val === undefined || val === '' ? undefined : Number(val))
+    .pipe(z.number().int().min(0).max(20).optional()),
+  bathrooms: z.union([z.number(), z.string(), z.undefined(), z.null()])
+    .transform(val => val === null || val === undefined || val === '' ? undefined : Number(val))
+    .pipe(z.number().int().min(0).max(20).optional()),
+  maxGuests: z.union([z.number(), z.string(), z.undefined(), z.null()])
+    .transform(val => val === null || val === undefined || val === '' ? undefined : Number(val))
+    .pipe(z.number().int().min(1).max(50).optional()),
+  basePrice: z.union([z.number(), z.string(), z.undefined(), z.null()])
+    .transform(val => val === null || val === undefined || val === '' ? undefined : Number(val))
+    .pipe(z.number().positive().max(100000).optional()),
+  pricePerExtraGuest: z.union([z.number(), z.string(), z.undefined(), z.null()])
+    .transform(val => val === null || val === undefined || val === '' ? undefined : Number(val))
+    .pipe(z.number().min(0).max(10000).optional()),
+  minimumNights: z.union([z.number(), z.string(), z.undefined(), z.null()])
+    .transform(val => val === null || val === undefined || val === '' ? undefined : Number(val))
+    .pipe(z.number().int().min(1).max(365).optional()),
+  cleaningFee: z.union([z.number(), z.string(), z.undefined(), z.null()])
+    .transform(val => val === null || val === undefined || val === '' ? undefined : Number(val))
+    .pipe(z.number().min(0).max(10000).optional()),
   
-  // ✅ ARRAYS E OUTROS
-  amenities: z.array(z.string()).max(50).optional(),
-  isFeatured: z.boolean().optional(),
-  allowsPets: z.boolean().optional(),
+  // ✅ ARRAYS E OUTROS - FLEXÍVEIS
+  amenities: z.union([z.array(z.string()), z.undefined(), z.null()]).optional(),
+  isFeatured: z.union([z.boolean(), z.string(), z.undefined(), z.null()])
+    .transform(val => val === null || val === undefined || val === '' ? undefined : Boolean(val))
+    .optional(),
+  allowsPets: z.union([z.boolean(), z.string(), z.undefined(), z.null()])
+    .transform(val => val === null || val === undefined || val === '' ? undefined : Boolean(val))
+    .optional(),
   paymentMethodSurcharges: PaymentSurchargesSchema.optional(),
   
-  // ✅ MÍDIA - SUPER FLEXÍVEL
-  photos: z.array(z.any()).max(30, 'Máximo de 30 fotos').optional(),
-  videos: z.array(z.any()).max(5, 'Máximo de 5 vídeos').optional(),
+  // ✅ MÍDIA - ULTRA FLEXÍVEL PARA UPDATE
+  photos: z.union([
+    z.array(z.string()),  // Array de strings
+    z.array(z.any()),     // Array de qualquer coisa
+    z.undefined(),        // Pode ser undefined
+    z.null()              // Pode ser null
+  ]).optional(),
+  videos: z.union([
+    z.array(z.string()),  // Array de strings  
+    z.array(z.any()),     // Array de qualquer coisa
+    z.undefined(),        // Pode ser undefined
+    z.null()              // Pode ser null
+  ]).optional(),
   
   // ✅ DATAS E PREÇOS CUSTOMIZADOS
   unavailableDates: z.array(z.coerce.date()).optional(),
