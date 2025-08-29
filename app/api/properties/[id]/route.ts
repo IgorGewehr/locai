@@ -100,9 +100,11 @@ export async function PUT(
     console.log('[API] Update data received:', {
       hasPhotos: !!body.photos,
       photosCount: body.photos?.length || 0,
-      photosTypes: body.photos?.map(p => typeof p),
+      photosTypes: Array.isArray(body.photos) ? body.photos.map(p => typeof p) : 'not array',
       hasVideos: !!body.videos,
-      videosCount: body.videos?.length || 0
+      videosCount: body.videos?.length || 0,
+      videosTypes: Array.isArray(body.videos) ? body.videos.map(v => typeof v) : 'not array',
+      bodyKeys: Object.keys(body)
     });
 
     // Validate update data
@@ -150,61 +152,104 @@ export async function PUT(
 
     const validatedData = validationResult.data
 
-    // ✅ NOVA ABORDAGEM: Processamento direto como no Dart
-    // Sanitizar apenas campos de texto, preservar URLs das mídias intactas
+    // ✅ PROCESSAMENTO SIMPLIFICADO E SEGURO
     const finalUpdate: any = {
       ...validatedData,
       updatedAt: new Date(),
     }
     
-    // Sanitizar apenas campos de texto (não URLs)
-    if (validatedData.title) {
-      finalUpdate.title = sanitizeUserInput(validatedData.title)
-    }
-    if (validatedData.description) {
-      finalUpdate.description = sanitizeUserInput(validatedData.description)
-    }
-    if (validatedData.address) {
-      finalUpdate.address = sanitizeUserInput(validatedData.address)
-    }
-    if (validatedData.amenities) {
-      finalUpdate.amenities = validatedData.amenities.map(a => sanitizeUserInput(a))
-    }
-    
-    // ✅ MÍDIAS: Processar tanto objetos PropertyPhoto/Video quanto strings
-    if (validatedData.photos && Array.isArray(validatedData.photos)) {
-      console.log('[API] Processing photos:', {
-        count: validatedData.photos.length,
-        types: validatedData.photos.map(p => typeof p),
-        sample: validatedData.photos[0]
-      });
-
-      // Aceitar tanto objetos PropertyPhoto quanto strings
-      finalUpdate.photos = validatedData.photos.filter(photo => {
-        const url = typeof photo === 'string' ? photo : photo?.url;
-        return url && 
-          url.trim().length > 0 &&
-          (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('blob:'));
-      });
+    // Sanitizar apenas campos de texto (com fallback seguro)
+    try {
+      if (validatedData.title && typeof validatedData.title === 'string') {
+        finalUpdate.title = sanitizeUserInput(validatedData.title)
+      }
+      if (validatedData.description && typeof validatedData.description === 'string') {
+        finalUpdate.description = sanitizeUserInput(validatedData.description)
+      }
+      if (validatedData.address && typeof validatedData.address === 'string') {
+        finalUpdate.address = sanitizeUserInput(validatedData.address)
+      }
+      if (validatedData.amenities && Array.isArray(validatedData.amenities)) {
+        finalUpdate.amenities = validatedData.amenities
+          .filter(a => typeof a === 'string')
+          .map(a => {
+            try {
+              return sanitizeUserInput(a)
+            } catch (err) {
+              console.warn('Error sanitizing amenity:', err);
+              return String(a).trim().slice(0, 100); // Fallback seguro
+            }
+          })
+      }
+    } catch (sanitizeError) {
+      console.error('Error in sanitization process:', sanitizeError);
+      // Continue sem sanitização se houver erro crítico
     }
     
-    if (validatedData.videos && Array.isArray(validatedData.videos)) {
-      console.log('[API] Processing videos:', {
-        count: validatedData.videos.length,
-        types: validatedData.videos.map(v => typeof v)
-      });
+    // ✅ MÍDIAS: Processamento simplificado e seguro
+    try {
+      if (validatedData.photos && Array.isArray(validatedData.photos)) {
+        console.log('[API] Processing photos:', {
+          count: validatedData.photos.length,
+          types: validatedData.photos.map(p => typeof p)
+        });
 
-      // Aceitar tanto objetos PropertyVideo quanto strings
-      finalUpdate.videos = validatedData.videos.filter(video => {
-        const url = typeof video === 'string' ? video : video?.url;
-        return url && 
-          url.trim().length > 0 &&
-          (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('blob:'));
-      });
+        finalUpdate.photos = validatedData.photos
+          .map(photo => {
+            try {
+              // Extrair URL de forma segura
+              const url = typeof photo === 'string' ? photo : (photo && photo.url ? photo.url : null);
+              return url && typeof url === 'string' && url.trim().length > 0 ? url.trim() : null;
+            } catch (err) {
+              console.warn('Error processing photo:', err);
+              return null;
+            }
+          })
+          .filter(url => url && (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('blob:')));
+      }
+      
+      if (validatedData.videos && Array.isArray(validatedData.videos)) {
+        console.log('[API] Processing videos:', {
+          count: validatedData.videos.length,
+          types: validatedData.videos.map(v => typeof v)
+        });
+
+        finalUpdate.videos = validatedData.videos
+          .map(video => {
+            try {
+              // Extrair URL de forma segura
+              const url = typeof video === 'string' ? video : (video && video.url ? video.url : null);
+              return url && typeof url === 'string' && url.trim().length > 0 ? url.trim() : null;
+            } catch (err) {
+              console.warn('Error processing video:', err);
+              return null;
+            }
+          })
+          .filter(url => url && (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('blob:')));
+      }
+    } catch (mediaError) {
+      console.error('Error in media processing:', mediaError);
+      // Continue without media updates if there's an error
     }
 
     // ✅ UPDATE DIRETO: Uma única operação como no Dart
-    await services.properties.update(resolvedParams.id, finalUpdate)
+    console.log('[API] About to update property with:', {
+      propertyId: resolvedParams.id,
+      updateFields: Object.keys(finalUpdate),
+      hasPhotos: !!finalUpdate.photos,
+      photosCount: finalUpdate.photos?.length || 0
+    });
+
+    try {
+      await services.properties.update(resolvedParams.id, finalUpdate)
+      console.log('[API] Property update successful');
+    } catch (updateError) {
+      console.error('[API] Property update failed:', {
+        error: updateError,
+        updateData: JSON.stringify(finalUpdate, null, 2).substring(0, 500)
+      });
+      throw updateError; // Re-throw to trigger main error handler
+    }
 
     // Get updated property
     const updatedProperty = await services.properties.getById(resolvedParams.id)
@@ -216,6 +261,19 @@ export async function PUT(
     })
 
   } catch (error) {
+    console.error('[API-PROPERTIES-UPDATE] Detailed error:', {
+      propertyId: resolvedParams?.id,
+      error: error instanceof Error ? {
+        name: error.name,
+        message: error.message,
+        stack: error.stack,
+        cause: error.cause
+      } : error,
+      errorString: String(error),
+      errorType: typeof error,
+      hasUpdate: typeof resolvedParams !== 'undefined'
+    });
+    
     return handleApiError(error)
   }
 }
