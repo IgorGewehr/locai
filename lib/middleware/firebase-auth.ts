@@ -62,10 +62,13 @@ export async function validateFirebaseAuth(req: NextRequest): Promise<FirebaseAu
     }
   } catch (error) {
     logger.warn('⚠️ [FirebaseAuth] Token inválido', {
-      error: error instanceof Error ? error.message : 'Unknown error'
+      error: error instanceof Error ? error.message : 'Unknown error',
+      errorCode: error instanceof Error && 'code' in error ? error.code : 'unknown',
+      hasToken: !!token,
+      tokenStart: token?.substring(0, 20)
     })
     
-    return { authenticated: false }
+    return { authenticated: false, error: error instanceof Error ? error.message : 'Unknown error' }
   }
 }
 

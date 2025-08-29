@@ -1423,16 +1423,55 @@ export async function sendPropertyMedia(args: SendPropertyMediaArgs, tenantId: s
     const photos = property.photos || [];
     const videos = property.videos || [];
 
+    // 🔍 DEBUG: Log media structure for debugging
+    logger.info('🔍 [TenantAgent] Media structure debug', {
+      tenantId: tenantId.substring(0, 8) + '***',
+      propertyId: property.id,
+      propertyTitle: property.title,
+      photosCount: photos.length,
+      photosType: photos.length > 0 ? typeof photos[0] : 'empty',
+      photosFirst: photos.length > 0 ? (typeof photos[0] === 'string' ? photos[0] : 'object') : 'none',
+      videosCount: videos.length,
+      videosType: videos.length > 0 ? typeof videos[0] : 'empty',
+      videosFirst: videos.length > 0 ? (typeof videos[0] === 'string' ? videos[0] : 'object') : 'none'
+    });
+
     let mediaToSend: any[] = [];
     let mediaDescription = '';
 
     if (mediaType === 'photos' || mediaType === 'all') {
-      mediaToSend.push(...photos.map(photo => ({ type: 'photo', url: photo.url, caption: photo.caption })));
+      // ✅ Handle both new string[] format and legacy PropertyPhoto[] format
+      const photoUrls = photos.map(photo => {
+        if (typeof photo === 'string') {
+          // New format: direct URL strings
+          return { type: 'photo', url: photo, caption: '' };
+        } else if (photo && typeof photo === 'object' && 'url' in photo) {
+          // Legacy format: PropertyPhoto objects
+          return { type: 'photo', url: (photo as any).url, caption: (photo as any).caption || '' };
+        } else {
+          return null;
+        }
+      }).filter(Boolean); // Remove null entries
+      
+      mediaToSend.push(...photoUrls);
       mediaDescription = `${photos.length} foto(s)`;
     }
 
     if (mediaType === 'videos' || mediaType === 'all') {
-      mediaToSend.push(...videos.map(video => ({ type: 'video', url: video.url, title: video.title })));
+      // ✅ Handle both new string[] format and legacy PropertyVideo[] format  
+      const videoUrls = videos.map(video => {
+        if (typeof video === 'string') {
+          // New format: direct URL strings
+          return { type: 'video', url: video, title: '' };
+        } else if (video && typeof video === 'object' && 'url' in video) {
+          // Legacy format: PropertyVideo objects
+          return { type: 'video', url: (video as any).url, title: (video as any).title || '' };
+        } else {
+          return null;
+        }
+      }).filter(Boolean); // Remove null entries
+      
+      mediaToSend.push(...videoUrls);
       mediaDescription += mediaDescription ? ` e ${videos.length} vídeo(s)` : `${videos.length} vídeo(s)`;
     }
 

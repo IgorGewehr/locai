@@ -25,7 +25,7 @@ export const useAuth = () => {
     signIn,
     signUp,
     resetPassword,
-    getFirebaseToken // Add the missing function
+    getFirebaseToken // Now supports forceRefresh parameter
   };
 };
 

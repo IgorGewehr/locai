@@ -95,9 +95,21 @@ export async function PUT(
     });
     
     if (!authContext.authenticated || !authContext.tenantId) {
-      console.warn('[⚠️ API-AUTH] Autenticação falhou');
+      console.warn('[⚠️ API-AUTH] Autenticação falhou', {
+        authenticated: authContext.authenticated,
+        hasTenantId: !!authContext.tenantId,
+        hasUserId: !!authContext.userId,
+        authHeaders: {
+          authorization: !!request.headers.get('authorization'),
+          firebaseToken: !!request.headers.get('x-firebase-token')
+        }
+      });
       return NextResponse.json(
-        { error: 'Authentication required', code: 'UNAUTHORIZED' },
+        { 
+          error: 'Authentication required', 
+          code: 'UNAUTHORIZED',
+          details: 'Invalid or expired Firebase token'
+        },
         { status: 401 }
       );
     }

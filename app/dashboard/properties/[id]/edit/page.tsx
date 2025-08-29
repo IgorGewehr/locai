@@ -272,7 +272,44 @@ export default function EditPropertyPage() {
     loadProperty();
   }, [propertyId, services, isReady, reset, tenantId]);
 
-  // Smart auto-save with improved logic
+  // Helper function to make API requests with automatic token refresh
+  const makeAuthenticatedRequest = useCallback(async (url: string, options: RequestInit, retryCount = 0): Promise<Response> => {
+    const token = await getFirebaseToken();
+    if (!token) {
+      throw new Error('No authentication token available');
+    }
+
+    const response = await fetch(url, {
+      ...options,
+      headers: {
+        ...options.headers,
+        'Authorization': `Bearer ${token}`,
+      },
+    });
+
+    // If 401 and we haven't retried, try to refresh token and retry once
+    if (response.status === 401 && retryCount === 0) {
+      console.log('🔄 [AUTH] Token expired, attempting refresh...');
+      try {
+        // Force token refresh using Firebase's forceRefresh
+        const newToken = await getFirebaseToken(true); // Force refresh
+        if (newToken && newToken !== token) {
+          console.log('✅ [AUTH] Token successfully refreshed, retrying request...');
+          return makeAuthenticatedRequest(url, options, retryCount + 1);
+        } else {
+          console.log('⚠️ [AUTH] Unable to refresh token, user may need to re-login');
+          throw new Error('Token expired - please refresh the page or login again');
+        }
+      } catch (refreshError) {
+        console.error('❌ [AUTH] Token refresh failed:', refreshError);
+        throw new Error('Authentication failed - please refresh page or login again');
+      }
+    }
+
+    return response;
+  }, [getFirebaseToken]);
+
+  // Smart auto-save with improved logic and token refresh
   const autoSave = useCallback(
     debounce(async (data: Property) => {
       if (!autoSaveEnabled || !isDirty || saving || !propertyId) return;
@@ -281,15 +318,7 @@ export default function EditPropertyPage() {
       logger.info('Auto-saving property changes', { propertyId, fields: Object.keys(dirtyFields) });
 
       try {
-        const token = await getFirebaseToken();
-        console.log('🔍 [AUTO-SAVE DEBUG] Token obtained:', { 
-          hasToken: !!token, 
-          tokenLength: token?.length
-        });
-        
-        if (!token) {
-          throw new Error('Token de autenticação não disponível');
-        }
+        console.log('🔍 [AUTO-SAVE DEBUG] Starting auto-save...');
 
         const autoSaveData = {
           ...data,
@@ -303,12 +332,9 @@ export default function EditPropertyPage() {
           dirtyFields: Object.keys(dirtyFields)
         });
 
-        const response = await fetch(`/api/properties/${propertyId}`, {
+        const response = await makeAuthenticatedRequest(`/api/properties/${propertyId}`, {
           method: 'PUT',
-          headers: { 
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${token}`,
-          },
+          headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(autoSaveData),
         });
 
@@ -330,7 +356,7 @@ export default function EditPropertyPage() {
         // Don't show error to user for auto-save failures
       }
     }, 2000), // Reduced debounce time
-    [propertyId, isDirty, saving, autoSaveEnabled, dirtyFields, tenantId, getFirebaseToken]
+    [propertyId, isDirty, saving, autoSaveEnabled, dirtyFields, tenantId, makeAuthenticatedRequest]
   );
 
   // Watch for changes and trigger auto-save
@@ -398,12 +424,9 @@ export default function EditPropertyPage() {
         descriptionLength: processedData.description?.length
       });
 
-      const response = await fetch(`/api/properties/${propertyId}`, {
+      const response = await makeAuthenticatedRequest(`/api/properties/${propertyId}`, {
         method: 'PUT',
-        headers: { 
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(processedData),
       });
 
@@ -434,7 +457,7 @@ export default function EditPropertyPage() {
     } finally {
       setSaving(false);
     }
-  }, [propertyId, tenantId, reset, router, getFirebaseToken]);
+  }, [propertyId, tenantId, reset, router, makeAuthenticatedRequest]);
 
   // Section management
   const toggleSection = (sectionId: string) => {

@@ -40,7 +40,7 @@ interface AuthContextType {
   resetPassword: (email: string) => Promise<void>;
   
   // Token Firebase
-  getFirebaseToken: () => Promise<string | null>;
+  getFirebaseToken: (forceRefresh?: boolean) => Promise<string | null>;
   
   // Verificações
   isAdmin: boolean;
@@ -481,7 +481,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     return user;
   }, [user]);
 
-  const getFirebaseToken = useCallback(async (): Promise<string | null> => {
+  const getFirebaseToken = useCallback(async (forceRefresh = false): Promise<string | null> => {
     try {
       const currentUser = auth.currentUser;
       if (!currentUser) {
@@ -489,12 +489,13 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         return null;
       }
       
-      const token = await currentUser.getIdToken();
-      logger.debug('✅ [Auth] Token Firebase obtido');
+      const token = await currentUser.getIdToken(forceRefresh);
+      logger.debug(`✅ [Auth] Token Firebase obtido${forceRefresh ? ' (refreshed)' : ''}`);
       return token;
     } catch (error) {
       logger.error('❌ [Auth] Erro ao obter token Firebase', {
-        error: error instanceof Error ? error.message : 'Unknown error'
+        error: error instanceof Error ? error.message : 'Unknown error',
+        forceRefresh
       });
       return null;
     }
