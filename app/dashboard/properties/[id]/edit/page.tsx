@@ -273,7 +273,7 @@ export default function EditPropertyPage() {
   // Smart auto-save with improved logic
   const autoSave = useCallback(
     debounce(async (data: Property) => {
-      if (!autoSaveEnabled || !isDirty || !isValid || saving || !propertyId) return;
+      if (!autoSaveEnabled || !isDirty || saving || !propertyId) return;
 
       setAutoSaving(true);
       logger.info('Auto-saving property changes', { propertyId, fields: Object.keys(dirtyFields) });
@@ -307,15 +307,15 @@ export default function EditPropertyPage() {
         // Don't show error to user for auto-save failures
       }
     }, 2000), // Reduced debounce time
-    [propertyId, isDirty, isValid, saving, autoSaveEnabled, dirtyFields, tenantId]
+    [propertyId, isDirty, saving, autoSaveEnabled, dirtyFields, tenantId]
   );
 
   // Watch for changes and trigger auto-save
   useEffect(() => {
-    if (isDirty && isValid && !loading && autoSaveEnabled) {
+    if (isDirty && !loading && autoSaveEnabled) {
       autoSave(watchedValues as Property);
     }
-  }, [watchedValues, isDirty, isValid, loading, autoSave, autoSaveEnabled]);
+  }, [watchedValues, isDirty, loading, autoSave, autoSaveEnabled]);
 
   // Manual save with comprehensive error handling
   const handleSave = useCallback(async (data: Property) => {
@@ -327,9 +327,12 @@ export default function EditPropertyPage() {
     logger.info('Manual property save initiated', { propertyId, isDirty, isValid });
 
     try {
-      // Validate critical fields
-      if (!data.title || !data.description || !data.basePrice) {
-        throw new Error('Título, descrição e preço base são obrigatórios');
+      // Validate critical fields only if they were provided
+      if (data.title && data.title.trim() === '') {
+        throw new Error('Título não pode ser vazio se fornecido');
+      }
+      if (data.basePrice && data.basePrice < 0) {
+        throw new Error('Preço base não pode ser negativo');
       }
 
       const processedData = {
@@ -531,13 +534,13 @@ export default function EditPropertyPage() {
                   size="large"
                   startIcon={saving ? <CircularProgress size={20} color="inherit" /> : <Save />}
                   onClick={handleSubmit(handleSave)}
-                  disabled={saving || (!isDirty && !autoSaving)}
+                  disabled={saving}
                   sx={{
                     minWidth: 160,
                     position: 'relative'
                   }}
                 >
-                  {saving ? 'Salvando...' : 'Salvar Alterações'}
+                  {saving ? 'Salvando...' : isDirty ? 'Salvar Alterações' : 'Salvar'}
                 </Button>
               </Box>
             </Grid>

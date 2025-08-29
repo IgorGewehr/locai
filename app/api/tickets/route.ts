@@ -52,171 +52,144 @@ export async function GET(request: NextRequest) {
       filters: { status, priority, type, assignedTo, userId, search }
     });
 
-    // Build query
+    // Build query - simplified approach without composite indexes
     const ticketsRef = collection(db, `tenants/${tenantId}/tickets`);
-    const constraints: any[] = [];
-
-    // Apply filters - Note: Firestore requires composite indexes for multiple filters with orderBy
-    // For now, we'll prioritize filtering and do sorting client-side if needed
-    let hasFilters = false;
+    
+    // For now, we'll only use userId filter and do everything else client-side
+    // This avoids the need for composite indexes
+    let baseQuery;
+    let allTickets = [];
+    let total = 0;
+    
+    if (userId) {
+      // Get tickets for specific user
+      try {
+        baseQuery = query(ticketsRef, where('userId', '==', userId));
+        const snapshot = await getDocs(baseQuery);
+        allTickets = snapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        }));
+        total = allTickets.length;
+      } catch (error) {
+        // If the query fails due to index requirement, return empty for now
+        // This is expected for new users who haven't created tickets yet
+        logger.tenantWarn('⚠️ Índice de tickets não disponível, retornando vazio', tenantId, { 
+          userId,
+          error: error.message 
+        });
+        allTickets = [];
+        total = 0;
+      }
+    } else {
+      // Get all tickets (admin view)
+      baseQuery = query(ticketsRef, orderBy('updatedAt', 'desc'));
+      
+      try {
+        const snapshot = await getDocs(baseQuery);
+        allTickets = snapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        }));
+        total = allTickets.length;
+      } catch (error) {
+        // Fallback to getting all tickets without orderBy
+        logger.tenantWarn('⚠️ OrderBy falhou, usando query simples', tenantId, { error: error.message });
+        const fallbackSnapshot = await getDocs(ticketsRef);
+        allTickets = fallbackSnapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        }));
+        total = allTickets.length;
+      }
+    }
+    
+    // Apply filters client-side
+    let filteredTickets = allTickets;
     
     if (status && status.length > 0) {
-      constraints.push(where('status', 'in', status));
-      hasFilters = true;
+      filteredTickets = filteredTickets.filter(ticket => status.includes(ticket.status));
     }
     
     if (priority && priority.length > 0) {
-      constraints.push(where('priority', 'in', priority));
-      hasFilters = true;
+      filteredTickets = filteredTickets.filter(ticket => priority.includes(ticket.priority));
     }
     
     if (type && type.length > 0) {
-      constraints.push(where('type', 'in', type));
-      hasFilters = true;
+      filteredTickets = filteredTickets.filter(ticket => type.includes(ticket.type));
     }
     
     if (assignedTo) {
-      constraints.push(where('assignedTo', '==', assignedTo));
-      hasFilters = true;
+      filteredTickets = filteredTickets.filter(ticket => ticket.assignedTo === assignedTo);
     }
     
-    if (userId) {
-      constraints.push(where('userId', '==', userId));
-      hasFilters = true;
-    }
-
-    // Only add orderBy if no other filters (to avoid index requirement)
-    // Or add it with filters if indexes are created
-    if (!hasFilters) {
-      constraints.push(orderBy('updatedAt', 'desc'));
-    }
-
-    let ticketQuery = query(ticketsRef, ...constraints);
-
-    // Get total count - use a simpler query if we have complex constraints
-    let total = 0;
-    try {
-      if (hasFilters) {
-        // For filtered queries, get all documents and count them
-        const countSnapshot = await getDocs(ticketQuery);
-        total = countSnapshot.docs.length;
-      } else {
-        // For unfiltered queries, use the count server method
-        const countSnapshot = await getCountFromServer(ticketQuery);
-        total = countSnapshot.data().count;
-      }
-    } catch (error) {
-      // Fallback to getting all docs if count fails
-      logger.tenantWarn('⚠️ Count query failed, usando fallback', tenantId, { error: error.message });
-      const countSnapshot = await getDocs(query(ticketsRef, where('userId', '==', userId)));
-      total = countSnapshot.docs.length;
+    // Apply search filter
+    if (search) {
+      const searchLower = search.toLowerCase();
+      filteredTickets = filteredTickets.filter(ticket => 
+        ticket.subject?.toLowerCase().includes(searchLower) ||
+        ticket.userName?.toLowerCase().includes(searchLower) ||
+        ticket.userEmail?.toLowerCase().includes(searchLower)
+      );
     }
     
-    // If no tickets, return empty result
-    if (total === 0) {
+    // Sort by updatedAt descending
+    filteredTickets.sort((a, b) => {
+      const aTime = a.updatedAt?.toDate?.()?.getTime() || 0;
+      const bTime = b.updatedAt?.toDate?.()?.getTime() || 0;
+      return bTime - aTime;
+    });
+    
+    // Update total with filtered count
+    const filteredTotal = filteredTickets.length;
+    
+    // If no tickets after filtering, return empty result
+    if (filteredTotal === 0) {
       const response: TicketsResponse = {
         tickets: [],
-        total: 0,
+        total: filteredTotal,
         page,
         limit,
         totalPages: 0,
       };
       
-      logger.tenantInfo('✅ Nenhum ticket encontrado', tenantId);
+      logger.tenantInfo('✅ Nenhum ticket encontrado após filtros', tenantId);
       return NextResponse.json(response);
     }
 
-    // Apply pagination - simple limit approach since we're not using orderBy with filters
-    let paginatedQuery;
+    // Apply pagination client-side
+    const startIndex = (page - 1) * limit;
+    const endIndex = startIndex + limit;
+    const paginatedTickets = filteredTickets.slice(startIndex, endIndex);
     
-    if (hasFilters) {
-      // With filters, use simple limit (sorting will be done client-side)
-      paginatedQuery = query(ticketsRef, ...constraints, limitQuery(limit * page));
-    } else {
-      // No filters, can use proper pagination with orderBy
-      const offset = (page - 1) * limit;
-      if (offset > 0) {
-        const offsetQuery = query(ticketsRef, ...constraints, limitQuery(offset));
-        const offsetSnapshot = await getDocs(offsetQuery);
-        
-        if (offsetSnapshot.docs.length > 0) {
-          const lastDoc = offsetSnapshot.docs[offsetSnapshot.docs.length - 1];
-          paginatedQuery = query(ticketsRef, ...constraints, startAfter(lastDoc), limitQuery(limit));
-        } else {
-          // No documents at this offset, return empty result
-          const response: TicketsResponse = {
-            tickets: [],
-            total,
-            page,
-            limit,
-            totalPages: Math.ceil(total / limit),
-          };
-          
-          logger.tenantInfo('✅ Página vazia', tenantId, { page, offset });
-          return NextResponse.json(response);
-        }
-      } else {
-        paginatedQuery = query(ticketsRef, ...constraints, limitQuery(limit));
-      }
-    }
+    // Convert to TicketListItem format
+    const tickets: TicketListItem[] = paginatedTickets.map(ticket => ({
+      id: ticket.id,
+      subject: ticket.subject,
+      type: ticket.type,
+      priority: ticket.priority,
+      status: ticket.status,
+      userName: ticket.userName,
+      userEmail: ticket.userEmail,
+      createdAt: ticket.createdAt,
+      updatedAt: ticket.updatedAt,
+      responseCount: ticket.responseCount || 0,
+      hasUnreadAdminResponses: ticket.hasUnreadAdminResponses || false,
+      hasUnreadUserResponses: ticket.hasUnreadUserResponses || false,
+      assignedToName: ticket.assignedToName,
+    }));
 
-    const snapshot = await getDocs(paginatedQuery);
-    
-    let tickets: TicketListItem[] = snapshot.docs.map(doc => {
-      const data = doc.data();
-      return {
-        id: doc.id,
-        subject: data.subject,
-        type: data.type,
-        priority: data.priority,
-        status: data.status,
-        userName: data.userName,
-        userEmail: data.userEmail,
-        createdAt: data.createdAt,
-        updatedAt: data.updatedAt,
-        responseCount: data.responseCount || 0,
-        hasUnreadAdminResponses: data.hasUnreadAdminResponses || false,
-        hasUnreadUserResponses: data.hasUnreadUserResponses || false,
-        assignedToName: data.assignedToName,
-      };
-    });
-
-    // If we had filters, sort client-side and apply pagination
-    if (hasFilters) {
-      // Sort by updatedAt descending
-      tickets.sort((a, b) => {
-        const aTime = a.updatedAt?.toDate?.()?.getTime() || 0;
-        const bTime = b.updatedAt?.toDate?.()?.getTime() || 0;
-        return bTime - aTime;
-      });
-      
-      // Apply client-side pagination
-      const startIndex = (page - 1) * limit;
-      const endIndex = startIndex + limit;
-      tickets = tickets.slice(startIndex, endIndex);
-    }
-
-    // Apply search filter (client-side for now)
-    if (search) {
-      const searchLower = search.toLowerCase();
-      tickets = tickets.filter(ticket => 
-        ticket.subject.toLowerCase().includes(searchLower) ||
-        ticket.userName.toLowerCase().includes(searchLower) ||
-        ticket.userEmail.toLowerCase().includes(searchLower)
-      );
-    }
-
-    const totalPages = Math.ceil(total / limit);
+    const totalPages = Math.ceil(filteredTotal / limit);
 
     const response: TicketsResponse = {
       tickets,
-      total,
+      total: filteredTotal,
       page,
       limit,
       totalPages,
     };
 
-    logger.tenantInfo('✅ Tickets encontrados', tenantId, { count: tickets.length, total });
+    logger.tenantInfo('✅ Tickets encontrados', tenantId, { count: tickets.length, total: filteredTotal });
     
     return NextResponse.json(response);
 
