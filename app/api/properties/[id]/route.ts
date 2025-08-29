@@ -60,8 +60,9 @@ export async function PUT(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  let resolvedParams: { id: string } | undefined
   try {
-    const resolvedParams = await params
+    resolvedParams = await params
     if (!resolvedParams.id) {
       return NextResponse.json(
         { 
@@ -72,38 +73,15 @@ export async function PUT(
       )
     }
 
-    // ✅ LOG DE ENTRADA COM HEADERS DE AUTENTICAÇÃO
-    console.log('[🔍 API-REQUEST] Iniciando PUT request:', {
-      propertyId: resolvedParams.id,
-      hasAuthHeader: !!request.headers.get('authorization'),
-      hasTokenHeader: !!request.headers.get('x-firebase-token'),
-      contentType: request.headers.get('content-type'),
-      userAgent: request.headers.get('user-agent')?.substring(0, 50)
-    });
+    // Validação de entrada
 
     const body = await request.json();
 
-    // ✅ AUTENTICAÇÃO COM DEBUG MELHORADO
-    console.log('[🔍 API-AUTH] Validando autenticação...');
+    // Autenticação
     const authContext = await validateFirebaseAuth(request);
     
-    console.log('[🔍 API-AUTH] Resultado da autenticação:', {
-      authenticated: authContext.authenticated,
-      hasTenantId: !!authContext.tenantId,
-      hasUserId: !!authContext.userId,
-      tenantId: authContext.tenantId?.substring(0, 10) + '...'
-    });
-    
     if (!authContext.authenticated || !authContext.tenantId) {
-      console.warn('[⚠️ API-AUTH] Autenticação falhou', {
-        authenticated: authContext.authenticated,
-        hasTenantId: !!authContext.tenantId,
-        hasUserId: !!authContext.userId,
-        authHeaders: {
-          authorization: !!request.headers.get('authorization'),
-          firebaseToken: !!request.headers.get('x-firebase-token')
-        }
-      });
+      // Autenticação falhou
       return NextResponse.json(
         { 
           error: 'Authentication required', 
@@ -127,55 +105,13 @@ export async function PUT(
       )
     }
 
-    // Log dados recebidos para debug
-    console.log('[API] Update data received:', {
-      hasPhotos: !!body.photos,
-      photosCount: body.photos?.length || 0,
-      photosTypes: Array.isArray(body.photos) ? body.photos.map(p => typeof p) : 'not array',
-      hasVideos: !!body.videos,
-      videosCount: body.videos?.length || 0,
-      videosTypes: Array.isArray(body.videos) ? body.videos.map(v => typeof v) : 'not array',
-      bodyKeys: Object.keys(body)
-    });
+    // Validação dos dados recebidos
 
-    // ✅ VALIDAÇÃO MELHORADA COM DEBUG DETALHADO
-    console.log('[🔍 API-VALIDATION] Iniciando validação:', {
-      bodyKeys: Object.keys(body),
-      bodyTypes: Object.keys(body).reduce((acc, key) => {
-        acc[key] = typeof body[key];
-        return acc;
-      }, {}),
-      photosType: Array.isArray(body.photos) ? `array[${body.photos.length}]` : typeof body.photos,
-      videosType: Array.isArray(body.videos) ? `array[${body.videos.length}]` : typeof body.videos
-    });
-    
+    // Validação com schema
     const validationResult = UpdatePropertySchema.safeParse(body);
     
-    console.log('[🔍 API-VALIDATION] Resultado da validação:', {
-      success: validationResult.success,
-      errorCount: !validationResult.success ? Object.keys(validationResult.error.flatten().fieldErrors).length : 0,
-      errorFields: !validationResult.success ? Object.keys(validationResult.error.flatten().fieldErrors) : [],
-      firstError: !validationResult.success ? validationResult.error.issues[0] : null
-    });
-    
     if (!validationResult.success) {
-      console.error('[API] Validation failed:', {
-        error: validationResult.error.flatten(),
-        fieldErrors: validationResult.error.flatten().fieldErrors,
-        receivedData: {
-          title: body.title,
-          photosCount: body.photos?.length || 0,
-          photosData: body.photos?.map((p, index) => ({
-            index,
-            type: typeof p,
-            hasUrl: !!(typeof p === 'string' ? p : p?.url),
-            url: typeof p === 'string' ? p : p?.url,
-            urlLength: (typeof p === 'string' ? p : p?.url)?.length,
-            urlStartsWith: (typeof p === 'string' ? p : p?.url)?.substring(0, 50),
-            structure: typeof p === 'object' ? Object.keys(p || {}) : 'string'
-          }))
-        }
-      });
+      // Validação falhou
       
       return NextResponse.json(
         { 
@@ -213,23 +149,20 @@ export async function PUT(
             try {
               return sanitizeUserInput(a)
             } catch (err) {
-              console.warn('Error sanitizing amenity:', err);
+              // Error sanitizing amenity
               return String(a).trim().slice(0, 100); // Fallback seguro
             }
           })
       }
     } catch (sanitizeError) {
-      console.error('Error in sanitization process:', sanitizeError);
+      // Error in sanitization process
       // Continue sem sanitização se houver erro crítico
     }
     
     // ✅ MÍDIAS: Processamento simplificado e seguro
     try {
       if (validatedData.photos && Array.isArray(validatedData.photos)) {
-        console.log('[API] Processing photos:', {
-          count: validatedData.photos.length,
-          types: validatedData.photos.map(p => typeof p)
-        });
+        // Processing photos
 
         finalUpdate.photos = validatedData.photos
           .map(photo => {
@@ -238,7 +171,7 @@ export async function PUT(
               const url = typeof photo === 'string' ? photo : (photo && photo.url ? photo.url : null);
               return url && typeof url === 'string' && url.trim().length > 0 ? url.trim() : null;
             } catch (err) {
-              console.warn('Error processing photo:', err);
+              // Error processing photo
               return null;
             }
           })
@@ -246,10 +179,7 @@ export async function PUT(
       }
       
       if (validatedData.videos && Array.isArray(validatedData.videos)) {
-        console.log('[API] Processing videos:', {
-          count: validatedData.videos.length,
-          types: validatedData.videos.map(v => typeof v)
-        });
+        // Processing videos
 
         finalUpdate.videos = validatedData.videos
           .map(video => {
@@ -258,33 +188,24 @@ export async function PUT(
               const url = typeof video === 'string' ? video : (video && video.url ? video.url : null);
               return url && typeof url === 'string' && url.trim().length > 0 ? url.trim() : null;
             } catch (err) {
-              console.warn('Error processing video:', err);
+              // Error processing video
               return null;
             }
           })
           .filter(url => url && (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('blob:')));
       }
     } catch (mediaError) {
-      console.error('Error in media processing:', mediaError);
+      // Error in media processing
       // Continue without media updates if there's an error
     }
 
-    // ✅ UPDATE DIRETO: Uma única operação como no Dart
-    console.log('[API] About to update property with:', {
-      propertyId: resolvedParams.id,
-      updateFields: Object.keys(finalUpdate),
-      hasPhotos: !!finalUpdate.photos,
-      photosCount: finalUpdate.photos?.length || 0
-    });
+    // Atualização da propriedade
 
     try {
       await services.properties.update(resolvedParams.id, finalUpdate)
-      console.log('[API] Property update successful');
+      // Property update successful
     } catch (updateError) {
-      console.error('[API] Property update failed:', {
-        error: updateError,
-        updateData: JSON.stringify(finalUpdate, null, 2).substring(0, 500)
-      });
+      // Property update failed
       throw updateError; // Re-throw to trigger main error handler
     }
 
@@ -298,18 +219,7 @@ export async function PUT(
     })
 
   } catch (error) {
-    console.error('[API-PROPERTIES-UPDATE] Detailed error:', {
-      propertyId: resolvedParams?.id,
-      error: error instanceof Error ? {
-        name: error.name,
-        message: error.message,
-        stack: error.stack,
-        cause: error.cause
-      } : error,
-      errorString: String(error),
-      errorType: typeof error,
-      hasUpdate: typeof resolvedParams !== 'undefined'
-    });
+    // Erro na atualização da propriedade
     
     return handleApiError(error)
   }

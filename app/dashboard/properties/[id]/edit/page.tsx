@@ -289,19 +289,15 @@ export default function EditPropertyPage() {
 
     // If 401 and we haven't retried, try to refresh token and retry once
     if (response.status === 401 && retryCount === 0) {
-      console.log('🔄 [AUTH] Token expired, attempting refresh...');
       try {
         // Force token refresh using Firebase's forceRefresh
         const newToken = await getFirebaseToken(true); // Force refresh
         if (newToken && newToken !== token) {
-          console.log('✅ [AUTH] Token successfully refreshed, retrying request...');
           return makeAuthenticatedRequest(url, options, retryCount + 1);
         } else {
-          console.log('⚠️ [AUTH] Unable to refresh token, user may need to re-login');
           throw new Error('Token expired - please refresh the page or login again');
         }
       } catch (refreshError) {
-        console.error('❌ [AUTH] Token refresh failed:', refreshError);
         throw new Error('Authentication failed - please refresh page or login again');
       }
     }
@@ -318,19 +314,11 @@ export default function EditPropertyPage() {
       logger.info('Auto-saving property changes', { propertyId, fields: Object.keys(dirtyFields) });
 
       try {
-        console.log('🔍 [AUTO-SAVE DEBUG] Starting auto-save...');
-
         const autoSaveData = {
           ...data,
           updatedAt: new Date(),
           tenantId,
         };
-
-        console.log('🔍 [AUTO-SAVE DEBUG] Sending data:', {
-          propertyId,
-          dataKeys: Object.keys(autoSaveData),
-          dirtyFields: Object.keys(dirtyFields)
-        });
 
         const response = await makeAuthenticatedRequest(`/api/properties/${propertyId}`, {
           method: 'PUT',
@@ -403,26 +391,10 @@ export default function EditPropertyPage() {
       };
 
       const token = await getFirebaseToken();
-      console.log('🔍 [DEBUG] Token obtained:', { 
-        hasToken: !!token, 
-        tokenLength: token?.length,
-        tokenStart: token?.substring(0, 20) + '...'
-      });
       
       if (!token) {
         throw new Error('Token de autenticação não disponível');
       }
-
-      console.log('🔍 [DEBUG] Sending data:', {
-        propertyId,
-        dataKeys: Object.keys(processedData),
-        hasPhotos: !!processedData.photos,
-        photosCount: processedData.photos?.length,
-        hasVideos: !!processedData.videos,
-        videosCount: processedData.videos?.length,
-        titleLength: processedData.title?.length,
-        descriptionLength: processedData.description?.length
-      });
 
       const response = await makeAuthenticatedRequest(`/api/properties/${propertyId}`, {
         method: 'PUT',
