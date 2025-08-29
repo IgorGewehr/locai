@@ -173,6 +173,48 @@ interface CheckAvailabilityArgs {
   checkOut: string;
 }
 
+// Interface para verificar disponibilidade da agenda
+interface CheckAgendaAvailabilityArgs {
+  year: number;    // Ano (ex: 2025)
+  month: number;   // Mês (1-12)
+  day?: number;    // Dia opcional - se fornecido, retorna apenas esse dia
+}
+
+// Interface para slot ocupado na agenda
+interface OccupiedTimeSlot {
+  id: string;
+  date: string;           // YYYY-MM-DD
+  startTime: string;      // HH:MM
+  endTime: string;        // HH:MM (calculado baseado em duration)
+  duration: number;       // Em minutos
+  title: string;          // Título do evento/visita
+  clientName: string;
+  clientPhone?: string;
+  type: 'meeting' | 'visit' | 'blocked';  // Tipo do evento
+  status: string;         // Status da agenda
+  notes?: string;
+}
+
+// Interface para resposta de disponibilidade da agenda
+interface AgendaAvailabilityResponse {
+  success: boolean;
+  date?: string;              // Data consultada (se day fornecido)
+  month?: string;             // Mês consultado (se day não fornecido)
+  occupiedSlots: OccupiedTimeSlot[];
+  totalOccupied: number;
+  availableSuggestions?: string[];  // Horários livres sugeridos
+  workingHours?: {
+    start: string;            // Horário de início do trabalho
+    end: string;              // Horário de fim do trabalho
+    lunchBreak?: {
+      start: string;
+      end: string;
+    };
+  };
+  error?: string;
+  tenantId: string;
+}
+
 // Função para criar transação financeira
 interface CreateTransactionArgs {
   reservationId: string;
@@ -6543,6 +6585,197 @@ export async function generateInsights(args: GenerateInsightsArgs, tenantId: str
   }
 }
 
+// Função para verificar disponibilidade da agenda
+export async function checkAgendaAvailability(args: CheckAgendaAvailabilityArgs, tenantId: string): Promise<AgendaAvailabilityResponse> {
+  try {
+    logger.info('📅 [CheckAgendaAvailability] Verificando disponibilidade da agenda', {
+      tenantId: tenantId.substring(0, 8) + '***',
+      year: args.year,
+      month: args.month,
+      day: args.day,
+      requestType: args.day ? 'single_day' : 'full_month'
+    });
+
+    const serviceFactory = new TenantServiceFactory(tenantId);
+    const visitService = serviceFactory.get<VisitAppointment>('visits');
+
+    // Configurar range de datas baseado nos parâmetros
+    let startDate: Date;
+    let endDate: Date;
+    let queryLabel: string;
+
+    if (args.day) {
+      // Consulta de um dia específico
+      startDate = new Date(args.year, args.month - 1, args.day, 0, 0, 0);
+      endDate = new Date(args.year, args.month - 1, args.day, 23, 59, 59);
+      queryLabel = startDate.toLocaleDateString('pt-BR');
+    } else {
+      // Consulta de mês completo
+      startDate = new Date(args.year, args.month - 1, 1, 0, 0, 0);
+      endDate = new Date(args.year, args.month, 0, 23, 59, 59); // Último dia do mês
+      queryLabel = `${args.month.toString().padStart(2, '0')}/${args.year}`;
+    }
+
+    logger.info('🔍 [CheckAgendaAvailability] Range de consulta definido', {
+      tenantId: tenantId.substring(0, 8) + '***',
+      startDate: startDate.toISOString(),
+      endDate: endDate.toISOString(),
+      queryLabel
+    });
+
+    // Buscar todos os agendamentos no período
+    // Considera apenas status ativos: scheduled, confirmed, in_progress
+    const activeStatuses = ['scheduled', 'confirmed', 'in_progress'];
+    
+    const appointments = await visitService.getMany([
+      { field: 'tenantId', operator: '==', value: tenantId },
+      { field: 'scheduledDate', operator: '>=', value: startDate },
+      { field: 'scheduledDate', operator: '<=', value: endDate },
+      { field: 'status', operator: 'in', value: activeStatuses }
+    ]) as VisitAppointment[];
+
+    logger.info('📊 [CheckAgendaAvailability] Agendamentos encontrados', {
+      tenantId: tenantId.substring(0, 8) + '***',
+      totalAppointments: appointments.length,
+      dateRange: queryLabel,
+      activeStatuses
+    });
+
+    // Processar agendamentos em slots ocupados
+    const occupiedSlots: OccupiedTimeSlot[] = appointments.map(appointment => {
+      const date = new Date(appointment.scheduledDate);
+      const startTime = appointment.scheduledTime;
+      const duration = appointment.duration || 60; // Default 60 min
+      
+      // Calcular endTime baseado na duração
+      const [startHour, startMinute] = startTime.split(':').map(Number);
+      const totalMinutes = startHour * 60 + startMinute + duration;
+      const endHour = Math.floor(totalMinutes / 60) % 24;
+      const endMinute = totalMinutes % 60;
+      const endTime = `${endHour.toString().padStart(2, '0')}:${endMinute.toString().padStart(2, '0')}`;
+
+      // Determinar tipo baseado no propertyId
+      const type: 'meeting' | 'visit' | 'blocked' = 
+        appointment.propertyId === 'GENERIC_EVENT' ? 'meeting' : 'visit';
+
+      return {
+        id: appointment.id,
+        date: date.toISOString().split('T')[0], // YYYY-MM-DD
+        startTime: startTime,
+        endTime: endTime,
+        duration: duration,
+        title: appointment.propertyId === 'GENERIC_EVENT' 
+          ? (appointment.propertyName || 'Reunião') 
+          : `Visita - ${appointment.propertyName}`,
+        clientName: appointment.clientName,
+        clientPhone: appointment.clientPhone,
+        type: type,
+        status: appointment.status,
+        notes: appointment.notes
+      };
+    });
+
+    // Ordenar slots por data e horário
+    occupiedSlots.sort((a, b) => {
+      const dateCompare = a.date.localeCompare(b.date);
+      if (dateCompare !== 0) return dateCompare;
+      return a.startTime.localeCompare(b.startTime);
+    });
+
+    // Gerar sugestões de horários livres (apenas para consulta de dia específico)
+    let availableSuggestions: string[] | undefined;
+    if (args.day) {
+      availableSuggestions = generateAvailableTimeSlots(occupiedSlots, args.day);
+    }
+
+    // Horário de trabalho padrão (configurável por tenant futuramente)
+    const workingHours = {
+      start: '08:00',
+      end: '18:00',
+      lunchBreak: {
+        start: '12:00',
+        end: '13:00'
+      }
+    };
+
+    const response: AgendaAvailabilityResponse = {
+      success: true,
+      date: args.day ? queryLabel : undefined,
+      month: !args.day ? queryLabel : undefined,
+      occupiedSlots,
+      totalOccupied: occupiedSlots.length,
+      availableSuggestions,
+      workingHours,
+      tenantId
+    };
+
+    logger.info('✅ [CheckAgendaAvailability] Consulta concluída com sucesso', {
+      tenantId: tenantId.substring(0, 8) + '***',
+      queryLabel,
+      totalOccupied: occupiedSlots.length,
+      hasSuggestions: !!availableSuggestions,
+      suggestionsCount: availableSuggestions?.length || 0
+    });
+
+    return response;
+
+  } catch (error) {
+    logger.error('❌ [CheckAgendaAvailability] Erro ao verificar disponibilidade da agenda', {
+      error: error instanceof Error ? error.message : 'Unknown error',
+      tenantId: tenantId.substring(0, 8) + '***',
+      args
+    });
+    return {
+      success: false,
+      occupiedSlots: [],
+      totalOccupied: 0,
+      error: 'Erro ao verificar disponibilidade da agenda',
+      tenantId
+    };
+  }
+}
+
+// Função auxiliar para gerar sugestões de horários livres
+function generateAvailableTimeSlots(occupiedSlots: OccupiedTimeSlot[], day: number): string[] {
+  const workStartHour = 8;  // 08:00
+  const workEndHour = 18;   // 18:00
+  const lunchStartHour = 12; // 12:00
+  const lunchEndHour = 13;   // 13:00
+  const slotDuration = 60;   // 60 minutos por slot
+  
+  const suggestions: string[] = [];
+  
+  // Gerar todos os slots possíveis de trabalho (excluindo almoço)
+  for (let hour = workStartHour; hour < workEndHour; hour++) {
+    // Pular horário de almoço
+    if (hour >= lunchStartHour && hour < lunchEndHour) {
+      continue;
+    }
+    
+    const timeSlot = `${hour.toString().padStart(2, '0')}:00`;
+    
+    // Verificar se o slot está ocupado
+    const isOccupied = occupiedSlots.some(slot => {
+      if (slot.date !== new Date().toISOString().split('T')[0]) return false;
+      
+      const slotStart = hour;
+      const slotEnd = hour + 1;
+      
+      const [occupiedStartHour] = slot.startTime.split(':').map(Number);
+      const [occupiedEndHour] = slot.endTime.split(':').map(Number);
+      
+      // Verificar sobreposição
+      return !(slotEnd <= occupiedStartHour || slotStart >= occupiedEndHour);
+    });
+    
+    if (!isOccupied) {
+      suggestions.push(timeSlot);
+    }
+  }
+  
+  return suggestions;
+}
+
 // Executar função baseada no nome
 export async function executeTenantAwareFunction(
   functionName: string, 
@@ -6626,6 +6859,9 @@ export async function executeTenantAwareFunction(
     
     case 'check_availability':
       return await checkAvailability(args, tenantId);
+    
+    case 'check_agenda_availability':
+      return await checkAgendaAvailability(args, tenantId);
     
     case 'schedule_meeting':
       return await scheduleMeeting(args, tenantId);
