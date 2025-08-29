@@ -56,7 +56,7 @@ interface LeadInsights {
   competitiveAnalysis: {
     likelyCompetitors: string[];
     differentiators: string[];
-    pricing Strategy: string;
+    pricingStrategy: string;
     urgencyFactors: string[];
   };
   personalization: {

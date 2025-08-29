@@ -76,7 +76,8 @@
       "Bash(then)",
       "Bash(fi)",
       "Bash(python3:*)",
-      "Bash(npx eslint:*)"
+      "Bash(npx eslint:*)",
+      "Read(/tmp/**)"
     ],
     "deny": [],
     "defaultMode": "acceptEdits",

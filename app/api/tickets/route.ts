@@ -54,34 +54,63 @@ export async function GET(request: NextRequest) {
 
     // Build query
     const ticketsRef = collection(db, `tenants/${tenantId}/tickets`);
-    const constraints: any[] = [orderBy('updatedAt', 'desc')];
+    const constraints: any[] = [];
 
-    // Apply filters
+    // Apply filters - Note: Firestore requires composite indexes for multiple filters with orderBy
+    // For now, we'll prioritize filtering and do sorting client-side if needed
+    let hasFilters = false;
+    
     if (status && status.length > 0) {
       constraints.push(where('status', 'in', status));
+      hasFilters = true;
     }
     
     if (priority && priority.length > 0) {
       constraints.push(where('priority', 'in', priority));
+      hasFilters = true;
     }
     
     if (type && type.length > 0) {
       constraints.push(where('type', 'in', type));
+      hasFilters = true;
     }
     
     if (assignedTo) {
       constraints.push(where('assignedTo', '==', assignedTo));
+      hasFilters = true;
     }
     
     if (userId) {
       constraints.push(where('userId', '==', userId));
+      hasFilters = true;
+    }
+
+    // Only add orderBy if no other filters (to avoid index requirement)
+    // Or add it with filters if indexes are created
+    if (!hasFilters) {
+      constraints.push(orderBy('updatedAt', 'desc'));
     }
 
     let ticketQuery = query(ticketsRef, ...constraints);
 
-    // Get total count
-    const countSnapshot = await getCountFromServer(ticketQuery);
-    const total = countSnapshot.data().count;
+    // Get total count - use a simpler query if we have complex constraints
+    let total = 0;
+    try {
+      if (hasFilters) {
+        // For filtered queries, get all documents and count them
+        const countSnapshot = await getDocs(ticketQuery);
+        total = countSnapshot.docs.length;
+      } else {
+        // For unfiltered queries, use the count server method
+        const countSnapshot = await getCountFromServer(ticketQuery);
+        total = countSnapshot.data().count;
+      }
+    } catch (error) {
+      // Fallback to getting all docs if count fails
+      logger.tenantWarn('⚠️ Count query failed, usando fallback', tenantId, { error: error.message });
+      const countSnapshot = await getDocs(query(ticketsRef, where('userId', '==', userId)));
+      total = countSnapshot.docs.length;
+    }
     
     // If no tickets, return empty result
     if (total === 0) {
@@ -97,33 +126,38 @@ export async function GET(request: NextRequest) {
       return NextResponse.json(response);
     }
 
-    // Apply pagination
-    const offset = (page - 1) * limit;
+    // Apply pagination - simple limit approach since we're not using orderBy with filters
     let paginatedQuery;
     
-    if (offset > 0) {
-      // For pagination, we need to get the document at the offset position
-      const offsetQuery = query(ticketsRef, ...constraints, limitQuery(offset));
-      const offsetSnapshot = await getDocs(offsetQuery);
-      
-      if (offsetSnapshot.docs.length > 0) {
-        const lastDoc = offsetSnapshot.docs[offsetSnapshot.docs.length - 1];
-        paginatedQuery = query(ticketsRef, ...constraints, startAfter(lastDoc), limitQuery(limit));
-      } else {
-        // No documents at this offset, return empty result
-        const response: TicketsResponse = {
-          tickets: [],
-          total,
-          page,
-          limit,
-          totalPages: Math.ceil(total / limit),
-        };
-        
-        logger.tenantInfo('✅ Página vazia', tenantId, { page, offset });
-        return NextResponse.json(response);
-      }
+    if (hasFilters) {
+      // With filters, use simple limit (sorting will be done client-side)
+      paginatedQuery = query(ticketsRef, ...constraints, limitQuery(limit * page));
     } else {
-      paginatedQuery = query(ticketsRef, ...constraints, limitQuery(limit));
+      // No filters, can use proper pagination with orderBy
+      const offset = (page - 1) * limit;
+      if (offset > 0) {
+        const offsetQuery = query(ticketsRef, ...constraints, limitQuery(offset));
+        const offsetSnapshot = await getDocs(offsetQuery);
+        
+        if (offsetSnapshot.docs.length > 0) {
+          const lastDoc = offsetSnapshot.docs[offsetSnapshot.docs.length - 1];
+          paginatedQuery = query(ticketsRef, ...constraints, startAfter(lastDoc), limitQuery(limit));
+        } else {
+          // No documents at this offset, return empty result
+          const response: TicketsResponse = {
+            tickets: [],
+            total,
+            page,
+            limit,
+            totalPages: Math.ceil(total / limit),
+          };
+          
+          logger.tenantInfo('✅ Página vazia', tenantId, { page, offset });
+          return NextResponse.json(response);
+        }
+      } else {
+        paginatedQuery = query(ticketsRef, ...constraints, limitQuery(limit));
+      }
     }
 
     const snapshot = await getDocs(paginatedQuery);
@@ -146,6 +180,21 @@ export async function GET(request: NextRequest) {
         assignedToName: data.assignedToName,
       };
     });
+
+    // If we had filters, sort client-side and apply pagination
+    if (hasFilters) {
+      // Sort by updatedAt descending
+      tickets.sort((a, b) => {
+        const aTime = a.updatedAt?.toDate?.()?.getTime() || 0;
+        const bTime = b.updatedAt?.toDate?.()?.getTime() || 0;
+        return bTime - aTime;
+      });
+      
+      // Apply client-side pagination
+      const startIndex = (page - 1) * limit;
+      const endIndex = startIndex + limit;
+      tickets = tickets.slice(startIndex, endIndex);
+    }
 
     // Apply search filter (client-side for now)
     if (search) {
@@ -172,13 +221,25 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(response);
 
   } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    const errorStack = error instanceof Error ? error.stack : undefined;
+    
     if (tenantId) {
-      logger.tenantError('❌ Erro ao buscar tickets', error as Error, tenantId, { endpoint: 'GET /api/tickets' });
+      logger.tenantError('❌ Erro ao buscar tickets', error as Error, tenantId, { 
+        endpoint: 'GET /api/tickets',
+        errorMessage,
+        errorStack
+      });
     } else {
-      logger.error('❌ Erro ao buscar tickets - sem tenantId', error as Error, { endpoint: 'GET /api/tickets' });
+      logger.error('❌ Erro ao buscar tickets - sem tenantId', error as Error, { 
+        endpoint: 'GET /api/tickets',
+        errorMessage,
+        errorStack
+      });
     }
+    
     return NextResponse.json(
-      { error: 'Erro interno do servidor' },
+      { error: 'Erro interno do servidor', details: errorMessage },
       { status: 500 }
     );
   }

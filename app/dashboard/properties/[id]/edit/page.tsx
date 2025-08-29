@@ -47,7 +47,7 @@ import {
   Star,
   Image,
   Settings,
-  AutoSave,
+  CloudSync,
   CloudDone,
   History,
   Edit,
@@ -502,7 +502,7 @@ export default function EditPropertyPage() {
                     size="small"
                     label="Salvando automaticamente..."
                     color="info"
-                    icon={<AutoSave />}
+                    icon={<CloudSync />}
                   />
                 )}
               </Box>
@@ -723,7 +723,7 @@ export default function EditPropertyPage() {
                 {saveHistory.slice(-3).map((save, index) => (
                   <ListItem key={index}>
                     <ListItemIcon>
-                      {save.type === 'auto' ? <AutoSave fontSize="small" /> : <Save fontSize="small" />}
+                      {save.type === 'auto' ? <CloudSync fontSize="small" /> : <Save fontSize="small" />}
                     </ListItemIcon>
                     <ListItemText
                       primary={`${save.type === 'auto' ? 'Automático' : 'Manual'}`}
