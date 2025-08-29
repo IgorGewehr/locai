@@ -36,6 +36,7 @@ import { PaymentMethod } from '@/lib/types/common';
 import { useTenant } from '@/contexts/TenantContext';
 import { propertyService } from '@/lib/services/property-service';
 import { generateLocationField } from '@/lib/utils/locationUtils';
+import { logger } from '@/lib/utils/logger';
 
 const steps = [
   'Informações Básicas',
@@ -54,17 +55,20 @@ const propertyTypes = [
 ];
 
 const propertySchema = yup.object().shape({
-  title: yup.string().required('Título é obrigatório'),
+  // Apenas descrição e preço médio são obrigatórios segundo CLAUDE.md
   description: yup.string().required('Descrição é obrigatória'),
-  address: yup.string().required('Endereço é obrigatório'),
-  category: yup.string().oneOf(Object.values(PropertyCategory)).required('Categoria é obrigatória'),
-  bedrooms: yup.number().min(1, 'Deve ter pelo menos 1 quarto').required('Número de quartos é obrigatório'),
-  bathrooms: yup.number().min(1, 'Deve ter pelo menos 1 banheiro').required('Número de banheiros é obrigatório'),
-  maxGuests: yup.number().min(1, 'Deve acomodar pelo menos 1 hóspede').required('Número máximo de hóspedes é obrigatório'),
   basePrice: yup.number().min(1, 'Preço deve ser maior que 0').required('Preço base é obrigatório'),
-  pricePerExtraGuest: yup.number().min(0, 'Preço não pode ser negativo'),
-  minimumNights: yup.number().min(1, 'Deve ter pelo menos 1 noite').required('Número mínimo de noites é obrigatório'),
-  cleaningFee: yup.number().min(0, 'Taxa não pode ser negativa'),
+  
+  // Outros campos opcionais com defaults
+  title: yup.string().default(''),
+  address: yup.string().default(''),
+  category: yup.string().oneOf(Object.values(PropertyCategory)).default(PropertyCategory.APARTMENT),
+  bedrooms: yup.number().min(0).default(1),
+  bathrooms: yup.number().min(0).default(1),
+  maxGuests: yup.number().min(1).default(1),
+  pricePerExtraGuest: yup.number().min(0).default(0),
+  minimumNights: yup.number().min(1).default(1),
+  cleaningFee: yup.number().min(0).default(0),
   
   // Analytics fields
   status: yup.string().oneOf(Object.values(PropertyStatus)).default(PropertyStatus.ACTIVE),
@@ -94,9 +98,8 @@ const propertySchema = yup.object().shape({
     [PaymentMethod.BANK_SLIP]: 0,
     [PaymentMethod.STRIPE]: 0,
   }),
-  photos: yup.array().min(1, 'Deve ter pelo menos 1 foto').required('Pelo menos uma foto é obrigatória'),
+  photos: yup.array().default([]),
   videos: yup.array().default([]),
-  unavailableDates: yup.array().default([]),
   customPricing: yup.object().default({}),
   isActive: yup.boolean().default(true),
   
@@ -138,7 +141,6 @@ export default function CreatePropertyPage() {
       amenities: [],
       photos: [],
       videos: [],
-      unavailableDates: [],
       customPricing: {},
       // Booleans
       isFeatured: false,
@@ -179,16 +181,16 @@ export default function CreatePropertyPage() {
 
   const validateStep = async (step: number): Promise<boolean> => {
     switch (step) {
-      case 0: // Basic Info
-        return await trigger(['title', 'description', 'category', 'address']);
-      case 1: // Specs
-        return await trigger(['bedrooms', 'bathrooms', 'maxGuests']);
-      case 2: // Amenities
-        return true; // Optional
-      case 3: // Pricing
-        return await trigger(['basePrice', 'minimumNights']);
-      case 4: // Media
-        return await trigger(['photos']);
+      case 0: // Basic Info - apenas description é obrigatória
+        return await trigger(['description']);
+      case 1: // Specs - tudo opcional
+        return true;
+      case 2: // Amenities - opcional
+        return true;
+      case 3: // Pricing - apenas basePrice é obrigatório
+        return await trigger(['basePrice']);
+      case 4: // Media - opcional
+        return true;
       default:
         return true;
     }
@@ -204,16 +206,6 @@ export default function CreatePropertyPage() {
     setError(null);
 
     try {
-      console.log('[CreateProperty] Form data received:', {
-        title: data.title,
-        photosCount: data.photos?.length || 0,
-        photosData: data.photos?.map(p => ({
-          id: p.id,
-          filename: p.filename,
-          urlType: (p.url && p.url.includes('firebasestorage.googleapis.com')) ? 'firebase' : ((p.url && p.url.startsWith('blob:')) ? 'blob' : 'other'),
-          urlPreview: (p.url || '').substring(0, 50) + '...'
-        }))
-      });
 
       // Ensure all payment methods have valid values (no undefined)
       const cleanPaymentMethodSurcharges = {
@@ -229,33 +221,45 @@ export default function CreatePropertyPage() {
       // Create property using PropertyService with enhanced logging
       const propertyData = {
         ...data,
-        paymentMethodSurcharges: cleanPaymentMethodSurcharges,
-        pricingRules,
-        // Ensure required fields have proper defaults
-        status: data.status || PropertyStatus.ACTIVE,
-        type: data.type || PropertyType.RESIDENTIAL,
+        // Garantir que campos string nunca sejam undefined
+        title: data.title || '',
+        address: data.address || '',
         neighborhood: data.neighborhood || '',
         city: data.city || '',
-        capacity: data.capacity || data.maxGuests,
+        // Garantir outros campos obrigatórios
+        paymentMethodSurcharges: cleanPaymentMethodSurcharges,
+        pricingRules,
+        status: data.status || PropertyStatus.ACTIVE,
+        type: data.type || PropertyType.RESIDENTIAL,
+        capacity: data.capacity || data.maxGuests || 1,
         advancePaymentPercentage: data.advancePaymentPercentage || 0,
+        // Optional surcharges with validation
+        weekendSurcharge: Number(data.weekendSurcharge) || 0,
+        holidaySurcharge: Number(data.holidaySurcharge) || 0,
+        decemberSurcharge: Number(data.decemberSurcharge) || 0,
+        highSeasonSurcharge: Number(data.highSeasonSurcharge) || 0,
+        highSeasonMonths: Array.isArray(data.highSeasonMonths) ? data.highSeasonMonths.filter(m => m && typeof m === 'string') : [],
         // Generate concatenated location field for search
         location: generateLocationField({
-          address: data.address,
-          neighborhood: data.neighborhood,
-          city: data.city,
-          title: data.title,
-          description: data.description
+          address: data.address || '',
+          neighborhood: data.neighborhood || '',
+          city: data.city || '',
+          title: data.title || '',
+          description: data.description || ''
         }),
         // Clean arrays and filter invalid URLs
-        photos: (data.photos || []).filter(photo => 
-          photo && photo.url && photo.url.includes('firebasestorage.googleapis.com')
-        ),
-        videos: (data.videos || []).filter(video => 
-          video && video.url && video.url.includes('firebasestorage.googleapis.com')
-        ),
-        amenities: data.amenities || [],
-        unavailableDates: data.unavailableDates || [],
-        customPricing: data.customPricing || {},
+        photos: (Array.isArray(data.photos) ? data.photos : []).filter(photo => {
+          if (!photo) return false;
+          const url = typeof photo === 'string' ? photo : (photo?.url || '');
+          return url && typeof url === 'string' && url.length > 0 && url.includes('firebasestorage.googleapis.com');
+        }),
+        videos: (Array.isArray(data.videos) ? data.videos : []).filter(video => {
+          if (!video) return false;
+          const url = typeof video === 'string' ? video : (video?.url || '');
+          return url && typeof url === 'string' && url.length > 0 && url.includes('firebasestorage.googleapis.com');
+        }),
+        amenities: Array.isArray(data.amenities) ? data.amenities.filter(a => a && typeof a === 'string') : [],
+        customPricing: data.customPricing && typeof data.customPricing === 'object' ? data.customPricing : {},
         // Timestamps
         createdAt: new Date(),
         updatedAt: new Date(),
@@ -264,7 +268,7 @@ export default function CreatePropertyPage() {
       // Use PropertyService instead of direct tenant service for enhanced logging
       const propertyId = await propertyService.create(propertyData, tenantId);
       
-      console.log('[CreateProperty] Property created successfully', { propertyId });
+      logger.info('Property created successfully', { propertyId, tenantId });
       
       if (propertyId) {
         router.push(`/dashboard/properties/${propertyId}`);

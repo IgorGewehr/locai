@@ -79,12 +79,12 @@ export default function HelpPage() {
     const [openDialog, setOpenDialog] = useState(false);
     const [newResponse, setNewResponse] = useState("");
 
-    const { tenant } = useTenant();
+    const { tenantId } = useTenant();
     const { user } = useAuth();
 
     // Carregar tickets do usuário
     const loadUserTickets = async () => {
-        if (!user?.uid || !tenant?.id) {
+        if (!user?.uid || !tenantId) {
             logger.warn('Usuário ou tenant não encontrado');
             return;
         }
@@ -93,9 +93,9 @@ export default function HelpPage() {
         setError('');
 
         try {
-            logger.info('🎫 Carregando tickets do usuário', { userId: user.uid, tenantId: tenant.id });
+            logger.info('🎫 Carregando tickets do usuário', { userId: user.uid, tenantId: tenantId });
             
-            const response = await ticketService.getUserTickets(tenant.id, user.uid);
+            const response = await ticketService.getUserTickets(tenantId, user.uid);
             setTickets(response.tickets);
             
             logger.info('✅ Tickets carregados', { count: response.tickets.length });
@@ -118,16 +118,16 @@ export default function HelpPage() {
             userUid: user?.uid,
             userName: user?.name,
             userEmail: user?.email,
-            hasTenant: !!tenant,
-            tenantId: tenant?.id,
+            hasTenant: !!tenantId,
+            tenantId: tenantId,
             subject: newTicket.subject?.trim(),
             content: newTicket.content?.trim()
         });
         
-        if (!user?.uid || !tenant?.id || !newTicket.subject.trim() || !newTicket.content.trim()) {
+        if (!user?.uid || !tenantId || !newTicket.subject.trim() || !newTicket.content.trim()) {
             logger.warn('⚠️ Validação falhou no handleSubmit', {
                 missingUser: !user?.uid,
-                missingTenant: !tenant?.id,
+                missingTenant: !tenantId,
                 missingSubject: !newTicket.subject.trim(),
                 missingContent: !newTicket.content.trim()
             });
@@ -141,7 +141,7 @@ export default function HelpPage() {
             logger.info('🎫 Enviando novo ticket', { subject: newTicket.subject });
 
             await ticketService.createTicket(
-                tenant.id,
+                tenantId,
                 user.uid,
                 user.name || user.email,
                 user.email,
@@ -176,20 +176,20 @@ export default function HelpPage() {
 
     // Abrir ticket
     const handleTicketClick = async (ticket: TicketListItem) => {
-        if (!tenant?.id) return;
+        if (!tenantId) return;
 
         setLoadingTicket(true);
         try {
             logger.info('🔔 Abrindo ticket', { ticketId: ticket.id });
             
-            const response = await ticketService.getTicketDetail(tenant.id, ticket.id);
+            const response = await ticketService.getTicketDetail(tenantId, ticket.id);
             setSelectedTicket(response.ticket);
             setOpenDialog(true);
 
             // Marcar como lido se há respostas não lidas
             if (ticket.hasUnreadAdminResponses) {
                 try {
-                    await ticketService.markAsRead(tenant.id, ticket.id, user.isAdmin || false);
+                    await ticketService.markAsRead(tenantId, ticket.id, user.isAdmin || false);
                     await loadUserTickets();
                 } catch (error) {
                     logger.error('❌ Erro ao marcar como lido', { error: error.message });
@@ -205,12 +205,12 @@ export default function HelpPage() {
 
     // Enviar resposta
     const handleSendResponse = async () => {
-        if (!newResponse.trim() || !selectedTicket || !tenant?.id || !user?.uid) return;
+        if (!newResponse.trim() || !selectedTicket || !tenantId || !user?.uid) return;
 
         try {
             logger.info('📤 Enviando resposta do usuário');
 
-            await ticketService.addResponse(tenant.id, selectedTicket.id, {
+            await ticketService.addResponse(tenantId, selectedTicket.id, {
                 content: newResponse.trim(),
                 isAdmin: user.isAdmin || false, // Use the computed property
                 authorId: user.uid,
@@ -221,7 +221,7 @@ export default function HelpPage() {
             setNewResponse("");
 
             // Recarregar ticket
-            const response = await ticketService.getTicketDetail(tenant.id, selectedTicket.id);
+            const response = await ticketService.getTicketDetail(tenantId, selectedTicket.id);
             setSelectedTicket(response.ticket);
             
             // Recarregar lista de tickets
@@ -234,10 +234,10 @@ export default function HelpPage() {
 
     // Carregar dados ao montar componente
     useEffect(() => {
-        if (user?.uid && tenant?.id) {
+        if (user?.uid && tenantId) {
             loadUserTickets();
         }
-    }, [user?.uid, tenant?.id]);
+    }, [user?.uid, tenantId]);
 
     // Funções auxiliares
     const getTypeIcon = (type: string) => {

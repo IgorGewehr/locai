@@ -10,13 +10,15 @@ export async function POST(request: NextRequest) {
   
   try {
     // Verify authentication
-    const authResult = await authService.requireAuth(request);
-    if (authResult instanceof NextResponse) {
-      return authResult; // Auth failed, return error response
+    const authContext = await validateFirebaseAuth(request);
+    if (!authContext.authenticated || !authContext.tenantId) {
+      return NextResponse.json(
+        { error: 'Authentication required', code: 'UNAUTHORIZED' },
+        { status: 401 }
+      );
     }
 
-    const { user } = authResult;
-    const tenantId = user.tenantId;
+    const tenantId = authContext.tenantId;
     
     const formData = await request.formData();
     const files = formData.getAll('files') as File[];

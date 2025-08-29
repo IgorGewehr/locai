@@ -50,7 +50,7 @@ export class TicketService {
       
       return result;
     } catch (error) {
-      logger.tenantError('❌ Erro ao criar ticket', error, tenantId, { service: 'TicketService.createTicket' });
+      logger.tenantError('❌ Erro ao criar ticket', error as Error, tenantId, { service: 'TicketService.createTicket' });
       throw error;
     }
   }
@@ -103,7 +103,7 @@ export class TicketService {
       
       return result;
     } catch (error) {
-      logger.tenantError('❌ Erro ao buscar tickets', error, tenantId, { service: 'TicketService.getTickets' });
+      logger.tenantError('❌ Erro ao buscar tickets', error as Error, tenantId, { service: 'TicketService.getTickets' });
       throw error;
     }
   }

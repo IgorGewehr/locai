@@ -12,7 +12,6 @@ import {
   getCountFromServer
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase/config';
-import { useTenant } from '@/contexts/TenantContext';
 import { 
   Ticket, 
   CreateTicketRequest, 
@@ -24,9 +23,11 @@ import { logger } from '@/lib/utils/logger';
 
 // GET /api/tickets - List tickets with filters and pagination
 export async function GET(request: NextRequest) {
+  let tenantId: string | null = null;
+  
   try {
     const { searchParams } = new URL(request.url);
-    const tenantId = searchParams.get('tenantId');
+    tenantId = searchParams.get('tenantId');
     
     if (!tenantId) {
       return NextResponse.json(
@@ -53,49 +54,79 @@ export async function GET(request: NextRequest) {
 
     // Build query
     const ticketsRef = collection(db, `tenants/${tenantId}/tickets`);
-    let ticketQuery = query(ticketsRef, orderBy('updatedAt', 'desc'));
+    const constraints: any[] = [orderBy('updatedAt', 'desc')];
 
     // Apply filters
     if (status && status.length > 0) {
-      ticketQuery = query(ticketQuery, where('status', 'in', status));
+      constraints.push(where('status', 'in', status));
     }
     
     if (priority && priority.length > 0) {
-      ticketQuery = query(ticketQuery, where('priority', 'in', priority));
+      constraints.push(where('priority', 'in', priority));
     }
     
     if (type && type.length > 0) {
-      ticketQuery = query(ticketQuery, where('type', 'in', type));
+      constraints.push(where('type', 'in', type));
     }
     
     if (assignedTo) {
-      ticketQuery = query(ticketQuery, where('assignedTo', '==', assignedTo));
+      constraints.push(where('assignedTo', '==', assignedTo));
     }
     
     if (userId) {
-      ticketQuery = query(ticketQuery, where('userId', '==', userId));
+      constraints.push(where('userId', '==', userId));
     }
+
+    let ticketQuery = query(ticketsRef, ...constraints);
 
     // Get total count
     const countSnapshot = await getCountFromServer(ticketQuery);
     const total = countSnapshot.data().count;
+    
+    // If no tickets, return empty result
+    if (total === 0) {
+      const response: TicketsResponse = {
+        tickets: [],
+        total: 0,
+        page,
+        limit,
+        totalPages: 0,
+      };
+      
+      logger.tenantInfo('✅ Nenhum ticket encontrado', tenantId);
+      return NextResponse.json(response);
+    }
 
     // Apply pagination
     const offset = (page - 1) * limit;
+    let paginatedQuery;
+    
     if (offset > 0) {
       // For pagination, we need to get the document at the offset position
-      const offsetQuery = query(ticketQuery, limitQuery(offset));
+      const offsetQuery = query(ticketsRef, ...constraints, limitQuery(offset));
       const offsetSnapshot = await getDocs(offsetQuery);
-      const lastDoc = offsetSnapshot.docs[offsetSnapshot.docs.length - 1];
       
-      if (lastDoc) {
-        ticketQuery = query(ticketQuery, startAfter(lastDoc), limitQuery(limit));
+      if (offsetSnapshot.docs.length > 0) {
+        const lastDoc = offsetSnapshot.docs[offsetSnapshot.docs.length - 1];
+        paginatedQuery = query(ticketsRef, ...constraints, startAfter(lastDoc), limitQuery(limit));
+      } else {
+        // No documents at this offset, return empty result
+        const response: TicketsResponse = {
+          tickets: [],
+          total,
+          page,
+          limit,
+          totalPages: Math.ceil(total / limit),
+        };
+        
+        logger.tenantInfo('✅ Página vazia', tenantId, { page, offset });
+        return NextResponse.json(response);
       }
     } else {
-      ticketQuery = query(ticketQuery, limitQuery(limit));
+      paginatedQuery = query(ticketsRef, ...constraints, limitQuery(limit));
     }
 
-    const snapshot = await getDocs(ticketQuery);
+    const snapshot = await getDocs(paginatedQuery);
     
     let tickets: TicketListItem[] = snapshot.docs.map(doc => {
       const data = doc.data();
@@ -141,7 +172,11 @@ export async function GET(request: NextRequest) {
     return NextResponse.json(response);
 
   } catch (error) {
-    logger.tenantError('❌ Erro ao buscar tickets', error, tenantId, { endpoint: 'GET /api/tickets' });
+    if (tenantId) {
+      logger.tenantError('❌ Erro ao buscar tickets', error as Error, tenantId, { endpoint: 'GET /api/tickets' });
+    } else {
+      logger.error('❌ Erro ao buscar tickets - sem tenantId', error as Error, { endpoint: 'GET /api/tickets' });
+    }
     return NextResponse.json(
       { error: 'Erro interno do servidor' },
       { status: 500 }
@@ -151,6 +186,8 @@ export async function GET(request: NextRequest) {
 
 // POST /api/tickets - Create new ticket
 export async function POST(request: NextRequest) {
+  let tenantId: string | null = null;
+  
   try {
     const body: CreateTicketRequest & { 
       tenantId: string; 
@@ -159,7 +196,8 @@ export async function POST(request: NextRequest) {
       userEmail: string; 
     } = await request.json();
 
-    const { tenantId, userId, userName, userEmail, ...ticketData } = body;
+    const { tenantId: bodyTenantId, userId, userName, userEmail, ...ticketData } = body;
+    tenantId = bodyTenantId;
 
     if (!tenantId || !userId || !userName || !userEmail) {
       return NextResponse.json(
@@ -203,7 +241,7 @@ export async function POST(request: NextRequest) {
       hasUnreadUserResponses: false,
       
       tags: ticketData.tags || [],
-      category: ticketData.category,
+      ...(ticketData.category && { category: ticketData.category }),
     };
 
     const ticketsRef = collection(db, `tenants/${tenantId}/tickets`);
@@ -217,7 +255,11 @@ export async function POST(request: NextRequest) {
     }, { status: 201 });
 
   } catch (error) {
-    logger.tenantError('❌ Erro ao criar ticket', error, tenantId, { endpoint: 'POST /api/tickets' });
+    if (tenantId) {
+      logger.tenantError('❌ Erro ao criar ticket', error as Error, tenantId, { endpoint: 'POST /api/tickets' });
+    } else {
+      logger.error('❌ Erro ao criar ticket - sem tenantId', error as Error, { endpoint: 'POST /api/tickets' });
+    }
     return NextResponse.json(
       { error: 'Erro interno do servidor' },
       { status: 500 }

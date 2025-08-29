@@ -6,51 +6,40 @@ import { PaymentMethod } from '@/lib/types/common'
 export const propertySchema = yup.object({
   title: yup
     .string()
-    .required('Título é obrigatório')
-    .min(10, 'Título deve ter pelo menos 10 caracteres')
     .max(100, 'Título deve ter no máximo 100 caracteres'),
   
   description: yup
     .string()
-    .required('Descrição é obrigatória')
-    .min(50, 'Descrição deve ter pelo menos 50 caracteres')
     .max(2000, 'Descrição deve ter no máximo 2000 caracteres'),
   
   address: yup
-    .string()
-    .required('Endereço é obrigatório')
-    .min(10, 'Endereço deve ter pelo menos 10 caracteres'),
+    .string(),
   
   category: yup
     .string()
-    .oneOf(Object.values(PropertyCategory), 'Categoria inválida')
-    .required('Categoria é obrigatória'),
+    .oneOf(Object.values(PropertyCategory), 'Categoria inválida'),
   
   bedrooms: yup
     .number()
-    .required('Número de quartos é obrigatório')
     .min(0, 'Deve ter pelo menos 0 quartos')
     .max(20, 'Máximo de 20 quartos')
     .integer('Deve ser um número inteiro'),
   
   bathrooms: yup
     .number()
-    .required('Número de banheiros é obrigatório')
-    .min(1, 'Deve ter pelo menos 1 banheiro')
+    .min(0, 'Não pode ser negativo')
     .max(20, 'Máximo de 20 banheiros')
     .integer('Deve ser um número inteiro'),
   
   maxGuests: yup
     .number()
-    .required('Número máximo de hóspedes é obrigatório')
-    .min(1, 'Deve acomodar pelo menos 1 hóspede')
+    .min(0, 'Não pode ser negativo')
     .max(50, 'Máximo de 50 hóspedes')
     .integer('Deve ser um número inteiro'),
   
   basePrice: yup
     .number()
-    .required('Preço base é obrigatório')
-    .min(1, 'Preço deve ser maior que zero')
+    .min(0, 'Preço não pode ser negativo')
     .max(10000, 'Preço máximo é R$ 10.000'),
   
   pricePerExtraGuest: yup
@@ -60,8 +49,7 @@ export const propertySchema = yup.object({
   
   minimumNights: yup
     .number()
-    .required('Mínimo de diárias é obrigatório')
-    .min(1, 'Deve ter pelo menos 1 diária')
+    .min(0, 'Não pode ser negativo')
     .max(30, 'Máximo de 30 diárias')
     .integer('Deve ser um número inteiro'),
   
@@ -73,7 +61,6 @@ export const propertySchema = yup.object({
   amenities: yup
     .array()
     .of(yup.string())
-    .min(1, 'Selecione pelo menos uma comodidade')
     .max(20, 'Máximo de 20 comodidades'),
   
   isFeatured: yup
@@ -95,7 +82,6 @@ export const propertySchema = yup.object({
   
   photos: yup
     .array()
-    .min(1, 'Pelo menos uma foto é obrigatória')
     .max(20, 'Máximo de 20 fotos'),
   
   videos: yup

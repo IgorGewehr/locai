@@ -19,6 +19,11 @@ import {
   ListItem,
   ListItemText,
   ListItemSecondaryAction,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  TextField,
 } from '@mui/material';
 import {
   CheckCircle,
@@ -34,11 +39,28 @@ import {
   Block,
   LocalOffer,
   Clear,
+  ChevronLeft,
+  ChevronRight,
 } from '@mui/icons-material';
 import { useFormContext, Controller } from 'react-hook-form';
-import { Calendar } from 'react-calendar';
-import 'react-calendar/dist/Calendar.css';
-import { format, addDays, isSameDay, isAfter, isBefore } from 'date-fns';
+import { 
+  format, 
+  addDays, 
+  isSameDay, 
+  isAfter, 
+  isBefore, 
+  addMonths, 
+  subMonths, 
+  startOfMonth, 
+  endOfMonth, 
+  eachDayOfInterval, 
+  isSameMonth, 
+  startOfWeek, 
+  endOfWeek,
+  getDay,
+  isWeekend,
+  isToday
+} from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { logger } from '@/lib/utils/logger';
 
@@ -50,9 +72,15 @@ export const PropertyAvailability: React.FC = () => {
   const unavailableDates = watch('unavailableDates') || [];
   const customPricing = watch('customPricing') || {};
   
+  const [currentMonth, setCurrentMonth] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [dateRange, setDateRange] = useState<[Date, Date] | null>(null);
   const [customPrice, setCustomPrice] = useState<number | null>(null);
+  const [dragStart, setDragStart] = useState<Date | null>(null);
+  const [isSelecting, setIsSelecting] = useState(false);
+  const [showBlockDialog, setShowBlockDialog] = useState(false);
+  const [showPriceDialog, setShowPriceDialog] = useState(false);
+  const [dialogPrice, setDialogPrice] = useState('');
 
   // Toggle property status
   const handleStatusToggle = (checked: boolean) => {
@@ -96,8 +124,8 @@ export const PropertyAvailability: React.FC = () => {
   };
 
   // Add custom pricing
-  const handleAddCustomPricing = () => {
-    if (!dateRange || !customPrice) return;
+  const handleAddCustomPricing = (price: number) => {
+    if (!dateRange || !price) return;
     
     const [start, end] = dateRange;
     const updated = { ...customPricing };
@@ -105,17 +133,16 @@ export const PropertyAvailability: React.FC = () => {
     
     while (currentDate <= end) {
       const key = format(currentDate, 'yyyy-MM-dd');
-      updated[key] = customPrice;
+      updated[key] = price;
       currentDate = addDays(currentDate, 1);
     }
     
     setValue('customPricing', updated);
     setDateRange(null);
-    setCustomPrice(null);
     
     logger.info('Custom pricing added', { 
       days: Object.keys(updated).length - Object.keys(customPricing).length,
-      price: customPrice 
+      price 
     });
   };
 
@@ -127,42 +154,70 @@ export const PropertyAvailability: React.FC = () => {
     logger.debug('Custom pricing removed', { date: dateKey });
   };
 
-  // Calendar tile styling
-  const getTileClassName = ({ date }: { date: Date }) => {
+  // Navigation handlers
+  const handlePrevMonth = () => {
+    setCurrentMonth(prev => subMonths(prev, 1));
+  };
+
+  const handleNextMonth = () => {
+    setCurrentMonth(prev => addMonths(prev, 1));
+  };
+
+  // Date selection handlers
+  const handleDateClick = (date: Date) => {
+    if (isBefore(date, new Date())) return;
+
+    if (!dragStart) {
+      setDragStart(date);
+      setDateRange([date, date]);
+      setIsSelecting(true);
+    } else {
+      const start = isBefore(dragStart, date) ? dragStart : date;
+      const end = isBefore(dragStart, date) ? date : dragStart;
+      setDateRange([start, end]);
+      setDragStart(null);
+      setIsSelecting(false);
+    }
+  };
+
+  const handleDateMouseEnter = (date: Date) => {
+    if (isSelecting && dragStart) {
+      const start = isBefore(dragStart, date) ? dragStart : date;
+      const end = isBefore(dragStart, date) ? date : dragStart;
+      setDateRange([start, end]);
+    }
+  };
+
+  // Generate calendar days
+  const generateCalendarDays = () => {
+    const monthStart = startOfMonth(currentMonth);
+    const monthEnd = endOfMonth(currentMonth);
+    const calendarStart = startOfWeek(monthStart, { weekStartsOn: 0 });
+    const calendarEnd = endOfWeek(monthEnd, { weekStartsOn: 0 });
+    
+    return eachDayOfInterval({ start: calendarStart, end: calendarEnd });
+  };
+
+  // Get date status
+  const getDateStatus = (date: Date) => {
+    const dateKey = format(date, 'yyyy-MM-dd');
     const isUnavailable = unavailableDates.some((d: Date) => 
       isSameDay(new Date(d), date)
     );
-    const dateKey = format(date, 'yyyy-MM-dd');
     const hasCustomPrice = customPricing[dateKey];
-    
-    if (isUnavailable) return 'unavailable-date';
-    if (hasCustomPrice) return 'custom-price-date';
-    return '';
-  };
+    const isPast = isBefore(date, new Date());
+    const isInRange = dateRange && 
+      isAfter(date, dateRange[0]) && 
+      isBefore(date, dateRange[1]) ||
+      (dateRange && (isSameDay(date, dateRange[0]) || isSameDay(date, dateRange[1])));
 
-  // Calendar tile content
-  const getTileContent = ({ date }: { date: Date }) => {
-    const dateKey = format(date, 'yyyy-MM-dd');
-    const price = customPricing[dateKey];
-    
-    if (price) {
-      return (
-        <Tooltip title={`R$ ${price}`}>
-          <Typography 
-            variant="caption" 
-            sx={{ 
-              fontSize: '0.65rem',
-              display: 'block',
-              color: theme.palette.success.main,
-              fontWeight: 600,
-            }}
-          >
-            R${price}
-          </Typography>
-        </Tooltip>
-      );
-    }
-    return null;
+    return {
+      isUnavailable,
+      hasCustomPrice,
+      isPast,
+      isInRange,
+      price: customPricing[dateKey]
+    };
   };
 
   return (
@@ -250,50 +305,125 @@ export const PropertyAvailability: React.FC = () => {
               Calendário de Disponibilidade
             </Typography>
             
+            {/* Calendar Header */}
             <Box sx={{ 
-              '& .react-calendar': {
-                width: '100%',
-                border: 'none',
-                borderRadius: 2,
-                fontFamily: theme.typography.fontFamily,
-              },
-              '& .react-calendar__tile': {
-                height: 60,
-                fontSize: '0.9rem',
-              },
-              '& .react-calendar__tile--active': {
-                backgroundColor: `${theme.palette.primary.main} !important`,
-              },
-              '& .unavailable-date': {
-                backgroundColor: alpha(theme.palette.error.main, 0.1),
-                color: theme.palette.error.main,
-                '&:hover': {
-                  backgroundColor: alpha(theme.palette.error.main, 0.2),
-                },
-              },
-              '& .custom-price-date': {
-                backgroundColor: alpha(theme.palette.success.main, 0.1),
-                color: theme.palette.success.main,
-                '&:hover': {
-                  backgroundColor: alpha(theme.palette.success.main, 0.2),
-                },
-              },
+              display: 'flex', 
+              alignItems: 'center', 
+              justifyContent: 'space-between',
+              mb: 2,
+              p: 2,
+              backgroundColor: alpha(theme.palette.primary.main, 0.05),
+              borderRadius: 2,
             }}>
-              <Calendar
-                locale="pt-BR"
-                selectRange
-                onChange={(value) => {
-                  if (Array.isArray(value)) {
-                    setDateRange(value as [Date, Date]);
-                  } else {
-                    setSelectedDate(value as Date);
-                  }
-                }}
-                tileClassName={getTileClassName}
-                tileContent={getTileContent}
-                minDate={new Date()}
-              />
+              <IconButton onClick={handlePrevMonth}>
+                <ChevronLeft />
+              </IconButton>
+              <Typography variant="h6" fontWeight={600}>
+                {format(currentMonth, 'MMMM yyyy', { locale: ptBR })}
+              </Typography>
+              <IconButton onClick={handleNextMonth}>
+                <ChevronRight />
+              </IconButton>
             </Box>
+
+            {/* Weekdays Header */}
+            <Grid container spacing={0} sx={{ mb: 1 }}>
+              {['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'].map(day => (
+                <Grid item xs key={day} sx={{ textAlign: 'center' }}>
+                  <Typography 
+                    variant="caption" 
+                    fontWeight={600}
+                    color="text.secondary"
+                    sx={{ 
+                      display: 'block',
+                      p: 1,
+                      textTransform: 'uppercase'
+                    }}
+                  >
+                    {day}
+                  </Typography>
+                </Grid>
+              ))}
+            </Grid>
+
+            {/* Calendar Grid */}
+            <Grid container spacing={0}>
+              {generateCalendarDays().map((date, index) => {
+                const status = getDateStatus(date);
+                const isCurrentMonth = isSameMonth(date, currentMonth);
+                
+                return (
+                  <Grid item xs key={index}>
+                    <Box
+                      onClick={() => handleDateClick(date)}
+                      onMouseEnter={() => handleDateMouseEnter(date)}
+                      sx={{
+                        height: 60,
+                        display: 'flex',
+                        flexDirection: 'column',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        cursor: status.isPast ? 'not-allowed' : 'pointer',
+                        opacity: !isCurrentMonth ? 0.3 : 1,
+                        position: 'relative',
+                        border: '1px solid',
+                        borderColor: theme.palette.divider,
+                        backgroundColor: 
+                          status.isUnavailable ? alpha(theme.palette.error.main, 0.1) :
+                          status.hasCustomPrice ? alpha(theme.palette.success.main, 0.1) :
+                          status.isInRange ? alpha(theme.palette.primary.main, 0.1) :
+                          isToday(date) ? alpha(theme.palette.info.main, 0.1) :
+                          'background.paper',
+                        '&:hover': !status.isPast ? {
+                          backgroundColor: 
+                            status.isUnavailable ? alpha(theme.palette.error.main, 0.2) :
+                            status.hasCustomPrice ? alpha(theme.palette.success.main, 0.2) :
+                            alpha(theme.palette.primary.main, 0.1),
+                        } : {},
+                        transition: 'all 0.2s',
+                      }}
+                    >
+                      <Typography 
+                        variant="body2" 
+                        fontWeight={isToday(date) ? 600 : 400}
+                        color={
+                          status.isPast ? 'text.disabled' :
+                          status.isUnavailable ? 'error.main' :
+                          status.hasCustomPrice ? 'success.main' :
+                          'text.primary'
+                        }
+                      >
+                        {format(date, 'd')}
+                      </Typography>
+                      
+                      {status.hasCustomPrice && (
+                        <Typography 
+                          variant="caption"
+                          sx={{
+                            fontSize: '0.6rem',
+                            color: 'success.main',
+                            fontWeight: 600,
+                            lineHeight: 1,
+                          }}
+                        >
+                          R${status.price}
+                        </Typography>
+                      )}
+                      
+                      {status.isUnavailable && (
+                        <Block sx={{ 
+                          fontSize: 12, 
+                          color: 'error.main',
+                          position: 'absolute',
+                          top: 2,
+                          right: 2,
+                        }} />
+                      )}
+                    </Box>
+                  </Grid>
+                );
+              })}
+            </Grid>
 
             {/* Action Buttons */}
             {dateRange && (
@@ -314,7 +444,10 @@ export const PropertyAvailability: React.FC = () => {
                     variant="contained"
                     color="error"
                     startIcon={<Block />}
-                    onClick={handleAddUnavailableDates}
+                    onClick={() => {
+                      handleAddUnavailableDates();
+                      setDateRange(null);
+                    }}
                     size="small"
                   >
                     Bloquear Período
@@ -323,13 +456,7 @@ export const PropertyAvailability: React.FC = () => {
                     variant="contained"
                     color="success"
                     startIcon={<LocalOffer />}
-                    onClick={() => {
-                      const price = prompt('Digite o preço customizado (R$):');
-                      if (price && !isNaN(Number(price)) && Number(price) > 0) {
-                        setCustomPrice(Number(price));
-                        handleAddCustomPricing();
-                      }
-                    }}
+                    onClick={() => setShowPriceDialog(true)}
                     size="small"
                   >
                     Preço Especial
@@ -503,26 +630,45 @@ export const PropertyAvailability: React.FC = () => {
         </Grid>
       </Grid>
 
-      <style jsx global>{`
-        .react-calendar__navigation button {
-          font-size: 1rem;
-          font-weight: 600;
-        }
-        
-        .react-calendar__month-view__weekdays {
-          text-transform: uppercase;
-          font-size: 0.75rem;
-          font-weight: 600;
-        }
-        
-        .react-calendar__tile--now {
-          background: ${alpha(theme.palette.info.main, 0.1)};
-        }
-        
-        .react-calendar__tile--hasActive {
-          background: ${theme.palette.primary.main};
-        }
-      `}</style>
+      {/* Price Dialog */}
+      <Dialog open={showPriceDialog} onClose={() => setShowPriceDialog(false)}>
+        <DialogTitle>Definir Preço Especial</DialogTitle>
+        <DialogContent>
+          <TextField
+            autoFocus
+            margin="dense"
+            label="Preço (R$)"
+            type="number"
+            fullWidth
+            variant="outlined"
+            value={dialogPrice}
+            onChange={(e) => setDialogPrice(e.target.value)}
+            inputProps={{ min: 0, step: 10 }}
+            sx={{ mt: 2 }}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => {
+            setShowPriceDialog(false);
+            setDialogPrice('');
+          }}>Cancelar</Button>
+          <Button 
+            onClick={() => {
+              const price = Number(dialogPrice);
+              if (price > 0) {
+                handleAddCustomPricing(price);
+                setShowPriceDialog(false);
+                setDialogPrice('');
+                setDateRange(null);
+              }
+            }}
+            variant="contained"
+            disabled={!dialogPrice || Number(dialogPrice) <= 0}
+          >
+            Aplicar
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 };

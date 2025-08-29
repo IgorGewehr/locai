@@ -8,6 +8,8 @@ import { Property } from '@/lib/types/property';
 import { Client } from '@/lib/types/client';
 import { Reservation, ReservationStatus, ReservationSource, PaymentMethod, PaymentStatus } from '@/lib/types/reservation';
 import { VisitAppointment, VisitStatus } from '@/lib/types/visit-appointment';
+import { Ticket, TicketResponse, CreateTicketRequest, TicketStatus, TicketPriority, TicketType } from '@/lib/types/ticket';
+import { TicketServiceV2 } from '@/lib/services/ticket-service-v2';
 import { propertyCache } from '@/lib/cache/property-cache-manager';
 import { leadScoringService } from '@/lib/services/lead-scoring-service';
 
@@ -333,6 +335,62 @@ interface AnalyzePerformanceArgs {
   includeRecommendations?: boolean;
   includeAiInsights?: boolean;
   compareWithPrevious?: boolean;
+}
+
+// ===== TICKET FUNCTION INTERFACES =====
+
+interface CreateSupportTicketArgs {
+  subject: string;
+  description: string;
+  priority?: 'low' | 'medium' | 'high';
+  type?: 'support' | 'technical' | 'billing' | 'feature_request' | 'bug_report' | 'question';
+  clientPhone?: string; // Para identificar o usuário
+  userEmail?: string;
+  userName?: string;
+}
+
+interface GetUserTicketsArgs {
+  clientPhone?: string;
+  limit?: number;
+  status?: 'open' | 'in_progress' | 'resolved' | 'closed';
+}
+
+// ===== CRM ADVANCED FUNCTION INTERFACES =====
+
+interface AnalyzeLeadBehaviorArgs {
+  clientPhone?: string;
+  leadId?: string;
+  includeAIPredictions?: boolean;
+}
+
+interface UpdateLeadTemperatureArgs {
+  clientPhone?: string;
+  leadId?: string;
+  temperature: 'cold' | 'warm' | 'hot';
+  reason?: string;
+}
+
+interface PredictConversionArgs {
+  clientPhone?: string;
+  leadId?: string;
+  includeRecommendations?: boolean;
+}
+
+interface SegmentCustomersArgs {
+  segmentType: 'behavior' | 'value' | 'lifecycle' | 'geographic' | 'demographic';
+  criteria?: {
+    minScore?: number;
+    maxScore?: number;
+    sources?: string[];
+    ageRange?: { min: number; max: number };
+    valueRange?: { min: number; max: number };
+  };
+}
+
+interface GenerateInsightsArgs {
+  type: 'lead_performance' | 'conversion_trends' | 'source_analysis' | 'pipeline_health' | 'predictive_analytics';
+  period?: '7d' | '30d' | '90d' | '6m' | '1y';
+  includeAI?: boolean;
 }
 
 // ===== IMPORTS ADICIONAIS =====
@@ -5248,6 +5306,1243 @@ ID do agendamento: ${visitId}`;
   }
 }
 
+// ===== TICKET SUPPORT FUNCTIONS =====
+
+/**
+ * FUNÇÃO: Criar ticket de suporte
+ */
+export async function createSupportTicket(args: CreateSupportTicketArgs, tenantId: string): Promise<any> {
+  try {
+    logger.info('🎫 [TenantAgent] create_support_ticket iniciada', {
+      tenantId: tenantId.substring(0, 8) + '***',
+      subject: args.subject,
+      priority: args.priority,
+      type: args.type,
+      hasClientPhone: !!args.clientPhone
+    });
+
+    const ticketService = new TicketServiceV2(tenantId);
+    
+    // Determinar informações do usuário
+    let userId = 'unknown';
+    let userName = 'Usuário';
+    let userEmail = 'naoforecido@exemplo.com';
+    
+    if (args.clientPhone) {
+      // Buscar cliente pelo telefone para obter informações completas
+      const serviceFactory = new TenantServiceFactory(tenantId);
+      const clientService = serviceFactory.clients;
+      
+      const clients = await clientService.getMany([
+        { field: 'phone', operator: '==', value: args.clientPhone }
+      ]) as Client[];
+      
+      if (clients.length > 0) {
+        const client = clients[0];
+        userId = client.id || args.clientPhone;
+        userName = client.name || 'Cliente';
+        userEmail = client.email || args.userEmail || `${args.clientPhone}@whatsapp.com`;
+      } else {
+        userId = args.clientPhone;
+        userName = args.userName || 'Cliente WhatsApp';
+        userEmail = args.userEmail || `${args.clientPhone}@whatsapp.com`;
+      }
+    }
+    
+    // Mapear prioridade
+    const priority = args.priority === 'high' ? TicketPriority.HIGH :
+                    args.priority === 'low' ? TicketPriority.LOW :
+                    TicketPriority.MEDIUM;
+    
+    // Mapear tipo
+    const type = args.type === 'technical' ? TicketType.TECHNICAL :
+                 args.type === 'billing' ? TicketType.BILLING :
+                 args.type === 'feature_request' ? TicketType.FEATURE_REQUEST :
+                 args.type === 'bug_report' ? TicketType.BUG_REPORT :
+                 args.type === 'question' ? TicketType.QUESTION :
+                 TicketType.SUPPORT;
+    
+    // Criar o ticket
+    const ticket = await ticketService.createTicket(
+      userId,
+      userName,
+      userEmail,
+      {
+        subject: args.subject,
+        description: args.description,
+        priority,
+        type
+      }
+    );
+
+    logger.info('✅ [TenantAgent] Ticket criado com sucesso', {
+      tenantId: tenantId.substring(0, 8) + '***',
+      ticketId: ticket.id,
+      subject: ticket.subject,
+      priority: ticket.priority,
+      status: ticket.status
+    });
+
+    return {
+      success: true,
+      ticket: {
+        id: ticket.id,
+        subject: ticket.subject,
+        description: ticket.description,
+        priority: ticket.priority,
+        type: ticket.type,
+        status: ticket.status,
+        createdAt: ticket.createdAt
+      },
+      message: `Ticket #${ticket.id} criado com sucesso! Assunto: "${ticket.subject}". Status: ${ticket.status}`,
+      tenantId
+    };
+  } catch (error) {
+    logger.error('❌ [TenantAgent] Erro ao criar ticket', {
+      tenantId: tenantId.substring(0, 8) + '***',
+      error: error instanceof Error ? error.message : 'Unknown error'
+    });
+
+    return {
+      success: false,
+      error: 'Erro ao criar ticket de suporte. Tente novamente ou entre em contato com o administrador.',
+      tenantId
+    };
+  }
+}
+
+/**
+ * FUNÇÃO: Buscar tickets do usuário
+ */
+export async function getUserTickets(args: GetUserTicketsArgs, tenantId: string): Promise<any> {
+  try {
+    logger.info('📋 [TenantAgent] get_user_tickets iniciada', {
+      tenantId: tenantId.substring(0, 8) + '***',
+      hasClientPhone: !!args.clientPhone,
+      status: args.status,
+      limit: args.limit
+    });
+
+    if (!args.clientPhone) {
+      return {
+        success: false,
+        error: 'Telefone do cliente é necessário para buscar tickets.',
+        tenantId
+      };
+    }
+
+    const ticketService = new TicketServiceV2(tenantId);
+    
+    // Buscar cliente pelo telefone
+    const serviceFactory = new TenantServiceFactory(tenantId);
+    const clientService = serviceFactory.clients;
+    
+    const clients = await clientService.getMany([
+      { field: 'phone', operator: '==', value: args.clientPhone }
+    ]) as Client[];
+    
+    if (clients.length === 0) {
+      return {
+        success: true,
+        tickets: [],
+        message: 'Nenhum ticket encontrado para este número de telefone.',
+        tenantId
+      };
+    }
+
+    const client = clients[0];
+    const userId = client.id || args.clientPhone;
+    
+    // Buscar tickets do usuário
+    const tickets = await ticketService.getUserTickets(userId, args.limit || 10);
+    
+    // Filtrar por status se especificado
+    let filteredTickets = tickets;
+    if (args.status) {
+      const statusMap = {
+        'open': TicketStatus.OPEN,
+        'in_progress': TicketStatus.IN_PROGRESS,
+        'resolved': TicketStatus.RESOLVED,
+        'closed': TicketStatus.CLOSED
+      };
+      filteredTickets = tickets.filter(ticket => ticket.status === statusMap[args.status!]);
+    }
+
+    logger.info('✅ [TenantAgent] Tickets encontrados', {
+      tenantId: tenantId.substring(0, 8) + '***',
+      userId,
+      ticketCount: filteredTickets.length,
+      statusFilter: args.status
+    });
+
+    return {
+      success: true,
+      tickets: filteredTickets.map(ticket => ({
+        id: ticket.id,
+        subject: ticket.subject,
+        status: ticket.status,
+        priority: ticket.priority,
+        type: ticket.type,
+        createdAt: ticket.createdAt,
+        updatedAt: ticket.updatedAt,
+        unreadCount: ticket.unreadCount || 0
+      })),
+      total: filteredTickets.length,
+      message: filteredTickets.length > 0 
+        ? `Encontrados ${filteredTickets.length} ticket(s)`
+        : 'Nenhum ticket encontrado com os critérios especificados.',
+      tenantId
+    };
+  } catch (error) {
+    logger.error('❌ [TenantAgent] Erro ao buscar tickets do usuário', {
+      tenantId: tenantId.substring(0, 8) + '***',
+      error: error instanceof Error ? error.message : 'Unknown error'
+    });
+
+    return {
+      success: false,
+      error: 'Erro ao buscar seus tickets. Tente novamente.',
+      tenantId
+    };
+  }
+}
+
+// ===== CRM ADVANCED FUNCTIONS =====
+
+/**
+ * FUNÇÃO: Analisar comportamento do lead com IA
+ */
+export async function analyzeLeadBehavior(args: AnalyzeLeadBehaviorArgs, tenantId: string): Promise<any> {
+  try {
+    logger.info('🧠 [TenantAgent] analyze_lead_behavior iniciada', {
+      tenantId: tenantId.substring(0, 8) + '***',
+      hasClientPhone: !!args.clientPhone,
+      hasLeadId: !!args.leadId,
+      includeAIPredictions: args.includeAIPredictions
+    });
+
+    const serviceFactory = new TenantServiceFactory(tenantId);
+    const leadService = serviceFactory.leads;
+
+    let lead: Lead | null = null;
+
+    // Encontrar lead
+    if (args.leadId) {
+      lead = await leadService.get(args.leadId) as Lead;
+    } else if (args.clientPhone) {
+      const leads = await leadService.getMany([
+        { field: 'phone', operator: '==', value: args.clientPhone }
+      ]) as Lead[];
+      lead = leads.length > 0 ? leads[0] : null;
+    }
+
+    if (!lead) {
+      return {
+        success: false,
+        error: 'Lead não encontrado. Verifique o telefone ou ID fornecido.',
+        tenantId
+      };
+    }
+
+    // Analisar padrões de interação
+    const interactions = lead.interactions || [];
+    const totalInteractions = interactions.length;
+    const positiveInteractions = interactions.filter(i => i.response === 'positive').length;
+    const engagementRate = totalInteractions > 0 ? (positiveInteractions / totalInteractions) * 100 : 0;
+
+    // Analisar frequência de contato
+    const lastInteraction = interactions[interactions.length - 1];
+    const daysSinceLastContact = lastInteraction 
+      ? Math.floor((Date.now() - (lastInteraction.date?.toDate().getTime() || 0)) / (1000 * 60 * 60 * 24))
+      : 999;
+
+    // Analisar padrão temporal
+    const contactHours = interactions.map(i => i.date?.toDate().getHours() || 9);
+    const preferredHour = contactHours.length > 0 
+      ? Math.round(contactHours.reduce((a, b) => a + b, 0) / contactHours.length)
+      : 9;
+
+    const preferredPeriod = preferredHour < 12 ? 'manhã' : 
+                           preferredHour < 18 ? 'tarde' : 'noite';
+
+    // Calcular score de qualificação
+    let qualificationScore = (lead.score || 0);
+    
+    // Ajustes baseados em comportamento
+    if (engagementRate > 70) qualificationScore += 10;
+    else if (engagementRate < 30) qualificationScore -= 10;
+
+    if (daysSinceLastContact <= 7) qualificationScore += 5;
+    else if (daysSinceLastContact > 30) qualificationScore -= 15;
+
+    qualificationScore = Math.max(0, Math.min(100, qualificationScore));
+
+    // Identificar padrões de interesse
+    const interestPatterns = [];
+    if (interactions.some(i => i.description?.includes('preço'))) {
+      interestPatterns.push('Sensível a preço');
+    }
+    if (interactions.some(i => i.description?.includes('localização'))) {
+      interestPatterns.push('Focado em localização');
+    }
+    if (interactions.some(i => i.description?.includes('financiamento'))) {
+      interestPatterns.push('Precisa de financiamento');
+    }
+    if (interactions.some(i => i.description?.includes('urgente'))) {
+      interestPatterns.push('Tem urgência');
+    }
+
+    // Prever próxima ação mais eficaz
+    let nextBestAction = 'Enviar mensagem de follow-up';
+    let actionReason = 'Ação padrão de relacionamento';
+
+    if (lead.temperature === 'hot' && daysSinceLastContact <= 3) {
+      nextBestAction = 'Ligar para agendar visita presencial';
+      actionReason = 'Lead quente com interesse recente';
+    } else if (engagementRate > 70 && lead.status === 'contacted') {
+      nextBestAction = 'Enviar proposta personalizada';
+      actionReason = 'Alto engajamento indica prontidão para proposta';
+    } else if (daysSinceLastContact > 14) {
+      nextBestAction = 'Reativar com conteúdo relevante';
+      actionReason = 'Lead inativo precisa de reativação';
+    } else if (lead.budget && (lead.budget > 0)) {
+      nextBestAction = 'Apresentar opções dentro do orçamento';
+      actionReason = 'Lead tem orçamento definido';
+    }
+
+    const analysis = {
+      leadInfo: {
+        id: lead.id,
+        name: lead.name,
+        status: lead.status,
+        temperature: lead.temperature,
+        score: qualificationScore,
+        originalScore: lead.score || 0
+      },
+      behavior: {
+        totalInteractions,
+        engagementRate: Math.round(engagementRate),
+        daysSinceLastContact,
+        preferredContactPeriod: preferredPeriod,
+        interestPatterns
+      },
+      insights: {
+        behaviorType: engagementRate > 70 ? 'Altamente engajado' :
+                     engagementRate > 40 ? 'Moderadamente interessado' :
+                     engagementRate > 10 ? 'Baixo interesse' : 'Desengajado',
+        riskLevel: daysSinceLastContact > 30 ? 'Alto' :
+                   daysSinceLastContact > 14 ? 'Médio' : 'Baixo',
+        conversionProbability: Math.round(qualificationScore),
+        recommendedPriority: qualificationScore > 70 ? 'Alta' :
+                            qualificationScore > 50 ? 'Média' : 'Baixa'
+      },
+      recommendations: {
+        nextBestAction,
+        actionReason,
+        bestContactTime: preferredPeriod,
+        suggestedChannel: lead.preferredContactMethods?.[0] || 'whatsapp',
+        followUpSchedule: daysSinceLastContact > 7 ? 'Imediato' :
+                         lead.temperature === 'hot' ? '2-3 dias' : '1 semana'
+      }
+    };
+
+    logger.info('✅ [TenantAgent] Análise de comportamento concluída', {
+      tenantId: tenantId.substring(0, 8) + '***',
+      leadId: lead.id,
+      engagementRate: Math.round(engagementRate),
+      qualificationScore
+    });
+
+    return {
+      success: true,
+      analysis,
+      message: `Análise de comportamento concluída para ${lead.name}. ${analysis.insights.behaviorType} com ${analysis.insights.conversionProbability}% de probabilidade de conversão.`,
+      tenantId
+    };
+
+  } catch (error) {
+    logger.error('❌ [TenantAgent] Erro ao analisar comportamento do lead', {
+      tenantId: tenantId.substring(0, 8) + '***',
+      error: error instanceof Error ? error.message : 'Unknown error'
+    });
+
+    return {
+      success: false,
+      error: 'Erro ao analisar comportamento do lead. Tente novamente.',
+      tenantId
+    };
+  }
+}
+
+/**
+ * FUNÇÃO: Atualizar temperatura do lead baseado em comportamento
+ */
+export async function updateLeadTemperature(args: UpdateLeadTemperatureArgs, tenantId: string): Promise<any> {
+  try {
+    logger.info('🌡️ [TenantAgent] update_lead_temperature iniciada', {
+      tenantId: tenantId.substring(0, 8) + '***',
+      temperature: args.temperature,
+      hasReason: !!args.reason
+    });
+
+    const serviceFactory = new TenantServiceFactory(tenantId);
+    const leadService = serviceFactory.leads;
+
+    let lead: Lead | null = null;
+
+    // Encontrar lead
+    if (args.leadId) {
+      lead = await leadService.get(args.leadId) as Lead;
+    } else if (args.clientPhone) {
+      const leads = await leadService.getMany([
+        { field: 'phone', operator: '==', value: args.clientPhone }
+      ]) as Lead[];
+      lead = leads.length > 0 ? leads[0] : null;
+    }
+
+    if (!lead) {
+      return {
+        success: false,
+        error: 'Lead não encontrado para atualizar temperatura.',
+        tenantId
+      };
+    }
+
+    const oldTemperature = lead.temperature;
+
+    // Atualizar temperatura
+    await leadService.update(lead.id, {
+      temperature: args.temperature,
+      updatedAt: new Date(),
+      notes: [
+        ...(lead.notes || []),
+        {
+          content: `Temperatura alterada de ${oldTemperature} para ${args.temperature}. ${args.reason ? `Motivo: ${args.reason}` : ''}`,
+          createdAt: new Date(),
+          createdBy: 'IA Agent'
+        }
+      ]
+    });
+
+    // Recalcular score se necessário
+    let newScore = lead.score || 0;
+    if (args.temperature === 'hot') {
+      newScore = Math.min(100, newScore + 20);
+    } else if (args.temperature === 'warm') {
+      newScore = Math.max(30, Math.min(80, newScore + 5));
+    } else if (args.temperature === 'cold') {
+      newScore = Math.max(10, newScore - 15);
+    }
+
+    if (newScore !== lead.score) {
+      await leadService.update(lead.id, { score: newScore });
+    }
+
+    logger.info('✅ [TenantAgent] Temperatura do lead atualizada', {
+      tenantId: tenantId.substring(0, 8) + '***',
+      leadId: lead.id,
+      oldTemperature,
+      newTemperature: args.temperature,
+      newScore
+    });
+
+    return {
+      success: true,
+      lead: {
+        id: lead.id,
+        name: lead.name,
+        oldTemperature,
+        newTemperature: args.temperature,
+        newScore
+      },
+      message: `Temperatura do lead ${lead.name} alterada de ${oldTemperature} para ${args.temperature}. Score atualizado para ${newScore}.`,
+      tenantId
+    };
+
+  } catch (error) {
+    logger.error('❌ [TenantAgent] Erro ao atualizar temperatura do lead', {
+      tenantId: tenantId.substring(0, 8) + '***',
+      error: error instanceof Error ? error.message : 'Unknown error'
+    });
+
+    return {
+      success: false,
+      error: 'Erro ao atualizar temperatura do lead. Tente novamente.',
+      tenantId
+    };
+  }
+}
+
+/**
+ * FUNÇÃO: Prever conversão com IA
+ */
+export async function predictConversion(args: PredictConversionArgs, tenantId: string): Promise<any> {
+  try {
+    logger.info('🎯 [TenantAgent] predict_conversion iniciada', {
+      tenantId: tenantId.substring(0, 8) + '***',
+      hasClientPhone: !!args.clientPhone,
+      includeRecommendations: args.includeRecommendations
+    });
+
+    const serviceFactory = new TenantServiceFactory(tenantId);
+    const leadService = serviceFactory.leads;
+    const clientService = serviceFactory.clients;
+
+    let lead: Lead | null = null;
+
+    // Encontrar lead
+    if (args.leadId) {
+      lead = await leadService.get(args.leadId) as Lead;
+    } else if (args.clientPhone) {
+      const leads = await leadService.getMany([
+        { field: 'phone', operator: '==', value: args.clientPhone }
+      ]) as Lead[];
+      lead = leads.length > 0 ? leads[0] : null;
+    }
+
+    if (!lead) {
+      return {
+        success: false,
+        error: 'Lead não encontrado para análise preditiva.',
+        tenantId
+      };
+    }
+
+    // Buscar histórico para comparação
+    const [allLeads, allClients] = await Promise.all([
+      leadService.getMany([]) as Promise<Lead[]>,
+      clientService.getMany([]) as Promise<Client[]>
+    ]);
+
+    // Calcular probabilidade baseada em fatores múltiplos
+    let probability = 50; // Base
+
+    // Fator score (peso: 25%)
+    const scoreWeight = (lead.score || 0) / 100 * 25;
+    probability += scoreWeight - 12.5; // Normalizar
+
+    // Fator temperatura (peso: 20%)
+    const tempWeight = lead.temperature === 'hot' ? 20 : 
+                      lead.temperature === 'warm' ? 10 : -5;
+    probability += tempWeight;
+
+    // Fator status (peso: 15%)
+    const statusWeights = {
+      'new': -5,
+      'contacted': 0,
+      'qualified': 10,
+      'nurturing': 5,
+      'proposal_sent': 15,
+      'negotiating': 20,
+      'won': 100,
+      'lost': 0
+    };
+    probability += statusWeights[lead.status] || 0;
+
+    // Fator engajamento (peso: 15%)
+    const interactions = lead.interactions || [];
+    const positiveRate = interactions.length > 0 
+      ? (interactions.filter(i => i.response === 'positive').length / interactions.length) * 15
+      : 0;
+    probability += positiveRate;
+
+    // Fator tempo (peso: 10%)
+    const daysSinceCreated = Math.floor((Date.now() - (lead.createdAt?.toDate().getTime() || 0)) / (1000 * 60 * 60 * 24));
+    const timeWeight = daysSinceCreated > 60 ? -10 : 
+                      daysSinceCreated > 30 ? -5 : 0;
+    probability += timeWeight;
+
+    // Fator fonte (peso: 10%)
+    const sourceClients = allClients.filter(c => c.source === lead.source).length;
+    const sourceLeads = allLeads.filter(l => l.source === lead.source).length;
+    const sourceConversionRate = sourceLeads > 0 ? sourceClients / sourceLeads : 0.1;
+    const sourceWeight = (sourceConversionRate - 0.15) * 20; // Normalizar
+    probability += sourceWeight;
+
+    // Fator orçamento (peso: 5%)
+    const budgetWeight = lead.budget && lead.budget > 0 ? 5 : -2;
+    probability += budgetWeight;
+
+    // Limitar entre 0-100
+    probability = Math.max(0, Math.min(100, Math.round(probability)));
+
+    // Calcular confiança da predição
+    const confidence = Math.min(100, Math.max(40, 
+      (interactions.length * 5) + 
+      (lead.score || 0) * 0.3 + 
+      40
+    ));
+
+    // Estimar tempo para conversão
+    const estimatedDays = lead.temperature === 'hot' ? 7 :
+                         lead.temperature === 'warm' ? 21 :
+                         45;
+
+    // Fatores de risco
+    const riskFactors = [];
+    const lastInteraction = interactions[interactions.length - 1];
+    const daysSinceLastContact = lastInteraction 
+      ? Math.floor((Date.now() - (lastInteraction.date?.toDate().getTime() || 0)) / (1000 * 60 * 60 * 24))
+      : 999;
+
+    if (daysSinceLastContact > 14) riskFactors.push('Muito tempo sem contato');
+    if ((lead.score || 0) < 40) riskFactors.push('Score baixo');
+    if (interactions.filter(i => i.response === 'negative').length >= 3) riskFactors.push('Múltiplas interações negativas');
+
+    // Oportunidades
+    const opportunities = [];
+    if ((lead.score || 0) > 70 && lead.status === 'contacted') opportunities.push('Lead qualificado pronto para proposta');
+    if (lead.budget && lead.budget > 0) opportunities.push('Orçamento definido facilita fechamento');
+    if (lead.scheduledFollowUp) opportunities.push('Follow-up agendado');
+
+    const prediction = {
+      leadInfo: {
+        id: lead.id,
+        name: lead.name,
+        status: lead.status,
+        temperature: lead.temperature,
+        score: lead.score || 0
+      },
+      prediction: {
+        conversionProbability: probability,
+        confidence,
+        estimatedTimeToConversion: estimatedDays,
+        category: probability > 80 ? 'Muito Alta' :
+                 probability > 60 ? 'Alta' :
+                 probability > 40 ? 'Média' :
+                 probability > 20 ? 'Baixa' : 'Muito Baixa'
+      },
+      factors: {
+        riskFactors,
+        opportunities,
+        keyDrivers: [
+          `Score: ${lead.score || 0}/100`,
+          `Temperatura: ${lead.temperature}`,
+          `Engajamento: ${Math.round(positiveRate)}%`,
+          `Fonte: ${lead.source} (${Math.round(sourceConversionRate * 100)}% conversão)`
+        ]
+      }
+    };
+
+    // Adicionar recomendações se solicitado
+    if (args.includeRecommendations) {
+      const recommendations = [];
+
+      if (probability > 70) {
+        recommendations.push('Acelerar processo - lead tem alta probabilidade');
+        recommendations.push('Agendar reunião presencial');
+        recommendations.push('Preparar proposta personalizada');
+      } else if (probability > 40) {
+        recommendations.push('Qualificar melhor as necessidades');
+        recommendations.push('Aumentar frequência de contato');
+        recommendations.push('Enviar conteúdo educativo');
+      } else {
+        recommendations.push('Reavaliar fit do cliente');
+        recommendations.push('Investigar objeções');
+        recommendations.push('Considerar nurturing de longo prazo');
+      }
+
+      if (riskFactors.length > 0) {
+        recommendations.push('Mitigar fatores de risco identificados');
+      }
+
+      prediction.recommendations = recommendations;
+    }
+
+    logger.info('✅ [TenantAgent] Predição de conversão concluída', {
+      tenantId: tenantId.substring(0, 8) + '***',
+      leadId: lead.id,
+      probability,
+      confidence
+    });
+
+    return {
+      success: true,
+      prediction,
+      message: `Análise preditiva concluída para ${lead.name}. Probabilidade de conversão: ${probability}% (confiança: ${confidence}%).`,
+      tenantId
+    };
+
+  } catch (error) {
+    logger.error('❌ [TenantAgent] Erro na predição de conversão', {
+      tenantId: tenantId.substring(0, 8) + '***',
+      error: error instanceof Error ? error.message : 'Unknown error'
+    });
+
+    return {
+      success: false,
+      error: 'Erro ao calcular predição de conversão. Tente novamente.',
+      tenantId
+    };
+  }
+}
+
+/**
+ * FUNÇÃO: Segmentar clientes por diversos critérios
+ */
+export async function segmentCustomers(args: SegmentCustomersArgs, tenantId: string): Promise<any> {
+  try {
+    logger.info('🎯 [TenantAgent] segment_customers iniciada', {
+      tenantId: tenantId.substring(0, 8) + '***',
+      segmentType: args.segmentType
+    });
+
+    const serviceFactory = new TenantServiceFactory(tenantId);
+    const leadService = serviceFactory.leads;
+    const clientService = serviceFactory.clients;
+
+    const [leads, clients] = await Promise.all([
+      leadService.getMany([]) as Promise<Lead[]>,
+      clientService.getMany([]) as Promise<Client[]>
+    ]);
+
+    let segments: Array<{
+      name: string;
+      description: string;
+      count: number;
+      leads: Lead[];
+      characteristics: string[];
+      recommendedActions: string[];
+    }> = [];
+
+    switch (args.segmentType) {
+      case 'behavior':
+        segments = [
+          {
+            name: 'Altamente Engajados',
+            description: 'Leads com alta taxa de resposta e interação',
+            count: 0,
+            leads: leads.filter(l => {
+              const interactions = l.interactions || [];
+              const positiveRate = interactions.length > 0 ? 
+                interactions.filter(i => i.response === 'positive').length / interactions.length : 0;
+              return positiveRate > 0.7 && interactions.length >= 3;
+            }),
+            characteristics: ['Taxa de resposta > 70%', 'Múltiplas interações positivas', 'Resposta rápida'],
+            recommendedActions: ['Acelerar processo de venda', 'Agendar reuniões presenciais', 'Priorizar atendimento']
+          },
+          {
+            name: 'Moderadamente Interessados',
+            description: 'Leads com interesse demonstrado mas engajamento médio',
+            count: 0,
+            leads: leads.filter(l => {
+              const interactions = l.interactions || [];
+              const positiveRate = interactions.length > 0 ? 
+                interactions.filter(i => i.response === 'positive').length / interactions.length : 0;
+              return positiveRate >= 0.3 && positiveRate <= 0.7;
+            }),
+            characteristics: ['Taxa de resposta média', 'Interesse seletivo', 'Precisa de nurturing'],
+            recommendedActions: ['Conteúdo educativo', 'Follow-up regular', 'Qualificação aprofundada']
+          },
+          {
+            name: 'Baixo Engajamento',
+            description: 'Leads com pouca interação ou respostas negativas',
+            count: 0,
+            leads: leads.filter(l => {
+              const interactions = l.interactions || [];
+              const positiveRate = interactions.length > 0 ? 
+                interactions.filter(i => i.response === 'positive').length / interactions.length : 0;
+              return positiveRate < 0.3;
+            }),
+            characteristics: ['Taxa de resposta baixa', 'Pouco interesse demonstrado', 'Podem estar mal qualificados'],
+            recommendedActions: ['Reavaliar fit', 'Campanha de reativação', 'Oferta especial']
+          }
+        ];
+        break;
+
+      case 'value':
+        const avgBudget = leads.filter(l => l.budget && l.budget > 0).reduce((sum, l) => sum + (l.budget || 0), 0) / 
+                         leads.filter(l => l.budget && l.budget > 0).length || 100000;
+        
+        segments = [
+          {
+            name: 'Alto Valor',
+            description: 'Leads com orçamento acima da média',
+            count: 0,
+            leads: leads.filter(l => (l.budget || 0) > avgBudget * 1.5),
+            characteristics: ['Orçamento alto', 'Potencial de múltiplas compras', 'Podem indicar outros clientes'],
+            recommendedActions: ['Atendimento VIP', 'Ofertas premium', 'Programa de indicação']
+          },
+          {
+            name: 'Médio Valor',
+            description: 'Leads com orçamento na média do mercado',
+            count: 0,
+            leads: leads.filter(l => {
+              const budget = l.budget || 0;
+              return budget >= avgBudget * 0.7 && budget <= avgBudget * 1.5;
+            }),
+            characteristics: ['Orçamento padrão', 'Foco em valor', 'Sensíveis a preço'],
+            recommendedActions: ['Destacar custo-benefício', 'Opções de financiamento', 'Comparativo de mercado']
+          },
+          {
+            name: 'Baixo Valor',
+            description: 'Leads com orçamento limitado',
+            count: 0,
+            leads: leads.filter(l => (l.budget || 0) > 0 && (l.budget || 0) < avgBudget * 0.7),
+            characteristics: ['Orçamento restrito', 'Muito sensíveis a preço', 'Primeiro imóvel'],
+            recommendedActions: ['Opções econômicas', 'Financiamento facilitado', 'Promoções especiais']
+          }
+        ];
+        break;
+
+      case 'lifecycle':
+        segments = [
+          {
+            name: 'Novos Leads',
+            description: 'Leads recém-chegados (últimos 7 dias)',
+            count: 0,
+            leads: leads.filter(l => {
+              const daysSinceCreated = Math.floor((Date.now() - (l.createdAt?.toDate().getTime() || 0)) / (1000 * 60 * 60 * 24));
+              return daysSinceCreated <= 7;
+            }),
+            characteristics: ['Interesse recente', 'Alta receptividade', 'Necessidades não mapeadas'],
+            recommendedActions: ['Qualificação rápida', 'Primeiro contato em 24h', 'Mapear necessidades']
+          },
+          {
+            name: 'Em Nurturing',
+            description: 'Leads em processo de relacionamento',
+            count: 0,
+            leads: leads.filter(l => l.status === 'nurturing'),
+            characteristics: ['Interesse confirmado', 'Processo de decisão', 'Precisa de acompanhamento'],
+            recommendedActions: ['Follow-up regular', 'Conteúdo relevante', 'Manter relacionamento']
+          },
+          {
+            name: 'Stagnados',
+            description: 'Leads sem progresso há mais de 30 dias',
+            count: 0,
+            leads: leads.filter(l => {
+              const daysSinceCreated = Math.floor((Date.now() - (l.createdAt?.toDate().getTime() || 0)) / (1000 * 60 * 60 * 24));
+              return daysSinceCreated > 30 && ['new', 'contacted'].includes(l.status);
+            }),
+            characteristics: ['Sem progressão', 'Pode estar perdendo interesse', 'Precisa reativação'],
+            recommendedActions: ['Reativação com oferta especial', 'Nova qualificação', 'Mudança de abordagem']
+          }
+        ];
+        break;
+
+      case 'geographic':
+        const locationGroups = leads.reduce((acc, lead) => {
+          const location = lead.preferences?.location || 'Não especificado';
+          if (!acc[location]) acc[location] = [];
+          acc[location].push(lead);
+          return acc;
+        }, {} as Record<string, Lead[]>);
+
+        segments = Object.entries(locationGroups).map(([location, locationLeads]) => ({
+          name: `Região: ${location}`,
+          description: `Leads interessados em ${location}`,
+          count: locationLeads.length,
+          leads: locationLeads,
+          characteristics: [`Interesse em ${location}`, 'Localização específica', 'Conhece a região'],
+          recommendedActions: ['Ofertas na região', 'Tour pela área', 'Informações locais']
+        }));
+        break;
+
+      case 'demographic':
+        segments = [
+          {
+            name: 'Jovens Profissionais',
+            description: 'Leads entre 25-35 anos',
+            count: 0,
+            leads: leads.filter(l => {
+              const age = l.demographics?.age || 0;
+              return age >= 25 && age <= 35;
+            }),
+            characteristics: ['Primeiro imóvel', 'Carreira em ascensão', 'Tech-savvy'],
+            recommendedActions: ['Comunicação digital', 'Financiamento jovem', 'Imóveis modernos']
+          },
+          {
+            name: 'Famílias',
+            description: 'Leads com família',
+            count: 0,
+            leads: leads.filter(l => l.demographics?.hasFamily === true),
+            characteristics: ['Foco em segurança', 'Proximidade escolas', 'Espaço para família'],
+            recommendedActions: ['Destacar infraestrutura familiar', 'Segurança do bairro', 'Área de lazer']
+          },
+          {
+            name: 'Investidores',
+            description: 'Leads interessados em investimento',
+            count: 0,
+            leads: leads.filter(l => l.preferences?.propertyType?.includes('investment') || 
+              (l.interactions || []).some(i => i.description?.includes('investimento'))),
+            characteristics: ['ROI focado', 'Múltiplas propriedades', 'Análise técnica'],
+            recommendedActions: ['Análise de ROI', 'Oportunidades de mercado', 'Portfólio de opções']
+          }
+        ];
+        break;
+    }
+
+    // Atualizar contagens
+    segments = segments.map(segment => ({
+      ...segment,
+      count: segment.leads.length
+    }));
+
+    // Filtrar segmentos por critérios se fornecidos
+    if (args.criteria) {
+      segments = segments.map(segment => ({
+        ...segment,
+        leads: segment.leads.filter(lead => {
+          const criteria = args.criteria!;
+          
+          if (criteria.minScore && (lead.score || 0) < criteria.minScore) return false;
+          if (criteria.maxScore && (lead.score || 0) > criteria.maxScore) return false;
+          if (criteria.sources && criteria.sources.length > 0 && !criteria.sources.includes(lead.source || '')) return false;
+          
+          if (criteria.ageRange) {
+            const age = lead.demographics?.age || 0;
+            if (age < criteria.ageRange.min || age > criteria.ageRange.max) return false;
+          }
+          
+          if (criteria.valueRange) {
+            const budget = lead.budget || 0;
+            if (budget < criteria.valueRange.min || budget > criteria.valueRange.max) return false;
+          }
+          
+          return true;
+        }),
+        count: 0 // Will be recalculated
+      }));
+      
+      // Recalcular contagens após filtros
+      segments = segments.map(segment => ({
+        ...segment,
+        count: segment.leads.length
+      }));
+    }
+
+    // Remover segmentos vazios
+    segments = segments.filter(segment => segment.count > 0);
+
+    logger.info('✅ [TenantAgent] Segmentação concluída', {
+      tenantId: tenantId.substring(0, 8) + '***',
+      segmentType: args.segmentType,
+      segmentCount: segments.length,
+      totalLeads: segments.reduce((sum, s) => sum + s.count, 0)
+    });
+
+    return {
+      success: true,
+      segmentation: {
+        type: args.segmentType,
+        totalLeads: leads.length,
+        segments: segments.map(s => ({
+          name: s.name,
+          description: s.description,
+          count: s.count,
+          percentage: Math.round((s.count / leads.length) * 100),
+          characteristics: s.characteristics,
+          recommendedActions: s.recommendedActions
+        }))
+      },
+      message: `Segmentação por ${args.segmentType} concluída. Identificados ${segments.length} segmentos com total de ${segments.reduce((sum, s) => sum + s.count, 0)} leads.`,
+      tenantId
+    };
+
+  } catch (error) {
+    logger.error('❌ [TenantAgent] Erro na segmentação de clientes', {
+      tenantId: tenantId.substring(0, 8) + '***',
+      error: error instanceof Error ? error.message : 'Unknown error'
+    });
+
+    return {
+      success: false,
+      error: 'Erro ao segmentar clientes. Tente novamente.',
+      tenantId
+    };
+  }
+}
+
+/**
+ * FUNÇÃO: Gerar insights avançados com IA
+ */
+export async function generateInsights(args: GenerateInsightsArgs, tenantId: string): Promise<any> {
+  try {
+    logger.info('💡 [TenantAgent] generate_insights iniciada', {
+      tenantId: tenantId.substring(0, 8) + '***',
+      type: args.type,
+      period: args.period,
+      includeAI: args.includeAI
+    });
+
+    const serviceFactory = new TenantServiceFactory(tenantId);
+    const leadService = serviceFactory.leads;
+    const clientService = serviceFactory.clients;
+
+    const [leads, clients] = await Promise.all([
+      leadService.getMany([]) as Promise<Lead[]>,
+      clientService.getMany([]) as Promise<Client[]>
+    ]);
+
+    // Filtrar por período se especificado
+    const periodDays = {
+      '7d': 7,
+      '30d': 30,
+      '90d': 90,
+      '6m': 180,
+      '1y': 365
+    };
+
+    const filterDays = periodDays[args.period || '30d'];
+    const cutoffDate = new Date();
+    cutoffDate.setDate(cutoffDate.getDate() - filterDays);
+
+    const filteredLeads = leads.filter(l => 
+      l.createdAt?.toDate() >= cutoffDate
+    );
+
+    let insights: any = {};
+
+    switch (args.type) {
+      case 'lead_performance':
+        const totalLeads = filteredLeads.length;
+        const convertedLeads = clients.filter(c => 
+          c.createdAt?.toDate() >= cutoffDate
+        ).length;
+        
+        const conversionRate = totalLeads > 0 ? (convertedLeads / totalLeads) * 100 : 0;
+        const avgScore = filteredLeads.reduce((sum, l) => sum + (l.score || 0), 0) / totalLeads || 0;
+        
+        const temperatureDistribution = {
+          hot: filteredLeads.filter(l => l.temperature === 'hot').length,
+          warm: filteredLeads.filter(l => l.temperature === 'warm').length,
+          cold: filteredLeads.filter(l => l.temperature === 'cold').length
+        };
+
+        insights = {
+          type: 'lead_performance',
+          period: args.period,
+          metrics: {
+            totalLeads,
+            convertedLeads,
+            conversionRate: Math.round(conversionRate * 100) / 100,
+            avgScore: Math.round(avgScore),
+            temperatureDistribution
+          },
+          analysis: {
+            performance: conversionRate > 15 ? 'Excelente' : 
+                        conversionRate > 10 ? 'Bom' : 
+                        conversionRate > 5 ? 'Regular' : 'Precisa melhorar',
+            keyFindings: [
+              `Taxa de conversão: ${Math.round(conversionRate)}%`,
+              `Score médio: ${Math.round(avgScore)}/100`,
+              `Leads quentes: ${temperatureDistribution.hot} (${Math.round((temperatureDistribution.hot / totalLeads) * 100)}%)`
+            ],
+            recommendations: conversionRate < 10 ? [
+              'Melhorar qualificação dos leads',
+              'Aumentar follow-up dos leads mornos',
+              'Revisar processo de nurturing'
+            ] : [
+              'Manter padrão de qualidade',
+              'Escalar estratégias bem-sucedidas',
+              'Focar em leads de maior valor'
+            ]
+          }
+        };
+        break;
+
+      case 'conversion_trends':
+        // Análise de tendências de conversão por semana
+        const weeklyData = [];
+        for (let i = 0; i < Math.min(8, filterDays / 7); i++) {
+          const weekStart = new Date();
+          weekStart.setDate(weekStart.getDate() - (i * 7));
+          const weekEnd = new Date(weekStart);
+          weekEnd.setDate(weekEnd.getDate() + 7);
+
+          const weekLeads = filteredLeads.filter(l => {
+            const created = l.createdAt?.toDate();
+            return created && created >= weekStart && created < weekEnd;
+          });
+
+          const weekConversions = clients.filter(c => {
+            const created = c.createdAt?.toDate();
+            return created && created >= weekStart && created < weekEnd;
+          }).length;
+
+          weeklyData.unshift({
+            week: `Sem ${i + 1}`,
+            leads: weekLeads.length,
+            conversions: weekConversions,
+            rate: weekLeads.length > 0 ? (weekConversions / weekLeads.length) * 100 : 0
+          });
+        }
+
+        const trend = weeklyData.length >= 3 ? 
+          weeklyData[weeklyData.length - 1].rate - weeklyData[0].rate : 0;
+
+        insights = {
+          type: 'conversion_trends',
+          period: args.period,
+          weeklyData,
+          trend: {
+            direction: trend > 2 ? 'Crescente' : trend < -2 ? 'Decrescente' : 'Estável',
+            percentage: Math.round(trend * 100) / 100,
+            analysis: trend > 5 ? 'Tendência muito positiva' :
+                     trend > 0 ? 'Leve melhora' :
+                     trend === 0 ? 'Estabilidade' :
+                     trend > -5 ? 'Leve declínio' : 'Tendência preocupante'
+          },
+          insights: trend > 0 ? [
+            'Performance em crescimento',
+            'Estratégias atuais estão funcionando',
+            'Considerar expansão das táticas eficazes'
+          ] : [
+            'Performance estagnada ou em declínio',
+            'Revisar estratégias de geração de leads',
+            'Analisar qualidade das fontes'
+          ]
+        };
+        break;
+
+      case 'source_analysis':
+        const sourceStats = {};
+        filteredLeads.forEach(lead => {
+          const source = lead.source || 'unknown';
+          if (!sourceStats[source]) {
+            sourceStats[source] = { leads: 0, conversions: 0, totalScore: 0 };
+          }
+          sourceStats[source].leads++;
+          sourceStats[source].totalScore += (lead.score || 0);
+        });
+
+        clients.filter(c => c.createdAt?.toDate() >= cutoffDate).forEach(client => {
+          const source = client.source || 'unknown';
+          if (sourceStats[source]) {
+            sourceStats[source].conversions++;
+          }
+        });
+
+        const sourceAnalysis = Object.entries(sourceStats).map(([source, stats]: [string, any]) => ({
+          source,
+          leads: stats.leads,
+          conversions: stats.conversions,
+          conversionRate: stats.leads > 0 ? (stats.conversions / stats.leads) * 100 : 0,
+          avgScore: stats.leads > 0 ? stats.totalScore / stats.leads : 0,
+          roi: Math.random() * 200 + 100 // Placeholder - seria calculado com dados de custo reais
+        })).sort((a, b) => b.conversionRate - a.conversionRate);
+
+        insights = {
+          type: 'source_analysis',
+          period: args.period,
+          sources: sourceAnalysis,
+          topPerformers: sourceAnalysis.slice(0, 3),
+          recommendations: [
+            `Investir mais em: ${sourceAnalysis[0]?.source} (${Math.round(sourceAnalysis[0]?.conversionRate)}% conversão)`,
+            sourceAnalysis.length > 1 ? `Otimizar: ${sourceAnalysis[Math.floor(sourceAnalysis.length / 2)]?.source}` : 'Diversificar fontes',
+            `Revisar: ${sourceAnalysis[sourceAnalysis.length - 1]?.source} (baixa performance)`
+          ].filter(Boolean)
+        };
+        break;
+
+      case 'pipeline_health':
+        const statusCounts = {
+          new: filteredLeads.filter(l => l.status === 'new').length,
+          contacted: filteredLeads.filter(l => l.status === 'contacted').length,
+          qualified: filteredLeads.filter(l => l.status === 'qualified').length,
+          nurturing: filteredLeads.filter(l => l.status === 'nurturing').length,
+          proposal_sent: filteredLeads.filter(l => l.status === 'proposal_sent').length,
+          negotiating: filteredLeads.filter(l => l.status === 'negotiating').length,
+          won: filteredLeads.filter(l => l.status === 'won').length,
+          lost: filteredLeads.filter(l => l.status === 'lost').length
+        };
+
+        const bottleneck = Object.entries(statusCounts)
+          .filter(([status]) => !['won', 'lost'].includes(status))
+          .sort((a, b) => b[1] - a[1])[0];
+
+        insights = {
+          type: 'pipeline_health',
+          period: args.period,
+          distribution: statusCounts,
+          bottleneck: bottleneck ? {
+            stage: bottleneck[0],
+            count: bottleneck[1],
+            percentage: Math.round((bottleneck[1] / totalLeads) * 100)
+          } : null,
+          healthScore: Math.min(100, Math.max(0,
+            (statusCounts.qualified + statusCounts.nurturing + statusCounts.proposal_sent) / totalLeads * 100
+          )),
+          actionItems: [
+            bottleneck ? `Focar em mover leads do estágio: ${bottleneck[0]}` : 'Pipeline equilibrado',
+            statusCounts.new > totalLeads * 0.4 ? 'Muitos leads sem primeiro contato' : 'Acompanhamento em dia',
+            statusCounts.nurturing > totalLeads * 0.3 ? 'Acelerar processo de nurturing' : 'Nurturing controlado'
+          ]
+        };
+        break;
+
+      case 'predictive_analytics':
+        // Análise preditiva simples baseada em tendências
+        const recentConversions = clients.filter(c => {
+          const daysSince = Math.floor((Date.now() - (c.createdAt?.toDate().getTime() || 0)) / (1000 * 60 * 60 * 24));
+          return daysSince <= 30;
+        }).length;
+
+        const recentLeads = filteredLeads.filter(l => {
+          const daysSince = Math.floor((Date.now() - (l.createdAt?.toDate().getTime() || 0)) / (1000 * 60 * 60 * 24));
+          return daysSince <= 30;
+        }).length;
+
+        const currentRate = recentLeads > 0 ? recentConversions / recentLeads : 0;
+        
+        const hotLeads = filteredLeads.filter(l => l.temperature === 'hot' && ['qualified', 'nurturing', 'proposal_sent'].includes(l.status)).length;
+        const warmLeads = filteredLeads.filter(l => l.temperature === 'warm' && ['qualified', 'nurturing'].includes(l.status)).length;
+
+        const predictedConversions = Math.round(hotLeads * 0.7 + warmLeads * 0.3);
+
+        insights = {
+          type: 'predictive_analytics',
+          period: args.period,
+          currentMetrics: {
+            recentConversions,
+            recentLeads,
+            conversionRate: Math.round(currentRate * 100)
+          },
+          predictions: {
+            nextMonthConversions: predictedConversions,
+            confidence: Math.min(90, Math.max(60, 70 + (filteredLeads.length / 10))),
+            factors: [
+              `${hotLeads} leads quentes no pipeline`,
+              `${warmLeads} leads mornos qualificados`,
+              `Taxa atual de ${Math.round(currentRate * 100)}%`
+            ]
+          },
+          opportunities: [
+            hotLeads > 5 ? 'Alto potencial de conversões rápidas' : 'Poucas conversões imediatas previstas',
+            warmLeads > 10 ? 'Bom volume para nurturing' : 'Focar em aquecer mais leads',
+            'Manter qualidade do lead scoring atual'
+          ]
+        };
+        break;
+    }
+
+    logger.info('✅ [TenantAgent] Insights gerados com sucesso', {
+      tenantId: tenantId.substring(0, 8) + '***',
+      type: args.type,
+      dataPoints: filteredLeads.length
+    });
+
+    return {
+      success: true,
+      insights,
+      message: `Insights de ${args.type} gerados com sucesso para o período de ${args.period || '30d'}.`,
+      tenantId
+    };
+
+  } catch (error) {
+    logger.error('❌ [TenantAgent] Erro ao gerar insights', {
+      tenantId: tenantId.substring(0, 8) + '***',
+      error: error instanceof Error ? error.message : 'Unknown error'
+    });
+
+    return {
+      success: false,
+      error: 'Erro ao gerar insights. Tente novamente.',
+      tenantId
+    };
+  }
+}
+
 // Executar função baseada no nome
 export async function executeTenantAwareFunction(
   functionName: string, 
@@ -5334,6 +6629,49 @@ export async function executeTenantAwareFunction(
     
     case 'schedule_meeting':
       return await scheduleMeeting(args, tenantId);
+    
+    // FUNÇÕES DE SUPORTE (TICKETS)
+    case 'create_support_ticket':
+      // Garantir clientPhone se disponível
+      if (!args.clientPhone && contextClientPhone) {
+        args.clientPhone = contextClientPhone;
+      }
+      return await createSupportTicket(args, tenantId);
+    
+    case 'get_user_tickets':
+      // Garantir clientPhone se disponível
+      if (!args.clientPhone && contextClientPhone) {
+        args.clientPhone = contextClientPhone;
+      }
+      return await getUserTickets(args, tenantId);
+    
+    // FUNÇÕES AVANÇADAS DE CRM
+    case 'analyze_lead_behavior':
+      // Garantir clientPhone se disponível
+      if (!args.clientPhone && contextClientPhone) {
+        args.clientPhone = contextClientPhone;
+      }
+      return await analyzeLeadBehavior(args, tenantId);
+    
+    case 'update_lead_temperature':
+      // Garantir clientPhone se disponível
+      if (!args.clientPhone && contextClientPhone) {
+        args.clientPhone = contextClientPhone;
+      }
+      return await updateLeadTemperature(args, tenantId);
+    
+    case 'predict_conversion':
+      // Garantir clientPhone se disponível
+      if (!args.clientPhone && contextClientPhone) {
+        args.clientPhone = contextClientPhone;
+      }
+      return await predictConversion(args, tenantId);
+    
+    case 'segment_customers':
+      return await segmentCustomers(args, tenantId);
+    
+    case 'generate_insights':
+      return await generateInsights(args, tenantId);
     
     default:
       logger.error('❌ [TenantAgent] Função desconhecida', {

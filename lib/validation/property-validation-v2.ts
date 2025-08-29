@@ -76,39 +76,23 @@ export class PropertyValidatorV2 {
   private validateBasicInfo(property: Partial<Property>, result: PropertyValidationResult): void {
     const { title, description, address, category } = property;
 
-    // Title validation
-    if (!title?.trim()) {
-      this.addError(result, 'title', 'Título é obrigatório');
-    } else if (title.length < 10) {
-      if (this.config.autoFix && title.length >= 3) {
-        result.fixedIssues.push('Título expandido para atender requisito mínimo');
-      } else {
-        this.addError(result, 'title', 'Título deve ter pelo menos 10 caracteres');
-      }
-    } else if (title.length > 100) {
+    // Title validation (optional)
+    if (title && title.length > 100) {
       this.addError(result, 'title', 'Título deve ter no máximo 100 caracteres');
     }
 
-    // Description validation
-    if (!description?.trim()) {
-      this.addError(result, 'description', 'Descrição é obrigatória');
-    } else if (description.length < 50) {
-      this.addWarning(result, 'description', 'Descrição muito curta - recomendado mínimo 50 caracteres');
-    } else if (description.length > 2000) {
+    // Description validation (optional)
+    if (description && description.length > 2000) {
       this.addError(result, 'description', 'Descrição deve ter no máximo 2000 caracteres');
     }
 
-    // Address validation
-    if (!address?.trim()) {
-      this.addError(result, 'address', 'Endereço é obrigatório');
-    } else if (address.length < 10) {
-      this.addWarning(result, 'address', 'Endereço parece incompleto');
+    // Address validation (optional)
+    if (address && address.length < 5) {
+      this.addWarning(result, 'address', 'Endereço parece muito curto');
     }
 
-    // Category validation
-    if (!category) {
-      this.addError(result, 'category', 'Categoria é obrigatória');
-    } else if (!Object.values(PropertyCategory).includes(category as PropertyCategory)) {
+    // Category validation (optional)
+    if (category && !Object.values(PropertyCategory).includes(category as PropertyCategory)) {
       this.addError(result, 'category', 'Categoria inválida');
     }
 
@@ -123,25 +107,19 @@ export class PropertyValidatorV2 {
   private validateSpecs(property: Partial<Property>, result: PropertyValidationResult): void {
     const { bedrooms, bathrooms, maxGuests } = property;
 
-    // Bedrooms validation
-    if (bedrooms === undefined || bedrooms === null) {
-      this.addError(result, 'bedrooms', 'Número de quartos é obrigatório');
-    } else if (bedrooms < 0 || bedrooms > 20) {
+    // Bedrooms validation (optional)
+    if (bedrooms !== undefined && bedrooms !== null && (bedrooms < 0 || bedrooms > 20)) {
       this.addError(result, 'bedrooms', 'Número de quartos deve estar entre 0 e 20');
     }
 
-    // Bathrooms validation
-    if (bathrooms === undefined || bathrooms === null) {
-      this.addError(result, 'bathrooms', 'Número de banheiros é obrigatório');
-    } else if (bathrooms < 1 || bathrooms > 20) {
-      this.addError(result, 'bathrooms', 'Deve ter pelo menos 1 banheiro');
+    // Bathrooms validation (optional)
+    if (bathrooms !== undefined && bathrooms !== null && (bathrooms < 0 || bathrooms > 20)) {
+      this.addError(result, 'bathrooms', 'Número de banheiros deve estar entre 0 e 20');
     }
 
-    // Max guests validation
-    if (maxGuests === undefined || maxGuests === null) {
-      this.addError(result, 'maxGuests', 'Capacidade máxima é obrigatória');
-    } else if (maxGuests < 1 || maxGuests > 50) {
-      this.addError(result, 'maxGuests', 'Capacidade deve estar entre 1 e 50 pessoas');
+    // Max guests validation (optional)
+    if (maxGuests !== undefined && maxGuests !== null && (maxGuests < 0 || maxGuests > 50)) {
+      this.addError(result, 'maxGuests', 'Capacidade deve estar entre 0 e 50 pessoas');
     }
 
     // Cross-field validation
@@ -164,15 +142,13 @@ export class PropertyValidatorV2 {
   private validatePricing(property: Partial<Property>, result: PropertyValidationResult): void {
     const { basePrice, pricePerExtraGuest, cleaningFee, minimumNights } = property;
 
-    // Base price validation
-    if (basePrice === undefined || basePrice === null) {
-      this.addError(result, 'basePrice', 'Preço base é obrigatório');
-    } else if (basePrice <= 0) {
-      this.addError(result, 'basePrice', 'Preço base deve ser maior que zero');
-    } else if (basePrice < 50) {
-      this.addWarning(result, 'basePrice', 'Preço muito baixo - verifique se está correto');
-    } else if (basePrice > 5000) {
-      this.addWarning(result, 'basePrice', 'Preço muito alto - pode reduzir demanda');
+    // Base price validation (optional)
+    if (basePrice !== undefined && basePrice !== null) {
+      if (basePrice < 0) {
+        this.addError(result, 'basePrice', 'Preço base não pode ser negativo');
+      } else if (basePrice > 10000) {
+        this.addWarning(result, 'basePrice', 'Preço muito alto - pode reduzir demanda');
+      }
     }
 
     // Extra guest price validation
@@ -185,17 +161,13 @@ export class PropertyValidatorV2 {
       this.addError(result, 'cleaningFee', 'Taxa de limpeza não pode ser negativa');
     }
 
-    // Minimum nights validation
-    if (minimumNights === undefined || minimumNights === null) {
-      if (this.config.autoFix) {
-        result.fixedIssues.push('Mínimo de noites definido como 1');
-      } else {
-        this.addError(result, 'minimumNights', 'Mínimo de noites é obrigatório');
+    // Minimum nights validation (optional)
+    if (minimumNights !== undefined && minimumNights !== null) {
+      if (minimumNights < 0) {
+        this.addError(result, 'minimumNights', 'Mínimo de noites não pode ser negativo');
+      } else if (minimumNights > 30) {
+        this.addWarning(result, 'minimumNights', 'Mínimo muito alto pode reduzir reservas');
       }
-    } else if (minimumNights < 1) {
-      this.addError(result, 'minimumNights', 'Mínimo deve ser pelo menos 1 noite');
-    } else if (minimumNights > 30) {
-      this.addWarning(result, 'minimumNights', 'Mínimo muito alto pode reduzir reservas');
     }
 
     logger.debug('Pricing validation completed', {
@@ -210,25 +182,23 @@ export class PropertyValidatorV2 {
   private validateMedia(property: Partial<Property>, result: PropertyValidationResult): void {
     const { photos, videos } = property;
 
-    // Photos validation
-    if (!photos || photos.length === 0) {
-      this.addWarning(result, 'photos', 'Adicione pelo menos uma foto para melhor apresentação');
-    } else {
-      if (photos.length < 3) {
-        this.addWarning(result, 'photos', 'Recomendado: adicione pelo menos 3 fotos');
-      }
-
+    // Photos validation (optional)
+    if (photos && photos.length > 0) {
       // Validate photo URLs
       const invalidPhotos = photos.filter(photo => 
-        typeof photo !== 'string' || !photo.includes('firebasestorage')
+        typeof photo !== 'string' || (!photo.includes('firebasestorage') && !photo.includes('http'))
       );
 
       if (invalidPhotos.length > 0) {
         this.addError(result, 'photos', `${invalidPhotos.length} foto(s) com URL inválida`);
       }
+
+      if (photos.length > 20) {
+        this.addError(result, 'photos', 'Máximo de 20 fotos permitidas');
+      }
     }
 
-    // Videos validation
+    // Videos validation (optional)
     if (videos && videos.length > 0) {
       if (videos.length > 5) {
         this.addError(result, 'videos', 'Máximo de 5 vídeos permitidos');
@@ -236,7 +206,7 @@ export class PropertyValidatorV2 {
 
       // Validate video URLs
       const invalidVideos = videos.filter(video => 
-        typeof video !== 'string' || !video.includes('firebasestorage')
+        typeof video !== 'string' || (!video.includes('firebasestorage') && !video.includes('http'))
       );
 
       if (invalidVideos.length > 0) {
@@ -254,23 +224,9 @@ export class PropertyValidatorV2 {
   private validateAmenities(property: Partial<Property>, result: PropertyValidationResult): void {
     const { amenities, isFeatured, allowsPets } = property;
 
-    // Amenities validation
-    if (!amenities || amenities.length === 0) {
-      this.addWarning(result, 'amenities', 'Adicione comodidades para tornar o anúncio mais atrativo');
-    } else if (amenities.length > 30) {
-      this.addWarning(result, 'amenities', 'Muitas comodidades podem confundir hóspedes');
-    }
-
-    // Essential amenities check
-    const essentialAmenities = ['Wi-Fi', 'Ar Condicionado'];
-    const missingEssential = essentialAmenities.filter(essential => 
-      !amenities?.includes(essential)
-    );
-
-    if (missingEssential.length > 0) {
-      this.addWarning(result, 'amenities', 
-        `Considere adicionar: ${missingEssential.join(', ')}`
-      );
+    // Amenities validation (optional)
+    if (amenities && amenities.length > 20) {
+      this.addError(result, 'amenities', 'Máximo de 20 comodidades permitidas');
     }
 
     logger.debug('Amenities validation completed', {
@@ -282,39 +238,19 @@ export class PropertyValidatorV2 {
   }
 
   private validateAvailability(property: Partial<Property>, result: PropertyValidationResult): void {
-    const { isActive, unavailableDates, customPricing } = property;
+    const { isActive, customPricing } = property;
 
-    // Status validation
+    // Status validation (optional)
     if (isActive === undefined || isActive === null) {
       if (this.config.autoFix) {
         result.fixedIssues.push('Status definido como ativo');
-      } else {
-        this.addError(result, 'isActive', 'Status da propriedade deve ser definido');
       }
     }
 
-    // Dates validation
-    if (unavailableDates && unavailableDates.length > 0) {
-      const invalidDates = unavailableDates.filter(date => {
-        try {
-          const parsedDate = new Date(date);
-          return isNaN(parsedDate.getTime());
-        } catch {
-          return true;
-        }
-      });
-
-      if (invalidDates.length > 0) {
-        this.addError(result, 'unavailableDates', 
-          `${invalidDates.length} data(s) inválida(s) encontrada(s)`
-        );
-      }
-    }
-
-    // Custom pricing validation
+    // Custom pricing validation (manter funcionalidade de preços dinâmicos)
     if (customPricing && Object.keys(customPricing).length > 0) {
       const invalidPricing = Object.entries(customPricing).filter(([date, price]) => {
-        return isNaN(new Date(date).getTime()) || typeof price !== 'number' || price <= 0;
+        return isNaN(new Date(date).getTime()) || typeof price !== 'number' || price < 0;
       });
 
       if (invalidPricing.length > 0) {
@@ -324,10 +260,9 @@ export class PropertyValidatorV2 {
       }
     }
 
-    logger.debug('Availability validation completed', {
+    logger.debug('Pricing validation completed', {
       validationId: this.validationId,
       isActive,
-      unavailableDatesCount: unavailableDates?.length || 0,
       customPricingCount: customPricing ? Object.keys(customPricing).length : 0,
     });
   }
@@ -429,17 +364,15 @@ function sanitizeProperty(
   sanitized.amenities = Array.isArray(sanitized.amenities) ? sanitized.amenities : [];
   sanitized.photos = Array.isArray(sanitized.photos) ? sanitized.photos : [];
   sanitized.videos = Array.isArray(sanitized.videos) ? sanitized.videos : [];
-  sanitized.unavailableDates = Array.isArray(sanitized.unavailableDates) ? sanitized.unavailableDates : [];
 
   // Ensure objects are objects
   sanitized.paymentMethodSurcharges = sanitized.paymentMethodSurcharges || {};
   sanitized.customPricing = sanitized.customPricing || {};
 
-  // Default values for required fields
+  // Default values for optional fields
   if (sanitized.isActive === undefined) sanitized.isActive = true;
   if (sanitized.isFeatured === undefined) sanitized.isFeatured = false;
   if (sanitized.allowsPets === undefined) sanitized.allowsPets = false;
-  if (sanitized.minimumNights === undefined) sanitized.minimumNights = 1;
 
   logger.info('Property sanitized', {
     originalFields: Object.keys(property).length,

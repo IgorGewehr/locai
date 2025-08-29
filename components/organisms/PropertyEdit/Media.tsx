@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import {
   Box,
   Grid,
@@ -19,202 +19,395 @@ import {
   Dialog,
   DialogContent,
   Fade,
-  Zoom,
+  CircularProgress,
+  List,
+  ListItem,
+  ListItemIcon,
+  ListItemText,
+  ListItemSecondaryAction,
 } from '@mui/material';
 import {
   CloudUpload,
   Delete,
   Image as ImageIcon,
   VideoLibrary,
-  DragIndicator,
-  ZoomIn,
   Star,
   CheckCircle,
   Warning,
   AddPhotoAlternate,
+  Cancel,
+  ErrorOutline,
+  CloudDone,
+  Refresh,
 } from '@mui/icons-material';
-import { useFormContext, Controller } from 'react-hook-form';
+import { useFormContext } from 'react-hook-form';
 import { useDropzone } from 'react-dropzone';
-import { useTenant } from '@/contexts/TenantContext';
-import { useSimpleMediaUpload } from '@/lib/hooks/useSimpleMediaUpload';
+import { useMediaUpload, type UploadedFile } from '@/lib/hooks/useMediaUpload';
 import { logger } from '@/lib/utils/logger';
 
+// Constants
 const MAX_PHOTOS = 20;
 const MAX_VIDEOS = 5;
-const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+const RECOMMENDED_MIN_PHOTOS = 5;
+
+// Types
+interface MediaValidationResult {
+  isValid: boolean;
+  warnings: string[];
+  errors: string[];
+}
 
 export const PropertyMedia: React.FC = () => {
   const theme = useTheme();
-  const { control, watch, setValue } = useFormContext();
-  const { tenantId } = useTenant();
-  const { uploadFiles, uploading, progress, error: hookUploadError, reset } = useSimpleMediaUpload();
+  const { watch, setValue } = useFormContext();
   
+  // Media upload hooks - using the unified production-ready hook
+  const photoUploadConfig = useMemo(() => ({
+    maxFiles: MAX_PHOTOS,
+    maxSizeInMB: 10,
+    allowedTypes: ['image/'],
+    autoCompress: true,
+    compressionQuality: 0.8
+  }), []);
+
+  const videoUploadConfig = useMemo(() => ({
+    maxFiles: MAX_VIDEOS,
+    maxSizeInMB: 50,
+    allowedTypes: ['video/'],
+    autoCompress: false
+  }), []);
+
+  const {
+    uploadFiles: uploadPhotos,
+    uploading: uploadingPhotos,
+    progress: photoProgress,
+    error: photoError,
+    totalProgress: photoTotalProgress,
+    clearError: clearPhotoError,
+    cancelUploads: cancelPhotoUploads
+  } = useMediaUpload(photoUploadConfig);
+
+  const {
+    uploadFiles: uploadVideos,
+    uploading: uploadingVideos,
+    progress: videoProgress,
+    error: videoError,
+    totalProgress: videoTotalProgress,
+    clearError: clearVideoError,
+    cancelUploads: cancelVideoUploads
+  } = useMediaUpload(videoUploadConfig);
+  
+  // Local state
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
-  const [uploadError, setUploadError] = useState<string | null>(null);
+  const [localErrors, setLocalErrors] = useState<string[]>([]);
   
-  const photos = watch('photos') || [];
-  const videos = watch('videos') || [];
+  // Form data
+  const photosRaw = watch('photos');
+  const videosRaw = watch('videos');
+  
+  const photos = Array.isArray(photosRaw) ? photosRaw : [];
+  const videos = Array.isArray(videosRaw) ? videosRaw : [];
+
+  // Validation
+  const mediaValidation = useMemo((): MediaValidationResult => {
+    const warnings: string[] = [];
+    const errors: string[] = [];
+
+    if (photos.length < RECOMMENDED_MIN_PHOTOS) {
+      warnings.push(`Recomendamos pelo menos ${RECOMMENDED_MIN_PHOTOS} fotos para melhor apresentação`);
+    }
+
+    if (photos.length === 0) {
+      errors.push('Pelo menos uma foto é obrigatória');
+    }
+
+    return {
+      isValid: errors.length === 0,
+      warnings,
+      errors
+    };
+  }, [photos.length]);
+
+  // Progress calculations
+  const isUploading = uploadingPhotos || uploadingVideos;
+  const combinedProgress = useMemo(() => {
+    if (!isUploading) return 0;
+    
+    const photoCount = Object.keys(photoProgress).length;
+    const videoCount = Object.keys(videoProgress).length;
+    const totalFiles = photoCount + videoCount;
+    
+    if (totalFiles === 0) return 0;
+    
+    return ((photoTotalProgress * photoCount) + (videoTotalProgress * videoCount)) / totalFiles;
+  }, [isUploading, photoProgress, videoProgress, photoTotalProgress, videoTotalProgress]);
+
+  // Error handling
+  const allErrors = useMemo(() => {
+    const errors = [...localErrors];
+    if (photoError) errors.push(`Fotos: ${photoError}`);
+    if (videoError) errors.push(`Vídeos: ${videoError}`);
+    return errors;
+  }, [localErrors, photoError, videoError]);
+
+  const clearAllErrors = useCallback(() => {
+    setLocalErrors([]);
+    clearPhotoError();
+    clearVideoError();
+  }, [clearPhotoError, clearVideoError]);
+
+  // Cancel all uploads
+  const cancelAllUploads = useCallback(() => {
+    cancelPhotoUploads();
+    cancelVideoUploads();
+    logger.info('All uploads cancelled by user');
+  }, [cancelPhotoUploads, cancelVideoUploads]);
 
   // Photo upload handler
   const handlePhotoUpload = useCallback(async (acceptedFiles: File[]) => {
-    setUploadError(null);
+    setLocalErrors([]);
     
     if (photos.length + acceptedFiles.length > MAX_PHOTOS) {
-      setUploadError(`Máximo de ${MAX_PHOTOS} fotos permitidas`);
+      setLocalErrors([`Máximo de ${MAX_PHOTOS} fotos permitidas. Você tem ${photos.length} e está tentando adicionar ${acceptedFiles.length}.`]);
       return;
     }
 
-    const validFiles = acceptedFiles.filter(file => {
-      if (file.size > MAX_FILE_SIZE) {
-        setUploadError(`Arquivo ${file.name} excede 10MB`);
-        return false;
-      }
-      return true;
+    logger.info('Starting photo upload', { 
+      currentCount: photos.length,
+      newCount: acceptedFiles.length,
+      fileNames: acceptedFiles.map(f => f.name)
     });
 
-    if (validFiles.length === 0) return;
-
-    logger.info('Uploading photos', { count: validFiles.length });
-
     try {
-      const urls = await uploadFiles(validFiles);
-      if (urls.length > 0) {
-        setValue('photos', [...(photos || []), ...urls]);
-        logger.info('Photos uploaded successfully', { count: urls.length });
+      const results = await uploadPhotos(acceptedFiles, 'image');
+      
+      if (results.length > 0) {
+        const newPhotos = [...photos, ...results.map(r => r.url)];
+        setValue('photos', newPhotos);
+        
+        logger.info('Photos uploaded and added to form', { 
+          uploadedCount: results.length,
+          totalCount: newPhotos.length
+        });
       }
     } catch (error) {
-      logger.error('Photo upload failed', { 
-        error: error instanceof Error ? error.message : String(error) 
-      });
-      setUploadError('Erro ao enviar fotos');
+      const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido no upload de fotos';
+      setLocalErrors([errorMessage]);
+      logger.error('Photo upload failed', { error: errorMessage });
     }
-  }, [photos, uploadFiles, setValue]);
+  }, [photos, uploadPhotos, setValue]);
 
   // Video upload handler
   const handleVideoUpload = useCallback(async (acceptedFiles: File[]) => {
-    setUploadError(null);
+    setLocalErrors([]);
     
     if (videos.length + acceptedFiles.length > MAX_VIDEOS) {
-      setUploadError(`Máximo de ${MAX_VIDEOS} vídeos permitidos`);
+      setLocalErrors([`Máximo de ${MAX_VIDEOS} vídeos permitidos. Você tem ${videos.length} e está tentando adicionar ${acceptedFiles.length}.`]);
       return;
     }
 
-    const validFiles = acceptedFiles.filter(file => {
-      if (file.size > MAX_FILE_SIZE * 5) { // 50MB for videos
-        setUploadError(`Vídeo ${file.name} excede 50MB`);
-        return false;
-      }
-      return true;
+    logger.info('Starting video upload', { 
+      currentCount: videos.length,
+      newCount: acceptedFiles.length,
+      fileNames: acceptedFiles.map(f => f.name)
     });
 
-    if (validFiles.length === 0) return;
-
-    logger.info('Uploading videos', { count: validFiles.length });
-
     try {
-      const urls = await uploadFiles(validFiles);
-      if (urls.length > 0) {
-        setValue('videos', [...(videos || []), ...urls]);
-        logger.info('Videos uploaded successfully', { count: urls.length });
+      const results = await uploadVideos(acceptedFiles, 'video');
+      
+      if (results.length > 0) {
+        const newVideos = [...videos, ...results.map(r => r.url)];
+        setValue('videos', newVideos);
+        
+        logger.info('Videos uploaded and added to form', { 
+          uploadedCount: results.length,
+          totalCount: newVideos.length
+        });
       }
     } catch (error) {
-      logger.error('Video upload failed', { 
-        error: error instanceof Error ? error.message : String(error) 
-      });
-      setUploadError('Erro ao enviar vídeos');
+      const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido no upload de vídeos';
+      setLocalErrors([errorMessage]);
+      logger.error('Video upload failed', { error: errorMessage });
     }
-  }, [videos, uploadFiles, setValue]);
+  }, [videos, uploadVideos, setValue]);
 
-  // Dropzone for photos
+  // Dropzone configurations
   const photoDropzone = useDropzone({
     onDrop: handlePhotoUpload,
     accept: {
       'image/*': ['.jpeg', '.jpg', '.png', '.webp'],
     },
     maxFiles: MAX_PHOTOS - photos.length,
-    disabled: uploading || photos.length >= MAX_PHOTOS,
+    disabled: isUploading || photos.length >= MAX_PHOTOS,
+    onDropRejected: (fileRejections) => {
+      const errors = fileRejections.map(rejection => 
+        `${rejection.file.name}: ${rejection.errors.map(e => e.message).join(', ')}`
+      );
+      setLocalErrors([`Arquivos rejeitados: ${errors.join('; ')}`]);
+    }
   });
 
-  // Dropzone for videos
   const videoDropzone = useDropzone({
     onDrop: handleVideoUpload,
     accept: {
       'video/*': ['.mp4', '.mov', '.avi', '.webm'],
     },
     maxFiles: MAX_VIDEOS - videos.length,
-    disabled: uploading || videos.length >= MAX_VIDEOS,
+    disabled: isUploading || videos.length >= MAX_VIDEOS,
+    onDropRejected: (fileRejections) => {
+      const errors = fileRejections.map(rejection => 
+        `${rejection.file.name}: ${rejection.errors.map(e => e.message).join(', ')}`
+      );
+      setLocalErrors([`Arquivos de vídeo rejeitados: ${errors.join('; ')}`]);
+    }
   });
 
-  // Remove photo
-  const handleRemovePhoto = (index: number) => {
+  // Remove handlers
+  const handleRemovePhoto = useCallback((index: number) => {
     const updated = photos.filter((_: any, i: number) => i !== index);
     setValue('photos', updated);
     logger.info('Photo removed', { index, remaining: updated.length });
-  };
+  }, [photos, setValue]);
 
-  // Remove video
-  const handleRemoveVideo = (index: number) => {
+  const handleRemoveVideo = useCallback((index: number) => {
     const updated = videos.filter((_: any, i: number) => i !== index);
     setValue('videos', updated);
     logger.info('Video removed', { index, remaining: updated.length });
-  };
+  }, [videos, setValue]);
 
   // Set main photo
-  const handleSetMainPhoto = (index: number) => {
+  const handleSetMainPhoto = useCallback((index: number) => {
     const reordered = [...photos];
     const [mainPhoto] = reordered.splice(index, 1);
     reordered.unshift(mainPhoto);
     setValue('photos', reordered);
-    logger.info('Main photo set', { index });
+    logger.info('Main photo changed', { newMainIndex: index });
+  }, [photos, setValue]);
+
+  // Render upload progress
+  const renderUploadProgress = () => {
+    if (!isUploading) return null;
+
+    const activeUploads = [...Object.values(photoProgress), ...Object.values(videoProgress)];
+    
+    return (
+      <Paper
+        elevation={0}
+        sx={{
+          p: 3,
+          backgroundColor: alpha(theme.palette.info.main, 0.05),
+          border: `1px solid ${alpha(theme.palette.info.main, 0.2)}`,
+          borderRadius: 2,
+        }}
+      >
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
+          <Typography variant="h6" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <CloudUpload />
+            Enviando Mídia
+          </Typography>
+          <Button
+            size="small"
+            color="error"
+            onClick={cancelAllUploads}
+            startIcon={<Cancel />}
+          >
+            Cancelar
+          </Button>
+        </Box>
+        
+        <Box sx={{ mb: 2 }}>
+          <Typography variant="body2" color="text.secondary" gutterBottom>
+            Progresso Geral: {Math.round(combinedProgress)}%
+          </Typography>
+          <LinearProgress
+            variant="determinate"
+            value={combinedProgress}
+            sx={{
+              height: 8,
+              borderRadius: 4,
+              backgroundColor: alpha(theme.palette.info.main, 0.1),
+            }}
+          />
+        </Box>
+
+        <List dense>
+          {activeUploads.map((upload) => (
+            <ListItem key={upload.fileName}>
+              <ListItemIcon>
+                {upload.status === 'completed' ? (
+                  <CheckCircle color="success" />
+                ) : upload.status === 'error' ? (
+                  <ErrorOutline color="error" />
+                ) : (
+                  <CircularProgress size={20} />
+                )}
+              </ListItemIcon>
+              <ListItemText
+                primary={upload.fileName}
+                secondary={
+                  upload.status === 'error' 
+                    ? upload.error
+                    : `${Math.round(upload.progress)}%`
+                }
+              />
+              <ListItemSecondaryAction>
+                <Typography variant="caption" color="text.secondary">
+                  {upload.status === 'completed' ? 'Concluído' : 
+                   upload.status === 'error' ? 'Erro' : 'Enviando...'}
+                </Typography>
+              </ListItemSecondaryAction>
+            </ListItem>
+          ))}
+        </List>
+      </Paper>
+    );
   };
 
   return (
     <Box>
       <Grid container spacing={3}>
         {/* Upload Progress */}
-        {uploading && (
+        {isUploading && (
           <Grid item xs={12}>
-            <Paper
-              elevation={0}
-              sx={{
-                p: 2,
-                backgroundColor: alpha(theme.palette.info.main, 0.05),
-                border: `1px solid ${alpha(theme.palette.info.main, 0.2)}`,
-                borderRadius: 2,
-              }}
-            >
-              <Typography variant="body2" gutterBottom>
-                Enviando mídia... {Object.keys(progress).length > 0 ? 
-                  Math.round(Object.values(progress).reduce((acc, p) => acc + p.progress, 0) / Object.keys(progress).length) 
-                  : 0}%
-              </Typography>
-              <LinearProgress 
-                variant="determinate" 
-                value={Object.keys(progress).length > 0 ? 
-                  Object.values(progress).reduce((acc, p) => acc + p.progress, 0) / Object.keys(progress).length 
-                  : 0} 
-                sx={{ 
-                  height: 8,
-                  borderRadius: 4,
-                  backgroundColor: alpha(theme.palette.info.main, 0.1),
-                }}
-              />
-            </Paper>
+            {renderUploadProgress()}
           </Grid>
         )}
 
-        {/* Error Alert */}
-        {(uploadError || hookUploadError) && (
+        {/* Error Alerts */}
+        {allErrors.length > 0 && (
           <Grid item xs={12}>
             <Alert 
               severity="error" 
-              onClose={() => {
-                setUploadError(null);
-                reset();
-              }}
+              onClose={clearAllErrors}
               sx={{ borderRadius: 2 }}
+              action={
+                <Button color="inherit" size="small" onClick={clearAllErrors}>
+                  <Refresh />
+                </Button>
+              }
             >
-              {uploadError || hookUploadError}
+              <Box>
+                {allErrors.map((error, index) => (
+                  <Typography key={index} variant="body2">
+                    • {error}
+                  </Typography>
+                ))}
+              </Box>
+            </Alert>
+          </Grid>
+        )}
+
+        {/* Validation Warnings */}
+        {mediaValidation.warnings.length > 0 && allErrors.length === 0 && (
+          <Grid item xs={12}>
+            <Alert severity="warning" sx={{ borderRadius: 2 }}>
+              <Box>
+                {mediaValidation.warnings.map((warning, index) => (
+                  <Typography key={index} variant="body2">
+                    • {warning}
+                  </Typography>
+                ))}
+              </Box>
             </Alert>
           </Grid>
         )}
@@ -234,16 +427,16 @@ export const PropertyMedia: React.FC = () => {
               <Typography variant="h6" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                 <ImageIcon />
                 Fotos do Imóvel
+                {photos.length >= RECOMMENDED_MIN_PHOTOS && (
+                  <CheckCircle color="success" fontSize="small" />
+                )}
               </Typography>
               <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
                 <Chip
                   label={`${photos.length}/${MAX_PHOTOS}`}
                   size="small"
-                  color={photos.length >= MAX_PHOTOS ? 'error' : 'primary'}
+                  color={photos.length >= MAX_PHOTOS ? 'error' : photos.length >= RECOMMENDED_MIN_PHOTOS ? 'success' : 'primary'}
                 />
-                {photos.length >= 3 && (
-                  <CheckCircle color="success" fontSize="small" />
-                )}
               </Box>
             </Box>
 
@@ -262,10 +455,11 @@ export const PropertyMedia: React.FC = () => {
                 backgroundColor: photoDropzone.isDragActive 
                   ? alpha(theme.palette.primary.main, 0.05) 
                   : 'background.paper',
-                cursor: photos.length >= MAX_PHOTOS ? 'not-allowed' : 'pointer',
+                cursor: photos.length >= MAX_PHOTOS || isUploading ? 'not-allowed' : 'pointer',
                 transition: 'all 0.3s ease',
                 textAlign: 'center',
-                '&:hover': photos.length < MAX_PHOTOS ? {
+                opacity: photos.length >= MAX_PHOTOS || isUploading ? 0.5 : 1,
+                '&:hover': photos.length < MAX_PHOTOS && !isUploading ? {
                   borderColor: theme.palette.primary.main,
                   backgroundColor: alpha(theme.palette.primary.main, 0.05),
                 } : {},
@@ -274,12 +468,12 @@ export const PropertyMedia: React.FC = () => {
               <input {...photoDropzone.getInputProps()} />
               <AddPhotoAlternate sx={{ fontSize: 48, color: 'text.secondary', mb: 2 }} />
               <Typography variant="body1" gutterBottom>
-                {photoDropzone.isDragActive
-                  ? 'Solte as fotos aqui...'
-                  : 'Arraste fotos ou clique para selecionar'}
+                {isUploading ? 'Upload em andamento...' :
+                 photos.length >= MAX_PHOTOS ? 'Limite máximo de fotos atingido' :
+                 photoDropzone.isDragActive ? 'Solte as fotos aqui...' : 'Arraste fotos ou clique para selecionar'}
               </Typography>
               <Typography variant="caption" color="text.secondary">
-                Formatos: JPG, PNG, WEBP (máx. 10MB cada)
+                Formatos: JPG, PNG, WEBP (máx. 10MB cada) • Recomendado: {RECOMMENDED_MIN_PHOTOS}+ fotos
               </Typography>
             </Box>
 
@@ -287,7 +481,7 @@ export const PropertyMedia: React.FC = () => {
             {photos.length > 0 && (
               <ImageList cols={4} gap={8} sx={{ mt: 2 }}>
                 {photos.map((photo: string, index: number) => (
-                  <Fade in key={index} timeout={300 * (index + 1)}>
+                  <Fade in key={`${photo}-${index}`} timeout={300 * (index + 1)}>
                     <ImageListItem
                       sx={{
                         borderRadius: 2,
@@ -309,6 +503,10 @@ export const PropertyMedia: React.FC = () => {
                           height: '200px',
                         }}
                         onClick={() => setSelectedImage(photo)}
+                        onError={(e) => {
+                          logger.error('Image load error', { url: photo, index });
+                          // Could implement placeholder or retry logic here
+                        }}
                       />
                       {index === 0 && (
                         <Chip
@@ -336,7 +534,11 @@ export const PropertyMedia: React.FC = () => {
                               <IconButton
                                 size="small"
                                 sx={{ color: 'white' }}
-                                onClick={() => handleSetMainPhoto(index)}
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleSetMainPhoto(index);
+                                }}
+                                title="Definir como foto principal"
                               >
                                 <Star />
                               </IconButton>
@@ -344,7 +546,11 @@ export const PropertyMedia: React.FC = () => {
                             <IconButton
                               size="small"
                               sx={{ color: 'white' }}
-                              onClick={() => handleRemovePhoto(index)}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleRemovePhoto(index);
+                              }}
+                              title="Remover foto"
                             >
                               <Delete />
                             </IconButton>
@@ -374,6 +580,9 @@ export const PropertyMedia: React.FC = () => {
               <Typography variant="h6" sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                 <VideoLibrary />
                 Vídeos do Imóvel
+                {videos.length > 0 && (
+                  <CheckCircle color="success" fontSize="small" />
+                )}
               </Typography>
               <Chip
                 label={`${videos.length}/${MAX_VIDEOS}`}
@@ -397,10 +606,11 @@ export const PropertyMedia: React.FC = () => {
                 backgroundColor: videoDropzone.isDragActive 
                   ? alpha(theme.palette.secondary.main, 0.05) 
                   : 'background.paper',
-                cursor: videos.length >= MAX_VIDEOS ? 'not-allowed' : 'pointer',
+                cursor: videos.length >= MAX_VIDEOS || isUploading ? 'not-allowed' : 'pointer',
                 transition: 'all 0.3s ease',
                 textAlign: 'center',
-                '&:hover': videos.length < MAX_VIDEOS ? {
+                opacity: videos.length >= MAX_VIDEOS || isUploading ? 0.5 : 1,
+                '&:hover': videos.length < MAX_VIDEOS && !isUploading ? {
                   borderColor: theme.palette.secondary.main,
                   backgroundColor: alpha(theme.palette.secondary.main, 0.05),
                 } : {},
@@ -409,12 +619,12 @@ export const PropertyMedia: React.FC = () => {
               <input {...videoDropzone.getInputProps()} />
               <VideoLibrary sx={{ fontSize: 48, color: 'text.secondary', mb: 2 }} />
               <Typography variant="body1" gutterBottom>
-                {videoDropzone.isDragActive
-                  ? 'Solte os vídeos aqui...'
-                  : 'Arraste vídeos ou clique para selecionar'}
+                {isUploading ? 'Upload em andamento...' :
+                 videos.length >= MAX_VIDEOS ? 'Limite máximo de vídeos atingido' :
+                 videoDropzone.isDragActive ? 'Solte os vídeos aqui...' : 'Arraste vídeos ou clique para selecionar'}
               </Typography>
               <Typography variant="caption" color="text.secondary">
-                Formatos: MP4, MOV, AVI, WEBM (máx. 50MB cada)
+                Formatos: MP4 (recomendado), MOV, AVI, WEBM (máx. 50MB cada)
               </Typography>
             </Box>
 
@@ -422,35 +632,76 @@ export const PropertyMedia: React.FC = () => {
             {videos.length > 0 && (
               <Grid container spacing={2}>
                 {videos.map((video: string, index: number) => (
-                  <Grid item xs={12} sm={6} key={index}>
-                    <Paper
-                      sx={{
-                        p: 2,
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                        backgroundColor: 'background.paper',
-                      }}
-                    >
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                        <VideoLibrary color="secondary" />
-                        <Box>
-                          <Typography variant="body2" fontWeight={500}>
-                            Vídeo {index + 1}
-                          </Typography>
-                          <Typography variant="caption" color="text.secondary">
-                            Enviado com sucesso
-                          </Typography>
-                        </Box>
-                      </Box>
-                      <IconButton
-                        size="small"
-                        onClick={() => handleRemoveVideo(index)}
-                        color="error"
+                  <Grid item xs={12} sm={6} key={`${video}-${index}`}>
+                    <Fade in timeout={300 * (index + 1)}>
+                      <Paper
+                        sx={{
+                          p: 2,
+                          backgroundColor: 'background.paper',
+                          borderRadius: 2,
+                          border: `1px solid ${alpha(theme.palette.secondary.main, 0.2)}`,
+                        }}
                       >
-                        <Delete />
-                      </IconButton>
-                    </Paper>
+                        <Box sx={{ position: 'relative', mb: 2 }}>
+                          <video
+                            src={video}
+                            style={{
+                              width: '100%',
+                              height: 180,
+                              objectFit: 'cover',
+                              borderRadius: 8,
+                              backgroundColor: '#000',
+                            }}
+                            controls
+                            preload="metadata"
+                            onError={(e) => {
+                              logger.error('Video load error', { url: video, index, error: e });
+                            }}
+                          />
+                          <Chip
+                            label={`Vídeo ${index + 1}`}
+                            size="small"
+                            color="secondary"
+                            icon={<VideoLibrary />}
+                            sx={{
+                              position: 'absolute',
+                              top: 8,
+                              left: 8,
+                              zIndex: 1,
+                            }}
+                          />
+                        </Box>
+                        
+                        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                          <Box>
+                            <Typography variant="body2" fontWeight={500}>
+                              Vídeo {index + 1}
+                            </Typography>
+                            <Typography variant="caption" color="text.secondary">
+                              {video.includes('firebase') ? (
+                                <>
+                                  <CloudDone fontSize="inherit" sx={{ mr: 0.5 }} />
+                                  Carregado com sucesso
+                                </>
+                              ) : 'URL externa'}
+                            </Typography>
+                          </Box>
+                          <IconButton
+                            size="small"
+                            onClick={() => handleRemoveVideo(index)}
+                            color="error"
+                            sx={{
+                              '&:hover': {
+                                backgroundColor: alpha(theme.palette.error.main, 0.1)
+                              }
+                            }}
+                            title="Remover vídeo"
+                          >
+                            <Delete />
+                          </IconButton>
+                        </Box>
+                      </Paper>
+                    </Fade>
                   </Grid>
                 ))}
               </Grid>
@@ -460,34 +711,38 @@ export const PropertyMedia: React.FC = () => {
 
         {/* Tips */}
         <Grid item xs={12}>
-          <Alert severity="info" icon={<Warning />}>
+          <Alert severity="info" icon={<Warning />} sx={{ borderRadius: 2 }}>
             <Typography variant="subtitle2" fontWeight={600} gutterBottom>
-              Dicas para Mídias:
+              📸 Dicas para Mídias de Qualidade:
             </Typography>
             <Box component="ul" sx={{ pl: 2, my: 0 }}>
               <Typography component="li" variant="body2">
-                Adicione pelo menos 5 fotos de alta qualidade para melhor apresentação
+                <strong>Mínimo recomendado:</strong> {RECOMMENDED_MIN_PHOTOS} fotos de alta qualidade
               </Typography>
               <Typography component="li" variant="body2">
-                A primeira foto será a imagem principal do anúncio
+                <strong>Foto principal:</strong> A primeira foto será a capa do anúncio
               </Typography>
               <Typography component="li" variant="body2">
-                Mostre todos os cômodos e áreas externas
+                <strong>Cobertura completa:</strong> Mostre todos os cômodos, áreas externas e diferenciais
               </Typography>
               <Typography component="li" variant="body2">
-                Vídeos ajudam a aumentar as reservas em até 30%
+                <strong>Vídeos:</strong> Aumentam as reservas em até 30% - use MP4 para melhor compatibilidade
+              </Typography>
+              <Typography component="li" variant="body2">
+                <strong>Qualidade:</strong> Boa iluminação e imagens nítidas são essenciais
               </Typography>
             </Box>
           </Alert>
         </Grid>
       </Grid>
 
-      {/* Image Preview Dialog */}
+      {/* Image Preview Modal */}
       <Dialog
         open={!!selectedImage}
         onClose={() => setSelectedImage(null)}
         maxWidth="lg"
         fullWidth
+        sx={{ '& .MuiDialog-paper': { borderRadius: 2 } }}
       >
         <DialogContent sx={{ p: 0, position: 'relative' }}>
           <IconButton
@@ -515,6 +770,7 @@ export const PropertyMedia: React.FC = () => {
                 height: 'auto',
                 maxHeight: '80vh',
                 objectFit: 'contain',
+                borderRadius: 8,
               }}
             />
           )}

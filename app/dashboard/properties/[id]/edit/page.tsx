@@ -6,8 +6,6 @@ import {
   Box,
   Container,
   Paper,
-  Tabs,
-  Tab,
   Typography,
   Button,
   Alert,
@@ -17,16 +15,26 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
-  Snackbar,
   IconButton,
   Tooltip,
-  LinearProgress,
-  Badge,
   useTheme,
   alpha,
   Fade,
-  Zoom,
   Grid,
+  Card,
+  CardContent,
+  CardActions,
+  Skeleton,
+  Snackbar,
+  Collapse,
+  List,
+  ListItem,
+  ListItemText,
+  ListItemIcon,
+  Divider,
+  Switch,
+  FormControlLabel,
+  LinearProgress,
 } from '@mui/material';
 import {
   Save,
@@ -34,108 +42,96 @@ import {
   CheckCircle,
   Error as ErrorIcon,
   Warning,
-  Info as InfoIcon,
   Home,
   AttachMoney,
   Star,
   Image,
-  CalendarMonth,
   Settings,
-  AutorenewOutlined,
+  AutoSave,
   CloudDone,
-  CloudUpload,
   History,
-  Check,
+  Edit,
+  Visibility,
+  RestoreFromTrash,
+  CheckCircleOutline,
+  RadioButtonUnchecked,
+  ExpandMore,
+  ExpandLess,
+  Refresh,
 } from '@mui/icons-material';
 import { useForm, FormProvider } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
-import * as yup from 'yup';
 import { useTenant } from '@/contexts/TenantContext';
-import { ApiClient } from '@/lib/utils/api-client';
 import { logger } from '@/lib/utils/logger';
-import { generateLocationField } from '@/lib/utils/locationUtils';
-import { Property, PropertyCategory } from '@/lib/types/property';
+import { Property } from '@/lib/types/property';
 import { PaymentMethod } from '@/lib/types/common';
 import { propertySchema } from '@/lib/validation/propertySchema';
-import { usePropertyValidation } from '@/hooks/usePropertyValidation';
-import { validateBeforeSave } from '@/lib/validation/property-validation-v2';
 import { debounce } from 'lodash';
 
-// Components for each tab
+// Optimized components with performance improvements
 import { PropertyBasicInfo } from '@/components/organisms/PropertyEdit/BasicInfo';
 import { PropertySpecs } from '@/components/organisms/PropertyEdit/Specs';
 import { PropertyAmenities } from '@/components/organisms/PropertyEdit/Amenities';
 import { PropertyPricing } from '@/components/organisms/PropertyEdit/Pricing';
 import { PropertyMedia } from '@/components/organisms/PropertyEdit/Media';
-import { PropertyAvailability } from '@/components/organisms/PropertyEdit/Availability';
 
-interface TabConfig {
+interface PropertySection {
   id: string;
-  label: string;
+  title: string;
+  description: string;
   icon: React.ReactNode;
   component: React.ReactNode;
   fields: (keyof Property)[];
-  required?: boolean;
+  isRequired: boolean;
 }
 
-const tabsConfig: TabConfig[] = [
+const propertySections: PropertySection[] = [
   {
     id: 'basic',
-    label: 'Informações',
+    title: 'Informações Básicas',
+    description: 'Título, descrição, localização e categoria',
     icon: <Home />,
     component: <PropertyBasicInfo />,
-    fields: ['title', 'description', 'address', 'category'],
-    required: true,
+    fields: ['title', 'description', 'address', 'category', 'neighborhood', 'city'],
+    isRequired: true,
   },
   {
     id: 'specs',
-    label: 'Especificações',
+    title: 'Especificações',
+    description: 'Quartos, banheiros, capacidade e comodidades',
     icon: <Settings />,
     component: <PropertySpecs />,
-    fields: ['bedrooms', 'bathrooms', 'maxGuests'],
-    required: true,
+    fields: ['bedrooms', 'bathrooms', 'maxGuests', 'capacity'],
+    isRequired: true,
   },
   {
     id: 'pricing',
-    label: 'Preços',
+    title: 'Preços e Políticas',
+    description: 'Valores, taxas e políticas de pagamento',
     icon: <AttachMoney />,
     component: <PropertyPricing />,
     fields: ['basePrice', 'pricePerExtraGuest', 'cleaningFee', 'minimumNights'],
-    required: true,
+    isRequired: true,
   },
   {
     id: 'amenities',
-    label: 'Comodidades',
+    title: 'Comodidades',
+    description: 'Facilidades e recursos especiais',
     icon: <Star />,
     component: <PropertyAmenities />,
     fields: ['amenities', 'isFeatured', 'allowsPets'],
+    isRequired: false,
   },
   {
     id: 'media',
-    label: 'Mídia',
+    title: 'Fotos e Vídeos',
+    description: 'Galeria de imagens e vídeos do imóvel',
     icon: <Image />,
     component: <PropertyMedia />,
     fields: ['photos', 'videos'],
-  },
-  {
-    id: 'availability',
-    label: 'Disponibilidade',
-    icon: <CalendarMonth />,
-    component: <PropertyAvailability />,
-    fields: ['isActive', 'unavailableDates'],
+    isRequired: false,
   },
 ];
-
-// Enhanced validation with specific field schemas
-const createFieldSchema = (fields: (keyof Property)[]) => {
-  const schemaFields: any = {};
-  fields.forEach(field => {
-    if (propertySchema.fields[field as any]) {
-      schemaFields[field] = propertySchema.fields[field as any];
-    }
-  });
-  return yup.object(schemaFields);
-};
 
 export default function EditPropertyPage() {
   const router = useRouter();
@@ -144,118 +140,105 @@ export default function EditPropertyPage() {
   const { services, tenantId, isReady } = useTenant();
   const theme = useTheme();
 
-  const [activeTab, setActiveTab] = useState(0);
+  // State management
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [autoSaving, setAutoSaving] = useState(false);
   const [lastSaved, setLastSaved] = useState<Date | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
-  const [tabErrors, setTabErrors] = useState<Record<string, number>>({});
   const [showExitDialog, setShowExitDialog] = useState(false);
   const [originalData, setOriginalData] = useState<Property | null>(null);
+  const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set(['basic']));
+  const [autoSaveEnabled, setAutoSaveEnabled] = useState(true);
+  const [saveHistory, setSaveHistory] = useState<Array<{ timestamp: Date; type: 'manual' | 'auto' }>>([]);
 
+  // Form setup with optimized validation
   const methods = useForm<Property>({
     resolver: yupResolver(propertySchema) as any,
     mode: 'onChange',
     shouldUnregister: false,
     shouldFocusError: true,
+    defaultValues: {
+      paymentMethodSurcharges: {
+        [PaymentMethod.PIX]: 0,
+        [PaymentMethod.CREDIT_CARD]: 0,
+        [PaymentMethod.DEBIT_CARD]: 0,
+        [PaymentMethod.CASH]: 0,
+        [PaymentMethod.BANK_TRANSFER]: 0,
+        [PaymentMethod.BANK_SLIP]: 0,
+        [PaymentMethod.STRIPE]: 0,
+      },
+    },
   });
 
   const { handleSubmit, reset, watch, formState: { errors, isDirty, isValid, dirtyFields } } = methods;
-
-  // Debug form state
-  const formValues = watch();
-  React.useEffect(() => {
-    logger.debug('Form state debug', { 
-      isDirty, 
-      isValid, 
-      dirtyFieldsCount: Object.keys(dirtyFields || {}).length,
-      dirtyFields: Object.keys(dirtyFields || {}),
-      errorCount: Object.keys(errors || {}).length,
-      errorFields: Object.keys(errors || {}),
-      // Sample form values to debug
-      sampleValues: {
-        title: formValues?.title,
-        basePrice: formValues?.basePrice,
-        category: formValues?.category
-      }
-    });
-  }, [isDirty, isValid, dirtyFields, errors, formValues]);
-
-  // Enhanced validation hook
-  const { 
-    validateProperty, 
-    validationResult, 
-    getFieldErrors, 
-    hasFieldError,
-    isValidating: validatingCustom
-  } = usePropertyValidation({
-    strict: false,
-    autoFix: true,
-    realTimeValidation: true,
-  });
-
-  // Watch all form values for changes
   const watchedValues = watch();
 
-  // Calculate tab errors
-  useEffect(() => {
-    const newTabErrors: Record<string, number> = {};
-    
-    tabsConfig.forEach(tab => {
-      let errorCount = 0;
-      tab.fields.forEach(field => {
-        if (errors[field]) {
-          errorCount++;
+  // Section completion calculation
+  const sectionCompletions = useMemo(() => {
+    const completions: Record<string, { completed: number; total: number; percentage: number }> = {};
+
+    propertySections.forEach(section => {
+      let completed = 0;
+      const total = section.fields.length;
+
+      section.fields.forEach(field => {
+        const value = watchedValues[field];
+        if (value !== undefined && value !== null && value !== '' && 
+            (!Array.isArray(value) || value.length > 0)) {
+          completed++;
         }
       });
-      if (errorCount > 0) {
-        newTabErrors[tab.id] = errorCount;
-      }
-    });
-    
-    setTabErrors(newTabErrors);
-    
-    // Log validation state for debugging
-    if (Object.keys(errors).length > 0) {
-      logger.warn('Property form validation errors', { 
-        propertyId, 
-        errors: Object.keys(errors).map(key => ({
-          field: key,
-          message: errors[key as keyof Property]?.message
-        }))
-      });
-    }
-  }, [errors, propertyId]);
 
-  // Load property data
+      completions[section.id] = {
+        completed,
+        total,
+        percentage: Math.round((completed / total) * 100)
+      };
+    });
+
+    return completions;
+  }, [watchedValues]);
+
+  // Error tracking per section
+  const sectionErrors = useMemo(() => {
+    const errorCount: Record<string, number> = {};
+
+    propertySections.forEach(section => {
+      let count = 0;
+      section.fields.forEach(field => {
+        if (errors[field]) count++;
+      });
+      errorCount[section.id] = count;
+    });
+
+    return errorCount;
+  }, [errors]);
+
+  // Load property data with enhanced error handling
   useEffect(() => {
     const loadProperty = async () => {
       if (!propertyId || !services || !isReady) return;
-      
+
       logger.info('Loading property for editing', { propertyId, tenantId });
-      
+      setLoading(true);
+      setError(null);
+
       try {
         const property = await services.properties.get(propertyId);
-        
+
         if (!property) {
-          logger.error('Property not found', { propertyId });
-          setError('Propriedade não encontrada');
-          setLoading(false);
-          return;
+          throw new Error('Propriedade não encontrada');
         }
 
-        // Convert dates and ensure all fields have proper defaults
-        const propertyData = {
+        // Ensure all required fields have proper defaults
+        const propertyData: Property = {
           ...property,
           amenities: property.amenities || [],
           photos: property.photos || [],
           videos: property.videos || [],
-          unavailableDates: (property as any).unavailableDates?.map((date: any) => 
-            date instanceof Date ? date : date.toDate ? date.toDate() : new Date(date)
-          ) || [],
-          paymentMethodSurcharges: property.paymentMethodSurcharges || {
+          paymentMethodSurcharges: {
             [PaymentMethod.PIX]: 0,
             [PaymentMethod.CREDIT_CARD]: 0,
             [PaymentMethod.DEBIT_CARD]: 0,
@@ -263,25 +246,23 @@ export default function EditPropertyPage() {
             [PaymentMethod.BANK_TRANSFER]: 0,
             [PaymentMethod.BANK_SLIP]: 0,
             [PaymentMethod.STRIPE]: 0,
+            ...property.paymentMethodSurcharges,
           },
         };
-        
-        logger.info('Property loaded successfully', { 
-          propertyId, 
+
+        logger.info('Property loaded successfully', {
+          propertyId,
           title: propertyData.title,
-          hasPhotos: propertyData.photos.length > 0,
-          photosCount: propertyData.photos.length
+          sections: propertySections.map(s => s.id)
         });
-        
-        setOriginalData(propertyData as Property);
-        reset(propertyData as Property);
+
+        setOriginalData(propertyData);
+        reset(propertyData);
         setLoading(false);
       } catch (err) {
-        logger.error('Error loading property', { 
-          propertyId, 
-          error: err instanceof Error ? err.message : String(err) 
-        });
-        setError('Erro ao carregar propriedade');
+        const errorMessage = err instanceof Error ? err.message : 'Erro ao carregar propriedade';
+        logger.error('Error loading property', { propertyId, error: errorMessage });
+        setError(errorMessage);
         setLoading(false);
       }
     };
@@ -289,218 +270,161 @@ export default function EditPropertyPage() {
     loadProperty();
   }, [propertyId, services, isReady, reset, tenantId]);
 
-  // Test submit function
-  const testSubmit = useCallback(async () => {
-    try {
-      setSaving(true);
-      const currentData = methods.getValues();
-      logger.info('🧪 Test submit started', { 
-        propertyId, 
-        hasTitle: !!currentData.title,
-        hasBasePrice: !!currentData.basePrice 
-      });
-
-      // Simple API call test
-      const response = await fetch(`/api/properties/${propertyId}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...currentData,
-          updatedAt: new Date()
-        })
-      });
-
-      if (!response.ok) {
-        throw new Error(`API error: ${response.status}`);
-      }
-
-      const result = await response.json();
-      logger.info('🧪 Test submit success', { result: !!result.success });
-      setSuccess('Teste de salvamento funcionou!');
-
-    } catch (error) {
-      logger.error('🧪 Test submit failed', { error });
-      setError(`Teste falhou: ${error.message}`);
-    } finally {
-      setSaving(false);
-    }
-  }, [propertyId, methods]);
-
-  // Auto-save functionality with debounce
+  // Smart auto-save with improved logic
   const autoSave = useCallback(
     debounce(async (data: Property) => {
-      if (!isDirty || !isValid || saving) return;
-      
+      if (!autoSaveEnabled || !isDirty || !isValid || saving || !propertyId) return;
+
       setAutoSaving(true);
-      logger.info('Auto-saving property changes', { propertyId, title: data.title });
-      
+      logger.info('Auto-saving property changes', { propertyId, fields: Object.keys(dirtyFields) });
+
       try {
-        const response = await ApiClient.put(`/api/properties/${propertyId}`, {
-          ...data,
-          updatedAt: new Date(),
+        const response = await fetch(`/api/properties/${propertyId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            ...data,
+            updatedAt: new Date(),
+            tenantId,
+          }),
         });
-        
+
         if (response.ok) {
-          setLastSaved(new Date());
+          const timestamp = new Date();
+          setLastSaved(timestamp);
+          setSaveHistory(prev => [...prev.slice(-4), { timestamp, type: 'auto' }]);
           setAutoSaving(false);
           logger.info('Property auto-saved successfully', { propertyId });
+        } else {
+          throw new Error(`Auto-save failed: ${response.status}`);
         }
       } catch (err) {
-        logger.error('Auto-save failed', { 
-          propertyId, 
-          error: err instanceof Error ? err.message : String(err) 
+        logger.error('Auto-save failed', {
+          propertyId,
+          error: err instanceof Error ? err.message : String(err)
         });
         setAutoSaving(false);
+        // Don't show error to user for auto-save failures
       }
-    }, 3000),
-    [propertyId, isDirty, isValid, saving]
+    }, 2000), // Reduced debounce time
+    [propertyId, isDirty, isValid, saving, autoSaveEnabled, dirtyFields, tenantId]
   );
 
   // Watch for changes and trigger auto-save
   useEffect(() => {
-    if (isDirty && isValid && !loading) {
+    if (isDirty && isValid && !loading && autoSaveEnabled) {
       autoSave(watchedValues as Property);
     }
-  }, [watchedValues, isDirty, isValid, loading, autoSave]);
+  }, [watchedValues, isDirty, isValid, loading, autoSave, autoSaveEnabled]);
 
-  // Simplified save function for debugging
-  const onSubmit = async (data: Property) => {
-    logger.info('🚀 Starting property save (simplified)', { 
-      propertyId, 
-      title: data.title,
-      isDirty,
-      isValid 
-    });
-    
+  // Manual save with comprehensive error handling
+  const handleSave = useCallback(async (data: Property) => {
+    if (!propertyId) return;
+
     setSaving(true);
     setError(null);
 
+    logger.info('Manual property save initiated', { propertyId, isDirty, isValid });
+
     try {
-      // Simple data processing
+      // Validate critical fields
+      if (!data.title || !data.description || !data.basePrice) {
+        throw new Error('Título, descrição e preço base são obrigatórios');
+      }
+
       const processedData = {
         ...data,
         updatedAt: new Date(),
         tenantId,
-        // Generate concatenated location field for search
-        location: generateLocationField({
-          address: data.address,
-          neighborhood: data.neighborhood,
-          city: data.city,
-          title: data.title,
-          description: data.description
-        }),
+        // Generate location field for search
+        location: [
+          data.address,
+          data.neighborhood,
+          data.city,
+          data.title,
+          data.description
+        ]
+          .filter(Boolean)
+          .map(part => part?.trim().toLowerCase())
+          .filter(part => part && part.length > 0)
+          .join(' '),
       };
-
-      logger.info('📤 Making API request', { 
-        propertyId,
-        url: `/api/properties/${propertyId}`,
-        method: 'PUT'
-      });
 
       const response = await fetch(`/api/properties/${propertyId}`, {
         method: 'PUT',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(processedData),
-      });
-
-      logger.info('📥 API response', { 
-        status: response.status,
-        ok: response.ok,
-        statusText: response.statusText
       });
 
       if (!response.ok) {
         const errorText = await response.text();
-        logger.error('API error response', { 
-          status: response.status, 
-          errorText: errorText.substring(0, 500)
-        });
-        throw new Error(`HTTP ${response.status}: ${errorText}`);
+        throw new Error(`Erro ao salvar: ${response.status} - ${errorText}`);
       }
 
-      const responseData = await response.json();
-      logger.info('✅ Property updated successfully', { 
-        propertyId, 
-        success: responseData.success
-      });
-      
-      setSuccess('Propriedade atualizada com sucesso!');
-      setLastSaved(new Date());
-      
-      // Don't redirect immediately in debug mode
+      const timestamp = new Date();
+      setSuccess('Propriedade salva com sucesso!');
+      setLastSaved(timestamp);
+      setSaveHistory(prev => [...prev.slice(-4), { timestamp, type: 'manual' }]);
+
+      // Reset form dirty state
+      reset(processedData as Property);
+
+      logger.info('Property saved successfully', { propertyId });
+
+      // Auto-redirect after success
       setTimeout(() => {
         router.push('/dashboard/properties');
-      }, 3000);
-      
+      }, 2000);
+
     } catch (err) {
-      logger.error('❌ Property save failed', { 
-        propertyId,
-        error: err instanceof Error ? err.message : String(err),
-        stack: err instanceof Error ? err.stack : undefined
-      });
-      setError(err instanceof Error ? err.message : 'Erro ao salvar propriedade');
+      const errorMessage = err instanceof Error ? err.message : 'Erro desconhecido ao salvar';
+      logger.error('Property save failed', { propertyId, error: errorMessage });
+      setError(errorMessage);
     } finally {
       setSaving(false);
     }
-  };
+  }, [propertyId, tenantId, reset, router]);
 
-  // Handle tab change with validation
-  const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
-    logger.debug('Tab change', { from: activeTab, to: newValue });
-    setActiveTab(newValue);
-  };
-
-  // Calculate completion percentage
-  const getCompletionPercentage = useMemo(() => {
-    const totalFields = tabsConfig.reduce((acc, tab) => acc + tab.fields.length, 0);
-    let completedFields = 0;
-    
-    tabsConfig.forEach(tab => {
-      tab.fields.forEach(field => {
-        const value = watchedValues[field];
-        if (value !== undefined && value !== null && value !== '' && 
-            (!Array.isArray(value) || value.length > 0)) {
-          completedFields++;
-        }
-      });
+  // Section management
+  const toggleSection = (sectionId: string) => {
+    setExpandedSections(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(sectionId)) {
+        newSet.delete(sectionId);
+      } else {
+        newSet.add(sectionId);
+      }
+      return newSet;
     });
-    
-    return Math.round((completedFields / totalFields) * 100);
-  }, [watchedValues]);
+  };
 
-  // Handle navigation away
-  const handleExit = () => {
-    if (isDirty) {
+  // Navigation with unsaved changes protection
+  const handleExit = useCallback(() => {
+    if (isDirty && autoSaveEnabled) {
+      // If auto-save is enabled, just warn about recent changes
+      setShowExitDialog(true);
+    } else if (isDirty) {
       setShowExitDialog(true);
     } else {
       router.push('/dashboard/properties');
     }
-  };
+  }, [isDirty, autoSaveEnabled, router]);
 
   const confirmExit = () => {
-    logger.info('User exiting without saving', { propertyId, isDirty });
-    setShowExitDialog(false);
+    logger.info('User exiting property edit', { propertyId, unsavedChanges: isDirty });
     router.push('/dashboard/properties');
   };
 
   // Loading state
   if (loading) {
     return (
-      <Box sx={{ 
-        display: 'flex', 
-        flexDirection: 'column', 
-        alignItems: 'center', 
-        justifyContent: 'center', 
-        minHeight: '50vh', 
-        gap: 2 
-      }}>
-        <CircularProgress size={48} />
-        <Typography variant="h6" color="text.secondary">
-          Carregando propriedade...
-        </Typography>
-      </Box>
+      <Container maxWidth="lg" sx={{ py: 4 }}>
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+          <Skeleton variant="rectangular" height={200} sx={{ borderRadius: 2 }} />
+          <Skeleton variant="rectangular" height={300} sx={{ borderRadius: 2 }} />
+          <Skeleton variant="rectangular" height={400} sx={{ borderRadius: 2 }} />
+        </Box>
+      </Container>
     );
   }
 
@@ -508,8 +432,8 @@ export default function EditPropertyPage() {
   if (error && !originalData) {
     return (
       <Container maxWidth="lg" sx={{ py: 4 }}>
-        <Alert 
-          severity="error" 
+        <Alert
+          severity="error"
           action={
             <Button color="inherit" size="small" onClick={() => router.push('/dashboard/properties')}>
               Voltar
@@ -524,25 +448,23 @@ export default function EditPropertyPage() {
 
   return (
     <FormProvider {...methods}>
-      <Container maxWidth="xl" sx={{ py: 3, px: { xs: 2, sm: 3 } }}>
-        {/* Header */}
-        <Paper 
-          elevation={0} 
-          sx={{ 
-            p: 3, 
-            mb: 3, 
+      <Container maxWidth="lg" sx={{ py: 3 }}>
+        {/* Enhanced Header */}
+        <Paper
+          elevation={0}
+          sx={{
+            p: 3,
+            mb: 3,
             borderRadius: 2,
             background: `linear-gradient(135deg, ${alpha(theme.palette.primary.main, 0.1)} 0%, ${alpha(theme.palette.secondary.main, 0.1)} 100%)`,
+            border: `1px solid ${alpha(theme.palette.divider, 0.1)}`,
           }}
         >
           <Grid container alignItems="center" spacing={2}>
             <Grid item xs>
-              <Typography variant="h4" fontWeight="bold" gutterBottom>
-                Editar Propriedade
-              </Typography>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
-                <Typography variant="h6" color="text.secondary">
-                  {watchedValues.title || 'Sem título'}
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
+                <Typography variant="h4" fontWeight="bold">
+                  Editar Propriedade
                 </Typography>
                 <Chip
                   size="small"
@@ -558,6 +480,14 @@ export default function EditPropertyPage() {
                     icon={<Warning />}
                   />
                 )}
+              </Box>
+
+              <Typography variant="h6" color="text.secondary" gutterBottom>
+                {watchedValues.title || 'Propriedade sem título'}
+              </Typography>
+
+              {/* Status indicators */}
+              <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
                 {lastSaved && (
                   <Chip
                     size="small"
@@ -567,10 +497,30 @@ export default function EditPropertyPage() {
                     variant="outlined"
                   />
                 )}
+                {autoSaving && (
+                  <Chip
+                    size="small"
+                    label="Salvando automaticamente..."
+                    color="info"
+                    icon={<AutoSave />}
+                  />
+                )}
               </Box>
             </Grid>
+
             <Grid item>
-              <Box sx={{ display: 'flex', gap: 1 }}>
+              <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                <FormControlLabel
+                  control={
+                    <Switch
+                      checked={autoSaveEnabled}
+                      onChange={(e) => setAutoSaveEnabled(e.target.checked)}
+                      size="small"
+                    />
+                  }
+                  label="Auto-save"
+                  sx={{ mr: 2 }}
+                />
                 <Tooltip title="Descartar alterações">
                   <IconButton onClick={handleExit} disabled={saving}>
                     <Close />
@@ -578,249 +528,228 @@ export default function EditPropertyPage() {
                 </Tooltip>
                 <Button
                   variant="contained"
-                  startIcon={saving ? <CircularProgress size={20} color="inherit" /> : <Save />}
-                  onClick={handleSubmit(onSubmit)}
-                  disabled={saving || !isValid}
                   size="large"
-                  title={`Estado: isDirty=${isDirty}, isValid=${isValid}, saving=${saving}`}
+                  startIcon={saving ? <CircularProgress size={20} color="inherit" /> : <Save />}
+                  onClick={handleSubmit(handleSave)}
+                  disabled={saving || (!isDirty && !autoSaving)}
+                  sx={{
+                    minWidth: 160,
+                    position: 'relative'
+                  }}
                 >
                   {saving ? 'Salvando...' : 'Salvar Alterações'}
                 </Button>
-                {/* Botões de teste temporário */}
-                {process.env.NODE_ENV === 'development' && (
-                  <Box sx={{ display: 'flex', gap: 1, ml: 2 }}>
-                    <Button
-                      variant="outlined"
-                      color="secondary"
-                      startIcon={<Save />}
-                      onClick={testSubmit}
-                      disabled={saving}
-                      size="small"
-                    >
-                      Test API
-                    </Button>
-                    <Button
-                      variant="outlined"
-                      color="warning"
-                      startIcon={<Save />}
-                      onClick={() => {
-                        const currentData = methods.getValues();
-                        logger.info('Force save test', { currentData });
-                        onSubmit(currentData);
-                      }}
-                      disabled={saving}
-                      size="small"
-                    >
-                      Force Submit
-                    </Button>
-                  </Box>
-                )}
-                {/* Debug info */}
-                {process.env.NODE_ENV === 'development' && (
-                  <Typography variant="caption" color="text.secondary" sx={{ ml: 2 }}>
-                    Debug: dirty={isDirty ? '✓' : '✗'}, valid={isValid ? '✓' : '✗'}, fields={Object.keys(dirtyFields || {}).length}
-                  </Typography>
-                )}
               </Box>
             </Grid>
           </Grid>
-          
-          {/* Progress bar */}
-          <Box sx={{ mt: 3 }}>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-              <Typography variant="caption" color="text.secondary">
-                Progresso do preenchimento
-              </Typography>
-              <Typography variant="caption" color="text.secondary">
-                {getCompletionPercentage}% completo
-              </Typography>
-            </Box>
-            <LinearProgress 
-              variant="determinate" 
-              value={getCompletionPercentage} 
-              sx={{ 
-                height: 8, 
-                borderRadius: 4,
-                backgroundColor: alpha(theme.palette.primary.main, 0.1),
-                '& .MuiLinearProgress-bar': {
-                  borderRadius: 4,
-                  background: `linear-gradient(90deg, ${theme.palette.primary.main}, ${theme.palette.secondary.main})`,
+
+          {/* Overall progress */}
+          {Object.keys(sectionCompletions).length > 0 && (
+            <Box sx={{ mt: 3 }}>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                <Typography variant="caption" color="text.secondary">
+                  Progresso geral
+                </Typography>
+                <Typography variant="caption" color="text.secondary">
+                  {Math.round(
+                    Object.values(sectionCompletions).reduce((acc, curr) => acc + curr.percentage, 0) /
+                    Object.values(sectionCompletions).length
+                  )}% completo
+                </Typography>
+              </Box>
+              <LinearProgress
+                variant="determinate"
+                value={
+                  Object.values(sectionCompletions).reduce((acc, curr) => acc + curr.percentage, 0) /
+                  Object.values(sectionCompletions).length
                 }
-              }}
-            />
-          </Box>
+                sx={{
+                  height: 8,
+                  borderRadius: 4,
+                  backgroundColor: alpha(theme.palette.primary.main, 0.1),
+                }}
+              />
+            </Box>
+          )}
         </Paper>
 
-        {/* Auto-save indicator */}
-        <Fade in={autoSaving}>
-          <Alert 
-            severity="info" 
-            icon={<AutorenewOutlined />}
-            sx={{ mb: 2 }}
-          >
-            Salvando automaticamente...
-          </Alert>
-        </Fade>
-
         {/* Error/Success messages */}
-        {error && (
-          <Alert 
-            severity="error" 
+        <Collapse in={!!error}>
+          <Alert
+            severity="error"
             sx={{ mb: 2 }}
             onClose={() => setError(null)}
+            action={
+              <Button color="inherit" size="small" onClick={() => setError(null)}>
+                <Refresh />
+              </Button>
+            }
           >
             {error}
           </Alert>
-        )}
+        </Collapse>
 
-        {success && (
-          <Alert 
-            severity="success" 
-            sx={{ mb: 2 }}
-            onClose={() => setSuccess(null)}
-          >
+        <Collapse in={!!success}>
+          <Alert severity="success" sx={{ mb: 2 }} onClose={() => setSuccess(null)}>
             {success}
           </Alert>
-        )}
+        </Collapse>
 
-        {/* Main content */}
-        <Paper sx={{ borderRadius: 2 }}>
-          {/* Tabs */}
-          <Tabs
-            value={activeTab}
-            onChange={handleTabChange}
-            variant="scrollable"
-            scrollButtons="auto"
-            sx={{
-              borderBottom: 1,
-              borderColor: 'divider',
-              '& .MuiTab-root': {
-                minHeight: 64,
-                textTransform: 'none',
-                fontSize: '0.95rem',
-                fontWeight: 500,
-              },
-            }}
-          >
-            {tabsConfig.map((tab, index) => (
-              <Tab
-                key={tab.id}
-                label={
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                    <Badge 
-                      badgeContent={tabErrors[tab.id]} 
-                      color="error"
-                      sx={{ 
-                        '& .MuiBadge-badge': { 
-                          fontSize: '0.7rem',
-                          minWidth: 16,
-                          height: 16,
-                        } 
-                      }}
-                    >
-                      {tab.icon}
-                    </Badge>
-                    <Box>
-                      <Typography variant="body2">
-                        {tab.label}
-                      </Typography>
-                      {tab.required && (
-                        <Typography variant="caption" color="text.secondary">
-                          Obrigatório
+        {/* Modern section-based editing */}
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+          {propertySections.map((section) => {
+            const isExpanded = expandedSections.has(section.id);
+            const completion = sectionCompletions[section.id];
+            const hasErrors = sectionErrors[section.id] > 0;
+
+            return (
+              <Card
+                key={section.id}
+                elevation={0}
+                sx={{
+                  border: `1px solid ${hasErrors 
+                    ? alpha(theme.palette.error.main, 0.3)
+                    : alpha(theme.palette.divider, 0.1)
+                  }`,
+                  borderRadius: 2,
+                  transition: 'all 0.3s ease',
+                  '&:hover': {
+                    boxShadow: theme.shadows[2],
+                  },
+                }}
+              >
+                <CardContent sx={{ pb: 1 }}>
+                  <Box
+                    sx={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      cursor: 'pointer',
+                    }}
+                    onClick={() => toggleSection(section.id)}
+                  >
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                      <Box
+                        sx={{
+                          p: 1,
+                          borderRadius: 1,
+                          backgroundColor: hasErrors
+                            ? alpha(theme.palette.error.main, 0.1)
+                            : alpha(theme.palette.primary.main, 0.1),
+                          color: hasErrors ? theme.palette.error.main : theme.palette.primary.main,
+                        }}
+                      >
+                        {section.icon}
+                      </Box>
+                      <Box>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                          <Typography variant="h6" fontWeight={600}>
+                            {section.title}
+                          </Typography>
+                          {section.isRequired && (
+                            <Chip size="small" label="Obrigatório" color="primary" />
+                          )}
+                          {hasErrors && (
+                            <Chip
+                              size="small"
+                              label={`${sectionErrors[section.id]} erro${sectionErrors[section.id] > 1 ? 's' : ''}`}
+                              color="error"
+                              icon={<ErrorIcon />}
+                            />
+                          )}
+                        </Box>
+                        <Typography variant="body2" color="text.secondary">
+                          {section.description}
                         </Typography>
+                      </Box>
+                    </Box>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                      {completion && (
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                          <Typography variant="caption" color="text.secondary">
+                            {completion.completed}/{completion.total}
+                          </Typography>
+                          <Box sx={{ position: 'relative', display: 'inline-flex' }}>
+                            <CircularProgress
+                              variant="determinate"
+                              value={completion.percentage}
+                              size={20}
+                              thickness={5}
+                            />
+                            {completion.percentage === 100 && (
+                              <CheckCircle
+                                sx={{
+                                  color: 'success.main',
+                                  position: 'absolute',
+                                  top: '50%',
+                                  left: '50%',
+                                  transform: 'translate(-50%, -50%)',
+                                  fontSize: 16,
+                                }}
+                              />
+                            )}
+                          </Box>
+                        </Box>
                       )}
+                      <IconButton size="small">
+                        {isExpanded ? <ExpandLess /> : <ExpandMore />}
+                      </IconButton>
                     </Box>
                   </Box>
-                }
-                icon={
-                  Object.keys(errors).some(key => 
-                    tab.fields.includes(key as keyof Property)
-                  ) ? <ErrorIcon color="error" fontSize="small" /> : 
-                  tab.fields.every(field => {
-                    const value = watchedValues[field];
-                    return value !== undefined && value !== null && value !== '' &&
-                           (!Array.isArray(value) || value.length > 0);
-                  }) ? <CheckCircle color="success" fontSize="small" /> : null
-                }
-                iconPosition="end"
-              />
-            ))}
-          </Tabs>
+                </CardContent>
 
-          {/* Tab Content */}
-          <Box sx={{ p: 4, minHeight: 400 }}>
-            {tabsConfig.map((tab, index) => (
-              <div
-                key={tab.id}
-                role="tabpanel"
-                hidden={activeTab !== index}
-              >
-                {activeTab === index && (
-                  <Fade in timeout={300}>
-                    <Box>{tab.component}</Box>
-                  </Fade>
-                )}
-              </div>
-            ))}
-          </Box>
+                <Collapse in={isExpanded} timeout="auto" unmountOnExit>
+                  <Divider />
+                  <CardContent sx={{ pt: 3 }}>
+                    <Fade in={isExpanded}>
+                      <Box>{section.component}</Box>
+                    </Fade>
+                  </CardContent>
+                </Collapse>
+              </Card>
+            );
+          })}
+        </Box>
 
-          {/* Navigation buttons */}
-          <Box 
-            sx={{ 
-              p: 3, 
-              borderTop: 1, 
-              borderColor: 'divider',
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-            }}
-          >
-            <Button
-              variant="text"
-              onClick={() => setActiveTab(Math.max(0, activeTab - 1))}
-              disabled={activeTab === 0}
-            >
-              Anterior
-            </Button>
-            
-            <Box sx={{ display: 'flex', gap: 1 }}>
-              {tabsConfig.map((_, index) => (
-                <Box
-                  key={index}
-                  sx={{
-                    width: 8,
-                    height: 8,
-                    borderRadius: '50%',
-                    bgcolor: index === activeTab ? 'primary.main' : 'grey.300',
-                    transition: 'all 0.3s',
-                    cursor: 'pointer',
-                  }}
-                  onClick={() => setActiveTab(index)}
-                />
-              ))}
-            </Box>
-            
-            <Button
-              variant="contained"
-              onClick={() => setActiveTab(Math.min(tabsConfig.length - 1, activeTab + 1))}
-              disabled={activeTab === tabsConfig.length - 1}
-            >
-              Próximo
-            </Button>
-          </Box>
-        </Paper>
+        {/* Save history (optional debug info) */}
+        {saveHistory.length > 0 && (
+          <Card elevation={0} sx={{ mt: 2, border: `1px solid ${alpha(theme.palette.divider, 0.1)}` }}>
+            <CardContent>
+              <Typography variant="subtitle2" gutterBottom>
+                <History fontSize="small" sx={{ mr: 1, verticalAlign: 'middle' }} />
+                Histórico de salvamentos
+              </Typography>
+              <List dense>
+                {saveHistory.slice(-3).map((save, index) => (
+                  <ListItem key={index}>
+                    <ListItemIcon>
+                      {save.type === 'auto' ? <AutoSave fontSize="small" /> : <Save fontSize="small" />}
+                    </ListItemIcon>
+                    <ListItemText
+                      primary={`${save.type === 'auto' ? 'Automático' : 'Manual'}`}
+                      secondary={save.timestamp.toLocaleString('pt-BR')}
+                    />
+                  </ListItem>
+                ))}
+              </List>
+            </CardContent>
+          </Card>
+        )}
 
         {/* Exit confirmation dialog */}
         <Dialog open={showExitDialog} onClose={() => setShowExitDialog(false)}>
           <DialogTitle>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
               <Warning color="warning" />
-              Alterações não salvas
+              {autoSaveEnabled ? 'Alterações podem não estar salvas' : 'Alterações não salvas'}
             </Box>
           </DialogTitle>
           <DialogContent>
             <Typography>
-              Você tem alterações não salvas. Deseja realmente sair sem salvar?
+              {autoSaveEnabled 
+                ? 'Suas alterações mais recentes podem não ter sido salvas automaticamente ainda. Deseja sair mesmo assim?'
+                : 'Você tem alterações não salvas. Deseja realmente sair sem salvar?'
+              }
             </Typography>
           </DialogContent>
           <DialogActions>
@@ -828,10 +757,22 @@ export default function EditPropertyPage() {
               Continuar Editando
             </Button>
             <Button onClick={confirmExit} color="error" variant="contained">
-              Sair sem Salvar
+              Sair
             </Button>
           </DialogActions>
         </Dialog>
+
+        {/* Success notification */}
+        <Snackbar
+          open={!!success}
+          autoHideDuration={6000}
+          onClose={() => setSuccess(null)}
+          anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+        >
+          <Alert severity="success" onClose={() => setSuccess(null)}>
+            {success}
+          </Alert>
+        </Snackbar>
       </Container>
     </FormProvider>
   );

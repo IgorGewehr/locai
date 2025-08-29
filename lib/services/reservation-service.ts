@@ -2,7 +2,7 @@ import { TenantServiceFactory } from '@/lib/firebase/firestore-v2'
 import { Reservation, ReservationStatus, PaymentStatus } from '@/lib/types/reservation'
 import { Property } from '@/lib/types/property'
 import { ValidationError } from '@/lib/utils/errors'
-import { CheckAvailabilityInput } from '@/lib/validations/reservation'
+import { CheckAvailabilityInput } from '@/lib/validation/reservation'
 import { eachDayOfInterval, format } from 'date-fns'
 
 class ReservationService {
