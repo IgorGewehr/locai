@@ -5,6 +5,7 @@ import { useState, useCallback, useRef } from 'react';
 import { ref, uploadBytesResumable, getDownloadURL, uploadBytes } from 'firebase/storage';
 import { storage } from '@/lib/firebase/config';
 import { useTenant } from '@/contexts/TenantContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { logger } from '@/lib/utils/logger';
 import { 
   validateFileType, 
@@ -58,6 +59,7 @@ const DEFAULT_CONFIG: Required<UseMediaUploadConfig> = {
 
 export function useMediaUpload(config: UseMediaUploadConfig = {}): UseMediaUploadReturn {
   const { tenantId } = useTenant();
+  const { getFirebaseToken } = useAuth();
   const finalConfig = { ...DEFAULT_CONFIG, ...config };
   
   // State
@@ -241,8 +243,16 @@ export function useMediaUpload(config: UseMediaUploadConfig = {}): UseMediaUploa
 
     abortControllerRef.current = new AbortController();
 
+    const token = await getFirebaseToken();
+    if (!token) {
+      throw new Error('Token de autenticação não disponível');
+    }
+
     const response = await fetch('/api/upload/media', {
       method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
       body: formData,
       signal: abortControllerRef.current.signal
     });

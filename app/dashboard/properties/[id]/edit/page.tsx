@@ -62,6 +62,7 @@ import {
 import { useForm, FormProvider } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
 import { useTenant } from '@/contexts/TenantContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { logger } from '@/lib/utils/logger';
 import { Property } from '@/lib/types/property';
 import { PaymentMethod } from '@/lib/types/common';
@@ -138,6 +139,7 @@ export default function EditPropertyPage() {
   const params = useParams();
   const propertyId = params?.id as string;
   const { services, tenantId, isReady } = useTenant();
+  const { getFirebaseToken } = useAuth();
   const theme = useTheme();
 
   // State management
@@ -279,9 +281,17 @@ export default function EditPropertyPage() {
       logger.info('Auto-saving property changes', { propertyId, fields: Object.keys(dirtyFields) });
 
       try {
+        const token = await getFirebaseToken();
+        if (!token) {
+          throw new Error('Token de autenticação não disponível');
+        }
+
         const response = await fetch(`/api/properties/${propertyId}`, {
           method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`,
+          },
           body: JSON.stringify({
             ...data,
             updatedAt: new Date(),
@@ -307,7 +317,7 @@ export default function EditPropertyPage() {
         // Don't show error to user for auto-save failures
       }
     }, 2000), // Reduced debounce time
-    [propertyId, isDirty, saving, autoSaveEnabled, dirtyFields, tenantId]
+    [propertyId, isDirty, saving, autoSaveEnabled, dirtyFields, tenantId, getFirebaseToken]
   );
 
   // Watch for changes and trigger auto-save
@@ -353,9 +363,17 @@ export default function EditPropertyPage() {
           .join(' '),
       };
 
+      const token = await getFirebaseToken();
+      if (!token) {
+        throw new Error('Token de autenticação não disponível');
+      }
+
       const response = await fetch(`/api/properties/${propertyId}`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
         body: JSON.stringify(processedData),
       });
 
@@ -386,7 +404,7 @@ export default function EditPropertyPage() {
     } finally {
       setSaving(false);
     }
-  }, [propertyId, tenantId, reset, router]);
+  }, [propertyId, tenantId, reset, router, getFirebaseToken]);
 
   // Section management
   const toggleSection = (sectionId: string) => {
