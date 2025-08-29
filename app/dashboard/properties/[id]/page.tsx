@@ -169,8 +169,19 @@ export default function PropertyViewPage() {
                 component="img"
                 height={400}
                 image={(() => {
-                  // Safe image URL with validation
-                  const imageUrl = property.photos[0]?.url;
+                  // Handle both string[] and PropertyPhoto[] formats
+                  let imageUrl: string | undefined;
+                  if (property.photos && property.photos.length > 0) {
+                    const firstPhoto = property.photos[0];
+                    if (typeof firstPhoto === 'string') {
+                      // New structure: string[]
+                      imageUrl = firstPhoto;
+                    } else if (firstPhoto && typeof firstPhoto === 'object' && 'url' in firstPhoto) {
+                      // Legacy structure: PropertyPhoto[]
+                      imageUrl = (firstPhoto as any).url;
+                    }
+                  }
+                  
                   if (imageUrl && imageUrl.startsWith('http')) {
                     return imageUrl;
                   }

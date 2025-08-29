@@ -367,10 +367,25 @@ export default function PropertiesPage() {
                   height="200"
                   image={(() => {
                     // Safe image URL with multiple fallbacks
-                    const imageUrl = property.photos?.[0]?.url;
+                    // Handle both new structure (string[]) and legacy structure ({ url: string }[])
+                    let imageUrl: string | undefined;
+                    
+                    if (property.photos && property.photos.length > 0) {
+                      const firstPhoto = property.photos[0];
+                      // New structure: string[]
+                      if (typeof firstPhoto === 'string') {
+                        imageUrl = firstPhoto;
+                      } 
+                      // Legacy structure: { url: string }[]
+                      else if (firstPhoto && typeof firstPhoto === 'object' && 'url' in firstPhoto) {
+                        imageUrl = (firstPhoto as any).url;
+                      }
+                    }
+                    
                     if (imageUrl && imageUrl.startsWith('http')) {
                       return imageUrl;
                     }
+                    
                     // Fallback to local placeholder
                     return createPropertyPlaceholder('Sem Imagem');
                   })()}

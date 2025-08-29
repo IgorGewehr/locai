@@ -613,15 +613,28 @@ export class WhatsAppMessageHandler {
         const amenitiesText = property.amenities ? property.amenities.slice(0, 3).join(', ') : 'Não informado'
         const caption = `🏠 *${property.title}*\n- ${property.address}\n- ${property.bedrooms} quarto(s), ${property.bathrooms} banheiro(s)\n- Preço base: R$ ${property.basePrice}/noite\n- Taxa de limpeza: R$ ${property.cleaningFee}\n- Comodidades: ${amenitiesText}\n- Permite pets: ${property.allowsPets ? 'Sim' : 'Não'}`
         
-        await withRetry(
-          () => this.whatsappClient.sendImage(
-            to,
-            property.photos[0].url,
-            caption
-          ),
-          2,
-          1000
-        )
+        // Handle both string[] and PropertyPhoto[] formats
+        let imageUrl: string | undefined;
+        const firstPhoto = property.photos[0];
+        if (typeof firstPhoto === 'string') {
+          // New structure: string[]
+          imageUrl = firstPhoto;
+        } else if (firstPhoto && typeof firstPhoto === 'object' && 'url' in firstPhoto) {
+          // Legacy structure: PropertyPhoto[]
+          imageUrl = (firstPhoto as any).url;
+        }
+        
+        if (imageUrl) {
+          await withRetry(
+            () => this.whatsappClient.sendImage(
+              to,
+              imageUrl!,
+              caption
+            ),
+            2,
+            1000
+          )
+        }
         
         // Delay between properties
         await this.delay(1500)
