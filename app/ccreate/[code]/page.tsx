@@ -93,7 +93,10 @@ export default function CreateAccountPage() {
       setSuccess(true);
       setIsProcessing(true);
       
-      // O AuthProvider vai automaticamente redirecionar para o dashboard
+      // Redirecionar imediatamente para o dashboard
+      setTimeout(() => {
+        router.push('/dashboard');
+      }, 100);
     } catch (err: any) {
       let errorMessage = 'Erro ao criar conta';
       
@@ -191,7 +194,7 @@ export default function CreateAccountPage() {
                   mb: 4,
                 }}
               >
-                Carregando seus dados e redirecionando para o dashboard...
+                Redirecionando para o dashboard...
               </Typography>
 
               <CircularProgress sx={{ color: '#16a34a' }} />
