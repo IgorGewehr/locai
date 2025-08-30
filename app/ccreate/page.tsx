@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { useRouter, useParams } from 'next/navigation';
+import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthProvider';
 import {
   Box,
@@ -17,20 +17,18 @@ import {
   Fade,
   useMediaQuery,
   useTheme,
-  Chip,
 } from '@mui/material';
 import {
   Visibility,
   VisibilityOff,
   CheckCircle,
   PersonAdd,
-  CardGiftcard,
 } from '@mui/icons-material';
 import { useForm, Controller } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
 import * as yup from 'yup';
 import Image from 'next/image';
-import { darkFieldStyles } from '../shared-styles';
+import { darkFieldStyles } from './shared-styles';
 
 const registerSchema = yup.object().shape({
   name: yup.string().required('Nome é obrigatório'),
@@ -50,11 +48,6 @@ interface RegisterFormData {
   password: string;
 }
 
-const TRIAL_CONFIGS: Record<string, number> = {
-  '7r3fr33': 7,
-  '0n3fr33': 3,
-};
-
 export default function CreateAccountPage() {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
@@ -65,12 +58,7 @@ export default function CreateAccountPage() {
   const [isProcessing, setIsProcessing] = useState(false);
   
   const router = useRouter();
-  const params = useParams();
-  const code = params.code as string;
   const { signUp } = useAuth();
-  
-  // Get free days based on code
-  const freeDays = TRIAL_CONFIGS[code] || 0;
 
   const form = useForm<RegisterFormData>({
     resolver: yupResolver(registerSchema),
@@ -86,10 +74,7 @@ export default function CreateAccountPage() {
       setIsLoading(true);
       setError(null);
       
-      // Include free days if applicable
-      const extraData = freeDays > 0 ? { free: freeDays } : undefined;
-      
-      await signUp(data.email, data.password, data.name, extraData);
+      await signUp(data.email, data.password, data.name);
       setSuccess(true);
       setIsProcessing(true);
       
@@ -298,25 +283,6 @@ export default function CreateAccountPage() {
               >
                 Preencha os dados para criar sua conta
               </Typography>
-              
-              {freeDays > 0 && (
-                <Box sx={{ mt: 2 }}>
-                  <Chip
-                    icon={<CardGiftcard sx={{ fontSize: '1rem' }} />}
-                    label={`${freeDays} dias grátis incluídos`}
-                    color="success"
-                    sx={{
-                      backgroundColor: '#10b981',
-                      color: '#ffffff',
-                      fontWeight: 600,
-                      fontSize: '0.9rem',
-                      '& .MuiChip-icon': {
-                        color: '#ffffff',
-                      },
-                    }}
-                  />
-                </Box>
-              )}
             </Box>
 
             {/* Form */}
