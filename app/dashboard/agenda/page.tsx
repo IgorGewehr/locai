@@ -65,6 +65,7 @@ import { VisitAppointment, VISIT_STATUS_LABELS, VisitStatus } from '@/lib/types/
 import EventoModal from './components/EventoModal';
 import ViewReservationDialog from './components/ViewReservationDialog';
 import CreateVisitDialog from './components/CreateVisitDialog';
+import EventDetailsModal from './components/EventDetailsModal';
 import { format, isToday, isSameDay, addDays, startOfWeek, endOfWeek, startOfMonth, endOfMonth, eachDayOfInterval, isSameWeek, isSameMonth, parseISO, subMonths, addMonths, subWeeks, addWeeks } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import DashboardBreadcrumb from '@/components/atoms/DashboardBreadcrumb';
@@ -84,6 +85,26 @@ interface AgendaEvent {
     details: Reservation | VisitAppointment;
 }
 
+// Helper function to calculate end time for events
+const getEventEndTime = (startDate: Date, duration: number): Date => {
+    return new Date(startDate.getTime() + (duration * 60000));
+};
+
+// Helper function to format time range for events
+const getEventTimeRange = (event: AgendaEvent): string => {
+    const startTime = format(event.date, 'HH:mm');
+    
+    if (event.type === 'visit') {
+        const visitEvent = event.details as VisitAppointment;
+        const duration = visitEvent.duration || 60;
+        const endTime = format(getEventEndTime(event.date, duration), 'HH:mm');
+        return `${startTime} - ${endTime}`;
+    }
+    
+    // For reservations, just show check-in time
+    return startTime;
+};
+
 export default function UnifiedAgendaPage() {
     const theme = useTheme();
     const router = useRouter();
@@ -101,6 +122,8 @@ export default function UnifiedAgendaPage() {
     const [selectedVisit, setSelectedVisit] = useState<VisitAppointment | null>(null);
     const [allVisits, setAllVisits] = useState<VisitAppointment[]>([]);
     const [loadingVisits, setLoadingVisits] = useState(true);
+    const [selectedEvent, setSelectedEvent] = useState<AgendaEvent | null>(null);
+    const [showEventDetailsModal, setShowEventDetailsModal] = useState(false);
     
     // Hooks de dados
     const { 
@@ -258,14 +281,35 @@ export default function UnifiedAgendaPage() {
         [allEvents]
     );
     
+    // Track double-click for event details
+    const [clickTimeout, setClickTimeout] = useState<NodeJS.Timeout | null>(null);
+    const [clickCount, setClickCount] = useState(0);
+
     const handleEventClick = (event: AgendaEvent) => {
-        if (event.type === 'reservation') {
-            setReservaSelecionada(event.details as Reservation);
-            setShowReservationDialog(true);
-        } else {
-            setSelectedVisit(event.details as VisitAppointment);
-            // Podemos adicionar um dialog de visualização de visita aqui
+        setClickCount(prev => prev + 1);
+        
+        if (clickTimeout) {
+            clearTimeout(clickTimeout);
         }
+        
+        const timeout = setTimeout(() => {
+            if (clickCount === 0) {
+                // Single click - original behavior
+                if (event.type === 'reservation') {
+                    setReservaSelecionada(event.details as Reservation);
+                    setShowReservationDialog(true);
+                } else {
+                    setSelectedVisit(event.details as VisitAppointment);
+                }
+            } else {
+                // Double click - show event details modal
+                setSelectedEvent(event);
+                setShowEventDetailsModal(true);
+            }
+            setClickCount(0);
+        }, 250);
+        
+        setClickTimeout(timeout);
     };
     
     const handleNavigate = (direction: 'prev' | 'next') => {
@@ -357,7 +401,7 @@ export default function UnifiedAgendaPage() {
                                                     {event.subtitle}
                                                 </Typography>
                                                 <Typography variant="caption" color="text.secondary">
-                                                    {format(event.date, 'HH:mm')} • {event.type === 'reservation' ? 'Reserva' : 'Visita'}
+                                                    {getEventTimeRange(event)} • {event.type === 'reservation' ? 'Reserva' : 'Evento'}
                                                 </Typography>
                                             </Box>
                                             <Chip 
@@ -387,7 +431,7 @@ export default function UnifiedAgendaPage() {
                                         Nenhum evento agendado para este dia
                                     </Typography>
                                     <Typography variant="caption" color="text.secondary">
-                                        Clique nos botões acima para criar uma nova reserva ou visita
+                                        Clique nos botões acima para criar uma nova reserva ou evento
                                     </Typography>
                                 </Box>
                             )}
@@ -463,7 +507,7 @@ export default function UnifiedAgendaPage() {
                                                     onClick={() => handleEventClick(event)}
                                                 >
                                                     <Typography variant="caption" fontWeight={600} color={`${event.statusColor}.main`}>
-                                                        {format(event.date, 'HH:mm')}
+                                                        {getEventTimeRange(event)}
                                                     </Typography>
                                                     <Typography variant="caption" display="block" noWrap fontWeight={500}>
                                                         {event.title}
@@ -602,7 +646,7 @@ export default function UnifiedAgendaPage() {
                             Agenda
                         </Typography>
                         <Typography variant="body1" color="text.secondary">
-                            Gerencie reservas e visitas em um só lugar
+                            Gerencie reservas e eventos em um só lugar
                         </Typography>
                     </Box>
                     
@@ -638,7 +682,7 @@ export default function UnifiedAgendaPage() {
                                 }
                             }}
                         >
-                            Nova Visita
+                            Novo Evento
                         </Button>
                     </Stack>
                 </Stack>
@@ -749,7 +793,7 @@ export default function UnifiedAgendaPage() {
                                         {allEvents.filter(e => e.type === 'visit').length}
                                     </Typography>
                                     <Typography variant="body2" color="text.secondary">
-                                        Total Visitas
+                                        Total Eventos
                                     </Typography>
                                 </Box>
                                 <DirectionsCar sx={{ fontSize: 32, color: 'success.main', opacity: 0.7 }} />
@@ -904,6 +948,15 @@ export default function UnifiedAgendaPage() {
                     reservation={reservaSelecionada}
                 />
             )}
+
+            <EventDetailsModal
+                open={showEventDetailsModal}
+                onClose={() => {
+                    setShowEventDetailsModal(false);
+                    setSelectedEvent(null);
+                }}
+                event={selectedEvent}
+            />
         </Box>
     );
 }

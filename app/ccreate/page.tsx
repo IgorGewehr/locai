@@ -227,31 +227,49 @@ export default function CreateAccountPage() {
     <Box
       sx={{
         minHeight: '100vh',
-        background: '#0a0a0a',
+        background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%)',
         display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        p: { xs: 2, lg: 0 },
       }}
     >
-      <Grid container sx={{ minHeight: '100vh' }}>
-        {/* Sidebar - Features Banner */}
-        {!isMobile && (
-          <Grid item lg={7} sx={{ display: 'flex' }}>
-            <FeaturesBanner />
-          </Grid>
-        )}
-
-        {/* Form Section */}
-        <Grid 
-          item 
-          xs={12} 
-          lg={5}
+      <Container maxWidth="lg" sx={{ p: 0 }}>
+        <Box
           sx={{
             display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            p: { xs: 2, sm: 4 },
-            background: isMobile ? '#0a0a0a' : '#111111',
+            minHeight: { xs: 'auto', lg: '80vh' },
+            maxHeight: '90vh',
+            borderRadius: { xs: 0, lg: 3 },
+            overflow: 'hidden',
+            boxShadow: { xs: 'none', lg: '0 25px 50px -12px rgba(0, 0, 0, 0.5)' },
+            border: { xs: 'none', lg: '1px solid rgba(255, 255, 255, 0.15)' },
           }}
         >
+          {/* Sidebar - Features Banner */}
+          {!isMobile && (
+            <Box sx={{ width: '45%', display: 'flex' }}>
+              <FeaturesBanner />
+            </Box>
+          )}
+
+          {/* Form Section */}
+          <Box
+            sx={{
+              width: { xs: '100%', lg: '55%' },
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              p: { xs: 4, sm: 6, lg: 8 },
+              background: 'rgba(15, 23, 42, 0.95)',
+            }}
+          >
+            <Box
+              sx={{
+                width: '100%',
+                maxWidth: 400,
+              }}
+            >
           <Box
             sx={{
               width: '100%',
@@ -259,63 +277,66 @@ export default function CreateAccountPage() {
               position: 'relative',
             }}
           >
-            {/* Mobile Features Banner */}
+            {/* Mobile Header */}
             {isMobile && (
               <Box sx={{ mb: 4, textAlign: 'center' }}>
                 <Box
                   sx={{
-                    width: 64,
-                    height: 64,
-                    borderRadius: 2,
-                    overflow: 'hidden',
-                    position: 'relative',
-                    border: '1px solid #333333',
-                    mx: 'auto',
-                    mb: 2,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    mb: 3,
                   }}
                 >
-                  <Image
-                    src="/logo.jpg"
-                    alt="Logo"
-                    fill
-                    style={{
-                      objectFit: 'cover',
+                  <Box
+                    sx={{
+                      width: 48,
+                      height: 48,
+                      borderRadius: 2,
+                      overflow: 'hidden',
+                      position: 'relative',
+                      border: '1px solid rgba(255, 255, 255, 0.15)',
+                      mr: 3,
                     }}
-                    priority
-                  />
+                  >
+                    <Image
+                      src="/logo.jpg"
+                      alt="AlugaZap"
+                      fill
+                      style={{
+                        objectFit: 'cover',
+                      }}
+                      priority
+                    />
+                  </Box>
+                  <Box>
+                    <Typography
+                      variant="h5"
+                      sx={{
+                        fontWeight: 700,
+                        color: '#ffffff',
+                        fontSize: '1.5rem',
+                        lineHeight: 1.2,
+                      }}
+                    >
+                      AlugaZap
+                    </Typography>
+                    <Typography
+                      sx={{
+                        color: 'rgba(255, 255, 255, 0.7)',
+                        fontSize: '0.875rem',
+                        fontWeight: 500,
+                      }}
+                    >
+                      Imobiliária Digital
+                    </Typography>
+                  </Box>
                 </Box>
-                <Typography
-                  variant="h5"
-                  sx={{
-                    fontWeight: 700,
-                    color: '#ffffff',
-                    mb: 1,
-                  }}
-                >
-                  Locai
-                </Typography>
-                <Typography
-                  sx={{
-                    color: '#a1a1a1',
-                    fontSize: '0.9rem',
-                    mb: 2,
-                  }}
-                >
-                  Plataforma Completa para Imobiliárias
-                </Typography>
               </Box>
             )}
 
             <Fade in timeout={800}>
-              <Box
-                sx={{
-                  background: isMobile ? '#111111' : 'transparent',
-                  borderRadius: isMobile ? 3 : 0,
-                  boxShadow: isMobile ? '0 8px 32px rgba(0, 0, 0, 0.3)' : 'none',
-                  border: isMobile ? '1px solid #333333' : 'none',
-                  p: { xs: 4, sm: 5 },
-                }}
-              >
+              <Box sx={{ width: '100%' }}>
                 {/* Header */}
                 <Box sx={{ mb: 4 }}>
                   <Typography 
@@ -325,7 +346,7 @@ export default function CreateAccountPage() {
                       color: '#ffffff',
                       mb: 1,
                       fontSize: { xs: '1.75rem', sm: '2rem' },
-                      textAlign: { xs: 'center', lg: 'left' },
+                      textAlign: 'left',
                     }}
                   >
                     Criar conta
@@ -333,9 +354,10 @@ export default function CreateAccountPage() {
 
                   <Typography 
                     sx={{
-                      color: '#a1a1a1',
+                      color: 'rgba(255, 255, 255, 0.7)',
                       fontSize: '1rem',
-                      textAlign: { xs: 'center', lg: 'left' },
+                      textAlign: 'left',
+                      fontWeight: 500,
                     }}
                   >
                     Comece agora mesmo
@@ -356,7 +378,31 @@ export default function CreateAccountPage() {
                           variant="outlined"
                           error={!!form.formState.errors.name}
                           helperText={form.formState.errors.name?.message}
-                          sx={darkFieldStyles}
+                          sx={{
+                            '& .MuiOutlinedInput-root': {
+                              borderRadius: 2,
+                              backgroundColor: 'rgba(255, 255, 255, 0.08)',
+                              '& fieldset': {
+                                borderColor: 'rgba(255, 255, 255, 0.15)',
+                              },
+                              '&:hover fieldset': {
+                                borderColor: 'rgba(255, 255, 255, 0.25)',
+                              },
+                              '&.Mui-focused fieldset': {
+                                borderColor: '#6366f1',
+                                borderWidth: 2,
+                              },
+                            },
+                            '& .MuiInputLabel-root': {
+                              color: 'rgba(255, 255, 255, 0.7)',
+                              '&.Mui-focused': {
+                                color: '#6366f1',
+                              },
+                            },
+                            '& .MuiOutlinedInput-input': {
+                              color: '#ffffff',
+                            },
+                          }}
                         />
                       )}
                     />
@@ -373,7 +419,31 @@ export default function CreateAccountPage() {
                           variant="outlined"
                           error={!!form.formState.errors.email}
                           helperText={form.formState.errors.email?.message}
-                          sx={darkFieldStyles}
+                          sx={{
+                            '& .MuiOutlinedInput-root': {
+                              borderRadius: 2,
+                              backgroundColor: 'rgba(255, 255, 255, 0.08)',
+                              '& fieldset': {
+                                borderColor: 'rgba(255, 255, 255, 0.15)',
+                              },
+                              '&:hover fieldset': {
+                                borderColor: 'rgba(255, 255, 255, 0.25)',
+                              },
+                              '&.Mui-focused fieldset': {
+                                borderColor: '#6366f1',
+                                borderWidth: 2,
+                              },
+                            },
+                            '& .MuiInputLabel-root': {
+                              color: 'rgba(255, 255, 255, 0.7)',
+                              '&.Mui-focused': {
+                                color: '#6366f1',
+                              },
+                            },
+                            '& .MuiOutlinedInput-input': {
+                              color: '#ffffff',
+                            },
+                          }}
                         />
                       )}
                     />
@@ -397,14 +467,38 @@ export default function CreateAccountPage() {
                                   onClick={() => setShowPassword(!showPassword)}
                                   edge="end"
                                   size="small"
-                                  sx={{ color: '#a1a1a1' }}
+                                  sx={{ color: 'rgba(255, 255, 255, 0.7)' }}
                                 >
                                   {showPassword ? <VisibilityOff /> : <Visibility />}
                                 </IconButton>
                               </InputAdornment>
                             ),
                           }}
-                          sx={darkFieldStyles}
+                          sx={{
+                            '& .MuiOutlinedInput-root': {
+                              borderRadius: 2,
+                              backgroundColor: 'rgba(255, 255, 255, 0.08)',
+                              '& fieldset': {
+                                borderColor: 'rgba(255, 255, 255, 0.15)',
+                              },
+                              '&:hover fieldset': {
+                                borderColor: 'rgba(255, 255, 255, 0.25)',
+                              },
+                              '&.Mui-focused fieldset': {
+                                borderColor: '#6366f1',
+                                borderWidth: 2,
+                              },
+                            },
+                            '& .MuiInputLabel-root': {
+                              color: 'rgba(255, 255, 255, 0.7)',
+                              '&.Mui-focused': {
+                                color: '#6366f1',
+                              },
+                            },
+                            '& .MuiOutlinedInput-input': {
+                              color: '#ffffff',
+                            },
+                          }}
                         />
                       )}
                     />
@@ -414,8 +508,8 @@ export default function CreateAccountPage() {
                         severity="error" 
                         sx={{
                           borderRadius: 2,
-                          backgroundColor: '#2d1b1b',
-                          border: '1px solid #7f1d1d',
+                          backgroundColor: 'rgba(239, 68, 68, 0.15)',
+                          border: '1px solid rgba(239, 68, 68, 0.3)',
                           color: '#f87171',
                           '& .MuiAlert-icon': {
                             color: '#f87171',
@@ -459,18 +553,16 @@ export default function CreateAccountPage() {
                         textTransform: 'none',
                         fontWeight: 600,
                         fontSize: '1rem',
-                        background: 'linear-gradient(45deg, #3b82f6, #1d4ed8)',
+                        background: '#0f172a',
                         color: '#ffffff',
-                        boxShadow: '0 4px 14px rgba(59, 130, 246, 0.4)',
                         border: 'none',
                         transition: 'all 0.15s ease',
                         '&:hover': {
-                          background: 'linear-gradient(45deg, #2563eb, #1e40af)',
-                          boxShadow: '0 6px 20px rgba(59, 130, 246, 0.6)',
+                          background: '#1e293b',
                           transform: isLoading || isProcessing ? 'none' : 'translateY(-1px)',
                         },
                         '&:disabled': {
-                          background: isProcessing ? 'linear-gradient(45deg, #10b981, #059669)' : '#6b7280',
+                          background: isProcessing ? '#10b981' : '#94a3b8',
                           color: '#ffffff',
                           opacity: 1,
                         },
@@ -479,46 +571,34 @@ export default function CreateAccountPage() {
                       {isProcessing ? 'Conta criada' : isLoading ? 'Criando...' : 'Criar conta grátis'}
                     </Button>
 
-                    {/* Mobile Login Link */}
-                    {isMobile && (
-                      <Box sx={{ textAlign: 'center', pt: 2 }}>
-                        <Typography
-                          component="a"
-                          href="/login"
-                          sx={{
-                            color: '#a1a1a1',
-                            fontSize: '0.9rem',
-                            textDecoration: 'none',
-                            transition: 'all 0.3s ease',
-                            '&:hover': {
-                              color: '#3b82f6',
-                            },
-                          }}
-                        >
-                          Já tem uma conta? Faça login
-                        </Typography>
-                      </Box>
-                    )}
+                    {/* Login Link */}
+                    <Box sx={{ textAlign: 'center', pt: 2 }}>
+                      <Typography
+                        component="a"
+                        href="/login"
+                        sx={{
+                          color: 'rgba(255, 255, 255, 0.7)',
+                          fontSize: '0.875rem',
+                          textDecoration: 'none',
+                          fontWeight: 500,
+                          transition: 'all 0.2s ease',
+                          '&:hover': {
+                            color: '#ffffff',
+                          },
+                        }}
+                      >
+                        Já tem uma conta? Fazer login →
+                      </Typography>
+                    </Box>
                   </Stack>
                 </form>
 
-                {/* Footer */}
-                <Box sx={{ textAlign: 'center', mt: 4 }}>
-                  <Typography
-                    variant="caption"
-                    sx={{ 
-                      color: '#525252',
-                      fontSize: '0.75rem',
-                    }}
-                  >
-                    © 2024 Locai. Todos os direitos reservados.
-                  </Typography>
-                </Box>
               </Box>
             </Fade>
           </Box>
-        </Grid>
-      </Grid>
+          </Box>
+        </Box>
+      </Container>
     </Box>
   );
 }

@@ -5341,10 +5341,15 @@ export async function scheduleMeeting(args: any, tenantId: string) {
       tenantId: tenantId.substring(0, 8) + '***'
     });
 
+    // Calcular horário de término baseado na duração
+    const eventDuration = args.duration || 60;
+    const endDateTime = new Date(scheduledDateTime.getTime() + (eventDuration * 60000)); // Adicionar minutos em ms
+    const endTime = endDateTime.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+
     // Gerar mensagem de confirmação
     const confirmationMessage = `✅ ${propertyData ? 'Visita' : 'Evento'} agendado${propertyData ? 'a' : ''} com sucesso!
 📅 Data: ${scheduledDateTime.toLocaleDateString('pt-BR')}
-🕒 Horário: ${args.scheduledTime}
+🕒 Horário: ${args.scheduledTime} - ${endTime} (${eventDuration}min)
 👤 Cliente: ${args.clientName}
 ${propertyData ? `🏠 Propriedade: ${propertyData.title}` : `📋 Assunto: ${args.title}`}
 ${args.clientPhone ? `📱 Telefone: ${args.clientPhone}` : ''}

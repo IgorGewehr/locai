@@ -17,7 +17,6 @@ import {
   Fade,
   useMediaQuery,
   useTheme,
-  Grid,
 } from '@mui/material';
 import {
   Visibility,
@@ -29,7 +28,6 @@ import { useForm, Controller } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
 import * as yup from 'yup';
 import Image from 'next/image';
-import { darkFieldStyles } from '../shared-styles';
 import FeaturesBanner from '../components/FeaturesBanner';
 
 const registerSchema = yup.object().shape({
@@ -52,7 +50,33 @@ interface RegisterFormData {
 
 const TRIAL_CONFIGS: Record<string, number> = {
   '7r3fr33': 7,
-  '0n3fr33': 3,
+  '0n3fr33': 1,
+};
+
+const fieldStyles = {
+  '& .MuiOutlinedInput-root': {
+    borderRadius: 2,
+    backgroundColor: '#ffffff',
+    '& fieldset': {
+      borderColor: '#e2e8f0',
+    },
+    '&:hover fieldset': {
+      borderColor: '#cbd5e1',
+    },
+    '&.Mui-focused fieldset': {
+      borderColor: '#3b82f6',
+      borderWidth: 2,
+    },
+  },
+  '& .MuiInputLabel-root': {
+    color: '#64748b',
+    '&.Mui-focused': {
+      color: '#3b82f6',
+    },
+  },
+  '& .MuiOutlinedInput-input': {
+    color: '#0f172a',
+  },
 };
 
 export default function CreateAccountPage() {
@@ -138,7 +162,7 @@ export default function CreateAccountPage() {
       <Box
         sx={{
           minHeight: '100vh',
-          background: '#0a0a0a',
+          background: '#ffffff',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
@@ -154,7 +178,7 @@ export default function CreateAccountPage() {
       <Box
         sx={{
           minHeight: '100vh',
-          background: '#0a0a0a',
+          background: '#ffffff',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
@@ -167,10 +191,10 @@ export default function CreateAccountPage() {
             <Box
               sx={{
                 textAlign: 'center',
-                background: '#111111',
+                background: '#ffffff',
                 borderRadius: 3,
-                boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3), 0 4px 16px rgba(0, 0, 0, 0.2)',
-                border: '1px solid #333333',
+                boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.1)',
+                border: '1px solid #e2e8f0',
                 overflow: 'hidden',
                 maxWidth: 420,
                 mx: 'auto',
@@ -191,12 +215,12 @@ export default function CreateAccountPage() {
                     borderRadius: 2,
                     overflow: 'hidden',
                     position: 'relative',
-                    border: '1px solid #333333',
+                    border: '1px solid #e2e8f0',
                   }}
                 >
                   <Image
                     src="/logo.jpg"
-                    alt="Logo"
+                    alt="AlugaZap"
                     fill
                     style={{
                       objectFit: 'cover',
@@ -221,7 +245,7 @@ export default function CreateAccountPage() {
               <Typography 
                 variant="body1" 
                 sx={{
-                  color: '#a1a1a1',
+                  color: '#64748b',
                   mb: 4,
                 }}
               >
@@ -240,340 +264,405 @@ export default function CreateAccountPage() {
     <Box
       sx={{
         minHeight: '100vh',
-        background: '#0a0a0a',
+        background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #0f172a 100%)',
         display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        p: { xs: 2, lg: 0 },
       }}
     >
-      <Grid container sx={{ minHeight: '100vh' }}>
-        {/* Sidebar - Features Banner with Free Days Highlight */}
-        {!isMobile && (
-          <Grid item lg={7} sx={{ display: 'flex' }}>
-            <FeaturesBanner freeDays={freeDays} />
-          </Grid>
-        )}
-
-        {/* Form Section */}
-        <Grid 
-          item 
-          xs={12} 
-          lg={5}
+      <Container maxWidth="lg" sx={{ p: 0 }}>
+        <Box
           sx={{
             display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            p: { xs: 2, sm: 4 },
-            background: isMobile ? '#0a0a0a' : '#111111',
+            minHeight: { xs: 'auto', lg: '80vh' },
+            maxHeight: '90vh',
+            borderRadius: { xs: 0, lg: 3 },
+            overflow: 'hidden',
+            boxShadow: { xs: 'none', lg: '0 25px 50px -12px rgba(0, 0, 0, 0.5)' },
+            border: { xs: 'none', lg: '1px solid rgba(255, 255, 255, 0.15)' },
           }}
         >
+          {/* Sidebar - Features Banner */}
+          {!isMobile && (
+            <Box sx={{ width: '45%', display: 'flex' }}>
+              <FeaturesBanner freeDays={freeDays} />
+            </Box>
+          )}
+
+          {/* Form Section */}
           <Box
             sx={{
-              width: '100%',
-              maxWidth: 420,
-              position: 'relative',
+              width: { xs: '100%', lg: '55%' },
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              p: { xs: 4, sm: 6, lg: 8 },
+              background: 'rgba(15, 23, 42, 0.95)',
             }}
           >
-            {/* Mobile Features Banner */}
-            {isMobile && (
-              <Box sx={{ mb: 4, textAlign: 'center' }}>
-                <Box
-                  sx={{
-                    width: 64,
-                    height: 64,
-                    borderRadius: 2,
-                    overflow: 'hidden',
-                    position: 'relative',
-                    border: '1px solid #333333',
-                    mx: 'auto',
-                    mb: 2,
-                  }}
-                >
-                  <Image
-                    src="/logo.jpg"
-                    alt="Logo"
-                    fill
-                    style={{
-                      objectFit: 'cover',
-                    }}
-                    priority
-                  />
-                </Box>
-                <Typography
-                  variant="h5"
-                  sx={{
-                    fontWeight: 700,
-                    color: '#ffffff',
-                    mb: 1,
-                  }}
-                >
-                  Locai
-                </Typography>
-                <Typography
-                  sx={{
-                    color: '#a1a1a1',
-                    fontSize: '0.9rem',
-                    mb: 2,
-                  }}
-                >
-                  Plataforma Completa para Imobiliárias
-                </Typography>
-
-                {/* Mobile Free Days Offer */}
-                {freeDays > 0 && (
+            <Box
+              sx={{
+                width: '100%',
+                maxWidth: 400,
+              }}
+            >
+              {/* Mobile Header */}
+              {isMobile && (
+                <Box sx={{ mb: 4, textAlign: 'center' }}>
                   <Box
                     sx={{
-                      p: 2,
-                      background: 'linear-gradient(45deg, #10b981, #059669)',
-                      borderRadius: 2,
-                      mb: 2,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      mb: 3,
                     }}
                   >
-                    <Typography
-                      variant="h6"
+                    <Box
+                      sx={{
+                        width: 48,
+                        height: 48,
+                        borderRadius: 2,
+                        overflow: 'hidden',
+                        position: 'relative',
+                        border: '1px solid rgba(255, 255, 255, 0.15)',
+                        mr: 3,
+                      }}
+                    >
+                      <Image
+                        src="/logo.jpg"
+                        alt="Logo"
+                        fill
+                        style={{
+                          objectFit: 'cover',
+                        }}
+                        priority
+                      />
+                    </Box>
+                    <Box>
+                      <Typography
+                        variant="h5"
+                        sx={{
+                          fontWeight: 700,
+                          color: '#ffffff',
+                          fontSize: '1.5rem',
+                          lineHeight: 1.2,
+                        }}
+                      >
+                        AlugaZap
+                      </Typography>
+                      <Typography
+                        sx={{
+                          color: 'rgba(255, 255, 255, 0.7)',
+                          fontSize: '0.875rem',
+                          fontWeight: 500,
+                        }}
+                      >
+                        Imobiliária Digital
+                      </Typography>
+                    </Box>
+                  </Box>
+
+                  {/* Mobile Free Days Offer */}
+                  {freeDays > 0 && (
+                    <Box
+                      sx={{
+                        p: 3,
+                        background: '#f0fdf4',
+                        border: '1px solid #bbf7d0',
+                        borderRadius: 2,
+                        mb: 3,
+                        textAlign: 'center',
+                      }}
+                    >
+                      <Typography
+                        variant="body2"
+                        sx={{
+                          fontWeight: 600,
+                          color: '#16a34a',
+                          fontSize: '0.875rem',
+                        }}
+                      >
+                        🎁 {freeDays} dias grátis incluídos
+                      </Typography>
+                    </Box>
+                  )}
+                </Box>
+              )}
+
+              <Fade in timeout={800}>
+                <Box sx={{ width: '100%' }}>
+                  {/* Header */}
+                  <Box sx={{ mb: 4 }}>
+                    <Typography 
+                      variant="h4" 
                       sx={{
                         fontWeight: 700,
                         color: '#ffffff',
-                        fontSize: '1.1rem',
+                        mb: 1,
+                        fontSize: { xs: '1.75rem', sm: '2rem' },
+                        textAlign: 'left',
                       }}
                     >
-                      🎁 {freeDays} DIAS GRÁTIS
+                      Criar conta
+                    </Typography>
+
+                    <Typography 
+                      sx={{
+                        color: freeDays > 0 ? '#10b981' : 'rgba(255, 255, 255, 0.7)',
+                        fontSize: '1rem',
+                        fontWeight: freeDays > 0 ? 600 : 500,
+                        textAlign: 'left',
+                      }}
+                    >
+                      {freeDays > 0 
+                        ? `Teste ${freeDays} dias grátis - Sem compromisso`
+                        : 'Comece agora mesmo'
+                      }
                     </Typography>
                   </Box>
-                )}
-              </Box>
-            )}
 
-            <Fade in timeout={800}>
-              <Box
-                sx={{
-                  background: isMobile ? '#111111' : 'transparent',
-                  borderRadius: isMobile ? 3 : 0,
-                  boxShadow: isMobile ? '0 8px 32px rgba(0, 0, 0, 0.3)' : 'none',
-                  border: isMobile ? '1px solid #333333' : 'none',
-                  p: { xs: 4, sm: 5 },
-                }}
-              >
-                {/* Header */}
-                <Box sx={{ mb: 4 }}>
-                  <Typography 
-                    variant="h4" 
-                    sx={{
-                      fontWeight: 700,
-                      color: '#ffffff',
-                      mb: 1,
-                      fontSize: { xs: '1.75rem', sm: '2rem' },
-                      textAlign: { xs: 'center', lg: 'left' },
-                    }}
-                  >
-                    Criar conta
-                  </Typography>
+                  {/* Form */}
+                  <form onSubmit={form.handleSubmit(handleRegister)}>
+                    <Stack spacing={3}>
+                      <Controller
+                        name="name"
+                        control={form.control}
+                        render={({ field }) => (
+                          <TextField
+                            {...field}
+                            fullWidth
+                            label="Nome completo"
+                            variant="outlined"
+                            error={!!form.formState.errors.name}
+                            helperText={form.formState.errors.name?.message}
+                            sx={{
+                              '& .MuiOutlinedInput-root': {
+                                borderRadius: 2,
+                                backgroundColor: 'rgba(255, 255, 255, 0.08)',
+                                '& fieldset': {
+                                  borderColor: 'rgba(255, 255, 255, 0.15)',
+                                },
+                                '&:hover fieldset': {
+                                  borderColor: 'rgba(255, 255, 255, 0.25)',
+                                },
+                                '&.Mui-focused fieldset': {
+                                  borderColor: '#6366f1',
+                                  borderWidth: 2,
+                                },
+                              },
+                              '& .MuiInputLabel-root': {
+                                color: 'rgba(255, 255, 255, 0.7)',
+                                '&.Mui-focused': {
+                                  color: '#6366f1',
+                                },
+                              },
+                              '& .MuiOutlinedInput-input': {
+                                color: '#ffffff',
+                              },
+                            }}
+                          />
+                        )}
+                      />
 
-                  <Typography 
-                    sx={{
-                      color: freeDays > 0 ? '#10b981' : '#a1a1a1',
-                      fontSize: '1rem',
-                      fontWeight: freeDays > 0 ? 600 : 400,
-                      textAlign: { xs: 'center', lg: 'left' },
-                    }}
-                  >
-                    {freeDays > 0 
-                      ? `🎁 Teste ${freeDays} dias grátis - Sem compromisso`
-                      : 'Comece agora mesmo'
-                    }
-                  </Typography>
-                </Box>
+                      <Controller
+                        name="email"
+                        control={form.control}
+                        render={({ field }) => (
+                          <TextField
+                            {...field}
+                            fullWidth
+                            label="Email"
+                            type="email"
+                            variant="outlined"
+                            error={!!form.formState.errors.email}
+                            helperText={form.formState.errors.email?.message}
+                            sx={{
+                              '& .MuiOutlinedInput-root': {
+                                borderRadius: 2,
+                                backgroundColor: 'rgba(255, 255, 255, 0.08)',
+                                '& fieldset': {
+                                  borderColor: 'rgba(255, 255, 255, 0.15)',
+                                },
+                                '&:hover fieldset': {
+                                  borderColor: 'rgba(255, 255, 255, 0.25)',
+                                },
+                                '&.Mui-focused fieldset': {
+                                  borderColor: '#6366f1',
+                                  borderWidth: 2,
+                                },
+                              },
+                              '& .MuiInputLabel-root': {
+                                color: 'rgba(255, 255, 255, 0.7)',
+                                '&.Mui-focused': {
+                                  color: '#6366f1',
+                                },
+                              },
+                              '& .MuiOutlinedInput-input': {
+                                color: '#ffffff',
+                              },
+                            }}
+                          />
+                        )}
+                      />
 
-                {/* Form */}
-                <form onSubmit={form.handleSubmit(handleRegister)}>
-                  <Stack spacing={3}>
-                    <Controller
-                      name="name"
-                      control={form.control}
-                      render={({ field }) => (
-                        <TextField
-                          {...field}
-                          fullWidth
-                          label="Nome completo"
-                          variant="outlined"
-                          error={!!form.formState.errors.name}
-                          helperText={form.formState.errors.name?.message}
-                          sx={darkFieldStyles}
-                        />
-                      )}
-                    />
+                      <Controller
+                        name="password"
+                        control={form.control}
+                        render={({ field }) => (
+                          <TextField
+                            {...field}
+                            fullWidth
+                            label="Senha"
+                            type={showPassword ? 'text' : 'password'}
+                            variant="outlined"
+                            error={!!form.formState.errors.password}
+                            helperText={form.formState.errors.password?.message}
+                            InputProps={{
+                              endAdornment: (
+                                <InputAdornment position="end">
+                                  <IconButton
+                                    onClick={() => setShowPassword(!showPassword)}
+                                    edge="end"
+                                    size="small"
+                                    sx={{ color: '#64748b' }}
+                                  >
+                                    {showPassword ? <VisibilityOff /> : <Visibility />}
+                                  </IconButton>
+                                </InputAdornment>
+                              ),
+                            }}
+                            sx={{
+                              '& .MuiOutlinedInput-root': {
+                                borderRadius: 2,
+                                backgroundColor: 'rgba(255, 255, 255, 0.08)',
+                                '& fieldset': {
+                                  borderColor: 'rgba(255, 255, 255, 0.15)',
+                                },
+                                '&:hover fieldset': {
+                                  borderColor: 'rgba(255, 255, 255, 0.25)',
+                                },
+                                '&.Mui-focused fieldset': {
+                                  borderColor: '#6366f1',
+                                  borderWidth: 2,
+                                },
+                              },
+                              '& .MuiInputLabel-root': {
+                                color: 'rgba(255, 255, 255, 0.7)',
+                                '&.Mui-focused': {
+                                  color: '#6366f1',
+                                },
+                              },
+                              '& .MuiOutlinedInput-input': {
+                                color: '#ffffff',
+                              },
+                            }}
+                          />
+                        )}
+                      />
 
-                    <Controller
-                      name="email"
-                      control={form.control}
-                      render={({ field }) => (
-                        <TextField
-                          {...field}
-                          fullWidth
-                          label="Email"
-                          type="email"
-                          variant="outlined"
-                          error={!!form.formState.errors.email}
-                          helperText={form.formState.errors.email?.message}
-                          sx={darkFieldStyles}
-                        />
-                      )}
-                    />
-
-                    <Controller
-                      name="password"
-                      control={form.control}
-                      render={({ field }) => (
-                        <TextField
-                          {...field}
-                          fullWidth
-                          label="Senha"
-                          type={showPassword ? 'text' : 'password'}
-                          variant="outlined"
-                          error={!!form.formState.errors.password}
-                          helperText={form.formState.errors.password?.message}
-                          InputProps={{
-                            endAdornment: (
-                              <InputAdornment position="end">
-                                <IconButton
-                                  onClick={() => setShowPassword(!showPassword)}
-                                  edge="end"
-                                  size="small"
-                                  sx={{ color: '#a1a1a1' }}
-                                >
-                                  {showPassword ? <VisibilityOff /> : <Visibility />}
-                                </IconButton>
-                              </InputAdornment>
-                            ),
-                          }}
-                          sx={darkFieldStyles}
-                        />
-                      )}
-                    />
-
-                    {error && (
-                      <Alert 
-                        severity="error" 
-                        sx={{
-                          borderRadius: 2,
-                          backgroundColor: '#2d1b1b',
-                          border: '1px solid #7f1d1d',
-                          color: '#f87171',
-                          '& .MuiAlert-icon': {
+                      {error && (
+                        <Alert 
+                          severity="error" 
+                          sx={{
+                            borderRadius: 2,
+                            backgroundColor: 'rgba(239, 68, 68, 0.15)',
+                            border: '1px solid rgba(239, 68, 68, 0.3)',
                             color: '#f87171',
+                            '& .MuiAlert-icon': {
+                              color: '#f87171',
+                            },
+                          }}
+                        >
+                          {error}
+                        </Alert>
+                      )}
+
+                      <Button
+                        type="submit"
+                        fullWidth
+                        size="large"
+                        disabled={isLoading || isProcessing}
+                        startIcon={
+                          isLoading ? (
+                            <Box 
+                              sx={{ 
+                                width: 14, 
+                                height: 14, 
+                                border: '1.5px solid rgba(255,255,255,0.3)',
+                                borderTop: '1.5px solid white',
+                                borderRadius: '50%',
+                                animation: 'spin 0.8s linear infinite',
+                                '@keyframes spin': {
+                                  '0%': { transform: 'rotate(0deg)' },
+                                  '100%': { transform: 'rotate(360deg)' }
+                                }
+                              }} 
+                            />
+                          ) : isProcessing ? (
+                            <CheckCircle sx={{ fontSize: 16, color: 'white' }} />
+                          ) : (
+                            <PersonAdd sx={{ fontSize: 16 }} />
+                          )
+                        }
+                        sx={{
+                          py: 1.8,
+                          borderRadius: 2,
+                          textTransform: 'none',
+                          fontWeight: 600,
+                          fontSize: '1rem',
+                          background: freeDays > 0 ? '#16a34a' : '#0f172a',
+                          color: '#ffffff',
+                          border: 'none',
+                          transition: 'all 0.15s ease',
+                          '&:hover': {
+                            background: freeDays > 0 ? '#15803d' : '#1e293b',
+                            transform: isLoading || isProcessing ? 'none' : 'translateY(-1px)',
+                          },
+                          '&:disabled': {
+                            background: isProcessing ? '#10b981' : '#94a3b8',
+                            color: '#ffffff',
+                            opacity: 1,
                           },
                         }}
                       >
-                        {error}
-                      </Alert>
-                    )}
+                        {isProcessing 
+                          ? 'Conta criada' 
+                          : isLoading 
+                            ? 'Criando...' 
+                            : freeDays > 0 
+                              ? `Testar ${freeDays} dias grátis`
+                              : 'Criar conta grátis'
+                        }
+                      </Button>
 
-                    <Button
-                      type="submit"
-                      fullWidth
-                      size="large"
-                      disabled={isLoading || isProcessing}
-                      startIcon={
-                        isLoading ? (
-                          <Box 
-                            sx={{ 
-                              width: 14, 
-                              height: 14, 
-                              border: '1.5px solid rgba(255,255,255,0.3)',
-                              borderTop: '1.5px solid white',
-                              borderRadius: '50%',
-                              animation: 'spin 0.8s linear infinite',
-                              '@keyframes spin': {
-                                '0%': { transform: 'rotate(0deg)' },
-                                '100%': { transform: 'rotate(360deg)' }
-                              }
-                            }} 
-                          />
-                        ) : isProcessing ? (
-                          <CheckCircle sx={{ fontSize: 16, color: 'white' }} />
-                        ) : (
-                          <PersonAdd sx={{ fontSize: 16 }} />
-                        )
-                      }
-                      sx={{
-                        py: 1.8,
-                        borderRadius: 2,
-                        textTransform: 'none',
-                        fontWeight: 600,
-                        fontSize: '1rem',
-                        background: freeDays > 0 
-                          ? 'linear-gradient(45deg, #10b981, #059669)'
-                          : 'linear-gradient(45deg, #3b82f6, #1d4ed8)',
-                        color: '#ffffff',
-                        boxShadow: freeDays > 0 
-                          ? '0 4px 14px rgba(16, 185, 129, 0.4)'
-                          : '0 4px 14px rgba(59, 130, 246, 0.4)',
-                        border: 'none',
-                        transition: 'all 0.15s ease',
-                        '&:hover': {
-                          background: freeDays > 0 
-                            ? 'linear-gradient(45deg, #059669, #047857)'
-                            : 'linear-gradient(45deg, #2563eb, #1e40af)',
-                          boxShadow: freeDays > 0 
-                            ? '0 6px 20px rgba(16, 185, 129, 0.6)'
-                            : '0 6px 20px rgba(59, 130, 246, 0.6)',
-                          transform: isLoading || isProcessing ? 'none' : 'translateY(-1px)',
-                        },
-                        '&:disabled': {
-                          background: isProcessing ? 'linear-gradient(45deg, #10b981, #059669)' : '#6b7280',
-                          color: '#ffffff',
-                          opacity: 1,
-                        },
-                      }}
-                    >
-                      {isProcessing 
-                        ? 'Conta criada' 
-                        : isLoading 
-                          ? 'Criando...' 
-                          : freeDays > 0 
-                            ? `Começar teste de ${freeDays} dias grátis`
-                            : 'Criar conta grátis'
-                      }
-                    </Button>
-
-                    {/* Mobile Login Link */}
-                    {isMobile && (
+                      {/* Login Link */}
                       <Box sx={{ textAlign: 'center', pt: 2 }}>
                         <Typography
                           component="a"
                           href="/login"
                           sx={{
-                            color: '#a1a1a1',
-                            fontSize: '0.9rem',
+                            color: 'rgba(255, 255, 255, 0.7)',
+                            fontSize: '0.875rem',
                             textDecoration: 'none',
-                            transition: 'all 0.3s ease',
+                            fontWeight: 500,
+                            transition: 'all 0.2s ease',
                             '&:hover': {
-                              color: '#3b82f6',
+                              color: '#ffffff',
                             },
                           }}
                         >
-                          Já tem uma conta? Faça login
+                          Já tem uma conta? Fazer login →
                         </Typography>
                       </Box>
-                    )}
-                  </Stack>
-                </form>
-
-                {/* Footer */}
-                <Box sx={{ textAlign: 'center', mt: 4 }}>
-                  <Typography
-                    variant="caption"
-                    sx={{ 
-                      color: '#525252',
-                      fontSize: '0.75rem',
-                    }}
-                  >
-                    © 2024 Locai. Todos os direitos reservados.
-                  </Typography>
+                    </Stack>
+                  </form>
                 </Box>
-              </Box>
-            </Fade>
+              </Fade>
+            </Box>
           </Box>
-        </Grid>
-      </Grid>
+        </Box>
+      </Container>
     </Box>
   );
 }
