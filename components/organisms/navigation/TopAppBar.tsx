@@ -117,6 +117,11 @@ const navigationItems: NavigationItem[] = [
       },
     ],
   },
+  {
+    text: 'Ajuda',
+    href: '/dashboard/help',
+    icon: <HelpOutline sx={{ fontSize: 20 }} />,
+  },
 ];
 
 interface TopAppBarProps {
@@ -965,6 +970,34 @@ export default function TopAppBar({ onLogout }: TopAppBarProps) {
             </ListItemIcon>
             <ListItemText 
               primary="Configurações"
+              primaryTypographyProps={{
+                fontWeight: 500,
+                color: 'white',
+                fontSize: '0.9rem',
+              }}
+            />
+          </ListItemButton>
+
+          <ListItemButton
+            onClick={() => {
+              router.push('/dashboard/help');
+              setMobileDrawerOpen(false);
+            }}
+            sx={{
+              borderRadius: 2,
+              mb: 1,
+              py: 1.5,
+              px: 2,
+              '&:hover': {
+                background: 'rgba(6, 182, 212, 0.05)',
+              },
+            }}
+          >
+            <ListItemIcon sx={{ minWidth: 40, color: 'rgba(255, 255, 255, 0.7)' }}>
+              <HelpOutline />
+            </ListItemIcon>
+            <ListItemText 
+              primary="Ajuda"
               primaryTypographyProps={{
                 fontWeight: 500,
                 color: 'white',

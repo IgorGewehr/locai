@@ -130,6 +130,12 @@ const menuItems = [
     icon: <Language />,
     badge: null,
   },
+  {
+    text: 'Ajuda',
+    href: '/dashboard/help',
+    icon: <HelpOutline />,
+    badge: null,
+  },
   // Teste restaurado para desenvolvimento
 ];
 
@@ -138,12 +144,6 @@ const secondaryItems = [
     text: 'Configurações',
     href: '/dashboard/settings',
     icon: <Settings />,
-    badge: null,
-  },
-  {
-    text: 'Ajuda',
-    href: '/dashboard/help',
-    icon: <HelpOutline />,
     badge: null,
   },
 ];
