@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthProvider';
 import {
@@ -67,7 +67,21 @@ export default function CreateAccountPage() {
   const router = useRouter();
   const params = useParams();
   const code = params.code as string;
-  const { signUp } = useAuth();
+  const { signUp, user, loading } = useAuth();
+
+  // Redirecionar usuários já autenticados
+  useEffect(() => {
+    if (!loading && user) {
+      const isAlreadyRedirecting = sessionStorage.getItem('redirecting');
+      if (isAlreadyRedirecting) {
+        sessionStorage.removeItem('redirecting');
+        return;
+      }
+      
+      sessionStorage.setItem('redirecting', 'true');
+      router.replace('/dashboard');
+    }
+  }, [user, loading, router]);
   
   // Get free days based on code
   const freeDays = TRIAL_CONFIGS[code] || 0;
@@ -117,6 +131,23 @@ export default function CreateAccountPage() {
       setIsLoading(false);
     }
   };
+
+  // Mostrar loading enquanto verifica autenticação
+  if (loading) {
+    return (
+      <Box
+        sx={{
+          minHeight: '100vh',
+          background: '#0a0a0a',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+      >
+        <CircularProgress sx={{ color: '#3b82f6' }} />
+      </Box>
+    );
+  }
 
   if (success) {
     return (

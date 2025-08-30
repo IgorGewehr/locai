@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthProvider';
 import {
@@ -58,7 +58,21 @@ export default function CreateAccountPage() {
   const [isProcessing, setIsProcessing] = useState(false);
   
   const router = useRouter();
-  const { signUp } = useAuth();
+  const { signUp, user, loading } = useAuth();
+
+  // Redirecionar usuários já autenticados
+  useEffect(() => {
+    if (!loading && user) {
+      const isAlreadyRedirecting = sessionStorage.getItem('redirecting');
+      if (isAlreadyRedirecting) {
+        sessionStorage.removeItem('redirecting');
+        return;
+      }
+      
+      sessionStorage.setItem('redirecting', 'true');
+      router.replace('/dashboard');
+    }
+  }, [user, loading, router]);
 
   const form = useForm<RegisterFormData>({
     resolver: yupResolver(registerSchema),
@@ -102,6 +116,23 @@ export default function CreateAccountPage() {
       setIsLoading(false);
     }
   };
+
+  // Mostrar loading enquanto verifica autenticação
+  if (loading) {
+    return (
+      <Box
+        sx={{
+          minHeight: '100vh',
+          background: '#0a0a0a',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+        }}
+      >
+        <CircularProgress sx={{ color: '#3b82f6' }} />
+      </Box>
+    );
+  }
 
   if (success) {
     return (
