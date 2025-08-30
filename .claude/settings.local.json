@@ -78,7 +78,8 @@
       "Bash(python3:*)",
       "Bash(npx eslint:*)",
       "Read(/tmp/**)",
-      "Read(/tmp/**)"
+      "Read(/tmp/**)",
+      "Bash(dos2unix:*)"
     ],
     "deny": [],
     "defaultMode": "acceptEdits",
