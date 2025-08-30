@@ -596,6 +596,7 @@ export default function CreateAccountPage() {
               </Box>
             </Fade>
           </Box>
+          </Box>
         </Box>
       </Container>
     </Box>
