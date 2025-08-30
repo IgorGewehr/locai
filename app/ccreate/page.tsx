@@ -267,16 +267,10 @@ export default function CreateAccountPage() {
             <Box
               sx={{
                 width: '100%',
-                maxWidth: 400,
+                maxWidth: 420,
+                position: 'relative',
               }}
             >
-          <Box
-            sx={{
-              width: '100%',
-              maxWidth: 420,
-              position: 'relative',
-            }}
-          >
             {/* Mobile Header */}
             {isMobile && (
               <Box sx={{ mb: 4, textAlign: 'center' }}>
@@ -595,7 +589,6 @@ export default function CreateAccountPage() {
 
               </Box>
             </Fade>
-          </Box>
           </Box>
         </Box>
       </Container>
