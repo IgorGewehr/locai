@@ -8,8 +8,8 @@ import { Property } from '@/lib/types/property';
 import { Client } from '@/lib/types/client';
 import { Reservation, ReservationStatus, ReservationSource, PaymentMethod, PaymentStatus } from '@/lib/types/reservation';
 import { VisitAppointment, VisitStatus } from '@/lib/types/visit-appointment';
-import { Ticket, TicketResponse, CreateTicketRequest, TicketStatus, TicketPriority, TicketType } from '@/lib/types/ticket';
-import { TicketServiceV2 } from '@/lib/services/ticket-service-v2';
+// import { Ticket, TicketResponse, CreateTicketRequest, TicketStatus, TicketPriority, TicketType } from '@/lib/types/ticket';
+// import { TicketServiceV2 } from '@/lib/services/ticket-service-v2';
 import { propertyCache } from '@/lib/cache/property-cache-manager';
 import { leadScoringService } from '@/lib/services/lead-scoring-service';
 
@@ -5392,7 +5392,7 @@ ID do agendamento: ${visitId}`;
 /**
  * FUNÇÃO: Criar ticket de suporte
  */
-export async function createSupportTicket(args: CreateSupportTicketArgs, tenantId: string): Promise<any> {
+/* export async function createSupportTicket(args: CreateSupportTicketArgs, tenantId: string): Promise<any> {
   try {
     logger.info('🎫 [TenantAgent] create_support_ticket iniciada', {
       tenantId: tenantId.substring(0, 8) + '***',
@@ -5490,12 +5490,12 @@ export async function createSupportTicket(args: CreateSupportTicketArgs, tenantI
       tenantId
     };
   }
-}
+} */
 
 /**
  * FUNÇÃO: Buscar tickets do usuário
  */
-export async function getUserTickets(args: GetUserTicketsArgs, tenantId: string): Promise<any> {
+/* export async function getUserTickets(args: GetUserTicketsArgs, tenantId: string): Promise<any> {
   try {
     logger.info('📋 [TenantAgent] get_user_tickets iniciada', {
       tenantId: tenantId.substring(0, 8) + '***',
@@ -5586,7 +5586,7 @@ export async function getUserTickets(args: GetUserTicketsArgs, tenantId: string)
       tenantId
     };
   }
-}
+} */
 
 // ===== CRM ADVANCED FUNCTIONS =====
 

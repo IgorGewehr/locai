@@ -37,6 +37,7 @@ import { useTenant } from '@/contexts/TenantContext';
 import { propertyService } from '@/lib/services/property-service';
 import { generateLocationField } from '@/lib/utils/locationUtils';
 import { logger } from '@/lib/utils/logger';
+import { createPropertySchema } from '@/lib/validation/unified-property-schema';
 
 const steps = [
   'Informações Básicas',
@@ -54,60 +55,8 @@ const propertyTypes = [
   { value: PropertyCategory.STUDIO, label: 'Studio', icon: <Home /> },
 ];
 
-const propertySchema = yup.object().shape({
-  // Apenas descrição e preço médio são obrigatórios segundo CLAUDE.md
-  description: yup.string().required('Descrição é obrigatória'),
-  basePrice: yup.number().min(1, 'Preço deve ser maior que 0').required('Preço base é obrigatório'),
-  
-  // Outros campos opcionais com defaults
-  title: yup.string().default(''),
-  address: yup.string().default(''),
-  category: yup.string().oneOf(Object.values(PropertyCategory)).default(PropertyCategory.APARTMENT),
-  bedrooms: yup.number().min(0).default(1),
-  bathrooms: yup.number().min(0).default(1),
-  maxGuests: yup.number().min(1).default(1),
-  pricePerExtraGuest: yup.number().min(0).default(0),
-  minimumNights: yup.number().min(1).default(1),
-  cleaningFee: yup.number().min(0).default(0),
-  
-  // Analytics fields
-  status: yup.string().oneOf(Object.values(PropertyStatus)).default(PropertyStatus.ACTIVE),
-  type: yup.string().oneOf(Object.values(PropertyType)).default(PropertyType.RESIDENTIAL),
-  neighborhood: yup.string().default(''),
-  city: yup.string().default(''),
-  capacity: yup.number().min(1).default(1),
-  
-  // Other fields
-  amenities: yup.array().of(yup.string()).default([]),
-  isFeatured: yup.boolean().default(false),
-  allowsPets: yup.boolean().default(false),
-  paymentMethodSurcharges: yup.object().shape({
-    [PaymentMethod.CREDIT_CARD]: yup.number().min(0).default(0),
-    [PaymentMethod.DEBIT_CARD]: yup.number().min(0).default(0),
-    [PaymentMethod.PIX]: yup.number().min(0).default(0),
-    [PaymentMethod.CASH]: yup.number().min(0).default(0),
-    [PaymentMethod.BANK_TRANSFER]: yup.number().min(0).default(0),
-    [PaymentMethod.BANK_SLIP]: yup.number().min(0).default(0),
-    [PaymentMethod.STRIPE]: yup.number().min(0).default(0),
-  }).default({
-    [PaymentMethod.CREDIT_CARD]: 0,
-    [PaymentMethod.DEBIT_CARD]: 0,
-    [PaymentMethod.PIX]: 0,
-    [PaymentMethod.CASH]: 0,
-    [PaymentMethod.BANK_TRANSFER]: 0,
-    [PaymentMethod.BANK_SLIP]: 0,
-    [PaymentMethod.STRIPE]: 0,
-  }),
-  photos: yup.array().default([]),
-  videos: yup.array().default([]),
-  customPricing: yup.object().default({}),
-  isActive: yup.boolean().default(true),
-  
-  // Timestamps
-  createdAt: yup.date().default(() => new Date()),
-  updatedAt: yup.date().default(() => new Date()),
-  tenantId: yup.string().default(''),
-});
+// Using unified schema for creation mode
+// This ensures consistency between create and edit forms
 
 export default function CreatePropertyPage() {
   const router = useRouter();
@@ -118,7 +67,7 @@ export default function CreatePropertyPage() {
   const [pricingRules, setPricingRules] = useState<PricingRule[]>([]);
 
   const methods = useForm<Property>({
-    resolver: yupResolver(propertySchema) as any,
+    resolver: yupResolver(createPropertySchema) as any,
     defaultValues: {
       title: '',
       description: '',

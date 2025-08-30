@@ -66,7 +66,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import { logger } from '@/lib/utils/logger';
 import { Property } from '@/lib/types/property';
 import { PaymentMethod } from '@/lib/types/common';
-import { propertySchema } from '@/lib/validation/propertySchema';
+import { editPropertySchema } from '@/lib/validation/unified-property-schema';
 import { debounce } from 'lodash';
 
 // Optimized components with performance improvements
@@ -139,8 +139,12 @@ export default function EditPropertyPage() {
   const params = useParams();
   const propertyId = params?.id as string;
   const { services, tenantId, isReady } = useTenant();
-  const { getFirebaseToken } = useAuth();
+  const { getFirebaseToken, user } = useAuth();
   const theme = useTheme();
+  
+  // Save queue to prevent race conditions
+  const saveQueueRef = useRef<Promise<void>>(Promise.resolve());
+  const autoSaveTimerRef = useRef<NodeJS.Timeout>();
 
   // State management
   const [loading, setLoading] = useState(true);
@@ -154,10 +158,11 @@ export default function EditPropertyPage() {
   const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set(['basic']));
   const [autoSaveEnabled, setAutoSaveEnabled] = useState(true);
   const [saveHistory, setSaveHistory] = useState<Array<{ timestamp: Date; type: 'manual' | 'auto' }>>([]);
+  const [authChecked, setAuthChecked] = useState(false);
 
-  // Form setup with optimized validation
+  // Form setup with optimized validation using unified schema
   const methods = useForm<Property>({
-    resolver: yupResolver(propertySchema) as any,
+    resolver: yupResolver(editPropertySchema) as any,
     mode: 'onChange',
     shouldUnregister: false,
     shouldFocusError: true,
@@ -218,28 +223,92 @@ export default function EditPropertyPage() {
     return errorCount;
   }, [errors]);
 
+  // Cleanup on component unmount
+  useEffect(() => {
+    return () => {
+      // Cancel any pending auto-saves
+      autoSave.cancel();
+      
+      // Clear any pending timers
+      if (autoSaveTimerRef.current) {
+        clearTimeout(autoSaveTimerRef.current);
+      }
+      
+      // Log cleanup
+      logger.info('EditPropertyPage cleanup completed', { propertyId });
+    };
+  }, [propertyId]);
+
+  // Authentication check
+  useEffect(() => {
+    let mounted = true; // Track if component is mounted
+    
+    const checkAuth = async () => {
+      try {
+        const token = await getFirebaseToken();
+        if (!mounted) return; // Don't update state if unmounted
+        
+        if (!token || !user) {
+          logger.warn('No authentication token or user, redirecting to login');
+          router.push('/login');
+          return;
+        }
+        setAuthChecked(true);
+      } catch (err) {
+        if (!mounted) return; // Don't update state if unmounted
+        logger.error('Authentication check failed', { error: err });
+        router.push('/login');
+      }
+    };
+    
+    checkAuth();
+    
+    // Cleanup
+    return () => {
+      mounted = false;
+    };
+  }, [getFirebaseToken, user, router]);
+
+  // Helper function to normalize media arrays
+  const normalizeMediaArray = (media: any): string[] => {
+    if (!media) return [];
+    if (!Array.isArray(media)) return [];
+    
+    return media.map(item => {
+      if (typeof item === 'string') return item;
+      if (item && typeof item === 'object' && item.url) return item.url;
+      return null;
+    }).filter((url): url is string => url !== null && url !== undefined && url !== '');
+  };
+
   // Load property data with enhanced error handling
   useEffect(() => {
+    let mounted = true; // Track if component is mounted
+    
     const loadProperty = async () => {
-      if (!propertyId || !services || !isReady) return;
+      if (!propertyId || !services || !isReady || !authChecked) return;
 
       logger.info('Loading property for editing', { propertyId, tenantId });
-      setLoading(true);
-      setError(null);
+      if (mounted) {
+        setLoading(true);
+        setError(null);
+      }
 
       try {
         const property = await services.properties.get(propertyId);
+        
+        if (!mounted) return; // Don't continue if unmounted
 
         if (!property) {
           throw new Error('Propriedade não encontrada');
         }
 
-        // Ensure all required fields have proper defaults
+        // Ensure all required fields have proper defaults with media normalization
         const propertyData: Property = {
           ...property,
           amenities: property.amenities || [],
-          photos: property.photos || [],
-          videos: property.videos || [],
+          photos: normalizeMediaArray(property.photos),
+          videos: normalizeMediaArray(property.videos),
           paymentMethodSurcharges: {
             [PaymentMethod.PIX]: 0,
             [PaymentMethod.CREDIT_CARD]: 0,
@@ -258,10 +327,14 @@ export default function EditPropertyPage() {
           sections: propertySections.map(s => s.id)
         });
 
-        setOriginalData(propertyData);
-        reset(propertyData);
-        setLoading(false);
+        if (mounted) {
+          setOriginalData(propertyData);
+          reset(propertyData);
+          setLoading(false);
+        }
       } catch (err) {
+        if (!mounted) return; // Don't update state if unmounted
+        
         const errorMessage = err instanceof Error ? err.message : 'Erro ao carregar propriedade';
         logger.error('Error loading property', { propertyId, error: errorMessage });
         setError(errorMessage);
@@ -270,54 +343,99 @@ export default function EditPropertyPage() {
     };
 
     loadProperty();
-  }, [propertyId, services, isReady, reset, tenantId]);
+    
+    // Cleanup
+    return () => {
+      mounted = false;
+    };
+  }, [propertyId, services, isReady, reset, tenantId, authChecked]);
 
-  // Helper function to make API requests with automatic token refresh
+  // Helper function to make API requests with enhanced retry logic
   const makeAuthenticatedRequest = useCallback(async (url: string, options: RequestInit, retryCount = 0): Promise<Response> => {
-    const token = await getFirebaseToken();
-    if (!token) {
-      throw new Error('No authentication token available');
-    }
-
-    const response = await fetch(url, {
-      ...options,
-      headers: {
-        ...options.headers,
-        'Authorization': `Bearer ${token}`,
-      },
-    });
-
-    // If 401 and we haven't retried, try to refresh token and retry once
-    if (response.status === 401 && retryCount === 0) {
-      try {
-        // Force token refresh using Firebase's forceRefresh
-        const newToken = await getFirebaseToken(true); // Force refresh
-        if (newToken && newToken !== token) {
-          return makeAuthenticatedRequest(url, options, retryCount + 1);
-        } else {
-          throw new Error('Token expired - please refresh the page or login again');
-        }
-      } catch (refreshError) {
-        throw new Error('Authentication failed - please refresh page or login again');
+    const MAX_RETRIES = 3;
+    const RETRY_DELAY = 1000; // Base delay in ms
+    
+    try {
+      // Force refresh token on retry
+      const token = await getFirebaseToken(retryCount > 0);
+      
+      if (!token) {
+        throw new Error('No authentication token available');
       }
-    }
 
-    return response;
+      const response = await fetch(url, {
+        ...options,
+        headers: {
+          ...options.headers,
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      // Handle 401 with smart retry
+      if (response.status === 401 && retryCount < MAX_RETRIES) {
+        logger.warn(`Authentication failed, retrying... (attempt ${retryCount + 1}/${MAX_RETRIES})`);
+        
+        // Exponential backoff
+        await new Promise(resolve => setTimeout(resolve, RETRY_DELAY * Math.pow(2, retryCount)));
+        
+        // Force token refresh and retry
+        return makeAuthenticatedRequest(url, options, retryCount + 1);
+      }
+      
+      // Handle other errors with retry
+      if (!response.ok && retryCount < MAX_RETRIES && response.status >= 500) {
+        logger.warn(`Server error ${response.status}, retrying... (attempt ${retryCount + 1}/${MAX_RETRIES})`);
+        await new Promise(resolve => setTimeout(resolve, RETRY_DELAY * Math.pow(2, retryCount)));
+        return makeAuthenticatedRequest(url, options, retryCount + 1);
+      }
+
+      return response;
+    } catch (error) {
+      // Network errors - retry if we haven't exceeded max retries
+      if (retryCount < MAX_RETRIES) {
+        logger.warn(`Network error, retrying... (attempt ${retryCount + 1}/${MAX_RETRIES})`, { error });
+        await new Promise(resolve => setTimeout(resolve, RETRY_DELAY * Math.pow(2, retryCount)));
+        return makeAuthenticatedRequest(url, options, retryCount + 1);
+      }
+      
+      // Max retries exceeded
+      logger.error('Max retries exceeded for authenticated request', { url, error });
+      throw error;
+    }
   }, [getFirebaseToken]);
 
-  // Smart auto-save with improved logic and token refresh
+  // Smart auto-save with improved logic and real change detection
   const autoSave = useCallback(
     debounce(async (data: Property) => {
-      if (!autoSaveEnabled || !isDirty || saving || !propertyId) return;
+      // Prevent multiple saves running simultaneously
+      if (!autoSaveEnabled || !isDirty || saving || autoSaving || !propertyId) return;
+      
+      // Check for real changes by comparing with original data
+      const hasRealChanges = originalData && JSON.stringify({
+        ...data,
+        updatedAt: originalData.updatedAt, // Ignore updatedAt for comparison
+      }) !== JSON.stringify(originalData);
+      
+      if (!hasRealChanges) {
+        logger.info('No real changes detected, skipping auto-save');
+        return;
+      }
 
       setAutoSaving(true);
-      logger.info('Auto-saving property changes', { propertyId, fields: Object.keys(dirtyFields) });
+      logger.info('Auto-saving property changes', { 
+        propertyId, 
+        changedFields: Object.keys(dirtyFields),
+        changeCount: Object.keys(dirtyFields).length 
+      });
 
       try {
         const autoSaveData = {
           ...data,
           updatedAt: new Date(),
           tenantId,
+          // Ensure media arrays are normalized
+          photos: normalizeMediaArray(data.photos),
+          videos: normalizeMediaArray(data.videos),
         };
 
         const response = await makeAuthenticatedRequest(`/api/properties/${propertyId}`, {
@@ -330,106 +448,124 @@ export default function EditPropertyPage() {
           const timestamp = new Date();
           setLastSaved(timestamp);
           setSaveHistory(prev => [...prev.slice(-4), { timestamp, type: 'auto' }]);
-          setAutoSaving(false);
+          setOriginalData(autoSaveData); // Update original data after successful save
           logger.info('Property auto-saved successfully', { propertyId });
         } else {
-          throw new Error(`Auto-save failed: ${response.status}`);
+          const errorText = await response.text();
+          throw new Error(`Auto-save failed: ${response.status} - ${errorText}`);
         }
       } catch (err) {
         logger.error('Auto-save failed', {
           propertyId,
           error: err instanceof Error ? err.message : String(err)
         });
+        // Don't show error to user for auto-save failures, but could add a subtle indicator
+      } finally {
         setAutoSaving(false);
-        // Don't show error to user for auto-save failures
       }
-    }, 2000), // Reduced debounce time
-    [propertyId, isDirty, saving, autoSaveEnabled, dirtyFields, tenantId, makeAuthenticatedRequest]
+    }, 30000), // Increased to 30 seconds
+    [propertyId, isDirty, saving, autoSaving, autoSaveEnabled, dirtyFields, tenantId, makeAuthenticatedRequest, originalData, normalizeMediaArray]
   );
 
-  // Watch for changes and trigger auto-save
+  // Watch for changes and trigger auto-save with cleanup
   useEffect(() => {
     if (isDirty && !loading && autoSaveEnabled) {
       autoSave(watchedValues as Property);
     }
+    
+    // Cleanup: cancel pending auto-save on unmount or when deps change
+    return () => {
+      autoSave.cancel();
+    };
   }, [watchedValues, isDirty, loading, autoSave, autoSaveEnabled]);
 
-  // Manual save with comprehensive error handling
+  // Queue save function to prevent race conditions
+  const queueSave = useCallback(async (saveFunction: () => Promise<void>) => {
+    saveQueueRef.current = saveQueueRef.current
+      .then(saveFunction)
+      .catch(error => {
+        logger.error('Error in save queue', { error });
+      });
+    return saveQueueRef.current;
+  }, []);
+
+  // Manual save with comprehensive error handling and queue
   const handleSave = useCallback(async (data: Property) => {
     if (!propertyId) return;
 
-    setSaving(true);
-    setError(null);
+    // Queue this save operation
+    await queueSave(async () => {
+      setSaving(true);
+      setError(null);
 
-    logger.info('Manual property save initiated', { propertyId, isDirty, isValid });
+      logger.info('Manual property save initiated', { propertyId, isDirty, isValid });
 
-    try {
-      // Validate critical fields only if they were provided
-      if (data.title && data.title.trim() === '') {
-        throw new Error('Título não pode ser vazio se fornecido');
+      try {
+        // Validate critical fields only if they were provided
+        if (data.title && data.title.trim() === '') {
+          throw new Error('Título não pode ser vazio se fornecido');
+        }
+        if (data.basePrice && data.basePrice < 0) {
+          throw new Error('Preço base não pode ser negativo');
+        }
+
+        const processedData = {
+          ...data,
+          updatedAt: new Date(),
+          tenantId,
+          // Normalize media arrays
+          photos: normalizeMediaArray(data.photos),
+          videos: normalizeMediaArray(data.videos),
+          // Generate location field for search
+          location: [
+            data.address,
+            data.neighborhood,
+            data.city,
+            data.title,
+            data.description
+          ]
+            .filter(Boolean)
+            .map(part => part?.trim().toLowerCase())
+            .filter(part => part && part.length > 0)
+            .join(' '),
+        };
+
+        const response = await makeAuthenticatedRequest(`/api/properties/${propertyId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(processedData),
+        });
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          throw new Error(`Erro ao salvar: ${response.status} - ${errorText}`);
+        }
+
+        const timestamp = new Date();
+        setSuccess('Propriedade salva com sucesso!');
+        setLastSaved(timestamp);
+        setSaveHistory(prev => [...prev.slice(-4), { timestamp, type: 'manual' }]);
+        setOriginalData(processedData); // Update original data after successful save
+
+        // Reset form dirty state
+        reset(processedData as Property);
+
+        logger.info('Property saved successfully', { propertyId });
+
+        // Auto-redirect after success
+        setTimeout(() => {
+          router.push('/dashboard/properties');
+        }, 2000);
+
+      } catch (err) {
+        const errorMessage = err instanceof Error ? err.message : 'Erro desconhecido ao salvar';
+        logger.error('Property save failed', { propertyId, error: errorMessage });
+        setError(errorMessage);
+      } finally {
+        setSaving(false);
       }
-      if (data.basePrice && data.basePrice < 0) {
-        throw new Error('Preço base não pode ser negativo');
-      }
-
-      const processedData = {
-        ...data,
-        updatedAt: new Date(),
-        tenantId,
-        // Generate location field for search
-        location: [
-          data.address,
-          data.neighborhood,
-          data.city,
-          data.title,
-          data.description
-        ]
-          .filter(Boolean)
-          .map(part => part?.trim().toLowerCase())
-          .filter(part => part && part.length > 0)
-          .join(' '),
-      };
-
-      const token = await getFirebaseToken();
-      
-      if (!token) {
-        throw new Error('Token de autenticação não disponível');
-      }
-
-      const response = await makeAuthenticatedRequest(`/api/properties/${propertyId}`, {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(processedData),
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`Erro ao salvar: ${response.status} - ${errorText}`);
-      }
-
-      const timestamp = new Date();
-      setSuccess('Propriedade salva com sucesso!');
-      setLastSaved(timestamp);
-      setSaveHistory(prev => [...prev.slice(-4), { timestamp, type: 'manual' }]);
-
-      // Reset form dirty state
-      reset(processedData as Property);
-
-      logger.info('Property saved successfully', { propertyId });
-
-      // Auto-redirect after success
-      setTimeout(() => {
-        router.push('/dashboard/properties');
-      }, 2000);
-
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Erro desconhecido ao salvar';
-      logger.error('Property save failed', { propertyId, error: errorMessage });
-      setError(errorMessage);
-    } finally {
-      setSaving(false);
-    }
-  }, [propertyId, tenantId, reset, router, makeAuthenticatedRequest]);
+    });
+  }, [propertyId, tenantId, reset, router, makeAuthenticatedRequest, queueSave, normalizeMediaArray]);
 
   // Section management
   const toggleSection = (sectionId: string) => {
