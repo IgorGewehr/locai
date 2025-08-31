@@ -1,6 +1,13 @@
 // lib/utils/logger.ts
 // Professional Logging System for Production
 
+import { 
+  LOGGING_CONFIG, 
+  shouldLogComponent, 
+  shouldIgnoreMessage, 
+  isRateLimited 
+} from '@/lib/config/logging-config';
+
 export enum LogLevel {
   DEBUG = 0,
   INFO = 1,
@@ -38,10 +45,10 @@ class Logger {
 
   constructor(config?: Partial<LoggerConfig>) {
     this.config = {
-      minLevel: process.env.NODE_ENV === 'production' ? LogLevel.INFO : LogLevel.DEBUG,
+      minLevel: process.env.NODE_ENV === 'production' ? LogLevel.WARN : LogLevel.DEBUG,
       enableConsole: process.env.NODE_ENV !== 'production',
       enableFile: false, // Set to true if you want file logging
-      enableFirestore: process.env.NODE_ENV === 'production',
+      enableFirestore: process.env.NODE_ENV === 'production' && process.env.ENABLE_FIREBASE_LOGS === 'true',
       enableSentry: process.env.NODE_ENV === 'production',
       maxLogSize: 1000,
       ...config
@@ -81,6 +88,24 @@ class Logger {
 
   private async writeLog(entry: LogEntry) {
     if (!this.shouldLog(entry.level)) return;
+    
+    // OTIMIZAÇÃO: Verificar se mensagem deve ser ignorada
+    if (shouldIgnoreMessage(entry.message)) {
+      return;
+    }
+    
+    // OTIMIZAÇÃO: Verificar rate limiting
+    const tenantId = entry.tenantId || entry.context?.tenantId || 'system';
+    if (isRateLimited(tenantId)) {
+      return;
+    }
+    
+    // OTIMIZAÇÃO: Verificar componente (só em produção)
+    if (process.env.NODE_ENV === 'production' && entry.component) {
+      if (!shouldLogComponent(entry.component) && entry.level < LogLevel.ERROR) {
+        return;
+      }
+    }
 
     // Console output for development
     if (this.config.enableConsole) {
@@ -88,9 +113,12 @@ class Logger {
       console.log(coloredMessage);
     }
 
-    // Production logging
+    // Production logging - com verificações adicionais
     if (this.config.enableFirestore && process.env.NODE_ENV === 'production') {
-      await this.writeToFirestore(entry);
+      // Só gravar logs importantes no Firestore
+      if (entry.level >= LogLevel.WARN || shouldLogComponent(entry.component)) {
+        await this.writeToFirestore(entry);
+      }
     }
 
     // Error tracking for critical issues
@@ -140,8 +168,28 @@ class Logger {
 
   private async writeToFirestore(entry: LogEntry) {
     try {
-      // Only log important events to Firestore to avoid costs
-      if (entry.level < LogLevel.INFO) return;
+      // OTIMIZAÇÃO: Só registrar logs CRÍTICOS em produção
+      // INFO e DEBUG são ignorados para economizar espaço
+      if (entry.level < LogLevel.WARN) return;
+
+      // Filtrar logs repetitivos comuns
+      const skipPatterns = [
+        'Analytics tracking',
+        'Contexto carregado',
+        'Summary atualizado',
+        'Processamento completo',
+        'Mensagem processada',
+        'API Request:',
+        'WhatsApp incoming message',
+        'WhatsApp outgoing message',
+        'Property search completed',
+        'AI interaction completed'
+      ];
+      
+      // Pular logs que são muito frequentes e não críticos
+      if (skipPatterns.some(pattern => entry.message.includes(pattern))) {
+        return;
+      }
 
       // Use existing Firebase config instead of re-initializing
       const { db } = await import('@/lib/firebase/config');
@@ -156,26 +204,32 @@ class Logger {
         ? 'system_logs' 
         : `tenants/${tenantId}/system_logs`;
       
+      // OTIMIZAÇÃO: Reduzir tamanho do contexto armazenado
+      const minimalContext = {
+        ...cleanContext,
+        // Remover campos grandes e desnecessários
+        messageHistory: undefined,
+        fullContext: undefined,
+        largeData: undefined
+      };
+      
       // Remove undefined fields to prevent Firestore errors
       const logData: any = {
         level: LogLevel[entry.level],
-        message: entry.message || 'No message',
-        timestamp: serverTimestamp(), // Use server timestamp to avoid conflicts
-        context: cleanContext,
+        message: entry.message.substring(0, 500), // Limitar tamanho da mensagem
+        timestamp: serverTimestamp(),
+        context: Object.keys(minimalContext).length > 0 ? minimalContext : undefined,
         tenantId: tenantId
       };
 
-      // Only add fields that have values
+      // Only add critical fields
       if (entry.userId) logData.userId = entry.userId;
-      if (entry.requestId) logData.requestId = entry.requestId;
       if (entry.component) logData.component = entry.component;
-      if (entry.operation) logData.operation = entry.operation;
-      if (typeof entry.duration === 'number') logData.duration = entry.duration;
       if (entry.error) {
         logData.error = {
-          message: entry.error.message || 'Unknown error',
-          stack: entry.error.stack || 'No stack trace',
+          message: entry.error.message?.substring(0, 200) || 'Unknown error',
           name: entry.error.name || 'Error'
+          // Remover stack trace em produção para economizar espaço
         };
       }
 
