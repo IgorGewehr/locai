@@ -1,10 +1,31 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 import { miniSiteMiddleware } from '@/middleware/mini-site'
+import { adminAuthMiddleware } from '@/lib/middleware/admin-auth'
 import { logger } from '@/lib/utils/logger'
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
+
+  // 🔒 ROTA ADMIN ULTRA SECRETA - Verificação de segurança máxima
+  if (pathname.startsWith('/dashboard/lkjhg')) {
+    return await adminAuthMiddleware(request);
+  }
+  
+  // API Admin routes - também protegidas
+  if (pathname.startsWith('/api/admin/')) {
+    const { verifyAdminAccess } = await import('@/lib/middleware/admin-auth');
+    const { isAdmin } = await verifyAdminAccess(request);
+    
+    if (!isAdmin) {
+      logger.warn('🚫 [Middleware] Tentativa de acesso a API admin negada', {
+        component: 'Security',
+        path: pathname,
+        ip: request.ip
+      });
+      return NextResponse.json({ error: 'Acesso negado' }, { status: 403 });
+    }
+  }
 
   // Check for mini-site subdomain/custom domain first
   const miniSiteResponse = miniSiteMiddleware(request);

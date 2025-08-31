@@ -427,6 +427,46 @@ Required environment variables (see `.env.example`):
 
 ## Recent Updates (August 2025)
 
+### 🔒 Painel Administrativo Ultra-Seguro (NOVO)
+1. **Rota Secreta `/dashboard/lkjhg`**:
+   - Acesso exclusivo para usuários com `idog: true`
+   - Múltiplas camadas de segurança e rate limiting
+   - Logs detalhados de todas as tentativas de acesso
+   - Headers de segurança avançados
+
+2. **Gerenciamento Global de Tickets**:
+   - Visualização de todos os tickets de todos os tenants
+   - Interface de chat para responder tickets
+   - Mudança de status (aberto → em progresso → resolvido → fechado)
+   - Filtros por status, tenant, usuário e busca
+
+3. **Visão Geral de Usuários**:
+   - Lista completa de todos os usuários de todos os tenants
+   - Métricas: propriedades cadastradas, data de criação, último login
+   - Informações de plano e status de cada usuário
+   - Filtros por tenant e busca avançada
+
+4. **Estatísticas do Sistema**:
+   - Métricas agregadas por tenant
+   - Total de usuários, propriedades, tickets por tenant
+   - Dashboard com estatísticas globais do sistema
+   - Identificação de tenants com issues
+
+5. **Segurança Avançada**:
+   - Middleware de proteção no Next.js
+   - Verificação de token + campo `idog: true`
+   - Rate limiting (30 acessos/minuto por admin)
+   - Logs estruturados para auditoria
+   - APIs protegidas com múltiplas validações
+
+6. **Sistema de Resposta Integrado**:
+   - Admins respondem via interface administrativa
+   - Usuários veem respostas em tempo real no `/dashboard/help`
+   - Notificações visuais para respostas não lidas
+   - Chat nativo com histórico completo
+
+## Recent Updates (August 2025)
+
 ### 🎯 Enhanced Intent Detection with LangChain
 1. **LangChain Integration**:
    - Advanced intent detection using `@langchain/openai`

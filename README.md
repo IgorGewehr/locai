@@ -1,23 +1,23 @@
 # LOCAI - Sistema Imobiliário com IA
 
-Sistema especializado de gestão imobiliária para locação por temporada, construído com Next.js 15, Firebase e integração completa com WhatsApp através de microserviços.
+Sistema especializado de gestão imobiliária para locação por temporada, construído com Next.js 15, Firebase e integração WhatsApp via microserviço Baileys + N8N workflows.
 
 ## 📋 Índice
 
 1. [Visão Geral](#-visão-geral)
-2. [Arquitetura Técnica](#-arquitetura-técnica)
-3. [Estrutura do Projeto](#-estrutura-do-projeto)
-4. [API Endpoints](#-api-endpoints)
-5. [Sistema de IA - Sofia](#-sistema-de-ia---sofia)
-6. [Integração WhatsApp](#-integração-whatsapp)
-7. [Multi-tenant](#-multi-tenant)
+2. [Arquitetura N8N + Baileys](#-arquitetura-n8n--baileys)
+3. [Sistema de Tools](#-sistema-de-tools)
+4. [Integração WhatsApp + N8N](#-integração-whatsapp--n8n)
+5. [API Endpoints](#-api-endpoints)
+6. [Multi-tenant](#-multi-tenant)
+7. [Estrutura do Projeto](#-estrutura-do-projeto)
 8. [Configuração](#-configuração)
 
 ---
 
 ## 🎯 Visão Geral
 
-LOCAI é uma plataforma técnica completa para gestão de imóveis de temporada, focada em automação via IA e integração WhatsApp.
+LOCAI é uma plataforma técnica completa para gestão de imóveis de temporada, **abandonando o sistema de IA integrado** para focar em **tools expostas via API** que são consumidas por **workflows N8N externos**.
 
 ### Stack Tecnológico
 
@@ -25,7 +25,7 @@ LOCAI é uma plataforma técnica completa para gestão de imóveis de temporada,
 {
   "frontend": {
     "framework": "Next.js 15.3.5 (App Router)",
-    "language": "TypeScript 5.3.0",
+    "language": "TypeScript 5.3.0", 
     "ui": "Material-UI v5.15.0 + Emotion",
     "state": "React Context + Zustand",
     "forms": "React Hook Form + Yup",
@@ -34,13 +34,18 @@ LOCAI é uma plataforma técnica completa para gestão de imóveis de temporada,
   "backend": {
     "runtime": "Node.js 20+",
     "database": "Firebase Firestore v10.7.0",
-    "storage": "Firebase Storage",
+    "storage": "Firebase Storage", 
     "auth": "Firebase Auth + JWT",
-    "ai": "OpenAI GPT-4o Mini + LangChain v0.3.30"
+    "tools": "20 API Routes expostas para N8N"
   },
-  "integrations": {
-    "whatsapp": "Baileys v6.7.18 (microservice)",
-    "payments": "Stripe v14.0.0",
+  "automation": {
+    "workflow": "N8N (External)",
+    "ai": "OpenAI GPT-4o Mini (via N8N)",
+    "whatsapp": "Baileys v6.7.18 (microservice DigitalOcean)",
+    "integration": "REST API + Webhooks"
+  },
+  "payments": {
+    "stripe": "v14.0.0",
     "cache": "LRU Cache + Redis opcional"
   }
 }
@@ -48,529 +53,626 @@ LOCAI é uma plataforma técnica completa para gestão de imóveis de temporada,
 
 ### Funcionalidades Principais
 
-- **Sofia AI Agent**: Assistente conversacional com 20 funções de negócio
-- **Multi-tenant**: Isolamento completo de dados por organização
-- **WhatsApp Integration**: APENAS Baileys via microserviço Node.js no DigitalOcean
-- **CRM Completo**: Pipeline de leads com scoring automático
-- **Mini-sites**: Sites públicos com domínios customizados
-- **Dashboard Analítico**: Métricas e KPIs em tempo real
+- **🔧 Tools API**: 20 funções de negócio expostas via API Routes para N8N
+- **🏢 Multi-tenant**: Isolamento completo de dados por organização
+- **📱 WhatsApp + N8N**: Baileys microservice → N8N workflow → Tools → Response
+- **📊 CRM Completo**: Pipeline de leads com scoring automático
+- **🌐 Mini-sites**: Sites públicos com domínios customizados
+- **📈 Dashboard Analítico**: Métricas e KPIs em tempo real
 
 ---
 
-## 🏗️ Arquitetura Técnica
+## 🏗️ Arquitetura N8N + Baileys
 
-### Arquitetura de Alto Nível
+### Nova Arquitetura Híbrida (2025)
 
 ```
 ┌─────────────────────────────────────────────────────────┐
 │                    Frontend (Next.js)                    │
 │  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌────────┐ │
-│  │Dashboard │  │Mini-site │  │   Auth   │  │  API   │ │
+│  │Dashboard │  │Mini-site │  │   Auth   │  │ Tools  │ │
+│  │   UI     │  │ Public   │  │Firebase  │  │  API   │ │
 │  └──────────┘  └──────────┘  └──────────┘  └────────┘ │
 └─────────────────────────────────────────────────────────┘
                             │
 ┌─────────────────────────────────────────────────────────┐
-│                  Business Layer                         │
+│                 N8N Automation Layer                    │
 │  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌────────┐ │
-│  │Sofia AI  │  │Services  │  │  Cache   │  │WhatsApp│ │
+│  │N8N Agent │  │AI Models │  │Workflows │  │ Logic  │ │  
+│  │External  │  │GPT-4o    │  │ Engine   │  │Engine  │ │
 │  └──────────┘  └──────────┘  └──────────┘  └────────┘ │
 └─────────────────────────────────────────────────────────┘
                             │
 ┌─────────────────────────────────────────────────────────┐
-│                    Data Layer                           │
+│                Integration Layer                        │
 │  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌────────┐ │
-│  │Firestore │  │ Storage  │  │Microserv │  │Stripe  │ │
+│  │Baileys   │  │Webhook   │  │Tools API │  │Business│ │
+│  │Microserv.│  │Handlers  │  │20 Routes │  │Logic   │ │  
 │  └──────────┘  └──────────┘  └──────────┘  └────────┘ │
 └─────────────────────────────────────────────────────────┘
+                            │
+┌─────────────────────────────────────────────────────────┐
+│                     Data Layer                          │
+│  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌────────┐ │
+│  │Firestore │  │ Storage  │  │Services  │  │Stripe  │ │
+│  │Tenant DB │  │ Files    │  │ Cache    │  │ API    │ │
+│  └──────────┘  └──────────┘  └──────────┘  └────────┘ │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Fluxo de Mensagens WhatsApp
+
+```mermaid
+sequenceDiagram
+    participant C as Cliente WhatsApp
+    participant B as Baileys Microservice  
+    participant W as Webhook Handler
+    participant N as N8N Workflow Agent
+    participant T as Tools API (20 Routes)
+    participant S as Send N8N Route
+    
+    C->>B: Mensagem WhatsApp
+    B->>W: POST /webhook/whatsapp-microservice
+    W->>N: Forward to N8N_WEBHOOK_URL
+    N->>T: GET/POST /api/ai/functions/* (Tools)
+    T->>T: Execute business logic
+    T->>N: Return function results
+    N->>S: POST /api/whatsapp/send-n8n
+    S->>B: Send response to microservice
+    B->>C: Deliver WhatsApp message
 ```
 
 ### Padrões Arquiteturais
 
-- **Service Layer Pattern**: Separação de lógica de negócio
-- **Repository Pattern**: Abstração de acesso a dados
-- **Factory Pattern**: Criação de services por tenant
-- **Observer Pattern**: Subscriptions Firebase em tempo real
-- **Atomic Design**: Componentes organizados hierarquicamente
+- **🔧 Tools Pattern**: Funções de negócio expostas via API Routes individuais
+- **🤖 External Agent Pattern**: N8N gerencia IA e workflows externamente
+- **📡 Microservice Pattern**: Baileys em serviço separado no DigitalOcean
+- **🔗 Webhook Pattern**: Comunicação assíncrona via webhooks
+- **🏭 Service Layer Pattern**: Separação de lógica de negócio
+- **🏗️ Repository Pattern**: Abstração de acesso a dados
+- **🏪 Factory Pattern**: Criação de services por tenant
+- **👁️ Observer Pattern**: Subscriptions Firebase em tempo real
+- **⚛️ Atomic Design**: Componentes organizados hierarquicamente
 
 ---
 
-## 📁 Estrutura do Projeto
+## 🔧 Sistema de Tools
 
-### Organização de Diretórios
+### Arquitetura de Tools
 
-```
-locai/
-├── app/                        # Next.js 15 App Router
-│   ├── api/                    # 60+ API Routes organizados
-│   │   ├── agent/              # IA Sofia endpoints
-│   │   ├── auth/               # Autenticação
-│   │   ├── clients/            # Gestão de clientes
-│   │   ├── properties/         # CRUD de imóveis
-│   │   ├── webhook/            # WhatsApp webhooks
-│   │   └── ...
-│   ├── dashboard/              # Interface administrativa
-│   │   ├── analytics/          # Métricas e relatórios
-│   │   ├── clients/            # Gestão de clientes
-│   │   ├── crm/                # Pipeline de vendas
-│   │   ├── properties/         # Gestão de imóveis
-│   │   └── ...
-│   └── mini-site/              # Sites públicos por tenant
-├── components/                 # Atomic Design
-│   ├── atoms/                  # 25+ componentes básicos
-│   ├── molecules/              # 15+ componentes compostos
-│   ├── organisms/              # 30+ componentes complexos
-│   └── templates/              # Layouts de página
-├── lib/                        # Core business logic
-│   ├── ai-agent/               # Sistema Sofia (15 arquivos)
-│   ├── services/               # Business services (40+ arquivos)
-│   ├── firebase/               # Integração Firebase
-│   ├── whatsapp/               # Cliente WhatsApp (12 arquivos)
-│   ├── types/                  # TypeScript definitions
-│   └── utils/                  # Utilitários
-└── contexts/                   # Estado global React
-```
-
-### Componentes (Atomic Design)
-
-#### Atoms (Básicos)
-- `Button`, `Input`, `Typography`: Componentes UI fundamentais
-- `CurrencyDisplay`, `DateDisplay`: Formatação especializada
-- `StatusChip`, `ClientScore`: Indicadores visuais
-- `LoadingScreen`, `AIConfidenceIndicator`: Feedback de sistema
-
-#### Molecules (Compostos)
-- `ClientProfile`: Perfil de cliente com dados agregados
-- `ConversationSummary`: Resumo de conversas WhatsApp
-- `FormField`: Campo de formulário com validação
-- `MediaCard`: Display de mídia de propriedades
-
-#### Organisms (Complexos)
-- `AgendaCard`: Próximos compromissos com countdown
-- `CRMCard`: Métricas de leads e conversões
-- `PropertyGrid`: Listagem de propriedades com filtros
-- `AIAgent`: Interface de chat com Sofia
-- `MiniSiteConfigPanel`: Configuração de sites públicos
-
----
-
-## 🔌 API Endpoints
-
-### Estrutura de APIs
-
-#### AI Agent
+O sistema **NÃO possui mais Sofia Agent integrado**. Em vez disso, expõe **20 funções de negócio** via **API Routes individuais** que são consumidas por **workflows N8N externos**.
 
 ```typescript
-// POST /api/agent
-interface AgentRequest {
-  message: string;
-  clientPhone: string;
-  tenantId: string;
-  metadata?: {
-    source: 'whatsapp' | 'web' | 'api';
-    priority?: 'low' | 'normal' | 'high';
-  };
-}
-
-interface AgentResponse {
-  reply: string;
-  summary: SmartSummary;
-  functionsExecuted: string[];
-  tokensUsed: number;
-  responseTime: number;
-  metadata: {
-    stage: string;
-    confidence: number;
-    reasoningUsed: boolean;
-  };
+// Estrutura das Tools API
+interface ToolsArchitecture {
+  location: 'app/api/ai/functions/**/route.ts';
+  count: 20;
+  pattern: 'Individual API Routes';
+  authentication: 'N8N_API_KEY';
+  tenant_isolation: true;
+  input_validation: 'Zod schemas';
+  error_handling: 'Structured logging';
+  caching: 'Property cache (5min TTL)';
+  performance: 'Parallel execution support';
 }
 ```
 
-#### Property Management
+### Lista Completa de Tools (20)
 
+#### 🔍 Busca e Descoberta
 ```typescript
-// GET /api/properties
-interface PropertyFilters {
-  isActive?: boolean;
-  minPrice?: number;
-  maxPrice?: number;
-  bedrooms?: number;
+// 1. POST /api/ai/functions/search-properties
+interface SearchPropertiesArgs {
   location?: string;
-  tenantId: string;
+  checkIn?: string;
+  checkOut?: string;
+  guests?: number;
+  budget?: number;
+  propertyType?: string;
 }
 
-// POST /api/properties
-interface CreatePropertyRequest {
-  name: string;
-  type: 'apartment' | 'house' | 'studio';
-  location: PropertyLocation;
-  specs: PropertySpecs;
-  pricing: PropertyPricing;
-  amenities: string[];
-  images: PropertyImage[];
+// 2. GET /api/ai/functions/get-property-details/[propertyId]
+interface GetPropertyDetailsArgs {
+  propertyId: string;
+  includeMedia?: boolean;
+  includeAvailability?: boolean;
+}
+
+// 3. POST /api/ai/functions/send-property-media  
+interface SendPropertyMediaArgs {
+  propertyId: string;
+  mediaType: 'photos' | 'videos' | 'all';
+  clientPhone: string;
+}
+
+// 4. POST /api/ai/functions/check-availability
+interface CheckAvailabilityArgs {
+  propertyId: string;
+  checkIn: string;
+  checkOut: string;
+  guests: number;
 }
 ```
 
-#### Client Management
-
+#### 💰 Preços e Financeiro
 ```typescript
-// GET /api/clients
-interface ClientQuery {
-  search?: string;
-  status?: 'active' | 'inactive' | 'interested';
-  hasWhatsApp?: boolean;
-  limit?: number;
-  offset?: number;
+// 5. POST /api/ai/functions/calculate-price
+interface CalculatePriceArgs {
+  propertyId: string;
+  checkIn: string;
+  checkOut: string;
+  guests: number;
+  discounts?: string[];
 }
 
-// POST /api/clients
-interface CreateClientRequest {
+// 6. POST /api/ai/functions/generate-quote
+interface GenerateQuoteArgs {
+  propertyId: string;
+  clientId: string;
+  checkIn: string;
+  checkOut: string;
+  guests: number;
+  specialRequests?: string;
+}
+
+// 7. POST /api/ai/functions/create-transaction
+interface CreateTransactionArgs {
+  clientId: string;
+  reservationId?: string;
+  amount: number;
+  type: 'deposit' | 'full_payment' | 'fee';
+  method: 'pix' | 'credit_card' | 'boleto';
+}
+```
+
+#### 📅 Reservas e Agendamento
+```typescript  
+// 8. POST /api/ai/functions/create-reservation
+interface CreateReservationArgs {
+  propertyId: string;
+  clientId: string;
+  checkIn: string;
+  checkOut: string;
+  guests: number;
+  totalPrice: number;
+  paymentMethod: string;
+}
+
+// 9. PUT /api/ai/functions/cancel-reservation
+interface CancelReservationArgs {
+  reservationId: string;
+  reason: string;
+  refundAmount?: number;
+}
+
+// 10. PUT /api/ai/functions/modify-reservation
+interface ModifyReservationArgs {
+  reservationId: string;
+  newCheckIn?: string;
+  newCheckOut?: string;
+  newGuests?: number;
+  priceAdjustment?: number;
+}
+```
+
+#### 👤 Clientes e CRM
+```typescript
+// 11. POST /api/ai/functions/register-client
+interface RegisterClientArgs {
   name: string;
   phone: string;
   email?: string;
-  preferences?: ClientPreferences;
-  source: 'whatsapp' | 'website' | 'manual';
+  document?: string;
+  source: 'whatsapp' | 'website' | 'referral';
+}
+
+// 12. POST /api/ai/functions/create-lead
+interface CreateLeadArgs {
+  clientPhone: string;
+  source: string;
+  interests: string[];
+  budget?: number;
+  priority: 'hot' | 'warm' | 'cold';
+}
+
+// 13. PUT /api/ai/functions/update-lead
+interface UpdateLeadArgs {
+  leadId: string;
+  status?: 'new' | 'contacted' | 'qualified' | 'proposal' | 'negotiation' | 'won' | 'lost';
+  notes?: string;
+  score?: number;
+}
+
+// 14. POST /api/ai/functions/classify-lead
+interface ClassifyLeadArgs {
+  leadId: string;
+  conversationHistory: string[];
+  clientBehavior: 'engaged' | 'interested' | 'undecided' | 'price_focused';
+}
+
+// 15. PUT /api/ai/functions/update-lead-status  
+interface UpdateLeadStatusArgs {
+  leadId: string;
+  newStatus: 'new' | 'contacted' | 'qualified' | 'proposal' | 'won' | 'lost';
+  reason?: string;
 }
 ```
 
-#### WhatsApp Integration
-
+#### 🏠 Visitas e Políticas
 ```typescript
-// POST /api/webhook/whatsapp-microservice
-interface WhatsAppWebhook {
-  event: 'message' | 'status_change' | 'qr_code';
-  tenantId: string;
-  data: {
-    from?: string;
-    message?: string;
-    messageId?: string;
-    status?: 'connected' | 'disconnected' | 'qr';
-    qrCode?: string;
-  };
+// 16. POST /api/ai/functions/schedule-visit
+interface ScheduleVisitArgs {
+  propertyId: string;
+  clientId: string;
+  preferredDate: string;
+  preferredTime: string;
+  visitType: 'presencial' | 'virtual';
+}
+
+// 17. GET /api/ai/functions/check-visit-availability
+interface CheckVisitAvailabilityArgs {
+  propertyId: string;
+  date: string;
+  timeSlots: string[];
+}
+
+// 18. GET /api/ai/functions/get-policies
+interface GetPoliciesArgs {
+  policyType: 'cancellation' | 'payment' | 'checkin' | 'pets' | 'smoking' | 'all';
+  propertyId?: string;
 }
 ```
 
-### Middleware e Segurança
-
-Todas as APIs implementam:
-- **Rate Limiting**: 20 mensagens/minuto para WhatsApp
-- **Validação**: Schemas Zod para todos os inputs
-- **Autenticação**: JWT tokens com Firebase Auth
-- **Tenant Isolation**: Separação completa de dados
-- **Error Handling**: Logging estruturado e fallbacks
-
----
-
-## 🤖 Sistema de IA - Sofia
-
-### Arquitetura Sofia v3.0
-
-Sofia é um agente conversacional especializado em atendimento imobiliário, construído com múltiplas camadas de inteligência.
-
+#### 📊 Tarefas e Metas
 ```typescript
-interface SofiaArchitecture {
-  core: 'sofia-agent.ts';           // Motor principal
-  enhanced: 'enhanced-intent-detector.ts'; // LangChain detection
-  functions: 'tenant-aware-agent-functions.ts'; // 20 funções de negócio
-  context: 'conversation-context-service.ts'; // Gestão de contexto
-  analytics: 'sofia-analytics-service.ts'; // Métricas e tracking
-  cache: 'property-cache-manager.ts'; // Cache LRU 5 minutos
-  parallel: 'parallel-execution-service.ts'; // Execução concorrente
+// 19. POST /api/ai/functions/create-task
+interface CreateTaskArgs {
+  title: string;
+  description: string;
+  assignedTo?: string;
+  dueDate?: string;
+  priority: 'low' | 'medium' | 'high';
+  relatedEntity?: 'client' | 'property' | 'reservation';
+}
+
+// 20. POST /api/ai/functions/update-task
+interface UpdateTaskArgs {
+  taskId: string;
+  status?: 'pending' | 'in_progress' | 'completed' | 'cancelled';
+  notes?: string;
+  completedAt?: string;
 }
 ```
 
-### Enhanced Intent Detection
-
-Sistema de detecção de intenções usando LangChain para maior precisão:
+### Padrão de Implementação das Tools
 
 ```typescript
-class EnhancedIntentDetector {
-  private llm: ChatOpenAI;
-  private availableFunctions = [
-    'search_properties',     // Buscar propriedades
-    'calculate_price',       // Calcular preços
-    'get_property_details',  // Detalhes específicos
-    'send_property_media',   // Enviar fotos/vídeos
-    'create_reservation',    // Criar reserva
-    'cancel_reservation',    // Cancelar reserva
-    'modify_reservation',    // Modificar reserva
-    'register_client',       // Cadastrar cliente
-    'check_availability',    // Verificar disponibilidade
-    'schedule_visit',        // Agendar visita
-    'get_policies',          // Políticas e regras
-    'generate_quote',        // Gerar orçamento
-    'create_transaction',    // Processar pagamento
-    'create_lead',           // Criar lead no CRM
-    'update_lead',           // Atualizar lead
-    'classify_lead',         // Classificar lead
-    'update_lead_status'     // Atualizar status pipeline
-  ];
+// Exemplo: /app/api/ai/functions/search-properties/route.ts
+import { NextRequest, NextResponse } from 'next/server';
+import { validateN8NAuth } from '@/lib/middleware/api-middleware';
+import { searchProperties } from '@/lib/ai/tenant-aware-agent-functions';
+import { logger } from '@/lib/utils/logger';
+import { z } from 'zod';
 
-  async detectIntent(input: IntentDetectionInput): Promise<EnhancedIntentResult> {
-    // 1. LangChain detection com GPT-4o-mini
-    // 2. Validação de confiança (threshold 0.8)
-    // 3. Fallback para método original se baixa confiança
-    // 4. Retorna função + parâmetros + confiança
+const searchSchema = z.object({
+  tenantId: z.string().min(1),
+  location: z.string().optional(),
+  checkIn: z.string().optional(),
+  checkOut: z.string().optional(),
+  guests: z.number().min(1).optional(),
+  budget: z.number().min(0).optional()
+});
+
+export async function POST(request: NextRequest) {
+  try {
+    // 1. Autenticação N8N
+    const authResult = await validateN8NAuth(request);
+    if (!authResult.success) {
+      return NextResponse.json(
+        { success: false, error: 'Unauthorized' }, 
+        { status: 401 }
+      );
+    }
+
+    // 2. Validação de input
+    const body = await request.json();
+    const validation = searchSchema.safeParse(body);
+    if (!validation.success) {
+      return NextResponse.json({
+        success: false,
+        error: 'Validation failed',
+        details: validation.error.flatten()
+      }, { status: 400 });
+    }
+
+    // 3. Executar função de negócio
+    const result = await searchProperties(validation.data, validation.data.tenantId);
+
+    // 4. Log estruturado
+    logger.info('🔍 [Tool] search-properties executed', {
+      tenantId: validation.data.tenantId.substring(0, 8) + '***',
+      resultCount: result.properties?.length || 0,
+      success: result.success
+    });
+
+    return NextResponse.json(result);
+
+  } catch (error) {
+    logger.error('❌ [Tool] search-properties error:', error);
+    return NextResponse.json({
+      success: false,
+      error: 'Internal tool error'
+    }, { status: 500 });
   }
 }
 ```
 
-### Smart Summary System
-
-Sistema de sumarização inteligente que mantém contexto conversacional:
-
-```typescript
-interface SmartSummary {
-  conversationState: {
-    stage: 'greeting' | 'discovery' | 'presentation' | 'negotiation' | 'booking';
-    sentiment: 'positive' | 'neutral' | 'negative';
-    confidence: number;
-  };
-  
-  clientInfo: {
-    name?: string;
-    phone?: string;
-    document?: string;
-    registered: boolean;
-  };
-  
-  searchCriteria: {
-    location?: string;
-    checkIn?: string;
-    checkOut?: string;
-    guests?: number;
-    budget?: number;
-  };
-  
-  propertiesViewed: Array<{
-    id: string;
-    name: string;
-    interested: boolean;
-    photosViewed: boolean;
-    priceCalculated: boolean;
-  }>;
-  
-  nextBestAction: {
-    function: string;
-    confidence: number;
-    reasoning: string;
-  };
-}
-```
-
-### Tenant-Aware Functions
-
-Todas as 20 funções implementam isolamento de tenant:
-
-```typescript
-export async function searchProperties(
-  args: SearchPropertiesArgs, 
-  tenantId: string
-): Promise<FunctionResult> {
-  const propertyService = new PropertyService(tenantId);
-  
-  // Cache check (5 minutos TTL)
-  const cacheKey = `${tenantId}:search:${JSON.stringify(args)}`;
-  const cached = propertyCache.get(cacheKey);
-  if (cached) return cached;
-  
-  // Firestore query com tenant isolation
-  const properties = await propertyService.searchProperties({
-    location: args.location,
-    guests: args.guests,
-    checkIn: args.checkIn,
-    checkOut: args.checkOut,
-    isActive: true
-  });
-  
-  // Cache result
-  propertyCache.set(cacheKey, result, 300000); // 5 min
-  
-  return {
-    success: true,
-    properties: properties.map(formatPropertyForResponse),
-    count: properties.length,
-    searchCriteria: args
-  };
-}
-```
-
-### Performance Optimizations
-
-- **Property Cache**: LRU cache com TTL de 5 minutos
-- **Parallel Execution**: search_properties + calculate_price simultâneos
-- **Smart Context**: Sumarização progressiva para reduzir tokens
-- **Loop Prevention**: Cooldown de 2s entre execuções idênticas
-- **Response Time**: <1s para detecções enhanced, <3s para GPT completo
-
 ---
 
-## 📱 Integração WhatsApp
+## 📱 Integração WhatsApp + N8N
 
-### Arquitetura WhatsApp
-
-O sistema utiliza **EXCLUSIVAMENTE Baileys** através de um **microserviço Node.js** rodando em DigitalOcean. **NÃO há suporte ao WhatsApp Business API**.
+### Arquitetura de Integração
 
 ```typescript
-interface WhatsAppArchitecture {
+interface WhatsAppN8NArchitecture {
   microservice: {
     url: 'http://167.172.116.195:3000';
     technology: 'Baileys v6.7.18 (WhatsApp Web)';
     deployment: 'DigitalOcean Droplet';
-    folder: '../whatsapp-microservice/' // Pasta irmã do locai
-    features: [
-      'Sessões multi-tenant isoladas',
-      'QR code generation automático', 
-      'Auto-reconnection resiliente',
-      'Queue de mensagens',
-      'Webhook callbacks'
-    ];
-    limitations: [
-      'Não suporta WhatsApp Business API',
-      'Apenas WhatsApp Web (Baileys)',
-      'Requer QR code scan manual'
-    ];
+    isolation: 'Multi-tenant sessions';
   };
   
-  integration: {
-    webhook: '/api/webhook/whatsapp-microservice';
-    client: 'WhatsAppMicroserviceClient';
-    authentication: 'Bearer token + X-Tenant-ID header';
-    events: ['message', 'status_change', 'qr_code'];
+  n8n_integration: {
+    webhook_url: 'N8N_WEBHOOK_URL env var';
+    authentication: 'N8N_WEBHOOK_SECRET';
+    flow: 'Microservice → Frontend Webhook → N8N → Tools API';
+  };
+  
+  tools_integration: {
+    endpoint: '/api/ai/functions/**';
+    count: 20;
+    authentication: 'N8N_API_KEY';
+    format: 'REST API calls from N8N workflows';
   };
 }
 ```
 
-### Webhook Handler
+### Fluxo Completo de Mensagem
 
+#### 1. Recebimento da Mensagem
 ```typescript
 // /app/api/webhook/whatsapp-microservice/route.ts
 export async function POST(request: NextRequest) {
-  const body = await request.json();
+  // 1. Autenticação do microservice
+  const isAuthenticated = await validateMicroserviceAuth(request);
+  if (!isAuthenticated) return unauthorized();
+
+  // 2. Parse do webhook
+  const { event, tenantId, data } = await request.json();
   
-  // Verificar assinatura de segurança
-  const signature = request.headers.get('X-Webhook-Signature');
-  if (!validateSignature(body, signature)) {
-    return NextResponse.json({ error: 'Invalid signature' }, { status: 401 });
-  }
-  
-  // Processar diferentes tipos de eventos
-  switch (body.event) {
-    case 'message':
-      await processIncomingMessage(body.tenantId, body.data);
-      break;
-    case 'status_change':
-      await processStatusChange(body.tenantId, body.data);
-      break;
-    case 'qr_code':
-      await processQRCode(body.tenantId, body.data);
-      break;
+  // 3. Processar evento de mensagem
+  if (event === 'message') {
+    await processIncomingMessageViaN8N(tenantId, data);
   }
   
   return NextResponse.json({ success: true });
 }
 
-async function processIncomingMessage(tenantId: string, messageData: any) {
-  // Integração direta com Sofia
-  const { sofiaAgent } = await import('@/lib/ai-agent/sofia-agent');
-  
-  const response = await sofiaAgent.processMessage({
-    message: messageData.message,
-    clientPhone: messageData.from,
+async function processIncomingMessageViaN8N(tenantId: string, messageData: any) {
+  // Deduplicação
+  const messageId = messageData.messageId;
+  if (deduplicationCache.isDuplicate(tenantId, messageId)) {
+    return;
+  }
+
+  // Forward para N8N
+  const n8nPayload = {
     tenantId,
-    metadata: {
-      source: 'whatsapp-microservice',
-      priority: 'high'
-    }
-  });
-  
-  // Enviar resposta de volta ao microservice
-  await sendResponseToMicroservice({
-    tenantId,
-    to: messageData.from,
-    message: response.reply
+    data: {
+      from: messageData.from,
+      message: messageData.message,
+      messageId: messageId,
+      timestamp: new Date().toISOString()
+    },
+    event: 'message',
+    source: 'whatsapp-microservice'
+  };
+
+  await fetch(process.env.N8N_WEBHOOK_URL!, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'x-webhook-signature': process.env.N8N_WEBHOOK_SECRET!,
+      'X-Tenant-ID': tenantId
+    },
+    body: JSON.stringify(n8nPayload)
   });
 }
 ```
 
-### Cliente do Microserviço
+#### 2. Processamento N8N (Externo)
+```typescript
+// N8N Workflow (exemplo)
+// 1. Receive webhook
+// 2. Extract message and context  
+// 3. Call OpenAI for intent detection
+// 4. Based on intent, call appropriate tool:
+//    - POST https://locai.app/api/ai/functions/search-properties
+//    - POST https://locai.app/api/ai/functions/calculate-price
+//    - etc.
+// 5. Process multiple tools if needed
+// 6. Generate final response
+// 7. POST https://locai.app/api/whatsapp/send-n8n
+```
+
+#### 3. Envio de Resposta
+```typescript
+// /app/api/whatsapp/send-n8n/route.ts
+export async function POST(request: NextRequest) {
+  // 1. Autenticação N8N
+  const authHeader = request.headers.get('Authorization');
+  if (authHeader?.slice(7) !== process.env.N8N_API_KEY) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
+  // 2. Validar payload
+  const { tenantId, clientPhone, finalMessage, mediaUrl } = await request.json();
+
+  // 3. Criar cliente WhatsApp
+  const whatsappClient = createWhatsAppClient(tenantId);
+
+  // 4. Verificar conexão
+  const status = await whatsappClient.getConnectionStatus();
+  if (!status.connected) {
+    return NextResponse.json({ 
+      error: 'WhatsApp not connected' 
+    }, { status: 400 });
+  }
+
+  // 5. Enviar mensagem
+  if (mediaUrl) {
+    await whatsappClient.sendImage(clientPhone, mediaUrl, finalMessage);
+  } else {
+    await whatsappClient.sendText(clientPhone, finalMessage);
+  }
+
+  return NextResponse.json({ 
+    success: true, 
+    messageId: `n8n_${Date.now()}` 
+  });
+}
+```
+
+### Configuração N8N
+
+```bash
+# Variáveis necessárias no N8N
+N8N_WEBHOOK_URL=https://n8n-instance.com/webhook/whatsapp-locai
+N8N_WEBHOOK_SECRET=shared-secret-with-frontend
+N8N_API_KEY=api-key-to-call-tools
+LOCAI_FRONTEND_URL=https://locai.app
+OPENAI_API_KEY=your-openai-key
+```
+
+---
+
+## 🔌 API Endpoints
+
+### Estrutura Completa de APIs
+
+#### Tools API (20 Endpoints)
+```typescript
+// AI Functions - Expostas para N8N
+POST /api/ai/functions/search-properties
+GET  /api/ai/functions/get-property-details/[id]
+POST /api/ai/functions/send-property-media
+POST /api/ai/functions/check-availability
+POST /api/ai/functions/calculate-price
+POST /api/ai/functions/generate-quote
+POST /api/ai/functions/create-transaction
+POST /api/ai/functions/create-reservation
+PUT  /api/ai/functions/cancel-reservation
+PUT  /api/ai/functions/modify-reservation
+POST /api/ai/functions/register-client
+POST /api/ai/functions/create-lead
+PUT  /api/ai/functions/update-lead
+POST /api/ai/functions/classify-lead
+PUT  /api/ai/functions/update-lead-status
+POST /api/ai/functions/schedule-visit
+GET  /api/ai/functions/check-visit-availability
+GET  /api/ai/functions/get-policies
+POST /api/ai/functions/create-task
+PUT  /api/ai/functions/update-task
+```
+
+#### WhatsApp Integration
+```typescript
+POST /api/webhook/whatsapp-microservice    # Receive from Baileys
+POST /api/whatsapp/send-n8n               # Send via N8N
+GET  /api/whatsapp/qr                     # QR code management
+GET  /api/whatsapp/session/route          # Session status
+POST /api/whatsapp/session/reset          # Reset session
+```
+
+#### Dashboard APIs
+```typescript
+// Properties
+GET  /api/properties                      # List properties
+POST /api/properties                      # Create property  
+GET  /api/properties/[id]                 # Get property
+PUT  /api/properties/[id]                 # Update property
+
+// Clients
+GET  /api/clients                         # List clients
+POST /api/clients                         # Create client
+GET  /api/clients/[id]                    # Get client
+
+// Analytics
+GET  /api/analytics                       # General analytics
+GET  /api/metrics/advanced                # Advanced metrics
+GET  /api/performance/stats               # Performance stats
+
+// CRM
+GET  /api/crm/analytics                   # CRM metrics
+GET  /api/crm/leads/[id]/insights         # Lead insights
+
+// Auth
+POST /api/auth/logout                     # Logout
+GET  /api/auth/me                         # Current user
+PUT  /api/auth/profile                    # Update profile
+
+// Mini-sites
+GET  /api/mini-site/[tenantId]/config     # Site config
+POST /api/mini-site/[tenantId]/inquiry    # Lead capture
+GET  /api/mini-site/[tenantId]/properties # Public properties
+
+// File Upload
+POST /api/upload/avatar                   # Profile pictures
+POST /api/upload/logo                     # Company logos
+POST /api/upload/media                    # Property media
+
+// Utility
+GET  /api/health                          # Health check
+GET  /api/admin/verify                    # Admin verification
+```
+
+### Autenticação por Tipo
 
 ```typescript
-// /lib/whatsapp/microservice-client.ts
-export class WhatsAppMicroserviceClient {
-  private baseUrl = process.env.WHATSAPP_MICROSERVICE_URL;
-  private apiKey = process.env.WHATSAPP_MICROSERVICE_API_KEY;
-
-  async sendMessage(
-    tenantId: string,
-    phoneNumber: string,
-    message: string,
-    mediaUrl?: string
-  ): Promise<boolean> {
-    const response = await fetch(`${this.baseUrl}/api/v1/messages/${tenantId}/send`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${this.apiKey}`,
-        'X-Tenant-ID': tenantId
-      },
-      body: JSON.stringify({
-        to: phoneNumber,
-        message,
-        type: mediaUrl ? 'image' : 'text',
-        mediaUrl
-      })
-    });
-    
-    return response.ok;
-  }
-
-  async getSessionStatus(tenantId: string): Promise<SessionStatus> {
-    const response = await fetch(`${this.baseUrl}/api/v1/sessions/${tenantId}/status`, {
-      headers: {
-        'Authorization': `Bearer ${this.apiKey}`,
-        'X-Tenant-ID': tenantId
-      }
-    });
-    
-    return await response.json();
-  }
-
-  async startSession(tenantId: string): Promise<{ success: boolean; qrCode?: string }> {
-    const response = await fetch(`${this.baseUrl}/api/v1/sessions/${tenantId}/start`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${this.apiKey}`,
-        'X-Tenant-ID': tenantId
-      }
-    });
-    
-    return await response.json();
-  }
+interface APIAuthentication {
+  tools_api: {
+    method: 'Bearer Token';
+    header: 'Authorization: Bearer N8N_API_KEY';
+    routes: '/api/ai/functions/**';
+  };
+  
+  dashboard_api: {
+    method: 'Firebase Auth JWT';
+    header: 'Authorization: Bearer <firebase-token>';
+    routes: '/api/{properties,clients,analytics}/**';
+  };
+  
+  webhook_api: {
+    method: 'HMAC Signature / API Key';
+    header: 'X-Webhook-Signature / Authorization';
+    routes: '/api/webhook/**';
+  };
+  
+  public_api: {
+    method: 'None / Optional';
+    routes: '/api/mini-site/**/public-data';
+  };
 }
-```
-
-### Fluxo de Mensagens
-
-```mermaid
-graph TD
-    A[Cliente WhatsApp] --> B[Microserviço Baileys]
-    B --> C[Webhook POST]
-    C --> D[Validação Signature]
-    D --> E[Sofia Agent Processing]
-    E --> F[Function Execution]
-    F --> G[Response Generation]
-    G --> H[Send to Microservice]
-    H --> I[Delivery to Client]
 ```
 
 ---
 
 ## 🏢 Multi-tenant
 
-### Estrutura de Dados
+### Estrutura de Dados Multi-tenant
 
 ```typescript
-// Firestore collection structure
+// Firestore structure (unchanged)
 interface FirestoreStructure {
   tenants: {
     [tenantId: string]: {
@@ -583,8 +685,13 @@ interface FirestoreStructure {
       goals: FinancialGoal[];
       visits: Visit[];
       settings: TenantSettings[];
+      // New collections
+      leads: Lead[];
+      tasks: Task[];
+      automation_logs: AutomationLog[];
     };
   };
+  
   users: {
     [userId: string]: {
       tenantId: string;
@@ -595,10 +702,10 @@ interface FirestoreStructure {
 }
 ```
 
-### TenantServiceFactory
+### TenantServiceFactory (Unchanged)
 
 ```typescript
-// /lib/firebase/firestore-v2.ts
+// /lib/services/tenant-service-factory.ts
 export class TenantServiceFactory {
   private services: Map<string, any> = new Map();
   
@@ -608,89 +715,133 @@ export class TenantServiceFactory {
     }
   }
 
-  getService<T>(key: string, ServiceClass: new (tenantId: string) => T): T {
-    if (!this.services.has(key)) {
-      this.services.set(key, new ServiceClass(this.tenantId));
-    }
-    return this.services.get(key);
-  }
-
   get properties() { return this.getService('properties', PropertyService); }
   get clients() { return this.getService('clients', ClientService); }
   get reservations() { return this.getService('reservations', ReservationService); }
   get conversations() { return this.getService('conversations', ConversationService); }
-  get visits() { return this.getService('visits', VisitService); }
-  get goals() { return this.getService('goals', GoalService); }
-  get analytics() { return this.getService('analytics', AnalyticsService); }
+  // ... other services
 }
 ```
 
-### Tenant Context
+### Tenant Isolation em Tools
 
 ```typescript
-// /contexts/TenantContext.tsx
-export function TenantProvider({ children }: { children: ReactNode }) {
-  const { user } = useAuth();
-  const [tenantId, setTenantId] = useState<string | null>(null);
-  const [services, setServices] = useState<TenantServiceFactory | null>(null);
-
-  useEffect(() => {
-    if (user) {
-      const id = user.tenantId || user.uid;
-      setTenantId(id);
-      setServices(new TenantServiceFactory(id));
-    }
-  }, [user]);
-
-  return (
-    <TenantContext.Provider value={{ tenantId, services, isReady: !!services }}>
-      {children}
-    </TenantContext.Provider>
-  );
-}
-
-export function useTenant() {
-  const context = useContext(TenantContext);
-  if (!context) {
-    throw new Error('useTenant must be used within a TenantProvider');
-  }
-  return context;
-}
-```
-
-### Service Base Class
-
-```typescript
-// Base service com tenant isolation
-export class FirestoreService<T> {
-  protected collectionPath: string;
+// Todas as tools seguem o mesmo padrão
+export async function searchProperties(args: SearchArgs, tenantId: string) {
+  // 1. Criar service factory para o tenant
+  const serviceFactory = new TenantServiceFactory(tenantId);
+  const propertyService = serviceFactory.properties;
   
-  constructor(private tenantId: string, private collectionName: string) {
-    this.collectionPath = `tenants/${tenantId}/${collectionName}`;
-  }
-
-  async getAll(): Promise<T[]> {
-    const snapshot = await getDocs(collection(db, this.collectionPath));
-    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as T));
-  }
-
-  subscribe(callback: (data: T[]) => void): Unsubscribe {
-    return onSnapshot(collection(db, this.collectionPath), (snapshot) => {
-      const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as T));
-      callback(data);
-    });
-  }
-
-  async create(data: Omit<T, 'id'>): Promise<T> {
-    const docRef = await addDoc(collection(db, this.collectionPath), {
-      ...data,
-      tenantId: this.tenantId,
-      createdAt: serverTimestamp(),
-      updatedAt: serverTimestamp()
-    });
-    return { id: docRef.id, ...data } as T;
-  }
+  // 2. Executar operação com isolamento automático
+  const properties = await propertyService.searchProperties({
+    ...args,
+    tenantId // Firestore query path: tenants/{tenantId}/properties
+  });
+  
+  return {
+    success: true,
+    properties: properties.map(formatForResponse),
+    tenantId // Return for logging/debugging
+  };
 }
+```
+
+---
+
+## 📁 Estrutura do Projeto
+
+### Organização de Diretórios
+
+```
+locai/
+├── app/                        # Next.js 15 App Router
+│   ├── api/                    # 70+ API Routes organizados
+│   │   ├── ai/functions/       # 🔧 20 Tools API para N8N
+│   │   │   ├── search-properties/route.ts
+│   │   │   ├── calculate-price/route.ts
+│   │   │   ├── create-reservation/route.ts
+│   │   │   └── ... (17 mais)
+│   │   ├── whatsapp/           # WhatsApp integration
+│   │   │   ├── send-n8n/route.ts
+│   │   │   ├── qr/route.ts
+│   │   │   └── session/route.ts
+│   │   ├── webhook/            # Webhook handlers
+│   │   │   └── whatsapp-microservice/route.ts
+│   │   ├── auth/               # Authentication
+│   │   ├── clients/            # Client management
+│   │   ├── properties/         # Property CRUD
+│   │   ├── analytics/          # Dashboard metrics
+│   │   └── mini-site/          # Public sites
+│   ├── dashboard/              # Admin interface
+│   │   ├── properties/         # Property management
+│   │   ├── clients/            # Client management
+│   │   ├── crm/                # Sales pipeline
+│   │   ├── analytics/          # Reports
+│   │   └── settings/           # Configuration
+│   └── mini-site/[tenantId]/   # Public tenant sites
+├── lib/                        # Business logic
+│   ├── ai/                     # 🔧 Tools implementation
+│   │   └── tenant-aware-agent-functions.ts  # 20 functions
+│   ├── services/               # Business services (40+)
+│   │   ├── property-service.ts
+│   │   ├── client-service.ts
+│   │   ├── tenant-service-factory.ts
+│   │   └── ...
+│   ├── whatsapp/              # WhatsApp clients
+│   │   ├── whatsapp-client-factory.ts
+│   │   └── microservice-auth-adapter.ts
+│   ├── middleware/            # API middleware
+│   │   ├── api-middleware.ts  # N8N auth validation
+│   │   ├── auth.ts           # Firebase auth
+│   │   └── rate-limit.ts     # Rate limiting
+│   ├── types/                 # TypeScript definitions
+│   └── utils/                 # Utilities
+├── components/                # UI components (Atomic Design)
+│   ├── atoms/                 # Basic components
+│   ├── molecules/             # Composite components  
+│   ├── organisms/             # Complex components
+│   └── templates/             # Page layouts
+└── contexts/                  # React state management
+
+Microservice separado:
+../whatsapp-microservice/      # Baileys service (DigitalOcean)
+├── src/
+│   ├── services/
+│   │   ├── whatsapp.service.ts
+│   │   ├── webhook.service.ts
+│   │   └── tenant.service.ts
+│   ├── routes/
+│   └── middleware/
+└── Dockerfile
+```
+
+### Principais Mudanças na Estrutura
+
+#### Removidas (Sistema de IA Integrado)
+```
+❌ lib/ai-agent/sofia-agent.ts              # Agent principal removido
+❌ lib/ai-agent/enhanced-intent-detector.ts # LangChain detector removido  
+❌ lib/ai-agent/smart-summary-service.ts    # Summary service removido
+❌ lib/ai-agent/conversation-context.ts     # Context manager removido
+❌ lib/cache/property-cache-manager.ts      # Cache específico removido
+❌ lib/services/sofia-analytics-service.ts  # Analytics Sofia removido
+❌ app/api/agent/route.ts                   # Agent endpoint removido
+```
+
+#### Adicionadas (Sistema de Tools)
+```
+✅ app/api/ai/functions/*/route.ts          # 20 Tools API individuais
+✅ app/api/whatsapp/send-n8n/route.ts       # N8N response sender
+✅ lib/middleware/api-middleware.ts         # N8N auth middleware
+✅ .env.n8n.example                         # N8N configuration template
+```
+
+#### Mantidas (Core Business)
+```
+✅ lib/ai/tenant-aware-agent-functions.ts   # Funções core (refatoradas)
+✅ lib/services/tenant-service-factory.ts   # Multi-tenant services
+✅ app/api/webhook/whatsapp-microservice/    # Webhook handler (updated)
+✅ lib/whatsapp/whatsapp-client-factory.ts  # WhatsApp client
 ```
 
 ---
@@ -700,8 +851,9 @@ export class FirestoreService<T> {
 ### Variáveis de Ambiente
 
 ```bash
-# .env.local
-# Firebase
+# .env.local - Complete configuration
+
+# Firebase (unchanged)
 NEXT_PUBLIC_FIREBASE_API_KEY=
 NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=
 NEXT_PUBLIC_FIREBASE_PROJECT_ID=
@@ -710,130 +862,187 @@ NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=
 NEXT_PUBLIC_FIREBASE_APP_ID=
 FIREBASE_SERVICE_ACCOUNT_KEY=
 
-# OpenAI
-OPENAI_API_KEY=
+# N8N Integration (NEW)
+N8N_WEBHOOK_URL=https://your-n8n-instance.com/webhook/whatsapp-messages
+N8N_WEBHOOK_SECRET=your-n8n-webhook-secret
+N8N_API_KEY=your-n8n-api-key
 
 # WhatsApp - APENAS Baileys Microservice
 WHATSAPP_MICROSERVICE_URL=http://167.172.116.195:3000
-WHATSAPP_MICROSERVICE_API_KEY=your-api-key
+WHATSAPP_MICROSERVICE_API_KEY=your-microservice-api-key
 WHATSAPP_WEBHOOK_SECRET=your-webhook-secret
-
-# IMPORTANTE: NÃO configurar - WhatsApp Business API não é suportado
-# WHATSAPP_ACCESS_TOKEN=# NÃO USAR
-# WHATSAPP_PHONE_NUMBER_ID=# NÃO USAR  
-# WHATSAPP_VERIFY_TOKEN=# NÃO USAR
+WHATSAPP_WEBHOOK_VERIFY_TOKEN=locai-webhook-verify
 
 # Application
 NEXT_PUBLIC_APP_URL=http://localhost:8080
 TENANT_ID=default-tenant
 NODE_ENV=development
 
-# Sofia Configuration
-SOFIA_CONTEXT_TTL_HOURS=1
-SOFIA_MAX_MESSAGE_HISTORY=10
-SOFIA_MAX_CACHED_CONVERSATIONS=1000
-SOFIA_FUNCTION_COOLDOWN_MS=2000
-SOFIA_AI_MODEL=gpt-4o-mini
-SOFIA_TEMPERATURE=0.7
+# OpenAI (for N8N usage - optional)
+# OPENAI_API_KEY=  # Only needed if N8N calls OpenAI
 
-# Optional: Stripe
+# Optional: Stripe  
 STRIPE_SECRET_KEY=
 STRIPE_WEBHOOK_SECRET=
+```
+
+### N8N Workflow Configuration
+
+```bash
+# Variáveis necessárias no N8N workflow
+LOCAI_FRONTEND_URL=https://your-locai-instance.com
+LOCAI_API_KEY=${N8N_API_KEY}  # Same as N8N_API_KEY in frontend
+OPENAI_API_KEY=your-openai-key-for-ai-processing
+WEBHOOK_SECRET=shared-secret-with-frontend
 ```
 
 ### Scripts de Desenvolvimento
 
 ```bash
-# Instalação
-npm install
+# Instalação e desenvolvimento  
+npm install                   # Install dependencies
+npm run dev                   # Dev server (port 8080)
 
-# Desenvolvimento
-npm run dev              # Servidor dev na porta 8080
+# Build e produção
+npm run build                 # Production build
+npm run start                 # Production server
+npm run type-check            # TypeScript validation
+npm run lint                  # ESLint check
+npm run lint:fix              # Auto-fix linting
 
-# Build e Produção
-npm run build           # Build de produção
-npm run start           # Servidor produção
-npm run type-check      # Verificação TypeScript
-npm run lint            # ESLint
-npm run lint:fix        # Auto-fix de linting
-
-# Testes e Validação
-npm run prod-check      # Verificação pré-deploy
-npm run health          # Health check da aplicação
-npm run clean           # Limpeza de cache
+# Testes e validação
+npm run prod-check            # Pre-deployment check
+npm run health                # Health check
+npm run clean                 # Clean cache
 
 # Deploy
-npm run deploy          # Deploy para produção
+npm run deploy                # Deploy to production
 
-# Scripts Específicos
-npm run test-agent      # Teste do agente Sofia
-npm run generate-password-hash  # Geração de hash de senha
+# Specific tools testing (via curl/Postman)
+curl -X POST http://localhost:8080/api/ai/functions/search-properties \
+  -H "Authorization: Bearer ${N8N_API_KEY}" \
+  -H "Content-Type: application/json" \
+  -d '{"tenantId":"test","location":"Praia"}'
 ```
 
-### Estrutura de Deploy
+### Deployment Architecture
 
 ```typescript
 interface DeploymentConfig {
-  platforms: ['Netlify', 'Vercel', 'DigitalOcean'];
-  requirements: {
-    node: '>=20.0.0';
-    npm: '>=9.0.0';
-    memory: '512MB minimum';
-    storage: '1GB minimum';
-  };
-  
-  environment: {
-    production: {
-      NODE_ENV: 'production';
-      optimizations: [
-        'Bundle splitting',
-        'Image optimization', 
-        'Static generation',
-        'CDN caching'
-      ];
+  frontend: {
+    platform: 'Netlify | Vercel | DigitalOcean';
+    requirements: {
+      node: '>=20.0.0';
+      memory: '512MB minimum';
+      build_time: '5-10 minutes';
     };
   };
   
-  monitoring: {
-    logging: 'Structured JSON logs';
-    errors: 'Automatic error tracking';
-    performance: 'Response time metrics';
-    availability: 'Health check endpoints';
+  whatsapp_microservice: {
+    platform: 'DigitalOcean Droplet';
+    url: 'http://167.172.116.195:3000';
+    requirements: {
+      memory: '1GB minimum';
+      storage: '10GB for sessions';
+      uptime: '99.9% required';
+    };
+  };
+  
+  n8n_workflows: {
+    platform: 'N8N Cloud | Self-hosted';
+    requirements: {
+      memory: '2GB minimum';
+      concurrent_executions: '10+ simultaneous';
+      ai_model_access: 'OpenAI API required';
+    };
+  };
+  
+  integrations: {
+    firebase: 'Firestore + Storage + Auth';
+    stripe: 'Payment processing (optional)';
+    monitoring: 'Structured logging + error tracking';
   };
 }
 ```
 
 ---
 
-## 🎯 Recursos Técnicos
+## 🎯 Performance e Monitoramento
 
-### Performance
+### Performance Optimizations
 
-- **Bundle Size**: ~2.5MB (otimizado com tree shaking)
-- **Load Time**: <3s em 3G, <1s em banda larga
-- **Cache Strategy**: Service Worker + HTTP cache
-- **Database**: Índices otimizados no Firestore
-- **Sofia Response**: <1s para intents detectados, <3s para GPT completo
+- **⚡ Tools Response Time**: <500ms per tool execution
+- **📦 Bundle Size**: ~2.5MB (otimizado com tree shaking) 
+- **🏎️ Load Time**: <3s em 3G, <1s em banda larga
+- **💾 Database**: Índices otimizados no Firestore por tenant
+- **🔄 Cache**: Property cache (5min TTL) nas tools críticas
+- **📡 N8N Integration**: Webhook timeout 30s, retry logic
 
 ### Segurança
 
-- **Authentication**: Firebase Auth com JWT
-- **Authorization**: Role-based access control
-- **Input Validation**: Zod schemas em todas as APIs
-- **Rate Limiting**: Configurável por endpoint
-- **Tenant Isolation**: Separação completa de dados
-- **XSS Protection**: Sanitização automática
+- **🔐 Authentication**: 
+  - Dashboard: Firebase Auth com JWT
+  - Tools API: N8N API Key via Bearer token
+  - Webhooks: HMAC signatures + API keys
+- **🛡️ Authorization**: Role-based access control per tenant
+- **✅ Input Validation**: Zod schemas em todas as tools
+- **⚡ Rate Limiting**: 20 mensagens/minuto para WhatsApp
+- **🏠 Tenant Isolation**: Separação completa de dados
+- **🧹 XSS Protection**: Sanitização automática
 
 ### Monitoramento
 
-- **Logging**: Estruturado com Pino
-- **Error Tracking**: Captura automática de erros
-- **Metrics**: KPIs de negócio e técnicos
-- **Health Checks**: Endpoints de status
-- **Performance**: Métricas de response time
+- **📊 Logging**: Estruturado com Pino logger
+- **🚨 Error Tracking**: Captura automática em todas as tools
+- **📈 Metrics**: 
+  - Tools execution time e success rate
+  - N8N workflow performance
+  - WhatsApp message delivery rate
+  - Database query performance
+- **🩺 Health Checks**: 
+  - `/api/health` - Frontend health
+  - Microservice health endpoint
+  - N8N workflow monitoring
+- **👁️ Observability**: Real-time dashboard metrics
 
 ---
 
-*Sistema LOCAI - Versão 3.0*  
-*Última atualização: Agosto 2025*  
+## 🚀 Migration Notes (Para Desenvolvedores)
+
+### Do Sistema Sofia para Tools API
+
+#### Antes (Sistema Integrado)
+```typescript
+// ❌ Sistema antigo - Agent interno
+const response = await sofiaAgent.processMessage({
+  message: "quero um apartamento",
+  clientPhone: "123456789",
+  tenantId: "tenant123"
+});
+// Sofia processava tudo internamente
+```
+
+#### Depois (N8N + Tools)
+```typescript
+// ✅ Sistema atual - Tools externas
+// 1. N8N recebe a mensagem
+// 2. N8N chama: POST /api/ai/functions/search-properties
+// 3. N8N chama: POST /api/ai/functions/send-property-media  
+// 4. N8N gera resposta final
+// 5. N8N chama: POST /api/whatsapp/send-n8n
+```
+
+#### Benefícios da Migração
+- **🔧 Flexibilidade**: Tools podem ser chamadas por qualquer sistema
+- **🎯 Especialização**: N8N especializado em workflows
+- **📈 Escalabilidade**: Cada componente escala independentemente
+- **🔍 Debugging**: Logs separados por tool facilitam debug
+- **🔄 Manutenção**: Easier to update individual tools
+- **🧪 Testing**: Individual tools podem ser testadas isoladamente
+
+---
+
+*Sistema LOCAI - Versão 4.0*  
+*Arquitetura: N8N + Baileys + Tools API*  
+*Última atualização: Janeiro 2025*  
 *Status: Production Ready*
