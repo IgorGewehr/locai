@@ -24,6 +24,7 @@ import {
   Settings,
   Logout,
   HelpOutline,
+  AdminPanelSettings,
 } from '@mui/icons-material';
 
 interface HeaderProps {
@@ -67,6 +68,11 @@ export default function Header({ onMenuClick }: HeaderProps) {
 
   const handleHelp = () => {
     router.push('/dashboard/help');
+    handleClose();
+  };
+
+  const handleAdmin = () => {
+    router.push('/dashboard/lkjhg');
     handleClose();
   };
 
@@ -122,6 +128,25 @@ export default function Header({ onMenuClick }: HeaderProps) {
             size="medium"
             clickable={true}
           />
+
+          {/* Admin Panel Button - Only show for admin users */}
+          {user?.idog === true && (
+            <IconButton 
+              color="inherit" 
+              onClick={handleAdmin}
+              sx={{
+                color: 'error.main',
+                p: { xs: 1, md: 1.5 },
+                '&:hover': {
+                  backgroundColor: 'error.light',
+                  color: 'error.contrastText',
+                }
+              }}
+              title="Painel Administrativo"
+            >
+              <AdminPanelSettings sx={{ fontSize: { xs: 20, md: 24 } }} />
+            </IconButton>
+          )}
 
           {/* Help Button */}
           <IconButton 
@@ -231,6 +256,12 @@ export default function Header({ onMenuClick }: HeaderProps) {
               <Settings sx={{ mr: 2, fontSize: 20, color: 'text.secondary' }} />
               <Typography variant="body2">Configurações</Typography>
             </MenuItem>
+            {user?.idog === true && (
+              <MenuItem onClick={handleAdmin} sx={{ py: 1.5, color: 'error.main' }}>
+                <AdminPanelSettings sx={{ mr: 2, fontSize: 20 }} />
+                <Typography variant="body2">Painel Administrativo</Typography>
+              </MenuItem>
+            )}
             <MenuItem onClick={handleHelp} sx={{ py: 1.5 }}>
               <HelpOutline sx={{ mr: 2, fontSize: 20, color: 'text.secondary' }} />
               <Typography variant="body2">Central de Ajuda</Typography>
