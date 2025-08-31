@@ -491,7 +491,15 @@ export default function EditPropertyPage() {
 
   // Manual save with comprehensive error handling and queue
   const handleSave = useCallback(async (data: Property) => {
-    if (!propertyId) return;
+    console.log('handleSave called with data:', data);
+    console.log('propertyId:', propertyId);
+    console.log('isDirty:', isDirty);
+    console.log('isValid:', isValid);
+    
+    if (!propertyId) {
+      console.error('No propertyId found!');
+      return;
+    }
 
     // Queue this save operation
     await queueSave(async () => {
@@ -499,6 +507,7 @@ export default function EditPropertyPage() {
       setError(null);
 
       logger.info('Manual property save initiated', { propertyId, isDirty, isValid });
+      console.log('Starting save operation...');
 
       try {
         // Validate critical fields only if they were provided
@@ -530,16 +539,23 @@ export default function EditPropertyPage() {
             .join(' '),
         };
 
+        console.log('Sending data to API:', processedData);
+        
         const response = await makeAuthenticatedRequest(`/api/properties/${propertyId}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(processedData),
         });
 
+        console.log('API response status:', response.status);
+        
         if (!response.ok) {
           const errorText = await response.text();
+          console.error('API error:', errorText);
           throw new Error(`Erro ao salvar: ${response.status} - ${errorText}`);
         }
+        
+        console.log('Save successful!');
 
         const timestamp = new Date();
         setSuccess('Propriedade salva com sucesso!');
@@ -712,7 +728,11 @@ export default function EditPropertyPage() {
                   variant="contained"
                   size="large"
                   startIcon={saving ? <CircularProgress size={20} color="inherit" /> : <Save />}
-                  onClick={handleSubmit(handleSave)}
+                  onClick={() => {
+                    console.log('Save button clicked');
+                    console.log('Form errors:', errors);
+                    handleSubmit(handleSave)();
+                  }}
                   disabled={saving}
                   sx={{
                     minWidth: 160,
