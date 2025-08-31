@@ -2,6 +2,9 @@
 // Verificação de acesso admin
 
 import { NextRequest, NextResponse } from 'next/server';
+
+// Force Node.js runtime para usar firebase-admin
+export const runtime = 'nodejs';
 import { verifyAdminAccess } from '@/lib/middleware/admin-auth';
 import { logger } from '@/lib/utils/logger';
 

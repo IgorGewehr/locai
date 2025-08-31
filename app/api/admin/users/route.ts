@@ -2,6 +2,9 @@
 // Lista todos os usuários de todos os tenants
 
 import { NextRequest, NextResponse } from 'next/server';
+
+// Force Node.js runtime para usar firebase-admin
+export const runtime = 'nodejs';
 import { verifyAdminAccess } from '@/lib/middleware/admin-auth';
 import { db } from '@/lib/firebase/config';
 import { collection, getDocs, query, orderBy, limit } from 'firebase/firestore';

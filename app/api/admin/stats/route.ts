@@ -2,6 +2,9 @@
 // Estatísticas agregadas de todos os tenants
 
 import { NextRequest, NextResponse } from 'next/server';
+
+// Force Node.js runtime para usar firebase-admin
+export const runtime = 'nodejs';
 import { verifyAdminAccess } from '@/lib/middleware/admin-auth';
 import { db } from '@/lib/firebase/config';
 import { collection, getDocs } from 'firebase/firestore';

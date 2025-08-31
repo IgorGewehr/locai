@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 import { miniSiteMiddleware } from '@/middleware/mini-site'
-import { adminAuthMiddleware } from '@/lib/middleware/admin-auth'
 import { logger } from '@/lib/utils/logger'
 
 export async function middleware(request: NextRequest) {
@@ -9,22 +8,16 @@ export async function middleware(request: NextRequest) {
 
   // 🔒 ROTA ADMIN ULTRA SECRETA - Verificação de segurança máxima
   if (pathname.startsWith('/dashboard/lkjhg')) {
-    return await adminAuthMiddleware(request);
+    // Admin page - just let it through, auth will be handled client-side + API
+    const response = NextResponse.next();
+    addSecurityHeaders(response, pathname);
+    return response;
   }
   
-  // API Admin routes - também protegidas
+  // API Admin routes - deixar passar, auth será feita dentro da própria API
   if (pathname.startsWith('/api/admin/')) {
-    const { verifyAdminAccess } = await import('@/lib/middleware/admin-auth');
-    const { isAdmin } = await verifyAdminAccess(request);
-    
-    if (!isAdmin) {
-      logger.warn('🚫 [Middleware] Tentativa de acesso a API admin negada', {
-        component: 'Security',
-        path: pathname,
-        ip: request.ip
-      });
-      return NextResponse.json({ error: 'Acesso negado' }, { status: 403 });
-    }
+    // Let admin APIs handle their own auth to avoid Edge Runtime issues
+    return NextResponse.next();
   }
 
   // Check for mini-site subdomain/custom domain first

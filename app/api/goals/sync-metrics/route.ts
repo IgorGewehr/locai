@@ -1,8 +1,7 @@
 // app/api/goals/sync-metrics/route.ts
 import { NextRequest, NextResponse } from 'next/server'
 import { goalService } from '@/lib/services/goal-service'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
+import { validateFirebaseAuth } from '@/lib/middleware/firebase-auth'
 import { handleApiError } from '@/lib/utils/api-errors'
 import { GoalStatus, GoalType } from '@/lib/types/financial'
 import { getAnalytics } from '@/lib/services/analytics-service'
@@ -10,15 +9,15 @@ import { getAnalytics } from '@/lib/services/analytics-service'
 // POST - Sincronizar metas com métricas atuais
 export async function POST(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions)
-    if (!session?.user) {
+    const authContext = await validateFirebaseAuth(request)
+    if (!authContext.authenticated) {
       return NextResponse.json(
         { error: 'Não autorizado' },
         { status: 401 }
       )
     }
 
-    const tenantId = session.user.tenantId
+    const tenantId = authContext.tenantId
     const body = await request.json()
     const { goalIds, period } = body
 
@@ -90,15 +89,15 @@ export async function POST(request: NextRequest) {
 // GET - Verificar status de sincronização
 export async function GET(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions)
-    if (!session?.user) {
+    const authContext = await validateFirebaseAuth(request)
+    if (!authContext.authenticated) {
       return NextResponse.json(
         { error: 'Não autorizado' },
         { status: 401 }
       )
     }
 
-    const tenantId = session.user.tenantId
+    const tenantId = authContext.tenantId
     
     // Buscar todas as metas ativas
     const activeGoals = await goalService.getGoalsByTenant(tenantId, {
