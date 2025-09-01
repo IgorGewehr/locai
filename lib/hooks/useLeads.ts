@@ -71,7 +71,7 @@ interface UseLeadsReturn {
   
   // Lead management
   assignLead: (id: string, assignedTo: string) => Promise<void>;
-  changeLead Status: (id: string, status: LeadStatus) => Promise<void>;
+  changeLeadStatus: (id: string, status: LeadStatus) => Promise<void>;
   updateLeadTemperature: (id: string, temperature: LeadTemperature) => Promise<void>;
   addLeadNote: (id: string, note: string, isPrivate?: boolean) => Promise<void>;
   addLeadTag: (id: string, tag: string) => Promise<void>;

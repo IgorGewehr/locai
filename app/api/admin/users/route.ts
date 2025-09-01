@@ -38,20 +38,40 @@ export async function GET(request: NextRequest) {
         component: 'Admin'
       });
       
+      // Primeiro, vamos mapear os usuários e depois contar propriedades
+      const legacyUsers = [];
       for (const userDoc of rootUsersSnapshot.docs) {
         const userData = userDoc.data();
         
-        // Mapear usuário da estrutura antiga para formato admin
-        allUsers.push({
+        // Verificar se é conta Free (free == 7)
+        const isFreeAccount = userData.free === 7;
+        let plan = 'Pro'; // Default é Pro
+        if (isFreeAccount) {
+          plan = 'Free';
+        }
+        
+        // Tentar identificar o tenant do usuário através de algum campo
+        let actualTenantId = 'root';
+        let actualTenantName = 'Sistema Antigo';
+        
+        // Se o userId corresponder ao tenantId (padrão do sistema)
+        if (tenantsSnapshot.docs.some(t => t.id === userDoc.id)) {
+          actualTenantId = userDoc.id;
+          const tenantDoc = tenantsSnapshot.docs.find(t => t.id === userDoc.id);
+          const tenantData = tenantDoc?.data();
+          actualTenantName = tenantData?.name || tenantData?.companyName || userDoc.id;
+        }
+        
+        legacyUsers.push({
           id: userDoc.id,
-          tenantId: 'root', // Marcar como estrutura antiga
-          tenantName: 'Sistema Antigo',
+          tenantId: actualTenantId,
+          tenantName: actualTenantName,
           email: userData.email || '',
           name: userData.name || userData.displayName || 'Usuário',
           phoneNumber: userData.phoneNumber || userData.phone || '',
-          plan: userData.plan || 'Free',
+          plan: plan, // Usar a lógica correta de Free
           status: userData.disabled ? 'suspended' : 'active',
-          propertyCount: 0, // Será calculado depois
+          propertyCount: 0, // Será calculado agora
           createdAt: userData.createdAt,
           lastLogin: userData.lastLogin || userData.lastAccess,
           metadata: {
@@ -64,6 +84,32 @@ export async function GET(request: NextRequest) {
           }
         });
       }
+      
+      // Agora contar propriedades para cada usuário legacy
+      for (const user of legacyUsers) {
+        if (user.tenantId !== 'root') {
+          try {
+            const propertiesRef = collection(db, `tenants/${user.tenantId}/properties`);
+            const propertiesSnapshot = await getDocs(propertiesRef);
+            user.propertyCount = propertiesSnapshot.docs.length;
+            logger.info(`📊 [Admin Debug] Usuário ${user.name} (${user.tenantId}): ${user.propertyCount} propriedades`, {
+              component: 'Admin',
+              userId: user.id,
+              tenantId: user.tenantId,
+              propertyCount: user.propertyCount
+            });
+          } catch (err) {
+            logger.error(`Erro ao contar propriedades para usuário ${user.id}:`, err as Error, {
+              component: 'Admin',
+              userId: user.id,
+              tenantId: user.tenantId
+            });
+          }
+        }
+      }
+      
+      // Adicionar usuários legacy à lista
+      allUsers.push(...legacyUsers);
     } catch (error) {
       logger.info('⚠️ [Admin Debug] Nenhum usuário encontrado na estrutura antiga', {
         component: 'Admin'
@@ -75,7 +121,9 @@ export async function GET(request: NextRequest) {
       const tenantId = tenantDoc.id;
       const tenantData = tenantDoc.data();
       
-      console.log(`🔍 [Admin Debug] Processando tenant: ${tenantId}`, {
+      logger.info(`🔍 [Admin Debug] Processando tenant: ${tenantId}`, {
+        component: 'Admin',
+        tenantId,
         tenantName: tenantData.name || tenantData.companyName || 'sem nome'
       });
       
@@ -89,33 +137,73 @@ export async function GET(request: NextRequest) {
           const usersQuery = query(usersRef, orderBy('createdAt', 'desc'), limit(100));
           usersSnapshot = await getDocs(usersQuery);
         } catch (orderError) {
-          console.log(`⚠️ Erro com orderBy para tenant ${tenantId}, tentando sem ordenação:`, orderError);
+          logger.warn(`⚠️ Erro com orderBy para tenant ${tenantId}, tentando sem ordenação`, orderError as Error, {
+            component: 'Admin',
+            tenantId
+          });
           // Se falhar, buscar sem orderBy
           usersSnapshot = await getDocs(usersRef);
         }
         
-        console.log(`📊 [Admin Debug] Tenant ${tenantId}: ${usersSnapshot.docs.length} usuários encontrados`);
+        logger.info(`📊 [Admin Debug] Tenant ${tenantId}: ${usersSnapshot.docs.length} usuários encontrados`, {
+          component: 'Admin',
+          tenantId,
+          userCount: usersSnapshot.docs.length
+        });
         
         // Buscar contagem de propriedades para cada usuário
         for (const userDoc of usersSnapshot.docs) {
           const userData = userDoc.data();
           
+          // Verificar se é conta Free no root (free == 7)
+          let plan = 'Pro'; // Default é Pro para novos usuários
+          try {
+            const rootUserRef = collection(db, 'users');
+            const rootUserSnapshot = await getDocs(rootUserRef);
+            const rootUserDoc = rootUserSnapshot.docs.find(doc => doc.id === userDoc.id);
+            if (rootUserDoc) {
+              const rootUserData = rootUserDoc.data();
+              if (rootUserData.free === 7) {
+                plan = 'Free';
+              }
+            }
+          } catch (err) {
+            logger.warn(`Não foi possível verificar plano do usuário ${userDoc.id} no root`, err as Error, {
+              component: 'Admin',
+              userId: userDoc.id
+            });
+          }
+          
           let propertyCount = 0;
           try {
             const propertiesRef = collection(db, `tenants/${tenantId}/properties`);
             const propertiesSnapshot = await getDocs(propertiesRef);
-            // Contar propriedades do usuário (se tiver filtro por owner)
+            
+            // Contar propriedades criadas pelo usuário específico
             propertyCount = propertiesSnapshot.docs.filter(doc => {
-              const prop = doc.data();
-              return prop.ownerId === userDoc.id || prop.userId === userDoc.id;
+              const propData = doc.data();
+              return propData.userId === userDoc.id || propData.createdBy === userDoc.id;
             }).length;
             
-            // Se não tiver filtro específico, contar todas as propriedades do tenant
-            if (propertyCount === 0) {
+            // Se não encontrou propriedades específicas do usuário,
+            // e é o único usuário do tenant, contar todas as propriedades
+            if (propertyCount === 0 && usersSnapshot.docs.length === 1) {
               propertyCount = propertiesSnapshot.docs.length;
             }
+            
+            logger.info(`📊 [Admin Debug] Usuário ${userData.name || userDoc.id} do tenant ${tenantId}: ${propertyCount} propriedades`, {
+              component: 'Admin',
+              userId: userDoc.id,
+              tenantId,
+              propertyCount,
+              plan
+            });
           } catch (err) {
-            console.error('Erro ao contar propriedades:', err);
+            logger.error('Erro ao contar propriedades:', err as Error, {
+              component: 'Admin',
+              userId: userDoc.id,
+              tenantId
+            });
           }
           
           // Determinar status do usuário
@@ -123,8 +211,7 @@ export async function GET(request: NextRequest) {
           if (userData.disabled) status = 'suspended';
           else if (userData.inactive) status = 'inactive';
           
-          // Determinar plano (se existir)
-          let plan = userData.plan || userData.subscription?.plan || 'Free';
+          // O plano já foi determinado acima com base no free == 7
           
           allUsers.push({
             id: userDoc.id,
@@ -148,7 +235,10 @@ export async function GET(request: NextRequest) {
           });
         }
       } catch (error) {
-        console.error(`Erro ao buscar usuários do tenant ${tenantId}:`, error);
+        logger.error(`Erro ao buscar usuários do tenant ${tenantId}:`, error as Error, {
+          component: 'Admin',
+          tenantId
+        });
       }
     }
     
@@ -173,7 +263,8 @@ export async function GET(request: NextRequest) {
         activeUsers: allUsers.filter(u => u.status === 'active').length,
         suspendedUsers: allUsers.filter(u => u.status === 'suspended').length,
         inactiveUsers: allUsers.filter(u => u.status === 'inactive').length,
-        paidUsers: allUsers.filter(u => u.plan !== 'Free').length
+        freeUsers: allUsers.filter(u => u.plan === 'Free').length,
+        proUsers: allUsers.filter(u => u.plan !== 'Free').length
       }
     });
     

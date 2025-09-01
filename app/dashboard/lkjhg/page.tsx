@@ -408,12 +408,71 @@ export default function AdminDashboard() {
     return (
       <Box 
         display="flex" 
+        flexDirection="column"
         justifyContent="center" 
         alignItems="center" 
         minHeight="100vh"
-        sx={{ backgroundColor: 'background.default' }}
+        sx={{ 
+          background: 'linear-gradient(135deg, #0a0a0a 0%, #1a1a1a 100%)',
+          position: 'relative',
+          '&::before': {
+            content: '""',
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            backgroundImage: `
+              radial-gradient(circle at 50% 50%, rgba(139, 92, 246, 0.1) 0%, transparent 50%)
+            `,
+            pointerEvents: 'none',
+            animation: 'pulse 2s ease-in-out infinite'
+          },
+          '@keyframes pulse': {
+            '0%, 100%': {
+              opacity: 0.5
+            },
+            '50%': {
+              opacity: 1
+            }
+          }
+        }}
       >
-        <CircularProgress />
+        <Box
+          sx={{
+            background: 'rgba(255, 255, 255, 0.08)',
+            backdropFilter: 'blur(20px)',
+            border: '1px solid rgba(255, 255, 255, 0.15)',
+            borderRadius: '20px',
+            p: 4,
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            gap: 2,
+            position: 'relative',
+            zIndex: 1
+          }}
+        >
+          <CircularProgress 
+            sx={{ 
+              color: '#8b5cf6',
+              '& .MuiCircularProgress-circle': {
+                strokeLinecap: 'round'
+              }
+            }} 
+            size={48}
+          />
+          <Typography 
+            sx={{
+              color: '#ffffff',
+              fontFamily: 'Inter, sans-serif',
+              fontWeight: 600,
+              textAlign: 'center'
+            }}
+          >
+            Carregando Painel Administrativo...
+          </Typography>
+        </Box>
       </Box>
     );
   }
@@ -425,43 +484,101 @@ export default function AdminDashboard() {
   return (
     <Box sx={{ 
       flexGrow: 1, 
-      bgcolor: 'background.default', 
+      background: 'linear-gradient(135deg, #0a0a0a 0%, #1a1a1a 100%)',
       p: 3,
-      minHeight: '100vh'
+      minHeight: '100vh',
+      position: 'relative',
+      '&::before': {
+        content: '""',
+        position: 'absolute',
+        top: 0,
+        left: 0,
+        right: 0,
+        bottom: 0,
+        backgroundImage: `
+          radial-gradient(circle at 20% 80%, rgba(139, 92, 246, 0.1) 0%, transparent 50%),
+          radial-gradient(circle at 80% 20%, rgba(99, 102, 241, 0.1) 0%, transparent 50%),
+          radial-gradient(circle at 40% 40%, rgba(16, 185, 129, 0.05) 0%, transparent 50%)
+        `,
+        pointerEvents: 'none',
+        zIndex: 0
+      },
+      '& > *': {
+        position: 'relative',
+        zIndex: 1
+      }
     }}>
       {/* Header */}
-      <Box sx={{ mb: 4 }}>
+      <Box sx={{ 
+        mb: 4,
+        background: 'rgba(255, 255, 255, 0.08)',
+        backdropFilter: 'blur(20px)',
+        border: '1px solid rgba(255, 255, 255, 0.15)',
+        borderRadius: '20px',
+        p: 3,
+        boxShadow: '0 16px 50px rgba(0, 0, 0, 0.4)',
+        transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
+      }}>
         <Stack direction="row" spacing={2} alignItems="center" mb={3}>
-          <AdminIcon sx={{ 
-            fontSize: 32, 
-            color: 'error.main',
-            background: theme.palette.error.light + '20',
-            borderRadius: 2,
-            p: 1
-          }} />
+          <Box
+            sx={{
+              width: 56,
+              height: 56,
+              borderRadius: '16px',
+              background: 'linear-gradient(135deg, #ef4444, #dc2626)',
+              boxShadow: '0 8px 24px rgba(239, 68, 68, 0.4)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+              '&:hover': {
+                transform: 'scale(1.05)',
+                boxShadow: '0 12px 32px rgba(239, 68, 68, 0.6)'
+              }
+            }}
+          >
+            <AdminIcon sx={{ fontSize: 28, color: '#ffffff' }} />
+          </Box>
           <Box>
             <Typography 
               variant="h4" 
-              fontWeight="600"
-              sx={{ color: 'text.primary' }}
+              fontWeight="700"
+              sx={{ 
+                color: '#ffffff',
+                fontFamily: 'Inter, sans-serif',
+                letterSpacing: '-0.02em'
+              }}
             >
               Painel Administrativo
             </Typography>
-            <Typography variant="body2" color="text.secondary">
+            <Typography 
+              variant="body2" 
+              sx={{ 
+                color: 'rgba(255, 255, 255, 0.7)',
+                fontFamily: 'Inter, sans-serif'
+              }}
+            >
               Gerencie tickets e monitore usuários do sistema
             </Typography>
           </Box>
           <Box sx={{ ml: 'auto' }}>
             <Chip 
               label="ADMIN ACCESS" 
-              color="error" 
               variant="filled"
               icon={<AdminIcon />}
               sx={{ 
-                fontWeight: 600,
+                fontWeight: 700,
                 px: 2,
                 py: 1,
-                height: 32
+                height: 32,
+                background: 'linear-gradient(135deg, #ef4444, #dc2626)',
+                color: '#ffffff',
+                border: 'none',
+                borderRadius: '8px',
+                boxShadow: '0 4px 12px rgba(239, 68, 68, 0.3)',
+                '& .MuiChip-icon': {
+                  color: '#ffffff'
+                }
               }}
             />
           </Box>
@@ -473,36 +590,47 @@ export default function AdminDashboard() {
             <Box
               sx={{
                 p: 3,
-                borderRadius: 2,
-                bgcolor: 'background.paper',
-                boxShadow: theme.shadows[2],
-                border: `1px solid ${theme.palette.divider}`,
-                transition: 'all 0.2s ease',
+                background: 'rgba(255, 255, 255, 0.08)',
+                backdropFilter: 'blur(20px)',
+                border: '1px solid rgba(255, 255, 255, 0.15)',
+                borderRadius: '20px',
+                boxShadow: '0 16px 50px rgba(0, 0, 0, 0.4)',
+                transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
                 '&:hover': {
-                  boxShadow: theme.shadows[4],
-                  transform: 'translateY(-2px)'
+                  transform: 'translateY(-4px)',
+                  boxShadow: '0 20px 60px rgba(0, 0, 0, 0.5)',
+                  border: '1px solid rgba(255, 255, 255, 0.2)'
                 }
               }}
             >
               <Stack direction="row" spacing={2} alignItems="center">
                 <Box
                   sx={{
-                    p: 2,
-                    borderRadius: 2,
-                    bgcolor: theme.palette.primary.light + '20',
-                    color: 'primary.main',
+                    width: 56,
+                    height: 56,
+                    borderRadius: '16px',
+                    background: 'linear-gradient(135deg, #8b5cf6, #6366f1)',
+                    boxShadow: '0 8px 24px rgba(139, 92, 246, 0.4)',
                     display: 'flex',
                     alignItems: 'center',
-                    justifyContent: 'center'
+                    justifyContent: 'center',
+                    transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                    '&:hover': {
+                      transform: 'scale(1.05)',
+                      boxShadow: '0 12px 32px rgba(139, 92, 246, 0.6)'
+                    }
                   }}
                 >
-                  <SupportIcon sx={{ fontSize: 28 }} />
+                  <SupportIcon sx={{ fontSize: 28, color: '#ffffff' }} />
                 </Box>
                 <Box sx={{ flexGrow: 1 }}>
                   <Typography 
                     variant="body2" 
-                    color="text.secondary" 
-                    fontWeight={500}
+                    sx={{
+                      color: 'rgba(255, 255, 255, 0.7)',
+                      fontWeight: 500,
+                      fontFamily: 'Inter, sans-serif'
+                    }}
                     gutterBottom
                   >
                     Total de Tickets
@@ -510,7 +638,11 @@ export default function AdminDashboard() {
                   <Typography 
                     variant="h4" 
                     fontWeight="700"
-                    sx={{ color: 'text.primary' }}
+                    sx={{ 
+                      color: '#ffffff',
+                      fontFamily: 'Inter, sans-serif',
+                      letterSpacing: '-0.02em'
+                    }}
                   >
                     {tickets.length}
                   </Typography>
@@ -529,36 +661,47 @@ export default function AdminDashboard() {
             <Box
               sx={{
                 p: 3,
-                borderRadius: 2,
-                bgcolor: 'background.paper',
-                boxShadow: theme.shadows[2],
-                border: `1px solid ${theme.palette.divider}`,
-                transition: 'all 0.2s ease',
+                background: 'rgba(255, 255, 255, 0.08)',
+                backdropFilter: 'blur(20px)',
+                border: '1px solid rgba(255, 255, 255, 0.15)',
+                borderRadius: '20px',
+                boxShadow: '0 16px 50px rgba(0, 0, 0, 0.4)',
+                transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
                 '&:hover': {
-                  boxShadow: theme.shadows[4],
-                  transform: 'translateY(-2px)'
+                  transform: 'translateY(-4px)',
+                  boxShadow: '0 20px 60px rgba(0, 0, 0, 0.5)',
+                  border: '1px solid rgba(255, 255, 255, 0.2)'
                 }
               }}
             >
               <Stack direction="row" spacing={2} alignItems="center">
                 <Box
                   sx={{
-                    p: 2,
-                    borderRadius: 2,
-                    bgcolor: theme.palette.error.light + '20',
-                    color: 'error.main',
+                    width: 56,
+                    height: 56,
+                    borderRadius: '16px',
+                    background: 'linear-gradient(135deg, #f59e0b, #d97706)',
+                    boxShadow: '0 8px 24px rgba(245, 158, 11, 0.4)',
                     display: 'flex',
                     alignItems: 'center',
-                    justifyContent: 'center'
+                    justifyContent: 'center',
+                    transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                    '&:hover': {
+                      transform: 'scale(1.05)',
+                      boxShadow: '0 12px 32px rgba(245, 158, 11, 0.6)'
+                    }
                   }}
                 >
-                  <WarningIcon sx={{ fontSize: 28 }} />
+                  <WarningIcon sx={{ fontSize: 28, color: '#ffffff' }} />
                 </Box>
                 <Box sx={{ flexGrow: 1 }}>
                   <Typography 
                     variant="body2" 
-                    color="text.secondary" 
-                    fontWeight={500}
+                    sx={{
+                      color: 'rgba(255, 255, 255, 0.7)',
+                      fontWeight: 500,
+                      fontFamily: 'Inter, sans-serif'
+                    }}
                     gutterBottom
                   >
                     Tickets Abertos
@@ -572,7 +715,14 @@ export default function AdminDashboard() {
                   </Typography>
                   <Stack direction="row" spacing={1} alignItems="center" mt={1}>
                     <ErrorIcon sx={{ fontSize: 16, color: 'error.main' }} />
-                    <Typography variant="caption" color="error.main" fontWeight={500}>
+                    <Typography 
+                      variant="caption" 
+                      sx={{
+                        color: '#ef4444',
+                        fontWeight: 500,
+                        fontFamily: 'Inter, sans-serif'
+                      }}
+                    >
                       Requer atenção
                     </Typography>
                   </Stack>
@@ -585,36 +735,47 @@ export default function AdminDashboard() {
             <Box
               sx={{
                 p: 3,
-                borderRadius: 2,
-                bgcolor: 'background.paper',
-                boxShadow: theme.shadows[2],
-                border: `1px solid ${theme.palette.divider}`,
-                transition: 'all 0.2s ease',
+                background: 'rgba(255, 255, 255, 0.08)',
+                backdropFilter: 'blur(20px)',
+                border: '1px solid rgba(255, 255, 255, 0.15)',
+                borderRadius: '20px',
+                boxShadow: '0 16px 50px rgba(0, 0, 0, 0.4)',
+                transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
                 '&:hover': {
-                  boxShadow: theme.shadows[4],
-                  transform: 'translateY(-2px)'
+                  transform: 'translateY(-4px)',
+                  boxShadow: '0 20px 60px rgba(0, 0, 0, 0.5)',
+                  border: '1px solid rgba(255, 255, 255, 0.2)'
                 }
               }}
             >
               <Stack direction="row" spacing={2} alignItems="center">
                 <Box
                   sx={{
-                    p: 2,
-                    borderRadius: 2,
-                    bgcolor: theme.palette.success.light + '20',
-                    color: 'success.main',
+                    width: 56,
+                    height: 56,
+                    borderRadius: '16px',
+                    background: 'linear-gradient(135deg, #10b981, #059669)',
+                    boxShadow: '0 8px 24px rgba(16, 185, 129, 0.4)',
                     display: 'flex',
                     alignItems: 'center',
-                    justifyContent: 'center'
+                    justifyContent: 'center',
+                    transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                    '&:hover': {
+                      transform: 'scale(1.05)',
+                      boxShadow: '0 12px 32px rgba(16, 185, 129, 0.6)'
+                    }
                   }}
                 >
-                  <PeopleIcon sx={{ fontSize: 28 }} />
+                  <PeopleIcon sx={{ fontSize: 28, color: '#ffffff' }} />
                 </Box>
                 <Box sx={{ flexGrow: 1 }}>
                   <Typography 
                     variant="body2" 
-                    color="text.secondary" 
-                    fontWeight={500}
+                    sx={{
+                      color: 'rgba(255, 255, 255, 0.7)',
+                      fontWeight: 500,
+                      fontFamily: 'Inter, sans-serif'
+                    }}
                     gutterBottom
                   >
                     Total de Usuários
@@ -622,13 +783,24 @@ export default function AdminDashboard() {
                   <Typography 
                     variant="h4" 
                     fontWeight="700"
-                    sx={{ color: 'text.primary' }}
+                    sx={{ 
+                      color: '#ffffff',
+                      fontFamily: 'Inter, sans-serif',
+                      letterSpacing: '-0.02em'
+                    }}
                   >
                     {users.length}
                   </Typography>
                   <Stack direction="row" spacing={1} alignItems="center" mt={1}>
                     <PeopleIcon sx={{ fontSize: 16, color: 'success.main' }} />
-                    <Typography variant="caption" color="success.main" fontWeight={500}>
+                    <Typography 
+                      variant="caption" 
+                      sx={{
+                        color: '#10b981',
+                        fontWeight: 500,
+                        fontFamily: 'Inter, sans-serif'
+                      }}
+                    >
                       Usuários ativos
                     </Typography>
                   </Stack>
@@ -641,36 +813,47 @@ export default function AdminDashboard() {
             <Box
               sx={{
                 p: 3,
-                borderRadius: 2,
-                bgcolor: 'background.paper',
-                boxShadow: theme.shadows[2],
-                border: `1px solid ${theme.palette.divider}`,
-                transition: 'all 0.2s ease',
+                background: 'rgba(255, 255, 255, 0.08)',
+                backdropFilter: 'blur(20px)',
+                border: '1px solid rgba(255, 255, 255, 0.15)',
+                borderRadius: '20px',
+                boxShadow: '0 16px 50px rgba(0, 0, 0, 0.4)',
+                transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
                 '&:hover': {
-                  boxShadow: theme.shadows[4],
-                  transform: 'translateY(-2px)'
+                  transform: 'translateY(-4px)',
+                  boxShadow: '0 20px 60px rgba(0, 0, 0, 0.5)',
+                  border: '1px solid rgba(255, 255, 255, 0.2)'
                 }
               }}
             >
               <Stack direction="row" spacing={2} alignItems="center">
                 <Box
                   sx={{
-                    p: 2,
-                    borderRadius: 2,
-                    bgcolor: theme.palette.info.light + '20',
-                    color: 'info.main',
+                    width: 56,
+                    height: 56,
+                    borderRadius: '16px',
+                    background: 'linear-gradient(135deg, #6366f1, #4f46e5)',
+                    boxShadow: '0 8px 24px rgba(99, 102, 241, 0.4)',
                     display: 'flex',
                     alignItems: 'center',
-                    justifyContent: 'center'
+                    justifyContent: 'center',
+                    transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                    '&:hover': {
+                      transform: 'scale(1.05)',
+                      boxShadow: '0 12px 32px rgba(99, 102, 241, 0.6)'
+                    }
                   }}
                 >
-                  <BusinessIcon sx={{ fontSize: 28 }} />
+                  <BusinessIcon sx={{ fontSize: 28, color: '#ffffff' }} />
                 </Box>
                 <Box sx={{ flexGrow: 1 }}>
                   <Typography 
                     variant="body2" 
-                    color="text.secondary" 
-                    fontWeight={500}
+                    sx={{
+                      color: 'rgba(255, 255, 255, 0.7)',
+                      fontWeight: 500,
+                      fontFamily: 'Inter, sans-serif'
+                    }}
                     gutterBottom
                   >
                     Organizações
@@ -678,13 +861,24 @@ export default function AdminDashboard() {
                   <Typography 
                     variant="h4" 
                     fontWeight="700"
-                    sx={{ color: 'text.primary' }}
+                    sx={{ 
+                      color: '#ffffff',
+                      fontFamily: 'Inter, sans-serif',
+                      letterSpacing: '-0.02em'
+                    }}
                   >
                     {uniqueTenants.length}
                   </Typography>
                   <Stack direction="row" spacing={1} alignItems="center" mt={1}>
                     <BusinessIcon sx={{ fontSize: 16, color: 'info.main' }} />
-                    <Typography variant="caption" color="info.main" fontWeight={500}>
+                    <Typography 
+                      variant="caption" 
+                      sx={{
+                        color: '#6366f1',
+                        fontWeight: 500,
+                        fontFamily: 'Inter, sans-serif'
+                      }}
+                    >
                       Tenants ativos
                     </Typography>
                   </Stack>
@@ -711,20 +905,30 @@ export default function AdminDashboard() {
           onChange={(e, v) => setTabValue(v)}
           sx={{
             '& .MuiTabs-indicator': {
-              backgroundColor: 'primary.main',
+              background: 'linear-gradient(135deg, #8b5cf6, #6366f1)',
               height: 3,
-              borderRadius: 1.5
+              borderRadius: 1.5,
+              boxShadow: '0 2px 8px rgba(139, 92, 246, 0.4)'
             },
             '& .MuiTab-root': {
               textTransform: 'none',
               fontWeight: 600,
               fontSize: '0.9rem',
               minHeight: 48,
-              borderRadius: 1,
+              borderRadius: '8px',
               mx: 0.5,
+              color: 'rgba(255, 255, 255, 0.7)',
+              fontFamily: 'Inter, sans-serif',
+              transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
               '&.Mui-selected': {
-                color: 'primary.main',
-                bgcolor: theme.palette.primary.light + '10'
+                color: '#ffffff',
+                background: 'rgba(139, 92, 246, 0.15)',
+                backdropFilter: 'blur(10px)',
+                border: '1px solid rgba(139, 92, 246, 0.2)'
+              },
+              '&:hover': {
+                background: 'rgba(255, 255, 255, 0.05)',
+                color: '#ffffff'
               }
             }
           }}
@@ -773,13 +977,22 @@ export default function AdminDashboard() {
             sx={{
               p: 3,
               mb: 3,
-              bgcolor: 'background.paper',
-              borderRadius: 2,
-              boxShadow: theme.shadows[1],
-              border: `1px solid ${theme.palette.divider}`
+              background: 'rgba(255, 255, 255, 0.05)',
+              backdropFilter: 'blur(20px)',
+              border: '1px solid rgba(255, 255, 255, 0.1)',
+              borderRadius: '16px',
+              boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3)'
             }}
           >
-            <Typography variant="h6" fontWeight={600} mb={2}>
+            <Typography 
+              variant="h6" 
+              fontWeight={600} 
+              mb={2}
+              sx={{
+                color: '#ffffff',
+                fontFamily: 'Inter, sans-serif'
+              }}
+            >
               Filtros e Busca
             </Typography>
             <Stack direction="row" spacing={2} flexWrap="wrap">
@@ -796,7 +1009,28 @@ export default function AdminDashboard() {
                   flexGrow: 1, 
                   minWidth: 300,
                   '& .MuiOutlinedInput-root': {
-                    borderRadius: 2
+                    borderRadius: '12px',
+                    background: 'rgba(255, 255, 255, 0.05)',
+                    backdropFilter: 'blur(10px)',
+                    border: '1px solid rgba(255, 255, 255, 0.1)',
+                    color: '#ffffff',
+                    fontFamily: 'Inter, sans-serif',
+                    '&:hover': {
+                      border: '1px solid rgba(255, 255, 255, 0.2)'
+                    },
+                    '&.Mui-focused': {
+                      border: '1px solid rgba(139, 92, 246, 0.5)',
+                      boxShadow: '0 0 0 2px rgba(139, 92, 246, 0.1)'
+                    }
+                  },
+                  '& .MuiInputLabel-root': {
+                    color: 'rgba(255, 255, 255, 0.7)',
+                    fontFamily: 'Inter, sans-serif'
+                  },
+                  '& .MuiOutlinedInput-input': {
+                    '&::placeholder': {
+                      color: 'rgba(255, 255, 255, 0.5)'
+                    }
                   }
                 }}
               />
@@ -807,7 +1041,28 @@ export default function AdminDashboard() {
                   value={ticketFilter}
                   onChange={(e) => setTicketFilter(e.target.value)}
                   label="Status"
-                  sx={{ borderRadius: 2 }}
+                  sx={{ 
+                    borderRadius: '12px',
+                    background: 'rgba(255, 255, 255, 0.05)',
+                    backdropFilter: 'blur(10px)',
+                    border: '1px solid rgba(255, 255, 255, 0.1)',
+                    color: '#ffffff',
+                    '&:hover': {
+                      border: '1px solid rgba(255, 255, 255, 0.2)'
+                    },
+                    '&.Mui-focused': {
+                      border: '1px solid rgba(139, 92, 246, 0.5)',
+                      boxShadow: '0 0 0 2px rgba(139, 92, 246, 0.1)'
+                    },
+                    '& .MuiSelect-select': {
+                      color: '#ffffff',
+                      fontFamily: 'Inter, sans-serif'
+                    },
+                    '& .MuiInputLabel-root': {
+                      color: 'rgba(255, 255, 255, 0.7)',
+                      fontFamily: 'Inter, sans-serif'
+                    }
+                  }}
                 >
                   <MenuItem value="all">Todos os Status</MenuItem>
                   <MenuItem value="open">🔴 Abertos</MenuItem>
@@ -822,12 +1077,20 @@ export default function AdminDashboard() {
                 startIcon={<RefreshIcon />}
                 onClick={loadTickets}
                 sx={{ 
-                  borderRadius: 2,
+                  borderRadius: '12px',
                   px: 3,
-                  borderColor: 'divider',
+                  background: 'rgba(255, 255, 255, 0.05)',
+                  backdropFilter: 'blur(10px)',
+                  border: '1px solid rgba(255, 255, 255, 0.1)',
+                  color: '#ffffff',
+                  fontFamily: 'Inter, sans-serif',
+                  fontWeight: 600,
+                  transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
                   '&:hover': {
-                    borderColor: 'primary.main',
-                    bgcolor: theme.palette.primary.light + '10'
+                    background: 'rgba(139, 92, 246, 0.1)',
+                    border: '1px solid rgba(139, 92, 246, 0.3)',
+                    transform: 'translateY(-2px)',
+                    boxShadow: '0 8px 24px rgba(139, 92, 246, 0.2)'
                   }
                 }}
               >
@@ -839,16 +1102,28 @@ export default function AdminDashboard() {
           {/* Enhanced Tickets Table */}
           <Box
             sx={{
-              bgcolor: 'background.paper',
-              borderRadius: 2,
+              background: 'rgba(255, 255, 255, 0.05)',
+              backdropFilter: 'blur(20px)',
+              border: '1px solid rgba(255, 255, 255, 0.1)',
+              borderRadius: '16px',
               overflow: 'hidden',
-              boxShadow: theme.shadows[2],
-              border: `1px solid ${theme.palette.divider}`
+              boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3)'
             }}
           >
-            <Box sx={{ p: 2, borderBottom: `1px solid ${theme.palette.divider}` }}>
+            <Box sx={{ 
+              p: 2, 
+              borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
+              background: 'rgba(255, 255, 255, 0.02)'
+            }}>
               <Stack direction="row" justifyContent="space-between" alignItems="center">
-                <Typography variant="h6" fontWeight={600}>
+                <Typography 
+                  variant="h6" 
+                  fontWeight={600}
+                  sx={{
+                    color: '#ffffff',
+                    fontFamily: 'Inter, sans-serif'
+                  }}
+                >
                   Tickets de Suporte ({filteredTickets.length})
                 </Typography>
                 <Chip 
@@ -860,29 +1135,92 @@ export default function AdminDashboard() {
               </Stack>
             </Box>
             
-            <TableContainer>
+            <TableContainer
+              sx={{
+                '&::-webkit-scrollbar': {
+                  width: '4px',
+                  height: '4px'
+                },
+                '&::-webkit-scrollbar-track': {
+                  background: 'rgba(255, 255, 255, 0.05)'
+                },
+                '&::-webkit-scrollbar-thumb': {
+                  background: 'rgba(255, 255, 255, 0.1)',
+                  borderRadius: '4px',
+                  '&:hover': {
+                    background: 'rgba(255, 255, 255, 0.2)'
+                  }
+                }
+              }}
+            >
               <Table>
                 <TableHead>
-                  <TableRow sx={{ bgcolor: 'grey.50' }}>
-                    <TableCell sx={{ fontWeight: 600, color: 'text.primary' }}>
+                  <TableRow sx={{ 
+                    background: 'rgba(255, 255, 255, 0.02)',
+                    borderBottom: '1px solid rgba(255, 255, 255, 0.05)'
+                  }}>
+                    <TableCell sx={{ 
+                      fontWeight: 600, 
+                      color: '#ffffff',
+                      fontFamily: 'Inter, sans-serif',
+                      borderBottom: 'none'
+                    }}>
                       Prioridade
                     </TableCell>
-                    <TableCell sx={{ fontWeight: 600, color: 'text.primary' }}>
+                    <TableCell sx={{ 
+                      fontWeight: 600, 
+                      color: '#ffffff',
+                      fontFamily: 'Inter, sans-serif',
+                      borderBottom: 'none'
+                    }}>
                       Organização
                     </TableCell>
-                    <TableCell sx={{ fontWeight: 600, color: 'text.primary' }}>
+                    <TableCell sx={{ 
+                      fontWeight: 600, 
+                      color: '#ffffff',
+                      fontFamily: 'Inter, sans-serif',
+                      borderBottom: 'none'
+                    }}>
                       Usuário
                     </TableCell>
-                    <TableCell sx={{ fontWeight: 600, color: 'text.primary' }}>
+                    <TableCell sx={{ 
+                      fontWeight: 600, 
+                      color: '#ffffff',
+                      fontFamily: 'Inter, sans-serif',
+                      borderBottom: 'none'
+                    }}>
+                      Plano
+                    </TableCell>
+                    <TableCell sx={{ 
+                      fontWeight: 600, 
+                      color: '#ffffff',
+                      fontFamily: 'Inter, sans-serif',
+                      borderBottom: 'none'
+                    }}>
                       Ticket
                     </TableCell>
-                    <TableCell sx={{ fontWeight: 600, color: 'text.primary' }}>
+                    <TableCell sx={{ 
+                      fontWeight: 600, 
+                      color: '#ffffff',
+                      fontFamily: 'Inter, sans-serif',
+                      borderBottom: 'none'
+                    }}>
                       Status
                     </TableCell>
-                    <TableCell sx={{ fontWeight: 600, color: 'text.primary' }}>
+                    <TableCell sx={{ 
+                      fontWeight: 600, 
+                      color: '#ffffff',
+                      fontFamily: 'Inter, sans-serif',
+                      borderBottom: 'none'
+                    }}>
                       Data
                     </TableCell>
-                    <TableCell sx={{ fontWeight: 600, color: 'text.primary' }}>
+                    <TableCell sx={{ 
+                      fontWeight: 600, 
+                      color: '#ffffff',
+                      fontFamily: 'Inter, sans-serif',
+                      borderBottom: 'none'
+                    }}>
                       Ações
                     </TableCell>
                   </TableRow>
@@ -890,7 +1228,7 @@ export default function AdminDashboard() {
                 <TableBody>
                   {filteredTickets.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={7} align="center" sx={{ py: 4 }}>
+                      <TableCell colSpan={8} align="center" sx={{ py: 4 }}>
                         <Stack spacing={2} alignItems="center">
                           <SupportIcon sx={{ fontSize: 48, color: 'text.disabled' }} />
                           <Typography variant="h6" color="text.secondary">
@@ -909,9 +1247,12 @@ export default function AdminDashboard() {
                         hover
                         sx={{
                           '&:hover': {
-                            bgcolor: theme.palette.action.hover
+                            background: 'rgba(255, 255, 255, 0.05)',
+                            backdropFilter: 'blur(10px)'
                           },
-                          cursor: 'pointer'
+                          cursor: 'pointer',
+                          borderBottom: '1px solid rgba(255, 255, 255, 0.05)',
+                          transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
                         }}
                         onClick={() => setSelectedTicket(ticket)}
                       >
@@ -947,6 +1288,23 @@ export default function AdminDashboard() {
                               </Typography>
                             </Box>
                           </Stack>
+                        </TableCell>
+                        <TableCell>
+                          <Chip 
+                            label={ticket.userPlan || 'Pro'} 
+                            size="small"
+                            color={ticket.userPlan === 'Free' ? 'warning' : 'primary'}
+                            variant="filled"
+                            sx={{ 
+                              borderRadius: '6px',
+                              fontWeight: 600,
+                              fontSize: '0.7rem',
+                              background: ticket.userPlan === 'Free' 
+                                ? 'linear-gradient(135deg, #f59e0b, #d97706)'
+                                : 'linear-gradient(135deg, #8b5cf6, #6366f1)',
+                              color: '#ffffff'
+                            }}
+                          />
                         </TableCell>
                         <TableCell sx={{ maxWidth: 300 }}>
                           <Typography variant="body2" fontWeight={600} color="text.primary">
@@ -1045,13 +1403,22 @@ export default function AdminDashboard() {
             sx={{
               p: 3,
               mb: 3,
-              bgcolor: 'background.paper',
-              borderRadius: 2,
-              boxShadow: theme.shadows[1],
-              border: `1px solid ${theme.palette.divider}`
+              background: 'rgba(255, 255, 255, 0.05)',
+              backdropFilter: 'blur(20px)',
+              border: '1px solid rgba(255, 255, 255, 0.1)',
+              borderRadius: '16px',
+              boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3)'
             }}
           >
-            <Typography variant="h6" fontWeight={600} mb={2}>
+            <Typography 
+              variant="h6" 
+              fontWeight={600} 
+              mb={2}
+              sx={{
+                color: '#ffffff',
+                fontFamily: 'Inter, sans-serif'
+              }}
+            >
               Filtros e Busca de Usuários
             </Typography>
             <Stack direction="row" spacing={2} flexWrap="wrap">
@@ -1068,7 +1435,28 @@ export default function AdminDashboard() {
                   flexGrow: 1, 
                   minWidth: 300,
                   '& .MuiOutlinedInput-root': {
-                    borderRadius: 2
+                    borderRadius: '12px',
+                    background: 'rgba(255, 255, 255, 0.05)',
+                    backdropFilter: 'blur(10px)',
+                    border: '1px solid rgba(255, 255, 255, 0.1)',
+                    color: '#ffffff',
+                    fontFamily: 'Inter, sans-serif',
+                    '&:hover': {
+                      border: '1px solid rgba(255, 255, 255, 0.2)'
+                    },
+                    '&.Mui-focused': {
+                      border: '1px solid rgba(139, 92, 246, 0.5)',
+                      boxShadow: '0 0 0 2px rgba(139, 92, 246, 0.1)'
+                    }
+                  },
+                  '& .MuiInputLabel-root': {
+                    color: 'rgba(255, 255, 255, 0.7)',
+                    fontFamily: 'Inter, sans-serif'
+                  },
+                  '& .MuiOutlinedInput-input': {
+                    '&::placeholder': {
+                      color: 'rgba(255, 255, 255, 0.5)'
+                    }
                   }
                 }}
               />
@@ -1079,7 +1467,28 @@ export default function AdminDashboard() {
                   value={selectedTenant}
                   onChange={(e) => setSelectedTenant(e.target.value)}
                   label="Organização"
-                  sx={{ borderRadius: 2 }}
+                  sx={{ 
+                    borderRadius: '12px',
+                    background: 'rgba(255, 255, 255, 0.05)',
+                    backdropFilter: 'blur(10px)',
+                    border: '1px solid rgba(255, 255, 255, 0.1)',
+                    color: '#ffffff',
+                    '&:hover': {
+                      border: '1px solid rgba(255, 255, 255, 0.2)'
+                    },
+                    '&.Mui-focused': {
+                      border: '1px solid rgba(139, 92, 246, 0.5)',
+                      boxShadow: '0 0 0 2px rgba(139, 92, 246, 0.1)'
+                    },
+                    '& .MuiSelect-select': {
+                      color: '#ffffff',
+                      fontFamily: 'Inter, sans-serif'
+                    },
+                    '& .MuiInputLabel-root': {
+                      color: 'rgba(255, 255, 255, 0.7)',
+                      fontFamily: 'Inter, sans-serif'
+                    }
+                  }}
                 >
                   <MenuItem value="all">Todas as Organizações</MenuItem>
                   {uniqueTenants.map(tenant => (
@@ -1095,12 +1504,20 @@ export default function AdminDashboard() {
                 startIcon={<RefreshIcon />}
                 onClick={loadUsers}
                 sx={{ 
-                  borderRadius: 2,
+                  borderRadius: '12px',
                   px: 3,
-                  borderColor: 'divider',
+                  background: 'rgba(255, 255, 255, 0.05)',
+                  backdropFilter: 'blur(10px)',
+                  border: '1px solid rgba(255, 255, 255, 0.1)',
+                  color: '#ffffff',
+                  fontFamily: 'Inter, sans-serif',
+                  fontWeight: 600,
+                  transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
                   '&:hover': {
-                    borderColor: 'primary.main',
-                    bgcolor: theme.palette.primary.light + '10'
+                    background: 'rgba(139, 92, 246, 0.1)',
+                    border: '1px solid rgba(139, 92, 246, 0.3)',
+                    transform: 'translateY(-2px)',
+                    boxShadow: '0 8px 24px rgba(139, 92, 246, 0.2)'
                   }
                 }}
               >
@@ -1112,16 +1529,28 @@ export default function AdminDashboard() {
           {/* Enhanced Users Table */}
           <Box
             sx={{
-              bgcolor: 'background.paper',
-              borderRadius: 2,
+              background: 'rgba(255, 255, 255, 0.05)',
+              backdropFilter: 'blur(20px)',
+              border: '1px solid rgba(255, 255, 255, 0.1)',
+              borderRadius: '16px',
               overflow: 'hidden',
-              boxShadow: theme.shadows[2],
-              border: `1px solid ${theme.palette.divider}`
+              boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3)'
             }}
           >
-            <Box sx={{ p: 2, borderBottom: `1px solid ${theme.palette.divider}` }}>
+            <Box sx={{ 
+              p: 2, 
+              borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
+              background: 'rgba(255, 255, 255, 0.02)'
+            }}>
               <Stack direction="row" justifyContent="space-between" alignItems="center">
-                <Typography variant="h6" fontWeight={600}>
+                <Typography 
+                  variant="h6" 
+                  fontWeight={600}
+                  sx={{
+                    color: '#ffffff',
+                    fontFamily: 'Inter, sans-serif'
+                  }}
+                >
                   Usuários do Sistema ({filteredUsers.length})
                 </Typography>
                 <Stack direction="row" spacing={1}>
@@ -1141,29 +1570,84 @@ export default function AdminDashboard() {
               </Stack>
             </Box>
             
-            <TableContainer>
+            <TableContainer
+              sx={{
+                '&::-webkit-scrollbar': {
+                  width: '4px',
+                  height: '4px'
+                },
+                '&::-webkit-scrollbar-track': {
+                  background: 'rgba(255, 255, 255, 0.05)'
+                },
+                '&::-webkit-scrollbar-thumb': {
+                  background: 'rgba(255, 255, 255, 0.1)',
+                  borderRadius: '4px',
+                  '&:hover': {
+                    background: 'rgba(255, 255, 255, 0.2)'
+                  }
+                }
+              }}
+            >
               <Table>
                 <TableHead>
-                  <TableRow sx={{ bgcolor: 'grey.50' }}>
-                    <TableCell sx={{ fontWeight: 600, color: 'text.primary' }}>
+                  <TableRow sx={{ 
+                    background: 'rgba(255, 255, 255, 0.02)',
+                    borderBottom: '1px solid rgba(255, 255, 255, 0.05)'
+                  }}>
+                    <TableCell sx={{ 
+                      fontWeight: 600, 
+                      color: '#ffffff',
+                      fontFamily: 'Inter, sans-serif',
+                      borderBottom: 'none'
+                    }}>
                       Usuário
                     </TableCell>
-                    <TableCell sx={{ fontWeight: 600, color: 'text.primary' }}>
+                    <TableCell sx={{ 
+                      fontWeight: 600, 
+                      color: '#ffffff',
+                      fontFamily: 'Inter, sans-serif',
+                      borderBottom: 'none'
+                    }}>
                       Organização
                     </TableCell>
-                    <TableCell sx={{ fontWeight: 600, color: 'text.primary' }}>
+                    <TableCell sx={{ 
+                      fontWeight: 600, 
+                      color: '#ffffff',
+                      fontFamily: 'Inter, sans-serif',
+                      borderBottom: 'none'
+                    }}>
                       Plano
                     </TableCell>
-                    <TableCell sx={{ fontWeight: 600, color: 'text.primary' }}>
+                    <TableCell sx={{ 
+                      fontWeight: 600, 
+                      color: '#ffffff',
+                      fontFamily: 'Inter, sans-serif',
+                      borderBottom: 'none'
+                    }}>
                       Propriedades
                     </TableCell>
-                    <TableCell sx={{ fontWeight: 600, color: 'text.primary' }}>
+                    <TableCell sx={{ 
+                      fontWeight: 600, 
+                      color: '#ffffff',
+                      fontFamily: 'Inter, sans-serif',
+                      borderBottom: 'none'
+                    }}>
                       Status
                     </TableCell>
-                    <TableCell sx={{ fontWeight: 600, color: 'text.primary' }}>
+                    <TableCell sx={{ 
+                      fontWeight: 600, 
+                      color: '#ffffff',
+                      fontFamily: 'Inter, sans-serif',
+                      borderBottom: 'none'
+                    }}>
                       Cadastrado
                     </TableCell>
-                    <TableCell sx={{ fontWeight: 600, color: 'text.primary' }}>
+                    <TableCell sx={{ 
+                      fontWeight: 600, 
+                      color: '#ffffff',
+                      fontFamily: 'Inter, sans-serif',
+                      borderBottom: 'none'
+                    }}>
                       Último Acesso
                     </TableCell>
                   </TableRow>
@@ -1171,7 +1655,7 @@ export default function AdminDashboard() {
                 <TableBody>
                   {filteredUsers.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={7} align="center" sx={{ py: 4 }}>
+                      <TableCell colSpan={8} align="center" sx={{ py: 4 }}>
                         <Stack spacing={2} alignItems="center">
                           <PeopleIcon sx={{ fontSize: 48, color: 'text.disabled' }} />
                           <Typography variant="h6" color="text.secondary">
@@ -1240,14 +1724,18 @@ export default function AdminDashboard() {
                         </TableCell>
                         <TableCell>
                           <Chip 
-                            label={user.plan || 'Free'} 
+                            label={user.plan || 'Pro'} 
                             size="small"
-                            color={user.plan === 'Pro' ? 'primary' : 'default'}
+                            color={user.plan === 'Free' ? 'warning' : 'primary'}
                             variant="filled"
                             sx={{ 
                               borderRadius: 1,
                               fontWeight: 600,
-                              fontSize: '0.75rem'
+                              fontSize: '0.75rem',
+                              background: user.plan === 'Free' 
+                                ? 'linear-gradient(135deg, #f59e0b, #d97706)'
+                                : 'linear-gradient(135deg, #8b5cf6, #6366f1)',
+                              color: '#ffffff'
                             }}
                           />
                         </TableCell>
@@ -1330,17 +1818,32 @@ export default function AdminDashboard() {
                 <Box
                   sx={{
                     p: 4,
-                    bgcolor: 'background.paper',
-                    borderRadius: 2,
-                    border: `1px solid ${theme.palette.divider}`,
-                    textAlign: 'center'
+                    background: 'rgba(255, 255, 255, 0.05)',
+                    backdropFilter: 'blur(20px)',
+                    border: '1px solid rgba(255, 255, 255, 0.1)',
+                    borderRadius: '16px',
+                    textAlign: 'center',
+                    boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3)'
                   }}
                 >
                   <DashboardIcon sx={{ fontSize: 64, color: 'text.disabled', mb: 2 }} />
-                  <Typography variant="h6" color="text.secondary" gutterBottom>
+                  <Typography 
+                    variant="h6" 
+                    gutterBottom
+                    sx={{
+                      color: 'rgba(255, 255, 255, 0.7)',
+                      fontFamily: 'Inter, sans-serif'
+                    }}
+                  >
                     Carregando Estatísticas
                   </Typography>
-                  <Typography variant="body2" color="text.disabled">
+                  <Typography 
+                    variant="body2" 
+                    sx={{
+                      color: 'rgba(255, 255, 255, 0.5)',
+                      fontFamily: 'Inter, sans-serif'
+                    }}
+                  >
                     Aguarde enquanto coletamos os dados das organizações...
                   </Typography>
                 </Box>
@@ -1351,15 +1854,17 @@ export default function AdminDashboard() {
                   <Box
                     sx={{
                       p: 3,
-                      bgcolor: 'background.paper',
-                      borderRadius: 2,
-                      boxShadow: theme.shadows[2],
-                      border: `1px solid ${theme.palette.divider}`,
+                      background: 'rgba(255, 255, 255, 0.08)',
+                      backdropFilter: 'blur(20px)',
+                      border: '1px solid rgba(255, 255, 255, 0.15)',
+                      borderRadius: '20px',
+                      boxShadow: '0 16px 50px rgba(0, 0, 0, 0.4)',
                       height: '100%',
-                      transition: 'all 0.2s ease',
+                      transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
                       '&:hover': {
-                        boxShadow: theme.shadows[4],
-                        transform: 'translateY(-4px)'
+                        transform: 'translateY(-8px)',
+                        boxShadow: '0 20px 60px rgba(0, 0, 0, 0.5)',
+                        border: '1px solid rgba(255, 255, 255, 0.2)'
                       }
                     }}
                   >
@@ -1377,10 +1882,23 @@ export default function AdminDashboard() {
                         {stat.tenantName?.charAt(0)?.toUpperCase() || 'T'}
                       </Avatar>
                       <Box sx={{ flexGrow: 1 }}>
-                        <Typography variant="h6" fontWeight={600} color="text.primary">
+                        <Typography 
+                          variant="h6" 
+                          fontWeight={600} 
+                          sx={{
+                            color: '#ffffff',
+                            fontFamily: 'Inter, sans-serif'
+                          }}
+                        >
                           {stat.tenantName}
                         </Typography>
-                        <Typography variant="caption" color="text.secondary">
+                        <Typography 
+                          variant="caption" 
+                          sx={{
+                            color: 'rgba(255, 255, 255, 0.5)',
+                            fontFamily: 'Inter, sans-serif'
+                          }}
+                        >
                           ID: {stat.tenantId}
                         </Typography>
                       </Box>
@@ -1400,19 +1918,34 @@ export default function AdminDashboard() {
                       <Box
                         sx={{
                           p: 2,
-                          borderRadius: 1.5,
-                          bgcolor: theme.palette.success.light + '10',
-                          border: `1px solid ${theme.palette.success.light}30`
+                          borderRadius: '12px',
+                          background: 'rgba(16, 185, 129, 0.1)',
+                          backdropFilter: 'blur(10px)',
+                          border: '1px solid rgba(16, 185, 129, 0.2)'
                         }}
                       >
                         <Stack direction="row" justifyContent="space-between" alignItems="center">
                           <Stack direction="row" spacing={1.5} alignItems="center">
                             <PeopleIcon sx={{ color: 'success.main', fontSize: 20 }} />
-                            <Typography color="text.secondary" variant="body2" fontWeight={500}>
+                            <Typography 
+                              variant="body2" 
+                              fontWeight={500}
+                              sx={{
+                                color: 'rgba(255, 255, 255, 0.7)',
+                                fontFamily: 'Inter, sans-serif'
+                              }}
+                            >
                               Usuários
                             </Typography>
                           </Stack>
-                          <Typography variant="h6" fontWeight="700" color="success.main">
+                          <Typography 
+                            variant="h6" 
+                            fontWeight="700" 
+                            sx={{
+                              color: '#10b981',
+                              fontFamily: 'Inter, sans-serif'
+                            }}
+                          >
                             {stat.userCount}
                           </Typography>
                         </Stack>

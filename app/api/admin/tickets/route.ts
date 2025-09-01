@@ -74,20 +74,35 @@ export async function GET(request: NextRequest) {
       const tenantId = tenantDoc.id;
       const tenantData = tenantDoc.data();
       
+      logger.info(`🔍 [Admin Debug] Processando tickets do tenant: ${tenantId}`, {
+        component: 'Admin',
+        tenantId,
+        tenantName: tenantData.name || tenantData.companyName || 'sem nome'
+      });
+      
       try {
         // Buscar tickets do tenant
         const ticketsRef = collection(db, `tenants/${tenantId}/tickets`);
         let ticketsSnapshot;
         
         try {
-          // Tentar com orderBy primeiro
-          const ticketsQuery = query(ticketsRef, orderBy('createdAt', 'desc'), limit(100));
+          // Tentar com orderBy primeiro, mas sem limit para pegar todos
+          const ticketsQuery = query(ticketsRef, orderBy('createdAt', 'desc'));
           ticketsSnapshot = await getDocs(ticketsQuery);
         } catch (orderError) {
-          console.log(`⚠️ Erro com orderBy para tenant ${tenantId}, tentando sem ordenação:`, orderError);
+          logger.warn(`⚠️ Erro com orderBy para tenant ${tenantId}, tentando sem ordenação`, orderError as Error, {
+            component: 'Admin',
+            tenantId
+          });
           // Se falhar, buscar sem orderBy
           ticketsSnapshot = await getDocs(ticketsRef);
         }
+        
+        logger.info(`📊 [Admin Debug] Tenant ${tenantId}: ${ticketsSnapshot.docs.length} tickets encontrados`, {
+          component: 'Admin',
+          tenantId,
+          ticketCount: ticketsSnapshot.docs.length
+        });
         
         // Buscar informações dos usuários para cada ticket
         for (const ticketDoc of ticketsSnapshot.docs) {
@@ -95,16 +110,38 @@ export async function GET(request: NextRequest) {
           
           // Buscar dados do usuário que criou o ticket
           let userData = null;
+          let userPlan = 'Pro'; // Default
+          
           if (ticketData.userId) {
             try {
+              // Buscar no tenant
               const userRef = collection(db, `tenants/${tenantId}/users`);
               const userSnapshot = await getDocs(userRef);
               const userDoc = userSnapshot.docs.find(doc => doc.id === ticketData.userId);
               if (userDoc) {
                 userData = userDoc.data();
               }
+              
+              // Buscar informações do plano no root
+              try {
+                const rootUserRef = collection(db, 'users');
+                const rootUserSnapshot = await getDocs(rootUserRef);
+                const rootUserDoc = rootUserSnapshot.docs.find(doc => doc.id === ticketData.userId);
+                if (rootUserDoc) {
+                  const rootUserData = rootUserDoc.data();
+                  if (rootUserData.free === 7) {
+                    userPlan = 'Free';
+                  }
+                }
+              } catch (rootErr) {
+                logger.warn(`Não foi possível verificar plano do usuário ${ticketData.userId} no root`, rootErr as Error);
+              }
             } catch (err) {
-              console.error('Erro ao buscar usuário:', err);
+              logger.error('Erro ao buscar usuário:', err as Error, {
+                component: 'Admin',
+                tenantId,
+                userId: ticketData.userId
+              });
             }
           }
           
@@ -118,7 +155,11 @@ export async function GET(request: NextRequest) {
               ...doc.data()
             }));
           } catch (err) {
-            console.error('Erro ao buscar respostas:', err);
+            logger.error('Erro ao buscar respostas do ticket:', err as Error, {
+              component: 'Admin',
+              tenantId,
+              ticketId: ticketDoc.id
+            });
           }
           
           allTickets.push({
@@ -128,6 +169,7 @@ export async function GET(request: NextRequest) {
             userName: userData?.name || ticketData.userName || 'Usuário',
             userEmail: userData?.email || ticketData.userEmail || '',
             userId: ticketData.userId,
+            userPlan: userPlan,
             subject: ticketData.subject || 'Sem assunto',
             description: ticketData.description || '',
             status: ticketData.status || 'open',
@@ -140,7 +182,10 @@ export async function GET(request: NextRequest) {
           });
         }
       } catch (error) {
-        console.error(`Erro ao buscar tickets do tenant ${tenantId}:`, error);
+        logger.error(`Erro ao buscar tickets do tenant ${tenantId}:`, error as Error, {
+          component: 'Admin',
+          tenantId
+        });
       }
     }
     

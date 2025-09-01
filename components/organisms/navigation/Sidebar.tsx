@@ -153,7 +153,7 @@ const drawerWidth = 260;
 export default function Sidebar({ open, onClose }: SidebarProps) {
   const pathname = usePathname();
   const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+  const isMobile = useMediaQuery(theme.breakpoints.down('lg'));
   const [expandedMenu, setExpandedMenu] = useState<string | null>(null);
 
   const handleMenuClick = (itemText: string, hasSubmenu: boolean) => {
@@ -202,24 +202,18 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
           }}
         >
           <Box
+            component="img"
+            src="/logo.jpg"
+            alt="AlugaZap"
             sx={{
               width: { xs: 36, md: 40 },
               height: { xs: 36, md: 40 },
               borderRadius: 2,
-              background: 'linear-gradient(135deg, #06b6d4 0%, #0891b2 100%)',
-              backdropFilter: 'blur(10px)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              color: 'white',
-              fontWeight: 'bold',
-              fontSize: { xs: '1rem', md: '1.125rem' },
+              objectFit: 'contain',
               border: '1px solid rgba(255, 255, 255, 0.2)',
               boxShadow: '0 4px 16px rgba(6, 182, 212, 0.4)',
             }}
-          >
-            🏠
-          </Box>
+          />
           <Box>
             <Typography 
               variant="subtitle1" 
@@ -495,10 +489,10 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
           borderRight: 1,
           borderColor: 'divider',
           position: 'fixed',
-          top: 64, // altura do header
-          height: 'calc(100vh - 64px)',
+          top: 0,
+          height: '100vh',
           zIndex: theme.zIndex.drawer + 1,
-          boxShadow: '4px 0 10px rgba(0, 0, 0, 0.1)',
+          boxShadow: '4px 0 20px rgba(0, 0, 0, 0.15)',
         },
       }}
     >

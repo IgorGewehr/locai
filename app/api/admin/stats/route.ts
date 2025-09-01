@@ -56,8 +56,17 @@ export async function GET(request: NextRequest) {
         try {
           const propertiesSnapshot = await getDocs(collection(db, `tenants/${tenantId}/properties`));
           propertyCount = propertiesSnapshot.size;
+          
+          logger.info(`🏠 [Admin Stats] Tenant ${tenantId}: ${propertyCount} propriedades`, {
+            component: 'Admin',
+            tenantId,
+            propertyCount
+          });
         } catch (err) {
-          console.error('Erro ao contar propriedades:', err);
+          logger.error('Erro ao contar propriedades:', err as Error, {
+            component: 'Admin',
+            tenantId
+          });
         }
         
         // Contar tickets
