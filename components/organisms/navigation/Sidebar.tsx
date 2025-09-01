@@ -159,6 +159,13 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
   const [expandedMenu, setExpandedMenu] = useState<string | null>(null);
   const { user } = useAuth();
 
+  // Memoize menu items with conditional admin item
+  const allMenuItems = useMemo(() => {
+    const items = [...menuItems];
+
+
+    return items;
+  }, [user?.idog]);
 
   const handleMenuClick = (itemText: string, hasSubmenu: boolean) => {
     if (hasSubmenu) {
