@@ -213,10 +213,16 @@ export default function AdminDashboard() {
   // Verificar autenticação admin
   useEffect(() => {
     if (!authLoading && user) {
-      checkAdminAccess();
+      // Verificar imediatamente se o usuário tem idog antes de mostrar qualquer loading
+      if (user.idog === true) {
+        checkAdminAccess();
+      } else {
+        // Se não tem idog, redirecionar imediatamente sem mostrar loading
+        router.replace('/dashboard');
+      }
     } else if (!authLoading && !user) {
       // Se não está carregando e não tem usuário, redirecionar
-      router.push('/dashboard');
+      router.replace('/dashboard');
     }
   }, [user, authLoading]);
 
@@ -419,114 +425,13 @@ export default function AdminDashboard() {
       name: users.find(u => u.tenantId === id)?.tenantName || id
     }));
 
-  if (authLoading || loading) {
-    return (
-      <Box 
-        display="flex" 
-        flexDirection="column"
-        justifyContent="center" 
-        alignItems="center" 
-        minHeight="100vh"
-        sx={{ 
-          background: 'linear-gradient(135deg, #0f0f1e 0%, #1a1a2e 50%, #16213e 100%)',
-          position: 'relative',
-          overflow: 'hidden',
-          '&::before': {
-            content: '""',
-            position: 'absolute',
-            top: '-50%',
-            left: '-50%',
-            width: '200%',
-            height: '200%',
-            background: `
-              radial-gradient(circle at 25% 25%, rgba(124, 58, 237, 0.2) 0%, transparent 40%),
-              radial-gradient(circle at 75% 75%, rgba(239, 68, 68, 0.15) 0%, transparent 40%)
-            `,
-            animation: 'pulse 3s ease-in-out infinite',
-            pointerEvents: 'none'
-          },
-          '@keyframes pulse': {
-            '0%, 100%': {
-              opacity: 0.5,
-              transform: 'scale(1)'
-            },
-            '50%': {
-              opacity: 1,
-              transform: 'scale(1.05)'
-            }
-          }
-        }}
-      >
-        <Zoom in={true} timeout={800}>
-          <Paper
-            elevation={0}
-            sx={{
-              background: alpha('#1e293b', 0.6),
-              backdropFilter: 'blur(24px)',
-              border: '1px solid',
-              borderColor: alpha('#fff', 0.08),
-              borderRadius: '24px',
-              p: 5,
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              gap: 3,
-              position: 'relative',
-              zIndex: 1
-            }}
-          >
-            <Box sx={{ position: 'relative' }}>
-              <CircularProgress 
-                sx={{ 
-                  color: '#ef4444',
-                  '& .MuiCircularProgress-circle': {
-                    strokeLinecap: 'round'
-                  }
-                }} 
-                size={56}
-                thickness={4}
-              />
-              <ShieldIcon 
-                sx={{ 
-                  position: 'absolute',
-                  top: '50%',
-                  left: '50%',
-                  transform: 'translate(-50%, -50%)',
-                  fontSize: 24,
-                  color: '#ef4444'
-                }} 
-              />
-            </Box>
-            <Stack spacing={1} alignItems="center">
-              <Typography 
-                variant="h6"
-                sx={{
-                  color: '#ffffff',
-                  fontFamily: '"Inter", sans-serif',
-                  fontWeight: 700,
-                  letterSpacing: '-0.02em'
-                }}
-              >
-                Verificando Credenciais
-              </Typography>
-              <Typography 
-                variant="body2"
-                sx={{
-                  color: alpha('#94a3b8', 0.8),
-                  fontFamily: '"Inter", sans-serif',
-                  fontWeight: 500
-                }}
-              >
-                Acessando painel administrativo seguro...
-              </Typography>
-            </Stack>
-          </Paper>
-        </Zoom>
-      </Box>
-    );
+  // Não mostrar loading especial - usuários com idog acessam direto
+  if (authLoading) {
+    return null; // Loading padrão do AuthProvider
   }
 
-  if (!isAdmin) {
+  // Se não é admin, redirecionar silenciosamente
+  if (!user?.idog || !isAdmin) {
     return null;
   }
 
