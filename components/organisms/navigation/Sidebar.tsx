@@ -45,7 +45,9 @@ import {
   BugReport,
   Event,
   Schedule,
+  AdminPanelSettings,
 } from '@mui/icons-material';
+import { useAuth } from '@/lib/hooks/useAuth';
 
 interface SidebarProps {
   open: boolean;
@@ -155,6 +157,24 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('lg'));
   const [expandedMenu, setExpandedMenu] = useState<string | null>(null);
+  const { user } = useAuth();
+
+  // Memoize menu items with conditional admin item
+  const allMenuItems = useMemo(() => {
+    const items = [...menuItems];
+    
+    // Add admin panel if user has idog flag
+    if (user?.idog === true) {
+      items.push({
+        text: 'Admin Panel',
+        href: '/dashboard/lkjhg',
+        icon: <AdminPanelSettings />,
+        badge: 'ADMIN',
+      });
+    }
+    
+    return items;
+  }, [user?.idog]);
 
   const handleMenuClick = (itemText: string, hasSubmenu: boolean) => {
     if (hasSubmenu) {
@@ -255,7 +275,7 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
         'scrollbar-width': 'none',
       }}>
         <List sx={{ px: { xs: 1.5, md: 2 } }}>
-          {menuItems.map((item) => (
+          {allMenuItems.map((item) => (
             <Box key={item.href}>
               <ListItemButton
                 component={item.submenu ? 'div' : Link}
@@ -318,9 +338,9 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
                       height: 20,
                       fontSize: '0.625rem',
                       fontWeight: 600,
-                      bgcolor: '#22c55e',
+                      bgcolor: item.badge === 'ADMIN' ? '#dc2626' : '#22c55e',
                       color: 'white',
-                      boxShadow: '0 2px 8px rgba(34, 197, 94, 0.3)',
+                      boxShadow: item.badge === 'ADMIN' ? '0 2px 8px rgba(220, 38, 38, 0.3)' : '0 2px 8px rgba(34, 197, 94, 0.3)',
                       '& .MuiChip-label': {
                         px: 1,
                       },

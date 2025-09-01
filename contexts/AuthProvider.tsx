@@ -16,6 +16,7 @@ interface User {
   fullName: string;
   role: 'admin' | 'user' | 'agent';
   isAdmin: boolean; // Computed property for convenience
+  idog?: boolean; // Super admin flag
   tenantId: string; // UID do usuário = tenantId
   isActive: boolean;
   emailVerified: boolean;
@@ -134,6 +135,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           fullName: userData.fullName || userData.name || '',
           role: userData.role || 'user',
           isAdmin: (userData.role || 'user') === 'admin', // Computed property
+          idog: userData.idog === true, // Super admin flag
           tenantId: uid, // UID = tenantId
           isActive: userData.isActive !== false,
           emailVerified: authUser.emailVerified,
@@ -174,6 +176,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         fullName: newUserData.fullName,
         role: 'user',
         isAdmin: false, // New users are not admin by default
+        idog: false, // New users are not super admin by default
         tenantId: uid,
         isActive: true,
         emailVerified: authUser.emailVerified,
