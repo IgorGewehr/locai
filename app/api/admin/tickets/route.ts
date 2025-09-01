@@ -31,6 +31,44 @@ export async function GET(request: NextRequest) {
     const tenantsSnapshot = await getDocs(collection(db, 'tenants'));
     const allTickets: any[] = [];
     
+    // PRIMEIRO: Tentar buscar tickets na estrutura antiga (root level)
+    try {
+      const rootTicketsSnapshot = await getDocs(collection(db, 'tickets'));
+      logger.info(`📊 [Admin Debug] Estrutura antiga: ${rootTicketsSnapshot.docs.length} tickets encontrados`, {
+        component: 'Admin'
+      });
+      
+      for (const ticketDoc of rootTicketsSnapshot.docs) {
+        const ticketData = ticketDoc.data();
+        
+        // Mapear ticket da estrutura antiga para formato admin
+        allTickets.push({
+          id: ticketDoc.id,
+          tenantId: 'root', // Marcar como estrutura antiga
+          tenantName: 'Sistema Antigo',
+          userName: ticketData.userName || 'Usuário',
+          userEmail: ticketData.userEmail || '',
+          userId: ticketData.userId,
+          subject: ticketData.subject || 'Sem assunto',
+          description: ticketData.description || '',
+          status: ticketData.status || 'open',
+          priority: ticketData.priority || 'medium',
+          category: ticketData.category || 'general',
+          createdAt: ticketData.createdAt,
+          updatedAt: ticketData.updatedAt,
+          responses: [], // Será carregado depois se necessário
+          metadata: {
+            ...ticketData.metadata,
+            isLegacyTicket: true
+          }
+        });
+      }
+    } catch (error) {
+      logger.info('⚠️ [Admin Debug] Nenhum ticket encontrado na estrutura antiga', {
+        component: 'Admin'
+      });
+    }
+    
     // Para cada tenant, buscar seus tickets
     for (const tenantDoc of tenantsSnapshot.docs) {
       const tenantId = tenantDoc.id;
@@ -39,8 +77,17 @@ export async function GET(request: NextRequest) {
       try {
         // Buscar tickets do tenant
         const ticketsRef = collection(db, `tenants/${tenantId}/tickets`);
-        const ticketsQuery = query(ticketsRef, orderBy('createdAt', 'desc'), limit(100));
-        const ticketsSnapshot = await getDocs(ticketsQuery);
+        let ticketsSnapshot;
+        
+        try {
+          // Tentar com orderBy primeiro
+          const ticketsQuery = query(ticketsRef, orderBy('createdAt', 'desc'), limit(100));
+          ticketsSnapshot = await getDocs(ticketsQuery);
+        } catch (orderError) {
+          console.log(`⚠️ Erro com orderBy para tenant ${tenantId}, tentando sem ordenação:`, orderError);
+          // Se falhar, buscar sem orderBy
+          ticketsSnapshot = await getDocs(ticketsRef);
+        }
         
         // Buscar informações dos usuários para cada ticket
         for (const ticketDoc of ticketsSnapshot.docs) {

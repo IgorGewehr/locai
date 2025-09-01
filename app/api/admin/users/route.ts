@@ -31,16 +31,70 @@ export async function GET(request: NextRequest) {
     const tenantsSnapshot = await getDocs(collection(db, 'tenants'));
     const allUsers: any[] = [];
     
+    // PRIMEIRO: Tentar buscar usuários na estrutura antiga (root level)
+    try {
+      const rootUsersSnapshot = await getDocs(collection(db, 'users'));
+      logger.info(`📊 [Admin Debug] Estrutura antiga: ${rootUsersSnapshot.docs.length} usuários encontrados`, {
+        component: 'Admin'
+      });
+      
+      for (const userDoc of rootUsersSnapshot.docs) {
+        const userData = userDoc.data();
+        
+        // Mapear usuário da estrutura antiga para formato admin
+        allUsers.push({
+          id: userDoc.id,
+          tenantId: 'root', // Marcar como estrutura antiga
+          tenantName: 'Sistema Antigo',
+          email: userData.email || '',
+          name: userData.name || userData.displayName || 'Usuário',
+          phoneNumber: userData.phoneNumber || userData.phone || '',
+          plan: userData.plan || 'Free',
+          status: userData.disabled ? 'suspended' : 'active',
+          propertyCount: 0, // Será calculado depois
+          createdAt: userData.createdAt,
+          lastLogin: userData.lastLogin || userData.lastAccess,
+          metadata: {
+            emailVerified: userData.emailVerified || false,
+            provider: userData.provider || 'email',
+            role: userData.role || 'user',
+            lastIP: userData.lastIP || '',
+            totalLogins: userData.totalLogins || 0,
+            isLegacyUser: true
+          }
+        });
+      }
+    } catch (error) {
+      logger.info('⚠️ [Admin Debug] Nenhum usuário encontrado na estrutura antiga', {
+        component: 'Admin'
+      });
+    }
+    
     // Para cada tenant, buscar seus usuários
     for (const tenantDoc of tenantsSnapshot.docs) {
       const tenantId = tenantDoc.id;
       const tenantData = tenantDoc.data();
       
+      console.log(`🔍 [Admin Debug] Processando tenant: ${tenantId}`, {
+        tenantName: tenantData.name || tenantData.companyName || 'sem nome'
+      });
+      
       try {
         // Buscar usuários do tenant
         const usersRef = collection(db, `tenants/${tenantId}/users`);
-        const usersQuery = query(usersRef, orderBy('createdAt', 'desc'), limit(100));
-        const usersSnapshot = await getDocs(usersQuery);
+        let usersSnapshot;
+        
+        try {
+          // Tentar com orderBy primeiro
+          const usersQuery = query(usersRef, orderBy('createdAt', 'desc'), limit(100));
+          usersSnapshot = await getDocs(usersQuery);
+        } catch (orderError) {
+          console.log(`⚠️ Erro com orderBy para tenant ${tenantId}, tentando sem ordenação:`, orderError);
+          // Se falhar, buscar sem orderBy
+          usersSnapshot = await getDocs(usersRef);
+        }
+        
+        console.log(`📊 [Admin Debug] Tenant ${tenantId}: ${usersSnapshot.docs.length} usuários encontrados`);
         
         // Buscar contagem de propriedades para cada usuário
         for (const userDoc of usersSnapshot.docs) {
