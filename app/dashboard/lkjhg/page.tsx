@@ -32,7 +32,14 @@ import {
   FormControl,
   InputLabel,
   Stack,
-  useTheme
+  useTheme,
+  Paper,
+  Card,
+  CardContent,
+  alpha,
+  Fade,
+  Container,
+  Zoom
 } from '@mui/material';
 import {
   Support as SupportIcon,
@@ -53,7 +60,13 @@ import {
   Search as SearchIcon,
   AdminPanelSettings as AdminIcon,
   TrendingUp as TrendingUpIcon,
-  Business as BusinessIcon
+  Business as BusinessIcon,
+  ShieldOutlined as ShieldIcon,
+  SecurityOutlined as SecurityIcon,
+  AssignmentOutlined as TaskIcon,
+  GroupsOutlined as GroupsIcon,
+  PriorityHighOutlined as PriorityIcon,
+  AccessTimeOutlined as TimeIcon
 } from '@mui/icons-material';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthProvider';
@@ -370,11 +383,13 @@ export default function AdminDashboard() {
   const getPriorityIcon = (priority: string) => {
     switch (priority) {
       case 'urgent':
-        return <ErrorIcon color="error" />;
+        return <PriorityIcon sx={{ color: '#ef4444' }} />;
       case 'high':
-        return <WarningIcon color="warning" />;
+        return <WarningIcon sx={{ color: '#f59e0b' }} />;
+      case 'medium':
+        return <TimeIcon sx={{ color: '#3b82f6' }} />;
       default:
-        return <CheckCircleIcon color="success" />;
+        return <CheckCircleIcon sx={{ color: '#10b981' }} />;
     }
   };
 
@@ -413,66 +428,100 @@ export default function AdminDashboard() {
         alignItems="center" 
         minHeight="100vh"
         sx={{ 
-          background: 'linear-gradient(135deg, #0a0a0a 0%, #1a1a1a 100%)',
+          background: 'linear-gradient(135deg, #0f0f1e 0%, #1a1a2e 50%, #16213e 100%)',
           position: 'relative',
+          overflow: 'hidden',
           '&::before': {
             content: '""',
             position: 'absolute',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            backgroundImage: `
-              radial-gradient(circle at 50% 50%, rgba(139, 92, 246, 0.1) 0%, transparent 50%)
+            top: '-50%',
+            left: '-50%',
+            width: '200%',
+            height: '200%',
+            background: `
+              radial-gradient(circle at 25% 25%, rgba(124, 58, 237, 0.2) 0%, transparent 40%),
+              radial-gradient(circle at 75% 75%, rgba(239, 68, 68, 0.15) 0%, transparent 40%)
             `,
-            pointerEvents: 'none',
-            animation: 'pulse 2s ease-in-out infinite'
+            animation: 'pulse 3s ease-in-out infinite',
+            pointerEvents: 'none'
           },
           '@keyframes pulse': {
             '0%, 100%': {
-              opacity: 0.5
+              opacity: 0.5,
+              transform: 'scale(1)'
             },
             '50%': {
-              opacity: 1
+              opacity: 1,
+              transform: 'scale(1.05)'
             }
           }
         }}
       >
-        <Box
-          sx={{
-            background: 'rgba(255, 255, 255, 0.08)',
-            backdropFilter: 'blur(20px)',
-            border: '1px solid rgba(255, 255, 255, 0.15)',
-            borderRadius: '20px',
-            p: 4,
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            gap: 2,
-            position: 'relative',
-            zIndex: 1
-          }}
-        >
-          <CircularProgress 
-            sx={{ 
-              color: '#8b5cf6',
-              '& .MuiCircularProgress-circle': {
-                strokeLinecap: 'round'
-              }
-            }} 
-            size={48}
-          />
-          <Typography 
+        <Zoom in={true} timeout={800}>
+          <Paper
+            elevation={0}
             sx={{
-              color: '#ffffff',
-              fontFamily: 'Inter, sans-serif',
-              fontWeight: 600,
-              textAlign: 'center'
+              background: alpha('#1e293b', 0.6),
+              backdropFilter: 'blur(24px)',
+              border: '1px solid',
+              borderColor: alpha('#fff', 0.08),
+              borderRadius: '24px',
+              p: 5,
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              gap: 3,
+              position: 'relative',
+              zIndex: 1
             }}
           >
-            Carregando Painel Administrativo...
-          </Typography>
-        </Box>
+            <Box sx={{ position: 'relative' }}>
+              <CircularProgress 
+                sx={{ 
+                  color: '#ef4444',
+                  '& .MuiCircularProgress-circle': {
+                    strokeLinecap: 'round'
+                  }
+                }} 
+                size={56}
+                thickness={4}
+              />
+              <ShieldIcon 
+                sx={{ 
+                  position: 'absolute',
+                  top: '50%',
+                  left: '50%',
+                  transform: 'translate(-50%, -50%)',
+                  fontSize: 24,
+                  color: '#ef4444'
+                }} 
+              />
+            </Box>
+            <Stack spacing={1} alignItems="center">
+              <Typography 
+                variant="h6"
+                sx={{
+                  color: '#ffffff',
+                  fontFamily: '"Inter", sans-serif',
+                  fontWeight: 700,
+                  letterSpacing: '-0.02em'
+                }}
+              >
+                Verificando Credenciais
+              </Typography>
+              <Typography 
+                variant="body2"
+                sx={{
+                  color: alpha('#94a3b8', 0.8),
+                  fontFamily: '"Inter", sans-serif',
+                  fontWeight: 500
+                }}
+              >
+                Acessando painel administrativo seguro...
+              </Typography>
+            </Stack>
+          </Paper>
+        </Zoom>
       </Box>
     );
   }
@@ -484,455 +533,786 @@ export default function AdminDashboard() {
   return (
     <Box sx={{ 
       flexGrow: 1, 
-      background: 'linear-gradient(135deg, #0a0a0a 0%, #1a1a1a 100%)',
-      p: 3,
+      background: `
+        linear-gradient(135deg, #0f0f1e 0%, #1a1a2e 50%, #16213e 100%)
+      `,
       minHeight: '100vh',
       position: 'relative',
+      overflow: 'hidden',
       '&::before': {
         content: '""',
         position: 'absolute',
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        backgroundImage: `
-          radial-gradient(circle at 20% 80%, rgba(139, 92, 246, 0.1) 0%, transparent 50%),
-          radial-gradient(circle at 80% 20%, rgba(99, 102, 241, 0.1) 0%, transparent 50%),
-          radial-gradient(circle at 40% 40%, rgba(16, 185, 129, 0.05) 0%, transparent 50%)
+        top: '-50%',
+        left: '-50%',
+        width: '200%',
+        height: '200%',
+        background: `
+          radial-gradient(circle at 25% 25%, rgba(124, 58, 237, 0.15) 0%, transparent 40%),
+          radial-gradient(circle at 75% 75%, rgba(239, 68, 68, 0.1) 0%, transparent 40%),
+          radial-gradient(circle at 50% 50%, rgba(59, 130, 246, 0.08) 0%, transparent 60%)
         `,
+        animation: 'floatAnimation 20s ease-in-out infinite',
         pointerEvents: 'none',
         zIndex: 0
       },
-      '& > *': {
-        position: 'relative',
-        zIndex: 1
+      '@keyframes floatAnimation': {
+        '0%, 100%': {
+          transform: 'translate(0, 0) rotate(0deg)'
+        },
+        '33%': {
+          transform: 'translate(30px, -30px) rotate(120deg)'
+        },
+        '66%': {
+          transform: 'translate(-20px, 20px) rotate(240deg)'
+        }
       }
     }}>
-      {/* Header */}
-      <Box sx={{ 
-        mb: 4,
-        background: 'rgba(255, 255, 255, 0.08)',
-        backdropFilter: 'blur(20px)',
-        border: '1px solid rgba(255, 255, 255, 0.15)',
-        borderRadius: '20px',
-        p: 3,
-        boxShadow: '0 16px 50px rgba(0, 0, 0, 0.4)',
-        transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
-      }}>
+    <Container maxWidth="xl" sx={{ py: { xs: 2, sm: 3, md: 4 }, position: 'relative', zIndex: 1 }}>
+      {/* Header Enhanced */}
+      <Fade in={isAdmin} timeout={600}>
+        <Paper 
+          elevation={0}
+          sx={{ 
+            mb: 4,
+            background: alpha('#1e293b', 0.6),
+            backdropFilter: 'blur(24px) saturate(180%)',
+            border: '1px solid',
+            borderColor: alpha('#fff', 0.08),
+            borderRadius: '24px',
+            p: { xs: 2.5, sm: 3, md: 4 },
+            boxShadow: `
+              0 4px 6px rgba(0, 0, 0, 0.07),
+              0 10px 15px rgba(0, 0, 0, 0.1),
+              0 20px 40px rgba(0, 0, 0, 0.15),
+              inset 0 1px 0 rgba(255, 255, 255, 0.05)
+            `,
+            transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
+            transform: 'translateY(0)',
+            '&:hover': {
+              transform: 'translateY(-2px)',
+              boxShadow: `
+                0 6px 8px rgba(0, 0, 0, 0.09),
+                0 12px 20px rgba(0, 0, 0, 0.12),
+                0 25px 50px rgba(0, 0, 0, 0.18),
+                inset 0 1px 0 rgba(255, 255, 255, 0.08)
+              `,
+              borderColor: alpha('#fff', 0.12)
+            }
+          }}
+        >
         <Stack direction="row" spacing={2} alignItems="center" mb={3}>
           <Box
             sx={{
-              width: 56,
-              height: 56,
-              borderRadius: '16px',
-              background: 'linear-gradient(135deg, #ef4444, #dc2626)',
-              boxShadow: '0 8px 24px rgba(239, 68, 68, 0.4)',
+              width: { xs: 60, sm: 64, md: 72 },
+              height: { xs: 60, sm: 64, md: 72 },
+              borderRadius: '20px',
+              background: `
+                linear-gradient(135deg, rgba(239, 68, 68, 0.9) 0%, rgba(220, 38, 38, 0.95) 100%)
+              `,
+              position: 'relative',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+              transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
+              cursor: 'pointer',
+              overflow: 'hidden',
+              '&::before': {
+                content: '""',
+                position: 'absolute',
+                top: 0,
+                left: 0,
+                right: 0,
+                bottom: 0,
+                background: 'radial-gradient(circle at center, rgba(255, 255, 255, 0.2) 0%, transparent 70%)',
+                opacity: 0,
+                transition: 'opacity 0.3s ease'
+              },
               '&:hover': {
-                transform: 'scale(1.05)',
-                boxShadow: '0 12px 32px rgba(239, 68, 68, 0.6)'
-              }
+                transform: 'scale(1.08) rotate(2deg)',
+                boxShadow: '0 20px 40px rgba(239, 68, 68, 0.4)',
+                '&::before': {
+                  opacity: 1
+                },
+                '& .admin-icon': {
+                  transform: 'scale(1.1)'
+                },
+                '& .shield-icon': {
+                  opacity: 1,
+                  transform: 'scale(1) rotate(0deg)'
+                }
+              },
+              boxShadow: '0 10px 30px rgba(239, 68, 68, 0.3)'
             }}
           >
-            <AdminIcon sx={{ fontSize: 28, color: '#ffffff' }} />
+            <AdminIcon className="admin-icon" sx={{ fontSize: 32, color: '#ffffff', transition: 'transform 0.3s ease', zIndex: 2 }} />
+            <ShieldIcon 
+              className="shield-icon"
+              sx={{ 
+                position: 'absolute',
+                fontSize: 48,
+                color: alpha('#fff', 0.2),
+                opacity: 0,
+                transform: 'scale(0.8) rotate(-10deg)',
+                transition: 'all 0.3s ease'
+              }} 
+            />
           </Box>
-          <Box>
+          <Box sx={{ flex: 1 }}>
             <Typography 
-              variant="h4" 
-              fontWeight="700"
+              variant="h3" 
               sx={{ 
                 color: '#ffffff',
-                fontFamily: 'Inter, sans-serif',
-                letterSpacing: '-0.02em'
+                fontFamily: '"Inter", sans-serif',
+                fontWeight: 800,
+                letterSpacing: '-0.03em',
+                fontSize: { xs: '1.8rem', sm: '2.2rem', md: '2.5rem' },
+                mb: 1,
+                background: 'linear-gradient(135deg, #ffffff 0%, #cbd5e1 100%)',
+                backgroundClip: 'text',
+                WebkitBackgroundClip: 'text',
+                WebkitTextFillColor: 'transparent',
+                textShadow: '0 2px 10px rgba(255, 255, 255, 0.1)'
               }}
             >
-              Painel Administrativo
+              Central de Comando
             </Typography>
-            <Typography 
-              variant="body2" 
-              sx={{ 
-                color: 'rgba(255, 255, 255, 0.7)',
-                fontFamily: 'Inter, sans-serif'
-              }}
-            >
-              Gerencie tickets e monitore usuários do sistema
-            </Typography>
+            <Stack direction="row" spacing={1} alignItems="center">
+              <SecurityIcon sx={{ fontSize: 18, color: alpha('#10b981', 0.9) }} />
+              <Typography 
+                variant="body1" 
+                sx={{ 
+                  color: alpha('#cbd5e1', 0.9),
+                  fontFamily: '"Inter", sans-serif',
+                  fontWeight: 500,
+                  fontSize: { xs: '0.875rem', sm: '0.95rem' }
+                }}
+              >
+                Sistema de Gerenciamento Administrativo Avançado
+              </Typography>
+            </Stack>
           </Box>
-          <Box sx={{ ml: 'auto' }}>
+          <Stack direction={{ xs: 'row', sm: 'column' }} spacing={1} alignItems={{ xs: 'center', sm: 'flex-end' }}>
             <Chip 
               label="ADMIN ACCESS" 
               variant="filled"
-              icon={<AdminIcon />}
+              icon={<ShieldIcon />}
               sx={{ 
                 fontWeight: 700,
-                px: 2,
-                py: 1,
-                height: 32,
-                background: 'linear-gradient(135deg, #ef4444, #dc2626)',
-                color: '#ffffff',
-                border: 'none',
-                borderRadius: '8px',
-                boxShadow: '0 4px 12px rgba(239, 68, 68, 0.3)',
+                px: 2.5,
+                py: 1.5,
+                height: 36,
+                background: `
+                  linear-gradient(135deg, rgba(239, 68, 68, 0.15) 0%, rgba(220, 38, 38, 0.15) 100%)
+                `,
+                backdropFilter: 'blur(10px)',
+                color: '#ef4444',
+                border: '1.5px solid',
+                borderColor: alpha('#ef4444', 0.3),
+                borderRadius: '12px',
+                boxShadow: `
+                  0 4px 12px rgba(239, 68, 68, 0.15),
+                  inset 0 1px 0 rgba(255, 255, 255, 0.1)
+                `,
+                transition: 'all 0.3s ease',
                 '& .MuiChip-icon': {
-                  color: '#ffffff'
+                  color: '#ef4444',
+                  fontSize: 20
+                },
+                '&:hover': {
+                  background: `
+                    linear-gradient(135deg, rgba(239, 68, 68, 0.25) 0%, rgba(220, 38, 38, 0.25) 100%)
+                  `,
+                  borderColor: alpha('#ef4444', 0.5),
+                  transform: 'translateY(-1px)',
+                  boxShadow: `
+                    0 6px 16px rgba(239, 68, 68, 0.2),
+                    inset 0 1px 0 rgba(255, 255, 255, 0.15)
+                  `
                 }
               }}
             />
-          </Box>
+            <Typography 
+              variant="caption" 
+              sx={{ 
+                color: alpha('#94a3b8', 0.8),
+                fontWeight: 500,
+                fontSize: '0.7rem',
+                textTransform: 'uppercase',
+                letterSpacing: '0.05em'
+              }}
+            >
+              Sessão Segura
+            </Typography>
+          </Stack>
         </Stack>
         
         {/* Enhanced Stats Cards */}
-        <Grid container spacing={3} sx={{ mb: 4 }}>
+        <Grid container spacing={3}>
           <Grid item xs={12} sm={6} lg={3}>
-            <Box
+            <Paper
+              elevation={0}
               sx={{
                 p: 3,
-                background: 'rgba(255, 255, 255, 0.08)',
+                height: '100%',
+                background: alpha('#8b5cf6', 0.05),
                 backdropFilter: 'blur(20px)',
-                border: '1px solid rgba(255, 255, 255, 0.15)',
+                border: '1px solid',
+                borderColor: alpha('#8b5cf6', 0.15),
                 borderRadius: '20px',
-                boxShadow: '0 16px 50px rgba(0, 0, 0, 0.4)',
-                transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                position: 'relative',
+                overflow: 'hidden',
+                transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
+                cursor: 'pointer',
+                '&::before': {
+                  content: '""',
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  background: `linear-gradient(135deg, ${alpha('#8b5cf6', 0.1)} 0%, transparent 60%)`,
+                  opacity: 0,
+                  transition: 'opacity 0.3s ease'
+                },
                 '&:hover': {
-                  transform: 'translateY(-4px)',
-                  boxShadow: '0 20px 60px rgba(0, 0, 0, 0.5)',
-                  border: '1px solid rgba(255, 255, 255, 0.2)'
+                  transform: 'translateY(-8px)',
+                  borderColor: alpha('#8b5cf6', 0.3),
+                  boxShadow: `0 20px 40px ${alpha('#8b5cf6', 0.15)}`,
+                  '&::before': {
+                    opacity: 1
+                  },
+                  '& .stat-icon': {
+                    transform: 'scale(1.1) rotate(5deg)'
+                  },
+                  '& .stat-value': {
+                    transform: 'scale(1.05)'
+                  }
                 }
               }}
             >
-              <Stack direction="row" spacing={2} alignItems="center">
-                <Box
-                  sx={{
-                    width: 56,
-                    height: 56,
-                    borderRadius: '16px',
-                    background: 'linear-gradient(135deg, #8b5cf6, #6366f1)',
-                    boxShadow: '0 8px 24px rgba(139, 92, 246, 0.4)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                    '&:hover': {
-                      transform: 'scale(1.05)',
-                      boxShadow: '0 12px 32px rgba(139, 92, 246, 0.6)'
-                    }
-                  }}
-                >
-                  <SupportIcon sx={{ fontSize: 28, color: '#ffffff' }} />
-                </Box>
-                <Box sx={{ flexGrow: 1 }}>
+              <Stack spacing={2.5}>
+                <Stack direction="row" justifyContent="space-between" alignItems="flex-start">
+                  <Box
+                    className="stat-icon"
+                    sx={{
+                      width: 56,
+                      height: 56,
+                      borderRadius: '16px',
+                      background: `linear-gradient(135deg, ${alpha('#8b5cf6', 0.2)} 0%, ${alpha('#8b5cf6', 0.1)} 100%)`,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      transition: 'transform 0.3s ease',
+                      position: 'relative',
+                      '&::after': {
+                        content: '""',
+                        position: 'absolute',
+                        inset: -2,
+                        borderRadius: '16px',
+                        background: `linear-gradient(135deg, #8b5cf6, transparent)`,
+                        opacity: 0.3,
+                        filter: 'blur(10px)',
+                        zIndex: -1
+                      }
+                    }}
+                  >
+                    <TaskIcon sx={{ fontSize: 28, color: '#8b5cf6' }} />
+                  </Box>
+                  <Chip
+                    size="small"
+                    icon={<TrendingUpIcon />}
+                    label="+12%"
+                    sx={{
+                      height: 24,
+                      fontSize: '0.7rem',
+                      fontWeight: 600,
+                      backgroundColor: alpha('#10b981', 0.1),
+                      color: '#10b981',
+                      border: '1px solid',
+                      borderColor: alpha('#10b981', 0.2),
+                      '& .MuiChip-icon': {
+                        fontSize: 14,
+                        color: '#10b981'
+                      }
+                    }}
+                  />
+                </Stack>
+                
+                <Box>
                   <Typography 
                     variant="body2" 
                     sx={{
-                      color: 'rgba(255, 255, 255, 0.7)',
+                      color: alpha('#94a3b8', 0.9),
                       fontWeight: 500,
-                      fontFamily: 'Inter, sans-serif'
+                      fontSize: '0.875rem',
+                      mb: 0.5,
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.05em'
                     }}
-                    gutterBottom
                   >
                     Total de Tickets
                   </Typography>
                   <Typography 
-                    variant="h4" 
-                    fontWeight="700"
-                    sx={{ 
+                    className="stat-value"
+                    variant="h3" 
+                    sx={{
                       color: '#ffffff',
-                      fontFamily: 'Inter, sans-serif',
-                      letterSpacing: '-0.02em'
+                      fontWeight: 800,
+                      fontSize: '2.5rem',
+                      letterSpacing: '-0.03em',
+                      transition: 'transform 0.3s ease',
+                      display: 'inline-block'
                     }}
                   >
                     {tickets.length}
                   </Typography>
-                  <Stack direction="row" spacing={1} alignItems="center" mt={1}>
-                    <TrendingUpIcon sx={{ fontSize: 16, color: 'success.main' }} />
-                    <Typography variant="caption" color="success.main" fontWeight={500}>
-                      +12% este mês
-                    </Typography>
-                  </Stack>
+                  <Typography 
+                    variant="caption" 
+                    sx={{
+                      display: 'block',
+                      color: alpha('#64748b', 0.8),
+                      fontWeight: 500,
+                      mt: 0.5
+                    }}
+                  >
+                    {tickets.filter(t => t.status === 'open').length} abertos
+                  </Typography>
                 </Box>
               </Stack>
-            </Box>
+            </Paper>
           </Grid>
           
           <Grid item xs={12} sm={6} lg={3}>
-            <Box
+            <Paper
+              elevation={0}
               sx={{
                 p: 3,
-                background: 'rgba(255, 255, 255, 0.08)',
+                height: '100%',
+                background: alpha('#ef4444', 0.05),
                 backdropFilter: 'blur(20px)',
-                border: '1px solid rgba(255, 255, 255, 0.15)',
+                border: '1px solid',
+                borderColor: alpha('#ef4444', 0.15),
                 borderRadius: '20px',
-                boxShadow: '0 16px 50px rgba(0, 0, 0, 0.4)',
-                transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                position: 'relative',
+                overflow: 'hidden',
+                transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
+                cursor: 'pointer',
+                '&::before': {
+                  content: '""',
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  background: `linear-gradient(135deg, ${alpha('#ef4444', 0.1)} 0%, transparent 60%)`,
+                  opacity: 0,
+                  transition: 'opacity 0.3s ease'
+                },
                 '&:hover': {
-                  transform: 'translateY(-4px)',
-                  boxShadow: '0 20px 60px rgba(0, 0, 0, 0.5)',
-                  border: '1px solid rgba(255, 255, 255, 0.2)'
+                  transform: 'translateY(-8px)',
+                  borderColor: alpha('#ef4444', 0.3),
+                  boxShadow: `0 20px 40px ${alpha('#ef4444', 0.15)}`,
+                  '&::before': {
+                    opacity: 1
+                  },
+                  '& .stat-icon': {
+                    transform: 'scale(1.1) rotate(5deg)'
+                  },
+                  '& .stat-value': {
+                    transform: 'scale(1.05)'
+                  }
                 }
               }}
             >
-              <Stack direction="row" spacing={2} alignItems="center">
-                <Box
-                  sx={{
-                    width: 56,
-                    height: 56,
-                    borderRadius: '16px',
-                    background: 'linear-gradient(135deg, #f59e0b, #d97706)',
-                    boxShadow: '0 8px 24px rgba(245, 158, 11, 0.4)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                    '&:hover': {
-                      transform: 'scale(1.05)',
-                      boxShadow: '0 12px 32px rgba(245, 158, 11, 0.6)'
-                    }
-                  }}
-                >
-                  <WarningIcon sx={{ fontSize: 28, color: '#ffffff' }} />
-                </Box>
-                <Box sx={{ flexGrow: 1 }}>
+              <Stack spacing={2.5}>
+                <Stack direction="row" justifyContent="space-between" alignItems="flex-start">
+                  <Box
+                    className="stat-icon"
+                    sx={{
+                      width: 56,
+                      height: 56,
+                      borderRadius: '16px',
+                      background: `linear-gradient(135deg, ${alpha('#ef4444', 0.2)} 0%, ${alpha('#ef4444', 0.1)} 100%)`,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      transition: 'transform 0.3s ease',
+                      position: 'relative',
+                      '&::after': {
+                        content: '""',
+                        position: 'absolute',
+                        inset: -2,
+                        borderRadius: '16px',
+                        background: `linear-gradient(135deg, #ef4444, transparent)`,
+                        opacity: 0.3,
+                        filter: 'blur(10px)',
+                        zIndex: -1
+                      }
+                    }}
+                  >
+                    <WarningIcon sx={{ fontSize: 28, color: '#ef4444' }} />
+                  </Box>
+                </Stack>
+                
+                <Box>
                   <Typography 
                     variant="body2" 
                     sx={{
-                      color: 'rgba(255, 255, 255, 0.7)',
+                      color: alpha('#94a3b8', 0.9),
                       fontWeight: 500,
-                      fontFamily: 'Inter, sans-serif'
+                      fontSize: '0.875rem',
+                      mb: 0.5,
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.05em'
                     }}
-                    gutterBottom
                   >
-                    Tickets Abertos
+                    Tickets Urgentes
                   </Typography>
                   <Typography 
-                    variant="h4" 
-                    fontWeight="700"
-                    sx={{ color: 'error.main' }}
+                    className="stat-value"
+                    variant="h3" 
+                    sx={{
+                      color: '#ffffff',
+                      fontWeight: 800,
+                      fontSize: '2.5rem',
+                      letterSpacing: '-0.03em',
+                      transition: 'transform 0.3s ease',
+                      display: 'inline-block'
+                    }}
                   >
                     {tickets.filter(t => t.status === 'open').length}
                   </Typography>
-                  <Stack direction="row" spacing={1} alignItems="center" mt={1}>
-                    <ErrorIcon sx={{ fontSize: 16, color: 'error.main' }} />
-                    <Typography 
-                      variant="caption" 
-                      sx={{
-                        color: '#ef4444',
-                        fontWeight: 500,
-                        fontFamily: 'Inter, sans-serif'
-                      }}
-                    >
-                      Requer atenção
-                    </Typography>
-                  </Stack>
+                  <Typography 
+                    variant="caption" 
+                    sx={{
+                      display: 'block',
+                      color: alpha('#64748b', 0.8),
+                      fontWeight: 500,
+                      mt: 0.5
+                    }}
+                  >
+                    Requer atenção imediata
+                  </Typography>
                 </Box>
               </Stack>
-            </Box>
+            </Paper>
           </Grid>
           
           <Grid item xs={12} sm={6} lg={3}>
-            <Box
+            <Paper
+              elevation={0}
               sx={{
                 p: 3,
-                background: 'rgba(255, 255, 255, 0.08)',
+                height: '100%',
+                background: alpha('#10b981', 0.05),
                 backdropFilter: 'blur(20px)',
-                border: '1px solid rgba(255, 255, 255, 0.15)',
+                border: '1px solid',
+                borderColor: alpha('#10b981', 0.15),
                 borderRadius: '20px',
-                boxShadow: '0 16px 50px rgba(0, 0, 0, 0.4)',
-                transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                position: 'relative',
+                overflow: 'hidden',
+                transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
+                cursor: 'pointer',
+                '&::before': {
+                  content: '""',
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  background: `linear-gradient(135deg, ${alpha('#10b981', 0.1)} 0%, transparent 60%)`,
+                  opacity: 0,
+                  transition: 'opacity 0.3s ease'
+                },
                 '&:hover': {
-                  transform: 'translateY(-4px)',
-                  boxShadow: '0 20px 60px rgba(0, 0, 0, 0.5)',
-                  border: '1px solid rgba(255, 255, 255, 0.2)'
+                  transform: 'translateY(-8px)',
+                  borderColor: alpha('#10b981', 0.3),
+                  boxShadow: `0 20px 40px ${alpha('#10b981', 0.15)}`,
+                  '&::before': {
+                    opacity: 1
+                  },
+                  '& .stat-icon': {
+                    transform: 'scale(1.1) rotate(5deg)'
+                  },
+                  '& .stat-value': {
+                    transform: 'scale(1.05)'
+                  }
                 }
               }}
             >
-              <Stack direction="row" spacing={2} alignItems="center">
-                <Box
-                  sx={{
-                    width: 56,
-                    height: 56,
-                    borderRadius: '16px',
-                    background: 'linear-gradient(135deg, #10b981, #059669)',
-                    boxShadow: '0 8px 24px rgba(16, 185, 129, 0.4)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                    '&:hover': {
-                      transform: 'scale(1.05)',
-                      boxShadow: '0 12px 32px rgba(16, 185, 129, 0.6)'
-                    }
-                  }}
-                >
-                  <PeopleIcon sx={{ fontSize: 28, color: '#ffffff' }} />
-                </Box>
-                <Box sx={{ flexGrow: 1 }}>
+              <Stack spacing={2.5}>
+                <Stack direction="row" justifyContent="space-between" alignItems="flex-start">
+                  <Box
+                    className="stat-icon"
+                    sx={{
+                      width: 56,
+                      height: 56,
+                      borderRadius: '16px',
+                      background: `linear-gradient(135deg, ${alpha('#10b981', 0.2)} 0%, ${alpha('#10b981', 0.1)} 100%)`,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      transition: 'transform 0.3s ease',
+                      position: 'relative',
+                      '&::after': {
+                        content: '""',
+                        position: 'absolute',
+                        inset: -2,
+                        borderRadius: '16px',
+                        background: `linear-gradient(135deg, #10b981, transparent)`,
+                        opacity: 0.3,
+                        filter: 'blur(10px)',
+                        zIndex: -1
+                      }
+                    }}
+                  >
+                    <GroupsIcon sx={{ fontSize: 28, color: '#10b981' }} />
+                  </Box>
+                  <Chip
+                    size="small"
+                    icon={<TrendingUpIcon />}
+                    label="+8%"
+                    sx={{
+                      height: 24,
+                      fontSize: '0.7rem',
+                      fontWeight: 600,
+                      backgroundColor: alpha('#10b981', 0.1),
+                      color: '#10b981',
+                      border: '1px solid',
+                      borderColor: alpha('#10b981', 0.2),
+                      '& .MuiChip-icon': {
+                        fontSize: 14,
+                        color: '#10b981'
+                      }
+                    }}
+                  />
+                </Stack>
+                
+                <Box>
                   <Typography 
                     variant="body2" 
                     sx={{
-                      color: 'rgba(255, 255, 255, 0.7)',
+                      color: alpha('#94a3b8', 0.9),
                       fontWeight: 500,
-                      fontFamily: 'Inter, sans-serif'
+                      fontSize: '0.875rem',
+                      mb: 0.5,
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.05em'
                     }}
-                    gutterBottom
                   >
-                    Total de Usuários
+                    Usuários Ativos
                   </Typography>
                   <Typography 
-                    variant="h4" 
-                    fontWeight="700"
-                    sx={{ 
+                    className="stat-value"
+                    variant="h3" 
+                    sx={{
                       color: '#ffffff',
-                      fontFamily: 'Inter, sans-serif',
-                      letterSpacing: '-0.02em'
+                      fontWeight: 800,
+                      fontSize: '2.5rem',
+                      letterSpacing: '-0.03em',
+                      transition: 'transform 0.3s ease',
+                      display: 'inline-block'
                     }}
                   >
                     {users.length}
                   </Typography>
-                  <Stack direction="row" spacing={1} alignItems="center" mt={1}>
-                    <PeopleIcon sx={{ fontSize: 16, color: 'success.main' }} />
-                    <Typography 
-                      variant="caption" 
-                      sx={{
-                        color: '#10b981',
-                        fontWeight: 500,
-                        fontFamily: 'Inter, sans-serif'
-                      }}
-                    >
-                      Usuários ativos
-                    </Typography>
-                  </Stack>
+                  <Typography 
+                    variant="caption" 
+                    sx={{
+                      display: 'block',
+                      color: alpha('#64748b', 0.8),
+                      fontWeight: 500,
+                      mt: 0.5
+                    }}
+                  >
+                    {users.filter(u => u.status === 'active').length} online
+                  </Typography>
                 </Box>
               </Stack>
-            </Box>
+            </Paper>
           </Grid>
           
           <Grid item xs={12} sm={6} lg={3}>
-            <Box
+            <Paper
+              elevation={0}
               sx={{
                 p: 3,
-                background: 'rgba(255, 255, 255, 0.08)',
+                height: '100%',
+                background: alpha('#3b82f6', 0.05),
                 backdropFilter: 'blur(20px)',
-                border: '1px solid rgba(255, 255, 255, 0.15)',
+                border: '1px solid',
+                borderColor: alpha('#3b82f6', 0.15),
                 borderRadius: '20px',
-                boxShadow: '0 16px 50px rgba(0, 0, 0, 0.4)',
-                transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                position: 'relative',
+                overflow: 'hidden',
+                transition: 'all 0.4s cubic-bezier(0.4, 0, 0.2, 1)',
+                cursor: 'pointer',
+                '&::before': {
+                  content: '""',
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  background: `linear-gradient(135deg, ${alpha('#3b82f6', 0.1)} 0%, transparent 60%)`,
+                  opacity: 0,
+                  transition: 'opacity 0.3s ease'
+                },
                 '&:hover': {
-                  transform: 'translateY(-4px)',
-                  boxShadow: '0 20px 60px rgba(0, 0, 0, 0.5)',
-                  border: '1px solid rgba(255, 255, 255, 0.2)'
+                  transform: 'translateY(-8px)',
+                  borderColor: alpha('#3b82f6', 0.3),
+                  boxShadow: `0 20px 40px ${alpha('#3b82f6', 0.15)}`,
+                  '&::before': {
+                    opacity: 1
+                  },
+                  '& .stat-icon': {
+                    transform: 'scale(1.1) rotate(5deg)'
+                  },
+                  '& .stat-value': {
+                    transform: 'scale(1.05)'
+                  }
                 }
               }}
             >
-              <Stack direction="row" spacing={2} alignItems="center">
-                <Box
-                  sx={{
-                    width: 56,
-                    height: 56,
-                    borderRadius: '16px',
-                    background: 'linear-gradient(135deg, #6366f1, #4f46e5)',
-                    boxShadow: '0 8px 24px rgba(99, 102, 241, 0.4)',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                    '&:hover': {
-                      transform: 'scale(1.05)',
-                      boxShadow: '0 12px 32px rgba(99, 102, 241, 0.6)'
-                    }
-                  }}
-                >
-                  <BusinessIcon sx={{ fontSize: 28, color: '#ffffff' }} />
-                </Box>
-                <Box sx={{ flexGrow: 1 }}>
+              <Stack spacing={2.5}>
+                <Stack direction="row" justifyContent="space-between" alignItems="flex-start">
+                  <Box
+                    className="stat-icon"
+                    sx={{
+                      width: 56,
+                      height: 56,
+                      borderRadius: '16px',
+                      background: `linear-gradient(135deg, ${alpha('#3b82f6', 0.2)} 0%, ${alpha('#3b82f6', 0.1)} 100%)`,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      transition: 'transform 0.3s ease',
+                      position: 'relative',
+                      '&::after': {
+                        content: '""',
+                        position: 'absolute',
+                        inset: -2,
+                        borderRadius: '16px',
+                        background: `linear-gradient(135deg, #3b82f6, transparent)`,
+                        opacity: 0.3,
+                        filter: 'blur(10px)',
+                        zIndex: -1
+                      }
+                    }}
+                  >
+                    <BusinessIcon sx={{ fontSize: 28, color: '#3b82f6' }} />
+                  </Box>
+                </Stack>
+                
+                <Box>
                   <Typography 
                     variant="body2" 
                     sx={{
-                      color: 'rgba(255, 255, 255, 0.7)',
+                      color: alpha('#94a3b8', 0.9),
                       fontWeight: 500,
-                      fontFamily: 'Inter, sans-serif'
+                      fontSize: '0.875rem',
+                      mb: 0.5,
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.05em'
                     }}
-                    gutterBottom
                   >
                     Organizações
                   </Typography>
                   <Typography 
-                    variant="h4" 
-                    fontWeight="700"
-                    sx={{ 
+                    className="stat-value"
+                    variant="h3" 
+                    sx={{
                       color: '#ffffff',
-                      fontFamily: 'Inter, sans-serif',
-                      letterSpacing: '-0.02em'
+                      fontWeight: 800,
+                      fontSize: '2.5rem',
+                      letterSpacing: '-0.03em',
+                      transition: 'transform 0.3s ease',
+                      display: 'inline-block'
                     }}
                   >
                     {uniqueTenants.length}
                   </Typography>
-                  <Stack direction="row" spacing={1} alignItems="center" mt={1}>
-                    <BusinessIcon sx={{ fontSize: 16, color: 'info.main' }} />
-                    <Typography 
-                      variant="caption" 
-                      sx={{
-                        color: '#6366f1',
-                        fontWeight: 500,
-                        fontFamily: 'Inter, sans-serif'
-                      }}
-                    >
-                      Tenants ativos
-                    </Typography>
-                  </Stack>
+                  <Typography 
+                    variant="caption" 
+                    sx={{
+                      display: 'block',
+                      color: alpha('#64748b', 0.8),
+                      fontWeight: 500,
+                      mt: 0.5
+                    }}
+                  >
+                    Tenants ativos
+                  </Typography>
                 </Box>
               </Stack>
-            </Box>
+            </Paper>
           </Grid>
         </Grid>
-      </Box>
+        </Paper>
+      </Fade>
 
-      {/* Modern Tabs */}
-      <Box 
-        sx={{ 
-          mb: 3,
-          bgcolor: 'background.paper',
-          borderRadius: 2,
-          p: 1,
-          boxShadow: theme.shadows[1],
-          border: `1px solid ${theme.palette.divider}`
-        }}
-      >
-        <Tabs 
-          value={tabValue} 
-          onChange={(e, v) => setTabValue(v)}
-          sx={{
-            '& .MuiTabs-indicator': {
-              background: 'linear-gradient(135deg, #8b5cf6, #6366f1)',
-              height: 3,
-              borderRadius: 1.5,
-              boxShadow: '0 2px 8px rgba(139, 92, 246, 0.4)'
-            },
-            '& .MuiTab-root': {
-              textTransform: 'none',
-              fontWeight: 600,
-              fontSize: '0.9rem',
-              minHeight: 48,
-              borderRadius: '8px',
-              mx: 0.5,
-              color: 'rgba(255, 255, 255, 0.7)',
-              fontFamily: 'Inter, sans-serif',
-              transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-              '&.Mui-selected': {
-                color: '#ffffff',
-                background: 'rgba(139, 92, 246, 0.15)',
-                backdropFilter: 'blur(10px)',
-                border: '1px solid rgba(139, 92, 246, 0.2)'
-              },
-              '&:hover': {
-                background: 'rgba(255, 255, 255, 0.05)',
-                color: '#ffffff'
-              }
-            }
+      {/* Enhanced Tabs */}
+      <Fade in={isAdmin} timeout={800} style={{ transitionDelay: '200ms' }}>
+        <Paper 
+          elevation={0}
+          sx={{ 
+            mb: 3,
+            background: alpha('#1e293b', 0.4),
+            backdropFilter: 'blur(20px)',
+            border: '1px solid',
+            borderColor: alpha('#fff', 0.06),
+            borderRadius: '16px',
+            p: 1.5,
+            boxShadow: '0 8px 32px rgba(0, 0, 0, 0.2)'
           }}
         >
+          <Tabs 
+            value={tabValue} 
+            onChange={(e, v) => setTabValue(v)}
+            variant="fullWidth"
+            sx={{
+              '& .MuiTabs-indicator': {
+                height: 3,
+                borderRadius: 1.5,
+                background: 'linear-gradient(90deg, #ef4444 0%, #dc2626 100%)',
+                boxShadow: '0 2px 8px rgba(239, 68, 68, 0.4)'
+              },
+              '& .MuiTab-root': {
+                textTransform: 'none',
+                fontWeight: 600,
+                fontSize: '0.95rem',
+                minHeight: 56,
+                borderRadius: '12px',
+                mx: 0.5,
+                color: alpha('#94a3b8', 0.8),
+                fontFamily: '"Inter", sans-serif',
+                transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                position: 'relative',
+                overflow: 'hidden',
+                '&::before': {
+                  content: '""',
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  right: 0,
+                  bottom: 0,
+                  background: 'linear-gradient(135deg, rgba(239, 68, 68, 0.1) 0%, transparent 100%)',
+                  opacity: 0,
+                  transition: 'opacity 0.3s ease'
+                },
+                '&.Mui-selected': {
+                  color: '#ffffff',
+                  '&::before': {
+                    opacity: 1
+                  }
+                },
+                '&:hover': {
+                  color: '#ffffff',
+                  background: alpha('#fff', 0.03)
+                }
+              }
+            }}
+          >
           <Tab 
             label={
               <Stack direction="row" spacing={2} alignItems="center">
@@ -965,8 +1345,9 @@ export default function AdminDashboard() {
               </Stack>
             }
           />
-        </Tabs>
-      </Box>
+          </Tabs>
+        </Paper>
+      </Fade>
 
       {/* Tab Panels */}
       <TabPanel value={tabValue} index={0}>
@@ -2262,6 +2643,7 @@ export default function AdminDashboard() {
           </DialogActions>
         </Dialog>
       )}
+    </Container>
     </Box>
   );
 }

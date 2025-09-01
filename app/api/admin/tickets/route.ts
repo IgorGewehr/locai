@@ -29,6 +29,11 @@ export async function GET(request: NextRequest) {
     
     // Buscar todos os tenants
     const tenantsSnapshot = await getDocs(collection(db, 'tenants'));
+    
+    // Log total de tenants
+    logger.info(`🏢 [Admin Debug] Total de tenants encontrados: ${tenantsSnapshot.docs.length}`, {
+        component: 'Admin'
+    });
     const allTickets: any[] = [];
     
     // PRIMEIRO: Tentar buscar tickets na estrutura antiga (root level)
@@ -38,17 +43,42 @@ export async function GET(request: NextRequest) {
         component: 'Admin'
       });
       
+      // Log detalhado de cada ticket encontrado
+      rootTicketsSnapshot.docs.forEach(doc => {
+        const data = doc.data();
+        logger.info(`   🎫 Ticket na raiz: ${doc.id}`, {
+          userId: data.userId,
+          userName: data.userName,
+          tenantId: data.tenantId,
+          subject: data.subject
+        });
+      });
+      
       for (const ticketDoc of rootTicketsSnapshot.docs) {
         const ticketData = ticketDoc.data();
+        
+        // Buscar respostas do ticket na estrutura antiga
+        let responses: any[] = [];
+        try {
+          const responsesRef = collection(db, `tickets/${ticketDoc.id}/responses`);
+          const responsesSnapshot = await getDocs(query(responsesRef, orderBy('createdAt', 'asc')));
+          responses = responsesSnapshot.docs.map(doc => ({
+            id: doc.id,
+            ...doc.data()
+          }));
+        } catch (err) {
+          // Ignorar erro de respostas
+        }
         
         // Mapear ticket da estrutura antiga para formato admin
         allTickets.push({
           id: ticketDoc.id,
-          tenantId: 'root', // Marcar como estrutura antiga
-          tenantName: 'Sistema Antigo',
+          tenantId: ticketData.tenantId || 'root', // Usar tenantId se existir
+          tenantName: 'Sistema Principal',
           userName: ticketData.userName || 'Usuário',
           userEmail: ticketData.userEmail || '',
           userId: ticketData.userId,
+          userPlan: 'Pro', // Default para tickets antigos
           subject: ticketData.subject || 'Sem assunto',
           description: ticketData.description || '',
           status: ticketData.status || 'open',
@@ -56,7 +86,7 @@ export async function GET(request: NextRequest) {
           category: ticketData.category || 'general',
           createdAt: ticketData.createdAt,
           updatedAt: ticketData.updatedAt,
-          responses: [], // Será carregado depois se necessário
+          responses,
           metadata: {
             ...ticketData.metadata,
             isLegacyTicket: true
@@ -65,7 +95,8 @@ export async function GET(request: NextRequest) {
       }
     } catch (error) {
       logger.info('⚠️ [Admin Debug] Nenhum ticket encontrado na estrutura antiga', {
-        component: 'Admin'
+        component: 'Admin',
+        error: (error as Error).message
       });
     }
     
@@ -80,8 +111,61 @@ export async function GET(request: NextRequest) {
         tenantName: tenantData.name || tenantData.companyName || 'sem nome'
       });
       
+      // TAMBÉM buscar tickets que tenham tenantId mas estejam na raiz
+      // (estrutura de transição)
       try {
-        // Buscar tickets do tenant
+        const rootTicketsWithTenantQuery = query(
+          collection(db, 'tickets'),
+          // Não podemos usar where com Firestore client SDK sem índice
+          // então vamos filtrar depois
+        );
+        const rootTicketsWithTenant = await getDocs(rootTicketsWithTenantQuery);
+        
+        for (const doc of rootTicketsWithTenant.docs) {
+          const data = doc.data();
+          if (data.tenantId === tenantId) {
+            // Este ticket pertence a este tenant mas está na raiz
+            let responses: any[] = [];
+            try {
+              const responsesRef = collection(db, `tickets/${doc.id}/responses`);
+              const responsesSnapshot = await getDocs(query(responsesRef, orderBy('createdAt', 'asc')));
+              responses = responsesSnapshot.docs.map(respDoc => ({
+                id: respDoc.id,
+                ...respDoc.data()
+              }));
+            } catch (err) {
+              // Ignorar erro
+            }
+            
+            allTickets.push({
+              id: doc.id,
+              tenantId,
+              tenantName: tenantData.name || tenantData.companyName || tenantId,
+              userName: data.userName || 'Usuário',
+              userEmail: data.userEmail || '',
+              userId: data.userId,
+              userPlan: 'Pro',
+              subject: data.subject || 'Sem assunto',
+              description: data.description || '',
+              status: data.status || 'open',
+              priority: data.priority || 'medium',
+              category: data.category || 'general',
+              createdAt: data.createdAt,
+              updatedAt: data.updatedAt,
+              responses,
+              metadata: {
+                ...data.metadata,
+                isTransitionTicket: true
+              }
+            });
+          }
+        }
+      } catch (error) {
+        logger.warn(`Erro ao buscar tickets de transição para tenant ${tenantId}`, error as Error);
+      }
+      
+      try {
+        // Buscar tickets do tenant na estrutura nova
         const ticketsRef = collection(db, `tenants/${tenantId}/tickets`);
         let ticketsSnapshot;
         
@@ -102,6 +186,18 @@ export async function GET(request: NextRequest) {
           component: 'Admin',
           tenantId,
           ticketCount: ticketsSnapshot.docs.length
+        });
+        
+        // Log detalhado de cada ticket do tenant
+        ticketsSnapshot.docs.forEach(doc => {
+          const data = doc.data();
+          logger.info(`   🎫 Ticket do tenant: ${doc.id}`, {
+            userId: data.userId,
+            userName: data.userName,
+            subject: data.subject,
+            status: data.status,
+            tenantId: data.tenantId
+          });
         });
         
         // Buscar informações dos usuários para cada ticket
@@ -196,10 +292,19 @@ export async function GET(request: NextRequest) {
       return dateB.getTime() - dateA.getTime();
     });
     
+    // Log detalhado do resultado final
+    const ticketsByLocation = {
+      root: allTickets.filter(t => t.metadata?.isLegacyTicket).length,
+      transition: allTickets.filter(t => t.metadata?.isTransitionTicket).length,
+      tenants: allTickets.filter(t => !t.metadata?.isLegacyTicket && !t.metadata?.isTransitionTicket).length
+    };
+    
     logger.info(`✅ [Admin API] ${allTickets.length} tickets encontrados`, {
       component: 'Admin',
       adminId: user?.uid,
-      ticketCount: allTickets.length
+      ticketCount: allTickets.length,
+      breakdown: ticketsByLocation,
+      userIds: [...new Set(allTickets.map(t => t.userId))]
     });
     
     return NextResponse.json({

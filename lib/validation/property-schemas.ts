@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { PropertyCategory } from '@/lib/types/property'
+import { PropertyCategory, PropertyType, PropertyStatus } from '@/lib/types/property'
 import { PaymentMethod } from '@/lib/types/common'
 
 // ============================================================================
@@ -141,6 +141,8 @@ export const UpdatePropertySchema = z.object({
   description: z.union([z.string(), z.undefined(), z.null()]).optional(),
   address: z.union([z.string(), z.undefined(), z.null()]).optional(),
   category: z.nativeEnum(PropertyCategory).optional(),
+  type: z.nativeEnum(PropertyType).optional(),
+  status: z.nativeEnum(PropertyStatus).optional(),
   
   // ✅ NÚMEROS - CONVERSÃO AUTOMÁTICA E VALIDAÇÃO FLEXÍVEL
   bedrooms: z.union([z.number(), z.string(), z.undefined(), z.null()])
@@ -197,9 +199,18 @@ export const UpdatePropertySchema = z.object({
   // ✅ CAMPOS EXTRAS (que podem vir do formulário)
   city: z.string().optional(),
   neighborhood: z.string().optional(),
+  capacity: z.union([z.number(), z.string(), z.undefined(), z.null()])
+    .transform(val => val === null || val === undefined || val === '' ? undefined : Number(val))
+    .pipe(z.number().int().min(1).max(50).optional()),
+  location: z.string().optional(),
+  advancePaymentPercentage: z.union([z.number(), z.string(), z.undefined(), z.null()])
+    .transform(val => val === null || val === undefined || val === '' ? undefined : Number(val))
+    .pipe(z.number().min(0).max(100).optional()),
+  paymentMethodDiscounts: z.record(z.nativeEnum(PaymentMethod), z.number()).optional(),
   highSeasonMonths: z.array(z.number()).optional(),
   pricingRules: z.array(z.any()).optional(),
-  updatedAt: z.date().optional(),
+  createdAt: z.union([z.date(), z.string().datetime(), z.undefined(), z.null()]).optional(),
+  updatedAt: z.union([z.date(), z.string().datetime(), z.undefined(), z.null()]).optional(),
   id: z.string().optional(),
   tenantId: z.string().optional(),
   
