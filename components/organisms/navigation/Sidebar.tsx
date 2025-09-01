@@ -159,22 +159,6 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
   const [expandedMenu, setExpandedMenu] = useState<string | null>(null);
   const { user } = useAuth();
 
-  // Memoize menu items with conditional admin item
-  const allMenuItems = useMemo(() => {
-    const items = [...menuItems];
-    
-    // Add admin panel if user has idog flag
-    if (user?.idog === true) {
-      items.push({
-        text: 'Admin Panel',
-        href: '/dashboard/lkjhg',
-        icon: <AdminPanelSettings />,
-        badge: 'ADMIN',
-      });
-    }
-    
-    return items;
-  }, [user?.idog]);
 
   const handleMenuClick = (itemText: string, hasSubmenu: boolean) => {
     if (hasSubmenu) {
