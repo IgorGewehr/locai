@@ -37,7 +37,7 @@ import { useTenant } from '@/contexts/TenantContext';
 import { propertyService } from '@/lib/services/property-service';
 import { generateLocationField } from '@/lib/utils/locationUtils';
 import { logger } from '@/lib/utils/logger';
-import { createPropertySchema } from '@/lib/validation/unified-property-schema';
+import { CreatePropertySchema } from '@/lib/validation/property-schemas';
 
 const steps = [
   'Informações Básicas',
@@ -67,7 +67,16 @@ export default function CreatePropertyPage() {
   const [pricingRules, setPricingRules] = useState<PricingRule[]>([]);
 
   const methods = useForm<Property>({
-    resolver: yupResolver(createPropertySchema) as any,
+    resolver: yupResolver(yup.object().shape({
+      title: yup.string().required('Título é obrigatório').min(3, 'Mínimo 3 caracteres'),
+      description: yup.string().required('Descrição é obrigatória').min(10, 'Mínimo 10 caracteres'),
+      address: yup.string(),
+      category: yup.string(),
+      bedrooms: yup.number().min(0),
+      bathrooms: yup.number().min(0),
+      maxGuests: yup.number().min(1),
+      basePrice: yup.number().required('Preço é obrigatório').positive('Preço deve ser positivo'),
+    })) as any,
     defaultValues: {
       title: '',
       description: '',
@@ -214,8 +223,36 @@ export default function CreatePropertyPage() {
         updatedAt: new Date(),
       };
       
-      // Use PropertyService instead of direct tenant service for enhanced logging
-      const propertyId = await propertyService.create(propertyData, tenantId);
+      // Use API route for consistency with edit functionality
+      logger.info('Sending property creation request', {
+        tenantId,
+        fieldsCount: Object.keys(propertyData).length
+      });
+
+      const response = await fetch('/api/properties', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify(propertyData)
+      });
+
+      if (!response.ok) {
+        const errorData = await response.text();
+        let errorMessage = `Erro ${response.status}`;
+        
+        try {
+          const parsed = JSON.parse(errorData);
+          errorMessage = parsed.error || parsed.message || errorMessage;
+        } catch {
+          errorMessage = errorData || errorMessage;
+        }
+        
+        throw new Error(errorMessage);
+      }
+
+      const responseData = await response.json();
+      const propertyId = responseData.data?.id;
       
       logger.info('Property created successfully', { propertyId, tenantId });
       
@@ -225,8 +262,12 @@ export default function CreatePropertyPage() {
         router.push('/dashboard/properties');
       }
     } catch (err) {
-      console.error('Error creating property:', err);
-      setError(err instanceof Error ? err.message : 'Erro ao criar propriedade');
+      const errorMessage = err instanceof Error ? err.message : 'Erro ao criar propriedade';
+      logger.error('Property creation failed', {
+        error: errorMessage,
+        tenantId
+      });
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
