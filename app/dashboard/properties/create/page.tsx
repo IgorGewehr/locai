@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   Box,
@@ -34,6 +34,7 @@ import { PropertyMedia as PropertyMediaUpload } from '@/components/organisms/Pro
 import { Property, PricingRule, PropertyCategory, PropertyStatus, PropertyType } from '@/lib/types/property';
 import { PaymentMethod } from '@/lib/types/common';
 import { useTenant } from '@/contexts/TenantContext';
+import { useAuth } from '@/contexts/AuthProvider';
 import { propertyService } from '@/lib/services/property-service';
 import { generateLocationField } from '@/lib/utils/locationUtils';
 import { logger } from '@/lib/utils/logger';
@@ -61,6 +62,7 @@ const propertyTypes = [
 export default function CreatePropertyPage() {
   const router = useRouter();
   const { services, tenantId, isReady } = useTenant();
+  const { getFirebaseToken } = useAuth();
   const [activeStep, setActiveStep] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -125,6 +127,54 @@ export default function CreatePropertyPage() {
   });
 
   const { handleSubmit, trigger, formState: { errors } } = methods;
+
+  // Authenticated request helper with retry logic
+  const makeAuthenticatedRequest = useCallback(async (url: string, options: RequestInit, retryCount = 0): Promise<Response> => {
+    const MAX_RETRIES = 3;
+    const RETRY_DELAY = 1000; // Base delay in ms
+    
+    try {
+      // Force refresh token on retry
+      const token = await getFirebaseToken(retryCount > 0);
+      
+      if (!token) {
+        throw new Error('Token de autenticação não disponível');
+      }
+
+      const response = await fetch(url, {
+        ...options,
+        headers: {
+          ...options.headers,
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      // Handle 401 with smart retry
+      if (response.status === 401 && retryCount < MAX_RETRIES) {
+        logger.warn(`Falha na autenticação, tentando novamente... (tentativa ${retryCount + 1}/${MAX_RETRIES})`);
+        
+        // Exponential backoff
+        await new Promise(resolve => setTimeout(resolve, RETRY_DELAY * Math.pow(2, retryCount)));
+        return makeAuthenticatedRequest(url, options, retryCount + 1);
+      }
+
+      return response;
+
+    } catch (error) {
+      logger.error('Erro na requisição autenticada', {
+        url,
+        error: error instanceof Error ? error.message : 'Unknown error',
+        retryCount
+      });
+      
+      if (retryCount < MAX_RETRIES) {
+        await new Promise(resolve => setTimeout(resolve, RETRY_DELAY * Math.pow(2, retryCount)));
+        return makeAuthenticatedRequest(url, options, retryCount + 1);
+      }
+      
+      throw error;
+    }
+  }, [getFirebaseToken]);
 
   const handleNext = async () => {
     const isValid = await validateStep(activeStep);
@@ -229,7 +279,7 @@ export default function CreatePropertyPage() {
         fieldsCount: Object.keys(propertyData).length
       });
 
-      const response = await fetch('/api/properties', {
+      const response = await makeAuthenticatedRequest('/api/properties', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
