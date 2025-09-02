@@ -11,7 +11,7 @@ import { logger } from '@/lib/utils/logger';
 // POST /api/tickets/[id]/read - Mark ticket as read by user or admin
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const body: { 
@@ -28,7 +28,7 @@ export async function POST(
       );
     }
 
-    const ticketId = params.id;
+    const { id: ticketId } = await params;
     
     logger.info('🎫 Marcando ticket como lido', { 
       ticketId, 

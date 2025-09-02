@@ -23,7 +23,7 @@ import { logger } from '@/lib/utils/logger';
 // GET /api/tickets/[id] - Get ticket details with responses
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const { searchParams } = new URL(request.url);
@@ -36,7 +36,7 @@ export async function GET(
       );
     }
 
-    const ticketId = params.id;
+    const { id: ticketId } = await params;
     
     logger.info('🎫 Buscando ticket', { ticketId, tenantId });
 
@@ -88,7 +88,7 @@ export async function GET(
 // PUT /api/tickets/[id] - Update ticket
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const body: UpdateTicketRequest & { tenantId: string } = await request.json();
@@ -101,7 +101,7 @@ export async function PUT(
       );
     }
 
-    const ticketId = params.id;
+    const { id: ticketId } = await params;
     
     logger.info('🎫 Atualizando ticket', { ticketId, tenantId, updateData });
 
@@ -150,7 +150,7 @@ export async function PUT(
 // DELETE /api/tickets/[id] - Delete ticket (admin only)
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const { searchParams } = new URL(request.url);
@@ -163,7 +163,7 @@ export async function DELETE(
       );
     }
 
-    const ticketId = params.id;
+    const { id: ticketId } = await params;
     
     logger.info('🎫 Deletando ticket', { ticketId, tenantId });
 

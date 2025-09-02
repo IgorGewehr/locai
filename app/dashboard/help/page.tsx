@@ -49,6 +49,8 @@ import {
 import { useTenant } from '@/contexts/TenantContext';
 import { useAuth } from '@/contexts/AuthProvider';
 import { ticketService } from '@/lib/services/ticket-service';
+import { format, isValid } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
 import { 
     Ticket, 
     TicketListItem, 
@@ -313,10 +315,52 @@ export default function HelpPage() {
         }
     };
 
-    const formatDate = (date: any) => {
-        if (!date) return '';
-        const messageDate = date.toDate ? date.toDate() : new Date(date);
-        return messageDate.toLocaleString('pt-BR');
+    // Função auxiliar para formatar datas de forma segura
+    const formatSafeDate = (dateValue: any, formatStr: string = 'dd/MM/yyyy HH:mm', options?: any) => {
+        if (!dateValue) return '-';
+        
+        let date: Date;
+        
+        // Se é um Timestamp do Firebase
+        if (dateValue.toDate && typeof dateValue.toDate === 'function') {
+            try {
+                date = dateValue.toDate();
+            } catch (error) {
+                console.warn('Erro ao converter timestamp do Firebase:', error);
+                return '-';
+            }
+        }
+        // Se é um objeto com seconds (Firebase Timestamp serializado)
+        else if (dateValue.seconds) {
+            try {
+                date = new Date(dateValue.seconds * 1000);
+            } catch (error) {
+                console.warn('Erro ao converter timestamp serializado:', error);
+                return '-';
+            }
+        }
+        // Se é uma string ISO, timestamp ou Date
+        else {
+            try {
+                date = new Date(dateValue);
+            } catch (error) {
+                console.warn('Erro ao converter data:', error);
+                return '-';
+            }
+        }
+        
+        // Verificar se a data é válida
+        if (!isValid(date)) {
+            console.warn('Data inválida:', dateValue);
+            return '-';
+        }
+        
+        try {
+            return format(date, formatStr, { locale: ptBR, ...options });
+        } catch (error) {
+            console.warn('Erro ao formatar data:', error, dateValue);
+            return '-';
+        }
     };
 
     // Render do formulário
@@ -582,7 +626,7 @@ export default function HelpPage() {
                                                 variant="outlined"
                                             />
                                             <Typography variant="caption" color="text.secondary">
-                                                {formatDate(ticket.updatedAt)}
+                                                {formatSafeDate(ticket.updatedAt)}
                                             </Typography>
                                             {ticket.responseCount > 0 && (
                                                 <Typography variant="caption" color="primary" sx={{ fontWeight: 500 }}>
@@ -638,7 +682,7 @@ export default function HelpPage() {
                                     color={getPriorityColor(selectedTicket.priority)}
                                 />
                                 <Typography variant="caption" color="text.secondary">
-                                    {formatDate(selectedTicket.createdAt)}
+                                    {formatSafeDate(selectedTicket.createdAt)}
                                 </Typography>
                             </Box>
                         </Box>
@@ -665,7 +709,7 @@ export default function HelpPage() {
                                     Você
                                 </Typography>
                                 <Typography variant="caption" color="text.secondary">
-                                    {formatDate(selectedTicket.createdAt)}
+                                    {formatSafeDate(selectedTicket.createdAt)}
                                 </Typography>
                             </Box>
                             <Typography variant="body1">
@@ -701,7 +745,7 @@ export default function HelpPage() {
                                             {response.isAdmin ? 'Administrador' : response.authorName || 'Você'}
                                         </Typography>
                                         <Typography variant="caption" color="text.secondary">
-                                            {formatDate(response.createdAt)}
+                                            {formatSafeDate(response.createdAt)}
                                         </Typography>
                                     </Box>
                                     <Typography variant="body1">

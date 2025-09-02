@@ -170,6 +170,8 @@ interface User {
   createdAt: any;
   lastLogin?: any;
   propertyCount?: number;
+  newTicketsCount?: number;
+  totalTicketsCount?: number;
   status: 'active' | 'inactive' | 'suspended';
   phoneNumber?: string;
 }
@@ -287,13 +289,57 @@ export default function AdminDashboard() {
   const loadAdminData = async () => {
     setLoading(true);
     try {
-      await Promise.all([
-        loadTickets(),
-        loadUsers(),
-        loadStats()
-      ]);
+      // Usar a nova rota all-tickets que busca usuários e tickets juntos
+      // Isso é mais eficiente que fazer 3 chamadas separadas
+      const response = await makeAuthenticatedRequest('/api/admin/all-tickets');
+      if (response.ok) {
+        const data = await response.json();
+        
+        // Atualizar estados com dados recebidos
+        setTickets(data.tickets || []);
+        setUsers(data.users || []);
+        
+        // Converter stats para formato esperado pelo componente
+        if (data.stats) {
+          const formattedStats = [
+            {
+              tenantId: 'global',
+              tenantName: 'Estatísticas Globais',
+              userCount: data.stats.totalUsers,
+              propertyCount: 0, // Não temos essa info aqui
+              ticketCount: data.stats.totalTickets,
+              activeTickets: data.stats.openTickets
+            }
+          ];
+          setStats(formattedStats);
+          
+          console.log('📊 Dados carregados com sucesso:', {
+            usuarios: data.stats.totalUsers,
+            tickets: data.stats.totalTickets,
+            tenants: data.stats.tenantsWithTickets
+          });
+        }
+      } else {
+        // Se falhar, tentar carregar individualmente
+        console.warn('⚠️ Rota otimizada falhou, usando rotas individuais');
+        await Promise.all([
+          loadTickets(),
+          loadUsers(),
+          loadStats()
+        ]);
+      }
     } catch (error) {
       console.error('Erro ao carregar dados admin:', error);
+      // Tentar carregar individualmente como fallback
+      try {
+        await Promise.all([
+          loadTickets(),
+          loadUsers(),
+          loadStats()
+        ]);
+      } catch (fallbackError) {
+        console.error('Erro no fallback:', fallbackError);
+      }
     } finally {
       setLoading(false);
     }
@@ -301,25 +347,57 @@ export default function AdminDashboard() {
 
   const loadTickets = async () => {
     try {
-      const response = await makeAuthenticatedRequest('/api/admin/tickets');
+      // Usar a nova rota otimizada que busca tudo de uma vez
+      const response = await makeAuthenticatedRequest('/api/admin/all-tickets');
       if (response.ok) {
         const data = await response.json();
         setTickets(data.tickets || []);
+        // Também atualiza usuários com dados mais completos
+        if (data.users) {
+          setUsers(data.users);
+        }
+        // Log para debug
+        console.log(`✅ Carregados: ${data.tickets?.length || 0} tickets de ${data.stats?.tenantsWithTickets || 0} tenants`);
       }
     } catch (error) {
       console.error('Erro ao carregar tickets:', error);
+      // Fallback para rota antiga se a nova falhar
+      try {
+        const fallbackResponse = await makeAuthenticatedRequest('/api/admin/tickets');
+        if (fallbackResponse.ok) {
+          const fallbackData = await fallbackResponse.json();
+          setTickets(fallbackData.tickets || []);
+        }
+      } catch (fallbackError) {
+        console.error('Erro no fallback:', fallbackError);
+      }
     }
   };
 
   const loadUsers = async () => {
     try {
-      const response = await makeAuthenticatedRequest('/api/admin/users');
+      // Usar a nova rota simplificada de usuários
+      const response = await makeAuthenticatedRequest('/api/admin/users-simple');
       if (response.ok) {
         const data = await response.json();
         setUsers(data.users || []);
+        // Log estatísticas
+        if (data.stats) {
+          console.log(`📊 Usuários: ${data.stats.total} total (${data.stats.active} ativos, ${data.stats.free} free, ${data.stats.pro} pro)`);
+        }
       }
     } catch (error) {
       console.error('Erro ao carregar usuários:', error);
+      // Fallback para rota antiga se a nova falhar
+      try {
+        const fallbackResponse = await makeAuthenticatedRequest('/api/admin/users');
+        if (fallbackResponse.ok) {
+          const fallbackData = await fallbackResponse.json();
+          setUsers(fallbackData.users || []);
+        }
+      } catch (fallbackError) {
+        console.error('Erro no fallback:', fallbackError);
+      }
     }
   };
 
@@ -340,6 +418,17 @@ export default function AdminDashboard() {
 
     setReplying(true);
     try {
+      console.log('🚀 Enviando resposta para ticket:', {
+        ticketId: selectedTicket.id,
+        tenantId: selectedTicket.tenantId,
+        messageLength: replyMessage.length,
+        selectedTicket: {
+          id: selectedTicket.id,
+          tenantId: selectedTicket.tenantId,
+          subject: selectedTicket.subject
+        }
+      });
+
       const response = await makeAuthenticatedRequest(`/api/admin/tickets/${selectedTicket.id}/reply`, {
         method: 'POST',
         body: JSON.stringify({
@@ -348,14 +437,30 @@ export default function AdminDashboard() {
         })
       });
 
+      console.log('📡 Resposta da API:', {
+        status: response.status,
+        statusText: response.statusText,
+        ok: response.ok
+      });
+
       if (response.ok) {
+        console.log('✅ Resposta enviada com sucesso');
         setReplyMessage('');
         setReplyDialog(false);
         await loadTickets();
         setSelectedTicket(null);
+      } else {
+        const errorData = await response.json().catch(() => ({}));
+        console.error('❌ Erro na API:', {
+          status: response.status,
+          statusText: response.statusText,
+          error: errorData
+        });
+        alert(`Erro ao responder ticket: ${errorData.error || 'Erro desconhecido'}`);
       }
     } catch (error) {
-      console.error('Erro ao responder ticket:', error);
+      console.error('💥 Erro ao responder ticket:', error);
+      alert('Erro ao responder ticket. Verifique o console para detalhes.');
     } finally {
       setReplying(false);
     }
@@ -1542,14 +1647,14 @@ export default function AdminDashboard() {
                         }}
                         onClick={() => setSelectedTicket(ticket)}
                       >
-                        <TableCell>
+                        <TableCell sx={{ color: '#ffffff' }}>
                           <Tooltip title={`Prioridade: ${ticket.priority}`}>
                             <Box sx={{ display: 'flex', alignItems: 'center' }}>
                               {getPriorityIcon(ticket.priority)}
                             </Box>
                           </Tooltip>
                         </TableCell>
-                        <TableCell>
+                        <TableCell sx={{ color: '#ffffff' }}>
                           <Chip 
                             label={ticket.tenantName || ticket.tenantId} 
                             size="small"
@@ -1560,22 +1665,22 @@ export default function AdminDashboard() {
                             }}
                           />
                         </TableCell>
-                        <TableCell>
+                        <TableCell sx={{ color: '#ffffff' }}>
                           <Stack direction="row" spacing={2} alignItems="center">
                             <Avatar sx={{ width: 32, height: 32, fontSize: '0.875rem' }}>
                               {ticket.userName?.charAt(0)?.toUpperCase() || 'U'}
                             </Avatar>
                             <Box>
-                              <Typography variant="body2" fontWeight={500}>
+                              <Typography variant="body2" fontWeight={500} sx={{ color: '#ffffff' }}>
                                 {ticket.userName || 'Usuário'}
                               </Typography>
-                              <Typography variant="caption" color="text.secondary">
+                              <Typography variant="caption" sx={{ color: 'rgba(255, 255, 255, 0.7)' }}>
                                 {ticket.userEmail}
                               </Typography>
                             </Box>
                           </Stack>
                         </TableCell>
-                        <TableCell>
+                        <TableCell sx={{ color: '#ffffff' }}>
                           <Chip 
                             label={ticket.userPlan || 'Pro'} 
                             size="small"
@@ -1592,13 +1697,13 @@ export default function AdminDashboard() {
                             }}
                           />
                         </TableCell>
-                        <TableCell sx={{ maxWidth: 300 }}>
-                          <Typography variant="body2" fontWeight={600} color="text.primary">
+                        <TableCell sx={{ maxWidth: 300, color: '#ffffff' }}>
+                          <Typography variant="body2" fontWeight={600} sx={{ color: '#ffffff' }}>
                             {ticket.subject}
                           </Typography>
                           <Typography 
                             variant="caption" 
-                            color="text.secondary" 
+                            sx={{ color: 'rgba(255, 255, 255, 0.7)' }} 
                             sx={{
                               display: '-webkit-box',
                               WebkitLineClamp: 2,
@@ -1611,7 +1716,7 @@ export default function AdminDashboard() {
                             {ticket.description}
                           </Typography>
                         </TableCell>
-                        <TableCell>
+                        <TableCell sx={{ color: '#ffffff' }}>
                           <Chip 
                             label={ticket.status.replace('_', ' ').toUpperCase()} 
                             color={getStatusColor(ticket.status) as any}
@@ -1624,15 +1729,15 @@ export default function AdminDashboard() {
                             }}
                           />
                         </TableCell>
-                        <TableCell>
-                          <Typography variant="body2" color="text.primary">
+                        <TableCell sx={{ color: '#ffffff' }}>
+                          <Typography variant="body2" sx={{ color: '#ffffff' }}>
                             {formatSafeDate(ticket.createdAt, 'dd/MM/yyyy', { locale: ptBR })}
                           </Typography>
-                          <Typography variant="caption" color="text.secondary">
+                          <Typography variant="caption" sx={{ color: 'rgba(255, 255, 255, 0.7)' }}>
                             {formatSafeDate(ticket.createdAt, 'HH:mm', { locale: ptBR })}
                           </Typography>
                         </TableCell>
-                        <TableCell>
+                        <TableCell sx={{ color: '#ffffff' }}>
                           <Stack direction="row" spacing={1}>
                             <Tooltip title="Ver detalhes completos">
                               <IconButton 
@@ -1918,6 +2023,14 @@ export default function AdminDashboard() {
                       fontFamily: 'Inter, sans-serif',
                       borderBottom: 'none'
                     }}>
+                      Tickets
+                    </TableCell>
+                    <TableCell sx={{ 
+                      fontWeight: 600, 
+                      color: '#ffffff',
+                      fontFamily: 'Inter, sans-serif',
+                      borderBottom: 'none'
+                    }}>
                       Status
                     </TableCell>
                     <TableCell sx={{ 
@@ -1941,7 +2054,7 @@ export default function AdminDashboard() {
                 <TableBody>
                   {filteredUsers.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={8} align="center" sx={{ py: 4 }}>
+                      <TableCell colSpan={9} align="center" sx={{ py: 4 }}>
                         <Stack spacing={2} alignItems="center">
                           <PeopleIcon sx={{ fontSize: 48, color: 'text.disabled' }} />
                           <Typography variant="h6" color="text.secondary">
@@ -1964,7 +2077,7 @@ export default function AdminDashboard() {
                           }
                         }}
                       >
-                        <TableCell>
+                        <TableCell sx={{ color: '#ffffff' }}>
                           <Stack direction="row" spacing={2} alignItems="center">
                             <Avatar 
                               sx={{ 
@@ -1977,16 +2090,16 @@ export default function AdminDashboard() {
                               {user.name?.charAt(0)?.toUpperCase() || 'U'}
                             </Avatar>
                             <Box>
-                              <Typography variant="body2" fontWeight={600} color="text.primary">
+                              <Typography variant="body2" fontWeight={600} sx={{ color: '#ffffff' }}>
                                 {user.name || 'Usuário Sem Nome'}
                               </Typography>
-                              <Typography variant="caption" color="text.secondary">
+                              <Typography variant="caption" sx={{ color: 'rgba(255, 255, 255, 0.7)' }}>
                                 {user.email}
                               </Typography>
                               {user.phoneNumber && (
                                 <Stack direction="row" spacing={0.5} alignItems="center" mt={0.5}>
                                   <PhoneIcon sx={{ fontSize: 12, color: 'text.disabled' }} />
-                                  <Typography variant="caption" color="text.disabled">
+                                  <Typography variant="caption" sx={{ color: 'rgba(255, 255, 255, 0.5)' }}>
                                     {user.phoneNumber}
                                   </Typography>
                                 </Stack>
@@ -1994,7 +2107,7 @@ export default function AdminDashboard() {
                             </Box>
                           </Stack>
                         </TableCell>
-                        <TableCell>
+                        <TableCell sx={{ color: '#ffffff' }}>
                           <Chip 
                             label={user.tenantName || user.tenantId} 
                             size="small"
@@ -2008,7 +2121,7 @@ export default function AdminDashboard() {
                             icon={<BusinessIcon />}
                           />
                         </TableCell>
-                        <TableCell>
+                        <TableCell sx={{ color: '#ffffff' }}>
                           <Chip 
                             label={user.plan || 'Pro'} 
                             size="small"
@@ -2025,7 +2138,7 @@ export default function AdminDashboard() {
                             }}
                           />
                         </TableCell>
-                        <TableCell>
+                        <TableCell sx={{ color: '#ffffff' }}>
                           <Stack direction="row" spacing={1} alignItems="center">
                             <Box
                               sx={{
@@ -2039,12 +2152,49 @@ export default function AdminDashboard() {
                             >
                               <HomeIcon fontSize="small" />
                             </Box>
-                            <Typography variant="body2" fontWeight={600}>
+                            <Typography variant="body2" fontWeight={600} sx={{ color: '#ffffff' }}>
                               {user.propertyCount || 0}
                             </Typography>
                           </Stack>
                         </TableCell>
-                        <TableCell>
+                        <TableCell sx={{ color: '#ffffff' }}>
+                          <Stack spacing={0.5}>
+                            {user.newTicketsCount && user.newTicketsCount > 0 ? (
+                              <Badge 
+                                badgeContent={user.newTicketsCount} 
+                                color="error"
+                                sx={{
+                                  '& .MuiBadge-badge': {
+                                    fontSize: '0.7rem',
+                                    height: 18,
+                                    minWidth: 18,
+                                    backgroundColor: '#ef4444'
+                                  }
+                                }}
+                              >
+                                <Stack direction="row" spacing={1} alignItems="center">
+                                  <SupportIcon sx={{ fontSize: 20, color: '#ef4444' }} />
+                                  <Typography variant="body2" sx={{ color: '#ffffff', fontWeight: 600 }}>
+                                    {user.totalTicketsCount || 0} total
+                                  </Typography>
+                                </Stack>
+                              </Badge>
+                            ) : (
+                              <Stack direction="row" spacing={1} alignItems="center">
+                                <SupportIcon sx={{ fontSize: 20, color: 'rgba(255, 255, 255, 0.3)' }} />
+                                <Typography variant="body2" sx={{ color: 'rgba(255, 255, 255, 0.5)' }}>
+                                  {user.totalTicketsCount || 0}
+                                </Typography>
+                              </Stack>
+                            )}
+                            {user.newTicketsCount && user.newTicketsCount > 0 && (
+                              <Typography variant="caption" sx={{ color: '#ef4444', fontWeight: 600 }}>
+                                {user.newTicketsCount} {user.newTicketsCount === 1 ? 'novo' : 'novos'}
+                              </Typography>
+                            )}
+                          </Stack>
+                        </TableCell>
+                        <TableCell sx={{ color: '#ffffff' }}>
                           <Chip 
                             label={user.status?.toUpperCase() || 'ATIVO'} 
                             size="small"
@@ -2057,26 +2207,26 @@ export default function AdminDashboard() {
                             }}
                           />
                         </TableCell>
-                        <TableCell>
-                          <Typography variant="body2" color="text.primary">
+                        <TableCell sx={{ color: '#ffffff' }}>
+                          <Typography variant="body2" sx={{ color: '#ffffff' }}>
                             {formatSafeDate(user.createdAt, 'dd/MM/yyyy', { locale: ptBR })}
                           </Typography>
-                          <Typography variant="caption" color="text.secondary">
+                          <Typography variant="caption" sx={{ color: 'rgba(255, 255, 255, 0.7)' }}>
                             {formatSafeDate(user.createdAt, 'HH:mm', { locale: ptBR })}
                           </Typography>
                         </TableCell>
-                        <TableCell>
+                        <TableCell sx={{ color: '#ffffff' }}>
                           {user.lastLogin ? (
                             <>
-                              <Typography variant="body2" color="text.primary">
+                              <Typography variant="body2" sx={{ color: '#ffffff' }}>
                                 {formatSafeDate(user.lastLogin, 'dd/MM/yyyy', { locale: ptBR })}
                               </Typography>
-                              <Typography variant="caption" color="text.secondary">
+                              <Typography variant="caption" sx={{ color: 'rgba(255, 255, 255, 0.7)' }}>
                                 {formatSafeDate(user.lastLogin, 'HH:mm', { locale: ptBR })}
                               </Typography>
                             </>
                           ) : (
-                            <Typography variant="body2" color="text.disabled">
+                            <Typography variant="body2" sx={{ color: 'rgba(255, 255, 255, 0.5)' }}>
                               Nunca acessou
                             </Typography>
                           )}
@@ -2249,11 +2399,11 @@ export default function AdminDashboard() {
                         <Stack direction="row" justifyContent="space-between" alignItems="center">
                           <Stack direction="row" spacing={1.5} alignItems="center">
                             <HomeIcon sx={{ color: 'info.main', fontSize: 20 }} />
-                            <Typography color="text.secondary" variant="body2" fontWeight={500}>
+                            <Typography sx={{ color: 'rgba(255, 255, 255, 0.7)' }} variant="body2" fontWeight={500}>
                               Propriedades
                             </Typography>
                           </Stack>
-                          <Typography variant="h6" fontWeight="700" color="info.main">
+                          <Typography variant="h6" fontWeight="700" sx={{ color: '#3b82f6' }}>
                             {stat.propertyCount}
                           </Typography>
                         </Stack>
@@ -2271,11 +2421,11 @@ export default function AdminDashboard() {
                         <Stack direction="row" justifyContent="space-between" alignItems="center">
                           <Stack direction="row" spacing={1.5} alignItems="center">
                             <SupportIcon sx={{ color: 'primary.main', fontSize: 20 }} />
-                            <Typography color="text.secondary" variant="body2" fontWeight={500}>
+                            <Typography sx={{ color: 'rgba(255, 255, 255, 0.7)' }} variant="body2" fontWeight={500}>
                               Total Tickets
                             </Typography>
                           </Stack>
-                          <Typography variant="h6" fontWeight="700" color="primary.main">
+                          <Typography variant="h6" fontWeight="700" sx={{ color: '#8b5cf6' }}>
                             {stat.ticketCount}
                           </Typography>
                         </Stack>
@@ -2303,7 +2453,7 @@ export default function AdminDashboard() {
                               }} 
                             />
                             <Typography 
-                              color={stat.activeTickets > 0 ? 'text.secondary' : 'text.disabled'} 
+                              sx={{ color: stat.activeTickets > 0 ? 'rgba(255, 255, 255, 0.7)' : 'rgba(255, 255, 255, 0.3)' }} 
                               variant="body2" 
                               fontWeight={500}
                             >
@@ -2313,7 +2463,7 @@ export default function AdminDashboard() {
                           <Typography 
                             variant="h6" 
                             fontWeight="700" 
-                            color={stat.activeTickets > 0 ? 'error.main' : 'text.disabled'}
+                            sx={{ color: stat.activeTickets > 0 ? '#ef4444' : 'rgba(255, 255, 255, 0.3)' }}
                           >
                             {stat.activeTickets}
                           </Typography>

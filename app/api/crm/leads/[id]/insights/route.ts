@@ -70,7 +70,7 @@ interface LeadInsights {
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const { searchParams } = new URL(request.url);
@@ -84,7 +84,7 @@ export async function GET(
       );
     }
 
-    const leadId = params.id;
+    const { id: leadId } = await params;
 
     logger.info(`🔍 [Lead Insights] Generating insights for lead ${leadId}`, {
       tenantId: tenantId.substring(0, 8) + '***',

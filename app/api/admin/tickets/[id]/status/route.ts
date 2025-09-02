@@ -12,7 +12,7 @@ import { logger } from '@/lib/utils/logger';
 
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     // Verificar acesso admin
@@ -53,7 +53,8 @@ export async function PATCH(
       
       for (const tenantDoc of tenantsSnapshot.docs) {
         const tid = tenantDoc.id;
-        const ticketRef = doc(db, `tenants/${tid}/tickets`, params.id);
+        const { id: ticketId } = await params;
+        const ticketRef = doc(db, `tenants/${tid}/tickets`, ticketId);
         const { getDoc } = await import('firebase/firestore');
         const ticketDoc = await getDoc(ticketRef);
         
@@ -74,13 +75,13 @@ export async function PATCH(
     logger.info('🔄 [Admin API] Atualizando status do ticket', {
       component: 'Admin',
       adminId: user?.uid,
-      ticketId: params.id,
+      ticketId,
       newStatus: status,
       tenantId: ticketTenantId
     });
     
     // Atualizar o status do ticket
-    const ticketRef = doc(db, `tenants/${ticketTenantId}/tickets`, params.id);
+    const ticketRef = doc(db, `tenants/${ticketTenantId}/tickets`, ticketId);
     await updateDoc(ticketRef, {
       status,
       updatedAt: serverTimestamp(),
@@ -97,7 +98,7 @@ export async function PATCH(
     logger.info('✅ [Admin API] Status atualizado com sucesso', {
       component: 'Admin',
       adminId: user?.uid,
-      ticketId: params.id,
+      ticketId,
       newStatus: status
     });
     

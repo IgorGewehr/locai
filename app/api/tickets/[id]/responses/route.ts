@@ -20,7 +20,7 @@ import { logger } from '@/lib/utils/logger';
 // GET /api/tickets/[id]/responses - Get ticket responses
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const { searchParams } = new URL(request.url);
@@ -33,7 +33,7 @@ export async function GET(
       );
     }
 
-    const ticketId = params.id;
+    const { id: ticketId } = await params;
     
     logger.info('🎫 Buscando respostas do ticket', { ticketId, tenantId });
 
@@ -75,7 +75,7 @@ export async function GET(
 // POST /api/tickets/[id]/responses - Add response to ticket
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const body: CreateTicketResponseRequest & { tenantId: string } = await request.json();
@@ -95,7 +95,7 @@ export async function POST(
       );
     }
 
-    const ticketId = params.id;
+    const { id: ticketId } = await params;
     
     logger.info('🎫 Adicionando resposta ao ticket', { 
       ticketId, 

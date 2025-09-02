@@ -62,11 +62,11 @@ import {
 import { useForm, FormProvider } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
 import { useTenant } from '@/contexts/TenantContext';
-import { useAuth } from '@/contexts/AuthContext';
+import { useAuth } from '@/contexts/AuthProvider';
 import { logger } from '@/lib/utils/logger';
 import { Property } from '@/lib/types/property';
 import { PaymentMethod } from '@/lib/types/common';
-import { editPropertySchema } from '@/lib/validation/unified-property-schema';
+import { editPropertySchema } from '@/lib/validation/property-edit-schema';
 import { debounce } from 'lodash';
 
 // Optimized components with performance improvements
@@ -304,6 +304,7 @@ export default function EditPropertyPage() {
         }
 
         // Ensure all required fields have proper defaults with media normalization
+        // Convert Firestore Timestamps to Dates to avoid validation issues
         const propertyData: Property = {
           ...property,
           amenities: property.amenities || [],
@@ -319,6 +320,9 @@ export default function EditPropertyPage() {
             [PaymentMethod.STRIPE]: 0,
             ...property.paymentMethodSurcharges,
           },
+          // Convert Firestore Timestamps to Dates
+          createdAt: property.createdAt?.toDate ? property.createdAt.toDate() : property.createdAt,
+          updatedAt: property.updatedAt?.toDate ? property.updatedAt.toDate() : property.updatedAt,
         };
 
         logger.info('Property loaded successfully', {
@@ -489,15 +493,23 @@ export default function EditPropertyPage() {
     return saveQueueRef.current;
   }, []);
 
-  // Manual save with comprehensive error handling and queue
+  // Enhanced save with better error handling and validation
   const handleSave = useCallback(async (data: Property) => {
-    console.log('handleSave called with data:', data);
-    console.log('propertyId:', propertyId);
-    console.log('isDirty:', isDirty);
-    console.log('isValid:', isValid);
+    logger.info('Save initiated', { 
+      propertyId, 
+      isDirty, 
+      isValid,
+      hasTitle: !!data.title,
+      hasPrice: !!data.basePrice 
+    });
     
     if (!propertyId) {
-      console.error('No propertyId found!');
+      setError('ID da propriedade não encontrado');
+      return;
+    }
+
+    if (!tenantId) {
+      setError('Tenant ID não encontrado');
       return;
     }
 
@@ -506,25 +518,31 @@ export default function EditPropertyPage() {
       setSaving(true);
       setError(null);
 
-      logger.info('Manual property save initiated', { propertyId, isDirty, isValid });
-      console.log('Starting save operation...');
-
       try {
-        // Validate critical fields only if they were provided
-        if (data.title && data.title.trim() === '') {
-          throw new Error('Título não pode ser vazio se fornecido');
-        }
-        if (data.basePrice && data.basePrice < 0) {
-          throw new Error('Preço base não pode ser negativo');
-        }
-
+        // Enhanced data processing with better normalization
         const processedData = {
           ...data,
           updatedAt: new Date(),
           tenantId,
-          // Normalize media arrays
+          
+          // Ensure numeric fields are properly typed
+          bedrooms: data.bedrooms ? Number(data.bedrooms) : undefined,
+          bathrooms: data.bathrooms ? Number(data.bathrooms) : undefined,
+          maxGuests: data.maxGuests ? Number(data.maxGuests) : undefined,
+          capacity: data.capacity ? Number(data.capacity) : undefined,
+          basePrice: data.basePrice ? Number(data.basePrice) : undefined,
+          pricePerExtraGuest: data.pricePerExtraGuest ? Number(data.pricePerExtraGuest) : undefined,
+          minimumNights: data.minimumNights ? Number(data.minimumNights) : undefined,
+          cleaningFee: data.cleaningFee ? Number(data.cleaningFee) : undefined,
+          
+          // Normalize media arrays with better validation
           photos: normalizeMediaArray(data.photos),
           videos: normalizeMediaArray(data.videos),
+          
+          // Ensure arrays are properly formatted
+          amenities: Array.isArray(data.amenities) ? data.amenities : [],
+          unavailableDates: Array.isArray(data.unavailableDates) ? data.unavailableDates : [],
+          
           // Generate location field for search
           location: [
             data.address,
@@ -534,39 +552,77 @@ export default function EditPropertyPage() {
             data.description
           ]
             .filter(Boolean)
-            .map(part => part?.trim().toLowerCase())
+            .map(part => part?.toString().trim().toLowerCase())
             .filter(part => part && part.length > 0)
             .join(' '),
         };
 
-        console.log('Sending data to API:', processedData);
+        // Remove undefined values to match backend expectations
+        Object.keys(processedData).forEach(key => {
+          if (processedData[key] === undefined) {
+            delete processedData[key];
+          }
+        });
+
+        // Clean data for production save
+        logger.debug('Preparing property data for save', {
+          propertyId,
+          fieldsCount: Object.keys(processedData).length,
+          hasPhotos: processedData.photos?.length > 0,
+          hasVideos: processedData.videos?.length > 0
+        });
+        
+        logger.info('Sending property update', { 
+          propertyId, 
+          fieldsCount: Object.keys(processedData).length,
+          hasPhotos: processedData.photos?.length > 0,
+          hasVideos: processedData.videos?.length > 0
+        });
         
         const response = await makeAuthenticatedRequest(`/api/properties/${propertyId}`, {
           method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
+          headers: { 
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
+          },
           body: JSON.stringify(processedData),
         });
 
-        console.log('API response status:', response.status);
-        
         if (!response.ok) {
-          const errorText = await response.text();
-          console.error('API error:', errorText);
-          throw new Error(`Erro ao salvar: ${response.status} - ${errorText}`);
+          const errorData = await response.text();
+          let errorMessage = `Erro ${response.status}`;
+          let validationDetails = null;
+          
+          try {
+            const parsed = JSON.parse(errorData);
+            errorMessage = parsed.error || parsed.message || errorMessage;
+            validationDetails = parsed.details;
+            
+            logger.error('API Error Response', {
+              status: response.status,
+              error: errorMessage,
+              validationDetails,
+              propertyId
+            });
+          } catch {
+            console.error('Raw error response:', errorData);
+            errorMessage = errorData || errorMessage;
+          }
+          
+          throw new Error(errorMessage);
         }
         
-        console.log('Save successful!');
+        const responseData = await response.json();
+        logger.info('Property saved successfully', { propertyId, response: responseData });
 
         const timestamp = new Date();
         setSuccess('Propriedade salva com sucesso!');
         setLastSaved(timestamp);
         setSaveHistory(prev => [...prev.slice(-4), { timestamp, type: 'manual' }]);
-        setOriginalData(processedData); // Update original data after successful save
+        setOriginalData(responseData.data || processedData);
 
         // Reset form dirty state
-        reset(processedData as Property);
-
-        logger.info('Property saved successfully', { propertyId });
+        reset(responseData.data || processedData);
 
         // Auto-redirect after success
         setTimeout(() => {
@@ -575,13 +631,17 @@ export default function EditPropertyPage() {
 
       } catch (err) {
         const errorMessage = err instanceof Error ? err.message : 'Erro desconhecido ao salvar';
-        logger.error('Property save failed', { propertyId, error: errorMessage });
+        logger.error('Property save failed', { 
+          propertyId, 
+          error: errorMessage,
+          tenantId 
+        });
         setError(errorMessage);
       } finally {
         setSaving(false);
       }
     });
-  }, [propertyId, tenantId, reset, router, makeAuthenticatedRequest, queueSave, normalizeMediaArray]);
+  }, [propertyId, tenantId, isDirty, isValid, reset, router, makeAuthenticatedRequest, queueSave, normalizeMediaArray]);
 
   // Section management
   const toggleSection = (sectionId: string) => {

@@ -5,7 +5,7 @@ import { VisitStatus, VisitResult, VisitAppointment } from '@/lib/types/visit-ap
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const searchParams = request.nextUrl.searchParams;
@@ -18,7 +18,7 @@ export async function POST(
       );
     }
 
-    const visitId = params.id;
+    const { id: visitId } = await params;
     const body = await request.json();
     const { result } = body;
 
@@ -60,7 +60,7 @@ export async function POST(
   } catch (error) {
     logger.error('Erro ao completar visita', {
       error: error instanceof Error ? error.message : 'Erro desconhecido',
-      visitId: params.id,
+      visitId: visitId,
       component: 'VisitsAPI',
       operation: 'POST_COMPLETE'
     });
