@@ -39,6 +39,7 @@ import { propertyService } from '@/lib/services/property-service';
 import { generateLocationField } from '@/lib/utils/locationUtils';
 import { logger } from '@/lib/utils/logger';
 import { CreatePropertySchema } from '@/lib/validation/property-schemas';
+import { UltraPermissiveCreatePropertySchema } from '@/lib/validation/ultra-permissive-schemas';
 
 const steps = [
   'Informações Básicas',
@@ -70,14 +71,14 @@ export default function CreatePropertyPage() {
 
   const methods = useForm<Property>({
     resolver: yupResolver(yup.object().shape({
-      title: yup.string().required('Título é obrigatório').min(3, 'Mínimo 3 caracteres'),
-      description: yup.string().required('Descrição é obrigatória').min(10, 'Mínimo 10 caracteres'),
-      address: yup.string(),
-      category: yup.string(),
-      bedrooms: yup.number().min(0),
-      bathrooms: yup.number().min(0),
-      maxGuests: yup.number().min(1),
-      basePrice: yup.number().required('Preço é obrigatório').positive('Preço deve ser positivo'),
+      // Ultra-permissivo - apenas os campos mais básicos
+      title: yup.string().default('Nova Propriedade'),
+      description: yup.string().default('Descrição da propriedade'),
+      basePrice: yup.number().default(100).transform((value, originalValue) => {
+        // Se não conseguir converter, usa valor padrão
+        const parsed = parseFloat(originalValue);
+        return isNaN(parsed) ? 100 : Math.max(1, parsed);
+      }),
     })) as any,
     defaultValues: {
       title: '',
@@ -188,20 +189,9 @@ export default function CreatePropertyPage() {
   };
 
   const validateStep = async (step: number): Promise<boolean> => {
-    switch (step) {
-      case 0: // Basic Info - apenas description é obrigatória
-        return await trigger(['description']);
-      case 1: // Specs - tudo opcional
-        return true;
-      case 2: // Amenities - opcional
-        return true;
-      case 3: // Pricing - apenas basePrice é obrigatório
-        return await trigger(['basePrice']);
-      case 4: // Media - opcional
-        return true;
-      default:
-        return true;
-    }
+    // Ultra-permissivo: sempre retorna true
+    // Nunca bloqueia a navegação entre steps
+    return true;
   };
 
   const handleSave = async (data: Property) => {

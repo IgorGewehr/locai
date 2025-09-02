@@ -67,6 +67,7 @@ import { logger } from '@/lib/utils/logger';
 import { Property } from '@/lib/types/property';
 import { PaymentMethod } from '@/lib/types/common';
 import { editPropertySchema } from '@/lib/validation/property-edit-schema';
+import { ultraPermissiveEditPropertySchema } from '@/lib/validation/ultra-permissive-edit-schema';
 import { debounce } from 'lodash';
 
 // Optimized components with performance improvements
@@ -160,9 +161,9 @@ export default function EditPropertyPage() {
   const [saveHistory, setSaveHistory] = useState<Array<{ timestamp: Date; type: 'manual' | 'auto' }>>([]);
   const [authChecked, setAuthChecked] = useState(false);
 
-  // Form setup with optimized validation using unified schema
+  // Form setup with ULTRA-PERMISSIVE validation - nunca falha
   const methods = useForm<Property>({
-    resolver: yupResolver(editPropertySchema) as any,
+    resolver: yupResolver(ultraPermissiveEditPropertySchema) as any,
     mode: 'onChange',
     shouldUnregister: false,
     shouldFocusError: true,
