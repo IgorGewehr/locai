@@ -66,8 +66,8 @@ export async function GET(
         isAdmin: data.isAdmin !== undefined ? data.isAdmin : data.authorRole === 'admin',  // Normalizar isAdmin
         // Garantir que updatedAt existe
         updatedAt: data.updatedAt || data.createdAt
-      }
-    } as TicketResponse);
+      } as TicketResponse;
+    });
 
     const ticket: Ticket = {
       id: ticketDoc.id,
