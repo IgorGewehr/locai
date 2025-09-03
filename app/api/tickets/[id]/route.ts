@@ -56,10 +56,18 @@ export async function GET(
     const responsesQuery = query(responsesRef, orderBy('createdAt', 'asc'));
     const responsesSnapshot = await getDocs(responsesQuery);
     
-    const responses: TicketResponse[] = responsesSnapshot.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data()
-    } as TicketResponse));
+    const responses: TicketResponse[] = responsesSnapshot.docs.map(doc => {
+      const data = doc.data();
+      return {
+        id: doc.id,
+        ...data,
+        // ✅ Normalizar campos para compatibilidade
+        content: data.content || data.message || '',  // Suporte a ambos os campos
+        isAdmin: data.isAdmin !== undefined ? data.isAdmin : data.authorRole === 'admin',  // Normalizar isAdmin
+        // Garantir que updatedAt existe
+        updatedAt: data.updatedAt || data.createdAt
+      }
+    } as TicketResponse);
 
     const ticket: Ticket = {
       id: ticketDoc.id,

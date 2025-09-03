@@ -341,3 +341,6 @@ export interface Transaction {
   }>;
   tags?: string[];
 }
+
+// Export notification types
+export * from './notification'

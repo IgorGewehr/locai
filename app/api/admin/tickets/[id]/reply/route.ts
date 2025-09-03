@@ -9,6 +9,7 @@ import { verifyAdminAccess } from '@/lib/middleware/admin-auth';
 import { db } from '@/lib/firebase/config';
 import { doc, collection, addDoc, updateDoc, serverTimestamp, getDoc } from 'firebase/firestore';
 import { logger } from '@/lib/utils/logger';
+import { NotificationServiceFactory } from '@/lib/services/notification-service';
 
 export async function POST(
   request: NextRequest,
@@ -165,12 +166,15 @@ export async function POST(
     }
     
     const responseData = {
-      message,
+      content: message,  // ✅ Usar 'content' em vez de 'message'
+      message,  // ✅ Manter 'message' para compatibilidade
       authorId: user!.uid,
       authorName: adminData?.name || user!.email || 'Admin',
-      authorRole: 'admin',
+      authorRole: 'admin',  // Manter para compatibilidade
+      isAdmin: true,  // ✅ Adicionar campo 'isAdmin'
       authorEmail: user!.email,
       createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),  // ✅ Adicionar updatedAt
       isAdminResponse: true,
       metadata: {
         ip: request.ip || 'unknown',
@@ -222,6 +226,42 @@ export async function POST(
       ticketId,
       responseId: responseDoc.id
     });
+
+    // Criar notificação para o usuário que criou o ticket
+    try {
+      const ticketDoc = await getDoc(ticketRef);
+      if (ticketDoc.exists()) {
+        const ticketData = ticketDoc.data();
+        
+        // Buscar tenantId do usuário (ticketData.userId = tenantId na nossa estrutura)
+        const ticketTenantId = ticketData.userId || ticketData.tenantId;
+        
+        if (ticketTenantId) {
+          const notificationService = NotificationServiceFactory.getInstance(ticketTenantId);
+          
+          await notificationService.createTicketResponseNotification({
+            targetUserId: ticketTenantId, // userId = tenantId na nossa estrutura
+            targetUserName: ticketData.userEmail || ticketData.name,
+            ticketId: ticketId,
+            ticketTitle: ticketData.subject || 'Ticket de Suporte',
+            respondedBy: adminData?.name || user!.email || 'Administrador',
+            responsePreview: message.substring(0, 150)
+          });
+
+          logger.info('🔔 [Admin API] Notificação de resposta criada', {
+            component: 'Admin',
+            ticketId,
+            targetUserId: ticketTenantId
+          });
+        }
+      }
+    } catch (notificationError) {
+      logger.error('❌ [Admin API] Erro ao criar notificação de resposta', notificationError as Error, {
+        component: 'Admin',
+        ticketId
+      });
+      // Não falhar a resposta por causa da notificação
+    }
     
     return NextResponse.json({
       success: true,

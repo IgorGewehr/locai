@@ -126,10 +126,17 @@ export async function GET(request: NextRequest) {
             try {
               const responsesRef = collection(db, `tenants/${userId}/tickets/${ticketDoc.id}/responses`);
               const responsesSnapshot = await getDocs(query(responsesRef, orderBy('createdAt', 'asc')));
-              responses = responsesSnapshot.docs.map(doc => ({
-                id: doc.id,
-                ...doc.data()
-              }));
+              responses = responsesSnapshot.docs.map(doc => {
+                const data = doc.data();
+                return {
+                  id: doc.id,
+                  ...data,
+                  // ✅ Normalizar campos para compatibilidade
+                  content: data.content || data.message || '',
+                  message: data.content || data.message || '',  // Manter ambos
+                  isAdmin: data.isAdmin !== undefined ? data.isAdmin : data.authorRole === 'admin'
+                };
+              });
             } catch (err) {
               // Ignorar erro de respostas (pode não ter índice ou não ter respostas)
             }
@@ -188,10 +195,17 @@ export async function GET(request: NextRequest) {
         try {
           const responsesRef = collection(db, `tickets/${ticketDoc.id}/responses`);
           const responsesSnapshot = await getDocs(query(responsesRef, orderBy('createdAt', 'asc')));
-          responses = responsesSnapshot.docs.map(doc => ({
-            id: doc.id,
-            ...doc.data()
-          }));
+          responses = responsesSnapshot.docs.map(doc => {
+            const data = doc.data();
+            return {
+              id: doc.id,
+              ...data,
+              // ✅ Normalizar campos para compatibilidade
+              content: data.content || data.message || '',
+              message: data.content || data.message || '',  // Manter ambos
+              isAdmin: data.isAdmin !== undefined ? data.isAdmin : data.authorRole === 'admin'
+            };
+          });
         } catch (err) {
           // Ignorar erro
         }

@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthProvider';
 import { getTenantId } from '@/lib/utils/tenant';
 import WhatsAppStatusIndicator from '@/components/molecules/whatsapp/WhatsAppStatusIndicator';
+import NotificationBell from '@/components/molecules/notifications/NotificationBell';
 import {
   AppBar,
   Toolbar,
@@ -34,7 +35,6 @@ interface HeaderProps {
 
 export default function Header({ onMenuClick }: HeaderProps) {
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
-  const [notificationsCount] = useState(0);
   const router = useRouter();
   const { user, signOut } = useAuth();
   const tenantId = getTenantId();
@@ -165,30 +165,11 @@ export default function Header({ onMenuClick }: HeaderProps) {
           </IconButton>
 
           {/* Notifications */}
-          <IconButton 
-            color="inherit" 
-            sx={{
-              color: 'text.secondary',
-              p: { xs: 1, md: 1.5 },
-              '&:hover': {
-                backgroundColor: 'action.hover',
-              }
-            }}
-          >
-            <Badge 
-              badgeContent={notificationsCount} 
-              color="error"
-              sx={{
-                '& .MuiBadge-badge': {
-                  fontSize: '0.7rem',
-                  height: 18,
-                  minWidth: 18,
-                }
-              }}
-            >
-              <Notifications sx={{ fontSize: { xs: 20, md: 24 } }} />
-            </Badge>
-          </IconButton>
+          <NotificationBell 
+            size="medium"
+            maxNotifications={15}
+            showCount={true}
+          />
 
           {/* User Menu */}
           <IconButton

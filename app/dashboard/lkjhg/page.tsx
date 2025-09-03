@@ -2546,7 +2546,7 @@ export default function AdminDashboard() {
                           </Typography>
                         </Stack>
                         <Typography variant="body2">
-                          {response.message}
+                          {response.content || response.message || 'Conteúdo não disponível'}
                         </Typography>
                       </CardContent>
                     </Card>
