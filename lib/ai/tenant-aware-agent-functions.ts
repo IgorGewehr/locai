@@ -1520,7 +1520,137 @@ export async function sendPropertyMedia(args: SendPropertyMediaArgs, tenantId: s
 }
 
 /**
- * FUNÇÃO 7: Verificar disponibilidade para visitas
+ * FUNÇÃO 7: Enviar mapa da propriedade
+ */
+export async function sendPropertyMap(args: { propertyName: string }, tenantId: string): Promise<any> {
+  try {
+    logger.info('🗺️ [TenantAgent] send_property_map iniciada', {
+      tenantId,
+      propertyName: args.propertyName
+    });
+
+    if (!args.propertyName) {
+      return {
+        success: false,
+        error: 'Nome da propriedade é obrigatório',
+        tenantId
+      };
+    }
+
+    if (!process.env.MAPS_KEY) {
+      logger.error('🗺️ [TenantAgent] MAPS_KEY não configurada');
+      return {
+        success: false,
+        error: 'Serviço de mapas não configurado',
+        tenantId
+      };
+    }
+
+    // Buscar propriedade por nome
+    const property = await findPropertyByName(args.propertyName, tenantId);
+    
+    if (!property) {
+      logger.warn('⚠️ [TenantAgent] Propriedade não encontrada para mapa', {
+        tenantId,
+        propertyName: args.propertyName
+      });
+
+      return {
+        success: false,
+        error: `Propriedade "${args.propertyName}" não encontrada. Verifique o nome ou faça uma nova busca.`,
+        tenantId
+      };
+    }
+
+    const location = property.location;
+
+    if (!location) {
+      return {
+        success: false,
+        error: 'Propriedade não possui informações de localização',
+        tenantId
+      };
+    }
+
+    // Step 1: Geocoding - Convert address to coordinates
+    logger.info('🗺️ [TenantAgent] Geocodificando endereço', { location });
+    
+    const geocodingUrl = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(location)}&key=${process.env.MAPS_KEY}`;
+    
+    const geocodingResponse = await fetch(geocodingUrl);
+    const geocodingData = await geocodingResponse.json();
+
+    if (!geocodingData.results || geocodingData.results.length === 0) {
+      logger.error('🗺️ [TenantAgent] Falha na geocodificação - sem resultados');
+      return {
+        success: false,
+        error: 'Não foi possível localizar o endereço no mapa',
+        tenantId
+      };
+    }
+
+    const { lat, lng } = geocodingData.results[0].geometry.location;
+    logger.info('🗺️ [TenantAgent] Coordenadas encontradas', { lat, lng });
+
+    // Step 2: Generate Static Map URL
+    const mapParams = new URLSearchParams({
+      center: `${lat},${lng}`,
+      zoom: '15',
+      size: '600x400',
+      maptype: 'roadmap',
+      markers: `color:red|label:${property.title.charAt(0).toUpperCase()}|${lat},${lng}`,
+      key: process.env.MAPS_KEY
+    });
+
+    const staticMapUrl = `https://maps.googleapis.com/maps/api/staticmap?${mapParams.toString()}`;
+    
+    logger.info('✅ [TenantAgent] send_property_map concluída', {
+      tenantId,
+      propertyId: property.id,
+      propertyName: property.title,
+      coordinates: { lat, lng }
+    });
+
+    return {
+      success: true,
+      property: {
+        id: property.id,
+        name: property.title,
+        location: location,
+        neighborhood: property.neighborhood,
+        city: property.city
+      },
+      map: {
+        url: staticMapUrl,
+        coordinates: { lat, lng },
+        caption: `📍 *${property.title}*\n\n` +
+                 `📌 Endereço: ${location}\n` +
+                 `🏘️ Bairro: ${property.neighborhood}\n` +
+                 `🏙️ Cidade: ${property.city}\n` +
+                 `🗺️ Coordenadas: ${lat.toFixed(6)}, ${lng.toFixed(6)}\n\n` +
+                 `_Clique na imagem para ampliar o mapa_`
+      },
+      tenantId
+    };
+
+  } catch (error) {
+    logger.error('❌ [TenantAgent] Erro em send_property_map', {
+      tenantId,
+      error: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined
+    });
+
+    return {
+      success: false,
+      error: 'Erro ao gerar mapa da propriedade',
+      details: error instanceof Error ? error.message : 'Unknown error',
+      tenantId
+    };
+  }
+}
+
+/**
+ * FUNÇÃO 8: Verificar disponibilidade para visitas
  */
 export async function checkVisitAvailability(args: { visitDate: string; propertyId?: string }, tenantId: string): Promise<any> {
   try {
