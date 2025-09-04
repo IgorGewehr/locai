@@ -129,6 +129,13 @@ export default function Header({ onMenuClick }: HeaderProps) {
             clickable={true}
           />
 
+          {/* Notifications - Logo após o WhatsApp */}
+          <NotificationBell 
+            size="medium"
+            maxNotifications={15}
+            showCount={true}
+          />
+
           {/* Admin Panel Button - Only show for admin users */}
           {user?.idog === true && (
             <IconButton 
@@ -163,13 +170,6 @@ export default function Header({ onMenuClick }: HeaderProps) {
           >
             <HelpOutline sx={{ fontSize: { xs: 20, md: 24 } }} />
           </IconButton>
-
-          {/* Notifications */}
-          <NotificationBell 
-            size="medium"
-            maxNotifications={15}
-            showCount={true}
-          />
 
           {/* User Menu */}
           <IconButton
