@@ -64,6 +64,7 @@ import {
 } from '@mui/icons-material';
 import ModernButton from '@/components/atoms/ModernButton';
 import { useTenant } from '@/contexts/TenantContext';
+import type { Client } from '@/lib/types';
 
 interface ReservationFormData {
   propertyId: string;
@@ -198,21 +199,46 @@ export default function CreateReservationPage() {
 
       // Se for um novo cliente, criar primeiro
       if (isNewClient) {
-        const newClientData = {
-          name: formData.clientName,
-          phone: formData.clientPhone,
-          email: formData.clientEmail || undefined,
+        // Validações básicas
+        if (!formData.clientName.trim() || formData.clientName.trim().length < 2) {
+          throw new Error('Nome do cliente deve ter pelo menos 2 caracteres');
+        }
+        
+        if (!formData.clientPhone.replace(/\D/g, '') || formData.clientPhone.replace(/\D/g, '').length < 10) {
+          throw new Error('Telefone deve ter pelo menos 10 dígitos');
+        }
+
+        // Preparar dados do cliente seguindo o padrão do CreateClientDialog
+        const clientData = {
+          name: formData.clientName.trim(),
+          phone: formData.clientPhone.replace(/\D/g, ''),
           source: 'manual' as const,
           isActive: true,
           totalReservations: 0,
           totalSpent: 0,
+          whatsappNumber: formData.clientPhone.replace(/\D/g, ''),
           createdAt: new Date(),
-          updatedAt: new Date()
+          updatedAt: new Date(),
         };
 
+        // Adicionar campos opcionais apenas se preenchidos
+        if (formData.clientEmail && formData.clientEmail.trim()) {
+          // Validação básica de email
+          const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+          if (!emailRegex.test(formData.clientEmail.trim())) {
+            throw new Error('E-mail deve ter um formato válido');
+          }
+          clientData.email = formData.clientEmail.trim();
+        }
+
         // Criar o cliente no banco de dados
-        const createdClient = await services.clients.create(newClientData);
+        const createdClient = await services.clients.create(clientData as Omit<Client, 'id'>);
         finalClientId = createdClient.id;
+      }
+
+      // Validar se temos um clientId válido
+      if (!finalClientId) {
+        throw new Error('Erro: ID do cliente não foi definido');
       }
 
       // Criar a reserva com o ID do cliente (novo ou existente)
