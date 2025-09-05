@@ -233,6 +233,7 @@ export default function CreateReservationPage() {
 
         // Criar o cliente no banco de dados
         const createdClient = await services.clients.create(clientData as Omit<Client, 'id'>);
+        console.log('🔍 Cliente criado:', createdClient);
         finalClientId = createdClient.id;
       }
 
