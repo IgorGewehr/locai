@@ -363,30 +363,6 @@ export default function CreateAccountPage() {
                     </Box>
                   </Box>
 
-                  {/* Mobile Free Days Offer */}
-                  {freeDays > 0 && (
-                    <Box
-                      sx={{
-                        p: 3,
-                        background: '#f0fdf4',
-                        border: '1px solid #bbf7d0',
-                        borderRadius: 2,
-                        mb: 3,
-                        textAlign: 'center',
-                      }}
-                    >
-                      <Typography
-                        variant="body2"
-                        sx={{
-                          fontWeight: 600,
-                          color: '#16a34a',
-                          fontSize: '0.875rem',
-                        }}
-                      >
-                        🎁 {freeDays} dias grátis incluídos
-                      </Typography>
-                    </Box>
-                  )}
                 </Box>
               )}
 
@@ -630,9 +606,7 @@ export default function CreateAccountPage() {
                           ? 'Conta criada' 
                           : isLoading 
                             ? 'Criando...' 
-                            : freeDays > 0 
-                              ? `Testar ${freeDays} dias grátis`
-                              : 'Criar conta grátis'
+                            : 'Cadastre-se'
                         }
                       </Button>
 

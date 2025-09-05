@@ -562,7 +562,7 @@ export default function CreateAccountPage() {
                         },
                       }}
                     >
-                      {isProcessing ? 'Conta criada' : isLoading ? 'Criando...' : 'Criar conta grátis'}
+                      {isProcessing ? 'Conta criada' : isLoading ? 'Criando...' : 'Cadastre-se'}
                     </Button>
 
                     {/* Login Link */}
