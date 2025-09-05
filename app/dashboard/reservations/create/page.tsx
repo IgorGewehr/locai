@@ -194,8 +194,40 @@ export default function CreateReservationPage() {
     setError('');
 
     try {
+      let finalClientId = formData.clientId;
+
+      // Se for um novo cliente, criar primeiro
+      if (isNewClient) {
+        const newClientData = {
+          name: formData.clientName,
+          phone: formData.clientPhone,
+          email: formData.clientEmail || undefined,
+          source: 'manual' as const,
+          isActive: true,
+          totalReservations: 0,
+          totalSpent: 0,
+          createdAt: new Date(),
+          updatedAt: new Date()
+        };
+
+        // Criar o cliente no banco de dados
+        const createdClient = await services.clients.create(newClientData);
+        finalClientId = createdClient.id;
+      }
+
+      // Criar a reserva com o ID do cliente (novo ou existente)
       const reservationData = {
-        ...formData,
+        propertyId: formData.propertyId,
+        clientId: finalClientId,
+        checkIn: formData.checkIn,
+        checkOut: formData.checkOut,
+        guests: formData.guests,
+        totalAmount: formData.totalAmount,
+        status: formData.status,
+        paymentStatus: formData.paymentStatus,
+        paymentMethod: formData.paymentMethod,
+        source: formData.source,
+        notes: formData.notes,
         createdAt: new Date(),
         updatedAt: new Date(),
       };

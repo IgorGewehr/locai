@@ -80,12 +80,6 @@ const menuItems = [
     badge: null,
   },
   {
-    text: 'Conversas',
-    href: '/dashboard/conversations',
-    icon: <Chat />,
-    badge: null,
-  },
-  {
     text: 'CRM',
     href: '/dashboard/crm',
     icon: <GroupWork />,
