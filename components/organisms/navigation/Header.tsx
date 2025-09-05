@@ -123,11 +123,24 @@ export default function Header({ onMenuClick }: HeaderProps) {
 
         <Box sx={{ display: 'flex', alignItems: 'center', gap: { xs: 1, md: 1.5 } }}>
           {/* WhatsApp Status - Usando o novo componente */}
-          <WhatsAppStatusIndicator 
-            variant="compact"
-            size="medium"
-            clickable={true}
-          />
+          <Box 
+            sx={{ 
+              position: 'relative',
+              zIndex: 1,
+              // Garantir área de toque adequada no mobile
+              minWidth: { xs: 44, md: 'auto' },
+              minHeight: { xs: 44, md: 'auto' },
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center'
+            }}
+          >
+            <WhatsAppStatusIndicator 
+              variant="compact"
+              size="medium"
+              clickable={true}
+            />
+          </Box>
 
           {/* Notifications - Logo após o WhatsApp */}
           <NotificationBell 

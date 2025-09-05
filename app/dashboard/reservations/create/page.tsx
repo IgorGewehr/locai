@@ -65,6 +65,7 @@ import {
 import ModernButton from '@/components/atoms/ModernButton';
 import { useTenant } from '@/contexts/TenantContext';
 import type { Client } from '@/lib/types';
+import { clientServiceWrapper } from '@/lib/services/client-service';
 
 interface ReservationFormData {
   propertyId: string;
@@ -91,7 +92,7 @@ const steps = [
 
 export default function CreateReservationPage() {
   const router = useRouter();
-  const { services, isReady } = useTenant();
+  const { services, isReady, tenantId } = useTenant();
   const [activeStep, setActiveStep] = useState(0);
   const [formData, setFormData] = useState<ReservationFormData>({
     propertyId: '',
@@ -208,15 +209,17 @@ export default function CreateReservationPage() {
           throw new Error('Telefone deve ter pelo menos 10 dígitos');
         }
 
+        // Validar se temos tenantId
+        if (!tenantId) {
+          throw new Error('TenantId não encontrado');
+        }
+
         // Preparar dados do cliente seguindo o padrão do CreateClientDialog
         const clientData = {
           name: formData.clientName.trim(),
           phone: formData.clientPhone.replace(/\D/g, ''),
+          tenantId: tenantId, // IMPORTANTE: Adicionar tenantId
           source: 'manual' as const,
-          isActive: true,
-          totalReservations: 0,
-          totalSpent: 0,
-          whatsappNumber: formData.clientPhone.replace(/\D/g, ''),
           createdAt: new Date(),
           updatedAt: new Date(),
         };
@@ -231,8 +234,8 @@ export default function CreateReservationPage() {
           clientData.email = formData.clientEmail.trim();
         }
 
-        // Criar o cliente no banco de dados
-        const createdClient = await services.clients.create(clientData as Omit<Client, 'id'>);
+        // Usar o ClientService diretamente (com validação de duplicatas)
+        const createdClient = await clientServiceWrapper.create(clientData);
         console.log('🔍 Cliente criado:', createdClient);
         finalClientId = createdClient.id;
       }

@@ -54,6 +54,7 @@ export async function middleware(request: NextRequest) {
     '/reset-password',
     '/api/webhook/whatsapp',
     '/api/webhook/whatsapp-web',
+    '/api/webhooks/kirvano', // 🆕 Webhook Kirvano
     '/api/auth',
     '/api/agent',
     '/api/public/',

@@ -58,6 +58,8 @@ import {
   Refresh as RefreshIcon,
   FilterList as FilterIcon,
   Search as SearchIcon,
+  ArrowUpward as ArrowUpwardIcon,
+  ArrowDownward as ArrowDownwardIcon,
   AdminPanelSettings as AdminIcon,
   TrendingUp as TrendingUpIcon,
   Business as BusinessIcon,
@@ -203,6 +205,8 @@ export default function AdminDashboard() {
   const [users, setUsers] = useState<User[]>([]);
   const [userSearch, setUserSearch] = useState('');
   const [selectedTenant, setSelectedTenant] = useState('all');
+  const [userSortField, setUserSortField] = useState<'name' | 'createdAt' | 'lastLogin' | 'propertyCount' | 'totalTicketsCount'>('createdAt');
+  const [userSortOrder, setUserSortOrder] = useState<'asc' | 'desc'>('desc');
   
   // Estados para estatísticas
   const [stats, setStats] = useState<TenantStats[]>([]);
@@ -514,13 +518,43 @@ export default function AdminDashboard() {
     return matchesFilter && matchesSearch;
   });
 
-  // Filtrar usuários
+  // Filtrar e ordenar usuários
   const filteredUsers = users.filter(user => {
     const matchesTenant = selectedTenant === 'all' || user.tenantId === selectedTenant;
     const matchesSearch = userSearch === '' ||
       user.name.toLowerCase().includes(userSearch.toLowerCase()) ||
       user.email.toLowerCase().includes(userSearch.toLowerCase());
     return matchesTenant && matchesSearch;
+  }).sort((a, b) => {
+    // Função de comparação baseada no campo selecionado
+    let comparison = 0;
+    
+    switch(userSortField) {
+      case 'name':
+        comparison = (a.name || '').localeCompare(b.name || '');
+        break;
+      case 'createdAt':
+        const dateA = new Date(a.createdAt || 0).getTime();
+        const dateB = new Date(b.createdAt || 0).getTime();
+        comparison = dateA - dateB;
+        break;
+      case 'lastLogin':
+        const loginA = new Date(a.lastLogin || 0).getTime();
+        const loginB = new Date(b.lastLogin || 0).getTime();
+        comparison = loginA - loginB;
+        break;
+      case 'propertyCount':
+        comparison = (a.propertyCount || 0) - (b.propertyCount || 0);
+        break;
+      case 'totalTicketsCount':
+        comparison = (a.totalTicketsCount || 0) - (b.totalTicketsCount || 0);
+        break;
+      default:
+        comparison = 0;
+    }
+    
+    // Aplicar ordem (asc ou desc)
+    return userSortOrder === 'asc' ? comparison : -comparison;
   });
 
   // Obter tenants únicos
@@ -1890,6 +1924,52 @@ export default function AdminDashboard() {
                 </Select>
               </FormControl>
               
+              <FormControl size="small" sx={{ minWidth: 180 }}>
+                <InputLabel>Ordenar por</InputLabel>
+                <Select
+                  value={userSortField}
+                  onChange={(e) => setUserSortField(e.target.value as typeof userSortField)}
+                  label="Ordenar por"
+                  sx={{ 
+                    borderRadius: '12px',
+                    background: 'rgba(255, 255, 255, 0.05)',
+                    backdropFilter: 'blur(10px)',
+                    border: '1px solid rgba(255, 255, 255, 0.1)',
+                    color: '#ffffff',
+                    '&:hover': {
+                      border: '1px solid rgba(255, 255, 255, 0.2)'
+                    }
+                  }}
+                >
+                  <MenuItem value="createdAt">Data de Criação</MenuItem>
+                  <MenuItem value="name">Nome</MenuItem>
+                  <MenuItem value="lastLogin">Último Acesso</MenuItem>
+                  <MenuItem value="propertyCount">Propriedades</MenuItem>
+                  <MenuItem value="totalTicketsCount">Tickets</MenuItem>
+                </Select>
+              </FormControl>
+
+              <Button
+                variant="outlined"
+                onClick={() => setUserSortOrder(userSortOrder === 'asc' ? 'desc' : 'asc')}
+                sx={{ 
+                  borderRadius: '12px',
+                  borderColor: 'rgba(255, 255, 255, 0.2)',
+                  color: '#ffffff',
+                  '&:hover': {
+                    borderColor: 'rgba(255, 255, 255, 0.3)',
+                    backgroundColor: 'rgba(255, 255, 255, 0.05)'
+                  }
+                }}
+                startIcon={
+                  userSortOrder === 'desc' 
+                    ? <ArrowDownwardIcon />
+                    : <ArrowUpwardIcon />
+                }
+              >
+                {userSortOrder === 'desc' ? 'Mais Recente' : 'Mais Antigo'}
+              </Button>
+
               <Button
                 variant="outlined"
                 startIcon={<RefreshIcon />}
@@ -2033,13 +2113,35 @@ export default function AdminDashboard() {
                     }}>
                       Status
                     </TableCell>
-                    <TableCell sx={{ 
-                      fontWeight: 600, 
-                      color: '#ffffff',
-                      fontFamily: 'Inter, sans-serif',
-                      borderBottom: 'none'
-                    }}>
-                      Cadastrado
+                    <TableCell 
+                      sx={{ 
+                        fontWeight: 600, 
+                        color: '#ffffff',
+                        fontFamily: 'Inter, sans-serif',
+                        borderBottom: 'none',
+                        cursor: 'pointer',
+                        userSelect: 'none',
+                        '&:hover': {
+                          backgroundColor: 'rgba(255, 255, 255, 0.05)'
+                        }
+                      }}
+                      onClick={() => {
+                        if (userSortField === 'createdAt') {
+                          setUserSortOrder(userSortOrder === 'asc' ? 'desc' : 'asc');
+                        } else {
+                          setUserSortField('createdAt');
+                          setUserSortOrder('desc');
+                        }
+                      }}
+                    >
+                      <Stack direction="row" alignItems="center" spacing={0.5}>
+                        <span>Cadastrado</span>
+                        {userSortField === 'createdAt' && (
+                          userSortOrder === 'desc' 
+                            ? <ArrowDownwardIcon fontSize="small" />
+                            : <ArrowUpwardIcon fontSize="small" />
+                        )}
+                      </Stack>
                     </TableCell>
                     <TableCell sx={{ 
                       fontWeight: 600, 
@@ -2208,12 +2310,32 @@ export default function AdminDashboard() {
                           />
                         </TableCell>
                         <TableCell sx={{ color: '#ffffff' }}>
-                          <Typography variant="body2" sx={{ color: '#ffffff' }}>
-                            {formatSafeDate(user.createdAt, 'dd/MM/yyyy', { locale: ptBR })}
-                          </Typography>
-                          <Typography variant="caption" sx={{ color: 'rgba(255, 255, 255, 0.7)' }}>
-                            {formatSafeDate(user.createdAt, 'HH:mm', { locale: ptBR })}
-                          </Typography>
+                          <Stack spacing={0.5}>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                              <Typography variant="body2" sx={{ color: '#ffffff', fontWeight: 500 }}>
+                                {formatSafeDate(user.createdAt, 'dd/MM/yyyy', { locale: ptBR })}
+                              </Typography>
+                              {/* Badge para usuários novos (últimos 7 dias) */}
+                              {user.createdAt && 
+                               new Date(user.createdAt).getTime() > Date.now() - 7 * 24 * 60 * 60 * 1000 && (
+                                <Chip 
+                                  label="NOVO" 
+                                  size="small" 
+                                  sx={{ 
+                                    height: 18,
+                                    fontSize: '0.65rem',
+                                    fontWeight: 700,
+                                    background: 'linear-gradient(45deg, #10b981 30%, #059669 90%)',
+                                    color: '#ffffff',
+                                    border: 'none'
+                                  }}
+                                />
+                              )}
+                            </Box>
+                            <Typography variant="caption" sx={{ color: 'rgba(255, 255, 255, 0.7)' }}>
+                              às {formatSafeDate(user.createdAt, 'HH:mm', { locale: ptBR })}
+                            </Typography>
+                          </Stack>
                         </TableCell>
                         <TableCell sx={{ color: '#ffffff' }}>
                           {user.lastLogin ? (

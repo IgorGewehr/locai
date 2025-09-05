@@ -6,6 +6,8 @@ import { doc, getDoc, updateDoc, setDoc } from "firebase/firestore";
 import { auth, db } from "@/lib/firebase/config";
 import { useRouter, usePathname } from "next/navigation";
 import { logger } from "@/lib/utils/logger";
+import { SubscriptionService } from "@/lib/services/subscription-service";
+import { SubscriptionValidation } from "@/lib/types/subscription";
 
 // ===== INTERFACES =====
 
@@ -215,9 +217,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   }, []);
 
   /**
-   * Verifica se deve redirecionar para login
+   * Verifica se deve redirecionar para login ou planos
    */
-  const shouldRedirectToAuth = useCallback((userData: User | null, currentPath: string) => {
+  const shouldRedirectToAuth = useCallback(async (userData: User | null, currentPath: string) => {
     const protectedRoutes = ['/dashboard'];
     const isProtectedRoute = protectedRoutes.some(route => currentPath.startsWith(route));
     
@@ -229,6 +231,40 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     
     if (!userData.isActive) {
       return { redirect: '/login', reason: 'inactive_user' };
+    }
+    
+    // ✅ NOVA VERIFICAÇÃO: Trial/Assinatura
+    try {
+      const subscriptionValidation = await SubscriptionService.validateUserAccess(userData.uid);
+      
+      if (!subscriptionValidation.hasAccess) {
+        logger.info('🚫 [Auth] Redirecionando para planos', {
+          userId: userData.uid,
+          reason: subscriptionValidation.reason,
+          currentPath
+        });
+        
+        return { 
+          redirect: subscriptionValidation.redirectUrl || 'https://moneyin.agency/alugazapplanos/', 
+          reason: subscriptionValidation.reason || 'no_access',
+          isExternalRedirect: true
+        };
+      }
+      
+      // Log trial status se aplicável
+      if (subscriptionValidation.trialStatus) {
+        logger.info('ℹ️ [Auth] Usuário em trial', {
+          userId: userData.uid,
+          daysRemaining: subscriptionValidation.trialStatus.daysRemaining,
+          trialEndDate: subscriptionValidation.trialStatus.trialEndDate
+        });
+      }
+      
+    } catch (error) {
+      logger.error('❌ [Auth] Erro na validação de assinatura', error as Error, {
+        userId: userData.uid
+      });
+      // Em caso de erro, permitir acesso para não travar o sistema
     }
     
     return false;
@@ -311,14 +347,16 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
             sessionStorage.setItem('redirecting', 'true');
             router.replace(targetPath); // ✅ replace em vez de push
           } else {
-            // Verificar se precisa redirecionar para login
-            const authRedirect = shouldRedirectToAuth(userData, pathname);
+            // Verificar se precisa redirecionar para login ou planos
+            const authRedirect = await shouldRedirectToAuth(userData, pathname);
             if (authRedirect) {
-              logger.info('🔄 [Auth] Redirecionando para login', {
+              logger.info('🔄 [Auth] Redirecionando usuário', {
                 from: pathname,
                 to: authRedirect.redirect,
-                reason: authRedirect.reason
+                reason: authRedirect.reason,
+                isExternal: authRedirect.isExternalRedirect
               });
+              
               // ✅ NOVO: Evitar redirecionamentos múltiplos
               const isAlreadyRedirecting = sessionStorage.getItem('redirecting');
               if (isAlreadyRedirecting) {
@@ -326,9 +364,16 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
                 return;
               }
               
-              console.log('🔄 [AuthProvider] Redirecting unauthenticated user to login');
               sessionStorage.setItem('redirecting', 'true');
-              router.replace(authRedirect.redirect); // ✅ replace em vez de push
+              
+              // Redirecionamento externo (planos) vs interno (login)
+              if (authRedirect.isExternalRedirect) {
+                console.log('🔄 [AuthProvider] Redirecting to external plans page');
+                window.location.href = authRedirect.redirect;
+              } else {
+                console.log('🔄 [AuthProvider] Redirecting to login');
+                router.replace(authRedirect.redirect);
+              }
             }
           }
         }, 150); // ✅ Reduzido de 300ms para 150ms
@@ -353,7 +398,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       setUser(null);
       invalidateUserCache();
       
-      const authRedirect = shouldRedirectToAuth(null, pathname);
+      const authRedirect = await shouldRedirectToAuth(null, pathname);
       if (authRedirect) {
         // ✅ NOVO: Evitar redirecionamentos múltiplos
         const isAlreadyRedirecting = sessionStorage.getItem('redirecting');

@@ -79,7 +79,9 @@
       "Bash(npx eslint:*)",
       "Read(/tmp/**)",
       "Read(/tmp/**)",
-      "Bash(dos2unix:*)"
+      "Bash(dos2unix:*)",
+      "Bash(npx react-native:*)",
+      "Bash(npx @react-native-community/cli:*)"
     ],
     "deny": [],
     "defaultMode": "acceptEdits",
