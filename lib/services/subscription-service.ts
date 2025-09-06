@@ -27,6 +27,17 @@ export class SubscriptionService {
       
       const userData = userSnap.data();
       
+      // DEBUG: Log completo dos dados do usuário
+      logger.info('📊 [Subscription] DEBUG - Dados completos do usuário', {
+        userId,
+        email: userData.email,
+        free: userData.free,
+        freeType: typeof userData.free,
+        plan: userData.plan,
+        createdAt: userData.createdAt?.toDate(),
+        isActive: userData.isActive
+      });
+      
       // 2. Buscar assinatura do usuário
       const subscriptionRef = doc(db, 'subscriptions', userId);
       const subscriptionSnap = await getDoc(subscriptionRef);
@@ -148,9 +159,28 @@ export class SubscriptionService {
         }
       }
       
-      // 4. Usuário com free: null ou free: 0 (sem trial) - permitir acesso
-      if (userData.free === null || userData.free === 0) {
-        logger.info('✅ [Subscription] Usuário sem trial - acesso liberado', { userId });
+      // 4. Usuário com free: 0 (trial expirado) - BLOQUEAR
+      if (userData.free === 0) {
+        logger.warn('🚨 [Subscription] FREE = 0 - BLOQUEANDO USUÁRIO!', { 
+          userId,
+          email: userData.email,
+          createdAt: userData.createdAt?.toDate(),
+          free: userData.free,
+          plan: userData.plan 
+        });
+        return {
+          isValid: false,
+          hasAccess: false,
+          reason: 'trial_expired',
+          redirectUrl: 'https://moneyin.agency/alugazapplanos/',
+          message: 'Seu período de teste expirou. Assine um plano para continuar.',
+          subscription
+        };
+      }
+      
+      // 5. Usuário com free: null (sem trial) - permitir acesso (usuários antigos)
+      if (userData.free === null) {
+        logger.info('✅ [Subscription] Usuário sem trial (legado) - acesso liberado', { userId });
         return {
           isValid: true,
           hasAccess: true,

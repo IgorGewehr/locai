@@ -11,7 +11,6 @@ import { useRouter, usePathname } from 'next/navigation';
 import Sidebar from '@/components/organisms/navigation/Sidebar';
 import FirstAccessDialog from '@/components/organisms/FirstAccessDialog';
 import { useFirstAccess } from '@/lib/hooks/useFirstAccess';
-import SubscriptionGuard from '@/components/organisms/SubscriptionGuard';
 
 // Disable static generation for dashboard pages
 export const dynamic = 'force-dynamic';
@@ -345,61 +344,59 @@ export default function DashboardLayout({
   return (
     <ProtectedRoute>
       <WhatsAppStatusProvider>
-        <SubscriptionGuard>
-          <Box sx={{ 
-            minHeight: '100vh', 
-            bgcolor: 'background.default',
-            display: 'flex',
-          }}>
-            <Sidebar open={sidebarOpen} onClose={handleSidebarClose} />
+        <Box sx={{ 
+          minHeight: '100vh', 
+          bgcolor: 'background.default',
+          display: 'flex',
+        }}>
+          <Sidebar open={sidebarOpen} onClose={handleSidebarClose} />
+          
+          <Box
+            component="main"
+            sx={{
+              flexGrow: 1,
+              display: 'flex',
+              flexDirection: 'column',
+              minWidth: 0, // Prevents flex overflow
+              /* Modern invisible scrollbar */
+              '&::-webkit-scrollbar': {
+                width: '8px',
+                height: '8px',
+              },
+              '&::-webkit-scrollbar-track': {
+                background: 'transparent',
+              },
+              '&::-webkit-scrollbar-thumb': {
+                background: 'rgba(255, 255, 255, 0.1)',
+                borderRadius: '4px',
+                '&:hover': {
+                  background: 'rgba(255, 255, 255, 0.2)',
+                },
+              },
+              /* Firefox */
+              scrollbarWidth: 'thin',
+              scrollbarColor: 'rgba(255, 255, 255, 0.1) transparent',
+            }}
+          >
+            <DashboardHeader onMenuClick={handleSidebarOpen} />
             
-            <Box
-              component="main"
-              sx={{
-                flexGrow: 1,
-                display: 'flex',
-                flexDirection: 'column',
-                minWidth: 0, // Prevents flex overflow
-                /* Modern invisible scrollbar */
-                '&::-webkit-scrollbar': {
-                  width: '8px',
-                  height: '8px',
-                },
-                '&::-webkit-scrollbar-track': {
-                  background: 'transparent',
-                },
-                '&::-webkit-scrollbar-thumb': {
-                  background: 'rgba(255, 255, 255, 0.1)',
-                  borderRadius: '4px',
-                  '&:hover': {
-                    background: 'rgba(255, 255, 255, 0.2)',
-                  },
-                },
-                /* Firefox */
-                scrollbarWidth: 'thin',
-                scrollbarColor: 'rgba(255, 255, 255, 0.1) transparent',
-              }}
-            >
-              <DashboardHeader onMenuClick={handleSidebarOpen} />
-              
-              <Box sx={{ 
-                flex: 1,
-                p: { xs: 2, sm: 3 },
-                overflowY: 'auto',
-                overflowX: 'hidden',
-              }}>
-                {children}
-              </Box>
+            <Box sx={{ 
+              flex: 1,
+              p: { xs: 2, sm: 3 },
+              overflowY: 'auto',
+              overflowX: 'hidden',
+            }}>
+              {children}
             </Box>
           </Box>
+        </Box>
 
-          {/* First Access Tutorial Dialog */}
-          <FirstAccessDialog
-            open={shouldShowDialog}
-            onClose={handleFirstAccessComplete}
-            onComplete={handleFirstAccessComplete}
-          />
-        </SubscriptionGuard>
+        {/* First Access Tutorial Dialog */}
+        <FirstAccessDialog
+          open={shouldShowDialog}
+          onClose={handleFirstAccessComplete}
+          onComplete={handleFirstAccessComplete}
+        />
       </WhatsAppStatusProvider>
     </ProtectedRoute>
   );
