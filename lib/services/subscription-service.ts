@@ -52,6 +52,14 @@ export class SubscriptionService {
       if (userData.free && typeof userData.free === 'number') {
         const trialStatus = this.calculateTrialStatus(userData.createdAt?.toDate() || new Date(), userData.free);
         
+        logger.info('🔍 [Subscription] DEBUG - Verificando trial', {
+          userId,
+          free: userData.free,
+          createdAt: userData.createdAt?.toDate(),
+          hasTrialExpired: trialStatus.hasTrialExpired,
+          daysRemaining: trialStatus.daysRemaining
+        });
+        
         if (!trialStatus.hasTrialExpired) {
           logger.info('✅ [Subscription] Usuário em trial ativo', { 
             userId, 
@@ -65,7 +73,12 @@ export class SubscriptionService {
             subscription
           };
         } else {
-          logger.warn('⚠️ [Subscription] Trial expirado', { userId });
+          logger.warn('🚨 [Subscription] TRIAL EXPIRADO - DEVE BLOQUEAR!', { 
+            userId,
+            free: userData.free,
+            daysRemaining: trialStatus.daysRemaining,
+            hasTrialExpired: trialStatus.hasTrialExpired
+          });
           return {
             isValid: false,
             hasAccess: false,
