@@ -55,6 +55,7 @@ export async function middleware(request: NextRequest) {
     '/api/webhook/whatsapp',
     '/api/webhook/whatsapp-web',
     '/api/webhooks/kirvano', // 🆕 Webhook Kirvano
+    '/api/webhooks/ki',      // 🆕 Webhook Kirvano (URL curta)
     '/api/auth',
     '/api/agent',
     '/api/public/',

@@ -65,8 +65,8 @@ export async function GET(request: NextRequest) {
         name: userData.name || userData.displayName || userData.fullName || 'Sem nome',
         plan,
         status,
-        createdAt: userData.createdAt,
-        lastLogin: userData.lastLogin || userData.lastAccess,
+        createdAt: userData.createdAt?.toDate ? userData.createdAt.toDate() : userData.createdAt ? new Date(userData.createdAt) : new Date(),
+        lastLogin: userData.lastLogin?.toDate ? userData.lastLogin.toDate() : userData.lastLogin ? new Date(userData.lastLogin) : userData.lastAccess ? new Date(userData.lastAccess) : null,
         phoneNumber: userData.phoneNumber || userData.phone || '',
         emailVerified: userData.emailVerified || false,
         role: userData.role || 'user',
@@ -80,8 +80,8 @@ export async function GET(request: NextRequest) {
     
     // Ordenar por data de criação (mais recentes primeiro)
     users.sort((a, b) => {
-      const dateA = a.createdAt?.toDate?.() || new Date(a.createdAt || 0);
-      const dateB = b.createdAt?.toDate?.() || new Date(b.createdAt || 0);
+      const dateA = new Date(a.createdAt || 0);
+      const dateB = new Date(b.createdAt || 0);
       return dateB.getTime() - dateA.getTime();
     });
     

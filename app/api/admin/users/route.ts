@@ -54,8 +54,8 @@ export async function GET(request: NextRequest) {
         phoneNumber: userData.phoneNumber || userData.phone || '',
         plan: userData.free === 7 ? 'Free' : 'Pro', // Lógica correta do plano
         status: userData.disabled ? 'suspended' : 'active',
-        createdAt: userData.createdAt,
-        lastLogin: userData.lastLogin || userData.lastAccess,
+        createdAt: userData.createdAt?.toDate ? userData.createdAt.toDate() : userData.createdAt ? new Date(userData.createdAt) : new Date(),
+        lastLogin: userData.lastLogin?.toDate ? userData.lastLogin.toDate() : userData.lastLogin ? new Date(userData.lastLogin) : userData.lastAccess ? new Date(userData.lastAccess) : null,
         propertyCount: 0, // Será calculado
         newTicketsCount: 0, // Será calculado
         totalTicketsCount: 0, // Será calculado

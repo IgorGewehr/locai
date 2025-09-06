@@ -7,37 +7,22 @@ import { logger } from '@/lib/utils/logger';
 export const runtime = 'nodejs';
 
 /**
- * Webhook endpoint para receber notificações do Kirvano
- * Rota: POST /api/webhooks/kirvano
+ * Webhook endpoint ALTERNATIVO para Kirvano (URL curta)
+ * Rota: POST /api/webhooks/ki
+ * 
+ * NOTA: Esta é uma rota alternativa devido ao limite de caracteres no Kirvano
  */
 export async function POST(request: NextRequest) {
   try {
-    // IMPORTANTE: Webhook não precisa de autenticação
-    logger.info('🔔 [Kirvano Webhook] Requisição recebida', {
+    // Log da requisição recebida
+    logger.info('🔔 [Kirvano Webhook SHORT URL] Requisição recebida em /api/webhooks/ki', {
       url: request.url,
       method: request.method,
-      origin: request.headers.get('origin'),
-      userAgent: request.headers.get('user-agent'),
-      contentType: request.headers.get('content-type'),
-      timestamp: new Date().toISOString()
+      headers: Object.fromEntries(request.headers.entries())
     });
     
     // Extrair body da requisição
-    let body: KirvanoWebhookEvent;
-    
-    try {
-      body = await request.json();
-    } catch (parseError) {
-      logger.error('❌ [Kirvano Webhook] Erro ao parsear JSON', parseError as Error);
-      return NextResponse.json(
-        { 
-          success: false, 
-          error: 'JSON inválido',
-          details: 'Não foi possível parsear o body da requisição'
-        },
-        { status: 400 }
-      );
-    }
+    const body = await request.json() as KirvanoWebhookEvent;
     
     // Validar estrutura básica do webhook
     if (!body.event || !body.sale_id || !body.customer?.email) {
@@ -67,21 +52,13 @@ export async function POST(request: NextRequest) {
       createdAt: body.created_at
     });
     
-    // Log antes do processamento
-    logger.info('🔄 [Kirvano Webhook] Iniciando processamento', {
-      event: body.event,
-      saleId: body.sale_id,
-      customerEmail: body.customer.email
-    });
-    
     // Processar webhook através do SubscriptionService
     const result = await SubscriptionService.processKirvanoWebhook(body);
     
     if (result.success) {
-      logger.info('✅ [Kirvano Webhook] PROCESSADO COM SUCESSO', {
+      logger.info('✅ [Kirvano Webhook] Processado com sucesso', {
         event: body.event,
         saleId: body.sale_id,
-        customerEmail: body.customer.email,
         message: result.message
       });
       
@@ -90,14 +67,12 @@ export async function POST(request: NextRequest) {
         message: result.message,
         event: body.event,
         saleId: body.sale_id,
-        customerEmail: body.customer.email,
         processedAt: new Date().toISOString()
       });
     } else {
-      logger.error('❌ [Kirvano Webhook] PROCESSAMENTO FALHOU', {
+      logger.warn('⚠️ [Kirvano Webhook] Processamento falhou', {
         event: body.event,
         saleId: body.sale_id,
-        customerEmail: body.customer.email,
         error: result.message
       });
       
@@ -107,7 +82,6 @@ export async function POST(request: NextRequest) {
           error: result.message,
           event: body.event,
           saleId: body.sale_id,
-          customerEmail: body.customer.email,
           processedAt: new Date().toISOString()
         },
         { status: 422 } // Unprocessable Entity
@@ -137,16 +111,19 @@ export async function POST(request: NextRequest) {
  * Handle GET requests - endpoint de verificação
  */
 export async function GET(request: NextRequest) {
-  logger.info('ℹ️ [Kirvano Webhook] Verificação de endpoint', {
+  logger.info('ℹ️ [Kirvano Webhook SHORT] Verificação de endpoint', {
     url: request.url,
     userAgent: request.headers.get('user-agent')
   });
   
   return NextResponse.json({
-    service: 'Kirvano Webhook Handler',
+    service: 'Kirvano Webhook Handler (Short URL)',
     status: 'active',
     timestamp: new Date().toISOString(),
     version: '1.0.0',
+    note: 'Esta é a URL curta devido ao limite de caracteres no Kirvano',
+    fullUrl: '/api/webhooks/kirvano',
+    shortUrl: '/api/webhooks/ki',
     supportedEvents: [
       'BANK_SLIP_GENERATED',
       'BANK_SLIP_EXPIRED', 
