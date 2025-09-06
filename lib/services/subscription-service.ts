@@ -175,14 +175,34 @@ export class SubscriptionService {
   
   /**
    * Calcula status do trial baseado na data de criação
+   * LÓGICA DIRETA: o valor free representa os dias de trial INICIAIS
+   * Se já passou mais tempo que o free inicial desde a criação, trial expirou
    */
-  static calculateTrialStatus(createdAt: Date, trialDays: number): TrialStatus {
+  static calculateTrialStatus(createdAt: Date, initialFreeDays: number): TrialStatus {
     const now = new Date();
-    const trialEndDate = new Date(createdAt);
-    trialEndDate.setDate(trialEndDate.getDate() + trialDays);
     
-    const hasTrialExpired = now > trialEndDate;
-    const daysRemaining = hasTrialExpired ? 0 : Math.ceil((trialEndDate.getTime() - now.getTime()) / (1000 * 60 * 60 * 24));
+    // Calcular quantos dias se passaram desde a criação da conta
+    const daysPassed = Math.floor((now.getTime() - createdAt.getTime()) / (1000 * 60 * 60 * 24));
+    
+    // LÓGICA SIMPLES: se passaram mais dias do que o trial inicial, expirou
+    const hasTrialExpired = daysPassed >= initialFreeDays;
+    
+    // Calcular dias restantes: trial inicial - dias que passaram
+    const daysRemaining = hasTrialExpired ? 0 : Math.max(0, initialFreeDays - daysPassed);
+    
+    // Data de expiração: data criação + dias iniciais do trial
+    const trialEndDate = new Date(createdAt);
+    trialEndDate.setDate(trialEndDate.getDate() + initialFreeDays);
+    
+    logger.info('🔍 [Subscription] Cálculo de trial CORRIGIDO', {
+      daysPassed,
+      initialFreeDays,
+      daysRemaining,
+      hasTrialExpired,
+      createdAt: createdAt.toLocaleDateString(),
+      now: now.toLocaleDateString(),
+      trialEndDate: trialEndDate.toLocaleDateString()
+    });
     
     return {
       hasTrialExpired,
