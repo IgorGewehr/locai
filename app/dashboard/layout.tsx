@@ -9,6 +9,8 @@ import { WhatsAppStatusProvider } from '@/contexts/WhatsAppStatusContext';
 import { useWhatsAppStatus } from '@/contexts/WhatsAppStatusContext';
 import { useRouter, usePathname } from 'next/navigation';
 import Sidebar from '@/components/organisms/navigation/Sidebar';
+import FirstAccessDialog from '@/components/organisms/FirstAccessDialog';
+import { useFirstAccess } from '@/lib/hooks/useFirstAccess';
 
 // Disable static generation for dashboard pages
 export const dynamic = 'force-dynamic';
@@ -325,6 +327,7 @@ export default function DashboardLayout({
   children: React.ReactNode;
 }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const { shouldShowDialog, markAsViewed } = useFirstAccess();
 
   const handleSidebarClose = () => {
     setSidebarOpen(false);
@@ -332,6 +335,10 @@ export default function DashboardLayout({
 
   const handleSidebarOpen = () => {
     setSidebarOpen(true);
+  };
+
+  const handleFirstAccessComplete = async () => {
+    await markAsViewed();
   };
 
   return (
@@ -383,6 +390,13 @@ export default function DashboardLayout({
             </Box>
           </Box>
         </Box>
+
+        {/* First Access Tutorial Dialog */}
+        <FirstAccessDialog
+          open={shouldShowDialog}
+          onClose={handleFirstAccessComplete}
+          onComplete={handleFirstAccessComplete}
+        />
       </WhatsAppStatusProvider>
     </ProtectedRoute>
   );

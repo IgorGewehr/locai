@@ -78,8 +78,80 @@ export class SubscriptionService {
         }
       }
       
-      // 4. Usuário sem trial e sem assinatura
-      logger.warn('⚠️ [Subscription] Usuário sem acesso válido', { userId });
+      // 🚨 FALLBACK INTELIGENTE: Usuários sem campo 'free' 
+      if (!userData.hasOwnProperty('free')) {
+        // Verificar data de criação para determinar estratégia
+        const accountAge = this.calculateAccountAge(userData.createdAt?.toDate() || new Date());
+        
+        // Usuários criados há mais de 30 dias sem configuração = acesso livre
+        if (accountAge > 30) {
+          logger.info('✅ [Subscription] Usuário legacy (>30 dias) - acesso liberado', { 
+            userId, 
+            accountAgeDays: accountAge 
+          });
+          return {
+            isValid: true,
+            hasAccess: true,
+            reason: 'legacy_user_grandfathered',
+            message: 'Usuário grandfathered - acesso mantido',
+            subscription
+          };
+        } else {
+          // Usuários novos sem configuração = período de graça de 7 dias
+          const gracePeriodEnd = new Date(userData.createdAt?.toDate() || new Date());
+          gracePeriodEnd.setDate(gracePeriodEnd.getDate() + 7);
+          
+          if (new Date() <= gracePeriodEnd) {
+            const daysRemaining = Math.ceil((gracePeriodEnd.getTime() - Date.now()) / (1000 * 60 * 60 * 24));
+            logger.info('✅ [Subscription] Usuário em período de graça', { 
+              userId, 
+              daysRemaining 
+            });
+            return {
+              isValid: true,
+              hasAccess: true,
+              reason: 'grace_period_active',
+              message: `Período de graça: ${daysRemaining} dias restantes`,
+              trialStatus: {
+                hasTrialExpired: false,
+                daysRemaining,
+                trialEndDate: gracePeriodEnd,
+                shouldRedirectToPlans: false,
+                isSubscriptionActive: false
+              },
+              subscription
+            };
+          } else {
+            logger.warn('⚠️ [Subscription] Período de graça expirado', { userId });
+            return {
+              isValid: false,
+              hasAccess: false,
+              reason: 'grace_period_expired',
+              redirectUrl: 'https://moneyin.agency/alugazapplanos/',
+              message: 'Período de graça expirou. Assine um plano para continuar.',
+              subscription
+            };
+          }
+        }
+      }
+      
+      // 4. Usuário com free: null ou free: 0 (sem trial) - permitir acesso
+      if (userData.free === null || userData.free === 0) {
+        logger.info('✅ [Subscription] Usuário sem trial - acesso liberado', { userId });
+        return {
+          isValid: true,
+          hasAccess: true,
+          reason: 'no_trial_restriction',
+          message: 'Usuário sem restrições de trial',
+          subscription
+        };
+      }
+      
+      // 5. Último recurso - negar acesso apenas se explicitamente configurado
+      logger.warn('⚠️ [Subscription] Configuração de trial não reconhecida', { 
+        userId, 
+        freeValue: userData.free 
+      });
       return {
         isValid: false,
         hasAccess: false,
@@ -119,6 +191,16 @@ export class SubscriptionService {
       shouldRedirectToPlans: hasTrialExpired,
       isSubscriptionActive: false
     };
+  }
+  
+  /**
+   * Calcula idade da conta em dias
+   */
+  static calculateAccountAge(createdAt: Date): number {
+    const now = new Date();
+    const diffTime = Math.abs(now.getTime() - createdAt.getTime());
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    return diffDays;
   }
   
   /**

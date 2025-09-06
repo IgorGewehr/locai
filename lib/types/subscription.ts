@@ -126,7 +126,18 @@ export interface TrialStatus {
 export interface SubscriptionValidation {
   isValid: boolean;
   hasAccess: boolean;
-  reason?: 'active_subscription' | 'trial_active' | 'trial_expired' | 'no_subscription' | 'subscription_canceled' | 'subscription_expired';
+  reason?: 
+    | 'active_subscription' 
+    | 'trial_active' 
+    | 'trial_expired' 
+    | 'no_subscription' 
+    | 'subscription_canceled' 
+    | 'subscription_expired'
+    | 'legacy_user_grandfathered'     // Usuário antigo com acesso mantido
+    | 'grace_period_active'          // Período de graça ativo
+    | 'grace_period_expired'         // Período de graça expirado
+    | 'no_trial_restriction'         // Sem restrições de trial
+    | 'no_trial_legacy_user';        // Usuário legacy sem trial
   redirectUrl?: string;
   message?: string;
   subscription?: UserSubscription;

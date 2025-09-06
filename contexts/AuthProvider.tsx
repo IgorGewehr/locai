@@ -27,6 +27,7 @@ interface User {
   companyName?: string;
   whatsappNumbers?: string[];
   plan?: 'free' | 'basic' | 'premium';
+  firstAccess?: boolean; // Flag para primeiro acesso
 }
 
 interface AuthContextType {
@@ -112,6 +113,11 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     const uid = authUser.uid;
     
     try {
+      // 🛡️ VALIDAÇÃO DE SEGURANÇA: Verificar se UID é válido
+      if (!uid || typeof uid !== 'string' || uid.length < 10) {
+        throw new Error('UID inválido fornecido pelo Firebase Auth');
+      }
+      
       // Buscar dados existentes
       const userRef = doc(db, 'users', uid);
       const userSnap = await getDoc(userRef);
@@ -145,7 +151,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           lastLogin: new Date(),
           companyName: userData.companyName,
           whatsappNumbers: userData.whatsappNumbers || [],
-          plan: userData.plan || 'free'
+          plan: userData.plan || 'free',
+          firstAccess: userData.firstAccess !== false // Default true se não existir
         };
       }
       
@@ -166,7 +173,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         createdAt: new Date(),
         lastLogin: new Date(),
         whatsappNumbers: [],
-        authProvider: authUser.providerData?.[0]?.providerId === 'google.com' ? 'google' : 'email'
+        authProvider: authUser.providerData?.[0]?.providerId === 'google.com' ? 'google' : 'email',
+        firstAccess: true // Novo usuário sempre tem firstAccess = true
       };
       
       await setDoc(userRef, newUserData, { merge: true });
@@ -233,7 +241,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       return { redirect: '/login', reason: 'inactive_user' };
     }
     
-    // ✅ NOVA VERIFICAÇÃO: Trial/Assinatura
+    // ✅ NOVA VERIFICAÇÃO: Trial/Assinatura com FALLBACK DE SEGURANÇA
     try {
       const subscriptionValidation = await SubscriptionService.validateUserAccess(userData.uid);
       
@@ -264,7 +272,13 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       logger.error('❌ [Auth] Erro na validação de assinatura', error as Error, {
         userId: userData.uid
       });
-      // Em caso de erro, permitir acesso para não travar o sistema
+      
+      // 🛡️ FALLBACK CRÍTICO: Em caso de erro na validação, permitir acesso
+      // Isso garante que problemas de conectividade ou bugs não travem usuários
+      logger.warn('⚠️ [Auth] Permitindo acesso devido a erro na validação', {
+        userId: userData.uid,
+        error: error instanceof Error ? error.message : 'Unknown'
+      });
     }
     
     return false;
@@ -306,7 +320,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         }
         
         // Redirecionamento mais robusto
-        setTimeout(() => {
+        setTimeout(async () => {
           if (!isMounted) return;
           
           // Se usuário está autenticado e em rota pública, redirecionar
@@ -392,7 +406,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       }
     };
     
-    const handleUnauthenticatedUser = () => {
+    const handleUnauthenticatedUser = async () => {
       if (!isMounted) return;
       
       setUser(null);
@@ -590,7 +604,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         createdAt: new Date(),
         lastLogin: new Date(),
         whatsappNumbers: [],
-        authProvider: 'email'
+        authProvider: 'email',
+        firstAccess: true // Novo usuário sempre tem firstAccess = true
       };
       
       // ✅ NOVA LÓGICA: Adicionar campo free se fornecido
@@ -686,6 +701,11 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     getTenantId,
     getUserData
   ]);
+
+  // Expor reloadUser no contexto do usuário para uso em hooks
+  if (user && typeof (user as any).reloadUser === 'undefined') {
+    (user as any).reloadUser = reloadUser;
+  }
 
   return (
     <AuthContext.Provider value={contextValue}>

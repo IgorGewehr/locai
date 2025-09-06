@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthProvider';
+import { auth } from '@/lib/firebase/config';
 import { SubscriptionValidation, UserSubscription } from '@/lib/types/subscription';
 import { logger } from '@/lib/utils/logger';
 
@@ -21,7 +22,7 @@ interface UseSubscriptionResult {
  * Hook para gerenciar estado de assinatura/trial do usuário
  */
 export function useSubscription(): UseSubscriptionResult {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const [validation, setValidation] = useState<SubscriptionValidation | null>(null);
   const [subscription, setSubscription] = useState<UserSubscription | null>(null);
   const [loading, setLoading] = useState(false);
@@ -39,12 +40,19 @@ export function useSubscription(): UseSubscriptionResult {
       });
 
       // Fazer request para API de validação
-      const token = await user.getIdToken();
+      const currentUser = auth.currentUser;
+      if (!currentUser) {
+        throw new Error('Usuário não autenticado');
+      }
+      
+      const token = await currentUser.getIdToken();
+      
       const response = await fetch('/api/subscription/validate', {
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
-        }
+        },
+        cache: 'no-store' // Sempre buscar dados atuais
       });
 
       if (!response.ok) {
@@ -81,7 +89,16 @@ export function useSubscription(): UseSubscriptionResult {
 
   // Effect para carregar dados iniciais
   useEffect(() => {
-    fetchSubscriptionData();
+    // Só carregar se o usuário estiver autenticado
+    if (user?.uid) {
+      fetchSubscriptionData();
+    } else {
+      // Reset states quando não há usuário
+      setValidation(null);
+      setSubscription(null);
+      setError(null);
+      setLoading(false);
+    }
   }, [fetchSubscriptionData]);
 
   // Computed values

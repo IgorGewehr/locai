@@ -1,8 +1,8 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '@/contexts/AuthProvider';
-import { SubscriptionService } from '@/lib/services/subscription-service';
+import { useSubscription } from '@/lib/hooks/useSubscription';
 import { SubscriptionValidation } from '@/lib/types/subscription';
 import { 
   Box, 
@@ -36,52 +36,34 @@ export default function SubscriptionGuard({
   customRedirectUrl 
 }: SubscriptionGuardProps) {
   const { user, loading: authLoading } = useAuth();
-  const [validation, setValidation] = useState<SubscriptionValidation | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const { validation, loading, error, hasAccess } = useSubscription();
+  const [hasRedirected, setHasRedirected] = useState(false);
+
+  // Memoizar a lógica de redirecionamento para evitar loops
+  const shouldRedirect = useMemo(() => {
+    return !hasAccess && validation?.redirectUrl && !hasRedirected;
+  }, [hasAccess, validation?.redirectUrl, hasRedirected]);
 
   useEffect(() => {
-    if (!user || authLoading) return;
+    if (shouldRedirect) {
+      const redirectUrl = customRedirectUrl || validation!.redirectUrl!;
+      
+      logger.info('🔄 [SubscriptionGuard] Redirecionando para planos', {
+        userId: user?.uid,
+        reason: validation?.reason,
+        redirectUrl
+      });
 
-    const validateAccess = async () => {
-      try {
-        setLoading(true);
-        setError(null);
+      setHasRedirected(true); // Evitar múltiplos redirecionamentos
 
-        const result = await SubscriptionService.validateUserAccess(user.uid);
-        setValidation(result);
+      setTimeout(() => {
+        window.location.href = redirectUrl;
+      }, 3000); // 3 segundos para mostrar a mensagem
+    }
+  }, [shouldRedirect, customRedirectUrl, validation, user?.uid]);
 
-        // Se não tem acesso, redirecionar após um delay
-        if (!result.hasAccess && result.redirectUrl) {
-          const redirectUrl = customRedirectUrl || result.redirectUrl;
-          
-          logger.info('🔄 [SubscriptionGuard] Redirecionando para planos', {
-            userId: user.uid,
-            reason: result.reason,
-            redirectUrl
-          });
-
-          setTimeout(() => {
-            window.location.href = redirectUrl;
-          }, 3000); // 3 segundos para mostrar a mensagem
-        }
-
-      } catch (err) {
-        const errorMessage = 'Erro ao verificar assinatura';
-        setError(errorMessage);
-        logger.error('❌ [SubscriptionGuard] Erro na validação', err as Error, {
-          userId: user.uid
-        });
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    validateAccess();
-  }, [user, authLoading, customRedirectUrl]);
-
-  // Loading state
-  if (authLoading || loading) {
+  // Loading state - otimizado
+  if (authLoading || (loading && !validation)) {
     return (
       <Box
         display="flex"
