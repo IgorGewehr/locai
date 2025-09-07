@@ -194,7 +194,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         lastLogin: new Date(),
         companyName: '',
         whatsappNumbers: [],
-        plan: 'free'
+        plan: 'free',
+        firstAccess: true // Novo usuário sempre tem firstAccess = true
       };
       
     } catch (error) {
@@ -620,6 +621,30 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         email: result.user.email,
         name 
       });
+      
+      // Forçar invalidação do cache para garantir que os dados sejam recarregados
+      invalidateUserCache(result.user.uid);
+      
+      // Forçar uma atualização imediata do estado do usuário
+      const newUser: User = {
+        uid: result.user.uid,
+        email: result.user.email!,
+        name,
+        fullName: name,
+        role: 'user',
+        isAdmin: false,
+        tenantId: result.user.uid,
+        isActive: true,
+        emailVerified: result.user.emailVerified,
+        createdAt: new Date(),
+        lastLogin: new Date(),
+        companyName: '',
+        whatsappNumbers: [],
+        plan: 'free',
+        firstAccess: true // Garantir que firstAccess seja true
+      };
+      
+      setUser(newUser);
       
       // O listener onAuthStateChanged vai processar o usuário automaticamente
     } catch (error: any) {

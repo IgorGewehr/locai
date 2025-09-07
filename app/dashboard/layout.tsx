@@ -9,7 +9,16 @@ import { WhatsAppStatusProvider } from '@/contexts/WhatsAppStatusContext';
 import { useWhatsAppStatus } from '@/contexts/WhatsAppStatusContext';
 import { useRouter, usePathname } from 'next/navigation';
 import Sidebar from '@/components/organisms/navigation/Sidebar';
-import FirstAccessDialog from '@/components/organisms/FirstAccessDialog';
+import dynamic from 'next/dynamic';
+
+// Lazy load o dialog para não impactar o carregamento inicial
+const FirstAccessDialog = dynamic(
+  () => import('@/components/organisms/FirstAccessDialogOptimized'),
+  { 
+    ssr: false,
+    loading: () => null // Não mostrar loading, apenas não renderizar
+  }
+);
 import { useFirstAccess } from '@/lib/hooks/useFirstAccess';
 
 // Disable static generation for dashboard pages

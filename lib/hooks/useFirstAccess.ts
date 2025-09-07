@@ -21,10 +21,11 @@ export function useFirstAccess(): UseFirstAccessResult {
   const { user, loading: authLoading } = useAuth();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [dialogShown, setDialogShown] = useState(false);
 
   // Determinar se deve mostrar o dialog
   const isFirstAccess = user?.firstAccess === true;
-  const shouldShowDialog = isFirstAccess && !authLoading && !!user;
+  const shouldShowDialog = isFirstAccess && !authLoading && !!user && !dialogShown;
 
   /**
    * Marca o tutorial como visualizado
@@ -34,6 +35,9 @@ export function useFirstAccess(): UseFirstAccessResult {
       logger.warn('⚠️ [FirstAccess] Tentativa de marcar como visto sem usuário');
       return;
     }
+
+    // Marcar imediatamente como mostrado para evitar múltiplas chamadas
+    setDialogShown(true);
 
     try {
       setLoading(true);
@@ -66,6 +70,9 @@ export function useFirstAccess(): UseFirstAccessResult {
       logger.error('❌ [FirstAccess] Erro ao marcar tutorial como visualizado', err as Error, {
         userId: user.uid
       });
+      
+      // Reverter em caso de erro
+      setDialogShown(false);
     } finally {
       setLoading(false);
     }
