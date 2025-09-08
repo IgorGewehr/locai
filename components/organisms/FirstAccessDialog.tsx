@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useCallback } from 'react';
 import {
   Dialog,
   DialogContent,
@@ -50,18 +50,19 @@ export default function FirstAccessDialog({ open, onClose, onComplete }: FirstAc
   const [currentTime, setCurrentTime] = useState(0);
   const [isVideoLoaded, setIsVideoLoaded] = useState(false);
 
-  const handleClose = () => {
+  const handleClose = useCallback(() => {
     logger.info('📺 [FirstAccess] Dialog fechado pelo usuário');
     
     // Pausar vídeo ao fechar
     if (videoRef) {
       videoRef.pause();
+      videoRef.src = ''; // Liberar memória
       setIsPlaying(false);
     }
     
     onClose();
     onComplete?.();
-  };
+  }, [onClose, onComplete, videoRef]);
 
   const handleVideoRef = (video: HTMLVideoElement | null) => {
     setVideoRef(video);
@@ -149,8 +150,8 @@ export default function FirstAccessDialog({ open, onClose, onComplete }: FirstAc
           maxHeight: 'none',
         },
         '& .MuiBackdrop-root': {
-          background: 'linear-gradient(135deg, rgba(15, 23, 42, 0.95), rgba(30, 41, 59, 0.95))',
-          backdropFilter: 'blur(20px)',
+          backgroundColor: 'rgba(0, 0, 0, 0.8)',
+          backdropFilter: 'blur(4px)',
         }
       }}
       BackdropComponent={Backdrop}
@@ -437,7 +438,7 @@ export default function FirstAccessDialog({ open, onClose, onComplete }: FirstAc
               ref={handleVideoRef}
               src={TUTORIAL_VIDEO_URL}
               controls
-              preload="metadata"
+              preload="none"
               playsInline
               controlsList="nodownload"
               style={{
