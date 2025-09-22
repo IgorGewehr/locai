@@ -54,8 +54,10 @@ import {
   CheckCircle,
   Block,
   Schedule,
+  CloudUpload,
 } from '@mui/icons-material';
 import type { Property } from '@/lib/types/property';
+import PropertyImportDialog from '@/components/organisms/PropertyImport/PropertyImportDialog';
 
 // Disable static generation for this page
 export const dynamic = 'force-dynamic';
@@ -78,6 +80,7 @@ export default function PropertiesPage() {
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [selectedProperty, setSelectedProperty] = useState<Property | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [importDialogOpen, setImportDialogOpen] = useState(false);
   const { services, isReady } = useTenant();
 
   // Create local SVG placeholder for property images
@@ -186,6 +189,19 @@ export default function PropertiesPage() {
     }
   };
 
+  const handleImportSuccess = async (result: any) => {
+    // Reload properties after successful import
+    if (services && isReady) {
+      try {
+        const propertiesData = await services.properties.getAll();
+        setProperties(propertiesData);
+      } catch (error) {
+        // Property loading error handled
+      }
+    }
+    setImportDialogOpen(false);
+  };
+
   // Removed getStatusChip function as status field doesn't exist in current Property interface
 
   return (
@@ -199,25 +215,36 @@ export default function PropertiesPage() {
         mb: { xs: 2, md: 3 },
         gap: { xs: 1.5, md: 2 }
       }}>
-        <Typography 
-          variant="h4" 
-          component="h1" 
+        <Typography
+          variant="h4"
+          component="h1"
           fontWeight="bold"
-          sx={{ 
+          sx={{
             fontSize: { xs: '1.5rem', sm: '1.75rem', md: '2rem' },
             color: 'text.primary'
           }}
         >
           Imóveis
         </Typography>
-        <ModernButton
-          variant="elegant"
-          size="large"
-          icon={<Add />}
-          onClick={() => router.push('/dashboard/properties/create')}
-        >
-          Novo Imóvel
-        </ModernButton>
+        <Box sx={{ display: 'flex', gap: { xs: 1, md: 2 }, flexDirection: { xs: 'column', sm: 'row' } }}>
+          <ModernButton
+            variant="outlined"
+            size="large"
+            icon={<CloudUpload />}
+            onClick={() => setImportDialogOpen(true)}
+            sx={{ minWidth: { xs: 'auto', sm: '160px' } }}
+          >
+            Importar
+          </ModernButton>
+          <ModernButton
+            variant="elegant"
+            size="large"
+            icon={<Add />}
+            onClick={() => router.push('/dashboard/properties/create')}
+          >
+            Novo Imóvel
+          </ModernButton>
+        </Box>
       </Box>
 
       {/* Filters */}
@@ -614,6 +641,13 @@ export default function PropertiesPage() {
           </Button>
         </DialogActions>
       </Dialog>
+
+      {/* Property Import Dialog */}
+      <PropertyImportDialog
+        open={importDialogOpen}
+        onClose={() => setImportDialogOpen(false)}
+        onSuccess={handleImportSuccess}
+      />
 
       {/* Floating Action Button */}
       <ModernFAB
