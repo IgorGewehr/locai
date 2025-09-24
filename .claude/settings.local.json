@@ -81,7 +81,8 @@
       "Read(/tmp/**)",
       "Bash(dos2unix:*)",
       "Bash(npx react-native:*)",
-      "Bash(npx @react-native-community/cli:*)"
+      "Bash(npx @react-native-community/cli:*)",
+      "Bash(PORT=3001 npm run dev)"
     ],
     "deny": [],
     "defaultMode": "acceptEdits",

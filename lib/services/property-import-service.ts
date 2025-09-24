@@ -46,7 +46,7 @@ export class PropertyImportService {
   private tenantServices: ReturnType<typeof TenantServiceFactory>;
 
   constructor(private tenantId: string) {
-    this.tenantServices = TenantServiceFactory(tenantId);
+    this.tenantServices = new TenantServiceFactory(tenantId);
     this.mediaService = new MediaProcessingService({
       tenantId,
       maxFileSize: 50, // 50MB
@@ -96,11 +96,14 @@ export class PropertyImportService {
 
       await this.validateImportData(importData, progress);
 
-      if (progress.errors.length > 0) {
-        result.message = `Validation failed with ${progress.errors.length} errors`;
-        progress.stage = 'failed';
-        onProgress?.(progress);
-        return result;
+      // Continue even with validation errors - try to import valid properties
+      const validationErrorCount = progress.errors.length;
+      if (validationErrorCount > 0) {
+        logger.warn('⚠️ [PropertyImport] Validation errors found, continuing with valid properties', {
+          importId,
+          errorCount: validationErrorCount,
+          totalProperties: importData.properties.length
+        });
       }
 
       // Stage 2: Process each property
@@ -113,25 +116,58 @@ export class PropertyImportService {
         onProgress?.(progress);
 
         try {
+          // Skip property if it has validation errors
+          const hasValidationErrors = progress.errors.some(
+            error => error.propertyIndex === i && error.type === 'validation'
+          );
+
+          if (hasValidationErrors) {
+            progress.failed++;
+            result.skippedProperties.push(`${propertyData.title} (validation error)`);
+            logger.warn('⚠️ [PropertyImport] Skipping property due to validation errors', {
+              importId,
+              propertyIndex: i,
+              propertyTitle: propertyData.title
+            });
+            continue;
+          }
+
           await this.processProperty(propertyData, importData.settings, progress, i);
           progress.completed++;
           result.createdProperties.push(propertyData.title);
+
+          logger.debug('✅ [PropertyImport] Property processed successfully', {
+            importId,
+            propertyIndex: i,
+            propertyTitle: propertyData.title,
+            completed: progress.completed,
+            total: progress.total
+          });
+
         } catch (error) {
           progress.failed++;
+          const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+
           progress.errors.push({
             propertyIndex: i,
             propertyTitle: propertyData.title,
-            message: error instanceof Error ? error.message : 'Unknown error',
+            message: errorMessage,
             type: 'database'
           });
+
+          result.skippedProperties.push(`${propertyData.title} (${errorMessage})`);
+
           logger.error('❌ [PropertyImport] Failed to process property', {
             importId,
             propertyIndex: i,
             propertyTitle: propertyData.title,
-            error: error instanceof Error ? error.message : 'Unknown error',
+            error: errorMessage,
             tenantId: this.tenantId
           });
         }
+
+        // Update progress after each property
+        onProgress?.(progress);
       }
 
       // Stage 3: Complete
@@ -140,7 +176,15 @@ export class PropertyImportService {
       onProgress?.(progress);
 
       result.success = progress.completed > 0;
-      result.message = `Import completed: ${progress.completed} created, ${progress.failed} failed`;
+
+      if (progress.completed === 0) {
+        result.message = `Import failed: No properties could be imported. ${progress.failed} failed, ${result.skippedProperties.length} skipped.`;
+        progress.stage = 'failed';
+      } else if (progress.failed > 0 || result.skippedProperties.length > 0) {
+        result.message = `Import partially completed: ${progress.completed} created, ${progress.failed} failed, ${result.skippedProperties.length} skipped.`;
+      } else {
+        result.message = `Import completed successfully: ${progress.completed} properties created.`;
+      }
 
       logger.info('✅ [PropertyImport] Bulk import completed', {
         importId,
@@ -181,21 +225,25 @@ export class PropertyImportService {
     } catch (error: any) {
       if (error.inner) {
         for (const validationError of error.inner) {
+          const propertyIndex = this.extractPropertyIndex(validationError.path);
           progress.errors.push({
-            propertyIndex: -1,
+            propertyIndex: propertyIndex ?? -1,
             field: validationError.path,
-            message: validationError.message,
+            message: this.getUserFriendlyValidationMessage(validationError.message),
             type: 'validation'
           });
         }
       } else {
         progress.errors.push({
           propertyIndex: -1,
-          message: error.message || 'Validation failed',
+          message: this.getUserFriendlyValidationMessage(error.message) || 'Validation failed',
           type: 'validation'
         });
       }
     }
+
+    // Additional individual property validation
+    await this.validateIndividualProperties(importData.properties, progress);
 
     // Check for duplicates if enabled
     if (importData.settings?.skipDuplicates) {
@@ -210,7 +258,7 @@ export class PropertyImportService {
     properties: PropertyImportData[],
     progress: ImportProgress
   ): Promise<void> {
-    const existingProperties = await this.tenantServices.propertyService.getAll();
+    const existingProperties = await this.tenantServices.properties.getAll();
 
     for (let i = 0; i < properties.length; i++) {
       const propertyData = properties[i];
@@ -268,57 +316,146 @@ export class PropertyImportService {
     if (settings?.downloadMedia && (propertyData.photos?.length || propertyData.videos?.length)) {
       const tempPropertyId = `import_${Date.now()}_${index}`;
 
-      // Process photos
-      if (propertyData.photos?.length) {
-        const photoResults = await this.mediaService.processMediaUrls(
-          propertyData.photos,
-          'photo',
-          tempPropertyId
-        );
-        processedPhotos = photoResults
-          .filter(r => r.success && r.newUrl)
-          .map(r => r.newUrl!);
+      try {
+        // Process photos with error tolerance
+        if (propertyData.photos?.length) {
+          try {
+            const photoResults = await Promise.allSettled(
+              propertyData.photos.map(async (photo, photoIndex) => {
+                try {
+                  const result = await this.mediaService.processMediaUrls([photo], 'photo', tempPropertyId);
+                  return { result: result[0], photoIndex };
+                } catch (error) {
+                  logger.warn('⚠️ [PropertyImport] Photo processing failed', {
+                    propertyIndex: index,
+                    photoIndex,
+                    photoUrl: photo,
+                    error: error instanceof Error ? error.message : 'Unknown error'
+                  });
+                  return { result: { success: false, error: error instanceof Error ? error.message : 'Unknown error' }, photoIndex };
+                }
+              })
+            );
 
-        // Log any media processing errors
-        photoResults
-          .filter(r => !r.success)
-          .forEach(r => {
-            progress.errors.push({
-              propertyIndex: index,
-              propertyTitle: propertyData.title,
-              message: `Photo processing failed: ${r.error}`,
-              type: 'media'
+            photoResults.forEach((promiseResult, photoIndex) => {
+              if (promiseResult.status === 'fulfilled') {
+                const { result } = promiseResult.value;
+                if (result.success && result.newUrl) {
+                  processedPhotos.push(result.newUrl);
+                } else {
+                  progress.errors.push({
+                    propertyIndex: index,
+                    propertyTitle: propertyData.title,
+                    message: `Foto ${photoIndex + 1}: ${result.error || 'Falha no processamento'}`,
+                    type: 'media'
+                  });
+                }
+              } else {
+                progress.errors.push({
+                  propertyIndex: index,
+                  propertyTitle: propertyData.title,
+                  message: `Foto ${photoIndex + 1}: ${promiseResult.reason}`,
+                  type: 'media'
+                });
+              }
             });
-          });
-      }
-
-      // Process videos
-      if (propertyData.videos?.length) {
-        const videoResults = await this.mediaService.processMediaUrls(
-          propertyData.videos,
-          'video',
-          tempPropertyId
-        );
-        processedVideos = videoResults
-          .filter(r => r.success && r.newUrl)
-          .map(r => r.newUrl!);
-
-        // Log any media processing errors
-        videoResults
-          .filter(r => !r.success)
-          .forEach(r => {
-            progress.errors.push({
+          } catch (error) {
+            logger.error('💥 [PropertyImport] Photo processing batch failed', {
               propertyIndex: index,
-              propertyTitle: propertyData.title,
-              message: `Video processing failed: ${r.error}`,
-              type: 'media'
+              error: error instanceof Error ? error.message : 'Unknown error'
             });
-          });
+            // Fallback to original URLs
+            processedPhotos = propertyData.photos.filter(this.isValidUrl);
+          }
+        }
+
+        // Process videos with error tolerance
+        if (propertyData.videos?.length) {
+          try {
+            const videoResults = await Promise.allSettled(
+              propertyData.videos.map(async (video, videoIndex) => {
+                try {
+                  const result = await this.mediaService.processMediaUrls([video], 'video', tempPropertyId);
+                  return { result: result[0], videoIndex };
+                } catch (error) {
+                  logger.warn('⚠️ [PropertyImport] Video processing failed', {
+                    propertyIndex: index,
+                    videoIndex,
+                    videoUrl: video,
+                    error: error instanceof Error ? error.message : 'Unknown error'
+                  });
+                  return { result: { success: false, error: error instanceof Error ? error.message : 'Unknown error' }, videoIndex };
+                }
+              })
+            );
+
+            videoResults.forEach((promiseResult, videoIndex) => {
+              if (promiseResult.status === 'fulfilled') {
+                const { result } = promiseResult.value;
+                if (result.success && result.newUrl) {
+                  processedVideos.push(result.newUrl);
+                } else {
+                  progress.errors.push({
+                    propertyIndex: index,
+                    propertyTitle: propertyData.title,
+                    message: `Vídeo ${videoIndex + 1}: ${result.error || 'Falha no processamento'}`,
+                    type: 'media'
+                  });
+                }
+              } else {
+                progress.errors.push({
+                  propertyIndex: index,
+                  propertyTitle: propertyData.title,
+                  message: `Vídeo ${videoIndex + 1}: ${promiseResult.reason}`,
+                  type: 'media'
+                });
+              }
+            });
+          } catch (error) {
+            logger.error('💥 [PropertyImport] Video processing batch failed', {
+              propertyIndex: index,
+              error: error instanceof Error ? error.message : 'Unknown error'
+            });
+            // Fallback to original URLs
+            processedVideos = propertyData.videos.filter(this.isValidUrl);
+          }
+        }
+      } catch (error) {
+        logger.error('💥 [PropertyImport] Media processing completely failed', {
+          propertyIndex: index,
+          error: error instanceof Error ? error.message : 'Unknown error'
+        });
+        // Fallback to original URLs if they're valid
+        processedPhotos = (propertyData.photos || []).filter(this.isValidUrl);
+        processedVideos = (propertyData.videos || []).filter(this.isValidUrl);
       }
     } else {
-      // Use original URLs if media processing is disabled
-      processedPhotos = propertyData.photos || [];
-      processedVideos = propertyData.videos || [];
+      // Use original URLs if media processing is disabled, but validate them first
+      processedPhotos = (propertyData.photos || []).filter(this.isValidUrl);
+      processedVideos = (propertyData.videos || []).filter(this.isValidUrl);
+
+      // Log invalid URLs
+      (propertyData.photos || []).forEach((photo, index) => {
+        if (!this.isValidUrl(photo)) {
+          progress.errors.push({
+            propertyIndex: index,
+            propertyTitle: propertyData.title,
+            message: `Foto ${index + 1}: URL inválida - ${photo}`,
+            type: 'media'
+          });
+        }
+      });
+
+      (propertyData.videos || []).forEach((video, index) => {
+        if (!this.isValidUrl(video)) {
+          progress.errors.push({
+            propertyIndex: index,
+            propertyTitle: propertyData.title,
+            message: `Vídeo ${index + 1}: URL inválida - ${video}`,
+            type: 'media'
+          });
+        }
+      });
     }
 
     // Convert import data to Property model
@@ -362,7 +499,7 @@ export class PropertyImportService {
     } as any;
 
     // Save to database
-    await this.tenantServices.propertyService.create(property);
+    await this.tenantServices.properties.create(property);
 
     logger.debug('✅ [PropertyImport] Property saved successfully', {
       propertyIndex: index,
@@ -374,7 +511,118 @@ export class PropertyImportService {
   }
 
   /**
-   * Validate import file format (JSON)
+   * Extract property index from validation error path
+   */
+  private extractPropertyIndex(path?: string): number | null {
+    if (!path) return null;
+    const match = path.match(/properties\[(\d+)\]/);
+    return match ? parseInt(match[1], 10) : null;
+  }
+
+  /**
+   * Convert technical validation messages to user-friendly ones
+   */
+  private getUserFriendlyValidationMessage(message: string): string {
+    const friendlyMessages: Record<string, string> = {
+      'is a required field': 'é obrigatório',
+      'must be a valid email': 'deve ser um email válido',
+      'must be a number': 'deve ser um número',
+      'must be a string': 'deve ser um texto',
+      'must be a boolean': 'deve ser verdadeiro ou falso',
+      'must be at least': 'deve ser pelo menos',
+      'must be at most': 'deve ser no máximo',
+      'must be positive': 'deve ser um número positivo',
+      'must be an array': 'deve ser uma lista',
+      'Invalid URL': 'URL inválida'
+    };
+
+    let friendlyMessage = message;
+    Object.entries(friendlyMessages).forEach(([key, value]) => {
+      friendlyMessage = friendlyMessage.replace(new RegExp(key, 'gi'), value);
+    });
+
+    return friendlyMessage;
+  }
+
+  /**
+   * Validate individual properties for common issues
+   */
+  private async validateIndividualProperties(
+    properties: PropertyImportData[],
+    progress: ImportProgress
+  ): Promise<void> {
+    for (let i = 0; i < properties.length; i++) {
+      const property = properties[i];
+      const errors: string[] = [];
+
+      // Required fields validation
+      if (!property.title?.trim()) {
+        errors.push('Título é obrigatório');
+      }
+      if (!property.address?.trim()) {
+        errors.push('Endereço é obrigatório');
+      }
+      if (!property.city?.trim()) {
+        errors.push('Cidade é obrigatória');
+      }
+
+      // Numeric validations
+      if (property.basePrice <= 0) {
+        errors.push('Preço base deve ser maior que zero');
+      }
+      if (property.bedrooms < 0) {
+        errors.push('Número de quartos deve ser positivo');
+      }
+      if (property.bathrooms < 0) {
+        errors.push('Número de banheiros deve ser positivo');
+      }
+      if (property.maxGuests <= 0) {
+        errors.push('Número máximo de hóspedes deve ser maior que zero');
+      }
+
+      // URL validation for photos and videos
+      if (property.photos) {
+        property.photos.forEach((photo, photoIndex) => {
+          if (photo && !this.isValidUrl(photo)) {
+            errors.push(`Foto ${photoIndex + 1}: URL inválida`);
+          }
+        });
+      }
+
+      if (property.videos) {
+        property.videos.forEach((video, videoIndex) => {
+          if (video && !this.isValidUrl(video)) {
+            errors.push(`Vídeo ${videoIndex + 1}: URL inválida`);
+          }
+        });
+      }
+
+      // Add errors for this property
+      errors.forEach(error => {
+        progress.errors.push({
+          propertyIndex: i,
+          propertyTitle: property.title,
+          message: error,
+          type: 'validation'
+        });
+      });
+    }
+  }
+
+  /**
+   * Validate URL format
+   */
+  private isValidUrl(url: string): boolean {
+    try {
+      new URL(url);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  /**
+   * Validate import file format (JSON) with improved error handling
    */
   static async validateImportFile(fileContent: string): Promise<{
     valid: boolean;
@@ -384,22 +632,76 @@ export class PropertyImportService {
     const errors: string[] = [];
 
     try {
-      // Parse JSON
-      const data = JSON.parse(fileContent);
+      // Check if content looks like HTML (common error when getting HTML instead of JSON)
+      if (fileContent.trim().startsWith('<!DOCTYPE') || fileContent.trim().startsWith('<html')) {
+        errors.push('O arquivo parece ser HTML, não JSON. Verifique se você está enviando o arquivo correto.');
+        return { valid: false, errors };
+      }
+
+      // Check if content is empty
+      if (!fileContent.trim()) {
+        errors.push('O arquivo está vazio.');
+        return { valid: false, errors };
+      }
+
+      // Parse JSON with better error handling
+      let data;
+      try {
+        data = JSON.parse(fileContent);
+      } catch (parseError) {
+        if (parseError instanceof SyntaxError) {
+          const message = parseError.message;
+          if (message.includes('Unexpected token')) {
+            errors.push(`Erro de sintaxe JSON: ${message}. Verifique se o arquivo JSON está bem formatado.`);
+          } else {
+            errors.push(`Formato JSON inválido: ${message}`);
+          }
+        } else {
+          errors.push('Não foi possível interpretar o arquivo como JSON.');
+        }
+        return { valid: false, errors };
+      }
+
+      // Check if data is an object
+      if (!data || typeof data !== 'object') {
+        errors.push('O arquivo JSON deve conter um objeto válido.');
+        return { valid: false, errors };
+      }
+
+      // Check for required top-level properties
+      if (!data.properties || !Array.isArray(data.properties)) {
+        errors.push('O arquivo deve conter um array "properties" com as propriedades a serem importadas.');
+        return { valid: false, errors };
+      }
+
+      if (data.properties.length === 0) {
+        errors.push('O array "properties" está vazio. Adicione pelo menos uma propriedade.');
+        return { valid: false, errors };
+      }
 
       // Validate against schema
-      await bulkImportSchema.validate(data, { abortEarly: false });
+      try {
+        await bulkImportSchema.validate(data, { abortEarly: false });
+      } catch (validationError: any) {
+        if (validationError.inner) {
+          errors.push(...validationError.inner.map((e: any) => {
+            const field = e.path || 'campo desconhecido';
+            const message = e.message || 'erro de validação';
+            return `${field}: ${message}`;
+          }));
+        } else {
+          errors.push(validationError.message || 'Erro de validação desconhecido');
+        }
+      }
+
+      // If we have validation errors, return them
+      if (errors.length > 0) {
+        return { valid: false, errors };
+      }
 
       return { valid: true, data, errors };
     } catch (error: any) {
-      if (error instanceof SyntaxError) {
-        errors.push('Invalid JSON format');
-      } else if (error.inner) {
-        errors.push(...error.inner.map((e: any) => e.message));
-      } else {
-        errors.push(error.message || 'Unknown validation error');
-      }
-
+      errors.push(`Erro inesperado ao processar o arquivo: ${error.message || 'erro desconhecido'}`);
       return { valid: false, errors };
     }
   }
