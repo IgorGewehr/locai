@@ -85,6 +85,8 @@ import TaskDialog from './components/TaskDialog';
 import KanbanBoard from './components/KanbanBoard';
 import CRMStats from './components/CRMStats';
 import AIInsights from './components/AIInsights';
+import AdvancedAnalytics from './components/AdvancedAnalytics';
+import LeadPerformanceTracker from './components/LeadPerformanceTracker';
 
 const statusColumns = [
   { id: LeadStatus.NEW, title: 'Novos Leads', color: '#1976d2' },
@@ -100,7 +102,7 @@ export default function CRMPage() {
   const services = useTenantServices();
   const { isReady } = useTenant();
   const router = useRouter();
-  const [view, setView] = useState<'pipeline' | 'list' | 'clients' | 'analytics'>('pipeline');
+  const [view, setView] = useState<'pipeline' | 'list' | 'clients' | 'analytics' | 'advanced-analytics' | 'performance'>('pipeline');
   const [leads, setLeads] = useState<Record<LeadStatus, Lead[]>>({
     [LeadStatus.NEW]: [],
     [LeadStatus.CONTACTED]: [],
@@ -619,11 +621,23 @@ export default function CRMPage() {
             icon={<Groups />} 
             iconPosition="start" 
           />
-          <Tab 
-            label="Insights IA" 
-            value="analytics" 
-            icon={<AutoAwesome />} 
-            iconPosition="start" 
+          <Tab
+            label="Insights IA"
+            value="analytics"
+            icon={<AutoAwesome />}
+            iconPosition="start"
+          />
+          <Tab
+            label="Analytics Avançado"
+            value="advanced-analytics"
+            icon={<Analytics />}
+            iconPosition="start"
+          />
+          <Tab
+            label="Performance"
+            value="performance"
+            icon={<TrendingUp />}
+            iconPosition="start"
           />
         </Tabs>
       </Box>
@@ -780,6 +794,21 @@ export default function CRMPage() {
           leads={Object.values(leads).flat()}
           onActionClick={(lead, action) => handleQuickAction(lead, action)}
           onRefresh={() => loadLeads()}
+        />
+      )}
+
+      {view === 'advanced-analytics' && (
+        <AdvancedAnalytics
+          leads={Object.values(leads).flat()}
+          onRefresh={() => loadLeads()}
+        />
+      )}
+
+      {view === 'performance' && (
+        <LeadPerformanceTracker
+          leads={Object.values(leads).flat()}
+          onLeadClick={handleLeadClick}
+          onQuickAction={handleQuickAction}
         />
       )}
 

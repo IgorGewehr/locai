@@ -4629,31 +4629,107 @@ export async function createLead(args: CreateLeadArgs, tenantId: string): Promis
       source: args.source || 'whatsapp_ai'
     });
 
+    // Validar campos obrigatórios
+    if (!args.phone) {
+      logger.warn('⚠️ [CRM] Phone é obrigatório para criar lead', {
+        tenantId,
+        args: Object.keys(args)
+      });
+
+      return {
+        success: false,
+        error: 'Phone é obrigatório para criar lead',
+        tenantId
+      };
+    }
+
     const serviceFactory = new TenantServiceFactory(tenantId);
     const leadService = serviceFactory.leads;
-    
+
     // Verificar se lead já existe com este telefone
     const existingLeads = await leadService.getMany([
       { field: 'phone', operator: '==', value: args.phone }
     ]);
 
     if (existingLeads.length > 0) {
-      logger.info('🔄 [CRM] Lead já existe, retornando existente', {
+      const existingLead = existingLeads[0];
+
+      logger.info('🔄 [CRM] Lead já existe, atualizando informações', {
         tenantId,
         phone: args.phone,
-        existingLeadId: existingLeads[0].id
+        existingLeadId: existingLead.id,
+        updateFields: Object.keys(args).filter(key => key !== 'phone' && args[key])
       });
+
+      // Atualizar lead existente com novas informações
+      const updates: Partial<Lead> = {
+        updatedAt: new Date(),
+        totalInteractions: (existingLead.totalInteractions || 0) + 1,
+        lastContactDate: new Date()
+      };
+
+      // Atualizar campos se fornecidos
+      if (args.name && args.name !== 'Lead WhatsApp') {
+        updates.name = args.name;
+      }
+      if (args.email) {
+        updates.email = args.email;
+      }
+      if (args.source && args.source !== 'whatsapp_ai') {
+        updates.source = args.source;
+      }
+      if (args.initialMessage) {
+        updates.notes = existingLead.notes
+          ? `${existingLead.notes}\n\n[${new Date().toLocaleString('pt-BR')}] ${args.initialMessage}`
+          : args.initialMessage;
+      }
+
+      // Merge preferences se fornecidas
+      if (args.preferences) {
+        updates.preferences = {
+          ...existingLead.preferences,
+          ...args.preferences
+        };
+      }
+
+      // Merge qualification criteria se fornecido
+      if (args.qualificationCriteria) {
+        updates.qualificationCriteria = {
+          ...existingLead.qualificationCriteria,
+          ...args.qualificationCriteria
+        };
+      }
+
+      // Atualizar score se fornecido e for maior que o atual
+      if (args.score && args.score > existingLead.score) {
+        updates.score = args.score;
+      }
+
+      // Atualizar temperature se fornecida e for "mais quente"
+      if (args.temperature) {
+        const tempOrder = { cold: 1, warm: 2, hot: 3 };
+        const currentTemp = tempOrder[existingLead.temperature] || 1;
+        const newTemp = tempOrder[args.temperature] || 1;
+
+        if (newTemp >= currentTemp) {
+          updates.temperature = args.temperature;
+        }
+      }
+
+      await leadService.update(existingLead.id, updates);
+      const updatedLead = { ...existingLead, ...updates };
 
       return {
         success: true,
-        message: 'Lead já existe no sistema',
-        lead: existingLeads[0],
-        action: 'found_existing',
+        message: 'Lead existente atualizado com novas informações',
+        lead: updatedLead,
+        action: 'updated_existing',
+        updatedFields: Object.keys(updates),
         tenantId
       };
     }
 
-    // Criar novo lead
+    // Criar novo lead com informações mínimas
     const now = new Date();
     const newLead: Partial<Lead> = {
       tenantId,

@@ -382,86 +382,131 @@ export default function AIInsights({ leads, onActionClick, onRefresh }: AIInsigh
   return (
     <Box>
       {/* Header */}
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
+      <Box sx={{
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        mb: 4,
+        p: 4,
+        background: 'rgba(255, 255, 255, 0.08)',
+        backdropFilter: 'blur(20px)',
+        border: '1px solid rgba(255, 255, 255, 0.15)',
+        borderRadius: '24px',
+      }}>
         <Box>
-          <Typography variant="h5" fontWeight={600}>
-            Insights de IA
+          <Typography variant="h4" fontWeight="700" sx={{
+            background: 'linear-gradient(135deg, #a855f7 0%, #ec4899 100%)',
+            WebkitBackgroundClip: 'text',
+            WebkitTextFillColor: 'transparent',
+            backgroundClip: 'text',
+            mb: 1,
+          }}>
+            🤖 Insights de IA
           </Typography>
-          <Typography variant="body2" color="text.secondary">
-            Análise preditiva e recomendações inteligentes
+          <Typography variant="body1" color="rgba(255, 255, 255, 0.8)">
+            Análise preditiva e recomendações inteligentes para otimizar conversões
           </Typography>
         </Box>
         <Tooltip title="Atualizar análise">
           <span>
-            <IconButton onClick={onRefresh} disabled={loading}>
-              <Refresh />
+            <IconButton
+              onClick={onRefresh}
+              disabled={loading}
+              sx={{
+                background: 'rgba(255, 255, 255, 0.08)',
+                border: '1px solid rgba(255, 255, 255, 0.15)',
+                borderRadius: '16px',
+                color: 'white',
+                width: 56,
+                height: 56,
+                '&:hover': {
+                  background: 'rgba(255, 255, 255, 0.12)',
+                  transform: 'scale(1.05)',
+                }
+              }}
+            >
+              <Refresh fontSize="large" />
             </IconButton>
           </span>
         </Tooltip>
       </Box>
 
       {/* Performance Metrics */}
-      <Grid container spacing={2} sx={{ mb: 3 }}>
-        <Grid item xs={12} sm={6} md={3}>
-          <Card>
-            <CardContent>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <TrendingUp color="success" />
-                <Typography variant="h4" fontWeight={600}>
-                  {performanceMetrics.conversionRate.toFixed(1)}%
+      <Grid container spacing={3} sx={{ mb: 4 }}>
+        {[
+          {
+            title: 'Taxa de Conversão',
+            value: `${performanceMetrics.conversionRate.toFixed(1)}%`,
+            icon: <TrendingUp />,
+            color: '#10b981',
+            gradient: 'linear-gradient(135deg, #10b981 0%, #059669 100%)',
+            shadowColor: 'rgba(16, 185, 129, 0.4)',
+          },
+          {
+            title: 'Dias para Fechar',
+            value: performanceMetrics.averageTimeToClose,
+            icon: <Timer />,
+            color: '#06b6d4',
+            gradient: 'linear-gradient(135deg, #06b6d4 0%, #0891b2 100%)',
+            shadowColor: 'rgba(6, 182, 212, 0.4)',
+          },
+          {
+            title: 'Valor do Pipeline',
+            value: formatCurrency(performanceMetrics.totalPipelineValue),
+            icon: <AttachMoney />,
+            color: '#6366f1',
+            gradient: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)',
+            shadowColor: 'rgba(99, 102, 241, 0.4)',
+          },
+          {
+            title: 'Leads Quentes',
+            value: performanceMetrics.hotLeadsCount,
+            icon: <LocalOffer />,
+            color: '#ef4444',
+            gradient: 'linear-gradient(135deg, #ef4444 0%, #f97316 100%)',
+            shadowColor: 'rgba(239, 68, 68, 0.4)',
+          },
+        ].map((metric, index) => (
+          <Grid item xs={12} sm={6} lg={3} key={index}>
+            <Card sx={{
+              background: 'rgba(255, 255, 255, 0.08)',
+              backdropFilter: 'blur(20px)',
+              border: '1px solid rgba(255, 255, 255, 0.15)',
+              borderRadius: '20px',
+              transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+              '&:hover': {
+                transform: 'translateY(-8px)',
+                boxShadow: `0 20px 60px ${metric.shadowColor}`,
+              }
+            }}>
+              <CardContent sx={{ p: 3 }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
+                  <Box
+                    sx={{
+                      width: 56,
+                      height: 56,
+                      borderRadius: '18px',
+                      background: metric.gradient,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      color: 'white',
+                      boxShadow: `0 8px 24px ${metric.shadowColor}`,
+                    }}
+                  >
+                    {React.cloneElement(metric.icon, { fontSize: 'large' })}
+                  </Box>
+                </Box>
+                <Typography variant="h4" fontWeight="800" color="white" sx={{ mb: 1 }}>
+                  {metric.value}
                 </Typography>
-              </Box>
-              <Typography variant="body2" color="text.secondary">
-                Taxa de Conversão
-              </Typography>
-            </CardContent>
-          </Card>
-        </Grid>
-        <Grid item xs={12} sm={6} md={3}>
-          <Card>
-            <CardContent>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <Timer color="info" />
-                <Typography variant="h4" fontWeight={600}>
-                  {performanceMetrics.averageTimeToClose}
+                <Typography variant="body1" color="rgba(255, 255, 255, 0.7)">
+                  {metric.title}
                 </Typography>
-              </Box>
-              <Typography variant="body2" color="text.secondary">
-                Dias para Fechar
-              </Typography>
-            </CardContent>
-          </Card>
-        </Grid>
-        <Grid item xs={12} sm={6} md={3}>
-          <Card>
-            <CardContent>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <AttachMoney color="primary" />
-                <Typography variant="h4" fontWeight={600}>
-                  {formatCurrency(performanceMetrics.totalPipelineValue)}
-                </Typography>
-              </Box>
-              <Typography variant="body2" color="text.secondary">
-                Valor do Pipeline
-              </Typography>
-            </CardContent>
-          </Card>
-        </Grid>
-        <Grid item xs={12} sm={6} md={3}>
-          <Card>
-            <CardContent>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <LocalOffer color="error" />
-                <Typography variant="h4" fontWeight={600}>
-                  {performanceMetrics.hotLeadsCount}
-                </Typography>
-              </Box>
-              <Typography variant="body2" color="text.secondary">
-                Leads Quentes
-              </Typography>
-            </CardContent>
-          </Card>
-        </Grid>
+              </CardContent>
+            </Card>
+          </Grid>
+        ))}
       </Grid>
 
       <Grid container spacing={3}>
