@@ -32,7 +32,8 @@ import { collection, query, where, getDocs, Timestamp } from 'firebase/firestore
 import MiniSiteWidget from '@/components/organisms/marketing/MiniSiteWidget';
 import MiniSiteWidgetFullWidth from '@/components/organisms/marketing/MiniSiteWidgetFullWidth';
 import AgendaCard from '@/components/organisms/dashboards/AgendaCard';
-import CRMCard from '@/components/organisms/dashboards/CRMCard';
+import MetricsCard from '@/components/organisms/dashboards/MetricsCard';
+import SofiaCard from '@/components/organisms/dashboards/SofiaCard';
 import CreateVisitDialog from './agenda/components/CreateVisitDialog';
 
 const initialStats: DashboardStats = {
@@ -478,180 +479,11 @@ export default function DashboardPage() {
         </Grid>
         
         <Grid item xs={12} lg={4}>
-          <CRMCard />
+          <MetricsCard />
         </Grid>
         
         <Grid item xs={12} lg={4}>
-          <Card 
-            sx={{ 
-              height: { xs: 'auto', lg: 400 },
-              minHeight: 350,
-              background: 'rgba(255, 255, 255, 0.08)',
-              backdropFilter: 'blur(20px)',
-              border: '1px solid rgba(255, 255, 255, 0.15)',
-              borderRadius: '20px',
-              transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-              position: 'relative',
-              overflow: 'hidden',
-              '&:hover': {
-                transform: 'translateY(-4px)',
-                boxShadow: '0 16px 50px rgba(0, 0, 0, 0.4)',
-              },
-              '&::before': {
-                content: '""',
-                position: 'absolute',
-                top: 0,
-                left: 0,
-                right: 0,
-                height: '4px',
-                background: 'linear-gradient(135deg, #10b981, #059669)',
-              }
-            }}
-          >
-            <CardContent sx={{ p: 4, height: '100%', display: 'flex', flexDirection: 'column' }}>
-              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 3 }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                  <Box
-                    sx={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      width: 56,
-                      height: 56,
-                      borderRadius: '14px',
-                      background: 'linear-gradient(135deg, #10b981, #059669)',
-                      color: 'white',
-                      boxShadow: '0 8px 24px rgba(16, 185, 129, 0.4)',
-                    }}
-                  >
-                    <WhatsApp sx={{ fontSize: 28 }} />
-                  </Box>
-                  <Box>
-                    <Typography variant="h6" fontWeight={700} sx={{ color: '#ffffff', mb: 0.5 }}>
-                      WhatsApp AI
-                    </Typography>
-                    <Typography variant="body2" sx={{ color: 'rgba(255, 255, 255, 0.7)' }}>
-                      Assistente inteligente
-                    </Typography>
-                  </Box>
-                </Box>
-                
-                <Chip
-                  label={whatsappStats.connected ? "Conectado" : "Desconectado"}
-                  icon={whatsappStats.connected ? undefined : undefined}
-                  sx={{
-                    backgroundColor: whatsappStats.connected ? 'rgba(34, 197, 94, 0.2)' : 'rgba(239, 68, 68, 0.2)',
-                    color: whatsappStats.connected ? '#22c55e' : '#ef4444',
-                    border: `1px solid ${whatsappStats.connected ? 'rgba(34, 197, 94, 0.3)' : 'rgba(239, 68, 68, 0.3)'}`,
-                    fontWeight: 600,
-                  }}
-                />
-              </Box>
-
-              <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 2.5 }}>
-                <Box 
-                  sx={{ 
-                    display: 'flex', 
-                    alignItems: 'center', 
-                    justifyContent: 'space-between',
-                    p: 2,
-                    borderRadius: '12px',
-                    background: 'rgba(255, 255, 255, 0.05)',
-                    border: '1px solid rgba(255, 255, 255, 0.1)',
-                    transition: 'all 0.2s',
-                    '&:hover': {
-                      background: 'rgba(255, 255, 255, 0.08)',
-                    }
-                  }}
-                >
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                    <Typography variant="body1" sx={{ color: 'rgba(255, 255, 255, 0.9)' }}>
-                      💬 Mensagens hoje
-                    </Typography>
-                  </Box>
-                  <Typography variant="h6" sx={{ color: '#ffffff', fontWeight: 700 }}>
-                    {loading ? '-' : whatsappStats.messagesTotal}
-                  </Typography>
-                </Box>
-
-                <Box 
-                  sx={{ 
-                    display: 'flex', 
-                    alignItems: 'center', 
-                    justifyContent: 'space-between',
-                    p: 2,
-                    borderRadius: '12px',
-                    background: 'rgba(255, 255, 255, 0.05)',
-                    border: '1px solid rgba(255, 255, 255, 0.1)',
-                    transition: 'all 0.2s',
-                    '&:hover': {
-                      background: 'rgba(255, 255, 255, 0.08)',
-                    }
-                  }}
-                >
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                    <Typography variant="body1" sx={{ color: 'rgba(255, 255, 255, 0.9)' }}>
-                      👥 Conversas ativas
-                    </Typography>
-                  </Box>
-                  <Typography variant="h6" sx={{ color: '#ffffff', fontWeight: 700 }}>
-                    {loading ? '-' : whatsappStats.activeConversations}
-                  </Typography>
-                </Box>
-
-                <Box 
-                  sx={{ 
-                    display: 'flex', 
-                    alignItems: 'center', 
-                    justifyContent: 'space-between',
-                    p: 2,
-                    borderRadius: '12px',
-                    background: 'rgba(255, 255, 255, 0.05)',
-                    border: '1px solid rgba(255, 255, 255, 0.1)',
-                    transition: 'all 0.2s',
-                    '&:hover': {
-                      background: 'rgba(255, 255, 255, 0.08)',
-                    }
-                  }}
-                >
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                    <Typography variant="body1" sx={{ color: 'rgba(255, 255, 255, 0.9)' }}>
-                      ⚡ Tempo de resposta
-                    </Typography>
-                  </Box>
-                  <Typography variant="h6" sx={{ color: '#ffffff', fontWeight: 700 }}>
-                    {loading ? '-' : whatsappStats.avgResponseTime > 0 ? `${(isNaN(whatsappStats.avgResponseTime) ? 0 : whatsappStats.avgResponseTime).toFixed(1)}s` : 'N/A'}
-                  </Typography>
-                </Box>
-              </Box>
-
-              {whatsappStats.connected && (
-                <>
-                  <Divider sx={{ borderColor: 'rgba(255, 255, 255, 0.1)', my: 3 }} />
-                  <Box sx={{ display: 'flex', gap: 2 }}>
-                    <Button
-                      variant="contained"
-                      startIcon={<WhatsApp />}
-                      href="/dashboard/conversations"
-                      sx={{ 
-                        flex: 1,
-                        background: 'linear-gradient(135deg, #10b981, #059669)',
-                        '&:hover': {
-                          background: 'linear-gradient(135deg, #059669, #047857)',
-                        },
-                        textTransform: 'none',
-                        fontWeight: 600,
-                        py: 1.5,
-                        borderRadius: '12px',
-                      }}
-                    >
-                      Ver Conversas
-                    </Button>
-                  </Box>
-                </>
-              )}
-            </CardContent>
-          </Card>
+          <SofiaCard />
         </Grid>
 
         {/* Third Row - Mini-Site Widget (Full Width) */}
@@ -720,26 +552,26 @@ export default function DashboardPage() {
                   onClick={() => window.location.href = '/dashboard/properties/create'}
                 />
                 <Chip
-                  label={`💬 Conversas (${whatsappStats.activeConversations})`}
+                  label={`🤖 Sofia IA`}
                   clickable
                   sx={{
-                    background: 'rgba(139, 92, 246, 0.2)',
-                    color: '#d8b4fe',
-                    border: '1px solid rgba(139, 92, 246, 0.3)',
+                    background: 'rgba(16, 185, 129, 0.2)',
+                    color: '#6ee7b7',
+                    border: '1px solid rgba(16, 185, 129, 0.3)',
                     fontWeight: 600,
                     fontSize: { xs: '0.875rem', md: '1rem' },
                     height: { xs: 44, md: 48 },
                     px: { xs: 2, md: 3 },
                     minWidth: { xs: 44, md: 48 },
                     '&:hover': {
-                      background: 'rgba(139, 92, 246, 0.3)',
+                      background: 'rgba(16, 185, 129, 0.3)',
                       transform: 'scale(1.05)',
                     },
                     '&:active': {
                       transform: 'scale(0.98)',
                     }
                   }}
-                  onClick={() => window.location.href = '/dashboard/conversations'}
+                  onClick={() => window.location.href = '/dashboard/metricas'}
                 />
                 <Chip
                   label="💰 Financeiro"
@@ -828,6 +660,28 @@ export default function DashboardPage() {
                     }
                   }}
                   onClick={() => window.location.href = '/dashboard/agenda'}
+                />
+                <Chip
+                  label="📊 Métricas"
+                  clickable
+                  sx={{
+                    background: 'rgba(99, 102, 241, 0.2)',
+                    color: '#c7d2fe',
+                    border: '1px solid rgba(99, 102, 241, 0.3)',
+                    fontWeight: 600,
+                    fontSize: { xs: '0.875rem', md: '1rem' },
+                    height: { xs: 44, md: 48 },
+                    px: { xs: 2, md: 3 },
+                    minWidth: { xs: 44, md: 48 },
+                    '&:hover': {
+                      background: 'rgba(99, 102, 241, 0.3)',
+                      transform: 'scale(1.05)',
+                    },
+                    '&:active': {
+                      transform: 'scale(0.98)',
+                    }
+                  }}
+                  onClick={() => window.location.href = '/dashboard/metricas'}
                 />
               </Box>
             </CardContent>

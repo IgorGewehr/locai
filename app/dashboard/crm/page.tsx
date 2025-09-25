@@ -71,7 +71,7 @@ import {
 } from '@mui/icons-material';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import { useRouter } from 'next/navigation';
-import { format } from 'date-fns';
+import { format, isValid, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Lead, LeadStatus, Task, TaskStatus, Interaction } from '@/lib/types/crm';
 import { Client } from '@/lib/types';
@@ -686,7 +686,13 @@ export default function CRMPage() {
             </Box>
             <List>
               {getFilteredLeads()
-                .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
+                .sort((a, b) => {
+                  const dateA = a.updatedAt instanceof Date ? a.updatedAt :
+                    (typeof a.updatedAt === 'string' ? parseISO(a.updatedAt) : new Date());
+                  const dateB = b.updatedAt instanceof Date ? b.updatedAt :
+                    (typeof b.updatedAt === 'string' ? parseISO(b.updatedAt) : new Date());
+                  return (isValid(dateB) ? dateB : new Date()).getTime() - (isValid(dateA) ? dateA : new Date()).getTime();
+                })
                 .map((lead, index) => (
                   <Box key={lead.id}>
                     <ListItemButton onClick={() => handleLeadClick(lead)} sx={{ py: 2 }}>
@@ -728,7 +734,11 @@ export default function CRMPage() {
                             </Typography>
                             <Typography variant="body2" color="text.secondary">
                               🏷️ {lead.source} • 💬 {lead.totalInteractions} interações • 
-                              🕒 {format(new Date(lead.lastContactDate), 'dd/MM/yyyy', { locale: ptBR })}
+                              🕒 {(() => {
+                                const lastContactDate = lead.lastContactDate instanceof Date ? lead.lastContactDate :
+                                  (typeof lead.lastContactDate === 'string' ? parseISO(lead.lastContactDate) : new Date());
+                                return isValid(lastContactDate) ? format(lastContactDate, 'dd/MM/yyyy', { locale: ptBR }) : 'Data inválida';
+                              })()}
                             </Typography>
                             {lead.preferences.priceRange && (
                               <Typography variant="body2" color="text.secondary">

@@ -59,9 +59,9 @@ import {
   Info,
   Error,
 } from '@mui/icons-material';
-import { format, differenceInDays, differenceInHours } from 'date-fns';
+import { format, differenceInDays, differenceInHours, isValid, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { Lead, LeadStatus, LeadTemperature } from '@/lib/types/crm';
+import { Lead, LeadStatus } from '@/lib/types/crm';
 import { LineChart, Line, ResponsiveContainer, Tooltip as RechartsTooltip } from 'recharts';
 
 interface LeadPerformanceTrackerProps {
@@ -116,8 +116,17 @@ export default function LeadPerformanceTracker({
   // Calculate metrics for each lead
   const leadMetrics = useMemo((): LeadMetrics[] => {
     return leads.map(lead => {
-      const daysInPipeline = differenceInDays(new Date(), new Date(lead.createdAt));
-      const hoursInPipeline = differenceInHours(new Date(), new Date(lead.createdAt));
+      // Safely parse dates
+      const createdAt = lead.createdAt instanceof Date ? lead.createdAt :
+        (typeof lead.createdAt === 'string' ? parseISO(lead.createdAt) : new Date());
+      const lastContactDate = lead.lastContactDate instanceof Date ? lead.lastContactDate :
+        (typeof lead.lastContactDate === 'string' ? parseISO(lead.lastContactDate) : new Date());
+
+      const validCreatedAt = isValid(createdAt) ? createdAt : new Date();
+      const validLastContactDate = isValid(lastContactDate) ? lastContactDate : new Date();
+
+      const daysInPipeline = differenceInDays(new Date(), validCreatedAt);
+      const hoursInPipeline = differenceInHours(new Date(), validCreatedAt);
 
       // Simulate score history (in real app, this would come from database)
       const scoreHistory = Array.from({ length: Math.min(7, daysInPipeline + 1) }, (_, i) => ({
@@ -159,7 +168,7 @@ export default function LeadPerformanceTracker({
       conversionProbability = Math.max(0, Math.min(100, conversionProbability));
 
       // Determine next best action
-      const daysSinceLastContact = differenceInDays(new Date(), new Date(lead.lastContactDate));
+      const daysSinceLastContact = differenceInDays(new Date(), validLastContactDate);
       let nextBestAction = 'follow_up';
 
       if (daysSinceLastContact > 7) nextBestAction = 'urgent_follow_up';
@@ -261,7 +270,7 @@ export default function LeadPerformanceTracker({
     }
   };
 
-  const getTemperatureIcon = (temperature: LeadTemperature) => {
+  const getTemperatureIcon = (temperature: 'cold' | 'warm' | 'hot') => {
     switch (temperature) {
       case 'hot':
         return <LocalFireDepartment sx={{ color: '#ef4444', fontSize: 20 }} />;
