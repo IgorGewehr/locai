@@ -10,11 +10,9 @@ export async function POST(request: NextRequest) {
     const {
       tenantId,
       eventType,
-      leadId, // Optional - can be phone number, client ID, or generated ID
+      leadId, // Required - can be phone number, client ID, or generated ID
       sessionId, // Optional - will be generated if not provided
-      messageId,
-      eventData = {},
-      autoTrack = true
+      eventData = {} // Generic object or string - accepts any structure
     } = body;
 
     logger.info('📊 [TRACK-CONVERSATION-METRIC] Iniciando tracking', {
@@ -24,25 +22,26 @@ export async function POST(request: NextRequest) {
         eventType,
         leadId: leadId?.substring(0, 8) + '***' || 'none',
         sessionId: sessionId?.substring(0, 8) + '***' || 'none',
-        hasEventData: !!Object.keys(eventData).length,
-        autoTrack
+        hasEventData: !!(eventData && Object.keys(eventData).length)
       },
       userAgent: request.headers.get('user-agent'),
       source: request.headers.get('x-source') || 'unknown'
     });
 
-    if (!tenantId || !eventType) {
-      logger.warn('⚠️ [TRACK-CONVERSATION-METRIC] Dados obrigatórios não fornecidos', {
+    // Validate only essential fields
+    if (!tenantId || !eventType || !leadId) {
+      logger.warn('⚠️ [TRACK-CONVERSATION-METRIC] Campos obrigatórios faltando', {
         requestId,
         missing: {
           tenantId: !tenantId,
-          eventType: !eventType
+          eventType: !eventType,
+          leadId: !leadId
         }
       });
       return NextResponse.json(
         {
           success: false,
-          error: 'tenantId and eventType are required',
+          error: 'tenantId, eventType and leadId are required',
           requestId
         },
         { status: 400 }
@@ -63,21 +62,36 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Parse eventData if it comes as string (N8N compatibility)
+    let parsedEventData = eventData;
+    if (typeof eventData === 'string') {
+      try {
+        parsedEventData = JSON.parse(eventData);
+      } catch (e) {
+        logger.warn('⚠️ [TRACK-CONVERSATION-METRIC] EventData parsing failed, usando objeto vazio', { requestId });
+        parsedEventData = {}; // Default empty if parsing fails
+      }
+    }
+
     // Generate sessionId if not provided
     const finalSessionId = sessionId || `session_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
+
+    // Enrich eventData with default fields based on type
+    const enrichedEventData = {
+      ...parsedEventData,
+      timestamp: new Date().toISOString(),
+      sessionType: parsedEventData.sessionType || 'sofia_assisted',
+      qualificationMethod: parsedEventData.qualificationMethod || 'sofia_conversation',
+      sofiaTriggered: true,
+      automatedTracking: true
+    };
 
     // Prepare metric data
     const metricData = {
       eventType,
       leadId,
       sessionId: finalSessionId,
-      messageId,
-      eventData: {
-        ...eventData,
-        // Add Sofia context
-        sofiaTriggered: true,
-        automatedTracking: autoTrack
-      },
+      eventData: enrichedEventData,
       source: 'sofia_agent'
     };
 
@@ -102,8 +116,8 @@ export async function POST(request: NextRequest) {
       throw new Error(trackingResult.error || 'Metrics tracking failed');
     }
 
-    // Generate contextual response for Sofia
-    const contextualResponse = generateContextualResponse(eventType, eventData);
+    // Generate simple contextual response
+    const contextualResponse = generateSimpleResponse(eventType, enrichedEventData);
 
     logger.info('✅ [TRACK-CONVERSATION-METRIC] Metric tracked', {
       requestId,
@@ -161,95 +175,52 @@ export async function POST(request: NextRequest) {
   }
 }
 
-// Helper function to generate contextual responses for Sofia (metrics-focused)
-function generateContextualResponse(eventType: string, eventData: any): string | null {
-  switch (eventType) {
-    case 'conversion_step':
-      if (eventData.from && eventData.to) {
-        return `Cliente progrediu de "${eventData.from}" para "${eventData.to}" - métricas atualizadas`;
-      }
-      return 'Progressão de interesse registrada para métricas';
+// Simple helper function to generate contextual responses for Sofia
+function generateSimpleResponse(eventType: string, eventData: any): string {
+  const eventTypeMessages = {
+    'conversion_step': 'Progressão de interesse registrada',
+    'qualification_milestone': 'Marco de qualificação registrado',
+    'message_engagement': 'Engajamento registrado',
+    'conversation_session': 'Sessão de conversa finalizada'
+  };
 
-    case 'qualification_milestone':
-      if (eventData.milestone === 'qualified') {
-        const timeText = eventData.timeToMilestone ?
-          ` em ${Math.round(eventData.timeToMilestone / 60)} minutos` : '';
-        return `Cliente qualificado com sucesso${timeText} - tempo registrado para métricas`;
-      }
-      return `Marco "${eventData.milestone}" registrado para análise de performance`;
+  const baseMessage = eventTypeMessages[eventType as keyof typeof eventTypeMessages] || 'Evento registrado';
 
-    case 'message_engagement':
-      if (eventData.outcome === 'responded') {
-        const responseTime = eventData.responseTime ?
-          ` em ${eventData.responseTime}s` : '';
-        return `Engajamento positivo registrado${responseTime} - taxa de resposta atualizada`;
-      } else if (eventData.outcome === 'no_response') {
-        return 'Falta de resposta registrada - impacta métricas de engajamento';
-      }
-      return 'Interação registrada para análise de engajamento';
-
-    case 'conversation_session':
-      const durationMin = Math.round(eventData.duration / 60);
-      const messageCount = eventData.messageCount || 0;
-      return `Sessão concluída: ${durationMin}min, ${messageCount} mensagens - dados salvos para análise de performance`;
-
-    default:
-      return null;
+  // Add simple contextual information if available
+  const details: string[] = [];
+  if (eventData.duration && !isNaN(eventData.duration)) {
+    const minutes = Math.round(eventData.duration / 60);
+    details.push(`${minutes}min`);
   }
+  if (eventData.responseTime && !isNaN(eventData.responseTime)) {
+    details.push(`${eventData.responseTime}s`);
+  }
+  if (eventData.messageCount && !isNaN(eventData.messageCount)) {
+    details.push(`${eventData.messageCount} msgs`);
+  }
+
+  const detailsText = details.length > 0 ? ` (${details.join(', ')})` : '';
+  return `${baseMessage}${detailsText} - dados salvos para análise`;
 }
 
-// Quick tracking functions for common Sofia scenarios (CRM-free)
-export const SofiaMetrics = {
-  // When Sofia qualifies a client (using phone number as ID)
-  trackQualification: (tenantId: string, clientId: string, timeMinutes: number, messageCount: number) => ({
-    tenantId,
-    eventType: 'qualification_milestone',
-    leadId: clientId, // Can be phone number or any client identifier
-    eventData: {
-      milestone: 'qualified',
-      timeToMilestone: timeMinutes * 60,
-      messageCount,
-      qualificationMethod: 'sofia_conversation'
-    }
-  }),
-
-  // When client shows interest progression (metrics-focused, not CRM pipeline)
-  trackInterestProgression: (tenantId: string, clientId: string, fromLevel: string, toLevel: string, additionalData?: any) => ({
-    tenantId,
-    eventType: 'conversion_step',
-    leadId: clientId,
-    eventData: {
-      from: fromLevel, // e.g., 'initial_contact', 'interested', 'serious_buyer'
-      to: toLevel,
-      interestLevel: toLevel,
-      ...additionalData
-    }
-  }),
-
-  // When client engages with Sofia
-  trackEngagement: (tenantId: string, clientId: string, responded: boolean, responseTime?: number, sessionId?: string) => ({
-    tenantId,
-    eventType: 'message_engagement',
-    sessionId, // Optional - will be auto-generated if not provided
-    leadId: clientId,
-    eventData: {
-      outcome: responded ? 'responded' : 'no_response',
-      responseTime,
-      engagementLevel: responded ? 'active' : 'passive'
-    }
-  }),
-
-  // When conversation session ends
-  trackSession: (tenantId: string, clientId: string, durationMinutes: number, messageCount: number, outcome: string, sessionId?: string) => ({
-    tenantId,
-    eventType: 'conversation_session',
-    sessionId, // Optional - will be auto-generated if not provided
-    leadId: clientId,
-    eventData: {
-      duration: durationMinutes * 60,
-      messageCount,
-      outcome,
-      sessionType: 'sofia_assisted'
-    }
-  })
-};
+// Simplified usage examples for N8N/Sofia integration:
+//
+// Basic usage:
+// {
+//   "tenantId": "{{$json.tenantId}}",
+//   "eventType": "message_engagement",
+//   "leadId": "{{$json.clientPhone}}",
+//   "eventData": "{{$fromAI('eventData', 'JSON com dados do evento', 'string', '{}')}}"
+// }
+//
+// With specific data:
+// {
+//   "tenantId": "tenant123",
+//   "eventType": "qualification_milestone",
+//   "leadId": "+5511999999999",
+//   "eventData": {
+//     "milestone": "qualified",
+//     "duration": 180,
+//     "messageCount": 5
+//   }
+// }
