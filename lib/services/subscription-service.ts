@@ -278,17 +278,54 @@ export class SubscriptionService {
       });
       
       // Encontrar usuário pelo email ou documento
-      const userId = await this.findUserByEmailOrDocument(
+      let userId = await this.findUserByEmailOrDocument(
         webhookData.customer.email,
         webhookData.customer.document
       );
-      
+
+      // Se usuário não existe e é uma venda aprovada, criar automaticamente
+      if (!userId && webhookData.event === 'SALE_APPROVED') {
+        logger.info('🔄 [Subscription] Criando usuário automaticamente via webhook', {
+          email: webhookData.customer.email,
+          saleId: webhookData.sale_id
+        });
+
+        try {
+          userId = await this.createUserFromWebhook(webhookData);
+
+          logger.info('✅ [Subscription] Usuário criado via webhook - pode definir senha em /set-password', {
+            userId,
+            email: webhookData.customer.email,
+            setPasswordUrl: `/set-password?email=${encodeURIComponent(webhookData.customer.email)}`
+          });
+
+        } catch (createError) {
+          logger.error('❌ [Subscription] Erro ao criar usuário via webhook', createError as Error, {
+            email: webhookData.customer.email,
+            saleId: webhookData.sale_id
+          });
+
+          await this.logSubscriptionEvent({
+            userId: 'failed_creation',
+            event: webhookData.event,
+            eventDescription: webhookData.event_description,
+            kirvanoEvent: webhookData,
+            status: 'failed',
+            processedAt: new Date(),
+            errorMessage: 'Erro ao criar usuário automaticamente'
+          });
+
+          return { success: false, message: 'Erro ao criar usuário automaticamente' };
+        }
+      }
+
       if (!userId) {
         logger.warn('⚠️ [Subscription] Usuário não encontrado para webhook', {
           email: webhookData.customer.email,
-          document: webhookData.customer.document
+          document: webhookData.customer.document,
+          event: webhookData.event
         });
-        
+
         // Log do evento mesmo sem usuário
         await this.logSubscriptionEvent({
           userId: 'unknown',
@@ -297,9 +334,9 @@ export class SubscriptionService {
           kirvanoEvent: webhookData,
           status: 'failed',
           processedAt: new Date(),
-          errorMessage: 'Usuário não encontrado'
+          errorMessage: 'Usuário não encontrado e evento não é SALE_APPROVED'
         });
-        
+
         return { success: false, message: 'Usuário não encontrado' };
       }
       
@@ -556,7 +593,7 @@ export class SubscriptionService {
   }
   
   /**
-   * Encontra usuário por email ou documento
+   * Encontra usuário por email ou documento, ou cria se não existir
    */
   private static async findUserByEmailOrDocument(email: string, document: string): Promise<string | null> {
     try {
@@ -564,24 +601,90 @@ export class SubscriptionService {
       const usersRef = collection(db, 'users');
       const emailQuery = query(usersRef, where('email', '==', email));
       const emailSnapshot = await getDocs(emailQuery);
-      
+
       if (!emailSnapshot.empty) {
         return emailSnapshot.docs[0].id;
       }
-      
+
       // Buscar por documento se não encontrou por email
-      const documentQuery = query(usersRef, where('document', '==', document));
-      const documentSnapshot = await getDocs(documentQuery);
-      
-      if (!documentSnapshot.empty) {
-        return documentSnapshot.docs[0].id;
+      if (document) {
+        const documentQuery = query(usersRef, where('document', '==', document));
+        const documentSnapshot = await getDocs(documentQuery);
+
+        if (!documentSnapshot.empty) {
+          return documentSnapshot.docs[0].id;
+        }
       }
-      
+
       return null;
-      
+
     } catch (error) {
       logger.error('❌ [Subscription] Erro ao buscar usuário', error as Error, { email, document });
       return null;
+    }
+  }
+
+  /**
+   * Cria usuário automaticamente a partir dos dados do webhook
+   */
+  private static async createUserFromWebhook(webhookData: KirvanoWebhookEvent): Promise<string> {
+    try {
+      const { email, name, document } = webhookData.customer;
+
+      // Gerar ID único para o usuário
+      const usersRef = collection(db, 'users');
+      const newUserDoc = doc(usersRef);
+      const userId = newUserDoc.id;
+
+      // Extrair nome e sobrenome
+      const fullName = name || email.split('@')[0];
+      const [firstName, ...lastNameArray] = fullName.split(' ');
+      const lastName = lastNameArray.join(' ');
+
+      const userData = {
+        email,
+        name: fullName,
+        fullName,
+        firstName: firstName || '',
+        lastName: lastName || '',
+        document: document || '',
+        role: 'user',
+        isActive: true,
+        emailVerified: false,
+        plan: 'free',
+        createdAt: new Date(),
+        lastLogin: null,
+        whatsappNumbers: [],
+        authProvider: 'kirvano_webhook',
+        firstAccess: true,
+        // Campos especiais para usuários criados via webhook
+        createdViaWebhook: true,
+        passwordSet: false, // Indica que o usuário ainda precisa definir senha
+        webhookData: {
+          saleId: webhookData.sale_id,
+          checkoutId: webhookData.checkout_id,
+          createdAt: new Date(),
+          source: 'kirvano'
+        }
+      };
+
+      await setDoc(newUserDoc, userData);
+
+      logger.info('✅ [Subscription] Usuário criado via webhook', {
+        userId,
+        email,
+        name: fullName,
+        saleId: webhookData.sale_id
+      });
+
+      return userId;
+
+    } catch (error) {
+      logger.error('❌ [Subscription] Erro ao criar usuário via webhook', error as Error, {
+        email: webhookData.customer.email,
+        saleId: webhookData.sale_id
+      });
+      throw error;
     }
   }
   

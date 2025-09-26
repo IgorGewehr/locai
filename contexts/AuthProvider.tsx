@@ -28,6 +28,9 @@ interface User {
   whatsappNumbers?: string[];
   plan?: 'free' | 'basic' | 'premium';
   firstAccess?: boolean; // Flag para primeiro acesso
+  // Novos campos para usuários criados via webhook
+  createdViaWebhook?: boolean;
+  passwordSet?: boolean;
 }
 
 interface AuthContextType {
@@ -152,7 +155,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           companyName: userData.companyName,
           whatsappNumbers: userData.whatsappNumbers || [],
           plan: userData.plan || 'free',
-          firstAccess: userData.firstAccess !== false // Default true se não existir
+          firstAccess: userData.firstAccess !== false, // Default true se não existir
+          // Novos campos para usuários criados via webhook
+          createdViaWebhook: userData.createdViaWebhook || false,
+          passwordSet: userData.passwordSet !== false // Default true para usuários normais
         };
       }
       
@@ -195,7 +201,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         companyName: '',
         whatsappNumbers: [],
         plan: 'free',
-        firstAccess: true // Novo usuário sempre tem firstAccess = true
+        firstAccess: true, // Novo usuário sempre tem firstAccess = true
+        // Novos campos para usuários criados via webhook
+        createdViaWebhook: false, // Usuários criados normalmente
+        passwordSet: true // Usuários criados normalmente já têm senha
       };
       
     } catch (error) {
@@ -231,15 +240,29 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const shouldRedirectToAuth = useCallback(async (userData: User | null, currentPath: string) => {
     const protectedRoutes = ['/dashboard'];
     const isProtectedRoute = protectedRoutes.some(route => currentPath.startsWith(route));
-    
+
     if (!isProtectedRoute) return false;
-    
+
     if (!userData) {
       return { redirect: '/login', reason: 'no_user' };
     }
-    
+
     if (!userData.isActive) {
       return { redirect: '/login', reason: 'inactive_user' };
+    }
+
+    // ✅ NOVA VERIFICAÇÃO: Usuário criado via webhook sem senha
+    if (userData.createdViaWebhook && !userData.passwordSet) {
+      logger.info('🔐 [Auth] Redirecionando usuário para definir senha', {
+        userId: userData.uid,
+        email: userData.email,
+        currentPath
+      });
+
+      return {
+        redirect: `/set-password?email=${encodeURIComponent(userData.email)}`,
+        reason: 'password_required'
+      };
     }
     
     // ✅ NOVA VERIFICAÇÃO: Trial/Assinatura com FALLBACK DE SEGURANÇA
@@ -641,7 +664,10 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         companyName: '',
         whatsappNumbers: [],
         plan: 'free',
-        firstAccess: true // Garantir que firstAccess seja true
+        firstAccess: true, // Garantir que firstAccess seja true
+        // Novos campos para usuários criados via webhook
+        createdViaWebhook: false, // Usuários criados normalmente
+        passwordSet: true // Usuários criados normalmente já têm senha
       };
       
       setUser(newUser);
