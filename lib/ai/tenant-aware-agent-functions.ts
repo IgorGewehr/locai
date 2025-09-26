@@ -5511,6 +5511,11 @@ export async function scheduleMeeting(args: any, tenantId: string) {
       };
     }
 
+    // Garantir que duration seja um número
+    if (args.duration && typeof args.duration === 'string') {
+      args.duration = parseInt(args.duration, 10);
+    }
+
     // Parse da data e hora fornecidas
     const dateStr = args.scheduledDate; // YYYY-MM-DD
     const timeStr = args.scheduledTime; // HH:MM

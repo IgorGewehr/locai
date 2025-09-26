@@ -7,7 +7,13 @@ export async function POST(request: NextRequest) {
   const requestId = `schedule_meeting_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
   
   try {
-    const body = await request.json();
+    let body = await request.json();
+
+    // Se recebeu um array, pegue o primeiro objeto
+    if (Array.isArray(body)) {
+      body = body[0];
+    }
+
     const { tenantId, ...args } = body;
 
     logger.info('🤝 [SCHEDULE-MEETING] Iniciando execução', {
