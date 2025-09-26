@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { doc, getDoc, updateDoc, collection, query, where, getDocs } from 'firebase/firestore';
+import { doc, getDoc, updateDoc, collection, query, where, getDocs, setDoc } from 'firebase/firestore';
 import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from 'firebase/auth';
 import { db, auth } from '@/lib/firebase/config';
 import { logger } from '@/lib/utils/logger';
@@ -69,25 +69,65 @@ export async function POST(request: NextRequest) {
 
       logger.info('✅ [Set Password] Usuário criado no Firebase Auth', {
         email,
-        userId,
-        firebaseUid: authResult.user.uid
+        oldUserId: userId,
+        newFirebaseUid: authResult.user.uid
       });
 
-      // 5. Atualizar dados no Firestore
-      await updateDoc(doc(db, 'users', userId), {
-        passwordSet: true,
-        firebaseUid: authResult.user.uid, // Vincular ao Firebase Auth
-        emailVerified: false,
-        lastLogin: new Date(),
-        passwordSetAt: new Date(),
-        updatedAt: new Date()
+      // 5. IMPORTANTE: Migrar dados para o UID correto do Firebase Auth
+      // Buscar dados do usuário antigo
+      const oldUserRef = doc(db, 'users', userId);
+      const oldUserSnap = await getDoc(oldUserRef);
+
+      if (oldUserSnap.exists()) {
+        const oldUserData = oldUserSnap.data();
+
+        // Criar novo documento com UID do Firebase Auth
+        const newUserRef = doc(db, 'users', authResult.user.uid);
+        await setDoc(newUserRef, {
+          ...oldUserData,
+          passwordSet: true,
+          firebaseUid: authResult.user.uid,
+          emailVerified: authResult.user.emailVerified,
+          lastLogin: new Date(),
+          passwordSetAt: new Date(),
+          updatedAt: new Date(),
+          // Manter histórico da migração
+          migratedFrom: userId,
+          migratedAt: new Date()
+        });
+
+        // Atualizar assinatura se existir
+        const oldSubscriptionRef = doc(db, 'subscriptions', userId);
+        const oldSubscriptionSnap = await getDoc(oldSubscriptionRef);
+
+        if (oldSubscriptionSnap.exists()) {
+          const subscriptionData = oldSubscriptionSnap.data();
+          const newSubscriptionRef = doc(db, 'subscriptions', authResult.user.uid);
+          await setDoc(newSubscriptionRef, {
+            ...subscriptionData,
+            userId: authResult.user.uid,
+            updatedAt: new Date()
+          });
+
+          logger.info('✅ [Set Password] Assinatura migrada', {
+            oldUserId: userId,
+            newUserId: authResult.user.uid
+          });
+        }
+
+        logger.info('✅ [Set Password] Dados migrados com sucesso', {
+          oldUserId: userId,
+          newUserId: authResult.user.uid
+        });
+      }
+
+      // 6. Login automático não é necessário, pois o createUserWithEmailAndPassword já autentica
+      const firebaseToken = await authResult.user.getIdToken();
+
+      logger.info('✅ [Set Password] Senha definida com sucesso', {
+        email,
+        userId: authResult.user.uid
       });
-
-      // 6. Fazer login automático
-      const loginResult = await signInWithEmailAndPassword(auth, email, password);
-      const firebaseToken = await loginResult.user.getIdToken();
-
-      logger.info('✅ [Set Password] Senha definida e login realizado', { email, userId });
 
       return NextResponse.json({
         success: true,
@@ -97,7 +137,8 @@ export async function POST(request: NextRequest) {
           email: authResult.user.email,
           emailVerified: authResult.user.emailVerified
         },
-        firebaseToken
+        firebaseToken,
+        redirectTo: '/dashboard'
       });
 
     } catch (authError: any) {

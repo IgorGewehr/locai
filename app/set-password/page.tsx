@@ -152,10 +152,12 @@ export default function SetPasswordPage() {
           localStorage.setItem('auth_token', result.firebaseToken);
         }
 
-        // Redirecionar para dashboard após sucesso
+        // ✅ NOVO: Usar o mesmo padrão do ccreate - redirecionamento imediato
+        // O AuthProvider vai detectar a autenticação e processar automaticamente
         setTimeout(() => {
-          router.push('/dashboard');
-        }, 2000);
+          // Recarregar a página para que o AuthProvider detecte a nova autenticação
+          window.location.href = '/dashboard';
+        }, 1500);
       } else {
         setError(result.error || 'Erro ao definir senha');
       }

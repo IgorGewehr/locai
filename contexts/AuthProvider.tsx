@@ -158,7 +158,12 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           firstAccess: userData.firstAccess !== false, // Default true se não existir
           // Novos campos para usuários criados via webhook
           createdViaWebhook: userData.createdViaWebhook || false,
-          passwordSet: userData.passwordSet !== false // Default true para usuários normais
+          passwordSet: userData.passwordSet !== false, // Default true para usuários normais
+          // Log para debug de usuários migrados
+          ...(userData.migratedFrom && {
+            migratedFrom: userData.migratedFrom,
+            migratedAt: userData.migratedAt?.toDate?.() || userData.migratedAt
+          })
         };
       }
       
