@@ -412,7 +412,10 @@ export class SubscriptionService {
         subscriptionStatus: 'active',
         subscriptionPlan: webhookData.plan?.name || 'Plano Único',
         subscriptionStartDate: new Date(webhookData.created_at),
-        subscriptionNextChargeDate: webhookData.plan?.next_charge_date ? new Date(webhookData.plan.next_charge_date) : undefined,
+        // Não incluir campos undefined - Firebase não aceita
+        ...(webhookData.plan?.next_charge_date && {
+          subscriptionNextChargeDate: new Date(webhookData.plan.next_charge_date)
+        }),
         
         kirvanoSaleId: webhookData.sale_id,
         kirvanoCheckoutId: webhookData.checkout_id,
@@ -519,16 +522,22 @@ export class SubscriptionService {
       const subscriptionRef = doc(db, 'subscriptions', userId);
       const subscriptionSnap = await getDoc(subscriptionRef);
       
-      await updateDoc(subscriptionRef, {
+      const updateData: any = {
         subscriptionActive: true,
         subscriptionStatus: 'active',
-        subscriptionNextChargeDate: webhookData.plan?.next_charge_date ? new Date(webhookData.plan.next_charge_date) : undefined,
         lastPaymentDate: new Date(webhookData.payment.finished_at || webhookData.created_at),
         lastPaymentAmount: webhookData.total_price,
         lastPaymentMethod: webhookData.payment_method,
         totalPayments: subscriptionSnap.exists() ? (subscriptionSnap.data().totalPayments || 0) + 1 : 1,
         updatedAt: new Date()
-      });
+      };
+      
+      // Só adicionar next_charge_date se existir
+      if (webhookData.plan?.next_charge_date) {
+        updateData.subscriptionNextChargeDate = new Date(webhookData.plan.next_charge_date);
+      }
+      
+      await updateDoc(subscriptionRef, updateData);
       
       // Atualizar usuário
       const userRef = doc(db, 'users', userId);
@@ -626,20 +635,98 @@ export class SubscriptionService {
 
   /**
    * Cria usuário automaticamente a partir dos dados do webhook
+   * IMPLEMENTAÇÃO HÍBRIDA: Tenta Firebase Admin, caso falhe usa método tradicional
    */
   private static async createUserFromWebhook(webhookData: KirvanoWebhookEvent): Promise<string> {
-    try {
-      const { email, name, document } = webhookData.customer;
+    const { email, name, document } = webhookData.customer;
+    
+    // Extrair nome e sobrenome
+    const fullName = name || email.split('@')[0];
+    const [firstName, ...lastNameArray] = fullName.split(' ');
+    const lastName = lastNameArray.join(' ');
 
-      // Gerar ID único para o usuário
+    try {
+      // 🎯 MÉTODO 1: Tentar Firebase Admin (ideal)
+      const { auth: adminAuth } = await import('@/lib/firebase/admin');
+      
+      if (adminAuth) {
+        // Criar usuário no Firebase Auth SEM senha
+        const userRecord = await adminAuth.createUser({
+          email,
+          displayName: fullName,
+          disabled: false,
+          emailVerified: false
+          // ← Sem password - usuário criado mas não pode fazer login ainda
+        });
+
+        const firebaseUid = userRecord.uid;
+
+        logger.info('✅ [Subscription] Usuário criado no Firebase Auth via Admin SDK', {
+          firebaseUid,
+          email,
+          name: fullName,
+          saleId: webhookData.sale_id
+        });
+
+        // Criar documento no Firestore com UID correto
+        const userRef = doc(db, 'users', firebaseUid);
+
+        const userData = {
+          email,
+          name: fullName,
+          fullName,
+          firstName: firstName || '',
+          lastName: lastName || '',
+          document: document || '',
+          role: 'user',
+          isActive: true,
+          emailVerified: false,
+          plan: 'free',
+          createdAt: new Date(),
+          lastLogin: null,
+          whatsappNumbers: [],
+          authProvider: 'kirvano_webhook',
+          firstAccess: true,
+          
+          // Firebase Auth info
+          firebaseUid,
+          
+          // Campos especiais para usuários criados via webhook
+          createdViaWebhook: true,
+          passwordSet: false,
+          needsPasswordSetup: true,
+          
+          webhookData: {
+            saleId: webhookData.sale_id,
+            checkoutId: webhookData.checkout_id,
+            createdAt: new Date(),
+            source: 'kirvano'
+          }
+        };
+
+        await setDoc(userRef, userData);
+
+        logger.info('✅ [Subscription] Usuário criado via Admin SDK com UID correto', {
+          firebaseUid,
+          email,
+          name: fullName,
+          saleId: webhookData.sale_id
+        });
+
+        return firebaseUid;
+      }
+    } catch (adminError) {
+      logger.warn('⚠️ [Subscription] Firebase Admin falhou, usando método tradicional', adminError as Error, {
+        email,
+        saleId: webhookData.sale_id
+      });
+    }
+
+    try {
+      // 🔄 MÉTODO 2: Fallback - Criar apenas no Firestore (método original)
       const usersRef = collection(db, 'users');
       const newUserDoc = doc(usersRef);
       const userId = newUserDoc.id;
-
-      // Extrair nome e sobrenome
-      const fullName = name || email.split('@')[0];
-      const [firstName, ...lastNameArray] = fullName.split(' ');
-      const lastName = lastNameArray.join(' ');
 
       const userData = {
         email,
@@ -657,9 +744,12 @@ export class SubscriptionService {
         whatsappNumbers: [],
         authProvider: 'kirvano_webhook',
         firstAccess: true,
+        
         // Campos especiais para usuários criados via webhook
         createdViaWebhook: true,
         passwordSet: false, // Indica que o usuário ainda precisa definir senha
+        needsPasswordSetup: true,
+        
         webhookData: {
           saleId: webhookData.sale_id,
           checkoutId: webhookData.checkout_id,
@@ -670,7 +760,7 @@ export class SubscriptionService {
 
       await setDoc(newUserDoc, userData);
 
-      logger.info('✅ [Subscription] Usuário criado via webhook', {
+      logger.info('✅ [Subscription] Usuário criado via método tradicional (Firestore apenas)', {
         userId,
         email,
         name: fullName,
@@ -694,10 +784,15 @@ export class SubscriptionService {
   private static async logSubscriptionEvent(eventData: Omit<SubscriptionEvent, 'id'>): Promise<void> {
     try {
       const eventsRef = collection(db, 'subscription_events');
-      await addDoc(eventsRef, {
+      
+      // Filtrar valores undefined antes de salvar no Firebase
+      const cleanEventData = {
         ...eventData,
+        errorMessage: eventData.errorMessage || null, // Converter undefined para null
         createdAt: Timestamp.now()
-      });
+      };
+      
+      await addDoc(eventsRef, cleanEventData);
       
     } catch (error) {
       logger.error('❌ [Subscription] Erro ao salvar log do evento', error as Error);

@@ -71,6 +71,7 @@ export default function SetPasswordPage() {
   const [userInfo, setUserInfo] = useState<UserInfo | null>(null);
   const [step, setStep] = useState<'email' | 'password'>('email');
   const [userEmail, setUserEmail] = useState('');
+  const [userId, setUserId] = useState('');
 
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -112,6 +113,7 @@ export default function SetPasswordPage() {
         if (result.needsPassword && result.user) {
           setUserInfo(result.user);
           setUserEmail(data.email);
+          setUserId(result.userId); // ← Armazenar userId
           setStep('password');
         } else {
           setError('Este usuário não precisa definir senha ou já possui uma conta ativa.');
@@ -139,6 +141,7 @@ export default function SetPasswordPage() {
         body: JSON.stringify({
           email: userEmail,
           password: data.password,
+          userId: userId, // ← Incluir userId
         }),
       });
 

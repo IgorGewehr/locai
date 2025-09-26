@@ -11,6 +11,7 @@ export const runtime = 'nodejs';
 const setPasswordSchema = yup.object().shape({
   email: yup.string().email('Email inválido').required('Email é obrigatório'),
   password: yup.string().min(6, 'Senha deve ter pelo menos 6 caracteres').required('Senha é obrigatória'),
+  userId: yup.string().required('User ID é obrigatório'),
   token: yup.string().optional() // Token de verificação opcional
 });
 
@@ -24,26 +25,23 @@ export async function POST(request: NextRequest) {
 
     // Validar dados de entrada
     const body = await request.json();
-    const { email, password, token } = await setPasswordSchema.validate(body);
+    const { email, password, userId, token } = await setPasswordSchema.validate(body);
 
     logger.info('🔐 [Set Password] Definindo senha para usuário', { email });
 
-    // 1. Buscar usuário no Firestore
-    const usersRef = collection(db, 'users');
-    const emailQuery = query(usersRef, where('email', '==', email));
-    const userSnapshot = await getDocs(emailQuery);
+    // 1. Buscar usuário no Firestore pelo userId (mais eficiente)
+    const userRef = doc(db, 'users', userId);
+    const userSnap = await getDoc(userRef);
 
-    if (userSnapshot.empty) {
-      logger.warn('⚠️ [Set Password] Usuário não encontrado', { email });
+    if (!userSnap.exists()) {
+      logger.warn('⚠️ [Set Password] Usuário não encontrado', { email, userId });
       return NextResponse.json(
         { success: false, error: 'Usuário não encontrado' },
         { status: 404 }
       );
     }
 
-    const userDoc = userSnapshot.docs[0];
-    const userData = userDoc.data();
-    const userId = userDoc.id;
+    const userData = userSnap.data();
 
     // 2. Verificar se usuário foi criado via webhook
     if (!userData.createdViaWebhook) {
@@ -63,29 +61,69 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 4. Criar usuário no Firebase Auth
+    // 4. Definir senha - Verificar se usuário tem firebaseUid ou usar método tradicional
     try {
-      const authResult = await createUserWithEmailAndPassword(auth, email, password);
+      if (userData.firebaseUid) {
+        // 🎯 MÉTODO 1: Usuário foi criado via Admin SDK, apenas definir senha
+        const { auth: adminAuth } = await import('@/lib/firebase/admin');
+        
+        if (!adminAuth) {
+          throw new Error('Firebase Admin Auth não inicializado');
+        }
 
-      logger.info('✅ [Set Password] Usuário criado no Firebase Auth', {
-        email,
-        oldUserId: userId,
-        newFirebaseUid: authResult.user.uid
-      });
+        // Definir senha no usuário que já existe no Firebase Auth
+        await adminAuth.updateUser(userData.firebaseUid, {
+          password: password,
+          emailVerified: false
+        });
 
-      // 5. IMPORTANTE: Migrar dados para o UID correto do Firebase Auth
-      // Buscar dados do usuário antigo
-      const oldUserRef = doc(db, 'users', userId);
-      const oldUserSnap = await getDoc(oldUserRef);
+        logger.info('✅ [Set Password] Senha definida no Firebase Auth existente', {
+          email,
+          firebaseUid: userData.firebaseUid
+        });
 
-      if (oldUserSnap.exists()) {
-        const oldUserData = oldUserSnap.data();
+        // Atualizar status no Firestore
+        await updateDoc(userRef, {
+          passwordSet: true,
+          needsPasswordSetup: false,
+          passwordSetAt: new Date(),
+          updatedAt: new Date()
+        });
 
-        // Criar novo documento com UID do Firebase Auth
+        // Login automático
+        const authResult = await signInWithEmailAndPassword(auth, email, password);
+        const firebaseToken = await authResult.user.getIdToken();
+
+        return NextResponse.json({
+          success: true,
+          message: 'Senha definida com sucesso',
+          user: {
+            uid: authResult.user.uid,
+            email: authResult.user.email,
+            emailVerified: authResult.user.emailVerified
+          },
+          firebaseToken,
+          redirectTo: '/dashboard'
+        });
+        
+      } else {
+        // 🔄 MÉTODO 2: Usuário criado no Firestore apenas, criar no Firebase Auth e migrar
+        const authResult = await createUserWithEmailAndPassword(auth, email, password);
+
+        logger.info('✅ [Set Password] Usuário criado no Firebase Auth', {
+          email,
+          oldUserId: userId,
+          newFirebaseUid: authResult.user.uid
+        });
+
+        // Migrar dados para o UID correto do Firebase Auth
+        const oldUserData = userData;
         const newUserRef = doc(db, 'users', authResult.user.uid);
+        
         await setDoc(newUserRef, {
           ...oldUserData,
           passwordSet: true,
+          needsPasswordSetup: false,
           firebaseUid: authResult.user.uid,
           emailVerified: authResult.user.emailVerified,
           lastLogin: new Date(),
@@ -96,7 +134,7 @@ export async function POST(request: NextRequest) {
           migratedAt: new Date()
         });
 
-        // Atualizar assinatura se existir
+        // Migrar assinatura se existir
         const oldSubscriptionRef = doc(db, 'subscriptions', userId);
         const oldSubscriptionSnap = await getDoc(oldSubscriptionRef);
 
@@ -115,31 +153,26 @@ export async function POST(request: NextRequest) {
           });
         }
 
-        logger.info('✅ [Set Password] Dados migrados com sucesso', {
+        const firebaseToken = await authResult.user.getIdToken();
+
+        logger.info('✅ [Set Password] Migração completa com sucesso', {
+          email,
           oldUserId: userId,
           newUserId: authResult.user.uid
         });
+
+        return NextResponse.json({
+          success: true,
+          message: 'Senha definida com sucesso',
+          user: {
+            uid: authResult.user.uid,
+            email: authResult.user.email,
+            emailVerified: authResult.user.emailVerified
+          },
+          firebaseToken,
+          redirectTo: '/dashboard'
+        });
       }
-
-      // 6. Login automático não é necessário, pois o createUserWithEmailAndPassword já autentica
-      const firebaseToken = await authResult.user.getIdToken();
-
-      logger.info('✅ [Set Password] Senha definida com sucesso', {
-        email,
-        userId: authResult.user.uid
-      });
-
-      return NextResponse.json({
-        success: true,
-        message: 'Senha definida com sucesso',
-        user: {
-          uid: authResult.user.uid,
-          email: authResult.user.email,
-          emailVerified: authResult.user.emailVerified
-        },
-        firebaseToken,
-        redirectTo: '/dashboard'
-      });
 
     } catch (authError: any) {
       logger.error('❌ [Set Password] Erro ao criar usuário no Firebase Auth', authError, {
@@ -215,6 +248,7 @@ export async function GET(request: NextRequest) {
     }
 
     const userData = userSnapshot.docs[0].data();
+    const userId = userSnapshot.docs[0].id;
 
     const needsPassword = userData.createdViaWebhook && !userData.passwordSet;
 
@@ -223,6 +257,7 @@ export async function GET(request: NextRequest) {
       needsPassword,
       createdViaWebhook: userData.createdViaWebhook || false,
       passwordSet: userData.passwordSet || false,
+      userId, // ← Incluir userId para usar no POST
       user: {
         name: userData.name || userData.fullName,
         email: userData.email,
