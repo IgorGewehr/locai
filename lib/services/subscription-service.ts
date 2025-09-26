@@ -635,7 +635,7 @@ export class SubscriptionService {
 
   /**
    * Cria usuário automaticamente a partir dos dados do webhook
-   * IMPLEMENTAÇÃO HÍBRIDA: Tenta Firebase Admin, caso falhe usa método tradicional
+   * APENAS MÉTODO TRADICIONAL - Firebase Admin SDK é usado em API routes separadas
    */
   private static async createUserFromWebhook(webhookData: KirvanoWebhookEvent): Promise<string> {
     const { email, name, document } = webhookData.customer;
@@ -646,84 +646,7 @@ export class SubscriptionService {
     const lastName = lastNameArray.join(' ');
 
     try {
-      // 🎯 MÉTODO 1: Tentar Firebase Admin (ideal)
-      const { auth: adminAuth } = await import('@/lib/firebase/admin');
-      
-      if (adminAuth) {
-        // Criar usuário no Firebase Auth SEM senha
-        const userRecord = await adminAuth.createUser({
-          email,
-          displayName: fullName,
-          disabled: false,
-          emailVerified: false
-          // ← Sem password - usuário criado mas não pode fazer login ainda
-        });
-
-        const firebaseUid = userRecord.uid;
-
-        logger.info('✅ [Subscription] Usuário criado no Firebase Auth via Admin SDK', {
-          firebaseUid,
-          email,
-          name: fullName,
-          saleId: webhookData.sale_id
-        });
-
-        // Criar documento no Firestore com UID correto
-        const userRef = doc(db, 'users', firebaseUid);
-
-        const userData = {
-          email,
-          name: fullName,
-          fullName,
-          firstName: firstName || '',
-          lastName: lastName || '',
-          document: document || '',
-          role: 'user',
-          isActive: true,
-          emailVerified: false,
-          plan: 'free',
-          createdAt: new Date(),
-          lastLogin: null,
-          whatsappNumbers: [],
-          authProvider: 'kirvano_webhook',
-          firstAccess: true,
-          
-          // Firebase Auth info
-          firebaseUid,
-          
-          // Campos especiais para usuários criados via webhook
-          createdViaWebhook: true,
-          passwordSet: false,
-          needsPasswordSetup: true,
-          
-          webhookData: {
-            saleId: webhookData.sale_id,
-            checkoutId: webhookData.checkout_id,
-            createdAt: new Date(),
-            source: 'kirvano'
-          }
-        };
-
-        await setDoc(userRef, userData);
-
-        logger.info('✅ [Subscription] Usuário criado via Admin SDK com UID correto', {
-          firebaseUid,
-          email,
-          name: fullName,
-          saleId: webhookData.sale_id
-        });
-
-        return firebaseUid;
-      }
-    } catch (adminError) {
-      logger.warn('⚠️ [Subscription] Firebase Admin falhou, usando método tradicional', adminError as Error, {
-        email,
-        saleId: webhookData.sale_id
-      });
-    }
-
-    try {
-      // 🔄 MÉTODO 2: Fallback - Criar apenas no Firestore (método original)
+      // Criar apenas no Firestore - Firebase Auth será criado via API route separada
       const usersRef = collection(db, 'users');
       const newUserDoc = doc(usersRef);
       const userId = newUserDoc.id;

@@ -6,7 +6,6 @@ import { doc, getDoc, updateDoc, setDoc } from "firebase/firestore";
 import { auth, db } from "@/lib/firebase/config";
 import { useRouter, usePathname } from "next/navigation";
 import { logger } from "@/lib/utils/logger";
-import { SubscriptionService } from "@/lib/services/subscription-service";
 import { SubscriptionValidation } from "@/lib/types/subscription";
 
 // ===== INTERFACES =====
@@ -272,7 +271,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     
     // ✅ NOVA VERIFICAÇÃO: Trial/Assinatura com FALLBACK DE SEGURANÇA
     try {
-      const subscriptionValidation = await SubscriptionService.validateUserAccess(userData.uid);
+      const response = await fetch(`/api/subscription/validate?userId=${userData.uid}`);
+      const subscriptionValidation: SubscriptionValidation = await response.json();
       
       if (!subscriptionValidation.hasAccess) {
         logger.info('🚫 [Auth] Redirecionando para planos', {

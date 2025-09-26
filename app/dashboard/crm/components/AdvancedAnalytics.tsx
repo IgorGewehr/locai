@@ -35,7 +35,7 @@ import {
   Refresh,
   Insights,
   Speed,
-  Target,
+  GpsFixed,
   AttachMoney,
   Phone,
   WhatsApp,
@@ -345,7 +345,7 @@ export default function AdvancedAnalytics({ leads, onRefresh }: AdvancedAnalytic
           {
             title: 'Taxa de Conversão',
             value: `${performanceMetrics.conversionRate.toFixed(1)}%`,
-            icon: <Target />,
+            icon: <GpsFixed />,
             color: '#10b981',
             change: '+8.2%',
             trend: 'up'
