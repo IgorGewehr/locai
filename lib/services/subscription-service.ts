@@ -372,15 +372,21 @@ export class SubscriptionService {
       }
       
       // Log do evento processado
-      await this.logSubscriptionEvent({
+      const eventLogData: Omit<SubscriptionEvent, 'id'> = {
         userId,
         event: webhookData.event,
         eventDescription: webhookData.event_description,
         kirvanoEvent: webhookData,
         status: result.success ? 'processed' : 'failed',
-        processedAt: new Date(),
-        errorMessage: result.success ? undefined : result.message
-      });
+        processedAt: new Date()
+      };
+
+      // Só incluir errorMessage se houver erro
+      if (!result.success && result.message) {
+        eventLogData.errorMessage = result.message;
+      }
+
+      await this.logSubscriptionEvent(eventLogData);
       
       return result;
       
@@ -401,11 +407,26 @@ export class SubscriptionService {
     try {
       // Determinar se é assinatura ou compra única
       const isSubscription = webhookData.type === 'RECURRING';
-      
+
+      // Log detalhado dos dados recebidos
+      logger.info('🔍 [Subscription] Processando SALE_APPROVED', {
+        userId,
+        saleId: webhookData.sale_id,
+        type: webhookData.type,
+        isSubscription,
+        planName: webhookData.plan?.name,
+        totalPrice: webhookData.total_price,
+        fiscalValue: webhookData.fiscal?.total_value,
+        customerEmail: webhookData.customer.email
+      });
+
       // Buscar ou criar registro de assinatura
       const subscriptionRef = doc(db, 'subscriptions', userId);
       const subscriptionSnap = await getDoc(subscriptionRef);
-      
+
+      // Usar valor fiscal se disponível, senão usar total_price
+      const paymentAmount = webhookData.fiscal?.total_value?.toString() || webhookData.total_price;
+
       const subscriptionData: UserSubscription = {
         userId,
         subscriptionActive: true,
@@ -413,41 +434,77 @@ export class SubscriptionService {
         subscriptionPlan: webhookData.plan?.name || 'Plano Único',
         subscriptionStartDate: new Date(webhookData.created_at),
         subscriptionNextChargeDate: webhookData.plan?.next_charge_date ? new Date(webhookData.plan.next_charge_date) : undefined,
-        
+
         kirvanoSaleId: webhookData.sale_id,
         kirvanoCheckoutId: webhookData.checkout_id,
-        kirvanoCustomerDocument: webhookData.customer.document,
-        
+        kirvanoCustomerDocument: webhookData.customer.document || '',
+
         lastPaymentDate: new Date(webhookData.payment.finished_at || webhookData.created_at),
-        lastPaymentAmount: webhookData.total_price,
+        lastPaymentAmount: paymentAmount,
         lastPaymentMethod: webhookData.payment_method,
         totalPayments: subscriptionSnap.exists() ? (subscriptionSnap.data().totalPayments || 0) + 1 : 1,
-        
+
         createdAt: subscriptionSnap.exists() ? subscriptionSnap.data().createdAt : new Date(),
         updatedAt: new Date()
       };
-      
+
       await setDoc(subscriptionRef, subscriptionData, { merge: true });
-      
-      // Remover dados de trial do usuário
+
+      // Atualizar dados do usuário
       const userRef = doc(db, 'users', userId);
-      await updateDoc(userRef, {
-        free: null, // Remove campo free
+      const updateData: any = {
+        free: null, // Remove campo free - usuario tem acesso total
         subscriptionActive: true,
+        plan: 'premium', // Atualiza para plano premium
         lastSubscriptionUpdate: Timestamp.now()
-      });
-      
-      logger.info('✅ [Subscription] Assinatura ativada', {
+      };
+
+      // Tratamento diferencial entre usuários novos e existentes
+      const userSnap = await getDoc(userRef);
+      if (userSnap.exists()) {
+        const userData = userSnap.data();
+        if (!userData.createdViaWebhook) {
+          // Para usuários existentes (não criados via webhook)
+          updateData.emailVerified = true; // Usuário pagante = email verificado
+        }
+
+        // Log diferencial baseado no tipo de usuário
+        logger.info('🔍 [Subscription] Atualizando usuário existente', {
+          userId,
+          isWebhookUser: !!userData.createdViaWebhook,
+          previousPlan: userData.plan,
+          newPlan: updateData.plan,
+          previousSubscriptionStatus: userData.subscriptionActive
+        });
+      } else {
+        // Cenário improvável mas possível - usuário foi deletado entre criação e ativação
+        logger.error('❌ [Subscription] Usuário não encontrado durante ativação de assinatura', {
+          userId,
+          saleId: webhookData.sale_id
+        });
+        throw new Error('Usuário não encontrado durante ativação de assinatura');
+      }
+
+      await updateDoc(userRef, updateData);
+
+      logger.info('✅ [Subscription] Assinatura ativada com sucesso', {
         userId,
         plan: subscriptionData.subscriptionPlan,
-        isSubscription
+        isSubscription,
+        totalPayments: subscriptionData.totalPayments,
+        paymentAmount
       });
-      
+
       return { success: true, message: 'Assinatura ativada com sucesso' };
-      
+
     } catch (error) {
-      logger.error('❌ [Subscription] Erro ao ativar assinatura', error as Error, { userId });
-      return { success: false, message: 'Erro ao ativar assinatura' };
+      logger.error('❌ [Subscription] Erro ao ativar assinatura', error as Error, {
+        userId,
+        saleId: webhookData.sale_id,
+        errorMessage: (error as Error).message,
+        stack: (error as Error).stack
+      });
+      return { success: false, message: `Erro ao ativar assinatura: ${(error as Error).message}` };
     }
   }
   
@@ -629,30 +686,55 @@ export class SubscriptionService {
    */
   private static async createUserFromWebhook(webhookData: KirvanoWebhookEvent): Promise<string> {
     try {
-      const { email, name, document } = webhookData.customer;
+      const { email, name, document, phone_number } = webhookData.customer;
+
+      // Validação robusta do email
+      if (!email || typeof email !== 'string' || !email.includes('@')) {
+        throw new Error('Email inválido ou não fornecido');
+      }
+
+      // Validar se email já existe (race condition prevention)
+      const existingUser = await this.findUserByEmailOrDocument(email, document);
+      if (existingUser) {
+        logger.warn('⚠️ [Subscription] Usuário já existe durante criação - possível race condition', {
+          email,
+          existingUserId: existingUser,
+          saleId: webhookData.sale_id
+        });
+        return existingUser; // Retorna o usuário existente em vez de criar duplicata
+      }
 
       // Gerar ID único para o usuário
       const usersRef = collection(db, 'users');
       const newUserDoc = doc(usersRef);
       const userId = newUserDoc.id;
 
-      // Extrair nome e sobrenome
-      const fullName = name || email.split('@')[0];
+      // Extrair nome e sobrenome com validação
+      const fullName = (name && typeof name === 'string' && name.trim()) ? name.trim() : email.split('@')[0];
       const [firstName, ...lastNameArray] = fullName.split(' ');
       const lastName = lastNameArray.join(' ');
 
+      // Limpar e validar documento
+      const cleanDocument = document && typeof document === 'string' ? document.replace(/[^0-9]/g, '') : '';
+
+      // Limpar telefone
+      const cleanPhone = phone_number && typeof phone_number === 'string' ? phone_number.replace(/[^0-9]/g, '') : '';
+
       const userData = {
-        email,
+        email: email.toLowerCase().trim(),
         name: fullName,
         fullName,
         firstName: firstName || '',
         lastName: lastName || '',
-        document: document || '',
+        document: cleanDocument,
+        phone: cleanPhone,
         role: 'user',
         isActive: true,
         emailVerified: false,
-        plan: 'free',
-        createdAt: new Date(),
+        plan: 'premium', // Usuário já pagou, então é premium
+        free: null, // Remove restrições de trial
+        subscriptionActive: true, // Já tem assinatura ativa
+        createdAt: Timestamp.now(),
         lastLogin: null,
         whatsappNumbers: [],
         authProvider: 'kirvano_webhook',
@@ -663,26 +745,39 @@ export class SubscriptionService {
         webhookData: {
           saleId: webhookData.sale_id,
           checkoutId: webhookData.checkout_id,
-          createdAt: new Date(),
+          planName: webhookData.plan?.name || 'Plano Único',
+          totalValue: webhookData.fiscal?.total_value || webhookData.total_price,
+          paymentMethod: webhookData.payment_method,
+          createdAt: Timestamp.now(),
           source: 'kirvano'
         }
       };
 
+      // Usar setDoc sem merge para garantir que não sobrescreva usuário existente
       await setDoc(newUserDoc, userData);
 
       logger.info('✅ [Subscription] Usuário criado via webhook', {
         userId,
-        email,
+        email: userData.email,
         name: fullName,
-        saleId: webhookData.sale_id
+        document: cleanDocument,
+        phone: cleanPhone,
+        plan: userData.plan,
+        saleId: webhookData.sale_id,
+        planName: webhookData.plan?.name,
+        setPasswordUrl: `/set-password?email=${encodeURIComponent(userData.email)}`
       });
+
+      // TODO: Implementar envio de email de boas-vindas com link para definir senha
+      // await this.sendWelcomeEmail(userData.email, fullName, userId);
 
       return userId;
 
     } catch (error) {
       logger.error('❌ [Subscription] Erro ao criar usuário via webhook', error as Error, {
-        email: webhookData.customer.email,
-        saleId: webhookData.sale_id
+        email: webhookData.customer?.email,
+        saleId: webhookData.sale_id,
+        errorMessage: (error as Error).message
       });
       throw error;
     }

@@ -1,7 +1,7 @@
 // Tipos para sistema de assinaturas e webhooks Kirvano
 
 export interface KirvanoWebhookEvent {
-  event: 
+  event:
     | 'BANK_SLIP_GENERATED'
     | 'BANK_SLIP_EXPIRED'
     | 'PIX_GENERATED'
@@ -23,11 +23,49 @@ export interface KirvanoWebhookEvent {
   type: 'ONE_TIME' | 'RECURRING';
   status: 'PENDING' | 'APPROVED' | 'REFUSED' | 'CANCELED' | 'CHARGEBACK' | 'REFUNDED' | 'ABANDONED_CART';
   created_at: string;
+
+  // Campos adicionais presentes nos webhooks reais
+  ip?: string;
+  fee?: number;
+  commission?: number;
+  contactEmail?: string;
+  couponDiscount?: number;
+  automaticDiscount?: number;
+  affiliateCommission?: number;
+  coproductionCommission?: number;
+
+  // Informações fiscais/financeiras
+  fiscal?: {
+    fee?: number;
+    net_value?: number;
+    commission?: number;
+    total_value?: number;
+    original_value?: number;
+    coupon_discount?: number;
+    total_discounts?: number;
+    total_commissions?: number;
+    automatic_discount?: number;
+    affiliate_commission?: number;
+    coproduction_commission?: number;
+  };
+
+  // Cookies de tracking
+  cookies?: Record<string, any>;
+
   customer: {
     name: string;
     document: string;
     email: string;
     phone_number: string;
+    address?: {
+      city?: string | null;
+      state?: string | null;
+      number?: string | null;
+      street?: string | null;
+      zipcode?: string | null;
+      complement?: string | null;
+      neighborhood?: string | null;
+    };
   };
   payment: {
     method: 'BANK_SLIP' | 'PIX' | 'CREDIT_CARD';
@@ -44,6 +82,7 @@ export interface KirvanoWebhookEvent {
   plan?: {
     name: string;
     charge_frequency: 'MONTHLY' | 'ANNUALLY' | 'WEEKLY';
+    charge_number?: number;
     next_charge_date: string;
   };
   products: Array<{
@@ -54,6 +93,8 @@ export interface KirvanoWebhookEvent {
     description: string;
     price: string;
     photo: string;
+    category?: string;
+    format?: string;
     is_order_bump: boolean;
   }>;
   utm: {
