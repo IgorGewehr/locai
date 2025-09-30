@@ -94,3 +94,64 @@ README.md
 
 # Local sessions (will be created in container)
 .sessions
+
+# Docker files (don't copy docker files into the image)
+docker-compose*.yml
+Dockerfile*
+.dockerignore
+
+# Testing
+**/*.test.js
+**/*.test.ts
+**/*.spec.js
+**/*.spec.ts
+test/
+tests/
+__tests__/
+coverage/
+
+# Documentation
+*.md
+docs/
+CHANGELOG*
+LICENSE*
+
+# Backup files
+*.backup
+*.bak
+*.swp
+*.swo
+*~
+
+# Temporary files
+tmp/
+temp/
+.tmp/
+
+# WhatsApp sessions (will be managed by volumes)
+whatsapp_sessions/
+
+# Uploads (will be managed by volumes)
+uploads/
+public/uploads/
+
+# Firebase keys (sensitive)
+*.json
+service-account-*.json
+firebase-*.json
+
+# Editor configs
+.editorconfig
+.eslintrc*
+.prettierrc*
+tsconfig.json
+
+# CI/CD
+.github/
+.gitlab-ci.yml
+.travis.yml
+.circleci/
+
+# Development tools
+nodemon.json
+.nvmrc
