@@ -343,4 +343,7 @@ export interface Transaction {
 }
 
 // Export notification types
-export * from './notification'
+export * from './notification';
+
+// Export onboarding types
+export * from './onboarding';

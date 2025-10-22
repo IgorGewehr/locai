@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import {
     Grid,
     Card,
@@ -29,12 +29,14 @@ import { db } from '@/lib/firebase/config';
 import { useAuth } from '@/contexts/AuthProvider';
 import { useTenant } from '@/contexts/TenantContext';
 import { collection, query, where, getDocs, Timestamp } from 'firebase/firestore';
+import { logger } from '@/lib/utils/logger';
 import MiniSiteWidget from '@/components/organisms/marketing/MiniSiteWidget';
 import MiniSiteWidgetFullWidth from '@/components/organisms/marketing/MiniSiteWidgetFullWidth';
 import AgendaCard from '@/components/organisms/dashboards/AgendaCard';
 import MetricsCard from '@/components/organisms/dashboards/MetricsCard';
 import SofiaCard from '@/components/organisms/dashboards/SofiaCard';
 import CreateVisitDialog from './agenda/components/CreateVisitDialog';
+import { OnboardingWidget } from '@/components/organisms/Onboarding';
 
 const initialStats: DashboardStats = {
   totalProperties: 0,
@@ -211,16 +213,18 @@ export default function DashboardPage() {
     occupancyTrend: 0
   });
 
-  const fetchStats = async () => {
+  // 🚀 OTIMIZAÇÃO: useCallback previne re-criação da função
+  // e evita loop infinito no useEffect
+  const fetchStats = useCallback(async () => {
     if (!services || !tenantId || !isReady) return;
-    
+
     setLoading(true);
     try {
-      // Fetch properties
+      // 🚀 OTIMIZAÇÃO: getAll() agora tem limit de 1000 docs (antes era ilimitado)
       const properties = await services.properties.getAll();
       const activeProperties = properties.filter((p: any) => p.isActive === true);
 
-      // Fetch reservations
+      // 🚀 OTIMIZAÇÃO: getAll() agora tem limit de 1000 docs
       const reservations = await services.reservations.getAll();
       const pendingReservations = reservations.filter((r: any) => r.status === 'pending');
 
@@ -322,17 +326,23 @@ export default function DashboardPage() {
         occupancyTrend: 0 // Calculate based on previous month if needed
       });
     } catch (error) {
-
+      logger.error('[Dashboard] Error fetching stats', {
+        error: error instanceof Error ? error.message : 'Unknown error',
+        tenantId,
+      });
     } finally {
       setLoading(false);
     }
-  };
+  }, [services, tenantId, isReady]); // Dependencies do useCallback
 
+  // 🚀 OTIMIZAÇÃO: Removido 'services' das dependências
+  // services agora é estável (via useMemo no TenantContext)
+  // mas ainda assim, não precisamos dele como dependência aqui
   useEffect(() => {
-    if (isReady && services && tenantId) {
+    if (isReady && tenantId) {
       fetchStats();
     }
-  }, [isReady, services, tenantId]);
+  }, [isReady, tenantId, fetchStats]); // fetchStats é estável via useCallback
 
   const refreshStats = async () => {
     await fetchStats();
@@ -425,6 +435,11 @@ export default function DashboardPage() {
           />
         </Box>
       )}
+
+      {/* Onboarding Widget - First-time user guide */}
+      <Box sx={{ mb: { xs: 4, md: 5 } }}>
+        <OnboardingWidget variant="compact" />
+      </Box>
 
       {/* Optimized Grid Layout for iPad */}
       <Grid container spacing={{ xs: 3, md: 4, lg: 5 }}>

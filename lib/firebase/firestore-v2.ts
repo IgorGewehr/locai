@@ -120,9 +120,20 @@ export class MultiTenantFirestoreService<T extends { id?: string }> {
 
   /**
    * Get all documents in the collection
+   * 🚀 OTIMIZAÇÃO: Agora com limit para evitar carregar milhares de docs
+   * @param limitCount - Máximo de documentos (default: 1000)
    */
-  async getAll(): Promise<T[]> {
-    const querySnapshot = await getDocs(this.getCollectionRef());
+  async getAll(limitCount: number = 1000): Promise<T[]> {
+    const q = query(this.getCollectionRef(), limit(limitCount));
+    const querySnapshot = await getDocs(q);
+
+    logger.info(`[Firestore] getAll executed`, {
+      collection: this.collectionName,
+      tenant: this.tenantId,
+      count: querySnapshot.size,
+      limit: limitCount,
+    });
+
     return querySnapshot.docs.map(doc => ({
       id: doc.id,
       ...doc.data(),

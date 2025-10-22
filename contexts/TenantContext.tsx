@@ -1,6 +1,6 @@
 'use client';
 
-import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
+import React, { createContext, useContext, useEffect, useState, useMemo, ReactNode } from 'react';
 import { useAuth } from '@/lib/hooks/useAuth';
 import { TenantServiceFactory } from '@/lib/firebase/firestore-v2';
 
@@ -19,9 +19,20 @@ const TenantContext = createContext<TenantContextType>({
 export function TenantProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
   const [tenantId, setTenantId] = useState<string | null>(null);
-  const [services, setServices] = useState<TenantServiceFactory | null>(null);
   const [isReady, setIsReady] = useState(false);
   const debug = process.env.NEXT_PUBLIC_DEBUG_TENANT === 'true';
+
+  // 🚀 OTIMIZAÇÃO: useMemo mantém referência estável do services
+  // Só recria se tenantId mudar de fato
+  const services = useMemo(() => {
+    if (!tenantId) return null;
+
+    if (debug) {
+      console.log('🏭 [TenantContext] Creating new TenantServiceFactory', { tenantId });
+    }
+
+    return new TenantServiceFactory(tenantId);
+  }, [tenantId, debug]);
 
   useEffect(() => {
     if (debug) {
@@ -33,18 +44,18 @@ export function TenantProvider({ children }: { children: ReactNode }) {
         currentTenantId: tenantId
       });
     }
-    
+
     if (user) {
       // Use tenantId if available, otherwise use uid as tenantId
       const id = user.tenantId || user.uid || user.id;
-      
+
       if (debug) {
         console.log('🎯 [TenantContext] Tenant ID determined', {
           determinedId: id,
           source: user.tenantId ? 'tenantId' : (user.uid ? 'uid' : 'id')
         });
       }
-      
+
       // Only update if tenantId actually changes
       if (tenantId !== id) {
         if (debug) {
@@ -53,13 +64,8 @@ export function TenantProvider({ children }: { children: ReactNode }) {
             newId: id
           });
         }
-        
+
         setTenantId(id);
-        
-        // Create service factory
-        const factory = new TenantServiceFactory(id);
-        setServices(factory);
-        
         setIsReady(true);
       }
     } else {
@@ -67,10 +73,9 @@ export function TenantProvider({ children }: { children: ReactNode }) {
         console.log('⚠️ [TenantContext] No user, clearing tenant');
       }
       setTenantId(null);
-      setServices(null);
       setIsReady(false);
     }
-  }, [user?.tenantId, user?.uid, user?.id]); // Removed tenantId from dependencies to prevent infinite loop
+  }, [user?.tenantId, user?.uid, user?.id, tenantId, debug])
 
   return (
     <TenantContext.Provider value={{ tenantId, services, isReady }}>

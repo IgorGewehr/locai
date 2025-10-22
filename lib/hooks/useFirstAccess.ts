@@ -110,9 +110,10 @@ export function useIsFirstAccess(): boolean {
 
 /**
  * Hook para estatísticas de primeiro acesso (para admins)
+ * TODO: Implementar quando necessário - por enquanto não utilizado
  */
 export function useFirstAccessStats() {
-  const [stats, setStats] = useState<{
+  const [stats] = useState<{
     totalNewUsers: number;
     usersWhoViewedTutorial: number;
     completionRate: number;
@@ -121,11 +122,11 @@ export function useFirstAccessStats() {
     totalNewUsers: 0,
     usersWhoViewedTutorial: 0,
     completionRate: 0,
-    loading: true
+    loading: false
   });
 
-  // Este hook seria implementado futuramente para analytics
-  // Por agora retorna dados mock
-  
+  // Este hook será implementado quando necessário para analytics
+  // Não está sendo usado atualmente, então não há mock ativo
+
   return stats;
 }
