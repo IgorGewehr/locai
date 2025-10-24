@@ -98,10 +98,11 @@ const UpdateReservationSchema = z.object({
 // GET /api/reservations/[id] - Get a specific reservation
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id } = params
+    // Await params before accessing properties (Next.js 15 requirement)
+    const { id } = await params
 
     // Check authentication and get tenantId
     const authContext = await validateFirebaseAuth(request)
@@ -173,10 +174,11 @@ export async function GET(
 // PUT /api/reservations/[id] - Update a reservation
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id } = params
+    // Await params before accessing properties (Next.js 15 requirement)
+    const { id } = await params
     const body = await request.json()
 
     // Check authentication and get tenantId
@@ -313,10 +315,11 @@ export async function PUT(
 // DELETE /api/reservations/[id] - Delete a reservation
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { id } = params
+    // Await params before accessing properties (Next.js 15 requirement)
+    const { id } = await params
 
     // Check authentication and get tenantId
     const authContext = await validateFirebaseAuth(request)

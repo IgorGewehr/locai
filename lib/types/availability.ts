@@ -88,3 +88,75 @@ export interface CalendarState {
   lastSyncTime?: Date;
   error?: string;
 }
+
+// Availability Rules for recurring patterns
+export enum AvailabilityRuleType {
+  WEEKLY = 'weekly',         // Repeat every week on specific days
+  MONTHLY = 'monthly',       // Repeat every month on specific days
+  SEASONAL = 'seasonal',     // Specific date range
+  CUSTOM = 'custom'          // Custom pattern
+}
+
+export enum AvailabilityRuleAction {
+  BLOCK = 'block',           // Block dates
+  PRICE = 'price',           // Set custom price
+  MIN_NIGHTS = 'min_nights', // Set minimum nights requirement
+  MAX_NIGHTS = 'max_nights'  // Set maximum nights allowed
+}
+
+export interface AvailabilityRulePattern {
+  // For WEEKLY: [0,6] = Sunday and Saturday (0-6)
+  // For MONTHLY: [1,15] = 1st and 15th of each month (1-31)
+  // For SEASONAL: Not used (dates in main rule)
+  dayIndexes?: number[];
+
+  // For custom patterns
+  customExpression?: string;
+}
+
+export interface AvailabilityRule {
+  id: string;
+  propertyId: string;
+  tenantId: string;
+
+  // Rule identification
+  name: string;
+  description?: string;
+
+  // Rule type and pattern
+  type: AvailabilityRuleType;
+  pattern: AvailabilityRulePattern;
+
+  // What to do when rule matches
+  action: AvailabilityRuleAction;
+  actionValue: any; // Number for price/nights, AvailabilityStatus for block
+
+  // Date range for rule validity (optional)
+  validFrom?: Date;
+  validUntil?: Date;
+
+  // Priority (higher number = higher priority)
+  priority: number;
+
+  // Active status
+  isActive: boolean;
+
+  // Metadata
+  createdAt: Date;
+  updatedAt: Date;
+  createdBy: string;
+}
+
+export interface AvailabilityRuleMatch {
+  rule: AvailabilityRule;
+  date: Date;
+  appliedValue: any;
+}
+
+// Enhanced calendar day with rule information
+export interface EnhancedAvailabilityCalendarDay extends AvailabilityCalendarDay {
+  appliedRules?: AvailabilityRuleMatch[];
+  suggestedPrice?: number;
+  minNights?: number;
+  maxNights?: number;
+}

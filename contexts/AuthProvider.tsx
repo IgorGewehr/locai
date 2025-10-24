@@ -43,7 +43,7 @@ interface AuthContextType {
   logout: () => Promise<void>;
   reloadUser: (forceRefresh?: boolean) => Promise<void>;
   signIn: (email: string, password: string) => Promise<void>;
-  signUp: (email: string, password: string, name: string, extraData?: { free?: number }) => Promise<void>;
+  signUp: (email: string, password: string, name: string, extraData?: { free?: number; businessName?: string; propertiesCount?: number }) => Promise<void>;
   resetPassword: (email: string) => Promise<void>;
   
   // Token Firebase
@@ -270,24 +270,36 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       };
     }
     
+    // ✅ OTIMIZAÇÃO: Pular validação para usuários recém-criados (< 10s)
+    const accountAge = Date.now() - userData.createdAt.getTime();
+    const isNewAccount = accountAge < 10000; // 10 segundos
+
+    if (isNewAccount) {
+      logger.info('⚡ [Auth] Novo usuário detectado, pulando validação de subscription', {
+        userId: userData.uid,
+        accountAge: Math.round(accountAge / 1000) + 's'
+      });
+      return false; // Permitir acesso imediato
+    }
+
     // ✅ NOVA VERIFICAÇÃO: Trial/Assinatura com FALLBACK DE SEGURANÇA
     try {
       const subscriptionValidation = await SubscriptionService.validateUserAccess(userData.uid);
-      
+
       if (!subscriptionValidation.hasAccess) {
         logger.info('🚫 [Auth] Redirecionando para planos', {
           userId: userData.uid,
           reason: subscriptionValidation.reason,
           currentPath
         });
-        
-        return { 
-          redirect: subscriptionValidation.redirectUrl || 'https://moneyin.agency/alugazapplanos/', 
+
+        return {
+          redirect: subscriptionValidation.redirectUrl || 'https://moneyin.agency/alugazapplanos/',
           reason: subscriptionValidation.reason || 'no_access',
           isExternalRedirect: true
         };
       }
-      
+
       // Log trial status se aplicável
       if (subscriptionValidation.trialStatus) {
         logger.info('ℹ️ [Auth] Usuário em trial', {
@@ -296,12 +308,12 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           trialEndDate: subscriptionValidation.trialStatus.trialEndDate
         });
       }
-      
+
     } catch (error) {
       logger.error('❌ [Auth] Erro na validação de assinatura', error as Error, {
         userId: userData.uid
       });
-      
+
       // 🛡️ FALLBACK CRÍTICO: Em caso de erro na validação, permitir acesso
       // Isso garante que problemas de conectividade ou bugs não travem usuários
       logger.warn('⚠️ [Auth] Permitindo acesso devido a erro na validação', {
@@ -419,7 +431,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
               }
             }
           }
-        }, 150); // ✅ Reduzido de 300ms para 150ms
+        }, 50); // ✅ Otimizado para 50ms - mais rápido para signup
         
       } catch (error) {
         logger.error('❌ [Auth] Erro ao processar usuário autenticado', {
@@ -609,7 +621,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     }
   }, []);
 
-  const signUp = useCallback(async (email: string, password: string, name: string, extraData?: { free?: number }): Promise<void> => {
+  const signUp = useCallback(async (email: string, password: string, name: string, extraData?: { free?: number; businessName?: string; propertiesCount?: number }): Promise<void> => {
     try {
       logger.info('👤 [Auth] Iniciando registro', { email, name });
       
@@ -637,9 +649,15 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         firstAccess: true // Novo usuário sempre tem firstAccess = true
       };
       
-      // ✅ NOVA LÓGICA: Adicionar campo free se fornecido
+      // ✅ NOVA LÓGICA: Adicionar campos extras se fornecidos
       if (extraData?.free !== undefined) {
         userData.free = extraData.free;
+      }
+      if (extraData?.businessName) {
+        userData.companyName = extraData.businessName;
+      }
+      if (extraData?.propertiesCount !== undefined) {
+        userData.propertiesCount = extraData.propertiesCount;
       }
       
       await setDoc(doc(db, 'users', result.user.uid), userData);

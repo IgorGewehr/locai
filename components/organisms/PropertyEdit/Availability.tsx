@@ -24,6 +24,8 @@ import {
   DialogContent,
   DialogActions,
   TextField,
+  ToggleButtonGroup,
+  ToggleButton,
 } from '@mui/material';
 import {
   CheckCircle,
@@ -41,6 +43,7 @@ import {
   Clear,
   ChevronLeft,
   ChevronRight,
+  AutoAwesome,
 } from '@mui/icons-material';
 import { useFormContext, Controller } from 'react-hook-form';
 import { 
@@ -63,15 +66,21 @@ import {
 } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { logger } from '@/lib/utils/logger';
+import AvailabilityInsights from '@/components/organisms/AvailabilityInsights/AvailabilityInsights';
+import AvailabilityRulesManager from '@/components/organisms/AvailabilityRulesManager/AvailabilityRulesManager';
+import CalendarExportMenu from '@/components/organisms/CalendarExportMenu/CalendarExportMenu';
+import { AvailabilityCalendarDay } from '@/lib/types/availability';
+
+type ViewMode = 'calendar' | 'insights' | 'rules';
 
 export const PropertyAvailability: React.FC = () => {
   const theme = useTheme();
   const { control, watch, setValue } = useFormContext();
-  
+
   const isActive = watch('isActive');
   const unavailableDates = watch('unavailableDates') || [];
   const customPricing = watch('customPricing') || {};
-  
+
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   const [dateRange, setDateRange] = useState<[Date, Date] | null>(null);
@@ -81,6 +90,13 @@ export const PropertyAvailability: React.FC = () => {
   const [showBlockDialog, setShowBlockDialog] = useState(false);
   const [showPriceDialog, setShowPriceDialog] = useState(false);
   const [dialogPrice, setDialogPrice] = useState('');
+  const [viewMode, setViewMode] = useState<ViewMode>('calendar');
+  const [hoveredDate, setHoveredDate] = useState<Date | null>(null);
+
+  // Get property data for export and insights
+  const propertyId = watch('id');
+  const propertyName = watch('name') || 'Propriedade';
+  const property = watch(); // Get entire property object
 
   // Toggle property status
   const handleStatusToggle = (checked: boolean) => {
@@ -198,16 +214,55 @@ export const PropertyAvailability: React.FC = () => {
     return eachDayOfInterval({ start: calendarStart, end: calendarEnd });
   };
 
+  // Calculate statistics
+  const calculateStats = () => {
+    const monthStart = startOfMonth(currentMonth);
+    const monthEnd = endOfMonth(currentMonth);
+    const daysInMonth = eachDayOfInterval({ start: monthStart, end: monthEnd });
+
+    const futureAndCurrentDays = daysInMonth.filter(d => !isBefore(d, startOfDay(new Date())));
+    const blockedDays = futureAndCurrentDays.filter(d =>
+      unavailableDates.some((ud: Date) => isSameDay(new Date(ud), d))
+    );
+    const daysWithCustomPrice = futureAndCurrentDays.filter(d => {
+      const key = format(d, 'yyyy-MM-dd');
+      return customPricing[key];
+    });
+
+    const availableDays = futureAndCurrentDays.length - blockedDays.length;
+    const occupancyRate = futureAndCurrentDays.length > 0
+      ? ((blockedDays.length / futureAndCurrentDays.length) * 100).toFixed(0)
+      : '0';
+
+    // Calculate potential revenue
+    const basePrice = watch('basePrice') || 0;
+    const potentialRevenue = daysWithCustomPrice.reduce((sum, d) => {
+      const key = format(d, 'yyyy-MM-dd');
+      return sum + (customPricing[key] || basePrice);
+    }, availableDays * basePrice);
+
+    return {
+      totalDays: futureAndCurrentDays.length,
+      availableDays,
+      blockedDays: blockedDays.length,
+      daysWithCustomPrice: daysWithCustomPrice.length,
+      occupancyRate,
+      potentialRevenue
+    };
+  };
+
+  const stats = calculateStats();
+
   // Get date status
   const getDateStatus = (date: Date) => {
     const dateKey = format(date, 'yyyy-MM-dd');
-    const isUnavailable = unavailableDates.some((d: Date) => 
+    const isUnavailable = unavailableDates.some((d: Date) =>
       isSameDay(new Date(d), date)
     );
     const hasCustomPrice = customPricing[dateKey];
     const isPast = isBefore(date, new Date());
-    const isInRange = dateRange && 
-      isAfter(date, dateRange[0]) && 
+    const isInRange = dateRange &&
+      isAfter(date, dateRange[0]) &&
       isBefore(date, dateRange[1]) ||
       (dateRange && (isSameDay(date, dateRange[0]) || isSameDay(date, dateRange[1])));
 
@@ -220,9 +275,158 @@ export const PropertyAvailability: React.FC = () => {
     };
   };
 
+  // Generate calendar days for export (only available dates from current month)
+  const getCalendarDaysForExport = (): AvailabilityCalendarDay[] => {
+    const days = generateCalendarDays();
+    return days.map(date => {
+      const status = getDateStatus(date);
+      const dateKey = format(date, 'yyyy-MM-dd');
+
+      return {
+        date,
+        status: status.isUnavailable ? 'blocked' as any : 'available' as any,
+        isWeekend: isWeekend(date),
+        isHoliday: false, // Simplified
+        isToday: isToday(date),
+        isPast: status.isPast,
+        price: status.price,
+        reason: status.isUnavailable ? 'Bloqueado' : undefined,
+      };
+    }).filter(day => isSameMonth(day.date, currentMonth));
+  };
+
   return (
     <Box>
       <Grid container spacing={3}>
+        {/* View Mode Toggle */}
+        <Grid item xs={12}>
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
+            <ToggleButtonGroup
+              value={viewMode}
+              exclusive
+              onChange={(_, newMode) => {
+                if (newMode !== null) {
+                  setViewMode(newMode);
+                }
+              }}
+              aria-label="modo de visualização"
+            >
+              <ToggleButton value="calendar" aria-label="calendário">
+                <CalendarMonth sx={{ mr: 1 }} />
+                Calendário
+              </ToggleButton>
+              <ToggleButton value="insights" aria-label="insights">
+                <TrendingUp sx={{ mr: 1 }} />
+                Insights
+              </ToggleButton>
+              <ToggleButton value="rules" aria-label="regras">
+                <AutoAwesome sx={{ mr: 1 }} />
+                Regras
+              </ToggleButton>
+            </ToggleButtonGroup>
+
+            {viewMode === 'calendar' && (
+              <CalendarExportMenu
+                property={property}
+                propertyName={propertyName}
+                calendarDays={getCalendarDaysForExport()}
+              />
+            )}
+          </Box>
+        </Grid>
+
+        {/* Insights View */}
+        {viewMode === 'insights' && property && (
+          <Grid item xs={12}>
+            <AvailabilityInsights property={property} />
+          </Grid>
+        )}
+
+        {/* Rules View */}
+        {viewMode === 'rules' && propertyId && (
+          <Grid item xs={12}>
+            <AvailabilityRulesManager propertyId={propertyId} />
+          </Grid>
+        )}
+
+        {/* Calendar View (existing) */}
+        {viewMode === 'calendar' && (
+          <>
+        {/* Statistics Dashboard */}
+        <Grid item xs={12}>
+          <Paper
+            elevation={0}
+            sx={{
+              p: 2,
+              backgroundColor: alpha(theme.palette.info.main, 0.05),
+              border: `1px solid ${alpha(theme.palette.info.main, 0.2)}`,
+              borderRadius: 2,
+            }}
+          >
+            <Typography variant="subtitle2" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
+              <TrendingUp fontSize="small" />
+              Estatísticas - {format(currentMonth, 'MMMM yyyy', { locale: ptBR })}
+            </Typography>
+
+            <Grid container spacing={2}>
+              <Grid item xs={6} sm={3}>
+                <Box sx={{ textAlign: 'center' }}>
+                  <Typography variant="h4" fontWeight={700} color="success.main">
+                    {stats.availableDays}
+                  </Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    Dias Disponíveis
+                  </Typography>
+                </Box>
+              </Grid>
+
+              <Grid item xs={6} sm={3}>
+                <Box sx={{ textAlign: 'center' }}>
+                  <Typography variant="h4" fontWeight={700} color="error.main">
+                    {stats.blockedDays}
+                  </Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    Dias Bloqueados
+                  </Typography>
+                </Box>
+              </Grid>
+
+              <Grid item xs={6} sm={3}>
+                <Box sx={{ textAlign: 'center' }}>
+                  <Typography variant="h4" fontWeight={700} color="warning.main">
+                    {stats.daysWithCustomPrice}
+                  </Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    Preços Especiais
+                  </Typography>
+                </Box>
+              </Grid>
+
+              <Grid item xs={6} sm={3}>
+                <Box sx={{ textAlign: 'center' }}>
+                  <Typography variant="h4" fontWeight={700} color="primary.main">
+                    {stats.occupancyRate}%
+                  </Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    Taxa de Bloqueio
+                  </Typography>
+                </Box>
+              </Grid>
+            </Grid>
+
+            {stats.potentialRevenue > 0 && (
+              <Box sx={{ mt: 2, textAlign: 'center' }}>
+                <Typography variant="body2" color="text.secondary">
+                  Receita Potencial (se todos os dias disponíveis forem ocupados):
+                </Typography>
+                <Typography variant="h6" fontWeight={600} color="success.main">
+                  R$ {stats.potentialRevenue.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                </Typography>
+              </Box>
+            )}
+          </Paper>
+        </Grid>
+
         {/* Status Control */}
         <Grid item xs={12}>
           <Paper
@@ -351,75 +555,126 @@ export const PropertyAvailability: React.FC = () => {
               {generateCalendarDays().map((date, index) => {
                 const status = getDateStatus(date);
                 const isCurrentMonth = isSameMonth(date, currentMonth);
-                
+                const dateKey = format(date, 'yyyy-MM-dd');
+
+                // Tooltip content
+                const getTooltipContent = () => {
+                  if (status.isPast) return 'Data passada';
+                  if (status.isUnavailable && status.hasCustomPrice) {
+                    return `Bloqueado • Preço: R$ ${status.price}`;
+                  }
+                  if (status.isUnavailable) return 'Data bloqueada';
+                  if (status.hasCustomPrice) {
+                    return `Preço especial: R$ ${status.price}`;
+                  }
+                  if (isWeekend(date)) return 'Fim de semana';
+                  return 'Disponível';
+                };
+
                 return (
                   <Grid item xs key={index}>
-                    <Box
-                      onClick={() => handleDateClick(date)}
-                      onMouseEnter={() => handleDateMouseEnter(date)}
-                      sx={{
-                        height: 60,
-                        display: 'flex',
-                        flexDirection: 'column',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        cursor: status.isPast ? 'not-allowed' : 'pointer',
-                        opacity: !isCurrentMonth ? 0.3 : 1,
-                        position: 'relative',
-                        border: '1px solid',
-                        borderColor: theme.palette.divider,
-                        backgroundColor: 
-                          status.isUnavailable ? alpha(theme.palette.error.main, 0.1) :
-                          status.hasCustomPrice ? alpha(theme.palette.success.main, 0.1) :
-                          status.isInRange ? alpha(theme.palette.primary.main, 0.1) :
-                          isToday(date) ? alpha(theme.palette.info.main, 0.1) :
-                          'background.paper',
-                        '&:hover': !status.isPast ? {
-                          backgroundColor: 
-                            status.isUnavailable ? alpha(theme.palette.error.main, 0.2) :
-                            status.hasCustomPrice ? alpha(theme.palette.success.main, 0.2) :
-                            alpha(theme.palette.primary.main, 0.1),
-                        } : {},
-                        transition: 'all 0.2s',
-                      }}
+                    <Tooltip
+                      title={
+                        <Box>
+                          <Typography variant="caption" fontWeight={600}>
+                            {format(date, 'dd/MM/yyyy', { locale: ptBR })}
+                          </Typography>
+                          <Typography variant="caption" display="block">
+                            {getTooltipContent()}
+                          </Typography>
+                        </Box>
+                      }
+                      arrow
+                      placement="top"
                     >
-                      <Typography 
-                        variant="body2" 
-                        fontWeight={isToday(date) ? 600 : 400}
-                        color={
-                          status.isPast ? 'text.disabled' :
-                          status.isUnavailable ? 'error.main' :
-                          status.hasCustomPrice ? 'success.main' :
-                          'text.primary'
-                        }
+                      <Box
+                        onClick={() => handleDateClick(date)}
+                        onMouseEnter={() => {
+                          handleDateMouseEnter(date);
+                          setHoveredDate(date);
+                        }}
+                        onMouseLeave={() => setHoveredDate(null)}
+                        sx={{
+                          height: 60,
+                          display: 'flex',
+                          flexDirection: 'column',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          cursor: status.isPast ? 'not-allowed' : 'pointer',
+                          opacity: !isCurrentMonth ? 0.3 : 1,
+                          position: 'relative',
+                          border: '1px solid',
+                          borderColor: hoveredDate && isSameDay(hoveredDate, date)
+                            ? theme.palette.primary.main
+                            : theme.palette.divider,
+                          backgroundColor:
+                            status.isUnavailable ? alpha(theme.palette.error.main, 0.1) :
+                            status.hasCustomPrice ? alpha(theme.palette.success.main, 0.1) :
+                            status.isInRange ? alpha(theme.palette.primary.main, 0.1) :
+                            isToday(date) ? alpha(theme.palette.info.main, 0.1) :
+                            'background.paper',
+                          '&:hover': !status.isPast ? {
+                            backgroundColor:
+                              status.isUnavailable ? alpha(theme.palette.error.main, 0.2) :
+                              status.hasCustomPrice ? alpha(theme.palette.success.main, 0.2) :
+                              alpha(theme.palette.primary.main, 0.1),
+                            transform: 'scale(1.05)',
+                            zIndex: 1,
+                            boxShadow: 1,
+                          } : {},
+                          transition: 'all 0.2s',
+                        }}
                       >
-                        {format(date, 'd')}
-                      </Typography>
-                      
-                      {status.hasCustomPrice && (
-                        <Typography 
-                          variant="caption"
-                          sx={{
-                            fontSize: '0.6rem',
-                            color: 'success.main',
-                            fontWeight: 600,
-                            lineHeight: 1,
-                          }}
+                        <Typography
+                          variant="body2"
+                          fontWeight={isToday(date) ? 600 : 400}
+                          color={
+                            status.isPast ? 'text.disabled' :
+                            status.isUnavailable ? 'error.main' :
+                            status.hasCustomPrice ? 'success.main' :
+                            'text.primary'
+                          }
                         >
-                          R${status.price}
+                          {format(date, 'd')}
                         </Typography>
-                      )}
-                      
-                      {status.isUnavailable && (
-                        <Block sx={{ 
-                          fontSize: 12, 
-                          color: 'error.main',
-                          position: 'absolute',
-                          top: 2,
-                          right: 2,
-                        }} />
-                      )}
-                    </Box>
+
+                        {status.hasCustomPrice && (
+                          <Typography
+                            variant="caption"
+                            sx={{
+                              fontSize: '0.6rem',
+                              color: 'success.main',
+                              fontWeight: 600,
+                              lineHeight: 1,
+                            }}
+                          >
+                            R${status.price}
+                          </Typography>
+                        )}
+
+                        {status.isUnavailable && (
+                          <Block sx={{
+                            fontSize: 12,
+                            color: 'error.main',
+                            position: 'absolute',
+                            top: 2,
+                            right: 2,
+                          }} />
+                        )}
+
+                        {isWeekend(date) && !status.isUnavailable && !status.isPast && (
+                          <Box sx={{
+                            position: 'absolute',
+                            bottom: 2,
+                            right: 2,
+                            width: 6,
+                            height: 6,
+                            borderRadius: '50%',
+                            bgcolor: 'info.main',
+                          }} />
+                        )}
+                      </Box>
+                    </Tooltip>
                   </Grid>
                 );
               })}
@@ -669,6 +924,9 @@ export const PropertyAvailability: React.FC = () => {
           </Button>
         </DialogActions>
       </Dialog>
+      </>
+        )}
+      </Grid>
     </Box>
   );
 };

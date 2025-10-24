@@ -676,6 +676,8 @@ export async function searchProperties(args: SearchPropertiesArgs, tenantId: str
         bathrooms: p.bathrooms,
         pricePerNight: p.basePrice || 0, // Corrigir para pricePerNight na resposta
         basePrice: p.basePrice || 0, // Manter basePrice também
+        minimumNights: p.minimumNights || 1, // ✅ Mínimo de diárias
+        cleaningFee: p.cleaningFee || 0, // ✅ Taxa de limpeza
         amenities: p.amenities?.slice(0, 5) || [],
         description: p.description?.substring(0, 200) || '',
         images: p.photos?.slice(0, 3).map(photo => ({
@@ -832,16 +834,23 @@ export async function calculatePrice(args: CalculatePriceArgs, tenantId: string)
       totalPrice
     });
 
+    // Verificar mínimo de noites
+    const minimumNights = property.minimumNights || 1;
+    const meetsMinimum = nights >= minimumNights;
+
     return {
       success: true,
       property: {
         id: property.id,
         name: property.title, // Property interface usa 'title', não 'name'
-        location: `${property.neighborhood || ''}, ${property.city || ''}`.replace(/^, |, $/, '')
+        location: `${property.neighborhood || ''}, ${property.city || ''}`.replace(/^, |, $/, ''),
+        minimumNights // ✅ Mínimo de diárias
       },
       pricing: {
         basePrice: property.basePrice || 0,
         nights,
+        minimumNights, // ✅ Mínimo de diárias
+        meetsMinimumNights: meetsMinimum, // ✅ Se atende ao mínimo
         subtotal,
         extraGuestFee,
         cleaningFee,
@@ -861,6 +870,10 @@ export async function calculatePrice(args: CalculatePriceArgs, tenantId: string)
       dates: {
         checkIn,
         checkOut
+      },
+      validation: { // ✅ Informações de validação
+        meetsMinimumNights: meetsMinimum,
+        message: !meetsMinimum ? `Estadia mínima de ${minimumNights} noite(s). Solicitado: ${nights} noite(s).` : null
       },
       tenantId
     };
@@ -1407,7 +1420,11 @@ export async function getPropertyDetails(args: GetPropertyDetailsArgs, tenantId:
         pricing: {
           basePrice: property.basePrice || 0, // Property interface tem basePrice direto
           cleaningFee: property.cleaningFee || 0, // Property interface tem cleaningFee direto
-          pricePerExtraGuest: property.pricePerExtraGuest || 0
+          pricePerExtraGuest: property.pricePerExtraGuest || 0,
+          customPricing: property.customPricing || {}, // ✅ Preços dinâmicos por data (formato: { "2025-12-25": 500, "2025-12-31": 800 })
+          hasCustomPricing: !!property.customPricing && Object.keys(property.customPricing).length > 0, // ✅ Indica se tem preços customizados
+          weekendSurcharge: property.weekendSurcharge || 0, // ✅ Sobretaxa para fins de semana (%)
+          holidaySurcharge: property.holidaySurcharge || 0 // ✅ Sobretaxa para feriados (%)
         },
         // Mídia
         media: {
@@ -5448,18 +5465,34 @@ export async function checkAvailability(args: CheckAvailabilityArgs, tenantId: s
       unavailabilityReason
     });
 
+    // Verificar se o número de noites atende ao mínimo
+    const minimumNights = property.minimumNights || 1;
+    const meetsMinimumNights = totalNights >= minimumNights;
+
     return {
       success: true,
-      available: isAvailable,
+      available: isAvailable && meetsMinimumNights,
       propertyId: property.id,
       propertyName: property.title,
       checkIn: args.checkIn,
       checkOut: args.checkOut,
       totalNights,
-      reason: isAvailable ? null : (unavailabilityReason || 'Propriedade não disponível para as datas solicitadas'),
-      message: isAvailable 
-        ? `Propriedade "${property.title}" está DISPONÍVEL para as datas solicitadas (${totalNights} noites)!`
-        : `Propriedade "${property.title}" está INDISPONÍVEL para o período de ${args.checkIn} a ${args.checkOut}${unavailabilityReason ? `. ${unavailabilityReason}` : ''}`,
+      minimumNights, // ✅ Mínimo de diárias
+      meetsMinimumNights, // ✅ Se atende ao mínimo
+      pricing: { // ✅ Informações básicas de preço
+        basePrice: property.basePrice || 0,
+        cleaningFee: property.cleaningFee || 0,
+        pricePerExtraGuest: property.pricePerExtraGuest || 0,
+        hasCustomPricing: !!property.customPricing && Object.keys(property.customPricing).length > 0
+      },
+      reason: !meetsMinimumNights
+        ? `Estadia mínima de ${minimumNights} noite(s). Solicitado: ${totalNights} noite(s).`
+        : (isAvailable ? null : (unavailabilityReason || 'Propriedade não disponível para as datas solicitadas')),
+      message: !meetsMinimumNights
+        ? `Propriedade "${property.title}" requer estadia mínima de ${minimumNights} noite(s). Período solicitado: ${totalNights} noite(s).`
+        : (isAvailable
+          ? `Propriedade "${property.title}" está DISPONÍVEL para as datas solicitadas (${totalNights} noites)!`
+          : `Propriedade "${property.title}" está INDISPONÍVEL para o período de ${args.checkIn} a ${args.checkOut}${unavailabilityReason ? `. ${unavailabilityReason}` : ''}`),
       tenantId
     };
 

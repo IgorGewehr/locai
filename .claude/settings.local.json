@@ -83,7 +83,15 @@
       "Bash(npx react-native:*)",
       "Bash(npx @react-native-community/cli:*)",
       "Bash(PORT=3001 npm run dev)",
-      "Bash(flutter create:*)"
+      "Bash(flutter create:*)",
+      "Bash(docker --version)",
+      "Bash(docker-compose --version)",
+      "Bash(test -d /Users/igorgewehr/WebstormProjects/locai/docker)",
+      "Bash(lsof -ti:8080)",
+      "Bash(xargs kill -9)",
+      "Read(//private/tmp/**)",
+      "Read(//Users/igorgewehr/Documents/**)",
+      "Read(//Users/igorgewehr/**)"
     ],
     "deny": [],
     "defaultMode": "acceptEdits",

@@ -38,6 +38,12 @@
   node_bundler = "esbuild"
   included_files = ["lib/**", "app/**", ".env"]
 
+# Scheduled Functions configuration
+# Calendar sync runs every 12 hours
+[[functions]]
+  schedule = "0 */12 * * *"
+  path = "netlify/functions/calendar-sync-cron.ts"
+
 # Headers configuration
 [[headers]]
   for = "/*"

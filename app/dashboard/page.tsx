@@ -36,7 +36,8 @@ import AgendaCard from '@/components/organisms/dashboards/AgendaCard';
 import MetricsCard from '@/components/organisms/dashboards/MetricsCard';
 import SofiaCard from '@/components/organisms/dashboards/SofiaCard';
 import CreateVisitDialog from './agenda/components/CreateVisitDialog';
-import { OnboardingWidget } from '@/components/organisms/Onboarding';
+import { SafeRevolutionaryOnboarding } from '@/components/organisms/RevolutionaryOnboarding';
+import { useRouter } from 'next/navigation';
 
 const initialStats: DashboardStats = {
   totalProperties: 0,
@@ -195,6 +196,7 @@ function StatCard({ title, value, subtitle, icon, trend, color }: StatCardProps)
 }
 
 export default function DashboardPage() {
+  const router = useRouter();
   const { user, isAuthenticated } = useAuth();
   const { services, tenantId, isReady } = useTenant();
   const [stats, setStats] = useState<DashboardStats>(initialStats);
@@ -436,9 +438,9 @@ export default function DashboardPage() {
         </Box>
       )}
 
-      {/* Onboarding Widget - First-time user guide */}
+      {/* Revolutionary Onboarding - Interactive first-time user guide */}
       <Box sx={{ mb: { xs: 4, md: 5 } }}>
-        <OnboardingWidget variant="compact" />
+        <SafeRevolutionaryOnboarding variant="compact" />
       </Box>
 
       {/* Optimized Grid Layout for iPad */}
@@ -537,10 +539,10 @@ export default function DashboardPage() {
                 Ações Rápidas
               </Typography>
 
-              <Box sx={{ 
-                display: 'flex', 
-                gap: { xs: 1.5, md: 2 }, 
-                flexWrap: 'wrap', 
+              <Box sx={{
+                display: 'flex',
+                gap: { xs: 1.5, md: 2 },
+                flexWrap: 'wrap',
                 alignItems: 'center',
                 justifyContent: { xs: 'center', sm: 'flex-start' }
               }}>
@@ -564,95 +566,7 @@ export default function DashboardPage() {
                       transform: 'scale(0.98)',
                     }
                   }}
-                  onClick={() => window.location.href = '/dashboard/properties/create'}
-                />
-                <Chip
-                  label={`🤖 Sofia IA`}
-                  clickable
-                  sx={{
-                    background: 'rgba(16, 185, 129, 0.2)',
-                    color: '#6ee7b7',
-                    border: '1px solid rgba(16, 185, 129, 0.3)',
-                    fontWeight: 600,
-                    fontSize: { xs: '0.875rem', md: '1rem' },
-                    height: { xs: 44, md: 48 },
-                    px: { xs: 2, md: 3 },
-                    minWidth: { xs: 44, md: 48 },
-                    '&:hover': {
-                      background: 'rgba(16, 185, 129, 0.3)',
-                      transform: 'scale(1.05)',
-                    },
-                    '&:active': {
-                      transform: 'scale(0.98)',
-                    }
-                  }}
-                  onClick={() => window.location.href = '/dashboard/metricas'}
-                />
-                <Chip
-                  label="💰 Financeiro"
-                  clickable
-                  sx={{
-                    background: 'rgba(16, 185, 129, 0.2)',
-                    color: '#6ee7b7',
-                    border: '1px solid rgba(16, 185, 129, 0.3)',
-                    fontWeight: 600,
-                    fontSize: { xs: '0.875rem', md: '1rem' },
-                    height: { xs: 44, md: 48 },
-                    px: { xs: 2, md: 3 },
-                    minWidth: { xs: 44, md: 48 },
-                    '&:hover': {
-                      background: 'rgba(16, 185, 129, 0.3)',
-                      transform: 'scale(1.05)',
-                    },
-                    '&:active': {
-                      transform: 'scale(0.98)',
-                    }
-                  }}
-                  onClick={() => window.location.href = '/dashboard/financeiro'}
-                />
-                <Chip
-                  label="⚙️ Configurações"
-                  clickable
-                  sx={{
-                    background: 'rgba(245, 158, 11, 0.2)',
-                    color: '#fde68a',
-                    border: '1px solid rgba(245, 158, 11, 0.3)',
-                    fontWeight: 600,
-                    fontSize: { xs: '0.875rem', md: '1rem' },
-                    height: { xs: 44, md: 48 },
-                    px: { xs: 2, md: 3 },
-                    minWidth: { xs: 44, md: 48 },
-                    '&:hover': {
-                      background: 'rgba(245, 158, 11, 0.3)',
-                      transform: 'scale(1.05)',
-                    },
-                    '&:active': {
-                      transform: 'scale(0.98)',
-                    }
-                  }}
-                  onClick={() => window.location.href = '/dashboard/settings'}
-                />
-                <Chip
-                  label="🌐 Mini-Site"
-                  clickable
-                  sx={{
-                    background: 'rgba(236, 72, 153, 0.2)',
-                    color: '#f9a8d4',
-                    border: '1px solid rgba(236, 72, 153, 0.3)',
-                    fontWeight: 600,
-                    fontSize: { xs: '0.875rem', md: '1rem' },
-                    height: { xs: 44, md: 48 },
-                    px: { xs: 2, md: 3 },
-                    minWidth: { xs: 44, md: 48 },
-                    '&:hover': {
-                      background: 'rgba(236, 72, 153, 0.3)',
-                      transform: 'scale(1.05)',
-                    },
-                    '&:active': {
-                      transform: 'scale(0.98)',
-                    }
-                  }}
-                  onClick={() => window.location.href = '/dashboard/mini-site'}
+                  onClick={() => router.push('/dashboard/properties')}
                 />
                 <Chip
                   label="📅 Agenda"
@@ -674,29 +588,95 @@ export default function DashboardPage() {
                       transform: 'scale(0.98)',
                     }
                   }}
-                  onClick={() => window.location.href = '/dashboard/agenda'}
+                  onClick={() => router.push('/dashboard/agenda')}
                 />
                 <Chip
-                  label="📊 Métricas"
+                  label="💰 Financeiro"
                   clickable
                   sx={{
-                    background: 'rgba(99, 102, 241, 0.2)',
-                    color: '#c7d2fe',
-                    border: '1px solid rgba(99, 102, 241, 0.3)',
+                    background: 'rgba(16, 185, 129, 0.2)',
+                    color: '#6ee7b7',
+                    border: '1px solid rgba(16, 185, 129, 0.3)',
                     fontWeight: 600,
                     fontSize: { xs: '0.875rem', md: '1rem' },
                     height: { xs: 44, md: 48 },
                     px: { xs: 2, md: 3 },
                     minWidth: { xs: 44, md: 48 },
                     '&:hover': {
-                      background: 'rgba(99, 102, 241, 0.3)',
+                      background: 'rgba(16, 185, 129, 0.3)',
                       transform: 'scale(1.05)',
                     },
                     '&:active': {
                       transform: 'scale(0.98)',
                     }
                   }}
-                  onClick={() => window.location.href = '/dashboard/metricas'}
+                  onClick={() => router.push('/dashboard/financeiro')}
+                />
+                <Chip
+                  label="🌐 Mini-Site"
+                  clickable
+                  sx={{
+                    background: 'rgba(236, 72, 153, 0.2)',
+                    color: '#f9a8d4',
+                    border: '1px solid rgba(236, 72, 153, 0.3)',
+                    fontWeight: 600,
+                    fontSize: { xs: '0.875rem', md: '1rem' },
+                    height: { xs: 44, md: 48 },
+                    px: { xs: 2, md: 3 },
+                    minWidth: { xs: 44, md: 48 },
+                    '&:hover': {
+                      background: 'rgba(236, 72, 153, 0.3)',
+                      transform: 'scale(1.05)',
+                    },
+                    '&:active': {
+                      transform: 'scale(0.98)',
+                    }
+                  }}
+                  onClick={() => router.push('/dashboard/mini-site')}
+                />
+                <Chip
+                  label="⚙️ Configurações"
+                  clickable
+                  sx={{
+                    background: 'rgba(245, 158, 11, 0.2)',
+                    color: '#fde68a',
+                    border: '1px solid rgba(245, 158, 11, 0.3)',
+                    fontWeight: 600,
+                    fontSize: { xs: '0.875rem', md: '1rem' },
+                    height: { xs: 44, md: 48 },
+                    px: { xs: 2, md: 3 },
+                    minWidth: { xs: 44, md: 48 },
+                    '&:hover': {
+                      background: 'rgba(245, 158, 11, 0.3)',
+                      transform: 'scale(1.05)',
+                    },
+                    '&:active': {
+                      transform: 'scale(0.98)',
+                    }
+                  }}
+                  onClick={() => router.push('/dashboard/settings')}
+                />
+                <Chip
+                  label="💬 Ajuda & Suporte"
+                  clickable
+                  sx={{
+                    background: 'rgba(59, 130, 246, 0.2)',
+                    color: '#93c5fd',
+                    border: '1px solid rgba(59, 130, 246, 0.3)',
+                    fontWeight: 600,
+                    fontSize: { xs: '0.875rem', md: '1rem' },
+                    height: { xs: 44, md: 48 },
+                    px: { xs: 2, md: 3 },
+                    minWidth: { xs: 44, md: 48 },
+                    '&:hover': {
+                      background: 'rgba(59, 130, 246, 0.3)',
+                      transform: 'scale(1.05)',
+                    },
+                    '&:active': {
+                      transform: 'scale(0.98)',
+                    }
+                  }}
+                  onClick={() => router.push('/dashboard/help')}
                 />
               </Box>
             </CardContent>
