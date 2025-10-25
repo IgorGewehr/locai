@@ -38,12 +38,11 @@
   node_bundler = "esbuild"
 
   # IMPORTANT: To fix "environment variables exceed 4KB limit" error:
-  # 1. Remove non-essential env vars from Netlify UI
-  # 2. Keep only runtime-required vars in Netlify UI
-  # 3. Build-only vars should go in [build.environment] section above
+  # DO NOT include .env files - they exceed Lambda's 4KB limit
+  # Only include code files needed for functions
 
-  # Include necessary files for functions
-  included_files = ["lib/**", "app/**"]
+  # Include necessary files for functions (NOT .env files!)
+  included_files = ["lib/**", "app/**", "public/**"]
 
 # Headers configuration
 [[headers]]
