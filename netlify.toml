@@ -36,7 +36,14 @@
 [functions]
   # Ensure API routes work properly
   node_bundler = "esbuild"
-  included_files = ["lib/**", "app/**", ".env"]
+
+  # IMPORTANT: To fix "environment variables exceed 4KB limit" error:
+  # 1. Remove non-essential env vars from Netlify UI
+  # 2. Keep only runtime-required vars in Netlify UI
+  # 3. Build-only vars should go in [build.environment] section above
+
+  # Include necessary files for functions
+  included_files = ["lib/**", "app/**"]
 
 # Headers configuration
 [[headers]]
