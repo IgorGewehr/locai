@@ -384,6 +384,13 @@ export class TenantServiceFactory {
     this.tenantId = tenantId;
   }
 
+  /**
+   * Get Firestore database instance
+   */
+  get db() {
+    return db;
+  }
+
   createService<T extends { id?: string }>(collectionName: string) {
     return new MultiTenantFirestoreService<T>(this.tenantId, collectionName);
   }
@@ -407,6 +414,11 @@ export class TenantServiceFactory {
 
   get messages() {
     return this.createService<import('@/lib/types/conversation').Message>('messages');
+  }
+
+  get availability() {
+    const { AvailabilityService } = require('@/lib/services/availability-service');
+    return new AvailabilityService(this.tenantId);
   }
 
   get transactions() {

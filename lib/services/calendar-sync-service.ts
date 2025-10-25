@@ -14,7 +14,7 @@ import {
 } from '@/lib/types/calendar-sync';
 import { iCalParserService } from './ical-parser-service';
 import { logger } from '@/lib/utils/logger';
-import { TenantServiceFactory } from './tenant-service-factory';
+import { TenantServiceFactory } from '@/lib/firebase/firestore-v2';
 import { AvailabilityStatus } from '@/lib/types/availability';
 import {
   startOfDay,
