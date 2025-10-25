@@ -32,11 +32,9 @@
   # Next.js build cache
   NETLIFY_NEXT_PLUGIN_CACHE = "true"
 
-# Scheduled Functions configuration
-# Calendar sync runs every 12 hours
-[[functions]]
-  name = "calendar-sync-cron"
-  schedule = "0 */12 * * *"
+# Functions configuration for API routes
+[functions]
+  # Ensure API routes work properly
   node_bundler = "esbuild"
   included_files = ["lib/**", "app/**", ".env"]
 
