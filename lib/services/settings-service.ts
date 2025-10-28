@@ -76,7 +76,7 @@ export interface CancellationPolicy {
   enabled: boolean; // Se a política está ativa
   rules: CancellationRule[]; // Lista de regras ordenadas por dias (maior para menor)
   defaultRefundPercentage: number; // Reembolso padrão se não houver regra específica
-  forceM ajeure: boolean; // Se analisa casos de força maior individualmente
+  forceMajeure: boolean; // Se analisa casos de força maior individualmente
   customMessage?: string; // Mensagem customizada adicional
   updatedAt?: Date;
 }
