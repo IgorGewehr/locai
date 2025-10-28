@@ -66,6 +66,21 @@ export interface MiniSiteSettings {
   updatedAt?: Date;
 }
 
+export interface CancellationRule {
+  daysBeforeCheckIn: number; // Dias antes do check-in
+  refundPercentage: number; // Percentual de reembolso (0-100)
+  description?: string; // Descrição opcional da regra
+}
+
+export interface CancellationPolicy {
+  enabled: boolean; // Se a política está ativa
+  rules: CancellationRule[]; // Lista de regras ordenadas por dias (maior para menor)
+  defaultRefundPercentage: number; // Reembolso padrão se não houver regra específica
+  forceM ajeure: boolean; // Se analisa casos de força maior individualmente
+  customMessage?: string; // Mensagem customizada adicional
+  updatedAt?: Date;
+}
+
 export interface TenantSettings {
   id: string;
   company: CompanySettings;
@@ -73,6 +88,7 @@ export interface TenantSettings {
   billing: BillingSettings;
   whatsapp: WhatsAppSettings;
   miniSite: MiniSiteSettings;
+  cancellationPolicy: CancellationPolicy; // Nova política de cancelamento
   createdAt: Date;
   updatedAt: Date;
 }
@@ -164,6 +180,45 @@ class SettingsService {
       } as WhatsAppSettings,
       updatedAt: new Date(),
     });
+  }
+
+  // Update cancellation policy
+  async updateCancellationPolicy(tenantId: string, policy: Partial<CancellationPolicy>): Promise<void> {
+    try {
+      console.log(`🔧 Updating cancellation policy for tenant: ${tenantId}`);
+
+      const existingSettings = await this.getSettings(tenantId);
+
+      if (existingSettings) {
+        await this.service.update(tenantId, {
+          cancellationPolicy: {
+            ...existingSettings.cancellationPolicy,
+            ...policy,
+            updatedAt: new Date(),
+          },
+          updatedAt: new Date(),
+        });
+      } else {
+        const defaultSettings = this.getDefaultSettings(tenantId);
+        const newSettings = {
+          ...defaultSettings,
+          id: tenantId,
+          cancellationPolicy: {
+            ...defaultSettings.cancellationPolicy,
+            ...policy,
+            updatedAt: new Date(),
+          },
+          updatedAt: new Date(),
+        };
+
+        await this.service.set(tenantId, newSettings);
+      }
+
+      console.log('✅ Cancellation policy updated successfully');
+    } catch (error) {
+      console.error('❌ Error updating cancellation policy:', error);
+      throw error;
+    }
   }
 
   // Update mini-site settings
@@ -339,6 +394,29 @@ class SettingsService {
         whatsappNumber: '',
         companyEmail: '',
         seoKeywords: 'imóveis, aluguel, venda, imobiliária',
+      },
+      cancellationPolicy: {
+        enabled: true,
+        rules: [
+          {
+            daysBeforeCheckIn: 7,
+            refundPercentage: 100,
+            description: 'Cancelamento com 7 dias ou mais de antecedência: reembolso total'
+          },
+          {
+            daysBeforeCheckIn: 3,
+            refundPercentage: 50,
+            description: 'Cancelamento entre 3 e 7 dias: reembolso de 50%'
+          },
+          {
+            daysBeforeCheckIn: 0,
+            refundPercentage: 0,
+            description: 'Cancelamento com menos de 3 dias: sem reembolso'
+          }
+        ],
+        defaultRefundPercentage: 0,
+        forceMajeure: true,
+        customMessage: 'Casos de força maior serão analisados individualmente.'
       },
       createdAt: new Date(),
       updatedAt: new Date(),

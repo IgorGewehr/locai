@@ -1395,7 +1395,9 @@ export async function getPropertyDetails(args: GetPropertyDetailsArgs, tenantId:
       property: {
         id: property.id,
         name: property.title, // Property interface usa 'title'
-        type: property.category, // Property interface usa 'category'
+        category: property.category, // Categoria do imóvel (apartment, house, studio, villa, condo)
+        propertyType: property.type, // Tipo do imóvel (residential, commercial, vacation, mixed)
+        status: property.status, // Status atual (active, inactive, maintenance, occupied)
         description: property.description,
         // Localização
         location: {
@@ -1407,7 +1409,8 @@ export async function getPropertyDetails(args: GetPropertyDetailsArgs, tenantId:
         specs: {
           bedrooms: property.bedrooms,
           bathrooms: property.bathrooms,
-          maxGuests: property.maxGuests
+          maxGuests: property.maxGuests,
+          capacity: property.capacity || property.maxGuests // Capacidade máxima
         },
         // Comodidades
         amenities: property.amenities || [],
@@ -1416,26 +1419,39 @@ export async function getPropertyDetails(args: GetPropertyDetailsArgs, tenantId:
           petsAllowed: property.allowsPets || false,
           minimumNights: property.minimumNights || 1
         },
-        // Preços
+        // Preços base e taxas
         pricing: {
-          basePrice: property.basePrice || 0, // Property interface tem basePrice direto
-          cleaningFee: property.cleaningFee || 0, // Property interface tem cleaningFee direto
-          pricePerExtraGuest: property.pricePerExtraGuest || 0,
-          customPricing: property.customPricing || {}, // ✅ Preços dinâmicos por data (formato: { "2025-12-25": 500, "2025-12-31": 800 })
-          hasCustomPricing: !!property.customPricing && Object.keys(property.customPricing).length > 0, // ✅ Indica se tem preços customizados
-          weekendSurcharge: property.weekendSurcharge || 0, // ✅ Sobretaxa para fins de semana (%)
-          holidaySurcharge: property.holidaySurcharge || 0 // ✅ Sobretaxa para feriados (%)
+          basePrice: property.basePrice || 0, // Preço base por noite
+          cleaningFee: property.cleaningFee || 0, // Taxa de limpeza
+          pricePerExtraGuest: property.pricePerExtraGuest || 0, // Valor por hóspede adicional
+          advancePaymentPercentage: property.advancePaymentPercentage || 0, // Percentual de pagamento antecipado
+          // Preços dinâmicos
+          customPricing: property.customPricing || {}, // Preços específicos por data (formato: { "2025-12-25": 500 })
+          hasCustomPricing: !!property.customPricing && Object.keys(property.customPricing).length > 0,
+          // Sobretaxas automáticas
+          weekendSurcharge: property.weekendSurcharge || 0, // Acréscimo para fins de semana (%)
+          holidaySurcharge: property.holidaySurcharge || 0, // Acréscimo para feriados (%)
+          decemberSurcharge: property.decemberSurcharge || 0, // Acréscimo para dezembro (%)
+          highSeasonSurcharge: property.highSeasonSurcharge || 0, // Acréscimo para alta temporada (%)
+          highSeasonMonths: property.highSeasonMonths || [], // Meses de alta temporada (ex: [12, 1, 2])
+          // Ajustes por forma de pagamento
+          paymentMethodSurcharges: property.paymentMethodSurcharges || {}, // Acréscimos por método (ex: { "credit_card": 5 })
+          paymentMethodDiscounts: property.paymentMethodDiscounts || {} // Descontos por método (ex: { "pix": 10 })
+        },
+        // Disponibilidade
+        availability: {
+          isActive: property.isActive,
+          isFeatured: property.isFeatured || false,
+          unavailableDates: property.unavailableDates || [], // Datas bloqueadas
+          hasUnavailableDates: !!property.unavailableDates && property.unavailableDates.length > 0
         },
         // Mídia
         media: {
-          photos: property.photos?.length || 0, // Property interface usa 'photos'
-          mainPhoto: property.photos?.[0],
-          videos: property.videos?.length || 0
-        },
-        // Status
-        availability: {
-          isActive: property.isActive,
-          isFeatured: property.isFeatured || false
+          photos: property.photos?.length || 0, // Número de fotos
+          photoUrls: property.photos || [], // URLs das fotos
+          mainPhoto: property.photos?.[0], // Foto principal
+          videos: property.videos?.length || 0, // Número de vídeos
+          videoUrls: property.videos || [] // URLs dos vídeos
         }
       },
       tenantId
@@ -5118,7 +5134,7 @@ export async function cancelReservation(args: CancelReservationArgs, tenantId: s
 
     const serviceFactory = new TenantServiceFactory(tenantId);
     const reservationService = serviceFactory.reservations;
-    
+
     // Buscar reserva por ID ou telefone do cliente
     let reservation;
     if (args.reservationId) {
@@ -5130,9 +5146,9 @@ export async function cancelReservation(args: CancelReservationArgs, tenantId: s
         orderDirection: 'desc',
         limit: 1
       });
-      
-      reservation = reservations.find(r => 
-        r.clientPhone === args.clientPhone && 
+
+      reservation = reservations.find(r =>
+        r.clientPhone === args.clientPhone &&
         ['pending', 'confirmed'].includes(r.status)
       );
     }
@@ -5145,19 +5161,75 @@ export async function cancelReservation(args: CancelReservationArgs, tenantId: s
       };
     }
 
+    // Calcular reembolso automaticamente baseado na política do tenant
+    let refundAmount = args.refundAmount;
+    let refundPercentage = args.refundPercentage;
+
+    if (!refundAmount && !refundPercentage) {
+      // Buscar política de cancelamento
+      const { createSettingsService } = await import('@/lib/services/settings-service');
+      const settingsService = createSettingsService(tenantId);
+      const tenantSettings = await settingsService.getSettings(tenantId);
+
+      if (tenantSettings?.cancellationPolicy && tenantSettings.cancellationPolicy.enabled) {
+        const policy = tenantSettings.cancellationPolicy;
+        const checkInDate = new Date(reservation.checkIn);
+        const today = new Date();
+        const daysUntilCheckIn = Math.ceil((checkInDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+
+        // Encontrar regra aplicável
+        const sortedRules = [...policy.rules].sort((a, b) => b.daysBeforeCheckIn - a.daysBeforeCheckIn);
+
+        let applicableRule = sortedRules.find(rule => daysUntilCheckIn >= rule.daysBeforeCheckIn);
+
+        if (!applicableRule && sortedRules.length > 0) {
+          // Usar regra com menor dias (normalmente 0 dias = sem reembolso)
+          applicableRule = sortedRules[sortedRules.length - 1];
+        }
+
+        refundPercentage = applicableRule?.refundPercentage ?? policy.defaultRefundPercentage;
+        refundAmount = (reservation.totalAmount * refundPercentage) / 100;
+
+        logger.info('💰 [CancelReservation] Reembolso calculado automaticamente', {
+          daysUntilCheckIn,
+          refundPercentage,
+          refundAmount,
+          totalAmount: reservation.totalAmount,
+          applicableRule: applicableRule?.description
+        });
+      } else {
+        // Política padrão se não configurada
+        const checkInDate = new Date(reservation.checkIn);
+        const today = new Date();
+        const daysUntilCheckIn = Math.ceil((checkInDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+
+        if (daysUntilCheckIn >= 7) {
+          refundPercentage = 100;
+        } else if (daysUntilCheckIn >= 3) {
+          refundPercentage = 50;
+        } else {
+          refundPercentage = 0;
+        }
+
+        refundAmount = (reservation.totalAmount * refundPercentage) / 100;
+      }
+    }
+
     // Atualizar status para cancelada
     await reservationService.update(reservation.id, {
       status: 'cancelled' as ReservationStatus,
       cancelledAt: new Date(),
       cancellationReason: args.reason || 'Solicitado pelo cliente',
-      refundAmount: args.refundAmount,
-      refundPercentage: args.refundPercentage,
+      refundAmount,
+      refundPercentage,
       updatedAt: new Date()
     });
 
     logger.info('✅ [CancelReservation] Reserva cancelada', {
       reservationId: reservation.id,
-      propertyName: reservation.propertyName
+      propertyName: reservation.propertyName,
+      refundAmount,
+      refundPercentage
     });
 
     return {
@@ -5168,8 +5240,9 @@ export async function cancelReservation(args: CancelReservationArgs, tenantId: s
         checkIn: reservation.checkIn,
         checkOut: reservation.checkOut,
         status: 'cancelled',
-        refundAmount: args.refundAmount,
-        message: 'Reserva cancelada com sucesso'
+        refundAmount,
+        refundPercentage,
+        message: `Reserva cancelada com sucesso. Reembolso de ${refundPercentage}%: R$ ${refundAmount.toFixed(2)}`
       },
       tenantId
     };
@@ -5279,15 +5352,43 @@ export async function getPolicies(args: GetPoliciesArgs, tenantId: string) {
       policyType: args.policyType || 'all'
     });
 
+    // Buscar settings do tenant para obter política de cancelamento customizada
+    const { createSettingsService } = await import('@/lib/services/settings-service');
+    const settingsService = createSettingsService(tenantId);
+    const tenantSettings = await settingsService.getSettings(tenantId);
+
+    // Construir política de cancelamento a partir do settings
+    let cancellationRules: string[] = [];
+    if (tenantSettings?.cancellationPolicy && tenantSettings.cancellationPolicy.enabled) {
+      const policy = tenantSettings.cancellationPolicy;
+
+      // Ordenar regras por dias (maior para menor)
+      const sortedRules = [...policy.rules].sort((a, b) => b.daysBeforeCheckIn - a.daysBeforeCheckIn);
+
+      cancellationRules = sortedRules.map(rule =>
+        rule.description ||
+        `Cancelamento até ${rule.daysBeforeCheckIn} dias antes: reembolso de ${rule.refundPercentage}%`
+      );
+
+      if (policy.forceMajeure && policy.customMessage) {
+        cancellationRules.push(policy.customMessage);
+      }
+    } else {
+      // Fallback para política padrão se não configurada
+      cancellationRules = [
+        'Cancelamento até 7 dias antes: reembolso total',
+        'Cancelamento entre 3-7 dias: reembolso de 50%',
+        'Cancelamento com menos de 3 dias: sem reembolso',
+        'Casos de força maior serão analisados individualmente'
+      ];
+    }
+
     const policies: any = {
       cancellation: {
         title: 'Política de Cancelamento',
-        rules: [
-          'Cancelamento até 7 dias antes: reembolso total',
-          'Cancelamento entre 3-7 dias: reembolso de 50%',
-          'Cancelamento com menos de 3 dias: sem reembolso',
-          'Casos de força maior serão analisados individualmente'
-        ]
+        rules: cancellationRules,
+        enabled: tenantSettings?.cancellationPolicy?.enabled ?? true,
+        refundRules: tenantSettings?.cancellationPolicy?.rules || []
       },
       payment: {
         title: 'Política de Pagamento',
