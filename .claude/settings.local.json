@@ -91,7 +91,8 @@
       "Bash(xargs kill -9)",
       "Read(//private/tmp/**)",
       "Read(//Users/igorgewehr/Documents/**)",
-      "Read(//Users/igorgewehr/**)"
+      "Read(//Users/igorgewehr/**)",
+      "Bash(lsof:*)"
     ],
     "deny": [],
     "defaultMode": "acceptEdits",
