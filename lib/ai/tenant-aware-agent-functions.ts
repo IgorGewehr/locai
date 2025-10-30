@@ -5357,8 +5357,10 @@ export async function getPolicies(args: GetPoliciesArgs, tenantId: string) {
     const settingsService = createSettingsService(tenantId);
     const tenantSettings = await settingsService.getSettings(tenantId);
 
-    // Construir política de cancelamento a partir do settings
+    // Construir política de cancelamento completa a partir do settings
     let cancellationRules: string[] = [];
+    let cancellationDetails = null;
+
     if (tenantSettings?.cancellationPolicy && tenantSettings.cancellationPolicy.enabled) {
       const policy = tenantSettings.cancellationPolicy;
 
@@ -5373,6 +5375,20 @@ export async function getPolicies(args: GetPoliciesArgs, tenantId: string) {
       if (policy.forceMajeure && policy.customMessage) {
         cancellationRules.push(policy.customMessage);
       }
+
+      // Detalhes completos da política para processamento programático
+      cancellationDetails = {
+        enabled: policy.enabled,
+        rules: sortedRules.map(rule => ({
+          daysBeforeCheckIn: rule.daysBeforeCheckIn,
+          refundPercentage: rule.refundPercentage,
+          description: rule.description || `Cancelamento até ${rule.daysBeforeCheckIn} dias antes: reembolso de ${rule.refundPercentage}%`
+        })),
+        defaultRefundPercentage: policy.defaultRefundPercentage,
+        forceMajeure: policy.forceMajeure,
+        customMessage: policy.customMessage,
+        updatedAt: policy.updatedAt
+      };
     } else {
       // Fallback para política padrão se não configurada
       cancellationRules = [
@@ -5381,6 +5397,18 @@ export async function getPolicies(args: GetPoliciesArgs, tenantId: string) {
         'Cancelamento com menos de 3 dias: sem reembolso',
         'Casos de força maior serão analisados individualmente'
       ];
+
+      cancellationDetails = {
+        enabled: true,
+        rules: [
+          { daysBeforeCheckIn: 7, refundPercentage: 100, description: 'Reembolso total' },
+          { daysBeforeCheckIn: 3, refundPercentage: 50, description: 'Reembolso parcial' },
+          { daysBeforeCheckIn: 0, refundPercentage: 0, description: 'Sem reembolso' }
+        ],
+        defaultRefundPercentage: 0,
+        forceMajeure: true,
+        customMessage: 'Casos de força maior serão analisados individualmente.'
+      };
     }
 
     const policies: any = {
@@ -5388,7 +5416,8 @@ export async function getPolicies(args: GetPoliciesArgs, tenantId: string) {
         title: 'Política de Cancelamento',
         rules: cancellationRules,
         enabled: tenantSettings?.cancellationPolicy?.enabled ?? true,
-        refundRules: tenantSettings?.cancellationPolicy?.rules || []
+        details: cancellationDetails, // Informações estruturadas completas
+        summary: cancellationRules.join('\n• ')
       },
       payment: {
         title: 'Política de Pagamento',
@@ -5428,21 +5457,38 @@ export async function getPolicies(args: GetPoliciesArgs, tenantId: string) {
       selectedPolicies = policies;
     }
 
+    logger.info('✅ [GetPolicies] Políticas recuperadas com sucesso', {
+      tenantId,
+      policyType: args.policyType || 'all',
+      cancellationEnabled: cancellationDetails?.enabled,
+      rulesCount: cancellationDetails?.rules.length
+    });
+
     return {
       success: true,
       data: {
         policies: selectedPolicies,
         propertyId: args.propertyId,
-        message: 'Políticas recuperadas com sucesso'
+        message: 'Políticas recuperadas com sucesso',
+        // Metadados adicionais para Sofia AI
+        metadata: {
+          hasCancellationPolicy: !!tenantSettings?.cancellationPolicy,
+          cancellationEnabled: cancellationDetails?.enabled ?? true,
+          lastUpdated: tenantSettings?.cancellationPolicy?.updatedAt || tenantSettings?.updatedAt
+        }
       },
       tenantId
     };
 
   } catch (error) {
-    logger.error('❌ [GetPolicies] Erro', { error, tenantId });
+    logger.error('❌ [GetPolicies] Erro ao buscar políticas', {
+      error: error instanceof Error ? error.message : 'Unknown error',
+      tenantId
+    });
     return {
       success: false,
       error: 'Erro ao buscar políticas',
+      details: error instanceof Error ? error.message : 'Unknown error',
       tenantId
     };
   }

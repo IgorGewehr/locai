@@ -55,9 +55,12 @@ import {
   Block,
   Schedule,
   CloudUpload,
+  Policy,
 } from '@mui/icons-material';
 import type { Property } from '@/lib/types/property';
 import PropertyImportDialog from '@/components/organisms/PropertyImport/PropertyImportDialog';
+import CancellationPolicyEditor from '@/app/dashboard/settings/components/CancellationPolicyEditor';
+import type { CancellationPolicy } from '@/lib/services/settings-service';
 
 // Disable static generation for this page
 export const dynamic = 'force-dynamic';
@@ -81,7 +84,10 @@ export default function PropertiesPage() {
   const [selectedProperty, setSelectedProperty] = useState<Property | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [importDialogOpen, setImportDialogOpen] = useState(false);
-  const { services, isReady } = useTenant();
+  const [policyDialogOpen, setPolicyDialogOpen] = useState(false);
+  const [cancellationPolicy, setCancellationPolicy] = useState<CancellationPolicy | null>(null);
+  const [savingPolicy, setSavingPolicy] = useState(false);
+  const { services, isReady, tenantId } = useTenant();
 
   // Create local SVG placeholder for property images
   const createPropertyPlaceholder = (text: string, width: number = 400, height: number = 300) => {
@@ -101,7 +107,7 @@ export default function PropertiesPage() {
   useEffect(() => {
     const loadProperties = async () => {
       if (!services || !isReady) return;
-      
+
       try {
         const propertiesData = await services.properties.getAll();
         setProperties(propertiesData);
@@ -114,6 +120,27 @@ export default function PropertiesPage() {
 
     loadProperties();
   }, [services, isReady]);
+
+  // Load cancellation policy
+  useEffect(() => {
+    const loadPolicy = async () => {
+      if (!tenantId || !isReady) return;
+
+      try {
+        const { createSettingsService } = await import('@/lib/services/settings-service');
+        const settingsService = createSettingsService(tenantId);
+        const settings = await settingsService.getSettings(tenantId);
+
+        if (settings?.cancellationPolicy) {
+          setCancellationPolicy(settings.cancellationPolicy);
+        }
+      } catch (error) {
+        // Policy loading error handled silently
+      }
+    };
+
+    loadPolicy();
+  }, [tenantId, isReady]);
 
   useEffect(() => {
     let filtered = properties;
@@ -202,6 +229,22 @@ export default function PropertiesPage() {
     setImportDialogOpen(false);
   };
 
+  const handleSavePolicy = async (policy: CancellationPolicy) => {
+    if (!tenantId) return;
+
+    setSavingPolicy(true);
+    try {
+      const { createSettingsService } = await import('@/lib/services/settings-service');
+      const settingsService = createSettingsService(tenantId);
+      await settingsService.updateCancellationPolicy(tenantId, policy);
+      setCancellationPolicy(policy);
+    } catch (error) {
+      // Policy save error handled
+    } finally {
+      setSavingPolicy(false);
+    }
+  };
+
   // Removed getStatusChip function as status field doesn't exist in current Property interface
 
   return (
@@ -227,6 +270,15 @@ export default function PropertiesPage() {
           Imóveis
         </Typography>
         <Box sx={{ display: 'flex', gap: { xs: 1, md: 2 }, flexDirection: { xs: 'column', sm: 'row' } }}>
+          <ModernButton
+            variant="outlined"
+            size="large"
+            icon={<Policy />}
+            onClick={() => setPolicyDialogOpen(true)}
+            sx={{ minWidth: { xs: 'auto', sm: '160px' } }}
+          >
+            Políticas
+          </ModernButton>
           <ModernButton
             variant="outlined"
             size="large"
@@ -648,6 +700,61 @@ export default function PropertiesPage() {
         onClose={() => setImportDialogOpen(false)}
         onSuccess={handleImportSuccess}
       />
+
+      {/* Cancellation Policy Dialog */}
+      <Dialog
+        open={policyDialogOpen}
+        onClose={() => setPolicyDialogOpen(false)}
+        maxWidth="md"
+        fullWidth
+        PaperProps={{
+          sx: {
+            borderRadius: 2,
+            maxHeight: '90vh',
+          }
+        }}
+      >
+        <DialogTitle sx={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 1,
+          borderBottom: '1px solid',
+          borderColor: 'divider',
+          pb: 2,
+        }}>
+          <Policy color="primary" />
+          <Box>
+            <Typography variant="h6" fontWeight={600}>
+              Políticas de Cancelamento
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              Gerencie as regras de cancelamento para todas as propriedades
+            </Typography>
+          </Box>
+        </DialogTitle>
+        <DialogContent sx={{ pt: 3 }}>
+          {cancellationPolicy && (
+            <CancellationPolicyEditor
+              initialPolicy={cancellationPolicy}
+              onSave={handleSavePolicy}
+              loading={savingPolicy}
+            />
+          )}
+        </DialogContent>
+        <DialogActions sx={{
+          px: 3,
+          pb: 3,
+          borderTop: '1px solid',
+          borderColor: 'divider'
+        }}>
+          <Button
+            onClick={() => setPolicyDialogOpen(false)}
+            disabled={savingPolicy}
+          >
+            Fechar
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       {/* Floating Action Button */}
       <ModernFAB
