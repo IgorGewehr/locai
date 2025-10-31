@@ -92,7 +92,9 @@
       "Read(//private/tmp/**)",
       "Read(//Users/igorgewehr/Documents/**)",
       "Read(//Users/igorgewehr/**)",
-      "Bash(lsof:*)"
+      "Bash(lsof:*)",
+      "Bash(xcodebuild:*)",
+      "Bash(tee:*)"
     ],
     "deny": [],
     "defaultMode": "acceptEdits",
