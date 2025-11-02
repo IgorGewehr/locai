@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, lazy, Suspense } from 'react';
 import {
     Grid,
     Card,
@@ -30,12 +30,12 @@ import { useAuth } from '@/contexts/AuthProvider';
 import { useTenant } from '@/contexts/TenantContext';
 import { collection, query, where, getDocs, Timestamp } from 'firebase/firestore';
 import { logger } from '@/lib/utils/logger';
-import MiniSiteWidget from '@/components/organisms/marketing/MiniSiteWidget';
-import MiniSiteWidgetFullWidth from '@/components/organisms/marketing/MiniSiteWidgetFullWidth';
-import AgendaCard from '@/components/organisms/dashboards/AgendaCard';
-import MetricsCard from '@/components/organisms/dashboards/MetricsCard';
-import SofiaCard from '@/components/organisms/dashboards/SofiaCard';
-import CreateVisitDialog from './agenda/components/CreateVisitDialog';
+// 🚀 PERFORMANCE: Lazy load de componentes pesados
+const MiniSiteWidgetFullWidth = lazy(() => import('@/components/organisms/marketing/MiniSiteWidgetFullWidth'));
+const AgendaCard = lazy(() => import('@/components/organisms/dashboards/AgendaCard'));
+const MetricsCard = lazy(() => import('@/components/organisms/dashboards/MetricsCard'));
+const SofiaCard = lazy(() => import('@/components/organisms/dashboards/SofiaCard'));
+const CreateVisitDialog = lazy(() => import('./agenda/components/CreateVisitDialog'));
 import { SafeRevolutionaryOnboarding } from '@/components/organisms/RevolutionaryOnboarding';
 import { useRouter } from 'next/navigation';
 
@@ -49,6 +49,25 @@ const initialStats: DashboardStats = {
   occupancyRate: 0,
   averageRating: 0,
 };
+
+// 🚀 PERFORMANCE: Loading placeholder component
+const CardSkeleton = () => (
+  <Card
+    sx={{
+      height: { xs: 'auto', lg: 400 },
+      minHeight: 350,
+      background: 'rgba(255, 255, 255, 0.08)',
+      backdropFilter: 'blur(20px)',
+      border: '1px solid rgba(255, 255, 255, 0.15)',
+      borderRadius: '20px',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+    }}
+  >
+    <CircularProgress size={40} sx={{ color: 'rgba(99, 102, 241, 0.6)' }} />
+  </Card>
+);
 
 interface StatCardProps {
   title: string;
@@ -491,21 +510,30 @@ export default function DashboardPage() {
         </Grid>
 
         {/* Second Row - Detailed Information Cards (3 Equal Cards) */}
+        {/* 🚀 PERFORMANCE: Suspense para lazy loading */}
         <Grid item xs={12} lg={4}>
-          <AgendaCard onCreateEvent={() => setShowVisitDialog(true)} />
+          <Suspense fallback={<CardSkeleton />}>
+            <AgendaCard onCreateEvent={() => setShowVisitDialog(true)} />
+          </Suspense>
         </Grid>
-        
+
         <Grid item xs={12} lg={4}>
-          <MetricsCard />
+          <Suspense fallback={<CardSkeleton />}>
+            <MetricsCard />
+          </Suspense>
         </Grid>
-        
+
         <Grid item xs={12} lg={4}>
-          <SofiaCard />
+          <Suspense fallback={<CardSkeleton />}>
+            <SofiaCard />
+          </Suspense>
         </Grid>
 
         {/* Third Row - Mini-Site Widget (Full Width) */}
         <Grid item xs={12}>
-          <MiniSiteWidgetFullWidth tenantId={tenantId || "default-tenant"} />
+          <Suspense fallback={<CardSkeleton />}>
+            <MiniSiteWidgetFullWidth tenantId={tenantId || "default-tenant"} />
+          </Suspense>
         </Grid>
 
         {/* Quick Actions */}
@@ -685,14 +713,17 @@ export default function DashboardPage() {
       </Grid>
 
       {/* Dialog para criar nova visita */}
-      <CreateVisitDialog
-        open={showVisitDialog}
-        onClose={() => setShowVisitDialog(false)}
-        onSuccess={() => {
-          setShowVisitDialog(false);
-          // Recarregar dados se necessário
-        }}
-      />
+      {/* 🚀 PERFORMANCE: Suspense para lazy loading do dialog */}
+      <Suspense fallback={null}>
+        <CreateVisitDialog
+          open={showVisitDialog}
+          onClose={() => setShowVisitDialog(false)}
+          onSuccess={() => {
+            setShowVisitDialog(false);
+            // Recarregar dados se necessário
+          }}
+        />
+      </Suspense>
     </Box>
   );
 }

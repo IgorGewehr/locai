@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, memo } from 'react';
 import {
   Card,
   CardContent,
@@ -32,7 +32,8 @@ interface SofiaStats {
   lastActivity: string;
 }
 
-export default function SofiaCard() {
+// 🚀 PERFORMANCE: Memoized component
+function SofiaCard() {
   const { tenantId, isReady } = useTenant();
   const [stats, setStats] = useState<SofiaStats>({
     isActive: false,
@@ -51,7 +52,8 @@ export default function SofiaCard() {
     }
   }, [isReady, tenantId]);
 
-  const loadSofiaStats = async () => {
+  // 🚀 PERFORMANCE: useCallback previne re-criação
+  const loadSofiaStats = useCallback(async () => {
     try {
       setLoading(true);
 
@@ -101,7 +103,16 @@ export default function SofiaCard() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [tenantId]); // 🚀 PERFORMANCE: Dependência explícita
+
+  useEffect(() => {
+    if (isReady && tenantId) {
+      loadSofiaStats();
+      // Auto-refresh every 30 seconds
+      const interval = setInterval(loadSofiaStats, 30000);
+      return () => clearInterval(interval);
+    }
+  }, [isReady, tenantId, loadSofiaStats]); // 🚀 PERFORMANCE: Dependências corretas
 
   if (loading) {
     return (
@@ -277,3 +288,6 @@ export default function SofiaCard() {
     </Card>
   );
 }
+
+// 🚀 PERFORMANCE: Export memoized component
+export default memo(SofiaCard);

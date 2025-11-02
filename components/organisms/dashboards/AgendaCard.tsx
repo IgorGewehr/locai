@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, memo } from 'react';
 import { ApiClient } from '@/lib/utils/api-client';
 import {
   Card,
@@ -39,12 +39,14 @@ interface AgendaCardProps {
   onCreateEvent?: () => void;
 }
 
-export default function AgendaCard({ onCreateEvent }: AgendaCardProps) {
+// 🚀 PERFORMANCE: Memoized component para evitar re-renders desnecessários
+function AgendaCard({ onCreateEvent }: AgendaCardProps) {
   const { tenantId } = useTenant();
   const [nextEvent, setNextEvent] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const loadNextEvent = async () => {
+  // 🚀 PERFORMANCE: useCallback previne re-criação da função
+  const loadNextEvent = useCallback(async () => {
     if (!tenantId) return;
     
     try {
@@ -95,11 +97,11 @@ export default function AgendaCard({ onCreateEvent }: AgendaCardProps) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [tenantId]); // 🚀 PERFORMANCE: Dependência explícita
 
   useEffect(() => {
     loadNextEvent();
-  }, [tenantId]);
+  }, [loadNextEvent]); // 🚀 PERFORMANCE: Usa função estável
 
   const formatEventDateTime = (date: string, time: string) => {
     const eventDate = new Date(date);
@@ -451,3 +453,6 @@ export default function AgendaCard({ onCreateEvent }: AgendaCardProps) {
     </Card>
   );
 }
+
+// 🚀 PERFORMANCE: Export memoized component
+export default memo(AgendaCard);

@@ -212,11 +212,14 @@ export function useRevolutionaryOnboarding(): UseRevolutionaryOnboardingResult {
 
   /**
    * Deve mostrar onboarding
+   * ✅ FIX: Auto-hide ao completar 100%
    */
   const shouldShow = useMemo(() => {
     if (!state || state.isDismissed) return false;
+    // 🚀 IMPROVEMENT: Auto-hide quando 100% completo
+    if (baseOnboarding.progress?.isCompleted) return false;
     return baseOnboarding.shouldShowOnboarding;
-  }, [state, baseOnboarding.shouldShowOnboarding]);
+  }, [state, baseOnboarding.shouldShowOnboarding, baseOnboarding.progress]);
 
   /**
    * Pode voltar
@@ -611,6 +614,19 @@ export function useRevolutionaryOnboarding(): UseRevolutionaryOnboardingResult {
 
     return () => clearInterval(interval);
   }, [state, shouldShow, persistState]);
+
+  // 🚀 IMPROVEMENT: Auto-dismiss quando 100% completo
+  useEffect(() => {
+    if (isFullyCompleted && state && !state.isDismissed) {
+      // Aguardar 3 segundos para o usuário ver a mensagem de conclusão
+      const timeout = setTimeout(() => {
+        persistState({ isDismissed: true });
+        logger.info('🎉 [Revolutionary Onboarding] Auto-dismissed após conclusão');
+      }, 3000);
+
+      return () => clearTimeout(timeout);
+    }
+  }, [isFullyCompleted, state, persistState]);
 
   return {
     state,

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, memo } from 'react';
 import {
   Card,
   CardContent,
@@ -36,7 +36,8 @@ interface MetricsStats {
   };
 }
 
-export default function MetricsCard() {
+// 🚀 PERFORMANCE: Memoized component
+function MetricsCard() {
   const { tenantId, isReady } = useTenant();
   const [stats, setStats] = useState<MetricsStats>({
     conversionRate: 0,
@@ -57,9 +58,10 @@ export default function MetricsCard() {
     if (isReady && tenantId) {
       loadMetricsStats();
     }
-  }, [isReady, tenantId]);
+  }, [isReady, tenantId, loadMetricsStats]); // 🚀 PERFORMANCE: Dependências corretas
 
-  const loadMetricsStats = async () => {
+  // 🚀 PERFORMANCE: useCallback previne re-criação
+  const loadMetricsStats = useCallback(async () => {
     try {
       setLoading(true);
 
@@ -122,7 +124,7 @@ export default function MetricsCard() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [tenantId]); // 🚀 PERFORMANCE: Dependência explícita
 
   if (loading) {
     return (
@@ -309,3 +311,6 @@ export default function MetricsCard() {
     </Card>
   );
 }
+
+// 🚀 PERFORMANCE: Export memoized component
+export default memo(MetricsCard);
