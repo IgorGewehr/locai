@@ -312,25 +312,47 @@ export default function RevolutionaryOnboarding({
                 >
                   Próximo passo: {currentStep.title}
                 </Typography>
-                <Button
-                  fullWidth
-                  variant="contained"
-                  onClick={() => handleStepAction(currentStep)}
-                  disabled={processingStep === currentStep.id}
-                  sx={{
-                    background: 'linear-gradient(135deg, #10b981, #059669)',
-                    boxShadow: '0 4px 16px rgba(16, 185, 129, 0.3)',
-                    fontWeight: 600,
-                    '&:hover': {
-                      background: 'linear-gradient(135deg, #059669, #047857)',
-                      transform: 'translateY(-2px)',
-                      boxShadow: '0 6px 20px rgba(16, 185, 129, 0.4)',
-                    },
-                    transition: 'all 0.2s ease',
-                  }}
-                >
-                  {processingStep === currentStep.id ? 'Carregando...' : 'Continuar'}
-                </Button>
+                {currentStep.id === 'share_minisite' ? (
+                  <Button
+                    fullWidth
+                    variant="contained"
+                    onClick={() => handleCompleteStep('share_minisite')}
+                    disabled={processingStep === 'share_minisite'}
+                    sx={{
+                      background: 'linear-gradient(135deg, #10b981, #059669)',
+                      boxShadow: '0 4px 16px rgba(16, 185, 129, 0.3)',
+                      fontWeight: 600,
+                      '&:hover': {
+                        background: 'linear-gradient(135deg, #059669, #047857)',
+                        transform: 'translateY(-2px)',
+                        boxShadow: '0 6px 20px rgba(16, 185, 129, 0.4)',
+                      },
+                      transition: 'all 0.2s ease',
+                    }}
+                  >
+                    {processingStep === 'share_minisite' ? 'Carregando...' : 'Marcar como Concluído'}
+                  </Button>
+                ) : (
+                  <Button
+                    fullWidth
+                    variant="contained"
+                    onClick={() => handleStepAction(currentStep)}
+                    disabled={processingStep === currentStep.id}
+                    sx={{
+                      background: 'linear-gradient(135deg, #10b981, #059669)',
+                      boxShadow: '0 4px 16px rgba(16, 185, 129, 0.3)',
+                      fontWeight: 600,
+                      '&:hover': {
+                        background: 'linear-gradient(135deg, #059669, #047857)',
+                        transform: 'translateY(-2px)',
+                        boxShadow: '0 6px 20px rgba(16, 185, 129, 0.4)',
+                      },
+                      transition: 'all 0.2s ease',
+                    }}
+                  >
+                    {processingStep === currentStep.id ? 'Carregando...' : 'Continuar'}
+                  </Button>
+                )}
               </Stack>
             )}
 

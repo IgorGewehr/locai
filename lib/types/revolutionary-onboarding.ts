@@ -282,6 +282,39 @@ export const REVOLUTIONARY_ONBOARDING_STEPS: Omit<RevolutionaryOnboardingStep, '
       icon: 'EventAvailable',
     },
   },
+  {
+    id: 'share_minisite',
+    title: 'Parabéns! Tudo Configurado',
+    description: 'Compartilhe seus imóveis através do mini-site e deixe o Locai trabalhar para você',
+    icon: 'Share',
+    order: 4,
+    isOptional: true,
+    estimatedMinutes: 2,
+    hasEmbeddedDialog: false,
+    guidanceText: 'Seu sistema está pronto! Agora você pode compartilhar seu mini-site e começar a receber reservas automaticamente',
+    tips: [
+      {
+        id: 'minisite_share',
+        title: 'Compartilhe seu Mini-Site',
+        description: 'Acesse "Mini-Site" na barra lateral para configurar e compartilhar',
+        type: 'success',
+        icon: 'Language',
+      },
+    ],
+    completionBadge: {
+      id: 'onboarding_complete',
+      title: 'Configuração Completa',
+      description: 'Você completou todo o processo de configuração!',
+      icon: 'Celebration',
+      color: '#10b981',
+    },
+    sidebarReference: {
+      title: 'Mini-Site',
+      description: 'Configure e compartilhe seu mini-site em "Mini-Site"',
+      path: '/dashboard/mini-site',
+      icon: 'Language',
+    },
+  },
 ];
 
 export const DEFAULT_REVOLUTIONARY_STATE: Omit<RevolutionaryOnboardingState, 'startedAt' | 'lastInteractionAt'> = {
@@ -296,6 +329,7 @@ export const DEFAULT_REVOLUTIONARY_STATE: Omit<RevolutionaryOnboardingState, 'st
     add_property: { stepId: 'add_property', attempts: 0, timeSpentSeconds: 0, actions: [] },
     connect_whatsapp: { stepId: 'connect_whatsapp', attempts: 0, timeSpentSeconds: 0, actions: [] },
     test_demo: { stepId: 'test_demo', attempts: 0, timeSpentSeconds: 0, actions: [] },
+    share_minisite: { stepId: 'share_minisite', attempts: 0, timeSpentSeconds: 0, actions: [] },
   },
   showTooltips: true,
   showVideoTutorials: true,

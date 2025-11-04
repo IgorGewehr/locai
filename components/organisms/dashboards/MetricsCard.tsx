@@ -54,12 +54,6 @@ function MetricsCard() {
   });
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    if (isReady && tenantId) {
-      loadMetricsStats();
-    }
-  }, [isReady, tenantId, loadMetricsStats]); // 🚀 PERFORMANCE: Dependências corretas
-
   // 🚀 PERFORMANCE: useCallback previne re-criação
   const loadMetricsStats = useCallback(async () => {
     try {
@@ -125,6 +119,12 @@ function MetricsCard() {
       setLoading(false);
     }
   }, [tenantId]); // 🚀 PERFORMANCE: Dependência explícita
+
+  useEffect(() => {
+    if (isReady && tenantId) {
+      loadMetricsStats();
+    }
+  }, [isReady, tenantId, loadMetricsStats]); // 🚀 PERFORMANCE: Dependências corretas
 
   if (loading) {
     return (

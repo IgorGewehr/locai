@@ -1,6 +1,6 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+Guidance for Claude Code (claude.ai/code) when working with this repository.
 
 ## 🚀 Quick Start
 
@@ -18,428 +18,516 @@ npm run dev
 - Dashboard: `/dashboard` - Main application interface
 - CRM System: `/dashboard/crm` - Complete lead management with advanced analytics
 - Mini-site: Configure custom domains for tenant-specific public sites
-- Admin Panel: `/dashboard/lkjhg` - Ultra-secure admin interface
+- Admin Panel: `/dashboard/lkjhg` - Ultra-secure admin interface (`idog: true`)
 
-## Project Overview
+---
 
-This is a comprehensive **enterprise-grade** real estate AI agent system called "locai" built with Next.js 15, Material-UI, and Firebase. The system features:
+## 📋 Project Overview
 
-### 🤖 **MODERN AI ARCHITECTURE - N8N POWERED (SEPTEMBER 2025)**
-- **N8N Integration**: External AI processing via dedicated N8N workflows
-- **Dedicated Baileys Server**: Separate WhatsApp Web server for optimal performance
-- **30+ AI Functions**: Complete business automation via API endpoints
-- **Sofia AI Agent**: Specialized real estate consultant with reactive behavior
-- **CRM Pipeline Automation**: Automatic lead scoring, status progression, and follow-ups
-- **Multi-Channel**: WhatsApp Web (Baileys) + Business API support
+This is a comprehensive **enterprise-grade** real estate AI agent system called "Locai" built with Next.js 15, Material-UI, and Firebase.
 
-### Core Features
-- **Advanced CRM**: Complete pipeline management with AI insights, performance tracking, and conversion analytics
-- **N8N-Powered AI**: External workflow automation with Sofia agent integration
-- **Dedicated WhatsApp Server**: Baileys-based dedicated server for reliable messaging
-- **Multi-tenant Architecture**: Complete tenant isolation with `tenants/{tenantId}/collections` structure
-- **Mini-Site System**: Public sites with custom domains and lead capture
-- **Advanced Analytics**: Conversion funnels, lead performance tracking, and business intelligence
-- **Enterprise Security**: Rate limiting, input validation, professional error handling
-
-## Technology Stack
-
-- **Framework**: Next.js 15.3.5 with App Router
-- **Language**: TypeScript 5.3.0
-- **UI Library**: Material-UI v5.15.0 with Emotion
-- **Database**: Firebase Firestore v10.7.0
-- **Storage**: Firebase Storage
-- **AI Architecture**:
-  - N8N v1.0+ for workflow automation
-  - Sofia AI Agent with GPT-4o Mini integration
-  - Dedicated Baileys server for WhatsApp Web
-  - 30+ specialized AI function endpoints
-- **Messaging Stack**:
-  - Dedicated Baileys server (separate from main app)
-  - WhatsApp Business API support
-  - N8N webhook integrations
-- **Analytics**: Recharts v2.15.4 with advanced CRM visualizations
-- **Caching**: In-memory LRU cache with TTL
-- **Payments**: Stripe integration
-- **State Management**: Zustand + React Context
-- **Forms**: React Hook Form with Yup validation
-- **Authentication**: Firebase Auth with custom multi-tenant flows
-
-## Development Commands
-
-```bash
-# Start development server with Turbopack
-npm run dev
-
-# Build for production
-npm run build
-
-# Start production server
-npm start
-
-# Run linting
-npm run lint
-
-# TypeScript type checking
-npm run type-check
-
-# Production readiness check
-npm run prod-check
-
-# Deploy to production
-npm run deploy
-
-# Health check
-npm run health
-
-# Clean cache and build folders
-npm run clean
-
-# Generate password hash for admin users
-npm run generate-password-hash
-```
-
-## 🎯 **UPDATED CORE ARCHITECTURE - N8N INTEGRATION**
-
-### **Sofia AI Agent System - N8N Powered**
-The heart of the application is Sofia, an intelligent real estate consultant now fully integrated with N8N workflows:
-
-**🔄 N8N Integration Architecture**:
-- **External Processing**: All AI conversations processed via N8N workflows
-- **Webhook-Based**: Real-time communication between Next.js and N8N
-- **Scalable**: Independent scaling of AI processing and web application
-- **Resilient**: Fallback mechanisms for N8N downtime
-- **Monitoring**: Complete request/response tracking and analytics
-
-**🤖 Sofia Agent Characteristics**:
-- **Reactive Behavior**: Never sends "thinking" or "processing" messages
-- **Single Response Mode**: Executes all functions and provides complete response
-- **Pipeline Management**: Automatically moves leads through CRM stages
-- **Specialized Functions**: 30+ dedicated endpoints for business operations
-- **Context Awareness**: Maintains conversation history and customer preferences
-
-### **Dedicated WhatsApp Architecture**
-Separate Baileys server for optimal WhatsApp Web performance:
-
-**🔌 Baileys Server Integration**:
-- **Dedicated Server**: Independent Node.js server running Baileys
-- **API Communication**: RESTful API between main app and Baileys server
-- **Session Management**: Persistent QR code authentication
-- **Media Handling**: Direct media processing and delivery
-- **Multi-Device**: Full WhatsApp multi-device support
-- **Reliability**: Auto-reconnection and error recovery
-
-**📱 Message Flow Architecture**:
-```
-WhatsApp → Baileys Server → Main App → N8N → Sofia Agent → Response → Baileys Server → WhatsApp
-```
-
-### **30+ AI Function Endpoints**
-Complete business automation via specialized API routes:
-
-**🏠 Property Management**:
-- `search_properties`: Advanced property search with filters
-- `get_property_details`: Complete property information
-- `send_property_media`: Photo/video delivery with captions
-- `send_property_map`: Location and map information
-- `check_availability`: Real-time availability verification
-
-**💰 Financial Operations**:
-- `calculate_price`: Dynamic pricing with Brazilian holiday calendar
-- `generate_quote`: Formal quotation generation
-- `create_transaction`: Payment processing
-- `track_metrics`: Financial performance tracking
-
-**📅 Booking Management**:
-- `create_reservation`: Complete booking creation with validation
-- `cancel_reservation`: Cancellation with refund processing
-- `modify_reservation`: Date/guest/price modifications
-- `schedule_visit`: Property visit scheduling
-- `check_visit_availability`: Visit slot verification
-
-**👤 CRM Integration (6 NEW ENDPOINTS)**:
-- `create_lead`: Smart lead creation with deduplication
-- `get_lead_details`: Complete lead information retrieval
-- `get_leads_list`: Filtered lead listing with pagination
-- `add_lead_interaction`: Interaction tracking with sentiment analysis
-- `analyze_lead_performance`: AI-powered lead analysis
-- `follow_up_lead`: Automated follow-up scheduling
-- `lead_pipeline_movement`: Automatic pipeline stage progression
-
-**📋 Information & Policies**:
-- `get_policies`: Cancellation, payment, and check-in policies
-- `register_client`: Client registration with deduplication
-- `schedule_meeting`: Meeting scheduling (retirada, reunião, visita)
-- `check_agenda_availability`: Calendar availability checking
-- `classify_lead`: Automatic lead classification (hot/warm/cold)
-- `update_lead`: Lead information updates
-- `update_lead_status`: Pipeline status management
-
-**🎯 Goals & Analytics**:
-- `create_goal`: Business goal creation
-- `update_goal_progress`: Goal progress tracking
-- `analyze_performance`: Performance metrics analysis
-
-## **🎛️ ENHANCED CRM SYSTEM (SEPTEMBER 2025)**
-
-### **Advanced Analytics Dashboard**
-Complete business intelligence platform:
-
-**📊 Analytics Components**:
-- **AdvancedAnalytics.tsx**: Conversion funnels, time series, source analysis
-- **LeadPerformanceTracker.tsx**: Real-time lead performance monitoring
-- **AIInsights.tsx**: AI-powered recommendations and predictions
-- **CRMStats.tsx**: Key performance indicators
-
-**📈 Visualization Features**:
-- **Conversion Funnel**: Visual pipeline with conversion rates per stage
-- **Time Series Analysis**: Lead generation and conversion trends
-- **Source Performance**: ROI analysis by lead source
-- **Performance Tracking**: Individual lead scoring and risk assessment
-- **Interactive Charts**: Recharts-based responsive visualizations
-
-**🎯 Navigation Structure**:
-- **Pipeline**: Kanban board with drag-and-drop
-- **All Leads**: Comprehensive lead listing with filters
-- **AI Insights**: AI-powered analysis and recommendations
-- **Advanced Analytics**: Business intelligence dashboard
-- **Performance**: Real-time lead performance tracking
-
-### **CRM Pipeline Automation**
-Intelligent lead progression and scoring:
-
-**🔄 Automatic Pipeline Movement**:
-- **new → contacted**: First interaction triggers
-- **contacted → qualified**: Needs identification (dates, budget, location)
-- **qualified → presentation**: Property options shown
-- **presentation → proposal**: Budget request or strong interest
-- **proposal → negotiation**: Price discussion or special conditions
-- **negotiation → closing**: Budget confirmation
-- **closing → won**: Reservation completed
-
-**⭐ Dynamic Lead Scoring**:
-- **Base Score**: Initial lead quality assessment
-- **Temperature Bonus**: hot (+15), warm (+5), cold (-10)
-- **Interaction Multiplier**: Frequency and engagement level
-- **Qualification Bonus**: Budget/timeline/need/authority verification
-- **Time Decay**: Reduced score for stale leads
-- **AI-Enhanced**: Machine learning-based score adjustments
-
-## Data Layer Architecture (MULTI-TENANT)
-
-### **Complete Tenant Isolation**
-- **Multi-tenant Structure**: `tenants/{tenantId}/collections` for complete data isolation
-- **TenantServiceFactory** (`lib/services/tenant-service-factory.ts`): Creates tenant-scoped services
-- **useTenant() Hook** (`contexts/TenantContext.tsx`): Global tenant context management
-- **Generic Firestore Service** (`lib/firebase/firestore.ts`): Type-safe CRUD operations
-- **Batch Operations**: Atomic multi-document transactions
-- **Error Recovery**: Automatic retry and fallback mechanisms
-- **Performance Optimization**: Query caching and batch processing
-
-### **Core Collections**
-- **Properties**: Real estate listings with media and pricing
-- **Reservations**: Booking management with payment tracking
-- **Clients**: Customer information with interaction history
-- **Leads**: CRM pipeline with scoring and automation
-- **Conversations**: Chat history with context preservation
-- **Messages**: Individual message tracking
-- **Amenities**: Property features and facilities
-- **Payments**: Financial transaction records
-- **AI Collections**: agents, automations, analytics, contexts
-
-### **Advanced Firestore Queries**
-- **Complex Filtering**: Multi-field queries with pagination
-- **Real-time Subscriptions**: Live data updates via onSnapshot
-- **Indexing Strategy**: Optimized composite indexes
-- **Batch Processing**: Efficient bulk operations
-- **Transaction Safety**: ACID compliance for critical operations
-
-## **🌐 API ROUTES ARCHITECTURE (UPDATED)**
-
-### **AI Function Endpoints** (`app/api/ai/functions/`)
-30+ specialized endpoints for N8N integration:
+### Technology Stack
 
 ```typescript
-// Property Management
-/api/ai/functions/search-properties          // Advanced property search
-/api/ai/functions/get-property-details      // Complete property info
-/api/ai/functions/send-property-media       // Photo/video delivery
-/api/ai/functions/send-property-map         // Location information
-/api/ai/functions/check-availability        // Real-time availability
-
-// Financial Operations
-/api/ai/functions/calculate-price           // Dynamic pricing
-/api/ai/functions/generate-quote            // Formal quotations
-/api/ai/functions/create-transaction        // Payment processing
-/api/ai/functions/track-metrics            // Performance tracking
-
-// Booking Management
-/api/ai/functions/create-reservation        // Booking creation
-/api/ai/functions/cancel-reservation        // Cancellation processing
-/api/ai/functions/modify-reservation        // Booking modifications
-/api/ai/functions/schedule-visit           // Property visits
-/api/ai/functions/check-visit-availability // Visit scheduling
-
-// CRM Integration (6 NEW)
-/api/ai/functions/create-lead              // Smart lead creation
-/api/ai/functions/get-lead-details         // Lead information
-/api/ai/functions/get-leads-list           // Filtered lead listing
-/api/ai/functions/add-lead-interaction     // Interaction tracking
-/api/ai/functions/analyze-lead-performance // AI analysis
-/api/ai/functions/follow-up-lead           // Follow-up automation
-/api/ai/functions/lead-pipeline-movement   // Pipeline progression
-
-// Additional Functions
-/api/ai/functions/get-policies             // Business policies
-/api/ai/functions/register-client          // Client registration
-/api/ai/functions/schedule-meeting         // Meeting scheduling
-/api/ai/functions/check-agenda-availability // Calendar checking
-/api/ai/functions/classify-lead            // Lead classification
-/api/ai/functions/update-lead              // Lead updates
-/api/ai/functions/update-lead-status       // Status management
-/api/ai/functions/create-goal              // Goal creation
-/api/ai/functions/update-goal-progress     // Goal tracking
-/api/ai/functions/analyze-performance      // Performance analysis
-```
-
-### **Core Application Routes**
-```
-app/api/
-├── auth/                      # Authentication system
-│   ├── login/route.ts        # User authentication
-│   ├── logout/route.ts       # Session termination
-│   ├── register/route.ts     # User registration
-│   └── profile/route.ts      # Profile management
-├── admin/                     # Admin panel APIs
-│   ├── all-tickets/route.ts  # Global ticket management
-│   ├── users/route.ts        # User administration
-│   ├── stats/route.ts        # System statistics
-│   └── verify/route.ts       # Admin verification
-├── crm/                       # CRM system APIs
-│   ├── analytics/route.ts    # CRM analytics
-│   └── leads/[id]/insights/route.ts # Lead insights
-├── properties/                # Property management
-│   ├── route.ts              # CRUD operations
-│   ├── import/route.ts       # Bulk import
-│   └── [id]/route.ts         # Individual properties
-├── mini-site/                 # Public site system
-│   ├── domain/route.ts       # Domain management
-│   └── analytics/route.ts    # Visitor tracking
-├── webhooks/                  # External integrations
-│   ├── ki/route.ts           # N8N webhooks
-│   └── kirvano/route.ts      # Additional webhooks
-├── whatsapp/                  # WhatsApp integration
-│   ├── qr/route.ts           # QR code management
-│   ├── send-n8n/route.ts     # N8N message sending
-│   └── session/route.ts      # Session management
-└── upload/                    # Media management
-    ├── avatar/route.ts       # Profile pictures
-    ├── logo/route.ts         # Company branding
-    └── media/route.ts        # Property media
-```
-
-## **🔧 N8N Integration Patterns**
-
-### **Webhook Communication**
-Reliable communication between Next.js and N8N:
-
-```typescript
-// N8N Webhook Handler
-export async function POST(request: NextRequest) {
-  const { message, phone, tenantId } = await request.json();
-
-  // Forward to N8N workflow
-  const response = await fetch(N8N_WEBHOOK_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ message, phone, tenantId })
-  });
-
-  const result = await response.json();
-  return NextResponse.json(result);
+{
+  "framework": "Next.js 15.3.5 (App Router)",
+  "language": "TypeScript 5.3.0",
+  "ui": "Material-UI v5.15.0 + Emotion",
+  "database": "Firebase Firestore v10.7.0",
+  "storage": "Firebase Storage",
+  "auth": "Firebase Auth + Multi-tenant JWT",
+  "validation": "Zod schemas (all critical routes)",
+  "state": "Zustand + React Context",
+  "forms": "React Hook Form + Yup",
+  "charts": "Recharts v2.15.4",
+  "payments": "Stripe integration",
+  "ai": "N8N + Sofia Agent + GPT-4o Mini",
+  "whatsapp": "Baileys v6.7 (dedicated server)"
 }
 ```
 
-### **Sofia Agent Integration**
-N8N workflow calls Sofia with complete business context:
+### Core Features
 
-```json
-// N8N → Sofia Request
-{
-  "message": "Preciso de apartamento para 4 pessoas em dezembro",
-  "phone": "+5511999999999",
-  "tenantId": "tenant123",
-  "context": {
-    "conversationId": "conv_123",
-    "customerName": "João Silva",
-    "previousInteractions": 5,
-    "lastPropertyViewed": "apt_456"
+- **🤖 Sofia AI Agent**: N8N-powered real estate consultant with 42 specialized functions
+- **🏢 Multi-tenant Architecture**: Complete isolation with `tenants/{tenantId}/collections`
+- **🎛️ Advanced CRM**: Pipeline automation, lead scoring, analytics dashboards
+- **📱 WhatsApp Integration**: Dedicated Baileys server for reliable messaging
+- **🌐 Mini-Site System**: Public sites with custom domains and lead capture
+- **🔐 Enterprise Security**: Zod validation, input sanitization, professional error handling
+- **📊 Business Intelligence**: Conversion funnels, performance tracking, AI insights
+
+---
+
+## 🏗️ Architecture Overview
+
+### Multi-Tenant Firestore Structure
+
+```typescript
+// Complete tenant isolation
+tenants/
+  {tenantId}/
+    properties/       // Real estate listings
+    clients/         // Customer information
+    reservations/    // Booking management
+    transactions/    // Financial records
+    leads/           // CRM pipeline
+    conversations/   // Chat history
+    messages/        // Individual messages
+    amenities/       // Property features
+    goals/           // Business goals
+```
+
+### TenantServiceFactory Pattern
+
+**Always use tenant-scoped services:**
+
+```typescript
+import { TenantServiceFactory } from '@/lib/firebase/firestore-v2';
+
+// Correct pattern - tenant isolation guaranteed
+const services = new TenantServiceFactory(tenantId);
+
+// Access services
+const properties = await services.properties.getAll();
+const clients = await services.clients.getAll();
+const reservations = await services.reservations.getAll();
+const transactions = await services.transactions.getAll();
+const leads = await services.leads.getAll();
+
+// Specialized services
+const availability = await services.availability.check(propertyId, dates);
+const accounts = await services.accounts.getBalance();
+```
+
+### MultiTenantFirestoreService Features
+
+```typescript
+class MultiTenantFirestoreService<T> {
+  // CRUD Operations
+  async create(data): Promise<string>
+  async get(id): Promise<T | null>
+  async getAll(limit = 1000): Promise<T[]>
+  async update(id, data): Promise<void>
+  async delete(id): Promise<void>
+
+  // Advanced Queries
+  async getWhere(field, operator, value): Promise<T[]>
+  async getMany(filters, options): Promise<T[]>
+  async getManyOptimized(filters, options): Promise<T[]>  // Query optimizer
+  async count(filters): Promise<number>
+
+  // Real-time Subscriptions
+  onSnapshot(callback): () => void
+  subscribeToDocument(id, callback): () => void
+
+  // Batch Operations
+  async batchCreate(items): Promise<void>
+}
+```
+
+---
+
+## 🔧 AI Functions Architecture (42 Endpoints)
+
+### Function Pattern
+
+All AI functions follow this structure:
+
+```typescript
+// app/api/ai/functions/[function-name]/route.ts
+export async function POST(request: NextRequest) {
+  const startTime = Date.now();
+  const requestId = `${functionName}_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
+
+  try {
+    const body = await request.json();
+    const { tenantId, ...args } = body;
+
+    // Professional logging
+    logger.info(`[FUNCTION-NAME] Starting execution`, {
+      requestId,
+      tenantId: tenantId?.substring(0, 8) + '***',
+      params: args
+    });
+
+    // Tenant validation
+    if (!tenantId) {
+      return NextResponse.json(
+        { success: false, error: 'TenantId is required', requestId },
+        { status: 400 }
+      );
+    }
+
+    // Execute function with tenant isolation
+    const result = await functionImplementation(args, tenantId);
+    const processingTime = Date.now() - startTime;
+
+    // Success logging
+    logger.info(`[FUNCTION-NAME] Execution completed`, {
+      requestId,
+      processingTime: `${processingTime}ms`
+    });
+
+    return NextResponse.json({
+      success: true,
+      data: result,
+      meta: {
+        requestId,
+        processingTime,
+        timestamp: new Date().toISOString()
+      }
+    });
+
+  } catch (error) {
+    const processingTime = Date.now() - startTime;
+
+    // Error logging
+    logger.error(`[FUNCTION-NAME] Execution failed`, {
+      requestId,
+      error: error instanceof Error ? error.message : 'Unknown error',
+      processingTime: `${processingTime}ms`
+    });
+
+    return NextResponse.json(
+      {
+        success: false,
+        error: 'Execution failed',
+        requestId,
+        details: process.env.NODE_ENV === 'development' ?
+          error instanceof Error ? error.message : 'Unknown error' :
+          undefined
+      },
+      { status: 500 }
+    );
   }
 }
 ```
 
-### **Function Execution Pattern**
-Sofia executes multiple functions in reactive mode:
+### AI Functions Categories
 
+#### 🏠 Property Management (6 functions)
 ```typescript
-// Sofia's reactive execution
-const executionPlan = [
-  'create_lead',           // Register/update customer
-  'search_properties',     // Find suitable options
-  'send_property_media',   // Show photos
-  'add_lead_interaction',  // Track interaction
-  'lead_pipeline_movement' // Advance pipeline
-];
-
-// Execute all functions before responding
-const results = await Promise.all(
-  executionPlan.map(func => executeFunction(func, params))
-);
-
-// Return complete response
-return formatResponse(results);
+search-properties          // Advanced property search with filters
+get-property-details       // Complete property information
+send-property-media        // Photo/video delivery with captions
+send-property-map          // Location and map information
+check-availability         // Real-time availability verification
 ```
 
-## **💡 Development Patterns (UPDATED)**
-
-### **Multi-Tenant Development**
-Always use tenant-scoped services:
-
+#### 💰 Financial Operations (4 functions)
 ```typescript
-// Correct pattern
-const serviceFactory = new TenantServiceFactory(tenantId);
-const leadService = serviceFactory.leads;
-const propertyService = serviceFactory.properties;
-
-// Use tenant context in components
-const { tenantId, isReady } = useTenant();
+calculate-price            // Dynamic pricing
+generate-quote             // Formal quotation generation
+create-transaction         // Payment processing
+track-metrics              // Financial performance tracking
 ```
 
-### **Professional Logging**
-Structured logging throughout the application:
+#### 📅 Booking Management (5 functions)
+```typescript
+create-reservation         // Complete booking creation with validation
+cancel-reservation         // Cancellation with refund processing
+modify-reservation         // Date/guest/price modifications
+schedule-visit             // Property visit scheduling
+check-visit-availability   // Visit slot verification
+```
+
+#### 👤 CRM Integration (9 functions)
+```typescript
+create-lead                // Smart lead creation with deduplication
+get-lead-details           // Complete lead information retrieval
+get-leads-list             // Filtered lead listing with pagination
+add-lead-interaction       // Interaction tracking with sentiment analysis
+analyze-lead-performance   // AI-powered lead analysis
+follow-up-lead             // Automated follow-up scheduling
+lead-pipeline-movement     // Automatic pipeline stage progression
+classify-lead              // Lead classification (hot/warm/cold)
+update-lead-status         // Pipeline status management
+```
+
+#### 📋 Business Operations (8 functions)
+```typescript
+get-policies               // Cancellation, payment, check-in policies
+register-client            // Client registration with deduplication
+schedule-meeting           // Meeting scheduling
+check-agenda-availability  // Calendar availability checking
+update-lead                // Lead information updates
+create-task                // Task creation
+update-task                // Task updates
+get-business-insights      // Business insights
+```
+
+#### 📊 Analytics & Tracking (7 functions)
+```typescript
+track-conversation-metric     // Metrics tracking
+track-conversation-session    // Session tracking
+track-conversion-step         // Conversion funnel tracking
+track-message-engagement      // Engagement metrics
+track-qualification-milestone // Qualification tracking
+get-analytics-dashboard       // Analytics dashboard
+```
+
+#### 🎯 Goals & Performance (3 functions)
+```typescript
+create-goal                // Business goal creation
+update-goal-progress       // Goal progress tracking
+analyze-performance        // Performance metrics analysis
+```
+
+---
+
+## 📡 Core API Routes
+
+### Reservations API
+
+```typescript
+// GET /api/reservations - List with filters
+GET /api/reservations?page=1&limit=10&status=confirmed&propertyId=xxx
+
+// POST /api/reservations - Create reservation
+POST /api/reservations
+{
+  "propertyId": "xxx",
+  "clientId": "xxx",
+  "checkIn": "2025-12-01",
+  "checkOut": "2025-12-05",
+  "guests": 4,
+  "totalAmount": 2000,
+  "paidAmount": 500,
+  "paymentMethod": "pix",
+  "guestDetails": [...],
+  "extraServices": [...]
+}
+
+// GET /api/reservations/[id] - Get single with relations
+GET /api/reservations/xxx?include=property,client,transactions
+
+// PUT /api/reservations/[id] - Update reservation
+// DELETE /api/reservations/[id] - Soft delete (status: cancelled)
+DELETE /api/reservations/xxx?soft=true
+```
+
+**Validation:** Full Zod schema with business rules
+- ✅ Check-out must be after check-in
+- ✅ Guests must not exceed property capacity
+- ✅ Property and client must exist
+- ✅ Automatic calculations: nights, pendingAmount
+- ✅ Input sanitization on all text fields
+
+### Transactions API
+
+```typescript
+// GET /api/transactions - List with filters
+GET /api/transactions?type=income&status=completed&startDate=2025-01-01
+
+// POST /api/transactions - Create transaction
+POST /api/transactions
+{
+  "amount": 500,
+  "type": "income",
+  "category": "reservation",
+  "description": "Pagamento reserva Vista Mar",
+  "paymentMethod": "pix",
+  "reservationId": "xxx",
+  "propertyId": "xxx"
+}
+
+// Supports recurring transactions
+{
+  "isRecurring": true,
+  "recurringType": "monthly",
+  "recurringEndDate": "2025-12-31"
+}
+```
+
+**Features:**
+- ✅ Income/Expense tracking
+- ✅ Category system (reservation, maintenance, cleaning, commission, refund, other)
+- ✅ Payment methods (stripe, pix, cash, bank_transfer, credit_card, debit_card)
+- ✅ Related entities (reservationId, clientId, propertyId)
+- ✅ Tags system (max 10)
+- ✅ AI metadata (createdByAI, aiConversationId)
+
+### Properties API
+
+```typescript
+// CRUD operations
+GET    /api/properties
+POST   /api/properties
+GET    /api/properties/[id]
+PUT    /api/properties/[id]
+DELETE /api/properties/[id]
+
+// Airbnb import
+POST /api/properties/import
+{
+  "hasData": "window.hasData from Airbnb",
+  "url": "https://airbnb.com/rooms/xxx"
+}
+
+// Import validation
+POST /api/properties/import/validate
+```
+
+### Authentication
+
+All API routes use `validateFirebaseAuth` middleware:
+
+```typescript
+import { validateFirebaseAuth } from '@/lib/middleware/firebase-auth';
+
+const authContext = await validateFirebaseAuth(request);
+if (!authContext.authenticated || !authContext.tenantId) {
+  return NextResponse.json(
+    { error: 'Authentication required', code: 'UNAUTHORIZED' },
+    { status: 401 }
+  );
+}
+
+// Use tenant context
+const services = new TenantServiceFactory(authContext.tenantId);
+```
+
+---
+
+## 🔐 Security & Validation
+
+### Input Validation Pattern
+
+```typescript
+import { z } from 'zod';
+import { sanitizeUserInput } from '@/lib/utils/validation';
+
+// Define Zod schema
+const CreateReservationSchema = z.object({
+  propertyId: z.string().min(1).max(100),
+  clientId: z.string().min(1).max(100),
+  checkIn: z.coerce.date(),
+  checkOut: z.coerce.date(),
+  guests: z.number().int().positive().min(1),
+  totalAmount: z.number().min(0),
+  // ... more fields
+});
+
+// Validate request
+const validationResult = CreateReservationSchema.safeParse(body);
+if (!validationResult.success) {
+  return NextResponse.json(
+    {
+      error: 'Dados inválidos',
+      code: 'VALIDATION_ERROR',
+      details: validationResult.error.flatten()
+    },
+    { status: 400 }
+  );
+}
+
+// Sanitize text inputs
+const sanitizedData = {
+  ...validatedData,
+  specialRequests: sanitizeUserInput(validatedData.specialRequests),
+  observations: sanitizeUserInput(validatedData.observations),
+};
+```
+
+### Error Handling Pattern
+
+```typescript
+import { handleApiError } from '@/lib/utils/api-errors';
+import { logger } from '@/lib/utils/logger';
+
+try {
+  // Operation
+  const result = await riskyOperation();
+  return NextResponse.json({ success: true, data: result });
+} catch (error) {
+  // Professional logging
+  logger.error('Operation failed', {
+    error: error instanceof Error ? error.message : 'Unknown error',
+    tenantId,
+    context: 'operation_name'
+  });
+
+  // Standardized error response
+  return handleApiError(error);
+}
+```
+
+### Professional Logging
 
 ```typescript
 import { logger } from '@/lib/utils/logger';
 
-// Use instead of console.log
+// Never use console.log - always use logger
 logger.info('Operation completed', {
   tenantId,
   operation: 'create_lead',
-  duration: Date.now() - startTime
+  duration: Date.now() - startTime,
+  metadata: { /* additional context */ }
+});
+
+logger.error('Operation failed', {
+  error: error.message,
+  tenantId,
+  stack: error.stack?.substring(0, 500),
+  context: 'create_lead'
+});
+
+// PII masking automatically applied
+logger.info('User action', {
+  phone: '+5511999999***',  // Last digits masked
+  tenantId: 'tenant123***'   // Partially hidden
 });
 ```
 
-### **Error Handling**
-Professional error management:
+---
+
+## 🎯 Development Best Practices
+
+### 1. Always Use Tenant Context
 
 ```typescript
+// ✅ Correct - Component level
+import { useTenant } from '@/contexts/TenantContext';
+
+export default function MyComponent() {
+  const { tenantId, isReady } = useTenant();
+
+  useEffect(() => {
+    if (isReady && tenantId) {
+      loadData();
+    }
+  }, [isReady, tenantId]);
+}
+
+// ✅ Correct - API level
+const authContext = await validateFirebaseAuth(request);
+const services = new TenantServiceFactory(authContext.tenantId);
+```
+
+### 2. Type Safety
+
+```typescript
+// ✅ Always use TypeScript interfaces
+import type { Reservation } from '@/lib/types/reservation';
+import type { Client } from '@/lib/types/client';
+import type { Property } from '@/lib/types/property';
+
+// ✅ Use generic services with types
+const reservationService = services.reservations; // Type: MultiTenantFirestoreService<Reservation>
+const reservation = await reservationService.get(id); // Type: Reservation | null
+```
+
+### 3. Error Handling
+
+```typescript
+// ✅ Professional error handling
 try {
-  const result = await riskOperation();
-  return result;
+  const result = await operation();
+  return { success: true, data: result };
 } catch (error) {
   logger.error('Operation failed', {
-    error: error.message,
-    tenantId,
-    context: 'create_lead'
+    error: error instanceof Error ? error.message : 'Unknown error',
+    context: 'operation_name'
   });
 
   return {
@@ -447,91 +535,265 @@ try {
     error: 'Operation temporarily unavailable'
   };
 }
+
+// ❌ Never expose internal errors to user
+catch (error) {
+  throw error; // BAD - exposes stack traces
+}
 ```
 
-### **Type Safety**
-Complete TypeScript integration:
+### 4. Query Optimization
 
 ```typescript
-// Strict typing for all operations
-interface LeadCreationArgs {
-  phone: string;
-  name?: string;
-  email?: string;
-  tenantId: string;
-}
+// ✅ Use limits on getAll
+const properties = await services.properties.getAll(100); // Max 100
 
-export async function createLead(
-  args: LeadCreationArgs,
-  tenantId: string
-): Promise<LeadCreationResult> {
-  // Implementation with full type safety
+// ✅ Use specific queries instead of getAll + filter
+const activeProperties = await services.properties.getWhere(
+  'isActive', '==', true, 'createdAt', 50
+);
+
+// ✅ Use optimized queries for complex filters
+const results = await services.properties.getManyOptimized(
+  [
+    { field: 'status', operator: '==', value: 'active' },
+    { field: 'price', operator: '<=', value: 1000 }
+  ],
+  { orderBy: [{ field: 'createdAt', direction: 'desc' }], limit: 20 }
+);
+```
+
+### 5. Real-time Subscriptions
+
+```typescript
+// ✅ Subscribe to collection changes
+useEffect(() => {
+  const services = new TenantServiceFactory(tenantId);
+
+  const unsubscribe = services.properties.onSnapshot((properties) => {
+    setProperties(properties);
+  });
+
+  return () => unsubscribe(); // Cleanup
+}, [tenantId]);
+
+// ✅ Subscribe to document changes
+useEffect(() => {
+  const services = new TenantServiceFactory(tenantId);
+
+  const unsubscribe = services.reservations.subscribeToDocument(
+    reservationId,
+    (reservation) => {
+      setReservation(reservation);
+    }
+  );
+
+  return () => unsubscribe();
+}, [tenantId, reservationId]);
+```
+
+---
+
+## 📊 CRM System
+
+### Pipeline Stages
+
+```typescript
+enum LeadStage {
+  NEW = 'new',
+  CONTACTED = 'contacted',
+  QUALIFIED = 'qualified',
+  PRESENTATION = 'presentation',
+  PROPOSAL = 'proposal',
+  NEGOTIATION = 'negotiation',
+  CLOSING = 'closing',
+  WON = 'won',
+  LOST = 'lost'
 }
 ```
 
-## **🚀 Key Integration Points (SEPTEMBER 2025)**
+### Automatic Pipeline Movement
 
-When extending the system:
+Sofia AI automatically progresses leads through stages based on interactions:
 
-1. **N8N Integration**: Use webhook patterns for AI communication
-2. **Baileys Server**: Communicate via REST API for WhatsApp features
-3. **Multi-tenant Development**: Always use TenantServiceFactory
-4. **Professional Logging**: Use structured logger, never console.log
-5. **CRM Automation**: Leverage 6 new CRM functions for pipeline management
-6. **Advanced Analytics**: Extend CRM components for new visualizations
-7. **Function Creation**: Add to `lib/ai/tenant-aware-agent-functions.ts`
-8. **API Routes**: Follow `/api/ai/functions/` pattern for N8N endpoints
-9. **Error Handling**: Use classification system with proper logging
-10. **Type Safety**: Maintain strict TypeScript throughout
-11. **Performance**: Implement caching and batch processing
-12. **Security**: Input validation and rate limiting
-13. **Testing**: Use `/dashboard/crm` for CRM testing
-14. **Monitoring**: Leverage professional logging for debugging
+- `new → contacted`: First AI response
+- `contacted → qualified`: Needs identified (dates, budget, location)
+- `qualified → presentation`: Property options shown
+- `presentation → proposal`: Budget request or strong interest
+- `proposal → negotiation`: Price discussion
+- `negotiation → closing`: Budget confirmation
+- `closing → won`: Reservation completed
 
-## **📊 CRM Testing & Monitoring**
+### Lead Scoring
 
-### **Testing Interface**
-- **CRM Dashboard**: `/dashboard/crm` - Complete CRM testing environment
-- **Pipeline Testing**: Drag-and-drop functionality with real data
-- **Analytics Testing**: All visualization components with sample data
-- **Performance Testing**: Lead performance tracking with real metrics
+Dynamic scoring based on 20+ factors:
+- Base score (initial quality)
+- Temperature bonus: hot (+15), warm (+5), cold (-10)
+- Interaction frequency multiplier
+- Qualification bonus (budget/timeline/need/authority)
+- Time decay for stale leads
+- AI-enhanced adjustments
 
-### **Monitoring & Analytics**
-- **Lead Pipeline**: Real-time pipeline movement tracking
-- **Conversion Metrics**: Funnel analysis with conversion rates
-- **Performance Analytics**: Individual lead performance monitoring
-- **AI Insights**: Automated recommendations and predictions
-- **Business Intelligence**: Complete dashboard with KPIs
+### CRM Components
 
-### **Key Files Reference**
-- **CRM Main**: `app/dashboard/crm/page.tsx` - Main CRM interface
-- **Advanced Analytics**: `app/dashboard/crm/components/AdvancedAnalytics.tsx`
-- **Performance Tracker**: `app/dashboard/crm/components/LeadPerformanceTracker.tsx`
-- **AI Insights**: `app/dashboard/crm/components/AIInsights.tsx`
-- **Lead Functions**: `lib/ai/tenant-aware-agent-functions.ts` - CRM functions
-- **Tenant Services**: `lib/services/tenant-service-factory.ts` - Data layer
-- **Logger**: `lib/utils/logger.ts` - Professional logging
+```typescript
+// Main CRM Interface
+/app/dashboard/crm/page.tsx
 
-## **🎯 Quick Commands & Testing**
+// Analytics Components
+/app/dashboard/crm/components/AdvancedAnalytics.tsx       // Conversion funnels
+/app/dashboard/crm/components/LeadPerformanceTracker.tsx  // Individual tracking
+/app/dashboard/crm/components/AIInsights.tsx              // AI recommendations
+/app/dashboard/crm/components/CRMStats.tsx                // KPIs
+/app/dashboard/crm/components/KanbanBoard.tsx             // Drag-and-drop pipeline
+```
+
+---
+
+## 🔧 Development Commands
 
 ```bash
-# Start development with CRM access
-npm run dev
-# Access: http://localhost:3000/dashboard/crm
+# Development
+npm run dev                      # Start dev server (port 3000)
+npm install                      # Install dependencies
 
-# Test N8N integration
+# Building
+npm run build                    # Production build
+npm run start                    # Production server
+
+# Quality Checks
+npm run lint                     # ESLint
+npm run type-check               # TypeScript validation
+npm run prod-check               # Full deployment check
+
+# Maintenance
+npm run clean                    # Clean cache and build folders
+npm run health                   # System health check
+npm run generate-password-hash   # Admin password hash generator
+```
+
+---
+
+## 🧪 Testing Endpoints
+
+### Test AI Functions
+
+```bash
+# Test create-lead
 curl -X POST http://localhost:3000/api/ai/functions/create-lead \
   -H "Content-Type: application/json" \
   -d '{"tenantId":"test","phone":"+5511999999999"}'
 
-# Monitor logs
-tail -f logs/application.log
+# Test search-properties
+curl -X POST http://localhost:3000/api/ai/functions/search-properties \
+  -H "Content-Type: application/json" \
+  -d '{"tenantId":"test","location":"Praia","guests":4}'
 
-# Database backup (multi-tenant)
-npm run backup-tenant -- --tenantId=example
-
-# Health check
-npm run health
+# Test create-reservation
+curl -X POST http://localhost:3000/api/ai/functions/create-reservation \
+  -H "Content-Type: application/json" \
+  -d '{
+    "tenantId":"test",
+    "propertyId":"xxx",
+    "clientPhone":"+5511999999999",
+    "checkIn":"2025-12-01",
+    "checkOut":"2025-12-05",
+    "guests":4,
+    "totalPrice":2000
+  }'
 ```
 
-This updated CLAUDE.md reflects the modern architecture with N8N integration, dedicated Baileys server, advanced CRM system, and 30+ AI function endpoints, providing comprehensive guidance for development in the new architecture.
+### Test Core APIs
+
+```bash
+# List reservations with filters
+curl http://localhost:3000/api/reservations?status=confirmed
+
+# Get reservation with relations
+curl http://localhost:3000/api/reservations/xxx?include=property,client
+
+# Create transaction
+curl -X POST http://localhost:3000/api/transactions \
+  -H "Content-Type: application/json" \
+  -d '{
+    "amount":500,
+    "type":"income",
+    "category":"reservation",
+    "description":"Test payment",
+    "paymentMethod":"pix"
+  }'
+```
+
+---
+
+## 📝 Key Files Reference
+
+### Services & Data Layer
+- `lib/firebase/firestore-v2.ts` - Multi-tenant Firestore service
+- `lib/services/tenant-service-factory.ts` - Service factory (no longer exists, use firestore-v2)
+- `lib/ai/tenant-aware-agent-functions.ts` - AI function implementations
+
+### API Routes
+- `app/api/reservations/route.ts` - Reservations CRUD
+- `app/api/transactions/route.ts` - Transactions CRUD
+- `app/api/properties/route.ts` - Properties CRUD
+- `app/api/ai/functions/*/route.ts` - 42 AI function endpoints
+
+### CRM Components
+- `app/dashboard/crm/page.tsx` - Main CRM interface
+- `app/dashboard/crm/components/AdvancedAnalytics.tsx` - Analytics
+- `app/dashboard/crm/components/LeadPerformanceTracker.tsx` - Performance tracking
+
+### Utilities
+- `lib/utils/logger.ts` - Professional logging
+- `lib/utils/validation.ts` - Input sanitization
+- `lib/utils/api-errors.ts` - Error handling
+- `lib/middleware/firebase-auth.ts` - Authentication middleware
+
+---
+
+## 🎯 Quick Reference
+
+### When Adding New Features
+
+1. **Multi-tenant Isolation**: Always use `TenantServiceFactory`
+2. **Validation**: Use Zod schemas for all inputs
+3. **Sanitization**: Use `sanitizeUserInput` for text fields
+4. **Logging**: Use `logger`, never `console.log`
+5. **Error Handling**: Use `handleApiError` for consistent responses
+6. **Type Safety**: Use TypeScript interfaces from `lib/types`
+7. **Authentication**: Use `validateFirebaseAuth` middleware
+
+### Common Patterns
+
+```typescript
+// API Route Pattern
+export async function POST(request: NextRequest) {
+  try {
+    // 1. Authenticate
+    const authContext = await validateFirebaseAuth(request);
+    if (!authContext.authenticated) return unauthorized();
+
+    // 2. Validate
+    const body = await request.json();
+    const result = Schema.safeParse(body);
+    if (!result.success) return validationError(result.error);
+
+    // 3. Sanitize
+    const sanitized = sanitizeInputs(result.data);
+
+    // 4. Execute with tenant isolation
+    const services = new TenantServiceFactory(authContext.tenantId);
+    const data = await services.collection.create(sanitized);
+
+    // 5. Return
+    return NextResponse.json({ success: true, data });
+  } catch (error) {
+    return handleApiError(error);
+  }
+}
+```
+
+---
+
+This CLAUDE.md provides comprehensive guidance for developing within the Locai codebase. Always prioritize multi-tenant isolation, security, type safety, and professional error handling.

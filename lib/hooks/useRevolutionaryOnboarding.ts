@@ -45,6 +45,7 @@ export function useRevolutionaryOnboarding(): UseRevolutionaryOnboardingResult {
     add_property: 0,
     connect_whatsapp: 0,
     test_demo: 0,
+    share_minisite: 0,
   });
 
   /**

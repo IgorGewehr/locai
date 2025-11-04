@@ -254,16 +254,16 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
 
       <Divider sx={{ borderColor: 'rgba(255, 255, 255, 0.08)' }} />
 
-      <Box sx={{ 
-        flex: 1, 
-        overflowY: 'auto', 
+      <Box sx={{
+        flex: 1,
+        overflowY: 'auto',
         py: 2,
         // Scrollbar invisível mas funcional
         '&::-webkit-scrollbar': {
           display: 'none'
         },
-        '-ms-overflow-style': 'none',
-        'scrollbar-width': 'none',
+        msOverflowStyle: 'none',
+        scrollbarWidth: 'none',
       }}>
         <List sx={{ px: { xs: 1.5, md: 2 } }}>
           {allMenuItems.map((item) => (
