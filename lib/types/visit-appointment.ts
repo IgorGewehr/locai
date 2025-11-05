@@ -4,7 +4,7 @@
 export interface VisitAppointment {
   id: string
   tenantId: string
-  
+
   // Cliente e propriedade
   clientId: string
   clientName: string
@@ -12,9 +12,9 @@ export interface VisitAppointment {
   propertyId: string
   propertyName: string
   propertyAddress: string
-  
+
   // Agendamento
-  scheduledDate: Date
+  scheduledDate: Date | string // Date object ou ISO string para compatibilidade com Firebase
   scheduledTime: string // "HH:MM" formato
   duration: number // minutos (padrão 60)
   
@@ -39,12 +39,12 @@ export interface VisitAppointment {
   
   // Metadados
   source: 'whatsapp' | 'website' | 'phone' | 'manual'
-  createdAt: Date
-  updatedAt: Date
-  
+  createdAt: Date | string // Date object ou ISO string para compatibilidade com Firebase
+  updatedAt: Date | string // Date object ou ISO string para compatibilidade com Firebase
+
   // Lembrete
   reminderSent?: boolean
-  reminderSentAt?: Date
+  reminderSentAt?: Date | string // Date object ou ISO string para compatibilidade com Firebase
 }
 
 export enum VisitStatus {
@@ -63,50 +63,50 @@ export interface VisitResult {
   clientInterested: boolean
   followUpNeeded: boolean
   wantsToReserve: boolean
-  
+
   // Feedback do cliente
   positiveAspects?: string[]
   concerns?: string[]
   additionalRequests?: string[]
-  
+
   // Próximos passos
   nextAction: 'send_proposal' | 'schedule_another_visit' | 'no_interest' | 'needs_follow_up'
   proposalSent?: boolean
-  proposalDate?: Date
-  
+  proposalDate?: Date | string // Date object ou ISO string para compatibilidade com Firebase
+
   // Notas do agente
   agentNotes?: string
-  
+
   // Resultado final
   convertedToReservation?: boolean
   reservationId?: string
-  
-  completedAt: Date
+
+  completedAt: Date | string // Date object ou ISO string para compatibilidade com Firebase
 }
 
 // Agenda da imobiliária (disponibilidade geral)
 export interface TenantVisitSchedule {
   id: string
   tenantId: string
-  
+
   // Horários de funcionamento
   workingHours: WorkingHours
-  
+
   // Bloqueios e feriados
-  blockedDates: Date[]
-  holidays: Date[]
-  
+  blockedDates: (Date | string)[] // Date object ou ISO string para compatibilidade com Firebase
+  holidays: (Date | string)[] // Date object ou ISO string para compatibilidade com Firebase
+
   // Configurações
   visitDurationDefault: number // minutos
   visitBufferTime: number // tempo entre visitas em minutos
   maxVisitsPerDay: number
-  
+
   // Agentes disponíveis
   availableAgents: VisitAgent[]
-  
+
   // Metadados
-  createdAt: Date
-  updatedAt: Date
+  createdAt: Date | string // Date object ou ISO string para compatibilidade com Firebase
+  updatedAt: Date | string // Date object ou ISO string para compatibilidade com Firebase
 }
 
 export interface WorkingHours {
@@ -136,19 +136,19 @@ export interface VisitAgent {
   phone: string
   email?: string
   isActive: boolean
-  
+
   // Especialidades
   specialties?: string[] // tipos de propriedade que mais conhece
   languages?: string[]
-  
+
   // Disponibilidade específica (se diferente da geral)
   customSchedule?: Partial<WorkingHours>
-  unavailableDates?: Date[]
+  unavailableDates?: (Date | string)[] // Date object ou ISO string para compatibilidade com Firebase
 }
 
 // Slot de tempo disponível
 export interface AvailableTimeSlot {
-  date: Date
+  date: Date | string // Date object ou ISO string para compatibilidade com Firebase
   time: string // "HH:MM"
   duration: number
   agentId?: string
@@ -157,8 +157,8 @@ export interface AvailableTimeSlot {
 
 // Filtros para busca de disponibilidade
 export interface VisitAvailabilityFilters {
-  startDate: Date
-  endDate: Date
+  startDate: Date | string // Date object ou ISO string para compatibilidade com Firebase
+  endDate: Date | string // Date object ou ISO string para compatibilidade com Firebase
   preferredTimes?: string[] // ["morning", "afternoon", "evening"]
   preferredDays?: number[] // [1, 2, 3, 4, 5] = seg-sex
   agentId?: string

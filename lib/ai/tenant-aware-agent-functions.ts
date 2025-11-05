@@ -970,8 +970,8 @@ export async function createReservation(args: CreateReservationArgs, tenantId: s
           notes: '',
           reviews: [],
           tenantId,
-          createdAt: new Date(),
-          updatedAt: new Date()
+          createdAt: new Date().toISOString(), // ✅ CORREÇÃO: Converter para ISO string
+          updatedAt: new Date().toISOString() // ✅ CORREÇÃO: Converter para ISO string
         };
         
         clientId = await clientService.create(newClientData);
@@ -1031,12 +1031,12 @@ export async function createReservation(args: CreateReservationArgs, tenantId: s
       propertyId: property.id!, // Usar ID da propriedade encontrada
       clientId,
       status: ReservationStatus.PENDING,
-      
-      // Datas
-      checkIn: checkInDate,
-      checkOut: checkOutDate,
-      createdAt: new Date(),
-      updatedAt: new Date(),
+
+      // Datas - ✅ CORREÇÃO: Converter para ISO string
+      checkIn: checkInDate.toISOString(),
+      checkOut: checkOutDate.toISOString(),
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
       
       // Hóspedes
       guests: args.guests,
@@ -1052,7 +1052,7 @@ export async function createReservation(args: CreateReservationArgs, tenantId: s
         installments: [{
           number: 1,
           amount: totalPrice || 0,
-          dueDate: new Date(),
+          dueDate: new Date().toISOString(), // ✅ CORREÇÃO: Converter para ISO string
           description: 'Pagamento único',
           isPaid: false
         }],
@@ -1243,8 +1243,8 @@ export async function registerClient(args: RegisterClientArgs, tenantId: string)
         notes: '',
         reviews: [],
         tenantId,
-        createdAt: new Date(),
-        updatedAt: new Date()
+        createdAt: new Date().toISOString(), // ✅ CORREÇÃO: Converter para ISO string
+        updatedAt: new Date().toISOString() // ✅ CORREÇÃO: Converter para ISO string
       };
 
       const clientId = await clientService.create(clientData);
@@ -1927,7 +1927,7 @@ export async function scheduleVisit(args: ScheduleVisitArgs, tenantId: string): 
       propertyId: args.propertyId,
       propertyName: property.title, // Property interface usa 'title'
       propertyAddress: `${property.address || ''}, ${property.neighborhood || ''}`.trim(),
-      scheduledDate: visitDateTime,
+      scheduledDate: visitDateTime.toISOString(), // ✅ CORREÇÃO: Converter para ISO string
       scheduledTime: args.visitTime || '14:00',
       duration: 60,
       status: VisitStatus.SCHEDULED, // VisitStatus enum value
@@ -5297,7 +5297,7 @@ export async function modifyReservation(args: ModifyReservationArgs, tenantId: s
     // Aplicar modificações
     const updates: any = {
       ...args.updates,
-      updatedAt: new Date()
+      updatedAt: new Date().toISOString() // ✅ CORREÇÃO: Converter para ISO string
     };
 
     // Se mudou datas, recalcular preço
@@ -5765,13 +5765,13 @@ export async function scheduleMeeting(args: any, tenantId: string) {
       clientId,
       clientName: client?.name || args.clientName,
       clientPhone: client?.phone || args.clientPhone || '',
-      
+
       // Se tem propertyId, é uma visita; senão, evento genérico
       propertyId: args.propertyId || 'GENERIC_EVENT',
       propertyName: propertyData?.title || args.title, // Usar título como "propriedade"
       propertyAddress: propertyData?.address || args.location || 'Local a definir',
-      
-      scheduledDate: scheduledDateTime,
+
+      scheduledDate: scheduledDateTime.toISOString(), // ✅ CORREÇÃO: Converter para ISO string
       scheduledTime: args.scheduledTime,
       duration: args.duration || 60,
       status: VisitStatus.SCHEDULED,
@@ -5779,7 +5779,7 @@ export async function scheduleMeeting(args: any, tenantId: string) {
       source: 'whatsapp', // Mesmo source da scheduleVisit
       createdAt: new Date(),
       updatedAt: new Date(),
-      
+
       // Campos específicos para eventos genéricos
       confirmedByClient: false,
       confirmedByAgent: false
