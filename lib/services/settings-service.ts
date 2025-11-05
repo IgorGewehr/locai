@@ -3,7 +3,13 @@ import { MultiTenantFirestoreService } from '@/lib/firebase/firestore-v2';
 export interface CompanySettings {
   name: string;
   logo: string | null;
-  address: string;
+  address: string; // Endereço completo formatado
+  street?: string; // Rua/Avenida com número
+  neighborhood?: string; // Bairro
+  city?: string; // Cidade
+  state?: string; // Estado
+  zipCode?: string; // CEP
+  country?: string; // País
   phone: string;
   email: string;
   website: string;

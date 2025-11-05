@@ -1752,6 +1752,136 @@ export async function sendPropertyMap(args: { propertyName: string }, tenantId: 
 }
 
 /**
+ * FUNÇÃO 7.5: Enviar mapa do endereço da imobiliária (tenant)
+ */
+export async function sendTenantMap(args: {}, tenantId: string): Promise<any> {
+  try {
+    logger.info('🗺️ [SendTenantMap] Enviando mapa da imobiliária', {
+      tenantId: tenantId.substring(0, 8) + '***'
+    });
+
+    if (!process.env.MAPS_KEY) {
+      logger.error('🗺️ [SendTenantMap] MAPS_KEY não configurada');
+      return {
+        success: false,
+        error: 'Serviço de mapas não configurado',
+        tenantId
+      };
+    }
+
+    // Buscar configurações da empresa
+    const { createSettingsService } = await import('@/lib/services/settings-service');
+    const settingsService = createSettingsService(tenantId);
+    const settings = await settingsService.getSettings(tenantId);
+
+    if (!settings?.company) {
+      return {
+        success: false,
+        error: 'Configurações da empresa não encontradas',
+        tenantId
+      };
+    }
+
+    const company = settings.company;
+    const location = company.address;
+
+    if (!location) {
+      return {
+        success: false,
+        error: 'Endereço da imobiliária não configurado',
+        tenantId
+      };
+    }
+
+    // Step 1: Geocoding - Convert address to coordinates
+    logger.info('🗺️ [SendTenantMap] Geocodificando endereço', { location });
+
+    const geocodingUrl = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(location)}&key=${process.env.MAPS_KEY}`;
+
+    const geocodingResponse = await fetch(geocodingUrl);
+    const geocodingData = await geocodingResponse.json();
+
+    if (!geocodingData.results || geocodingData.results.length === 0) {
+      logger.error('🗺️ [SendTenantMap] Falha na geocodificação - sem resultados');
+      return {
+        success: false,
+        error: 'Não foi possível localizar o endereço no mapa',
+        tenantId
+      };
+    }
+
+    const { lat, lng } = geocodingData.results[0].geometry.location;
+    logger.info('🗺️ [SendTenantMap] Coordenadas encontradas', { lat, lng });
+
+    // Step 2: Generate Static Map URL
+    const mapParams = new URLSearchParams({
+      center: `${lat},${lng}`,
+      zoom: '15',
+      size: '600x400',
+      maptype: 'roadmap',
+      markers: `color:blue|label:🏢|${lat},${lng}`,
+      key: process.env.MAPS_KEY
+    });
+
+    const staticMapUrl = `https://maps.googleapis.com/maps/api/staticmap?${mapParams.toString()}`;
+
+    // Construir endereço completo formatado
+    const fullAddress = [
+      company.street,
+      company.neighborhood,
+      company.city,
+      company.state,
+      company.zipCode,
+      company.country
+    ].filter(Boolean).join(', ') || location;
+
+    logger.info('✅ [SendTenantMap] Mapa gerado com sucesso', {
+      tenantId: tenantId.substring(0, 8) + '***',
+      companyName: company.name,
+      coordinates: { lat, lng }
+    });
+
+    return {
+      success: true,
+      company: {
+        name: company.name,
+        address: location,
+        fullAddress: fullAddress,
+        phone: company.phone,
+        email: company.email,
+        website: company.website
+      },
+      map: {
+        url: staticMapUrl,
+        coordinates: { lat, lng },
+        caption: `🏢 *${company.name}*\n\n` +
+                 `📍 Endereço: ${fullAddress}\n` +
+                 (company.phone ? `📞 Telefone: ${company.phone}\n` : '') +
+                 (company.email ? `📧 Email: ${company.email}\n` : '') +
+                 (company.website ? `🌐 Website: ${company.website}\n` : '') +
+                 `🗺️ Coordenadas: ${lat.toFixed(6)}, ${lng.toFixed(6)}\n\n` +
+                 `_Clique na imagem para ampliar o mapa_`
+      },
+      tenantId
+    };
+
+  } catch (error) {
+    logger.error('❌ [SendTenantMap] Erro ao gerar mapa da imobiliária', {
+      tenantId: tenantId.substring(0, 8) + '***',
+      error: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined
+    });
+
+    return {
+      success: false,
+      error: 'Erro ao gerar mapa da imobiliária',
+      details: error instanceof Error ? error.message : 'Unknown error',
+      tenantId
+    };
+  }
+}
+
+/**
  * FUNÇÃO 8: Verificar disponibilidade para visitas
  */
 export async function checkVisitAvailability(args: { visitDate: string; propertyId?: string }, tenantId: string): Promise<any> {

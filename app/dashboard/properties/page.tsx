@@ -56,6 +56,7 @@ import {
   Schedule,
   CloudUpload,
   Policy,
+  Business,
 } from '@mui/icons-material';
 import type { Property } from '@/lib/types/property';
 import PropertyImportDialog from '@/components/organisms/PropertyImport/PropertyImportDialog';
@@ -87,6 +88,17 @@ export default function PropertiesPage() {
   const [policyDialogOpen, setPolicyDialogOpen] = useState(false);
   const [cancellationPolicy, setCancellationPolicy] = useState<CancellationPolicy | null>(null);
   const [savingPolicy, setSavingPolicy] = useState(false);
+  const [addressDialogOpen, setAddressDialogOpen] = useState(false);
+  const [companyAddress, setCompanyAddress] = useState({
+    address: '',
+    street: '',
+    neighborhood: '',
+    city: '',
+    state: '',
+    zipCode: '',
+    country: 'Brasil'
+  });
+  const [savingAddress, setSavingAddress] = useState(false);
   const { services, isReady, tenantId } = useTenant();
 
   // Create local SVG placeholder for property images
@@ -133,9 +145,31 @@ export default function PropertiesPage() {
 
         if (settings?.cancellationPolicy) {
           setCancellationPolicy(settings.cancellationPolicy);
+        } else {
+          // ✅ CORREÇÃO: Fornecer política padrão se não existir
+          setCancellationPolicy({
+            enabled: true,
+            rules: [
+              { daysBeforeCheckIn: 7, refundPercentage: 100, description: 'Reembolso total' },
+              { daysBeforeCheckIn: 3, refundPercentage: 50, description: 'Reembolso parcial' },
+              { daysBeforeCheckIn: 0, refundPercentage: 0, description: 'Sem reembolso' },
+            ],
+            defaultRefundPercentage: 0,
+            forceMajeure: true,
+          });
         }
       } catch (error) {
-        // Policy loading error handled silently
+        // ✅ CORREÇÃO: Mesmo em erro, fornecer política padrão
+        setCancellationPolicy({
+          enabled: true,
+          rules: [
+            { daysBeforeCheckIn: 7, refundPercentage: 100, description: 'Reembolso total' },
+            { daysBeforeCheckIn: 3, refundPercentage: 50, description: 'Reembolso parcial' },
+            { daysBeforeCheckIn: 0, refundPercentage: 0, description: 'Sem reembolso' },
+          ],
+          defaultRefundPercentage: 0,
+          forceMajeure: true,
+        });
       }
     };
 
@@ -245,6 +279,61 @@ export default function PropertiesPage() {
     }
   };
 
+  // Load company address
+  useEffect(() => {
+    const loadAddress = async () => {
+      if (!tenantId || !isReady) return;
+
+      try {
+        const { createSettingsService } = await import('@/lib/services/settings-service');
+        const settingsService = createSettingsService(tenantId);
+        const settings = await settingsService.getSettings(tenantId);
+
+        if (settings?.company) {
+          setCompanyAddress({
+            address: settings.company.address || '',
+            street: settings.company.street || '',
+            neighborhood: settings.company.neighborhood || '',
+            city: settings.company.city || '',
+            state: settings.company.state || '',
+            zipCode: settings.company.zipCode || '',
+            country: settings.company.country || 'Brasil'
+          });
+        }
+      } catch (error) {
+        // Address loading error handled silently
+      }
+    };
+
+    loadAddress();
+  }, [tenantId, isReady]);
+
+  const handleSaveAddress = async () => {
+    if (!tenantId) return;
+
+    setSavingAddress(true);
+    try {
+      const { createSettingsService } = await import('@/lib/services/settings-service');
+      const settingsService = createSettingsService(tenantId);
+
+      await settingsService.updateCompanySettings(tenantId, {
+        address: companyAddress.address,
+        street: companyAddress.street,
+        neighborhood: companyAddress.neighborhood,
+        city: companyAddress.city,
+        state: companyAddress.state,
+        zipCode: companyAddress.zipCode,
+        country: companyAddress.country
+      });
+
+      setAddressDialogOpen(false);
+    } catch (error) {
+      // Address save error handled
+    } finally {
+      setSavingAddress(false);
+    }
+  };
+
   // Removed getStatusChip function as status field doesn't exist in current Property interface
 
   return (
@@ -278,6 +367,15 @@ export default function PropertiesPage() {
             sx={{ minWidth: { xs: 'auto', sm: '160px' } }}
           >
             Políticas
+          </ModernButton>
+          <ModernButton
+            variant="outlined"
+            size="large"
+            icon={<Business />}
+            onClick={() => setAddressDialogOpen(true)}
+            sx={{ minWidth: { xs: 'auto', sm: '160px' } }}
+          >
+            Endereço
           </ModernButton>
           <ModernButton
             variant="outlined"
@@ -733,12 +831,18 @@ export default function PropertiesPage() {
           </Box>
         </DialogTitle>
         <DialogContent sx={{ pt: 3 }}>
-          {cancellationPolicy && (
+          {cancellationPolicy ? (
             <CancellationPolicyEditor
               initialPolicy={cancellationPolicy}
               onSave={handleSavePolicy}
               loading={savingPolicy}
             />
+          ) : (
+            <Box sx={{ textAlign: 'center', py: 4 }}>
+              <Typography variant="body2" color="text.secondary">
+                Carregando políticas...
+              </Typography>
+            </Box>
           )}
         </DialogContent>
         <DialogActions sx={{
@@ -752,6 +856,114 @@ export default function PropertiesPage() {
             disabled={savingPolicy}
           >
             Fechar
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Address Dialog */}
+      <Dialog
+        open={addressDialogOpen}
+        onClose={() => setAddressDialogOpen(false)}
+        maxWidth="md"
+        fullWidth
+        PaperProps={{
+          sx: {
+            borderRadius: 2,
+            maxHeight: '90vh',
+          }
+        }}
+      >
+        <DialogTitle sx={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 1,
+          borderBottom: '1px solid',
+          borderColor: 'divider',
+          pb: 2,
+        }}>
+          <Business color="primary" />
+          <Box>
+            <Typography variant="h6" fontWeight={600}>
+              Endereço da Imobiliária
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              Configure o endereço usado pela Sofia AI para enviar localização
+            </Typography>
+          </Box>
+        </DialogTitle>
+        <DialogContent sx={{ pt: 3 }}>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+            <TextField
+              fullWidth
+              label="Endereço Completo"
+              value={companyAddress.address}
+              onChange={(e) => setCompanyAddress({ ...companyAddress, address: e.target.value })}
+              placeholder="Rua Exemplo, 123 - Bairro - Cidade/Estado"
+              helperText="Endereço completo usado para geocodificação"
+            />
+            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '2fr 1fr' }, gap: 2 }}>
+              <TextField
+                label="Rua/Avenida"
+                value={companyAddress.street}
+                onChange={(e) => setCompanyAddress({ ...companyAddress, street: e.target.value })}
+                placeholder="Rua Exemplo, 123"
+              />
+              <TextField
+                label="CEP"
+                value={companyAddress.zipCode}
+                onChange={(e) => setCompanyAddress({ ...companyAddress, zipCode: e.target.value })}
+                placeholder="12345-678"
+              />
+            </Box>
+            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 2 }}>
+              <TextField
+                label="Bairro"
+                value={companyAddress.neighborhood}
+                onChange={(e) => setCompanyAddress({ ...companyAddress, neighborhood: e.target.value })}
+                placeholder="Centro"
+              />
+              <TextField
+                label="Cidade"
+                value={companyAddress.city}
+                onChange={(e) => setCompanyAddress({ ...companyAddress, city: e.target.value })}
+                placeholder="São Paulo"
+              />
+            </Box>
+            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 2 }}>
+              <TextField
+                label="Estado"
+                value={companyAddress.state}
+                onChange={(e) => setCompanyAddress({ ...companyAddress, state: e.target.value })}
+                placeholder="SP"
+              />
+              <TextField
+                label="País"
+                value={companyAddress.country}
+                onChange={(e) => setCompanyAddress({ ...companyAddress, country: e.target.value })}
+                placeholder="Brasil"
+              />
+            </Box>
+          </Box>
+        </DialogContent>
+        <DialogActions sx={{
+          px: 3,
+          pb: 3,
+          borderTop: '1px solid',
+          borderColor: 'divider',
+          gap: 1
+        }}>
+          <Button
+            onClick={() => setAddressDialogOpen(false)}
+            disabled={savingAddress}
+          >
+            Cancelar
+          </Button>
+          <Button
+            variant="contained"
+            onClick={handleSaveAddress}
+            disabled={savingAddress || !companyAddress.address}
+          >
+            {savingAddress ? 'Salvando...' : 'Salvar'}
           </Button>
         </DialogActions>
       </Dialog>
