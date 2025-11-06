@@ -57,11 +57,13 @@ import {
   CloudUpload,
   Policy,
   Business,
+  Psychology,
 } from '@mui/icons-material';
 import type { Property } from '@/lib/types/property';
 import PropertyImportDialog from '@/components/organisms/PropertyImport/PropertyImportDialog';
 import CancellationPolicyEditor from '@/app/dashboard/settings/components/CancellationPolicyEditor';
 import type { CancellationPolicy } from '@/lib/services/settings-service';
+import NegotiationSettingsDialog from '@/components/dialogs/NegotiationSettingsDialog';
 
 // Disable static generation for this page
 export const dynamic = 'force-dynamic';
@@ -88,6 +90,7 @@ export default function PropertiesPage() {
   const [policyDialogOpen, setPolicyDialogOpen] = useState(false);
   const [cancellationPolicy, setCancellationPolicy] = useState<CancellationPolicy | null>(null);
   const [savingPolicy, setSavingPolicy] = useState(false);
+  const [negotiationDialogOpen, setNegotiationDialogOpen] = useState(false);
   const [addressDialogOpen, setAddressDialogOpen] = useState(false);
   const [companyAddress, setCompanyAddress] = useState({
     address: '',
@@ -367,6 +370,15 @@ export default function PropertiesPage() {
             sx={{ minWidth: { xs: 'auto', sm: '160px' } }}
           >
             Políticas
+          </ModernButton>
+          <ModernButton
+            variant="outlined"
+            size="large"
+            icon={<Psychology />}
+            onClick={() => setNegotiationDialogOpen(true)}
+            sx={{ minWidth: { xs: 'auto', sm: '160px' } }}
+          >
+            Negociação
           </ModernButton>
           <ModernButton
             variant="outlined"
@@ -859,6 +871,12 @@ export default function PropertiesPage() {
           </Button>
         </DialogActions>
       </Dialog>
+
+      {/* Negotiation Settings Dialog */}
+      <NegotiationSettingsDialog
+        open={negotiationDialogOpen}
+        onClose={() => setNegotiationDialogOpen(false)}
+      />
 
       {/* Address Dialog */}
       <Dialog

@@ -171,17 +171,7 @@ export default function EditPropertyPage() {
     mode: 'onChange',
     shouldUnregister: false,
     shouldFocusError: true,
-    defaultValues: {
-      paymentMethodSurcharges: {
-        [PaymentMethod.PIX]: 0,
-        [PaymentMethod.CREDIT_CARD]: 0,
-        [PaymentMethod.DEBIT_CARD]: 0,
-        [PaymentMethod.CASH]: 0,
-        [PaymentMethod.BANK_TRANSFER]: 0,
-        [PaymentMethod.BANK_SLIP]: 0,
-        [PaymentMethod.STRIPE]: 0,
-      },
-    },
+    defaultValues: {},
   });
 
   const { handleSubmit, reset, watch, trigger, formState: { errors, isDirty, isValid, dirtyFields } } = methods;
@@ -318,16 +308,7 @@ export default function EditPropertyPage() {
           amenities: property.amenities || [],
           photos: normalizeMediaArray(property.photos),
           videos: normalizeMediaArray(property.videos),
-          paymentMethodSurcharges: {
-            [PaymentMethod.PIX]: 0,
-            [PaymentMethod.CREDIT_CARD]: 0,
-            [PaymentMethod.DEBIT_CARD]: 0,
-            [PaymentMethod.CASH]: 0,
-            [PaymentMethod.BANK_TRANSFER]: 0,
-            [PaymentMethod.BANK_SLIP]: 0,
-            [PaymentMethod.STRIPE]: 0,
-            ...property.paymentMethodSurcharges,
-          },
+          // Payment method surcharges removed - now managed at tenant level
           // Convert Firestore Timestamps to Dates
           createdAt: property.createdAt?.toDate ? property.createdAt.toDate() : property.createdAt,
           updatedAt: property.updatedAt?.toDate ? property.updatedAt.toDate() : property.updatedAt,

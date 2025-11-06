@@ -109,15 +109,6 @@ export default function CreatePropertyPage() {
       isActive: true,
       // Payment configurations
       advancePaymentPercentage: 0,
-      paymentMethodSurcharges: {
-        [PaymentMethod.CREDIT_CARD]: 0,
-        [PaymentMethod.DEBIT_CARD]: 0,
-        [PaymentMethod.PIX]: 0,
-        [PaymentMethod.CASH]: 0,
-        [PaymentMethod.BANK_TRANSFER]: 0,
-        [PaymentMethod.BANK_SLIP]: 0,
-        [PaymentMethod.STRIPE]: 0,
-      },
       // Optional surcharges
       weekendSurcharge: 0,
       holidaySurcharge: 0,
@@ -206,15 +197,7 @@ export default function CreatePropertyPage() {
     try {
 
       // Ensure all payment methods have valid values (no undefined)
-      const cleanPaymentMethodSurcharges = {
-        [PaymentMethod.CREDIT_CARD]: Number(data.paymentMethodSurcharges?.[PaymentMethod.CREDIT_CARD]) || 0,
-        [PaymentMethod.DEBIT_CARD]: Number(data.paymentMethodSurcharges?.[PaymentMethod.DEBIT_CARD]) || 0,
-        [PaymentMethod.PIX]: Number(data.paymentMethodSurcharges?.[PaymentMethod.PIX]) || 0,
-        [PaymentMethod.CASH]: Number(data.paymentMethodSurcharges?.[PaymentMethod.CASH]) || 0,
-        [PaymentMethod.BANK_TRANSFER]: Number(data.paymentMethodSurcharges?.[PaymentMethod.BANK_TRANSFER]) || 0,
-        [PaymentMethod.BANK_SLIP]: Number(data.paymentMethodSurcharges?.[PaymentMethod.BANK_SLIP]) || 0,
-        [PaymentMethod.STRIPE]: Number(data.paymentMethodSurcharges?.[PaymentMethod.STRIPE]) || 0,
-      };
+      // Payment method surcharges removed - now managed at tenant level
 
       // Create property using PropertyService with enhanced logging
       const propertyData = {
@@ -225,7 +208,6 @@ export default function CreatePropertyPage() {
         neighborhood: data.neighborhood || '',
         city: data.city || '',
         // Garantir outros campos obrigatórios
-        paymentMethodSurcharges: cleanPaymentMethodSurcharges,
         pricingRules,
         status: data.status || PropertyStatus.ACTIVE,
         type: data.type || PropertyType.RESIDENTIAL,

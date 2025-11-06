@@ -36,7 +36,6 @@ export async function verifyAdminAccess(request: NextRequest): Promise<{ isAdmin
       token = authCookie?.value || null;
     }
     
-    console.log('🎫 [Admin Auth] Token encontrado:', token ? 'SIM' : 'NÃO');
     
     if (!token) {
       logger.warn('🔒 [Admin Auth] Tentativa de acesso sem autenticação', {
@@ -60,9 +59,7 @@ export async function verifyAdminAccess(request: NextRequest): Promise<{ isAdmin
     }
     
     const adminAuth = getAuth(apps[0]);
-    console.log('🔐 [Admin Auth] Verificando token com Firebase Admin...');
     const decodedToken = await adminAuth.verifyIdToken(token);
-    console.log('✅ [Admin Auth] Token válido para UID:', decodedToken.uid);
     
     if (!decodedToken || !decodedToken.uid) {
       logger.warn('🔒 [Admin Auth] Token inválido', {
@@ -76,11 +73,9 @@ export async function verifyAdminAccess(request: NextRequest): Promise<{ isAdmin
     const { db } = await import('@/lib/firebase/config');
     const { doc, getDoc } = await import('firebase/firestore');
     
-    console.log('👤 [Admin Auth] Buscando usuário no Firestore...');
     const userDoc = await getDoc(doc(db, 'users', decodedToken.uid));
     
     if (!userDoc.exists()) {
-      console.log('❌ [Admin Auth] Usuário não encontrado no Firestore');
       logger.warn('🔒 [Admin Auth] Usuário não encontrado', {
         component: 'Security',
         uid: decodedToken.uid
@@ -89,16 +84,9 @@ export async function verifyAdminAccess(request: NextRequest): Promise<{ isAdmin
     }
 
     const userData = userDoc.data();
-    console.log('📊 [Admin Auth] Dados do usuário:', {
-      uid: decodedToken.uid,
-      email: userData.email,
-      idog: userData.idog,
-      hasIdog: !!userData.idog
-    });
-    
+
     // 4. VERIFICAÇÃO CRÍTICA: Verificar flag idog
     if (!userData.idog || userData.idog !== true) {
-      console.log('🚫 [Admin Auth] Campo idog inválido:', userData.idog);
       logger.warn('🚫 [Admin Auth] Acesso negado - usuário sem privilégios admin', {
         component: 'Security',
         uid: decodedToken.uid,

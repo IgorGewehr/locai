@@ -6,8 +6,7 @@
 import {
   BulkImportData,
   PropertyImportData,
-  bulkImportSchema,
-  createDefaultPaymentSurcharges
+  bulkImportSchema
 } from '@/lib/validation/property-import-schema';
 import MediaProcessingService, { MediaProcessingResult } from './media-processing-service';
 import { TenantServiceFactory } from '@/lib/firebase/firestore-v2';
@@ -483,7 +482,7 @@ export class PropertyImportService {
       allowsPets: propertyData.allowsPets || false,
       isFeatured: propertyData.isFeatured || false,
       isActive: propertyData.isActive !== false, // Default to true
-      paymentMethodSurcharges: createDefaultPaymentSurcharges(),
+      // Payment method surcharges removed - now managed at tenant level via Negotiation Settings
       advancePaymentPercentage: propertyData.advancePaymentPercentage || 30,
       weekendSurcharge: propertyData.weekendSurcharge || 0,
       holidaySurcharge: propertyData.holidaySurcharge || 0,

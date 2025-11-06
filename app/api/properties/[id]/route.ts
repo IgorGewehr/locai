@@ -6,6 +6,7 @@ import { validateFirebaseAuth } from '@/lib/middleware/firebase-auth'
 import { UpdatePropertySchema } from '@/lib/validation/property-schemas'
 import { UltraPermissiveUpdatePropertySchema } from '@/lib/validation/ultra-permissive-schemas'
 import type { Property } from '@/lib/types/property'
+import { propertyCache } from '@/lib/cache/property-cache-manager'
 
 // GET /api/properties/[id] - Get a single property by ID
 export async function GET(
@@ -150,6 +151,9 @@ export async function PUT(
     // Get updated property
     const updatedProperty = await services.properties.getById(resolvedParams.id)
 
+    // ✅ INVALIDAR CACHE após atualizar propriedade
+    propertyCache.invalidateTenant(authContext.tenantId)
+
     return NextResponse.json({
       success: true,
       data: updatedProperty,
@@ -210,6 +214,9 @@ export async function DELETE(
       isActive: false,
       updatedAt: new Date(),
     })
+
+    // ✅ INVALIDAR CACHE após deletar propriedade
+    propertyCache.invalidateTenant(authContext.tenantId)
 
     return NextResponse.json({
       success: true,

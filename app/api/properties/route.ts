@@ -6,6 +6,7 @@ import { validateFirebaseAuth } from '@/lib/middleware/firebase-auth'
 import { CreatePropertySchema } from '@/lib/validation/property-schemas'
 import { UltraPermissiveCreatePropertySchema } from '@/lib/validation/ultra-permissive-schemas'
 import type { Property } from '@/lib/types/property'
+import { propertyCache } from '@/lib/cache/property-cache-manager'
 
 // GET /api/properties - List all properties
 export async function GET(request: NextRequest) {
@@ -121,11 +122,14 @@ export async function POST(request: NextRequest) {
     // Create the property
     const newProperty = await services.properties.create(sanitizedData)
 
+    // ✅ INVALIDAR CACHE após criar propriedade
+    propertyCache.invalidateTenant(authContext.tenantId)
+
     return NextResponse.json(
-      { 
-        success: true, 
+      {
+        success: true,
         data: newProperty,
-        message: 'Propriedade criada com sucesso' 
+        message: 'Propriedade criada com sucesso'
       },
       { status: 201 }
     )
