@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import {
   Box,
   Grid,
@@ -10,7 +10,6 @@ import {
   InputAdornment,
   useTheme,
   alpha,
-  Alert,
 } from '@mui/material';
 import {
   AttachMoney,
@@ -44,31 +43,6 @@ export const PropertyPricing: React.FC<PropertyPricingProps> = ({ reservations =
   const decemberSurcharge = watch('decemberSurcharge') || 0;
   const highSeasonSurcharge = watch('highSeasonSurcharge') || 0;
   const highSeasonMonths = watch('highSeasonMonths') || [];
-
-  const [totalExample, setTotalExample] = useState(0);
-
-  // Calculate example total (without payment method surcharges)
-  useEffect(() => {
-    const nights = 3;
-    const guests = 2;
-    const extraGuests = Math.max(0, guests - 2);
-
-    const basePriceNum = Number(basePrice) || 0;
-    const pricePerExtraGuestNum = Number(pricePerExtraGuest) || 0;
-    const cleaningFeeNum = Number(cleaningFee) || 0;
-
-    const subtotal = basePriceNum * nights;
-    const extraGuestFee = pricePerExtraGuestNum * extraGuests * nights;
-    const cleaning = cleaningFeeNum;
-
-    const total = subtotal + extraGuestFee + cleaning;
-    setTotalExample(Number(total) || 0);
-
-    logger.debug('Price calculation updated', {
-      basePrice,
-      total
-    });
-  }, [basePrice, cleaningFee, pricePerExtraGuest]);
 
   const handleCustomPricingChange = (prices: Record<string, number>) => {
     if (setValue && typeof setValue === 'function') {
@@ -326,41 +300,7 @@ export const PropertyPricing: React.FC<PropertyPricingProps> = ({ reservations =
           </Paper>
         </Grid>
 
-        {/* Price Simulator */}
-        <Grid item xs={12}>
-          <Paper
-            elevation={0}
-            sx={{
-              p: 3,
-              backgroundColor: alpha(theme.palette.success.main, 0.05),
-              border: `1px solid ${alpha(theme.palette.success.main, 0.2)}`,
-              borderRadius: 2,
-            }}
-          >
-            <Typography variant="h6" gutterBottom>
-              💰 Simulador de Preços
-            </Typography>
-
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-              Exemplo de cálculo para 3 diárias, 2 hóspedes (preços base):
-            </Typography>
-
-            <Box sx={{ p: 3, backgroundColor: 'background.paper', borderRadius: 1, textAlign: 'center' }}>
-              <Typography variant="subtitle2" gutterBottom color="text.secondary">
-                Total Estimado
-              </Typography>
-              <Typography variant="h3" color="success.main" fontWeight={700}>
-                R$ {(Number(totalExample) || 0).toFixed(2)}
-              </Typography>
-              <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
-                Base: R$ {(Number(basePrice || 0) * 3).toFixed(2)} + Limpeza: R$ {Number(cleaningFee || 0).toFixed(2)}
-              </Typography>
-              <Alert severity="info" sx={{ mt: 2 }}>
-                Descontos por forma de pagamento são gerenciados nas Configurações de Negociação
-              </Alert>
-            </Box>
-          </Paper>
-        </Grid>
+        {/* Price Simulator removed - discounts managed in Negotiation Settings */}
 
         {/* Custom Pricing Calendar */}
         <Grid item xs={12}>
