@@ -97,12 +97,12 @@ const menuItems = [
     icon: <People />,
     badge: null,
   },
-  // {
-  //   text: 'Teste IA',
-  //   href: '/dashboard/ai-testing',
-  //   icon: <Chat />,
-  //   badge: null,
-  // },
+  {
+    text: 'Conversas',
+    href: '/dashboard/conversas',
+    icon: <Chat />,
+    badge: null,
+  },
   {
     text: 'Financeiro',
     href: '/dashboard/financeiro',

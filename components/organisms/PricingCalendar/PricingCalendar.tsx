@@ -33,13 +33,26 @@ import {
 import { format, addMonths, subMonths, startOfMonth, endOfMonth, eachDayOfInterval, isSameMonth, isSameDay, isWeekend, startOfWeek, endOfWeek, addDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
+export interface ReservationPeriod {
+  id: string;
+  checkIn: Date;
+  checkOut: Date;
+  guestName?: string;
+  status?: 'confirmed' | 'pending' | 'cancelled';
+}
+
 interface PricingCalendarProps {
   basePrice: number;
   specialPrices: Record<string, number>;
-  onPricesChange: (prices: Record<string, number>) => void;
+  onPricesChange?: (prices: Record<string, number>) => void;
   weekendSurcharge?: number;
   holidaySurcharge?: number;
   decemberSurcharge?: number;
+  highSeasonSurcharge?: number;
+  highSeasonMonths?: number[];
+  reservations?: ReservationPeriod[];
+  readOnly?: boolean;
+  showReservations?: boolean;
 }
 
 type SelectionMode = 'single' | 'range';
@@ -62,6 +75,11 @@ const PricingCalendar: React.FC<PricingCalendarProps> = ({
   weekendSurcharge = 30,
   holidaySurcharge = 50,
   decemberSurcharge = 10,
+  highSeasonSurcharge = 0,
+  highSeasonMonths = [],
+  reservations = [],
+  readOnly = false,
+  showReservations = true,
 }) => {
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [selectionMode, setSelectionMode] = useState<SelectionMode>('single');
@@ -93,15 +111,94 @@ const PricingCalendar: React.FC<PricingCalendarProps> = ({
     return brazilianHolidays[monthDay] || '';
   };
 
-  const getPriceForDate = (date: Date): number => {
+  // Calcula o preço final para uma data (lógica igual ao pricing.ts)
+  const getComputedPrice = (date: Date): {
+    finalPrice: number;
+    appliedRule: 'custom' | 'holiday' | 'weekend' | 'december' | 'highSeason' | 'base';
+    surchargePercentage: number;
+  } => {
     const dateKey = format(date, 'yyyy-MM-dd');
-    return specialPrices[dateKey] || basePrice || 0;
+
+    // 1. Prioridade: Preço customizado
+    if (specialPrices[dateKey]) {
+      return {
+        finalPrice: specialPrices[dateKey],
+        appliedRule: 'custom',
+        surchargePercentage: ((specialPrices[dateKey] / basePrice) - 1) * 100,
+      };
+    }
+
+    // 2. Aplicar acréscimos automáticos (não-cumulativo - apenas o maior)
+    const dateIsWeekend = isWeekend(date);
+    const dateIsHoliday = isHoliday(date);
+    const dateIsDecember = date.getMonth() === 11;
+    const dateIsHighSeason = highSeasonMonths.includes(date.getMonth() + 1);
+
+    let maxSurcharge = 0;
+    let appliedRule: 'holiday' | 'weekend' | 'december' | 'highSeason' | 'base' = 'base';
+
+    if (dateIsHoliday && holidaySurcharge > maxSurcharge) {
+      maxSurcharge = holidaySurcharge;
+      appliedRule = 'holiday';
+    }
+
+    if (dateIsWeekend && weekendSurcharge > maxSurcharge) {
+      maxSurcharge = weekendSurcharge;
+      appliedRule = 'weekend';
+    }
+
+    if (dateIsDecember && decemberSurcharge > maxSurcharge) {
+      maxSurcharge = decemberSurcharge;
+      appliedRule = 'december';
+    }
+
+    if (dateIsHighSeason && highSeasonSurcharge > maxSurcharge) {
+      maxSurcharge = highSeasonSurcharge;
+      appliedRule = 'highSeason';
+    }
+
+    const finalPrice = Math.round(basePrice * (1 + maxSurcharge / 100));
+
+    return {
+      finalPrice,
+      appliedRule,
+      surchargePercentage: maxSurcharge,
+    };
+  };
+
+  const getPriceForDate = (date: Date): number => {
+    return getComputedPrice(date).finalPrice;
+  };
+
+  // Verifica se uma data tem reserva
+  const getReservationForDate = (date: Date): ReservationPeriod | null => {
+    if (!showReservations || reservations.length === 0) return null;
+
+    return reservations.find(reservation => {
+      const checkIn = new Date(reservation.checkIn);
+      const checkOut = new Date(reservation.checkOut);
+      checkIn.setHours(0, 0, 0, 0);
+      checkOut.setHours(0, 0, 0, 0);
+      date.setHours(0, 0, 0, 0);
+
+      return date >= checkIn && date < checkOut;
+    }) || null;
+  };
+
+  const isDateReserved = (date: Date): boolean => {
+    return getReservationForDate(date) !== null;
   };
 
   const handleDateClick = (date: Date) => {
+    // Não permite edição se readOnly ou se data está reservada
+    if (readOnly || isDateReserved(date)) {
+      return;
+    }
+
     if (selectionMode === 'single') {
       setSelectedDate(date);
-      setPriceInput(getPriceForDate(date).toString());
+      const dateKey = format(date, 'yyyy-MM-dd');
+      setPriceInput(specialPrices[dateKey]?.toString() || '');
       setDialogOpen(true);
     } else {
       if (!rangeStart || (rangeStart && rangeEnd)) {
@@ -121,8 +218,10 @@ const PricingCalendar: React.FC<PricingCalendarProps> = ({
   };
 
   const handlePriceSubmit = () => {
+    if (!onPricesChange) return;
+
     const newPrices = { ...specialPrices };
-    
+
     if (selectionMode === 'single' && selectedDate) {
       const dateKey = format(selectedDate, 'yyyy-MM-dd');
       const price = parseFloat(priceInput);
@@ -134,27 +233,30 @@ const PricingCalendar: React.FC<PricingCalendarProps> = ({
     } else if (selectionMode === 'range' && rangeStart && rangeEnd) {
       const dates = eachDayOfInterval({ start: rangeStart, end: rangeEnd });
       let price = parseFloat(priceInput);
-      
+
       if (percentageIncrease) {
         const percentage = parseFloat(percentageIncrease);
         if (!isNaN(percentage)) {
           price = (basePrice || 0) * (1 + percentage / 100);
         }
       }
-      
+
       dates.forEach(date => {
-        const shouldApply = 
+        // Não aplica em datas reservadas
+        if (isDateReserved(date)) return;
+
+        const shouldApply =
           (!applyToWeekends && !applyToHolidays) ||
           (applyToWeekends && isWeekend(date)) ||
           (applyToHolidays && isHoliday(date));
-          
+
         if (shouldApply && !isNaN(price) && price > 0) {
           const dateKey = format(date, 'yyyy-MM-dd');
           newPrices[dateKey] = price;
         }
       });
     }
-    
+
     onPricesChange(newPrices);
     handleDialogClose();
   };
@@ -215,54 +317,63 @@ const PricingCalendar: React.FC<PricingCalendarProps> = ({
         <Paper elevation={0} sx={{ p: 2, bgcolor: 'background.default' }}>
           <Stack direction="row" justifyContent="space-between" alignItems="center" flexWrap="wrap" gap={2}>
             <Stack direction="row" spacing={2} alignItems="center">
-              <Typography variant="h6">Valores das Diárias</Typography>
-              <ToggleButtonGroup
-                value={selectionMode}
-                exclusive
-                onChange={(e, value) => value && setSelectionMode(value)}
-                size="small"
-              >
-                <ToggleButton value="single">
-                  <Typography variant="body2">Dia</Typography>
-                </ToggleButton>
-                <ToggleButton value="range">
-                  <Typography variant="body2">Intervalo</Typography>
-                </ToggleButton>
-              </ToggleButtonGroup>
+              <Typography variant="h6">
+                {readOnly ? 'Visualização de Preços' : 'Valores das Diárias'}
+              </Typography>
+              {!readOnly && (
+                <ToggleButtonGroup
+                  value={selectionMode}
+                  exclusive
+                  onChange={(e, value) => value && setSelectionMode(value)}
+                  size="small"
+                >
+                  <ToggleButton value="single">
+                    <Typography variant="body2">Dia</Typography>
+                  </ToggleButton>
+                  <ToggleButton value="range">
+                    <Typography variant="body2">Intervalo</Typography>
+                  </ToggleButton>
+                </ToggleButtonGroup>
+              )}
             </Stack>
-            
-            <Stack direction="row" spacing={1}>
-              <Tooltip title={`Aplicar ${weekendSurcharge}% de aumento nos fins de semana`}>
-                <Chip
-                  icon={<Weekend />}
-                  label={`Fins de Semana (+${weekendSurcharge}%)`}
-                  onClick={() => handleQuickPreset('weekend')}
-                  color="primary"
-                  variant="outlined"
-                  clickable
-                />
-              </Tooltip>
-              <Tooltip title={`Aplicar ${holidaySurcharge}% de aumento nos feriados`}>
-                <Chip
-                  icon={<Celebration />}
-                  label={`Feriados (+${holidaySurcharge}%)`}
-                  onClick={() => handleQuickPreset('holiday')}
-                  color="secondary"
-                  variant="outlined"
-                  clickable
-                />
-              </Tooltip>
-              <Tooltip title={`Aplicar ${decemberSurcharge}% de aumento em dezembro`}>
-                <Chip
-                  icon={<TrendingUp />}
-                  label={`Dezembro (+${decemberSurcharge}%)`}
-                  onClick={() => handleQuickPreset('december')}
-                  color="success"
-                  variant="outlined"
-                  clickable
-                />
-              </Tooltip>
-            </Stack>
+
+            {!readOnly && (
+              <Stack direction="row" spacing={1} flexWrap="wrap">
+                <Tooltip title={`Aplicar ${weekendSurcharge}% de aumento nos fins de semana`}>
+                  <Chip
+                    icon={<Weekend />}
+                    label={`FDS (+${weekendSurcharge}%)`}
+                    onClick={() => handleQuickPreset('weekend')}
+                    color="primary"
+                    variant="outlined"
+                    clickable
+                    size="small"
+                  />
+                </Tooltip>
+                <Tooltip title={`Aplicar ${holidaySurcharge}% de aumento nos feriados`}>
+                  <Chip
+                    icon={<Celebration />}
+                    label={`Feriados (+${holidaySurcharge}%)`}
+                    onClick={() => handleQuickPreset('holiday')}
+                    color="secondary"
+                    variant="outlined"
+                    clickable
+                    size="small"
+                  />
+                </Tooltip>
+                <Tooltip title={`Aplicar ${decemberSurcharge}% de aumento em dezembro`}>
+                  <Chip
+                    icon={<TrendingUp />}
+                    label={`Dez (+${decemberSurcharge}%)`}
+                    onClick={() => handleQuickPreset('december')}
+                    color="success"
+                    variant="outlined"
+                    clickable
+                    size="small"
+                  />
+                </Tooltip>
+              </Stack>
+            )}
           </Stack>
         </Paper>
 
@@ -299,15 +410,37 @@ const PricingCalendar: React.FC<PricingCalendarProps> = ({
               const isRangeEnd = rangeEnd && isSameDay(date, rangeEnd);
               const dateIsWeekend = isWeekend(date);
               const dateIsHoliday = isHoliday(date);
-              const price = getPriceForDate(date);
-              const hasSpecialPrice = price !== (basePrice || 0);
-              
+
+              // Usar o preço computado com acréscimos
+              const { finalPrice, appliedRule, surchargePercentage } = getComputedPrice(date);
+              const dateKey = format(date, 'yyyy-MM-dd');
+              const hasCustomPrice = !!specialPrices[dateKey];
+
+              // Verificar se tem reserva
+              const reservation = getReservationForDate(date);
+              const hasReservation = !!reservation;
+
               return (
                 <Tooltip
                   key={index}
                   title={
-                    dateIsHoliday ? getHolidayName(date) : 
-                    hasSpecialPrice ? `R$ ${price.toFixed(2)}` : ''
+                    <Stack spacing={0.5}>
+                      {hasReservation && (
+                        <Typography variant="caption" fontWeight={600} color="error.light">
+                          Reservado{reservation?.guestName ? ` - ${reservation.guestName}` : ''}
+                        </Typography>
+                      )}
+                      {dateIsHoliday && (
+                        <Typography variant="caption">🎉 {getHolidayName(date)}</Typography>
+                      )}
+                      <Typography variant="caption">
+                        R$ {finalPrice.toFixed(2)}
+                        {surchargePercentage > 0 && ` (+${surchargePercentage.toFixed(0)}%)`}
+                      </Typography>
+                      {hasCustomPrice && (
+                        <Typography variant="caption" color="secondary.light">Preço customizado</Typography>
+                      )}
+                    </Stack>
                   }
                   arrow
                 >
@@ -315,24 +448,28 @@ const PricingCalendar: React.FC<PricingCalendarProps> = ({
                     elevation={isSelected || isInRange ? 2 : 0}
                     onClick={() => isCurrentMonth && handleDateClick(date)}
                     sx={{
-                      p: 1,
+                      p: 0.5,
                       minHeight: 70,
-                      cursor: isCurrentMonth ? 'pointer' : 'default',
+                      cursor: isCurrentMonth && !readOnly && !hasReservation ? 'pointer' : 'default',
                       opacity: isCurrentMonth ? 1 : 0.3,
-                      bgcolor: 
+                      position: 'relative',
+                      bgcolor:
+                        hasReservation ? 'error.light' :
                         isSelected || isRangeStart || isRangeEnd ? 'primary.main' :
                         isInRange ? 'primary.light' :
+                        hasCustomPrice ? 'secondary.light' :
                         dateIsHoliday ? 'warning.light' :
                         dateIsWeekend ? 'action.hover' :
                         'background.paper',
-                      color: 
+                      color:
+                        hasReservation ? 'error.contrastText' :
                         isSelected || isRangeStart || isRangeEnd ? 'primary.contrastText' :
                         isInRange ? 'primary.contrastText' :
                         'text.primary',
                       border: isToday ? 2 : 0,
                       borderColor: 'primary.main',
-                      '&:hover': isCurrentMonth ? {
-                        bgcolor: 'action.selected',
+                      '&:hover': isCurrentMonth && !readOnly && !hasReservation ? {
+                        bgcolor: hasReservation ? 'error.light' : 'action.selected',
                         transform: 'scale(1.05)',
                       } : {},
                       transition: 'all 0.2s',
@@ -342,12 +479,32 @@ const PricingCalendar: React.FC<PricingCalendarProps> = ({
                       <Typography variant="body2" fontWeight={isToday ? 'bold' : 'normal'}>
                         {format(date, 'd')}
                       </Typography>
-                      {hasSpecialPrice && (
-                        <Typography variant="caption" fontWeight="bold">
-                          R$ {price.toFixed(0)}
-                        </Typography>
-                      )}
-                      {dateIsHoliday && <EventBusy fontSize="small" />}
+
+                      {/* Sempre mostra o preço calculado */}
+                      <Typography
+                        variant="caption"
+                        fontWeight={hasCustomPrice ? 'bold' : 600}
+                        sx={{ fontSize: hasCustomPrice ? '0.75rem' : '0.7rem' }}
+                      >
+                        R$ {finalPrice.toFixed(0)}
+                      </Typography>
+
+                      {/* Ícones de indicação */}
+                      <Box sx={{ display: 'flex', gap: 0.25, flexWrap: 'wrap', justifyContent: 'center' }}>
+                        {hasReservation && <EventBusy sx={{ fontSize: 14, color: 'error.dark' }} />}
+                        {dateIsHoliday && <Celebration sx={{ fontSize: 14, color: 'warning.dark' }} />}
+                        {surchargePercentage > 0 && !hasCustomPrice && (
+                          <Chip
+                            label={`+${surchargePercentage.toFixed(0)}%`}
+                            size="small"
+                            sx={{
+                              height: 16,
+                              fontSize: '0.6rem',
+                              '& .MuiChip-label': { px: 0.5 }
+                            }}
+                          />
+                        )}
+                      </Box>
                     </Stack>
                   </Paper>
                 </Tooltip>

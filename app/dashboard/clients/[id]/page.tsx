@@ -30,6 +30,8 @@ import {
   Skeleton,
   CircularProgress,
   MenuItem,
+  Stack,
+  useTheme,
 } from '@mui/material';
 import {
   ArrowBack,
@@ -40,6 +42,7 @@ import {
   Edit,
   Delete,
   Message,
+  Chat,
   History,
   Bookmark,
   Visibility,
@@ -53,6 +56,10 @@ import {
 import { safeFormatDate, DateFormats } from '@/lib/utils/dateUtils';
 import { clientServiceWrapper } from '@/lib/services/client-service';
 import { useTenant } from '@/contexts/TenantContext';
+import { ConversationList } from '@/components/organisms/ConversationList/ConversationList';
+import { ConversationThread } from '@/components/organisms/ConversationThread/ConversationThread';
+import { createConversationOptimizedService } from '@/lib/services/conversation-optimized-service';
+import type { ConversationSummary, ConversationMessage } from '@/lib/types/conversation-optimized';
 
 interface Client {
   id: string;
@@ -102,11 +109,17 @@ function TabPanel({ children, value, index }: any) {
 export default function ClientDetailPage() {
   const params = useParams();
   const router = useRouter();
+  const theme = useTheme();
   const { services, isReady } = useTenant();
   const [client, setClient] = useState<Client | null>(null);
 
   const [reservations, setReservations] = useState<Reservation[]>([]);
   const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [conversationSummaries, setConversationSummaries] = useState<ConversationSummary[]>([]);
+  const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null);
+  const [conversationMessages, setConversationMessages] = useState<ConversationMessage[]>([]);
+  const [loadingConversations, setLoadingConversations] = useState(false);
+  const [loadingMessages, setLoadingMessages] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [tabValue, setTabValue] = useState(0);
@@ -129,6 +142,22 @@ export default function ClientDetailPage() {
   useEffect(() => {
     loadClientData();
   }, [params.id, services, isReady]);
+
+  const loadConversationMessages = async (conversationId: string) => {
+    if (!services || !isReady) return;
+
+    try {
+      setLoadingMessages(true);
+      const conversationService = createConversationOptimizedService(services.tenantId);
+      const messages = await conversationService.getConversationMessages(conversationId, 50, 'asc');
+      setConversationMessages(messages);
+      setSelectedConversationId(conversationId);
+    } catch (err) {
+      console.error('Erro ao carregar mensagens:', err);
+    } finally {
+      setLoadingMessages(false);
+    }
+  };
 
   const loadClientData = async () => {
     if (!services || !isReady) return;
@@ -177,6 +206,15 @@ export default function ClientDetailPage() {
         }));
       } catch (err) {
         console.log('Erro ao carregar conversas:', err);
+      }
+
+      // Fetch optimized conversation summaries
+      try {
+        const conversationService = createConversationOptimizedService(services.tenantId);
+        const summaries = await conversationService.getConversationSummaries(params.id as string, 20);
+        setConversationSummaries(summaries);
+      } catch (err) {
+        console.log('Erro ao carregar sumários de conversas:', err);
       }
       
       // Process client data with safe date handling
@@ -736,51 +774,47 @@ export default function ClientDetailPage() {
         </TabPanel>
 
         <TabPanel value={tabValue} index={1}>
-          {conversations.length === 0 ? (
-            <Box sx={{ textAlign: 'center', py: 4 }}>
-              <Typography color="textSecondary">Nenhuma conversa encontrada</Typography>
-            </Box>
-          ) : (
-            conversations.map((conversation) => (
-              <Box 
-                key={conversation.id} 
-                sx={{ 
-                  mb: 2, 
-                  p: 2, 
-                  border: 1, 
-                  borderColor: 'divider', 
-                  borderRadius: 1,
-                  cursor: 'pointer',
-                  transition: 'all 0.2s',
-                  '&:hover': {
-                    borderColor: 'primary.main',
-                    backgroundColor: 'action.hover'
+          <Grid container spacing={3}>
+            <Grid item xs={12} md={5}>
+              <ConversationList
+                conversations={conversationSummaries}
+                loading={loadingConversations}
+                onConversationClick={loadConversationMessages}
+                selectedConversationId={selectedConversationId || undefined}
+              />
+            </Grid>
+            <Grid item xs={12} md={7}>
+              {selectedConversationId ? (
+                <ConversationThread
+                  messages={conversationMessages}
+                  loading={loadingMessages}
+                  conversationTitle={
+                    conversationSummaries.find(c => c.id === selectedConversationId)?.clientName ||
+                    conversationSummaries.find(c => c.id === selectedConversationId)?.clientPhone ||
+                    'Conversa'
                   }
-                }}
-                onClick={() => router.push(`/dashboard/conversations/${conversation.id}`)}
-              >
-                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                    {getPlatformIcon(conversation.platform)}
-                    <Typography variant="caption" color="textSecondary">
-                      {safeFormatDate(conversation.timestamp, DateFormats.LONG)}
+                />
+              ) : (
+                <Box
+                  display="flex"
+                  justifyContent="center"
+                  alignItems="center"
+                  minHeight={400}
+                  sx={{
+                    border: `1px dashed ${theme.palette.divider}`,
+                    borderRadius: 1,
+                  }}
+                >
+                  <Stack spacing={2} alignItems="center">
+                    <Chat sx={{ fontSize: 48, color: 'text.disabled' }} />
+                    <Typography variant="body2" color="text.secondary">
+                      Selecione uma conversa para visualizar as mensagens
                     </Typography>
-                  </Box>
-                  <Button 
-                    size="small" 
-                    variant="outlined"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      router.push(`/dashboard/conversations/${conversation.id}`);
-                    }}
-                  >
-                    Ver conversa
-                  </Button>
+                  </Stack>
                 </Box>
-                <Typography variant="body2">{conversation.lastMessage}</Typography>
-              </Box>
-            ))
-          )}
+              )}
+            </Grid>
+          </Grid>
         </TabPanel>
 
         <TabPanel value={tabValue} index={2}>

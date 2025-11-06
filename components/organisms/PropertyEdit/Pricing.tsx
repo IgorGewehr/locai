@@ -37,9 +37,13 @@ import {
 import { useFormContext, Controller } from 'react-hook-form';
 import { PaymentMethod, PAYMENT_METHOD_LABELS } from '@/lib/types/common';
 import { logger } from '@/lib/utils/logger';
-import PricingCalendar from '@/components/organisms/PricingCalendar/PricingCalendar';
+import PricingCalendar, { ReservationPeriod } from '@/components/organisms/PricingCalendar/PricingCalendar';
 
-export const PropertyPricing: React.FC = () => {
+interface PropertyPricingProps {
+  reservations?: ReservationPeriod[];
+}
+
+export const PropertyPricing: React.FC<PropertyPricingProps> = ({ reservations = [] }) => {
   const theme = useTheme();
   const formContext = useFormContext();
   const { control, watch, setValue, formState: { errors } = {} } = formContext || {};
@@ -50,9 +54,11 @@ export const PropertyPricing: React.FC = () => {
   const minimumNights = watch('minimumNights');
   const paymentMethodSurcharges = watch('paymentMethodSurcharges') || {};
   const customPricing = watch('customPricing') || {};
-  const weekendSurcharge = watch('weekendSurcharge') || 30;
-  const holidaySurcharge = watch('holidaySurcharge') || 50;
-  const decemberSurcharge = watch('decemberSurcharge') || 10;
+  const weekendSurcharge = watch('weekendSurcharge') || 0;
+  const holidaySurcharge = watch('holidaySurcharge') || 0;
+  const decemberSurcharge = watch('decemberSurcharge') || 0;
+  const highSeasonSurcharge = watch('highSeasonSurcharge') || 0;
+  const highSeasonMonths = watch('highSeasonMonths') || [];
   
   const [totalExample, setTotalExample] = useState(0);
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<PaymentMethod>(PaymentMethod.PIX);
@@ -574,6 +580,11 @@ export const PropertyPricing: React.FC = () => {
               weekendSurcharge={weekendSurcharge}
               holidaySurcharge={holidaySurcharge}
               decemberSurcharge={decemberSurcharge}
+              highSeasonSurcharge={highSeasonSurcharge}
+              highSeasonMonths={highSeasonMonths}
+              reservations={reservations}
+              readOnly={false}
+              showReservations={true}
             />
           </Paper>
         </Grid>

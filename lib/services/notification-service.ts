@@ -1,23 +1,25 @@
 // lib/services/notification-service.ts
 // Serviço de notificações multi-tenant para agenda e tickets
 
-import { 
-  collection, 
-  doc, 
-  addDoc, 
-  updateDoc, 
-  query, 
-  where, 
-  orderBy, 
-  limit, 
+import {
+  collection,
+  doc,
+  addDoc,
+  updateDoc,
+  query,
+  where,
+  orderBy,
+  limit,
   getDocs,
   getDoc,
   onSnapshot,
   serverTimestamp,
-  Timestamp
+  Timestamp,
+  writeBatch
 } from 'firebase/firestore'
 import { db } from '@/lib/firebase/config'
 import { logger } from '@/lib/utils/logger'
+import { EmailService } from './email-service'
 import {
   Notification,
   NotificationType,
@@ -31,6 +33,13 @@ import {
 
 export class NotificationService {
   private tenantId: string
+
+  // Static cache shared across all instances for efficiency
+  private static preferencesCache = new Map<string, {
+    preferences: NotificationPreferences | null
+    timestamp: number
+  }>()
+  private static readonly CACHE_TTL = 5 * 60 * 1000 // 5 minutes
 
   constructor(tenantId: string) {
     this.tenantId = tenantId
@@ -99,6 +108,16 @@ export class NotificationService {
         notificationId: docRef.id,
         type: data.type
       })
+
+      // Send via email channel if requested
+      if (data.channels?.includes(NotificationChannel.EMAIL)) {
+        this.sendEmailNotification(docRef.id, notificationData).catch(error => {
+          logger.error('❌ [Notification] Erro ao enviar email (não bloqueia criação)', error as Error, {
+            component: 'NotificationService',
+            notificationId: docRef.id
+          })
+        })
+      }
 
       return docRef.id
 
@@ -238,7 +257,7 @@ export class NotificationService {
     }
   }
 
-  // Marcar todas as notificações como lidas
+  // Marcar todas as notificações como lidas (OPTIMIZED with Firestore batch)
   async markAllAsRead(userId: string): Promise<void> {
     try {
       logger.info('👁️ [Notification] Marcando todas as notificações como lidas', {
@@ -254,24 +273,33 @@ export class NotificationService {
       )
 
       const snapshot = await getDocs(q)
-      const batch = []
 
-      for (const docSnap of snapshot.docs) {
-        batch.push(
-          updateDoc(doc(db, `tenants/${this.tenantId}/notifications`, docSnap.id), {
-            readAt: serverTimestamp(),
-            status: NotificationStatus.READ
-          })
-        )
+      if (snapshot.empty) {
+        logger.info('ℹ️ [Notification] Nenhuma notificação não lida encontrada', {
+          component: 'NotificationService',
+          tenantId: this.tenantId,
+          userId
+        })
+        return
       }
 
-      await Promise.all(batch)
+      // Use Firestore batch write for atomic operation and better performance
+      const batch = writeBatch(db)
+
+      snapshot.docs.forEach(docSnap => {
+        batch.update(docSnap.ref, {
+          readAt: serverTimestamp(),
+          status: NotificationStatus.READ
+        })
+      })
+
+      await batch.commit()
 
       logger.info('✅ [Notification] Todas as notificações marcadas como lidas', {
         component: 'NotificationService',
         tenantId: this.tenantId,
         userId,
-        count: batch.length
+        count: snapshot.docs.length
       })
 
     } catch (error) {
@@ -450,7 +478,7 @@ export class NotificationService {
   // Utility: inicializar status de entrega
   private initializeDeliveryStatus(channels: NotificationChannel[]): Record<NotificationChannel, DeliveryStatus> {
     const status: Partial<Record<NotificationChannel, DeliveryStatus>> = {}
-    
+
     channels.forEach(channel => {
       status[channel] = {
         status: 'pending',
@@ -459,6 +487,187 @@ export class NotificationService {
     })
 
     return status as Record<NotificationChannel, DeliveryStatus>
+  }
+
+  // Check if user wants to receive this notification type via email
+  private async checkEmailPreferences(
+    userId: string,
+    notificationType: NotificationType
+  ): Promise<{ enabled: boolean; email?: string }> {
+    try {
+      // Check cache first
+      const cacheKey = `${this.tenantId}:${userId}`
+      const cached = NotificationService.preferencesCache.get(cacheKey)
+
+      let preferences: NotificationPreferences | null
+
+      if (cached && Date.now() - cached.timestamp < NotificationService.CACHE_TTL) {
+        // Use cached preferences
+        preferences = cached.preferences
+        logger.debug('📦 [Notification] Using cached preferences', {
+          component: 'NotificationService',
+          userId: userId.substring(0, 8) + '***',
+          cacheAge: Date.now() - cached.timestamp
+        })
+      } else {
+        // Fetch from database
+        const { TenantServiceFactory } = await import('@/lib/firebase/firestore-v2')
+        const preferencesService = new TenantServiceFactory(this.tenantId)
+          .createService<NotificationPreferences>('notificationPreferences')
+
+        preferences = await preferencesService.get(userId)
+
+        // Cache the result
+        NotificationService.preferencesCache.set(cacheKey, {
+          preferences,
+          timestamp: Date.now()
+        })
+
+        logger.debug('💾 [Notification] Cached new preferences', {
+          component: 'NotificationService',
+          userId: userId.substring(0, 8) + '***',
+          hasPreferences: !!preferences
+        })
+      }
+
+      if (!preferences || !preferences.email?.enabled) {
+        return { enabled: false }
+      }
+
+      // Check if user opted in for this notification type
+      const types = preferences.email.types
+      if (types.length > 0 && !types.includes(notificationType)) {
+        return { enabled: false }
+      }
+
+      return {
+        enabled: true,
+        email: preferences.email.address
+      }
+    } catch (error) {
+      logger.error('❌ [Notification] Erro ao verificar preferências de email', error as Error, {
+        component: 'NotificationService',
+        userId
+      })
+      // Default to enabled if can't check preferences
+      return { enabled: true }
+    }
+  }
+
+  // Method to invalidate cache (call this when preferences are updated)
+  static invalidatePreferencesCache(tenantId: string, userId: string): void {
+    const cacheKey = `${tenantId}:${userId}`
+    NotificationService.preferencesCache.delete(cacheKey)
+    logger.info('🗑️ [Notification] Invalidated preferences cache', {
+      component: 'NotificationService',
+      tenantId: tenantId.substring(0, 8) + '***',
+      userId: userId.substring(0, 8) + '***'
+    })
+  }
+
+  // Method to clear entire cache (for maintenance)
+  static clearPreferencesCache(): void {
+    const size = NotificationService.preferencesCache.size
+    NotificationService.preferencesCache.clear()
+    logger.info('🧹 [Notification] Cleared entire preferences cache', {
+      component: 'NotificationService',
+      entriesCleared: size
+    })
+  }
+
+  // Send email notification with delivery tracking (OPTIMIZED - single Firestore write)
+  private async sendEmailNotification(
+    notificationId: string,
+    notificationData: Omit<Notification, 'id'>
+  ): Promise<void> {
+    const notificationRef = doc(db, `tenants/${this.tenantId}/notifications`, notificationId)
+    let updateData: Record<string, any> = {}
+
+    try {
+      // Check user preferences first
+      const preferences = await this.checkEmailPreferences(
+        notificationData.targetUserId,
+        notificationData.type
+      )
+
+      if (!preferences.enabled) {
+        logger.info('📧 [Notification] Email desabilitado nas preferências do usuário', {
+          component: 'NotificationService',
+          tenantId: this.tenantId,
+          notificationId,
+          userId: notificationData.targetUserId.substring(0, 8) + '***'
+        })
+
+        // Prepare single update for skipped status
+        updateData = {
+          'deliveryStatus.email.status': 'skipped',
+          'deliveryStatus.email.attempts': 0
+        }
+
+        await updateDoc(notificationRef, updateData)
+        return
+      }
+
+      // Use email from preferences if available
+      const recipientEmail = preferences.email || notificationData.recipientEmail
+
+      logger.info('📧 [Notification] Enviando email', {
+        component: 'NotificationService',
+        tenantId: this.tenantId,
+        notificationId,
+        recipientEmail: recipientEmail?.substring(0, 5) + '***'
+      })
+
+      const emailSent = await EmailService.send({
+        ...notificationData,
+        id: notificationId,
+        recipientEmail
+      } as Notification)
+
+      // Prepare single update based on result
+      if (emailSent) {
+        updateData = {
+          'deliveryStatus.email.status': 'delivered',
+          'deliveryStatus.email.deliveredAt': serverTimestamp(),
+          'deliveryStatus.email.attempts': 1
+        }
+
+        logger.info('✅ [Notification] Email enviado com sucesso', {
+          component: 'NotificationService',
+          tenantId: this.tenantId,
+          notificationId
+        })
+      } else {
+        updateData = {
+          'deliveryStatus.email.status': 'failed',
+          'deliveryStatus.email.failedAt': serverTimestamp(),
+          'deliveryStatus.email.attempts': 1,
+          'deliveryStatus.email.error': 'Failed to send email'
+        }
+
+        logger.error('❌ [Notification] Falha ao enviar email', new Error('Email delivery failed'), {
+          component: 'NotificationService',
+          tenantId: this.tenantId,
+          notificationId
+        })
+      }
+
+      // Single Firestore update
+      await updateDoc(notificationRef, updateData)
+
+    } catch (error) {
+      // Single update for error case
+      updateData = {
+        'deliveryStatus.email.status': 'failed',
+        'deliveryStatus.email.failedAt': serverTimestamp(),
+        'deliveryStatus.email.attempts': 1,
+        'deliveryStatus.email.error': error instanceof Error ? error.message : 'Unknown error'
+      }
+
+      await updateDoc(notificationRef, updateData)
+
+      throw error
+    }
   }
 }
 

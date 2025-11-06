@@ -94,7 +94,8 @@
       "Read(//Users/igorgewehr/**)",
       "Bash(lsof:*)",
       "Bash(xcodebuild:*)",
-      "Bash(tee:*)"
+      "Bash(tee:*)",
+      "Bash(test:*)"
     ],
     "deny": [],
     "defaultMode": "acceptEdits",

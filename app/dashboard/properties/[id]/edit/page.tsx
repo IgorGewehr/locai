@@ -66,6 +66,8 @@ import { useAuth } from '@/contexts/AuthProvider';
 import { logger } from '@/lib/utils/logger';
 import { Property } from '@/lib/types/property';
 import { PaymentMethod } from '@/lib/types/common';
+import type { Reservation } from '@/lib/types';
+import { ReservationPeriod } from '@/components/organisms/PricingCalendar/PricingCalendar';
 import { editPropertySchema } from '@/lib/validation/property-edit-schema';
 import { ultraPermissiveEditPropertySchema } from '@/lib/validation/ultra-permissive-edit-schema';
 import { debounce } from 'lodash';
@@ -87,7 +89,8 @@ interface PropertySection {
   isRequired: boolean;
 }
 
-const propertySections: PropertySection[] = [
+// Factory function to create sections with dynamic data
+const createPropertySections = (reservations: ReservationPeriod[]): PropertySection[] => [
   {
     id: 'basic',
     title: 'Informações Básicas',
@@ -111,7 +114,7 @@ const propertySections: PropertySection[] = [
     title: 'Preços e Políticas',
     description: 'Valores, taxas e políticas de pagamento',
     icon: <AttachMoney />,
-    component: <PropertyPricing />,
+    component: <PropertyPricing reservations={reservations} />,
     fields: ['basePrice', 'pricePerExtraGuest', 'cleaningFee', 'minimumNights'],
     isRequired: true,
   },
@@ -160,6 +163,7 @@ export default function EditPropertyPage() {
   const [autoSaveEnabled, setAutoSaveEnabled] = useState(true);
   const [saveHistory, setSaveHistory] = useState<Array<{ timestamp: Date; type: 'manual' | 'auto' }>>([]);
   const [authChecked, setAuthChecked] = useState(false);
+  const [reservations, setReservations] = useState<ReservationPeriod[]>([]);
 
   // Form setup with ULTRA-PERMISSIVE validation - nunca falha
   const methods = useForm<Property>({
@@ -182,6 +186,9 @@ export default function EditPropertyPage() {
 
   const { handleSubmit, reset, watch, trigger, formState: { errors, isDirty, isValid, dirtyFields } } = methods;
   const watchedValues = watch();
+
+  // Create sections dynamically with reservations
+  const propertySections = useMemo(() => createPropertySections(reservations), [reservations]);
 
   // Section completion calculation
   const sectionCompletions = useMemo(() => {
@@ -326,14 +333,31 @@ export default function EditPropertyPage() {
           updatedAt: property.updatedAt?.toDate ? property.updatedAt.toDate() : property.updatedAt,
         };
 
+        // Fetch reservations for this property
+        const allReservations = await services.reservations.getMany([
+          { field: 'propertyId', operator: '==', value: propertyId }
+        ]);
+
+        const formattedReservations: ReservationPeriod[] = allReservations
+          .filter((r: any) => r.status !== 'cancelled')
+          .map((r: any): ReservationPeriod => ({
+            id: r.id || '',
+            checkIn: r.checkIn?.toDate ? r.checkIn.toDate() : new Date(r.checkIn),
+            checkOut: r.checkOut?.toDate ? r.checkOut.toDate() : new Date(r.checkOut),
+            guestName: r.guestName,
+            status: r.status as 'confirmed' | 'pending' | 'cancelled'
+          }));
+
         logger.info('Property loaded successfully', {
           propertyId,
           title: propertyData.title,
+          reservationsCount: formattedReservations.length,
           sections: propertySections.map(s => s.id)
         });
 
         if (mounted) {
           setOriginalData(propertyData);
+          setReservations(formattedReservations);
           reset(propertyData);
           setLoading(false);
         }

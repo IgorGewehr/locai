@@ -265,6 +265,57 @@ export async function POST(request: NextRequest) {
     const services = new TenantServiceFactory(authContext.tenantId)
     const newTransaction = await services.transactions.create(sanitizedData)
 
+    // Trigger notification for completed income transactions (payments received) - NON-BLOCKING
+    if (validatedData.type === 'income' && validatedData.status === 'completed') {
+      import('@/lib/services/notification-service').then(async ({ NotificationServiceFactory }) => {
+        const notificationService = NotificationServiceFactory.getInstance(authContext.tenantId)
+
+        // Get related entities for richer notification (PARALLEL)
+        const [property, client] = await Promise.all([
+          validatedData.propertyId
+            ? services.properties.getById(validatedData.propertyId).catch(() => null)
+            : Promise.resolve(null),
+          validatedData.clientId
+            ? services.clients.getById(validatedData.clientId).catch(() => null)
+            : Promise.resolve(null)
+        ])
+
+        const propertyName = (property as any)?.name || ''
+        const clientName = client?.name || ''
+
+        return notificationService.createNotification({
+          targetUserId: authContext.userId || 'system',
+          targetUserName: authContext.email,
+          type: 'payment_received' as any,
+          title: '💰 Pagamento Recebido',
+          message: `Pagamento de R$ ${validatedData.amount.toFixed(2)} recebido${clientName ? ` de ${clientName}` : ''}${propertyName ? ` (${propertyName})` : ''}. Método: ${validatedData.paymentMethod}.`,
+          entityType: 'payment',
+          entityId: newTransaction,
+          entityData: {
+            amount: validatedData.amount,
+            paymentMethod: validatedData.paymentMethod,
+            category: validatedData.category,
+            description: validatedData.description,
+            propertyName,
+            clientName
+          },
+          priority: validatedData.amount >= 1000 ? 'high' as any : 'medium' as any,
+          channels: ['dashboard', 'email'] as any[],
+          recipientEmail: authContext.email,
+          actionUrl: `/dashboard/transactions`,
+          actionLabel: 'Ver Transações',
+          metadata: {
+            source: 'transaction_api',
+            triggerEvent: 'payment_received',
+            transactionId: newTransaction
+          }
+        })
+      }).catch(notificationError => {
+        // Log but don't fail the transaction creation
+        console.error('Failed to send payment notification:', notificationError)
+      })
+    }
+
     return NextResponse.json(
       {
         success: true,

@@ -5,7 +5,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { useTenant } from '@/contexts/TenantContext';
 import PropertyPriceDisplay from '@/components/atoms/PropertyPriceDisplay';
 import PropertyAvailabilityInfo from '@/components/molecules/PropertyAvailabilityInfo';
-// import AvailabilityCalendar from '@/components/organisms/AvailabilityCalendar/AvailabilityCalendar';
+import PricingCalendar, { ReservationPeriod } from '@/components/organisms/PricingCalendar/PricingCalendar';
 import type { Property, Reservation } from '@/lib/types';
 import {
   Box,
@@ -503,21 +503,36 @@ export default function PropertyViewPage() {
         </Grid>
       </Grid>
 
-      {/* Availability Calendar - Temporarily disabled during component restructure */}
-      {/* 
+      {/* Pricing Calendar with Reservations */}
       <Box mt={4}>
         <Card>
           <CardContent>
-            <AvailabilityCalendar
-              propertyId={propertyId}
-              height={500}
-              showLegend={true}
-              showStats={true}
+            <Typography variant="h6" gutterBottom>
+              Calendário de Preços e Disponibilidade
+            </Typography>
+            <Divider sx={{ mb: 3 }} />
+
+            <PricingCalendar
+              basePrice={property.basePrice || 0}
+              specialPrices={property.customPricing || {}}
+              weekendSurcharge={property.weekendSurcharge}
+              holidaySurcharge={property.holidaySurcharge}
+              decemberSurcharge={property.decemberSurcharge}
+              highSeasonSurcharge={property.highSeasonSurcharge}
+              highSeasonMonths={property.highSeasonMonths}
+              reservations={reservations.map((r): ReservationPeriod => ({
+                id: r.id || '',
+                checkIn: new Date(r.checkIn),
+                checkOut: new Date(r.checkOut),
+                guestName: r.guestName,
+                status: r.status as 'confirmed' | 'pending' | 'cancelled'
+              }))}
+              readOnly={true}
+              showReservations={true}
             />
           </CardContent>
         </Card>
       </Box>
-      */}
 
       {/* Additional Images */}
       {property.photos && property.photos.length > 1 && (
