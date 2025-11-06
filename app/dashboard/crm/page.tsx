@@ -1,6 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import ErrorBoundary from '@/components/ErrorBoundary';
+import { logger } from '@/lib/utils/logger';
 import {
   Box,
   Typography,
@@ -55,6 +57,8 @@ import {
   Edit,
   Delete,
   CheckCircle,
+  ErrorOutline as ErrorOutlineIcon,
+  Refresh as RefreshIcon,
   Warning,
   Schedule,
   Assignment,
@@ -97,7 +101,7 @@ const statusColumns = [
   { id: LeadStatus.WON, title: 'Ganhos', color: '#4caf50' },
 ];
 
-export default function CRMPage() {
+function CRMPageContent() {
   const { user } = useAuth();
   const services = useTenantServices();
   const { isReady } = useTenant();
@@ -125,19 +129,39 @@ export default function CRMPage() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [hotLeads, setHotLeads] = useState<Lead[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
+  const [error, setError] = useState<string | null>(null);
+  const [retryCount, setRetryCount] = useState(0);
 
   useEffect(() => {
-    if (isReady && services) {
-      loadLeads();
-      loadTasks();
-      loadHotLeads();
-      loadClients();
-    }
-  }, [services, isReady]);
+    // 🛡️ PROTEÇÃO: Try-catch para evitar crashes no useEffect
+    const loadData = async () => {
+      if (!isReady || !services) return;
+
+      try {
+        await Promise.all([
+          loadLeads(),
+          loadTasks(),
+          loadHotLeads(),
+          loadClients()
+        ]);
+        setError(null); // Clear errors on successful load
+      } catch (error) {
+        const errorMsg = error instanceof Error ? error.message : 'Erro desconhecido';
+        logger.error('❌ [CRM] Failed to load data', {
+          error: errorMsg,
+          retryCount
+        });
+        setError(errorMsg);
+        setLoading(false);
+      }
+    };
+
+    loadData();
+  }, [services, isReady, retryCount]);
 
   const loadLeads = async () => {
     if (!isReady || !services) return;
-    
+
     try {
       setLoading(true);
       const leadsByStatus: Record<LeadStatus, Lead[]> = {
@@ -160,8 +184,14 @@ export default function CRMPage() {
       }
 
       setLeads(leadsByStatus);
+      logger.info('✅ [CRM] Leads loaded successfully', {
+        totalLeads: Object.values(leadsByStatus).flat().length
+      });
     } catch (error) {
-      console.error('Erro ao carregar leads:', error);
+      logger.error('❌ [CRM] Failed to load leads', {
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+      throw error; // Re-throw to be caught by parent
     } finally {
       setLoading(false);
     }
@@ -169,35 +199,53 @@ export default function CRMPage() {
 
   const loadTasks = async () => {
     if (!isReady || !services || !user?.id) return;
-    
+
     try {
       // Get tasks assigned to current user
       const userTasks = await services.tasks.getWhere('assignedTo', '==', user.id);
       setTasks(userTasks);
+      logger.info('✅ [CRM] Tasks loaded successfully', {
+        taskCount: userTasks.length
+      });
     } catch (error) {
-      console.error('Erro ao carregar tarefas:', error);
+      logger.error('❌ [CRM] Failed to load tasks', {
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+      throw error;
     }
   };
 
   const loadHotLeads = async () => {
     if (!isReady || !services) return;
-    
+
     try {
       const hot = await services.leads.getWhere('temperature', '==', 'hot');
       setHotLeads(hot);
+      logger.info('✅ [CRM] Hot leads loaded successfully', {
+        hotLeadsCount: hot.length
+      });
     } catch (error) {
-      console.error('Erro ao carregar leads quentes:', error);
+      logger.error('❌ [CRM] Failed to load hot leads', {
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+      throw error;
     }
   };
 
   const loadClients = async () => {
     if (!isReady || !services) return;
-    
+
     try {
       const clientList = await services.clients.getAll();
       setClients(clientList);
+      logger.info('✅ [CRM] Clients loaded successfully', {
+        clientCount: clientList.length
+      });
     } catch (error) {
-      console.error('Erro ao carregar clientes:', error);
+      logger.error('❌ [CRM] Failed to load clients', {
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+      throw error;
     }
   };
 
@@ -334,6 +382,34 @@ export default function CRMPage() {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '60vh' }}>
         <CircularProgress />
+      </Box>
+    );
+  }
+
+  // 🛡️ ERROR STATE UI
+  if (error) {
+    return (
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '60vh', p: 3 }}>
+        <Paper elevation={3} sx={{ p: 4, maxWidth: 500, textAlign: 'center' }}>
+          <ErrorOutlineIcon sx={{ fontSize: 64, color: 'error.main', mb: 2 }} />
+          <Typography variant="h5" gutterBottom color="error">
+            Erro ao Carregar Dados
+          </Typography>
+          <Typography variant="body2" color="text.secondary" paragraph>
+            {error}
+          </Typography>
+          <Button
+            variant="contained"
+            onClick={() => {
+              setError(null);
+              setRetryCount(prev => prev + 1);
+            }}
+            startIcon={<RefreshIcon />}
+            sx={{ mt: 2 }}
+          >
+            Tentar Novamente
+          </Button>
+        </Paper>
       </Box>
     );
   }
@@ -889,5 +965,17 @@ export default function CRMPage() {
         onClick={() => setCreateLeadOpen(true)}
       />
     </Box>
+  );
+}
+
+// 🛡️ WRAP WITH ERROR BOUNDARY
+export default function CRMPage() {
+  return (
+    <ErrorBoundary
+      componentName="CRM Dashboard"
+      showDetails={process.env.NODE_ENV === 'development'}
+    >
+      <CRMPageContent />
+    </ErrorBoundary>
   );
 }

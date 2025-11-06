@@ -1,3 +1,6 @@
+// 🛡️ SERVER-ONLY MODULE - Cannot be imported in client components
+import 'server-only';
+
 import sgMail from '@sendgrid/mail';
 import type { Notification } from '@/lib/types/notification';
 import { logger } from '@/lib/utils/logger';

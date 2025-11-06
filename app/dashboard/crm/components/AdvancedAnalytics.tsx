@@ -35,7 +35,7 @@ import {
   Refresh,
   Insights,
   Speed,
-  Target,
+  GpsFixed as Target,
   AttachMoney,
   Phone,
   WhatsApp,

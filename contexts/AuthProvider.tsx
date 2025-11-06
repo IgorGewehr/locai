@@ -167,19 +167,32 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         };
       }
       
-      // Criar novo usuário
-      const [firstName, ...lastNameArray] = (authUser.displayName || '').split(' ');
-      const lastName = lastNameArray.join(' ');
-      
+      // 🛡️ CRIAR NOVO USUÁRIO COM VALIDAÇÃO ROBUSTA
+      // Fallback chain: displayName -> email prefix -> 'User'
+      const displayName = authUser.displayName ||
+                         authUser.email?.split('@')[0] ||
+                         'User';
+
+      // Garantir que split sempre retorna array válido
+      const nameParts = displayName.split(' ').filter((part: string) => part.trim().length > 0);
+      const firstName = nameParts[0] || 'User';
+      const lastName = nameParts.slice(1).join(' ') || '';
+      const fullName = nameParts.join(' ') || 'User';
+
+      // Validar email (campo crítico)
+      if (!authUser.email || typeof authUser.email !== 'string' || !authUser.email.includes('@')) {
+        throw new Error('Email inválido fornecido pelo provedor de autenticação');
+      }
+
       const newUserData = {
         email: authUser.email,
-        name: authUser.displayName || '',
-        fullName: authUser.displayName || '',
-        firstName: firstName || '',
-        lastName: lastName || '',
+        name: fullName,
+        fullName: fullName,
+        firstName: firstName,
+        lastName: lastName,
         role: 'user',
         isActive: true,
-        emailVerified: authUser.emailVerified,
+        emailVerified: authUser.emailVerified || false,
         plan: 'free',
         createdAt: new Date(),
         lastLogin: new Date(),
@@ -189,18 +202,19 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       };
       
       await setDoc(userRef, newUserData, { merge: true });
-      
+
+      // 🛡️ RETORNAR DADOS VALIDADOS
       return {
         uid,
-        email: authUser.email,
-        name: newUserData.name,
-        fullName: newUserData.fullName,
+        email: authUser.email, // Já validado acima
+        name: fullName,
+        fullName: fullName,
         role: 'user',
         isAdmin: false, // New users are not admin by default
         idog: false, // New users are not super admin by default
         tenantId: uid,
         isActive: true,
-        emailVerified: authUser.emailVerified,
+        emailVerified: authUser.emailVerified || false,
         createdAt: new Date(),
         lastLogin: new Date(),
         companyName: '',
