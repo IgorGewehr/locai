@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   Box,
   Typography,
@@ -68,12 +68,15 @@ import {
   AssignmentOutlined as TaskIcon,
   GroupsOutlined as GroupsIcon,
   PriorityHighOutlined as PriorityIcon,
-  AccessTimeOutlined as TimeIcon
+  AccessTimeOutlined as TimeIcon,
+  HourglassEmpty as HourglassEmptyIcon,
+  Cancel as CancelIcon
 } from '@mui/icons-material';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthProvider';
 import { format, isValid } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { logger } from '@/lib/utils/logger';
 
 // Função auxiliar para formatar datas de forma segura
 const formatSafeDate = (dateValue: any, formatStr: string, options?: any) => {
@@ -228,6 +231,7 @@ export default function AdminDashboard() {
   const [users, setUsers] = useState<User[]>([]);
   const [userSearch, setUserSearch] = useState('');
   const [selectedTenant, setSelectedTenant] = useState('all');
+  const [onboardingFilter, setOnboardingFilter] = useState<'all' | 'completed' | 'in_progress' | 'not_started'>('all');
   const [userSortField, setUserSortField] = useState<'name' | 'createdAt' | 'lastLogin' | 'propertyCount' | 'totalTicketsCount'>('createdAt');
   const [userSortOrder, setUserSortOrder] = useState<'asc' | 'desc'>('desc');
   
@@ -275,40 +279,40 @@ export default function AdminDashboard() {
   const checkAdminAccess = async () => {
     try {
       if (!user) {
-        console.log('❌ Usuário não encontrado, redirecionando...');
+        logger.info('❌ Usuário não encontrado, redirecionando...');
         router.push('/dashboard');
         return;
       }
 
-      console.log('🔍 Verificando acesso admin para:', user.email);
+      logger.info('🔍', user.email);
       
       const response = await makeAuthenticatedRequest('/api/admin/verify', {
         method: 'GET'
       });
 
-      console.log('📡 Resposta da API:', response.status, response.statusText);
+      logger.info('📡', response.status, response.statusText);
 
       if (!response.ok) {
         const errorText = await response.text();
-        console.error('❌ Resposta não OK:', response.status, response.statusText, errorText);
+        logger.error('❌', response.status, response.statusText, errorText);
         router.push('/dashboard');
         return;
       }
 
       const data = await response.json();
-      console.log('📊 Dados recebidos:', data);
+      logger.info('📊', data);
       
       if (!data.isAdmin) {
-        console.error('❌ Usuário não é admin:', data);
+        logger.error('❌', data);
         router.push('/dashboard');
         return;
       }
 
-      console.log('✅ Acesso admin confirmado!');
+      logger.info('✅ Acesso admin confirmado!');
       setIsAdmin(true);
       loadAdminData();
     } catch (error) {
-      console.error('💥 Erro ao verificar acesso admin:', error);
+      logger.error('💥', error);
       router.push('/dashboard');
     }
   };
@@ -340,7 +344,7 @@ export default function AdminDashboard() {
           ];
           setStats(formattedStats);
           
-          console.log('📊 Dados carregados com sucesso:', {
+          logger.info('📊', {
             usuarios: data.stats.totalUsers,
             tickets: data.stats.totalTickets,
             tenants: data.stats.tenantsWithTickets
@@ -348,7 +352,7 @@ export default function AdminDashboard() {
         }
       } else {
         // Se falhar, tentar carregar individualmente
-        console.warn('⚠️ Rota otimizada falhou, usando rotas individuais');
+        logger.warn('⚠️ Rota otimizada falhou, usando rotas individuais');
         await Promise.all([
           loadTickets(),
           loadUsers(),
@@ -356,7 +360,7 @@ export default function AdminDashboard() {
         ]);
       }
     } catch (error) {
-      console.error('Erro ao carregar dados admin:', error);
+      logger.error('Erro ao carregar dados admin:', error);
       // Tentar carregar individualmente como fallback
       try {
         await Promise.all([
@@ -365,7 +369,7 @@ export default function AdminDashboard() {
           loadStats()
         ]);
       } catch (fallbackError) {
-        console.error('Erro no fallback:', fallbackError);
+        logger.error('Erro no fallback:', fallbackError);
       }
     } finally {
       setLoading(false);
@@ -384,10 +388,10 @@ export default function AdminDashboard() {
           setUsers(data.users);
         }
         // Log para debug
-        console.log(`✅ Carregados: ${data.tickets?.length || 0} tickets de ${data.stats?.tenantsWithTickets || 0} tenants`);
+        logger.info(`✅ Carregados: ${data.tickets?.length || 0} tickets de ${data.stats?.tenantsWithTickets || 0} tenants`);
       }
     } catch (error) {
-      console.error('Erro ao carregar tickets:', error);
+      logger.error('Erro ao carregar tickets:', error);
       // Fallback para rota antiga se a nova falhar
       try {
         const fallbackResponse = await makeAuthenticatedRequest('/api/admin/tickets');
@@ -396,7 +400,7 @@ export default function AdminDashboard() {
           setTickets(fallbackData.tickets || []);
         }
       } catch (fallbackError) {
-        console.error('Erro no fallback:', fallbackError);
+        logger.error('Erro no fallback:', fallbackError);
       }
     }
   };
@@ -425,17 +429,17 @@ export default function AdminDashboard() {
         }
       }
     } catch (error) {
-      console.error('❌ Erro ao carregar usuários enhanced:', error);
+      logger.error('❌', error);
       // Fallback para rota antiga se a nova falhar
       try {
         const fallbackResponse = await makeAuthenticatedRequest('/api/admin/users');
         if (fallbackResponse.ok) {
           const fallbackData = await fallbackResponse.json();
           setUsers(fallbackData.users || []);
-          console.log('⚠️ Usando API legacy (sem métricas enhanced)');
+          logger.info('⚠️ Usando API legacy (sem métricas enhanced)');
         }
       } catch (fallbackError) {
-        console.error('❌ Erro no fallback:', fallbackError);
+        logger.error('❌', fallbackError);
       }
     }
   };
@@ -448,7 +452,7 @@ export default function AdminDashboard() {
         setStats(data.stats || []);
       }
     } catch (error) {
-      console.error('Erro ao carregar estatísticas:', error);
+      logger.error('Erro ao carregar estatísticas:', error);
     }
   };
 
@@ -476,21 +480,21 @@ export default function AdminDashboard() {
         })
       });
 
-      console.log('📡 Resposta da API:', {
+      logger.info('📡', {
         status: response.status,
         statusText: response.statusText,
         ok: response.ok
       });
 
       if (response.ok) {
-        console.log('✅ Resposta enviada com sucesso');
+        logger.info('✅ Resposta enviada com sucesso');
         setReplyMessage('');
         setReplyDialog(false);
         await loadTickets();
         setSelectedTicket(null);
       } else {
         const errorData = await response.json().catch(() => ({}));
-        console.error('❌ Erro na API:', {
+        logger.error('❌', {
           status: response.status,
           statusText: response.statusText,
           error: errorData
@@ -498,7 +502,7 @@ export default function AdminDashboard() {
         alert(`Erro ao responder ticket: ${errorData.error || 'Erro desconhecido'}`);
       }
     } catch (error) {
-      console.error('💥 Erro ao responder ticket:', error);
+      logger.error('💥', error);
       alert('Erro ao responder ticket. Verifique o console para detalhes.');
     } finally {
       setReplying(false);
@@ -516,7 +520,7 @@ export default function AdminDashboard() {
         await loadTickets();
       }
     } catch (error) {
-      console.error('Erro ao atualizar status:', error);
+      logger.error('Erro ao atualizar status:', error);
     }
   };
 
@@ -543,61 +547,81 @@ export default function AdminDashboard() {
     }
   };
 
-  // Filtrar tickets
-  const filteredTickets = tickets.filter(ticket => {
-    const matchesFilter = ticketFilter === 'all' || ticket.status === ticketFilter;
-    const matchesSearch = ticketSearch === '' || 
-      ticket.subject.toLowerCase().includes(ticketSearch.toLowerCase()) ||
-      ticket.userName?.toLowerCase().includes(ticketSearch.toLowerCase()) ||
-      ticket.tenantName?.toLowerCase().includes(ticketSearch.toLowerCase());
-    return matchesFilter && matchesSearch;
-  });
+  // Filtrar tickets (memoized for performance)
+  const filteredTickets = useMemo(() => {
+    return tickets.filter(ticket => {
+      const matchesFilter = ticketFilter === 'all' || ticket.status === ticketFilter;
+      const matchesSearch = ticketSearch === '' ||
+        ticket.subject.toLowerCase().includes(ticketSearch.toLowerCase()) ||
+        ticket.userName?.toLowerCase().includes(ticketSearch.toLowerCase()) ||
+        ticket.tenantName?.toLowerCase().includes(ticketSearch.toLowerCase());
+      return matchesFilter && matchesSearch;
+    });
+  }, [tickets, ticketFilter, ticketSearch]);
 
-  // Filtrar e ordenar usuários
-  const filteredUsers = users.filter(user => {
-    const matchesTenant = selectedTenant === 'all' || user.tenantId === selectedTenant;
-    const matchesSearch = userSearch === '' ||
-      user.name.toLowerCase().includes(userSearch.toLowerCase()) ||
-      user.email.toLowerCase().includes(userSearch.toLowerCase());
-    return matchesTenant && matchesSearch;
-  }).sort((a, b) => {
-    // Função de comparação baseada no campo selecionado
-    let comparison = 0;
-    
-    switch(userSortField) {
-      case 'name':
-        comparison = (a.name || '').localeCompare(b.name || '');
-        break;
-      case 'createdAt':
-        const dateA = new Date(a.createdAt || 0).getTime();
-        const dateB = new Date(b.createdAt || 0).getTime();
-        comparison = dateA - dateB;
-        break;
-      case 'lastLogin':
-        const loginA = new Date(a.lastLogin || 0).getTime();
-        const loginB = new Date(b.lastLogin || 0).getTime();
-        comparison = loginA - loginB;
-        break;
-      case 'propertyCount':
-        comparison = (a.propertyCount || 0) - (b.propertyCount || 0);
-        break;
-      case 'totalTicketsCount':
-        comparison = (a.totalTicketsCount || 0) - (b.totalTicketsCount || 0);
-        break;
-      default:
-        comparison = 0;
-    }
-    
-    // Aplicar ordem (asc ou desc)
-    return userSortOrder === 'asc' ? comparison : -comparison;
-  });
+  // Filtrar e ordenar usuários (memoized for performance)
+  const filteredUsers = useMemo(() => {
+    return users.filter(user => {
+      const matchesTenant = selectedTenant === 'all' || user.tenantId === selectedTenant;
+      const matchesSearch = userSearch === '' ||
+        user.name.toLowerCase().includes(userSearch.toLowerCase()) ||
+        user.email.toLowerCase().includes(userSearch.toLowerCase());
 
-  // Obter tenants únicos
-  const uniqueTenants = Array.from(new Set(users.map(u => u.tenantId)))
-    .map(id => ({
-      id,
-      name: users.find(u => u.tenantId === id)?.tenantName || id
-    }));
+      // Onboarding filter
+      let matchesOnboarding = true;
+      if (onboardingFilter !== 'all') {
+        const onboarding = user.onboardingProgress;
+        if (onboardingFilter === 'completed') {
+          matchesOnboarding = onboarding?.isCompleted === true;
+        } else if (onboardingFilter === 'in_progress') {
+          matchesOnboarding = onboarding?.completedStepsCount > 0 && onboarding?.isCompleted !== true;
+        } else if (onboardingFilter === 'not_started') {
+          matchesOnboarding = !onboarding || onboarding?.completedStepsCount === 0;
+        }
+      }
+
+      return matchesTenant && matchesSearch && matchesOnboarding;
+    }).sort((a, b) => {
+      // Função de comparação baseada no campo selecionado
+      let comparison = 0;
+
+      switch(userSortField) {
+        case 'name':
+          comparison = (a.name || '').localeCompare(b.name || '');
+          break;
+        case 'createdAt':
+          const dateA = new Date(a.createdAt || 0).getTime();
+          const dateB = new Date(b.createdAt || 0).getTime();
+          comparison = dateA - dateB;
+          break;
+        case 'lastLogin':
+          const loginA = new Date(a.lastLogin || 0).getTime();
+          const loginB = new Date(b.lastLogin || 0).getTime();
+          comparison = loginA - loginB;
+          break;
+        case 'propertyCount':
+          comparison = (a.propertyCount || 0) - (b.propertyCount || 0);
+          break;
+        case 'totalTicketsCount':
+          comparison = (a.totalTicketsCount || 0) - (b.totalTicketsCount || 0);
+          break;
+        default:
+          comparison = 0;
+      }
+
+      // Aplicar ordem (asc ou desc)
+      return userSortOrder === 'asc' ? comparison : -comparison;
+    });
+  }, [users, selectedTenant, userSearch, onboardingFilter, userSortField, userSortOrder]);
+
+  // Obter tenants únicos (memoized for performance)
+  const uniqueTenants = useMemo(() => {
+    return Array.from(new Set(users.map(u => u.tenantId)))
+      .map(id => ({
+        id,
+        name: users.find(u => u.tenantId === id)?.tenantName || id
+      }));
+  }, [users]);
 
   // Não mostrar loading especial - usuários com idog acessam direto
   if (authLoading) {
@@ -1959,13 +1983,53 @@ export default function AdminDashboard() {
                 </Select>
               </FormControl>
               
+              <FormControl size="small" sx={{ minWidth: 200 }}>
+                <InputLabel>Status Onboarding</InputLabel>
+                <Select
+                  value={onboardingFilter}
+                  onChange={(e) => setOnboardingFilter(e.target.value as typeof onboardingFilter)}
+                  label="Status Onboarding"
+                  sx={{
+                    borderRadius: '12px',
+                    background: 'rgba(255, 255, 255, 0.05)',
+                    backdropFilter: 'blur(10px)',
+                    border: '1px solid rgba(255, 255, 255, 0.1)',
+                    color: '#ffffff',
+                    '&:hover': {
+                      border: '1px solid rgba(255, 255, 255, 0.2)'
+                    },
+                    fontFamily: 'Inter, sans-serif'
+                  }}
+                  MenuProps={{
+                    PaperProps: {
+                      sx: {
+                        bgcolor: 'rgba(30, 30, 50, 0.95)',
+                        backdropFilter: 'blur(20px)',
+                        border: '1px solid rgba(255, 255, 255, 0.1)',
+                        borderRadius: '12px',
+                        mt: 1,
+                        '& .MuiMenuItem-root': {
+                          color: '#ffffff',
+                          fontFamily: 'Inter, sans-serif'
+                        }
+                      }
+                    }
+                  }}
+                >
+                  <MenuItem value="all">Todos os Status</MenuItem>
+                  <MenuItem value="completed">✅ Completo</MenuItem>
+                  <MenuItem value="in_progress">🔄 Em Progresso</MenuItem>
+                  <MenuItem value="not_started">⭕ Não Iniciado</MenuItem>
+                </Select>
+              </FormControl>
+
               <FormControl size="small" sx={{ minWidth: 180 }}>
                 <InputLabel>Ordenar por</InputLabel>
                 <Select
                   value={userSortField}
                   onChange={(e) => setUserSortField(e.target.value as typeof userSortField)}
                   label="Ordenar por"
-                  sx={{ 
+                  sx={{
                     borderRadius: '12px',
                     background: 'rgba(255, 255, 255, 0.05)',
                     backdropFilter: 'blur(10px)',
@@ -2031,6 +2095,186 @@ export default function AdminDashboard() {
               </Button>
             </Stack>
           </Box>
+
+          {/* Onboarding Statistics Cards */}
+          <Grid container spacing={3} sx={{ mb: 3 }}>
+            {/* Total Users */}
+            <Grid item xs={12} sm={6} md={3}>
+              <Paper
+                sx={{
+                  p: 3,
+                  background: 'rgba(255, 255, 255, 0.05)',
+                  backdropFilter: 'blur(20px)',
+                  border: '1px solid rgba(255, 255, 255, 0.1)',
+                  borderRadius: '16px',
+                  transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                  '&:hover': {
+                    transform: 'translateY(-4px)',
+                    boxShadow: '0 12px 40px rgba(139, 92, 246, 0.2)',
+                    border: '1px solid rgba(139, 92, 246, 0.3)'
+                  }
+                }}
+              >
+                <Stack spacing={2}>
+                  <Stack direction="row" justifyContent="space-between" alignItems="center">
+                    <Box
+                      sx={{
+                        p: 1.5,
+                        borderRadius: '12px',
+                        bgcolor: alpha('#8b5cf6', 0.15),
+                        color: '#8b5cf6'
+                      }}
+                    >
+                      <PeopleIcon fontSize="medium" />
+                    </Box>
+                  </Stack>
+                  <Box>
+                    <Typography variant="h3" fontWeight={700} sx={{ color: '#ffffff', fontFamily: 'Inter, sans-serif' }}>
+                      {filteredUsers.length}
+                    </Typography>
+                    <Typography variant="body2" sx={{ color: 'rgba(255, 255, 255, 0.6)', mt: 0.5 }}>
+                      Total de Usuários
+                    </Typography>
+                  </Box>
+                </Stack>
+              </Paper>
+            </Grid>
+
+            {/* Completed Onboarding */}
+            <Grid item xs={12} sm={6} md={3}>
+              <Paper
+                sx={{
+                  p: 3,
+                  background: 'rgba(255, 255, 255, 0.05)',
+                  backdropFilter: 'blur(20px)',
+                  border: '1px solid rgba(255, 255, 255, 0.1)',
+                  borderRadius: '16px',
+                  transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                  '&:hover': {
+                    transform: 'translateY(-4px)',
+                    boxShadow: '0 12px 40px rgba(16, 185, 129, 0.2)',
+                    border: '1px solid rgba(16, 185, 129, 0.3)'
+                  }
+                }}
+              >
+                <Stack spacing={2}>
+                  <Stack direction="row" justifyContent="space-between" alignItems="center">
+                    <Box
+                      sx={{
+                        p: 1.5,
+                        borderRadius: '12px',
+                        bgcolor: alpha('#10b981', 0.15),
+                        color: '#10b981'
+                      }}
+                    >
+                      <CheckCircleIcon fontSize="medium" />
+                    </Box>
+                  </Stack>
+                  <Box>
+                    <Typography variant="h3" fontWeight={700} sx={{ color: '#ffffff', fontFamily: 'Inter, sans-serif' }}>
+                      {users.filter(u => u.onboardingProgress?.isCompleted).length}
+                    </Typography>
+                    <Typography variant="body2" sx={{ color: 'rgba(255, 255, 255, 0.6)', mt: 0.5 }}>
+                      Onboarding Completo
+                    </Typography>
+                    <Typography variant="caption" sx={{ color: alpha('#10b981', 0.8), fontWeight: 600 }}>
+                      {users.length > 0 ? Math.round((users.filter(u => u.onboardingProgress?.isCompleted).length / users.length) * 100) : 0}% concluído
+                    </Typography>
+                  </Box>
+                </Stack>
+              </Paper>
+            </Grid>
+
+            {/* In Progress */}
+            <Grid item xs={12} sm={6} md={3}>
+              <Paper
+                sx={{
+                  p: 3,
+                  background: 'rgba(255, 255, 255, 0.05)',
+                  backdropFilter: 'blur(20px)',
+                  border: '1px solid rgba(255, 255, 255, 0.1)',
+                  borderRadius: '16px',
+                  transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                  '&:hover': {
+                    transform: 'translateY(-4px)',
+                    boxShadow: '0 12px 40px rgba(245, 158, 11, 0.2)',
+                    border: '1px solid rgba(245, 158, 11, 0.3)'
+                  }
+                }}
+              >
+                <Stack spacing={2}>
+                  <Stack direction="row" justifyContent="space-between" alignItems="center">
+                    <Box
+                      sx={{
+                        p: 1.5,
+                        borderRadius: '12px',
+                        bgcolor: alpha('#f59e0b', 0.15),
+                        color: '#f59e0b'
+                      }}
+                    >
+                      <HourglassEmptyIcon fontSize="medium" />
+                    </Box>
+                  </Stack>
+                  <Box>
+                    <Typography variant="h3" fontWeight={700} sx={{ color: '#ffffff', fontFamily: 'Inter, sans-serif' }}>
+                      {users.filter(u => u.onboardingProgress?.completedStepsCount > 0 && !u.onboardingProgress?.isCompleted).length}
+                    </Typography>
+                    <Typography variant="body2" sx={{ color: 'rgba(255, 255, 255, 0.6)', mt: 0.5 }}>
+                      Em Progresso
+                    </Typography>
+                    <Typography variant="caption" sx={{ color: alpha('#f59e0b', 0.8), fontWeight: 600 }}>
+                      {users.length > 0 ? Math.round((users.filter(u => u.onboardingProgress?.completedStepsCount > 0 && !u.onboardingProgress?.isCompleted).length / users.length) * 100) : 0}% do total
+                    </Typography>
+                  </Box>
+                </Stack>
+              </Paper>
+            </Grid>
+
+            {/* Not Started */}
+            <Grid item xs={12} sm={6} md={3}>
+              <Paper
+                sx={{
+                  p: 3,
+                  background: 'rgba(255, 255, 255, 0.05)',
+                  backdropFilter: 'blur(20px)',
+                  border: '1px solid rgba(255, 255, 255, 0.1)',
+                  borderRadius: '16px',
+                  transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                  '&:hover': {
+                    transform: 'translateY(-4px)',
+                    boxShadow: '0 12px 40px rgba(239, 68, 68, 0.2)',
+                    border: '1px solid rgba(239, 68, 68, 0.3)'
+                  }
+                }}
+              >
+                <Stack spacing={2}>
+                  <Stack direction="row" justifyContent="space-between" alignItems="center">
+                    <Box
+                      sx={{
+                        p: 1.5,
+                        borderRadius: '12px',
+                        bgcolor: alpha('#ef4444', 0.15),
+                        color: '#ef4444'
+                      }}
+                    >
+                      <CancelIcon fontSize="medium" />
+                    </Box>
+                  </Stack>
+                  <Box>
+                    <Typography variant="h3" fontWeight={700} sx={{ color: '#ffffff', fontFamily: 'Inter, sans-serif' }}>
+                      {users.filter(u => !u.onboardingProgress || u.onboardingProgress?.completedStepsCount === 0).length}
+                    </Typography>
+                    <Typography variant="body2" sx={{ color: 'rgba(255, 255, 255, 0.6)', mt: 0.5 }}>
+                      Não Iniciado
+                    </Typography>
+                    <Typography variant="caption" sx={{ color: alpha('#ef4444', 0.8), fontWeight: 600 }}>
+                      {users.length > 0 ? Math.round((users.filter(u => !u.onboardingProgress || u.onboardingProgress?.completedStepsCount === 0).length / users.length) * 100) : 0}% do total
+                    </Typography>
+                  </Box>
+                </Stack>
+              </Paper>
+            </Grid>
+          </Grid>
 
           {/* Enhanced Users Table */}
           <Box
@@ -2146,6 +2390,14 @@ export default function AdminDashboard() {
                       fontFamily: 'Inter, sans-serif',
                       borderBottom: 'none'
                     }}>
+                      Clientes
+                    </TableCell>
+                    <TableCell sx={{
+                      fontWeight: 600,
+                      color: '#ffffff',
+                      fontFamily: 'Inter, sans-serif',
+                      borderBottom: 'none'
+                    }}>
                       Onboarding
                     </TableCell>
                     <TableCell sx={{
@@ -2207,7 +2459,7 @@ export default function AdminDashboard() {
                 <TableBody>
                   {filteredUsers.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={11} align="center" sx={{ py: 4 }}>
+                      <TableCell colSpan={12} align="center" sx={{ py: 4 }}>
                         <Stack spacing={2} alignItems="center">
                           <PeopleIcon sx={{ fontSize: 48, color: 'text.disabled' }} />
                           <Typography variant="h6" color="text.secondary">
@@ -2330,24 +2582,121 @@ export default function AdminDashboard() {
                           </Stack>
                         </TableCell>
                         <TableCell sx={{ color: '#ffffff' }}>
+                          <Stack direction="row" spacing={1} alignItems="center">
+                            <Box
+                              sx={{
+                                p: 1,
+                                borderRadius: 1,
+                                bgcolor: alpha('#8b5cf6', 0.15),
+                                color: '#8b5cf6',
+                                display: 'flex',
+                                alignItems: 'center'
+                              }}
+                            >
+                              <GroupsIcon fontSize="small" />
+                            </Box>
+                            <Typography variant="body2" fontWeight={600} sx={{ color: '#ffffff' }}>
+                              {user.clientCount || 0}
+                            </Typography>
+                          </Stack>
+                        </TableCell>
+                        <TableCell sx={{ color: '#ffffff' }}>
                           {user.onboardingProgress ? (
                             <Tooltip
                               title={
-                                <Box>
-                                  <Typography variant="caption" display="block" fontWeight={600}>
-                                    Progresso: {user.onboardingProgress.completedStepsCount}/{user.onboardingProgress.totalSteps} passos
+                                <Box sx={{ p: 1 }}>
+                                  <Typography variant="caption" display="block" fontWeight={700} sx={{ mb: 1.5, fontSize: '0.85rem' }}>
+                                    📊 Progresso do Onboarding: {user.onboardingProgress.completedStepsCount}/{user.onboardingProgress.totalSteps}
                                   </Typography>
-                                  <Typography variant="caption" display="block" sx={{ opacity: 0.8 }}>
-                                    Etapa atual: {user.onboardingProgress.currentStep || 'Concluído'}
-                                  </Typography>
-                                  {user.onboardingProgress.completedSteps.length > 0 && (
-                                    <Typography variant="caption" display="block" sx={{ mt: 0.5, opacity: 0.7 }}>
-                                      Completos: {user.onboardingProgress.completedSteps.join(', ')}
-                                    </Typography>
+
+                                  <Stack spacing={1}>
+                                    {/* Step 1: Add Property */}
+                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                      {user.onboardingProgress.completedSteps.includes('add_property') ? (
+                                        <CheckCircleIcon sx={{ fontSize: 16, color: '#10b981' }} />
+                                      ) : user.onboardingProgress.currentStep === 'add_property' ? (
+                                        <Box sx={{ width: 16, height: 16, borderRadius: '50%', bgcolor: '#f59e0b', animation: 'pulse 2s infinite' }} />
+                                      ) : (
+                                        <Box sx={{ width: 16, height: 16, borderRadius: '50%', border: '2px solid rgba(255,255,255,0.3)' }} />
+                                      )}
+                                      <Typography variant="caption" sx={{ opacity: 0.9 }}>
+                                        1. Adicionar Propriedade
+                                      </Typography>
+                                    </Box>
+
+                                    {/* Step 2: Connect WhatsApp */}
+                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                      {user.onboardingProgress.completedSteps.includes('connect_whatsapp') ? (
+                                        <CheckCircleIcon sx={{ fontSize: 16, color: '#10b981' }} />
+                                      ) : user.onboardingProgress.currentStep === 'connect_whatsapp' ? (
+                                        <Box sx={{ width: 16, height: 16, borderRadius: '50%', bgcolor: '#f59e0b', animation: 'pulse 2s infinite' }} />
+                                      ) : (
+                                        <Box sx={{ width: 16, height: 16, borderRadius: '50%', border: '2px solid rgba(255,255,255,0.3)' }} />
+                                      )}
+                                      <Typography variant="caption" sx={{ opacity: 0.9 }}>
+                                        2. Conectar WhatsApp
+                                      </Typography>
+                                    </Box>
+
+                                    {/* Step 3: Test Demo */}
+                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                      {user.onboardingProgress.completedSteps.includes('test_demo') ? (
+                                        <CheckCircleIcon sx={{ fontSize: 16, color: '#10b981' }} />
+                                      ) : user.onboardingProgress.currentStep === 'test_demo' ? (
+                                        <Box sx={{ width: 16, height: 16, borderRadius: '50%', bgcolor: '#f59e0b', animation: 'pulse 2s infinite' }} />
+                                      ) : (
+                                        <Box sx={{ width: 16, height: 16, borderRadius: '50%', border: '2px solid rgba(255,255,255,0.3)' }} />
+                                      )}
+                                      <Typography variant="caption" sx={{ opacity: 0.9 }}>
+                                        3. Criar Primeira Reserva
+                                      </Typography>
+                                    </Box>
+
+                                    {/* Step 4: Share Minisite */}
+                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                      {user.onboardingProgress.completedSteps.includes('share_minisite') ? (
+                                        <CheckCircleIcon sx={{ fontSize: 16, color: '#10b981' }} />
+                                      ) : user.onboardingProgress.currentStep === 'share_minisite' ? (
+                                        <Box sx={{ width: 16, height: 16, borderRadius: '50%', bgcolor: '#f59e0b', animation: 'pulse 2s infinite' }} />
+                                      ) : (
+                                        <Box sx={{ width: 16, height: 16, borderRadius: '50%', border: '2px solid rgba(255,255,255,0.3)' }} />
+                                      )}
+                                      <Typography variant="caption" sx={{ opacity: 0.9 }}>
+                                        4. Compartilhar Mini-Site
+                                      </Typography>
+                                    </Box>
+                                  </Stack>
+
+                                  {user.onboardingProgress.isCompleted && (
+                                    <Box sx={{
+                                      mt: 1.5,
+                                      pt: 1.5,
+                                      borderTop: '1px solid rgba(255,255,255,0.1)',
+                                      textAlign: 'center'
+                                    }}>
+                                      <Typography variant="caption" sx={{ color: '#10b981', fontWeight: 700 }}>
+                                        ✅ Onboarding Completo!
+                                      </Typography>
+                                    </Box>
                                   )}
                                 </Box>
                               }
                               arrow
+                              componentsProps={{
+                                tooltip: {
+                                  sx: {
+                                    bgcolor: 'rgba(0, 0, 0, 0.95)',
+                                    border: '1px solid rgba(255, 255, 255, 0.2)',
+                                    borderRadius: '12px',
+                                    backdropFilter: 'blur(10px)',
+                                    maxWidth: 320,
+                                    '& @keyframes pulse': {
+                                      '0%, 100%': { opacity: 1 },
+                                      '50%': { opacity: 0.5 }
+                                    }
+                                  }
+                                }
+                              }}
                             >
                               <Stack spacing={0.5}>
                                 <Stack direction="row" alignItems="center" spacing={1}>
@@ -2389,45 +2738,50 @@ export default function AdminDashboard() {
                                 </Stack>
                                 {user.onboardingProgress.isCompleted ? (
                                   <Chip
-                                    label="Completo"
+                                    label="✅ Completo"
                                     size="small"
-                                    icon={<CheckCircleIcon />}
                                     sx={{
-                                      height: 20,
-                                      fontSize: '0.65rem',
-                                      fontWeight: 600,
-                                      bgcolor: alpha('#10b981', 0.15),
+                                      height: 22,
+                                      fontSize: '0.7rem',
+                                      fontWeight: 700,
+                                      bgcolor: alpha('#10b981', 0.2),
                                       color: '#10b981',
                                       border: '1px solid',
-                                      borderColor: alpha('#10b981', 0.3),
-                                      '& .MuiChip-icon': {
-                                        fontSize: 14,
-                                        color: '#10b981'
-                                      }
+                                      borderColor: alpha('#10b981', 0.4)
                                     }}
                                   />
                                 ) : user.onboardingProgress.completionPercentage > 0 ? (
-                                  <Chip
-                                    label={`${user.onboardingProgress.completedStepsCount}/${user.onboardingProgress.totalSteps}`}
-                                    size="small"
-                                    sx={{
-                                      height: 20,
-                                      fontSize: '0.65rem',
-                                      fontWeight: 600,
-                                      bgcolor: alpha('#f59e0b', 0.15),
-                                      color: '#f59e0b',
-                                      border: '1px solid',
-                                      borderColor: alpha('#f59e0b', 0.3)
-                                    }}
-                                  />
+                                  <Stack direction="row" spacing={0.5} alignItems="center">
+                                    <Chip
+                                      label={`${user.onboardingProgress.completedStepsCount}/${user.onboardingProgress.totalSteps}`}
+                                      size="small"
+                                      sx={{
+                                        height: 22,
+                                        fontSize: '0.7rem',
+                                        fontWeight: 700,
+                                        bgcolor: alpha('#f59e0b', 0.2),
+                                        color: '#f59e0b',
+                                        border: '1px solid',
+                                        borderColor: alpha('#f59e0b', 0.4)
+                                      }}
+                                    />
+                                    {user.onboardingProgress.currentStep && (
+                                      <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.6)', fontSize: '0.65rem' }}>
+                                        {user.onboardingProgress.currentStep === 'add_property' && '📦 Propriedade'}
+                                        {user.onboardingProgress.currentStep === 'connect_whatsapp' && '💬 WhatsApp'}
+                                        {user.onboardingProgress.currentStep === 'test_demo' && '📅 Reserva'}
+                                        {user.onboardingProgress.currentStep === 'share_minisite' && '🌐 Mini-Site'}
+                                      </Typography>
+                                    )}
+                                  </Stack>
                                 ) : (
                                   <Chip
-                                    label="Não iniciado"
+                                    label="🔴 Não iniciado"
                                     size="small"
                                     sx={{
-                                      height: 20,
-                                      fontSize: '0.65rem',
-                                      fontWeight: 600,
+                                      height: 22,
+                                      fontSize: '0.7rem',
+                                      fontWeight: 700,
                                       bgcolor: alpha('#64748b', 0.15),
                                       color: '#94a3b8',
                                       border: '1px solid',

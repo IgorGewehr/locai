@@ -9,39 +9,42 @@ import { verifyAdminAccess } from '@/lib/middleware/admin-auth';
 import { db } from '@/lib/firebase/config';
 import { doc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { logger } from '@/lib/utils/logger';
+import { UpdateTicketStatusSchema, formatZodErrors } from '@/lib/validations/admin-schemas';
 
 export async function PATCH(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    // Extract ticketId from params
+    const { id: ticketId } = await params;
+
     // Verificar acesso admin
     const { isAdmin, user } = await verifyAdminAccess(request);
-    
+
     if (!isAdmin) {
       return NextResponse.json(
         { error: 'Acesso negado' },
         { status: 403 }
       );
     }
-    
+
     const body = await request.json();
-    const { status, tenantId } = body;
-    
-    if (!status) {
+
+    // Validate input with Zod
+    const validation = UpdateTicketStatusSchema.safeParse(body);
+    if (!validation.success) {
       return NextResponse.json(
-        { error: 'Status é obrigatório' },
+        {
+          error: 'Dados inválidos',
+          code: 'VALIDATION_ERROR',
+          details: formatZodErrors(validation.error)
+        },
         { status: 400 }
       );
     }
-    
-    const validStatuses = ['open', 'in_progress', 'resolved', 'closed'];
-    if (!validStatuses.includes(status)) {
-      return NextResponse.json(
-        { error: 'Status inválido' },
-        { status: 400 }
-      );
-    }
+
+    const { status, tenantId, comment } = validation.data;
     
     // Se não tiver tenantId, precisamos buscar em todos os tenants
     let ticketTenantId = tenantId;
@@ -53,7 +56,6 @@ export async function PATCH(
       
       for (const tenantDoc of tenantsSnapshot.docs) {
         const tid = tenantDoc.id;
-        const { id: ticketId } = await params;
         const ticketRef = doc(db, `tenants/${tid}/tickets`, ticketId);
         const { getDoc } = await import('firebase/firestore');
         const ticketDoc = await getDoc(ticketRef);

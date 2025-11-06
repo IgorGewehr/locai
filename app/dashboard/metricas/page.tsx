@@ -1,13 +1,12 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Box,
   Card,
   CardContent,
   Typography,
   Grid,
-  Paper,
   IconButton,
   Tooltip,
   Select,
@@ -19,30 +18,18 @@ import {
   Chip,
   LinearProgress,
   Stack,
-  Alert,
-  AlertTitle,
-  Button,
-  Divider,
-  CardHeader
+  Alert
 } from '@mui/material';
 import {
   TrendingUp,
   TrendingDown,
   Speed,
   Chat,
-  Schedule,
-  Analytics,
-  LocalFireDepartment,
   AccessTime,
   CheckCircle,
   Timeline,
   Refresh,
-  CalendarToday,
-  Warning,
-  AutoAwesome,
-  Lightbulb,
-  TipsAndUpdates,
-  Rocket
+  Warning
 } from '@mui/icons-material';
 import {
   LineChart,
@@ -53,16 +40,12 @@ import {
   Tooltip as RechartsTooltip,
   Legend,
   ResponsiveContainer,
-  BarChart,
-  Bar,
   AreaChart,
-  Area,
-  Cell
+  Area
 } from 'recharts';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useMetrics } from '@/lib/hooks/useMetrics';
-import { useTenant } from '@/contexts/TenantContext';
 
 // Counter Animation Component
 const AnimatedCounter = ({ value, suffix = '', duration = 1000 }: { value: number | string; suffix?: string; duration?: number }) => {
@@ -125,43 +108,6 @@ const Sparkline = ({ data }: { data: number[] }) => {
 export default function MetricasPage() {
   const [timeRange, setTimeRange] = useState('7d');
   const { data, loading, error, refresh } = useMetrics(timeRange);
-  const { tenantId, isReady } = useTenant();
-  const [insights, setInsights] = useState<any>(null);
-  const [loadingInsights, setLoadingInsights] = useState(false);
-
-  // Fetch AI Insights
-  useEffect(() => {
-    if (!isReady || !tenantId) return;
-
-    const fetchInsights = async () => {
-      setLoadingInsights(true);
-      try {
-        const response = await fetch('/api/ai/functions/get-business-insights', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            tenantId,
-            period: timeRange,
-            insightType: 'all',
-            includeRecommendations: true
-          })
-        });
-
-        if (response.ok) {
-          const result = await response.json();
-          if (result.success) {
-            setInsights(result.data);
-          }
-        }
-      } catch (err) {
-        console.error('Error fetching insights:', err);
-      } finally {
-        setLoadingInsights(false);
-      }
-    };
-
-    fetchInsights();
-  }, [isReady, tenantId, timeRange]);
 
   const MetricCard = ({
     title,
@@ -697,280 +643,6 @@ export default function MetricasPage() {
           </Card>
         </Grid>
       </Grid>
-
-      {/* AI Insights Section */}
-      {insights && (
-        <Grid container spacing={3} sx={{ mb: 4 }}>
-          {/* Health Score Card */}
-          <Grid item xs={12} md={4}>
-            <Card sx={{
-              background: 'rgba(255, 255, 255, 0.08)',
-              backdropFilter: 'blur(20px)',
-              border: '1px solid rgba(255, 255, 255, 0.15)',
-              borderRadius: '20px',
-              height: '100%'
-            }}>
-              <CardContent sx={{ p: 3 }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 3 }}>
-                  <Avatar sx={{ bgcolor: insights.summary.overallHealth.level === 'excellent' ? '#10b981' : insights.summary.overallHealth.level === 'good' ? '#3b82f6' : '#f59e0b', width: 56, height: 56 }}>
-                    <AutoAwesome sx={{ fontSize: 32 }} />
-                  </Avatar>
-                  <Box>
-                    <Typography variant="h6" color="white" fontWeight="600">
-                      Saúde Geral
-                    </Typography>
-                    <Typography variant="caption" color="rgba(255,255,255,0.7)">
-                      Score de Performance
-                    </Typography>
-                  </Box>
-                </Box>
-
-                <Box sx={{ textAlign: 'center', mb: 3 }}>
-                  <Typography variant="h1" fontWeight="700" color="white">
-                    <AnimatedCounter value={insights.summary.overallHealth.score} duration={1500} />
-                  </Typography>
-                  <Typography variant="h6" color="rgba(255,255,255,0.8)" sx={{ textTransform: 'capitalize' }}>
-                    {insights.summary.overallHealth.level === 'excellent' ? 'Excelente' :
-                     insights.summary.overallHealth.level === 'good' ? 'Bom' :
-                     insights.summary.overallHealth.level === 'fair' ? 'Regular' : 'Precisa Melhorar'}
-                  </Typography>
-                </Box>
-
-                <Stack spacing={2}>
-                  <Box>
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                      <Typography variant="body2" color="rgba(255,255,255,0.8)">Conversão</Typography>
-                      <Typography variant="body2" color="white" fontWeight="600">
-                        {insights.summary.overallHealth.breakdown.conversion}%
-                      </Typography>
-                    </Box>
-                    <LinearProgress
-                      variant="determinate"
-                      value={insights.summary.overallHealth.breakdown.conversion}
-                      sx={{
-                        height: 6,
-                        borderRadius: 3,
-                        backgroundColor: 'rgba(255,255,255,0.1)',
-                        '& .MuiLinearProgress-bar': { backgroundColor: '#10b981' }
-                      }}
-                    />
-                  </Box>
-
-                  <Box>
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                      <Typography variant="body2" color="rgba(255,255,255,0.8)">Engajamento</Typography>
-                      <Typography variant="body2" color="white" fontWeight="600">
-                        {insights.summary.overallHealth.breakdown.engagement}%
-                      </Typography>
-                    </Box>
-                    <LinearProgress
-                      variant="determinate"
-                      value={insights.summary.overallHealth.breakdown.engagement}
-                      sx={{
-                        height: 6,
-                        borderRadius: 3,
-                        backgroundColor: 'rgba(255,255,255,0.1)',
-                        '& .MuiLinearProgress-bar': { backgroundColor: '#3b82f6' }
-                      }}
-                    />
-                  </Box>
-
-                  <Box>
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
-                      <Typography variant="body2" color="rgba(255,255,255,0.8)">Eficiência</Typography>
-                      <Typography variant="body2" color="white" fontWeight="600">
-                        {insights.summary.overallHealth.breakdown.efficiency}%
-                      </Typography>
-                    </Box>
-                    <LinearProgress
-                      variant="determinate"
-                      value={insights.summary.overallHealth.breakdown.efficiency}
-                      sx={{
-                        height: 6,
-                        borderRadius: 3,
-                        backgroundColor: 'rgba(255,255,255,0.1)',
-                        '& .MuiLinearProgress-bar': { backgroundColor: '#8b5cf6' }
-                      }}
-                    />
-                  </Box>
-                </Stack>
-              </CardContent>
-            </Card>
-          </Grid>
-
-          {/* Insights & Alerts */}
-          <Grid item xs={12} md={8}>
-            <Card sx={{
-              background: 'rgba(255, 255, 255, 0.08)',
-              backdropFilter: 'blur(20px)',
-              border: '1px solid rgba(255, 255, 255, 0.15)',
-              borderRadius: '20px',
-              height: '100%'
-            }}>
-              <CardHeader
-                avatar={<Lightbulb sx={{ color: '#fbbf24', fontSize: 28 }} />}
-                title={
-                  <Typography variant="h6" fontWeight="600" color="white">
-                    Insights Inteligentes
-                  </Typography>
-                }
-                subheader={
-                  <Typography variant="body2" color="rgba(255,255,255,0.7)">
-                    Gerados pela análise de IA
-                  </Typography>
-                }
-              />
-              <CardContent sx={{ p: 3, pt: 0, maxHeight: 400, overflowY: 'auto' }}>
-                <Stack spacing={2}>
-                  {/* Alerts */}
-                  {insights.alerts && insights.alerts.length > 0 && insights.alerts.map((alert: any, index: number) => (
-                    <Alert
-                      key={`alert-${index}`}
-                      severity={alert.severity === 'critical' ? 'error' : alert.severity === 'warning' ? 'warning' : 'info'}
-                      icon={<span style={{ fontSize: '20px' }}>{alert.icon}</span>}
-                      sx={{
-                        background: alert.severity === 'critical' ? 'rgba(239, 68, 68, 0.1)' :
-                                   alert.severity === 'warning' ? 'rgba(251, 191, 36, 0.1)' :
-                                   'rgba(59, 130, 246, 0.1)',
-                        border: `1px solid ${alert.severity === 'critical' ? 'rgba(239, 68, 68, 0.3)' :
-                                            alert.severity === 'warning' ? 'rgba(251, 191, 36, 0.3)' :
-                                            'rgba(59, 130, 246, 0.3)'}`,
-                        color: 'rgba(255, 255, 255, 0.9)',
-                        '& .MuiAlert-icon': { color: 'inherit' }
-                      }}
-                    >
-                      <AlertTitle sx={{ fontWeight: 600 }}>{alert.title}</AlertTitle>
-                      {alert.description}
-                      {alert.action && (
-                        <Typography variant="caption" display="block" sx={{ mt: 1, opacity: 0.8 }}>
-                          💡 {alert.action}
-                        </Typography>
-                      )}
-                    </Alert>
-                  ))}
-
-                  {/* Insights */}
-                  {insights.insights && insights.insights.length > 0 && insights.insights.map((insight: any, index: number) => (
-                    <Alert
-                      key={`insight-${index}`}
-                      severity={insight.type === 'positive' ? 'success' : insight.type === 'negative' ? 'error' : 'warning'}
-                      icon={<span style={{ fontSize: '20px' }}>{insight.icon}</span>}
-                      sx={{
-                        background: insight.type === 'positive' ? 'rgba(16, 185, 129, 0.1)' :
-                                   insight.type === 'negative' ? 'rgba(239, 68, 68, 0.1)' :
-                                   'rgba(251, 191, 36, 0.1)',
-                        border: `1px solid ${insight.type === 'positive' ? 'rgba(16, 185, 129, 0.3)' :
-                                            insight.type === 'negative' ? 'rgba(239, 68, 68, 0.3)' :
-                                            'rgba(251, 191, 36, 0.3)'}`,
-                        color: 'rgba(255, 255, 255, 0.9)',
-                        '& .MuiAlert-icon': { color: 'inherit' }
-                      }}
-                    >
-                      <AlertTitle sx={{ fontWeight: 600 }}>{insight.title}</AlertTitle>
-                      {insight.description}
-                    </Alert>
-                  ))}
-
-                  {/* Opportunities */}
-                  {insights.opportunities && insights.opportunities.length > 0 && insights.opportunities.slice(0, 2).map((opp: any, index: number) => (
-                    <Alert
-                      key={`opp-${index}`}
-                      severity="info"
-                      icon={<span style={{ fontSize: '20px' }}>{opp.icon}</span>}
-                      sx={{
-                        background: 'rgba(139, 92, 246, 0.1)',
-                        border: '1px solid rgba(139, 92, 246, 0.3)',
-                        color: 'rgba(255, 255, 255, 0.9)',
-                        '& .MuiAlert-icon': { color: 'inherit' }
-                      }}
-                    >
-                      <AlertTitle sx={{ fontWeight: 600 }}>{opp.title}</AlertTitle>
-                      {opp.description}
-                      <Typography variant="caption" display="block" sx={{ mt: 1, opacity: 0.8 }}>
-                        🎯 {opp.action} | ⏱️ {opp.timeframe}
-                      </Typography>
-                    </Alert>
-                  ))}
-                </Stack>
-              </CardContent>
-            </Card>
-          </Grid>
-
-          {/* Recommendations */}
-          {insights.recommendations && insights.recommendations.length > 0 && (
-            <Grid item xs={12}>
-              <Card sx={{
-                background: 'rgba(255, 255, 255, 0.08)',
-                backdropFilter: 'blur(20px)',
-                border: '1px solid rgba(255, 255, 255, 0.15)',
-                borderRadius: '20px'
-              }}>
-                <CardHeader
-                  avatar={<TipsAndUpdates sx={{ color: '#06b6d4', fontSize: 28 }} />}
-                  title={
-                    <Typography variant="h6" fontWeight="600" color="white">
-                      Recomendações de Melhoria
-                    </Typography>
-                  }
-                  subheader={
-                    <Typography variant="body2" color="rgba(255,255,255,0.7)">
-                      Ações sugeridas para otimizar performance
-                    </Typography>
-                  }
-                />
-                <CardContent sx={{ p: 3, pt: 0 }}>
-                  <Grid container spacing={3}>
-                    {insights.recommendations.map((rec: any, index: number) => (
-                      <Grid item xs={12} md={4} key={`rec-${index}`}>
-                        <Box sx={{
-                          p: 3,
-                          background: 'rgba(255, 255, 255, 0.05)',
-                          borderRadius: '16px',
-                          border: '1px solid rgba(255, 255, 255, 0.1)',
-                          height: '100%',
-                          transition: 'all 0.3s',
-                          '&:hover': {
-                            transform: 'translateY(-4px)',
-                            boxShadow: '0 12px 24px rgba(0,0,0,0.3)',
-                            border: '1px solid rgba(255, 255, 255, 0.2)'
-                          }
-                        }}>
-                          <Chip
-                            label={rec.priority === 'high' ? 'Alta Prioridade' : rec.priority === 'medium' ? 'Média Prioridade' : 'Baixa Prioridade'}
-                            size="small"
-                            color={rec.priority === 'high' ? 'error' : rec.priority === 'medium' ? 'warning' : 'info'}
-                            sx={{ mb: 2 }}
-                          />
-                          <Typography variant="h6" color="white" fontWeight="600" gutterBottom>
-                            {rec.title}
-                          </Typography>
-                          <Stack spacing={1} sx={{ mt: 2, mb: 3 }}>
-                            {rec.actions.map((action: string, idx: number) => (
-                              <Typography key={idx} variant="body2" color="rgba(255,255,255,0.8)" sx={{ display: 'flex', alignItems: 'flex-start' }}>
-                                <span style={{ marginRight: '8px' }}>•</span> {action}
-                              </Typography>
-                            ))}
-                          </Stack>
-                          <Divider sx={{ borderColor: 'rgba(255,255,255,0.1)', my: 2 }} />
-                          <Box>
-                            <Typography variant="caption" color="rgba(255,255,255,0.7)" display="block">
-                              <Rocket sx={{ fontSize: 14, mr: 0.5, verticalAlign: 'middle' }} />
-                              {rec.expectedImpact}
-                            </Typography>
-                            <Typography variant="caption" color="rgba(255,255,255,0.7)" display="block" sx={{ mt: 0.5 }}>
-                              ⏱️ {rec.timeframe}
-                            </Typography>
-                          </Box>
-                        </Box>
-                      </Grid>
-                    ))}
-                  </Grid>
-                </CardContent>
-              </Card>
-            </Grid>
-          )}
-        </Grid>
-      )}
 
       {/* Enhanced Heatmap */}
       <Card sx={{

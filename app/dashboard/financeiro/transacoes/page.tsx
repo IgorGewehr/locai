@@ -362,10 +362,19 @@ export default function TransactionsPage() {
 
   const getStatusIcon = (status: string) => {
     switch (status) {
-      case 'completed': return <CheckCircle />;
-      case 'pending': return <Schedule />;
-      case 'cancelled': return <Error />;
-      default: return <Info />;
+      case 'paid':
+      case 'completed':
+        return <CheckCircle />;
+      case 'pending':
+        return <Schedule />;
+      case 'overdue':
+        return <Error />;
+      case 'cancelled':
+        return <Close />;
+      case 'refunded':
+        return <Undo />;
+      default:
+        return <Info />;
     }
   };
 
@@ -512,6 +521,7 @@ export default function TransactionsPage() {
       case 'pending': return 'warning';
       case 'overdue': return 'error';
       case 'cancelled': return 'default';
+      case 'refunded': return 'info';
       case 'failed': return 'error';
       default: return 'default';
     }
@@ -524,6 +534,7 @@ export default function TransactionsPage() {
       case 'pending': return 'Pendente';
       case 'overdue': return 'Vencido';
       case 'cancelled': return 'Cancelado';
+      case 'refunded': return 'Reembolsado';
       case 'failed': return 'Falhou';
       default: return status;
     }

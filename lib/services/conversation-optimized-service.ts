@@ -86,14 +86,31 @@ export class ConversationOptimizedService {
     order: 'asc' | 'desc' = 'asc'
   ): Promise<ConversationMessage[]> {
     try {
-      const messages = await this.services.createService<ConversationMessage>('messages')
-        .getMany(
-          [{ field: 'conversationId', operator: '==', value: conversationId }],
-          {
-            orderBy: [{ field: 'timestamp', direction: order }],
-            limit
-          }
-        );
+      // Validate conversationId
+      if (!conversationId || conversationId === 'undefined') {
+        logger.warn('Invalid conversationId provided', {
+          tenantId: this.tenantId,
+          conversationId
+        });
+        return [];
+      }
+
+      const messagesService = this.services.createService<ConversationMessage>('messages');
+
+      if (!messagesService) {
+        logger.error('Failed to create messages service', {
+          tenantId: this.tenantId
+        });
+        return [];
+      }
+
+      const messages = await messagesService.getMany(
+        [{ field: 'conversationId', operator: '==', value: conversationId }],
+        {
+          orderBy: [{ field: 'timestamp', direction: order }],
+          limit
+        }
+      );
 
       return messages;
     } catch (error) {
@@ -102,7 +119,8 @@ export class ConversationOptimizedService {
         conversationId,
         error: error instanceof Error ? error.message : 'Unknown error'
       });
-      throw error;
+      // Return empty array instead of throwing to prevent UI crash
+      return [];
     }
   }
 
@@ -151,38 +169,80 @@ export class ConversationOptimizedService {
       if (clientId) {
         conversations = await this.getClientConversations(clientId, limit);
       } else {
-        const options: any = {
-          orderBy: [{ field: 'lastMessageAt', direction: 'desc' }],
-          limit
-        };
+        // 🔧 FIX: Use getAll() instead of getMany([]) for fetching all conversations
+        const conversationsService = this.services.createService<ConversationHeader>('conversations');
 
-        if (startAfter) {
-          options.startAfter = startAfter;
+        // Check if service is properly initialized
+        if (!conversationsService) {
+          logger.error('Failed to create conversations service', {
+            tenantId: this.tenantId
+          });
+          return [];
         }
 
-        conversations = await this.services.createService<ConversationHeader>('conversations')
-          .getMany([], options);
+        conversations = await conversationsService.getAll(limit);
+
+        // Sort by lastMessageAt descending (getAll doesn't support orderBy)
+        conversations = conversations.sort((a, b) => {
+          const dateA = a.lastMessageAt?.toDate?.() || new Date(a.lastMessageAt || 0);
+          const dateB = b.lastMessageAt?.toDate?.() || new Date(b.lastMessageAt || 0);
+          return dateB.getTime() - dateA.getTime();
+        });
+      }
+
+      // Filter out conversations without ID (safety check)
+      const validConversations = conversations.filter(conv => conv.id);
+
+      if (validConversations.length === 0) {
+        logger.info('No valid conversations found', {
+          tenantId: this.tenantId,
+          totalConversations: conversations.length
+        });
+        return [];
       }
 
       // Para cada conversa, buscar a última mensagem
       const summaries = await Promise.all(
-        conversations.map(async (conv) => {
-          const lastMessages = await this.getConversationMessages(conv.id!, 1, 'desc');
-          const lastMessage = lastMessages[0];
+        validConversations.map(async (conv) => {
+          try {
+            const lastMessages = await this.getConversationMessages(conv.id!, 1, 'desc');
+            const lastMessage = lastMessages[0];
 
-          return {
-            id: conv.id!,
-            clientName: conv.clientName,
-            clientPhone: conv.clientPhone,
-            lastMessage: lastMessage?.sofiaMessage || '',
-            lastMessageAt: conv.lastMessageAt,
-            messageCount: conv.messageCount,
-            unreadCount: conv.unreadCount || 0,
-            status: conv.status,
-            isRead: conv.isRead !== false,  // Default true se não definido
-            tags: conv.tags,
-            outcome: conv.outcome
-          } as ConversationSummary;
+            return {
+              id: conv.id!,
+              clientName: conv.clientName,
+              clientPhone: conv.clientPhone,
+              lastMessage: lastMessage?.sofiaMessage || lastMessage?.clientMessage || '',
+              lastMessageAt: conv.lastMessageAt,
+              messageCount: conv.messageCount || 0,
+              unreadCount: conv.unreadCount || 0,
+              status: conv.status || 'active',
+              isRead: conv.isRead !== false,  // Default true se não definido
+              tags: conv.tags || [],
+              outcome: conv.outcome
+            } as ConversationSummary;
+          } catch (messageError) {
+            // If fetching messages fails, return conversation without last message
+            logger.warn('Failed to fetch messages for conversation', {
+              tenantId: this.tenantId,
+              conversationId: conv.id,
+              error: messageError instanceof Error ? messageError.message : 'Unknown error'
+            });
+
+            return {
+              id: conv.id!,
+              clientName: conv.clientName,
+              clientPhone: conv.clientPhone,
+              lastMessage: '',
+              lastMessageAt: conv.lastMessageAt,
+              messageCount: conv.messageCount || 0,
+              unreadCount: conv.unreadCount || 0,
+              status: conv.status || 'active',
+              isRead: conv.isRead !== false,
+              tags: conv.tags || [],
+              outcome: conv.outcome
+            } as ConversationSummary;
+          }
         })
       );
 
@@ -193,7 +253,8 @@ export class ConversationOptimizedService {
         clientId,
         error: error instanceof Error ? error.message : 'Unknown error'
       });
-      throw error;
+      // Return empty array instead of throwing to prevent UI crash
+      return [];
     }
   }
 

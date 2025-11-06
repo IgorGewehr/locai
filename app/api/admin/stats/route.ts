@@ -49,7 +49,7 @@ export async function GET(request: NextRequest) {
           const usersSnapshot = await getDocs(collection(db, `tenants/${tenantId}/users`));
           userCount = usersSnapshot.size;
         } catch (err) {
-          console.error('Erro ao contar usuários:', err);
+          logger.error('Erro ao contar usuários:', err);
         }
         
         // Contar propriedades
@@ -80,7 +80,7 @@ export async function GET(request: NextRequest) {
             return status === 'open' || status === 'in_progress';
           }).length;
         } catch (err) {
-          console.error('Erro ao contar tickets:', err);
+          logger.error('Erro ao contar tickets:', err);
         }
         
         // Contar reservas
@@ -88,7 +88,7 @@ export async function GET(request: NextRequest) {
           const reservationsSnapshot = await getDocs(collection(db, `tenants/${tenantId}/reservations`));
           reservationCount = reservationsSnapshot.size;
         } catch (err) {
-          console.error('Erro ao contar reservas:', err);
+          logger.error('Erro ao contar reservas:', err);
         }
         
         // Calcular receita (soma de transactions)
@@ -102,7 +102,7 @@ export async function GET(request: NextRequest) {
             return total;
           }, 0);
         } catch (err) {
-          console.error('Erro ao calcular receita:', err);
+          logger.error('Erro ao calcular receita:', err);
         }
         
         // Calcular métricas adicionais
@@ -150,7 +150,7 @@ export async function GET(request: NextRequest) {
         });
         
       } catch (error) {
-        console.error(`Erro ao gerar stats do tenant ${tenantId}:`, error);
+        logger.error(`Erro ao gerar stats do tenant ${tenantId}:`, error);
         
         // Adicionar tenant com dados básicos mesmo com erro
         stats.push({

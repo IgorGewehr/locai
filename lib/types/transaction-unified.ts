@@ -378,7 +378,8 @@ export const MAX_TRANSACTION_ATTACHMENTS = 5;
 export const MAX_INSTALLMENTS = 120; // 10 years monthly
 export const MAX_REMINDER_ATTEMPTS = 5;
 
-// ===== EXPORTS =====
+// ===== TYPE EXPORTS =====
+// Enums and interfaces already exported above with 'export enum' and 'export interface'
 
 export type {
   Transaction,
@@ -387,12 +388,4 @@ export type {
   UpdateTransactionInput,
   TransactionFilters,
   TransactionSummary,
-};
-
-export {
-  TransactionType,
-  TransactionStatus,
-  TransactionCategory,
-  PaymentMethod,
-  RecurringType,
 };

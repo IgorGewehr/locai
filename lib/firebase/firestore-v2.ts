@@ -595,8 +595,8 @@ export class TenantServiceFactory {
   }
 
   get transactions() {
-    const { createTransactionService } = require('@/lib/services/transaction-service');
-    return createTransactionService(this.tenantId);
+    const { createTransactionServiceV2 } = require('@/lib/services/transaction-service-v2');
+    return createTransactionServiceV2(this.tenantId);
   }
 
   // Specialized Services

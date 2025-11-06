@@ -5,7 +5,7 @@ import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 import { headers } from 'next/headers';
 import { logger } from '@/lib/utils/logger';
-import crypto from 'crypto';
+import bcrypt from 'bcryptjs';
 
 // Interface para admin user
 export interface AdminUser {
@@ -202,12 +202,32 @@ export async function adminAuthMiddleware(request: NextRequest) {
   return response;
 }
 
-// Função para criar hash seguro de senhas admin
-export function hashAdminPassword(password: string): string {
-  return crypto
-    .createHash('sha256')
-    .update(password + process.env.ADMIN_SALT || 'default-salt-change-this')
-    .digest('hex');
+/**
+ * Função para criar hash seguro de senhas admin usando bcrypt
+ * @param password - Senha em texto plano
+ * @returns Promise com hash bcrypt
+ */
+export async function hashAdminPassword(password: string): Promise<string> {
+  const saltRounds = parseInt(process.env.BCRYPT_ROUNDS || '12');
+  return await bcrypt.hash(password, saltRounds);
+}
+
+/**
+ * Função para verificar senha admin contra hash bcrypt
+ * @param password - Senha em texto plano
+ * @param hash - Hash bcrypt armazenado
+ * @returns Promise<boolean> indicando se a senha está correta
+ */
+export async function verifyAdminPassword(password: string, hash: string): Promise<boolean> {
+  try {
+    return await bcrypt.compare(password, hash);
+  } catch (error) {
+    logger.error('❌ [Admin Auth] Erro ao verificar senha', {
+      error: error instanceof Error ? error.message : 'Unknown error',
+      component: 'Security'
+    });
+    return false;
+  }
 }
 
 // Verificar se um usuário específico é admin (para uso em API routes)

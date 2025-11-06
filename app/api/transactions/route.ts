@@ -3,61 +3,15 @@ import { TenantServiceFactory } from '@/lib/firebase/firestore-v2'
 import { handleApiError } from '@/lib/utils/api-errors'
 import { sanitizeUserInput } from '@/lib/utils/validation'
 import { validateFirebaseAuth } from '@/lib/middleware/firebase-auth'
-import { z } from 'zod'
 import type { Transaction } from '@/lib/types'
-
-// Zod schema for transaction validation
-const CreateTransactionSchema = z.object({
-  amount: z.number()
-    .positive('Valor deve ser positivo')
-    .min(0.01, 'Valor mínimo é R$ 0,01'),
-
-  type: z.enum(['income', 'expense'], {
-    errorMap: () => ({ message: 'Tipo deve ser "income" ou "expense"' })
-  }),
-
-  status: z.enum(['pending', 'completed', 'cancelled'], {
-    errorMap: () => ({ message: 'Status inválido' })
-  }).default('pending'),
-
-  description: z.string()
-    .min(3, 'Descrição deve ter pelo menos 3 caracteres')
-    .max(500, 'Descrição deve ter no máximo 500 caracteres'),
-
-  category: z.enum(['reservation', 'maintenance', 'cleaning', 'commission', 'refund', 'other'], {
-    errorMap: () => ({ message: 'Categoria inválida' })
-  }),
-
-  subcategory: z.string()
-    .max(100, 'Subcategoria deve ter no máximo 100 caracteres')
-    .optional(),
-
-  paymentMethod: z.enum(['stripe', 'pix', 'cash', 'bank_transfer', 'credit_card', 'debit_card'], {
-    errorMap: () => ({ message: 'Método de pagamento inválido' })
-  }),
-
-  date: z.coerce.date().optional(),
-
-  // Related entities
-  reservationId: z.string().max(100).optional(),
-  clientId: z.string().max(100).optional(),
-  propertyId: z.string().max(100).optional(),
-
-  // Recurring fields
-  isRecurring: z.boolean().default(false),
-  recurringType: z.enum(['monthly', 'weekly', 'yearly']).optional(),
-  recurringEndDate: z.coerce.date().optional(),
-
-  // Additional fields
-  notes: z.string().max(2000, 'Observações devem ter no máximo 2000 caracteres').optional(),
-  tags: z.array(z.string().max(30)).max(10, 'Máximo de 10 tags').default([]),
-
-  // AI metadata
-  createdByAI: z.boolean().default(false),
-  aiConversationId: z.string().max(100).optional(),
-})
-
-const UpdateTransactionSchema = CreateTransactionSchema.partial()
+import {
+  CreateTransactionSchema,
+  UpdateTransactionSchema,
+  TransactionFiltersSchema,
+  validateCreateTransaction,
+  validateUpdateTransaction,
+  validateTransactionFilters,
+} from '@/lib/validation/transaction-schemas'
 
 // GET /api/transactions - List all transactions
 export async function GET(request: NextRequest) {
@@ -108,11 +62,14 @@ export async function GET(request: NextRequest) {
       )
     }
 
-    // Status filter
-    if (status && ['pending', 'completed', 'cancelled'].includes(status)) {
-      filteredTransactions = filteredTransactions.filter(transaction =>
-        transaction.status === status
-      )
+    // Status filter (support both old and new statuses)
+    if (status && ['pending', 'completed', 'paid', 'overdue', 'cancelled', 'refunded'].includes(status)) {
+      filteredTransactions = filteredTransactions.filter(transaction => {
+        // Auto-migrate 'completed' to 'paid' for comparison
+        const transactionStatus = transaction.status === 'completed' ? 'paid' : transaction.status
+        const filterStatus = status === 'completed' ? 'paid' : status
+        return transactionStatus === filterStatus
+      })
     }
 
     // Category filter
@@ -172,16 +129,19 @@ export async function GET(request: NextRequest) {
       return dateB.getTime() - dateA.getTime()
     })
 
-    // Calculate totals
+    // Calculate totals (support both 'completed' and 'paid' status)
     const totals = {
       income: filteredTransactions
-        .filter(t => t.type === 'income' && t.status === 'completed')
+        .filter(t => t.type === 'income' && (t.status === 'completed' || t.status === 'paid'))
         .reduce((sum, t) => sum + t.amount, 0),
       expense: filteredTransactions
-        .filter(t => t.type === 'expense' && t.status === 'completed')
+        .filter(t => t.type === 'expense' && (t.status === 'completed' || t.status === 'paid'))
         .reduce((sum, t) => sum + t.amount, 0),
       pending: filteredTransactions
         .filter(t => t.status === 'pending')
+        .reduce((sum, t) => sum + t.amount, 0),
+      overdue: filteredTransactions
+        .filter(t => t.status === 'overdue')
         .reduce((sum, t) => sum + t.amount, 0),
     }
 
@@ -221,8 +181,11 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Validate the request body
-    const validationResult = CreateTransactionSchema.safeParse(body)
+    // Add tenantId to body for validation
+    const bodyWithTenant = { ...body, tenantId: authContext.tenantId }
+
+    // Validate the request body using new unified schema
+    const validationResult = validateCreateTransaction(bodyWithTenant)
     if (!validationResult.success) {
       return NextResponse.json(
         {
@@ -242,31 +205,26 @@ export async function POST(request: NextRequest) {
       description: sanitizeUserInput(validatedData.description),
       subcategory: validatedData.subcategory ? sanitizeUserInput(validatedData.subcategory) : undefined,
       notes: validatedData.notes ? sanitizeUserInput(validatedData.notes) : undefined,
-      reservationId: validatedData.reservationId,
-      clientId: validatedData.clientId,
-      propertyId: validatedData.propertyId,
 
-      // Set dates
-      date: validatedData.date || new Date(),
+      // Set dates with smart defaults
+      date: validatedData.date || validatedData.dueDate || new Date(),
+      dueDate: validatedData.dueDate,
+      paymentDate: validatedData.paymentDate,
       createdAt: new Date(),
       updatedAt: new Date(),
 
-      // Tenant ID
+      // Tenant ID (already validated)
       tenantId: authContext.tenantId,
 
-      // AI metadata
-      createdByAI: validatedData.createdByAI || false,
-      aiConversationId: validatedData.aiConversationId,
-
-      // Tags
-      tags: validatedData.tags || [],
+      // Set createdBy for audit trail
+      createdBy: authContext.userId || 'system',
     }
 
     const services = new TenantServiceFactory(authContext.tenantId)
     const newTransaction = await services.transactions.create(sanitizedData)
 
-    // Trigger notification for completed income transactions (payments received) - NON-BLOCKING
-    if (validatedData.type === 'income' && validatedData.status === 'completed') {
+    // Trigger notification for paid/completed income transactions (payments received) - NON-BLOCKING
+    if (validatedData.type === 'income' && (validatedData.status === 'completed' || validatedData.status === 'paid')) {
       import('@/lib/services/notification-service').then(async ({ NotificationServiceFactory }) => {
         const notificationService = NotificationServiceFactory.getInstance(authContext.tenantId)
 

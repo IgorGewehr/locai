@@ -299,18 +299,8 @@ export function validateTransactionFilters(data: unknown) {
   return TransactionFiltersSchema.safeParse(data);
 }
 
-// ===== EXPORTS =====
-
-export {
-  CreateTransactionSchema,
-  UpdateTransactionSchema,
-  TransactionFiltersSchema,
-  TransactionAttachmentSchema,
-  BulkUpdateTransactionSchema,
-  BulkDeleteTransactionSchema,
-};
-
-// Type exports for TypeScript
+// ===== TYPE EXPORTS =====
+// Schemas already exported above with 'export const'
 export type CreateTransactionInput = z.infer<typeof CreateTransactionSchema>;
 export type UpdateTransactionInput = z.infer<typeof UpdateTransactionSchema>;
 export type TransactionFilters = z.infer<typeof TransactionFiltersSchema>;

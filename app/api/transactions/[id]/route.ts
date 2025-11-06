@@ -3,60 +3,10 @@ import { TenantServiceFactory } from '@/lib/firebase/firestore-v2'
 import { handleApiError } from '@/lib/utils/api-errors'
 import { sanitizeUserInput } from '@/lib/utils/validation'
 import { validateFirebaseAuth } from '@/lib/middleware/firebase-auth'
-import { z } from 'zod'
-
-// Zod schema for transaction update
-const UpdateTransactionSchema = z.object({
-  amount: z.number()
-    .positive('Valor deve ser positivo')
-    .min(0.01, 'Valor mínimo é R$ 0,01')
-    .optional(),
-
-  type: z.enum(['income', 'expense'], {
-    errorMap: () => ({ message: 'Tipo deve ser "income" ou "expense"' })
-  }).optional(),
-
-  status: z.enum(['pending', 'completed', 'cancelled'], {
-    errorMap: () => ({ message: 'Status inválido' })
-  }).optional(),
-
-  description: z.string()
-    .min(3, 'Descrição deve ter pelo menos 3 caracteres')
-    .max(500, 'Descrição deve ter no máximo 500 caracteres')
-    .optional(),
-
-  category: z.enum(['reservation', 'maintenance', 'cleaning', 'commission', 'refund', 'other'], {
-    errorMap: () => ({ message: 'Categoria inválida' })
-  }).optional(),
-
-  subcategory: z.string()
-    .max(100, 'Subcategoria deve ter no máximo 100 caracteres')
-    .optional(),
-
-  paymentMethod: z.enum(['stripe', 'pix', 'cash', 'bank_transfer', 'credit_card', 'debit_card'], {
-    errorMap: () => ({ message: 'Método de pagamento inválido' })
-  }).optional(),
-
-  date: z.coerce.date().optional(),
-
-  // Related entities
-  reservationId: z.string().max(100).optional(),
-  clientId: z.string().max(100).optional(),
-  propertyId: z.string().max(100).optional(),
-
-  // Recurring fields
-  isRecurring: z.boolean().optional(),
-  recurringType: z.enum(['monthly', 'weekly', 'yearly']).optional(),
-  recurringEndDate: z.coerce.date().optional(),
-
-  // Additional fields
-  notes: z.string().max(2000, 'Observações devem ter no máximo 2000 caracteres').optional(),
-  tags: z.array(z.string().max(30)).max(10, 'Máximo de 10 tags').optional(),
-
-  // Confirmation fields
-  confirmedBy: z.string().max(100).optional(),
-  confirmedAt: z.coerce.date().optional(),
-})
+import {
+  UpdateTransactionSchema,
+  validateUpdateTransaction,
+} from '@/lib/validation/transaction-schemas'
 
 // GET /api/transactions/[id] - Get a specific transaction
 export async function GET(
@@ -161,8 +111,8 @@ export async function PUT(
       )
     }
 
-    // Validate the request body
-    const validationResult = UpdateTransactionSchema.safeParse(body)
+    // Validate the request body using new unified schema
+    const validationResult = validateUpdateTransaction(body)
     if (!validationResult.success) {
       return NextResponse.json(
         {
@@ -185,16 +135,13 @@ export async function PUT(
       sanitizedData.description = sanitizeUserInput(validatedData.description)
     }
 
-    if (validatedData.subcategory) {
-      sanitizedData.subcategory = sanitizeUserInput(validatedData.subcategory)
-    }
-
     if (validatedData.notes) {
       sanitizedData.notes = sanitizeUserInput(validatedData.notes)
     }
 
-    // Always update the updatedAt timestamp
+    // Always update the updatedAt timestamp and lastModifiedBy
     sanitizedData.updatedAt = new Date()
+    sanitizedData.lastModifiedBy = authContext.userId || 'system'
 
     // Update the transaction
     await services.transactions.update(id, sanitizedData)
