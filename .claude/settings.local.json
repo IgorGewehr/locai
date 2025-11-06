@@ -95,7 +95,8 @@
       "Bash(lsof:*)",
       "Bash(xcodebuild:*)",
       "Bash(tee:*)",
-      "Bash(test:*)"
+      "Bash(test:*)",
+      "Bash(./test-conversas.sh)"
     ],
     "deny": [],
     "defaultMode": "acceptEdits",

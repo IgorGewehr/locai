@@ -172,10 +172,33 @@ interface User {
   createdAt: any;
   lastLogin?: any;
   propertyCount?: number;
+  reservationCount?: number;
+  clientCount?: number;
   newTicketsCount?: number;
   totalTicketsCount?: number;
   status: 'active' | 'inactive' | 'suspended';
   phoneNumber?: string;
+
+  // 🚀 Enhanced: Onboarding Progress
+  onboardingProgress?: {
+    completionPercentage: number;
+    completedSteps: string[];
+    currentStep: string | null;
+    isCompleted: boolean;
+    totalSteps: number;
+    completedStepsCount: number;
+  };
+
+  // Enhanced metadata
+  metadata?: {
+    emailVerified: boolean;
+    provider: string;
+    role: string;
+    lastIP: string;
+    totalLogins: number;
+    tenantId: string;
+    tenantName: string;
+  };
 }
 
 interface TenantStats {
@@ -380,27 +403,39 @@ export default function AdminDashboard() {
 
   const loadUsers = async () => {
     try {
-      // Usar a nova rota simplificada de usuários
-      const response = await makeAuthenticatedRequest('/api/admin/users-simple');
+      // 🚀 NOVA API: Usar rota enhanced com todas as métricas e onboarding progress
+      const response = await makeAuthenticatedRequest('/api/admin/users-enhanced');
       if (response.ok) {
         const data = await response.json();
         setUsers(data.users || []);
-        // Log estatísticas
+
+        // Log estatísticas completas
         if (data.stats) {
-          console.log(`📊 Usuários: ${data.stats.total} total (${data.stats.active} ativos, ${data.stats.free} free, ${data.stats.pro} pro)`);
+          console.log(`✅ [Admin Enhanced] Carregados com sucesso:`, {
+            totalUsers: data.stats.totalUsers,
+            activeUsers: data.stats.activeUsers,
+            usersWithProperties: data.stats.usersWithProperties,
+            onboardingCompleted: data.stats.usersCompletedOnboarding,
+            averageOnboarding: `${data.stats.averageOnboardingProgress}%`,
+            totalProperties: data.stats.totalProperties,
+            totalReservations: data.stats.totalReservations,
+            totalTickets: data.stats.totalTickets,
+            processingTime: data.meta?.processingTime
+          });
         }
       }
     } catch (error) {
-      console.error('Erro ao carregar usuários:', error);
+      console.error('❌ Erro ao carregar usuários enhanced:', error);
       // Fallback para rota antiga se a nova falhar
       try {
         const fallbackResponse = await makeAuthenticatedRequest('/api/admin/users');
         if (fallbackResponse.ok) {
           const fallbackData = await fallbackResponse.json();
           setUsers(fallbackData.users || []);
+          console.log('⚠️ Usando API legacy (sem métricas enhanced)');
         }
       } catch (fallbackError) {
-        console.error('Erro no fallback:', fallbackError);
+        console.error('❌ Erro no fallback:', fallbackError);
       }
     }
   };
@@ -2089,16 +2124,32 @@ export default function AdminDashboard() {
                     }}>
                       Plano
                     </TableCell>
-                    <TableCell sx={{ 
-                      fontWeight: 600, 
+                    <TableCell sx={{
+                      fontWeight: 600,
                       color: '#ffffff',
                       fontFamily: 'Inter, sans-serif',
                       borderBottom: 'none'
                     }}>
                       Propriedades
                     </TableCell>
-                    <TableCell sx={{ 
-                      fontWeight: 600, 
+                    <TableCell sx={{
+                      fontWeight: 600,
+                      color: '#ffffff',
+                      fontFamily: 'Inter, sans-serif',
+                      borderBottom: 'none'
+                    }}>
+                      Reservas
+                    </TableCell>
+                    <TableCell sx={{
+                      fontWeight: 600,
+                      color: '#ffffff',
+                      fontFamily: 'Inter, sans-serif',
+                      borderBottom: 'none'
+                    }}>
+                      Onboarding
+                    </TableCell>
+                    <TableCell sx={{
+                      fontWeight: 600,
                       color: '#ffffff',
                       fontFamily: 'Inter, sans-serif',
                       borderBottom: 'none'
@@ -2156,7 +2207,7 @@ export default function AdminDashboard() {
                 <TableBody>
                   {filteredUsers.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={9} align="center" sx={{ py: 4 }}>
+                      <TableCell colSpan={11} align="center" sx={{ py: 4 }}>
                         <Stack spacing={2} alignItems="center">
                           <PeopleIcon sx={{ fontSize: 48, color: 'text.disabled' }} />
                           <Typography variant="h6" color="text.secondary">
@@ -2258,6 +2309,146 @@ export default function AdminDashboard() {
                               {user.propertyCount || 0}
                             </Typography>
                           </Stack>
+                        </TableCell>
+                        <TableCell sx={{ color: '#ffffff' }}>
+                          <Stack direction="row" spacing={1} alignItems="center">
+                            <Box
+                              sx={{
+                                p: 1,
+                                borderRadius: 1,
+                                bgcolor: alpha('#6366f1', 0.15),
+                                color: '#6366f1',
+                                display: 'flex',
+                                alignItems: 'center'
+                              }}
+                            >
+                              <CalendarIcon fontSize="small" />
+                            </Box>
+                            <Typography variant="body2" fontWeight={600} sx={{ color: '#ffffff' }}>
+                              {user.reservationCount || 0}
+                            </Typography>
+                          </Stack>
+                        </TableCell>
+                        <TableCell sx={{ color: '#ffffff' }}>
+                          {user.onboardingProgress ? (
+                            <Tooltip
+                              title={
+                                <Box>
+                                  <Typography variant="caption" display="block" fontWeight={600}>
+                                    Progresso: {user.onboardingProgress.completedStepsCount}/{user.onboardingProgress.totalSteps} passos
+                                  </Typography>
+                                  <Typography variant="caption" display="block" sx={{ opacity: 0.8 }}>
+                                    Etapa atual: {user.onboardingProgress.currentStep || 'Concluído'}
+                                  </Typography>
+                                  {user.onboardingProgress.completedSteps.length > 0 && (
+                                    <Typography variant="caption" display="block" sx={{ mt: 0.5, opacity: 0.7 }}>
+                                      Completos: {user.onboardingProgress.completedSteps.join(', ')}
+                                    </Typography>
+                                  )}
+                                </Box>
+                              }
+                              arrow
+                            >
+                              <Stack spacing={0.5}>
+                                <Stack direction="row" alignItems="center" spacing={1}>
+                                  <Box
+                                    sx={{
+                                      width: 100,
+                                      height: 8,
+                                      borderRadius: '4px',
+                                      bgcolor: alpha('#94a3b8', 0.2),
+                                      position: 'relative',
+                                      overflow: 'hidden'
+                                    }}
+                                  >
+                                    <Box
+                                      sx={{
+                                        position: 'absolute',
+                                        left: 0,
+                                        top: 0,
+                                        bottom: 0,
+                                        width: `${user.onboardingProgress.completionPercentage}%`,
+                                        background: user.onboardingProgress.isCompleted
+                                          ? 'linear-gradient(90deg, #10b981, #059669)'
+                                          : 'linear-gradient(90deg, #f59e0b, #d97706)',
+                                        transition: 'width 0.3s ease',
+                                        borderRadius: '4px'
+                                      }}
+                                    />
+                                  </Box>
+                                  <Typography
+                                    variant="caption"
+                                    fontWeight={700}
+                                    sx={{
+                                      color: user.onboardingProgress.isCompleted ? '#10b981' : '#f59e0b',
+                                      minWidth: 35
+                                    }}
+                                  >
+                                    {user.onboardingProgress.completionPercentage}%
+                                  </Typography>
+                                </Stack>
+                                {user.onboardingProgress.isCompleted ? (
+                                  <Chip
+                                    label="Completo"
+                                    size="small"
+                                    icon={<CheckCircleIcon />}
+                                    sx={{
+                                      height: 20,
+                                      fontSize: '0.65rem',
+                                      fontWeight: 600,
+                                      bgcolor: alpha('#10b981', 0.15),
+                                      color: '#10b981',
+                                      border: '1px solid',
+                                      borderColor: alpha('#10b981', 0.3),
+                                      '& .MuiChip-icon': {
+                                        fontSize: 14,
+                                        color: '#10b981'
+                                      }
+                                    }}
+                                  />
+                                ) : user.onboardingProgress.completionPercentage > 0 ? (
+                                  <Chip
+                                    label={`${user.onboardingProgress.completedStepsCount}/${user.onboardingProgress.totalSteps}`}
+                                    size="small"
+                                    sx={{
+                                      height: 20,
+                                      fontSize: '0.65rem',
+                                      fontWeight: 600,
+                                      bgcolor: alpha('#f59e0b', 0.15),
+                                      color: '#f59e0b',
+                                      border: '1px solid',
+                                      borderColor: alpha('#f59e0b', 0.3)
+                                    }}
+                                  />
+                                ) : (
+                                  <Chip
+                                    label="Não iniciado"
+                                    size="small"
+                                    sx={{
+                                      height: 20,
+                                      fontSize: '0.65rem',
+                                      fontWeight: 600,
+                                      bgcolor: alpha('#64748b', 0.15),
+                                      color: '#94a3b8',
+                                      border: '1px solid',
+                                      borderColor: alpha('#64748b', 0.3)
+                                    }}
+                                  />
+                                )}
+                              </Stack>
+                            </Tooltip>
+                          ) : (
+                            <Chip
+                              label="N/A"
+                              size="small"
+                              sx={{
+                                height: 20,
+                                fontSize: '0.65rem',
+                                bgcolor: alpha('#64748b', 0.1),
+                                color: '#94a3b8'
+                              }}
+                            />
+                          )}
                         </TableCell>
                         <TableCell sx={{ color: '#ffffff' }}>
                           <Stack spacing={0.5}>

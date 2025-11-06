@@ -197,7 +197,17 @@ export async function PUT(
     sanitizedData.updatedAt = new Date()
 
     // Update the transaction
-    const updatedTransaction = await services.transactions.update(id, sanitizedData)
+    await services.transactions.update(id, sanitizedData)
+
+    // 🛡️ FIX: update() returns void, fetch updated document
+    const updatedTransaction = await services.transactions.get(id)
+
+    if (!updatedTransaction) {
+      return NextResponse.json(
+        { success: false, error: 'Failed to retrieve updated transaction' },
+        { status: 500 }
+      )
+    }
 
     return NextResponse.json({
       success: true,

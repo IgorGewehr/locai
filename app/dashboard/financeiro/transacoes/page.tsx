@@ -86,14 +86,15 @@ import {
   Campaign,
 } from '@mui/icons-material';
 import { Transaction, Client, Property, Reservation } from '@/lib/types';
-import { useTenant } from '@/contexts/TenantContext';
+import { useTenantServices } from '@/lib/hooks/useTenantServices';
 import { useForm, Controller } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
 import * as yup from 'yup';
 
 export default function TransactionsPage() {
   const router = useRouter();
-  const { services, isReady } = useTenant();
+  const services = useTenantServices();
+  const isReady = !!services;
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedTransaction, setSelectedTransaction] = useState<Transaction | null>(null);
