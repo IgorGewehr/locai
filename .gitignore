@@ -70,3 +70,7 @@ logs/
 # IMPORTANT: .env.production is a template with placeholder values
 # Real production values should ONLY be set in Netlify UI
 # If you need to override locally, use .env.production.local (already in .gitignore)
+
+# Firebase credentials (NEVER COMMIT)
+*-firebase-adminsdk-*.json
+locai-*-firebase-adminsdk-*.json
