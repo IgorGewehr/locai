@@ -45,7 +45,9 @@ import {
   BugReport,
   Event,
   Schedule,
+  AdminPanelSettings,
 } from '@mui/icons-material';
+import { useAuth } from '@/lib/hooks/useAuth';
 
 interface SidebarProps {
   open: boolean;
@@ -78,17 +80,17 @@ const menuItems = [
     badge: null,
   },
   {
-    text: 'Conversas',
-    href: '/dashboard/conversations',
-    icon: <Chat />,
-    badge: null,
+    text: 'Métricas IA',
+    href: '/dashboard/metricas',
+    icon: <Analytics />,
+    badge: 'BETA',
   },
-  {
-    text: 'CRM',
-    href: '/dashboard/crm',
-    icon: <GroupWork />,
-    badge: null,
-  },
+  // {
+  //   text: 'CRM',
+  //   href: '/dashboard/crm',
+  //   icon: <GroupWork />,
+  //   badge: null,
+  // },
   {
     text: 'Clientes',
     href: '/dashboard/clients',
@@ -96,8 +98,8 @@ const menuItems = [
     badge: null,
   },
   {
-    text: 'Teste IA',
-    href: '/dashboard/ai-testing',
+    text: 'Conversas',
+    href: '/dashboard/conversas',
     icon: <Chat />,
     badge: null,
   },
@@ -130,6 +132,12 @@ const menuItems = [
     icon: <Language />,
     badge: null,
   },
+  {
+    text: 'Ajuda',
+    href: '/dashboard/help',
+    icon: <HelpOutline />,
+    badge: null,
+  },
   // Teste restaurado para desenvolvimento
 ];
 
@@ -140,12 +148,6 @@ const secondaryItems = [
     icon: <Settings />,
     badge: null,
   },
-  {
-    text: 'Ajuda',
-    href: '/dashboard/help',
-    icon: <HelpOutline />,
-    badge: null,
-  },
 ];
 
 const drawerWidth = 260;
@@ -153,8 +155,17 @@ const drawerWidth = 260;
 export default function Sidebar({ open, onClose }: SidebarProps) {
   const pathname = usePathname();
   const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+  const isMobile = useMediaQuery(theme.breakpoints.down('lg'));
   const [expandedMenu, setExpandedMenu] = useState<string | null>(null);
+  const { user } = useAuth();
+
+  // Memoize menu items with conditional admin item
+  const allMenuItems = useMemo(() => {
+    const items = [...menuItems];
+
+
+    return items;
+  }, [user?.idog]);
 
   const handleMenuClick = (itemText: string, hasSubmenu: boolean) => {
     if (hasSubmenu) {
@@ -202,24 +213,18 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
           }}
         >
           <Box
+            component="img"
+            src="/logo.jpg"
+            alt="AlugaZap"
             sx={{
               width: { xs: 36, md: 40 },
               height: { xs: 36, md: 40 },
               borderRadius: 2,
-              background: 'linear-gradient(135deg, #06b6d4 0%, #0891b2 100%)',
-              backdropFilter: 'blur(10px)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              color: 'white',
-              fontWeight: 'bold',
-              fontSize: { xs: '1rem', md: '1.125rem' },
+              objectFit: 'contain',
               border: '1px solid rgba(255, 255, 255, 0.2)',
               boxShadow: '0 4px 16px rgba(6, 182, 212, 0.4)',
             }}
-          >
-            🏠
-          </Box>
+          />
           <Box>
             <Typography 
               variant="subtitle1" 
@@ -249,19 +254,19 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
 
       <Divider sx={{ borderColor: 'rgba(255, 255, 255, 0.08)' }} />
 
-      <Box sx={{ 
-        flex: 1, 
-        overflowY: 'auto', 
+      <Box sx={{
+        flex: 1,
+        overflowY: 'auto',
         py: 2,
         // Scrollbar invisível mas funcional
         '&::-webkit-scrollbar': {
           display: 'none'
         },
-        '-ms-overflow-style': 'none',
-        'scrollbar-width': 'none',
+        msOverflowStyle: 'none',
+        scrollbarWidth: 'none',
       }}>
         <List sx={{ px: { xs: 1.5, md: 2 } }}>
-          {menuItems.map((item) => (
+          {allMenuItems.map((item) => (
             <Box key={item.href}>
               <ListItemButton
                 component={item.submenu ? 'div' : Link}
@@ -324,9 +329,9 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
                       height: 20,
                       fontSize: '0.625rem',
                       fontWeight: 600,
-                      bgcolor: '#22c55e',
+                      bgcolor: item.badge === 'ADMIN' ? '#dc2626' : '#22c55e',
                       color: 'white',
-                      boxShadow: '0 2px 8px rgba(34, 197, 94, 0.3)',
+                      boxShadow: item.badge === 'ADMIN' ? '0 2px 8px rgba(220, 38, 38, 0.3)' : '0 2px 8px rgba(34, 197, 94, 0.3)',
                       '& .MuiChip-label': {
                         px: 1,
                       },
@@ -495,10 +500,10 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
           borderRight: 1,
           borderColor: 'divider',
           position: 'fixed',
-          top: 64, // altura do header
-          height: 'calc(100vh - 64px)',
+          top: 0,
+          height: '100vh',
           zIndex: theme.zIndex.drawer + 1,
-          boxShadow: '4px 0 10px rgba(0, 0, 0, 0.1)',
+          boxShadow: '4px 0 20px rgba(0, 0, 0, 0.15)',
         },
       }}
     >

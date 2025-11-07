@@ -54,8 +54,16 @@ import {
   CheckCircle,
   Block,
   Schedule,
+  CloudUpload,
+  Policy,
+  Business,
+  Psychology,
 } from '@mui/icons-material';
 import type { Property } from '@/lib/types/property';
+import PropertyImportDialog from '@/components/organisms/PropertyImport/PropertyImportDialog';
+import CancellationPolicyEditor from '@/app/dashboard/settings/components/CancellationPolicyEditor';
+import type { CancellationPolicy } from '@/lib/services/settings-service';
+import NegotiationSettingsDialog from '@/components/dialogs/NegotiationSettingsDialog';
 
 // Disable static generation for this page
 export const dynamic = 'force-dynamic';
@@ -78,7 +86,23 @@ export default function PropertiesPage() {
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [selectedProperty, setSelectedProperty] = useState<Property | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const { services, isReady } = useTenant();
+  const [importDialogOpen, setImportDialogOpen] = useState(false);
+  const [policyDialogOpen, setPolicyDialogOpen] = useState(false);
+  const [cancellationPolicy, setCancellationPolicy] = useState<CancellationPolicy | null>(null);
+  const [savingPolicy, setSavingPolicy] = useState(false);
+  const [negotiationDialogOpen, setNegotiationDialogOpen] = useState(false);
+  const [addressDialogOpen, setAddressDialogOpen] = useState(false);
+  const [companyAddress, setCompanyAddress] = useState({
+    address: '',
+    street: '',
+    neighborhood: '',
+    city: '',
+    state: '',
+    zipCode: '',
+    country: 'Brasil'
+  });
+  const [savingAddress, setSavingAddress] = useState(false);
+  const { services, isReady, tenantId } = useTenant();
 
   // Create local SVG placeholder for property images
   const createPropertyPlaceholder = (text: string, width: number = 400, height: number = 300) => {
@@ -98,7 +122,7 @@ export default function PropertiesPage() {
   useEffect(() => {
     const loadProperties = async () => {
       if (!services || !isReady) return;
-      
+
       try {
         const propertiesData = await services.properties.getAll();
         setProperties(propertiesData);
@@ -111,6 +135,49 @@ export default function PropertiesPage() {
 
     loadProperties();
   }, [services, isReady]);
+
+  // Load cancellation policy
+  useEffect(() => {
+    const loadPolicy = async () => {
+      if (!tenantId || !isReady) return;
+
+      try {
+        const { createSettingsService } = await import('@/lib/services/settings-service');
+        const settingsService = createSettingsService(tenantId);
+        const settings = await settingsService.getSettings(tenantId);
+
+        if (settings?.cancellationPolicy) {
+          setCancellationPolicy(settings.cancellationPolicy);
+        } else {
+          // ✅ CORREÇÃO: Fornecer política padrão se não existir
+          setCancellationPolicy({
+            enabled: true,
+            rules: [
+              { daysBeforeCheckIn: 7, refundPercentage: 100, description: 'Reembolso total' },
+              { daysBeforeCheckIn: 3, refundPercentage: 50, description: 'Reembolso parcial' },
+              { daysBeforeCheckIn: 0, refundPercentage: 0, description: 'Sem reembolso' },
+            ],
+            defaultRefundPercentage: 0,
+            forceMajeure: true,
+          });
+        }
+      } catch (error) {
+        // ✅ CORREÇÃO: Mesmo em erro, fornecer política padrão
+        setCancellationPolicy({
+          enabled: true,
+          rules: [
+            { daysBeforeCheckIn: 7, refundPercentage: 100, description: 'Reembolso total' },
+            { daysBeforeCheckIn: 3, refundPercentage: 50, description: 'Reembolso parcial' },
+            { daysBeforeCheckIn: 0, refundPercentage: 0, description: 'Sem reembolso' },
+          ],
+          defaultRefundPercentage: 0,
+          forceMajeure: true,
+        });
+      }
+    };
+
+    loadPolicy();
+  }, [tenantId, isReady]);
 
   useEffect(() => {
     let filtered = properties;
@@ -186,6 +253,90 @@ export default function PropertiesPage() {
     }
   };
 
+  const handleImportSuccess = async (result: any) => {
+    // Reload properties after successful import
+    if (services && isReady) {
+      try {
+        const propertiesData = await services.properties.getAll();
+        setProperties(propertiesData);
+      } catch (error) {
+        // Property loading error handled
+      }
+    }
+    setImportDialogOpen(false);
+  };
+
+  const handleSavePolicy = async (policy: CancellationPolicy) => {
+    if (!tenantId) return;
+
+    setSavingPolicy(true);
+    try {
+      const { createSettingsService } = await import('@/lib/services/settings-service');
+      const settingsService = createSettingsService(tenantId);
+      await settingsService.updateCancellationPolicy(tenantId, policy);
+      setCancellationPolicy(policy);
+    } catch (error) {
+      // Policy save error handled
+    } finally {
+      setSavingPolicy(false);
+    }
+  };
+
+  // Load company address
+  useEffect(() => {
+    const loadAddress = async () => {
+      if (!tenantId || !isReady) return;
+
+      try {
+        const { createSettingsService } = await import('@/lib/services/settings-service');
+        const settingsService = createSettingsService(tenantId);
+        const settings = await settingsService.getSettings(tenantId);
+
+        if (settings?.company) {
+          setCompanyAddress({
+            address: settings.company.address || '',
+            street: settings.company.street || '',
+            neighborhood: settings.company.neighborhood || '',
+            city: settings.company.city || '',
+            state: settings.company.state || '',
+            zipCode: settings.company.zipCode || '',
+            country: settings.company.country || 'Brasil'
+          });
+        }
+      } catch (error) {
+        // Address loading error handled silently
+      }
+    };
+
+    loadAddress();
+  }, [tenantId, isReady]);
+
+  const handleSaveAddress = async () => {
+    if (!tenantId) return;
+
+    setSavingAddress(true);
+    try {
+      const { createSettingsService } = await import('@/lib/services/settings-service');
+      const settingsService = createSettingsService(tenantId);
+
+      await settingsService.updateCompanySettings(tenantId, {
+        address: companyAddress.address,
+        street: companyAddress.street,
+        neighborhood: companyAddress.neighborhood,
+        city: companyAddress.city,
+        state: companyAddress.state,
+        zipCode: companyAddress.zipCode,
+        country: companyAddress.country
+      });
+
+      setAddressDialogOpen(false);
+    } catch (error) {
+      // Address save error handled
+    } finally {
+      setSavingAddress(false);
+    }
+  };
+
   // Removed getStatusChip function as status field doesn't exist in current Property interface
 
   return (
@@ -199,25 +350,63 @@ export default function PropertiesPage() {
         mb: { xs: 2, md: 3 },
         gap: { xs: 1.5, md: 2 }
       }}>
-        <Typography 
-          variant="h4" 
-          component="h1" 
+        <Typography
+          variant="h4"
+          component="h1"
           fontWeight="bold"
-          sx={{ 
+          sx={{
             fontSize: { xs: '1.5rem', sm: '1.75rem', md: '2rem' },
             color: 'text.primary'
           }}
         >
           Imóveis
         </Typography>
-        <ModernButton
-          variant="elegant"
-          size="large"
-          icon={<Add />}
-          onClick={() => router.push('/dashboard/properties/create')}
-        >
-          Novo Imóvel
-        </ModernButton>
+        <Box sx={{ display: 'flex', gap: { xs: 1, md: 2 }, flexDirection: { xs: 'column', sm: 'row' } }}>
+          <ModernButton
+            variant="outlined"
+            size="large"
+            icon={<Policy />}
+            onClick={() => setPolicyDialogOpen(true)}
+            sx={{ minWidth: { xs: 'auto', sm: '160px' } }}
+          >
+            Políticas
+          </ModernButton>
+          <ModernButton
+            variant="outlined"
+            size="large"
+            icon={<Psychology />}
+            onClick={() => setNegotiationDialogOpen(true)}
+            sx={{ minWidth: { xs: 'auto', sm: '160px' } }}
+          >
+            Negociação
+          </ModernButton>
+          <ModernButton
+            variant="outlined"
+            size="large"
+            icon={<Business />}
+            onClick={() => setAddressDialogOpen(true)}
+            sx={{ minWidth: { xs: 'auto', sm: '160px' } }}
+          >
+            Endereço
+          </ModernButton>
+          <ModernButton
+            variant="outlined"
+            size="large"
+            icon={<CloudUpload />}
+            onClick={() => setImportDialogOpen(true)}
+            sx={{ minWidth: { xs: 'auto', sm: '160px' } }}
+          >
+            Importar
+          </ModernButton>
+          <ModernButton
+            variant="elegant"
+            size="large"
+            icon={<Add />}
+            onClick={() => router.push('/dashboard/properties/create')}
+          >
+            Novo Imóvel
+          </ModernButton>
+        </Box>
       </Box>
 
       {/* Filters */}
@@ -367,10 +556,25 @@ export default function PropertiesPage() {
                   height="200"
                   image={(() => {
                     // Safe image URL with multiple fallbacks
-                    const imageUrl = property.photos?.[0]?.url;
+                    // Handle both new structure (string[]) and legacy structure ({ url: string }[])
+                    let imageUrl: string | undefined;
+                    
+                    if (property.photos && property.photos.length > 0) {
+                      const firstPhoto = property.photos[0];
+                      // New structure: string[]
+                      if (typeof firstPhoto === 'string') {
+                        imageUrl = firstPhoto;
+                      } 
+                      // Legacy structure: { url: string }[]
+                      else if (firstPhoto && typeof firstPhoto === 'object' && 'url' in firstPhoto) {
+                        imageUrl = (firstPhoto as any).url;
+                      }
+                    }
+                    
                     if (imageUrl && imageUrl.startsWith('http')) {
                       return imageUrl;
                     }
+                    
                     // Fallback to local placeholder
                     return createPropertyPlaceholder('Sem Imagem');
                   })()}
@@ -596,6 +800,188 @@ export default function PropertiesPage() {
           </Button>
           <Button onClick={handleDelete} color="error" variant="contained">
             Excluir
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Property Import Dialog */}
+      <PropertyImportDialog
+        open={importDialogOpen}
+        onClose={() => setImportDialogOpen(false)}
+        onSuccess={handleImportSuccess}
+      />
+
+      {/* Cancellation Policy Dialog */}
+      <Dialog
+        open={policyDialogOpen}
+        onClose={() => setPolicyDialogOpen(false)}
+        maxWidth="md"
+        fullWidth
+        PaperProps={{
+          sx: {
+            borderRadius: 2,
+            maxHeight: '90vh',
+          }
+        }}
+      >
+        <DialogTitle sx={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 1,
+          borderBottom: '1px solid',
+          borderColor: 'divider',
+          pb: 2,
+        }}>
+          <Policy color="primary" />
+          <Box>
+            <Typography variant="h6" fontWeight={600}>
+              Políticas de Cancelamento
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              Gerencie as regras de cancelamento para todas as propriedades
+            </Typography>
+          </Box>
+        </DialogTitle>
+        <DialogContent sx={{ pt: 3 }}>
+          {cancellationPolicy ? (
+            <CancellationPolicyEditor
+              initialPolicy={cancellationPolicy}
+              onSave={handleSavePolicy}
+              loading={savingPolicy}
+            />
+          ) : (
+            <Box sx={{ textAlign: 'center', py: 4 }}>
+              <Typography variant="body2" color="text.secondary">
+                Carregando políticas...
+              </Typography>
+            </Box>
+          )}
+        </DialogContent>
+        <DialogActions sx={{
+          px: 3,
+          pb: 3,
+          borderTop: '1px solid',
+          borderColor: 'divider'
+        }}>
+          <Button
+            onClick={() => setPolicyDialogOpen(false)}
+            disabled={savingPolicy}
+          >
+            Fechar
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Negotiation Settings Dialog */}
+      <NegotiationSettingsDialog
+        open={negotiationDialogOpen}
+        onClose={() => setNegotiationDialogOpen(false)}
+      />
+
+      {/* Address Dialog */}
+      <Dialog
+        open={addressDialogOpen}
+        onClose={() => setAddressDialogOpen(false)}
+        maxWidth="md"
+        fullWidth
+        PaperProps={{
+          sx: {
+            borderRadius: 2,
+            maxHeight: '90vh',
+          }
+        }}
+      >
+        <DialogTitle sx={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: 1,
+          borderBottom: '1px solid',
+          borderColor: 'divider',
+          pb: 2,
+        }}>
+          <Business color="primary" />
+          <Box>
+            <Typography variant="h6" fontWeight={600}>
+              Endereço da Imobiliária
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              Configure o endereço usado pela Sofia AI para enviar localização
+            </Typography>
+          </Box>
+        </DialogTitle>
+        <DialogContent sx={{ pt: 3 }}>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+            <TextField
+              fullWidth
+              label="Endereço Completo"
+              value={companyAddress.address}
+              onChange={(e) => setCompanyAddress({ ...companyAddress, address: e.target.value })}
+              placeholder="Rua Exemplo, 123 - Bairro - Cidade/Estado"
+              helperText="Endereço completo usado para geocodificação"
+            />
+            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '2fr 1fr' }, gap: 2 }}>
+              <TextField
+                label="Rua/Avenida"
+                value={companyAddress.street}
+                onChange={(e) => setCompanyAddress({ ...companyAddress, street: e.target.value })}
+                placeholder="Rua Exemplo, 123"
+              />
+              <TextField
+                label="CEP"
+                value={companyAddress.zipCode}
+                onChange={(e) => setCompanyAddress({ ...companyAddress, zipCode: e.target.value })}
+                placeholder="12345-678"
+              />
+            </Box>
+            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 2 }}>
+              <TextField
+                label="Bairro"
+                value={companyAddress.neighborhood}
+                onChange={(e) => setCompanyAddress({ ...companyAddress, neighborhood: e.target.value })}
+                placeholder="Centro"
+              />
+              <TextField
+                label="Cidade"
+                value={companyAddress.city}
+                onChange={(e) => setCompanyAddress({ ...companyAddress, city: e.target.value })}
+                placeholder="São Paulo"
+              />
+            </Box>
+            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 2 }}>
+              <TextField
+                label="Estado"
+                value={companyAddress.state}
+                onChange={(e) => setCompanyAddress({ ...companyAddress, state: e.target.value })}
+                placeholder="SP"
+              />
+              <TextField
+                label="País"
+                value={companyAddress.country}
+                onChange={(e) => setCompanyAddress({ ...companyAddress, country: e.target.value })}
+                placeholder="Brasil"
+              />
+            </Box>
+          </Box>
+        </DialogContent>
+        <DialogActions sx={{
+          px: 3,
+          pb: 3,
+          borderTop: '1px solid',
+          borderColor: 'divider',
+          gap: 1
+        }}>
+          <Button
+            onClick={() => setAddressDialogOpen(false)}
+            disabled={savingAddress}
+          >
+            Cancelar
+          </Button>
+          <Button
+            variant="contained"
+            onClick={handleSaveAddress}
+            disabled={savingAddress || !companyAddress.address}
+          >
+            {savingAddress ? 'Salvando...' : 'Salvar'}
           </Button>
         </DialogActions>
       </Dialog>

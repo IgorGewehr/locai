@@ -64,12 +64,19 @@ export default function WhatsAppStatusIndicator({
 
   const config = sizeConfig[size];
 
-  // Função de clique
-  const handleClick = async () => {
+  // Função de clique com melhor suporte mobile
+  const handleClick = async (e?: React.MouseEvent | React.TouchEvent) => {
+    // Prevenir comportamento padrão para garantir funcionamento no mobile
+    if (e) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+    
     if (onRefresh) {
       onRefresh();
     } else if (clickable) {
       // Se não tiver onRefresh customizado, navegar para settings
+      console.log('🔄 WhatsApp button clicked, navigating to settings');
       router.push('/dashboard/settings');
     }
   };
@@ -187,6 +194,10 @@ export default function WhatsAppStatusIndicator({
             } : {}
           }}
           onClick={handleClick}
+          onTouchEnd={handleClick}
+          role="button"
+          tabIndex={clickable ? 0 : -1}
+          aria-label="WhatsApp Status"
         >
           {renderIcon()}
         </Box>
@@ -244,6 +255,10 @@ export default function WhatsAppStatusIndicator({
             }
           }}
           onClick={handleClick}
+          onTouchEnd={handleClick}
+          role="button"
+          tabIndex={clickable ? 0 : -1}
+          aria-label="WhatsApp Status Mini"
         >
           <Box sx={{ fontSize: 14 }}>
             {isLoading ? (
@@ -290,6 +305,10 @@ export default function WhatsAppStatusIndicator({
           } : {}
         }}
         onClick={handleClick}
+        onTouchEnd={handleClick}
+        role="button"
+        tabIndex={clickable ? 0 : -1}
+        aria-label={`WhatsApp Status: ${indicator.text}`}
       >
         {renderIcon()}
         

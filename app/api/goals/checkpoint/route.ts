@@ -17,7 +17,7 @@ const checkpointSchema = z.object({
 export async function POST(request: NextRequest) {
   try {
     const authContext = await validateFirebaseAuth(request)
-    if (!authContext.authenticated || !authContext.tenantId) {
+    if (!authContext.authenticated) {
       return NextResponse.json(
         { error: 'Não autorizado' },
         { status: 401 }

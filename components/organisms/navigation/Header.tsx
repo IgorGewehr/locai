@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthProvider';
 import { getTenantId } from '@/lib/utils/tenant';
 import WhatsAppStatusIndicator from '@/components/molecules/whatsapp/WhatsAppStatusIndicator';
+import NotificationBell from '@/components/molecules/notifications/NotificationBell';
 import {
   AppBar,
   Toolbar,
@@ -23,6 +24,8 @@ import {
   AccountCircle,
   Settings,
   Logout,
+  HelpOutline,
+  AdminPanelSettings,
 } from '@mui/icons-material';
 
 interface HeaderProps {
@@ -32,7 +35,6 @@ interface HeaderProps {
 
 export default function Header({ onMenuClick }: HeaderProps) {
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
-  const [notificationsCount] = useState(0);
   const router = useRouter();
   const { user, signOut } = useAuth();
   const tenantId = getTenantId();
@@ -61,6 +63,16 @@ export default function Header({ onMenuClick }: HeaderProps) {
 
   const handleProfile = () => {
     router.push('/dashboard/profile');
+    handleClose();
+  };
+
+  const handleHelp = () => {
+    router.push('/dashboard/help');
+    handleClose();
+  };
+
+  const handleAdmin = () => {
+    router.push('/dashboard/lkjhg');
     handleClose();
   };
 
@@ -111,15 +123,55 @@ export default function Header({ onMenuClick }: HeaderProps) {
 
         <Box sx={{ display: 'flex', alignItems: 'center', gap: { xs: 1, md: 1.5 } }}>
           {/* WhatsApp Status - Usando o novo componente */}
-          <WhatsAppStatusIndicator 
-            variant="compact"
+          <Box 
+            sx={{ 
+              position: 'relative',
+              zIndex: 1,
+              // Garantir área de toque adequada no mobile
+              minWidth: { xs: 44, md: 'auto' },
+              minHeight: { xs: 44, md: 'auto' },
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center'
+            }}
+          >
+            <WhatsAppStatusIndicator 
+              variant="compact"
+              size="medium"
+              clickable={true}
+            />
+          </Box>
+
+          {/* Notifications - Logo após o WhatsApp */}
+          <NotificationBell 
             size="medium"
-            clickable={true}
+            maxNotifications={15}
+            showCount={true}
           />
 
-          {/* Notifications */}
+          {/* Admin Panel Button - Only show for admin users */}
+          {user?.idog === true && (
+            <IconButton 
+              color="inherit" 
+              onClick={handleAdmin}
+              sx={{
+                color: 'error.main',
+                p: { xs: 1, md: 1.5 },
+                '&:hover': {
+                  backgroundColor: 'error.light',
+                  color: 'error.contrastText',
+                }
+              }}
+              title="Painel Administrativo"
+            >
+              <AdminPanelSettings sx={{ fontSize: { xs: 20, md: 24 } }} />
+            </IconButton>
+          )}
+
+          {/* Help Button */}
           <IconButton 
             color="inherit" 
+            onClick={handleHelp}
             sx={{
               color: 'text.secondary',
               p: { xs: 1, md: 1.5 },
@@ -127,20 +179,9 @@ export default function Header({ onMenuClick }: HeaderProps) {
                 backgroundColor: 'action.hover',
               }
             }}
+            title="Central de Ajuda"
           >
-            <Badge 
-              badgeContent={notificationsCount} 
-              color="error"
-              sx={{
-                '& .MuiBadge-badge': {
-                  fontSize: '0.7rem',
-                  height: 18,
-                  minWidth: 18,
-                }
-              }}
-            >
-              <Notifications sx={{ fontSize: { xs: 20, md: 24 } }} />
-            </Badge>
+            <HelpOutline sx={{ fontSize: { xs: 20, md: 24 } }} />
           </IconButton>
 
           {/* User Menu */}
@@ -208,6 +249,16 @@ export default function Header({ onMenuClick }: HeaderProps) {
             <MenuItem onClick={handleSettings} sx={{ py: 1.5 }}>
               <Settings sx={{ mr: 2, fontSize: 20, color: 'text.secondary' }} />
               <Typography variant="body2">Configurações</Typography>
+            </MenuItem>
+            {user?.idog === true && (
+              <MenuItem onClick={handleAdmin} sx={{ py: 1.5, color: 'error.main' }}>
+                <AdminPanelSettings sx={{ mr: 2, fontSize: 20 }} />
+                <Typography variant="body2">Painel Administrativo</Typography>
+              </MenuItem>
+            )}
+            <MenuItem onClick={handleHelp} sx={{ py: 1.5 }}>
+              <HelpOutline sx={{ mr: 2, fontSize: 20, color: 'text.secondary' }} />
+              <Typography variant="body2">Central de Ajuda</Typography>
             </MenuItem>
             <Divider />
             <MenuItem onClick={handleLogout} sx={{ py: 1.5, color: 'error.main' }}>

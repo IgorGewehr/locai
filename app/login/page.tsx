@@ -94,28 +94,19 @@ export default function LoginPage() {
   const router = useRouter();
   const { signIn, signUp, resetPassword, user, loading } = useAuth();
 
-  // Redirect if already authenticated - com controle de loop
+  // ✅ CORREÇÃO: Evitar redirect loop no useEffect
   useEffect(() => {
     if (!loading && user) {
+      // ✅ NOVO: Evitar redirecionamentos múltiplos
       const isAlreadyRedirecting = sessionStorage.getItem('redirecting');
       if (isAlreadyRedirecting) {
         sessionStorage.removeItem('redirecting');
         return;
       }
       
-      let targetPath = '/dashboard';
-      try {
-        const savedPath = localStorage.getItem('redirectPath');
-        if (savedPath && savedPath.startsWith('/dashboard')) {
-          targetPath = savedPath;
-          localStorage.removeItem('redirectPath');
-        }
-      } catch (error) {
-        // Continue with default path
-      }
-      
+      console.log('🔄 [LoginPage] User authenticated, redirecting to dashboard');
       sessionStorage.setItem('redirecting', 'true');
-      router.replace(targetPath);
+      router.replace('/dashboard'); // ✅ replace em vez de push
     }
   }, [user, loading, router]);
 
@@ -150,20 +141,35 @@ export default function LoginPage() {
       setIsLoading(true);
       setError(null);
       setSuccess(null);
-      setIsProcessing(false);
       
       await signIn(data.email, data.password);
       
-      // Feedback visual suave
+      // Notion-style minimal feedback
       setLoginSuccess(true);
-      setSuccess('Login realizado com sucesso!');
+      setIsProcessing(true);
       
-      // Esperar um pouco para mostrar feedback antes do redirect
-      // O AuthProvider vai lidar com o redirecionamento
+      // ✅ MELHORADO: Redirect com feedback suave
       setTimeout(() => {
-        setIsProcessing(true);
-      }, 400);
-      
+        // ✅ NOVO: Evitar redirecionamentos múltiplos
+        const isAlreadyRedirecting = sessionStorage.getItem('redirecting');
+        if (isAlreadyRedirecting) return;
+        
+        let targetPath = '/dashboard';
+        
+        try {
+          const savedPath = localStorage.getItem('redirectPath');
+          if (savedPath && savedPath.startsWith('/dashboard')) {
+            targetPath = savedPath;
+            localStorage.removeItem('redirectPath'); // Limpar após usar
+          }
+        } catch (error) {
+          // Se der erro ao acessar localStorage, usar dashboard padrão
+        }
+        
+        console.log('🔄 [LoginPage] Login success, redirecting to:', targetPath);
+        sessionStorage.setItem('redirecting', 'true');
+        router.replace(targetPath); // ✅ replace em vez de push
+      }, 500); // ✅ Reduzido de 600ms para 500ms
     } catch (err: any) {
       let errorMessage = 'Email ou senha incorretos';
       
@@ -183,8 +189,6 @@ export default function LoginPage() {
       
       setError(errorMessage);
       setIsLoading(false);
-      setLoginSuccess(false);
-      setIsProcessing(false);
     }
   };
 
@@ -193,16 +197,35 @@ export default function LoginPage() {
       setIsLoading(true);
       setError(null);
       setSuccess(null);
-      setRegisterSuccess(false);
       
       await signUp(data.email, data.password, data.name);
       
-      // Feedback visual suave
+      // Mostrar feedback de sucesso
       setRegisterSuccess(true);
-      setSuccess('Conta criada com sucesso! Redirecionando...');
+      setSuccess('Conta criada com sucesso! Redirecionando para o dashboard...');
       
-      // O AuthProvider vai lidar com o redirecionamento automaticamente
-      
+      // ✅ MELHORADO: Redirect com feedback suave
+      setTimeout(() => {
+        // ✅ NOVO: Evitar redirecionamentos múltiplos
+        const isAlreadyRedirecting = sessionStorage.getItem('redirecting');
+        if (isAlreadyRedirecting) return;
+        
+        let targetPath = '/dashboard';
+        
+        try {
+          const savedPath = localStorage.getItem('redirectPath');
+          if (savedPath && savedPath.startsWith('/dashboard')) {
+            targetPath = savedPath;
+            localStorage.removeItem('redirectPath'); // Limpar após usar
+          }
+        } catch (error) {
+          // Se der erro ao acessar localStorage, usar dashboard padrão
+        }
+        
+        console.log('🔄 [LoginPage] Register success, redirecting to:', targetPath);
+        sessionStorage.setItem('redirecting', 'true');
+        router.replace(targetPath); // ✅ replace em vez de push
+      }, 800); // ✅ Reduzido de 1000ms para 800ms
     } catch (err: any) {
       let errorMessage = 'Erro ao criar conta';
       
@@ -222,7 +245,6 @@ export default function LoginPage() {
       
       setError(errorMessage);
       setIsLoading(false);
-      setRegisterSuccess(false);
     }
   };
 
@@ -274,31 +296,49 @@ export default function LoginPage() {
     },
   };
 
-  // Se está redirecionando ou processando, mostrar loading suave
+  // ✅ NOVO: Se está redirecionando ou processando, mostrar loading suave
   if ((loginSuccess && isProcessing) || (registerSuccess)) {
     return (
       <Box
         sx={{
-          minHeight: '100vh',
-          background: '#0a0a0a',
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          backgroundColor: '#0a0a0a',
           display: 'flex',
+          flexDirection: 'column',
           alignItems: 'center',
           justifyContent: 'center',
-          position: 'relative',
-          px: 2,
+          zIndex: 9999,
         }}
       >
-        <Fade in timeout={800}>
-          <Box sx={{ textAlign: 'center', color: '#ffffff' }}>
-            <CircularProgress sx={{ color: '#10b981', mb: 2 }} />
-            <Typography variant="h6" sx={{ color: '#10b981', fontWeight: 500 }}>
-              {loginSuccess ? 'Entrando no dashboard...' : 'Criando sua conta...'}
-            </Typography>
-            <Typography variant="body2" sx={{ color: '#a1a1a1', mt: 1 }}>
-              Aguarde um momento
-            </Typography>
-          </Box>
-        </Fade>
+        <CircularProgress 
+          sx={{ 
+            color: '#10b981', 
+            mb: 2,
+            '& .MuiCircularProgress-circle': {
+              strokeLinecap: 'round',
+            }
+          }} 
+          size={40}
+        />
+        <Typography 
+          variant="h6" 
+          sx={{ 
+            color: '#10b981', 
+            fontWeight: 500,
+            textAlign: 'center',
+            animation: 'fadeIn 0.5s ease-in',
+            '@keyframes fadeIn': {
+              '0%': { opacity: 0, transform: 'translateY(10px)' },
+              '100%': { opacity: 1, transform: 'translateY(0)' }
+            }
+          }}
+        >
+          {loginSuccess ? 'Entrando no dashboard...' : 'Criando sua conta...'}
+        </Typography>
       </Box>
     );
   }
@@ -435,7 +475,7 @@ export default function LoginPage() {
                 <>
                   {/* Login Form */}
                   {activeTab === 0 && (
-                    <Fade in={activeTab === 0} timeout={400}>
+                    <Fade in timeout={300}>
                       <form onSubmit={loginForm.handleSubmit(handleLogin)}>
                         <Stack spacing={3}>
                           <Controller
@@ -544,7 +584,7 @@ export default function LoginPage() {
                             type="submit"
                             fullWidth
                             size="large"
-                            disabled={isLoading || isProcessing || loginSuccess}
+                            disabled={isLoading || isProcessing}
                             startIcon={
                               isLoading ? (
                                 <Box 
@@ -561,17 +601,8 @@ export default function LoginPage() {
                                     }
                                   }} 
                                 />
-                              ) : (loginSuccess || isProcessing) ? (
-                                <CheckCircle sx={{ 
-                                  fontSize: 16, 
-                                  color: 'white',
-                                  animation: loginSuccess ? 'checkmark 0.5s ease-in-out' : 'none',
-                                  '@keyframes checkmark': {
-                                    '0%': { transform: 'scale(0)' },
-                                    '50%': { transform: 'scale(1.2)' },
-                                    '100%': { transform: 'scale(1)' }
-                                  }
-                                }} />
+                              ) : isProcessing ? (
+                                <CheckCircle sx={{ fontSize: 16, color: 'white' }} />
                               ) : (
                                 <LoginIcon sx={{ fontSize: 16 }} />
                               )
@@ -582,24 +613,29 @@ export default function LoginPage() {
                               textTransform: 'none',
                               fontWeight: 600,
                               fontSize: '1rem',
-                              backgroundColor: (loginSuccess || isProcessing) ? '#10b981' : (isLoading ? '#6b7280' : '#1f2937'),
+                              backgroundColor: isProcessing ? '#10b981' : (isLoading ? '#6b7280' : '#1f2937'),
                               color: '#ffffff',
                               boxShadow: 'none',
                               border: '1px solid rgba(255,255,255,0.1)',
-                              transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                              // ✅ MELHORADO: Transição mais suave com cubic-bezier
+                              transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
                               '&:hover': {
-                                backgroundColor: (loginSuccess || isProcessing) ? '#10b981' : (isLoading ? '#6b7280' : '#374151'),
-                                boxShadow: 'none',
-                                transform: isLoading || isProcessing || loginSuccess ? 'none' : 'translateY(-1px)',
+                                backgroundColor: isProcessing ? '#10b981' : (isLoading ? '#6b7280' : '#374151'),
+                                boxShadow: isLoading || isProcessing ? 'none' : '0 4px 12px rgba(59, 130, 246, 0.15)',
+                                transform: isLoading || isProcessing ? 'none' : 'translateY(-1px) scale(1.02)',
+                              },
+                              '&:active': {
+                                transform: isLoading || isProcessing ? 'none' : 'translateY(0) scale(0.98)',
+                                transition: 'all 0.1s ease',
                               },
                               '&:disabled': {
-                                backgroundColor: (loginSuccess || isProcessing) ? '#10b981' : '#6b7280',
+                                backgroundColor: isProcessing ? '#10b981' : '#6b7280',
                                 color: '#ffffff',
                                 opacity: 1,
                               },
                             }}
                           >
-                            {(loginSuccess || isProcessing) ? 'Entrando...' : isLoading ? 'Verificando...' : 'Entrar'}
+                            {isProcessing ? 'Logado' : isLoading ? 'Verificando...' : 'Entrar'}
                           </Button>
                         </Stack>
                       </form>
@@ -608,7 +644,7 @@ export default function LoginPage() {
 
                   {/* Register Form */}
                   {activeTab === 1 && (
-                    <Fade in={activeTab === 1} timeout={400}>
+                    <Fade in timeout={300}>
                       <form onSubmit={registerForm.handleSubmit(handleRegister)}>
                         <Stack spacing={3}>
                           <Controller
@@ -762,16 +798,7 @@ export default function LoginPage() {
                                   }} 
                                 />
                               ) : registerSuccess ? (
-                                <CheckCircle sx={{ 
-                                  fontSize: 16, 
-                                  color: 'white',
-                                  animation: 'checkmark 0.5s ease-in-out',
-                                  '@keyframes checkmark': {
-                                    '0%': { transform: 'scale(0)' },
-                                    '50%': { transform: 'scale(1.2)' },
-                                    '100%': { transform: 'scale(1)' }
-                                  }
-                                }} />
+                                <CheckCircle sx={{ fontSize: 16, color: 'white' }} />
                               ) : (
                                 <PersonAdd sx={{ fontSize: 16 }} />
                               )
@@ -786,11 +813,16 @@ export default function LoginPage() {
                               color: '#ffffff',
                               boxShadow: 'none',
                               border: '1px solid rgba(255,255,255,0.1)',
-                              transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                              // ✅ MELHORADO: Transição mais suave com cubic-bezier
+                              transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
                               '&:hover': {
                                 backgroundColor: registerSuccess ? '#10b981' : (isLoading ? '#6b7280' : '#374151'),
-                                transform: isLoading || registerSuccess ? 'none' : 'translateY(-1px)',
-                                boxShadow: 'none',
+                                boxShadow: isLoading || registerSuccess ? 'none' : '0 4px 12px rgba(59, 130, 246, 0.15)',
+                                transform: isLoading || registerSuccess ? 'none' : 'translateY(-1px) scale(1.02)',
+                              },
+                              '&:active': {
+                                transform: isLoading || registerSuccess ? 'none' : 'translateY(0) scale(0.98)',
+                                transition: 'all 0.1s ease',
                               },
                               '&:disabled': {
                                 backgroundColor: registerSuccess ? '#10b981' : '#6b7280',
@@ -799,7 +831,7 @@ export default function LoginPage() {
                               },
                             }}
                           >
-                            {registerSuccess ? 'Conta criada!' : isLoading ? 'Criando conta...' : 'Criar conta'}
+                            {registerSuccess ? 'Redirecionando...' : isLoading ? 'Criando conta...' : 'Criar conta'}
                           </Button>
                         </Stack>
                       </form>

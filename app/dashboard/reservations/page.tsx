@@ -84,6 +84,9 @@ export default function ReservationsPage() {
   const [selectedReservation, setSelectedReservation] = useState<ReservationWithDetails | null>(null);
   const [detailsOpen, setDetailsOpen] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [reservationToDelete, setReservationToDelete] = useState<ReservationWithDetails | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
   // Filter reservations based on search and filters
   useEffect(() => {
@@ -158,6 +161,39 @@ export default function ReservationsPage() {
   const handleViewDetails = (reservation: ReservationWithDetails) => {
     setSelectedReservation(reservation);
     setDetailsOpen(true);
+  };
+
+  const handleDeleteClick = (reservation: ReservationWithDetails) => {
+    setReservationToDelete(reservation);
+    setDeleteDialogOpen(true);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!reservationToDelete || !services) return;
+
+    setDeleting(true);
+    try {
+      await services.reservations.delete(reservationToDelete.id);
+
+      // Remove from local state
+      setReservations(prev => prev.filter(r => r.id !== reservationToDelete.id));
+
+      // Close dialog
+      setDeleteDialogOpen(false);
+      setReservationToDelete(null);
+
+      console.log('Reserva excluída com sucesso');
+    } catch (error) {
+      console.error('Erro ao excluir reserva:', error);
+      alert('Erro ao excluir reserva. Tente novamente.');
+    } finally {
+      setDeleting(false);
+    }
+  };
+
+  const handleDeleteCancel = () => {
+    setDeleteDialogOpen(false);
+    setReservationToDelete(null);
   };
 
   // Load reservations from Firebase
@@ -584,9 +620,10 @@ export default function ReservationsPage() {
                         </IconButton>
                       </Tooltip>
                       <Tooltip title="Excluir">
-                        <IconButton 
-                          size="small" 
+                        <IconButton
+                          size="small"
                           color="error"
+                          onClick={() => handleDeleteClick(reservation)}
                           sx={{ p: { xs: 0.5, sm: 1 }, display: { xs: 'none', sm: 'inline-flex' } }}
                         >
                           <Delete sx={{ fontSize: { xs: 16, sm: 20 } }} />
@@ -686,6 +723,57 @@ export default function ReservationsPage() {
           </Button>
           <Button variant="contained">
             Editar Reserva
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Delete Confirmation Dialog */}
+      <Dialog
+        open={deleteDialogOpen}
+        onClose={handleDeleteCancel}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <Delete color="error" />
+          Confirmar Exclusão
+        </DialogTitle>
+        <DialogContent>
+          <Typography variant="body1" gutterBottom>
+            Tem certeza que deseja excluir esta reserva?
+          </Typography>
+          {reservationToDelete && (
+            <Box sx={{ mt: 2, p: 2, bgcolor: 'grey.50', borderRadius: 1 }}>
+              <Typography variant="body2">
+                <strong>Cliente:</strong> {reservationToDelete.clientName}
+              </Typography>
+              <Typography variant="body2">
+                <strong>Propriedade:</strong> {reservationToDelete.propertyName}
+              </Typography>
+              <Typography variant="body2">
+                <strong>Período:</strong> {format(reservationToDelete.checkIn, 'dd/MM/yyyy')} - {format(reservationToDelete.checkOut, 'dd/MM/yyyy')}
+              </Typography>
+              <Typography variant="body2">
+                <strong>Valor:</strong> R$ {(reservationToDelete.totalPrice || 0).toLocaleString('pt-BR')}
+              </Typography>
+            </Box>
+          )}
+          <Typography variant="body2" color="error" sx={{ mt: 2 }}>
+            ⚠️ Esta ação não pode ser desfeita.
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleDeleteCancel} disabled={deleting}>
+            Cancelar
+          </Button>
+          <Button
+            variant="contained"
+            color="error"
+            onClick={handleDeleteConfirm}
+            disabled={deleting}
+            startIcon={deleting ? <CircularProgress size={16} /> : <Delete />}
+          >
+            {deleting ? 'Excluindo...' : 'Excluir'}
           </Button>
         </DialogActions>
       </Dialog>

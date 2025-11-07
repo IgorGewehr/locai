@@ -10,7 +10,7 @@ import { getAnalytics } from '@/lib/services/analytics-service'
 export async function POST(request: NextRequest) {
   try {
     const authContext = await validateFirebaseAuth(request)
-    if (!authContext.authenticated || !authContext.tenantId) {
+    if (!authContext.authenticated) {
       return NextResponse.json(
         { error: 'Não autorizado' },
         { status: 401 }
@@ -90,7 +90,7 @@ export async function POST(request: NextRequest) {
 export async function GET(request: NextRequest) {
   try {
     const authContext = await validateFirebaseAuth(request)
-    if (!authContext.authenticated || !authContext.tenantId) {
+    if (!authContext.authenticated) {
       return NextResponse.json(
         { error: 'Não autorizado' },
         { status: 401 }

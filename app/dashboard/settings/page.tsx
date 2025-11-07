@@ -49,6 +49,8 @@ import DashboardBreadcrumb from '@/components/atoms/DashboardBreadcrumb';
 import { updateProfile, updatePassword, EmailAuthProvider, reauthenticateWithCredential } from 'firebase/auth';
 import { auth } from '@/lib/firebase/config';
 import { ApiClient } from '@/lib/utils/api-client';
+import CancellationPolicyEditor, { CancellationPolicy } from './components/CancellationPolicyEditor';
+import { createSettingsService } from '@/lib/services/settings-service';
 
 interface WhatsAppSession {
   connected: boolean;
@@ -93,6 +95,10 @@ export default function SettingsPage() {
     newPassword: '',
     confirmPassword: ''
   });
+
+  // Cancellation Policy states
+  const [cancellationPolicy, setCancellationPolicy] = useState<CancellationPolicy | null>(null);
+  const [policyLoading, setPolicyLoading] = useState(false);
 
   // Use the same status from context as TopAppBar
   const currentSession = whatsappSession;
@@ -154,6 +160,28 @@ export default function SettingsPage() {
     }
   }, [user, tenantId, isReady]); // Removed refreshStatus to prevent infinite loop
 
+  // Load cancellation policy
+  useEffect(() => {
+    const loadCancellationPolicy = async () => {
+      if (!tenantId) return;
+
+      try {
+        const settingsService = createSettingsService(tenantId);
+        const settings = await settingsService.getSettings(tenantId);
+
+        if (settings?.cancellationPolicy) {
+          setCancellationPolicy(settings.cancellationPolicy);
+        }
+      } catch (error) {
+        console.error('Error loading cancellation policy:', error);
+      }
+    };
+
+    if (tenantId) {
+      loadCancellationPolicy();
+    }
+  }, [tenantId]);
+
   // Update profile data when user changes
   useEffect(() => {
     if (user) {
@@ -213,7 +241,7 @@ export default function SettingsPage() {
         auth.currentUser.email!,
         passwordData.currentPassword
       );
-      
+
       await reauthenticateWithCredential(auth.currentUser, credential);
       await updatePassword(auth.currentUser, passwordData.newPassword);
 
@@ -232,6 +260,26 @@ export default function SettingsPage() {
       }
     } finally {
       setProfileLoading(false);
+    }
+  };
+
+  const handleSaveCancellationPolicy = async (policy: CancellationPolicy) => {
+    if (!tenantId) return;
+
+    setPolicyLoading(true);
+    setError(null);
+
+    try {
+      const settingsService = createSettingsService(tenantId);
+      await settingsService.updateCancellationPolicy(tenantId, policy);
+
+      setCancellationPolicy(policy);
+      setSuccess('Políticas de cancelamento atualizadas com sucesso!');
+      setTimeout(() => setSuccess(null), 3000);
+    } catch (error: any) {
+      setError('Erro ao atualizar políticas de cancelamento: ' + error.message);
+    } finally {
+      setPolicyLoading(false);
     }
   };
 
@@ -324,9 +372,30 @@ export default function SettingsPage() {
     }
   };
 
+  const resetWhatsAppSession = async () => {
+    setLoading(true);
+    setError(null);
+
+    try {
+      const response = await ApiClient.post('/api/whatsapp/session/reset');
+      const data = await response.json();
+
+      if (data.success) {
+        setSuccess('Cache limpo! Você pode tentar conectar novamente.');
+        setTimeout(() => setSuccess(null), 3000);
+      } else {
+        setError('Erro ao resetar sessão');
+      }
+    } catch (error) {
+      setError('Erro ao resetar sessão');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const disconnectWhatsApp = async () => {
     setLoading(true);
-    
+
     // Clear all timers
     if (qrExpireTimer) {
       clearTimeout(qrExpireTimer);
@@ -336,7 +405,7 @@ export default function SettingsPage() {
       clearInterval(connectionCheckInterval);
       setConnectionCheckInterval(null);
     }
-    
+
     try {
       const response = await ApiClient.delete('/api/whatsapp/session');
 
@@ -750,12 +819,13 @@ export default function SettingsPage() {
       </Card>
 
       {/* WhatsApp Configuration */}
-      <Card 
-        sx={{ 
+      <Card
+        sx={{
           background: 'rgba(255, 255, 255, 0.05)',
           backdropFilter: 'blur(20px)',
           border: '1px solid rgba(255, 255, 255, 0.1)',
           borderRadius: { xs: 2, sm: 3 },
+          mb: { xs: 3, sm: 4 },
         }}
       >
         <CardContent sx={{ p: { xs: 2, sm: 3, md: 4 } }}>
@@ -1065,6 +1135,38 @@ export default function SettingsPage() {
             >
               Atualizar
             </Button>
+
+            {/* Reset button - only show when not connected and there's an error */}
+            {!currentSession.connected && error && (
+              <Button
+                variant="outlined"
+                startIcon={<Refresh sx={{ fontSize: 16 }} />}
+                onClick={resetWhatsAppSession}
+                disabled={loading}
+                sx={{
+                  borderColor: 'rgba(239, 68, 68, 0.3)',
+                  color: '#ef4444',
+                  borderRadius: 2,
+                  py: 1.5,
+                  px: 3,
+                  fontWeight: 500,
+                  fontSize: '0.875rem',
+                  textTransform: 'none',
+                  transition: 'all 0.15s ease',
+                  '&:hover': {
+                    borderColor: 'rgba(239, 68, 68, 0.5)',
+                    backgroundColor: 'rgba(239, 68, 68, 0.05)',
+                    transform: loading ? 'none' : 'translateY(-1px)',
+                  },
+                  '&:disabled': {
+                    borderColor: 'rgba(255,255,255,0.1)',
+                    color: 'rgba(255,255,255,0.5)',
+                  },
+                }}
+              >
+                Limpar Cache
+              </Button>
+            )}
           </Stack>
 
           {/* Instructions */}
@@ -1377,6 +1479,30 @@ export default function SettingsPage() {
           </Button>
         </DialogActions>
       </Dialog>
+
+      {/* Cancellation Policy Configuration */}
+      <Card
+        sx={{
+          background: 'rgba(255, 255, 255, 0.05)',
+          backdropFilter: 'blur(20px)',
+          border: '1px solid rgba(255, 255, 255, 0.1)',
+          borderRadius: { xs: 2, sm: 3 },
+        }}
+      >
+        <CardContent sx={{ p: { xs: 2, sm: 3, md: 4 } }}>
+          {cancellationPolicy ? (
+            <CancellationPolicyEditor
+              initialPolicy={cancellationPolicy}
+              onSave={handleSaveCancellationPolicy}
+              loading={policyLoading}
+            />
+          ) : (
+            <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', py: 4 }}>
+              <CircularProgress />
+            </Box>
+          )}
+        </CardContent>
+      </Card>
     </Box>
   );
 }

@@ -73,7 +73,8 @@ interface TransactionWithDetails extends Transaction {
 
 export default function FinanceiroSimplesPage() {
   const { user } = useAuth();
-  const { services, isReady } = useTenant();
+  const services = useTenantServices();
+  const isReady = !!services;
   const [viewPeriod, setViewPeriod] = useState<'current' | 'past'>('current');
   const [transactions, setTransactions] = useState<TransactionWithDetails[]>([]);
   const [properties, setProperties] = useState<Property[]>([]);

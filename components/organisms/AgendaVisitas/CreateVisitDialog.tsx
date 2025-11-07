@@ -46,6 +46,7 @@ import {
 } from '@/lib/types/visit-appointment';
 import { Property, Client } from '@/lib/types';
 import { useTenant } from '@/contexts/TenantContext';
+import { useAuth } from '@/contexts/AuthContext';
 
 interface CreateVisitDialogProps {
   open: boolean;
@@ -99,6 +100,7 @@ export default function CreateVisitDialog({
   preselectedClient 
 }: CreateVisitDialogProps) {
   const { tenantId } = useTenant();
+  const { getFirebaseToken } = useAuth();
   const [formData, setFormData] = useState<FormData>(defaultFormData);
   const [properties, setProperties] = useState<Property[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
@@ -126,9 +128,23 @@ export default function CreateVisitDialog({
     if (!tenantId) return;
 
     try {
+      const token = await getFirebaseToken();
+      if (!token) {
+        console.error('Token de autenticação não disponível');
+        return;
+      }
+
       const [propertiesResponse, clientsResponse] = await Promise.all([
-        fetch(`/api/properties?tenantId=${tenantId}`),
-        fetch(`/api/clients?tenantId=${tenantId}`),
+        fetch(`/api/properties?tenantId=${tenantId}`, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+          },
+        }),
+        fetch(`/api/clients?tenantId=${tenantId}`, {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+          },
+        }),
       ]);
 
       if (propertiesResponse.ok && clientsResponse.ok) {

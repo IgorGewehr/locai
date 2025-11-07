@@ -190,13 +190,16 @@ export class PropertyService {
       // Log photo URLs to debug persistence
       if (property.photos && property.photos.length > 0) {
         logger.info('📸 [PropertyService] Property photos being saved', {
-          photosData: property.photos.map(photo => ({
-            id: photo.id,
-            filename: photo.filename,
-            isFirebaseUrl: photo.url.includes('firebasestorage.googleapis.com'),
-            isBlobUrl: photo.url.startsWith('blob:'),
-            urlPreview: photo.url.substring(0, 50) + '...'
-          }))
+          photosData: property.photos.map((photo, index) => {
+            const photoUrl = typeof photo === 'string' ? photo : (photo?.url || '');
+            return {
+              index,
+              isString: typeof photo === 'string',
+              isFirebaseUrl: photoUrl.includes('firebasestorage.googleapis.com'),
+              isBlobUrl: photoUrl.startsWith('blob:'),
+              urlPreview: photoUrl.substring(0, 50) + '...'
+            };
+          })
         });
       }
 

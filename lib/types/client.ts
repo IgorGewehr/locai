@@ -13,7 +13,7 @@ export interface Client {
   address?: Address
   
   // Preferências
-  preferences: ClientPreferences
+  preferences?: ClientPreferences
   
   // Histórico
   totalReservations: number

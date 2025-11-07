@@ -5,7 +5,7 @@ import { VisitStatus, VisitAppointment } from '@/lib/types/visit-appointment';
 
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const searchParams = request.nextUrl.searchParams;
@@ -18,7 +18,7 @@ export async function PATCH(
       );
     }
 
-    const visitId = params.id;
+    const { id: visitId } = await params;
     const body = await request.json();
     const { status } = body;
 
@@ -59,7 +59,7 @@ export async function PATCH(
   } catch (error) {
     logger.error('Erro ao atualizar status da visita', {
       error: error instanceof Error ? error.message : 'Erro desconhecido',
-      visitId: params.id,
+      visitId: visitId,
       component: 'VisitsAPI',
       operation: 'PATCH_STATUS'
     });

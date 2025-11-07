@@ -294,7 +294,12 @@ export interface UserPreferences {
   currency: 'BRL' | 'USD' | 'EUR';
 }
 
-export interface Transaction {
+/**
+ * @deprecated Use Transaction from './transaction-unified' instead
+ * This interface is kept for backward compatibility only
+ * Will be removed in v2.0
+ */
+export interface TransactionLegacy {
   // Campos básicos
   id: string;
   amount: number;
@@ -304,34 +309,34 @@ export interface Transaction {
   date: Date;
   createdAt: Date;
   updatedAt: Date;
-  
+
   // Categorização
   category: 'reservation' | 'maintenance' | 'cleaning' | 'commission' | 'refund' | 'other';
   subcategory?: string;
-  
+
   // Método de pagamento
   paymentMethod: 'stripe' | 'pix' | 'cash' | 'bank_transfer' | 'credit_card' | 'debit_card';
-  
+
   // Campos de relacionamento
   reservationId?: string;
   clientId?: string;
   propertyId?: string;
-  
+
   // Campos para recorrência
   isRecurring: boolean;
   recurringType?: 'monthly' | 'weekly' | 'yearly';
   recurringEndDate?: Date;
   parentTransactionId?: string;
-  
+
   // Campos de controle
   confirmedBy?: string; // ID do admin que confirmou
   confirmedAt?: Date;
   notes?: string;
-  
+
   // Metadados para integração com IA
   createdByAI: boolean;
   aiConversationId?: string;
-  
+
   // Dados adicionais para relatórios
   tenantId?: string;
   attachments?: Array<{
@@ -341,3 +346,18 @@ export interface Transaction {
   }>;
   tags?: string[];
 }
+
+// ===== UNIFIED TRANSACTION MODEL (NEW) =====
+// Export new unified transaction types
+export * from './transaction-unified';
+
+// For backward compatibility, re-export Transaction from unified model
+// This ensures existing code using "Transaction" continues to work
+import { Transaction as TransactionUnified } from './transaction-unified';
+export type Transaction = TransactionUnified;
+
+// Export notification types
+export * from './notification';
+
+// Export onboarding types
+export * from './onboarding';

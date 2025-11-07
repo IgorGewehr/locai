@@ -32,7 +32,7 @@ import {
 } from '@mui/icons-material';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { useTenant } from '@/contexts/TenantContext';
+import { useTenantServices } from '@/lib/hooks/useTenantServices';
 
 interface Transaction {
   id: string;
@@ -76,7 +76,8 @@ interface Property {
 export default function TransactionDetailPage() {
   const params = useParams();
   const router = useRouter();
-  const { services, isReady } = useTenant();
+  const services = useTenantServices();
+  const isReady = !!services;
   const [transaction, setTransaction] = useState<Transaction | null>(null);
   const [client, setClient] = useState<Client | null>(null);
   const [reservation, setReservation] = useState<Reservation | null>(null);

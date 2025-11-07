@@ -7,12 +7,12 @@ export interface Reservation {
   propertyId: string
   clientId: string
   status: ReservationStatus
-  
+
   // Datas
-  checkIn: Date
-  checkOut: Date
-  createdAt: Date
-  updatedAt: Date
+  checkIn: Date | string // Date object ou ISO string para compatibilidade com Firebase
+  checkOut: Date | string // Date object ou ISO string para compatibilidade com Firebase
+  createdAt: Date | string // Date object ou ISO string para compatibilidade com Firebase
+  updatedAt: Date | string // Date object ou ISO string para compatibilidade com Firebase
   
   // Hóspedes
   guests: number
@@ -74,7 +74,7 @@ export interface GuestDetail {
   documentType: 'cpf' | 'rg' | 'passport'
   phone?: string
   email?: string
-  birthDate?: Date
+  birthDate?: Date | string // Date object ou ISO string para compatibilidade com Firebase
   isMainGuest: boolean
 }
 
@@ -100,10 +100,10 @@ export interface PaymentPlan {
 export interface PaymentInstallment {
   number: number
   amount: number
-  dueDate: Date
+  dueDate: Date | string // Date object ou ISO string para compatibilidade com Firebase
   description: string
   isPaid: boolean
-  paidDate?: Date
+  paidDate?: Date | string // Date object ou ISO string para compatibilidade com Firebase
 }
 
 export interface Payment {
@@ -112,8 +112,8 @@ export interface Payment {
   amount: number
   method: PaymentMethod
   status: PaymentStatus
-  dueDate: Date
-  paidDate?: Date
+  dueDate: Date | string // Date object ou ISO string para compatibilidade com Firebase
+  paidDate?: Date | string // Date object ou ISO string para compatibilidade com Firebase
   installmentNumber: number
   totalInstallments: number
   description: string

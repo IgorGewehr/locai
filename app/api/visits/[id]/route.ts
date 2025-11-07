@@ -5,7 +5,7 @@ import { VisitAppointment } from '@/lib/types/visit-appointment';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const searchParams = request.nextUrl.searchParams;
@@ -18,7 +18,7 @@ export async function GET(
       );
     }
 
-    const visitId = params.id;
+    const { id: visitId } = await params;
 
     logger.info('Buscando visita por ID', {
       tenantId,
@@ -46,7 +46,7 @@ export async function GET(
   } catch (error) {
     logger.error('Erro ao buscar visita', {
       error: error instanceof Error ? error.message : 'Erro desconhecido',
-      visitId: params.id,
+      visitId: visitId,
       component: 'VisitsAPI',
       operation: 'GET_BY_ID'
     });
@@ -60,7 +60,7 @@ export async function GET(
 
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const searchParams = request.nextUrl.searchParams;
@@ -73,7 +73,7 @@ export async function PUT(
       );
     }
 
-    const visitId = params.id;
+    const { id: visitId } = await params;
     const body = await request.json();
 
     logger.info('Atualizando visita', {
@@ -97,7 +97,7 @@ export async function PUT(
   } catch (error) {
     logger.error('Erro ao atualizar visita', {
       error: error instanceof Error ? error.message : 'Erro desconhecido',
-      visitId: params.id,
+      visitId: visitId,
       component: 'VisitsAPI',
       operation: 'PUT'
     });
@@ -111,7 +111,7 @@ export async function PUT(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const searchParams = request.nextUrl.searchParams;
@@ -124,7 +124,7 @@ export async function DELETE(
       );
     }
 
-    const visitId = params.id;
+    const { id: visitId } = await params;
 
     logger.info('Excluindo visita', {
       tenantId,
@@ -145,7 +145,7 @@ export async function DELETE(
   } catch (error) {
     logger.error('Erro ao excluir visita', {
       error: error instanceof Error ? error.message : 'Erro desconhecido',
-      visitId: params.id,
+      visitId: visitId,
       component: 'VisitsAPI',
       operation: 'DELETE'
     });

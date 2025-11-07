@@ -5,7 +5,7 @@ import { useParams, useRouter } from 'next/navigation';
 import { useTenant } from '@/contexts/TenantContext';
 import PropertyPriceDisplay from '@/components/atoms/PropertyPriceDisplay';
 import PropertyAvailabilityInfo from '@/components/molecules/PropertyAvailabilityInfo';
-import AvailabilityCalendar from '@/components/organisms/AvailabilityCalendar/AvailabilityCalendar';
+import PricingCalendar, { ReservationPeriod } from '@/components/organisms/PricingCalendar/PricingCalendar';
 import type { Property, Reservation } from '@/lib/types';
 import {
   Box,
@@ -169,8 +169,19 @@ export default function PropertyViewPage() {
                 component="img"
                 height={400}
                 image={(() => {
-                  // Safe image URL with validation
-                  const imageUrl = property.photos[0]?.url;
+                  // Handle both string[] and PropertyPhoto[] formats
+                  let imageUrl: string | undefined;
+                  if (property.photos && property.photos.length > 0) {
+                    const firstPhoto = property.photos[0];
+                    if (typeof firstPhoto === 'string') {
+                      // New structure: string[]
+                      imageUrl = firstPhoto;
+                    } else if (firstPhoto && typeof firstPhoto === 'object' && 'url' in firstPhoto) {
+                      // Legacy structure: PropertyPhoto[]
+                      imageUrl = (firstPhoto as any).url;
+                    }
+                  }
+                  
                   if (imageUrl && imageUrl.startsWith('http')) {
                     return imageUrl;
                   }
@@ -492,15 +503,32 @@ export default function PropertyViewPage() {
         </Grid>
       </Grid>
 
-      {/* Availability Calendar */}
+      {/* Pricing Calendar with Reservations */}
       <Box mt={4}>
         <Card>
           <CardContent>
-            <AvailabilityCalendar
-              propertyId={propertyId}
-              height={500}
-              showLegend={true}
-              showStats={true}
+            <Typography variant="h6" gutterBottom>
+              Calendário de Preços e Disponibilidade
+            </Typography>
+            <Divider sx={{ mb: 3 }} />
+
+            <PricingCalendar
+              basePrice={property.basePrice || 0}
+              specialPrices={property.customPricing || {}}
+              weekendSurcharge={property.weekendSurcharge}
+              holidaySurcharge={property.holidaySurcharge}
+              decemberSurcharge={property.decemberSurcharge}
+              highSeasonSurcharge={property.highSeasonSurcharge}
+              highSeasonMonths={property.highSeasonMonths}
+              reservations={reservations.map((r): ReservationPeriod => ({
+                id: r.id || '',
+                checkIn: new Date(r.checkIn),
+                checkOut: new Date(r.checkOut),
+                guestName: r.guestName,
+                status: r.status as 'confirmed' | 'pending' | 'cancelled'
+              }))}
+              readOnly={true}
+              showReservations={true}
             />
           </CardContent>
         </Card>

@@ -1,8 +1,27 @@
+/**
+ * @deprecated This file is deprecated in favor of transaction-unified.ts
+ * All FinancialMovement types have been consolidated into the unified Transaction model
+ * Please migrate to use Transaction from '@/lib/types/transaction-unified'
+ *
+ * Migration will be removed in v2.0
+ */
+
 import { Timestamp } from 'firebase/firestore'
 
+/**
+ * @deprecated Use TransactionType from transaction-unified instead
+ */
 export type MovementType = 'income' | 'expense'
+
+/**
+ * @deprecated Use TransactionStatus from transaction-unified instead
+ */
 export type MovementStatus = 'pending' | 'paid' | 'overdue' | 'cancelled'
-export type MovementCategory = 
+
+/**
+ * @deprecated Use TransactionCategory from transaction-unified instead
+ */
+export type MovementCategory =
   | 'rent'           // Aluguel
   | 'cleaning'       // Limpeza
   | 'maintenance'    // Manutenção
@@ -15,6 +34,10 @@ export type MovementCategory =
 // PaymentMethod importado de common.ts
 import { PaymentMethod } from './common'
 
+/**
+ * @deprecated Use Transaction from transaction-unified instead
+ * This interface will be removed in v2.0
+ */
 export interface FinancialMovement {
   // Identificação
   id: string

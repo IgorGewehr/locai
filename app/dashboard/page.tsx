@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback, lazy, Suspense } from 'react';
 import {
     Grid,
     Card,
@@ -11,7 +11,10 @@ import {
     Paper,
     IconButton,
     Chip,
-    Skeleton, Divider, Button,
+    Skeleton,
+    Divider,
+    Button,
+    CircularProgress,
 } from '@mui/material';
 import {
     Home,
@@ -29,11 +32,15 @@ import { db } from '@/lib/firebase/config';
 import { useAuth } from '@/contexts/AuthProvider';
 import { useTenant } from '@/contexts/TenantContext';
 import { collection, query, where, getDocs, Timestamp } from 'firebase/firestore';
-import MiniSiteWidget from '@/components/organisms/marketing/MiniSiteWidget';
-import MiniSiteWidgetFullWidth from '@/components/organisms/marketing/MiniSiteWidgetFullWidth';
-import AgendaCard from '@/components/organisms/dashboards/AgendaCard';
-import CRMCard from '@/components/organisms/dashboards/CRMCard';
-import CreateVisitDialog from './agenda/components/CreateVisitDialog';
+import { logger } from '@/lib/utils/logger';
+// 🚀 PERFORMANCE: Lazy load de componentes pesados
+const MiniSiteWidgetFullWidth = lazy(() => import('@/components/organisms/marketing/MiniSiteWidgetFullWidth'));
+const AgendaCard = lazy(() => import('@/components/organisms/dashboards/AgendaCard'));
+const MetricsCard = lazy(() => import('@/components/organisms/dashboards/MetricsCard'));
+const SofiaCard = lazy(() => import('@/components/organisms/dashboards/SofiaCard'));
+const CreateVisitDialog = lazy(() => import('./agenda/components/CreateVisitDialog'));
+import { SafeRevolutionaryOnboarding } from '@/components/organisms/RevolutionaryOnboarding';
+import { useRouter } from 'next/navigation';
 
 const initialStats: DashboardStats = {
   totalProperties: 0,
@@ -45,6 +52,25 @@ const initialStats: DashboardStats = {
   occupancyRate: 0,
   averageRating: 0,
 };
+
+// 🚀 PERFORMANCE: Loading placeholder component
+const CardSkeleton = () => (
+  <Card
+    sx={{
+      height: { xs: 'auto', lg: 400 },
+      minHeight: 350,
+      background: 'rgba(255, 255, 255, 0.08)',
+      backdropFilter: 'blur(20px)',
+      border: '1px solid rgba(255, 255, 255, 0.15)',
+      borderRadius: '20px',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+    }}
+  >
+    <CircularProgress size={40} sx={{ color: 'rgba(99, 102, 241, 0.6)' }} />
+  </Card>
+);
 
 interface StatCardProps {
   title: string;
@@ -192,6 +218,7 @@ function StatCard({ title, value, subtitle, icon, trend, color }: StatCardProps)
 }
 
 export default function DashboardPage() {
+  const router = useRouter();
   const { user, isAuthenticated } = useAuth();
   const { services, tenantId, isReady } = useTenant();
   const [stats, setStats] = useState<DashboardStats>(initialStats);
@@ -210,16 +237,18 @@ export default function DashboardPage() {
     occupancyTrend: 0
   });
 
-  const fetchStats = async () => {
+  // 🚀 OTIMIZAÇÃO: useCallback previne re-criação da função
+  // e evita loop infinito no useEffect
+  const fetchStats = useCallback(async () => {
     if (!services || !tenantId || !isReady) return;
-    
+
     setLoading(true);
     try {
-      // Fetch properties
+      // 🚀 OTIMIZAÇÃO: getAll() agora tem limit de 1000 docs (antes era ilimitado)
       const properties = await services.properties.getAll();
       const activeProperties = properties.filter((p: any) => p.isActive === true);
 
-      // Fetch reservations
+      // 🚀 OTIMIZAÇÃO: getAll() agora tem limit de 1000 docs
       const reservations = await services.reservations.getAll();
       const pendingReservations = reservations.filter((r: any) => r.status === 'pending');
 
@@ -321,17 +350,23 @@ export default function DashboardPage() {
         occupancyTrend: 0 // Calculate based on previous month if needed
       });
     } catch (error) {
-
+      logger.error('[Dashboard] Error fetching stats', {
+        error: error instanceof Error ? error.message : 'Unknown error',
+        tenantId,
+      });
     } finally {
       setLoading(false);
     }
-  };
+  }, [services, tenantId, isReady]); // Dependencies do useCallback
 
+  // 🚀 OTIMIZAÇÃO: Removido 'services' das dependências
+  // services agora é estável (via useMemo no TenantContext)
+  // mas ainda assim, não precisamos dele como dependência aqui
   useEffect(() => {
-    if (isReady && services && tenantId) {
+    if (isReady && tenantId) {
       fetchStats();
     }
-  }, [isReady, services, tenantId]);
+  }, [isReady, tenantId, fetchStats]); // fetchStats é estável via useCallback
 
   const refreshStats = async () => {
     await fetchStats();
@@ -425,6 +460,11 @@ export default function DashboardPage() {
         </Box>
       )}
 
+      {/* Revolutionary Onboarding - Interactive first-time user guide */}
+      <Box sx={{ mb: { xs: 4, md: 5 } }}>
+        <SafeRevolutionaryOnboarding variant="compact" />
+      </Box>
+
       {/* Optimized Grid Layout for iPad */}
       <Grid container spacing={{ xs: 3, md: 4, lg: 5 }}>
         {/* Top Row - Main Statistics (Responsive for iPad) */}
@@ -473,190 +513,30 @@ export default function DashboardPage() {
         </Grid>
 
         {/* Second Row - Detailed Information Cards (3 Equal Cards) */}
+        {/* 🚀 PERFORMANCE: Suspense para lazy loading */}
         <Grid item xs={12} lg={4}>
-          <AgendaCard onCreateEvent={() => setShowVisitDialog(true)} />
+          <Suspense fallback={<CardSkeleton />}>
+            <AgendaCard onCreateEvent={() => setShowVisitDialog(true)} />
+          </Suspense>
         </Grid>
-        
+
         <Grid item xs={12} lg={4}>
-          <CRMCard />
+          <Suspense fallback={<CardSkeleton />}>
+            <MetricsCard />
+          </Suspense>
         </Grid>
-        
+
         <Grid item xs={12} lg={4}>
-          <Card 
-            sx={{ 
-              height: { xs: 'auto', lg: 400 },
-              minHeight: 350,
-              background: 'rgba(255, 255, 255, 0.08)',
-              backdropFilter: 'blur(20px)',
-              border: '1px solid rgba(255, 255, 255, 0.15)',
-              borderRadius: '20px',
-              transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-              position: 'relative',
-              overflow: 'hidden',
-              '&:hover': {
-                transform: 'translateY(-4px)',
-                boxShadow: '0 16px 50px rgba(0, 0, 0, 0.4)',
-              },
-              '&::before': {
-                content: '""',
-                position: 'absolute',
-                top: 0,
-                left: 0,
-                right: 0,
-                height: '4px',
-                background: 'linear-gradient(135deg, #10b981, #059669)',
-              }
-            }}
-          >
-            <CardContent sx={{ p: 4, height: '100%', display: 'flex', flexDirection: 'column' }}>
-              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 3 }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                  <Box
-                    sx={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      width: 56,
-                      height: 56,
-                      borderRadius: '14px',
-                      background: 'linear-gradient(135deg, #10b981, #059669)',
-                      color: 'white',
-                      boxShadow: '0 8px 24px rgba(16, 185, 129, 0.4)',
-                    }}
-                  >
-                    <WhatsApp sx={{ fontSize: 28 }} />
-                  </Box>
-                  <Box>
-                    <Typography variant="h6" fontWeight={700} sx={{ color: '#ffffff', mb: 0.5 }}>
-                      WhatsApp AI
-                    </Typography>
-                    <Typography variant="body2" sx={{ color: 'rgba(255, 255, 255, 0.7)' }}>
-                      Assistente inteligente
-                    </Typography>
-                  </Box>
-                </Box>
-                
-                <Chip
-                  label={whatsappStats.connected ? "Conectado" : "Desconectado"}
-                  icon={whatsappStats.connected ? undefined : undefined}
-                  sx={{
-                    backgroundColor: whatsappStats.connected ? 'rgba(34, 197, 94, 0.2)' : 'rgba(239, 68, 68, 0.2)',
-                    color: whatsappStats.connected ? '#22c55e' : '#ef4444',
-                    border: `1px solid ${whatsappStats.connected ? 'rgba(34, 197, 94, 0.3)' : 'rgba(239, 68, 68, 0.3)'}`,
-                    fontWeight: 600,
-                  }}
-                />
-              </Box>
-
-              <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 2.5 }}>
-                <Box 
-                  sx={{ 
-                    display: 'flex', 
-                    alignItems: 'center', 
-                    justifyContent: 'space-between',
-                    p: 2,
-                    borderRadius: '12px',
-                    background: 'rgba(255, 255, 255, 0.05)',
-                    border: '1px solid rgba(255, 255, 255, 0.1)',
-                    transition: 'all 0.2s',
-                    '&:hover': {
-                      background: 'rgba(255, 255, 255, 0.08)',
-                    }
-                  }}
-                >
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                    <Typography variant="body1" sx={{ color: 'rgba(255, 255, 255, 0.9)' }}>
-                      💬 Mensagens hoje
-                    </Typography>
-                  </Box>
-                  <Typography variant="h6" sx={{ color: '#ffffff', fontWeight: 700 }}>
-                    {loading ? '-' : whatsappStats.messagesTotal}
-                  </Typography>
-                </Box>
-
-                <Box 
-                  sx={{ 
-                    display: 'flex', 
-                    alignItems: 'center', 
-                    justifyContent: 'space-between',
-                    p: 2,
-                    borderRadius: '12px',
-                    background: 'rgba(255, 255, 255, 0.05)',
-                    border: '1px solid rgba(255, 255, 255, 0.1)',
-                    transition: 'all 0.2s',
-                    '&:hover': {
-                      background: 'rgba(255, 255, 255, 0.08)',
-                    }
-                  }}
-                >
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                    <Typography variant="body1" sx={{ color: 'rgba(255, 255, 255, 0.9)' }}>
-                      👥 Conversas ativas
-                    </Typography>
-                  </Box>
-                  <Typography variant="h6" sx={{ color: '#ffffff', fontWeight: 700 }}>
-                    {loading ? '-' : whatsappStats.activeConversations}
-                  </Typography>
-                </Box>
-
-                <Box 
-                  sx={{ 
-                    display: 'flex', 
-                    alignItems: 'center', 
-                    justifyContent: 'space-between',
-                    p: 2,
-                    borderRadius: '12px',
-                    background: 'rgba(255, 255, 255, 0.05)',
-                    border: '1px solid rgba(255, 255, 255, 0.1)',
-                    transition: 'all 0.2s',
-                    '&:hover': {
-                      background: 'rgba(255, 255, 255, 0.08)',
-                    }
-                  }}
-                >
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                    <Typography variant="body1" sx={{ color: 'rgba(255, 255, 255, 0.9)' }}>
-                      ⚡ Tempo de resposta
-                    </Typography>
-                  </Box>
-                  <Typography variant="h6" sx={{ color: '#ffffff', fontWeight: 700 }}>
-                    {loading ? '-' : whatsappStats.avgResponseTime > 0 ? `${(isNaN(whatsappStats.avgResponseTime) ? 0 : whatsappStats.avgResponseTime).toFixed(1)}s` : 'N/A'}
-                  </Typography>
-                </Box>
-              </Box>
-
-              {whatsappStats.connected && (
-                <>
-                  <Divider sx={{ borderColor: 'rgba(255, 255, 255, 0.1)', my: 3 }} />
-                  <Box sx={{ display: 'flex', gap: 2 }}>
-                    <Button
-                      variant="contained"
-                      startIcon={<WhatsApp />}
-                      href="/dashboard/conversations"
-                      sx={{ 
-                        flex: 1,
-                        background: 'linear-gradient(135deg, #10b981, #059669)',
-                        '&:hover': {
-                          background: 'linear-gradient(135deg, #059669, #047857)',
-                        },
-                        textTransform: 'none',
-                        fontWeight: 600,
-                        py: 1.5,
-                        borderRadius: '12px',
-                      }}
-                    >
-                      Ver Conversas
-                    </Button>
-                  </Box>
-                </>
-              )}
-            </CardContent>
-          </Card>
+          <Suspense fallback={<CardSkeleton />}>
+            <SofiaCard />
+          </Suspense>
         </Grid>
 
         {/* Third Row - Mini-Site Widget (Full Width) */}
         <Grid item xs={12}>
-          <MiniSiteWidgetFullWidth tenantId={tenantId || "default-tenant"} />
+          <Suspense fallback={<CardSkeleton />}>
+            <MiniSiteWidgetFullWidth tenantId={tenantId || "default-tenant"} />
+          </Suspense>
         </Grid>
 
         {/* Quick Actions */}
@@ -690,10 +570,10 @@ export default function DashboardPage() {
                 Ações Rápidas
               </Typography>
 
-              <Box sx={{ 
-                display: 'flex', 
-                gap: { xs: 1.5, md: 2 }, 
-                flexWrap: 'wrap', 
+              <Box sx={{
+                display: 'flex',
+                gap: { xs: 1.5, md: 2 },
+                flexWrap: 'wrap',
                 alignItems: 'center',
                 justifyContent: { xs: 'center', sm: 'flex-start' }
               }}>
@@ -717,95 +597,7 @@ export default function DashboardPage() {
                       transform: 'scale(0.98)',
                     }
                   }}
-                  onClick={() => window.location.href = '/dashboard/properties/create'}
-                />
-                <Chip
-                  label={`💬 Conversas (${whatsappStats.activeConversations})`}
-                  clickable
-                  sx={{
-                    background: 'rgba(139, 92, 246, 0.2)',
-                    color: '#d8b4fe',
-                    border: '1px solid rgba(139, 92, 246, 0.3)',
-                    fontWeight: 600,
-                    fontSize: { xs: '0.875rem', md: '1rem' },
-                    height: { xs: 44, md: 48 },
-                    px: { xs: 2, md: 3 },
-                    minWidth: { xs: 44, md: 48 },
-                    '&:hover': {
-                      background: 'rgba(139, 92, 246, 0.3)',
-                      transform: 'scale(1.05)',
-                    },
-                    '&:active': {
-                      transform: 'scale(0.98)',
-                    }
-                  }}
-                  onClick={() => window.location.href = '/dashboard/conversations'}
-                />
-                <Chip
-                  label="💰 Financeiro"
-                  clickable
-                  sx={{
-                    background: 'rgba(16, 185, 129, 0.2)',
-                    color: '#6ee7b7',
-                    border: '1px solid rgba(16, 185, 129, 0.3)',
-                    fontWeight: 600,
-                    fontSize: { xs: '0.875rem', md: '1rem' },
-                    height: { xs: 44, md: 48 },
-                    px: { xs: 2, md: 3 },
-                    minWidth: { xs: 44, md: 48 },
-                    '&:hover': {
-                      background: 'rgba(16, 185, 129, 0.3)',
-                      transform: 'scale(1.05)',
-                    },
-                    '&:active': {
-                      transform: 'scale(0.98)',
-                    }
-                  }}
-                  onClick={() => window.location.href = '/dashboard/financeiro'}
-                />
-                <Chip
-                  label="⚙️ Configurações"
-                  clickable
-                  sx={{
-                    background: 'rgba(245, 158, 11, 0.2)',
-                    color: '#fde68a',
-                    border: '1px solid rgba(245, 158, 11, 0.3)',
-                    fontWeight: 600,
-                    fontSize: { xs: '0.875rem', md: '1rem' },
-                    height: { xs: 44, md: 48 },
-                    px: { xs: 2, md: 3 },
-                    minWidth: { xs: 44, md: 48 },
-                    '&:hover': {
-                      background: 'rgba(245, 158, 11, 0.3)',
-                      transform: 'scale(1.05)',
-                    },
-                    '&:active': {
-                      transform: 'scale(0.98)',
-                    }
-                  }}
-                  onClick={() => window.location.href = '/dashboard/settings'}
-                />
-                <Chip
-                  label="🌐 Mini-Site"
-                  clickable
-                  sx={{
-                    background: 'rgba(236, 72, 153, 0.2)',
-                    color: '#f9a8d4',
-                    border: '1px solid rgba(236, 72, 153, 0.3)',
-                    fontWeight: 600,
-                    fontSize: { xs: '0.875rem', md: '1rem' },
-                    height: { xs: 44, md: 48 },
-                    px: { xs: 2, md: 3 },
-                    minWidth: { xs: 44, md: 48 },
-                    '&:hover': {
-                      background: 'rgba(236, 72, 153, 0.3)',
-                      transform: 'scale(1.05)',
-                    },
-                    '&:active': {
-                      transform: 'scale(0.98)',
-                    }
-                  }}
-                  onClick={() => window.location.href = '/dashboard/mini-site'}
+                  onClick={() => router.push('/dashboard/properties')}
                 />
                 <Chip
                   label="📅 Agenda"
@@ -827,7 +619,95 @@ export default function DashboardPage() {
                       transform: 'scale(0.98)',
                     }
                   }}
-                  onClick={() => window.location.href = '/dashboard/agenda'}
+                  onClick={() => router.push('/dashboard/agenda')}
+                />
+                <Chip
+                  label="💰 Financeiro"
+                  clickable
+                  sx={{
+                    background: 'rgba(16, 185, 129, 0.2)',
+                    color: '#6ee7b7',
+                    border: '1px solid rgba(16, 185, 129, 0.3)',
+                    fontWeight: 600,
+                    fontSize: { xs: '0.875rem', md: '1rem' },
+                    height: { xs: 44, md: 48 },
+                    px: { xs: 2, md: 3 },
+                    minWidth: { xs: 44, md: 48 },
+                    '&:hover': {
+                      background: 'rgba(16, 185, 129, 0.3)',
+                      transform: 'scale(1.05)',
+                    },
+                    '&:active': {
+                      transform: 'scale(0.98)',
+                    }
+                  }}
+                  onClick={() => router.push('/dashboard/financeiro')}
+                />
+                <Chip
+                  label="🌐 Mini-Site"
+                  clickable
+                  sx={{
+                    background: 'rgba(236, 72, 153, 0.2)',
+                    color: '#f9a8d4',
+                    border: '1px solid rgba(236, 72, 153, 0.3)',
+                    fontWeight: 600,
+                    fontSize: { xs: '0.875rem', md: '1rem' },
+                    height: { xs: 44, md: 48 },
+                    px: { xs: 2, md: 3 },
+                    minWidth: { xs: 44, md: 48 },
+                    '&:hover': {
+                      background: 'rgba(236, 72, 153, 0.3)',
+                      transform: 'scale(1.05)',
+                    },
+                    '&:active': {
+                      transform: 'scale(0.98)',
+                    }
+                  }}
+                  onClick={() => router.push('/dashboard/mini-site')}
+                />
+                <Chip
+                  label="⚙️ Configurações"
+                  clickable
+                  sx={{
+                    background: 'rgba(245, 158, 11, 0.2)',
+                    color: '#fde68a',
+                    border: '1px solid rgba(245, 158, 11, 0.3)',
+                    fontWeight: 600,
+                    fontSize: { xs: '0.875rem', md: '1rem' },
+                    height: { xs: 44, md: 48 },
+                    px: { xs: 2, md: 3 },
+                    minWidth: { xs: 44, md: 48 },
+                    '&:hover': {
+                      background: 'rgba(245, 158, 11, 0.3)',
+                      transform: 'scale(1.05)',
+                    },
+                    '&:active': {
+                      transform: 'scale(0.98)',
+                    }
+                  }}
+                  onClick={() => router.push('/dashboard/settings')}
+                />
+                <Chip
+                  label="💬 Ajuda & Suporte"
+                  clickable
+                  sx={{
+                    background: 'rgba(59, 130, 246, 0.2)',
+                    color: '#93c5fd',
+                    border: '1px solid rgba(59, 130, 246, 0.3)',
+                    fontWeight: 600,
+                    fontSize: { xs: '0.875rem', md: '1rem' },
+                    height: { xs: 44, md: 48 },
+                    px: { xs: 2, md: 3 },
+                    minWidth: { xs: 44, md: 48 },
+                    '&:hover': {
+                      background: 'rgba(59, 130, 246, 0.3)',
+                      transform: 'scale(1.05)',
+                    },
+                    '&:active': {
+                      transform: 'scale(0.98)',
+                    }
+                  }}
+                  onClick={() => router.push('/dashboard/help')}
                 />
               </Box>
             </CardContent>
@@ -836,14 +716,17 @@ export default function DashboardPage() {
       </Grid>
 
       {/* Dialog para criar nova visita */}
-      <CreateVisitDialog
-        open={showVisitDialog}
-        onClose={() => setShowVisitDialog(false)}
-        onSuccess={() => {
-          setShowVisitDialog(false);
-          // Recarregar dados se necessário
-        }}
-      />
+      {/* 🚀 PERFORMANCE: Suspense para lazy loading do dialog */}
+      <Suspense fallback={null}>
+        <CreateVisitDialog
+          open={showVisitDialog}
+          onClose={() => setShowVisitDialog(false)}
+          onSuccess={() => {
+            setShowVisitDialog(false);
+            // Recarregar dados se necessário
+          }}
+        />
+      </Suspense>
     </Box>
   );
 }

@@ -1,6 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import ErrorBoundary from '@/components/ErrorBoundary';
+import { logger } from '@/lib/utils/logger';
 import {
   Box,
   Typography,
@@ -55,6 +57,8 @@ import {
   Edit,
   Delete,
   CheckCircle,
+  ErrorOutline as ErrorOutlineIcon,
+  Refresh as RefreshIcon,
   Warning,
   Schedule,
   Assignment,
@@ -71,7 +75,7 @@ import {
 } from '@mui/icons-material';
 import { DragDropContext, Droppable, Draggable } from '@hello-pangea/dnd';
 import { useRouter } from 'next/navigation';
-import { format } from 'date-fns';
+import { format, isValid, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Lead, LeadStatus, Task, TaskStatus, Interaction } from '@/lib/types/crm';
 import { Client } from '@/lib/types';
@@ -85,6 +89,8 @@ import TaskDialog from './components/TaskDialog';
 import KanbanBoard from './components/KanbanBoard';
 import CRMStats from './components/CRMStats';
 import AIInsights from './components/AIInsights';
+import AdvancedAnalytics from './components/AdvancedAnalytics';
+import LeadPerformanceTracker from './components/LeadPerformanceTracker';
 
 const statusColumns = [
   { id: LeadStatus.NEW, title: 'Novos Leads', color: '#1976d2' },
@@ -95,12 +101,12 @@ const statusColumns = [
   { id: LeadStatus.WON, title: 'Ganhos', color: '#4caf50' },
 ];
 
-export default function CRMPage() {
+function CRMPageContent() {
   const { user } = useAuth();
   const services = useTenantServices();
   const { isReady } = useTenant();
   const router = useRouter();
-  const [view, setView] = useState<'pipeline' | 'list' | 'clients' | 'analytics'>('pipeline');
+  const [view, setView] = useState<'pipeline' | 'list' | 'clients' | 'analytics' | 'advanced-analytics' | 'performance'>('pipeline');
   const [leads, setLeads] = useState<Record<LeadStatus, Lead[]>>({
     [LeadStatus.NEW]: [],
     [LeadStatus.CONTACTED]: [],
@@ -123,19 +129,39 @@ export default function CRMPage() {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [hotLeads, setHotLeads] = useState<Lead[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
+  const [error, setError] = useState<string | null>(null);
+  const [retryCount, setRetryCount] = useState(0);
 
   useEffect(() => {
-    if (isReady && services) {
-      loadLeads();
-      loadTasks();
-      loadHotLeads();
-      loadClients();
-    }
-  }, [services, isReady]);
+    // 🛡️ PROTEÇÃO: Try-catch para evitar crashes no useEffect
+    const loadData = async () => {
+      if (!isReady || !services) return;
+
+      try {
+        await Promise.all([
+          loadLeads(),
+          loadTasks(),
+          loadHotLeads(),
+          loadClients()
+        ]);
+        setError(null); // Clear errors on successful load
+      } catch (error) {
+        const errorMsg = error instanceof Error ? error.message : 'Erro desconhecido';
+        logger.error('❌ [CRM] Failed to load data', {
+          error: errorMsg,
+          retryCount
+        });
+        setError(errorMsg);
+        setLoading(false);
+      }
+    };
+
+    loadData();
+  }, [services, isReady, retryCount]);
 
   const loadLeads = async () => {
     if (!isReady || !services) return;
-    
+
     try {
       setLoading(true);
       const leadsByStatus: Record<LeadStatus, Lead[]> = {
@@ -158,8 +184,14 @@ export default function CRMPage() {
       }
 
       setLeads(leadsByStatus);
+      logger.info('✅ [CRM] Leads loaded successfully', {
+        totalLeads: Object.values(leadsByStatus).flat().length
+      });
     } catch (error) {
-      console.error('Erro ao carregar leads:', error);
+      logger.error('❌ [CRM] Failed to load leads', {
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+      throw error; // Re-throw to be caught by parent
     } finally {
       setLoading(false);
     }
@@ -167,35 +199,53 @@ export default function CRMPage() {
 
   const loadTasks = async () => {
     if (!isReady || !services || !user?.id) return;
-    
+
     try {
       // Get tasks assigned to current user
       const userTasks = await services.tasks.getWhere('assignedTo', '==', user.id);
       setTasks(userTasks);
+      logger.info('✅ [CRM] Tasks loaded successfully', {
+        taskCount: userTasks.length
+      });
     } catch (error) {
-      console.error('Erro ao carregar tarefas:', error);
+      logger.error('❌ [CRM] Failed to load tasks', {
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+      throw error;
     }
   };
 
   const loadHotLeads = async () => {
     if (!isReady || !services) return;
-    
+
     try {
       const hot = await services.leads.getWhere('temperature', '==', 'hot');
       setHotLeads(hot);
+      logger.info('✅ [CRM] Hot leads loaded successfully', {
+        hotLeadsCount: hot.length
+      });
     } catch (error) {
-      console.error('Erro ao carregar leads quentes:', error);
+      logger.error('❌ [CRM] Failed to load hot leads', {
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+      throw error;
     }
   };
 
   const loadClients = async () => {
     if (!isReady || !services) return;
-    
+
     try {
       const clientList = await services.clients.getAll();
       setClients(clientList);
+      logger.info('✅ [CRM] Clients loaded successfully', {
+        clientCount: clientList.length
+      });
     } catch (error) {
-      console.error('Erro ao carregar clientes:', error);
+      logger.error('❌ [CRM] Failed to load clients', {
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+      throw error;
     }
   };
 
@@ -332,6 +382,34 @@ export default function CRMPage() {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '60vh' }}>
         <CircularProgress />
+      </Box>
+    );
+  }
+
+  // 🛡️ ERROR STATE UI
+  if (error) {
+    return (
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '60vh', p: 3 }}>
+        <Paper elevation={3} sx={{ p: 4, maxWidth: 500, textAlign: 'center' }}>
+          <ErrorOutlineIcon sx={{ fontSize: 64, color: 'error.main', mb: 2 }} />
+          <Typography variant="h5" gutterBottom color="error">
+            Erro ao Carregar Dados
+          </Typography>
+          <Typography variant="body2" color="text.secondary" paragraph>
+            {error}
+          </Typography>
+          <Button
+            variant="contained"
+            onClick={() => {
+              setError(null);
+              setRetryCount(prev => prev + 1);
+            }}
+            startIcon={<RefreshIcon />}
+            sx={{ mt: 2 }}
+          >
+            Tentar Novamente
+          </Button>
+        </Paper>
       </Box>
     );
   }
@@ -619,11 +697,23 @@ export default function CRMPage() {
             icon={<Groups />} 
             iconPosition="start" 
           />
-          <Tab 
-            label="Insights IA" 
-            value="analytics" 
-            icon={<AutoAwesome />} 
-            iconPosition="start" 
+          <Tab
+            label="Insights IA"
+            value="analytics"
+            icon={<AutoAwesome />}
+            iconPosition="start"
+          />
+          <Tab
+            label="Analytics Avançado"
+            value="advanced-analytics"
+            icon={<Analytics />}
+            iconPosition="start"
+          />
+          <Tab
+            label="Performance"
+            value="performance"
+            icon={<TrendingUp />}
+            iconPosition="start"
           />
         </Tabs>
       </Box>
@@ -672,7 +762,13 @@ export default function CRMPage() {
             </Box>
             <List>
               {getFilteredLeads()
-                .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
+                .sort((a, b) => {
+                  const dateA = a.updatedAt instanceof Date ? a.updatedAt :
+                    (typeof a.updatedAt === 'string' ? parseISO(a.updatedAt) : new Date());
+                  const dateB = b.updatedAt instanceof Date ? b.updatedAt :
+                    (typeof b.updatedAt === 'string' ? parseISO(b.updatedAt) : new Date());
+                  return (isValid(dateB) ? dateB : new Date()).getTime() - (isValid(dateA) ? dateA : new Date()).getTime();
+                })
                 .map((lead, index) => (
                   <Box key={lead.id}>
                     <ListItemButton onClick={() => handleLeadClick(lead)} sx={{ py: 2 }}>
@@ -714,7 +810,11 @@ export default function CRMPage() {
                             </Typography>
                             <Typography variant="body2" color="text.secondary">
                               🏷️ {lead.source} • 💬 {lead.totalInteractions} interações • 
-                              🕒 {format(new Date(lead.lastContactDate), 'dd/MM/yyyy', { locale: ptBR })}
+                              🕒 {(() => {
+                                const lastContactDate = lead.lastContactDate instanceof Date ? lead.lastContactDate :
+                                  (typeof lead.lastContactDate === 'string' ? parseISO(lead.lastContactDate) : new Date());
+                                return isValid(lastContactDate) ? format(lastContactDate, 'dd/MM/yyyy', { locale: ptBR }) : 'Data inválida';
+                              })()}
                             </Typography>
                             {lead.preferences.priceRange && (
                               <Typography variant="body2" color="text.secondary">
@@ -780,6 +880,21 @@ export default function CRMPage() {
           leads={Object.values(leads).flat()}
           onActionClick={(lead, action) => handleQuickAction(lead, action)}
           onRefresh={() => loadLeads()}
+        />
+      )}
+
+      {view === 'advanced-analytics' && (
+        <AdvancedAnalytics
+          leads={Object.values(leads).flat()}
+          onRefresh={() => loadLeads()}
+        />
+      )}
+
+      {view === 'performance' && (
+        <LeadPerformanceTracker
+          leads={Object.values(leads).flat()}
+          onLeadClick={handleLeadClick}
+          onQuickAction={handleQuickAction}
         />
       )}
 
@@ -850,5 +965,17 @@ export default function CRMPage() {
         onClick={() => setCreateLeadOpen(true)}
       />
     </Box>
+  );
+}
+
+// 🛡️ WRAP WITH ERROR BOUNDARY
+export default function CRMPage() {
+  return (
+    <ErrorBoundary
+      componentName="CRM Dashboard"
+      showDetails={process.env.NODE_ENV === 'development'}
+    >
+      <CRMPageContent />
+    </ErrorBoundary>
   );
 }

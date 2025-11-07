@@ -314,7 +314,7 @@ export default function CreateVisitDialog({ open, onClose, onSuccess }: CreateVi
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
             <CalendarToday sx={{ color: 'primary.main' }} />
             <Typography variant="h6" fontWeight={600}>
-              Agendar Nova Visita
+              Agendar Novo Evento
             </Typography>
             <Chip 
               label="Sofia IA" 

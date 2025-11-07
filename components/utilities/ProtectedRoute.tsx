@@ -16,29 +16,24 @@ export default function ProtectedRoute({ children }: ProtectedRouteProps) {
 
   useEffect(() => {
     if (!loading && !user) {
-      // Verificar se já está redirecionando para evitar loop
+      // ✅ NOVO: Evitar redirecionamentos múltiplos
       const isAlreadyRedirecting = sessionStorage.getItem('redirecting');
       if (isAlreadyRedirecting) return;
       
-      // Salvar path atual para redirecionar depois do login
-      if (pathname && pathname !== '/login') {
-        localStorage.setItem('redirectPath', pathname);
-      }
-      
-      // Marcar que está redirecionando
+      // Store the current path to redirect back after login
+      localStorage.setItem('redirectPath', pathname);
+      console.log('🔄 [ProtectedRoute] Redirecting unauthenticated user to login');
       sessionStorage.setItem('redirecting', 'true');
-      router.replace('/login');
+      router.replace('/login'); // ✅ replace em vez de push
     }
   }, [user, loading, router, pathname]);
 
-  // Loading state com transição suave
   if (loading) {
     return <LoadingScreen variant="creative" />;
   }
 
-  // Se não há usuário, mostrar loading enquanto redireciona
   if (!user) {
-    return <LoadingScreen variant="creative" />;
+    return null; // Will redirect to login
   }
 
   return <>{children}</>;

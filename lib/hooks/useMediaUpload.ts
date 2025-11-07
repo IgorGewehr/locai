@@ -1,454 +1,434 @@
 // lib/hooks/useMediaUpload.ts
-import { useState, useCallback } from 'react'
-import { ref, uploadBytesResumable, getDownloadURL, UploadTask, uploadBytes, uploadString } from 'firebase/storage'
-import { storage, auth } from '@/lib/firebase/config'
+// Production-ready unified media upload hook
+
+import { useState, useCallback, useRef } from 'react';
+import { ref, uploadBytesResumable, getDownloadURL, uploadBytes } from 'firebase/storage';
+import { storage } from '@/lib/firebase/config';
+import { useTenant } from '@/contexts/TenantContext';
+import { useAuth } from '@/contexts/AuthContext';
+import { logger } from '@/lib/utils/logger';
 import { 
   validateFileType, 
   validateFileSize, 
   generateUniqueId,
   compressImage,
-  isImageFile
-} from '@/lib/utils/mediaUtils'
-import { useTenant } from '@/contexts/TenantContext'
+  isImageFile 
+} from '@/lib/utils/mediaUtils';
+
+// Types
+export interface UploadProgress {
+  fileName: string;
+  progress: number;
+  status: 'uploading' | 'completed' | 'error';
+  url?: string;
+  error?: string;
+}
 
 export interface UploadedFile {
-  name: string
-  url: string
-  size: number
+  name: string;
+  url: string;
+  size: number;
+}
+
+export interface UseMediaUploadConfig {
+  maxFiles?: number;
+  maxSizeInMB?: number;
+  allowedTypes?: string[];
+  autoCompress?: boolean;
+  compressionQuality?: number;
 }
 
 export interface UseMediaUploadReturn {
-  uploadFiles: (files: File[], type: 'image' | 'video') => Promise<UploadedFile[]>
-  uploading: boolean
-  progress: number
-  error: string | null
-  clearError: () => void
+  uploadFiles: (files: File[], type: 'image' | 'video') => Promise<UploadedFile[]>;
+  uploading: boolean;
+  progress: Record<string, UploadProgress>;
+  error: string | null;
+  totalProgress: number;
+  clearError: () => void;
+  cancelUploads: () => void;
 }
 
-export function useMediaUpload(): UseMediaUploadReturn {
-  const [uploading, setUploading] = useState(false)
-  const [progress, setProgress] = useState(0)
-  const [error, setError] = useState<string | null>(null)
-  const { tenantId } = useTenant()
+// Default configurations
+const DEFAULT_CONFIG: Required<UseMediaUploadConfig> = {
+  maxFiles: 20,
+  maxSizeInMB: 10,
+  allowedTypes: ['image/', 'video/'],
+  autoCompress: true,
+  compressionQuality: 0.8
+};
+
+export function useMediaUpload(config: UseMediaUploadConfig = {}): UseMediaUploadReturn {
+  const { tenantId } = useTenant();
+  const { getFirebaseToken } = useAuth();
+  const finalConfig = { ...DEFAULT_CONFIG, ...config };
   
-  console.log('🎬 [useMediaUpload] Hook initialized', {
-    tenantId,
-    hasValidTenant: !!tenantId,
-    tenantIdType: typeof tenantId,
-    tenantIdLength: tenantId?.length || 0
-  })
+  // State
+  const [uploading, setUploading] = useState(false);
+  const [progress, setProgress] = useState<Record<string, UploadProgress>>({});
+  const [error, setError] = useState<string | null>(null);
   
+  // Refs for cancellation
+  const uploadTasksRef = useRef<Map<string, any>>(new Map());
+  const abortControllerRef = useRef<AbortController | null>(null);
+
+  // Calculated total progress
+  const totalProgress = Object.keys(progress).length > 0 
+    ? Object.values(progress).reduce((sum, p) => sum + p.progress, 0) / Object.keys(progress).length
+    : 0;
+
+  // Clear error state
+  const clearError = useCallback(() => {
+    setError(null);
+  }, []);
+
+  // Cancel all uploads
+  const cancelUploads = useCallback(() => {
+    logger.info('Cancelling all uploads', { activeUploads: uploadTasksRef.current.size });
+    
+    // Cancel Firebase upload tasks
+    uploadTasksRef.current.forEach((task, fileName) => {
+      try {
+        task.cancel();
+        setProgress(prev => ({
+          ...prev,
+          [fileName]: {
+            ...prev[fileName],
+            status: 'error',
+            error: 'Upload cancelled'
+          }
+        }));
+      } catch (error) {
+        logger.warn('Failed to cancel upload task', { fileName, error });
+      }
+    });
+    
+    // Cancel API requests
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+    
+    uploadTasksRef.current.clear();
+    setUploading(false);
+  }, []);
+
   // Validate tenant ID
-  if (!tenantId) {
-    console.error('❌ [useMediaUpload] No tenant ID available!');
-  }
+  const validateTenant = useCallback(() => {
+    if (!tenantId) {
+      throw new Error('Tenant ID é obrigatório para upload de mídia');
+    }
+  }, [tenantId]);
 
-  // Helper function to convert file to data URL
-  const fileToDataUrl = (file: File): Promise<string> => {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader()
-      reader.onload = () => resolve(reader.result as string)
-      reader.onerror = reject
-      reader.readAsDataURL(file)
-    })
-  }
+  // Validate files
+  const validateFiles = useCallback((files: File[], type: 'image' | 'video') => {
+    const maxSize = type === 'image' ? finalConfig.maxSizeInMB : finalConfig.maxSizeInMB * 5; // 50MB for videos
+    const allowedTypes = type === 'image' ? ['image/'] : ['video/'];
 
-  // Fallback method using base64/data URL
-  const uploadWithDataUrl = async (file: File, type: 'image' | 'video'): Promise<UploadedFile> => {
-    console.log('📤 [uploadWithDataUrl] Starting data URL upload', {
-      fileName: file.name,
-      fileSize: file.size,
-      fileType: file.type,
-      tenantId
-    });
-    
-    const dataUrl = await fileToDataUrl(file);
-    console.log('🔄 [uploadWithDataUrl] File converted to data URL', {
-      dataUrlLength: dataUrl.length,
-      dataUrlPreview: dataUrl.substring(0, 50) + '...'
-    });
-    
+    for (const file of files) {
+      if (!validateFileType(file, allowedTypes)) {
+        throw new Error(`Tipo de arquivo não suportado: ${file.name}`);
+      }
+      if (!validateFileSize(file, maxSize)) {
+        throw new Error(`Arquivo muito grande: ${file.name} (máximo ${maxSize}MB)`);
+      }
+    }
+  }, [finalConfig]);
+
+  // Prepare file for upload (compression, etc.)
+  const prepareFile = useCallback(async (file: File, type: 'image' | 'video'): Promise<File> => {
+    if (type === 'image' && finalConfig.autoCompress && file.size > 2 * 1024 * 1024) { // 2MB threshold
+      logger.info('Compressing image', { fileName: file.name, originalSize: file.size });
+      return await compressImage(file, finalConfig.compressionQuality);
+    }
+    return file;
+  }, [finalConfig]);
+
+  // Upload single file to Firebase Storage
+  const uploadSingleFile = useCallback(async (
+    file: File, 
+    type: 'image' | 'video',
+    onProgress: (progress: number) => void
+  ): Promise<UploadedFile> => {
     const fileName = `${generateUniqueId()}-${file.name}`;
-    // Use multi-tenant path structure with effective tenant ID
-    const effectiveTenantId = tenantId || (auth.currentUser?.uid);
-    const storagePath = `tenants/${effectiveTenantId}/properties/${type}s/${fileName}`;
-    console.log('📁 [uploadWithDataUrl] Storage path created', { storagePath, effectiveTenantId });
-    
+    const storagePath = `tenants/${tenantId}/properties/${type}s/${fileName}`;
     const storageRef = ref(storage, storagePath);
 
-    const snapshot = await uploadString(storageRef, dataUrl, 'data_url');
-    console.log('✅ [uploadWithDataUrl] Upload to Firebase successful', {
-      fullPath: snapshot.ref.fullPath,
-      bucket: snapshot.ref.bucket
+    logger.info('Starting file upload', {
+      fileName: file.name,
+      storagePath,
+      fileSize: file.size,
+      fileType: file.type
     });
-    
-    const url = await getDownloadURL(snapshot.ref);
-    console.log('🔗 [uploadWithDataUrl] Download URL obtained', {
-      url,
-      urlLength: url.length,
-      isFirebaseUrl: url.includes('firebasestorage.googleapis.com')
-    });
-    
-    return {
-      name: file.name,
-      url,
-      size: file.size,
-    };
-  };
 
-  // API fallback method
-  const uploadViaAPI = async (files: File[], type: 'image' | 'video'): Promise<UploadedFile[]> => {
+    // Try resumable upload first
+    try {
+      return await new Promise<UploadedFile>((resolve, reject) => {
+        const uploadTask = uploadBytesResumable(storageRef, file);
+        
+        // Store task for cancellation
+        uploadTasksRef.current.set(file.name, uploadTask);
+
+        uploadTask.on(
+          'state_changed',
+          (snapshot) => {
+            const progressPercent = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
+            onProgress(progressPercent);
+          },
+          (error) => {
+            logger.error('Resumable upload failed', { 
+              fileName: file.name, 
+              error: error.message,
+              errorCode: error.code 
+            });
+            uploadTasksRef.current.delete(file.name);
+            reject(new Error(`Upload failed: ${error.message}`));
+          },
+          async () => {
+            try {
+              const url = await getDownloadURL(uploadTask.snapshot.ref);
+              uploadTasksRef.current.delete(file.name);
+              
+              logger.info('Upload completed successfully', {
+                fileName: file.name,
+                url: url.substring(0, 50) + '...'
+              });
+
+              resolve({
+                name: file.name,
+                url,
+                size: file.size
+              });
+            } catch (urlError) {
+              logger.error('Failed to get download URL', { fileName: file.name, urlError });
+              reject(new Error('Failed to get download URL'));
+            }
+          }
+        );
+      });
+    } catch (resumableError) {
+      logger.warn('Resumable upload failed, trying simple upload', { 
+        fileName: file.name, 
+        error: resumableError 
+      });
+
+      // Fallback to simple upload
+      try {
+        const snapshot = await uploadBytes(storageRef, file);
+        const url = await getDownloadURL(snapshot.ref);
+        onProgress(100);
+
+        logger.info('Simple upload successful', {
+          fileName: file.name,
+          url: url.substring(0, 50) + '...'
+        });
+
+        return {
+          name: file.name,
+          url,
+          size: file.size
+        };
+      } catch (simpleError) {
+        logger.error('Simple upload also failed', { fileName: file.name, simpleError });
+        throw new Error(`All upload methods failed for ${file.name}`);
+      }
+    }
+  }, [tenantId]);
+
+  // Fallback to API upload
+  const uploadViaAPI = useCallback(async (files: File[], type: 'image' | 'video'): Promise<UploadedFile[]> => {
+    logger.info('Using API fallback upload', { fileCount: files.length, type });
+
     const formData = new FormData();
-    files.forEach(file => {
-      formData.append('files', file);
-    });
+    files.forEach(file => formData.append('files', file));
     formData.append('type', type);
+
+    abortControllerRef.current = new AbortController();
+
+    const token = await getFirebaseToken();
+    if (!token) {
+      throw new Error('Token de autenticação não disponível');
+    }
 
     const response = await fetch('/api/upload/media', {
       method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
       body: formData,
+      signal: abortControllerRef.current.signal
     });
 
     if (!response.ok) {
       const errorData = await response.json();
-      throw new Error(errorData.error || 'Upload failed');
+      throw new Error(errorData.error || `API upload failed: ${response.statusText}`);
     }
 
     const result = await response.json();
+    logger.info('API upload successful', { fileCount: result.files.length });
+    
     return result.files;
-  };
+  }, []);
 
+  // Main upload function
   const uploadFiles = useCallback(async (
     files: File[], 
     type: 'image' | 'video'
   ): Promise<UploadedFile[]> => {
-    console.log('🚀 [uploadFiles] Starting upload process', {
-      filesCount: files.length,
-      type,
-      tenantId,
-      hasTenantId: !!tenantId,
-      fileNames: files.map(f => f.name),
-      fileSizes: files.map(f => f.size),
-      fileTypes: files.map(f => f.type),
-      authUser: auth.currentUser?.uid,
-      hasAuth: !!auth.currentUser
-    });
-    
-    // Fallback para usar o UID do usuário se tenantId não estiver disponível
-    let effectiveTenantId = tenantId;
-    if (!effectiveTenantId && auth.currentUser) {
-      effectiveTenantId = auth.currentUser.uid;
-      console.log('⚠️ [uploadFiles] Using fallback tenantId from auth user', {
-        fallbackTenantId: effectiveTenantId
-      });
-    }
-    
-    if (!effectiveTenantId) {
-      const error = 'Cannot upload files: No tenant ID available and no authenticated user';
-      console.error('❌ [uploadFiles]', error);
-      throw new Error(error);
-    }
-    
-    setUploading(true)
-    setError(null)
-    setProgress(0)
-
-    const maxSizeInMB = type === 'image' ? 10 : 50
-    const allowedTypes = type === 'image' ? ['image/'] : ['video/']
-
     try {
-      // Check authentication first
-      if (!auth.currentUser) {
-        console.error('❌ [uploadFiles] No authenticated user');
-        throw new Error('Você precisa estar autenticado para fazer upload de arquivos')
-      }
+      validateTenant();
+      validateFiles(files, type);
       
-      console.log('✅ [uploadFiles] User authenticated', {
-        uid: auth.currentUser.uid,
-        email: auth.currentUser.email,
-        emailVerified: auth.currentUser.emailVerified,
-        isAnonymous: auth.currentUser.isAnonymous,
-        metadata: auth.currentUser.metadata,
-        providerId: auth.currentUser.providerId,
-        tenantId: (auth.currentUser as any).tenantId
+      if (!files.length) return [];
+
+      setUploading(true);
+      setError(null);
+      setProgress({});
+
+      logger.info('Starting batch upload', {
+        fileCount: files.length,
+        type,
+        tenantId,
+        fileNames: files.map(f => f.name)
       });
-      
-      // Get fresh auth token to check permissions
-      try {
-        const token = await auth.currentUser.getIdToken();
-        console.log('🔑 [uploadFiles] Auth token obtained', {
-          hasToken: !!token,
-          tokenLength: token?.length
-        });
-        
-        const tokenResult = await auth.currentUser.getIdTokenResult();
-        console.log('🔍 [uploadFiles] Token claims', {
-          claims: tokenResult.claims,
-          expirationTime: tokenResult.expirationTime,
-          issuedAtTime: tokenResult.issuedAtTime
-        });
-      } catch (tokenError) {
-        console.error('❌ [uploadFiles] Failed to get auth token', tokenError);
-      }
-      
-      // Validate files
-      for (const file of files) {        
-        if (!validateFileType(file, allowedTypes)) {
-          throw new Error(`Tipo de arquivo não suportado: ${file.name}`)
-        }
-        if (!validateFileSize(file, maxSizeInMB)) {
-          throw new Error(`Arquivo muito grande: ${file.name} (máximo ${maxSizeInMB}MB)`)
-        }
-      }
 
-      console.log(`[MediaUpload] Starting upload of ${files.length} files (${type})`);
-
-      const uploadPromises = files.map(async (file, index) => {
-        console.log(`[MediaUpload] Processing file ${index + 1}/${files.length}: ${file.name}`);
-        
-        try {
-          // Compress images if needed
-          let fileToUpload = file
-          if (isImageFile(file) && file.size > 2 * 1024 * 1024) { // 2MB threshold
-            console.log(`[MediaUpload] Compressing image: ${file.name}`);
-            fileToUpload = await compressImage(file, 0.8)
+      // Initialize progress for all files
+      files.forEach(file => {
+        setProgress(prev => ({
+          ...prev,
+          [file.name]: {
+            fileName: file.name,
+            progress: 0,
+            status: 'uploading'
           }
+        }));
+      });
 
-          const fileName = `${generateUniqueId()}-${file.name}`
-          // Use multi-tenant path structure
-          const storagePath = `tenants/${effectiveTenantId}/properties/${type}s/${fileName}`;
-          console.log(`🎯 [MediaUpload] Creating storage reference`, {
-            fileName,
-            storagePath,
-            tenantId,
-            effectiveTenantId,
+      // Process files in parallel
+      const uploadPromises = files.map(async (file) => {
+        try {
+          const preparedFile = await prepareFile(file, type);
+          
+          const result = await uploadSingleFile(
+            preparedFile,
             type,
-            originalFileName: file.name
-          });
-          
-          // Check if storage is initialized
-          if (!storage) {
-            console.error('❌ [MediaUpload] Firebase Storage not initialized!');
-            throw new Error('Storage not initialized');
-          }
-          
-          console.log(`🔧 [MediaUpload] Creating storage reference`, {
-            hasStorage: !!storage,
-            storagePath,
-            storageType: typeof storage,
-            storageApp: (storage as any).app?.name
-          });
-          
-          const storageRef = ref(storage, storagePath);
-          
-          console.log(`📍 [MediaUpload] Storage reference created`, {
-            fullPath: storageRef.fullPath,
-            bucket: storageRef.bucket,
-            name: storageRef.name,
-            hasRef: !!storageRef
-          });
-          
-          // Try primary method: uploadBytesResumable
-          try {
-            console.log(`[MediaUpload] Attempting primary upload for: ${file.name}`);
-            console.log(`🆕 [MediaUpload] Before uploadBytesResumable call`, {
-              storageRefExists: !!storageRef,
-              fileExists: !!fileToUpload,
-              storageExists: !!storage,
-              fileType: fileToUpload.type,
-              fileSize: fileToUpload.size
-            });
-            
-            // Test simple uploadBytes first
-            console.log(`🧪 [MediaUpload] Testing simple uploadBytes first`);
-            try {
-              const testSnapshot = await uploadBytes(storageRef, fileToUpload);
-              console.log(`✅ [MediaUpload] Simple uploadBytes successful!`, {
-                fullPath: testSnapshot.ref.fullPath,
-                bucket: testSnapshot.ref.bucket
-              });
-              const testUrl = await getDownloadURL(testSnapshot.ref);
-              console.log(`🎉 [MediaUpload] Got URL from simple upload:`, testUrl);
-              return {
-                name: file.name,
-                url: testUrl,
-                size: file.size
-              };
-            } catch (simpleError) {
-              console.error(`❌ [MediaUpload] Simple uploadBytes failed`, {
-                error: simpleError,
-                errorMessage: simpleError instanceof Error ? simpleError.message : 'Unknown',
-                errorCode: (simpleError as any)?.code
-              });
-              // Continue to resumable upload
-            }
-            
-            return await new Promise<UploadedFile>((resolve, reject) => {
-              console.log(`📤 [MediaUpload] Creating upload task`, {
-                fileName: file.name,
-                fileSize: fileToUpload.size,
-                storageRefPath: storageRef.fullPath
-              });
-              
-              let uploadTask;
-              try {
-                uploadTask = uploadBytesResumable(storageRef, fileToUpload);
-                console.log(`✅ [MediaUpload] Upload task created`, {
-                  hasUploadTask: !!uploadTask,
-                  taskState: (uploadTask as any).state
-                });
-              } catch (taskError) {
-                console.error(`❌ [MediaUpload] Failed to create upload task`, {
-                  error: taskError,
-                  errorMessage: taskError instanceof Error ? taskError.message : 'Unknown',
-                  errorCode: (taskError as any)?.code,
-                  errorName: (taskError as any)?.name,
-                  errorStack: taskError instanceof Error ? taskError.stack : undefined
-                });
-                throw new Error('TASK_CREATION_FAILED');
-              }
-              
-              // Set a timeout to prevent hanging
-              const uploadTimeout = setTimeout(() => {
-                console.log(`[MediaUpload] Primary upload timeout for: ${file.name}`);
-                uploadTask.cancel();
-                reject(new Error('PRIMARY_TIMEOUT'));
-              }, 30000); // Increased timeout
-              
-              uploadTask.on('state_changed',
-                // Progress callback
-                (snapshot) => {
-                  const fileProgress = (snapshot.bytesTransferred / snapshot.totalBytes) * 100;
-                  const overallProgress = ((index * 100) + fileProgress) / files.length;
-                  console.log(`📊 [MediaUpload] Upload progress`, {
-                    fileName: file.name,
-                    fileProgress: `${fileProgress.toFixed(2)}%`,
-                    overallProgress: `${overallProgress.toFixed(2)}%`,
-                    bytesTransferred: snapshot.bytesTransferred,
-                    totalBytes: snapshot.totalBytes,
-                    state: snapshot.state
-                  });
-                  setProgress(overallProgress);
-                },
-                // Error callback
-                (error) => {
-                  clearTimeout(uploadTimeout);
-                  console.error(`❌ [MediaUpload] Primary upload failed`, {
-                    fileName: file.name,
-                    hasError: !!error,
-                    errorType: typeof error,
-                    errorCode: error?.code || (error as any)?.code || 'NO_CODE',
-                    errorMessage: error?.message || (error as any)?.message || 'NO_MESSAGE',
-                    errorName: error?.name || (error as any)?.name || 'NO_NAME',
-                    serverResponse: (error as any)?.serverResponse || 'NO_RESPONSE',
-                    customData: (error as any)?.customData || 'NO_CUSTOM_DATA',
-                    fullError: error || 'ERROR_IS_UNDEFINED',
-                    errorString: error ? error.toString() : 'NO_ERROR_STRING',
-                    errorKeys: error ? Object.keys(error) : []
-                  });
-                  reject(new Error(`PRIMARY_FAILED: ${error?.message || error?.code || 'Unknown error'}` ));
-                },
-                // Success callback
-                async () => {
-                  clearTimeout(uploadTimeout);
-                  console.log(`✅ [MediaUpload] Upload task completed for: ${file.name}`);
-                  
-                  try {
-                    const url = await getDownloadURL(uploadTask.snapshot.ref);
-                    console.log(`🎉 [MediaUpload] Primary upload successful`, {
-                      fileName: file.name,
-                      url,
-                      urlLength: url.length,
-                      isFirebaseUrl: url.includes('firebasestorage.googleapis.com'),
-                      fullPath: uploadTask.snapshot.ref.fullPath,
-                      bucket: uploadTask.snapshot.ref.bucket
-                    });
-                    resolve({
-                      name: file.name,
-                      url,
-                      size: file.size,
-                    });
-                  } catch (urlError) {
-                    console.error(`❌ [MediaUpload] Error getting download URL`, {
-                      fileName: file.name,
-                      error: urlError,
-                      errorMessage: urlError instanceof Error ? urlError.message : 'Unknown',
-                      snapshot: uploadTask.snapshot
-                    });
-                    reject(new Error('PRIMARY_FAILED'));
-                  }
+            (progressPercent) => {
+              setProgress(prev => ({
+                ...prev,
+                [file.name]: {
+                  ...prev[file.name],
+                  progress: progressPercent,
+                  status: progressPercent === 100 ? 'completed' : 'uploading'
                 }
-              );
-            });
-          } catch (primaryError) {
-            console.error(`[MediaUpload] Primary upload exception caught`, {
-              fileName: file.name,
-              errorMessage: primaryError instanceof Error ? primaryError.message : 'Unknown',
-              errorType: typeof primaryError,
-              errorString: primaryError ? primaryError.toString() : 'NO_ERROR',
-              isPrimaryTimeout: primaryError instanceof Error && primaryError.message === 'PRIMARY_TIMEOUT',
-              isPrimaryFailed: primaryError instanceof Error && primaryError.message.includes('PRIMARY_FAILED'),
-              isTaskCreationFailed: primaryError instanceof Error && primaryError.message === 'TASK_CREATION_FAILED'
-            });
-            console.log(`[MediaUpload] Trying fallback method for: ${file.name}`);
-            // Try fallback method: uploadString with data URL
-            try {
-              console.log(`[MediaUpload] Attempting fallback upload for: ${file.name}`);
-              const result = await uploadWithDataUrl(fileToUpload, type);
-              console.log(`[MediaUpload] Fallback upload successful for: ${file.name}`);
-              
-              // Update progress for fallback
-              const overallProgress = ((index + 1) * 100) / files.length;
-              setProgress(overallProgress);
-              
-              return result;
-            } catch (fallbackError) {
-              console.error(`[MediaUpload] Fallback upload failed for: ${file.name}`, fallbackError);
-              throw new Error(`Erro ao enviar ${file.name}. Tente novamente.`);
+              }));
             }
-          }
-        } catch (err) {
-          throw new Error(`Erro ao preparar upload de ${file.name}: ${err instanceof Error ? err.message : 'Erro desconhecido'}`)
+          );
+
+          setProgress(prev => ({
+            ...prev,
+            [file.name]: {
+              ...prev[file.name],
+              status: 'completed',
+              url: result.url
+            }
+          }));
+
+          return result;
+        } catch (error) {
+          const errorMessage = error instanceof Error ? error.message : 'Upload failed';
+          
+          setProgress(prev => ({
+            ...prev,
+            [file.name]: {
+              ...prev[file.name],
+              status: 'error',
+              error: errorMessage
+            }
+          }));
+
+          logger.error('File upload failed', { 
+            fileName: file.name, 
+            error: errorMessage 
+          });
+
+          throw error;
         }
-      })
+      });
 
       try {
-        console.log(`[MediaUpload] Executing ${uploadPromises.length} upload promises`);
-        const results = await Promise.all(uploadPromises)
-        console.log(`[MediaUpload] All uploads completed successfully. Total: ${results.length}`);
-        return results
+        const results = await Promise.all(uploadPromises);
+        
+        logger.info('All uploads completed successfully', {
+          totalFiles: results.length,
+          successfulUploads: results.length
+        });
+
+        return results;
       } catch (batchError) {
-        console.error('[MediaUpload] Batch upload failed, trying API fallback', batchError);
-        // Last resort: API upload for all files
-        try {
-          console.log('[MediaUpload] Attempting API upload fallback');
-          const apiResults = await uploadViaAPI(files, type);
-          console.log('[MediaUpload] API upload successful');
-          return apiResults;
-        } catch (apiError) {
-          console.error('[MediaUpload] API upload also failed', apiError);
-          throw new Error('Falha em todos os métodos de upload. Verifique sua conexão.');
+        logger.warn('Some uploads failed, trying API fallback', { 
+          batchError: batchError instanceof Error ? batchError.message : 'Unknown error' 
+        });
+
+        // Try API fallback for failed files
+        const failedFiles = files.filter(file => {
+          const fileProgress = progress[file.name];
+          return !fileProgress || fileProgress.status === 'error';
+        });
+
+        if (failedFiles.length > 0) {
+          logger.info('Retrying failed files via API', { failedCount: failedFiles.length });
+          
+          try {
+            const apiResults = await uploadViaAPI(failedFiles, type);
+            
+            // Update progress for API uploaded files
+            apiResults.forEach(result => {
+              setProgress(prev => ({
+                ...prev,
+                [result.name]: {
+                  fileName: result.name,
+                  progress: 100,
+                  status: 'completed',
+                  url: result.url
+                }
+              }));
+            });
+
+            // Combine successful direct uploads with API uploads
+            const successfulDirectUploads = files
+              .filter(file => progress[file.name]?.status === 'completed')
+              .map(file => ({
+                name: file.name,
+                url: progress[file.name].url!,
+                size: file.size
+              }));
+
+            return [...successfulDirectUploads, ...apiResults];
+          } catch (apiError) {
+            logger.error('API fallback also failed', { apiError });
+            throw new Error('All upload methods failed. Please check your connection and try again.');
+          }
         }
+
+        throw batchError;
       }
     } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Erro no upload'
-      setError(errorMessage)
-      throw err
+      const errorMessage = err instanceof Error ? err.message : 'Unknown upload error';
+      setError(errorMessage);
+      logger.error('Upload batch failed completely', { error: errorMessage });
+      throw err;
     } finally {
-      setUploading(false)
-      setProgress(0)
+      setUploading(false);
+      uploadTasksRef.current.clear();
+      abortControllerRef.current = null;
     }
-  }, [tenantId])
-
-  const clearError = useCallback(() => {
-    setError(null)
-  }, [])
+  }, [validateTenant, validateFiles, prepareFile, uploadSingleFile, uploadViaAPI, progress]);
 
   return {
     uploadFiles,
     uploading,
     progress,
     error,
+    totalProgress,
     clearError,
-  }
+    cancelUploads
+  };
 }

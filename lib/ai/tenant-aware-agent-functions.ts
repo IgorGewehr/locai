@@ -8,6 +8,8 @@ import { Property } from '@/lib/types/property';
 import { Client } from '@/lib/types/client';
 import { Reservation, ReservationStatus, ReservationSource, PaymentMethod, PaymentStatus } from '@/lib/types/reservation';
 import { VisitAppointment, VisitStatus } from '@/lib/types/visit-appointment';
+// import { Ticket, TicketResponse, CreateTicketRequest, TicketStatus, TicketPriority, TicketType } from '@/lib/types/ticket';
+// import { TicketServiceV2 } from '@/lib/services/ticket-service-v2';
 import { propertyCache } from '@/lib/cache/property-cache-manager';
 import { leadScoringService } from '@/lib/services/lead-scoring-service';
 
@@ -169,6 +171,48 @@ interface CheckAvailabilityArgs {
   propertyName: string; // Mudado de propertyId para propertyName
   checkIn: string;
   checkOut: string;
+}
+
+// Interface para verificar disponibilidade da agenda
+interface CheckAgendaAvailabilityArgs {
+  year: number;    // Ano (ex: 2025)
+  month: number;   // Mês (1-12)
+  day?: number;    // Dia opcional - se fornecido, retorna apenas esse dia
+}
+
+// Interface para slot ocupado na agenda
+interface OccupiedTimeSlot {
+  id: string;
+  date: string;           // YYYY-MM-DD
+  startTime: string;      // HH:MM
+  endTime: string;        // HH:MM (calculado baseado em duration)
+  duration: number;       // Em minutos
+  title: string;          // Título do evento/visita
+  clientName: string;
+  clientPhone?: string;
+  type: 'meeting' | 'visit' | 'blocked';  // Tipo do evento
+  status: string;         // Status da agenda
+  notes?: string;
+}
+
+// Interface para resposta de disponibilidade da agenda
+interface AgendaAvailabilityResponse {
+  success: boolean;
+  date?: string;              // Data consultada (se day fornecido)
+  month?: string;             // Mês consultado (se day não fornecido)
+  occupiedSlots: OccupiedTimeSlot[];
+  totalOccupied: number;
+  availableSuggestions?: string[];  // Horários livres sugeridos
+  workingHours?: {
+    start: string;            // Horário de início do trabalho
+    end: string;              // Horário de fim do trabalho
+    lunchBreak?: {
+      start: string;
+      end: string;
+    };
+  };
+  error?: string;
+  tenantId: string;
 }
 
 // Função para criar transação financeira
@@ -335,6 +379,131 @@ interface AnalyzePerformanceArgs {
   compareWithPrevious?: boolean;
 }
 
+// ===== TICKET FUNCTION INTERFACES =====
+
+interface CreateSupportTicketArgs {
+  subject: string;
+  description: string;
+  priority?: 'low' | 'medium' | 'high';
+  type?: 'support' | 'technical' | 'billing' | 'feature_request' | 'bug_report' | 'question';
+  clientPhone?: string; // Para identificar o usuário
+  userEmail?: string;
+  userName?: string;
+}
+
+interface GetUserTicketsArgs {
+  clientPhone?: string;
+  limit?: number;
+  status?: 'open' | 'in_progress' | 'resolved' | 'closed';
+}
+
+// ===== CRM ADVANCED FUNCTION INTERFACES =====
+
+interface AnalyzeLeadBehaviorArgs {
+  clientPhone?: string;
+  leadId?: string;
+  includeAIPredictions?: boolean;
+}
+
+interface UpdateLeadTemperatureArgs {
+  clientPhone?: string;
+  leadId?: string;
+  temperature: 'cold' | 'warm' | 'hot';
+  reason?: string;
+}
+
+interface PredictConversionArgs {
+  clientPhone?: string;
+  leadId?: string;
+  includeRecommendations?: boolean;
+}
+
+interface SegmentCustomersArgs {
+  segmentType: 'behavior' | 'value' | 'lifecycle' | 'geographic' | 'demographic';
+  criteria?: {
+    minScore?: number;
+    maxScore?: number;
+    sources?: string[];
+    ageRange?: { min: number; max: number };
+    valueRange?: { min: number; max: number };
+  };
+}
+
+interface GenerateInsightsArgs {
+  type: 'lead_performance' | 'conversion_trends' | 'source_analysis' | 'pipeline_health' | 'predictive_analytics';
+  period?: '7d' | '30d' | '90d' | '6m' | '1y';
+  includeAI?: boolean;
+}
+
+// ===== NOVAS INTERFACES CRM =====
+
+interface GetLeadDetailsArgs {
+  leadId?: string;
+  clientPhone?: string;
+  includeInteractions?: boolean;
+  includeTasks?: boolean;
+  includeAnalytics?: boolean;
+  includeRecommendations?: boolean;
+}
+
+interface GetLeadsListArgs {
+  status?: string | string[];
+  source?: string | string[];
+  temperature?: 'cold' | 'warm' | 'hot';
+  assignedTo?: string;
+  minScore?: number;
+  maxScore?: number;
+  createdAfter?: string;
+  createdBefore?: string;
+  limit?: number;
+  offset?: number;
+  sortBy?: 'score' | 'lastContactDate' | 'createdAt' | 'temperature';
+  sortOrder?: 'asc' | 'desc';
+  includeAnalytics?: boolean;
+}
+
+interface AddLeadInteractionArgs {
+  leadId?: string;
+  clientPhone?: string;
+  type: 'whatsapp_message' | 'phone_call' | 'email' | 'visit' | 'meeting' | 'note' | 'property_view' | 'quote_sent';
+  content: string;
+  sentiment?: 'positive' | 'neutral' | 'negative';
+  metadata?: Record<string, any>;
+  updateScore?: boolean;
+  autoClassify?: boolean;
+}
+
+interface AnalyzeLeadPerformanceArgs {
+  leadId?: string;
+  clientPhone?: string;
+  timeRange?: '7d' | '30d' | '90d' | '6m';
+  includeRecommendations?: boolean;
+  includePredictions?: boolean;
+  includeComparison?: boolean;
+}
+
+interface FollowUpLeadArgs {
+  leadId?: string;
+  clientPhone?: string;
+  followUpType: 'call' | 'whatsapp' | 'email' | 'visit' | 'proposal';
+  priority?: 'low' | 'medium' | 'high' | 'urgent';
+  scheduledFor?: string;
+  message?: string;
+  autoExecute?: boolean;
+  assignTo?: string;
+}
+
+interface LeadPipelineMovementArgs {
+  leadId?: string;
+  clientPhone?: string;
+  currentStatus?: string;
+  newStatus?: string;
+  reason?: string;
+  autoAdvance?: boolean;
+  createTasks?: boolean;
+  assignTo?: string;
+}
+
 // ===== IMPORTS ADICIONAIS =====
 import { Lead, LeadStatus, InteractionType } from '@/lib/types/crm';
 import { FinancialMovement, CreateFinancialMovementInput } from '@/lib/types/financial-movement';
@@ -405,17 +574,31 @@ export async function searchProperties(args: SearchPropertiesArgs, tenantId: str
     if (args.location) {
       const location = args.location.toLowerCase();
       
-      logger.info('🎯 [TenantAgent] Aplicando filtro de localização', {
+      logger.info('🎯 [TenantAgent] Aplicando filtro de localização (com campo location concatenado)', {
         tenantId,
         searchTerm: location,
         propertiesBeforeFilter: filteredProperties.length
       });
       
       filteredProperties = filteredProperties.filter(property => {
+        // ✅ NOVA ABORDAGEM: Use o campo location concatenado primeiro (mais eficiente)
+        if (property.location) {
+          const matchLocation = property.location.toLowerCase().includes(location);
+          if (matchLocation) {
+            logger.debug('📍 [TenantAgent] Match encontrado via campo location', {
+              propertyId: property.id,
+              searchTerm: location,
+              locationField: property.location.substring(0, 100) + '...'
+            });
+            return true;
+          }
+        }
+        
+        // ✅ FALLBACK: Busca nos campos individuais para propriedades antigas
         const matchCity = property.city?.toLowerCase().includes(location);
         const matchNeighborhood = property.neighborhood?.toLowerCase().includes(location);
         const matchAddress = property.address?.toLowerCase().includes(location);
-        const matchDescription = property.description?.toLowerCase().includes(location); // ✅ BUSCA TAMBÉM NA DESCRIÇÃO
+        const matchDescription = property.description?.toLowerCase().includes(location);
         
         const matches = matchCity || matchNeighborhood || matchAddress || matchDescription;
         
@@ -558,6 +741,8 @@ export async function searchProperties(args: SearchPropertiesArgs, tenantId: str
         bathrooms: p.bathrooms,
         pricePerNight: p.basePrice || 0, // Corrigir para pricePerNight na resposta
         basePrice: p.basePrice || 0, // Manter basePrice também
+        minimumNights: p.minimumNights || 1, // ✅ Mínimo de diárias
+        cleaningFee: p.cleaningFee || 0, // ✅ Taxa de limpeza
         amenities: p.amenities?.slice(0, 5) || [],
         description: p.description?.substring(0, 200) || '',
         images: p.photos?.slice(0, 3).map(photo => ({
@@ -714,16 +899,23 @@ export async function calculatePrice(args: CalculatePriceArgs, tenantId: string)
       totalPrice
     });
 
+    // Verificar mínimo de noites
+    const minimumNights = property.minimumNights || 1;
+    const meetsMinimum = nights >= minimumNights;
+
     return {
       success: true,
       property: {
         id: property.id,
         name: property.title, // Property interface usa 'title', não 'name'
-        location: `${property.neighborhood || ''}, ${property.city || ''}`.replace(/^, |, $/, '')
+        location: `${property.neighborhood || ''}, ${property.city || ''}`.replace(/^, |, $/, ''),
+        minimumNights // ✅ Mínimo de diárias
       },
       pricing: {
         basePrice: property.basePrice || 0,
         nights,
+        minimumNights, // ✅ Mínimo de diárias
+        meetsMinimumNights: meetsMinimum, // ✅ Se atende ao mínimo
         subtotal,
         extraGuestFee,
         cleaningFee,
@@ -743,6 +935,10 @@ export async function calculatePrice(args: CalculatePriceArgs, tenantId: string)
       dates: {
         checkIn,
         checkOut
+      },
+      validation: { // ✅ Informações de validação
+        meetsMinimumNights: meetsMinimum,
+        message: !meetsMinimum ? `Estadia mínima de ${minimumNights} noite(s). Solicitado: ${nights} noite(s).` : null
       },
       tenantId
     };
@@ -839,8 +1035,8 @@ export async function createReservation(args: CreateReservationArgs, tenantId: s
           notes: '',
           reviews: [],
           tenantId,
-          createdAt: new Date(),
-          updatedAt: new Date()
+          createdAt: new Date().toISOString(), // ✅ CORREÇÃO: Converter para ISO string
+          updatedAt: new Date().toISOString() // ✅ CORREÇÃO: Converter para ISO string
         };
         
         clientId = await clientService.create(newClientData);
@@ -900,12 +1096,12 @@ export async function createReservation(args: CreateReservationArgs, tenantId: s
       propertyId: property.id!, // Usar ID da propriedade encontrada
       clientId,
       status: ReservationStatus.PENDING,
-      
-      // Datas
-      checkIn: checkInDate,
-      checkOut: checkOutDate,
-      createdAt: new Date(),
-      updatedAt: new Date(),
+
+      // Datas - ✅ CORREÇÃO: Converter para ISO string
+      checkIn: checkInDate.toISOString(),
+      checkOut: checkOutDate.toISOString(),
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
       
       // Hóspedes
       guests: args.guests,
@@ -921,7 +1117,7 @@ export async function createReservation(args: CreateReservationArgs, tenantId: s
         installments: [{
           number: 1,
           amount: totalPrice || 0,
-          dueDate: new Date(),
+          dueDate: new Date().toISOString(), // ✅ CORREÇÃO: Converter para ISO string
           description: 'Pagamento único',
           isPaid: false
         }],
@@ -1112,8 +1308,8 @@ export async function registerClient(args: RegisterClientArgs, tenantId: string)
         notes: '',
         reviews: [],
         tenantId,
-        createdAt: new Date(),
-        updatedAt: new Date()
+        createdAt: new Date().toISOString(), // ✅ CORREÇÃO: Converter para ISO string
+        updatedAt: new Date().toISOString() // ✅ CORREÇÃO: Converter para ISO string
       };
 
       const clientId = await clientService.create(clientData);
@@ -1264,7 +1460,9 @@ export async function getPropertyDetails(args: GetPropertyDetailsArgs, tenantId:
       property: {
         id: property.id,
         name: property.title, // Property interface usa 'title'
-        type: property.category, // Property interface usa 'category'
+        category: property.category, // Categoria do imóvel (apartment, house, studio, villa, condo)
+        propertyType: property.type, // Tipo do imóvel (residential, commercial, vacation, mixed)
+        status: property.status, // Status atual (active, inactive, maintenance, occupied)
         description: property.description,
         // Localização
         location: {
@@ -1276,7 +1474,8 @@ export async function getPropertyDetails(args: GetPropertyDetailsArgs, tenantId:
         specs: {
           bedrooms: property.bedrooms,
           bathrooms: property.bathrooms,
-          maxGuests: property.maxGuests
+          maxGuests: property.maxGuests,
+          capacity: property.capacity || property.maxGuests // Capacidade máxima
         },
         // Comodidades
         amenities: property.amenities || [],
@@ -1285,22 +1484,39 @@ export async function getPropertyDetails(args: GetPropertyDetailsArgs, tenantId:
           petsAllowed: property.allowsPets || false,
           minimumNights: property.minimumNights || 1
         },
-        // Preços
+        // Preços base e taxas
         pricing: {
-          basePrice: property.basePrice || 0, // Property interface tem basePrice direto
-          cleaningFee: property.cleaningFee || 0, // Property interface tem cleaningFee direto
-          pricePerExtraGuest: property.pricePerExtraGuest || 0
+          basePrice: property.basePrice || 0, // Preço base por noite
+          cleaningFee: property.cleaningFee || 0, // Taxa de limpeza
+          pricePerExtraGuest: property.pricePerExtraGuest || 0, // Valor por hóspede adicional
+          advancePaymentPercentage: property.advancePaymentPercentage || 0, // Percentual de pagamento antecipado
+          // Preços dinâmicos
+          customPricing: property.customPricing || {}, // Preços específicos por data (formato: { "2025-12-25": 500 })
+          hasCustomPricing: !!property.customPricing && Object.keys(property.customPricing).length > 0,
+          // Sobretaxas automáticas
+          weekendSurcharge: property.weekendSurcharge || 0, // Acréscimo para fins de semana (%)
+          holidaySurcharge: property.holidaySurcharge || 0, // Acréscimo para feriados (%)
+          decemberSurcharge: property.decemberSurcharge || 0, // Acréscimo para dezembro (%)
+          highSeasonSurcharge: property.highSeasonSurcharge || 0, // Acréscimo para alta temporada (%)
+          highSeasonMonths: property.highSeasonMonths || [], // Meses de alta temporada (ex: [12, 1, 2])
+          // Ajustes por forma de pagamento
+          paymentMethodSurcharges: property.paymentMethodSurcharges || {}, // Acréscimos por método (ex: { "credit_card": 5 })
+          paymentMethodDiscounts: property.paymentMethodDiscounts || {} // Descontos por método (ex: { "pix": 10 })
+        },
+        // Disponibilidade
+        availability: {
+          isActive: property.isActive,
+          isFeatured: property.isFeatured || false,
+          unavailableDates: property.unavailableDates || [], // Datas bloqueadas
+          hasUnavailableDates: !!property.unavailableDates && property.unavailableDates.length > 0
         },
         // Mídia
         media: {
-          photos: property.photos?.length || 0, // Property interface usa 'photos'
-          mainPhoto: property.photos?.[0],
-          videos: property.videos?.length || 0
-        },
-        // Status
-        availability: {
-          isActive: property.isActive,
-          isFeatured: property.isFeatured || false
+          photos: property.photos?.length || 0, // Número de fotos
+          photoUrls: property.photos || [], // URLs das fotos
+          mainPhoto: property.photos?.[0], // Foto principal
+          videos: property.videos?.length || 0, // Número de vídeos
+          videoUrls: property.videos || [] // URLs dos vídeos
         }
       },
       tenantId
@@ -1374,16 +1590,55 @@ export async function sendPropertyMedia(args: SendPropertyMediaArgs, tenantId: s
     const photos = property.photos || [];
     const videos = property.videos || [];
 
+    // 🔍 DEBUG: Log media structure for debugging
+    logger.info('🔍 [TenantAgent] Media structure debug', {
+      tenantId: tenantId.substring(0, 8) + '***',
+      propertyId: property.id,
+      propertyTitle: property.title,
+      photosCount: photos.length,
+      photosType: photos.length > 0 ? typeof photos[0] : 'empty',
+      photosFirst: photos.length > 0 ? (typeof photos[0] === 'string' ? photos[0] : 'object') : 'none',
+      videosCount: videos.length,
+      videosType: videos.length > 0 ? typeof videos[0] : 'empty',
+      videosFirst: videos.length > 0 ? (typeof videos[0] === 'string' ? videos[0] : 'object') : 'none'
+    });
+
     let mediaToSend: any[] = [];
     let mediaDescription = '';
 
     if (mediaType === 'photos' || mediaType === 'all') {
-      mediaToSend.push(...photos.map(photo => ({ type: 'photo', url: photo.url, caption: photo.caption })));
+      // ✅ Handle both new string[] format and legacy PropertyPhoto[] format
+      const photoUrls = photos.map(photo => {
+        if (typeof photo === 'string') {
+          // New format: direct URL strings
+          return { type: 'photo', url: photo, caption: '' };
+        } else if (photo && typeof photo === 'object' && 'url' in photo) {
+          // Legacy format: PropertyPhoto objects
+          return { type: 'photo', url: (photo as any).url, caption: (photo as any).caption || '' };
+        } else {
+          return null;
+        }
+      }).filter(Boolean); // Remove null entries
+      
+      mediaToSend.push(...photoUrls);
       mediaDescription = `${photos.length} foto(s)`;
     }
 
     if (mediaType === 'videos' || mediaType === 'all') {
-      mediaToSend.push(...videos.map(video => ({ type: 'video', url: video.url, title: video.title })));
+      // ✅ Handle both new string[] format and legacy PropertyVideo[] format  
+      const videoUrls = videos.map(video => {
+        if (typeof video === 'string') {
+          // New format: direct URL strings
+          return { type: 'video', url: video, title: '' };
+        } else if (video && typeof video === 'object' && 'url' in video) {
+          // Legacy format: PropertyVideo objects
+          return { type: 'video', url: (video as any).url, title: (video as any).title || '' };
+        } else {
+          return null;
+        }
+      }).filter(Boolean); // Remove null entries
+      
+      mediaToSend.push(...videoUrls);
       mediaDescription += mediaDescription ? ` e ${videos.length} vídeo(s)` : `${videos.length} vídeo(s)`;
     }
 
@@ -1432,7 +1687,267 @@ export async function sendPropertyMedia(args: SendPropertyMediaArgs, tenantId: s
 }
 
 /**
- * FUNÇÃO 7: Verificar disponibilidade para visitas
+ * FUNÇÃO 7: Enviar mapa da propriedade
+ */
+export async function sendPropertyMap(args: { propertyName: string }, tenantId: string): Promise<any> {
+  try {
+    logger.info('🗺️ [TenantAgent] send_property_map iniciada', {
+      tenantId,
+      propertyName: args.propertyName
+    });
+
+    if (!args.propertyName) {
+      return {
+        success: false,
+        error: 'Nome da propriedade é obrigatório',
+        tenantId
+      };
+    }
+
+    if (!process.env.MAPS_KEY) {
+      logger.error('🗺️ [TenantAgent] MAPS_KEY não configurada');
+      return {
+        success: false,
+        error: 'Serviço de mapas não configurado',
+        tenantId
+      };
+    }
+
+    // Buscar propriedade por nome
+    const property = await findPropertyByName(args.propertyName, tenantId);
+    
+    if (!property) {
+      logger.warn('⚠️ [TenantAgent] Propriedade não encontrada para mapa', {
+        tenantId,
+        propertyName: args.propertyName
+      });
+
+      return {
+        success: false,
+        error: `Propriedade "${args.propertyName}" não encontrada. Verifique o nome ou faça uma nova busca.`,
+        tenantId
+      };
+    }
+
+    const location = property.location;
+
+    if (!location) {
+      return {
+        success: false,
+        error: 'Propriedade não possui informações de localização',
+        tenantId
+      };
+    }
+
+    // Step 1: Geocoding - Convert address to coordinates
+    logger.info('🗺️ [TenantAgent] Geocodificando endereço', { location });
+    
+    const geocodingUrl = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(location)}&key=${process.env.MAPS_KEY}`;
+    
+    const geocodingResponse = await fetch(geocodingUrl);
+    const geocodingData = await geocodingResponse.json();
+
+    if (!geocodingData.results || geocodingData.results.length === 0) {
+      logger.error('🗺️ [TenantAgent] Falha na geocodificação - sem resultados');
+      return {
+        success: false,
+        error: 'Não foi possível localizar o endereço no mapa',
+        tenantId
+      };
+    }
+
+    const { lat, lng } = geocodingData.results[0].geometry.location;
+    logger.info('🗺️ [TenantAgent] Coordenadas encontradas', { lat, lng });
+
+    // Step 2: Generate Static Map URL
+    const mapParams = new URLSearchParams({
+      center: `${lat},${lng}`,
+      zoom: '15',
+      size: '600x400',
+      maptype: 'roadmap',
+      markers: `color:red|label:${property.title.charAt(0).toUpperCase()}|${lat},${lng}`,
+      key: process.env.MAPS_KEY
+    });
+
+    const staticMapUrl = `https://maps.googleapis.com/maps/api/staticmap?${mapParams.toString()}`;
+    
+    logger.info('✅ [TenantAgent] send_property_map concluída', {
+      tenantId,
+      propertyId: property.id,
+      propertyName: property.title,
+      coordinates: { lat, lng }
+    });
+
+    return {
+      success: true,
+      property: {
+        id: property.id,
+        name: property.title,
+        location: location,
+        neighborhood: property.neighborhood,
+        city: property.city
+      },
+      map: {
+        url: staticMapUrl,
+        coordinates: { lat, lng },
+        caption: `📍 *${property.title}*\n\n` +
+                 `📌 Endereço: ${location}\n` +
+                 `🏘️ Bairro: ${property.neighborhood}\n` +
+                 `🏙️ Cidade: ${property.city}\n` +
+                 `🗺️ Coordenadas: ${lat.toFixed(6)}, ${lng.toFixed(6)}\n\n` +
+                 `_Clique na imagem para ampliar o mapa_`
+      },
+      tenantId
+    };
+
+  } catch (error) {
+    logger.error('❌ [TenantAgent] Erro em send_property_map', {
+      tenantId,
+      error: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined
+    });
+
+    return {
+      success: false,
+      error: 'Erro ao gerar mapa da propriedade',
+      details: error instanceof Error ? error.message : 'Unknown error',
+      tenantId
+    };
+  }
+}
+
+/**
+ * FUNÇÃO 7.5: Enviar mapa do endereço da imobiliária (tenant)
+ */
+export async function sendTenantMap(args: {}, tenantId: string): Promise<any> {
+  try {
+    logger.info('🗺️ [SendTenantMap] Enviando mapa da imobiliária', {
+      tenantId: tenantId.substring(0, 8) + '***'
+    });
+
+    if (!process.env.MAPS_KEY) {
+      logger.error('🗺️ [SendTenantMap] MAPS_KEY não configurada');
+      return {
+        success: false,
+        error: 'Serviço de mapas não configurado',
+        tenantId
+      };
+    }
+
+    // Buscar configurações da empresa
+    const { createSettingsService } = await import('@/lib/services/settings-service');
+    const settingsService = createSettingsService(tenantId);
+    const settings = await settingsService.getSettings(tenantId);
+
+    if (!settings?.company) {
+      return {
+        success: false,
+        error: 'Configurações da empresa não encontradas',
+        tenantId
+      };
+    }
+
+    const company = settings.company;
+    const location = company.address;
+
+    if (!location) {
+      return {
+        success: false,
+        error: 'Endereço da imobiliária não configurado',
+        tenantId
+      };
+    }
+
+    // Step 1: Geocoding - Convert address to coordinates
+    logger.info('🗺️ [SendTenantMap] Geocodificando endereço', { location });
+
+    const geocodingUrl = `https://maps.googleapis.com/maps/api/geocode/json?address=${encodeURIComponent(location)}&key=${process.env.MAPS_KEY}`;
+
+    const geocodingResponse = await fetch(geocodingUrl);
+    const geocodingData = await geocodingResponse.json();
+
+    if (!geocodingData.results || geocodingData.results.length === 0) {
+      logger.error('🗺️ [SendTenantMap] Falha na geocodificação - sem resultados');
+      return {
+        success: false,
+        error: 'Não foi possível localizar o endereço no mapa',
+        tenantId
+      };
+    }
+
+    const { lat, lng } = geocodingData.results[0].geometry.location;
+    logger.info('🗺️ [SendTenantMap] Coordenadas encontradas', { lat, lng });
+
+    // Step 2: Generate Static Map URL
+    const mapParams = new URLSearchParams({
+      center: `${lat},${lng}`,
+      zoom: '15',
+      size: '600x400',
+      maptype: 'roadmap',
+      markers: `color:blue|label:🏢|${lat},${lng}`,
+      key: process.env.MAPS_KEY
+    });
+
+    const staticMapUrl = `https://maps.googleapis.com/maps/api/staticmap?${mapParams.toString()}`;
+
+    // Construir endereço completo formatado
+    const fullAddress = [
+      company.street,
+      company.neighborhood,
+      company.city,
+      company.state,
+      company.zipCode,
+      company.country
+    ].filter(Boolean).join(', ') || location;
+
+    logger.info('✅ [SendTenantMap] Mapa gerado com sucesso', {
+      tenantId: tenantId.substring(0, 8) + '***',
+      companyName: company.name,
+      coordinates: { lat, lng }
+    });
+
+    return {
+      success: true,
+      company: {
+        name: company.name,
+        address: location,
+        fullAddress: fullAddress,
+        phone: company.phone,
+        email: company.email,
+        website: company.website
+      },
+      map: {
+        url: staticMapUrl,
+        coordinates: { lat, lng },
+        caption: `🏢 *${company.name}*\n\n` +
+                 `📍 Endereço: ${fullAddress}\n` +
+                 (company.phone ? `📞 Telefone: ${company.phone}\n` : '') +
+                 (company.email ? `📧 Email: ${company.email}\n` : '') +
+                 (company.website ? `🌐 Website: ${company.website}\n` : '') +
+                 `🗺️ Coordenadas: ${lat.toFixed(6)}, ${lng.toFixed(6)}\n\n` +
+                 `_Clique na imagem para ampliar o mapa_`
+      },
+      tenantId
+    };
+
+  } catch (error) {
+    logger.error('❌ [SendTenantMap] Erro ao gerar mapa da imobiliária', {
+      tenantId: tenantId.substring(0, 8) + '***',
+      error: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined
+    });
+
+    return {
+      success: false,
+      error: 'Erro ao gerar mapa da imobiliária',
+      details: error instanceof Error ? error.message : 'Unknown error',
+      tenantId
+    };
+  }
+}
+
+/**
+ * FUNÇÃO 8: Verificar disponibilidade para visitas
  */
 export async function checkVisitAvailability(args: { visitDate: string; propertyId?: string }, tenantId: string): Promise<any> {
   try {
@@ -1443,7 +1958,7 @@ export async function checkVisitAvailability(args: { visitDate: string; property
     });
 
     const serviceFactory = new TenantServiceFactory(tenantId);
-    const visitService = serviceFactory.get<VisitAppointment>('visits');
+    const visitService = serviceFactory.visits;
     
     const requestedDate = new Date(args.visitDate);
     
@@ -1526,7 +2041,7 @@ export async function scheduleVisit(args: ScheduleVisitArgs, tenantId: string): 
     const serviceFactory = new TenantServiceFactory(tenantId);
     const propertyService = serviceFactory.properties;
     const clientService = serviceFactory.clients;
-    const visitService = serviceFactory.get<VisitAppointment>('visits');
+    const visitService = serviceFactory.visits;
     
     // Verificar se propriedade existe
     const property = await propertyService.get(args.propertyId) as Property;
@@ -1607,7 +2122,7 @@ export async function scheduleVisit(args: ScheduleVisitArgs, tenantId: string): 
       propertyId: args.propertyId,
       propertyName: property.title, // Property interface usa 'title'
       propertyAddress: `${property.address || ''}, ${property.neighborhood || ''}`.trim(),
-      scheduledDate: visitDateTime,
+      scheduledDate: visitDateTime.toISOString(), // ✅ CORREÇÃO: Converter para ISO string
       scheduledTime: args.visitTime || '14:00',
       duration: 60,
       status: VisitStatus.SCHEDULED, // VisitStatus enum value
@@ -1681,7 +2196,7 @@ export async function classifyLead(args: ClassifyLeadArgs, tenantId: string): Pr
 
     const serviceFactory = new TenantServiceFactory(tenantId);
     const clientService = serviceFactory.clients;
-    const leadService = serviceFactory.get<Lead>('leads');
+    const leadService = serviceFactory.leads;
     
     // Buscar cliente existente
     const existingClients = await clientService.getMany([
@@ -1874,7 +2389,7 @@ export async function updateLeadStatus(args: UpdateLeadStatusArgs, tenantId: str
     });
 
     const serviceFactory = new TenantServiceFactory(tenantId);
-    const leadService = serviceFactory.get<Lead>('leads');
+    const leadService = serviceFactory.leads;
     
     // Buscar lead existente
     const existingLeads = await leadService.getMany([
@@ -2531,7 +3046,7 @@ export async function createTransaction(args: CreateTransactionArgs, tenantId: s
     const propertyService = serviceFactory.properties;
     const clientService = serviceFactory.clients;
     const reservationService = serviceFactory.reservations;
-    const financialService = serviceFactory.get<FinancialMovement>('financial_movements');
+    const financialService = serviceFactory.financialMovements;
 
     // Se não temos todos os IDs, tentar recuperar do contexto ou reserva mais recente
     let reservationId = args.reservationId;
@@ -4342,31 +4857,107 @@ export async function createLead(args: CreateLeadArgs, tenantId: string): Promis
       source: args.source || 'whatsapp_ai'
     });
 
+    // Validar campos obrigatórios
+    if (!args.phone) {
+      logger.warn('⚠️ [CRM] Phone é obrigatório para criar lead', {
+        tenantId,
+        args: Object.keys(args)
+      });
+
+      return {
+        success: false,
+        error: 'Phone é obrigatório para criar lead',
+        tenantId
+      };
+    }
+
     const serviceFactory = new TenantServiceFactory(tenantId);
     const leadService = serviceFactory.leads;
-    
+
     // Verificar se lead já existe com este telefone
     const existingLeads = await leadService.getMany([
       { field: 'phone', operator: '==', value: args.phone }
     ]);
 
     if (existingLeads.length > 0) {
-      logger.info('🔄 [CRM] Lead já existe, retornando existente', {
+      const existingLead = existingLeads[0];
+
+      logger.info('🔄 [CRM] Lead já existe, atualizando informações', {
         tenantId,
         phone: args.phone,
-        existingLeadId: existingLeads[0].id
+        existingLeadId: existingLead.id,
+        updateFields: Object.keys(args).filter(key => key !== 'phone' && args[key])
       });
+
+      // Atualizar lead existente com novas informações
+      const updates: Partial<Lead> = {
+        updatedAt: new Date(),
+        totalInteractions: (existingLead.totalInteractions || 0) + 1,
+        lastContactDate: new Date()
+      };
+
+      // Atualizar campos se fornecidos
+      if (args.name && args.name !== 'Lead WhatsApp') {
+        updates.name = args.name;
+      }
+      if (args.email) {
+        updates.email = args.email;
+      }
+      if (args.source && args.source !== 'whatsapp_ai') {
+        updates.source = args.source;
+      }
+      if (args.initialMessage) {
+        updates.notes = existingLead.notes
+          ? `${existingLead.notes}\n\n[${new Date().toLocaleString('pt-BR')}] ${args.initialMessage}`
+          : args.initialMessage;
+      }
+
+      // Merge preferences se fornecidas
+      if (args.preferences) {
+        updates.preferences = {
+          ...existingLead.preferences,
+          ...args.preferences
+        };
+      }
+
+      // Merge qualification criteria se fornecido
+      if (args.qualificationCriteria) {
+        updates.qualificationCriteria = {
+          ...existingLead.qualificationCriteria,
+          ...args.qualificationCriteria
+        };
+      }
+
+      // Atualizar score se fornecido e for maior que o atual
+      if (args.score && args.score > existingLead.score) {
+        updates.score = args.score;
+      }
+
+      // Atualizar temperature se fornecida e for "mais quente"
+      if (args.temperature) {
+        const tempOrder = { cold: 1, warm: 2, hot: 3 };
+        const currentTemp = tempOrder[existingLead.temperature] || 1;
+        const newTemp = tempOrder[args.temperature] || 1;
+
+        if (newTemp >= currentTemp) {
+          updates.temperature = args.temperature;
+        }
+      }
+
+      await leadService.update(existingLead.id, updates);
+      const updatedLead = { ...existingLead, ...updates };
 
       return {
         success: true,
-        message: 'Lead já existe no sistema',
-        lead: existingLeads[0],
-        action: 'found_existing',
+        message: 'Lead existente atualizado com novas informações',
+        lead: updatedLead,
+        action: 'updated_existing',
+        updatedFields: Object.keys(updates),
         tenantId
       };
     }
 
-    // Criar novo lead
+    // Criar novo lead com informações mínimas
     const now = new Date();
     const newLead: Partial<Lead> = {
       tenantId,
@@ -4738,7 +5329,7 @@ export async function cancelReservation(args: CancelReservationArgs, tenantId: s
 
     const serviceFactory = new TenantServiceFactory(tenantId);
     const reservationService = serviceFactory.reservations;
-    
+
     // Buscar reserva por ID ou telefone do cliente
     let reservation;
     if (args.reservationId) {
@@ -4750,9 +5341,9 @@ export async function cancelReservation(args: CancelReservationArgs, tenantId: s
         orderDirection: 'desc',
         limit: 1
       });
-      
-      reservation = reservations.find(r => 
-        r.clientPhone === args.clientPhone && 
+
+      reservation = reservations.find(r =>
+        r.clientPhone === args.clientPhone &&
         ['pending', 'confirmed'].includes(r.status)
       );
     }
@@ -4765,19 +5356,75 @@ export async function cancelReservation(args: CancelReservationArgs, tenantId: s
       };
     }
 
+    // Calcular reembolso automaticamente baseado na política do tenant
+    let refundAmount = args.refundAmount;
+    let refundPercentage = args.refundPercentage;
+
+    if (!refundAmount && !refundPercentage) {
+      // Buscar política de cancelamento
+      const { createSettingsService } = await import('@/lib/services/settings-service');
+      const settingsService = createSettingsService(tenantId);
+      const tenantSettings = await settingsService.getSettings(tenantId);
+
+      if (tenantSettings?.cancellationPolicy && tenantSettings.cancellationPolicy.enabled) {
+        const policy = tenantSettings.cancellationPolicy;
+        const checkInDate = new Date(reservation.checkIn);
+        const today = new Date();
+        const daysUntilCheckIn = Math.ceil((checkInDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+
+        // Encontrar regra aplicável
+        const sortedRules = [...policy.rules].sort((a, b) => b.daysBeforeCheckIn - a.daysBeforeCheckIn);
+
+        let applicableRule = sortedRules.find(rule => daysUntilCheckIn >= rule.daysBeforeCheckIn);
+
+        if (!applicableRule && sortedRules.length > 0) {
+          // Usar regra com menor dias (normalmente 0 dias = sem reembolso)
+          applicableRule = sortedRules[sortedRules.length - 1];
+        }
+
+        refundPercentage = applicableRule?.refundPercentage ?? policy.defaultRefundPercentage;
+        refundAmount = (reservation.totalAmount * refundPercentage) / 100;
+
+        logger.info('💰 [CancelReservation] Reembolso calculado automaticamente', {
+          daysUntilCheckIn,
+          refundPercentage,
+          refundAmount,
+          totalAmount: reservation.totalAmount,
+          applicableRule: applicableRule?.description
+        });
+      } else {
+        // Política padrão se não configurada
+        const checkInDate = new Date(reservation.checkIn);
+        const today = new Date();
+        const daysUntilCheckIn = Math.ceil((checkInDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+
+        if (daysUntilCheckIn >= 7) {
+          refundPercentage = 100;
+        } else if (daysUntilCheckIn >= 3) {
+          refundPercentage = 50;
+        } else {
+          refundPercentage = 0;
+        }
+
+        refundAmount = (reservation.totalAmount * refundPercentage) / 100;
+      }
+    }
+
     // Atualizar status para cancelada
     await reservationService.update(reservation.id, {
       status: 'cancelled' as ReservationStatus,
       cancelledAt: new Date(),
       cancellationReason: args.reason || 'Solicitado pelo cliente',
-      refundAmount: args.refundAmount,
-      refundPercentage: args.refundPercentage,
+      refundAmount,
+      refundPercentage,
       updatedAt: new Date()
     });
 
     logger.info('✅ [CancelReservation] Reserva cancelada', {
       reservationId: reservation.id,
-      propertyName: reservation.propertyName
+      propertyName: reservation.propertyName,
+      refundAmount,
+      refundPercentage
     });
 
     return {
@@ -4788,8 +5435,9 @@ export async function cancelReservation(args: CancelReservationArgs, tenantId: s
         checkIn: reservation.checkIn,
         checkOut: reservation.checkOut,
         status: 'cancelled',
-        refundAmount: args.refundAmount,
-        message: 'Reserva cancelada com sucesso'
+        refundAmount,
+        refundPercentage,
+        message: `Reserva cancelada com sucesso. Reembolso de ${refundPercentage}%: R$ ${refundAmount.toFixed(2)}`
       },
       tenantId
     };
@@ -4844,7 +5492,7 @@ export async function modifyReservation(args: ModifyReservationArgs, tenantId: s
     // Aplicar modificações
     const updates: any = {
       ...args.updates,
-      updatedAt: new Date()
+      updatedAt: new Date().toISOString() // ✅ CORREÇÃO: Converter para ISO string
     };
 
     // Se mudou datas, recalcular preço
@@ -4899,15 +5547,72 @@ export async function getPolicies(args: GetPoliciesArgs, tenantId: string) {
       policyType: args.policyType || 'all'
     });
 
+    // Buscar settings do tenant para obter política de cancelamento customizada
+    const { createSettingsService } = await import('@/lib/services/settings-service');
+    const settingsService = createSettingsService(tenantId);
+    const tenantSettings = await settingsService.getSettings(tenantId);
+
+    // Construir política de cancelamento completa a partir do settings
+    let cancellationRules: string[] = [];
+    let cancellationDetails = null;
+
+    if (tenantSettings?.cancellationPolicy && tenantSettings.cancellationPolicy.enabled) {
+      const policy = tenantSettings.cancellationPolicy;
+
+      // Ordenar regras por dias (maior para menor)
+      const sortedRules = [...policy.rules].sort((a, b) => b.daysBeforeCheckIn - a.daysBeforeCheckIn);
+
+      cancellationRules = sortedRules.map(rule =>
+        rule.description ||
+        `Cancelamento até ${rule.daysBeforeCheckIn} dias antes: reembolso de ${rule.refundPercentage}%`
+      );
+
+      if (policy.forceMajeure && policy.customMessage) {
+        cancellationRules.push(policy.customMessage);
+      }
+
+      // Detalhes completos da política para processamento programático
+      cancellationDetails = {
+        enabled: policy.enabled,
+        rules: sortedRules.map(rule => ({
+          daysBeforeCheckIn: rule.daysBeforeCheckIn,
+          refundPercentage: rule.refundPercentage,
+          description: rule.description || `Cancelamento até ${rule.daysBeforeCheckIn} dias antes: reembolso de ${rule.refundPercentage}%`
+        })),
+        defaultRefundPercentage: policy.defaultRefundPercentage,
+        forceMajeure: policy.forceMajeure,
+        customMessage: policy.customMessage,
+        updatedAt: policy.updatedAt
+      };
+    } else {
+      // Fallback para política padrão se não configurada
+      cancellationRules = [
+        'Cancelamento até 7 dias antes: reembolso total',
+        'Cancelamento entre 3-7 dias: reembolso de 50%',
+        'Cancelamento com menos de 3 dias: sem reembolso',
+        'Casos de força maior serão analisados individualmente'
+      ];
+
+      cancellationDetails = {
+        enabled: true,
+        rules: [
+          { daysBeforeCheckIn: 7, refundPercentage: 100, description: 'Reembolso total' },
+          { daysBeforeCheckIn: 3, refundPercentage: 50, description: 'Reembolso parcial' },
+          { daysBeforeCheckIn: 0, refundPercentage: 0, description: 'Sem reembolso' }
+        ],
+        defaultRefundPercentage: 0,
+        forceMajeure: true,
+        customMessage: 'Casos de força maior serão analisados individualmente.'
+      };
+    }
+
     const policies: any = {
       cancellation: {
         title: 'Política de Cancelamento',
-        rules: [
-          'Cancelamento até 7 dias antes: reembolso total',
-          'Cancelamento entre 3-7 dias: reembolso de 50%',
-          'Cancelamento com menos de 3 dias: sem reembolso',
-          'Casos de força maior serão analisados individualmente'
-        ]
+        rules: cancellationRules,
+        enabled: tenantSettings?.cancellationPolicy?.enabled ?? true,
+        details: cancellationDetails, // Informações estruturadas completas
+        summary: cancellationRules.join('\n• ')
       },
       payment: {
         title: 'Política de Pagamento',
@@ -4947,21 +5652,38 @@ export async function getPolicies(args: GetPoliciesArgs, tenantId: string) {
       selectedPolicies = policies;
     }
 
+    logger.info('✅ [GetPolicies] Políticas recuperadas com sucesso', {
+      tenantId,
+      policyType: args.policyType || 'all',
+      cancellationEnabled: cancellationDetails?.enabled,
+      rulesCount: cancellationDetails?.rules.length
+    });
+
     return {
       success: true,
       data: {
         policies: selectedPolicies,
         propertyId: args.propertyId,
-        message: 'Políticas recuperadas com sucesso'
+        message: 'Políticas recuperadas com sucesso',
+        // Metadados adicionais para Sofia AI
+        metadata: {
+          hasCancellationPolicy: !!tenantSettings?.cancellationPolicy,
+          cancellationEnabled: cancellationDetails?.enabled ?? true,
+          lastUpdated: tenantSettings?.cancellationPolicy?.updatedAt || tenantSettings?.updatedAt
+        }
       },
       tenantId
     };
 
   } catch (error) {
-    logger.error('❌ [GetPolicies] Erro', { error, tenantId });
+    logger.error('❌ [GetPolicies] Erro ao buscar políticas', {
+      error: error instanceof Error ? error.message : 'Unknown error',
+      tenantId
+    });
     return {
       success: false,
       error: 'Erro ao buscar políticas',
+      details: error instanceof Error ? error.message : 'Unknown error',
       tenantId
     };
   }
@@ -5085,18 +5807,34 @@ export async function checkAvailability(args: CheckAvailabilityArgs, tenantId: s
       unavailabilityReason
     });
 
+    // Verificar se o número de noites atende ao mínimo
+    const minimumNights = property.minimumNights || 1;
+    const meetsMinimumNights = totalNights >= minimumNights;
+
     return {
       success: true,
-      available: isAvailable,
+      available: isAvailable && meetsMinimumNights,
       propertyId: property.id,
       propertyName: property.title,
       checkIn: args.checkIn,
       checkOut: args.checkOut,
       totalNights,
-      reason: isAvailable ? null : (unavailabilityReason || 'Propriedade não disponível para as datas solicitadas'),
-      message: isAvailable 
-        ? `Propriedade "${property.title}" está DISPONÍVEL para as datas solicitadas (${totalNights} noites)!`
-        : `Propriedade "${property.title}" está INDISPONÍVEL para o período de ${args.checkIn} a ${args.checkOut}${unavailabilityReason ? `. ${unavailabilityReason}` : ''}`,
+      minimumNights, // ✅ Mínimo de diárias
+      meetsMinimumNights, // ✅ Se atende ao mínimo
+      pricing: { // ✅ Informações básicas de preço
+        basePrice: property.basePrice || 0,
+        cleaningFee: property.cleaningFee || 0,
+        pricePerExtraGuest: property.pricePerExtraGuest || 0,
+        hasCustomPricing: !!property.customPricing && Object.keys(property.customPricing).length > 0
+      },
+      reason: !meetsMinimumNights
+        ? `Estadia mínima de ${minimumNights} noite(s). Solicitado: ${totalNights} noite(s).`
+        : (isAvailable ? null : (unavailabilityReason || 'Propriedade não disponível para as datas solicitadas')),
+      message: !meetsMinimumNights
+        ? `Propriedade "${property.title}" requer estadia mínima de ${minimumNights} noite(s). Período solicitado: ${totalNights} noite(s).`
+        : (isAvailable
+          ? `Propriedade "${property.title}" está DISPONÍVEL para as datas solicitadas (${totalNights} noites)!`
+          : `Propriedade "${property.title}" está INDISPONÍVEL para o período de ${args.checkIn} a ${args.checkOut}${unavailabilityReason ? `. ${unavailabilityReason}` : ''}`),
       tenantId
     };
 
@@ -5130,7 +5868,7 @@ export async function scheduleMeeting(args: any, tenantId: string) {
 
     const serviceFactory = new TenantServiceFactory(tenantId);
     const clientService = serviceFactory.clients;
-    const visitService = serviceFactory.get<VisitAppointment>('visits'); // ✅ MESMA COLEÇÃO QUE scheduleVisit
+    const visitService = serviceFactory.visits; // ✅ MESMA COLEÇÃO QUE scheduleVisit
     
     // Se tiver propertyId, buscar dados da propriedade
     let propertyData = null;
@@ -5146,6 +5884,11 @@ export async function scheduleMeeting(args: any, tenantId: string) {
         error: 'Campos obrigatórios: clientName, scheduledDate, scheduledTime, title',
         tenantId
       };
+    }
+
+    // Garantir que duration seja um número
+    if (args.duration && typeof args.duration === 'string') {
+      args.duration = parseInt(args.duration, 10);
     }
 
     // Parse da data e hora fornecidas
@@ -5217,13 +5960,13 @@ export async function scheduleMeeting(args: any, tenantId: string) {
       clientId,
       clientName: client?.name || args.clientName,
       clientPhone: client?.phone || args.clientPhone || '',
-      
+
       // Se tem propertyId, é uma visita; senão, evento genérico
       propertyId: args.propertyId || 'GENERIC_EVENT',
       propertyName: propertyData?.title || args.title, // Usar título como "propriedade"
       propertyAddress: propertyData?.address || args.location || 'Local a definir',
-      
-      scheduledDate: scheduledDateTime,
+
+      scheduledDate: scheduledDateTime.toISOString(), // ✅ CORREÇÃO: Converter para ISO string
       scheduledTime: args.scheduledTime,
       duration: args.duration || 60,
       status: VisitStatus.SCHEDULED,
@@ -5231,7 +5974,7 @@ export async function scheduleMeeting(args: any, tenantId: string) {
       source: 'whatsapp', // Mesmo source da scheduleVisit
       createdAt: new Date(),
       updatedAt: new Date(),
-      
+
       // Campos específicos para eventos genéricos
       confirmedByClient: false,
       confirmedByAgent: false
@@ -5253,10 +5996,15 @@ export async function scheduleMeeting(args: any, tenantId: string) {
       tenantId: tenantId.substring(0, 8) + '***'
     });
 
+    // Calcular horário de término baseado na duração
+    const eventDuration = args.duration || 60;
+    const endDateTime = new Date(scheduledDateTime.getTime() + (eventDuration * 60000)); // Adicionar minutos em ms
+    const endTime = endDateTime.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+
     // Gerar mensagem de confirmação
     const confirmationMessage = `✅ ${propertyData ? 'Visita' : 'Evento'} agendado${propertyData ? 'a' : ''} com sucesso!
 📅 Data: ${scheduledDateTime.toLocaleDateString('pt-BR')}
-🕒 Horário: ${args.scheduledTime}
+🕒 Horário: ${args.scheduledTime} - ${endTime} (${eventDuration}min)
 👤 Cliente: ${args.clientName}
 ${propertyData ? `🏠 Propriedade: ${propertyData.title}` : `📋 Assunto: ${args.title}`}
 ${args.clientPhone ? `📱 Telefone: ${args.clientPhone}` : ''}
@@ -5296,6 +6044,2673 @@ ID do agendamento: ${visitId}`;
       error: 'Erro ao agendar evento. Tente novamente.',
       tenantId
     };
+  }
+}
+
+// ===== TICKET SUPPORT FUNCTIONS =====
+
+/**
+ * FUNÇÃO: Criar ticket de suporte
+ */
+/* export async function createSupportTicket(args: CreateSupportTicketArgs, tenantId: string): Promise<any> {
+  try {
+    logger.info('🎫 [TenantAgent] create_support_ticket iniciada', {
+      tenantId: tenantId.substring(0, 8) + '***',
+      subject: args.subject,
+      priority: args.priority,
+      type: args.type,
+      hasClientPhone: !!args.clientPhone
+    });
+
+    const ticketService = new TicketServiceV2(tenantId);
+    
+    // Determinar informações do usuário
+    let userId = 'unknown';
+    let userName = 'Usuário';
+    let userEmail = 'naoforecido@exemplo.com';
+    
+    if (args.clientPhone) {
+      // Buscar cliente pelo telefone para obter informações completas
+      const serviceFactory = new TenantServiceFactory(tenantId);
+      const clientService = serviceFactory.clients;
+      
+      const clients = await clientService.getMany([
+        { field: 'phone', operator: '==', value: args.clientPhone }
+      ]) as Client[];
+      
+      if (clients.length > 0) {
+        const client = clients[0];
+        userId = client.id || args.clientPhone;
+        userName = client.name || 'Cliente';
+        userEmail = client.email || args.userEmail || `${args.clientPhone}@whatsapp.com`;
+      } else {
+        userId = args.clientPhone;
+        userName = args.userName || 'Cliente WhatsApp';
+        userEmail = args.userEmail || `${args.clientPhone}@whatsapp.com`;
+      }
+    }
+    
+    // Mapear prioridade
+    const priority = args.priority === 'high' ? TicketPriority.HIGH :
+                    args.priority === 'low' ? TicketPriority.LOW :
+                    TicketPriority.MEDIUM;
+    
+    // Mapear tipo
+    const type = args.type === 'technical' ? TicketType.TECHNICAL :
+                 args.type === 'billing' ? TicketType.BILLING :
+                 args.type === 'feature_request' ? TicketType.FEATURE_REQUEST :
+                 args.type === 'bug_report' ? TicketType.BUG_REPORT :
+                 args.type === 'question' ? TicketType.QUESTION :
+                 TicketType.SUPPORT;
+    
+    // Criar o ticket
+    const ticket = await ticketService.createTicket(
+      userId,
+      userName,
+      userEmail,
+      {
+        subject: args.subject,
+        description: args.description,
+        priority,
+        type
+      }
+    );
+
+    logger.info('✅ [TenantAgent] Ticket criado com sucesso', {
+      tenantId: tenantId.substring(0, 8) + '***',
+      ticketId: ticket.id,
+      subject: ticket.subject,
+      priority: ticket.priority,
+      status: ticket.status
+    });
+
+    return {
+      success: true,
+      ticket: {
+        id: ticket.id,
+        subject: ticket.subject,
+        description: ticket.description,
+        priority: ticket.priority,
+        type: ticket.type,
+        status: ticket.status,
+        createdAt: ticket.createdAt
+      },
+      message: `Ticket #${ticket.id} criado com sucesso! Assunto: "${ticket.subject}". Status: ${ticket.status}`,
+      tenantId
+    };
+  } catch (error) {
+    logger.error('❌ [TenantAgent] Erro ao criar ticket', {
+      tenantId: tenantId.substring(0, 8) + '***',
+      error: error instanceof Error ? error.message : 'Unknown error'
+    });
+
+    return {
+      success: false,
+      error: 'Erro ao criar ticket de suporte. Tente novamente ou entre em contato com o administrador.',
+      tenantId
+    };
+  }
+} */
+
+/**
+ * FUNÇÃO: Buscar tickets do usuário
+ */
+/* export async function getUserTickets(args: GetUserTicketsArgs, tenantId: string): Promise<any> {
+  try {
+    logger.info('📋 [TenantAgent] get_user_tickets iniciada', {
+      tenantId: tenantId.substring(0, 8) + '***',
+      hasClientPhone: !!args.clientPhone,
+      status: args.status,
+      limit: args.limit
+    });
+
+    if (!args.clientPhone) {
+      return {
+        success: false,
+        error: 'Telefone do cliente é necessário para buscar tickets.',
+        tenantId
+      };
+    }
+
+    const ticketService = new TicketServiceV2(tenantId);
+    
+    // Buscar cliente pelo telefone
+    const serviceFactory = new TenantServiceFactory(tenantId);
+    const clientService = serviceFactory.clients;
+    
+    const clients = await clientService.getMany([
+      { field: 'phone', operator: '==', value: args.clientPhone }
+    ]) as Client[];
+    
+    if (clients.length === 0) {
+      return {
+        success: true,
+        tickets: [],
+        message: 'Nenhum ticket encontrado para este número de telefone.',
+        tenantId
+      };
+    }
+
+    const client = clients[0];
+    const userId = client.id || args.clientPhone;
+    
+    // Buscar tickets do usuário
+    const tickets = await ticketService.getUserTickets(userId, args.limit || 10);
+    
+    // Filtrar por status se especificado
+    let filteredTickets = tickets;
+    if (args.status) {
+      const statusMap = {
+        'open': TicketStatus.OPEN,
+        'in_progress': TicketStatus.IN_PROGRESS,
+        'resolved': TicketStatus.RESOLVED,
+        'closed': TicketStatus.CLOSED
+      };
+      filteredTickets = tickets.filter(ticket => ticket.status === statusMap[args.status!]);
+    }
+
+    logger.info('✅ [TenantAgent] Tickets encontrados', {
+      tenantId: tenantId.substring(0, 8) + '***',
+      userId,
+      ticketCount: filteredTickets.length,
+      statusFilter: args.status
+    });
+
+    return {
+      success: true,
+      tickets: filteredTickets.map(ticket => ({
+        id: ticket.id,
+        subject: ticket.subject,
+        status: ticket.status,
+        priority: ticket.priority,
+        type: ticket.type,
+        createdAt: ticket.createdAt,
+        updatedAt: ticket.updatedAt,
+        unreadCount: ticket.unreadCount || 0
+      })),
+      total: filteredTickets.length,
+      message: filteredTickets.length > 0 
+        ? `Encontrados ${filteredTickets.length} ticket(s)`
+        : 'Nenhum ticket encontrado com os critérios especificados.',
+      tenantId
+    };
+  } catch (error) {
+    logger.error('❌ [TenantAgent] Erro ao buscar tickets do usuário', {
+      tenantId: tenantId.substring(0, 8) + '***',
+      error: error instanceof Error ? error.message : 'Unknown error'
+    });
+
+    return {
+      success: false,
+      error: 'Erro ao buscar seus tickets. Tente novamente.',
+      tenantId
+    };
+  }
+} */
+
+// ===== CRM ADVANCED FUNCTIONS =====
+
+/**
+ * FUNÇÃO: Analisar comportamento do lead com IA
+ */
+export async function analyzeLeadBehavior(args: AnalyzeLeadBehaviorArgs, tenantId: string): Promise<any> {
+  try {
+    logger.info('🧠 [TenantAgent] analyze_lead_behavior iniciada', {
+      tenantId: tenantId.substring(0, 8) + '***',
+      hasClientPhone: !!args.clientPhone,
+      hasLeadId: !!args.leadId,
+      includeAIPredictions: args.includeAIPredictions
+    });
+
+    const serviceFactory = new TenantServiceFactory(tenantId);
+    const leadService = serviceFactory.leads;
+
+    let lead: Lead | null = null;
+
+    // Encontrar lead
+    if (args.leadId) {
+      lead = await leadService.get(args.leadId) as Lead;
+    } else if (args.clientPhone) {
+      const leads = await leadService.getMany([
+        { field: 'phone', operator: '==', value: args.clientPhone }
+      ]) as Lead[];
+      lead = leads.length > 0 ? leads[0] : null;
+    }
+
+    if (!lead) {
+      return {
+        success: false,
+        error: 'Lead não encontrado. Verifique o telefone ou ID fornecido.',
+        tenantId
+      };
+    }
+
+    // Analisar padrões de interação
+    const interactions = lead.interactions || [];
+    const totalInteractions = interactions.length;
+    const positiveInteractions = interactions.filter(i => i.response === 'positive').length;
+    const engagementRate = totalInteractions > 0 ? (positiveInteractions / totalInteractions) * 100 : 0;
+
+    // Analisar frequência de contato
+    const lastInteraction = interactions[interactions.length - 1];
+    const daysSinceLastContact = lastInteraction 
+      ? Math.floor((Date.now() - (lastInteraction.date?.toDate().getTime() || 0)) / (1000 * 60 * 60 * 24))
+      : 999;
+
+    // Analisar padrão temporal
+    const contactHours = interactions.map(i => i.date?.toDate().getHours() || 9);
+    const preferredHour = contactHours.length > 0 
+      ? Math.round(contactHours.reduce((a, b) => a + b, 0) / contactHours.length)
+      : 9;
+
+    const preferredPeriod = preferredHour < 12 ? 'manhã' : 
+                           preferredHour < 18 ? 'tarde' : 'noite';
+
+    // Calcular score de qualificação
+    let qualificationScore = (lead.score || 0);
+    
+    // Ajustes baseados em comportamento
+    if (engagementRate > 70) qualificationScore += 10;
+    else if (engagementRate < 30) qualificationScore -= 10;
+
+    if (daysSinceLastContact <= 7) qualificationScore += 5;
+    else if (daysSinceLastContact > 30) qualificationScore -= 15;
+
+    qualificationScore = Math.max(0, Math.min(100, qualificationScore));
+
+    // Identificar padrões de interesse
+    const interestPatterns = [];
+    if (interactions.some(i => i.description?.includes('preço'))) {
+      interestPatterns.push('Sensível a preço');
+    }
+    if (interactions.some(i => i.description?.includes('localização'))) {
+      interestPatterns.push('Focado em localização');
+    }
+    if (interactions.some(i => i.description?.includes('financiamento'))) {
+      interestPatterns.push('Precisa de financiamento');
+    }
+    if (interactions.some(i => i.description?.includes('urgente'))) {
+      interestPatterns.push('Tem urgência');
+    }
+
+    // Prever próxima ação mais eficaz
+    let nextBestAction = 'Enviar mensagem de follow-up';
+    let actionReason = 'Ação padrão de relacionamento';
+
+    if (lead.temperature === 'hot' && daysSinceLastContact <= 3) {
+      nextBestAction = 'Ligar para agendar visita presencial';
+      actionReason = 'Lead quente com interesse recente';
+    } else if (engagementRate > 70 && lead.status === 'contacted') {
+      nextBestAction = 'Enviar proposta personalizada';
+      actionReason = 'Alto engajamento indica prontidão para proposta';
+    } else if (daysSinceLastContact > 14) {
+      nextBestAction = 'Reativar com conteúdo relevante';
+      actionReason = 'Lead inativo precisa de reativação';
+    } else if (lead.budget && (lead.budget > 0)) {
+      nextBestAction = 'Apresentar opções dentro do orçamento';
+      actionReason = 'Lead tem orçamento definido';
+    }
+
+    const analysis = {
+      leadInfo: {
+        id: lead.id,
+        name: lead.name,
+        status: lead.status,
+        temperature: lead.temperature,
+        score: qualificationScore,
+        originalScore: lead.score || 0
+      },
+      behavior: {
+        totalInteractions,
+        engagementRate: Math.round(engagementRate),
+        daysSinceLastContact,
+        preferredContactPeriod: preferredPeriod,
+        interestPatterns
+      },
+      insights: {
+        behaviorType: engagementRate > 70 ? 'Altamente engajado' :
+                     engagementRate > 40 ? 'Moderadamente interessado' :
+                     engagementRate > 10 ? 'Baixo interesse' : 'Desengajado',
+        riskLevel: daysSinceLastContact > 30 ? 'Alto' :
+                   daysSinceLastContact > 14 ? 'Médio' : 'Baixo',
+        conversionProbability: Math.round(qualificationScore),
+        recommendedPriority: qualificationScore > 70 ? 'Alta' :
+                            qualificationScore > 50 ? 'Média' : 'Baixa'
+      },
+      recommendations: {
+        nextBestAction,
+        actionReason,
+        bestContactTime: preferredPeriod,
+        suggestedChannel: lead.preferredContactMethods?.[0] || 'whatsapp',
+        followUpSchedule: daysSinceLastContact > 7 ? 'Imediato' :
+                         lead.temperature === 'hot' ? '2-3 dias' : '1 semana'
+      }
+    };
+
+    logger.info('✅ [TenantAgent] Análise de comportamento concluída', {
+      tenantId: tenantId.substring(0, 8) + '***',
+      leadId: lead.id,
+      engagementRate: Math.round(engagementRate),
+      qualificationScore
+    });
+
+    return {
+      success: true,
+      analysis,
+      message: `Análise de comportamento concluída para ${lead.name}. ${analysis.insights.behaviorType} com ${analysis.insights.conversionProbability}% de probabilidade de conversão.`,
+      tenantId
+    };
+
+  } catch (error) {
+    logger.error('❌ [TenantAgent] Erro ao analisar comportamento do lead', {
+      tenantId: tenantId.substring(0, 8) + '***',
+      error: error instanceof Error ? error.message : 'Unknown error'
+    });
+
+    return {
+      success: false,
+      error: 'Erro ao analisar comportamento do lead. Tente novamente.',
+      tenantId
+    };
+  }
+}
+
+/**
+ * FUNÇÃO: Atualizar temperatura do lead baseado em comportamento
+ */
+export async function updateLeadTemperature(args: UpdateLeadTemperatureArgs, tenantId: string): Promise<any> {
+  try {
+    logger.info('🌡️ [TenantAgent] update_lead_temperature iniciada', {
+      tenantId: tenantId.substring(0, 8) + '***',
+      temperature: args.temperature,
+      hasReason: !!args.reason
+    });
+
+    const serviceFactory = new TenantServiceFactory(tenantId);
+    const leadService = serviceFactory.leads;
+
+    let lead: Lead | null = null;
+
+    // Encontrar lead
+    if (args.leadId) {
+      lead = await leadService.get(args.leadId) as Lead;
+    } else if (args.clientPhone) {
+      const leads = await leadService.getMany([
+        { field: 'phone', operator: '==', value: args.clientPhone }
+      ]) as Lead[];
+      lead = leads.length > 0 ? leads[0] : null;
+    }
+
+    if (!lead) {
+      return {
+        success: false,
+        error: 'Lead não encontrado para atualizar temperatura.',
+        tenantId
+      };
+    }
+
+    const oldTemperature = lead.temperature;
+
+    // Atualizar temperatura
+    await leadService.update(lead.id, {
+      temperature: args.temperature,
+      updatedAt: new Date(),
+      notes: [
+        ...(lead.notes || []),
+        {
+          content: `Temperatura alterada de ${oldTemperature} para ${args.temperature}. ${args.reason ? `Motivo: ${args.reason}` : ''}`,
+          createdAt: new Date(),
+          createdBy: 'IA Agent'
+        }
+      ]
+    });
+
+    // Recalcular score se necessário
+    let newScore = lead.score || 0;
+    if (args.temperature === 'hot') {
+      newScore = Math.min(100, newScore + 20);
+    } else if (args.temperature === 'warm') {
+      newScore = Math.max(30, Math.min(80, newScore + 5));
+    } else if (args.temperature === 'cold') {
+      newScore = Math.max(10, newScore - 15);
+    }
+
+    if (newScore !== lead.score) {
+      await leadService.update(lead.id, { score: newScore });
+    }
+
+    logger.info('✅ [TenantAgent] Temperatura do lead atualizada', {
+      tenantId: tenantId.substring(0, 8) + '***',
+      leadId: lead.id,
+      oldTemperature,
+      newTemperature: args.temperature,
+      newScore
+    });
+
+    return {
+      success: true,
+      lead: {
+        id: lead.id,
+        name: lead.name,
+        oldTemperature,
+        newTemperature: args.temperature,
+        newScore
+      },
+      message: `Temperatura do lead ${lead.name} alterada de ${oldTemperature} para ${args.temperature}. Score atualizado para ${newScore}.`,
+      tenantId
+    };
+
+  } catch (error) {
+    logger.error('❌ [TenantAgent] Erro ao atualizar temperatura do lead', {
+      tenantId: tenantId.substring(0, 8) + '***',
+      error: error instanceof Error ? error.message : 'Unknown error'
+    });
+
+    return {
+      success: false,
+      error: 'Erro ao atualizar temperatura do lead. Tente novamente.',
+      tenantId
+    };
+  }
+}
+
+/**
+ * FUNÇÃO: Prever conversão com IA
+ */
+export async function predictConversion(args: PredictConversionArgs, tenantId: string): Promise<any> {
+  try {
+    logger.info('🎯 [TenantAgent] predict_conversion iniciada', {
+      tenantId: tenantId.substring(0, 8) + '***',
+      hasClientPhone: !!args.clientPhone,
+      includeRecommendations: args.includeRecommendations
+    });
+
+    const serviceFactory = new TenantServiceFactory(tenantId);
+    const leadService = serviceFactory.leads;
+    const clientService = serviceFactory.clients;
+
+    let lead: Lead | null = null;
+
+    // Encontrar lead
+    if (args.leadId) {
+      lead = await leadService.get(args.leadId) as Lead;
+    } else if (args.clientPhone) {
+      const leads = await leadService.getMany([
+        { field: 'phone', operator: '==', value: args.clientPhone }
+      ]) as Lead[];
+      lead = leads.length > 0 ? leads[0] : null;
+    }
+
+    if (!lead) {
+      return {
+        success: false,
+        error: 'Lead não encontrado para análise preditiva.',
+        tenantId
+      };
+    }
+
+    // Buscar histórico para comparação
+    const [allLeads, allClients] = await Promise.all([
+      leadService.getMany([]) as Promise<Lead[]>,
+      clientService.getMany([]) as Promise<Client[]>
+    ]);
+
+    // Calcular probabilidade baseada em fatores múltiplos
+    let probability = 50; // Base
+
+    // Fator score (peso: 25%)
+    const scoreWeight = (lead.score || 0) / 100 * 25;
+    probability += scoreWeight - 12.5; // Normalizar
+
+    // Fator temperatura (peso: 20%)
+    const tempWeight = lead.temperature === 'hot' ? 20 : 
+                      lead.temperature === 'warm' ? 10 : -5;
+    probability += tempWeight;
+
+    // Fator status (peso: 15%)
+    const statusWeights = {
+      'new': -5,
+      'contacted': 0,
+      'qualified': 10,
+      'nurturing': 5,
+      'proposal_sent': 15,
+      'negotiating': 20,
+      'won': 100,
+      'lost': 0
+    };
+    probability += statusWeights[lead.status] || 0;
+
+    // Fator engajamento (peso: 15%)
+    const interactions = lead.interactions || [];
+    const positiveRate = interactions.length > 0 
+      ? (interactions.filter(i => i.response === 'positive').length / interactions.length) * 15
+      : 0;
+    probability += positiveRate;
+
+    // Fator tempo (peso: 10%)
+    const daysSinceCreated = Math.floor((Date.now() - (lead.createdAt?.toDate().getTime() || 0)) / (1000 * 60 * 60 * 24));
+    const timeWeight = daysSinceCreated > 60 ? -10 : 
+                      daysSinceCreated > 30 ? -5 : 0;
+    probability += timeWeight;
+
+    // Fator fonte (peso: 10%)
+    const sourceClients = allClients.filter(c => c.source === lead.source).length;
+    const sourceLeads = allLeads.filter(l => l.source === lead.source).length;
+    const sourceConversionRate = sourceLeads > 0 ? sourceClients / sourceLeads : 0.1;
+    const sourceWeight = (sourceConversionRate - 0.15) * 20; // Normalizar
+    probability += sourceWeight;
+
+    // Fator orçamento (peso: 5%)
+    const budgetWeight = lead.budget && lead.budget > 0 ? 5 : -2;
+    probability += budgetWeight;
+
+    // Limitar entre 0-100
+    probability = Math.max(0, Math.min(100, Math.round(probability)));
+
+    // Calcular confiança da predição
+    const confidence = Math.min(100, Math.max(40, 
+      (interactions.length * 5) + 
+      (lead.score || 0) * 0.3 + 
+      40
+    ));
+
+    // Estimar tempo para conversão
+    const estimatedDays = lead.temperature === 'hot' ? 7 :
+                         lead.temperature === 'warm' ? 21 :
+                         45;
+
+    // Fatores de risco
+    const riskFactors = [];
+    const lastInteraction = interactions[interactions.length - 1];
+    const daysSinceLastContact = lastInteraction 
+      ? Math.floor((Date.now() - (lastInteraction.date?.toDate().getTime() || 0)) / (1000 * 60 * 60 * 24))
+      : 999;
+
+    if (daysSinceLastContact > 14) riskFactors.push('Muito tempo sem contato');
+    if ((lead.score || 0) < 40) riskFactors.push('Score baixo');
+    if (interactions.filter(i => i.response === 'negative').length >= 3) riskFactors.push('Múltiplas interações negativas');
+
+    // Oportunidades
+    const opportunities = [];
+    if ((lead.score || 0) > 70 && lead.status === 'contacted') opportunities.push('Lead qualificado pronto para proposta');
+    if (lead.budget && lead.budget > 0) opportunities.push('Orçamento definido facilita fechamento');
+    if (lead.scheduledFollowUp) opportunities.push('Follow-up agendado');
+
+    const prediction = {
+      leadInfo: {
+        id: lead.id,
+        name: lead.name,
+        status: lead.status,
+        temperature: lead.temperature,
+        score: lead.score || 0
+      },
+      prediction: {
+        conversionProbability: probability,
+        confidence,
+        estimatedTimeToConversion: estimatedDays,
+        category: probability > 80 ? 'Muito Alta' :
+                 probability > 60 ? 'Alta' :
+                 probability > 40 ? 'Média' :
+                 probability > 20 ? 'Baixa' : 'Muito Baixa'
+      },
+      factors: {
+        riskFactors,
+        opportunities,
+        keyDrivers: [
+          `Score: ${lead.score || 0}/100`,
+          `Temperatura: ${lead.temperature}`,
+          `Engajamento: ${Math.round(positiveRate)}%`,
+          `Fonte: ${lead.source} (${Math.round(sourceConversionRate * 100)}% conversão)`
+        ]
+      }
+    };
+
+    // Adicionar recomendações se solicitado
+    if (args.includeRecommendations) {
+      const recommendations = [];
+
+      if (probability > 70) {
+        recommendations.push('Acelerar processo - lead tem alta probabilidade');
+        recommendations.push('Agendar reunião presencial');
+        recommendations.push('Preparar proposta personalizada');
+      } else if (probability > 40) {
+        recommendations.push('Qualificar melhor as necessidades');
+        recommendations.push('Aumentar frequência de contato');
+        recommendations.push('Enviar conteúdo educativo');
+      } else {
+        recommendations.push('Reavaliar fit do cliente');
+        recommendations.push('Investigar objeções');
+        recommendations.push('Considerar nurturing de longo prazo');
+      }
+
+      if (riskFactors.length > 0) {
+        recommendations.push('Mitigar fatores de risco identificados');
+      }
+
+      prediction.recommendations = recommendations;
+    }
+
+    logger.info('✅ [TenantAgent] Predição de conversão concluída', {
+      tenantId: tenantId.substring(0, 8) + '***',
+      leadId: lead.id,
+      probability,
+      confidence
+    });
+
+    return {
+      success: true,
+      prediction,
+      message: `Análise preditiva concluída para ${lead.name}. Probabilidade de conversão: ${probability}% (confiança: ${confidence}%).`,
+      tenantId
+    };
+
+  } catch (error) {
+    logger.error('❌ [TenantAgent] Erro na predição de conversão', {
+      tenantId: tenantId.substring(0, 8) + '***',
+      error: error instanceof Error ? error.message : 'Unknown error'
+    });
+
+    return {
+      success: false,
+      error: 'Erro ao calcular predição de conversão. Tente novamente.',
+      tenantId
+    };
+  }
+}
+
+/**
+ * FUNÇÃO: Segmentar clientes por diversos critérios
+ */
+export async function segmentCustomers(args: SegmentCustomersArgs, tenantId: string): Promise<any> {
+  try {
+    logger.info('🎯 [TenantAgent] segment_customers iniciada', {
+      tenantId: tenantId.substring(0, 8) + '***',
+      segmentType: args.segmentType
+    });
+
+    const serviceFactory = new TenantServiceFactory(tenantId);
+    const leadService = serviceFactory.leads;
+    const clientService = serviceFactory.clients;
+
+    const [leads, clients] = await Promise.all([
+      leadService.getMany([]) as Promise<Lead[]>,
+      clientService.getMany([]) as Promise<Client[]>
+    ]);
+
+    let segments: Array<{
+      name: string;
+      description: string;
+      count: number;
+      leads: Lead[];
+      characteristics: string[];
+      recommendedActions: string[];
+    }> = [];
+
+    switch (args.segmentType) {
+      case 'behavior':
+        segments = [
+          {
+            name: 'Altamente Engajados',
+            description: 'Leads com alta taxa de resposta e interação',
+            count: 0,
+            leads: leads.filter(l => {
+              const interactions = l.interactions || [];
+              const positiveRate = interactions.length > 0 ? 
+                interactions.filter(i => i.response === 'positive').length / interactions.length : 0;
+              return positiveRate > 0.7 && interactions.length >= 3;
+            }),
+            characteristics: ['Taxa de resposta > 70%', 'Múltiplas interações positivas', 'Resposta rápida'],
+            recommendedActions: ['Acelerar processo de venda', 'Agendar reuniões presenciais', 'Priorizar atendimento']
+          },
+          {
+            name: 'Moderadamente Interessados',
+            description: 'Leads com interesse demonstrado mas engajamento médio',
+            count: 0,
+            leads: leads.filter(l => {
+              const interactions = l.interactions || [];
+              const positiveRate = interactions.length > 0 ? 
+                interactions.filter(i => i.response === 'positive').length / interactions.length : 0;
+              return positiveRate >= 0.3 && positiveRate <= 0.7;
+            }),
+            characteristics: ['Taxa de resposta média', 'Interesse seletivo', 'Precisa de nurturing'],
+            recommendedActions: ['Conteúdo educativo', 'Follow-up regular', 'Qualificação aprofundada']
+          },
+          {
+            name: 'Baixo Engajamento',
+            description: 'Leads com pouca interação ou respostas negativas',
+            count: 0,
+            leads: leads.filter(l => {
+              const interactions = l.interactions || [];
+              const positiveRate = interactions.length > 0 ? 
+                interactions.filter(i => i.response === 'positive').length / interactions.length : 0;
+              return positiveRate < 0.3;
+            }),
+            characteristics: ['Taxa de resposta baixa', 'Pouco interesse demonstrado', 'Podem estar mal qualificados'],
+            recommendedActions: ['Reavaliar fit', 'Campanha de reativação', 'Oferta especial']
+          }
+        ];
+        break;
+
+      case 'value':
+        const avgBudget = leads.filter(l => l.budget && l.budget > 0).reduce((sum, l) => sum + (l.budget || 0), 0) / 
+                         leads.filter(l => l.budget && l.budget > 0).length || 100000;
+        
+        segments = [
+          {
+            name: 'Alto Valor',
+            description: 'Leads com orçamento acima da média',
+            count: 0,
+            leads: leads.filter(l => (l.budget || 0) > avgBudget * 1.5),
+            characteristics: ['Orçamento alto', 'Potencial de múltiplas compras', 'Podem indicar outros clientes'],
+            recommendedActions: ['Atendimento VIP', 'Ofertas premium', 'Programa de indicação']
+          },
+          {
+            name: 'Médio Valor',
+            description: 'Leads com orçamento na média do mercado',
+            count: 0,
+            leads: leads.filter(l => {
+              const budget = l.budget || 0;
+              return budget >= avgBudget * 0.7 && budget <= avgBudget * 1.5;
+            }),
+            characteristics: ['Orçamento padrão', 'Foco em valor', 'Sensíveis a preço'],
+            recommendedActions: ['Destacar custo-benefício', 'Opções de financiamento', 'Comparativo de mercado']
+          },
+          {
+            name: 'Baixo Valor',
+            description: 'Leads com orçamento limitado',
+            count: 0,
+            leads: leads.filter(l => (l.budget || 0) > 0 && (l.budget || 0) < avgBudget * 0.7),
+            characteristics: ['Orçamento restrito', 'Muito sensíveis a preço', 'Primeiro imóvel'],
+            recommendedActions: ['Opções econômicas', 'Financiamento facilitado', 'Promoções especiais']
+          }
+        ];
+        break;
+
+      case 'lifecycle':
+        segments = [
+          {
+            name: 'Novos Leads',
+            description: 'Leads recém-chegados (últimos 7 dias)',
+            count: 0,
+            leads: leads.filter(l => {
+              const daysSinceCreated = Math.floor((Date.now() - (l.createdAt?.toDate().getTime() || 0)) / (1000 * 60 * 60 * 24));
+              return daysSinceCreated <= 7;
+            }),
+            characteristics: ['Interesse recente', 'Alta receptividade', 'Necessidades não mapeadas'],
+            recommendedActions: ['Qualificação rápida', 'Primeiro contato em 24h', 'Mapear necessidades']
+          },
+          {
+            name: 'Em Nurturing',
+            description: 'Leads em processo de relacionamento',
+            count: 0,
+            leads: leads.filter(l => l.status === 'nurturing'),
+            characteristics: ['Interesse confirmado', 'Processo de decisão', 'Precisa de acompanhamento'],
+            recommendedActions: ['Follow-up regular', 'Conteúdo relevante', 'Manter relacionamento']
+          },
+          {
+            name: 'Stagnados',
+            description: 'Leads sem progresso há mais de 30 dias',
+            count: 0,
+            leads: leads.filter(l => {
+              const daysSinceCreated = Math.floor((Date.now() - (l.createdAt?.toDate().getTime() || 0)) / (1000 * 60 * 60 * 24));
+              return daysSinceCreated > 30 && ['new', 'contacted'].includes(l.status);
+            }),
+            characteristics: ['Sem progressão', 'Pode estar perdendo interesse', 'Precisa reativação'],
+            recommendedActions: ['Reativação com oferta especial', 'Nova qualificação', 'Mudança de abordagem']
+          }
+        ];
+        break;
+
+      case 'geographic':
+        const locationGroups = leads.reduce((acc, lead) => {
+          const location = lead.preferences?.location || 'Não especificado';
+          if (!acc[location]) acc[location] = [];
+          acc[location].push(lead);
+          return acc;
+        }, {} as Record<string, Lead[]>);
+
+        segments = Object.entries(locationGroups).map(([location, locationLeads]) => ({
+          name: `Região: ${location}`,
+          description: `Leads interessados em ${location}`,
+          count: locationLeads.length,
+          leads: locationLeads,
+          characteristics: [`Interesse em ${location}`, 'Localização específica', 'Conhece a região'],
+          recommendedActions: ['Ofertas na região', 'Tour pela área', 'Informações locais']
+        }));
+        break;
+
+      case 'demographic':
+        segments = [
+          {
+            name: 'Jovens Profissionais',
+            description: 'Leads entre 25-35 anos',
+            count: 0,
+            leads: leads.filter(l => {
+              const age = l.demographics?.age || 0;
+              return age >= 25 && age <= 35;
+            }),
+            characteristics: ['Primeiro imóvel', 'Carreira em ascensão', 'Tech-savvy'],
+            recommendedActions: ['Comunicação digital', 'Financiamento jovem', 'Imóveis modernos']
+          },
+          {
+            name: 'Famílias',
+            description: 'Leads com família',
+            count: 0,
+            leads: leads.filter(l => l.demographics?.hasFamily === true),
+            characteristics: ['Foco em segurança', 'Proximidade escolas', 'Espaço para família'],
+            recommendedActions: ['Destacar infraestrutura familiar', 'Segurança do bairro', 'Área de lazer']
+          },
+          {
+            name: 'Investidores',
+            description: 'Leads interessados em investimento',
+            count: 0,
+            leads: leads.filter(l => l.preferences?.propertyType?.includes('investment') || 
+              (l.interactions || []).some(i => i.description?.includes('investimento'))),
+            characteristics: ['ROI focado', 'Múltiplas propriedades', 'Análise técnica'],
+            recommendedActions: ['Análise de ROI', 'Oportunidades de mercado', 'Portfólio de opções']
+          }
+        ];
+        break;
+    }
+
+    // Atualizar contagens
+    segments = segments.map(segment => ({
+      ...segment,
+      count: segment.leads.length
+    }));
+
+    // Filtrar segmentos por critérios se fornecidos
+    if (args.criteria) {
+      segments = segments.map(segment => ({
+        ...segment,
+        leads: segment.leads.filter(lead => {
+          const criteria = args.criteria!;
+          
+          if (criteria.minScore && (lead.score || 0) < criteria.minScore) return false;
+          if (criteria.maxScore && (lead.score || 0) > criteria.maxScore) return false;
+          if (criteria.sources && criteria.sources.length > 0 && !criteria.sources.includes(lead.source || '')) return false;
+          
+          if (criteria.ageRange) {
+            const age = lead.demographics?.age || 0;
+            if (age < criteria.ageRange.min || age > criteria.ageRange.max) return false;
+          }
+          
+          if (criteria.valueRange) {
+            const budget = lead.budget || 0;
+            if (budget < criteria.valueRange.min || budget > criteria.valueRange.max) return false;
+          }
+          
+          return true;
+        }),
+        count: 0 // Will be recalculated
+      }));
+      
+      // Recalcular contagens após filtros
+      segments = segments.map(segment => ({
+        ...segment,
+        count: segment.leads.length
+      }));
+    }
+
+    // Remover segmentos vazios
+    segments = segments.filter(segment => segment.count > 0);
+
+    logger.info('✅ [TenantAgent] Segmentação concluída', {
+      tenantId: tenantId.substring(0, 8) + '***',
+      segmentType: args.segmentType,
+      segmentCount: segments.length,
+      totalLeads: segments.reduce((sum, s) => sum + s.count, 0)
+    });
+
+    return {
+      success: true,
+      segmentation: {
+        type: args.segmentType,
+        totalLeads: leads.length,
+        segments: segments.map(s => ({
+          name: s.name,
+          description: s.description,
+          count: s.count,
+          percentage: Math.round((s.count / leads.length) * 100),
+          characteristics: s.characteristics,
+          recommendedActions: s.recommendedActions
+        }))
+      },
+      message: `Segmentação por ${args.segmentType} concluída. Identificados ${segments.length} segmentos com total de ${segments.reduce((sum, s) => sum + s.count, 0)} leads.`,
+      tenantId
+    };
+
+  } catch (error) {
+    logger.error('❌ [TenantAgent] Erro na segmentação de clientes', {
+      tenantId: tenantId.substring(0, 8) + '***',
+      error: error instanceof Error ? error.message : 'Unknown error'
+    });
+
+    return {
+      success: false,
+      error: 'Erro ao segmentar clientes. Tente novamente.',
+      tenantId
+    };
+  }
+}
+
+/**
+ * FUNÇÃO: Gerar insights avançados com IA
+ */
+export async function generateInsights(args: GenerateInsightsArgs, tenantId: string): Promise<any> {
+  try {
+    logger.info('💡 [TenantAgent] generate_insights iniciada', {
+      tenantId: tenantId.substring(0, 8) + '***',
+      type: args.type,
+      period: args.period,
+      includeAI: args.includeAI
+    });
+
+    const serviceFactory = new TenantServiceFactory(tenantId);
+    const leadService = serviceFactory.leads;
+    const clientService = serviceFactory.clients;
+
+    const [leads, clients] = await Promise.all([
+      leadService.getMany([]) as Promise<Lead[]>,
+      clientService.getMany([]) as Promise<Client[]>
+    ]);
+
+    // Filtrar por período se especificado
+    const periodDays = {
+      '7d': 7,
+      '30d': 30,
+      '90d': 90,
+      '6m': 180,
+      '1y': 365
+    };
+
+    const filterDays = periodDays[args.period || '30d'];
+    const cutoffDate = new Date();
+    cutoffDate.setDate(cutoffDate.getDate() - filterDays);
+
+    const filteredLeads = leads.filter(l => 
+      l.createdAt?.toDate() >= cutoffDate
+    );
+
+    let insights: any = {};
+
+    switch (args.type) {
+      case 'lead_performance':
+        const totalLeads = filteredLeads.length;
+        const convertedLeads = clients.filter(c => 
+          c.createdAt?.toDate() >= cutoffDate
+        ).length;
+        
+        const conversionRate = totalLeads > 0 ? (convertedLeads / totalLeads) * 100 : 0;
+        const avgScore = filteredLeads.reduce((sum, l) => sum + (l.score || 0), 0) / totalLeads || 0;
+        
+        const temperatureDistribution = {
+          hot: filteredLeads.filter(l => l.temperature === 'hot').length,
+          warm: filteredLeads.filter(l => l.temperature === 'warm').length,
+          cold: filteredLeads.filter(l => l.temperature === 'cold').length
+        };
+
+        insights = {
+          type: 'lead_performance',
+          period: args.period,
+          metrics: {
+            totalLeads,
+            convertedLeads,
+            conversionRate: Math.round(conversionRate * 100) / 100,
+            avgScore: Math.round(avgScore),
+            temperatureDistribution
+          },
+          analysis: {
+            performance: conversionRate > 15 ? 'Excelente' : 
+                        conversionRate > 10 ? 'Bom' : 
+                        conversionRate > 5 ? 'Regular' : 'Precisa melhorar',
+            keyFindings: [
+              `Taxa de conversão: ${Math.round(conversionRate)}%`,
+              `Score médio: ${Math.round(avgScore)}/100`,
+              `Leads quentes: ${temperatureDistribution.hot} (${Math.round((temperatureDistribution.hot / totalLeads) * 100)}%)`
+            ],
+            recommendations: conversionRate < 10 ? [
+              'Melhorar qualificação dos leads',
+              'Aumentar follow-up dos leads mornos',
+              'Revisar processo de nurturing'
+            ] : [
+              'Manter padrão de qualidade',
+              'Escalar estratégias bem-sucedidas',
+              'Focar em leads de maior valor'
+            ]
+          }
+        };
+        break;
+
+      case 'conversion_trends':
+        // Análise de tendências de conversão por semana
+        const weeklyData = [];
+        for (let i = 0; i < Math.min(8, filterDays / 7); i++) {
+          const weekStart = new Date();
+          weekStart.setDate(weekStart.getDate() - (i * 7));
+          const weekEnd = new Date(weekStart);
+          weekEnd.setDate(weekEnd.getDate() + 7);
+
+          const weekLeads = filteredLeads.filter(l => {
+            const created = l.createdAt?.toDate();
+            return created && created >= weekStart && created < weekEnd;
+          });
+
+          const weekConversions = clients.filter(c => {
+            const created = c.createdAt?.toDate();
+            return created && created >= weekStart && created < weekEnd;
+          }).length;
+
+          weeklyData.unshift({
+            week: `Sem ${i + 1}`,
+            leads: weekLeads.length,
+            conversions: weekConversions,
+            rate: weekLeads.length > 0 ? (weekConversions / weekLeads.length) * 100 : 0
+          });
+        }
+
+        const trend = weeklyData.length >= 3 ? 
+          weeklyData[weeklyData.length - 1].rate - weeklyData[0].rate : 0;
+
+        insights = {
+          type: 'conversion_trends',
+          period: args.period,
+          weeklyData,
+          trend: {
+            direction: trend > 2 ? 'Crescente' : trend < -2 ? 'Decrescente' : 'Estável',
+            percentage: Math.round(trend * 100) / 100,
+            analysis: trend > 5 ? 'Tendência muito positiva' :
+                     trend > 0 ? 'Leve melhora' :
+                     trend === 0 ? 'Estabilidade' :
+                     trend > -5 ? 'Leve declínio' : 'Tendência preocupante'
+          },
+          insights: trend > 0 ? [
+            'Performance em crescimento',
+            'Estratégias atuais estão funcionando',
+            'Considerar expansão das táticas eficazes'
+          ] : [
+            'Performance estagnada ou em declínio',
+            'Revisar estratégias de geração de leads',
+            'Analisar qualidade das fontes'
+          ]
+        };
+        break;
+
+      case 'source_analysis':
+        const sourceStats = {};
+        filteredLeads.forEach(lead => {
+          const source = lead.source || 'unknown';
+          if (!sourceStats[source]) {
+            sourceStats[source] = { leads: 0, conversions: 0, totalScore: 0 };
+          }
+          sourceStats[source].leads++;
+          sourceStats[source].totalScore += (lead.score || 0);
+        });
+
+        clients.filter(c => c.createdAt?.toDate() >= cutoffDate).forEach(client => {
+          const source = client.source || 'unknown';
+          if (sourceStats[source]) {
+            sourceStats[source].conversions++;
+          }
+        });
+
+        const sourceAnalysis = Object.entries(sourceStats).map(([source, stats]: [string, any]) => ({
+          source,
+          leads: stats.leads,
+          conversions: stats.conversions,
+          conversionRate: stats.leads > 0 ? (stats.conversions / stats.leads) * 100 : 0,
+          avgScore: stats.leads > 0 ? stats.totalScore / stats.leads : 0,
+          roi: Math.random() * 200 + 100 // Placeholder - seria calculado com dados de custo reais
+        })).sort((a, b) => b.conversionRate - a.conversionRate);
+
+        insights = {
+          type: 'source_analysis',
+          period: args.period,
+          sources: sourceAnalysis,
+          topPerformers: sourceAnalysis.slice(0, 3),
+          recommendations: [
+            `Investir mais em: ${sourceAnalysis[0]?.source} (${Math.round(sourceAnalysis[0]?.conversionRate)}% conversão)`,
+            sourceAnalysis.length > 1 ? `Otimizar: ${sourceAnalysis[Math.floor(sourceAnalysis.length / 2)]?.source}` : 'Diversificar fontes',
+            `Revisar: ${sourceAnalysis[sourceAnalysis.length - 1]?.source} (baixa performance)`
+          ].filter(Boolean)
+        };
+        break;
+
+      case 'pipeline_health':
+        const statusCounts = {
+          new: filteredLeads.filter(l => l.status === 'new').length,
+          contacted: filteredLeads.filter(l => l.status === 'contacted').length,
+          qualified: filteredLeads.filter(l => l.status === 'qualified').length,
+          nurturing: filteredLeads.filter(l => l.status === 'nurturing').length,
+          proposal_sent: filteredLeads.filter(l => l.status === 'proposal_sent').length,
+          negotiating: filteredLeads.filter(l => l.status === 'negotiating').length,
+          won: filteredLeads.filter(l => l.status === 'won').length,
+          lost: filteredLeads.filter(l => l.status === 'lost').length
+        };
+
+        const bottleneck = Object.entries(statusCounts)
+          .filter(([status]) => !['won', 'lost'].includes(status))
+          .sort((a, b) => b[1] - a[1])[0];
+
+        insights = {
+          type: 'pipeline_health',
+          period: args.period,
+          distribution: statusCounts,
+          bottleneck: bottleneck ? {
+            stage: bottleneck[0],
+            count: bottleneck[1],
+            percentage: Math.round((bottleneck[1] / totalLeads) * 100)
+          } : null,
+          healthScore: Math.min(100, Math.max(0,
+            (statusCounts.qualified + statusCounts.nurturing + statusCounts.proposal_sent) / totalLeads * 100
+          )),
+          actionItems: [
+            bottleneck ? `Focar em mover leads do estágio: ${bottleneck[0]}` : 'Pipeline equilibrado',
+            statusCounts.new > totalLeads * 0.4 ? 'Muitos leads sem primeiro contato' : 'Acompanhamento em dia',
+            statusCounts.nurturing > totalLeads * 0.3 ? 'Acelerar processo de nurturing' : 'Nurturing controlado'
+          ]
+        };
+        break;
+
+      case 'predictive_analytics':
+        // Análise preditiva simples baseada em tendências
+        const recentConversions = clients.filter(c => {
+          const daysSince = Math.floor((Date.now() - (c.createdAt?.toDate().getTime() || 0)) / (1000 * 60 * 60 * 24));
+          return daysSince <= 30;
+        }).length;
+
+        const recentLeads = filteredLeads.filter(l => {
+          const daysSince = Math.floor((Date.now() - (l.createdAt?.toDate().getTime() || 0)) / (1000 * 60 * 60 * 24));
+          return daysSince <= 30;
+        }).length;
+
+        const currentRate = recentLeads > 0 ? recentConversions / recentLeads : 0;
+        
+        const hotLeads = filteredLeads.filter(l => l.temperature === 'hot' && ['qualified', 'nurturing', 'proposal_sent'].includes(l.status)).length;
+        const warmLeads = filteredLeads.filter(l => l.temperature === 'warm' && ['qualified', 'nurturing'].includes(l.status)).length;
+
+        const predictedConversions = Math.round(hotLeads * 0.7 + warmLeads * 0.3);
+
+        insights = {
+          type: 'predictive_analytics',
+          period: args.period,
+          currentMetrics: {
+            recentConversions,
+            recentLeads,
+            conversionRate: Math.round(currentRate * 100)
+          },
+          predictions: {
+            nextMonthConversions: predictedConversions,
+            confidence: Math.min(90, Math.max(60, 70 + (filteredLeads.length / 10))),
+            factors: [
+              `${hotLeads} leads quentes no pipeline`,
+              `${warmLeads} leads mornos qualificados`,
+              `Taxa atual de ${Math.round(currentRate * 100)}%`
+            ]
+          },
+          opportunities: [
+            hotLeads > 5 ? 'Alto potencial de conversões rápidas' : 'Poucas conversões imediatas previstas',
+            warmLeads > 10 ? 'Bom volume para nurturing' : 'Focar em aquecer mais leads',
+            'Manter qualidade do lead scoring atual'
+          ]
+        };
+        break;
+    }
+
+    logger.info('✅ [TenantAgent] Insights gerados com sucesso', {
+      tenantId: tenantId.substring(0, 8) + '***',
+      type: args.type,
+      dataPoints: filteredLeads.length
+    });
+
+    return {
+      success: true,
+      insights,
+      message: `Insights de ${args.type} gerados com sucesso para o período de ${args.period || '30d'}.`,
+      tenantId
+    };
+
+  } catch (error) {
+    logger.error('❌ [TenantAgent] Erro ao gerar insights', {
+      tenantId: tenantId.substring(0, 8) + '***',
+      error: error instanceof Error ? error.message : 'Unknown error'
+    });
+
+    return {
+      success: false,
+      error: 'Erro ao gerar insights. Tente novamente.',
+      tenantId
+    };
+  }
+}
+
+// Função para verificar disponibilidade da agenda
+export async function checkAgendaAvailability(args: CheckAgendaAvailabilityArgs, tenantId: string): Promise<AgendaAvailabilityResponse> {
+  try {
+    logger.info('📅 [CheckAgendaAvailability] Verificando disponibilidade da agenda', {
+      tenantId: tenantId.substring(0, 8) + '***',
+      year: args.year,
+      month: args.month,
+      day: args.day,
+      requestType: args.day ? 'single_day' : 'full_month'
+    });
+
+    logger.info('🔧 [CheckAgendaAvailability] Criando service factory', { tenantId: tenantId.substring(0, 8) + '***' });
+    const serviceFactory = new TenantServiceFactory(tenantId);
+    
+    logger.info('🔧 [CheckAgendaAvailability] Obtendo visitService');
+    const visitService = serviceFactory.visits;
+    
+    logger.info('🔧 [CheckAgendaAvailability] VisitService obtido com sucesso', { 
+      hasVisitService: !!visitService,
+      visitServiceType: typeof visitService
+    });
+
+    // Configurar range de datas baseado nos parâmetros (convertendo strings para numbers)
+    const year = parseInt(String(args.year));
+    const month = parseInt(String(args.month));
+    const day = args.day ? parseInt(String(args.day)) : null;
+    
+    logger.info('🔧 [CheckAgendaAvailability] Parâmetros convertidos', {
+      originalArgs: args,
+      convertedYear: year,
+      convertedMonth: month,
+      convertedDay: day,
+      types: {
+        year: typeof year,
+        month: typeof month,
+        day: typeof day
+      }
+    });
+
+    let startDate: Date;
+    let endDate: Date;
+    let queryLabel: string;
+
+    if (day) {
+      // Consulta de um dia específico
+      startDate = new Date(year, month - 1, day, 0, 0, 0);
+      endDate = new Date(year, month - 1, day, 23, 59, 59);
+      queryLabel = startDate.toLocaleDateString('pt-BR');
+    } else {
+      // Consulta de mês completo
+      startDate = new Date(year, month - 1, 1, 0, 0, 0);
+      endDate = new Date(year, month, 0, 23, 59, 59); // Último dia do mês
+      queryLabel = `${month.toString().padStart(2, '0')}/${year}`;
+    }
+
+    logger.info('🔍 [CheckAgendaAvailability] Range de consulta definido', {
+      tenantId: tenantId.substring(0, 8) + '***',
+      startDate: startDate.toISOString(),
+      endDate: endDate.toISOString(),
+      queryLabel
+    });
+
+    // Buscar todos os agendamentos no período
+    // Considera apenas status ativos: scheduled, confirmed, in_progress
+    const activeStatuses = ['scheduled', 'confirmed', 'in_progress'];
+    
+    logger.info('🔍 [CheckAgendaAvailability] Iniciando consulta ao banco de dados', {
+      tenantId: tenantId.substring(0, 8) + '***',
+      startDate: startDate.toISOString(),
+      endDate: endDate.toISOString(),
+      activeStatuses
+    });
+    
+    const appointments = await visitService.getMany([
+      { field: 'tenantId', operator: '==', value: tenantId },
+      { field: 'scheduledDate', operator: '>=', value: startDate },
+      { field: 'scheduledDate', operator: '<=', value: endDate },
+      { field: 'status', operator: 'in', value: activeStatuses }
+    ]) as VisitAppointment[];
+    
+    logger.info('✅ [CheckAgendaAvailability] Consulta ao banco concluída', {
+      tenantId: tenantId.substring(0, 8) + '***',
+      appointmentsCount: appointments?.length || 0,
+      hasAppointments: !!appointments
+    });
+
+    logger.info('📊 [CheckAgendaAvailability] Agendamentos encontrados', {
+      tenantId: tenantId.substring(0, 8) + '***',
+      totalAppointments: appointments.length,
+      dateRange: queryLabel,
+      activeStatuses
+    });
+
+    // Processar agendamentos em slots ocupados
+    const occupiedSlots: OccupiedTimeSlot[] = appointments.map(appointment => {
+      const date = new Date(appointment.scheduledDate);
+      const startTime = appointment.scheduledTime;
+      const duration = appointment.duration || 60; // Default 60 min
+      
+      // Calcular endTime baseado na duração
+      const [startHour, startMinute] = startTime.split(':').map(Number);
+      const totalMinutes = startHour * 60 + startMinute + duration;
+      const endHour = Math.floor(totalMinutes / 60) % 24;
+      const endMinute = totalMinutes % 60;
+      const endTime = `${endHour.toString().padStart(2, '0')}:${endMinute.toString().padStart(2, '0')}`;
+
+      // Determinar tipo baseado no propertyId
+      const type: 'meeting' | 'visit' | 'blocked' = 
+        appointment.propertyId === 'GENERIC_EVENT' ? 'meeting' : 'visit';
+
+      return {
+        id: appointment.id,
+        date: date.toISOString().split('T')[0], // YYYY-MM-DD
+        startTime: startTime,
+        endTime: endTime,
+        duration: duration,
+        title: appointment.propertyId === 'GENERIC_EVENT' 
+          ? (appointment.propertyName || 'Reunião') 
+          : `Visita - ${appointment.propertyName}`,
+        clientName: appointment.clientName,
+        clientPhone: appointment.clientPhone,
+        type: type,
+        status: appointment.status,
+        notes: appointment.notes
+      };
+    });
+
+    // Ordenar slots por data e horário
+    occupiedSlots.sort((a, b) => {
+      const dateCompare = a.date.localeCompare(b.date);
+      if (dateCompare !== 0) return dateCompare;
+      return a.startTime.localeCompare(b.startTime);
+    });
+
+    // Gerar sugestões de horários livres (apenas para consulta de dia específico)
+    let availableSuggestions: string[] | undefined;
+    if (args.day) {
+      availableSuggestions = generateAvailableTimeSlots(occupiedSlots, args.day);
+    }
+
+    // Horário de trabalho padrão (configurável por tenant futuramente)
+    const workingHours = {
+      start: '08:00',
+      end: '18:00',
+      lunchBreak: {
+        start: '12:00',
+        end: '13:00'
+      }
+    };
+
+    const response: AgendaAvailabilityResponse = {
+      success: true,
+      date: args.day ? queryLabel : undefined,
+      month: !args.day ? queryLabel : undefined,
+      occupiedSlots,
+      totalOccupied: occupiedSlots.length,
+      availableSuggestions,
+      workingHours,
+      tenantId
+    };
+
+    logger.info('✅ [CheckAgendaAvailability] Consulta concluída com sucesso', {
+      tenantId: tenantId.substring(0, 8) + '***',
+      queryLabel,
+      totalOccupied: occupiedSlots.length,
+      hasSuggestions: !!availableSuggestions,
+      suggestionsCount: availableSuggestions?.length || 0
+    });
+
+    return response;
+
+  } catch (error) {
+    logger.error('❌ [CheckAgendaAvailability] Erro ao verificar disponibilidade da agenda', {
+      error: error instanceof Error ? {
+        name: error.name,
+        message: error.message,
+        stack: error.stack?.substring(0, 500)
+      } : String(error),
+      tenantId: tenantId.substring(0, 8) + '***',
+      args,
+      errorType: typeof error,
+      isErrorInstance: error instanceof Error
+    });
+    
+    console.error('[DEBUG-CHECK-AGENDA] Full error details:', error);
+    
+    return {
+      success: false,
+      occupiedSlots: [],
+      totalOccupied: 0,
+      error: `Erro ao verificar disponibilidade da agenda: ${error instanceof Error ? error.message : String(error)}`,
+      tenantId
+    };
+  }
+}
+
+// Função auxiliar para gerar sugestões de horários livres
+function generateAvailableTimeSlots(occupiedSlots: OccupiedTimeSlot[], day: number): string[] {
+  const workStartHour = 8;  // 08:00
+  const workEndHour = 18;   // 18:00
+  const lunchStartHour = 12; // 12:00
+  const lunchEndHour = 13;   // 13:00
+  const slotDuration = 60;   // 60 minutos por slot
+  
+  const suggestions: string[] = [];
+  
+  // Gerar todos os slots possíveis de trabalho (excluindo almoço)
+  for (let hour = workStartHour; hour < workEndHour; hour++) {
+    // Pular horário de almoço
+    if (hour >= lunchStartHour && hour < lunchEndHour) {
+      continue;
+    }
+    
+    const timeSlot = `${hour.toString().padStart(2, '0')}:00`;
+    
+    // Verificar se o slot está ocupado
+    const isOccupied = occupiedSlots.some(slot => {
+      if (slot.date !== new Date().toISOString().split('T')[0]) return false;
+      
+      const slotStart = hour;
+      const slotEnd = hour + 1;
+      
+      const [occupiedStartHour] = slot.startTime.split(':').map(Number);
+      const [occupiedEndHour] = slot.endTime.split(':').map(Number);
+      
+      // Verificar sobreposição
+      return !(slotEnd <= occupiedStartHour || slotStart >= occupiedEndHour);
+    });
+    
+    if (!isOccupied) {
+      suggestions.push(timeSlot);
+    }
+  }
+  
+  return suggestions;
+}
+
+// ===== NOVAS FUNÇÕES CRM PARA N8N =====
+
+/**
+ * FUNÇÃO CRM 1: Obter detalhes completos de um lead
+ */
+export async function getLeadDetails(args: GetLeadDetailsArgs, tenantId: string): Promise<any> {
+  try {
+    logger.info('👤 [TenantAgent] get_lead_details iniciada', {
+      tenantId: tenantId.substring(0, 8) + '***',
+      hasLeadId: !!args.leadId,
+      hasClientPhone: !!args.clientPhone,
+      includeInteractions: args.includeInteractions,
+      includeTasks: args.includeTasks,
+      includeAnalytics: args.includeAnalytics
+    });
+
+    if (!args.leadId && !args.clientPhone) {
+      return {
+        success: false,
+        error: 'leadId ou clientPhone é obrigatório',
+        tenantId
+      };
+    }
+
+    const serviceFactory = new TenantServiceFactory(tenantId);
+    const leadService = serviceFactory.leads;
+
+    let lead: Lead | null = null;
+
+    // Buscar lead por ID ou telefone
+    if (args.leadId) {
+      lead = await leadService.getById(args.leadId) as Lead;
+    } else if (args.clientPhone) {
+      const leads = await leadService.getMany([
+        { field: 'clientPhone', operator: '==', value: args.clientPhone }
+      ]) as Lead[];
+      lead = leads[0] || null;
+    }
+
+    if (!lead) {
+      return {
+        success: false,
+        error: 'Lead não encontrado',
+        tenantId
+      };
+    }
+
+    let result: any = {
+      lead: {
+        id: lead.id,
+        clientName: lead.clientName,
+        clientPhone: lead.clientPhone,
+        email: lead.email,
+        status: lead.status,
+        temperature: lead.temperature,
+        score: lead.score,
+        source: lead.source,
+        interests: lead.interests,
+        budget: lead.budget,
+        preferredContact: lead.preferredContact,
+        notes: lead.notes,
+        assignedTo: lead.assignedTo,
+        createdAt: lead.createdAt?.toDate().toISOString(),
+        lastContactDate: lead.lastContactDate?.toDate().toISOString()
+      }
+    };
+
+    // Incluir interações se solicitado
+    if (args.includeInteractions) {
+      const interactionService = serviceFactory.interactions;
+      const interactions = await interactionService.getMany([
+        { field: 'leadId', operator: '==', value: lead.id }
+      ]);
+      result.interactions = interactions.map(i => ({
+        id: i.id,
+        type: i.type,
+        content: i.content,
+        sentiment: i.sentiment,
+        createdAt: i.createdAt?.toDate().toISOString()
+      }));
+    }
+
+    // Incluir tasks se solicitado
+    if (args.includeTasks) {
+      const taskService = serviceFactory.tasks;
+      const tasks = await taskService.getMany([
+        { field: 'leadId', operator: '==', value: lead.id }
+      ]);
+      result.tasks = tasks.map(t => ({
+        id: t.id,
+        title: t.title,
+        description: t.description,
+        status: t.status,
+        priority: t.priority,
+        dueDate: t.dueDate?.toDate().toISOString(),
+        assignedTo: t.assignedTo
+      }));
+    }
+
+    // Incluir analytics se solicitado
+    if (args.includeAnalytics) {
+      result.analytics = {
+        interactionCount: result.interactions?.length || 0,
+        lastInteractionDays: lead.lastContactDate ?
+          Math.floor((Date.now() - lead.lastContactDate.toDate().getTime()) / (1000 * 60 * 60 * 24)) : null,
+        conversionProbability: calculateConversionProbability(lead),
+        engagementLevel: calculateEngagementLevel(lead, result.interactions || [])
+      };
+    }
+
+    // Incluir recomendações se solicitado
+    if (args.includeRecommendations) {
+      result.recommendations = generateLeadRecommendations(lead, result.interactions || []);
+    }
+
+    logger.info('✅ [TenantAgent] get_lead_details concluída', {
+      tenantId: tenantId.substring(0, 8) + '***',
+      leadId: lead.id,
+      includesCount: {
+        interactions: result.interactions?.length || 0,
+        tasks: result.tasks?.length || 0,
+        hasAnalytics: !!result.analytics,
+        hasRecommendations: !!result.recommendations
+      }
+    });
+
+    return {
+      success: true,
+      data: result,
+      tenantId
+    };
+
+  } catch (error) {
+    logger.error('❌ [TenantAgent] Erro em get_lead_details', {
+      tenantId: tenantId.substring(0, 8) + '***',
+      error: error instanceof Error ? error.message : 'Unknown error'
+    });
+
+    return {
+      success: false,
+      error: 'Erro ao buscar detalhes do lead',
+      tenantId
+    };
+  }
+}
+
+/**
+ * FUNÇÃO CRM 2: Listar leads com filtros avançados
+ */
+export async function getLeadsList(args: GetLeadsListArgs, tenantId: string): Promise<any> {
+  try {
+    logger.info('📋 [TenantAgent] get_leads_list iniciada', {
+      tenantId: tenantId.substring(0, 8) + '***',
+      filters: {
+        status: args.status,
+        temperature: args.temperature,
+        minScore: args.minScore,
+        maxScore: args.maxScore,
+        limit: args.limit || 50,
+        sortBy: args.sortBy || 'score'
+      }
+    });
+
+    const serviceFactory = new TenantServiceFactory(tenantId);
+    const leadService = serviceFactory.leads;
+
+    // Construir filtros
+    let filters: any[] = [];
+
+    if (args.status) {
+      if (Array.isArray(args.status)) {
+        filters.push({ field: 'status', operator: 'in', value: args.status });
+      } else {
+        filters.push({ field: 'status', operator: '==', value: args.status });
+      }
+    }
+
+    if (args.temperature) {
+      filters.push({ field: 'temperature', operator: '==', value: args.temperature });
+    }
+
+    if (args.assignedTo) {
+      filters.push({ field: 'assignedTo', operator: '==', value: args.assignedTo });
+    }
+
+    if (args.source) {
+      if (Array.isArray(args.source)) {
+        filters.push({ field: 'source', operator: 'in', value: args.source });
+      } else {
+        filters.push({ field: 'source', operator: '==', value: args.source });
+      }
+    }
+
+    // Buscar leads
+    let leads = await leadService.getMany(filters) as Lead[];
+
+    // Aplicar filtros de score (no código, pois Firestore não suporta range queries complexas com outros filtros)
+    if (args.minScore !== undefined) {
+      leads = leads.filter(l => (l.score || 0) >= args.minScore!);
+    }
+
+    if (args.maxScore !== undefined) {
+      leads = leads.filter(l => (l.score || 0) <= args.maxScore!);
+    }
+
+    // Aplicar filtros de data
+    if (args.createdAfter) {
+      const afterDate = new Date(args.createdAfter);
+      leads = leads.filter(l => l.createdAt?.toDate() >= afterDate);
+    }
+
+    if (args.createdBefore) {
+      const beforeDate = new Date(args.createdBefore);
+      leads = leads.filter(l => l.createdAt?.toDate() <= beforeDate);
+    }
+
+    // Ordenar
+    const sortField = args.sortBy || 'score';
+    const sortOrder = args.sortOrder || 'desc';
+
+    leads.sort((a, b) => {
+      let valueA: any, valueB: any;
+
+      switch (sortField) {
+        case 'score':
+          valueA = a.score || 0;
+          valueB = b.score || 0;
+          break;
+        case 'lastContactDate':
+          valueA = a.lastContactDate?.toDate().getTime() || 0;
+          valueB = b.lastContactDate?.toDate().getTime() || 0;
+          break;
+        case 'createdAt':
+          valueA = a.createdAt?.toDate().getTime() || 0;
+          valueB = b.createdAt?.toDate().getTime() || 0;
+          break;
+        case 'temperature':
+          const tempOrder = { 'hot': 3, 'warm': 2, 'cold': 1 };
+          valueA = tempOrder[a.temperature as keyof typeof tempOrder] || 0;
+          valueB = tempOrder[b.temperature as keyof typeof tempOrder] || 0;
+          break;
+        default:
+          valueA = 0;
+          valueB = 0;
+      }
+
+      if (sortOrder === 'asc') {
+        return valueA > valueB ? 1 : -1;
+      } else {
+        return valueA < valueB ? 1 : -1;
+      }
+    });
+
+    // Aplicar paginação
+    const offset = args.offset || 0;
+    const limit = Math.min(args.limit || 50, 100); // Máximo 100 leads por vez
+
+    const paginatedLeads = leads.slice(offset, offset + limit);
+
+    // Preparar resultado
+    const leadsResult = paginatedLeads.map(lead => ({
+      id: lead.id,
+      clientName: lead.clientName,
+      clientPhone: lead.clientPhone,
+      email: lead.email,
+      status: lead.status,
+      temperature: lead.temperature,
+      score: lead.score,
+      source: lead.source,
+      assignedTo: lead.assignedTo,
+      createdAt: lead.createdAt?.toDate().toISOString(),
+      lastContactDate: lead.lastContactDate?.toDate().toISOString()
+    }));
+
+    // Incluir analytics se solicitado
+    let analytics: any = undefined;
+    if (args.includeAnalytics) {
+      const totalLeads = leads.length;
+      const avgScore = leads.reduce((sum, l) => sum + (l.score || 0), 0) / totalLeads || 0;
+      const temperatureDistribution = {
+        hot: leads.filter(l => l.temperature === 'hot').length,
+        warm: leads.filter(l => l.temperature === 'warm').length,
+        cold: leads.filter(l => l.temperature === 'cold').length
+      };
+
+      analytics = {
+        totalFound: totalLeads,
+        averageScore: Math.round(avgScore * 10) / 10,
+        temperatureDistribution,
+        statusDistribution: leads.reduce((acc, l) => {
+          acc[l.status || 'unknown'] = (acc[l.status || 'unknown'] || 0) + 1;
+          return acc;
+        }, {} as Record<string, number>)
+      };
+    }
+
+    logger.info('✅ [TenantAgent] get_leads_list concluída', {
+      tenantId: tenantId.substring(0, 8) + '***',
+      totalFound: leads.length,
+      returned: leadsResult.length,
+      appliedFilters: filters.length
+    });
+
+    return {
+      success: true,
+      data: {
+        leads: leadsResult,
+        pagination: {
+          total: leads.length,
+          offset: offset,
+          limit: limit,
+          hasMore: offset + limit < leads.length
+        },
+        analytics
+      },
+      tenantId
+    };
+
+  } catch (error) {
+    logger.error('❌ [TenantAgent] Erro em get_leads_list', {
+      tenantId: tenantId.substring(0, 8) + '***',
+      error: error instanceof Error ? error.message : 'Unknown error'
+    });
+
+    return {
+      success: false,
+      error: 'Erro ao listar leads',
+      tenantId
+    };
+  }
+}
+
+/**
+ * FUNÇÃO CRM 3: Adicionar interação a um lead
+ */
+export async function addLeadInteraction(args: AddLeadInteractionArgs, tenantId: string): Promise<any> {
+  try {
+    logger.info('💬 [TenantAgent] add_lead_interaction iniciada', {
+      tenantId: tenantId.substring(0, 8) + '***',
+      hasLeadId: !!args.leadId,
+      hasClientPhone: !!args.clientPhone,
+      type: args.type,
+      sentiment: args.sentiment,
+      updateScore: args.updateScore
+    });
+
+    if (!args.leadId && !args.clientPhone) {
+      return {
+        success: false,
+        error: 'leadId ou clientPhone é obrigatório',
+        tenantId
+      };
+    }
+
+    if (!args.type || !args.content) {
+      return {
+        success: false,
+        error: 'type e content são obrigatórios',
+        tenantId
+      };
+    }
+
+    const serviceFactory = new TenantServiceFactory(tenantId);
+    const leadService = serviceFactory.leads;
+    const interactionService = serviceFactory.interactions;
+
+    // Encontrar o lead
+    let lead: Lead | null = null;
+
+    if (args.leadId) {
+      lead = await leadService.getById(args.leadId) as Lead;
+    } else if (args.clientPhone) {
+      const leads = await leadService.getMany([
+        { field: 'clientPhone', operator: '==', value: args.clientPhone }
+      ]) as Lead[];
+      lead = leads[0] || null;
+    }
+
+    if (!lead) {
+      return {
+        success: false,
+        error: 'Lead não encontrado',
+        tenantId
+      };
+    }
+
+    // Criar interação
+    const interaction = {
+      leadId: lead.id,
+      type: args.type as InteractionType,
+      content: args.content,
+      sentiment: args.sentiment || 'neutral',
+      metadata: args.metadata || {},
+      createdAt: new Date(),
+      createdBy: 'system'
+    };
+
+    const createdInteraction = await interactionService.create(interaction);
+
+    // Atualizar score do lead se solicitado
+    let newScore = lead.score || 0;
+    let scoreChange = 0;
+
+    if (args.updateScore !== false) {
+      // Calcular mudança no score baseada na interação
+      scoreChange = calculateScoreChange(args.type, args.sentiment || 'neutral');
+      newScore = Math.max(0, Math.min(100, (lead.score || 0) + scoreChange));
+
+      // Atualizar lead
+      await leadService.updateById(lead.id, {
+        score: newScore,
+        lastContactDate: new Date(),
+        temperature: calculateTemperatureFromScore(newScore)
+      });
+    }
+
+    // Auto-classificar lead se solicitado
+    let newTemperature = lead.temperature;
+    if (args.autoClassify) {
+      newTemperature = calculateTemperatureFromScore(newScore);
+    }
+
+    logger.info('✅ [TenantAgent] add_lead_interaction concluída', {
+      tenantId: tenantId.substring(0, 8) + '***',
+      leadId: lead.id,
+      interactionId: createdInteraction.id,
+      scoreChange,
+      newScore,
+      newTemperature
+    });
+
+    return {
+      success: true,
+      data: {
+        interaction: {
+          id: createdInteraction.id,
+          type: args.type,
+          content: args.content,
+          sentiment: args.sentiment,
+          createdAt: new Date().toISOString()
+        },
+        leadUpdated: args.updateScore !== false,
+        newScore,
+        scoreChange,
+        newTemperature
+      },
+      tenantId
+    };
+
+  } catch (error) {
+    logger.error('❌ [TenantAgent] Erro em add_lead_interaction', {
+      tenantId: tenantId.substring(0, 8) + '***',
+      error: error instanceof Error ? error.message : 'Unknown error'
+    });
+
+    return {
+      success: false,
+      error: 'Erro ao adicionar interação ao lead',
+      tenantId
+    };
+  }
+}
+
+/**
+ * FUNÇÃO CRM 4: Analisar performance de um lead
+ */
+export async function analyzeLeadPerformance(args: AnalyzeLeadPerformanceArgs, tenantId: string): Promise<any> {
+  try {
+    logger.info('📈 [TenantAgent] analyze_lead_performance iniciada', {
+      tenantId: tenantId.substring(0, 8) + '***',
+      hasLeadId: !!args.leadId,
+      hasClientPhone: !!args.clientPhone,
+      timeRange: args.timeRange,
+      includeRecommendations: args.includeRecommendations,
+      includePredictions: args.includePredictions
+    });
+
+    if (!args.leadId && !args.clientPhone) {
+      return {
+        success: false,
+        error: 'leadId ou clientPhone é obrigatório',
+        tenantId
+      };
+    }
+
+    const serviceFactory = new TenantServiceFactory(tenantId);
+    const leadService = serviceFactory.leads;
+    const interactionService = serviceFactory.interactions;
+
+    // Encontrar o lead
+    let lead: Lead | null = null;
+
+    if (args.leadId) {
+      lead = await leadService.getById(args.leadId) as Lead;
+    } else if (args.clientPhone) {
+      const leads = await leadService.getMany([
+        { field: 'clientPhone', operator: '==', value: args.clientPhone }
+      ]) as Lead[];
+      lead = leads[0] || null;
+    }
+
+    if (!lead) {
+      return {
+        success: false,
+        error: 'Lead não encontrado',
+        tenantId
+      };
+    }
+
+    // Buscar interações do período
+    const timeRangeDays = {
+      '7d': 7,
+      '30d': 30,
+      '90d': 90,
+      '6m': 180
+    };
+
+    const days = timeRangeDays[args.timeRange || '30d'];
+    const cutoffDate = new Date();
+    cutoffDate.setDate(cutoffDate.getDate() - days);
+
+    const interactions = await interactionService.getMany([
+      { field: 'leadId', operator: '==', value: lead.id }
+    ]);
+
+    const recentInteractions = interactions.filter(i =>
+      i.createdAt?.toDate() >= cutoffDate
+    );
+
+    // Análise básica
+    const analysis = {
+      currentScore: lead.score || 0,
+      temperature: lead.temperature,
+      totalInteractions: recentInteractions.length,
+      interactionTypes: recentInteractions.reduce((acc, i) => {
+        acc[i.type || 'unknown'] = (acc[i.type || 'unknown'] || 0) + 1;
+        return acc;
+      }, {} as Record<string, number>),
+      sentimentDistribution: recentInteractions.reduce((acc, i) => {
+        const sentiment = i.sentiment || 'neutral';
+        acc[sentiment] = (acc[sentiment] || 0) + 1;
+        return acc;
+      }, {} as Record<string, number>),
+      engagementTrend: calculateEngagementTrend(recentInteractions),
+      daysSinceLastContact: lead.lastContactDate ?
+        Math.floor((Date.now() - lead.lastContactDate.toDate().getTime()) / (1000 * 60 * 60 * 24)) : null,
+      conversionProbability: calculateConversionProbability(lead)
+    };
+
+    let result: any = {
+      lead: {
+        id: lead.id,
+        clientName: lead.clientName,
+        clientPhone: lead.clientPhone,
+        status: lead.status
+      },
+      analysis
+    };
+
+    // Incluir recomendações se solicitado
+    if (args.includeRecommendations) {
+      result.recommendations = generateLeadRecommendations(lead, recentInteractions);
+    }
+
+    // Incluir predições se solicitado
+    if (args.includePredictions) {
+      result.predictions = generateLeadPredictions(lead, recentInteractions);
+    }
+
+    // Calcular próxima melhor ação
+    result.nextBestAction = calculateNextBestAction(lead, recentInteractions);
+
+    logger.info('✅ [TenantAgent] analyze_lead_performance concluída', {
+      tenantId: tenantId.substring(0, 8) + '***',
+      leadId: lead.id,
+      analysisPeriod: args.timeRange,
+      interactionsAnalyzed: recentInteractions.length,
+      conversionProbability: analysis.conversionProbability
+    });
+
+    return {
+      success: true,
+      data: result,
+      tenantId
+    };
+
+  } catch (error) {
+    logger.error('❌ [TenantAgent] Erro em analyze_lead_performance', {
+      tenantId: tenantId.substring(0, 8) + '***',
+      error: error instanceof Error ? error.message : 'Unknown error'
+    });
+
+    return {
+      success: false,
+      error: 'Erro ao analisar performance do lead',
+      tenantId
+    };
+  }
+}
+
+/**
+ * FUNÇÃO CRM 5: Configurar follow-up para um lead
+ */
+export async function followUpLead(args: FollowUpLeadArgs, tenantId: string): Promise<any> {
+  try {
+    logger.info('📞 [TenantAgent] follow_up_lead iniciada', {
+      tenantId: tenantId.substring(0, 8) + '***',
+      hasLeadId: !!args.leadId,
+      hasClientPhone: !!args.clientPhone,
+      followUpType: args.followUpType,
+      priority: args.priority,
+      autoExecute: args.autoExecute
+    });
+
+    if (!args.leadId && !args.clientPhone) {
+      return {
+        success: false,
+        error: 'leadId ou clientPhone é obrigatório',
+        tenantId
+      };
+    }
+
+    const serviceFactory = new TenantServiceFactory(tenantId);
+    const leadService = serviceFactory.leads;
+    const taskService = serviceFactory.tasks;
+
+    // Encontrar o lead
+    let lead: Lead | null = null;
+
+    if (args.leadId) {
+      lead = await leadService.getById(args.leadId) as Lead;
+    } else if (args.clientPhone) {
+      const leads = await leadService.getMany([
+        { field: 'clientPhone', operator: '==', value: args.clientPhone }
+      ]) as Lead[];
+      lead = leads[0] || null;
+    }
+
+    if (!lead) {
+      return {
+        success: false,
+        error: 'Lead não encontrado',
+        tenantId
+      };
+    }
+
+    // Determinar quando executar o follow-up
+    let scheduledFor = new Date();
+    if (args.scheduledFor) {
+      scheduledFor = new Date(args.scheduledFor);
+    } else {
+      // Agendar baseado no tipo e prioridade
+      const delayMinutes = {
+        'call': { 'urgent': 15, 'high': 60, 'medium': 240, 'low': 1440 },
+        'whatsapp': { 'urgent': 5, 'high': 30, 'medium': 120, 'low': 480 },
+        'email': { 'urgent': 30, 'high': 120, 'medium': 480, 'low': 1440 },
+        'visit': { 'urgent': 60, 'high': 240, 'medium': 1440, 'low': 2880 },
+        'proposal': { 'urgent': 30, 'high': 60, 'medium': 240, 'low': 720 }
+      };
+
+      const delay = delayMinutes[args.followUpType]?.[args.priority || 'medium'] || 240;
+      scheduledFor.setMinutes(scheduledFor.getMinutes() + delay);
+    }
+
+    // Criar tarefa de follow-up
+    const taskTitle = `Follow-up ${args.followUpType} - ${lead.clientName}`;
+    const taskDescription = args.message || `Realizar follow-up via ${args.followUpType} com ${lead.clientName}`;
+
+    const task = await taskService.create({
+      title: taskTitle,
+      description: taskDescription,
+      type: 'follow_up',
+      leadId: lead.id,
+      clientPhone: lead.clientPhone,
+      priority: args.priority || 'medium',
+      status: 'pending',
+      dueDate: scheduledFor,
+      assignedTo: args.assignTo || 'system',
+      metadata: {
+        followUpType: args.followUpType,
+        autoExecute: args.autoExecute
+      },
+      createdAt: new Date()
+    });
+
+    let result: any = {
+      task: {
+        id: task.id,
+        title: taskTitle,
+        description: taskDescription,
+        priority: args.priority || 'medium',
+        dueDate: scheduledFor.toISOString(),
+        followUpType: args.followUpType
+      },
+      scheduledFor: scheduledFor.toISOString(),
+      followUpType: args.followUpType
+    };
+
+    // Auto-executar se solicitado e é imediato
+    if (args.autoExecute && scheduledFor <= new Date()) {
+      try {
+        const executed = await executeFollowUp(args.followUpType, lead, args.message, tenantId);
+        result.autoExecuted = true;
+        result.executionResult = executed;
+      } catch (execError) {
+        result.autoExecuted = false;
+        result.executionError = execError instanceof Error ? execError.message : 'Execution failed';
+      }
+    }
+
+    logger.info('✅ [TenantAgent] follow_up_lead concluída', {
+      tenantId: tenantId.substring(0, 8) + '***',
+      leadId: lead.id,
+      taskId: task.id,
+      followUpType: args.followUpType,
+      scheduledFor: scheduledFor.toISOString(),
+      autoExecuted: result.autoExecuted || false
+    });
+
+    return {
+      success: true,
+      data: result,
+      tenantId
+    };
+
+  } catch (error) {
+    logger.error('❌ [TenantAgent] Erro em follow_up_lead', {
+      tenantId: tenantId.substring(0, 8) + '***',
+      error: error instanceof Error ? error.message : 'Unknown error'
+    });
+
+    return {
+      success: false,
+      error: 'Erro ao configurar follow-up do lead',
+      tenantId
+    };
+  }
+}
+
+/**
+ * FUNÇÃO CRM 6: Mover lead no pipeline
+ */
+export async function leadPipelineMovement(args: LeadPipelineMovementArgs, tenantId: string): Promise<any> {
+  try {
+    logger.info('🔄 [TenantAgent] lead_pipeline_movement iniciada', {
+      tenantId: tenantId.substring(0, 8) + '***',
+      hasLeadId: !!args.leadId,
+      hasClientPhone: !!args.clientPhone,
+      currentStatus: args.currentStatus,
+      newStatus: args.newStatus,
+      autoAdvance: args.autoAdvance
+    });
+
+    if (!args.leadId && !args.clientPhone) {
+      return {
+        success: false,
+        error: 'leadId ou clientPhone é obrigatório',
+        tenantId
+      };
+    }
+
+    const serviceFactory = new TenantServiceFactory(tenantId);
+    const leadService = serviceFactory.leads;
+    const taskService = serviceFactory.tasks;
+
+    // Encontrar o lead
+    let lead: Lead | null = null;
+
+    if (args.leadId) {
+      lead = await leadService.getById(args.leadId) as Lead;
+    } else if (args.clientPhone) {
+      const leads = await leadService.getMany([
+        { field: 'clientPhone', operator: '==', value: args.clientPhone }
+      ]) as Lead[];
+      lead = leads[0] || null;
+    }
+
+    if (!lead) {
+      return {
+        success: false,
+        error: 'Lead não encontrado',
+        tenantId
+      };
+    }
+
+    const originalStatus = lead.status;
+
+    // Determinar novo status
+    let newStatus = args.newStatus;
+
+    if (args.autoAdvance && !newStatus) {
+      // Auto-avançar baseado no pipeline
+      const pipeline = ['new', 'contacted', 'qualified', 'proposal', 'negotiation', 'closed'];
+      const currentIndex = pipeline.indexOf(lead.status || 'new');
+      if (currentIndex >= 0 && currentIndex < pipeline.length - 1) {
+        newStatus = pipeline[currentIndex + 1];
+      }
+    }
+
+    if (!newStatus || newStatus === originalStatus) {
+      return {
+        success: false,
+        error: 'Novo status deve ser diferente do atual',
+        tenantId
+      };
+    }
+
+    // Calcular mudança no score baseada na movimentação
+    const scoreChange = calculatePipelineScoreChange(originalStatus, newStatus);
+    const newScore = Math.max(0, Math.min(100, (lead.score || 0) + scoreChange));
+
+    // Atualizar lead
+    const updateData: any = {
+      status: newStatus as LeadStatus,
+      score: newScore,
+      lastContactDate: new Date()
+    };
+
+    if (args.assignTo) {
+      updateData.assignedTo = args.assignTo;
+    }
+
+    // Adicionar nota sobre a movimentação
+    if (args.reason) {
+      updateData.notes = (lead.notes || '') + `\n[${new Date().toLocaleDateString()}] Status alterado de ${originalStatus} para ${newStatus}: ${args.reason}`;
+    }
+
+    await leadService.updateById(lead.id, updateData);
+
+    let result: any = {
+      moved: true,
+      fromStatus: originalStatus,
+      toStatus: newStatus,
+      scoreChange,
+      newScore: newScore
+    };
+
+    // Criar tarefas automáticas se solicitado
+    if (args.createTasks !== false) {
+      const tasksToCreate = generatePipelineTasks(newStatus, lead);
+      const createdTasks = [];
+
+      for (const taskData of tasksToCreate) {
+        try {
+          const task = await taskService.create({
+            ...taskData,
+            leadId: lead.id,
+            clientPhone: lead.clientPhone,
+            assignedTo: args.assignTo || lead.assignedTo || 'system',
+            createdAt: new Date()
+          });
+          createdTasks.push(task);
+        } catch (taskError) {
+          logger.warn('⚠️ [TenantAgent] Falha ao criar tarefa automática', {
+            tenantId: tenantId.substring(0, 8) + '***',
+            leadId: lead.id,
+            taskData: taskData.title,
+            error: taskError instanceof Error ? taskError.message : 'Unknown error'
+          });
+        }
+      }
+
+      result.tasksCreated = createdTasks.map(t => ({
+        id: t.id,
+        title: t.title,
+        priority: t.priority,
+        dueDate: t.dueDate?.toISOString()
+      }));
+    }
+
+    // Gerar próximas ações recomendadas
+    result.nextActions = generateNextActions(newStatus, lead);
+
+    logger.info('✅ [TenantAgent] lead_pipeline_movement concluída', {
+      tenantId: tenantId.substring(0, 8) + '***',
+      leadId: lead.id,
+      statusChange: `${originalStatus} → ${newStatus}`,
+      scoreChange,
+      newScore,
+      tasksCreated: result.tasksCreated?.length || 0
+    });
+
+    return {
+      success: true,
+      data: result,
+      tenantId
+    };
+
+  } catch (error) {
+    logger.error('❌ [TenantAgent] Erro em lead_pipeline_movement', {
+      tenantId: tenantId.substring(0, 8) + '***',
+      error: error instanceof Error ? error.message : 'Unknown error'
+    });
+
+    return {
+      success: false,
+      error: 'Erro ao mover lead no pipeline',
+      tenantId
+    };
+  }
+}
+
+// ===== FUNÇÕES AUXILIARES PARA CRM =====
+
+function calculateConversionProbability(lead: Lead): number {
+  let probability = 0;
+
+  // Score base
+  probability += (lead.score || 0) * 0.4;
+
+  // Temperatura
+  switch (lead.temperature) {
+    case 'hot': probability += 30; break;
+    case 'warm': probability += 15; break;
+    case 'cold': probability += 0; break;
+  }
+
+  // Status no pipeline
+  const statusWeight = {
+    'new': 5,
+    'contacted': 10,
+    'qualified': 25,
+    'proposal': 40,
+    'negotiation': 65,
+    'closed': 100
+  };
+
+  probability += statusWeight[lead.status as keyof typeof statusWeight] || 5;
+
+  return Math.min(100, Math.max(0, Math.round(probability)));
+}
+
+function calculateEngagementLevel(lead: Lead, interactions: any[]): 'low' | 'medium' | 'high' {
+  const interactionCount = interactions.length;
+  const daysSinceLastContact = lead.lastContactDate ?
+    Math.floor((Date.now() - lead.lastContactDate.toDate().getTime()) / (1000 * 60 * 60 * 24)) : 999;
+
+  if (interactionCount >= 10 && daysSinceLastContact <= 3) return 'high';
+  if (interactionCount >= 5 && daysSinceLastContact <= 7) return 'medium';
+  return 'low';
+}
+
+function generateLeadRecommendations(lead: Lead, interactions: any[]): any[] {
+  const recommendations = [];
+
+  // Baseado na temperatura
+  if (lead.temperature === 'hot') {
+    recommendations.push({
+      type: 'urgent_action',
+      priority: 'high',
+      action: 'Contactar imediatamente',
+      reason: 'Lead quente precisa de atenção urgente'
+    });
+  }
+
+  // Baseado no tempo sem contato
+  const daysSinceLastContact = lead.lastContactDate ?
+    Math.floor((Date.now() - lead.lastContactDate.toDate().getTime()) / (1000 * 60 * 60 * 24)) : null;
+
+  if (daysSinceLastContact && daysSinceLastContact > 7) {
+    recommendations.push({
+      type: 'follow_up',
+      priority: 'medium',
+      action: 'Realizar follow-up',
+      reason: `Sem contato há ${daysSinceLastContact} dias`
+    });
+  }
+
+  // Baseado no score
+  if ((lead.score || 0) < 30) {
+    recommendations.push({
+      type: 'nurturing',
+      priority: 'low',
+      action: 'Nutrir com conteúdo relevante',
+      reason: 'Score baixo indica necessidade de educação'
+    });
+  }
+
+  return recommendations;
+}
+
+function calculateScoreChange(interactionType: string, sentiment: string): number {
+  const baseScores = {
+    'whatsapp_message': 2,
+    'phone_call': 5,
+    'email': 1,
+    'visit': 10,
+    'meeting': 8,
+    'property_view': 6,
+    'quote_sent': 4,
+    'note': 0
+  };
+
+  const sentimentMultiplier = {
+    'positive': 1.5,
+    'neutral': 1,
+    'negative': 0.5
+  };
+
+  const base = baseScores[interactionType as keyof typeof baseScores] || 1;
+  const multiplier = sentimentMultiplier[sentiment as keyof typeof sentimentMultiplier] || 1;
+
+  return Math.round(base * multiplier);
+}
+
+function calculateTemperatureFromScore(score: number): 'cold' | 'warm' | 'hot' {
+  if (score >= 70) return 'hot';
+  if (score >= 40) return 'warm';
+  return 'cold';
+}
+
+function calculateEngagementTrend(interactions: any[]): 'increasing' | 'stable' | 'decreasing' {
+  if (interactions.length < 3) return 'stable';
+
+  const recent = interactions.slice(-7); // Últimas 7 interações
+  const older = interactions.slice(-14, -7); // 7 anteriores
+
+  if (recent.length > older.length) return 'increasing';
+  if (recent.length < older.length) return 'decreasing';
+  return 'stable';
+}
+
+function generateLeadPredictions(lead: Lead, interactions: any[]): any[] {
+  const predictions = [];
+
+  // Predição de conversão
+  const conversionProb = calculateConversionProbability(lead);
+  predictions.push({
+    type: 'conversion',
+    probability: conversionProb,
+    timeframe: conversionProb > 70 ? '1-2 weeks' : conversionProb > 40 ? '1 month' : '3+ months',
+    confidence: conversionProb > 50 ? 'high' : 'medium'
+  });
+
+  // Predição de churn (perda do lead)
+  const daysSinceLastContact = lead.lastContactDate ?
+    Math.floor((Date.now() - lead.lastContactDate.toDate().getTime()) / (1000 * 60 * 60 * 24)) : 999;
+
+  if (daysSinceLastContact > 14) {
+    predictions.push({
+      type: 'churn_risk',
+      probability: Math.min(90, daysSinceLastContact * 2),
+      timeframe: 'immediate',
+      confidence: 'high'
+    });
+  }
+
+  return predictions;
+}
+
+function calculateNextBestAction(lead: Lead, interactions: any[]): any {
+  const daysSinceLastContact = lead.lastContactDate ?
+    Math.floor((Date.now() - lead.lastContactDate.toDate().getTime()) / (1000 * 60 * 60 * 24)) : 999;
+
+  // Priorizar ações baseadas no estado do lead
+  if (lead.temperature === 'hot') {
+    return {
+      action: 'schedule_meeting',
+      priority: 'urgent',
+      reason: 'Lead quente deve ser convertido rapidamente',
+      suggestedTime: 'within 24 hours'
+    };
+  }
+
+  if (daysSinceLastContact > 7) {
+    return {
+      action: 'follow_up_call',
+      priority: 'high',
+      reason: `Sem contato há ${daysSinceLastContact} dias`,
+      suggestedTime: 'today'
+    };
+  }
+
+  if ((lead.score || 0) < 30) {
+    return {
+      action: 'send_educational_content',
+      priority: 'medium',
+      reason: 'Score baixo indica necessidade de educação',
+      suggestedTime: 'within 2 days'
+    };
+  }
+
+  return {
+    action: 'maintain_contact',
+    priority: 'low',
+    reason: 'Lead em bom estado, manter contato regular',
+    suggestedTime: 'within 1 week'
+  };
+}
+
+function calculatePipelineScoreChange(fromStatus: string, toStatus: string): number {
+  const statusScores = {
+    'new': 10,
+    'contacted': 20,
+    'qualified': 35,
+    'proposal': 50,
+    'negotiation': 70,
+    'closed': 100,
+    'lost': 0
+  };
+
+  const fromScore = statusScores[fromStatus as keyof typeof statusScores] || 0;
+  const toScore = statusScores[toStatus as keyof typeof statusScores] || 0;
+
+  return toScore - fromScore;
+}
+
+function generatePipelineTasks(status: string, lead: Lead): any[] {
+  const tasksMap = {
+    'contacted': [
+      {
+        title: 'Qualificar interesse do lead',
+        description: 'Entender necessidades e orçamento do cliente',
+        priority: 'high',
+        dueDate: new Date(Date.now() + 24 * 60 * 60 * 1000) // 1 dia
+      }
+    ],
+    'qualified': [
+      {
+        title: 'Enviar proposta inicial',
+        description: 'Preparar e enviar proposta baseada nas necessidades',
+        priority: 'high',
+        dueDate: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000) // 2 dias
+      }
+    ],
+    'proposal': [
+      {
+        title: 'Follow-up da proposta',
+        description: 'Acompanhar feedback da proposta enviada',
+        priority: 'medium',
+        dueDate: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000) // 3 dias
+      }
+    ],
+    'negotiation': [
+      {
+        title: 'Finalizar negociação',
+        description: 'Resolver pendências e fechar negócio',
+        priority: 'urgent',
+        dueDate: new Date(Date.now() + 24 * 60 * 60 * 1000) // 1 dia
+      }
+    ]
+  };
+
+  return tasksMap[status as keyof typeof tasksMap] || [];
+}
+
+function generateNextActions(status: string, lead: Lead): any[] {
+  const actionsMap = {
+    'contacted': [
+      'Agendar ligação de qualificação',
+      'Enviar material informativo',
+      'Identificar tomador de decisão'
+    ],
+    'qualified': [
+      'Preparar proposta customizada',
+      'Agendar apresentação',
+      'Definir timeline do projeto'
+    ],
+    'proposal': [
+      'Acompanhar análise da proposta',
+      'Esclarecer dúvidas técnicas',
+      'Negociar termos se necessário'
+    ],
+    'negotiation': [
+      'Finalizar detalhes contratuais',
+      'Preparar documentação',
+      'Agendar assinatura'
+    ]
+  };
+
+  return (actionsMap[status as keyof typeof actionsMap] || []).map(action => ({
+    action,
+    priority: 'medium',
+    type: 'manual'
+  }));
+}
+
+async function executeFollowUp(type: string, lead: Lead, message: string | undefined, tenantId: string): Promise<any> {
+  // Implementação básica - pode ser expandida
+  switch (type) {
+    case 'whatsapp':
+      // Integração com serviço de WhatsApp
+      return { sent: true, method: 'whatsapp', message: message || 'Follow-up automático' };
+
+    case 'email':
+      // Integração com serviço de email
+      return { sent: true, method: 'email', message: message || 'Follow-up por email' };
+
+    default:
+      return { sent: false, reason: `Tipo ${type} não suporta execução automática` };
   }
 }
 
@@ -5383,9 +8798,94 @@ export async function executeTenantAwareFunction(
     case 'check_availability':
       return await checkAvailability(args, tenantId);
     
+    case 'check_agenda_availability':
+      return await checkAgendaAvailability(args, tenantId);
+    
     case 'schedule_meeting':
       return await scheduleMeeting(args, tenantId);
     
+    // FUNÇÕES DE SUPORTE (TICKETS)
+    case 'create_support_ticket':
+      // Garantir clientPhone se disponível
+      if (!args.clientPhone && contextClientPhone) {
+        args.clientPhone = contextClientPhone;
+      }
+      return await createSupportTicket(args, tenantId);
+    
+    case 'get_user_tickets':
+      // Garantir clientPhone se disponível
+      if (!args.clientPhone && contextClientPhone) {
+        args.clientPhone = contextClientPhone;
+      }
+      return await getUserTickets(args, tenantId);
+    
+    // FUNÇÕES AVANÇADAS DE CRM
+    case 'analyze_lead_behavior':
+      // Garantir clientPhone se disponível
+      if (!args.clientPhone && contextClientPhone) {
+        args.clientPhone = contextClientPhone;
+      }
+      return await analyzeLeadBehavior(args, tenantId);
+    
+    case 'update_lead_temperature':
+      // Garantir clientPhone se disponível
+      if (!args.clientPhone && contextClientPhone) {
+        args.clientPhone = contextClientPhone;
+      }
+      return await updateLeadTemperature(args, tenantId);
+    
+    case 'predict_conversion':
+      // Garantir clientPhone se disponível
+      if (!args.clientPhone && contextClientPhone) {
+        args.clientPhone = contextClientPhone;
+      }
+      return await predictConversion(args, tenantId);
+    
+    case 'segment_customers':
+      return await segmentCustomers(args, tenantId);
+    
+    case 'generate_insights':
+      return await generateInsights(args, tenantId);
+
+    // NOVAS FUNÇÕES CRM PARA N8N
+    case 'get_lead_details':
+      // Garantir clientPhone se disponível
+      if (!args.clientPhone && contextClientPhone) {
+        args.clientPhone = contextClientPhone;
+      }
+      return await getLeadDetails(args, tenantId);
+
+    case 'get_leads_list':
+      return await getLeadsList(args, tenantId);
+
+    case 'add_lead_interaction':
+      // Garantir clientPhone se disponível
+      if (!args.clientPhone && contextClientPhone) {
+        args.clientPhone = contextClientPhone;
+      }
+      return await addLeadInteraction(args, tenantId);
+
+    case 'analyze_lead_performance':
+      // Garantir clientPhone se disponível
+      if (!args.clientPhone && contextClientPhone) {
+        args.clientPhone = contextClientPhone;
+      }
+      return await analyzeLeadPerformance(args, tenantId);
+
+    case 'follow_up_lead':
+      // Garantir clientPhone se disponível
+      if (!args.clientPhone && contextClientPhone) {
+        args.clientPhone = contextClientPhone;
+      }
+      return await followUpLead(args, tenantId);
+
+    case 'lead_pipeline_movement':
+      // Garantir clientPhone se disponível
+      if (!args.clientPhone && contextClientPhone) {
+        args.clientPhone = contextClientPhone;
+      }
+      return await leadPipelineMovement(args, tenantId);
+
     default:
       logger.error('❌ [TenantAgent] Função desconhecida', {
         functionName,

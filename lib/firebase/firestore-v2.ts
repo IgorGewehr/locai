@@ -53,8 +53,18 @@ export class MultiTenantFirestoreService<T extends { id?: string }> {
 
   /**
    * Create a new document
+   * 🛡️ ENHANCED: Validação robusta e timeout protection
    */
   async create(data: Omit<T, 'id'>): Promise<string> {
+    // Validação de parâmetros
+    if (!data || typeof data !== 'object') {
+      throw new Error('Invalid data: data must be an object');
+    }
+
+    if (!this.tenantId || typeof this.tenantId !== 'string') {
+      throw new Error('Invalid tenantId');
+    }
+
     const docData = {
       ...data,
       createdAt: Timestamp.now(),
@@ -62,14 +72,58 @@ export class MultiTenantFirestoreService<T extends { id?: string }> {
       tenantId: this.tenantId, // Always include tenantId for security
     };
 
-    const docRef = await addDoc(this.getCollectionRef(), docData);
-    return docRef.id;
+    // Timeout protection: 10 segundos
+    const timeoutPromise = new Promise<never>((_, reject) => {
+      setTimeout(() => reject(new Error('Firestore create operation timeout after 10s')), 10000);
+    });
+
+    try {
+      const docRef = await Promise.race([
+        addDoc(this.getCollectionRef(), docData),
+        timeoutPromise
+      ]);
+
+      // 🛡️ VERIFICAÇÃO: Confirmar que documento foi criado
+      const verifyDoc = await getDoc(docRef);
+      if (!verifyDoc.exists()) {
+        throw new Error('Document creation failed - verification read returned no document');
+      }
+
+      logger.info('✅ [Firestore] Document created successfully', {
+        collection: this.collectionName,
+        tenantId: this.tenantId.substring(0, 8) + '***',
+        docId: docRef.id
+      });
+
+      return docRef.id;
+    } catch (error) {
+      logger.error('❌ [Firestore] Create operation failed', {
+        collection: this.collectionName,
+        tenantId: this.tenantId.substring(0, 8) + '***',
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+      throw error;
+    }
   }
 
   /**
    * Set a document with specific ID
+   * 🛡️ ENHANCED: Validação robusta e timeout protection
    */
   async set(id: string, data: T): Promise<void> {
+    // Validação de parâmetros
+    if (!id || typeof id !== 'string') {
+      throw new Error('Invalid document ID');
+    }
+
+    if (!data || typeof data !== 'object') {
+      throw new Error('Invalid data: data must be an object');
+    }
+
+    if (!this.tenantId || typeof this.tenantId !== 'string') {
+      throw new Error('Invalid tenantId');
+    }
+
     const docData = {
       ...data,
       id,
@@ -77,26 +131,145 @@ export class MultiTenantFirestoreService<T extends { id?: string }> {
       updatedAt: Timestamp.now(),
     };
 
-    await setDoc(this.getDocRef(id), this.filterUndefinedValues(docData));
+    // Timeout protection: 10 segundos
+    const timeoutPromise = new Promise<never>((_, reject) => {
+      setTimeout(() => reject(new Error('Firestore set operation timeout after 10s')), 10000);
+    });
+
+    try {
+      await Promise.race([
+        setDoc(this.getDocRef(id), this.filterUndefinedValues(docData)),
+        timeoutPromise
+      ]);
+
+      // 🛡️ VERIFICAÇÃO: Confirmar que documento foi atualizado
+      const verifyDoc = await getDoc(this.getDocRef(id));
+      if (!verifyDoc.exists()) {
+        throw new Error('Document set failed - verification read returned no document');
+      }
+
+      logger.info('✅ [Firestore] Document set successfully', {
+        collection: this.collectionName,
+        tenantId: this.tenantId.substring(0, 8) + '***',
+        docId: id
+      });
+    } catch (error) {
+      logger.error('❌ [Firestore] Set operation failed', {
+        collection: this.collectionName,
+        tenantId: this.tenantId.substring(0, 8) + '***',
+        docId: id,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+      throw error;
+    }
   }
 
   /**
    * Update an existing document
+   * 🛡️ ENHANCED: Validação robusta, verificação de existência e timeout protection
    */
   async update(id: string, data: Partial<T>): Promise<void> {
+    // Validação de parâmetros
+    if (!id || typeof id !== 'string') {
+      throw new Error('Invalid document ID');
+    }
+
+    if (!data || typeof data !== 'object') {
+      throw new Error('Invalid data: data must be an object');
+    }
+
+    if (!this.tenantId || typeof this.tenantId !== 'string') {
+      throw new Error('Invalid tenantId');
+    }
+
+    // 🛡️ VERIFICAÇÃO: Documento existe antes de atualizar
+    const docSnap = await getDoc(this.getDocRef(id));
+    if (!docSnap.exists()) {
+      throw new Error(`Document ${id} does not exist - cannot update`);
+    }
+
     const updateData = {
       ...data,
       updatedAt: Timestamp.now(),
     };
 
-    await updateDoc(this.getDocRef(id), this.filterUndefinedValues(updateData));
+    // Timeout protection: 10 segundos
+    const timeoutPromise = new Promise<never>((_, reject) => {
+      setTimeout(() => reject(new Error('Firestore update operation timeout after 10s')), 10000);
+    });
+
+    try {
+      await Promise.race([
+        updateDoc(this.getDocRef(id), this.filterUndefinedValues(updateData)),
+        timeoutPromise
+      ]);
+
+      logger.info('✅ [Firestore] Document updated successfully', {
+        collection: this.collectionName,
+        tenantId: this.tenantId.substring(0, 8) + '***',
+        docId: id
+      });
+    } catch (error) {
+      logger.error('❌ [Firestore] Update operation failed', {
+        collection: this.collectionName,
+        tenantId: this.tenantId.substring(0, 8) + '***',
+        docId: id,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+      throw error;
+    }
   }
 
   /**
    * Delete a document
+   * 🛡️ ENHANCED: Validação robusta e timeout protection
    */
   async delete(id: string): Promise<void> {
-    await deleteDoc(this.getDocRef(id));
+    // Validação de parâmetros
+    if (!id || typeof id !== 'string') {
+      throw new Error('Invalid document ID');
+    }
+
+    if (!this.tenantId || typeof this.tenantId !== 'string') {
+      throw new Error('Invalid tenantId');
+    }
+
+    // 🛡️ VERIFICAÇÃO: Documento existe antes de deletar
+    const docSnap = await getDoc(this.getDocRef(id));
+    if (!docSnap.exists()) {
+      logger.warn('⚠️ [Firestore] Attempted to delete non-existent document', {
+        collection: this.collectionName,
+        tenantId: this.tenantId.substring(0, 8) + '***',
+        docId: id
+      });
+      return; // Silent fail - document already doesn't exist
+    }
+
+    // Timeout protection: 10 segundos
+    const timeoutPromise = new Promise<never>((_, reject) => {
+      setTimeout(() => reject(new Error('Firestore delete operation timeout after 10s')), 10000);
+    });
+
+    try {
+      await Promise.race([
+        deleteDoc(this.getDocRef(id)),
+        timeoutPromise
+      ]);
+
+      logger.info('✅ [Firestore] Document deleted successfully', {
+        collection: this.collectionName,
+        tenantId: this.tenantId.substring(0, 8) + '***',
+        docId: id
+      });
+    } catch (error) {
+      logger.error('❌ [Firestore] Delete operation failed', {
+        collection: this.collectionName,
+        tenantId: this.tenantId.substring(0, 8) + '***',
+        docId: id,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+      throw error;
+    }
   }
 
   /**
@@ -120,9 +293,20 @@ export class MultiTenantFirestoreService<T extends { id?: string }> {
 
   /**
    * Get all documents in the collection
+   * 🚀 OTIMIZAÇÃO: Agora com limit para evitar carregar milhares de docs
+   * @param limitCount - Máximo de documentos (default: 1000)
    */
-  async getAll(): Promise<T[]> {
-    const querySnapshot = await getDocs(this.getCollectionRef());
+  async getAll(limitCount: number = 1000): Promise<T[]> {
+    const q = query(this.getCollectionRef(), limit(limitCount));
+    const querySnapshot = await getDocs(q);
+
+    logger.info(`[Firestore] getAll executed`, {
+      collection: this.collectionName,
+      tenant: this.tenantId,
+      count: querySnapshot.size,
+      limit: limitCount,
+    });
+
     return querySnapshot.docs.map(doc => ({
       id: doc.id,
       ...doc.data(),
@@ -373,6 +557,13 @@ export class TenantServiceFactory {
     this.tenantId = tenantId;
   }
 
+  /**
+   * Get Firestore database instance
+   */
+  get db() {
+    return db;
+  }
+
   createService<T extends { id?: string }>(collectionName: string) {
     return new MultiTenantFirestoreService<T>(this.tenantId, collectionName);
   }
@@ -398,9 +589,14 @@ export class TenantServiceFactory {
     return this.createService<import('@/lib/types/conversation').Message>('messages');
   }
 
+  get availability() {
+    const { AvailabilityService } = require('@/lib/services/availability-service');
+    return new AvailabilityService(this.tenantId);
+  }
+
   get transactions() {
-    const { createTransactionService } = require('@/lib/services/transaction-service');
-    return createTransactionService(this.tenantId);
+    const { createTransactionServiceV2 } = require('@/lib/services/transaction-service-v2');
+    return createTransactionServiceV2(this.tenantId);
   }
 
   // Specialized Services
@@ -464,6 +660,10 @@ export class TenantServiceFactory {
 
   get goals() {
     return this.createService<import('@/lib/types/financial').FinancialGoal>('goals');
+  }
+
+  get financialMovements() {
+    return this.createService<import('@/lib/types/financial').FinancialMovement>('financial_movements');
   }
 
   get leads() {

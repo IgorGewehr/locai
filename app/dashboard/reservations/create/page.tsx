@@ -64,6 +64,8 @@ import {
 } from '@mui/icons-material';
 import ModernButton from '@/components/atoms/ModernButton';
 import { useTenant } from '@/contexts/TenantContext';
+import type { Client } from '@/lib/types';
+import { clientServiceWrapper } from '@/lib/services/client-service';
 
 interface ReservationFormData {
   propertyId: string;
@@ -90,7 +92,7 @@ const steps = [
 
 export default function CreateReservationPage() {
   const router = useRouter();
-  const { services, isReady } = useTenant();
+  const { services, isReady, tenantId } = useTenant();
   const [activeStep, setActiveStep] = useState(0);
   const [formData, setFormData] = useState<ReservationFormData>({
     propertyId: '',
@@ -194,8 +196,68 @@ export default function CreateReservationPage() {
     setError('');
 
     try {
+      let finalClientId = formData.clientId;
+
+      // Se for um novo cliente, criar primeiro
+      if (isNewClient) {
+        // Validações básicas
+        if (!formData.clientName.trim() || formData.clientName.trim().length < 2) {
+          throw new Error('Nome do cliente deve ter pelo menos 2 caracteres');
+        }
+        
+        if (!formData.clientPhone.replace(/\D/g, '') || formData.clientPhone.replace(/\D/g, '').length < 10) {
+          throw new Error('Telefone deve ter pelo menos 10 dígitos');
+        }
+
+        // Validar se temos tenantId
+        if (!tenantId) {
+          throw new Error('TenantId não encontrado');
+        }
+
+        // Preparar dados do cliente seguindo o padrão do CreateClientDialog
+        const clientData = {
+          name: formData.clientName.trim(),
+          phone: formData.clientPhone.replace(/\D/g, ''),
+          tenantId: tenantId, // IMPORTANTE: Adicionar tenantId
+          source: 'manual' as const,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        };
+
+        // Adicionar campos opcionais apenas se preenchidos
+        if (formData.clientEmail && formData.clientEmail.trim()) {
+          // Validação básica de email
+          const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+          if (!emailRegex.test(formData.clientEmail.trim())) {
+            throw new Error('E-mail deve ter um formato válido');
+          }
+          clientData.email = formData.clientEmail.trim();
+        }
+
+        // Usar o ClientService diretamente (com validação de duplicatas)
+        const createdClient = await clientServiceWrapper.create(clientData);
+        console.log('🔍 Cliente criado:', createdClient);
+        finalClientId = createdClient.id;
+      }
+
+      // Validar se temos um clientId válido
+      if (!finalClientId) {
+        throw new Error('Erro: ID do cliente não foi definido');
+      }
+
+      // Criar a reserva com o ID do cliente (novo ou existente)
       const reservationData = {
-        ...formData,
+        propertyId: formData.propertyId,
+        clientId: finalClientId,
+        checkIn: formData.checkIn,
+        checkOut: formData.checkOut,
+        guests: formData.guests,
+        totalAmount: formData.totalAmount,
+        status: formData.status,
+        paymentStatus: formData.paymentStatus,
+        paymentMethod: formData.paymentMethod,
+        source: formData.source,
+        notes: formData.notes,
         createdAt: new Date(),
         updatedAt: new Date(),
       };

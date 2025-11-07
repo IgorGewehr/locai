@@ -60,16 +60,31 @@ export function sanitizeUserInput(input: string): string {
     return ''
   }
 
-  // Use DOMPurify for comprehensive sanitization
-  const cleaned = DOMPurify.sanitize(input, {
-    ALLOWED_TAGS: [], // No HTML tags allowed
-    ALLOWED_ATTR: [],
-    KEEP_CONTENT: true,
-  })
+  try {
+    // Use DOMPurify for comprehensive sanitization
+    const cleaned = DOMPurify.sanitize(input, {
+      ALLOWED_TAGS: [], // No HTML tags allowed
+      ALLOWED_ATTR: [],
+      KEEP_CONTENT: true,
+    })
 
-  return cleaned
-    .trim()
-    .slice(0, 4000) // Limit length to prevent memory issues
+    return cleaned
+      .trim()
+      .slice(0, 4000) // Limit length to prevent memory issues
+  } catch (error) {
+    // Fallback sanitization if DOMPurify fails
+    console.warn('[SANITIZE] DOMPurify failed, using fallback:', error);
+    
+    // Basic sanitization as fallback
+    return input
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;')
+      .replace(/&/g, '&amp;')
+      .trim()
+      .slice(0, 4000) // Limit length as safety
+  }
 }
 
 // Sanitize SQL-like input to prevent injection

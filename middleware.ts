@@ -6,6 +6,20 @@ import { logger } from '@/lib/utils/logger'
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
 
+  // 🔒 ROTA ADMIN ULTRA SECRETA - Verificação de segurança máxima
+  if (pathname.startsWith('/dashboard/lkjhg')) {
+    // Admin page - just let it through, auth will be handled client-side + API
+    const response = NextResponse.next();
+    addSecurityHeaders(response, pathname);
+    return response;
+  }
+  
+  // API Admin routes - deixar passar, auth será feita dentro da própria API
+  if (pathname.startsWith('/api/admin/')) {
+    // Let admin APIs handle their own auth to avoid Edge Runtime issues
+    return NextResponse.next();
+  }
+
   // Check for mini-site subdomain/custom domain first
   const miniSiteResponse = miniSiteMiddleware(request);
   if (miniSiteResponse) {
@@ -40,6 +54,8 @@ export async function middleware(request: NextRequest) {
     '/reset-password',
     '/api/webhook/whatsapp',
     '/api/webhook/whatsapp-web',
+    '/api/webhooks/kirvano', // 🆕 Webhook Kirvano
+    '/api/webhooks/ki',      // 🆕 Webhook Kirvano (URL curta)
     '/api/auth',
     '/api/agent',
     '/api/public/',

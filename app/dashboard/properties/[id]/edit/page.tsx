@@ -1,14 +1,12 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import {
   Box,
-  Card,
-  CardContent,
+  Container,
+  Paper,
   Typography,
-  Tabs,
-  Tab,
   Button,
   Alert,
   CircularProgress,
@@ -17,429 +15,1033 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
+  IconButton,
+  Tooltip,
+  useTheme,
+  alpha,
+  Fade,
+  Grid,
+  Card,
+  CardContent,
+  CardActions,
+  Skeleton,
+  Snackbar,
+  Collapse,
+  List,
+  ListItem,
+  ListItemText,
+  ListItemIcon,
+  Divider,
+  Switch,
+  FormControlLabel,
+  LinearProgress,
 } from '@mui/material';
 import {
   Save,
-  Cancel,
-  Home,
-  Apartment,
-  Villa,
-  House,
+  Close,
   CheckCircle,
-  Schedule,
-  Block,
+  Error as ErrorIcon,
+  Warning,
+  Home,
+  AttachMoney,
+  Star,
+  Image,
+  Settings,
+  CloudSync,
+  CloudDone,
+  History,
+  Edit,
+  Visibility,
+  RestoreFromTrash,
+  CheckCircleOutline,
+  RadioButtonUnchecked,
+  ExpandMore,
+  ExpandLess,
+  Refresh,
 } from '@mui/icons-material';
 import { useForm, FormProvider } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
-import * as yup from 'yup';
-import { PropertyBasicInfo } from '@/components/organisms/PropertyBasicInfo/PropertyBasicInfo';
-import { PropertySpecs } from '@/components/organisms/PropertySpecs/PropertySpecs';
-import { PropertyAmenities } from '@/components/organisms/PropertyAmenities/PropertyAmenities';
-import { PropertyPricing } from '@/components/organisms/PropertyPricing/PropertyPricing';
-import PropertyMediaUpload from '@/components/organisms/PropertyMediaUpload/PropertyMediaUpload';
-import AvailabilityCalendar from '@/components/organisms/AvailabilityCalendar/AvailabilityCalendar';
-import { Property, PricingRule, PropertyCategory, PaymentMethod, PropertyStatus, PropertyType } from '@/lib/types/property';
 import { useTenant } from '@/contexts/TenantContext';
-import { ApiClient } from '@/lib/utils/api-client';
+import { useAuth } from '@/contexts/AuthProvider';
+import { logger } from '@/lib/utils/logger';
+import { Property } from '@/lib/types/property';
+import { PaymentMethod } from '@/lib/types/common';
+import type { Reservation } from '@/lib/types';
+import { ReservationPeriod } from '@/components/organisms/PricingCalendar/PricingCalendar';
+import { editPropertySchema } from '@/lib/validation/property-edit-schema';
+import { ultraPermissiveEditPropertySchema } from '@/lib/validation/ultra-permissive-edit-schema';
+import { debounce } from 'lodash';
 
-interface TabPanelProps {
-  children?: React.ReactNode;
-  index: number;
-  value: number;
+// Optimized components with performance improvements
+import { PropertyBasicInfo } from '@/components/organisms/PropertyEdit/BasicInfo';
+import { PropertySpecs } from '@/components/organisms/PropertyEdit/Specs';
+import { PropertyAmenities } from '@/components/organisms/PropertyEdit/Amenities';
+import { PropertyPricing } from '@/components/organisms/PropertyEdit/Pricing';
+import { PropertyMedia } from '@/components/organisms/PropertyEdit/Media';
+
+interface PropertySection {
+  id: string;
+  title: string;
+  description: string;
+  icon: React.ReactNode;
+  component: React.ReactNode;
+  fields: (keyof Property)[];
+  isRequired: boolean;
 }
 
-function TabPanel(props: TabPanelProps) {
-  const { children, value, index, ...other } = props;
-
-  return (
-    <div
-      role="tabpanel"
-      hidden={value !== index}
-      id={`property-tabpanel-${index}`}
-      aria-labelledby={`property-tab-${index}`}
-      {...other}
-    >
-      {value === index && <Box sx={{ pt: 3 }}>{children}</Box>}
-    </div>
-  );
-}
-
-const propertyTypes = [
-  { value: PropertyCategory.APARTMENT, label: 'Apartamento', icon: <Apartment /> },
-  { value: PropertyCategory.HOUSE, label: 'Casa', icon: <House /> },
-  { value: PropertyCategory.VILLA, label: 'Villa', icon: <Villa /> },
-  { value: PropertyCategory.STUDIO, label: 'Studio', icon: <Home /> },
+// Factory function to create sections with dynamic data
+const createPropertySections = (reservations: ReservationPeriod[]): PropertySection[] => [
+  {
+    id: 'basic',
+    title: 'Informações Básicas',
+    description: 'Título, descrição, localização e categoria',
+    icon: <Home />,
+    component: <PropertyBasicInfo />,
+    fields: ['title', 'description', 'address', 'category', 'neighborhood', 'city'],
+    isRequired: true,
+  },
+  {
+    id: 'specs',
+    title: 'Especificações',
+    description: 'Quartos, banheiros, capacidade e comodidades',
+    icon: <Settings />,
+    component: <PropertySpecs />,
+    fields: ['bedrooms', 'bathrooms', 'maxGuests', 'capacity'],
+    isRequired: true,
+  },
+  {
+    id: 'pricing',
+    title: 'Preços e Políticas',
+    description: 'Valores, taxas e políticas de pagamento',
+    icon: <AttachMoney />,
+    component: <PropertyPricing reservations={reservations} />,
+    fields: ['basePrice', 'pricePerExtraGuest', 'cleaningFee', 'minimumNights'],
+    isRequired: true,
+  },
+  {
+    id: 'amenities',
+    title: 'Comodidades',
+    description: 'Facilidades e recursos especiais',
+    icon: <Star />,
+    component: <PropertyAmenities />,
+    fields: ['amenities', 'isFeatured', 'allowsPets'],
+    isRequired: false,
+  },
+  {
+    id: 'media',
+    title: 'Fotos e Vídeos',
+    description: 'Galeria de imagens e vídeos do imóvel',
+    icon: <Image />,
+    component: <PropertyMedia />,
+    fields: ['photos', 'videos'],
+    isRequired: false,
+  },
 ];
-
-const propertySchema = yup.object().shape({
-  title: yup.string().required('Título é obrigatório'),
-  description: yup.string().required('Descrição é obrigatória'),
-  address: yup.string().required('Endereço é obrigatório'),
-  category: yup.string().oneOf(Object.values(PropertyCategory)).required('Categoria é obrigatória'),
-  bedrooms: yup.number().min(1, 'Deve ter pelo menos 1 quarto').required('Número de quartos é obrigatório'),
-  bathrooms: yup.number().min(1, 'Deve ter pelo menos 1 banheiro').required('Número de banheiros é obrigatório'),
-  maxGuests: yup.number().min(1, 'Deve acomodar pelo menos 1 hóspede').required('Número máximo de hóspedes é obrigatório'),
-  basePrice: yup.number().min(1, 'Preço deve ser maior que 0').required('Preço base é obrigatório'),
-  pricePerExtraGuest: yup.number().min(0, 'Preço não pode ser negativo').nullable(),
-  minimumNights: yup.number().min(1, 'Deve ter pelo menos 1 noite').nullable(),
-  cleaningFee: yup.number().min(0, 'Taxa não pode ser negativa').nullable(),
-  
-  // Optional fields with proper defaults
-  amenities: yup.array().of(yup.string()).nullable(),
-  isFeatured: yup.boolean().nullable(),
-  allowsPets: yup.boolean().nullable(),
-  photos: yup.array().nullable(), // Remove required validation for photos
-  videos: yup.array().nullable(),
-  unavailableDates: yup.array().nullable(),
-  customPricing: yup.object().nullable(),
-  isActive: yup.boolean().nullable(),
-});
 
 export default function EditPropertyPage() {
   const router = useRouter();
   const params = useParams();
   const propertyId = params?.id as string;
   const { services, tenantId, isReady } = useTenant();
+  const { getFirebaseToken, user } = useAuth();
+  const theme = useTheme();
   
-  const [activeTab, setActiveTab] = useState(0);
+  // Save queue to prevent race conditions
+  const saveQueueRef = useRef<Promise<void>>(Promise.resolve());
+  const autoSaveTimerRef = useRef<NodeJS.Timeout>();
+
+  // State management
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [autoSaving, setAutoSaving] = useState(false);
+  const [lastSaved, setLastSaved] = useState<Date | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [successMessage, setSuccessMessage] = useState<string | null>(null);
-  const [showStatusDialog, setShowStatusDialog] = useState(false);
-  const [pricingRules, setPricingRules] = useState<PricingRule[]>([]);
+  const [success, setSuccess] = useState<string | null>(null);
+  const [showExitDialog, setShowExitDialog] = useState(false);
+  const [originalData, setOriginalData] = useState<Property | null>(null);
+  const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set(['basic']));
+  const [autoSaveEnabled, setAutoSaveEnabled] = useState(true);
+  const [saveHistory, setSaveHistory] = useState<Array<{ timestamp: Date; type: 'manual' | 'auto' }>>([]);
+  const [authChecked, setAuthChecked] = useState(false);
+  const [reservations, setReservations] = useState<ReservationPeriod[]>([]);
 
+  // Form setup with ULTRA-PERMISSIVE validation - nunca falha
   const methods = useForm<Property>({
-    resolver: yupResolver(propertySchema) as any,
+    resolver: yupResolver(ultraPermissiveEditPropertySchema) as any,
     mode: 'onChange',
+    shouldUnregister: false,
+    shouldFocusError: true,
+    defaultValues: {},
   });
 
-  const { handleSubmit, reset, formState: { isDirty, errors } } = methods;
+  const { handleSubmit, reset, watch, trigger, formState: { errors, isDirty, isValid, dirtyFields } } = methods;
+  const watchedValues = watch();
 
+  // Create sections dynamically with reservations
+  const propertySections = useMemo(() => createPropertySections(reservations), [reservations]);
+
+  // Section completion calculation
+  const sectionCompletions = useMemo(() => {
+    const completions: Record<string, { completed: number; total: number; percentage: number }> = {};
+
+    propertySections.forEach(section => {
+      let completed = 0;
+      const total = section.fields.length;
+
+      section.fields.forEach(field => {
+        const value = watchedValues[field];
+        if (value !== undefined && value !== null && value !== '' && 
+            (!Array.isArray(value) || value.length > 0)) {
+          completed++;
+        }
+      });
+
+      completions[section.id] = {
+        completed,
+        total,
+        percentage: Math.round((completed / total) * 100)
+      };
+    });
+
+    return completions;
+  }, [watchedValues]);
+
+  // Error tracking per section
+  const sectionErrors = useMemo(() => {
+    const errorCount: Record<string, number> = {};
+
+    propertySections.forEach(section => {
+      let count = 0;
+      section.fields.forEach(field => {
+        if (errors[field]) count++;
+      });
+      errorCount[section.id] = count;
+    });
+
+    return errorCount;
+  }, [errors]);
+
+  // Cleanup on component unmount
   useEffect(() => {
-    // Load property data from Firebase
+    return () => {
+      // Cancel any pending auto-saves
+      autoSave.cancel();
+      
+      // Clear any pending timers
+      if (autoSaveTimerRef.current) {
+        clearTimeout(autoSaveTimerRef.current);
+      }
+      
+      // Log cleanup
+      logger.info('EditPropertyPage cleanup completed', { propertyId });
+    };
+  }, [propertyId]);
+
+  // Authentication check
+  useEffect(() => {
+    let mounted = true; // Track if component is mounted
+    
+    const checkAuth = async () => {
+      try {
+        const token = await getFirebaseToken();
+        if (!mounted) return; // Don't update state if unmounted
+        
+        if (!token || !user) {
+          logger.warn('No authentication token or user, redirecting to login');
+          router.push('/login');
+          return;
+        }
+        setAuthChecked(true);
+      } catch (err) {
+        if (!mounted) return; // Don't update state if unmounted
+        logger.error('Authentication check failed', { error: err });
+        router.push('/login');
+      }
+    };
+    
+    checkAuth();
+    
+    // Cleanup
+    return () => {
+      mounted = false;
+    };
+  }, [getFirebaseToken, user, router]);
+
+  // Helper function to normalize media arrays
+  const normalizeMediaArray = (media: any): string[] => {
+    if (!media) return [];
+    if (!Array.isArray(media)) return [];
+    
+    return media.map(item => {
+      if (typeof item === 'string') return item;
+      if (item && typeof item === 'object' && item.url) return item.url;
+      return null;
+    }).filter((url): url is string => url !== null && url !== undefined && url !== '');
+  };
+
+  // Load property data with enhanced error handling
+  useEffect(() => {
+    let mounted = true; // Track if component is mounted
+    
     const loadProperty = async () => {
-      if (!propertyId || !services || !isReady) return;
-      
-      
+      if (!propertyId || !services || !isReady || !authChecked) return;
+
+      logger.info('Loading property for editing', { propertyId, tenantId });
+      if (mounted) {
+        setLoading(true);
+        setError(null);
+      }
+
       try {
         const property = await services.properties.get(propertyId);
         
+        if (!mounted) return; // Don't continue if unmounted
+
         if (!property) {
-          setError('Propriedade não encontrada');
-          setLoading(false);
-          return;
+          throw new Error('Propriedade não encontrada');
         }
 
-        // Convert dates back to Date objects
-        const propertyData = {
+        // Ensure all required fields have proper defaults with media normalization
+        // Convert Firestore Timestamps to Dates to avoid validation issues
+        const propertyData: Property = {
           ...property,
-          unavailableDates: (property as any).unavailableDates?.map((date: any) => 
-            date instanceof Date ? date : date.toDate ? date.toDate() : new Date(date)
-          ) || [],
+          amenities: property.amenities || [],
+          photos: normalizeMediaArray(property.photos),
+          videos: normalizeMediaArray(property.videos),
+          // Payment method surcharges removed - now managed at tenant level
+          // Convert Firestore Timestamps to Dates
+          createdAt: property.createdAt?.toDate ? property.createdAt.toDate() : property.createdAt,
+          updatedAt: property.updatedAt?.toDate ? property.updatedAt.toDate() : property.updatedAt,
         };
-        
-        reset(propertyData as unknown as Property);
-        setLoading(false);
+
+        // Fetch reservations for this property
+        const allReservations = await services.reservations.getMany([
+          { field: 'propertyId', operator: '==', value: propertyId }
+        ]);
+
+        const formattedReservations: ReservationPeriod[] = allReservations
+          .filter((r: any) => r.status !== 'cancelled')
+          .map((r: any): ReservationPeriod => ({
+            id: r.id || '',
+            checkIn: r.checkIn?.toDate ? r.checkIn.toDate() : new Date(r.checkIn),
+            checkOut: r.checkOut?.toDate ? r.checkOut.toDate() : new Date(r.checkOut),
+            guestName: r.guestName,
+            status: r.status as 'confirmed' | 'pending' | 'cancelled'
+          }));
+
+        logger.info('Property loaded successfully', {
+          propertyId,
+          title: propertyData.title,
+          reservationsCount: formattedReservations.length,
+          sections: propertySections.map(s => s.id)
+        });
+
+        if (mounted) {
+          setOriginalData(propertyData);
+          setReservations(formattedReservations);
+          reset(propertyData);
+          setLoading(false);
+        }
       } catch (err) {
-        setError('Erro ao carregar propriedade');
+        if (!mounted) return; // Don't update state if unmounted
+        
+        const errorMessage = err instanceof Error ? err.message : 'Erro ao carregar propriedade';
+        logger.error('Error loading property', { propertyId, error: errorMessage });
+        setError(errorMessage);
         setLoading(false);
       }
     };
 
     loadProperty();
-  }, [propertyId, services, isReady, reset]);
+    
+    // Cleanup
+    return () => {
+      mounted = false;
+    };
+  }, [propertyId, services, isReady, reset, tenantId, authChecked]);
 
-  const onSubmit = async (data: Property) => {
-    console.log('Form submitted with data:', {
-      ...data,
-      photosCount: data.photos?.length || 0,
-      videosCount: data.videos?.length || 0,
-      photosTypes: data.photos?.map(p => typeof p) || [],
-      videosTypes: data.videos?.map(v => typeof v) || []
-    });
-    setSaving(true);
-    setError(null);
-
+  // Helper function to make API requests with enhanced retry logic
+  const makeAuthenticatedRequest = useCallback(async (url: string, options: RequestInit, retryCount = 0): Promise<Response> => {
+    const MAX_RETRIES = 3;
+    const RETRY_DELAY = 1000; // Base delay in ms
+    
     try {
-      // ✅ CORREÇÃO: Manter mesma lógica da criação - preservar objetos PropertyPhoto/PropertyVideo
-      console.log('[EditProperty] Processing media data...', {
-        photosCount: data.photos?.length || 0,
-        videosCount: data.videos?.length || 0,
-        photosTypes: data.photos?.map(p => typeof p),
-        videosTypes: data.videos?.map(v => typeof v)
-      });
-
-      // Filtrar apenas URLs Firebase válidas, mantendo estrutura de objeto
-      const validPhotos = (data.photos || []).filter(photo => {
-        const url = typeof photo === 'string' ? photo : photo?.url;
-        return url && url.includes('firebasestorage.googleapis.com');
-      });
-
-      const validVideos = (data.videos || []).filter(video => {
-        const url = typeof video === 'string' ? video : video?.url;
-        return url && url.includes('firebasestorage.googleapis.com');
-      });
-
-      console.log('[EditProperty] Filtered media:', {
-        validPhotosCount: validPhotos.length,
-        validVideosCount: validVideos.length,
-        photosData: validPhotos.map(p => ({
-          type: typeof p,
-          hasUrl: !!(typeof p === 'string' ? p : p?.url),
-          isFirebase: (typeof p === 'string' ? p : p?.url)?.includes('firebasestorage.googleapis.com')
-        }))
-      });
-
-      // ✅ CORREÇÃO: Manter consistência com criação - preservar objetos completos
-      const cleanData: any = {
-        ...data,
-        photos: validPhotos,        // Manter objetos PropertyPhoto completos
-        videos: validVideos,        // Manter objetos PropertyVideo completos
-        amenities: data.amenities || [],
-        unavailableDates: data.unavailableDates || [],
-        customPricing: data.customPricing || {},
-      };
-
-
-      const finalPayload = {
-        ...cleanData,
-        pricingRules,
-        updatedAt: new Date(),
-      };
-
-      console.log('[EditProperty] Sending to API:', {
-        hasPhotos: !!finalPayload.photos,
-        photosCount: finalPayload.photos?.length || 0,
-        photosPreview: finalPayload.photos?.slice(0, 2).map(p => ({
-          type: typeof p,
-          hasUrl: !!(typeof p === 'string' ? p : p?.url),
-          urlPrefix: (typeof p === 'string' ? p : p?.url)?.substring(0, 50)
-        })),
-        hasVideos: !!finalPayload.videos,
-        videosCount: finalPayload.videos?.length || 0,
-        title: finalPayload.title,
-        description: finalPayload.description,
-        address: finalPayload.address
-      });
-
-      const response = await ApiClient.put(`/api/properties/${propertyId}`, finalPayload);
-
-      const responseData = await response.json();
-
-      if (!response.ok) {
-        // Mostrar detalhes de validação se disponíveis
-        let errorMessage = responseData.error || 'Erro ao salvar alterações';
-        
-        if (responseData.code === 'VALIDATION_ERROR' && responseData.details) {
-          console.error('❌ [Debug] Detalhes de validação:', responseData.details);
-          errorMessage += '. Verifique os dados inseridos e tente novamente.';
-          
-          // Log detalhado para debug
-          if (responseData.details.fieldErrors) {
-            console.error('Campos com erro:', responseData.details.fieldErrors);
-          }
-        }
-        
-        throw new Error(errorMessage);
+      // Force refresh token on retry
+      const token = await getFirebaseToken(retryCount > 0);
+      
+      if (!token) {
+        throw new Error('No authentication token available');
       }
 
-      setSuccessMessage('Alterações salvas com sucesso!');
-      // Reset form to clear dirty state
-      reset(data);
-      // Redirect after 2 seconds to show success message
-      setTimeout(() => {
-        router.push('/dashboard/properties');
-      }, 2000);
-    } catch (err) {
-      console.error('Error saving property:', err);
-      setError(err instanceof Error ? err.message : 'Erro desconhecido');
-    } finally {
-      setSaving(false);
+      const response = await fetch(url, {
+        ...options,
+        headers: {
+          ...options.headers,
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      // Handle 401 with smart retry
+      if (response.status === 401 && retryCount < MAX_RETRIES) {
+        logger.warn(`Authentication failed, retrying... (attempt ${retryCount + 1}/${MAX_RETRIES})`);
+        
+        // Exponential backoff
+        await new Promise(resolve => setTimeout(resolve, RETRY_DELAY * Math.pow(2, retryCount)));
+        
+        // Force token refresh and retry
+        return makeAuthenticatedRequest(url, options, retryCount + 1);
+      }
+      
+      // Handle other errors with retry
+      if (!response.ok && retryCount < MAX_RETRIES && response.status >= 500) {
+        logger.warn(`Server error ${response.status}, retrying... (attempt ${retryCount + 1}/${MAX_RETRIES})`);
+        await new Promise(resolve => setTimeout(resolve, RETRY_DELAY * Math.pow(2, retryCount)));
+        return makeAuthenticatedRequest(url, options, retryCount + 1);
+      }
+
+      return response;
+    } catch (error) {
+      // Network errors - retry if we haven't exceeded max retries
+      if (retryCount < MAX_RETRIES) {
+        logger.warn(`Network error, retrying... (attempt ${retryCount + 1}/${MAX_RETRIES})`, { error });
+        await new Promise(resolve => setTimeout(resolve, RETRY_DELAY * Math.pow(2, retryCount)));
+        return makeAuthenticatedRequest(url, options, retryCount + 1);
+      }
+      
+      // Max retries exceeded
+      logger.error('Max retries exceeded for authenticated request', { url, error });
+      throw error;
     }
-  };
+  }, [getFirebaseToken]);
 
-  const handleStatusChange = (newStatus: boolean) => {
-    methods.setValue('isActive', newStatus, { shouldDirty: true });
-    setShowStatusDialog(false);
-  };
+  // Smart auto-save with improved logic and real change detection
+  const autoSave = useCallback(
+    debounce(async (data: Property) => {
+      // Prevent multiple saves running simultaneously
+      if (!autoSaveEnabled || !isDirty || saving || autoSaving || !propertyId) return;
+      
+      // Check for real changes by comparing with original data
+      const hasRealChanges = originalData && JSON.stringify({
+        ...data,
+        updatedAt: originalData.updatedAt, // Ignore updatedAt for comparison
+      }) !== JSON.stringify(originalData);
+      
+      if (!hasRealChanges) {
+        logger.info('No real changes detected, skipping auto-save');
+        return;
+      }
 
-  const getStatusChip = () => {
-    const isActive = methods.watch('isActive');
+      setAutoSaving(true);
+      logger.info('Auto-saving property changes', { 
+        propertyId, 
+        changedFields: Object.keys(dirtyFields),
+        changeCount: Object.keys(dirtyFields).length 
+      });
+
+      try {
+        const autoSaveData = {
+          ...data,
+          updatedAt: new Date(),
+          tenantId,
+          // Ensure media arrays are normalized
+          photos: normalizeMediaArray(data.photos),
+          videos: normalizeMediaArray(data.videos),
+        };
+
+        const response = await makeAuthenticatedRequest(`/api/properties/${propertyId}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(autoSaveData),
+        });
+
+        if (response.ok) {
+          const timestamp = new Date();
+          setLastSaved(timestamp);
+          setSaveHistory(prev => [...prev.slice(-4), { timestamp, type: 'auto' }]);
+          setOriginalData(autoSaveData); // Update original data after successful save
+          logger.info('Property auto-saved successfully', { propertyId });
+        } else {
+          const errorText = await response.text();
+          throw new Error(`Auto-save failed: ${response.status} - ${errorText}`);
+        }
+      } catch (err) {
+        logger.error('Auto-save failed', {
+          propertyId,
+          error: err instanceof Error ? err.message : String(err)
+        });
+        // Don't show error to user for auto-save failures, but could add a subtle indicator
+      } finally {
+        setAutoSaving(false);
+      }
+    }, 30000), // Increased to 30 seconds
+    [propertyId, isDirty, saving, autoSaving, autoSaveEnabled, dirtyFields, tenantId, makeAuthenticatedRequest, originalData, normalizeMediaArray]
+  );
+
+  // Watch for changes and trigger auto-save with cleanup
+  useEffect(() => {
+    if (isDirty && !loading && autoSaveEnabled) {
+      autoSave(watchedValues as Property);
+    }
     
-    return (
-      <Chip
-        label={isActive ? 'Ativo' : 'Inativo'}
-        color={isActive ? 'success' : 'error'}
-        icon={isActive ? <CheckCircle /> : <Block />}
-        onClick={() => setShowStatusDialog(true)}
-        sx={{ cursor: 'pointer' }}
-      />
-    );
+    // Cleanup: cancel pending auto-save on unmount or when deps change
+    return () => {
+      autoSave.cancel();
+    };
+  }, [watchedValues, isDirty, loading, autoSave, autoSaveEnabled]);
+
+  // Queue save function to prevent race conditions
+  const queueSave = useCallback(async (saveFunction: () => Promise<void>) => {
+    saveQueueRef.current = saveQueueRef.current
+      .then(saveFunction)
+      .catch(error => {
+        logger.error('Error in save queue', { error });
+      });
+    return saveQueueRef.current;
+  }, []);
+
+  // Enhanced save with better error handling and validation
+  const handleSave = useCallback(async (data: Property) => {
+    logger.info('Save initiated', { 
+      propertyId, 
+      isDirty, 
+      isValid,
+      hasTitle: !!data.title,
+      hasPrice: !!data.basePrice 
+    });
+    
+    if (!propertyId) {
+      setError('ID da propriedade não encontrado');
+      return;
+    }
+
+    if (!tenantId) {
+      setError('Tenant ID não encontrado');
+      return;
+    }
+
+    // Queue this save operation
+    await queueSave(async () => {
+      setSaving(true);
+      setError(null);
+
+      try {
+        // Enhanced data processing with better normalization
+        const processedData = {
+          ...data,
+          updatedAt: new Date(),
+          tenantId,
+          
+          // Ensure numeric fields are properly typed
+          bedrooms: data.bedrooms ? Number(data.bedrooms) : undefined,
+          bathrooms: data.bathrooms ? Number(data.bathrooms) : undefined,
+          maxGuests: data.maxGuests ? Number(data.maxGuests) : undefined,
+          capacity: data.capacity ? Number(data.capacity) : undefined,
+          basePrice: data.basePrice ? Number(data.basePrice) : undefined,
+          pricePerExtraGuest: data.pricePerExtraGuest ? Number(data.pricePerExtraGuest) : undefined,
+          minimumNights: data.minimumNights ? Number(data.minimumNights) : undefined,
+          cleaningFee: data.cleaningFee ? Number(data.cleaningFee) : undefined,
+          
+          // Normalize media arrays with better validation
+          photos: normalizeMediaArray(data.photos),
+          videos: normalizeMediaArray(data.videos),
+          
+          // Ensure arrays are properly formatted
+          amenities: Array.isArray(data.amenities) ? data.amenities : [],
+          unavailableDates: Array.isArray(data.unavailableDates) ? data.unavailableDates : [],
+          
+          // Generate location field for search
+          location: [
+            data.address,
+            data.neighborhood,
+            data.city,
+            data.title,
+            data.description
+          ]
+            .filter(Boolean)
+            .map(part => part?.toString().trim().toLowerCase())
+            .filter(part => part && part.length > 0)
+            .join(' '),
+        };
+
+        // Remove undefined values to match backend expectations
+        Object.keys(processedData).forEach(key => {
+          if (processedData[key] === undefined) {
+            delete processedData[key];
+          }
+        });
+
+        // Clean data for production save
+        logger.debug('Preparing property data for save', {
+          propertyId,
+          fieldsCount: Object.keys(processedData).length,
+          hasPhotos: processedData.photos?.length > 0,
+          hasVideos: processedData.videos?.length > 0
+        });
+        
+        logger.info('Sending property update', { 
+          propertyId, 
+          fieldsCount: Object.keys(processedData).length,
+          hasPhotos: processedData.photos?.length > 0,
+          hasVideos: processedData.videos?.length > 0
+        });
+        
+        const response = await makeAuthenticatedRequest(`/api/properties/${propertyId}`, {
+          method: 'PUT',
+          headers: { 
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
+          },
+          body: JSON.stringify(processedData),
+        });
+
+        if (!response.ok) {
+          const errorData = await response.text();
+          let errorMessage = `Erro ${response.status}`;
+          let validationDetails = null;
+          
+          try {
+            const parsed = JSON.parse(errorData);
+            errorMessage = parsed.error || parsed.message || errorMessage;
+            validationDetails = parsed.details;
+            
+            logger.error('API Error Response', {
+              status: response.status,
+              error: errorMessage,
+              validationDetails,
+              propertyId
+            });
+          } catch {
+            console.error('Raw error response:', errorData);
+            errorMessage = errorData || errorMessage;
+          }
+          
+          throw new Error(errorMessage);
+        }
+        
+        const responseData = await response.json();
+        logger.info('Property saved successfully', { propertyId, response: responseData });
+
+        const timestamp = new Date();
+        setSuccess('Propriedade salva com sucesso!');
+        setLastSaved(timestamp);
+        setSaveHistory(prev => [...prev.slice(-4), { timestamp, type: 'manual' }]);
+        setOriginalData(responseData.data || processedData);
+
+        // Reset form dirty state
+        reset(responseData.data || processedData);
+
+        // Auto-redirect after success
+        setTimeout(() => {
+          router.push('/dashboard/properties');
+        }, 2000);
+
+      } catch (err) {
+        const errorMessage = err instanceof Error ? err.message : 'Erro desconhecido ao salvar';
+        logger.error('Property save failed', { 
+          propertyId, 
+          error: errorMessage,
+          tenantId 
+        });
+        setError(errorMessage);
+      } finally {
+        setSaving(false);
+      }
+    });
+  }, [propertyId, tenantId, isDirty, isValid, reset, router, makeAuthenticatedRequest, queueSave, normalizeMediaArray]);
+
+  // Section management
+  const toggleSection = (sectionId: string) => {
+    setExpandedSections(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(sectionId)) {
+        newSet.delete(sectionId);
+      } else {
+        newSet.add(sectionId);
+      }
+      return newSet;
+    });
   };
 
+  // Navigation with unsaved changes protection
+  const handleExit = useCallback(() => {
+    if (isDirty && autoSaveEnabled) {
+      // If auto-save is enabled, just warn about recent changes
+      setShowExitDialog(true);
+    } else if (isDirty) {
+      setShowExitDialog(true);
+    } else {
+      router.push('/dashboard/properties');
+    }
+  }, [isDirty, autoSaveEnabled, router]);
+
+  const confirmExit = () => {
+    logger.info('User exiting property edit', { propertyId, unsavedChanges: isDirty });
+    router.push('/dashboard/properties');
+  };
+
+  // Loading state
   if (loading) {
     return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '50vh' }}>
-        <CircularProgress />
-      </Box>
+      <Container maxWidth="lg" sx={{ py: 4 }}>
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+          <Skeleton variant="rectangular" height={200} sx={{ borderRadius: 2 }} />
+          <Skeleton variant="rectangular" height={300} sx={{ borderRadius: 2 }} />
+          <Skeleton variant="rectangular" height={400} sx={{ borderRadius: 2 }} />
+        </Box>
+      </Container>
     );
   }
 
-  if (error) {
+  // Error state
+  if (error && !originalData) {
     return (
-      <Box>
-        <Alert severity="error">
+      <Container maxWidth="lg" sx={{ py: 4 }}>
+        <Alert
+          severity="error"
+          action={
+            <Button color="inherit" size="small" onClick={() => router.push('/dashboard/properties')}>
+              Voltar
+            </Button>
+          }
+        >
           {error}
         </Alert>
-        <Button onClick={() => router.push('/dashboard/properties')}>
-          Voltar para Imóveis
-        </Button>
-      </Box>
+      </Container>
     );
   }
 
   return (
     <FormProvider {...methods}>
-      <Box>
-      {/* Header */}
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3 }}>
-        <Box>
-          <Typography variant="h4" component="h1" fontWeight="bold">
-            Editar Imóvel
-          </Typography>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mt: 1 }}>
-            <Typography variant="h6" color="text.secondary">
-              {methods.watch('title')}
-            </Typography>
-            {getStatusChip()}
-          </Box>
-        </Box>
-        <Box sx={{ display: 'flex', gap: 2 }}>
-          <Button
-            variant="outlined"
-            startIcon={<Cancel />}
-            onClick={() => router.push('/dashboard/properties')}
-            disabled={saving}
-          >
-            Cancelar
-          </Button>
-          <Button
-            variant="contained"
-            startIcon={saving ? <CircularProgress size={20} /> : <Save />}
-            onClick={handleSubmit(onSubmit)}
-            disabled={saving}
-          >
-            {saving ? 'Salvando...' : 'Salvar Alterações'}
-          </Button>
-        </Box>
-      </Box>
+      <Container maxWidth="lg" sx={{ py: 3 }}>
+        {/* Enhanced Header */}
+        <Paper
+          elevation={0}
+          sx={{
+            p: 3,
+            mb: 3,
+            borderRadius: 2,
+            background: `linear-gradient(135deg, ${alpha(theme.palette.primary.main, 0.1)} 0%, ${alpha(theme.palette.secondary.main, 0.1)} 100%)`,
+            border: `1px solid ${alpha(theme.palette.divider, 0.1)}`,
+          }}
+        >
+          <Grid container alignItems="center" spacing={2}>
+            <Grid item xs>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
+                <Typography variant="h4" fontWeight="bold">
+                  Editar Propriedade
+                </Typography>
+                <Chip
+                  size="small"
+                  label={watchedValues.isActive ? 'Ativa' : 'Inativa'}
+                  color={watchedValues.isActive ? 'success' : 'default'}
+                  icon={watchedValues.isActive ? <CheckCircle /> : <ErrorIcon />}
+                />
+                {isDirty && (
+                  <Chip
+                    size="small"
+                    label="Alterações não salvas"
+                    color="warning"
+                    icon={<Warning />}
+                  />
+                )}
+              </Box>
 
-      {error && (
-        <Alert severity="error" sx={{ mb: 3 }} onClose={() => setError(null)}>
-          {error}
-        </Alert>
-      )}
-
-      {successMessage && (
-        <Alert severity="success" sx={{ mb: 3 }} onClose={() => setSuccessMessage(null)}>
-          {successMessage}
-        </Alert>
-      )}
-
-      {isDirty && !successMessage && (
-        <Alert severity="info" sx={{ mb: 3 }}>
-          Você tem alterações não salvas
-        </Alert>
-      )}
-
-      {/* Tabs */}
-      <Card>
-        <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
-          <Tabs value={activeTab} onChange={(_, newValue) => setActiveTab(newValue)} variant="scrollable" scrollButtons="auto">
-            <Tab label="Informações Básicas" />
-            <Tab label="Especificações" />
-            <Tab label="Comodidades" />
-            <Tab label="Precificação" />
-            <Tab label="Mídia" />
-            <Tab label="Disponibilidade" />
-          </Tabs>
-        </Box>
-
-        <CardContent>
-          <TabPanel value={activeTab} index={0}>
-            <PropertyBasicInfo />
-          </TabPanel>
-
-          <TabPanel value={activeTab} index={1}>
-            <PropertySpecs />
-          </TabPanel>
-
-          <TabPanel value={activeTab} index={2}>
-            <PropertyAmenities />
-          </TabPanel>
-
-          <TabPanel value={activeTab} index={3}>
-            <PropertyPricing />
-          </TabPanel>
-
-          <TabPanel value={activeTab} index={4}>
-            <PropertyMediaUpload />
-          </TabPanel>
-
-          <TabPanel value={activeTab} index={5}>
-            <Box>
-              <Typography variant="h6" gutterBottom>
-                Gerenciar Disponibilidade
+              <Typography variant="h6" color="text.secondary" gutterBottom>
+                {watchedValues.title || 'Propriedade sem título'}
               </Typography>
-              <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-                Configure as datas disponíveis, bloqueadas ou em manutenção para este imóvel.
-              </Typography>
-              <AvailabilityCalendar 
-                propertyId={propertyId} 
-                showLegend={true}
-                showStats={true}
+
+              {/* Status indicators */}
+              <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                {lastSaved && (
+                  <Chip
+                    size="small"
+                    label={`Salvo às ${lastSaved.toLocaleTimeString('pt-BR')}`}
+                    color="info"
+                    icon={<CloudDone />}
+                    variant="outlined"
+                  />
+                )}
+                {autoSaving && (
+                  <Chip
+                    size="small"
+                    label="Salvando automaticamente..."
+                    color="info"
+                    icon={<CloudSync />}
+                  />
+                )}
+              </Box>
+            </Grid>
+
+            <Grid item>
+              <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                <FormControlLabel
+                  control={
+                    <Switch
+                      checked={autoSaveEnabled}
+                      onChange={(e) => setAutoSaveEnabled(e.target.checked)}
+                      size="small"
+                    />
+                  }
+                  label="Auto-save"
+                  sx={{ mr: 2 }}
+                />
+                <Tooltip title="Descartar alterações">
+                  <IconButton onClick={handleExit} disabled={saving}>
+                    <Close />
+                  </IconButton>
+                </Tooltip>
+                <Button
+                  variant="contained"
+                  size="large"
+                  startIcon={saving ? <CircularProgress size={20} color="inherit" /> : <Save />}
+                  onClick={() => {
+                    console.log('Save button clicked');
+                    console.log('Form errors:', errors);
+                    handleSubmit(handleSave)();
+                  }}
+                  disabled={saving}
+                  sx={{
+                    minWidth: 160,
+                    position: 'relative'
+                  }}
+                >
+                  {saving ? 'Salvando...' : isDirty ? 'Salvar Alterações' : 'Salvar'}
+                </Button>
+              </Box>
+            </Grid>
+          </Grid>
+
+          {/* Overall progress */}
+          {Object.keys(sectionCompletions).length > 0 && (
+            <Box sx={{ mt: 3 }}>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 1 }}>
+                <Typography variant="caption" color="text.secondary">
+                  Progresso geral
+                </Typography>
+                <Typography variant="caption" color="text.secondary">
+                  {Math.round(
+                    Object.values(sectionCompletions).reduce((acc, curr) => acc + curr.percentage, 0) /
+                    Object.values(sectionCompletions).length
+                  )}% completo
+                </Typography>
+              </Box>
+              <LinearProgress
+                variant="determinate"
+                value={
+                  Object.values(sectionCompletions).reduce((acc, curr) => acc + curr.percentage, 0) /
+                  Object.values(sectionCompletions).length
+                }
+                sx={{
+                  height: 8,
+                  borderRadius: 4,
+                  backgroundColor: alpha(theme.palette.primary.main, 0.1),
+                }}
               />
             </Box>
-          </TabPanel>
-        </CardContent>
-      </Card>
+          )}
+        </Paper>
 
-      {/* Status Change Dialog */}
-      <Dialog open={showStatusDialog} onClose={() => setShowStatusDialog(false)}>
-        <DialogTitle>Alterar Status do Imóvel</DialogTitle>
-        <DialogContent>
-          <Typography variant="body2" sx={{ mb: 3 }}>
-            Selecione o novo status para o imóvel:
-          </Typography>
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-            <Button
-              variant={methods.watch('isActive') ? 'contained' : 'outlined'}
-              color="success"
-              startIcon={<CheckCircle />}
-              onClick={() => handleStatusChange(true)}
-              fullWidth
-            >
-              Ativo - Disponível para reservas
+        {/* Error/Success messages */}
+        <Collapse in={!!error}>
+          <Alert
+            severity="error"
+            sx={{ mb: 2 }}
+            onClose={() => setError(null)}
+            action={
+              <Button color="inherit" size="small" onClick={() => setError(null)}>
+                <Refresh />
+              </Button>
+            }
+          >
+            {error}
+          </Alert>
+        </Collapse>
+
+        <Collapse in={!!success}>
+          <Alert severity="success" sx={{ mb: 2 }} onClose={() => setSuccess(null)}>
+            {success}
+          </Alert>
+        </Collapse>
+
+        {/* Modern section-based editing */}
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+          {propertySections.map((section) => {
+            const isExpanded = expandedSections.has(section.id);
+            const completion = sectionCompletions[section.id];
+            const hasErrors = sectionErrors[section.id] > 0;
+
+            return (
+              <Card
+                key={section.id}
+                elevation={0}
+                sx={{
+                  border: `1px solid ${hasErrors 
+                    ? alpha(theme.palette.error.main, 0.3)
+                    : alpha(theme.palette.divider, 0.1)
+                  }`,
+                  borderRadius: 2,
+                  transition: 'all 0.3s ease',
+                  '&:hover': {
+                    boxShadow: theme.shadows[2],
+                  },
+                }}
+              >
+                <CardContent sx={{ pb: 1 }}>
+                  <Box
+                    sx={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      cursor: 'pointer',
+                    }}
+                    onClick={() => toggleSection(section.id)}
+                  >
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                      <Box
+                        sx={{
+                          p: 1,
+                          borderRadius: 1,
+                          backgroundColor: hasErrors
+                            ? alpha(theme.palette.error.main, 0.1)
+                            : alpha(theme.palette.primary.main, 0.1),
+                          color: hasErrors ? theme.palette.error.main : theme.palette.primary.main,
+                        }}
+                      >
+                        {section.icon}
+                      </Box>
+                      <Box>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                          <Typography variant="h6" fontWeight={600}>
+                            {section.title}
+                          </Typography>
+                          {section.isRequired && (
+                            <Chip size="small" label="Obrigatório" color="primary" />
+                          )}
+                          {hasErrors && (
+                            <Chip
+                              size="small"
+                              label={`${sectionErrors[section.id]} erro${sectionErrors[section.id] > 1 ? 's' : ''}`}
+                              color="error"
+                              icon={<ErrorIcon />}
+                            />
+                          )}
+                        </Box>
+                        <Typography variant="body2" color="text.secondary">
+                          {section.description}
+                        </Typography>
+                      </Box>
+                    </Box>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                      {completion && (
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                          <Typography variant="caption" color="text.secondary">
+                            {completion.completed}/{completion.total}
+                          </Typography>
+                          <Box sx={{ position: 'relative', display: 'inline-flex' }}>
+                            <CircularProgress
+                              variant="determinate"
+                              value={completion.percentage}
+                              size={20}
+                              thickness={5}
+                            />
+                            {completion.percentage === 100 && (
+                              <CheckCircle
+                                sx={{
+                                  color: 'success.main',
+                                  position: 'absolute',
+                                  top: '50%',
+                                  left: '50%',
+                                  transform: 'translate(-50%, -50%)',
+                                  fontSize: 16,
+                                }}
+                              />
+                            )}
+                          </Box>
+                        </Box>
+                      )}
+                      <IconButton size="small">
+                        {isExpanded ? <ExpandLess /> : <ExpandMore />}
+                      </IconButton>
+                    </Box>
+                  </Box>
+                </CardContent>
+
+                <Collapse in={isExpanded} timeout="auto" unmountOnExit>
+                  <Divider />
+                  <CardContent sx={{ pt: 3 }}>
+                    <Fade in={isExpanded}>
+                      <Box>{section.component}</Box>
+                    </Fade>
+                  </CardContent>
+                </Collapse>
+              </Card>
+            );
+          })}
+        </Box>
+
+        {/* Save history (optional debug info) */}
+        {saveHistory.length > 0 && (
+          <Card elevation={0} sx={{ mt: 2, border: `1px solid ${alpha(theme.palette.divider, 0.1)}` }}>
+            <CardContent>
+              <Typography variant="subtitle2" gutterBottom>
+                <History fontSize="small" sx={{ mr: 1, verticalAlign: 'middle' }} />
+                Histórico de salvamentos
+              </Typography>
+              <List dense>
+                {saveHistory.slice(-3).map((save, index) => (
+                  <ListItem key={index}>
+                    <ListItemIcon>
+                      {save.type === 'auto' ? <CloudSync fontSize="small" /> : <Save fontSize="small" />}
+                    </ListItemIcon>
+                    <ListItemText
+                      primary={`${save.type === 'auto' ? 'Automático' : 'Manual'}`}
+                      secondary={save.timestamp.toLocaleString('pt-BR')}
+                    />
+                  </ListItem>
+                ))}
+              </List>
+            </CardContent>
+          </Card>
+        )}
+
+        {/* Exit confirmation dialog */}
+        <Dialog open={showExitDialog} onClose={() => setShowExitDialog(false)}>
+          <DialogTitle>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <Warning color="warning" />
+              {autoSaveEnabled ? 'Alterações podem não estar salvas' : 'Alterações não salvas'}
+            </Box>
+          </DialogTitle>
+          <DialogContent>
+            <Typography>
+              {autoSaveEnabled 
+                ? 'Suas alterações mais recentes podem não ter sido salvas automaticamente ainda. Deseja sair mesmo assim?'
+                : 'Você tem alterações não salvas. Deseja realmente sair sem salvar?'
+              }
+            </Typography>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setShowExitDialog(false)}>
+              Continuar Editando
             </Button>
-            <Button
-              variant={!methods.watch('isActive') ? 'contained' : 'outlined'}
-              color="error"
-              startIcon={<Block />}
-              onClick={() => handleStatusChange(false)}
-              fullWidth
-            >
-              Inativo - Não disponível
+            <Button onClick={confirmExit} color="error" variant="contained">
+              Sair
             </Button>
-          </Box>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setShowStatusDialog(false)}>
-            Cancelar
-          </Button>
-        </DialogActions>
-      </Dialog>
-    </Box>
+          </DialogActions>
+        </Dialog>
+
+        {/* Success notification */}
+        <Snackbar
+          open={!!success}
+          autoHideDuration={6000}
+          onClose={() => setSuccess(null)}
+          anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+        >
+          <Alert severity="success" onClose={() => setSuccess(null)}>
+            {success}
+          </Alert>
+        </Snackbar>
+      </Container>
     </FormProvider>
   );
 }

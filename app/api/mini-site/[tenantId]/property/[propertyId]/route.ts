@@ -3,10 +3,10 @@ import { TenantServiceFactory } from '@/lib/firebase/firestore-v2';
 
 export async function GET(
   request: NextRequest,
-  { params }: { params: { tenantId: string; propertyId: string } }
+  { params }: { params: Promise<{ tenantId: string; propertyId: string }> }
 ) {
   try {
-    const { tenantId, propertyId } = params;
+    const { tenantId, propertyId } = await params;
     
     if (!tenantId || !propertyId) {
       return NextResponse.json(

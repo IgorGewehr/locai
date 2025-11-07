@@ -9,7 +9,7 @@ import { useAuth as useNewAuth, AuthProvider as NewAuthProvider } from '@/contex
 
 // Re-export the new auth hook and provider for backward compatibility
 export const useAuth = () => {
-  const { user, loading, logout, signIn, signUp, resetPassword } = useNewAuth();
+  const { user, loading, logout, signIn, signUp, resetPassword, getFirebaseToken } = useNewAuth();
   
   // Map new auth interface to old interface for backward compatibility
   return {
@@ -24,7 +24,8 @@ export const useAuth = () => {
     signOut: logout, // Map logout to signOut for compatibility
     signIn,
     signUp,
-    resetPassword
+    resetPassword,
+    getFirebaseToken // Now supports forceRefresh parameter
   };
 };
 

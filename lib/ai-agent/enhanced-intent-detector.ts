@@ -37,6 +37,7 @@ export class EnhancedIntentDetector {
     
     // Funções de disponibilidade e visita
     'check_availability',     // NOVA FUNÇÃO CRÍTICA
+    'check_agenda_availability', // NOVA FUNÇÃO PARA AGENDA
     'schedule_visit',
     'check_visit_availability',
     
@@ -128,16 +129,17 @@ FUNÇÕES DISPONÍVEIS:
 7. modify_reservation - modificar datas, hóspedes ou valores de uma reserva
 8. register_client - cadastrar informações do cliente (nome, telefone, email)
 9. check_availability - verificar se propriedade está disponível para datas específicas
-10. schedule_visit - agendar visita presencial à propriedade
-11. check_visit_availability - verificar disponibilidade para visitas
-12. get_policies - obter políticas de cancelamento, pagamento e regras
-13. generate_quote - gerar orçamento detalhado com valores
-14. create_transaction - criar transação financeira para pagamento
-15. create_lead - criar novo lead no CRM
-16. update_lead - atualizar informações de lead existente
-17. classify_lead - classificar lead (quente, morno, frio)
-18. update_lead_status - atualizar status do lead no funil
-19. Sem dados suficiente para qualquer função prosseguir com a conversa.
+10. check_agenda_availability - verificar agenda de reuniões/eventos do tenant para dia/mês específico
+11. schedule_visit - agendar visita presencial à propriedade
+12. check_visit_availability - verificar disponibilidade para visitas
+13. get_policies - obter políticas de cancelamento, pagamento e regras
+14. generate_quote - gerar orçamento detalhado com valores
+15. create_transaction - criar transação financeira para pagamento
+16. create_lead - criar novo lead no CRM
+17. update_lead - atualizar informações de lead existente
+18. classify_lead - classificar lead (quente, morno, frio)
+19. update_lead_status - atualizar status do lead no funil
+20. Sem dados suficiente para qualquer função prosseguir com a conversa.
 
 MENSAGEM USUÁRIO: "${message}"
 
@@ -155,6 +157,9 @@ EXEMPLOS DE DETECÇÃO:
 - "preciso mudar a data" → modify_reservation
 - "tá disponível dia 15?" → check_availability
 - "quais são as regras?" → get_policies
+- "como está minha agenda hoje?" → check_agenda_availability {year: 2025, month: 1, day: 29}
+- "quais reuniões tenho amanhã?" → check_agenda_availability {year: 2025, month: 1, day: 30}
+- "agenda de janeiro" → check_agenda_availability {year: 2025, month: 1}
 - "posso visitar amanhã?" → schedule_visit
 - "tá disponível pra visita?" → check_visit_availability
 - "me manda um orçamento" → generate_quote

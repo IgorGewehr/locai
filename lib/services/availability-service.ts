@@ -384,7 +384,7 @@ export class AvailabilityService {
   }
 
   /**
-   * Generate calendar days for a date range
+   * Generate calendar days for a date range (OPTIMIZED with O(1) lookup)
    */
   private async generateCalendarDays(
     propertyId: string,
@@ -393,7 +393,9 @@ export class AvailabilityService {
     availabilityPeriods: AvailabilityPeriod[],
     reservations: Reservation[]
   ): Promise<AvailabilityCalendarDay[]> {
-    logger.info('🔍 Generating calendar days', {
+    const startTime = Date.now();
+
+    logger.info('🔍 Generating calendar days (optimized)', {
       propertyId: propertyId,
       propertyIdType: typeof propertyId,
       startDate: startDate?.toISOString(),
@@ -402,8 +404,6 @@ export class AvailabilityService {
       reservationsCount: reservations?.length
     });
 
-    const days: AvailabilityCalendarDay[] = [];
-    
     try {
       const dateRange = eachDayOfInterval({ start: startDate, end: endDate });
       logger.info('✅ Date range created', {
@@ -420,55 +420,95 @@ export class AvailabilityService {
       throw error;
     }
 
+    // OPTIMIZATION: Create index maps for O(1) lookup instead of O(n*m) nested loops
+    const periodsByDate = new Map<string, AvailabilityPeriod>();
+    const reservationsByDate = new Map<string, Reservation>();
+
+    // Build period index (O(m) - only once)
+    for (const period of availabilityPeriods || []) {
+      if (!period?.startDate || !period?.endDate) {
+        logger.warn('⚠️ Invalid period found, skipping', {
+          periodId: period?.id,
+          hasStartDate: !!period?.startDate,
+          hasEndDate: !!period?.endDate
+        });
+        continue;
+      }
+
+      try {
+        const periodDays = eachDayOfInterval({
+          start: startOfDay(period.startDate),
+          end: endOfDay(period.endDate)
+        });
+
+        for (const day of periodDays) {
+          const key = format(day, 'yyyy-MM-dd');
+          // Store only if not already set (first period wins)
+          if (!periodsByDate.has(key)) {
+            periodsByDate.set(key, period);
+          }
+        }
+      } catch (error) {
+        logger.error('❌ Error indexing period', {
+          error: error instanceof Error ? error.message : 'Unknown error',
+          periodId: period.id,
+          periodStartDate: period.startDate,
+          periodEndDate: period.endDate
+        });
+      }
+    }
+
+    // Build reservation index (O(m) - only once)
+    for (const reservation of reservations || []) {
+      if (!reservation?.checkIn || !reservation?.checkOut) {
+        logger.warn('⚠️ Invalid reservation found, skipping', {
+          reservationId: reservation?.id,
+          hasCheckIn: !!reservation?.checkIn,
+          hasCheckOut: !!reservation?.checkOut
+        });
+        continue;
+      }
+
+      try {
+        const reservationDays = eachDayOfInterval({
+          start: startOfDay(reservation.checkIn as Date),
+          end: addDays(startOfDay(reservation.checkOut as Date), -1) // Exclude checkout day
+        });
+
+        for (const day of reservationDays) {
+          const key = format(day, 'yyyy-MM-dd');
+          // Store only if not already set (first reservation wins)
+          if (!reservationsByDate.has(key)) {
+            reservationsByDate.set(key, reservation);
+          }
+        }
+      } catch (error) {
+        logger.error('❌ Error indexing reservation', {
+          error: error instanceof Error ? error.message : 'Unknown error',
+          reservationId: reservation.id,
+          checkIn: reservation.checkIn,
+          checkOut: reservation.checkOut
+        });
+      }
+    }
+
+    logger.info('✅ Indexes built', {
+      periodsDatesIndexed: periodsByDate.size,
+      reservationDatesIndexed: reservationsByDate.size,
+      indexBuildTime: `${Date.now() - startTime}ms`
+    });
+
+    // Generate calendar with O(1) lookups per day (O(n) total)
     const dateRange = eachDayOfInterval({ start: startDate, end: endDate });
+    const days: AvailabilityCalendarDay[] = [];
 
     for (const date of dateRange) {
       try {
-        // Find availability period for this date
-        const availabilityPeriod = availabilityPeriods?.find(period => {
-          if (!period?.startDate || !period?.endDate) {
-            logger.warn('⚠️ Invalid period found', {
-              period: period,
-              hasStartDate: !!period?.startDate,
-              hasEndDate: !!period?.endDate
-            });
-            return false;
-          }
-          try {
-            return date >= startOfDay(period.startDate) && date <= endOfDay(period.endDate);
-          } catch (error) {
-            logger.error('❌ Error in period date comparison', {
-              error: error instanceof Error ? error.message : 'Unknown error',
-              periodStartDate: period.startDate,
-              periodEndDate: period.endDate,
-              currentDate: date?.toISOString()
-            });
-            return false;
-          }
-        });
+        const key = format(date, 'yyyy-MM-dd');
 
-        // Find reservation for this date
-        const reservation = reservations?.find(res => {
-          if (!res?.checkIn || !res?.checkOut) {
-            logger.warn('⚠️ Invalid reservation found', {
-              reservationId: res?.id,
-              hasCheckIn: !!res?.checkIn,
-              hasCheckOut: !!res?.checkOut
-            });
-            return false;
-          }
-          try {
-            return date >= startOfDay(res.checkIn as Date) && date < startOfDay(res.checkOut as Date);
-          } catch (error) {
-            logger.error('❌ Error in reservation date comparison', {
-              error: error instanceof Error ? error.message : 'Unknown error',
-              reservationCheckIn: res.checkIn,
-              reservationCheckOut: res.checkOut,
-              currentDate: date?.toISOString()
-            });
-            return false;
-          }
-        });
+        // O(1) lookup instead of O(m) find!
+        const availabilityPeriod = periodsByDate.get(key);
+        const reservation = reservationsByDate.get(key);
 
         let status = AvailabilityStatus.AVAILABLE;
         let reservationId: string | undefined;
@@ -477,7 +517,7 @@ export class AvailabilityService {
         if (availabilityPeriod) {
           status = availabilityPeriod.status;
           reservationId = availabilityPeriod.reservationId;
-          reason = availabilityPeriod.reason;
+          reason = availabilityPeriod.reason || undefined;
         } else if (reservation) {
           status = AvailabilityStatus.RESERVED;
           reservationId = reservation.id;
@@ -503,10 +543,17 @@ export class AvailabilityService {
           date: date?.toISOString(),
           stack: dayError instanceof Error ? dayError.stack?.substring(0, 500) : undefined
         });
-        // Continue with next day instead of breaking
         continue;
       }
     }
+
+    const totalTime = Date.now() - startTime;
+    logger.info('✅ Calendar generation completed', {
+      daysGenerated: days.length,
+      totalTime: `${totalTime}ms`,
+      avgTimePerDay: `${(totalTime / days.length).toFixed(2)}ms`,
+      performanceImprovement: 'O(n+m) instead of O(n*m)'
+    });
 
     return days;
   }

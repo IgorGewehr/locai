@@ -2,7 +2,7 @@ import { TenantServiceFactory } from '@/lib/firebase/firestore-v2'
 import { Reservation, ReservationStatus, PaymentStatus } from '@/lib/types/reservation'
 import { Property } from '@/lib/types/property'
 import { ValidationError } from '@/lib/utils/errors'
-import { CheckAvailabilityInput } from '@/lib/validations/reservation'
+import { CheckAvailabilityInput } from '@/lib/validation/reservation'
 import { eachDayOfInterval, format } from 'date-fns'
 
 class ReservationService {
@@ -102,6 +102,7 @@ class ReservationService {
 
   /**
    * Calculate pricing for a reservation
+   * Now using PricingService for complete and accurate calculations
    */
   async calculatePricing(
     propertyId: string,
@@ -115,10 +116,13 @@ class ReservationService {
     cleaningFee: number
     securityDeposit: number
     totalAmount: number
+    weekendSurcharge?: number
+    holidaySurcharge?: number
+    seasonalAdjustment?: number
   }> {
     const services = this.getTenantService(tenantId)
     const property = await services.properties.get(propertyId)
-    
+
     if (!property) {
       throw new ValidationError('Propriedade não encontrada', 'propertyId')
     }
@@ -131,22 +135,24 @@ class ReservationService {
       throw new ValidationError('Período inválido', 'dates')
     }
 
-    // Calculate base amount (simplified - you may want to use the pricing service)
-    const baseAmount = property.pricing.basePrice * nights
-    const cleaningFee = property.pricing.cleaningFee || 0
-    const securityDeposit = property.pricing.securityDeposit || 0
-
-    // Apply weekend/holiday multipliers here if needed
-    // This is simplified - integrate with your existing pricing service
-
-    const totalAmount = baseAmount + cleaningFee
+    // Use PricingService for complete pricing calculation
+    const { pricingService } = await import('./pricing')
+    const priceCalculation = await pricingService.calculatePrice(
+      property,
+      checkIn,
+      checkOut,
+      guests
+    )
 
     return {
-      nights,
-      baseAmount,
-      cleaningFee,
-      securityDeposit,
-      totalAmount
+      nights: priceCalculation.nights,
+      baseAmount: priceCalculation.subtotal,
+      cleaningFee: priceCalculation.cleaningFee,
+      securityDeposit: priceCalculation.securityDeposit,
+      totalAmount: priceCalculation.totalPrice,
+      weekendSurcharge: priceCalculation.weekendSurcharge,
+      holidaySurcharge: priceCalculation.holidaySurcharge,
+      seasonalAdjustment: priceCalculation.seasonalAdjustment
     }
   }
 

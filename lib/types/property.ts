@@ -6,6 +6,7 @@ export interface Property {
   title: string
   description: string
   address: string
+  location?: string  // Campo concatenado para busca (address + neighborhood + city)
   category: PropertyCategory
   bedrooms: number
   bathrooms: number
@@ -28,13 +29,9 @@ export interface Property {
   // Características
   isFeatured: boolean
   allowsPets: boolean
-  
-  // Acréscimos por forma de pagamento
-  paymentMethodSurcharges: Record<PaymentMethod, number>
-  
+
   // Configurações financeiras da reserva
   advancePaymentPercentage: number // Percentual do valor total que deve ser pago antecipadamente (ex: 10 = 10%)
-  paymentMethodDiscounts?: Record<PaymentMethod, number> // Descontos por método (ex: PIX = 10% desconto)
   
   // Mídias - Nova estrutura simplificada (compatível com Dart)
   photos: string[] // URLs simples como no projeto Dart
@@ -54,7 +51,7 @@ export interface Property {
   decemberSurcharge?: number // Percentual de acréscimo para dezembro
   highSeasonSurcharge?: number // Percentual de acréscimo para alta temporada
   highSeasonMonths?: number[] // Meses considerados alta temporada (1-12)
-  
+
   // Metadados
   isActive: boolean
   createdAt: Date

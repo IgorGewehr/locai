@@ -6,6 +6,8 @@ import { doc, getDoc, updateDoc, setDoc } from "firebase/firestore";
 import { auth, db } from "@/lib/firebase/config";
 import { useRouter, usePathname } from "next/navigation";
 import { logger } from "@/lib/utils/logger";
+import { SubscriptionService } from "@/lib/services/subscription-service";
+import { SubscriptionValidation } from "@/lib/types/subscription";
 
 // ===== INTERFACES =====
 
@@ -15,6 +17,8 @@ interface User {
   name: string;
   fullName: string;
   role: 'admin' | 'user' | 'agent';
+  isAdmin: boolean; // Computed property for convenience
+  idog?: boolean; // Super admin flag
   tenantId: string; // UID do usuário = tenantId
   isActive: boolean;
   emailVerified: boolean;
@@ -23,6 +27,10 @@ interface User {
   companyName?: string;
   whatsappNumbers?: string[];
   plan?: 'free' | 'basic' | 'premium';
+  firstAccess?: boolean; // Flag para primeiro acesso
+  // Novos campos para usuários criados via webhook
+  createdViaWebhook?: boolean;
+  passwordSet?: boolean;
 }
 
 interface AuthContextType {
@@ -35,11 +43,11 @@ interface AuthContextType {
   logout: () => Promise<void>;
   reloadUser: (forceRefresh?: boolean) => Promise<void>;
   signIn: (email: string, password: string) => Promise<void>;
-  signUp: (email: string, password: string, name: string, extraData?: { free?: number }) => Promise<void>;
+  signUp: (email: string, password: string, name: string, extraData?: { free?: number; businessName?: string; propertiesCount?: number }) => Promise<void>;
   resetPassword: (email: string) => Promise<void>;
   
   // Token Firebase
-  getFirebaseToken: () => Promise<string | null>;
+  getFirebaseToken: (forceRefresh?: boolean) => Promise<string | null>;
   
   // Verificações
   isAdmin: boolean;
@@ -108,6 +116,11 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     const uid = authUser.uid;
     
     try {
+      // 🛡️ VALIDAÇÃO DE SEGURANÇA: Verificar se UID é válido
+      if (!uid || typeof uid !== 'string' || uid.length < 10) {
+        throw new Error('UID inválido fornecido pelo Firebase Auth');
+      }
+      
       // Buscar dados existentes
       const userRef = doc(db, 'users', uid);
       const userSnap = await getDoc(userRef);
@@ -132,6 +145,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           name: userData.name || userData.fullName || '',
           fullName: userData.fullName || userData.name || '',
           role: userData.role || 'user',
+          isAdmin: (userData.role || 'user') === 'admin', // Computed property
+          idog: userData.idog === true, // Super admin flag
           tenantId: uid, // UID = tenantId
           isActive: userData.isActive !== false,
           emailVerified: authUser.emailVerified,
@@ -139,46 +154,76 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           lastLogin: new Date(),
           companyName: userData.companyName,
           whatsappNumbers: userData.whatsappNumbers || [],
-          plan: userData.plan || 'free'
+          plan: userData.plan || 'free',
+          firstAccess: userData.firstAccess !== false, // Default true se não existir
+          // Novos campos para usuários criados via webhook
+          createdViaWebhook: userData.createdViaWebhook || false,
+          passwordSet: userData.passwordSet !== false, // Default true para usuários normais
+          // Log para debug de usuários migrados
+          ...(userData.migratedFrom && {
+            migratedFrom: userData.migratedFrom,
+            migratedAt: userData.migratedAt?.toDate?.() || userData.migratedAt
+          })
         };
       }
       
-      // Criar novo usuário
-      const [firstName, ...lastNameArray] = (authUser.displayName || '').split(' ');
-      const lastName = lastNameArray.join(' ');
-      
+      // 🛡️ CRIAR NOVO USUÁRIO COM VALIDAÇÃO ROBUSTA
+      // Fallback chain: displayName -> email prefix -> 'User'
+      const displayName = authUser.displayName ||
+                         authUser.email?.split('@')[0] ||
+                         'User';
+
+      // Garantir que split sempre retorna array válido
+      const nameParts = displayName.split(' ').filter((part: string) => part.trim().length > 0);
+      const firstName = nameParts[0] || 'User';
+      const lastName = nameParts.slice(1).join(' ') || '';
+      const fullName = nameParts.join(' ') || 'User';
+
+      // Validar email (campo crítico)
+      if (!authUser.email || typeof authUser.email !== 'string' || !authUser.email.includes('@')) {
+        throw new Error('Email inválido fornecido pelo provedor de autenticação');
+      }
+
       const newUserData = {
         email: authUser.email,
-        name: authUser.displayName || '',
-        fullName: authUser.displayName || '',
-        firstName: firstName || '',
-        lastName: lastName || '',
+        name: fullName,
+        fullName: fullName,
+        firstName: firstName,
+        lastName: lastName,
         role: 'user',
         isActive: true,
-        emailVerified: authUser.emailVerified,
+        emailVerified: authUser.emailVerified || false,
         plan: 'free',
         createdAt: new Date(),
         lastLogin: new Date(),
         whatsappNumbers: [],
-        authProvider: authUser.providerData?.[0]?.providerId === 'google.com' ? 'google' : 'email'
+        authProvider: authUser.providerData?.[0]?.providerId === 'google.com' ? 'google' : 'email',
+        firstAccess: true // Novo usuário sempre tem firstAccess = true
       };
       
       await setDoc(userRef, newUserData, { merge: true });
-      
+
+      // 🛡️ RETORNAR DADOS VALIDADOS
       return {
         uid,
-        email: authUser.email,
-        name: newUserData.name,
-        fullName: newUserData.fullName,
+        email: authUser.email, // Já validado acima
+        name: fullName,
+        fullName: fullName,
         role: 'user',
+        isAdmin: false, // New users are not admin by default
+        idog: false, // New users are not super admin by default
         tenantId: uid,
         isActive: true,
-        emailVerified: authUser.emailVerified,
+        emailVerified: authUser.emailVerified || false,
         createdAt: new Date(),
         lastLogin: new Date(),
         companyName: '',
         whatsappNumbers: [],
-        plan: 'free'
+        plan: 'free',
+        firstAccess: true, // Novo usuário sempre tem firstAccess = true
+        // Novos campos para usuários criados via webhook
+        createdViaWebhook: false, // Usuários criados normalmente
+        passwordSet: true // Usuários criados normalmente já têm senha
       };
       
     } catch (error) {
@@ -209,20 +254,86 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   }, []);
 
   /**
-   * Verifica se deve redirecionar para login
+   * Verifica se deve redirecionar para login ou planos
    */
-  const shouldRedirectToAuth = useCallback((userData: User | null, currentPath: string) => {
+  const shouldRedirectToAuth = useCallback(async (userData: User | null, currentPath: string) => {
     const protectedRoutes = ['/dashboard'];
     const isProtectedRoute = protectedRoutes.some(route => currentPath.startsWith(route));
-    
+
     if (!isProtectedRoute) return false;
-    
+
     if (!userData) {
       return { redirect: '/login', reason: 'no_user' };
     }
-    
+
     if (!userData.isActive) {
       return { redirect: '/login', reason: 'inactive_user' };
+    }
+
+    // ✅ NOVA VERIFICAÇÃO: Usuário criado via webhook sem senha
+    if (userData.createdViaWebhook && !userData.passwordSet) {
+      logger.info('🔐 [Auth] Redirecionando usuário para definir senha', {
+        userId: userData.uid,
+        email: userData.email,
+        currentPath
+      });
+
+      return {
+        redirect: `/set-password?email=${encodeURIComponent(userData.email)}`,
+        reason: 'password_required'
+      };
+    }
+    
+    // ✅ OTIMIZAÇÃO: Pular validação para usuários recém-criados (< 10s)
+    const accountAge = Date.now() - userData.createdAt.getTime();
+    const isNewAccount = accountAge < 10000; // 10 segundos
+
+    if (isNewAccount) {
+      logger.info('⚡ [Auth] Novo usuário detectado, pulando validação de subscription', {
+        userId: userData.uid,
+        accountAge: Math.round(accountAge / 1000) + 's'
+      });
+      return false; // Permitir acesso imediato
+    }
+
+    // ✅ NOVA VERIFICAÇÃO: Trial/Assinatura com FALLBACK DE SEGURANÇA
+    try {
+      const subscriptionValidation = await SubscriptionService.validateUserAccess(userData.uid);
+
+      if (!subscriptionValidation.hasAccess) {
+        logger.info('🚫 [Auth] Redirecionando para planos', {
+          userId: userData.uid,
+          reason: subscriptionValidation.reason,
+          currentPath
+        });
+
+        return {
+          redirect: subscriptionValidation.redirectUrl || 'https://moneyin.agency/alugazapplanos/',
+          reason: subscriptionValidation.reason || 'no_access',
+          isExternalRedirect: true
+        };
+      }
+
+      // Log trial status se aplicável
+      if (subscriptionValidation.trialStatus) {
+        logger.info('ℹ️ [Auth] Usuário em trial', {
+          userId: userData.uid,
+          daysRemaining: subscriptionValidation.trialStatus.daysRemaining,
+          trialEndDate: subscriptionValidation.trialStatus.trialEndDate
+        });
+      }
+
+    } catch (error) {
+      logger.error('❌ [Auth] Erro na validação de assinatura', error as Error, {
+        userId: userData.uid
+      });
+
+      // 🛡️ FALLBACK CRÍTICO: Em caso de erro na validação, permitir acesso
+      // Isso garante que problemas de conectividade ou bugs não travem usuários
+      logger.warn('⚠️ [Auth] Permitindo acesso devido a erro na validação', {
+        userId: userData.uid,
+        error: error instanceof Error ? error.message : 'Unknown'
+      });
     }
     
     return false;
@@ -263,65 +374,78 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           logger.error('❌ [Auth] Erro ao obter Firebase ID token', { error });
         }
         
-        // Redirecionamento inteligente e suave
-        setTimeout(() => {
+        // Redirecionamento mais robusto
+        setTimeout(async () => {
           if (!isMounted) return;
-          
-          // NOVO: Evitar redirecionamentos múltiplos
-          const isAlreadyRedirecting = sessionStorage.getItem('redirecting');
-          if (isAlreadyRedirecting) {
-            sessionStorage.removeItem('redirecting');
-            return;
-          }
           
           // Se usuário está autenticado e em rota pública, redirecionar
           if (shouldRedirectToApp(userData, pathname)) {
+            // Verificar se há um redirectPath salvo
             let targetPath = '/dashboard';
             
             try {
               const savedPath = localStorage.getItem('redirectPath');
               if (savedPath && savedPath.startsWith('/dashboard')) {
                 targetPath = savedPath;
-                localStorage.removeItem('redirectPath');
+                localStorage.removeItem('redirectPath'); // Limpar após usar
                 logger.info('🔄 [Auth] Redirecionando para path salvo', {
                   from: pathname,
                   to: targetPath,
                   userId: userData.uid
                 });
               } else {
-                logger.info('🔄 [Auth] Usuário autenticado redirecionando para dashboard', {
+                logger.info('🔄 [Auth] Redirecionando usuário autenticado para dashboard', {
                   from: pathname,
                   to: targetPath,
                   userId: userData.uid
                 });
               }
             } catch (error) {
-              logger.warn('⚠️ [Auth] Erro ao acessar localStorage');
+              // Se der erro ao acessar localStorage, usar dashboard padrão
+              logger.warn('⚠️ [Auth] Erro ao acessar localStorage para redirectPath');
             }
             
-            // Marcar que está redirecionando
+            // ✅ NOVO: Evitar redirecionamentos múltiplos
+            const isAlreadyRedirecting = sessionStorage.getItem('redirecting');
+            if (isAlreadyRedirecting) {
+              sessionStorage.removeItem('redirecting');
+              return;
+            }
+            
+            console.log('🔄 [AuthProvider] Redirecting authenticated user to dashboard');
             sessionStorage.setItem('redirecting', 'true');
-            router.replace(targetPath); // replace em vez de push
+            router.replace(targetPath); // ✅ replace em vez de push
           } else {
-            // Verificar se precisa redirecionar para login
-            const authRedirect = shouldRedirectToAuth(userData, pathname);
+            // Verificar se precisa redirecionar para login ou planos
+            const authRedirect = await shouldRedirectToAuth(userData, pathname);
             if (authRedirect) {
-              logger.info('🔄 [Auth] Redirecionando para login', {
+              logger.info('🔄 [Auth] Redirecionando usuário', {
                 from: pathname,
                 to: authRedirect.redirect,
-                reason: authRedirect.reason
+                reason: authRedirect.reason,
+                isExternal: authRedirect.isExternalRedirect
               });
               
-              // Salvar path atual para redirecionar depois do login
-              if (pathname.startsWith('/dashboard')) {
-                localStorage.setItem('redirectPath', pathname);
+              // ✅ NOVO: Evitar redirecionamentos múltiplos
+              const isAlreadyRedirecting = sessionStorage.getItem('redirecting');
+              if (isAlreadyRedirecting) {
+                sessionStorage.removeItem('redirecting');
+                return;
               }
               
               sessionStorage.setItem('redirecting', 'true');
-              router.replace(authRedirect.redirect); // replace em vez de push
+              
+              // Redirecionamento externo (planos) vs interno (login)
+              if (authRedirect.isExternalRedirect) {
+                console.log('🔄 [AuthProvider] Redirecting to external plans page');
+                window.location.href = authRedirect.redirect;
+              } else {
+                console.log('🔄 [AuthProvider] Redirecting to login');
+                router.replace(authRedirect.redirect);
+              }
             }
           }
-        }, 150); // Reduzir delay para mais fluidez
+        }, 50); // ✅ Otimizado para 50ms - mais rápido para signup
         
       } catch (error) {
         logger.error('❌ [Auth] Erro ao processar usuário autenticado', {
@@ -337,15 +461,24 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       }
     };
     
-    const handleUnauthenticatedUser = () => {
+    const handleUnauthenticatedUser = async () => {
       if (!isMounted) return;
       
       setUser(null);
       invalidateUserCache();
       
-      const authRedirect = shouldRedirectToAuth(null, pathname);
+      const authRedirect = await shouldRedirectToAuth(null, pathname);
       if (authRedirect) {
-        router.push(authRedirect.redirect);
+        // ✅ NOVO: Evitar redirecionamentos múltiplos
+        const isAlreadyRedirecting = sessionStorage.getItem('redirecting');
+        if (isAlreadyRedirecting) {
+          sessionStorage.removeItem('redirecting');
+          return;
+        }
+        
+        console.log('🔄 [AuthProvider] Redirecting unauthenticated user to login (no user)');
+        sessionStorage.setItem('redirecting', 'true');
+        router.replace(authRedirect.redirect); // ✅ replace em vez de push
       }
     };
     
@@ -465,7 +598,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     return user;
   }, [user]);
 
-  const getFirebaseToken = useCallback(async (): Promise<string | null> => {
+  const getFirebaseToken = useCallback(async (forceRefresh = false): Promise<string | null> => {
     try {
       const currentUser = auth.currentUser;
       if (!currentUser) {
@@ -473,12 +606,13 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         return null;
       }
       
-      const token = await currentUser.getIdToken();
-      logger.debug('✅ [Auth] Token Firebase obtido');
+      const token = await currentUser.getIdToken(forceRefresh);
+      logger.debug(`✅ [Auth] Token Firebase obtido${forceRefresh ? ' (refreshed)' : ''}`);
       return token;
     } catch (error) {
       logger.error('❌ [Auth] Erro ao obter token Firebase', {
-        error: error instanceof Error ? error.message : 'Unknown error'
+        error: error instanceof Error ? error.message : 'Unknown error',
+        forceRefresh
       });
       return null;
     }
@@ -501,9 +635,9 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     }
   }, []);
 
-  const signUp = useCallback(async (email: string, password: string, name: string, extraData?: { free?: number }): Promise<void> => {
+  const signUp = useCallback(async (email: string, password: string, name: string, extraData?: { free?: number; businessName?: string; propertiesCount?: number }): Promise<void> => {
     try {
-      logger.info('👤 [Auth] Iniciando registro', { email, name, extraData });
+      logger.info('👤 [Auth] Iniciando registro', { email, name });
       
       // Criar usuário no Firebase Auth
       const result = await createUserWithEmailAndPassword(auth, email, password);
@@ -513,7 +647,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         displayName: name
       });
       
-      // Criar documento do usuário no Firestore com dados extras opcionais
+      // Criar documento do usuário no Firestore
       const userData: any = {
         email,
         name,
@@ -525,16 +659,19 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         createdAt: new Date(),
         lastLogin: new Date(),
         whatsappNumbers: [],
-        authProvider: 'email'
+        authProvider: 'email',
+        firstAccess: true // Novo usuário sempre tem firstAccess = true
       };
-
-      // ✅ Adicionar campo 'free' se fornecido nas sub-rotas especiais
+      
+      // ✅ NOVA LÓGICA: Adicionar campos extras se fornecidos
       if (extraData?.free !== undefined) {
         userData.free = extraData.free;
-        logger.info('🎁 [Auth] Adicionando campo free ao tenant', { 
-          free: extraData.free,
-          route: extraData.free === 1 ? '/ccreate/0n3fr33' : extraData.free === 7 ? '/ccreate/7r3fr33' : 'unknown'
-        });
+      }
+      if (extraData?.businessName) {
+        userData.companyName = extraData.businessName;
+      }
+      if (extraData?.propertiesCount !== undefined) {
+        userData.propertiesCount = extraData.propertiesCount;
       }
       
       await setDoc(doc(db, 'users', result.user.uid), userData);
@@ -542,10 +679,35 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       logger.info('✅ [Auth] Registro realizado com sucesso', { 
         uid: result.user.uid,
         email: result.user.email,
-        name,
-        hasFreeField: extraData?.free !== undefined,
-        freeValue: extraData?.free
+        name 
       });
+      
+      // Forçar invalidação do cache para garantir que os dados sejam recarregados
+      invalidateUserCache(result.user.uid);
+      
+      // Forçar uma atualização imediata do estado do usuário
+      const newUser: User = {
+        uid: result.user.uid,
+        email: result.user.email!,
+        name,
+        fullName: name,
+        role: 'user',
+        isAdmin: false,
+        tenantId: result.user.uid,
+        isActive: true,
+        emailVerified: result.user.emailVerified,
+        createdAt: new Date(),
+        lastLogin: new Date(),
+        companyName: '',
+        whatsappNumbers: [],
+        plan: 'free',
+        firstAccess: true, // Garantir que firstAccess seja true
+        // Novos campos para usuários criados via webhook
+        createdViaWebhook: false, // Usuários criados normalmente
+        passwordSet: true // Usuários criados normalmente já têm senha
+      };
+      
+      setUser(newUser);
       
       // O listener onAuthStateChanged vai processar o usuário automaticamente
     } catch (error: any) {
@@ -627,6 +789,11 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     getTenantId,
     getUserData
   ]);
+
+  // Expor reloadUser no contexto do usuário para uso em hooks
+  if (user && typeof (user as any).reloadUser === 'undefined') {
+    (user as any).reloadUser = reloadUser;
+  }
 
   return (
     <AuthContext.Provider value={contextValue}>

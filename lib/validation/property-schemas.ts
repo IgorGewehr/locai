@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { PropertyCategory } from '@/lib/types/property'
+import { PropertyCategory, PropertyType, PropertyStatus } from '@/lib/types/property'
 import { PaymentMethod } from '@/lib/types/common'
 
 // ============================================================================
@@ -45,7 +45,8 @@ export const PropertyVideoSchema = z.object({
 export const PropertyPhotoUpdateSchema = PropertyPhotoSchema
 export const PropertyVideoUpdateSchema = PropertyVideoSchema
 
-// Schema for payment surcharges (permite valores negativos para descontos)
+// DEPRECATED: Schema for payment surcharges - now managed at tenant level
+// Kept for backward compatibility with old data
 export const PaymentSurchargesSchema = z.record(
   z.nativeEnum(PaymentMethod),
   z.number().min(-50, 'Desconto máximo de 50%').max(100, 'Acréscimo máximo de 100%')
@@ -56,62 +57,62 @@ export const CreatePropertySchema = z.object({
   title: z.string()
     .min(3, 'Título deve ter pelo menos 3 caracteres')
     .max(100, 'Título deve ter no máximo 100 caracteres'),
-  
+
   description: z.string()
     .min(10, 'Descrição deve ter pelo menos 10 caracteres')
     .max(2000, 'Descrição deve ter no máximo 2000 caracteres'),
-  
+
   address: z.string()
     .min(5, 'Endereço deve ter pelo menos 5 caracteres')
     .max(200, 'Endereço deve ter no máximo 200 caracteres'),
-  
+
   category: z.nativeEnum(PropertyCategory, {
     errorMap: () => ({ message: 'Categoria inválida' })
   }),
-  
+
   bedrooms: z.number()
     .int('Número de quartos deve ser inteiro')
     .min(0, 'Número de quartos não pode ser negativo')
     .max(20, 'Número de quartos deve ser no máximo 20'),
-  
+
   bathrooms: z.number()
     .int('Número de banheiros deve ser inteiro')
     .min(0, 'Número de banheiros não pode ser negativo')
     .max(20, 'Número de banheiros deve ser no máximo 20'),
-  
+
   maxGuests: z.number()
     .int('Número máximo de hóspedes deve ser inteiro')
     .min(1, 'Deve acomodar pelo menos 1 hóspede')
     .max(50, 'Número máximo de hóspedes deve ser no máximo 50'),
-  
+
   basePrice: z.number()
     .positive('Preço base deve ser positivo')
     .max(100000, 'Preço base deve ser no máximo R$ 100.000'),
-  
+
   pricePerExtraGuest: z.number()
     .min(0, 'Preço por hóspede extra não pode ser negativo')
     .max(10000, 'Preço por hóspede extra deve ser no máximo R$ 10.000')
     .default(0),
-  
+
   minimumNights: z.number()
     .int('Mínimo de noites deve ser inteiro')
     .min(1, 'Mínimo de noites deve ser pelo menos 1')
     .max(365, 'Mínimo de noites deve ser no máximo 365')
     .default(1),
-  
+
   cleaningFee: z.number()
     .min(0, 'Taxa de limpeza não pode ser negativa')
     .max(10000, 'Taxa de limpeza deve ser no máximo R$ 10.000')
     .default(0),
-  
+
   amenities: z.array(z.string())
     .max(50, 'Máximo de 50 comodidades')
     .default([]),
-  
+
   isFeatured: z.boolean().default(false),
   allowsPets: z.boolean().default(false),
-  
-  paymentMethodSurcharges: PaymentSurchargesSchema.default({}),
+
+  // Payment method surcharges removed - now managed at tenant level via Negotiation Settings
   
   // ✅ NOVA ESTRUTURA SIMPLIFICADA (como Dart)
   photos: z.array(MediaUrlSchema)
@@ -136,30 +137,61 @@ export const CreatePropertySchema = z.object({
 
 // Schema for updating a property (all fields optional with flexible media)
 export const UpdatePropertySchema = z.object({
-  // ✅ CAMPOS BÁSICOS - VALIDAÇÕES FLEXÍVEIS PARA UPDATE
-  title: z.string().min(1, 'Título não pode estar vazio').optional(),
-  description: z.string().optional(), // SEM validação mínima
-  address: z.string().optional(),     // SEM validação mínima
+  // ✅ CAMPOS BÁSICOS - ULTRA FLEXÍVEIS PARA UPDATE  
+  title: z.union([z.string(), z.undefined(), z.null()]).optional(),
+  description: z.union([z.string(), z.undefined(), z.null()]).optional(),
+  address: z.union([z.string(), z.undefined(), z.null()]).optional(),
   category: z.nativeEnum(PropertyCategory).optional(),
+  type: z.nativeEnum(PropertyType).optional(),
+  status: z.nativeEnum(PropertyStatus).optional(),
   
-  // ✅ NÚMEROS - VALIDAÇÕES BÁSICAS
-  bedrooms: z.number().int().min(0).max(20).optional(),
-  bathrooms: z.number().int().min(0).max(20).optional(),
-  maxGuests: z.number().int().min(1).max(50).optional(),
-  basePrice: z.number().positive().max(100000).optional(),
-  pricePerExtraGuest: z.number().min(0).max(10000).optional(),
-  minimumNights: z.number().int().min(1).max(365).optional(),
-  cleaningFee: z.number().min(0).max(10000).optional(),
+  // ✅ NÚMEROS - CONVERSÃO AUTOMÁTICA E VALIDAÇÃO FLEXÍVEL
+  bedrooms: z.union([z.number(), z.string(), z.undefined(), z.null()])
+    .transform(val => val === null || val === undefined || val === '' ? undefined : Number(val))
+    .pipe(z.number().int().min(0).max(20).optional()),
+  bathrooms: z.union([z.number(), z.string(), z.undefined(), z.null()])
+    .transform(val => val === null || val === undefined || val === '' ? undefined : Number(val))
+    .pipe(z.number().int().min(0).max(20).optional()),
+  maxGuests: z.union([z.number(), z.string(), z.undefined(), z.null()])
+    .transform(val => val === null || val === undefined || val === '' ? undefined : Number(val))
+    .pipe(z.number().int().min(1).max(50).optional()),
+  basePrice: z.union([z.number(), z.string(), z.undefined(), z.null()])
+    .transform(val => val === null || val === undefined || val === '' ? undefined : Number(val))
+    .pipe(z.number().positive().max(100000).optional()),
+  pricePerExtraGuest: z.union([z.number(), z.string(), z.undefined(), z.null()])
+    .transform(val => val === null || val === undefined || val === '' ? undefined : Number(val))
+    .pipe(z.number().min(0).max(10000).optional()),
+  minimumNights: z.union([z.number(), z.string(), z.undefined(), z.null()])
+    .transform(val => val === null || val === undefined || val === '' ? undefined : Number(val))
+    .pipe(z.number().int().min(1).max(365).optional()),
+  cleaningFee: z.union([z.number(), z.string(), z.undefined(), z.null()])
+    .transform(val => val === null || val === undefined || val === '' ? undefined : Number(val))
+    .pipe(z.number().min(0).max(10000).optional()),
   
-  // ✅ ARRAYS E OUTROS
-  amenities: z.array(z.string()).max(50).optional(),
-  isFeatured: z.boolean().optional(),
-  allowsPets: z.boolean().optional(),
-  paymentMethodSurcharges: PaymentSurchargesSchema.optional(),
-  
-  // ✅ MÍDIA - SUPER FLEXÍVEL
-  photos: z.array(z.any()).max(30, 'Máximo de 30 fotos').optional(),
-  videos: z.array(z.any()).max(5, 'Máximo de 5 vídeos').optional(),
+  // ✅ ARRAYS E OUTROS - FLEXÍVEIS
+  amenities: z.union([z.array(z.string()), z.undefined(), z.null()]).optional(),
+  isFeatured: z.union([z.boolean(), z.string(), z.undefined(), z.null()])
+    .transform(val => val === null || val === undefined || val === '' ? undefined : Boolean(val))
+    .optional(),
+  allowsPets: z.union([z.boolean(), z.string(), z.undefined(), z.null()])
+    .transform(val => val === null || val === undefined || val === '' ? undefined : Boolean(val))
+    .optional(),
+
+  // Payment method surcharges removed - now managed at tenant level via Negotiation Settings
+
+  // ✅ MÍDIA - ULTRA FLEXÍVEL PARA UPDATE
+  photos: z.union([
+    z.array(z.string()),  // Array de strings
+    z.array(z.any()),     // Array de qualquer coisa
+    z.undefined(),        // Pode ser undefined
+    z.null()              // Pode ser null
+  ]).optional(),
+  videos: z.union([
+    z.array(z.string()),  // Array de strings  
+    z.array(z.any()),     // Array de qualquer coisa
+    z.undefined(),        // Pode ser undefined
+    z.null()              // Pode ser null
+  ]).optional(),
   
   // ✅ DATAS E PREÇOS CUSTOMIZADOS
   unavailableDates: z.array(z.coerce.date()).optional(),
@@ -169,9 +201,20 @@ export const UpdatePropertySchema = z.object({
   // ✅ CAMPOS EXTRAS (que podem vir do formulário)
   city: z.string().optional(),
   neighborhood: z.string().optional(),
+  capacity: z.union([z.number(), z.string(), z.undefined(), z.null()])
+    .transform(val => val === null || val === undefined || val === '' ? undefined : Number(val))
+    .pipe(z.number().int().min(1).max(50).optional()),
+  location: z.string().optional(),
+  advancePaymentPercentage: z.union([z.number(), z.string(), z.undefined(), z.null()])
+    .transform(val => val === null || val === undefined || val === '' ? undefined : Number(val))
+    .pipe(z.number().min(0).max(100).optional()),
+
+  // Payment method discounts removed - now managed at tenant level via Negotiation Settings
+
   highSeasonMonths: z.array(z.number()).optional(),
   pricingRules: z.array(z.any()).optional(),
-  updatedAt: z.union([z.date(), z.string(), z.coerce.date()]).optional(),
+  createdAt: z.union([z.date(), z.string().datetime(), z.undefined(), z.null()]).optional(),
+  updatedAt: z.union([z.date(), z.string().datetime(), z.undefined(), z.null()]).optional(),
   id: z.string().optional(),
   tenantId: z.string().optional(),
   

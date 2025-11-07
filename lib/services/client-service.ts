@@ -186,9 +186,12 @@ export class ClientService {
       clientId: id
     });
     
+    // Retornar o cliente completo com ID
     return {
       id,
-      ...cleanedData
+      ...cleanedData,
+      createdAt: cleanedData.createdAt || new Date(),
+      updatedAt: cleanedData.updatedAt || new Date()
     } as Client;
   }
 }

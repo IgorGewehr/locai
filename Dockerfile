@@ -1,51 +1,78 @@
-# LocAI - Production Deployment Dockerfile
-FROM node:20-alpine
+# LocAI - Production Deployment Dockerfile (Multi-stage optimized)
 
-# Install dumb-init for proper signal handling
-RUN apk add --no-cache dumb-init
-
-# Create app directory
+# Stage 1: Dependencies
+FROM node:20-alpine AS deps
+RUN apk add --no-cache libc6-compat curl
 WORKDIR /app
 
-# Copy package files
+# Copy package files and install dependencies
 COPY package*.json ./
+RUN --mount=type=cache,target=/root/.npm \
+    npm ci --only=production
 
-# Install dependencies (production + dev for build)
-RUN npm ci && npm cache clean --force
+# Stage 2: Builder
+FROM node:20-alpine AS builder
+WORKDIR /app
 
-# Copy application code
+# Copy dependencies from deps stage
+COPY --from=deps /app/node_modules ./node_modules
+
+# Copy source code
 COPY . .
 
-# Create necessary directories with proper permissions
-RUN mkdir -p .next .sessions && \
-    chmod -R 755 .next .sessions
-
-# Set temporary build environment variables (will be overridden in production)
-ENV JWT_SECRET=temporary-build-secret-will-be-replaced \
-    NEXT_PUBLIC_APP_URL=https://localhost:3000 \
+# Set build environment variables
+ENV NEXT_TELEMETRY_DISABLED=1 \
+    JWT_SECRET=temporary-build-secret-will-be-replaced \
+    NEXT_PUBLIC_APP_URL=https://localhost:8080 \
     DEFAULT_TENANT_ID=default-tenant \
     NODE_ENV=production
 
-# Build the application as root (to avoid permission issues)
+# Create necessary directories
+RUN mkdir -p .next .sessions && chmod -R 755 .next .sessions
+
+# Build the application
 RUN npm run build
 
-# Create non-root user after build
+# Stage 3: Production Runner
+FROM node:20-alpine AS runner
+WORKDIR /app
+
+# Install dumb-init and curl for proper signal handling and health checks
+RUN apk add --no-cache dumb-init curl
+
+# Create non-root user
 RUN addgroup -g 1001 -S nodejs && \
     adduser -S nextjs -u 1001
 
-# Change ownership of built files to nextjs user
-RUN chown -R nextjs:nodejs /app
+# Copy public assets
+COPY --from=builder /app/public ./public
 
-# Switch to non-root user for runtime
+# Copy Next.js build output with proper ownership
+COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
+COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
+
+# Create necessary directories with proper ownership
+RUN mkdir -p /app/logs /app/.sessions && \
+    chown -R nextjs:nodejs /app/logs /app/.sessions
+
+# Copy required scripts
+COPY --from=builder --chown=nextjs:nodejs /app/scripts ./scripts
+
+# Switch to non-root user
 USER nextjs
+
+# Set production environment
+ENV NODE_ENV=production \
+    PORT=8080 \
+    NEXT_TELEMETRY_DISABLED=1
 
 # Expose port
 EXPOSE 8080
 
 # Health check
-HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-  CMD node -e "require('http').get('http://localhost:8080/api/health', (res) => process.exit(res.statusCode === 200 ? 0 : 1)).on('error', () => process.exit(1))"
+HEALTHCHECK --interval=30s --timeout=10s --start-period=15s --retries=3 \
+    CMD curl -f http://localhost:8080/api/health || exit 1
 
-# Start server with dumb-init
+# Start server with dumb-init for proper signal handling
 ENTRYPOINT ["dumb-init", "--"]
-CMD ["npm", "start"]
+CMD ["node", "server.js"]

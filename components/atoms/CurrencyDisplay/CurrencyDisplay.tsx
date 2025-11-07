@@ -152,7 +152,7 @@ export const CurrencyDisplay: React.FC<CurrencyDisplayProps> = ({
               fontSize: size === 'small' ? '0.65rem' : '0.75rem',
             }}
           >
-            {Math.abs(trendValue).toFixed(1)}%
+            {Math.abs(Number(trendValue) || 0).toFixed(1)}%
             {trendLabel && ` ${trendLabel}`}
           </Typography>
         </Box>

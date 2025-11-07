@@ -1,0 +1,51 @@
+# PM2 Production Dockerfile for LocAI
+FROM node:20-alpine
+
+# Install PM2 globally and system dependencies
+RUN npm install pm2 -g && \
+    apk add --no-cache dumb-init curl
+
+# Create app directory
+WORKDIR /app
+
+# Copy package files
+COPY package*.json ./
+
+# Install dependencies
+RUN npm ci --only=production && npm cache clean --force
+
+# Copy application code
+COPY . .
+
+# Build the application
+ENV NODE_ENV=production \
+    JWT_SECRET=temporary-build-secret-will-be-replaced \
+    NEXT_PUBLIC_APP_URL=https://localhost:8080 \
+    DEFAULT_TENANT_ID=default-tenant
+
+RUN npm run build
+
+# Create non-root user
+RUN addgroup -g 1001 -S nodejs && \
+    adduser -S nextjs -u 1001
+
+# Create necessary directories with proper ownership
+RUN mkdir -p /app/logs /app/.sessions && \
+    chown -R nextjs:nodejs /app
+
+# Copy PM2 ecosystem file
+COPY ecosystem.config.js ./
+
+# Switch to non-root user
+USER nextjs
+
+# Expose port
+EXPOSE 8080
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=15s --retries=3 \
+    CMD curl -f http://localhost:8080/api/health || exit 1
+
+# Start with PM2
+ENTRYPOINT ["dumb-init", "--"]
+CMD ["pm2-runtime", "start", "ecosystem.config.js"]
