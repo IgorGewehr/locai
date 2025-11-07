@@ -157,23 +157,25 @@ sequenceDiagram
 
 ---
 
-## 🔧 Sistema de 42 AI Functions
+## 🔧 Sistema de 45+ AI Functions
 
 ### Nova Arquitetura de Functions (2025)
 
-O sistema possui **42 funções especializadas** via **API Routes individuais** consumidas pela **Sofia via N8N**.
+O sistema possui **45+ funções especializadas** via **API Routes individuais** consumidas pela **Sofia via N8N**.
 
 ```typescript
 // Arquitetura de AI Functions
 interface SofiaFunctionsArchitecture {
   agent: 'Sofia - Consultora Imobiliária Especializada';
   location: 'app/api/ai/functions/**/route.ts';
-  count: 42; // Verified via system audit
+  count: 45; // Verified via system audit (Janeiro 2025)
   pattern: 'Individual Specialized Endpoints';
   authentication: 'N8N_API_KEY Bearer Token';
   tenant_isolation: true; // tenants/{tenantId}/collections
   reactive_execution: true;
   pipeline_automation: true;
+  conversation_tracking: true; // NEW: post-conversation permanent storage
+  dynamic_discounts: true; // NEW: intelligent negotiation system
   validation: 'Zod schemas on all endpoints';
   security: 'Input sanitization + rate limiting';
 }
@@ -196,14 +198,19 @@ POST /api/ai/functions/check-availability        // Disponibilidade
 ### 💰 Financial Operations Functions
 ```typescript
 // Preços e Transações
-POST /api/ai/functions/calculate-price           // Cálculo dinâmico
-POST /api/ai/functions/generate-quote            // Orçamento formal
-POST /api/ai/functions/create-transaction        // Pagamentos
-POST /api/ai/functions/track-metrics            // Métricas
+POST /api/ai/functions/calculate-price              // Cálculo dinâmico com surcharges
+POST /api/ai/functions/calculate-dynamic-discount   // 🆕 Desconto inteligente multi-critério
+POST /api/ai/functions/check-discount-opportunities // 🆕 Lista todas oportunidades de desconto
+POST /api/ai/functions/generate-quote               // Orçamento formal
+POST /api/ai/functions/create-transaction           // Pagamentos
+POST /api/ai/functions/track-metrics               // Métricas
 
 // Exemplo de uso Sofia:
 // Cliente: "Quanto custa o Vista Mar para 5 dias?"
 // Sofia executa: check_availability → calculate_price → (orçamento detalhado)
+
+// Cliente: "Está muito caro, tem desconto?"
+// Sofia executa: check_discount_opportunities → calculate_dynamic_discount → (proposta com desconto)
 ```
 
 ### 📅 Booking Management Functions
@@ -220,19 +227,41 @@ GET  /api/ai/functions/check-visit-availability  // Disponibilidade visita
 // Sofia executa: register_client → create_reservation → schedule_meeting
 ```
 
-### 👤 CRM Integration Functions (6 NOVAS)
+### 👤 CRM Integration Functions (11 FUNCTIONS)
 ```typescript
 // Sistema CRM Completo
-POST /api/ai/functions/create-lead              // Criação inteligente
+POST /api/ai/functions/create-lead              // Criação inteligente + deduplicação
 GET  /api/ai/functions/get-lead-details         // Info completa lead
-GET  /api/ai/functions/get-leads-list           // Lista filtrada
-POST /api/ai/functions/add-lead-interaction     // Rastrear interação
-POST /api/ai/functions/analyze-lead-performance // Análise AI
-POST /api/ai/functions/follow-up-lead           // Follow-up automático
-POST /api/ai/functions/lead-pipeline-movement   // Progressão pipeline
+GET  /api/ai/functions/get-leads-list           // Lista filtrada com paginação
+POST /api/ai/functions/add-lead-interaction     // Rastrear interação com sentiment
+POST /api/ai/functions/analyze-lead-performance // Análise AI com predições
+POST /api/ai/functions/follow-up-lead           // Follow-up automático agendado
+POST /api/ai/functions/lead-pipeline-movement   // Progressão automática de pipeline
+POST /api/ai/functions/classify-lead            // Classificação hot/warm/cold
+POST /api/ai/functions/update-lead              // Atualização de informações
+POST /api/ai/functions/update-lead-status       // Gestão de status
+POST /api/ai/functions/register-client          // Registro completo de cliente
 
 // Exemplo automático Sofia:
 // Toda conversa dispara: create_lead → add_lead_interaction → lead_pipeline_movement
+```
+
+### 💬 Conversation Tracking (NOVO)
+```typescript
+// Armazenamento Permanente de Conversas
+POST /api/ai/functions/post-conversation        // 🆕 Salva conversa no Firebase
+
+// Funcionalidades:
+// ✅ Armazenamento permanente de TODAS as conversas
+// ✅ Estrutura: tenants/{tenantId}/conversations/{conversationId}/messages/
+// ✅ Agrupa mensagens por cliente automaticamente
+// ✅ Contexto completo (timestamp, messageType, workflowId)
+// ✅ Usado para fine-tuning de modelos AI
+// ✅ Analytics e auditoria completa
+// ✅ Sem limites de tempo ou quantidade
+
+// Exemplo automático via N8N:
+// Após cada resposta Sofia: post_conversation (salva tudo no Firebase)
 ```
 
 ### 📋 Policies & Information Functions
@@ -328,7 +357,7 @@ if (checkOut <= checkIn) {
 }
 ```
 
-**Padrão usado em todas as 42 AI Functions**
+**Padrão usado em todas as 45+ AI Functions**
 
 ---
 
@@ -1240,35 +1269,234 @@ Quer que eu calcule o orçamento para algum deles? Ou prefere ver outras opçõe
 
 ---
 
+## 🆕 Novas Funcionalidades (Janeiro 2025)
+
+### 1. Sistema de Descontos Dinâmicos
+
+**check-discount-opportunities** - Consulta de Oportunidades
+```typescript
+// Endpoint: POST /api/ai/functions/check-discount-opportunities
+// Parâmetros: { tenantId }
+// Retorna:
+{
+  "opportunities": {
+    "paymentMethod": { /* PIX, cash, transfer, card */ },
+    "extendedStay": { /* 7+, 14+, 30+ dias */ },
+    "earlyBooking": { /* 30, 60, 90 dias antecedência */ },
+    "lastMinute": { /* 7, 3, 1 dias */ },
+    "bookNow": { /* Desconto por fechar agora */ }
+  },
+  "bestCombinations": [ /* Melhores estratégias */ ],
+  "negotiationTips": [ /* Dicas de negociação */ ],
+  "limits": { "maxTotalDiscount": 30 }
+}
+```
+
+**calculate-dynamic-discount** - Cálculo Inteligente
+```typescript
+// Endpoint: POST /api/ai/functions/calculate-dynamic-discount
+// Parâmetros:
+{
+  "tenantId": "tenant123",
+  "propertyName": "Vista Mar",
+  "checkIn": "2025-12-01",
+  "checkOut": "2025-12-05",
+  "totalPrice": 2000,
+  "clientPhone": "+5511999999999",
+  "paymentMethod": "pix",        // pix|card|cash|bank_transfer
+  "bookNow": true,               // Cliente quer fechar agora?
+  "extendStay": 0                // Dias extras sugeridos
+}
+
+// Retorna:
+{
+  "originalPrice": 2000,
+  "finalPrice": 1700,
+  "totalDiscount": 300,
+  "discountPercentage": 15,
+  "appliedDiscounts": {
+    "pixDiscount": 10,           // 10% PIX
+    "bookNowDiscount": 5         // 5% fechamento imediato
+  },
+  "breakdown": [ /* Detalhamento */ ],
+  "recommendations": "Excelente economia! Fechar agora no PIX economiza R$ 300."
+}
+```
+
+**Benefícios:**
+- ✅ Sales Agent sabe exatamente o que oferecer
+- ✅ Respeita limites configurados no tenant
+- ✅ Múltiplos critérios de desconto combinados
+- ✅ Estratégias otimizadas por cenário
+
+### 2. Tracking Permanente de Conversas
+
+**post-conversation** - Armazenamento Completo
+```typescript
+// Endpoint: POST /api/ai/functions/post-conversation
+// Uso: Automático via N8N após cada resposta Sofia
+
+// Parâmetros:
+{
+  "tenantId": "tenant123",
+  "clientPhone": "+5511999999999",
+  "clientMessage": "Está muito caro",
+  "sofiaMessage": "Entendo! Olha, esse valor é pela alta temporada...",
+  "context": {
+    "whatsappSent": true,
+    "whatsappMessageId": "msg_123",
+    "timestamp": "2025-01-07T12:00:00Z",
+    "messageType": "text",
+    "workflowId": "wf_456"
+  }
+}
+
+// Estrutura Firebase criada:
+tenants/{tenantId}/conversations/{conversationId}
+  - clientPhone: "+5511999999999"
+  - messageCount: 15
+  - lastMessageAt: Timestamp
+
+  messages/{messageId}
+    - clientMessage: "Está muito caro"
+    - sofiaMessage: "Entendo! Olha, esse valor..."
+    - timestamp: Timestamp
+    - context: { ... }
+```
+
+**Benefícios:**
+- ✅ Histórico completo de TODAS as conversas
+- ✅ Sem limites de tempo ou quantidade
+- ✅ Dados para fine-tuning de modelos AI
+- ✅ Analytics de performance da Sofia
+- ✅ Auditoria e compliance
+- ✅ Deduplicação automática por telefone
+
+### 3. Sistema de Negociação Tenant-Wide
+
+**Negotiation Settings** - Configuração Centralizada
+```typescript
+// Gerenciado em: /dashboard/settings (aba Negociação)
+interface NegotiationSettings {
+  // Descontos por Forma de Pagamento
+  pixDiscount: 10,                    // PIX à vista
+  cashDiscount: 10,                   // Dinheiro
+  bankTransferDiscount: 5,            // Transferência
+
+  // Descontos por Estadia Longa
+  extendedStay7Days: 5,               // 7+ noites
+  extendedStay14Days: 10,             // 14+ noites
+  extendedStay30Days: 20,             // 30+ noites
+
+  // Descontos por Antecedência
+  earlyBooking30Days: 5,              // 30+ dias
+  earlyBooking60Days: 10,             // 60+ dias
+  earlyBooking90Days: 15,             // 90+ dias
+
+  // Descontos Last Minute
+  lastMinute7Days: 10,                // Última semana
+  lastMinute3Days: 15,                // Últimos 3 dias
+  lastMinute24Hours: 20,              // Última hora
+
+  // Desconto Book Now
+  bookNowDiscount: 5,                 // Fechar imediatamente
+
+  // Limites
+  maxTotalDiscount: 30,               // Desconto máximo total
+  maxStackedDiscounts: 3,             // Máximo de descontos combinados
+  discountStackingRules: 'additive'   // additive | best
+}
+```
+
+**Migração Importante:**
+- ❌ Removidos descontos por forma de pagamento de propriedades individuais
+- ✅ Agora gerenciado centralmente no tenant
+- ✅ Sales Agent consulta via `check-discount-opportunities`
+- ✅ Aplicação via `calculate-dynamic-discount`
+
 ## 📚 Documentação Adicional
 
-Para desenvolvedores trabalhando com Claude Code, consulte:
-- **CLAUDE.md**: Guia completo de desenvolvimento com exemplos de código reais
-- **Architecture Overview**: Detalhes de todos os 42 AI Functions
+### Guias Completos
+
+**AI_FUNCTIONS_REFERENCE.md** - Referência Completa das 45+ Funções
+- 📖 Documentação detalhada de TODAS as funções AI
+- 🔧 Parâmetros completos com tipos TypeScript
+- 📊 Exemplos de retorno JSON reais
+- 🎯 Quando usar cada função
+- 🔄 Fluxos comuns de uso (5 cenários)
+- ✅ Checklist de boas práticas
+
+**N8N_WORKFLOW_INFRASTRUCTURE_UPDATE.md** - Guia de Atualização N8N
+- 🔧 Como adicionar novas HTTP tools no N8N
+- 📝 Código JavaScript para nós Code
+- 🔌 Configuração de conexões
+- 🧪 Troubleshooting completo
+- ✅ Checklist de implementação
+
+**CLAUDE.md** - Guia de Desenvolvimento
+- 🏗️ Arquitetura completa do sistema
+- 🔐 Padrões de segurança e validação
+- 🏢 Multi-tenant best practices
+- 🛠️ TenantServiceFactory + Query Optimization
+- 📦 Exemplos de código reais
+
+### Recursos Técnicos
+
+- **Architecture Overview**: Detalhes de todos os 45+ AI Functions
 - **Security Patterns**: Validação Zod + Sanitização + Rate Limiting
 - **Multi-tenant Best Practices**: TenantServiceFactory + Query Optimization
+- **N8N Integration**: Workflow patterns e configurações
 
 ## 🔄 Atualizações Recentes (Última Revisão)
 
-### ✅ Correções na Documentação
-- **AI Functions**: Corrigido de "30+" para **42 functions** (contagem verificada via audit)
+### ✅ Janeiro 2025 - Sistema de Negociação Inteligente
+
+**Novas Funcionalidades:**
+- ✅ **check-discount-opportunities**: Consulta todas oportunidades de desconto disponíveis
+- ✅ **calculate-dynamic-discount**: Cálculo inteligente com múltiplos critérios
+- ✅ **post-conversation**: Armazenamento permanente de TODAS as conversas no Firebase
+- ✅ **Negotiation Settings**: Configuração tenant-wide de descontos
+
+**Melhorias de Infraestrutura:**
+- ✅ **AI_FUNCTIONS_REFERENCE.md**: Documentação completa de 45+ funções
+- ✅ **N8N_WORKFLOW_INFRASTRUCTURE_UPDATE.md**: Guia de atualização do workflow
+- ✅ Removido Price Simulator de propriedades (agora centralizado)
+- ✅ Sistema de tracking automático via N8N
+
+**Correções na Documentação:**
+- **AI Functions**: Atualizado de "42" para **45+ functions** (incluindo novas)
 - **Zod Validation**: Adicionados exemplos reais de validação do código
 - **TenantServiceFactory**: Incluída implementação completa do padrão multi-tenant
 - **Security**: Documentados padrões de sanitização e rate limiting
 - **Query Optimization**: Adicionado sistema de cache e estimativa de custos
 - **Real-time**: Documentado sistema de subscriptions com onSnapshot
+- **Conversation Tracking**: Sistema permanente sem limites
 
 ### 📊 Estatísticas do Sistema
-- **42 AI Functions** especializadas para automação de negócios
-- **9 CRM Functions** para pipeline automation completo
+
+**APIs e Funções:**
+- **45+ AI Functions** especializadas para automação de negócios
+- **11 CRM Functions** para pipeline automation completo
+- **3 Novas Functions**: Descontos dinâmicos + tracking conversas
 - **15+ Services** no TenantServiceFactory
 - **70+ API Routes** totais na aplicação
+
+**Features:**
 - **5 Dashboards** analíticos no CRM
 - **Multi-tenant** com isolamento completo
+- **Conversation Tracking** permanente e ilimitado
+- **Negotiation System** centralizado por tenant
+- **Dynamic Discounts** com múltiplos critérios
+
+**Infraestrutura:**
+- **Firebase**: Conversas permanentes sem limites
+- **N8N**: Workflow otimizado com tracking automático
+- **Baileys**: Servidor dedicado WhatsApp
+- **Security**: Zod validation em todas as rotas
 
 ---
 
-*Sistema LOCAI - Versão 5.0*
-*Arquitetura: Sofia AI Agent + N8N + Baileys Dedicado + CRM Avançado*
-*42 AI Functions | Enterprise Security | Multi-tenant | Production Ready*
-*Última revisão documental: Janeiro 2025*
+*Sistema LOCAI - Versão 5.1*
+*Arquitetura: Sofia AI Agent + N8N + Baileys Dedicado + CRM Avançado + Sales Intelligence*
+*45+ AI Functions | Enterprise Security | Multi-tenant | Conversation Tracking | Dynamic Discounts*
+*Production Ready | Última revisão documental: 07 Janeiro 2025*
