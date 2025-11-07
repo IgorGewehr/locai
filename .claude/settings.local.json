@@ -96,7 +96,8 @@
       "Bash(xcodebuild:*)",
       "Bash(tee:*)",
       "Bash(test:*)",
-      "Bash(./test-conversas.sh)"
+      "Bash(./test-conversas.sh)",
+      "Bash(git checkout:*)"
     ],
     "deny": [],
     "defaultMode": "acceptEdits",
