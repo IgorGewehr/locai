@@ -97,7 +97,8 @@
       "Bash(tee:*)",
       "Bash(test:*)",
       "Bash(./test-conversas.sh)",
-      "Bash(git checkout:*)"
+      "Bash(git checkout:*)",
+      "Bash(git merge:*)"
     ],
     "deny": [],
     "defaultMode": "acceptEdits",
