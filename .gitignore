@@ -74,3 +74,8 @@ logs/
 # Firebase credentials (NEVER COMMIT)
 *-firebase-adminsdk-*.json
 locai-*-firebase-adminsdk-*.json
+
+# WhatsApp sessions (NEVER COMMIT - contains authentication credentials)
+.sessions/
+*.session.json
+*-creds.json

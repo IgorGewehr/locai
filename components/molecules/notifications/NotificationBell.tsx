@@ -44,17 +44,14 @@ import {
 } from '@mui/icons-material'
 import { formatDistanceToNow } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
-import { useTenant } from '@/contexts/TenantContext'
-import { useAuth } from '@/lib/hooks/useAuth'
-import { NotificationServiceFactory } from '@/lib/services/notification-service'
-import { 
-  Notification, 
+import { useNotifications } from '@/lib/hooks/useNotifications'
+import {
+  Notification,
   NotificationType,
   NotificationPriority,
   NOTIFICATION_TYPE_ICONS,
   NOTIFICATION_PRIORITY_COLORS
 } from '@/lib/types/notification'
-import { logger } from '@/lib/utils/logger'
 
 interface NotificationBellProps {
   maxNotifications?: number
@@ -67,19 +64,55 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({
   showCount = true,
   size = 'medium'
 }) => {
+  console.log('[NotificationBell] Component rendering...', { maxNotifications, showCount, size })
+
   const theme = useTheme()
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'))
-  const { tenant } = useTenant()
-  const { user } = useAuth()
 
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null)
-  const [notifications, setNotifications] = useState<Notification[]>([])
-  const [unreadCount, setUnreadCount] = useState(0)
-  const [loading, setLoading] = useState(true)
   const [expandedNotification, setExpandedNotification] = useState<string | null>(null)
   const [hasNewNotification, setHasNewNotification] = useState(false)
+  const [previousUnreadCount, setPreviousUnreadCount] = useState(0)
 
-  const notificationService = tenant?.id ? NotificationServiceFactory.getInstance(tenant.id) : null
+  // Use custom hook for notifications with error handling
+  let hookResult
+  try {
+    hookResult = useNotifications({
+      limit: maxNotifications,
+      autoSubscribe: true
+    })
+  } catch (error) {
+    console.error('[NotificationBell] Hook error:', error)
+    hookResult = {
+      notifications: [],
+      unreadCount: 0,
+      loading: false,
+      error: error as Error,
+      markAsRead: async () => {},
+      markAllAsRead: async () => {},
+      deleteNotification: async () => {},
+      refresh: async () => {}
+    }
+  }
+
+  const {
+    notifications,
+    unreadCount,
+    loading,
+    markAsRead,
+    markAllAsRead,
+    deleteNotification
+  } = hookResult
+
+  // Debug log
+  React.useEffect(() => {
+    console.log('[NotificationBell] State updated:', {
+      notificationsCount: notifications.length,
+      unreadCount,
+      loading,
+      hasService: !!notificationService
+    })
+  }, [notifications.length, unreadCount, loading, notificationService])
 
   // Configurações de tamanho
   const sizeConfig = {
@@ -91,34 +124,14 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({
   const config = sizeConfig[size]
   const isOpen = Boolean(anchorEl)
 
-  // Subscription para notificações em tempo real
+  // Detect new notifications
   useEffect(() => {
-    if (!notificationService || !user?.uid) return
-
-    setLoading(true)
-
-    const unsubscribe = notificationService.subscribeToNotifications(
-      user.uid,
-      (newNotifications) => {
-        // Detectar nova notificação
-        const newUnreadCount = newNotifications.filter(n => !n.readAt).length
-        if (newUnreadCount > unreadCount && unreadCount !== 0) {
-          setHasNewNotification(true)
-          // Remover indicador após 3 segundos
-          setTimeout(() => setHasNewNotification(false), 3000)
-        }
-        
-        setNotifications(newNotifications.slice(0, maxNotifications))
-        setUnreadCount(newUnreadCount)
-        setLoading(false)
-      },
-      { limit: maxNotifications }
-    )
-
-    return () => {
-      unsubscribe()
+    if (unreadCount > previousUnreadCount && previousUnreadCount !== 0) {
+      setHasNewNotification(true)
+      setTimeout(() => setHasNewNotification(false), 3000)
     }
-  }, [notificationService, user?.uid, maxNotifications])
+    setPreviousUnreadCount(unreadCount)
+  }, [unreadCount, previousUnreadCount])
 
   const handleClick = (event: React.MouseEvent<HTMLElement>) => {
     setAnchorEl(event.currentTarget)
@@ -133,52 +146,28 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({
       event.stopPropagation()
     }
 
-    if (!notificationService) return
-
     try {
-      await notificationService.markAsRead(notificationId)
-      logger.info('✅ Notificação marcada como lida', {
-        component: 'NotificationBell',
-        notificationId
-      })
+      await markAsRead(notificationId)
     } catch (error) {
-      logger.error('❌ Erro ao marcar notificação como lida', error as Error, {
-        component: 'NotificationBell',
-        notificationId
-      })
+      console.error('Failed to mark notification as read:', error)
     }
   }
 
   const handleMarkAllAsRead = async () => {
-    if (!notificationService || !user?.uid) return
-
     try {
-      await notificationService.markAllAsRead(user.uid)
-      logger.info('✅ Todas as notificações marcadas como lidas', {
-        component: 'NotificationBell'
-      })
+      await markAllAsRead()
     } catch (error) {
-      logger.error('❌ Erro ao marcar todas as notificações como lidas', error as Error, {
-        component: 'NotificationBell'
-      })
+      console.error('Failed to mark all notifications as read:', error)
     }
   }
 
   const handleDeleteNotification = async (notificationId: string, event: React.MouseEvent) => {
     event.stopPropagation()
-    if (!notificationService) return
 
     try {
-      await notificationService.deleteNotification(notificationId)
-      logger.info('🗑️ Notificação deletada', {
-        component: 'NotificationBell',
-        notificationId
-      })
+      await deleteNotification(notificationId)
     } catch (error) {
-      logger.error('❌ Erro ao deletar notificação', error as Error, {
-        component: 'NotificationBell',
-        notificationId
-      })
+      console.error('Failed to delete notification:', error)
     }
   }
 
@@ -244,7 +233,7 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({
 
     const labelMap = {
       low: 'Baixa',
-      medium: 'Média', 
+      medium: 'Média',
       high: 'Alta',
       critical: 'Crítica'
     }
@@ -259,24 +248,25 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({
     )
   }
 
-  if (loading) {
-    return (
-      <IconButton disabled size={size}>
-        <NotificationsNoneIcon sx={{ fontSize: config.icon }} />
-      </IconButton>
-    )
-  }
+  // Always show the icon, even during loading
+  const showAsDisabled = !notificationService
+  const tooltipTitle = loading
+    ? 'Carregando notificações...'
+    : !notificationService
+    ? 'Notificações indisponíveis'
+    : `${unreadCount} notificações não lidas`
 
   return (
     <>
-      <Tooltip title={`${unreadCount} notificações não lidas`}>
+      <Tooltip title={tooltipTitle}>
         <IconButton
           onClick={handleClick}
           size={size}
+          disabled={showAsDisabled || loading}
           sx={{
-            color: hasNewNotification || unreadCount > 0 
-              ? theme.palette.error.main 
-              : theme.palette.text.secondary,
+            color: hasNewNotification || unreadCount > 0
+              ? theme.palette.error.main
+              : 'rgba(255, 255, 255, 0.8)',
             animation: hasNewNotification ? 'pulse 1s infinite' : 'none',
             '@keyframes pulse': {
               '0%': {

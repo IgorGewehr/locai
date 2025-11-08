@@ -1,0 +1,55 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper function to check if user is authenticated
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    // Helper function to check if user belongs to tenant
+    function belongsToTenant(tenantId) {
+      return isAuthenticated() &&
+             request.auth.token.tenantId == tenantId;
+    }
+
+    // Helper function to check if user is admin
+    function isAdmin() {
+      return isAuthenticated() &&
+             request.auth.token.role == 'admin';
+    }
+
+    // Multi-tenant data isolation
+    match /tenants/{tenantId}/{document=**} {
+      // Allow read/write if user belongs to this tenant
+      allow read, write: if belongsToTenant(tenantId);
+
+      // Allow admins full access
+      allow read, write: if isAdmin();
+    }
+
+    // User profiles
+    match /users/{userId} {
+      // Users can read their own profile
+      allow read: if isAuthenticated() && request.auth.uid == userId;
+
+      // Users can update their own profile
+      allow update: if isAuthenticated() && request.auth.uid == userId;
+
+      // Only system can create/delete users
+      allow create, delete: if false;
+    }
+
+    // System logs (read-only for admins)
+    match /logs/{logId} {
+      allow read: if isAdmin();
+      allow write: if false;
+    }
+
+    // Default deny all other access
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

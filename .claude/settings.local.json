@@ -98,7 +98,13 @@
       "Bash(test:*)",
       "Bash(./test-conversas.sh)",
       "Bash(git checkout:*)",
-      "Bash(git merge:*)"
+      "Bash(git merge:*)",
+      "Bash(git check-ignore:*)",
+      "Bash(git rm:*)",
+      "Bash(sudo npm install:*)",
+      "Bash(firebase deploy:*)",
+      "Bash(firebase firestore:indexes:*)",
+      "Bash(gcloud firestore fields ttls create:*)"
     ],
     "deny": [],
     "defaultMode": "acceptEdits",

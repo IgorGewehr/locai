@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { useAuth } from '@/lib/hooks/useAuth';
 import { useWhatsAppStatus } from '@/contexts/WhatsAppStatusContext';
+import NotificationBell from '@/components/molecules/notifications/NotificationBell';
 // import { SimpleThemeToggle } from '@/components/atoms/SimpleThemeToggle/SimpleThemeToggle';
 import {
   AppBar,
@@ -452,24 +453,24 @@ export default function TopAppBar({ onLogout }: TopAppBarProps) {
               <Button
                 onClick={() => router.push('/dashboard/settings')}
                 startIcon={
-                  <WhatsApp sx={{ 
+                  <WhatsApp sx={{
                     fontSize: { xs: 18, sm: 20 },
                     display: { xs: 'block', sm: 'block' }
                   }} />
                 }
                 endIcon={
-                  <Circle 
-                    sx={{ 
-                      fontSize: { xs: 6, sm: 8 }, 
+                  <Circle
+                    sx={{
+                      fontSize: { xs: 6, sm: 8 },
                       color: getWhatsAppStatusColor(),
                       filter: 'drop-shadow(0 0 4px currentColor)',
-                    }} 
+                    }}
                   />
                 }
                 sx={{
                   color: whatsappStatus.status === 'connected' ? '#22c55e' : 'rgba(255, 255, 255, 0.8)',
-                  backgroundColor: whatsappStatus.status === 'connected' 
-                    ? 'rgba(34, 197, 94, 0.1)' 
+                  backgroundColor: whatsappStatus.status === 'connected'
+                    ? 'rgba(34, 197, 94, 0.1)'
                     : 'rgba(255, 255, 255, 0.05)',
                   borderRadius: 2,
                   px: { xs: 1, sm: 2 },
@@ -504,6 +505,15 @@ export default function TopAppBar({ onLogout }: TopAppBarProps) {
                   <Language sx={{ fontSize: { xs: 18, sm: 20 } }} />
                 </IconButton>
               </Tooltip>
+            </Box>
+
+            {/* Notifications Bell */}
+            <Box sx={{ position: 'relative' }}>
+              <NotificationBell
+                size="medium"
+                maxNotifications={15}
+                showCount={true}
+              />
             </Box>
 
             {/* Theme Toggle - Disabled due to hydration issues */}

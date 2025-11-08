@@ -13,6 +13,7 @@ import {
   Button,
   Alert,
   CircularProgress,
+  Snackbar,
 } from '@mui/material';
 import {
   Save,
@@ -22,6 +23,7 @@ import {
   Apartment,
   Villa,
   House,
+  CheckCircle,
 } from '@mui/icons-material';
 import { useForm, FormProvider } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
@@ -35,6 +37,7 @@ import { Property, PricingRule, PropertyCategory, PropertyStatus, PropertyType }
 import { PaymentMethod } from '@/lib/types/common';
 import { useTenant } from '@/contexts/TenantContext';
 import { useAuth } from '@/contexts/AuthProvider';
+import { useOnboarding } from '@/lib/hooks/useOnboarding';
 import { propertyService } from '@/lib/services/property-service';
 import { generateLocationField } from '@/lib/utils/locationUtils';
 import { logger } from '@/lib/utils/logger';
@@ -64,9 +67,11 @@ export default function CreatePropertyPage() {
   const router = useRouter();
   const { services, tenantId, isReady } = useTenant();
   const { getFirebaseToken } = useAuth();
+  const { completeStep, startStep } = useOnboarding();
   const [activeStep, setActiveStep] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [pricingRules, setPricingRules] = useState<PricingRule[]>([]);
 
   const methods = useForm<Property>({
@@ -180,9 +185,52 @@ export default function CreatePropertyPage() {
   };
 
   const validateStep = async (step: number): Promise<boolean> => {
-    // Ultra-permissivo: sempre retorna true
-    // Nunca bloqueia a navegação entre steps
-    return true;
+    // Validação por step com feedback visual
+    let fieldsToValidate: string[] = [];
+
+    switch (step) {
+      case 0: // Informações Básicas
+        fieldsToValidate = ['title', 'category', 'address'];
+        break;
+      case 1: // Especificações
+        fieldsToValidate = ['bedrooms', 'bathrooms', 'maxGuests'];
+        break;
+      case 2: // Comodidades
+        // Opcional, sempre válido
+        return true;
+      case 3: // Precificação
+        fieldsToValidate = ['basePrice', 'minimumNights'];
+        break;
+      case 4: // Mídia
+        // Opcional, sempre válido
+        return true;
+      case 5: // Revisão
+        return true;
+      default:
+        return true;
+    }
+
+    if (fieldsToValidate.length === 0) {
+      return true;
+    }
+
+    try {
+      const isValid = await trigger(fieldsToValidate);
+
+      if (!isValid) {
+        logger.warn('[CreateProperty] Validação falhou no step', {
+          step,
+          fields: fieldsToValidate,
+          errors: Object.keys(errors).filter(k => fieldsToValidate.includes(k))
+        });
+      }
+
+      return isValid;
+    } catch (error) {
+      logger.error('[CreateProperty] Erro na validação', { step, error });
+      // Em caso de erro, permite continuar
+      return true;
+    }
   };
 
   const handleSave = async (data: Property) => {
@@ -275,9 +323,24 @@ export default function CreatePropertyPage() {
 
       const responseData = await response.json();
       const propertyId = responseData.data?.id;
-      
-      logger.info('Property created successfully', { propertyId, tenantId });
-      
+
+      logger.info('✅ [CreateProperty] Property created successfully', { propertyId, tenantId });
+
+      // ✅ MELHORIA 1: Marcar automaticamente step de onboarding como concluído
+      try {
+        await completeStep('add_property');
+        logger.info('✅ [Onboarding] Step "add_property" marcado como concluído automaticamente');
+        setSuccessMessage('Propriedade criada e onboarding atualizado!');
+      } catch (onboardingError) {
+        logger.warn('[Onboarding] Erro ao completar step, mas propriedade foi criada com sucesso', {
+          error: onboardingError instanceof Error ? onboardingError.message : 'Unknown'
+        });
+        // Não bloqueia o fluxo se onboarding falhar
+      }
+
+      // Pequeno delay para mostrar feedback visual
+      await new Promise(resolve => setTimeout(resolve, 1000));
+
       if (propertyId) {
         router.push(`/dashboard/properties/${propertyId}`);
       } else {
@@ -386,6 +449,23 @@ export default function CreatePropertyPage() {
             {error}
           </Alert>
         )}
+
+        {/* ✅ MELHORIA 4: Success Snackbar com feedback visual */}
+        <Snackbar
+          open={!!successMessage}
+          autoHideDuration={3000}
+          onClose={() => setSuccessMessage(null)}
+          anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
+        >
+          <Alert
+            onClose={() => setSuccessMessage(null)}
+            severity="success"
+            icon={<CheckCircle />}
+            sx={{ width: '100%' }}
+          >
+            {successMessage}
+          </Alert>
+        </Snackbar>
 
         <Stepper activeStep={activeStep} sx={{ mb: 4 }}>
           {steps.map((label) => (
