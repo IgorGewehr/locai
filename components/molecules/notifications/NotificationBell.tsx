@@ -99,6 +99,7 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({
     notifications,
     unreadCount,
     loading,
+    error,
     markAsRead,
     markAllAsRead,
     deleteNotification
@@ -110,9 +111,9 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({
       notificationsCount: notifications.length,
       unreadCount,
       loading,
-      hasService: !!notificationService
+      hasError: !!error
     })
-  }, [notifications.length, unreadCount, loading, notificationService])
+  }, [notifications.length, unreadCount, loading, error])
 
   // Configurações de tamanho
   const sizeConfig = {
@@ -249,11 +250,11 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({
   }
 
   // Always show the icon, even during loading
-  const showAsDisabled = !notificationService
+  const showAsDisabled = loading || !!error
   const tooltipTitle = loading
     ? 'Carregando notificações...'
-    : !notificationService
-    ? 'Notificações indisponíveis'
+    : error
+    ? 'Erro ao carregar notificações'
     : `${unreadCount} notificações não lidas`
 
   return (
