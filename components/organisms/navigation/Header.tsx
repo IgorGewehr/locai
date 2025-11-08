@@ -143,7 +143,7 @@ export default function Header({ onMenuClick }: HeaderProps) {
           </Box>
 
           {/* Notifications - Logo após o WhatsApp */}
-          <NotificationBell 
+          <NotificationBell
             size="medium"
             maxNotifications={15}
             showCount={true}

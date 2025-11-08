@@ -34,7 +34,7 @@ export function useNotifications(options: UseNotificationsOptions = {}): UseNoti
     autoSubscribe = true
   } = options
 
-  const { tenant } = useTenant()
+  const { tenantId } = useTenant()  // ✅ CORRETO: tenantId, não tenant
   const { user } = useAuth()
 
   const [notifications, setNotifications] = useState<Notification[]>([])
@@ -42,8 +42,8 @@ export function useNotifications(options: UseNotificationsOptions = {}): UseNoti
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<Error | null>(null)
 
-  const notificationService = tenant?.id
-    ? NotificationServiceFactory.getInstance(tenant.id)
+  const notificationService = tenantId
+    ? NotificationServiceFactory.getInstance(tenantId)
     : null
 
   // Fetch notifications

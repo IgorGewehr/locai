@@ -74,27 +74,8 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({
   const [hasNewNotification, setHasNewNotification] = useState(false)
   const [previousUnreadCount, setPreviousUnreadCount] = useState(0)
 
-  // Use custom hook for notifications with error handling
-  let hookResult
-  try {
-    hookResult = useNotifications({
-      limit: maxNotifications,
-      autoSubscribe: true
-    })
-  } catch (error) {
-    console.error('[NotificationBell] Hook error:', error)
-    hookResult = {
-      notifications: [],
-      unreadCount: 0,
-      loading: false,
-      error: error as Error,
-      markAsRead: async () => {},
-      markAllAsRead: async () => {},
-      deleteNotification: async () => {},
-      refresh: async () => {}
-    }
-  }
-
+  // Use custom hook for notifications
+  // NOTE: Hooks cannot be called inside try-catch (React rules)
   const {
     notifications,
     unreadCount,
@@ -103,7 +84,10 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({
     markAsRead,
     markAllAsRead,
     deleteNotification
-  } = hookResult
+  } = useNotifications({
+    limit: maxNotifications,
+    autoSubscribe: true
+  })
 
   // Debug log
   React.useEffect(() => {
