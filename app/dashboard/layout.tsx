@@ -9,6 +9,7 @@ import { WhatsAppStatusProvider } from '@/contexts/WhatsAppStatusContext';
 import { useWhatsAppStatus } from '@/contexts/WhatsAppStatusContext';
 import { useRouter, usePathname } from 'next/navigation';
 import Sidebar from '@/components/organisms/navigation/Sidebar';
+import NotificationBell from '@/components/molecules/notifications/NotificationBell';
 
 // Disable static generation for dashboard pages
 export const dynamic = 'force-dynamic';
@@ -148,6 +149,13 @@ function DashboardHeader({ onMenuClick }: { onMenuClick?: () => void }) {
           <Language />
         </IconButton>
       </Tooltip>
+
+      {/* Notifications Bell */}
+      <NotificationBell
+        size="medium"
+        maxNotifications={15}
+        showCount={true}
+      />
 
       {/* Admin Panel - Only for users with idog == true */}
       {user?.idog === true && (

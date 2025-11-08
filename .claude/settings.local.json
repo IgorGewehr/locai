@@ -104,7 +104,8 @@
       "Bash(sudo npm install:*)",
       "Bash(firebase deploy:*)",
       "Bash(firebase firestore:indexes:*)",
-      "Bash(gcloud firestore fields ttls create:*)"
+      "Bash(gcloud firestore fields ttls create:*)",
+      "Bash(tree:*)"
     ],
     "deny": [],
     "defaultMode": "acceptEdits",
