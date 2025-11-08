@@ -210,18 +210,14 @@ export async function POST(request: NextRequest) {
     const preferencesService = services.createService<NotificationPreferences>('notificationPreferences');
     const preferences = await preferencesService.get(userId);
 
-    // Test email if enabled
-    let emailResult = null;
-    if (preferences?.email?.enabled && email) {
-      const { EmailService } = await import('@/lib/services/email-service');
-      const sent = await EmailService.sendTest(email);
-      emailResult = { success: sent, channel: 'email' };
-    }
+    // Email notifications are not implemented yet
+    // Future: Add email testing logic here
 
     return NextResponse.json({
       success: true,
+      message: 'Test notification functionality not yet implemented',
       results: {
-        email: emailResult
+        email: { success: false, channel: 'email', message: 'Email service not available' }
       }
     });
 

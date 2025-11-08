@@ -19,7 +19,6 @@ import {
 } from 'firebase/firestore'
 import { db } from '@/lib/firebase/config'
 import { logger } from '@/lib/utils/logger'
-import { EmailService } from './email-service'
 import {
   Notification,
   NotificationType,
@@ -109,15 +108,8 @@ export class NotificationService {
         type: data.type
       })
 
-      // Send via email channel if requested
-      if (data.channels?.includes(NotificationChannel.EMAIL)) {
-        this.sendEmailNotification(docRef.id, notificationData).catch(error => {
-          logger.error('❌ [Notification] Erro ao enviar email (não bloqueia criação)', error as Error, {
-            component: 'NotificationService',
-            notificationId: docRef.id
-          })
-        })
-      }
+      // Email notifications are not implemented yet
+      // Future: Add email sending logic here
 
       return docRef.id
 
@@ -489,71 +481,6 @@ export class NotificationService {
     return status as Record<NotificationChannel, DeliveryStatus>
   }
 
-  // Check if user wants to receive this notification type via email
-  private async checkEmailPreferences(
-    userId: string,
-    notificationType: NotificationType
-  ): Promise<{ enabled: boolean; email?: string }> {
-    try {
-      // Check cache first
-      const cacheKey = `${this.tenantId}:${userId}`
-      const cached = NotificationService.preferencesCache.get(cacheKey)
-
-      let preferences: NotificationPreferences | null
-
-      if (cached && Date.now() - cached.timestamp < NotificationService.CACHE_TTL) {
-        // Use cached preferences
-        preferences = cached.preferences
-        logger.debug('📦 [Notification] Using cached preferences', {
-          component: 'NotificationService',
-          userId: userId.substring(0, 8) + '***',
-          cacheAge: Date.now() - cached.timestamp
-        })
-      } else {
-        // Fetch from database
-        const { TenantServiceFactory } = await import('@/lib/firebase/firestore-v2')
-        const preferencesService = new TenantServiceFactory(this.tenantId)
-          .createService<NotificationPreferences>('notificationPreferences')
-
-        preferences = await preferencesService.get(userId)
-
-        // Cache the result
-        NotificationService.preferencesCache.set(cacheKey, {
-          preferences,
-          timestamp: Date.now()
-        })
-
-        logger.debug('💾 [Notification] Cached new preferences', {
-          component: 'NotificationService',
-          userId: userId.substring(0, 8) + '***',
-          hasPreferences: !!preferences
-        })
-      }
-
-      if (!preferences || !preferences.email?.enabled) {
-        return { enabled: false }
-      }
-
-      // Check if user opted in for this notification type
-      const types = preferences.email.types
-      if (types.length > 0 && !types.includes(notificationType)) {
-        return { enabled: false }
-      }
-
-      return {
-        enabled: true,
-        email: preferences.email.address
-      }
-    } catch (error) {
-      logger.error('❌ [Notification] Erro ao verificar preferências de email', error as Error, {
-        component: 'NotificationService',
-        userId
-      })
-      // Default to enabled if can't check preferences
-      return { enabled: true }
-    }
-  }
-
   // Method to invalidate cache (call this when preferences are updated)
   static invalidatePreferencesCache(tenantId: string, userId: string): void {
     const cacheKey = `${tenantId}:${userId}`
@@ -575,100 +502,8 @@ export class NotificationService {
     })
   }
 
-  // Send email notification with delivery tracking (OPTIMIZED - single Firestore write)
-  private async sendEmailNotification(
-    notificationId: string,
-    notificationData: Omit<Notification, 'id'>
-  ): Promise<void> {
-    const notificationRef = doc(db, `tenants/${this.tenantId}/notifications`, notificationId)
-    let updateData: Record<string, any> = {}
-
-    try {
-      // Check user preferences first
-      const preferences = await this.checkEmailPreferences(
-        notificationData.targetUserId,
-        notificationData.type
-      )
-
-      if (!preferences.enabled) {
-        logger.info('📧 [Notification] Email desabilitado nas preferências do usuário', {
-          component: 'NotificationService',
-          tenantId: this.tenantId,
-          notificationId,
-          userId: notificationData.targetUserId.substring(0, 8) + '***'
-        })
-
-        // Prepare single update for skipped status
-        updateData = {
-          'deliveryStatus.email.status': 'skipped',
-          'deliveryStatus.email.attempts': 0
-        }
-
-        await updateDoc(notificationRef, updateData)
-        return
-      }
-
-      // Use email from preferences if available
-      const recipientEmail = preferences.email || notificationData.recipientEmail
-
-      logger.info('📧 [Notification] Enviando email', {
-        component: 'NotificationService',
-        tenantId: this.tenantId,
-        notificationId,
-        recipientEmail: recipientEmail?.substring(0, 5) + '***'
-      })
-
-      const emailSent = await EmailService.send({
-        ...notificationData,
-        id: notificationId,
-        recipientEmail
-      } as Notification)
-
-      // Prepare single update based on result
-      if (emailSent) {
-        updateData = {
-          'deliveryStatus.email.status': 'delivered',
-          'deliveryStatus.email.deliveredAt': serverTimestamp(),
-          'deliveryStatus.email.attempts': 1
-        }
-
-        logger.info('✅ [Notification] Email enviado com sucesso', {
-          component: 'NotificationService',
-          tenantId: this.tenantId,
-          notificationId
-        })
-      } else {
-        updateData = {
-          'deliveryStatus.email.status': 'failed',
-          'deliveryStatus.email.failedAt': serverTimestamp(),
-          'deliveryStatus.email.attempts': 1,
-          'deliveryStatus.email.error': 'Failed to send email'
-        }
-
-        logger.error('❌ [Notification] Falha ao enviar email', new Error('Email delivery failed'), {
-          component: 'NotificationService',
-          tenantId: this.tenantId,
-          notificationId
-        })
-      }
-
-      // Single Firestore update
-      await updateDoc(notificationRef, updateData)
-
-    } catch (error) {
-      // Single update for error case
-      updateData = {
-        'deliveryStatus.email.status': 'failed',
-        'deliveryStatus.email.failedAt': serverTimestamp(),
-        'deliveryStatus.email.attempts': 1,
-        'deliveryStatus.email.error': error instanceof Error ? error.message : 'Unknown error'
-      }
-
-      await updateDoc(notificationRef, updateData)
-
-      throw error
-    }
-  }
+  // Email notifications are not implemented yet
+  // Future: Implement email sending logic here
 }
 
 // Factory para criar instâncias do serviço por tenant
