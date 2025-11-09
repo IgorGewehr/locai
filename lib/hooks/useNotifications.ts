@@ -144,21 +144,38 @@ export function useNotifications(options: UseNotificationsOptions = {}): UseNoti
     }
   }, [notificationService, user?.uid])
 
-  // Delete notification
+  // Delete notification with optimistic update
   const deleteNotification = useCallback(async (notificationId: string) => {
     if (!notificationService) return
+
+    // Optimistic update: remove immediately from UI
+    setNotifications(prev => prev.filter(n => n.id !== notificationId))
+    const deletedNotification = notifications.find(n => n.id === notificationId)
+    if (deletedNotification && !deletedNotification.readAt) {
+      setUnreadCount(prev => Math.max(0, prev - 1))
+    }
 
     try {
       await notificationService.deleteNotification(notificationId)
       logger.info('[useNotifications] Notification deleted', { notificationId })
     } catch (err) {
+      // Rollback on error: restore the notification
+      if (deletedNotification) {
+        setNotifications(prev => [...prev, deletedNotification].sort((a, b) =>
+          b.createdAt.getTime() - a.createdAt.getTime()
+        ))
+        if (!deletedNotification.readAt) {
+          setUnreadCount(prev => prev + 1)
+        }
+      }
+
       const error = err instanceof Error ? err : new Error('Failed to delete notification')
       logger.error('[useNotifications] Failed to delete notification', error, {
         notificationId
       })
       throw error
     }
-  }, [notificationService])
+  }, [notificationService, notifications])
 
   return {
     notifications,

@@ -153,7 +153,7 @@ function DashboardHeader({ onMenuClick }: { onMenuClick?: () => void }) {
       {/* Notifications Bell */}
       <NotificationBell
         size="medium"
-        maxNotifications={15}
+        maxNotifications={20}
         showCount={true}
       />
 

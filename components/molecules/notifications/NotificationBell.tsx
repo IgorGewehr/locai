@@ -1,46 +1,44 @@
 // components/molecules/notifications/NotificationBell.tsx
-// Componente sino de notificações responsivo e profissional
+// Real-time notification bell with improved UX/UI
 
 'use client'
 
-import React, { useState, useEffect, useCallback } from 'react'
+import React, { useState, useEffect } from 'react'
 import {
   Badge,
   IconButton,
-  Menu,
-  MenuItem,
+  Popover,
   Typography,
   Box,
-  Divider,
   List,
   ListItem,
-  ListItemText,
-  ListItemAvatar,
   Avatar,
   Button,
-  useTheme,
-  useMediaQuery,
   Tooltip,
   Chip,
-  ListItemSecondaryAction,
-  IconButton as MuiIconButton,
-  Collapse,
-  Fade
+  Fade,
+  Slide,
+  alpha,
+  useTheme,
+  CircularProgress,
+  Divider,
+  Snackbar,
+  Alert,
 } from '@mui/material'
 import {
   Notifications as NotificationsIcon,
   NotificationsNone as NotificationsNoneIcon,
-  Circle as CircleIcon,
-  Check as CheckIcon,
+  CheckCircle as CheckCircleIcon,
   Delete as DeleteIcon,
-  ExpandMore as ExpandMoreIcon,
-  ExpandLess as ExpandLessIcon,
   Schedule as ScheduleIcon,
   Assignment as AssignmentIcon,
   EventNote as EventNoteIcon,
   Payment as PaymentIcon,
   Home as HomeIcon,
-  Warning as WarningIcon
+  Warning as WarningIcon,
+  KeyboardArrowRight as ArrowIcon,
+  MarkEmailRead as MarkEmailReadIcon,
+  Close as CloseIcon,
 } from '@mui/icons-material'
 import { formatDistanceToNow } from 'date-fns'
 import { ptBR } from 'date-fns/locale'
@@ -49,8 +47,6 @@ import {
   Notification,
   NotificationType,
   NotificationPriority,
-  NOTIFICATION_TYPE_ICONS,
-  NOTIFICATION_PRIORITY_COLORS
 } from '@/lib/types/notification'
 
 interface NotificationBellProps {
@@ -60,22 +56,20 @@ interface NotificationBellProps {
 }
 
 export const NotificationBell: React.FC<NotificationBellProps> = ({
-  maxNotifications = 10,
+  maxNotifications = 20,
   showCount = true,
   size = 'medium'
 }) => {
-  console.log('[NotificationBell] Component rendering...', { maxNotifications, showCount, size })
-
   const theme = useTheme()
-  const isMobile = useMediaQuery(theme.breakpoints.down('sm'))
-
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null)
-  const [expandedNotification, setExpandedNotification] = useState<string | null>(null)
   const [hasNewNotification, setHasNewNotification] = useState(false)
   const [previousUnreadCount, setPreviousUnreadCount] = useState(0)
+  const [snackbar, setSnackbar] = useState<{ open: boolean; message: string; severity: 'success' | 'error' }>({
+    open: false,
+    message: '',
+    severity: 'success'
+  })
 
-  // Use custom hook for notifications
-  // NOTE: Hooks cannot be called inside try-catch (React rules)
   const {
     notifications,
     unreadCount,
@@ -89,30 +83,18 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({
     autoSubscribe: true
   })
 
-  // Debug log
-  React.useEffect(() => {
-    console.log('[NotificationBell] State updated:', {
-      notificationsCount: notifications.length,
-      unreadCount,
-      loading,
-      hasError: !!error
-    })
-  }, [notifications.length, unreadCount, loading, error])
-
-  // Configurações de tamanho
-  const sizeConfig = {
-    small: { icon: 20, badge: 12 },
-    medium: { icon: 24, badge: 16 },
-    large: { icon: 28, badge: 20 }
-  }
-
-  const config = sizeConfig[size]
   const isOpen = Boolean(anchorEl)
 
-  // Detect new notifications
+  // Detect new notifications with animation and sound
   useEffect(() => {
     if (unreadCount > previousUnreadCount && previousUnreadCount !== 0) {
       setHasNewNotification(true)
+
+      // Play subtle notification sound (optional)
+      // const audio = new Audio('/sounds/notification.mp3')
+      // audio.volume = 0.3
+      // audio.play().catch(() => {}) // Ignore errors if user hasn't interacted
+
       setTimeout(() => setHasNewNotification(false), 3000)
     }
     setPreviousUnreadCount(unreadCount)
@@ -126,55 +108,42 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({
     setAnchorEl(null)
   }
 
-  const handleMarkAsRead = async (notificationId: string, event?: React.MouseEvent) => {
-    if (event) {
-      event.stopPropagation()
-    }
-
+  const handleMarkAsRead = async (notificationId: string, event: React.MouseEvent) => {
+    event.stopPropagation()
     try {
       await markAsRead(notificationId)
+      setSnackbar({ open: true, message: 'Notificação marcada como lida', severity: 'success' })
     } catch (error) {
-      console.error('Failed to mark notification as read:', error)
+      setSnackbar({ open: true, message: 'Erro ao marcar notificação', severity: 'error' })
+    }
+  }
+
+  const handleDelete = async (notificationId: string, event: React.MouseEvent) => {
+    event.stopPropagation()
+    try {
+      await deleteNotification(notificationId)
+      setSnackbar({ open: true, message: 'Notificação excluída', severity: 'success' })
+    } catch (error) {
+      setSnackbar({ open: true, message: 'Erro ao excluir notificação', severity: 'error' })
     }
   }
 
   const handleMarkAllAsRead = async () => {
     try {
       await markAllAsRead()
+      setSnackbar({ open: true, message: 'Todas notificações marcadas como lidas', severity: 'success' })
     } catch (error) {
-      console.error('Failed to mark all notifications as read:', error)
+      setSnackbar({ open: true, message: 'Erro ao marcar todas como lidas', severity: 'error' })
     }
   }
 
-  const handleDeleteNotification = async (notificationId: string, event: React.MouseEvent) => {
-    event.stopPropagation()
-
-    try {
-      await deleteNotification(notificationId)
-    } catch (error) {
-      console.error('Failed to delete notification:', error)
+  const handleNotificationClick = (notification: Notification) => {
+    // Mark as read
+    if (!notification.readAt) {
+      markAsRead(notification.id).catch(() => {})
     }
-  }
 
-  const handleNotificationClick = (notification: Notification, event: React.MouseEvent) => {
-    event.stopPropagation()
-    
-    // Toggle expansão
-    if (expandedNotification === notification.id) {
-      setExpandedNotification(null)
-    } else {
-      setExpandedNotification(notification.id)
-      // Marcar como lida se não foi lida
-      if (!notification.readAt) {
-        handleMarkAsRead(notification.id)
-      }
-    }
-  }
-
-  const handleActionClick = (notification: Notification, event: React.MouseEvent) => {
-    event.stopPropagation()
-    
-    // Executar ação se houver
+    // Navigate if there's an action
     if (notification.actions && notification.actions.length > 0) {
       const primaryAction = notification.actions.find(a => a.type === 'primary') || notification.actions[0]
       if (primaryAction.action === 'navigate' && primaryAction.config.url) {
@@ -184,62 +153,44 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({
     }
   }
 
-  const getNotificationIcon = (type: NotificationType, priority: NotificationPriority) => {
+  const getNotificationIcon = (type: NotificationType) => {
     const iconMap = {
       [NotificationType.AGENDA_EVENT_CREATED]: EventNoteIcon,
       [NotificationType.AGENDA_EVENT_REMINDER]: ScheduleIcon,
+      [NotificationType.AGENDA_EVENT_UPDATED]: EventNoteIcon,
+      [NotificationType.AGENDA_EVENT_CANCELLED]: CloseIcon,
       [NotificationType.TICKET_RESPONSE_RECEIVED]: AssignmentIcon,
+      [NotificationType.TICKET_ASSIGNED]: AssignmentIcon,
+      [NotificationType.TICKET_STATUS_CHANGED]: AssignmentIcon,
       [NotificationType.RESERVATION_CREATED]: HomeIcon,
+      [NotificationType.RESERVATION_CHECK_IN_REMINDER]: HomeIcon,
+      [NotificationType.RESERVATION_CHECK_OUT_REMINDER]: HomeIcon,
       [NotificationType.PAYMENT_DUE_REMINDER]: PaymentIcon,
       [NotificationType.PAYMENT_OVERDUE]: WarningIcon,
-      [NotificationType.SYSTEM_ALERT]: WarningIcon
+      [NotificationType.PAYMENT_RECEIVED]: PaymentIcon,
+      [NotificationType.SYSTEM_ALERT]: WarningIcon,
+      [NotificationType.SYSTEM_MAINTENANCE]: WarningIcon,
     }
-
-    const IconComponent = iconMap[type] || NotificationsIcon
-    const color = NOTIFICATION_PRIORITY_COLORS[priority] || theme.palette.primary.main
-
-    return <IconComponent sx={{ color, fontSize: 20 }} />
+    return iconMap[type] || NotificationsIcon
   }
 
-  const formatNotificationTime = (date: Date) => {
-    return formatDistanceToNow(date, { 
-      addSuffix: true, 
-      locale: ptBR 
-    })
-  }
-
-  const getPriorityChip = (priority: NotificationPriority) => {
+  const getPriorityColor = (priority: NotificationPriority) => {
     const colorMap = {
-      low: 'default' as const,
-      medium: 'primary' as const,
-      high: 'warning' as const,
-      critical: 'error' as const
+      low: theme.palette.info.main,
+      medium: theme.palette.primary.main,
+      high: theme.palette.warning.main,
+      critical: theme.palette.error.main,
     }
-
-    const labelMap = {
-      low: 'Baixa',
-      medium: 'Média',
-      high: 'Alta',
-      critical: 'Crítica'
-    }
-
-    return (
-      <Chip
-        label={labelMap[priority]}
-        color={colorMap[priority]}
-        size="small"
-        sx={{ fontSize: '0.75rem', height: 20 }}
-      />
-    )
+    return colorMap[priority]
   }
 
-  // Always show the icon, even during loading
-  const showAsDisabled = loading || !!error
   const tooltipTitle = loading
     ? 'Carregando notificações...'
     : error
     ? 'Erro ao carregar notificações'
-    : `${unreadCount} notificações não lidas`
+    : unreadCount === 0
+    ? 'Nenhuma notificação nova'
+    : `${unreadCount} notificação${unreadCount > 1 ? 'ões' : ''} não lida${unreadCount > 1 ? 's' : ''}`
 
   return (
     <>
@@ -247,25 +198,20 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({
         <IconButton
           onClick={handleClick}
           size={size}
-          disabled={showAsDisabled || loading}
+          disabled={loading}
           sx={{
-            color: hasNewNotification || unreadCount > 0
-              ? theme.palette.error.main
-              : 'rgba(255, 255, 255, 0.8)',
-            animation: hasNewNotification ? 'pulse 1s infinite' : 'none',
-            '@keyframes pulse': {
-              '0%': {
-                transform: 'scale(1)',
-              },
-              '50%': {
-                transform: 'scale(1.1)',
-              },
-              '100%': {
-                transform: 'scale(1)',
-              },
+            color: 'rgba(255, 255, 255, 0.8)',
+            position: 'relative',
+            transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+            animation: hasNewNotification ? 'bellRing 0.5s ease-in-out' : 'none',
+            '@keyframes bellRing': {
+              '0%, 100%': { transform: 'rotate(0deg)' },
+              '10%, 30%': { transform: 'rotate(-10deg)' },
+              '20%, 40%': { transform: 'rotate(10deg)' },
             },
             '&:hover': {
-              backgroundColor: theme.palette.action.hover
+              backgroundColor: 'rgba(255, 255, 255, 0.1)',
+              transform: 'scale(1.1)',
             }
           }}
         >
@@ -276,254 +222,327 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({
             invisible={unreadCount === 0}
             sx={{
               '& .MuiBadge-badge': {
-                fontSize: '0.75rem',
-                minWidth: config.badge,
-                height: config.badge,
-                animation: hasNewNotification ? 'badgePulse 1s infinite' : 'none',
+                fontSize: '0.7rem',
+                fontWeight: 700,
+                minWidth: 18,
+                height: 18,
+                borderRadius: '9px',
+                border: `2px solid ${theme.palette.background.paper}`,
+                animation: hasNewNotification ? 'badgePulse 1s ease-in-out' : 'none',
                 '@keyframes badgePulse': {
-                  '0%': { transform: 'scale(1)' },
-                  '50%': { transform: 'scale(1.2)' },
-                  '100%': { transform: 'scale(1)' },
+                  '0%, 100%': { transform: 'scale(1)' },
+                  '50%': { transform: 'scale(1.3)' },
                 },
               }
             }}
           >
-            {unreadCount > 0 || hasNewNotification ? (
-              <NotificationsIcon sx={{ fontSize: config.icon }} />
+            {unreadCount > 0 ? (
+              <NotificationsIcon sx={{ fontSize: 24 }} />
             ) : (
-              <NotificationsNoneIcon sx={{ fontSize: config.icon }} />
+              <NotificationsNoneIcon sx={{ fontSize: 24 }} />
             )}
           </Badge>
         </IconButton>
       </Tooltip>
 
-      <Menu
-        anchorEl={anchorEl}
+      <Popover
         open={isOpen}
+        anchorEl={anchorEl}
         onClose={handleClose}
+        anchorOrigin={{
+          vertical: 'bottom',
+          horizontal: 'right',
+        }}
+        transformOrigin={{
+          vertical: 'top',
+          horizontal: 'right',
+        }}
+        TransitionComponent={Fade}
+        transitionDuration={200}
         PaperProps={{
+          elevation: 12,
           sx: {
-            width: isMobile ? '95vw' : 400,
-            maxWidth: 400,
-            maxHeight: 600,
+            width: 440,
+            maxWidth: '95vw',
+            maxHeight: '85vh',
             mt: 1.5,
-            boxShadow: theme.shadows[8],
-            border: `1px solid ${theme.palette.divider}`
+            borderRadius: 3,
+            overflow: 'hidden',
+            background: `linear-gradient(135deg,
+              ${alpha(theme.palette.background.paper, 0.98)} 0%,
+              ${alpha(theme.palette.background.paper, 0.95)} 100%)`,
+            backdropFilter: 'blur(20px)',
+            border: `1px solid ${alpha(theme.palette.divider, 0.1)}`,
+            boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3)',
           }
         }}
-        transformOrigin={{ horizontal: 'right', vertical: 'top' }}
-        anchorOrigin={{ horizontal: 'right', vertical: 'bottom' }}
       >
         {/* Header */}
-        <Box sx={{ p: 2, borderBottom: `1px solid ${theme.palette.divider}` }}>
+        <Box sx={{
+          p: 2.5,
+          background: `linear-gradient(135deg,
+            ${alpha(theme.palette.primary.main, 0.08)} 0%,
+            ${alpha(theme.palette.primary.main, 0.02)} 100%)`,
+          borderBottom: `1px solid ${alpha(theme.palette.divider, 0.08)}`,
+        }}>
           <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <Typography variant="h6" sx={{ fontWeight: 600 }}>
-              Notificações
-            </Typography>
+            <Box>
+              <Typography variant="h6" sx={{ fontWeight: 700, fontSize: '1.1rem', mb: 0.5 }}>
+                Notificações
+              </Typography>
+              {unreadCount > 0 && (
+                <Typography variant="caption" sx={{ color: 'text.secondary', fontSize: '0.75rem' }}>
+                  {unreadCount} não lida{unreadCount !== 1 ? 's' : ''}
+                </Typography>
+              )}
+            </Box>
             {unreadCount > 0 && (
               <Button
                 size="small"
                 onClick={handleMarkAllAsRead}
-                sx={{ minWidth: 'auto', fontSize: '0.75rem' }}
+                startIcon={<MarkEmailReadIcon sx={{ fontSize: 16 }} />}
+                sx={{
+                  fontSize: '0.75rem',
+                  textTransform: 'none',
+                  fontWeight: 600,
+                  px: 1.5,
+                  py: 0.5,
+                  borderRadius: 2,
+                  backgroundColor: alpha(theme.palette.primary.main, 0.1),
+                  color: 'primary.main',
+                  '&:hover': {
+                    backgroundColor: alpha(theme.palette.primary.main, 0.2),
+                  }
+                }}
               >
-                Marcar todas como lidas
+                Marcar todas
               </Button>
             )}
           </Box>
-          {unreadCount > 0 && (
-            <Typography variant="caption" color="text.secondary">
-              {unreadCount} não lida{unreadCount !== 1 ? 's' : ''}
-            </Typography>
-          )}
         </Box>
 
-        {/* Lista de notificações */}
-        {notifications.length === 0 ? (
-          <Box sx={{ p: 3, textAlign: 'center' }}>
-            <NotificationsNoneIcon 
-              sx={{ 
-                fontSize: 48, 
-                color: theme.palette.text.disabled,
-                mb: 1 
-              }} 
-            />
+        {/* Loading State */}
+        {loading && notifications.length === 0 && (
+          <Box sx={{
+            p: 6,
+            textAlign: 'center',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            gap: 2,
+          }}>
+            <CircularProgress size={40} sx={{ color: 'primary.main' }} />
             <Typography variant="body2" color="text.secondary">
-              Nenhuma notificação
+              Carregando notificações...
             </Typography>
           </Box>
-        ) : (
-          <List sx={{ p: 0, maxHeight: 500, overflowY: 'auto' }}>
+        )}
+
+        {/* Empty State */}
+        {!loading && notifications.length === 0 && (
+          <Box sx={{
+            p: 6,
+            textAlign: 'center',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            gap: 2,
+          }}>
+            <NotificationsNoneIcon sx={{
+              fontSize: 64,
+              color: alpha(theme.palette.text.disabled, 0.3),
+            }} />
+            <Typography variant="body2" color="text.secondary" sx={{ fontWeight: 500 }}>
+              Você está em dia!
+            </Typography>
+            <Typography variant="caption" color="text.disabled">
+              Nenhuma notificação no momento
+            </Typography>
+          </Box>
+        )}
+
+        {/* Notifications List */}
+        {!loading && notifications.length > 0 && (
+          <List sx={{ p: 0, maxHeight: 520, overflowY: 'auto' }}>
             {notifications.map((notification, index) => {
-              const isExpanded = expandedNotification === notification.id
-              
+              const IconComponent = getNotificationIcon(notification.type)
+              const priorityColor = getPriorityColor(notification.priority)
+              const isUnread = !notification.readAt
+
               return (
-                <React.Fragment key={notification.id}>
+                <Slide
+                  key={notification.id}
+                  direction="down"
+                  in={true}
+                  timeout={200 + index * 50}
+                  unmountOnExit
+                >
                   <ListItem
-                    button
-                    onClick={(e) => handleNotificationClick(notification, e)}
+                    onClick={() => handleNotificationClick(notification)}
                     sx={{
-                      backgroundColor: notification.readAt 
-                        ? 'transparent' 
-                        : theme.palette.action.hover,
+                      px: 2.5,
+                      py: 2,
+                      cursor: 'pointer',
+                      transition: 'all 0.2s ease',
+                      backgroundColor: isUnread
+                        ? alpha(theme.palette.primary.main, 0.04)
+                        : 'transparent',
+                      borderLeft: `3px solid ${isUnread ? priorityColor : 'transparent'}`,
+                      borderBottom: `1px solid ${alpha(theme.palette.divider, 0.05)}`,
                       '&:hover': {
-                        backgroundColor: notification.readAt
-                          ? theme.palette.action.hover
-                          : theme.palette.action.selected
-                      },
-                      py: 1.5,
-                      px: 2,
-                      flexDirection: 'column',
-                      alignItems: 'stretch'
+                        backgroundColor: alpha(theme.palette.primary.main, 0.08),
+                        transform: 'translateX(4px)',
+                      }
                     }}
                   >
-                    <Box sx={{ display: 'flex', width: '100%' }}>
-                      <ListItemAvatar>
-                        <Avatar 
-                          sx={{ 
-                            backgroundColor: notification.readAt 
-                              ? theme.palette.grey[200] 
-                              : theme.palette.primary.main,
-                            width: 36,
-                            height: 36
+                    <Avatar
+                      sx={{
+                        width: 44,
+                        height: 44,
+                        mr: 2,
+                        backgroundColor: alpha(priorityColor, 0.1),
+                        color: priorityColor,
+                      }}
+                    >
+                      <IconComponent sx={{ fontSize: 22 }} />
+                    </Avatar>
+
+                    <Box sx={{ flex: 1, minWidth: 0 }}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
+                        <Typography
+                          variant="subtitle2"
+                          sx={{
+                            fontWeight: isUnread ? 700 : 500,
+                            fontSize: '0.9rem',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap',
+                            flex: 1,
                           }}
                         >
-                          {getNotificationIcon(notification.type, notification.priority)}
-                        </Avatar>
-                      </ListItemAvatar>
-                      
-                      <Box sx={{ flex: 1, minWidth: 0 }}>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
-                          <Typography 
-                            variant="subtitle2" 
-                            sx={{ 
-                              fontWeight: notification.readAt ? 500 : 600,
-                              flex: 1,
-                              overflow: 'hidden',
-                              textOverflow: 'ellipsis',
-                              whiteSpace: 'nowrap'
+                          {notification.title}
+                        </Typography>
+                        {(notification.priority === 'high' || notification.priority === 'critical') && (
+                          <Chip
+                            label={notification.priority === 'critical' ? 'Urgente' : 'Alta'}
+                            size="small"
+                            sx={{
+                              height: 18,
+                              fontSize: '0.65rem',
+                              fontWeight: 700,
+                              backgroundColor: alpha(priorityColor, 0.15),
+                              color: priorityColor,
                             }}
-                          >
-                            {notification.title}
-                          </Typography>
-                          {notification.priority !== 'medium' && (
-                            <Box sx={{ flexShrink: 0 }}>
-                              {getPriorityChip(notification.priority)}
-                            </Box>
-                          )}
-                        </Box>
-                        
-                        {!isExpanded && (
-                          <Box>
-                            <Typography 
-                              variant="body2" 
-                              color="text.secondary"
-                              sx={{ 
-                                display: '-webkit-box',
-                                WebkitLineClamp: 1,
-                                WebkitBoxOrient: 'vertical',
-                                overflow: 'hidden',
-                                mb: 0.5
-                              }}
-                            >
-                              {notification.message}
-                            </Typography>
-                            <Typography variant="caption" color="text.disabled">
-                              {formatNotificationTime(notification.createdAt)}
-                            </Typography>
-                          </Box>
+                          />
                         )}
                       </Box>
 
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, ml: 1 }}>
-                        {!notification.readAt && (
-                          <CircleIcon 
-                            sx={{ 
-                              fontSize: 8, 
-                              color: theme.palette.error.main,
-                              animation: 'blink 1.5s infinite',
-                              '@keyframes blink': {
-                                '0%, 50%, 100%': { opacity: 1 },
-                                '25%, 75%': { opacity: 0.3 },
-                              }
-                            }} 
-                          />
+                      <Typography
+                        variant="body2"
+                        color="text.secondary"
+                        sx={{
+                          fontSize: '0.8rem',
+                          overflow: 'hidden',
+                          textOverflow: 'ellipsis',
+                          display: '-webkit-box',
+                          WebkitLineClamp: 2,
+                          WebkitBoxOrient: 'vertical',
+                          mb: 0.5,
+                        }}
+                      >
+                        {notification.message}
+                      </Typography>
+
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                        <Typography variant="caption" sx={{ color: 'text.disabled', fontSize: '0.7rem' }}>
+                          {formatDistanceToNow(notification.createdAt, {
+                            addSuffix: true,
+                            locale: ptBR
+                          })}
+                        </Typography>
+                        {notification.actions && notification.actions.length > 0 && (
+                          <ArrowIcon sx={{ fontSize: 14, color: 'text.disabled' }} />
                         )}
-                        
+                      </Box>
+                    </Box>
+
+                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, ml: 1 }}>
+                      {isUnread && (
+                        <Tooltip title="Marcar como lida">
+                          <IconButton
+                            size="small"
+                            onClick={(e) => handleMarkAsRead(notification.id, e)}
+                            sx={{
+                              color: 'primary.main',
+                              '&:hover': {
+                                backgroundColor: alpha(theme.palette.primary.main, 0.1),
+                              }
+                            }}
+                          >
+                            <CheckCircleIcon sx={{ fontSize: 18 }} />
+                          </IconButton>
+                        </Tooltip>
+                      )}
+                      <Tooltip title="Excluir">
                         <IconButton
                           size="small"
-                          onClick={(e) => handleDeleteNotification(notification.id, e)}
-                          sx={{ 
-                            opacity: 0.6,
+                          onClick={(e) => handleDelete(notification.id, e)}
+                          sx={{
+                            color: 'text.disabled',
                             '&:hover': {
-                              opacity: 1,
-                              color: theme.palette.error.main
+                              color: 'error.main',
+                              backgroundColor: alpha(theme.palette.error.main, 0.1),
                             }
                           }}
                         >
-                          <DeleteIcon fontSize="small" />
+                          <DeleteIcon sx={{ fontSize: 18 }} />
                         </IconButton>
-                        
-                        <IconButton size="small">
-                          {isExpanded ? (
-                            <ExpandLessIcon fontSize="small" />
-                          ) : (
-                            <ExpandMoreIcon fontSize="small" />
-                          )}
-                        </IconButton>
-                      </Box>
+                      </Tooltip>
                     </Box>
-                    
-                    <Collapse in={isExpanded} timeout="auto" unmountOnExit>
-                      <Box sx={{ pt: 2, pb: 1 }}>
-                        <Typography 
-                          variant="body2" 
-                          color="text.secondary"
-                          sx={{ mb: 2, whiteSpace: 'pre-wrap' }}
-                        >
-                          {notification.message}
-                        </Typography>
-                        
-                        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                          <Typography variant="caption" color="text.disabled">
-                            {formatNotificationTime(notification.createdAt)}
-                          </Typography>
-                          
-                          {notification.actions && notification.actions.length > 0 && (
-                            <Button
-                              size="small"
-                              variant="contained"
-                              onClick={(e) => handleActionClick(notification, e)}
-                              sx={{ ml: 2 }}
-                            >
-                              {notification.actions[0].label || 'Ver Detalhes'}
-                            </Button>
-                          )}
-                        </Box>
-                        
-                        {notification.entityData && (
-                          <Box sx={{ mt: 2, p: 1, bgcolor: 'background.default', borderRadius: 1 }}>
-                            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
-                              Informações Adicionais:
-                            </Typography>
-                            {Object.entries(notification.entityData).map(([key, value]) => (
-                              <Typography key={key} variant="caption" sx={{ display: 'block' }}>
-                                <strong>{key}:</strong> {String(value)}
-                              </Typography>
-                            ))}
-                          </Box>
-                        )}
-                      </Box>
-                    </Collapse>
                   </ListItem>
-                  
-                  {index < notifications.length - 1 && <Divider />}
-                </React.Fragment>
+                </Slide>
               )
             })}
           </List>
         )}
 
-      </Menu>
+        {/* Footer */}
+        {notifications.length > 0 && (
+          <Box sx={{
+            p: 1.5,
+            borderTop: `1px solid ${alpha(theme.palette.divider, 0.08)}`,
+            textAlign: 'center',
+          }}>
+            <Typography
+              variant="caption"
+              sx={{
+                color: 'text.disabled',
+                fontSize: '0.7rem',
+                fontStyle: 'italic'
+              }}
+            >
+              Exibindo {notifications.length} de {notifications.length} notificações
+            </Typography>
+          </Box>
+        )}
+      </Popover>
+
+      {/* Snackbar for feedback */}
+      <Snackbar
+        open={snackbar.open}
+        autoHideDuration={3000}
+        onClose={() => setSnackbar({ ...snackbar, open: false })}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+      >
+        <Alert
+          onClose={() => setSnackbar({ ...snackbar, open: false })}
+          severity={snackbar.severity}
+          variant="filled"
+          sx={{ width: '100%' }}
+        >
+          {snackbar.message}
+        </Alert>
+      </Snackbar>
     </>
   )
 }

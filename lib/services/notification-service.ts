@@ -304,9 +304,9 @@ export class NotificationService {
     }
   }
 
-  // Buscar notificações do usuário
+  // Buscar notificações do usuário (exclui notificações expiradas/deletadas)
   async getUserNotifications(
-    userId: string, 
+    userId: string,
     options: {
       unreadOnly?: boolean
       limit?: number
@@ -316,7 +316,9 @@ export class NotificationService {
     try {
       let q = query(
         collection(db, `tenants/${this.tenantId}/notifications`),
-        where('targetUserId', '==', userId)
+        where('targetUserId', '==', userId),
+        // IMPORTANTE: Filtrar notificações expiradas/deletadas
+        where('status', '!=', NotificationStatus.EXPIRED)
       )
 
       if (options.unreadOnly) {
@@ -327,7 +329,7 @@ export class NotificationService {
         q = query(q, where('type', '==', options.type))
       }
 
-      q = query(q, orderBy('createdAt', 'desc'))
+      q = query(q, orderBy('status', 'asc'), orderBy('createdAt', 'desc'))
 
       if (options.limit) {
         q = query(q, limit(options.limit))
@@ -338,6 +340,12 @@ export class NotificationService {
 
       snapshot.forEach(doc => {
         const data = doc.data()
+
+        // Double-check: Skip expired notifications
+        if (data.status === NotificationStatus.EXPIRED) {
+          return
+        }
+
         notifications.push({
           id: doc.id,
           ...data,
@@ -383,7 +391,7 @@ export class NotificationService {
     }
   }
 
-  // Escutar notificações em tempo real
+  // Escutar notificações em tempo real (filtra notificações expiradas/deletadas)
   subscribeToNotifications(
     userId: string,
     callback: (notifications: Notification[]) => void,
@@ -392,14 +400,16 @@ export class NotificationService {
     try {
       let q = query(
         collection(db, `tenants/${this.tenantId}/notifications`),
-        where('targetUserId', '==', userId)
+        where('targetUserId', '==', userId),
+        // IMPORTANTE: Filtrar notificações expiradas/deletadas
+        where('status', '!=', NotificationStatus.EXPIRED)
       )
 
       if (options.unreadOnly) {
         q = query(q, where('readAt', '==', null))
       }
 
-      q = query(q, orderBy('createdAt', 'desc'))
+      q = query(q, orderBy('status', 'asc'), orderBy('createdAt', 'desc'))
 
       if (options.limit) {
         q = query(q, limit(options.limit))
@@ -410,6 +420,12 @@ export class NotificationService {
 
         snapshot.forEach(doc => {
           const data = doc.data()
+
+          // Double-check: Skip expired notifications
+          if (data.status === NotificationStatus.EXPIRED) {
+            return
+          }
+
           notifications.push({
             id: doc.id,
             ...data,
@@ -440,9 +456,15 @@ export class NotificationService {
     }
   }
 
-  // Deletar notificação
+  // Deletar notificação (soft delete com status EXPIRED)
   async deleteNotification(notificationId: string): Promise<void> {
     try {
+      logger.info('🗑️ [Notification] Deletando notificação', {
+        component: 'NotificationService',
+        tenantId: this.tenantId,
+        notificationId
+      })
+
       await updateDoc(
         doc(db, `tenants/${this.tenantId}/notifications`, notificationId),
         {
@@ -451,7 +473,7 @@ export class NotificationService {
         }
       )
 
-      logger.info('🗑️ [Notification] Notificação deletada', {
+      logger.info('✅ [Notification] Notificação deletada com sucesso', {
         component: 'NotificationService',
         tenantId: this.tenantId,
         notificationId

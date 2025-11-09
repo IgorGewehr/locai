@@ -5,6 +5,9 @@ import { sanitizeUserInput } from '@/lib/utils/validation'
 import { validateFirebaseAuth } from '@/lib/middleware/firebase-auth'
 import { z } from 'zod'
 import { PaymentMethod, PaymentStatus, ReservationStatus, ReservationSource } from '@/lib/types/reservation'
+import { NotificationServiceFactory } from '@/lib/services/notification-service'
+import { NotificationType, NotificationPriority, NotificationChannel } from '@/lib/types/notification'
+import { logger } from '@/lib/utils/logger'
 
 // Zod schema for reservation validation
 const CreateReservationSchema = z.object({
@@ -371,40 +374,47 @@ export async function POST(request: NextRequest) {
     const newReservation = await services.reservations.create(sanitizedData)
 
     // Trigger notification for new reservation (NON-BLOCKING - fire and forget)
-    import('@/lib/services/notification-service').then(({ NotificationServiceFactory }) => {
-      const notificationService = NotificationServiceFactory.getInstance(authContext.tenantId)
+    const notificationService = NotificationServiceFactory.getInstance(authContext.tenantId)
 
-      return notificationService.createNotification({
-        targetUserId: authContext.userId || 'system',
-        targetUserName: authContext.email,
-        type: 'reservation_created' as any,
-        title: '🎉 Nova Reserva Criada',
-        message: `Reserva confirmada para ${(property as any).name || 'propriedade'} de ${validatedData.checkIn.toLocaleDateString('pt-BR')} até ${validatedData.checkOut.toLocaleDateString('pt-BR')}. Cliente: ${client.name || 'N/A'}. Total: R$ ${validatedData.totalAmount.toFixed(2)}.`,
-        entityType: 'reservation',
-        entityId: newReservation,
-        entityData: {
-          propertyName: (property as any).name,
-          clientName: client.name,
-          checkIn: validatedData.checkIn,
-          checkOut: validatedData.checkOut,
-          guests: validatedData.guests,
-          totalAmount: validatedData.totalAmount,
-          nights
-        },
-        priority: 'high' as any,
-        channels: ['dashboard', 'email'] as any[],
-        recipientEmail: authContext.email,
-        actionUrl: `/dashboard/reservations/${newReservation}`,
-        actionLabel: 'Ver Reserva',
-        metadata: {
-          source: 'reservation_api',
-          triggerEvent: 'reservation_created',
-          reservationId: newReservation
+    notificationService.createNotification({
+      targetUserId: authContext.userId || 'system',
+      targetUserName: authContext.email,
+      type: NotificationType.RESERVATION_CREATED,
+      title: '🎉 Nova Reserva Criada',
+      message: `Reserva confirmada para ${(property as any).name || 'propriedade'} de ${validatedData.checkIn.toLocaleDateString('pt-BR')} até ${validatedData.checkOut.toLocaleDateString('pt-BR')}. Cliente: ${client.name || 'N/A'}. Total: R$ ${validatedData.totalAmount.toFixed(2)}.`,
+      entityType: 'reservation',
+      entityId: newReservation,
+      entityData: {
+        propertyName: (property as any).name,
+        clientName: client.name,
+        checkIn: validatedData.checkIn,
+        checkOut: validatedData.checkOut,
+        guests: validatedData.guests,
+        totalAmount: validatedData.totalAmount,
+        nights
+      },
+      priority: NotificationPriority.HIGH,
+      channels: [NotificationChannel.DASHBOARD],
+      actions: [{
+        id: 'view_reservation',
+        label: 'Ver Reserva',
+        type: 'primary',
+        action: 'navigate',
+        config: {
+          url: `/dashboard/reservations/${newReservation}`
         }
-      })
+      }],
+      metadata: {
+        source: 'reservation_api',
+        triggerEvent: 'reservation_created',
+        reservationId: newReservation
+      }
     }).catch(notificationError => {
       // Log but don't fail the reservation creation
-      console.error('Failed to send reservation notification:', notificationError)
+      logger.error('[Reservations API] Failed to send notification', {
+        error: notificationError instanceof Error ? notificationError.message : 'Unknown error',
+        reservationId: newReservation
+      })
     })
 
     return NextResponse.json(
