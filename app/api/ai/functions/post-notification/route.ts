@@ -1,52 +1,46 @@
 // app/api/ai/functions/post-notification/route.ts
-// AI Function: Sofia Agent can send notifications to admin when client wants human assistance
+// AI Function: Sofia Agent notifies admin when client wants human assistance
+// SIMPLIFIED: Only tenantId and clientPhone required
 
 import { NextRequest, NextResponse } from 'next/server'
 import { NotificationServiceFactory } from '@/lib/services/notification-service'
 import { NotificationType, NotificationPriority, NotificationChannel } from '@/lib/types/notification'
 import { logger } from '@/lib/utils/logger'
-import { sanitizeUserInput } from '@/lib/utils/validation'
 import { z } from 'zod'
 
-// Validation schema
+// Simple validation schema - only 2 required fields
 const PostNotificationSchema = z.object({
   tenantId: z.string().min(1, 'TenantId is required'),
-  targetUserId: z.string().min(1, 'TargetUserId is required'),
-  clientPhone: z.string().min(1, 'Client phone is required'),
-  clientName: z.string().optional(),
-  message: z.string().min(1, 'Message is required').max(500),
-  conversationId: z.string().optional(),
-  urgency: z.enum(['low', 'medium', 'high', 'critical']).default('high'),
-  metadata: z.record(z.any()).optional()
+  clientPhone: z.string().min(1, 'Client phone is required')
 })
 
 /**
  * POST /api/ai/functions/post-notification
- * Sofia AI Agent posts notification to admin when client needs human assistance
+ * Sofia AI Agent notifies admin when client needs human assistance
+ *
+ * ULTRA SIMPLIFIED - Only 2 fields needed:
+ * - tenantId: Tenant identifier
+ * - clientPhone: Client phone number
+ *
+ * Message is always: "Cliente de número X quer falar com um humano"
  *
  * @example
  * {
  *   "tenantId": "tenant123",
- *   "targetUserId": "admin123",
- *   "clientPhone": "+5511999999999",
- *   "clientName": "João Silva",
- *   "message": "Cliente solicita falar com atendente humano",
- *   "urgency": "high",
- *   "conversationId": "conv123"
+ *   "clientPhone": "+5511999999999"
  * }
  */
 export async function POST(request: NextRequest) {
   const startTime = Date.now()
-  const requestId = `post_notification_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`
+  const requestId = `notification_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`
 
   try {
-    logger.info('[POST-NOTIFICATION] Starting AI function execution', {
+    logger.info('[POST-NOTIFICATION] Starting execution', {
       requestId,
-      function: 'post-notification',
-      source: 'sofia-agent'
+      function: 'post-notification'
     })
 
-    // Parse and validate body
+    // Parse and validate
     const body = await request.json()
     const validation = PostNotificationSchema.safeParse(body)
 
@@ -67,87 +61,50 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const {
-      tenantId,
-      targetUserId,
-      clientPhone,
-      clientName,
-      message,
-      conversationId,
-      urgency,
-      metadata
-    } = validation.data
+    const { tenantId, clientPhone } = validation.data
 
-    logger.info('[POST-NOTIFICATION] Creating notification for human assistance', {
+    logger.info('[POST-NOTIFICATION] Creating notification', {
       requestId,
       tenantId: tenantId.substring(0, 8) + '***',
-      targetUserId: targetUserId.substring(0, 8) + '***',
-      clientPhone: clientPhone.substring(0, 8) + '***',
-      urgency
+      clientPhone: clientPhone.substring(0, 8) + '***'
     })
-
-    // Sanitize user inputs
-    const sanitizedMessage = sanitizeUserInput(message)
-    const sanitizedClientName = clientName ? sanitizeUserInput(clientName) : undefined
 
     // Get notification service
     const notificationService = NotificationServiceFactory.getInstance(tenantId)
 
-    // Map urgency to priority
-    const priorityMap = {
-      low: NotificationPriority.LOW,
-      medium: NotificationPriority.MEDIUM,
-      high: NotificationPriority.HIGH,
-      critical: NotificationPriority.CRITICAL
-    }
+    // Fixed message format
+    const title = '🙋 Cliente Solicita Atendimento Humano'
+    const message = `Cliente de número ${clientPhone} quer falar com um humano`
 
-    // Create notification title based on client info
-    const title = sanitizedClientName
-      ? `🙋 ${sanitizedClientName} solicita atendimento humano`
-      : `🙋 Cliente solicita atendimento humano`
-
-    // Enhanced message with context
-    const enhancedMessage = `📞 Telefone: ${clientPhone}\n\n${sanitizedMessage}`
-
-    // Determine notification type - use ticket for human assistance requests
-    const notificationType = NotificationType.TICKET_ASSIGNED
-
-    // Create notification with all details
+    // Create notification
     const notificationId = await notificationService.createNotification({
-      targetUserId,
-      targetUserName: undefined, // Will be fetched from user profile
-      type: notificationType,
+      targetUserId: 'admin', // Will be broadcast to all admins
+      type: NotificationType.TICKET_ASSIGNED,
       title,
-      message: enhancedMessage,
+      message,
       entityType: 'ticket',
-      entityId: conversationId || `human_request_${Date.now()}`,
+      entityId: `human_request_${Date.now()}`,
       entityData: {
         clientPhone,
-        clientName: sanitizedClientName,
-        conversationId,
         source: 'sofia_ai_agent',
         requestType: 'human_assistance',
-        timestamp: new Date().toISOString(),
-        ...metadata
+        timestamp: new Date().toISOString()
       },
-      priority: priorityMap[urgency],
-      channels: [NotificationChannel.DASHBOARD], // Dashboard only by default
-      actions: conversationId ? [{
-        id: 'view_conversation',
-        label: 'Ver Conversa',
+      priority: NotificationPriority.HIGH,
+      channels: [NotificationChannel.DASHBOARD],
+      actions: [{
+        id: 'view_conversations',
+        label: 'Ver Conversas',
         type: 'primary',
         action: 'navigate',
         config: {
-          url: `/dashboard/conversas?id=${conversationId}`
+          url: '/dashboard/conversas'
         }
-      }] : undefined,
+      }],
       metadata: {
         source: 'sofia_ai_agent',
         triggerEvent: 'human_assistance_requested',
-        clientPhone,
-        urgency,
-        conversationId,
-        ...metadata
+        clientPhone
       }
     })
 
@@ -156,16 +113,14 @@ export async function POST(request: NextRequest) {
     logger.info('[POST-NOTIFICATION] Notification created successfully', {
       requestId,
       notificationId,
-      processingTime: `${processingTime}ms`,
-      tenantId: tenantId.substring(0, 8) + '***',
-      urgency
+      processingTime: `${processingTime}ms`
     })
 
     return NextResponse.json({
       success: true,
       data: {
         notificationId,
-        message: 'Notification sent to admin successfully'
+        message: 'Notification sent successfully'
       },
       meta: {
         requestId,
@@ -177,7 +132,7 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     const processingTime = Date.now() - startTime
 
-    logger.error('[POST-NOTIFICATION] Function execution failed', {
+    logger.error('[POST-NOTIFICATION] Execution failed', {
       requestId,
       error: error instanceof Error ? error.message : 'Unknown error',
       stack: error instanceof Error ? error.stack : undefined,
@@ -205,15 +160,15 @@ export async function POST(request: NextRequest) {
 export async function GET() {
   return NextResponse.json({
     function: 'post-notification',
-    version: '1.0.0',
-    description: 'AI agent posts notification to admin when client needs human assistance',
+    version: '2.0.0',
+    description: 'AI agent notifies admin when client needs human assistance (SIMPLIFIED)',
     status: 'operational',
     parameters: {
-      required: ['tenantId', 'targetUserId', 'clientPhone', 'message'],
-      optional: ['clientName', 'conversationId', 'urgency', 'metadata']
+      required: ['tenantId', 'clientPhone'],
+      optional: []
     },
-    urgencyLevels: ['low', 'medium', 'high', 'critical'],
-    defaultUrgency: 'high',
+    messageFormat: 'Cliente de número {clientPhone} quer falar com um humano',
+    priority: 'high',
     timestamp: new Date().toISOString()
   })
 }
