@@ -37,6 +37,7 @@ import {
   Business,
   Home,
   Celebration,
+  LocationOn,
 } from '@mui/icons-material';
 import { useForm, Controller } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
@@ -56,6 +57,17 @@ const stepSchemas = {
   propertiesCount: yup.object({
     propertiesCount: yup.number().min(0, 'Quantidade inválida'),
   }),
+  address: yup.object({
+    address: yup.string().required('Endereço completo é obrigatório'),
+  }),
+  addressDetails: yup.object({
+    street: yup.string(),
+    neighborhood: yup.string(),
+    city: yup.string().required('Cidade é obrigatória'),
+    state: yup.string().required('Estado é obrigatório'),
+    zipCode: yup.string(),
+    country: yup.string(),
+  }),
   email: yup.object({
     email: yup.string().email('Email inválido').required('Email é obrigatório'),
   }),
@@ -68,18 +80,33 @@ interface QuizSignupData {
   name: string;
   businessName: string;
   propertiesCount: number;
+  address: string;
+  street: string;
+  neighborhood: string;
+  city: string;
+  state: string;
+  zipCode: string;
+  country: string;
   email: string;
   password: string;
 }
 
 interface QuizStep {
-  id: keyof QuizSignupData;
+  id: keyof QuizSignupData | 'address' | 'addressDetails';
   question: string;
-  placeholder: string;
-  type: 'text' | 'email' | 'password' | 'number';
+  placeholder?: string;
+  type?: 'text' | 'email' | 'password' | 'number' | 'multifield';
   icon: React.ReactNode;
   hint?: string;
   options?: { label: string; value: number }[];
+  fields?: Array<{
+    id: keyof QuizSignupData;
+    label: string;
+    placeholder: string;
+    type?: 'text';
+    required?: boolean;
+    gridColumn?: string;
+  }>;
 }
 
 const QUIZ_STEPS: QuizStep[] = [
@@ -114,6 +141,29 @@ const QUIZ_STEPS: QuizStep[] = [
     ],
   },
   {
+    id: 'address',
+    question: 'Agora, qual é o endereço da sua imobiliária?',
+    placeholder: 'Rua Exemplo, 123 - Bairro - Cidade/Estado',
+    type: 'text',
+    icon: <LocationOn />,
+    hint: 'Este endereço será usado pela Sofia AI para enviar localização aos clientes',
+  },
+  {
+    id: 'addressDetails',
+    question: 'Complete os detalhes do endereço:',
+    type: 'multifield',
+    icon: <LocationOn />,
+    hint: 'Essas informações ajudam a Sofia a fornecer dados precisos',
+    fields: [
+      { id: 'street', label: 'Rua/Avenida', placeholder: 'Rua Exemplo, 123', gridColumn: '2fr 1fr' },
+      { id: 'zipCode', label: 'CEP', placeholder: '12345-678', gridColumn: '2fr 1fr' },
+      { id: 'neighborhood', label: 'Bairro', placeholder: 'Centro', gridColumn: '1fr 1fr' },
+      { id: 'city', label: 'Cidade', placeholder: 'São Paulo', required: true, gridColumn: '1fr 1fr' },
+      { id: 'state', label: 'Estado', placeholder: 'SP', required: true, gridColumn: '1fr 1fr' },
+      { id: 'country', label: 'País', placeholder: 'Brasil', gridColumn: '1fr 1fr' },
+    ],
+  },
+  {
     id: 'email',
     question: 'Ótimo! Agora, qual é o melhor email para sua conta?',
     placeholder: 'seu@email.com',
@@ -144,6 +194,7 @@ export default function QuizSignup() {
   const [showPassword, setShowPassword] = useState(false);
   const [formData, setFormData] = useState<Partial<QuizSignupData>>({
     propertiesCount: 0,
+    country: 'Brasil',
   });
 
   const inputRef = useRef<HTMLInputElement>(null);
@@ -168,7 +219,18 @@ export default function QuizSignup() {
   const handleNext = async (data: any) => {
     try {
       setError(null);
-      const stepData = { [currentStep.id]: data[currentStep.id] };
+
+      // For multifield steps, save all fields
+      let stepData: any;
+      if (currentStep.type === 'multifield' && currentStep.fields) {
+        stepData = {};
+        currentStep.fields.forEach((field) => {
+          stepData[field.id] = data[field.id];
+        });
+      } else {
+        stepData = { [currentStep.id]: data[currentStep.id] };
+      }
+
       setFormData((prev) => ({ ...prev, ...stepData }));
 
       // Mark step as completed
@@ -198,6 +260,32 @@ export default function QuizSignup() {
         businessName: data.businessName,
         propertiesCount: data.propertiesCount,
       });
+
+      // Get current user to extract tenantId
+      const { getAuth } = await import('firebase/auth');
+      const auth = getAuth();
+      const currentUser = auth.currentUser;
+
+      if (currentUser) {
+        // Save company address to settings
+        try {
+          const { createSettingsService } = await import('@/lib/services/settings-service');
+          const settingsService = createSettingsService(currentUser.uid);
+
+          await settingsService.updateCompanySettings(currentUser.uid, {
+            address: data.address || '',
+            street: data.street || '',
+            neighborhood: data.neighborhood || '',
+            city: data.city || '',
+            state: data.state || '',
+            zipCode: data.zipCode || '',
+            country: data.country || 'Brasil',
+          });
+        } catch (addressError) {
+          // Log error but don't block signup completion
+          console.error('Failed to save company address:', addressError);
+        }
+      }
 
       // Force immediate redirect after successful signup
       setTimeout(() => {
@@ -463,56 +551,190 @@ export default function QuizSignup() {
                   </Box>
                 )}
 
-                {/* Input Field */}
-                <Controller
-                  name={currentStep.id as any}
-                  control={form.control}
-                  defaultValue={formData[currentStep.id] || ''}
-                  render={({ field }) => (
-                    <TextField
-                      {...field}
-                      inputRef={inputRef}
-                      fullWidth
-                      type={currentStep.type === 'password' && showPassword ? 'text' : currentStep.type}
-                      placeholder={currentStep.placeholder}
-                      error={!!form.formState.errors[currentStep.id]}
-                      helperText={form.formState.errors[currentStep.id]?.message}
-                      InputProps={{
-                        endAdornment: currentStep.type === 'password' && (
-                          <InputAdornment position="end">
-                            <IconButton
-                              onClick={() => setShowPassword(!showPassword)}
-                              edge="end"
-                              sx={{ color: '#a1a1a1' }}
-                            >
-                              {showPassword ? <VisibilityOff /> : <Visibility />}
-                            </IconButton>
-                          </InputAdornment>
-                        ),
-                      }}
-                      sx={{
-                        '& .MuiOutlinedInput-root': {
-                          borderRadius: 2,
-                          backgroundColor: '#1a1a1a',
-                          fontSize: '1.1rem',
-                          '& fieldset': {
-                            borderColor: '#404040',
+                {/* Input Field(s) */}
+                {currentStep.type === 'multifield' && currentStep.fields ? (
+                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                    {/* Primeira linha: Rua e CEP */}
+                    <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '2fr 1fr' }, gap: 2 }}>
+                      {currentStep.fields.slice(0, 2).map((field) => (
+                        <Controller
+                          key={field.id}
+                          name={field.id as any}
+                          control={form.control}
+                          defaultValue={formData[field.id] || ''}
+                          render={({ field: controllerField }) => (
+                            <TextField
+                              {...controllerField}
+                              fullWidth
+                              label={field.label}
+                              placeholder={field.placeholder}
+                              error={!!form.formState.errors[field.id]}
+                              helperText={form.formState.errors[field.id]?.message as string}
+                              sx={{
+                                '& .MuiOutlinedInput-root': {
+                                  borderRadius: 2,
+                                  backgroundColor: '#1a1a1a',
+                                  '& fieldset': {
+                                    borderColor: '#404040',
+                                  },
+                                  '&:hover fieldset': {
+                                    borderColor: '#525252',
+                                  },
+                                  '&.Mui-focused fieldset': {
+                                    borderColor: '#16a34a',
+                                    borderWidth: 2,
+                                  },
+                                },
+                                '& .MuiOutlinedInput-input': {
+                                  color: '#ffffff',
+                                },
+                                '& .MuiInputLabel-root': {
+                                  color: '#a1a1a1',
+                                },
+                              }}
+                            />
+                          )}
+                        />
+                      ))}
+                    </Box>
+                    {/* Segunda linha: Bairro e Cidade */}
+                    <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 2 }}>
+                      {currentStep.fields.slice(2, 4).map((field) => (
+                        <Controller
+                          key={field.id}
+                          name={field.id as any}
+                          control={form.control}
+                          defaultValue={formData[field.id] || ''}
+                          render={({ field: controllerField }) => (
+                            <TextField
+                              {...controllerField}
+                              fullWidth
+                              label={field.label}
+                              placeholder={field.placeholder}
+                              error={!!form.formState.errors[field.id]}
+                              helperText={form.formState.errors[field.id]?.message as string}
+                              sx={{
+                                '& .MuiOutlinedInput-root': {
+                                  borderRadius: 2,
+                                  backgroundColor: '#1a1a1a',
+                                  '& fieldset': {
+                                    borderColor: '#404040',
+                                  },
+                                  '&:hover fieldset': {
+                                    borderColor: '#525252',
+                                  },
+                                  '&.Mui-focused fieldset': {
+                                    borderColor: '#16a34a',
+                                    borderWidth: 2,
+                                  },
+                                },
+                                '& .MuiOutlinedInput-input': {
+                                  color: '#ffffff',
+                                },
+                                '& .MuiInputLabel-root': {
+                                  color: '#a1a1a1',
+                                },
+                              }}
+                            />
+                          )}
+                        />
+                      ))}
+                    </Box>
+                    {/* Terceira linha: Estado e País */}
+                    <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 2 }}>
+                      {currentStep.fields.slice(4, 6).map((field) => (
+                        <Controller
+                          key={field.id}
+                          name={field.id as any}
+                          control={form.control}
+                          defaultValue={formData[field.id] || 'Brasil'}
+                          render={({ field: controllerField }) => (
+                            <TextField
+                              {...controllerField}
+                              fullWidth
+                              label={field.label}
+                              placeholder={field.placeholder}
+                              error={!!form.formState.errors[field.id]}
+                              helperText={form.formState.errors[field.id]?.message as string}
+                              sx={{
+                                '& .MuiOutlinedInput-root': {
+                                  borderRadius: 2,
+                                  backgroundColor: '#1a1a1a',
+                                  '& fieldset': {
+                                    borderColor: '#404040',
+                                  },
+                                  '&:hover fieldset': {
+                                    borderColor: '#525252',
+                                  },
+                                  '&.Mui-focused fieldset': {
+                                    borderColor: '#16a34a',
+                                    borderWidth: 2,
+                                  },
+                                },
+                                '& .MuiOutlinedInput-input': {
+                                  color: '#ffffff',
+                                },
+                                '& .MuiInputLabel-root': {
+                                  color: '#a1a1a1',
+                                },
+                              }}
+                            />
+                          )}
+                        />
+                      ))}
+                    </Box>
+                  </Box>
+                ) : (
+                  <Controller
+                    name={currentStep.id as any}
+                    control={form.control}
+                    defaultValue={formData[currentStep.id] || ''}
+                    render={({ field }) => (
+                      <TextField
+                        {...field}
+                        inputRef={inputRef}
+                        fullWidth
+                        type={currentStep.type === 'password' && showPassword ? 'text' : currentStep.type}
+                        placeholder={currentStep.placeholder}
+                        error={!!form.formState.errors[currentStep.id]}
+                        helperText={form.formState.errors[currentStep.id]?.message}
+                        InputProps={{
+                          endAdornment: currentStep.type === 'password' && (
+                            <InputAdornment position="end">
+                              <IconButton
+                                onClick={() => setShowPassword(!showPassword)}
+                                edge="end"
+                                sx={{ color: '#a1a1a1' }}
+                              >
+                                {showPassword ? <VisibilityOff /> : <Visibility />}
+                              </IconButton>
+                            </InputAdornment>
+                          ),
+                        }}
+                        sx={{
+                          '& .MuiOutlinedInput-root': {
+                            borderRadius: 2,
+                            backgroundColor: '#1a1a1a',
+                            fontSize: '1.1rem',
+                            '& fieldset': {
+                              borderColor: '#404040',
+                            },
+                            '&:hover fieldset': {
+                              borderColor: '#525252',
+                            },
+                            '&.Mui-focused fieldset': {
+                              borderColor: '#16a34a',
+                              borderWidth: 2,
+                            },
                           },
-                          '&:hover fieldset': {
-                            borderColor: '#525252',
+                          '& .MuiOutlinedInput-input': {
+                            color: '#ffffff',
                           },
-                          '&.Mui-focused fieldset': {
-                            borderColor: '#16a34a',
-                            borderWidth: 2,
-                          },
-                        },
-                        '& .MuiOutlinedInput-input': {
-                          color: '#ffffff',
-                        },
-                      }}
-                    />
-                  )}
-                />
+                        }}
+                      />
+                    )}
+                  />
+                )}
 
                 {error && (
                   <Alert
