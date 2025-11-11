@@ -245,6 +245,27 @@ export default function CreateReservationPage() {
         throw new Error('Erro: ID do cliente não foi definido');
       }
 
+      // Validações adicionais
+      if (!formData.propertyId) {
+        throw new Error('Por favor, selecione uma propriedade');
+      }
+
+      if (!formData.checkIn || !formData.checkOut) {
+        throw new Error('Por favor, selecione as datas de check-in e check-out');
+      }
+
+      if (formData.checkOut <= formData.checkIn) {
+        throw new Error('A data de check-out deve ser posterior à data de check-in');
+      }
+
+      if (formData.guests < 1) {
+        throw new Error('O número de hóspedes deve ser pelo menos 1');
+      }
+
+      if (formData.totalAmount <= 0) {
+        throw new Error('O valor total deve ser maior que zero');
+      }
+
       // Criar a reserva com o ID do cliente (novo ou existente)
       const reservationData = {
         propertyId: formData.propertyId,
@@ -257,20 +278,26 @@ export default function CreateReservationPage() {
         paymentStatus: formData.paymentStatus,
         paymentMethod: formData.paymentMethod,
         source: formData.source,
-        notes: formData.notes,
+        notes: formData.notes || '',
         createdAt: new Date(),
         updatedAt: new Date(),
       };
 
       // Create reservation using tenant services
-      await services.reservations.create(reservationData);
+      console.log('[CreateReservation] Criando reserva com dados:', reservationData);
+
+      const createdReservation = await services.reservations.create(reservationData);
+
+      console.log('[CreateReservation] Reserva criada com sucesso:', createdReservation);
 
       setSuccess(true);
       setTimeout(() => {
         router.push('/dashboard/reservations');
       }, 2000);
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Erro ao criar reserva. Tente novamente.');
+      console.error('[CreateReservation] Erro ao criar reserva:', err);
+      const errorMessage = err instanceof Error ? err.message : 'Erro ao criar reserva. Tente novamente.';
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }

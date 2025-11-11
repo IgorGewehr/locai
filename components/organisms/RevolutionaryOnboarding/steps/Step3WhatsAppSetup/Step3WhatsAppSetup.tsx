@@ -87,23 +87,40 @@ export default function Step3WhatsAppSetup({
     setError(null);
 
     try {
+      console.log('[WhatsAppSetup] Gerando QR Code...');
       const headers = await getAuthHeaders();
+      console.log('[WhatsAppSetup] Headers obtidos');
+
       const response = await fetch('/api/whatsapp/session', {
         method: 'POST',
         headers,
       });
 
-      const data = await response.json();
+      console.log('[WhatsAppSetup] Response status:', response.status);
 
-      if (data.success && data.data.qrCode) {
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('[WhatsAppSetup] Response error:', errorText);
+        throw new Error(`Erro na resposta: ${response.status}`);
+      }
+
+      const data = await response.json();
+      console.log('[WhatsAppSetup] Data received:', { success: data.success, hasQrCode: !!data.data?.qrCode });
+
+      if (data.success && data.data?.qrCode) {
+        console.log('[WhatsAppSetup] QR Code recebido com sucesso');
         setQrCode(data.data.qrCode);
         // Start polling for connection
         startPolling();
       } else {
-        setError('Erro ao gerar QR Code');
+        const errorMsg = data.error || 'Erro ao gerar QR Code';
+        console.error('[WhatsAppSetup] Erro no data:', errorMsg);
+        setError(errorMsg);
       }
     } catch (err) {
-      setError('Erro de conexão');
+      const errorMsg = err instanceof Error ? err.message : 'Erro de conexão';
+      console.error('[WhatsAppSetup] Exception:', err);
+      setError(errorMsg);
     } finally {
       setLoading(false);
     }

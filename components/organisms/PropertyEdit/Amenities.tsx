@@ -81,7 +81,20 @@ const AMENITY_CATEGORIES = {
 export const PropertyAmenities: React.FC = () => {
   const theme = useTheme();
   const formContext = useFormContext();
-  const { control, watch, setValue } = formContext || {};
+
+  // Proteção contra formContext undefined
+  if (!formContext) {
+    logger.error('[PropertyAmenities] FormContext não encontrado');
+    return (
+      <Box sx={{ p: 3, textAlign: 'center' }}>
+        <Typography color="error">
+          Erro: Componente deve ser usado dentro de FormProvider
+        </Typography>
+      </Box>
+    );
+  }
+
+  const { control, watch, setValue } = formContext;
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState<string>('essentials');
   const [customAmenity, setCustomAmenity] = useState('');

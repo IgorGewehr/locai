@@ -335,11 +335,11 @@ export default function SettingsPage() {
           // Open dialog immediately for better UX
           setTimeout(() => setQrDialogOpen(true), 200);
           
-          // Start polling for connection status every 3 seconds for faster sync
+          // Start polling for connection status every 8 seconds (optimized to reduce server load)
           const checkConnection = setInterval(() => {
             console.log('🔄 [Settings] Checking connection status while QR is displayed');
             refreshStatus();
-          }, 3000);
+          }, 8000);
           
           setConnectionCheckInterval(checkConnection);
         } else if (data.data.connected) {

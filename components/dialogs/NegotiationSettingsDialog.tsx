@@ -66,18 +66,33 @@ export default function NegotiationSettingsDialog({ open, onClose }: Props) {
       setLoading(true);
       setError(null);
 
+      console.log('[NegotiationDialog] Carregando configurações...');
+
       const response = await fetch('/api/tenant/settings/negotiation');
+
+      console.log('[NegotiationDialog] Response status:', response.status);
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
       const data = await response.json();
+
+      console.log('[NegotiationDialog] Data received:', data);
 
       if (data.success) {
         setSettings(data.data);
         setIsDefault(data.isDefault);
+        console.log('[NegotiationDialog] Settings loaded successfully');
       } else {
-        setError(data.error || 'Erro ao carregar configurações');
+        const errorMsg = data.error || 'Erro ao carregar configurações';
+        setError(errorMsg);
+        console.error('[NegotiationDialog] Error in response:', errorMsg);
       }
     } catch (err) {
-      setError('Falha ao carregar configurações');
-      console.error(err);
+      const errorMsg = 'Falha ao carregar configurações';
+      setError(errorMsg);
+      console.error('[NegotiationDialog] Exception:', err);
     } finally {
       setLoading(false);
     }
@@ -147,18 +162,6 @@ export default function NegotiationSettingsDialog({ open, onClose }: Props) {
     setSettings({ ...settings, [key]: value });
   };
 
-  if (!settings) {
-    return (
-      <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
-        <DialogContent>
-          <Box display="flex" justifyContent="center" alignItems="center" minHeight={200}>
-            <CircularProgress />
-          </Box>
-        </DialogContent>
-      </Dialog>
-    );
-  }
-
   return (
     <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
       <DialogTitle>
@@ -172,11 +175,34 @@ export default function NegotiationSettingsDialog({ open, onClose }: Props) {
       </DialogTitle>
 
       <DialogContent dividers>
-        {error && (
+        {loading && !settings ? (
+          <Box display="flex" justifyContent="center" alignItems="center" minHeight={200}>
+            <CircularProgress />
+          </Box>
+        ) : error ? (
           <Alert severity="error" sx={{ mb: 2 }}>
             {error}
+            <Button
+              size="small"
+              onClick={loadSettings}
+              sx={{ mt: 1, display: 'block' }}
+            >
+              Tentar novamente
+            </Button>
           </Alert>
-        )}
+        ) : !settings ? (
+          <Box display="flex" justifyContent="center" alignItems="center" minHeight={200}>
+            <Typography color="text.secondary">
+              Nenhuma configuração carregada
+            </Typography>
+          </Box>
+        ) : (
+          <>
+            {error && (
+              <Alert severity="error" sx={{ mb: 2 }}>
+                {error}
+              </Alert>
+            )}
 
         {isDefault && (
           <Alert severity="info" sx={{ mb: 2 }}>
@@ -462,13 +488,15 @@ export default function NegotiationSettingsDialog({ open, onClose }: Props) {
             </Stack>
           </AccordionDetails>
         </Accordion>
+          </>
+        )}
       </DialogContent>
 
       <DialogActions>
         <Button onClick={onClose} disabled={saving}>
           Cancelar
         </Button>
-        <Button onClick={handleSave} variant="contained" disabled={saving || loading}>
+        <Button onClick={handleSave} variant="contained" disabled={saving || loading || !settings}>
           {saving ? <CircularProgress size={24} /> : 'Salvar Configurações'}
         </Button>
       </DialogActions>

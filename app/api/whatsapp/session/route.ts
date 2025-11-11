@@ -285,25 +285,26 @@ export async function POST(request: NextRequest) {
     // 6. AGUARDAR e verificar status com retry para QR code
     let sessionStatus;
     let attempts = 0;
-    const maxAttempts = 15; // 15 tentativas = ~30 segundos máximo
-    
+    const maxAttempts = 45; // 45 tentativas = ~90 segundos (aligned with Baileys 180s timeout)
+
     do {
       await new Promise(resolve => setTimeout(resolve, 2000));
       sessionStatus = await microserviceClient.getSessionStatus(tenantId);
       attempts++;
-      
+
       logger.info('🔍 [Session] Checking for QR code', {
         attempt: attempts,
+        maxAttempts,
         hasQR: !!sessionStatus.qrCode,
         status: sessionStatus.status,
         connected: sessionStatus.connected
       });
-      
+
       // Se já conectado ou tem QR code, sair do loop
       if (sessionStatus.connected || sessionStatus.qrCode) {
         break;
       }
-      
+
     } while (attempts < maxAttempts && !sessionStatus.connected && !sessionStatus.qrCode);
 
     // 7. FORMATAR RESPOSTA final

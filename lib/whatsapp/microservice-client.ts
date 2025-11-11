@@ -239,7 +239,7 @@ export class WhatsAppMicroserviceClient {
           'Authorization': `Bearer ${this.apiKey}`,
           'X-Tenant-ID': tenantId
         },
-        signal: AbortSignal.timeout(15000) // 15s timeout
+        signal: AbortSignal.timeout(30000) // 30s timeout (increased for better stability)
       });
 
       logger.info('🌐 [MicroserviceClient] Response received', {
