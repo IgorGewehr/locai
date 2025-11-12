@@ -143,12 +143,12 @@ export default function Step3WhatsAppSetup({
           }, 2000);
         }
       } catch (err) {
-        console.error('Polling error:', err);
+        console.error('[WhatsAppSetup] Polling error:', err);
       }
-    }, 3000);
+    }, 8000); // Aumentado de 3s para 8s
 
-    // Clear after 2 minutes
-    setTimeout(() => clearInterval(interval), 120000);
+    // Clear after 3 minutes (aumentado de 2min)
+    setTimeout(() => clearInterval(interval), 180000);
   };
 
   const handleSkip = () => {

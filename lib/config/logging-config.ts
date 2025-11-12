@@ -58,7 +58,7 @@ export const LOGGING_CONFIG: LoggingConfig = {
       'API Request: GET',
       'API Request: POST /api/agent',
       'WhatsApp incoming message',
-      'WhatsApp outgoing message', 
+      'WhatsApp outgoing message',
       'Property search completed',
       'AI interaction completed',
       'Sofia] Usando',
@@ -66,7 +66,19 @@ export const LOGGING_CONFIG: LoggingConfig = {
       'Sofia] Analytics',
       'Sofia Enhanced] Processamento concluído',
       'Operation completed',
-      'Criando instância'
+      'Criando instância',
+      // WhatsApp session logs (muito frequentes)
+      '[MicroserviceClient] Consultando status',
+      '[MicroserviceClient] Status da sessão obtido',
+      '[MicroserviceClient] Response received',
+      '[MicroserviceClient] Raw response',
+      '[FirebaseAuth] Token válido',
+      '[Session API] POST request received',
+      '[Session API] Starting auth',
+      '[Session API] Auth successful',
+      '[Session API] Processing for tenant',
+      '[Session] Checking for QR code',
+      'Session initialization completed',
     ],
     
     // Limitar tamanho das mensagens para economizar espaço

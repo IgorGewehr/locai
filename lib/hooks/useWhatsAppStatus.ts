@@ -17,11 +17,11 @@ const statusCache = new Map<string, {
 
 // Configurações de cache inteligente baseado no status
 const CACHE_TTL = {
-  connected: 60000,     // 1 minuto quando conectado
-  disconnected: 30000,  // 30 segundos quando desconectado
-  error: 10000,         // 10 segundos em erro
-  connecting: 5000,     // 5 segundos conectando
-  qr: 5000             // 5 segundos esperando QR
+  connected: 300000,    // 5 minutos quando conectado (estava em 1min)
+  disconnected: 60000,  // 1 minuto quando desconectado (estava em 30s)
+  error: 30000,         // 30 segundos em erro (estava em 10s)
+  connecting: 8000,     // 8 segundos conectando (estava em 5s)
+  qr: 8000             // 8 segundos esperando QR (estava em 5s)
 };
 
 // Interface para o indicador visual
@@ -167,12 +167,12 @@ export function useWhatsAppStatus(autoRefresh = false) {
       const getRefreshInterval = () => {
         switch (status) {
           case 'connected':
-            return 60000; // 1 minuto
+            return 300000; // 5 minutos (reduzido de 1min)
           case 'connecting':
           case 'qr':
-            return 5000;  // 5 segundos
+            return 10000;  // 10 segundos (reduzido de 5s)
           default:
-            return 30000; // 30 segundos
+            return 60000; // 1 minuto (reduzido de 30s)
         }
       };
       
