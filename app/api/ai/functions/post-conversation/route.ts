@@ -68,19 +68,20 @@ export async function POST(request: NextRequest) {
 
     const {
       tenantId,
-      clientMessage,
-      sofiaMessage,
       clientPhone,
-      clientName,
-      context,
-      conversationId: providedConversationId
+      clientMessage,
+      clientMessageTimestamp,
+      sofiaMessage,
+      sofiaMessageTimestamp
     } = validationResult.data;
 
     // Sanitizar mensagens
     const sanitizedClientMessage = sanitizeUserInput(clientMessage);
-    // sofiaMessage pode ser null quando apenas salvando mensagem do cliente (sem resposta ainda)
     const sanitizedSofiaMessage = sofiaMessage ? sanitizeUserInput(sofiaMessage) : null;
-    const sanitizedClientName = clientName ? sanitizeUserInput(clientName) : undefined;
+
+    // Parse timestamps (usar timestamp fornecido ou criar novo)
+    const clientMsgTime = clientMessageTimestamp ? new Date(clientMessageTimestamp) : new Date();
+    const sofiaMsgTime = sofiaMessageTimestamp ? new Date(sofiaMessageTimestamp) : (sanitizedSofiaMessage ? new Date() : null);
 
     if (!sanitizedSofiaMessage) {
       logger.info('ℹ️ [POST-CONVERSATION] Salvando apenas mensagem do cliente (sofiaMessage=null)', {
@@ -145,10 +146,9 @@ export async function POST(request: NextRequest) {
 
         const newConversation: Omit<ConversationHeader, 'id'> = {
           tenantId,
-          clientPhone: clientPhone || 'unknown',
-          clientName: sanitizedClientName,
-          startedAt: new Date(),
-          lastMessageAt: new Date(),
+          clientPhone,
+          startedAt: clientMsgTime,
+          lastMessageAt: clientMsgTime,
           messageCount: 0,
           status: 'active' as ConversationStatus,
           tags: [],
@@ -171,9 +171,9 @@ export async function POST(request: NextRequest) {
       conversationId: conversationId!,
       tenantId,
       clientMessage: sanitizedClientMessage,
+      clientMessageTimestamp: clientMsgTime,
       sofiaMessage: sanitizedSofiaMessage,
-      timestamp: new Date(),
-      context,
+      sofiaMessageTimestamp: sofiaMsgTime,
       createdAt: new Date(),
     };
 
@@ -187,15 +187,10 @@ export async function POST(request: NextRequest) {
 
     // 3. Atualizar conversation header
     const updateData: Partial<ConversationHeader> = {
-      lastMessageAt: new Date(),
+      lastMessageAt: sofiaMsgTime || clientMsgTime, // Usa timestamp da última mensagem
       messageCount: (conversation?.messageCount || 0) + 1,
       updatedAt: new Date(),
     };
-
-    // Atualizar nome se fornecido e ainda não existir
-    if (sanitizedClientName && !conversation?.clientName) {
-      updateData.clientName = sanitizedClientName;
-    }
 
     await conversationsService.update(conversationId!, updateData);
 

@@ -60,15 +60,13 @@ export interface ConversationMessage {
   conversationId: string; // FK - INDEXED for queries
   tenantId: string;
 
-  // Mensagens principais (dados enviados pelo agente)
+  // Mensagem do cliente
   clientMessage: string;
-  sofiaMessage: string | null; // Pode ser null quando apenas salvando mensagem do cliente
+  clientMessageTimestamp: Date; // Horário da mensagem do cliente
 
-  // Timestamp
-  timestamp: Date;
-
-  // Contexto para fine-tuning e análise
-  context?: MessageContext;
+  // Mensagem da Sofia (opcional)
+  sofiaMessage: string | null;
+  sofiaMessageTimestamp: Date | null; // Horário da resposta da Sofia (null se não houver resposta)
 
   // Metadata
   createdAt: Date;
@@ -98,13 +96,17 @@ export interface MessageContext {
  * Request/Response types for API
  */
 export interface PostConversationRequest {
+  // Campos essenciais
   tenantId: string;
+  clientPhone: string;
+
+  // Mensagem do cliente
   clientMessage: string;
-  sofiaMessage: string | null; // Pode ser null quando apenas salvando mensagem do cliente
-  clientPhone?: string;
-  clientName?: string;
-  context?: MessageContext;
-  conversationId?: string; // Optional - se já existe uma conversa ativa
+  clientMessageTimestamp?: string; // ISO timestamp
+
+  // Mensagem da Sofia (opcional)
+  sofiaMessage?: string | null;
+  sofiaMessageTimestamp?: string | null; // ISO timestamp
 }
 
 export interface PostConversationResponse {

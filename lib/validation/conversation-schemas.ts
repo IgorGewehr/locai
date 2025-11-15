@@ -4,29 +4,19 @@ import { z } from 'zod';
  * Validation schemas for conversation endpoints
  */
 
-export const MessageContextSchema = z.object({
-  intent: z.string().optional(),
-  entities: z.record(z.any()).optional(),
-  functionsCalled: z.array(z.string()).optional(),
-  confidence: z.number().min(0).max(1).optional(),
-  metadata: z.record(z.any()).optional(),
-  // Campos adicionais do N8N workflow
-  whatsappSent: z.boolean().optional(),
-  whatsappMessageId: z.string().nullable().optional(),
-  timestamp: z.string().optional(),
-  messageType: z.string().optional(),
-  workflowId: z.string().optional(),
-}).passthrough().optional(); // passthrough() permite campos extras
-
 export const PostConversationSchema = z.object({
+  // Campos essenciais
   tenantId: z.string().min(1, 'TenantId é obrigatório'),
+  clientPhone: z.string().min(1, 'Telefone do cliente é obrigatório'),
+
+  // Mensagem do cliente
   clientMessage: z.string().min(1, 'Mensagem do cliente é obrigatória').max(10000, 'Mensagem muito longa'),
-  // sofiaMessage pode ser null quando ainda não há resposta (apenas salvando mensagem do cliente)
-  sofiaMessage: z.string().max(10000, 'Mensagem muito longa').nullable().optional(),
-  clientPhone: z.string().optional(),
-  clientName: z.string().max(200).optional(),
-  context: MessageContextSchema,
-  conversationId: z.string().optional(),
+  clientMessageTimestamp: z.string().optional(), // ISO timestamp da mensagem do cliente
+
+  // Mensagem da Sofia (opcional)
+  sofiaMessage: z.string().max(10000, 'Mensagem muito longa').nullable().optional()
+    .transform(val => val === '' ? null : val), // Transforma string vazia em null
+  sofiaMessageTimestamp: z.string().nullable().optional(), // ISO timestamp da resposta da Sofia
 });
 
 export const GetConversationsSchema = z.object({
