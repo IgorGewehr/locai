@@ -81,9 +81,11 @@ export async function POST(request: NextRequest) {
     const sanitizedClientName = clientName ? sanitizeUserInput(clientName) : undefined;
 
     // Inicializar serviços
+    logger.info('🔧 [POST-CONVERSATION] Inicializando serviços', { requestId, tenantId: tenantId.substring(0, 8) + '***' });
     const services = new TenantServiceFactory(tenantId);
     const conversationsService = services.createService<ConversationHeader>('conversations');
     const messagesService = services.createService<ConversationMessage>('messages');
+    logger.info('✅ [POST-CONVERSATION] Serviços inicializados', { requestId });
 
     // 1. Identificar ou criar Conversation
     let conversationId = providedConversationId;
@@ -107,6 +109,11 @@ export async function POST(request: NextRequest) {
     if (!conversationId) {
       // Tentar encontrar conversa ativa por telefone
       if (clientPhone) {
+        logger.info('🔍 [POST-CONVERSATION] Buscando conversa ativa', {
+          requestId,
+          clientPhone: clientPhone.substring(0, 8) + '***'
+        });
+
         const activeConversations = await conversationsService.getMany([
           { field: 'clientPhone', operator: '==', value: clientPhone },
           { field: 'status', operator: '==', value: 'active' as ConversationStatus }
@@ -211,21 +218,29 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     const processingTime = Date.now() - startTime;
 
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    const errorStack = error instanceof Error ? error.stack : undefined;
+
     logger.error('❌ [POST-CONVERSATION] Erro ao processar conversa', {
       requestId,
-      error: error instanceof Error ? error.message : 'Unknown error',
-      stack: error instanceof Error ? error.stack?.substring(0, 500) : undefined,
+      error: errorMessage,
+      errorType: error?.constructor?.name,
+      stack: errorStack?.substring(0, 500),
       processingTime: `${processingTime}ms`
     });
+
+    // Log completo do stack em desenvolvimento
+    if (process.env.NODE_ENV === 'development' && errorStack) {
+      console.error('Full error stack:', errorStack);
+    }
 
     return NextResponse.json(
       {
         success: false,
         error: 'Erro ao salvar conversa',
         requestId,
-        details: process.env.NODE_ENV === 'development' ?
-          error instanceof Error ? error.message : 'Unknown error' :
-          undefined
+        details: process.env.NODE_ENV === 'development' ? errorMessage : undefined,
+        errorType: process.env.NODE_ENV === 'development' ? error?.constructor?.name : undefined
       },
       { status: 500 }
     );

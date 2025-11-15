@@ -10,7 +10,13 @@ export const MessageContextSchema = z.object({
   functionsCalled: z.array(z.string()).optional(),
   confidence: z.number().min(0).max(1).optional(),
   metadata: z.record(z.any()).optional(),
-}).optional();
+  // Campos adicionais do N8N workflow
+  whatsappSent: z.boolean().optional(),
+  whatsappMessageId: z.string().nullable().optional(),
+  timestamp: z.string().optional(),
+  messageType: z.string().optional(),
+  workflowId: z.string().optional(),
+}).passthrough().optional(); // passthrough() permite campos extras
 
 export const PostConversationSchema = z.object({
   tenantId: z.string().min(1, 'TenantId é obrigatório'),

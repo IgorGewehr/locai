@@ -49,14 +49,6 @@ export interface ConversationOutcome {
   notes?: string;
 }
 
-export enum ConversationStatus {
-  ACTIVE = 'active',
-  COMPLETED = 'completed',
-  ABANDONED = 'abandoned',
-  SUCCESS = 'success',      // Conversa bem-sucedida (conversão)
-  PENDING = 'pending',       // Aguardando resposta
-}
-
 export type ConversationStatus = 'active' | 'completed' | 'abandoned' | 'success' | 'pending';
 
 /**
