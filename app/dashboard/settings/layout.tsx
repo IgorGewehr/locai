@@ -37,7 +37,10 @@ import {
   Menu as MenuIcon,
   Close as CloseIcon,
   Payment as PaymentIcon,
+  ArrowBack as ArrowBackIcon,
+  Dashboard as DashboardIcon,
 } from '@mui/icons-material';
+import { Breadcrumbs, Link } from '@mui/material';
 import { usePathname, useRouter } from 'next/navigation';
 
 const DRAWER_WIDTH = 280;
@@ -65,7 +68,7 @@ const SETTINGS_SECTIONS: SettingsSection[] = [
     label: 'Empresa',
     icon: <BusinessIcon />,
     path: '/dashboard/settings/company',
-    description: 'Endereço, dados da imobiliária e informações fiscais',
+    description: 'Dados da empresa e informações bancárias',
   },
   {
     id: 'ai-config',
@@ -78,7 +81,7 @@ const SETTINGS_SECTIONS: SettingsSection[] = [
   },
   {
     id: 'negotiation',
-    label: 'Negociação IA',
+    label: 'Negociação',
     icon: <NegotiationIcon />,
     path: '/dashboard/settings/negotiation',
     description: 'Regras de descontos, limites e estratégias de vendas',
@@ -88,23 +91,7 @@ const SETTINGS_SECTIONS: SettingsSection[] = [
     label: 'Políticas',
     icon: <PolicyIcon />,
     path: '/dashboard/settings/policies',
-    description: 'Políticas de cancelamento, termos e condições',
-  },
-  {
-    id: 'payment-provider',
-    label: 'Provedor de Pagamento',
-    icon: <PaymentIcon />,
-    path: '/dashboard/settings/payment-provider',
-    badge: 'BETA',
-    badgeColor: 'warning',
-    description: 'Configure AbacatePay, Stripe ou Mercado Pago',
-  },
-  {
-    id: 'advanced',
-    label: 'Avançado',
-    icon: <TuneIcon />,
-    path: '/dashboard/settings/advanced',
-    description: 'Configurações técnicas e experimentais',
+    description: 'Cancelamento, termos de uso e privacidade',
   },
 ];
 
@@ -332,13 +319,85 @@ export default function SettingsLayout({ children }: { children: ReactNode }) {
         component="main"
         sx={{
           flexGrow: 1,
-          p: { xs: 2, sm: 3, md: 4 },
           width: { md: `calc(100% - ${DRAWER_WIDTH}px)` },
-          maxWidth: '1400px',
-          mx: 'auto',
+          display: 'flex',
+          flexDirection: 'column',
         }}
       >
-        {children}
+        {/* Header with Breadcrumbs */}
+        <Paper
+          elevation={0}
+          sx={{
+            p: { xs: 2, md: 3 },
+            borderBottom: 1,
+            borderColor: 'divider',
+            display: 'flex',
+            flexDirection: { xs: 'column', sm: 'row' },
+            alignItems: { xs: 'flex-start', sm: 'center' },
+            justifyContent: 'space-between',
+            gap: 2,
+            bgcolor: 'background.paper',
+          }}
+        >
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+            <IconButton
+              onClick={() => router.push('/dashboard')}
+              sx={{
+                bgcolor: 'action.hover',
+                '&:hover': {
+                  bgcolor: 'action.selected',
+                },
+              }}
+            >
+              <ArrowBackIcon />
+            </IconButton>
+
+            <Box>
+              <Breadcrumbs separator="›" sx={{ mb: 0.5 }}>
+                <Link
+                  href="/dashboard"
+                  underline="hover"
+                  color="text.secondary"
+                  sx={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 0.5,
+                    cursor: 'pointer',
+                  }}
+                  onClick={(e) => {
+                    e.preventDefault();
+                    router.push('/dashboard');
+                  }}
+                >
+                  <DashboardIcon fontSize="small" />
+                  Dashboard
+                </Link>
+                <Typography color="primary" fontWeight={600}>
+                  Configurações
+                </Typography>
+              </Breadcrumbs>
+
+              <Typography variant="body2" color="text.secondary">
+                {SETTINGS_SECTIONS.find((s) => s.path === pathname)?.description ||
+                  'Gerencie as configurações do sistema'}
+              </Typography>
+            </Box>
+          </Box>
+        </Paper>
+
+        {/* Content Area */}
+        <Box
+          sx={{
+            flexGrow: 1,
+            p: { xs: 2, sm: 3, md: 4 },
+            maxWidth: '1400px',
+            width: '100%',
+            mx: 'auto',
+            overflowY: 'auto',
+          }}
+        >
+          {children}
+        </Box>
       </Box>
     </Box>
   );
