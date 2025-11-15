@@ -38,6 +38,7 @@ const MiniSiteWidgetFullWidth = lazy(() => import('@/components/organisms/market
 const AgendaCard = lazy(() => import('@/components/organisms/dashboards/AgendaCard'));
 const MetricsCard = lazy(() => import('@/components/organisms/dashboards/MetricsCard'));
 const SofiaCard = lazy(() => import('@/components/organisms/dashboards/SofiaCard'));
+const ConversationsMetricsCard = lazy(() => import('@/components/organisms/dashboards/ConversationsMetricsCard').then(m => ({ default: m.ConversationsMetricsCard })));
 const CreateVisitDialog = lazy(() => import('./agenda/components/CreateVisitDialog'));
 import { SafeRevolutionaryOnboarding } from '@/components/organisms/RevolutionaryOnboarding';
 import { useRouter } from 'next/navigation';
@@ -512,21 +513,27 @@ export default function DashboardPage() {
           />
         </Grid>
 
-        {/* Second Row - Detailed Information Cards (3 Equal Cards) */}
+        {/* Second Row - Detailed Information Cards (4 Equal Cards) */}
         {/* 🚀 PERFORMANCE: Suspense para lazy loading */}
-        <Grid item xs={12} lg={4}>
+        <Grid item xs={12} sm={6} lg={3}>
+          <Suspense fallback={<CardSkeleton />}>
+            <ConversationsMetricsCard />
+          </Suspense>
+        </Grid>
+
+        <Grid item xs={12} sm={6} lg={3}>
           <Suspense fallback={<CardSkeleton />}>
             <AgendaCard onCreateEvent={() => setShowVisitDialog(true)} />
           </Suspense>
         </Grid>
 
-        <Grid item xs={12} lg={4}>
+        <Grid item xs={12} sm={6} lg={3}>
           <Suspense fallback={<CardSkeleton />}>
             <MetricsCard />
           </Suspense>
         </Grid>
 
-        <Grid item xs={12} lg={4}>
+        <Grid item xs={12} sm={6} lg={3}>
           <Suspense fallback={<CardSkeleton />}>
             <SofiaCard />
           </Suspense>
