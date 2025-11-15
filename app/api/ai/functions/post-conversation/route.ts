@@ -79,9 +79,42 @@ export async function POST(request: NextRequest) {
     const sanitizedClientMessage = sanitizeUserInput(clientMessage);
     const sanitizedSofiaMessage = sofiaMessage ? sanitizeUserInput(sofiaMessage) : null;
 
-    // Parse timestamps (usar timestamp fornecido ou criar novo)
-    const clientMsgTime = clientMessageTimestamp ? new Date(clientMessageTimestamp) : new Date();
-    const sofiaMsgTime = sofiaMessageTimestamp ? new Date(sofiaMessageTimestamp) : (sanitizedSofiaMessage ? new Date() : null);
+    // Parse timestamps com validação
+    let clientMsgTime: Date;
+    let sofiaMsgTime: Date | null = null;
+
+    try {
+      clientMsgTime = clientMessageTimestamp ? new Date(clientMessageTimestamp) : new Date();
+
+      // Validar se é uma data válida
+      if (isNaN(clientMsgTime.getTime())) {
+        logger.warn('⚠️ [POST-CONVERSATION] clientMessageTimestamp inválido, usando data atual', {
+          requestId,
+          timestamp: clientMessageTimestamp
+        });
+        clientMsgTime = new Date();
+      }
+
+      if (sofiaMessageTimestamp) {
+        sofiaMsgTime = new Date(sofiaMessageTimestamp);
+        if (isNaN(sofiaMsgTime.getTime())) {
+          logger.warn('⚠️ [POST-CONVERSATION] sofiaMessageTimestamp inválido, usando data atual', {
+            requestId,
+            timestamp: sofiaMessageTimestamp
+          });
+          sofiaMsgTime = sanitizedSofiaMessage ? new Date() : null;
+        }
+      } else if (sanitizedSofiaMessage) {
+        sofiaMsgTime = new Date();
+      }
+    } catch (error) {
+      logger.error('❌ [POST-CONVERSATION] Erro ao processar timestamps', {
+        requestId,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+      clientMsgTime = new Date();
+      sofiaMsgTime = sanitizedSofiaMessage ? new Date() : null;
+    }
 
     if (!sanitizedSofiaMessage) {
       logger.info('ℹ️ [POST-CONVERSATION] Salvando apenas mensagem do cliente (sofiaMessage=null)', {
@@ -90,7 +123,16 @@ export async function POST(request: NextRequest) {
     }
 
     // Inicializar serviços
-    logger.info('🔧 [POST-CONVERSATION] Inicializando serviços', { requestId, tenantId: tenantId.substring(0, 8) + '***' });
+    logger.info('🔧 [POST-CONVERSATION] Inicializando serviços', {
+      requestId,
+      tenantId: tenantId.substring(0, 8) + '***',
+      clientPhone: clientPhone.substring(0, 8) + '***',
+      hasClientMessage: !!sanitizedClientMessage,
+      hasSofiaMessage: !!sanitizedSofiaMessage,
+      clientMsgTime: clientMsgTime.toISOString(),
+      sofiaMsgTime: sofiaMsgTime?.toISOString() || 'null'
+    });
+
     const services = new TenantServiceFactory(tenantId);
     const conversationsService = services.createService<ConversationHeader>('conversations');
     const messagesService = services.createService<ConversationMessage>('messages');
@@ -167,6 +209,17 @@ export async function POST(request: NextRequest) {
     }
 
     // 2. Salvar mensagem
+    logger.info('💬 [POST-CONVERSATION] Criando mensagem', {
+      requestId,
+      conversationId,
+      messageData: {
+        clientMessageLength: sanitizedClientMessage.length,
+        sofiaMessageLength: sanitizedSofiaMessage?.length || 0,
+        clientMsgTime: clientMsgTime.toISOString(),
+        sofiaMsgTime: sofiaMsgTime?.toISOString() || 'null'
+      }
+    });
+
     const newMessage: Omit<ConversationMessage, 'id'> = {
       conversationId: conversationId!,
       tenantId,
