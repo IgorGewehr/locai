@@ -21,7 +21,8 @@ export const MessageContextSchema = z.object({
 export const PostConversationSchema = z.object({
   tenantId: z.string().min(1, 'TenantId é obrigatório'),
   clientMessage: z.string().min(1, 'Mensagem do cliente é obrigatória').max(10000, 'Mensagem muito longa'),
-  sofiaMessage: z.string().min(1, 'Mensagem da Sofia é obrigatória').max(10000, 'Mensagem muito longa'),
+  // sofiaMessage pode ser null quando ainda não há resposta (apenas salvando mensagem do cliente)
+  sofiaMessage: z.string().max(10000, 'Mensagem muito longa').nullable().optional(),
   clientPhone: z.string().optional(),
   clientName: z.string().max(200).optional(),
   context: MessageContextSchema,

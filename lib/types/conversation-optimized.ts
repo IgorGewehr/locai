@@ -62,7 +62,7 @@ export interface ConversationMessage {
 
   // Mensagens principais (dados enviados pelo agente)
   clientMessage: string;
-  sofiaMessage: string;
+  sofiaMessage: string | null; // Pode ser null quando apenas salvando mensagem do cliente
 
   // Timestamp
   timestamp: Date;
@@ -100,7 +100,7 @@ export interface MessageContext {
 export interface PostConversationRequest {
   tenantId: string;
   clientMessage: string;
-  sofiaMessage: string;
+  sofiaMessage: string | null; // Pode ser null quando apenas salvando mensagem do cliente
   clientPhone?: string;
   clientName?: string;
   context?: MessageContext;

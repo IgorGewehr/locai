@@ -39,6 +39,7 @@ export async function POST(request: NextRequest) {
       tenantId: body.tenantId?.substring(0, 8) + '***',
       hasClientPhone: !!body.clientPhone,
       hasContext: !!body.context,
+      hasSofiaMessage: !!body.sofiaMessage,
       messageLength: {
         client: body.clientMessage?.length || 0,
         sofia: body.sofiaMessage?.length || 0,
@@ -77,8 +78,15 @@ export async function POST(request: NextRequest) {
 
     // Sanitizar mensagens
     const sanitizedClientMessage = sanitizeUserInput(clientMessage);
-    const sanitizedSofiaMessage = sanitizeUserInput(sofiaMessage);
+    // sofiaMessage pode ser null quando apenas salvando mensagem do cliente (sem resposta ainda)
+    const sanitizedSofiaMessage = sofiaMessage ? sanitizeUserInput(sofiaMessage) : null;
     const sanitizedClientName = clientName ? sanitizeUserInput(clientName) : undefined;
+
+    if (!sanitizedSofiaMessage) {
+      logger.info('ℹ️ [POST-CONVERSATION] Salvando apenas mensagem do cliente (sofiaMessage=null)', {
+        requestId
+      });
+    }
 
     // Inicializar serviços
     logger.info('🔧 [POST-CONVERSATION] Inicializando serviços', { requestId, tenantId: tenantId.substring(0, 8) + '***' });
