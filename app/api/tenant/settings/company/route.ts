@@ -38,6 +38,19 @@ const CompanyInfoSchema = z.object({
   state: z.string().max(2).optional(),
   zipCode: z.string().max(10).optional(),
   country: z.string().max(100).optional(),
+
+  // Bank Information (for payment transfers)
+  bankInfo: z.object({
+    bankCode: z.string().min(3).max(4), // Ex: "001" (Banco do Brasil)
+    bankName: z.string().min(1).max(100), // Ex: "Banco do Brasil"
+    agencyNumber: z.string().min(1).max(10),
+    agencyDigit: z.string().max(2).optional(),
+    accountNumber: z.string().min(1).max(20),
+    accountDigit: z.string().min(1).max(2),
+    accountType: z.enum(['checking', 'savings']),
+    pixKey: z.string().max(200).optional(),
+    pixKeyType: z.enum(['cpf', 'cnpj', 'email', 'phone', 'random']).optional(),
+  }).optional(),
 });
 
 type CompanyInfo = z.infer<typeof CompanyInfoSchema>;
@@ -60,6 +73,7 @@ const DEFAULT_COMPANY_INFO: CompanyInfo = {
   state: '',
   zipCode: '',
   country: 'Brasil',
+  bankInfo: undefined,
 };
 
 /**

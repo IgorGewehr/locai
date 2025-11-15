@@ -24,14 +24,40 @@ export async function GET(request: NextRequest) {
 
     const { tenantId } = authContext;
 
-    // Buscar configurações do tenant
-    const settingsRef = db
+    // ✅ NOVO PATH: config/negotiation (padrão desde Nov 2025)
+    const configRef = db
+      .collection('tenants')
+      .doc(tenantId)
+      .collection('config')
+      .doc('negotiation');
+
+    // ❌ PATH ANTIGO: settings/negotiation (fallback para compatibilidade)
+    const oldSettingsRef = db
       .collection('tenants')
       .doc(tenantId)
       .collection('settings')
       .doc('negotiation');
 
-    const settingsDoc = await settingsRef.get();
+    let settingsDoc = await configRef.get();
+
+    if (!settingsDoc.exists) {
+      // Tentar path antigo como fallback
+      logger.info('📋 [NEGOTIATION-SETTINGS] Config not found, trying old path', {
+        tenantId: tenantId.substring(0, 8) + '***'
+      });
+
+      settingsDoc = await oldSettingsRef.get();
+
+      if (settingsDoc.exists) {
+        // Migrar automaticamente para novo path
+        const data = settingsDoc.data();
+        await configRef.set(data);
+
+        logger.info('✅ [NEGOTIATION-SETTINGS] Migrated from old path to config/', {
+          tenantId: tenantId.substring(0, 8) + '***'
+        });
+      }
+    }
 
     if (!settingsDoc.exists) {
       // Retornar configurações padrão se não existir
@@ -164,11 +190,11 @@ export async function PUT(request: NextRequest) {
       negotiationNotes: body.negotiationNotes
     };
 
-    // Salvar no Firestore
+    // Salvar no Firestore (NOVO PATH: config/negotiation)
     const settingsRef = db
       .collection('tenants')
       .doc(tenantId)
-      .collection('settings')
+      .collection('config')
       .doc('negotiation');
 
     await settingsRef.set(settings);
@@ -253,11 +279,11 @@ export async function POST(request: NextRequest) {
         );
     }
 
-    // Salvar no Firestore
+    // Salvar no Firestore (NOVO PATH: config/negotiation)
     const settingsRef = db
       .collection('tenants')
       .doc(tenantId)
-      .collection('settings')
+      .collection('config')
       .doc('negotiation');
 
     await settingsRef.set(settings);
