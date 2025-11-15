@@ -350,29 +350,20 @@ export default function AIConfigPage() {
               </Card>
             </Grid>
 
-            {/* Auto Follow-up */}
-            <Grid item xs={12} md={6}>
-              <Card variant="outlined" sx={{ p: 2 }}>
-                <Box display="flex" justifyContent="space-between" alignItems="flex-start">
-                  <Box flex={1}>
-                    <Box display="flex" alignItems="center" gap={1} mb={1}>
-                      <Typography variant="subtitle1" fontWeight="bold">
-                        🔔 Follow-up Automático
-                      </Typography>
-                      {features.autoFollowUp && <Chip label="ATIVO" size="small" color="success" />}
-                    </Box>
-                    <Typography variant="body2" color="text.secondary">
-                      Sofia envia mensagens automáticas para leads inativos.
-                    </Typography>
-                  </Box>
-                  <Switch
-                    checked={features.autoFollowUp}
-                    onChange={() => handleFeatureToggle('autoFollowUp')}
-                  />
-                </Box>
-              </Card>
-            </Grid>
           </Grid>
+
+          {/* Info Alert - Negotiation moved to dedicated page */}
+          <Alert severity="info" sx={{ mt: 2 }}>
+            💰 <strong>Configurações de Negociação:</strong> Todas as configurações de descontos, preços e estratégias de vendas foram movidas para a página dedicada.{' '}
+            <Button
+              size="small"
+              variant="text"
+              onClick={() => window.location.href = '/dashboard/settings/negotiation'}
+              sx={{ ml: 1 }}
+            >
+              Acessar Negociação →
+            </Button>
+          </Alert>
         </CardContent>
       </Card>
 
@@ -387,84 +378,6 @@ export default function AIConfigPage() {
           </Typography>
 
           <Divider sx={{ my: 2 }} />
-
-          {/* Sales Agent */}
-          <Accordion>
-            <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-              <Typography fontWeight="bold">💰 Sales Agent (Vendas e Negociação)</Typography>
-            </AccordionSummary>
-            <AccordionDetails>
-              <Box display="flex" flexDirection="column" gap={3}>
-                <FormControlLabel
-                  control={
-                    <Switch
-                      checked={behavior.sales.allowNegotiation}
-                      onChange={(e) =>
-                        setBehavior(prev => ({
-                          ...prev,
-                          sales: { ...prev.sales, allowNegotiation: e.target.checked },
-                        }))
-                      }
-                    />
-                  }
-                  label="Permitir negociação de preços"
-                />
-
-                <Box>
-                  <Typography variant="body2" gutterBottom>
-                    Desconto máximo permitido: {behavior.sales.maxDiscount}%
-                  </Typography>
-                  <Slider
-                    value={behavior.sales.maxDiscount}
-                    onChange={(_, value) =>
-                      setBehavior(prev => ({
-                        ...prev,
-                        sales: { ...prev.sales, maxDiscount: value as number },
-                      }))
-                    }
-                    min={0}
-                    max={50}
-                    marks={[
-                      { value: 0, label: '0%' },
-                      { value: 25, label: '25%' },
-                      { value: 50, label: '50%' },
-                    ]}
-                    valueLabelDisplay="auto"
-                  />
-                </Box>
-
-                <FormControlLabel
-                  control={
-                    <Switch
-                      checked={behavior.sales.enableDynamicDiscounts}
-                      onChange={(e) =>
-                        setBehavior(prev => ({
-                          ...prev,
-                          sales: { ...prev.sales, enableDynamicDiscounts: e.target.checked },
-                        }))
-                      }
-                    />
-                  }
-                  label="Habilitar descontos dinâmicos (baseado em critérios)"
-                />
-
-                <FormControlLabel
-                  control={
-                    <Switch
-                      checked={behavior.sales.autoApplyPixDiscount}
-                      onChange={(e) =>
-                        setBehavior(prev => ({
-                          ...prev,
-                          sales: { ...prev.sales, autoApplyPixDiscount: e.target.checked },
-                        }))
-                      }
-                    />
-                  }
-                  label="Auto-aplicar desconto PIX"
-                />
-              </Box>
-            </AccordionDetails>
-          </Accordion>
 
           {/* Search Agent */}
           <Accordion>
