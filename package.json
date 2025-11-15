@@ -19,6 +19,7 @@
     "health:sofia": "curl -f http://localhost:8080/api/metrics/sofia",
     "clean": "rm -rf .next out node_modules/.cache",
     "generate-password-hash": "node scripts/generate-password-hash.cjs",
+    "generate-cron-secret": "node scripts/generate-cron-secret.js",
     "test-agent": "node scripts/test-agent-ai-improvements.js",
     "test-integration": "node scripts/test-agent-integration.js",
     "fix-agent": "node scripts/fix-agent-issues.js",

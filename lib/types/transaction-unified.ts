@@ -145,6 +145,84 @@ export interface Transaction {
 
   // ===== METADATA =====
   metadata?: Record<string, any>; // Flexible field for custom data
+
+  // ===== ABACATEPAY INTEGRATION =====
+  /**
+   * AbacatePay billing ID (for payment links)
+   * Format: bill_xxxxx
+   */
+  abacatepayBillingId?: string;
+
+  /**
+   * AbacatePay PIX QR Code ID (for instant PIX payments)
+   * Format: pix_char_xxxxx
+   */
+  abacatepayPixId?: string;
+
+  /**
+   * AbacatePay customer ID
+   * Format: cust_xxxxx
+   */
+  abacatepayCustomerId?: string;
+
+  /**
+   * AbacatePay payment status (mirrors AbacatePay's status)
+   * Can differ from our internal status during sync
+   */
+  abacatepayStatus?: 'PENDING' | 'PAID' | 'EXPIRED' | 'CANCELLED' | 'REFUNDED';
+
+  /**
+   * Payment link URL (for billing)
+   * Customer can access this to complete payment
+   */
+  abacatepayUrl?: string;
+
+  /**
+   * PIX QR Code as base64 image
+   * Format: data:image/png;base64,iVBORw0KGgoAAA...
+   */
+  abacatepayQrCodeBase64?: string;
+
+  /**
+   * PIX BR Code (copy-paste code)
+   * Customer can copy this code to pay via their bank app
+   */
+  abacatepayBrCode?: string;
+
+  /**
+   * When the AbacatePay payment/link expires
+   */
+  abacatepayExpiresAt?: Date | Timestamp;
+
+  /**
+   * Platform fee charged by AbacatePay (in cents)
+   */
+  abacatepayFee?: number;
+
+  /**
+   * Whether webhook was received for this transaction
+   */
+  abacatepayWebhookReceived?: boolean;
+
+  /**
+   * Last webhook event received
+   */
+  abacatepayLastWebhookEvent?: string;
+
+  /**
+   * When the last webhook was received
+   */
+  abacatepayLastWebhookAt?: Date | Timestamp;
+
+  /**
+   * External ID sent to AbacatePay (for tracking)
+   */
+  abacatepayExternalId?: string;
+
+  /**
+   * Additional metadata from AbacatePay
+   */
+  abacatepayMetadata?: Record<string, any>;
 }
 
 // ===== SUPPORTING INTERFACES =====

@@ -37,32 +37,43 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Get tenant negotiation settings
-    const tenantRef = doc(db, 'tenants', tenantId);
-    const tenantDoc = await getDoc(tenantRef);
+    // Get tenant negotiation settings - CORRECTED PATH
+    const settingsRef = db
+      .collection('tenants')
+      .doc(tenantId)
+      .collection('settings')
+      .doc('negotiation');
 
-    if (!tenantDoc.exists()) {
-      return NextResponse.json(
-        {
-          success: false,
-          error: 'Tenant not found',
-          requestId
-        },
-        { status: 404 }
-      );
+    const settingsDoc = await settingsRef.get();
+
+    // If no settings found, use defaults
+    let settings: any = {};
+
+    if (settingsDoc.exists) {
+      settings = settingsDoc.data() || {};
+      logger.info('[CHECK-DISCOUNT-OPPORTUNITIES] Found negotiation settings', {
+        requestId,
+        hasPixDiscount: settings.pixDiscountEnabled !== undefined
+      });
+    } else {
+      logger.info('[CHECK-DISCOUNT-OPPORTUNITIES] No negotiation settings found, using defaults', {
+        requestId
+      });
+
+      // Use default settings structure
+      const { DEFAULT_NEGOTIATION_SETTINGS } = await import('@/lib/types/tenant-settings');
+      settings = DEFAULT_NEGOTIATION_SETTINGS;
     }
 
-    const tenantData = tenantDoc.data();
-    const settings = tenantData.negotiationSettings || {};
-
-    // Build discount opportunities object
+    // Build discount opportunities object using CORRECT field names
     const opportunities = {
       paymentMethod: {
-        enabled: settings.enablePaymentMethodDiscounts !== false, // Default true
+        enabled: settings.pixDiscountEnabled || settings.cashDiscountEnabled,
         options: [
           {
             method: 'pix',
-            discount: settings.pixDiscount || 10,
+            discount: settings.pixDiscountPercentage || 10,
+            enabled: settings.pixDiscountEnabled !== false,
             label: 'PIX',
             description: 'Pagamento à vista via PIX',
             recommended: true,
@@ -70,128 +81,75 @@ export async function POST(request: NextRequest) {
           },
           {
             method: 'cash',
-            discount: settings.cashDiscount || 10,
+            discount: settings.cashDiscountPercentage || 8,
+            enabled: settings.cashDiscountEnabled || false,
             label: 'Dinheiro',
             description: 'Pagamento em dinheiro',
             recommended: false,
             conditions: 'Pagamento no check-in'
           },
           {
-            method: 'bank_transfer',
-            discount: settings.bankTransferDiscount || 5,
-            label: 'Transferência Bancária',
-            description: 'TED/DOC',
-            recommended: false,
-            conditions: 'Confirmação de pagamento em até 24h'
-          },
-          {
             method: 'card',
             discount: 0,
+            enabled: settings.installmentEnabled !== false,
             label: 'Cartão de Crédito',
-            description: 'Parcelamento disponível',
+            description: `Parcelamento em até ${settings.maxInstallments || 10}x`,
             recommended: false,
-            conditions: 'Taxa de processamento aplicada'
+            conditions: `Parcela mínima de R$ ${settings.minInstallmentValue || 100}`
           }
         ]
       },
 
       extendedStay: {
-        enabled: settings.enableExtendedStayDiscount !== false, // Default true
-        tiers: [
-          {
-            minNights: 7,
-            discount: settings.extendedStay7Days || 5,
-            label: '7+ noites',
-            description: 'Desconto para estadias de 1 semana ou mais',
-            recommended: true
-          },
-          {
-            minNights: 14,
-            discount: settings.extendedStay14Days || 10,
-            label: '14+ noites',
-            description: 'Desconto para estadias de 2 semanas ou mais',
-            recommended: true
-          },
-          {
-            minNights: 30,
-            discount: settings.extendedStay30Days || 20,
-            label: '30+ noites',
-            description: 'Desconto para estadias de 1 mês ou mais',
-            recommended: true
-          }
-        ]
+        enabled: settings.extendedStayDiscountEnabled || false,
+        tiers: (settings.extendedStayRules || []).map((rule: any) => ({
+          minNights: rule.minDays,
+          discount: rule.discountPercentage,
+          label: `${rule.minDays}+ dias`,
+          description: `Desconto para estadias de ${rule.minDays}+ dias`,
+          recommended: true
+        }))
       },
 
       earlyBooking: {
-        enabled: settings.enableEarlyBookingDiscount !== false, // Default true
-        tiers: [
-          {
-            daysInAdvance: 30,
-            discount: settings.earlyBooking30Days || 5,
-            label: '30+ dias de antecedência',
-            description: 'Reserve com 1 mês de antecedência',
-            recommended: true
-          },
-          {
-            daysInAdvance: 60,
-            discount: settings.earlyBooking60Days || 10,
-            label: '60+ dias de antecedência',
-            description: 'Reserve com 2 meses de antecedência',
-            recommended: true
-          },
-          {
-            daysInAdvance: 90,
-            discount: settings.earlyBooking90Days || 15,
-            label: '90+ dias de antecedência',
-            description: 'Reserve com 3 meses de antecedência',
-            recommended: true
-          }
-        ]
+        enabled: settings.earlyBookingDiscountEnabled || false,
+        tiers: (settings.earlyBookingRules || []).map((rule: any) => ({
+          daysInAdvance: rule.daysInAdvance,
+          discount: rule.discountPercentage,
+          label: `${rule.daysInAdvance}+ dias de antecedência`,
+          description: `Reserve com ${rule.daysInAdvance}+ dias de antecedência`,
+          recommended: true
+        }))
       },
 
       lastMinute: {
-        enabled: settings.enableLastMinuteDiscount !== false, // Default true
-        tiers: [
-          {
-            daysUntilCheckIn: 7,
-            discount: settings.lastMinute7Days || 10,
-            label: 'Última semana',
-            description: 'Check-in em até 7 dias',
-            recommended: false
-          },
-          {
-            daysUntilCheckIn: 3,
-            discount: settings.lastMinute3Days || 15,
-            label: 'Últimos 3 dias',
-            description: 'Check-in em até 3 dias',
-            recommended: false
-          },
-          {
-            daysUntilCheckIn: 1,
-            discount: settings.lastMinute24Hours || 20,
-            label: 'Última hora',
-            description: 'Check-in em até 24 horas',
-            recommended: false
-          }
-        ]
+        enabled: settings.lastMinuteDiscountEnabled || false,
+        tiers: (settings.lastMinuteRules || []).map((rule: any) => ({
+          daysUntilCheckIn: rule.daysBeforeCheckIn,
+          discount: rule.discountPercentage,
+          label: `Últimos ${rule.daysBeforeCheckIn} dias`,
+          description: `Check-in em até ${rule.daysBeforeCheckIn} dias`,
+          recommended: false
+        }))
       },
 
       bookNow: {
-        enabled: settings.enableBookNowDiscount !== false, // Default true
-        discount: settings.bookNowDiscount || 5,
+        enabled: settings.bookNowDiscountEnabled || false,
+        discount: settings.bookNowDiscountPercentage || 5,
+        timeLimit: settings.bookNowTimeLimit || 2, // hours
         label: 'Fechar Agora',
         description: 'Desconto adicional para confirmar imediatamente',
-        conditions: 'Cliente deve aceitar proposta na hora',
+        conditions: `Cliente deve aceitar em até ${settings.bookNowTimeLimit || 2} horas`,
         recommended: true
       },
 
       limits: {
-        maxTotalDiscount: settings.maxTotalDiscount || 30,
-        maxStackedDiscounts: settings.maxStackedDiscounts || 3,
-        discountStackingRules: settings.discountStackingRules || 'additive' // 'additive' or 'best'
+        maxTotalDiscount: settings.maxDiscountPercentage || 30,
+        minPriceAfterDiscount: settings.minPriceAfterDiscount || 0,
+        allowNegotiation: settings.allowAINegotiation !== false
       },
 
-      customRules: settings.customDiscountRules || []
+      customRules: []
     };
 
     // Calculate best possible combinations

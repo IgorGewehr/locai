@@ -79,12 +79,12 @@ export async function POST(request: NextRequest) {
       tenantId: tenantId.substring(0, 8) + '***'
     })
 
-    // Fetch from Firestore
+    // Fetch from Firestore - CORRECTED PATH
     const addressRef = db
       .collection('tenants')
       .doc(tenantId)
-      .collection('settings')
-      .doc('companyAddress')
+      .collection('config')
+      .doc('company-info')
 
     const addressDoc = await addressRef.get()
 
@@ -93,8 +93,10 @@ export async function POST(request: NextRequest) {
 
     if (addressDoc.exists) {
       const data = addressDoc.data()
+
+      // Map new structure (company-info) to expected structure
       address = {
-        companyName: data?.companyName,
+        companyName: data?.tradeName || data?.legalName, // Map tradeName to companyName
         street: data?.street,
         number: data?.number,
         complement: data?.complement,
@@ -106,14 +108,25 @@ export async function POST(request: NextRequest) {
         phone: data?.phone,
         email: data?.email,
         website: data?.website,
-        workingHours: data?.workingHours,
-        googleMapsUrl: data?.googleMapsUrl,
-        latitude: data?.latitude,
-        longitude: data?.longitude,
-        createdAt: data?.createdAt?.toDate(),
-        updatedAt: data?.updatedAt?.toDate()
+        workingHours: data?.workingHours, // May not exist in company-info
+        googleMapsUrl: data?.googleMapsUrl, // May not exist in company-info
+        latitude: data?.latitude, // May not exist in company-info
+        longitude: data?.longitude, // May not exist in company-info
+        createdAt: data?.createdAt?.toDate ? data.createdAt.toDate() : undefined,
+        updatedAt: data?.updatedAt?.toDate ? data.updatedAt.toDate() : undefined
       }
       hasAddress = true
+
+      logger.info('[GET-COMPANY-ADDRESS] Found company info in config/company-info', {
+        requestId,
+        hasCompanyName: !!address.companyName,
+        hasStreet: !!address.street,
+        hasCity: !!address.city
+      })
+    } else {
+      logger.info('[GET-COMPANY-ADDRESS] No company info found', {
+        requestId
+      })
     }
 
     // Format address string for AI

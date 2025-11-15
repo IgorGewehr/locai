@@ -72,12 +72,13 @@ export async function POST(request: NextRequest) {
       tenantId: tenantId.substring(0, 8) + '***'
     })
 
-    // Fetch from Firestore
+    // Fetch from Firestore - CORRECTED PATH
+    // Try new path first (config/policies), fallback to settings-service structure
     const policiesRef = db
       .collection('tenants')
       .doc(tenantId)
-      .collection('settings')
-      .doc('cancellationPolicies')
+      .collection('config')
+      .doc('policies')
 
     const policiesDoc = await policiesRef.get()
 
@@ -86,10 +87,36 @@ export async function POST(request: NextRequest) {
 
     if (policiesDoc.exists) {
       const data = policiesDoc.data()
-      policies = data?.policies || []
-      hasCustomPolicies = true
-    } else {
-      // Default flexible policy
+
+      // Convert new structure to expected array format
+      if (data?.cancellationPolicy) {
+        const policy = data.cancellationPolicy
+        policies = [{
+          id: 'tenant-policy',
+          name: 'Política de Cancelamento',
+          description: policy.customMessage || 'Política de cancelamento configurada',
+          rules: policy.rules.map((rule: any) => ({
+            daysBeforeCheckIn: rule.daysBeforeCheckIn,
+            refundPercentage: rule.refundPercentage,
+            description: rule.description || `${rule.refundPercentage}% de reembolso`
+          })),
+          isDefault: false
+        }]
+        hasCustomPolicies = true
+
+        logger.info('[GET-CANCELLATION-POLICIES] Found policy in config/policies', {
+          requestId,
+          rulesCount: policy.rules.length
+        })
+      }
+    }
+
+    // Fallback to default if no custom policy found
+    if (policies.length === 0) {
+      logger.info('[GET-CANCELLATION-POLICIES] No custom policy found, using default', {
+        requestId
+      })
+
       policies = [{
         id: 'default-flexible',
         name: 'Política Flexível',

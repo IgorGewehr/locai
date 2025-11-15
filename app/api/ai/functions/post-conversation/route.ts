@@ -23,7 +23,16 @@ export async function POST(request: NextRequest) {
   const requestId = `post_conv_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
 
   try {
-    const body = await request.json();
+    let body = await request.json();
+
+    // N8N envia array com 1 elemento, extrair objeto
+    if (Array.isArray(body) && body.length > 0) {
+      logger.info('📦 [POST-CONVERSATION] Array detectado, extraindo primeiro elemento', {
+        requestId,
+        arrayLength: body.length
+      });
+      body = body[0];
+    }
 
     logger.info('💬 [POST-CONVERSATION] Nova mensagem recebida', {
       requestId,

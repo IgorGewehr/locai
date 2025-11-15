@@ -61,9 +61,6 @@ import {
 } from '@mui/icons-material';
 import type { Property } from '@/lib/types/property';
 import PropertyImportDialog from '@/components/organisms/PropertyImport/PropertyImportDialog';
-import CancellationPolicyEditor from '@/app/dashboard/settings/components/CancellationPolicyEditor';
-import type { CancellationPolicy } from '@/lib/services/settings-service';
-import NegotiationSettingsDialog from '@/components/dialogs/NegotiationSettingsDialog';
 
 // Disable static generation for this page
 export const dynamic = 'force-dynamic';
@@ -87,21 +84,6 @@ export default function PropertiesPage() {
   const [selectedProperty, setSelectedProperty] = useState<Property | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [importDialogOpen, setImportDialogOpen] = useState(false);
-  const [policyDialogOpen, setPolicyDialogOpen] = useState(false);
-  const [cancellationPolicy, setCancellationPolicy] = useState<CancellationPolicy | null>(null);
-  const [savingPolicy, setSavingPolicy] = useState(false);
-  const [negotiationDialogOpen, setNegotiationDialogOpen] = useState(false);
-  const [addressDialogOpen, setAddressDialogOpen] = useState(false);
-  const [companyAddress, setCompanyAddress] = useState({
-    address: '',
-    street: '',
-    neighborhood: '',
-    city: '',
-    state: '',
-    zipCode: '',
-    country: 'Brasil'
-  });
-  const [savingAddress, setSavingAddress] = useState(false);
   const { services, isReady, tenantId } = useTenant();
 
   // Create local SVG placeholder for property images
@@ -366,7 +348,7 @@ export default function PropertiesPage() {
             variant="outlined"
             size="large"
             icon={<Policy />}
-            onClick={() => setPolicyDialogOpen(true)}
+            onClick={() => router.push('/dashboard/settings/policies')}
             sx={{ minWidth: { xs: 'auto', sm: '160px' } }}
           >
             Políticas
@@ -375,7 +357,7 @@ export default function PropertiesPage() {
             variant="outlined"
             size="large"
             icon={<Psychology />}
-            onClick={() => setNegotiationDialogOpen(true)}
+            onClick={() => router.push('/dashboard/settings/negotiation')}
             sx={{ minWidth: { xs: 'auto', sm: '160px' } }}
           >
             Negociação
@@ -384,7 +366,7 @@ export default function PropertiesPage() {
             variant="outlined"
             size="large"
             icon={<Business />}
-            onClick={() => setAddressDialogOpen(true)}
+            onClick={() => router.push('/dashboard/settings/company')}
             sx={{ minWidth: { xs: 'auto', sm: '160px' } }}
           >
             Endereço
@@ -810,181 +792,6 @@ export default function PropertiesPage() {
         onClose={() => setImportDialogOpen(false)}
         onSuccess={handleImportSuccess}
       />
-
-      {/* Cancellation Policy Dialog */}
-      <Dialog
-        open={policyDialogOpen}
-        onClose={() => setPolicyDialogOpen(false)}
-        maxWidth="md"
-        fullWidth
-        PaperProps={{
-          sx: {
-            borderRadius: 2,
-            maxHeight: '90vh',
-          }
-        }}
-      >
-        <DialogTitle sx={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: 1,
-          borderBottom: '1px solid',
-          borderColor: 'divider',
-          pb: 2,
-        }}>
-          <Policy color="primary" />
-          <Box>
-            <Typography variant="h6" fontWeight={600}>
-              Políticas de Cancelamento
-            </Typography>
-            <Typography variant="body2" color="text.secondary">
-              Gerencie as regras de cancelamento para todas as propriedades
-            </Typography>
-          </Box>
-        </DialogTitle>
-        <DialogContent sx={{ pt: 3 }}>
-          {cancellationPolicy ? (
-            <CancellationPolicyEditor
-              initialPolicy={cancellationPolicy}
-              onSave={handleSavePolicy}
-              loading={savingPolicy}
-            />
-          ) : (
-            <Box sx={{ textAlign: 'center', py: 4 }}>
-              <Typography variant="body2" color="text.secondary">
-                Carregando políticas...
-              </Typography>
-            </Box>
-          )}
-        </DialogContent>
-        <DialogActions sx={{
-          px: 3,
-          pb: 3,
-          borderTop: '1px solid',
-          borderColor: 'divider'
-        }}>
-          <Button
-            onClick={() => setPolicyDialogOpen(false)}
-            disabled={savingPolicy}
-          >
-            Fechar
-          </Button>
-        </DialogActions>
-      </Dialog>
-
-      {/* Negotiation Settings Dialog */}
-      <NegotiationSettingsDialog
-        open={negotiationDialogOpen}
-        onClose={() => setNegotiationDialogOpen(false)}
-      />
-
-      {/* Address Dialog */}
-      <Dialog
-        open={addressDialogOpen}
-        onClose={() => setAddressDialogOpen(false)}
-        maxWidth="md"
-        fullWidth
-        PaperProps={{
-          sx: {
-            borderRadius: 2,
-            maxHeight: '90vh',
-          }
-        }}
-      >
-        <DialogTitle sx={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: 1,
-          borderBottom: '1px solid',
-          borderColor: 'divider',
-          pb: 2,
-        }}>
-          <Business color="primary" />
-          <Box>
-            <Typography variant="h6" fontWeight={600}>
-              Endereço da Imobiliária
-            </Typography>
-            <Typography variant="body2" color="text.secondary">
-              Configure o endereço usado pela Sofia AI para enviar localização
-            </Typography>
-          </Box>
-        </DialogTitle>
-        <DialogContent sx={{ pt: 3 }}>
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-            <TextField
-              fullWidth
-              label="Endereço Completo"
-              value={companyAddress.address}
-              onChange={(e) => setCompanyAddress({ ...companyAddress, address: e.target.value })}
-              placeholder="Rua Exemplo, 123 - Bairro - Cidade/Estado"
-              helperText="Endereço completo usado para geocodificação"
-            />
-            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '2fr 1fr' }, gap: 2 }}>
-              <TextField
-                label="Rua/Avenida"
-                value={companyAddress.street}
-                onChange={(e) => setCompanyAddress({ ...companyAddress, street: e.target.value })}
-                placeholder="Rua Exemplo, 123"
-              />
-              <TextField
-                label="CEP"
-                value={companyAddress.zipCode}
-                onChange={(e) => setCompanyAddress({ ...companyAddress, zipCode: e.target.value })}
-                placeholder="12345-678"
-              />
-            </Box>
-            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 2 }}>
-              <TextField
-                label="Bairro"
-                value={companyAddress.neighborhood}
-                onChange={(e) => setCompanyAddress({ ...companyAddress, neighborhood: e.target.value })}
-                placeholder="Centro"
-              />
-              <TextField
-                label="Cidade"
-                value={companyAddress.city}
-                onChange={(e) => setCompanyAddress({ ...companyAddress, city: e.target.value })}
-                placeholder="São Paulo"
-              />
-            </Box>
-            <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 2 }}>
-              <TextField
-                label="Estado"
-                value={companyAddress.state}
-                onChange={(e) => setCompanyAddress({ ...companyAddress, state: e.target.value })}
-                placeholder="SP"
-              />
-              <TextField
-                label="País"
-                value={companyAddress.country}
-                onChange={(e) => setCompanyAddress({ ...companyAddress, country: e.target.value })}
-                placeholder="Brasil"
-              />
-            </Box>
-          </Box>
-        </DialogContent>
-        <DialogActions sx={{
-          px: 3,
-          pb: 3,
-          borderTop: '1px solid',
-          borderColor: 'divider',
-          gap: 1
-        }}>
-          <Button
-            onClick={() => setAddressDialogOpen(false)}
-            disabled={savingAddress}
-          >
-            Cancelar
-          </Button>
-          <Button
-            variant="contained"
-            onClick={handleSaveAddress}
-            disabled={savingAddress || !companyAddress.address}
-          >
-            {savingAddress ? 'Salvando...' : 'Salvar'}
-          </Button>
-        </DialogActions>
-      </Dialog>
 
       {/* Floating Action Button */}
       <ModernFAB
