@@ -44,16 +44,11 @@ interface AIFeatures {
   contracts: boolean;
   analytics: boolean;
   customReports: boolean;
-  autoFollowUp: boolean;
+  // autoFollowUp: REMOVED - feature discontinued
 }
 
 interface AgentBehavior {
-  sales: {
-    allowNegotiation: boolean;
-    maxDiscount: number;
-    enableDynamicDiscounts: boolean;
-    autoApplyPixDiscount: boolean;
-  };
+  // sales: REMOVED - moved to dedicated /dashboard/settings/negotiation page
   search: {
     maxPropertiesPerSearch: number;
     autoSendPhotos: boolean;
@@ -85,16 +80,9 @@ export default function AIConfigPage() {
     contracts: false,
     analytics: true,
     customReports: false,
-    autoFollowUp: true,
   });
 
   const [behavior, setBehavior] = useState<AgentBehavior>({
-    sales: {
-      allowNegotiation: true,
-      maxDiscount: 25,
-      enableDynamicDiscounts: true,
-      autoApplyPixDiscount: true,
-    },
     search: {
       maxPropertiesPerSearch: 3,
       autoSendPhotos: true,
