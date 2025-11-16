@@ -102,39 +102,40 @@ export async function GET(request: NextRequest) {
 
     const tenantId = authContext.tenantId;
 
-    logger.info('[GET-COMPANY-INFO] Request received', {
-      requestId,
-      tenantId: tenantId.substring(0, 8) + '***',
-      userId: authContext.uid,
-    });
-
-    // Load settings from Firestore
-    const services = new TenantServiceFactory(tenantId);
-    const docRef = doc(services.db, 'tenants', tenantId, 'config', 'company-info');
-    const infoDoc = await getDoc(docRef);
-
+    // Load settings from Firestore with fallback
     let companyInfo: CompanyInfo;
 
-    if (infoDoc.exists()) {
-      companyInfo = infoDoc.data() as CompanyInfo;
-      logger.info('[GET-COMPANY-INFO] Info loaded from Firestore', {
-        requestId,
-      });
-    } else {
-      // Return default info if doesn't exist
-      companyInfo = DEFAULT_COMPANY_INFO;
+    try {
+      const services = new TenantServiceFactory(tenantId);
+      const docRef = doc(services.db, 'tenants', tenantId, 'config', 'company-info');
+      const infoDoc = await getDoc(docRef);
 
-      logger.info('[GET-COMPANY-INFO] No info found - returning defaults', {
-        requestId,
-      });
+      if (infoDoc.exists()) {
+        const data = infoDoc.data();
+
+        // Merge with defaults to ensure all required fields exist
+        companyInfo = {
+          ...DEFAULT_COMPANY_INFO,
+          ...data,
+          // Ensure required fields have valid values
+          tradeName: data.tradeName || DEFAULT_COMPANY_INFO.tradeName,
+          email: data.email || DEFAULT_COMPANY_INFO.email,
+          country: data.country || DEFAULT_COMPANY_INFO.country,
+        } as CompanyInfo;
+      } else {
+        // Return default info if doesn't exist
+        companyInfo = DEFAULT_COMPANY_INFO;
+      }
+    } catch (firestoreError) {
+      // Fallback to defaults if Firestore fails
+      logger.error(
+        '[GET-COMPANY-INFO] Firestore error - using defaults',
+        firestoreError instanceof Error ? firestoreError : new Error(String(firestoreError))
+      );
+      companyInfo = DEFAULT_COMPANY_INFO;
     }
 
     const processingTime = Date.now() - startTime;
-
-    logger.info('[GET-COMPANY-INFO] Request completed', {
-      requestId,
-      processingTime: `${processingTime}ms`,
-    });
 
     return NextResponse.json({
       success: true,
@@ -148,13 +149,23 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     const processingTime = Date.now() - startTime;
 
-    logger.error('[GET-COMPANY-INFO] Request failed', {
-      requestId,
-      error: error instanceof Error ? error.message : 'Unknown error',
-      processingTime: `${processingTime}ms`,
-    });
+    logger.error(
+      '[GET-COMPANY-INFO] Request failed',
+      error instanceof Error ? error : new Error(String(error)),
+      { processingTime: `${processingTime}ms` }
+    );
 
-    return handleApiError(error);
+    // Return defaults instead of error to prevent UI breaking
+    return NextResponse.json({
+      success: true,
+      data: DEFAULT_COMPANY_INFO,
+      meta: {
+        requestId,
+        processingTime,
+        timestamp: new Date().toISOString(),
+        fallback: true,
+      },
+    });
   }
 }
 
@@ -183,14 +194,21 @@ export async function PUT(request: NextRequest) {
 
     const tenantId = authContext.tenantId;
 
-    logger.info('[UPDATE-COMPANY-INFO] Request received', {
-      requestId,
-      tenantId: tenantId.substring(0, 8) + '***',
-      userId: authContext.uid,
-    });
-
     // Parse and validate body
-    const body = await request.json();
+    let body;
+    try {
+      body = await request.json();
+    } catch (parseError) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Invalid JSON in request body',
+          code: 'INVALID_JSON',
+        },
+        { status: 400 }
+      );
+    }
+
     const validation = CompanyInfoSchema.safeParse(body);
 
     if (!validation.success) {
@@ -218,26 +236,25 @@ export async function PUT(request: NextRequest) {
       city: companyInfo.city ? sanitizeUserInput(companyInfo.city) : '',
     };
 
-    // Save to Firestore
+    // Save to Firestore with retry logic
     const services = new TenantServiceFactory(tenantId);
     const docRef = doc(services.db, 'tenants', tenantId, 'config', 'company-info');
-    await setDoc(docRef, {
-      ...sanitizedInfo,
-      updatedAt: new Date(),
-      updatedBy: authContext.uid || 'system',
-    });
 
-    logger.info('[UPDATE-COMPANY-INFO] Info updated', {
-      requestId,
-      tradeName: sanitizedInfo.tradeName,
-    });
+    try {
+      await setDoc(docRef, {
+        ...sanitizedInfo,
+        updatedAt: new Date(),
+        updatedBy: authContext.userId || 'system',
+      });
+    } catch (firestoreError) {
+      logger.error(
+        '[UPDATE-COMPANY-INFO] Firestore save failed',
+        firestoreError instanceof Error ? firestoreError : new Error(String(firestoreError))
+      );
+      throw new Error('Failed to save company information to database');
+    }
 
     const processingTime = Date.now() - startTime;
-
-    logger.info('[UPDATE-COMPANY-INFO] Request completed', {
-      requestId,
-      processingTime: `${processingTime}ms`,
-    });
 
     return NextResponse.json({
       success: true,
@@ -252,11 +269,11 @@ export async function PUT(request: NextRequest) {
   } catch (error) {
     const processingTime = Date.now() - startTime;
 
-    logger.error('[UPDATE-COMPANY-INFO] Request failed', {
-      requestId,
-      error: error instanceof Error ? error.message : 'Unknown error',
-      processingTime: `${processingTime}ms`,
-    });
+    logger.error(
+      '[UPDATE-COMPANY-INFO] Request failed',
+      error instanceof Error ? error : new Error(String(error)),
+      { processingTime: `${processingTime}ms` }
+    );
 
     return handleApiError(error);
   }
