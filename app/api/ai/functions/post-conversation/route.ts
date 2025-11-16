@@ -139,73 +139,57 @@ export async function POST(request: NextRequest) {
     logger.info('✅ [POST-CONVERSATION] Serviços inicializados', { requestId });
 
     // 1. Identificar ou criar Conversation
-    let conversationId = providedConversationId;
+    let conversationId: string | undefined = undefined;
     let isNewConversation = false;
     let conversation: ConversationHeader | null = null;
 
-    if (conversationId) {
-      // Conversation já existe, buscar
-      conversation = await conversationsService.get(conversationId);
+    // Tentar encontrar conversa ativa por telefone
+    if (clientPhone) {
+      logger.info('🔍 [POST-CONVERSATION] Buscando conversa ativa', {
+        requestId,
+        clientPhone: clientPhone.substring(0, 8) + '***'
+      });
 
-      if (!conversation) {
-        logger.warn('⚠️ [POST-CONVERSATION] ConversationId fornecido não encontrado', {
-          requestId,
-          conversationId
-        });
-        // Criar nova ao invés de falhar
-        conversationId = undefined;
-      }
-    }
+      const activeConversations = await conversationsService.getMany([
+        { field: 'clientPhone', operator: '==', value: clientPhone },
+        { field: 'status', operator: '==', value: 'active' as ConversationStatus }
+      ], { orderBy: [{ field: 'lastMessageAt', direction: 'desc' }], limit: 1 });
 
-    if (!conversationId) {
-      // Tentar encontrar conversa ativa por telefone
-      if (clientPhone) {
-        logger.info('🔍 [POST-CONVERSATION] Buscando conversa ativa', {
-          requestId,
-          clientPhone: clientPhone.substring(0, 8) + '***'
-        });
+      if (activeConversations.length > 0) {
+        conversation = activeConversations[0];
+        conversationId = conversation.id!;
 
-        const activeConversations = await conversationsService.getMany([
-          { field: 'clientPhone', operator: '==', value: clientPhone },
-          { field: 'status', operator: '==', value: 'active' as ConversationStatus }
-        ], { orderBy: [{ field: 'lastMessageAt', direction: 'desc' }], limit: 1 });
-
-        if (activeConversations.length > 0) {
-          conversation = activeConversations[0];
-          conversationId = conversation.id!;
-
-          logger.info('✅ [POST-CONVERSATION] Conversa ativa encontrada', {
-            requestId,
-            conversationId,
-            clientPhone: clientPhone?.substring(0, 8) + '***'
-          });
-        }
-      }
-
-      // Se ainda não encontrou, criar nova
-      if (!conversationId) {
-        isNewConversation = true;
-
-        const newConversation: Omit<ConversationHeader, 'id'> = {
-          tenantId,
-          clientPhone,
-          startedAt: clientMsgTime,
-          lastMessageAt: clientMsgTime,
-          messageCount: 0,
-          status: 'active' as ConversationStatus,
-          tags: [],
-          createdAt: new Date(),
-          updatedAt: new Date(),
-        };
-
-        conversationId = await conversationsService.create(newConversation);
-
-        logger.info('🆕 [POST-CONVERSATION] Nova conversa criada', {
+        logger.info('✅ [POST-CONVERSATION] Conversa ativa encontrada', {
           requestId,
           conversationId,
           clientPhone: clientPhone?.substring(0, 8) + '***'
         });
       }
+    }
+
+    // Se ainda não encontrou, criar nova
+    if (!conversationId) {
+      isNewConversation = true;
+
+      const newConversation: Omit<ConversationHeader, 'id'> = {
+        tenantId,
+        clientPhone,
+        startedAt: clientMsgTime,
+        lastMessageAt: clientMsgTime,
+        messageCount: 0,
+        status: 'active' as ConversationStatus,
+        tags: [],
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+
+      conversationId = await conversationsService.create(newConversation);
+
+      logger.info('🆕 [POST-CONVERSATION] Nova conversa criada', {
+        requestId,
+        conversationId,
+        clientPhone: clientPhone?.substring(0, 8) + '***'
+      });
     }
 
     // 2. Salvar mensagem

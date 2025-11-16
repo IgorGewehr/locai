@@ -139,6 +139,46 @@ export default function SettingsLayout({ children }: { children: ReactNode }) {
         )}
       </Box>
 
+      {/* Back to Dashboard Button */}
+      <Box sx={{ p: 2, pt: 3 }}>
+        <ListItemButton
+          onClick={() => handleNavigate('/dashboard')}
+          sx={{
+            borderRadius: 2,
+            border: '2px solid',
+            borderColor: 'primary.main',
+            bgcolor: 'primary.main',
+            color: 'white',
+            py: 1.5,
+            transition: 'all 0.2s ease',
+            '&:hover': {
+              bgcolor: 'primary.dark',
+              borderColor: 'primary.dark',
+              transform: 'translateY(-2px)',
+              boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
+            },
+          }}
+        >
+          <ListItemIcon
+            sx={{
+              color: 'white',
+              minWidth: 40,
+            }}
+          >
+            <ArrowBackIcon />
+          </ListItemIcon>
+          <ListItemText
+            primary={
+              <Typography variant="body1" fontWeight={600}>
+                Voltar ao Dashboard
+              </Typography>
+            }
+          />
+        </ListItemButton>
+      </Box>
+
+      <Divider sx={{ mx: 2 }} />
+
       {/* Navigation List */}
       <List sx={{ flex: 1, py: 2, overflowY: 'auto' }}>
         {SETTINGS_SECTIONS.map((section, index) => {
@@ -331,57 +371,38 @@ export default function SettingsLayout({ children }: { children: ReactNode }) {
             p: { xs: 2, md: 3 },
             borderBottom: 1,
             borderColor: 'divider',
-            display: 'flex',
-            flexDirection: { xs: 'column', sm: 'row' },
-            alignItems: { xs: 'flex-start', sm: 'center' },
-            justifyContent: 'space-between',
-            gap: 2,
             bgcolor: 'background.paper',
           }}
         >
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-            <IconButton
-              onClick={() => router.push('/dashboard')}
-              sx={{
-                bgcolor: 'action.hover',
-                '&:hover': {
-                  bgcolor: 'action.selected',
-                },
-              }}
-            >
-              <ArrowBackIcon />
-            </IconButton>
-
-            <Box>
-              <Breadcrumbs separator="›" sx={{ mb: 0.5 }}>
-                <Link
-                  href="/dashboard"
-                  underline="hover"
-                  color="text.secondary"
-                  sx={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 0.5,
-                    cursor: 'pointer',
-                  }}
-                  onClick={(e) => {
-                    e.preventDefault();
-                    router.push('/dashboard');
-                  }}
-                >
-                  <DashboardIcon fontSize="small" />
-                  Dashboard
-                </Link>
-                <Typography color="primary" fontWeight={600}>
-                  Configurações
-                </Typography>
-              </Breadcrumbs>
-
-              <Typography variant="body2" color="text.secondary">
-                {SETTINGS_SECTIONS.find((s) => s.path === pathname)?.description ||
-                  'Gerencie as configurações do sistema'}
+          <Box>
+            <Breadcrumbs separator="›" sx={{ mb: 0.5 }}>
+              <Link
+                href="/dashboard"
+                underline="hover"
+                color="text.secondary"
+                sx={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 0.5,
+                  cursor: 'pointer',
+                }}
+                onClick={(e) => {
+                  e.preventDefault();
+                  router.push('/dashboard');
+                }}
+              >
+                <DashboardIcon fontSize="small" />
+                Dashboard
+              </Link>
+              <Typography color="primary" fontWeight={600}>
+                Configurações
               </Typography>
-            </Box>
+            </Breadcrumbs>
+
+            <Typography variant="body2" color="text.secondary">
+              {SETTINGS_SECTIONS.find((s) => s.path === pathname)?.description ||
+                'Gerencie as configurações do sistema'}
+            </Typography>
           </Box>
         </Paper>
 

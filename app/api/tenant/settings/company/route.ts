@@ -14,6 +14,7 @@ import { validateFirebaseAuth } from '@/lib/middleware/firebase-auth';
 import { logger } from '@/lib/utils/logger';
 import { handleApiError } from '@/lib/utils/api-errors';
 import { sanitizeUserInput } from '@/lib/utils/validation';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
 
 // Validation schema
 const CompanyInfoSchema = z.object({
@@ -109,12 +110,8 @@ export async function GET(request: NextRequest) {
 
     // Load settings from Firestore
     const services = new TenantServiceFactory(tenantId);
-    const infoDoc = await services.db
-      .collection('tenants')
-      .doc(tenantId)
-      .collection('config')
-      .doc('company-info')
-      .get();
+    const docRef = doc(services.db, 'tenants', tenantId, 'config', 'company-info');
+    const infoDoc = await getDoc(docRef);
 
     let companyInfo: CompanyInfo;
 

@@ -34,10 +34,7 @@ import { useTenant } from '@/contexts/TenantContext';
 import { collection, query, where, getDocs, Timestamp } from 'firebase/firestore';
 import { logger } from '@/lib/utils/logger';
 // 🚀 PERFORMANCE: Lazy load de componentes pesados
-const MiniSiteWidgetFullWidth = lazy(() => import('@/components/organisms/marketing/MiniSiteWidgetFullWidth'));
 const AgendaCard = lazy(() => import('@/components/organisms/dashboards/AgendaCard'));
-const MetricsCard = lazy(() => import('@/components/organisms/dashboards/MetricsCard'));
-const SofiaCard = lazy(() => import('@/components/organisms/dashboards/SofiaCard'));
 const ConversationsMetricsCard = lazy(() => import('@/components/organisms/dashboards/ConversationsMetricsCard').then(m => ({ default: m.ConversationsMetricsCard })));
 const CreateVisitDialog = lazy(() => import('./agenda/components/CreateVisitDialog'));
 import { SafeRevolutionaryOnboarding } from '@/components/organisms/RevolutionaryOnboarding';
@@ -58,12 +55,12 @@ const initialStats: DashboardStats = {
 const CardSkeleton = () => (
   <Card
     sx={{
-      height: { xs: 'auto', lg: 400 },
-      minHeight: 350,
+      height: { xs: 'auto', md: 450, lg: 500 },
+      minHeight: 400,
       background: 'rgba(255, 255, 255, 0.08)',
       backdropFilter: 'blur(20px)',
       border: '1px solid rgba(255, 255, 255, 0.15)',
-      borderRadius: '20px',
+      borderRadius: '24px',
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'center',
@@ -86,22 +83,32 @@ interface StatCardProps {
 }
 
 function StatCard({ title, value, subtitle, icon, trend, color }: StatCardProps) {
+  const colorMap = {
+    primary: { gradient: '#6366f1, #8b5cf6', shadow: 'rgba(99, 102, 241, 0.3)' },
+    secondary: { gradient: '#8b5cf6, #d946ef', shadow: 'rgba(139, 92, 246, 0.3)' },
+    success: { gradient: '#10b981, #059669', shadow: 'rgba(16, 185, 129, 0.3)' },
+    warning: { gradient: '#f59e0b, #d97706', shadow: 'rgba(245, 158, 11, 0.3)' },
+    error: { gradient: '#ef4444, #dc2626', shadow: 'rgba(239, 68, 68, 0.3)' }
+  };
+
+  const colorConfig = colorMap[color];
+
   return (
-    <Card 
-      sx={{ 
+    <Card
+      sx={{
         height: '100%',
-        minHeight: { xs: 180, sm: 200, md: 220, lg: 240 },
-        background: 'rgba(255, 255, 255, 0.08)',
+        minHeight: { xs: 160, sm: 180, md: 200 },
+        background: 'rgba(255, 255, 255, 0.06)',
         backdropFilter: 'blur(20px)',
-        border: '1px solid rgba(255, 255, 255, 0.15)',
-        borderRadius: { xs: '16px', md: '20px' },
-        transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+        border: '1px solid rgba(255, 255, 255, 0.1)',
+        borderRadius: '20px',
+        transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
         position: 'relative',
         overflow: 'hidden',
         '&:hover': {
-          transform: 'translateY(-8px)',
-          boxShadow: '0 20px 60px rgba(0, 0, 0, 0.5)',
-          border: '1px solid rgba(99, 102, 241, 0.4)',
+          transform: 'translateY(-4px)',
+          boxShadow: `0 12px 40px ${colorConfig.shadow}`,
+          border: '1px solid rgba(99, 102, 241, 0.3)',
         },
         '&::before': {
           content: '""',
@@ -109,104 +116,99 @@ function StatCard({ title, value, subtitle, icon, trend, color }: StatCardProps)
           top: 0,
           left: 0,
           right: 0,
-          height: '4px',
-          background: `linear-gradient(135deg, ${color === 'primary' ? '#6366f1, #8b5cf6' : 
-            color === 'secondary' ? '#8b5cf6, #d946ef' : 
-            color === 'success' ? '#10b981, #059669' :
-            color === 'warning' ? '#f59e0b, #d97706' : '#ef4444, #dc2626'})`,
+          height: '3px',
+          background: `linear-gradient(90deg, ${colorConfig.gradient})`,
         }
       }}
     >
-      <CardContent sx={{ 
-        p: { xs: 3, sm: 4, md: 5 }, 
-        height: '100%', 
-        display: 'flex', 
-        flexDirection: 'column', 
-        justifyContent: 'space-between' 
+      <CardContent sx={{
+        p: { xs: 2.5, md: 3 },
+        height: '100%',
+        display: 'flex',
+        flexDirection: 'column',
+        justifyContent: 'space-between'
       }}>
-        <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
+        <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', mb: 2 }}>
           <Box
             sx={{
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              width: { xs: 56, sm: 64, md: 72, lg: 80 },
-              height: { xs: 56, sm: 64, md: 72, lg: 80 },
-              borderRadius: { xs: '14px', md: '18px' },
-              background: `linear-gradient(135deg, ${color === 'primary' ? '#6366f1, #8b5cf6' : 
-                color === 'secondary' ? '#8b5cf6, #d946ef' : 
-                color === 'success' ? '#10b981, #059669' :
-                color === 'warning' ? '#f59e0b, #d97706' : '#ef4444, #dc2626'})`,
+              width: { xs: 48, md: 56 },
+              height: { xs: 48, md: 56 },
+              borderRadius: '16px',
+              background: `linear-gradient(135deg, ${colorConfig.gradient})`,
               color: 'white',
-              boxShadow: `0 8px 24px ${color === 'primary' ? 'rgba(99, 102, 241, 0.4)' : 
-                color === 'secondary' ? 'rgba(139, 92, 246, 0.4)' : 
-                color === 'success' ? 'rgba(16, 185, 129, 0.4)' :
-                color === 'warning' ? 'rgba(245, 158, 11, 0.4)' : 'rgba(239, 68, 68, 0.4)'}`,
+              boxShadow: `0 6px 20px ${colorConfig.shadow}`,
             }}
           >
             {icon}
           </Box>
           {trend && (
-            <Box 
-              sx={{ 
-                display: 'flex', 
-                alignItems: 'center', 
-                gap: 1,
-                background: trend.isPositive ? 'rgba(16, 185, 129, 0.15)' : 'rgba(239, 68, 68, 0.15)',
-                borderRadius: '12px',
-                px: { xs: 1.5, md: 2 },
-                py: { xs: 0.5, md: 1 },
-                border: `1px solid ${trend.isPositive ? 'rgba(16, 185, 129, 0.3)' : 'rgba(239, 68, 68, 0.3)'}`,
+            <Box
+              sx={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 0.5,
+                background: trend.isPositive ? 'rgba(16, 185, 129, 0.12)' : 'rgba(239, 68, 68, 0.12)',
+                borderRadius: '10px',
+                px: 1.5,
+                py: 0.5,
+                border: `1px solid ${trend.isPositive ? 'rgba(16, 185, 129, 0.25)' : 'rgba(239, 68, 68, 0.25)'}`,
               }}
             >
               {trend.isPositive ? (
-                <TrendingUp sx={{ color: '#10b981', fontSize: { xs: 18, md: 20 } }} />
+                <TrendingUp sx={{ color: '#10b981', fontSize: 16 }} />
               ) : (
-                <TrendingDown sx={{ color: '#ef4444', fontSize: { xs: 18, md: 20 } }} />
+                <TrendingDown sx={{ color: '#ef4444', fontSize: 16 }} />
               )}
               <Typography
                 variant="body2"
                 color={trend.isPositive ? '#10b981' : '#ef4444'}
                 fontWeight="700"
-                sx={{ fontSize: { xs: '0.875rem', md: '1rem' } }}
+                sx={{ fontSize: '0.8125rem' }}
               >
-{!isNaN(trend.value) ? trend.value : 0}%
+                {!isNaN(trend.value) ? trend.value : 0}%
               </Typography>
             </Box>
           )}
         </Box>
 
-        <Box sx={{ mt: { xs: 2, md: 3 } }}>
-          <Typography 
-            variant="h2" 
-            fontWeight="800" 
+        <Box>
+          <Typography
+            variant="h2"
+            fontWeight="800"
             sx={{
               color: '#ffffff',
-              mb: 1,
-              fontSize: { xs: '2rem', sm: '2.25rem', md: '2.5rem', lg: '2.75rem' },
+              mb: 0.5,
+              fontSize: { xs: '1.75rem', md: '2rem' },
+              letterSpacing: '-0.02em',
+              lineHeight: 1.2,
             }}
           >
-{typeof value === 'number' && !isNaN(value) ? value.toLocaleString() : (value || '0')}
+            {typeof value === 'number' && !isNaN(value) ? value.toLocaleString() : (value || '0')}
           </Typography>
 
-          <Typography 
-            variant="h6" 
-            sx={{ 
-              color: '#ffffff',
+          <Typography
+            variant="h6"
+            sx={{
+              color: 'rgba(255, 255, 255, 0.95)',
               fontWeight: 600,
-              fontSize: { xs: '1.125rem', md: '1.25rem', lg: '1.375rem' },
-              mb: 0.5
+              fontSize: { xs: '0.9375rem', md: '1rem' },
+              mb: 0.25,
+              lineHeight: 1.3,
             }}
           >
             {title}
           </Typography>
 
           {subtitle && (
-            <Typography 
-              variant="body2" 
-              sx={{ 
-                color: 'rgba(255, 255, 255, 0.85)',
-                fontSize: { xs: '0.875rem', md: '1rem' }
+            <Typography
+              variant="body2"
+              sx={{
+                color: 'rgba(255, 255, 255, 0.65)',
+                fontSize: '0.8125rem',
+                lineHeight: 1.4,
               }}
             >
               {subtitle}
@@ -374,351 +376,148 @@ export default function DashboardPage() {
   };
 
   return (
-    <Box>
-      <Box sx={{ 
-        display: 'flex', 
-        justifyContent: 'space-between', 
-        alignItems: 'center', 
-        mb: { xs: 4, md: 5 },
+    <Box sx={{ pb: { xs: 4, md: 6 } }}>
+      {/* Header Section */}
+      <Box sx={{
+        display: 'flex',
+        justifyContent: 'space-between',
+        alignItems: 'center',
+        mb: { xs: 3, md: 4 },
         flexDirection: { xs: 'column', sm: 'row' },
         gap: { xs: 2, sm: 0 }
       }}>
         <Box sx={{ textAlign: { xs: 'center', sm: 'left' } }}>
-          <Typography 
-            variant="h3" 
-            component="h1" 
-            fontWeight="700"
+          <Typography
+            variant="h3"
+            component="h1"
+            fontWeight="800"
             sx={{
-              background: 'linear-gradient(135deg, #ffffff 0%, #a5b4fc 100%)',
+              background: 'linear-gradient(135deg, #ffffff 0%, #c7d2fe 100%)',
               WebkitBackgroundClip: 'text',
               WebkitTextFillColor: 'transparent',
               backgroundClip: 'text',
-              mb: 1,
-              fontSize: { xs: '2.125rem', sm: '2.5rem', md: '2.75rem', lg: '3rem' }
+              mb: 0.5,
+              fontSize: { xs: '2rem', sm: '2.25rem', md: '2.5rem' },
+              letterSpacing: '-0.02em'
             }}
           >
             Dashboard
           </Typography>
-          <Typography 
-            variant="subtitle1" 
-            sx={{ 
-              color: 'rgba(255, 255, 255, 0.85)', 
+          <Typography
+            variant="subtitle1"
+            sx={{
+              color: 'rgba(255, 255, 255, 0.75)',
               fontWeight: 500,
-              fontSize: { xs: '1rem', md: '1.125rem', lg: '1.25rem' }
+              fontSize: { xs: '0.9375rem', md: '1rem' }
             }}
           >
-            Visão geral do sistema imobiliário
+            Visão geral e métricas principais
           </Typography>
         </Box>
-        
-        {/* WhatsApp Status no Mobile, Refresh no Desktop */}
-        <Box sx={{ display: { xs: 'block', md: 'none' } }}>
-          {/* Mostrar WhatsApp Status apenas no mobile */}
-          <WhatsAppStatusIndicator 
-            variant="full"
-            size="medium"
-            clickable={true}
-            onRefresh={refreshStats}
-          />
-        </Box>
-        
+
         <Box sx={{ display: { xs: 'none', md: 'block' } }}>
-          {/* Mostrar botão Refresh apenas no desktop */}
-          <IconButton 
-            onClick={refreshStats} 
+          <IconButton
+            onClick={refreshStats}
             disabled={loading}
             sx={{
               background: 'rgba(99, 102, 241, 0.1)',
               border: '1px solid rgba(99, 102, 241, 0.2)',
-              borderRadius: '12px',
-              p: { xs: 1.5, md: 2 },
-              width: { xs: 48, md: 56 },
-              height: { xs: 48, md: 56 },
+              borderRadius: '14px',
+              p: 2,
+              width: 52,
+              height: 52,
+              transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
               '&:hover': {
                 background: 'rgba(99, 102, 241, 0.2)',
-                transform: 'scale(1.05)',
+                transform: 'translateY(-2px)',
+                boxShadow: '0 8px 24px rgba(99, 102, 241, 0.3)',
               }
             }}
           >
-            <Refresh sx={{ color: '#6366f1', fontSize: { xs: 20, md: 24 } }} />
+            <Refresh sx={{ color: '#6366f1', fontSize: 24 }} />
           </IconButton>
         </Box>
       </Box>
 
       {loading && (
         <Box sx={{ mb: 3 }}>
-          <LinearProgress 
-            sx={{ 
-              height: 4,
-              borderRadius: 2,
-              backgroundColor: 'rgba(255, 255, 255, 0.1)',
+          <LinearProgress
+            sx={{
+              height: 3,
+              borderRadius: 1.5,
+              backgroundColor: 'rgba(255, 255, 255, 0.08)',
               '& .MuiLinearProgress-bar': {
-                background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)',
-                borderRadius: 2,
+                background: 'linear-gradient(90deg, #6366f1 0%, #8b5cf6 100%)',
+                borderRadius: 1.5,
               }
-            }} 
+            }}
           />
         </Box>
       )}
 
-      {/* Revolutionary Onboarding - Interactive first-time user guide */}
-      <Box sx={{ mb: { xs: 4, md: 5 } }}>
+      {/* Revolutionary Onboarding */}
+      <Box sx={{ mb: { xs: 3, md: 4 } }}>
         <SafeRevolutionaryOnboarding variant="compact" />
       </Box>
 
-      {/* Optimized Grid Layout for iPad */}
-      <Grid container spacing={{ xs: 3, md: 4, lg: 5 }}>
-        {/* Top Row - Main Statistics (Responsive for iPad) */}
-        <Grid item xs={12} sm={6} md={3}>
+      {/* Clean Grid Layout - Optimized Architecture */}
+      <Grid container spacing={{ xs: 2.5, md: 3 }}>
+        {/* Main Statistics Row - 4 Key Metrics */}
+        <Grid item xs={12} sm={6} lg={3}>
           <StatCard
             title="Propriedades Ativas"
             value={loading ? 0 : stats.activeProperties}
             subtitle={loading ? "Carregando..." : `${stats.totalProperties} total`}
-            icon={<Home sx={{ fontSize: { xs: 32, md: 36, lg: 40 } }} />}
+            icon={<Home sx={{ fontSize: { xs: 28, md: 32 } }} />}
             color="primary"
             trend={{ value: trends.propertiesTrend, isPositive: trends.propertiesTrend >= 0 }}
           />
         </Grid>
 
-        <Grid item xs={12} sm={6} md={3}>
+        <Grid item xs={12} sm={6} lg={3}>
           <StatCard
             title="Reservas Pendentes"
             value={loading ? 0 : stats.pendingReservations}
             subtitle={loading ? "Carregando..." : `${stats.totalReservations} total`}
-            icon={<CalendarMonth sx={{ fontSize: { xs: 32, md: 36, lg: 40 } }} />}
+            icon={<CalendarMonth sx={{ fontSize: { xs: 28, md: 32 } }} />}
             color="secondary"
             trend={{ value: trends.reservationsTrend, isPositive: trends.reservationsTrend >= 0 }}
           />
         </Grid>
 
-        <Grid item xs={12} sm={6} md={3}>
+        <Grid item xs={12} sm={6} lg={3}>
           <StatCard
             title="Receita Mensal"
             value={loading ? "R$ 0" : `R$ ${(isNaN(stats.monthlyRevenue) ? 0 : stats.monthlyRevenue / 1000).toFixed(1)}k`}
             subtitle={loading ? "Carregando..." : `R$ ${(isNaN(stats.totalRevenue) ? 0 : stats.totalRevenue / 1000).toFixed(0)}k total`}
-            icon={<AttachMoney sx={{ fontSize: { xs: 32, md: 36, lg: 40 } }} />}
+            icon={<AttachMoney sx={{ fontSize: { xs: 28, md: 32 } }} />}
             color="success"
             trend={{ value: trends.revenueTrend, isPositive: trends.revenueTrend >= 0 }}
           />
         </Grid>
 
-        <Grid item xs={12} sm={6} md={3}>
+        <Grid item xs={12} sm={6} lg={3}>
           <StatCard
             title="Taxa de Ocupação"
             value={loading ? "0%" : `${(isNaN(stats.occupancyRate) ? 0 : stats.occupancyRate).toFixed(1)}%`}
             subtitle={loading ? "Carregando..." : `${stats.activeProperties} propriedades ativas`}
-            icon={<People sx={{ fontSize: { xs: 32, md: 36, lg: 40 } }} />}
+            icon={<People sx={{ fontSize: { xs: 28, md: 32 } }} />}
             color="warning"
             trend={{ value: trends.occupancyTrend, isPositive: trends.occupancyTrend >= 0 }}
           />
         </Grid>
 
-        {/* Second Row - Detailed Information Cards (4 Equal Cards) */}
-        {/* 🚀 PERFORMANCE: Suspense para lazy loading */}
-        <Grid item xs={12} sm={6} lg={3}>
+        {/* Detailed Cards Row - Focus on Core Operations */}
+        <Grid item xs={12} md={6}>
           <Suspense fallback={<CardSkeleton />}>
             <ConversationsMetricsCard />
           </Suspense>
         </Grid>
 
-        <Grid item xs={12} sm={6} lg={3}>
+        <Grid item xs={12} md={6}>
           <Suspense fallback={<CardSkeleton />}>
             <AgendaCard onCreateEvent={() => setShowVisitDialog(true)} />
           </Suspense>
-        </Grid>
-
-        <Grid item xs={12} sm={6} lg={3}>
-          <Suspense fallback={<CardSkeleton />}>
-            <MetricsCard />
-          </Suspense>
-        </Grid>
-
-        <Grid item xs={12} sm={6} lg={3}>
-          <Suspense fallback={<CardSkeleton />}>
-            <SofiaCard />
-          </Suspense>
-        </Grid>
-
-        {/* Third Row - Mini-Site Widget (Full Width) */}
-        <Grid item xs={12}>
-          <Suspense fallback={<CardSkeleton />}>
-            <MiniSiteWidgetFullWidth tenantId={tenantId || "default-tenant"} />
-          </Suspense>
-        </Grid>
-
-        {/* Quick Actions */}
-        <Grid item xs={12}>
-          <Card 
-            sx={{ 
-              height: 'auto',
-              minHeight: 150,
-              background: 'rgba(255, 255, 255, 0.08)',
-              backdropFilter: 'blur(20px)',
-              border: '1px solid rgba(255, 255, 255, 0.15)',
-              borderRadius: '20px',
-              transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-              '&:hover': {
-                transform: 'translateY(-4px)',
-                boxShadow: '0 16px 50px rgba(0, 0, 0, 0.4)',
-              }
-            }}
-          >
-            <CardContent sx={{ p: 4, height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
-              <Typography 
-                variant="h5" 
-                component="h2"
-                sx={{ 
-                  color: '#ffffff',
-                  fontWeight: 700,
-                  fontSize: '1.5rem',
-                  mb: 3
-                }}
-              >
-                Ações Rápidas
-              </Typography>
-
-              <Box sx={{
-                display: 'flex',
-                gap: { xs: 1.5, md: 2 },
-                flexWrap: 'wrap',
-                alignItems: 'center',
-                justifyContent: { xs: 'center', sm: 'flex-start' }
-              }}>
-                <Chip
-                  label="+ Propriedade"
-                  clickable
-                  sx={{
-                    background: 'rgba(99, 102, 241, 0.2)',
-                    color: '#c7d2fe',
-                    border: '1px solid rgba(99, 102, 241, 0.3)',
-                    fontWeight: 600,
-                    fontSize: { xs: '0.875rem', md: '1rem' },
-                    height: { xs: 44, md: 48 },
-                    px: { xs: 2, md: 3 },
-                    minWidth: { xs: 44, md: 48 },
-                    '&:hover': {
-                      background: 'rgba(99, 102, 241, 0.3)',
-                      transform: 'scale(1.05)',
-                    },
-                    '&:active': {
-                      transform: 'scale(0.98)',
-                    }
-                  }}
-                  onClick={() => router.push('/dashboard/properties')}
-                />
-                <Chip
-                  label="📅 Agenda"
-                  clickable
-                  sx={{
-                    background: 'rgba(139, 92, 246, 0.2)',
-                    color: '#d8b4fe',
-                    border: '1px solid rgba(139, 92, 246, 0.3)',
-                    fontWeight: 600,
-                    fontSize: { xs: '0.875rem', md: '1rem' },
-                    height: { xs: 44, md: 48 },
-                    px: { xs: 2, md: 3 },
-                    minWidth: { xs: 44, md: 48 },
-                    '&:hover': {
-                      background: 'rgba(139, 92, 246, 0.3)',
-                      transform: 'scale(1.05)',
-                    },
-                    '&:active': {
-                      transform: 'scale(0.98)',
-                    }
-                  }}
-                  onClick={() => router.push('/dashboard/agenda')}
-                />
-                <Chip
-                  label="💰 Financeiro"
-                  clickable
-                  sx={{
-                    background: 'rgba(16, 185, 129, 0.2)',
-                    color: '#6ee7b7',
-                    border: '1px solid rgba(16, 185, 129, 0.3)',
-                    fontWeight: 600,
-                    fontSize: { xs: '0.875rem', md: '1rem' },
-                    height: { xs: 44, md: 48 },
-                    px: { xs: 2, md: 3 },
-                    minWidth: { xs: 44, md: 48 },
-                    '&:hover': {
-                      background: 'rgba(16, 185, 129, 0.3)',
-                      transform: 'scale(1.05)',
-                    },
-                    '&:active': {
-                      transform: 'scale(0.98)',
-                    }
-                  }}
-                  onClick={() => router.push('/dashboard/financeiro')}
-                />
-                <Chip
-                  label="🌐 Mini-Site"
-                  clickable
-                  sx={{
-                    background: 'rgba(236, 72, 153, 0.2)',
-                    color: '#f9a8d4',
-                    border: '1px solid rgba(236, 72, 153, 0.3)',
-                    fontWeight: 600,
-                    fontSize: { xs: '0.875rem', md: '1rem' },
-                    height: { xs: 44, md: 48 },
-                    px: { xs: 2, md: 3 },
-                    minWidth: { xs: 44, md: 48 },
-                    '&:hover': {
-                      background: 'rgba(236, 72, 153, 0.3)',
-                      transform: 'scale(1.05)',
-                    },
-                    '&:active': {
-                      transform: 'scale(0.98)',
-                    }
-                  }}
-                  onClick={() => router.push('/dashboard/mini-site')}
-                />
-                <Chip
-                  label="⚙️ Configurações"
-                  clickable
-                  sx={{
-                    background: 'rgba(245, 158, 11, 0.2)',
-                    color: '#fde68a',
-                    border: '1px solid rgba(245, 158, 11, 0.3)',
-                    fontWeight: 600,
-                    fontSize: { xs: '0.875rem', md: '1rem' },
-                    height: { xs: 44, md: 48 },
-                    px: { xs: 2, md: 3 },
-                    minWidth: { xs: 44, md: 48 },
-                    '&:hover': {
-                      background: 'rgba(245, 158, 11, 0.3)',
-                      transform: 'scale(1.05)',
-                    },
-                    '&:active': {
-                      transform: 'scale(0.98)',
-                    }
-                  }}
-                  onClick={() => router.push('/dashboard/settings')}
-                />
-                <Chip
-                  label="💬 Ajuda & Suporte"
-                  clickable
-                  sx={{
-                    background: 'rgba(59, 130, 246, 0.2)',
-                    color: '#93c5fd',
-                    border: '1px solid rgba(59, 130, 246, 0.3)',
-                    fontWeight: 600,
-                    fontSize: { xs: '0.875rem', md: '1rem' },
-                    height: { xs: 44, md: 48 },
-                    px: { xs: 2, md: 3 },
-                    minWidth: { xs: 44, md: 48 },
-                    '&:hover': {
-                      background: 'rgba(59, 130, 246, 0.3)',
-                      transform: 'scale(1.05)',
-                    },
-                    '&:active': {
-                      transform: 'scale(0.98)',
-                    }
-                  }}
-                  onClick={() => router.push('/dashboard/help')}
-                />
-              </Box>
-            </CardContent>
-          </Card>
         </Grid>
       </Grid>
 
