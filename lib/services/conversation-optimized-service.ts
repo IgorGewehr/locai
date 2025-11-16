@@ -33,7 +33,8 @@ export class ConversationOptimizedService {
         .getMany(
           [{ field: 'clientId', operator: '==', value: clientId }],
           {
-            orderBy: [{ field: 'lastMessageAt', direction: 'desc' }],
+            orderBy: 'lastMessageAt',
+            orderDirection: 'desc',
             limit
           }
         );
@@ -61,7 +62,8 @@ export class ConversationOptimizedService {
         .getMany(
           [{ field: 'clientPhone', operator: '==', value: phone }],
           {
-            orderBy: [{ field: 'lastMessageAt', direction: 'desc' }],
+            orderBy: 'lastMessageAt',
+            orderDirection: 'desc',
             limit
           }
         );
@@ -107,7 +109,8 @@ export class ConversationOptimizedService {
       const messages = await messagesService.getMany(
         [{ field: 'conversationId', operator: '==', value: conversationId }],
         {
-          orderBy: [{ field: 'timestamp', direction: order }],
+          orderBy: 'createdAt',
+          orderDirection: order,
           limit
         }
       );

@@ -88,17 +88,32 @@ export default function ConversationsPage() {
     conversationId: string;
   } | null>(null);
 
-  // Format timestamp intelligently
-  const formatTimestamp = (date: Date): string => {
-    const now = new Date();
-    const diffInHours = (now.getTime() - new Date(date).getTime()) / (1000 * 60 * 60);
+  // Format timestamp intelligently - SAFE VERSION
+  const formatTimestamp = (date: Date | string | null | undefined): string => {
+    try {
+      if (!date) return '--:--';
 
-    if (diffInHours < 24) {
-      return format(new Date(date), 'HH:mm');
-    } else if (diffInHours < 168) {
-      return format(new Date(date), 'EEE', { locale: ptBR });
-    } else {
-      return format(new Date(date), 'dd/MM/yy');
+      const dateObj = date instanceof Date ? date : new Date(date);
+
+      // Validate date
+      if (isNaN(dateObj.getTime())) {
+        console.warn('Invalid date:', date);
+        return '--:--';
+      }
+
+      const now = new Date();
+      const diffInHours = (now.getTime() - dateObj.getTime()) / (1000 * 60 * 60);
+
+      if (diffInHours < 24) {
+        return format(dateObj, 'HH:mm');
+      } else if (diffInHours < 168) {
+        return format(dateObj, 'EEE', { locale: ptBR });
+      } else {
+        return format(dateObj, 'dd/MM/yy');
+      }
+    } catch (error) {
+      console.error('Error formatting timestamp:', error, date);
+      return '--:--';
     }
   };
 
@@ -591,16 +606,29 @@ export default function ConversationsPage() {
                 ) : (
                   <Stack spacing={3}>
                     {messages.map((message, index) => {
-                      const messageDate = new Date(message.timestamp);
+                      // SAFE DATE PARSING
+                      const messageTimestamp = message.clientMessageTimestamp || message.createdAt;
+                      const messageDate = messageTimestamp instanceof Date
+                        ? messageTimestamp
+                        : new Date(messageTimestamp);
+
                       const prevMessage = index > 0 ? messages[index - 1] : null;
-                      const prevDate = prevMessage ? new Date(prevMessage.timestamp) : null;
+                      const prevTimestamp = prevMessage
+                        ? (prevMessage.clientMessageTimestamp || prevMessage.createdAt)
+                        : null;
+                      const prevDate = prevTimestamp
+                        ? (prevTimestamp instanceof Date ? prevTimestamp : new Date(prevTimestamp))
+                        : null;
 
                       const showDateDivider =
-                        !prevDate || messageDate.toDateString() !== prevDate.toDateString();
+                        !prevDate ||
+                        !isNaN(messageDate.getTime()) &&
+                        !isNaN(prevDate.getTime()) &&
+                        messageDate.toDateString() !== prevDate.toDateString();
 
                       return (
                         <React.Fragment key={message.id}>
-                          {showDateDivider && (
+                          {showDateDivider && !isNaN(messageDate.getTime()) && (
                             <Box display="flex" justifyContent="center" my={2}>
                               <Chip
                                 label={format(messageDate, "EEEE, dd 'de' MMMM", {
@@ -649,7 +677,9 @@ export default function ConversationsPage() {
                                   color="text.secondary"
                                   sx={{ display: 'block', mt: 1 }}
                                 >
-                                  {format(messageDate, 'dd/MM/yyyy HH:mm', { locale: ptBR })}
+                                  {!isNaN(messageDate.getTime())
+                                    ? format(messageDate, 'dd/MM/yyyy HH:mm', { locale: ptBR })
+                                    : 'Data inválida'}
                                 </Typography>
                               </Paper>
                             </Box>
@@ -672,7 +702,9 @@ export default function ConversationsPage() {
                                 </Typography>
                                 <Stack direction="row" spacing={1} alignItems="center" mt={1}>
                                   <Typography variant="caption" color="text.secondary">
-                                    {format(messageDate, 'dd/MM/yyyy HH:mm', { locale: ptBR })}
+                                    {!isNaN(messageDate.getTime())
+                                      ? format(messageDate, 'dd/MM/yyyy HH:mm', { locale: ptBR })
+                                      : 'Data inválida'}
                                   </Typography>
                                   {message.context?.functionsCalled &&
                                     message.context.functionsCalled.length > 0 && (
