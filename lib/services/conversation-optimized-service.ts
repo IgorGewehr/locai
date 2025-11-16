@@ -125,7 +125,12 @@ export class ConversationOptimizedService {
           hasSofiaMessage: !!m.sofiaMessage,
           clientMessageLength: m.clientMessage?.length || 0,
           sofiaMessageLength: m.sofiaMessage?.length || 0,
-          createdAt: m.createdAt
+          clientMessageTimestamp: m.clientMessageTimestamp,
+          clientMessageTimestampType: typeof m.clientMessageTimestamp,
+          clientMessageTimestampConstructor: m.clientMessageTimestamp?.constructor?.name,
+          createdAt: m.createdAt,
+          createdAtType: typeof m.createdAt,
+          createdAtConstructor: m.createdAt?.constructor?.name
         }))
       });
 

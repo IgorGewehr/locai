@@ -627,28 +627,27 @@ export default function ConversationsPage() {
                         hasSofiaMessage: !!message.sofiaMessage,
                         clientMessage: message.clientMessage?.substring(0, 30),
                         sofiaMessage: message.sofiaMessage?.substring(0, 30),
+                        clientMessageTimestamp: message.clientMessageTimestamp,
+                        clientMessageTimestampType: typeof message.clientMessageTimestamp,
+                        createdAt: message.createdAt,
+                        createdAtType: typeof message.createdAt,
                         allFields: Object.keys(message)
                       });
 
-                      // SAFE DATE PARSING
+                      // SAFE DATE PARSING usando toDate helper
                       const messageTimestamp = message.clientMessageTimestamp || message.createdAt;
-                      const messageDate = messageTimestamp instanceof Date
-                        ? messageTimestamp
-                        : new Date(messageTimestamp);
+                      const messageDate = toDate(messageTimestamp);
 
                       const prevMessage = index > 0 ? messages[index - 1] : null;
                       const prevTimestamp = prevMessage
                         ? (prevMessage.clientMessageTimestamp || prevMessage.createdAt)
                         : null;
-                      const prevDate = prevTimestamp
-                        ? (prevTimestamp instanceof Date ? prevTimestamp : new Date(prevTimestamp))
-                        : null;
+                      const prevDate = prevTimestamp ? toDate(prevTimestamp) : null;
 
                       const showDateDivider =
                         !prevDate ||
-                        !isNaN(messageDate.getTime()) &&
-                        !isNaN(prevDate.getTime()) &&
-                        messageDate.toDateString() !== prevDate.toDateString();
+                        (messageDate && prevDate &&
+                        messageDate.toDateString() !== prevDate.toDateString());
 
                       return (
                         <React.Fragment key={message.id}>
@@ -699,7 +698,7 @@ export default function ConversationsPage() {
                                   color="text.secondary"
                                   sx={{ display: 'block', mt: 1 }}
                                 >
-                                  {safeFormat(messageDate, 'dd/MM/yyyy HH:mm')}
+                                  {messageDate ? safeFormat(messageDate, 'dd/MM/yyyy HH:mm') : '--:--'}
                                 </Typography>
                               </Paper>
                             </Box>
@@ -722,7 +721,7 @@ export default function ConversationsPage() {
                                 </Typography>
                                 <Stack direction="row" spacing={1} alignItems="center" mt={1}>
                                   <Typography variant="caption" color="text.secondary">
-                                    {safeFormat(messageDate, 'dd/MM/yyyy HH:mm')}
+                                    {messageDate ? safeFormat(messageDate, 'dd/MM/yyyy HH:mm') : '--:--'}
                                   </Typography>
                                   {message.context?.functionsCalled &&
                                     message.context.functionsCalled.length > 0 && (
