@@ -50,6 +50,7 @@ import {
 } from '@mui/icons-material';
 import { format, differenceInDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { safeFormat, toDate } from '@/lib/utils/date-helpers';
 
 interface Reservation {
   id: string;
@@ -249,10 +250,10 @@ export default function ReservationDetailPage() {
                     <Typography variant="h6">Datas</Typography>
                   </Box>
                   <Typography variant="body1">
-                    <strong>Check-in:</strong> {format(reservation.checkIn, 'dd/MM/yyyy', { locale: ptBR })}
+                    <strong>Check-in:</strong> {safeFormat(reservation.checkIn, 'dd/MM/yyyy')}
                   </Typography>
                   <Typography variant="body1">
-                    <strong>Check-out:</strong> {format(reservation.checkOut, 'dd/MM/yyyy', { locale: ptBR })}
+                    <strong>Check-out:</strong> {safeFormat(reservation.checkOut, 'dd/MM/yyyy')}
                   </Typography>
                   <Typography variant="body2" color="textSecondary">
                     {nights} {nights === 1 ? 'noite' : 'noites'}

@@ -520,7 +520,7 @@ export class TransactionServiceV2 extends MultiTenantFirestoreService<Transactio
   async getInstallments(parentTransactionId: string): Promise<Transaction[]> {
     return await this.getMany([
       { field: 'originalTransactionId', operator: '==', value: parentTransactionId }
-    ], { orderBy: [{ field: 'installmentNumber', direction: 'asc' }] });
+    ], { orderBy: 'installmentNumber', orderDirection: 'asc' });
   }
 
   // ===== RECURRING TRANSACTIONS =====
@@ -529,7 +529,7 @@ export class TransactionServiceV2 extends MultiTenantFirestoreService<Transactio
     return await this.getMany([
       { field: 'isRecurring', operator: '==', value: true },
       { field: 'parentTransactionId', operator: '==', value: null }
-    ], { orderBy: [{ field: 'date', direction: 'desc' }] });
+    ], { orderBy: 'date', orderDirection: 'desc' });
   }
 
   async createRecurringTransaction(input: RecurringTransactionInput, createdBy?: string): Promise<string> {

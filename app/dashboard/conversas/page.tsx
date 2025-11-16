@@ -45,6 +45,7 @@ import {
 } from '@mui/icons-material';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
+import { safeFormat, formatTimestamp as safeFormatTimestamp, toDate } from '@/lib/utils/date-helpers';
 import { useRouter } from 'next/navigation';
 import InfiniteScroll from 'react-infinite-scroll-component';
 import { useTenant } from '@/contexts/TenantContext';
@@ -88,34 +89,7 @@ export default function ConversationsPage() {
     conversationId: string;
   } | null>(null);
 
-  // Format timestamp intelligently - SAFE VERSION
-  const formatTimestamp = (date: Date | string | null | undefined): string => {
-    try {
-      if (!date) return '--:--';
-
-      const dateObj = date instanceof Date ? date : new Date(date);
-
-      // Validate date
-      if (isNaN(dateObj.getTime())) {
-        console.warn('Invalid date:', date);
-        return '--:--';
-      }
-
-      const now = new Date();
-      const diffInHours = (now.getTime() - dateObj.getTime()) / (1000 * 60 * 60);
-
-      if (diffInHours < 24) {
-        return format(dateObj, 'HH:mm');
-      } else if (diffInHours < 168) {
-        return format(dateObj, 'EEE', { locale: ptBR });
-      } else {
-        return format(dateObj, 'dd/MM/yy');
-      }
-    } catch (error) {
-      console.error('Error formatting timestamp:', error, date);
-      return '--:--';
-    }
-  };
+  // Using safeFormatTimestamp from date-helpers
 
   // Get status color
   const getStatusColor = (status: ConversationStatus) => {
@@ -453,7 +427,7 @@ export default function ConversationsPage() {
                                 {conversation.clientName || conversation.clientPhone}
                               </Typography>
                               <Typography variant="caption" color="text.secondary">
-                                {formatTimestamp(conversation.lastMessageAt)}
+                                {safeFormatTimestamp(conversation.lastMessageAt)}
                               </Typography>
                             </Box>
                             <Typography
@@ -628,12 +602,10 @@ export default function ConversationsPage() {
 
                       return (
                         <React.Fragment key={message.id}>
-                          {showDateDivider && !isNaN(messageDate.getTime()) && (
+                          {showDateDivider && (
                             <Box display="flex" justifyContent="center" my={2}>
                               <Chip
-                                label={format(messageDate, "EEEE, dd 'de' MMMM", {
-                                  locale: ptBR,
-                                })}
+                                label={safeFormat(messageDate, "EEEE, dd 'de' MMMM")}
                                 size="small"
                                 icon={<Event fontSize="small" />}
                                 sx={{
@@ -677,9 +649,7 @@ export default function ConversationsPage() {
                                   color="text.secondary"
                                   sx={{ display: 'block', mt: 1 }}
                                 >
-                                  {!isNaN(messageDate.getTime())
-                                    ? format(messageDate, 'dd/MM/yyyy HH:mm', { locale: ptBR })
-                                    : 'Data inválida'}
+                                  {safeFormat(messageDate, 'dd/MM/yyyy HH:mm')}
                                 </Typography>
                               </Paper>
                             </Box>
@@ -702,9 +672,7 @@ export default function ConversationsPage() {
                                 </Typography>
                                 <Stack direction="row" spacing={1} alignItems="center" mt={1}>
                                   <Typography variant="caption" color="text.secondary">
-                                    {!isNaN(messageDate.getTime())
-                                      ? format(messageDate, 'dd/MM/yyyy HH:mm', { locale: ptBR })
-                                      : 'Data inválida'}
+                                    {safeFormat(messageDate, 'dd/MM/yyyy HH:mm')}
                                   </Typography>
                                   {message.context?.functionsCalled &&
                                     message.context.functionsCalled.length > 0 && (
