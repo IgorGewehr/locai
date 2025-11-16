@@ -37,8 +37,10 @@ import { logger } from '@/lib/utils/logger';
 const AgendaCard = lazy(() => import('@/components/organisms/dashboards/AgendaCard'));
 const ConversationsMetricsCard = lazy(() => import('@/components/organisms/dashboards/ConversationsMetricsCard').then(m => ({ default: m.ConversationsMetricsCard })));
 const CreateVisitDialog = lazy(() => import('./agenda/components/CreateVisitDialog'));
+const Heatmap = lazy(() => import('@/components/organisms/Heatmap'));
 import { SafeRevolutionaryOnboarding } from '@/components/organisms/RevolutionaryOnboarding';
 import { useRouter } from 'next/navigation';
+import { useMetrics } from '@/lib/hooks/useMetrics';
 
 const initialStats: DashboardStats = {
   totalProperties: 0,
@@ -239,6 +241,9 @@ export default function DashboardPage() {
     revenueTrend: 0,
     occupancyTrend: 0
   });
+
+  // Métricas para Heatmap
+  const { data: metricsData } = useMetrics('7d');
 
   // 🚀 OTIMIZAÇÃO: useCallback previne re-criação da função
   // e evita loop infinito no useEffect
@@ -519,6 +524,15 @@ export default function DashboardPage() {
             <AgendaCard onCreateEvent={() => setShowVisitDialog(true)} />
           </Suspense>
         </Grid>
+
+        {/* Heatmap de Atividade */}
+        {metricsData?.heatmapData && metricsData.heatmapData.length > 0 && (
+          <Grid item xs={12}>
+            <Suspense fallback={<CardSkeleton />}>
+              <Heatmap data={metricsData.heatmapData} />
+            </Suspense>
+          </Grid>
+        )}
       </Grid>
 
       {/* Dialog para criar nova visita */}

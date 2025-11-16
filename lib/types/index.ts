@@ -106,8 +106,11 @@ export interface Conversation {
   whatsappNumber: string;
   tenantId?: string;
   messages: Message[];
+  messageCount?: number; // Cached message count
   isActive: boolean;
+  status?: 'active' | 'archived' | 'resolved'; // Conversation status
   lastMessageAt: Date;
+  hasReservation?: boolean; // Has associated reservation
   context: {
     currentSearchFilters?: PropertySearchFilters;
     interestedProperties?: string[];
@@ -123,14 +126,16 @@ export interface Conversation {
 export interface Message {
   id: string;
   conversationId: string;
-  from: 'client' | 'agent';
+  from: 'client' | 'agent' | 'bot' | string;
   content: string;
+  text?: string; // Alias for content (backward compatibility)
   messageType: 'text' | 'image' | 'video' | 'document';
   mediaUrl?: string;
   timestamp: Date;
   isRead: boolean;
   whatsappMessageId?: string;
   tenantId?: string;
+  responseTime?: number; // For bot response tracking
   metadata?: {
     functionCalls?: string[];
     processingTime?: number;
@@ -361,3 +366,6 @@ export * from './notification';
 
 // Export onboarding types
 export * from './onboarding';
+
+// Export custom error types
+export * from './errors';

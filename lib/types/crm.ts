@@ -56,30 +56,33 @@ export enum TaskPriority {
 export interface Lead {
   id: string;
   tenantId: string;
-  
+
   // Basic Information
   name: string;
+  clientName?: string; // Alias for name
   email?: string;
   phone: string;
+  clientPhone?: string; // Alias for phone
   whatsappNumber?: string;
   document?: string;
   documentType?: 'cpf' | 'cnpj';
-  
+
   // Lead Details
   status: LeadStatus;
   source: LeadSource;
   sourceDetails?: string; // e.g., specific campaign, referrer name
-  
+
   // Scoring and Qualification
   score: number; // 0-100
   temperature: 'cold' | 'warm' | 'hot';
+  budget?: number; // Budget amount
   qualificationCriteria: {
     budget: boolean;
     authority: boolean;
     need: boolean;
     timeline: boolean;
   };
-  
+
   // Preferences and Requirements
   preferences: {
     propertyType?: string[];
@@ -90,23 +93,37 @@ export interface Lead {
     moveInDate?: Date;
     stayDuration?: 'short' | 'medium' | 'long';
   };
-  
+
+  // Interaction tracking
+  interactions?: Interaction[]; // Array of interactions
+  interests?: string[]; // Array of interested properties/topics
+  notes?: string; // Additional notes
+  demographics?: {
+    age?: number;
+    gender?: string;
+    occupation?: string;
+    location?: string;
+  };
+  preferredContact?: 'whatsapp' | 'phone' | 'email';
+  preferredContactMethods?: string[];
+  scheduledFollowUp?: Date; // Next follow-up date
+
   // Assignment and Ownership
   assignedTo?: string; // User ID
   assignedAt?: Date;
-  
+
   // Analytics
   firstContactDate: Date;
   lastContactDate: Date;
   totalInteractions: number;
   averageResponseTime?: number; // in minutes
-  
+
   // Conversion
   convertedToClientAt?: Date;
   clientId?: string;
   wonValue?: number;
   lostReason?: string;
-  
+
   // AI Insights
   aiInsights?: {
     predictedValue: number;
@@ -115,7 +132,7 @@ export interface Lead {
     personalityProfile?: string;
     communicationPreference?: string;
   };
-  
+
   // Metadata
   tags: string[];
   customFields?: Record<string, any>;

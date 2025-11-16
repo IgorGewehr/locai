@@ -120,6 +120,18 @@ export function useConversationsOptimized({
       const service = createConversationOptimizedService(tenantId);
       const messages = await service.getConversationMessages(conversationId, 100, 'asc');
 
+      console.log('🔍 [DEBUG] Messages loaded:', {
+        conversationId,
+        messageCount: messages.length,
+        messages: messages.map(m => ({
+          id: m.id,
+          hasClientMessage: !!m.clientMessage,
+          hasSofiaMessage: !!m.sofiaMessage,
+          clientMessage: m.clientMessage?.substring(0, 50),
+          sofiaMessage: m.sofiaMessage?.substring(0, 50)
+        }))
+      });
+
       setState(prev => ({
         ...prev,
         messages,

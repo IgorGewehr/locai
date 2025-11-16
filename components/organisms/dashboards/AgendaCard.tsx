@@ -146,34 +146,34 @@ function AgendaCard({ onCreateEvent }: AgendaCardProps) {
 
   if (loading) {
     return (
-      <Card 
-        sx={{ 
-          height: { xs: 'auto', lg: 400 },
-          minHeight: 350,
-          background: 'rgba(255, 255, 255, 0.08)',
+      <Card
+        sx={{
+          height: { xs: 'auto', md: 450, lg: 500 },
+          minHeight: 400,
+          background: 'rgba(255, 255, 255, 0.06)',
           backdropFilter: 'blur(20px)',
-          border: '1px solid rgba(255, 255, 255, 0.15)',
-          borderRadius: '20px',
+          border: '1px solid rgba(255, 255, 255, 0.1)',
+          borderRadius: '24px',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
         }}
       >
-        <CircularProgress size={40} />
+        <CircularProgress size={40} sx={{ color: 'rgba(99, 102, 241, 0.6)' }} />
       </Card>
     );
   }
 
   return (
-    <Card 
-      sx={{ 
-        height: { xs: 'auto', lg: 400 },
-        minHeight: 350,
-        background: 'rgba(255, 255, 255, 0.08)',
+    <Card
+      sx={{
+        height: { xs: 'auto', md: 450, lg: 500 },
+        minHeight: 400,
+        background: 'rgba(255, 255, 255, 0.06)',
         backdropFilter: 'blur(20px)',
-        border: '1px solid rgba(255, 255, 255, 0.15)',
-        borderRadius: '20px',
-        transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+        border: '1px solid rgba(255, 255, 255, 0.1)',
+        borderRadius: '24px',
+        transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
         position: 'relative',
         overflow: 'hidden',
         '&:hover': {

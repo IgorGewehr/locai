@@ -143,27 +143,43 @@ export async function POST(request: NextRequest) {
     let isNewConversation = false;
     let conversation: ConversationHeader | null = null;
 
-    // Tentar encontrar conversa ativa por telefone
+    // Tentar encontrar QUALQUER conversa por telefone (não só active)
+    // IMPORTANTE: Todas as conversas do mesmo número devem ser agrupadas
     if (clientPhone) {
-      logger.info('🔍 [POST-CONVERSATION] Buscando conversa ativa', {
+      logger.info('🔍 [POST-CONVERSATION] Buscando conversa existente', {
         requestId,
         clientPhone: clientPhone.substring(0, 8) + '***'
       });
 
-      const activeConversations = await conversationsService.getMany([
-        { field: 'clientPhone', operator: '==', value: clientPhone },
-        { field: 'status', operator: '==', value: 'active' as ConversationStatus }
+      const existingConversations = await conversationsService.getMany([
+        { field: 'clientPhone', operator: '==', value: clientPhone }
       ], { orderBy: 'lastMessageAt', orderDirection: 'desc', limit: 1 });
 
-      if (activeConversations.length > 0) {
-        conversation = activeConversations[0];
+      if (existingConversations.length > 0) {
+        conversation = existingConversations[0];
         conversationId = conversation.id!;
 
-        logger.info('✅ [POST-CONVERSATION] Conversa ativa encontrada', {
+        logger.info('✅ [POST-CONVERSATION] Conversa existente encontrada', {
           requestId,
           conversationId,
+          conversationStatus: conversation.status,
+          lastMessageAt: conversation.lastMessageAt,
           clientPhone: clientPhone?.substring(0, 8) + '***'
         });
+
+        // Se a conversa estava completed/abandoned, reativar
+        if (conversation.status !== 'active') {
+          logger.info('🔄 [POST-CONVERSATION] Reativando conversa', {
+            requestId,
+            conversationId,
+            oldStatus: conversation.status,
+            newStatus: 'active'
+          });
+          await conversationsService.update(conversationId, {
+            status: 'active' as ConversationStatus,
+            updatedAt: new Date()
+          });
+        }
       }
     }
 
@@ -216,10 +232,31 @@ export async function POST(request: NextRequest) {
 
     const messageId = await messagesService.create(newMessage);
 
-    logger.info('💾 [POST-CONVERSATION] Mensagem salva', {
+    logger.info('💾 [POST-CONVERSATION] Mensagem salva com sucesso', {
       requestId,
       conversationId,
-      messageId
+      messageId,
+      messageSaved: {
+        conversationId: newMessage.conversationId,
+        hasClientMessage: !!newMessage.clientMessage,
+        hasSofiaMessage: !!newMessage.sofiaMessage,
+        clientMessageLength: newMessage.clientMessage?.length || 0,
+        sofiaMessageLength: newMessage.sofiaMessage?.length || 0,
+        clientMessagePreview: newMessage.clientMessage?.substring(0, 50),
+        sofiaMessagePreview: newMessage.sofiaMessage?.substring(0, 50)
+      }
+    });
+
+    // VERIFICAÇÃO: Tentar buscar a mensagem recém-criada
+    const verifyMessage = await messagesService.get(messageId);
+    logger.info('🔍 [POST-CONVERSATION] Verificação da mensagem salva', {
+      requestId,
+      messageId,
+      messageExists: !!verifyMessage,
+      hasClientMessage: !!verifyMessage?.clientMessage,
+      hasSofiaMessage: !!verifyMessage?.sofiaMessage,
+      clientMessagePreview: verifyMessage?.clientMessage?.substring(0, 50),
+      sofiaMessagePreview: verifyMessage?.sofiaMessage?.substring(0, 50)
     });
 
     // 3. Atualizar conversation header

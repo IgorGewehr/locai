@@ -883,7 +883,6 @@ export const PropertyAvailability: React.FC = () => {
             </Grid>
           </Alert>
         </Grid>
-      </Grid>
 
       {/* Price Dialog */}
       <Dialog open={showPriceDialog} onClose={() => setShowPriceDialog(false)}>
@@ -926,7 +925,7 @@ export const PropertyAvailability: React.FC = () => {
       </Dialog>
       </>
         )}
-      </Grid>
+    </Grid>
     </Box>
   );
 };

@@ -115,7 +115,7 @@ export async function GET(request: NextRequest) {
 
     let companyInfo: CompanyInfo;
 
-    if (infoDoc.exists) {
+    if (infoDoc.exists()) {
       companyInfo = infoDoc.data() as CompanyInfo;
       logger.info('[GET-COMPANY-INFO] Info loaded from Firestore', {
         requestId,
@@ -220,16 +220,12 @@ export async function PUT(request: NextRequest) {
 
     // Save to Firestore
     const services = new TenantServiceFactory(tenantId);
-    await services.db
-      .collection('tenants')
-      .doc(tenantId)
-      .collection('config')
-      .doc('company-info')
-      .set({
-        ...sanitizedInfo,
-        updatedAt: new Date(),
-        updatedBy: authContext.uid || 'system',
-      });
+    const docRef = doc(services.db, 'tenants', tenantId, 'config', 'company-info');
+    await setDoc(docRef, {
+      ...sanitizedInfo,
+      updatedAt: new Date(),
+      updatedBy: authContext.uid || 'system',
+    });
 
     logger.info('[UPDATE-COMPANY-INFO] Info updated', {
       requestId,

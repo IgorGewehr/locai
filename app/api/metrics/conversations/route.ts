@@ -57,6 +57,8 @@ export async function GET(request: NextRequest) {
     });
 
     const services = new TenantServiceFactory(tenantId);
+    const conversationsService = services.createService('conversations');
+    const messagesService = services.createService('messages');
 
     // Define time ranges
     const now = new Date();
@@ -67,65 +69,84 @@ export async function GET(request: NextRequest) {
     weekStart.setDate(weekStart.getDate() - 7);
     weekStart.setHours(0, 0, 0, 0);
 
+    logger.debug('[GET-CONV-METRICS] Time ranges defined', {
+      requestId,
+      todayStart: todayStart.toISOString(),
+      weekStart: weekStart.toISOString(),
+    });
+
     // Fetch today's conversations
-    const todayConversations = await services.db
-      .collection('tenants')
-      .doc(tenantId)
-      .collection('conversations')
-      .where('startedAt', '>=', todayStart)
-      .get();
+    let todayConversations;
+    try {
+      todayConversations = await conversationsService.getMany([
+        { field: 'startedAt', operator: '>=', value: todayStart }
+      ]);
+    } catch (dbError) {
+      logger.error('[GET-CONV-METRICS] Error fetching today conversations', {
+        requestId,
+        error: dbError instanceof Error ? dbError.message : 'Unknown error',
+      });
+      throw new Error(`Failed to fetch today conversations: ${dbError instanceof Error ? dbError.message : 'Unknown error'}`);
+    }
 
     logger.debug('[GET-CONV-METRICS] Today conversations fetched', {
       requestId,
-      count: todayConversations.size,
+      count: todayConversations.length,
     });
 
     // Calculate today's metrics
     let activeCount = 0;
     let completedCount = 0;
 
-    todayConversations.docs.forEach((doc) => {
-      const data = doc.data();
-      if (data.status === 'active') {
+    todayConversations.forEach((conversation: any) => {
+      if (conversation.status === 'active') {
         activeCount++;
-      } else if (data.status === 'completed' || data.status === 'success') {
+      } else if (conversation.status === 'completed' || conversation.status === 'success') {
         completedCount++;
       }
     });
 
     // Fetch today's messages for response time calculation
-    const todayMessages = await services.db
-      .collection('tenants')
-      .doc(tenantId)
-      .collection('messages')
-      .where('createdAt', '>=', todayStart)
-      .get();
+    let todayMessages;
+    try {
+      todayMessages = await messagesService.getMany([
+        { field: 'createdAt', operator: '>=', value: todayStart }
+      ]);
+    } catch (dbError) {
+      logger.error('[GET-CONV-METRICS] Error fetching today messages', {
+        requestId,
+        error: dbError instanceof Error ? dbError.message : 'Unknown error',
+      });
+      throw new Error(`Failed to fetch today messages: ${dbError instanceof Error ? dbError.message : 'Unknown error'}`);
+    }
 
     logger.debug('[GET-CONV-METRICS] Today messages fetched', {
       requestId,
-      count: todayMessages.size,
+      count: todayMessages.length,
     });
 
     // Calculate average response time
     let totalResponseTime = 0;
     let responseCount = 0;
 
-    todayMessages.docs.forEach((doc) => {
-      const data = doc.data();
-
+    todayMessages.forEach((message: any) => {
       // Only calculate if Sofia responded
-      if (data.sofiaMessageTimestamp && data.clientMessageTimestamp) {
+      if (message.sofiaMessageTimestamp && message.clientMessageTimestamp) {
         try {
-          // Handle Firestore Timestamp objects
+          // Handle Firestore Timestamp objects or Date objects
           const sofiaTime =
-            typeof data.sofiaMessageTimestamp.toMillis === 'function'
-              ? data.sofiaMessageTimestamp.toMillis()
-              : new Date(data.sofiaMessageTimestamp).getTime();
+            typeof message.sofiaMessageTimestamp.toMillis === 'function'
+              ? message.sofiaMessageTimestamp.toMillis()
+              : message.sofiaMessageTimestamp instanceof Date
+              ? message.sofiaMessageTimestamp.getTime()
+              : new Date(message.sofiaMessageTimestamp).getTime();
 
           const clientTime =
-            typeof data.clientMessageTimestamp.toMillis === 'function'
-              ? data.clientMessageTimestamp.toMillis()
-              : new Date(data.clientMessageTimestamp).getTime();
+            typeof message.clientMessageTimestamp.toMillis === 'function'
+              ? message.clientMessageTimestamp.toMillis()
+              : message.clientMessageTimestamp instanceof Date
+              ? message.clientMessageTimestamp.getTime()
+              : new Date(message.clientMessageTimestamp).getTime();
 
           const diff = sofiaTime - clientTime;
 
@@ -137,7 +158,7 @@ export async function GET(request: NextRequest) {
         } catch (error) {
           // Skip messages with invalid timestamps
           logger.debug('[GET-CONV-METRICS] Skipped message with invalid timestamp', {
-            messageId: doc.id,
+            messageId: message.id,
           });
         }
       }
@@ -147,40 +168,46 @@ export async function GET(request: NextRequest) {
       responseCount > 0 ? Math.round(totalResponseTime / responseCount / 1000) : 0;
 
     // Fetch week's conversations
-    const weekConversations = await services.db
-      .collection('tenants')
-      .doc(tenantId)
-      .collection('conversations')
-      .where('startedAt', '>=', weekStart)
-      .get();
+    let weekConversations;
+    try {
+      weekConversations = await conversationsService.getMany([
+        { field: 'startedAt', operator: '>=', value: weekStart }
+      ]);
+    } catch (dbError) {
+      logger.error('[GET-CONV-METRICS] Error fetching week conversations', {
+        requestId,
+        error: dbError instanceof Error ? dbError.message : 'Unknown error',
+      });
+      throw new Error(`Failed to fetch week conversations: ${dbError instanceof Error ? dbError.message : 'Unknown error'}`);
+    }
 
     logger.debug('[GET-CONV-METRICS] Week conversations fetched', {
       requestId,
-      count: weekConversations.size,
+      count: weekConversations.length,
     });
 
     // Calculate conversion rate (conversations that resulted in success)
     let successCount = 0;
-    weekConversations.docs.forEach((doc) => {
-      if (doc.data().status === 'success') {
+    weekConversations.forEach((conversation: any) => {
+      if (conversation.status === 'success') {
         successCount++;
       }
     });
 
     const conversionRate =
-      weekConversations.size > 0
-        ? Math.round((successCount / weekConversations.size) * 100)
+      weekConversations.length > 0
+        ? Math.round((successCount / weekConversations.length) * 100)
         : 0;
 
     const metrics: ConversationMetrics = {
       today: {
-        total: todayConversations.size,
+        total: todayConversations.length,
         active: activeCount,
         completed: completedCount,
         avgResponseTime,
       },
       week: {
-        total: weekConversations.size,
+        total: weekConversations.length,
         conversionRate,
       },
     };
@@ -206,12 +233,34 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     const processingTime = Date.now() - startTime;
 
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+    const errorStack = error instanceof Error ? error.stack : undefined;
+
+    // Garantir que requestId existe mesmo se o erro ocorreu antes
+    const safeRequestId = `get-conv-metrics_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
+
     logger.error('[GET-CONV-METRICS] Request failed', {
-      requestId,
-      error: error instanceof Error ? error.message : 'Unknown error',
+      requestId: safeRequestId,
+      error: errorMessage,
+      errorType: error?.constructor?.name,
+      stack: errorStack?.substring(0, 500),
       processingTime: `${processingTime}ms`,
     });
 
-    return handleApiError(error);
+    // Log completo em desenvolvimento
+    if (process.env.NODE_ENV === 'development') {
+      console.error('[GET-CONV-METRICS] Full error:', error);
+      console.error('[GET-CONV-METRICS] Stack:', errorStack);
+    }
+
+    return NextResponse.json(
+      {
+        success: false,
+        error: 'Erro ao buscar métricas de conversas',
+        requestId: safeRequestId,
+        details: process.env.NODE_ENV === 'development' ? errorMessage : undefined,
+      },
+      { status: 500 }
+    );
   }
 }

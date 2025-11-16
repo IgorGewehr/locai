@@ -115,6 +115,20 @@ export class ConversationOptimizedService {
         }
       );
 
+      logger.info('📨 [CONVERSATION-SERVICE] Mensagens carregadas', {
+        tenantId: this.tenantId,
+        conversationId,
+        messageCount: messages.length,
+        messagesPreview: messages.map(m => ({
+          id: m.id,
+          hasClientMessage: !!m.clientMessage,
+          hasSofiaMessage: !!m.sofiaMessage,
+          clientMessageLength: m.clientMessage?.length || 0,
+          sofiaMessageLength: m.sofiaMessage?.length || 0,
+          createdAt: m.createdAt
+        }))
+      });
+
       return messages;
     } catch (error) {
       logger.error('Error fetching conversation messages', {

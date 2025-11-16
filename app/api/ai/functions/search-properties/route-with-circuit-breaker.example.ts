@@ -126,7 +126,7 @@ export async function POST(request: NextRequest) {
     });
 
     // Se erro for por circuit breaker, usar mensagem amigável
-    const isCir circuitError = error instanceof Error &&
+    const isCircuitError = error instanceof Error &&
       error.message.includes('Circuit breaker is OPEN');
 
     return NextResponse.json(
