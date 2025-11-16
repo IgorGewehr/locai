@@ -153,7 +153,7 @@ export async function POST(request: NextRequest) {
       const activeConversations = await conversationsService.getMany([
         { field: 'clientPhone', operator: '==', value: clientPhone },
         { field: 'status', operator: '==', value: 'active' as ConversationStatus }
-      ], { orderBy: [{ field: 'lastMessageAt', direction: 'desc' }], limit: 1 });
+      ], { orderBy: 'lastMessageAt', orderDirection: 'desc', limit: 1 });
 
       if (activeConversations.length > 0) {
         conversation = activeConversations[0];
