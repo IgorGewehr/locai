@@ -21,19 +21,21 @@ export interface HeatmapData {
 
 interface HeatmapCellProps {
   data: HeatmapData;
+  maxConversations: number;
 }
 
-const HeatmapCell = ({ data }: HeatmapCellProps) => {
-  const intensity = data.conversations / 50; // Normalize to 0-1
-  const normalizedIntensity = Math.max(0.1, Math.min(1, intensity));
+const HeatmapCell = ({ data, maxConversations }: HeatmapCellProps) => {
+  // Calculate intensity dynamically based on max conversations (GitHub style)
+  const intensity = maxConversations > 0 ? data.conversations / maxConversations : 0;
+  const normalizedIntensity = Math.max(0, Math.min(1, intensity));
 
-  // Color gradient based on intensity
+  // GitHub-style color gradient (green scale)
   const getHeatColor = (intensity: number) => {
-    if (intensity < 0.2) return { bg: 'rgba(59, 130, 246, 0.2)', border: 'rgba(59, 130, 246, 0.3)', glow: 'rgba(59, 130, 246, 0.1)' };
-    if (intensity < 0.4) return { bg: 'rgba(34, 197, 94, 0.3)', border: 'rgba(34, 197, 94, 0.4)', glow: 'rgba(34, 197, 94, 0.15)' };
-    if (intensity < 0.6) return { bg: 'rgba(251, 191, 36, 0.4)', border: 'rgba(251, 191, 36, 0.5)', glow: 'rgba(251, 191, 36, 0.2)' };
-    if (intensity < 0.8) return { bg: 'rgba(249, 115, 22, 0.5)', border: 'rgba(249, 115, 22, 0.6)', glow: 'rgba(249, 115, 22, 0.25)' };
-    return { bg: 'rgba(239, 68, 68, 0.6)', border: 'rgba(239, 68, 68, 0.7)', glow: 'rgba(239, 68, 68, 0.3)' };
+    if (intensity === 0) return { bg: 'rgba(255, 255, 255, 0.03)', border: 'rgba(255, 255, 255, 0.05)', glow: 'rgba(255, 255, 255, 0.0)' };
+    if (intensity < 0.25) return { bg: '#0e4429', border: '#0e4429', glow: 'rgba(14, 68, 41, 0.3)' };
+    if (intensity < 0.5) return { bg: '#006d32', border: '#006d32', glow: 'rgba(0, 109, 50, 0.4)' };
+    if (intensity < 0.75) return { bg: '#26a641', border: '#26a641', glow: 'rgba(38, 166, 65, 0.5)' };
+    return { bg: '#39d353', border: '#39d353', glow: 'rgba(57, 211, 83, 0.6)' };
   };
 
   const colors = getHeatColor(normalizedIntensity);
@@ -111,6 +113,8 @@ export default function Heatmap({
   title = 'Mapa de Calor de Atividade',
   subtitle = 'Padrão de conversas por horário e dia da semana'
 }: HeatmapProps) {
+  // Calculate max conversations for dynamic intensity (GitHub style)
+  const maxConversations = Math.max(...data.map(d => d.conversations), 1);
 
   const content = (
     <Box>
@@ -254,7 +258,9 @@ export default function Heatmap({
               <Box sx={{ display: 'flex', gap: 1 }}>
                 {Array.from({ length: 24 }, (_, hour) => {
                   const heatmapItem = data.find(d => d.day === day && d.hour === hour);
-                  return heatmapItem ? <HeatmapCell key={hour} data={heatmapItem} /> : (
+                  return heatmapItem ? (
+                    <HeatmapCell key={hour} data={heatmapItem} maxConversations={maxConversations} />
+                  ) : (
                     <Box
                       key={hour}
                       sx={{
@@ -289,32 +295,24 @@ export default function Heatmap({
 
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
               <Typography variant="caption" color="rgba(255,255,255,0.6)">
-                Baixa
+                Menos
               </Typography>
               <Box sx={{ display: 'flex', gap: 1 }}>
-                <Box sx={{ width: 20, height: 20, background: 'rgba(59, 130, 246, 0.2)', borderRadius: '6px', border: '1px solid rgba(59, 130, 246, 0.3)' }} />
-                <Box sx={{ width: 20, height: 20, background: 'rgba(34, 197, 94, 0.3)', borderRadius: '6px', border: '1px solid rgba(34, 197, 94, 0.4)' }} />
-                <Box sx={{ width: 20, height: 20, background: 'rgba(251, 191, 36, 0.4)', borderRadius: '6px', border: '1px solid rgba(251, 191, 36, 0.5)' }} />
-                <Box sx={{ width: 20, height: 20, background: 'rgba(249, 115, 22, 0.5)', borderRadius: '6px', border: '1px solid rgba(249, 115, 22, 0.6)' }} />
-                <Box sx={{ width: 20, height: 20, background: 'rgba(239, 68, 68, 0.6)', borderRadius: '6px', border: '1px solid rgba(239, 68, 68, 0.7)' }} />
+                <Box sx={{ width: 20, height: 20, background: 'rgba(255, 255, 255, 0.03)', borderRadius: '4px', border: '1px solid rgba(255, 255, 255, 0.1)' }} />
+                <Box sx={{ width: 20, height: 20, background: '#0e4429', borderRadius: '4px' }} />
+                <Box sx={{ width: 20, height: 20, background: '#006d32', borderRadius: '4px' }} />
+                <Box sx={{ width: 20, height: 20, background: '#26a641', borderRadius: '4px' }} />
+                <Box sx={{ width: 20, height: 20, background: '#39d353', borderRadius: '4px' }} />
               </Box>
               <Typography variant="caption" color="rgba(255,255,255,0.6)">
-                Alta
+                Mais
               </Typography>
             </Box>
 
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <Box sx={{
-                  width: 12,
-                  height: 12,
-                  borderRadius: '50%',
-                  background: 'rgba(255, 255, 255, 0.9)'
-                }} />
-                <Typography variant="caption" color="rgba(255,255,255,0.7)">
-                  Ponto de intensidade
-                </Typography>
-              </Box>
+              <Typography variant="caption" color="rgba(255,255,255,0.6)">
+                Total: {data.reduce((sum, d) => sum + d.conversations, 0)} conversas
+              </Typography>
             </Box>
           </Box>
         </Box>
