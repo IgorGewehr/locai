@@ -24,6 +24,10 @@ import {
   useTheme,
   alpha,
   Paper,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
 } from '@mui/material';
 import {
   Search,
@@ -42,6 +46,7 @@ import {
   DoneAll,
   MarkChatUnread,
   EmojiEvents,
+  Edit,
 } from '@mui/icons-material';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -80,6 +85,7 @@ export default function ConversationsPage() {
     markAsRead,
     markAsUnread,
     updateStatus,
+    renameConversation,
   } = useConversationsOptimized({
     tenantId: tenantId || '',
     autoLoad: isReady,
@@ -93,6 +99,9 @@ export default function ConversationsPage() {
     mouseY: number;
     conversationId: string;
   } | null>(null);
+  const [renameDialogOpen, setRenameDialogOpen] = useState(false);
+  const [renameConversationId, setRenameConversationId] = useState<string | null>(null);
+  const [newName, setNewName] = useState('');
 
   // Using safeFormatTimestamp from date-helpers
 
@@ -182,6 +191,32 @@ export default function ConversationsPage() {
     const conversation = conversations.find(c => c.id === conversationId);
     if (conversation && !conversation.isRead) {
       await markAsRead(conversationId);
+    }
+  };
+
+  // Handle rename conversation
+  const handleOpenRenameDialog = (conversationId: string) => {
+    const conversation = conversations.find(c => c.id === conversationId);
+    setRenameConversationId(conversationId);
+    setNewName(conversation?.clientName || conversation?.clientPhone || '');
+    setRenameDialogOpen(true);
+    handleCloseContextMenu();
+  };
+
+  const handleCloseRenameDialog = () => {
+    setRenameDialogOpen(false);
+    setRenameConversationId(null);
+    setNewName('');
+  };
+
+  const handleSaveRename = async () => {
+    if (renameConversationId && newName.trim()) {
+      try {
+        await renameConversation(renameConversationId, newName.trim());
+        handleCloseRenameDialog();
+      } catch (error) {
+        console.error('Error renaming conversation:', error);
+      }
     }
   };
 
@@ -741,6 +776,21 @@ export default function ConversationsPage() {
         <MenuItem
           onClick={() => {
             if (contextMenu) {
+              handleOpenRenameDialog(contextMenu.conversationId);
+            }
+          }}
+        >
+          <ListItemIcon>
+            <Edit fontSize="small" />
+          </ListItemIcon>
+          <ListItemText>Renomear Conversa</ListItemText>
+        </MenuItem>
+
+        <Divider />
+
+        <MenuItem
+          onClick={() => {
+            if (contextMenu) {
               markAsRead(contextMenu.conversationId);
               handleCloseContextMenu();
             }
@@ -830,6 +880,47 @@ export default function ConversationsPage() {
           {error}
         </Alert>
       )}
+
+      {/* Rename Dialog */}
+      <Dialog
+        open={renameDialogOpen}
+        onClose={handleCloseRenameDialog}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>Renomear Conversa</DialogTitle>
+        <DialogContent>
+          <TextField
+            autoFocus
+            margin="dense"
+            label="Nome"
+            type="text"
+            fullWidth
+            variant="outlined"
+            value={newName}
+            onChange={(e) => setNewName(e.target.value)}
+            onKeyPress={(e) => {
+              if (e.key === 'Enter') {
+                handleSaveRename();
+              }
+            }}
+            placeholder="Digite o nome do contato"
+            sx={{ mt: 2 }}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={handleCloseRenameDialog} color="inherit">
+            Cancelar
+          </Button>
+          <Button
+            onClick={handleSaveRename}
+            variant="contained"
+            disabled={!newName.trim()}
+          >
+            Salvar
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       {/* Heatmap de Atividade */}
       {metricsData?.heatmapData && metricsData.heatmapData.length > 0 && (

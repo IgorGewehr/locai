@@ -138,7 +138,46 @@ export async function POST(request: NextRequest) {
     const messagesService = services.createService<ConversationMessage>('messages');
     logger.info('✅ [POST-CONVERSATION] Serviços inicializados', { requestId });
 
-    // 1. Identificar ou criar Conversation
+    // 1. Buscar cliente por telefone para obter o nome
+    let clientName: string | undefined = undefined;
+    let clientId: string | undefined = undefined;
+
+    if (clientPhone) {
+      try {
+        logger.info('👤 [POST-CONVERSATION] Buscando cliente por telefone', {
+          requestId,
+          clientPhone: clientPhone.substring(0, 8) + '***'
+        });
+
+        const clientsService = services.createService('clients');
+        const clients = await clientsService.getMany([
+          { field: 'phone', operator: '==', value: clientPhone }
+        ], { limit: 1 });
+
+        if (clients.length > 0) {
+          const client = clients[0];
+          clientName = client.name;
+          clientId = client.id;
+
+          logger.info('✅ [POST-CONVERSATION] Cliente encontrado', {
+            requestId,
+            clientId,
+            clientName: clientName?.substring(0, 20) + '***'
+          });
+        } else {
+          logger.info('ℹ️ [POST-CONVERSATION] Cliente não encontrado, usando apenas telefone', {
+            requestId
+          });
+        }
+      } catch (error) {
+        logger.warn('⚠️ [POST-CONVERSATION] Erro ao buscar cliente, continuando sem nome', {
+          requestId,
+          error: error instanceof Error ? error.message : 'Unknown error'
+        });
+      }
+    }
+
+    // 2. Identificar ou criar Conversation
     let conversationId: string | undefined = undefined;
     let isNewConversation = false;
     let conversation: ConversationHeader | null = null;
@@ -190,6 +229,8 @@ export async function POST(request: NextRequest) {
       const newConversation: Omit<ConversationHeader, 'id'> = {
         tenantId,
         clientPhone,
+        clientName, // Nome do cliente (se encontrado)
+        clientId,   // ID do cliente (se encontrado)
         startedAt: clientMsgTime,
         lastMessageAt: clientMsgTime,
         messageCount: 0,
@@ -204,7 +245,23 @@ export async function POST(request: NextRequest) {
       logger.info('🆕 [POST-CONVERSATION] Nova conversa criada', {
         requestId,
         conversationId,
-        clientPhone: clientPhone?.substring(0, 8) + '***'
+        clientPhone: clientPhone?.substring(0, 8) + '***',
+        clientName: clientName?.substring(0, 20) + '***' || 'N/A',
+        hasClientId: !!clientId
+      });
+    } else if (clientName && conversation?.clientName !== clientName) {
+      // Se encontrou conversa existente mas o nome do cliente mudou, atualizar
+      logger.info('🔄 [POST-CONVERSATION] Atualizando nome do cliente na conversa', {
+        requestId,
+        conversationId,
+        oldName: conversation?.clientName?.substring(0, 20) + '***' || 'N/A',
+        newName: clientName?.substring(0, 20) + '***'
+      });
+
+      await conversationsService.update(conversationId, {
+        clientName,
+        clientId,
+        updatedAt: new Date()
       });
     }
 

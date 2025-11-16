@@ -452,6 +452,35 @@ export class ConversationOptimizedService {
       return 0;
     }
   }
+
+  /**
+   * Rename conversation (update clientName)
+   */
+  async renameConversation(
+    conversationId: string,
+    newName: string
+  ): Promise<void> {
+    try {
+      await this.services.createService<ConversationHeader>('conversations')
+        .update(conversationId, {
+          clientName: newName,
+          updatedAt: new Date()
+        });
+
+      logger.info('Conversation renamed', {
+        tenantId: this.tenantId,
+        conversationId,
+        newName: newName?.substring(0, 20) + '***'
+      });
+    } catch (error) {
+      logger.error('Error renaming conversation', {
+        tenantId: this.tenantId,
+        conversationId,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+      throw error;
+    }
+  }
 }
 
 /**

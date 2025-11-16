@@ -300,6 +300,40 @@ export function useConversationsOptimized({
     }
   }, [tenantId]);
 
+  // Rename conversation
+  const renameConversation = useCallback(async (conversationId: string, newName: string) => {
+    if (!tenantId) return;
+
+    try {
+      const service = createConversationOptimizedService(tenantId);
+      await service.renameConversation(conversationId, newName);
+
+      // Update local state
+      setState(prev => ({
+        ...prev,
+        conversations: prev.conversations.map(c =>
+          c.id === conversationId ? { ...c, clientName: newName } : c
+        ),
+        selectedConversation: prev.selectedConversation?.id === conversationId
+          ? { ...prev.selectedConversation, clientName: newName }
+          : prev.selectedConversation,
+      }));
+
+      logger.info('Conversation renamed successfully', {
+        tenantId,
+        conversationId,
+        newName: newName?.substring(0, 20) + '***'
+      });
+    } catch (error) {
+      logger.error('Error renaming conversation', {
+        tenantId,
+        conversationId,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      });
+      throw error;
+    }
+  }, [tenantId]);
+
   return {
     // State
     conversations: filteredConversations,
@@ -324,5 +358,6 @@ export function useConversationsOptimized({
     markAsRead,
     markAsUnread,
     updateStatus,
+    renameConversation,
   };
 }
