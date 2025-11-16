@@ -48,6 +48,10 @@ import { ptBR } from 'date-fns/locale';
 import { safeFormat, formatTimestamp as safeFormatTimestamp, toDate } from '@/lib/utils/date-helpers';
 import { useRouter } from 'next/navigation';
 import InfiniteScroll from 'react-infinite-scroll-component';
+import { lazy, Suspense } from 'react';
+import { useMetrics } from '@/lib/hooks/useMetrics';
+
+const Heatmap = lazy(() => import('@/components/organisms/Heatmap'));
 import { useTenant } from '@/contexts/TenantContext';
 import { useConversationsOptimized } from '@/lib/hooks/useConversationsOptimized';
 import type { ConversationStatus } from '@/lib/types/conversation-optimized';
@@ -56,6 +60,7 @@ export default function ConversationsPage() {
   const theme = useTheme();
   const router = useRouter();
   const { tenantId, isReady } = useTenant();
+  const { data: metricsData } = useMetrics('7d');
 
   const {
     conversations,
@@ -580,6 +585,16 @@ export default function ConversationsPage() {
                 ) : (
                   <Stack spacing={3}>
                     {messages.map((message, index) => {
+                      // DEBUG: Log message data
+                      console.log('🎨 [DEBUG] Rendering message:', {
+                        id: message.id,
+                        hasClientMessage: !!message.clientMessage,
+                        hasSofiaMessage: !!message.sofiaMessage,
+                        clientMessage: message.clientMessage?.substring(0, 30),
+                        sofiaMessage: message.sofiaMessage?.substring(0, 30),
+                        allFields: Object.keys(message)
+                      });
+
                       // SAFE DATE PARSING
                       const messageTimestamp = message.clientMessageTimestamp || message.createdAt;
                       const messageDate = messageTimestamp instanceof Date
@@ -814,6 +829,15 @@ export default function ConversationsPage() {
         <Alert severity="error" sx={{ mt: 2 }}>
           {error}
         </Alert>
+      )}
+
+      {/* Heatmap de Atividade */}
+      {metricsData?.heatmapData && metricsData.heatmapData.length > 0 && (
+        <Box sx={{ mt: 4 }}>
+          <Suspense fallback={<CircularProgress />}>
+            <Heatmap data={metricsData.heatmapData} />
+          </Suspense>
+        </Box>
       )}
     </Box>
   );
