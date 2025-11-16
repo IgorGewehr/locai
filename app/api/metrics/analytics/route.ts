@@ -102,41 +102,87 @@ export async function GET(request: NextRequest) {
       endDate: now.toISOString()
     });
 
-    // Get metrics data
+    // Get conversations data instead of metrics
+    const conversationsRef = collection(db, `tenants/${tenantId}/conversations`);
+    const messagesRef = collection(db, `tenants/${tenantId}/messages`);
+
+    const currentConversationsQuery = query(
+      conversationsRef,
+      where('startedAt', '>=', Timestamp.fromDate(startDate)),
+      where('startedAt', '<=', Timestamp.fromDate(now)),
+      orderBy('startedAt', 'desc')
+    );
+
+    const currentMessagesQuery = query(
+      messagesRef,
+      where('createdAt', '>=', Timestamp.fromDate(startDate)),
+      where('createdAt', '<=', Timestamp.fromDate(now)),
+      orderBy('createdAt', 'desc')
+    );
+
+    const [conversationsSnapshot, messagesSnapshot] = await Promise.all([
+      getDocs(currentConversationsQuery),
+      getDocs(currentMessagesQuery)
+    ]);
+
+    const currentConversations = conversationsSnapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    }));
+
+    const currentMessages = messagesSnapshot.docs.map(doc => ({
+      id: doc.id,
+      ...doc.data()
+    }));
+
+    // Still try to get metrics for trends (fallback to empty if not available)
     const metricsRef = collection(db, `tenants/${tenantId}/metrics`);
     const currentPeriodQuery = query(
       metricsRef,
       where('timestamp', '>=', Timestamp.fromDate(startDate)),
       where('timestamp', '<=', Timestamp.fromDate(now)),
-      orderBy('timestamp', 'desc')
+      orderBy('timestamp', 'desc'),
+      limit(1000)
     );
 
     const previousPeriodQuery = query(
       metricsRef,
       where('timestamp', '>=', Timestamp.fromDate(previousStartDate)),
       where('timestamp', '<', Timestamp.fromDate(startDate)),
-      orderBy('timestamp', 'desc')
+      orderBy('timestamp', 'desc'),
+      limit(1000)
     );
 
-    const [currentSnapshot, previousSnapshot] = await Promise.all([
-      getDocs(currentPeriodQuery),
-      getDocs(previousPeriodQuery)
-    ]);
+    let currentMetrics: any[] = [];
+    let previousMetrics: any[] = [];
 
-    const currentMetrics = currentSnapshot.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data()
-    }));
+    try {
+      const [currentSnapshot, previousSnapshot] = await Promise.all([
+        getDocs(currentPeriodQuery),
+        getDocs(previousPeriodQuery)
+      ]);
 
-    const previousMetrics = previousSnapshot.docs.map(doc => ({
-      id: doc.id,
-      ...doc.data()
-    }));
+      currentMetrics = currentSnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
 
-    logger.info('📈 Metrics retrieved', {
+      previousMetrics = previousSnapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
+    } catch (metricsError) {
+      logger.warn('⚠️ Metrics collection not available, using conversation data only', {
+        tenantId,
+        error: metricsError instanceof Error ? metricsError.message : 'Unknown'
+      });
+    }
+
+    logger.info('📈 Data retrieved', {
       tenantId,
-      currentCount: currentMetrics.length,
-      previousCount: previousMetrics.length
+      conversationsCount: currentConversations.length,
+      messagesCount: currentMessages.length,
+      metricsCount: currentMetrics.length
     });
 
     // Calculate conversion rates
@@ -171,11 +217,11 @@ export async function GET(request: NextRequest) {
       previousConvTime.avg
     );
 
-    // Generate heatmap
-    const heatmap = generateHeatmap(currentMetrics);
+    // Generate heatmap from messages
+    const heatmap = generateHeatmapFromMessages(currentMessages);
 
-    // Generate trends
-    const trends = generateTrends(currentMetrics, startDate, now);
+    // Generate trends from conversations
+    const trends = generateTrendsFromConversations(currentConversations, currentMessages, startDate, now);
 
     const result: AnalyticsResult = {
       conversions: {
@@ -401,4 +447,161 @@ function generateTrends(metrics: any[], startDate: Date, endDate: Date) {
 function calculateChange(current: number, previous: number): number {
   if (previous === 0) return current > 0 ? 100 : 0;
   return ((current - previous) / previous) * 100;
+}
+
+/**
+ * Generate heatmap from conversation messages
+ */
+function generateHeatmapFromMessages(messages: any[]) {
+  const days = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
+  const heatmap: any[] = [];
+
+  // Create grid: 7 days x 24 hours
+  const grid: { [key: string]: { conversations: Set<string>, messages: number, responseTimes: number[] } } = {};
+
+  // Initialize grid
+  days.forEach((day, dayIndex) => {
+    for (let hour = 0; hour < 24; hour++) {
+      const key = `${dayIndex}-${hour}`;
+      grid[key] = {
+        conversations: new Set(),
+        messages: 0,
+        responseTimes: []
+      };
+    }
+  });
+
+  // Process messages
+  messages.forEach(m => {
+    try {
+      // Get date from timestamp
+      let messageDate: Date;
+      if (m.createdAt?.toDate) {
+        messageDate = m.createdAt.toDate();
+      } else if (m.createdAt instanceof Date) {
+        messageDate = m.createdAt;
+      } else {
+        messageDate = new Date(m.createdAt);
+      }
+
+      if (isNaN(messageDate.getTime())) {
+        return; // Skip invalid dates
+      }
+
+      const dayOfWeek = messageDate.getDay(); // 0-6
+      const hour = messageDate.getHours(); // 0-23
+      const key = `${dayOfWeek}-${hour}`;
+
+      if (grid[key]) {
+        grid[key].conversations.add(m.conversationId);
+        grid[key].messages++;
+
+        // Calculate response time if both timestamps exist
+        if (m.sofiaMessageTimestamp && m.clientMessageTimestamp) {
+          try {
+            const sofiaTime = m.sofiaMessageTimestamp?.toDate
+              ? m.sofiaMessageTimestamp.toDate().getTime()
+              : m.sofiaMessageTimestamp instanceof Date
+              ? m.sofiaMessageTimestamp.getTime()
+              : new Date(m.sofiaMessageTimestamp).getTime();
+
+            const clientTime = m.clientMessageTimestamp?.toDate
+              ? m.clientMessageTimestamp.toDate().getTime()
+              : m.clientMessageTimestamp instanceof Date
+              ? m.clientMessageTimestamp.getTime()
+              : new Date(m.clientMessageTimestamp).getTime();
+
+            const diff = (sofiaTime - clientTime) / 1000; // seconds
+
+            if (diff > 0 && diff < 300) { // Only count reasonable times (< 5 min)
+              grid[key].responseTimes.push(diff);
+            }
+          } catch (timeError) {
+            // Skip if timestamp conversion fails
+          }
+        }
+      }
+    } catch (error) {
+      // Skip messages with errors
+    }
+  });
+
+  // Build heatmap array
+  days.forEach((day, dayIndex) => {
+    for (let hour = 0; hour < 24; hour++) {
+      const key = `${dayIndex}-${hour}`;
+      const data = grid[key];
+
+      const avgResponse = data.responseTimes.length > 0
+        ? data.responseTimes.reduce((sum, t) => sum + t, 0) / data.responseTimes.length
+        : 0;
+
+      heatmap.push({
+        hour,
+        day,
+        conversations: data.conversations.size,
+        conversions: 0, // Will need to track this separately if needed
+        avgResponse: Math.round(avgResponse)
+      });
+    }
+  });
+
+  return heatmap;
+}
+
+/**
+ * Generate trends from conversations
+ */
+function generateTrendsFromConversations(
+  conversations: any[],
+  messages: any[],
+  startDate: Date,
+  endDate: Date
+) {
+  const trends: any[] = [];
+  const daysDiff = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
+
+  for (let i = 0; i < Math.min(daysDiff, 7); i++) {
+    const date = new Date(endDate);
+    date.setDate(date.getDate() - i);
+
+    const dayStart = startOfDay(date);
+    const dayEnd = endOfDay(date);
+
+    // Filter conversations for this day
+    const dayConversations = conversations.filter(c => {
+      const convDate = c.startedAt?.toDate
+        ? c.startedAt.toDate()
+        : c.startedAt instanceof Date
+        ? c.startedAt
+        : new Date(c.startedAt);
+      return convDate >= dayStart && convDate <= dayEnd;
+    });
+
+    // Filter messages for this day
+    const dayMessages = messages.filter(m => {
+      const msgDate = m.createdAt?.toDate
+        ? m.createdAt.toDate()
+        : m.createdAt instanceof Date
+        ? m.createdAt
+        : new Date(m.createdAt);
+      return msgDate >= dayStart && msgDate <= dayEnd;
+    });
+
+    const conversionsCount = dayConversations.filter(c =>
+      c.status === 'success' || c.status === 'completed'
+    ).length;
+
+    const uniqueConversations = new Set(dayMessages.map(m => m.conversationId)).size;
+
+    trends.unshift({
+      date: format(date, 'dd/MM'),
+      conversions: conversionsCount,
+      conversations: uniqueConversations,
+      qualificationTime: 0, // Can calculate if needed
+      avgTime: 0 // Can calculate if needed
+    });
+  }
+
+  return trends;
 }
