@@ -70,11 +70,26 @@ export async function POST(request: NextRequest) {
     })
 
     // Get notification service
+    logger.debug('[POST-NOTIFICATION] Getting notification service', {
+      requestId,
+      tenantId: tenantId.substring(0, 8) + '***'
+    })
+
     const notificationService = NotificationServiceFactory.getInstance(tenantId)
+
+    logger.debug('[POST-NOTIFICATION] Notification service obtained', {
+      requestId
+    })
 
     // Fixed message format
     const title = '🙋 Cliente Solicita Atendimento Humano'
     const message = `Cliente de número ${clientPhone} quer falar com um humano`
+
+    logger.debug('[POST-NOTIFICATION] Calling createNotification', {
+      requestId,
+      title,
+      message: message.substring(0, 50)
+    })
 
     // Create notification
     const notificationId = await notificationService.createNotification({
