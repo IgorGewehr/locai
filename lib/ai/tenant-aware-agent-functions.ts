@@ -87,7 +87,7 @@ interface SearchPropertiesArgs {
   checkIn?: string;
   checkOut?: string;
   maxPrice?: number;
-  amenities?: string[];
+  amenities?: string[] | string; // Aceita array OU string separada por vírgula
   propertyType?: string;
 }
 
@@ -689,6 +689,47 @@ export async function searchProperties(args: SearchPropertiesArgs, tenantId: str
       });
     }
 
+    // ===================================
+    // FILTRO 6: Amenities (comodidades)
+    // ===================================
+    let amenitiesArray: string[] = [];
+    if (args.amenities) {
+      // Parse amenities se vier como string do N8N
+      if (typeof args.amenities === 'string') {
+        amenitiesArray = args.amenities
+          .split(',')
+          .map(a => a.trim())
+          .filter(a => a.length > 0);
+      } else {
+        amenitiesArray = args.amenities;
+      }
+    }
+
+    // Aplicar filtro de amenities
+    if (amenitiesArray.length > 0) {
+      const beforeAmenitiesFilter = filteredProperties.length;
+      filteredProperties = filteredProperties.filter(property => {
+        if (!property.amenities || property.amenities.length === 0) return false;
+        // Propriedade deve ter pelo menos uma das comodidades solicitadas
+        return amenitiesArray.some(requested =>
+          property.amenities!.some(propAmenity =>
+            propAmenity.toLowerCase().includes(requested.toLowerCase())
+          )
+        );
+      });
+      logger.info('🔍 [TenantAgent] Filtro de comodidades aplicado', {
+        tenantId,
+        requestedAmenities: amenitiesArray,
+        beforeFilter: beforeAmenitiesFilter,
+        afterFilter: filteredProperties.length,
+        eliminated: beforeAmenitiesFilter - filteredProperties.length,
+        sampleMatches: filteredProperties.slice(0, 3).map(p => ({
+          title: p.title,
+          amenities: p.amenities?.slice(0, 5)
+        }))
+      });
+    }
+
     // Limitar resultados para não sobrecarregar
     const limitedProperties = filteredProperties.slice(0, 5);
     
@@ -717,6 +758,7 @@ export async function searchProperties(args: SearchPropertiesArgs, tenantId: str
         bedrooms: !!args.bedrooms,
         maxPrice: !!args.maxPrice,
         propertyType: !!args.propertyType,
+        amenities: amenitiesArray.length > 0,
         checkIn: !!args.checkIn,
         checkOut: !!args.checkOut
       }

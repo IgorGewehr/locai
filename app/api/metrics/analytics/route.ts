@@ -488,8 +488,25 @@ function generateHeatmapFromMessages(messages: any[]) {
         return; // Skip invalid dates
       }
 
-      const dayOfWeek = messageDate.getDay(); // 0-6
-      const hour = messageDate.getHours(); // 0-23
+      // Convert to Brasília timezone (GMT-3 / UTC-3)
+      // Brasília uses GMT-3 (standard) or GMT-2 (daylight saving, when active)
+      const brasiliaOffset = -3; // UTC-3
+      const utcHour = messageDate.getUTCHours();
+      const utcDay = messageDate.getUTCDay();
+
+      // Calculate Brasília hour
+      let hour = utcHour + brasiliaOffset;
+      let dayOfWeek = utcDay;
+
+      // Handle day boundary crossing
+      if (hour < 0) {
+        hour += 24;
+        dayOfWeek = (dayOfWeek - 1 + 7) % 7;
+      } else if (hour >= 24) {
+        hour -= 24;
+        dayOfWeek = (dayOfWeek + 1) % 7;
+      }
+
       const key = `${dayOfWeek}-${hour}`;
 
       if (grid[key]) {
