@@ -58,6 +58,7 @@ import { useMetrics } from '@/lib/hooks/useMetrics';
 
 const Heatmap = lazy(() => import('@/components/organisms/Heatmap'));
 import { useTenant } from '@/contexts/TenantContext';
+import { useAuth } from '@/contexts/AuthProvider';
 import { useConversationsOptimized } from '@/lib/hooks/useConversationsOptimized';
 import type { ConversationStatus } from '@/lib/types/conversation-optimized';
 import AIControlButton from '@/app/dashboard/conversations/components/AIControlButton';
@@ -67,6 +68,7 @@ export default function ConversationsPage() {
   const theme = useTheme();
   const router = useRouter();
   const { tenantId, isReady } = useTenant();
+  const { getFirebaseToken } = useAuth();
   const { data: metricsData } = useMetrics('7d');
 
   const {
@@ -119,8 +121,14 @@ export default function ConversationsPage() {
     const checkAiStatus = async () => {
       setCheckingAiStatus(true);
       try {
+        const token = await getFirebaseToken();
         const response = await fetch(
-          `/api/ai/block-conversation?phone=${encodeURIComponent(selectedConversation.clientPhone)}`
+          `/api/ai/block-conversation?phone=${encodeURIComponent(selectedConversation.clientPhone)}`,
+          {
+            headers: {
+              'Authorization': `Bearer ${token}`,
+            }
+          }
         );
         const result = await response.json();
 
@@ -151,9 +159,13 @@ export default function ConversationsPage() {
 
     setCheckingAiStatus(true);
     try {
+      const token = await getFirebaseToken();
       const response = await fetch('/api/ai/block-conversation', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
         body: JSON.stringify({
           phone: selectedConversation.clientPhone,
           blocked: true, // Required field!
@@ -182,9 +194,13 @@ export default function ConversationsPage() {
 
     setSendingMessage(true);
     try {
+      const token = await getFirebaseToken();
       const response = await fetch('/api/whatsapp/send-manual', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
         body: JSON.stringify({
           tenantId,
           phone: selectedConversation.clientPhone,
