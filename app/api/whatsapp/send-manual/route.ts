@@ -13,10 +13,7 @@ import { validateFirebaseAuth } from '@/lib/middleware/firebase-auth';
 import { handleApiError } from '@/lib/utils/api-errors';
 import { logger } from '@/lib/utils/logger';
 import { TenantServiceFactory } from '@/lib/firebase/firestore-v2';
-import Redis from 'ioredis';
-
-// Redis client
-const redis = new Redis(process.env.REDIS_URL || 'redis://localhost:6379');
+import { getRedisClient } from '@/lib/redis/client';
 
 // Validation Schema
 const SendManualMessageSchema = z.object({
@@ -68,6 +65,7 @@ export async function POST(request: NextRequest) {
     });
 
     // 3. Verify AI is blocked for this conversation - MESMO FORMATO DO N8N
+    const redis = getRedisClient();
     const blockKey = `ai_blocked:${tenantId}:${phone}`;
     const blockData = await redis.get(blockKey);
 

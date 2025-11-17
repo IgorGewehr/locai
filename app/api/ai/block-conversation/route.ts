@@ -8,10 +8,7 @@ import { z } from 'zod';
 import { validateFirebaseAuth } from '@/lib/middleware/firebase-auth';
 import { handleApiError } from '@/lib/utils/api-errors';
 import { logger } from '@/lib/utils/logger';
-import Redis from 'ioredis';
-
-// Redis client - MESMO REDIS DO N8N
-const redis = new Redis(process.env.REDIS_URL || 'redis://localhost:6379');
+import { getRedisClient } from '@/lib/redis/client';
 
 // Usar o MESMO formato de chave que o N8N usa para bloqueios
 // Exemplo: ai_block_{tenantId}_{phone}
@@ -53,6 +50,9 @@ export async function POST(request: NextRequest) {
     }
 
     const { phone, blocked, reason, duration } = result.data;
+
+    // Get Redis singleton client
+    const redis = getRedisClient();
 
     // Chave Redis: MESMO FORMATO DO N8N
     const redisKey = `ai_blocked:${tenantId}:${phone}`;
@@ -154,6 +154,9 @@ export async function GET(request: NextRequest) {
       }
       tenantId = authContext.tenantId;
     }
+
+    // Get Redis singleton client
+    const redis = getRedisClient();
 
     // Buscar status no Redis - MESMO FORMATO DO N8N
     const redisKey = `ai_blocked:${tenantId}:${phone}`;

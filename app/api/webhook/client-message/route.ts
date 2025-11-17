@@ -12,10 +12,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { logger } from '@/lib/utils/logger';
 import { TenantServiceFactory } from '@/lib/firebase/firestore-v2';
-import Redis from 'ioredis';
-
-// Redis client para pub/sub real-time
-const redis = new Redis(process.env.REDIS_URL || 'redis://localhost:6379');
+import { getRedisClient } from '@/lib/redis/client';
 
 // Validation Schema
 const ClientMessageWebhookSchema = z.object({
@@ -109,6 +106,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Check if AI is blocked for this conversation - MESMO FORMATO DO N8N
+    const redis = getRedisClient();
     const blockKey = `ai_blocked:${tenantId}:${phone}`;
     const blockData = await redis.get(blockKey);
     const isAIBlocked = !!blockData;
