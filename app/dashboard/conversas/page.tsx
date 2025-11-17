@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Box,
   Card,
@@ -40,13 +40,13 @@ import {
   CheckCircle,
   Schedule,
   Cancel,
-  Phone,
   Event,
   Link as LinkIcon,
   DoneAll,
   MarkChatUnread,
   EmojiEvents,
   Edit,
+  Block as BlockIcon,
 } from '@mui/icons-material';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -98,6 +98,8 @@ export default function ConversationsPage() {
   const [filterAnchorEl, setFilterAnchorEl] = useState<null | HTMLElement>(null);
   const [messageInput, setMessageInput] = useState('');
   const [sendingMessage, setSendingMessage] = useState(false);
+  const [aiBlocked, setAiBlocked] = useState(false);
+  const [checkingAiStatus, setCheckingAiStatus] = useState(false);
   const [contextMenu, setContextMenu] = useState<{
     mouseX: number;
     mouseY: number;
@@ -106,6 +108,65 @@ export default function ConversationsPage() {
   const [renameDialogOpen, setRenameDialogOpen] = useState(false);
   const [renameConversationId, setRenameConversationId] = useState<string | null>(null);
   const [newName, setNewName] = useState('');
+
+  // Check AI block status when conversation changes
+  useEffect(() => {
+    if (!selectedConversation || !tenantId) {
+      setAiBlocked(false);
+      return;
+    }
+
+    const checkAiStatus = async () => {
+      setCheckingAiStatus(true);
+      try {
+        const response = await fetch(
+          `/api/ai/block-conversation?phone=${encodeURIComponent(selectedConversation.clientPhone)}`
+        );
+        const data = await response.json();
+        setAiBlocked(data.blocked || false);
+      } catch (error) {
+        console.error('Error checking AI status:', error);
+        setAiBlocked(false);
+      } finally {
+        setCheckingAiStatus(false);
+      }
+    };
+
+    checkAiStatus();
+
+    // Poll every 5 seconds to update status
+    const interval = setInterval(checkAiStatus, 5000);
+    return () => clearInterval(interval);
+  }, [selectedConversation, tenantId]);
+
+  // Block AI for 1 hour and enable manual mode
+  const handleEnableManualMode = async () => {
+    if (!selectedConversation || !tenantId) return;
+
+    setCheckingAiStatus(true);
+    try {
+      const response = await fetch('/api/ai/block-conversation', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          phone: selectedConversation.clientPhone,
+          duration: 1, // 1 hour
+          reason: 'Modo manual ativado pelo usuário'
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error('Falha ao ativar modo manual');
+      }
+
+      setAiBlocked(true);
+    } catch (error) {
+      console.error('Error enabling manual mode:', error);
+      alert(error instanceof Error ? error.message : 'Erro ao ativar modo manual');
+    } finally {
+      setCheckingAiStatus(false);
+    }
+  };
 
   // Send manual message
   const handleSendMessage = async () => {
@@ -626,9 +687,6 @@ export default function ConversationsPage() {
                       phone={selectedConversation.clientPhone}
                       conversationName={selectedConversation.clientName}
                     />
-                    <IconButton size="small" title="Telefone">
-                      <Phone fontSize="small" />
-                    </IconButton>
                     <IconButton
                       size="small"
                       onClick={(e) => handleContextMenu(e, selectedConversation.id)}
@@ -806,46 +864,88 @@ export default function ConversationsPage() {
                     bgcolor: 'background.paper',
                   }}
                 >
-                  <TextField
-                    fullWidth
-                    multiline
-                    maxRows={4}
-                    placeholder="Digite sua mensagem..."
-                    value={messageInput}
-                    onChange={(e) => setMessageInput(e.target.value)}
-                    onKeyPress={(e) => {
-                      if (e.key === 'Enter' && !e.shiftKey) {
-                        e.preventDefault();
-                        handleSendMessage();
-                      }
-                    }}
-                    disabled={sendingMessage}
-                    InputProps={{
-                      endAdornment: (
-                        <InputAdornment position="end">
-                          <IconButton
-                            onClick={handleSendMessage}
-                            disabled={!messageInput.trim() || sendingMessage}
-                            color="primary"
-                          >
-                            {sendingMessage ? (
-                              <CircularProgress size={24} />
-                            ) : (
-                              <Send />
-                            )}
-                          </IconButton>
-                        </InputAdornment>
-                      ),
-                    }}
-                    sx={{
-                      '& .MuiOutlinedInput-root': {
-                        borderRadius: 2,
-                      },
-                    }}
-                  />
-                  <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block' }}>
-                    Mensagem será enviada diretamente ao cliente via WhatsApp
-                  </Typography>
+                  {!aiBlocked ? (
+                    // Show elegant button to enable manual mode
+                    <Box sx={{ textAlign: 'center', py: 2 }}>
+                      <Button
+                        variant="contained"
+                        size="large"
+                        startIcon={checkingAiStatus ? <CircularProgress size={20} /> : <BlockIcon />}
+                        onClick={handleEnableManualMode}
+                        disabled={checkingAiStatus}
+                        sx={{
+                          borderRadius: 3,
+                          px: 4,
+                          py: 1.5,
+                          textTransform: 'none',
+                          fontSize: '1rem',
+                          fontWeight: 600,
+                          background: `linear-gradient(135deg, ${theme.palette.primary.main}, ${theme.palette.primary.dark})`,
+                          boxShadow: theme.shadows[4],
+                          '&:hover': {
+                            boxShadow: theme.shadows[8],
+                          },
+                        }}
+                      >
+                        Pausar IA e conversar manualmente
+                      </Button>
+                      <Typography variant="caption" color="text.secondary" sx={{ mt: 1.5, display: 'block' }}>
+                        A IA será pausada por 1 hora para você conversar diretamente com o cliente
+                      </Typography>
+                    </Box>
+                  ) : (
+                    // Show message input when AI is blocked
+                    <>
+                      <Alert severity="info" sx={{ mb: 2 }}>
+                        <Typography variant="body2" fontWeight={600}>
+                          Modo Manual Ativo
+                        </Typography>
+                        <Typography variant="caption">
+                          Você está conversando diretamente com o cliente. A IA está pausada.
+                        </Typography>
+                      </Alert>
+                      <TextField
+                        fullWidth
+                        multiline
+                        maxRows={4}
+                        placeholder="Digite sua mensagem..."
+                        value={messageInput}
+                        onChange={(e) => setMessageInput(e.target.value)}
+                        onKeyPress={(e) => {
+                          if (e.key === 'Enter' && !e.shiftKey) {
+                            e.preventDefault();
+                            handleSendMessage();
+                          }
+                        }}
+                        disabled={sendingMessage}
+                        InputProps={{
+                          endAdornment: (
+                            <InputAdornment position="end">
+                              <IconButton
+                                onClick={handleSendMessage}
+                                disabled={!messageInput.trim() || sendingMessage}
+                                color="primary"
+                              >
+                                {sendingMessage ? (
+                                  <CircularProgress size={24} />
+                                ) : (
+                                  <Send />
+                                )}
+                              </IconButton>
+                            </InputAdornment>
+                          ),
+                        }}
+                        sx={{
+                          '& .MuiOutlinedInput-root': {
+                            borderRadius: 2,
+                          },
+                        }}
+                      />
+                      <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block' }}>
+                        Pressione Enter para enviar, Shift+Enter para nova linha
+                      </Typography>
+                    </>
+                  )}
                 </Box>
               )}
             </Card>
