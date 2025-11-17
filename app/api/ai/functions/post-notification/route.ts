@@ -8,26 +8,29 @@ import { NotificationType, NotificationPriority, NotificationChannel } from '@/l
 import { logger } from '@/lib/utils/logger'
 import { z } from 'zod'
 
-// Simple validation schema - only 2 required fields
+// Validation schema - 2 required fields + 1 optional
 const PostNotificationSchema = z.object({
   tenantId: z.string().min(1, 'TenantId is required'),
-  clientPhone: z.string().min(1, 'Client phone is required')
+  clientPhone: z.string().min(1, 'Client phone is required'),
+  reason: z.string().optional() // Optional: motivo do pedido de atendimento
 })
 
 /**
  * POST /api/ai/functions/post-notification
  * Sofia AI Agent notifies admin when client needs human assistance
  *
- * ULTRA SIMPLIFIED - Only 2 fields needed:
+ * Required fields:
  * - tenantId: Tenant identifier
  * - clientPhone: Client phone number
  *
- * Message is always: "Cliente de número X quer falar com um humano"
+ * Optional fields:
+ * - reason: Motivo do pedido de atendimento humano
  *
  * @example
  * {
  *   "tenantId": "tenant123",
- *   "clientPhone": "+5511999999999"
+ *   "clientPhone": "+5511999999999",
+ *   "reason": "Cliente quer negociar preço especial"
  * }
  */
 export async function POST(request: NextRequest) {
@@ -61,12 +64,13 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const { tenantId, clientPhone } = validation.data
+    const { tenantId, clientPhone, reason } = validation.data
 
     logger.info('[POST-NOTIFICATION] Creating notification', {
       requestId,
       tenantId: tenantId.substring(0, 8) + '***',
-      clientPhone: clientPhone.substring(0, 8) + '***'
+      clientPhone: clientPhone.substring(0, 8) + '***',
+      hasReason: !!reason
     })
 
     // Get notification service
@@ -81,14 +85,19 @@ export async function POST(request: NextRequest) {
       requestId
     })
 
-    // Fixed message format
+    // Build message with optional reason
     const title = '🙋 Cliente Solicita Atendimento Humano'
-    const message = `Cliente de número ${clientPhone} quer falar com um humano`
+    let message = `Cliente de número ${clientPhone} quer falar com um humano`
+
+    if (reason) {
+      message += `\n\n📝 Motivo: ${reason}`
+    }
 
     logger.debug('[POST-NOTIFICATION] Calling createNotification', {
       requestId,
       title,
-      message: message.substring(0, 50)
+      message: message.substring(0, 80) + '...',
+      hasReason: !!reason
     })
 
     // Create notification
@@ -101,6 +110,7 @@ export async function POST(request: NextRequest) {
       entityId: `human_request_${Date.now()}`,
       entityData: {
         clientPhone,
+        reason: reason || null,
         source: 'sofia_ai_agent',
         requestType: 'human_assistance',
         timestamp: new Date().toISOString()
@@ -119,7 +129,8 @@ export async function POST(request: NextRequest) {
       metadata: {
         source: 'sofia_ai_agent',
         triggerEvent: 'human_assistance_requested',
-        clientPhone
+        clientPhone,
+        reason: reason || null
       }
     })
 
@@ -175,14 +186,15 @@ export async function POST(request: NextRequest) {
 export async function GET() {
   return NextResponse.json({
     function: 'post-notification',
-    version: '2.0.0',
-    description: 'AI agent notifies admin when client needs human assistance (SIMPLIFIED)',
+    version: '2.1.0',
+    description: 'AI agent notifies admin when client needs human assistance',
     status: 'operational',
     parameters: {
       required: ['tenantId', 'clientPhone'],
-      optional: []
+      optional: ['reason']
     },
     messageFormat: 'Cliente de número {clientPhone} quer falar com um humano',
+    messageFormatWithReason: 'Cliente de número {clientPhone} quer falar com um humano\n\n📝 Motivo: {reason}',
     priority: 'high',
     timestamp: new Date().toISOString()
   })
