@@ -122,8 +122,14 @@ export default function ConversationsPage() {
         const response = await fetch(
           `/api/ai/block-conversation?phone=${encodeURIComponent(selectedConversation.clientPhone)}`
         );
-        const data = await response.json();
-        setAiBlocked(data.blocked || false);
+        const result = await response.json();
+
+        // Check if data exists and has blocked property, or check if blockData exists
+        if (result.success && result.data) {
+          setAiBlocked(result.data.blocked || false);
+        } else {
+          setAiBlocked(false);
+        }
       } catch (error) {
         console.error('Error checking AI status:', error);
         setAiBlocked(false);
@@ -150,13 +156,15 @@ export default function ConversationsPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           phone: selectedConversation.clientPhone,
+          blocked: true, // Required field!
           duration: 1, // 1 hour
           reason: 'Modo manual ativado pelo usuário'
         })
       });
 
       if (!response.ok) {
-        throw new Error('Falha ao ativar modo manual');
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Falha ao ativar modo manual');
       }
 
       setAiBlocked(true);

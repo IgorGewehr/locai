@@ -175,7 +175,10 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      data: parsedData,
+      data: {
+        ...parsedData,
+        blocked: true, // Explicitly set blocked flag
+      },
       meta: { requestId, timestamp: new Date().toISOString() },
     });
 
