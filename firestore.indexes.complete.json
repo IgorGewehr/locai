@@ -374,6 +374,30 @@
         { "fieldPath": "lastMessageAt", "order": "DESCENDING" }
       ]
     },
+    {
+      "collectionGroup": "conversations",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "startedAt", "order": "ASCENDING" },
+        { "fieldPath": "status", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "conversations",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "isActive", "order": "ASCENDING" },
+        { "fieldPath": "lastMessageAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "conversations",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "createdAt", "order": "ASCENDING" },
+        { "fieldPath": "status", "order": "ASCENDING" }
+      ]
+    },
 
     {
       "collectionGroup": "messages",
@@ -761,6 +785,73 @@
         { "fieldPath": "whatsappNumber", "order": "ASCENDING" },
         { "fieldPath": "status", "order": "ASCENDING" },
         { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+
+    {
+      "collectionGroup": "payments",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "paidDate", "order": "ASCENDING" },
+        { "fieldPath": "status", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "payments",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "reservationId", "order": "ASCENDING" },
+        { "fieldPath": "paidDate", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "payments",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "status", "order": "ASCENDING" },
+        { "fieldPath": "dueDate", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "payments",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "method", "order": "ASCENDING" },
+        { "fieldPath": "paidDate", "order": "DESCENDING" }
+      ]
+    },
+
+    {
+      "collectionGroup": "reservations",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "createdAt", "order": "ASCENDING" },
+        { "fieldPath": "status", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "reservations",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "createdAt", "order": "ASCENDING" },
+        { "fieldPath": "source", "order": "ASCENDING" }
+      ]
+    },
+
+    {
+      "collectionGroup": "visits",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "status", "order": "ASCENDING" },
+        { "fieldPath": "scheduledDate", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "visits",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "scheduledDate", "order": "ASCENDING" },
+        { "fieldPath": "scheduledTime", "order": "ASCENDING" }
       ]
     }
   ],

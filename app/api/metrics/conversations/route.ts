@@ -75,23 +75,42 @@ export async function GET(request: NextRequest) {
       weekStart: weekStart.toISOString(),
     });
 
-    // Fetch today's conversations
+    // Fetch all conversations to ensure we don't miss any
+    let allConversations;
     let todayConversations;
     try {
-      todayConversations = await conversationsService.getMany([
-        { field: 'startedAt', operator: '>=', value: todayStart }
-      ]);
+      // Get all conversations (we'll filter in memory)
+      allConversations = await conversationsService.getAll();
+
+      // Filter conversations that started today or have activity today
+      todayConversations = allConversations.filter((conv: any) => {
+        // Check if conversation started today
+        const startedAt = conv.startedAt?.toDate ? conv.startedAt.toDate() : new Date(conv.startedAt || 0);
+        const isStartedToday = startedAt >= todayStart;
+
+        // Check if last message was today
+        const lastMessageAt = conv.lastMessageAt?.toDate ? conv.lastMessageAt.toDate() : new Date(conv.lastMessageAt || 0);
+        const hasActivityToday = lastMessageAt >= todayStart;
+
+        // Check if createdAt is today (fallback)
+        const createdAt = conv.createdAt?.toDate ? conv.createdAt.toDate() : new Date(conv.createdAt || 0);
+        const isCreatedToday = createdAt >= todayStart;
+
+        return isStartedToday || hasActivityToday || isCreatedToday;
+      });
+
     } catch (dbError) {
-      logger.error('[GET-CONV-METRICS] Error fetching today conversations', {
+      logger.error('[GET-CONV-METRICS] Error fetching conversations', {
         requestId,
         error: dbError instanceof Error ? dbError.message : 'Unknown error',
       });
-      throw new Error(`Failed to fetch today conversations: ${dbError instanceof Error ? dbError.message : 'Unknown error'}`);
+      throw new Error(`Failed to fetch conversations: ${dbError instanceof Error ? dbError.message : 'Unknown error'}`);
     }
 
     logger.debug('[GET-CONV-METRICS] Today conversations fetched', {
       requestId,
-      count: todayConversations.length,
+      totalConversations: allConversations.length,
+      todayCount: todayConversations.length,
     });
 
     // Calculate today's metrics
@@ -99,10 +118,36 @@ export async function GET(request: NextRequest) {
     let completedCount = 0;
 
     todayConversations.forEach((conversation: any) => {
-      if (conversation.status === 'active') {
+      // Count as active if status is 'active', 'ACTIVE', 'waiting_client', 'waiting_approval', or 'escalated'
+      // Also check isActive flag for backward compatibility
+      const status = conversation.status?.toLowerCase() || '';
+      const isActive = conversation.isActive === true;
+
+      if (
+        status === 'active' ||
+        status === 'waiting_client' ||
+        status === 'waiting_approval' ||
+        status === 'escalated' ||
+        isActive
+      ) {
         activeCount++;
-      } else if (conversation.status === 'completed' || conversation.status === 'success') {
+      } else if (
+        status === 'completed' ||
+        status === 'success' ||
+        conversation.status === 'COMPLETED'
+      ) {
         completedCount++;
+      }
+
+      // Debug log for first few conversations
+      if (activeCount + completedCount < 3) {
+        logger.debug('[GET-CONV-METRICS] Conversation status check', {
+          requestId,
+          conversationId: conversation.id?.substring(0, 8) + '***',
+          status: conversation.status,
+          isActive: conversation.isActive,
+          counted: status === 'active' || isActive ? 'active' : status === 'completed' ? 'completed' : 'none'
+        });
       }
     });
 

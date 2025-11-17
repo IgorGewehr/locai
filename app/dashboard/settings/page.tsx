@@ -51,6 +51,7 @@ import { auth } from '@/lib/firebase/config';
 import { ApiClient } from '@/lib/utils/api-client';
 import CancellationPolicyEditor, { CancellationPolicy } from './components/CancellationPolicyEditor';
 import { createSettingsService } from '@/lib/services/settings-service';
+import AIConfigSection from './components/AIConfigSection';
 
 interface WhatsAppSession {
   connected: boolean;
@@ -1479,6 +1480,11 @@ export default function SettingsPage() {
           </Button>
         </DialogActions>
       </Dialog>
+
+      {/* AI Configuration */}
+      <Box sx={{ mb: { xs: 3, sm: 4 } }}>
+        <AIConfigSection />
+      </Box>
 
       {/* Cancellation Policy Configuration */}
       <Card
