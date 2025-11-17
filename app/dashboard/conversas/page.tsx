@@ -60,6 +60,8 @@ const Heatmap = lazy(() => import('@/components/organisms/Heatmap'));
 import { useTenant } from '@/contexts/TenantContext';
 import { useConversationsOptimized } from '@/lib/hooks/useConversationsOptimized';
 import type { ConversationStatus } from '@/lib/types/conversation-optimized';
+import AIControlButton from '@/app/dashboard/conversations/components/AIControlButton';
+import { Send } from '@mui/icons-material';
 
 export default function ConversationsPage() {
   const theme = useTheme();
@@ -94,6 +96,8 @@ export default function ConversationsPage() {
 
   const [searchText, setSearchText] = useState('');
   const [filterAnchorEl, setFilterAnchorEl] = useState<null | HTMLElement>(null);
+  const [messageInput, setMessageInput] = useState('');
+  const [sendingMessage, setSendingMessage] = useState(false);
   const [contextMenu, setContextMenu] = useState<{
     mouseX: number;
     mouseY: number;
@@ -102,6 +106,38 @@ export default function ConversationsPage() {
   const [renameDialogOpen, setRenameDialogOpen] = useState(false);
   const [renameConversationId, setRenameConversationId] = useState<string | null>(null);
   const [newName, setNewName] = useState('');
+
+  // Send manual message
+  const handleSendMessage = async () => {
+    if (!messageInput.trim() || !selectedConversation || !tenantId) return;
+
+    setSendingMessage(true);
+    try {
+      const response = await fetch('/api/whatsapp/send-manual', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          tenantId,
+          phone: selectedConversation.clientPhone,
+          message: messageInput.trim()
+        })
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Falha ao enviar mensagem');
+      }
+
+      setMessageInput('');
+      // Refresh messages to show the new one
+      setTimeout(() => refresh(), 500);
+    } catch (error) {
+      console.error('Error sending message:', error);
+      alert(error instanceof Error ? error.message : 'Erro ao enviar mensagem');
+    } finally {
+      setSendingMessage(false);
+    }
+  };
 
   // Using safeFormatTimestamp from date-helpers
 
@@ -585,7 +621,11 @@ export default function ConversationsPage() {
                       </Box>
                     </Box>
                   </Box>
-                  <Box display="flex" gap={1}>
+                  <Box display="flex" gap={1} alignItems="center">
+                    <AIControlButton
+                      phone={selectedConversation.clientPhone}
+                      conversationName={selectedConversation.clientName}
+                    />
                     <IconButton size="small" title="Telefone">
                       <Phone fontSize="small" />
                     </IconButton>
@@ -756,6 +796,58 @@ export default function ConversationsPage() {
                   </Stack>
                 )}
               </Box>
+
+              {/* Message Input (only shows when conversation selected) */}
+              {selectedConversation && (
+                <Box
+                  sx={{
+                    p: 2,
+                    borderTop: `1px solid ${theme.palette.divider}`,
+                    bgcolor: 'background.paper',
+                  }}
+                >
+                  <TextField
+                    fullWidth
+                    multiline
+                    maxRows={4}
+                    placeholder="Digite sua mensagem..."
+                    value={messageInput}
+                    onChange={(e) => setMessageInput(e.target.value)}
+                    onKeyPress={(e) => {
+                      if (e.key === 'Enter' && !e.shiftKey) {
+                        e.preventDefault();
+                        handleSendMessage();
+                      }
+                    }}
+                    disabled={sendingMessage}
+                    InputProps={{
+                      endAdornment: (
+                        <InputAdornment position="end">
+                          <IconButton
+                            onClick={handleSendMessage}
+                            disabled={!messageInput.trim() || sendingMessage}
+                            color="primary"
+                          >
+                            {sendingMessage ? (
+                              <CircularProgress size={24} />
+                            ) : (
+                              <Send />
+                            )}
+                          </IconButton>
+                        </InputAdornment>
+                      ),
+                    }}
+                    sx={{
+                      '& .MuiOutlinedInput-root': {
+                        borderRadius: 2,
+                      },
+                    }}
+                  />
+                  <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block' }}>
+                    Mensagem será enviada diretamente ao cliente via WhatsApp
+                  </Typography>
+                </Box>
+              )}
             </Card>
           )}
         </Grid>
