@@ -102,6 +102,7 @@ export function useOnboarding(): UseOnboardingResult {
           tenantId,
           steps: {
             add_property: 'pending',
+            configure_system: 'pending',
             connect_whatsapp: 'pending',
             test_demo: 'pending',
             share_minisite: 'pending',
@@ -280,6 +281,7 @@ export function useOnboarding(): UseOnboardingResult {
         tenantId,
         steps: {
           add_property: 'pending',
+          configure_system: 'pending',
           connect_whatsapp: 'pending',
           test_demo: 'pending',
           share_minisite: 'pending',

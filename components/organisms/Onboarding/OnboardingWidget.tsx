@@ -34,6 +34,7 @@ import {
   PlayArrow,
   Schedule as ScheduleIcon,
   CheckCircleOutline,
+  Settings,
 } from '@mui/icons-material';
 import { useOnboarding } from '@/lib/hooks/useOnboarding';
 import { OnboardingStep, OnboardingStepId } from '@/lib/types/onboarding';
@@ -42,6 +43,7 @@ import { logger } from '@/lib/utils/logger';
 // Mapa de ícones
 const ICON_MAP: Record<string, any> = {
   Home,
+  Settings,
   WhatsApp,
   SmartToy,
   Share,
@@ -389,7 +391,7 @@ export default function OnboardingWidget({ variant = 'compact' }: OnboardingWidg
                       mb: 0.5,
                     }}
                   >
-                    Configure sua conta em 4 passos simples
+                    Configure sua conta em 5 passos simples
                   </Typography>
                   <Typography variant="body2" sx={{ color: 'rgba(255, 255, 255, 0.7)' }}>
                     Siga este guia para começar a usar a plataforma

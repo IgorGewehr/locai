@@ -10,14 +10,18 @@ import { handleApiError } from '@/lib/utils/api-errors';
 import { logger } from '@/lib/utils/logger';
 import Redis from 'ioredis';
 
-// Redis client
+// Redis client - MESMO REDIS DO N8N
 const redis = new Redis(process.env.REDIS_URL || 'redis://localhost:6379');
+
+// Usar o MESMO formato de chave que o N8N usa para bloqueios
+// Exemplo: ai_block_{tenantId}_{phone}
 
 // Validation Schema
 const BlockConversationSchema = z.object({
   phone: z.string().min(1),
   blocked: z.boolean(),
   reason: z.string().max(200).optional(),
+  duration: z.number().min(1).max(24).optional(), // Duration in hours (1-24h)
 });
 
 /**
@@ -48,23 +52,28 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { phone, blocked, reason } = result.data;
+    const { phone, blocked, reason, duration } = result.data;
 
-    // Chave Redis: ai:block:{tenantId}:{phone}
-    const redisKey = `ai:block:${tenantId}:${phone}`;
+    // Chave Redis: MESMO FORMATO DO N8N
+    const redisKey = `ai_blocked:${tenantId}:${phone}`;
 
     if (blocked) {
-      // Bloquear IA
+      // Calcular TTL baseado na duração (padrão: 1 hora)
+      const durationHours = duration || 1;
+      const ttlSeconds = durationHours * 60 * 60;
+      const expiresAt = new Date(Date.now() + ttlSeconds * 1000);
+
+      // Bloquear IA - MESMO FORMATO DO N8N
       const blockData = {
-        tenantId,
-        phone,
-        blocked: true,
-        blockedBy: userId,
-        blockedAt: new Date().toISOString(),
         reason: reason || 'Intervenção manual solicitada',
+        blockedAt: new Date().toISOString(),
+        expiresAt: expiresAt.toISOString(),
+        blockedBy: userId,
+        tenantId,
+        phone
       };
 
-      await redis.set(redisKey, JSON.stringify(blockData), 'EX', 60 * 60 * 24 * 7); // 7 dias
+      await redis.set(redisKey, JSON.stringify(blockData), 'EX', ttlSeconds);
 
       logger.info('[AI-BLOCK] Conversation blocked', {
         requestId,
@@ -146,8 +155,8 @@ export async function GET(request: NextRequest) {
       tenantId = authContext.tenantId;
     }
 
-    // Buscar status no Redis
-    const redisKey = `ai:block:${tenantId}:${phone}`;
+    // Buscar status no Redis - MESMO FORMATO DO N8N
+    const redisKey = `ai_blocked:${tenantId}:${phone}`;
     const blockData = await redis.get(redisKey);
 
     if (!blockData) {

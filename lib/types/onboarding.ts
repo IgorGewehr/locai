@@ -3,7 +3,7 @@
  * Types for the first-time user onboarding flow
  */
 
-export type OnboardingStepId = 'add_property' | 'connect_whatsapp' | 'test_demo' | 'share_minisite';
+export type OnboardingStepId = 'add_property' | 'configure_system' | 'connect_whatsapp' | 'test_demo' | 'share_minisite';
 
 export type OnboardingStepStatus = 'pending' | 'in_progress' | 'completed' | 'skipped';
 
@@ -72,13 +72,24 @@ export const DEFAULT_ONBOARDING_STEPS: Omit<OnboardingStep, 'status'>[] = [
     estimatedMinutes: 5,
   },
   {
+    id: 'configure_system',
+    title: 'Configurar sua empresa e IA',
+    description: 'Configure as informações da sua empresa e personalize a Sofia para atender seus clientes do seu jeito.',
+    icon: 'Settings',
+    actionText: 'Configurar Sistema',
+    actionUrl: '/dashboard/onboarding/configure',
+    order: 2,
+    isOptional: true,
+    estimatedMinutes: 7,
+  },
+  {
     id: 'connect_whatsapp',
     title: 'Conectar o WhatsApp',
     description: 'Integre sua conta do WhatsApp para automatizar o atendimento aos seus clientes interessados.',
     icon: 'WhatsApp',
     actionText: 'Conectar WhatsApp',
     actionUrl: '/dashboard/settings?tab=whatsapp',
-    order: 2,
+    order: 3,
     isOptional: true,
     estimatedMinutes: 3,
   },
@@ -89,7 +100,7 @@ export const DEFAULT_ONBOARDING_STEPS: Omit<OnboardingStep, 'status'>[] = [
     icon: 'SmartToy',
     actionText: 'Testar Sofia IA',
     actionUrl: '/dashboard/metricas',
-    order: 3,
+    order: 4,
     isOptional: true,
     estimatedMinutes: 5,
   },
@@ -100,7 +111,7 @@ export const DEFAULT_ONBOARDING_STEPS: Omit<OnboardingStep, 'status'>[] = [
     icon: 'Share',
     actionText: 'Ver Mini-Site',
     actionUrl: '/dashboard/mini-site',
-    order: 4,
+    order: 5,
     isOptional: false,
     estimatedMinutes: 2,
   },

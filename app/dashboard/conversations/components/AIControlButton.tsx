@@ -14,11 +14,14 @@ import {
   Box,
   Chip,
   CircularProgress,
+  ToggleButtonGroup,
+  ToggleButton,
 } from '@mui/material';
 import {
   SmartToy as AIIcon,
   Block as BlockIcon,
   PlayArrow as PlayIcon,
+  Schedule as ScheduleIcon,
 } from '@mui/icons-material';
 import { useTenant } from '@/contexts/TenantContext';
 import { logger } from '@/lib/utils/logger';
@@ -31,9 +34,11 @@ interface AIControlButtonProps {
 export default function AIControlButton({ phone, conversationName }: AIControlButtonProps) {
   const { tenantId } = useTenant();
   const [blocked, setBlocked] = useState(false);
+  const [blockExpiry, setBlockExpiry] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [reason, setReason] = useState('');
+  const [duration, setDuration] = useState<number>(1); // Default 1 hour
   const [submitting, setSubmitting] = useState(false);
 
   // Verificar status atual do bloqueio
@@ -47,6 +52,7 @@ export default function AIControlButton({ phone, conversationName }: AIControlBu
 
         if (result.success) {
           setBlocked(result.data.blocked || false);
+          setBlockExpiry(result.data.expiresAt || null);
         }
       } catch (error) {
         logger.error('Failed to check AI block status', { error });
@@ -56,10 +62,13 @@ export default function AIControlButton({ phone, conversationName }: AIControlBu
     };
 
     checkStatus();
+    // Poll every 30 seconds to update expiry
+    const interval = setInterval(checkStatus, 30000);
+    return () => clearInterval(interval);
   }, [tenantId, phone]);
 
   // Alternar bloqueio
-  const handleToggleBlock = async (block: boolean, blockReason?: string) => {
+  const handleToggleBlock = async (block: boolean, blockReason?: string, blockDuration?: number) => {
     setSubmitting(true);
     try {
       const response = await fetch('/api/ai/block-conversation', {
@@ -69,6 +78,7 @@ export default function AIControlButton({ phone, conversationName }: AIControlBu
           phone,
           blocked: block,
           reason: blockReason || reason,
+          duration: blockDuration || duration,
         }),
       });
 
@@ -76,8 +86,10 @@ export default function AIControlButton({ phone, conversationName }: AIControlBu
 
       if (result.success) {
         setBlocked(block);
+        setBlockExpiry(result.data?.expiresAt || null);
         setDialogOpen(false);
         setReason('');
+        setDuration(1); // Reset to default
       } else {
         alert('Erro ao alterar status do agente de IA');
       }
@@ -117,7 +129,11 @@ export default function AIControlButton({ phone, conversationName }: AIControlBu
       {blocked && (
         <Chip
           icon={<BlockIcon />}
-          label="IA Bloqueada"
+          label={
+            blockExpiry
+              ? `IA Bloqueada (expira: ${new Date(blockExpiry).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })})`
+              : 'IA Bloqueada'
+          }
           color="error"
           size="small"
           sx={{ ml: 1 }}
@@ -139,6 +155,28 @@ export default function AIControlButton({ phone, conversationName }: AIControlBu
             </Typography>
             <Typography variant="body2" color="warning.main">
               ⚠️ Enquanto bloqueado, a Sofia não responderá automaticamente a esta conversa. Você precisará responder manualmente.
+            </Typography>
+          </Box>
+
+          <Box sx={{ mb: 3 }}>
+            <Typography variant="subtitle2" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <ScheduleIcon fontSize="small" />
+              Duração do Bloqueio
+            </Typography>
+            <ToggleButtonGroup
+              value={duration}
+              exclusive
+              onChange={(_, value) => value && setDuration(value)}
+              fullWidth
+              disabled={submitting}
+            >
+              <ToggleButton value={1}>1 hora</ToggleButton>
+              <ToggleButton value={2}>2 horas</ToggleButton>
+              <ToggleButton value={4}>4 horas</ToggleButton>
+              <ToggleButton value={24}>24 horas</ToggleButton>
+            </ToggleButtonGroup>
+            <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
+              A IA será automaticamente reativada após o período selecionado
             </Typography>
           </Box>
 
