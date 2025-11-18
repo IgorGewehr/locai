@@ -3,6 +3,7 @@ import { TenantServiceFactory } from '@/lib/firebase/firestore-v2'
 import { conversationService } from '@/lib/services/conversation-service'
 import { validateFirebaseAuth } from '@/lib/middleware/firebase-auth'
 import { handleApiError } from '@/lib/utils/api-errors'
+import { triggerNewConversationNotification } from '@/lib/utils/notification-triggers'
 
 export async function GET(request: NextRequest) {
   try {

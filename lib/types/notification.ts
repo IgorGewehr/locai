@@ -58,7 +58,11 @@ export enum NotificationType {
   TICKET_RESPONSE_RECEIVED = 'ticket_response_received',
   TICKET_STATUS_CHANGED = 'ticket_status_changed',
   TICKET_ASSIGNED = 'ticket_assigned',
-  
+
+  // Conversas
+  CONVERSATION_STARTED = 'conversation_started',
+  CONVERSATION_MESSAGE_RECEIVED = 'conversation_message_received',
+
   // Reservas
   RESERVATION_CREATED = 'reservation_created',
   RESERVATION_CHECK_IN_REMINDER = 'reservation_check_in_reminder',
@@ -286,7 +290,10 @@ export const NOTIFICATION_TYPE_LABELS = {
   [NotificationType.TICKET_RESPONSE_RECEIVED]: 'Resposta de Ticket',
   [NotificationType.TICKET_STATUS_CHANGED]: 'Status do Ticket Alterado',
   [NotificationType.TICKET_ASSIGNED]: 'Ticket Atribuído',
-  
+
+  [NotificationType.CONVERSATION_STARTED]: 'Nova Conversa',
+  [NotificationType.CONVERSATION_MESSAGE_RECEIVED]: 'Nova Mensagem',
+
   [NotificationType.RESERVATION_CREATED]: 'Nova Reserva',
   [NotificationType.RESERVATION_CHECK_IN_REMINDER]: 'Lembrete Check-in',
   [NotificationType.RESERVATION_CHECK_OUT_REMINDER]: 'Lembrete Check-out',
@@ -331,7 +338,10 @@ export const NOTIFICATION_TYPE_ICONS = {
   [NotificationType.TICKET_RESPONSE_RECEIVED]: '💬',
   [NotificationType.TICKET_STATUS_CHANGED]: '🔄',
   [NotificationType.TICKET_ASSIGNED]: '👤',
-  
+
+  [NotificationType.CONVERSATION_STARTED]: '💬',
+  [NotificationType.CONVERSATION_MESSAGE_RECEIVED]: '📨',
+
   [NotificationType.RESERVATION_CREATED]: '🏠',
   [NotificationType.RESERVATION_CHECK_IN_REMINDER]: '🗝️',
   [NotificationType.RESERVATION_CHECK_OUT_REMINDER]: '🚪',

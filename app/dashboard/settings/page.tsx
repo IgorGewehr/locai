@@ -10,10 +10,8 @@ import {
   Paper,
   Typography,
   useTheme,
-  useMediaQuery,
-  Drawer,
-  IconButton,
   alpha,
+  Container,
 } from '@mui/material';
 import {
   Person,
@@ -22,8 +20,6 @@ import {
   Business,
   Policy,
   AccountBalance,
-  Menu as MenuIcon,
-  Close as CloseIcon,
 } from '@mui/icons-material';
 import { useTenant } from '@/contexts/TenantContext';
 
@@ -90,90 +86,12 @@ const tabs: TabConfig[] = [
 
 export default function SettingsPage() {
   const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const { isReady } = useTenant();
 
-  const [selectedTab, setSelectedTab] = useState<string>('profile');
-  const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
+  const [selectedTab, setSelectedTab] = useState<string>('whatsapp');
 
   const currentTabConfig = tabs.find((t) => t.id === selectedTab);
   const CurrentComponent = currentTabConfig?.component;
-
-  const handleTabSelect = (tabId: string) => {
-    setSelectedTab(tabId);
-    if (isMobile) {
-      setMobileDrawerOpen(false);
-    }
-  };
-
-  const SidebarContent = () => (
-    <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-      {/* Sidebar Header */}
-      <Box
-        sx={{
-          p: 3,
-          borderBottom: `1px solid ${theme.palette.divider}`,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-        }}
-      >
-        <Typography variant="h6" fontWeight={600}>
-          Configurações
-        </Typography>
-        {isMobile && (
-          <IconButton onClick={() => setMobileDrawerOpen(false)} size="small">
-            <CloseIcon />
-          </IconButton>
-        )}
-      </Box>
-
-      {/* Sidebar Navigation */}
-      <List sx={{ flex: 1, p: 2 }}>
-        {tabs.map((tab) => (
-          <ListItemButton
-            key={tab.id}
-            selected={selectedTab === tab.id}
-            onClick={() => handleTabSelect(tab.id)}
-            sx={{
-              borderRadius: 2,
-              mb: 0.5,
-              transition: 'all 0.2s ease',
-              '&.Mui-selected': {
-                bgcolor: alpha(theme.palette.primary.main, 0.12),
-                color: 'primary.main',
-                '& .MuiListItemIcon-root': {
-                  color: 'primary.main',
-                },
-                '&:hover': {
-                  bgcolor: alpha(theme.palette.primary.main, 0.18),
-                },
-              },
-              '&:hover': {
-                bgcolor: alpha(theme.palette.action.hover, 0.08),
-              },
-            }}
-          >
-            <ListItemIcon
-              sx={{
-                minWidth: 40,
-                color: selectedTab === tab.id ? 'primary.main' : 'text.secondary',
-              }}
-            >
-              {tab.icon}
-            </ListItemIcon>
-            <ListItemText
-              primary={tab.label}
-              primaryTypographyProps={{
-                fontSize: '0.95rem',
-                fontWeight: selectedTab === tab.id ? 600 : 500,
-              }}
-            />
-          </ListItemButton>
-        ))}
-      </List>
-    </Box>
-  );
 
   if (!isReady) {
     return (
@@ -184,88 +102,92 @@ export default function SettingsPage() {
   }
 
   return (
-    <Box sx={{ display: 'flex', height: 'calc(100vh - 64px)', overflow: 'hidden' }}>
-      {/* Mobile Drawer */}
-      {isMobile && (
-        <Drawer
-          anchor="left"
-          open={mobileDrawerOpen}
-          onClose={() => setMobileDrawerOpen(false)}
-          sx={{
-            '& .MuiDrawer-paper': {
-              width: 280,
-              boxSizing: 'border-box',
-            },
-          }}
-        >
-          <SidebarContent />
-        </Drawer>
-      )}
+    <Container maxWidth="xl">
+      {/* Page Header */}
+      <Box sx={{ mb: 4 }}>
+        <Typography variant="h4" fontWeight={600} gutterBottom>
+          Configurações
+        </Typography>
+        <Typography variant="body2" color="text.secondary">
+          Gerencie suas preferências, integrações e configurações do sistema
+        </Typography>
+      </Box>
 
-      {/* Desktop Sidebar */}
-      {!isMobile && (
+      <Box sx={{ display: 'flex', gap: 3 }}>
+        {/* Settings Sidebar/Navigation */}
         <Paper
           elevation={0}
           sx={{
-            width: 280,
+            width: 260,
             flexShrink: 0,
-            borderRight: `1px solid ${theme.palette.divider}`,
-            borderRadius: 0,
-            height: '100%',
-            overflow: 'auto',
+            p: 2,
+            height: 'fit-content',
+            position: 'sticky',
+            top: 80,
+            border: `1px solid ${theme.palette.divider}`,
           }}
         >
-          <SidebarContent />
+          <List sx={{ p: 0 }}>
+            {tabs.map((tab) => (
+              <ListItemButton
+                key={tab.id}
+                selected={selectedTab === tab.id}
+                onClick={() => setSelectedTab(tab.id)}
+                sx={{
+                  borderRadius: 2,
+                  mb: 0.5,
+                  transition: 'all 0.2s ease',
+                  '&.Mui-selected': {
+                    bgcolor: alpha(theme.palette.primary.main, 0.12),
+                    color: 'primary.main',
+                    '& .MuiListItemIcon-root': {
+                      color: 'primary.main',
+                    },
+                    '&:hover': {
+                      bgcolor: alpha(theme.palette.primary.main, 0.18),
+                    },
+                  },
+                  '&:hover': {
+                    bgcolor: alpha(theme.palette.action.hover, 0.08),
+                  },
+                }}
+              >
+                <ListItemIcon
+                  sx={{
+                    minWidth: 40,
+                    color: selectedTab === tab.id ? 'primary.main' : 'text.secondary',
+                  }}
+                >
+                  {tab.icon}
+                </ListItemIcon>
+                <ListItemText
+                  primary={tab.label}
+                  primaryTypographyProps={{
+                    fontSize: '0.95rem',
+                    fontWeight: selectedTab === tab.id ? 600 : 500,
+                  }}
+                />
+              </ListItemButton>
+            ))}
+          </List>
         </Paper>
-      )}
 
-      {/* Main Content */}
-      <Box
-        sx={{
-          flex: 1,
-          overflow: 'auto',
-          bgcolor: 'background.default',
-        }}
-      >
-        {/* Mobile Menu Button */}
-        {isMobile && (
-          <Box
-            sx={{
-              p: 2,
-              borderBottom: `1px solid ${theme.palette.divider}`,
-              bgcolor: 'background.paper',
-              position: 'sticky',
-              top: 0,
-              zIndex: 10,
-            }}
-          >
-            <IconButton onClick={() => setMobileDrawerOpen(true)}>
-              <MenuIcon />
-            </IconButton>
+        {/* Main Content */}
+        <Box sx={{ flex: 1, minWidth: 0 }}>
+          {/* Content Header */}
+          <Box sx={{ mb: 3 }}>
+            <Typography variant="h5" fontWeight={600} gutterBottom>
+              {currentTabConfig?.label}
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              {currentTabConfig?.description}
+            </Typography>
           </Box>
-        )}
 
-        {/* Content Header */}
-        <Box
-          sx={{
-            p: 3,
-            borderBottom: `1px solid ${theme.palette.divider}`,
-            bgcolor: 'background.paper',
-          }}
-        >
-          <Typography variant="h5" fontWeight={600} gutterBottom>
-            {currentTabConfig?.label}
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
-            {currentTabConfig?.description}
-          </Typography>
-        </Box>
-
-        {/* Tab Content */}
-        <Box sx={{ p: 3 }}>
+          {/* Tab Content */}
           {CurrentComponent && <CurrentComponent />}
         </Box>
       </Box>
-    </Box>
+    </Container>
   );
 }

@@ -37,7 +37,6 @@ import {
   NotificationsActive,
   Assessment,
   AccountBalanceWallet,
-  Language,
   GroupWork,
   Analytics,
   AccountTree,
@@ -79,12 +78,6 @@ const menuItems = [
     icon: <Event />,
     badge: null,
   },
-  {
-    text: 'Métricas IA',
-    href: '/dashboard/metricas',
-    icon: <Analytics />,
-    badge: 'BETA',
-  },
   // {
   //   text: 'CRM',
   //   href: '/dashboard/crm',
@@ -125,12 +118,6 @@ const menuItems = [
         icon: <NotificationsActive />,
       },
     ],
-  },
-  {
-    text: 'Mini-Site',
-    href: '/dashboard/mini-site',
-    icon: <Language />,
-    badge: null,
   },
   {
     text: 'Ajuda',

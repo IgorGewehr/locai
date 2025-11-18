@@ -17,16 +17,17 @@ import {
   Error,
   Refresh,
   PhoneAndroid,
+  PowerSettingsNew,
 } from '@mui/icons-material';
 import { useTenant } from '@/contexts/TenantContext';
 import { useAuth } from '@/lib/hooks/useAuth';
-import Image from 'next/image';
 
 interface WhatsAppStatus {
-  isConnected: boolean;
-  phone?: string;
-  qrCode?: string;
-  error?: string;
+  connected: boolean;
+  status: string;
+  phoneNumber?: string | null;
+  businessName?: string | null;
+  qrCode?: string | null;
 }
 
 export default function WhatsAppTab() {
@@ -34,65 +35,78 @@ export default function WhatsAppTab() {
   const { getFirebaseToken } = useAuth();
 
   const [loading, setLoading] = useState(false);
-  const [status, setStatus] = useState<WhatsAppStatus>({ isConnected: false });
+  const [connecting, setConnecting] = useState(false);
+  const [status, setStatus] = useState<WhatsAppStatus>({ connected: false, status: 'disconnected' });
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    checkWhatsAppStatus();
+    loadStatus();
     // Poll status every 5 seconds
-    const interval = setInterval(checkWhatsAppStatus, 5000);
+    const interval = setInterval(loadStatus, 5000);
     return () => clearInterval(interval);
   }, [tenantId]);
 
-  const checkWhatsAppStatus = async () => {
+  const loadStatus = async () => {
     if (!tenantId) return;
 
     try {
       const token = await getFirebaseToken();
-      const response = await fetch(`/api/whatsapp/status`, {
+      const response = await fetch(`/api/whatsapp/session`, {
         headers: {
           'Authorization': `Bearer ${token}`,
         },
       });
 
       if (response.ok) {
-        const data = await response.json();
-        setStatus({
-          isConnected: data.connected || false,
-          phone: data.phone,
-          qrCode: data.qrCode,
-        });
+        const result = await response.json();
+        if (result.success && result.data) {
+          setStatus({
+            connected: result.data.connected || false,
+            status: result.data.status || 'disconnected',
+            phoneNumber: result.data.phoneNumber,
+            businessName: result.data.businessName,
+            qrCode: result.data.qrCode,
+          });
+        }
       }
     } catch (err) {
-      console.error('Error checking WhatsApp status:', err);
+      console.error('Error loading WhatsApp status:', err);
     }
   };
 
   const handleConnect = async () => {
-    setLoading(true);
+    setConnecting(true);
     setError(null);
 
     try {
       const token = await getFirebaseToken();
-      const response = await fetch(`/api/whatsapp/connect`, {
+      const response = await fetch(`/api/whatsapp/session`, {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${token}`,
         },
       });
 
-      const data = await response.json();
+      const result = await response.json();
 
-      if (data.success) {
-        await checkWhatsAppStatus();
+      if (result.success) {
+        if (result.data) {
+          setStatus({
+            connected: result.data.connected || false,
+            status: result.data.status || 'initializing',
+            phoneNumber: result.data.phoneNumber,
+            businessName: result.data.businessName,
+            qrCode: result.data.qrCode,
+          });
+        }
       } else {
-        setError(data.error || 'Erro ao conectar WhatsApp');
+        setError(result.error || result.data?.message || 'Erro ao conectar WhatsApp');
       }
     } catch (err) {
       console.error('Error connecting WhatsApp:', err);
       setError('Erro ao conectar WhatsApp');
     } finally {
-      setLoading(false);
+      setConnecting(false);
     }
   };
 
@@ -102,19 +116,19 @@ export default function WhatsAppTab() {
 
     try {
       const token = await getFirebaseToken();
-      const response = await fetch(`/api/whatsapp/disconnect`, {
-        method: 'POST',
+      const response = await fetch(`/api/whatsapp/session`, {
+        method: 'DELETE',
         headers: {
           'Authorization': `Bearer ${token}`,
         },
       });
 
-      const data = await response.json();
+      const result = await response.json();
 
-      if (data.success) {
-        setStatus({ isConnected: false });
+      if (result.success) {
+        setStatus({ connected: false, status: 'disconnected' });
       } else {
-        setError(data.error || 'Erro ao desconectar WhatsApp');
+        setError('Erro ao desconectar WhatsApp');
       }
     } catch (err) {
       console.error('Error disconnecting WhatsApp:', err);
@@ -122,6 +136,19 @@ export default function WhatsAppTab() {
     } finally {
       setLoading(false);
     }
+  };
+
+  const getStatusColor = () => {
+    if (status.connected) return 'success';
+    if (status.status === 'initializing' || status.status === 'qr_ready') return 'warning';
+    return 'error';
+  };
+
+  const getStatusLabel = () => {
+    if (status.connected) return 'Conectado';
+    if (status.status === 'initializing') return 'Inicializando...';
+    if (status.status === 'qr_ready') return 'Aguardando QR Code';
+    return 'Desconectado';
   };
 
   return (
@@ -143,32 +170,37 @@ export default function WhatsAppTab() {
           </Box>
 
           <Chip
-            icon={status.isConnected ? <CheckCircle /> : <Error />}
-            label={status.isConnected ? 'Conectado' : 'Desconectado'}
-            color={status.isConnected ? 'success' : 'error'}
+            icon={status.connected ? <CheckCircle /> : <Error />}
+            label={getStatusLabel()}
+            color={getStatusColor()}
             size="small"
           />
         </Box>
 
-        {status.isConnected && status.phone && (
+        {status.connected && status.phoneNumber && (
           <Box sx={{ mt: 2 }}>
             <Typography variant="body2" color="text.secondary">
-              Número conectado: <strong>{status.phone}</strong>
+              Número: <strong>{status.phoneNumber}</strong>
             </Typography>
+            {status.businessName && (
+              <Typography variant="body2" color="text.secondary">
+                Nome: <strong>{status.businessName}</strong>
+              </Typography>
+            )}
           </Box>
         )}
 
         <Divider sx={{ my: 2 }} />
 
         <Box sx={{ display: 'flex', gap: 2 }}>
-          {!status.isConnected ? (
+          {!status.connected ? (
             <Button
               variant="contained"
               onClick={handleConnect}
-              disabled={loading}
-              startIcon={loading ? <CircularProgress size={20} /> : <QrCode2 />}
+              disabled={connecting || status.status === 'initializing'}
+              startIcon={connecting ? <CircularProgress size={20} /> : <PowerSettingsNew />}
             >
-              {loading ? 'Conectando...' : 'Conectar WhatsApp'}
+              {connecting || status.status === 'initializing' ? 'Conectando...' : 'Conectar WhatsApp'}
             </Button>
           ) : (
             <>
@@ -177,12 +209,13 @@ export default function WhatsAppTab() {
                 onClick={handleDisconnect}
                 disabled={loading}
                 color="error"
+                startIcon={<PowerSettingsNew />}
               >
                 Desconectar
               </Button>
               <Button
                 variant="outlined"
-                onClick={checkWhatsAppStatus}
+                onClick={loadStatus}
                 startIcon={<Refresh />}
               >
                 Atualizar Status
@@ -193,7 +226,7 @@ export default function WhatsAppTab() {
       </Paper>
 
       {/* QR Code */}
-      {!status.isConnected && status.qrCode && (
+      {!status.connected && status.qrCode && (
         <Paper sx={{ p: 3 }}>
           <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
             <QrCode2 sx={{ mr: 1.5, color: 'primary.main' }} />
@@ -203,7 +236,7 @@ export default function WhatsAppTab() {
           </Box>
 
           <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-            Abra o WhatsApp no seu celular e escaneie este código para conectar:
+            Abra o WhatsApp no seu celular e escaneie este código:
           </Typography>
 
           <Box
@@ -211,21 +244,20 @@ export default function WhatsAppTab() {
               display: 'flex',
               justifyContent: 'center',
               p: 3,
-              bgcolor: 'background.default',
+              bgcolor: 'white',
               borderRadius: 2,
             }}
           >
-            {status.qrCode ? (
-              <Image
-                src={status.qrCode}
-                alt="WhatsApp QR Code"
-                width={300}
-                height={300}
-                style={{ maxWidth: '100%', height: 'auto' }}
-              />
-            ) : (
-              <CircularProgress />
-            )}
+            <Box
+              component="img"
+              src={status.qrCode}
+              alt="WhatsApp QR Code"
+              sx={{
+                maxWidth: 300,
+                width: '100%',
+                height: 'auto',
+              }}
+            />
           </Box>
 
           <Alert severity="info" sx={{ mt: 3 }}>
@@ -241,7 +273,7 @@ export default function WhatsAppTab() {
       )}
 
       {/* Connection Info */}
-      {status.isConnected && (
+      {status.connected && (
         <Paper sx={{ p: 3 }}>
           <Typography variant="h6" fontWeight={600} gutterBottom>
             Sobre a Conexão

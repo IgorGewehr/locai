@@ -116,20 +116,71 @@ export default function ClientsPage() {
 
   const loadClients = async (isRefresh = false) => {
     if (!services || !isReady) return;
-    
+
     try {
       if (isRefresh) {
         setRefreshing(true);
         setError(null);
       }
-      
-      const clientsData = await services.clients.getAll();
-      
-      // Ordenar clientes: mais recentes primeiro
-      const sortedClients = clientsData.sort((a, b) => 
-        new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
-      );
-      
+
+      // Buscar clientes e conversas em paralelo
+      const [clientsData, conversationsData] = await Promise.all([
+        services.clients.getAll(),
+        services.conversations.getAll()
+      ]);
+
+      setConversations(conversationsData);
+
+      // Criar um mapa de conversas por telefone para lookup rápido
+      const conversationsByPhone = new Map<string, ConversationHeader[]>();
+      conversationsData.forEach((conv: ConversationHeader) => {
+        const phone = conv.clientPhone;
+        if (!conversationsByPhone.has(phone)) {
+          conversationsByPhone.set(phone, []);
+        }
+        conversationsByPhone.get(phone)!.push(conv);
+      });
+
+      // Enriquecer clientes com dados de conversas
+      const enrichedClients: ClientWithConversation[] = clientsData.map((client: Client) => {
+        const clientConvs = conversationsByPhone.get(client.phone) || [];
+
+        // Ordenar conversas por última mensagem (mais recente primeiro)
+        const sortedConvs = clientConvs.sort((a, b) =>
+          new Date(b.lastMessageAt).getTime() - new Date(a.lastMessageAt).getTime()
+        );
+
+        const lastConversation = sortedConvs[0];
+        const hasActiveConversation = clientConvs.some(c => c.status === 'active');
+        const totalMessages = clientConvs.reduce((sum, c) => sum + (c.messageCount || 0), 0);
+        const lastMessageAt = lastConversation?.lastMessageAt;
+
+        return {
+          ...client,
+          lastConversation,
+          hasActiveConversation,
+          totalMessages,
+          lastMessageAt
+        };
+      });
+
+      // Ordenar clientes: conversas ativas primeiro, depois por última mensagem, depois por criação
+      const sortedClients = enrichedClients.sort((a, b) => {
+        // 1. Conversas ativas primeiro
+        if (a.hasActiveConversation && !b.hasActiveConversation) return -1;
+        if (!a.hasActiveConversation && b.hasActiveConversation) return 1;
+
+        // 2. Última mensagem mais recente
+        if (a.lastMessageAt && b.lastMessageAt) {
+          return new Date(b.lastMessageAt).getTime() - new Date(a.lastMessageAt).getTime();
+        }
+        if (a.lastMessageAt && !b.lastMessageAt) return -1;
+        if (!a.lastMessageAt && b.lastMessageAt) return 1;
+
+        // 3. Criação mais recente
+        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+      });
+
       setClients(sortedClients);
       setError(null);
     } catch (error) {
@@ -171,24 +222,21 @@ export default function ClientsPage() {
     }
   };
 
-  const handleClientClick = (client: Client) => {
+  const handleClientClick = (client: ClientWithConversation) => {
     setSelectedClient(client);
     setShowDetailsDialog(true);
   };
 
-  const handleWhatsAppClick = (phone: string, e: React.MouseEvent) => {
+  const handleWhatsAppClick = (client: ClientWithConversation, e: React.MouseEvent) => {
     e.stopPropagation();
-    window.open(`https://wa.me/55${phone.replace(/\D/g, '')}`, '_blank');
-  };
 
-  const handleCallClick = (phone: string, e: React.MouseEvent) => {
-    e.stopPropagation();
-    window.location.href = `tel:${phone}`;
-  };
-
-  const handleEmailClick = (email: string, e: React.MouseEvent) => {
-    e.stopPropagation();
-    window.location.href = `mailto:${email}`;
+    // Se o cliente tem conversa, abre a página de conversas diretamente na conversa dele
+    if (client.lastConversation) {
+      router.push(`/dashboard/conversas?conversation=${client.lastConversation.id}`);
+    } else {
+      // Se não tem conversa, abre o WhatsApp externo
+      window.open(`https://wa.me/55${client.phone.replace(/\D/g, '')}`, '_blank');
+    }
   };
 
   const handleEditClick = (client: Client, e: React.MouseEvent) => {
@@ -203,14 +251,15 @@ export default function ClientsPage() {
   };
 
   const filteredClients = clients.filter(client => {
-    const matchesSearch = 
+    const matchesSearch =
       client.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
       (client.email && client.email.toLowerCase().includes(searchTerm.toLowerCase())) ||
       client.phone.includes(searchTerm);
 
     if (selectedTab === 0) return matchesSearch; // Todos
-    if (selectedTab === 1) return matchesSearch && client.isActive; // Ativos
-    if (selectedTab === 2) return matchesSearch && client.source === 'whatsapp'; // WhatsApp
+    if (selectedTab === 1) return matchesSearch && client.lastConversation; // Com Conversas
+    if (selectedTab === 2) return matchesSearch && client.hasActiveConversation; // Conversas Ativas
+    if (selectedTab === 3) return matchesSearch && (client.totalReservations || 0) > 0; // Com Reservas
     return matchesSearch;
   });
 
@@ -299,34 +348,44 @@ export default function ClientsPage() {
           />
         </Box>
 
-        <Tabs 
-          value={selectedTab} 
+        <Tabs
+          value={selectedTab}
           onChange={(_, newValue) => setSelectedTab(newValue)}
           sx={{ px: 2 }}
+          variant="scrollable"
+          scrollButtons="auto"
         >
-          <Tab 
+          <Tab
             label={
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                 Todos
                 <Chip label={clients.length} size="small" />
               </Box>
-            } 
+            }
           />
-          <Tab 
+          <Tab
             label={
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                Ativos
-                <Chip label={clients.filter(c => c.isActive).length} size="small" color="success" />
+                Com Conversas
+                <Chip label={clients.filter(c => c.lastConversation).length} size="small" color="primary" />
               </Box>
-            } 
+            }
           />
-          <Tab 
+          <Tab
             label={
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                WhatsApp
-                <Chip label={clients.filter(c => c.source === 'whatsapp').length} size="small" color="primary" />
+                Conversas Ativas
+                <Chip label={clients.filter(c => c.hasActiveConversation).length} size="small" color="success" />
               </Box>
-            } 
+            }
+          />
+          <Tab
+            label={
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                Com Reservas
+                <Chip label={clients.filter(c => (c.totalReservations || 0) > 0).length} size="small" color="info" />
+              </Box>
+            }
           />
         </Tabs>
       </Card>
@@ -360,10 +419,25 @@ export default function ClientsPage() {
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
               <Box>
                 <Typography variant="h4" fontWeight={600}>
-                  {clients.filter(c => c.source === 'whatsapp').length}
+                  {clients.filter(c => c.hasActiveConversation).length}
                 </Typography>
                 <Typography variant="body2" color="text.secondary">
-                  Via WhatsApp
+                  Conversas Ativas
+                </Typography>
+              </Box>
+              <Chat sx={{ fontSize: 40, color: 'primary.main', opacity: 0.7 }} />
+            </Box>
+          </Card>
+        </Grid>
+        <Grid item xs={12} sm={6} md={3}>
+          <Card sx={{ p: 2 }}>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <Box>
+                <Typography variant="h4" fontWeight={600}>
+                  {conversations.length}
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  Total Conversas
                 </Typography>
               </Box>
               <WhatsApp sx={{ fontSize: 40, color: 'success.main', opacity: 0.7 }} />
@@ -382,21 +456,6 @@ export default function ClientsPage() {
                 </Typography>
               </Box>
               <Schedule sx={{ fontSize: 40, color: 'info.main', opacity: 0.7 }} />
-            </Box>
-          </Card>
-        </Grid>
-        <Grid item xs={12} sm={6} md={3}>
-          <Card sx={{ p: 2 }}>
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <Box>
-                <Typography variant="h4" fontWeight={600}>
-                  {clients.filter(c => c.isActive).length}
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  Clientes Ativos
-                </Typography>
-              </Box>
-              <CheckCircle sx={{ fontSize: 40, color: 'success.main', opacity: 0.7 }} />
             </Box>
           </Card>
         </Grid>
@@ -453,15 +512,33 @@ export default function ClientsPage() {
 
                   <ListItemText
                     primary={
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
                         <Typography variant="subtitle1" fontWeight={500}>
                           {client.name}
                         </Typography>
                         {client.source === 'whatsapp' && (
-                          <Chip 
-                            label="WhatsApp" 
-                            size="small" 
-                            color="success" 
+                          <Chip
+                            label="WhatsApp"
+                            size="small"
+                            color="success"
+                            sx={{ height: 20, fontSize: '0.7rem' }}
+                          />
+                        )}
+                        {client.hasActiveConversation && (
+                          <Chip
+                            icon={<FiberManualRecord sx={{ fontSize: 10 }} />}
+                            label="Conversa Ativa"
+                            size="small"
+                            color="primary"
+                            sx={{ height: 20, fontSize: '0.7rem' }}
+                          />
+                        )}
+                        {client.totalMessages && client.totalMessages > 0 && (
+                          <Chip
+                            icon={<Chat sx={{ fontSize: 14 }} />}
+                            label={`${client.totalMessages} msg${client.totalMessages > 1 ? 's' : ''}`}
+                            size="small"
+                            variant="outlined"
                             sx={{ height: 20, fontSize: '0.7rem' }}
                           />
                         )}
@@ -472,18 +549,21 @@ export default function ClientsPage() {
                         <Box sx={{ display: 'block' }}>
                           📱 {formatPhone(client.phone)}
                           {client.email && ` • 📧 ${client.email}`}
-                          {client.document && ` • 📄 CPF: ${client.document.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, '$1.$2.$3-$4')}`}
                         </Box>
+                        {client.lastMessageAt && (
+                          <Box sx={{ display: 'block', mt: 0.5, fontSize: '0.75rem', color: client.hasActiveConversation ? 'success.main' : 'text.secondary' }}>
+                            💬 Última mensagem: {formatDistanceToNow(new Date(client.lastMessageAt), { addSuffix: true, locale: ptBR })}
+                          </Box>
+                        )}
                         <Box sx={{ display: 'block', mt: 0.5, fontSize: '0.75rem', color: 'text.secondary' }}>
                           {(Number(client.totalReservations) || 0) > 0 ? (
                             <>
-                              🏠 {Number(client.totalReservations) || 0} reserva{(Number(client.totalReservations) || 0) > 1 ? 's' : ''} • 
+                              🏠 {Number(client.totalReservations) || 0} reserva{(Number(client.totalReservations) || 0) > 1 ? 's' : ''} •
                               💰 R$ {(Number(client.totalSpent) || 0).toLocaleString('pt-BR')} gastos
                             </>
                           ) : (
                             'Novo cliente - Nenhuma reserva ainda'
                           )}
-                          {' • Cadastrado em ' + safeFormatDate(client.createdAt, DateFormats.SHORT, 'Não informado')}
                         </Box>
                       </Box>
                     }
@@ -491,39 +571,30 @@ export default function ClientsPage() {
                   />
 
                   <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
-                    <IconButton 
-                      size="small" 
-                      color="success"
-                      onClick={(e) => handleWhatsAppClick(client.phone, e)}
-                    >
-                      <WhatsApp />
-                    </IconButton>
-                    <IconButton 
-                      size="small"
-                      onClick={(e) => handleCallClick(client.phone, e)}
-                    >
-                      <Phone />
-                    </IconButton>
-                    {client.email && (
-                      <IconButton 
-                        size="small"
-                        onClick={(e) => handleEmailClick(client.email!, e)}
+                    <Tooltip title={client.lastConversation ? "Abrir conversa" : "Iniciar conversa no WhatsApp"}>
+                      <IconButton
+                        size="medium"
+                        color="success"
+                        onClick={(e) => handleWhatsAppClick(client, e)}
+                        sx={{
+                          bgcolor: 'success.main',
+                          color: 'white',
+                          '&:hover': {
+                            bgcolor: 'success.dark',
+                            transform: 'scale(1.05)',
+                          },
+                          transition: 'all 0.2s'
+                        }}
                       >
-                        <Email />
+                        <WhatsApp />
                       </IconButton>
-                    )}
-                    <IconButton 
+                    </Tooltip>
+                    <IconButton
                       size="small"
                       onClick={(e) => handleEditClick(client, e)}
                       title="Editar cliente"
                     >
                       <Edit />
-                    </IconButton>
-                    <IconButton 
-                      size="small"
-                      onClick={(e) => toggleFavorite(client, e)}
-                    >
-                      <StarBorder />
                     </IconButton>
                   </Box>
                 </ListItemButton>

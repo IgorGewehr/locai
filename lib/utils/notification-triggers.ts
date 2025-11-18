@@ -2,6 +2,7 @@
 // Utility functions to trigger notifications for critical events
 
 import { NotificationServiceFactory } from '@/lib/services/notification-service'
+import { NotificationType, NotificationPriority, NotificationChannel } from '@/lib/types/notification'
 import { logger } from '@/lib/utils/logger'
 import type { ConversationHeader } from '@/lib/types/conversation-optimized'
 
@@ -20,7 +21,7 @@ export async function triggerNewConversationNotification(
     await notificationService.createNotification({
       targetUserId,
       targetUserName: targetUserEmail,
-      type: 'conversation_started' as any,
+      type: NotificationType.CONVERSATION_STARTED,
       title: '💬 Nova Conversa',
       message: `Nova conversa iniciada ${conversation.clientName ? `com ${conversation.clientName}` : ''} (${conversation.clientPhone}). Total de mensagens: ${conversation.messageCount || 0}.`,
       entityType: 'ticket',
@@ -31,11 +32,17 @@ export async function triggerNewConversationNotification(
         messageCount: conversation.messageCount,
         status: conversation.status
       },
-      priority: 'medium' as any,
-      channels: ['dashboard', 'email'] as any[],
-      recipientEmail: targetUserEmail,
-      actionUrl: `/dashboard/conversas`,
-      actionLabel: 'Ver Conversas',
+      priority: NotificationPriority.MEDIUM,
+      channels: [NotificationChannel.DASHBOARD],
+      actions: [{
+        id: 'view_conversations',
+        label: 'Ver Conversas',
+        type: 'primary',
+        action: 'navigate',
+        config: {
+          url: '/dashboard/conversas'
+        }
+      }],
       metadata: {
         source: 'conversation_system',
         triggerEvent: 'conversation_started',
@@ -60,7 +67,6 @@ export async function triggerNewConversationNotification(
 
 /**
  * Trigger notification when a reservation is created
- * (Already implemented inline in reservations API, but provided here for reference)
  */
 export async function triggerReservationCreatedNotification(
   tenantId: string,
@@ -83,17 +89,23 @@ export async function triggerReservationCreatedNotification(
     await notificationService.createNotification({
       targetUserId,
       targetUserName: targetUserEmail,
-      type: 'reservation_created' as any,
+      type: NotificationType.RESERVATION_CREATED,
       title: '🎉 Nova Reserva Criada',
       message: `Reserva confirmada para ${data.propertyName} de ${data.checkIn.toLocaleDateString('pt-BR')} até ${data.checkOut.toLocaleDateString('pt-BR')}. Cliente: ${data.clientName}. Total: R$ ${data.totalAmount.toFixed(2)}.`,
       entityType: 'reservation',
       entityId: reservationId,
       entityData: data,
-      priority: 'high' as any,
-      channels: ['dashboard', 'email'] as any[],
-      recipientEmail: targetUserEmail,
-      actionUrl: `/dashboard/reservations/${reservationId}`,
-      actionLabel: 'Ver Reserva',
+      priority: NotificationPriority.HIGH,
+      channels: [NotificationChannel.DASHBOARD],
+      actions: [{
+        id: 'view_reservation',
+        label: 'Ver Reserva',
+        type: 'primary',
+        action: 'navigate',
+        config: {
+          url: `/dashboard/reservations/${reservationId}`
+        }
+      }],
       metadata: {
         source: 'reservation_api',
         triggerEvent: 'reservation_created',
@@ -117,7 +129,6 @@ export async function triggerReservationCreatedNotification(
 
 /**
  * Trigger notification when a payment is received
- * (Already implemented inline in transactions API, but provided here for reference)
  */
 export async function triggerPaymentReceivedNotification(
   tenantId: string,
@@ -139,17 +150,23 @@ export async function triggerPaymentReceivedNotification(
     await notificationService.createNotification({
       targetUserId,
       targetUserName: targetUserEmail,
-      type: 'payment_received' as any,
+      type: NotificationType.PAYMENT_RECEIVED,
       title: '💰 Pagamento Recebido',
       message: `Pagamento de R$ ${data.amount.toFixed(2)} recebido${data.clientName ? ` de ${data.clientName}` : ''}${data.propertyName ? ` (${data.propertyName})` : ''}. Método: ${data.paymentMethod}.`,
       entityType: 'payment',
       entityId: transactionId,
       entityData: data,
-      priority: data.amount >= 1000 ? 'high' as any : 'medium' as any,
-      channels: ['dashboard', 'email'] as any[],
-      recipientEmail: targetUserEmail,
-      actionUrl: `/dashboard/transactions`,
-      actionLabel: 'Ver Transações',
+      priority: data.amount >= 1000 ? NotificationPriority.HIGH : NotificationPriority.MEDIUM,
+      channels: [NotificationChannel.DASHBOARD],
+      actions: [{
+        id: 'view_transactions',
+        label: 'Ver Transações',
+        type: 'primary',
+        action: 'navigate',
+        config: {
+          url: '/dashboard/transactions'
+        }
+      }],
       metadata: {
         source: 'transaction_api',
         triggerEvent: 'payment_received',
@@ -193,17 +210,23 @@ export async function triggerLeadQualifiedNotification(
     await notificationService.createNotification({
       targetUserId,
       targetUserName: targetUserEmail,
-      type: 'lead_qualified' as any,
+      type: NotificationType.TICKET_ASSIGNED, // Using closest match
       title: '🎯 Lead Qualificado',
       message: `${data.leadName} atingiu o estágio "${data.stage}" com score de ${data.score}. Agende um follow-up!`,
       entityType: 'ticket',
       entityId: leadId,
       entityData: data,
-      priority: 'high' as any,
-      channels: ['dashboard', 'email'] as any[],
-      recipientEmail: targetUserEmail,
-      actionUrl: `/dashboard/crm`,
-      actionLabel: 'Ver CRM',
+      priority: NotificationPriority.HIGH,
+      channels: [NotificationChannel.DASHBOARD],
+      actions: [{
+        id: 'view_crm',
+        label: 'Ver CRM',
+        type: 'primary',
+        action: 'navigate',
+        config: {
+          url: '/dashboard/crm'
+        }
+      }],
       metadata: {
         source: 'crm_system',
         triggerEvent: 'lead_qualified',
@@ -242,17 +265,23 @@ export async function triggerUrgentSystemNotification(
     await notificationService.createNotification({
       targetUserId,
       targetUserName: targetUserEmail,
-      type: 'system_alert' as any,
+      type: NotificationType.SYSTEM_ALERT,
       title: `⚠️ ${title}`,
       message,
       entityType: 'system',
       entityId: 'system-alert',
       entityData: data,
-      priority: 'urgent' as any,
-      channels: ['dashboard', 'email'] as any[],
-      recipientEmail: targetUserEmail,
-      actionUrl: `/dashboard`,
-      actionLabel: 'Ver Dashboard',
+      priority: NotificationPriority.CRITICAL,
+      channels: [NotificationChannel.DASHBOARD],
+      actions: [{
+        id: 'view_dashboard',
+        label: 'Ver Dashboard',
+        type: 'primary',
+        action: 'navigate',
+        config: {
+          url: '/dashboard'
+        }
+      }],
       metadata: {
         source: 'system',
         triggerEvent: 'urgent_alert'

@@ -41,7 +41,6 @@ import {
   Receipt,
   NotificationsActive,
   Assessment,
-  Language,
   GroupWork,
   Event,
   Schedule,
@@ -490,22 +489,6 @@ export default function TopAppBar({ onLogout }: TopAppBarProps) {
                 <Box component="span" sx={{ display: { xs: 'none', md: 'inline' } }}>WhatsApp</Box>
               </Button>
             </Tooltip>
-
-            {/* Mini-Site - Hidden on smaller screens */}
-            <Box sx={{ display: isMobile ? 'none' : 'block' }}>
-              <Tooltip title="Mini-Site">
-                <IconButton
-                  onClick={() => router.push('/dashboard/mini-site')}
-                  sx={{
-                    color: 'rgba(255, 255, 255, 0.8)',
-                    '&:hover': { backgroundColor: 'rgba(255, 255, 255, 0.1)' },
-                    p: { xs: 1, sm: 1.25 },
-                  }}
-                >
-                  <Language sx={{ fontSize: { xs: 18, sm: 20 } }} />
-                </IconButton>
-              </Tooltip>
-            </Box>
 
             {/* Notifications Bell */}
             <Box sx={{ position: 'relative' }}>
