@@ -625,6 +625,11 @@ export class TenantServiceFactory {
     return createAlertsService(this.tenantId);
   }
 
+  get notifications() {
+    const { NotificationServiceFactory } = require('@/lib/services/notification-service');
+    return NotificationServiceFactory.getInstance(this.tenantId);
+  }
+
   get crm() {
     const { createCRMService } = require('@/lib/services/crm-service');
     return createCRMService(this.tenantId);
