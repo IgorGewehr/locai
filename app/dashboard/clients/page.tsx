@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useTenant } from '@/contexts/TenantContext';
 import type { Client } from '@/lib/types';
+import type { ConversationHeader } from '@/lib/types/conversation-optimized';
 import { PaymentMethod } from '@/lib/types/reservation';
 import {
   Box,
@@ -36,6 +37,7 @@ import {
   Tabs,
   Tab,
   Badge,
+  Tooltip,
 } from '@mui/material';
 import ModernButton from '@/components/atoms/ModernButton';
 import {
@@ -54,6 +56,8 @@ import {
   CheckCircle,
   Edit,
   Refresh,
+  Chat,
+  FiberManualRecord,
 } from '@mui/icons-material';
 import { useRouter } from 'next/navigation';
 import { safeFormatDate, DateFormats } from '@/lib/utils/date-formatter';
@@ -61,6 +65,8 @@ import { useAuth } from '@/lib/hooks/useAuth';
 import CreateClientDialog from './components/CreateClientDialog';
 import EditClientDialog from './components/EditClientDialog';
 import ClientDetailsDialog from './components/ClientDetailsDialog';
+import { formatDistanceToNow } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
 
 interface ClientFormData {
   name: string;
@@ -70,10 +76,19 @@ interface ClientFormData {
   notes?: string;
 }
 
+// Interface para cliente com dados de conversa
+interface ClientWithConversation extends Client {
+  lastConversation?: ConversationHeader;
+  hasActiveConversation?: boolean;
+  totalMessages?: number;
+  lastMessageAt?: Date;
+}
+
 export default function ClientsPage() {
   const { user } = useAuth();
   const { services, isReady } = useTenant();
-  const [clients, setClients] = useState<Client[]>([]);
+  const [clients, setClients] = useState<ClientWithConversation[]>([]);
+  const [conversations, setConversations] = useState<ConversationHeader[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
@@ -82,7 +97,7 @@ export default function ClientsPage() {
   const [showDetailsDialog, setShowDetailsDialog] = useState(false);
   const [showImportDialog, setShowImportDialog] = useState(false);
   const [selectedTab, setSelectedTab] = useState(0);
-  const [selectedClient, setSelectedClient] = useState<Client | null>(null);
+  const [selectedClient, setSelectedClient] = useState<ClientWithConversation | null>(null);
   const [filterOpen, setFilterOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
