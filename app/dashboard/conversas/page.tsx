@@ -883,7 +883,7 @@ export default function ConversationsPage() {
               {selectedConversation && (
                 <Box
                   sx={{
-                    p: 1.5,
+                    p: 1,
                     borderTop: `1px solid ${theme.palette.divider}`,
                     bgcolor: !aiBlocked
                       ? alpha(theme.palette.error.main, 0.1)
@@ -910,10 +910,10 @@ export default function ConversationsPage() {
                           alignItems: 'center',
                           justifyContent: 'center',
                           gap: 1.5,
-                          py: 1.5,
+                          py: 1,
                           px: 3,
                           bgcolor: alpha(theme.palette.error.main, 0.15),
-                          borderRadius: '24px',
+                          borderRadius: '20px',
                           cursor: checkingAiStatus ? 'default' : 'pointer',
                           transition: 'all 0.2s ease',
                           border: `1px solid ${alpha(theme.palette.error.main, 0.3)}`,
@@ -933,7 +933,7 @@ export default function ConversationsPage() {
                           sx={{
                             color: theme.palette.error.main,
                             fontWeight: 600,
-                            fontSize: '0.95rem',
+                            fontSize: '0.875rem',
                             userSelect: 'none',
                           }}
                         >
@@ -960,7 +960,7 @@ export default function ConversationsPage() {
                           variant="outlined"
                           sx={{
                             '& .MuiOutlinedInput-root': {
-                              borderRadius: '24px',
+                              borderRadius: '20px',
                               bgcolor: theme.palette.mode === 'dark'
                                 ? alpha(theme.palette.background.paper, 0.8)
                                 : '#fff',
@@ -977,9 +977,9 @@ export default function ConversationsPage() {
                               },
                             },
                             '& .MuiInputBase-input': {
-                              py: 1.25,
+                              py: 0.875,
                               px: 2,
-                              fontSize: '0.95rem',
+                              fontSize: '0.875rem',
                             },
                           }}
                         />
@@ -989,8 +989,8 @@ export default function ConversationsPage() {
                           sx={{
                             bgcolor: theme.palette.primary.main,
                             color: '#fff',
-                            width: 48,
-                            height: 48,
+                            width: 42,
+                            height: 42,
                             flexShrink: 0,
                             transition: 'all 0.2s ease',
                             '&:hover': {
@@ -1004,9 +1004,9 @@ export default function ConversationsPage() {
                           }}
                         >
                           {sendingMessage ? (
-                            <CircularProgress size={24} sx={{ color: '#fff' }} />
+                            <CircularProgress size={20} sx={{ color: '#fff' }} />
                           ) : (
-                            <Send sx={{ fontSize: 22 }} />
+                            <Send sx={{ fontSize: 20 }} />
                           )}
                         </IconButton>
                       </>
