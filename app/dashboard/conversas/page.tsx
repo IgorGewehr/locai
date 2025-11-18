@@ -879,29 +879,32 @@ export default function ConversationsPage() {
                 )}
               </Box>
 
-              {/* WhatsApp-style Message Input Bar - Fixed at bottom */}
+              {/* Modern Message Input Bar - Fixed at bottom */}
               {selectedConversation && (
                 <Box
                   sx={{
-                    p: 1,
+                    p: 2.5,
                     borderTop: `1px solid ${theme.palette.divider}`,
                     bgcolor: !aiBlocked
-                      ? alpha(theme.palette.error.main, 0.1)
-                      : 'background.paper',
+                      ? alpha(theme.palette.error.main, 0.05)
+                      : theme.palette.background.paper,
                     position: 'sticky',
                     bottom: 0,
                     zIndex: 10,
+                    backdropFilter: 'blur(10px)',
+                    boxShadow: `0 -2px 8px ${alpha(theme.palette.common.black, 0.05)}`,
                   }}
                 >
                   <Box
                     sx={{
                       display: 'flex',
-                      gap: 1,
+                      gap: 1.5,
                       alignItems: 'flex-end',
+                      maxWidth: '100%',
                     }}
                   >
                     {!aiBlocked ? (
-                      // AI Blocked Trigger Bar - WhatsApp style with red tint
+                      // AI Mode Active - Click to enable manual mode
                       <Box
                         onClick={handleEnableManualMode}
                         sx={{
@@ -909,45 +912,47 @@ export default function ConversationsPage() {
                           display: 'flex',
                           alignItems: 'center',
                           justifyContent: 'center',
-                          gap: 1.5,
-                          py: 1,
+                          gap: 2,
+                          py: 1.5,
                           px: 3,
-                          bgcolor: alpha(theme.palette.error.main, 0.15),
-                          borderRadius: '20px',
+                          bgcolor: alpha(theme.palette.error.main, 0.08),
+                          borderRadius: '24px',
                           cursor: checkingAiStatus ? 'default' : 'pointer',
-                          transition: 'all 0.2s ease',
-                          border: `1px solid ${alpha(theme.palette.error.main, 0.3)}`,
+                          transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
+                          border: `1.5px solid ${alpha(theme.palette.error.main, 0.2)}`,
                           '&:hover': checkingAiStatus ? {} : {
-                            bgcolor: alpha(theme.palette.error.main, 0.25),
-                            transform: 'translateY(-1px)',
-                            boxShadow: `0 4px 12px ${alpha(theme.palette.error.main, 0.2)}`,
+                            bgcolor: alpha(theme.palette.error.main, 0.15),
+                            transform: 'translateY(-2px)',
+                            boxShadow: `0 6px 20px ${alpha(theme.palette.error.main, 0.15)}`,
+                            borderColor: alpha(theme.palette.error.main, 0.4),
                           },
                         }}
                       >
                         {checkingAiStatus ? (
-                          <CircularProgress size={20} sx={{ color: theme.palette.error.main }} />
+                          <CircularProgress size={22} thickness={4} sx={{ color: theme.palette.error.main }} />
                         ) : (
-                          <BlockIcon sx={{ color: theme.palette.error.main, fontSize: 20 }} />
+                          <BlockIcon sx={{ color: theme.palette.error.main, fontSize: 22 }} />
                         )}
                         <Typography
                           sx={{
                             color: theme.palette.error.main,
                             fontWeight: 600,
-                            fontSize: '0.875rem',
+                            fontSize: '0.9rem',
                             userSelect: 'none',
+                            letterSpacing: '0.01em',
                           }}
                         >
                           Pausar IA e responder manualmente
                         </Typography>
                       </Box>
                     ) : (
-                      // Active Input Bar - WhatsApp style
+                      // Manual Mode Active - Professional input bar
                       <>
                         <TextField
                           fullWidth
                           multiline
-                          maxRows={4}
-                          placeholder="Mensagem"
+                          maxRows={5}
+                          placeholder="Digite sua mensagem..."
                           value={messageInput}
                           onChange={(e) => setMessageInput(e.target.value)}
                           onKeyPress={(e) => {
@@ -960,26 +965,42 @@ export default function ConversationsPage() {
                           variant="outlined"
                           sx={{
                             '& .MuiOutlinedInput-root': {
-                              borderRadius: '20px',
+                              borderRadius: '24px',
                               bgcolor: theme.palette.mode === 'dark'
-                                ? alpha(theme.palette.background.paper, 0.8)
-                                : '#fff',
-                              transition: 'all 0.2s ease',
+                                ? alpha(theme.palette.background.paper, 0.9)
+                                : alpha(theme.palette.common.white, 0.95),
+                              transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
+                              boxShadow: `0 2px 8px ${alpha(theme.palette.common.black, 0.04)}`,
                               '& fieldset': {
-                                borderColor: alpha(theme.palette.divider, 0.5),
+                                borderColor: alpha(theme.palette.divider, 0.6),
+                                borderWidth: '1.5px',
                               },
-                              '&:hover fieldset': {
-                                borderColor: theme.palette.primary.main,
+                              '&:hover': {
+                                boxShadow: `0 4px 12px ${alpha(theme.palette.common.black, 0.08)}`,
+                                '& fieldset': {
+                                  borderColor: alpha(theme.palette.primary.main, 0.4),
+                                },
                               },
-                              '&.Mui-focused fieldset': {
-                                borderColor: theme.palette.primary.main,
-                                borderWidth: 2,
+                              '&.Mui-focused': {
+                                boxShadow: `0 4px 16px ${alpha(theme.palette.primary.main, 0.12)}`,
+                                '& fieldset': {
+                                  borderColor: theme.palette.primary.main,
+                                  borderWidth: '2px',
+                                },
+                              },
+                              '&.Mui-disabled': {
+                                opacity: 0.6,
                               },
                             },
                             '& .MuiInputBase-input': {
-                              py: 0.875,
-                              px: 2,
-                              fontSize: '0.875rem',
+                              py: 1.25,
+                              px: 2.5,
+                              fontSize: '0.95rem',
+                              lineHeight: 1.5,
+                              '&::placeholder': {
+                                color: alpha(theme.palette.text.secondary, 0.5),
+                                opacity: 1,
+                              },
                             },
                           }}
                         />
@@ -988,25 +1009,31 @@ export default function ConversationsPage() {
                           disabled={!messageInput.trim() || sendingMessage}
                           sx={{
                             bgcolor: theme.palette.primary.main,
-                            color: '#fff',
-                            width: 42,
-                            height: 42,
+                            color: theme.palette.common.white,
+                            width: 48,
+                            height: 48,
                             flexShrink: 0,
-                            transition: 'all 0.2s ease',
+                            boxShadow: `0 4px 12px ${alpha(theme.palette.primary.main, 0.3)}`,
+                            transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
                             '&:hover': {
                               bgcolor: theme.palette.primary.dark,
-                              transform: 'scale(1.05)',
+                              transform: 'scale(1.08) translateY(-2px)',
+                              boxShadow: `0 6px 20px ${alpha(theme.palette.primary.main, 0.4)}`,
+                            },
+                            '&:active': {
+                              transform: 'scale(0.98)',
                             },
                             '&.Mui-disabled': {
-                              bgcolor: alpha(theme.palette.action.disabled, 0.12),
-                              color: theme.palette.action.disabled,
+                              bgcolor: alpha(theme.palette.action.disabled, 0.15),
+                              color: alpha(theme.palette.action.disabled, 0.4),
+                              boxShadow: 'none',
                             },
                           }}
                         >
                           {sendingMessage ? (
-                            <CircularProgress size={20} sx={{ color: '#fff' }} />
+                            <CircularProgress size={22} thickness={4} sx={{ color: theme.palette.common.white }} />
                           ) : (
-                            <Send sx={{ fontSize: 20 }} />
+                            <Send sx={{ fontSize: 22 }} />
                           )}
                         </IconButton>
                       </>

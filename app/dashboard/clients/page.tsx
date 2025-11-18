@@ -547,19 +547,36 @@ export default function ClientsPage() {
                     secondary={
                       <Box>
                         <Box sx={{ display: 'block' }}>
-                          📱 {formatPhone(client.phone)}
-                          {client.email && ` • 📧 ${client.email}`}
+                          {formatPhone(client.phone)}
+                          {client.email && ` • ${client.email}`}
                         </Box>
-                        {client.lastMessageAt && (
-                          <Box sx={{ display: 'block', mt: 0.5, fontSize: '0.75rem', color: client.hasActiveConversation ? 'success.main' : 'text.secondary' }}>
-                            💬 Última mensagem: {formatDistanceToNow(new Date(client.lastMessageAt), { addSuffix: true, locale: ptBR })}
-                          </Box>
-                        )}
+                        {client.lastMessageAt && (() => {
+                          try {
+                            const lastMessageDate = typeof client.lastMessageAt === 'string'
+                              ? new Date(client.lastMessageAt)
+                              : client.lastMessageAt instanceof Date
+                                ? client.lastMessageAt
+                                : null;
+
+                            if (!lastMessageDate || isNaN(lastMessageDate.getTime())) {
+                              return null;
+                            }
+
+                            return (
+                              <Box sx={{ display: 'block', mt: 0.5, fontSize: '0.75rem', color: client.hasActiveConversation ? 'success.main' : 'text.secondary' }}>
+                                Última mensagem: {formatDistanceToNow(lastMessageDate, { addSuffix: true, locale: ptBR })}
+                              </Box>
+                            );
+                          } catch (error) {
+                            console.error('Erro ao formatar data:', error);
+                            return null;
+                          }
+                        })()}
                         <Box sx={{ display: 'block', mt: 0.5, fontSize: '0.75rem', color: 'text.secondary' }}>
                           {(Number(client.totalReservations) || 0) > 0 ? (
                             <>
-                              🏠 {Number(client.totalReservations) || 0} reserva{(Number(client.totalReservations) || 0) > 1 ? 's' : ''} •
-                              💰 R$ {(Number(client.totalSpent) || 0).toLocaleString('pt-BR')} gastos
+                              {Number(client.totalReservations) || 0} reserva{(Number(client.totalReservations) || 0) > 1 ? 's' : ''} •
+                              R$ {(Number(client.totalSpent) || 0).toLocaleString('pt-BR')} gastos
                             </>
                           ) : (
                             'Novo cliente - Nenhuma reserva ainda'
@@ -571,31 +588,40 @@ export default function ClientsPage() {
                   />
 
                   <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
-                    <Tooltip title={client.lastConversation ? "Abrir conversa" : "Iniciar conversa no WhatsApp"}>
-                      <IconButton
-                        size="medium"
-                        color="success"
-                        onClick={(e) => handleWhatsAppClick(client, e)}
-                        sx={{
-                          bgcolor: 'success.main',
-                          color: 'white',
-                          '&:hover': {
-                            bgcolor: 'success.dark',
-                            transform: 'scale(1.05)',
-                          },
-                          transition: 'all 0.2s'
-                        }}
-                      >
-                        <WhatsApp />
-                      </IconButton>
-                    </Tooltip>
-                    <IconButton
-                      size="small"
-                      onClick={(e) => handleEditClick(client, e)}
-                      title="Editar cliente"
+                    <Tooltip
+                      title={client.lastConversation ? "Abrir conversa" : "Iniciar conversa no WhatsApp"}
+                      arrow
+                      placement="top"
                     >
-                      <Edit />
-                    </IconButton>
+                      <Box component="span">
+                        <IconButton
+                          size="medium"
+                          color="success"
+                          onClick={(e) => handleWhatsAppClick(client, e)}
+                          sx={{
+                            bgcolor: 'success.main',
+                            color: 'white',
+                            '&:hover': {
+                              bgcolor: 'success.dark',
+                              transform: 'scale(1.05)',
+                            },
+                            transition: 'all 0.2s'
+                          }}
+                        >
+                          <WhatsApp />
+                        </IconButton>
+                      </Box>
+                    </Tooltip>
+                    <Tooltip title="Editar cliente" arrow placement="top">
+                      <Box component="span">
+                        <IconButton
+                          size="small"
+                          onClick={(e) => handleEditClick(client, e)}
+                        >
+                          <Edit />
+                        </IconButton>
+                      </Box>
+                    </Tooltip>
                   </Box>
                 </ListItemButton>
                 {index < filteredClients.length - 1 && <Divider />}
