@@ -152,7 +152,7 @@ export default function Sidebar({ open, onClose }: SidebarProps) {
 
 
     return items;
-  }, [user?.idog]);
+  }, [user?.id]);
 
   const handleMenuClick = (itemText: string, hasSubmenu: boolean) => {
     if (hasSubmenu) {

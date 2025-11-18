@@ -97,6 +97,19 @@ export async function POST(request: NextRequest) {
     // Create new conversation
     const conversation = await conversationService.createNew(phoneNumber, clientName, tenantId)
 
+    // Trigger notification for new conversation
+    if (conversation && authContext.user?.uid && authContext.user?.email) {
+      await triggerNewConversationNotification(
+        tenantId,
+        conversation,
+        authContext.user.uid,
+        authContext.user.email
+      ).catch(err => {
+        // Log but don't fail the request
+        console.error('Failed to send conversation notification:', err)
+      })
+    }
+
     return NextResponse.json({
       success: true,
       conversation,

@@ -77,34 +77,42 @@ export default function NotificationsPage() {
       const testNotifications = [
         {
           type: NotificationType.RESERVATION_CREATED,
-          priority: 'high' as NotificationPriority,
+          priority: NotificationPriority.HIGH,
           title: 'Nova Reserva Criada',
           message: 'Uma nova reserva foi criada para a Casa da Praia em Setembro 2024',
+          entityType: 'reservation',
+          entityId: 'test-reservation-' + Date.now(),
         },
         {
           type: NotificationType.PAYMENT_DUE_REMINDER,
-          priority: 'medium' as NotificationPriority,
+          priority: NotificationPriority.MEDIUM,
           title: 'Pagamento Pendente',
           message: 'Você tem um pagamento de R$ 2.500,00 vencendo em 3 dias',
+          entityType: 'payment',
+          entityId: 'test-payment-' + Date.now(),
         },
         {
           type: NotificationType.AGENDA_EVENT_REMINDER,
-          priority: 'low' as NotificationPriority,
+          priority: NotificationPriority.LOW,
           title: 'Lembrete de Evento',
           message: 'Reunião com cliente João Silva amanhã às 14h',
+          entityType: 'agenda',
+          entityId: 'test-event-' + Date.now(),
         },
         {
           type: NotificationType.SYSTEM_ALERT,
-          priority: 'critical' as NotificationPriority,
+          priority: NotificationPriority.CRITICAL,
           title: 'Alerta do Sistema',
           message: 'WhatsApp desconectado - Reconecte agora para continuar recebendo mensagens',
+          entityType: 'system',
+          entityId: 'test-alert-' + Date.now(),
         }
       ]
 
       // Create random notification
       const randomNotification = testNotifications[Math.floor(Math.random() * testNotifications.length)]
 
-      const response = await fetch('/api/ai/functions/post-notification', {
+      const response = await fetch('/api/notifications', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(randomNotification)
