@@ -147,18 +147,17 @@ export async function POST(request: NextRequest) {
       } as any);
     }
 
-    // Save message
+    // Save message in ConversationMessage format
+    // Manual messages go as sofiaMessage (platform responding)
+    const now = new Date();
     await services.messages.create({
       conversationId,
       tenantId,
-      clientPhone: phone,
-      message,
-      from: 'user', // Manual message from platform user
-      userId, // User who sent the message
-      timestamp: new Date(),
-      direction: 'outbound',
-      status: 'sent',
-      source: 'manual',
+      clientMessage: '', // Empty client message (this is a reply, not a new client message)
+      clientMessageTimestamp: now,
+      sofiaMessage: message, // Manual message goes here
+      sofiaMessageTimestamp: now,
+      createdAt: now,
       ...(mediaUrl && {
         mediaUrl,
         mediaType: mediaType || 'image',
