@@ -879,97 +879,139 @@ export default function ConversationsPage() {
                 )}
               </Box>
 
-              {/* Message Input (only shows when conversation selected) */}
+              {/* WhatsApp-style Message Input Bar - Fixed at bottom */}
               {selectedConversation && (
                 <Box
                   sx={{
-                    p: 2,
+                    p: 1.5,
                     borderTop: `1px solid ${theme.palette.divider}`,
-                    bgcolor: 'background.paper',
+                    bgcolor: !aiBlocked
+                      ? alpha(theme.palette.error.main, 0.1)
+                      : 'background.paper',
+                    position: 'sticky',
+                    bottom: 0,
+                    zIndex: 10,
                   }}
                 >
-                  {!aiBlocked ? (
-                    // Show elegant button to enable manual mode
-                    <Box sx={{ textAlign: 'center', py: 2 }}>
-                      <Button
-                        variant="contained"
-                        size="large"
-                        startIcon={checkingAiStatus ? <CircularProgress size={20} /> : <BlockIcon />}
+                  <Box
+                    sx={{
+                      display: 'flex',
+                      gap: 1,
+                      alignItems: 'flex-end',
+                    }}
+                  >
+                    {!aiBlocked ? (
+                      // AI Blocked Trigger Bar - WhatsApp style with red tint
+                      <Box
                         onClick={handleEnableManualMode}
-                        disabled={checkingAiStatus}
                         sx={{
-                          borderRadius: 3,
-                          px: 4,
+                          flex: 1,
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          gap: 1.5,
                           py: 1.5,
-                          textTransform: 'none',
-                          fontSize: '1rem',
-                          fontWeight: 600,
-                          background: `linear-gradient(135deg, ${theme.palette.primary.main}, ${theme.palette.primary.dark})`,
-                          boxShadow: theme.shadows[4],
-                          '&:hover': {
-                            boxShadow: theme.shadows[8],
+                          px: 3,
+                          bgcolor: alpha(theme.palette.error.main, 0.15),
+                          borderRadius: '24px',
+                          cursor: checkingAiStatus ? 'default' : 'pointer',
+                          transition: 'all 0.2s ease',
+                          border: `1px solid ${alpha(theme.palette.error.main, 0.3)}`,
+                          '&:hover': checkingAiStatus ? {} : {
+                            bgcolor: alpha(theme.palette.error.main, 0.25),
+                            transform: 'translateY(-1px)',
+                            boxShadow: `0 4px 12px ${alpha(theme.palette.error.main, 0.2)}`,
                           },
                         }}
                       >
-                        Pausar IA e conversar manualmente
-                      </Button>
-                      <Typography variant="caption" color="text.secondary" sx={{ mt: 1.5, display: 'block' }}>
-                        A IA será pausada por 1 hora para você conversar diretamente com o cliente
-                      </Typography>
-                    </Box>
-                  ) : (
-                    // Show message input when AI is blocked
-                    <>
-                      <Alert severity="info" sx={{ mb: 2 }}>
-                        <Typography variant="body2" fontWeight={600}>
-                          Modo Manual Ativo
+                        {checkingAiStatus ? (
+                          <CircularProgress size={20} sx={{ color: theme.palette.error.main }} />
+                        ) : (
+                          <BlockIcon sx={{ color: theme.palette.error.main, fontSize: 20 }} />
+                        )}
+                        <Typography
+                          sx={{
+                            color: theme.palette.error.main,
+                            fontWeight: 600,
+                            fontSize: '0.95rem',
+                            userSelect: 'none',
+                          }}
+                        >
+                          Pausar IA e responder manualmente
                         </Typography>
-                        <Typography variant="caption">
-                          Você está conversando diretamente com o cliente. A IA está pausada.
-                        </Typography>
-                      </Alert>
-                      <TextField
-                        fullWidth
-                        multiline
-                        maxRows={4}
-                        placeholder="Digite sua mensagem..."
-                        value={messageInput}
-                        onChange={(e) => setMessageInput(e.target.value)}
-                        onKeyPress={(e) => {
-                          if (e.key === 'Enter' && !e.shiftKey) {
-                            e.preventDefault();
-                            handleSendMessage();
-                          }
-                        }}
-                        disabled={sendingMessage}
-                        InputProps={{
-                          endAdornment: (
-                            <InputAdornment position="end">
-                              <IconButton
-                                onClick={handleSendMessage}
-                                disabled={!messageInput.trim() || sendingMessage}
-                                color="primary"
-                              >
-                                {sendingMessage ? (
-                                  <CircularProgress size={24} />
-                                ) : (
-                                  <Send />
-                                )}
-                              </IconButton>
-                            </InputAdornment>
-                          ),
-                        }}
-                        sx={{
-                          '& .MuiOutlinedInput-root': {
-                            borderRadius: 2,
-                          },
-                        }}
-                      />
-                      <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block' }}>
-                        Pressione Enter para enviar, Shift+Enter para nova linha
-                      </Typography>
-                    </>
-                  )}
+                      </Box>
+                    ) : (
+                      // Active Input Bar - WhatsApp style
+                      <>
+                        <TextField
+                          fullWidth
+                          multiline
+                          maxRows={4}
+                          placeholder="Mensagem"
+                          value={messageInput}
+                          onChange={(e) => setMessageInput(e.target.value)}
+                          onKeyPress={(e) => {
+                            if (e.key === 'Enter' && !e.shiftKey) {
+                              e.preventDefault();
+                              handleSendMessage();
+                            }
+                          }}
+                          disabled={sendingMessage}
+                          variant="outlined"
+                          sx={{
+                            '& .MuiOutlinedInput-root': {
+                              borderRadius: '24px',
+                              bgcolor: theme.palette.mode === 'dark'
+                                ? alpha(theme.palette.background.paper, 0.8)
+                                : '#fff',
+                              transition: 'all 0.2s ease',
+                              '& fieldset': {
+                                borderColor: alpha(theme.palette.divider, 0.5),
+                              },
+                              '&:hover fieldset': {
+                                borderColor: theme.palette.primary.main,
+                              },
+                              '&.Mui-focused fieldset': {
+                                borderColor: theme.palette.primary.main,
+                                borderWidth: 2,
+                              },
+                            },
+                            '& .MuiInputBase-input': {
+                              py: 1.25,
+                              px: 2,
+                              fontSize: '0.95rem',
+                            },
+                          }}
+                        />
+                        <IconButton
+                          onClick={handleSendMessage}
+                          disabled={!messageInput.trim() || sendingMessage}
+                          sx={{
+                            bgcolor: theme.palette.primary.main,
+                            color: '#fff',
+                            width: 48,
+                            height: 48,
+                            flexShrink: 0,
+                            transition: 'all 0.2s ease',
+                            '&:hover': {
+                              bgcolor: theme.palette.primary.dark,
+                              transform: 'scale(1.05)',
+                            },
+                            '&.Mui-disabled': {
+                              bgcolor: alpha(theme.palette.action.disabled, 0.12),
+                              color: theme.palette.action.disabled,
+                            },
+                          }}
+                        >
+                          {sendingMessage ? (
+                            <CircularProgress size={24} sx={{ color: '#fff' }} />
+                          ) : (
+                            <Send sx={{ fontSize: 22 }} />
+                          )}
+                        </IconButton>
+                      </>
+                    )}
+                  </Box>
                 </Box>
               )}
             </Card>
