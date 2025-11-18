@@ -1,17 +1,19 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import {
   Box,
+  List,
+  ListItemButton,
+  ListItemIcon,
+  ListItemText,
+  Paper,
   Typography,
-  Tabs,
-  Tab,
-  Card,
   useTheme,
   useMediaQuery,
-  Alert,
-  CircularProgress,
-  Fade,
+  Drawer,
+  IconButton,
+  alpha,
 } from '@mui/material';
 import {
   Person,
@@ -19,187 +21,251 @@ import {
   SmartToy,
   Business,
   Policy,
-  Settings as SettingsIcon,
+  AccountBalance,
+  Menu as MenuIcon,
+  Close as CloseIcon,
 } from '@mui/icons-material';
-import { useAuth } from '@/lib/hooks/useAuth';
 import { useTenant } from '@/contexts/TenantContext';
-import DashboardBreadcrumb from '@/components/atoms/DashboardBreadcrumb';
 
-// Tab Panels
+// Tab Components
 import ProfileTab from './components/tabs/ProfileTab';
 import WhatsAppTab from './components/tabs/WhatsAppTab';
 import CompanyInfoTab from './components/tabs/CompanyInfoTab';
 import AIConfigTab from './components/tabs/AIConfigTab';
 import PoliciesTab from './components/tabs/PoliciesTab';
+import FinancialInfoTab from './components/tabs/FinancialInfoTab';
 
-interface TabPanelProps {
-  children?: React.ReactNode;
-  index: number;
-  value: number;
+interface TabConfig {
+  id: string;
+  label: string;
+  icon: React.ReactNode;
+  component: React.ComponentType<any>;
+  description: string;
 }
 
-function TabPanel(props: TabPanelProps) {
-  const { children, value, index, ...other } = props;
-
-  return (
-    <div
-      role="tabpanel"
-      hidden={value !== index}
-      id={`settings-tabpanel-${index}`}
-      aria-labelledby={`settings-tab-${index}`}
-      {...other}
-    >
-      {value === index && (
-        <Fade in={true} timeout={300}>
-          <Box sx={{ py: 3 }}>{children}</Box>
-        </Fade>
-      )}
-    </div>
-  );
-}
+const tabs: TabConfig[] = [
+  {
+    id: 'profile',
+    label: 'Perfil',
+    icon: <Person />,
+    component: ProfileTab,
+    description: 'Informações pessoais e senha',
+  },
+  {
+    id: 'whatsapp',
+    label: 'WhatsApp',
+    icon: <WhatsApp />,
+    component: WhatsAppTab,
+    description: 'Conexão e integração do WhatsApp',
+  },
+  {
+    id: 'company',
+    label: 'Empresa',
+    icon: <Business />,
+    component: CompanyInfoTab,
+    description: 'Dados da sua empresa',
+  },
+  {
+    id: 'financial',
+    label: 'Dados Financeiros',
+    icon: <AccountBalance />,
+    component: FinancialInfoTab,
+    description: 'Informações bancárias para TED',
+  },
+  {
+    id: 'ai',
+    label: 'IA & Negociação',
+    icon: <SmartToy />,
+    component: AIConfigTab,
+    description: 'Configurações do agente de IA',
+  },
+  {
+    id: 'policies',
+    label: 'Políticas',
+    icon: <Policy />,
+    component: PoliciesTab,
+    description: 'Regras e políticas de atendimento',
+  },
+];
 
 export default function SettingsPage() {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
-  const { user } = useAuth();
-  const { tenantId, isReady } = useTenant();
+  const { isReady } = useTenant();
 
-  const [currentTab, setCurrentTab] = useState(0);
-  const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<string | null>(null);
+  const [selectedTab, setSelectedTab] = useState<string>('profile');
+  const [mobileDrawerOpen, setMobileDrawerOpen] = useState(false);
 
-  const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
-    setCurrentTab(newValue);
+  const currentTabConfig = tabs.find((t) => t.id === selectedTab);
+  const CurrentComponent = currentTabConfig?.component;
+
+  const handleTabSelect = (tabId: string) => {
+    setSelectedTab(tabId);
+    if (isMobile) {
+      setMobileDrawerOpen(false);
+    }
   };
 
-  const tabs = [
-    { label: 'Perfil', icon: <Person />, component: ProfileTab },
-    { label: 'WhatsApp', icon: <WhatsApp />, component: WhatsAppTab },
-    { label: 'Empresa', icon: <Business />, component: CompanyInfoTab },
-    { label: 'IA & Negociação', icon: <SmartToy />, component: AIConfigTab },
-    { label: 'Políticas', icon: <Policy />, component: PoliciesTab },
-  ];
+  const SidebarContent = () => (
+    <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+      {/* Sidebar Header */}
+      <Box
+        sx={{
+          p: 3,
+          borderBottom: `1px solid ${theme.palette.divider}`,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+        }}
+      >
+        <Typography variant="h6" fontWeight={600}>
+          Configurações
+        </Typography>
+        {isMobile && (
+          <IconButton onClick={() => setMobileDrawerOpen(false)} size="small">
+            <CloseIcon />
+          </IconButton>
+        )}
+      </Box>
+
+      {/* Sidebar Navigation */}
+      <List sx={{ flex: 1, p: 2 }}>
+        {tabs.map((tab) => (
+          <ListItemButton
+            key={tab.id}
+            selected={selectedTab === tab.id}
+            onClick={() => handleTabSelect(tab.id)}
+            sx={{
+              borderRadius: 2,
+              mb: 0.5,
+              transition: 'all 0.2s ease',
+              '&.Mui-selected': {
+                bgcolor: alpha(theme.palette.primary.main, 0.12),
+                color: 'primary.main',
+                '& .MuiListItemIcon-root': {
+                  color: 'primary.main',
+                },
+                '&:hover': {
+                  bgcolor: alpha(theme.palette.primary.main, 0.18),
+                },
+              },
+              '&:hover': {
+                bgcolor: alpha(theme.palette.action.hover, 0.08),
+              },
+            }}
+          >
+            <ListItemIcon
+              sx={{
+                minWidth: 40,
+                color: selectedTab === tab.id ? 'primary.main' : 'text.secondary',
+              }}
+            >
+              {tab.icon}
+            </ListItemIcon>
+            <ListItemText
+              primary={tab.label}
+              primaryTypographyProps={{
+                fontSize: '0.95rem',
+                fontWeight: selectedTab === tab.id ? 600 : 500,
+              }}
+            />
+          </ListItemButton>
+        ))}
+      </List>
+    </Box>
+  );
 
   if (!isReady) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '60vh' }}>
-        <CircularProgress />
+        <Typography>Carregando...</Typography>
       </Box>
     );
   }
 
   return (
-    <Box sx={{ p: { xs: 2, sm: 3 } }}>
-      <DashboardBreadcrumb
-        items={[
-          { label: 'Dashboard', href: '/dashboard' },
-          { label: 'Configurações', href: '/dashboard/settings' },
-        ]}
-      />
-
-      {/* Header */}
-      <Box sx={{ mb: { xs: 3, sm: 4 } }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-          <SettingsIcon sx={{ fontSize: 32, mr: 1.5, color: 'primary.main' }} />
-          <Typography
-            variant="h4"
-            fontWeight={600}
-            sx={{
-              fontSize: { xs: '1.75rem', sm: '2.125rem' },
-            }}
-          >
-            Configurações
-          </Typography>
-        </Box>
-        <Typography
-          variant="body2"
-          color="text.secondary"
-          sx={{ fontSize: { xs: '0.875rem', sm: '1rem' } }}
-        >
-          Configure sua conta, empresa, integrações e preferências do sistema
-        </Typography>
-      </Box>
-
-      {/* Global Alerts */}
-      {error && (
-        <Alert severity="error" sx={{ mb: 3 }} onClose={() => setError(null)}>
-          {error}
-        </Alert>
-      )}
-
-      {success && (
-        <Alert severity="success" sx={{ mb: 3 }} onClose={() => setSuccess(null)}>
-          {success}
-        </Alert>
-      )}
-
-      {/* Main Settings Card */}
-      <Card
-        sx={{
-          background: 'rgba(255, 255, 255, 0.05)',
-          backdropFilter: 'blur(20px)',
-          border: '1px solid rgba(255, 255, 255, 0.1)',
-          borderRadius: { xs: 2, sm: 3 },
-          overflow: 'hidden',
-        }}
-      >
-        {/* Tabs Navigation */}
-        <Box
+    <Box sx={{ display: 'flex', height: 'calc(100vh - 64px)', overflow: 'hidden' }}>
+      {/* Mobile Drawer */}
+      {isMobile && (
+        <Drawer
+          anchor="left"
+          open={mobileDrawerOpen}
+          onClose={() => setMobileDrawerOpen(false)}
           sx={{
-            borderBottom: 1,
-            borderColor: 'divider',
-            backgroundColor: 'rgba(255, 255, 255, 0.02)',
+            '& .MuiDrawer-paper': {
+              width: 280,
+              boxSizing: 'border-box',
+            },
           }}
         >
-          <Tabs
-            value={currentTab}
-            onChange={handleTabChange}
-            variant={isMobile ? 'scrollable' : 'fullWidth'}
-            scrollButtons={isMobile ? 'auto' : false}
-            allowScrollButtonsMobile
+          <SidebarContent />
+        </Drawer>
+      )}
+
+      {/* Desktop Sidebar */}
+      {!isMobile && (
+        <Paper
+          elevation={0}
+          sx={{
+            width: 280,
+            flexShrink: 0,
+            borderRight: `1px solid ${theme.palette.divider}`,
+            borderRadius: 0,
+            height: '100%',
+            overflow: 'auto',
+          }}
+        >
+          <SidebarContent />
+        </Paper>
+      )}
+
+      {/* Main Content */}
+      <Box
+        sx={{
+          flex: 1,
+          overflow: 'auto',
+          bgcolor: 'background.default',
+        }}
+      >
+        {/* Mobile Menu Button */}
+        {isMobile && (
+          <Box
             sx={{
-              px: { xs: 0, sm: 2 },
-              '& .MuiTab-root': {
-                minHeight: { xs: 56, sm: 64 },
-                textTransform: 'none',
-                fontSize: { xs: '0.875rem', sm: '1rem' },
-                fontWeight: 500,
-                gap: 1,
-                '&.Mui-selected': {
-                  fontWeight: 600,
-                },
-              },
-              '& .MuiTabs-indicator': {
-                height: 3,
-                borderRadius: '3px 3px 0 0',
-              },
+              p: 2,
+              borderBottom: `1px solid ${theme.palette.divider}`,
+              bgcolor: 'background.paper',
+              position: 'sticky',
+              top: 0,
+              zIndex: 10,
             }}
           >
-            {tabs.map((tab, index) => (
-              <Tab
-                key={index}
-                icon={tab.icon}
-                iconPosition="start"
-                label={tab.label}
-                id={`settings-tab-${index}`}
-                aria-controls={`settings-tabpanel-${index}`}
-              />
-            ))}
-          </Tabs>
+            <IconButton onClick={() => setMobileDrawerOpen(true)}>
+              <MenuIcon />
+            </IconButton>
+          </Box>
+        )}
+
+        {/* Content Header */}
+        <Box
+          sx={{
+            p: 3,
+            borderBottom: `1px solid ${theme.palette.divider}`,
+            bgcolor: 'background.paper',
+          }}
+        >
+          <Typography variant="h5" fontWeight={600} gutterBottom>
+            {currentTabConfig?.label}
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            {currentTabConfig?.description}
+          </Typography>
         </Box>
 
-        {/* Tab Panels */}
-        <Box sx={{ px: { xs: 2, sm: 3, md: 4 } }}>
-          {tabs.map((tab, index) => {
-            const Component = tab.component;
-            return (
-              <TabPanel key={index} value={currentTab} index={index}>
-                <Component setGlobalError={setError} setGlobalSuccess={setSuccess} />
-              </TabPanel>
-            );
-          })}
+        {/* Tab Content */}
+        <Box sx={{ p: 3 }}>
+          {CurrentComponent && <CurrentComponent />}
         </Box>
-      </Card>
+      </Box>
     </Box>
   );
 }
