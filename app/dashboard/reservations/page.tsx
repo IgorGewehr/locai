@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useTenant } from '@/contexts/TenantContext';
 import type { Reservation, Client } from '@/lib/types';
 import type { Property } from '@/lib/types/property';
+import type { ConversationHeader } from '@/lib/types/conversation-optimized';
 import { scrollbarStyles } from '@/styles/scrollbarStyles';
 import {
   Box,
@@ -60,9 +61,11 @@ import {
   Receipt,
   Event,
   House,
-  LocationOn
+  LocationOn,
+  Chat,
+  FiberManualRecord
 } from '@mui/icons-material';
-import { format, parseISO } from 'date-fns';
+import { format, parseISO, formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
 interface ReservationWithDetails extends Reservation {
@@ -70,6 +73,10 @@ interface ReservationWithDetails extends Reservation {
   clientName: string;
   clientPhone: string;
   nights: number;
+  lastConversation?: ConversationHeader;
+  hasActiveConversation?: boolean;
+  unreadMessages?: number;
+  lastMessageAt?: Date;
 }
 
 export default function ReservationsPage() {
@@ -87,6 +94,7 @@ export default function ReservationsPage() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [reservationToDelete, setReservationToDelete] = useState<ReservationWithDetails | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [conversationFilter, setConversationFilter] = useState('all');
 
   // Filter reservations based on search and filters
   useEffect(() => {
@@ -126,8 +134,15 @@ export default function ReservationsPage() {
       filtered = filtered.filter(reservation => reservation.paymentStatus === paymentFilter);
     }
 
+    // Conversation filter
+    if (conversationFilter === 'active') {
+      filtered = filtered.filter(reservation => reservation.hasActiveConversation);
+    } else if (conversationFilter === 'with_conversation') {
+      filtered = filtered.filter(reservation => reservation.lastConversation);
+    }
+
     setFilteredReservations(filtered);
-  }, [reservations, searchTerm, statusFilter, typeFilter, paymentFilter]);
+  }, [reservations, searchTerm, statusFilter, typeFilter, paymentFilter, conversationFilter]);
 
   const getStatusColor = (status: string) => {
     switch (status) {
@@ -196,6 +211,19 @@ export default function ReservationsPage() {
     setReservationToDelete(null);
   };
 
+  const handleWhatsAppClick = (reservation: ReservationWithDetails, e: React.MouseEvent) => {
+    e.stopPropagation();
+
+    // Se tem conversa, abre a página de conversas diretamente na conversa dele
+    if (reservation.lastConversation) {
+      router.push(`/dashboard/conversas?conversation=${reservation.lastConversation.id}`);
+    } else {
+      // Se não tem conversa, abre WhatsApp externo
+      const phone = reservation.clientPhone.replace(/\D/g, '');
+      window.open(`https://wa.me/55${phone}`, '_blank');
+    }
+  };
+
   // Load reservations from Firebase
   useEffect(() => {
     const loadReservations = async () => {
@@ -204,33 +232,61 @@ export default function ReservationsPage() {
       }
 
       try {
-        const [reservationsData, propertiesData, clientsData] = await Promise.all([
+        const [reservationsData, propertiesData, clientsData, conversationsData] = await Promise.all([
           services.reservations.getAll(),
           services.properties.getAll(),
-          services.clients.getAll()
+          services.clients.getAll(),
+          services.conversations.getAll()
         ]);
 
         // Create maps for quick lookup
         const propertiesMap = new Map(propertiesData.map(p => [p.id, p]));
         const clientsMap = new Map(clientsData.map(c => [c.id, c]));
 
-        // Combine reservation data with property and client details
+        // Create conversation map by phone
+        const conversationsByPhone = new Map<string, ConversationHeader[]>();
+        conversationsData.forEach((conv: ConversationHeader) => {
+          const phone = conv.clientPhone;
+          if (!conversationsByPhone.has(phone)) {
+            conversationsByPhone.set(phone, []);
+          }
+          conversationsByPhone.get(phone)!.push(conv);
+        });
+
+        // Combine reservation data with property, client and conversation details
         const reservationsWithDetails: ReservationWithDetails[] = reservationsData.map(reservation => {
           const property = propertiesMap.get(reservation.propertyId);
           const client = clientsMap.get(reservation.clientId);
-          
+
           // Convert Firebase Timestamps to JavaScript Dates
-          const checkInDate = reservation.checkIn instanceof Date 
-            ? reservation.checkIn 
+          const checkInDate = reservation.checkIn instanceof Date
+            ? reservation.checkIn
             : reservation.checkIn?.toDate ? reservation.checkIn.toDate() : new Date(reservation.checkIn);
-          const checkOutDate = reservation.checkOut instanceof Date 
-            ? reservation.checkOut 
+          const checkOutDate = reservation.checkOut instanceof Date
+            ? reservation.checkOut
             : reservation.checkOut?.toDate ? reservation.checkOut.toDate() : new Date(reservation.checkOut);
           const createdAtDate = reservation.createdAt instanceof Date
             ? reservation.createdAt
             : reservation.createdAt?.toDate ? reservation.createdAt.toDate() : new Date(reservation.createdAt);
-            
+
           const nights = Math.ceil((checkOutDate.getTime() - checkInDate.getTime()) / (1000 * 60 * 60 * 24));
+
+          // Get conversation data for this client
+          const clientPhone = client?.phone || '';
+          const clientConvs = conversationsByPhone.get(clientPhone) || [];
+          const sortedConvs = clientConvs.sort((a, b) =>
+            new Date(b.lastMessageAt).getTime() - new Date(a.lastMessageAt).getTime()
+          );
+          const lastConversation = sortedConvs[0];
+          const hasActiveConversation = clientConvs.some(c => c.status === 'active');
+          const unreadMessages = clientConvs.reduce((sum, c) => sum + (c.unreadCount || 0), 0);
+          const lastMessageAt = lastConversation?.lastMessageAt
+            ? (lastConversation.lastMessageAt instanceof Date
+              ? lastConversation.lastMessageAt
+              : lastConversation.lastMessageAt?.toDate
+                ? lastConversation.lastMessageAt.toDate()
+                : new Date(lastConversation.lastMessageAt))
+            : undefined;
 
           return {
             ...reservation,
@@ -239,12 +295,37 @@ export default function ReservationsPage() {
             createdAt: createdAtDate,
             propertyName: property?.title || 'Propriedade não encontrada',
             clientName: client?.name || 'Cliente não encontrado',
-            clientPhone: client?.phone || 'Telefone não encontrado',
-            nights
+            clientPhone: clientPhone || 'Telefone não encontrado',
+            nights,
+            lastConversation,
+            hasActiveConversation,
+            unreadMessages,
+            lastMessageAt
           };
         });
 
-        setReservations(reservationsWithDetails);
+        // Sort reservations: active conversations first, then by last message, then by creation
+        const sortedReservations = reservationsWithDetails.sort((a, b) => {
+          // 1. Active conversations first
+          if (a.hasActiveConversation && !b.hasActiveConversation) return -1;
+          if (!a.hasActiveConversation && b.hasActiveConversation) return 1;
+
+          // 2. Unread messages first
+          if (a.unreadMessages && !b.unreadMessages) return -1;
+          if (!a.unreadMessages && b.unreadMessages) return 1;
+
+          // 3. Last message more recent
+          if (a.lastMessageAt && b.lastMessageAt) {
+            return b.lastMessageAt.getTime() - a.lastMessageAt.getTime();
+          }
+          if (a.lastMessageAt && !b.lastMessageAt) return -1;
+          if (!a.lastMessageAt && b.lastMessageAt) return 1;
+
+          // 4. Check-in more recent (próximas reservas primeiro)
+          return a.checkIn.getTime() - b.checkIn.getTime();
+        });
+
+        setReservations(sortedReservations);
       } catch (error) {
 
       } finally {
@@ -263,31 +344,59 @@ export default function ReservationsPage() {
     setLoading(true);
     try {
       // Reload data from Firebase
-      const [reservationsData, propertiesData, clientsData] = await Promise.all([
+      const [reservationsData, propertiesData, clientsData, conversationsData] = await Promise.all([
         services.reservations.getAll(),
         services.properties.getAll(),
-        services.clients.getAll()
+        services.clients.getAll(),
+        services.conversations.getAll()
       ]);
 
       const propertiesMap = new Map(propertiesData.map(p => [p.id, p]));
       const clientsMap = new Map(clientsData.map(c => [c.id, c]));
 
+      // Create conversation map by phone
+      const conversationsByPhone = new Map<string, ConversationHeader[]>();
+      conversationsData.forEach((conv: ConversationHeader) => {
+        const phone = conv.clientPhone;
+        if (!conversationsByPhone.has(phone)) {
+          conversationsByPhone.set(phone, []);
+        }
+        conversationsByPhone.get(phone)!.push(conv);
+      });
+
       const reservationsWithDetails: ReservationWithDetails[] = reservationsData.map(reservation => {
         const property = propertiesMap.get(reservation.propertyId);
         const client = clientsMap.get(reservation.clientId);
-        
+
         // Convert Firebase Timestamps to JavaScript Dates
-        const checkInDate = reservation.checkIn instanceof Date 
-          ? reservation.checkIn 
+        const checkInDate = reservation.checkIn instanceof Date
+          ? reservation.checkIn
           : reservation.checkIn?.toDate ? reservation.checkIn.toDate() : new Date(reservation.checkIn);
-        const checkOutDate = reservation.checkOut instanceof Date 
-          ? reservation.checkOut 
+        const checkOutDate = reservation.checkOut instanceof Date
+          ? reservation.checkOut
           : reservation.checkOut?.toDate ? reservation.checkOut.toDate() : new Date(reservation.checkOut);
         const createdAtDate = reservation.createdAt instanceof Date
           ? reservation.createdAt
           : reservation.createdAt?.toDate ? reservation.createdAt.toDate() : new Date(reservation.createdAt);
-          
+
         const nights = Math.ceil((checkOutDate.getTime() - checkInDate.getTime()) / (1000 * 60 * 60 * 24));
+
+        // Get conversation data for this client
+        const clientPhone = client?.phone || '';
+        const clientConvs = conversationsByPhone.get(clientPhone) || [];
+        const sortedConvs = clientConvs.sort((a, b) =>
+          new Date(b.lastMessageAt).getTime() - new Date(a.lastMessageAt).getTime()
+        );
+        const lastConversation = sortedConvs[0];
+        const hasActiveConversation = clientConvs.some(c => c.status === 'active');
+        const unreadMessages = clientConvs.reduce((sum, c) => sum + (c.unreadCount || 0), 0);
+        const lastMessageAt = lastConversation?.lastMessageAt
+          ? (lastConversation.lastMessageAt instanceof Date
+            ? lastConversation.lastMessageAt
+            : lastConversation.lastMessageAt?.toDate
+              ? lastConversation.lastMessageAt.toDate()
+              : new Date(lastConversation.lastMessageAt))
+          : undefined;
 
         return {
           ...reservation,
@@ -296,12 +405,30 @@ export default function ReservationsPage() {
           createdAt: createdAtDate,
           propertyName: property?.title || 'Propriedade não encontrada',
           clientName: client?.name || 'Cliente não encontrado',
-          clientPhone: client?.phone || 'Telefone não encontrado',
-          nights
+          clientPhone: clientPhone || 'Telefone não encontrado',
+          nights,
+          lastConversation,
+          hasActiveConversation,
+          unreadMessages,
+          lastMessageAt
         };
       });
 
-      setReservations(reservationsWithDetails);
+      // Sort reservations
+      const sortedReservations = reservationsWithDetails.sort((a, b) => {
+        if (a.hasActiveConversation && !b.hasActiveConversation) return -1;
+        if (!a.hasActiveConversation && b.hasActiveConversation) return 1;
+        if (a.unreadMessages && !b.unreadMessages) return -1;
+        if (!a.unreadMessages && b.unreadMessages) return 1;
+        if (a.lastMessageAt && b.lastMessageAt) {
+          return b.lastMessageAt.getTime() - a.lastMessageAt.getTime();
+        }
+        if (a.lastMessageAt && !b.lastMessageAt) return -1;
+        if (!a.lastMessageAt && b.lastMessageAt) return 1;
+        return a.checkIn.getTime() - b.checkIn.getTime();
+      });
+
+      setReservations(sortedReservations);
     } catch (error) {
       console.error('Error refreshing reservations:', error);
     } finally {
@@ -411,6 +538,21 @@ export default function ReservationsPage() {
               </FormControl>
             </Grid>
 
+            <Grid item xs={6} sm={3} md={2}>
+              <FormControl fullWidth>
+                <InputLabel>Conversas</InputLabel>
+                <Select
+                  value={conversationFilter}
+                  label="Conversas"
+                  onChange={(e) => setConversationFilter(e.target.value)}
+                >
+                  <MenuItem value="all">Todas</MenuItem>
+                  <MenuItem value="active">Conversas Ativas</MenuItem>
+                  <MenuItem value="with_conversation">Com Conversas</MenuItem>
+                </Select>
+              </FormControl>
+            </Grid>
+
             <Grid item xs={12} sm={6} md={2}>
               <Box sx={{ display: 'flex', gap: 1, justifyContent: 'flex-end' }}>
                 <IconButton onClick={refreshData} disabled={loading || !isReady}>
@@ -481,31 +623,60 @@ export default function ReservationsPage() {
                       </Box>
                     </TableCell>
 
-                  <TableCell sx={{ px: { xs: 1, sm: 2 } }}>
+                  <TableCell sx={{ px: { xs: 1, sm: 2 }, position: 'relative' }}>
+                    {/* Indicador visual de conversa ativa */}
+                    {reservation.hasActiveConversation && (
+                      <Box
+                        sx={{
+                          position: 'absolute',
+                          left: 0,
+                          top: 0,
+                          bottom: 0,
+                          width: 3,
+                          bgcolor: 'success.main',
+                        }}
+                      />
+                    )}
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: { xs: 0.5, sm: 1 } }}>
                       <Avatar sx={{ width: { xs: 24, sm: 32 }, height: { xs: 24, sm: 32 }, fontSize: { xs: '0.75rem', sm: '0.875rem' }, display: { xs: 'none', sm: 'flex' } }}>
                         {reservation.clientName ? reservation.clientName.charAt(0) : '?'}
                       </Avatar>
-                      <Box>
-                        <Link
-                          href={`/dashboard/clients/${reservation.clientId}`}
-                          sx={{ 
-                            textDecoration: 'none',
-                            color: 'inherit',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: 0.5,
-                            '&:hover': { textDecoration: 'underline' }
-                          }}
-                        >
-                          <Person sx={{ fontSize: 16 }} />
-                          <Typography variant="body2" fontWeight="medium" sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem' } }}>
-                            {reservation.clientName}
-                          </Typography>
-                        </Link>
+                      <Box sx={{ flex: 1 }}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flexWrap: 'wrap' }}>
+                          <Link
+                            href={`/dashboard/clients/${reservation.clientId}`}
+                            sx={{
+                              textDecoration: 'none',
+                              color: 'inherit',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: 0.5,
+                              '&:hover': { textDecoration: 'underline' }
+                            }}
+                          >
+                            <Person sx={{ fontSize: 16 }} />
+                            <Typography variant="body2" fontWeight="medium" sx={{ fontSize: { xs: '0.75rem', sm: '0.875rem' } }}>
+                              {reservation.clientName}
+                            </Typography>
+                          </Link>
+                          {reservation.hasActiveConversation && (
+                            <Chip
+                              icon={<FiberManualRecord sx={{ fontSize: 10 }} />}
+                              label="Ativo"
+                              size="small"
+                              color="success"
+                              sx={{ height: 18, fontSize: '0.65rem', display: { xs: 'none', sm: 'inline-flex' } }}
+                            />
+                          )}
+                        </Box>
                         <Typography variant="caption" color="text.secondary" sx={{ display: { xs: 'none', sm: 'block' }, fontSize: { xs: '0.625rem', sm: '0.75rem' } }}>
                           {reservation.clientPhone}
                         </Typography>
+                        {reservation.lastMessageAt && (
+                          <Typography variant="caption" color="text.secondary" sx={{ display: { xs: 'none', sm: 'block' }, fontSize: '0.625rem', fontStyle: 'italic' }}>
+                            Última msg: {formatDistanceToNow(reservation.lastMessageAt, { addSuffix: true, locale: ptBR })}
+                          </Typography>
+                        )}
                       </Box>
                     </Box>
                   </TableCell>
@@ -592,13 +763,35 @@ export default function ReservationsPage() {
                   <TableCell sx={{ px: { xs: 1, sm: 2 } }}>
                     <Box sx={{ display: 'flex', gap: { xs: 0, sm: 0.5 }, flexWrap: { xs: 'wrap', sm: 'nowrap' } }}>
                       <Tooltip title="Ver pagamento">
-                        <IconButton 
-                          size="small" 
+                        <IconButton
+                          size="small"
                           onClick={() => router.push(`/dashboard/financeiro?reservationId=${reservation.id}`)}
                           color="primary"
                           sx={{ p: { xs: 0.5, sm: 1 }, display: { xs: 'none', sm: 'inline-flex' } }}
                         >
                           <Payment sx={{ fontSize: { xs: 16, sm: 20 } }} />
+                        </IconButton>
+                      </Tooltip>
+                      <Tooltip title={reservation.lastConversation ? "Abrir conversa" : "Iniciar conversa no WhatsApp"}>
+                        <IconButton
+                          size="small"
+                          onClick={(e) => handleWhatsAppClick(reservation, e)}
+                          sx={{
+                            p: { xs: 0.5, sm: 1 },
+                            bgcolor: 'success.main',
+                            color: 'white',
+                            '&:hover': {
+                              bgcolor: 'success.dark',
+                            }
+                          }}
+                        >
+                          <Badge
+                            badgeContent={reservation.unreadMessages || 0}
+                            color="error"
+                            invisible={!reservation.unreadMessages}
+                          >
+                            <Chat sx={{ fontSize: { xs: 16, sm: 20 } }} />
+                          </Badge>
                         </IconButton>
                       </Tooltip>
                       <Tooltip title="Ver detalhes">
