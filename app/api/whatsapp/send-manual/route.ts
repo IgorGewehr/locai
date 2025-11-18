@@ -66,7 +66,11 @@ export async function POST(request: NextRequest) {
 
     // 3. Verify AI is blocked for this conversation - MESMO FORMATO DO N8N
     const redis = getRedisClient();
-    const blockKey = `ai_blocked:${tenantId}:${phone}`;
+
+    // Normalizar telefone: remover @c.us se existir (N8N usa sem sufixo)
+    const normalizedPhone = phone.replace(/@c\.us$/i, '');
+
+    const blockKey = `ai_blocked:${tenantId}:${normalizedPhone}`;
     const blockData = await redis.get(blockKey);
 
     if (!blockData) {

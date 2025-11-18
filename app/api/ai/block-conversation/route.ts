@@ -54,8 +54,20 @@ export async function POST(request: NextRequest) {
     // Get Redis singleton client
     const redis = getRedisClient();
 
-    // Chave Redis: MESMO FORMATO DO N8N
-    const redisKey = `ai_blocked:${tenantId}:${phone}`;
+    // Normalizar telefone: remover @c.us se existir (N8N usa sem sufixo)
+    const normalizedPhone = phone.replace(/@c\.us$/i, '');
+
+    // Chave Redis: MESMO FORMATO DO N8N (sem @c.us)
+    const redisKey = `ai_blocked:${tenantId}:${normalizedPhone}`;
+
+    logger.info('[AI-BLOCK] Redis key generated', {
+      requestId,
+      redisKey,
+      tenantId: tenantId.substring(0, 8) + '***',
+      phoneOriginal: phone,
+      phoneNormalized: normalizedPhone,
+      phoneLength: normalizedPhone.length,
+    });
 
     if (blocked) {
       // Calcular TTL baseado na duração (padrão: 1 hora)
@@ -70,7 +82,7 @@ export async function POST(request: NextRequest) {
         expiresAt: expiresAt.toISOString(),
         blockedBy: userId,
         tenantId,
-        phone
+        phone: normalizedPhone
       };
 
       await redis.set(redisKey, JSON.stringify(blockData), 'EX', ttlSeconds);
@@ -78,7 +90,7 @@ export async function POST(request: NextRequest) {
       logger.info('[AI-BLOCK] Conversation blocked', {
         requestId,
         tenantId: tenantId.substring(0, 8) + '***',
-        phone: phone.substring(0, 5) + '***',
+        phoneNormalized: normalizedPhone,
         reason,
       });
 
@@ -95,7 +107,7 @@ export async function POST(request: NextRequest) {
       logger.info('[AI-BLOCK] Conversation unblocked', {
         requestId,
         tenantId: tenantId.substring(0, 8) + '***',
-        phone: phone.substring(0, 5) + '***',
+        phoneNormalized: normalizedPhone,
       });
 
       return NextResponse.json({
@@ -103,7 +115,7 @@ export async function POST(request: NextRequest) {
         message: 'Agente de IA desbloqueado para esta conversa',
         data: {
           tenantId,
-          phone,
+          phone: normalizedPhone,
           blocked: false,
         },
         meta: { requestId, timestamp: new Date().toISOString() },
@@ -158,8 +170,11 @@ export async function GET(request: NextRequest) {
     // Get Redis singleton client
     const redis = getRedisClient();
 
-    // Buscar status no Redis - MESMO FORMATO DO N8N
-    const redisKey = `ai_blocked:${tenantId}:${phone}`;
+    // Normalizar telefone: remover @c.us se existir (N8N usa sem sufixo)
+    const normalizedPhone = phone.replace(/@c\.us$/i, '');
+
+    // Buscar status no Redis - MESMO FORMATO DO N8N (sem @c.us)
+    const redisKey = `ai_blocked:${tenantId}:${normalizedPhone}`;
     const blockData = await redis.get(redisKey);
 
     if (!blockData) {
@@ -167,7 +182,7 @@ export async function GET(request: NextRequest) {
         success: true,
         data: {
           tenantId,
-          phone,
+          phone: normalizedPhone,
           blocked: false,
         },
         meta: { requestId, timestamp: new Date().toISOString() },
