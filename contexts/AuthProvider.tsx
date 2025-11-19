@@ -679,7 +679,11 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       // ✅ NOVA LÓGICA: Adicionar campos extras se fornecidos
       if (extraData?.free !== undefined) {
         userData.free = extraData.free;
+      } else {
+        // 🎁 Garantir 7 dias grátis para TODOS os novos cadastros
+        userData.free = 7;
       }
+
       if (extraData?.businessName) {
         userData.companyName = extraData.businessName;
       }

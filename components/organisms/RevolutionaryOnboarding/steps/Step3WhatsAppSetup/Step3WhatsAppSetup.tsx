@@ -49,12 +49,16 @@ export default function Step3WhatsAppSetup({
 }: Step3WhatsAppSetupProps) {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
-  const { user } = useAuth();
+  const { user, getFirebaseToken } = useAuth();
 
   const [qrCode, setQrCode] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [connected, setConnected] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [isInitializing, setIsInitializing] = useState(false);
+  const pollingIntervalRef = React.useRef<NodeJS.Timeout | null>(null);
+  const isInitializingRef = React.useRef(false); // Previne múltiplas chamadas
+  const hasCheckedExistingSession = React.useRef(false);
 
   const steps = [
     'Abra o WhatsApp no celular',
@@ -71,32 +75,203 @@ export default function Step3WhatsAppSetup({
     }
 
     try {
-      const token = await user.getIdToken();
+      const token = await getFirebaseToken();
+      if (!token) {
+        throw new Error('Token não disponível');
+      }
       return {
         'Authorization': `Bearer ${token}`,
         'Content-Type': 'application/json',
       };
     } catch (err) {
-      console.error('Error getting auth token:', err);
+      console.error('[WhatsAppSetup] Error getting auth token:', err);
       throw new Error('Erro ao obter token de autenticação. Por favor, faça login novamente.');
     }
   };
 
+  const stopPolling = () => {
+    if (pollingIntervalRef.current) {
+      clearInterval(pollingIntervalRef.current);
+      pollingIntervalRef.current = null;
+      console.log('[WhatsAppSetup] Polling stopped');
+    }
+  };
+
+  const checkStatus = async () => {
+    try {
+      const headers = await getAuthHeaders();
+      const response = await fetch('/api/whatsapp/session', {
+        headers,
+      });
+
+      if (!response.ok) {
+        console.error('[WhatsAppSetup] Status check failed:', response.status);
+        return;
+      }
+
+      const data = await response.json();
+
+      if (data.success && data.data) {
+        console.log('[WhatsAppSetup] Status update:', {
+          connected: data.data.connected,
+          hasQrCode: !!data.data.qrCode,
+          status: data.data.status
+        });
+
+        // Update QR code if available
+        if (data.data.qrCode && data.data.qrCode !== qrCode) {
+          console.log('[WhatsAppSetup] New QR Code received');
+          setQrCode(data.data.qrCode);
+          setIsInitializing(false);
+          setError(null);
+        }
+
+        // Check if connected
+        if (data.data.connected) {
+          console.log('[WhatsAppSetup] Connection successful!');
+          setConnected(true);
+          stopPolling();
+          setTimeout(() => {
+            onComplete({ connected: true });
+          }, 2000);
+        }
+      }
+    } catch (err) {
+      console.error('[WhatsAppSetup] Status check error:', err);
+    }
+  };
+
+  const startPolling = () => {
+    // Stop any existing polling
+    stopPolling();
+
+    console.log('[WhatsAppSetup] Starting aggressive polling every 2s');
+
+    // Start new polling interval - aggressive 2s
+    pollingIntervalRef.current = setInterval(checkStatus, 2000);
+
+    // Also check immediately
+    checkStatus();
+
+    // Stop polling after 3 minutes
+    setTimeout(() => {
+      stopPolling();
+      if (!connected && !qrCode) {
+        setError('Timeout: QR Code não foi gerado. Por favor, tente novamente.');
+        setIsInitializing(false);
+      }
+    }, 180000);
+  };
+
+  // Check if session already exists before creating new one
+  const checkExistingSession = async () => {
+    try {
+      console.log('[WhatsAppSetup] Checking for existing session...');
+      const headers = await getAuthHeaders();
+
+      const response = await fetch('/api/whatsapp/session', {
+        headers,
+      });
+
+      if (!response.ok) {
+        return null;
+      }
+
+      const data = await response.json();
+      console.log('[WhatsAppSetup] Existing session status:', {
+        connected: data.data?.connected,
+        hasQrCode: !!data.data?.qrCode,
+        status: data.data?.status
+      });
+
+      return data.data;
+    } catch (err) {
+      console.error('[WhatsAppSetup] Error checking existing session:', err);
+      return null;
+    }
+  };
+
   const handleGenerateQR = async () => {
+    // Prevent multiple simultaneous calls
+    if (isInitializingRef.current) {
+      console.log('[WhatsAppSetup] Already initializing, skipping...');
+      return;
+    }
+
+    isInitializingRef.current = true;
     setLoading(true);
     setError(null);
+    setIsInitializing(true);
 
     try {
-      console.log('[WhatsAppSetup] Gerando QR Code...');
+      console.log('[WhatsAppSetup] Starting connection flow...');
+
+      // First, check if session already exists
+      const existingSession = await checkExistingSession();
+
+      if (existingSession) {
+        // If already connected, complete immediately
+        if (existingSession.connected) {
+          console.log('[WhatsAppSetup] Already connected!');
+          setConnected(true);
+          setIsInitializing(false);
+          setLoading(false);
+          isInitializingRef.current = false;
+          setTimeout(() => {
+            onComplete({ connected: true });
+          }, 1000);
+          return;
+        }
+
+        // If QR code already exists, use it and start polling
+        if (existingSession.qrCode) {
+          console.log('[WhatsAppSetup] QR Code already exists, using it');
+          setQrCode(existingSession.qrCode);
+          setIsInitializing(false);
+          setLoading(false);
+          isInitializingRef.current = false;
+          startPolling();
+          return;
+        }
+
+        // If initializing, just start polling
+        if (existingSession.status === 'initializing' || existingSession.status === 'connecting') {
+          console.log('[WhatsAppSetup] Session already initializing, starting polling');
+          setIsInitializing(false);
+          setLoading(false);
+          isInitializingRef.current = false;
+          startPolling();
+          return;
+        }
+      }
+
+      // No existing session or disconnected, create new one
+      console.log('[WhatsAppSetup] Creating new session...');
       const headers = await getAuthHeaders();
-      console.log('[WhatsAppSetup] Headers obtidos');
 
       const response = await fetch('/api/whatsapp/session', {
         method: 'POST',
         headers,
       });
 
-      console.log('[WhatsAppSetup] Response status:', response.status);
+      console.log('[WhatsAppSetup] POST response status:', response.status);
+
+      // Handle rate limiting gracefully
+      if (response.status === 429) {
+        const data = await response.json();
+        const retryAfter = data.data?.retryAfter || 10;
+
+        console.log('[WhatsAppSetup] Rate limited, will retry after', retryAfter, 'seconds');
+
+        setError(null); // Don't show error to user
+        setIsInitializing(false);
+        setLoading(false);
+        isInitializingRef.current = false;
+
+        // Just start polling, session might already be ready
+        startPolling();
+        return;
+      }
 
       if (!response.ok) {
         const errorText = await response.text();
@@ -105,61 +280,59 @@ export default function Step3WhatsAppSetup({
       }
 
       const data = await response.json();
-      console.log('[WhatsAppSetup] Data received:', { success: data.success, hasQrCode: !!data.data?.qrCode });
+      console.log('[WhatsAppSetup] Connection initiated:', {
+        success: data.success,
+        hasQrCode: !!data.data?.qrCode
+      });
 
-      if (data.success && data.data?.qrCode) {
-        console.log('[WhatsAppSetup] QR Code recebido com sucesso');
-        setQrCode(data.data.qrCode);
-        // Start polling for connection
+      if (data.success) {
+        // If QR is immediately available, set it
+        if (data.data?.qrCode) {
+          console.log('[WhatsAppSetup] QR Code received immediately');
+          setQrCode(data.data.qrCode);
+          setIsInitializing(false);
+        }
+
+        // ALWAYS start polling regardless of whether QR was received
         startPolling();
+        console.log('[WhatsAppSetup] Polling started for QR code and connection status');
       } else {
-        const errorMsg = data.error || 'Erro ao gerar QR Code';
-        console.error('[WhatsAppSetup] Erro no data:', errorMsg);
+        const errorMsg = data.error || 'Erro ao iniciar conexão';
+        console.error('[WhatsAppSetup] Connection failed:', errorMsg);
         setError(errorMsg);
+        setIsInitializing(false);
       }
     } catch (err) {
       const errorMsg = err instanceof Error ? err.message : 'Erro de conexão';
       console.error('[WhatsAppSetup] Exception:', err);
       setError(errorMsg);
+      setIsInitializing(false);
     } finally {
       setLoading(false);
+      isInitializingRef.current = false;
     }
   };
 
-  const startPolling = () => {
-    const interval = setInterval(async () => {
-      try {
-        const headers = await getAuthHeaders();
-        const response = await fetch('/api/whatsapp/session', {
-          headers,
-        });
-        const data = await response.json();
-
-        if (data.success && data.data.connected) {
-          setConnected(true);
-          clearInterval(interval);
-          setTimeout(() => {
-            onComplete({ connected: true });
-          }, 2000);
-        }
-      } catch (err) {
-        console.error('[WhatsAppSetup] Polling error:', err);
-      }
-    }, 8000); // Aumentado de 3s para 8s
-
-    // Clear after 3 minutes (aumentado de 2min)
-    setTimeout(() => clearInterval(interval), 180000);
-  };
-
   const handleSkip = () => {
+    stopPolling();
     if (onSkip) onSkip();
     onClose();
   };
 
   useEffect(() => {
-    if (open && !qrCode && !connected && user) {
+    if (open && !qrCode && !connected && user && !isInitializing && !loading && !isInitializingRef.current) {
       handleGenerateQR();
     }
+
+    // Cleanup on unmount or close
+    return () => {
+      stopPolling();
+      if (!open) {
+        // Reset refs when modal closes
+        isInitializingRef.current = false;
+        hasCheckedExistingSession.current = false;
+      }
+    };
   }, [open, user]);
 
   return (
@@ -261,8 +434,6 @@ export default function Step3WhatsAppSetup({
                       </Alert>
                     )}
 
-                    {loading && user && <CircularProgress />}
-
                     {qrCode && !loading && (
                       <Box
                         sx={{
@@ -284,6 +455,31 @@ export default function Step3WhatsAppSetup({
                       </Box>
                     )}
 
+                    {(loading || isInitializing) && user && !qrCode && (
+                      <Box sx={{ py: 4 }}>
+                        <CircularProgress size={60} />
+                        <Typography
+                          variant="body2"
+                          sx={{
+                            mt: 2,
+                            color: alpha('#ffffff', 0.8)
+                          }}
+                        >
+                          {loading ? 'Iniciando conexão...' : 'Aguardando QR Code...'}
+                        </Typography>
+                        <Typography
+                          variant="caption"
+                          sx={{
+                            mt: 1,
+                            color: alpha('#ffffff', 0.6),
+                            display: 'block'
+                          }}
+                        >
+                          Isso pode levar alguns segundos
+                        </Typography>
+                      </Box>
+                    )}
+
                     {error && (
                       <Alert severity="error" sx={{ mt: 2 }}>
                         {error}
@@ -296,10 +492,19 @@ export default function Step3WhatsAppSetup({
                             Fazer Login
                           </Button>
                         )}
+                        {error.includes('Timeout') && (
+                          <Button
+                            size="small"
+                            sx={{ mt: 1 }}
+                            onClick={handleGenerateQR}
+                          >
+                            Tentar Novamente
+                          </Button>
+                        )}
                       </Alert>
                     )}
 
-                    {!qrCode && !loading && !error && user && (
+                    {!qrCode && !loading && !isInitializing && !error && user && (
                       <Button
                         variant="contained"
                         startIcon={<QrCode2 />}

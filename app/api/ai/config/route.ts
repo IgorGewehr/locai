@@ -195,16 +195,51 @@ export async function PUT(request: NextRequest) {
         meta: { requestId, timestamp: new Date().toISOString() },
       });
     } else {
-      // Atualizar configuração existente
-      const updateData = {
-        ...updates,
+      // Atualizar configuração existente - DEEP MERGE para evitar perda de dados
+      const existingConfig = configSnap.data() as AIConfig;
+
+      const updateData: Partial<AIConfig> = {
+        ...(updates.enabled !== undefined && { enabled: updates.enabled }),
+        ...(updates.autoResponse !== undefined && { autoResponse: updates.autoResponse }),
+        ...(updates.businessHoursOnly !== undefined && { businessHoursOnly: updates.businessHoursOnly }),
+
+        // Deep merge de agentPermissions
+        ...(updates.agentPermissions && {
+          agentPermissions: {
+            ...existingConfig.agentPermissions,
+            ...updates.agentPermissions,
+          },
+        }),
+
+        // Deep merge de discountSettings (incluindo allowedCriteria)
+        ...(updates.discountSettings && {
+          discountSettings: {
+            ...existingConfig.discountSettings,
+            ...updates.discountSettings,
+            ...(updates.discountSettings.allowedCriteria && {
+              allowedCriteria: {
+                ...existingConfig.discountSettings.allowedCriteria,
+                ...updates.discountSettings.allowedCriteria,
+              },
+            }),
+          },
+        }),
+
+        // Deep merge de customPrompts
+        ...(updates.customPrompts && {
+          customPrompts: {
+            ...existingConfig.customPrompts,
+            ...updates.customPrompts,
+          },
+        }),
+
         updatedAt: new Date(),
       };
 
       await updateDoc(configRef, updateData);
 
       const updatedConfig = {
-        ...configSnap.data(),
+        ...existingConfig,
         ...updateData,
       } as AIConfig;
 

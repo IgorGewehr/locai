@@ -114,7 +114,11 @@ export default function CompanySettingsPage() {
         const data = await response.json();
 
         if (data.success && data.data) {
-          setCompanyInfo(data.data);
+          // Merge with defaults to ensure all fields are defined
+          setCompanyInfo({
+            ...DEFAULT_COMPANY_INFO,
+            ...data.data,
+          });
         }
       } catch (err) {
         logger.error('[COMPANY-SETTINGS] Failed to load', {
@@ -183,7 +187,16 @@ export default function CompanySettingsPage() {
   };
 
   const handleChange = (field: keyof CompanyInfo, value: string) => {
-    setCompanyInfo((prev) => ({ ...prev, [field]: value }));
+    setCompanyInfo((prev) => ({
+      ...prev,
+      [field]: value === '' ? undefined : value,
+    }));
+  };
+
+  // Helper to safely get field value
+  const getFieldValue = (field: keyof CompanyInfo): string => {
+    const value = companyInfo[field];
+    return value !== undefined && value !== null ? String(value) : '';
   };
 
   if (!isReady || loading) {
@@ -236,7 +249,7 @@ export default function CompanySettingsPage() {
               <TextField
                 fullWidth
                 label="Razão Social"
-                value={companyInfo.legalName}
+                value={getFieldValue('legalName')}
                 onChange={(e) => handleChange('legalName', e.target.value)}
                 placeholder="Ex: Imobiliária Exemplo Ltda"
               />
@@ -247,7 +260,7 @@ export default function CompanySettingsPage() {
                 fullWidth
                 required
                 label="Nome Fantasia"
-                value={companyInfo.tradeName}
+                value={getFieldValue('tradeName')}
                 onChange={(e) => handleChange('tradeName', e.target.value)}
                 placeholder="Ex: Imobiliária Exemplo"
               />
@@ -257,7 +270,7 @@ export default function CompanySettingsPage() {
               <TextField
                 fullWidth
                 label="CNPJ"
-                value={companyInfo.cnpj}
+                value={getFieldValue('cnpj')}
                 onChange={(e) => handleChange('cnpj', e.target.value)}
                 placeholder="00.000.000/0000-00"
               />
@@ -267,7 +280,7 @@ export default function CompanySettingsPage() {
               <TextField
                 fullWidth
                 label="Inscrição Estadual"
-                value={companyInfo.stateRegistration}
+                value={getFieldValue('stateRegistration')}
                 onChange={(e) => handleChange('stateRegistration', e.target.value)}
                 placeholder="Opcional"
               />
@@ -277,7 +290,7 @@ export default function CompanySettingsPage() {
               <TextField
                 fullWidth
                 label="Inscrição Municipal"
-                value={companyInfo.municipalRegistration}
+                value={getFieldValue('municipalRegistration')}
                 onChange={(e) => handleChange('municipalRegistration', e.target.value)}
                 placeholder="Opcional"
               />
@@ -302,7 +315,7 @@ export default function CompanySettingsPage() {
                 required
                 type="email"
                 label="Email Comercial"
-                value={companyInfo.email}
+                value={getFieldValue('email')}
                 onChange={(e) => handleChange('email', e.target.value)}
                 placeholder="contato@imobiliaria.com"
                 InputProps={{
@@ -319,7 +332,7 @@ export default function CompanySettingsPage() {
               <TextField
                 fullWidth
                 label="Telefone Comercial"
-                value={companyInfo.phone}
+                value={getFieldValue('phone')}
                 onChange={(e) => handleChange('phone', e.target.value)}
                 placeholder="(11) 99999-9999"
                 InputProps={{
@@ -336,7 +349,7 @@ export default function CompanySettingsPage() {
               <TextField
                 fullWidth
                 label="Website"
-                value={companyInfo.website}
+                value={getFieldValue('website')}
                 onChange={(e) => handleChange('website', e.target.value)}
                 placeholder="https://www.imobiliaria.com"
               />
@@ -359,7 +372,7 @@ export default function CompanySettingsPage() {
               <TextField
                 fullWidth
                 label="CEP"
-                value={companyInfo.zipCode}
+                value={getFieldValue('zipCode')}
                 onChange={(e) => handleChange('zipCode', e.target.value)}
                 placeholder="00000-000"
               />
@@ -369,7 +382,7 @@ export default function CompanySettingsPage() {
               <TextField
                 fullWidth
                 label="Rua/Avenida"
-                value={companyInfo.street}
+                value={getFieldValue('street')}
                 onChange={(e) => handleChange('street', e.target.value)}
                 placeholder="Ex: Avenida Paulista"
               />
@@ -379,7 +392,7 @@ export default function CompanySettingsPage() {
               <TextField
                 fullWidth
                 label="Número"
-                value={companyInfo.number}
+                value={getFieldValue('number')}
                 onChange={(e) => handleChange('number', e.target.value)}
                 placeholder="000"
               />
@@ -389,7 +402,7 @@ export default function CompanySettingsPage() {
               <TextField
                 fullWidth
                 label="Complemento"
-                value={companyInfo.complement}
+                value={getFieldValue('complement')}
                 onChange={(e) => handleChange('complement', e.target.value)}
                 placeholder="Sala, andar, bloco..."
               />
@@ -399,7 +412,7 @@ export default function CompanySettingsPage() {
               <TextField
                 fullWidth
                 label="Bairro"
-                value={companyInfo.neighborhood}
+                value={getFieldValue('neighborhood')}
                 onChange={(e) => handleChange('neighborhood', e.target.value)}
                 placeholder="Ex: Centro"
               />
@@ -409,7 +422,7 @@ export default function CompanySettingsPage() {
               <TextField
                 fullWidth
                 label="Cidade"
-                value={companyInfo.city}
+                value={getFieldValue('city')}
                 onChange={(e) => handleChange('city', e.target.value)}
                 placeholder="Ex: São Paulo"
               />
@@ -419,7 +432,7 @@ export default function CompanySettingsPage() {
               <TextField
                 fullWidth
                 label="Estado"
-                value={companyInfo.state}
+                value={getFieldValue('state')}
                 onChange={(e) => handleChange('state', e.target.value)}
                 placeholder="SP"
               />
@@ -429,7 +442,7 @@ export default function CompanySettingsPage() {
               <TextField
                 fullWidth
                 label="País"
-                value={companyInfo.country}
+                value={getFieldValue('country')}
                 onChange={(e) => handleChange('country', e.target.value)}
               />
             </Grid>

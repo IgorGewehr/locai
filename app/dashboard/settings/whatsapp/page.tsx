@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import {
   Box,
   Button,
@@ -10,6 +10,12 @@ import {
   Paper,
   Chip,
   Divider,
+  Fade,
+  Zoom,
+  Card,
+  CardContent,
+  Container,
+  alpha,
 } from '@mui/material';
 import {
   QrCode2,
@@ -18,9 +24,12 @@ import {
   Refresh,
   PhoneAndroid,
   PowerSettingsNew,
+  CameraAlt,
+  PhonelinkRing,
 } from '@mui/icons-material';
 import { useTenant } from '@/contexts/TenantContext';
 import { useAuth } from '@/lib/hooks/useAuth';
+import { useWhatsAppStatus } from '@/lib/hooks/useWhatsAppStatus';
 
 interface WhatsAppStatus {
   connected: boolean;
@@ -33,27 +42,58 @@ interface WhatsAppStatus {
 export default function WhatsAppPage() {
   const { tenantId } = useTenant();
   const { getFirebaseToken } = useAuth();
+  const { clearCache, refreshStatus: refreshGlobalStatus } = useWhatsAppStatus();
 
   const [loading, setLoading] = useState(false);
   const [connecting, setConnecting] = useState(false);
   const [status, setStatus] = useState<WhatsAppStatus>({ connected: false, status: 'disconnected' });
   const [error, setError] = useState<string | null>(null);
+  const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const isPollingRef = useRef(false);
+  const qrCodeRef = useRef<HTMLDivElement>(null);
+  const isConnectingRef = useRef(false); // Prevent multiple POST calls
 
   useEffect(() => {
     loadStatus();
 
-    // Adaptive polling based on state
-    // Fast (3s) when waiting for connection, slow (30s) when connected or disconnected
+    // Start polling based on status
+    startPolling();
+
+    return () => {
+      stopPolling();
+    };
+  }, [tenantId, status.status]);
+
+  const startPolling = () => {
+    // Clear existing interval
+    stopPolling();
+
+    // Determine polling interval based on status
     const getPollingInterval = () => {
-      if (status.status === 'qr_ready' || status.status === 'initializing') {
-        return 3000; // 3 seconds - check connection frequently
+      if (status.status === 'qr' || status.status === 'qr_ready' || status.status === 'initializing' || status.status === 'connecting') {
+        return 2000; // 2 seconds - check frequently when waiting for QR or connection
       }
-      return 30000; // 30 seconds - check status periodically
+      if (status.connected) {
+        return 30000; // 30 seconds - slow polling when connected
+      }
+      return 10000; // 10 seconds - moderate polling when disconnected
     };
 
-    const interval = setInterval(loadStatus, getPollingInterval());
-    return () => clearInterval(interval);
-  }, [tenantId, status.status]); // Re-create interval when status changes
+    const interval = getPollingInterval();
+    pollingIntervalRef.current = setInterval(loadStatus, interval);
+    isPollingRef.current = true;
+
+    console.log(`[WhatsApp Settings] Polling started with interval: ${interval}ms, status: ${status.status}`);
+  };
+
+  const stopPolling = () => {
+    if (pollingIntervalRef.current) {
+      clearInterval(pollingIntervalRef.current);
+      pollingIntervalRef.current = null;
+      isPollingRef.current = false;
+      console.log('[WhatsApp Settings] Polling stopped');
+    }
+  };
 
   const loadStatus = async () => {
     if (!tenantId) return;
@@ -69,26 +109,146 @@ export default function WhatsAppPage() {
       if (response.ok) {
         const result = await response.json();
         if (result.success && result.data) {
-          setStatus({
+          const newStatus = {
             connected: result.data.connected || false,
             status: result.data.status || 'disconnected',
             phoneNumber: result.data.phoneNumber,
             businessName: result.data.businessName,
             qrCode: result.data.qrCode,
-          });
+          };
+
+          setStatus(newStatus);
+
+          // Log QR code status
+          if (newStatus.qrCode) {
+            console.log('[WhatsApp Settings] QR Code received', {
+              qrLength: newStatus.qrCode.length,
+              status: newStatus.status
+            });
+
+            // Auto-scroll to QR code when it appears
+            setTimeout(() => {
+              qrCodeRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            }, 300);
+          }
+
+          // Clear error and update global status if connected
+          if (newStatus.connected) {
+            setError(null);
+            setConnecting(false);
+            // Clear cache and refresh global status
+            clearCache();
+            refreshGlobalStatus();
+          }
+
+          // Update global status when QR is ready
+          if (newStatus.qrCode && !status.qrCode) {
+            clearCache();
+            refreshGlobalStatus();
+          }
         }
       }
     } catch (err) {
-      console.error('Error loading WhatsApp status:', err);
+      console.error('[WhatsApp Settings] Error loading status:', err);
+    }
+  };
+
+  const checkExistingSession = async () => {
+    try {
+      console.log('[WhatsApp Settings] Checking existing session...');
+      const token = await getFirebaseToken();
+
+      const response = await fetch(`/api/whatsapp/session`, {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        return result.data;
+      }
+      return null;
+    } catch (err) {
+      console.error('[WhatsApp Settings] Error checking session:', err);
+      return null;
     }
   };
 
   const handleConnect = async () => {
+    // Prevent multiple simultaneous calls
+    if (isConnectingRef.current) {
+      console.log('[WhatsApp Settings] Already connecting, skipping...');
+      return;
+    }
+
+    isConnectingRef.current = true;
     setConnecting(true);
     setError(null);
 
     try {
+      console.log('[WhatsApp Settings] Starting connection flow...');
+
+      // First check if session already exists
+      const existingSession = await checkExistingSession();
+
+      if (existingSession) {
+        // If already connected
+        if (existingSession.connected) {
+          console.log('[WhatsApp Settings] Already connected!');
+          setStatus({
+            connected: true,
+            status: 'connected',
+            phoneNumber: existingSession.phoneNumber,
+            businessName: existingSession.businessName,
+            qrCode: null,
+          });
+          setConnecting(false);
+          isConnectingRef.current = false;
+          clearCache();
+          refreshGlobalStatus();
+          return;
+        }
+
+        // If QR already exists
+        if (existingSession.qrCode) {
+          console.log('[WhatsApp Settings] QR already exists, using it');
+          setStatus({
+            connected: false,
+            status: 'qr',
+            phoneNumber: null,
+            businessName: null,
+            qrCode: existingSession.qrCode,
+          });
+          setConnecting(false);
+          isConnectingRef.current = false;
+          startPolling();
+          clearCache();
+          refreshGlobalStatus();
+          return;
+        }
+
+        // If already initializing
+        if (existingSession.status === 'initializing' || existingSession.status === 'connecting') {
+          console.log('[WhatsApp Settings] Already initializing, starting polling');
+          setStatus({
+            connected: false,
+            status: 'initializing',
+            phoneNumber: null,
+            businessName: null,
+            qrCode: null,
+          });
+          setConnecting(false);
+          isConnectingRef.current = false;
+          startPolling();
+          return;
+        }
+      }
+
+      // No existing session, create new one
+      console.log('[WhatsApp Settings] Creating new session...');
       const token = await getFirebaseToken();
+
       const response = await fetch(`/api/whatsapp/session`, {
         method: 'POST',
         headers: {
@@ -96,26 +256,62 @@ export default function WhatsAppPage() {
         },
       });
 
+      console.log('[WhatsApp Settings] POST response status:', response.status);
+
+      // Handle rate limiting gracefully (don't show error)
+      if (response.status === 429) {
+        const result = await response.json();
+        const retryAfter = result.data?.retryAfter || 10;
+
+        console.log('[WhatsApp Settings] Rate limited, will retry after', retryAfter, 'seconds');
+
+        // Don't show error to user, just start polling
+        setError(null);
+        setStatus({
+          connected: false,
+          status: 'initializing',
+          phoneNumber: null,
+          businessName: null,
+          qrCode: null,
+        });
+        setConnecting(false);
+        isConnectingRef.current = false;
+        startPolling();
+        return;
+      }
+
       const result = await response.json();
+      console.log('[WhatsApp Settings] Connection response:', result);
 
       if (result.success) {
-        if (result.data) {
-          setStatus({
-            connected: result.data.connected || false,
-            status: result.data.status || 'initializing',
-            phoneNumber: result.data.phoneNumber,
-            businessName: result.data.businessName,
-            qrCode: result.data.qrCode,
-          });
-        }
+        // Always set initializing status and start aggressive polling
+        setStatus({
+          connected: false,
+          status: 'initializing',
+          phoneNumber: null,
+          businessName: null,
+          qrCode: result.data?.qrCode || null,
+        });
+
+        // Force restart polling with aggressive interval
+        startPolling();
+
+        console.log('[WhatsApp Settings] Connection initiated, polling for QR code...');
       } else {
         setError(result.error || result.data?.message || 'Erro ao conectar WhatsApp');
+        setConnecting(false);
+        isConnectingRef.current = false;
       }
     } catch (err) {
-      console.error('Error connecting WhatsApp:', err);
+      console.error('[WhatsApp Settings] Error connecting:', err);
       setError('Erro ao conectar WhatsApp');
-    } finally {
       setConnecting(false);
+      isConnectingRef.current = false;
+    } finally {
+      // Always reset connecting ref after attempt
+      setTimeout(() => {
+        isConnectingRef.current = false;
+      }, 2000);
     }
   };
 
@@ -244,51 +440,171 @@ export default function WhatsAppPage() {
         </Box>
       </Paper>
 
-      {/* QR Code */}
-      {!status.connected && status.qrCode && (
-        <Paper sx={{ p: 3 }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-            <QrCode2 sx={{ mr: 1.5, color: 'primary.main' }} />
-            <Typography variant="h6" fontWeight={600}>
-              Escaneie o QR Code
-            </Typography>
+      {/* QR Code Section - Optimized UI/UX */}
+      {!status.connected && (
+        <Zoom in timeout={500}>
+          <Box ref={qrCodeRef}>
+            {status.qrCode ? (
+              <Card
+                sx={{
+                  background: 'linear-gradient(135deg, rgba(37, 211, 102, 0.05), rgba(37, 211, 102, 0.01))',
+                  border: '2px solid',
+                  borderColor: 'success.main',
+                  borderRadius: 3,
+                  overflow: 'hidden',
+                  boxShadow: `0 0 40px ${alpha('#25D366', 0.2)}`,
+                }}
+              >
+                <CardContent sx={{ p: 4 }}>
+                  {/* Header */}
+                  <Box sx={{ textAlign: 'center', mb: 3 }}>
+                    <Zoom in timeout={300}>
+                      <CameraAlt
+                        sx={{
+                          fontSize: 48,
+                          color: 'success.main',
+                          mb: 2,
+                          animation: 'pulse 2s infinite',
+                          '@keyframes pulse': {
+                            '0%, 100%': { opacity: 1, transform: 'scale(1)' },
+                            '50%': { opacity: 0.7, transform: 'scale(1.05)' }
+                          }
+                        }}
+                      />
+                    </Zoom>
+                    <Typography variant="h5" fontWeight={700} gutterBottom>
+                      Escaneie o QR Code
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      Use a câmera do seu celular para conectar
+                    </Typography>
+                  </Box>
+
+                  {/* QR Code Display - Centered and Prominent */}
+                  <Fade in timeout={800}>
+                    <Box
+                      sx={{
+                        display: 'flex',
+                        justifyContent: 'center',
+                        alignItems: 'center',
+                        my: 4,
+                      }}
+                    >
+                      <Box
+                        sx={{
+                          p: 3,
+                          bgcolor: 'white',
+                          borderRadius: 4,
+                          boxShadow: '0 8px 32px rgba(0,0,0,0.12)',
+                          border: '8px solid',
+                          borderColor: alpha('#25D366', 0.2),
+                          transition: 'all 0.3s ease',
+                          '&:hover': {
+                            transform: 'scale(1.02)',
+                            boxShadow: '0 12px 48px rgba(0,0,0,0.16)',
+                          }
+                        }}
+                      >
+                        <Box
+                          component="img"
+                          src={status.qrCode}
+                          alt="WhatsApp QR Code"
+                          sx={{
+                            width: { xs: 280, sm: 320, md: 360 },
+                            height: { xs: 280, sm: 320, md: 360 },
+                            display: 'block',
+                          }}
+                        />
+                      </Box>
+                    </Box>
+                  </Fade>
+
+                  {/* Instructions */}
+                  <Box
+                    sx={{
+                      mt: 3,
+                      p: 3,
+                      bgcolor: alpha('#25D366', 0.05),
+                      borderRadius: 2,
+                      border: '1px solid',
+                      borderColor: alpha('#25D366', 0.2),
+                    }}
+                  >
+                    <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+                      <PhonelinkRing sx={{ mr: 1, color: 'success.main' }} />
+                      <Typography variant="subtitle2" fontWeight={600}>
+                        Como conectar:
+                      </Typography>
+                    </Box>
+
+                    <Box component="ol" sx={{ m: 0, pl: 3 }}>
+                      <Typography component="li" variant="body2" sx={{ mb: 1 }}>
+                        Abra o <strong>WhatsApp</strong> no seu celular
+                      </Typography>
+                      <Typography component="li" variant="body2" sx={{ mb: 1 }}>
+                        Toque em <strong>Menu (⋮)</strong> → <strong>Dispositivos conectados</strong>
+                      </Typography>
+                      <Typography component="li" variant="body2" sx={{ mb: 1 }}>
+                        Toque em <strong>Conectar um dispositivo</strong>
+                      </Typography>
+                      <Typography component="li" variant="body2">
+                        Aponte a câmera para este QR Code
+                      </Typography>
+                    </Box>
+                  </Box>
+
+                  {/* Status Badge */}
+                  <Box sx={{ display: 'flex', justifyContent: 'center', mt: 3 }}>
+                    <Chip
+                      icon={<QrCode2 />}
+                      label="Aguardando conexão..."
+                      color="success"
+                      variant="outlined"
+                      sx={{
+                        animation: 'pulse 2s infinite',
+                        borderWidth: 2,
+                      }}
+                    />
+                  </Box>
+                </CardContent>
+              </Card>
+            ) : (
+              <Paper sx={{ p: 4 }}>
+                {(connecting || status.status === 'initializing') && (
+                  <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', py: 6 }}>
+                    <Box sx={{ position: 'relative', mb: 3 }}>
+                      <CircularProgress
+                        size={80}
+                        thickness={4}
+                        sx={{
+                          color: 'primary.main',
+                          animation: 'pulse 1.5s ease-in-out infinite',
+                        }}
+                      />
+                      <QrCode2
+                        sx={{
+                          position: 'absolute',
+                          top: '50%',
+                          left: '50%',
+                          transform: 'translate(-50%, -50%)',
+                          fontSize: 40,
+                          color: 'primary.main',
+                          opacity: 0.5,
+                        }}
+                      />
+                    </Box>
+                    <Typography variant="h6" fontWeight={600} gutterBottom>
+                      Gerando QR Code...
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', maxWidth: 400 }}>
+                      Estamos preparando sua conexão com o WhatsApp. Isso pode levar alguns segundos.
+                    </Typography>
+                  </Box>
+                )}
+              </Paper>
+            )}
           </Box>
-
-          <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-            Abra o WhatsApp no seu celular e escaneie este código:
-          </Typography>
-
-          <Box
-            sx={{
-              display: 'flex',
-              justifyContent: 'center',
-              p: 3,
-              bgcolor: 'white',
-              borderRadius: 2,
-            }}
-          >
-            <Box
-              component="img"
-              src={status.qrCode}
-              alt="WhatsApp QR Code"
-              sx={{
-                maxWidth: 300,
-                width: '100%',
-                height: 'auto',
-              }}
-            />
-          </Box>
-
-          <Alert severity="info" sx={{ mt: 3 }}>
-            <strong>Como escanear:</strong>
-            <ol style={{ margin: '8px 0 0', paddingLeft: '20px' }}>
-              <li>Abra o WhatsApp no seu celular</li>
-              <li>Toque em Mais opções (⋮) → Dispositivos conectados</li>
-              <li>Toque em Conectar um dispositivo</li>
-              <li>Aponte seu celular para esta tela para escanear o código</li>
-            </ol>
-          </Alert>
-        </Paper>
+        </Zoom>
       )}
 
       {/* Connection Info */}

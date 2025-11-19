@@ -3,7 +3,7 @@
  * Types for the first-time user onboarding flow
  */
 
-export type OnboardingStepId = 'add_property' | 'configure_system' | 'connect_whatsapp' | 'test_demo' | 'share_minisite';
+export type OnboardingStepId = 'add_property' | 'configure_system' | 'connect_whatsapp';
 
 export type OnboardingStepStatus = 'pending' | 'in_progress' | 'completed' | 'skipped';
 
@@ -79,7 +79,7 @@ export const DEFAULT_ONBOARDING_STEPS: Omit<OnboardingStep, 'status'>[] = [
     actionText: 'Configurar Sistema',
     actionUrl: '/dashboard/onboarding/configure',
     order: 2,
-    isOptional: true,
+    isOptional: false,
     estimatedMinutes: 7,
   },
   {
@@ -90,29 +90,7 @@ export const DEFAULT_ONBOARDING_STEPS: Omit<OnboardingStep, 'status'>[] = [
     actionText: 'Conectar WhatsApp',
     actionUrl: '/dashboard/settings?tab=whatsapp',
     order: 3,
-    isOptional: true,
-    estimatedMinutes: 3,
-  },
-  {
-    id: 'test_demo',
-    title: 'Testar a Sofia IA',
-    description: 'Experimente uma conversa com a Sofia, nossa assistente de IA especializada em atendimento imobiliário.',
-    icon: 'SmartToy',
-    actionText: 'Testar Sofia IA',
-    actionUrl: '/dashboard/metricas',
-    order: 4,
-    isOptional: true,
-    estimatedMinutes: 5,
-  },
-  {
-    id: 'share_minisite',
-    title: 'Parabéns! Agora é só compartilhar',
-    description: 'Tudo configurado! Compartilhe seus imóveis através do mini-site e deixe o Locai trabalhar para você automaticamente.',
-    icon: 'Share',
-    actionText: 'Ver Mini-Site',
-    actionUrl: '/dashboard/mini-site',
-    order: 5,
     isOptional: false,
-    estimatedMinutes: 2,
+    estimatedMinutes: 3,
   },
 ];

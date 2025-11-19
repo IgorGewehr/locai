@@ -9,7 +9,6 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
-import { TenantServiceFactory } from '@/lib/firebase/firestore-v2';
 import { validateFirebaseAuth } from '@/lib/middleware/firebase-auth';
 import { logger } from '@/lib/utils/logger';
 import { handleApiError } from '@/lib/utils/api-errors';
@@ -86,21 +85,19 @@ export async function GET(request: NextRequest) {
     logger.info('[GET-POLICIES] Request received', {
       requestId,
       tenantId: tenantId.substring(0, 8) + '***',
-      userId: authContext.uid,
+      userId: authContext.userId,
     });
 
     // Load policies from Firestore
-    const services = new TenantServiceFactory(tenantId);
-    const policiesDoc = await services.db
-      .collection('tenants')
-      .doc(tenantId)
-      .collection('config')
-      .doc('policies')
-      .get();
+    const { db } = await import('@/lib/firebase/config');
+    const { doc, getDoc } = await import('firebase/firestore');
+
+    const policiesRef = doc(db, 'tenants', tenantId, 'config', 'policies');
+    const policiesDoc = await getDoc(policiesRef);
 
     let policies: Policies;
 
-    if (policiesDoc.exists) {
+    if (policiesDoc.exists()) {
       policies = policiesDoc.data() as Policies;
       logger.info('[GET-POLICIES] Policies loaded from Firestore', {
         requestId,
@@ -171,7 +168,7 @@ export async function PUT(request: NextRequest) {
     logger.info('[UPDATE-POLICIES] Request received', {
       requestId,
       tenantId: tenantId.substring(0, 8) + '***',
-      userId: authContext.uid,
+      userId: authContext.userId,
     });
 
     // Parse and validate body
@@ -218,17 +215,15 @@ export async function PUT(request: NextRequest) {
     };
 
     // Save to Firestore
-    const services = new TenantServiceFactory(tenantId);
-    await services.db
-      .collection('tenants')
-      .doc(tenantId)
-      .collection('config')
-      .doc('policies')
-      .set({
-        ...sanitizedPolicies,
-        updatedAt: new Date(),
-        updatedBy: authContext.uid || 'system',
-      });
+    const { db } = await import('@/lib/firebase/config');
+    const { doc, setDoc } = await import('firebase/firestore');
+
+    const policiesRef = doc(db, 'tenants', tenantId, 'config', 'policies');
+    await setDoc(policiesRef, {
+      ...sanitizedPolicies,
+      updatedAt: new Date(),
+      updatedBy: authContext.userId || 'system',
+    });
 
     logger.info('[UPDATE-POLICIES] Policies updated', {
       requestId,

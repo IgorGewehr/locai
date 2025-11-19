@@ -20,6 +20,7 @@ import {
   useTheme,
   Tabs,
   Tab,
+  Chip,
 } from '@mui/material';
 import {
   Email,
@@ -31,6 +32,7 @@ import {
   LockReset,
   ArrowForward,
   CheckCircle,
+  CardGiftcard,
 } from '@mui/icons-material';
 import { useForm, Controller } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
@@ -197,8 +199,9 @@ export default function LoginPage() {
       setIsLoading(true);
       setError(null);
       setSuccess(null);
-      
-      await signUp(data.email, data.password, data.name);
+
+      // 🎁 Garantir 7 dias grátis para todos os novos cadastros
+      await signUp(data.email, data.password, data.name, { free: 7 });
       
       // Mostrar feedback de sucesso
       setRegisterSuccess(true);
@@ -647,6 +650,23 @@ export default function LoginPage() {
                     <Fade in timeout={300}>
                       <form onSubmit={registerForm.handleSubmit(handleRegister)}>
                         <Stack spacing={3}>
+                          {/* Chip de 7 dias grátis */}
+                          <Box sx={{ textAlign: 'center', mb: 1 }}>
+                            <Chip
+                              icon={<CardGiftcard sx={{ fontSize: '1rem' }} />}
+                              label="7 dias grátis"
+                              color="success"
+                              sx={{
+                                backgroundColor: '#10b981',
+                                color: '#ffffff',
+                                fontWeight: 600,
+                                fontSize: '0.9rem',
+                                '& .MuiChip-icon': {
+                                  color: '#ffffff',
+                                },
+                              }}
+                            />
+                          </Box>
                           <Controller
                             name="name"
                             control={registerForm.control}

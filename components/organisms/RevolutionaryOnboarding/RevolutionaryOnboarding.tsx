@@ -37,7 +37,7 @@ import { useRevolutionaryOnboarding } from '@/lib/hooks/useRevolutionaryOnboardi
 import OnboardingStepCard from './OnboardingStepCard';
 import {
   Step1PropertySetup,
-  Step2ReservationSetup,
+  Step2ConfigureSystem,
   Step3WhatsAppSetup,
 } from './steps';
 import { logger } from '@/lib/utils/logger';
@@ -312,47 +312,25 @@ export default function RevolutionaryOnboarding({
                 >
                   Próximo passo: {currentStep.title}
                 </Typography>
-                {currentStep.id === 'share_minisite' ? (
-                  <Button
-                    fullWidth
-                    variant="contained"
-                    onClick={() => handleCompleteStep('share_minisite')}
-                    disabled={processingStep === 'share_minisite'}
-                    sx={{
-                      background: 'linear-gradient(135deg, #10b981, #059669)',
-                      boxShadow: '0 4px 16px rgba(16, 185, 129, 0.3)',
-                      fontWeight: 600,
-                      '&:hover': {
-                        background: 'linear-gradient(135deg, #059669, #047857)',
-                        transform: 'translateY(-2px)',
-                        boxShadow: '0 6px 20px rgba(16, 185, 129, 0.4)',
-                      },
-                      transition: 'all 0.2s ease',
-                    }}
-                  >
-                    {processingStep === 'share_minisite' ? 'Carregando...' : 'Marcar como Concluído'}
-                  </Button>
-                ) : (
-                  <Button
-                    fullWidth
-                    variant="contained"
-                    onClick={() => handleStepAction(currentStep)}
-                    disabled={processingStep === currentStep.id}
-                    sx={{
-                      background: 'linear-gradient(135deg, #10b981, #059669)',
-                      boxShadow: '0 4px 16px rgba(16, 185, 129, 0.3)',
-                      fontWeight: 600,
-                      '&:hover': {
-                        background: 'linear-gradient(135deg, #059669, #047857)',
-                        transform: 'translateY(-2px)',
-                        boxShadow: '0 6px 20px rgba(16, 185, 129, 0.4)',
-                      },
-                      transition: 'all 0.2s ease',
-                    }}
-                  >
-                    {processingStep === currentStep.id ? 'Carregando...' : 'Continuar'}
-                  </Button>
-                )}
+                <Button
+                  fullWidth
+                  variant="contained"
+                  onClick={() => handleStepAction(currentStep)}
+                  disabled={processingStep === currentStep.id}
+                  sx={{
+                    background: 'linear-gradient(135deg, #10b981, #059669)',
+                    boxShadow: '0 4px 16px rgba(16, 185, 129, 0.3)',
+                    fontWeight: 600,
+                    '&:hover': {
+                      background: 'linear-gradient(135deg, #059669, #047857)',
+                      transform: 'translateY(-2px)',
+                      boxShadow: '0 6px 20px rgba(16, 185, 129, 0.4)',
+                    },
+                    transition: 'all 0.2s ease',
+                  }}
+                >
+                  {processingStep === currentStep.id ? 'Carregando...' : 'Continuar'}
+                </Button>
               </Stack>
             )}
 
@@ -437,7 +415,7 @@ export default function RevolutionaryOnboarding({
                     Configure em 3 Passos Simples
                   </Typography>
                   <Typography variant="body2" sx={{ color: 'rgba(255, 255, 255, 0.7)' }}>
-                    Siga este guia interativo para começar a usar o Locai
+                    Propriedade → Configurar Sistema → Conectar WhatsApp
                   </Typography>
                 </Box>
               </Stack>
@@ -650,16 +628,16 @@ export default function RevolutionaryOnboarding({
             />
           )}
 
-          {state.activeDialog.mode === 'reservation_create' && (
-            <Step2ReservationSetup
+          {state.activeDialog.mode === 'system_configure' && (
+            <Step2ConfigureSystem
               open={true}
               onClose={closeDialog}
               onComplete={async (data) => {
-                await completeStep('test_demo', data);
+                await completeStep('configure_system', data);
                 closeDialog();
               }}
               onSkip={async () => {
-                await skipStep('test_demo');
+                await skipStep('configure_system');
                 closeDialog();
               }}
             />

@@ -35,7 +35,7 @@ import { useAuth } from '@/contexts/AuthProvider';
 import { logger } from '@/lib/utils/logger';
 import CancellationPolicyEditor, {
   CancellationPolicy,
-} from '@/app/dashboard/settings/components/CancellationPolicyEditor';
+} from '@/components/organisms/CancellationPolicyEditor';
 
 interface TabPanelProps {
   children?: React.ReactNode;

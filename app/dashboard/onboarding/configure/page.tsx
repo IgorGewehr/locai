@@ -47,8 +47,10 @@ import {
   Info,
   Upload,
   Celebration,
+  Settings,
 } from '@mui/icons-material';
 import { useTenant } from '@/contexts/TenantContext';
+import { useAuth } from '@/contexts/AuthProvider';
 import { useOnboarding } from '@/lib/hooks/useOnboarding';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { db } from '@/lib/firebase/config';
@@ -87,11 +89,14 @@ const defaultCompanyInfo: CompanyInfo = {
 export default function ConfigureSystemPage() {
   const router = useRouter();
   const { tenantId } = useTenant();
+  const { getFirebaseToken } = useAuth();
   const { completeStep } = useOnboarding();
 
   const [activeStep, setActiveStep] = useState(0);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   // Company Info
   const [companyInfo, setCompanyInfo] = useState<CompanyInfo>(defaultCompanyInfo);
@@ -135,29 +140,42 @@ export default function ConfigureSystemPage() {
         setCompanyInfo(companySnap.data() as CompanyInfo);
       }
 
-      // Load AI config
-      const configResponse = await fetch('/api/ai/config');
+      // Load AI config with authentication
+      const token = await getFirebaseToken();
+      if (!token) {
+        throw new Error('Token de autenticação não disponível');
+      }
+
+      const configResponse = await fetch('/api/ai/config', {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      });
       const configResult = await configResponse.json();
       if (configResult.success) {
         setAIConfig(configResult.data);
       }
     } catch (error) {
-      logger.error('Failed to load configuration data', { error });
+      logger.error('Failed to load configuration data', error as Error);
     } finally {
       setLoading(false);
     }
   };
 
   const handleSaveCompanyInfo = async () => {
-    if (!tenantId) return;
+    if (!tenantId) return false;
 
     try {
+      setError(null);
       const infoRef = doc(db, 'tenants', tenantId, 'settings', 'companyInfo');
       await setDoc(infoRef, companyInfo);
       setCompanyInfoChanged(false);
+      setSuccessMessage('Informações da empresa salvas com sucesso!');
+      setTimeout(() => setSuccessMessage(null), 3000);
       return true;
     } catch (error) {
-      logger.error('Failed to save company info', { error });
+      logger.error('Failed to save company info', error as Error);
+      setError('Erro ao salvar informações da empresa. Tente novamente.');
       return false;
     }
   };
@@ -166,9 +184,19 @@ export default function ConfigureSystemPage() {
     if (!aiConfig) return false;
 
     try {
+      setError(null);
+
+      const token = await getFirebaseToken();
+      if (!token) {
+        throw new Error('Token de autenticação não disponível');
+      }
+
       const response = await fetch('/api/ai/config', {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
         body: JSON.stringify(aiConfig),
       });
 
@@ -176,24 +204,38 @@ export default function ConfigureSystemPage() {
       if (result.success) {
         setAIConfig(result.data);
         setAIConfigChanged(false);
+        setSuccessMessage('Configuração da IA salva com sucesso!');
+        setTimeout(() => setSuccessMessage(null), 3000);
         return true;
+      } else {
+        setError(result.error || 'Erro ao salvar configuração da IA');
+        return false;
       }
-      return false;
     } catch (error) {
-      logger.error('Failed to save AI config', { error });
+      logger.error('Failed to save AI config', error as Error);
+      setError('Erro ao salvar configuração da IA. Tente novamente.');
       return false;
     }
   };
 
   const handleNext = async () => {
     setSaving(true);
+    setError(null);
 
     try {
       // Save current step data
       if (activeStep === 0 && companyInfoChanged) {
-        await handleSaveCompanyInfo();
+        const saved = await handleSaveCompanyInfo();
+        if (!saved) {
+          setSaving(false);
+          return; // Don't proceed if save failed
+        }
       } else if ((activeStep === 1 || activeStep === 2) && aiConfigChanged) {
-        await handleSaveAIConfig();
+        const saved = await handleSaveAIConfig();
+        if (!saved) {
+          setSaving(false);
+          return; // Don't proceed if save failed
+        }
       }
 
       // Move to next step
@@ -203,6 +245,9 @@ export default function ConfigureSystemPage() {
         // Completed all steps
         await handleComplete();
       }
+    } catch (error) {
+      logger.error('Error in handleNext', error as Error);
+      setError('Erro ao avançar. Tente novamente.');
     } finally {
       setSaving(false);
     }
@@ -234,7 +279,7 @@ export default function ConfigureSystemPage() {
       // Redirect to dashboard
       router.push('/dashboard');
     } catch (error) {
-      logger.error('Failed to complete configuration', { error });
+      logger.error('Failed to complete configuration', error as Error);
     } finally {
       setSaving(false);
     }
@@ -261,6 +306,31 @@ export default function ConfigureSystemPage() {
 
   return (
     <Box sx={{ p: { xs: 2, sm: 3, md: 4 }, maxWidth: 1200, margin: '0 auto' }}>
+      {/* Success/Error Messages */}
+      {successMessage && (
+        <Fade in={true}>
+          <Alert
+            severity="success"
+            onClose={() => setSuccessMessage(null)}
+            sx={{ mb: 3 }}
+          >
+            {successMessage}
+          </Alert>
+        </Fade>
+      )}
+
+      {error && (
+        <Fade in={true}>
+          <Alert
+            severity="error"
+            onClose={() => setError(null)}
+            sx={{ mb: 3 }}
+          >
+            {error}
+          </Alert>
+        </Fade>
+      )}
+
       {/* Header */}
       <Box sx={{ mb: 4, textAlign: 'center' }}>
         <Box
@@ -623,11 +693,16 @@ export default function ConfigureSystemPage() {
                         label="Desconto Máximo (%)"
                         value={aiConfig.discountSettings.maxPercentage}
                         onChange={(e) => {
+                          const newMax = Number(e.target.value);
+                          const currentThreshold = aiConfig.discountSettings.approvalThreshold;
+
                           setAIConfig({
                             ...aiConfig,
                             discountSettings: {
                               ...aiConfig.discountSettings,
-                              maxPercentage: Number(e.target.value),
+                              maxPercentage: newMax,
+                              // Auto-adjust threshold if it exceeds max
+                              approvalThreshold: currentThreshold > newMax ? newMax : currentThreshold,
                             },
                           });
                           setAIConfigChanged(true);
@@ -642,6 +717,7 @@ export default function ConfigureSystemPage() {
                           ),
                         }}
                         helperText="Máximo que a Sofia pode oferecer"
+                        error={aiConfig.discountSettings.maxPercentage < aiConfig.discountSettings.approvalThreshold}
                       />
                     </Grid>
 
@@ -652,18 +728,28 @@ export default function ConfigureSystemPage() {
                         label="Limite para Aprovação Manual (%)"
                         value={aiConfig.discountSettings.approvalThreshold}
                         onChange={(e) => {
+                          const newThreshold = Number(e.target.value);
                           setAIConfig({
                             ...aiConfig,
                             discountSettings: {
                               ...aiConfig.discountSettings,
-                              approvalThreshold: Number(e.target.value),
+                              approvalThreshold: newThreshold,
                             },
                           });
                           setAIConfigChanged(true);
                         }}
                         disabled={!aiConfig.discountSettings.enabled}
-                        inputProps={{ min: 0, max: 100, step: 1 }}
-                        helperText="Acima deste valor, você precisa aprovar"
+                        inputProps={{
+                          min: 0,
+                          max: aiConfig.discountSettings.maxPercentage,
+                          step: 1
+                        }}
+                        helperText={
+                          aiConfig.discountSettings.approvalThreshold > aiConfig.discountSettings.maxPercentage
+                            ? "Não pode ser maior que o desconto máximo"
+                            : "Acima deste valor, você precisa aprovar"
+                        }
+                        error={aiConfig.discountSettings.approvalThreshold > aiConfig.discountSettings.maxPercentage}
                       />
                     </Grid>
 

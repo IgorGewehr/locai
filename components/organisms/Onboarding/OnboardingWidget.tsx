@@ -418,10 +418,10 @@ export default function OnboardingWidget({ variant = 'compact' }: OnboardingWidg
                       mb: 0.5,
                     }}
                   >
-                    Configure sua conta em 5 passos simples
+                    Configure sua conta em 3 passos simples
                   </Typography>
                   <Typography variant="body2" sx={{ color: 'rgba(255, 255, 255, 0.7)' }}>
-                    Siga este guia para começar a usar a plataforma
+                    Propriedade → Sistema → WhatsApp
                   </Typography>
                 </Box>
               </Stack>

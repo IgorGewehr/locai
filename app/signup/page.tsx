@@ -92,11 +92,13 @@ export default function SignupPage() {
       setIsLoading(true);
       setError(null);
       
-      // Include trial information if present
+      // Include trial information if present, otherwise default to 7 days free
       const extraData = isTrial && trialDays ? {
         free: parseInt(trialDays),
-      } : undefined;
-      
+      } : {
+        free: 7, // 🎁 7 dias grátis para todos os novos cadastros
+      };
+
       await signUp(data.email, data.password, data.name, extraData);
       setSuccess(true);
       setIsProcessing(true);
@@ -323,8 +325,8 @@ export default function SignupPage() {
                 Criar conta
               </Typography>
 
-              <Typography 
-                variant="body1" 
+              <Typography
+                variant="body1"
                 sx={{
                   color: '#a1a1a1',
                   fontWeight: 400,
@@ -333,25 +335,23 @@ export default function SignupPage() {
               >
                 Preencha os dados para criar sua conta
               </Typography>
-              
-              {isTrial && trialDays && (
-                <Box sx={{ mt: 2 }}>
-                  <Chip
-                    icon={<CardGiftcard sx={{ fontSize: '1rem' }} />}
-                    label={`${trialDays} dias de teste grátis`}
-                    color="success"
-                    sx={{
-                      backgroundColor: '#10b981',
+
+              <Box sx={{ mt: 2 }}>
+                <Chip
+                  icon={<CardGiftcard sx={{ fontSize: '1rem' }} />}
+                  label={isTrial && trialDays ? `${trialDays} dias de teste grátis` : '7 dias grátis'}
+                  color="success"
+                  sx={{
+                    backgroundColor: '#10b981',
+                    color: '#ffffff',
+                    fontWeight: 600,
+                    fontSize: '0.9rem',
+                    '& .MuiChip-icon': {
                       color: '#ffffff',
-                      fontWeight: 600,
-                      fontSize: '0.9rem',
-                      '& .MuiChip-icon': {
-                        color: '#ffffff',
-                      },
-                    }}
-                  />
-                </Box>
-              )}
+                    },
+                  }}
+                />
+              </Box>
             </Box>
 
             {/* Form */}

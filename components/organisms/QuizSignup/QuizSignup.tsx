@@ -46,6 +46,80 @@ import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthProvider';
 
+// Utility functions for input sanitization and formatting
+const sanitizeAndFormatInputs = {
+  zipCode: (value: string): string => {
+    if (!value) return '';
+    // Remove tudo que não é número
+    const numbers = value.replace(/\D/g, '');
+    // Limita a 8 dígitos
+    const limited = numbers.slice(0, 8);
+    // Formata: 12345678 -> 12345-678
+    if (limited.length > 5) {
+      return `${limited.slice(0, 5)}-${limited.slice(5)}`;
+    }
+    return limited;
+  },
+
+  state: (value: string): string => {
+    if (!value) return '';
+    // Remove números e caracteres especiais, mantém apenas letras
+    const letters = value.replace(/[^a-zA-ZáéíóúâêîôûãõçÁÉÍÓÚÂÊÎÔÛÃÕÇ\s]/g, '');
+    // Limita a 50 caracteres (para nomes de estado completos)
+    const limited = letters.slice(0, 50);
+    // Capitaliza primeira letra de cada palavra
+    return limited.split(' ').map(word =>
+      word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
+    ).join(' ');
+  },
+
+  city: (value: string): string => {
+    if (!value) return '';
+    // Remove números excessivos e caracteres especiais problemáticos
+    const cleaned = value.replace(/[^a-zA-ZáéíóúâêîôûãõçÁÉÍÓÚÂÊÎÔÛÃÕÇ\s\-']/g, '');
+    // Limita a 100 caracteres
+    const limited = cleaned.slice(0, 100);
+    // Capitaliza primeira letra de cada palavra
+    return limited.split(' ').map(word =>
+      word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
+    ).join(' ');
+  },
+
+  street: (value: string): string => {
+    if (!value) return '';
+    // Permite letras, números, espaços e pontuação comum em endereços
+    const cleaned = value.replace(/[^a-zA-Z0-9áéíóúâêîôûãõçÁÉÍÓÚÂÊÎÔÛÃÕÇ\s\-,.'º]/g, '');
+    // Limita a 200 caracteres
+    return cleaned.slice(0, 200);
+  },
+
+  neighborhood: (value: string): string => {
+    if (!value) return '';
+    // Remove caracteres especiais problemáticos
+    const cleaned = value.replace(/[^a-zA-ZáéíóúâêîôûãõçÁÉÍÓÚÂÊÎÔÛÃÕÇ\s\-]/g, '');
+    // Limita a 100 caracteres
+    const limited = cleaned.slice(0, 100);
+    // Capitaliza primeira letra de cada palavra
+    return limited.split(' ').map(word =>
+      word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
+    ).join(' ');
+  },
+
+  country: (value: string): string => {
+    if (!value) return 'Brasil';
+    // Remove números e caracteres especiais
+    const letters = value.replace(/[^a-zA-ZáéíóúâêîôûãõçÁÉÍÓÚÂÊÎÔÛÃÕÇ\s]/g, '');
+    // Limita a 50 caracteres
+    const limited = letters.slice(0, 50);
+    // Capitaliza primeira letra de cada palavra
+    const formatted = limited.split(' ').map(word =>
+      word.charAt(0).toUpperCase() + word.slice(1).toLowerCase()
+    ).join(' ');
+    // Se ficou vazio ou inválido, retorna Brasil
+    return formatted.trim() || 'Brasil';
+  },
+};
+
 // Validation schemas for each step
 const stepSchemas = {
   name: yup.object({
@@ -58,12 +132,13 @@ const stepSchemas = {
     propertiesCount: yup.number().min(0, 'Quantidade inválida'),
   }),
   addressDetails: yup.object({
-    street: yup.string(),
-    neighborhood: yup.string(),
-    city: yup.string().required('Cidade é obrigatória'),
-    state: yup.string().required('Estado é obrigatório'),
-    zipCode: yup.string(),
-    country: yup.string(),
+    street: yup.string().max(200, 'Endereço muito longo'),
+    number: yup.string().max(20, 'Número muito longo'),
+    neighborhood: yup.string().max(100, 'Bairro muito longo'),
+    city: yup.string().required('Cidade é obrigatória').min(2, 'Cidade inválida').max(100, 'Cidade muito longa'),
+    state: yup.string().required('Estado é obrigatório').min(2, 'Estado inválido').max(50, 'Estado muito longo'),
+    zipCode: yup.string().max(9, 'CEP inválido'),
+    country: yup.string().max(50, 'País muito longo'),
   }),
   email: yup.object({
     email: yup.string().email('Email inválido').required('Email é obrigatório'),
@@ -79,6 +154,7 @@ interface QuizSignupData {
   propertiesCount: number;
   address: string;
   street: string;
+  number: string;
   neighborhood: string;
   city: string;
   state: string;
@@ -144,11 +220,12 @@ const QUIZ_STEPS: QuizStep[] = [
     icon: <LocationOn />,
     hint: 'Este endereço será usado pela Sofia AI para enviar localização aos clientes',
     fields: [
-      { id: 'street', label: 'Rua/Avenida', placeholder: 'Rua Exemplo, 123', gridColumn: '2fr 1fr' },
-      { id: 'zipCode', label: 'CEP', placeholder: '12345-678', gridColumn: '2fr 1fr' },
+      { id: 'street', label: 'Rua/Avenida', placeholder: 'Rua Exemplo', gridColumn: '2fr 1fr' },
+      { id: 'number', label: 'Número', placeholder: '123', gridColumn: '1fr' },
+      { id: 'zipCode', label: 'CEP', placeholder: '12345-678', gridColumn: '1fr' },
       { id: 'neighborhood', label: 'Bairro', placeholder: 'Centro', gridColumn: '1fr 1fr' },
       { id: 'city', label: 'Cidade', placeholder: 'São Paulo', required: true, gridColumn: '1fr 1fr' },
-      { id: 'state', label: 'Estado', placeholder: 'SP', required: true, gridColumn: '1fr 1fr' },
+      { id: 'state', label: 'Estado', placeholder: 'São Paulo', required: true, gridColumn: '1fr 1fr' },
       { id: 'country', label: 'País', placeholder: 'Brasil', gridColumn: '1fr 1fr' },
     ],
   },
@@ -209,12 +286,14 @@ export default function QuizSignup() {
     try {
       setError(null);
 
-      // For multifield steps, save all fields
+      // For multifield steps, save all fields with sanitization
       let stepData: any;
       if (currentStep.type === 'multifield' && currentStep.fields) {
         stepData = {};
         currentStep.fields.forEach((field) => {
-          stepData[field.id] = data[field.id];
+          const value = data[field.id];
+          const formatter = sanitizeAndFormatInputs[field.id as keyof typeof sanitizeAndFormatInputs];
+          stepData[field.id] = formatter ? formatter(value || '') : value;
         });
       } else {
         stepData = { [currentStep.id]: data[currentStep.id] };
@@ -256,23 +335,49 @@ export default function QuizSignup() {
       const currentUser = auth.currentUser;
 
       if (currentUser) {
-        // Save company address to settings
+        // Save company address to settings using the same API as Settings page
         try {
-          const { createSettingsService } = await import('@/lib/services/settings-service');
-          const settingsService = createSettingsService(currentUser.uid);
+          const token = await currentUser.getIdToken();
 
-          await settingsService.updateCompanySettings(currentUser.uid, {
-            address: data.address || '',
-            street: data.street || '',
-            neighborhood: data.neighborhood || '',
-            city: data.city || '',
-            state: data.state || '',
-            zipCode: data.zipCode || '',
+          // Helper function to clean empty strings
+          const cleanValue = (value: string | undefined) => {
+            return value && value.trim() !== '' ? value.trim() : undefined;
+          };
+
+          const companyData = {
+            tradeName: data.businessName || '',
+            email: data.email || '',
+            street: cleanValue(data.street),
+            number: cleanValue(data.number),
+            neighborhood: cleanValue(data.neighborhood),
+            city: cleanValue(data.city),
+            state: cleanValue(data.state),
+            zipCode: cleanValue(data.zipCode),
             country: data.country || 'Brasil',
+            // Optional fields - only include if they have values
+            legalName: data.businessName || '',
+          };
+
+          console.log('[QUIZ-SIGNUP] Saving company data:', companyData);
+
+          const response = await fetch('/api/tenant/settings/company', {
+            method: 'PUT',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${token}`,
+            },
+            body: JSON.stringify(companyData),
           });
+
+          if (!response.ok) {
+            const errorData = await response.json().catch(() => ({}));
+            console.error('[QUIZ-SIGNUP] Failed to save company data:', errorData);
+          } else {
+            console.log('[QUIZ-SIGNUP] Company data saved successfully');
+          }
         } catch (addressError) {
           // Log error but don't block signup completion
-          console.error('Failed to save company address:', addressError);
+          console.error('[QUIZ-SIGNUP] Exception saving company address:', addressError);
         }
       }
 
@@ -313,6 +418,15 @@ export default function QuizSignup() {
 
   const interpolateQuestion = (question: string) => {
     return question.replace('{name}', formData.name?.split(' ')[0] || '');
+  };
+
+  // Handler para formatar campos quando o usuário sair deles
+  const handleFieldBlur = (fieldId: keyof QuizSignupData, value: string) => {
+    const formatter = sanitizeAndFormatInputs[fieldId as keyof typeof sanitizeAndFormatInputs];
+    if (formatter) {
+      const formatted = formatter(value);
+      form.setValue(fieldId as any, formatted);
+    }
   };
 
   if (isSubmitting) {
@@ -543,9 +657,9 @@ export default function QuizSignup() {
                 {/* Input Field(s) */}
                 {currentStep.type === 'multifield' && currentStep.fields ? (
                   <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-                    {/* Primeira linha: Rua e CEP */}
-                    <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '2fr 1fr' }, gap: 2 }}>
-                      {currentStep.fields.slice(0, 2).map((field) => (
+                    {/* Primeira linha: Rua, Número e CEP */}
+                    <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '2fr 0.7fr 1fr' }, gap: 2 }}>
+                      {currentStep.fields.slice(0, 3).map((field) => (
                         <Controller
                           key={field.id}
                           name={field.id as any}
@@ -559,6 +673,10 @@ export default function QuizSignup() {
                               placeholder={field.placeholder}
                               error={!!form.formState.errors[field.id]}
                               helperText={form.formState.errors[field.id]?.message as string}
+                              onBlur={(e) => {
+                                controllerField.onBlur();
+                                handleFieldBlur(field.id, e.target.value);
+                              }}
                               sx={{
                                 '& .MuiOutlinedInput-root': {
                                   borderRadius: 2,
@@ -588,7 +706,7 @@ export default function QuizSignup() {
                     </Box>
                     {/* Segunda linha: Bairro e Cidade */}
                     <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 2 }}>
-                      {currentStep.fields.slice(2, 4).map((field) => (
+                      {currentStep.fields.slice(3, 5).map((field) => (
                         <Controller
                           key={field.id}
                           name={field.id as any}
@@ -602,6 +720,10 @@ export default function QuizSignup() {
                               placeholder={field.placeholder}
                               error={!!form.formState.errors[field.id]}
                               helperText={form.formState.errors[field.id]?.message as string}
+                              onBlur={(e) => {
+                                controllerField.onBlur();
+                                handleFieldBlur(field.id, e.target.value);
+                              }}
                               sx={{
                                 '& .MuiOutlinedInput-root': {
                                   borderRadius: 2,
@@ -631,12 +753,12 @@ export default function QuizSignup() {
                     </Box>
                     {/* Terceira linha: Estado e País */}
                     <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 2 }}>
-                      {currentStep.fields.slice(4, 6).map((field) => (
+                      {currentStep.fields.slice(5, 7).map((field) => (
                         <Controller
                           key={field.id}
                           name={field.id as any}
                           control={form.control}
-                          defaultValue={formData[field.id] || 'Brasil'}
+                          defaultValue={formData[field.id] || (field.id === 'country' ? 'Brasil' : '')}
                           render={({ field: controllerField }) => (
                             <TextField
                               {...controllerField}
@@ -645,6 +767,10 @@ export default function QuizSignup() {
                               placeholder={field.placeholder}
                               error={!!form.formState.errors[field.id]}
                               helperText={form.formState.errors[field.id]?.message as string}
+                              onBlur={(e) => {
+                                controllerField.onBlur();
+                                handleFieldBlur(field.id, e.target.value);
+                              }}
                               sx={{
                                 '& .MuiOutlinedInput-root': {
                                   borderRadius: 2,

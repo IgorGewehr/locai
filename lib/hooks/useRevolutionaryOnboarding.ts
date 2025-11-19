@@ -43,9 +43,8 @@ export function useRevolutionaryOnboarding(): UseRevolutionaryOnboardingResult {
   const startTimeRef = useRef<number>(Date.now());
   const stepStartTimeRef = useRef<Record<OnboardingStepId, number>>({
     add_property: 0,
+    configure_system: 0,
     connect_whatsapp: 0,
-    test_demo: 0,
-    share_minisite: 0,
   });
 
   /**
@@ -63,8 +62,17 @@ export function useRevolutionaryOnboarding(): UseRevolutionaryOnboardingResult {
 
       if (stateDoc.exists()) {
         const data = stateDoc.data();
+
+        // Merge com DEFAULT para garantir que novos steps existam
+        const mergedStepInteractions = {
+          ...DEFAULT_REVOLUTIONARY_STATE.stepInteractions,
+          ...(data.stepInteractions || {}),
+        };
+
         const loadedState: RevolutionaryOnboardingState = {
+          ...DEFAULT_REVOLUTIONARY_STATE,
           ...data,
+          stepInteractions: mergedStepInteractions,
           startedAt: data.startedAt?.toDate() || new Date(),
           lastInteractionAt: data.lastInteractionAt?.toDate() || new Date(),
           activeDialog: {
@@ -333,10 +341,18 @@ export function useRevolutionaryOnboarding(): UseRevolutionaryOnboardingResult {
       const timeSpentSeconds = Math.floor((stepEndTime - stepStartTime) / 1000);
 
       if (state) {
+        // Guard: Garantir que stepInteraction existe
+        const currentInteraction = state.stepInteractions[stepId] || {
+          stepId,
+          attempts: 0,
+          timeSpentSeconds: 0,
+          actions: [],
+        };
+
         const updatedInteractions = {
           ...state.stepInteractions,
           [stepId]: {
-            ...state.stepInteractions[stepId],
+            ...currentInteraction,
             completedAt: new Date(),
             timeSpentSeconds,
           },
@@ -501,7 +517,19 @@ export function useRevolutionaryOnboarding(): UseRevolutionaryOnboardingResult {
       if (!state) return;
 
       const stepInteraction = state.stepInteractions[stepId];
-      const updatedActions = [...stepInteraction.actions, action];
+
+      // Guard: Se stepInteraction não existe, criar um novo
+      if (!stepInteraction) {
+        logger.warn('[Revolutionary Onboarding] stepInteraction not found, creating default', { stepId });
+        state.stepInteractions[stepId] = {
+          stepId,
+          attempts: 0,
+          timeSpentSeconds: 0,
+          actions: [],
+        };
+      }
+
+      const updatedActions = [...(stepInteraction?.actions || []), action];
 
       const updatedInteractions = {
         ...state.stepInteractions,

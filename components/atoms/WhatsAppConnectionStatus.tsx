@@ -149,7 +149,7 @@ export function WhatsAppConnectionStatus({
 
   // 🎯 Renderização baseada na variante
   const renderChipVariant = () => (
-    <Tooltip 
+    <Tooltip
       title={
         <Box>
           <Typography variant="body2">{config.description}</Typography>
@@ -166,22 +166,24 @@ export function WhatsAppConnectionStatus({
         </Box>
       }
     >
-      <Chip
-        label={config.label}
-        color={config.color}
-        icon={config.icon}
-        onClick={onClick}
-        clickable={!!onClick}
-        sx={{
-          animation: animate && (status === 'connecting' || status === 'scanning') 
-            ? 'pulse 2s infinite' : 'none',
-          '@keyframes pulse': {
-            '0%': { opacity: 1, transform: 'scale(1)' },
-            '50%': { opacity: 0.8, transform: 'scale(1.02)' },
-            '100%': { opacity: 1, transform: 'scale(1)' }
-          }
-        }}
-      />
+      <Box component="span">
+        <Chip
+          label={config.label}
+          color={config.color}
+          icon={config.icon}
+          onClick={onClick}
+          clickable={!!onClick}
+          sx={{
+            animation: animate && (status === 'connecting' || status === 'scanning')
+              ? 'pulse 2s infinite' : 'none',
+            '@keyframes pulse': {
+              '0%': { opacity: 1, transform: 'scale(1)' },
+              '50%': { opacity: 0.8, transform: 'scale(1.02)' },
+              '100%': { opacity: 1, transform: 'scale(1)' }
+            }
+          }}
+        />
+      </Box>
     </Tooltip>
   );
 

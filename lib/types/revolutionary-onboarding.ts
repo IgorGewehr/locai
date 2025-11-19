@@ -8,7 +8,7 @@ import { OnboardingStepId, OnboardingStepStatus } from './onboarding';
 export type OnboardingDialogMode =
   | 'property_import'
   | 'property_create'
-  | 'reservation_create'
+  | 'system_configure'
   | 'whatsapp_connect'
   | null;
 
@@ -215,12 +215,53 @@ export const REVOLUTIONARY_ONBOARDING_STEPS: Omit<RevolutionaryOnboardingStep, '
     },
   },
   {
+    id: 'configure_system',
+    title: 'Configurar Empresa e Sofia IA',
+    description: 'Personalize sua empresa e configure a assistente virtual Sofia',
+    icon: 'Settings',
+    order: 2,
+    isOptional: false,
+    estimatedMinutes: 7,
+    hasEmbeddedDialog: true,
+    dialogMode: 'system_configure',
+    guidanceText: 'Configure as informações da sua empresa e personalize como a Sofia vai atender seus clientes',
+    tips: [
+      {
+        id: 'company_info',
+        title: 'Informações da Empresa',
+        description: 'Preencha os dados da sua imobiliária para personalizar o atendimento',
+        type: 'info',
+        icon: 'Business',
+      },
+      {
+        id: 'ai_config',
+        title: 'Personalização da Sofia',
+        description: 'Escolha o tom de comunicação e defina limites de desconto',
+        type: 'tip',
+        icon: 'SmartToy',
+      },
+    ],
+    completionBadge: {
+      id: 'system_configured',
+      title: 'Sistema Configurado',
+      description: 'Você configurou sua empresa e a Sofia IA!',
+      icon: 'Settings',
+      color: '#6366f1',
+    },
+    sidebarReference: {
+      title: 'Configurações',
+      description: 'Acesse as configurações completas em "Configurações"',
+      path: '/dashboard/settings',
+      icon: 'Settings',
+    },
+  },
+  {
     id: 'connect_whatsapp',
     title: 'Conectar WhatsApp',
     description: 'Conecte seu WhatsApp para atendimento automatizado com Sofia IA',
     icon: 'WhatsApp',
-    order: 2,
-    isOptional: true,
+    order: 3,
+    isOptional: false,
     estimatedMinutes: 3,
     hasEmbeddedDialog: true,
     dialogMode: 'whatsapp_connect',
@@ -248,72 +289,6 @@ export const REVOLUTIONARY_ONBOARDING_STEPS: Omit<RevolutionaryOnboardingStep, '
       icon: 'Settings',
     },
   },
-  {
-    id: 'test_demo',
-    title: 'Testar a Sofia IA',
-    description: 'Experimente uma conversa com a Sofia, nossa assistente de IA especializada em atendimento imobiliário',
-    icon: 'SmartToy',
-    order: 3,
-    isOptional: true,
-    estimatedMinutes: 5,
-    hasEmbeddedDialog: false,
-    guidanceText: 'Converse com a Sofia e veja como ela pode automatizar o atendimento aos seus clientes',
-    tips: [
-      {
-        id: 'sofia_demo',
-        title: 'Teste a Sofia IA',
-        description: 'Acesse a página de métricas e converse com a Sofia para ver como ela funciona',
-        type: 'success',
-        icon: 'SmartToy',
-      },
-    ],
-    completionBadge: {
-      id: 'sofia_tested',
-      title: 'Sofia Testada',
-      description: 'Você testou a Sofia IA!',
-      icon: 'SmartToy',
-      color: '#6366f1',
-    },
-    sidebarReference: {
-      title: 'Métricas',
-      description: 'Acesse as métricas e converse com a Sofia pela barra lateral em "Métricas"',
-      path: '/dashboard/metricas',
-      icon: 'BarChart',
-    },
-  },
-  {
-    id: 'share_minisite',
-    title: 'Parabéns! Tudo Configurado',
-    description: 'Compartilhe seus imóveis através do mini-site e deixe o Locai trabalhar para você',
-    icon: 'Share',
-    order: 4,
-    isOptional: true,
-    estimatedMinutes: 2,
-    hasEmbeddedDialog: false,
-    guidanceText: 'Seu sistema está pronto! Agora você pode compartilhar seu mini-site e começar a receber reservas automaticamente',
-    tips: [
-      {
-        id: 'minisite_share',
-        title: 'Compartilhe seu Mini-Site',
-        description: 'Acesse "Mini-Site" na barra lateral para configurar e compartilhar',
-        type: 'success',
-        icon: 'Language',
-      },
-    ],
-    completionBadge: {
-      id: 'onboarding_complete',
-      title: 'Configuração Completa',
-      description: 'Você completou todo o processo de configuração!',
-      icon: 'Celebration',
-      color: '#10b981',
-    },
-    sidebarReference: {
-      title: 'Mini-Site',
-      description: 'Configure e compartilhe seu mini-site em "Mini-Site"',
-      path: '/dashboard/mini-site',
-      icon: 'Language',
-    },
-  },
 ];
 
 export const DEFAULT_REVOLUTIONARY_STATE: Omit<RevolutionaryOnboardingState, 'startedAt' | 'lastInteractionAt'> = {
@@ -326,9 +301,8 @@ export const DEFAULT_REVOLUTIONARY_STATE: Omit<RevolutionaryOnboardingState, 'st
   timeSpentSeconds: 0,
   stepInteractions: {
     add_property: { stepId: 'add_property', attempts: 0, timeSpentSeconds: 0, actions: [] },
+    configure_system: { stepId: 'configure_system', attempts: 0, timeSpentSeconds: 0, actions: [] },
     connect_whatsapp: { stepId: 'connect_whatsapp', attempts: 0, timeSpentSeconds: 0, actions: [] },
-    test_demo: { stepId: 'test_demo', attempts: 0, timeSpentSeconds: 0, actions: [] },
-    share_minisite: { stepId: 'share_minisite', attempts: 0, timeSpentSeconds: 0, actions: [] },
   },
   showTooltips: true,
   showVideoTutorials: true,

@@ -36,7 +36,7 @@ const CompanyInfoSchema = z.object({
   complement: z.string().max(100).optional(),
   neighborhood: z.string().max(100).optional(),
   city: z.string().max(100).optional(),
-  state: z.string().max(2).optional(),
+  state: z.string().max(50).optional(), // Allow full state names (e.g., "São Paulo")
   zipCode: z.string().max(10).optional(),
   country: z.string().max(100).optional(),
 
