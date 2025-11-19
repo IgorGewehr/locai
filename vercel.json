@@ -4,6 +4,10 @@
     {
       "path": "/api/cron/sync-abacatepay",
       "schedule": "*/30 * * * *"
+    },
+    {
+      "path": "/api/billing/process",
+      "schedule": "*/30 * * * *"
     }
   ]
 }
