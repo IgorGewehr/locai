@@ -45,6 +45,7 @@ import {
   ShowChart,
   PieChart,
   BarChart,
+  WhatsApp,
 } from '@mui/icons-material';
 import {
   AreaChart,
@@ -66,9 +67,11 @@ import {
 } from 'recharts';
 import { format, subMonths, startOfMonth, endOfMonth } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { Transaction } from '@/lib/types';
+import { Transaction, Client } from '@/lib/types';
+import type { ConversationHeader } from '@/lib/types/conversation-optimized';
 import { useTenant } from '@/contexts/TenantContext';
 import { logger } from '@/lib/utils/logger';
+import { useRouter } from 'next/navigation';
 
 const formatCurrency = (value: number) => {
   return new Intl.NumberFormat('pt-BR', {
@@ -104,12 +107,22 @@ const safeDate = (dateValue: any): Date | null => {
   return null;
 };
 
+// Interface para transação enriquecida com dados de cliente e conversa
+interface TransactionWithClient extends Transaction {
+  clientPhone?: string;
+  lastConversation?: ConversationHeader;
+  hasActiveConversation?: boolean;
+}
+
 export default function EnhancedFinancialDashboard() {
   const theme = useTheme();
+  const router = useRouter();
   const { services, isReady } = useTenant();
   const [animateCards, setAnimateCards] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [transactions, setTransactions] = useState<TransactionWithClient[]>([]);
+  const [clients, setClients] = useState<Client[]>([]);
+  const [conversations, setConversations] = useState<ConversationHeader[]>([]);
   const [monthlyData, setMonthlyData] = useState<any[]>([]);
   const [categoryData, setCategoryData] = useState<any[]>([]);
   const [stats, setStats] = useState({
@@ -143,9 +156,70 @@ export default function EnhancedFinancialDashboard() {
     try {
       setLoading(true);
 
-      // Fetch all transactions
-      const allTransactions = await services.transactions.getAll();
-      setTransactions(allTransactions);
+      // Buscar transações, clientes e conversas em paralelo
+      const [allTransactions, clientsData, conversationsData] = await Promise.all([
+        services.transactions.getAll(),
+        services.clients.getAll(),
+        services.conversations.getAll()
+      ]);
+
+      setClients(clientsData);
+      setConversations(conversationsData);
+
+      // Criar mapa de clientes por ID para lookup rápido
+      const clientsById = new Map<string, Client>();
+      clientsData.forEach((client: Client) => {
+        if (client.id) {
+          clientsById.set(client.id, client);
+        }
+      });
+
+      // Criar mapa de conversas por telefone
+      const conversationsByPhone = new Map<string, ConversationHeader[]>();
+      conversationsData.forEach((conv: ConversationHeader) => {
+        const phone = conv.clientPhone;
+        if (!conversationsByPhone.has(phone)) {
+          conversationsByPhone.set(phone, []);
+        }
+        conversationsByPhone.get(phone)!.push(conv);
+      });
+
+      // Enriquecer transações com dados de cliente e conversa
+      const enrichedTransactions: TransactionWithClient[] = allTransactions.map((transaction: Transaction) => {
+        let clientPhone: string | undefined;
+        let lastConversation: ConversationHeader | undefined;
+        let hasActiveConversation = false;
+
+        // Se a transação tem clientId, buscar telefone do cliente
+        if (transaction.clientId) {
+          const client = clientsById.get(transaction.clientId);
+          if (client?.phone) {
+            clientPhone = client.phone;
+
+            // Buscar conversas deste telefone
+            const clientConversations = conversationsByPhone.get(client.phone) || [];
+
+            if (clientConversations.length > 0) {
+              // Ordenar por última mensagem (mais recente primeiro)
+              const sortedConvs = clientConversations.sort((a, b) =>
+                new Date(b.lastMessageAt).getTime() - new Date(a.lastMessageAt).getTime()
+              );
+
+              lastConversation = sortedConvs[0];
+              hasActiveConversation = sortedConvs.some(conv => conv.status === 'active');
+            }
+          }
+        }
+
+        return {
+          ...transaction,
+          clientPhone,
+          lastConversation,
+          hasActiveConversation
+        };
+      });
+
+      setTransactions(enrichedTransactions);
 
       // Calculate current month stats
       const now = new Date();
@@ -285,9 +359,9 @@ export default function EnhancedFinancialDashboard() {
 
     } catch (error) {
       logger.error(
-        'Error loading financial data', 
+        'Error loading financial data',
         error instanceof Error ? error : undefined,
-        { 
+        {
           component: 'EnhancedFinancialDashboard',
           operation: 'loadFinancialData'
         }
@@ -298,6 +372,19 @@ export default function EnhancedFinancialDashboard() {
       }
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Função para abrir WhatsApp do cliente da transação
+  const handleWhatsAppClick = (transaction: TransactionWithClient, e: React.MouseEvent) => {
+    e.stopPropagation();
+
+    // Se a transação tem conversa ativa, navega para a página de conversas
+    if (transaction.lastConversation) {
+      router.push(`/dashboard/conversas?conversation=${transaction.lastConversation.id}`);
+    } else if (transaction.clientPhone) {
+      // Se tem telefone mas não tem conversa, abre WhatsApp externo
+      window.open(`https://wa.me/55${transaction.clientPhone.replace(/\D/g, '')}`, '_blank');
     }
   };
 
@@ -705,21 +792,50 @@ export default function EnhancedFinancialDashboard() {
                               </Typography>
                             </Box>
                           </Stack>
-                          <Stack alignItems="flex-end">
-                            <Typography
-                              variant="body1"
-                              fontWeight="bold"
-                              color={transaction.type === 'income' ? 'success.main' : 'error.main'}
-                            >
-                              {transaction.type === 'income' ? '+' : '-'}
-                              {formatCurrency(Math.abs(transaction.amount))}
-                            </Typography>
-                            <Chip
-                              label={transaction.status === 'completed' ? 'Concluído' : 'Pendente'}
-                              size="small"
-                              color={transaction.status === 'completed' ? 'success' : 'warning'}
-                              sx={{ mt: 0.5 }}
-                            />
+
+                          <Stack direction="row" spacing={1} alignItems="center">
+                            {/* Botão WhatsApp - aparece apenas se houver clientPhone */}
+                            {transaction.clientPhone && (
+                              <Tooltip
+                                title={
+                                  transaction.hasActiveConversation
+                                    ? 'Abrir conversa no WhatsApp'
+                                    : 'Enviar mensagem'
+                                }
+                              >
+                                <IconButton
+                                  size="medium"
+                                  color="success"
+                                  onClick={(e) => handleWhatsAppClick(transaction, e)}
+                                  sx={{
+                                    bgcolor: 'success.main',
+                                    color: 'white',
+                                    '&:hover': {
+                                      bgcolor: 'success.dark',
+                                    },
+                                  }}
+                                >
+                                  <WhatsApp fontSize="small" />
+                                </IconButton>
+                              </Tooltip>
+                            )}
+
+                            <Stack alignItems="flex-end">
+                              <Typography
+                                variant="body1"
+                                fontWeight="bold"
+                                color={transaction.type === 'income' ? 'success.main' : 'error.main'}
+                              >
+                                {transaction.type === 'income' ? '+' : '-'}
+                                {formatCurrency(Math.abs(transaction.amount))}
+                              </Typography>
+                              <Chip
+                                label={transaction.status === 'completed' ? 'Concluído' : 'Pendente'}
+                                size="small"
+                                color={transaction.status === 'completed' ? 'success' : 'warning'}
+                                sx={{ mt: 0.5 }}
+                              />
+                            </Stack>
                           </Stack>
                         </Stack>
                       </Paper>

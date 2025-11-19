@@ -110,6 +110,7 @@ export default function ConversationsPage() {
   const [renameDialogOpen, setRenameDialogOpen] = useState(false);
   const [renameConversationId, setRenameConversationId] = useState<string | null>(null);
   const [newName, setNewName] = useState('');
+  const [editedConversations, setEditedConversations] = useState<Set<string>>(new Set());
 
   // Check AI block status when conversation changes
   useEffect(() => {
@@ -122,6 +123,14 @@ export default function ConversationsPage() {
       setCheckingAiStatus(true);
       try {
         const token = await getFirebaseToken();
+
+        // Skip if no token available yet
+        if (!token) {
+          console.warn('[AI-BLOCK] No token available, skipping check');
+          setCheckingAiStatus(false);
+          return;
+        }
+
         const response = await fetch(
           `/api/ai/block-conversation?phone=${encodeURIComponent(selectedConversation.clientPhone)}`,
           {
@@ -130,6 +139,13 @@ export default function ConversationsPage() {
             }
           }
         );
+
+        if (!response.ok) {
+          console.error('[AI-BLOCK] Check failed with status:', response.status);
+          setAiBlocked(false);
+          return;
+        }
+
         const result = await response.json();
 
         // Check if data exists and has blocked property, or check if blockData exists
@@ -139,7 +155,7 @@ export default function ConversationsPage() {
           setAiBlocked(false);
         }
       } catch (error) {
-        console.error('Error checking AI status:', error);
+        console.error('[AI-BLOCK] Error checking AI status:', error);
         setAiBlocked(false);
       } finally {
         setCheckingAiStatus(false);
@@ -151,7 +167,7 @@ export default function ConversationsPage() {
     // Poll every 5 seconds to update status
     const interval = setInterval(checkAiStatus, 5000);
     return () => clearInterval(interval);
-  }, [selectedConversation, tenantId]);
+  }, [selectedConversation, tenantId, getFirebaseToken]);
 
   // Block AI for 1 hour and enable manual mode
   const handleEnableManualMode = async () => {
@@ -334,6 +350,8 @@ export default function ConversationsPage() {
     if (renameConversationId && newName.trim()) {
       try {
         await renameConversation(renameConversationId, newName.trim());
+        // Mark conversation as edited
+        setEditedConversations(prev => new Set(prev).add(renameConversationId));
         handleCloseRenameDialog();
       } catch (error) {
         console.error('Error renaming conversation:', error);
@@ -580,14 +598,40 @@ export default function ConversationsPage() {
                               alignItems="center"
                               mb={0.5}
                             >
-                              <Typography
-                                variant="subtitle2"
-                                fontWeight={conversation.isRead === false ? 700 : 600}
-                                noWrap
-                              >
-                                {conversation.clientName || conversation.clientPhone}
-                              </Typography>
-                              <Typography variant="caption" color="text.secondary">
+                              <Box display="flex" alignItems="center" gap={0.75} flex={1} minWidth={0}>
+                                <Typography
+                                  variant="subtitle2"
+                                  fontWeight={conversation.isRead === false ? 700 : 600}
+                                  noWrap
+                                  sx={{ flex: 1, minWidth: 0 }}
+                                >
+                                  {conversation.clientName || conversation.clientPhone}
+                                </Typography>
+                                {!editedConversations.has(conversation.id) && (
+                                  <IconButton
+                                    size="small"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      handleOpenRenameDialog(conversation.id);
+                                    }}
+                                    sx={{
+                                      width: 24,
+                                      height: 24,
+                                      p: 0.5,
+                                      opacity: 0.6,
+                                      transition: 'all 0.2s',
+                                      '&:hover': {
+                                        opacity: 1,
+                                        bgcolor: alpha(theme.palette.primary.main, 0.1),
+                                      },
+                                    }}
+                                    title="Renomear conversa"
+                                  >
+                                    <Edit sx={{ fontSize: 14 }} />
+                                  </IconButton>
+                                )}
+                              </Box>
+                              <Typography variant="caption" color="text.secondary" sx={{ ml: 1 }}>
                                 {safeFormatTimestamp(conversation.lastMessageAt)}
                               </Typography>
                             </Box>
@@ -883,7 +927,7 @@ export default function ConversationsPage() {
               {selectedConversation && (
                 <Box
                   sx={{
-                    p: 2.5,
+                    p: 2,
                     borderTop: `1px solid ${theme.palette.divider}`,
                     bgcolor: !aiBlocked
                       ? alpha(theme.palette.error.main, 0.05)
@@ -899,7 +943,7 @@ export default function ConversationsPage() {
                     sx={{
                       display: 'flex',
                       gap: 1.5,
-                      alignItems: 'flex-end',
+                      alignItems: 'center',
                       maxWidth: '100%',
                     }}
                   >
@@ -913,7 +957,7 @@ export default function ConversationsPage() {
                           alignItems: 'center',
                           justifyContent: 'center',
                           gap: 2,
-                          py: 1.5,
+                          py: 1.25,
                           px: 3,
                           bgcolor: alpha(theme.palette.error.main, 0.08),
                           borderRadius: '24px',
@@ -929,15 +973,15 @@ export default function ConversationsPage() {
                         }}
                       >
                         {checkingAiStatus ? (
-                          <CircularProgress size={22} thickness={4} sx={{ color: theme.palette.error.main }} />
+                          <CircularProgress size={20} thickness={4} sx={{ color: theme.palette.error.main }} />
                         ) : (
-                          <BlockIcon sx={{ color: theme.palette.error.main, fontSize: 22 }} />
+                          <BlockIcon sx={{ color: theme.palette.error.main, fontSize: 20 }} />
                         )}
                         <Typography
                           sx={{
                             color: theme.palette.error.main,
                             fontWeight: 600,
-                            fontSize: '0.9rem',
+                            fontSize: '0.875rem',
                             userSelect: 'none',
                             letterSpacing: '0.01em',
                           }}
@@ -951,7 +995,7 @@ export default function ConversationsPage() {
                         <TextField
                           fullWidth
                           multiline
-                          maxRows={5}
+                          maxRows={4}
                           placeholder="Digite sua mensagem..."
                           value={messageInput}
                           onChange={(e) => setMessageInput(e.target.value)}
@@ -965,7 +1009,7 @@ export default function ConversationsPage() {
                           variant="outlined"
                           sx={{
                             '& .MuiOutlinedInput-root': {
-                              borderRadius: '24px',
+                              borderRadius: '20px',
                               bgcolor: theme.palette.mode === 'dark'
                                 ? alpha(theme.palette.background.paper, 0.9)
                                 : alpha(theme.palette.common.white, 0.95),
@@ -993,9 +1037,9 @@ export default function ConversationsPage() {
                               },
                             },
                             '& .MuiInputBase-input': {
-                              py: 1.25,
-                              px: 2.5,
-                              fontSize: '0.95rem',
+                              py: 1,
+                              px: 2,
+                              fontSize: '0.9rem',
                               lineHeight: 1.5,
                               '&::placeholder': {
                                 color: alpha(theme.palette.text.secondary, 0.5),
@@ -1010,8 +1054,8 @@ export default function ConversationsPage() {
                           sx={{
                             bgcolor: theme.palette.primary.main,
                             color: theme.palette.common.white,
-                            width: 48,
-                            height: 48,
+                            width: 44,
+                            height: 44,
                             flexShrink: 0,
                             boxShadow: `0 4px 12px ${alpha(theme.palette.primary.main, 0.3)}`,
                             transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
@@ -1031,9 +1075,9 @@ export default function ConversationsPage() {
                           }}
                         >
                           {sendingMessage ? (
-                            <CircularProgress size={22} thickness={4} sx={{ color: theme.palette.common.white }} />
+                            <CircularProgress size={20} thickness={4} sx={{ color: theme.palette.common.white }} />
                           ) : (
-                            <Send sx={{ fontSize: 22 }} />
+                            <Send sx={{ fontSize: 20 }} />
                           )}
                         </IconButton>
                       </>

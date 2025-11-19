@@ -2,15 +2,15 @@
 
 import { Box, Card, CardContent, Typography, Tooltip, alpha, useTheme } from '@mui/material';
 import { memo, useMemo } from 'react';
-import { TrendingUp, AccessTime, CalendarToday } from '@mui/icons-material';
+import { TrendingUp, AccessTime, CalendarToday, Info } from '@mui/icons-material';
 
 /**
- * HEATMAP COMPONENT - High Performance Edition
+ * HEATMAP COMPONENT - Data-Driven Intensity Calculation
  *
- * Componente otimizado de heatmap para visualização de atividade
- * por dia da semana e hora do dia com animações suaves e design moderno
+ * Componente de heatmap com cálculo inteligente de intensidade
+ * baseado em percentis e thresholds dinâmicos
  *
- * @version 2.0.0 - Performance & Visual Upgrade
+ * @version 3.0.0 - Fixed intensity calculation with percentile-based scaling
  */
 
 export interface HeatmapData {
@@ -23,62 +23,216 @@ export interface HeatmapData {
 
 interface HeatmapCellProps {
   data: HeatmapData;
-  maxConversations: number;
+  stats: HeatmapStats;
   index: number;
 }
 
-const HeatmapCell = memo(({ data, maxConversations, index }: HeatmapCellProps) => {
+interface HeatmapStats {
+  // Percentiles for intelligent scaling
+  p0: number;      // Min (0th percentile)
+  p25: number;     // 25th percentile
+  p50: number;     // Median (50th percentile)
+  p75: number;     // 75th percentile
+  p90: number;     // 90th percentile
+  p95: number;     // 95th percentile
+  p99: number;     // 99th percentile
+  max: number;     // Maximum value
+
+  // Summary stats
+  totalConversations: number;
+  totalConversions: number;
+  peakHour: number;
+  peakDay: string;
+  cellsWithData: number;
+  totalCells: number;
+}
+
+/**
+ * Calculate percentiles from sorted array
+ */
+function getPercentile(sortedArray: number[], percentile: number): number {
+  if (sortedArray.length === 0) return 0;
+  const index = Math.ceil((percentile / 100) * sortedArray.length) - 1;
+  return sortedArray[Math.max(0, index)];
+}
+
+/**
+ * Calculate comprehensive statistics for intelligent scaling
+ */
+function calculateHeatmapStats(data: HeatmapData[]): HeatmapStats {
+  // Extract all conversation counts and sort
+  const values = data.map(d => d.conversations).sort((a, b) => a - b);
+  const nonZeroValues = values.filter(v => v > 0);
+
+  // Calculate percentiles
+  const p0 = values[0] || 0;
+  const p25 = getPercentile(values, 25);
+  const p50 = getPercentile(values, 50);
+  const p75 = getPercentile(values, 75);
+  const p90 = getPercentile(values, 90);
+  const p95 = getPercentile(values, 95);
+  const p99 = getPercentile(values, 99);
+  const max = values[values.length - 1] || 0;
+
+  // Find peak hour and day
+  const hourCounts = new Map<number, number>();
+  const dayCounts = new Map<string, number>();
+
+  data.forEach(d => {
+    hourCounts.set(d.hour, (hourCounts.get(d.hour) || 0) + d.conversations);
+    dayCounts.set(d.day, (dayCounts.get(d.day) || 0) + d.conversations);
+  });
+
+  const peakHour = Array.from(hourCounts.entries())
+    .sort((a, b) => b[1] - a[1])[0]?.[0] || 0;
+  const peakDay = Array.from(dayCounts.entries())
+    .sort((a, b) => b[1] - a[1])[0]?.[0] || 'Seg';
+
+  return {
+    p0,
+    p25,
+    p50,
+    p75,
+    p90,
+    p95,
+    p99,
+    max,
+    totalConversations: data.reduce((sum, d) => sum + d.conversations, 0),
+    totalConversions: data.reduce((sum, d) => sum + d.conversions, 0),
+    peakHour,
+    peakDay,
+    cellsWithData: nonZeroValues.length,
+    totalCells: data.length
+  };
+}
+
+/**
+ * Calculate intensity using percentile-based scaling
+ * Returns value between 0-1 representing intensity level
+ */
+function calculateIntensity(value: number, stats: HeatmapStats): number {
+  // No data
+  if (value === 0) return 0;
+
+  // Handle edge case: all values are the same
+  if (stats.max === stats.p0) {
+    return value > 0 ? 0.5 : 0; // Medium intensity if has data
+  }
+
+  // Use logarithmic scale for better distribution
+  // This handles skewed data where most cells have low values
+  const logValue = Math.log(value + 1);
+  const logMax = Math.log(stats.max + 1);
+  const logP50 = Math.log(stats.p50 + 1);
+
+  // Calculate base intensity using log scale
+  let intensity = logValue / logMax;
+
+  // Apply percentile-based adjustment for better visual distribution
+  if (value <= stats.p25) {
+    // Bottom 25% -> map to 0.1-0.3 intensity
+    intensity = 0.1 + (value / stats.p25) * 0.2;
+  } else if (value <= stats.p50) {
+    // 25-50% -> map to 0.3-0.5 intensity
+    intensity = 0.3 + ((value - stats.p25) / (stats.p50 - stats.p25)) * 0.2;
+  } else if (value <= stats.p75) {
+    // 50-75% -> map to 0.5-0.7 intensity
+    intensity = 0.5 + ((value - stats.p50) / (stats.p75 - stats.p50)) * 0.2;
+  } else if (value <= stats.p90) {
+    // 75-90% -> map to 0.7-0.85 intensity
+    intensity = 0.7 + ((value - stats.p75) / (stats.p90 - stats.p75)) * 0.15;
+  } else {
+    // Top 10% -> map to 0.85-1.0 intensity
+    intensity = 0.85 + ((value - stats.p90) / (stats.max - stats.p90)) * 0.15;
+  }
+
+  return Math.max(0, Math.min(1, intensity));
+}
+
+/**
+ * Get color scheme based on intensity level
+ */
+function getIntensityColors(intensity: number, theme: any) {
+  if (intensity === 0) return {
+    bg: alpha(theme.palette.background.paper, 0.03),
+    border: alpha(theme.palette.divider, 0.1),
+    glow: 'transparent',
+    text: alpha(theme.palette.text.secondary, 0.3),
+    label: 'Sem dados'
+  };
+
+  // Very low: 0.1-0.3 (Purple)
+  if (intensity < 0.3) return {
+    bg: 'rgba(139, 92, 246, 0.12)',
+    border: 'rgba(139, 92, 246, 0.25)',
+    glow: 'rgba(139, 92, 246, 0.15)',
+    text: 'rgba(139, 92, 246, 0.9)',
+    label: 'Muito baixo'
+  };
+
+  // Low: 0.3-0.5 (Blue)
+  if (intensity < 0.5) return {
+    bg: 'rgba(59, 130, 246, 0.18)',
+    border: 'rgba(59, 130, 246, 0.35)',
+    glow: 'rgba(59, 130, 246, 0.25)',
+    text: 'rgba(59, 130, 246, 1)',
+    label: 'Baixo'
+  };
+
+  // Medium: 0.5-0.7 (Cyan)
+  if (intensity < 0.7) return {
+    bg: 'rgba(6, 182, 212, 0.25)',
+    border: 'rgba(6, 182, 212, 0.45)',
+    glow: 'rgba(6, 182, 212, 0.35)',
+    text: 'rgba(6, 182, 212, 1)',
+    label: 'Médio'
+  };
+
+  // High: 0.7-0.85 (Orange)
+  if (intensity < 0.85) return {
+    bg: 'rgba(251, 146, 60, 0.35)',
+    border: 'rgba(251, 146, 60, 0.55)',
+    glow: 'rgba(251, 146, 60, 0.45)',
+    text: 'rgba(251, 146, 60, 1)',
+    label: 'Alto'
+  };
+
+  // Very high: 0.85-1.0 (Red)
+  return {
+    bg: 'rgba(239, 68, 68, 0.45)',
+    border: 'rgba(239, 68, 68, 0.65)',
+    glow: 'rgba(239, 68, 68, 0.55)',
+    text: 'rgba(239, 68, 68, 1)',
+    label: 'Muito alto'
+  };
+}
+
+const HeatmapCell = memo(({ data, stats, index }: HeatmapCellProps) => {
   const theme = useTheme();
 
-  // Calculate intensity dynamically based on max conversations
   const intensity = useMemo(() => {
-    const raw = maxConversations > 0 ? data.conversations / maxConversations : 0;
-    return Math.max(0, Math.min(1, raw));
-  }, [data.conversations, maxConversations]);
+    return calculateIntensity(data.conversations, stats);
+  }, [data.conversations, stats]);
 
-  // Modern gradient color palette (Purple-Blue-Green)
   const colors = useMemo(() => {
-    if (intensity === 0) return {
-      bg: alpha(theme.palette.background.paper, 0.03),
-      border: alpha(theme.palette.divider, 0.1),
-      glow: 'transparent',
-      text: alpha(theme.palette.text.secondary, 0.3)
-    };
-    if (intensity < 0.2) return {
-      bg: 'rgba(99, 102, 241, 0.15)',
-      border: 'rgba(99, 102, 241, 0.3)',
-      glow: 'rgba(99, 102, 241, 0.2)',
-      text: 'rgba(99, 102, 241, 0.9)'
-    };
-    if (intensity < 0.4) return {
-      bg: 'rgba(59, 130, 246, 0.25)',
-      border: 'rgba(59, 130, 246, 0.4)',
-      glow: 'rgba(59, 130, 246, 0.3)',
-      text: 'rgba(59, 130, 246, 1)'
-    };
-    if (intensity < 0.6) return {
-      bg: 'rgba(6, 182, 212, 0.35)',
-      border: 'rgba(6, 182, 212, 0.5)',
-      glow: 'rgba(6, 182, 212, 0.4)',
-      text: 'rgba(6, 182, 212, 1)'
-    };
-    if (intensity < 0.8) return {
-      bg: 'rgba(16, 185, 129, 0.45)',
-      border: 'rgba(16, 185, 129, 0.6)',
-      glow: 'rgba(16, 185, 129, 0.5)',
-      text: 'rgba(16, 185, 129, 1)'
-    };
-    return {
-      bg: 'rgba(34, 197, 94, 0.6)',
-      border: 'rgba(34, 197, 94, 0.8)',
-      glow: 'rgba(34, 197, 94, 0.6)',
-      text: 'rgba(34, 197, 94, 1)'
-    };
+    return getIntensityColors(intensity, theme);
   }, [intensity, theme]);
 
   const conversionRate = useMemo(() => {
     return data.conversations > 0 ? ((data.conversions / data.conversations) * 100).toFixed(1) : '0.0';
   }, [data.conversations, data.conversions]);
+
+  // Calculate percentile rank for display
+  const percentileRank = useMemo(() => {
+    if (data.conversations === 0) return 0;
+    if (data.conversations >= stats.p99) return 99;
+    if (data.conversations >= stats.p95) return 95;
+    if (data.conversations >= stats.p90) return 90;
+    if (data.conversations >= stats.p75) return 75;
+    if (data.conversations >= stats.p50) return 50;
+    if (data.conversations >= stats.p25) return 25;
+    return 10;
+  }, [data.conversations, stats]);
 
   return (
     <Tooltip
@@ -91,7 +245,7 @@ const HeatmapCell = memo(({ data, maxConversations, index }: HeatmapCellProps) =
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
               <CalendarToday sx={{ fontSize: 12, opacity: 0.7 }} />
               <Typography variant="caption" sx={{ opacity: 0.9 }}>
-                {data.conversations} conversas
+                <strong>{data.conversations}</strong> conversas
               </Typography>
             </Box>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -104,6 +258,15 @@ const HeatmapCell = memo(({ data, maxConversations, index }: HeatmapCellProps) =
               <AccessTime sx={{ fontSize: 12, opacity: 0.7 }} />
               <Typography variant="caption" sx={{ opacity: 0.9 }}>
                 {data.avgResponse.toFixed(1)}s resposta média
+              </Typography>
+            </Box>
+            <Box sx={{
+              mt: 1,
+              pt: 1,
+              borderTop: `1px solid ${alpha(theme.palette.divider, 0.2)}`
+            }}>
+              <Typography variant="caption" sx={{ opacity: 0.7, fontStyle: 'italic' }}>
+                Intensidade: <strong>{colors.label}</strong> (Top {100 - percentileRank}%)
               </Typography>
             </Box>
           </Box>
@@ -137,11 +300,11 @@ const HeatmapCell = memo(({ data, maxConversations, index }: HeatmapCellProps) =
     >
       <Box
         sx={{
-          width: 34,
-          height: 34,
+          width: 36,
+          height: 36,
           background: colors.bg,
           border: `1.5px solid ${colors.border}`,
-          borderRadius: '10px',
+          borderRadius: '11px',
           cursor: 'pointer',
           transition: 'all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1)',
           position: 'relative',
@@ -165,10 +328,10 @@ const HeatmapCell = memo(({ data, maxConversations, index }: HeatmapCellProps) =
             border: `2px solid ${colors.border}`,
             boxShadow: `0 12px 35px ${colors.glow}, 0 0 20px ${colors.glow}`,
             zIndex: 100,
-            borderRadius: '12px'
+            borderRadius: '13px'
           },
-          // Pulsing animation for high activity
-          ...(intensity > 0.7 && {
+          // Pulsing animation for very high activity
+          ...(intensity >= 0.85 && {
             animation: `fadeInScale 0.4s ease-out ${index * 0.01}s both, pulse 2s ease-in-out infinite`,
             '@keyframes pulse': {
               '0%, 100%': {
@@ -183,14 +346,14 @@ const HeatmapCell = memo(({ data, maxConversations, index }: HeatmapCellProps) =
           '&::after': intensity > 0 ? {
             content: '""',
             position: 'absolute',
-            width: intensity > 0.6 ? 10 : intensity > 0.3 ? 7 : 5,
-            height: intensity > 0.6 ? 10 : intensity > 0.3 ? 7 : 5,
+            width: intensity >= 0.7 ? 11 : intensity >= 0.4 ? 8 : 6,
+            height: intensity >= 0.7 ? 11 : intensity >= 0.4 ? 8 : 6,
             borderRadius: '50%',
             background: `radial-gradient(circle, ${alpha(theme.palette.common.white, 0.9)}, ${alpha(colors.text, 0.6)})`,
-            opacity: intensity,
-            animation: intensity > 0.8 ? 'glow 1.5s ease-in-out infinite' : 'none',
+            opacity: Math.max(0.4, intensity),
+            animation: intensity >= 0.85 ? 'glow 1.5s ease-in-out infinite' : 'none',
             '@keyframes glow': {
-              '0%, 100%': { opacity: intensity },
+              '0%, 100%': { opacity: Math.max(0.4, intensity) },
               '50%': { opacity: Math.min(1, intensity * 1.3) }
             }
           } : {}
@@ -200,7 +363,7 @@ const HeatmapCell = memo(({ data, maxConversations, index }: HeatmapCellProps) =
   );
 }, (prevProps, nextProps) => {
   return prevProps.data.conversations === nextProps.data.conversations &&
-         prevProps.maxConversations === nextProps.maxConversations;
+         prevProps.stats.max === nextProps.stats.max;
 });
 
 interface HeatmapProps {
@@ -218,38 +381,25 @@ export default function Heatmap({
 }: HeatmapProps) {
   const theme = useTheme();
 
-  // Calculate statistics with useMemo for performance
-  const stats = useMemo(() => {
-    const maxConversations = Math.max(...data.map(d => d.conversations), 1);
-    const totalConversations = data.reduce((sum, d) => sum + d.conversations, 0);
-    const totalConversions = data.reduce((sum, d) => sum + d.conversions, 0);
-    const avgConversionRate = totalConversations > 0 ? (totalConversions / totalConversations * 100) : 0;
+  // Calculate comprehensive statistics
+  const stats = useMemo(() => calculateHeatmapStats(data), [data]);
 
-    // Find peak hours
-    const hourStats = new Map<number, number>();
-    data.forEach(d => {
-      hourStats.set(d.hour, (hourStats.get(d.hour) || 0) + d.conversations);
-    });
-    const peakHour = Array.from(hourStats.entries()).sort((a, b) => b[1] - a[1])[0]?.[0] || 0;
-
-    // Find peak days
-    const dayStats = new Map<string, number>();
-    data.forEach(d => {
-      dayStats.set(d.day, (dayStats.get(d.day) || 0) + d.conversations);
-    });
-    const peakDay = Array.from(dayStats.entries()).sort((a, b) => b[1] - a[1])[0]?.[0] || 'Seg';
-
+  // Data sparsity indicator
+  const dataSparsity = useMemo(() => {
+    const percentage = (stats.cellsWithData / stats.totalCells) * 100;
     return {
-      maxConversations,
-      totalConversations,
-      totalConversions,
-      avgConversionRate,
-      peakHour,
-      peakDay
+      percentage,
+      label: percentage === 0 ? 'Sem dados' :
+             percentage < 20 ? 'Dados esparsos' :
+             percentage < 50 ? 'Dados parciais' :
+             percentage < 80 ? 'Boa cobertura' :
+             'Cobertura completa',
+      color: percentage === 0 ? theme.palette.error.main :
+             percentage < 20 ? theme.palette.warning.main :
+             percentage < 50 ? theme.palette.info.main :
+             theme.palette.success.main
     };
-  }, [data]);
-
-  const maxConversations = stats.maxConversations;
+  }, [stats, theme]);
 
   const content = (
     <Box>
@@ -275,10 +425,19 @@ export default function Heatmap({
             sx={{
               color: alpha(theme.palette.text.secondary, 0.8),
               fontSize: '0.9rem',
+              mb: 1
             }}
           >
             {subtitle}
           </Typography>
+
+          {/* Data Quality Indicator */}
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 1 }}>
+            <Info sx={{ fontSize: 16, color: dataSparsity.color }} />
+            <Typography variant="caption" sx={{ color: dataSparsity.color, fontWeight: 600 }}>
+              {dataSparsity.label} ({dataSparsity.percentage.toFixed(1)}% com dados)
+            </Typography>
+          </Box>
         </Box>
 
         {/* Enhanced Activity Summary Cards */}
@@ -345,7 +504,7 @@ export default function Heatmap({
             </Typography>
           </Box>
 
-          {/* Conversion Rate Card */}
+          {/* Total Conversations Card */}
           <Box sx={{
             p: 2,
             minWidth: 120,
@@ -363,37 +522,38 @@ export default function Heatmap({
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
               <TrendingUp sx={{ fontSize: 18, color: '#6366f1' }} />
               <Typography variant="caption" sx={{ color: alpha(theme.palette.text.secondary, 0.7), fontWeight: 600 }}>
-                CONVERSÕES
+                TOTAL
               </Typography>
             </Box>
             <Typography variant="h6" sx={{ color: '#6366f1', fontWeight: 800, fontSize: '1.5rem' }}>
-              {stats.totalConversions}
+              {stats.totalConversations}
             </Typography>
             <Typography variant="caption" sx={{ color: alpha(theme.palette.text.secondary, 0.6) }}>
-              Total no período
+              Conversas no período
             </Typography>
           </Box>
         </Box>
       </Box>
 
       <Box sx={{ overflowX: 'auto', pb: 2 }}>
-        <Box sx={{ minWidth: 800 }}>
+        <Box sx={{ minWidth: 1050 }}>
           {/* Enhanced Hour labels */}
-          <Box sx={{ display: 'flex', mb: 2, pl: 7 }}>
+          <Box sx={{ display: 'flex', mb: 3, pl: 8, gap: 0.5 }}>
             {Array.from({ length: 24 }, (_, i) => (
               <Box key={i} sx={{
-                width: 38,
+                width: 40,
                 textAlign: 'center',
-                p: 0.5
+                p: 1
               }}>
                 <Typography
-                  variant="caption"
+                  variant="body2"
                   sx={{
                     color: i === stats.peakHour
                       ? '#22c55e'
-                      : alpha(theme.palette.text.secondary, 0.6),
-                    fontWeight: i === stats.peakHour ? 700 : 500,
-                    fontSize: i === stats.peakHour ? '0.8rem' : '0.75rem',
+                      : alpha(theme.palette.text.secondary, 0.7),
+                    fontWeight: i === stats.peakHour ? 800 : 600,
+                    fontSize: i === stats.peakHour ? '0.95rem' : '0.85rem',
+                    letterSpacing: '-0.01em'
                   }}
                 >
                   {i}h
@@ -437,7 +597,7 @@ export default function Heatmap({
                     {day}
                   </Typography>
                 </Box>
-                <Box sx={{ display: 'flex', gap: 1 }}>
+                <Box sx={{ display: 'flex', gap: 1.5 }}>
                   {Array.from({ length: 24 }, (_, hour) => {
                     const heatmapItem = data.find(d => d.day === day && d.hour === hour);
                     const cellIndex = dayIndex * 24 + hour;
@@ -445,15 +605,15 @@ export default function Heatmap({
                       <HeatmapCell
                         key={hour}
                         data={heatmapItem}
-                        maxConversations={maxConversations}
+                        stats={stats}
                         index={cellIndex}
                       />
                     ) : (
                       <Box
                         key={hour}
                         sx={{
-                          width: 34,
-                          height: 34,
+                          width: 36,
+                          height: 36,
                           background: alpha(theme.palette.background.paper, 0.02),
                           border: `1px solid ${alpha(theme.palette.divider, 0.08)}`,
                           borderRadius: '10px',
@@ -472,7 +632,7 @@ export default function Heatmap({
             );
           })}
 
-          {/* Enhanced Legend */}
+          {/* Enhanced Legend with Percentile Information */}
           <Box sx={{
             display: 'flex',
             alignItems: 'center',
@@ -486,7 +646,7 @@ export default function Heatmap({
             border: `1px solid ${alpha(theme.palette.divider, 0.15)}`,
             backdropFilter: 'blur(10px)'
           }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
               <Typography
                 variant="body2"
                 sx={{
@@ -495,7 +655,7 @@ export default function Heatmap({
                   fontSize: '0.9rem'
                 }}
               >
-                Escala de Intensidade
+                Escala de Intensidade (Percentil)
               </Typography>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
                 <Typography variant="caption" sx={{ color: alpha(theme.palette.text.secondary, 0.6), fontWeight: 500 }}>
@@ -503,28 +663,29 @@ export default function Heatmap({
                 </Typography>
                 <Box sx={{ display: 'flex', gap: 0.75 }}>
                   {[
-                    { bg: alpha(theme.palette.background.paper, 0.03), border: alpha(theme.palette.divider, 0.1) },
-                    { bg: 'rgba(99, 102, 241, 0.15)', border: 'rgba(99, 102, 241, 0.3)' },
-                    { bg: 'rgba(59, 130, 246, 0.25)', border: 'rgba(59, 130, 246, 0.4)' },
-                    { bg: 'rgba(6, 182, 212, 0.35)', border: 'rgba(6, 182, 212, 0.5)' },
-                    { bg: 'rgba(16, 185, 129, 0.45)', border: 'rgba(16, 185, 129, 0.6)' },
-                    { bg: 'rgba(34, 197, 94, 0.6)', border: 'rgba(34, 197, 94, 0.8)' }
+                    { bg: alpha(theme.palette.background.paper, 0.03), border: alpha(theme.palette.divider, 0.1), label: '0' },
+                    { bg: 'rgba(139, 92, 246, 0.12)', border: 'rgba(139, 92, 246, 0.25)', label: '<30%' },
+                    { bg: 'rgba(59, 130, 246, 0.18)', border: 'rgba(59, 130, 246, 0.35)', label: '30-50%' },
+                    { bg: 'rgba(6, 182, 212, 0.25)', border: 'rgba(6, 182, 212, 0.45)', label: '50-70%' },
+                    { bg: 'rgba(251, 146, 60, 0.35)', border: 'rgba(251, 146, 60, 0.55)', label: '70-85%' },
+                    { bg: 'rgba(239, 68, 68, 0.45)', border: 'rgba(239, 68, 68, 0.65)', label: '>85%' }
                   ].map((color, i) => (
-                    <Box
-                      key={i}
-                      sx={{
-                        width: 24,
-                        height: 24,
-                        background: color.bg,
-                        border: `1.5px solid ${color.border}`,
-                        borderRadius: '6px',
-                        transition: 'all 0.2s ease',
-                        '&:hover': {
-                          transform: 'scale(1.15) translateY(-2px)',
-                          boxShadow: `0 4px 12px ${color.border}`
-                        }
-                      }}
-                    />
+                    <Tooltip key={i} title={color.label} arrow>
+                      <Box
+                        sx={{
+                          width: 24,
+                          height: 24,
+                          background: color.bg,
+                          border: `1.5px solid ${color.border}`,
+                          borderRadius: '6px',
+                          transition: 'all 0.2s ease',
+                          '&:hover': {
+                            transform: 'scale(1.15) translateY(-2px)',
+                            boxShadow: `0 4px 12px ${color.border}`
+                          }
+                        }}
+                      />
+                    </Tooltip>
                   ))}
                 </Box>
                 <Typography variant="caption" sx={{ color: alpha(theme.palette.text.secondary, 0.6), fontWeight: 500 }}>
@@ -549,6 +710,15 @@ export default function Heatmap({
                 </Typography>
                 <Typography variant="caption" sx={{ color: alpha(theme.palette.text.secondary, 0.7) }}>
                   Conversões
+                </Typography>
+              </Box>
+              <Box sx={{ width: '1px', height: 32, background: alpha(theme.palette.divider, 0.2) }} />
+              <Box sx={{ textAlign: 'center' }}>
+                <Typography variant="h6" sx={{ color: theme.palette.info.main, fontWeight: 800 }}>
+                  {stats.p50}
+                </Typography>
+                <Typography variant="caption" sx={{ color: alpha(theme.palette.text.secondary, 0.7) }}>
+                  Mediana
                 </Typography>
               </Box>
             </Box>
