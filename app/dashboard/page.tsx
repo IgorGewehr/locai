@@ -85,6 +85,12 @@ interface StatCardProps {
 }
 
 function StatCard({ title, value, subtitle, icon, trend, color }: StatCardProps) {
+  const [mounted, setMounted] = React.useState(false);
+
+  React.useEffect(() => {
+    setMounted(true);
+  }, []);
+
   const colorMap = {
     primary: { gradient: '#6366f1, #8b5cf6', shadow: 'rgba(99, 102, 241, 0.3)' },
     secondary: { gradient: '#8b5cf6, #d946ef', shadow: 'rgba(139, 92, 246, 0.3)' },
@@ -186,9 +192,10 @@ function StatCard({ title, value, subtitle, icon, trend, color }: StatCardProps)
               fontSize: { xs: '1.75rem', md: '2rem' },
               letterSpacing: '-0.02em',
               lineHeight: 1.2,
+              minHeight: { xs: '2.5rem', md: '3rem' }, // Previne layout shift
             }}
           >
-            {typeof value === 'number' && !isNaN(value) ? value.toLocaleString() : (value || '0')}
+            {mounted ? (typeof value === 'number' && !isNaN(value) ? value.toLocaleString() : (value || '0')) : '...'}
           </Typography>
 
           <Typography
@@ -470,9 +477,10 @@ export default function DashboardPage() {
         {/* Main Statistics Row - 4 Key Metrics */}
         <Grid item xs={12} sm={6} lg={3}>
           <StatCard
+            key={`properties-${stats.activeProperties}-${loading}`}
             title="Propriedades Ativas"
-            value={loading ? 0 : stats.activeProperties}
-            subtitle={loading ? "Carregando..." : `${stats.totalProperties} total`}
+            value={stats.activeProperties}
+            subtitle={`${stats.totalProperties} total`}
             icon={<Home sx={{ fontSize: { xs: 28, md: 32 } }} />}
             color="primary"
             trend={{ value: trends.propertiesTrend, isPositive: trends.propertiesTrend >= 0 }}
@@ -481,9 +489,10 @@ export default function DashboardPage() {
 
         <Grid item xs={12} sm={6} lg={3}>
           <StatCard
+            key={`reservations-${stats.pendingReservations}-${loading}`}
             title="Reservas Pendentes"
-            value={loading ? 0 : stats.pendingReservations}
-            subtitle={loading ? "Carregando..." : `${stats.totalReservations} total`}
+            value={stats.pendingReservations}
+            subtitle={`${stats.totalReservations} total`}
             icon={<CalendarMonth sx={{ fontSize: { xs: 28, md: 32 } }} />}
             color="secondary"
             trend={{ value: trends.reservationsTrend, isPositive: trends.reservationsTrend >= 0 }}
@@ -492,9 +501,10 @@ export default function DashboardPage() {
 
         <Grid item xs={12} sm={6} lg={3}>
           <StatCard
+            key={`revenue-${stats.monthlyRevenue}-${loading}`}
             title="Receita Mensal"
-            value={loading ? "R$ 0" : `R$ ${(isNaN(stats.monthlyRevenue) ? 0 : stats.monthlyRevenue / 1000).toFixed(1)}k`}
-            subtitle={loading ? "Carregando..." : `R$ ${(isNaN(stats.totalRevenue) ? 0 : stats.totalRevenue / 1000).toFixed(0)}k total`}
+            value={`R$ ${(isNaN(stats.monthlyRevenue) ? 0 : stats.monthlyRevenue / 1000).toFixed(1)}k`}
+            subtitle={`R$ ${(isNaN(stats.totalRevenue) ? 0 : stats.totalRevenue / 1000).toFixed(0)}k total`}
             icon={<AttachMoney sx={{ fontSize: { xs: 28, md: 32 } }} />}
             color="success"
             trend={{ value: trends.revenueTrend, isPositive: trends.revenueTrend >= 0 }}
@@ -503,9 +513,10 @@ export default function DashboardPage() {
 
         <Grid item xs={12} sm={6} lg={3}>
           <StatCard
+            key={`occupancy-${stats.occupancyRate}-${loading}`}
             title="Taxa de Ocupação"
-            value={loading ? "0%" : `${(isNaN(stats.occupancyRate) ? 0 : stats.occupancyRate).toFixed(1)}%`}
-            subtitle={loading ? "Carregando..." : `${stats.activeProperties} propriedades ativas`}
+            value={`${(isNaN(stats.occupancyRate) ? 0 : stats.occupancyRate).toFixed(1)}%`}
+            subtitle={`${stats.activeProperties} propriedades ativas`}
             icon={<People sx={{ fontSize: { xs: 28, md: 32 } }} />}
             color="warning"
             trend={{ value: trends.occupancyTrend, isPositive: trends.occupancyTrend >= 0 }}
