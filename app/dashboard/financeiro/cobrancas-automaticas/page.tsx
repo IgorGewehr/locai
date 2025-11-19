@@ -29,6 +29,7 @@ import {
   Warning,
   CheckCircle,
   NotificationsActive,
+  Send,
 } from '@mui/icons-material';
 import { useTenant } from '@/contexts/TenantContext';
 import { useAuth } from '@/contexts/AuthProvider';
@@ -46,8 +47,10 @@ export default function CobrancasAutomaticasPage() {
 
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+  const [sendResult, setSendResult] = useState<any>(null);
 
   const [config, setConfig] = useState<AutoBillingConfig>({
     enabled: false,
@@ -128,6 +131,38 @@ export default function CobrancasAutomaticasPage() {
       setError(err instanceof Error ? err.message : 'Erro ao salvar configuração');
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleSendNow = async () => {
+    if (!tenantId) return;
+
+    setSending(true);
+    setError(null);
+    setSendResult(null);
+
+    try {
+      const token = await getFirebaseToken();
+      const response = await fetch('/api/billing/send-reminders', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Falha ao enviar lembretes');
+      }
+
+      const data = await response.json();
+      setSendResult(data.data);
+    } catch (err) {
+      console.error('Error sending reminders:', err);
+      setError(err instanceof Error ? err.message : 'Erro ao enviar lembretes');
+    } finally {
+      setSending(false);
     }
   };
 
@@ -297,23 +332,52 @@ Equipe"
               </Alert>
             )}
 
+            {/* Send Result */}
+            {sendResult && (
+              <Alert severity={sendResult.sent > 0 ? "success" : "info"} onClose={() => setSendResult(null)}>
+                <Typography variant="body2" fontWeight={600}>
+                  Resultado do Envio:
+                </Typography>
+                <Typography variant="caption" component="div" sx={{ mt: 1 }}>
+                  • Processados: {sendResult.processed}
+                  <br />
+                  • Enviados: {sendResult.sent}
+                  <br />
+                  • Ignorados: {sendResult.skipped}
+                  <br />
+                  • Falhas: {sendResult.failed}
+                </Typography>
+              </Alert>
+            )}
+
             {/* Actions */}
-            <Stack direction="row" spacing={2} justifyContent="flex-end">
+            <Stack direction="row" spacing={2} justifyContent="space-between">
               <Button
                 variant="outlined"
-                onClick={loadConfig}
-                disabled={saving || loading}
+                onClick={handleSendNow}
+                disabled={sending || !config.enabled}
+                startIcon={sending ? <CircularProgress size={20} /> : <Send />}
+                color="info"
               >
-                Cancelar
+                {sending ? 'Enviando...' : 'Enviar Lembretes Agora'}
               </Button>
-              <Button
-                variant="contained"
-                onClick={handleSave}
-                disabled={saving || loading}
-                startIcon={saving ? <CircularProgress size={20} /> : <Save />}
-              >
-                {saving ? 'Salvando...' : 'Salvar Configuração'}
-              </Button>
+              <Stack direction="row" spacing={2}>
+                <Button
+                  variant="outlined"
+                  onClick={loadConfig}
+                  disabled={saving || loading}
+                >
+                  Cancelar
+                </Button>
+                <Button
+                  variant="contained"
+                  onClick={handleSave}
+                  disabled={saving || loading}
+                  startIcon={saving ? <CircularProgress size={20} /> : <Save />}
+                >
+                  {saving ? 'Salvando...' : 'Salvar Configuração'}
+                </Button>
+              </Stack>
             </Stack>
           </Stack>
         </CardContent>

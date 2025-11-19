@@ -1,10 +1,10 @@
 # Sistema de Cobranças Automáticas
 
-Sistema de lembretes automáticos via WhatsApp para recebimentos pendentes.
+Sistema simplificado de lembretes via WhatsApp para recebimentos pendentes.
 
 ## 📋 Visão Geral
 
-O sistema envia lembretes automáticos via WhatsApp para clientes com recebimentos pendentes, baseado em configurações personalizáveis por tenant.
+O sistema permite configurar e enviar lembretes via WhatsApp para clientes com recebimentos pendentes. O envio pode ser feito manualmente via interface ou agendado externamente.
 
 ## 🏗️ Arquitetura
 
@@ -26,16 +26,13 @@ O sistema envia lembretes automáticos via WhatsApp para clientes com recebiment
    - Autenticação: Firebase Auth (token obrigatório)
    - Storage: `tenants/{tenantId}/billing_config/auto_charge`
 
-3. **API de Processamento**
-   - Localização: `/app/api/billing/process/route.ts`
-   - Endpoint: `POST /api/billing/process`
-   - Autenticação: Bearer token com `CRON_SECRET`
-   - Executado via Vercel Cron (a cada 30 minutos)
-
-4. **Cron Job**
-   - Localização: `vercel.json`
-   - Schedule: `*/30 * * * *` (a cada 30 minutos)
-   - Path: `/api/billing/process`
+3. **API de Envio de Lembretes**
+   - Localização: `/app/api/billing/send-reminders/route.ts`
+   - Endpoints:
+     - `POST /api/billing/send-reminders` - Enviar lembretes agora
+     - `GET /api/billing/send-reminders` - Status e estatísticas
+   - Autenticação: Firebase Auth (token obrigatório)
+   - Uso: Interface web (botão "Enviar Lembretes Agora") ou chamada externa
 
 ## 🔄 Fluxo de Execução
 
@@ -60,39 +57,39 @@ interface AutoBillingConfig {
 }
 ```
 
-### 2. Processamento Automático (a cada 30 min)
+### 2. Envio de Lembretes (manual ou agendado)
 
 ```
-1. Cron Job (Vercel) chama /api/billing/process
-2. API valida CRON_SECRET
-3. Para cada tenant (usando DEFAULT_TENANT_ID no MVP):
-   a. Busca configuração do tenant
-   b. Verifica se está habilitado
-   c. Verifica se está na janela de horário (±30 min)
-   d. Calcula data-alvo: hoje + daysBeforeDue
-   e. Busca transações pendentes com dueDate = data-alvo
-   f. Para cada transação:
-      - Verifica se tem clientId
-      - Busca dados do cliente (whatsappNumber)
-      - Verifica se lembrete já foi enviado
-      - Envia mensagem via /api/whatsapp/send-n8n
-      - Marca lembrete como enviado
-4. Retorna estatísticas de processamento
+1. Usuário clica em "Enviar Lembretes Agora" OU serviço externo chama a API
+2. API valida autenticação Firebase
+3. Busca configuração do tenant
+4. Verifica se está habilitado
+5. Calcula data-alvo: hoje + daysBeforeDue
+6. Busca transações pendentes com dueDate = data-alvo
+7. Para cada transação:
+   - Verifica se tem clientId
+   - Busca dados do cliente (whatsappNumber)
+   - Verifica se lembrete já foi enviado
+   - Envia mensagem via WhatsApp Microservice
+   - Marca lembrete como enviado
+8. Retorna estatísticas (enviados, ignorados, falhas)
 ```
 
 ### 3. Envio de Mensagem
 
 ```typescript
-// Chamada para API de WhatsApp (N8N)
-POST /api/whatsapp/send-n8n
+// Chamada para WhatsApp Microservice (mesma usada em conversas)
+POST ${WHATSAPP_MICROSERVICE_URL}/api/v1/messages/${tenantId}/send
 Headers: {
   'Content-Type': 'application/json',
-  'Authorization': 'Bearer {N8N_API_KEY}'
+  'Authorization': 'Bearer {WHATSAPP_MICROSERVICE_API_KEY}'
 }
 Body: {
   tenantId: string,
-  clientPhone: string,      // Formato: 554799999999 (sem sufixos)
-  finalMessage: string      // Mensagem configurada pelo usuário
+  to: string,               // Número do cliente
+  message: string,          // Mensagem configurada
+  type: 'text',
+  source: 'billing_reminder'
 }
 ```
 
@@ -152,13 +149,10 @@ Body: {
 
 ### Autenticação
 
-1. **Interface Web:** Firebase Auth
-   - Token JWT validado em `GET/PUT /api/billing/config`
-   - TenantId extraído do token
-
-2. **Cron Job:** CRON_SECRET
-   - Header: `Authorization: Bearer {CRON_SECRET}`
-   - Validado em `POST /api/billing/process`
+**Todas as APIs:** Firebase Auth
+- Token JWT validado em todas as rotas
+- TenantId extraído do token
+- Usuário deve estar autenticado na plataforma
 
 ### Validação de Dados
 
@@ -179,21 +173,18 @@ const AutoBillingConfigSchema = z.object({
 
 ## 🌍 Variáveis de Ambiente
 
-**Requeridas:**
+**Já configuradas (não precisa adicionar nada novo):**
 
 ```bash
-# Cron authentication
-CRON_SECRET=your_random_secret_min_32_chars
+# WhatsApp Microservice (já existe)
+WHATSAPP_MICROSERVICE_URL=http://your-server:3001
+WHATSAPP_MICROSERVICE_API_KEY=your_key
 
-# N8N integration (para envio de mensagens)
-N8N_API_KEY=your_n8n_api_key
-
-# Tenant configuration (MVP mode)
-DEFAULT_TENANT_ID=your_tenant_id
-
-# Application URL (para construir URLs internas)
-NEXT_PUBLIC_APP_URL=https://your-app-domain.com
+# Firebase (já existe)
+# Usado para autenticação
 ```
+
+**Nota:** O sistema usa apenas variáveis que já existem na aplicação. Nenhuma configuração adicional é necessária.
 
 ## 📊 Logging e Monitoramento
 
@@ -260,37 +251,34 @@ logger.error('[BILLING-PROCESS] Operation failed', {
 }
 ```
 
-## 🚀 Deploy
+## 🚀 Como Usar
 
-### Vercel
+### 1. Configurar Lembretes
 
-1. **Adicionar variáveis de ambiente:**
-   ```bash
-   vercel env add CRON_SECRET
-   vercel env add N8N_API_KEY
-   vercel env add DEFAULT_TENANT_ID
-   ```
+1. Acesse `/dashboard/financeiro/cobrancas-automaticas`
+2. Ative o sistema
+3. Configure:
+   - Quantos dias antes do vencimento enviar
+   - Horário preferido (informativo)
+   - Mensagem personalizada
+4. Salve a configuração
 
-2. **Deploy automático:**
-   ```bash
-   git push origin main
-   ```
+### 2. Enviar Lembretes
 
-3. **Verificar cron jobs:**
-   - Vercel Dashboard > Project > Settings > Cron Jobs
-   - Deve aparecer: `/api/billing/process` com schedule `*/30 * * * *`
+**Opção 1: Manual (pela interface)**
+- Clique no botão "Enviar Lembretes Agora"
+- Veja resultado imediato (enviados, ignorados, falhas)
 
-### Testes Manuais
-
+**Opção 2: Via API**
 ```bash
-# Testar configuração
-curl -X GET https://your-app.vercel.app/api/billing/config \
+curl -X POST https://your-app.com/api/billing/send-reminders \
   -H "Authorization: Bearer {FIREBASE_TOKEN}"
-
-# Testar processamento (local)
-curl -X POST http://localhost:3000/api/billing/process \
-  -H "Authorization: Bearer {CRON_SECRET}"
 ```
+
+**Opção 3: Agendar externamente** (futuro)
+- Use um serviço externo (cron, scheduler, etc)
+- Chame a API diariamente no horário configurado
+- Sistema envia apenas para transações na data correta
 
 ## 🔧 Manutenção
 
