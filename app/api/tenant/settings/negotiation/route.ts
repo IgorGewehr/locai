@@ -5,6 +5,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { validateFirebaseAuth } from '@/lib/middleware/firebase-auth';
 import { logger } from '@/lib/utils/logger';
 import { db } from '@/lib/firebase/config';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
 import {
   NegotiationSettings,
   DEFAULT_NEGOTIATION_SETTINGS
@@ -25,33 +26,25 @@ export async function GET(request: NextRequest) {
     const { tenantId } = authContext;
 
     // ✅ NOVO PATH: config/negotiation (padrão desde Nov 2025)
-    const configRef = db
-      .collection('tenants')
-      .doc(tenantId)
-      .collection('config')
-      .doc('negotiation');
+    const configRef = doc(db, 'tenants', tenantId, 'config', 'negotiation');
 
     // ❌ PATH ANTIGO: settings/negotiation (fallback para compatibilidade)
-    const oldSettingsRef = db
-      .collection('tenants')
-      .doc(tenantId)
-      .collection('settings')
-      .doc('negotiation');
+    const oldSettingsRef = doc(db, 'tenants', tenantId, 'settings', 'negotiation');
 
-    let settingsDoc = await configRef.get();
+    let settingsDoc = await getDoc(configRef);
 
-    if (!settingsDoc.exists) {
+    if (!settingsDoc.exists()) {
       // Tentar path antigo como fallback
       logger.info('📋 [NEGOTIATION-SETTINGS] Config not found, trying old path', {
         tenantId: tenantId.substring(0, 8) + '***'
       });
 
-      settingsDoc = await oldSettingsRef.get();
+      settingsDoc = await getDoc(oldSettingsRef);
 
-      if (settingsDoc.exists) {
+      if (settingsDoc.exists()) {
         // Migrar automaticamente para novo path
         const data = settingsDoc.data();
-        await configRef.set(data);
+        await setDoc(configRef, data);
 
         logger.info('✅ [NEGOTIATION-SETTINGS] Migrated from old path to config/', {
           tenantId: tenantId.substring(0, 8) + '***'
@@ -59,7 +52,7 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    if (!settingsDoc.exists) {
+    if (!settingsDoc.exists()) {
       // Retornar configurações padrão se não existir
       logger.info('📋 [NEGOTIATION-SETTINGS] Returning default settings', {
         tenantId: tenantId.substring(0, 8) + '***'
@@ -191,13 +184,8 @@ export async function PUT(request: NextRequest) {
     };
 
     // Salvar no Firestore (NOVO PATH: config/negotiation)
-    const settingsRef = db
-      .collection('tenants')
-      .doc(tenantId)
-      .collection('config')
-      .doc('negotiation');
-
-    await settingsRef.set(settings);
+    const settingsRef = doc(db, 'tenants', tenantId, 'config', 'negotiation');
+    await setDoc(settingsRef, settings);
 
     logger.info('✅ [NEGOTIATION-SETTINGS] Settings updated', {
       tenantId: tenantId.substring(0, 8) + '***',
@@ -280,13 +268,8 @@ export async function POST(request: NextRequest) {
     }
 
     // Salvar no Firestore (NOVO PATH: config/negotiation)
-    const settingsRef = db
-      .collection('tenants')
-      .doc(tenantId)
-      .collection('config')
-      .doc('negotiation');
-
-    await settingsRef.set(settings);
+    const settingsRef = doc(db, 'tenants', tenantId, 'config', 'negotiation');
+    await setDoc(settingsRef, settings);
 
     logger.info('✅ [NEGOTIATION-SETTINGS] Preset applied', {
       tenantId: tenantId.substring(0, 8) + '***',
