@@ -55,9 +55,6 @@ import {
   Block,
   Schedule,
   CloudUpload,
-  Policy,
-  Business,
-  Psychology,
 } from '@mui/icons-material';
 import type { Property } from '@/lib/types/property';
 import PropertyImportDialog from '@/components/organisms/PropertyImport/PropertyImportDialog';
@@ -117,49 +114,6 @@ export default function PropertiesPage() {
 
     loadProperties();
   }, [services, isReady]);
-
-  // Load cancellation policy
-  useEffect(() => {
-    const loadPolicy = async () => {
-      if (!tenantId || !isReady) return;
-
-      try {
-        const { createSettingsService } = await import('@/lib/services/settings-service');
-        const settingsService = createSettingsService(tenantId);
-        const settings = await settingsService.getSettings(tenantId);
-
-        if (settings?.cancellationPolicy) {
-          setCancellationPolicy(settings.cancellationPolicy);
-        } else {
-          // ✅ CORREÇÃO: Fornecer política padrão se não existir
-          setCancellationPolicy({
-            enabled: true,
-            rules: [
-              { daysBeforeCheckIn: 7, refundPercentage: 100, description: 'Reembolso total' },
-              { daysBeforeCheckIn: 3, refundPercentage: 50, description: 'Reembolso parcial' },
-              { daysBeforeCheckIn: 0, refundPercentage: 0, description: 'Sem reembolso' },
-            ],
-            defaultRefundPercentage: 0,
-            forceMajeure: true,
-          });
-        }
-      } catch (error) {
-        // ✅ CORREÇÃO: Mesmo em erro, fornecer política padrão
-        setCancellationPolicy({
-          enabled: true,
-          rules: [
-            { daysBeforeCheckIn: 7, refundPercentage: 100, description: 'Reembolso total' },
-            { daysBeforeCheckIn: 3, refundPercentage: 50, description: 'Reembolso parcial' },
-            { daysBeforeCheckIn: 0, refundPercentage: 0, description: 'Sem reembolso' },
-          ],
-          defaultRefundPercentage: 0,
-          forceMajeure: true,
-        });
-      }
-    };
-
-    loadPolicy();
-  }, [tenantId, isReady]);
 
   useEffect(() => {
     let filtered = properties;
@@ -248,79 +202,6 @@ export default function PropertiesPage() {
     setImportDialogOpen(false);
   };
 
-  const handleSavePolicy = async (policy: CancellationPolicy) => {
-    if (!tenantId) return;
-
-    setSavingPolicy(true);
-    try {
-      const { createSettingsService } = await import('@/lib/services/settings-service');
-      const settingsService = createSettingsService(tenantId);
-      await settingsService.updateCancellationPolicy(tenantId, policy);
-      setCancellationPolicy(policy);
-    } catch (error) {
-      // Policy save error handled
-    } finally {
-      setSavingPolicy(false);
-    }
-  };
-
-  // Load company address
-  useEffect(() => {
-    const loadAddress = async () => {
-      if (!tenantId || !isReady) return;
-
-      try {
-        const { createSettingsService } = await import('@/lib/services/settings-service');
-        const settingsService = createSettingsService(tenantId);
-        const settings = await settingsService.getSettings(tenantId);
-
-        if (settings?.company) {
-          setCompanyAddress({
-            address: settings.company.address || '',
-            street: settings.company.street || '',
-            neighborhood: settings.company.neighborhood || '',
-            city: settings.company.city || '',
-            state: settings.company.state || '',
-            zipCode: settings.company.zipCode || '',
-            country: settings.company.country || 'Brasil'
-          });
-        }
-      } catch (error) {
-        // Address loading error handled silently
-      }
-    };
-
-    loadAddress();
-  }, [tenantId, isReady]);
-
-  const handleSaveAddress = async () => {
-    if (!tenantId) return;
-
-    setSavingAddress(true);
-    try {
-      const { createSettingsService } = await import('@/lib/services/settings-service');
-      const settingsService = createSettingsService(tenantId);
-
-      await settingsService.updateCompanySettings(tenantId, {
-        address: companyAddress.address,
-        street: companyAddress.street,
-        neighborhood: companyAddress.neighborhood,
-        city: companyAddress.city,
-        state: companyAddress.state,
-        zipCode: companyAddress.zipCode,
-        country: companyAddress.country
-      });
-
-      setAddressDialogOpen(false);
-    } catch (error) {
-      // Address save error handled
-    } finally {
-      setSavingAddress(false);
-    }
-  };
-
-  // Removed getStatusChip function as status field doesn't exist in current Property interface
-
   return (
     <Box>
       {/* Header */}
@@ -344,33 +225,6 @@ export default function PropertiesPage() {
           Imóveis
         </Typography>
         <Box sx={{ display: 'flex', gap: { xs: 1, md: 2 }, flexDirection: { xs: 'column', sm: 'row' } }}>
-          <ModernButton
-            variant="outlined"
-            size="large"
-            icon={<Policy />}
-            onClick={() => router.push('/dashboard/settings/policies')}
-            sx={{ minWidth: { xs: 'auto', sm: '160px' } }}
-          >
-            Políticas
-          </ModernButton>
-          <ModernButton
-            variant="outlined"
-            size="large"
-            icon={<Psychology />}
-            onClick={() => router.push('/dashboard/settings/negotiation')}
-            sx={{ minWidth: { xs: 'auto', sm: '160px' } }}
-          >
-            Negociação
-          </ModernButton>
-          <ModernButton
-            variant="outlined"
-            size="large"
-            icon={<Business />}
-            onClick={() => router.push('/dashboard/settings/company')}
-            sx={{ minWidth: { xs: 'auto', sm: '160px' } }}
-          >
-            Endereço
-          </ModernButton>
           <ModernButton
             variant="outlined"
             size="large"

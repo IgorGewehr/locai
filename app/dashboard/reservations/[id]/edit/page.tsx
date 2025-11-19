@@ -67,6 +67,7 @@ import ModernButton from '@/components/atoms/ModernButton';
 import { useTenant } from '@/contexts/TenantContext';
 import type { Client, Reservation } from '@/lib/types';
 import { clientServiceWrapper } from '@/lib/services/client-service';
+import { logger } from '@/lib/utils/logger';
 
 interface ReservationFormData {
   propertyId: string;
@@ -194,7 +195,10 @@ export default function EditReservationPage() {
         });
 
       } catch (err) {
-        console.error('Error loading data:', err);
+        logger.error('Error loading data', {
+          error: err instanceof Error ? err.message : 'Unknown error',
+          reservationId: id
+        });
         setError(err instanceof Error ? err.message : 'Erro ao carregar dados');
       } finally {
         setLoadingData(false);
@@ -281,7 +285,10 @@ export default function EditReservationPage() {
 
         // Usar o ClientService diretamente (com validação de duplicatas)
         const createdClient = await clientServiceWrapper.create(clientData);
-        console.log('🔍 Cliente criado:', createdClient);
+        logger.info('Cliente criado com sucesso', {
+          clientId: createdClient.id,
+          clientName: clientData.name
+        });
         finalClientId = createdClient.id;
       }
 

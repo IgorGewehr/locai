@@ -39,6 +39,7 @@ import {
   Payment as PaymentIcon,
   ArrowBack as ArrowBackIcon,
   Dashboard as DashboardIcon,
+  WhatsApp as WhatsAppIcon,
 } from '@mui/icons-material';
 import { Breadcrumbs, Link } from '@mui/material';
 import { usePathname, useRouter } from 'next/navigation';
@@ -57,41 +58,46 @@ interface SettingsSection {
 
 const SETTINGS_SECTIONS: SettingsSection[] = [
   {
+    id: 'whatsapp',
+    label: 'WhatsApp',
+    icon: <WhatsAppIcon />,
+    path: '/dashboard/settings/whatsapp',
+    description: 'Conexão e integração do WhatsApp',
+  },
+  {
     id: 'profile',
-    label: 'Perfil & Conta',
+    label: 'Perfil',
     icon: <PersonIcon />,
-    path: '/dashboard/settings',
-    description: 'Informações pessoais, senha e preferências',
+    path: '/dashboard/settings/profile',
+    description: 'Informações pessoais e senha',
   },
   {
     id: 'company',
     label: 'Empresa',
     icon: <BusinessIcon />,
     path: '/dashboard/settings/company',
-    description: 'Dados da empresa e informações bancárias',
+    description: 'Dados da empresa',
+  },
+  {
+    id: 'financial',
+    label: 'Dados Financeiros',
+    icon: <PaymentIcon />,
+    path: '/dashboard/settings/financial',
+    description: 'Informações bancárias para TED',
   },
   {
     id: 'ai-config',
-    label: 'Agentes de IA',
+    label: 'IA & Negociação',
     icon: <AIIcon />,
     path: '/dashboard/settings/ai-config',
-    badge: 'NOVO',
-    badgeColor: 'success',
-    description: 'Configure recursos de IA: pagamentos, contratos, analytics',
-  },
-  {
-    id: 'negotiation',
-    label: 'Negociação',
-    icon: <NegotiationIcon />,
-    path: '/dashboard/settings/negotiation',
-    description: 'Regras de descontos, limites e estratégias de vendas',
+    description: 'Configurações do agente de IA',
   },
   {
     id: 'policies',
     label: 'Políticas',
     icon: <PolicyIcon />,
     path: '/dashboard/settings/policies',
-    description: 'Cancelamento, termos de uso e privacidade',
+    description: 'Regras e políticas de atendimento',
   },
 ];
 
@@ -262,7 +268,7 @@ export default function SettingsLayout({ children }: { children: ReactNode }) {
               </ListItem>
 
               {/* Divider after certain sections */}
-              {(section.id === 'company' || section.id === 'negotiation') && (
+              {(section.id === 'profile' || section.id === 'financial') && (
                 <Divider sx={{ my: 1.5, mx: 2 }} />
               )}
             </Box>

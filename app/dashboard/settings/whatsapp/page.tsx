@@ -30,7 +30,7 @@ interface WhatsAppStatus {
   qrCode?: string | null;
 }
 
-export default function WhatsAppTab() {
+export default function WhatsAppPage() {
   const { tenantId } = useTenant();
   const { getFirebaseToken } = useAuth();
 
@@ -41,10 +41,19 @@ export default function WhatsAppTab() {
 
   useEffect(() => {
     loadStatus();
-    // Poll status every 5 seconds
-    const interval = setInterval(loadStatus, 5000);
+
+    // Adaptive polling based on state
+    // Fast (3s) when waiting for connection, slow (30s) when connected or disconnected
+    const getPollingInterval = () => {
+      if (status.status === 'qr_ready' || status.status === 'initializing') {
+        return 3000; // 3 seconds - check connection frequently
+      }
+      return 30000; // 30 seconds - check status periodically
+    };
+
+    const interval = setInterval(loadStatus, getPollingInterval());
     return () => clearInterval(interval);
-  }, [tenantId]);
+  }, [tenantId, status.status]); // Re-create interval when status changes
 
   const loadStatus = async () => {
     if (!tenantId) return;
@@ -153,6 +162,16 @@ export default function WhatsAppTab() {
 
   return (
     <Box>
+      {/* Page Header */}
+      <Box sx={{ mb: 4 }}>
+        <Typography variant="h5" fontWeight={600} gutterBottom>
+          Conexão WhatsApp
+        </Typography>
+        <Typography variant="body2" color="text.secondary">
+          Configure e gerencie a conexão do WhatsApp com o sistema
+        </Typography>
+      </Box>
+
       {error && (
         <Alert severity="error" sx={{ mb: 3 }} onClose={() => setError(null)}>
           {error}

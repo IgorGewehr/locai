@@ -7,6 +7,7 @@ import { UpdatePropertySchema } from '@/lib/validation/property-schemas'
 import { UltraPermissiveUpdatePropertySchema } from '@/lib/validation/ultra-permissive-schemas'
 import type { Property } from '@/lib/types/property'
 import { propertyCache } from '@/lib/cache/property-cache-manager'
+import { logger } from '@/lib/utils/logger'
 
 // GET /api/properties/[id] - Get a single property by ID
 export async function GET(
@@ -138,13 +139,24 @@ export async function PUT(
       }).filter(url => url);
     }
 
-    // Atualização da propriedade
+    // ✅ Atualização da propriedade com logging adequado
 
     try {
       await services.properties.update(resolvedParams.id, finalUpdate)
-      // Property update successful
+
+      logger.info('[PROPERTY-UPDATE] Update successful', {
+        propertyId: resolvedParams.id,
+        tenantId: authContext.tenantId,
+        fieldsUpdated: Object.keys(finalUpdate).length,
+        hasPhotos: !!finalUpdate.photos,
+        hasVideos: !!finalUpdate.videos
+      })
     } catch (updateError) {
-      // Property update failed
+      logger.error('[PROPERTY-UPDATE] Update failed', updateError as Error, {
+        propertyId: resolvedParams.id,
+        tenantId: authContext.tenantId,
+        attemptedFields: Object.keys(finalUpdate)
+      })
       throw updateError; // Re-throw to trigger main error handler
     }
 

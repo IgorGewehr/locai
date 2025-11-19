@@ -9,6 +9,7 @@ import { logger } from '@/lib/utils/logger';
 import { handleApiError } from '@/lib/utils/api-errors';
 import { validateFirebaseAuth } from '@/lib/middleware/firebase-auth';
 import { TenantServiceFactory } from '@/lib/firebase/firestore-v2';
+import { getFirestore } from 'firebase-admin/firestore';
 import type { AutoBillingConfig } from '../config/route';
 
 interface SendResult {
@@ -47,7 +48,8 @@ export async function POST(request: NextRequest) {
 
     // Get billing configuration
     const services = new TenantServiceFactory(tenantId);
-    const configDoc = await services.getFirestore()
+    const firestore = getFirestore();
+    const configDoc = await firestore
       .collection(`tenants/${tenantId}/billing_config`)
       .doc('auto_charge')
       .get();
@@ -120,9 +122,12 @@ export async function POST(request: NextRequest) {
 
         // Get client
         const client = await services.clients.get(transaction.clientId);
-        if (!client || !client.whatsappNumber) {
+        // Use whatsappNumber if available, fallback to phone
+        const clientPhone = client?.whatsappNumber || client?.phone;
+
+        if (!client || !clientPhone) {
           skipped++;
-          logger.warn('[BILLING-REMINDERS] Skipping - no whatsappNumber', {
+          logger.warn('[BILLING-REMINDERS] Skipping - no phone/whatsappNumber', {
             requestId,
             transactionId: transaction.id,
             clientId: transaction.clientId,
@@ -131,7 +136,7 @@ export async function POST(request: NextRequest) {
         }
 
         // Check if reminder already sent
-        const reminderDoc = await services.getFirestore()
+        const reminderDoc = await firestore
           .collection(`tenants/${tenantId}/billing_reminders`)
           .doc(transaction.id!)
           .get();
@@ -154,7 +159,7 @@ export async function POST(request: NextRequest) {
           },
           body: JSON.stringify({
             tenantId,
-            to: client.whatsappNumber,
+            to: clientPhone,
             message: config.message,
             type: 'text',
             source: 'billing_reminder'
@@ -173,28 +178,28 @@ export async function POST(request: NextRequest) {
         }
 
         // Mark reminder as sent
-        await services.getFirestore()
+        await firestore
           .collection(`tenants/${tenantId}/billing_reminders`)
           .doc(transaction.id!)
           .set({
             transactionId: transaction.id,
             sentAt: new Date(),
             status: 'sent',
-            clientPhone: client.whatsappNumber,
+            clientPhone: clientPhone,
             message: config.message,
           });
 
         sent++;
         results.push({
           transactionId: transaction.id!,
-          clientPhone: client.whatsappNumber.substring(0, 8) + '***',
+          clientPhone: clientPhone.substring(0, 8) + '***',
           sent: true
         });
 
         logger.info('[BILLING-REMINDERS] Reminder sent', {
           requestId,
           transactionId: transaction.id,
-          phone: client.whatsappNumber.substring(0, 8) + '***',
+          phone: clientPhone.substring(0, 8) + '***',
         });
 
       } catch (error) {
@@ -267,9 +272,10 @@ export async function GET(request: NextRequest) {
 
     const tenantId = authContext.tenantId;
     const services = new TenantServiceFactory(tenantId);
+    const firestore = getFirestore();
 
     // Get configuration
-    const configDoc = await services.getFirestore()
+    const configDoc = await firestore
       .collection(`tenants/${tenantId}/billing_config`)
       .doc('auto_charge')
       .get();
@@ -277,7 +283,7 @@ export async function GET(request: NextRequest) {
     const config = configDoc.exists ? configDoc.data() as AutoBillingConfig : null;
 
     // Get reminder history count
-    const remindersSnapshot = await services.getFirestore()
+    const remindersSnapshot = await firestore
       .collection(`tenants/${tenantId}/billing_reminders`)
       .count()
       .get();

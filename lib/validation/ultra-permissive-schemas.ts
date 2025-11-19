@@ -68,7 +68,10 @@ export const UltraPermissiveMediaUrlSchema = z.any()
 // Schema ultra-permissivo para criação de propriedade
 export const UltraPermissiveCreatePropertySchema = z.object({
   // Campos básicos - sempre geram valores válidos
-  title: anyToString.refine(val => val.length > 0, { message: 'Title generated' }).transform(val => val || 'Propriedade Sem Nome'),
+  // ✅ FIX: Transform PRIMEIRO, depois refine (ordem correta)
+  title: anyToString
+    .transform(val => val || 'Propriedade Sem Nome')
+    .refine(val => val.length > 0, { message: 'Title generated' }),
   description: anyToString.transform(val => val || 'Descrição da propriedade'),
   address: anyToString.transform(val => val || ''),
   

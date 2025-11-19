@@ -502,7 +502,7 @@ export class SubscriptionService {
         userId,
         saleId: webhookData.sale_id,
         errorMessage: (error as Error).message,
-        stack: (error as Error).stack
+        ...(process.env.NODE_ENV === 'development' && { stack: (error as Error).stack })
       });
       return { success: false, message: `Erro ao ativar assinatura: ${(error as Error).message}` };
     }

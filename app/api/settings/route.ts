@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { TenantServiceFactory } from '@/lib/firebase/firestore-v2';
 import { validateFirebaseAuth } from '@/lib/middleware/firebase-auth';
+import { logger } from '@/lib/utils/logger';
 
 export async function GET(request: NextRequest) {
   try {
@@ -32,23 +33,27 @@ export async function GET(request: NextRequest) {
       };
     }
     
-    // Remove sensitive data before sending to client
+    // ✅ FIX: Remove ALL sensitive data before sending to client
     if (settings?.whatsapp) {
       settings.whatsapp = {
-        ...settings.whatsapp,
-        accessToken: settings.whatsapp.accessToken ? '***' : '', // Mask token
-        phoneNumberId: settings.whatsapp.phoneNumberId,
-        verifyToken: settings.whatsapp.verifyToken ? '***' : '', // Mask token
-        connected: settings.whatsapp.connected,
+        // Public data only
+        connected: settings.whatsapp.connected || false,
         businessName: settings.whatsapp.businessName || '',
         lastSync: settings.whatsapp.lastSync || new Date(),
+        // ✅ Mask ALL sensitive tokens and IDs
+        accessToken: settings.whatsapp.accessToken ? '***' : undefined,
+        phoneNumberId: settings.whatsapp.phoneNumberId ? '***' : undefined,
+        verifyToken: settings.whatsapp.verifyToken ? '***' : undefined,
       };
     }
 
     return NextResponse.json(settings);
 
   } catch (error) {
-    console.error('Settings fetch error:', error);
+    logger.error('[SETTINGS-GET] Failed to fetch settings', error as Error, {
+      userId: auth?.userId,
+      tenantId: auth?.tenantId,
+    });
     return NextResponse.json(
       { error: 'Failed to fetch settings' },
       { status: 500 }
@@ -72,9 +77,11 @@ export async function PUT(request: NextRequest) {
 
     const tenantId = auth.tenantId;
 
+    // ✅ FIX: Declarar services ANTES do switch para evitar ReferenceError
+    const services = new TenantServiceFactory(tenantId);
+
     switch (section) {
       case 'company':
-        const services = new TenantServiceFactory(tenantId);
         await services.settings.updateCompanySettings(tenantId, data);
         break;
       case 'ai':
@@ -108,7 +115,11 @@ export async function PUT(request: NextRequest) {
     });
 
   } catch (error) {
-    console.error('Settings update error:', error);
+    logger.error('[SETTINGS-UPDATE] Failed to update settings', error as Error, {
+      userId: auth?.userId,
+      tenantId: auth?.tenantId,
+      section: body?.section,
+    });
     return NextResponse.json(
       { error: 'Failed to update settings' },
       { status: 500 }
@@ -140,7 +151,10 @@ export async function POST(request: NextRequest) {
     });
 
   } catch (error) {
-    console.error('Settings create error:', error);
+    logger.error('[SETTINGS-CREATE] Failed to create settings', error as Error, {
+      userId: auth?.userId,
+      tenantId: auth?.tenantId,
+    });
     return NextResponse.json(
       { error: 'Failed to create settings' },
       { status: 500 }

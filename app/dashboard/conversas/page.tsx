@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   Box,
   Card,
@@ -60,6 +60,7 @@ const Heatmap = lazy(() => import('@/components/organisms/Heatmap'));
 import { useTenant } from '@/contexts/TenantContext';
 import { useAuth } from '@/contexts/AuthProvider';
 import { useConversationsOptimized } from '@/lib/hooks/useConversationsOptimized';
+import { logger } from '@/lib/utils/logger';
 import type { ConversationStatus } from '@/lib/types/conversation-optimized';
 import AIControlButton from '@/app/dashboard/conversations/components/AIControlButton';
 import { Send } from '@mui/icons-material';
@@ -97,6 +98,7 @@ export default function ConversationsPage() {
   });
 
   const [searchText, setSearchText] = useState('');
+  const [debouncedSearchText, setDebouncedSearchText] = useState('');
   const [filterAnchorEl, setFilterAnchorEl] = useState<null | HTMLElement>(null);
   const [messageInput, setMessageInput] = useState('');
   const [sendingMessage, setSendingMessage] = useState(false);
@@ -126,7 +128,7 @@ export default function ConversationsPage() {
 
         // Skip if no token available yet
         if (!token) {
-          console.warn('[AI-BLOCK] No token available, skipping check');
+          logger.warn('[AI-BLOCK] No token available, skipping check');
           setCheckingAiStatus(false);
           return;
         }
@@ -141,7 +143,7 @@ export default function ConversationsPage() {
         );
 
         if (!response.ok) {
-          console.error('[AI-BLOCK] Check failed with status:', response.status);
+          logger.error('[AI-BLOCK] Check failed', { status: response.status });
           setAiBlocked(false);
           return;
         }
@@ -155,7 +157,9 @@ export default function ConversationsPage() {
           setAiBlocked(false);
         }
       } catch (error) {
-        console.error('[AI-BLOCK] Error checking AI status:', error);
+        logger.error('[AI-BLOCK] Error checking AI status', {
+          error: error instanceof Error ? error.message : 'Unknown error'
+        });
         setAiBlocked(false);
       } finally {
         setCheckingAiStatus(false);
@@ -164,8 +168,8 @@ export default function ConversationsPage() {
 
     checkAiStatus();
 
-    // Poll every 5 seconds to update status
-    const interval = setInterval(checkAiStatus, 5000);
+    // Poll every 30 seconds to update status (reduced from 5s for performance)
+    const interval = setInterval(checkAiStatus, 30000);
     return () => clearInterval(interval);
   }, [selectedConversation, tenantId, getFirebaseToken]);
 
@@ -197,7 +201,10 @@ export default function ConversationsPage() {
 
       setAiBlocked(true);
     } catch (error) {
-      console.error('Error enabling manual mode:', error);
+      logger.error('Error enabling manual mode', {
+        error: error instanceof Error ? error.message : 'Unknown error',
+        conversationId: selectedConversation.id
+      });
       alert(error instanceof Error ? error.message : 'Erro ao ativar modo manual');
     } finally {
       setCheckingAiStatus(false);
@@ -230,10 +237,13 @@ export default function ConversationsPage() {
       }
 
       setMessageInput('');
-      // Refresh messages to show the new one
-      setTimeout(() => refresh(), 500);
+      // Refresh messages to show the new one (increased timeout to ensure message is processed)
+      setTimeout(() => refresh(), 1500);
     } catch (error) {
-      console.error('Error sending message:', error);
+      logger.error('Error sending message', {
+        error: error instanceof Error ? error.message : 'Unknown error',
+        conversationId: selectedConversation.id
+      });
       alert(error instanceof Error ? error.message : 'Erro ao enviar mensagem');
     } finally {
       setSendingMessage(false);
@@ -296,10 +306,19 @@ export default function ConversationsPage() {
     }
   };
 
+  // Debounced search effect - wait 300ms after user stops typing
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      setDebouncedSearchText(searchText);
+      setFilters({ ...filters, search: searchText });
+    }, 300);
+
+    return () => clearTimeout(timeoutId);
+  }, [searchText]); // Only depend on searchText, not filters
+
   // Handle search
   const handleSearch = (value: string) => {
     setSearchText(value);
-    setFilters({ ...filters, search: value });
   };
 
   // Handle status filter
@@ -354,7 +373,10 @@ export default function ConversationsPage() {
         setEditedConversations(prev => new Set(prev).add(renameConversationId));
         handleCloseRenameDialog();
       } catch (error) {
-        console.error('Error renaming conversation:', error);
+        logger.error('Error renaming conversation', {
+          error: error instanceof Error ? error.message : 'Unknown error',
+          conversationId: renameConversationId
+        });
       }
     }
   };
@@ -786,20 +808,6 @@ export default function ConversationsPage() {
                 ) : (
                   <Stack spacing={3}>
                     {messages.map((message, index) => {
-                      // DEBUG: Log message data
-                      console.log('🎨 [DEBUG] Rendering message:', {
-                        id: message.id,
-                        hasClientMessage: !!message.clientMessage,
-                        hasSofiaMessage: !!message.sofiaMessage,
-                        clientMessage: message.clientMessage?.substring(0, 30),
-                        sofiaMessage: message.sofiaMessage?.substring(0, 30),
-                        clientMessageTimestamp: message.clientMessageTimestamp,
-                        clientMessageTimestampType: typeof message.clientMessageTimestamp,
-                        createdAt: message.createdAt,
-                        createdAtType: typeof message.createdAt,
-                        allFields: Object.keys(message)
-                      });
-
                       // SAFE DATE PARSING usando toDate helper
                       const messageTimestamp = message.clientMessageTimestamp || message.createdAt;
                       const messageDate = toDate(messageTimestamp);

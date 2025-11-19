@@ -66,7 +66,7 @@ export async function GET(request: NextRequest) {
     if (status && ['pending', 'completed', 'paid', 'overdue', 'cancelled', 'refunded'].includes(status)) {
       filteredTransactions = filteredTransactions.filter(transaction => {
         // Auto-migrate 'completed' to 'paid' for comparison
-        const transactionStatus = transaction.status === 'completed' ? 'paid' : transaction.status
+        const transactionStatus = (transaction.status as string) === 'completed' ? 'paid' : transaction.status
         const filterStatus = status === 'completed' ? 'paid' : status
         return transactionStatus === filterStatus
       })
@@ -132,10 +132,10 @@ export async function GET(request: NextRequest) {
     // Calculate totals (support both 'completed' and 'paid' status)
     const totals = {
       income: filteredTransactions
-        .filter(t => t.type === 'income' && (t.status === 'completed' || t.status === 'paid'))
+        .filter(t => t.type === 'income' && ((t.status as string) === 'completed' || t.status === 'paid'))
         .reduce((sum, t) => sum + t.amount, 0),
       expense: filteredTransactions
-        .filter(t => t.type === 'expense' && (t.status === 'completed' || t.status === 'paid'))
+        .filter(t => t.type === 'expense' && ((t.status as string) === 'completed' || t.status === 'paid'))
         .reduce((sum, t) => sum + t.amount, 0),
       pending: filteredTransactions
         .filter(t => t.status === 'pending')

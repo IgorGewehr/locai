@@ -57,9 +57,6 @@ const stepSchemas = {
   propertiesCount: yup.object({
     propertiesCount: yup.number().min(0, 'Quantidade inválida'),
   }),
-  address: yup.object({
-    address: yup.string().required('Endereço completo é obrigatório'),
-  }),
   addressDetails: yup.object({
     street: yup.string(),
     neighborhood: yup.string(),
@@ -141,19 +138,11 @@ const QUIZ_STEPS: QuizStep[] = [
     ],
   },
   {
-    id: 'address',
-    question: 'Agora, qual é o endereço da sua imobiliária?',
-    placeholder: 'Rua Exemplo, 123 - Bairro - Cidade/Estado',
-    type: 'text',
-    icon: <LocationOn />,
-    hint: 'Este endereço será usado pela Sofia AI para enviar localização aos clientes',
-  },
-  {
     id: 'addressDetails',
-    question: 'Complete os detalhes do endereço:',
+    question: 'Agora, qual é o endereço da sua imobiliária?',
     type: 'multifield',
     icon: <LocationOn />,
-    hint: 'Essas informações ajudam a Sofia a fornecer dados precisos',
+    hint: 'Este endereço será usado pela Sofia AI para enviar localização aos clientes',
     fields: [
       { id: 'street', label: 'Rua/Avenida', placeholder: 'Rua Exemplo, 123', gridColumn: '2fr 1fr' },
       { id: 'zipCode', label: 'CEP', placeholder: '12345-678', gridColumn: '2fr 1fr' },

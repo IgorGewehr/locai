@@ -10,7 +10,14 @@ export async function GET(
     const resolvedParams = await params
     const conversationId = resolvedParams.id
     const { searchParams } = new URL(request.url)
-    const tenantId = searchParams.get('tenantId') || 'default'
+    const tenantId = searchParams.get('tenantId')
+
+    if (!tenantId) {
+      return NextResponse.json(
+        { error: 'tenantId is required', code: 'MISSING_TENANT_ID' },
+        { status: 400 }
+      )
+    }
 
     const services = new TenantServiceFactory(tenantId)
 
@@ -52,7 +59,14 @@ export async function POST(
     const conversationId = resolvedParams.id
     const body = await request.json()
     const { searchParams } = new URL(request.url)
-    const tenantId = searchParams.get('tenantId') || body.tenantId || 'default'
+    const tenantId = searchParams.get('tenantId') || body.tenantId
+
+    if (!tenantId) {
+      return NextResponse.json(
+        { error: 'tenantId is required', code: 'MISSING_TENANT_ID' },
+        { status: 400 }
+      )
+    }
 
     const services = new TenantServiceFactory(tenantId)
 

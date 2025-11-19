@@ -285,14 +285,14 @@ export default function CobrancasAutomaticasPage() {
                 fullWidth
                 multiline
                 rows={6}
-                placeholder="Olá! Este é um lembrete sobre o pagamento de R$ 1.500,00 que vence em 3 dias.
+                placeholder="Olá! Este é um lembrete sobre um pagamento pendente.
 
-Favor efetuar o pagamento até 25/11/2025.
+Por favor, efetue o pagamento para manter tudo em dia.
 
-Caso já tenha pago, desconsidere esta mensagem.
+Qualquer dúvida, estamos à disposição!
 
 Atenciosamente,
-Equipe"
+Equipe Locai"
                 value={config.message}
                 onChange={(e) => setConfig({ ...config, message: e.target.value })}
                 disabled={!config.enabled}
@@ -308,8 +308,11 @@ Equipe"
               {/* Helper Info */}
               <Paper variant="outlined" sx={{ mt: 2, p: 2, bgcolor: 'background.default' }}>
                 <Typography variant="caption" color="text.secondary" component="div">
-                  <strong>Dica:</strong> A mensagem será enviada via WhatsApp para o telefone cadastrado no recebimento.
-                  Mantenha a mensagem clara e profissional.
+                  <strong>💡 Dica:</strong> A mensagem será enviada via WhatsApp para o telefone do cliente.
+                  <br />
+                  <strong>📝 Nota:</strong> Esta é uma mensagem de texto simples - mantenha clara e profissional.
+                  <br />
+                  <strong>⏰ Envio:</strong> Será enviada automaticamente {config.daysBeforeDue} dia(s) antes do vencimento.
                 </Typography>
               </Paper>
             </Box>

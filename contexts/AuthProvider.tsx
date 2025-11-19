@@ -411,8 +411,12 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
               sessionStorage.removeItem('redirecting');
               return;
             }
-            
-            console.log('🔄 [AuthProvider] Redirecting authenticated user to dashboard');
+
+            logger.info('🔄 [Auth] Redirecting authenticated user to dashboard', {
+              from: pathname,
+              to: targetPath,
+              userId: userData.uid
+            });
             sessionStorage.setItem('redirecting', 'true');
             router.replace(targetPath); // ✅ replace em vez de push
           } else {
@@ -434,13 +438,19 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
               }
               
               sessionStorage.setItem('redirecting', 'true');
-              
+
               // Redirecionamento externo (planos) vs interno (login)
               if (authRedirect.isExternalRedirect) {
-                console.log('🔄 [AuthProvider] Redirecting to external plans page');
+                logger.info('🔄 [Auth] Redirecting to external plans page', {
+                  url: authRedirect.redirect,
+                  reason: authRedirect.reason
+                });
                 window.location.href = authRedirect.redirect;
               } else {
-                console.log('🔄 [AuthProvider] Redirecting to login');
+                logger.info('🔄 [Auth] Redirecting to login', {
+                  from: pathname,
+                  reason: authRedirect.reason
+                });
                 router.replace(authRedirect.redirect);
               }
             }
@@ -475,8 +485,11 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           sessionStorage.removeItem('redirecting');
           return;
         }
-        
-        console.log('🔄 [AuthProvider] Redirecting unauthenticated user to login (no user)');
+
+        logger.info('🔄 [Auth] Redirecting unauthenticated user to login', {
+          from: pathname,
+          reason: 'no_user'
+        });
         sessionStorage.setItem('redirecting', 'true');
         router.replace(authRedirect.redirect); // ✅ replace em vez de push
       }

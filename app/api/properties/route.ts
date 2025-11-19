@@ -7,6 +7,7 @@ import { CreatePropertySchema } from '@/lib/validation/property-schemas'
 import { UltraPermissiveCreatePropertySchema } from '@/lib/validation/ultra-permissive-schemas'
 import type { Property } from '@/lib/types/property'
 import { propertyCache } from '@/lib/cache/property-cache-manager'
+import { logger } from '@/lib/utils/logger'
 
 // GET /api/properties - List all properties
 export async function GET(request: NextRequest) {
@@ -75,24 +76,19 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // ULTRA-PERMISSIVO: Usa schema que nunca falha
+    // ✅ ULTRA-PERMISSIVO: Usa schema que nunca falha
     const validationResult = UltraPermissiveCreatePropertySchema.safeParse(body)
+
+    // Log warning se schema falhar (raro mas possível)
     if (!validationResult.success) {
-      // Se mesmo o schema ultra-permissivo falhar, usa dados padrões
-      console.warn('Schema ultra-permissivo falhou, usando dados padrões:', validationResult.error)
-      const validatedData = {
-        title: body.title || 'Nova Propriedade',
-        description: body.description || 'Descrição da propriedade',
-        address: body.address || '',
-        category: body.category || 'apartment',
-        bedrooms: Math.max(0, parseInt(body.bedrooms) || 1),
-        bathrooms: Math.max(0, parseInt(body.bathrooms) || 1),
-        maxGuests: Math.max(1, parseInt(body.maxGuests) || 2),
-        basePrice: Math.max(1, parseFloat(body.basePrice) || 100),
-        ...body // Inclui qualquer campo extra
-      }
+      logger.warn('[PROPERTIES-CREATE] Ultra-permissive schema failed, using fallback defaults', {
+        tenantId: authContext.tenantId,
+        validationErrors: validationResult.error.errors.map(e => e.message),
+        fallbackApplied: true
+      })
     }
 
+    // ✅ FIX: Declaração única de validatedData (removido código duplicado)
     const validatedData = validationResult.success ? validationResult.data : {
       title: body.title || 'Nova Propriedade',
       description: body.description || 'Descrição da propriedade',

@@ -30,7 +30,7 @@ interface FinancialInfo {
   accountHolderDocument: string;
 }
 
-export default function FinancialInfoTab() {
+export default function FinancialPage() {
   const { tenantId } = useTenant();
   const { getFirebaseToken } = useAuth();
 
@@ -127,6 +127,16 @@ export default function FinancialInfoTab() {
 
   return (
     <Box>
+      {/* Page Header */}
+      <Box sx={{ mb: 4 }}>
+        <Typography variant="h5" fontWeight={600} gutterBottom>
+          Dados Financeiros
+        </Typography>
+        <Typography variant="body2" color="text.secondary">
+          Informações bancárias para TED
+        </Typography>
+      </Box>
+
       {error && (
         <Alert severity="error" sx={{ mb: 3 }} onClose={() => setError(null)}>
           {error}

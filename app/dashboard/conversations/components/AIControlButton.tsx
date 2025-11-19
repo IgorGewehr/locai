@@ -62,8 +62,8 @@ export default function AIControlButton({ phone, conversationName }: AIControlBu
     };
 
     checkStatus();
-    // Poll every 30 seconds to update expiry
-    const interval = setInterval(checkStatus, 30000);
+    // Poll every 60 seconds to update expiry (reduced for performance)
+    const interval = setInterval(checkStatus, 60000);
     return () => clearInterval(interval);
   }, [tenantId, phone]);
 

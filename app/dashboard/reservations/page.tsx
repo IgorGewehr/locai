@@ -197,9 +197,12 @@ export default function ReservationsPage() {
       setDeleteDialogOpen(false);
       setReservationToDelete(null);
 
-      console.log('Reserva excluída com sucesso');
+      // Success feedback handled by UI state
     } catch (error) {
-      console.error('Erro ao excluir reserva:', error);
+      logger.error('Erro ao excluir reserva', {
+        error: error instanceof Error ? error.message : 'Unknown error',
+        reservationId: reservationToDelete?.id
+      });
       alert('Erro ao excluir reserva. Tente novamente.');
     } finally {
       setDeleting(false);
@@ -430,7 +433,9 @@ export default function ReservationsPage() {
 
       setReservations(sortedReservations);
     } catch (error) {
-      console.error('Error refreshing reservations:', error);
+      logger.error('Error refreshing reservations', {
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
     } finally {
       setLoading(false);
     }

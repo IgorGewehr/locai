@@ -19,6 +19,7 @@ import {
   alpha,
   CircularProgress,
   Tooltip,
+  Alert,
 } from '@mui/material';
 import {
   Home,
@@ -63,6 +64,7 @@ export default function OnboardingWidget({ variant = 'compact' }: OnboardingWidg
   const {
     progress,
     loading,
+    error,
     steps,
     currentStep,
     completedSteps,
@@ -364,6 +366,31 @@ export default function OnboardingWidget({ variant = 'compact' }: OnboardingWidg
       >
         <CardContent sx={{ p: { xs: 3, md: 4 } }}>
           <Stack spacing={3}>
+            {/* Error Alert */}
+            {error && (
+              <Fade in={true}>
+                <Alert
+                  severity="error"
+                  onClose={() => {}}
+                  sx={{
+                    backgroundColor: '#2d1b1b',
+                    border: '1px solid #7f1d1d',
+                    color: '#f87171',
+                    '& .MuiAlert-icon': {
+                      color: '#f87171',
+                    },
+                  }}
+                >
+                  <Typography variant="body2" fontWeight={600}>
+                    Erro ao carregar progresso
+                  </Typography>
+                  <Typography variant="caption">
+                    {error}
+                  </Typography>
+                </Alert>
+              </Fade>
+            )}
+
             {/* Header */}
             <Stack direction="row" alignItems="flex-start" justifyContent="space-between">
               <Stack direction="row" alignItems="center" spacing={2}>

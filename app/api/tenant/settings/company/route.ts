@@ -155,17 +155,20 @@ export async function GET(request: NextRequest) {
       { processingTime: `${processingTime}ms` }
     );
 
-    // Return defaults instead of error to prevent UI breaking
+    // ✅ FIX: Return error BUT with fallback data to prevent UI crash
+    // Status 500 indica erro, mas data válido previne quebra da interface
     return NextResponse.json({
-      success: true,
-      data: DEFAULT_COMPANY_INFO,
+      success: false,
+      error: 'Failed to load company settings',
+      data: DEFAULT_COMPANY_INFO, // Fallback para prevenir crash da UI
       meta: {
         requestId,
         processingTime,
         timestamp: new Date().toISOString(),
         fallback: true,
+        errorType: 'FIRESTORE_ERROR'
       },
-    });
+    }, { status: 500 });
   }
 }
 

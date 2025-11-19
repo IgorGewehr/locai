@@ -112,11 +112,11 @@ const menuItems = [
         href: '/dashboard/financeiro/transacoes',
         icon: <Receipt />,
       },
-      {
-        text: 'Cobranças',
-        href: '/dashboard/financeiro/cobrancas',
-        icon: <NotificationsActive />,
-      },
+      // {
+      //   text: 'Cobranças',
+      //   href: '/dashboard/financeiro/cobrancas',
+      //   icon: <NotificationsActive />,
+      // },
     ],
   },
   {

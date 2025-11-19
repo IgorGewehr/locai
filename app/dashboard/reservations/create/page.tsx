@@ -66,6 +66,7 @@ import ModernButton from '@/components/atoms/ModernButton';
 import { useTenant } from '@/contexts/TenantContext';
 import type { Client } from '@/lib/types';
 import { clientServiceWrapper } from '@/lib/services/client-service';
+import { logger } from '@/lib/utils/logger';
 
 interface ReservationFormData {
   propertyId: string;
@@ -149,7 +150,9 @@ export default function CreateReservationPage() {
           email: c.email 
         })));
       } catch (err) {
-        console.error('Error loading data:', err);
+        logger.error('Error loading data', {
+          error: err instanceof Error ? err.message : 'Unknown error'
+        });
         setError('Erro ao carregar dados');
       } finally {
         setLoadingData(false);
@@ -236,7 +239,10 @@ export default function CreateReservationPage() {
 
         // Usar o ClientService diretamente (com validação de duplicatas)
         const createdClient = await clientServiceWrapper.create(clientData);
-        console.log('🔍 Cliente criado:', createdClient);
+        logger.info('Cliente criado com sucesso', {
+          clientId: createdClient.id,
+          clientName: clientData.name
+        });
         finalClientId = createdClient.id;
       }
 
@@ -284,18 +290,28 @@ export default function CreateReservationPage() {
       };
 
       // Create reservation using tenant services
-      console.log('[CreateReservation] Criando reserva com dados:', reservationData);
+      logger.info('Criando reserva', {
+        propertyId: reservationData.propertyId,
+        clientId: reservationData.clientId,
+        guests: reservationData.guests
+      });
 
       const createdReservation = await services.reservations.create(reservationData);
 
-      console.log('[CreateReservation] Reserva criada com sucesso:', createdReservation);
+      logger.info('Reserva criada com sucesso', {
+        reservationId: createdReservation
+      });
 
       setSuccess(true);
       setTimeout(() => {
         router.push('/dashboard/reservations');
       }, 2000);
     } catch (err) {
-      console.error('[CreateReservation] Erro ao criar reserva:', err);
+      logger.error('Erro ao criar reserva', {
+        error: err instanceof Error ? err.message : 'Unknown error',
+        propertyId: formData.propertyId,
+        clientId: finalClientId
+      });
       const errorMessage = err instanceof Error ? err.message : 'Erro ao criar reserva. Tente novamente.';
       setError(errorMessage);
     } finally {

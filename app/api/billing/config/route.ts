@@ -10,6 +10,7 @@ import { handleApiError } from '@/lib/utils/api-errors';
 import { logger } from '@/lib/utils/logger';
 import { sanitizeUserInput } from '@/lib/utils/validation';
 import { TenantServiceFactory } from '@/lib/firebase/firestore-v2';
+import { getFirestore } from 'firebase-admin/firestore';
 
 // Validation Schema
 const AutoBillingConfigSchema = z.object({
@@ -45,10 +46,10 @@ export async function GET(request: NextRequest) {
     });
 
     // Get configuration from Firestore
-    const services = new TenantServiceFactory(tenantId);
+    const firestore = getFirestore();
 
     // Usando coleção específica para config de billing
-    const configDoc = await services.getFirestore()
+    const configDoc = await firestore
       .collection(`tenants/${tenantId}/billing_config`)
       .doc('auto_charge')
       .get();
@@ -174,8 +175,8 @@ export async function PUT(request: NextRequest) {
     });
 
     // Save to Firestore
-    const services = new TenantServiceFactory(tenantId);
-    const configRef = services.getFirestore()
+    const firestore = getFirestore();
+    const configRef = firestore
       .collection(`tenants/${tenantId}/billing_config`)
       .doc('auto_charge');
 

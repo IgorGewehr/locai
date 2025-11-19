@@ -14,6 +14,7 @@ import { handleApiError } from '@/lib/utils/api-errors';
 import { logger } from '@/lib/utils/logger';
 import { TenantServiceFactory } from '@/lib/firebase/firestore-v2';
 import { getRedisClient } from '@/lib/redis/client';
+import { sanitizeUserInput } from '@/lib/utils/validation';
 
 // Validation Schema
 const SendManualMessageSchema = z.object({
@@ -53,7 +54,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { phone, message, mediaUrl, mediaType } = result.data;
+    const { phone, message: rawMessage, mediaUrl, mediaType } = result.data;
+
+    // 3. Sanitize message content (XSS protection)
+    const message = sanitizeUserInput(rawMessage);
+
+    // 4. Get Redis client
+    const redis = getRedisClient();
 
     logger.info('[MANUAL-SEND] Processing manual message', {
       requestId,
@@ -64,8 +71,34 @@ export async function POST(request: NextRequest) {
       userId
     });
 
-    // 3. Verify AI is blocked for this conversation - MESMO FORMATO DO N8N
-    const redis = getRedisClient();
+    // 4. Rate limiting - 3 mensagens por 10 segundos por usuário+conversa
+    const rateLimitKey = `send_manual:${userId}:${phone}`;
+    const attempts = await redis.incr(rateLimitKey);
+
+    if (attempts === 1) {
+      await redis.expire(rateLimitKey, 10); // Expira em 10 segundos
+    }
+
+    if (attempts > 3) {
+      logger.warn('[MANUAL-SEND] Rate limit exceeded', {
+        requestId,
+        userId,
+        phone: phone.substring(0, 5) + '***',
+        attempts
+      });
+
+      return NextResponse.json(
+        {
+          success: false,
+          error: 'Muitas mensagens enviadas. Aguarde 10 segundos antes de tentar novamente.',
+          code: 'RATE_LIMIT_EXCEEDED',
+          retryAfter: await redis.ttl(rateLimitKey)
+        },
+        { status: 429 }
+      );
+    }
+
+    // 5. Verify AI is blocked for this conversation - MESMO FORMATO DO N8N
 
     // Normalizar telefone: remover @c.us se existir (N8N usa sem sufixo)
     const normalizedPhone = phone.replace(/@c\.us$/i, '');

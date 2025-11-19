@@ -256,27 +256,57 @@ export default function AIConfigPage() {
           <Grid container spacing={3}>
             {/* Payments */}
             <Grid item xs={12} md={6}>
-              <Card variant="outlined" sx={{ p: 2 }}>
+              <Card
+                variant="outlined"
+                sx={{
+                  p: 2,
+                  position: 'relative',
+                  opacity: 0.7,
+                  transition: 'all 0.3s ease',
+                  '&:hover': {
+                    opacity: 0.85,
+                    borderColor: 'primary.main',
+                  }
+                }}
+              >
                 <Box display="flex" justifyContent="space-between" alignItems="flex-start">
                   <Box flex={1}>
                     <Box display="flex" alignItems="center" gap={1} mb={1}>
-                      <Typography variant="subtitle1" fontWeight="bold">
+                      <Typography variant="subtitle1" fontWeight="bold" sx={{ color: 'text.secondary' }}>
                         💳 Agente de Pagamentos
                       </Typography>
-                      {features.payments && <Chip label="ATIVO" size="small" color="success" />}
+                      <Chip
+                        label="Em Breve"
+                        size="small"
+                        sx={{
+                          fontSize: '0.65rem',
+                          fontWeight: 600,
+                          height: 20,
+                          background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.1), rgba(139, 92, 246, 0.15))',
+                          border: '1px solid rgba(99, 102, 241, 0.3)',
+                          color: '#6366f1',
+                          letterSpacing: '0.5px'
+                        }}
+                      />
                     </Box>
                     <Typography variant="body2" color="text.secondary">
-                      Sofia pode gerar cobranças, PIX QR Code, enviar lembretes e processar saques automaticamente.
+                      Sofia poderá gerar cobranças, PIX QR Code, enviar lembretes e processar saques automaticamente.
                     </Typography>
                     <Box mt={1}>
-                      <Typography variant="caption" color="primary">
-                        ✓ AbacatePay integrado
+                      <Typography variant="caption" sx={{ color: 'text.disabled', fontStyle: 'italic' }}>
+                        ⏳ Integração AbacatePay em desenvolvimento
                       </Typography>
                     </Box>
                   </Box>
                   <Switch
-                    checked={features.payments}
-                    onChange={() => handleFeatureToggle('payments')}
+                    checked={false}
+                    disabled
+                    sx={{
+                      opacity: 0.5,
+                      '& .MuiSwitch-thumb': {
+                        backgroundColor: 'grey.400',
+                      }
+                    }}
                   />
                 </Box>
               </Card>
@@ -284,32 +314,57 @@ export default function AIConfigPage() {
 
             {/* Contracts */}
             <Grid item xs={12} md={6}>
-              <Card variant="outlined" sx={{ p: 2 }}>
+              <Card
+                variant="outlined"
+                sx={{
+                  p: 2,
+                  position: 'relative',
+                  opacity: 0.7,
+                  transition: 'all 0.3s ease',
+                  '&:hover': {
+                    opacity: 0.85,
+                    borderColor: 'primary.main',
+                  }
+                }}
+              >
                 <Box display="flex" justifyContent="space-between" alignItems="flex-start">
                   <Box flex={1}>
                     <Box display="flex" alignItems="center" gap={1} mb={1}>
-                      <Typography variant="subtitle1" fontWeight="bold">
+                      <Typography variant="subtitle1" fontWeight="bold" sx={{ color: 'text.secondary' }}>
                         📄 Agente de Contratos
                       </Typography>
-                      {features.contracts ? (
-                        <Chip label="ATIVO" size="small" color="success" />
-                      ) : (
-                        <Chip label="EM BREVE" size="small" color="default" />
-                      )}
+                      <Chip
+                        label="Em Breve"
+                        size="small"
+                        sx={{
+                          fontSize: '0.65rem',
+                          fontWeight: 600,
+                          height: 20,
+                          background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.1), rgba(139, 92, 246, 0.15))',
+                          border: '1px solid rgba(99, 102, 241, 0.3)',
+                          color: '#6366f1',
+                          letterSpacing: '0.5px'
+                        }}
+                      />
                     </Box>
                     <Typography variant="body2" color="text.secondary">
-                      Sofia pode criar contratos personalizados, gerenciar assinaturas digitais e enviar automaticamente.
+                      Sofia poderá criar contratos personalizados, gerenciar assinaturas digitais e enviar automaticamente.
                     </Typography>
                     <Box mt={1}>
-                      <Typography variant="caption" color="text.disabled">
-                        ⏳ Feature em desenvolvimento
+                      <Typography variant="caption" sx={{ color: 'text.disabled', fontStyle: 'italic' }}>
+                        ⏳ Sistema de contratos em desenvolvimento
                       </Typography>
                     </Box>
                   </Box>
                   <Switch
-                    checked={features.contracts}
-                    onChange={() => handleFeatureToggle('contracts')}
-                    disabled // Desabilitado até implementar
+                    checked={false}
+                    disabled
+                    sx={{
+                      opacity: 0.5,
+                      '& .MuiSwitch-thumb': {
+                        backgroundColor: 'grey.400',
+                      }
+                    }}
                   />
                 </Box>
               </Card>

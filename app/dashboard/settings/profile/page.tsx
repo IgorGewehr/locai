@@ -12,6 +12,7 @@ import {
   Card,
   CardContent,
   CircularProgress,
+  Alert,
 } from '@mui/material';
 import {
   Person,
@@ -27,12 +28,7 @@ import { useAuth } from '@/lib/hooks/useAuth';
 import { updateProfile, updatePassword, EmailAuthProvider, reauthenticateWithCredential } from 'firebase/auth';
 import { auth } from '@/lib/firebase/config';
 
-interface Props {
-  setGlobalError: (error: string | null) => void;
-  setGlobalSuccess: (success: string | null) => void;
-}
-
-export default function ProfileTab({ setGlobalError, setGlobalSuccess }: Props) {
+export default function ProfilePage() {
   const { user } = useAuth();
   const [loading, setLoading] = useState(false);
   const [editingProfile, setEditingProfile] = useState(false);
@@ -40,6 +36,8 @@ export default function ProfileTab({ setGlobalError, setGlobalSuccess }: Props) 
   const [showCurrentPassword, setShowCurrentPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
 
   const [profileData, setProfileData] = useState({
     displayName: user?.displayName || '',
@@ -65,17 +63,17 @@ export default function ProfileTab({ setGlobalError, setGlobalSuccess }: Props) 
     if (!user || !auth.currentUser) return;
 
     setLoading(true);
-    setGlobalError(null);
+    setError(null);
 
     try {
       await updateProfile(auth.currentUser, {
         displayName: profileData.displayName,
       });
 
-      setGlobalSuccess('Perfil atualizado com sucesso!');
+      setSuccess('Perfil atualizado com sucesso!');
       setEditingProfile(false);
     } catch (error: any) {
-      setGlobalError('Erro ao atualizar perfil: ' + error.message);
+      setError('Erro ao atualizar perfil: ' + error.message);
     } finally {
       setLoading(false);
     }
@@ -85,17 +83,17 @@ export default function ProfileTab({ setGlobalError, setGlobalSuccess }: Props) 
     if (!user || !auth.currentUser) return;
 
     if (passwordData.newPassword !== passwordData.confirmPassword) {
-      setGlobalError('A confirmação da senha não confere');
+      setError('A confirmação da senha não confere');
       return;
     }
 
     if (passwordData.newPassword.length < 6) {
-      setGlobalError('A nova senha deve ter pelo menos 6 caracteres');
+      setError('A nova senha deve ter pelo menos 6 caracteres');
       return;
     }
 
     setLoading(true);
-    setGlobalError(null);
+    setError(null);
 
     try {
       const credential = EmailAuthProvider.credential(
@@ -106,7 +104,7 @@ export default function ProfileTab({ setGlobalError, setGlobalSuccess }: Props) 
       await reauthenticateWithCredential(auth.currentUser, credential);
       await updatePassword(auth.currentUser, passwordData.newPassword);
 
-      setGlobalSuccess('Senha alterada com sucesso!');
+      setSuccess('Senha alterada com sucesso!');
       setEditingPassword(false);
       setPasswordData({
         currentPassword: '',
@@ -115,9 +113,9 @@ export default function ProfileTab({ setGlobalError, setGlobalSuccess }: Props) 
       });
     } catch (error: any) {
       if (error.code === 'auth/wrong-password') {
-        setGlobalError('Senha atual incorreta');
+        setError('Senha atual incorreta');
       } else {
-        setGlobalError('Erro ao alterar senha: ' + error.message);
+        setError('Erro ao alterar senha: ' + error.message);
       }
     } finally {
       setLoading(false);
@@ -126,12 +124,27 @@ export default function ProfileTab({ setGlobalError, setGlobalSuccess }: Props) 
 
   return (
     <Box>
-      <Typography variant="h5" fontWeight={600} gutterBottom>
-        Perfil do Usuário
-      </Typography>
-      <Typography variant="body2" color="text.secondary" sx={{ mb: 4 }}>
-        Gerencie suas informações pessoais e credenciais de acesso
-      </Typography>
+      {/* Page Header */}
+      <Box sx={{ mb: 4 }}>
+        <Typography variant="h5" fontWeight={600} gutterBottom>
+          Perfil do Usuário
+        </Typography>
+        <Typography variant="body2" color="text.secondary">
+          Gerencie suas informações pessoais e credenciais de acesso
+        </Typography>
+      </Box>
+
+      {error && (
+        <Alert severity="error" sx={{ mb: 3 }} onClose={() => setError(null)}>
+          {error}
+        </Alert>
+      )}
+
+      {success && (
+        <Alert severity="success" sx={{ mb: 3 }} onClose={() => setSuccess(null)}>
+          {success}
+        </Alert>
+      )}
 
       <Grid container spacing={3}>
         {/* Profile Information */}
