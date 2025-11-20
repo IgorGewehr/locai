@@ -13,6 +13,7 @@ import {
   OnboardingStepStatus,
   UseOnboardingResult,
   DEFAULT_ONBOARDING_STEPS,
+  ENABLE_SYSTEM_CONFIGURATION_STEP,
 } from '@/lib/types/onboarding';
 
 /**
@@ -96,15 +97,21 @@ export function useOnboarding(): UseOnboardingResult {
           completionPercentage: loadedProgress.completionPercentage,
         });
       } else {
-        // Criar novo progresso
+        // Criar novo progresso com steps baseados na configuração atual
+        const initialSteps: Record<string, OnboardingStepStatus> = {
+          add_property: 'pending',
+          connect_whatsapp: 'pending',
+        };
+
+        // Adicionar configure_system apenas se estiver habilitado
+        if (ENABLE_SYSTEM_CONFIGURATION_STEP) {
+          initialSteps.configure_system = 'pending';
+        }
+
         const newProgress: OnboardingProgress = {
           userId: user.uid,
           tenantId,
-          steps: {
-            add_property: 'pending',
-            configure_system: 'pending',
-            connect_whatsapp: 'pending',
-          },
+          steps: initialSteps as Record<OnboardingStepId, OnboardingStepStatus>,
           currentStepId: 'add_property',
           startedAt: new Date(),
           lastUpdatedAt: new Date(),
@@ -123,6 +130,7 @@ export function useOnboarding(): UseOnboardingResult {
         logger.info('🎬 [Onboarding] Novo progresso criado', {
           userId: user.uid,
           tenantId,
+          enabledSteps: Object.keys(initialSteps),
         });
       }
     } catch (err) {
@@ -274,14 +282,22 @@ export function useOnboarding(): UseOnboardingResult {
 
     try {
       const progressRef = doc(db, 'users', user.uid, 'onboarding', tenantId);
+
+      // Criar steps baseados na configuração atual
+      const initialSteps: Record<string, OnboardingStepStatus> = {
+        add_property: 'pending',
+        connect_whatsapp: 'pending',
+      };
+
+      // Adicionar configure_system apenas se estiver habilitado
+      if (ENABLE_SYSTEM_CONFIGURATION_STEP) {
+        initialSteps.configure_system = 'pending';
+      }
+
       const resetProgress: OnboardingProgress = {
         userId: user.uid,
         tenantId,
-        steps: {
-          add_property: 'pending',
-          configure_system: 'pending',
-          connect_whatsapp: 'pending',
-        },
+        steps: initialSteps as Record<OnboardingStepId, OnboardingStepStatus>,
         currentStepId: 'add_property',
         startedAt: new Date(),
         lastUpdatedAt: new Date(),
@@ -300,6 +316,7 @@ export function useOnboarding(): UseOnboardingResult {
       logger.info('🔄 [Onboarding] Onboarding resetado', {
         userId: user.uid,
         tenantId,
+        enabledSteps: Object.keys(initialSteps),
       });
     } catch (err) {
       logger.error('❌ [Onboarding] Erro ao resetar onboarding', err as Error);

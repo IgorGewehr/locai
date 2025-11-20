@@ -13,15 +13,26 @@ export function useAuth() {
     };
   }
 
+  // ✅ LOG DEBUG: Ver dados do usuário sendo mapeados
+  const displayName = authContext.user.name || authContext.user.fullName || '';
+  const userName = authContext.user.name || authContext.user.fullName || '';
+
+  console.log('[useAuth Hook] User data mapping:', {
+    contextUserName: authContext.user.name,
+    contextUserFullName: authContext.user.fullName,
+    mappedDisplayName: displayName,
+    mappedUserName: userName
+  });
+
   return {
     user: {
       // Manter compatibilidade com Firebase User
       uid: authContext.user.uid,
       email: authContext.user.email,
-      displayName: authContext.user.name || authContext.user.fullName || '',
+      displayName,
       // Propriedades customizadas
       id: authContext.user.uid || 'default-user',
-      name: authContext.user.name || authContext.user.fullName || '',
+      name: userName,
       tenantId: authContext.user.tenantId || authContext.user.uid,
       role: authContext.user.role || 'user'
     },

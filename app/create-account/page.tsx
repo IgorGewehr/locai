@@ -1,11 +1,12 @@
 /**
- * Create Account Page - Quiz Style Signup
+ * Create Account Page - Simple Signup Form
  *
- * Conversational account creation flow with 7 days free trial
+ * Basic account creation with name, email, and password
+ * After signup, redirects to /onboarding for company info
  * Route: /create-account
  */
 
-import QuizSignup from '@/components/organisms/QuizSignup';
+import SimpleSignup from '@/components/organisms/SimpleSignup';
 
 export const metadata = {
   title: 'Criar Conta - Locai',
@@ -13,5 +14,5 @@ export const metadata = {
 };
 
 export default function CreateAccountPage() {
-  return <QuizSignup />;
+  return <SimpleSignup />;
 }

@@ -59,6 +59,17 @@ export interface UseOnboardingResult {
   shouldShowOnboarding: boolean;
 }
 
+/**
+ * FEATURE FLAG: Habilitar step de configuração do sistema
+ *
+ * Configure como `true` para mostrar o step "configure_system" no onboarding.
+ * Configure como `false` para ocultar temporariamente (recomendado durante testes).
+ *
+ * NOTA: Todo o código do step está preservado. Basta alterar esta flag para true
+ * quando estiver pronto para reativar a funcionalidade de configuração da Sofia.
+ */
+export const ENABLE_SYSTEM_CONFIGURATION_STEP = false;
+
 export const DEFAULT_ONBOARDING_STEPS: Omit<OnboardingStep, 'status'>[] = [
   {
     id: 'add_property',
@@ -93,4 +104,4 @@ export const DEFAULT_ONBOARDING_STEPS: Omit<OnboardingStep, 'status'>[] = [
     isOptional: false,
     estimatedMinutes: 3,
   },
-];
+].filter(step => ENABLE_SYSTEM_CONFIGURATION_STEP || step.id !== 'configure_system');

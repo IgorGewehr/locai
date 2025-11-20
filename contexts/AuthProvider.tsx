@@ -127,18 +127,27 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       
       if (userSnap.exists()) {
         const userData = userSnap.data();
-        
+
+        // ✅ LOG DEBUG: Verificar dados do Firestore
+        logger.info('📊 [Auth] Dados do usuário carregados do Firestore', {
+          uid,
+          name: userData.name,
+          fullName: userData.fullName,
+          email: userData.email,
+          displayNameFromAuth: authUser.displayName
+        });
+
         // Atualizar último login
         await updateDoc(userRef, {
           lastLogin: new Date(),
           emailVerified: authUser.emailVerified
         }).catch(error => {
-          logger.warn('⚠️ [Auth] Erro ao atualizar último login', { 
+          logger.warn('⚠️ [Auth] Erro ao atualizar último login', {
             uid,
             error: error instanceof Error ? error.message : 'Unknown error'
           });
         });
-        
+
         return {
           uid,
           email: userData.email,
@@ -240,15 +249,21 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
    */
   const shouldRedirectToApp = useCallback((userData: User | null, currentPath: string) => {
     if (!userData || !userData.isActive) return false;
-    
-    const publicRoutes = ['/', '/login', '/signup', '/reset-password'];
+
+    // ✅ NOVO: Rotas públicas + onboarding (não redireciona)
+    const publicRoutes = ['/', '/login', '/signup', '/reset-password', '/create-account', '/onboarding'];
     const isInPublicRoute = publicRoutes.some(route => {
       if (route === '/') {
         return currentPath === '/'; // Exact match for root
       }
       return currentPath === route || currentPath.startsWith(route + '/'); // Avoid startsWith conflicts
     });
-    
+
+    // ✅ NOVO: Se está em /onboarding, não redirecionar
+    if (currentPath.startsWith('/onboarding')) {
+      return false;
+    }
+
     // Redirecionar para dashboard se estiver em rota pública e autenticado
     return isInPublicRoute;
   }, []);
@@ -692,11 +707,15 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       }
       
       await setDoc(doc(db, 'users', result.user.uid), userData);
-      
-      logger.info('✅ [Auth] Registro realizado com sucesso', { 
+
+      // ✅ LOG DEBUG: Confirmar dados salvos no Firestore
+      logger.info('✅ [Auth] Registro realizado com sucesso', {
         uid: result.user.uid,
         email: result.user.email,
-        name 
+        name: userData.name,
+        fullName: userData.fullName,
+        displayNameInAuth: result.user.displayName,
+        free: userData.free
       });
       
       // Forçar invalidação do cache para garantir que os dados sejam recarregados
