@@ -4,7 +4,13 @@
  * Retorna TODAS as configurações do tenant em um único endpoint
  * para o N8N ter acesso completo às personalizações
  *
- * @version 1.0.0
+ * Estrutura AIConfig:
+ * - enabled, autoResponse, businessHoursOnly
+ * - agentPermissions (search, booking, sales, support, payments)
+ * - discountSettings (enabled, maxPercentage, requiresApproval, allowedCriteria)
+ * - customPrompts (welcome, companyName, companyValues, tone, specialInstructions)
+ *
+ * @version 2.0.0 - Unificado com /api/ai/config
  */
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -89,43 +95,18 @@ export async function POST(request: NextRequest) {
     // 1. AI CONFIG (agent behavior)
     if (includeAll || includeSettings.includes('ai') || includeSettings.includes('agents')) {
       try {
-        const aiConfigRef = doc(collection(doc(collection(db, 'tenants'), tenantId), 'settings'), 'aiConfig');
+        // Caminho correto: tenants/{tenantId}/aiConfig/settings
+        const aiConfigRef = doc(db, 'tenants', tenantId, 'aiConfig', 'settings');
         const aiConfigDoc = await getDoc(aiConfigRef);
 
         if (aiConfigDoc.exists()) {
-          const aiData = aiConfigDoc.data();
-          config.aiConfig = {
-            enabled: aiData?.enabled ?? true,
-            autoResponse: aiData?.autoResponse ?? true,
-            businessHoursOnly: aiData?.businessHoursOnly ?? false,
-            agentBehavior: aiData?.agentBehavior || {
-              search: {
-                maxPropertiesPerSearch: 3,
-                autoSendPhotos: true,
-                autoSendMap: true
-              },
-              booking: {
-                requireEmail: true,
-                requireDocument: false,
-                autoScheduleKeyPickup: true
-              },
-              support: {
-                allowCancellations: true,
-                allowModifications: true,
-                autoTransferThreshold: 10
-              }
-            },
-            features: aiData?.features || {
-              payments: false,
-              contracts: false,
-              analytics: true,
-              customReports: false
-            }
-          };
+          // Retorna AIConfig completo (agentPermissions, discountSettings, customPrompts)
+          config.aiConfig = aiConfigDoc.data();
         } else {
+          // Usa configuração padrão
+          const { DEFAULT_AI_CONFIG } = await import('@/lib/types/ai-config');
           config.aiConfig = {
-            enabled: true,
-            autoResponse: true,
+            ...DEFAULT_AI_CONFIG,
             note: 'Using default AI configuration'
           };
         }
@@ -276,7 +257,7 @@ export async function POST(request: NextRequest) {
 export async function GET() {
   return NextResponse.json({
     function: 'get-tenant-config',
-    version: '1.0.0',
+    version: '2.0.0',
     description: 'AI agent retrieves complete tenant configuration for N8N workflows',
     status: 'operational',
     parameters: {
@@ -284,7 +265,7 @@ export async function GET() {
       optional: ['includeSettings']
     },
     availableSettings: [
-      'ai - AI agent behavior and features',
+      'ai - AI agent behavior (agentPermissions, discountSettings, customPrompts)',
       'negotiation - Pricing and discount settings',
       'policies - Cancellation, check-in/out, house rules',
       'company - Company information and contact',
@@ -292,11 +273,22 @@ export async function GET() {
     ],
     returns: {
       tenantId: 'string',
-      aiConfig: 'object - AI configuration',
+      aiConfig: {
+        enabled: 'boolean',
+        autoResponse: 'boolean',
+        businessHoursOnly: 'boolean',
+        agentPermissions: 'object - search, booking, sales, support, payments',
+        discountSettings: 'object - enabled, maxPercentage, requiresApproval, allowedCriteria',
+        customPrompts: 'object - welcome, companyName, companyValues, tone, specialInstructions'
+      },
       negotiation: 'object - Negotiation settings',
       policies: 'object - Property policies',
       company: 'object - Company information',
       fetchedAt: 'ISO timestamp'
+    },
+    changelog: {
+      'v2.0.0': 'Unified with /api/ai/config - now returns complete AIConfig structure',
+      'v1.0.0': 'Initial release with agentBehavior (deprecated)'
     },
     timestamp: new Date().toISOString()
   });

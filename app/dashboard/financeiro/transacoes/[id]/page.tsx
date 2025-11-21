@@ -29,8 +29,9 @@ import {
   Description,
   EventNote,
   AccountBalance,
+  WhatsApp,
 } from '@mui/icons-material';
-import { format } from 'date-fns';
+import { format, isValid } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useTenantServices } from '@/lib/hooks/useTenantServices';
 
@@ -168,6 +169,33 @@ export default function TransactionDetailPage() {
     }
   };
 
+  const formatSafeDate = (date: any, formatStr: string = 'dd/MM/yyyy'): string => {
+    if (!date) return 'Data não disponível';
+
+    try {
+      let dateObj: Date;
+
+      if (date instanceof Date) {
+        dateObj = date;
+      } else if (date?.toDate && typeof date.toDate === 'function') {
+        dateObj = date.toDate();
+      } else if (typeof date === 'string' || typeof date === 'number') {
+        dateObj = new Date(date);
+      } else {
+        return 'Data inválida';
+      }
+
+      if (isNaN(dateObj.getTime())) {
+        return 'Data inválida';
+      }
+
+      return format(dateObj, formatStr, { locale: ptBR });
+    } catch (error) {
+      console.error('Error formatting date:', error);
+      return 'Data inválida';
+    }
+  };
+
   const navigateToClient = () => {
     if (client) {
       router.push(`/dashboard/clientes/${client.id}`);
@@ -183,6 +211,13 @@ export default function TransactionDetailPage() {
   const navigateToProperty = () => {
     if (property) {
       router.push(`/dashboard/propriedades/${property.id}`);
+    }
+  };
+
+  const navigateToConversations = () => {
+    if (client) {
+      // Navigate to conversations page and trigger search filter
+      router.push(`/dashboard/conversas?search=${encodeURIComponent(client.phone)}`);
     }
   };
 
@@ -336,7 +371,7 @@ export default function TransactionDetailPage() {
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                 <EventNote fontSize="small" color="action" />
                 <Typography>
-                  {format(transaction.date, "dd 'de' MMMM 'de' yyyy", { locale: ptBR })}
+                  {formatSafeDate(transaction.date, "dd 'de' MMMM 'de' yyyy")}
                 </Typography>
               </Box>
             </Box>
@@ -406,14 +441,7 @@ export default function TransactionDetailPage() {
                     border: 1,
                     borderColor: 'divider',
                     borderRadius: 1,
-                    cursor: 'pointer',
-                    transition: 'all 0.2s',
-                    '&:hover': {
-                      bgcolor: 'action.hover',
-                      borderColor: 'primary.main',
-                    }
                   }}
-                  onClick={navigateToClient}
                 >
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
                     <Person color="primary" />
@@ -432,6 +460,27 @@ export default function TransactionDetailPage() {
                       {client.email}
                     </Typography>
                   )}
+                  <Box sx={{ display: 'flex', gap: 1, mt: 2 }}>
+                    <Button
+                      size="small"
+                      variant="outlined"
+                      startIcon={<Person />}
+                      onClick={navigateToClient}
+                      fullWidth
+                    >
+                      Ver Perfil
+                    </Button>
+                    <Button
+                      size="small"
+                      variant="contained"
+                      color="success"
+                      startIcon={<WhatsApp />}
+                      onClick={navigateToConversations}
+                      fullWidth
+                    >
+                      WhatsApp
+                    </Button>
+                  </Box>
                 </Box>
               </Grid>
             )}
@@ -525,10 +574,10 @@ export default function TransactionDetailPage() {
       {/* Metadata */}
       <Box sx={{ mt: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <Typography variant="caption" color="text.secondary">
-          Criado em: {format(transaction.createdAt, 'dd/MM/yyyy HH:mm', { locale: ptBR })}
+          Criado em: {formatSafeDate(transaction.createdAt, 'dd/MM/yyyy HH:mm')}
         </Typography>
         <Typography variant="caption" color="text.secondary">
-          Atualizado em: {format(transaction.updatedAt, 'dd/MM/yyyy HH:mm', { locale: ptBR })}
+          Atualizado em: {formatSafeDate(transaction.updatedAt, 'dd/MM/yyyy HH:mm')}
         </Typography>
       </Box>
     </Box>

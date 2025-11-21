@@ -97,25 +97,8 @@ const navigationItems: NavigationItem[] = [
   },
   {
     text: 'Financeiro',
-    href: '/dashboard/financeiro',
+    href: '/dashboard/financeiro/transacoes',
     icon: <AccountBalance sx={{ fontSize: 20 }} />,
-    submenu: [
-      {
-        text: 'Visão Geral',
-        href: '/dashboard/financeiro',
-        icon: <Assessment sx={{ fontSize: 18 }} />,
-      },
-      {
-        text: 'Transações',
-        href: '/dashboard/financeiro/transacoes',
-        icon: <Receipt sx={{ fontSize: 18 }} />,
-      },
-      {
-        text: 'Cobranças',
-        href: '/dashboard/financeiro/cobrancas',
-        icon: <NotificationsActive sx={{ fontSize: 18 }} />,
-      },
-    ],
   },
   {
     text: 'Ajuda',

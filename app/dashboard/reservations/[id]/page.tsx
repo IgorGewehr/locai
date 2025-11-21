@@ -47,6 +47,7 @@ import {
   History,
   Visibility,
   AttachMoney,
+  WhatsApp,
 } from '@mui/icons-material';
 import { format, differenceInDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -333,7 +334,7 @@ export default function ReservationDetailPage() {
                   Ver Cliente
                 </Button>
               </Box>
-              
+
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
                 <Avatar {...(reservation.clientAvatar ? { src: reservation.clientAvatar } : {})} sx={{ width: 50, height: 50 }}>
                   {reservation.clientName?.[0]}
@@ -350,6 +351,16 @@ export default function ReservationDetailPage() {
                   </Box>
                 </Box>
               </Box>
+
+              <Button
+                variant="contained"
+                color="success"
+                fullWidth
+                startIcon={<WhatsApp />}
+                onClick={() => router.push(`/dashboard/conversas?search=${encodeURIComponent(reservation.clientPhone)}`)}
+              >
+                Ver Conversas no WhatsApp
+              </Button>
             </CardContent>
           </Card>
         </Grid>

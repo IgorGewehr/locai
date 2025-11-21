@@ -437,6 +437,17 @@ export default function ClientDetailPage() {
                       </Box>
                     )}
                   </Box>
+                  <Box sx={{ mt: 2 }}>
+                    <Button
+                      variant="contained"
+                      color="success"
+                      startIcon={<WhatsApp />}
+                      onClick={() => router.push(`/dashboard/conversas?search=${encodeURIComponent(client.phone)}`)}
+                      fullWidth
+                    >
+                      Ver Conversas no WhatsApp
+                    </Button>
+                  </Box>
                 </>
               ) : (
                 <Grid container spacing={2}>

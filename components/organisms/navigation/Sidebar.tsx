@@ -98,26 +98,9 @@ const menuItems = [
   },
   {
     text: 'Financeiro',
-    href: '/dashboard/financeiro',
+    href: '/dashboard/financeiro/transacoes',
     icon: <AccountBalance />,
     badge: null,
-    submenu: [
-      {
-        text: 'Visão Geral',
-        href: '/dashboard/financeiro',
-        icon: <Analytics />,
-      },
-      {
-        text: 'Transações',
-        href: '/dashboard/financeiro/transacoes',
-        icon: <Receipt />,
-      },
-      // {
-      //   text: 'Cobranças',
-      //   href: '/dashboard/financeiro/cobrancas',
-      //   icon: <NotificationsActive />,
-      // },
-    ],
   },
   {
     text: 'Ajuda',

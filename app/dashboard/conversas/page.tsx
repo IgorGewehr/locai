@@ -51,7 +51,7 @@ import {
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { safeFormat, formatTimestamp as safeFormatTimestamp, toDate } from '@/lib/utils/date-helpers';
-import { useRouter } from 'next/navigation';
+import { useRouter, useSearchParams } from 'next/navigation';
 import InfiniteScroll from 'react-infinite-scroll-component';
 import { lazy, Suspense } from 'react';
 import { useMetrics } from '@/lib/hooks/useMetrics';
@@ -68,6 +68,7 @@ import { Send } from '@mui/icons-material';
 export default function ConversationsPage() {
   const theme = useTheme();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const { tenantId, isReady } = useTenant();
   const { getFirebaseToken } = useAuth();
   const { data: metricsData } = useMetrics('7d');
@@ -113,6 +114,16 @@ export default function ConversationsPage() {
   const [renameConversationId, setRenameConversationId] = useState<string | null>(null);
   const [newName, setNewName] = useState('');
   const [editedConversations, setEditedConversations] = useState<Set<string>>(new Set());
+
+  // Apply search param from URL on mount
+  useEffect(() => {
+    const searchParam = searchParams.get('search');
+    if (searchParam) {
+      setSearchText(searchParam);
+      setDebouncedSearchText(searchParam);
+      setFilters({ ...filters, search: searchParam });
+    }
+  }, []); // Only run on mount
 
   // Check AI block status when conversation changes
   useEffect(() => {
