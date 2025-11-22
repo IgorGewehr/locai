@@ -172,6 +172,7 @@ export interface UseRevolutionaryOnboardingResult {
   canGoForward: boolean;
 }
 
+// ⏸️ BACKUP: Versão com 3 passos salva em revolutionary-onboarding.old.ts
 export const REVOLUTIONARY_ONBOARDING_STEPS: Omit<RevolutionaryOnboardingStep, 'status'>[] = [
   {
     id: 'add_property',
@@ -214,53 +215,18 @@ export const REVOLUTIONARY_ONBOARDING_STEPS: Omit<RevolutionaryOnboardingStep, '
       icon: 'Home',
     },
   },
-  {
-    id: 'configure_system',
-    title: 'Configurar Empresa e Sofia IA',
-    description: 'Personalize sua empresa e configure a assistente virtual Sofia',
-    icon: 'Settings',
-    order: 2,
-    isOptional: false,
-    estimatedMinutes: 7,
-    hasEmbeddedDialog: true,
-    dialogMode: 'system_configure',
-    guidanceText: 'Configure as informações da sua empresa e personalize como a Sofia vai atender seus clientes',
-    tips: [
-      {
-        id: 'company_info',
-        title: 'Informações da Empresa',
-        description: 'Preencha os dados da sua imobiliária para personalizar o atendimento',
-        type: 'info',
-        icon: 'Business',
-      },
-      {
-        id: 'ai_config',
-        title: 'Personalização da Sofia',
-        description: 'Escolha o tom de comunicação e defina limites de desconto',
-        type: 'tip',
-        icon: 'SmartToy',
-      },
-    ],
-    completionBadge: {
-      id: 'system_configured',
-      title: 'Sistema Configurado',
-      description: 'Você configurou sua empresa e a Sofia IA!',
-      icon: 'Settings',
-      color: '#6366f1',
-    },
-    sidebarReference: {
-      title: 'Configurações',
-      description: 'Acesse as configurações completas em "Configurações"',
-      path: '/dashboard/settings',
-      icon: 'Settings',
-    },
-  },
+  // ⏸️ PASSO 2 REMOVIDO TEMPORARIAMENTE - Código preservado em revolutionary-onboarding.old.ts
+  // {
+  //   id: 'configure_system',
+  //   title: 'Configurar Empresa e Sofia IA',
+  //   ...
+  // },
   {
     id: 'connect_whatsapp',
     title: 'Conectar WhatsApp',
     description: 'Conecte seu WhatsApp para atendimento automatizado com Sofia IA',
     icon: 'WhatsApp',
-    order: 3,
+    order: 2, // ← Mudado de 3 para 2
     isOptional: false,
     estimatedMinutes: 3,
     hasEmbeddedDialog: true,
@@ -301,7 +267,7 @@ export const DEFAULT_REVOLUTIONARY_STATE: Omit<RevolutionaryOnboardingState, 'st
   timeSpentSeconds: 0,
   stepInteractions: {
     add_property: { stepId: 'add_property', attempts: 0, timeSpentSeconds: 0, actions: [] },
-    configure_system: { stepId: 'configure_system', attempts: 0, timeSpentSeconds: 0, actions: [] },
+    // configure_system removido - backup em revolutionary-onboarding.old.ts
     connect_whatsapp: { stepId: 'connect_whatsapp', attempts: 0, timeSpentSeconds: 0, actions: [] },
   },
   showTooltips: true,

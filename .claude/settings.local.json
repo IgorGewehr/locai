@@ -105,7 +105,8 @@
       "Bash(firebase deploy:*)",
       "Bash(firebase firestore:indexes:*)",
       "Bash(gcloud firestore fields ttls create:*)",
-      "Bash(tree:*)"
+      "Bash(tree:*)",
+      "Bash(xargs -I {} basename {})"
     ],
     "deny": [],
     "defaultMode": "acceptEdits",

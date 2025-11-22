@@ -216,15 +216,8 @@ export default function ReservationsPage() {
 
   const handleWhatsAppClick = (reservation: ReservationWithDetails, e: React.MouseEvent) => {
     e.stopPropagation();
-
-    // Se tem conversa, abre a página de conversas diretamente na conversa dele
-    if (reservation.lastConversation) {
-      router.push(`/dashboard/conversas?conversation=${reservation.lastConversation.id}`);
-    } else {
-      // Se não tem conversa, abre WhatsApp externo
-      const phone = reservation.clientPhone.replace(/\D/g, '');
-      window.open(`https://wa.me/55${phone}`, '_blank');
-    }
+    // Abre página de conversas filtrada pelo telefone do cliente
+    router.push(`/dashboard/conversas?search=${encodeURIComponent(reservation.clientPhone)}`);
   };
 
   // Load reservations from Firebase
@@ -777,7 +770,7 @@ export default function ReservationsPage() {
                           <Payment sx={{ fontSize: { xs: 16, sm: 20 } }} />
                         </IconButton>
                       </Tooltip>
-                      <Tooltip title={reservation.lastConversation ? "Abrir conversa" : "Iniciar conversa no WhatsApp"}>
+                      <Tooltip title="Ver conversas no WhatsApp">
                         <IconButton
                           size="small"
                           onClick={(e) => handleWhatsAppClick(reservation, e)}
@@ -795,7 +788,7 @@ export default function ReservationsPage() {
                             color="error"
                             invisible={!reservation.unreadMessages}
                           >
-                            <Chat sx={{ fontSize: { xs: 16, sm: 20 } }} />
+                            <WhatsApp sx={{ fontSize: { xs: 16, sm: 20 } }} />
                           </Badge>
                         </IconButton>
                       </Tooltip>

@@ -5,6 +5,8 @@ import { sanitizeUserInput } from '@/lib/utils/validation'
 import { validateFirebaseAuth } from '@/lib/middleware/firebase-auth'
 import { z } from 'zod'
 import { PaymentMethod, PaymentStatus, ReservationStatus, ReservationSource } from '@/lib/types/reservation'
+import { iCalGeneratorService } from '@/lib/services/ical-generator-service'
+import { logger } from '@/lib/utils/logger'
 
 // Zod schema for reservation update
 const UpdateReservationSchema = z.object({
@@ -301,6 +303,24 @@ export async function PUT(
     // Update the reservation
     const updatedReservation = await services.reservations.update(id, sanitizedData)
 
+    // ✅ Invalidate iCal cache for this property to ensure external calendars get updated
+    const propertyId = validatedData.propertyId || existingReservation.propertyId
+    try {
+      iCalGeneratorService.invalidateCache(propertyId, authContext.tenantId)
+      logger.info('[Reservations API] iCal cache invalidated after reservation update', {
+        propertyId,
+        reservationId: id,
+        tenantId: authContext.tenantId.substring(0, 8) + '***'
+      })
+    } catch (cacheError) {
+      // Log but don't fail the reservation update
+      logger.error('[Reservations API] Failed to invalidate iCal cache', {
+        error: cacheError instanceof Error ? cacheError.message : 'Unknown error',
+        propertyId,
+        reservationId: id
+      })
+    }
+
     return NextResponse.json({
       success: true,
       data: updatedReservation,
@@ -350,6 +370,22 @@ export async function DELETE(
         updatedAt: new Date()
       })
 
+      // ✅ Invalidate iCal cache for this property after cancellation
+      try {
+        iCalGeneratorService.invalidateCache(existingReservation.propertyId, authContext.tenantId)
+        logger.info('[Reservations API] iCal cache invalidated after reservation cancellation', {
+          propertyId: existingReservation.propertyId,
+          reservationId: id,
+          tenantId: authContext.tenantId.substring(0, 8) + '***'
+        })
+      } catch (cacheError) {
+        logger.error('[Reservations API] Failed to invalidate iCal cache', {
+          error: cacheError instanceof Error ? cacheError.message : 'Unknown error',
+          propertyId: existingReservation.propertyId,
+          reservationId: id
+        })
+      }
+
       return NextResponse.json({
         success: true,
         message: 'Reserva cancelada com sucesso'
@@ -357,6 +393,22 @@ export async function DELETE(
     } else {
       // Hard delete
       await services.reservations.delete(id)
+
+      // ✅ Invalidate iCal cache for this property after deletion
+      try {
+        iCalGeneratorService.invalidateCache(existingReservation.propertyId, authContext.tenantId)
+        logger.info('[Reservations API] iCal cache invalidated after reservation deletion', {
+          propertyId: existingReservation.propertyId,
+          reservationId: id,
+          tenantId: authContext.tenantId.substring(0, 8) + '***'
+        })
+      } catch (cacheError) {
+        logger.error('[Reservations API] Failed to invalidate iCal cache', {
+          error: cacheError instanceof Error ? cacheError.message : 'Unknown error',
+          propertyId: existingReservation.propertyId,
+          reservationId: id
+        })
+      }
 
       return NextResponse.json({
         success: true,

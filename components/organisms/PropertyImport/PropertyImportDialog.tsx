@@ -54,6 +54,8 @@ import {
 } from '@/lib/services/airbnb-import-service';
 import { mapAirbnbToProperty, validateMappedProperty } from '@/lib/utils/airbnb-mapper';
 import { PropertyCompletionDialog } from '@/components/organisms/PropertyCompletionDialog';
+import { extractAirbnbPropertyId } from '@/lib/utils/airbnb-helpers';
+import AirbnbICalHelper from '@/components/organisms/AirbnbICalHelper/AirbnbICalHelper';
 
 interface ImportProgress {
   total: number;
@@ -96,11 +98,19 @@ const DropzoneArea = styled(Box)(({ theme }) => ({
   }
 }));
 
-const steps = [
+const stepsJSON = [
   'Upload do Arquivo',
   'Validação dos Dados',
   'Processamento de Mídias',
   'Salvamento das Propriedades',
+  'Concluído'
+];
+
+const stepsURL = [
+  'URL do Airbnb',
+  'Importar Dados',
+  'Configurar iCal (Opcional)',
+  'Completar Detalhes',
   'Concluído'
 ];
 
@@ -146,6 +156,13 @@ export default function PropertyImportDialog({
   // Property completion dialog state
   const [showCompletionDialog, setShowCompletionDialog] = useState(false);
   const [mappedPropertyData, setMappedPropertyData] = useState<any>(null);
+
+  // Helper dialog state
+  const [showICalHelper, setShowICalHelper] = useState(false);
+  const [extractedAirbnbId, setExtractedAirbnbId] = useState<string | null>(null);
+
+  // URL Import wizard state
+  const [urlWizardStep, setUrlWizardStep] = useState(0); // 0: URL, 1: Import, 2: iCal, 3: Complete
 
   const getStepFromStage = (stage: ImportProgress['stage']): number => {
     switch (stage) {
@@ -475,10 +492,20 @@ export default function PropertyImportDialog({
   const validateAirbnbUrlInput = (url: string) => {
     if (!url || url.trim() === '') {
       setUrlValidation(null);
+      setExtractedAirbnbId(null);
       return;
     }
 
     const valid = isValidAirbnbUrl(url);
+
+    // ✅ Extract property ID when URL is valid
+    if (valid) {
+      const propertyId = extractAirbnbPropertyId(url);
+      setExtractedAirbnbId(propertyId);
+    } else {
+      setExtractedAirbnbId(null);
+    }
+
     setUrlValidation({
       valid,
       message: valid
@@ -593,8 +620,10 @@ export default function PropertyImportDialog({
       const createdProperty = await response.json();
 
       // Step 2: Create iCal sync configuration if URL provided
-      if (iCalUrl && iCalValidation?.valid && createdProperty.id) {
+      if (iCalUrl && iCalValidation?.valid && createdProperty.data?.id) {
         try {
+          setActiveStep(3); // Show syncing progress
+
           const syncResponse = await fetch('/api/calendar/sync/configure', {
             method: 'POST',
             headers: {
@@ -602,7 +631,7 @@ export default function PropertyImportDialog({
               Authorization: `Bearer ${token}`,
             },
             body: JSON.stringify({
-              propertyId: createdProperty.id,
+              propertyId: createdProperty.data.id,
               iCalUrl,
               source: 'airbnb',
               syncFrequency: 'daily',
@@ -610,13 +639,80 @@ export default function PropertyImportDialog({
           });
 
           if (syncResponse.ok) {
-            console.log('iCal sync configured successfully');
+            console.log('✅ iCal sync configured successfully');
+
+            // ✅ IMPROVEMENT: Trigger immediate first sync
+            try {
+              const firstSyncResponse = await fetch(`/api/calendar/sync/${createdProperty.data.id}`, {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  Authorization: `Bearer ${token}`,
+                },
+              });
+
+              if (firstSyncResponse.ok) {
+                const syncResult = await firstSyncResponse.json();
+                console.log('✅ First sync completed:', syncResult);
+                setResult({
+                  success: true,
+                  message: `Propriedade criada e sincronizada! ${syncResult.result?.eventsImported || 0} reservas importadas.`,
+                  result: {
+                    createdProperties: [completedData.title],
+                    skippedProperties: [],
+                    syncDetails: syncResult.result,
+                  },
+                });
+              } else {
+                console.warn('⚠️ First sync failed, will retry later');
+                setResult({
+                  success: true,
+                  message: 'Propriedade criada! A sincronização inicial será feita em breve.',
+                  result: {
+                    createdProperties: [completedData.title],
+                    skippedProperties: [],
+                  },
+                });
+              }
+            } catch (firstSyncError) {
+              console.warn('⚠️ First sync error:', firstSyncError);
+              setResult({
+                success: true,
+                message: 'Propriedade criada! A sincronização automática está configurada.',
+                result: {
+                  createdProperties: [completedData.title],
+                  skippedProperties: [],
+                },
+              });
+            }
           } else {
-            console.warn('Failed to configure iCal sync, but property was created');
+            // ✅ IMPROVEMENT: Better error handling with user notification
+            const syncErrorData = await syncResponse.json().catch(() => ({}));
+            console.error('❌ Failed to configure iCal sync:', syncErrorData);
+
+            setResult({
+              success: true, // Property was created, just sync failed
+              message: 'Propriedade criada, mas a sincronização automática falhou. Configure manualmente nas configurações.',
+              result: {
+                createdProperties: [completedData.title],
+                skippedProperties: [],
+                syncError: syncErrorData.error || 'Erro desconhecido na configuração do iCal',
+              },
+            });
           }
         } catch (syncError) {
-          console.warn('Error configuring iCal sync:', syncError);
-          // Don't fail the entire import if sync configuration fails
+          console.error('❌ Error configuring iCal sync:', syncError);
+
+          // ✅ IMPROVEMENT: Show error to user instead of silent fail
+          setResult({
+            success: true, // Property was created
+            message: 'Propriedade criada! Configure a sincronização automática depois nas configurações do imóvel.',
+            result: {
+              createdProperties: [completedData.title],
+              skippedProperties: [],
+              syncError: syncError instanceof Error ? syncError.message : 'Erro desconhecido',
+            },
+          });
         }
       }
 
@@ -860,15 +956,25 @@ export default function PropertyImportDialog({
                     }}
                   />
 
-                  <Alert severity="info" sx={{ fontSize: '0.875rem' }}>
+                  <Alert
+                    severity="info"
+                    sx={{ fontSize: '0.875rem' }}
+                    action={
+                      <Button
+                        color="inherit"
+                        size="small"
+                        onClick={() => setShowICalHelper(true)}
+                        disabled={!extractedAirbnbId}
+                      >
+                        Ver Tutorial
+                      </Button>
+                    }
+                  >
                     <Typography variant="caption" display="block" gutterBottom>
-                      <strong>Como obter a URL do calendário:</strong>
+                      <strong>Não sabe onde encontrar?</strong>
                     </Typography>
                     <Typography variant="caption" component="div">
-                      1. Acesse seu painel no Airbnb<br />
-                      2. Vá em "Anúncios" → Selecione o anúncio<br />
-                      3. "Preços e disponibilidade" → "Sincronização de calendário"<br />
-                      4. Copie a URL em "Exportar calendário"
+                      Clique em "Ver Tutorial" para um guia passo a passo de como configurar a sincronização bidirecional com o Airbnb.
                     </Typography>
                   </Alert>
                 </Box>
@@ -1236,6 +1342,18 @@ export default function PropertyImportDialog({
         onComplete={handlePropertyCompletion}
       />
     )}
+
+    {/* ✅ Airbnb iCal Helper Dialog */}
+    <AirbnbICalHelper
+      open={showICalHelper}
+      onClose={() => setShowICalHelper(false)}
+      airbnbPropertyId={extractedAirbnbId}
+      onICalUrlProvided={(url) => {
+        setICalUrl(url);
+        validateICalUrlInput(url);
+        setShowICalHelper(false);
+      }}
+    />
     </>
   );
 }

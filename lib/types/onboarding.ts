@@ -1,9 +1,11 @@
 /**
  * Onboarding Types
  * Types for the first-time user onboarding flow
+ *
+ * BACKUP: Código completo com 3 passos salvo em onboarding.old.ts
  */
 
-export type OnboardingStepId = 'add_property' | 'configure_system' | 'connect_whatsapp';
+export type OnboardingStepId = 'add_property' | 'connect_whatsapp';
 
 export type OnboardingStepStatus = 'pending' | 'in_progress' | 'completed' | 'skipped';
 
@@ -59,17 +61,6 @@ export interface UseOnboardingResult {
   shouldShowOnboarding: boolean;
 }
 
-/**
- * FEATURE FLAG: Habilitar step de configuração do sistema
- *
- * Configure como `true` para mostrar o step "configure_system" no onboarding.
- * Configure como `false` para ocultar temporariamente (recomendado durante testes).
- *
- * NOTA: Todo o código do step está preservado. Basta alterar esta flag para true
- * quando estiver pronto para reativar a funcionalidade de configuração da Sofia.
- */
-export const ENABLE_SYSTEM_CONFIGURATION_STEP = false;
-
 export const DEFAULT_ONBOARDING_STEPS: Omit<OnboardingStep, 'status'>[] = [
   {
     id: 'add_property',
@@ -83,25 +74,14 @@ export const DEFAULT_ONBOARDING_STEPS: Omit<OnboardingStep, 'status'>[] = [
     estimatedMinutes: 5,
   },
   {
-    id: 'configure_system',
-    title: 'Configurar sua empresa e IA',
-    description: 'Configure as informações da sua empresa e personalize a Sofia para atender seus clientes do seu jeito.',
-    icon: 'Settings',
-    actionText: 'Configurar Sistema',
-    actionUrl: '/dashboard/onboarding/configure',
-    order: 2,
-    isOptional: false,
-    estimatedMinutes: 7,
-  },
-  {
     id: 'connect_whatsapp',
     title: 'Conectar o WhatsApp',
     description: 'Integre sua conta do WhatsApp para automatizar o atendimento aos seus clientes interessados.',
     icon: 'WhatsApp',
     actionText: 'Conectar WhatsApp',
     actionUrl: '/dashboard/settings?tab=whatsapp',
-    order: 3,
+    order: 2,
     isOptional: false,
     estimatedMinutes: 3,
   },
-].filter(step => ENABLE_SYSTEM_CONFIGURATION_STEP || step.id !== 'configure_system');
+];

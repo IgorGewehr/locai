@@ -30,6 +30,7 @@ import {
   Lock,
   CheckCircle,
   CardGiftcard,
+  Google as GoogleIcon,
 } from '@mui/icons-material';
 import { useForm, Controller } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
@@ -87,7 +88,7 @@ const darkFieldStyles = {
 
 export default function SimpleSignup() {
   const router = useRouter();
-  const { signUp } = useAuth();
+  const { signUp, signInWithGoogle } = useAuth();
 
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -129,6 +130,41 @@ export default function SimpleSignup() {
         errorMessage = 'Senha muito fraca. Use pelo menos 6 caracteres.';
       } else if (err.code === 'auth/invalid-email') {
         errorMessage = 'Email inválido.';
+      } else if (err.message) {
+        errorMessage = err.message;
+      }
+
+      setError(errorMessage);
+      setIsLoading(false);
+    }
+  };
+
+  const handleGoogleSignup = async () => {
+    try {
+      setIsLoading(true);
+      setError(null);
+
+      // Fazer signup/login com Google
+      await signInWithGoogle();
+
+      // Mostrar feedback de sucesso
+      setSuccess(true);
+
+      // Redirecionar para onboarding após breve delay
+      setTimeout(() => {
+        router.push('/onboarding');
+      }, 800);
+    } catch (err: any) {
+      let errorMessage = 'Erro ao criar conta com Google';
+
+      if (err.code === 'auth/popup-closed-by-user') {
+        errorMessage = 'Login cancelado pelo usuário.';
+      } else if (err.code === 'auth/popup-blocked') {
+        errorMessage = 'Pop-up bloqueado. Permita pop-ups para este site.';
+      } else if (err.code === 'auth/account-exists-with-different-credential') {
+        errorMessage = 'Já existe uma conta com este email usando outro método de login.';
+      } else if (err.code === 'auth/network-request-failed') {
+        errorMessage = 'Erro de conexão. Verifique sua internet.';
       } else if (err.message) {
         errorMessage = err.message;
       }
@@ -493,6 +529,71 @@ export default function SimpleSignup() {
                     }}
                   >
                     {isLoading ? 'Criando conta...' : 'Criar conta'}
+                  </Button>
+
+                  {/* Divider */}
+                  <Box sx={{ position: 'relative', my: 2 }}>
+                    <Box
+                      sx={{
+                        position: 'absolute',
+                        top: '50%',
+                        left: 0,
+                        right: 0,
+                        height: '1px',
+                        backgroundColor: '#333333',
+                      }}
+                    />
+                    <Typography
+                      variant="caption"
+                      sx={{
+                        position: 'relative',
+                        backgroundColor: '#111111',
+                        px: 2,
+                        color: '#a1a1a1',
+                        display: 'inline-block',
+                        left: '50%',
+                        transform: 'translateX(-50%)',
+                      }}
+                    >
+                      ou
+                    </Typography>
+                  </Box>
+
+                  {/* Google Sign-up Button */}
+                  <Button
+                    fullWidth
+                    size="large"
+                    disabled={isLoading}
+                    onClick={handleGoogleSignup}
+                    startIcon={<GoogleIcon sx={{ fontSize: 18 }} />}
+                    sx={{
+                      py: 1.8,
+                      borderRadius: 2,
+                      textTransform: 'none',
+                      fontWeight: 600,
+                      fontSize: '1rem',
+                      backgroundColor: '#ffffff',
+                      color: '#1f2937',
+                      boxShadow: 'none',
+                      border: '1px solid #404040',
+                      transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
+                      '&:hover': {
+                        backgroundColor: '#f9fafb',
+                        boxShadow: '0 4px 12px rgba(255, 255, 255, 0.1)',
+                        transform: isLoading ? 'none' : 'translateY(-1px) scale(1.02)',
+                      },
+                      '&:active': {
+                        transform: isLoading ? 'none' : 'translateY(0) scale(0.98)',
+                        transition: 'all 0.1s ease',
+                      },
+                      '&:disabled': {
+                        backgroundColor: '#6b7280',
+                        color: '#ffffff',
+                        opacity: 0.5,
+                      },
+                    }}
+                  >
+                    Continuar com Google
                   </Button>
                 </Stack>
               </form>

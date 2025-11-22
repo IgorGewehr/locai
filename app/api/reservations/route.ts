@@ -8,6 +8,7 @@ import { PaymentMethod, PaymentStatus, ReservationStatus, ReservationSource } fr
 import { NotificationServiceFactory } from '@/lib/services/notification-service'
 import { NotificationType, NotificationPriority, NotificationChannel } from '@/lib/types/notification'
 import { logger } from '@/lib/utils/logger'
+import { iCalGeneratorService } from '@/lib/services/ical-generator-service'
 
 // Zod schema for reservation validation
 const CreateReservationSchema = z.object({
@@ -372,6 +373,23 @@ export async function POST(request: NextRequest) {
 
     // Create the reservation
     const newReservation = await services.reservations.create(sanitizedData)
+
+    // ✅ Invalidate iCal cache for this property to ensure external calendars get updated
+    try {
+      iCalGeneratorService.invalidateCache(validatedData.propertyId, authContext.tenantId)
+      logger.info('[Reservations API] iCal cache invalidated after reservation creation', {
+        propertyId: validatedData.propertyId,
+        reservationId: newReservation,
+        tenantId: authContext.tenantId.substring(0, 8) + '***'
+      })
+    } catch (cacheError) {
+      // Log but don't fail the reservation creation
+      logger.error('[Reservations API] Failed to invalidate iCal cache', {
+        error: cacheError instanceof Error ? cacheError.message : 'Unknown error',
+        propertyId: validatedData.propertyId,
+        reservationId: newReservation
+      })
+    }
 
     // Trigger notification for new reservation (NON-BLOCKING - fire and forget)
     const notificationService = NotificationServiceFactory.getInstance(authContext.tenantId)

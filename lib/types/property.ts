@@ -52,6 +52,16 @@ export interface Property {
   highSeasonSurcharge?: number // Percentual de acréscimo para alta temporada
   highSeasonMonths?: number[] // Meses considerados alta temporada (1-12)
 
+  // Sincronização iCal (Airbnb, Booking.com, etc.)
+  airbnbPropertyId?: string // ID da propriedade no Airbnb (extraído da URL)
+  iCalExportToken?: string // Token seguro para gerar URL de export
+  iCalExportTokenGeneratedAt?: Date // Quando o token foi gerado
+  iCalImportUrl?: string // URL do calendário externo para importar (Airbnb, Booking, etc.)
+  iCalImportSource?: 'airbnb' | 'booking' | 'vrbo' | 'other' // Fonte do calendário importado
+  iCalLastSync?: Date // Última vez que o calendário foi sincronizado
+  iCalSyncEnabled?: boolean // Se a sincronização automática está ativa
+  externalCalendarUrls?: ExternalCalendarUrl[] // Múltiplas fontes de calendário
+
   // Metadados
   isActive: boolean
   createdAt: Date
@@ -129,6 +139,16 @@ export interface UploadedFile {
   name: string
   url: string
   size: number
+}
+
+export interface ExternalCalendarUrl {
+  id: string
+  url: string
+  source: 'airbnb' | 'booking' | 'vrbo' | 'other'
+  name: string
+  isActive: boolean
+  lastSync?: Date
+  createdAt: Date
 }
 
 export const PROPERTY_CATEGORIES_LABELS = {

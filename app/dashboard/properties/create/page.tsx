@@ -33,6 +33,7 @@ import { PropertySpecs } from '@/components/organisms/PropertyEdit/Specs';
 import { PropertyAmenities } from '@/components/organisms/PropertyEdit/Amenities';
 import { PropertyPricing } from '@/components/organisms/PropertyEdit/Pricing';
 import { PropertyMedia as PropertyMediaUpload } from '@/components/organisms/PropertyEdit/Media';
+import PropertyICalManagement from '@/components/organisms/PropertyICalManagement/PropertyICalManagement';
 import { Property, PricingRule, PropertyCategory, PropertyStatus, PropertyType } from '@/lib/types/property';
 import { PaymentMethod } from '@/lib/types/common';
 import { useTenant } from '@/contexts/TenantContext';
@@ -50,6 +51,7 @@ const steps = [
   'Comodidades',
   'Precificação',
   'Fotos e Vídeos',
+  'Sincronização iCal',
   'Revisão',
 ];
 
@@ -73,6 +75,7 @@ export default function CreatePropertyPage() {
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [pricingRules, setPricingRules] = useState<PricingRule[]>([]);
+  const [savedPropertyId, setSavedPropertyId] = useState<string | null>(null); // Track saved draft property
 
   const methods = useForm<Property>({
     resolver: yupResolver(yup.object().shape({
@@ -175,9 +178,14 @@ export default function CreatePropertyPage() {
 
   const handleNext = async () => {
     const isValid = await validateStep(activeStep);
-    if (isValid) {
-      setActiveStep((prevStep) => prevStep + 1);
+    if (!isValid) return;
+
+    // Auto-save as draft before iCal step (step 5)
+    if (activeStep === 4 && !savedPropertyId) {
+      await saveDraft();
     }
+
+    setActiveStep((prevStep) => prevStep + 1);
   };
 
   const handleBack = () => {
@@ -230,6 +238,80 @@ export default function CreatePropertyPage() {
       logger.error('[CreateProperty] Erro na validação', { step, error });
       // Em caso de erro, permite continuar
       return true;
+    }
+  };
+
+  /**
+   * Save property as draft (before iCal step)
+   * This allows iCal configuration even before final save
+   */
+  const saveDraft = async () => {
+    if (!isReady || !services || !tenantId) {
+      setError('Serviços não estão prontos. Tente novamente.');
+      return;
+    }
+
+    try {
+      setLoading(true);
+      const data = methods.getValues();
+
+      logger.info('[CreateProperty] Salvando rascunho antes do step iCal', { tenantId });
+
+      const propertyData = {
+        ...data,
+        title: data.title || 'Rascunho - Propriedade',
+        address: data.address || '',
+        neighborhood: data.neighborhood || '',
+        city: data.city || '',
+        pricingRules,
+        status: PropertyStatus.ACTIVE,
+        type: data.type || PropertyType.RESIDENTIAL,
+        capacity: data.capacity || data.maxGuests || 1,
+        advancePaymentPercentage: data.advancePaymentPercentage || 0,
+        weekendSurcharge: Number(data.weekendSurcharge) || 0,
+        holidaySurcharge: Number(data.holidaySurcharge) || 0,
+        decemberSurcharge: Number(data.decemberSurcharge) || 0,
+        highSeasonSurcharge: Number(data.highSeasonSurcharge) || 0,
+        highSeasonMonths: Array.isArray(data.highSeasonMonths) ? data.highSeasonMonths : [],
+        location: generateLocationField({
+          address: data.address || '',
+          neighborhood: data.neighborhood || '',
+          city: data.city || '',
+          title: data.title || '',
+          description: data.description || ''
+        }),
+        photos: Array.isArray(data.photos) ? data.photos.filter(p => p && typeof p === 'string') : [],
+        videos: Array.isArray(data.videos) ? data.videos.filter(v => v && typeof v === 'string') : [],
+        amenities: Array.isArray(data.amenities) ? data.amenities : [],
+        customPricing: data.customPricing || {},
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+
+      const response = await makeAuthenticatedRequest('/api/properties', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(propertyData)
+      });
+
+      if (!response.ok) {
+        throw new Error('Erro ao salvar rascunho');
+      }
+
+      const responseData = await response.json();
+      const propertyId = responseData.data?.id;
+
+      if (propertyId) {
+        setSavedPropertyId(propertyId);
+        methods.setValue('id', propertyId);
+        setSuccessMessage('Rascunho salvo! Você pode configurar o iCal agora.');
+        logger.info('✅ [CreateProperty] Rascunho salvo com sucesso', { propertyId });
+      }
+    } catch (err) {
+      logger.error('[CreateProperty] Erro ao salvar rascunho', { error: err });
+      setError('Erro ao salvar rascunho. Continue e salve no final.');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -294,13 +376,19 @@ export default function CreatePropertyPage() {
       };
       
       // Use API route for consistency with edit functionality
-      logger.info('Sending property creation request', {
+      // If we already saved as draft, update instead of create
+      const isUpdate = !!savedPropertyId;
+      const apiUrl = isUpdate ? `/api/properties/${savedPropertyId}` : '/api/properties';
+      const method = isUpdate ? 'PUT' : 'POST';
+
+      logger.info(isUpdate ? 'Updating draft property' : 'Creating new property', {
         tenantId,
+        propertyId: savedPropertyId,
         fieldsCount: Object.keys(propertyData).length
       });
 
-      const response = await makeAuthenticatedRequest('/api/properties', {
-        method: 'POST',
+      const response = await makeAuthenticatedRequest(apiUrl, {
+        method,
         headers: {
           'Content-Type': 'application/json'
         },
@@ -310,19 +398,19 @@ export default function CreatePropertyPage() {
       if (!response.ok) {
         const errorData = await response.text();
         let errorMessage = `Erro ${response.status}`;
-        
+
         try {
           const parsed = JSON.parse(errorData);
           errorMessage = parsed.error || parsed.message || errorMessage;
         } catch {
           errorMessage = errorData || errorMessage;
         }
-        
+
         throw new Error(errorMessage);
       }
 
       const responseData = await response.json();
-      const propertyId = responseData.data?.id;
+      const propertyId = responseData.data?.id || savedPropertyId;
 
       logger.info('✅ [CreateProperty] Property created successfully', { propertyId, tenantId });
 
@@ -359,6 +447,11 @@ export default function CreatePropertyPage() {
   };
 
   const renderStepContent = (step: number) => {
+    const { watch } = methods;
+    const propertyData = watch();
+    const propertyId = savedPropertyId || watch('id'); // Use savedPropertyId from draft
+    const propertyName = watch('title') || 'Nova Propriedade';
+
     switch (step) {
       case 0:
         return <PropertyBasicInfo />;
@@ -371,6 +464,44 @@ export default function CreatePropertyPage() {
       case 4:
         return <PropertyMediaUpload />;
       case 5:
+        // iCal Sync step - show even without property ID (will auto-save draft when entering this step)
+        if (loading) {
+          return (
+            <Card>
+              <CardContent>
+                <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2, py: 4 }}>
+                  <CircularProgress />
+                  <Typography color="text.secondary">
+                    Salvando rascunho para habilitar configuração do iCal...
+                  </Typography>
+                </Box>
+              </CardContent>
+            </Card>
+          );
+        }
+        return (
+          <Card>
+            <CardContent>
+              <Typography variant="h6" gutterBottom sx={{ mb: 3 }}>
+                Sincronização de Calendários (Opcional)
+              </Typography>
+              <PropertyICalManagement
+                propertyId={propertyId}
+                propertyName={propertyName}
+                currentData={{
+                  iCalExportToken: propertyData?.iCalExportToken,
+                  iCalImportUrl: propertyData?.iCalImportUrl,
+                  airbnbPropertyId: propertyData?.airbnbPropertyId,
+                  iCalLastSync: propertyData?.iCalLastSync,
+                }}
+              />
+              <Alert severity="info" sx={{ mt: 3 }}>
+                Esta etapa é opcional. Você pode configurar a sincronização agora ou mais tarde na edição do imóvel.
+              </Alert>
+            </CardContent>
+          </Card>
+        );
+      case 6:
         return <PropertyReview />;
       default:
         return null;

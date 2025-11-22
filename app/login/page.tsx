@@ -33,6 +33,7 @@ import {
   ArrowForward,
   CheckCircle,
   CardGiftcard,
+  Google as GoogleIcon,
 } from '@mui/icons-material';
 import { useForm, Controller } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
@@ -94,7 +95,7 @@ export default function LoginPage() {
   const [isProcessing, setIsProcessing] = useState(false);
   
   const router = useRouter();
-  const { signIn, signUp, resetPassword, user, loading } = useAuth();
+  const { signIn, signUp, signInWithGoogle, resetPassword, user, loading } = useAuth();
 
   // ✅ CORREÇÃO: Evitar redirect loop no useEffect
   useEffect(() => {
@@ -269,6 +270,63 @@ export default function LoginPage() {
     } catch (err: any) {
       setError('Erro ao enviar email de recuperação');
     } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleGoogleSignIn = async () => {
+    try {
+      setIsLoading(true);
+      setError(null);
+      setSuccess(null);
+
+      await signInWithGoogle();
+
+      // Mostrar feedback de sucesso
+      if (activeTab === 0) {
+        setLoginSuccess(true);
+      } else {
+        setRegisterSuccess(true);
+      }
+      setIsProcessing(true);
+
+      // Redirect
+      setTimeout(() => {
+        const isAlreadyRedirecting = sessionStorage.getItem('redirecting');
+        if (isAlreadyRedirecting) return;
+
+        let targetPath = '/dashboard';
+
+        try {
+          const savedPath = localStorage.getItem('redirectPath');
+          if (savedPath && savedPath.startsWith('/dashboard')) {
+            targetPath = savedPath;
+            localStorage.removeItem('redirectPath');
+          }
+        } catch (error) {
+          // Se der erro ao acessar localStorage, usar dashboard padrão
+        }
+
+        console.log('🔄 [LoginPage] Google sign-in success, redirecting to:', targetPath);
+        sessionStorage.setItem('redirecting', 'true');
+        router.replace(targetPath);
+      }, 500);
+    } catch (err: any) {
+      let errorMessage = 'Erro ao fazer login com Google';
+
+      if (err.code === 'auth/popup-closed-by-user') {
+        errorMessage = 'Login cancelado pelo usuário.';
+      } else if (err.code === 'auth/popup-blocked') {
+        errorMessage = 'Pop-up bloqueado. Permita pop-ups para este site.';
+      } else if (err.code === 'auth/account-exists-with-different-credential') {
+        errorMessage = 'Já existe uma conta com este email usando outro método de login.';
+      } else if (err.code === 'auth/network-request-failed') {
+        errorMessage = 'Erro de conexão. Verifique sua internet.';
+      } else if (err.message) {
+        errorMessage = err.message;
+      }
+
+      setError(errorMessage);
       setIsLoading(false);
     }
   };
@@ -590,10 +648,10 @@ export default function LoginPage() {
                             disabled={isLoading || isProcessing}
                             startIcon={
                               isLoading ? (
-                                <Box 
-                                  sx={{ 
-                                    width: 14, 
-                                    height: 14, 
+                                <Box
+                                  sx={{
+                                    width: 14,
+                                    height: 14,
                                     border: '1.5px solid rgba(255,255,255,0.3)',
                                     borderTop: '1.5px solid white',
                                     borderRadius: '50%',
@@ -602,7 +660,7 @@ export default function LoginPage() {
                                       '0%': { transform: 'rotate(0deg)' },
                                       '100%': { transform: 'rotate(360deg)' }
                                     }
-                                  }} 
+                                  }}
                                 />
                               ) : isProcessing ? (
                                 <CheckCircle sx={{ fontSize: 16, color: 'white' }} />
@@ -639,6 +697,71 @@ export default function LoginPage() {
                             }}
                           >
                             {isProcessing ? 'Logado' : isLoading ? 'Verificando...' : 'Entrar'}
+                          </Button>
+
+                          {/* Divider */}
+                          <Box sx={{ position: 'relative', my: 2 }}>
+                            <Box
+                              sx={{
+                                position: 'absolute',
+                                top: '50%',
+                                left: 0,
+                                right: 0,
+                                height: '1px',
+                                backgroundColor: '#333333',
+                              }}
+                            />
+                            <Typography
+                              variant="caption"
+                              sx={{
+                                position: 'relative',
+                                backgroundColor: '#111111',
+                                px: 2,
+                                color: '#a1a1a1',
+                                display: 'inline-block',
+                                left: '50%',
+                                transform: 'translateX(-50%)',
+                              }}
+                            >
+                              ou
+                            </Typography>
+                          </Box>
+
+                          {/* Google Sign-in Button */}
+                          <Button
+                            fullWidth
+                            size="large"
+                            disabled={isLoading || isProcessing}
+                            onClick={handleGoogleSignIn}
+                            startIcon={<GoogleIcon sx={{ fontSize: 18 }} />}
+                            sx={{
+                              py: 1.8,
+                              borderRadius: 2,
+                              textTransform: 'none',
+                              fontWeight: 600,
+                              fontSize: '1rem',
+                              backgroundColor: '#ffffff',
+                              color: '#1f2937',
+                              boxShadow: 'none',
+                              border: '1px solid #404040',
+                              transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
+                              '&:hover': {
+                                backgroundColor: '#f9fafb',
+                                boxShadow: '0 4px 12px rgba(255, 255, 255, 0.1)',
+                                transform: isLoading || isProcessing ? 'none' : 'translateY(-1px) scale(1.02)',
+                              },
+                              '&:active': {
+                                transform: isLoading || isProcessing ? 'none' : 'translateY(0) scale(0.98)',
+                                transition: 'all 0.1s ease',
+                              },
+                              '&:disabled': {
+                                backgroundColor: '#6b7280',
+                                color: '#ffffff',
+                                opacity: 0.5,
+                              },
+                            }}
+                          >
+                            Continuar com Google
                           </Button>
                         </Stack>
                       </form>
@@ -803,10 +926,10 @@ export default function LoginPage() {
                             disabled={isLoading || registerSuccess}
                             startIcon={
                               isLoading ? (
-                                <Box 
-                                  sx={{ 
-                                    width: 14, 
-                                    height: 14, 
+                                <Box
+                                  sx={{
+                                    width: 14,
+                                    height: 14,
                                     border: '1.5px solid rgba(255,255,255,0.3)',
                                     borderTop: '1.5px solid white',
                                     borderRadius: '50%',
@@ -815,7 +938,7 @@ export default function LoginPage() {
                                       '0%': { transform: 'rotate(0deg)' },
                                       '100%': { transform: 'rotate(360deg)' }
                                     }
-                                  }} 
+                                  }}
                                 />
                               ) : registerSuccess ? (
                                 <CheckCircle sx={{ fontSize: 16, color: 'white' }} />
@@ -852,6 +975,71 @@ export default function LoginPage() {
                             }}
                           >
                             {registerSuccess ? 'Redirecionando...' : isLoading ? 'Criando conta...' : 'Criar conta'}
+                          </Button>
+
+                          {/* Divider */}
+                          <Box sx={{ position: 'relative', my: 2 }}>
+                            <Box
+                              sx={{
+                                position: 'absolute',
+                                top: '50%',
+                                left: 0,
+                                right: 0,
+                                height: '1px',
+                                backgroundColor: '#333333',
+                              }}
+                            />
+                            <Typography
+                              variant="caption"
+                              sx={{
+                                position: 'relative',
+                                backgroundColor: '#111111',
+                                px: 2,
+                                color: '#a1a1a1',
+                                display: 'inline-block',
+                                left: '50%',
+                                transform: 'translateX(-50%)',
+                              }}
+                            >
+                              ou
+                            </Typography>
+                          </Box>
+
+                          {/* Google Sign-up Button */}
+                          <Button
+                            fullWidth
+                            size="large"
+                            disabled={isLoading || registerSuccess}
+                            onClick={handleGoogleSignIn}
+                            startIcon={<GoogleIcon sx={{ fontSize: 18 }} />}
+                            sx={{
+                              py: 1.8,
+                              borderRadius: 2,
+                              textTransform: 'none',
+                              fontWeight: 600,
+                              fontSize: '1rem',
+                              backgroundColor: '#ffffff',
+                              color: '#1f2937',
+                              boxShadow: 'none',
+                              border: '1px solid #404040',
+                              transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
+                              '&:hover': {
+                                backgroundColor: '#f9fafb',
+                                boxShadow: '0 4px 12px rgba(255, 255, 255, 0.1)',
+                                transform: isLoading || registerSuccess ? 'none' : 'translateY(-1px) scale(1.02)',
+                              },
+                              '&:active': {
+                                transform: isLoading || registerSuccess ? 'none' : 'translateY(0) scale(0.98)',
+                                transition: 'all 0.1s ease',
+                              },
+                              '&:disabled': {
+                                backgroundColor: '#6b7280',
+                                color: '#ffffff',
+                                opacity: 0.5,
+                              },
+                            }}
+                          >
+                            Continuar com Google
                           </Button>
                         </Stack>
                       </form>

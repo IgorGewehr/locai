@@ -42,6 +42,20 @@ export interface Property {
   isActive: boolean;
   createdAt: Date;
   updatedAt: Date;
+
+  // iCal Integration fields
+  iCalExportToken?: string; // Secure token for public iCal feed export
+  iCalExportTokenGeneratedAt?: Date; // When the export token was generated
+  iCalImportUrl?: string; // External iCal URL to import from (e.g., Airbnb)
+  iCalImportSource?: 'airbnb' | 'booking' | 'vrbo' | 'other'; // Source platform
+  iCalLastSync?: Date; // Last successful import sync
+  airbnbPropertyId?: string; // Airbnb property ID for easy reference
+  externalCalendarUrls?: Array<{
+    source: 'airbnb' | 'booking' | 'vrbo' | 'other';
+    url: string;
+    isActive: boolean;
+    lastSync?: Date;
+  }>; // Support multiple external calendars
 }
 
 export interface Reservation {
@@ -62,6 +76,11 @@ export interface Reservation {
   totalAmount: number;
   nights: number;
   source: string;
+
+  // External calendar sync fields
+  externalEventUid?: string; // UID from external iCal event (to prevent duplicates)
+  externalSource?: 'airbnb' | 'booking' | 'vrbo' | 'other'; // Source platform for imported reservations
+  isExternalReservation?: boolean; // Flag to indicate this was imported from external calendar
 }
 
 export interface Client {

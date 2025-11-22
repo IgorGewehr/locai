@@ -57,7 +57,7 @@ import {
   CloudUpload,
 } from '@mui/icons-material';
 import type { Property } from '@/lib/types/property';
-import PropertyImportDialog from '@/components/organisms/PropertyImport/PropertyImportDialog';
+import PropertyImportWizard from '@/components/organisms/PropertyImportWizard/PropertyImportWizard';
 
 // Disable static generation for this page
 export const dynamic = 'force-dynamic';
@@ -640,8 +640,8 @@ export default function PropertiesPage() {
         </DialogActions>
       </Dialog>
 
-      {/* Property Import Dialog */}
-      <PropertyImportDialog
+      {/* Property Import Wizard - Improved UX */}
+      <PropertyImportWizard
         open={importDialogOpen}
         onClose={() => setImportDialogOpen(false)}
         onSuccess={handleImportSuccess}

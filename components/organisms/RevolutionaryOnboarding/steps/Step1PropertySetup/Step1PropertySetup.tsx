@@ -37,7 +37,7 @@ import {
 } from '@mui/icons-material';
 import { motion } from 'framer-motion';
 import AirbnbQuickTips from './AirbnbQuickTips';
-import PropertyImportDialog from '@/components/organisms/PropertyImport/PropertyImportDialog';
+import PropertyImportWizard from '@/components/organisms/PropertyImportWizard/PropertyImportWizard';
 import { logger } from '@/lib/utils/logger';
 
 interface Step1PropertySetupProps {
@@ -412,17 +412,15 @@ export default function Step1PropertySetup({
         </DialogContent>
       </Dialog>
 
-      {/* Import Dialog (Airbnb) */}
-      {showImportDialog && (
-        <PropertyImportDialog
-          open={showImportDialog}
-          onClose={() => {
-            setShowImportDialog(false);
-            setMode('select');
-          }}
-          onSuccess={handleImportSuccess}
-        />
-      )}
+      {/* ✅ Import Wizard (Airbnb) - Improved UX */}
+      <PropertyImportWizard
+        open={showImportDialog}
+        onClose={() => {
+          setShowImportDialog(false);
+          setMode('select');
+        }}
+        onSuccess={handleImportSuccess}
+      />
     </>
   );
 }

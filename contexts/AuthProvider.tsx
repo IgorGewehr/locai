@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, useContext, useState, useEffect, useCallback, useMemo, useRef } from "react";
-import { onAuthStateChanged, signOut, signInWithEmailAndPassword, createUserWithEmailAndPassword, sendPasswordResetEmail, updateProfile } from "firebase/auth";
+import { onAuthStateChanged, signOut, signInWithEmailAndPassword, createUserWithEmailAndPassword, sendPasswordResetEmail, updateProfile, GoogleAuthProvider, signInWithPopup } from "firebase/auth";
 import { doc, getDoc, updateDoc, setDoc } from "firebase/firestore";
 import { auth, db } from "@/lib/firebase/config";
 import { useRouter, usePathname } from "next/navigation";
@@ -38,21 +38,22 @@ interface AuthContextType {
   user: User | null;
   loading: boolean;
   tenantId: string | null;
-  
+
   // Funções principais
   logout: () => Promise<void>;
   reloadUser: (forceRefresh?: boolean) => Promise<void>;
   signIn: (email: string, password: string) => Promise<void>;
   signUp: (email: string, password: string, name: string, extraData?: { free?: number; businessName?: string; propertiesCount?: number }) => Promise<void>;
+  signInWithGoogle: () => Promise<void>;
   resetPassword: (email: string) => Promise<void>;
-  
+
   // Token Firebase
   getFirebaseToken: (forceRefresh?: boolean) => Promise<string | null>;
-  
+
   // Verificações
   isAdmin: boolean;
   isAuthenticated: boolean;
-  
+
   // Dados do tenant
   getTenantId: () => string | null;
   getUserData: () => User | null;
@@ -760,16 +761,102 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const resetPassword = useCallback(async (email: string): Promise<void> => {
     try {
       logger.info('🔐 [Auth] Enviando email de reset de senha', { email });
-      
+
       await sendPasswordResetEmail(auth, email, {
         url: `${window.location.origin}/login`,
         handleCodeInApp: false,
       });
-      
+
       logger.info('✅ [Auth] Email de reset enviado', { email });
     } catch (error: any) {
       logger.error('❌ [Auth] Erro ao enviar email de reset', {
         email,
+        error: error.message,
+        code: error.code
+      });
+      throw error;
+    }
+  }, []);
+
+  const signInWithGoogle = useCallback(async (): Promise<void> => {
+    try {
+      logger.info('🔐 [Auth] Iniciando login com Google');
+
+      const provider = new GoogleAuthProvider();
+      provider.setCustomParameters({
+        prompt: 'select_account'
+      });
+
+      const result = await signInWithPopup(auth, provider);
+
+      // Verificar se é um novo usuário ou usuário existente
+      const userRef = doc(db, 'users', result.user.uid);
+      const userSnap = await getDoc(userRef);
+
+      if (!userSnap.exists()) {
+        // Novo usuário - criar com 7 dias grátis
+        const displayName = result.user.displayName || result.user.email?.split('@')[0] || 'User';
+
+        const userData: any = {
+          email: result.user.email,
+          name: displayName,
+          fullName: displayName,
+          role: 'user',
+          isActive: true,
+          emailVerified: result.user.emailVerified,
+          plan: 'free',
+          createdAt: new Date(),
+          lastLogin: new Date(),
+          whatsappNumbers: [],
+          authProvider: 'google',
+          firstAccess: true,
+          free: 7 // 🎁 7 dias grátis para novos cadastros
+        };
+
+        await setDoc(userRef, userData);
+
+        logger.info('✅ [Auth] Novo usuário criado com Google', {
+          uid: result.user.uid,
+          email: result.user.email,
+          name: displayName,
+          free: 7
+        });
+
+        // Forçar invalidação do cache
+        invalidateUserCache(result.user.uid);
+
+        // Atualizar estado imediato
+        const newUser: User = {
+          uid: result.user.uid,
+          email: result.user.email!,
+          name: displayName,
+          fullName: displayName,
+          role: 'user',
+          isAdmin: false,
+          tenantId: result.user.uid,
+          isActive: true,
+          emailVerified: result.user.emailVerified,
+          createdAt: new Date(),
+          lastLogin: new Date(),
+          companyName: '',
+          whatsappNumbers: [],
+          plan: 'free',
+          firstAccess: true,
+          createdViaWebhook: false,
+          passwordSet: true
+        };
+
+        setUser(newUser);
+      } else {
+        logger.info('✅ [Auth] Login com Google realizado', {
+          uid: result.user.uid,
+          email: result.user.email
+        });
+      }
+
+      // O listener onAuthStateChanged vai processar o usuário automaticamente
+    } catch (error: any) {
+      logger.error('❌ [Auth] Erro no login com Google', {
         error: error.message,
         code: error.code
       });
@@ -795,21 +882,22 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     user,
     loading,
     tenantId: user?.tenantId || null,
-    
+
     // Funções principais
     logout,
     reloadUser,
     signIn,
     signUp,
+    signInWithGoogle,
     resetPassword,
-    
+
     // Token Firebase
     getFirebaseToken,
-    
+
     // Verificações
     isAdmin: user?.role === 'admin',
     isAuthenticated: !!user,
-    
+
     // Dados do tenant
     getTenantId,
     getUserData
@@ -820,6 +908,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     reloadUser,
     signIn,
     signUp,
+    signInWithGoogle,
     resetPassword,
     getFirebaseToken,
     getTenantId,

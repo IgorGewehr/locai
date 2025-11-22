@@ -68,6 +68,7 @@ import {
   CreditCard,
   Pix,
   MoneyOff,
+  WhatsApp,
   AttachMoney,
   Receipt,
   Build,
@@ -84,6 +85,7 @@ import {
   Home,
   CalendarToday,
   Campaign,
+  Edit,
 } from '@mui/icons-material';
 import { Transaction, Client, Property, Reservation } from '@/lib/types';
 import { useTenantServices } from '@/lib/hooks/useTenantServices';
@@ -113,6 +115,8 @@ export default function TransactionsPage() {
   const [newTransactionOpen, setNewTransactionOpen] = useState(false);
   const [activeStep, setActiveStep] = useState(0);
   const [transactionType, setTransactionType] = useState<'income' | 'expense'>('income');
+  const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
+  const [isEditMode, setIsEditMode] = useState(false);
   
   // Snackbar state
   const [snackbar, setSnackbar] = useState<{open: boolean, message: string, severity: 'success' | 'error'}>({
@@ -174,6 +178,7 @@ export default function TransactionsPage() {
     control,
     handleSubmit,
     reset,
+    trigger,
     formState: { errors, isSubmitting }
   } = useForm({
     resolver: yupResolver(transactionSchema),
@@ -247,6 +252,12 @@ export default function TransactionsPage() {
   };
 
   const handleCreateTransaction = async (data: any) => {
+    console.log('=== SUBMIT TRANSACTION ===');
+    console.log('Data received:', data);
+    console.log('Form errors:', errors);
+    console.log('Is edit mode:', isEditMode);
+    console.log('Services available:', !!services);
+
     if (!services) {
       setSnackbar({
         open: true,
@@ -255,55 +266,128 @@ export default function TransactionsPage() {
       });
       return;
     }
-    
-    try {
-      // Map form status to valid MovementStatus
-      const mappedStatus = data.status === 'completed' ? 'paid' : data.status;
-      
-      const newTransaction = {
-        ...data,
-        status: mappedStatus,
-        dueDate: new Date(), // Add required dueDate
-        date: new Date(),
-        createdAt: new Date(),
-        updatedAt: new Date(),
-        createdBy: 'user', // Add required field
-        isRecurring: false, // Add required field
-        isInstallment: false, // Add required field
-        autoCharge: false, // Add required field
-        remindersSent: 0, // Add required field
-        // Only include IDs if they have values
-        ...(data.clientId && { clientId: data.clientId }),
-        ...(data.reservationId && { reservationId: data.reservationId }),
-        ...(data.propertyId && { propertyId: data.propertyId }),
-      };
 
-      await services.transactions.create(newTransaction);
-      
+    try {
+      // Map form status to valid TransactionStatus
+      const mappedStatus = data.status === 'completed' ? 'paid' : data.status;
+
+      if (isEditMode && editingTransaction) {
+        // UPDATE EXISTING TRANSACTION
+        const updateData: any = {
+          ...data,
+          status: mappedStatus,
+          updatedAt: new Date(),
+        };
+
+        // Only include IDs if they have values
+        if (!data.clientId || data.clientId === '') delete updateData.clientId;
+        if (!data.reservationId || data.reservationId === '') delete updateData.reservationId;
+        if (!data.propertyId || data.propertyId === '') delete updateData.propertyId;
+
+        await services.transactions.update(editingTransaction.id, updateData);
+
+        setSnackbar({
+          open: true,
+          message: 'Transação atualizada com sucesso!',
+          severity: 'success'
+        });
+      } else {
+        // CREATE NEW TRANSACTION
+        const newTransaction = {
+          ...data,
+          status: mappedStatus,
+          dueDate: new Date(), // Add required dueDate
+          date: new Date(),
+          createdAt: new Date(),
+          updatedAt: new Date(),
+          createdBy: 'user', // Add required field
+          isRecurring: false, // Add required field
+          isInstallment: false, // Add required field
+          autoCharge: false, // Add required field
+          remindersSent: 0, // Add required field
+        };
+
+        // Only include IDs if they have values
+        if (!data.clientId || data.clientId === '') delete newTransaction.clientId;
+        if (!data.reservationId || data.reservationId === '') delete newTransaction.reservationId;
+        if (!data.propertyId || data.propertyId === '') delete newTransaction.propertyId;
+
+        await services.transactions.create(newTransaction);
+
+        setSnackbar({
+          open: true,
+          message: 'Transação criada com sucesso!',
+          severity: 'success'
+        });
+      }
+
       // Reset form and close dialog
       reset();
       setSelectedClient(null);
       setSelectedReservation(null);
+      setIsEditMode(false);
+      setEditingTransaction(null);
       setNewTransactionOpen(false);
       setActiveStep(0); // Reset step to initial
-      
+
       // Reload transactions
       await loadTransactions();
-      
-      // Show success feedback
+
+    } catch (error: unknown) {
+      console.error('Error saving transaction:', error);
+      const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
       setSnackbar({
         open: true,
-        message: 'Transação criada com sucesso!',
-        severity: 'success'
-      });
-    } catch (error) {
-      console.error('Error creating transaction:', error);
-      setSnackbar({
-        open: true,
-        message: `Erro ao criar transação: ${error instanceof Error ? error.message : 'Erro desconhecido'}`,
+        message: `Erro ao ${isEditMode ? 'atualizar' : 'criar'} transação: ${errorMessage}`,
         severity: 'error'
       });
     }
+  };
+
+  const handleEditTransaction = (transaction: Transaction) => {
+    setIsEditMode(true);
+    setEditingTransaction(transaction);
+    setTransactionType(transaction.type as 'income' | 'expense');
+
+    // Pre-fill form with transaction data
+    // Map status to valid form values (pending, paid, overdue, cancelled)
+    const formStatus = (() => {
+      const status = transaction.status as string;
+      if (status === 'completed' || status === 'paid') return 'paid';
+      if (status === 'refunded') return 'cancelled'; // Map refunded to cancelled for form
+      return status as 'pending' | 'paid' | 'overdue' | 'cancelled';
+    })();
+
+    reset({
+      description: transaction.description,
+      amount: transaction.amount,
+      type: transaction.type as 'income' | 'expense',
+      category: transaction.category,
+      status: formStatus,
+      paymentMethod: transaction.paymentMethod || 'pix',
+      clientId: transaction.clientId || '',
+      reservationId: transaction.reservationId || '',
+      propertyId: transaction.propertyId || '',
+      notes: transaction.notes || '',
+    });
+
+    // Load related entities if available
+    if (transaction.clientId && allClients.length > 0) {
+      const client = allClients.find(c => c.id === transaction.clientId);
+      if (client) {
+        setSelectedClient(client);
+        handleClientSelection(client);
+      }
+    }
+
+    if (transaction.reservationId && allReservations.length > 0) {
+      const reservation = allReservations.find(r => r.id === transaction.reservationId);
+      if (reservation) {
+        setSelectedReservation(reservation);
+      }
+    }
+
+    setNewTransactionOpen(true);
   };
 
   const handleCloseNewTransaction = () => {
@@ -313,10 +397,35 @@ export default function TransactionsPage() {
     setFilteredReservations([]);
     setActiveStep(0);
     setTransactionType('income');
+    setIsEditMode(false);
+    setEditingTransaction(null);
     setNewTransactionOpen(false);
   };
 
-  const handleNext = () => {
+  const handleNext = async () => {
+    // Validate current step before proceeding
+    let fieldsToValidate: string[] = [];
+
+    if (activeStep === 0) {
+      // Step 1: Basic Information
+      fieldsToValidate = ['description', 'amount', 'type', 'status'];
+    } else if (activeStep === 1) {
+      // Step 2: Category and Payment Method
+      fieldsToValidate = ['category', 'paymentMethod'];
+    }
+
+    // Trigger validation for current step fields
+    const result = await trigger(fieldsToValidate as any);
+
+    if (!result) {
+      setSnackbar({
+        open: true,
+        message: 'Por favor, preencha todos os campos obrigatórios antes de continuar.',
+        severity: 'error'
+      });
+      return;
+    }
+
     setActiveStep((prevActiveStep) => prevActiveStep + 1);
   };
 
@@ -428,40 +537,43 @@ export default function TransactionsPage() {
 
   const handleReservationSelection = async (reservation: Reservation | null) => {
     setSelectedReservation(reservation);
-    
+
     if (reservation) {
       // Only auto-fill if user hasn't made changes to avoid conflicts
       const currentFormData = control._getWatch();
       const isFormEmpty = !currentFormData.description && !currentFormData.amount;
-      
+
       if (isFormEmpty) {
-        // Auto-fill form fields based on reservation
+        // Auto-fill form fields based on reservation (without triggering submission)
+        const formattedNotes = (() => {
+          try {
+            const checkIn = reservation.checkIn instanceof Date ? reservation.checkIn : new Date(reservation.checkIn);
+            const checkOut = reservation.checkOut instanceof Date ? reservation.checkOut : new Date(reservation.checkOut);
+
+            if (!isNaN(checkIn.getTime()) && !isNaN(checkOut.getTime())) {
+              return `Check-in: ${format(checkIn, 'dd/MM/yyyy')} - Check-out: ${format(checkOut, 'dd/MM/yyyy')}`;
+            }
+            return `Reserva #${reservation.id.slice(-8)}`;
+          } catch (error) {
+            return `Reserva #${reservation.id.slice(-8)}`;
+          }
+        })();
+
+        // Use reset with keepDefaultValues to prevent form submission
         reset({
           description: `Pagamento - Reserva #${reservation.id.slice(-8)}`,
           amount: reservation.totalAmount,
           type: 'income',
           category: 'rent',
           status: reservation.paymentStatus === 'paid' ? 'paid' : 'pending',
-          paymentMethod: reservation.paymentMethod || 'pix',
+          paymentMethod: 'pix', // Default payment method
           clientId: reservation.clientId,
           reservationId: reservation.id,
           propertyId: reservation.propertyId,
-          notes: (() => {
-            try {
-              const checkIn = reservation.checkIn instanceof Date ? reservation.checkIn : new Date(reservation.checkIn);
-              const checkOut = reservation.checkOut instanceof Date ? reservation.checkOut : new Date(reservation.checkOut);
-              
-              if (!isNaN(checkIn.getTime()) && !isNaN(checkOut.getTime())) {
-                return `Check-in: ${format(checkIn, 'dd/MM/yyyy')} - Check-out: ${format(checkOut, 'dd/MM/yyyy')}`;
-              }
-              return `Reserva #${reservation.id.slice(-8)}`;
-            } catch (error) {
-              return `Reserva #${reservation.id.slice(-8)}`;
-            }
-          })(),
-        });
+          notes: formattedNotes,
+        }, { keepDefaultValues: false, keepDirty: false, keepTouched: false });
       }
-      
+
       // Also set the selected client if not already selected
       if (!selectedClient && reservation.clientId) {
         const client = allClients.find(c => c.id === reservation.clientId);
@@ -502,6 +614,21 @@ export default function TransactionsPage() {
       loadReservations();
     }
   }, [isReady, services]);
+
+  // Handle edit query parameter
+  useEffect(() => {
+    const searchParams = new URLSearchParams(window.location.search);
+    const editId = searchParams.get('edit');
+
+    if (editId && transactions.length > 0 && services) {
+      const transactionToEdit = transactions.find(t => t.id === editId);
+      if (transactionToEdit) {
+        handleEditTransaction(transactionToEdit);
+        // Clear the query parameter
+        window.history.replaceState({}, '', '/dashboard/financeiro/transacoes');
+      }
+    }
+  }, [transactions]);
 
   const filteredTransactions = transactions.filter(transaction => {
     if (filterType !== 'all' && transaction.type !== filterType) return false;
@@ -708,14 +835,48 @@ export default function TransactionsPage() {
                       />
                     </TableCell>
                     <TableCell align="center">
-                      <Tooltip title="Ver detalhes">
-                        <IconButton
-                          size="small"
-                          onClick={() => router.push(`/dashboard/financeiro/transacoes/${transaction.id}`)}
-                        >
-                          <Visibility />
-                        </IconButton>
-                      </Tooltip>
+                      <Box sx={{ display: 'flex', gap: 0.5, justifyContent: 'center' }}>
+                        <Tooltip title="Editar transação">
+                          <IconButton
+                            size="small"
+                            onClick={() => handleEditTransaction(transaction)}
+                            sx={{
+                              color: 'primary.main',
+                              '&:hover': {
+                                bgcolor: 'primary.light',
+                                color: 'primary.dark',
+                              }
+                            }}
+                          >
+                            <Edit sx={{ fontSize: 18 }} />
+                          </IconButton>
+                        </Tooltip>
+                        <Tooltip title="Ver detalhes">
+                          <IconButton
+                            size="small"
+                            onClick={() => router.push(`/dashboard/financeiro/transacoes/${transaction.id}`)}
+                          >
+                            <Visibility />
+                          </IconButton>
+                        </Tooltip>
+                        {transaction.clientId && (
+                          <Tooltip title="Ver detalhes e conversas">
+                            <IconButton
+                              size="small"
+                              onClick={() => router.push(`/dashboard/financeiro/transacoes/${transaction.id}`)}
+                              sx={{
+                                bgcolor: 'success.main',
+                                color: 'white',
+                                '&:hover': {
+                                  bgcolor: 'success.dark',
+                                }
+                              }}
+                            >
+                              <WhatsApp sx={{ fontSize: 18 }} />
+                            </IconButton>
+                          </Tooltip>
+                        )}
+                      </Box>
                     </TableCell>
                   </TableRow>
                 ))
@@ -843,7 +1004,7 @@ export default function TransactionsPage() {
                               Propriedade
                             </Typography>
                             <Typography variant="body2" color="text.secondary">
-                              {relatedProperty.title}
+                              {relatedProperty.name}
                             </Typography>
                           </Box>
                           <Button
@@ -912,7 +1073,6 @@ export default function TransactionsPage() {
         maxWidth="md"
         fullWidth
         TransitionComponent={Slide}
-        TransitionProps={{ direction: 'up' }}
         PaperProps={{
           sx: {
             borderRadius: 3,
@@ -928,10 +1088,10 @@ export default function TransactionsPage() {
               </Avatar>
               <Box>
                 <Typography component="div" variant="h5" fontWeight={600}>
-                  Nova Transação
+                  {isEditMode ? 'Editar Transação' : 'Nova Transação'}
                 </Typography>
                 <Typography variant="body2" color="text.secondary">
-                  Crie uma nova transação financeira
+                  {isEditMode ? 'Edite os dados da transação' : 'Crie uma nova transação financeira'}
                 </Typography>
               </Box>
             </Box>
@@ -941,7 +1101,18 @@ export default function TransactionsPage() {
           </Box>
         </DialogTitle>
         
-        <form onSubmit={handleSubmit(handleCreateTransaction)}>
+        <form onSubmit={handleSubmit(
+          handleCreateTransaction,
+          (errors) => {
+            console.log('=== VALIDATION ERRORS ===');
+            console.log('Errors:', errors);
+            setSnackbar({
+              open: true,
+              message: `Erro de validação: ${Object.values(errors).map((e: any) => e.message).join(', ')}`,
+              severity: 'error'
+            });
+          }
+        )}>
           <DialogContent sx={{ px: 3, py: 0 }}>
             <Stepper activeStep={activeStep} orientation="horizontal" sx={{ mb: 4 }}>
               {steps.map((label) => (
@@ -1178,12 +1349,14 @@ export default function TransactionsPage() {
                       render={({ field: { onChange, value } }) => (
                         <Autocomplete
                           options={allClients}
-                          getOptionLabel={(option) => `${option.name} - ${option.phone}`}
+                          getOptionLabel={(option) => `${option.name || 'Sem nome'} - ${option.phone || 'Sem telefone'}`}
+                          getOptionKey={(option) => option.id}
                           value={selectedClient}
                           onChange={(_, newValue) => {
                             handleClientSelection(newValue);
                             onChange(newValue?.id || '');
                           }}
+                          isOptionEqualToValue={(option, value) => option.id === value.id}
                           renderInput={(params) => (
                             <TextField
                               {...params}
@@ -1200,24 +1373,21 @@ export default function TransactionsPage() {
                               }}
                             />
                           )}
-                          renderOption={(props, option) => {
-                            const { key, ...otherProps } = props;
-                            return (
-                              <Box component="li" key={key} {...otherProps}>
-                                <ListItemAvatar>
-                                  <Avatar>
-                                    <AccountCircle />
-                                  </Avatar>
-                                </ListItemAvatar>
-                                <Box>
-                                  <Typography variant="subtitle2">{option.name}</Typography>
-                                  <Typography variant="body2" color="text.secondary">
-                                    {option.phone} {option.email && ` - ${option.email}`}
-                                  </Typography>
-                                </Box>
+                          renderOption={(props, option) => (
+                            <Box component="li" {...props}>
+                              <ListItemAvatar>
+                                <Avatar>
+                                  <AccountCircle />
+                                </Avatar>
+                              </ListItemAvatar>
+                              <Box>
+                                <Typography variant="subtitle2">{option.name}</Typography>
+                                <Typography variant="body2" color="text.secondary">
+                                  {option.phone} {option.email && ` - ${option.email}`}
+                                </Typography>
                               </Box>
-                            );
-                          }}
+                            </Box>
+                          )}
                         />
                       )}
                     />
@@ -1240,11 +1410,13 @@ export default function TransactionsPage() {
                               return `#${option.id.slice(-8)} - R$ ${(option.totalAmount || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`;
                             }
                           }}
+                          getOptionKey={(option) => option.id}
                           value={selectedReservation}
                           onChange={(_, newValue) => {
                             handleReservationSelection(newValue);
                             onChange(newValue?.id || '');
                           }}
+                          isOptionEqualToValue={(option, value) => option.id === value.id}
                           disabled={filteredReservations.length === 0}
                           renderInput={(params) => (
                             <TextField
@@ -1267,23 +1439,21 @@ export default function TransactionsPage() {
                             />
                           )}
                           renderOption={(props, option) => {
-                            const { key, ...otherProps } = props;
-                            
                             // Safe date formatting with validation
                             let dateRange = 'Datas não informadas';
                             try {
                               const checkIn = option.checkIn instanceof Date ? option.checkIn : new Date(option.checkIn);
                               const checkOut = option.checkOut instanceof Date ? option.checkOut : new Date(option.checkOut);
-                              
+
                               if (!isNaN(checkIn.getTime()) && !isNaN(checkOut.getTime())) {
                                 dateRange = `${format(checkIn, 'dd/MM/yyyy')} - ${format(checkOut, 'dd/MM/yyyy')}`;
                               }
                             } catch (error) {
                               // Keep default value
                             }
-                            
+
                             return (
-                              <Box component="li" key={key} {...otherProps}>
+                              <Box component="li" {...props}>
                                 <ListItemAvatar>
                                   <Avatar>
                                     <CalendarToday />
@@ -1364,14 +1534,14 @@ export default function TransactionsPage() {
             </Button>
             
             {activeStep === steps.length - 1 ? (
-              <Button 
-                type="submit" 
-                variant="contained" 
+              <Button
+                type="submit"
+                variant="contained"
                 disabled={isSubmitting}
                 startIcon={<Save />}
                 sx={{ minWidth: 140 }}
               >
-                {isSubmitting ? 'Salvando...' : 'Criar Transação'}
+                {isSubmitting ? 'Salvando...' : (isEditMode ? 'Atualizar Transação' : 'Criar Transação')}
               </Button>
             ) : (
               <Button 

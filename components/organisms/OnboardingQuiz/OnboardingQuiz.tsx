@@ -153,20 +153,21 @@ const QUIZ_STEPS: QuizStep[] = [
     icon: <Business />,
     hint: 'Este nome aparecerá para seus clientes',
   },
-  {
-    id: 'propertiesCount',
-    question: 'Perfeito! Quantas propriedades você gerencia atualmente?',
-    placeholder: 'Número de propriedades',
-    type: 'number',
-    icon: <Home />,
-    hint: 'Não se preocupe, você pode adicionar mais depois',
-    options: [
-      { label: '1-5 propriedades', value: 3 },
-      { label: '6-15 propriedades', value: 10 },
-      { label: '16-50 propriedades', value: 30 },
-      { label: '50+ propriedades', value: 50 },
-    ],
-  },
+  // ⏸️ PASSO 2 TEMPORARIAMENTE OCULTO - Será usado no futuro
+  // {
+  //   id: 'propertiesCount',
+  //   question: 'Perfeito! Quantas propriedades você gerencia atualmente?',
+  //   placeholder: 'Número de propriedades',
+  //   type: 'number',
+  //   icon: <Home />,
+  //   hint: 'Não se preocupe, você pode adicionar mais depois',
+  //   options: [
+  //     { label: '1-5 propriedades', value: 3 },
+  //     { label: '6-15 propriedades', value: 10 },
+  //     { label: '16-50 propriedades', value: 30 },
+  //     { label: '50+ propriedades', value: 50 },
+  //   ],
+  // },
   {
     id: 'addressDetails',
     question: 'Agora, qual é o endereço da sua imobiliária?',

@@ -229,14 +229,8 @@ export default function ClientsPage() {
 
   const handleWhatsAppClick = (client: ClientWithConversation, e: React.MouseEvent) => {
     e.stopPropagation();
-
-    // Se o cliente tem conversa, abre a página de conversas diretamente na conversa dele
-    if (client.lastConversation) {
-      router.push(`/dashboard/conversas?conversation=${client.lastConversation.id}`);
-    } else {
-      // Se não tem conversa, abre o WhatsApp externo
-      window.open(`https://wa.me/55${client.phone.replace(/\D/g, '')}`, '_blank');
-    }
+    // Abre página de conversas filtrada pelo telefone do cliente
+    router.push(`/dashboard/conversas?search=${encodeURIComponent(client.phone)}`);
   };
 
   const handleEditClick = (client: Client, e: React.MouseEvent) => {

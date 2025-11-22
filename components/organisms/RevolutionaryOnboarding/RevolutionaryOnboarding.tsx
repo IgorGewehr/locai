@@ -412,10 +412,10 @@ export default function RevolutionaryOnboarding({
                       mb: 0.5,
                     }}
                   >
-                    Configure em 3 Passos Simples
+                    Configure em 2 Passos Simples
                   </Typography>
                   <Typography variant="body2" sx={{ color: 'rgba(255, 255, 255, 0.7)' }}>
-                    Propriedade → Configurar Sistema → Conectar WhatsApp
+                    Propriedade → Conectar WhatsApp
                   </Typography>
                 </Box>
               </Stack>

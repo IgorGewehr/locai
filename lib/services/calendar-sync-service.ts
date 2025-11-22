@@ -156,7 +156,7 @@ export class CalendarSyncService {
   }
 
   /**
-   * Import events to availability periods
+   * Import events to availability periods and create reservations
    */
   private async importEvents(
     propertyId: string,
@@ -166,6 +166,8 @@ export class CalendarSyncService {
   ): Promise<{ created: number; updated: number }> {
     const serviceFactory = new TenantServiceFactory(tenantId);
     const availabilityService = serviceFactory.availability;
+    const reservationsService = serviceFactory.reservations;
+    const clientsService = serviceFactory.clients;
 
     let created = 0;
     let updated = 0;
@@ -176,27 +178,83 @@ export class CalendarSyncService {
         const startDate = startOfDay(event.startDate);
         const endDate = endOfDay(event.endDate);
 
-        // Check if period already exists for these dates
-        const existingPeriods = await availabilityService.getAvailability(
-          propertyId,
-          startDate,
-          endDate
+        // Check if reservation already exists for this event UID
+        const allReservations = await reservationsService.getAll();
+        const existingReservation = allReservations.find(
+          (r: any) => r.externalEventUid === event.uid
         );
 
-        // Check if there's already a blocked period from external sync
-        const hasExternalBlock = existingPeriods.some(
-          (period) =>
-            period.status === AvailabilityStatus.BLOCKED &&
-            period.reason?.includes('External calendar')
-        );
-
-        if (hasExternalBlock) {
-          // Period already exists, skip
+        if (existingReservation) {
+          // Reservation already exists, skip
           updated++;
+          logger.info('Reservation already exists for external event', {
+            propertyId,
+            eventUid: event.uid,
+            reservationId: existingReservation.id,
+          });
           continue;
         }
 
-        // Create new blocked period
+        // Create or get generic external client
+        let externalClient = await this.getOrCreateExternalClient(
+          tenantId,
+          source,
+          clientsService
+        );
+
+        // Calculate nights
+        const nights = differenceInDays(endDate, startDate);
+
+        // Create reservation for external booking with all required fields
+        const reservationData = {
+          propertyId,
+          clientId: externalClient.id,
+          checkIn: startDate,
+          checkOut: endDate,
+          guests: 1, // Default, as we don't have this info from iCal
+          nights, // ✅ Add calculated nights
+          totalAmount: 0, // External reservation, amount not tracked
+          paidAmount: 0,
+          pendingAmount: 0, // ✅ Add pendingAmount
+          status: 'confirmed' as const,
+          paymentStatus: 'pending' as const,
+          paymentMethod: 'pix' as const, // ✅ Add required paymentMethod
+          source: this.mapSourceToReservationSource(source),
+          specialRequests: event.description || '',
+          observations: `Imported from ${source} via iCal sync.\nEvent: ${event.summary}\nUID: ${event.uid}`,
+          guestDetails: [], // ✅ Add empty array for guest details
+          extraServices: [], // ✅ Add empty array for extra services
+          payments: [], // ✅ Add empty array for payments
+          paymentPlan: { // ✅ Add default payment plan
+            totalAmount: 0,
+            installments: [],
+            paymentMethod: 'pix' as const,
+            feePercentage: 0,
+            totalFees: 0,
+            description: 'External reservation - no payment plan'
+          },
+          externalEventUid: event.uid, // Store UID to prevent duplicates
+          externalSource: source,
+          tenantId, // ✅ Add tenantId for proper isolation
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        };
+
+        const reservationId = await reservationsService.create(reservationData as any);
+
+        created++;
+
+        logger.info('Created reservation from external event', {
+          propertyId,
+          reservationId,
+          eventUid: event.uid,
+          source,
+          checkIn: startDate,
+          checkOut: endDate,
+          nights,
+        });
+
+        // Also create blocked period in availability
         await availabilityService.updateAvailability(
           propertyId,
           startDate,
@@ -205,15 +263,6 @@ export class CalendarSyncService {
           `External calendar sync from ${source}`,
           `Imported from ${source}: ${event.summary}`
         );
-
-        created++;
-
-        logger.info('Created blocked period from external event', {
-          propertyId,
-          event: event.uid,
-          startDate,
-          endDate,
-        });
       } catch (error) {
         logger.error('Failed to import event', {
           propertyId,
@@ -224,6 +273,68 @@ export class CalendarSyncService {
     }
 
     return { created, updated };
+  }
+
+  /**
+   * Get or create generic external client for imported reservations
+   */
+  private async getOrCreateExternalClient(
+    tenantId: string,
+    source: CalendarSyncSource,
+    clientsService: any
+  ): Promise<any> {
+    try {
+      // Try to find existing external client
+      const allClients = await clientsService.getAll();
+      const existingClient = allClients.find(
+        (c: any) => c.email === `external-${source}@locai.app`
+      );
+
+      if (existingClient) {
+        return existingClient;
+      }
+
+      // Create new external client
+      const clientData = {
+        name: `Reserva Externa - ${source.toUpperCase()}`,
+        email: `external-${source}@locai.app`,
+        phone: '+00000000000',
+        source: 'other' as const,
+        notes: `Cliente genérico para reservas importadas de ${source}`,
+        isActive: true,
+        totalSpent: 0,
+        totalReservations: 0,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+
+      const clientId = await clientsService.create(clientData);
+      logger.info('Created external client', { source, clientId });
+
+      return { id: clientId, ...clientData };
+    } catch (error) {
+      logger.error('Error getting/creating external client', {
+        tenantId,
+        source,
+        error,
+      });
+      throw error;
+    }
+  }
+
+  /**
+   * Map CalendarSyncSource to ReservationSource
+   */
+  private mapSourceToReservationSource(source: CalendarSyncSource): string {
+    const sourceMap: Record<CalendarSyncSource, string> = {
+      [CalendarSyncSource.AIRBNB]: 'airbnb',
+      [CalendarSyncSource.BOOKING]: 'booking',
+      [CalendarSyncSource.VRBO]: 'vrbo',
+      [CalendarSyncSource.GOOGLE_CALENDAR]: 'other',
+      [CalendarSyncSource.OUTLOOK]: 'other',
+      [CalendarSyncSource.ICAL_URL]: 'other',
+    };
+    return sourceMap[source] || 'other';
   }
 
   /**

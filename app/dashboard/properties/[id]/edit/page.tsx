@@ -78,6 +78,7 @@ import { PropertySpecs } from '@/components/organisms/PropertyEdit/Specs';
 import { PropertyAmenities } from '@/components/organisms/PropertyEdit/Amenities';
 import { PropertyPricing } from '@/components/organisms/PropertyEdit/Pricing';
 import { PropertyMedia } from '@/components/organisms/PropertyEdit/Media';
+import { PropertyAvailability } from '@/components/organisms/PropertyEdit/Availability';
 
 interface PropertySection {
   id: string;
@@ -90,7 +91,11 @@ interface PropertySection {
 }
 
 // Factory function to create sections with dynamic data
-const createPropertySections = (reservations: ReservationPeriod[]): PropertySection[] => [
+const createPropertySections = (
+  reservations: ReservationPeriod[],
+  propertyId: string,
+  propertyName: string
+): PropertySection[] => [
   {
     id: 'basic',
     title: 'Informações Básicas',
@@ -136,6 +141,15 @@ const createPropertySections = (reservations: ReservationPeriod[]): PropertySect
     fields: ['photos', 'videos'],
     isRequired: false,
   },
+  {
+    id: 'availability',
+    title: 'Disponibilidade e iCal',
+    description: 'Calendário, bloqueios e sincronização com Airbnb',
+    icon: <CloudSync />,
+    component: <PropertyAvailability propertyId={propertyId} propertyName={propertyName} />,
+    fields: ['unavailableDates', 'customPricing', 'iCalExportToken', 'iCalImportUrl', 'airbnbPropertyId'],
+    isRequired: false,
+  },
 ];
 
 export default function EditPropertyPage() {
@@ -178,7 +192,10 @@ export default function EditPropertyPage() {
   const watchedValues = watch();
 
   // Create sections dynamically with reservations
-  const propertySections = useMemo(() => createPropertySections(reservations), [reservations]);
+  const propertySections = useMemo(() =>
+    createPropertySections(reservations, propertyId, watchedValues.title || 'Propriedade'),
+    [reservations, propertyId, watchedValues.title]
+  );
 
   // Section completion calculation
   const sectionCompletions = useMemo(() => {
