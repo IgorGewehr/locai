@@ -412,18 +412,25 @@ export const PropertyAmenities: React.FC = () => {
                           {...field}
                           checked={field.value || false}
                           color="warning"
-                          icon={<Pets />}
-                          checkedIcon={<Pets />}
                         />
                       }
                       label={
-                        <Box>
-                          <Typography variant="body1" fontWeight={500}>
-                            Aceita Animais de Estimação
-                          </Typography>
-                          <Typography variant="caption" color="text.secondary">
-                            Permitir hóspedes com pets (considere regras e taxas)
-                          </Typography>
+                        <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1 }}>
+                          <Pets
+                            sx={{
+                              color: field.value ? theme.palette.warning.main : theme.palette.text.secondary,
+                              mt: 0.5,
+                              transition: 'color 0.2s ease'
+                            }}
+                          />
+                          <Box>
+                            <Typography variant="body1" fontWeight={500}>
+                              Aceita Animais de Estimação
+                            </Typography>
+                            <Typography variant="caption" color="text.secondary">
+                              Permitir hóspedes com pets (considere regras e taxas)
+                            </Typography>
+                          </Box>
                         </Box>
                       }
                     />

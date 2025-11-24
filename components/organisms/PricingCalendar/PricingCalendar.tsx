@@ -81,6 +81,14 @@ const PricingCalendar: React.FC<PricingCalendarProps> = ({
   readOnly = false,
   showReservations = true,
 }) => {
+  // Garantir que basePrice é sempre um número válido
+  const safeBasePrice = Number(basePrice) || 0;
+  const safeWeekendSurcharge = Number(weekendSurcharge) || 0;
+  const safeHolidaySurcharge = Number(holidaySurcharge) || 0;
+  const safeDecemberSurcharge = Number(decemberSurcharge) || 0;
+  const safeHighSeasonSurcharge = Number(highSeasonSurcharge) || 0;
+  const safeSpecialPrices = specialPrices || {};
+
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [selectionMode, setSelectionMode] = useState<SelectionMode>('single');
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
@@ -98,7 +106,11 @@ const PricingCalendar: React.FC<PricingCalendarProps> = ({
   const calendarEnd = endOfWeek(monthEnd, { weekStartsOn: 0 });
   
   const days = useMemo(() => {
-    return eachDayOfInterval({ start: calendarStart, end: calendarEnd });
+    try {
+      return eachDayOfInterval({ start: calendarStart, end: calendarEnd });
+    } catch (error) {
+      return [];
+    }
   }, [calendarStart, calendarEnd]);
 
   const isHoliday = (date: Date): boolean => {
@@ -120,11 +132,11 @@ const PricingCalendar: React.FC<PricingCalendarProps> = ({
     const dateKey = format(date, 'yyyy-MM-dd');
 
     // 1. Prioridade: Preço customizado
-    if (specialPrices[dateKey]) {
+    if (safeSpecialPrices[dateKey]) {
       return {
-        finalPrice: specialPrices[dateKey],
+        finalPrice: safeSpecialPrices[dateKey],
         appliedRule: 'custom',
-        surchargePercentage: ((specialPrices[dateKey] / basePrice) - 1) * 100,
+        surchargePercentage: safeBasePrice > 0 ? ((safeSpecialPrices[dateKey] / safeBasePrice) - 1) * 100 : 0,
       };
     }
 
@@ -137,27 +149,27 @@ const PricingCalendar: React.FC<PricingCalendarProps> = ({
     let maxSurcharge = 0;
     let appliedRule: 'holiday' | 'weekend' | 'december' | 'highSeason' | 'base' = 'base';
 
-    if (dateIsHoliday && holidaySurcharge > maxSurcharge) {
-      maxSurcharge = holidaySurcharge;
+    if (dateIsHoliday && safeHolidaySurcharge > maxSurcharge) {
+      maxSurcharge = safeHolidaySurcharge;
       appliedRule = 'holiday';
     }
 
-    if (dateIsWeekend && weekendSurcharge > maxSurcharge) {
-      maxSurcharge = weekendSurcharge;
+    if (dateIsWeekend && safeWeekendSurcharge > maxSurcharge) {
+      maxSurcharge = safeWeekendSurcharge;
       appliedRule = 'weekend';
     }
 
-    if (dateIsDecember && decemberSurcharge > maxSurcharge) {
-      maxSurcharge = decemberSurcharge;
+    if (dateIsDecember && safeDecemberSurcharge > maxSurcharge) {
+      maxSurcharge = safeDecemberSurcharge;
       appliedRule = 'december';
     }
 
-    if (dateIsHighSeason && highSeasonSurcharge > maxSurcharge) {
-      maxSurcharge = highSeasonSurcharge;
+    if (dateIsHighSeason && safeHighSeasonSurcharge > maxSurcharge) {
+      maxSurcharge = safeHighSeasonSurcharge;
       appliedRule = 'highSeason';
     }
 
-    const finalPrice = Math.round(basePrice * (1 + maxSurcharge / 100));
+    const finalPrice = Math.round(safeBasePrice * (1 + maxSurcharge / 100));
 
     return {
       finalPrice,
@@ -198,7 +210,7 @@ const PricingCalendar: React.FC<PricingCalendarProps> = ({
     if (selectionMode === 'single') {
       setSelectedDate(date);
       const dateKey = format(date, 'yyyy-MM-dd');
-      setPriceInput(specialPrices[dateKey]?.toString() || '');
+      setPriceInput(safeSpecialPrices[dateKey]?.toString() || '');
       setDialogOpen(true);
     } else {
       if (!rangeStart || (rangeStart && rangeEnd)) {
@@ -220,7 +232,7 @@ const PricingCalendar: React.FC<PricingCalendarProps> = ({
   const handlePriceSubmit = () => {
     if (!onPricesChange) return;
 
-    const newPrices = { ...specialPrices };
+    const newPrices = { ...safeSpecialPrices };
 
     if (selectionMode === 'single' && selectedDate) {
       const dateKey = format(selectedDate, 'yyyy-MM-dd');
@@ -237,7 +249,7 @@ const PricingCalendar: React.FC<PricingCalendarProps> = ({
       if (percentageIncrease) {
         const percentage = parseFloat(percentageIncrease);
         if (!isNaN(percentage)) {
-          price = (basePrice || 0) * (1 + percentage / 100);
+          price = safeBasePrice * (1 + percentage / 100);
         }
       }
 
@@ -273,22 +285,26 @@ const PricingCalendar: React.FC<PricingCalendarProps> = ({
   };
 
   const handleQuickPreset = (preset: 'weekend' | 'holiday' | 'december') => {
-    const newPrices = { ...specialPrices };
-    
+    const newPrices = { ...safeSpecialPrices };
+
     if (preset === 'weekend') {
-      days.forEach(date => {
-        if (isWeekend(date) && isSameMonth(date, currentMonth)) {
-          const dateKey = format(date, 'yyyy-MM-dd');
-          newPrices[dateKey] = (basePrice || 0) * (1 + weekendSurcharge / 100);
-        }
-      });
+      if (days && days.length > 0) {
+        days.forEach(date => {
+          if (isWeekend(date) && isSameMonth(date, currentMonth)) {
+            const dateKey = format(date, 'yyyy-MM-dd');
+            newPrices[dateKey] = safeBasePrice * (1 + safeWeekendSurcharge / 100);
+          }
+        });
+      }
     } else if (preset === 'holiday') {
-      days.forEach(date => {
-        if (isHoliday(date) && isSameMonth(date, currentMonth)) {
-          const dateKey = format(date, 'yyyy-MM-dd');
-          newPrices[dateKey] = (basePrice || 0) * (1 + holidaySurcharge / 100);
-        }
-      });
+      if (days && days.length > 0) {
+        days.forEach(date => {
+          if (isHoliday(date) && isSameMonth(date, currentMonth)) {
+            const dateKey = format(date, 'yyyy-MM-dd');
+            newPrices[dateKey] = safeBasePrice * (1 + safeHolidaySurcharge / 100);
+          }
+        });
+      }
     } else if (preset === 'december') {
       const year = currentMonth.getFullYear();
       const december = new Date(year, 11, 1);
@@ -298,7 +314,7 @@ const PricingCalendar: React.FC<PricingCalendarProps> = ({
       });
       decemberDays.forEach(date => {
         const dateKey = format(date, 'yyyy-MM-dd');
-        newPrices[dateKey] = (basePrice || 0) * (1 + decemberSurcharge / 100);
+        newPrices[dateKey] = safeBasePrice * (1 + safeDecemberSurcharge / 100);
       });
     }
     
@@ -339,10 +355,10 @@ const PricingCalendar: React.FC<PricingCalendarProps> = ({
 
             {!readOnly && (
               <Stack direction="row" spacing={1} flexWrap="wrap">
-                <Tooltip title={`Aplicar ${weekendSurcharge}% de aumento nos fins de semana`}>
+                <Tooltip title={`Aplicar ${safeWeekendSurcharge}% de aumento nos fins de semana`}>
                   <Chip
                     icon={<Weekend />}
-                    label={`FDS (+${weekendSurcharge}%)`}
+                    label={`FDS (+${safeWeekendSurcharge}%)`}
                     onClick={() => handleQuickPreset('weekend')}
                     color="primary"
                     variant="outlined"
@@ -350,10 +366,10 @@ const PricingCalendar: React.FC<PricingCalendarProps> = ({
                     size="small"
                   />
                 </Tooltip>
-                <Tooltip title={`Aplicar ${holidaySurcharge}% de aumento nos feriados`}>
+                <Tooltip title={`Aplicar ${safeHolidaySurcharge}% de aumento nos feriados`}>
                   <Chip
                     icon={<Celebration />}
-                    label={`Feriados (+${holidaySurcharge}%)`}
+                    label={`Feriados (+${safeHolidaySurcharge}%)`}
                     onClick={() => handleQuickPreset('holiday')}
                     color="secondary"
                     variant="outlined"
@@ -361,10 +377,10 @@ const PricingCalendar: React.FC<PricingCalendarProps> = ({
                     size="small"
                   />
                 </Tooltip>
-                <Tooltip title={`Aplicar ${decemberSurcharge}% de aumento em dezembro`}>
+                <Tooltip title={`Aplicar ${safeDecemberSurcharge}% de aumento em dezembro`}>
                   <Chip
                     icon={<TrendingUp />}
-                    label={`Dez (+${decemberSurcharge}%)`}
+                    label={`Dez (+${safeDecemberSurcharge}%)`}
                     onClick={() => handleQuickPreset('december')}
                     color="success"
                     variant="outlined"
@@ -401,7 +417,7 @@ const PricingCalendar: React.FC<PricingCalendarProps> = ({
           </Box>
           
           <Box display="grid" gridTemplateColumns="repeat(7, 1fr)" gap={0.5}>
-            {days.map((date, index) => {
+            {days && days.length > 0 && days.map((date, index) => {
               const isCurrentMonth = isSameMonth(date, currentMonth);
               const isToday = isSameDay(date, new Date());
               const isSelected = selectedDate && isSameDay(date, selectedDate);
@@ -414,7 +430,7 @@ const PricingCalendar: React.FC<PricingCalendarProps> = ({
               // Usar o preço computado com acréscimos
               const { finalPrice, appliedRule, surchargePercentage } = getComputedPrice(date);
               const dateKey = format(date, 'yyyy-MM-dd');
-              const hasCustomPrice = !!specialPrices[dateKey];
+              const hasCustomPrice = !!safeSpecialPrices[dateKey];
 
               // Verificar se tem reserva
               const reservation = getReservationForDate(date);
@@ -534,7 +550,7 @@ const PricingCalendar: React.FC<PricingCalendarProps> = ({
               InputProps={{
                 startAdornment: <InputAdornment position="start">R$</InputAdornment>,
               }}
-              helperText={`Valor base: R$ ${(Number(basePrice) || 0).toFixed(2)}`}
+              helperText={`Valor base: R$ ${safeBasePrice.toFixed(2)}`}
             />
             
             {selectionMode === 'range' && (

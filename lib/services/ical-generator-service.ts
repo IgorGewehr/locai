@@ -62,7 +62,7 @@ export class ICalGeneratorService {
       const propertyReservations = allReservations.filter(
         (r: any) => r.propertyId === propertyId &&
         (r.status === 'confirmed' || r.status === 'pending') &&
-        !r.isExternalReservation // Don't export external reservations back
+        !r.externalEventUid // Don't export external reservations back (Airbnb, Booking, etc)
       );
 
       logger.info('Found reservations for iCal export', {
@@ -72,9 +72,9 @@ export class ICalGeneratorService {
 
       // Convert reservations to iCal events
       const events: ICalEvent[] = propertyReservations.map((reservation: any) => ({
-        uid: `reservation-${reservation.id}@locai.app`,
+        uid: `reservation-${reservation.id}@alugazap.com`,
         summary: 'Reserved',
-        description: `Reservation from Locai platform. Property: ${property.name}`,
+        description: `Reservation from AlugaZap. Property: ${property.name}`,
         startDate: reservation.checkIn instanceof Date
           ? reservation.checkIn
           : new Date(reservation.checkIn),
@@ -134,7 +134,7 @@ export class ICalGeneratorService {
     // Calendar header
     lines.push('BEGIN:VCALENDAR');
     lines.push('VERSION:2.0');
-    lines.push('PRODID:-//Locai//Property Calendar//EN');
+    lines.push('PRODID:-//AlugaZap//Property Calendar//EN');
     lines.push('CALSCALE:GREGORIAN');
     lines.push('METHOD:PUBLISH');
     lines.push(`X-WR-CALNAME:${this.escapeText(calendarName)}`);
