@@ -2,7 +2,7 @@
 
 import { useState } from 'react';
 import { Box, Drawer, useMediaQuery, useTheme, IconButton, Toolbar, Avatar, Typography, Menu, MenuItem, ListItemIcon, ListItemText, Divider, Tooltip, Button, Chip, Badge } from '@mui/material';
-import { Menu as MenuIcon, Settings, HelpOutline, Logout, ExpandMore, WhatsApp, Language, Circle, AdminPanelSettings } from '@mui/icons-material';
+import { Menu as MenuIcon, Settings, HelpOutline, Logout, ExpandMore, WhatsApp, Circle, AdminPanelSettings } from '@mui/icons-material';
 import ProtectedRoute from '@/components/utilities/ProtectedRoute';
 import { useAuth } from '@/contexts/AuthProvider';
 import { WhatsAppStatusProvider } from '@/contexts/WhatsAppStatusContext';
@@ -135,19 +135,6 @@ function DashboardHeader({ onMenuClick }: { onMenuClick?: () => void }) {
         >
           WhatsApp
         </Button>
-      </Tooltip>
-
-      {/* Mini-Site */}
-      <Tooltip title="Mini-Site">
-        <IconButton
-          onClick={() => router.push('/dashboard/mini-site')}
-          sx={{
-            color: 'rgba(255, 255, 255, 0.8)',
-            '&:hover': { backgroundColor: 'rgba(255, 255, 255, 0.1)' },
-          }}
-        >
-          <Language />
-        </IconButton>
       </Tooltip>
 
       {/* Notifications Bell */}

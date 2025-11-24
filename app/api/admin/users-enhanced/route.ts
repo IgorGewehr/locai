@@ -170,6 +170,20 @@ export async function GET(request: NextRequest) {
           }
         }
 
+        // Debug: Log createdAt info
+        if (userData.createdAt) {
+          logger.info(`📅 [Admin Enhanced] CreatedAt encontrado para ${userData.email || userId}`, {
+            hasToDate: typeof userData.createdAt?.toDate === 'function',
+            createdAtType: typeof userData.createdAt,
+            createdAtKeys: userData.createdAt ? Object.keys(userData.createdAt) : [],
+            rawValue: userData.createdAt
+          });
+        } else {
+          logger.warn(`⚠️ [Admin Enhanced] CreatedAt NÃO encontrado para ${userData.email || userId}`, {
+            availableFields: Object.keys(userData).slice(0, 10)
+          });
+        }
+
         const userMetrics: UserMetrics = {
           id: userId,
           email: userData.email || '',
@@ -179,9 +193,39 @@ export async function GET(request: NextRequest) {
           status,
           createdAt: (() => {
             try {
-              const date = userData.createdAt?.toDate?.() || (userData.createdAt ? new Date(userData.createdAt) : null);
-              return (date && !isNaN(date.getTime())) ? date : null;
-            } catch {
+              if (!userData.createdAt) return null;
+
+              // Firestore Timestamp tem propriedade 'seconds'
+              if (userData.createdAt.seconds !== undefined) {
+                const date = new Date(userData.createdAt.seconds * 1000);
+                logger.info(`✅ Convertido createdAt para ${userData.email}`, {
+                  seconds: userData.createdAt.seconds,
+                  date: date.toISOString()
+                });
+                return date;
+              }
+
+              // Fallback: tentar toDate()
+              if (typeof userData.createdAt.toDate === 'function') {
+                return userData.createdAt.toDate();
+              }
+
+              // Fallback: _seconds (underscored)
+              if (userData.createdAt._seconds) {
+                return new Date(userData.createdAt._seconds * 1000);
+              }
+
+              // Fallback: já é Date
+              if (userData.createdAt instanceof Date) {
+                return userData.createdAt;
+              }
+
+              logger.warn(`⚠️ Formato de createdAt não reconhecido para ${userData.email}`);
+              return null;
+            } catch (error) {
+              logger.error(`❌ [Admin Enhanced] Erro ao processar createdAt para ${userId}`, {
+                error: error instanceof Error ? error.message : 'Unknown'
+              });
               return null;
             }
           })(),

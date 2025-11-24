@@ -689,6 +689,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         lastLogin: new Date(),
         whatsappNumbers: [],
         authProvider: 'email',
+        authProviders: ['password'], // Track multiple providers
         firstAccess: true // Novo usuário sempre tem firstAccess = true
       };
       
@@ -809,6 +810,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           lastLogin: new Date(),
           whatsappNumbers: [],
           authProvider: 'google',
+          authProviders: ['google.com'], // Track multiple providers
           firstAccess: true,
           free: 7 // 🎁 7 dias grátis para novos cadastros
         };
@@ -848,6 +850,24 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
         setUser(newUser);
       } else {
+        // Usuário existente - atualizar provedor de autenticação
+        const existingData = userSnap.data();
+        const existingProviders = existingData.authProviders || [existingData.authProvider || 'email'];
+
+        // Adicionar 'google.com' se ainda não estiver na lista
+        if (!existingProviders.includes('google.com')) {
+          await updateDoc(userRef, {
+            authProviders: [...existingProviders, 'google.com'],
+            lastLogin: new Date()
+          });
+
+          logger.info('✅ [Auth] Google provider adicionado à conta existente', {
+            uid: result.user.uid,
+            email: result.user.email,
+            providers: [...existingProviders, 'google.com']
+          });
+        }
+
         logger.info('✅ [Auth] Login com Google realizado', {
           uid: result.user.uid,
           email: result.user.email

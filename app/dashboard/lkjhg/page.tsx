@@ -140,7 +140,15 @@ export default function AdminPanel() {
 
       if (usersResponse.ok) {
         const usersData = await usersResponse.json();
-        setUsers(usersData.users || []);
+
+        // Converter strings ISO de volta para Date objects
+        const usersWithDates = (usersData.users || []).map((user: any) => ({
+          ...user,
+          createdAt: user.createdAt ? new Date(user.createdAt) : null,
+          lastLogin: user.lastLogin ? new Date(user.lastLogin) : null
+        }));
+
+        setUsers(usersWithDates);
 
         if (usersData.stats) {
           setStats(prev => ({

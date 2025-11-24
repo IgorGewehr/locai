@@ -67,7 +67,28 @@ export default function PropertyViewPage() {
           const allReservations = await services.reservations.getMany([
             { field: 'propertyId', operator: '==', value: propertyId }
           ]);
-          setReservations(allReservations.sort((a, b) => {
+
+          // Fetch client data for each reservation
+          const reservationsWithClients = await Promise.all(
+            allReservations.map(async (reservation: any) => {
+              try {
+                const client = await services.clients.get(reservation.clientId);
+                return {
+                  ...reservation,
+                  client,
+                  clientName: client?.name || 'Não informado',
+                };
+              } catch (error) {
+                console.error('Error fetching client:', error);
+                return {
+                  ...reservation,
+                  clientName: 'Não informado',
+                };
+              }
+            })
+          );
+
+          setReservations(reservationsWithClients.sort((a, b) => {
             const dateA = new Date(a.checkIn);
             const dateB = new Date(b.checkIn);
             return dateB.getTime() - dateA.getTime(); // Most recent first
@@ -455,7 +476,7 @@ export default function PropertyViewPage() {
                           <Box display="flex" alignItems="center" gap={0.5}>
                             <Schedule fontSize="small" color="action" />
                             <Typography variant="body2">
-                              {new Date(reservation.checkIn).toLocaleDateString('pt-BR')} - 
+                              {new Date(reservation.checkIn).toLocaleDateString('pt-BR')} -
                               {new Date(reservation.checkOut).toLocaleDateString('pt-BR')}
                             </Typography>
                           </Box>
@@ -463,14 +484,14 @@ export default function PropertyViewPage() {
                             <Chip label="Em andamento" color="primary" size="small" />
                           )}
                         </Box>
-                        
+
                         <Box display="flex" justifyContent="space-between" alignItems="center">
                           <Typography variant="body2" color="text.secondary">
-                            Cliente: {reservation.clientName || 'Não informado'}
+                            Cliente: {(reservation as any).clientName || 'Não informado'}
                           </Typography>
                           {!isVisit && (
                             <Typography variant="body2" fontWeight={600} color="success.main">
-                              {formatCurrency(reservation.totalPrice)}
+                              {formatCurrency((reservation as any).totalAmount || 0)}
                             </Typography>
                           )}
                         </Box>
@@ -524,7 +545,7 @@ export default function PropertyViewPage() {
                 id: r.id || '',
                 checkIn: new Date(r.checkIn),
                 checkOut: new Date(r.checkOut),
-                guestName: r.guestName,
+                guestName: (r as any).clientName || 'Não informado',
                 status: r.status as 'confirmed' | 'pending' | 'cancelled'
               }))}
               readOnly={true}

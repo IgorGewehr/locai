@@ -435,11 +435,13 @@ export default function PropertiesPage() {
                     label={property.category ? property.category.charAt(0).toUpperCase() + property.category.slice(1) : 'Outros'}
                     size="small"
                     sx={{
-                      backgroundColor: 'rgba(255, 255, 255, 0.95)',
+                      backgroundColor: 'primary.main', // ✅ Fundo azul
                       backdropFilter: 'blur(10px)',
                       fontWeight: 600,
+                      color: 'white', // ✅ Texto branco
                       '& .MuiChip-icon': {
                         fontSize: '16px',
+                        color: 'white', // ✅ Ícone branco
                       }
                     }}
                   />

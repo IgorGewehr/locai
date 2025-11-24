@@ -23,13 +23,16 @@ import {
   Cancel,
   Visibility,
   VisibilityOff,
+  Link as LinkIcon,
 } from '@mui/icons-material';
 import { useAuth } from '@/lib/hooks/useAuth';
 import { updateProfile, updatePassword, EmailAuthProvider, reauthenticateWithCredential } from 'firebase/auth';
 import { auth } from '@/lib/firebase/config';
+import { useRouter } from 'next/navigation';
 
 export default function ProfilePage() {
   const { user } = useAuth();
+  const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [editingProfile, setEditingProfile] = useState(false);
   const [editingPassword, setEditingPassword] = useState(false);
@@ -233,6 +236,43 @@ export default function ProfilePage() {
                     </>
                   )}
                 </Box>
+              </Box>
+            </CardContent>
+          </Card>
+        </Grid>
+
+        {/* Link Accounts - NEW */}
+        <Grid item xs={12}>
+          <Card
+            sx={{
+              background: 'rgba(59, 130, 246, 0.05)',
+              border: '1px solid rgba(59, 130, 246, 0.2)',
+            }}
+          >
+            <CardContent>
+              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                <Box>
+                  <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
+                    <LinkIcon sx={{ mr: 1.5, color: '#3b82f6' }} />
+                    <Typography variant="h6" fontWeight={600}>
+                      Métodos de Login
+                    </Typography>
+                  </Box>
+                  <Typography variant="body2" color="text.secondary">
+                    Vincule diferentes métodos de login à sua conta (email/senha e Google) para maior flexibilidade
+                  </Typography>
+                </Box>
+                <Button
+                  variant="contained"
+                  startIcon={<LinkIcon />}
+                  onClick={() => router.push('/link-accounts')}
+                  sx={{
+                    backgroundColor: '#3b82f6',
+                    '&:hover': { backgroundColor: '#2563eb' },
+                  }}
+                >
+                  Gerenciar Métodos
+                </Button>
               </Box>
             </CardContent>
           </Card>

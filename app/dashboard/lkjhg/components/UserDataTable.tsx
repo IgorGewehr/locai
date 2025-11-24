@@ -304,6 +304,21 @@ export default function UserDataTable({ users, onRefresh }: UserDataTableProps) 
                   Nome
                 </TableSortLabel>
               </TableCell>
+              <TableCell sx={{ fontWeight: 600, fontSize: '0.75rem', color: '#B0B0B0', borderBottom: '1px solid #2C2C2C' }}>
+                <TableSortLabel
+                  active={sortField === 'createdAt'}
+                  direction={sortField === 'createdAt' ? sortOrder : 'asc'}
+                  onClick={() => handleSort('createdAt')}
+                  sx={{
+                    color: '#FFFFFF !important',
+                    '&:hover': { color: '#FFFFFF' },
+                    '&.Mui-active': { color: '#FFFFFF' },
+                    '& .MuiTableSortLabel-icon': { color: '#FFFFFF !important' }
+                  }}
+                >
+                  Data de Cadastro
+                </TableSortLabel>
+              </TableCell>
               <TableCell sx={{ fontWeight: 600, fontSize: '0.75rem', color: '#B0B0B0' }}>
                 <TableSortLabel
                   active={sortField === 'email'}
@@ -311,15 +326,6 @@ export default function UserDataTable({ users, onRefresh }: UserDataTableProps) 
                   onClick={() => handleSort('email')}
                 >
                   Email
-                </TableSortLabel>
-              </TableCell>
-              <TableCell sx={{ fontWeight: 600, fontSize: '0.75rem', color: '#B0B0B0' }}>
-                <TableSortLabel
-                  active={sortField === 'createdAt'}
-                  direction={sortField === 'createdAt' ? sortOrder : 'asc'}
-                  onClick={() => handleSort('createdAt')}
-                >
-                  Criado em
                 </TableSortLabel>
               </TableCell>
               <TableCell sx={{ fontWeight: 600, fontSize: '0.75rem', color: '#B0B0B0' }}>
@@ -360,20 +366,36 @@ export default function UserDataTable({ users, onRefresh }: UserDataTableProps) 
                 <TableCell sx={{ fontSize: '0.875rem', color: '#FFFFFF', fontWeight: 500 }}>
                   {user.name}
                 </TableCell>
-                <TableCell sx={{ fontSize: '0.875rem', color: '#B0B0B0' }}>
-                  {user.email}
+                <TableCell sx={{ fontSize: '0.875rem', color: '#FFFFFF' }}>
+                  <Tooltip
+                    title={(() => {
+                      try {
+                        if (!user.createdAt) return 'Data não disponível';
+                        if (!(user.createdAt instanceof Date)) return 'Data inválida';
+                        if (isNaN(user.createdAt.getTime())) return 'Data inválida';
+                        return format(user.createdAt, "dd/MM/yyyy 'às' HH:mm", { locale: ptBR });
+                      } catch {
+                        return 'Data não disponível';
+                      }
+                    })()}
+                    arrow
+                  >
+                    <span>
+                      {(() => {
+                        try {
+                          if (!user.createdAt) return '-';
+                          if (!(user.createdAt instanceof Date)) return '-';
+                          if (isNaN(user.createdAt.getTime())) return '-';
+                          return format(user.createdAt, 'dd/MM/yyyy', { locale: ptBR });
+                        } catch {
+                          return '-';
+                        }
+                      })()}
+                    </span>
+                  </Tooltip>
                 </TableCell>
                 <TableCell sx={{ fontSize: '0.875rem', color: '#B0B0B0' }}>
-                  {(() => {
-                    try {
-                      if (!user.createdAt) return '-';
-                      if (!(user.createdAt instanceof Date)) return '-';
-                      if (isNaN(user.createdAt.getTime())) return '-';
-                      return format(user.createdAt, 'dd/MM/yyyy', { locale: ptBR });
-                    } catch {
-                      return '-';
-                    }
-                  })()}
+                  {user.email}
                 </TableCell>
                 <TableCell>
                   <Chip

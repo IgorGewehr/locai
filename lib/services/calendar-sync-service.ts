@@ -19,7 +19,6 @@ import { AvailabilityStatus } from '@/lib/types/availability';
 import {
   startOfDay,
   endOfDay,
-  differenceInDays,
   addDays,
   isBefore,
   isAfter,
@@ -75,12 +74,20 @@ export class CalendarSyncService {
       });
 
       // Filter to blocked events only
-      const blockedEvents = events.filter(
-        (event) =>
-          event.status === 'CONFIRMED' &&
+      const blockedEvents = events.filter((event) => {
+        // Airbnb events may not have status field, check summary instead
+        const hasBlockingSummary =
           event.summary &&
-          !event.summary.toLowerCase().includes('available')
-      );
+          (event.summary.toLowerCase().includes('reserved') ||
+            event.summary.toLowerCase().includes('not available') ||
+            event.summary.toLowerCase().includes('airbnb'));
+
+        // Also accept CONFIRMED status if present
+        const isConfirmed = event.status === 'CONFIRMED';
+
+        // Event is blocked if it has blocking summary OR confirmed status
+        return hasBlockingSummary || isConfirmed;
+      });
 
       logger.info('🔍 [ICAL-SYNC] Filtered blocked events', {
         propertyId,
@@ -228,17 +235,14 @@ export class CalendarSyncService {
           clientsService
         );
 
-        // Calculate nights
-        const nights = differenceInDays(endDate, startDate);
-
         // Create reservation for external booking with all required fields
+        // Note: 'nights' will be calculated automatically by the API
         const reservationData = {
           propertyId,
           clientId: externalClient.id,
           checkIn: startDate,
           checkOut: endDate,
           guests: 1, // Default, as we don't have this info from iCal
-          nights, // ✅ Add calculated nights
           totalAmount: 0, // External reservation, amount not tracked
           paidAmount: 0,
           pendingAmount: 0, // ✅ Add pendingAmount
@@ -275,7 +279,6 @@ export class CalendarSyncService {
           reservationId,
           checkIn: startDate.toISOString(),
           checkOut: endDate.toISOString(),
-          nights,
           eventSummary: event.summary,
           eventUid: event.uid,
           source,
@@ -373,29 +376,21 @@ export class CalendarSyncService {
   ): Promise<CalendarSyncConfiguration | null> {
     try {
       const serviceFactory = new TenantServiceFactory(tenantId);
-      const db = serviceFactory.db;
+      const syncConfigService = serviceFactory.createService<CalendarSyncConfiguration>(
+        'calendar_sync_configurations'
+      );
 
-      const configDoc = await db
-        .collection('calendar_sync_configurations')
-        .where('propertyId', '==', propertyId)
-        .where('isActive', '==', true)
-        .limit(1)
-        .get();
+      // Get all configs and filter in memory
+      const allConfigs = await syncConfigService.getAll();
+      const activeConfig = allConfigs.find(
+        (config) => config.propertyId === propertyId && config.isActive
+      );
 
-      if (configDoc.empty) {
+      if (!activeConfig) {
         return null;
       }
 
-      const data = configDoc.docs[0].data();
-      return {
-        ...data,
-        id: configDoc.docs[0].id,
-        lastSyncAt: data.lastSyncAt?.toDate(),
-        nextSyncAt: data.nextSyncAt?.toDate(),
-        lastSuccessAt: data.lastSuccessAt?.toDate(),
-        createdAt: data.createdAt?.toDate(),
-        updatedAt: data.updatedAt?.toDate(),
-      } as CalendarSyncConfiguration;
+      return activeConfig;
     } catch (error) {
       logger.error('Error getting sync configuration', {
         propertyId,
@@ -416,15 +411,14 @@ export class CalendarSyncService {
   ): Promise<void> {
     try {
       const serviceFactory = new TenantServiceFactory(tenantId);
-      const db = serviceFactory.db;
+      const syncConfigService = serviceFactory.createService<CalendarSyncConfiguration>(
+        'calendar_sync_configurations'
+      );
 
-      await db
-        .collection('calendar_sync_configurations')
-        .doc(configId)
-        .update({
-          ...updates,
-          updatedAt: new Date(),
-        });
+      await syncConfigService.update(configId, {
+        ...updates,
+        updatedAt: new Date(),
+      } as any);
 
       logger.info('Sync configuration updated', { configId, updates });
     } catch (error) {
@@ -461,7 +455,9 @@ export class CalendarSyncService {
   ): Promise<string> {
     try {
       const serviceFactory = new TenantServiceFactory(tenantId);
-      const db = serviceFactory.db;
+      const syncConfigService = serviceFactory.createService<CalendarSyncConfiguration>(
+        'calendar_sync_configurations'
+      );
 
       const config: Omit<CalendarSyncConfiguration, 'id'> = {
         propertyId,
@@ -477,17 +473,15 @@ export class CalendarSyncService {
         createdBy: userId,
       };
 
-      const docRef = await db
-        .collection('calendar_sync_configurations')
-        .add(config);
+      const configId = await syncConfigService.create(config as any);
 
       logger.info('Sync configuration created', {
-        configId: docRef.id,
+        configId,
         propertyId,
         source,
       });
 
-      return docRef.id;
+      return configId;
     } catch (error) {
       logger.error('Error creating sync configuration', {
         propertyId,
@@ -506,25 +500,12 @@ export class CalendarSyncService {
   ): Promise<CalendarSyncConfiguration[]> {
     try {
       const serviceFactory = new TenantServiceFactory(tenantId);
-      const db = serviceFactory.db;
+      const syncConfigService = serviceFactory.createService<CalendarSyncConfiguration>(
+        'calendar_sync_configurations'
+      );
 
-      const snapshot = await db
-        .collection('calendar_sync_configurations')
-        .where('isActive', '==', true)
-        .get();
-
-      return snapshot.docs.map((doc) => {
-        const data = doc.data();
-        return {
-          ...data,
-          id: doc.id,
-          lastSyncAt: data.lastSyncAt?.toDate(),
-          nextSyncAt: data.nextSyncAt?.toDate(),
-          lastSuccessAt: data.lastSuccessAt?.toDate(),
-          createdAt: data.createdAt?.toDate(),
-          updatedAt: data.updatedAt?.toDate(),
-        } as CalendarSyncConfiguration;
-      });
+      const allConfigs = await syncConfigService.getAll();
+      return allConfigs.filter((config) => config.isActive);
     } catch (error) {
       logger.error('Error getting active sync configurations', {
         tenantId,

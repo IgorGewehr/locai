@@ -319,7 +319,13 @@ export default function LoginPage() {
       } else if (err.code === 'auth/popup-blocked') {
         errorMessage = 'Pop-up bloqueado. Permita pop-ups para este site.';
       } else if (err.code === 'auth/account-exists-with-different-credential') {
-        errorMessage = 'Já existe uma conta com este email usando outro método de login.';
+        // Caso especial: sugerir vincular contas
+        setError(
+          'Este email já está cadastrado com outro método de login. ' +
+          'Faça login com email/senha primeiro e depois vincule sua conta Google em Configurações.'
+        );
+        setIsLoading(false);
+        return;
       } else if (err.code === 'auth/network-request-failed') {
         errorMessage = 'Erro de conexão. Verifique sua internet.';
       } else if (err.message) {

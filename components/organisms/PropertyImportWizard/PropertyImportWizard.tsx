@@ -1,14 +1,15 @@
 'use client';
 
 /**
- * Property Import Wizard - Improved UX
+ * Property Import Wizard - Final Redesigned UX
  *
- * Step-by-step flow:
- * 1. Paste Airbnb URL → Extract Property ID
- * 2. Import property data from Airbnb
- * 3. Configure iCal sync (Optional but recommended)
- * 4. Complete missing details
- * 5. Success!
+ * NEW FLOW (6 steps):
+ * 1. Airbnb URL → Extract property ID
+ * 2. Import & Create Property → Create with BASIC data only (no completion dialog)
+ * 3. iCal Sync → Preview & auto-create reservations (updates availability)
+ * 4. Export iCal → Generate our iCal URL for user to import in Airbnb/Booking
+ * 5. Review Property → Edit property details (availability now populated)
+ * 6. Success with complete statistics
  */
 
 import React, { useState } from 'react';
@@ -16,7 +17,6 @@ import {
   Dialog,
   DialogTitle,
   DialogContent,
-  DialogActions,
   Button,
   Box,
   Typography,
@@ -26,7 +26,6 @@ import {
   StepLabel,
   StepContent,
   Alert,
-  Chip,
   Paper,
   LinearProgress,
   CircularProgress,
@@ -34,8 +33,9 @@ import {
   useTheme,
   List,
   ListItem,
-  ListItemIcon,
   ListItemText,
+  ListItemIcon,
+  IconButton,
 } from '@mui/material';
 import {
   Home,
@@ -44,12 +44,15 @@ import {
   CalendarMonth,
   CloudSync,
   Error as ErrorIcon,
-  Info,
-  ArrowForward,
   NavigateNext,
-  Settings,
   Done,
   Visibility,
+  OpenInNew,
+  Close,
+  NightsStay,
+  Edit,
+  ContentCopy,
+  FileDownload,
 } from '@mui/icons-material';
 import { useAuth } from '@/lib/hooks/useAuth';
 import { useTenant } from '@/contexts/TenantContext';
@@ -58,12 +61,14 @@ import {
   extractAirbnbPropertyId,
   isValidAirbnbUrl,
   isValidICalUrl,
+  generateAirbnbCalendarSettingsUrl,
 } from '@/lib/utils/airbnb-helpers';
 import { importFromAirbnbUrl } from '@/lib/services/airbnb-import-service';
 import { mapAirbnbToProperty, validateMappedProperty } from '@/lib/utils/airbnb-mapper';
-import AirbnbICalHelper from '@/components/organisms/AirbnbICalHelper/AirbnbICalHelper';
 import { PropertyCompletionDialog } from '@/components/organisms/PropertyCompletionDialog';
 import { logger } from '@/lib/utils/logger';
+import { format } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
 
 interface PropertyImportWizardProps {
   open: boolean;
@@ -73,9 +78,10 @@ interface PropertyImportWizardProps {
 
 const wizardSteps = [
   'URL do Airbnb',
-  'Importar Dados',
-  'Sincronização (Opcional)',
-  'Completar Detalhes',
+  'Criar Imóvel',
+  'Sincronizar Calendário',
+  'Exportar iCal',
+  'Revisar Detalhes',
   'Concluído',
 ];
 
@@ -98,21 +104,31 @@ export default function PropertyImportWizard({
   const [airbnbPropertyId, setAirbnbPropertyId] = useState<string | null>(null);
   const [urlError, setUrlError] = useState<string | null>(null);
 
-  // Step 2: Import data
+  // Step 2: Import & Create
   const [importedData, setImportedData] = useState<any>(null);
   const [mappedProperty, setMappedProperty] = useState<any>(null);
   const [importError, setImportError] = useState<string | null>(null);
+  const [createdPropertyId, setCreatedPropertyId] = useState<string | null>(null);
 
-  // Step 3: iCal config
+  // Step 3: iCal sync
   const [iCalUrl, setICalUrl] = useState('');
   const [iCalError, setICalError] = useState<string | null>(null);
-  const [skipICalConfig, setSkipICalConfig] = useState(false);
-  const [showICalHelper, setShowICalHelper] = useState(false);
+  const [iCalPreviewLoading, setICalPreviewLoading] = useState(false);
+  const [iCalPreview, setICalPreview] = useState<any>(null);
+  const [creatingReservations, setCreatingReservations] = useState(false);
+  const [reservationsCreated, setReservationsCreated] = useState(0);
 
-  // Step 4: Complete details
-  const [showCompletionDialog, setShowCompletionDialog] = useState(false);
+  // Step 4: iCal Export
+  const [iCalExportUrl, setICalExportUrl] = useState<string | null>(null);
+  const [iCalExportToken, setICalExportToken] = useState<string | null>(null);
+  const [generatingToken, setGeneratingToken] = useState(false);
+  const [exportError, setExportError] = useState<string | null>(null);
+  const [urlCopied, setUrlCopied] = useState(false);
 
-  // Step 5: Result
+  // Step 5: Review property
+  const [showReviewDialog, setShowReviewDialog] = useState(false);
+
+  // Step 6: Result
   const [result, setResult] = useState<any>(null);
 
   /**
@@ -125,45 +141,50 @@ export default function PropertyImportWizard({
 
     if (!url.trim()) return;
 
-    // Validate URL
     if (!isValidAirbnbUrl(url)) {
-      setUrlError('URL inválida. Use um link do Airbnb (ex: airbnb.com.br/rooms/123...)');
+      setUrlError('URL inválida. Use um link do Airbnb');
       return;
     }
 
-    // Extract property ID
     const propertyId = extractAirbnbPropertyId(url);
     if (propertyId) {
       setAirbnbPropertyId(propertyId);
-      logger.info('[PropertyImportWizard] Airbnb property ID extracted', { propertyId });
     } else {
       setUrlError('Não foi possível extrair o ID da propriedade');
     }
   };
 
   /**
-   * Step 1 → Step 2: Proceed to import
+   * Step 1 → Step 2
    */
   const handleProceedToImport = () => {
     if (!airbnbPropertyId) {
       setUrlError('Forneça uma URL válida do Airbnb');
       return;
     }
-
     setActiveStep(1);
   };
 
   /**
-   * Step 2: Import property data from Airbnb
+   * Step 2: Import data from Airbnb and CREATE property immediately
    */
-  const handleImportData = async () => {
+  const handleImportAndCreate = async () => {
     if (!airbnbUrl || !tenantId) return;
+
+    // Prevent duplicate creation if property already exists
+    if (createdPropertyId) {
+      logger.warn('[PropertyImportWizard] Property already created, skipping', {
+        propertyId: createdPropertyId,
+      });
+      setActiveStep(2); // Just move to next step
+      return;
+    }
 
     setLoading(true);
     setImportError(null);
 
     try {
-      // Import from Airbnb
+      // 1. Import from Airbnb
       const importResult = await importFromAirbnbUrl(airbnbUrl);
 
       if (!importResult.success || !importResult.data) {
@@ -172,73 +193,19 @@ export default function PropertyImportWizard({
 
       setImportedData(importResult.data);
 
-      // Map to our Property format
+      // 2. Map to our Property format
       const mapped = mapAirbnbToProperty(importResult.data, tenantId);
-
-      // Validate mapped property
       const validation = validateMappedProperty(mapped);
 
       if (!validation.valid) {
-        throw new Error(
-          'Dados da propriedade inválidos:\n' + validation.errors.join('\n')
-        );
+        throw new Error('Dados inválidos: ' + validation.errors.join(', '));
       }
 
       setMappedProperty(mapped);
 
-      logger.info('[PropertyImportWizard] Property data imported successfully', {
-        propertyName: mapped.name,
-      });
-
-      // Move to Step 3 (iCal config)
-      setActiveStep(2);
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
-      setImportError(errorMessage);
-      logger.error('[PropertyImportWizard] Import failed', { error: errorMessage });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  /**
-   * Step 3: Validate iCal URL
-   */
-  const handleICalUrlChange = (url: string) => {
-    setICalUrl(url);
-    setICalError(null);
-
-    if (!url.trim()) return;
-
-    if (!isValidICalUrl(url)) {
-      setICalError('URL inválida. Deve ser HTTPS e terminar com .ics');
-    }
-  };
-
-  /**
-   * Step 3 → Step 4: Proceed to complete details
-   */
-  const handleProceedToCompletion = () => {
-    if (!skipICalConfig && iCalUrl && iCalError) {
-      return; // Block if iCal URL is invalid
-    }
-
-    setActiveStep(3);
-    setShowCompletionDialog(true);
-  };
-
-  /**
-   * Step 4: Complete property details
-   */
-  const handlePropertyCompletion = async (completedData: any) => {
-    try {
-      setLoading(true);
-
-      // Create property via API
+      // 3. Create property immediately with basic data
       const token = await getFirebaseToken();
-      if (!token) {
-        throw new Error('Não foi possível obter token de autenticação');
-      }
+      if (!token) throw new Error('Token não disponível');
 
       const response = await fetch('/api/properties', {
         method: 'POST',
@@ -246,7 +213,7 @@ export default function PropertyImportWizard({
           'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify(completedData),
+        body: JSON.stringify(mapped),
       });
 
       if (!response.ok) {
@@ -255,96 +222,379 @@ export default function PropertyImportWizard({
       }
 
       const createdProperty = await response.json();
-      const propertyId = createdProperty.data?.id;
+
+      // API pode retornar: { data: "id-string" } ou { data: { id: "id-string" } }
+      const propertyId = typeof createdProperty.data === 'string'
+        ? createdProperty.data
+        : createdProperty.data?.id;
 
       if (!propertyId) {
-        throw new Error('Propriedade criada mas ID não retornado');
-      }
-
-      logger.info('[PropertyImportWizard] Property created', { propertyId });
-
-      // Close completion dialog first
-      setShowCompletionDialog(false);
-
-      // Configure iCal sync if URL provided
-      let syncResult = null;
-      if (iCalUrl && !skipICalConfig) {
-        try {
-          const syncResponse = await fetch('/api/calendar/sync/configure', {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              Authorization: `Bearer ${token}`,
-            },
-            body: JSON.stringify({
-              propertyId,
-              iCalUrl,
-              source: 'airbnb',
-              syncFrequency: 'daily',
-            }),
-          });
-
-          if (syncResponse.ok) {
-            // Trigger first sync
-            const firstSyncResponse = await fetch(`/api/calendar/sync/${propertyId}`, {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                Authorization: `Bearer ${token}`,
-              },
-            });
-
-            if (firstSyncResponse.ok) {
-              syncResult = await firstSyncResponse.json();
-              logger.info('[PropertyImportWizard] First sync completed', {
-                eventsImported: syncResult.result?.eventsImported || 0,
-              });
-            }
-          }
-        } catch (syncError) {
-          logger.warn('[PropertyImportWizard] iCal sync failed', { syncError });
-        }
-      }
-
-      // Move to success step
-      setActiveStep(4);
-      setResult({
-        success: true,
-        propertyId,
-        propertyName: completedData.title || 'Propriedade',
-        eventsImported: syncResult?.result?.eventsImported || 0,
-        iCalConfigured: !!iCalUrl && !skipICalConfig,
-      });
-
-      logger.info('[PropertyImportWizard] Import wizard completed successfully');
-
-      // Call success callback
-      if (onSuccess) {
-        onSuccess({
-          success: true,
-          propertyId,
-          propertyName: completedData.name || completedData.title,
+        logger.error('[PropertyImportWizard] Property ID not found in response', {
+          response: createdProperty,
+          dataType: typeof createdProperty.data,
         });
+        throw new Error('ID da propriedade não retornado');
       }
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
-      setShowCompletionDialog(false);
-      setResult({
-        success: false,
-        error: errorMessage,
+
+      logger.info('[PropertyImportWizard] Property ID extracted', {
+        propertyId,
+        dataType: typeof createdProperty.data,
       });
-      logger.error('[PropertyImportWizard] Property completion failed', { error: errorMessage });
+
+      setCreatedPropertyId(propertyId);
+
+      logger.info('[PropertyImportWizard] Property created', {
+        propertyId,
+        propertyName: mapped.title,
+      });
+
+      // Move to Step 3 (iCal sync)
+      setActiveStep(2);
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Erro desconhecido';
+      setImportError(errorMessage);
+      logger.error('[PropertyImportWizard] Import and create failed', { error: errorMessage });
     } finally {
       setLoading(false);
     }
   };
 
   /**
-   * Reset wizard and close
+   * Step 3: Validate and preview iCal
+   */
+  const handleICalUrlChange = async (url: string) => {
+    setICalUrl(url);
+    setICalError(null);
+    setICalPreview(null);
+
+    if (!url.trim()) return;
+
+    if (!isValidICalUrl(url)) {
+      setICalError('URL inválida. Deve ser HTTPS e terminar com .ics');
+      return;
+    }
+
+    // Fetch preview automatically
+    await handleFetchICalPreview(url);
+  };
+
+  /**
+   * Fetch iCal preview
+   */
+  const handleFetchICalPreview = async (url?: string) => {
+    const urlToFetch = url || iCalUrl;
+
+    if (!urlToFetch) return;
+
+    setICalPreviewLoading(true);
+    setICalError(null);
+
+    try {
+      const token = await getFirebaseToken();
+      if (!token) throw new Error('Token não disponível');
+
+      const response = await fetch('/api/calendar/preview', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ iCalUrl: urlToFetch }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Erro ao buscar preview');
+      }
+
+      const previewData = await response.json();
+      setICalPreview(previewData.data);
+
+      logger.info('[PropertyImportWizard] iCal preview loaded', {
+        totalReservations: previewData.data.futureReservations,
+      });
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Erro desconhecido';
+      setICalError(errorMessage);
+      logger.error('[PropertyImportWizard] iCal preview failed', { error: errorMessage });
+    } finally {
+      setICalPreviewLoading(false);
+    }
+  };
+
+  /**
+   * Step 3: Create reservations from iCal
+   */
+  const handleCreateReservations = async () => {
+    if (!createdPropertyId) {
+      setICalError('ID da propriedade não encontrado');
+      logger.error('[PropertyImportWizard] Property ID not found', { createdPropertyId });
+      return;
+    }
+
+    // Prevent duplicate reservation creation
+    if (reservationsCreated > 0) {
+      logger.warn('[PropertyImportWizard] Reservations already created, skipping', {
+        reservationsCreated,
+      });
+      setActiveStep(3); // Just move to next step
+      return;
+    }
+
+    setCreatingReservations(true);
+
+    try {
+      const token = await getFirebaseToken();
+      if (!token) throw new Error('Token não disponível');
+
+      logger.info('[PropertyImportWizard] Starting reservation creation', {
+        propertyId: createdPropertyId,
+        iCalUrl: iCalUrl.substring(0, 50),
+      });
+
+      // Configure iCal sync
+      const configResponse = await fetch('/api/calendar/sync/configure', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({
+          propertyId: createdPropertyId,
+          iCalUrl,
+          source: 'airbnb',
+          syncFrequency: 'daily',
+        }),
+      });
+
+      if (!configResponse.ok) {
+        const errorData = await configResponse.json();
+        throw new Error(errorData.message || 'Erro ao configurar sincronização');
+      }
+
+      // Trigger sync to create reservations
+      const syncResponse = await fetch(`/api/calendar/sync/${createdPropertyId}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (!syncResponse.ok) {
+        const errorData = await syncResponse.json();
+        throw new Error(errorData.message || 'Erro ao criar reservas');
+      }
+
+      const syncResult = await syncResponse.json();
+      const eventsImported = syncResult.result?.eventsImported || 0;
+
+      setReservationsCreated(eventsImported);
+
+      logger.info('[PropertyImportWizard] Reservations created successfully', {
+        propertyId: createdPropertyId,
+        eventsImported,
+      });
+
+      // Move to Step 4 (Export iCal)
+      setActiveStep(3);
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Erro desconhecido';
+      setICalError(errorMessage);
+      logger.error('[PropertyImportWizard] Reservation creation failed', {
+        error: errorMessage,
+        propertyId: createdPropertyId,
+      });
+    } finally {
+      setCreatingReservations(false);
+    }
+  };
+
+  /**
+   * Step 3: Skip iCal and go to export
+   */
+  const handleSkipICal = () => {
+    setActiveStep(3);
+  };
+
+  /**
+   * Step 4: Generate iCal export token and URL
+   */
+  const handleGenerateICalToken = async () => {
+    if (!createdPropertyId) {
+      setExportError('ID da propriedade não encontrado');
+      return;
+    }
+
+    // If token already generated, just proceed
+    if (iCalExportUrl) {
+      setActiveStep(4);
+      return;
+    }
+
+    setGeneratingToken(true);
+    setExportError(null);
+
+    try {
+      const token = await getFirebaseToken();
+      if (!token) throw new Error('Token não disponível');
+
+      const response = await fetch(`/api/properties/${createdPropertyId}/ical/generate-token`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Erro ao gerar token');
+      }
+
+      const tokenData = await response.json();
+
+      setICalExportToken(tokenData.token);
+      setICalExportUrl(tokenData.feedUrl);
+
+      logger.info('[PropertyImportWizard] iCal export token generated', {
+        propertyId: createdPropertyId,
+        feedUrl: tokenData.feedUrl.substring(0, 50),
+      });
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Erro desconhecido';
+      setExportError(errorMessage);
+      logger.error('[PropertyImportWizard] Token generation failed', { error: errorMessage });
+    } finally {
+      setGeneratingToken(false);
+    }
+  };
+
+  /**
+   * Step 4: Copy iCal URL to clipboard
+   */
+  const handleCopyICalUrl = async () => {
+    if (!iCalExportUrl) return;
+
+    try {
+      await navigator.clipboard.writeText(iCalExportUrl);
+      setUrlCopied(true);
+      setTimeout(() => setUrlCopied(false), 3000);
+    } catch (err) {
+      logger.error('[PropertyImportWizard] Failed to copy URL', { error: err });
+    }
+  };
+
+  /**
+   * Step 4: Skip export and go to review
+   */
+  const handleSkipExport = () => {
+    setActiveStep(4);
+  };
+
+  /**
+   * Step 5: Open property review dialog
+   */
+  const handleOpenReviewDialog = () => {
+    setShowReviewDialog(true);
+  };
+
+  /**
+   * Step 5: Property review completed (property updated)
+   */
+  const handlePropertyReviewComplete = async (updatedData: any) => {
+    try {
+      setLoading(true);
+
+      const token = await getFirebaseToken();
+      if (!token) throw new Error('Token não disponível');
+
+      // Update property
+      const response = await fetch(`/api/properties/${createdPropertyId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(updatedData),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.message || 'Erro ao atualizar propriedade');
+      }
+
+      setShowReviewDialog(false);
+
+      logger.info('[PropertyImportWizard] Property updated', {
+        propertyId: createdPropertyId,
+      });
+
+      // Move to success step (Step 6)
+      setActiveStep(5);
+      setResult({
+        success: true,
+        propertyId: createdPropertyId,
+        propertyName: mappedProperty?.title || mappedProperty?.name,
+        reservationsCreated,
+        iCalConfigured: !!iCalUrl,
+        iCalExported: !!iCalExportUrl,
+      });
+
+      if (onSuccess) {
+        onSuccess({
+          success: true,
+          propertyId: createdPropertyId,
+        });
+      }
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Erro desconhecido';
+      setShowReviewDialog(false);
+      setImportError(errorMessage);
+      logger.error('[PropertyImportWizard] Property update failed', { error: errorMessage });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  /**
+   * Step 5: Skip review and go to success
+   */
+  const handleSkipReview = () => {
+    setActiveStep(5);
+    setResult({
+      success: true,
+      propertyId: createdPropertyId,
+      propertyName: mappedProperty?.title || mappedProperty?.name,
+      reservationsCreated,
+      iCalConfigured: !!iCalUrl,
+      iCalExported: !!iCalExportUrl,
+    });
+
+    if (onSuccess) {
+      onSuccess({
+        success: true,
+        propertyId: createdPropertyId,
+      });
+    }
+  };
+
+  /**
+   * Open Airbnb settings
+   */
+  const handleOpenAirbnbSettings = () => {
+    if (airbnbPropertyId) {
+      const url = generateAirbnbCalendarSettingsUrl(airbnbPropertyId);
+      window.open(url, '_blank', 'noopener,noreferrer');
+    }
+  };
+
+  /**
+   * Reset and close
    */
   const handleClose = () => {
-    if (!loading) {
-      // Reset all state
+    if (!loading && !creatingReservations) {
+      // Reset state
       setActiveStep(0);
       setAirbnbUrl('');
       setAirbnbPropertyId(null);
@@ -352,11 +602,17 @@ export default function PropertyImportWizard({
       setImportedData(null);
       setMappedProperty(null);
       setImportError(null);
+      setCreatedPropertyId(null);
       setICalUrl('');
       setICalError(null);
-      setSkipICalConfig(false);
+      setICalPreview(null);
+      setReservationsCreated(0);
+      setICalExportUrl(null);
+      setICalExportToken(null);
+      setExportError(null);
+      setUrlCopied(false);
+      setShowReviewDialog(false);
       setResult(null);
-      setShowCompletionDialog(false);
 
       onClose();
     }
@@ -369,784 +625,562 @@ export default function PropertyImportWizard({
         onClose={handleClose}
         maxWidth="md"
         fullWidth
-        disableEscapeKeyDown={loading}
+        disableEscapeKeyDown={loading || creatingReservations}
         PaperProps={{
           sx: {
-            borderRadius: 4,
-            background: `linear-gradient(135deg, ${alpha('#1e293b', 0.98)}, ${alpha('#0f172a', 0.98)})`,
-            backdropFilter: 'blur(20px)',
+            borderRadius: 3,
+            maxHeight: '90vh',
           },
         }}
       >
-        {/* Modern Header with Gradient */}
-        <Box
+        {/* Compact Header */}
+        <DialogTitle
           sx={{
-            background: 'linear-gradient(135deg, #6366f1, #8b5cf6, #d946ef)',
-            p: 4,
-            pb: 5,
-            position: 'relative',
-            overflow: 'hidden',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            pb: 2,
+            borderBottom: `1px solid ${alpha(theme.palette.divider, 0.1)}`,
           }}
         >
-          {/* Decorative background elements */}
-          <Box
-            sx={{
-              position: 'absolute',
-              top: -50,
-              right: -50,
-              width: 200,
-              height: 200,
-              borderRadius: '50%',
-              background: alpha('#ffffff', 0.1),
-              filter: 'blur(40px)',
-            }}
-          />
-          <Box
-            sx={{
-              position: 'absolute',
-              bottom: -30,
-              left: -30,
-              width: 150,
-              height: 150,
-              borderRadius: '50%',
-              background: alpha('#ffffff', 0.08),
-              filter: 'blur(30px)',
-            }}
-          />
-
-          {/* Header Content */}
-          <Box sx={{ position: 'relative', zIndex: 1 }}>
-            <Box display="flex" alignItems="center" gap={2} mb={1}>
-              <Box
-                sx={{
-                  width: 56,
-                  height: 56,
-                  borderRadius: '14px',
-                  background: alpha('#ffffff', 0.15),
-                  backdropFilter: 'blur(10px)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  border: `1px solid ${alpha('#ffffff', 0.2)}`,
-                }}
-              >
-                <Home sx={{ fontSize: 28, color: 'white' }} />
-              </Box>
-              <Box>
-                <Typography
-                  variant="h4"
-                  sx={{
-                    color: 'white',
-                    fontWeight: 700,
-                    fontSize: { xs: '1.5rem', md: '2rem' },
-                    letterSpacing: '-0.02em',
-                  }}
-                >
-                  Importar do Airbnb
-                </Typography>
-                <Typography
-                  variant="body2"
-                  sx={{
-                    color: alpha('#ffffff', 0.9),
-                    fontWeight: 500,
-                  }}
-                >
-                  Configure sua propriedade em poucos minutos
-                </Typography>
-              </Box>
-            </Box>
-
-            {/* Progress Steps */}
+          <Box display="flex" alignItems="center" gap={2}>
             <Box
               sx={{
+                width: 40,
+                height: 40,
+                borderRadius: 2,
+                background: `linear-gradient(135deg, ${theme.palette.primary.main}, ${theme.palette.primary.dark})`,
                 display: 'flex',
-                gap: 1,
-                mt: 3,
-                flexWrap: 'wrap',
+                alignItems: 'center',
+                justifyContent: 'center',
               }}
             >
-              {wizardSteps.map((step, index) => (
-                <Chip
-                  key={index}
-                  label={step}
-                  size="small"
-                  sx={{
-                    backgroundColor:
-                      activeStep >= index
-                        ? alpha('#ffffff', 0.25)
-                        : alpha('#ffffff', 0.1),
-                    color: 'white',
-                    fontWeight: activeStep === index ? 700 : 500,
-                    border: `1px solid ${
-                      activeStep >= index
-                        ? alpha('#ffffff', 0.3)
-                        : alpha('#ffffff', 0.15)
-                    }`,
-                    backdropFilter: 'blur(10px)',
-                  }}
-                />
-              ))}
+              <Home sx={{ color: 'white', fontSize: 24 }} />
+            </Box>
+            <Box>
+              <Typography variant="h6" fontWeight={700}>
+                Importar do Airbnb
+              </Typography>
+              <Typography variant="caption" color="text.secondary">
+                {wizardSteps[activeStep]}
+              </Typography>
             </Box>
           </Box>
-        </Box>
+          <IconButton onClick={handleClose} disabled={loading || creatingReservations}>
+            <Close />
+          </IconButton>
+        </DialogTitle>
 
-        <DialogContent sx={{ p: 4, pt: 3 }}>
+        <DialogContent sx={{ pt: 3 }}>
           {/* Progress indicator */}
-          {loading && (
+          {(loading || creatingReservations) && (
             <LinearProgress
               sx={{
                 mb: 3,
-                borderRadius: 2,
-                height: 6,
-                backgroundColor: alpha('#6366f1', 0.1),
-                '& .MuiLinearProgress-bar': {
-                  background: 'linear-gradient(90deg, #6366f1, #8b5cf6, #d946ef)',
-                  borderRadius: 2,
-                },
+                borderRadius: 1,
+                height: 4,
+                backgroundColor: alpha(theme.palette.primary.main, 0.1),
               }}
             />
           )}
 
           {/* Stepper */}
-          <Stepper
-            activeStep={activeStep}
-            orientation="vertical"
-            sx={{
-              '& .MuiStepLabel-root': {
-                padding: 0,
-              },
-              '& .MuiStepContent-root': {
-                borderLeft: `2px solid ${alpha('#6366f1', 0.2)}`,
-                ml: 2.5,
-                pl: 3,
-              },
-              '& .MuiStepConnector-line': {
-                borderColor: alpha('#6366f1', 0.2),
-                borderWidth: 2,
-              },
-            }}
-          >
-            {/* ============================================ */}
-            {/* STEP 0: Airbnb URL                           */}
-            {/* ============================================ */}
+          <Stepper activeStep={activeStep} orientation="vertical">
+            {/* STEP 0: Airbnb URL */}
             <Step>
-              <StepLabel
-                StepIconProps={{
-                  sx: {
-                    color: alpha('#6366f1', 0.3),
-                    '&.Mui-active': {
-                      color: '#6366f1',
-                    },
-                    '&.Mui-completed': {
-                      color: '#10b981',
-                    },
-                  },
-                }}
-                optional={
-                  airbnbPropertyId && (
-                    <Chip
-                      label={`ID: ${airbnbPropertyId}`}
-                      size="small"
-                      sx={{
-                        mt: 0.5,
-                        backgroundColor: alpha('#10b981', 0.15),
-                        color: '#10b981',
-                        border: `1px solid ${alpha('#10b981', 0.3)}`,
-                        fontWeight: 600,
-                      }}
-                    />
-                  )
-                }
-                sx={{
-                  '& .MuiStepLabel-label': {
-                    fontSize: '1.125rem',
-                    fontWeight: 600,
-                    color: activeStep === 0 ? '#6366f1' : alpha('#ffffff', 0.7),
-                  },
-                }}
-              >
-                Cole a URL do anúncio no Airbnb
-              </StepLabel>
+              <StepLabel>Cole a URL do anúncio no Airbnb</StepLabel>
               <StepContent>
-                <Box
-                  sx={{
-                    p: 3,
-                    borderRadius: 3,
-                    background: alpha('#6366f1', 0.05),
-                    border: `1px solid ${alpha('#6366f1', 0.1)}`,
-                    mb: 2,
+                <TextField
+                  fullWidth
+                  placeholder="https://www.airbnb.com.br/rooms/..."
+                  value={airbnbUrl}
+                  onChange={(e) => handleUrlChange(e.target.value)}
+                  error={!!urlError}
+                  helperText={urlError}
+                  sx={{ mb: 2 }}
+                  InputProps={{
+                    startAdornment: (
+                      <LinkIcon
+                        sx={{
+                          mr: 1.5,
+                          color: airbnbPropertyId ? 'success.main' : 'action.active',
+                        }}
+                      />
+                    ),
                   }}
-                >
-                  <Typography
-                    variant="body2"
-                    sx={{
-                      color: alpha('#ffffff', 0.7),
-                      mb: 2,
-                      fontSize: '0.9375rem',
-                      lineHeight: 1.6,
-                    }}
-                  >
-                    Copie o link completo do seu anúncio no Airbnb para importar todas as informações automaticamente.
-                  </Typography>
+                  autoFocus
+                />
 
-                  <TextField
-                    fullWidth
-                    placeholder="https://www.airbnb.com.br/rooms/1537685406266226838"
-                    value={airbnbUrl}
-                    onChange={(e) => handleUrlChange(e.target.value)}
-                    error={!!urlError}
-                    helperText={urlError || 'Cole a URL completa do anúncio do Airbnb'}
-                    sx={{
-                      mb: 2,
-                      '& .MuiOutlinedInput-root': {
-                        backgroundColor: alpha('#ffffff', 0.05),
-                        borderRadius: 2,
-                        fontSize: '0.9375rem',
-                        '& fieldset': {
-                          borderColor: alpha('#6366f1', 0.2),
-                          borderWidth: 2,
-                        },
-                        '&:hover fieldset': {
-                          borderColor: alpha('#6366f1', 0.4),
-                        },
-                        '&.Mui-focused fieldset': {
-                          borderColor: '#6366f1',
-                        },
-                      },
-                      '& .MuiInputBase-input': {
-                        py: 1.5,
-                      },
-                      '& .MuiFormHelperText-root': {
-                        fontSize: '0.8125rem',
-                        mt: 1,
-                      },
-                    }}
-                    InputProps={{
-                      startAdornment: (
-                        <LinkIcon
-                          sx={{
-                            mr: 1.5,
-                            color: airbnbPropertyId ? '#10b981' : alpha('#ffffff', 0.4),
-                            fontSize: 22,
-                          }}
-                        />
-                      ),
-                    }}
-                    autoFocus
-                  />
-
-                  {airbnbPropertyId && (
-                    <Alert
-                      severity="success"
-                      icon={<CheckCircle />}
-                      sx={{
-                        backgroundColor: alpha('#10b981', 0.15),
-                        border: `1px solid ${alpha('#10b981', 0.3)}`,
-                        borderRadius: 2,
-                        '& .MuiAlert-message': {
-                          color: '#10b981',
-                        },
-                      }}
-                    >
-                      <Typography variant="body2" fontWeight={600}>
-                        ✓ URL válida detectada!
-                      </Typography>
-                      <Typography variant="caption" display="block">
-                        ID da propriedade: <strong>{airbnbPropertyId}</strong>
-                      </Typography>
-                    </Alert>
-                  )}
-                </Box>
-
-                <Box display="flex" gap={2}>
-                  <Button
-                    variant="contained"
-                    onClick={handleProceedToImport}
-                    disabled={!airbnbPropertyId || loading}
-                    endIcon={<NavigateNext />}
-                    size="large"
-                    sx={{
-                      background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
-                      boxShadow: `0 4px 16px ${alpha('#6366f1', 0.3)}`,
-                      fontWeight: 600,
-                      py: 1.5,
-                      px: 3,
-                      borderRadius: 2,
-                      textTransform: 'none',
-                      fontSize: '1rem',
-                      '&:hover': {
-                        transform: 'translateY(-2px)',
-                        boxShadow: `0 6px 20px ${alpha('#6366f1', 0.4)}`,
-                      },
-                      '&:disabled': {
-                        background: alpha('#6366f1', 0.2),
-                        color: alpha('#ffffff', 0.4),
-                      },
-                      transition: 'all 0.2s ease',
-                    }}
-                  >
-                    Continuar
-                  </Button>
-                </Box>
-              </StepContent>
-            </Step>
-
-            {/* ============================================ */}
-            {/* STEP 1: Import Data                          */}
-            {/* ============================================ */}
-            <Step>
-              <StepLabel
-                StepIconProps={{
-                  sx: {
-                    color: alpha('#6366f1', 0.3),
-                    '&.Mui-active': {
-                      color: '#6366f1',
-                    },
-                    '&.Mui-completed': {
-                      color: '#10b981',
-                    },
-                  },
-                }}
-                optional={
-                  mappedProperty && (
-                    <Chip
-                      label="Dados importados"
-                      size="small"
-                      sx={{
-                        mt: 0.5,
-                        backgroundColor: alpha('#10b981', 0.15),
-                        color: '#10b981',
-                        border: `1px solid ${alpha('#10b981', 0.3)}`,
-                        fontWeight: 600,
-                      }}
-                    />
-                  )
-                }
-                error={!!importError}
-                sx={{
-                  '& .MuiStepLabel-label': {
-                    fontSize: '1.125rem',
-                    fontWeight: 600,
-                    color: activeStep === 1 ? '#6366f1' : alpha('#ffffff', 0.7),
-                  },
-                }}
-              >
-                Importar dados da propriedade
-              </StepLabel>
-              <StepContent>
-                <Typography
-                  variant="body2"
-                  sx={{
-                    color: alpha('#ffffff', 0.7),
-                    mb: 2,
-                    fontSize: '0.9375rem',
-                  }}
-                >
-                  Vamos buscar as informações do seu anúncio no Airbnb automaticamente
-                </Typography>
-
-                {!mappedProperty && !importError && (
-                  <Paper
-                    variant="outlined"
-                    sx={{
-                      p: 3,
-                      mt: 2,
-                      mb: 2,
-                      textAlign: 'center',
-                      bgcolor: alpha(theme.palette.primary.main, 0.02),
-                    }}
-                  >
-                    <Home sx={{ fontSize: 48, color: 'primary.main', mb: 1 }} />
-                    <Typography variant="subtitle1" gutterBottom>
-                      Pronto para importar
-                    </Typography>
-                    <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                      Clique em "Importar Dados" para buscar:
-                    </Typography>
-                    <List dense>
-                      <ListItem>
-                        <ListItemIcon><CheckCircle color="success" fontSize="small" /></ListItemIcon>
-                        <ListItemText primary="Fotos do imóvel" />
-                      </ListItem>
-                      <ListItem>
-                        <ListItemIcon><CheckCircle color="success" fontSize="small" /></ListItemIcon>
-                        <ListItemText primary="Comodidades e regras" />
-                      </ListItem>
-                      <ListItem>
-                        <ListItemIcon><CheckCircle color="success" fontSize="small" /></ListItemIcon>
-                        <ListItemText primary="Descrição e localização" />
-                      </ListItem>
-                      <ListItem>
-                        <ListItemIcon><CheckCircle color="success" fontSize="small" /></ListItemIcon>
-                        <ListItemText primary="Capacidade de hóspedes" />
-                      </ListItem>
-                    </List>
-                  </Paper>
-                )}
-
-                {mappedProperty && !importError && (
-                  <Paper
-                    elevation={0}
-                    sx={{
-                      p: 3,
-                      mt: 2,
-                      mb: 2,
-                      background: `linear-gradient(135deg, ${alpha('#10b981', 0.1)}, ${alpha('#059669', 0.05)})`,
-                      border: `2px solid ${alpha('#10b981', 0.3)}`,
-                      borderRadius: 2,
-                    }}
-                  >
-                    <Box display="flex" alignItems="center" gap={2} mb={2}>
-                      <Box
-                        sx={{
-                          width: 56,
-                          height: 56,
-                          borderRadius: '12px',
-                          background: 'linear-gradient(135deg, #10b981, #059669)',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          boxShadow: `0 4px 16px ${alpha('#10b981', 0.3)}`,
-                        }}
-                      >
-                        <CheckCircle sx={{ fontSize: 32, color: 'white' }} />
-                      </Box>
-                      <Box>
-                        <Typography variant="subtitle1" color="success.main" fontWeight={700}>
-                          ✓ Dados Importados com Sucesso!
-                        </Typography>
-                        <Typography variant="body2" color="text.secondary">
-                          {mappedProperty.title || mappedProperty.name}
-                        </Typography>
-                      </Box>
-                    </Box>
-
-                    <Box display="flex" gap={2} flexWrap="wrap">
-                      <Chip
-                        icon={<Home />}
-                        label={`${mappedProperty.bedrooms || 0} quartos`}
-                        size="small"
-                        sx={{
-                          backgroundColor: alpha('#10b981', 0.1),
-                          border: `1px solid ${alpha('#10b981', 0.3)}`,
-                        }}
-                      />
-                      <Chip
-                        icon={<CheckCircle />}
-                        label={`${mappedProperty.photos?.length || 0} fotos`}
-                        size="small"
-                        sx={{
-                          backgroundColor: alpha('#10b981', 0.1),
-                          border: `1px solid ${alpha('#10b981', 0.3)}`,
-                        }}
-                      />
-                      <Chip
-                        icon={<CheckCircle />}
-                        label={`${mappedProperty.amenities?.length || 0} comodidades`}
-                        size="small"
-                        sx={{
-                          backgroundColor: alpha('#10b981', 0.1),
-                          border: `1px solid ${alpha('#10b981', 0.3)}`,
-                        }}
-                      />
-                    </Box>
-                  </Paper>
-                )}
-
-                {importError && (
-                  <Alert severity="error" icon={<ErrorIcon />} sx={{ mt: 2, mb: 2 }}>
-                    <Typography variant="body2">{importError}</Typography>
+                {airbnbPropertyId && (
+                  <Alert severity="success" icon={<CheckCircle />} sx={{ mb: 2 }}>
+                    URL válida! ID: <strong>{airbnbPropertyId}</strong>
                   </Alert>
                 )}
 
-                <Box display="flex" gap={2}>
-                  <Button
-                    onClick={() => setActiveStep(0)}
-                    disabled={loading}
-                    size="large"
-                    sx={{
-                      borderColor: alpha('#ffffff', 0.2),
-                      color: alpha('#ffffff', 0.7),
-                      fontWeight: 600,
-                      py: 1.5,
-                      px: 3,
-                      borderRadius: 2,
-                      textTransform: 'none',
-                      fontSize: '1rem',
-                      '&:hover': {
-                        borderColor: alpha('#ffffff', 0.3),
-                        backgroundColor: alpha('#ffffff', 0.05),
-                      },
-                    }}
-                  >
-                    Voltar
-                  </Button>
-                  {!mappedProperty && (
-                    <Button
-                      variant="contained"
-                      onClick={handleImportData}
-                      disabled={loading}
-                      startIcon={loading ? <CircularProgress size={20} /> : <CloudSync />}
-                      size="large"
-                      sx={{
-                        background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
-                        boxShadow: `0 4px 16px ${alpha('#6366f1', 0.3)}`,
-                        fontWeight: 600,
-                        py: 1.5,
-                        px: 3,
-                        borderRadius: 2,
-                        textTransform: 'none',
-                        fontSize: '1rem',
-                        '&:hover': {
-                          transform: 'translateY(-2px)',
-                          boxShadow: `0 6px 20px ${alpha('#6366f1', 0.4)}`,
-                        },
-                        '&:disabled': {
-                          background: alpha('#6366f1', 0.2),
-                          color: alpha('#ffffff', 0.4),
-                        },
-                        transition: 'all 0.2s ease',
-                      }}
-                    >
-                      {loading ? 'Importando...' : 'Importar Dados'}
-                    </Button>
-                  )}
-                  {mappedProperty && (
-                    <Button
-                      variant="contained"
-                      onClick={() => setActiveStep(2)}
-                      endIcon={<NavigateNext />}
-                      size="large"
-                      sx={{
-                        background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
-                        boxShadow: `0 4px 16px ${alpha('#6366f1', 0.3)}`,
-                        fontWeight: 600,
-                        py: 1.5,
-                        px: 3,
-                        borderRadius: 2,
-                        textTransform: 'none',
-                        fontSize: '1rem',
-                        '&:hover': {
-                          transform: 'translateY(-2px)',
-                          boxShadow: `0 6px 20px ${alpha('#6366f1', 0.4)}`,
-                        },
-                        transition: 'all 0.2s ease',
-                      }}
-                    >
-                      Continuar
-                    </Button>
-                  )}
-                </Box>
+                <Button
+                  variant="contained"
+                  onClick={handleProceedToImport}
+                  disabled={!airbnbPropertyId || loading}
+                  endIcon={<NavigateNext />}
+                >
+                  Continuar
+                </Button>
               </StepContent>
             </Step>
 
-            {/* ============================================ */}
-            {/* STEP 2: iCal Configuration (Optional)        */}
-            {/* ============================================ */}
+            {/* STEP 1: Import & Create Property */}
             <Step>
-              <StepLabel
-                optional={
-                  <Chip
-                    label="Opcional"
-                    size="small"
-                    color="info"
-                    variant="outlined"
-                    sx={{ mt: 0.5 }}
-                  />
-                }
-              >
-                Configurar sincronização de calendário
-              </StepLabel>
+              <StepLabel>Importar e criar imóvel</StepLabel>
               <StepContent>
-                <Alert severity="info" icon={<Info />} sx={{ mb: 2 }}>
-                  <Typography variant="body2" gutterBottom>
-                    <strong>Recomendado:</strong> Sincronize seu calendário para:
-                  </Typography>
-                  <Typography variant="caption" component="div">
-                    • Importar reservas do Airbnb automaticamente<br />
-                    • Bloquear datas no Airbnb com reservas internas<br />
-                    • Evitar double booking
-                  </Typography>
-                </Alert>
+                {!createdPropertyId && !importError && (
+                  <Box>
+                    <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                      Vamos buscar e criar o imóvel com os dados do Airbnb
+                    </Typography>
+                    <Box display="flex" gap={2}>
+                      <Button onClick={() => setActiveStep(0)} disabled={loading}>
+                        Voltar
+                      </Button>
+                      <Button
+                        variant="contained"
+                        onClick={handleImportAndCreate}
+                        disabled={loading}
+                        startIcon={loading ? <CircularProgress size={20} /> : <CloudSync />}
+                      >
+                        {loading ? 'Criando...' : 'Importar e Criar'}
+                      </Button>
+                    </Box>
+                  </Box>
+                )}
 
+                {createdPropertyId && (
+                  <Box>
+                    <Alert severity="success" icon={<CheckCircle />} sx={{ mb: 2 }}>
+                      ✓ Imóvel criado com sucesso! ID: <strong>{createdPropertyId}</strong>
+                    </Alert>
+                    <Box display="flex" gap={2}>
+                      <Button onClick={() => setActiveStep(0)} disabled={loading}>
+                        Voltar
+                      </Button>
+                      <Button
+                        variant="contained"
+                        onClick={() => setActiveStep(2)}
+                        disabled={loading}
+                        endIcon={<NavigateNext />}
+                      >
+                        Continuar
+                      </Button>
+                    </Box>
+                  </Box>
+                )}
+
+                {importError && (
+                  <Box>
+                    <Alert severity="error" icon={<ErrorIcon />} sx={{ mb: 2 }}>
+                      {importError}
+                    </Alert>
+                    <Box display="flex" gap={2}>
+                      <Button onClick={() => setActiveStep(0)} disabled={loading}>
+                        Voltar
+                      </Button>
+                      <Button
+                        variant="contained"
+                        onClick={handleImportAndCreate}
+                        disabled={loading}
+                        startIcon={loading ? <CircularProgress size={20} /> : <CloudSync />}
+                      >
+                        Tentar Novamente
+                      </Button>
+                    </Box>
+                  </Box>
+                )}
+              </StepContent>
+            </Step>
+
+            {/* STEP 2: iCal Sync */}
+            <Step>
+              <StepLabel>Sincronizar calendário (opcional)</StepLabel>
+              <StepContent>
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                  Importe reservas do Airbnb e atualize as disponibilidades
+                </Typography>
+
+                {/* Direct Airbnb button */}
+                <Button
+                  variant="outlined"
+                  startIcon={<OpenInNew />}
+                  onClick={handleOpenAirbnbSettings}
+                  disabled={!airbnbPropertyId}
+                  sx={{ mb: 2 }}
+                  fullWidth
+                >
+                  Abrir Airbnb para obter link iCal
+                </Button>
+
+                {/* iCal URL field */}
                 <TextField
                   fullWidth
                   placeholder="https://www.airbnb.com/calendar/ical/12345678.ics?s=..."
                   value={iCalUrl}
                   onChange={(e) => handleICalUrlChange(e.target.value)}
                   error={!!iCalError}
-                  helperText={iCalError || 'Cole o link do calendário iCal do Airbnb'}
+                  helperText={iCalError || 'Cole o link do calendário iCal'}
                   sx={{ mb: 2 }}
                   InputProps={{
-                    startAdornment: <CalendarMonth sx={{ mr: 1, color: iCalUrl && !iCalError ? 'success.main' : 'action.active' }} />,
+                    startAdornment: (
+                      <CalendarMonth
+                        sx={{ mr: 1, color: iCalUrl && !iCalError ? 'success.main' : 'action.active' }}
+                      />
+                    ),
                   }}
                 />
 
-                <Button
-                  variant="outlined"
-                  size="small"
-                  onClick={() => setShowICalHelper(true)}
-                  disabled={!airbnbPropertyId}
-                  startIcon={<Info />}
-                  sx={{ mb: 2 }}
-                >
-                  Como encontrar meu link iCal?
-                </Button>
+                {/* Loading preview */}
+                {iCalPreviewLoading && (
+                  <Box display="flex" alignItems="center" gap={1} sx={{ mb: 2 }}>
+                    <CircularProgress size={20} />
+                    <Typography variant="body2">Carregando preview...</Typography>
+                  </Box>
+                )}
 
-                <Box display="flex" gap={1}>
-                  <Button onClick={() => setActiveStep(1)} disabled={loading}>
+                {/* Preview */}
+                {iCalPreview && iCalPreview.futureReservations > 0 && (
+                  <Paper
+                    variant="outlined"
+                    sx={{
+                      p: 2,
+                      mb: 2,
+                      bgcolor: alpha(theme.palette.success.main, 0.05),
+                      border: `1px solid ${alpha(theme.palette.success.main, 0.2)}`,
+                    }}
+                  >
+                    <Typography variant="subtitle2" fontWeight={600} gutterBottom>
+                      📅 Reservas encontradas: {iCalPreview.futureReservations}
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 1 }}>
+                      As seguintes reservas futuras serão importadas:
+                    </Typography>
+                    <List dense sx={{ maxHeight: 200, overflow: 'auto' }}>
+                      {iCalPreview.reservations?.slice(0, 10).map((res: any, idx: number) => (
+                        <ListItem key={idx} sx={{ py: 0.5 }}>
+                          <ListItemIcon sx={{ minWidth: 32 }}>
+                            <NightsStay fontSize="small" color="primary" />
+                          </ListItemIcon>
+                          <ListItemText
+                            primary={`${format(new Date(res.checkIn), 'dd/MM/yyyy', { locale: ptBR })} - ${format(new Date(res.checkOut), 'dd/MM/yyyy', { locale: ptBR })}`}
+                            secondary={`${res.nights} noite(s) • ${res.summary}`}
+                            primaryTypographyProps={{ variant: 'body2' }}
+                            secondaryTypographyProps={{ variant: 'caption' }}
+                          />
+                        </ListItem>
+                      ))}
+                    </List>
+                    {iCalPreview.reservations?.length > 10 && (
+                      <Typography variant="caption" color="text.secondary" sx={{ mt: 1 }}>
+                        ...e mais {iCalPreview.reservations.length - 10} reserva(s)
+                      </Typography>
+                    )}
+                  </Paper>
+                )}
+
+                {/* No reservations found */}
+                {iCalPreview && iCalPreview.futureReservations === 0 && (
+                  <Alert severity="info" sx={{ mb: 2 }}>
+                    Nenhuma reserva futura encontrada no calendário
+                  </Alert>
+                )}
+
+                {/* Actions */}
+                <Box display="flex" gap={1} flexWrap="wrap">
+                  <Button onClick={() => setActiveStep(1)} disabled={creatingReservations}>
                     Voltar
                   </Button>
-                  <Button
-                    variant="outlined"
-                    onClick={() => {
-                      setSkipICalConfig(true);
-                      handleProceedToCompletion();
-                    }}
-                    disabled={loading}
-                  >
-                    Pular (Configurar depois)
+                  <Button variant="outlined" onClick={handleSkipICal} disabled={creatingReservations}>
+                    Pular
                   </Button>
-                  <Button
-                    variant="contained"
-                    onClick={handleProceedToCompletion}
-                    disabled={loading || (!!iCalUrl && !!iCalError)}
-                    endIcon={<NavigateNext />}
-                  >
-                    {iCalUrl ? 'Configurar e Continuar' : 'Continuar sem iCal'}
-                  </Button>
+                  {iCalUrl && iCalPreview && iCalPreview.futureReservations > 0 && (
+                    <Button
+                      variant="contained"
+                      onClick={handleCreateReservations}
+                      disabled={creatingReservations || !!iCalError}
+                      startIcon={
+                        creatingReservations ? <CircularProgress size={20} /> : <CheckCircle />
+                      }
+                    >
+                      {creatingReservations
+                        ? 'Criando...'
+                        : `Criar ${iCalPreview.futureReservations} reserva(s)`}
+                    </Button>
+                  )}
+                  {/* Fallback: If user came back from Step 4 */}
+                  {reservationsCreated > 0 && !creatingReservations && (
+                    <Button
+                      variant="contained"
+                      onClick={() => setActiveStep(3)}
+                      endIcon={<NavigateNext />}
+                    >
+                      Continuar para Export
+                    </Button>
+                  )}
                 </Box>
               </StepContent>
             </Step>
 
-            {/* ============================================ */}
-            {/* STEP 3: Complete Details                     */}
-            {/* ============================================ */}
+            {/* STEP 4: Export iCal */}
             <Step>
-              <StepLabel>Completar detalhes da propriedade</StepLabel>
+              <StepLabel>Exportar iCal do AlugaZap</StepLabel>
               <StepContent>
-                <Typography variant="body2" color="text.secondary" gutterBottom>
-                  Preencha as informações faltantes...
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                  Gere a URL do iCal do AlugaZap para importar no Airbnb/Booking e manter sincronização bidirecional
                 </Typography>
-                {/* PropertyCompletionDialog handles this step */}
+
+                {!iCalExportUrl && !generatingToken && (
+                  <Alert severity="info" icon={<FileDownload />} sx={{ mb: 3 }}>
+                    <Typography variant="body2" fontWeight={600} gutterBottom>
+                      Por que exportar?
+                    </Typography>
+                    <Typography variant="caption">
+                      • Reservas feitas no AlugaZap bloqueiam automaticamente no Airbnb<br />
+                      • Evita overbooking (dupla reserva)<br />
+                      • Sincronização automática a cada hora
+                    </Typography>
+                  </Alert>
+                )}
+
+                {exportError && (
+                  <Alert severity="error" sx={{ mb: 2 }}>
+                    {exportError}
+                  </Alert>
+                )}
+
+                {generatingToken && (
+                  <Box display="flex" alignItems="center" gap={2} sx={{ mb: 2 }}>
+                    <CircularProgress size={24} />
+                    <Typography variant="body2">Gerando URL segura...</Typography>
+                  </Box>
+                )}
+
+                {iCalExportUrl && (
+                  <Box>
+                    <Alert severity="success" icon={<CheckCircle />} sx={{ mb: 2 }}>
+                      ✓ URL de exportação gerada com sucesso!
+                    </Alert>
+
+                    <Paper
+                      elevation={0}
+                      sx={{
+                        p: 2,
+                        mb: 3,
+                        backgroundColor: alpha(theme.palette.primary.main, 0.05),
+                        border: `1px solid ${alpha(theme.palette.primary.main, 0.2)}`,
+                      }}
+                    >
+                      <Typography variant="caption" fontWeight={600} color="text.secondary" gutterBottom display="block">
+                        URL DO ICAL DO ALUGAZAP:
+                      </Typography>
+                      <Box display="flex" gap={1} alignItems="center">
+                        <TextField
+                          fullWidth
+                          value={iCalExportUrl}
+                          size="small"
+                          InputProps={{
+                            readOnly: true,
+                            sx: {
+                              fontFamily: 'monospace',
+                              fontSize: '12px',
+                            },
+                          }}
+                        />
+                        <Button
+                          variant="contained"
+                          onClick={handleCopyICalUrl}
+                          startIcon={<ContentCopy />}
+                          sx={{ minWidth: '120px' }}
+                        >
+                          {urlCopied ? '✓ Copiado' : 'Copiar'}
+                        </Button>
+                      </Box>
+                    </Paper>
+
+                    <Alert severity="info" sx={{ mb: 2 }}>
+                      <Typography variant="body2" fontWeight={600} gutterBottom>
+                        📋 Como importar no Airbnb:
+                      </Typography>
+                      <Typography variant="caption" component="div">
+                        1. Copie a URL acima<br />
+                        2. Acesse as configurações de calendário do Airbnb<br />
+                        3. Clique em "Importar calendário"<br />
+                        4. Cole a URL e salve
+                      </Typography>
+                    </Alert>
+                  </Box>
+                )}
+
+                <Box display="flex" gap={2} flexWrap="wrap">
+                  <Button onClick={() => setActiveStep(2)} disabled={generatingToken}>
+                    Voltar
+                  </Button>
+                  <Button variant="outlined" onClick={handleSkipExport} disabled={generatingToken}>
+                    Pular Export
+                  </Button>
+                  {!iCalExportUrl && (
+                    <Button
+                      variant="contained"
+                      onClick={handleGenerateICalToken}
+                      disabled={generatingToken}
+                      startIcon={generatingToken ? <CircularProgress size={20} /> : <FileDownload />}
+                    >
+                      {generatingToken ? 'Gerando...' : 'Gerar URL de Export'}
+                    </Button>
+                  )}
+                  {iCalExportUrl && (
+                    <Button
+                      variant="contained"
+                      onClick={() => setActiveStep(4)}
+                      endIcon={<NavigateNext />}
+                      color="success"
+                    >
+                      Continuar para Revisão
+                    </Button>
+                  )}
+                </Box>
               </StepContent>
             </Step>
 
-            {/* ============================================ */}
-            {/* STEP 4: Success                              */}
-            {/* ============================================ */}
+            {/* STEP 5: Review Property */}
+            <Step>
+              <StepLabel>Revisar detalhes do imóvel</StepLabel>
+              <StepContent>
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                  {reservationsCreated > 0
+                    ? `${reservationsCreated} reserva(s) criada(s)! Revise os detalhes do imóvel antes de finalizar.`
+                    : 'Revise os detalhes do imóvel antes de finalizar.'}
+                </Typography>
+
+                {reservationsCreated > 0 && (
+                  <Alert severity="success" icon={<CheckCircle />} sx={{ mb: 2 }}>
+                    ✓ Disponibilidades atualizadas com as reservas importadas
+                  </Alert>
+                )}
+
+                <Box display="flex" gap={2} flexWrap="wrap">
+                  <Button onClick={() => setActiveStep(3)} disabled={loading}>
+                    Voltar
+                  </Button>
+                  <Button variant="outlined" onClick={handleSkipReview} disabled={loading}>
+                    Pular Revisão
+                  </Button>
+                  <Button
+                    variant="contained"
+                    onClick={handleOpenReviewDialog}
+                    disabled={loading}
+                    startIcon={<Edit />}
+                  >
+                    Revisar e Editar
+                  </Button>
+                  {/* Fallback: If user came back from Step 6 */}
+                  {result?.success && (
+                    <Button
+                      variant="contained"
+                      onClick={() => setActiveStep(5)}
+                      endIcon={<NavigateNext />}
+                      color="success"
+                    >
+                      Ver Resultado
+                    </Button>
+                  )}
+                </Box>
+              </StepContent>
+            </Step>
+
+            {/* STEP 6: Success */}
             <Step>
               <StepLabel>Concluído!</StepLabel>
               <StepContent>
                 {result?.success ? (
                   <Box>
-                    {/* Success Card - Inspired by RevolutionaryOnboarding */}
                     <Paper
                       elevation={0}
                       sx={{
-                        p: 4,
-                        background: `linear-gradient(135deg, ${alpha('#10b981', 0.15)}, ${alpha('#059669', 0.1)})`,
-                        border: `2px solid ${alpha('#10b981', 0.3)}`,
-                        borderRadius: 3,
+                        p: 3,
+                        background: `linear-gradient(135deg, ${alpha(theme.palette.success.main, 0.15)}, ${alpha(theme.palette.success.main, 0.05)})`,
+                        border: `2px solid ${alpha(theme.palette.success.main, 0.3)}`,
+                        borderRadius: 2,
                         textAlign: 'center',
                         mb: 3,
                       }}
                     >
-                      {/* Success Icon with Animation */}
                       <Box
                         sx={{
-                          width: 80,
-                          height: 80,
+                          width: 64,
+                          height: 64,
                           borderRadius: '50%',
-                          background: 'linear-gradient(135deg, #10b981, #059669)',
+                          background: `linear-gradient(135deg, ${theme.palette.success.main}, ${theme.palette.success.dark})`,
                           display: 'flex',
                           alignItems: 'center',
                           justifyContent: 'center',
                           margin: '0 auto 16px',
-                          boxShadow: `0 8px 24px ${alpha('#10b981', 0.4)}`,
+                          boxShadow: `0 8px 24px ${alpha(theme.palette.success.main, 0.4)}`,
                         }}
                       >
-                        <CheckCircle sx={{ fontSize: 48, color: 'white' }} />
+                        <CheckCircle sx={{ fontSize: 40, color: 'white' }} />
                       </Box>
 
-                      {/* Success Title */}
-                      <Typography
-                        variant="h5"
-                        sx={{
-                          color: '#10b981',
-                          fontWeight: 700,
-                          mb: 1,
-                        }}
-                      >
-                        🎉 Propriedade Importada!
+                      <Typography variant="h5" fontWeight={700} color="success.main" gutterBottom>
+                        🎉 Importação Concluída!
                       </Typography>
 
-                      {/* Property Name */}
-                      <Typography
-                        variant="h6"
-                        sx={{
-                          color: 'text.primary',
-                          fontWeight: 500,
-                          mb: 3,
-                        }}
-                      >
+                      <Typography variant="h6" fontWeight={500} sx={{ mb: 2 }}>
                         {result.propertyName}
                       </Typography>
 
-                      {/* Success Stats */}
-                      <Box
-                        sx={{
-                          display: 'flex',
-                          justifyContent: 'center',
-                          gap: 3,
-                          flexWrap: 'wrap',
-                          mb: 3,
-                        }}
-                      >
+                      <Box display="flex" justifyContent="center" gap={3} sx={{ mb: 2 }}>
                         <Box>
-                          <Typography variant="h4" color="success.main" fontWeight={700}>
+                          <Typography variant="h4" fontWeight={700} color="success.main">
                             ✓
                           </Typography>
                           <Typography variant="caption" color="text.secondary">
-                            Dados Importados
+                            Imóvel Criado
                           </Typography>
                         </Box>
 
-                        {result.iCalConfigured && (
+                        {result.reservationsCreated > 0 && (
                           <Box>
-                            <Typography variant="h4" color="success.main" fontWeight={700}>
-                              {result.eventsImported || 0}
+                            <Typography variant="h4" fontWeight={700} color="success.main">
+                              {result.reservationsCreated}
                             </Typography>
                             <Typography variant="caption" color="text.secondary">
-                              Reservas Sincronizadas
+                              Reservas Criadas
+                            </Typography>
+                          </Box>
+                        )}
+
+                        {result.iCalConfigured && (
+                          <Box>
+                            <Typography variant="h4" fontWeight={700} color="success.main">
+                              ✓
+                            </Typography>
+                            <Typography variant="caption" color="text.secondary">
+                              Sync Configurado
                             </Typography>
                           </Box>
                         )}
                       </Box>
 
-                      {/* iCal Success Message */}
                       {result.iCalConfigured && (
                         <Alert
                           severity="success"
                           icon={<CalendarMonth />}
                           sx={{
-                            mb: 2,
-                            backgroundColor: alpha('#10b981', 0.1),
-                            border: `1px solid ${alpha('#10b981', 0.3)}`,
+                            backgroundColor: alpha(theme.palette.success.main, 0.1),
+                            border: `1px solid ${alpha(theme.palette.success.main, 0.3)}`,
                           }}
                         >
-                          <Typography variant="body2" fontWeight={600}>
-                            📅 Sincronização Automática Configurada
-                          </Typography>
-                          <Typography variant="caption" display="block">
-                            Suas reservas do Airbnb serão sincronizadas automaticamente
-                            {result.eventsImported > 0 && ` • ${result.eventsImported} reserva(s) já importada(s)`}
-                          </Typography>
+                          📅 Sincronização automática ativa • Disponibilidades atualizadas
                         </Alert>
                       )}
                     </Paper>
 
-                    {/* Action Buttons */}
                     <Box display="flex" gap={2} flexDirection={{ xs: 'column', sm: 'row' }}>
                       <Button
                         variant="contained"
@@ -1154,19 +1188,9 @@ export default function PropertyImportWizard({
                         onClick={handleClose}
                         startIcon={<Done />}
                         fullWidth
-                        sx={{
-                          background: 'linear-gradient(135deg, #10b981, #059669)',
-                          boxShadow: `0 4px 16px ${alpha('#10b981', 0.3)}`,
-                          fontWeight: 600,
-                          py: 1.5,
-                          '&:hover': {
-                            transform: 'translateY(-2px)',
-                            boxShadow: `0 6px 20px ${alpha('#10b981', 0.4)}`,
-                          },
-                          transition: 'all 0.2s ease',
-                        }}
+                        color="success"
                       >
-                        Concluir e Voltar
+                        Concluir
                       </Button>
 
                       <Button
@@ -1175,30 +1199,11 @@ export default function PropertyImportWizard({
                         onClick={() => router.push(`/dashboard/properties/${result.propertyId}`)}
                         startIcon={<Visibility />}
                         fullWidth
-                        sx={{
-                          borderColor: alpha('#10b981', 0.3),
-                          color: '#10b981',
-                          fontWeight: 600,
-                          py: 1.5,
-                          '&:hover': {
-                            borderColor: alpha('#10b981', 0.5),
-                            backgroundColor: alpha('#10b981', 0.1),
-                          },
-                        }}
                       >
-                        Ver Propriedade
+                        Ver Imóvel
                       </Button>
                     </Box>
                   </Box>
-                ) : result?.error ? (
-                  <Alert severity="error" icon={<ErrorIcon />} sx={{ mb: 2 }}>
-                    <Typography variant="body2" fontWeight={600}>
-                      Erro ao importar propriedade
-                    </Typography>
-                    <Typography variant="caption" display="block">
-                      {result.error}
-                    </Typography>
-                  </Alert>
                 ) : null}
               </StepContent>
             </Step>
@@ -1206,30 +1211,17 @@ export default function PropertyImportWizard({
         </DialogContent>
       </Dialog>
 
-      {/* Property Completion Dialog */}
-      {mappedProperty && (
+      {/* Property Review Dialog */}
+      {mappedProperty && createdPropertyId && (
         <PropertyCompletionDialog
-          open={showCompletionDialog}
+          open={showReviewDialog}
           onClose={() => {
-            setShowCompletionDialog(false);
-            setActiveStep(2); // Go back to iCal step
+            setShowReviewDialog(false);
           }}
           propertyData={mappedProperty}
-          onComplete={handlePropertyCompletion}
+          onComplete={handlePropertyReviewComplete}
         />
       )}
-
-      {/* Airbnb iCal Helper Dialog */}
-      <AirbnbICalHelper
-        open={showICalHelper}
-        onClose={() => setShowICalHelper(false)}
-        airbnbPropertyId={airbnbPropertyId}
-        onICalUrlProvided={(url) => {
-          setICalUrl(url);
-          handleICalUrlChange(url);
-          setShowICalHelper(false);
-        }}
-      />
     </>
   );
 }
