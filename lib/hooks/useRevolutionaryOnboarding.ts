@@ -57,7 +57,7 @@ export function useRevolutionaryOnboarding(): UseRevolutionaryOnboardingResult {
       setLoading(true);
       setError(null);
 
-      const stateRef = doc(db, 'users', user.uid, 'revolutionary_onboarding', tenantId);
+      const stateRef = doc(db, 'users', user.uid, 'onboarding', tenantId);
       const stateDoc = await getDoc(stateRef);
 
       if (stateDoc.exists()) {
@@ -84,7 +84,7 @@ export function useRevolutionaryOnboarding(): UseRevolutionaryOnboardingResult {
 
         setState(loadedState);
 
-        logger.info('✅ [Revolutionary Onboarding] Estado carregado', {
+        logger.info('✅ [Revolutionary Onboarding] Estado carregado de /onboarding/', {
           userId: user.uid,
           tenantId,
           viewMode: loadedState.viewMode,
@@ -106,7 +106,7 @@ export function useRevolutionaryOnboarding(): UseRevolutionaryOnboardingResult {
 
         setState(newState);
 
-        logger.info('🎬 [Revolutionary Onboarding] Novo estado criado', {
+        logger.info('🎬 [Revolutionary Onboarding] Novo estado criado em /onboarding/', {
           userId: user.uid,
           tenantId,
         });
@@ -131,7 +131,7 @@ export function useRevolutionaryOnboarding(): UseRevolutionaryOnboardingResult {
       if (!user?.uid || !tenantId || !state) return;
 
       try {
-        const stateRef = doc(db, 'users', user.uid, 'revolutionary_onboarding', tenantId);
+        const stateRef = doc(db, 'users', user.uid, 'onboarding', tenantId);
         await updateDoc(stateRef, {
           ...updates,
           lastInteractionAt: serverTimestamp(),
@@ -577,7 +577,7 @@ export function useRevolutionaryOnboarding(): UseRevolutionaryOnboardingResult {
     await baseOnboarding.resetOnboarding();
 
     if (user?.uid && tenantId) {
-      const stateRef = doc(db, 'users', user.uid, 'revolutionary_onboarding', tenantId);
+      const stateRef = doc(db, 'users', user.uid, 'onboarding', tenantId);
       const newState: RevolutionaryOnboardingState = {
         ...DEFAULT_REVOLUTIONARY_STATE,
         startedAt: new Date(),

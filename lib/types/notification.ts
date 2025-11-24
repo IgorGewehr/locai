@@ -53,7 +53,7 @@ export enum NotificationType {
   AGENDA_EVENT_REMINDER = 'agenda_event_reminder',
   AGENDA_EVENT_UPDATED = 'agenda_event_updated',
   AGENDA_EVENT_CANCELLED = 'agenda_event_cancelled',
-  
+
   // Tickets
   TICKET_RESPONSE_RECEIVED = 'ticket_response_received',
   TICKET_STATUS_CHANGED = 'ticket_status_changed',
@@ -67,15 +67,20 @@ export enum NotificationType {
   RESERVATION_CREATED = 'reservation_created',
   RESERVATION_CHECK_IN_REMINDER = 'reservation_check_in_reminder',
   RESERVATION_CHECK_OUT_REMINDER = 'reservation_check_out_reminder',
-  
+
   // Financeiro
   PAYMENT_DUE_REMINDER = 'payment_due_reminder',
   PAYMENT_OVERDUE = 'payment_overdue',
   PAYMENT_RECEIVED = 'payment_received',
-  
+
   // Sistema
   SYSTEM_ALERT = 'system_alert',
-  SYSTEM_MAINTENANCE = 'system_maintenance'
+  SYSTEM_MAINTENANCE = 'system_maintenance',
+
+  // Admin Notifications (NEW)
+  ADMIN_NEW_USER_REGISTERED = 'admin_new_user_registered',
+  ADMIN_NEW_TICKET_CREATED = 'admin_new_ticket_created',
+  ADMIN_TICKET_USER_RESPONSE = 'admin_ticket_user_response'
 }
 
 export enum NotificationStatus {
@@ -286,7 +291,7 @@ export const NOTIFICATION_TYPE_LABELS = {
   [NotificationType.AGENDA_EVENT_REMINDER]: 'Lembrete de Evento',
   [NotificationType.AGENDA_EVENT_UPDATED]: 'Evento Atualizado',
   [NotificationType.AGENDA_EVENT_CANCELLED]: 'Evento Cancelado',
-  
+
   [NotificationType.TICKET_RESPONSE_RECEIVED]: 'Resposta de Ticket',
   [NotificationType.TICKET_STATUS_CHANGED]: 'Status do Ticket Alterado',
   [NotificationType.TICKET_ASSIGNED]: 'Ticket Atribuído',
@@ -297,13 +302,18 @@ export const NOTIFICATION_TYPE_LABELS = {
   [NotificationType.RESERVATION_CREATED]: 'Nova Reserva',
   [NotificationType.RESERVATION_CHECK_IN_REMINDER]: 'Lembrete Check-in',
   [NotificationType.RESERVATION_CHECK_OUT_REMINDER]: 'Lembrete Check-out',
-  
+
   [NotificationType.PAYMENT_DUE_REMINDER]: 'Pagamento Vencendo',
   [NotificationType.PAYMENT_OVERDUE]: 'Pagamento em Atraso',
   [NotificationType.PAYMENT_RECEIVED]: 'Pagamento Recebido',
-  
+
   [NotificationType.SYSTEM_ALERT]: 'Alerta do Sistema',
-  [NotificationType.SYSTEM_MAINTENANCE]: 'Manutenção do Sistema'
+  [NotificationType.SYSTEM_MAINTENANCE]: 'Manutenção do Sistema',
+
+  // Admin Notifications
+  [NotificationType.ADMIN_NEW_USER_REGISTERED]: 'Novo Usuário Registrado',
+  [NotificationType.ADMIN_NEW_TICKET_CREATED]: 'Novo Ticket Criado',
+  [NotificationType.ADMIN_TICKET_USER_RESPONSE]: 'Usuário Respondeu Ticket'
 }
 
 export const NOTIFICATION_PRIORITY_LABELS = {
@@ -334,7 +344,7 @@ export const NOTIFICATION_TYPE_ICONS = {
   [NotificationType.AGENDA_EVENT_REMINDER]: '⏰',
   [NotificationType.AGENDA_EVENT_UPDATED]: '✏️',
   [NotificationType.AGENDA_EVENT_CANCELLED]: '❌',
-  
+
   [NotificationType.TICKET_RESPONSE_RECEIVED]: '💬',
   [NotificationType.TICKET_STATUS_CHANGED]: '🔄',
   [NotificationType.TICKET_ASSIGNED]: '👤',
@@ -345,11 +355,16 @@ export const NOTIFICATION_TYPE_ICONS = {
   [NotificationType.RESERVATION_CREATED]: '🏠',
   [NotificationType.RESERVATION_CHECK_IN_REMINDER]: '🗝️',
   [NotificationType.RESERVATION_CHECK_OUT_REMINDER]: '🚪',
-  
+
   [NotificationType.PAYMENT_DUE_REMINDER]: '💳',
   [NotificationType.PAYMENT_OVERDUE]: '⚠️',
   [NotificationType.PAYMENT_RECEIVED]: '✅',
-  
+
   [NotificationType.SYSTEM_ALERT]: '🚨',
-  [NotificationType.SYSTEM_MAINTENANCE]: '🔧'
+  [NotificationType.SYSTEM_MAINTENANCE]: '🔧',
+
+  // Admin Notifications
+  [NotificationType.ADMIN_NEW_USER_REGISTERED]: '👤',
+  [NotificationType.ADMIN_NEW_TICKET_CREATED]: '🎫',
+  [NotificationType.ADMIN_TICKET_USER_RESPONSE]: '💬'
 }

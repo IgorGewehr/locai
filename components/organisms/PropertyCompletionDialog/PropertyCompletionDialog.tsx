@@ -86,6 +86,13 @@ export default function PropertyCompletionDialog({
   const methods = useForm({
     defaultValues: {
       ...propertyData,
+      // Ensure nested fields are properly flattened
+      title: propertyData.title || propertyData.name || 'Nova Propriedade',
+      bedrooms: propertyData.bedrooms || propertyData.guestCapacity?.bedrooms || 1,
+      bathrooms: propertyData.bathrooms || propertyData.guestCapacity?.bathrooms || 1,
+      maxGuests: propertyData.maxGuests || propertyData.guestCapacity?.guests || 2,
+      capacity: propertyData.capacity || propertyData.guestCapacity?.guests || 2,
+      // Pricing defaults
       basePrice: propertyData.basePrice || 200,
       cleaningFee: propertyData.cleaningFee || 80,
       weekendSurcharge: propertyData.weekendSurcharge || 30,
@@ -112,9 +119,32 @@ export default function PropertyCompletionDialog({
     setSaving(true);
     try {
       const formData = methods.getValues();
+
+      // Add unavailable dates from calendar selection
+      if (selectedDates.length > 0) {
+        formData.unavailableDates = selectedDates.map(d => d.toISOString());
+      }
+
+      // Debug logging
+      console.log('[PropertyCompletionDialog] Submitting property data:', {
+        title: formData.title,
+        basePrice: formData.basePrice,
+        cleaningFee: formData.cleaningFee,
+        bedrooms: formData.bedrooms,
+        bathrooms: formData.bathrooms,
+        maxGuests: formData.maxGuests,
+      });
+
       await onComplete(formData);
+      console.log('[PropertyCompletionDialog] Property saved successfully');
+      // Success - parent will handle closing
     } catch (error) {
-      console.error('Error completing property:', error);
+      console.error('[PropertyCompletionDialog] Error completing property:', error);
+      // Show error to user instead of silent fail
+      alert(
+        'Erro ao salvar propriedade:\n' +
+        (error instanceof Error ? error.message : 'Erro desconhecido')
+      );
     } finally {
       setSaving(false);
     }
@@ -141,9 +171,9 @@ export default function PropertyCompletionDialog({
           <Stack direction="row" spacing={2} alignItems="center" sx={{ mb: 2 }}>
             <Home color="primary" sx={{ fontSize: 40 }} />
             <Box>
-              <Typography variant="h6">{propertyData.title}</Typography>
+              <Typography variant="h6">{propertyData.title || propertyData.name || 'Propriedade'}</Typography>
               <Typography variant="body2" color="text.secondary">
-                {propertyData.address?.city}, {propertyData.address?.state}
+                {propertyData.city || propertyData.address?.city || ''}{propertyData.neighborhood ? `, ${propertyData.neighborhood}` : ''}
               </Typography>
             </Box>
           </Stack>
@@ -153,15 +183,15 @@ export default function PropertyCompletionDialog({
           <Grid container spacing={2}>
             <Grid item xs={6} sm={3}>
               <Typography variant="caption" color="text.secondary">Quartos</Typography>
-              <Typography variant="h6">{propertyData.guestCapacity?.bedrooms || 0}</Typography>
+              <Typography variant="h6">{propertyData.bedrooms || propertyData.guestCapacity?.bedrooms || 0}</Typography>
             </Grid>
             <Grid item xs={6} sm={3}>
               <Typography variant="caption" color="text.secondary">Banheiros</Typography>
-              <Typography variant="h6">{propertyData.guestCapacity?.bathrooms || 0}</Typography>
+              <Typography variant="h6">{propertyData.bathrooms || propertyData.guestCapacity?.bathrooms || 0}</Typography>
             </Grid>
             <Grid item xs={6} sm={3}>
               <Typography variant="caption" color="text.secondary">Hóspedes</Typography>
-              <Typography variant="h6">{propertyData.guestCapacity?.guests || 0}</Typography>
+              <Typography variant="h6">{propertyData.maxGuests || propertyData.capacity || propertyData.guestCapacity?.guests || 0}</Typography>
             </Grid>
             <Grid item xs={6} sm={3}>
               <Typography variant="caption" color="text.secondary">Fotos</Typography>
@@ -453,9 +483,9 @@ export default function PropertyCompletionDialog({
             <Typography variant="subtitle2" gutterBottom color="primary">
               📋 Informações Gerais
             </Typography>
-            <Typography variant="body2">{propertyData.title}</Typography>
+            <Typography variant="body2">{watch('title')}</Typography>
             <Typography variant="caption" color="text.secondary">
-              {propertyData.guestCapacity?.bedrooms} quartos • {propertyData.guestCapacity?.bathrooms} banheiros • {propertyData.guestCapacity?.guests} hóspedes
+              {watch('bedrooms')} quartos • {watch('bathrooms')} banheiros • {watch('maxGuests')} hóspedes
             </Typography>
           </Paper>
         </Grid>

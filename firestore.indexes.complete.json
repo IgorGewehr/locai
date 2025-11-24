@@ -49,6 +49,16 @@
       "collectionGroup": "notifications",
       "queryScope": "COLLECTION",
       "fields": [
+        { "fieldPath": "targetUserId", "order": "ASCENDING" },
+        { "fieldPath": "type", "order": "ASCENDING" },
+        { "fieldPath": "status", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "notifications",
+      "queryScope": "COLLECTION",
+      "fields": [
         { "fieldPath": "entityType", "order": "ASCENDING" },
         { "fieldPath": "entityId", "order": "ASCENDING" },
         { "fieldPath": "createdAt", "order": "DESCENDING" }
@@ -162,6 +172,16 @@
         { "fieldPath": "propertyId", "order": "ASCENDING" },
         { "fieldPath": "status", "order": "ASCENDING" },
         { "fieldPath": "checkIn", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "reservations",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "propertyId", "order": "ASCENDING" },
+        { "fieldPath": "status", "order": "ASCENDING" },
+        { "fieldPath": "checkIn", "order": "ASCENDING" },
+        { "fieldPath": "checkOut", "order": "ASCENDING" }
       ]
     },
     {
@@ -590,6 +610,15 @@
         { "fieldPath": "scheduledDate", "order": "ASCENDING" }
       ]
     },
+    {
+      "collectionGroup": "visits",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "status", "order": "ASCENDING" },
+        { "fieldPath": "tenantId", "order": "ASCENDING" },
+        { "fieldPath": "scheduledDate", "order": "ASCENDING" }
+      ]
+    },
 
     {
       "collectionGroup": "amenities",
@@ -597,6 +626,16 @@
       "fields": [
         { "fieldPath": "category", "order": "ASCENDING" },
         { "fieldPath": "name", "order": "ASCENDING" }
+      ]
+    },
+
+    {
+      "collectionGroup": "availability",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "propertyId", "order": "ASCENDING" },
+        { "fieldPath": "endDate", "order": "ASCENDING" },
+        { "fieldPath": "startDate", "order": "ASCENDING" }
       ]
     },
     {
@@ -613,7 +652,23 @@
       "queryScope": "COLLECTION",
       "fields": [
         { "fieldPath": "userId", "order": "ASCENDING" },
+        { "fieldPath": "updatedAt", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "tickets",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "userId", "order": "ASCENDING" },
         { "fieldPath": "updatedAt", "order": "DESCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "tickets",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "status", "order": "ASCENDING" },
+        { "fieldPath": "updatedAt", "order": "ASCENDING" }
       ]
     },
     {
@@ -852,132 +907,6 @@
       "fields": [
         { "fieldPath": "scheduledDate", "order": "ASCENDING" },
         { "fieldPath": "scheduledTime", "order": "ASCENDING" }
-      ]
-    },
-
-    {
-      "collectionGroup": "wallets",
-      "queryScope": "COLLECTION",
-      "fields": [
-        { "fieldPath": "clientId", "order": "ASCENDING" },
-        { "fieldPath": "createdAt", "order": "DESCENDING" }
-      ]
-    },
-    {
-      "collectionGroup": "wallets",
-      "queryScope": "COLLECTION",
-      "fields": [
-        { "fieldPath": "isActive", "order": "ASCENDING" },
-        { "fieldPath": "lastTransactionAt", "order": "DESCENDING" }
-      ]
-    },
-    {
-      "collectionGroup": "wallets",
-      "queryScope": "COLLECTION",
-      "fields": [
-        { "fieldPath": "isFrozen", "order": "ASCENDING" },
-        { "fieldPath": "updatedAt", "order": "DESCENDING" }
-      ]
-    },
-
-    {
-      "collectionGroup": "wallet_transactions",
-      "queryScope": "COLLECTION",
-      "fields": [
-        { "fieldPath": "clientId", "order": "ASCENDING" },
-        { "fieldPath": "createdAt", "order": "DESCENDING" }
-      ]
-    },
-    {
-      "collectionGroup": "wallet_transactions",
-      "queryScope": "COLLECTION",
-      "fields": [
-        { "fieldPath": "walletId", "order": "ASCENDING" },
-        { "fieldPath": "createdAt", "order": "DESCENDING" }
-      ]
-    },
-    {
-      "collectionGroup": "wallet_transactions",
-      "queryScope": "COLLECTION",
-      "fields": [
-        { "fieldPath": "clientId", "order": "ASCENDING" },
-        { "fieldPath": "type", "order": "ASCENDING" },
-        { "fieldPath": "createdAt", "order": "DESCENDING" }
-      ]
-    },
-    {
-      "collectionGroup": "wallet_transactions",
-      "queryScope": "COLLECTION",
-      "fields": [
-        { "fieldPath": "clientId", "order": "ASCENDING" },
-        { "fieldPath": "status", "order": "ASCENDING" },
-        { "fieldPath": "createdAt", "order": "DESCENDING" }
-      ]
-    },
-    {
-      "collectionGroup": "wallet_transactions",
-      "queryScope": "COLLECTION",
-      "fields": [
-        { "fieldPath": "transactionId", "order": "ASCENDING" },
-        { "fieldPath": "createdAt", "order": "DESCENDING" }
-      ]
-    },
-    {
-      "collectionGroup": "wallet_transactions",
-      "queryScope": "COLLECTION",
-      "fields": [
-        { "fieldPath": "reservationId", "order": "ASCENDING" },
-        { "fieldPath": "createdAt", "order": "DESCENDING" }
-      ]
-    },
-
-    {
-      "collectionGroup": "withdrawals",
-      "queryScope": "COLLECTION",
-      "fields": [
-        { "fieldPath": "clientId", "order": "ASCENDING" },
-        { "fieldPath": "requestedAt", "order": "DESCENDING" }
-      ]
-    },
-    {
-      "collectionGroup": "withdrawals",
-      "queryScope": "COLLECTION",
-      "fields": [
-        { "fieldPath": "walletId", "order": "ASCENDING" },
-        { "fieldPath": "requestedAt", "order": "DESCENDING" }
-      ]
-    },
-    {
-      "collectionGroup": "withdrawals",
-      "queryScope": "COLLECTION",
-      "fields": [
-        { "fieldPath": "status", "order": "ASCENDING" },
-        { "fieldPath": "requestedAt", "order": "DESCENDING" }
-      ]
-    },
-    {
-      "collectionGroup": "withdrawals",
-      "queryScope": "COLLECTION",
-      "fields": [
-        { "fieldPath": "clientId", "order": "ASCENDING" },
-        { "fieldPath": "status", "order": "ASCENDING" },
-        { "fieldPath": "requestedAt", "order": "DESCENDING" }
-      ]
-    },
-    {
-      "collectionGroup": "withdrawals",
-      "queryScope": "COLLECTION",
-      "fields": [
-        { "fieldPath": "method", "order": "ASCENDING" },
-        { "fieldPath": "requestedAt", "order": "DESCENDING" }
-      ]
-    },
-    {
-      "collectionGroup": "withdrawals",
-      "queryScope": "COLLECTION",
-      "fields": [
-        { "fieldPath": "approvedBy", "order": "ASCENDING" },
-        { "fieldPath": "approvedAt", "order": "DESCENDING" }
       ]
     }
   ],

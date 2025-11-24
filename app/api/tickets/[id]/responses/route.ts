@@ -1,21 +1,22 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { 
-  collection, 
-  addDoc, 
+import {
+  collection,
+  addDoc,
   getDocs,
   doc,
   getDoc,
   updateDoc,
   query,
   orderBy,
-  Timestamp 
+  Timestamp
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase/config';
-import { 
+import {
   TicketResponse,
   CreateTicketResponseRequest
 } from '@/lib/types/ticket';
 import { logger } from '@/lib/utils/logger';
+import { notifyAdminsTicketUserResponse } from '@/lib/utils/admin-notifications';
 
 // GET /api/tickets/[id]/responses - Get ticket responses
 export async function GET(
@@ -156,15 +157,32 @@ export async function POST(
 
     await updateDoc(ticketRef, ticketUpdates);
 
-    logger.info('✅ Resposta adicionada', { 
-      ticketId, 
+    logger.info('✅ Resposta adicionada', {
+      ticketId,
       responseId: docRef.id,
       newResponseCount: currentResponseCount + 1
     });
-    
-    return NextResponse.json({ 
+
+    // Notify admins if user responded (async, don't wait)
+    if (!responseData.isAdmin) {
+      notifyAdminsTicketUserResponse({
+        ticketId,
+        ticketTitle: ticketData.subject || 'Ticket sem título',
+        userId: responseData.authorId,
+        userName: responseData.authorName,
+        responsePreview: responseData.content.trim()
+      }).catch(error => {
+        logger.error('❌ Erro ao notificar admins sobre resposta do usuário', error as Error, {
+          ticketId,
+          responseId: docRef.id,
+          component: 'TicketResponsesAPI'
+        });
+      });
+    }
+
+    return NextResponse.json({
       id: docRef.id,
-      message: 'Resposta adicionada com sucesso' 
+      message: 'Resposta adicionada com sucesso'
     }, { status: 201 });
 
   } catch (error) {

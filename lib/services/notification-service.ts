@@ -216,6 +216,143 @@ export class NotificationService {
     })
   }
 
+  // ADMIN NOTIFICATIONS
+
+  // Criar notificação para admins quando novo usuário se registra
+  async createAdminNewUserNotification(data: {
+    userId: string
+    userName: string
+    userEmail: string
+    plan: string
+  }): Promise<string> {
+    const title = '👤 Novo usuário registrado'
+    const message = `${data.userName} (${data.userEmail}) acabou de se registrar no plano ${data.plan}`
+
+    return await this.createNotification({
+      targetUserId: 'ADMIN',
+      targetUserName: 'Admin',
+      type: NotificationType.ADMIN_NEW_USER_REGISTERED,
+      title,
+      message,
+      entityType: 'system',
+      entityId: data.userId,
+      entityData: {
+        userName: data.userName,
+        userEmail: data.userEmail,
+        plan: data.plan,
+        userId: data.userId
+      },
+      priority: NotificationPriority.MEDIUM,
+      channels: [NotificationChannel.DASHBOARD],
+      actions: [{
+        id: 'view_admin_panel',
+        label: 'Ver Painel Admin',
+        type: 'primary',
+        action: 'navigate',
+        config: {
+          url: '/dashboard/lkjhg'
+        }
+      }],
+      metadata: {
+        source: 'auth_system',
+        triggerEvent: 'user_registered'
+      }
+    })
+  }
+
+  // Criar notificação para admins quando novo ticket é criado
+  async createAdminNewTicketNotification(data: {
+    ticketId: string
+    ticketTitle: string
+    ticketPriority: string
+    userId: string
+    userName: string
+    userEmail: string
+  }): Promise<string> {
+    const title = '🎫 Novo ticket de suporte criado'
+    const priorityLabel = data.ticketPriority === 'high' || data.ticketPriority === 'critical'
+      ? ` (Prioridade: ${data.ticketPriority.toUpperCase()})`
+      : ''
+    const message = `${data.userName} criou um ticket: "${data.ticketTitle}"${priorityLabel}`
+
+    return await this.createNotification({
+      targetUserId: 'ADMIN',
+      targetUserName: 'Admin',
+      type: NotificationType.ADMIN_NEW_TICKET_CREATED,
+      title,
+      message,
+      entityType: 'ticket',
+      entityId: data.ticketId,
+      entityData: {
+        ticketTitle: data.ticketTitle,
+        ticketPriority: data.ticketPriority,
+        userId: data.userId,
+        userName: data.userName,
+        userEmail: data.userEmail
+      },
+      priority: data.ticketPriority === 'critical' || data.ticketPriority === 'high'
+        ? NotificationPriority.HIGH
+        : NotificationPriority.MEDIUM,
+      channels: [NotificationChannel.DASHBOARD],
+      actions: [{
+        id: 'view_ticket',
+        label: 'Ver Ticket',
+        type: 'primary',
+        action: 'navigate',
+        config: {
+          url: '/dashboard/lkjhg'
+        }
+      }],
+      metadata: {
+        source: 'ticket_system',
+        triggerEvent: 'ticket_created'
+      }
+    })
+  }
+
+  // Criar notificação para admins quando usuário responde ticket
+  async createAdminTicketUserResponseNotification(data: {
+    ticketId: string
+    ticketTitle: string
+    userId: string
+    userName: string
+    responsePreview: string
+  }): Promise<string> {
+    const title = '💬 Usuário respondeu ticket'
+    const message = `${data.userName} respondeu o ticket "${data.ticketTitle}": ${data.responsePreview.substring(0, 100)}...`
+
+    return await this.createNotification({
+      targetUserId: 'ADMIN',
+      targetUserName: 'Admin',
+      type: NotificationType.ADMIN_TICKET_USER_RESPONSE,
+      title,
+      message,
+      entityType: 'ticket',
+      entityId: data.ticketId,
+      entityData: {
+        ticketTitle: data.ticketTitle,
+        userId: data.userId,
+        userName: data.userName,
+        responsePreview: data.responsePreview
+      },
+      priority: NotificationPriority.HIGH,
+      channels: [NotificationChannel.DASHBOARD],
+      actions: [{
+        id: 'view_ticket',
+        label: 'Ver Ticket',
+        type: 'primary',
+        action: 'navigate',
+        config: {
+          url: '/dashboard/lkjhg'
+        }
+      }],
+      metadata: {
+        source: 'ticket_system',
+        triggerEvent: 'ticket_user_response'
+      }
+    })
+  }
+
   // Marcar notificação como lida
   async markAsRead(notificationId: string): Promise<void> {
     try {

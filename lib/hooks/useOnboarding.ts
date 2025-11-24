@@ -87,6 +87,19 @@ export function useOnboarding(): UseOnboardingResult {
           isCompleted: data.isCompleted || false,
           completionPercentage: data.completionPercentage || 0,
           metadata: data.metadata,
+          // Revolutionary Onboarding fields (optional)
+          viewMode: data.viewMode || 'compact',
+          activeDialog: data.activeDialog || { mode: null, isOpen: false },
+          lastInteractionAt: data.lastInteractionAt?.toDate() || new Date(),
+          timeSpentSeconds: data.timeSpentSeconds || 0,
+          stepInteractions: data.stepInteractions,
+          showTooltips: data.showTooltips !== undefined ? data.showTooltips : true,
+          showVideoTutorials: data.showVideoTutorials !== undefined ? data.showVideoTutorials : true,
+          isDismissed: data.isDismissed || false,
+          completedSteps: data.completedSteps || [],
+          skippedSteps: data.skippedSteps || [],
+          unlockedBadges: data.unlockedBadges || [],
+          analytics: data.analytics,
         };
         setProgress(loadedProgress);
 
@@ -111,12 +124,38 @@ export function useOnboarding(): UseOnboardingResult {
           lastUpdatedAt: new Date(),
           isCompleted: false,
           completionPercentage: 0,
+          // Revolutionary Onboarding fields
+          viewMode: 'compact',
+          activeDialog: { mode: null, isOpen: false },
+          lastInteractionAt: new Date(),
+          timeSpentSeconds: 0,
+          stepInteractions: {
+            add_property: { stepId: 'add_property', attempts: 0, timeSpentSeconds: 0, actions: [] },
+            connect_whatsapp: { stepId: 'connect_whatsapp', attempts: 0, timeSpentSeconds: 0, actions: [] },
+          },
+          showTooltips: true,
+          showVideoTutorials: true,
+          isDismissed: false,
+          completedSteps: [],
+          skippedSteps: [],
+          unlockedBadges: [],
+          analytics: {
+            totalTimeSpentSeconds: 0,
+            stepsCompleted: 0,
+            stepsSkipped: 0,
+            averageTimePerStep: 0,
+            completionRate: 0,
+            helpViewedCount: 0,
+            videoWatchedCount: 0,
+            errorsEncountered: 0,
+          },
         };
 
         await setDoc(progressRef, {
           ...newProgress,
           startedAt: serverTimestamp(),
           lastUpdatedAt: serverTimestamp(),
+          lastInteractionAt: serverTimestamp(),
         });
 
         setProgress(newProgress);
@@ -292,12 +331,38 @@ export function useOnboarding(): UseOnboardingResult {
         lastUpdatedAt: new Date(),
         isCompleted: false,
         completionPercentage: 0,
+        // Revolutionary Onboarding fields
+        viewMode: 'compact',
+        activeDialog: { mode: null, isOpen: false },
+        lastInteractionAt: new Date(),
+        timeSpentSeconds: 0,
+        stepInteractions: {
+          add_property: { stepId: 'add_property', attempts: 0, timeSpentSeconds: 0, actions: [] },
+          connect_whatsapp: { stepId: 'connect_whatsapp', attempts: 0, timeSpentSeconds: 0, actions: [] },
+        },
+        showTooltips: true,
+        showVideoTutorials: true,
+        isDismissed: false,
+        completedSteps: [],
+        skippedSteps: [],
+        unlockedBadges: [],
+        analytics: {
+          totalTimeSpentSeconds: 0,
+          stepsCompleted: 0,
+          stepsSkipped: 0,
+          averageTimePerStep: 0,
+          completionRate: 0,
+          helpViewedCount: 0,
+          videoWatchedCount: 0,
+          errorsEncountered: 0,
+        },
       };
 
       await setDoc(progressRef, {
         ...resetProgress,
         startedAt: serverTimestamp(),
         lastUpdatedAt: serverTimestamp(),
+        lastInteractionAt: serverTimestamp(),
       });
 
       setProgress(resetProgress);

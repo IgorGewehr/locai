@@ -177,11 +177,22 @@ export async function GET(request: NextRequest) {
           phoneNumber: userData.phoneNumber || userData.phone || '',
           plan,
           status,
-          createdAt: userData.createdAt?.toDate?.() ||
-                     (userData.createdAt ? new Date(userData.createdAt) : null),
-          lastLogin: userData.lastLogin?.toDate?.() ||
-                     (userData.lastLogin ? new Date(userData.lastLogin) :
-                     (userData.lastAccess ? new Date(userData.lastAccess) : null)),
+          createdAt: (() => {
+            try {
+              const date = userData.createdAt?.toDate?.() || (userData.createdAt ? new Date(userData.createdAt) : null);
+              return (date && !isNaN(date.getTime())) ? date : null;
+            } catch {
+              return null;
+            }
+          })(),
+          lastLogin: (() => {
+            try {
+              const date = userData.lastLogin?.toDate?.() || (userData.lastLogin ? new Date(userData.lastLogin) : (userData.lastAccess ? new Date(userData.lastAccess) : null));
+              return (date && !isNaN(date.getTime())) ? date : null;
+            } catch {
+              return null;
+            }
+          })(),
 
           // Métricas reais
           propertyCount,

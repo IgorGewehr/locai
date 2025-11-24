@@ -57,11 +57,21 @@ export class CalendarSyncService {
       );
 
       // Fetch and parse iCal
+      logger.info('📥 [ICAL-SYNC] Fetching iCal feed', {
+        propertyId,
+        iCalUrl: syncConfig.iCalUrl.substring(0, 50) + '...',
+      });
+
       const events = await iCalParserService.fetchAndParse(syncConfig.iCalUrl);
 
-      logger.info('iCal events fetched', {
+      logger.info('📊 [ICAL-SYNC] iCal events parsed', {
         propertyId,
-        eventsCount: events.length,
+        totalEvents: events.length,
+        eventsPreview: events.slice(0, 3).map(e => ({
+          summary: e.summary,
+          start: e.startDate,
+          end: e.endDate,
+        })),
       });
 
       // Filter to blocked events only
@@ -72,7 +82,19 @@ export class CalendarSyncService {
           !event.summary.toLowerCase().includes('available')
       );
 
+      logger.info('🔍 [ICAL-SYNC] Filtered blocked events', {
+        propertyId,
+        totalEvents: events.length,
+        blockedEvents: blockedEvents.length,
+        skippedEvents: events.length - blockedEvents.length,
+      });
+
       // Import events to availability
+      logger.info('💾 [ICAL-SYNC] Starting reservation creation', {
+        propertyId,
+        eventsToImport: blockedEvents.length,
+      });
+
       const importResult = await this.importEvents(
         propertyId,
         tenantId,
@@ -105,9 +127,13 @@ export class CalendarSyncService {
         duration,
       };
 
-      logger.info('Calendar sync completed successfully', {
+      logger.info('🎉 [ICAL-SYNC] Sync completed successfully', {
         propertyId,
-        result,
+        eventsProcessed: events.length,
+        reservationsCreated: importResult.created,
+        reservationsUpdated: importResult.updated,
+        totalDuration: `${duration}ms`,
+        source: syncConfig.source,
       });
 
       return result;
@@ -244,14 +270,15 @@ export class CalendarSyncService {
 
         created++;
 
-        logger.info('Created reservation from external event', {
+        logger.info('✅ [ICAL-SYNC] Reservation created from external event', {
           propertyId,
           reservationId,
+          checkIn: startDate.toISOString(),
+          checkOut: endDate.toISOString(),
+          nights,
+          eventSummary: event.summary,
           eventUid: event.uid,
           source,
-          checkIn: startDate,
-          checkOut: endDate,
-          nights,
         });
 
         // Also create blocked period in availability

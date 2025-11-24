@@ -154,8 +154,22 @@ export async function GET(request: NextRequest) {
               status: ticketData.status || 'open',
               priority: ticketData.priority || 'medium',
               category: ticketData.category || 'general',
-              createdAt: ticketData.createdAt,
-              updatedAt: ticketData.updatedAt || ticketData.createdAt,
+              createdAt: (() => {
+                try {
+                  const date = ticketData.createdAt?.toDate?.() || (ticketData.createdAt ? new Date(ticketData.createdAt) : new Date());
+                  return (date && !isNaN(date.getTime())) ? date : new Date();
+                } catch {
+                  return new Date();
+                }
+              })(),
+              updatedAt: (() => {
+                try {
+                  const date = ticketData.updatedAt?.toDate?.() || (ticketData.updatedAt ? new Date(ticketData.updatedAt) : ticketData.createdAt);
+                  return (date && !isNaN(date.getTime())) ? date : new Date();
+                } catch {
+                  return new Date();
+                }
+              })(),
               responses,
               metadata: ticketData.metadata || {}
             };
@@ -223,8 +237,22 @@ export async function GET(request: NextRequest) {
           status: ticketData.status || 'open',
           priority: ticketData.priority || 'medium',
           category: ticketData.category || 'general',
-          createdAt: ticketData.createdAt,
-          updatedAt: ticketData.updatedAt || ticketData.createdAt,
+          createdAt: (() => {
+            try {
+              const date = ticketData.createdAt?.toDate?.() || (ticketData.createdAt ? new Date(ticketData.createdAt) : new Date());
+              return (date && !isNaN(date.getTime())) ? date : new Date();
+            } catch {
+              return new Date();
+            }
+          })(),
+          updatedAt: (() => {
+            try {
+              const date = ticketData.updatedAt?.toDate?.() || (ticketData.updatedAt ? new Date(ticketData.updatedAt) : ticketData.createdAt);
+              return (date && !isNaN(date.getTime())) ? date : new Date();
+            } catch {
+              return new Date();
+            }
+          })(),
           responses,
           metadata: {
             ...ticketData.metadata,

@@ -32,6 +32,35 @@ export interface OnboardingProgress {
   lastUpdatedAt: Date;
   isCompleted: boolean;
   completionPercentage: number;
+
+  // Revolutionary Onboarding extended fields (optional for backward compatibility)
+  viewMode?: 'compact' | 'expanded' | 'fullscreen';
+  activeDialog?: {
+    mode: string | null;
+    isOpen: boolean;
+    data?: any;
+  };
+  lastInteractionAt?: Date;
+  timeSpentSeconds?: number;
+  stepInteractions?: Record<string, any>;
+  showTooltips?: boolean;
+  showVideoTutorials?: boolean;
+  isDismissed?: boolean;
+  completedSteps?: OnboardingStepId[];
+  skippedSteps?: OnboardingStepId[];
+  unlockedBadges?: string[];
+  analytics?: {
+    totalTimeSpentSeconds?: number;
+    stepsCompleted?: number;
+    stepsSkipped?: number;
+    averageTimePerStep?: number;
+    completionRate?: number;
+    helpViewedCount?: number;
+    videoWatchedCount?: number;
+    errorsEncountered?: number;
+  };
+
+  // Deprecated metadata (keep for backward compatibility)
   metadata?: {
     skippedSteps?: OnboardingStepId[];
     timeSpentMinutes?: number;

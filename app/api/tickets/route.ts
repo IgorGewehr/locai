@@ -1,25 +1,26 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { 
-  collection, 
-  addDoc, 
-  getDocs, 
-  query, 
-  where, 
-  orderBy, 
+import {
+  collection,
+  addDoc,
+  getDocs,
+  query,
+  where,
+  orderBy,
   limit as limitQuery,
   startAfter,
   Timestamp,
   getCountFromServer
 } from 'firebase/firestore';
 import { db } from '@/lib/firebase/config';
-import { 
-  Ticket, 
-  CreateTicketRequest, 
+import {
+  Ticket,
+  CreateTicketRequest,
   TicketFilters,
   TicketsResponse,
-  TicketListItem 
+  TicketListItem
 } from '@/lib/types/ticket';
 import { logger } from '@/lib/utils/logger';
+import { notifyAdminsNewTicket } from '@/lib/utils/admin-notifications';
 
 // GET /api/tickets - List tickets with filters and pagination
 export async function GET(request: NextRequest) {
@@ -282,10 +283,25 @@ export async function POST(request: NextRequest) {
     const docRef = await addDoc(ticketsRef, newTicket);
 
     logger.tenantInfo('✅ Ticket criado', tenantId, { ticketId: docRef.id });
-    
-    return NextResponse.json({ 
+
+    // Notify admins about new ticket (async, don't wait)
+    notifyAdminsNewTicket({
+      ticketId: docRef.id,
+      ticketTitle: ticketData.subject.trim(),
+      ticketPriority: ticketData.priority || 'medium',
+      userId,
+      userName,
+      userEmail
+    }).catch(error => {
+      logger.error('❌ Erro ao notificar admins sobre novo ticket', error as Error, {
+        ticketId: docRef.id,
+        component: 'TicketAPI'
+      });
+    });
+
+    return NextResponse.json({
       id: docRef.id,
-      message: 'Ticket criado com sucesso' 
+      message: 'Ticket criado com sucesso'
     }, { status: 201 });
 
   } catch (error) {

@@ -49,9 +49,11 @@ import {
   NavigateNext,
   Settings,
   Done,
+  Visibility,
 } from '@mui/icons-material';
 import { useAuth } from '@/lib/hooks/useAuth';
 import { useTenant } from '@/contexts/TenantContext';
+import { useRouter } from 'next/navigation';
 import {
   extractAirbnbPropertyId,
   isValidAirbnbUrl,
@@ -85,6 +87,7 @@ export default function PropertyImportWizard({
   const { getFirebaseToken } = useAuth();
   const { tenantId } = useTenant();
   const theme = useTheme();
+  const router = useRouter();
 
   // Wizard state
   const [activeStep, setActiveStep] = useState(0);
@@ -229,7 +232,6 @@ export default function PropertyImportWizard({
    */
   const handlePropertyCompletion = async (completedData: any) => {
     try {
-      setActiveStep(4); // Move to final step
       setLoading(true);
 
       // Create property via API
@@ -260,6 +262,9 @@ export default function PropertyImportWizard({
       }
 
       logger.info('[PropertyImportWizard] Property created', { propertyId });
+
+      // Close completion dialog first
+      setShowCompletionDialog(false);
 
       // Configure iCal sync if URL provided
       let syncResult = null;
@@ -301,12 +306,12 @@ export default function PropertyImportWizard({
         }
       }
 
-      // Success!
-      setShowCompletionDialog(false);
+      // Move to success step
+      setActiveStep(4);
       setResult({
         success: true,
         propertyId,
-        propertyName: completedData.name || 'Propriedade',
+        propertyName: completedData.title || 'Propriedade',
         eventsImported: syncResult?.result?.eventsImported || 0,
         iCalConfigured: !!iCalUrl && !skipICalConfig,
       });
@@ -318,11 +323,12 @@ export default function PropertyImportWizard({
         onSuccess({
           success: true,
           propertyId,
-          propertyName: completedData.name,
+          propertyName: completedData.name || completedData.title,
         });
       }
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido';
+      setShowCompletionDialog(false);
       setResult({
         success: false,
         error: errorMessage,
@@ -365,82 +371,319 @@ export default function PropertyImportWizard({
         fullWidth
         disableEscapeKeyDown={loading}
         PaperProps={{
-          sx: { borderRadius: 3 },
+          sx: {
+            borderRadius: 4,
+            background: `linear-gradient(135deg, ${alpha('#1e293b', 0.98)}, ${alpha('#0f172a', 0.98)})`,
+            backdropFilter: 'blur(20px)',
+          },
         }}
       >
-        <DialogTitle
+        {/* Modern Header with Gradient */}
+        <Box
           sx={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: 1,
-            borderBottom: `1px solid ${theme.palette.divider}`,
-            pb: 2,
+            background: 'linear-gradient(135deg, #6366f1, #8b5cf6, #d946ef)',
+            p: 4,
+            pb: 5,
+            position: 'relative',
+            overflow: 'hidden',
           }}
         >
-          <Home color="primary" />
-          <Typography variant="h6" fontWeight={600}>
-            Importar Propriedade do Airbnb
-          </Typography>
-        </DialogTitle>
+          {/* Decorative background elements */}
+          <Box
+            sx={{
+              position: 'absolute',
+              top: -50,
+              right: -50,
+              width: 200,
+              height: 200,
+              borderRadius: '50%',
+              background: alpha('#ffffff', 0.1),
+              filter: 'blur(40px)',
+            }}
+          />
+          <Box
+            sx={{
+              position: 'absolute',
+              bottom: -30,
+              left: -30,
+              width: 150,
+              height: 150,
+              borderRadius: '50%',
+              background: alpha('#ffffff', 0.08),
+              filter: 'blur(30px)',
+            }}
+          />
 
-        <DialogContent sx={{ mt: 3 }}>
+          {/* Header Content */}
+          <Box sx={{ position: 'relative', zIndex: 1 }}>
+            <Box display="flex" alignItems="center" gap={2} mb={1}>
+              <Box
+                sx={{
+                  width: 56,
+                  height: 56,
+                  borderRadius: '14px',
+                  background: alpha('#ffffff', 0.15),
+                  backdropFilter: 'blur(10px)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  border: `1px solid ${alpha('#ffffff', 0.2)}`,
+                }}
+              >
+                <Home sx={{ fontSize: 28, color: 'white' }} />
+              </Box>
+              <Box>
+                <Typography
+                  variant="h4"
+                  sx={{
+                    color: 'white',
+                    fontWeight: 700,
+                    fontSize: { xs: '1.5rem', md: '2rem' },
+                    letterSpacing: '-0.02em',
+                  }}
+                >
+                  Importar do Airbnb
+                </Typography>
+                <Typography
+                  variant="body2"
+                  sx={{
+                    color: alpha('#ffffff', 0.9),
+                    fontWeight: 500,
+                  }}
+                >
+                  Configure sua propriedade em poucos minutos
+                </Typography>
+              </Box>
+            </Box>
+
+            {/* Progress Steps */}
+            <Box
+              sx={{
+                display: 'flex',
+                gap: 1,
+                mt: 3,
+                flexWrap: 'wrap',
+              }}
+            >
+              {wizardSteps.map((step, index) => (
+                <Chip
+                  key={index}
+                  label={step}
+                  size="small"
+                  sx={{
+                    backgroundColor:
+                      activeStep >= index
+                        ? alpha('#ffffff', 0.25)
+                        : alpha('#ffffff', 0.1),
+                    color: 'white',
+                    fontWeight: activeStep === index ? 700 : 500,
+                    border: `1px solid ${
+                      activeStep >= index
+                        ? alpha('#ffffff', 0.3)
+                        : alpha('#ffffff', 0.15)
+                    }`,
+                    backdropFilter: 'blur(10px)',
+                  }}
+                />
+              ))}
+            </Box>
+          </Box>
+        </Box>
+
+        <DialogContent sx={{ p: 4, pt: 3 }}>
           {/* Progress indicator */}
-          {loading && <LinearProgress sx={{ mb: 3 }} />}
+          {loading && (
+            <LinearProgress
+              sx={{
+                mb: 3,
+                borderRadius: 2,
+                height: 6,
+                backgroundColor: alpha('#6366f1', 0.1),
+                '& .MuiLinearProgress-bar': {
+                  background: 'linear-gradient(90deg, #6366f1, #8b5cf6, #d946ef)',
+                  borderRadius: 2,
+                },
+              }}
+            />
+          )}
 
           {/* Stepper */}
-          <Stepper activeStep={activeStep} orientation="vertical">
+          <Stepper
+            activeStep={activeStep}
+            orientation="vertical"
+            sx={{
+              '& .MuiStepLabel-root': {
+                padding: 0,
+              },
+              '& .MuiStepContent-root': {
+                borderLeft: `2px solid ${alpha('#6366f1', 0.2)}`,
+                ml: 2.5,
+                pl: 3,
+              },
+              '& .MuiStepConnector-line': {
+                borderColor: alpha('#6366f1', 0.2),
+                borderWidth: 2,
+              },
+            }}
+          >
             {/* ============================================ */}
             {/* STEP 0: Airbnb URL                           */}
             {/* ============================================ */}
             <Step>
               <StepLabel
+                StepIconProps={{
+                  sx: {
+                    color: alpha('#6366f1', 0.3),
+                    '&.Mui-active': {
+                      color: '#6366f1',
+                    },
+                    '&.Mui-completed': {
+                      color: '#10b981',
+                    },
+                  },
+                }}
                 optional={
                   airbnbPropertyId && (
                     <Chip
                       label={`ID: ${airbnbPropertyId}`}
                       size="small"
-                      color="success"
-                      variant="outlined"
-                      sx={{ mt: 0.5 }}
+                      sx={{
+                        mt: 0.5,
+                        backgroundColor: alpha('#10b981', 0.15),
+                        color: '#10b981',
+                        border: `1px solid ${alpha('#10b981', 0.3)}`,
+                        fontWeight: 600,
+                      }}
                     />
                   )
                 }
+                sx={{
+                  '& .MuiStepLabel-label': {
+                    fontSize: '1.125rem',
+                    fontWeight: 600,
+                    color: activeStep === 0 ? '#6366f1' : alpha('#ffffff', 0.7),
+                  },
+                }}
               >
                 Cole a URL do anúncio no Airbnb
               </StepLabel>
               <StepContent>
-                <Typography variant="body2" color="text.secondary" gutterBottom>
-                  Copie o link completo do seu anúncio no Airbnb (ex: airbnb.com.br/rooms/123...)
-                </Typography>
-
-                <TextField
-                  fullWidth
-                  placeholder="https://www.airbnb.com.br/rooms/1537685406266226838"
-                  value={airbnbUrl}
-                  onChange={(e) => handleUrlChange(e.target.value)}
-                  error={!!urlError}
-                  helperText={urlError || 'Cole a URL completa do anúncio'}
-                  sx={{ mt: 2, mb: 2 }}
-                  InputProps={{
-                    startAdornment: <LinkIcon sx={{ mr: 1, color: airbnbPropertyId ? 'success.main' : 'action.active' }} />,
+                <Box
+                  sx={{
+                    p: 3,
+                    borderRadius: 3,
+                    background: alpha('#6366f1', 0.05),
+                    border: `1px solid ${alpha('#6366f1', 0.1)}`,
+                    mb: 2,
                   }}
-                  autoFocus
-                />
+                >
+                  <Typography
+                    variant="body2"
+                    sx={{
+                      color: alpha('#ffffff', 0.7),
+                      mb: 2,
+                      fontSize: '0.9375rem',
+                      lineHeight: 1.6,
+                    }}
+                  >
+                    Copie o link completo do seu anúncio no Airbnb para importar todas as informações automaticamente.
+                  </Typography>
 
-                {airbnbPropertyId && (
-                  <Alert severity="success" icon={<CheckCircle />} sx={{ mb: 2 }}>
-                    <Typography variant="body2">
-                      ✓ URL válida! ID da propriedade: <strong>{airbnbPropertyId}</strong>
-                    </Typography>
-                  </Alert>
-                )}
+                  <TextField
+                    fullWidth
+                    placeholder="https://www.airbnb.com.br/rooms/1537685406266226838"
+                    value={airbnbUrl}
+                    onChange={(e) => handleUrlChange(e.target.value)}
+                    error={!!urlError}
+                    helperText={urlError || 'Cole a URL completa do anúncio do Airbnb'}
+                    sx={{
+                      mb: 2,
+                      '& .MuiOutlinedInput-root': {
+                        backgroundColor: alpha('#ffffff', 0.05),
+                        borderRadius: 2,
+                        fontSize: '0.9375rem',
+                        '& fieldset': {
+                          borderColor: alpha('#6366f1', 0.2),
+                          borderWidth: 2,
+                        },
+                        '&:hover fieldset': {
+                          borderColor: alpha('#6366f1', 0.4),
+                        },
+                        '&.Mui-focused fieldset': {
+                          borderColor: '#6366f1',
+                        },
+                      },
+                      '& .MuiInputBase-input': {
+                        py: 1.5,
+                      },
+                      '& .MuiFormHelperText-root': {
+                        fontSize: '0.8125rem',
+                        mt: 1,
+                      },
+                    }}
+                    InputProps={{
+                      startAdornment: (
+                        <LinkIcon
+                          sx={{
+                            mr: 1.5,
+                            color: airbnbPropertyId ? '#10b981' : alpha('#ffffff', 0.4),
+                            fontSize: 22,
+                          }}
+                        />
+                      ),
+                    }}
+                    autoFocus
+                  />
 
-                <Box display="flex" gap={1}>
+                  {airbnbPropertyId && (
+                    <Alert
+                      severity="success"
+                      icon={<CheckCircle />}
+                      sx={{
+                        backgroundColor: alpha('#10b981', 0.15),
+                        border: `1px solid ${alpha('#10b981', 0.3)}`,
+                        borderRadius: 2,
+                        '& .MuiAlert-message': {
+                          color: '#10b981',
+                        },
+                      }}
+                    >
+                      <Typography variant="body2" fontWeight={600}>
+                        ✓ URL válida detectada!
+                      </Typography>
+                      <Typography variant="caption" display="block">
+                        ID da propriedade: <strong>{airbnbPropertyId}</strong>
+                      </Typography>
+                    </Alert>
+                  )}
+                </Box>
+
+                <Box display="flex" gap={2}>
                   <Button
                     variant="contained"
                     onClick={handleProceedToImport}
                     disabled={!airbnbPropertyId || loading}
                     endIcon={<NavigateNext />}
+                    size="large"
+                    sx={{
+                      background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
+                      boxShadow: `0 4px 16px ${alpha('#6366f1', 0.3)}`,
+                      fontWeight: 600,
+                      py: 1.5,
+                      px: 3,
+                      borderRadius: 2,
+                      textTransform: 'none',
+                      fontSize: '1rem',
+                      '&:hover': {
+                        transform: 'translateY(-2px)',
+                        boxShadow: `0 6px 20px ${alpha('#6366f1', 0.4)}`,
+                      },
+                      '&:disabled': {
+                        background: alpha('#6366f1', 0.2),
+                        color: alpha('#ffffff', 0.4),
+                      },
+                      transition: 'all 0.2s ease',
+                    }}
                   >
                     Continuar
                   </Button>
@@ -453,24 +696,53 @@ export default function PropertyImportWizard({
             {/* ============================================ */}
             <Step>
               <StepLabel
+                StepIconProps={{
+                  sx: {
+                    color: alpha('#6366f1', 0.3),
+                    '&.Mui-active': {
+                      color: '#6366f1',
+                    },
+                    '&.Mui-completed': {
+                      color: '#10b981',
+                    },
+                  },
+                }}
                 optional={
                   mappedProperty && (
                     <Chip
                       label="Dados importados"
                       size="small"
-                      color="success"
-                      variant="outlined"
-                      sx={{ mt: 0.5 }}
+                      sx={{
+                        mt: 0.5,
+                        backgroundColor: alpha('#10b981', 0.15),
+                        color: '#10b981',
+                        border: `1px solid ${alpha('#10b981', 0.3)}`,
+                        fontWeight: 600,
+                      }}
                     />
                   )
                 }
                 error={!!importError}
+                sx={{
+                  '& .MuiStepLabel-label': {
+                    fontSize: '1.125rem',
+                    fontWeight: 600,
+                    color: activeStep === 1 ? '#6366f1' : alpha('#ffffff', 0.7),
+                  },
+                }}
               >
                 Importar dados da propriedade
               </StepLabel>
               <StepContent>
-                <Typography variant="body2" color="text.secondary" gutterBottom>
-                  Vamos buscar as informações do seu anúncio no Airbnb
+                <Typography
+                  variant="body2"
+                  sx={{
+                    color: alpha('#ffffff', 0.7),
+                    mb: 2,
+                    fontSize: '0.9375rem',
+                  }}
+                >
+                  Vamos buscar as informações do seu anúncio no Airbnb automaticamente
                 </Typography>
 
                 {!mappedProperty && !importError && (
@@ -513,14 +785,72 @@ export default function PropertyImportWizard({
                 )}
 
                 {mappedProperty && !importError && (
-                  <Alert severity="success" icon={<CheckCircle />} sx={{ mt: 2, mb: 2 }}>
-                    <Typography variant="body2" gutterBottom>
-                      <strong>✓ Dados importados com sucesso!</strong>
-                    </Typography>
-                    <Typography variant="caption">
-                      Propriedade: {mappedProperty.name}
-                    </Typography>
-                  </Alert>
+                  <Paper
+                    elevation={0}
+                    sx={{
+                      p: 3,
+                      mt: 2,
+                      mb: 2,
+                      background: `linear-gradient(135deg, ${alpha('#10b981', 0.1)}, ${alpha('#059669', 0.05)})`,
+                      border: `2px solid ${alpha('#10b981', 0.3)}`,
+                      borderRadius: 2,
+                    }}
+                  >
+                    <Box display="flex" alignItems="center" gap={2} mb={2}>
+                      <Box
+                        sx={{
+                          width: 56,
+                          height: 56,
+                          borderRadius: '12px',
+                          background: 'linear-gradient(135deg, #10b981, #059669)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          boxShadow: `0 4px 16px ${alpha('#10b981', 0.3)}`,
+                        }}
+                      >
+                        <CheckCircle sx={{ fontSize: 32, color: 'white' }} />
+                      </Box>
+                      <Box>
+                        <Typography variant="subtitle1" color="success.main" fontWeight={700}>
+                          ✓ Dados Importados com Sucesso!
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary">
+                          {mappedProperty.title || mappedProperty.name}
+                        </Typography>
+                      </Box>
+                    </Box>
+
+                    <Box display="flex" gap={2} flexWrap="wrap">
+                      <Chip
+                        icon={<Home />}
+                        label={`${mappedProperty.bedrooms || 0} quartos`}
+                        size="small"
+                        sx={{
+                          backgroundColor: alpha('#10b981', 0.1),
+                          border: `1px solid ${alpha('#10b981', 0.3)}`,
+                        }}
+                      />
+                      <Chip
+                        icon={<CheckCircle />}
+                        label={`${mappedProperty.photos?.length || 0} fotos`}
+                        size="small"
+                        sx={{
+                          backgroundColor: alpha('#10b981', 0.1),
+                          border: `1px solid ${alpha('#10b981', 0.3)}`,
+                        }}
+                      />
+                      <Chip
+                        icon={<CheckCircle />}
+                        label={`${mappedProperty.amenities?.length || 0} comodidades`}
+                        size="small"
+                        sx={{
+                          backgroundColor: alpha('#10b981', 0.1),
+                          border: `1px solid ${alpha('#10b981', 0.3)}`,
+                        }}
+                      />
+                    </Box>
+                  </Paper>
                 )}
 
                 {importError && (
@@ -529,8 +859,26 @@ export default function PropertyImportWizard({
                   </Alert>
                 )}
 
-                <Box display="flex" gap={1}>
-                  <Button onClick={() => setActiveStep(0)} disabled={loading}>
+                <Box display="flex" gap={2}>
+                  <Button
+                    onClick={() => setActiveStep(0)}
+                    disabled={loading}
+                    size="large"
+                    sx={{
+                      borderColor: alpha('#ffffff', 0.2),
+                      color: alpha('#ffffff', 0.7),
+                      fontWeight: 600,
+                      py: 1.5,
+                      px: 3,
+                      borderRadius: 2,
+                      textTransform: 'none',
+                      fontSize: '1rem',
+                      '&:hover': {
+                        borderColor: alpha('#ffffff', 0.3),
+                        backgroundColor: alpha('#ffffff', 0.05),
+                      },
+                    }}
+                  >
                     Voltar
                   </Button>
                   {!mappedProperty && (
@@ -539,6 +887,26 @@ export default function PropertyImportWizard({
                       onClick={handleImportData}
                       disabled={loading}
                       startIcon={loading ? <CircularProgress size={20} /> : <CloudSync />}
+                      size="large"
+                      sx={{
+                        background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
+                        boxShadow: `0 4px 16px ${alpha('#6366f1', 0.3)}`,
+                        fontWeight: 600,
+                        py: 1.5,
+                        px: 3,
+                        borderRadius: 2,
+                        textTransform: 'none',
+                        fontSize: '1rem',
+                        '&:hover': {
+                          transform: 'translateY(-2px)',
+                          boxShadow: `0 6px 20px ${alpha('#6366f1', 0.4)}`,
+                        },
+                        '&:disabled': {
+                          background: alpha('#6366f1', 0.2),
+                          color: alpha('#ffffff', 0.4),
+                        },
+                        transition: 'all 0.2s ease',
+                      }}
                     >
                       {loading ? 'Importando...' : 'Importar Dados'}
                     </Button>
@@ -548,6 +916,22 @@ export default function PropertyImportWizard({
                       variant="contained"
                       onClick={() => setActiveStep(2)}
                       endIcon={<NavigateNext />}
+                      size="large"
+                      sx={{
+                        background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
+                        boxShadow: `0 4px 16px ${alpha('#6366f1', 0.3)}`,
+                        fontWeight: 600,
+                        py: 1.5,
+                        px: 3,
+                        borderRadius: 2,
+                        textTransform: 'none',
+                        fontSize: '1rem',
+                        '&:hover': {
+                          transform: 'translateY(-2px)',
+                          boxShadow: `0 6px 20px ${alpha('#6366f1', 0.4)}`,
+                        },
+                        transition: 'all 0.2s ease',
+                      }}
                     >
                       Continuar
                     </Button>
@@ -655,47 +1039,165 @@ export default function PropertyImportWizard({
               <StepLabel>Concluído!</StepLabel>
               <StepContent>
                 {result?.success ? (
-                  <Paper
-                    sx={{
-                      p: 3,
-                      bgcolor: alpha(theme.palette.success.main, 0.05),
-                      border: `1px solid ${alpha(theme.palette.success.main, 0.2)}`,
-                      borderRadius: 2,
-                    }}
-                  >
-                    <Box display="flex" alignItems="center" gap={2} mb={2}>
-                      <CheckCircle color="success" sx={{ fontSize: 48 }} />
-                      <Box>
-                        <Typography variant="h6" color="success.main" gutterBottom>
-                          Propriedade importada com sucesso!
-                        </Typography>
-                        <Typography variant="body2" color="text.secondary">
-                          {result.propertyName}
-                        </Typography>
-                      </Box>
-                    </Box>
-
-                    {result.iCalConfigured && (
-                      <Alert severity="success" icon={<CalendarMonth />} sx={{ mb: 2 }}>
-                        <Typography variant="body2">
-                          ✓ Sincronização de calendário configurada!<br />
-                          {result.eventsImported > 0 && `${result.eventsImported} reserva(s) importada(s).`}
-                        </Typography>
-                      </Alert>
-                    )}
-
-                    <Button
-                      variant="contained"
-                      onClick={handleClose}
-                      startIcon={<Done />}
-                      fullWidth
+                  <Box>
+                    {/* Success Card - Inspired by RevolutionaryOnboarding */}
+                    <Paper
+                      elevation={0}
+                      sx={{
+                        p: 4,
+                        background: `linear-gradient(135deg, ${alpha('#10b981', 0.15)}, ${alpha('#059669', 0.1)})`,
+                        border: `2px solid ${alpha('#10b981', 0.3)}`,
+                        borderRadius: 3,
+                        textAlign: 'center',
+                        mb: 3,
+                      }}
                     >
-                      Concluir
-                    </Button>
-                  </Paper>
+                      {/* Success Icon with Animation */}
+                      <Box
+                        sx={{
+                          width: 80,
+                          height: 80,
+                          borderRadius: '50%',
+                          background: 'linear-gradient(135deg, #10b981, #059669)',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          margin: '0 auto 16px',
+                          boxShadow: `0 8px 24px ${alpha('#10b981', 0.4)}`,
+                        }}
+                      >
+                        <CheckCircle sx={{ fontSize: 48, color: 'white' }} />
+                      </Box>
+
+                      {/* Success Title */}
+                      <Typography
+                        variant="h5"
+                        sx={{
+                          color: '#10b981',
+                          fontWeight: 700,
+                          mb: 1,
+                        }}
+                      >
+                        🎉 Propriedade Importada!
+                      </Typography>
+
+                      {/* Property Name */}
+                      <Typography
+                        variant="h6"
+                        sx={{
+                          color: 'text.primary',
+                          fontWeight: 500,
+                          mb: 3,
+                        }}
+                      >
+                        {result.propertyName}
+                      </Typography>
+
+                      {/* Success Stats */}
+                      <Box
+                        sx={{
+                          display: 'flex',
+                          justifyContent: 'center',
+                          gap: 3,
+                          flexWrap: 'wrap',
+                          mb: 3,
+                        }}
+                      >
+                        <Box>
+                          <Typography variant="h4" color="success.main" fontWeight={700}>
+                            ✓
+                          </Typography>
+                          <Typography variant="caption" color="text.secondary">
+                            Dados Importados
+                          </Typography>
+                        </Box>
+
+                        {result.iCalConfigured && (
+                          <Box>
+                            <Typography variant="h4" color="success.main" fontWeight={700}>
+                              {result.eventsImported || 0}
+                            </Typography>
+                            <Typography variant="caption" color="text.secondary">
+                              Reservas Sincronizadas
+                            </Typography>
+                          </Box>
+                        )}
+                      </Box>
+
+                      {/* iCal Success Message */}
+                      {result.iCalConfigured && (
+                        <Alert
+                          severity="success"
+                          icon={<CalendarMonth />}
+                          sx={{
+                            mb: 2,
+                            backgroundColor: alpha('#10b981', 0.1),
+                            border: `1px solid ${alpha('#10b981', 0.3)}`,
+                          }}
+                        >
+                          <Typography variant="body2" fontWeight={600}>
+                            📅 Sincronização Automática Configurada
+                          </Typography>
+                          <Typography variant="caption" display="block">
+                            Suas reservas do Airbnb serão sincronizadas automaticamente
+                            {result.eventsImported > 0 && ` • ${result.eventsImported} reserva(s) já importada(s)`}
+                          </Typography>
+                        </Alert>
+                      )}
+                    </Paper>
+
+                    {/* Action Buttons */}
+                    <Box display="flex" gap={2} flexDirection={{ xs: 'column', sm: 'row' }}>
+                      <Button
+                        variant="contained"
+                        size="large"
+                        onClick={handleClose}
+                        startIcon={<Done />}
+                        fullWidth
+                        sx={{
+                          background: 'linear-gradient(135deg, #10b981, #059669)',
+                          boxShadow: `0 4px 16px ${alpha('#10b981', 0.3)}`,
+                          fontWeight: 600,
+                          py: 1.5,
+                          '&:hover': {
+                            transform: 'translateY(-2px)',
+                            boxShadow: `0 6px 20px ${alpha('#10b981', 0.4)}`,
+                          },
+                          transition: 'all 0.2s ease',
+                        }}
+                      >
+                        Concluir e Voltar
+                      </Button>
+
+                      <Button
+                        variant="outlined"
+                        size="large"
+                        onClick={() => router.push(`/dashboard/properties/${result.propertyId}`)}
+                        startIcon={<Visibility />}
+                        fullWidth
+                        sx={{
+                          borderColor: alpha('#10b981', 0.3),
+                          color: '#10b981',
+                          fontWeight: 600,
+                          py: 1.5,
+                          '&:hover': {
+                            borderColor: alpha('#10b981', 0.5),
+                            backgroundColor: alpha('#10b981', 0.1),
+                          },
+                        }}
+                      >
+                        Ver Propriedade
+                      </Button>
+                    </Box>
+                  </Box>
                 ) : result?.error ? (
-                  <Alert severity="error" icon={<ErrorIcon />}>
-                    <Typography variant="body2">{result.error}</Typography>
+                  <Alert severity="error" icon={<ErrorIcon />} sx={{ mb: 2 }}>
+                    <Typography variant="body2" fontWeight={600}>
+                      Erro ao importar propriedade
+                    </Typography>
+                    <Typography variant="caption" display="block">
+                      {result.error}
+                    </Typography>
                   </Alert>
                 ) : null}
               </StepContent>
