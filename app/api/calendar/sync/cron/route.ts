@@ -16,19 +16,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { logger } from '@/lib/utils/logger';
 import { calendarSyncService } from '@/lib/services/calendar-sync-service';
-import { TenantServiceFactory } from '@/lib/services/tenant-service-factory';
-import admin from 'firebase-admin';
-
-// Initialize Firebase Admin if not already initialized
-if (!admin.apps.length) {
-  try {
-    admin.initializeApp({
-      credential: admin.credential.applicationDefault(),
-    });
-  } catch (error) {
-    logger.error('Firebase Admin initialization failed', { error });
-  }
-}
+import { TenantServiceFactory } from '@/lib/firebase/firestore-v2';
+import admin from '@/lib/firebase/admin';
 
 export async function POST(request: NextRequest) {
   const startTime = Date.now();
@@ -48,7 +37,8 @@ export async function POST(request: NextRequest) {
     logger.info('Calendar sync cron job started');
 
     // Get all tenants
-    const db = admin.firestore();
+    const { getFirestore } = await import('firebase-admin/firestore');
+    const db = getFirestore(admin);
     const tenantsSnapshot = await db.collection('tenants').get();
 
     let totalProcessed = 0;

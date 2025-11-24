@@ -11,6 +11,8 @@
  * Environment Variables Required:
  *   - NEXT_PUBLIC_APP_URL: Base URL of the Next.js app (e.g., https://www.alugazap.com)
  *   - CRON_SECRET: Secret token for authentication
+ *   NEXT_PUBLIC_APP_URL=https://www.alugazap.com
+ *   CRON_SECRET=k8d9fj3k2lsdfj9324jklsdfj923jlksdf93_A4B7C2
  *
  * Setup on DigitalOcean:
  *   1. Copy this script to your server
