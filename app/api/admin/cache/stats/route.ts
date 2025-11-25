@@ -3,14 +3,14 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { propertyCache } from '@/lib/cache/property-cache-manager';
-import { validateAdminAuth } from '@/lib/middleware/admin-auth';
+import { verifyAdminAccess } from '@/lib/middleware/admin-auth';
 
 // GET /api/admin/cache/stats - Obter estatísticas do cache
 export async function GET(request: NextRequest) {
   try {
     // Validar autenticação de admin
-    const authResult = await validateAdminAuth(request);
-    if (!authResult.authenticated) {
+    const authResult = await verifyAdminAccess(request);
+    if (!authResult.isAdmin) {
       return NextResponse.json(
         { error: 'Admin authentication required' },
         { status: 401 }
@@ -46,8 +46,8 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     // Validar autenticação de admin
-    const authResult = await validateAdminAuth(request);
-    if (!authResult.authenticated) {
+    const authResult = await verifyAdminAccess(request);
+    if (!authResult.isAdmin) {
       return NextResponse.json(
         { error: 'Admin authentication required' },
         { status: 401 }
@@ -61,7 +61,7 @@ export async function POST(request: NextRequest) {
 
     switch (action) {
       case 'clear_all':
-        propertyCache.clearAll();
+        propertyCache.clear();
         result = 'All cache cleared successfully';
         break;
 
