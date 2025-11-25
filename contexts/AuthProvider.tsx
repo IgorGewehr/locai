@@ -178,16 +178,16 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       }
       
       // 🛡️ CRIAR NOVO USUÁRIO COM VALIDAÇÃO ROBUSTA
-      // Fallback chain: displayName -> email prefix -> 'User'
+      // Fallback chain: displayName -> email prefix -> 'Usuário'
       const displayName = authUser.displayName ||
                          authUser.email?.split('@')[0] ||
-                         'User';
+                         'Usuário';
 
       // Garantir que split sempre retorna array válido
       const nameParts = displayName.split(' ').filter((part: string) => part.trim().length > 0);
-      const firstName = nameParts[0] || 'User';
+      const firstName = nameParts[0] || 'Usuário';
       const lastName = nameParts.slice(1).join(' ') || '';
-      const fullName = nameParts.join(' ') || 'User';
+      const fullName = nameParts.join(' ') || 'Usuário';
 
       // Validar email (campo crítico)
       if (!authUser.email || typeof authUser.email !== 'string' || !authUser.email.includes('@')) {
@@ -667,27 +667,33 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const signUp = useCallback(async (email: string, password: string, name: string, extraData?: { free?: number; businessName?: string; propertiesCount?: number }): Promise<void> => {
     try {
       logger.info('👤 [Auth] Iniciando registro', { email, name });
-      
+
       // Criar usuário no Firebase Auth
       const result = await createUserWithEmailAndPassword(auth, email, password);
-      
+
+      // 🔧 VALIDAÇÃO: Verificar se 'name' é um telefone normalizado
+      // Telefones normalizados começam com código do país (55) e têm 12-13 dígitos
+      const isPhoneNumber = /^\+?55\d{10,11}$/.test(name.replace(/\D/g, ''));
+      const displayName = isPhoneNumber ? 'Usuário' : name; // Se for telefone, usar fallback
+
       // Atualizar perfil do usuário
       await updateProfile(result.user, {
-        displayName: name
+        displayName: displayName
       });
-      
+
       // Criar documento do usuário no Firestore
       const userData: any = {
         email,
-        name,
-        fullName: name,
+        name: displayName,
+        fullName: displayName,
+        phone: isPhoneNumber ? name : undefined, // Armazenar telefone se fornecido
         role: 'user',
         isActive: true,
         emailVerified: result.user.emailVerified,
         plan: 'free',
         createdAt: new Date(),
         lastLogin: new Date(),
-        whatsappNumbers: [],
+        whatsappNumbers: isPhoneNumber ? [name] : [], // Adicionar telefone ao array se fornecido
         authProvider: 'email',
         authProviders: ['password'], // Track multiple providers
         firstAccess: true // Novo usuário sempre tem firstAccess = true
@@ -716,19 +722,20 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         email: result.user.email,
         name: userData.name,
         fullName: userData.fullName,
+        phone: userData.phone,
         displayNameInAuth: result.user.displayName,
         free: userData.free
       });
-      
+
       // Forçar invalidação do cache para garantir que os dados sejam recarregados
       invalidateUserCache(result.user.uid);
-      
+
       // Forçar uma atualização imediata do estado do usuário
       const newUser: User = {
         uid: result.user.uid,
         email: result.user.email!,
-        name,
-        fullName: name,
+        name: displayName,
+        fullName: displayName,
         role: 'user',
         isAdmin: false,
         tenantId: result.user.uid,
@@ -737,7 +744,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
         createdAt: new Date(),
         lastLogin: new Date(),
         companyName: '',
-        whatsappNumbers: [],
+        whatsappNumbers: isPhoneNumber ? [name] : [],
         plan: 'free',
         firstAccess: true, // Garantir que firstAccess seja true
         // Novos campos para usuários criados via webhook
@@ -796,7 +803,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
       if (!userSnap.exists()) {
         // Novo usuário - criar com 7 dias grátis
-        const displayName = result.user.displayName || result.user.email?.split('@')[0] || 'User';
+        const displayName = result.user.displayName || result.user.email?.split('@')[0] || 'Usuário';
 
         const userData: any = {
           email: result.user.email,

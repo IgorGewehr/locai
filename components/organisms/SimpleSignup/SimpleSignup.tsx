@@ -25,7 +25,7 @@ import {
 import {
   Visibility,
   VisibilityOff,
-  Person,
+  Phone as PhoneIcon,
   Email as EmailIcon,
   Lock,
   CheckCircle,
@@ -38,10 +38,18 @@ import * as yup from 'yup';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthProvider';
+import { formatBrazilianPhone, normalizePhoneNumber, applyPhoneMask } from '@/lib/utils/phone-formatter';
 
 // Validation schema
 const signupSchema = yup.object().shape({
-  name: yup.string().required('Nome é obrigatório').min(2, 'Nome muito curto'),
+  phone: yup
+    .string()
+    .required('Celular é obrigatório')
+    .test('is-valid-phone', 'Celular inválido', (value) => {
+      if (!value) return false;
+      const cleaned = value.replace(/\D/g, '');
+      return cleaned.length >= 10 && cleaned.length <= 13;
+    }),
   email: yup.string().email('Email inválido').required('Email é obrigatório'),
   password: yup
     .string()
@@ -54,7 +62,7 @@ const signupSchema = yup.object().shape({
 });
 
 interface SignupFormData {
-  name: string;
+  phone: string;
   email: string;
   password: string;
   confirmPassword: string;
@@ -99,7 +107,7 @@ export default function SimpleSignup() {
   const form = useForm<SignupFormData>({
     resolver: yupResolver(signupSchema),
     defaultValues: {
-      name: '',
+      phone: '',
       email: '',
       password: '',
       confirmPassword: '',
@@ -111,8 +119,12 @@ export default function SimpleSignup() {
       setIsLoading(true);
       setError(null);
 
+      // Normalizar número de telefone antes de enviar
+      const normalizedPhone = normalizePhoneNumber(data.phone, true); // Incluir código do país
+
       // 🎁 Criar conta com 7 dias grátis garantidos
-      await signUp(data.email, data.password, data.name, { free: 7 });
+      // Usar telefone normalizado como nome inicial (será atualizado no perfil)
+      await signUp(data.email, data.password, normalizedPhone, { free: 7 });
 
       // Mostrar feedback de sucesso
       setSuccess(true);
@@ -341,24 +353,37 @@ export default function SimpleSignup() {
               <form onSubmit={form.handleSubmit(handleSubmit)}>
                 <Stack spacing={3}>
                   <Controller
-                    name="name"
+                    name="phone"
                     control={form.control}
-                    render={({ field }) => (
+                    render={({ field: { onChange, onBlur, value, ref } }) => (
                       <TextField
-                        {...field}
                         fullWidth
-                        label="Nome completo"
+                        label="Celular"
                         variant="outlined"
-                        error={!!form.formState.errors.name}
-                        helperText={form.formState.errors.name?.message}
-                        sx={darkFieldStyles}
+                        value={value}
+                        onChange={(e) => {
+                          // Aplicar máscara enquanto digita
+                          const masked = applyPhoneMask(e.target.value);
+                          onChange(masked);
+                        }}
+                        onBlur={(e) => {
+                          // Formatar ao sair do campo
+                          const formatted = formatBrazilianPhone(e.target.value);
+                          onChange(formatted);
+                          onBlur();
+                        }}
+                        inputRef={ref}
+                        error={!!form.formState.errors.phone}
+                        helperText={form.formState.errors.phone?.message}
+                        placeholder="(47) 9 9785-6405"
                         InputProps={{
                           startAdornment: (
                             <InputAdornment position="start">
-                              <Person sx={{ color: '#a1a1a1', fontSize: 20 }} />
+                              <PhoneIcon sx={{ color: '#a1a1a1', fontSize: 20 }} />
                             </InputAdornment>
                           ),
                         }}
+                        sx={darkFieldStyles}
                       />
                     )}
                   />
