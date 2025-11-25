@@ -1,10 +1,10 @@
 import { useState, useCallback, useEffect } from 'react';
 import { Property } from '@/lib/types/property';
-import { 
-  PropertyValidatorV2, 
-  PropertyValidationResult, 
-  ValidationConfig 
-} from '@/lib/validation/property-validation-v2';
+import {
+  PropertyValidatorV2,
+  PropertyValidationResult,
+  ValidationConfig
+} from '@/lib/validation/property-validation';
 import { logger } from '@/lib/utils/logger';
 
 interface UsePropertyValidationOptions extends Partial<ValidationConfig> {

@@ -5,7 +5,7 @@
 import { 
   EnhancedConversationContext,
   extractCriticalData 
-} from '@/lib/types/context-types-enhanced';
+} from '@/lib/types/context-types';
 import { logger } from '@/lib/utils/logger';
 
 // ===== INTERFACES =====

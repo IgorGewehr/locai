@@ -10,7 +10,7 @@
  */
 
 import { TenantServiceFactory } from '@/lib/firebase/firestore-v2';
-import { TransactionServiceV2, AutoBillingConfig } from '@/lib/services/transaction-service-v2';
+import { TransactionServiceV2, AutoBillingConfig } from '@/lib/services/transaction-service';
 import { logger } from '@/lib/utils/logger';
 import { db } from '@/lib/firebase/config';
 import { collection, getDocs } from 'firebase/firestore';

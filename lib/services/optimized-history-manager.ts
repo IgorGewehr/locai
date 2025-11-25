@@ -16,7 +16,7 @@ import {
   EnhancedMessageHistoryItem,
   MessageHistoryCompression,
   CONTEXT_CONSTANTS
-} from '@/lib/types/context-types-enhanced';
+} from '@/lib/types/context-types';
 import { logger } from '@/lib/utils/logger';
 
 // ===== INTERFACES ESPECÍFICAS DO HISTORY MANAGER =====
