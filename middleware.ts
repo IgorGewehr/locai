@@ -13,7 +13,7 @@ export async function middleware(request: NextRequest) {
     addSecurityHeaders(response, pathname);
     return response;
   }
-  
+
   // API Admin routes - deixar passar, auth será feita dentro da própria API
   if (pathname.startsWith('/api/admin/')) {
     // Let admin APIs handle their own auth to avoid Edge Runtime issues
@@ -61,7 +61,8 @@ export async function middleware(request: NextRequest) {
     '/api/public/',
     '/api/auth-test',
     '/api/diagnostic/',
-    '/api/test-whatsapp-noauth'
+    '/api/test-whatsapp-noauth',
+    '/privacy'
   ]
 
   // Special handling for WhatsApp and other auth-protected API routes
@@ -73,26 +74,26 @@ export async function middleware(request: NextRequest) {
   // Check if this is a public route
   if (publicRoutes.some(route => pathname === route || pathname.startsWith(route))) {
     const response = NextResponse.next();
-    
+
     // Add CORS headers for public API routes
     if (pathname.startsWith('/api/')) {
       const isProduction = process.env.NODE_ENV === 'production';
       const allowedOrigin = isProduction ? 'https://www.alugazap.com' : '*';
-      
+
       response.headers.set('Access-Control-Allow-Origin', allowedOrigin);
       response.headers.set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
       response.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, X-Tenant-Id, Origin, Accept');
       response.headers.set('Access-Control-Allow-Credentials', 'true');
       response.headers.set('X-Public-Route', 'true');
     }
-    
+
     return response;
   }
 
   // For auth-protected API routes, let them handle their own authentication
   if (authProtectedApiRoutes.some(route => pathname.startsWith(route))) {
     const response = NextResponse.next();
-    
+
     // Add production headers for debugging
     const isProduction = process.env.NODE_ENV === 'production';
     if (isProduction) {
@@ -101,14 +102,14 @@ export async function middleware(request: NextRequest) {
       response.headers.set('Access-Control-Allow-Credentials', 'true');
       response.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization, X-Requested-With, X-Tenant-Id, Origin, Accept');
     }
-    
+
     return response;
   }
 
   // For protected routes, just pass through
   // Authentication will be handled by AuthProvider on the client side
   const response = NextResponse.next()
-  
+
   // Add security headers
   addSecurityHeaders(response, pathname);
   return response
@@ -123,7 +124,7 @@ function addSecurityHeaders(response: NextResponse, pathname: string): void {
   response.headers.set('X-Content-Type-Options', 'nosniff');
   response.headers.set('X-XSS-Protection', '1; mode=block');
   response.headers.set('Referrer-Policy', 'strict-origin-when-cross-origin');
-  
+
   // Content Security Policy for mini-site routes
   if (pathname.startsWith('/site/') || pathname.startsWith('/mini-site/')) {
     response.headers.set(

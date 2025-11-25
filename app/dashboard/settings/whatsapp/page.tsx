@@ -25,6 +25,12 @@ import {
   InputLabel,
   Select,
   MenuItem,
+  Tabs,
+  Tab,
+  List,
+  ListItem,
+  ListItemText,
+  ListItemIcon,
 } from '@mui/material';
 import {
   QrCode2,
@@ -35,6 +41,9 @@ import {
   PowerSettingsNew,
   CameraAlt,
   PhonelinkRing,
+  Business,
+  Facebook,
+  WhatsApp,
 } from '@mui/icons-material';
 import { useTenant } from '@/contexts/TenantContext';
 import { useAuth } from '@/lib/hooks/useAuth';
@@ -47,12 +56,24 @@ interface WhatsAppStatus {
   phoneNumber?: string | null;
   businessName?: string | null;
   qrCode?: string | null;
+  mode?: 'business_api' | 'web';
 }
 
 interface FacebookStatus {
   connected: boolean;
   pageName?: string;
   pageId?: string;
+}
+
+interface WABA {
+  id: string;
+  name: string;
+  phone_numbers: {
+    id: string;
+    display_phone_number: string;
+    verified_name: string;
+    quality_rating: string;
+  }[];
 }
 
 export default function WhatsAppPage() {
@@ -66,7 +87,17 @@ export default function WhatsAppPage() {
   const [facebookStatus, setFacebookStatus] = useState<FacebookStatus>({ connected: false });
   const [error, setError] = useState<string | null>(null);
 
-  // Page Selection State
+  // Connection Mode State
+  const [connectionMode, setConnectionMode] = useState<'web' | 'business_api'>('web');
+
+  // Official API Selection State
+  const [showWabaSelection, setShowWabaSelection] = useState(false);
+  const [availableWabas, setAvailableWabas] = useState<WABA[]>([]);
+  const [selectedWabaId, setSelectedWabaId] = useState<string>('');
+  const [selectedPhoneNumberId, setSelectedPhoneNumberId] = useState<string>('');
+  const [userToken, setUserToken] = useState<string>('');
+
+  // Page Selection State (Facebook/Instagram)
   const [showPageSelection, setShowPageSelection] = useState(false);
   const [availablePages, setAvailablePages] = useState<any[]>([]);
   const [selectedPage, setSelectedPage] = useState<string>('');
@@ -90,9 +121,21 @@ export default function WhatsAppPage() {
     };
   }, [tenantId, status.status]);
 
+  // Update connection mode based on status
+  useEffect(() => {
+    if (status.mode) {
+      setConnectionMode(status.mode);
+    }
+  }, [status.mode]);
+
   const startPolling = () => {
     // Clear existing interval
     stopPolling();
+
+    // Only poll if in web mode or disconnected
+    if (status.mode === 'business_api' && status.connected) {
+      return;
+    }
 
     // Determine polling interval based on status
     const getPollingInterval = () => {
@@ -138,12 +181,13 @@ export default function WhatsAppPage() {
             phoneNumber: result.data.phoneNumber,
             businessName: result.data.businessName,
             qrCode: result.data.qrCode,
+            mode: result.data.mode || 'web',
           };
 
           setStatus(newStatus);
 
           // Log QR code status
-          if (newStatus.qrCode) {
+          if (newStatus.qrCode && newStatus.mode === 'web') {
             // Auto-scroll to QR code when it appears
             setTimeout(() => {
               qrCodeRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -193,6 +237,100 @@ export default function WhatsAppPage() {
     }
   };
 
+  // --- Official API Handlers ---
+
+  const handleOfficialConnect = async () => {
+    if (!isSdkLoaded) {
+      alert('Facebook SDK not loaded yet. Please try again in a moment.');
+      return;
+    }
+
+    try {
+      // Request permissions for WhatsApp Business Management
+      const authResponse = await login('whatsapp_business_management,whatsapp_business_messaging');
+
+      if (authResponse && authResponse.accessToken) {
+        setConnecting(true);
+        const firebaseToken = await getFirebaseToken();
+
+        // Exchange token and fetch WABAs
+        const response = await fetch('/api/whatsapp/official/auth', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${firebaseToken}`,
+          },
+          body: JSON.stringify({
+            tenantId,
+            userAccessToken: authResponse.accessToken,
+          }),
+        });
+
+        const result = await response.json();
+
+        if (response.ok && result.success) {
+          if (result.wabas && result.wabas.length > 0) {
+            setAvailableWabas(result.wabas);
+            setUserToken(result.userToken); // Store long-lived token temporarily
+            setShowWabaSelection(true);
+          } else {
+            alert('Nenhuma conta do WhatsApp Business encontrada. Certifique-se de ter criado uma conta no Gerenciador de Negócios do Facebook.');
+          }
+        } else {
+          alert('Falha ao conectar com Facebook: ' + (result.error || 'Erro desconhecido'));
+        }
+      }
+    } catch (err) {
+      console.error('Error connecting Official WhatsApp:', err);
+      alert('Erro ao conectar: ' + (err instanceof Error ? err.message : String(err)));
+    } finally {
+      setConnecting(false);
+    }
+  };
+
+  const confirmWabaSelection = async () => {
+    if (!selectedWabaId || !selectedPhoneNumberId) return;
+
+    const waba = availableWabas.find(w => w.id === selectedWabaId);
+    const phone = waba?.phone_numbers.find(p => p.id === selectedPhoneNumberId);
+
+    if (!waba || !phone) return;
+
+    setConnecting(true);
+    try {
+      const firebaseToken = await getFirebaseToken();
+      const response = await fetch('/api/whatsapp/official/auth', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${firebaseToken}`,
+        },
+        body: JSON.stringify({
+          tenantId,
+          wabaId: selectedWabaId,
+          phoneNumberId: selectedPhoneNumberId,
+          accessToken: userToken, // Use the long-lived token we got earlier
+          businessName: phone.verified_name || waba.name,
+        }),
+      });
+
+      if (response.ok) {
+        await loadStatus();
+        setShowWabaSelection(false);
+        alert('WhatsApp Oficial conectado com sucesso!');
+      } else {
+        alert('Falha ao salvar configurações do WhatsApp');
+      }
+    } catch (err) {
+      console.error('Error saving WhatsApp settings:', err);
+      alert('Erro ao salvar configurações');
+    } finally {
+      setConnecting(false);
+    }
+  };
+
+  // --- Facebook Page Handlers ---
+
   const handleFacebookConnect = async () => {
     if (!isSdkLoaded) {
       alert('Facebook SDK not loaded yet. Please try again in a moment.');
@@ -200,7 +338,7 @@ export default function WhatsAppPage() {
     }
 
     try {
-      const authResponse = await login('whatsapp_business_management,pages_messaging,instagram_manage_messages,pages_show_list,pages_read_engagement');
+      const authResponse = await login('pages_messaging,instagram_manage_messages,pages_show_list,pages_read_engagement');
 
       if (authResponse && authResponse.accessToken) {
         // Exchange token and fetch pages
@@ -293,6 +431,8 @@ export default function WhatsAppPage() {
     }
   };
 
+  // --- WhatsApp Web (Baileys) Handlers ---
+
   const checkExistingSession = async () => {
     try {
       const token = await getFirebaseToken();
@@ -337,6 +477,7 @@ export default function WhatsAppPage() {
             phoneNumber: existingSession.phoneNumber,
             businessName: existingSession.businessName,
             qrCode: null,
+            mode: existingSession.mode || 'web',
           });
           setConnecting(false);
           isConnectingRef.current = false;
@@ -353,6 +494,7 @@ export default function WhatsAppPage() {
             phoneNumber: null,
             businessName: null,
             qrCode: existingSession.qrCode,
+            mode: 'web',
           });
           setConnecting(false);
           isConnectingRef.current = false;
@@ -370,6 +512,7 @@ export default function WhatsAppPage() {
             phoneNumber: null,
             businessName: null,
             qrCode: null,
+            mode: 'web',
           });
           setConnecting(false);
           isConnectingRef.current = false;
@@ -401,6 +544,7 @@ export default function WhatsAppPage() {
           phoneNumber: null,
           businessName: null,
           qrCode: null,
+          mode: 'web',
         });
         setConnecting(false);
         isConnectingRef.current = false;
@@ -418,6 +562,7 @@ export default function WhatsAppPage() {
           phoneNumber: null,
           businessName: null,
           qrCode: result.data?.qrCode || null,
+          mode: 'web',
         });
 
         // Force restart polling with aggressive interval
@@ -456,7 +601,8 @@ export default function WhatsAppPage() {
       const result = await response.json();
 
       if (result.success) {
-        setStatus({ connected: false, status: 'disconnected' });
+        setStatus({ connected: false, status: 'disconnected', mode: 'web' });
+        setConnectionMode('web'); // Reset to default
       } else {
         setError('Erro ao desconectar WhatsApp');
       }
@@ -475,7 +621,7 @@ export default function WhatsAppPage() {
   };
 
   const getStatusLabel = () => {
-    if (status.connected) return 'Conectado';
+    if (status.connected) return status.mode === 'business_api' ? 'Conectado (API Oficial)' : 'Conectado (Web)';
     if (status.status === 'initializing') return 'Inicializando...';
     if (status.status === 'qr_ready') return 'Aguardando QR Code';
     return 'Desconectado';
@@ -527,32 +673,66 @@ export default function WhatsAppPage() {
                 Nome: <strong>{status.businessName}</strong>
               </Typography>
             )}
+            <Typography variant="body2" color="text.secondary">
+              Tipo: <strong>{status.mode === 'business_api' ? 'API Oficial (Meta)' : 'WhatsApp Web (QR Code)'}</strong>
+            </Typography>
           </Box>
         )}
 
         <Divider sx={{ my: 2 }} />
 
-        <Box sx={{ display: 'flex', gap: 2 }}>
-          {!status.connected ? (
-            <Button
-              variant="contained"
-              onClick={handleConnect}
-              disabled={connecting || status.status === 'initializing'}
-              startIcon={connecting ? <CircularProgress size={20} /> : <PowerSettingsNew />}
+        {!status.connected ? (
+          <Box>
+            <Tabs
+              value={connectionMode}
+              onChange={(_, val) => setConnectionMode(val)}
+              sx={{ mb: 3 }}
             >
-              {connecting || status.status === 'initializing' ? 'Conectando...' : 'Conectar WhatsApp'}
+              <Tab label="WhatsApp Web (QR Code)" value="web" />
+              <Tab label="API Oficial (Meta)" value="business_api" />
+            </Tabs>
+
+            {connectionMode === 'web' ? (
+              <Box sx={{ display: 'flex', gap: 2 }}>
+                <Button
+                  variant="contained"
+                  onClick={handleConnect}
+                  disabled={connecting || status.status === 'initializing'}
+                  startIcon={connecting ? <CircularProgress size={20} /> : <QrCode2 />}
+                >
+                  {connecting || status.status === 'initializing' ? 'Gerar QR Code' : 'Conectar via QR Code'}
+                </Button>
+              </Box>
+            ) : (
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                <Alert severity="info" sx={{ mb: 2 }}>
+                  A API Oficial oferece maior estabilidade e não requer um celular conectado o tempo todo.
+                  Requer uma conta do Facebook Business.
+                </Alert>
+                <Button
+                  variant="contained"
+                  onClick={handleOfficialConnect}
+                  disabled={connecting}
+                  startIcon={connecting ? <CircularProgress size={20} /> : <Facebook />}
+                  sx={{ bgcolor: '#1877F2', '&:hover': { bgcolor: '#166fe5' }, alignSelf: 'flex-start' }}
+                >
+                  {connecting ? 'Conectando...' : 'Conectar com Facebook'}
+                </Button>
+              </Box>
+            )}
+          </Box>
+        ) : (
+          <Box sx={{ display: 'flex', gap: 2 }}>
+            <Button
+              variant="outlined"
+              onClick={handleDisconnect}
+              disabled={loading}
+              color="error"
+              startIcon={<PowerSettingsNew />}
+            >
+              Desconectar
             </Button>
-          ) : (
-            <>
-              <Button
-                variant="outlined"
-                onClick={handleDisconnect}
-                disabled={loading}
-                color="error"
-                startIcon={<PowerSettingsNew />}
-              >
-                Desconectar
-              </Button>
+            {status.mode === 'web' && (
               <Button
                 variant="outlined"
                 onClick={loadStatus}
@@ -560,14 +740,14 @@ export default function WhatsAppPage() {
               >
                 Atualizar Status
               </Button>
-            </>
-          )}
-        </Box>
+            )}
+          </Box>
+        )}
       </Paper>
 
-      {/* QR Code Section - Optimized UI/UX */}
-      {!status.connected && (
-        <Zoom in timeout={500}>
+      {/* QR Code Section - Only show if mode is web and disconnected */}
+      {!status.connected && connectionMode === 'web' && (
+        <Zoom in={status.status === 'qr' || status.status === 'qr_ready' || connecting} timeout={500}>
           <Box ref={qrCodeRef}>
             {status.qrCode ? (
               <Card
@@ -743,10 +923,12 @@ export default function WhatsAppPage() {
             Sua conta do WhatsApp está conectada e pronta para enviar e receber mensagens automaticamente.
           </Typography>
 
-          <Alert severity="warning" sx={{ mt: 2 }}>
-            <strong>Importante:</strong> Mantenha o WhatsApp Web conectado para que o sistema funcione corretamente.
-            Se você fizer logout ou desconectar este dispositivo pelo celular, será necessário escanear o QR Code novamente.
-          </Alert>
+          {status.mode === 'web' && (
+            <Alert severity="warning" sx={{ mt: 2 }}>
+              <strong>Importante:</strong> Mantenha o WhatsApp Web conectado para que o sistema funcione corretamente.
+              Se você fizer logout ou desconectar este dispositivo pelo celular, será necessário escanear o QR Code novamente.
+            </Alert>
+          )}
         </Paper>
       )}
 
@@ -808,34 +990,91 @@ export default function WhatsAppPage() {
         </Box>
       </Paper>
 
-      {/* Page Selection Dialog */}
-      <Dialog open={showPageSelection} onClose={() => setShowPageSelection(false)}>
-        <DialogTitle>Select Facebook Page</DialogTitle>
+      {/* Dialogs */}
+
+      {/* WABA Selection Dialog */}
+      <Dialog open={showWabaSelection} onClose={() => setShowWabaSelection(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>Selecione a Conta do WhatsApp</DialogTitle>
         <DialogContent>
-          <DialogContentText>
-            Choose the Facebook Page you want to connect to Locai.
+          <DialogContentText sx={{ mb: 3 }}>
+            Escolha a conta empresarial e o número de telefone que deseja conectar.
           </DialogContentText>
-          <Box sx={{ mt: 2 }}>
+
+          <FormControl fullWidth sx={{ mb: 3 }}>
+            <InputLabel>Conta Empresarial (WABA)</InputLabel>
+            <Select
+              value={selectedWabaId}
+              label="Conta Empresarial (WABA)"
+              onChange={(e) => {
+                setSelectedWabaId(e.target.value);
+                setSelectedPhoneNumberId(''); // Reset phone when WABA changes
+              }}
+            >
+              {availableWabas.map((waba) => (
+                <MenuItem key={waba.id} value={waba.id}>
+                  {waba.name} ({waba.id})
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+
+          {selectedWabaId && (
             <FormControl fullWidth>
-              <InputLabel>Facebook Page</InputLabel>
+              <InputLabel>Número de Telefone</InputLabel>
               <Select
-                value={selectedPage}
-                label="Facebook Page"
-                onChange={(e) => setSelectedPage(e.target.value)}
+                value={selectedPhoneNumberId}
+                label="Número de Telefone"
+                onChange={(e) => setSelectedPhoneNumberId(e.target.value)}
               >
-                {availablePages.map((page) => (
-                  <MenuItem key={page.id} value={page.id}>
-                    {page.name}
-                  </MenuItem>
-                ))}
+                {availableWabas
+                  .find(w => w.id === selectedWabaId)
+                  ?.phone_numbers.map((phone) => (
+                    <MenuItem key={phone.id} value={phone.id}>
+                      {phone.display_phone_number} - {phone.verified_name} ({phone.quality_rating})
+                    </MenuItem>
+                  ))}
               </Select>
             </FormControl>
-          </Box>
+          )}
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setShowPageSelection(false)}>Cancel</Button>
+          <Button onClick={() => setShowWabaSelection(false)}>Cancelar</Button>
+          <Button
+            onClick={confirmWabaSelection}
+            variant="contained"
+            disabled={!selectedWabaId || !selectedPhoneNumberId}
+          >
+            Conectar
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Facebook Page Selection Dialog */}
+      <Dialog open={showPageSelection} onClose={() => setShowPageSelection(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>Selecione a Página do Facebook</DialogTitle>
+        <DialogContent>
+          <DialogContentText sx={{ mb: 3 }}>
+            Escolha a página que deseja conectar para receber mensagens do Facebook e Instagram.
+          </DialogContentText>
+          <FormControl fullWidth>
+            <InputLabel>Página do Facebook</InputLabel>
+            <Select
+              value={selectedPage}
+              label="Página do Facebook"
+              onChange={(e) => setSelectedPage(e.target.value)}
+            >
+              {availablePages.map((page) => (
+                <MenuItem key={page.id} value={page.id}>
+                  {page.name}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setShowPageSelection(false)}>Cancelar</Button>
           <Button onClick={confirmPageSelection} variant="contained" disabled={!selectedPage}>
-            Connect
+            Conectar
           </Button>
         </DialogActions>
       </Dialog>
