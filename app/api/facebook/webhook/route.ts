@@ -6,8 +6,9 @@ import { logger } from '@/lib/utils/logger'
 import { collectionGroup, query, where, getDocs, limit } from 'firebase/firestore';
 import { db } from '@/lib/firebase/config';
 
-// Verify Token should be in env
-const VERIFY_TOKEN = process.env.FACEBOOK_VERIFY_TOKEN || 'locai_verify_token'
+// Verify Token - Using N8N_WEBHOOK_SECRET as configured in .env
+// Falls back to FACEBOOK_VERIFY_TOKEN for backward compatibility
+const VERIFY_TOKEN = process.env.N8N_WEBHOOK_SECRET || process.env.FACEBOOK_VERIFY_TOKEN || 'locai_verify_token'
 
 export async function GET(req: NextRequest) {
     const searchParams = req.nextUrl.searchParams
