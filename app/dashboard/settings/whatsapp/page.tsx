@@ -107,7 +107,14 @@ export default function WhatsAppPage() {
   const qrCodeRef = useRef<HTMLDivElement>(null);
   const isConnectingRef = useRef(false); // Prevent multiple POST calls
 
-  const { login, isSdkLoaded } = useFacebookSDK();
+  const { login, isSdkLoaded, error: sdkError } = useFacebookSDK();
+
+  useEffect(() => {
+    if (sdkError) {
+      console.error('[Settings] Facebook SDK Error:', sdkError);
+      setError(sdkError);
+    }
+  }, [sdkError]);
 
   useEffect(() => {
     loadStatus();
@@ -639,11 +646,27 @@ export default function WhatsAppPage() {
         </Typography>
       </Box>
 
-      {error && (
-        <Alert severity="error" sx={{ mb: 3 }} onClose={() => setError(null)}>
-          {error}
-        </Alert>
-      )}
+      {/* Debug Info - Temporary */}
+      <Alert severity="info" sx={{ mb: 3 }}>
+        <Typography variant="subtitle2" fontWeight="bold">Debug Info:</Typography>
+        <Box component="pre" sx={{ mt: 1, p: 1, bgcolor: 'rgba(0,0,0,0.05)', borderRadius: 1, fontSize: '0.75rem', overflow: 'auto' }}>
+          {JSON.stringify({
+            appIdConfigured: !!process.env.NEXT_PUBLIC_FACEBOOK_APP_ID,
+            sdkLoaded: isSdkLoaded,
+            sdkError: sdkError,
+            windowFB: typeof window !== 'undefined' ? !!window.FB : 'N/A',
+            timestamp: new Date().toISOString()
+          }, null, 2)}
+        </Box>
+      </Alert>
+
+      {
+        error && (
+          <Alert severity="error" sx={{ mb: 3 }} onClose={() => setError(null)}>
+            {error}
+          </Alert>
+        )
+      }
 
       {/* Connection Status */}
       <Paper sx={{ p: 3, mb: 3 }}>
@@ -746,191 +769,195 @@ export default function WhatsAppPage() {
       </Paper>
 
       {/* QR Code Section - Only show if mode is web and disconnected */}
-      {!status.connected && connectionMode === 'web' && (
-        <Zoom in={status.status === 'qr' || status.status === 'qr_ready' || connecting} timeout={500}>
-          <Box ref={qrCodeRef}>
-            {status.qrCode ? (
-              <Card
-                sx={{
-                  background: 'linear-gradient(135deg, rgba(37, 211, 102, 0.05), rgba(37, 211, 102, 0.01))',
-                  border: '2px solid',
-                  borderColor: 'success.main',
-                  borderRadius: 3,
-                  overflow: 'hidden',
-                  boxShadow: `0 0 40px ${alpha('#25D366', 0.2)}`,
-                }}
-              >
-                <CardContent sx={{ p: 4 }}>
-                  {/* Header */}
-                  <Box sx={{ textAlign: 'center', mb: 3 }}>
-                    <Zoom in timeout={300}>
-                      <CameraAlt
-                        sx={{
-                          fontSize: 48,
-                          color: 'success.main',
-                          mb: 2,
-                          animation: 'pulse 2s infinite',
-                          '@keyframes pulse': {
-                            '0%, 100%': { opacity: 1, transform: 'scale(1)' },
-                            '50%': { opacity: 0.7, transform: 'scale(1.05)' }
-                          }
-                        }}
-                      />
-                    </Zoom>
-                    <Typography variant="h5" fontWeight={700} gutterBottom>
-                      Escaneie o QR Code
-                    </Typography>
-                    <Typography variant="body2" color="text.secondary">
-                      Use a câmera do seu celular para conectar
-                    </Typography>
-                  </Box>
+      {
+        !status.connected && connectionMode === 'web' && (
+          <Zoom in={status.status === 'qr' || status.status === 'qr_ready' || connecting} timeout={500}>
+            <Box ref={qrCodeRef}>
+              {status.qrCode ? (
+                <Card
+                  sx={{
+                    background: 'linear-gradient(135deg, rgba(37, 211, 102, 0.05), rgba(37, 211, 102, 0.01))',
+                    border: '2px solid',
+                    borderColor: 'success.main',
+                    borderRadius: 3,
+                    overflow: 'hidden',
+                    boxShadow: `0 0 40px ${alpha('#25D366', 0.2)}`,
+                  }}
+                >
+                  <CardContent sx={{ p: 4 }}>
+                    {/* Header */}
+                    <Box sx={{ textAlign: 'center', mb: 3 }}>
+                      <Zoom in timeout={300}>
+                        <CameraAlt
+                          sx={{
+                            fontSize: 48,
+                            color: 'success.main',
+                            mb: 2,
+                            animation: 'pulse 2s infinite',
+                            '@keyframes pulse': {
+                              '0%, 100%': { opacity: 1, transform: 'scale(1)' },
+                              '50%': { opacity: 0.7, transform: 'scale(1.05)' }
+                            }
+                          }}
+                        />
+                      </Zoom>
+                      <Typography variant="h5" fontWeight={700} gutterBottom>
+                        Escaneie o QR Code
+                      </Typography>
+                      <Typography variant="body2" color="text.secondary">
+                        Use a câmera do seu celular para conectar
+                      </Typography>
+                    </Box>
 
-                  {/* QR Code Display - Centered and Prominent */}
-                  <Fade in timeout={800}>
-                    <Box
-                      sx={{
-                        display: 'flex',
-                        justifyContent: 'center',
-                        alignItems: 'center',
-                        my: 4,
-                      }}
-                    >
+                    {/* QR Code Display - Centered and Prominent */}
+                    <Fade in timeout={800}>
                       <Box
                         sx={{
-                          p: 3,
-                          bgcolor: 'white',
-                          borderRadius: 4,
-                          boxShadow: '0 8px 32px rgba(0,0,0,0.12)',
-                          border: '8px solid',
-                          borderColor: alpha('#25D366', 0.2),
-                          transition: 'all 0.3s ease',
-                          '&:hover': {
-                            transform: 'scale(1.02)',
-                            boxShadow: '0 12px 48px rgba(0,0,0,0.16)',
-                          }
+                          display: 'flex',
+                          justifyContent: 'center',
+                          alignItems: 'center',
+                          my: 4,
                         }}
                       >
                         <Box
-                          component="img"
-                          src={status.qrCode}
-                          alt="WhatsApp QR Code"
                           sx={{
-                            width: { xs: 280, sm: 320, md: 360 },
-                            height: { xs: 280, sm: 320, md: 360 },
-                            display: 'block',
+                            p: 3,
+                            bgcolor: 'white',
+                            borderRadius: 4,
+                            boxShadow: '0 8px 32px rgba(0,0,0,0.12)',
+                            border: '8px solid',
+                            borderColor: alpha('#25D366', 0.2),
+                            transition: 'all 0.3s ease',
+                            '&:hover': {
+                              transform: 'scale(1.02)',
+                              boxShadow: '0 12px 48px rgba(0,0,0,0.16)',
+                            }
+                          }}
+                        >
+                          <Box
+                            component="img"
+                            src={status.qrCode}
+                            alt="WhatsApp QR Code"
+                            sx={{
+                              width: { xs: 280, sm: 320, md: 360 },
+                              height: { xs: 280, sm: 320, md: 360 },
+                              display: 'block',
+                            }}
+                          />
+                        </Box>
+                      </Box>
+                    </Fade>
+
+                    {/* Instructions */}
+                    <Box
+                      sx={{
+                        mt: 3,
+                        p: 3,
+                        bgcolor: alpha('#25D366', 0.05),
+                        borderRadius: 2,
+                        border: '1px solid',
+                        borderColor: alpha('#25D366', 0.2),
+                      }}
+                    >
+                      <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+                        <PhonelinkRing sx={{ mr: 1, color: 'success.main' }} />
+                        <Typography variant="subtitle2" fontWeight={600}>
+                          Como conectar:
+                        </Typography>
+                      </Box>
+
+                      <Box component="ol" sx={{ m: 0, pl: 3 }}>
+                        <Typography component="li" variant="body2" sx={{ mb: 1 }}>
+                          Abra o <strong>WhatsApp</strong> no seu celular
+                        </Typography>
+                        <Typography component="li" variant="body2" sx={{ mb: 1 }}>
+                          Toque em <strong>Menu (⋮)</strong> → <strong>Dispositivos conectados</strong>
+                        </Typography>
+                        <Typography component="li" variant="body2" sx={{ mb: 1 }}>
+                          Toque em <strong>Conectar um dispositivo</strong>
+                        </Typography>
+                        <Typography component="li" variant="body2">
+                          Aponte a câmera para este QR Code
+                        </Typography>
+                      </Box>
+                    </Box>
+
+                    {/* Status Badge */}
+                    <Box sx={{ display: 'flex', justifyContent: 'center', mt: 3 }}>
+                      <Chip
+                        icon={<QrCode2 />}
+                        label="Aguardando conexão..."
+                        color="success"
+                        variant="outlined"
+                        sx={{
+                          animation: 'pulse 2s infinite',
+                          borderWidth: 2,
+                        }}
+                      />
+                    </Box>
+                  </CardContent>
+                </Card>
+              ) : (
+                <Paper sx={{ p: 4 }}>
+                  {(connecting || status.status === 'initializing') && (
+                    <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', py: 6 }}>
+                      <Box sx={{ position: 'relative', mb: 3 }}>
+                        <CircularProgress
+                          size={80}
+                          thickness={4}
+                          sx={{
+                            color: 'primary.main',
+                            animation: 'pulse 1.5s ease-in-out infinite',
+                          }}
+                        />
+                        <QrCode2
+                          sx={{
+                            position: 'absolute',
+                            top: '50%',
+                            left: '50%',
+                            transform: 'translate(-50%, -50%)',
+                            fontSize: 40,
+                            color: 'primary.main',
+                            opacity: 0.5,
                           }}
                         />
                       </Box>
-                    </Box>
-                  </Fade>
-
-                  {/* Instructions */}
-                  <Box
-                    sx={{
-                      mt: 3,
-                      p: 3,
-                      bgcolor: alpha('#25D366', 0.05),
-                      borderRadius: 2,
-                      border: '1px solid',
-                      borderColor: alpha('#25D366', 0.2),
-                    }}
-                  >
-                    <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
-                      <PhonelinkRing sx={{ mr: 1, color: 'success.main' }} />
-                      <Typography variant="subtitle2" fontWeight={600}>
-                        Como conectar:
+                      <Typography variant="h6" fontWeight={600} gutterBottom>
+                        Gerando QR Code...
+                      </Typography>
+                      <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', maxWidth: 400 }}>
+                        Estamos preparando sua conexão com o WhatsApp. Isso pode levar alguns segundos.
                       </Typography>
                     </Box>
-
-                    <Box component="ol" sx={{ m: 0, pl: 3 }}>
-                      <Typography component="li" variant="body2" sx={{ mb: 1 }}>
-                        Abra o <strong>WhatsApp</strong> no seu celular
-                      </Typography>
-                      <Typography component="li" variant="body2" sx={{ mb: 1 }}>
-                        Toque em <strong>Menu (⋮)</strong> → <strong>Dispositivos conectados</strong>
-                      </Typography>
-                      <Typography component="li" variant="body2" sx={{ mb: 1 }}>
-                        Toque em <strong>Conectar um dispositivo</strong>
-                      </Typography>
-                      <Typography component="li" variant="body2">
-                        Aponte a câmera para este QR Code
-                      </Typography>
-                    </Box>
-                  </Box>
-
-                  {/* Status Badge */}
-                  <Box sx={{ display: 'flex', justifyContent: 'center', mt: 3 }}>
-                    <Chip
-                      icon={<QrCode2 />}
-                      label="Aguardando conexão..."
-                      color="success"
-                      variant="outlined"
-                      sx={{
-                        animation: 'pulse 2s infinite',
-                        borderWidth: 2,
-                      }}
-                    />
-                  </Box>
-                </CardContent>
-              </Card>
-            ) : (
-              <Paper sx={{ p: 4 }}>
-                {(connecting || status.status === 'initializing') && (
-                  <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', py: 6 }}>
-                    <Box sx={{ position: 'relative', mb: 3 }}>
-                      <CircularProgress
-                        size={80}
-                        thickness={4}
-                        sx={{
-                          color: 'primary.main',
-                          animation: 'pulse 1.5s ease-in-out infinite',
-                        }}
-                      />
-                      <QrCode2
-                        sx={{
-                          position: 'absolute',
-                          top: '50%',
-                          left: '50%',
-                          transform: 'translate(-50%, -50%)',
-                          fontSize: 40,
-                          color: 'primary.main',
-                          opacity: 0.5,
-                        }}
-                      />
-                    </Box>
-                    <Typography variant="h6" fontWeight={600} gutterBottom>
-                      Gerando QR Code...
-                    </Typography>
-                    <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', maxWidth: 400 }}>
-                      Estamos preparando sua conexão com o WhatsApp. Isso pode levar alguns segundos.
-                    </Typography>
-                  </Box>
-                )}
-              </Paper>
-            )}
-          </Box>
-        </Zoom>
-      )}
+                  )}
+                </Paper>
+              )}
+            </Box>
+          </Zoom>
+        )
+      }
 
       {/* Connection Info */}
-      {status.connected && (
-        <Paper sx={{ p: 3 }}>
-          <Typography variant="h6" fontWeight={600} gutterBottom>
-            Sobre a Conexão
-          </Typography>
+      {
+        status.connected && (
+          <Paper sx={{ p: 3 }}>
+            <Typography variant="h6" fontWeight={600} gutterBottom>
+              Sobre a Conexão
+            </Typography>
 
-          <Typography variant="body2" color="text.secondary" paragraph>
-            Sua conta do WhatsApp está conectada e pronta para enviar e receber mensagens automaticamente.
-          </Typography>
+            <Typography variant="body2" color="text.secondary" paragraph>
+              Sua conta do WhatsApp está conectada e pronta para enviar e receber mensagens automaticamente.
+            </Typography>
 
-          {status.mode === 'web' && (
-            <Alert severity="warning" sx={{ mt: 2 }}>
-              <strong>Importante:</strong> Mantenha o WhatsApp Web conectado para que o sistema funcione corretamente.
-              Se você fizer logout ou desconectar este dispositivo pelo celular, será necessário escanear o QR Code novamente.
-            </Alert>
-          )}
-        </Paper>
-      )}
+            {status.mode === 'web' && (
+              <Alert severity="warning" sx={{ mt: 2 }}>
+                <strong>Importante:</strong> Mantenha o WhatsApp Web conectado para que o sistema funcione corretamente.
+                Se você fizer logout ou desconectar este dispositivo pelo celular, será necessário escanear o QR Code novamente.
+              </Alert>
+            )}
+          </Paper>
+        )
+      }
 
       {/* Facebook & Instagram Section */}
       <Box sx={{ mb: 4, mt: 6 }}>
@@ -1078,6 +1105,6 @@ export default function WhatsAppPage() {
           </Button>
         </DialogActions>
       </Dialog>
-    </Box>
+    </Box >
   );
 }
