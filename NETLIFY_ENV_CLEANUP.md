@@ -42,6 +42,7 @@
 
 ### App Config
 - `NEXT_PUBLIC_APP_URL` (https://www.alugazap.com)
+- `NEXT_PUBLIC_BASE_URL` (https://www.alugazap.com) ⚠️ **IMPORTANTE para SEO!**
 - `NEXTAUTH_URL` (https://www.alugazap.com)
 - `MAPS_KEY`
 - `AIRBNB`
@@ -54,7 +55,6 @@
 ## ❌ Variáveis que DEVEM SER REMOVIDAS da Netlify:
 
 ### Desenvolvimento (só para localhost)
-- ❌ `NEXT_PUBLIC_BASE_URL` (http://localhost:3002)
 - ❌ `NEXT_PUBLIC_DEBUG_MODE`
 - ❌ `NODE_ENV` (Netlify já define automaticamente)
 - ❌ `TENANT_ID=default` (não usar em produção!)
@@ -136,6 +136,7 @@ NEXT_PUBLIC_FACEBOOK_APP_ID=851509160734111
 
 # App
 NEXT_PUBLIC_APP_URL=https://www.alugazap.com
+NEXT_PUBLIC_BASE_URL=https://www.alugazap.com
 NEXTAUTH_URL=https://www.alugazap.com
 MAPS_KEY=AIzaSyDGvZ1xLiZApY8JohdiqauTaLC9H0mZL7I
 AIRBNB=500b0470-69cf-4a2f-8112-9647d3147ef6
@@ -144,4 +145,15 @@ AIRBNB=500b0470-69cf-4a2f-8112-9647d3147ef6
 REDIS_URL=redis://default:XIEVr3E6gbjazdEVV64mBucaUlpYCinJ@redis-11838.crce196.sa-east-1-2.ec2.cloud.redislabs.com:11838
 ```
 
-**Total de variáveis necessárias: ~30 (reduzido de ~44)**
+**Total de variáveis necessárias: ~31 (reduzido de ~44)**
+
+---
+
+## ⚠️ IMPORTANTE: Atualizar Valor em Produção
+
+Na Netlify, certifique-se de que `NEXT_PUBLIC_BASE_URL` está configurada como:
+```
+NEXT_PUBLIC_BASE_URL=https://www.alugazap.com
+```
+
+**NÃO use** `http://localhost:3002` em produção! Isso quebra SEO (robots.txt e sitemap.xml).
