@@ -1,11 +1,11 @@
-import { 
-  Conversation, 
-  Message, 
-  ConversationStatus, 
-  ConversationStage, 
+import {
+  Conversation,
+  Message,
+  ConversationStatus,
+  ConversationStage,
   ConversationIntent,
   ConversationPriority,
-  MessageStatus 
+  MessageStatus
 } from '@/lib/types/conversation'
 import { TenantServiceFactory } from '@/lib/firebase/firestore-v2'
 import { Timestamp } from 'firebase/firestore'
@@ -23,7 +23,7 @@ class ConversationService {
       }
 
       const services = this.getTenantService(tenantId)
-      
+
       // Primeiro, tenta encontrar uma conversa ativa
       const activeConversations = await services.conversations.getMany([
         { field: 'whatsappPhone', operator: '==', value: phoneNumber },
@@ -33,12 +33,12 @@ class ConversationService {
       if (activeConversations.length > 0) {
         return activeConversations[0] as Conversation
       }
-      
+
       // Se não encontrar ativa, busca a mais recente para esse número
       const allConversations = await services.conversations.getMany([
         { field: 'whatsappPhone', operator: '==', value: phoneNumber }
       ])
-      
+
       if (allConversations.length > 0) {
         // Ordenar por lastMessageAt e pegar a mais recente
         const sortedConversations = allConversations.sort((a: any, b: any) => {
@@ -46,15 +46,15 @@ class ConversationService {
           const bTime = b.lastMessageAt?.toDate?.() || new Date(b.lastMessageAt || 0)
           return bTime.getTime() - aTime.getTime()
         })
-        
+
         const conversation = sortedConversations[0] as Conversation
-        
+
         // Reativa a conversa mais recente
         await services.conversations.update(conversation.id!, { status: ConversationStatus.ACTIVE })
-        
+
         return { ...conversation, status: ConversationStatus.ACTIVE }
       }
-      
+
       return null
     } catch (error) {
       console.error('Error finding conversation by phone:', error)
@@ -65,7 +65,7 @@ class ConversationService {
   async findActiveByPhone(phoneNumber: string, tenantId: string): Promise<Conversation | null> {
     try {
       const services = this.getTenantService(tenantId)
-      
+
       const conversations = await services.conversations.getMany([
         { field: 'whatsappPhone', operator: '==', value: phoneNumber },
         { field: 'status', operator: '==', value: ConversationStatus.ACTIVE }
@@ -77,25 +77,109 @@ class ConversationService {
     }
   }
 
-  async createNew(phoneNumber: string, clientName?: string, tenantId: string): Promise<Conversation> {
+  async findBySocialId(socialId: string, channel: 'facebook' | 'instagram', tenantId: string): Promise<Conversation | null> {
     try {
+      if (!tenantId) {
+        throw new Error('TenantId is required for conversation lookup')
+      }
+
+      const services = this.getTenantService(tenantId)
+
+      // Try to find active conversation first
+      const activeConversations = await services.conversations.getMany([
+        { field: 'socialId', operator: '==', value: socialId },
+        { field: 'channel', operator: '==', value: channel },
+        { field: 'status', operator: 'in', value: [ConversationStatus.ACTIVE, ConversationStatus.WAITING_CLIENT] }
+      ])
+
+      if (activeConversations.length > 0) {
+        return activeConversations[0] as Conversation
+      }
+
+      // Find most recent
+      const allConversations = await services.conversations.getMany([
+        { field: 'socialId', operator: '==', value: socialId },
+        { field: 'channel', operator: '==', value: channel }
+      ])
+
+      if (allConversations.length > 0) {
+        const sortedConversations = allConversations.sort((a: any, b: any) => {
+          const aTime = a.lastMessageAt?.toDate?.() || new Date(a.lastMessageAt || 0)
+          const bTime = b.lastMessageAt?.toDate?.() || new Date(b.lastMessageAt || 0)
+          return bTime.getTime() - aTime.getTime()
+        })
+
+        const conversation = sortedConversations[0] as Conversation
+        await services.conversations.update(conversation.id!, { status: ConversationStatus.ACTIVE })
+        return { ...conversation, status: ConversationStatus.ACTIVE }
+      }
+
+      return null
+    } catch (error) {
+      console.error('Error finding conversation by social ID:', error)
+      return null
+    }
+  }
+
+  async createNew(phoneNumber: string, tenantId: string, clientName?: string): Promise<Conversation> {
+    return this.createConversation({
+      identifier: phoneNumber,
+      channel: 'whatsapp',
+      clientName,
+      tenantId
+    })
+  }
+
+  async createNewSocial(socialId: string, channel: 'facebook' | 'instagram', clientName: string, tenantId: string): Promise<Conversation> {
+    return this.createConversation({
+      identifier: socialId,
+      channel,
+      clientName,
+      tenantId
+    })
+  }
+
+  private async createConversation(params: {
+    identifier: string,
+    channel: 'whatsapp' | 'facebook' | 'instagram',
+    clientName?: string,
+    tenantId: string
+  }): Promise<Conversation> {
+    try {
+      const { identifier, channel, clientName, tenantId } = params
+
       if (!tenantId) {
         throw new Error('TenantId is required for conversation creation')
       }
 
       const services = this.getTenantService(tenantId)
-      
-      // Find or create client
-      let client = await clientServiceWrapper.findByPhone(phoneNumber, tenantId)
 
-      if (!client) {
+      // Find or create client
+      // For social, we might need a different lookup if we don't have phone
+      // For now, we'll try to find by phone if it's whatsapp, or create a new client for social
+
+      let client
+      if (channel === 'whatsapp') {
+        client = await clientServiceWrapper.findByPhone(identifier, tenantId)
+        if (!client) {
+          client = await clientServiceWrapper.createOrUpdate({
+            name: clientName || '',
+            phone: identifier,
+            tenantId,
+            source: channel
+          })
+        }
+      } else {
+        // For social, we might not have phone. We need to handle client creation without phone or with a placeholder
+        // Assuming clientService can handle this or we generate a dummy phone
+        // TODO: Update ClientService to support social ID lookup
+        // For now, using a placeholder phone
+        const placeholderPhone = `social_${channel}_${identifier}`
         client = await clientServiceWrapper.createOrUpdate({
-          name: clientName || '',
-          phone: phoneNumber,
+          name: clientName || 'Social User',
+          phone: placeholderPhone,
           tenantId,
-          source: 'whatsapp',
-          createdAt: new Date(),
-          updatedAt: new Date()
+          source: channel
         })
       }
 
@@ -103,7 +187,9 @@ class ConversationService {
         clientId: client.id,
         agentId: 'ai-agent-default',
         tenantId,
-        whatsappPhone: phoneNumber,
+        whatsappPhone: channel === 'whatsapp' ? identifier : undefined,
+        socialId: channel !== 'whatsapp' ? identifier : undefined,
+        channel,
         status: ConversationStatus.ACTIVE,
         stage: ConversationStage.GREETING,
         intent: ConversationIntent.INFORMATION,
@@ -144,13 +230,13 @@ class ConversationService {
         },
         // Campos necessários para a página de conversas
         clientName: clientName || client.name || 'Cliente',
-        clientPhone: phoneNumber,
+        clientPhone: channel === 'whatsapp' ? identifier : 'Social User',
         lastMessage: 'Conversa iniciada',
         assignedAgent: 'AI Sofia',
         unreadCount: 0,
         isStarred: false,
         tags: []
-      }
+      } as Conversation
 
       const conversationId = await services.conversations.create(conversation)
       return { id: conversationId, ...conversation } as Conversation
@@ -175,11 +261,11 @@ class ConversationService {
     try {
       const services = this.getTenantService(tenantId)
       const conditions: any[] = []
-      
+
       if (filters.status) {
         conditions.push({ field: 'status', operator: '==', value: filters.status })
       }
-      
+
       if (filters.stage) {
         conditions.push({ field: 'stage', operator: '==', value: filters.stage })
       }
@@ -241,12 +327,12 @@ class ConversationService {
         lastMessageAt: message.timestamp,
         lastMessage: message.content.substring(0, 100) // Update lastMessage field
       }
-      
+
       const filteredUpdateData = Object.fromEntries(
         Object.entries(updateData).filter(([_, value]) => {
-          return value !== undefined && 
-                 value !== null && 
-                 !(typeof value === 'object' && value !== null && Object.keys(value).length === 0)
+          return value !== undefined &&
+            value !== null &&
+            !(typeof value === 'object' && value !== null && Object.keys(value).length === 0)
         })
       )
 
@@ -286,17 +372,17 @@ class ConversationService {
       const updateData = { messages: updatedMessages }
       const filteredUpdateData = Object.fromEntries(
         Object.entries(updateData).filter(([_, value]) => {
-          return value !== undefined && 
-                 value !== null && 
-                 !(typeof value === 'object' && value !== null && Object.keys(value).length === 0)
+          return value !== undefined &&
+            value !== null &&
+            !(typeof value === 'object' && value !== null && Object.keys(value).length === 0)
         })
       )
-      
+
       if (Object.keys(filteredUpdateData).length > 0) {
         await this.update(conversation.id, filteredUpdateData, tenantId)
       }
     } catch (error) {
-      }
+    }
   }
 
   async updateConversationFromAI(conversationId: string, aiResponse: any, tenantId: string): Promise<void> {
@@ -309,7 +395,7 @@ class ConversationService {
       if (aiResponse.confidence !== undefined) {
         updates.confidence = aiResponse.confidence
       }
-      
+
       if (aiResponse.sentiment !== undefined) {
         updates.sentiment = aiResponse.sentiment
       }
@@ -335,9 +421,9 @@ class ConversationService {
       // Filter out undefined values before updating
       const filteredUpdates = Object.fromEntries(
         Object.entries(updates).filter(([_, value]) => {
-          return value !== undefined && 
-                 value !== null && 
-                 !(typeof value === 'object' && value !== null && Object.keys(value).length === 0)
+          return value !== undefined &&
+            value !== null &&
+            !(typeof value === 'object' && value !== null && Object.keys(value).length === 0)
         })
       )
 
@@ -345,7 +431,7 @@ class ConversationService {
         await this.update(conversationId, filteredUpdates, tenantId)
       }
     } catch (error) {
-      }
+    }
   }
 
   async escalateToHuman(conversationId: string, reason: string, tenantId: string, urgency: string = 'medium'): Promise<void> {
@@ -361,22 +447,8 @@ class ConversationService {
         }
       }, tenantId)
 
-      } catch (error) {
-      throw error
-    }
-  }
-
-  async getActiveConversations(tenantId: string, limit: number = 50): Promise<Conversation[]> {
-    try {
-      return await this.query(
-        this.collection
-          .where('tenantId', '==', tenantId)
-          .where('status', 'in', [ConversationStatus.ACTIVE, ConversationStatus.WAITING_CLIENT])
-          .orderBy('lastMessageAt', 'desc')
-          .limit(limit)
-      )
     } catch (error) {
-      return []
+      throw error
     }
   }
 
@@ -385,11 +457,10 @@ class ConversationService {
       const startDate = new Date()
       startDate.setDate(startDate.getDate() - days)
 
-      const conversations = await this.query(
-        this.collection
-          .where('tenantId', '==', tenantId)
-          .where('startedAt', '>=', startDate)
-      )
+      const services = this.getTenantService(tenantId)
+      const conversations = await services.conversations.getMany([
+        { field: 'startedAt', operator: '>=', value: startDate }
+      ]) as Conversation[]
 
       const stats = {
         total: conversations.length,
@@ -412,50 +483,6 @@ class ConversationService {
         averageMessages: 0,
         conversions: 0
       }
-    }
-  }
-
-  async searchConversations(tenantId: string, filters: any): Promise<Conversation[]> {
-    try {
-      let query = this.collection.where('tenantId', '==', tenantId)
-
-      if (filters.status) {
-        query = query.where('status', '==', filters.status)
-      }
-
-      if (filters.stage) {
-        query = query.where('stage', '==', filters.stage)
-      }
-
-      if (filters.startDate) {
-        query = query.where('startedAt', '>=', filters.startDate)
-      }
-
-      if (filters.endDate) {
-        query = query.where('startedAt', '<=', filters.endDate)
-      }
-
-      query = query.orderBy('startedAt', 'desc')
-
-      if (filters.limit) {
-        query = query.limit(filters.limit)
-      }
-
-      return await this.query(query)
-    } catch (error) {
-      return []
-    }
-  }
-
-  async getConversationsByClient(clientId: string): Promise<Conversation[]> {
-    try {
-      return await this.query(
-        this.collection
-          .where('clientId', '==', clientId)
-          .orderBy('startedAt', 'desc')
-      )
-    } catch (error) {
-      return []
     }
   }
 

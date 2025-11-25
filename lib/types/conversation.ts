@@ -3,32 +3,34 @@ export interface Conversation {
   clientId: string
   agentId: string
   tenantId: string
-  
-  // WhatsApp
-  whatsappPhone: string
-  
+
+  // WhatsApp / Social
+  whatsappPhone?: string
+  socialId?: string // PSID or IGSID
+  channel: 'whatsapp' | 'facebook' | 'instagram'
+
   // Estado
   status: ConversationStatus
   stage: ConversationStage
   intent: ConversationIntent
   priority: ConversationPriority
-  
+
   // Conteúdo
   messages: Message[]
   summary: ConversationSummary
   context: ConversationContext
-  
+
   // AI Analytics
   sentiment: SentimentAnalysis
   confidence: number
   extractedInfo: ExtractedClientInfo
-  
+
   // Metadados
   startedAt: Date
   lastMessageAt: Date
   endedAt?: Date
   duration?: number
-  
+
   // Resultados
   outcome: ConversationOutcome
   generatedRevenue?: number
@@ -73,30 +75,32 @@ export enum ConversationPriority {
 export interface Message {
   id: string
   conversationId: string
-  
+
   // Conteúdo
   content: string
   type: MessageType
   direction: 'inbound' | 'outbound'
-  
+
   // Origem
   isFromAI: boolean
   functionCall?: FunctionCall
-  
-  // WhatsApp
+
+  // WhatsApp / Social
   whatsappMessageId?: string
+  socialMessageId?: string
+  channel?: 'whatsapp' | 'facebook' | 'instagram'
   mediaUrl?: string
-  
+
   // AI Processing
   aiContext?: AIMessageContext
   confidence?: number
   sentiment?: MessageSentiment
-  
+
   // Metadados
   timestamp: Date
   deliveredAt?: Date
   readAt?: Date
-  
+
   // Status
   status: MessageStatus
   errorMessage?: string
@@ -136,17 +140,17 @@ export interface ConversationContext {
   clientPreferences: ClientPreferences
   previousConversations: ConversationReference[]
   clientScore: number
-  
+
   // Propriedades
   viewedProperties: string[]
   favoriteProperties: string[]
   searchCriteria: PropertySearchCriteria
-  
+
   // Negociação
   budgetRange?: { min: number; max: number }
   flexibleDates: boolean
   specialRequests: string[]
-  
+
   // Estado da conversa
   lastOfferMade?: PropertyOffer
   pendingQuestions: string[]

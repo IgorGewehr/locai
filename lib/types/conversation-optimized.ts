@@ -13,6 +13,7 @@ export interface ConversationHeader {
   clientId?: string; // Optional - pode não ter cliente cadastrado ainda
   clientPhone: string;
   clientName?: string;
+  channel?: 'whatsapp' | 'facebook' | 'instagram';
 
   // Timestamps
   startedAt: Date;
@@ -70,6 +71,7 @@ export interface ConversationMessage {
 
   // Metadata
   createdAt: Date;
+  context?: MessageContext;
 }
 
 /**
@@ -154,6 +156,7 @@ export interface ConversationSummary {
   id: string;
   clientName?: string;
   clientPhone: string;
+  channel?: 'whatsapp' | 'facebook' | 'instagram';
   lastMessage: string;
   lastMessageAt: Date;
   messageCount: number;

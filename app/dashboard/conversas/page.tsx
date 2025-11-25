@@ -47,6 +47,9 @@ import {
   EmojiEvents,
   Edit,
   Block as BlockIcon,
+  Facebook,
+  Instagram,
+  WhatsApp,
 } from '@mui/icons-material';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -229,17 +232,33 @@ export default function ConversationsPage() {
     setSendingMessage(true);
     try {
       const token = await getFirebaseToken();
-      const response = await fetch('/api/whatsapp/send-manual', {
+
+      // Determine endpoint based on channel
+      let endpoint = '/api/whatsapp/send-manual';
+      let body: any = {
+        tenantId,
+        message: messageInput.trim()
+      };
+
+      if (selectedConversation.channel === 'facebook' || selectedConversation.channel === 'instagram') {
+        endpoint = '/api/social/send';
+        body = {
+          tenantId,
+          conversationId: selectedConversation.id,
+          message: messageInput.trim()
+        };
+      } else {
+        // WhatsApp
+        body.phone = selectedConversation.clientPhone;
+      }
+
+      const response = await fetch(endpoint, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`,
         },
-        body: JSON.stringify({
-          tenantId,
-          phone: selectedConversation.clientPhone,
-          message: messageInput.trim()
-        })
+        body: JSON.stringify(body)
       });
 
       if (!response.ok) {
@@ -296,6 +315,19 @@ export default function ConversationsPage() {
         return <Schedule fontSize="small" />;
       default:
         return null;
+    }
+  };
+
+  // Get channel icon
+  const getChannelIcon = (channel?: string) => {
+    switch (channel) {
+      case 'facebook':
+        return <Facebook fontSize="small" color="primary" />;
+      case 'instagram':
+        return <Instagram fontSize="small" color="secondary" />;
+      case 'whatsapp':
+      default:
+        return <WhatsApp fontSize="small" color="success" />;
     }
   };
 
@@ -597,8 +629,8 @@ export default function ConversationsPage() {
                             selectedConversation?.id === conversation.id
                               ? alpha(theme.palette.primary.main, 0.08)
                               : conversation.isRead === false
-                              ? alpha(theme.palette.info.main, 0.05)
-                              : 'background.paper',
+                                ? alpha(theme.palette.info.main, 0.05)
+                                : 'background.paper',
                           transition: 'all 0.2s',
                           '&:hover': {
                             bgcolor:
@@ -640,6 +672,9 @@ export default function ConversationsPage() {
                                 >
                                   {conversation.clientName || conversation.clientPhone}
                                 </Typography>
+                                <Box title={conversation.channel || 'whatsapp'}>
+                                  {getChannelIcon(conversation.channel)}
+                                </Box>
                                 {!editedConversations.has(conversation.id) && (
                                   <IconButton
                                     size="small"
@@ -832,7 +867,7 @@ export default function ConversationsPage() {
                       const showDateDivider =
                         !prevDate ||
                         (messageDate && prevDate &&
-                        messageDate.toDateString() !== prevDate.toDateString());
+                          messageDate.toDateString() !== prevDate.toDateString());
 
                       return (
                         <React.Fragment key={message.id}>

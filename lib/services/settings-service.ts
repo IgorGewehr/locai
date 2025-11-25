@@ -41,6 +41,7 @@ export interface BillingSettings {
 }
 
 export interface WhatsAppSettings {
+  wabaId?: string; // WhatsApp Business Account ID
   phoneNumberId: string;
   accessToken: string;
   verifyToken: string;
@@ -51,6 +52,14 @@ export interface WhatsAppSettings {
   lastSync?: Date;
   updatedAt?: Date;
   updatedBy?: string;
+}
+
+export interface FacebookSettings {
+  pageId: string;
+  pageAccessToken: string;
+  connected: boolean;
+  pageName?: string;
+  updatedAt?: Date;
 }
 
 export interface MiniSiteSettings {
@@ -93,6 +102,7 @@ export interface TenantSettings {
   ai: AISettings;
   billing: BillingSettings;
   whatsapp: WhatsAppSettings;
+  facebook: FacebookSettings;
   miniSite: MiniSiteSettings;
   cancellationPolicy: CancellationPolicy; // Nova política de cancelamento
   createdAt: Date;
@@ -113,19 +123,19 @@ class SettingsService {
     try {
       // Try to get settings using tenantId as document ID first
       let doc = await this.service.getById(tenantId);
-      
+
       if (!doc) {
         // If not found, try to get the first settings document for this tenant
         const allSettings = await this.service.getAll();
         doc = allSettings.find(s => s.id === tenantId) || allSettings[0] || null;
       }
-      
+
       if (!doc) {
         // Return default settings if none exist and create them
         const defaultSettings = this.getDefaultSettings(tenantId);
         try {
           // Try to create default settings in the database
-          await this.service.create(defaultSettings);
+          await this.service.set(tenantId, defaultSettings);
           return defaultSettings;
         } catch (createError) {
           console.warn('Could not create default settings, returning in-memory defaults:', createError);
@@ -141,51 +151,103 @@ class SettingsService {
 
   // Update company settings
   async updateCompanySettings(tenantId: string, settings: Partial<CompanySettings>): Promise<void> {
-    await this.service.update(tenantId, {
+    const current = await this.getSettings(tenantId);
+    if (!current) throw new Error('Settings not found');
+
+    const currentCompany = current.company || this.getDefaultSettings(tenantId).company;
+
+    const updatedSettings = {
+      ...current,
       company: {
+        ...currentCompany,
         ...settings,
         updatedAt: new Date(),
       },
       updatedAt: new Date(),
-    });
+    };
+
+    await this.service.set(current.id, updatedSettings);
   }
 
   // Update AI settings
   async updateAISettings(tenantId: string, settings: Partial<AISettings>): Promise<void> {
-    await this.service.update(tenantId, {
+    const current = await this.getSettings(tenantId);
+    if (!current) throw new Error('Settings not found');
+
+    const currentAI = current.ai || this.getDefaultSettings(tenantId).ai;
+
+    const updatedSettings = {
+      ...current,
       ai: {
+        ...currentAI,
         ...settings,
         updatedAt: new Date(),
       },
       updatedAt: new Date(),
-    });
+    };
+
+    await this.service.set(current.id, updatedSettings);
   }
 
   // Update billing settings
   async updateBillingSettings(tenantId: string, settings: Partial<BillingSettings>): Promise<void> {
-    await this.service.update(tenantId, {
+    const current = await this.getSettings(tenantId);
+    if (!current) throw new Error('Settings not found');
+
+    const currentBilling = current.billing || this.getDefaultSettings(tenantId).billing;
+
+    const updatedSettings = {
+      ...current,
       billing: {
+        ...currentBilling,
         ...settings,
         updatedAt: new Date(),
       },
       updatedAt: new Date(),
-    });
+    };
+
+    await this.service.set(current.id, updatedSettings);
   }
 
   // Update WhatsApp settings
   async updateWhatsAppSettings(tenantId: string, settings: Partial<WhatsAppSettings>): Promise<void> {
     // Get current settings first to ensure required fields are maintained
-    const current = await this.service.get(tenantId);
-    const currentWhatsApp = current?.whatsapp || {};
-    
-    await this.service.update(tenantId, {
+    const current = await this.getSettings(tenantId);
+    if (!current) throw new Error('Settings not found');
+
+    const currentWhatsApp = current.whatsapp || {};
+
+    const updatedSettings = {
+      ...current,
       whatsapp: {
         ...currentWhatsApp,
         ...settings,
         updatedAt: new Date(),
       } as WhatsAppSettings,
       updatedAt: new Date(),
-    });
+    };
+
+    await this.service.set(current.id, updatedSettings);
+  }
+
+  // Update Facebook settings
+  async updateFacebookSettings(tenantId: string, settings: Partial<FacebookSettings>): Promise<void> {
+    const current = await this.getSettings(tenantId);
+    if (!current) throw new Error('Settings not found');
+
+    const currentFacebook = current.facebook || {};
+
+    const updatedSettings = {
+      ...current,
+      facebook: {
+        ...currentFacebook,
+        ...settings,
+        updatedAt: new Date(),
+      } as FacebookSettings,
+      updatedAt: new Date(),
+    };
+
+    await this.service.set(current.id, updatedSettings);
   }
 
   // Update cancellation policy
@@ -196,14 +258,16 @@ class SettingsService {
       const existingSettings = await this.getSettings(tenantId);
 
       if (existingSettings) {
-        await this.service.update(tenantId, {
+        const updatedSettings = {
+          ...existingSettings,
           cancellationPolicy: {
             ...existingSettings.cancellationPolicy,
             ...policy,
             updatedAt: new Date(),
           },
           updatedAt: new Date(),
-        });
+        };
+        await this.service.set(existingSettings.id, updatedSettings);
       } else {
         const defaultSettings = this.getDefaultSettings(tenantId);
         const newSettings = {
@@ -232,25 +296,26 @@ class SettingsService {
     try {
       console.log(`🔧 Updating mini-site settings for tenant: ${tenantId}`);
       console.log('🔧 Settings to update:', settings);
-      
+
       // Filter out undefined values from settings
       const filteredSettings = Object.fromEntries(
         Object.entries(settings).filter(([_, value]) => {
-          return value !== undefined && 
-                 value !== null && 
-                 !(typeof value === 'object' && value !== null && Object.keys(value).length === 0)
+          return value !== undefined &&
+            value !== null &&
+            !(typeof value === 'object' && value !== null && Object.keys(value).length === 0)
         })
       );
-      
+
       console.log('🔧 Filtered settings:', filteredSettings);
-      
+
       // Try to get existing settings first
       const existingSettings = await this.getSettings(tenantId);
-      
+
       if (existingSettings) {
         console.log('🔧 Updating existing settings document');
         // Update existing document
-        const updateData = {
+        const updatedSettings = {
+          ...existingSettings,
           miniSite: {
             ...existingSettings.miniSite,
             ...filteredSettings,
@@ -258,17 +323,8 @@ class SettingsService {
           },
           updatedAt: new Date(),
         };
-        
-        // Filter the entire update data object
-        const filteredUpdateData = Object.fromEntries(
-          Object.entries(updateData).filter(([_, value]) => {
-            return value !== undefined && 
-                   value !== null && 
-                   !(typeof value === 'object' && value !== null && Object.keys(value).length === 0)
-          })
-        );
-        
-        await this.service.update(tenantId, filteredUpdateData);
+
+        await this.service.set(existingSettings.id, updatedSettings);
       } else {
         console.log('🔧 Creating new settings document');
         // Create new document with default settings
@@ -283,10 +339,10 @@ class SettingsService {
           },
           updatedAt: new Date(),
         };
-        
+
         await this.service.set(tenantId, newSettings);
       }
-      
+
       console.log('✅ Mini-site settings updated successfully');
     } catch (error) {
       console.error('❌ Error updating mini-site settings:', error);
@@ -298,9 +354,10 @@ class SettingsService {
   async saveSettings(tenantId: string, settings: Partial<TenantSettings>): Promise<void> {
     try {
       const existing = await this.service.getById(tenantId);
-      
+
       if (existing) {
-        await this.service.update(tenantId, {
+        await this.service.set(existing.id, {
+          ...existing,
           ...settings,
           updatedAt: new Date(),
         });
@@ -313,7 +370,7 @@ class SettingsService {
           createdAt: new Date(),
           updatedAt: new Date(),
         };
-        
+
         // Use Firestore set method directly for better control
         await this.service.set(tenantId, newSettings);
       }
@@ -331,7 +388,7 @@ class SettingsService {
       if (!settings) {
         return null;
       }
-      
+
       return settings.whatsapp || null;
     } catch (error) {
       console.error('Error getting WhatsApp credentials:', error);
@@ -377,6 +434,7 @@ class SettingsService {
         customMessage: 'Olá {nome}, seu aluguel de {valor} vence em {dias} dias. Utilize o código PIX abaixo para pagamento.',
       },
       whatsapp: {
+        wabaId: '',
         phoneNumberId: '',
         accessToken: '',
         verifyToken: '',
@@ -384,6 +442,12 @@ class SettingsService {
         businessName: '',
         webhookUrl: '',
         mode: 'business_api',
+      },
+      facebook: {
+        pageId: '',
+        pageAccessToken: '',
+        connected: false,
+        pageName: '',
       },
       miniSite: {
         active: true, // Ativo por padrão para permitir configuração e uso inicial
