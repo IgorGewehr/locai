@@ -630,9 +630,10 @@ export async function searchProperties(args: SearchPropertiesArgs, tenantId: str
       });
     }
 
-    if (args.guests) {
+    // Filtro de hóspedes (ignora se guests = 0)
+    if (args.guests && args.guests > 0) {
       const beforeGuestsFilter = filteredProperties.length;
-      filteredProperties = filteredProperties.filter(property => 
+      filteredProperties = filteredProperties.filter(property =>
         (property.maxGuests || 0) >= args.guests!
       );
       logger.info('🔍 [TenantAgent] Filtro de hóspedes aplicado', {
@@ -644,9 +645,10 @@ export async function searchProperties(args: SearchPropertiesArgs, tenantId: str
       });
     }
 
-    if (args.bedrooms) {
+    // Filtro de quartos (ignora se bedrooms = 0)
+    if (args.bedrooms && args.bedrooms > 0) {
       const beforeBedroomsFilter = filteredProperties.length;
-      filteredProperties = filteredProperties.filter(property => 
+      filteredProperties = filteredProperties.filter(property =>
         (property.bedrooms || 0) >= args.bedrooms!
       );
       logger.info('🔍 [TenantAgent] Filtro de quartos aplicado', {
@@ -658,9 +660,10 @@ export async function searchProperties(args: SearchPropertiesArgs, tenantId: str
       });
     }
 
-    if (args.maxPrice) {
+    // Filtro de preço máximo (ignora se maxPrice = 0)
+    if (args.maxPrice && args.maxPrice > 0) {
       const beforePriceFilter = filteredProperties.length;
-      filteredProperties = filteredProperties.filter(property => 
+      filteredProperties = filteredProperties.filter(property =>
         (property.basePrice || 0) <= args.maxPrice!
       );
       logger.info('🔍 [TenantAgent] Filtro de preço aplicado', {
