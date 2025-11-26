@@ -649,20 +649,6 @@ export default function WhatsAppPage() {
         </Typography>
       </Box>
 
-      {/* Debug Info - Temporary */}
-      <Alert severity="info" sx={{ mb: 3 }}>
-        <Typography variant="subtitle2" fontWeight="bold">Debug Info:</Typography>
-        <Box component="pre" sx={{ mt: 1, p: 1, bgcolor: 'rgba(0,0,0,0.05)', borderRadius: 1, fontSize: '0.75rem', overflow: 'auto' }}>
-          {JSON.stringify({
-            appIdConfigured: !!process.env.NEXT_PUBLIC_FACEBOOK_APP_ID,
-            sdkLoaded: isSdkLoaded,
-            sdkError: sdkError,
-            windowFB: typeof window !== 'undefined' ? !!window.FB : 'N/A',
-            timestamp: new Date().toISOString()
-          }, null, 2)}
-        </Box>
-      </Alert>
-
       {
         error && (
           <Alert severity="error" sx={{ mb: 3 }} onClose={() => setError(null)}>
@@ -998,15 +984,24 @@ export default function WhatsAppPage() {
 
         <Divider sx={{ my: 2 }} />
 
-        <Box sx={{ display: 'flex', gap: 2 }}>
+        <Box sx={{ display: 'flex', gap: 2, alignItems: 'center' }}>
           {!facebookStatus.connected ? (
-            <Button
-              variant="contained"
-              onClick={handleFacebookConnect}
-              startIcon={<PowerSettingsNew />}
-            >
-              Conectar Facebook
-            </Button>
+            <>
+              <Button
+                variant="contained"
+                onClick={handleFacebookConnect}
+                startIcon={<PowerSettingsNew />}
+                disabled
+              >
+                Conectar Facebook
+              </Button>
+              <Chip
+                label="Em breve"
+                size="small"
+                color="info"
+                variant="outlined"
+              />
+            </>
           ) : (
             <Button
               variant="outlined"
