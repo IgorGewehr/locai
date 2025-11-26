@@ -512,9 +512,15 @@ curl -X POST http://localhost:3000/api/ai/functions/create-lead \
   -H "Content-Type: application/json" \
   -d '{"tenantId":"test","phone":"+5511999999999"}'
 
+# Search properties with filters (guests=0 will be ignored)
 curl -X POST http://localhost:3000/api/ai/functions/search-properties \
   -H "Content-Type: application/json" \
   -d '{"tenantId":"test","location":"Praia","guests":4}'
+
+# Search all properties (numeric filters with 0 are ignored)
+curl -X POST http://localhost:3000/api/ai/functions/search-properties \
+  -H "Content-Type: application/json" \
+  -d '{"tenantId":"test","location":"Praia","guests":0,"bedrooms":0,"maxPrice":0}'
 
 # Test Core APIs
 curl http://localhost:3000/api/reservations?status=confirmed

@@ -966,9 +966,11 @@ All functions follow this response pattern:
 **Optional Parameters:**
 - `sentiment` ('positive' | 'neutral' | 'negative')
 - `interestedProperties` (string[])
-- `budget` (number)
+- `budget` (number) - Budget amount (values = 0 are ignored for scoring)
 - `timeline` (string)
 - `notes` (string)
+
+**Note:** `budget = 0` is ignored and won't affect lead scoring or qualification criteria.
 
 **Returns:**
 ```typescript
@@ -1068,8 +1070,8 @@ All functions follow this response pattern:
 - `source` (string | string[])
 - `temperature` ('cold' | 'warm' | 'hot')
 - `assignedTo` (string)
-- `minScore` (number)
-- `maxScore` (number)
+- `minScore` (number) - Minimum score filter (values = 0 are ignored)
+- `maxScore` (number) - Maximum score filter (values = 0 are ignored)
 - `createdAfter` (string) - ISO date
 - `createdBefore` (string) - ISO date
 - `limit` (number) - Default 50
@@ -1077,6 +1079,8 @@ All functions follow this response pattern:
 - `sortBy` ('score' | 'lastContactDate' | 'createdAt' | 'temperature')
 - `sortOrder` ('asc' | 'desc')
 - `includeAnalytics` (boolean)
+
+**Note:** `minScore = 0` and `maxScore = 0` are ignored. Use them only when you want to actually filter by score.
 
 **Returns:**
 ```typescript
@@ -2105,6 +2109,52 @@ All functions follow this response pattern:
   ...
 }
 ```
+
+### Zero Values Treatment
+
+**Numeric parameters with value `0` are automatically ignored:**
+
+```json
+{
+  "tenantId": "tenant123",
+  "location": "Praia Grande",
+  "guests": 0,      // Ignored - returns all properties regardless of capacity
+  "bedrooms": 0,    // Ignored - returns all properties regardless of bedrooms
+  "maxPrice": 0     // Ignored - returns all properties regardless of price
+}
+```
+
+This behavior applies to:
+- **`search-properties`**: `guests`, `bedrooms`, `maxPrice`
+- **`classify-lead`**: `budget`
+- **`get-leads-list`**: `minScore`, `maxScore`
+- **Any other function with numeric filters**
+
+**Rationale:** In N8N workflows, when Sofia AI doesn't extract a numeric parameter, it defaults to `0`. By treating `0` as "no filter", we avoid accidentally filtering out all results.
+
+**Examples:**
+```json
+// Search: 0 values ignored
+{
+  "guests": 0,      // ✅ Ignored - no guest filter applied
+  "bedrooms": 2,    // ✅ Applied - only properties with 2+ bedrooms
+  "maxPrice": 0     // ✅ Ignored - no price filter applied
+}
+
+// Classify Lead: 0 budget ignored
+{
+  "budget": 0,      // ✅ Ignored - no budget bonus
+  "budget": 5000    // ✅ Applied - adds score bonus
+}
+
+// Get Leads: 0 scores ignored
+{
+  "minScore": 0,    // ✅ Ignored - no minimum score filter
+  "maxScore": 80    // ✅ Applied - only leads with score <= 80
+}
+```
+
+---
 
 ### Flexible Identifier Patterns
 

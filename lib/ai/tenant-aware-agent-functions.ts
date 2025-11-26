@@ -2342,6 +2342,7 @@ export async function classifyLead(args: ClassifyLeadArgs, tenantId: string): Pr
         break;
     }
     
+    // Bonus de score se tem budget definido (ignora se budget = 0)
     if (args.budget && args.budget > 100) {
       scoreIncrease += 10;
     }
@@ -2353,9 +2354,9 @@ export async function classifyLead(args: ClassifyLeadArgs, tenantId: string): Pr
     else if (newScore >= 40) temperature = 'warm';
     else temperature = 'cold';
 
-    // Atualizar critérios de qualificação
+    // Atualizar critérios de qualificação (ignora budget = 0)
     const updatedQualification = { ...lead.qualificationCriteria };
-    if (args.budget) updatedQualification.budget = true;
+    if (args.budget && args.budget > 0) updatedQualification.budget = true;
     if (args.timeline) updatedQualification.timeline = true;
     if (args.interactionType === 'property_inquiry') updatedQualification.need = true;
     
@@ -7763,11 +7764,13 @@ export async function getLeadsList(args: GetLeadsListArgs, tenantId: string): Pr
     let leads = await leadService.getMany(filters) as Lead[];
 
     // Aplicar filtros de score (no código, pois Firestore não suporta range queries complexas com outros filtros)
-    if (args.minScore !== undefined) {
+    // Ignora minScore = 0 (significa "sem filtro mínimo")
+    if (args.minScore !== undefined && args.minScore > 0) {
       leads = leads.filter(l => (l.score || 0) >= args.minScore!);
     }
 
-    if (args.maxScore !== undefined) {
+    // Ignora maxScore = 0 (significa "sem filtro máximo")
+    if (args.maxScore !== undefined && args.maxScore > 0) {
       leads = leads.filter(l => (l.score || 0) <= args.maxScore!);
     }
 
