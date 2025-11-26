@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useTenant } from '@/contexts/TenantContext';
 import {
@@ -101,7 +101,7 @@ export default function PropertiesPage() {
   };
 
   // Load properties from Firebase
-  const loadProperties = async () => {
+  const loadProperties = useCallback(async () => {
     if (!services || !isReady) return;
 
     try {
@@ -113,11 +113,11 @@ export default function PropertiesPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [services, isReady]);
 
   useEffect(() => {
     loadProperties();
-  }, [services, isReady]);
+  }, [loadProperties]);
 
   useEffect(() => {
     let filtered = properties;
