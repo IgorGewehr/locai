@@ -101,20 +101,21 @@ export default function PropertiesPage() {
   };
 
   // Load properties from Firebase
+  const loadProperties = async () => {
+    if (!services || !isReady) return;
+
+    try {
+      setLoading(true);
+      const propertiesData = await services.properties.getAll();
+      setProperties(propertiesData);
+    } catch (error) {
+      // Property loading error handled
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    const loadProperties = async () => {
-      if (!services || !isReady) return;
-
-      try {
-        const propertiesData = await services.properties.getAll();
-        setProperties(propertiesData);
-      } catch (error) {
-        // Property loading error handled
-      } finally {
-        setLoading(false);
-      }
-    };
-
     loadProperties();
   }, [services, isReady]);
 
