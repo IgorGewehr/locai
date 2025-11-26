@@ -47,23 +47,24 @@ import {
   CloudSync,
 } from '@mui/icons-material';
 import { useFormContext, Controller } from 'react-hook-form';
-import { 
-  format, 
-  addDays, 
-  isSameDay, 
-  isAfter, 
-  isBefore, 
-  addMonths, 
-  subMonths, 
-  startOfMonth, 
-  endOfMonth, 
-  eachDayOfInterval, 
-  isSameMonth, 
-  startOfWeek, 
+import {
+  format,
+  addDays,
+  isSameDay,
+  isAfter,
+  isBefore,
+  addMonths,
+  subMonths,
+  startOfMonth,
+  endOfMonth,
+  eachDayOfInterval,
+  isSameMonth,
+  startOfWeek,
   endOfWeek,
   getDay,
   isWeekend,
-  isToday
+  isToday,
+  startOfDay
 } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { logger } from '@/lib/utils/logger';

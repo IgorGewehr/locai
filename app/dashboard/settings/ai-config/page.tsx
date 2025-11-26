@@ -157,17 +157,6 @@ export default function AIConfigPage() {
     setConfig({ ...config, ...updates });
   };
 
-  const updateAgentPermissions = (updates: Partial<AIConfig['agentPermissions']>) => {
-    if (!config) return;
-    setConfig({
-      ...config,
-      agentPermissions: {
-        ...config.agentPermissions,
-        ...updates,
-      },
-    });
-  };
-
   const updateDiscountSettings = (updates: Partial<AIConfig['discountSettings']>) => {
     if (!config) return;
     setConfig({
@@ -405,96 +394,6 @@ export default function AIConfigPage() {
               helperText={`${config.customPrompts.specialInstructions?.length || 0}/2000 caracteres`}
             />
           </Stack>
-        </CardContent>
-      </Card>
-
-      {/* AGENT PERMISSIONS */}
-      <Card sx={{ mb: 3 }}>
-        <CardContent>
-          <Typography variant="h6" gutterBottom>
-            🤖 Permissões dos Agentes
-          </Typography>
-          <Typography variant="body2" color="text.secondary" paragraph>
-            Habilite ou desabilite agentes especializados
-          </Typography>
-
-          <Divider sx={{ my: 2 }} />
-
-          <Grid container spacing={2}>
-            <Grid item xs={12} md={6}>
-              <FormControlLabel
-                control={
-                  <Switch
-                    checked={config.agentPermissions.search}
-                    onChange={(e) => updateAgentPermissions({ search: e.target.checked })}
-                  />
-                }
-                label="🔍 Search Agent (Busca de Imóveis)"
-              />
-            </Grid>
-
-            <Grid item xs={12} md={6}>
-              <FormControlLabel
-                control={
-                  <Switch
-                    checked={config.agentPermissions.booking}
-                    onChange={(e) => updateAgentPermissions({ booking: e.target.checked })}
-                  />
-                }
-                label="📝 Booking Agent (Reservas)"
-              />
-            </Grid>
-
-            <Grid item xs={12} md={6}>
-              <FormControlLabel
-                control={
-                  <Switch
-                    checked={config.agentPermissions.sales}
-                    onChange={(e) => updateAgentPermissions({ sales: e.target.checked })}
-                  />
-                }
-                label="💰 Sales Agent (Negociação)"
-              />
-            </Grid>
-
-            <Grid item xs={12} md={6}>
-              <FormControlLabel
-                control={
-                  <Switch
-                    checked={config.agentPermissions.support}
-                    onChange={(e) => updateAgentPermissions({ support: e.target.checked })}
-                  />
-                }
-                label="🤝 Support Agent (Suporte)"
-              />
-            </Grid>
-
-            <Grid item xs={12}>
-              <Box
-                sx={{
-                  p: 2,
-                  borderRadius: 2,
-                  bgcolor: 'action.hover',
-                  opacity: 0.7,
-                }}
-              >
-                <FormControlLabel
-                  control={<Switch checked={false} disabled />}
-                  label={
-                    <Box display="flex" alignItems="center" gap={1}>
-                      <Typography variant="body2" color="text.secondary">
-                        💳 Payments Agent (Pagamentos)
-                      </Typography>
-                      <Chip label="Em Breve" size="small" />
-                    </Box>
-                  }
-                />
-                <Typography variant="caption" color="text.secondary" display="block" sx={{ ml: 4 }}>
-                  Integração AbacatePay em desenvolvimento
-                </Typography>
-              </Box>
-            </Grid>
-          </Grid>
         </CardContent>
       </Card>
 
