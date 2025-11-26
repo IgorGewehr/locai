@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import {
   Box,
   Card,
@@ -117,6 +117,8 @@ export default function ConversationsPage() {
   const [renameConversationId, setRenameConversationId] = useState<string | null>(null);
   const [newName, setNewName] = useState('');
   const [editedConversations, setEditedConversations] = useState<Set<string>>(new Set());
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
 
   // Apply search param from URL on mount
   useEffect(() => {
@@ -127,6 +129,13 @@ export default function ConversationsPage() {
       setFilters({ ...filters, search: searchParam });
     }
   }, []); // Only run on mount
+
+  // Auto-scroll to bottom when new messages arrive
+  useEffect(() => {
+    if (messages.length > 0 && messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: 'smooth', block: 'end' });
+    }
+  }, [messages.length]); // Trigger when message count changes
 
   // Check AI block status when conversation changes
   useEffect(() => {
@@ -973,6 +982,8 @@ export default function ConversationsPage() {
                         </React.Fragment>
                       );
                     })}
+                    {/* Invisible div for auto-scroll anchor */}
+                    <div ref={messagesEndRef} />
                   </Stack>
                 )}
               </Box>

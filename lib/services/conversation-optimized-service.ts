@@ -459,6 +459,64 @@ export class ConversationOptimizedService {
   }
 
   /**
+   * Subscribe to realtime message updates for a conversation
+   * Returns unsubscribe function
+   */
+  subscribeToMessages(
+    conversationId: string,
+    callback: (messages: ConversationMessage[]) => void,
+    limit: number = 100
+  ): () => void {
+    try {
+      logger.info('🔥 [REALTIME] Setting up Firestore listener for messages', {
+        tenantId: this.tenantId.substring(0, 8) + '***',
+        conversationId,
+        limit
+      });
+
+      const messagesService = this.services.createService<ConversationMessage>('messages');
+
+      // Subscribe to real-time updates
+      const unsubscribe = messagesService.onSnapshot((allMessages) => {
+        // Filter messages for this conversation
+        const conversationMessages = allMessages
+          .filter(msg => msg.conversationId === conversationId)
+          .sort((a, b) => {
+            const timeA = a.clientMessageTimestamp || a.createdAt;
+            const timeB = b.clientMessageTimestamp || b.createdAt;
+            if (!timeA || !timeB) return 0;
+
+            const dateA = typeof timeA === 'string' ? new Date(timeA) : timeA;
+            const dateB = typeof timeB === 'string' ? new Date(timeB) : timeB;
+
+            return dateA.getTime() - dateB.getTime();
+          })
+          .slice(-limit); // Get last N messages
+
+        logger.info('🔥 [REALTIME] Messages snapshot received', {
+          tenantId: this.tenantId.substring(0, 8) + '***',
+          conversationId,
+          totalMessages: allMessages.length,
+          conversationMessages: conversationMessages.length
+        });
+
+        callback(conversationMessages);
+      });
+
+      return unsubscribe;
+    } catch (error) {
+      logger.error('Error setting up message subscription', {
+        tenantId: this.tenantId,
+        conversationId,
+        error: error instanceof Error ? error.message : 'Unknown error'
+      });
+
+      // Return no-op unsubscribe function
+      return () => {};
+    }
+  }
+
+  /**
    * Rename conversation (update clientName)
    */
   async renameConversation(

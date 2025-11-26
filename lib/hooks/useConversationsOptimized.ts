@@ -102,7 +102,7 @@ export function useConversationsOptimized({
     }
   }, [tenantId, limit, state.hasMore, state.loading]);
 
-  // Select conversation and load messages
+  // Select conversation and load messages with realtime updates
   const selectConversation = useCallback(async (conversationId: string) => {
     if (!tenantId) return;
 
@@ -202,6 +202,38 @@ export function useConversationsOptimized({
       loadConversations();
     }
   }, [autoLoad, tenantId, loadConversations]);
+
+  // 🔥 Realtime listener for selected conversation messages
+  useEffect(() => {
+    if (!tenantId || !state.selectedConversation?.id) return;
+
+    const conversationId = state.selectedConversation.id;
+    logger.info('🔥 [REALTIME] Setting up message listener', {
+      tenantId: tenantId.substring(0, 8) + '***',
+      conversationId
+    });
+
+    const service = createConversationOptimizedService(tenantId);
+
+    // Subscribe to message updates for this conversation
+    const unsubscribe = service.subscribeToMessages(conversationId, (messages) => {
+      logger.info('🔥 [REALTIME] Messages updated', {
+        conversationId,
+        messageCount: messages.length
+      });
+
+      setState(prev => ({
+        ...prev,
+        messages,
+      }));
+    });
+
+    // Cleanup listener when conversation changes or unmounts
+    return () => {
+      logger.info('🔥 [REALTIME] Cleaning up message listener', { conversationId });
+      unsubscribe();
+    };
+  }, [tenantId, state.selectedConversation?.id]);
 
   // Statistics
   const stats = {
