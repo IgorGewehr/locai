@@ -55,9 +55,11 @@ import {
   Block,
   Schedule,
   CloudUpload,
+  LocalOffer,
 } from '@mui/icons-material';
 import type { Property } from '@/lib/types/property';
 import PropertyImportWizard from '@/components/organisms/PropertyImportWizard/PropertyImportWizard';
+import PropertyDiscountsManager from '@/components/dialogs/PropertyDiscountsManager';
 
 // Disable static generation for this page
 export const dynamic = 'force-dynamic';
@@ -81,6 +83,7 @@ export default function PropertiesPage() {
   const [selectedProperty, setSelectedProperty] = useState<Property | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [importDialogOpen, setImportDialogOpen] = useState(false);
+  const [discountsDialogOpen, setDiscountsDialogOpen] = useState(false);
   const { services, isReady, tenantId } = useTenant();
 
   // Create local SVG placeholder for property images
@@ -233,6 +236,15 @@ export default function PropertiesPage() {
             sx={{ minWidth: { xs: 'auto', sm: '160px' } }}
           >
             Importar
+          </ModernButton>
+          <ModernButton
+            variant="outlined"
+            size="large"
+            icon={<LocalOffer />}
+            onClick={() => setDiscountsDialogOpen(true)}
+            sx={{ minWidth: { xs: 'auto', sm: '160px' } }}
+          >
+            Descontos
           </ModernButton>
           <ModernButton
             variant="elegant"
@@ -647,6 +659,14 @@ export default function PropertiesPage() {
         open={importDialogOpen}
         onClose={() => setImportDialogOpen(false)}
         onSuccess={handleImportSuccess}
+      />
+
+      {/* Property Discounts Manager */}
+      <PropertyDiscountsManager
+        open={discountsDialogOpen}
+        onClose={() => setDiscountsDialogOpen(false)}
+        properties={properties}
+        onRefresh={loadProperties}
       />
 
       {/* Floating Action Button */}

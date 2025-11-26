@@ -62,11 +62,48 @@ export interface Property {
   iCalSyncEnabled?: boolean // Se a sincronização automática está ativa
   externalCalendarUrls?: ExternalCalendarUrl[] // Múltiplas fontes de calendário
 
+  // Configurações de desconto (nível da propriedade)
+  discountSettings?: PropertyDiscountSettings
+
   // Metadados
   isActive: boolean
   createdAt: Date
   updatedAt: Date
   tenantId: string
+}
+
+/**
+ * Configurações de desconto por propriedade
+ * Permite ao proprietário definir regras específicas de desconto para esta propriedade
+ */
+export interface PropertyDiscountSettings {
+  // Descontos por método de pagamento
+  pixDiscountPercentage: number // 0-100 (0 = desabilitado)
+  cashDiscountPercentage: number // 0-100 (0 = desabilitado)
+  cardDiscountPercentage: number // 0-100 (0 = desabilitado)
+
+  // Desconto por estadia prolongada (7+ dias)
+  weeklyStayDiscountPercentage: number // 0-100 (0 = desabilitado)
+
+  // Desconto para negociação (margem que a IA pode usar)
+  negotiationDiscountPercentage: number // 0-100 (0 = desabilitado)
+
+  // Desconto para datas de última hora (check-in próximo)
+  lastMinuteDiscountPercentage: number // 0-100 (0 = desabilitado)
+  lastMinuteDaysThreshold: number // Quantos dias antes do check-in (ex: 3 = desconto para check-ins em até 3 dias)
+}
+
+/**
+ * Valores padrão para configurações de desconto de propriedade
+ */
+export const DEFAULT_DISCOUNT_SETTINGS: PropertyDiscountSettings = {
+  pixDiscountPercentage: 0,
+  cashDiscountPercentage: 0,
+  cardDiscountPercentage: 0,
+  weeklyStayDiscountPercentage: 0,
+  negotiationDiscountPercentage: 0,
+  lastMinuteDiscountPercentage: 0,
+  lastMinuteDaysThreshold: 3
 }
 
 export enum PropertyCategory {

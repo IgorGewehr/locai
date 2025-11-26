@@ -8961,3 +8961,284 @@ export async function executeTenantAwareFunction(
       };
   }
 }
+
+/**
+ * ============================================================================
+ * GET DYNAMIC DISCOUNT
+ * ============================================================================
+ * Função estratégica que calcula preço E mostra oportunidades de desconto
+ * para a Sofia usar em negociações
+ */
+
+interface GetDynamicDiscountArgs {
+  propertyName: string;
+  checkIn?: string;
+  checkOut?: string;
+  guests?: number;
+  clientPhone?: string;
+  paymentMethod?: 'pix' | 'cash' | 'card' | 'installments';
+}
+
+interface DiscountOpportunity {
+  type: 'payment_method' | 'weekly_stay' | 'negotiation' | 'last_minute';
+  description: string;
+  discountPercentage: number;
+  finalPrice: number;
+  savings: number;
+  conditions?: string;
+  recommendation: string;
+}
+
+export async function getDynamicDiscount(args: GetDynamicDiscountArgs, tenantId: string): Promise<any> {
+  try {
+    // 1. Primeiro, calcular preço base usando calculatePrice
+    const priceResult = await calculatePrice({
+      propertyName: args.propertyName,
+      checkIn: args.checkIn,
+      checkOut: args.checkOut,
+      guests: args.guests,
+      clientPhone: args.clientPhone
+    }, tenantId);
+
+    if (!priceResult.success) {
+      return priceResult;
+    }
+
+    // 2. Buscar propriedade para pegar configurações de desconto
+    const property = await findPropertyByName(args.propertyName, tenantId);
+    if (!property) {
+      return {
+        success: false,
+        error: `Propriedade "${args.propertyName}" não encontrada`,
+        tenantId
+      };
+    }
+
+    const discountSettings = property.discountSettings;
+    const baseTotal = priceResult.pricing.totalPrice;
+    const nights = priceResult.pricing.nights;
+
+    // 3. Calcular opções de desconto disponíveis
+    const discountOpportunities: DiscountOpportunity[] = [];
+
+    // Se não tem configurações de desconto, retornar só o preço base
+    if (!discountSettings) {
+      logger.info('📊 [GET-DYNAMIC-DISCOUNT] Propriedade sem configurações de desconto', {
+        tenantId: tenantId.substring(0, 8) + '***',
+        propertyName: args.propertyName
+      });
+
+      return {
+        success: true,
+        property: priceResult.property,
+        pricing: priceResult.pricing,
+        dates: priceResult.dates,
+        discountOpportunities: {
+          available: [],
+          message: 'Esta propriedade não possui descontos disponíveis no momento.'
+        },
+        tenantId
+      };
+    }
+
+    // A. Descontos por método de pagamento
+    if (discountSettings.pixDiscountPercentage > 0) {
+      const discount = discountSettings.pixDiscountPercentage;
+      const finalPrice = baseTotal * (1 - discount / 100);
+      const savings = baseTotal - finalPrice;
+
+      discountOpportunities.push({
+        type: 'payment_method',
+        description: `Desconto PIX de ${discount}%`,
+        discountPercentage: discount,
+        finalPrice: Math.round(finalPrice),
+        savings: Math.round(savings),
+        recommendation: `💰 Pagando via PIX você economiza R$ ${savings.toFixed(2)}! O valor final seria R$ ${finalPrice.toFixed(2)}.`
+      });
+    }
+
+    if (discountSettings.cashDiscountPercentage > 0) {
+      const discount = discountSettings.cashDiscountPercentage;
+      const finalPrice = baseTotal * (1 - discount / 100);
+      const savings = baseTotal - finalPrice;
+
+      discountOpportunities.push({
+        type: 'payment_method',
+        description: `Desconto em dinheiro de ${discount}%`,
+        discountPercentage: discount,
+        finalPrice: Math.round(finalPrice),
+        savings: Math.round(savings),
+        recommendation: `💵 Pagando em dinheiro você economiza R$ ${savings.toFixed(2)}! O valor final seria R$ ${finalPrice.toFixed(2)}.`
+      });
+    }
+
+    if (discountSettings.cardDiscountPercentage > 0) {
+      const discount = discountSettings.cardDiscountPercentage;
+      const finalPrice = baseTotal * (1 - discount / 100);
+      const savings = baseTotal - finalPrice;
+
+      discountOpportunities.push({
+        type: 'payment_method',
+        description: `Desconto no cartão de ${discount}%`,
+        discountPercentage: discount,
+        finalPrice: Math.round(finalPrice),
+        savings: Math.round(savings),
+        recommendation: `💳 Pagando no cartão você economiza R$ ${savings.toFixed(2)}! O valor final seria R$ ${finalPrice.toFixed(2)}.`
+      });
+    }
+
+    // B. Desconto por estadia semanal (7+ noites)
+    if (discountSettings.weeklyStayDiscountPercentage > 0 && nights >= 7) {
+      const discount = discountSettings.weeklyStayDiscountPercentage;
+      const finalPrice = baseTotal * (1 - discount / 100);
+      const savings = baseTotal - finalPrice;
+
+      discountOpportunities.push({
+        type: 'weekly_stay',
+        description: `Desconto por estadia semanal de ${discount}%`,
+        discountPercentage: discount,
+        finalPrice: Math.round(finalPrice),
+        savings: Math.round(savings),
+        conditions: 'Válido para estadias de 7 noites ou mais',
+        recommendation: `🎉 Ótima notícia! Como você está reservando ${nights} noites, você ganha ${discount}% de desconto! Economia de R$ ${savings.toFixed(2)}.`
+      });
+    } else if (discountSettings.weeklyStayDiscountPercentage > 0 && nights < 7) {
+      const daysNeeded = 7 - nights;
+      const potentialDiscount = discountSettings.weeklyStayDiscountPercentage;
+      const potentialFinalPrice = baseTotal * (1 - potentialDiscount / 100);
+      const potentialSavings = baseTotal - potentialFinalPrice;
+
+      discountOpportunities.push({
+        type: 'weekly_stay',
+        description: `Desconto potencial de ${potentialDiscount}% para 7+ noites`,
+        discountPercentage: potentialDiscount,
+        finalPrice: Math.round(potentialFinalPrice),
+        savings: Math.round(potentialSavings),
+        conditions: `Adicione mais ${daysNeeded} noite(s) para ativar este desconto`,
+        recommendation: `💡 Que tal estender sua estadia? Adicionando apenas ${daysNeeded} noite(s), você ganha ${potentialDiscount}% de desconto e economiza R$ ${potentialSavings.toFixed(2)}!`
+      });
+    }
+
+    // C. Desconto para negociação (margem que Sofia pode usar)
+    if (discountSettings.negotiationDiscountPercentage > 0) {
+      const discount = discountSettings.negotiationDiscountPercentage;
+      const finalPrice = baseTotal * (1 - discount / 100);
+      const savings = baseTotal - finalPrice;
+
+      discountOpportunities.push({
+        type: 'negotiation',
+        description: `Desconto especial de fechamento de ${discount}%`,
+        discountPercentage: discount,
+        finalPrice: Math.round(finalPrice),
+        savings: Math.round(savings),
+        conditions: 'Desconto especial para fechar agora',
+        recommendation: `🤝 Posso oferecer um desconto especial de ${discount}% se você fechar agora! O valor final seria R$ ${finalPrice.toFixed(2)}, economizando R$ ${savings.toFixed(2)}.`
+      });
+    }
+
+    // D. Desconto de última hora (check-in próximo)
+    if (discountSettings.lastMinuteDiscountPercentage > 0 && args.checkIn) {
+      const checkInDate = new Date(args.checkIn);
+      const today = new Date();
+      const daysUntilCheckIn = Math.ceil((checkInDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+
+      if (daysUntilCheckIn <= discountSettings.lastMinuteDaysThreshold) {
+        const discount = discountSettings.lastMinuteDiscountPercentage;
+        const finalPrice = baseTotal * (1 - discount / 100);
+        const savings = baseTotal - finalPrice;
+
+        discountOpportunities.push({
+          type: 'last_minute',
+          description: `Desconto de última hora de ${discount}%`,
+          discountPercentage: discount,
+          finalPrice: Math.round(finalPrice),
+          savings: Math.round(savings),
+          conditions: `Check-in em ${daysUntilCheckIn} dia(s)`,
+          recommendation: `⚡ Aproveite! Por ser uma reserva de última hora (check-in em ${daysUntilCheckIn} dias), você ganha ${discount}% de desconto! Economia de R$ ${savings.toFixed(2)}.`
+        });
+      }
+    }
+
+    // 4. Calcular melhor desconto combinado
+    let bestDiscount: DiscountOpportunity | null = null;
+    let bestCombination: DiscountOpportunity[] = [];
+
+    // Pegar melhor desconto de pagamento
+    const paymentDiscounts = discountOpportunities.filter(d => d.type === 'payment_method');
+    const bestPaymentDiscount = paymentDiscounts.reduce((best, current) =>
+      current.savings > (best?.savings || 0) ? current : best
+    , paymentDiscounts[0]);
+
+    // Descontos acumuláveis
+    let combinedDiscountPercentage = 0;
+    let combinedPrice = baseTotal;
+
+    if (bestPaymentDiscount) {
+      combinedDiscountPercentage += bestPaymentDiscount.discountPercentage;
+      combinedPrice = combinedPrice * (1 - bestPaymentDiscount.discountPercentage / 100);
+      bestCombination.push(bestPaymentDiscount);
+    }
+
+    // Adicionar desconto semanal se aplicável
+    const weeklyDiscount = discountOpportunities.find(d => d.type === 'weekly_stay' && !d.conditions?.includes('Adicione'));
+    if (weeklyDiscount) {
+      combinedDiscountPercentage += weeklyDiscount.discountPercentage;
+      combinedPrice = combinedPrice * (1 - weeklyDiscount.discountPercentage / 100);
+      bestCombination.push(weeklyDiscount);
+    }
+
+    // Adicionar desconto de última hora se aplicável
+    const lastMinuteDiscount = discountOpportunities.find(d => d.type === 'last_minute');
+    if (lastMinuteDiscount) {
+      combinedDiscountPercentage += lastMinuteDiscount.discountPercentage;
+      combinedPrice = combinedPrice * (1 - lastMinuteDiscount.discountPercentage / 100);
+      bestCombination.push(lastMinuteDiscount);
+    }
+
+    logger.info('✅ [GET-DYNAMIC-DISCOUNT] Análise concluída', {
+      tenantId: tenantId.substring(0, 8) + '***',
+      propertyName: args.propertyName,
+      basePrice: baseTotal,
+      discountsFound: discountOpportunities.length,
+      bestCombinedDiscount: combinedDiscountPercentage,
+      bestCombinedPrice: Math.round(combinedPrice)
+    });
+
+    return {
+      success: true,
+      property: priceResult.property,
+      pricing: {
+        ...priceResult.pricing,
+        withoutDiscount: baseTotal
+      },
+      dates: priceResult.dates,
+      discountOpportunities: {
+        available: discountOpportunities,
+        bestCombination: bestCombination.length > 0 ? {
+          discounts: bestCombination,
+          totalDiscountPercentage: combinedDiscountPercentage,
+          finalPrice: Math.round(combinedPrice),
+          totalSavings: Math.round(baseTotal - combinedPrice),
+          recommendation: `🎁 Melhor oferta! Combinando ${bestCombination.map(d => d.description).join(' + ')}, você economiza ${combinedDiscountPercentage.toFixed(0)}% (R$ ${(baseTotal - combinedPrice).toFixed(2)}). Valor final: R$ ${combinedPrice.toFixed(2)}`
+        } : null,
+        message: discountOpportunities.length > 0 ?
+          `Encontrei ${discountOpportunities.length} oportunidade(s) de desconto para você!` :
+          'Não há descontos disponíveis para esta reserva no momento.'
+      },
+      tenantId
+    };
+
+  } catch (error) {
+    logger.error('❌ [GET-DYNAMIC-DISCOUNT] Erro ao calcular descontos', {
+      tenantId,
+      propertyName: args.propertyName,
+      error: error instanceof Error ? error.message : 'Unknown error'
+    });
+
+    return {
+      success: false,
+      error: 'Erro ao calcular opções de desconto',
+      tenantId
+    };
+  }
+}
