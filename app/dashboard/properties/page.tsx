@@ -58,8 +58,10 @@ import {
   LocalOffer,
 } from '@mui/icons-material';
 import type { Property } from '@/lib/types/property';
+import type { TenantDiscountSettings } from '@/lib/types/tenant-settings';
+import { DEFAULT_TENANT_DISCOUNT_SETTINGS } from '@/lib/types/tenant-settings';
 import PropertyImportWizard from '@/components/organisms/PropertyImportWizard/PropertyImportWizard';
-import PropertyDiscountsManager from '@/components/dialogs/PropertyDiscountsManager';
+import TenantDiscountDialog from '@/components/dialogs/TenantDiscountDialog';
 
 // Disable static generation for this page
 export const dynamic = 'force-dynamic';
@@ -84,6 +86,7 @@ export default function PropertiesPage() {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [importDialogOpen, setImportDialogOpen] = useState(false);
   const [discountsDialogOpen, setDiscountsDialogOpen] = useState(false);
+  const [discountSettings, setDiscountSettings] = useState<TenantDiscountSettings>(DEFAULT_TENANT_DISCOUNT_SETTINGS);
   const { services, isReady, tenantId } = useTenant();
 
   // Create local SVG placeholder for property images
@@ -118,6 +121,45 @@ export default function PropertiesPage() {
   useEffect(() => {
     loadProperties();
   }, [loadProperties]);
+
+  // Load discount settings
+  const loadDiscountSettings = useCallback(async () => {
+    try {
+      const response = await fetch('/api/tenant/discount-settings');
+      if (response.ok) {
+        const data = await response.json();
+        if (data.success) {
+          setDiscountSettings(data.data);
+        }
+      }
+    } catch (error) {
+      console.error('Error loading discount settings:', error);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadDiscountSettings();
+  }, [loadDiscountSettings]);
+
+  // Save discount settings
+  const handleSaveDiscountSettings = async (settings: TenantDiscountSettings) => {
+    const response = await fetch('/api/tenant/discount-settings', {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(settings)
+    });
+
+    if (!response.ok) {
+      throw new Error('Erro ao salvar configurações de desconto');
+    }
+
+    const data = await response.json();
+    if (data.success) {
+      setDiscountSettings(data.data);
+    }
+  };
 
   useEffect(() => {
     let filtered = properties;
@@ -662,12 +704,12 @@ export default function PropertiesPage() {
         onSuccess={handleImportSuccess}
       />
 
-      {/* Property Discounts Manager */}
-      <PropertyDiscountsManager
+      {/* Tenant Discount Settings Dialog */}
+      <TenantDiscountDialog
         open={discountsDialogOpen}
         onClose={() => setDiscountsDialogOpen(false)}
-        properties={properties}
-        onRefresh={loadProperties}
+        onSave={handleSaveDiscountSettings}
+        currentSettings={discountSettings}
       />
 
       {/* Floating Action Button */}

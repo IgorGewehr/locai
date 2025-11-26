@@ -66,12 +66,49 @@ export interface NegotiationSettings {
 }
 
 /**
+ * Configurações de desconto global do tenant
+ * Aplicadas a todas as propriedades
+ */
+export interface TenantDiscountSettings {
+  // Descontos por método de pagamento
+  pixDiscountPercentage: number // 0-100 (0 = desabilitado)
+  cashDiscountPercentage: number // 0-100 (0 = desabilitado)
+  cardDiscountPercentage: number // 0-100 (0 = desabilitado)
+
+  // Desconto por estadia prolongada (7+ dias)
+  weeklyStayDiscountPercentage: number // 0-100 (0 = desabilitado)
+
+  // Desconto para negociação (margem que a IA pode usar)
+  negotiationDiscountPercentage: number // 0-100 (0 = desabilitado)
+
+  // Desconto para datas de última hora (check-in próximo)
+  lastMinuteDiscountPercentage: number // 0-100 (0 = desabilitado)
+  lastMinuteDaysThreshold: number // Quantos dias antes do check-in (ex: 3 = desconto para check-ins em até 3 dias)
+}
+
+/**
+ * Valores padrão para configurações de desconto do tenant
+ */
+export const DEFAULT_TENANT_DISCOUNT_SETTINGS: TenantDiscountSettings = {
+  pixDiscountPercentage: 0,
+  cashDiscountPercentage: 0,
+  cardDiscountPercentage: 0,
+  weeklyStayDiscountPercentage: 0,
+  negotiationDiscountPercentage: 0,
+  lastMinuteDiscountPercentage: 0,
+  lastMinuteDaysThreshold: 3
+};
+
+/**
  * Configurações gerais do tenant
  * Armazenadas em: tenants/{tenantId}/settings/general
  */
 export interface TenantSettings {
   // Negociação IA
   negotiation: NegotiationSettings
+
+  // Descontos globais (aplicados a todas as propriedades)
+  discounts?: TenantDiscountSettings
 
   // Metadados
   updatedAt: Date

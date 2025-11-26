@@ -9004,17 +9004,18 @@ export async function getDynamicDiscount(args: GetDynamicDiscountArgs, tenantId:
       return priceResult;
     }
 
-    // 2. Buscar propriedade para pegar configurações de desconto
-    const property = await findPropertyByName(args.propertyName, tenantId);
-    if (!property) {
-      return {
-        success: false,
-        error: `Propriedade "${args.propertyName}" não encontrada`,
-        tenantId
-      };
+    // 2. Buscar configurações de desconto do tenant (não da propriedade)
+    const { db } = await import('@/lib/firebase/config');
+    const { doc, getDoc } = await import('firebase/firestore');
+
+    const settingsRef = doc(db, 'tenants', tenantId, 'settings', 'discounts');
+    const settingsSnap = await getDoc(settingsRef);
+
+    let discountSettings: any = null;
+    if (settingsSnap.exists()) {
+      discountSettings = settingsSnap.data();
     }
 
-    const discountSettings = property.discountSettings;
     const baseTotal = priceResult.pricing.totalPrice;
     const nights = priceResult.pricing.nights;
 
@@ -9023,7 +9024,7 @@ export async function getDynamicDiscount(args: GetDynamicDiscountArgs, tenantId:
 
     // Se não tem configurações de desconto, retornar só o preço base
     if (!discountSettings) {
-      logger.info('📊 [GET-DYNAMIC-DISCOUNT] Propriedade sem configurações de desconto', {
+      logger.info('📊 [GET-DYNAMIC-DISCOUNT] Tenant sem configurações de desconto', {
         tenantId: tenantId.substring(0, 8) + '***',
         propertyName: args.propertyName
       });
@@ -9035,7 +9036,7 @@ export async function getDynamicDiscount(args: GetDynamicDiscountArgs, tenantId:
         dates: priceResult.dates,
         discountOpportunities: {
           available: [],
-          message: 'Esta propriedade não possui descontos disponíveis no momento.'
+          message: 'Não há descontos disponíveis no momento.'
         },
         tenantId
       };
