@@ -913,7 +913,15 @@ export async function calculatePrice(args: CalculatePriceArgs, tenantId: string)
         finalPrice: dayPrice.finalPrice,
         reason: dayPrice.reason
       });
-      
+
+      logger.info(`📅 [PRICE-CALC] Dia ${i + 1}/${nights}`, {
+        date: currentDate.toISOString().split('T')[0],
+        basePrice: property.basePrice,
+        finalPrice: dayPrice.finalPrice,
+        multiplier: dayPrice.multiplier,
+        reason: dayPrice.reason
+      });
+
       subtotal += dayPrice.finalPrice;
       
       // Registrar sobretaxas para breakdown
@@ -941,7 +949,17 @@ export async function calculatePrice(args: CalculatePriceArgs, tenantId: string)
       propertyName: args.propertyName,
       foundProperty: property.title,
       nights,
-      totalPrice
+      guests,
+      capacity,
+      basePrice: property.basePrice,
+      pricePerExtraGuest: property.pricePerExtraGuest,
+      breakdown: {
+        subtotal,
+        extraGuestFee,
+        cleaningFee,
+        serviceFee,
+        totalPrice
+      }
     });
 
     // Verificar mínimo de noites
