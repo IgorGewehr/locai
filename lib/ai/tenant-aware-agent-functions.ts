@@ -941,8 +941,7 @@ export async function calculatePrice(args: CalculatePriceArgs, tenantId: string)
     }
     
     const cleaningFee = property.cleaningFee || 0;
-    const serviceFee = Math.round((subtotal + extraGuestFee) * 0.1); // 10% sobre subtotal + hóspedes extras
-    const totalPrice = subtotal + extraGuestFee + cleaningFee + serviceFee;
+    const totalPrice = subtotal + extraGuestFee + cleaningFee;
 
     logger.info('✅ [TenantAgent] calculate_price concluída', {
       tenantId,
@@ -957,7 +956,6 @@ export async function calculatePrice(args: CalculatePriceArgs, tenantId: string)
         subtotal,
         extraGuestFee,
         cleaningFee,
-        serviceFee,
         totalPrice
       }
     });
@@ -982,7 +980,6 @@ export async function calculatePrice(args: CalculatePriceArgs, tenantId: string)
         subtotal,
         extraGuestFee,
         cleaningFee,
-        serviceFee,
         totalPrice,
         guests,
         capacity,
