@@ -28,6 +28,8 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
+  Tabs,
+  Tab,
 } from '@mui/material';
 import {
   Search,
@@ -291,6 +293,19 @@ export default function ConversationsPage() {
 
   // Using safeFormatTimestamp from date-helpers
 
+  // Calculate filtered stats based on current channel
+  const filteredStats = useMemo(() => {
+    const relevantConversations = filters.channel === 'all'
+      ? conversations
+      : conversations.filter(c => (c.channel || 'whatsapp') === filters.channel);
+
+    return {
+      active: relevantConversations.filter(c => c.status === 'active').length,
+      completed: relevantConversations.filter(c => c.status === 'completed').length,
+      total: relevantConversations.length,
+    };
+  }, [conversations, filters.channel]);
+
   // Get status color
   const getStatusColor = (status: ConversationStatus) => {
     switch (status) {
@@ -338,6 +353,54 @@ export default function ConversationsPage() {
       default:
         return <WhatsApp fontSize="small" color="success" />;
     }
+  };
+
+  // Get channel badge (visual badge with color)
+  const getChannelBadge = (channel?: string) => {
+    const channelType = channel || 'whatsapp';
+    const configs = {
+      whatsapp: {
+        label: 'WhatsApp',
+        icon: <WhatsApp sx={{ fontSize: 12 }} />,
+        color: '#25D366',
+        bgcolor: alpha('#25D366', 0.1),
+      },
+      facebook: {
+        label: 'Facebook',
+        icon: <Facebook sx={{ fontSize: 12 }} />,
+        color: '#1877F2',
+        bgcolor: alpha('#1877F2', 0.1),
+      },
+      instagram: {
+        label: 'Instagram',
+        icon: <Instagram sx={{ fontSize: 12 }} />,
+        color: '#E4405F',
+        bgcolor: alpha('#E4405F', 0.1),
+      },
+    };
+
+    const config = configs[channelType as keyof typeof configs] || configs.whatsapp;
+
+    return (
+      <Chip
+        icon={config.icon}
+        label={config.label}
+        size="small"
+        sx={{
+          height: 20,
+          fontSize: '0.65rem',
+          fontWeight: 600,
+          bgcolor: config.bgcolor,
+          color: config.color,
+          border: `1px solid ${alpha(config.color, 0.3)}`,
+          '& .MuiChip-label': { px: 0.75 },
+          '& .MuiChip-icon': {
+            ml: 0.5,
+            color: config.color,
+          },
+        }}
+      />
+    );
   };
 
   // Get status label
@@ -442,46 +505,370 @@ export default function ConversationsPage() {
   }
 
   return (
-    <Box sx={{ height: 'calc(100vh - 80px)', p: 3 }}>
-      <Grid container spacing={0} sx={{ height: '100%' }}>
-        {/* LEFT PANEL - Conversations List */}
+    <Box sx={{ height: { xs: 'calc(100vh - 64px)', md: 'calc(100vh - 80px)' }, p: { xs: 0, md: 3 } }}>
+      <Grid container spacing={{ xs: 0, md: 2 }} sx={{ height: '100%' }}>
+        {/* LEFT SIDEBAR - Channel Selector */}
+        <Grid
+          item
+          xs={12}
+          md={1.5}
+          lg={1.2}
+          sx={{
+            height: '100%',
+            display: { xs: 'none', md: 'block' },
+          }}
+        >
+          <Stack spacing={2} sx={{ height: '100%' }}>
+            {/* Header - Aligned with middle panel */}
+            <Box sx={{ minHeight: 48, display: 'flex', alignItems: 'center' }}>
+              <Typography variant="caption" color="text.secondary" fontWeight={700} sx={{ px: 1, letterSpacing: 1 }}>
+                CANAIS
+              </Typography>
+            </Box>
+
+            {/* Channel Selector - Compact Icon-Only Style */}
+            <Stack spacing={1}>
+              {/* All Channels */}
+              <Paper
+                onClick={() => setFilters({ ...filters, channel: 'all' })}
+                elevation={filters.channel === 'all' ? 3 : 0}
+                sx={{
+                  p: 1.25,
+                  cursor: 'pointer',
+                  borderLeft: 3,
+                  borderColor: filters.channel === 'all' ? theme.palette.primary.main : 'transparent',
+                  bgcolor: filters.channel === 'all'
+                    ? alpha(theme.palette.primary.main, 0.12)
+                    : 'background.paper',
+                  transition: 'all 0.2s ease',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  gap: 0.5,
+                  '&:hover': {
+                    bgcolor: filters.channel === 'all'
+                      ? alpha(theme.palette.primary.main, 0.16)
+                      : alpha(theme.palette.action.hover, 0.8),
+                    borderColor: filters.channel === 'all'
+                      ? theme.palette.primary.main
+                      : alpha(theme.palette.primary.main, 0.4),
+                    transform: 'scale(1.05)',
+                  },
+                }}
+                title="Todas as conversas"
+              >
+                <Chat
+                  sx={{
+                    fontSize: 24,
+                    color: filters.channel === 'all' ? theme.palette.primary.main : 'text.secondary',
+                  }}
+                />
+                <Typography
+                  variant="caption"
+                  fontWeight={filters.channel === 'all' ? 700 : 600}
+                  color={filters.channel === 'all' ? 'primary.main' : 'text.secondary'}
+                  sx={{ fontSize: '0.7rem' }}
+                >
+                  {stats.total}
+                </Typography>
+              </Paper>
+
+              {/* WhatsApp */}
+              <Paper
+                onClick={() => setFilters({ ...filters, channel: 'whatsapp' })}
+                elevation={filters.channel === 'whatsapp' ? 3 : 0}
+                sx={{
+                  p: 1.25,
+                  cursor: 'pointer',
+                  borderLeft: 3,
+                  borderColor: filters.channel === 'whatsapp' ? '#25D366' : 'transparent',
+                  bgcolor: filters.channel === 'whatsapp'
+                    ? alpha('#25D366', 0.12)
+                    : 'background.paper',
+                  transition: 'all 0.2s ease',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  gap: 0.5,
+                  '&:hover': {
+                    bgcolor: filters.channel === 'whatsapp'
+                      ? alpha('#25D366', 0.16)
+                      : alpha(theme.palette.action.hover, 0.8),
+                    borderColor: filters.channel === 'whatsapp'
+                      ? '#25D366'
+                      : alpha('#25D366', 0.4),
+                    transform: 'scale(1.05)',
+                  },
+                }}
+                title="WhatsApp"
+              >
+                <WhatsApp
+                  sx={{
+                    fontSize: 24,
+                    color: filters.channel === 'whatsapp' ? '#25D366' : 'text.secondary',
+                  }}
+                />
+                <Typography
+                  variant="caption"
+                  fontWeight={filters.channel === 'whatsapp' ? 700 : 600}
+                  color={filters.channel === 'whatsapp' ? '#25D366' : 'text.secondary'}
+                  sx={{ fontSize: '0.7rem' }}
+                >
+                  {stats.whatsapp}
+                </Typography>
+              </Paper>
+
+              {/* Facebook */}
+              <Paper
+                onClick={() => setFilters({ ...filters, channel: 'facebook' })}
+                elevation={filters.channel === 'facebook' ? 3 : 0}
+                sx={{
+                  p: 1.25,
+                  cursor: 'pointer',
+                  borderLeft: 3,
+                  borderColor: filters.channel === 'facebook' ? '#1877F2' : 'transparent',
+                  bgcolor: filters.channel === 'facebook'
+                    ? alpha('#1877F2', 0.12)
+                    : 'background.paper',
+                  transition: 'all 0.2s ease',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  gap: 0.5,
+                  '&:hover': {
+                    bgcolor: filters.channel === 'facebook'
+                      ? alpha('#1877F2', 0.16)
+                      : alpha(theme.palette.action.hover, 0.8),
+                    borderColor: filters.channel === 'facebook'
+                      ? '#1877F2'
+                      : alpha('#1877F2', 0.4),
+                    transform: 'scale(1.05)',
+                  },
+                }}
+                title="Facebook Messenger"
+              >
+                <Facebook
+                  sx={{
+                    fontSize: 24,
+                    color: filters.channel === 'facebook' ? '#1877F2' : 'text.secondary',
+                  }}
+                />
+                <Typography
+                  variant="caption"
+                  fontWeight={filters.channel === 'facebook' ? 700 : 600}
+                  color={filters.channel === 'facebook' ? '#1877F2' : 'text.secondary'}
+                  sx={{ fontSize: '0.7rem' }}
+                >
+                  {stats.facebook}
+                </Typography>
+              </Paper>
+
+              {/* Instagram */}
+              <Paper
+                onClick={() => setFilters({ ...filters, channel: 'instagram' })}
+                elevation={filters.channel === 'instagram' ? 3 : 0}
+                sx={{
+                  p: 1.25,
+                  cursor: 'pointer',
+                  borderLeft: 3,
+                  borderColor: filters.channel === 'instagram' ? '#E4405F' : 'transparent',
+                  bgcolor: filters.channel === 'instagram'
+                    ? alpha('#E4405F', 0.12)
+                    : 'background.paper',
+                  transition: 'all 0.2s ease',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'center',
+                  gap: 0.5,
+                  '&:hover': {
+                    bgcolor: filters.channel === 'instagram'
+                      ? alpha('#E4405F', 0.16)
+                      : alpha(theme.palette.action.hover, 0.8),
+                    borderColor: filters.channel === 'instagram'
+                      ? '#E4405F'
+                      : alpha('#E4405F', 0.4),
+                    transform: 'scale(1.05)',
+                  },
+                }}
+                title="Instagram Direct"
+              >
+                <Instagram
+                  sx={{
+                    fontSize: 24,
+                    color: filters.channel === 'instagram' ? '#E4405F' : 'text.secondary',
+                  }}
+                />
+                <Typography
+                  variant="caption"
+                  fontWeight={filters.channel === 'instagram' ? 700 : 600}
+                  color={filters.channel === 'instagram' ? '#E4405F' : 'text.secondary'}
+                  sx={{ fontSize: '0.7rem' }}
+                >
+                  {stats.instagram}
+                </Typography>
+              </Paper>
+            </Stack>
+          </Stack>
+        </Grid>
+
+        {/* MIDDLE PANEL - Conversations List */}
         <Grid
           item
           xs={12}
           md={4}
-          lg={3.5}
+          lg={3.3}
           sx={{
             height: '100%',
-            borderRight: `1px solid ${theme.palette.divider}`,
+            borderRight: { md: `1px solid ${theme.palette.divider}` },
             pr: { md: 2 },
+            display: { xs: selectedConversation ? 'none' : 'block', md: 'block' },
           }}
         >
           <Stack spacing={2} sx={{ height: '100%' }}>
-            {/* Header */}
-            <Box>
-              <Box display="flex" alignItems="center" justifyContent="space-between" mb={2}>
-                <Typography variant="h5" fontWeight={700}>
+            {/* Mobile Channel Tabs */}
+            <Box sx={{ display: { xs: 'block', md: 'none' }, bgcolor: 'background.paper', borderBottom: 1, borderColor: 'divider' }}>
+              <Tabs
+                value={filters.channel}
+                onChange={(e, newValue) => setFilters({ ...filters, channel: newValue })}
+                variant="scrollable"
+                scrollButtons="auto"
+                sx={{
+                  '& .MuiTab-root': {
+                    minHeight: 56,
+                    textTransform: 'none',
+                    fontWeight: 600,
+                  }
+                }}
+              >
+                <Tab
+                  value="all"
+                  icon={<Chat />}
+                  label={`Todas (${stats.total})`}
+                  iconPosition="start"
+                />
+                <Tab
+                  value="whatsapp"
+                  icon={<WhatsApp />}
+                  label={`WhatsApp (${stats.whatsapp})`}
+                  iconPosition="start"
+                  sx={{ color: filters.channel === 'whatsapp' ? '#25D366' : undefined }}
+                />
+                <Tab
+                  value="facebook"
+                  icon={<Facebook />}
+                  label={`Facebook (${stats.facebook})`}
+                  iconPosition="start"
+                  sx={{ color: filters.channel === 'facebook' ? '#1877F2' : undefined }}
+                />
+                <Tab
+                  value="instagram"
+                  icon={<Instagram />}
+                  label={`Instagram (${stats.instagram})`}
+                  iconPosition="start"
+                  sx={{ color: filters.channel === 'instagram' ? '#E4405F' : undefined }}
+                />
+              </Tabs>
+            </Box>
+
+            {/* Header - Aligned height */}
+            <Box sx={{ px: { xs: 2, md: 0 }, pt: { xs: 2, md: 0 } }}>
+              <Box display="flex" alignItems="center" justifyContent="space-between" sx={{ minHeight: 48 }}>
+                <Typography variant="h5" fontWeight={700} sx={{ fontSize: { xs: '1.25rem', md: '1.5rem' } }}>
                   Conversas
                 </Typography>
-                <IconButton onClick={refresh} disabled={loading}>
+                <IconButton onClick={refresh} disabled={loading} size="small">
                   <Refresh />
                 </IconButton>
               </Box>
 
+              {/* Active Filters Info */}
+              {(filters.channel !== 'all' || filters.status !== 'all') && (
+                <Box sx={{ mb: 2, display: 'flex', gap: 1, flexWrap: 'wrap', alignItems: 'center' }}>
+                  <Typography variant="caption" color="text.secondary" fontWeight={600}>
+                    Filtros ativos:
+                  </Typography>
+                  {filters.channel !== 'all' && (
+                    <Chip
+                      size="small"
+                      icon={
+                        filters.channel === 'whatsapp' ? <WhatsApp sx={{ fontSize: 14 }} /> :
+                        filters.channel === 'facebook' ? <Facebook sx={{ fontSize: 14 }} /> :
+                        <Instagram sx={{ fontSize: 14 }} />
+                      }
+                      label={
+                        filters.channel === 'whatsapp' ? 'WhatsApp' :
+                        filters.channel === 'facebook' ? 'Facebook' :
+                        'Instagram'
+                      }
+                      onDelete={() => setFilters({ ...filters, channel: 'all' })}
+                      sx={{
+                        height: 24,
+                        bgcolor:
+                          filters.channel === 'whatsapp' ? alpha('#25D366', 0.1) :
+                          filters.channel === 'facebook' ? alpha('#1877F2', 0.1) :
+                          alpha('#E4405F', 0.1),
+                        color:
+                          filters.channel === 'whatsapp' ? '#25D366' :
+                          filters.channel === 'facebook' ? '#1877F2' :
+                          '#E4405F',
+                        '& .MuiChip-icon': {
+                          color:
+                            filters.channel === 'whatsapp' ? '#25D366' :
+                            filters.channel === 'facebook' ? '#1877F2' :
+                            '#E4405F',
+                        },
+                      }}
+                    />
+                  )}
+                  {filters.status !== 'all' && (
+                    <Chip
+                      size="small"
+                      icon={getStatusIcon(filters.status)}
+                      label={getStatusLabel(filters.status)}
+                      onDelete={() => setFilters({ ...filters, status: 'all' })}
+                      sx={{
+                        height: 24,
+                        bgcolor: alpha(getStatusColor(filters.status), 0.1),
+                        color: getStatusColor(filters.status),
+                        '& .MuiChip-icon': {
+                          color: getStatusColor(filters.status),
+                        },
+                      }}
+                    />
+                  )}
+                  {(filters.channel !== 'all' || filters.status !== 'all') && (
+                    <Button
+                      size="small"
+                      variant="text"
+                      onClick={() => setFilters({ ...filters, channel: 'all', status: 'all' })}
+                      sx={{
+                        height: 24,
+                        minWidth: 'auto',
+                        px: 1,
+                        fontSize: '0.7rem',
+                        textTransform: 'none',
+                      }}
+                    >
+                      Limpar filtros
+                    </Button>
+                  )}
+                </Box>
+              )}
+
               {/* Stats Cards */}
-              <Grid container spacing={1} mb={2}>
+              <Grid container spacing={1} mb={2} sx={{ px: { xs: 0, md: 0 } }}>
                 <Grid item xs={4}>
                   <Paper
                     sx={{
-                      p: 1.5,
+                      p: { xs: 1, md: 1.5 },
                       textAlign: 'center',
                       bgcolor: alpha(theme.palette.success.main, 0.1),
                     }}
                   >
-                    <Typography variant="h6" fontWeight={700} color="success.main">
-                      {stats.active}
+                    <Typography variant="h6" fontWeight={700} color="success.main" sx={{ fontSize: { xs: '1rem', md: '1.25rem' } }}>
+                      {filteredStats.active}
                     </Typography>
-                    <Typography variant="caption" color="text.secondary">
+                    <Typography variant="caption" color="text.secondary" sx={{ fontSize: { xs: '0.65rem', md: '0.75rem' } }}>
                       Ativas
                     </Typography>
                   </Paper>
@@ -489,15 +876,15 @@ export default function ConversationsPage() {
                 <Grid item xs={4}>
                   <Paper
                     sx={{
-                      p: 1.5,
+                      p: { xs: 1, md: 1.5 },
                       textAlign: 'center',
                       bgcolor: alpha(theme.palette.info.main, 0.1),
                     }}
                   >
-                    <Typography variant="h6" fontWeight={700} color="info.main">
-                      {stats.completed}
+                    <Typography variant="h6" fontWeight={700} color="info.main" sx={{ fontSize: { xs: '1rem', md: '1.25rem' } }}>
+                      {filteredStats.completed}
                     </Typography>
-                    <Typography variant="caption" color="text.secondary">
+                    <Typography variant="caption" color="text.secondary" sx={{ fontSize: { xs: '0.65rem', md: '0.75rem' } }}>
                       Concluídas
                     </Typography>
                   </Paper>
@@ -505,15 +892,15 @@ export default function ConversationsPage() {
                 <Grid item xs={4}>
                   <Paper
                     sx={{
-                      p: 1.5,
+                      p: { xs: 1, md: 1.5 },
                       textAlign: 'center',
                       bgcolor: alpha(theme.palette.grey[500], 0.1),
                     }}
                   >
-                    <Typography variant="h6" fontWeight={700}>
-                      {stats.total}
+                    <Typography variant="h6" fontWeight={700} sx={{ fontSize: { xs: '1rem', md: '1.25rem' } }}>
+                      {filteredStats.total}
                     </Typography>
-                    <Typography variant="caption" color="text.secondary">
+                    <Typography variant="caption" color="text.secondary" sx={{ fontSize: { xs: '0.65rem', md: '0.75rem' } }}>
                       Total
                     </Typography>
                   </Paper>
@@ -589,6 +976,7 @@ export default function ConversationsPage() {
                 flex: 1,
                 overflowY: 'auto',
                 overflowX: 'hidden',
+                px: { xs: 2, md: 0 },
               }}
             >
               {loading && conversations.length === 0 ? (
@@ -681,9 +1069,6 @@ export default function ConversationsPage() {
                                 >
                                   {conversation.clientName || conversation.clientPhone}
                                 </Typography>
-                                <Box title={conversation.channel || 'whatsapp'}>
-                                  {getChannelIcon(conversation.channel)}
-                                </Box>
                                 {!editedConversations.has(conversation.id) && (
                                   <IconButton
                                     size="small"
@@ -724,7 +1109,8 @@ export default function ConversationsPage() {
                             >
                               {conversation.lastMessage}
                             </Typography>
-                            <Box display="flex" gap={0.5} mt={1} alignItems="center">
+                            <Box display="flex" gap={0.5} mt={1} alignItems="center" flexWrap="wrap">
+                              {getChannelBadge(conversation.channel)}
                               <Chip
                                 label={getStatusLabel(conversation.status)}
                                 size="small"
@@ -754,8 +1140,13 @@ export default function ConversationsPage() {
         </Grid>
 
         {/* RIGHT PANEL - Messages Thread */}
-        <Grid item xs={12} md={8} lg={8.5} sx={{ height: '100%', pl: { md: 2 } }}>
-          {!selectedConversation ? (
+        <Grid item xs={12} md={6.5} lg={7.5} sx={{
+          height: '100%',
+          pl: { md: 2 },
+          display: { xs: !selectedConversation ? 'none' : 'block', md: 'block' },
+        }}>
+          <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
+            {!selectedConversation ? (
             <Box
               display="flex"
               flexDirection="column"
@@ -766,6 +1157,7 @@ export default function ConversationsPage() {
                 border: `1px dashed ${theme.palette.divider}`,
                 borderRadius: 2,
                 bgcolor: alpha(theme.palette.background.default, 0.3),
+                display: { xs: 'none', md: 'flex' },
               }}
             >
               <Chat sx={{ fontSize: 64, color: 'text.disabled', mb: 2 }} />
@@ -783,19 +1175,31 @@ export default function ConversationsPage() {
                 height: '100%',
                 display: 'flex',
                 flexDirection: 'column',
-                border: `1px solid ${theme.palette.divider}`,
+                border: { xs: 'none', md: `1px solid ${theme.palette.divider}` },
+                borderRadius: { xs: 0, md: 1 },
               }}
             >
-              {/* Chat Header */}
+              {/* Chat Header - Aligned height */}
               <Box
                 sx={{
+                  minHeight: { xs: 64, md: 88 },
                   p: 2,
                   borderBottom: `1px solid ${theme.palette.divider}`,
                   bgcolor: alpha(theme.palette.background.default, 0.5),
+                  display: 'flex',
+                  alignItems: 'center',
                 }}
               >
-                <Box display="flex" justifyContent="space-between" alignItems="center">
-                  <Box display="flex" gap={2} alignItems="center">
+                <Box display="flex" justifyContent="space-between" alignItems="center" width="100%">
+                  <Box display="flex" gap={{ xs: 1, md: 2 }} alignItems="center">
+                    {/* Mobile Back Button */}
+                    <IconButton
+                      onClick={clearSelection}
+                      sx={{ display: { xs: 'flex', md: 'none' }, mr: 0.5 }}
+                      size="small"
+                    >
+                      <Chat />
+                    </IconButton>
                     <Avatar
                       sx={{
                         bgcolor: alpha(theme.palette.primary.main, 0.1),
@@ -1152,6 +1556,7 @@ export default function ConversationsPage() {
               )}
             </Card>
           )}
+          </Box>
         </Grid>
       </Grid>
 

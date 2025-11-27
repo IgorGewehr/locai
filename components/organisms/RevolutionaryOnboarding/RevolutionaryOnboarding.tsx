@@ -206,7 +206,7 @@ export default function RevolutionaryOnboarding({
           background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.1) 0%, rgba(139, 92, 246, 0.1) 100%)',
           backdropFilter: 'blur(20px)',
           border: '1px solid rgba(99, 102, 241, 0.2)',
-          borderRadius: '20px',
+          borderRadius: { xs: '16px', md: '20px' },
           position: 'relative',
           overflow: 'hidden',
           '&::before': {
@@ -215,57 +215,66 @@ export default function RevolutionaryOnboarding({
             top: 0,
             left: 0,
             right: 0,
-            height: '4px',
+            height: { xs: '3px', md: '4px' },
             background: 'linear-gradient(90deg, #6366f1, #8b5cf6, #d946ef)',
           },
         }}
       >
-        <CardContent sx={{ p: { xs: 3, md: 4 } }}>
-          <Stack spacing={2}>
+        <CardContent sx={{ p: { xs: 2, sm: 2.5, md: 4 } }}>
+          <Stack spacing={{ xs: 1.5, md: 2 }}>
             {/* Header */}
-            <Stack direction="row" alignItems="center" justifyContent="space-between">
-              <Stack direction="row" alignItems="center" spacing={2}>
+            <Stack direction="row" alignItems="center" justifyContent="space-between" spacing={1}>
+              <Stack direction="row" alignItems="center" spacing={{ xs: 1.5, md: 2 }} flex={1} minWidth={0}>
                 <Box
                   sx={{
-                    width: 48,
-                    height: 48,
-                    borderRadius: '12px',
+                    width: { xs: 40, md: 48 },
+                    height: { xs: 40, md: 48 },
+                    borderRadius: { xs: '10px', md: '12px' },
                     background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
                     boxShadow: '0 8px 20px rgba(99, 102, 241, 0.3)',
+                    flexShrink: 0,
                   }}
                 >
-                  <Rocket sx={{ color: 'white', fontSize: 24 }} />
+                  <Rocket sx={{ color: 'white', fontSize: { xs: 20, md: 24 } }} />
                 </Box>
-                <Box>
+                <Box flex={1} minWidth={0}>
                   <Typography
                     variant="h6"
                     sx={{
                       color: 'white',
                       fontWeight: 700,
-                      fontSize: { xs: '1.125rem', md: '1.25rem' },
+                      fontSize: { xs: '0.9375rem', sm: '1rem', md: '1.25rem' },
+                      lineHeight: 1.2,
                     }}
                   >
-                    Primeiros Passos
+                    {isMobile ? 'Início Rápido' : 'Primeiros Passos'}
                   </Typography>
-                  <Typography variant="body2" sx={{ color: 'rgba(255, 255, 255, 0.7)' }}>
-                    {state.completedSteps.length} de {steps.length} concluídos
+                  <Typography
+                    variant="body2"
+                    sx={{
+                      color: 'rgba(255, 255, 255, 0.7)',
+                      fontSize: { xs: '0.75rem', md: '0.875rem' },
+                    }}
+                  >
+                    {state.completedSteps.length}/{steps.length} {isMobile ? '' : 'concluídos'}
                   </Typography>
                 </Box>
               </Stack>
 
-              <Stack direction="row" spacing={1}>
+              <Stack direction="row" spacing={{ xs: 0.5, md: 1 }} flexShrink={0}>
                 <IconButton
                   size="small"
                   onClick={handleToggleExpand}
                   sx={{
                     color: 'rgba(255, 255, 255, 0.8)',
                     '&:hover': { backgroundColor: 'rgba(255, 255, 255, 0.1)' },
+                    p: { xs: 0.5, md: 1 },
                   }}
                 >
-                  <ExpandMore />
+                  <ExpandMore sx={{ fontSize: { xs: 20, md: 24 } }} />
                 </IconButton>
                 <IconButton
                   size="small"
@@ -273,9 +282,10 @@ export default function RevolutionaryOnboarding({
                   sx={{
                     color: 'rgba(255, 255, 255, 0.6)',
                     '&:hover': { backgroundColor: 'rgba(255, 255, 255, 0.1)' },
+                    p: { xs: 0.5, md: 1 },
                   }}
                 >
-                  <Close />
+                  <Close sx={{ fontSize: { xs: 20, md: 24 } }} />
                 </IconButton>
               </Stack>
             </Stack>
@@ -286,18 +296,23 @@ export default function RevolutionaryOnboarding({
                 variant="determinate"
                 value={completionPercentage}
                 sx={{
-                  height: 8,
-                  borderRadius: 4,
+                  height: { xs: 6, md: 8 },
+                  borderRadius: { xs: 3, md: 4 },
                   backgroundColor: 'rgba(255, 255, 255, 0.1)',
                   '& .MuiLinearProgress-bar': {
                     background: 'linear-gradient(90deg, #10b981, #059669)',
-                    borderRadius: 4,
+                    borderRadius: { xs: 3, md: 4 },
                   },
                 }}
               />
               <Typography
                 variant="caption"
-                sx={{ color: 'rgba(255, 255, 255, 0.7)', mt: 0.5, display: 'block' }}
+                sx={{
+                  color: 'rgba(255, 255, 255, 0.7)',
+                  mt: 0.5,
+                  display: 'block',
+                  fontSize: { xs: '0.7rem', md: '0.75rem' },
+                }}
               >
                 {completionPercentage}% concluído
               </Typography>
@@ -305,12 +320,17 @@ export default function RevolutionaryOnboarding({
 
             {/* Current Step Preview */}
             {currentStep && !isFullyCompleted && (
-              <Stack spacing={1}>
+              <Stack spacing={{ xs: 0.75, md: 1 }}>
                 <Typography
                   variant="body2"
-                  sx={{ color: 'rgba(255, 255, 255, 0.8)', fontWeight: 600 }}
+                  sx={{
+                    color: 'rgba(255, 255, 255, 0.8)',
+                    fontWeight: 600,
+                    fontSize: { xs: '0.8125rem', md: '0.875rem' },
+                    lineHeight: 1.3,
+                  }}
                 >
-                  Próximo passo: {currentStep.title}
+                  {isMobile ? currentStep.title : `Próximo passo: ${currentStep.title}`}
                 </Typography>
                 <Button
                   fullWidth
@@ -321,6 +341,8 @@ export default function RevolutionaryOnboarding({
                     background: 'linear-gradient(135deg, #10b981, #059669)',
                     boxShadow: '0 4px 16px rgba(16, 185, 129, 0.3)',
                     fontWeight: 600,
+                    py: { xs: 1, md: 1.25 },
+                    fontSize: { xs: '0.875rem', md: '1rem' },
                     '&:hover': {
                       background: 'linear-gradient(135deg, #059669, #047857)',
                       transform: 'translateY(-2px)',
@@ -339,17 +361,25 @@ export default function RevolutionaryOnboarding({
               <Stack
                 direction="row"
                 alignItems="center"
-                spacing={1}
+                spacing={{ xs: 1, md: 1.5 }}
                 sx={{
-                  p: 2,
-                  borderRadius: '12px',
+                  p: { xs: 1.5, md: 2 },
+                  borderRadius: { xs: '10px', md: '12px' },
                   background: 'rgba(16, 185, 129, 0.15)',
                   border: '1px solid rgba(16, 185, 129, 0.3)',
                 }}
               >
-                <Celebration sx={{ color: '#10b981' }} />
-                <Typography variant="body2" sx={{ color: '#6ee7b7', fontWeight: 600 }}>
-                  Parabéns! Você completou a configuração inicial
+                <Celebration sx={{ color: '#10b981', fontSize: { xs: 20, md: 24 }, flexShrink: 0 }} />
+                <Typography
+                  variant="body2"
+                  sx={{
+                    color: '#6ee7b7',
+                    fontWeight: 600,
+                    fontSize: { xs: '0.8125rem', md: '0.875rem' },
+                    lineHeight: 1.3,
+                  }}
+                >
+                  {isMobile ? 'Configuração completa!' : 'Parabéns! Você completou a configuração inicial'}
                 </Typography>
               </Stack>
             )}
@@ -369,7 +399,7 @@ export default function RevolutionaryOnboarding({
           background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.1) 0%, rgba(139, 92, 246, 0.1) 100%)',
           backdropFilter: 'blur(20px)',
           border: '1px solid rgba(99, 102, 241, 0.2)',
-          borderRadius: '20px',
+          borderRadius: { xs: '16px', md: '20px' },
           position: 'relative',
           overflow: 'hidden',
           '&::before': {
@@ -378,68 +408,85 @@ export default function RevolutionaryOnboarding({
             top: 0,
             left: 0,
             right: 0,
-            height: '4px',
+            height: { xs: '3px', md: '4px' },
             background: 'linear-gradient(90deg, #6366f1, #8b5cf6, #d946ef)',
           },
         }}
       >
-        <CardContent sx={{ p: { xs: 3, md: 4 } }}>
-          <Stack spacing={3}>
+        <CardContent sx={{ p: { xs: 2, sm: 2.5, md: 4 } }}>
+          <Stack spacing={{ xs: 2, md: 3 }}>
             {/* Header */}
-            <Stack direction="row" alignItems="flex-start" justifyContent="space-between">
-              <Stack direction="row" alignItems="center" spacing={2}>
+            <Stack
+              direction={{ xs: 'column', sm: 'row' }}
+              alignItems={{ xs: 'flex-start', sm: 'flex-start' }}
+              justifyContent="space-between"
+              spacing={{ xs: 1.5, sm: 2 }}
+            >
+              <Stack direction="row" alignItems="center" spacing={{ xs: 1.5, md: 2 }} flex={1}>
                 <Box
                   sx={{
-                    width: { xs: 56, md: 64 },
-                    height: { xs: 56, md: 64 },
-                    borderRadius: '16px',
+                    width: { xs: 48, sm: 56, md: 64 },
+                    height: { xs: 48, sm: 56, md: 64 },
+                    borderRadius: { xs: '12px', md: '16px' },
                     background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
                     boxShadow: '0 8px 24px rgba(99, 102, 241, 0.4)',
+                    flexShrink: 0,
                   }}
                 >
-                  <Rocket sx={{ color: 'white', fontSize: { xs: 28, md: 32 } }} />
+                  <Rocket sx={{ color: 'white', fontSize: { xs: 24, sm: 28, md: 32 } }} />
                 </Box>
-                <Box>
+                <Box flex={1} minWidth={0}>
                   <Typography
                     variant="h5"
                     sx={{
                       color: 'white',
                       fontWeight: 700,
-                      fontSize: { xs: '1.375rem', md: '1.5rem' },
+                      fontSize: { xs: '1.125rem', sm: '1.25rem', md: '1.5rem' },
                       mb: 0.5,
+                      lineHeight: 1.2,
                     }}
                   >
-                    Configure em 2 Passos Simples
+                    {isMobile ? 'Configure Rápido' : 'Configure em 2 Passos Simples'}
                   </Typography>
-                  <Typography variant="body2" sx={{ color: 'rgba(255, 255, 255, 0.7)' }}>
-                    Propriedade → Conectar WhatsApp
+                  <Typography
+                    variant="body2"
+                    sx={{
+                      color: 'rgba(255, 255, 255, 0.7)',
+                      fontSize: { xs: '0.75rem', md: '0.875rem' },
+                    }}
+                  >
+                    {isMobile ? 'Propriedade + WhatsApp' : 'Propriedade → Conectar WhatsApp'}
                   </Typography>
                 </Box>
               </Stack>
 
-              <Stack direction="row" spacing={1}>
-                <IconButton
-                  size="small"
-                  onClick={toggleFullscreen}
-                  sx={{
-                    color: 'rgba(255, 255, 255, 0.8)',
-                    '&:hover': { backgroundColor: 'rgba(255, 255, 255, 0.1)' },
-                  }}
-                >
-                  {isFullscreen ? <FullscreenExit /> : <Fullscreen />}
-                </IconButton>
+              <Stack direction="row" spacing={{ xs: 0.5, md: 1 }} flexShrink={0} alignSelf={{ xs: 'flex-end', sm: 'flex-start' }}>
+                {!isMobile && (
+                  <IconButton
+                    size="small"
+                    onClick={toggleFullscreen}
+                    sx={{
+                      color: 'rgba(255, 255, 255, 0.8)',
+                      '&:hover': { backgroundColor: 'rgba(255, 255, 255, 0.1)' },
+                      p: { xs: 0.5, md: 1 },
+                    }}
+                  >
+                    {isFullscreen ? <FullscreenExit /> : <Fullscreen />}
+                  </IconButton>
+                )}
                 <IconButton
                   size="small"
                   onClick={handleToggleExpand}
                   sx={{
                     color: 'rgba(255, 255, 255, 0.8)',
                     '&:hover': { backgroundColor: 'rgba(255, 255, 255, 0.1)' },
+                    p: { xs: 0.5, md: 1 },
                   }}
                 >
-                  <ExpandLess />
+                  <ExpandLess sx={{ fontSize: { xs: 20, md: 24 } }} />
                 </IconButton>
                 <IconButton
                   size="small"
@@ -447,9 +494,10 @@ export default function RevolutionaryOnboarding({
                   sx={{
                     color: 'rgba(255, 255, 255, 0.6)',
                     '&:hover': { backgroundColor: 'rgba(255, 255, 255, 0.1)' },
+                    p: { xs: 0.5, md: 1 },
                   }}
                 >
-                  <Close />
+                  <Close sx={{ fontSize: { xs: 20, md: 24 } }} />
                 </IconButton>
               </Stack>
             </Stack>
@@ -460,39 +508,49 @@ export default function RevolutionaryOnboarding({
                 direction="row"
                 alignItems="center"
                 justifyContent="space-between"
-                sx={{ mb: 1 }}
+                sx={{ mb: { xs: 0.75, md: 1 } }}
+                spacing={1}
               >
                 <Chip
-                  label={`${state.completedSteps.length} de ${steps.length} etapas concluídas`}
+                  label={`${state.completedSteps.length}/${steps.length}${isMobile ? '' : ' etapas concluídas'}`}
                   size="small"
                   sx={{
                     backgroundColor: 'rgba(16, 185, 129, 0.15)',
                     color: '#6ee7b7',
                     border: '1px solid rgba(16, 185, 129, 0.3)',
                     fontWeight: 600,
+                    fontSize: { xs: '0.7rem', md: '0.75rem' },
+                    height: { xs: 22, md: 24 },
                   }}
                 />
-                <Typography variant="body2" sx={{ color: 'rgba(255, 255, 255, 0.7)' }}>
-                  {completionPercentage}% concluído
+                <Typography
+                  variant="body2"
+                  sx={{
+                    color: 'rgba(255, 255, 255, 0.7)',
+                    fontSize: { xs: '0.75rem', md: '0.875rem' },
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  {completionPercentage}%
                 </Typography>
               </Stack>
               <LinearProgress
                 variant="determinate"
                 value={completionPercentage}
                 sx={{
-                  height: 8,
-                  borderRadius: 4,
+                  height: { xs: 6, md: 8 },
+                  borderRadius: { xs: 3, md: 4 },
                   backgroundColor: 'rgba(255, 255, 255, 0.1)',
                   '& .MuiLinearProgress-bar': {
                     background: 'linear-gradient(90deg, #10b981, #059669)',
-                    borderRadius: 4,
+                    borderRadius: { xs: 3, md: 4 },
                   },
                 }}
               />
             </Box>
 
             {/* Steps List */}
-            <Stack spacing={2}>
+            <Stack spacing={{ xs: 1.5, md: 2 }}>
               <AnimatePresence mode="popLayout">
                 {steps.map((step) => (
                   <OnboardingStepCard
@@ -522,16 +580,16 @@ export default function RevolutionaryOnboarding({
                     background:
                       'linear-gradient(135deg, rgba(16, 185, 129, 0.2), rgba(5, 150, 105, 0.15))',
                     border: '2px solid rgba(16, 185, 129, 0.4)',
-                    borderRadius: '16px',
+                    borderRadius: { xs: '12px', md: '16px' },
                     textAlign: 'center',
                   }}
                 >
-                  <CardContent sx={{ p: { xs: 3, md: 4 } }}>
+                  <CardContent sx={{ p: { xs: 2.5, md: 4 } }}>
                     <Celebration
                       sx={{
-                        fontSize: 64,
+                        fontSize: { xs: 48, md: 64 },
                         color: '#10b981',
-                        mb: 2,
+                        mb: { xs: 1.5, md: 2 },
                       }}
                     />
                     <Typography
@@ -539,24 +597,38 @@ export default function RevolutionaryOnboarding({
                       sx={{
                         color: 'white',
                         fontWeight: 700,
-                        mb: 1,
-                        fontSize: { xs: '1.25rem', md: '1.5rem' },
+                        mb: { xs: 0.75, md: 1 },
+                        fontSize: { xs: '1.125rem', sm: '1.25rem', md: '1.5rem' },
+                        lineHeight: 1.2,
                       }}
                     >
-                      🎉 Parabéns! Configuração Concluída
+                      {isMobile ? '🎉 Pronto!' : '🎉 Parabéns! Configuração Concluída'}
                     </Typography>
-                    <Typography variant="body1" sx={{ color: 'rgba(255, 255, 255, 0.8)', mb: 3 }}>
-                      Sua plataforma Locai está pronta para automatizar seu negócio imobiliário!
+                    <Typography
+                      variant="body1"
+                      sx={{
+                        color: 'rgba(255, 255, 255, 0.8)',
+                        mb: { xs: 2, md: 3 },
+                        fontSize: { xs: '0.875rem', md: '1rem' },
+                        lineHeight: 1.4,
+                      }}
+                    >
+                      {isMobile
+                        ? 'Tudo pronto para automatizar seu negócio!'
+                        : 'Sua plataforma Locai está pronta para automatizar seu negócio imobiliário!'}
                     </Typography>
                     <Button
                       variant="contained"
-                      size="large"
+                      size={isMobile ? 'medium' : 'large'}
                       onClick={dismissOnboarding}
+                      fullWidth={isMobile}
                       sx={{
                         background: 'linear-gradient(135deg, #10b981, #059669)',
                         boxShadow: '0 4px 16px rgba(16, 185, 129, 0.3)',
-                        px: 4,
+                        px: { xs: 3, md: 4 },
+                        py: { xs: 1.25, md: 1.5 },
                         fontWeight: 600,
+                        fontSize: { xs: '0.875rem', md: '1rem' },
                         '&:hover': {
                           background: 'linear-gradient(135deg, #059669, #047857)',
                           transform: 'translateY(-2px)',
@@ -598,8 +670,8 @@ export default function RevolutionaryOnboarding({
           },
         }}
       >
-        <DialogContent sx={{ p: { xs: 2, md: 4 } }}>
-          <Box sx={{ maxWidth: '1200px', mx: 'auto' }}>{renderExpandedView()}</Box>
+        <DialogContent sx={{ p: { xs: 1.5, sm: 2, md: 4 }, overflowY: 'auto' }}>
+          <Box sx={{ maxWidth: '1200px', mx: 'auto', width: '100%' }}>{renderExpandedView()}</Box>
         </DialogContent>
       </Dialog>
     );

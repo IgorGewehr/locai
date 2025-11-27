@@ -67,20 +67,23 @@ function DashboardHeader({ onMenuClick }: { onMenuClick?: () => void }) {
   };
 
   return (
-    <Box 
+    <Box
       sx={{
         background: 'rgba(15, 23, 42, 0.95)',
         backdropFilter: 'blur(20px)',
         borderBottom: '1px solid rgba(255, 255, 255, 0.1)',
-        px: 3,
-        py: 2,
+        px: { xs: 1.5, sm: 2, md: 3 },
+        py: { xs: 1.5, md: 2 },
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',
-        gap: 2,
+        gap: { xs: 1, sm: 2 },
         position: 'sticky',
         top: 0,
         zIndex: theme.zIndex.appBar,
+        minHeight: { xs: 56, md: 64 },
+        maxWidth: '100vw',
+        overflow: 'hidden',
       }}
     >
       {/* Menu Button */}
@@ -89,52 +92,80 @@ function DashboardHeader({ onMenuClick }: { onMenuClick?: () => void }) {
         sx={{
           color: 'rgba(255, 255, 255, 0.8)',
           '&:hover': { backgroundColor: 'rgba(255, 255, 255, 0.1)' },
+          p: { xs: 1, md: 1 },
         }}
       >
         <MenuIcon />
       </IconButton>
 
       {/* Right Side Actions */}
-      <Box sx={{ 
-        display: 'flex', 
-        alignItems: 'center', 
-        gap: 2,
+      <Box sx={{
+        display: 'flex',
+        alignItems: 'center',
+        gap: { xs: 0.5, sm: 1, md: 2 },
+        flex: 1,
+        justifyContent: 'flex-end',
+        minWidth: 0,
       }}>
-        {/* WhatsApp Status */}
+        {/* WhatsApp Status - Hidden on mobile, icon only on small screens */}
       <Tooltip title={getWhatsAppStatusText()}>
-        <Button
-          onClick={() => router.push('/dashboard/settings')}
-          startIcon={<WhatsApp sx={{ fontSize: 18 }} />}
-          endIcon={
-            <Circle 
-              sx={{ 
-                fontSize: 6, 
-                color: getWhatsAppStatusColor(),
-                filter: 'drop-shadow(0 0 4px currentColor)',
-              }} 
-            />
-          }
-          sx={{
-            color: whatsappStatus.status === 'connected' ? '#22c55e' : 'rgba(255, 255, 255, 0.8)',
-            backgroundColor: whatsappStatus.status === 'connected' 
-              ? 'rgba(34, 197, 94, 0.1)' 
-              : 'rgba(255, 255, 255, 0.05)',
-            borderRadius: 2,
-            px: 2,
-            py: 1,
-            fontSize: '0.875rem',
-            fontWeight: 500,
-            textTransform: 'none',
-            transition: 'all 0.2s',
-            '&:hover': {
+        <span>
+          <IconButton
+            onClick={() => router.push('/dashboard/settings')}
+            sx={{
+              display: { xs: 'flex', md: 'none' },
+              color: whatsappStatus.status === 'connected' ? '#22c55e' : 'rgba(255, 255, 255, 0.8)',
               backgroundColor: whatsappStatus.status === 'connected'
-                ? 'rgba(34, 197, 94, 0.15)'
-                : 'rgba(255, 255, 255, 0.1)',
-            },
-          }}
-        >
-          WhatsApp
-        </Button>
+                ? 'rgba(34, 197, 94, 0.1)'
+                : 'rgba(255, 255, 255, 0.05)',
+              '&:hover': {
+                backgroundColor: whatsappStatus.status === 'connected'
+                  ? 'rgba(34, 197, 94, 0.15)'
+                  : 'rgba(255, 255, 255, 0.1)',
+              },
+            }}
+          >
+            <WhatsApp sx={{ fontSize: 20 }} />
+          </IconButton>
+        </span>
+      </Tooltip>
+      <Tooltip title={getWhatsAppStatusText()}>
+        <span>
+          <Button
+            onClick={() => router.push('/dashboard/settings')}
+            startIcon={<WhatsApp sx={{ fontSize: 18 }} />}
+            endIcon={
+              <Circle
+                sx={{
+                  fontSize: 6,
+                  color: getWhatsAppStatusColor(),
+                  filter: 'drop-shadow(0 0 4px currentColor)',
+                }}
+              />
+            }
+            sx={{
+              display: { xs: 'none', md: 'flex' },
+              color: whatsappStatus.status === 'connected' ? '#22c55e' : 'rgba(255, 255, 255, 0.8)',
+              backgroundColor: whatsappStatus.status === 'connected'
+                ? 'rgba(34, 197, 94, 0.1)'
+                : 'rgba(255, 255, 255, 0.05)',
+              borderRadius: 2,
+              px: 2,
+              py: 1,
+              fontSize: '0.875rem',
+              fontWeight: 500,
+              textTransform: 'none',
+              transition: 'all 0.2s',
+              '&:hover': {
+                backgroundColor: whatsappStatus.status === 'connected'
+                  ? 'rgba(34, 197, 94, 0.15)'
+                  : 'rgba(255, 255, 255, 0.1)',
+              },
+            }}
+          >
+            WhatsApp
+          </Button>
+        </span>
       </Tooltip>
 
       {/* Notifications Bell */}
@@ -144,34 +175,60 @@ function DashboardHeader({ onMenuClick }: { onMenuClick?: () => void }) {
         showCount={true}
       />
 
-      {/* Admin Panel - Only for users with idog == true */}
+      {/* Admin Panel - Only for users with idog == true - Hidden on mobile */}
       {user?.idog === true && (
         <Tooltip title="Painel Administrativo">
-          <IconButton 
-            onClick={handleAdmin} 
-            sx={{ 
-              color: '#ef4444',
-              '&:hover': { 
-                backgroundColor: 'rgba(239, 68, 68, 0.1)',
-                color: '#f87171'
-              }
-            }}
-          >
-            <AdminPanelSettings />
-          </IconButton>
+          <span>
+            <IconButton
+              onClick={handleAdmin}
+              sx={{
+                display: { xs: 'none', sm: 'flex' },
+                color: '#ef4444',
+                '&:hover': {
+                  backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                  color: '#f87171'
+                }
+              }}
+            >
+              <AdminPanelSettings />
+            </IconButton>
+          </span>
         </Tooltip>
       )}
 
-      <Divider 
-        orientation="vertical" 
-        flexItem 
-        sx={{ 
-          borderColor: 'rgba(255, 255, 255, 0.2)', 
+      <Divider
+        orientation="vertical"
+        flexItem
+        sx={{
+          display: { xs: 'none', sm: 'block' },
+          borderColor: 'rgba(255, 255, 255, 0.2)',
           height: 32,
-        }} 
+        }}
       />
 
-      {/* Profile */}
+      {/* Profile - Mobile: Only Avatar, Desktop: Avatar + Name + Email */}
+      <IconButton
+        onClick={handleProfileMenuOpen}
+        sx={{
+          display: { xs: 'flex', md: 'none' },
+          color: 'white',
+          p: 0.5,
+        }}
+      >
+        <Avatar
+          sx={{
+            width: 32,
+            height: 32,
+            bgcolor: 'rgba(6, 182, 212, 0.2)',
+            color: '#06b6d4',
+            border: '2px solid rgba(6, 182, 212, 0.3)',
+            fontSize: '0.875rem',
+          }}
+        >
+          {user?.displayName?.charAt(0) || user?.email?.charAt(0) || 'U'}
+        </Avatar>
+      </IconButton>
+
       <Button
         onClick={handleProfileMenuOpen}
         startIcon={
@@ -190,6 +247,7 @@ function DashboardHeader({ onMenuClick }: { onMenuClick?: () => void }) {
         }
         endIcon={<ExpandMore sx={{ fontSize: 18 }} />}
         sx={{
+          display: { xs: 'none', md: 'flex' },
           color: 'white',
           textTransform: 'none',
           '&:hover': { backgroundColor: 'rgba(255, 255, 255, 0.05)' },
@@ -197,10 +255,10 @@ function DashboardHeader({ onMenuClick }: { onMenuClick?: () => void }) {
         }}
       >
         <Box sx={{ textAlign: 'left', ml: 1, maxWidth: 160, overflow: 'hidden' }}>
-          <Typography 
-            variant="body2" 
-            sx={{ 
-              fontWeight: 600, 
+          <Typography
+            variant="body2"
+            sx={{
+              fontWeight: 600,
               lineHeight: 1,
               textOverflow: 'ellipsis',
               whiteSpace: 'nowrap',
@@ -210,9 +268,9 @@ function DashboardHeader({ onMenuClick }: { onMenuClick?: () => void }) {
           >
             {user?.displayName || user?.email || 'Usuário'}
           </Typography>
-          <Typography 
-            variant="caption" 
-            sx={{ 
+          <Typography
+            variant="caption"
+            sx={{
               color: 'rgba(255, 255, 255, 0.6)',
               textOverflow: 'ellipsis',
               whiteSpace: 'nowrap',

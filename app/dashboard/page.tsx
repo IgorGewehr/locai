@@ -24,7 +24,9 @@ import {
     TrendingUp,
     TrendingDown,
     Refresh,
-    WhatsApp, Settings,
+    WhatsApp,
+    Settings,
+    SmartToy,
 } from '@mui/icons-material';
 import WhatsAppStatusIndicator from '@/components/molecules/whatsapp/WhatsAppStatusIndicator';
 import type { DashboardStats } from '@/lib/types';
@@ -475,7 +477,83 @@ export default function DashboardPage() {
       {/* Clean Grid Layout - Optimized Architecture */}
       <Grid container spacing={{ xs: 2.5, md: 3 }}>
         {/* Main Statistics Row - 4 Key Metrics */}
-        <Grid item xs={12} sm={6} lg={3}>
+        {/* Mobile: Horizontal Carousel */}
+        <Grid item xs={12} sx={{ display: { xs: 'block', lg: 'none' } }}>
+          <Box
+            sx={{
+              display: 'flex',
+              gap: 2,
+              overflowX: 'auto',
+              pb: 2,
+              scrollSnapType: 'x mandatory',
+              '&::-webkit-scrollbar': {
+                height: 6,
+              },
+              '&::-webkit-scrollbar-track': {
+                bgcolor: 'rgba(255, 255, 255, 0.05)',
+                borderRadius: 3,
+              },
+              '&::-webkit-scrollbar-thumb': {
+                bgcolor: 'rgba(99, 102, 241, 0.5)',
+                borderRadius: 3,
+                '&:hover': {
+                  bgcolor: 'rgba(99, 102, 241, 0.7)',
+                },
+              },
+            }}
+          >
+            <Box sx={{ minWidth: { xs: '85vw', sm: '45%' }, scrollSnapAlign: 'start' }}>
+              <StatCard
+                key={`properties-${stats.activeProperties}-${loading}`}
+                title="Propriedades Ativas"
+                value={stats.activeProperties}
+                subtitle={`${stats.totalProperties} total`}
+                icon={<Home sx={{ fontSize: { xs: 28, md: 32 } }} />}
+                color="primary"
+                trend={{ value: trends.propertiesTrend, isPositive: trends.propertiesTrend >= 0 }}
+              />
+            </Box>
+
+            <Box sx={{ minWidth: { xs: '85vw', sm: '45%' }, scrollSnapAlign: 'start' }}>
+              <StatCard
+                key={`reservations-${stats.pendingReservations}-${loading}`}
+                title="Reservas Pendentes"
+                value={stats.pendingReservations}
+                subtitle={`${stats.totalReservations} total`}
+                icon={<CalendarMonth sx={{ fontSize: { xs: 28, md: 32 } }} />}
+                color="secondary"
+                trend={{ value: trends.reservationsTrend, isPositive: trends.reservationsTrend >= 0 }}
+              />
+            </Box>
+
+            <Box sx={{ minWidth: { xs: '85vw', sm: '45%' }, scrollSnapAlign: 'start' }}>
+              <StatCard
+                key={`revenue-${stats.monthlyRevenue}-${loading}`}
+                title="Receita Mensal"
+                value={`R$ ${(isNaN(stats.monthlyRevenue) ? 0 : stats.monthlyRevenue / 1000).toFixed(1)}k`}
+                subtitle={`R$ ${(isNaN(stats.totalRevenue) ? 0 : stats.totalRevenue / 1000).toFixed(0)}k total`}
+                icon={<AttachMoney sx={{ fontSize: { xs: 28, md: 32 } }} />}
+                color="success"
+                trend={{ value: trends.revenueTrend, isPositive: trends.revenueTrend >= 0 }}
+              />
+            </Box>
+
+            <Box sx={{ minWidth: { xs: '85vw', sm: '45%' }, scrollSnapAlign: 'start' }}>
+              <StatCard
+                key={`occupancy-${stats.occupancyRate}-${loading}`}
+                title="Taxa de Ocupação"
+                value={`${(isNaN(stats.occupancyRate) ? 0 : stats.occupancyRate).toFixed(1)}%`}
+                subtitle={`${stats.activeProperties} propriedades ativas`}
+                icon={<People sx={{ fontSize: { xs: 28, md: 32 } }} />}
+                color="warning"
+                trend={{ value: trends.occupancyTrend, isPositive: trends.occupancyTrend >= 0 }}
+              />
+            </Box>
+          </Box>
+        </Grid>
+
+        {/* Desktop: Grid Layout */}
+        <Grid item xs={12} sm={6} lg={3} sx={{ display: { xs: 'none', lg: 'block' } }}>
           <StatCard
             key={`properties-${stats.activeProperties}-${loading}`}
             title="Propriedades Ativas"
@@ -487,7 +565,7 @@ export default function DashboardPage() {
           />
         </Grid>
 
-        <Grid item xs={12} sm={6} lg={3}>
+        <Grid item xs={12} sm={6} lg={3} sx={{ display: { xs: 'none', lg: 'block' } }}>
           <StatCard
             key={`reservations-${stats.pendingReservations}-${loading}`}
             title="Reservas Pendentes"
@@ -499,7 +577,7 @@ export default function DashboardPage() {
           />
         </Grid>
 
-        <Grid item xs={12} sm={6} lg={3}>
+        <Grid item xs={12} sm={6} lg={3} sx={{ display: { xs: 'none', lg: 'block' } }}>
           <StatCard
             key={`revenue-${stats.monthlyRevenue}-${loading}`}
             title="Receita Mensal"
@@ -511,7 +589,7 @@ export default function DashboardPage() {
           />
         </Grid>
 
-        <Grid item xs={12} sm={6} lg={3}>
+        <Grid item xs={12} sm={6} lg={3} sx={{ display: { xs: 'none', lg: 'block' } }}>
           <StatCard
             key={`occupancy-${stats.occupancyRate}-${loading}`}
             title="Taxa de Ocupação"
@@ -523,17 +601,183 @@ export default function DashboardPage() {
           />
         </Grid>
 
-        {/* Detailed Cards Row - Focus on Core Operations */}
-        <Grid item xs={12} md={6}>
-          <Suspense fallback={<CardSkeleton />}>
-            <ConversationsMetricsCard />
-          </Suspense>
-        </Grid>
+        {/* Sofia Stats - Mobile: Modern Banking Style Layout, Desktop: Card */}
+        <Grid item xs={12}>
+          {/* Mobile View - Distributed Info Style */}
+          <Box sx={{ display: { xs: 'block', md: 'none' } }}>
+            {/* Sofia Title Banner */}
+            <Box
+              sx={{
+                background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)',
+                borderRadius: '20px',
+                p: 2.5,
+                mb: 2,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                boxShadow: '0 8px 32px rgba(99, 102, 241, 0.4)',
+              }}
+            >
+              <Box>
+                <Typography variant="h6" fontWeight={700} color="white" sx={{ mb: 0.5 }}>
+                  Sofia AI Assistant
+                </Typography>
+                <Typography variant="caption" sx={{ color: 'rgba(255, 255, 255, 0.9)' }}>
+                  Atendimento Inteligente 24/7
+                </Typography>
+              </Box>
+              <Box
+                sx={{
+                  width: 48,
+                  height: 48,
+                  borderRadius: '12px',
+                  bgcolor: 'rgba(255, 255, 255, 0.2)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                }}
+              >
+                <SmartToy sx={{ fontSize: 28, color: 'white' }} />
+              </Box>
+            </Box>
 
-        <Grid item xs={12} md={6}>
-          <Suspense fallback={<CardSkeleton />}>
-            <AgendaCard onCreateEvent={() => setShowVisitDialog(true)} />
-          </Suspense>
+            {/* Quick Stats - Banking Style */}
+            <Grid container spacing={1.5} sx={{ mb: 2 }}>
+              <Grid item xs={6}>
+                <Paper
+                  sx={{
+                    p: 2,
+                    background: 'rgba(255, 255, 255, 0.06)',
+                    backdropFilter: 'blur(20px)',
+                    border: '1px solid rgba(255, 255, 255, 0.1)',
+                    borderRadius: '16px',
+                  }}
+                >
+                  <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
+                    Conversas Hoje
+                  </Typography>
+                  <Typography variant="h5" fontWeight={700} color="primary.main">
+                    {whatsappStats.activeConversations}
+                  </Typography>
+                </Paper>
+              </Grid>
+
+              <Grid item xs={6}>
+                <Paper
+                  sx={{
+                    p: 2,
+                    background: 'rgba(255, 255, 255, 0.06)',
+                    backdropFilter: 'blur(20px)',
+                    border: '1px solid rgba(255, 255, 255, 0.1)',
+                    borderRadius: '16px',
+                  }}
+                >
+                  <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
+                    Mensagens
+                  </Typography>
+                  <Typography variant="h5" fontWeight={700} color="secondary.main">
+                    {whatsappStats.messagesTotal}
+                  </Typography>
+                </Paper>
+              </Grid>
+
+              <Grid item xs={12}>
+                <Paper
+                  sx={{
+                    p: 2,
+                    background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.1) 0%, rgba(5, 150, 105, 0.1) 100%)',
+                    backdropFilter: 'blur(20px)',
+                    border: '1px solid rgba(16, 185, 129, 0.2)',
+                    borderRadius: '16px',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                  }}
+                >
+                  <Box>
+                    <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
+                      Tempo Médio de Resposta
+                    </Typography>
+                    <Typography variant="h6" fontWeight={700} color="#10b981">
+                      {whatsappStats.avgResponseTime > 0
+                        ? `${whatsappStats.avgResponseTime.toFixed(1)}s`
+                        : '<1s'}
+                    </Typography>
+                  </Box>
+                  <Chip
+                    label="Rápido"
+                    size="small"
+                    sx={{
+                      bgcolor: 'rgba(16, 185, 129, 0.2)',
+                      color: '#10b981',
+                      fontWeight: 600,
+                    }}
+                  />
+                </Paper>
+              </Grid>
+            </Grid>
+
+            {/* Action Buttons */}
+            <Grid container spacing={1.5}>
+              <Grid item xs={6}>
+                <Button
+                  fullWidth
+                  variant="outlined"
+                  onClick={() => router.push('/dashboard/conversas')}
+                  sx={{
+                    borderRadius: '16px',
+                    py: 1.5,
+                    borderColor: 'rgba(99, 102, 241, 0.3)',
+                    color: '#6366f1',
+                    fontWeight: 600,
+                    '&:hover': {
+                      borderColor: '#6366f1',
+                      bgcolor: 'rgba(99, 102, 241, 0.1)',
+                    },
+                  }}
+                >
+                  Conversas
+                </Button>
+              </Grid>
+              <Grid item xs={6}>
+                <Button
+                  fullWidth
+                  variant="outlined"
+                  onClick={() => router.push('/dashboard/agenda')}
+                  sx={{
+                    borderRadius: '16px',
+                    py: 1.5,
+                    borderColor: 'rgba(139, 92, 246, 0.3)',
+                    color: '#8b5cf6',
+                    fontWeight: 600,
+                    '&:hover': {
+                      borderColor: '#8b5cf6',
+                      bgcolor: 'rgba(139, 92, 246, 0.1)',
+                    },
+                  }}
+                >
+                  Agenda
+                </Button>
+              </Grid>
+            </Grid>
+          </Box>
+
+          {/* Desktop View - Original Card */}
+          <Box sx={{ display: { xs: 'none', md: 'block' } }}>
+            <Grid container spacing={3}>
+              <Grid item xs={12} md={6}>
+                <Suspense fallback={<CardSkeleton />}>
+                  <ConversationsMetricsCard />
+                </Suspense>
+              </Grid>
+
+              <Grid item xs={12} md={6}>
+                <Suspense fallback={<CardSkeleton />}>
+                  <AgendaCard onCreateEvent={() => setShowVisitDialog(true)} />
+                </Suspense>
+              </Grid>
+            </Grid>
+          </Box>
         </Grid>
 
         {/* Heatmap de Atividade */}

@@ -285,24 +285,42 @@ export default function SettingsLayout({ children }: { children: ReactNode }) {
 
   return (
     <Box sx={{ display: 'flex', minHeight: '100vh', bgcolor: 'background.default' }}>
-      {/* Mobile Menu Button */}
+      {/* Mobile Menu Button - Fixed at bottom for better thumb reach */}
       {isMobile && (
-        <IconButton
-          onClick={handleDrawerToggle}
+        <Box
           sx={{
             position: 'fixed',
-            top: 16,
-            left: 16,
+            bottom: 0,
+            left: 0,
+            right: 0,
             zIndex: theme.zIndex.drawer + 2,
-            bgcolor: 'background.paper',
-            boxShadow: 2,
-            '&:hover': {
-              bgcolor: 'background.paper',
-            },
+            display: { xs: 'flex', md: 'none' },
+            bgcolor: 'rgba(15, 23, 42, 0.95)',
+            backdropFilter: 'blur(20px)',
+            borderTop: '1px solid rgba(255, 255, 255, 0.1)',
+            p: 2,
+            gap: 1,
           }}
         >
-          <MenuIcon />
-        </IconButton>
+          <Button
+            fullWidth
+            variant="contained"
+            startIcon={<MenuIcon />}
+            onClick={handleDrawerToggle}
+            sx={{
+              bgcolor: 'primary.main',
+              color: 'white',
+              borderRadius: 2,
+              py: 1.5,
+              fontWeight: 600,
+              '&:hover': {
+                bgcolor: 'primary.dark',
+              },
+            }}
+          >
+            Menu de Configurações
+          </Button>
+        </Box>
       )}
 
       {/* Sidebar Drawer */}
@@ -364,14 +382,14 @@ export default function SettingsLayout({ children }: { children: ReactNode }) {
         <Paper
           elevation={0}
           sx={{
-            p: { xs: 2, md: 3 },
+            p: { xs: 1.5, md: 3 },
             borderBottom: 1,
             borderColor: 'divider',
             bgcolor: 'background.paper',
           }}
         >
           <Box>
-            <Breadcrumbs separator="›" sx={{ mb: 0.5 }}>
+            <Breadcrumbs separator="›" sx={{ mb: 0.5, fontSize: { xs: '0.875rem', md: '1rem' } }}>
               <Link
                 href="/dashboard"
                 underline="hover"
@@ -381,6 +399,7 @@ export default function SettingsLayout({ children }: { children: ReactNode }) {
                   alignItems: 'center',
                   gap: 0.5,
                   cursor: 'pointer',
+                  fontSize: { xs: '0.875rem', md: '1rem' },
                 }}
                 onClick={(e) => {
                   e.preventDefault();
@@ -388,16 +407,40 @@ export default function SettingsLayout({ children }: { children: ReactNode }) {
                 }}
               >
                 <DashboardIcon fontSize="small" />
-                Dashboard
+                <Box sx={{ display: { xs: 'none', sm: 'inline' } }}>Dashboard</Box>
               </Link>
-              <Typography color="primary" fontWeight={600}>
+              <Typography
+                color="primary"
+                fontWeight={600}
+                sx={{ fontSize: { xs: '0.875rem', md: '1rem' } }}
+              >
                 Configurações
               </Typography>
             </Breadcrumbs>
 
-            <Typography variant="body2" color="text.secondary">
+            <Typography
+              variant="body2"
+              color="text.secondary"
+              sx={{
+                fontSize: { xs: '0.75rem', md: '0.875rem' },
+                display: { xs: 'none', sm: 'block' },
+              }}
+            >
               {SETTINGS_SECTIONS.find((s) => s.path === pathname)?.description ||
                 'Gerencie as configurações do sistema'}
+            </Typography>
+
+            {/* Mobile: Show current section title */}
+            <Typography
+              variant="h6"
+              fontWeight={600}
+              sx={{
+                display: { xs: 'block', sm: 'none' },
+                mt: 1,
+                fontSize: '1rem',
+              }}
+            >
+              {SETTINGS_SECTIONS.find((s) => s.path === pathname)?.label || 'Configurações'}
             </Typography>
           </Box>
         </Paper>
@@ -407,6 +450,7 @@ export default function SettingsLayout({ children }: { children: ReactNode }) {
           sx={{
             flexGrow: 1,
             p: { xs: 2, sm: 3, md: 4 },
+            pb: { xs: 10, md: 4 }, // Extra padding at bottom for mobile menu button
             maxWidth: '1400px',
             width: '100%',
             mx: 'auto',
