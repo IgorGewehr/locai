@@ -733,9 +733,39 @@ export async function searchProperties(args: SearchPropertiesArgs, tenantId: str
       });
     }
 
+    // ✅ PRIORIZAR PROPRIEDADES EM DESTAQUE
+    // Quando não há filtros específicos (amenities, preço, etc), mostrar em destaque primeiro
+    const hasSpecificFilters = amenitiesArray.length > 0 ||
+                               (args.maxPrice && args.maxPrice > 0) ||
+                               (args.bedrooms && args.bedrooms > 0) ||
+                               args.propertyType;
+
+    let sortedProperties = filteredProperties;
+    if (!hasSpecificFilters) {
+      // Ordenar: em destaque primeiro, depois por data de atualização
+      sortedProperties = [...filteredProperties].sort((a, b) => {
+        // Prioridade 1: isFeatured (em destaque)
+        if (a.isFeatured && !b.isFeatured) return -1;
+        if (!a.isFeatured && b.isFeatured) return 1;
+        // Prioridade 2: updatedAt mais recente
+        const dateA = a.updatedAt instanceof Date ? a.updatedAt : new Date(a.updatedAt || 0);
+        const dateB = b.updatedAt instanceof Date ? b.updatedAt : new Date(b.updatedAt || 0);
+        return dateB.getTime() - dateA.getTime();
+      });
+
+      const featuredCount = sortedProperties.filter(p => p.isFeatured).length;
+      if (featuredCount > 0) {
+        logger.info('⭐ [TenantAgent] Propriedades em destaque priorizadas', {
+          tenantId,
+          featuredCount,
+          totalCount: sortedProperties.length
+        });
+      }
+    }
+
     // Limitar resultados para não sobrecarregar
-    const limitedProperties = filteredProperties.slice(0, 5);
-    
+    const limitedProperties = sortedProperties.slice(0, 5);
+
     // Armazenar no cache para próximas buscas (TTL de 5 minutos)
     if (filteredProperties.length > 0) {
       propertyCache.set(tenantId, args, filteredProperties);
@@ -790,13 +820,16 @@ export async function searchProperties(args: SearchPropertiesArgs, tenantId: str
         cleaningFee: p.cleaningFee || 0, // ✅ Taxa de limpeza
         amenities: p.amenities?.slice(0, 5) || [],
         description: p.description?.substring(0, 200) || '',
-        images: p.photos?.slice(0, 3).map(photo => ({
-          id: photo.id,
-          url: photo.url,
-          caption: photo.caption
-        })) || [] // Property interface usa 'photos', não 'images'
+        // photos é string[] (URLs simples) - a primeira é a principal
+        images: p.photos?.slice(0, 3).map((url, index) => ({
+          url: typeof url === 'string' ? url : (url as any)?.url || '',
+          isMain: index === 0 // Primeira foto é a principal
+        })).filter(img => img.url) || [],
+        mainImage: typeof p.photos?.[0] === 'string' ? p.photos[0] : (p.photos?.[0] as any)?.url || null,
+        isFeatured: p.isFeatured || false // ⭐ Propriedade em destaque
       })),
       totalFound: filteredProperties.length,
+      featuredCount: limitedProperties.filter(p => p.isFeatured).length, // Quantas em destaque no resultado
       tenantId
     };
   } catch (error) {
