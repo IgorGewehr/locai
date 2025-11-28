@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { validateFirebaseAuth } from '@/lib/middleware/firebase-auth';
 import { db } from '@/lib/firebase/config';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
 import { logger } from '@/lib/utils/logger';
 import { z } from 'zod';
 import type { TenantDiscountSettings } from '@/lib/types/tenant-settings';
@@ -107,9 +107,9 @@ export async function PUT(request: NextRequest) {
     const settingsRef = doc(db, 'tenants', tenantId, 'settings', 'discounts');
     await setDoc(settingsRef, {
       ...discountSettings,
-      updatedAt: new Date(),
-      updatedBy: authContext.uid
-    });
+      updatedAt: serverTimestamp(),
+      updatedBy: authContext.uid || 'unknown'
+    }, { merge: true });
 
     logger.info('✅ [TENANT-DISCOUNT-PUT] Configurações salvas com sucesso', {
       tenantId: tenantId.substring(0, 8) + '***'
@@ -121,8 +121,14 @@ export async function PUT(request: NextRequest) {
     });
 
   } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    const errorStack = error instanceof Error ? error.stack : undefined;
+
     logger.error('❌ [TENANT-DISCOUNT-PUT] Erro ao salvar configurações', {
-      error: error instanceof Error ? error.message : 'Unknown error'
+      error: errorMessage,
+      stack: errorStack,
+      errorType: typeof error,
+      errorObject: error
     });
 
     return NextResponse.json(
@@ -155,9 +161,9 @@ export async function DELETE(request: NextRequest) {
     const settingsRef = doc(db, 'tenants', tenantId, 'settings', 'discounts');
     await setDoc(settingsRef, {
       ...DEFAULT_TENANT_DISCOUNT_SETTINGS,
-      updatedAt: new Date(),
-      updatedBy: authContext.uid
-    });
+      updatedAt: serverTimestamp(),
+      updatedBy: authContext.uid || 'unknown'
+    }, { merge: true });
 
     logger.info('✅ [TENANT-DISCOUNT-DELETE] Configurações resetadas', {
       tenantId: tenantId.substring(0, 8) + '***'
@@ -169,8 +175,11 @@ export async function DELETE(request: NextRequest) {
     });
 
   } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+
     logger.error('❌ [TENANT-DISCOUNT-DELETE] Erro ao remover configurações', {
-      error: error instanceof Error ? error.message : 'Unknown error'
+      error: errorMessage,
+      errorType: typeof error
     });
 
     return NextResponse.json(
