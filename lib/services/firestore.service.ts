@@ -18,7 +18,7 @@ export class FirestoreService {
         clientPhone,
         context,
         lastUpdate: serverTimestamp(),
-        updatedAt: new Date()
+        updatedAt: serverTimestamp()
       }, { merge: true });
     } catch (error) {
       console.error('❌ Error saving context:', error);
@@ -55,7 +55,7 @@ export class FirestoreService {
         await updateDoc(conversationRef, {
           context: updatedContext,
           lastUpdate: serverTimestamp(),
-          updatedAt: new Date()
+          updatedAt: serverTimestamp()
         });
       } else {
         await this.saveContext(clientPhone, { ...this.getDefaultContext(), ...updates });
@@ -91,7 +91,7 @@ export class FirestoreService {
       const newMessage = {
         user: userMessage,
         ai: aiResponse,
-        timestamp: new Date()
+        timestamp: new Date() // Mantém new Date() para array (serverTimestamp não funciona em arrays)
       };
       
       if (docSnap.exists()) {
@@ -115,7 +115,7 @@ export class FirestoreService {
           lastMessage: userMessage,
           lastResponse: aiResponse,
           lastUpdate: serverTimestamp(),
-          createdAt: new Date()
+          createdAt: serverTimestamp()
         });
       }
     } catch (error) {
@@ -153,7 +153,7 @@ export class FirestoreService {
         clientPhone,
         action,
         details,
-        timestamp: new Date(),
+        timestamp: serverTimestamp(),
         createdAt: serverTimestamp()
       });
     } catch (error) {

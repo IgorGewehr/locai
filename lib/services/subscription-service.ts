@@ -1,4 +1,4 @@
-import { doc, getDoc, setDoc, updateDoc, collection, query, where, getDocs, addDoc, Timestamp } from 'firebase/firestore';
+import { doc, getDoc, setDoc, updateDoc, collection, query, where, getDocs, addDoc, Timestamp, serverTimestamp } from 'firebase/firestore';
 import { db } from '@/lib/firebase/config';
 import { logger } from '@/lib/utils/logger';
 import { UserSubscription, SubscriptionEvent, KirvanoWebhookEvent, TrialStatus, SubscriptionValidation } from '@/lib/types/subscription';
@@ -444,8 +444,8 @@ export class SubscriptionService {
         lastPaymentMethod: webhookData.payment_method,
         totalPayments: subscriptionSnap.exists() ? (subscriptionSnap.data().totalPayments || 0) + 1 : 1,
 
-        createdAt: subscriptionSnap.exists() ? subscriptionSnap.data().createdAt : new Date(),
-        updatedAt: new Date()
+        createdAt: subscriptionSnap.exists() ? subscriptionSnap.data().createdAt : serverTimestamp(),
+        updatedAt: serverTimestamp()
       };
 
       await setDoc(subscriptionRef, subscriptionData, { merge: true });
@@ -518,7 +518,7 @@ export class SubscriptionService {
       await updateDoc(subscriptionRef, {
         subscriptionActive: false,
         subscriptionStatus: 'canceled',
-        updatedAt: new Date()
+        updatedAt: serverTimestamp()
       });
       
       // Atualizar usuário
@@ -548,7 +548,7 @@ export class SubscriptionService {
       await updateDoc(subscriptionRef, {
         subscriptionActive: false,
         subscriptionStatus: 'expired',
-        updatedAt: new Date()
+        updatedAt: serverTimestamp()
       });
       
       // Atualizar usuário  
@@ -584,16 +584,16 @@ export class SubscriptionService {
         lastPaymentAmount: webhookData.total_price,
         lastPaymentMethod: webhookData.payment_method,
         totalPayments: subscriptionSnap.exists() ? (subscriptionSnap.data().totalPayments || 0) + 1 : 1,
-        updatedAt: new Date()
+        updatedAt: serverTimestamp()
       });
-      
+
       // Atualizar usuário
       const userRef = doc(db, 'users', userId);
       await updateDoc(userRef, {
         subscriptionActive: true,
         lastSubscriptionUpdate: Timestamp.now()
       });
-      
+
       logger.info('✅ [Subscription] Assinatura renovada', { userId });
       
       return { success: true, message: 'Assinatura renovada com sucesso' };
@@ -614,7 +614,7 @@ export class SubscriptionService {
       await updateDoc(subscriptionRef, {
         subscriptionActive: false,
         subscriptionStatus: webhookData.event === 'SALE_REFUNDED' ? 'canceled' : 'suspended',
-        updatedAt: new Date()
+        updatedAt: serverTimestamp()
       });
       
       // Atualizar usuário

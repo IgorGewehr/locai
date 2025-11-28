@@ -216,14 +216,14 @@ export async function PUT(request: NextRequest) {
 
     // Save to Firestore (config/policies document)
     const { db } = await import('@/lib/firebase/config');
-    const { doc, setDoc } = await import('firebase/firestore');
+    const { doc, setDoc, serverTimestamp } = await import('firebase/firestore');
 
     const policiesRef = doc(db, 'tenants', tenantId, 'config', 'policies');
     await setDoc(policiesRef, {
       ...sanitizedPolicies,
-      updatedAt: new Date(),
+      updatedAt: serverTimestamp(),
       updatedBy: authContext.userId || 'system',
-    });
+    }, { merge: true });
 
     // ✅ SYNC: Also update settingsService for AI functions compatibility
     // getPolicies in tenant-aware-agent-functions reads from settingsService

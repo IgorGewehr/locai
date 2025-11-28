@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { doc, getDoc, updateDoc, collection, query, where, getDocs, setDoc } from 'firebase/firestore';
+import { doc, getDoc, updateDoc, collection, query, where, getDocs, setDoc, serverTimestamp } from 'firebase/firestore';
 import { createUserWithEmailAndPassword, signInWithEmailAndPassword } from 'firebase/auth';
 import { db, auth } from '@/lib/firebase/config';
 import { logger } from '@/lib/utils/logger';
@@ -88,12 +88,12 @@ export async function POST(request: NextRequest) {
           passwordSet: true,
           firebaseUid: authResult.user.uid,
           emailVerified: authResult.user.emailVerified,
-          lastLogin: new Date(),
-          passwordSetAt: new Date(),
-          updatedAt: new Date(),
+          lastLogin: serverTimestamp(),
+          passwordSetAt: serverTimestamp(),
+          updatedAt: serverTimestamp(),
           // Manter histórico da migração
           migratedFrom: userId,
-          migratedAt: new Date()
+          migratedAt: serverTimestamp()
         });
 
         // Atualizar assinatura se existir
@@ -106,7 +106,7 @@ export async function POST(request: NextRequest) {
           await setDoc(newSubscriptionRef, {
             ...subscriptionData,
             userId: authResult.user.uid,
-            updatedAt: new Date()
+            updatedAt: serverTimestamp()
           });
 
           logger.info('✅ [Set Password] Assinatura migrada', {

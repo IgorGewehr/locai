@@ -14,7 +14,7 @@ import { validateFirebaseAuth } from '@/lib/middleware/firebase-auth';
 import { logger } from '@/lib/utils/logger';
 import { handleApiError } from '@/lib/utils/api-errors';
 import { sanitizeUserInput } from '@/lib/utils/validation';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc, serverTimestamp } from 'firebase/firestore';
 
 // Validation schema
 const CompanyInfoSchema = z.object({
@@ -246,9 +246,9 @@ export async function PUT(request: NextRequest) {
     try {
       await setDoc(docRef, {
         ...sanitizedInfo,
-        updatedAt: new Date(),
+        updatedAt: serverTimestamp(),
         updatedBy: authContext.userId || 'system',
-      });
+      }, { merge: true });
     } catch (firestoreError) {
       logger.error(
         '[UPDATE-COMPANY-INFO] Firestore save failed',
