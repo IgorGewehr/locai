@@ -214,7 +214,7 @@ export async function PUT(request: NextRequest) {
         : undefined,
     };
 
-    // Save to Firestore
+    // Save to Firestore (config/policies document)
     const { db } = await import('@/lib/firebase/config');
     const { doc, setDoc } = await import('firebase/firestore');
 
@@ -224,6 +224,22 @@ export async function PUT(request: NextRequest) {
       updatedAt: new Date(),
       updatedBy: authContext.userId || 'system',
     });
+
+    // ✅ SYNC: Also update settingsService for AI functions compatibility
+    // getPolicies in tenant-aware-agent-functions reads from settingsService
+    try {
+      const { createSettingsService } = await import('@/lib/services/settings-service');
+      const settingsService = createSettingsService(tenantId);
+      await settingsService.updateCancellationPolicy(tenantId, sanitizedPolicies.cancellationPolicy);
+
+      logger.info('[UPDATE-POLICIES] Synced to settingsService', { requestId });
+    } catch (syncError) {
+      // Log but don't fail - config/policies is the source of truth for the UI
+      logger.warn('[UPDATE-POLICIES] Failed to sync to settingsService', {
+        requestId,
+        error: syncError instanceof Error ? syncError.message : 'Unknown error',
+      });
+    }
 
     logger.info('[UPDATE-POLICIES] Policies updated', {
       requestId,

@@ -5641,17 +5641,43 @@ export async function getPolicies(args: GetPoliciesArgs, tenantId: string) {
       policyType: args.policyType || 'all'
     });
 
-    // Buscar settings do tenant para obter política de cancelamento customizada
-    const { createSettingsService } = await import('@/lib/services/settings-service');
-    const settingsService = createSettingsService(tenantId);
-    const tenantSettings = await settingsService.getSettings(tenantId);
+    // ✅ PRIORIDADE 1: Buscar de config/policies (onde a UI salva)
+    let cancellationPolicyFromConfig: any = null;
+    try {
+      const { db } = await import('@/lib/firebase/config');
+      const { doc, getDoc } = await import('firebase/firestore');
+      const policiesRef = doc(db, 'tenants', tenantId, 'config', 'policies');
+      const policiesDoc = await getDoc(policiesRef);
 
-    // Construir política de cancelamento completa a partir do settings
+      if (policiesDoc.exists()) {
+        const data = policiesDoc.data();
+        cancellationPolicyFromConfig = data?.cancellationPolicy;
+        logger.info('📋 [GetPolicies] Política carregada de config/policies', { tenantId });
+      }
+    } catch (configError) {
+      logger.warn('📋 [GetPolicies] Erro ao buscar de config/policies, usando fallback', {
+        tenantId,
+        error: configError instanceof Error ? configError.message : 'Unknown'
+      });
+    }
+
+    // PRIORIDADE 2: Buscar de settingsService (fallback)
+    let tenantSettings: any = null;
+    if (!cancellationPolicyFromConfig) {
+      const { createSettingsService } = await import('@/lib/services/settings-service');
+      const settingsService = createSettingsService(tenantId);
+      tenantSettings = await settingsService.getSettings(tenantId);
+    }
+
+    // Usar a política de config/policies se disponível, senão usar settingsService
+    const cancellationPolicy = cancellationPolicyFromConfig || tenantSettings?.cancellationPolicy;
+
+    // Construir política de cancelamento completa
     let cancellationRules: string[] = [];
     let cancellationDetails = null;
 
-    if (tenantSettings?.cancellationPolicy && tenantSettings.cancellationPolicy.enabled) {
-      const policy = tenantSettings.cancellationPolicy;
+    if (cancellationPolicy && cancellationPolicy.enabled) {
+      const policy = cancellationPolicy;
 
       // Ordenar regras por dias (maior para menor)
       const sortedRules = [...policy.rules].sort((a, b) => b.daysBeforeCheckIn - a.daysBeforeCheckIn);
@@ -5704,7 +5730,7 @@ export async function getPolicies(args: GetPoliciesArgs, tenantId: string) {
       cancellation: {
         title: 'Política de Cancelamento',
         rules: cancellationRules,
-        enabled: tenantSettings?.cancellationPolicy?.enabled ?? true,
+        enabled: cancellationPolicy?.enabled ?? true,
         details: cancellationDetails, // Informações estruturadas completas
         summary: cancellationRules.join('\n• ')
       },
