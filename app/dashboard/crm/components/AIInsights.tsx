@@ -47,7 +47,7 @@ import { Lead } from '@/lib/types/crm';
 import { format, differenceInDays } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { useTenantServices } from '@/lib/hooks/useTenantServices';
-import { useAuth } from '@/lib/hooks/useAuth';
+import { useAuth } from '@/contexts/AuthProvider';
 
 interface AIInsightsProps {
   leads: Lead[];
@@ -75,7 +75,7 @@ interface MarketInsight {
 }
 
 export default function AIInsights({ leads, onActionClick, onRefresh }: AIInsightsProps) {
-  const { user } = useAuth();
+  const { user, getFirebaseToken } = useAuth();
   const [loading, setLoading] = useState(false);
   const [topLeads, setTopLeads] = useState<LeadInsight[]>([]);
   const [marketInsights, setMarketInsights] = useState<MarketInsight[]>([]);
@@ -98,12 +98,16 @@ export default function AIInsights({ leads, onActionClick, onRefresh }: AIInsigh
     try {
       // Real AI analysis using OpenAI and Firebase data
       const activeLeads = leads.filter(lead => lead.status !== 'won' && lead.status !== 'lost');
-      
+
+      // Get auth token
+      const token = await getFirebaseToken();
+
       // Call AI analysis API
       const response = await fetch('/api/ai/analyze-leads', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
         },
         body: JSON.stringify({ leads: activeLeads }),
       });

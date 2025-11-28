@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
+import { useAuth } from '@/contexts/AuthProvider';
 import {
   Box,
   Card,
@@ -89,6 +90,7 @@ interface CreateCampaignData {
 }
 
 export default function CampaignManager({ tenantId }: CampaignManagerProps) {
+  const { getFirebaseToken } = useAuth();
   const [campaigns, setCampaigns] = useState<BillingCampaign[]>([]);
   const [loading, setLoading] = useState(true);
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
@@ -103,14 +105,13 @@ export default function CampaignManager({ tenantId }: CampaignManagerProps) {
     testMode: false,
   });
 
-  useEffect(() => {
-    loadCampaigns();
-  }, [tenantId]);
-
-  const loadCampaigns = async () => {
+  const loadCampaigns = useCallback(async () => {
     try {
       setLoading(true);
-      const response = await fetch(`/api/billing/campaigns?tenantId=${tenantId}`);
+      const token = await getFirebaseToken();
+      const response = await fetch(`/api/billing/campaigns?tenantId=${tenantId}`, {
+        headers: token ? { 'Authorization': `Bearer ${token}` } : {},
+      });
       const data = await response.json();
       setCampaigns(data.campaigns || []);
     } catch (error) {
@@ -118,13 +119,21 @@ export default function CampaignManager({ tenantId }: CampaignManagerProps) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [tenantId, getFirebaseToken]);
+
+  useEffect(() => {
+    loadCampaigns();
+  }, [loadCampaigns]);
 
   const handleCreateCampaign = async () => {
     try {
+      const token = await getFirebaseToken();
       const response = await fetch('/api/billing/campaigns', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+        },
         body: JSON.stringify({
           ...newCampaign,
           tenantId,

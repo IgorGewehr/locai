@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { useAuth } from '@/lib/hooks/useAuth';
+import { useAuth } from '@/contexts/AuthProvider';
 import { ApiClient } from '@/lib/utils/api-client';
 import { UserProfile as ExtendedUserProfile } from '@/lib/types/user';
 import {
@@ -67,7 +67,7 @@ interface ProfileFormData {
 }
 
 export default function ProfilePage() {
-  const { user, loading } = useAuth();
+  const { user, loading, getFirebaseToken } = useAuth();
   const [editing, setEditing] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [profile, setProfile] = useState<ProfileFormData | null>(null);
@@ -77,9 +77,12 @@ export default function ProfilePage() {
   useEffect(() => {
     const loadProfile = async () => {
       if (!user) return;
-      
+
       try {
-        const response = await fetch('/api/auth/profile');
+        const token = await getFirebaseToken();
+        const response = await fetch('/api/auth/profile', {
+          headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+        });
         if (response.ok) {
           const profileData = await response.json();
           setProfile({
@@ -140,12 +143,16 @@ export default function ProfilePage() {
 
   const handleSave = useCallback(async () => {
     if (!profile) return;
-    
+
     try {
+      const token = await getFirebaseToken();
       // Save profile to backend
       const profileResponse = await fetch('/api/auth/profile', {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+        },
         body: JSON.stringify(profile)
       });
       
@@ -186,11 +193,13 @@ export default function ProfilePage() {
     if (file) {
       setUploading(true);
       try {
+        const token = await getFirebaseToken();
         const formData = new FormData();
         formData.append('file', file);
 
         const response = await fetch('/api/upload/avatar', {
           method: 'POST',
+          headers: token ? { 'Authorization': `Bearer ${token}` } : {},
           body: formData,
         });
 

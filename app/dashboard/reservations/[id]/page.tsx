@@ -1,7 +1,8 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useParams, useRouter } from 'next/navigation';
+import { useAuth } from '@/contexts/AuthProvider';
 import {
   Box,
   Card,
@@ -91,6 +92,7 @@ interface Activity {
 export default function ReservationDetailPage() {
   const params = useParams();
   const router = useRouter();
+  const { getFirebaseToken } = useAuth();
   const [reservation, setReservation] = useState<Reservation | null>(null);
   const [activities, setActivities] = useState<Activity[]>([]);
   const [loading, setLoading] = useState(true);
@@ -101,26 +103,27 @@ export default function ReservationDetailPage() {
   const [cancelReason, setCancelReason] = useState('');
   const [newStatus, setNewStatus] = useState('');
 
-  useEffect(() => {
-    loadReservationData();
-  }, [params.id]);
-
-  const loadReservationData = async () => {
+  const loadReservationData = useCallback(async () => {
     try {
       setLoading(true);
-      
+      const token = await getFirebaseToken();
+
       // Fetch reservation data from Firebase
-      const reservationData = await fetch(`/api/reservations/${params.id}`);
+      const reservationData = await fetch(`/api/reservations/${params.id}`, {
+        headers: token ? { 'Authorization': `Bearer ${token}` } : {},
+      });
       if (!reservationData.ok) {
         throw new Error('Failed to fetch reservation');
       }
-      
+
       const reservation = await reservationData.json();
-      
+
       // Fetch activities data
-      const activitiesData = await fetch(`/api/reservations/${params.id}/activities`);
+      const activitiesData = await fetch(`/api/reservations/${params.id}/activities`, {
+        headers: token ? { 'Authorization': `Bearer ${token}` } : {},
+      });
       const activities = activitiesData.ok ? await activitiesData.json() : [];
-      
+
       setReservation(reservation);
       setActivities(activities);
       setNotes(reservation.notes || '');
@@ -130,7 +133,11 @@ export default function ReservationDetailPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [params.id, getFirebaseToken]);
+
+  useEffect(() => {
+    loadReservationData();
+  }, [loadReservationData]);
 
   const handleUpdateReservation = async () => {
     try {
