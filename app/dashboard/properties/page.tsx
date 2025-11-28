@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useTenant } from '@/contexts/TenantContext';
+import { useAuth } from '@/contexts/AuthProvider';
 import {
   Box,
   Card,
@@ -88,6 +89,7 @@ export default function PropertiesPage() {
   const [discountsDialogOpen, setDiscountsDialogOpen] = useState(false);
   const [discountSettings, setDiscountSettings] = useState<TenantDiscountSettings>(DEFAULT_TENANT_DISCOUNT_SETTINGS);
   const { services, isReady, tenantId } = useTenant();
+  const { getFirebaseToken } = useAuth();
 
   // Create local SVG placeholder for property images
   const createPropertyPlaceholder = (text: string, width: number = 400, height: number = 300) => {
@@ -125,7 +127,14 @@ export default function PropertiesPage() {
   // Load discount settings
   const loadDiscountSettings = useCallback(async () => {
     try {
-      const response = await fetch('/api/tenant/discount-settings');
+      const token = await getFirebaseToken();
+      if (!token) return;
+
+      const response = await fetch('/api/tenant/discount-settings', {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
       if (response.ok) {
         const data = await response.json();
         if (data.success) {
@@ -135,7 +144,7 @@ export default function PropertiesPage() {
     } catch (error) {
       console.error('Error loading discount settings:', error);
     }
-  }, []);
+  }, [getFirebaseToken]);
 
   useEffect(() => {
     loadDiscountSettings();
@@ -143,16 +152,23 @@ export default function PropertiesPage() {
 
   // Save discount settings
   const handleSaveDiscountSettings = async (settings: TenantDiscountSettings) => {
+    const token = await getFirebaseToken();
+    if (!token) {
+      throw new Error('Não foi possível obter token de autenticação');
+    }
+
     const response = await fetch('/api/tenant/discount-settings', {
       method: 'PUT',
       headers: {
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
       },
       body: JSON.stringify(settings)
     });
 
     if (!response.ok) {
-      throw new Error('Erro ao salvar configurações de desconto');
+      const errorData = await response.json().catch(() => ({}));
+      throw new Error(errorData.error || 'Erro ao salvar configurações de desconto');
     }
 
     const data = await response.json();
