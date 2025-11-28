@@ -345,10 +345,15 @@ export default function WhatsAppPage() {
     }
 
     try {
-      // Facebook permissions as per official Messenger Platform documentation
-      // Required: pages_messaging, pages_show_list
-      // Optional but needed: instagram_manage_messages, pages_read_engagement, instagram_basic
-      const authResponse = await login('pages_messaging,pages_show_list,instagram_manage_messages,pages_read_engagement,instagram_basic');
+      // Facebook/Instagram permissions (Updated 2025)
+      // Required for Messenger + Instagram Direct:
+      // - pages_messaging: Send/receive messages on Facebook Pages
+      // - pages_show_list: List user's Facebook Pages
+      // - pages_manage_metadata: Manage page metadata
+      // - instagram_basic: Basic Instagram account info
+      // - instagram_manage_messages: Send/receive Instagram Direct messages
+      // - instagram_manage_comments: Manage Instagram comments (optional)
+      const authResponse = await login('pages_messaging,pages_show_list,pages_manage_metadata,instagram_basic,instagram_manage_messages,instagram_manage_comments');
 
       if (authResponse && authResponse.accessToken) {
         // Exchange token and fetch pages

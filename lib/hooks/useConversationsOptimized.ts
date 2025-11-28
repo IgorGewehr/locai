@@ -23,6 +23,7 @@ interface ConversationsFilters {
   search: string;
   status: ConversationStatus | 'all';
   tags: string[];
+  channel: 'all' | 'whatsapp' | 'facebook' | 'instagram';
 }
 
 export function useConversationsOptimized({
@@ -44,6 +45,7 @@ export function useConversationsOptimized({
     search: '',
     status: 'all',
     tags: [],
+    channel: 'all',
   });
 
   // Load conversations
@@ -168,6 +170,14 @@ export function useConversationsOptimized({
 
   // Filter conversations (client-side for better UX)
   const filteredConversations = state.conversations.filter(conv => {
+    // Channel filter
+    if (filters.channel !== 'all') {
+      const convChannel = conv.channel || 'whatsapp'; // Default to whatsapp for legacy data
+      if (convChannel !== filters.channel) {
+        return false;
+      }
+    }
+
     // Search filter
     if (filters.search) {
       const searchLower = filters.search.toLowerCase();
@@ -241,6 +251,9 @@ export function useConversationsOptimized({
     active: state.conversations.filter(c => c.status === 'active').length,
     completed: state.conversations.filter(c => c.status === 'completed').length,
     abandoned: state.conversations.filter(c => c.status === 'abandoned').length,
+    whatsapp: state.conversations.filter(c => (c.channel || 'whatsapp') === 'whatsapp').length,
+    facebook: state.conversations.filter(c => c.channel === 'facebook').length,
+    instagram: state.conversations.filter(c => c.channel === 'instagram').length,
   };
 
   // Mark conversation as read

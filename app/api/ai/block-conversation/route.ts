@@ -37,7 +37,6 @@ export async function POST(request: NextRequest) {
     }
 
     const tenantId = authContext.tenantId;
-    const userId = authContext.userId;
     const body = await request.json();
 
     // Validação
@@ -49,15 +48,18 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { phone, blocked, reason, duration } = result.data;
+    const { phone, blocked, duration } = result.data;
 
     // Get Redis singleton client
     const redis = getRedisClient();
 
-    // Normalizar telefone: remover TODOS os sufixos WhatsApp (@c.us, @lid, @g.us, @s.whatsapp.net)
-    const normalizedPhone = phone.replace(/@(c\.us|lid|g\.us|s\.whatsapp\.net)$/i, '');
+    // Normalizar telefone: remover sufixos WhatsApp e garantir 55 na frente
+    let normalizedPhone = phone.replace(/@(c\.us|lid|g\.us|s\.whatsapp\.net)$/i, '');
+    if (!normalizedPhone.startsWith('55')) {
+      normalizedPhone = '55' + normalizedPhone;
+    }
 
-    // Chave Redis: MESMO FORMATO DO N8N (sem @c.us)
+    // Chave Redis: ai_blocked:{tenantId}:{phone com 55}
     const redisKey = `ai_blocked:${tenantId}:${normalizedPhone}`;
 
     logger.info('[AI-BLOCK] Redis key generated', {
@@ -73,55 +75,29 @@ export async function POST(request: NextRequest) {
       // Calcular TTL baseado na duração (padrão: 1 hora)
       const durationHours = duration || 1;
       const ttlSeconds = durationHours * 60 * 60;
-      const expiresAt = new Date(Date.now() + ttlSeconds * 1000);
 
-      // Bloquear IA - MESMO FORMATO DO N8N
-      const blockData = {
-        reason: reason || 'Intervenção manual solicitada',
-        blockedAt: new Date().toISOString(),
-        expiresAt: expiresAt.toISOString(),
-        blockedBy: userId,
-        tenantId,
-        phone: normalizedPhone
-      };
-
-      // Save to Redis
-      await redis.set(redisKey, JSON.stringify(blockData), 'EX', ttlSeconds);
-
-      // Verify it was saved
-      const verifyData = await redis.get(redisKey);
-      const verifyTTL = await redis.ttl(redisKey);
+      // Bloquear IA - salva apenas "true" no Redis
+      await redis.set(redisKey, 'true', 'EX', ttlSeconds);
 
       logger.info('[AI-BLOCK] Conversation blocked', {
         requestId,
         tenantId: tenantId.substring(0, 8) + '***',
         phoneNormalized: normalizedPhone,
-        phoneLength: normalizedPhone.length,
-        reason,
         redisKey,
         ttlSeconds,
-        verifiedSaved: !!verifyData,
-        verifiedTTL: verifyTTL,
-      });
-
-      // Additional debug log
-      console.log('[AI-BLOCK] REDIS SAVE DEBUG:', {
-        key: redisKey,
-        value: JSON.stringify(blockData),
-        ttl: ttlSeconds,
-        saved: !!verifyData,
-        actualTTL: verifyTTL,
       });
 
       return NextResponse.json({
         success: true,
         message: 'Agente de IA bloqueado para esta conversa',
-        data: blockData,
+        data: {
+          tenantId,
+          phone: normalizedPhone,
+          blocked: true,
+        },
         meta: {
           requestId,
           timestamp: new Date().toISOString(),
-          redisKey, // Include for debugging
-          verified: !!verifyData,
         },
       });
     } else {
@@ -194,45 +170,32 @@ export async function GET(request: NextRequest) {
     // Get Redis singleton client
     const redis = getRedisClient();
 
-    // Normalizar telefone: remover TODOS os sufixos WhatsApp (@c.us, @lid, @g.us, @s.whatsapp.net)
-    const normalizedPhone = phone.replace(/@(c\.us|lid|g\.us|s\.whatsapp\.net)$/i, '');
+    // Normalizar telefone: remover sufixos WhatsApp e garantir 55 na frente
+    let normalizedPhone = phone.replace(/@(c\.us|lid|g\.us|s\.whatsapp\.net)$/i, '');
+    if (!normalizedPhone.startsWith('55')) {
+      normalizedPhone = '55' + normalizedPhone;
+    }
 
-    // Buscar status no Redis - MESMO FORMATO DO N8N (sem @c.us)
+    // Buscar status no Redis
     const redisKey = `ai_blocked:${tenantId}:${normalizedPhone}`;
     const blockData = await redis.get(redisKey);
 
-    // Debug log
     logger.info('[AI-BLOCK] GET request', {
       requestId,
       redisKey,
       tenantId: tenantId.substring(0, 8) + '***',
       phoneNormalized: normalizedPhone,
-      phoneLength: normalizedPhone.length,
       hasBlockData: !!blockData,
-      blockDataValue: blockData ? blockData.substring(0, 100) : null,
     });
-
-    if (!blockData) {
-      return NextResponse.json({
-        success: true,
-        data: {
-          tenantId,
-          phone: normalizedPhone,
-          blocked: false,
-        },
-        meta: { requestId, timestamp: new Date().toISOString(), redisKey },
-      });
-    }
-
-    const parsedData = JSON.parse(blockData);
 
     return NextResponse.json({
       success: true,
       data: {
-        ...parsedData,
-        blocked: true, // Explicitly set blocked flag
+        tenantId,
+        phone: normalizedPhone,
+        blocked: blockData === 'true',
       },
-      meta: { requestId, timestamp: new Date().toISOString(), redisKey },
+      meta: { requestId, timestamp: new Date().toISOString() },
     });
 
   } catch (error) {
