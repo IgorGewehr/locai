@@ -73,6 +73,8 @@ export interface CalendarSyncResult {
   eventsSkipped: number;
   periodsCreated: number;
   periodsUpdated: number;
+  periodsCancelled?: number; // Reservas canceladas via STATUS=CANCELLED no iCal
+  periodsSoftDeleted?: number; // Reservas removidas (não existem mais no iCal externo)
   errors: string[];
   syncedAt: Date;
   duration: number; // milliseconds

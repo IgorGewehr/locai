@@ -2,6 +2,46 @@ import { ValidationError } from './errors'
 import { z } from 'zod'
 import DOMPurify from 'isomorphic-dompurify'
 
+/**
+ * ✅ MÉDIO 8: Whitelist de domínios permitidos para URLs de mídia
+ * Previne injeção de URLs maliciosas durante importação
+ */
+export const ALLOWED_MEDIA_DOMAINS = [
+  // Airbnb
+  'a0.muscache.com',
+  'muscache.com',
+  'airbnb.com',
+  'airbnbstatic.com',
+  // Booking.com
+  'bstatic.com',
+  'booking.com',
+  // VRBO / Expedia
+  'vrbo.com',
+  'expedia.com',
+  'images.trvl-media.com',
+  'media-cdn.tripadvisor.com',
+  // Cloud storage comum
+  'firebasestorage.googleapis.com',
+  'storage.googleapis.com',
+  's3.amazonaws.com',
+  's3-sa-east-1.amazonaws.com',
+  'cloudinary.com',
+  'res.cloudinary.com',
+  'imgix.net',
+  // CDNs comuns
+  'cdn.jsdelivr.net',
+  'unpkg.com',
+  'cdnjs.cloudflare.com',
+  // Domínios do próprio sistema
+  'alugazap.com',
+  'locai.com.br',
+  // Imagens de placeholder (desenvolvimento)
+  'placehold.co',
+  'via.placeholder.com',
+  'picsum.photos',
+  'images.unsplash.com',
+];
+
 export function validatePhoneNumber(phone: string): string {
   if (!phone) {
     throw new ValidationError('Phone number is required', 'phone')
@@ -418,4 +458,124 @@ export function validateGoalCheckpoint(checkpoint: any): void {
       throw new ValidationError('Checkpoint notes cannot exceed 500 characters', 'notes')
     }
   }
+}
+
+/**
+ * ✅ MÉDIO 8: Valida se uma URL de mídia é de um domínio permitido
+ *
+ * @param url - URL a ser validada
+ * @param allowedDomains - Lista de domínios permitidos (opcional, usa whitelist padrão)
+ * @returns true se a URL é válida e de um domínio permitido
+ */
+export function isValidMediaUrl(
+  url: string,
+  allowedDomains: string[] = ALLOWED_MEDIA_DOMAINS
+): boolean {
+  if (!url || typeof url !== 'string') {
+    return false;
+  }
+
+  try {
+    const parsedUrl = new URL(url);
+
+    // Verificar protocolo (apenas HTTPS em produção)
+    if (!['http:', 'https:'].includes(parsedUrl.protocol)) {
+      return false;
+    }
+
+    // Verificar se o hostname termina com algum domínio permitido
+    const hostname = parsedUrl.hostname.toLowerCase();
+    return allowedDomains.some(domain =>
+      hostname === domain || hostname.endsWith('.' + domain)
+    );
+  } catch {
+    // URL inválida
+    return false;
+  }
+}
+
+/**
+ * ✅ MÉDIO 8: Filtra array de URLs mantendo apenas as de domínios permitidos
+ *
+ * @param urls - Array de URLs para filtrar
+ * @param allowedDomains - Lista de domínios permitidos (opcional)
+ * @returns Array contendo apenas URLs válidas de domínios permitidos
+ */
+export function filterValidMediaUrls(
+  urls: string[],
+  allowedDomains: string[] = ALLOWED_MEDIA_DOMAINS
+): string[] {
+  if (!Array.isArray(urls)) {
+    return [];
+  }
+
+  return urls.filter(url => isValidMediaUrl(url, allowedDomains));
+}
+
+/**
+ * ✅ MÉDIO 8: Valida e sanitiza URLs de mídia, retornando relatório detalhado
+ *
+ * @param urls - Array de URLs para validar
+ * @param allowedDomains - Lista de domínios permitidos (opcional)
+ * @returns Objeto com URLs válidas, inválidas e estatísticas
+ */
+export function validateMediaUrls(
+  urls: string[],
+  allowedDomains: string[] = ALLOWED_MEDIA_DOMAINS
+): {
+  valid: string[];
+  invalid: Array<{ url: string; reason: string }>;
+  stats: { total: number; validCount: number; invalidCount: number };
+} {
+  if (!Array.isArray(urls)) {
+    return {
+      valid: [],
+      invalid: [],
+      stats: { total: 0, validCount: 0, invalidCount: 0 }
+    };
+  }
+
+  const valid: string[] = [];
+  const invalid: Array<{ url: string; reason: string }> = [];
+
+  for (const url of urls) {
+    if (!url || typeof url !== 'string') {
+      invalid.push({ url: String(url), reason: 'URL inválida ou vazia' });
+      continue;
+    }
+
+    try {
+      const parsedUrl = new URL(url);
+
+      // Verificar protocolo
+      if (!['http:', 'https:'].includes(parsedUrl.protocol)) {
+        invalid.push({ url, reason: `Protocolo não permitido: ${parsedUrl.protocol}` });
+        continue;
+      }
+
+      // Verificar domínio
+      const hostname = parsedUrl.hostname.toLowerCase();
+      const isAllowed = allowedDomains.some(domain =>
+        hostname === domain || hostname.endsWith('.' + domain)
+      );
+
+      if (isAllowed) {
+        valid.push(url);
+      } else {
+        invalid.push({ url, reason: `Domínio não permitido: ${hostname}` });
+      }
+    } catch (error) {
+      invalid.push({ url, reason: 'URL malformada' });
+    }
+  }
+
+  return {
+    valid,
+    invalid,
+    stats: {
+      total: urls.length,
+      validCount: valid.length,
+      invalidCount: invalid.length
+    }
+  };
 }

@@ -12,7 +12,9 @@ import {
   CalendarSyncStatus,
   ExternalCalendarEvent,
 } from '@/lib/types/calendar-sync';
+import { ReservationSource } from '@/lib/types/reservation';
 import { iCalParserService } from './ical-parser-service';
+import { iCalGeneratorService } from './ical-generator-service';
 import { logger } from '@/lib/utils/logger';
 import { TenantServiceFactory } from '@/lib/firebase/firestore-v2';
 import { AvailabilityStatus } from '@/lib/types/availability';
@@ -129,6 +131,8 @@ export class CalendarSyncService {
         eventsSkipped: events.length - blockedEvents.length,
         periodsCreated: importResult.created,
         periodsUpdated: importResult.updated,
+        periodsCancelled: importResult.cancelled,
+        periodsSoftDeleted: importResult.softDeleted,
         errors: [],
         syncedAt: new Date(),
         duration,
@@ -190,13 +194,14 @@ export class CalendarSyncService {
 
   /**
    * Import events to availability periods and create reservations
+   * Also handles soft-delete of reservations that no longer exist in external calendar
    */
   private async importEvents(
     propertyId: string,
     tenantId: string,
     events: ExternalCalendarEvent[],
     source: CalendarSyncSource
-  ): Promise<{ created: number; updated: number }> {
+  ): Promise<{ created: number; updated: number; cancelled: number; softDeleted: number }> {
     const serviceFactory = new TenantServiceFactory(tenantId);
     const availabilityService = serviceFactory.availability;
     const reservationsService = serviceFactory.reservations;
@@ -204,26 +209,134 @@ export class CalendarSyncService {
 
     let created = 0;
     let updated = 0;
+    let cancelled = 0;
+    let softDeleted = 0;
 
-    for (const event of events) {
+    const now = new Date();
+
+    // ✅ CRÍTICO 10: Filtrar eventos passados - não importar eventos que já terminaram
+    const futureEvents = events.filter(event => isAfter(event.endDate, now));
+    const skippedPastEvents = events.length - futureEvents.length;
+
+    if (skippedPastEvents > 0) {
+      logger.info('🕐 [ICAL-SYNC] Skipped past events', {
+        propertyId,
+        skippedCount: skippedPastEvents,
+        futureCount: futureEvents.length,
+      });
+    }
+
+    // Get all external reservations for this property to detect soft-deletes
+    const allReservations = await reservationsService.getAll();
+    const externalReservations = allReservations.filter(
+      (r: any) => r.propertyId === propertyId &&
+                  r.externalEventUid &&
+                  !r.externalDeletedAt // Não processar já deletados
+    );
+
+    // Build set of current event UIDs for soft-delete detection
+    const currentEventUids = new Set(futureEvents.map(e => e.uid));
+
+    // ✅ CRÍTICO 3: Soft-delete reservations that no longer exist in external calendar
+    for (const reservation of externalReservations) {
+      const resAny = reservation as any;
+
+      // Skip if this reservation's UID is still in the calendar
+      if (currentEventUids.has(resAny.externalEventUid)) {
+        continue;
+      }
+
+      // Check if the reservation is for a future date (don't touch past ones)
+      const checkOut = resAny.checkOut instanceof Date ? resAny.checkOut : new Date(resAny.checkOut);
+      if (isBefore(checkOut, now)) {
+        continue; // Don't soft-delete past reservations
+      }
+
+      // Soft-delete: mark as deleted externally, don't actually delete
       try {
+        await reservationsService.update(resAny.id, {
+          externalDeletedAt: new Date(),
+          status: 'cancelled',
+          observations: `${resAny.observations || ''}\n\n⚠️ Reserva removida do calendário externo em ${new Date().toISOString()}`,
+          updatedAt: new Date(),
+        } as any);
+
+        softDeleted++;
+
+        logger.info('🗑️ [ICAL-SYNC] External reservation soft-deleted (no longer in calendar)', {
+          propertyId,
+          reservationId: resAny.id,
+          externalEventUid: resAny.externalEventUid,
+          checkIn: resAny.checkIn,
+          checkOut: resAny.checkOut,
+        });
+
+        // Invalidate iCal cache since availability changed
+        iCalGeneratorService.invalidateCache(propertyId, tenantId);
+      } catch (error) {
+        logger.error('Failed to soft-delete external reservation', {
+          propertyId,
+          reservationId: resAny.id,
+          error: error instanceof Error ? error.message : 'Unknown error',
+        });
+      }
+    }
+
+    // Process current events
+    for (const event of futureEvents) {
+      try {
+        // ✅ CRÍTICO 4: Handle cancelled events from external calendar
+        if (event.status === 'CANCELLED') {
+          const existingReservation = externalReservations.find(
+            (r: any) => r.externalEventUid === event.uid
+          );
+
+          if (existingReservation) {
+            const resAny = existingReservation as any;
+            // Cancel the reservation
+            await reservationsService.update(resAny.id, {
+              status: 'cancelled',
+              observations: `${resAny.observations || ''}\n\n⚠️ Cancelado pelo calendário externo em ${new Date().toISOString()}`,
+              externalLastSync: new Date(),
+              updatedAt: new Date(),
+            } as any);
+
+            cancelled++;
+
+            logger.info('❌ [ICAL-SYNC] External reservation cancelled (STATUS=CANCELLED)', {
+              propertyId,
+              reservationId: resAny.id,
+              eventUid: event.uid,
+            });
+
+            // Invalidate iCal cache
+            iCalGeneratorService.invalidateCache(propertyId, tenantId);
+          }
+          continue; // Don't create new reservation for cancelled event
+        }
+
         // Normalize dates to start/end of day
         const startDate = startOfDay(event.startDate);
         const endDate = endOfDay(event.endDate);
 
         // Check if reservation already exists for this event UID
-        const allReservations = await reservationsService.getAll();
-        const existingReservation = allReservations.find(
+        const existingReservation = externalReservations.find(
           (r: any) => r.externalEventUid === event.uid
         );
 
         if (existingReservation) {
-          // Reservation already exists, skip
+          // Update last sync timestamp
+          const resAny = existingReservation as any;
+          await reservationsService.update(resAny.id, {
+            externalLastSync: new Date(),
+            updatedAt: new Date(),
+          } as any);
+
           updated++;
-          logger.info('Reservation already exists for external event', {
+          logger.debug('Reservation already exists for external event', {
             propertyId,
             eventUid: event.uid,
-            reservationId: existingReservation.id,
+            reservationId: resAny.id,
           });
           continue;
         }
@@ -235,37 +348,43 @@ export class CalendarSyncService {
           clientsService
         );
 
+        // Calculate nights
+        const nights = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
+
         // Create reservation for external booking with all required fields
-        // Note: 'nights' will be calculated automatically by the API
         const reservationData = {
           propertyId,
           clientId: externalClient.id,
           checkIn: startDate,
           checkOut: endDate,
+          nights, // ✅ Calculate nights
           guests: 1, // Default, as we don't have this info from iCal
           totalAmount: 0, // External reservation, amount not tracked
           paidAmount: 0,
-          pendingAmount: 0, // ✅ Add pendingAmount
+          pendingAmount: 0,
           status: 'confirmed' as const,
           paymentStatus: 'pending' as const,
-          paymentMethod: 'pix' as const, // ✅ Add required paymentMethod
+          paymentMethod: 'pix' as const,
           source: this.mapSourceToReservationSource(source),
           specialRequests: event.description || '',
-          observations: `Imported from ${source} via iCal sync.\nEvent: ${event.summary}\nUID: ${event.uid}`,
-          guestDetails: [], // ✅ Add empty array for guest details
-          extraServices: [], // ✅ Add empty array for extra services
-          payments: [], // ✅ Add empty array for payments
-          paymentPlan: { // ✅ Add default payment plan
+          observations: `Importado de ${source} via sincronização iCal.\nEvento: ${event.summary}\nUID: ${event.uid}`,
+          guestDetails: [],
+          extraServices: [],
+          payments: [],
+          paymentPlan: {
             totalAmount: 0,
             installments: [],
             paymentMethod: 'pix' as const,
             feePercentage: 0,
             totalFees: 0,
-            description: 'External reservation - no payment plan'
+            description: 'Reserva externa - sem plano de pagamento'
           },
-          externalEventUid: event.uid, // Store UID to prevent duplicates
-          externalSource: source,
-          tenantId, // ✅ Add tenantId for proper isolation
+          // ✅ External reservation fields
+          externalEventUid: event.uid,
+          externalSource: this.mapSourceToExternalSource(source),
+          isExternalReservation: true,
+          externalLastSync: new Date(),
+          tenantId,
           createdAt: new Date(),
           updatedAt: new Date(),
         };
@@ -279,6 +398,7 @@ export class CalendarSyncService {
           reservationId,
           checkIn: startDate.toISOString(),
           checkOut: endDate.toISOString(),
+          nights,
           eventSummary: event.summary,
           eventUid: event.uid,
           source,
@@ -290,9 +410,12 @@ export class CalendarSyncService {
           startDate,
           endDate,
           AvailabilityStatus.BLOCKED,
-          `External calendar sync from ${source}`,
-          `Imported from ${source}: ${event.summary}`
+          `Sincronização de calendário externo: ${source}`,
+          `Importado de ${source}: ${event.summary}`
         );
+
+        // Invalidate iCal cache since availability changed
+        iCalGeneratorService.invalidateCache(propertyId, tenantId);
       } catch (error) {
         logger.error('Failed to import event', {
           propertyId,
@@ -302,7 +425,7 @@ export class CalendarSyncService {
       }
     }
 
-    return { created, updated };
+    return { created, updated, cancelled, softDeleted };
   }
 
   /**
@@ -353,15 +476,30 @@ export class CalendarSyncService {
   }
 
   /**
-   * Map CalendarSyncSource to ReservationSource
+   * Map CalendarSyncSource to ReservationSource enum
    */
-  private mapSourceToReservationSource(source: CalendarSyncSource): string {
-    const sourceMap: Record<CalendarSyncSource, string> = {
+  private mapSourceToReservationSource(source: CalendarSyncSource): ReservationSource {
+    const sourceMap: Record<CalendarSyncSource, ReservationSource> = {
+      [CalendarSyncSource.AIRBNB]: ReservationSource.AIRBNB,
+      [CalendarSyncSource.BOOKING]: ReservationSource.BOOKING,
+      [CalendarSyncSource.VRBO]: ReservationSource.VRBO,
+      [CalendarSyncSource.GOOGLE_CALENDAR]: ReservationSource.EXTERNAL_ICAL,
+      [CalendarSyncSource.OUTLOOK]: ReservationSource.EXTERNAL_ICAL,
+      [CalendarSyncSource.ICAL_URL]: ReservationSource.EXTERNAL_ICAL,
+    };
+    return sourceMap[source] || ReservationSource.OTHER;
+  }
+
+  /**
+   * Map CalendarSyncSource to external source string for reservation fields
+   */
+  private mapSourceToExternalSource(source: CalendarSyncSource): 'airbnb' | 'booking' | 'vrbo' | 'google_calendar' | 'outlook' | 'other' {
+    const sourceMap: Record<CalendarSyncSource, 'airbnb' | 'booking' | 'vrbo' | 'google_calendar' | 'outlook' | 'other'> = {
       [CalendarSyncSource.AIRBNB]: 'airbnb',
       [CalendarSyncSource.BOOKING]: 'booking',
       [CalendarSyncSource.VRBO]: 'vrbo',
-      [CalendarSyncSource.GOOGLE_CALENDAR]: 'other',
-      [CalendarSyncSource.OUTLOOK]: 'other',
+      [CalendarSyncSource.GOOGLE_CALENDAR]: 'google_calendar',
+      [CalendarSyncSource.OUTLOOK]: 'outlook',
       [CalendarSyncSource.ICAL_URL]: 'other',
     };
     return sourceMap[source] || 'other';

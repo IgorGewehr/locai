@@ -11,9 +11,9 @@ import {
   PropertyType,
   COMMON_AMENITIES,
 } from '@/lib/types/property';
-import { PaymentMethod } from '@/lib/types/common';
 import { AirbnbPropertyData } from '@/lib/services/airbnb-import-service';
 import { logger } from '@/lib/utils/logger';
+import { filterValidMediaUrls, validateMediaUrls } from '@/lib/utils/validation';
 
 /**
  * Map Airbnb property type to our PropertyCategory
@@ -207,20 +207,29 @@ export function mapAirbnbToProperty(
       .filter((value, index, self) => self.indexOf(value) === index); // Remove duplicates
 
     // Map photos - sort by order if available
-    const photos = (airbnbData.photos || [])
+    const rawPhotoUrls = (airbnbData.photos || [])
       .sort((a, b) => (a.sort_order || 0) - (b.sort_order || 0))
       .map((p) => p.url);
 
-    // Create default payment method surcharges
-    const paymentMethodSurcharges: Record<PaymentMethod, number> = {
-      [PaymentMethod.PIX]: 0,
-      [PaymentMethod.CREDIT_CARD]: 5, // 5% surcharge for credit card
-      [PaymentMethod.DEBIT_CARD]: 0,
-      [PaymentMethod.BANK_TRANSFER]: 0,
-      [PaymentMethod.CASH]: 0,
-    };
+    // ✅ MÉDIO 8: Validar URLs de mídia (whitelist de domínios)
+    const mediaValidation = validateMediaUrls(rawPhotoUrls);
+
+    if (mediaValidation.invalid.length > 0) {
+      logger.warn('Some photo URLs were rejected during import', {
+        airbnbId: airbnbData.id,
+        rejected: mediaValidation.invalid.length,
+        total: mediaValidation.stats.total,
+        rejectedUrls: mediaValidation.invalid.map(i => ({
+          domain: new URL(i.url).hostname,
+          reason: i.reason,
+        })),
+      });
+    }
+
+    const photos = mediaValidation.valid;
 
     // Build property object
+    // Note: paymentMethodSurcharges was removed from Property type - now managed at tenant level
     const property: Omit<Property, 'id' | 'createdAt' | 'updatedAt'> = {
       // Basic Info
       title: airbnbData.title || 'Propriedade Importada do Airbnb',
@@ -247,8 +256,7 @@ export function mapAirbnbToProperty(
       minimumNights: 2,
       cleaningFee: 0,
 
-      // Payment Configuration
-      paymentMethodSurcharges,
+      // Payment Configuration (surcharges managed at tenant level)
       advancePaymentPercentage: 30, // 30% advance payment by default
 
       // Media
@@ -274,15 +282,23 @@ export function mapAirbnbToProperty(
       highSeasonMonths: [12, 1, 2, 7], // December, Jan, Feb, July
 
       // Metadata
-      isActive: true,
+      // ⚠️ CRÍTICO: Propriedades importadas sem preço ficam INATIVAS até configurar basePrice
+      // Isso previne reservas com valor R$0
+      isActive: false, // Será ativada quando basePrice > 0 for configurado
       tenantId,
+
+      // Flag para identificar que precisa de configuração
+      needsPriceConfiguration: true,
     };
 
     logger.info('Successfully mapped Airbnb property to internal format', {
       airbnbId: airbnbData.id,
       title: property.title,
       photosCount: photos.length,
+      photosRejected: mediaValidation.invalid.length,
       amenitiesCount: amenities.length,
+      isActive: property.isActive,
+      needsPriceConfiguration: property.needsPriceConfiguration,
     });
 
     return property;

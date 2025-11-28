@@ -1,6 +1,8 @@
 /**
  * Property Bulk Import API
  * Handles bulk property import with media processing
+ *
+ * ✅ MÉDIO 9: Migrado progresso de importação para Firestore
  */
 
 import { NextRequest, NextResponse } from 'next/server';
@@ -9,9 +11,7 @@ import PropertyImportService, { ImportProgress, ImportResult } from '@/lib/servi
 import { BulkImportData } from '@/lib/validation/property-import-schema';
 import { logger } from '@/lib/utils/logger';
 import { z } from 'zod';
-
-// In-memory storage for import progress (in production, use Redis or database)
-const importProgressMap = new Map<string, ImportProgress>();
+import { ImportProgressService } from '@/lib/services/import-progress-service';
 
 /**
  * POST /api/properties/import
@@ -75,15 +75,23 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // ✅ MÉDIO 9: Criar job de importação no Firestore
+    const jobId = await ImportProgressService.createJob(
+      tenantId,
+      importData.properties.length,
+      auth.userId,
+      importData.source
+    );
+
     // Create import service
     const importService = new PropertyImportService(tenantId);
 
-    // Start import process (async)
+    // Start import process (async) with Firestore progress tracking
     const importPromise = importService.importProperties(
       importData,
-      (progress: ImportProgress) => {
-        // Store progress for status endpoint
-        importProgressMap.set(tenantId, progress);
+      async (progress: ImportProgress) => {
+        // ✅ MÉDIO 9: Persistir progresso no Firestore
+        await ImportProgressService.updateProgress(jobId, progress);
       }
     );
 
@@ -94,7 +102,7 @@ export async function POST(request: NextRequest) {
         setTimeout(() => {
           resolve({
             success: true,
-            importId: `async_${Date.now()}`,
+            importId: jobId,
             progress: {
               total: importData.properties.length,
               completed: 0,
@@ -112,19 +120,23 @@ export async function POST(request: NextRequest) {
 
     // If import completed quickly, return full result
     if (importResult.progress.stage === 'completed' || importResult.progress.stage === 'failed') {
-      // Clean up progress tracking
-      importProgressMap.delete(tenantId);
+      // ✅ MÉDIO 9: Marcar job como concluído no Firestore
+      await ImportProgressService.completeJob(
+        jobId,
+        importResult.message,
+        importResult.success
+      );
 
       logger.info('✅ [PropertyImport API] Import completed quickly', {
         tenantId,
-        importId: importResult.importId,
+        importId: jobId,
         completed: importResult.progress.completed,
         failed: importResult.progress.failed
       });
 
       return NextResponse.json({
         success: importResult.success,
-        importId: importResult.importId,
+        importId: jobId,
         completed: true,
         result: importResult,
         message: importResult.message
@@ -132,26 +144,28 @@ export async function POST(request: NextRequest) {
     }
 
     // Continue processing in background
-    importPromise.then((finalResult) => {
+    importPromise.then(async (finalResult) => {
       logger.info('🎯 [PropertyImport API] Background import completed', {
         tenantId,
-        importId: finalResult.importId,
+        importId: jobId,
         completed: finalResult.progress.completed,
         failed: finalResult.progress.failed
       });
 
-      // Keep final result for 10 minutes
-      setTimeout(() => {
-        importProgressMap.delete(tenantId);
-      }, 10 * 60 * 1000);
-    }).catch((error) => {
+      // ✅ MÉDIO 9: Marcar job como concluído no Firestore
+      await ImportProgressService.completeJob(
+        jobId,
+        finalResult.message,
+        finalResult.success
+      );
+    }).catch(async (error) => {
       logger.error('💥 [PropertyImport API] Background import failed', {
         tenantId,
         error: error instanceof Error ? error.message : 'Unknown error'
       });
 
-      // Update progress with error
-      importProgressMap.set(tenantId, {
+      // ✅ MÉDIO 9: Atualizar progresso com erro no Firestore
+      await ImportProgressService.updateProgress(jobId, {
         total: importData.properties.length,
         completed: 0,
         failed: importData.properties.length,
@@ -162,11 +176,17 @@ export async function POST(request: NextRequest) {
           type: 'database'
         }]
       });
+
+      await ImportProgressService.completeJob(
+        jobId,
+        error instanceof Error ? error.message : 'Unknown error',
+        false
+      );
     });
 
     return NextResponse.json({
       success: true,
-      importId: importResult.importId,
+      importId: jobId,
       completed: false,
       message: 'Import started successfully. Use the status endpoint to track progress.',
       statusEndpoint: `/api/properties/import/status`,
@@ -192,6 +212,8 @@ export async function POST(request: NextRequest) {
 /**
  * GET /api/properties/import/status
  * Get import progress status
+ *
+ * ✅ MÉDIO 9: Agora busca do Firestore ao invés de memória
  */
 export async function GET(request: NextRequest) {
   try {
@@ -205,9 +227,32 @@ export async function GET(request: NextRequest) {
     }
 
     const tenantId = auth.tenantId;
-    const progress = importProgressMap.get(tenantId);
 
-    if (!progress) {
+    // ✅ MÉDIO 9: Buscar job do Firestore
+    // Primeiro tenta buscar job ativo, depois o mais recente
+    let job = await ImportProgressService.getActiveJob(tenantId);
+
+    if (!job) {
+      // Buscar o job mais recente (pode estar concluído)
+      job = await ImportProgressService.getLatestJob(tenantId);
+    }
+
+    if (!job) {
+      return NextResponse.json(
+        {
+          error: 'No import in progress',
+          message: 'No active import found for this tenant'
+        },
+        { status: 404 }
+      );
+    }
+
+    // Verificar se o job expirou (muito antigo)
+    const now = Date.now();
+    const jobAge = now - job.createdAt.toMillis();
+    const maxAge = 24 * 60 * 60 * 1000; // 24 horas
+
+    if (jobAge > maxAge && job.status !== 'running') {
       return NextResponse.json(
         {
           error: 'No import in progress',
@@ -219,8 +264,12 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      progress,
-      completed: progress.stage === 'completed' || progress.stage === 'failed'
+      importId: job.id,
+      progress: job.progress,
+      completed: job.status === 'completed' || job.status === 'failed',
+      createdProperties: job.createdProperties,
+      skippedProperties: job.skippedProperties,
+      message: job.message,
     });
 
   } catch (error) {

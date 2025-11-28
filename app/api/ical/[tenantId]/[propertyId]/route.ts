@@ -14,6 +14,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { iCalGeneratorService } from '@/lib/services/ical-generator-service';
 import { TenantServiceFactory } from '@/lib/firebase/firestore-v2';
 import { logger } from '@/lib/utils/logger';
+import { getRateLimiter, rateLimitConfigs, getClientIdentifier } from '@/lib/utils/rate-limiter';
 
 interface RouteParams {
   params: {
@@ -30,6 +31,33 @@ export async function GET(
   const { tenantId, propertyId } = params;
 
   try {
+    // ✅ MÉDIO 7: Rate limiting para feed iCal público
+    const clientIp = getClientIdentifier(request);
+    const rateLimitKey = `ical:${propertyId}:${clientIp}`;
+    const limiter = getRateLimiter('ical');
+    const rateCheck = limiter.isAllowed(rateLimitKey, rateLimitConfigs.icalFeed);
+
+    if (!rateCheck.allowed) {
+      logger.warn('iCal feed rate limit exceeded', {
+        propertyId,
+        clientIp: clientIp.substring(0, 10) + '***',
+        retryAfter: rateCheck.retryAfter,
+      });
+
+      return new NextResponse(
+        JSON.stringify({ error: rateLimitConfigs.icalFeed.message }),
+        {
+          status: 429,
+          headers: {
+            'Content-Type': 'application/json',
+            'Retry-After': rateCheck.retryAfter?.toString() || '3600',
+            'X-RateLimit-Limit': rateLimitConfigs.icalFeed.maxRequests.toString(),
+            'X-RateLimit-Remaining': '0',
+          },
+        }
+      );
+    }
+
     // Get security token from query params
     const { searchParams } = new URL(request.url);
     const token = searchParams.get('token');

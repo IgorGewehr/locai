@@ -7,7 +7,7 @@
 
 import { TenantServiceFactory } from '@/lib/firebase/firestore-v2';
 import { logger } from '@/lib/utils/logger';
-import { format } from 'date-fns';
+import { format, subMonths, isAfter, isBefore } from 'date-fns';
 
 interface ICalEvent {
   uid: string;
@@ -57,24 +57,41 @@ export class ICalGeneratorService {
         throw new Error('Property not found');
       }
 
+      // ✅ BAIXO 12: Verificar se a propriedade está ativa
+      if (!(property as any).isActive) {
+        logger.warn('Property is inactive, returning empty iCal feed', { propertyId });
+        // Return empty calendar for inactive properties
+        return this.generateICalContent([], (property as any).title || 'Property', 'Inactive property');
+      }
+
+      // ✅ BAIXO 11: Limitar exportação a últimos 12 meses (evita expor histórico completo)
+      const twelveMonthsAgo = subMonths(new Date(), 12);
+      const now = new Date();
+
       // Get all confirmed/pending reservations for this property
       const allReservations = await services.reservations.getAll();
       const propertyReservations = allReservations.filter(
-        (r: any) => r.propertyId === propertyId &&
-        (r.status === 'confirmed' || r.status === 'pending') &&
-        !r.externalEventUid // Don't export external reservations back (Airbnb, Booking, etc)
+        (r: any) => {
+          const checkOut = r.checkOut instanceof Date ? r.checkOut : new Date(r.checkOut);
+
+          return r.propertyId === propertyId &&
+            (r.status === 'confirmed' || r.status === 'pending') &&
+            !r.externalEventUid && // Don't export external reservations back (Airbnb, Booking, etc)
+            isAfter(checkOut, twelveMonthsAgo); // Only include reservations from last 12 months
+        }
       );
 
       logger.info('Found reservations for iCal export', {
         propertyId,
         count: propertyReservations.length,
+        filter: 'last 12 months, excluding external',
       });
 
       // Convert reservations to iCal events
       const events: ICalEvent[] = propertyReservations.map((reservation: any) => ({
         uid: `reservation-${reservation.id}@alugazap.com`,
         summary: 'Reserved',
-        description: `Reservation from AlugaZap. Property: ${property.name}`,
+        description: `Reservation from AlugaZap. Property: ${property.title}`,
         startDate: reservation.checkIn instanceof Date
           ? reservation.checkIn
           : new Date(reservation.checkIn),
@@ -94,8 +111,8 @@ export class ICalGeneratorService {
       // Generate iCal content
       const iCalContent = this.generateICalContent(
         events,
-        property.name,
-        `Calendar for ${property.name}`
+        property.title,
+        `Calendar for ${property.title}`
       );
 
       logger.info('iCal feed generated successfully', {

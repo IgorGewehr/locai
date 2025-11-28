@@ -70,6 +70,11 @@ export interface Property {
   createdAt: Date
   updatedAt: Date
   tenantId: string
+
+  // Flags de importação
+  needsPriceConfiguration?: boolean // True se propriedade foi importada sem preço definido
+  externalId?: string // ID externo (Airbnb, Booking, etc)
+  externalSource?: 'airbnb' | 'booking' | 'vrbo' | 'manual_import' | 'other' // Fonte da importação
 }
 
 /**

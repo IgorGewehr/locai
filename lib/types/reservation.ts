@@ -38,10 +38,17 @@ export interface Reservation {
   // Origem
   source: ReservationSource
   agentId?: string // Se foi criado por IA
-  
+
   // Metadados
   tenantId: string
-  
+
+  // Campos para reservas importadas de calendários externos (Airbnb, Booking, etc.)
+  externalEventUid?: string // UID único do evento iCal original (para evitar duplicatas)
+  externalSource?: 'airbnb' | 'booking' | 'vrbo' | 'google_calendar' | 'outlook' | 'other'
+  isExternalReservation?: boolean // Flag para identificar reservas externas
+  externalLastSync?: Date // Última vez que esta reserva foi sincronizada
+  externalDeletedAt?: Date // Se o evento foi removido do calendário externo (soft-delete)
+
   // Relacionamentos (populados quando necessário)
   property?: Property
   client?: Client
@@ -61,7 +68,13 @@ export enum ReservationSource {
   MANUAL = 'manual',
   WEBSITE = 'website',
   PHONE = 'phone',
-  EMAIL = 'email'
+  EMAIL = 'email',
+  // Fontes externas (sincronização iCal)
+  AIRBNB = 'airbnb',
+  BOOKING = 'booking',
+  VRBO = 'vrbo',
+  EXTERNAL_ICAL = 'external_ical', // Calendário externo genérico
+  OTHER = 'other'
 }
 
 // PaymentMethod importado de common.ts  
@@ -176,7 +189,12 @@ export const RESERVATION_SOURCE_LABELS = {
   [ReservationSource.MANUAL]: 'Manual',
   [ReservationSource.WEBSITE]: 'Site',
   [ReservationSource.PHONE]: 'Telefone',
-  [ReservationSource.EMAIL]: 'Email'
+  [ReservationSource.EMAIL]: 'Email',
+  [ReservationSource.AIRBNB]: 'Airbnb',
+  [ReservationSource.BOOKING]: 'Booking.com',
+  [ReservationSource.VRBO]: 'VRBO',
+  [ReservationSource.EXTERNAL_ICAL]: 'Calendário Externo',
+  [ReservationSource.OTHER]: 'Outro'
 }
 
 // Import necessário para evitar circular dependency

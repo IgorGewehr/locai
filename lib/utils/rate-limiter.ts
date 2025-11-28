@@ -183,11 +183,10 @@ export function getClientIdentifier(request: NextRequest): string {
   const realIp = request.headers.get('x-real-ip');
   const cfConnectingIp = request.headers.get('cf-connecting-ip');
   
-  // Priority: CF > X-Real-IP > X-Forwarded-For > request.ip
-  const ip = cfConnectingIp || 
-             realIp || 
-             forwardedFor?.split(',')[0].trim() || 
-             request.ip ||
+  // Priority: CF > X-Real-IP > X-Forwarded-For > fallback
+  const ip = cfConnectingIp ||
+             realIp ||
+             forwardedFor?.split(',')[0].trim() ||
              'unknown';
 
   return ip;
@@ -230,6 +229,20 @@ export const rateLimitConfigs = {
     windowMs: 60000,      // 1 minute
     maxRequests: 60,      // 60 requests per minute
     message: 'API rate limit exceeded'
+  },
+
+  // ✅ MÉDIO 7: Rate limiting para feed iCal público
+  icalFeed: {
+    windowMs: 3600000,    // 1 hour
+    maxRequests: 100,     // 100 requests per hour per property
+    message: 'iCal feed rate limit exceeded. Please wait before fetching again.'
+  },
+
+  // Media download rate limiting
+  mediaDownload: {
+    windowMs: 60000,      // 1 minute
+    maxRequests: 20,      // 20 downloads per minute per tenant
+    message: 'Media download rate limit exceeded'
   }
 };
 
