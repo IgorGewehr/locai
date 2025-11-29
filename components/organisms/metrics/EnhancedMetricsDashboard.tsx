@@ -84,7 +84,7 @@ import {
   PredictiveAnalysis,
   SmartRecommendations,
   RealTimeAlerts
-} from '@/lib/services/advanced-ai-insights';
+} from '@/lib/services/advanced-ai-insights-service';
 import { realInsightsService } from '@/lib/services/real-insights-service';
 import {
   LineChart,

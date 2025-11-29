@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { validateFirebaseAuth } from '@/lib/middleware/firebase-auth';
-import { advancedAIInsightsService } from '@/lib/services/advanced-ai-insights';
+import { advancedAIInsightsService } from '@/lib/services/advanced-ai-insights-service';
 import { logger } from '@/lib/utils/logger';
 
 export async function GET(req: NextRequest) {

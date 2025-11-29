@@ -53,7 +53,7 @@ import {
   Schedule,
   Event,
 } from '@mui/icons-material';
-import { safeFormatDate, DateFormats } from '@/lib/utils/dateUtils';
+import { safeFormatDate, DateFormats } from '@/lib/utils/date-utils';
 import { clientServiceWrapper } from '@/lib/services/client-service';
 import { useTenant } from '@/contexts/TenantContext';
 import { ConversationList } from '@/components/organisms/ConversationList/ConversationList';

@@ -1,31 +1,34 @@
-# LOCAI - Sistema Imobiliário com IA 🏠🤖
+# LOCAI - Sistema Imobiliario com IA
 
-Sistema especializado de gestão imobiliária para locação por temporada, construído com Next.js 15, Firebase e integração Sofia AI via N8N workflows + Baileys microservice.
+Sistema especializado de gestao imobiliaria para locacao por temporada, construido com Next.js 15, Firebase e integracao Sofia AI via N8N workflows + Baileys microservice.
 
-## 📋 Índice
+## Indice
 
-1. [Visão Geral](#-visão-geral)
-2. [Arquitetura Moderna N8N + Sofia](#-arquitetura-moderna-n8n--sofia)
-3. [Sistema de 42 AI Functions](#-sistema-de-42-ai-functions)
-4. [CRM Avançado com Analytics](#-crm-avançado-com-analytics)
-5. [Integração WhatsApp + Sofia](#-integração-whatsapp--sofia)
-6. [API Endpoints](#-api-endpoints)
-7. [Multi-tenant](#-multi-tenant)
-8. [Estrutura do Projeto](#-estrutura-do-projeto)
-9. [Configuração](#-configuração)
+1. [Visao Geral](#visao-geral)
+2. [Arquitetura](#arquitetura)
+3. [60 AI Functions](#60-ai-functions)
+4. [Revolutionary Onboarding](#revolutionary-onboarding)
+5. [iCal Import/Export](#ical-importexport)
+6. [Sistema de Conversas](#sistema-de-conversas)
+7. [CRM Avancado](#crm-avancado)
+8. [Integracao WhatsApp](#integracao-whatsapp)
+9. [Facebook/Instagram](#facebookinstagram-em-desenvolvimento)
+10. [Multi-tenant](#multi-tenant)
+11. [API Endpoints](#api-endpoints)
+12. [Configuracao](#configuracao)
 
 ---
 
-## 🎯 Visão Geral
+## Visao Geral
 
-LOCAI é uma plataforma **enterprise-grade** completa para gestão de imóveis de temporada, com **Sofia AI Agent** especializada em consultoria imobiliária, integrada via **N8N workflows** e **servidor Baileys dedicado** para WhatsApp.
+LOCAI e uma plataforma **enterprise-grade** completa para gestao de imoveis de temporada, com **Sofia AI Agent** especializada em consultoria imobiliaria, integrada via **N8N workflows** e **servidor Baileys dedicado** para WhatsApp.
 
-### 🚀 Arquitetura Moderna (Setembro 2025)
+### Tech Stack
 
 ```typescript
 {
   "core": {
-    "framework": "Next.js 15.3.5 (App Router)",
+    "framework": "Next.js 15.5.2 (App Router)",
     "language": "TypeScript 5.3.0",
     "ui": "Material-UI v5.15.0 + Emotion",
     "state": "React Context + Zustand",
@@ -33,985 +36,679 @@ LOCAI é uma plataforma **enterprise-grade** completa para gestão de imóveis d
     "auth": "Firebase Auth + JWT Multi-tenant"
   },
   "ai_architecture": {
-    "agent": "Sofia - Consultora Imobiliária Especializada",
+    "agent": "Sofia - Consultora Imobiliaria Especializada",
     "workflow_engine": "N8N v1.0+ (External)",
     "ai_model": "OpenAI GPT-4o Mini (via N8N)",
-    "functions": "42 Business Functions via API",
+    "functions": "60 Business Functions via API",
     "behavior": "Reactive - Single Complete Response"
   },
   "messaging": {
     "whatsapp": "Baileys v6.7.18 (Dedicated Server)",
-    "deployment": "DigitalOcean Dedicated Droplet",
-    "integration": "REST API + N8N Webhooks",
-    "session": "Multi-tenant QR Code Authentication"
+    "facebook": "Graph API v18.0 (In Development)",
+    "instagram": "Graph API v18.0 (In Development)",
+    "deployment": "DigitalOcean Dedicated Droplet"
+  },
+  "calendar_sync": {
+    "protocol": "iCal RFC 5545",
+    "platforms": "Airbnb, Booking, VRBO, Google Calendar",
+    "direction": "Bidirectional (Import + Export)",
+    "automation": "Cron every 30 minutes"
   },
   "crm_system": {
     "pipeline": "Automatic Lead Progression",
     "scoring": "Dynamic 20+ Factors AI Scoring",
-    "analytics": "Advanced Conversion Funnels",
-    "visualization": "Recharts Interactive Charts"
+    "analytics": "Advanced Conversion Funnels"
   }
 }
 ```
 
-### ✨ Funcionalidades Principais
+### Funcionalidades Principais
 
-- **🤖 Sofia AI Agent**: Consultora especializada com comportamento reativo
-- **🎛️ CRM Avançado**: Pipeline automatizado com 5 dashboards analíticos
-- **🔧 42 AI Functions**: Endpoints especializados para automação completa de negócios
-- **🏢 Multi-tenant**: Isolamento completo por organização (`tenants/{tenantId}/collections`)
-- **📱 WhatsApp Dedicado**: Servidor Baileys separado para performance otimizada
-- **🌐 Mini-sites**: Sites públicos com domínios customizados e captura de leads
-- **📊 Analytics Avançado**: Funis de conversão e business intelligence
-- **🛡️ Enterprise Security**: Validação Zod, sanitização de inputs, rate limiting
-
----
-
-## 🏗️ Arquitetura Moderna N8N + Sofia
-
-### Arquitetura de 4 Camadas (2025)
-
-```
-┌─────────────────────────────────────────────────────────┐
-│                Frontend Layer (Next.js)                 │
-│  ┌────────────┐ ┌────────────┐ ┌────────────┐ ┌──────┐ │
-│  │Advanced CRM│ │Mini-sites  │ │   Auth     │ │Admin │ │
-│  │5 Dashboards│ │Custom DNS  │ │Multi-tenant│ │Panel │ │
-│  │Analytics   │ │Lead Capture│ │Firebase    │ │Ultra │ │
-│  └────────────┘ └────────────┘ └────────────┘ └──────┘ │
-└─────────────────────────────────────────────────────────┘
-                            │ REST APIs
-┌─────────────────────────────────────────────────────────┐
-│              Sofia AI + N8N Layer                       │
-│  ┌────────────┐ ┌────────────┐ ┌────────────┐ ┌──────┐ │
-│  │Sofia Agent │ │N8N Workflow│ │42 Functions│ │  AI  │ │
-│  │Specialized │ │Engine      │ │Business    │ │GPT4o │ │
-│  │Real Estate │ │External    │ │Automation  │ │ Mini │ │
-│  │Consultant  │ │Processing  │ │            │ │      │ │
-│  └────────────┘ └────────────┘ └────────────┘ └──────┘ │
-└─────────────────────────────────────────────────────────┘
-                            │ Webhooks
-┌─────────────────────────────────────────────────────────┐
-│             Integration Layer                           │
-│  ┌────────────┐ ┌────────────┐ ┌────────────┐ ┌──────┐ │
-│  │Baileys     │ │Webhook     │ │42 AI Func  │ │CRM   │ │
-│  │Dedicated   │ │Handlers    │ │API Routes  │ │Auto  │ │
-│  │Server      │ │N8N Bridge  │ │Business    │ │Pipe  │ │
-│  │DigitalOcean│ │            │ │Logic       │ │line  │ │
-│  └────────────┘ └────────────┘ └────────────┘ └──────┘ │
-└─────────────────────────────────────────────────────────┘
-                            │ Data Services
-┌─────────────────────────────────────────────────────────┐
-│                Data Layer                               │
-│  ┌────────────┐ ┌────────────┐ ┌────────────┐ ┌──────┐ │
-│  │Firestore   │ │Storage     │ │Services    │ │Cache │ │
-│  │Multi-tenant│ │Media Files │ │Factory     │ │LRU   │ │
-│  │Isolation   │ │Compressed  │ │Tenant      │ │5min  │ │
-│  │Complete    │ │Thumbnails  │ │Scoped      │ │TTL   │ │
-│  └────────────┘ └────────────┘ └────────────┘ └──────┘ │
-└─────────────────────────────────────────────────────────┘
-```
-
-### 🤖 Sofia AI Agent - Especialista Imobiliária
-
-**Características da Sofia**:
-- **Comportamento Reativo**: Nunca envia "Aguarde..." ou "Estou verificando..."
-- **Resposta Completa**: Executa todas as funções e responde tudo de uma vez
-- **Pipeline Automático**: Move leads automaticamente através dos estágios CRM
-- **Especialista**: 8+ anos de experiência em locações por temporada (persona)
-- **Consultiva**: Abordagem focada em relacionamento, não apenas vendas
-
-### 📱 Fluxo Sofia WhatsApp (Atualizado)
-
-```mermaid
-sequenceDiagram
-    participant C as Cliente WhatsApp
-    participant B as Baileys Server (Dedicado)
-    participant W as Webhook Handler
-    participant N as N8N + Sofia Workflow
-    participant F as 42 AI Functions
-    participant R as Response Sender
-
-    C->>B: "Preciso apartamento para dezembro"
-    B->>W: POST /webhook/whatsapp-microservice
-    W->>N: Forward to Sofia N8N Workflow
-
-    Note over N: Sofia Reactive Execution
-    N->>F: create_lead (register customer)
-    N->>F: search_properties (find options)
-    N->>F: send_property_media (show photos)
-    N->>F: add_lead_interaction (track)
-    N->>F: lead_pipeline_movement (advance)
-
-    N->>R: Complete Response Ready
-    R->>B: POST /api/whatsapp/send-n8n
-    B->>C: "Oi! Encontrei opções lindas... [fotos] [detalhes]"
-```
-
-**Vantagens do Fluxo Sofia**:
-- **⚡ Resposta Única**: Cliente recebe tudo de uma vez
-- **🎯 Especializada**: Conhece cada imóvel do portfólio
-- **🔄 CRM Automático**: Pipeline progride automaticamente
-- **📊 Analytics**: Toda interação é rastreada
-- **💡 Inteligente**: Oferece alternativas quando algo não está disponível
+- **Sofia AI Agent**: Consultora especializada com 60 funcoes de automacao
+- **Revolutionary Onboarding**: Setup guiado em 2 passos (Propriedade + WhatsApp)
+- **iCal Sync Bidirecional**: Import/Export com Airbnb, Booking, VRBO
+- **CRM Avancado**: Pipeline automatizado com 5 dashboards analiticos
+- **Multi-canal**: WhatsApp + Facebook Messenger + Instagram Direct
+- **Multi-tenant**: Isolamento completo por organizacao
+- **Mini-sites**: Sites publicos com dominios customizados
+- **Enterprise Security**: Validacao Zod, sanitizacao de inputs, rate limiting
 
 ---
 
-## 🔧 Sistema de 45+ AI Functions
+## Arquitetura
 
-### Nova Arquitetura de Functions (2025)
+### Arquitetura de 4 Camadas
 
-O sistema possui **45+ funções especializadas** via **API Routes individuais** consumidas pela **Sofia via N8N**.
+```
++-----------------------------------------------------------+
+|                Frontend Layer (Next.js)                    |
+|  +------------+ +------------+ +------------+ +----------+ |
+|  |Revolutionary| |   CRM     | |Conversations| |Calendar | |
+|  |Onboarding  | |5 Dashboards| |Multi-channel| |iCal Sync| |
+|  +------------+ +------------+ +------------+ +----------+ |
++-----------------------------------------------------------+
+                            | REST APIs
++-----------------------------------------------------------+
+|              Sofia AI + N8N Layer                          |
+|  +------------+ +------------+ +------------+ +----------+ |
+|  |Sofia Agent | |N8N Workflow| |60 Functions| |  GPT-4o  | |
+|  |Specialized | |Engine      | |Business    | |  Mini    | |
+|  |Real Estate | |External    | |Automation  | |          | |
+|  +------------+ +------------+ +------------+ +----------+ |
++-----------------------------------------------------------+
+                            | Webhooks
++-----------------------------------------------------------+
+|             Integration Layer                              |
+|  +------------+ +------------+ +------------+ +----------+ |
+|  |Baileys     | |Facebook    | |iCal Sync   | |  CRM     | |
+|  |Dedicated   | |Graph API   | |Cron Job    | |  Auto    | |
+|  |Server      | |Webhooks    | |Every 30min | |  Pipeline| |
+|  +------------+ +------------+ +------------+ +----------+ |
++-----------------------------------------------------------+
+                            | Data Services
++-----------------------------------------------------------+
+|                Data Layer                                  |
+|  +------------+ +------------+ +------------+ +----------+ |
+|  |Firestore   | |Storage     | |Services    | | Cache    | |
+|  |Multi-tenant| |Media Files | |Factory     | | LRU      | |
+|  |Isolation   | |Compressed  | |Tenant      | | 5min TTL | |
+|  +------------+ +------------+ +------------+ +----------+ |
++-----------------------------------------------------------+
+```
+
+### Fluxo Sofia WhatsApp
+
+```
+Cliente WhatsApp
+       |
+       v
+Baileys Server (Dedicado)
+       |
+       v
+POST /webhook/whatsapp-microservice
+       |
+       v
+N8N + Sofia Workflow
+       |
+       +---> create_lead
+       +---> search_properties
+       +---> send_property_media
+       +---> add_lead_interaction
+       +---> lead_pipeline_movement
+       |
+       v
+POST /api/whatsapp/send-n8n
+       |
+       v
+Cliente recebe resposta completa
+```
+
+---
+
+## 60 AI Functions
+
+### Categorias de Funcoes
+
+| Categoria | Count | Funcoes Principais |
+|-----------|-------|-------------------|
+| **CRM/Leads** | 11 | `create-lead`, `lead-pipeline-movement`, `classify-lead` |
+| **Reservations** | 7 | `create-reservation`, `check-availability`, `schedule-visit` |
+| **Properties** | 4 | `search-properties`, `get-property-details`, `send-property-media` |
+| **Financial** | 6 | `calculate-price`, `calculate-dynamic-discount`, `check-discount-opportunities` |
+| **Payments** | 8 | `create-payment-link`, `generate-pix-qrcode`, `check-payment-status` |
+| **Analytics** | 7 | `track-conversion-step`, `get-analytics-dashboard`, `get-business-insights` |
+| **Policies** | 5 | `get-tenant-config`, `get-negotiation-settings`, `get-policies` |
+| **Communication** | 3 | `post-notification`, `post-conversation` |
+| **Goals/Tasks** | 4 | `create-goal`, `update-goal-progress`, `create-task` |
+| **Wallet** | 2 | `wallet-get-balance`, `wallet-add-credit` |
+| **Outros** | 3 | `register-client`, `schedule-meeting`, `get-agent-prompts` |
+
+### Todas as 60 Funcoes
 
 ```typescript
-// Arquitetura de AI Functions
-interface SofiaFunctionsArchitecture {
-  agent: 'Sofia - Consultora Imobiliária Especializada';
-  location: 'app/api/ai/functions/**/route.ts';
-  count: 45; // Verified via system audit (Janeiro 2025)
-  pattern: 'Individual Specialized Endpoints';
-  authentication: 'N8N_API_KEY Bearer Token';
-  tenant_isolation: true; // tenants/{tenantId}/collections
-  reactive_execution: true;
-  pipeline_automation: true;
-  conversation_tracking: true; // NEW: post-conversation permanent storage
-  dynamic_discounts: true; // NEW: intelligent negotiation system
-  validation: 'Zod schemas on all endpoints';
-  security: 'Input sanitization + rate limiting';
+// CRM/LEADS (11)
+POST /api/ai/functions/create-lead
+POST /api/ai/functions/get-lead-details
+POST /api/ai/functions/get-leads-list
+POST /api/ai/functions/update-lead
+POST /api/ai/functions/update-lead-status
+POST /api/ai/functions/classify-lead
+POST /api/ai/functions/add-lead-interaction
+POST /api/ai/functions/analyze-lead-performance
+POST /api/ai/functions/lead-pipeline-movement
+POST /api/ai/functions/follow-up-lead
+POST /api/ai/functions/track-qualification-milestone
+
+// RESERVATIONS (7)
+POST /api/ai/functions/create-reservation
+POST /api/ai/functions/modify-reservation
+POST /api/ai/functions/cancel-reservation
+POST /api/ai/functions/check-availability
+POST /api/ai/functions/check-agenda-availability
+POST /api/ai/functions/check-visit-availability
+POST /api/ai/functions/schedule-visit
+
+// PROPERTIES (4)
+POST /api/ai/functions/search-properties
+POST /api/ai/functions/search-properties-cached
+POST /api/ai/functions/search-properties-optimized
+POST /api/ai/functions/get-property-details
+
+// FINANCIAL (6)
+POST /api/ai/functions/calculate-price
+POST /api/ai/functions/calculate-dynamic-discount
+POST /api/ai/functions/check-discount-opportunities
+POST /api/ai/functions/get-dynamic-discount
+POST /api/ai/functions/generate-quote
+POST /api/ai/functions/request-withdrawal
+
+// PAYMENTS (8)
+POST /api/ai/functions/create-payment-link
+POST /api/ai/functions/generate-pix-qrcode
+POST /api/ai/functions/create-transaction
+POST /api/ai/functions/check-payment-status
+POST /api/ai/functions/cancel-payment
+POST /api/ai/functions/list-pending-payments
+POST /api/ai/functions/send-payment-reminder
+POST /api/ai/functions/get-financial-summary
+
+// ANALYTICS (7)
+POST /api/ai/functions/track-conversion-step
+POST /api/ai/functions/track-conversation-metric
+POST /api/ai/functions/track-conversation-session
+POST /api/ai/functions/track-message-engagement
+POST /api/ai/functions/track-metrics
+POST /api/ai/functions/analyze-performance
+POST /api/ai/functions/get-analytics-dashboard
+
+// POLICIES/CONFIG (5)
+POST /api/ai/functions/get-tenant-config
+POST /api/ai/functions/get-negotiation-settings
+POST /api/ai/functions/get-policies
+POST /api/ai/functions/get-cancellation-policies
+POST /api/ai/functions/get-company-address
+
+// COMMUNICATION (3)
+POST /api/ai/functions/post-notification
+POST /api/ai/functions/send-tenant-map
+POST /api/ai/functions/post-conversation
+
+// GOALS/TASKS (4)
+POST /api/ai/functions/create-goal
+POST /api/ai/functions/update-goal-progress
+POST /api/ai/functions/create-task
+POST /api/ai/functions/update-task
+
+// WALLET (2)
+POST /api/ai/functions/wallet-get-balance
+POST /api/ai/functions/wallet-add-credit
+
+// OUTROS (3)
+POST /api/ai/functions/register-client
+POST /api/ai/functions/schedule-meeting
+POST /api/ai/functions/get-agent-prompts
+```
+
+---
+
+## Revolutionary Onboarding
+
+Sistema de onboarding guiado em 2 passos para novos usuarios.
+
+### Passos
+
+1. **Adicionar Primeira Propriedade**
+   - Importar do Airbnb (automatico com URL)
+   - Criar manualmente
+   - Tempo estimado: 5 minutos
+
+2. **Conectar WhatsApp**
+   - Escanear QR Code
+   - Habilitar Sofia AI
+   - Tempo estimado: 3 minutos
+
+### Arquitetura
+
+```typescript
+// Componentes principais
+/components/organisms/RevolutionaryOnboarding/
+  RevolutionaryOnboarding.tsx       // Main component
+  SafeRevolutionaryOnboarding.tsx   // Error boundary wrapper
+  OnboardingStepCard.tsx            // Individual step card
+  steps/
+    Step1PropertySetup/             // Property import/create
+    Step3WhatsAppSetup/             // WhatsApp QR connection
+
+// Hooks
+/lib/hooks/useOnboarding.ts              // Base hook
+/lib/hooks/useRevolutionaryOnboarding.ts // Extended hook
+
+// Data structure
+interface OnboardingProgress {
+  userId: string;
+  tenantId: string;
+  steps: {
+    add_property: 'pending' | 'in_progress' | 'completed' | 'skipped';
+    connect_whatsapp: 'pending' | 'in_progress' | 'completed' | 'skipped';
+  };
+  completionPercentage: number;  // 0, 50, 100
+  isCompleted: boolean;
+  viewMode: 'compact' | 'expanded' | 'fullscreen';
 }
 ```
 
-### 🏠 Property Management Functions
-```typescript
-// Busca e Descoberta
-POST /api/ai/functions/search-properties          // Busca avançada
-GET  /api/ai/functions/get-property-details      // Info completa
-POST /api/ai/functions/send-property-media       // Fotos/videos
-POST /api/ai/functions/send-property-map         // Localização
-POST /api/ai/functions/check-availability        // Disponibilidade
+### Visualizacoes
 
-// Exemplo de uso Sofia:
-// Cliente: "Quero apartamento para 4 pessoas em dezembro"
-// Sofia executa: search_properties → send_property_media → (resposta completa)
+- **Compact**: Card minimalista no dashboard
+- **Expanded**: Grid com todos os passos
+- **Fullscreen**: Dialog em tela cheia
+
+---
+
+## iCal Import/Export
+
+Sistema bidirecional de sincronizacao de calendarios com Airbnb, Booking, VRBO e Google Calendar.
+
+### Exportacao (Locai -> Airbnb/Booking)
+
+```typescript
+// 1. Gerar token de seguranca
+POST /api/properties/[id]/ical/generate-token
+// Retorna: /api/ical/{tenantId}/{propertyId}?token={token}
+
+// 2. Airbnb/Booking busca o feed
+GET /api/ical/{tenantId}/{propertyId}?token={token}
+// Retorna: arquivo .ics RFC 5545 compliant
+
+// Features:
+// - Cache de 1 hora
+// - Rate limiting (1000 req/hora por IP)
+// - Filtra ultimos 12 meses
+// - Exclui reservas externas (previne loop)
 ```
 
-### 💰 Financial Operations Functions
+### Importacao (Airbnb/Booking -> Locai)
+
 ```typescript
-// Preços e Transações
-POST /api/ai/functions/calculate-price              // Cálculo dinâmico com surcharges
-POST /api/ai/functions/calculate-dynamic-discount   // 🆕 Desconto inteligente multi-critério
-POST /api/ai/functions/check-discount-opportunities // 🆕 Lista todas oportunidades de desconto
-POST /api/ai/functions/generate-quote               // Orçamento formal
-POST /api/ai/functions/create-transaction           // Pagamentos
-POST /api/ai/functions/track-metrics               // Métricas
-
-// Exemplo de uso Sofia:
-// Cliente: "Quanto custa o Vista Mar para 5 dias?"
-// Sofia executa: check_availability → calculate_price → (orçamento detalhado)
-
-// Cliente: "Está muito caro, tem desconto?"
-// Sofia executa: check_discount_opportunities → calculate_dynamic_discount → (proposta com desconto)
-```
-
-### 📅 Booking Management Functions
-```typescript
-// Reservas e Modificações
-POST /api/ai/functions/create-reservation        // Criar reserva
-POST /api/ai/functions/cancel-reservation        // Cancelar
-POST /api/ai/functions/modify-reservation        // Modificar
-POST /api/ai/functions/schedule-visit           // Agendar visita
-GET  /api/ai/functions/check-visit-availability  // Disponibilidade visita
-
-// Exemplo de uso Sofia:
-// Cliente: "Pode reservar o Vista Mar?"
-// Sofia executa: register_client → create_reservation → schedule_meeting
-```
-
-### 👤 CRM Integration Functions (11 FUNCTIONS)
-```typescript
-// Sistema CRM Completo
-POST /api/ai/functions/create-lead              // Criação inteligente + deduplicação
-GET  /api/ai/functions/get-lead-details         // Info completa lead
-GET  /api/ai/functions/get-leads-list           // Lista filtrada com paginação
-POST /api/ai/functions/add-lead-interaction     // Rastrear interação com sentiment
-POST /api/ai/functions/analyze-lead-performance // Análise AI com predições
-POST /api/ai/functions/follow-up-lead           // Follow-up automático agendado
-POST /api/ai/functions/lead-pipeline-movement   // Progressão automática de pipeline
-POST /api/ai/functions/classify-lead            // Classificação hot/warm/cold
-POST /api/ai/functions/update-lead              // Atualização de informações
-POST /api/ai/functions/update-lead-status       // Gestão de status
-POST /api/ai/functions/register-client          // Registro completo de cliente
-
-// Exemplo automático Sofia:
-// Toda conversa dispara: create_lead → add_lead_interaction → lead_pipeline_movement
-```
-
-### 💬 Conversation Tracking (NOVO)
-```typescript
-// Armazenamento Permanente de Conversas
-POST /api/ai/functions/post-conversation        // 🆕 Salva conversa no Firebase
-
-// Funcionalidades:
-// ✅ Armazenamento permanente de TODAS as conversas
-// ✅ Estrutura: tenants/{tenantId}/conversations/{conversationId}/messages/
-// ✅ Agrupa mensagens por cliente automaticamente
-// ✅ Contexto completo (timestamp, messageType, workflowId)
-// ✅ Usado para fine-tuning de modelos AI
-// ✅ Analytics e auditoria completa
-// ✅ Sem limites de tempo ou quantidade
-
-// Exemplo automático via N8N:
-// Após cada resposta Sofia: post_conversation (salva tudo no Firebase)
-```
-
-### 📋 Policies & Information Functions
-```typescript
-// Informações e Políticas
-GET  /api/ai/functions/get-policies             // Políticas negócio
-POST /api/ai/functions/register-client          // Registro cliente
-POST /api/ai/functions/schedule-meeting         // Agendamentos
-GET  /api/ai/functions/check-agenda-availability // Calendário
-POST /api/ai/functions/classify-lead            // Classificação
-POST /api/ai/functions/update-lead              // Atualização
-```
-
-### 🎯 Goals & Analytics Functions
-```typescript
-// Metas e Performance
-POST /api/ai/functions/create-goal              // Criação metas
-POST /api/ai/functions/update-goal-progress     // Progresso
-POST /api/ai/functions/analyze-performance      // Análise completa
-```
-
-### ⚡ create_lead Simplificado (DESTAQUE)
-
-**JSON Mínimo**:
-```json
+// 1. Configurar importacao
+POST /api/calendar/sync/configure
 {
-  "tenantId": "tenant123",
-  "phone": "+5511999999999"
+  propertyId: string,
+  iCalUrl: string,        // URL do Airbnb/Booking
+  source: 'AIRBNB' | 'BOOKING' | 'VRBO' | 'GOOGLE_CALENDAR',
+  syncFrequency: 'hourly' | 'daily' | 'manual'
 }
+
+// 2. Sync manual
+POST /api/calendar/sync/{propertyId}
+
+// 3. Sync automatico (cron a cada 30 min)
+POST /api/calendar/sync/cron
+
+// Features:
+// - Deduplicacao via UID
+// - Soft-delete para reservas removidas externamente
+// - Cliente generico por plataforma
+// - Exponential backoff retry
 ```
 
-**Funcionalidades**:
-- ✅ **Deduplicação Automática**: Merge com lead existente se mesmo telefone
-- ✅ **Score Inteligente**: Só aumenta, nunca diminui por engano
-- ✅ **Temperature Progressive**: cold → warm → hot (só evolui)
-- ✅ **Histórico Preservado**: Todas as mensagens são mantidas
-- ✅ **CRM Integrado**: Criação/atualização trackeia interação automaticamente
-
-### 🛡️ Validação Enterprise (Exemplo Real)
-
-**Reservations API com Zod** (`app/api/reservations/[id]/route.ts`):
+### Servicos
 
 ```typescript
-// Validação completa com Zod
-const UpdateReservationSchema = z.object({
-  propertyId: z.string()
-    .min(1, 'ID da propriedade é obrigatório')
-    .max(100, 'ID da propriedade inválido')
-    .optional(),
-
-  checkIn: z.coerce.date({
-    errorMap: () => ({ message: 'Data de check-in inválida' })
-  }).optional(),
-
-  guests: z.number()
-    .int('Número de hóspedes deve ser inteiro')
-    .positive('Número de hóspedes deve ser positivo')
-    .min(1, 'Deve ter pelo menos 1 hóspede')
-    .optional(),
-
-  totalAmount: z.number()
-    .min(0, 'Valor total não pode ser negativo')
-    .optional(),
-
-  status: z.nativeEnum(ReservationStatus).optional(),
-
-  paymentStatus: z.nativeEnum(PaymentStatus).optional(),
-
-  specialRequests: z.string()
-    .max(2000, 'Solicitações especiais devem ter no máximo 2000 caracteres')
-    .optional(),
-});
-
-// Validação + Sanitização + Business Rules
-const validationResult = UpdateReservationSchema.safeParse(body);
-if (!validationResult.success) {
-  return NextResponse.json({
-    error: 'Dados inválidos',
-    code: 'VALIDATION_ERROR',
-    details: validationResult.error.flatten()
-  }, { status: 400 });
-}
-
-// Sanitize text inputs
-sanitizedData.specialRequests = sanitizeUserInput(validatedData.specialRequests);
-
-// Business rule validation
-if (checkOut <= checkIn) {
-  return NextResponse.json({
-    error: 'Data de check-out deve ser posterior à data de check-in',
-    code: 'VALIDATION_ERROR'
-  }, { status: 400 });
-}
+// lib/services/ical-generator-service.ts   - Gera feeds iCal
+// lib/services/ical-parser-service.ts      - Parse de iCal externo
+// lib/services/calendar-sync-service.ts    - Orquestracao de sync
+// lib/services/airbnb-import-service.ts    - Integracao Airbnb
+// lib/services/property-import-service.ts  - Bulk import de propriedades
+// lib/services/import-progress-service.ts  - Tracking de progresso
 ```
 
-**Padrão usado em todas as 45+ AI Functions**
+### Property Import Wizard
+
+Wizard de 5 passos para importar propriedades do Airbnb:
+
+1. **Paste URL**: Cole a URL da propriedade do Airbnb
+2. **Import Data**: Busca dados automaticamente
+3. **Configure iCal**: Configura sincronizacao (opcional)
+4. **Complete Details**: Preenche informacoes adicionais
+5. **Success**: Propriedade criada
 
 ---
 
-## 🎛️ CRM Avançado com Analytics
+## Sistema de Conversas
 
-### 5 Dashboards Analíticos (NOVO)
+Interface multi-canal para gerenciamento de conversas com clientes.
 
-**1. Pipeline**: Kanban drag-and-drop com stages automáticos
-**2. Todos os Leads**: Lista completa com filtros avançados
-**3. Insights IA**: Recomendações e predições AI-powered
-**4. **Analytics Avançado**: Business intelligence completo
-**5. **Performance**: Rastreamento tempo real por lead
+### Canais Suportados
 
-### 📊 Advanced Analytics Dashboard
+1. **WhatsApp** - Via Baileys dedicated server
+2. **Facebook Messenger** - Via Graph API (em desenvolvimento)
+3. **Instagram Direct** - Via Graph API (em desenvolvimento)
+
+### Interface
 
 ```typescript
-// Componentes de Visualização
-interface CRMAnalytics {
-  components: {
-    'AdvancedAnalytics.tsx': 'Funis conversão + time series';
-    'LeadPerformanceTracker.tsx': 'Rastreamento individual';
-    'AIInsights.tsx': 'Recomendações AI';
-    'CRMStats.tsx': 'KPIs principais';
-  };
+// Pagina: /app/dashboard/conversas/page.tsx
 
-  features: {
-    conversion_funnel: 'Pipeline visual com taxas por estágio';
-    time_series: 'Evolução leads e conversões temporais';
-    source_performance: 'ROI por fonte de lead';
-    individual_tracking: 'Score e risco por lead';
-    interactive_charts: 'Recharts responsivo';
-  };
+// Layout split-screen:
+// [Sidebar Canais] | [Lista Conversas] | [Thread Mensagens]
+
+// Features:
+// - Filtro por canal (WhatsApp, Facebook, Instagram)
+// - Busca por nome/telefone
+// - Infinite scroll
+// - Indicadores de mensagens nao lidas
+// - Context menu (renomear, marcar lido, alterar status)
+// - AI Control (bloquear/desbloquear Sofia)
+```
+
+### AI Control
+
+Permite bloquear Sofia para atendimento manual:
+
+```typescript
+// Bloquear IA
+POST /api/ai/block-conversation
+{
+  phone: string,
+  blocked: true,
+  duration: 1 | 2 | 4 | 24,  // horas
+  reason?: string
+}
+
+// Verificar status
+GET /api/ai/block-conversation?phone={phone}
+
+// Quando bloqueada:
+// - Input manual ativado
+// - Mensagens em tempo real via Redis pub/sub
+// - Expira automaticamente apos duracao
+```
+
+### Otimizacoes
+
+```typescript
+// Two-Collection Architecture
+tenants/{tenantId}/conversations/    // Lightweight headers (1-2KB)
+tenants/{tenantId}/messages/         // Detailed messages
+
+// Hook otimizado
+const {
+  conversations,
+  selectedConversation,
+  messages,
+  loadConversations,
+  selectConversation,
+  markAsRead,
+  renameConversation
+} = useConversationsOptimized({ tenantId });
+```
+
+---
+
+## CRM Avancado
+
+Sistema completo de gerenciamento de relacionamento com clientes.
+
+### Pipeline Stages
+
+```typescript
+enum LeadStage {
+  NEW = 'new',           // Lead criado
+  CONTACTED = 'contacted', // Primeiro contato
+  QUALIFIED = 'qualified', // Necessidades identificadas
+  PRESENTATION = 'presentation', // Opcoes mostradas
+  PROPOSAL = 'proposal',   // Orcamento solicitado
+  NEGOTIATION = 'negotiation', // Discussao de preco
+  CLOSING = 'closing',     // Confirmacao
+  WON = 'won',            // Reserva concluida
+  LOST = 'lost'           // Perdido
 }
 ```
 
-### 🔄 Pipeline Automation (NOVA LÓGICA)
+### Progressao Automatica
 
-**Sofia move leads automaticamente**:
-```typescript
-// Progressão Automática
-new → contacted      // Sofia primeira resposta
-contacted → qualified    // Identifica necessidades (data/orçamento)
-qualified → presentation // Mostra opções de imóveis
-presentation → proposal  // Cliente pede orçamento
-proposal → negotiation   // Discussão de preço
-negotiation → closing    // Confirmação orçamento
-closing → won           // Reserva concluída
+Sofia move leads automaticamente baseado nas interacoes:
+
+```
+new -> contacted       // Primeira resposta da Sofia
+contacted -> qualified // Identifica datas, orcamento, localizacao
+qualified -> presentation // Mostra opcoes de imoveis
+presentation -> proposal  // Cliente pede orcamento
+proposal -> negotiation   // Discussao de preco
+negotiation -> closing    // Confirmacao de orcamento
+closing -> won           // Reserva concluida
 ```
 
-**Dynamic Lead Scoring**:
-- **Base Score**: Qualidade inicial do lead
+### 5 Dashboards
+
+1. **Pipeline**: Kanban drag-and-drop com stages
+2. **Todos os Leads**: Lista completa com filtros
+3. **Insights IA**: Recomendacoes AI-powered
+4. **Analytics Avancado**: Funis de conversao, time series
+5. **Performance**: Tracking individual por lead
+
+### Componentes
+
+```typescript
+/app/dashboard/crm/
+  page.tsx                            // Main interface
+  components/
+    KanbanBoard.tsx                   // Drag-drop pipeline
+    AdvancedAnalytics.tsx             // Conversion funnels
+    LeadPerformanceTracker.tsx        // Individual tracking
+    AIInsights.tsx                    // AI recommendations
+    CRMStats.tsx                      // KPIs
+    LeadDetailsDrawer.tsx             // Lead details
+    CreateLeadDialog.tsx              // Create lead
+    TaskDialog.tsx                    // Create task
+```
+
+### Lead Scoring
+
+Pontuacao dinamica baseada em 20+ fatores:
+
+- **Base Score**: Qualidade inicial
 - **Temperature Bonus**: hot (+15), warm (+5), cold (-10)
-- **Interaction Bonus**: Frequência e engajamento
-- **Time Decay**: Redução para leads antigos
+- **Interaction Bonus**: Frequencia e engajamento
+- **Qualification Bonus**: Budget, timeline, need, authority
+- **Time Decay**: Reducao para leads antigos
 - **AI Enhanced**: Ajustes baseados em ML
 
 ---
 
-## 📱 Integração WhatsApp + Sofia
+## Integracao WhatsApp
 
-### Servidor Baileys Dedicado
+### Servidor Dedicado
 
 ```typescript
-interface BaileysArchitecture {
+{
   server: {
-    url: 'http://167.172.116.195:3000';
-    technology: 'Baileys v6.7.18 (WhatsApp Web)';
-    deployment: 'DigitalOcean Dedicated Droplet';
-    isolation: 'Multi-tenant QR sessions';
-    performance: 'Dedicated resources for WhatsApp';
-  };
-
+    url: 'http://167.172.116.195:3000',
+    technology: 'Baileys v6.7.18',
+    deployment: 'DigitalOcean Dedicated Droplet',
+    isolation: 'Multi-tenant QR sessions'
+  },
   features: {
-    session_management: 'QR code por tenant';
-    media_handling: 'Upload/download direto';
-    multi_device: 'WhatsApp multi-device support';
-    auto_reconnection: 'Reconexão automática';
-    message_queue: 'Fila de mensagens confiável';
-  };
-}
-```
-
-### 🔄 Sofia Message Flow (Detalhado)
-
-#### 1. Recebimento (Baileys → Frontend)
-```typescript
-// /app/api/webhook/whatsapp-microservice/route.ts
-export async function POST(request: NextRequest) {
-  const { event, tenantId, data } = await request.json();
-
-  if (event === 'message') {
-    // Forward para Sofia via N8N
-    await fetch(process.env.N8N_WEBHOOK_URL!, {
-      method: 'POST',
-      body: JSON.stringify({
-        tenantId,
-        message: data.message,
-        phone: data.from,
-        source: 'whatsapp-baileys'
-      })
-    });
+    session_management: 'QR code por tenant',
+    media_handling: 'Upload/download direto',
+    multi_device: 'WhatsApp multi-device support',
+    auto_reconnection: 'Reconexao automatica'
   }
 }
 ```
 
-#### 2. Processamento Sofia (N8N Workflow)
+### Endpoints
+
 ```typescript
-// N8N Workflow - Sofia Reactive Execution
-// 1. Receive message
-// 2. Determine customer status (new/existing)
-// 3. Execute reactive function sequence:
-//    - create_lead (if first contact)
-//    - search_properties (if asking for options)
-//    - send_property_media (show photos immediately)
-//    - add_lead_interaction (track conversation)
-//    - lead_pipeline_movement (advance stage)
-// 4. Generate complete response
-// 5. Send via: POST /api/whatsapp/send-n8n
+// Receber mensagens do Baileys
+POST /api/webhook/whatsapp-microservice
+
+// Mensagens em tempo real (modo manual)
+POST /api/webhook/client-message
+
+// Enviar via Sofia/N8N
+POST /api/whatsapp/send-n8n
+
+// Enviar manualmente
+POST /api/whatsapp/send-manual
+
+// QR Code
+GET /api/whatsapp/qr
+
+// Status da sessao
+GET /api/whatsapp/session
 ```
-
-#### 3. Envio Resposta (Frontend → Baileys)
-```typescript
-// /app/api/whatsapp/send-n8n/route.ts
-export async function POST(request: NextRequest) {
-  const { tenantId, clientPhone, finalMessage, mediaUrl } = await request.json();
-
-  const whatsappClient = createWhatsAppClient(tenantId);
-
-  if (mediaUrl) {
-    await whatsappClient.sendImage(clientPhone, mediaUrl, finalMessage);
-  } else {
-    await whatsappClient.sendText(clientPhone, finalMessage);
-  }
-
-  return NextResponse.json({ success: true });
-}
-```
-
-### Sofia Reactive Behavior (DIFERENCIAL)
-
-**❌ Comportamento Tradicional**:
-```
-Cliente: "Quero apartamento"
-Bot: "Aguarde, estou buscando opções..."
-Bot: "Encontrei 3 opções, quer ver?"
-Cliente: "Sim"
-Bot: "Enviando fotos..."
-```
-
-**✅ Comportamento Sofia Reativo**:
-```
-Cliente: "Quero apartamento"
-Sofia: "Oi! Que ótimo! 😊 Encontrei opções lindas para você:
-
-🏠 **Vista Mar Premium**
-👥 Até 6 pessoas • 🛏️ 3 quartos
-💰 A partir de R$ 420/noite
-✨ Vista panorâmica exclusiva
-
-[FOTO DO APARTAMENTO]
-
-Esse é um dos mais procurados! Quer ver mais detalhes ou outras opções?"
-```
-
-**Vantagens do Reativo**:
-- ⚡ **Resposta Única**: Todo processamento em background
-- 🎯 **Completa**: Texto + foto + informações em uma mensagem
-- 🔄 **CRM Automático**: Pipeline já avançou para "presentation"
-- 💡 **Proativa**: Já oferece próximos passos
 
 ---
 
-## 🌐 API Endpoints
+## Facebook/Instagram (Em Desenvolvimento)
 
-### Estrutura de APIs (Atualizada)
+Integracao com Facebook Messenger e Instagram Direct Messages.
 
-#### 42 AI Functions (Sofia Integration) - Complete List
+### Endpoints
 
 ```typescript
-// === PROPERTY MANAGEMENT (10 functions) ===
-POST /api/ai/functions/search-properties           // Advanced search with filters
-GET  /api/ai/functions/get-property-details       // Complete property info
-POST /api/ai/functions/send-property-media        // Photo/video delivery
-POST /api/ai/functions/send-property-map          // Location information
-POST /api/ai/functions/check-availability         // Real-time availability
-POST /api/ai/functions/get-property-amenities     // Amenities listing
-POST /api/ai/functions/compare-properties         // Side-by-side comparison
-POST /api/ai/functions/get-similar-properties     // Alternative suggestions
-POST /api/ai/functions/update-property-status     // Status management
-POST /api/ai/functions/import-properties          // Bulk import
+// Webhook (recebe mensagens)
+GET/POST /api/facebook/webhook
 
-// === FINANCIAL OPERATIONS (8 functions) ===
-POST /api/ai/functions/calculate-price            // Dynamic pricing engine
-POST /api/ai/functions/generate-quote             // Formal quotations
-POST /api/ai/functions/create-transaction         // Payment processing
-POST /api/ai/functions/track-metrics              // Financial tracking
-POST /api/ai/functions/process-payment            // Payment execution
-POST /api/ai/functions/generate-invoice           // Invoice generation
-POST /api/ai/functions/get-financial-summary      // Financial reports
-POST /api/ai/functions/track-commission           // Commission tracking
+// Autenticacao (conectar paginas)
+POST /api/facebook/auth
+DELETE /api/facebook/auth?tenantId={tenantId}
 
-// === BOOKING MANAGEMENT (7 functions) ===
-POST /api/ai/functions/create-reservation         // Complete booking creation
-POST /api/ai/functions/cancel-reservation         // Cancellation with refund
-POST /api/ai/functions/modify-reservation         // Booking modifications
-POST /api/ai/functions/schedule-visit             // Property visit scheduling
-GET  /api/ai/functions/check-visit-availability   // Visit slot verification
-POST /api/ai/functions/confirm-booking            // Booking confirmation
-POST /api/ai/functions/get-booking-history        // Historical bookings
+// Status da conexao
+GET /api/facebook/status?tenantId={tenantId}
 
-// === CRM INTEGRATION (9 functions) ===
-POST /api/ai/functions/create-lead                // Smart lead creation
-GET  /api/ai/functions/get-lead-details           // Lead information
-GET  /api/ai/functions/get-leads-list             // Filtered lead listing
-POST /api/ai/functions/add-lead-interaction       // Interaction tracking
-POST /api/ai/functions/analyze-lead-performance   // AI-powered analysis
-POST /api/ai/functions/follow-up-lead             // Follow-up automation
-POST /api/ai/functions/lead-pipeline-movement     // Pipeline progression
-POST /api/ai/functions/classify-lead              // Lead classification
-POST /api/ai/functions/update-lead-status         // Status management
-
-// === CLIENT MANAGEMENT (4 functions) ===
-POST /api/ai/functions/register-client            // Client registration
-GET  /api/ai/functions/get-client-details         // Client information
-POST /api/ai/functions/update-client              // Client updates
-POST /api/ai/functions/merge-duplicate-clients    // Deduplication
-
-// === POLICIES & INFORMATION (4 functions) ===
-GET  /api/ai/functions/get-policies               // Business policies
-POST /api/ai/functions/schedule-meeting           // Meeting scheduling
-GET  /api/ai/functions/check-agenda-availability  // Calendar checking
-GET  /api/ai/functions/get-tenant-settings        // Tenant configuration
+// Enviar mensagens
+POST /api/social/send
+{
+  tenantId: string,
+  conversationId: string,
+  message: string
+}
 ```
 
-**Total: 42 Specialized AI Function Endpoints**
+### Webhook Events
 
-#### WhatsApp Integration (Updated)
+Suporta 3 tipos de objetos:
+
+1. **Page** (Facebook Messenger)
+2. **Instagram** (Direct Messages)
+3. **WhatsApp Business Account** (Oficial)
+
+---
+
+## Multi-tenant
+
+### Estrutura Firestore
+
 ```typescript
-POST /api/webhook/whatsapp-microservice    # Receive from Baileys
-POST /api/whatsapp/send-n8n               # Send via Sofia/N8N
-GET  /api/whatsapp/qr                     # QR code management
-GET  /api/whatsapp/session                # Session status
-POST /api/whatsapp/session/reset          # Reset session
+tenants/
+  {tenantId}/
+    properties/           // Imoveis
+    clients/             // Clientes
+    reservations/        // Reservas
+    transactions/        // Transacoes
+    leads/               // Pipeline CRM
+    conversations/       // Conversas
+    messages/            // Mensagens
+    amenities/           // Comodidades
+    goals/               // Metas
+    calendar_sync_configurations/  // Config iCal
+    settings/
+      company/           // Dados da empresa
+      negotiation/       // Descontos
+      policies/          // Politicas
+      ai-config/         // Config da Sofia
+
+users/
+  {userId}/
+    onboarding/          // Progresso onboarding
+      {tenantId}/
 ```
 
-#### CRM Dashboard APIs (NEW)
+### TenantServiceFactory
+
 ```typescript
-GET  /api/crm/analytics                   # CRM metrics
-GET  /api/crm/leads/[id]/insights         # Lead insights
-POST /api/crm/leads                       # Create lead via dashboard
-PUT  /api/crm/leads/[id]                  # Update lead
+import { TenantServiceFactory } from '@/lib/firebase/firestore-v2';
+
+const services = new TenantServiceFactory(tenantId);
+
+// Acesso a colecoes
+const properties = await services.properties.getAll();
+const clients = await services.clients.getAll();
+const reservations = await services.reservations.getAll();
+const leads = await services.leads.getAll();
+
+// Servicos especializados
+const availability = await services.availability.check(propertyId, dates);
+const accounts = await services.accounts.getBalance();
 ```
 
-#### Core Application APIs
+---
+
+## API Endpoints
+
+### Core APIs
+
 ```typescript
+// Reservations
+GET/POST  /api/reservations
+GET/PUT   /api/reservations/[id]
+DELETE    /api/reservations/[id]?soft=true
+
+// Transactions
+GET/POST  /api/transactions
+
 // Properties
-GET  /api/properties                      # List properties
-POST /api/properties                      # Create property
-PUT  /api/properties/[id]                 # Update property
-POST /api/properties/import               # Bulk import
+GET/POST  /api/properties
+POST      /api/properties/import
+POST      /api/properties/import/validate
 
-// Analytics (Advanced)
-GET  /api/metrics/advanced                # Business intelligence
-GET  /api/performance/stats               # Performance metrics
+// iCal
+GET  /api/ical/[tenantId]/[propertyId]
+POST /api/properties/[id]/ical/generate-token
+POST /api/calendar/sync/configure
+POST /api/calendar/sync/[propertyId]
+POST /api/calendar/sync/cron
 
-// Auth & Admin
-POST /api/auth/logout                     # Logout
-GET  /api/auth/me                         # Current user
-GET  /api/admin/all-tickets               # Admin panel
-GET  /api/admin/stats                     # System stats
+// WhatsApp
+POST /api/webhook/whatsapp-microservice
+POST /api/webhook/client-message
+POST /api/whatsapp/send-n8n
+POST /api/whatsapp/send-manual
+GET  /api/whatsapp/qr
+GET  /api/whatsapp/session
 
-// Mini-sites
-GET  /api/mini-site/domain                # Domain management
-GET  /api/mini-site/analytics             # Site analytics
-```
+// Facebook/Instagram
+GET/POST /api/facebook/webhook
+POST     /api/facebook/auth
+GET      /api/facebook/status
+POST     /api/social/send
 
-### Authentication Matrix (Updated)
+// AI Control
+GET/POST /api/ai/block-conversation
 
-```typescript
-interface AuthenticationMatrix {
-  sofia_ai_functions: {
-    method: 'Bearer Token (N8N_API_KEY)';
-    header: 'Authorization: Bearer <N8N_API_KEY>';
-    routes: '/api/ai/functions/**';
-    usage: 'Sofia via N8N workflows';
-  };
-
-  dashboard_apis: {
-    method: 'Firebase Auth JWT';
-    header: 'Authorization: Bearer <firebase-token>';
-    routes: '/api/{properties,crm,analytics}/**';
-    usage: 'Dashboard interface';
-  };
-
-  webhook_handlers: {
-    method: 'HMAC Signature + API Key';
-    header: 'X-Webhook-Signature';
-    routes: '/api/webhook/**';
-    usage: 'Baileys microservice integration';
-  };
-
-  admin_panel: {
-    method: 'Firebase JWT + idog: true';
-    route: '/dashboard/lkjhg';
-    usage: 'Ultra-secure admin interface';
-  };
-}
+// Tenant Settings
+GET/PUT  /api/tenant/settings/company
+GET/PUT  /api/tenant/settings/negotiation
+GET/PUT  /api/tenant/settings/policies
+GET/PUT  /api/tenant/discount-settings
 ```
 
 ---
 
-## 🏢 Multi-tenant
+## Configuracao
 
-### Estrutura Multi-tenant (Mantida)
-
-```typescript
-// Firestore Structure - Unchanged
-interface FirestoreMultiTenant {
-  tenants: {
-    [tenantId: string]: {
-      // Core Collections
-      properties: Property[];
-      clients: Client[];
-      reservations: Reservation[];
-
-      // CRM Collections (NEW)
-      leads: Lead[];
-      tasks: Task[];
-      lead_interactions: Interaction[];
-
-      // Communication
-      conversations: Conversation[];
-      messages: Message[];
-
-      // Business
-      transactions: Transaction[];
-      goals: FinancialGoal[];
-      visits: Visit[];
-      settings: TenantSettings[];
-    };
-  };
-
-  users: {
-    [userId: string]: {
-      tenantId: string;
-      role: 'admin' | 'user' | 'viewer';
-      permissions: string[];
-    };
-  };
-}
-```
-
-### TenantServiceFactory (Implementação Real)
-
-**Estrutura da Classe** (`lib/firebase/firestore-v2.ts`):
-
-```typescript
-export class MultiTenantFirestoreService<T extends { id?: string }> {
-  private tenantId: string;
-  private collectionName: string;
-
-  constructor(tenantId: string, collectionName: string) {
-    this.tenantId = tenantId;
-    this.collectionName = collectionName;
-  }
-
-  // Collection path: tenants/{tenantId}/{collectionName}
-  protected getCollectionRef(): CollectionReference {
-    return collection(db, 'tenants', this.tenantId, this.collectionName);
-  }
-
-  // CRUD Operations with automatic tenant isolation
-  async create(data: Omit<T, 'id'>): Promise<string> {
-    const docData = {
-      ...data,
-      createdAt: Timestamp.now(),
-      updatedAt: Timestamp.now(),
-      tenantId: this.tenantId, // Always include for security
-    };
-    const docRef = await addDoc(this.getCollectionRef(), docData);
-    return docRef.id;
-  }
-
-  async get(id: string): Promise<T | null> {
-    const docSnap = await getDoc(this.getDocRef(id));
-    if (docSnap.exists()) {
-      return { id: docSnap.id, ...docSnap.data() } as T;
-    }
-    return null;
-  }
-
-  // Optimized queries with caching
-  async getManyOptimized(
-    filters: QueryFilter[],
-    options?: { orderBy?: any; limit?: number }
-  ): Promise<T[]> {
-    const optimizedQuery = queryOptimizer.optimizeQuery(filters, options);
-
-    logger.info('Executing optimized query', {
-      tenantId: this.tenantId,
-      collection: this.collectionName,
-      filterCount: optimizedQuery.filters.length,
-      estimatedCost: optimizedQuery.estimatedCost
-    });
-
-    // Build and execute query...
-    return results;
-  }
-
-  // Real-time subscriptions
-  onSnapshot(callback: (data: T[]) => void, constraints?: any[]): () => void {
-    const q = constraints?.length
-      ? query(this.getCollectionRef(), ...constraints)
-      : this.getCollectionRef();
-
-    return onSnapshot(q, (snapshot: QuerySnapshot) => {
-      const data = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data(),
-      })) as T[];
-      callback(data);
-    });
-  }
-}
-
-// Factory with typed service getters
-export class TenantServiceFactory {
-  private tenantId: string;
-
-  constructor(tenantId: string) {
-    this.tenantId = tenantId;
-  }
-
-  // Type-safe convenience getters
-  get properties() {
-    return this.createService<Property>('properties');
-  }
-
-  get clients() {
-    return this.createService<Client>('clients');
-  }
-
-  get reservations() {
-    return this.createService<Reservation>('reservations');
-  }
-
-  get leads() {
-    return this.createService<Lead>('leads');
-  }
-
-  get transactions() {
-    const { createTransactionService } = require('@/lib/services/transaction-service');
-    return createTransactionService(this.tenantId);
-  }
-
-  // ... 15+ more specialized services
-}
-```
-
-**Uso em AI Functions** (Exemplo Real):
-
-```typescript
-// app/api/ai/functions/create-lead/route.ts
-export async function POST(request: NextRequest) {
-  const { tenantId, phone, name, email } = await request.json();
-
-  // 1. Create tenant-scoped service factory
-  const serviceFactory = new TenantServiceFactory(tenantId);
-  const leadService = serviceFactory.leads;
-
-  // 2. Check for existing lead (deduplication)
-  const existingLeads = await leadService.getWhere('phone', '==', phone);
-
-  if (existingLeads.length > 0) {
-    // Update existing lead
-    const lead = existingLeads[0];
-    await leadService.update(lead.id!, {
-      lastContactDate: new Date(),
-      interactionCount: (lead.interactionCount || 0) + 1,
-    });
-    return NextResponse.json({ success: true, lead, isNew: false });
-  }
-
-  // 3. Create new lead with automatic tenant isolation
-  // Firestore path: tenants/{tenantId}/leads/{generatedId}
-  const leadId = await leadService.create({
-    phone,
-    name,
-    email,
-    source: 'whatsapp',
-    status: 'new',
-    temperature: 'cold',
-    score: 50,
-    createdAt: new Date(),
-  });
-
-  const lead = await leadService.get(leadId);
-  return NextResponse.json({ success: true, lead, isNew: true });
-}
-```
-
-**Garantias de Segurança**:
-- ✅ **Isolamento Completo**: Cada tenant só acessa seus próprios dados
-- ✅ **Validação Automática**: tenantId sempre incluído em writes
-- ✅ **Type Safety**: TypeScript garante tipos corretos
-- ✅ **Query Optimization**: Caching e query optimization automáticos
-
-### Sofia Multi-tenant Integration
-
-```typescript
-// Sofia automatically handles tenant context
-// N8N → Sofia Function Call
-{
-  "message": "Preciso apartamento",
-  "tenantId": "cliente-a-123",     // Tenant context
-  "phone": "+5511999999999"
-}
-
-// Sofia Response - Tenant Isolated
-{
-  "properties": [...],              // Only tenant-a-123 properties
-  "lead": {...},                   // Created in tenants/cliente-a-123/leads
-  "tenantId": "cliente-a-123"      // Confirmation
-}
-```
-
----
-
-## 📁 Estrutura do Projeto
-
-### Organização Atualizada (2025)
-
-```
-locai/
-├── app/                           # Next.js 15 App Router
-│   ├── api/                       # 70+ API Routes
-│   │   ├── ai/functions/          # 🔧 42 Sofia AI Functions
-│   │   │   ├── search-properties/route.ts
-│   │   │   ├── create-lead/route.ts          # ⭐ Simplified
-│   │   │   ├── add-lead-interaction/route.ts # ⭐ NEW
-│   │   │   ├── lead-pipeline-movement/route.ts # ⭐ NEW
-│   │   │   └── ... (38+ more)
-│   │   ├── whatsapp/              # WhatsApp Integration
-│   │   │   ├── send-n8n/route.ts
-│   │   │   ├── qr/route.ts
-│   │   │   └── session/route.ts
-│   │   ├── webhook/               # External Integrations
-│   │   │   ├── ki/route.ts        # N8N webhooks
-│   │   │   └── whatsapp-microservice/route.ts
-│   │   ├── crm/                   # ⭐ CRM APIs (NEW)
-│   │   │   ├── analytics/route.ts
-│   │   │   └── leads/[id]/insights/route.ts
-│   │   ├── admin/                 # Admin Panel APIs
-│   │   └── ... (40+ more routes)
-│   ├── dashboard/                 # Admin Interface
-│   │   ├── crm/                   # ⭐ Enhanced CRM (5 tabs)
-│   │   │   ├── page.tsx           # Main CRM interface
-│   │   │   └── components/        # CRM Components
-│   │   │       ├── AdvancedAnalytics.tsx     # ⭐ NEW
-│   │   │       ├── LeadPerformanceTracker.tsx # ⭐ NEW
-│   │   │       ├── AIInsights.tsx # Enhanced
-│   │   │       └── CRMStats.tsx   # Enhanced
-│   │   ├── lkjhg/                 # Ultra-secure Admin Panel
-│   │   └── ... (15+ pages)
-│   └── mini-site/[tenantId]/      # Public Tenant Sites
-├── lib/                           # Business Logic
-│   ├── ai/                        # ⭐ Sofia Functions Core
-│   │   └── tenant-aware-agent-functions.ts   # 30+ functions
-│   ├── services/                  # Business Services (50+)
-│   │   ├── tenant-service-factory.ts
-│   │   └── ... (enhanced services)
-│   ├── whatsapp/                  # WhatsApp Integration
-│   │   ├── whatsapp-client-factory.ts
-│   │   └── microservice-auth-adapter.ts
-│   ├── middleware/                # API Security
-│   │   ├── admin-auth.ts          # Ultra-secure admin
-│   │   └── auth.ts                # Multi-tenant auth
-│   ├── types/                     # TypeScript Definitions
-│   │   ├── crm.ts                 # ⭐ CRM Types (NEW)
-│   │   └── ... (comprehensive types)
-│   └── utils/                     # Utilities
-│       ├── logger.ts              # Professional logging
-│       └── ... (40+ utilities)
-├── components/                    # UI Components (Atomic Design)
-│   ├── atoms/                     # 17+ Basic components
-│   ├── molecules/                 # Composite components
-│   ├── organisms/                 # Complex components
-│   │   ├── crm/                   # ⭐ CRM Components (NEW)
-│   │   └── ... (domain organized)
-│   └── templates/                 # Page layouts
-└── contexts/                      # State Management
-
-Microservice Separado (DigitalOcean):
-../whatsapp-microservice/          # Baileys Dedicated Server
-├── src/
-│   ├── services/
-│   │   ├── whatsapp.service.ts    # Multi-tenant WhatsApp
-│   │   ├── webhook.service.ts     # Frontend communication
-│   │   └── tenant.service.ts      # Tenant isolation
-│   ├── routes/
-│   └── middleware/
-└── Dockerfile                     # Container deployment
-```
-
-### 🆕 Principais Adições (2025)
-
-#### ✅ Sofia AI Functions (42)
-```
-✅ app/api/ai/functions/*/route.ts           # 42 Individual endpoints
-✅ lib/ai/tenant-aware-agent-functions.ts    # Core business functions
-✅ create_lead SIMPLIFIED                    # Phone + tenantId only
-✅ 9 CRM Functions                           # Complete pipeline automation
-✅ Zod validation schemas                    # Enterprise-grade validation
-✅ Input sanitization                        # XSS/injection protection
-```
-
-#### ✅ Advanced CRM System
-```
-✅ app/dashboard/crm/components/AdvancedAnalytics.tsx      # Business intelligence
-✅ app/dashboard/crm/components/LeadPerformanceTracker.tsx # Individual tracking
-✅ Enhanced AIInsights.tsx                                  # AI recommendations
-✅ 5-tab navigation                                        # Complete CRM interface
-```
-
-#### ✅ N8N Integration Layer
-```
-✅ app/api/webhook/ki/route.ts              # N8N webhooks
-✅ app/api/whatsapp/send-n8n/route.ts       # Response sender
-✅ lib/middleware/api-middleware.ts         # N8N authentication
-```
-
-#### ❌ Removidas (Legacy AI System)
-```
-❌ lib/ai-agent/sofia-agent.ts              # Internal agent removed
-❌ lib/ai-agent/enhanced-intent-detector.ts # LangChain removed
-❌ app/api/agent/route.ts                   # Internal processing removed
-❌ Local OpenAI integration                 # Moved to N8N
-```
-
----
-
-## ⚙️ Configuração
-
-### Variáveis de Ambiente (Atualizadas)
+### Variaveis de Ambiente
 
 ```bash
-# .env.local - Complete Configuration
-
 # === CORE APPLICATION ===
 NEXT_PUBLIC_APP_URL=http://localhost:3000
 TENANT_ID=default-tenant
 NODE_ENV=development
 
-# === FIREBASE (Multi-tenant) ===
+# === FIREBASE ===
 NEXT_PUBLIC_FIREBASE_API_KEY=
 NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=
 NEXT_PUBLIC_FIREBASE_PROJECT_ID=
@@ -1020,483 +717,216 @@ NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=
 NEXT_PUBLIC_FIREBASE_APP_ID=
 FIREBASE_SERVICE_ACCOUNT_KEY=
 
-# === SOFIA AI + N8N INTEGRATION ===
+# === SOFIA AI + N8N ===
 N8N_WEBHOOK_URL=https://your-n8n-instance.com/webhook/sofia-messages
 N8N_WEBHOOK_SECRET=your-n8n-webhook-secret
 N8N_API_KEY=your-n8n-api-key-for-functions
 
-# === WHATSAPP - BAILEYS DEDICATED SERVER ===
+# === WHATSAPP - BAILEYS ===
 WHATSAPP_MICROSERVICE_URL=http://167.172.116.195:3000
 WHATSAPP_MICROSERVICE_API_KEY=your-dedicated-server-key
 WHATSAPP_WEBHOOK_SECRET=your-webhook-validation-secret
-WHATSAPP_WEBHOOK_VERIFY_TOKEN=locai-sofia-verify
 
-# === SECURITY & ADMIN ===
+# === FACEBOOK ===
+NEXT_PUBLIC_FACEBOOK_APP_ID=
+FACEBOOK_APP_SECRET=
+FACEBOOK_VERIFY_TOKEN=
+
+# === CALENDAR SYNC ===
+CRON_SECRET=your-cron-secret-for-calendar-sync
+
+# === SECURITY ===
 JWT_SECRET=your-ultra-secure-jwt-secret
 ADMIN_API_SECRET=your-admin-panel-secret
-
-# === OPTIONAL INTEGRATIONS ===
-STRIPE_SECRET_KEY=                    # Payment processing
-STRIPE_WEBHOOK_SECRET=                # Stripe webhooks
 ```
 
-### N8N Sofia Workflow Configuration
+### Scripts de Desenvolvimento
 
 ```bash
-# === N8N Environment Variables ===
-LOCAI_FRONTEND_URL=https://your-locai-instance.com
-LOCAI_API_KEY=${N8N_API_KEY}          # Same as frontend N8N_API_KEY
-OPENAI_API_KEY=your-openai-key        # For Sofia AI processing
-WEBHOOK_SECRET=shared-secret-frontend # Same as N8N_WEBHOOK_SECRET
-SOFIA_PERSONALITY=specialized_real_estate_consultant
-```
-
-### Sofia Workflow Pattern (N8N)
-
-```typescript
-// N8N Workflow Structure for Sofia
-interface SofiaWorkflow {
-  trigger: {
-    webhook: 'Receive WhatsApp message';
-    validation: 'Webhook secret + tenant context';
-  };
-
-  processing: {
-    context_analysis: 'Understand customer and conversation history';
-    intent_detection: 'OpenAI GPT-4o Mini intent analysis';
-    function_planning: 'Determine which functions to execute';
-    reactive_execution: 'Execute ALL functions before responding';
-  };
-
-  functions: {
-    customer_management: 'create_lead, get_lead_details';
-    property_search: 'search_properties, send_property_media';
-    business_process: 'calculate_price, create_reservation';
-    crm_automation: 'add_lead_interaction, lead_pipeline_movement';
-  };
-
-  response: {
-    message_composition: 'Generate complete specialized response';
-    delivery: 'POST /api/whatsapp/send-n8n';
-  };
-}
-```
-
-### Deployment Architecture (Updated)
-
-```typescript
-interface DeploymentArchitecture2025 {
-  frontend: {
-    platform: 'Vercel | Netlify | DigitalOcean App Platform';
-    requirements: {
-      node: '>=20.0.0';
-      memory: '1GB minimum (CRM + Analytics)';
-      build_time: '8-12 minutes (30+ functions)';
-    };
-  };
-
-  baileys_microservice: {
-    platform: 'DigitalOcean Dedicated Droplet';
-    url: 'http://167.172.116.195:3000';
-    requirements: {
-      memory: '2GB minimum (multi-tenant sessions)';
-      storage: '20GB (media + sessions)';
-      uptime: '99.9% (WhatsApp critical)';
-    };
-  };
-
-  sofia_n8n: {
-    platform: 'N8N Cloud | Self-hosted';
-    requirements: {
-      memory: '4GB minimum (Sofia AI processing)';
-      concurrent_workflows: '50+ simultaneous conversations';
-      ai_model: 'OpenAI GPT-4o Mini access required';
-    };
-  };
-
-  database: {
-    firebase: 'Firestore + Storage + Auth';
-    structure: 'Multi-tenant isolation complete';
-    performance: 'Optimized indexes per tenant';
-  };
-}
-```
-
-### Scripts de Desenvolvimento (Enhanced)
-
-```bash
-# === Development ===
-npm install                      # Install all dependencies
+# Desenvolvimento
+npm install                      # Instalar dependencias
 npm run dev                      # Dev server (port 3000)
 
-# === Testing Sofia Functions ===
-# Test create_lead simplified
+# Build & Deploy
+npm run build                    # Production build
+npm run start                    # Production server
+npm run prod-check               # Full deployment check
+
+# Qualidade
+npm run lint                     # ESLint
+npm run type-check               # TypeScript validation
+
+# Utilitarios
+npm run clean                    # Limpar cache
+npm run health                   # Health check
+```
+
+### Testes
+
+```bash
+# Test AI Functions
 curl -X POST http://localhost:3000/api/ai/functions/create-lead \
-  -H "Authorization: Bearer ${N8N_API_KEY}" \
   -H "Content-Type: application/json" \
   -d '{"tenantId":"test","phone":"+5511999999999"}'
 
-# Test search_properties
+# Search properties
 curl -X POST http://localhost:3000/api/ai/functions/search-properties \
-  -H "Authorization: Bearer ${N8N_API_KEY}" \
   -H "Content-Type: application/json" \
   -d '{"tenantId":"test","location":"Praia","guests":4}'
 
-# === CRM Testing ===
-# Access advanced CRM interface
-# http://localhost:3000/dashboard/crm
+# Check discount opportunities
+curl -X POST http://localhost:3000/api/ai/functions/check-discount-opportunities \
+  -H "Content-Type: application/json" \
+  -d '{"tenantId":"test"}'
 
-# === Build & Deploy ===
-npm run build                    # Production build
-npm run type-check               # TypeScript validation
-npm run prod-check               # Full deployment check
-npm run health                   # System health verification
-
-# === Monitoring ===
-npm run logs                     # View structured logs
-npm run admin-health             # Admin panel verification
+# Test iCal export
+curl http://localhost:3000/api/ical/{tenantId}/{propertyId}?token={token}
 ```
 
 ---
 
-## 🎯 Performance & Monitoramento
+## Dashboard
 
-### Performance Optimizations (Enhanced)
+### Paginas Disponiveis
 
-- **⚡ Sofia Functions**: <300ms execution time per function (42 total)
-- **🚀 CRM Dashboard**: Interactive charts with <1s load time
-- **📦 Bundle Optimization**: ~3.2MB with code splitting
-- **💾 Database**: Composite indexes per tenant + query optimizer
-- **🔄 N8N Integration**: 30s timeout + exponential backoff retry
-- **📱 WhatsApp Dedicated**: Independent scaling + session optimization
-- **🧠 Query Optimization**: LRU cache + query cost estimation
-- **📊 Real-time Subscriptions**: Firestore onSnapshot for live updates
-
-### Security Enhancements (2025)
-
-- **🔐 Multi-layer Authentication**:
-  - Sofia Functions: N8N API Key Bearer tokens
-  - Dashboard: Firebase Auth JWT with tenant context
-  - Admin Panel: Ultra-secure `idog: true` + rate limiting
-- **🛡️ Input Validation**: Zod schemas on all 42 AI functions + core APIs
-- **🧹 Input Sanitization**: XSS protection via sanitizeUserInput on all text fields
-- **⚡ Rate Limiting**:
-  - WhatsApp: 20 msgs/minute/tenant
-  - Sofia Functions: 100 calls/minute/tenant
-  - Admin Panel: 30 requests/minute
-- **📝 Professional Logging**: Structured logging with PII masking via logger utility
-- **🏠 Complete Tenant Isolation**: Zero data leakage between tenants
-- **🧹 Advanced XSS Protection**: Input sanitization + CSP headers
-
-### Monitoring Dashboard (NEW)
-
-- **📊 Sofia Analytics**:
-  - Function execution times and success rates
-  - N8N workflow performance metrics
-  - CRM pipeline conversion analytics
-- **🚨 Real-time Alerting**:
-  - Failed Sofia function executions
-  - WhatsApp disconnection alerts
-  - CRM pipeline stalls
-- **📈 Business Intelligence**:
-  - Lead conversion funnels by tenant
-  - Revenue attribution by Sofia interactions
-  - Customer satisfaction via conversation analysis
-- **🩺 System Health**:
-  - `/api/health` - Frontend + database
-  - Baileys server uptime monitoring
-  - N8N workflow health checks
+| Pagina | Path | Descricao |
+|--------|------|-----------|
+| **Home** | `/dashboard` | Overview com KPIs, agenda, heatmap |
+| **CRM** | `/dashboard/crm` | Pipeline, leads, analytics |
+| **Properties** | `/dashboard/properties` | Gerenciamento de imoveis |
+| **Reservations** | `/dashboard/reservations` | Reservas e visitas |
+| **Clients** | `/dashboard/clients` | Gerenciamento de clientes |
+| **Conversations** | `/dashboard/conversas` | Chat multi-canal |
+| **Agenda** | `/dashboard/agenda` | Calendario de eventos |
+| **Financial** | `/dashboard/financeiro/*` | Transacoes, cobrancas, relatorios |
+| **Settings** | `/dashboard/settings/*` | WhatsApp, empresa, politicas, IA |
+| **Admin** | `/dashboard/lkjhg` | Painel administrativo |
 
 ---
 
-## 🚀 Sofia vs Traditional Bots
+## Seguranca
 
-### Comparison Matrix
+### Camadas de Seguranca
 
-| **Aspecto** | **Bot Tradicional** | **Sofia Consultora** |
-|-------------|---------------------|----------------------|
-| **Comportamento** | "Aguarde...", "Verificando..." | Resposta completa imediata |
-| **Especialização** | Genérico, respostas padrão | Especialista imobiliária 8+ anos |
-| **CRM** | Manual ou básico | Pipeline automático integrado |
-| **Personalização** | Limitada, baseada em regras | AI-powered, baseada em histórico |
-| **Conversas** | Robótica, transacional | Calorosa, consultiva, humana |
-| **Alternativas** | "Não disponível" | Sempre oferece opções |
-| **Conhecimento** | Base de dados simples | Conhece cada imóvel individualmente |
-| **Follow-up** | Manual | Automático + inteligente |
+1. **Zod Validation** - Todas as rotas API usam Zod
+2. **Input Sanitization** - Protecao XSS via `sanitizeUserInput()`
+3. **Rate Limiting** - Limites por tenant
+4. **Tenant Isolation** - Paths multi-tenant no Firestore
+5. **PII Masking** - Automatico no sistema de logging
 
-### Exemplo Real de Conversação
+### Padrao de API Route
 
-**Cliente**: "Oi, preciso de apartamento para 4 pessoas em dezembro"
-
-**Sofia Resposta Completa**:
-```
-Oi! Que ótimo! 😊 Encontrei opções perfeitas para dezembro:
-
-🏠 **Vista Mar Premium**
-👥 Para até 6 pessoas
-🛏️ 3 quartos • 🚿 2 banheiros
-💰 A partir de R$ 420/noite
-✨ Vista panorâmica exclusiva e piscina privativa
-
-[FOTO DO APARTAMENTO]
-
-🏠 **Aconchego Familiar**
-👥 Para até 5 pessoas
-🛏️ 2 quartos • 🚿 1 banheiro
-💰 A partir de R$ 320/noite
-✨ Ideal para famílias, área gourmet completa
-
-[FOTO DO APARTAMENTO]
-
-Esses são os mais procurados para dezembro! O Vista Mar tem a melhor vista da cidade, e o Aconchego é perfeito para quem quer economia sem abrir mão do conforto.
-
-Quer que eu calcule o orçamento para algum deles? Ou prefere ver outras opções? 😊
-```
-
-**Resultado Automático nos Bastidores**:
-- ✅ Lead criado/atualizado no CRM
-- ✅ Pipeline avançado: new → contacted → qualified → presentation
-- ✅ Interação registrada com sentiment "positive"
-- ✅ Score do lead aumentado (+10 pontos)
-- ✅ Follow-up agendado automaticamente para 24h
-
-**Diferencial Sofia**:
-- **🎯 Especialista**: Conhece as particularidades de cada imóvel
-- **⚡ Reativa**: Tudo processado antes de responder
-- **🔄 CRM Automático**: Pipeline progride sem intervenção humana
-- **💡 Proativa**: Já oferece próximos passos
-- **❤️ Humana**: Tom caloroso e consultivo
-
----
-
-## 🆕 Novas Funcionalidades (Janeiro 2025)
-
-### 1. Sistema de Descontos Dinâmicos
-
-**check-discount-opportunities** - Consulta de Oportunidades
 ```typescript
-// Endpoint: POST /api/ai/functions/check-discount-opportunities
-// Parâmetros: { tenantId }
-// Retorna:
-{
-  "opportunities": {
-    "paymentMethod": { /* PIX, cash, transfer, card */ },
-    "extendedStay": { /* 7+, 14+, 30+ dias */ },
-    "earlyBooking": { /* 30, 60, 90 dias antecedência */ },
-    "lastMinute": { /* 7, 3, 1 dias */ },
-    "bookNow": { /* Desconto por fechar agora */ }
-  },
-  "bestCombinations": [ /* Melhores estratégias */ ],
-  "negotiationTips": [ /* Dicas de negociação */ ],
-  "limits": { "maxTotalDiscount": 30 }
-}
-```
+import { z } from 'zod';
+import { validateFirebaseAuth } from '@/lib/middleware/firebase-auth';
+import { sanitizeUserInput } from '@/lib/utils/validation';
+import { handleApiError } from '@/lib/utils/api-errors';
+import { logger } from '@/lib/utils/logger';
 
-**calculate-dynamic-discount** - Cálculo Inteligente
-```typescript
-// Endpoint: POST /api/ai/functions/calculate-dynamic-discount
-// Parâmetros:
-{
-  "tenantId": "tenant123",
-  "propertyName": "Vista Mar",
-  "checkIn": "2025-12-01",
-  "checkOut": "2025-12-05",
-  "totalPrice": 2000,
-  "clientPhone": "+5511999999999",
-  "paymentMethod": "pix",        // pix|card|cash|bank_transfer
-  "bookNow": true,               // Cliente quer fechar agora?
-  "extendStay": 0                // Dias extras sugeridos
-}
+const Schema = z.object({
+  name: z.string().min(1).max(100),
+});
 
-// Retorna:
-{
-  "originalPrice": 2000,
-  "finalPrice": 1700,
-  "totalDiscount": 300,
-  "discountPercentage": 15,
-  "appliedDiscounts": {
-    "pixDiscount": 10,           // 10% PIX
-    "bookNowDiscount": 5         // 5% fechamento imediato
-  },
-  "breakdown": [ /* Detalhamento */ ],
-  "recommendations": "Excelente economia! Fechar agora no PIX economiza R$ 300."
-}
-```
+export async function POST(request: NextRequest) {
+  try {
+    // 1. Autenticar
+    const auth = await validateFirebaseAuth(request);
+    if (!auth.authenticated) return unauthorized();
 
-**Benefícios:**
-- ✅ Sales Agent sabe exatamente o que oferecer
-- ✅ Respeita limites configurados no tenant
-- ✅ Múltiplos critérios de desconto combinados
-- ✅ Estratégias otimizadas por cenário
+    // 2. Validar
+    const body = await request.json();
+    const result = Schema.safeParse(body);
+    if (!result.success) return validationError(result.error);
 
-### 2. Tracking Permanente de Conversas
+    // 3. Sanitizar
+    const sanitized = { ...result.data, name: sanitizeUserInput(result.data.name) };
 
-**post-conversation** - Armazenamento Completo
-```typescript
-// Endpoint: POST /api/ai/functions/post-conversation
-// Uso: Automático via N8N após cada resposta Sofia
+    // 4. Executar (tenant-scoped)
+    const services = new TenantServiceFactory(auth.tenantId);
+    const data = await services.collection.create(sanitized);
 
-// Parâmetros:
-{
-  "tenantId": "tenant123",
-  "clientPhone": "+5511999999999",
-  "clientMessage": "Está muito caro",
-  "sofiaMessage": "Entendo! Olha, esse valor é pela alta temporada...",
-  "context": {
-    "whatsappSent": true,
-    "whatsappMessageId": "msg_123",
-    "timestamp": "2025-01-07T12:00:00Z",
-    "messageType": "text",
-    "workflowId": "wf_456"
+    // 5. Retornar
+    return NextResponse.json({ success: true, data });
+  } catch (error) {
+    return handleApiError(error);
   }
 }
-
-// Estrutura Firebase criada:
-tenants/{tenantId}/conversations/{conversationId}
-  - clientPhone: "+5511999999999"
-  - messageCount: 15
-  - lastMessageAt: Timestamp
-
-  messages/{messageId}
-    - clientMessage: "Está muito caro"
-    - sofiaMessage: "Entendo! Olha, esse valor..."
-    - timestamp: Timestamp
-    - context: { ... }
 ```
-
-**Benefícios:**
-- ✅ Histórico completo de TODAS as conversas
-- ✅ Sem limites de tempo ou quantidade
-- ✅ Dados para fine-tuning de modelos AI
-- ✅ Analytics de performance da Sofia
-- ✅ Auditoria e compliance
-- ✅ Deduplicação automática por telefone
-
-### 3. Sistema de Negociação Tenant-Wide
-
-**Negotiation Settings** - Configuração Centralizada
-```typescript
-// Gerenciado em: /dashboard/settings (aba Negociação)
-interface NegotiationSettings {
-  // Descontos por Forma de Pagamento
-  pixDiscount: 10,                    // PIX à vista
-  cashDiscount: 10,                   // Dinheiro
-  bankTransferDiscount: 5,            // Transferência
-
-  // Descontos por Estadia Longa
-  extendedStay7Days: 5,               // 7+ noites
-  extendedStay14Days: 10,             // 14+ noites
-  extendedStay30Days: 20,             // 30+ noites
-
-  // Descontos por Antecedência
-  earlyBooking30Days: 5,              // 30+ dias
-  earlyBooking60Days: 10,             // 60+ dias
-  earlyBooking90Days: 15,             // 90+ dias
-
-  // Descontos Last Minute
-  lastMinute7Days: 10,                // Última semana
-  lastMinute3Days: 15,                // Últimos 3 dias
-  lastMinute24Hours: 20,              // Última hora
-
-  // Desconto Book Now
-  bookNowDiscount: 5,                 // Fechar imediatamente
-
-  // Limites
-  maxTotalDiscount: 30,               // Desconto máximo total
-  maxStackedDiscounts: 3,             // Máximo de descontos combinados
-  discountStackingRules: 'additive'   // additive | best
-}
-```
-
-**Migração Importante:**
-- ❌ Removidos descontos por forma de pagamento de propriedades individuais
-- ✅ Agora gerenciado centralmente no tenant
-- ✅ Sales Agent consulta via `check-discount-opportunities`
-- ✅ Aplicação via `calculate-dynamic-discount`
-
-## 📚 Documentação Adicional
-
-### Guias Completos
-
-**AI_FUNCTIONS_REFERENCE.md** - Referência Completa das 45+ Funções
-- 📖 Documentação detalhada de TODAS as funções AI
-- 🔧 Parâmetros completos com tipos TypeScript
-- 📊 Exemplos de retorno JSON reais
-- 🎯 Quando usar cada função
-- 🔄 Fluxos comuns de uso (5 cenários)
-- ✅ Checklist de boas práticas
-
-**N8N_WORKFLOW_INFRASTRUCTURE_UPDATE.md** - Guia de Atualização N8N
-- 🔧 Como adicionar novas HTTP tools no N8N
-- 📝 Código JavaScript para nós Code
-- 🔌 Configuração de conexões
-- 🧪 Troubleshooting completo
-- ✅ Checklist de implementação
-
-**CLAUDE.md** - Guia de Desenvolvimento
-- 🏗️ Arquitetura completa do sistema
-- 🔐 Padrões de segurança e validação
-- 🏢 Multi-tenant best practices
-- 🛠️ TenantServiceFactory + Query Optimization
-- 📦 Exemplos de código reais
-
-### Recursos Técnicos
-
-- **Architecture Overview**: Detalhes de todos os 45+ AI Functions
-- **Security Patterns**: Validação Zod + Sanitização + Rate Limiting
-- **Multi-tenant Best Practices**: TenantServiceFactory + Query Optimization
-- **N8N Integration**: Workflow patterns e configurações
-
-## 🔄 Atualizações Recentes (Última Revisão)
-
-### ✅ Janeiro 2025 - Sistema de Negociação Inteligente
-
-**Novas Funcionalidades:**
-- ✅ **check-discount-opportunities**: Consulta todas oportunidades de desconto disponíveis
-- ✅ **calculate-dynamic-discount**: Cálculo inteligente com múltiplos critérios
-- ✅ **post-conversation**: Armazenamento permanente de TODAS as conversas no Firebase
-- ✅ **Negotiation Settings**: Configuração tenant-wide de descontos
-
-**Melhorias de Infraestrutura:**
-- ✅ **AI_FUNCTIONS_REFERENCE.md**: Documentação completa de 45+ funções
-- ✅ **N8N_WORKFLOW_INFRASTRUCTURE_UPDATE.md**: Guia de atualização do workflow
-- ✅ Removido Price Simulator de propriedades (agora centralizado)
-- ✅ Sistema de tracking automático via N8N
-
-**Correções na Documentação:**
-- **AI Functions**: Atualizado de "42" para **45+ functions** (incluindo novas)
-- **Zod Validation**: Adicionados exemplos reais de validação do código
-- **TenantServiceFactory**: Incluída implementação completa do padrão multi-tenant
-- **Security**: Documentados padrões de sanitização e rate limiting
-- **Query Optimization**: Adicionado sistema de cache e estimativa de custos
-- **Real-time**: Documentado sistema de subscriptions com onSnapshot
-- **Conversation Tracking**: Sistema permanente sem limites
-
-### 📊 Estatísticas do Sistema
-
-**APIs e Funções:**
-- **45+ AI Functions** especializadas para automação de negócios
-- **11 CRM Functions** para pipeline automation completo
-- **3 Novas Functions**: Descontos dinâmicos + tracking conversas
-- **15+ Services** no TenantServiceFactory
-- **70+ API Routes** totais na aplicação
-
-**Features:**
-- **5 Dashboards** analíticos no CRM
-- **Multi-tenant** com isolamento completo
-- **Conversation Tracking** permanente e ilimitado
-- **Negotiation System** centralizado por tenant
-- **Dynamic Discounts** com múltiplos critérios
-
-**Infraestrutura:**
-- **Firebase**: Conversas permanentes sem limites
-- **N8N**: Workflow otimizado com tracking automático
-- **Baileys**: Servidor dedicado WhatsApp
-- **Security**: Zod validation em todas as rotas
 
 ---
 
-*Sistema LOCAI - Versão 5.1*
-*Arquitetura: Sofia AI Agent + N8N + Baileys Dedicado + CRM Avançado + Sales Intelligence*
-*45+ AI Functions | Enterprise Security | Multi-tenant | Conversation Tracking | Dynamic Discounts*
-*Production Ready | Última revisão documental: 07 Janeiro 2025*
+## Performance
+
+- **Sofia Functions**: <300ms por funcao
+- **CRM Dashboard**: <1s load time
+- **iCal Sync**: Cache de 1 hora
+- **Query Optimization**: LRU cache + indices compostos
+- **Bundle**: ~3.2MB com code splitting
+- **Real-time**: Firebase onSnapshot para updates ao vivo
+
+---
+
+## Estrutura do Projeto
+
+```
+locai/
+  app/
+    api/
+      ai/functions/           # 60 AI function endpoints
+      calendar/sync/          # iCal sync endpoints
+      facebook/               # Facebook/Instagram integration
+      whatsapp/               # WhatsApp endpoints
+      webhook/                # Webhook handlers
+      properties/             # Properties CRUD
+      reservations/           # Reservations CRUD
+      tenant/                 # Tenant settings
+    dashboard/
+      crm/                    # CRM interface
+      conversas/              # Conversations interface
+      properties/             # Properties management
+      settings/               # Settings pages
+      lkjhg/                  # Admin panel
+    onboarding/               # Basic onboarding quiz
+
+  components/
+    organisms/
+      RevolutionaryOnboarding/  # Onboarding system
+      PropertyImportWizard/     # Property import
+      PropertyICalManagement/   # iCal management
+
+  lib/
+    firebase/
+      firestore-v2.ts         # Multi-tenant Firestore
+    services/
+      ical-generator-service.ts
+      ical-parser-service.ts
+      calendar-sync-service.ts
+      property-import-service.ts
+      conversation-service.ts
+      facebook-service.ts
+    hooks/
+      useOnboarding.ts
+      useRevolutionaryOnboarding.ts
+      useConversationsOptimized.ts
+    ai/
+      tenant-aware-agent-functions.ts
+    types/
+      calendar-sync.ts
+      conversation.ts
+      onboarding.ts
+    utils/
+      logger.ts
+      validation.ts
+      api-errors.ts
+
+  scripts/
+    cron-sync-calendars.js    # iCal cron job
+    migrate-onboarding-data.ts
+```
+
+---
+
+*Sistema LOCAI - Versao 6.0*
+*Arquitetura: Sofia AI Agent + N8N + Baileys + iCal Sync + Multi-channel*
+*60 AI Functions | Revolutionary Onboarding | Enterprise Security | Multi-tenant*
+*Ultima atualizacao: Novembro 2025*

@@ -1,4 +1,5 @@
 import { MultiTenantFirestoreService } from '@/lib/firebase/firestore-v2';
+import { removeUndefinedFields } from '@/lib/utils/validation';
 
 export interface CompanySettings {
   name: string;
@@ -256,16 +257,22 @@ class SettingsService {
       console.log(`🔧 Updating cancellation policy for tenant: ${tenantId}`);
 
       const existingSettings = await this.getSettings(tenantId);
+      const now = new Date();
+
+      // Clean the policy object of undefined values using centralized utility
+      const cleanPolicy = removeUndefinedFields({
+        ...policy,
+        updatedAt: now,
+      });
 
       if (existingSettings) {
         const updatedSettings = {
           ...existingSettings,
-          cancellationPolicy: {
+          cancellationPolicy: removeUndefinedFields({
             ...existingSettings.cancellationPolicy,
-            ...policy,
-            updatedAt: new Date(),
-          },
-          updatedAt: new Date(),
+            ...cleanPolicy,
+          }),
+          updatedAt: now,
         };
         await this.service.set(existingSettings.id, updatedSettings);
       } else {
@@ -273,12 +280,11 @@ class SettingsService {
         const newSettings = {
           ...defaultSettings,
           id: tenantId,
-          cancellationPolicy: {
+          cancellationPolicy: removeUndefinedFields({
             ...defaultSettings.cancellationPolicy,
-            ...policy,
-            updatedAt: new Date(),
-          },
-          updatedAt: new Date(),
+            ...cleanPolicy,
+          }),
+          updatedAt: now,
         };
 
         await this.service.set(tenantId, newSettings);

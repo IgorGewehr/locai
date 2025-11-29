@@ -10,7 +10,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { TenantServiceFactory } from '@/lib/firebase/firestore-v2';
-import { tenantConfigCache } from '@/lib/services/tenant-config-cache';
+import { tenantConfigCache } from '@/lib/services/tenant-config-cache-service';
 import { validateFirebaseAuth } from '@/lib/middleware/firebase-auth';
 import { logger } from '@/lib/utils/logger';
 import { handleApiError } from '@/lib/utils/api-errors';

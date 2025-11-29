@@ -4,7 +4,7 @@
 import { Timestamp, collection, addDoc, updateDoc, doc, query, where, getDocs } from 'firebase/firestore';
 import { db } from '@/lib/firebase/config';
 import { logger } from '@/lib/utils/logger';
-import { AIGeneratedInsight, RealTimeAlerts } from './advanced-ai-insights';
+import { AIGeneratedInsight, RealTimeAlerts } from './advanced-ai-insights-service';
 import { Lead, LeadStatus } from '@/lib/types/crm';
 
 export interface AutomationRule {

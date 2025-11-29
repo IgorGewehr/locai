@@ -12,7 +12,7 @@ import { z } from 'zod';
 import { validateFirebaseAuth } from '@/lib/middleware/firebase-auth';
 import { logger } from '@/lib/utils/logger';
 import { handleApiError } from '@/lib/utils/api-errors';
-import { sanitizeUserInput } from '@/lib/utils/validation';
+import { sanitizeUserInput, removeUndefinedFields } from '@/lib/utils/validation';
 
 // Validation schemas
 const CancellationRuleSchema = z.object({
@@ -130,9 +130,11 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     const processingTime = Date.now() - startTime;
 
-    logger.error('[GET-POLICIES] Request failed', {
+    // Garantir que temos um objeto Error válido para logging
+    const errorObj = error instanceof Error ? error : new Error(String(error) || 'Unknown error');
+
+    logger.error('[GET-POLICIES] Request failed', errorObj, {
       requestId,
-      error: error instanceof Error ? error.message : 'Unknown error',
       processingTime: `${processingTime}ms`,
     });
 
@@ -194,25 +196,30 @@ export async function PUT(request: NextRequest) {
       (a, b) => b.daysBeforeCheckIn - a.daysBeforeCheckIn
     );
 
-    // Sanitize text inputs
-    const sanitizedPolicies: Policies = {
-      cancellationPolicy: {
-        ...policies.cancellationPolicy,
-        rules: sortedRules.map((rule) => ({
-          ...rule,
-          description: rule.description ? sanitizeUserInput(rule.description) : undefined,
-        })),
+    // Sanitize text inputs and remove undefined values using centralized utility
+    const sanitizedRules = sortedRules.map((rule) => removeUndefinedFields({
+      daysBeforeCheckIn: rule.daysBeforeCheckIn,
+      refundPercentage: rule.refundPercentage,
+      description: rule.description ? sanitizeUserInput(rule.description) : undefined,
+    }));
+
+    const sanitizedPolicies = removeUndefinedFields({
+      cancellationPolicy: removeUndefinedFields({
+        enabled: policies.cancellationPolicy.enabled,
+        rules: sanitizedRules,
+        defaultRefundPercentage: policies.cancellationPolicy.defaultRefundPercentage,
+        forceMajeure: policies.cancellationPolicy.forceMajeure,
         customMessage: policies.cancellationPolicy.customMessage
           ? sanitizeUserInput(policies.cancellationPolicy.customMessage)
           : undefined,
-      },
+      }),
       termsAndConditions: policies.termsAndConditions
         ? sanitizeUserInput(policies.termsAndConditions)
         : undefined,
       privacyPolicy: policies.privacyPolicy
         ? sanitizeUserInput(policies.privacyPolicy)
         : undefined,
-    };
+    });
 
     // Save to Firestore (config/policies document)
     const { db } = await import('@/lib/firebase/config');
@@ -230,14 +237,16 @@ export async function PUT(request: NextRequest) {
     try {
       const { createSettingsService } = await import('@/lib/services/settings-service');
       const settingsService = createSettingsService(tenantId);
-      await settingsService.updateCancellationPolicy(tenantId, sanitizedPolicies.cancellationPolicy);
+      // Pass the sanitized policy (already has undefined removed)
+      await settingsService.updateCancellationPolicy(tenantId, sanitizedPolicies.cancellationPolicy as any);
 
       logger.info('[UPDATE-POLICIES] Synced to settingsService', { requestId });
     } catch (syncError) {
       // Log but don't fail - config/policies is the source of truth for the UI
+      const syncErrorObj = syncError instanceof Error ? syncError : new Error(String(syncError) || 'Unknown error');
       logger.warn('[UPDATE-POLICIES] Failed to sync to settingsService', {
         requestId,
-        error: syncError instanceof Error ? syncError.message : 'Unknown error',
+        error: syncErrorObj.message,
       });
     }
 
@@ -267,9 +276,11 @@ export async function PUT(request: NextRequest) {
   } catch (error) {
     const processingTime = Date.now() - startTime;
 
-    logger.error('[UPDATE-POLICIES] Request failed', {
+    // Garantir que temos um objeto Error válido para logging
+    const errorObj = error instanceof Error ? error : new Error(String(error) || 'Unknown error');
+
+    logger.error('[UPDATE-POLICIES] Request failed', errorObj, {
       requestId,
-      error: error instanceof Error ? error.message : 'Unknown error',
       processingTime: `${processingTime}ms`,
     });
 

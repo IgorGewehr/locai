@@ -3,7 +3,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAuthAndTenant } from '@/lib/utils/tenant-extractor';
-import { tenantPhoneMappingService } from '@/lib/services/tenant-phone-mapping';
+import { tenantPhoneMappingService } from '@/lib/services/tenant-phone-mapping-service';
 import { logger } from '@/lib/utils/logger';
 
 // GET - Listar mapeamentos ativos

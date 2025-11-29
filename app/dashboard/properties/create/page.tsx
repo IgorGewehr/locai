@@ -40,7 +40,7 @@ import { useTenant } from '@/contexts/TenantContext';
 import { useAuth } from '@/contexts/AuthProvider';
 import { useOnboarding } from '@/lib/hooks/useOnboarding';
 import { propertyService } from '@/lib/services/property-service';
-import { generateLocationField } from '@/lib/utils/locationUtils';
+import { generateLocationField } from '@/lib/utils/location-utils';
 import { logger } from '@/lib/utils/logger';
 import { CreatePropertySchema } from '@/lib/validation/property-schemas';
 import { UltraPermissiveCreatePropertySchema } from '@/lib/validation/ultra-permissive-schemas';

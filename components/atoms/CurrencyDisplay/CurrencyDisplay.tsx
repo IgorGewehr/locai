@@ -4,7 +4,7 @@
 import React from 'react'
 import { Typography, TypographyProps, Box, useTheme, alpha } from '@mui/material'
 import { TrendingUp, TrendingDown, TrendingFlat } from '@mui/icons-material'
-import { formatCurrency, formatCurrencyCompact } from '@/lib/utils/financialUtils'
+import { formatCurrency, formatCurrencyCompact } from '@/lib/utils/financial-utils'
 
 export interface CurrencyDisplayProps extends Omit<TypographyProps, 'children'> {
   amount: number

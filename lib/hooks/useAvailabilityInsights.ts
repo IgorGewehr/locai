@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useTenant } from '@/contexts/TenantContext';
 import { AvailabilityService } from '@/lib/services/availability-service';
-import { pricingService } from '@/lib/services/pricing';
+import { pricingService } from '@/lib/services/pricing-service';
 import { Property } from '@/lib/types/property';
 import { logger } from '@/lib/utils/logger';
 import {

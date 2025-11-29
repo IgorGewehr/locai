@@ -9,7 +9,7 @@ import { verifyAdminAccess } from '@/lib/middleware/admin-auth';
 import { db } from '@/lib/firebase/config';
 import { doc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { logger } from '@/lib/utils/logger';
-import { UpdateTicketStatusSchema, formatZodErrors } from '@/lib/validations/admin-schemas';
+import { UpdateTicketStatusSchema, formatZodErrors } from '@/lib/validation/admin-schemas';
 
 export async function PATCH(
   request: NextRequest,

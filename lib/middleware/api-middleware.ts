@@ -3,7 +3,7 @@ import { authMiddleware, AuthContext } from './auth';
 import { rateLimit, RateLimitOptions, applyRateLimitHeaders } from './rate-limit';
 import { corsMiddleware, securityHeadersMiddleware, applySecurityMeasures, CorsOptions } from './security';
 import { withErrorHandler } from './error-handler';
-import { auditLogger } from '@/lib/services/audit-logger';
+import { auditLogger } from '@/lib/services/audit-logger-service';
 import { z } from 'zod';
 
 export interface ApiMiddlewareOptions {

@@ -4,6 +4,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { validateFirebaseAuth } from '@/lib/middleware/firebase-auth';
 import { logger } from '@/lib/utils/logger';
+import { removeUndefinedFields } from '@/lib/utils/validation';
 import { db } from '@/lib/firebase/config';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import {
@@ -79,16 +80,15 @@ export async function GET(request: NextRequest) {
     });
 
   } catch (error) {
-    logger.error('❌ [NEGOTIATION-SETTINGS] Failed to get settings', {
-      error: error instanceof Error ? error.message : 'Unknown error'
-    });
+    const errorObj = error instanceof Error ? error : new Error(String(error) || 'Unknown error');
+    logger.error('❌ [NEGOTIATION-SETTINGS] Failed to get settings', errorObj);
 
     return NextResponse.json(
       {
         success: false,
         error: 'Falha ao buscar configurações',
         details: process.env.NODE_ENV === 'development' ?
-          error instanceof Error ? error.message : 'Unknown error' :
+          errorObj.message :
           undefined
       },
       { status: 500 }
@@ -143,8 +143,8 @@ export async function PUT(request: NextRequest) {
       );
     }
 
-    // Preparar dados
-    const settings: NegotiationSettings = {
+    // Preparar dados (usando removeUndefinedFields para campos opcionais)
+    const settings: NegotiationSettings = removeUndefinedFields({
       allowAINegotiation: body.allowAINegotiation,
 
       pixDiscountEnabled: body.pixDiscountEnabled,
@@ -180,8 +180,8 @@ export async function PUT(request: NextRequest) {
       upsellEnabled: body.upsellEnabled ?? false,
       upsellSuggestions: body.upsellSuggestions ?? [],
 
-      negotiationNotes: body.negotiationNotes
-    };
+      negotiationNotes: body.negotiationNotes, // pode ser undefined, será removido
+    }) as NegotiationSettings;
 
     // Salvar no Firestore (NOVO PATH: config/negotiation)
     const settingsRef = doc(db, 'tenants', tenantId, 'config', 'negotiation');
@@ -201,16 +201,15 @@ export async function PUT(request: NextRequest) {
     });
 
   } catch (error) {
-    logger.error('❌ [NEGOTIATION-SETTINGS] Failed to update settings', {
-      error: error instanceof Error ? error.message : 'Unknown error'
-    });
+    const errorObj = error instanceof Error ? error : new Error(String(error) || 'Unknown error');
+    logger.error('❌ [NEGOTIATION-SETTINGS] Failed to update settings', errorObj);
 
     return NextResponse.json(
       {
         success: false,
         error: 'Falha ao atualizar configurações',
         details: process.env.NODE_ENV === 'development' ?
-          error instanceof Error ? error.message : 'Unknown error' :
+          errorObj.message :
           undefined
       },
       { status: 500 }
@@ -284,16 +283,15 @@ export async function POST(request: NextRequest) {
     });
 
   } catch (error) {
-    logger.error('❌ [NEGOTIATION-SETTINGS] Failed to apply preset', {
-      error: error instanceof Error ? error.message : 'Unknown error'
-    });
+    const errorObj = error instanceof Error ? error : new Error(String(error) || 'Unknown error');
+    logger.error('❌ [NEGOTIATION-SETTINGS] Failed to apply preset', errorObj);
 
     return NextResponse.json(
       {
         success: false,
         error: 'Falha ao aplicar preset',
         details: process.env.NODE_ENV === 'development' ?
-          error instanceof Error ? error.message : 'Unknown error' :
+          errorObj.message :
           undefined
       },
       { status: 500 }

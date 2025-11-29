@@ -3,6 +3,48 @@ import { z } from 'zod'
 import DOMPurify from 'isomorphic-dompurify'
 
 /**
+ * Remove campos undefined de um objeto (recursivamente).
+ * Firestore não aceita valores undefined, então esta função é essencial
+ * para limpar objetos antes de salvar no Firestore.
+ *
+ * @param obj - Objeto a ser limpo
+ * @returns Objeto sem campos undefined
+ * @example
+ * removeUndefinedFields({ a: 1, b: undefined, c: { d: undefined, e: 2 } })
+ * // Returns: { a: 1, c: { e: 2 } }
+ */
+export function removeUndefinedFields<T extends Record<string, unknown>>(obj: T): T {
+  if (obj === null || obj === undefined) {
+    return obj;
+  }
+
+  if (Array.isArray(obj)) {
+    return obj.map(item => {
+      if (item && typeof item === 'object') {
+        return removeUndefinedFields(item as Record<string, unknown>);
+      }
+      return item;
+    }) as unknown as T;
+  }
+
+  if (typeof obj === 'object' && obj.constructor === Object) {
+    const cleaned: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(obj)) {
+      if (value !== undefined) {
+        if (value !== null && typeof value === 'object') {
+          cleaned[key] = removeUndefinedFields(value as Record<string, unknown>);
+        } else {
+          cleaned[key] = value;
+        }
+      }
+    }
+    return cleaned as T;
+  }
+
+  return obj;
+}
+
+/**
  * ✅ MÉDIO 8: Whitelist de domínios permitidos para URLs de mídia
  * Previne injeção de URLs maliciosas durante importação
  */

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { storage } from '@/lib/firebase/config';
-import { generateUniqueId } from '@/lib/utils/mediaUtils';
+import { generateUniqueId } from '@/lib/utils/media-utils';
 import { logger } from '@/lib/utils/logger';
 import { validateFirebaseAuth } from '@/lib/middleware/firebase-auth';
 

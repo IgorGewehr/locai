@@ -56,9 +56,9 @@ export async function GET(request: NextRequest) {
     });
 
   } catch (error) {
-    logger.error('❌ [TENANT-DISCOUNT-GET] Erro ao buscar configurações', {
-      error: error instanceof Error ? error.message : 'Unknown error'
-    });
+    const errorObj = error instanceof Error ? error : new Error(String(error) || 'Unknown error');
+
+    logger.error('❌ [TENANT-DISCOUNT-GET] Erro ao buscar configurações', errorObj);
 
     return NextResponse.json(
       { error: 'Failed to fetch discount settings', code: 'FETCH_ERROR' },
@@ -121,15 +121,9 @@ export async function PUT(request: NextRequest) {
     });
 
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error);
-    const errorStack = error instanceof Error ? error.stack : undefined;
+    const errorObj = error instanceof Error ? error : new Error(String(error) || 'Unknown error');
 
-    logger.error('❌ [TENANT-DISCOUNT-PUT] Erro ao salvar configurações', {
-      error: errorMessage,
-      stack: errorStack,
-      errorType: typeof error,
-      errorObject: error
-    });
+    logger.error('❌ [TENANT-DISCOUNT-PUT] Erro ao salvar configurações', errorObj);
 
     return NextResponse.json(
       { error: 'Failed to save discount settings', code: 'SAVE_ERROR' },
@@ -175,12 +169,9 @@ export async function DELETE(request: NextRequest) {
     });
 
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error);
+    const errorObj = error instanceof Error ? error : new Error(String(error) || 'Unknown error');
 
-    logger.error('❌ [TENANT-DISCOUNT-DELETE] Erro ao remover configurações', {
-      error: errorMessage,
-      errorType: typeof error
-    });
+    logger.error('❌ [TENANT-DISCOUNT-DELETE] Erro ao remover configurações', errorObj);
 
     return NextResponse.json(
       { error: 'Failed to delete discount settings', code: 'DELETE_ERROR' },

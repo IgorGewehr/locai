@@ -4,7 +4,7 @@ import { TenantServiceFactory } from '@/lib/firebase/firestore-v2';
 import { VisitAppointment, VisitStatus } from '@/lib/types/visit-appointment';
 import { validateFirebaseAuth } from '@/lib/middleware/firebase-auth';
 import { handleApiError } from '@/lib/utils/api-errors';
-import { safeParseDate, safeFormatDate } from '@/lib/utils/dateUtils';
+import { safeParseDate, safeFormatDate } from '@/lib/utils/date-utils';
 import { isValid } from 'date-fns';
 
 export async function GET(request: NextRequest) {

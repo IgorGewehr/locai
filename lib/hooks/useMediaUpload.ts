@@ -13,7 +13,7 @@ import {
   generateUniqueId,
   compressImage,
   isImageFile 
-} from '@/lib/utils/mediaUtils';
+} from '@/lib/utils/media-utils';
 
 // Types
 export interface UploadProgress {

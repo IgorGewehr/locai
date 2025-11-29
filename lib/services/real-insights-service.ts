@@ -13,7 +13,7 @@ import {
   PredictiveAnalysis,
   SmartRecommendations,
   RealTimeAlerts
-} from './advanced-ai-insights';
+} from './advanced-ai-insights-service';
 import { subDays, startOfDay, format, differenceInMinutes } from 'date-fns';
 
 export class RealInsightsService {

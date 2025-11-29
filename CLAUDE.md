@@ -2,7 +2,7 @@
 
 **Development guide for Claude Code when working with this repository.**
 
-## 🚀 Quick Start
+## Quick Start
 
 ```bash
 npm install                 # Install dependencies
@@ -14,11 +14,12 @@ npm run type-check         # TypeScript validation
 **Access Points:**
 - Dashboard: `http://localhost:3000/dashboard`
 - CRM: `http://localhost:3000/dashboard/crm`
+- Conversas: `http://localhost:3000/dashboard/conversas`
 - Admin: `http://localhost:3000/dashboard/lkjhg` (ultra-secure)
 
 ---
 
-## 📋 Project Overview
+## Project Overview
 
 **Locai** - Enterprise-grade real estate AI system with Sofia AI Agent integration.
 
@@ -26,25 +27,29 @@ npm run type-check         # TypeScript validation
 
 | Layer | Technology |
 |-------|-----------|
-| **Framework** | Next.js 15.3.5 + TypeScript 5.3 |
+| **Framework** | Next.js 15.5.2 + TypeScript 5.3 |
 | **UI** | Material-UI v5.15 + Emotion |
 | **Database** | Firebase Firestore v10.7 |
 | **Auth** | Firebase Auth + Multi-tenant JWT |
 | **AI** | N8N + Sofia Agent (GPT-4o Mini) |
-| **Messaging** | Baileys v6.7 (dedicated server) |
+| **Messaging** | Baileys v6.7 (dedicated server) + Facebook/Instagram (in development) |
 | **Validation** | Zod schemas + input sanitization |
+| **Calendar Sync** | iCal bidirectional (Airbnb/Booking) |
 
 ### Core Features
 
-- **🤖 Sofia AI**: N8N-powered consultant with 45+ specialized functions
-- **🏢 Multi-tenant**: Complete isolation (`tenants/{tenantId}/collections`)
-- **🎛️ CRM**: Pipeline automation, lead scoring, advanced analytics
-- **📱 WhatsApp**: Dedicated Baileys server on DigitalOcean
-- **🔐 Security**: Zod validation + sanitization + rate limiting
+- **Sofia AI**: N8N-powered consultant with 60 specialized functions
+- **Multi-tenant**: Complete isolation (`tenants/{tenantId}/collections`)
+- **CRM**: Pipeline automation, lead scoring, advanced analytics
+- **WhatsApp**: Dedicated Baileys server on DigitalOcean
+- **Facebook/Instagram**: Direct Messages integration (in development)
+- **iCal Sync**: Bidirectional sync with Airbnb/Booking (import/export)
+- **Revolutionary Onboarding**: Guided 2-step property + WhatsApp setup
+- **Security**: Zod validation + sanitization + rate limiting
 
 ---
 
-## 🏗️ Architecture Overview
+## Architecture Overview
 
 ### Multi-Tenant Firestore Structure
 
@@ -52,15 +57,26 @@ npm run type-check         # TypeScript validation
 // Complete tenant isolation
 tenants/
   {tenantId}/
-    properties/       // Real estate listings
-    clients/         // Customer information
-    reservations/    // Booking management
-    transactions/    // Financial records
-    leads/           // CRM pipeline
-    conversations/   // Chat history
-    messages/        // Individual messages
-    amenities/       // Property features
-    goals/           // Business goals
+    properties/           // Real estate listings
+    clients/             // Customer information
+    reservations/        // Booking management
+    transactions/        // Financial records
+    leads/               // CRM pipeline
+    conversations/       // Chat history (WhatsApp/Facebook/Instagram)
+    messages/            // Individual messages
+    amenities/           // Property features
+    goals/               // Business goals
+    calendar_sync_configurations/  // iCal sync settings
+    settings/            // Tenant configuration
+      company/           // Company info
+      negotiation/       // Discount settings
+      policies/          // Business policies
+      ai-config/         // Sofia AI settings
+
+users/
+  {userId}/
+    onboarding/          // Revolutionary onboarding progress
+      {tenantId}/        // Per-tenant onboarding state
 ```
 
 ### TenantServiceFactory Pattern
@@ -113,7 +129,7 @@ class MultiTenantFirestoreService<T> {
 
 ---
 
-## 🔧 AI Functions Architecture (42 Endpoints)
+## AI Functions Architecture (60 Endpoints)
 
 ### Function Pattern
 
@@ -148,67 +164,125 @@ export async function POST(request: NextRequest) {
     const result = await functionImplementation(args, tenantId);
     const processingTime = Date.now() - startTime;
 
-    // Success logging
-    logger.info(`[FUNCTION-NAME] Execution completed`, {
-      requestId,
-      processingTime: `${processingTime}ms`
-    });
-
     return NextResponse.json({
       success: true,
       data: result,
-      meta: {
-        requestId,
-        processingTime,
-        timestamp: new Date().toISOString()
-      }
+      meta: { requestId, processingTime, timestamp: new Date().toISOString() }
     });
 
   } catch (error) {
-    const processingTime = Date.now() - startTime;
-
-    // Error logging
-    logger.error(`[FUNCTION-NAME] Execution failed`, {
-      requestId,
-      error: error instanceof Error ? error.message : 'Unknown error',
-      processingTime: `${processingTime}ms`
-    });
-
-    return NextResponse.json(
-      {
-        success: false,
-        error: 'Execution failed',
-        requestId,
-        details: process.env.NODE_ENV === 'development' ?
-          error instanceof Error ? error.message : 'Unknown error' :
-          undefined
-      },
-      { status: 500 }
-    );
+    return handleApiError(error, requestId);
   }
 }
 ```
 
-### AI Functions Categories (45+ Total)
+### AI Functions Categories (60 Total)
 
 | Category | Count | Key Functions |
 |----------|-------|---------------|
-| **🏠 Property** | 6 | `search-properties`, `get-property-details`, `check-availability` |
-| **💰 Financial** | 6 | `calculate-price`, `calculate-dynamic-discount`, `check-discount-opportunities` |
-| **📅 Booking** | 5 | `create-reservation`, `cancel-reservation`, `modify-reservation` |
-| **👤 CRM** | 11 | `create-lead`, `lead-pipeline-movement`, `classify-lead` |
-| **📋 Operations** | 8 | `get-policies`, `register-client`, `schedule-meeting` |
-| **📊 Analytics** | 7 | `track-conversion-step`, `get-analytics-dashboard` |
-| **🎯 Goals** | 3 | `create-goal`, `update-goal-progress` |
+| **CRM/Leads** | 11 | `create-lead`, `lead-pipeline-movement`, `classify-lead`, `analyze-lead-performance` |
+| **Reservations** | 7 | `create-reservation`, `modify-reservation`, `cancel-reservation`, `check-availability` |
+| **Properties** | 4 | `search-properties`, `get-property-details`, `send-property-media`, `send-property-map` |
+| **Financial** | 6 | `calculate-price`, `calculate-dynamic-discount`, `check-discount-opportunities`, `get-financial-summary` |
+| **Payments** | 8 | `create-payment-link`, `generate-pix-qrcode`, `check-payment-status`, `send-payment-reminder` |
+| **Analytics** | 7 | `track-conversion-step`, `track-conversation-metric`, `get-analytics-dashboard`, `get-business-insights` |
+| **Policies/Config** | 5 | `get-tenant-config`, `get-negotiation-settings`, `get-policies`, `get-company-address` |
+| **Communication** | 3 | `post-notification`, `send-tenant-map`, `post-conversation` |
+| **Goals/Tasks** | 4 | `create-goal`, `update-goal-progress`, `create-task`, `update-task` |
+| **Wallet** | 2 | `wallet-get-balance`, `wallet-add-credit` |
+| **Clients** | 1 | `register-client` |
+| **Agent** | 1 | `get-agent-prompts` |
+| **Scheduling** | 1 | `schedule-meeting` |
 
-**New Functions (2025):**
-- `calculate-dynamic-discount` - Multi-criteria discount engine
-- `check-discount-opportunities` - List all discount strategies
-- `post-conversation` - Permanent conversation tracking
+### Complete AI Functions List
+
+```typescript
+// === CRM/LEADS (11 functions) ===
+POST /api/ai/functions/create-lead              // Create/update lead with deduplication
+POST /api/ai/functions/get-lead-details         // Get complete lead info
+POST /api/ai/functions/get-leads-list           // List leads with filters
+POST /api/ai/functions/update-lead              // Update lead info
+POST /api/ai/functions/update-lead-status       // Change lead status
+POST /api/ai/functions/classify-lead            // Classify hot/warm/cold
+POST /api/ai/functions/add-lead-interaction     // Track interactions
+POST /api/ai/functions/analyze-lead-performance // AI analysis with predictions
+POST /api/ai/functions/lead-pipeline-movement   // Pipeline progression
+POST /api/ai/functions/follow-up-lead           // Schedule follow-ups
+POST /api/ai/functions/track-qualification-milestone // Track qualification
+
+// === RESERVATIONS (7 functions) ===
+POST /api/ai/functions/create-reservation       // Create booking
+POST /api/ai/functions/modify-reservation       // Modify booking
+POST /api/ai/functions/cancel-reservation       // Cancel with refund policy
+POST /api/ai/functions/check-availability       // Check property availability
+POST /api/ai/functions/check-agenda-availability // Check full calendar
+POST /api/ai/functions/check-visit-availability // Check visit slots
+POST /api/ai/functions/schedule-visit           // Schedule property visit
+
+// === PROPERTIES (4 functions) ===
+POST /api/ai/functions/search-properties        // Advanced search with filters
+POST /api/ai/functions/search-properties-cached // Cached version
+POST /api/ai/functions/search-properties-optimized // Optimized with aggregations
+POST /api/ai/functions/get-property-details     // Get complete property info
+
+// === FINANCIAL (6 functions) ===
+POST /api/ai/functions/calculate-price          // Dynamic pricing with surcharges
+POST /api/ai/functions/calculate-dynamic-discount // Multi-criteria discounts
+POST /api/ai/functions/check-discount-opportunities // List all discount strategies
+POST /api/ai/functions/get-dynamic-discount     // Get discount with payment options
+POST /api/ai/functions/generate-quote           // Generate formal quote
+POST /api/ai/functions/request-withdrawal       // Request PIX withdrawal
+
+// === PAYMENTS (8 functions) ===
+POST /api/ai/functions/create-payment-link      // Create billing link (AbacatePay)
+POST /api/ai/functions/generate-pix-qrcode      // Generate PIX QR code
+POST /api/ai/functions/create-transaction       // Create transaction
+POST /api/ai/functions/check-payment-status     // Check payment status
+POST /api/ai/functions/cancel-payment           // Cancel pending payment
+POST /api/ai/functions/list-pending-payments    // List pending/overdue payments
+POST /api/ai/functions/send-payment-reminder    // Send WhatsApp reminder
+POST /api/ai/functions/get-financial-summary    // Financial summary report
+
+// === ANALYTICS (7 functions) ===
+POST /api/ai/functions/track-conversion-step    // Track conversion funnel
+POST /api/ai/functions/track-conversation-metric // Track conversation metrics
+POST /api/ai/functions/track-conversation-session // Track full session
+POST /api/ai/functions/track-message-engagement // Track message engagement
+POST /api/ai/functions/track-metrics            // Track general metrics
+POST /api/ai/functions/analyze-performance      // Analyze sales performance
+POST /api/ai/functions/get-analytics-dashboard  // Get dashboard data
+
+// === POLICIES/CONFIG (5 functions) ===
+POST /api/ai/functions/get-tenant-config        // Get all tenant settings
+POST /api/ai/functions/get-negotiation-settings // Get negotiation settings
+POST /api/ai/functions/get-policies             // Get business policies
+POST /api/ai/functions/get-cancellation-policies // Get cancellation rules
+POST /api/ai/functions/get-company-address      // Get company info
+
+// === COMMUNICATION (3 functions) ===
+POST /api/ai/functions/post-notification        // Notify admin for human support
+POST /api/ai/functions/send-tenant-map          // Send agency location
+POST /api/ai/functions/post-conversation        // Save conversation permanently
+
+// === GOALS/TASKS (4 functions) ===
+POST /api/ai/functions/create-goal              // Create business goal
+POST /api/ai/functions/update-goal-progress     // Update goal progress
+POST /api/ai/functions/create-task              // Create follow-up task
+POST /api/ai/functions/update-task              // Update task status
+
+// === WALLET (2 functions) ===
+POST /api/ai/functions/wallet-get-balance       // Get wallet balance
+POST /api/ai/functions/wallet-add-credit        // Add credit (commissions)
+
+// === OTHER (3 functions) ===
+POST /api/ai/functions/register-client          // Register new client
+POST /api/ai/functions/schedule-meeting         // Schedule meeting/call
+POST /api/ai/functions/get-agent-prompts        // Get dynamic agent prompts
+```
 
 ---
 
-## 📡 Core API Routes
+## Core API Routes
 
 ### Main APIs
 
@@ -220,22 +294,41 @@ DELETE    /api/reservations/[id]?soft=true
 
 // Transactions (Income/Expense)
 GET/POST  /api/transactions
-// Supports: recurring, categories, payment methods
 
-// Properties (CRUD + Airbnb Import)
+// Properties (CRUD + Import)
 GET/POST  /api/properties
 POST      /api/properties/import
+POST      /api/properties/import/validate
 
-// AI Functions (45+ endpoints)
-POST /api/ai/functions/create-lead
-POST /api/ai/functions/search-properties
-POST /api/ai/functions/calculate-dynamic-discount
-// ... 42+ more specialized functions
+// iCal Integration
+GET  /api/ical/[tenantId]/[propertyId]         // Export iCal feed
+POST /api/properties/[id]/ical/generate-token   // Generate export token
+POST /api/calendar/sync/configure               // Configure iCal import
+POST /api/calendar/sync/[propertyId]           // Manual sync trigger
+POST /api/calendar/sync/cron                    // Automated sync (every 30min)
 
 // WhatsApp Integration
 POST /api/webhook/whatsapp-microservice
+POST /api/webhook/client-message                // Real-time client messages
 POST /api/whatsapp/send-n8n
+POST /api/whatsapp/send-manual
 GET  /api/whatsapp/qr
+GET  /api/whatsapp/session
+
+// Facebook/Instagram Integration (In Development)
+GET/POST /api/facebook/webhook                  // FB/IG webhook
+POST     /api/facebook/auth                     // Connect/disconnect pages
+GET      /api/facebook/status                   // Connection status
+POST     /api/social/send                       // Send FB/IG messages
+
+// AI Block Control
+GET/POST /api/ai/block-conversation            // Block/unblock AI for manual mode
+
+// Tenant Settings
+GET/PUT  /api/tenant/settings/company
+GET/PUT  /api/tenant/settings/negotiation
+GET/PUT  /api/tenant/settings/policies
+GET/PUT  /api/tenant/discount-settings
 ```
 
 ### Authentication Pattern
@@ -258,7 +351,207 @@ const services = new TenantServiceFactory(authContext.tenantId);
 
 ---
 
-## 🔐 Security & Validation
+## Revolutionary Onboarding System
+
+### Overview
+
+2-step guided onboarding for new users:
+
+1. **Add First Property** - Import from Airbnb or create manually
+2. **Connect WhatsApp** - Scan QR code to enable Sofia AI
+
+### Components
+
+```typescript
+// Main component
+/components/organisms/RevolutionaryOnboarding/RevolutionaryOnboarding.tsx
+
+// Step components
+/components/organisms/RevolutionaryOnboarding/steps/Step1PropertySetup/
+/components/organisms/RevolutionaryOnboarding/steps/Step3WhatsAppSetup/
+
+// Hooks
+/lib/hooks/useOnboarding.ts                    // Base hook
+/lib/hooks/useRevolutionaryOnboarding.ts       // Extended hook with dialogs
+```
+
+### Data Structure
+
+```typescript
+interface OnboardingProgress {
+  userId: string;
+  tenantId: string;
+  steps: {
+    add_property: 'pending' | 'in_progress' | 'completed' | 'skipped';
+    connect_whatsapp: 'pending' | 'in_progress' | 'completed' | 'skipped';
+  };
+  currentStepId: string | null;
+  completionPercentage: number;  // 0, 50, 100
+  isCompleted: boolean;
+  viewMode: 'compact' | 'expanded' | 'fullscreen';
+}
+```
+
+---
+
+## iCal Synchronization System
+
+### Bidirectional Sync
+
+**Export (Locai → Airbnb/Booking):**
+```typescript
+// Generate secure token
+POST /api/properties/[id]/ical/generate-token
+// Returns: /api/ical/{tenantId}/{propertyId}?token={token}
+
+// External platforms fetch this URL to get blocked dates
+GET /api/ical/{tenantId}/{propertyId}?token={token}
+// Returns: RFC 5545 compliant .ics file
+```
+
+**Import (Airbnb/Booking → Locai):**
+```typescript
+// Configure import
+POST /api/calendar/sync/configure
+{
+  propertyId: string,
+  iCalUrl: string,        // URL from Airbnb/Booking
+  source: 'AIRBNB' | 'BOOKING' | 'VRBO' | 'GOOGLE_CALENDAR',
+  syncFrequency: 'hourly' | 'daily' | 'manual'
+}
+
+// Manual sync
+POST /api/calendar/sync/{propertyId}
+
+// Automated sync (cron job every 30 min)
+POST /api/calendar/sync/cron
+```
+
+### Key Services
+
+```typescript
+// lib/services/ical-generator-service.ts   - Generate iCal feeds
+// lib/services/ical-parser-service.ts      - Parse external iCal
+// lib/services/calendar-sync-service.ts    - Orchestrate sync
+// lib/services/airbnb-import-service.ts    - Airbnb integration
+// lib/services/property-import-service.ts  - Bulk property import
+```
+
+---
+
+## Conversations System (Multi-Channel)
+
+### Supported Channels
+
+1. **WhatsApp** - Via Baileys dedicated server
+2. **Facebook Messenger** - Via Facebook Graph API (in development)
+3. **Instagram Direct** - Via Facebook Graph API (in development)
+
+### Architecture
+
+```typescript
+// Page: /app/dashboard/conversas/page.tsx
+
+// Key features:
+// - Real-time chat interface (split-screen)
+// - AI control (block/unblock Sofia)
+// - Multi-channel filtering
+// - Infinite scroll
+// - Context menu actions
+
+// Hook: useConversationsOptimized
+const {
+  conversations,
+  selectedConversation,
+  messages,
+  loadConversations,
+  selectConversation,
+  markAsRead,
+  updateStatus,
+  renameConversation
+} = useConversationsOptimized({ tenantId });
+```
+
+### AI Control
+
+```typescript
+// Block AI for manual mode (1h, 2h, 4h, 24h)
+POST /api/ai/block-conversation
+{
+  phone: string,
+  blocked: true,
+  duration: number,  // hours
+  reason?: string
+}
+
+// Check block status
+GET /api/ai/block-conversation?phone={phone}
+```
+
+---
+
+## CRM System
+
+### Pipeline Stages
+
+```typescript
+enum LeadStage {
+  NEW = 'new',
+  CONTACTED = 'contacted',
+  QUALIFIED = 'qualified',
+  PRESENTATION = 'presentation',
+  PROPOSAL = 'proposal',
+  NEGOTIATION = 'negotiation',
+  CLOSING = 'closing',
+  WON = 'won',
+  LOST = 'lost'
+}
+```
+
+### Automatic Pipeline Movement
+
+Sofia AI automatically progresses leads through stages:
+
+- `new → contacted`: First AI response
+- `contacted → qualified`: Needs identified (dates, budget, location)
+- `qualified → presentation`: Property options shown
+- `presentation → proposal`: Budget request or strong interest
+- `proposal → negotiation`: Price discussion
+- `negotiation → closing`: Budget confirmation
+- `closing → won`: Reservation completed
+
+### CRM Dashboard (5 Views)
+
+```typescript
+// /app/dashboard/crm/page.tsx
+
+// 1. Pipeline - Kanban drag-and-drop
+// 2. All Leads - Complete list with filters
+// 3. AI Insights - AI-powered recommendations
+// 4. Advanced Analytics - Conversion funnels, time series
+// 5. Performance - Individual lead tracking
+
+// Components:
+/app/dashboard/crm/components/KanbanBoard.tsx
+/app/dashboard/crm/components/AdvancedAnalytics.tsx
+/app/dashboard/crm/components/LeadPerformanceTracker.tsx
+/app/dashboard/crm/components/AIInsights.tsx
+/app/dashboard/crm/components/CRMStats.tsx
+```
+
+### Lead Scoring
+
+Dynamic scoring based on 20+ factors:
+- Base score (initial quality)
+- Temperature bonus: hot (+15), warm (+5), cold (-10)
+- Interaction frequency multiplier
+- Qualification bonus (budget/timeline/need/authority)
+- Time decay for stale leads
+- AI-enhanced adjustments
+
+---
+
+## Security & Validation
 
 ### Standard Security Layers
 
@@ -277,7 +570,6 @@ import { sanitizeUserInput } from '@/lib/utils/validation';
 import { handleApiError } from '@/lib/utils/api-errors';
 import { logger } from '@/lib/utils/logger';
 
-// Define Zod schema
 const Schema = z.object({
   name: z.string().min(1).max(100),
   // ... more fields
@@ -325,11 +617,11 @@ export async function POST(request: NextRequest) {
 ```typescript
 import { logger } from '@/lib/utils/logger';
 
-// ✅ Always use logger (never console.log)
+// Always use logger (never console.log)
 logger.info('Operation completed', { tenantId, duration });
 logger.error('Operation failed', { error: error.message });
 
-// ✅ PII masking is automatic
+// PII masking is automatic
 logger.info('User action', {
   phone: '+5511999999***',  // Auto-masked
   tenantId: 'tenant123***'  // Auto-masked
@@ -338,17 +630,33 @@ logger.info('User action', {
 
 ---
 
-## 🎯 Development Best Practices
+## Dashboard Pages Reference
+
+| Page | Path | Description |
+|------|------|-------------|
+| **Home** | `/dashboard` | Overview with KPIs, agenda, heatmap |
+| **CRM** | `/dashboard/crm` | Pipeline, leads, analytics |
+| **Properties** | `/dashboard/properties` | Property management |
+| **Reservations** | `/dashboard/reservations` | Bookings and visits |
+| **Clients** | `/dashboard/clients` | Customer management |
+| **Conversations** | `/dashboard/conversas` | Multi-channel chat |
+| **Agenda** | `/dashboard/agenda` | Calendar with events |
+| **Financial** | `/dashboard/financeiro/*` | Transactions, charges, reports |
+| **Settings** | `/dashboard/settings/*` | WhatsApp, company, policies, AI |
+| **Admin** | `/dashboard/lkjhg` | Ultra-secure admin panel |
+
+---
+
+## Development Best Practices
 
 ### 1. Tenant Context (Always Required)
 
 ```typescript
-// ✅ Component level
+// Component level
 import { useTenant } from '@/contexts/TenantContext';
-
 const { tenantId, isReady } = useTenant();
 
-// ✅ API level
+// API level
 const authContext = await validateFirebaseAuth(request);
 const services = new TenantServiceFactory(authContext.tenantId);
 ```
@@ -356,23 +664,22 @@ const services = new TenantServiceFactory(authContext.tenantId);
 ### 2. Type Safety
 
 ```typescript
-// ✅ Always use TypeScript types
-import type { Reservation, Client, Property } from '@/lib/types';
+import type { Reservation, Client, Property, Lead } from '@/lib/types';
 
-const service = services.reservations; // Typed automatically
+const service = services.reservations;
 const reservation = await service.get(id); // Reservation | null
 ```
 
 ### 3. Query Optimization
 
 ```typescript
-// ✅ Always use limits
+// Always use limits
 const properties = await services.properties.getAll(100);
 
-// ✅ Use specific queries (not getAll + filter)
+// Use specific queries (not getAll + filter)
 const active = await services.properties.getWhere('isActive', '==', true);
 
-// ✅ Complex queries with optimizer
+// Complex queries with optimizer
 const results = await services.properties.getManyOptimized(
   [
     { field: 'status', operator: '==', value: 'active' },
@@ -385,27 +692,16 @@ const results = await services.properties.getManyOptimized(
 ### 4. Real-time Subscriptions
 
 ```typescript
-// ✅ Collection subscription
 useEffect(() => {
   const services = new TenantServiceFactory(tenantId);
   const unsubscribe = services.properties.onSnapshot(setProperties);
-  return () => unsubscribe(); // Cleanup
-}, [tenantId]);
-
-// ✅ Document subscription
-useEffect(() => {
-  const unsubscribe = services.reservations.subscribeToDocument(
-    reservationId,
-    setReservation
-  );
   return () => unsubscribe();
-}, [reservationId]);
+}, [tenantId]);
 ```
 
 ### 5. Error Handling
 
 ```typescript
-// ✅ Always catch and log
 try {
   const result = await operation();
   return { success: true, data: result };
@@ -413,72 +709,11 @@ try {
   logger.error('Operation failed', { error: error.message });
   return { success: false, error: 'Operation failed' };
 }
-
-// ❌ Never expose internal errors
-catch (error) {
-  throw error; // BAD - exposes stack traces
-}
 ```
 
 ---
 
-## 📊 CRM System
-
-### Pipeline Stages
-
-```typescript
-enum LeadStage {
-  NEW = 'new',
-  CONTACTED = 'contacted',
-  QUALIFIED = 'qualified',
-  PRESENTATION = 'presentation',
-  PROPOSAL = 'proposal',
-  NEGOTIATION = 'negotiation',
-  CLOSING = 'closing',
-  WON = 'won',
-  LOST = 'lost'
-}
-```
-
-### Automatic Pipeline Movement
-
-Sofia AI automatically progresses leads through stages based on interactions:
-
-- `new → contacted`: First AI response
-- `contacted → qualified`: Needs identified (dates, budget, location)
-- `qualified → presentation`: Property options shown
-- `presentation → proposal`: Budget request or strong interest
-- `proposal → negotiation`: Price discussion
-- `negotiation → closing`: Budget confirmation
-- `closing → won`: Reservation completed
-
-### Lead Scoring
-
-Dynamic scoring based on 20+ factors:
-- Base score (initial quality)
-- Temperature bonus: hot (+15), warm (+5), cold (-10)
-- Interaction frequency multiplier
-- Qualification bonus (budget/timeline/need/authority)
-- Time decay for stale leads
-- AI-enhanced adjustments
-
-### CRM Components
-
-```typescript
-// Main CRM Interface
-/app/dashboard/crm/page.tsx
-
-// Analytics Components
-/app/dashboard/crm/components/AdvancedAnalytics.tsx       // Conversion funnels
-/app/dashboard/crm/components/LeadPerformanceTracker.tsx  // Individual tracking
-/app/dashboard/crm/components/AIInsights.tsx              // AI recommendations
-/app/dashboard/crm/components/CRMStats.tsx                // KPIs
-/app/dashboard/crm/components/KanbanBoard.tsx             // Drag-and-drop pipeline
-```
-
----
-
-## 🔧 Development Commands
+## Development Commands
 
 ```bash
 # Development
@@ -502,9 +737,7 @@ npm run generate-password-hash   # Admin password hash
 
 ---
 
-## 🧪 Testing Endpoints
-
-### Quick Tests
+## Testing Endpoints
 
 ```bash
 # Test AI Functions
@@ -512,43 +745,49 @@ curl -X POST http://localhost:3000/api/ai/functions/create-lead \
   -H "Content-Type: application/json" \
   -d '{"tenantId":"test","phone":"+5511999999999"}'
 
-# Search properties with filters (guests=0 will be ignored)
+# Search properties
 curl -X POST http://localhost:3000/api/ai/functions/search-properties \
   -H "Content-Type: application/json" \
   -d '{"tenantId":"test","location":"Praia","guests":4}'
 
-# Search all properties (numeric filters with 0 are ignored)
-curl -X POST http://localhost:3000/api/ai/functions/search-properties \
+# Check discount opportunities
+curl -X POST http://localhost:3000/api/ai/functions/check-discount-opportunities \
   -H "Content-Type: application/json" \
-  -d '{"tenantId":"test","location":"Praia","guests":0,"bedrooms":0,"maxPrice":0}'
+  -d '{"tenantId":"test"}'
 
-# Test Core APIs
-curl http://localhost:3000/api/reservations?status=confirmed
-
-curl -X POST http://localhost:3000/api/transactions \
-  -H "Content-Type: application/json" \
-  -d '{"amount":500,"type":"income","category":"reservation"}'
+# Test iCal export
+curl http://localhost:3000/api/ical/{tenantId}/{propertyId}?token={token}
 ```
 
 ---
 
-## 📝 Key Files Reference
+## Key Files Reference
 
 ### Core Services
 - `lib/firebase/firestore-v2.ts` - Multi-tenant Firestore + TenantServiceFactory
-- `lib/ai/tenant-aware-agent-functions.ts` - 45+ AI function implementations
+- `lib/ai/tenant-aware-agent-functions.ts` - AI function implementations
 - `lib/middleware/firebase-auth.ts` - Authentication middleware
 
 ### API Routes
-- `app/api/ai/functions/*/route.ts` - 45+ AI function endpoints
+- `app/api/ai/functions/*/route.ts` - 60 AI function endpoints
 - `app/api/reservations/route.ts` - Reservations CRUD
 - `app/api/transactions/route.ts` - Transactions CRUD
 - `app/api/whatsapp/send-n8n/route.ts` - WhatsApp integration
+- `app/api/calendar/sync/*/route.ts` - iCal sync endpoints
 
-### CRM Dashboard
-- `app/dashboard/crm/page.tsx` - Main CRM interface
-- `app/dashboard/crm/components/AdvancedAnalytics.tsx` - Business intelligence
-- `app/dashboard/crm/components/LeadPerformanceTracker.tsx` - Lead tracking
+### Dashboard
+- `app/dashboard/crm/page.tsx` - CRM interface
+- `app/dashboard/conversas/page.tsx` - Conversations interface
+- `app/dashboard/properties/page.tsx` - Properties management
+
+### Onboarding
+- `components/organisms/RevolutionaryOnboarding/` - Onboarding system
+- `lib/hooks/useRevolutionaryOnboarding.ts` - Onboarding hook
+
+### iCal Sync
+- `lib/services/ical-generator-service.ts` - Generate feeds
+- `lib/services/calendar-sync-service.ts` - Sync orchestration
+- `lib/services/property-import-service.ts` - Property import
 
 ### Utilities
 - `lib/utils/logger.ts` - Professional logging with PII masking
@@ -557,9 +796,7 @@ curl -X POST http://localhost:3000/api/transactions \
 
 ---
 
-## 🎯 Quick Reference
-
-### Critical Rules for New Features
+## Critical Rules for New Features
 
 1. **Multi-tenant Isolation** - Always use `TenantServiceFactory`
 2. **Zod Validation** - Validate all inputs with Zod schemas
@@ -602,3 +839,4 @@ export async function POST(request: NextRequest) {
 
 **This CLAUDE.md is optimized for Claude Code development.**
 **Always prioritize: multi-tenant isolation, security, type safety, and professional error handling.**
+**Last updated: November 2025**

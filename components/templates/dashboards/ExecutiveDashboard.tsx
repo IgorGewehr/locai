@@ -86,7 +86,7 @@ import {
 } from 'recharts';
 import { useTenant } from '@/contexts/TenantContext';
 import { realInsightsService } from '@/lib/services/real-insights-service';
-import { AIGeneratedInsight } from '@/lib/services/advanced-ai-insights';
+import { AIGeneratedInsight } from '@/lib/services/advanced-ai-insights-service';
 import { format, subDays, startOfMonth, endOfMonth } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
