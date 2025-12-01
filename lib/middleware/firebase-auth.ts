@@ -10,6 +10,7 @@ export interface FirebaseAuthContext {
   tenantId?: string
   role?: string
   token?: string
+  error?: string
 }
 
 /**
@@ -19,39 +20,34 @@ export interface FirebaseAuthContext {
  * 2. Header X-Firebase-Token: <token>
  */
 export async function validateFirebaseAuth(req: NextRequest): Promise<FirebaseAuthContext> {
+  let token: string | null = null
+
   try {
     // Extrair token do header
-    let token: string | null = null
-    
     const authHeader = req.headers.get('authorization')
     if (authHeader?.startsWith('Bearer ')) {
       token = authHeader.substring(7)
     } else {
       token = req.headers.get('x-firebase-token')
     }
-    
+
     if (!token) {
       logger.debug('🔒 [FirebaseAuth] Nenhum token encontrado')
       return { authenticated: false }
     }
-    
-    // Verificar token com Firebase Admin SDK
-    if (!adminAuth) {
-      logger.error('❌ [FirebaseAuth] Firebase Admin não inicializado')
-      return { authenticated: false }
-    }
-    
+
+    // Verificar token com Firebase Admin SDK (lazy initialization)
     const decodedToken = await adminAuth.verifyIdToken(token)
-    
+
     // O tenantId é o próprio UID do usuário (conforme CLAUDE.md)
     const tenantId = decodedToken.uid
-    
+
     logger.debug('✅ [FirebaseAuth] Token válido', {
       userId: decodedToken.uid,
       email: decodedToken.email,
       tenantId
     })
-    
+
     return {
       authenticated: true,
       userId: decodedToken.uid,
@@ -63,11 +59,11 @@ export async function validateFirebaseAuth(req: NextRequest): Promise<FirebaseAu
   } catch (error) {
     logger.warn('⚠️ [FirebaseAuth] Token inválido', {
       error: error instanceof Error ? error.message : 'Unknown error',
-      errorCode: error instanceof Error && 'code' in error ? error.code : 'unknown',
+      errorCode: error instanceof Error && 'code' in error ? (error as any).code : 'unknown',
       hasToken: !!token,
       tokenStart: token?.substring(0, 20)
     })
-    
+
     return { authenticated: false, error: error instanceof Error ? error.message : 'Unknown error' }
   }
 }
@@ -85,7 +81,7 @@ export async function requireAuth(req: NextRequest): Promise<FirebaseAuthContext
         userAgent: userAgent?.substring(0, 20),
         url: req.url.substring(0, 50)
       });
-      
+
       return {
         authenticated: true,
         userId: 'test-user',
@@ -98,11 +94,11 @@ export async function requireAuth(req: NextRequest): Promise<FirebaseAuthContext
   }
 
   const authContext = await validateFirebaseAuth(req)
-  
+
   if (!authContext.authenticated) {
     throw new Error('Authentication required')
   }
-  
+
   return authContext
 }
 
@@ -111,10 +107,10 @@ export async function requireAuth(req: NextRequest): Promise<FirebaseAuthContext
  */
 export async function getTenantId(req: NextRequest): Promise<string> {
   const authContext = await requireAuth(req)
-  
+
   if (!authContext.tenantId) {
     throw new Error('Tenant ID not found')
   }
-  
+
   return authContext.tenantId
 }

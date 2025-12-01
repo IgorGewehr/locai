@@ -655,7 +655,7 @@ export class TenantServiceFactory {
   }
 
   get auditLogger() {
-    const { createAuditLogger } = require('@/lib/services/audit-logger');
+    const { createAuditLogger } = require('@/lib/services/audit-logger-service');
     return createAuditLogger(this.tenantId);
   }
 

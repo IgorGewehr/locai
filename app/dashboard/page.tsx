@@ -38,7 +38,7 @@ import { logger } from '@/lib/utils/logger';
 // 🚀 PERFORMANCE: Lazy load de componentes pesados
 const AgendaCard = lazy(() => import('@/components/organisms/dashboards/AgendaCard'));
 const ConversationsMetricsCard = lazy(() => import('@/components/organisms/dashboards/ConversationsMetricsCard').then(m => ({ default: m.ConversationsMetricsCard })));
-const CreateVisitDialog = lazy(() => import('./agenda/components/CreateVisitDialog'));
+const CreateVisitDialog = lazy(() => import('@/components/organisms/agenda/CreateVisitDialog'));
 const Heatmap = lazy(() => import('@/components/organisms/Heatmap'));
 import { SafeRevolutionaryOnboarding } from '@/components/organisms/RevolutionaryOnboarding';
 import { useRouter } from 'next/navigation';

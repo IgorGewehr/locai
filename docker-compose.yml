@@ -1,0 +1,84 @@
+# ============================================================
+# LOCAI - Docker Compose (Development)
+# ============================================================
+# Uso: docker-compose up
+#
+# Este arquivo é otimizado para DESENVOLVIMENTO LOCAL com:
+# - Hot reload (código sincronizado via volume)
+# - Redis local para cache
+# - Variáveis de ambiente via .env
+# ============================================================
+
+services:
+  # ============================================================
+  # Aplicação Next.js
+  # ============================================================
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: development
+    container_name: locai-app
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=development
+      - PORT=3000
+      - HOSTNAME=0.0.0.0
+      # Redis local
+      - REDIS_URL=redis://redis:6379
+    env_file:
+      - .env
+    volumes:
+      # Sincronizar código para hot reload
+      - .:/app
+      # Preservar node_modules do container (não sobrescrever com local)
+      - /app/node_modules
+      # Preservar .next para builds incrementais
+      - /app/.next
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - locai-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+  # ============================================================
+  # Redis - Cache e Sessions
+  # ============================================================
+  redis:
+    image: redis:7-alpine
+    container_name: locai-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+    networks:
+      - locai-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+# ============================================================
+# Volumes persistentes
+# ============================================================
+volumes:
+  redis-data:
+    driver: local
+
+# ============================================================
+# Rede interna
+# ============================================================
+networks:
+  locai-network:
+    driver: bridge

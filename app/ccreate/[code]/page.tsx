@@ -28,7 +28,7 @@ import { useForm, Controller } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
 import * as yup from 'yup';
 import Image from 'next/image';
-import FeaturesBanner from '../components/FeaturesBanner';
+import FeaturesBanner from '@/components/organisms/auth/FeaturesBanner';
 
 const registerSchema = yup.object().shape({
   name: yup.string().required('Nome é obrigatório'),

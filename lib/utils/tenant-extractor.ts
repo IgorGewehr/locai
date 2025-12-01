@@ -204,7 +204,7 @@ export async function resolveTenantFromPhone(phone: string): Promise<string | nu
     });
 
     // Usar o serviço de mapeamento robusto
-    const { tenantPhoneMappingService } = await import('@/lib/services/tenant-phone-mapping');
+    const { tenantPhoneMappingService } = await import('@/lib/services/tenant-phone-mapping-service');
     const tenantId = await tenantPhoneMappingService.resolveTenantFromClientPhone(phone);
 
     if (tenantId) {

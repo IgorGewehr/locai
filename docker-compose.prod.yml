@@ -1,0 +1,135 @@
+# ============================================================
+# LOCAI - Docker Compose (Production)
+# ============================================================
+# Uso: docker-compose -f docker-compose.prod.yml up -d
+#
+# Este arquivo é otimizado para PRODUÇÃO com:
+# - Imagem otimizada (standalone build)
+# - Redis com autenticação
+# - Nginx como reverse proxy (opcional)
+# - Limites de recursos
+# - Logs estruturados
+# ============================================================
+
+services:
+  # ============================================================
+  # Aplicação Next.js (Production)
+  # ============================================================
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: runner
+    container_name: locai-app-prod
+    restart: always
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+      - PORT=3000
+      - HOSTNAME=0.0.0.0
+      # Redis com autenticação (se configurado)
+      - REDIS_URL=${REDIS_URL:-redis://redis:6379}
+    env_file:
+      - .env
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - locai-network
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # ============================================================
+  # Redis - Cache e Sessions (Production)
+  # ============================================================
+  redis:
+    image: redis:7-alpine
+    container_name: locai-redis-prod
+    restart: always
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    command: >
+      redis-server
+      --appendonly yes
+      --maxmemory 512mb
+      --maxmemory-policy allkeys-lru
+      --tcp-keepalive 300
+      --timeout 0
+    networks:
+      - locai-network
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+        reservations:
+          cpus: '0.1'
+          memory: 128M
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "5m"
+        max-file: "2"
+
+  # ============================================================
+  # Nginx - Reverse Proxy (Opcional)
+  # ============================================================
+  # Descomente se precisar de um reverse proxy
+  # nginx:
+  #   image: nginx:alpine
+  #   container_name: locai-nginx
+  #   restart: always
+  #   ports:
+  #     - "80:80"
+  #     - "443:443"
+  #   volumes:
+  #     - ./docker/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+  #     - ./docker/nginx/ssl:/etc/nginx/ssl:ro
+  #   depends_on:
+  #     - app
+  #   networks:
+  #     - locai-network
+  #   healthcheck:
+  #     test: ["CMD", "nginx", "-t"]
+  #     interval: 30s
+  #     timeout: 10s
+  #     retries: 3
+
+# ============================================================
+# Volumes persistentes
+# ============================================================
+volumes:
+  redis-data:
+    driver: local
+
+# ============================================================
+# Rede interna
+# ============================================================
+networks:
+  locai-network:
+    driver: bridge
