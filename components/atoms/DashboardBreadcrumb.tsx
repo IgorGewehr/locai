@@ -47,12 +47,12 @@ const PATH_MAPPINGS: Record<string, { label: string; icon: React.ReactNode }> = 
   '/dashboard/financeiro/transacoes': { label: 'Transações', icon: <AttachMoney /> },
   '/dashboard/financeiro/relatorios': { label: 'Relatórios', icon: <Analytics /> },
   '/dashboard/financeiro/cobrancas': { label: 'Cobranças', icon: <AttachMoney /> },
-  '/dashboard/analytics': { label: 'Analytics', icon: <Analytics /> },
   '/dashboard/settings': { label: 'Configurações', icon: <Settings /> },
   '/dashboard/help': { label: 'Ajuda', icon: <Help /> },
-  '/dashboard/conversations': { label: 'Conversas', icon: <Chat /> },
+  '/dashboard/conversas': { label: 'Conversas', icon: <Chat /> },
   '/dashboard/crm': { label: 'CRM', icon: <People /> },
-  '/dashboard/financeiro-simples': { label: 'Financeiro Simples', icon: <AttachMoney /> },
+  '/dashboard/metricas': { label: 'Métricas', icon: <Analytics /> },
+  '/dashboard/agenda': { label: 'Agenda', icon: <CalendarMonth /> },
   '/dashboard/profile': { label: 'Perfil', icon: <People /> },
 };
 

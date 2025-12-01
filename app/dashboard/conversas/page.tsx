@@ -67,7 +67,7 @@ import { useAuth } from '@/contexts/AuthProvider';
 import { useConversationsOptimized } from '@/lib/hooks/useConversationsOptimized';
 import { logger } from '@/lib/utils/logger';
 import type { ConversationStatus } from '@/lib/types/conversation-optimized';
-import AIControlButton from '@/app/dashboard/conversations/components/AIControlButton';
+import AIControlButton from '@/components/organisms/conversations/AIControlButton';
 import { Send } from '@mui/icons-material';
 
 export default function ConversationsPage() {

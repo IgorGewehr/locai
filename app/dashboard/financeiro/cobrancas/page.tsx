@@ -72,10 +72,10 @@ import {
 } from '@mui/icons-material';
 import { BillingSettings, SimpleBillingConfig, BillingTemplate, TEMPLATE_VARIABLES } from '@/lib/types/billing';
 import { useAuth } from '@/lib/hooks/useAuth';
-import GeneralSettings from './components/GeneralSettings';
-import MessageTemplates from './components/MessageTemplates';
-import ScheduleSettings from './components/ScheduleSettings';
-import CampaignManager from './components/CampaignManager';
+import GeneralSettings from '@/components/organisms/financeiro/GeneralSettings';
+import MessageTemplates from '@/components/organisms/financeiro/MessageTemplates';
+import ScheduleSettings from '@/components/organisms/financeiro/ScheduleSettings';
+import CampaignManager from '@/components/organisms/financeiro/CampaignManager';
 
 interface TabPanelProps {
   children?: React.ReactNode;

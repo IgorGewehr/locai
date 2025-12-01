@@ -18,9 +18,9 @@ import type { AdminUser } from '@/lib/types/admin';
 import type { Ticket } from '@/lib/types/ticket';
 
 // Components
-import AdminStats from './components/AdminStats';
-import UserDataTable from './components/UserDataTable';
-import TicketInbox from './components/TicketInbox';
+import AdminStats from '@/components/organisms/admin/AdminStats';
+import UserDataTable from '@/components/organisms/admin/UserDataTable';
+import TicketInbox from '@/components/organisms/admin/TicketInbox';
 
 interface TabPanelProps {
   children?: React.ReactNode;

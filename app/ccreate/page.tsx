@@ -30,7 +30,7 @@ import { yupResolver } from '@hookform/resolvers/yup';
 import * as yup from 'yup';
 import Image from 'next/image';
 import { darkFieldStyles } from './shared-styles';
-import FeaturesBanner from './components/FeaturesBanner';
+import FeaturesBanner from '@/components/organisms/auth/FeaturesBanner';
 
 const registerSchema = yup.object().shape({
   name: yup.string().required('Nome é obrigatório'),

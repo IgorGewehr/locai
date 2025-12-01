@@ -83,14 +83,14 @@ import { useAuth } from '@/lib/hooks/useAuth';
 import { useTenantServices } from '@/lib/hooks/useTenantServices';
 import { useTenant } from '@/contexts/TenantContext';
 import { scrollbarStyles } from '@/styles/scrollbarStyles';
-import LeadDetailsDrawer from './components/LeadDetailsDrawer';
-import CreateLeadDialog from './components/CreateLeadDialog';
-import TaskDialog from './components/TaskDialog';
-import KanbanBoard from './components/KanbanBoard';
-import CRMStats from './components/CRMStats';
-import AIInsights from './components/AIInsights';
-import AdvancedAnalytics from './components/AdvancedAnalytics';
-import LeadPerformanceTracker from './components/LeadPerformanceTracker';
+import LeadDetailsDrawer from '@/components/organisms/crm/LeadDetailsDrawer';
+import CreateLeadDialog from '@/components/organisms/crm/CreateLeadDialog';
+import TaskDialog from '@/components/organisms/crm/TaskDialog';
+import KanbanBoard from '@/components/organisms/crm/KanbanBoard';
+import CRMStats from '@/components/organisms/crm/CRMStats';
+import AIInsights from '@/components/organisms/crm/AIInsights';
+import AdvancedAnalytics from '@/components/organisms/crm/AdvancedAnalytics';
+import LeadPerformanceTracker from '@/components/organisms/crm/LeadPerformanceTracker';
 
 const statusColumns = [
   { id: LeadStatus.NEW, title: 'Novos Leads', color: '#1976d2' },

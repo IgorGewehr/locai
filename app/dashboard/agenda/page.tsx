@@ -62,10 +62,10 @@ import { Reservation, ReservationStatus, RESERVATION_STATUS_LABELS } from '@/lib
 import { Property } from '@/lib/types/property';
 import { Client } from '@/lib/types/client';
 import { VisitAppointment, VISIT_STATUS_LABELS, VisitStatus } from '@/lib/types/visit-appointment';
-import EventoModal from './components/EventoModal';
-import ViewReservationDialog from './components/ViewReservationDialog';
-import CreateVisitDialog from './components/CreateVisitDialog';
-import EventDetailsModal from './components/EventDetailsModal';
+import EventoModal from '@/components/organisms/agenda/EventoModal';
+import ViewReservationDialog from '@/components/organisms/agenda/ViewReservationDialog';
+import CreateVisitDialog from '@/components/organisms/agenda/CreateVisitDialog';
+import EventDetailsModal from '@/components/organisms/agenda/EventDetailsModal';
 import { format, isToday, isSameDay, addDays, startOfWeek, endOfWeek, startOfMonth, endOfMonth, eachDayOfInterval, isSameWeek, isSameMonth, parseISO, subMonths, addMonths, subWeeks, addWeeks } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import DashboardBreadcrumb from '@/components/atoms/DashboardBreadcrumb';

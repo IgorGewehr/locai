@@ -62,9 +62,9 @@ import {
 import { useRouter } from 'next/navigation';
 import { safeFormatDate, DateFormats } from '@/lib/utils/date-formatter';
 import { useAuth } from '@/lib/hooks/useAuth';
-import CreateClientDialog from './components/CreateClientDialog';
-import EditClientDialog from './components/EditClientDialog';
-import ClientDetailsDialog from './components/ClientDetailsDialog';
+import CreateClientDialog from '@/components/organisms/clients/CreateClientDialog';
+import EditClientDialog from '@/components/organisms/clients/EditClientDialog';
+import ClientDetailsDialog from '@/components/organisms/clients/ClientDetailsDialog';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
