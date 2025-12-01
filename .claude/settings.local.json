@@ -125,7 +125,8 @@
       "Bash(then echo \"$dir (MISSING index.ts)\")",
       "Bash(xargs -I {} bash -c 'echo \"\"\"\"{}\"\"\"\" | grep -q \"\"\"\"^[a-z]\"\"\"\" && echo \"\"\"\"kebab/lowercase: {}\"\"\"\" || echo \"\"\"\"other: {}\"\"\"\"')",
       "Bash(xargs basename:*)",
-      "Bash(do:*)"
+      "Bash(do:*)",
+      "Bash(gh pr create:*)"
     ],
     "deny": [],
     "defaultMode": "acceptEdits",

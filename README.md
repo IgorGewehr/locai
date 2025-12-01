@@ -745,15 +745,16 @@ ADMIN_API_SECRET=your-admin-panel-secret
 ```bash
 # Desenvolvimento
 npm install                      # Instalar dependencias
-npm run dev                      # Dev server (port 3000)
+npm run dev                      # Dev server (port 8080)
+npm run dev:fast                 # Dev server com Turbo
 
 # Build & Deploy
 npm run build                    # Production build
 npm run start                    # Production server
-npm run prod-check               # Full deployment check
 
 # Qualidade
 npm run lint                     # ESLint
+npm run lint:fix                 # ESLint com auto-fix
 npm run type-check               # TypeScript validation
 
 # Utilitarios
