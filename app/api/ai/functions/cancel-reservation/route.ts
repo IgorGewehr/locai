@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { cancelReservation } from '@/lib/ai/tenant-aware-agent-functions';
 import { logger } from '@/lib/utils/logger';
+import { triggerReservationCancelledNotification } from '@/lib/utils/notification-triggers';
 
 
 
@@ -47,6 +48,43 @@ export async function POST(request: NextRequest) {
         processingTime: `${processingTime}ms`
       }
     });
+
+    // 🔔 NOTIFY TENANT USER about reservation cancellation
+    const reservationId = args.reservationId || (result as any)?.reservationId || (result as any)?.id;
+    if (reservationId && (result as any)?.success !== false) {
+      try {
+        const resultData = (result as any)?.data || result;
+        await triggerReservationCancelledNotification(
+          tenantId,
+          reservationId,
+          {
+            propertyName: args.propertyName || resultData?.propertyName,
+            clientName: args.clientName || resultData?.clientName,
+            clientPhone: args.clientPhone || resultData?.clientPhone,
+            checkIn: resultData?.checkIn || args.checkIn,
+            checkOut: resultData?.checkOut || args.checkOut,
+            totalPrice: resultData?.totalPrice || args.totalPrice,
+            refundAmount: resultData?.refundAmount || args.refundAmount,
+            cancelReason: args.reason || args.cancelReason || resultData?.cancelReason,
+            cancelledBy: 'sofia_ai'
+          },
+          tenantId,
+          undefined
+        );
+
+        logger.info('🔔 [CANCEL-RESERVATION] Notification sent to tenant', {
+          requestId,
+          tenantId: tenantId.substring(0, 8) + '***',
+          reservationId,
+          refundAmount: resultData?.refundAmount
+        });
+      } catch (notificationError) {
+        logger.warn('⚠️ [CANCEL-RESERVATION] Notification failed (non-critical)', {
+          requestId,
+          error: notificationError instanceof Error ? notificationError.message : 'Unknown'
+        });
+      }
+    }
 
     return NextResponse.json({
       success: true,

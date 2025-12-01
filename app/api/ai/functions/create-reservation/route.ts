@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { createReservation } from '@/lib/ai/tenant-aware-agent-functions';
 import { logger } from '@/lib/utils/logger';
 import { sanitizeUserInput } from '@/lib/utils/validation';
+import { triggerReservationCreatedNotification } from '@/lib/utils/notification-triggers';
 
 // 🛡️ ZOD VALIDATION SCHEMA
 const CreateReservationSchema = z.object({
@@ -129,6 +130,43 @@ export async function POST(request: NextRequest) {
         processingTime: `${processingTime}ms`
       }
     });
+
+    // 🔔 NOTIFY TENANT USER about new reservation
+    if (result?.reservationId) {
+      try {
+        const checkInDate = new Date(sanitizedArgs.checkIn);
+        const checkOutDate = new Date(sanitizedArgs.checkOut);
+        const nights = Math.ceil((checkOutDate.getTime() - checkInDate.getTime()) / (1000 * 60 * 60 * 24));
+
+        await triggerReservationCreatedNotification(
+          tenantId,
+          result.reservationId,
+          {
+            propertyName: result.propertyName || 'Propriedade',
+            clientName: result.clientName || sanitizedArgs.clientPhone,
+            checkIn: checkInDate,
+            checkOut: checkOutDate,
+            totalAmount: sanitizedArgs.totalPrice,
+            guests: sanitizedArgs.guests,
+            nights
+          },
+          tenantId, // In Locai, tenantId = userId for the tenant owner
+          undefined
+        );
+
+        logger.info('🔔 [CREATE-RESERVATION] Notification sent to tenant', {
+          requestId,
+          tenantId: tenantId.substring(0, 8) + '***',
+          reservationId: result.reservationId
+        });
+      } catch (notificationError) {
+        // Don't fail the main operation if notification fails
+        logger.warn('⚠️ [CREATE-RESERVATION] Notification failed (non-critical)', {
+          requestId,
+          error: notificationError instanceof Error ? notificationError.message : 'Unknown'
+        });
+      }
+    }
 
     return NextResponse.json({
       success: true,

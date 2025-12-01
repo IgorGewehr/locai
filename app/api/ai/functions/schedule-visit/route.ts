@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { scheduleVisit } from '@/lib/ai/tenant-aware-agent-functions';
 import { logger } from '@/lib/utils/logger';
+import { triggerVisitScheduledNotification } from '@/lib/utils/notification-triggers';
 
 
 export async function POST(request: NextRequest) {
@@ -46,6 +47,39 @@ export async function POST(request: NextRequest) {
         processingTime: `${processingTime}ms`
       }
     });
+
+    // 🔔 NOTIFY TENANT USER about scheduled visit
+    if (result?.visitId || result?.eventId) {
+      try {
+        await triggerVisitScheduledNotification(
+          tenantId,
+          result.visitId || result.eventId || `visit_${Date.now()}`,
+          {
+            propertyId: args.propertyId || result.propertyId || '',
+            propertyName: args.propertyName || result.propertyName || 'Propriedade',
+            clientName: args.clientName || result.clientName,
+            clientPhone: args.clientPhone || args.phone || '',
+            visitDate: args.date || args.visitDate || result.date || '',
+            visitTime: args.time || args.visitTime || result.time || '',
+            guests: args.guests || result.guests,
+            notes: args.notes || result.notes
+          },
+          tenantId,
+          undefined
+        );
+
+        logger.info('🔔 [SCHEDULE-VISIT] Notification sent to tenant', {
+          requestId,
+          tenantId: tenantId.substring(0, 8) + '***',
+          visitId: result.visitId || result.eventId
+        });
+      } catch (notificationError) {
+        logger.warn('⚠️ [SCHEDULE-VISIT] Notification failed (non-critical)', {
+          requestId,
+          error: notificationError instanceof Error ? notificationError.message : 'Unknown'
+        });
+      }
+    }
 
     return NextResponse.json({
       success: true,

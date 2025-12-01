@@ -1,10 +1,9 @@
 // app/api/ai/functions/post-notification/route.ts
 // AI Function: Sofia Agent notifies admin when client wants human assistance
-// SIMPLIFIED: Only tenantId and clientPhone required
+// FIXED: Now properly notifies all admins using their real UIDs
 
 import { NextRequest, NextResponse } from 'next/server'
-import { NotificationServiceFactory } from '@/lib/services/notification-service'
-import { NotificationType, NotificationPriority, NotificationChannel } from '@/lib/types/notification'
+import { notifyAdminsHumanAssistanceRequest } from '@/lib/utils/admin-notifications'
 import { logger } from '@/lib/utils/logger'
 import { z } from 'zod'
 
@@ -18,6 +17,10 @@ const PostNotificationSchema = z.object({
 /**
  * POST /api/ai/functions/post-notification
  * Sofia AI Agent notifies admin when client needs human assistance
+ *
+ * FIXED: Now uses notifyAdminsHumanAssistanceRequest() to properly broadcast
+ * to all admins (users with idog: true) using their real UIDs instead of
+ * a generic 'admin' string that would never be found.
  *
  * Required fields:
  * - tenantId: Tenant identifier
@@ -66,87 +69,32 @@ export async function POST(request: NextRequest) {
 
     const { tenantId, clientPhone, reason } = validation.data
 
-    logger.info('[POST-NOTIFICATION] Creating notification', {
+    logger.info('[POST-NOTIFICATION] Creating notifications for all admins', {
       requestId,
       tenantId: tenantId.substring(0, 8) + '***',
       clientPhone: clientPhone.substring(0, 8) + '***',
       hasReason: !!reason
     })
 
-    // Get notification service
-    logger.debug('[POST-NOTIFICATION] Getting notification service', {
-      requestId,
-      tenantId: tenantId.substring(0, 8) + '***'
-    })
-
-    const notificationService = NotificationServiceFactory.getInstance(tenantId)
-
-    logger.debug('[POST-NOTIFICATION] Notification service obtained', {
-      requestId
-    })
-
-    // Build message with optional reason
-    const title = '🙋 Cliente Solicita Atendimento Humano'
-    let message = `Cliente de número ${clientPhone} quer falar com um humano`
-
-    if (reason) {
-      message += `\n\n📝 Motivo: ${reason}`
-    }
-
-    logger.debug('[POST-NOTIFICATION] Calling createNotification', {
-      requestId,
-      title,
-      message: message.substring(0, 80) + '...',
-      hasReason: !!reason
-    })
-
-    // Create notification
-    const notificationId = await notificationService.createNotification({
-      targetUserId: 'admin', // Will be broadcast to all admins
-      type: NotificationType.TICKET_ASSIGNED,
-      title,
-      message,
-      entityType: 'ticket',
-      entityId: `human_request_${Date.now()}`,
-      entityData: {
-        clientPhone,
-        reason: reason || null,
-        source: 'sofia_ai_agent',
-        requestType: 'human_assistance',
-        timestamp: new Date().toISOString()
-      },
-      priority: NotificationPriority.HIGH,
-      channels: [NotificationChannel.DASHBOARD],
-      actions: [{
-        id: 'view_conversations',
-        label: 'Ver Conversas',
-        type: 'primary',
-        action: 'navigate',
-        config: {
-          url: '/dashboard/conversas'
-        }
-      }],
-      metadata: {
-        source: 'sofia_ai_agent',
-        triggerEvent: 'human_assistance_requested',
-        clientPhone,
-        reason: reason || null
-      }
+    // FIXED: Use notifyAdminsHumanAssistanceRequest which properly
+    // notifies all admins with their real UIDs
+    await notifyAdminsHumanAssistanceRequest({
+      phone: clientPhone,
+      tenantId,
+      reason: reason || undefined
     })
 
     const processingTime = Date.now() - startTime
 
-    logger.info('[POST-NOTIFICATION] Notification created successfully', {
+    logger.info('[POST-NOTIFICATION] Notifications sent to all admins successfully', {
       requestId,
-      notificationId,
       processingTime: `${processingTime}ms`
     })
 
     return NextResponse.json({
       success: true,
       data: {
-        notificationId,
-        message: 'Notification sent successfully'
+        message: 'Notifications sent to all admins successfully'
       },
       meta: {
         requestId,
@@ -186,16 +134,17 @@ export async function POST(request: NextRequest) {
 export async function GET() {
   return NextResponse.json({
     function: 'post-notification',
-    version: '2.1.0',
-    description: 'AI agent notifies admin when client needs human assistance',
+    version: '2.2.0', // Bumped version for fix
+    description: 'AI agent notifies all admins when client needs human assistance',
     status: 'operational',
     parameters: {
       required: ['tenantId', 'clientPhone'],
       optional: ['reason']
     },
-    messageFormat: 'Cliente de número {clientPhone} quer falar com um humano',
-    messageFormatWithReason: 'Cliente de número {clientPhone} quer falar com um humano\n\n📝 Motivo: {reason}',
+    messageFormat: 'Cliente {clientPhone} solicitou atendimento humano',
+    messageFormatWithReason: 'Cliente {clientPhone} solicitou atendimento humano: {reason}',
     priority: 'high',
+    fixedInVersion: '2.2.0 - Now properly broadcasts to all admins with real UIDs',
     timestamp: new Date().toISOString()
   })
 }

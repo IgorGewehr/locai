@@ -19,6 +19,7 @@ import { logger } from '@/lib/utils/logger';
 import { sanitizeUserInput } from '@/lib/utils/validation';
 import { TenantServiceFactory } from '@/lib/firebase/firestore-v2';
 import { getAbacatePayService } from '@/lib/services/abacatepay-service';
+import { triggerPixQrCodeGeneratedNotification } from '@/lib/utils/notification-triggers';
 import {
   toCents,
   toBRL,
@@ -319,6 +320,37 @@ export async function POST(request: NextRequest) {
       transactionId,
       processingTime: `${processingTime}ms`,
     });
+
+    // 🔔 NOTIFY TENANT USER about PIX QR code generated
+    try {
+      await triggerPixQrCodeGeneratedNotification(
+        input.tenantId,
+        pixData.id,
+        {
+          amount: input.amount,
+          description: sanitizedDescription,
+          clientName: clientName || undefined,
+          clientPhone: clientPhone || undefined,
+          propertyName: undefined, // Could add if property lookup is needed
+          reservationId: input.reservationId,
+          expiresInMinutes: expiresInMinutes,
+          expiresAt: pixData.expiresAt
+        },
+        input.tenantId,
+        undefined
+      );
+
+      logger.info('🔔 [GENERATE-PIX-QRCODE] Notification sent to tenant', {
+        requestId,
+        tenantId: input.tenantId.substring(0, 8) + '***',
+        pixId: pixData.id
+      });
+    } catch (notificationError) {
+      logger.warn('⚠️ [GENERATE-PIX-QRCODE] Notification failed (non-critical)', {
+        requestId,
+        error: notificationError instanceof Error ? notificationError.message : 'Unknown'
+      });
+    }
 
     return NextResponse.json(response);
 

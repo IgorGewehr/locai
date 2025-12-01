@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { modifyReservation } from '@/lib/ai/tenant-aware-agent-functions';
 import { logger } from '@/lib/utils/logger';
+import { triggerReservationModifiedNotification } from '@/lib/utils/notification-triggers';
 
 
 
@@ -47,6 +48,45 @@ export async function POST(request: NextRequest) {
         processingTime: `${processingTime}ms`
       }
     });
+
+    // 🔔 NOTIFY TENANT USER about reservation modification
+    const reservationId = args.reservationId || (result as any)?.reservationId || (result as any)?.id;
+    if (reservationId && (result as any)?.success !== false) {
+      try {
+        const resultData = (result as any)?.data || result;
+        await triggerReservationModifiedNotification(
+          tenantId,
+          reservationId,
+          {
+            propertyName: args.propertyName || resultData?.propertyName,
+            clientName: args.clientName || resultData?.clientName,
+            clientPhone: args.clientPhone || resultData?.clientPhone,
+            originalCheckIn: resultData?.originalCheckIn || args.originalCheckIn,
+            originalCheckOut: resultData?.originalCheckOut || args.originalCheckOut,
+            newCheckIn: args.checkIn || args.newCheckIn || resultData?.checkIn,
+            newCheckOut: args.checkOut || args.newCheckOut || resultData?.checkOut,
+            originalGuests: resultData?.originalGuests,
+            newGuests: args.guests || args.newGuests,
+            originalPrice: resultData?.originalPrice || resultData?.originalTotalPrice,
+            newPrice: args.totalPrice || args.newPrice || resultData?.totalPrice,
+            changesDescription: resultData?.changesDescription || resultData?.message
+          },
+          tenantId,
+          undefined
+        );
+
+        logger.info('🔔 [MODIFY-RESERVATION] Notification sent to tenant', {
+          requestId,
+          tenantId: tenantId.substring(0, 8) + '***',
+          reservationId
+        });
+      } catch (notificationError) {
+        logger.warn('⚠️ [MODIFY-RESERVATION] Notification failed (non-critical)', {
+          requestId,
+          error: notificationError instanceof Error ? notificationError.message : 'Unknown'
+        });
+      }
+    }
 
     return NextResponse.json({
       success: true,

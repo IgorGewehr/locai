@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createLead } from '@/lib/ai/tenant-aware-agent-functions';
 import { logger } from '@/lib/utils/logger';
+import { triggerLeadCreatedNotification } from '@/lib/utils/notification-triggers';
 
 
 export async function POST(request: NextRequest) {
@@ -46,6 +47,39 @@ export async function POST(request: NextRequest) {
         processingTime: `${processingTime}ms`
       }
     });
+
+    // 🔔 NOTIFY TENANT USER about new lead
+    if (result?.leadId || result?.id) {
+      try {
+        await triggerLeadCreatedNotification(
+          tenantId,
+          result.leadId || result.id || `lead_${Date.now()}`,
+          {
+            clientName: args.clientName || args.name || result.clientName || result.name,
+            clientPhone: args.clientPhone || args.phone || '',
+            clientEmail: args.clientEmail || args.email || result.email,
+            location: args.location || result.location,
+            guests: args.guests || result.guests,
+            budget: args.budget || result.budget,
+            checkInDate: args.checkInDate || args.checkIn || result.checkInDate,
+            interest: args.interest || result.interest
+          },
+          tenantId,
+          undefined
+        );
+
+        logger.info('🔔 [CREATE-LEAD] Notification sent to tenant', {
+          requestId,
+          tenantId: tenantId.substring(0, 8) + '***',
+          leadId: result.leadId || result.id
+        });
+      } catch (notificationError) {
+        logger.warn('⚠️ [CREATE-LEAD] Notification failed (non-critical)', {
+          requestId,
+          error: notificationError instanceof Error ? notificationError.message : 'Unknown'
+        });
+      }
+    }
 
     return NextResponse.json({
       success: true,

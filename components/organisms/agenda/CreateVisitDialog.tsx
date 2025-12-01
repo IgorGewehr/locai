@@ -355,10 +355,11 @@ export default function CreateVisitDialog({ open, onClose, onSuccess }: CreateVi
                   onChange={(_, newValue) => setSelectedProperty(newValue)}
                   options={properties}
                   getOptionLabel={(option) => option.title}
+                  isOptionEqualToValue={(option, value) => option.id === value.id}
                   renderOption={(props, option) => {
                     const { key, ...otherProps } = props;
                     return (
-                      <Box component="li" key={key} {...otherProps}>
+                      <Box component="li" key={option.id} {...otherProps}>
                         <Box>
                           <Typography variant="body1">{option.title}</Typography>
                           {option.address && (
@@ -419,10 +420,11 @@ export default function CreateVisitDialog({ open, onClose, onSuccess }: CreateVi
                     onChange={(_, newValue) => handleClientChange(newValue)}
                     options={clients}
                     getOptionLabel={(option) => option.name}
+                    isOptionEqualToValue={(option, value) => option.id === value.id}
                     renderOption={(props, option) => {
                       const { key, ...otherProps } = props;
                       return (
-                        <Box component="li" key={key} {...otherProps}>
+                        <Box component="li" key={option.id} {...otherProps}>
                           <Box>
                             <Typography variant="body1">{option.name}</Typography>
                             <Typography variant="caption" color="text.secondary">

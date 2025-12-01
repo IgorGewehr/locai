@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { scheduleMeeting } from '@/lib/ai/tenant-aware-agent-functions';
 import { logger } from '@/lib/utils/logger';
+import { triggerMeetingScheduledNotification } from '@/lib/utils/notification-triggers';
 
 export async function POST(request: NextRequest) {
   const startTime = Date.now();
@@ -51,6 +52,42 @@ export async function POST(request: NextRequest) {
         processingTime: `${processingTime}ms`
       }
     });
+
+    // 🔔 NOTIFY TENANT USER about scheduled meeting
+    // Note: result may have visitId or data.visitId depending on response structure
+    const meetingId = result?.data?.visitId || (result as any)?.meetingId || (result as any)?.eventId || (result as any)?.visitId;
+    if (result?.success && meetingId) {
+      try {
+        const resultData = result?.data || result;
+        await triggerMeetingScheduledNotification(
+          tenantId,
+          meetingId,
+          {
+            clientName: args.clientName || resultData?.clientName,
+            clientPhone: args.clientPhone || args.phone || '',
+            meetingDate: args.date || args.meetingDate || resultData?.scheduledDate || '',
+            meetingTime: args.time || args.meetingTime || resultData?.scheduledTime || '',
+            meetingType: args.type || args.meetingType || 'reunião',
+            duration: args.duration,
+            location: args.location,
+            notes: args.notes
+          },
+          tenantId,
+          undefined
+        );
+
+        logger.info('🔔 [SCHEDULE-MEETING] Notification sent to tenant', {
+          requestId,
+          tenantId: tenantId.substring(0, 8) + '***',
+          meetingId
+        });
+      } catch (notificationError) {
+        logger.warn('⚠️ [SCHEDULE-MEETING] Notification failed (non-critical)', {
+          requestId,
+          error: notificationError instanceof Error ? notificationError.message : 'Unknown'
+        });
+      }
+    }
 
     return NextResponse.json({
       success: true,

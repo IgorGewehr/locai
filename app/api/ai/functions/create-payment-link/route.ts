@@ -19,6 +19,7 @@ import { logger } from '@/lib/utils/logger';
 import { sanitizeUserInput } from '@/lib/utils/validation';
 import { TenantServiceFactory } from '@/lib/firebase/firestore-v2';
 import { getAbacatePayService } from '@/lib/services/abacatepay-service';
+import { triggerPaymentLinkCreatedNotification } from '@/lib/utils/notification-triggers';
 import {
   toCents,
   toBRL,
@@ -391,6 +392,38 @@ export async function POST(request: NextRequest) {
       transactionId,
       processingTime: `${processingTime}ms`,
     });
+
+    // 🔔 NOTIFY TENANT USER about payment link created
+    try {
+      await triggerPaymentLinkCreatedNotification(
+        input.tenantId,
+        billingData.id,
+        {
+          amount: input.amount,
+          description: sanitizedDescription,
+          clientName: clientName || undefined,
+          clientPhone: clientPhone || undefined,
+          clientEmail: clientEmail || undefined,
+          propertyName: propertyName || undefined,
+          reservationId: input.reservationId,
+          dueDate: input.dueDate,
+          paymentUrl: billingData.url
+        },
+        input.tenantId,
+        undefined
+      );
+
+      logger.info('🔔 [CREATE-PAYMENT-LINK] Notification sent to tenant', {
+        requestId,
+        tenantId: input.tenantId.substring(0, 8) + '***',
+        billingId: billingData.id
+      });
+    } catch (notificationError) {
+      logger.warn('⚠️ [CREATE-PAYMENT-LINK] Notification failed (non-critical)', {
+        requestId,
+        error: notificationError instanceof Error ? notificationError.message : 'Unknown'
+      });
+    }
 
     return NextResponse.json(response);
 

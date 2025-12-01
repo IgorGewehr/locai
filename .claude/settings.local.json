@@ -126,7 +126,8 @@
       "Bash(xargs -I {} bash -c 'echo \"\"\"\"{}\"\"\"\" | grep -q \"\"\"\"^[a-z]\"\"\"\" && echo \"\"\"\"kebab/lowercase: {}\"\"\"\" || echo \"\"\"\"other: {}\"\"\"\"')",
       "Bash(xargs basename:*)",
       "Bash(do:*)",
-      "Bash(gh pr create:*)"
+      "Bash(gh pr create:*)",
+      "Bash(docker build:*)"
     ],
     "deny": [],
     "defaultMode": "acceptEdits",
