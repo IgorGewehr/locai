@@ -58,10 +58,6 @@ import { ptBR } from 'date-fns/locale';
 import { safeFormat, formatTimestamp as safeFormatTimestamp, toDate } from '@/lib/utils/date-helpers';
 import { useRouter, useSearchParams } from 'next/navigation';
 import InfiniteScroll from 'react-infinite-scroll-component';
-import { lazy, Suspense } from 'react';
-import { useMetrics } from '@/lib/hooks/useMetrics';
-
-const Heatmap = lazy(() => import('@/components/organisms/Heatmap'));
 import { useTenant } from '@/contexts/TenantContext';
 import { useAuth } from '@/contexts/AuthProvider';
 import { useConversationsOptimized } from '@/lib/hooks/useConversationsOptimized';
@@ -76,7 +72,6 @@ export default function ConversationsPage() {
   const searchParams = useSearchParams();
   const { tenantId, isReady } = useTenant();
   const { getFirebaseToken } = useAuth();
-  const { data: metricsData } = useMetrics('7d');
 
   const {
     conversations,
@@ -1720,14 +1715,6 @@ export default function ConversationsPage() {
         </DialogActions>
       </Dialog>
 
-      {/* Heatmap de Atividade */}
-      {metricsData?.heatmapData && metricsData.heatmapData.length > 0 && (
-        <Box sx={{ mt: 4 }}>
-          <Suspense fallback={<CircularProgress />}>
-            <Heatmap data={metricsData.heatmapData} />
-          </Suspense>
-        </Box>
-      )}
     </Box>
   );
 }
