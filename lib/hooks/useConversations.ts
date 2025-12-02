@@ -238,12 +238,26 @@ export function useConversations({
         outcome: conv.outcome
       })) as ConversationListSummary[];
 
-      setState(prev => ({
-        ...prev,
-        conversations: summaries,
-        loading: false,
-        hasMore: summaries.length === limit,
-      }));
+      // Merge with existing conversations to preserve lastMessage from initial load
+      setState(prev => {
+        const existingMap = new Map(prev.conversations.map(c => [c.id, c]));
+
+        const mergedSummaries = summaries.map(newConv => {
+          const existing = existingMap.get(newConv.id);
+          // Use existing lastMessage if new one is empty (for backwards compatibility)
+          if (!newConv.lastMessage && existing?.lastMessage) {
+            return { ...newConv, lastMessage: existing.lastMessage };
+          }
+          return newConv;
+        });
+
+        return {
+          ...prev,
+          conversations: mergedSummaries,
+          loading: false,
+          hasMore: summaries.length === limit,
+        };
+      });
     }, limit);
 
     return () => {
