@@ -296,15 +296,20 @@ export type ConversationHeaderStatus = 'active' | 'completed' | 'abandoned' | 's
 /**
  * ConversationMessage - Detailed message with context
  * Stored in: tenants/{tenantId}/messages
+ *
+ * Supports:
+ * - Client message only (Sofia hasn't responded yet)
+ * - Sofia message only (multiple AI responses to a single client message)
+ * - Both messages (typical request-response pair)
  */
 export interface ConversationMessage {
   id: string;
   conversationId: string;
   tenantId: string;
 
-  // Client message
-  clientMessage: string;
-  clientMessageTimestamp: Date;
+  // Client message (optional - may be null for Sofia-only messages)
+  clientMessage: string | null;
+  clientMessageTimestamp: Date | null;
 
   // Sofia message (optional)
   sofiaMessage: string | null;
@@ -336,8 +341,8 @@ export interface MessageContext {
 export interface PostConversationRequest {
   tenantId: string;
   clientPhone: string;
-  clientMessage: string;
-  clientMessageTimestamp?: string;
+  clientMessage?: string | null;
+  clientMessageTimestamp?: string | null;
   sofiaMessage?: string | null;
   sofiaMessageTimestamp?: string | null;
   clientMediaUrls?: string[];

@@ -68,21 +68,24 @@ async function processSingleMessage(
     sofiaMediaUrls: explicitSofiaMediaUrls
   } = validationResult.data;
 
-  // Sanitizar mensagens
-  const sanitizedClientMessage = sanitizeUserInput(clientMessage);
+  // Sanitizar mensagens (ambas podem ser nulas)
+  const sanitizedClientMessage = clientMessage ? sanitizeUserInput(clientMessage) : null;
   const sanitizedSofiaMessage = sofiaMessage ? sanitizeUserInput(sofiaMessage) : null;
 
   // Parse timestamps com validação
-  let clientMsgTime: Date;
+  let clientMsgTime: Date | null = null;
   let sofiaMsgTime: Date | null = null;
 
   try {
-    clientMsgTime = clientMessageTimestamp ? new Date(clientMessageTimestamp) : new Date();
-
-    if (isNaN(clientMsgTime.getTime())) {
-      clientMsgTime = new Date();
+    // Client message timestamp (só se houver mensagem do cliente)
+    if (sanitizedClientMessage) {
+      clientMsgTime = clientMessageTimestamp ? new Date(clientMessageTimestamp) : new Date();
+      if (isNaN(clientMsgTime.getTime())) {
+        clientMsgTime = new Date();
+      }
     }
 
+    // Sofia message timestamp
     if (sofiaMessageTimestamp) {
       sofiaMsgTime = new Date(sofiaMessageTimestamp);
       if (isNaN(sofiaMsgTime.getTime())) {
@@ -92,9 +95,12 @@ async function processSingleMessage(
       sofiaMsgTime = new Date();
     }
   } catch {
-    clientMsgTime = new Date();
+    clientMsgTime = sanitizedClientMessage ? new Date() : null;
     sofiaMsgTime = sanitizedSofiaMessage ? new Date() : null;
   }
+
+  // Determinar o timestamp principal da mensagem (para ordenação)
+  const primaryTimestamp = clientMsgTime || sofiaMsgTime || new Date();
 
   // Inicializar serviços
   const services = new TenantServiceFactory(tenantId);
@@ -148,14 +154,17 @@ async function processSingleMessage(
   if (!conversationId) {
     isNewConversation = true;
 
+    // Determinar a última mensagem para exibição
+    const lastMessageContent = sanitizedSofiaMessage || sanitizedClientMessage || '';
+
     const newConversation: Omit<ConversationHeader, 'id'> = {
       tenantId,
       clientPhone,
       clientName,
       clientId,
-      startedAt: clientMsgTime,
-      lastMessageAt: clientMsgTime,
-      lastMessage: sanitizedClientMessage.substring(0, 200),
+      startedAt: primaryTimestamp,
+      lastMessageAt: primaryTimestamp,
+      lastMessage: lastMessageContent.substring(0, 200),
       messageCount: 0,
       unreadCount: 1,
       isRead: false,
@@ -204,10 +213,10 @@ async function processSingleMessage(
   const messageId = await messagesService.create(newMessage);
 
   // Atualizar conversation header
-  const lastMessageContent = sanitizedSofiaMessage || sanitizedClientMessage;
+  const lastMessageForHeader = sanitizedSofiaMessage || sanitizedClientMessage || '';
   const updateData: Partial<ConversationHeader> = {
-    lastMessageAt: sofiaMsgTime || clientMsgTime,
-    lastMessage: lastMessageContent.substring(0, 200), // Truncate for display
+    lastMessageAt: sofiaMsgTime || clientMsgTime || new Date(),
+    lastMessage: lastMessageForHeader.substring(0, 200), // Truncate for display
     messageCount: (conversation?.messageCount || 0) + 1,
     updatedAt: new Date(),
     isRead: false, // Mark as unread when new message arrives

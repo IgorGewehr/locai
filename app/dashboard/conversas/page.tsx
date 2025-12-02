@@ -1296,43 +1296,45 @@ export default function ConversationsPage() {
                           )}
 
                           <Stack spacing={2}>
-                            {/* Client Message */}
-                            <Box display="flex" justifyContent="flex-start" gap={1.5}>
-                              <Avatar
-                                sx={{
-                                  bgcolor: alpha(theme.palette.info.main, 0.1),
-                                  color: 'info.main',
-                                  width: 36,
-                                  height: 36,
-                                }}
-                              >
-                                <Person fontSize="small" />
-                              </Avatar>
-                              <Paper
-                                elevation={0}
-                                sx={{
-                                  p: 2,
-                                  maxWidth: '70%',
-                                  bgcolor: 'background.paper',
-                                  border: `1px solid ${theme.palette.divider}`,
-                                  borderRadius: 2,
-                                  borderBottomLeftRadius: 4,
-                                }}
-                              >
-                                <MessageContent
-                                  text={message.clientMessage}
-                                  mediaUrls={message.clientMediaUrls}
-                                  variant="body2"
-                                />
-                                <Typography
-                                  variant="caption"
-                                  color="text.secondary"
-                                  sx={{ display: 'block', mt: 1 }}
+                            {/* Client Message (only render if exists) */}
+                            {message.clientMessage && (
+                              <Box display="flex" justifyContent="flex-start" gap={1.5}>
+                                <Avatar
+                                  sx={{
+                                    bgcolor: alpha(theme.palette.info.main, 0.1),
+                                    color: 'info.main',
+                                    width: 36,
+                                    height: 36,
+                                  }}
                                 >
-                                  {messageDate ? safeFormat(messageDate, 'dd/MM/yyyy HH:mm') : '--:--'}
-                                </Typography>
-                              </Paper>
-                            </Box>
+                                  <Person fontSize="small" />
+                                </Avatar>
+                                <Paper
+                                  elevation={0}
+                                  sx={{
+                                    p: 2,
+                                    maxWidth: '70%',
+                                    bgcolor: 'background.paper',
+                                    border: `1px solid ${theme.palette.divider}`,
+                                    borderRadius: 2,
+                                    borderBottomLeftRadius: 4,
+                                  }}
+                                >
+                                  <MessageContent
+                                    text={message.clientMessage}
+                                    mediaUrls={message.clientMediaUrls}
+                                    variant="body2"
+                                  />
+                                  <Typography
+                                    variant="caption"
+                                    color="text.secondary"
+                                    sx={{ display: 'block', mt: 1 }}
+                                  >
+                                    {messageDate ? safeFormat(messageDate, 'dd/MM/yyyy HH:mm') : '--:--'}
+                                  </Typography>
+                                </Paper>
+                              </Box>
+                            )}
 
                             {/* Sofia Message */}
                             {message.sofiaMessage && (

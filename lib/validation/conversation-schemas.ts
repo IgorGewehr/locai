@@ -6,15 +6,21 @@ import { z } from 'zod';
 
 /**
  * Schema for a single conversation message item
+ *
+ * Supports:
+ * - Client message only (Sofia hasn't responded yet)
+ * - Sofia message only (multiple AI responses to a single client message)
+ * - Both messages (typical request-response pair)
  */
 export const PostConversationItemSchema = z.object({
   // Campos essenciais
   tenantId: z.string().min(1, 'TenantId é obrigatório'),
   clientPhone: z.string().min(1, 'Telefone do cliente é obrigatório'),
 
-  // Mensagem do cliente
-  clientMessage: z.string().min(1, 'Mensagem do cliente é obrigatória').max(10000, 'Mensagem muito longa'),
-  clientMessageTimestamp: z.string().optional(), // ISO timestamp da mensagem do cliente
+  // Mensagem do cliente (opcional - pode ser vazia quando Sofia envia múltiplas mensagens)
+  clientMessage: z.string().max(10000, 'Mensagem muito longa').nullable().optional()
+    .transform(val => val === '' ? null : val), // Transforma string vazia em null
+  clientMessageTimestamp: z.string().nullable().optional(), // ISO timestamp da mensagem do cliente
 
   // Mensagem da Sofia (opcional)
   sofiaMessage: z.string().max(10000, 'Mensagem muito longa').nullable().optional()
@@ -24,7 +30,10 @@ export const PostConversationItemSchema = z.object({
   // Media URLs (imagens, vídeos, documentos)
   clientMediaUrls: z.array(z.string().url()).optional(), // URLs de mídia enviadas pelo cliente
   sofiaMediaUrls: z.array(z.string().url()).optional(),  // URLs de mídia enviadas pela Sofia
-});
+}).refine(
+  (data) => data.clientMessage || data.sofiaMessage,
+  { message: 'Pelo menos uma mensagem (cliente ou Sofia) é obrigatória' }
+);
 
 /**
  * Schema for single message (backward compatible)
