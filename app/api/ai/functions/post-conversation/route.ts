@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { PostConversationSchema } from '@/lib/validation/conversation-schemas';
+import { PostConversationSchema, PostConversationBatchSchema } from '@/lib/validation/conversation-schemas';
 import { TenantServiceFactory } from '@/lib/firebase/firestore-v2';
 import { sanitizeUserInput } from '@/lib/utils/validation';
 import { logger } from '@/lib/utils/logger';
@@ -9,6 +9,22 @@ import type {
   PostConversationResponse,
   ConversationHeaderStatus
 } from '@/lib/types/conversation';
+
+/**
+ * Regex patterns for URL and image detection
+ */
+const URL_REGEX = /(https?:\/\/[^\s<>"{}|\\^`[\]]+)/gi;
+const IMAGE_EXTENSIONS = /\.(jpg|jpeg|png|gif|webp|bmp|svg)(\?.*)?$/i;
+
+/**
+ * Extract image URLs from text content
+ */
+function extractImageUrls(text: string | null | undefined): string[] {
+  if (!text) return [];
+  const matches = text.match(URL_REGEX);
+  if (!matches) return [];
+  return matches.filter(url => IMAGE_EXTENSIONS.test(url));
+}
 
 /**
  * Processa uma única mensagem de conversa
@@ -47,7 +63,9 @@ async function processSingleMessage(
     clientMessage,
     clientMessageTimestamp,
     sofiaMessage,
-    sofiaMessageTimestamp
+    sofiaMessageTimestamp,
+    clientMediaUrls: explicitClientMediaUrls,
+    sofiaMediaUrls: explicitSofiaMediaUrls
   } = validationResult.data;
 
   // Sanitizar mensagens
@@ -156,6 +174,20 @@ async function processSingleMessage(
     });
   }
 
+  // Extract image URLs from message content
+  const extractedClientImages = extractImageUrls(sanitizedClientMessage);
+  const extractedSofiaImages = extractImageUrls(sanitizedSofiaMessage);
+
+  // Combine explicit mediaUrls with extracted URLs (deduplicated)
+  const clientMediaUrls = [...new Set([
+    ...(explicitClientMediaUrls || []),
+    ...extractedClientImages
+  ])];
+  const sofiaMediaUrls = [...new Set([
+    ...(explicitSofiaMediaUrls || []),
+    ...extractedSofiaImages
+  ])];
+
   // Salvar mensagem
   const newMessage: Omit<ConversationMessage, 'id'> = {
     conversationId: conversationId!,
@@ -164,6 +196,8 @@ async function processSingleMessage(
     clientMessageTimestamp: clientMsgTime,
     sofiaMessage: sanitizedSofiaMessage,
     sofiaMessageTimestamp: sofiaMsgTime,
+    ...(clientMediaUrls.length > 0 && { clientMediaUrls }),
+    ...(sofiaMediaUrls.length > 0 && { sofiaMediaUrls }),
     createdAt: new Date(),
   };
 

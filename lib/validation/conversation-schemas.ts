@@ -4,7 +4,10 @@ import { z } from 'zod';
  * Validation schemas for conversation endpoints
  */
 
-export const PostConversationSchema = z.object({
+/**
+ * Schema for a single conversation message item
+ */
+export const PostConversationItemSchema = z.object({
   // Campos essenciais
   tenantId: z.string().min(1, 'TenantId é obrigatório'),
   clientPhone: z.string().min(1, 'Telefone do cliente é obrigatório'),
@@ -17,7 +20,23 @@ export const PostConversationSchema = z.object({
   sofiaMessage: z.string().max(10000, 'Mensagem muito longa').nullable().optional()
     .transform(val => val === '' ? null : val), // Transforma string vazia em null
   sofiaMessageTimestamp: z.string().nullable().optional(), // ISO timestamp da resposta da Sofia
+
+  // Media URLs (imagens, vídeos, documentos)
+  clientMediaUrls: z.array(z.string().url()).optional(), // URLs de mídia enviadas pelo cliente
+  sofiaMediaUrls: z.array(z.string().url()).optional(),  // URLs de mídia enviadas pela Sofia
 });
+
+/**
+ * Schema for single message (backward compatible)
+ */
+export const PostConversationSchema = PostConversationItemSchema;
+
+/**
+ * Schema for batch requests (array of messages)
+ */
+export const PostConversationBatchSchema = z.array(PostConversationItemSchema)
+  .min(1, 'Batch deve conter pelo menos 1 item')
+  .max(100, 'Batch não pode exceder 100 itens');
 
 export const GetConversationsSchema = z.object({
   clientId: z.string().optional(),
@@ -36,5 +55,7 @@ export const GetMessagesSchema = z.object({
 });
 
 export type PostConversationInput = z.infer<typeof PostConversationSchema>;
+export type PostConversationItemInput = z.infer<typeof PostConversationItemSchema>;
+export type PostConversationBatchInput = z.infer<typeof PostConversationBatchSchema>;
 export type GetConversationsInput = z.infer<typeof GetConversationsSchema>;
 export type GetMessagesInput = z.infer<typeof GetMessagesSchema>;

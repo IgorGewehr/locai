@@ -64,6 +64,7 @@ import { useConversations } from '@/lib/hooks/useConversations';
 import { logger } from '@/lib/utils/logger';
 import type { ConversationHeaderStatus } from '@/lib/types/conversation';
 import AIControlButton from '@/components/organisms/conversations/AIControlButton';
+import { MessageContent } from '@/components/organisms/conversations/MessageContent';
 import { Send } from '@mui/icons-material';
 
 export default function ConversationsPage() {
@@ -1318,9 +1319,11 @@ export default function ConversationsPage() {
                                   borderBottomLeftRadius: 4,
                                 }}
                               >
-                                <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>
-                                  {message.clientMessage}
-                                </Typography>
+                                <MessageContent
+                                  text={message.clientMessage}
+                                  mediaUrls={message.clientMediaUrls}
+                                  variant="body2"
+                                />
                                 <Typography
                                   variant="caption"
                                   color="text.secondary"
@@ -1332,51 +1335,55 @@ export default function ConversationsPage() {
                             </Box>
 
                             {/* Sofia Message */}
-                            <Box display="flex" justifyContent="flex-end" gap={1.5}>
-                              <Paper
-                                elevation={0}
-                                sx={{
-                                  p: 2,
-                                  maxWidth: '70%',
-                                  bgcolor: alpha(theme.palette.primary.main, 0.08),
-                                  border: `1px solid ${alpha(theme.palette.primary.main, 0.2)}`,
-                                  borderRadius: 2,
-                                  borderBottomRightRadius: 4,
-                                }}
-                              >
-                                <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>
-                                  {message.sofiaMessage}
-                                </Typography>
-                                <Stack direction="row" spacing={1} alignItems="center" mt={1}>
-                                  <Typography variant="caption" color="text.secondary">
-                                    {messageDate ? safeFormat(messageDate, 'dd/MM/yyyy HH:mm') : '--:--'}
-                                  </Typography>
-                                  {message.context?.functionsCalled &&
-                                    message.context.functionsCalled.length > 0 && (
-                                      <Chip
-                                        label={`${message.context.functionsCalled.length} função(ões)`}
-                                        size="small"
-                                        variant="outlined"
-                                        sx={{
-                                          height: 18,
-                                          fontSize: '0.65rem',
-                                          '& .MuiChip-label': { px: 0.75 },
-                                        }}
-                                      />
-                                    )}
-                                </Stack>
-                              </Paper>
-                              <Avatar
-                                sx={{
-                                  bgcolor: alpha(theme.palette.primary.main, 0.1),
-                                  color: 'primary.main',
-                                  width: 36,
-                                  height: 36,
-                                }}
-                              >
-                                <SmartToy fontSize="small" />
-                              </Avatar>
-                            </Box>
+                            {message.sofiaMessage && (
+                              <Box display="flex" justifyContent="flex-end" gap={1.5}>
+                                <Paper
+                                  elevation={0}
+                                  sx={{
+                                    p: 2,
+                                    maxWidth: '70%',
+                                    bgcolor: alpha(theme.palette.primary.main, 0.08),
+                                    border: `1px solid ${alpha(theme.palette.primary.main, 0.2)}`,
+                                    borderRadius: 2,
+                                    borderBottomRightRadius: 4,
+                                  }}
+                                >
+                                  <MessageContent
+                                    text={message.sofiaMessage}
+                                    mediaUrls={message.sofiaMediaUrls}
+                                    variant="body2"
+                                  />
+                                  <Stack direction="row" spacing={1} alignItems="center" mt={1}>
+                                    <Typography variant="caption" color="text.secondary">
+                                      {messageDate ? safeFormat(messageDate, 'dd/MM/yyyy HH:mm') : '--:--'}
+                                    </Typography>
+                                    {message.context?.functionsCalled &&
+                                      message.context.functionsCalled.length > 0 && (
+                                        <Chip
+                                          label={`${message.context.functionsCalled.length} função(ões)`}
+                                          size="small"
+                                          variant="outlined"
+                                          sx={{
+                                            height: 18,
+                                            fontSize: '0.65rem',
+                                            '& .MuiChip-label': { px: 0.75 },
+                                          }}
+                                        />
+                                      )}
+                                  </Stack>
+                                </Paper>
+                                <Avatar
+                                  sx={{
+                                    bgcolor: alpha(theme.palette.primary.main, 0.1),
+                                    color: 'primary.main',
+                                    width: 36,
+                                    height: 36,
+                                  }}
+                                >
+                                  <SmartToy fontSize="small" />
+                                </Avatar>
+                              </Box>
+                            )}
                           </Stack>
                         </React.Fragment>
                       );

@@ -310,6 +310,10 @@ export interface ConversationMessage {
   sofiaMessage: string | null;
   sofiaMessageTimestamp: Date | null;
 
+  // Media URLs (images, videos, documents)
+  clientMediaUrls?: string[];
+  sofiaMediaUrls?: string[];
+
   // Metadata
   createdAt: Date;
   context?: MessageContext;
@@ -336,6 +340,8 @@ export interface PostConversationRequest {
   clientMessageTimestamp?: string;
   sofiaMessage?: string | null;
   sofiaMessageTimestamp?: string | null;
+  clientMediaUrls?: string[];
+  sofiaMediaUrls?: string[];
 }
 
 export interface PostConversationResponse {
