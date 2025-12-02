@@ -68,7 +68,7 @@ import {
 import { format, subMonths, startOfMonth, endOfMonth } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { Transaction, Client } from '@/lib/types';
-import type { ConversationHeader } from '@/lib/types/conversation-optimized';
+import type { ConversationHeader } from '@/lib/types/conversation';
 import { useTenant } from '@/contexts/TenantContext';
 import { logger } from '@/lib/utils/logger';
 import { useRouter } from 'next/navigation';

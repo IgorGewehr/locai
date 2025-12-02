@@ -7,8 +7,8 @@ import type {
   ConversationHeader,
   ConversationMessage,
   PostConversationResponse,
-  ConversationStatus
-} from '@/lib/types/conversation-optimized';
+  ConversationHeaderStatus
+} from '@/lib/types/conversation';
 
 /**
  * Processa uma única mensagem de conversa
@@ -120,7 +120,7 @@ async function processSingleMessage(
 
       if (conversation.status !== 'active') {
         await conversationsService.update(conversationId, {
-          status: 'active' as ConversationStatus,
+          status: 'active' as ConversationHeaderStatus,
           updatedAt: new Date()
         });
       }
@@ -137,8 +137,11 @@ async function processSingleMessage(
       clientId,
       startedAt: clientMsgTime,
       lastMessageAt: clientMsgTime,
+      lastMessage: sanitizedClientMessage.substring(0, 200),
       messageCount: 0,
-      status: 'active' as ConversationStatus,
+      unreadCount: 1,
+      isRead: false,
+      status: 'active' as ConversationHeaderStatus,
       tags: [],
       createdAt: new Date(),
       updatedAt: new Date(),
@@ -167,10 +170,14 @@ async function processSingleMessage(
   const messageId = await messagesService.create(newMessage);
 
   // Atualizar conversation header
+  const lastMessageContent = sanitizedSofiaMessage || sanitizedClientMessage;
   const updateData: Partial<ConversationHeader> = {
     lastMessageAt: sofiaMsgTime || clientMsgTime,
+    lastMessage: lastMessageContent.substring(0, 200), // Truncate for display
     messageCount: (conversation?.messageCount || 0) + 1,
     updatedAt: new Date(),
+    isRead: false, // Mark as unread when new message arrives
+    unreadCount: (conversation?.unreadCount || 0) + 1,
   };
 
   await conversationsService.update(conversationId!, updateData);

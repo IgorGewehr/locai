@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { useTenant } from '@/contexts/TenantContext';
 import type { Reservation, Client } from '@/lib/types';
 import type { Property } from '@/lib/types/property';
-import type { ConversationHeader } from '@/lib/types/conversation-optimized';
+import type { ConversationHeader } from '@/lib/types/conversation';
 import { scrollbarStyles } from '@/styles/scrollbarStyles';
 import {
   Box,

@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useTenant } from '@/contexts/TenantContext';
 import type { Client } from '@/lib/types';
-import type { ConversationHeader } from '@/lib/types/conversation-optimized';
+import type { ConversationHeader } from '@/lib/types/conversation';
 import { PaymentMethod } from '@/lib/types/reservation';
 import {
   Box,

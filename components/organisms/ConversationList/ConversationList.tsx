@@ -29,10 +29,10 @@ import {
 } from '@mui/icons-material';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import type { ConversationSummary, ConversationStatus } from '@/lib/types/conversation-optimized';
+import type { ConversationListSummary, ConversationHeaderStatus } from '@/lib/types/conversation';
 
 interface ConversationListProps {
-  conversations: ConversationSummary[];
+  conversations: ConversationListSummary[];
   loading?: boolean;
   onConversationClick: (conversationId: string) => void;
   selectedConversationId?: string;
@@ -46,7 +46,7 @@ export const ConversationList: React.FC<ConversationListProps> = ({
 }) => {
   const theme = useTheme();
 
-  const getStatusColor = (status: ConversationStatus): 'success' | 'warning' | 'default' => {
+  const getStatusColor = (status: ConversationHeaderStatus): 'success' | 'warning' | 'default' => {
     switch (status) {
       case 'completed':
         return 'success';
@@ -57,7 +57,7 @@ export const ConversationList: React.FC<ConversationListProps> = ({
     }
   };
 
-  const getStatusIcon = (status: ConversationStatus) => {
+  const getStatusIcon = (status: ConversationHeaderStatus) => {
     switch (status) {
       case 'completed':
         return <CheckCircle fontSize="small" />;
@@ -70,7 +70,7 @@ export const ConversationList: React.FC<ConversationListProps> = ({
     }
   };
 
-  const getStatusLabel = (status: ConversationStatus): string => {
+  const getStatusLabel = (status: ConversationHeaderStatus): string => {
     switch (status) {
       case 'completed':
         return 'Concluída';

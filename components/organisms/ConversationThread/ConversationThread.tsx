@@ -23,7 +23,7 @@ import {
 } from '@mui/icons-material';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import type { ConversationMessage } from '@/lib/types/conversation-optimized';
+import type { ConversationMessage } from '@/lib/types/conversation';
 
 interface ConversationThreadProps {
   messages: ConversationMessage[];

@@ -58,8 +58,8 @@ import { clientServiceWrapper } from '@/lib/services/client-service';
 import { useTenant } from '@/contexts/TenantContext';
 import { ConversationList } from '@/components/organisms/ConversationList/ConversationList';
 import { ConversationThread } from '@/components/organisms/ConversationThread/ConversationThread';
-import { createConversationOptimizedService } from '@/lib/services/conversation-optimized-service';
-import type { ConversationSummary, ConversationMessage } from '@/lib/types/conversation-optimized';
+import { createConversationOptimizedService } from '@/lib/services/conversation-service';
+import type { ConversationListSummary, ConversationMessage } from '@/lib/types/conversation';
 
 interface Client {
   id: string;
@@ -115,7 +115,7 @@ export default function ClientDetailPage() {
 
   const [reservations, setReservations] = useState<Reservation[]>([]);
   const [conversations, setConversations] = useState<Conversation[]>([]);
-  const [conversationSummaries, setConversationSummaries] = useState<ConversationSummary[]>([]);
+  const [conversationSummaries, setConversationSummaries] = useState<ConversationListSummary[]>([]);
   const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null);
   const [conversationMessages, setConversationMessages] = useState<ConversationMessage[]>([]);
   const [loadingConversations, setLoadingConversations] = useState(false);

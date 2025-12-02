@@ -238,3 +238,172 @@ export interface FunctionCall {
   success: boolean
   error?: string
 }
+
+// ============================================
+// Optimized Two-Collection Architecture Types
+// ============================================
+
+/**
+ * ConversationHeader - Lightweight document for listing
+ * Stored in: tenants/{tenantId}/conversations
+ */
+export interface ConversationHeader {
+  id: string;
+  tenantId: string;
+  clientId?: string;
+  clientPhone: string;
+  clientName?: string;
+  channel?: 'whatsapp' | 'facebook' | 'instagram';
+
+  // Timestamps
+  startedAt: Date;
+  lastMessageAt: Date;
+
+  // Statistics (denormalized for speed)
+  messageCount: number;
+  unreadCount?: number;
+  lastMessage?: string;
+
+  // Status
+  status: ConversationHeaderStatus;
+  isRead?: boolean;
+
+  // Outcome tracking
+  outcome?: ConversationHeaderOutcome;
+
+  // Tags
+  tags: string[];
+
+  // Metadata
+  createdAt: Date;
+  updatedAt: Date;
+  lastReadAt?: Date;
+}
+
+/**
+ * Conversation outcome for success tracking (optimized)
+ */
+export interface ConversationHeaderOutcome {
+  type: 'reservation' | 'information' | 'support' | 'no_interest';
+  reservationId?: string;
+  leadId?: string;
+  revenue?: number;
+  notes?: string;
+}
+
+export type ConversationHeaderStatus = 'active' | 'completed' | 'abandoned' | 'success' | 'pending';
+
+/**
+ * ConversationMessage - Detailed message with context
+ * Stored in: tenants/{tenantId}/messages
+ */
+export interface ConversationMessage {
+  id: string;
+  conversationId: string;
+  tenantId: string;
+
+  // Client message
+  clientMessage: string;
+  clientMessageTimestamp: Date;
+
+  // Sofia message (optional)
+  sofiaMessage: string | null;
+  sofiaMessageTimestamp: Date | null;
+
+  // Metadata
+  createdAt: Date;
+  context?: MessageContext;
+}
+
+/**
+ * Context data for AI fine-tuning and analysis
+ */
+export interface MessageContext {
+  intent?: string;
+  entities?: Record<string, any>;
+  functionsCalled?: string[];
+  confidence?: number;
+  metadata?: Record<string, any>;
+}
+
+/**
+ * Request/Response types for API
+ */
+export interface PostConversationRequest {
+  tenantId: string;
+  clientPhone: string;
+  clientMessage: string;
+  clientMessageTimestamp?: string;
+  sofiaMessage?: string | null;
+  sofiaMessageTimestamp?: string | null;
+}
+
+export interface PostConversationResponse {
+  success: boolean;
+  conversationId: string;
+  messageId: string;
+  isNewConversation: boolean;
+  meta?: {
+    requestId: string;
+    processingTime: number;
+    timestamp: string;
+  };
+}
+
+/**
+ * Query types for fetching conversations
+ */
+export interface GetConversationsQuery {
+  clientId?: string;
+  clientPhone?: string;
+  status?: ConversationHeaderStatus;
+  tags?: string[];
+  limit?: number;
+  startAfter?: string;
+}
+
+export interface GetMessagesQuery {
+  conversationId: string;
+  limit?: number;
+  startAfter?: string;
+  order?: 'asc' | 'desc';
+}
+
+/**
+ * Conversation with messages (for display)
+ */
+export interface ConversationWithMessages extends ConversationHeader {
+  messages: ConversationMessage[];
+}
+
+/**
+ * Conversation summary for lists
+ */
+export interface ConversationListSummary {
+  id: string;
+  clientName?: string;
+  clientPhone: string;
+  channel?: 'whatsapp' | 'facebook' | 'instagram';
+  lastMessage: string;
+  lastMessageAt: Date;
+  messageCount: number;
+  unreadCount?: number;
+  status: ConversationHeaderStatus;
+  isRead?: boolean;
+  tags: string[];
+  outcome?: ConversationHeaderOutcome;
+}
+
+// ============================================
+// Type Aliases for Backward Compatibility
+// ============================================
+// These aliases maintain compatibility with code that imported from conversation-optimized
+
+/** @deprecated Use ConversationHeaderStatus instead */
+export type ConversationStatus_Optimized = ConversationHeaderStatus;
+
+/** @deprecated Use ConversationHeaderOutcome instead */
+export type ConversationOutcome_Optimized = ConversationHeaderOutcome;
+
+/** @deprecated Use ConversationListSummary instead */
+export type ConversationSummary_Optimized = ConversationListSummary;

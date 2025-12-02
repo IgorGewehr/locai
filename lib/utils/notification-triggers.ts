@@ -4,7 +4,7 @@
 import { NotificationServiceFactory } from '@/lib/services/notification-service'
 import { NotificationType, NotificationPriority, NotificationChannel } from '@/lib/types/notification'
 import { logger } from '@/lib/utils/logger'
-import type { ConversationHeader } from '@/lib/types/conversation-optimized'
+import type { ConversationHeader } from '@/lib/types/conversation'
 
 /**
  * Trigger notification when a new conversation is created

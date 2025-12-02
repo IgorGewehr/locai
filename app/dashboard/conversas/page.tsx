@@ -60,9 +60,9 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import InfiniteScroll from 'react-infinite-scroll-component';
 import { useTenant } from '@/contexts/TenantContext';
 import { useAuth } from '@/contexts/AuthProvider';
-import { useConversationsOptimized } from '@/lib/hooks/useConversationsOptimized';
+import { useConversationsOptimized } from '@/lib/hooks/useConversations';
 import { logger } from '@/lib/utils/logger';
-import type { ConversationStatus } from '@/lib/types/conversation-optimized';
+import type { ConversationHeaderStatus } from '@/lib/types/conversation';
 import AIControlButton from '@/components/organisms/conversations/AIControlButton';
 import { Send } from '@mui/icons-material';
 
@@ -302,7 +302,7 @@ export default function ConversationsPage() {
   }, [conversations, filters.channel]);
 
   // Get status color
-  const getStatusColor = (status: ConversationStatus) => {
+  const getStatusColor = (status: ConversationHeaderStatus) => {
     switch (status) {
       case 'active':
         return theme.palette.warning.main;
@@ -320,7 +320,7 @@ export default function ConversationsPage() {
   };
 
   // Get status icon
-  const getStatusIcon = (status: ConversationStatus) => {
+  const getStatusIcon = (status: ConversationHeaderStatus) => {
     switch (status) {
       case 'active':
         return <Schedule fontSize="small" />;
@@ -399,7 +399,7 @@ export default function ConversationsPage() {
   };
 
   // Get status label
-  const getStatusLabel = (status: ConversationStatus): string => {
+  const getStatusLabel = (status: ConversationHeaderStatus): string => {
     switch (status) {
       case 'active':
         return 'Ativa';
@@ -432,7 +432,7 @@ export default function ConversationsPage() {
   };
 
   // Handle status filter
-  const handleStatusFilter = (status: ConversationStatus | 'all') => {
+  const handleStatusFilter = (status: ConversationHeaderStatus | 'all') => {
     setFilters({ ...filters, status });
     setFilterAnchorEl(null);
   };
