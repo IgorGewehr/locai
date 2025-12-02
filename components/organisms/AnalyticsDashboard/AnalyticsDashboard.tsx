@@ -90,9 +90,10 @@ export default function AnalyticsDashboard({ tenantId = 'default' }: AnalyticsDa
   const [selectedAgent, setSelectedAgent] = useState<string>('all')
   
   const { agents, loading: agentsLoading } = useAIAgent({ tenantId })
-  const { conversations, stats, loading: conversationsLoading } = useConversations({ 
-    tenantId, 
-    limit: 100 
+  const { conversations, stats, loading: conversationsLoading } = useConversations({
+    tenantId: tenantId || 'default',
+    autoLoad: true,
+    limit: 100
   })
 
   // Generate performance data from real Firebase conversations
@@ -111,11 +112,13 @@ export default function AnalyticsDashboard({ tenantId = 'default' }: AnalyticsDa
     const conversionsByDate = new Map<string, number>()
     
     conversations.forEach(conversation => {
-      const date = safeFormatDate(conversation.createdAt, 'dd/MM')
+      // Use lastMessageAt as the date reference (createdAt may not exist in new model)
+      const dateRef = (conversation as any).createdAt || conversation.lastMessageAt
+      const date = safeFormatDate(dateRef, 'dd/MM')
       conversationsByDate.set(date, (conversationsByDate.get(date) || 0) + 1)
-      
+
       // Count conversions (completed conversations)
-      if (conversation.status === 'resolved' || conversation.status === 'completed') {
+      if (conversation.status === 'completed' || conversation.status === 'success') {
         conversionsByDate.set(date, (conversionsByDate.get(date) || 0) + 1)
       }
     })
@@ -147,10 +150,19 @@ export default function AnalyticsDashboard({ tenantId = 'default' }: AnalyticsDa
     const total = conversations.length
     
     conversations.forEach(conversation => {
-      if (conversation.sentiment) {
-        sentimentCounts[conversation.sentiment]++
+      // Sentiment may not exist in new model - use status as proxy
+      const sentiment = (conversation as any).sentiment
+      if (sentiment) {
+        sentimentCounts[sentiment]++
       } else {
-        sentimentCounts.neutral++ // Default to neutral if no sentiment
+        // Infer sentiment from status
+        if (conversation.status === 'completed' || conversation.status === 'success') {
+          sentimentCounts.positive++
+        } else if (conversation.status === 'abandoned') {
+          sentimentCounts.negative++
+        } else {
+          sentimentCounts.neutral++
+        }
       }
     })
     
@@ -321,10 +333,10 @@ export default function AnalyticsDashboard({ tenantId = 'default' }: AnalyticsDa
                   <Typography variant="h6">Conversões</Typography>
                 </Box>
                 <Typography variant="h4" color="success.main">
-                  {stats?.conversions || 0}
+                  {stats?.completed || 0}
                 </Typography>
                 <Typography variant="caption" color="text.secondary">
-                  Conversas → Reservas
+                  Conversas concluídas
                 </Typography>
               </CardContent>
             </Card>
@@ -338,7 +350,7 @@ export default function AnalyticsDashboard({ tenantId = 'default' }: AnalyticsDa
                   <Typography variant="h6">Taxa Conv.</Typography>
                 </Box>
                 <Typography variant="h4" color="warning.main">
-                  {stats?.total ? Math.round((stats.conversions / stats.total) * 100) : 0}%
+                  {stats?.total ? Math.round((stats.completed / stats.total) * 100) : 0}%
                 </Typography>
                 <Typography variant="caption" color="text.secondary">
                   Taxa de conversão
@@ -352,13 +364,13 @@ export default function AnalyticsDashboard({ tenantId = 'default' }: AnalyticsDa
               <CardContent>
                 <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
                   <Speed sx={{ color: 'info.main', mr: 1 }} />
-                  <Typography variant="h6">Resp. Média</Typography>
+                  <Typography variant="h6">WhatsApp</Typography>
                 </Box>
                 <Typography variant="h4" color="info.main">
-                  {stats?.averageMessages ? stats.averageMessages.toFixed(1) : 0}
+                  {stats?.whatsapp || 0}
                 </Typography>
                 <Typography variant="caption" color="text.secondary">
-                  Mensagens por conversa
+                  Conversas via WhatsApp
                 </Typography>
               </CardContent>
             </Card>
@@ -369,13 +381,13 @@ export default function AnalyticsDashboard({ tenantId = 'default' }: AnalyticsDa
               <CardContent>
                 <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
                   <Favorite sx={{ color: 'error.main', mr: 1 }} />
-                  <Typography variant="h6">Confiança</Typography>
+                  <Typography variant="h6">Abandonadas</Typography>
                 </Box>
                 <Typography variant="h4" color="error.main">
-                  {stats?.averageConfidence ? Math.round(stats.averageConfidence * 100) : 0}%
+                  {stats?.abandoned || 0}
                 </Typography>
                 <Typography variant="caption" color="text.secondary">
-                  Confiança média da IA
+                  Conversas abandonadas
                 </Typography>
               </CardContent>
             </Card>
@@ -472,23 +484,23 @@ export default function AnalyticsDashboard({ tenantId = 'default' }: AnalyticsDa
                   <Box key={conversation.id} sx={{ mb: 2, p: 2, bgcolor: 'rgba(255, 255, 255, 0.05)', borderRadius: 1 }}>
                     <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
                       <Typography variant="subtitle2">
-                        {conversation.whatsappPhone}
+                        {conversation.clientName || conversation.clientPhone}
                       </Typography>
                       <Chip
                         label={conversation.status}
-                        color={conversation.status === 'completed' ? 'success' : 'primary'}
+                        color={conversation.status === 'completed' || conversation.status === 'success' ? 'success' : 'primary'}
                         size="small"
                       />
                     </Box>
-                    
-                    <Typography variant="body2" color="text.secondary">
-                      Estágio: {conversation.stage}
+
+                    <Typography variant="body2" color="text.secondary" noWrap>
+                      {conversation.lastMessage || 'Sem mensagens'}
                     </Typography>
                     <Typography variant="body2" color="text.secondary">
-                      Mensagens: {conversation.messages?.length || 0}
+                      Mensagens: {conversation.messageCount || 0}
                     </Typography>
                     <Typography variant="caption" color="text.secondary">
-                      {safeFormatDate(conversation.startedAt, 'dd/MM/yyyy HH:mm')}
+                      {safeFormatDate(conversation.lastMessageAt, 'dd/MM/yyyy HH:mm')}
                     </Typography>
                   </Box>
                 ))}

@@ -60,7 +60,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import InfiniteScroll from 'react-infinite-scroll-component';
 import { useTenant } from '@/contexts/TenantContext';
 import { useAuth } from '@/contexts/AuthProvider';
-import { useConversationsOptimized } from '@/lib/hooks/useConversations';
+import { useConversations } from '@/lib/hooks/useConversations';
 import { logger } from '@/lib/utils/logger';
 import type { ConversationHeaderStatus } from '@/lib/types/conversation';
 import AIControlButton from '@/components/organisms/conversations/AIControlButton';
@@ -92,7 +92,7 @@ export default function ConversationsPage() {
     markAsUnread,
     updateStatus,
     renameConversation,
-  } = useConversationsOptimized({
+  } = useConversations({
     tenantId: tenantId || '',
     autoLoad: isReady,
     limit: 20,

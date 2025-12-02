@@ -733,6 +733,13 @@ export class ConversationServiceOptimized {
         return [];
       }
 
+      logger.info('📨 [CONVERSATION-SERVICE] Loading messages', {
+        tenantId: this.tenantId.substring(0, 8) + '***',
+        conversationId,
+        limit,
+        order
+      });
+
       const messagesService = this.services.createService<ConversationMessage>('messages');
 
       if (!messagesService) {
@@ -742,14 +749,66 @@ export class ConversationServiceOptimized {
         return [];
       }
 
-      const messages = await messagesService.getMany(
-        [{ field: 'conversationId', operator: '==', value: conversationId }],
-        {
-          orderBy: 'createdAt',
-          orderDirection: order,
-          limit
-        }
-      );
+      // First try with orderBy, if it fails (missing index), try without
+      let messages: ConversationMessage[];
+      try {
+        messages = await messagesService.getMany(
+          [{ field: 'conversationId', operator: '==', value: conversationId }],
+          {
+            orderBy: 'createdAt',
+            orderDirection: order,
+            limit
+          }
+        );
+      } catch (indexError) {
+        // If ordering fails (possibly missing composite index), fetch without order and sort client-side
+        logger.warn('📨 [CONVERSATION-SERVICE] OrderBy failed, fetching without order', {
+          tenantId: this.tenantId.substring(0, 8) + '***',
+          conversationId,
+          error: indexError instanceof Error ? indexError.message : 'Unknown'
+        });
+
+        messages = await messagesService.getMany(
+          [{ field: 'conversationId', operator: '==', value: conversationId }],
+          { limit }
+        );
+
+        // Sort client-side
+        messages = messages.sort((a, b) => {
+          const timeA = a.createdAt || a.clientMessageTimestamp;
+          const timeB = b.createdAt || b.clientMessageTimestamp;
+          if (!timeA || !timeB) return 0;
+
+          let dateA: Date;
+          let dateB: Date;
+
+          if ((timeA as any).toDate) {
+            dateA = (timeA as any).toDate();
+          } else if (typeof timeA === 'string') {
+            dateA = new Date(timeA);
+          } else {
+            dateA = timeA as Date;
+          }
+
+          if ((timeB as any).toDate) {
+            dateB = (timeB as any).toDate();
+          } else if (typeof timeB === 'string') {
+            dateB = new Date(timeB);
+          } else {
+            dateB = timeB as Date;
+          }
+
+          return order === 'asc'
+            ? dateA.getTime() - dateB.getTime()
+            : dateB.getTime() - dateA.getTime();
+        });
+      }
+
+      logger.info('📨 [CONVERSATION-SERVICE] Messages loaded', {
+        tenantId: this.tenantId.substring(0, 8) + '***',
+        conversationId,
+        messageCount: messages.length
+      });
 
       return messages;
     } catch (error) {
@@ -1081,8 +1140,25 @@ export class ConversationServiceOptimized {
             const timeB = b.clientMessageTimestamp || b.createdAt;
             if (!timeA || !timeB) return 0;
 
-            const dateA = typeof timeA === 'string' ? new Date(timeA) : timeA;
-            const dateB = typeof timeB === 'string' ? new Date(timeB) : timeB;
+            // Handle Firestore Timestamp, Date, or string
+            let dateA: Date;
+            let dateB: Date;
+
+            if (typeof timeA === 'string') {
+              dateA = new Date(timeA);
+            } else if ((timeA as any).toDate) {
+              dateA = (timeA as any).toDate();
+            } else {
+              dateA = timeA as Date;
+            }
+
+            if (typeof timeB === 'string') {
+              dateB = new Date(timeB);
+            } else if ((timeB as any).toDate) {
+              dateB = (timeB as any).toDate();
+            } else {
+              dateB = timeB as Date;
+            }
 
             return dateA.getTime() - dateB.getTime();
           })
