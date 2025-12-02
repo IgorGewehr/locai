@@ -807,29 +807,56 @@ export async function searchProperties(args: SearchPropertiesArgs, tenantId: str
 
     return {
       success: true,
-      properties: limitedProperties.map(p => ({
-        id: p.id,
-        name: p.title, // Property interface usa 'title', não 'name'
-        location: `${p.neighborhood || ''}, ${p.city || ''}`.replace(/^, |, $/, ''),
-        maxGuests: p.maxGuests,
-        bedrooms: p.bedrooms,
-        bathrooms: p.bathrooms,
-        pricePerNight: p.basePrice || 0, // Corrigir para pricePerNight na resposta
-        basePrice: p.basePrice || 0, // Manter basePrice também
-        minimumNights: p.minimumNights || 1, // ✅ Mínimo de diárias
-        cleaningFee: p.cleaningFee || 0, // ✅ Taxa de limpeza
-        amenities: p.amenities?.slice(0, 5) || [],
-        description: p.description?.substring(0, 200) || '',
-        // photos é string[] (URLs simples) - a primeira é a principal
-        images: p.photos?.slice(0, 3).map((url, index) => ({
-          url: typeof url === 'string' ? url : (url as any)?.url || '',
-          isMain: index === 0 // Primeira foto é a principal
-        })).filter(img => img.url) || [],
-        mainImage: typeof p.photos?.[0] === 'string' ? p.photos[0] : (p.photos?.[0] as any)?.url || null,
-        isFeatured: p.isFeatured || false // ⭐ Propriedade em destaque
-      })),
+      properties: limitedProperties.map(p => {
+        // Construir location de forma robusta:
+        // 1. Usar campo p.location (concatenado) se existir
+        // 2. Fallback para construção manual com neighborhood + city
+        // 3. Fallback para address se neighborhood/city vazios
+        let locationStr = '';
+        if (p.location && p.location.trim()) {
+          locationStr = p.location.trim();
+        } else {
+          const parts = [p.neighborhood, p.city].filter(Boolean);
+          if (parts.length > 0) {
+            locationStr = parts.join(', ');
+          } else if (p.address) {
+            locationStr = p.address;
+          }
+        }
+
+        return {
+          id: p.id,
+          name: p.title, // Property interface usa 'title', não 'name'
+          title: p.title, // Incluir também como title para compatibilidade
+          location: locationStr,
+          address: p.address || '', // Endereço completo
+          neighborhood: p.neighborhood || '',
+          city: p.city || '',
+          maxGuests: p.maxGuests,
+          bedrooms: p.bedrooms,
+          bathrooms: p.bathrooms,
+          pricePerNight: p.basePrice || 0,
+          basePrice: p.basePrice || 0,
+          minimumNights: p.minimumNights || 1,
+          cleaningFee: p.cleaningFee || 0,
+          category: p.category || '', // Tipo/categoria da propriedade
+          type: p.type || '', // Tipo adicional
+          allowsPets: p.allowsPets || false, // Aceita pets
+          amenities: p.amenities?.slice(0, 8) || [], // Aumentado para 8 amenities
+          description: p.description?.substring(0, 300) || '', // Aumentado para 300 chars
+          // photos é string[] (URLs simples) - a primeira é a principal
+          images: p.photos?.slice(0, 5).map((url, index) => ({
+            url: typeof url === 'string' ? url : (url as any)?.url || '',
+            isMain: index === 0 // Primeira foto é a principal
+          })).filter(img => img.url) || [],
+          mainImage: typeof p.photos?.[0] === 'string' ? p.photos[0] : (p.photos?.[0] as any)?.url || null,
+          photosCount: p.photos?.length || 0, // Total de fotos disponíveis
+          isFeatured: p.isFeatured || false,
+          isActive: p.isActive !== false // Default true se não definido
+        };
+      }),
       totalFound: filteredProperties.length,
-      featuredCount: limitedProperties.filter(p => p.isFeatured).length, // Quantas em destaque no resultado
+      featuredCount: limitedProperties.filter(p => p.isFeatured).length,
       tenantId
     };
   } catch (error) {
