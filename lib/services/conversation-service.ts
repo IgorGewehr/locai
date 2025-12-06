@@ -8,7 +8,7 @@ import {
   MessageStatus
 } from '@/lib/types/conversation'
 import { TenantServiceFactory } from '@/lib/firebase/firestore-v2'
-import { Timestamp } from 'firebase/firestore'
+import { Timestamp, where } from 'firebase/firestore'
 import { clientServiceWrapper } from './client-service'
 
 class ConversationService {
@@ -183,7 +183,7 @@ class ConversationService {
         })
       }
 
-      const conversation: Omit<Conversation, 'id'> = {
+      const conversation = {
         clientId: client.id,
         agentId: 'ai-agent-default',
         tenantId,
@@ -236,9 +236,9 @@ class ConversationService {
         unreadCount: 0,
         isStarred: false,
         tags: []
-      } as Conversation
+      }
 
-      const conversationId = await services.conversations.create(conversation)
+      const conversationId = await services.conversations.create(conversation as any)
       return { id: conversationId, ...conversation } as Conversation
     } catch (error) {
       throw error
@@ -1117,6 +1117,7 @@ export class ConversationServiceOptimized {
 
   /**
    * Subscribe to realtime message updates for a conversation
+   * Uses filtered query to only fetch messages for the specific conversation
    */
   subscribeToMessages(
     conversationId: string,
@@ -1132,47 +1133,41 @@ export class ConversationServiceOptimized {
 
       const messagesService = this.services.createService<ConversationMessage>('messages');
 
-      const unsubscribe = messagesService.onSnapshot((allMessages) => {
-        const conversationMessages = allMessages
-          .filter(msg => msg.conversationId === conversationId)
-          .sort((a, b) => {
-            const timeA = a.clientMessageTimestamp || a.createdAt;
-            const timeB = b.clientMessageTimestamp || b.createdAt;
-            if (!timeA || !timeB) return 0;
+      // Use filtered query to only subscribe to messages for this conversation
+      const constraints = [
+        where('conversationId', '==', conversationId)
+      ];
 
-            // Handle Firestore Timestamp, Date, or string
-            let dateA: Date;
-            let dateB: Date;
+      const unsubscribe = messagesService.onSnapshot((conversationMessages) => {
+        // Sort messages by timestamp (client-side since orderBy might need composite index)
+        const sortedMessages = [...conversationMessages].sort((a, b) => {
+          const timeA = a.clientMessageTimestamp || a.createdAt;
+          const timeB = b.clientMessageTimestamp || b.createdAt;
+          if (!timeA || !timeB) return 0;
 
-            if (typeof timeA === 'string') {
-              dateA = new Date(timeA);
-            } else if ((timeA as any).toDate) {
-              dateA = (timeA as any).toDate();
-            } else {
-              dateA = timeA as Date;
-            }
+          // Handle Firestore Timestamp, Date, or string
+          const getTime = (t: any): number => {
+            if (typeof t === 'string') return new Date(t).getTime();
+            if (t?.toDate) return t.toDate().getTime();
+            if (t instanceof Date) return t.getTime();
+            return 0;
+          };
 
-            if (typeof timeB === 'string') {
-              dateB = new Date(timeB);
-            } else if ((timeB as any).toDate) {
-              dateB = (timeB as any).toDate();
-            } else {
-              dateB = timeB as Date;
-            }
+          return getTime(timeA) - getTime(timeB);
+        });
 
-            return dateA.getTime() - dateB.getTime();
-          })
-          .slice(-limit);
+        // Apply limit to get the most recent messages
+        const limitedMessages = sortedMessages.slice(-limit);
 
         logger.info('🔥 [REALTIME] Messages snapshot received', {
           tenantId: this.tenantId.substring(0, 8) + '***',
           conversationId,
-          totalMessages: allMessages.length,
-          conversationMessages: conversationMessages.length
+          totalMessages: conversationMessages.length,
+          returnedMessages: limitedMessages.length
         });
 
-        callback(conversationMessages);
-      });
+        callback(limitedMessages);
+      }, constraints);
 
       return unsubscribe;
     } catch (error) {

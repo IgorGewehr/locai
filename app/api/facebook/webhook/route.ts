@@ -5,22 +5,66 @@ import { MessageType, MessageStatus } from '@/lib/types/conversation'
 import { logger } from '@/lib/utils/logger'
 import { collectionGroup, query, where, getDocs, limit } from 'firebase/firestore';
 import { db } from '@/lib/firebase/config';
+import { WEBHOOK_RETRY_CONFIG, CACHE_CONFIG } from '@/lib/facebook/constants';
 
-// Verify Token - Using N8N_WEBHOOK_SECRET as configured in .env
-// Falls back to FACEBOOK_VERIFY_TOKEN for backward compatibility
-const VERIFY_TOKEN = process.env.N8N_WEBHOOK_SECRET || process.env.FACEBOOK_VERIFY_TOKEN || 'locai_verify_token'
+// Verify Token - configured in Meta Developer Console
+const VERIFY_TOKEN = process.env.FACEBOOK_VERIFY_TOKEN || process.env.N8N_WEBHOOK_SECRET || 'locai_verify_token'
 
+// Cache for tenant lookups (pageId -> tenantId)
+// This reduces Firestore queries for high-volume webhooks
+const tenantCache = new Map<string, { tenantId: string; expiresAt: number }>();
+
+/**
+ * Retry a function with exponential backoff
+ */
+async function withRetry<T>(
+    fn: () => Promise<T>,
+    context: string,
+    config = WEBHOOK_RETRY_CONFIG
+): Promise<T> {
+    let lastError: Error | null = null;
+    let delay = config.initialDelayMs;
+
+    for (let attempt = 1; attempt <= config.maxRetries; attempt++) {
+        try {
+            return await fn();
+        } catch (error) {
+            lastError = error instanceof Error ? error : new Error(String(error));
+
+            if (attempt < config.maxRetries) {
+                logger.warn(`[Webhook Retry] ${context} failed, attempt ${attempt}/${config.maxRetries}`, {
+                    error: lastError.message,
+                    nextRetryMs: delay
+                });
+
+                await new Promise(resolve => setTimeout(resolve, delay));
+                delay = Math.min(delay * config.backoffMultiplier, config.maxDelayMs);
+            }
+        }
+    }
+
+    logger.error(`[Webhook Retry] ${context} failed after ${config.maxRetries} attempts`, lastError!);
+    throw lastError;
+}
+
+/**
+ * GET /api/facebook/webhook
+ * Webhook verification endpoint for Meta
+ */
 export async function GET(req: NextRequest) {
     const searchParams = req.nextUrl.searchParams
     const mode = searchParams.get('hub.mode')
     const token = searchParams.get('hub.verify_token')
     const challenge = searchParams.get('hub.challenge')
 
+    logger.info('[Facebook Webhook] Verification request', { mode, hasToken: !!token, hasChallenge: !!challenge })
+
     if (mode && token) {
         if (mode === 'subscribe' && token === VERIFY_TOKEN) {
-            logger.info('WEBHOOK_VERIFIED')
+            logger.info('[Facebook Webhook] Verification successful')
             return new NextResponse(challenge, { status: 200 })
         } else {
+            logger.warn('[Facebook Webhook] Verification failed - token mismatch')
             return new NextResponse('Forbidden', { status: 403 })
         }
     }
@@ -28,135 +72,291 @@ export async function GET(req: NextRequest) {
     return new NextResponse('Bad Request', { status: 400 })
 }
 
+/**
+ * POST /api/facebook/webhook
+ * Receives webhook events from Facebook/Instagram
+ */
 export async function POST(req: NextRequest) {
     try {
         const body = await req.json()
 
-        // Handle Facebook/Instagram Pages
-        if (body.object === 'page' || body.object === 'instagram') {
-            for (const entry of body.entry) {
-                const pageId = entry.id;
-                const tenantId = await findTenantByPageId(pageId);
+        logger.info('[Facebook Webhook] Received event', {
+            object: body.object,
+            entryCount: body.entry?.length || 0
+        })
 
-                if (tenantId) {
-                    const handler = new FacebookMessageHandler(tenantId)
-                    await handler.handleWebhook(body)
-                } else {
-                    logger.warn(`No tenant found for Page ID: ${pageId}`)
-                }
-            }
+        // Handle Facebook Messenger / Instagram DM
+        if (body.object === 'page' || body.object === 'instagram') {
+            await handleMessagingEvent(body)
         }
         // Handle WhatsApp Business Account
         else if (body.object === 'whatsapp_business_account') {
-            for (const entry of body.entry) {
-                for (const change of entry.changes) {
-                    if (change.value && change.value.messages) {
-                        const phoneNumberId = change.value.metadata.phone_number_id;
-                        const tenantId = await findTenantByPhoneNumberId(phoneNumberId);
-
-                        if (tenantId) {
-                            const conversationService = new ConversationService();
-
-                            for (const message of change.value.messages) {
-                                // Process incoming WhatsApp message
-                                const from = message.from; // Sender phone number
-                                const messageId = message.id;
-                                const timestamp = new Date(parseInt(message.timestamp) * 1000);
-
-                                let content = '';
-                                let type = MessageType.TEXT;
-
-                                if (message.type === 'text') {
-                                    content = message.text.body;
-                                } else if (message.type === 'image') {
-                                    content = message.image.id; // Or fetch URL if needed
-                                    type = MessageType.IMAGE;
-                                } else {
-                                    content = `[${message.type} message]`;
-                                }
-
-                                // Find or create conversation
-                                let conversation = await conversationService.getByPhone(from, tenantId);
-
-                                if (!conversation) {
-                                    const contactName = change.value.contacts?.[0]?.profile?.name || from;
-                                    conversation = await conversationService.create({
-                                        clientPhone: from,
-                                        clientName: contactName,
-                                        channel: 'whatsapp',
-                                        status: 'active',
-                                        unreadCount: 0,
-                                        tenantId
-                                    });
-                                }
-
-                                // Add message
-                                await conversationService.addMessage(conversation.id, {
-                                    content,
-                                    type,
-                                    direction: 'inbound',
-                                    channel: 'whatsapp',
-                                    timestamp,
-                                    status: MessageStatus.DELIVERED,
-                                    socialMessageId: messageId,
-                                    isFromAI: false
-                                }, tenantId);
-                            }
-                        } else {
-                            logger.warn(`No tenant found for WhatsApp Phone ID: ${phoneNumberId}`)
-                        }
-                    }
-                }
-            }
+            await handleWhatsAppEvent(body)
+        }
+        else {
+            logger.warn('[Facebook Webhook] Unknown object type:', body.object)
         }
 
+        // Always return 200 quickly to acknowledge receipt
+        // Facebook will retry if we don't respond within 20 seconds
         return new NextResponse('EVENT_RECEIVED', { status: 200 })
+
     } catch (error) {
-        logger.error('Error in Facebook webhook:', error)
-        return new NextResponse('Internal Server Error', { status: 500 })
+        logger.error('[Facebook Webhook] Error processing event:', error)
+        // Still return 200 to prevent Facebook from retrying
+        // Log the error but don't block the webhook
+        return new NextResponse('EVENT_RECEIVED', { status: 200 })
     }
 }
 
-// Helper to find tenant by Page ID
+/**
+ * Handle Facebook Messenger and Instagram DM events
+ */
+async function handleMessagingEvent(body: any): Promise<void> {
+    for (const entry of body.entry || []) {
+        const pageId = entry.id
+        const messaging = entry.messaging || []
+
+        // Skip if no messaging events
+        if (messaging.length === 0) {
+            logger.debug('[Facebook Webhook] No messaging events in entry', { pageId })
+            continue
+        }
+
+        // Find tenant for this page
+        const tenantId = await findTenantByPageId(pageId)
+
+        if (!tenantId) {
+            logger.warn('[Facebook Webhook] No tenant found for page', {
+                pageId,
+                eventCount: messaging.length
+            })
+            continue
+        }
+
+        logger.info('[Facebook Webhook] Processing messaging events', {
+            tenantId: tenantId.substring(0, 8) + '***',
+            pageId,
+            eventCount: messaging.length,
+            channel: body.object
+        })
+
+        // Process with FacebookMessageHandler with retry logic
+        try {
+            await withRetry(
+                async () => {
+                    const handler = new FacebookMessageHandler(tenantId)
+                    await handler.handleWebhook(body)
+                },
+                `Processing ${body.object} message for tenant ${tenantId.substring(0, 8)}***`
+            );
+        } catch (error) {
+            // Error already logged by withRetry
+            // Continue processing other entries
+        }
+    }
+}
+
+/**
+ * Handle WhatsApp Business Account events
+ */
+async function handleWhatsAppEvent(body: any): Promise<void> {
+    for (const entry of body.entry || []) {
+        for (const change of entry.changes || []) {
+            if (!change.value?.messages) continue
+
+            const phoneNumberId = change.value.metadata?.phone_number_id
+            if (!phoneNumberId) continue
+
+            const tenantId = await findTenantByPhoneNumberId(phoneNumberId)
+
+            if (!tenantId) {
+                logger.warn('[Facebook Webhook] No tenant found for WhatsApp phone', { phoneNumberId })
+                continue
+            }
+
+            const conversationService = new ConversationService()
+
+            for (const message of change.value.messages) {
+                try {
+                    const from = message.from
+                    const messageId = message.id
+                    const timestamp = new Date(parseInt(message.timestamp) * 1000)
+
+                    let content = ''
+                    let type = MessageType.TEXT
+
+                    if (message.type === 'text') {
+                        content = message.text.body
+                    } else if (message.type === 'image') {
+                        content = message.image.id
+                        type = MessageType.IMAGE
+                    } else {
+                        content = `[${message.type} message]`
+                    }
+
+                    // Find or create conversation
+                    let conversation = await conversationService.findByPhone(from, tenantId)
+
+                    if (!conversation) {
+                        const contactName = change.value.contacts?.[0]?.profile?.name || from
+                        conversation = await conversationService.createNew(from, tenantId, contactName)
+                    }
+
+                    // Add message
+                    await conversationService.addMessage(conversation.id, {
+                        content,
+                        type,
+                        direction: 'inbound',
+                        channel: 'whatsapp',
+                        timestamp,
+                        status: MessageStatus.DELIVERED,
+                        socialMessageId: messageId,
+                        isFromAI: false
+                    }, tenantId)
+
+                } catch (error) {
+                    logger.error('[Facebook Webhook] Error processing WhatsApp message:', error)
+                }
+            }
+        }
+    }
+}
+
+/**
+ * Find tenant by Facebook Page ID
+ * Uses caching to reduce Firestore queries
+ */
 async function findTenantByPageId(pageId: string): Promise<string | null> {
     try {
+        // Check cache first
+        const cached = tenantCache.get(`page:${pageId}`)
+        if (cached && cached.expiresAt > Date.now()) {
+            return cached.tenantId
+        }
+
+        const cacheTtl = CACHE_CONFIG.tenantLookupTtlMs;
+
+        // Query Firestore
         const settingsQuery = query(
             collectionGroup(db, 'settings'),
             where('facebook.pageId', '==', pageId),
             limit(1)
-        );
+        )
 
-        const snapshot = await getDocs(settingsQuery);
+        const snapshot = await getDocs(settingsQuery)
 
         if (!snapshot.empty) {
-            return snapshot.docs[0].id;
+            // Extract tenantId from document path: tenants/{tenantId}/settings/{settingsId}
+            const docPath = snapshot.docs[0].ref.path
+            const pathParts = docPath.split('/')
+            const tenantIndex = pathParts.indexOf('tenants')
+
+            let tenantId: string | null = null
+            if (tenantIndex !== -1 && pathParts[tenantIndex + 1]) {
+                tenantId = pathParts[tenantIndex + 1]
+            } else {
+                // Fallback: use document ID
+                tenantId = snapshot.docs[0].id
+            }
+
+            if (tenantId) {
+                // Cache the result
+                tenantCache.set(`page:${pageId}`, {
+                    tenantId,
+                    expiresAt: Date.now() + cacheTtl
+                })
+            }
+
+            return tenantId
         }
 
-        return null;
+        // Also check Instagram settings (page might be connected via Instagram)
+        const instagramQuery = query(
+            collectionGroup(db, 'settings'),
+            where('instagram.pageId', '==', pageId),
+            limit(1)
+        )
+
+        const instagramSnapshot = await getDocs(instagramQuery)
+
+        if (!instagramSnapshot.empty) {
+            const docPath = instagramSnapshot.docs[0].ref.path
+            const pathParts = docPath.split('/')
+            const tenantIndex = pathParts.indexOf('tenants')
+
+            let tenantId: string | null = null
+            if (tenantIndex !== -1 && pathParts[tenantIndex + 1]) {
+                tenantId = pathParts[tenantIndex + 1]
+            } else {
+                tenantId = instagramSnapshot.docs[0].id
+            }
+
+            if (tenantId) {
+                tenantCache.set(`page:${pageId}`, {
+                    tenantId,
+                    expiresAt: Date.now() + cacheTtl
+                })
+            }
+
+            return tenantId
+        }
+
+        return null
+
     } catch (error) {
-        logger.error('Error finding tenant by Page ID:', error);
-        return null;
+        logger.error('[Facebook Webhook] Error finding tenant by Page ID:', error)
+        return null
     }
 }
 
-// Helper to find tenant by WhatsApp Phone Number ID
+/**
+ * Find tenant by WhatsApp Phone Number ID
+ */
 async function findTenantByPhoneNumberId(phoneNumberId: string): Promise<string | null> {
     try {
+        // Check cache first
+        const cached = tenantCache.get(`phone:${phoneNumberId}`)
+        if (cached && cached.expiresAt > Date.now()) {
+            return cached.tenantId
+        }
+
+        const cacheTtl = CACHE_CONFIG.tenantLookupTtlMs;
+
         const settingsQuery = query(
             collectionGroup(db, 'settings'),
             where('whatsapp.phoneNumberId', '==', phoneNumberId),
             limit(1)
-        );
+        )
 
-        const snapshot = await getDocs(settingsQuery);
+        const snapshot = await getDocs(settingsQuery)
 
         if (!snapshot.empty) {
-            return snapshot.docs[0].id;
+            const docPath = snapshot.docs[0].ref.path
+            const pathParts = docPath.split('/')
+            const tenantIndex = pathParts.indexOf('tenants')
+
+            let tenantId: string | null = null
+            if (tenantIndex !== -1 && pathParts[tenantIndex + 1]) {
+                tenantId = pathParts[tenantIndex + 1]
+            } else {
+                tenantId = snapshot.docs[0].id
+            }
+
+            if (tenantId) {
+                tenantCache.set(`phone:${phoneNumberId}`, {
+                    tenantId,
+                    expiresAt: Date.now() + cacheTtl
+                })
+            }
+
+            return tenantId
         }
 
-        return null;
+        return null
+
     } catch (error) {
-        logger.error('Error finding tenant by Phone Number ID:', error);
-        return null;
+        logger.error('[Facebook Webhook] Error finding tenant by Phone Number ID:', error)
+        return null
     }
 }

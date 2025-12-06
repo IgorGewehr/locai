@@ -140,33 +140,28 @@ export async function POST(request: NextRequest) {
       } as any);
     }
 
-    // Save message
+    // Save message no formato correto (clientMessage para mensagens do cliente)
+    const now = new Date(timestamp);
     const savedMessageId = await services.messages.create({
       conversationId,
       tenantId,
-      clientPhone: phone,
-      message: message || '[Mídia]',
-      from: 'client',
-      timestamp: new Date(timestamp),
-      direction: 'inbound',
-      status: 'received',
-      source: 'whatsapp',
-      externalId: messageId,
-      ...(messageReplied && { replyTo: messageReplied }),
-      ...(mediaUrl && {
-        mediaUrl,
-        mediaType: mediaType || 'image',
-        hasMedia: true
-      })
+      // Formato correto: clientMessage para mensagens do cliente
+      clientMessage: message || '[Mídia]',
+      clientMessageTimestamp: now,
+      sofiaMessage: null,
+      sofiaMessageTimestamp: null,
+      createdAt: now,
+      // Preservar mediaUrls se houver
+      ...(mediaUrl && { clientMediaUrls: [mediaUrl] }),
     } as any);
 
     // Update conversation
     await services.conversations.update(conversationId, {
-      lastMessageAt: new Date(),
+      lastMessageAt: now,
       lastMessage: message || '[Mídia]',
-      lastMessageFrom: 'client',
       unreadCount: isAIBlocked ? 1 : 0, // Only increment if AI is blocked (manual mode)
-      updatedAt: new Date()
+      isRead: false,
+      updatedAt: now
     } as any);
 
     // Publish real-time event via Redis (for frontend subscribers)

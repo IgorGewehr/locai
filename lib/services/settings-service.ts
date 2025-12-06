@@ -63,6 +63,26 @@ export interface FacebookSettings {
   updatedAt?: Date;
 }
 
+export interface InstagramSettings {
+  businessAccountId: string;
+  username: string;
+  connected: boolean;
+  // Auth method: 'facebook_page' (via FB Page) or 'instagram_login' (direct IG OAuth)
+  authMethod?: 'facebook_page' | 'instagram_login';
+  // Facebook Page method fields
+  pageAccessToken?: string; // Page Access Token (used when connected via Facebook Page)
+  pageId?: string; // Facebook Page ID that owns this Instagram account
+  // Instagram Direct Login method fields
+  accessToken?: string; // Instagram Access Token (used when connected via Instagram Login)
+  tokenExpiresAt?: Date; // When the Instagram token expires (60 days from issue)
+  // Profile info
+  name?: string;
+  profilePictureUrl?: string;
+  accountType?: string; // 'BUSINESS' | 'CREATOR' | 'PERSONAL'
+  followersCount?: number;
+  updatedAt?: Date;
+}
+
 export interface MiniSiteSettings {
   active: boolean;
   title: string;
@@ -104,6 +124,7 @@ export interface TenantSettings {
   billing: BillingSettings;
   whatsapp: WhatsAppSettings;
   facebook: FacebookSettings;
+  instagram: InstagramSettings;
   miniSite: MiniSiteSettings;
   cancellationPolicy: CancellationPolicy; // Nova política de cancelamento
   createdAt: Date;
@@ -245,6 +266,26 @@ class SettingsService {
         ...settings,
         updatedAt: new Date(),
       } as FacebookSettings,
+      updatedAt: new Date(),
+    };
+
+    await this.service.set(current.id, updatedSettings);
+  }
+
+  // Update Instagram settings
+  async updateInstagramSettings(tenantId: string, settings: Partial<InstagramSettings>): Promise<void> {
+    const current = await this.getSettings(tenantId);
+    if (!current) throw new Error('Settings not found');
+
+    const currentInstagram = current.instagram || {};
+
+    const updatedSettings = {
+      ...current,
+      instagram: {
+        ...currentInstagram,
+        ...settings,
+        updatedAt: new Date(),
+      } as InstagramSettings,
       updatedAt: new Date(),
     };
 
@@ -454,6 +495,13 @@ class SettingsService {
         pageAccessToken: '',
         connected: false,
         pageName: '',
+      },
+      instagram: {
+        businessAccountId: '',
+        username: '',
+        connected: false,
+        pageAccessToken: '',
+        pageId: '',
       },
       miniSite: {
         active: true, // Ativo por padrão para permitir configuração e uso inicial

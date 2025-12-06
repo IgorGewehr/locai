@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef, memo } from 'react';
 import {
   Box,
   Card,
@@ -12,8 +12,6 @@ import {
   Stack,
   Avatar,
   Chip,
-  Badge,
-  CircularProgress,
   Alert,
   Button,
   Menu,
@@ -38,38 +36,242 @@ import {
   MoreVert,
   Chat,
   Person,
-  SmartToy,
   CheckCircle,
   Schedule,
   Cancel,
-  Event,
-  Link as LinkIcon,
-  DoneAll,
-  MarkChatUnread,
   EmojiEvents,
   Edit,
-  Block as BlockIcon,
+  DoneAll,
+  MarkChatUnread,
   Facebook,
   Instagram,
   WhatsApp,
 } from '@mui/icons-material';
-import { format } from 'date-fns';
-import { ptBR } from 'date-fns/locale';
-import { safeFormat, formatTimestamp as safeFormatTimestamp, toDate } from '@/lib/utils/date-helpers';
-import { useRouter, useSearchParams } from 'next/navigation';
+import { useSearchParams } from 'next/navigation';
 import InfiniteScroll from 'react-infinite-scroll-component';
 import { useTenant } from '@/contexts/TenantContext';
 import { useAuth } from '@/contexts/AuthProvider';
 import { useConversations } from '@/lib/hooks/useConversations';
+import { useAIBlockStatus } from '@/lib/hooks/useAIBlockStatus';
 import { logger } from '@/lib/utils/logger';
+import { toDate } from '@/lib/utils/date-helpers';
 import type { ConversationHeaderStatus } from '@/lib/types/conversation';
 import AIControlButton from '@/components/organisms/conversations/AIControlButton';
-import { MessageContent } from '@/components/organisms/conversations/MessageContent';
-import { Send } from '@mui/icons-material';
+import ConversationItem from '@/components/organisms/conversations/ConversationItem';
+import MessageBubble from '@/components/organisms/conversations/MessageBubble';
+import MessageInput from '@/components/organisms/conversations/MessageInput';
+import {
+  ConversationListSkeleton,
+  MessagesListSkeleton,
+  StatsCardsSkeleton,
+  ConversationsPageSkeleton,
+} from '@/components/organisms/conversations/ConversationSkeletons';
+
+// Memoized status helpers
+const statusLabels: Record<string, string> = {
+  active: 'Ativa',
+  completed: 'Concluida',
+  success: 'Sucesso',
+  abandoned: 'Abandonada',
+  pending: 'Pendente',
+};
+
+const getStatusColor = (status: ConversationHeaderStatus, palette: any) => {
+  switch (status) {
+    case 'active': return palette.warning.main;
+    case 'completed': return palette.info.main;
+    case 'success': return palette.success.main;
+    case 'abandoned': return palette.error.main;
+    case 'pending': return palette.grey[500];
+    default: return palette.grey[500];
+  }
+};
+
+const StatusIcon = memo(({ status }: { status: ConversationHeaderStatus }) => {
+  switch (status) {
+    case 'active': return <Schedule fontSize="small" />;
+    case 'completed': return <CheckCircle fontSize="small" />;
+    case 'success': return <EmojiEvents fontSize="small" />;
+    case 'abandoned': return <Cancel fontSize="small" />;
+    case 'pending': return <Schedule fontSize="small" />;
+    default: return null;
+  }
+});
+StatusIcon.displayName = 'StatusIcon';
+
+// Channel Selector Component
+const ChannelSelector = memo(({
+  selectedChannel,
+  onChannelChange,
+  stats,
+}: {
+  selectedChannel: string;
+  onChannelChange: (channel: string) => void;
+  stats: { total: number; whatsapp: number; facebook: number; instagram: number };
+}) => {
+  const theme = useTheme();
+
+  const channels = [
+    { id: 'all', icon: Chat, label: 'Todas', count: stats.total, color: theme.palette.primary.main },
+    { id: 'whatsapp', icon: WhatsApp, label: 'WhatsApp', count: stats.whatsapp, color: '#25D366' },
+    { id: 'facebook', icon: Facebook, label: 'Facebook', count: stats.facebook, color: '#1877F2' },
+    { id: 'instagram', icon: Instagram, label: 'Instagram', count: stats.instagram, color: '#E4405F' },
+  ];
+
+  return (
+    <Stack spacing={2} sx={{ height: '100%' }}>
+      <Box sx={{ minHeight: 48, display: 'flex', alignItems: 'center' }}>
+        <Typography variant="caption" color="text.secondary" fontWeight={700} sx={{ px: 1, letterSpacing: 1 }}>
+          CANAIS
+        </Typography>
+      </Box>
+      <Stack spacing={1}>
+        {channels.map((channel) => {
+          const Icon = channel.icon;
+          const isSelected = selectedChannel === channel.id;
+
+          return (
+            <Paper
+              key={channel.id}
+              onClick={() => onChannelChange(channel.id)}
+              elevation={isSelected ? 3 : 0}
+              sx={{
+                p: 1.25,
+                cursor: 'pointer',
+                borderLeft: 3,
+                borderColor: isSelected ? channel.color : 'transparent',
+                bgcolor: isSelected ? alpha(channel.color, 0.12) : 'background.paper',
+                transition: 'all 0.15s ease-out',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                gap: 0.5,
+                '&:hover': {
+                  bgcolor: isSelected ? alpha(channel.color, 0.16) : alpha(theme.palette.action.hover, 0.8),
+                  borderColor: isSelected ? channel.color : alpha(channel.color, 0.4),
+                  transform: 'scale(1.02)',
+                },
+              }}
+              title={channel.label}
+            >
+              <Icon sx={{ fontSize: 24, color: isSelected ? channel.color : 'text.secondary' }} />
+              <Typography
+                variant="caption"
+                fontWeight={isSelected ? 700 : 600}
+                color={isSelected ? channel.color : 'text.secondary'}
+                sx={{ fontSize: '0.7rem' }}
+              >
+                {channel.count}
+              </Typography>
+            </Paper>
+          );
+        })}
+      </Stack>
+    </Stack>
+  );
+});
+ChannelSelector.displayName = 'ChannelSelector';
+
+// Stats Cards Component
+const StatsCards = memo(({ active, completed, total }: { active: number; completed: number; total: number }) => {
+  const theme = useTheme();
+
+  return (
+    <Grid container spacing={1} mb={2}>
+      <Grid item xs={4}>
+        <Paper sx={{ p: { xs: 1, md: 1.5 }, textAlign: 'center', bgcolor: alpha(theme.palette.success.main, 0.1) }}>
+          <Typography variant="h6" fontWeight={700} color="success.main" sx={{ fontSize: { xs: '1rem', md: '1.25rem' } }}>
+            {active}
+          </Typography>
+          <Typography variant="caption" color="text.secondary" sx={{ fontSize: { xs: '0.65rem', md: '0.75rem' } }}>
+            Ativas
+          </Typography>
+        </Paper>
+      </Grid>
+      <Grid item xs={4}>
+        <Paper sx={{ p: { xs: 1, md: 1.5 }, textAlign: 'center', bgcolor: alpha(theme.palette.info.main, 0.1) }}>
+          <Typography variant="h6" fontWeight={700} color="info.main" sx={{ fontSize: { xs: '1rem', md: '1.25rem' } }}>
+            {completed}
+          </Typography>
+          <Typography variant="caption" color="text.secondary" sx={{ fontSize: { xs: '0.65rem', md: '0.75rem' } }}>
+            Concluidas
+          </Typography>
+        </Paper>
+      </Grid>
+      <Grid item xs={4}>
+        <Paper sx={{ p: { xs: 1, md: 1.5 }, textAlign: 'center', bgcolor: alpha(theme.palette.grey[500], 0.1) }}>
+          <Typography variant="h6" fontWeight={700} sx={{ fontSize: { xs: '1rem', md: '1.25rem' } }}>
+            {total}
+          </Typography>
+          <Typography variant="caption" color="text.secondary" sx={{ fontSize: { xs: '0.65rem', md: '0.75rem' } }}>
+            Total
+          </Typography>
+        </Paper>
+      </Grid>
+    </Grid>
+  );
+});
+StatsCards.displayName = 'StatsCards';
+
+// Messages List Component
+const MessagesList = memo(({
+  messages,
+  loading,
+  messagesEndRef,
+}: {
+  messages: any[];
+  loading: boolean;
+  messagesEndRef: React.RefObject<HTMLDivElement>;
+}) => {
+  // Pre-calculate date dividers
+  const messagesWithDividers = useMemo(() => {
+    return messages.map((message, index) => {
+      const messageTimestamp = message.clientMessageTimestamp || message.createdAt;
+      const messageDate = toDate(messageTimestamp);
+
+      const prevMessage = index > 0 ? messages[index - 1] : null;
+      const prevTimestamp = prevMessage ? (prevMessage.clientMessageTimestamp || prevMessage.createdAt) : null;
+      const prevDate = prevTimestamp ? toDate(prevTimestamp) : null;
+
+      const showDateDivider = !prevDate || (messageDate && prevDate && messageDate.toDateString() !== prevDate.toDateString());
+
+      return { message, showDateDivider };
+    });
+  }, [messages]);
+
+  if (loading) {
+    return (
+      <Box py={2}>
+        <MessagesListSkeleton count={5} />
+      </Box>
+    );
+  }
+
+  if (messages.length === 0) {
+    return (
+      <Alert severity="info">
+        <Typography variant="body2">Nenhuma mensagem nesta conversa.</Typography>
+      </Alert>
+    );
+  }
+
+  return (
+    <Stack spacing={3}>
+      {messagesWithDividers.map(({ message, showDateDivider }) => (
+        <MessageBubble
+          key={message.id}
+          message={message}
+          showDateDivider={showDateDivider}
+        />
+      ))}
+      <div ref={messagesEndRef} />
+    </Stack>
+  );
+});
+MessagesList.displayName = 'MessagesList';
 
 export default function ConversationsPage() {
   const theme = useTheme();
-  const router = useRouter();
   const searchParams = useSearchParams();
   const { tenantId, isReady } = useTenant();
   const { getFirebaseToken } = useAuth();
@@ -99,197 +301,28 @@ export default function ConversationsPage() {
     limit: 20,
   });
 
+  // AI Block Status hook - optimized
+  const {
+    blocked: aiBlocked,
+    loading: checkingAiStatus,
+    enableManualMode,
+  } = useAIBlockStatus({
+    phone: selectedConversation?.clientPhone,
+    tenantId,
+    getFirebaseToken,
+  });
+
+  // Local UI state
   const [searchText, setSearchText] = useState('');
-  const [debouncedSearchText, setDebouncedSearchText] = useState('');
   const [filterAnchorEl, setFilterAnchorEl] = useState<null | HTMLElement>(null);
-  const [messageInput, setMessageInput] = useState('');
-  const [sendingMessage, setSendingMessage] = useState(false);
-  const [aiBlocked, setAiBlocked] = useState(false);
-  const [checkingAiStatus, setCheckingAiStatus] = useState(false);
-  const [contextMenu, setContextMenu] = useState<{
-    mouseX: number;
-    mouseY: number;
-    conversationId: string;
-  } | null>(null);
+  const [contextMenu, setContextMenu] = useState<{ mouseX: number; mouseY: number; conversationId: string; } | null>(null);
   const [renameDialogOpen, setRenameDialogOpen] = useState(false);
   const [renameConversationId, setRenameConversationId] = useState<string | null>(null);
   const [newName, setNewName] = useState('');
   const [editedConversations, setEditedConversations] = useState<Set<string>>(new Set());
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const messagesContainerRef = useRef<HTMLDivElement>(null);
 
-  // Apply search param from URL on mount
-  useEffect(() => {
-    const searchParam = searchParams.get('search');
-    if (searchParam) {
-      setSearchText(searchParam);
-      setDebouncedSearchText(searchParam);
-      setFilters({ ...filters, search: searchParam });
-    }
-  }, []); // Only run on mount
-
-  // Auto-scroll to bottom when new messages arrive
-  useEffect(() => {
-    if (messages.length > 0 && messagesEndRef.current) {
-      messagesEndRef.current.scrollIntoView({ behavior: 'smooth', block: 'end' });
-    }
-  }, [messages.length]); // Trigger when message count changes
-
-  // Check AI block status when conversation changes
-  useEffect(() => {
-    if (!selectedConversation || !tenantId) {
-      setAiBlocked(false);
-      return;
-    }
-
-    const checkAiStatus = async () => {
-      setCheckingAiStatus(true);
-      try {
-        const token = await getFirebaseToken();
-
-        // Skip if no token available yet
-        if (!token) {
-          logger.warn('[AI-BLOCK] No token available, skipping check');
-          setCheckingAiStatus(false);
-          return;
-        }
-
-        const response = await fetch(
-          `/api/ai/block-conversation?phone=${encodeURIComponent(selectedConversation.clientPhone)}`,
-          {
-            headers: {
-              'Authorization': `Bearer ${token}`,
-            }
-          }
-        );
-
-        if (!response.ok) {
-          logger.error('[AI-BLOCK] Check failed', { status: response.status });
-          setAiBlocked(false);
-          return;
-        }
-
-        const result = await response.json();
-
-        // Check if data exists and has blocked property, or check if blockData exists
-        if (result.success && result.data) {
-          setAiBlocked(result.data.blocked || false);
-        } else {
-          setAiBlocked(false);
-        }
-      } catch (error) {
-        logger.error('[AI-BLOCK] Error checking AI status', {
-          error: error instanceof Error ? error.message : 'Unknown error'
-        });
-        setAiBlocked(false);
-      } finally {
-        setCheckingAiStatus(false);
-      }
-    };
-
-    checkAiStatus();
-
-    // Poll every 30 seconds to update status (reduced from 5s for performance)
-    const interval = setInterval(checkAiStatus, 30000);
-    return () => clearInterval(interval);
-  }, [selectedConversation, tenantId, getFirebaseToken]);
-
-  // Block AI for 1 hour and enable manual mode
-  const handleEnableManualMode = async () => {
-    if (!selectedConversation || !tenantId) return;
-
-    setCheckingAiStatus(true);
-    try {
-      const token = await getFirebaseToken();
-      const response = await fetch('/api/ai/block-conversation', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          phone: selectedConversation.clientPhone,
-          blocked: true, // Required field!
-          duration: 1, // 1 hour
-          reason: 'Modo manual ativado pelo usuário'
-        })
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Falha ao ativar modo manual');
-      }
-
-      setAiBlocked(true);
-    } catch (error) {
-      logger.error('Error enabling manual mode', {
-        error: error instanceof Error ? error.message : 'Unknown error',
-        conversationId: selectedConversation.id
-      });
-      alert(error instanceof Error ? error.message : 'Erro ao ativar modo manual');
-    } finally {
-      setCheckingAiStatus(false);
-    }
-  };
-
-  // Send manual message
-  const handleSendMessage = async () => {
-    if (!messageInput.trim() || !selectedConversation || !tenantId) return;
-
-    setSendingMessage(true);
-    try {
-      const token = await getFirebaseToken();
-
-      // Determine endpoint based on channel
-      let endpoint = '/api/whatsapp/send-manual';
-      let body: any = {
-        tenantId,
-        message: messageInput.trim()
-      };
-
-      if (selectedConversation.channel === 'facebook' || selectedConversation.channel === 'instagram') {
-        endpoint = '/api/social/send';
-        body = {
-          tenantId,
-          conversationId: selectedConversation.id,
-          message: messageInput.trim()
-        };
-      } else {
-        // WhatsApp
-        body.phone = selectedConversation.clientPhone;
-      }
-
-      const response = await fetch(endpoint, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify(body)
-      });
-
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.error || 'Falha ao enviar mensagem');
-      }
-
-      setMessageInput('');
-      // Refresh messages to show the new one (increased timeout to ensure message is processed)
-      setTimeout(() => refresh(), 1500);
-    } catch (error) {
-      logger.error('Error sending message', {
-        error: error instanceof Error ? error.message : 'Unknown error',
-        conversationId: selectedConversation.id
-      });
-      alert(error instanceof Error ? error.message : 'Erro ao enviar mensagem');
-    } finally {
-      setSendingMessage(false);
-    }
-  };
-
-  // Using safeFormatTimestamp from date-helpers
-
-  // Calculate filtered stats based on current channel
+  // Calculate filtered stats (memoized)
   const filteredStats = useMemo(() => {
     const relevantConversations = filters.channel === 'all'
       ? conversations
@@ -302,409 +335,143 @@ export default function ConversationsPage() {
     };
   }, [conversations, filters.channel]);
 
-  // Get status color
-  const getStatusColor = (status: ConversationHeaderStatus) => {
-    switch (status) {
-      case 'active':
-        return theme.palette.warning.main;
-      case 'completed':
-        return theme.palette.info.main;
-      case 'success':
-        return theme.palette.success.main;
-      case 'abandoned':
-        return theme.palette.error.main;
-      case 'pending':
-        return theme.palette.grey[500];
-      default:
-        return theme.palette.grey[500];
+  // Apply search param from URL on mount
+  useEffect(() => {
+    const searchParam = searchParams.get('search');
+    if (searchParam) {
+      setSearchText(searchParam);
+      setFilters(prev => ({ ...prev, search: searchParam }));
     }
-  };
+  }, []);
 
-  // Get status icon
-  const getStatusIcon = (status: ConversationHeaderStatus) => {
-    switch (status) {
-      case 'active':
-        return <Schedule fontSize="small" />;
-      case 'completed':
-        return <CheckCircle fontSize="small" />;
-      case 'success':
-        return <EmojiEvents fontSize="small" />;
-      case 'abandoned':
-        return <Cancel fontSize="small" />;
-      case 'pending':
-        return <Schedule fontSize="small" />;
-      default:
-        return null;
+  // Auto-scroll to bottom when new messages arrive
+  useEffect(() => {
+    if (messages.length > 0 && messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: 'smooth', block: 'end' });
     }
-  };
+  }, [messages.length]);
 
-  // Get channel icon
-  const getChannelIcon = (channel?: string) => {
-    switch (channel) {
-      case 'facebook':
-        return <Facebook fontSize="small" color="primary" />;
-      case 'instagram':
-        return <Instagram fontSize="small" color="secondary" />;
-      case 'whatsapp':
-      default:
-        return <WhatsApp fontSize="small" color="success" />;
-    }
-  };
-
-  // Get channel badge (visual badge with color)
-  const getChannelBadge = (channel?: string) => {
-    const channelType = channel || 'whatsapp';
-    const configs = {
-      whatsapp: {
-        label: 'WhatsApp',
-        icon: <WhatsApp sx={{ fontSize: 12 }} />,
-        color: '#25D366',
-        bgcolor: alpha('#25D366', 0.1),
-      },
-      facebook: {
-        label: 'Facebook',
-        icon: <Facebook sx={{ fontSize: 12 }} />,
-        color: '#1877F2',
-        bgcolor: alpha('#1877F2', 0.1),
-      },
-      instagram: {
-        label: 'Instagram',
-        icon: <Instagram sx={{ fontSize: 12 }} />,
-        color: '#E4405F',
-        bgcolor: alpha('#E4405F', 0.1),
-      },
-    };
-
-    const config = configs[channelType as keyof typeof configs] || configs.whatsapp;
-
-    return (
-      <Chip
-        icon={config.icon}
-        label={config.label}
-        size="small"
-        sx={{
-          height: 20,
-          fontSize: '0.65rem',
-          fontWeight: 600,
-          bgcolor: config.bgcolor,
-          color: config.color,
-          border: `1px solid ${alpha(config.color, 0.3)}`,
-          '& .MuiChip-label': { px: 0.75 },
-          '& .MuiChip-icon': {
-            ml: 0.5,
-            color: config.color,
-          },
-        }}
-      />
-    );
-  };
-
-  // Get status label
-  const getStatusLabel = (status: ConversationHeaderStatus): string => {
-    switch (status) {
-      case 'active':
-        return 'Ativa';
-      case 'completed':
-        return 'Concluída';
-      case 'success':
-        return 'Sucesso';
-      case 'abandoned':
-        return 'Abandonada';
-      case 'pending':
-        return 'Pendente';
-      default:
-        return status;
-    }
-  };
-
-  // Debounced search effect - wait 300ms after user stops typing
+  // Debounced search effect
   useEffect(() => {
     const timeoutId = setTimeout(() => {
-      setDebouncedSearchText(searchText);
-      setFilters({ ...filters, search: searchText });
+      setFilters(prev => ({ ...prev, search: searchText }));
     }, 300);
 
     return () => clearTimeout(timeoutId);
-  }, [searchText]); // Only depend on searchText, not filters
+  }, [searchText, setFilters]);
 
-  // Handle search
-  const handleSearch = (value: string) => {
-    setSearchText(value);
-  };
+  // Handlers (memoized)
+  const handleChannelChange = useCallback((channel: string) => {
+    setFilters(prev => ({ ...prev, channel: channel as any }));
+  }, [setFilters]);
 
-  // Handle status filter
-  const handleStatusFilter = (status: ConversationHeaderStatus | 'all') => {
-    setFilters({ ...filters, status });
+  const handleStatusFilter = useCallback((status: ConversationHeaderStatus | 'all') => {
+    setFilters(prev => ({ ...prev, status }));
     setFilterAnchorEl(null);
-  };
+  }, [setFilters]);
 
-  // Handle context menu
-  const handleContextMenu = (event: React.MouseEvent, conversationId: string) => {
+  const handleContextMenu = useCallback((event: React.MouseEvent, conversationId: string) => {
     event.preventDefault();
-    setContextMenu({
-      mouseX: event.clientX - 2,
-      mouseY: event.clientY - 4,
-      conversationId,
-    });
-  };
+    setContextMenu({ mouseX: event.clientX - 2, mouseY: event.clientY - 4, conversationId });
+  }, []);
 
-  const handleCloseContextMenu = () => {
+  const handleCloseContextMenu = useCallback(() => {
     setContextMenu(null);
-  };
+  }, []);
 
-  // Handle conversation selection with auto mark as read
-  const handleSelectConversation = async (conversationId: string) => {
+  const handleSelectConversation = useCallback(async (conversationId: string) => {
     selectConversation(conversationId);
     const conversation = conversations.find(c => c.id === conversationId);
     if (conversation && !conversation.isRead) {
       await markAsRead(conversationId);
     }
-  };
+  }, [selectConversation, conversations, markAsRead]);
 
-  // Handle rename conversation
-  const handleOpenRenameDialog = (conversationId: string) => {
+  const handleOpenRenameDialog = useCallback((conversationId: string) => {
     const conversation = conversations.find(c => c.id === conversationId);
     setRenameConversationId(conversationId);
     setNewName(conversation?.clientName || conversation?.clientPhone || '');
     setRenameDialogOpen(true);
     handleCloseContextMenu();
-  };
+  }, [conversations, handleCloseContextMenu]);
 
-  const handleCloseRenameDialog = () => {
+  const handleCloseRenameDialog = useCallback(() => {
     setRenameDialogOpen(false);
     setRenameConversationId(null);
     setNewName('');
-  };
+  }, []);
 
-  const handleSaveRename = async () => {
+  const handleSaveRename = useCallback(async () => {
     if (renameConversationId && newName.trim()) {
       try {
         await renameConversation(renameConversationId, newName.trim());
-        // Mark conversation as edited
         setEditedConversations(prev => new Set(prev).add(renameConversationId));
         handleCloseRenameDialog();
       } catch (error) {
         logger.error('Error renaming conversation', {
           error: error instanceof Error ? error.message : 'Unknown error',
-          conversationId: renameConversationId
+          conversationId: renameConversationId,
         });
       }
     }
-  };
+  }, [renameConversationId, newName, renameConversation, handleCloseRenameDialog]);
 
-  if (!isReady) {
-    return (
-      <Box display="flex" justifyContent="center" alignItems="center" minHeight="80vh">
-        <CircularProgress />
-      </Box>
-    );
+  const handleSendMessage = useCallback(async (message: string) => {
+    if (!selectedConversation || !tenantId) return;
+
+    const token = await getFirebaseToken();
+
+    let endpoint = '/api/whatsapp/send-manual';
+    let body: any = { tenantId, message };
+
+    if (selectedConversation.channel === 'facebook' || selectedConversation.channel === 'instagram') {
+      endpoint = '/api/social/send';
+      body = { tenantId, conversationId: selectedConversation.id, message };
+    } else {
+      body.phone = selectedConversation.clientPhone;
+    }
+
+    const response = await fetch(endpoint, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+      },
+      body: JSON.stringify(body),
+    });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || 'Falha ao enviar mensagem');
+    }
+
+    // Real-time Firestore listener will automatically update the messages list
+    // No need for manual refresh - the subscribeToMessages listener handles it
+  }, [selectedConversation, tenantId, getFirebaseToken]);
+
+  const handleEnableManualMode = useCallback(async () => {
+    try {
+      await enableManualMode(1, 'Modo manual ativado pelo usuario');
+    } catch (error) {
+      alert(error instanceof Error ? error.message : 'Erro ao ativar modo manual');
+    }
+  }, [enableManualMode]);
+
+  // Show full page skeleton during initial load
+  if (!isReady || (loading && conversations.length === 0)) {
+    return <ConversationsPageSkeleton />;
   }
 
   return (
     <Box sx={{ height: { xs: 'calc(100vh - 64px)', md: 'calc(100vh - 80px)' }, p: { xs: 0, md: 3 } }}>
       <Grid container spacing={{ xs: 0, md: 2 }} sx={{ height: '100%' }}>
         {/* LEFT SIDEBAR - Channel Selector */}
-        <Grid
-          item
-          xs={12}
-          md={1.5}
-          lg={1.2}
-          sx={{
-            height: '100%',
-            display: { xs: 'none', md: 'block' },
-          }}
-        >
-          <Stack spacing={2} sx={{ height: '100%' }}>
-            {/* Header - Aligned with middle panel */}
-            <Box sx={{ minHeight: 48, display: 'flex', alignItems: 'center' }}>
-              <Typography variant="caption" color="text.secondary" fontWeight={700} sx={{ px: 1, letterSpacing: 1 }}>
-                CANAIS
-              </Typography>
-            </Box>
-
-            {/* Channel Selector - Compact Icon-Only Style */}
-            <Stack spacing={1}>
-              {/* All Channels */}
-              <Paper
-                onClick={() => setFilters({ ...filters, channel: 'all' })}
-                elevation={filters.channel === 'all' ? 3 : 0}
-                sx={{
-                  p: 1.25,
-                  cursor: 'pointer',
-                  borderLeft: 3,
-                  borderColor: filters.channel === 'all' ? theme.palette.primary.main : 'transparent',
-                  bgcolor: filters.channel === 'all'
-                    ? alpha(theme.palette.primary.main, 0.12)
-                    : 'background.paper',
-                  transition: 'all 0.2s ease',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'center',
-                  gap: 0.5,
-                  '&:hover': {
-                    bgcolor: filters.channel === 'all'
-                      ? alpha(theme.palette.primary.main, 0.16)
-                      : alpha(theme.palette.action.hover, 0.8),
-                    borderColor: filters.channel === 'all'
-                      ? theme.palette.primary.main
-                      : alpha(theme.palette.primary.main, 0.4),
-                    transform: 'scale(1.05)',
-                  },
-                }}
-                title="Todas as conversas"
-              >
-                <Chat
-                  sx={{
-                    fontSize: 24,
-                    color: filters.channel === 'all' ? theme.palette.primary.main : 'text.secondary',
-                  }}
-                />
-                <Typography
-                  variant="caption"
-                  fontWeight={filters.channel === 'all' ? 700 : 600}
-                  color={filters.channel === 'all' ? 'primary.main' : 'text.secondary'}
-                  sx={{ fontSize: '0.7rem' }}
-                >
-                  {stats.total}
-                </Typography>
-              </Paper>
-
-              {/* WhatsApp */}
-              <Paper
-                onClick={() => setFilters({ ...filters, channel: 'whatsapp' })}
-                elevation={filters.channel === 'whatsapp' ? 3 : 0}
-                sx={{
-                  p: 1.25,
-                  cursor: 'pointer',
-                  borderLeft: 3,
-                  borderColor: filters.channel === 'whatsapp' ? '#25D366' : 'transparent',
-                  bgcolor: filters.channel === 'whatsapp'
-                    ? alpha('#25D366', 0.12)
-                    : 'background.paper',
-                  transition: 'all 0.2s ease',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'center',
-                  gap: 0.5,
-                  '&:hover': {
-                    bgcolor: filters.channel === 'whatsapp'
-                      ? alpha('#25D366', 0.16)
-                      : alpha(theme.palette.action.hover, 0.8),
-                    borderColor: filters.channel === 'whatsapp'
-                      ? '#25D366'
-                      : alpha('#25D366', 0.4),
-                    transform: 'scale(1.05)',
-                  },
-                }}
-                title="WhatsApp"
-              >
-                <WhatsApp
-                  sx={{
-                    fontSize: 24,
-                    color: filters.channel === 'whatsapp' ? '#25D366' : 'text.secondary',
-                  }}
-                />
-                <Typography
-                  variant="caption"
-                  fontWeight={filters.channel === 'whatsapp' ? 700 : 600}
-                  color={filters.channel === 'whatsapp' ? '#25D366' : 'text.secondary'}
-                  sx={{ fontSize: '0.7rem' }}
-                >
-                  {stats.whatsapp}
-                </Typography>
-              </Paper>
-
-              {/* Facebook */}
-              <Paper
-                onClick={() => setFilters({ ...filters, channel: 'facebook' })}
-                elevation={filters.channel === 'facebook' ? 3 : 0}
-                sx={{
-                  p: 1.25,
-                  cursor: 'pointer',
-                  borderLeft: 3,
-                  borderColor: filters.channel === 'facebook' ? '#1877F2' : 'transparent',
-                  bgcolor: filters.channel === 'facebook'
-                    ? alpha('#1877F2', 0.12)
-                    : 'background.paper',
-                  transition: 'all 0.2s ease',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'center',
-                  gap: 0.5,
-                  '&:hover': {
-                    bgcolor: filters.channel === 'facebook'
-                      ? alpha('#1877F2', 0.16)
-                      : alpha(theme.palette.action.hover, 0.8),
-                    borderColor: filters.channel === 'facebook'
-                      ? '#1877F2'
-                      : alpha('#1877F2', 0.4),
-                    transform: 'scale(1.05)',
-                  },
-                }}
-                title="Facebook Messenger"
-              >
-                <Facebook
-                  sx={{
-                    fontSize: 24,
-                    color: filters.channel === 'facebook' ? '#1877F2' : 'text.secondary',
-                  }}
-                />
-                <Typography
-                  variant="caption"
-                  fontWeight={filters.channel === 'facebook' ? 700 : 600}
-                  color={filters.channel === 'facebook' ? '#1877F2' : 'text.secondary'}
-                  sx={{ fontSize: '0.7rem' }}
-                >
-                  {stats.facebook}
-                </Typography>
-              </Paper>
-
-              {/* Instagram */}
-              <Paper
-                onClick={() => setFilters({ ...filters, channel: 'instagram' })}
-                elevation={filters.channel === 'instagram' ? 3 : 0}
-                sx={{
-                  p: 1.25,
-                  cursor: 'pointer',
-                  borderLeft: 3,
-                  borderColor: filters.channel === 'instagram' ? '#E4405F' : 'transparent',
-                  bgcolor: filters.channel === 'instagram'
-                    ? alpha('#E4405F', 0.12)
-                    : 'background.paper',
-                  transition: 'all 0.2s ease',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'center',
-                  gap: 0.5,
-                  '&:hover': {
-                    bgcolor: filters.channel === 'instagram'
-                      ? alpha('#E4405F', 0.16)
-                      : alpha(theme.palette.action.hover, 0.8),
-                    borderColor: filters.channel === 'instagram'
-                      ? '#E4405F'
-                      : alpha('#E4405F', 0.4),
-                    transform: 'scale(1.05)',
-                  },
-                }}
-                title="Instagram Direct"
-              >
-                <Instagram
-                  sx={{
-                    fontSize: 24,
-                    color: filters.channel === 'instagram' ? '#E4405F' : 'text.secondary',
-                  }}
-                />
-                <Typography
-                  variant="caption"
-                  fontWeight={filters.channel === 'instagram' ? 700 : 600}
-                  color={filters.channel === 'instagram' ? '#E4405F' : 'text.secondary'}
-                  sx={{ fontSize: '0.7rem' }}
-                >
-                  {stats.instagram}
-                </Typography>
-              </Paper>
-            </Stack>
-          </Stack>
+        <Grid item xs={12} md={1.5} lg={1.2} sx={{ height: '100%', display: { xs: 'none', md: 'block' } }}>
+          <ChannelSelector
+            selectedChannel={filters.channel}
+            onChannelChange={handleChannelChange}
+            stats={stats}
+          />
         </Grid>
 
         {/* MIDDLE PANEL - Conversations List */}
@@ -725,48 +492,19 @@ export default function ConversationsPage() {
             <Box sx={{ display: { xs: 'block', md: 'none' }, bgcolor: 'background.paper', borderBottom: 1, borderColor: 'divider' }}>
               <Tabs
                 value={filters.channel}
-                onChange={(e, newValue) => setFilters({ ...filters, channel: newValue })}
+                onChange={(_, newValue) => handleChannelChange(newValue)}
                 variant="scrollable"
                 scrollButtons="auto"
-                sx={{
-                  '& .MuiTab-root': {
-                    minHeight: 56,
-                    textTransform: 'none',
-                    fontWeight: 600,
-                  }
-                }}
+                sx={{ '& .MuiTab-root': { minHeight: 56, textTransform: 'none', fontWeight: 600 } }}
               >
-                <Tab
-                  value="all"
-                  icon={<Chat />}
-                  label={`Todas (${stats.total})`}
-                  iconPosition="start"
-                />
-                <Tab
-                  value="whatsapp"
-                  icon={<WhatsApp />}
-                  label={`WhatsApp (${stats.whatsapp})`}
-                  iconPosition="start"
-                  sx={{ color: filters.channel === 'whatsapp' ? '#25D366' : undefined }}
-                />
-                <Tab
-                  value="facebook"
-                  icon={<Facebook />}
-                  label={`Facebook (${stats.facebook})`}
-                  iconPosition="start"
-                  sx={{ color: filters.channel === 'facebook' ? '#1877F2' : undefined }}
-                />
-                <Tab
-                  value="instagram"
-                  icon={<Instagram />}
-                  label={`Instagram (${stats.instagram})`}
-                  iconPosition="start"
-                  sx={{ color: filters.channel === 'instagram' ? '#E4405F' : undefined }}
-                />
+                <Tab value="all" icon={<Chat />} label={`Todas (${stats.total})`} iconPosition="start" />
+                <Tab value="whatsapp" icon={<WhatsApp />} label={`WhatsApp (${stats.whatsapp})`} iconPosition="start" />
+                <Tab value="facebook" icon={<Facebook />} label={`Facebook (${stats.facebook})`} iconPosition="start" />
+                <Tab value="instagram" icon={<Instagram />} label={`Instagram (${stats.instagram})`} iconPosition="start" />
               </Tabs>
             </Box>
 
-            {/* Header - Aligned height */}
+            {/* Header */}
             <Box sx={{ px: { xs: 2, md: 0 }, pt: { xs: 2, md: 0 } }}>
               <Box display="flex" alignItems="center" justifyContent="space-between" sx={{ minHeight: 48 }}>
                 <Typography variant="h5" fontWeight={700} sx={{ fontSize: { xs: '1.25rem', md: '1.5rem' } }}>
@@ -786,122 +524,29 @@ export default function ConversationsPage() {
                   {filters.channel !== 'all' && (
                     <Chip
                       size="small"
-                      icon={
-                        filters.channel === 'whatsapp' ? <WhatsApp sx={{ fontSize: 14 }} /> :
-                        filters.channel === 'facebook' ? <Facebook sx={{ fontSize: 14 }} /> :
-                        <Instagram sx={{ fontSize: 14 }} />
-                      }
-                      label={
-                        filters.channel === 'whatsapp' ? 'WhatsApp' :
-                        filters.channel === 'facebook' ? 'Facebook' :
-                        'Instagram'
-                      }
-                      onDelete={() => setFilters({ ...filters, channel: 'all' })}
-                      sx={{
-                        height: 24,
-                        bgcolor:
-                          filters.channel === 'whatsapp' ? alpha('#25D366', 0.1) :
-                          filters.channel === 'facebook' ? alpha('#1877F2', 0.1) :
-                          alpha('#E4405F', 0.1),
-                        color:
-                          filters.channel === 'whatsapp' ? '#25D366' :
-                          filters.channel === 'facebook' ? '#1877F2' :
-                          '#E4405F',
-                        '& .MuiChip-icon': {
-                          color:
-                            filters.channel === 'whatsapp' ? '#25D366' :
-                            filters.channel === 'facebook' ? '#1877F2' :
-                            '#E4405F',
-                        },
-                      }}
+                      icon={filters.channel === 'whatsapp' ? <WhatsApp sx={{ fontSize: 14 }} /> : filters.channel === 'facebook' ? <Facebook sx={{ fontSize: 14 }} /> : <Instagram sx={{ fontSize: 14 }} />}
+                      label={filters.channel === 'whatsapp' ? 'WhatsApp' : filters.channel === 'facebook' ? 'Facebook' : 'Instagram'}
+                      onDelete={() => handleChannelChange('all')}
+                      sx={{ height: 24 }}
                     />
                   )}
                   {filters.status !== 'all' && (
                     <Chip
                       size="small"
-                      icon={getStatusIcon(filters.status)}
-                      label={getStatusLabel(filters.status)}
-                      onDelete={() => setFilters({ ...filters, status: 'all' })}
-                      sx={{
-                        height: 24,
-                        bgcolor: alpha(getStatusColor(filters.status), 0.1),
-                        color: getStatusColor(filters.status),
-                        '& .MuiChip-icon': {
-                          color: getStatusColor(filters.status),
-                        },
-                      }}
+                      icon={<StatusIcon status={filters.status} />}
+                      label={statusLabels[filters.status]}
+                      onDelete={() => handleStatusFilter('all')}
+                      sx={{ height: 24, bgcolor: alpha(getStatusColor(filters.status, theme.palette), 0.1), color: getStatusColor(filters.status, theme.palette) }}
                     />
                   )}
-                  {(filters.channel !== 'all' || filters.status !== 'all') && (
-                    <Button
-                      size="small"
-                      variant="text"
-                      onClick={() => setFilters({ ...filters, channel: 'all', status: 'all' })}
-                      sx={{
-                        height: 24,
-                        minWidth: 'auto',
-                        px: 1,
-                        fontSize: '0.7rem',
-                        textTransform: 'none',
-                      }}
-                    >
-                      Limpar filtros
-                    </Button>
-                  )}
+                  <Button size="small" variant="text" onClick={() => { handleChannelChange('all'); handleStatusFilter('all'); }} sx={{ height: 24, minWidth: 'auto', px: 1, fontSize: '0.7rem', textTransform: 'none' }}>
+                    Limpar filtros
+                  </Button>
                 </Box>
               )}
 
               {/* Stats Cards */}
-              <Grid container spacing={1} mb={2} sx={{ px: { xs: 0, md: 0 } }}>
-                <Grid item xs={4}>
-                  <Paper
-                    sx={{
-                      p: { xs: 1, md: 1.5 },
-                      textAlign: 'center',
-                      bgcolor: alpha(theme.palette.success.main, 0.1),
-                    }}
-                  >
-                    <Typography variant="h6" fontWeight={700} color="success.main" sx={{ fontSize: { xs: '1rem', md: '1.25rem' } }}>
-                      {filteredStats.active}
-                    </Typography>
-                    <Typography variant="caption" color="text.secondary" sx={{ fontSize: { xs: '0.65rem', md: '0.75rem' } }}>
-                      Ativas
-                    </Typography>
-                  </Paper>
-                </Grid>
-                <Grid item xs={4}>
-                  <Paper
-                    sx={{
-                      p: { xs: 1, md: 1.5 },
-                      textAlign: 'center',
-                      bgcolor: alpha(theme.palette.info.main, 0.1),
-                    }}
-                  >
-                    <Typography variant="h6" fontWeight={700} color="info.main" sx={{ fontSize: { xs: '1rem', md: '1.25rem' } }}>
-                      {filteredStats.completed}
-                    </Typography>
-                    <Typography variant="caption" color="text.secondary" sx={{ fontSize: { xs: '0.65rem', md: '0.75rem' } }}>
-                      Concluídas
-                    </Typography>
-                  </Paper>
-                </Grid>
-                <Grid item xs={4}>
-                  <Paper
-                    sx={{
-                      p: { xs: 1, md: 1.5 },
-                      textAlign: 'center',
-                      bgcolor: alpha(theme.palette.grey[500], 0.1),
-                    }}
-                  >
-                    <Typography variant="h6" fontWeight={700} sx={{ fontSize: { xs: '1rem', md: '1.25rem' } }}>
-                      {filteredStats.total}
-                    </Typography>
-                    <Typography variant="caption" color="text.secondary" sx={{ fontSize: { xs: '0.65rem', md: '0.75rem' } }}>
-                      Total
-                    </Typography>
-                  </Paper>
-                </Grid>
-              </Grid>
+              <StatsCards active={filteredStats.active} completed={filteredStats.completed} total={filteredStats.total} />
 
               {/* Search & Filter */}
               <Box display="flex" gap={1}>
@@ -910,7 +555,7 @@ export default function ConversationsPage() {
                   size="small"
                   placeholder="Buscar conversas..."
                   value={searchText}
-                  onChange={(e) => handleSearch(e.target.value)}
+                  onChange={(e) => setSearchText(e.target.value)}
                   InputProps={{
                     startAdornment: (
                       <InputAdornment position="start">
@@ -919,66 +564,24 @@ export default function ConversationsPage() {
                     ),
                   }}
                 />
-                <IconButton
-                  onClick={(e) => setFilterAnchorEl(e.currentTarget)}
-                  sx={{
-                    border: `1px solid ${theme.palette.divider}`,
-                    borderRadius: 1,
-                  }}
-                >
+                <IconButton onClick={(e) => setFilterAnchorEl(e.currentTarget)} sx={{ border: `1px solid ${theme.palette.divider}`, borderRadius: 1 }}>
                   <FilterList />
                 </IconButton>
               </Box>
 
-              <Menu
-                anchorEl={filterAnchorEl}
-                open={Boolean(filterAnchorEl)}
-                onClose={() => setFilterAnchorEl(null)}
-              >
-                <MenuItem onClick={() => handleStatusFilter('all')}>
-                  <ListItemText>Todas</ListItemText>
-                </MenuItem>
-                <MenuItem onClick={() => handleStatusFilter('active')}>
-                  <ListItemIcon>
-                    <Schedule fontSize="small" color="warning" />
-                  </ListItemIcon>
-                  <ListItemText>Ativas</ListItemText>
-                </MenuItem>
-                <MenuItem onClick={() => handleStatusFilter('completed')}>
-                  <ListItemIcon>
-                    <CheckCircle fontSize="small" color="info" />
-                  </ListItemIcon>
-                  <ListItemText>Concluídas</ListItemText>
-                </MenuItem>
-                <MenuItem onClick={() => handleStatusFilter('success')}>
-                  <ListItemIcon>
-                    <EmojiEvents fontSize="small" color="success" />
-                  </ListItemIcon>
-                  <ListItemText>Sucesso</ListItemText>
-                </MenuItem>
-                <MenuItem onClick={() => handleStatusFilter('abandoned')}>
-                  <ListItemIcon>
-                    <Cancel fontSize="small" color="error" />
-                  </ListItemIcon>
-                  <ListItemText>Abandonadas</ListItemText>
-                </MenuItem>
+              <Menu anchorEl={filterAnchorEl} open={Boolean(filterAnchorEl)} onClose={() => setFilterAnchorEl(null)}>
+                <MenuItem onClick={() => handleStatusFilter('all')}><ListItemText>Todas</ListItemText></MenuItem>
+                <MenuItem onClick={() => handleStatusFilter('active')}><ListItemIcon><Schedule fontSize="small" color="warning" /></ListItemIcon><ListItemText>Ativas</ListItemText></MenuItem>
+                <MenuItem onClick={() => handleStatusFilter('completed')}><ListItemIcon><CheckCircle fontSize="small" color="info" /></ListItemIcon><ListItemText>Concluidas</ListItemText></MenuItem>
+                <MenuItem onClick={() => handleStatusFilter('success')}><ListItemIcon><EmojiEvents fontSize="small" color="success" /></ListItemIcon><ListItemText>Sucesso</ListItemText></MenuItem>
+                <MenuItem onClick={() => handleStatusFilter('abandoned')}><ListItemIcon><Cancel fontSize="small" color="error" /></ListItemIcon><ListItemText>Abandonadas</ListItemText></MenuItem>
               </Menu>
             </Box>
 
             {/* Conversations List with Infinite Scroll */}
-            <Box
-              id="conversations-scrollable-div"
-              sx={{
-                flex: 1,
-                overflowY: 'auto',
-                overflowX: 'hidden',
-                px: { xs: 2, md: 0 },
-              }}
-            >
+            <Box id="conversations-scrollable-div" sx={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', px: { xs: 2, md: 0 } }}>
               {loading && conversations.length === 0 ? (
-                <Box display="flex" justifyContent="center" py={4}>
-                  <CircularProgress />
-                </Box>
+                <ConversationListSkeleton count={6} />
               ) : conversations.length === 0 ? (
                 <Alert severity="info" icon={<Chat />}>
                   <Typography variant="body2">
@@ -991,142 +594,21 @@ export default function ConversationsPage() {
                   dataLength={conversations.length}
                   next={loadMoreConversations}
                   hasMore={hasMore}
-                  loader={
-                    <Box display="flex" justifyContent="center" py={2}>
-                      <CircularProgress size={24} />
-                    </Box>
-                  }
-                  endMessage={
-                    <Typography variant="caption" display="block" textAlign="center" py={2} color="text.secondary">
-                      {conversations.length > 0 ? 'Todas as conversas carregadas' : ''}
-                    </Typography>
-                  }
+                  loader={<ConversationListSkeleton count={2} />}
+                  endMessage={<Typography variant="caption" display="block" textAlign="center" py={2} color="text.secondary">{conversations.length > 0 ? 'Todas as conversas carregadas' : ''}</Typography>}
                   scrollableTarget="conversations-scrollable-div"
                 >
                   <Stack spacing={0}>
                     {conversations.map((conversation) => (
-                      <Paper
+                      <ConversationItem
                         key={conversation.id}
-                        onClick={() => handleSelectConversation(conversation.id)}
-                        onContextMenu={(e) => handleContextMenu(e, conversation.id)}
-                        sx={{
-                          p: 2,
-                          mb: 1,
-                          cursor: 'pointer',
-                          borderLeft: 3,
-                          borderColor:
-                            selectedConversation?.id === conversation.id
-                              ? 'primary.main'
-                              : 'transparent',
-                          bgcolor:
-                            selectedConversation?.id === conversation.id
-                              ? alpha(theme.palette.primary.main, 0.08)
-                              : conversation.isRead === false
-                                ? alpha(theme.palette.info.main, 0.05)
-                                : 'background.paper',
-                          transition: 'all 0.2s',
-                          '&:hover': {
-                            bgcolor:
-                              selectedConversation?.id === conversation.id
-                                ? alpha(theme.palette.primary.main, 0.12)
-                                : alpha(theme.palette.action.hover, 0.5),
-                            transform: 'translateX(2px)',
-                          },
-                        }}
-                      >
-                        <Box display="flex" gap={1.5}>
-                          <Badge
-                            badgeContent={conversation.unreadCount}
-                            color="error"
-                            invisible={conversation.isRead !== false || conversation.unreadCount === 0}
-                          >
-                            <Avatar
-                              sx={{
-                                bgcolor: alpha(theme.palette.primary.main, 0.1),
-                                color: 'primary.main',
-                              }}
-                            >
-                              <Person />
-                            </Avatar>
-                          </Badge>
-                          <Box flex={1} minWidth={0}>
-                            <Box
-                              display="flex"
-                              justifyContent="space-between"
-                              alignItems="center"
-                              mb={0.5}
-                            >
-                              <Box display="flex" alignItems="center" gap={0.75} flex={1} minWidth={0}>
-                                <Typography
-                                  variant="subtitle2"
-                                  fontWeight={conversation.isRead === false ? 700 : 600}
-                                  noWrap
-                                  sx={{ flex: 1, minWidth: 0 }}
-                                >
-                                  {conversation.clientName || conversation.clientPhone}
-                                </Typography>
-                                {!editedConversations.has(conversation.id) && (
-                                  <IconButton
-                                    size="small"
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      handleOpenRenameDialog(conversation.id);
-                                    }}
-                                    sx={{
-                                      width: 24,
-                                      height: 24,
-                                      p: 0.5,
-                                      opacity: 0.6,
-                                      transition: 'all 0.2s',
-                                      '&:hover': {
-                                        opacity: 1,
-                                        bgcolor: alpha(theme.palette.primary.main, 0.1),
-                                      },
-                                    }}
-                                    title="Renomear conversa"
-                                  >
-                                    <Edit sx={{ fontSize: 14 }} />
-                                  </IconButton>
-                                )}
-                              </Box>
-                              <Typography variant="caption" color="text.secondary" sx={{ ml: 1 }}>
-                                {safeFormatTimestamp(conversation.lastMessageAt)}
-                              </Typography>
-                            </Box>
-                            <Typography
-                              variant="body2"
-                              color="text.secondary"
-                              noWrap
-                              sx={{
-                                overflow: 'hidden',
-                                textOverflow: 'ellipsis',
-                                fontWeight: conversation.isRead === false ? 600 : 400,
-                              }}
-                            >
-                              {conversation.lastMessage}
-                            </Typography>
-                            <Box display="flex" gap={0.5} mt={1} alignItems="center" flexWrap="wrap">
-                              {getChannelBadge(conversation.channel)}
-                              <Chip
-                                label={getStatusLabel(conversation.status)}
-                                size="small"
-                                icon={getStatusIcon(conversation.status)}
-                                sx={{
-                                  height: 20,
-                                  fontSize: '0.7rem',
-                                  bgcolor: alpha(getStatusColor(conversation.status), 0.1),
-                                  color: getStatusColor(conversation.status),
-                                  '& .MuiChip-label': { px: 1 },
-                                }}
-                              />
-                              <Typography variant="caption" color="text.secondary">
-                                {conversation.messageCount}{' '}
-                                {conversation.messageCount === 1 ? 'msg' : 'msgs'}
-                              </Typography>
-                            </Box>
-                          </Box>
-                        </Box>
-                      </Paper>
+                        conversation={conversation}
+                        isSelected={selectedConversation?.id === conversation.id}
+                        isEdited={editedConversations.has(conversation.id)}
+                        onSelect={handleSelectConversation}
+                        onContextMenu={handleContextMenu}
+                        onRename={handleOpenRenameDialog}
+                      />
                     ))}
                   </Stack>
                 </InfiniteScroll>
@@ -1136,430 +618,105 @@ export default function ConversationsPage() {
         </Grid>
 
         {/* RIGHT PANEL - Messages Thread */}
-        <Grid item xs={12} md={6.5} lg={7.5} sx={{
-          height: '100%',
-          pl: { md: 2 },
-          display: { xs: !selectedConversation ? 'none' : 'block', md: 'block' },
-        }}>
+        <Grid item xs={12} md={6.5} lg={7.5} sx={{ height: '100%', pl: { md: 2 }, display: { xs: !selectedConversation ? 'none' : 'block', md: 'block' } }}>
           <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
             {!selectedConversation ? (
-            <Box
-              display="flex"
-              flexDirection="column"
-              justifyContent="center"
-              alignItems="center"
-              height="100%"
-              sx={{
-                border: `1px dashed ${theme.palette.divider}`,
-                borderRadius: 2,
-                bgcolor: alpha(theme.palette.background.default, 0.3),
-                display: { xs: 'none', md: 'flex' },
-              }}
-            >
-              <Chat sx={{ fontSize: 64, color: 'text.disabled', mb: 2 }} />
-              <Typography variant="h6" color="text.secondary" gutterBottom>
-                Selecione uma conversa
-              </Typography>
-              <Typography variant="body2" color="text.secondary">
-                Escolha uma conversa na lista para visualizar as mensagens
-              </Typography>
-            </Box>
-          ) : (
-            <Card
-              elevation={0}
-              sx={{
-                height: '100%',
-                display: 'flex',
-                flexDirection: 'column',
-                border: { xs: 'none', md: `1px solid ${theme.palette.divider}` },
-                borderRadius: { xs: 0, md: 1 },
-              }}
-            >
-              {/* Chat Header - Aligned height */}
               <Box
+                display="flex"
+                flexDirection="column"
+                justifyContent="center"
+                alignItems="center"
+                height="100%"
                 sx={{
-                  minHeight: { xs: 64, md: 88 },
-                  p: 2,
-                  borderBottom: `1px solid ${theme.palette.divider}`,
-                  bgcolor: alpha(theme.palette.background.default, 0.5),
-                  display: 'flex',
-                  alignItems: 'center',
-                }}
-              >
-                <Box display="flex" justifyContent="space-between" alignItems="center" width="100%">
-                  <Box display="flex" gap={{ xs: 1, md: 2 }} alignItems="center">
-                    {/* Mobile Back Button */}
-                    <IconButton
-                      onClick={clearSelection}
-                      sx={{ display: { xs: 'flex', md: 'none' }, mr: 0.5 }}
-                      size="small"
-                    >
-                      <Chat />
-                    </IconButton>
-                    <Avatar
-                      sx={{
-                        bgcolor: alpha(theme.palette.primary.main, 0.1),
-                        color: 'primary.main',
-                      }}
-                    >
-                      <Person />
-                    </Avatar>
-                    <Box>
-                      <Typography variant="h6" fontWeight={600}>
-                        {selectedConversation.clientName || selectedConversation.clientPhone}
-                      </Typography>
-                      <Box display="flex" gap={1} alignItems="center">
-                        <Chip
-                          label={getStatusLabel(selectedConversation.status)}
-                          size="small"
-                          icon={getStatusIcon(selectedConversation.status)}
-                          sx={{
-                            height: 18,
-                            fontSize: '0.65rem',
-                            bgcolor: alpha(getStatusColor(selectedConversation.status), 0.1),
-                            color: getStatusColor(selectedConversation.status),
-                          }}
-                        />
-                        <Typography variant="caption" color="text.secondary">
-                          {selectedConversation.messageCount}{' '}
-                          {selectedConversation.messageCount === 1 ? 'mensagem' : 'mensagens'}
-                        </Typography>
-                      </Box>
-                    </Box>
-                  </Box>
-                  <Box display="flex" gap={1} alignItems="center">
-                    <AIControlButton
-                      phone={selectedConversation.clientPhone}
-                      conversationName={selectedConversation.clientName}
-                    />
-                    <IconButton
-                      size="small"
-                      onClick={(e) => handleContextMenu(e, selectedConversation.id)}
-                      title="Mais opções"
-                    >
-                      <MoreVert fontSize="small" />
-                    </IconButton>
-                  </Box>
-                </Box>
-              </Box>
-
-              {/* Messages Container */}
-              <Box
-                sx={{
-                  flex: 1,
-                  overflowY: 'auto',
-                  p: 3,
+                  border: `1px dashed ${theme.palette.divider}`,
+                  borderRadius: 2,
                   bgcolor: alpha(theme.palette.background.default, 0.3),
+                  display: { xs: 'none', md: 'flex' },
                 }}
               >
-                {loadingMessages ? (
-                  <Box display="flex" justifyContent="center" py={4}>
-                    <CircularProgress />
-                  </Box>
-                ) : messages.length === 0 ? (
-                  <Alert severity="info">
-                    <Typography variant="body2">Nenhuma mensagem nesta conversa.</Typography>
-                  </Alert>
-                ) : (
-                  <Stack spacing={3}>
-                    {messages.map((message, index) => {
-                      // SAFE DATE PARSING usando toDate helper
-                      const messageTimestamp = message.clientMessageTimestamp || message.createdAt;
-                      const messageDate = toDate(messageTimestamp);
-
-                      const prevMessage = index > 0 ? messages[index - 1] : null;
-                      const prevTimestamp = prevMessage
-                        ? (prevMessage.clientMessageTimestamp || prevMessage.createdAt)
-                        : null;
-                      const prevDate = prevTimestamp ? toDate(prevTimestamp) : null;
-
-                      const showDateDivider =
-                        !prevDate ||
-                        (messageDate && prevDate &&
-                          messageDate.toDateString() !== prevDate.toDateString());
-
-                      return (
-                        <React.Fragment key={message.id}>
-                          {showDateDivider && (
-                            <Box display="flex" justifyContent="center" my={2}>
-                              <Chip
-                                label={safeFormat(messageDate, "EEEE, dd 'de' MMMM")}
-                                size="small"
-                                icon={<Event fontSize="small" />}
-                                sx={{
-                                  bgcolor: alpha(theme.palette.primary.main, 0.1),
-                                  color: 'primary.main',
-                                  fontWeight: 600,
-                                }}
-                              />
-                            </Box>
-                          )}
-
-                          <Stack spacing={2}>
-                            {/* Client Message (only render if exists) */}
-                            {message.clientMessage && (
-                              <Box display="flex" justifyContent="flex-start" gap={1.5}>
-                                <Avatar
-                                  sx={{
-                                    bgcolor: alpha(theme.palette.info.main, 0.1),
-                                    color: 'info.main',
-                                    width: 36,
-                                    height: 36,
-                                  }}
-                                >
-                                  <Person fontSize="small" />
-                                </Avatar>
-                                <Paper
-                                  elevation={0}
-                                  sx={{
-                                    p: 2,
-                                    maxWidth: '70%',
-                                    bgcolor: 'background.paper',
-                                    border: `1px solid ${theme.palette.divider}`,
-                                    borderRadius: 2,
-                                    borderBottomLeftRadius: 4,
-                                  }}
-                                >
-                                  <MessageContent
-                                    text={message.clientMessage}
-                                    mediaUrls={message.clientMediaUrls}
-                                    variant="body2"
-                                  />
-                                  <Typography
-                                    variant="caption"
-                                    color="text.secondary"
-                                    sx={{ display: 'block', mt: 1 }}
-                                  >
-                                    {messageDate ? safeFormat(messageDate, 'dd/MM/yyyy HH:mm') : '--:--'}
-                                  </Typography>
-                                </Paper>
-                              </Box>
-                            )}
-
-                            {/* Sofia Message */}
-                            {message.sofiaMessage && (
-                              <Box display="flex" justifyContent="flex-end" gap={1.5}>
-                                <Paper
-                                  elevation={0}
-                                  sx={{
-                                    p: 2,
-                                    maxWidth: '70%',
-                                    bgcolor: alpha(theme.palette.primary.main, 0.08),
-                                    border: `1px solid ${alpha(theme.palette.primary.main, 0.2)}`,
-                                    borderRadius: 2,
-                                    borderBottomRightRadius: 4,
-                                  }}
-                                >
-                                  <MessageContent
-                                    text={message.sofiaMessage}
-                                    mediaUrls={message.sofiaMediaUrls}
-                                    variant="body2"
-                                  />
-                                  <Stack direction="row" spacing={1} alignItems="center" mt={1}>
-                                    <Typography variant="caption" color="text.secondary">
-                                      {messageDate ? safeFormat(messageDate, 'dd/MM/yyyy HH:mm') : '--:--'}
-                                    </Typography>
-                                    {message.context?.functionsCalled &&
-                                      message.context.functionsCalled.length > 0 && (
-                                        <Chip
-                                          label={`${message.context.functionsCalled.length} função(ões)`}
-                                          size="small"
-                                          variant="outlined"
-                                          sx={{
-                                            height: 18,
-                                            fontSize: '0.65rem',
-                                            '& .MuiChip-label': { px: 0.75 },
-                                          }}
-                                        />
-                                      )}
-                                  </Stack>
-                                </Paper>
-                                <Avatar
-                                  sx={{
-                                    bgcolor: alpha(theme.palette.primary.main, 0.1),
-                                    color: 'primary.main',
-                                    width: 36,
-                                    height: 36,
-                                  }}
-                                >
-                                  <SmartToy fontSize="small" />
-                                </Avatar>
-                              </Box>
-                            )}
-                          </Stack>
-                        </React.Fragment>
-                      );
-                    })}
-                    {/* Invisible div for auto-scroll anchor */}
-                    <div ref={messagesEndRef} />
-                  </Stack>
-                )}
+                <Chat sx={{ fontSize: 64, color: 'text.disabled', mb: 2 }} />
+                <Typography variant="h6" color="text.secondary" gutterBottom>
+                  Selecione uma conversa
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  Escolha uma conversa na lista para visualizar as mensagens
+                </Typography>
               </Box>
-
-              {/* Modern Message Input Bar - Fixed at bottom */}
-              {selectedConversation && (
+            ) : (
+              <Card
+                elevation={0}
+                sx={{
+                  height: '100%',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  border: { xs: 'none', md: `1px solid ${theme.palette.divider}` },
+                  borderRadius: { xs: 0, md: 1 },
+                }}
+              >
+                {/* Chat Header */}
                 <Box
                   sx={{
+                    minHeight: { xs: 64, md: 88 },
                     p: 2,
-                    borderTop: `1px solid ${theme.palette.divider}`,
-                    bgcolor: !aiBlocked
-                      ? alpha(theme.palette.error.main, 0.05)
-                      : theme.palette.background.paper,
-                    position: 'sticky',
-                    bottom: 0,
-                    zIndex: 10,
-                    backdropFilter: 'blur(10px)',
-                    boxShadow: `0 -2px 8px ${alpha(theme.palette.common.black, 0.05)}`,
+                    borderBottom: `1px solid ${theme.palette.divider}`,
+                    bgcolor: alpha(theme.palette.background.default, 0.5),
+                    display: 'flex',
+                    alignItems: 'center',
                   }}
                 >
-                  <Box
-                    sx={{
-                      display: 'flex',
-                      gap: 1.5,
-                      alignItems: 'center',
-                      maxWidth: '100%',
-                    }}
-                  >
-                    {!aiBlocked ? (
-                      // AI Mode Active - Click to enable manual mode
-                      <Box
-                        onClick={handleEnableManualMode}
-                        sx={{
-                          flex: 1,
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          gap: 2,
-                          py: 1.25,
-                          px: 3,
-                          bgcolor: alpha(theme.palette.error.main, 0.08),
-                          borderRadius: '24px',
-                          cursor: checkingAiStatus ? 'default' : 'pointer',
-                          transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
-                          border: `1.5px solid ${alpha(theme.palette.error.main, 0.2)}`,
-                          '&:hover': checkingAiStatus ? {} : {
-                            bgcolor: alpha(theme.palette.error.main, 0.15),
-                            transform: 'translateY(-2px)',
-                            boxShadow: `0 6px 20px ${alpha(theme.palette.error.main, 0.15)}`,
-                            borderColor: alpha(theme.palette.error.main, 0.4),
-                          },
-                        }}
-                      >
-                        {checkingAiStatus ? (
-                          <CircularProgress size={20} thickness={4} sx={{ color: theme.palette.error.main }} />
-                        ) : (
-                          <BlockIcon sx={{ color: theme.palette.error.main, fontSize: 20 }} />
-                        )}
-                        <Typography
-                          sx={{
-                            color: theme.palette.error.main,
-                            fontWeight: 600,
-                            fontSize: '0.875rem',
-                            userSelect: 'none',
-                            letterSpacing: '0.01em',
-                          }}
-                        >
-                          Pausar IA e responder manualmente
+                  <Box display="flex" justifyContent="space-between" alignItems="center" width="100%">
+                    <Box display="flex" gap={{ xs: 1, md: 2 }} alignItems="center">
+                      <IconButton onClick={clearSelection} sx={{ display: { xs: 'flex', md: 'none' }, mr: 0.5 }} size="small">
+                        <Chat />
+                      </IconButton>
+                      <Avatar sx={{ bgcolor: alpha(theme.palette.primary.main, 0.1), color: 'primary.main' }}>
+                        <Person />
+                      </Avatar>
+                      <Box>
+                        <Typography variant="h6" fontWeight={600}>
+                          {selectedConversation.clientName || selectedConversation.clientPhone}
                         </Typography>
+                        <Box display="flex" gap={1} alignItems="center">
+                          <Chip
+                            label={statusLabels[selectedConversation.status] || selectedConversation.status}
+                            size="small"
+                            icon={<StatusIcon status={selectedConversation.status} />}
+                            sx={{
+                              height: 18,
+                              fontSize: '0.65rem',
+                              bgcolor: alpha(getStatusColor(selectedConversation.status, theme.palette), 0.1),
+                              color: getStatusColor(selectedConversation.status, theme.palette),
+                            }}
+                          />
+                          <Typography variant="caption" color="text.secondary">
+                            {selectedConversation.messageCount} {selectedConversation.messageCount === 1 ? 'mensagem' : 'mensagens'}
+                          </Typography>
+                        </Box>
                       </Box>
-                    ) : (
-                      // Manual Mode Active - Professional input bar
-                      <>
-                        <TextField
-                          fullWidth
-                          multiline
-                          maxRows={4}
-                          placeholder="Digite sua mensagem..."
-                          value={messageInput}
-                          onChange={(e) => setMessageInput(e.target.value)}
-                          onKeyPress={(e) => {
-                            if (e.key === 'Enter' && !e.shiftKey) {
-                              e.preventDefault();
-                              handleSendMessage();
-                            }
-                          }}
-                          disabled={sendingMessage}
-                          variant="outlined"
-                          sx={{
-                            '& .MuiOutlinedInput-root': {
-                              borderRadius: '20px',
-                              bgcolor: theme.palette.mode === 'dark'
-                                ? alpha(theme.palette.background.paper, 0.9)
-                                : alpha(theme.palette.common.white, 0.95),
-                              transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
-                              boxShadow: `0 2px 8px ${alpha(theme.palette.common.black, 0.04)}`,
-                              '& fieldset': {
-                                borderColor: alpha(theme.palette.divider, 0.6),
-                                borderWidth: '1.5px',
-                              },
-                              '&:hover': {
-                                boxShadow: `0 4px 12px ${alpha(theme.palette.common.black, 0.08)}`,
-                                '& fieldset': {
-                                  borderColor: alpha(theme.palette.primary.main, 0.4),
-                                },
-                              },
-                              '&.Mui-focused': {
-                                boxShadow: `0 4px 16px ${alpha(theme.palette.primary.main, 0.12)}`,
-                                '& fieldset': {
-                                  borderColor: theme.palette.primary.main,
-                                  borderWidth: '2px',
-                                },
-                              },
-                              '&.Mui-disabled': {
-                                opacity: 0.6,
-                              },
-                            },
-                            '& .MuiInputBase-input': {
-                              py: 1,
-                              px: 2,
-                              fontSize: '0.9rem',
-                              lineHeight: 1.5,
-                              '&::placeholder': {
-                                color: alpha(theme.palette.text.secondary, 0.5),
-                                opacity: 1,
-                              },
-                            },
-                          }}
-                        />
-                        <IconButton
-                          onClick={handleSendMessage}
-                          disabled={!messageInput.trim() || sendingMessage}
-                          sx={{
-                            bgcolor: theme.palette.primary.main,
-                            color: theme.palette.common.white,
-                            width: 44,
-                            height: 44,
-                            flexShrink: 0,
-                            boxShadow: `0 4px 12px ${alpha(theme.palette.primary.main, 0.3)}`,
-                            transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
-                            '&:hover': {
-                              bgcolor: theme.palette.primary.dark,
-                              transform: 'scale(1.08) translateY(-2px)',
-                              boxShadow: `0 6px 20px ${alpha(theme.palette.primary.main, 0.4)}`,
-                            },
-                            '&:active': {
-                              transform: 'scale(0.98)',
-                            },
-                            '&.Mui-disabled': {
-                              bgcolor: alpha(theme.palette.action.disabled, 0.15),
-                              color: alpha(theme.palette.action.disabled, 0.4),
-                              boxShadow: 'none',
-                            },
-                          }}
-                        >
-                          {sendingMessage ? (
-                            <CircularProgress size={20} thickness={4} sx={{ color: theme.palette.common.white }} />
-                          ) : (
-                            <Send sx={{ fontSize: 20 }} />
-                          )}
-                        </IconButton>
-                      </>
-                    )}
+                    </Box>
+                    <Box display="flex" gap={1} alignItems="center">
+                      <AIControlButton phone={selectedConversation.clientPhone} conversationName={selectedConversation.clientName} />
+                      <IconButton size="small" onClick={(e) => handleContextMenu(e, selectedConversation.id)} title="Mais opcoes">
+                        <MoreVert fontSize="small" />
+                      </IconButton>
+                    </Box>
                   </Box>
                 </Box>
-              )}
-            </Card>
-          )}
+
+                {/* Messages Container */}
+                <Box sx={{ flex: 1, overflowY: 'auto', p: 3, bgcolor: alpha(theme.palette.background.default, 0.3) }}>
+                  <MessagesList messages={messages} loading={loadingMessages} messagesEndRef={messagesEndRef} />
+                </Box>
+
+                {/* Message Input */}
+                <MessageInput
+                  aiBlocked={aiBlocked}
+                  checkingAiStatus={checkingAiStatus}
+                  onSendMessage={handleSendMessage}
+                  onEnableManualMode={handleEnableManualMode}
+                />
+              </Card>
+            )}
           </Box>
         </Grid>
       </Grid>
@@ -1569,110 +726,36 @@ export default function ConversationsPage() {
         open={contextMenu !== null}
         onClose={handleCloseContextMenu}
         anchorReference="anchorPosition"
-        anchorPosition={
-          contextMenu !== null
-            ? { top: contextMenu.mouseY, left: contextMenu.mouseX }
-            : undefined
-        }
+        anchorPosition={contextMenu !== null ? { top: contextMenu.mouseY, left: contextMenu.mouseX } : undefined}
       >
-        <MenuItem
-          onClick={() => {
-            if (contextMenu) {
-              handleOpenRenameDialog(contextMenu.conversationId);
-            }
-          }}
-        >
-          <ListItemIcon>
-            <Edit fontSize="small" />
-          </ListItemIcon>
+        <MenuItem onClick={() => { if (contextMenu) handleOpenRenameDialog(contextMenu.conversationId); }}>
+          <ListItemIcon><Edit fontSize="small" /></ListItemIcon>
           <ListItemText>Renomear Conversa</ListItemText>
         </MenuItem>
-
         <Divider />
-
-        <MenuItem
-          onClick={() => {
-            if (contextMenu) {
-              markAsRead(contextMenu.conversationId);
-              handleCloseContextMenu();
-            }
-          }}
-        >
-          <ListItemIcon>
-            <DoneAll fontSize="small" />
-          </ListItemIcon>
+        <MenuItem onClick={() => { if (contextMenu) { markAsRead(contextMenu.conversationId); handleCloseContextMenu(); } }}>
+          <ListItemIcon><DoneAll fontSize="small" /></ListItemIcon>
           <ListItemText>Marcar como Lida</ListItemText>
         </MenuItem>
-
-        <MenuItem
-          onClick={() => {
-            if (contextMenu) {
-              markAsUnread(contextMenu.conversationId);
-              handleCloseContextMenu();
-            }
-          }}
-        >
-          <ListItemIcon>
-            <MarkChatUnread fontSize="small" />
-          </ListItemIcon>
-          <ListItemText>Marcar como Não Lida</ListItemText>
+        <MenuItem onClick={() => { if (contextMenu) { markAsUnread(contextMenu.conversationId); handleCloseContextMenu(); } }}>
+          <ListItemIcon><MarkChatUnread fontSize="small" /></ListItemIcon>
+          <ListItemText>Marcar como Nao Lida</ListItemText>
         </MenuItem>
-
         <Divider />
-
-        <MenuItem
-          onClick={() => {
-            if (contextMenu) {
-              updateStatus(contextMenu.conversationId, 'active');
-              handleCloseContextMenu();
-            }
-          }}
-        >
-          <ListItemIcon>
-            <Schedule fontSize="small" color="warning" />
-          </ListItemIcon>
+        <MenuItem onClick={() => { if (contextMenu) { updateStatus(contextMenu.conversationId, 'active'); handleCloseContextMenu(); } }}>
+          <ListItemIcon><Schedule fontSize="small" color="warning" /></ListItemIcon>
           <ListItemText>Marcar como Ativa</ListItemText>
         </MenuItem>
-
-        <MenuItem
-          onClick={() => {
-            if (contextMenu) {
-              updateStatus(contextMenu.conversationId, 'completed');
-              handleCloseContextMenu();
-            }
-          }}
-        >
-          <ListItemIcon>
-            <CheckCircle fontSize="small" color="info" />
-          </ListItemIcon>
-          <ListItemText>Marcar como Concluída</ListItemText>
+        <MenuItem onClick={() => { if (contextMenu) { updateStatus(contextMenu.conversationId, 'completed'); handleCloseContextMenu(); } }}>
+          <ListItemIcon><CheckCircle fontSize="small" color="info" /></ListItemIcon>
+          <ListItemText>Marcar como Concluida</ListItemText>
         </MenuItem>
-
-        <MenuItem
-          onClick={() => {
-            if (contextMenu) {
-              updateStatus(contextMenu.conversationId, 'success');
-              handleCloseContextMenu();
-            }
-          }}
-        >
-          <ListItemIcon>
-            <EmojiEvents fontSize="small" color="success" />
-          </ListItemIcon>
+        <MenuItem onClick={() => { if (contextMenu) { updateStatus(contextMenu.conversationId, 'success'); handleCloseContextMenu(); } }}>
+          <ListItemIcon><EmojiEvents fontSize="small" color="success" /></ListItemIcon>
           <ListItemText>Marcar como Sucesso</ListItemText>
         </MenuItem>
-
-        <MenuItem
-          onClick={() => {
-            if (contextMenu) {
-              updateStatus(contextMenu.conversationId, 'abandoned');
-              handleCloseContextMenu();
-            }
-          }}
-        >
-          <ListItemIcon>
-            <Cancel fontSize="small" color="error" />
-          </ListItemIcon>
+        <MenuItem onClick={() => { if (contextMenu) { updateStatus(contextMenu.conversationId, 'abandoned'); handleCloseContextMenu(); } }}>
+          <ListItemIcon><Cancel fontSize="small" color="error" /></ListItemIcon>
           <ListItemText>Marcar como Abandonada</ListItemText>
         </MenuItem>
       </Menu>
@@ -1684,12 +767,7 @@ export default function ConversationsPage() {
       )}
 
       {/* Rename Dialog */}
-      <Dialog
-        open={renameDialogOpen}
-        onClose={handleCloseRenameDialog}
-        maxWidth="sm"
-        fullWidth
-      >
+      <Dialog open={renameDialogOpen} onClose={handleCloseRenameDialog} maxWidth="sm" fullWidth>
         <DialogTitle>Renomear Conversa</DialogTitle>
         <DialogContent>
           <TextField
@@ -1701,29 +779,16 @@ export default function ConversationsPage() {
             variant="outlined"
             value={newName}
             onChange={(e) => setNewName(e.target.value)}
-            onKeyPress={(e) => {
-              if (e.key === 'Enter') {
-                handleSaveRename();
-              }
-            }}
+            onKeyDown={(e) => { if (e.key === 'Enter') handleSaveRename(); }}
             placeholder="Digite o nome do contato"
             sx={{ mt: 2 }}
           />
         </DialogContent>
         <DialogActions>
-          <Button onClick={handleCloseRenameDialog} color="inherit">
-            Cancelar
-          </Button>
-          <Button
-            onClick={handleSaveRename}
-            variant="contained"
-            disabled={!newName.trim()}
-          >
-            Salvar
-          </Button>
+          <Button onClick={handleCloseRenameDialog} color="inherit">Cancelar</Button>
+          <Button onClick={handleSaveRename} variant="contained" disabled={!newName.trim()}>Salvar</Button>
         </DialogActions>
       </Dialog>
-
     </Box>
   );
 }

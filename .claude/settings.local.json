@@ -127,7 +127,11 @@
       "Bash(xargs basename:*)",
       "Bash(do:*)",
       "Bash(gh pr create:*)",
-      "Bash(docker build:*)"
+      "Bash(docker build:*)",
+      "WebFetch(domain:developers.facebook.com)",
+      "WebFetch(domain:messengerbot.app)",
+      "WebFetch(domain:elfsight.com)",
+      "WebFetch(domain:gist.github.com)"
     ],
     "deny": [],
     "defaultMode": "acceptEdits",

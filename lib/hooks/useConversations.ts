@@ -101,65 +101,37 @@ export function useConversations({
   }, [tenantId, limit]);
 
   // Load more conversations (infinite scroll)
+  // Note: Currently loads from real-time subscription which handles all data
+  // This function is kept for manual trigger but the real-time listener
+  // already maintains the full conversation list
   const loadMoreConversations = useCallback(async () => {
     if (!tenantId || !state.hasMore || state.loading) return;
 
+    // Since we have real-time subscription that manages the list,
+    // we just trigger a refresh which will be handled by the subscription
     setState(prev => ({ ...prev, loading: true }));
 
-    try {
-      const service = createConversationService(tenantId);
-      const summaries = await service.getConversationSummaries(undefined, limit);
+    // Small delay to show loading state, then let the subscription update
+    setTimeout(() => {
+      setState(prev => ({ ...prev, loading: false, hasMore: false }));
+    }, 300);
+  }, [tenantId, state.hasMore, state.loading]);
 
-      setState(prev => ({
-        ...prev,
-        conversations: [...prev.conversations, ...summaries],
-        loading: false,
-        hasMore: summaries.length === limit,
-      }));
-    } catch (error) {
-      logger.error('Error loading more conversations', {
-        error: error instanceof Error ? error.message : 'Unknown error',
-      });
-
-      setState(prev => ({ ...prev, loading: false }));
-    }
-  }, [tenantId, limit, state.hasMore, state.loading]);
-
-  // Select conversation and load messages
+  // Select conversation - messages will be loaded by the realtime subscription
   const selectConversation = useCallback(async (conversationId: string) => {
     if (!tenantId) return;
 
     const conversation = state.conversations.find(c => c.id === conversationId);
     if (!conversation) return;
 
+    // Set selected conversation and loading state
+    // The useEffect with subscribeToMessages will automatically load messages
     setState(prev => ({
       ...prev,
       selectedConversation: conversation,
       loadingMessages: true,
-      messages: [],
+      messages: [], // Clear previous messages while loading
     }));
-
-    try {
-      const service = createConversationService(tenantId);
-      const messages = await service.getConversationMessages(conversationId, 100, 'asc');
-
-      setState(prev => ({
-        ...prev,
-        messages,
-        loadingMessages: false,
-      }));
-    } catch (error) {
-      logger.error('Error loading conversation messages', {
-        conversationId,
-        error: error instanceof Error ? error.message : 'Unknown error',
-      });
-
-      setState(prev => ({
-        ...prev,
-        loadingMessages: false,
-        error: 'Erro ao carregar mensagens',
-      }));
-    }
   }, [tenantId, state.conversations]);
 
   // Clear selection
@@ -271,7 +243,6 @@ export function useConversations({
     if (!tenantId || !state.selectedConversation?.id) return;
 
     const conversationId = state.selectedConversation.id;
-    let isFirstSnapshot = true;
 
     logger.info('🔥 [REALTIME] Setting up message listener', {
       tenantId: tenantId.substring(0, 8) + '***',
@@ -283,25 +254,16 @@ export function useConversations({
     const unsubscribe = service.subscribeToMessages(conversationId, (messages) => {
       logger.info('🔥 [REALTIME] Messages updated', {
         conversationId,
-        messageCount: messages.length,
-        isFirstSnapshot
+        messageCount: messages.length
       });
 
-      // Skip first snapshot if we already have messages loaded
-      if (isFirstSnapshot) {
-        isFirstSnapshot = false;
-        setState(prev => {
-          if (messages.length >= prev.messages.length) {
-            return { ...prev, messages };
-          }
-          return prev;
-        });
-      } else {
-        setState(prev => ({
-          ...prev,
-          messages,
-        }));
-      }
+      // Always update with the latest messages from the subscription
+      // The subscription is filtered by conversationId so we always get the correct messages
+      setState(prev => ({
+        ...prev,
+        messages,
+        loadingMessages: false,
+      }));
     });
 
     return () => {

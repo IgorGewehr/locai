@@ -73,22 +73,26 @@ export async function POST(req: NextRequest) {
     logger.info('[SEND-MANUAL] Buscando conversa', { phone, found: !!conversation });
 
     if (conversation) {
-      // Salvar mensagem
+      const now = new Date();
+
+      // Salvar mensagem no formato correto (sofiaMessage para mensagens enviadas pelo atendente/sistema)
       await services.messages.create({
         conversationId: conversation.id,
-        content: message,
-        type: 'text',
-        isFromAI: false,
-        isManual: true,
-        timestamp: new Date(),
         tenantId,
-      });
+        // Mensagem manual é tratada como sofiaMessage (mensagem do atendente/sistema)
+        clientMessage: null,
+        clientMessageTimestamp: null,
+        sofiaMessage: message,
+        sofiaMessageTimestamp: now,
+        createdAt: now,
+      } as any);
 
       // Atualizar lastMessage da conversa
       await services.conversations.update(conversation.id!, {
         lastMessage: message,
-        lastMessageAt: new Date(),
-      });
+        lastMessageAt: now,
+        updatedAt: now,
+      } as any);
     }
 
     return new NextResponse(JSON.stringify(data), { status: 200 });

@@ -43,28 +43,41 @@ export default function AIControlButton({ phone, conversationName }: AIControlBu
 
   // Verificar status atual do bloqueio
   useEffect(() => {
-    if (!tenantId || !phone) return;
+    if (!tenantId || !phone) {
+      setLoading(false);
+      return;
+    }
+
+    let isMounted = true;
 
     const checkStatus = async () => {
       try {
         const response = await fetch(`/api/ai/block-conversation?phone=${encodeURIComponent(phone)}`);
         const result = await response.json();
 
-        if (result.success) {
+        if (isMounted && result.success) {
           setBlocked(result.data.blocked || false);
           setBlockExpiry(result.data.expiresAt || null);
         }
       } catch (error) {
-        logger.error('Failed to check AI block status', { error });
+        if (isMounted) {
+          logger.error('Failed to check AI block status', { error });
+        }
       } finally {
-        setLoading(false);
+        if (isMounted) {
+          setLoading(false);
+        }
       }
     };
 
     checkStatus();
-    // Poll every 60 seconds to update expiry (reduced for performance)
-    const interval = setInterval(checkStatus, 60000);
-    return () => clearInterval(interval);
+    // Poll every 2 minutes to update expiry (reduced for better performance)
+    const interval = setInterval(checkStatus, 120000);
+
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
   }, [tenantId, phone]);
 
   // Alternar bloqueio
