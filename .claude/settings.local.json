@@ -131,7 +131,8 @@
       "WebFetch(domain:developers.facebook.com)",
       "WebFetch(domain:messengerbot.app)",
       "WebFetch(domain:elfsight.com)",
-      "WebFetch(domain:gist.github.com)"
+      "WebFetch(domain:gist.github.com)",
+      "Bash(NEXT_USE_TURBOPACK=0 npm run build:*)"
     ],
     "deny": [],
     "defaultMode": "acceptEdits",

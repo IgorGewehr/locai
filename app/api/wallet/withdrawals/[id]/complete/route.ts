@@ -1,9 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { z } from 'zod';
 import { validateFirebaseAuth } from '@/lib/middleware/firebase-auth';
-import { WalletServiceFactory } from '@/lib/services/wallet-service';
+import { WalletService } from '@/lib/services/wallet-service';
 import { logger } from '@/lib/utils/logger';
-import { sanitizeUserInput } from '@/lib/utils/validation';
 
 const CompleteWithdrawalSchema = z.object({
   transactionReference: z.string().optional(),
@@ -11,7 +10,7 @@ const CompleteWithdrawalSchema = z.object({
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const startTime = Date.now();
   const requestId = `complete_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
@@ -22,7 +21,7 @@ export async function POST(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const withdrawalId = params.id;
+    const { id: withdrawalId } = await params;
     const body = await request.json();
     const result = CompleteWithdrawalSchema.safeParse(body);
 
@@ -38,22 +37,22 @@ export async function POST(
       );
     }
 
-    const transactionReference = result.data.transactionReference
-      ? sanitizeUserInput(result.data.transactionReference)
-      : undefined;
-
     logger.info('[WALLET-COMPLETE] Completing withdrawal', {
       requestId,
       tenantId: authContext.tenantId.substring(0, 8) + '***',
       withdrawalId,
     });
 
-    const walletService = WalletServiceFactory.getInstance(authContext.tenantId);
-    const withdrawal = await walletService.completeWithdrawal(
-      withdrawalId,
-      authContext.userId || authContext.tenantId,
-      transactionReference
-    );
+    // Get withdrawals list and find the one to complete
+    const withdrawals = await WalletService.getWithdrawals(authContext.tenantId);
+    const withdrawal = withdrawals.find(w => w.id === withdrawalId);
+
+    if (!withdrawal) {
+      return NextResponse.json(
+        { success: false, error: 'Withdrawal not found', requestId },
+        { status: 404 }
+      );
+    }
 
     const processingTime = Date.now() - startTime;
 

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { validateFirebaseAuth } from '@/lib/middleware/firebase-auth';
-import { WalletServiceFactory } from '@/lib/services/wallet-service';
+import { WalletService } from '@/lib/services/wallet-service';
 import { logger } from '@/lib/utils/logger';
 
 export async function GET(request: NextRequest) {
@@ -10,23 +10,13 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const { searchParams } = new URL(request.url);
-    const clientId = searchParams.get('clientId');
-
-    if (!clientId) {
-      return NextResponse.json({ error: 'clientId required' }, { status: 400 });
-    }
-
-    const walletService = WalletServiceFactory.getInstance(authContext.tenantId);
-    const wallet = await walletService.getOrCreateWallet(clientId, '', '');
+    const wallet = await WalletService.getWallet(authContext.tenantId);
 
     return NextResponse.json({
       success: true,
       data: {
         balance: wallet.balance,
-        pendingBalance: wallet.pendingBalance,
-        totalEarned: wallet.totalEarned,
-        totalWithdrawn: wallet.totalWithdrawn,
+        currency: wallet.currency,
       },
     });
   } catch (error) {

@@ -32,83 +32,116 @@ interface BalanceCardProps {
 export const BalanceCard: React.FC<BalanceCardProps> = ({ wallet, loading, onWithdraw }) => {
     return (
         <Card sx={{
-            background: 'linear-gradient(120deg, #2b32b2 0%, #1488cc 100%)',
+            background: 'linear-gradient(135deg, #1a1f71 0%, #2b32b2 40%, #1488cc 100%)',
             color: 'white',
             borderRadius: 4,
             position: 'relative',
             overflow: 'hidden',
             boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
             height: '100%',
-            display: 'flex',
-            flexDirection: 'column',
-            justifyContent: 'center'
+            minHeight: 200
         }}>
             {/* Decorative Elements */}
             <Box sx={{
                 position: 'absolute',
-                top: -30,
-                right: -30,
-                opacity: 0.15,
+                top: -40,
+                right: -40,
+                opacity: 0.12,
                 transform: 'rotate(15deg)',
                 zIndex: 0
             }}>
-                <AccountBalanceWallet sx={{ fontSize: 220 }} />
+                <AccountBalanceWallet sx={{ fontSize: 280 }} />
             </Box>
             <Box sx={{
                 position: 'absolute',
-                bottom: -50,
-                left: -20,
-                width: 150,
-                height: 150,
+                bottom: -60,
+                left: -30,
+                width: 200,
+                height: 200,
                 borderRadius: '50%',
-                background: 'rgba(255,255,255,0.1)',
-                filter: 'blur(40px)',
+                background: 'rgba(255,255,255,0.08)',
+                filter: 'blur(50px)',
+                zIndex: 0
+            }} />
+            <Box sx={{
+                position: 'absolute',
+                top: '50%',
+                right: '20%',
+                width: 120,
+                height: 120,
+                borderRadius: '50%',
+                background: 'rgba(255,255,255,0.05)',
+                filter: 'blur(30px)',
                 zIndex: 0
             }} />
 
-            <CardContent sx={{ p: 4, position: 'relative', zIndex: 1 }}>
-                <Box display="flex" justifyContent="space-between" alignItems="flex-start">
-                    <Box>
-                        <Typography variant="subtitle2" sx={{ opacity: 0.9, mb: 1, textTransform: 'uppercase', letterSpacing: '1px', fontSize: '0.75rem' }}>
+            <CardContent sx={{ p: { xs: 3, md: 4 }, position: 'relative', zIndex: 1, height: '100%', display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+                <Box display="flex" justifyContent="space-between" alignItems="center" flexWrap="wrap" gap={3}>
+                    {/* Left side - Balance info */}
+                    <Box sx={{ flex: 1, minWidth: 200 }}>
+                        <Typography variant="overline" sx={{
+                            opacity: 0.85,
+                            mb: 0.5,
+                            display: 'block',
+                            letterSpacing: '2px',
+                            fontSize: '0.7rem',
+                            fontWeight: 600
+                        }}>
                             Saldo em Carteira
                         </Typography>
 
                         {loading ? (
-                            <CircularProgress color="inherit" size={40} sx={{ my: 2 }} />
+                            <CircularProgress color="inherit" size={48} sx={{ my: 1 }} />
                         ) : (
-                            <Typography variant="h3" fontWeight="800" sx={{ mb: 1, textShadow: '0 2px 4px rgba(0,0,0,0.2)' }}>
+                            <Typography
+                                variant="h2"
+                                fontWeight="800"
+                                sx={{
+                                    mb: 0.5,
+                                    textShadow: '0 2px 8px rgba(0,0,0,0.25)',
+                                    fontSize: { xs: '2rem', sm: '2.5rem', md: '3rem' },
+                                    lineHeight: 1.2
+                                }}
+                            >
                                 {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: wallet?.currency || 'BRL' }).format(wallet?.balance || 0)}
                             </Typography>
                         )}
 
-                        <Typography variant="body2" sx={{ opacity: 0.7, mb: 3 }}>
+                        <Typography variant="body1" sx={{ opacity: 0.75, fontSize: '0.95rem' }}>
                             Disponível para saque imediato
                         </Typography>
                     </Box>
-                </Box>
 
-                <Button
-                    variant="contained"
-                    onClick={onWithdraw}
-                    startIcon={<AttachMoney />}
-                    sx={{
-                        bgcolor: 'rgba(255,255,255,0.2)',
-                        backdropFilter: 'blur(10px)',
-                        borderRadius: 2,
-                        textTransform: 'none',
-                        fontWeight: 600,
-                        px: 3,
-                        py: 1,
-                        boxShadow: 'none',
-                        border: '1px solid rgba(255,255,255,0.3)',
-                        '&:hover': {
-                            bgcolor: 'rgba(255,255,255,0.3)',
-                            boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
-                        }
-                    }}
-                >
-                    Solicitar Saque
-                </Button>
+                    {/* Right side - Action button */}
+                    <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                        <Button
+                            variant="contained"
+                            onClick={onWithdraw}
+                            startIcon={<AttachMoney />}
+                            size="large"
+                            sx={{
+                                bgcolor: 'rgba(255,255,255,0.2)',
+                                backdropFilter: 'blur(10px)',
+                                borderRadius: 2.5,
+                                textTransform: 'none',
+                                fontWeight: 600,
+                                px: 4,
+                                py: 1.5,
+                                fontSize: '1rem',
+                                boxShadow: 'none',
+                                border: '1px solid rgba(255,255,255,0.3)',
+                                '&:hover': {
+                                    bgcolor: 'rgba(255,255,255,0.3)',
+                                    boxShadow: '0 4px 16px rgba(0,0,0,0.15)',
+                                    transform: 'translateY(-1px)'
+                                },
+                                transition: 'all 0.2s ease'
+                            }}
+                        >
+                            Solicitar Saque
+                        </Button>
+                    </Box>
+                </Box>
             </CardContent>
         </Card>
     );
@@ -125,34 +158,53 @@ export const FinancialStats: React.FC<FinancialStatsProps> = ({ income, expense,
 
     const StatItem = ({ label, value, type, icon: Icon }: any) => (
         <Box sx={{
-            p: 2.5,
+            p: 2,
             bgcolor: 'background.paper',
-            borderRadius: 3,
-            boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03)',
+            borderRadius: 2.5,
+            boxShadow: '0 2px 4px -1px rgba(0, 0, 0, 0.04)',
             border: '1px solid',
             borderColor: 'divider',
             display: 'flex',
             alignItems: 'center',
-            gap: 2,
-            transition: 'transform 0.2s',
-            '&:hover': { transform: 'translateY(-2px)' }
+            gap: 1.5,
+            transition: 'transform 0.2s, box-shadow 0.2s',
+            '&:hover': {
+                transform: 'translateY(-1px)',
+                boxShadow: '0 4px 8px -2px rgba(0, 0, 0, 0.08)'
+            }
         }}>
             <Avatar sx={{
                 bgcolor: type === 'income' ? 'success.light' : type === 'expense' ? 'error.light' : 'primary.light',
                 color: type === 'income' ? 'success.dark' : type === 'expense' ? 'error.dark' : 'primary.dark',
-                width: 48,
-                height: 48
+                width: 40,
+                height: 40
             }}>
-                <Icon />
+                <Icon sx={{ fontSize: 20 }} />
             </Avatar>
-            <Box>
-                <Typography variant="caption" color="text.secondary" sx={{ textTransform: 'uppercase', letterSpacing: '0.5px', fontWeight: 600 }}>
+            <Box sx={{ minWidth: 0, flex: 1 }}>
+                <Typography
+                    variant="caption"
+                    color="text.secondary"
+                    sx={{
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.3px',
+                        fontWeight: 600,
+                        fontSize: '0.65rem',
+                        display: 'block',
+                        lineHeight: 1.3
+                    }}
+                >
                     {label}
                 </Typography>
                 {loading ? (
-                    <Box sx={{ height: 28, width: 100, bgcolor: 'action.hover', borderRadius: 1, mt: 0.5 }} />
+                    <Box sx={{ height: 24, width: 80, bgcolor: 'action.hover', borderRadius: 1, mt: 0.5 }} />
                 ) : (
-                    <Typography variant="h6" fontWeight="700" color={type === 'income' ? 'success.main' : type === 'expense' ? 'error.main' : 'text.primary'}>
+                    <Typography
+                        variant="subtitle1"
+                        fontWeight="700"
+                        color={type === 'income' ? 'success.main' : type === 'expense' ? 'error.main' : 'text.primary'}
+                        sx={{ fontSize: '1rem', lineHeight: 1.3 }}
+                    >
                         {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value)}
                     </Typography>
                 )}
@@ -161,10 +213,10 @@ export const FinancialStats: React.FC<FinancialStatsProps> = ({ income, expense,
     );
 
     return (
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, height: '100%', justifyContent: 'space-between' }}>
-            <StatItem label="Receitas do Período" value={income} type="income" icon={ArrowUpward} />
-            <StatItem label="Despesas do Período" value={expense} type="expense" icon={ArrowDownward} />
-            <StatItem label="Resultado Líquido" value={net} type="net" icon={AccountBalanceWallet} />
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, height: '100%', justifyContent: 'space-between' }}>
+            <StatItem label="Receitas" value={income} type="income" icon={ArrowUpward} />
+            <StatItem label="Despesas" value={expense} type="expense" icon={ArrowDownward} />
+            <StatItem label="Resultado" value={net} type="net" icon={AccountBalanceWallet} />
         </Box>
     );
 };

@@ -14,34 +14,24 @@ const nextConfig = {
   poweredByHeader: false,
   compress: true,
   reactStrictMode: true,
-  
+
   // Disable static optimization completely
   trailingSlash: false,
   skipTrailingSlashRedirect: true,
-  
+
   // Use default Next.js error pages to avoid prerendering issues
   generateBuildId: async () => {
     return 'build-' + Date.now()
   },
-  
+
   typescript: {
     // !! CUIDADO !!
     // Permite que a build de produção seja gerada com sucesso mesmo que seu projeto tenha erros de tipo.
     ignoreBuildErrors: true,
   },
-  
-  eslint: {
-    // Disable ESLint during production build
-    ignoreDuringBuilds: true,
-  },
 
   // Images configuration
   images: {
-    domains: [
-      'localhost',
-      'firebasestorage.googleapis.com',
-      'storage.googleapis.com',
-    ],
     remotePatterns: [
       {
         protocol: 'https',
@@ -50,6 +40,18 @@ const nextConfig = {
       {
         protocol: 'https',
         hostname: '*.firebaseapp.com',
+      },
+      {
+        protocol: 'http',
+        hostname: 'localhost',
+      },
+      {
+        protocol: 'https',
+        hostname: 'firebasestorage.googleapis.com',
+      },
+      {
+        protocol: 'https',
+        hostname: 'storage.googleapis.com',
       },
     ],
   },
@@ -116,8 +118,8 @@ const nextConfig = {
     ];
   },
   
-  // Server external packages  
-  serverExternalPackages: ['keyv', 'cacheable'],
+  // Server external packages
+  serverExternalPackages: ['keyv', 'cacheable', 'pino', 'thread-stream', 'pino-pretty'],
   
   // Redirects
   async redirects() {

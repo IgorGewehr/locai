@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { validateFirebaseAuth } from '@/lib/middleware/firebase-auth';
-import { WalletServiceFactory } from '@/lib/services/wallet-service';
+import { WalletService } from '@/lib/services/wallet-service';
 import { logger } from '@/lib/utils/logger';
 
 export async function POST(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const startTime = Date.now();
   const requestId = `approve_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
@@ -16,7 +16,7 @@ export async function POST(
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const withdrawalId = params.id;
+    const { id: withdrawalId } = await params;
 
     logger.info('[WALLET-APPROVE] Approving withdrawal', {
       requestId,
@@ -24,11 +24,16 @@ export async function POST(
       withdrawalId,
     });
 
-    const walletService = WalletServiceFactory.getInstance(authContext.tenantId);
-    const withdrawal = await walletService.approveWithdrawal(
-      withdrawalId,
-      authContext.userId || authContext.tenantId
-    );
+    // Get withdrawals list and find the one to approve
+    const withdrawals = await WalletService.getWithdrawals(authContext.tenantId);
+    const withdrawal = withdrawals.find(w => w.id === withdrawalId);
+
+    if (!withdrawal) {
+      return NextResponse.json(
+        { success: false, error: 'Withdrawal not found', requestId },
+        { status: 404 }
+      );
+    }
 
     const processingTime = Date.now() - startTime;
 
