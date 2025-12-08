@@ -5670,6 +5670,8 @@ export async function getPolicies(args: GetPoliciesArgs, tenantId: string) {
 
     // ✅ PRIORIDADE 1: Buscar de config/policies (onde a UI salva)
     let cancellationPolicyFromConfig: any = null;
+    let termsAndConditionsFromConfig: string | null = null;
+    let privacyPolicyFromConfig: string | null = null;
     try {
       const { db } = await import('@/lib/firebase/config');
       const { doc, getDoc } = await import('firebase/firestore');
@@ -5679,7 +5681,13 @@ export async function getPolicies(args: GetPoliciesArgs, tenantId: string) {
       if (policiesDoc.exists()) {
         const data = policiesDoc.data();
         cancellationPolicyFromConfig = data?.cancellationPolicy;
-        logger.info('📋 [GetPolicies] Política carregada de config/policies', { tenantId });
+        termsAndConditionsFromConfig = data?.termsAndConditions || null;
+        privacyPolicyFromConfig = data?.privacyPolicy || null;
+        logger.info('📋 [GetPolicies] Política carregada de config/policies', {
+          tenantId,
+          hasTerms: !!termsAndConditionsFromConfig,
+          hasPrivacy: !!privacyPolicyFromConfig
+        });
       }
     } catch (configError) {
       logger.warn('📋 [GetPolicies] Erro ao buscar de config/policies, usando fallback', {
@@ -5788,6 +5796,24 @@ export async function getPolicies(args: GetPoliciesArgs, tenantId: string) {
           'Visitantes devem ser informados previamente',
           'Multa de R$ 500 por violação das regras'
         ]
+      },
+      termsAndConditions: termsAndConditionsFromConfig ? {
+        title: 'Termos e Condições',
+        content: termsAndConditionsFromConfig,
+        hasContent: true
+      } : {
+        title: 'Termos e Condições',
+        content: null,
+        hasContent: false
+      },
+      privacyPolicy: privacyPolicyFromConfig ? {
+        title: 'Política de Privacidade',
+        content: privacyPolicyFromConfig,
+        hasContent: true
+      } : {
+        title: 'Política de Privacidade',
+        content: null,
+        hasContent: false
       }
     };
 
@@ -5814,8 +5840,10 @@ export async function getPolicies(args: GetPoliciesArgs, tenantId: string) {
         message: 'Políticas recuperadas com sucesso',
         // Metadados adicionais para Sofia AI
         metadata: {
-          hasCancellationPolicy: !!tenantSettings?.cancellationPolicy,
+          hasCancellationPolicy: !!cancellationPolicyFromConfig || !!tenantSettings?.cancellationPolicy,
           cancellationEnabled: cancellationDetails?.enabled ?? true,
+          hasTermsAndConditions: !!termsAndConditionsFromConfig,
+          hasPrivacyPolicy: !!privacyPolicyFromConfig,
           lastUpdated: tenantSettings?.cancellationPolicy?.updatedAt || tenantSettings?.updatedAt
         }
       },

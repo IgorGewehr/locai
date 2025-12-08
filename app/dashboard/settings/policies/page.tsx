@@ -2,9 +2,8 @@
  * POLICIES SETTINGS PAGE
  *
  * Manages cancellation policies, terms and conditions
- * Uses existing CancellationPolicyEditor component
+ * Uses CancellationPolicyEditor component
  *
- * @version 2.0.0
  */
 
 'use client';
