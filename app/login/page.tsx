@@ -832,7 +832,7 @@ export default function LoginPage() {
                                 inputRef={ref}
                                 error={!!registerForm.formState.errors.phone}
                                 helperText={registerForm.formState.errors.phone?.message}
-                                placeholder="(47) 9 9785-6405"
+                                placeholder="(00) 0 0000-0000"
                                 InputProps={{
                                   startAdornment: (
                                     <InputAdornment position="start">

@@ -132,7 +132,8 @@
       "WebFetch(domain:messengerbot.app)",
       "WebFetch(domain:elfsight.com)",
       "WebFetch(domain:gist.github.com)",
-      "Bash(NEXT_USE_TURBOPACK=0 npm run build:*)"
+      "Bash(NEXT_USE_TURBOPACK=0 npm run build:*)",
+      "WebFetch(domain:docs.abacatepay.com)"
     ],
     "deny": [],
     "defaultMode": "acceptEdits",
