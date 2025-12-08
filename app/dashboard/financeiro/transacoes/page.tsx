@@ -214,7 +214,15 @@ export default function TransactionsPage() {
       console.log('Loading transactions...');
       const transactionData = await services.transactions.getAll();
       console.log('Transaction data:', transactionData);
-      setTransactions(transactionData);
+
+      // Sort by date descending (newest first)
+      const sortedTransactions = [...transactionData].sort((a, b) => {
+        const dateA = a.date instanceof Date ? a.date : new Date((a.date as any).seconds * 1000);
+        const dateB = b.date instanceof Date ? b.date : new Date((b.date as any).seconds * 1000);
+        return dateB.getTime() - dateA.getTime();
+      });
+
+      setTransactions(sortedTransactions);
 
       // Load wallet data
       if (services.tenantId) {
@@ -1139,7 +1147,6 @@ export default function TransactionsPage() {
           handleCreateTransaction,
           (errors) => {
             console.log('=== VALIDATION ERRORS ===');
-            console.log('Errors:', errors);
             setSnackbar({
               open: true,
               message: `Erro de validação: ${Object.values(errors).map((e: any) => e.message).join(', ')}`,
@@ -1147,6 +1154,11 @@ export default function TransactionsPage() {
             });
           }
         )}>
+          {/* Intercept Enter key to prevent premature submission */}
+          <button type="submit" disabled style={{ display: 'none' }} aria-hidden="true"></button>
+          {/* Intercept Enter key to prevent premature submission */}
+          <button type="submit" disabled style={{ display: 'none' }} aria-hidden="true"></button>
+
           <DialogContent sx={{ px: 3, py: 0 }}>
             <Stepper activeStep={activeStep} orientation="horizontal" sx={{ mb: 4 }}>
               {steps.map((label) => (
@@ -1569,7 +1581,8 @@ export default function TransactionsPage() {
 
             {activeStep === steps.length - 1 ? (
               <Button
-                type="submit"
+                type="button" // Use type="button" and explicit onClick for final submit to avoid form confusion
+                onClick={handleSubmit(handleCreateTransaction)}
                 variant="contained"
                 disabled={isSubmitting}
                 startIcon={<Save />}
@@ -1581,6 +1594,7 @@ export default function TransactionsPage() {
               <Button
                 variant="contained"
                 onClick={handleNext}
+                type="button" // Distinctly type="button"
                 endIcon={<ArrowForward />}
                 sx={{ minWidth: 120 }}
               >
@@ -1691,6 +1705,6 @@ export default function TransactionsPage() {
           {snackbar.message}
         </Alert>
       </Snackbar>
-    </Box>
+    </Box >
   );
 }

@@ -277,7 +277,7 @@ export class MultiTenantFirestoreService<T extends { id?: string }> {
    */
   async get(id: string): Promise<T | null> {
     const docSnap = await getDoc(this.getDocRef(id));
-    
+
     if (docSnap.exists()) {
       return { id: docSnap.id, ...docSnap.data() } as T;
     }
@@ -324,11 +324,11 @@ export class MultiTenantFirestoreService<T extends { id?: string }> {
     limitCount?: number
   ): Promise<T[]> {
     let q = query(this.getCollectionRef(), where(field, operator, value));
-    
+
     if (orderByField) {
       q = query(q, orderBy(orderByField, 'desc'));
     }
-    
+
     if (limitCount) {
       q = query(q, limit(limitCount));
     }
@@ -353,22 +353,22 @@ export class MultiTenantFirestoreService<T extends { id?: string }> {
     }
   ): Promise<T[]> {
     let constraints: any[] = filters.map(f => where(f.field, f.operator, f.value));
-    
+
     if (options?.orderBy) {
       constraints.push(orderBy(options.orderBy, options.orderDirection || 'asc'));
     }
-    
+
     if (options?.limit) {
       constraints.push(limit(options.limit));
     }
-    
+
     if (options?.startAfter) {
       constraints.push(startAfter(options.startAfter));
     }
 
     const q = query(this.getCollectionRef(), ...constraints);
     const querySnapshot = await getDocs(q);
-    
+
     return querySnapshot.docs.map(doc => ({
       id: doc.id,
       ...doc.data(),
@@ -387,10 +387,10 @@ export class MultiTenantFirestoreService<T extends { id?: string }> {
     }
   ): Promise<T[]> {
     const startTime = Date.now();
-    
+
     // Optimize the query using query optimizer
     const optimizedQuery = queryOptimizer.optimizeQuery(filters, options);
-    
+
     logger.info('Executing optimized query', {
       tenantId: this.tenantId,
       collection: this.collectionName,
@@ -401,24 +401,24 @@ export class MultiTenantFirestoreService<T extends { id?: string }> {
 
     // Build Firestore constraints from optimized filters
     let constraints: any[] = optimizedQuery.filters.map(f => where(f.field, f.operator, f.value));
-    
+
     if (optimizedQuery.orderBy) {
       optimizedQuery.orderBy.forEach(orderByClause => {
         constraints.push(orderBy(orderByClause.field, orderByClause.direction));
       });
     }
-    
+
     if (optimizedQuery.limit) {
       constraints.push(limit(optimizedQuery.limit));
     }
-    
+
     if (options?.startAfter) {
       constraints.push(startAfter(options.startAfter));
     }
 
     const q = query(this.getCollectionRef(), ...constraints);
     const querySnapshot = await getDocs(q);
-    
+
     const results = querySnapshot.docs.map(doc => ({
       id: doc.id,
       ...doc.data(),
@@ -441,15 +441,15 @@ export class MultiTenantFirestoreService<T extends { id?: string }> {
    */
   async count(filters?: Array<{ field: string; operator: any; value: any }>): Promise<number> {
     let constraints: any[] = [];
-    
+
     if (filters) {
       constraints = filters.map(f => where(f.field, f.operator, f.value));
     }
 
-    const q = constraints.length > 0 
+    const q = constraints.length > 0
       ? query(this.getCollectionRef(), ...constraints)
       : this.getCollectionRef();
-      
+
     const querySnapshot = await getDocs(q);
     return querySnapshot.size;
   }
@@ -459,7 +459,7 @@ export class MultiTenantFirestoreService<T extends { id?: string }> {
    */
   onSnapshot(callback: (data: T[]) => void, constraints?: any[]): () => void {
     let q = this.getCollectionRef() as any;
-    
+
     if (constraints?.length) {
       q = query(q, ...constraints);
     }
@@ -478,7 +478,7 @@ export class MultiTenantFirestoreService<T extends { id?: string }> {
    */
   subscribeToDocument(id: string, callback: (data: T | null) => void): () => void {
     const docRef = this.getDocRef(id);
-    
+
     return onSnapshot(docRef, (snapshot: DocumentSnapshot) => {
       if (snapshot.exists()) {
         const data = {
@@ -497,7 +497,7 @@ export class MultiTenantFirestoreService<T extends { id?: string }> {
    */
   async batchCreate(items: Array<Omit<T, 'id'>>): Promise<void> {
     const batch = writeBatch(db);
-    
+
     items.forEach(item => {
       const docRef = doc(this.getCollectionRef());
       batch.set(docRef, {
@@ -518,11 +518,11 @@ export class MultiTenantFirestoreService<T extends { id?: string }> {
     if (obj === null || obj === undefined) {
       return null;
     }
-    
+
     if (Array.isArray(obj)) {
       return obj.map(item => this.filterUndefinedValues(item));
     }
-    
+
     if (typeof obj === 'object' && obj.constructor === Object) {
       const filtered: any = {};
       for (const [key, value] of Object.entries(obj)) {
@@ -532,7 +532,7 @@ export class MultiTenantFirestoreService<T extends { id?: string }> {
       }
       return filtered;
     }
-    
+
     return obj;
   }
 }
@@ -541,7 +541,7 @@ export class MultiTenantFirestoreService<T extends { id?: string }> {
  * Factory function to create a multi-tenant service
  */
 export function createMultiTenantService<T extends { id?: string }>(
-  tenantId: string, 
+  tenantId: string,
   collectionName: string
 ): MultiTenantFirestoreService<T> {
   return new MultiTenantFirestoreService<T>(tenantId, collectionName);
@@ -551,7 +551,7 @@ export function createMultiTenantService<T extends { id?: string }>(
  * Service factory for all collections
  */
 export class TenantServiceFactory {
-  private tenantId: string;
+  readonly tenantId: string;
 
   constructor(tenantId: string) {
     this.tenantId = tenantId;
@@ -725,7 +725,7 @@ export class TenantServiceFactory {
     return this.createService('audit_logs');
   }
 
-  get requestLogs() {    
+  get requestLogs() {
     return this.createService('request_logs');
   }
 
