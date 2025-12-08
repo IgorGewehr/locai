@@ -88,6 +88,9 @@ import {
   Edit,
 } from '@mui/icons-material';
 import { Transaction, Client, Property, Reservation } from '@/lib/types';
+import { Wallet } from '@/lib/types/financial-wallet';
+import { WalletService } from '@/lib/services/wallet-service';
+import { BalanceCard, FinancialStats } from '@/components/organisms/financeiro/WalletComponents';
 import { useTenantServices } from '@/lib/hooks/useTenantServices';
 import { useForm, Controller } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
@@ -105,33 +108,40 @@ export default function TransactionsPage() {
   const [filterStatus, setFilterStatus] = useState('all');
   const [page, setPage] = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(10);
-  
+
   // Detail data
   const [relatedClient, setRelatedClient] = useState<Client | null>(null);
   const [relatedProperty, setRelatedProperty] = useState<Property | null>(null);
   const [relatedReservation, setRelatedReservation] = useState<Reservation | null>(null);
-  
+
   // New transaction dialog
   const [newTransactionOpen, setNewTransactionOpen] = useState(false);
   const [activeStep, setActiveStep] = useState(0);
   const [transactionType, setTransactionType] = useState<'income' | 'expense'>('income');
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
   const [isEditMode, setIsEditMode] = useState(false);
-  
+
   // Snackbar state
-  const [snackbar, setSnackbar] = useState<{open: boolean, message: string, severity: 'success' | 'error'}>({
+  const [snackbar, setSnackbar] = useState<{ open: boolean, message: string, severity: 'success' | 'error' }>({
     open: false,
     message: '',
     severity: 'success'
   });
-  
+
   // Client and reservation data
   const [allClients, setAllClients] = useState<Client[]>([]);
   const [allReservations, setAllReservations] = useState<Reservation[]>([]);
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
   const [selectedReservation, setSelectedReservation] = useState<Reservation | null>(null);
   const [filteredReservations, setFilteredReservations] = useState<Reservation[]>([]);
-  
+
+  // Wallet state
+  const [wallet, setWallet] = useState<Wallet | null>(null);
+  const [withdrawOpen, setWithdrawOpen] = useState(false);
+  const [withdrawAmount, setWithdrawAmount] = useState('');
+  const [withdrawPixKey, setWithdrawPixKey] = useState('');
+  const [withdrawLoading, setWithdrawLoading] = useState(false);
+
   // Transaction form validation schema
   const transactionSchema = yup.object().shape({
     description: yup.string().required('Descrição é obrigatória'),
@@ -149,9 +159,9 @@ export default function TransactionsPage() {
   // Função para formatar data de forma segura
   const formatSafeDate = (date: any): string => {
     if (!date) return 'Data inválida';
-    
+
     let dateObj: Date;
-    
+
     if (date instanceof Date) {
       dateObj = date;
     } else if (typeof date === 'string') {
@@ -165,14 +175,14 @@ export default function TransactionsPage() {
     } else {
       dateObj = new Date(date);
     }
-    
+
     if (!isValid(dateObj)) {
       return 'Data inválida';
     }
-    
+
     return format(dateObj, 'dd/MM/yyyy');
   };
-  
+
   // Form setup
   const {
     control,
@@ -198,13 +208,19 @@ export default function TransactionsPage() {
 
   const loadTransactions = async () => {
     if (!services || !isReady) return;
-    
+
     try {
       setLoading(true);
       console.log('Loading transactions...');
       const transactionData = await services.transactions.getAll();
       console.log('Transaction data:', transactionData);
       setTransactions(transactionData);
+
+      // Load wallet data
+      if (services.tenantId) {
+        const walletData = await WalletService.getWallet(services.tenantId);
+        setWallet(walletData);
+      }
     } catch (error) {
       console.error('Error loading transactions:', error);
     } finally {
@@ -214,7 +230,7 @@ export default function TransactionsPage() {
 
   const loadTransactionDetails = async (transaction: Transaction) => {
     if (!services) return;
-    
+
     setSelectedTransaction(transaction);
     setRelatedClient(null);
     setRelatedProperty(null);
@@ -523,7 +539,7 @@ export default function TransactionsPage() {
 
   const handleClientSelection = (client: Client | null) => {
     setSelectedClient(client);
-    
+
     if (client) {
       // Filter reservations by selected client
       const clientReservations = allReservations.filter(r => r.clientId === client.id);
@@ -586,7 +602,7 @@ export default function TransactionsPage() {
 
   const loadClients = async () => {
     if (!services) return;
-    
+
     try {
       const clientsData = await services.clients.getAll();
       setAllClients(clientsData);
@@ -597,7 +613,7 @@ export default function TransactionsPage() {
 
   const loadReservations = async () => {
     if (!services) return;
-    
+
     try {
       const reservationsData = await services.reservations.getAll();
       setAllReservations(reservationsData);
@@ -682,19 +698,31 @@ export default function TransactionsPage() {
     }
   };
 
+  // Calculate stats from visible transactions
+  const stats = transactions.reduce((acc, curr) => {
+    if (curr.status === 'cancelled' || curr.status === 'failed' || curr.status === 'refunded') return acc;
+
+    if (curr.type === 'income') {
+      acc.income += curr.amount;
+    } else {
+      acc.expense += curr.amount;
+    }
+    return acc;
+  }, { income: 0, expense: 0 });
+
   return (
-    <Box>
+    <Box sx={{ p: 2 }}>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 4 }}>
         <Box>
-          <Typography variant="h4" component="h1" fontWeight={600}>
-            Transações
+          <Typography variant="h4" component="h1" fontWeight={700} sx={{ letterSpacing: '-0.5px' }}>
+            Financeiro
           </Typography>
           <Typography variant="subtitle1" color="text.secondary">
-            Gerenciar todas as receitas e despesas
+            Visão geral e controle de transações
           </Typography>
         </Box>
         <Stack direction="row" spacing={2}>
-          <IconButton onClick={loadTransactions} disabled={loading}>
+          <IconButton onClick={loadTransactions} disabled={loading} sx={{ bgcolor: 'background.paper', boxShadow: 1 }}>
             <Refresh />
           </IconButton>
           <ModernButton
@@ -708,8 +736,31 @@ export default function TransactionsPage() {
         </Stack>
       </Box>
 
+      {/* Financial Overview Section */}
+      <Box sx={{ mb: 5 }}>
+        <Grid container spacing={3}>
+          {/* Wallet Card - Prominent */}
+          <Grid item xs={12} md={7} lg={8}>
+            <BalanceCard
+              wallet={wallet}
+              loading={loading}
+              onWithdraw={() => setWithdrawOpen(true)}
+            />
+          </Grid>
+
+          {/* Stats Cards - Compact */}
+          <Grid item xs={12} md={5} lg={4}>
+            <FinancialStats
+              income={stats.income}
+              expense={stats.expense}
+              loading={loading}
+            />
+          </Grid>
+        </Grid>
+      </Box>
+
       {/* Filters */}
-      <Card sx={{ mb: 3 }}>
+      <Card sx={{ mb: 3, borderRadius: 3, boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)' }}>
         <CardContent>
           <Stack direction="row" spacing={2} alignItems="center">
             <FilterList color="action" />
@@ -808,75 +859,57 @@ export default function TransactionsPage() {
                         )}
                       </Box>
                     </TableCell>
-                    <TableCell>{getCategoryLabel(transaction.category)}</TableCell>
+                    <TableCell>
+                      <Stack direction="row" spacing={1} alignItems="center">
+                        {getCategoryIcon(transaction.category)}
+                        <Typography variant="body2">
+                          {getCategoryLabel(transaction.category)}
+                        </Typography>
+                      </Stack>
+                    </TableCell>
                     <TableCell>
                       <Chip
+                        icon={transaction.type === 'income' ? <TrendingUp /> : <TrendingDown />}
                         label={transaction.type === 'income' ? 'Receita' : 'Despesa'}
                         color={transaction.type === 'income' ? 'success' : 'error'}
-                        variant="outlined"
                         size="small"
+                        variant="soft"
                       />
                     </TableCell>
                     <TableCell align="right">
                       <Typography
-                        variant="subtitle2"
-                        color={transaction.type === 'income' ? 'success.main' : 'error.main'}
+                        variant="body2"
                         fontWeight={600}
+                        color={transaction.type === 'income' ? 'success.main' : 'error.main'}
                       >
-                        {transaction.type === 'income' ? '+' : '-'}R$ {(transaction.amount || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                        {transaction.type === 'income' ? '+' : '-'}
+                        {new Intl.NumberFormat('pt-BR', {
+                          style: 'currency',
+                          currency: 'BRL'
+                        }).format(transaction.amount)}
                       </Typography>
                     </TableCell>
                     <TableCell>
                       <Chip
                         label={getStatusLabel(transaction.status)}
                         color={getStatusColor(transaction.status) as any}
-                        variant="outlined"
                         size="small"
+                        icon={getStatusIcon(transaction.status)}
                       />
                     </TableCell>
                     <TableCell align="center">
-                      <Box sx={{ display: 'flex', gap: 0.5, justifyContent: 'center' }}>
-                        <Tooltip title="Editar transação">
-                          <IconButton
-                            size="small"
-                            onClick={() => handleEditTransaction(transaction)}
-                            sx={{
-                              color: 'primary.main',
-                              '&:hover': {
-                                bgcolor: 'primary.light',
-                                color: 'primary.dark',
-                              }
-                            }}
-                          >
-                            <Edit sx={{ fontSize: 18 }} />
-                          </IconButton>
-                        </Tooltip>
-                        <Tooltip title="Ver detalhes">
-                          <IconButton
-                            size="small"
-                            onClick={() => router.push(`/dashboard/financeiro/transacoes/${transaction.id}`)}
-                          >
-                            <Visibility />
-                          </IconButton>
-                        </Tooltip>
-                        {transaction.clientId && (
-                          <Tooltip title="Ver detalhes e conversas">
-                            <IconButton
-                              size="small"
-                              onClick={() => router.push(`/dashboard/financeiro/transacoes/${transaction.id}`)}
-                              sx={{
-                                bgcolor: 'success.main',
-                                color: 'white',
-                                '&:hover': {
-                                  bgcolor: 'success.dark',
-                                }
-                              }}
-                            >
-                              <WhatsApp sx={{ fontSize: 18 }} />
-                            </IconButton>
-                          </Tooltip>
-                        )}
-                      </Box>
+                      <IconButton
+                        size="small"
+                        onClick={() => loadTransactionDetails(transaction)}
+                      >
+                        <Visibility fontSize="small" />
+                      </IconButton>
+                      <IconButton
+                        size="small"
+                        onClick={() => handleEditTransaction(transaction)}
+                      >
+                        <Edit fontSize="small" />
+                      </IconButton>
                     </TableCell>
                   </TableRow>
                 ))
@@ -885,11 +918,12 @@ export default function TransactionsPage() {
           </Table>
         </TableContainer>
         <TablePagination
+          rowsPerPageOptions={[5, 10, 25]}
           component="div"
           count={filteredTransactions.length}
-          page={page}
-          onPageChange={(_, newPage) => setPage(newPage)}
           rowsPerPage={rowsPerPage}
+          page={page}
+          onPageChange={(e, newPage) => setPage(newPage)}
           onRowsPerPageChange={(e) => {
             setRowsPerPage(parseInt(e.target.value, 10));
             setPage(0);
@@ -930,8 +964,8 @@ export default function TransactionsPage() {
                   </Box>
                   <Box sx={{ display: 'flex', justifyContent: 'space-between' }}>
                     <Typography variant="body2" color="text.secondary">Valor:</Typography>
-                    <Typography 
-                      variant="body2" 
+                    <Typography
+                      variant="body2"
                       fontWeight={600}
                       color={selectedTransaction.type === 'income' ? 'success.main' : 'error.main'}
                     >
@@ -1100,7 +1134,7 @@ export default function TransactionsPage() {
             </IconButton>
           </Box>
         </DialogTitle>
-        
+
         <form onSubmit={handleSubmit(
           handleCreateTransaction,
           (errors) => {
@@ -1128,8 +1162,8 @@ export default function TransactionsPage() {
                 {activeStep === 0 && (
                   <Stack spacing={4}>
                     {/* Type Selection with Toggle */}
-                    <Paper elevation={0} sx={{ 
-                      p: 3, 
+                    <Paper elevation={0} sx={{
+                      p: 3,
                       bgcolor: 'rgba(255, 255, 255, 0.08)',
                       backdropFilter: 'blur(20px)',
                       border: '1px solid rgba(255, 255, 255, 0.15)',
@@ -1144,10 +1178,10 @@ export default function TransactionsPage() {
                           value={transactionType}
                           exclusive
                           onChange={(_, value) => value && handleTypeChange(value)}
-                          sx={{ 
-                            '& .MuiToggleButton-root': { 
-                              px: 4, 
-                              py: 1.5, 
+                          sx={{
+                            '& .MuiToggleButton-root': {
+                              px: 4,
+                              py: 1.5,
                               borderRadius: 2,
                               border: '2px solid',
                               minWidth: 150,
@@ -1190,7 +1224,7 @@ export default function TransactionsPage() {
                           )}
                         />
                       </Grid>
-                      
+
                       <Grid item xs={12} md={6}>
                         <Controller
                           name="amount"
@@ -1223,8 +1257,8 @@ export default function TransactionsPage() {
                           render={({ field }) => (
                             <FormControl fullWidth error={!!errors.status}>
                               <InputLabel>Status</InputLabel>
-                              <Select 
-                                {...field} 
+                              <Select
+                                {...field}
                                 label="Status"
                                 renderValue={(selected) => (
                                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -1266,7 +1300,7 @@ export default function TransactionsPage() {
                     <Typography variant="h6" gutterBottom>
                       Categoria e Método de Pagamento
                     </Typography>
-                    
+
                     <Grid container spacing={3}>
                       <Grid item xs={12} md={6}>
                         <Controller
@@ -1275,8 +1309,8 @@ export default function TransactionsPage() {
                           render={({ field }) => (
                             <FormControl fullWidth error={!!errors.category}>
                               <InputLabel>Categoria</InputLabel>
-                              <Select 
-                                {...field} 
+                              <Select
+                                {...field}
                                 label="Categoria"
                                 renderValue={(selected) => (
                                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -1299,7 +1333,7 @@ export default function TransactionsPage() {
                           )}
                         />
                       </Grid>
-                      
+
                       <Grid item xs={12} md={6}>
                         <Controller
                           name="paymentMethod"
@@ -1307,8 +1341,8 @@ export default function TransactionsPage() {
                           render={({ field }) => (
                             <FormControl fullWidth error={!!errors.paymentMethod}>
                               <InputLabel>Método de Pagamento</InputLabel>
-                              <Select 
-                                {...field} 
+                              <Select
+                                {...field}
                                 label="Método de Pagamento"
                                 renderValue={(selected) => (
                                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -1341,7 +1375,7 @@ export default function TransactionsPage() {
                     <Typography variant="h6" gutterBottom>
                       Associações e Observações
                     </Typography>
-                    
+
                     {/* Client Selection */}
                     <Controller
                       name="clientId"
@@ -1391,7 +1425,7 @@ export default function TransactionsPage() {
                         />
                       )}
                     />
-                    
+
                     {/* Reservation Selection */}
                     <Controller
                       name="reservationId"
@@ -1424,7 +1458,7 @@ export default function TransactionsPage() {
                               label="Reserva Relacionada (opcional)"
                               placeholder="Selecione uma reserva"
                               helperText={
-                                selectedClient 
+                                selectedClient
                                   ? `${filteredReservations.length} reserva(s) encontrada(s) para este cliente`
                                   : "Selecione um cliente para filtrar as reservas"
                               }
@@ -1476,7 +1510,7 @@ export default function TransactionsPage() {
                         />
                       )}
                     />
-                    
+
                     {selectedReservation && (
                       <Alert severity="info" sx={{ borderRadius: 2 }}>
                         <Typography variant="body2">
@@ -1484,7 +1518,7 @@ export default function TransactionsPage() {
                         </Typography>
                       </Alert>
                     )}
-                    
+
                     <Controller
                       name="notes"
                       control={control}
@@ -1501,7 +1535,7 @@ export default function TransactionsPage() {
                         />
                       )}
                     />
-                    
+
                     {/* Hidden fields for IDs */}
                     <Controller
                       name="propertyId"
@@ -1515,16 +1549,16 @@ export default function TransactionsPage() {
               </Box>
             </Fade>
           </DialogContent>
-          
+
           <DialogActions sx={{ px: 3, py: 2, gap: 1 }}>
-            <Button 
-              onClick={handleCloseNewTransaction} 
+            <Button
+              onClick={handleCloseNewTransaction}
               startIcon={<Close />}
               sx={{ mr: 'auto' }}
             >
               Cancelar
             </Button>
-            
+
             <Button
               disabled={activeStep === 0}
               onClick={handleBack}
@@ -1532,7 +1566,7 @@ export default function TransactionsPage() {
             >
               Voltar
             </Button>
-            
+
             {activeStep === steps.length - 1 ? (
               <Button
                 type="submit"
@@ -1544,8 +1578,8 @@ export default function TransactionsPage() {
                 {isSubmitting ? 'Salvando...' : (isEditMode ? 'Atualizar Transação' : 'Criar Transação')}
               </Button>
             ) : (
-              <Button 
-                variant="contained" 
+              <Button
+                variant="contained"
                 onClick={handleNext}
                 endIcon={<ArrowForward />}
                 sx={{ minWidth: 120 }}
@@ -1556,7 +1590,92 @@ export default function TransactionsPage() {
           </DialogActions>
         </form>
       </Dialog>
-      
+
+      {/* Dialog de Saque */}
+      <Dialog open={withdrawOpen} onClose={() => !withdrawLoading && setWithdrawOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>Solicitar Saque</DialogTitle>
+        <DialogContent>
+          <Box pt={1}>
+            <Typography variant="body2" color="text.secondary" paragraph>
+              O valor será transferido para a chave PIX informada em até 1 dia útil.
+            </Typography>
+
+            <TextField
+              fullWidth
+              label="Valor do Saque"
+              value={withdrawAmount}
+              onChange={(e) => setWithdrawAmount(e.target.value)}
+              type="number"
+              sx={{ mb: 2 }}
+              InputProps={{
+                startAdornment: <InputAdornment position="start">R$</InputAdornment>,
+              }}
+            />
+
+            <TextField
+              fullWidth
+              label="Chave PIX"
+              value={withdrawPixKey}
+              onChange={(e) => setWithdrawPixKey(e.target.value)}
+              placeholder="CPF, Email, Telefone ou Aleatória"
+            />
+          </Box>
+        </DialogContent>
+        <DialogActions sx={{ p: 2.5 }}>
+          <Button onClick={() => setWithdrawOpen(false)} disabled={withdrawLoading}>
+            Cancelar
+          </Button>
+          <Button
+            variant="contained"
+            onClick={async () => {
+              if (!services?.tenantId || !wallet) return;
+
+              const amount = parseFloat(withdrawAmount.replace(',', '.'));
+
+              if (isNaN(amount) || amount <= 0) {
+                setSnackbar({ open: true, message: 'Valor inválido', severity: 'error' });
+                return;
+              }
+
+              if (amount > wallet.balance) {
+                setSnackbar({ open: true, message: 'Saldo insuficiente', severity: 'error' });
+                return;
+              }
+
+              if (!withdrawPixKey) {
+                setSnackbar({ open: true, message: 'Chave PIX é obrigatória', severity: 'error' });
+                return;
+              }
+
+              try {
+                setWithdrawLoading(true);
+
+                await WalletService.requestWithdrawal(services.tenantId, amount, {
+                  pixKey: withdrawPixKey
+                });
+
+                setSnackbar({ open: true, message: 'Solicitação de saque realizada com sucesso!', severity: 'success' });
+                setWithdrawOpen(false);
+                setWithdrawAmount('');
+                setWithdrawPixKey('');
+
+                // Recarregar dados
+                loadTransactions();
+
+              } catch (err) {
+                console.error('Erro no saque:', err);
+                setSnackbar({ open: true, message: err instanceof Error ? err.message : 'Erro ao solicitar saque', severity: 'error' });
+              } finally {
+                setWithdrawLoading(false);
+              }
+            }}
+            disabled={withdrawLoading}
+          >
+            {withdrawLoading ? 'Processando...' : 'Confirmar Saque'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
       {/* Success/Error Snackbar */}
       <Snackbar
         open={snackbar.open}
@@ -1564,7 +1683,7 @@ export default function TransactionsPage() {
         onClose={() => setSnackbar(prev => ({ ...prev, open: false }))}
         anchorOrigin={{ vertical: 'top', horizontal: 'center' }}
       >
-        <Alert 
+        <Alert
           onClose={() => setSnackbar(prev => ({ ...prev, open: false }))}
           severity={snackbar.severity}
           sx={{ width: '100%', borderRadius: 2 }}

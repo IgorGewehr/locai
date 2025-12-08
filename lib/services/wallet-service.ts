@@ -1,358 +1,284 @@
-/**
- * WALLET SERVICE
- *
- * Serviço completo de gerenciamento de carteira digital
- * Integrado com sistema de transações
- */
-
-import { TenantServiceFactory } from '@/lib/firebase/firestore-v2';
+import { db } from '@/lib/firebase/config';
 import {
-  Wallet,
-  WalletTransaction,
-  Withdrawal,
-  WalletTransactionType,
-  WalletTransactionStatus,
-  WithdrawalStatus,
-  WithdrawalMethod,
-  CreateWithdrawalInput,
-  WALLET_CONSTANTS,
-} from '@/lib/types/wallet';
-import { Transaction, TransactionType, TransactionStatus, PaymentMethod } from '@/lib/types/transaction-unified';
+  doc,
+  getDoc,
+  setDoc,
+  collection,
+  addDoc,
+  runTransaction,
+  serverTimestamp,
+  query,
+  where,
+  orderBy,
+  getDocs,
+  Timestamp
+} from 'firebase/firestore';
+import { Wallet, WalletTransaction, WithdrawalRequest } from '@/lib/types/financial-wallet';
 import { logger } from '@/lib/utils/logger';
 
 export class WalletService {
-  private tenantId: string;
-  private services: TenantServiceFactory;
-
-  constructor(tenantId: string) {
-    this.tenantId = tenantId;
-    this.services = new TenantServiceFactory(tenantId);
-  }
-
-  // ===== WALLET OPERATIONS =====
+  private static COLLECTION_WALLETS = 'wallets';
+  private static COLLECTION_TRANSACTIONS = 'wallet_transactions';
+  private static COLLECTION_WITHDRAWALS = 'withdrawal_requests';
 
   /**
-   * Get or create wallet for client
+   * Obtém a carteira de um tenant. Cria se não existir.
    */
-  async getOrCreateWallet(clientId: string, clientName: string, clientPhone: string): Promise<Wallet> {
-    try {
-      const walletService = this.services.createService<Wallet>('wallets');
+  static async getWallet(tenantId: string): Promise<Wallet> {
+    const walletRef = doc(db, this.COLLECTION_WALLETS, tenantId);
+    const walletSnap = await getDoc(walletRef);
 
-      const existing = await walletService.getMany([
-        { field: 'clientId', operator: '==', value: clientId }
-      ], { limit: 1 });
+    if (walletSnap.exists()) {
+      const data = walletSnap.data();
+      return {
+        ...data,
+        updatedAt: (data.updatedAt as Timestamp).toDate(),
+        createdAt: (data.createdAt as Timestamp).toDate(),
+      } as Wallet;
+    }
 
-      if (existing.length > 0) {
-        return existing[0];
+    // Criar carteira se não existir
+    const newWallet: Wallet = {
+      tenantId,
+      balance: 0,
+      currency: 'BRL',
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+
+    await setDoc(walletRef, {
+      ...newWallet,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp()
+    });
+
+    return newWallet;
+  }
+
+  /**
+   * Adiciona uma transação e atualiza o saldo atomicamente.
+   */
+  static async addTransaction(
+    tenantId: string,
+    data: Omit<WalletTransaction, 'id' | 'walletId' | 'tenantId' | 'createdAt' | 'updatedAt'>
+  ): Promise<WalletTransaction> {
+    return await runTransaction(db, async (transaction) => {
+      const walletRef = doc(db, this.COLLECTION_WALLETS, tenantId);
+      const walletSnap = await transaction.get(walletRef);
+
+      if (!walletSnap.exists()) {
+        throw new Error(`Wallet not found for tenant: ${tenantId}`);
       }
 
-      // Create new wallet
-      const walletId = await walletService.create({
-        tenantId: this.tenantId,
-        clientId,
-        clientName,
-        clientPhone,
-        balance: 0,
-        pendingBalance: 0,
-        totalEarned: 0,
-        totalSpent: 0,
-        totalWithdrawn: 0,
-        autoWithdrawalEnabled: false,
-        dailyWithdrawalLimit: WALLET_CONSTANTS.DEFAULT_DAILY_WITHDRAWAL_LIMIT,
-        monthlyWithdrawalLimit: WALLET_CONSTANTS.DEFAULT_MONTHLY_WITHDRAWAL_LIMIT,
-        minWithdrawalAmount: WALLET_CONSTANTS.DEFAULT_MIN_WITHDRAWAL_AMOUNT,
-        transactionCount: 0,
-        withdrawalCount: 0,
-        isActive: true,
-        isFrozen: false,
+      const currentBalance = walletSnap.data().balance || 0;
+      let newBalance = currentBalance;
+
+      // Calcular novo saldo
+      if (data.type === 'deposit') {
+        newBalance += data.amount;
+      } else if (data.type === 'withdrawal' || data.type === 'fee') {
+        newBalance -= data.amount;
+      } else if (data.type === 'adjustment') {
+        // Ajuste pode ser positivo ou negativo, assumindo que amount já vem com sinal correto ou lógica específica
+        // Para simplificar, vamos assumir que adjustment soma (se for negativo, subtrai)
+        newBalance += data.amount;
+      }
+
+      // Validar saldo negativo para saques
+      if (newBalance < 0 && (data.type === 'withdrawal')) {
+        throw new Error('Insufficient funds');
+      }
+
+      // Criar referência para nova transação
+      const transactionRef = doc(collection(db, this.COLLECTION_TRANSACTIONS));
+
+      const newTransaction: WalletTransaction = {
+        id: transactionRef.id,
+        walletId: tenantId,
+        tenantId,
+        ...data,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      };
+
+      // Atualizar carteira
+      transaction.update(walletRef, {
+        balance: newBalance,
+        updatedAt: serverTimestamp()
       });
 
-      const wallet = await walletService.get(walletId);
-      logger.info('Wallet created', { tenantId: this.tenantId, clientId, walletId });
-      return wallet!;
-    } catch (error) {
-      logger.error('Error getting or creating wallet', { error, clientId });
-      throw error;
-    }
+      // Salvar transação da carteira
+      transaction.set(transactionRef, {
+        ...newTransaction,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
+      });
+
+      // SYNC: Criar transação no fluxo financeiro principal
+      // Determinar categoria baseada no metadata ou descrição
+      let category = 'other';
+      if (data.metadata?.paymentMethod === 'PIX') category = 'other'; // Poderia ser mais específico
+
+      const mainTransactionRef = doc(collection(db, 'transactions'));
+      const mainTransaction = {
+        tenantId,
+        amount: data.amount,
+        type: data.type === 'deposit' ? 'income' : 'expense',
+        status: data.status === 'completed' ? 'paid' : 'pending',
+        description: data.description,
+        category: 'other', // Default category
+        paymentMethod: data.metadata?.paymentMethod || 'pix',
+        date: new Date(),
+        dueDate: new Date(),
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+        walletTransactionId: transactionRef.id, // Link para rastreabilidade
+        metadata: data.metadata
+      };
+
+      transaction.set(mainTransactionRef, mainTransaction);
+
+      return newTransaction;
+    });
   }
 
   /**
-   * Add credit to wallet
+   * Solicita um saque.
    */
-  async addCredit(
-    clientId: string,
+  static async requestWithdrawal(
+    tenantId: string,
     amount: number,
-    description: string,
-    metadata?: { reference?: string; transactionId?: string; reservationId?: string }
-  ): Promise<WalletTransaction> {
-    const wallet = await this.getOrCreateWallet(clientId, '', '');
-    const balanceBefore = wallet.balance;
-    const balanceAfter = balanceBefore + amount;
+    bankInfo: WithdrawalRequest['bankInfo']
+  ): Promise<WithdrawalRequest> {
+    return await runTransaction(db, async (transaction) => {
+      const walletRef = doc(db, this.COLLECTION_WALLETS, tenantId);
+      const walletSnap = await transaction.get(walletRef);
 
-    // Create transaction
-    const transactionService = this.services.createService<WalletTransaction>('wallet_transactions');
-    const transactionId = await transactionService.create({
-      tenantId: this.tenantId,
-      walletId: wallet.id!,
-      clientId,
-      type: WalletTransactionType.CREDIT,
-      status: WalletTransactionStatus.COMPLETED,
-      amount,
-      balanceBefore,
-      balanceAfter,
-      description,
-      reference: metadata?.reference,
-      transactionId: metadata?.transactionId,
-      reservationId: metadata?.reservationId,
-      processedAt: new Date(),
+      if (!walletSnap.exists()) {
+        throw new Error('Wallet not found');
+      }
+
+      const currentBalance = walletSnap.data().balance || 0;
+
+      if (currentBalance < amount) {
+        throw new Error('Saldo insuficiente para saque');
+      }
+
+      // 1. Criar transação de débito (pendente ou bloqueada?)
+      // Na verdade, é melhor debitar imediatamente para evitar double spending
+      // Se o saque for rejeitado, fazemos um estorno (deposit)
+
+      const transactionRef = doc(collection(db, this.COLLECTION_TRANSACTIONS));
+      const withdrawalRef = doc(collection(db, this.COLLECTION_WITHDRAWALS));
+
+      const debitTransaction: WalletTransaction = {
+        id: transactionRef.id,
+        walletId: tenantId,
+        tenantId,
+        type: 'withdrawal',
+        amount: amount,
+        status: 'completed', // O débito na carteira é imediato
+        description: `Solicitação de saque #${withdrawalRef.id.substring(0, 8)}`,
+        referenceId: withdrawalRef.id,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      };
+
+      const withdrawalRequest: WithdrawalRequest = {
+        id: withdrawalRef.id,
+        walletId: tenantId,
+        tenantId,
+        amount,
+        status: 'pending',
+        bankInfo,
+        requestedAt: new Date(),
+        transactionId: transactionRef.id
+      };
+
+      // Atualizar saldo
+      transaction.update(walletRef, {
+        balance: currentBalance - amount,
+        updatedAt: serverTimestamp()
+      });
+
+      // Salvar transação
+      transaction.set(transactionRef, {
+        ...debitTransaction,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
+      });
+
+      // Salvar solicitação
+      transaction.set(withdrawalRef, {
+        ...withdrawalRequest,
+        requestedAt: serverTimestamp()
+      });
+
+      // SYNC: Criar transação de despesa no fluxo financeiro principal
+      const mainTransactionRef = doc(collection(db, 'transactions'));
+      const mainTransaction = {
+        tenantId,
+        amount: amount,
+        type: 'expense',
+        status: 'pending', // Saque é pendente até ser processado
+        description: `Saque solicitado #${withdrawalRef.id.substring(0, 8)}`,
+        category: 'other', // Poderia ser 'transfer' ou 'withdrawal' se existisse
+        paymentMethod: 'bank_transfer',
+        date: new Date(),
+        dueDate: new Date(),
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+        walletTransactionId: transactionRef.id,
+        withdrawalRequestId: withdrawalRef.id
+      };
+
+      transaction.set(mainTransactionRef, mainTransaction);
+
+      return withdrawalRequest;
     });
-
-    // Update wallet
-    const walletService = this.services.createService<Wallet>('wallets');
-    await walletService.update(wallet.id!, {
-      balance: balanceAfter,
-      totalEarned: wallet.totalEarned + amount,
-      transactionCount: wallet.transactionCount + 1,
-      lastTransactionAt: new Date(),
-      updatedAt: new Date(),
-    });
-
-    logger.info('Credit added to wallet', { clientId, amount, balanceAfter });
-    return (await transactionService.get(transactionId))!;
   }
 
   /**
-   * Debit from wallet
+   * Lista transações da carteira.
    */
-  async debit(
-    clientId: string,
-    amount: number,
-    description: string,
-    metadata?: { reference?: string; transactionId?: string }
-  ): Promise<WalletTransaction> {
-    const wallet = await this.getOrCreateWallet(clientId, '', '');
+  static async getTransactions(tenantId: string, limit = 20): Promise<WalletTransaction[]> {
+    const q = query(
+      collection(db, this.COLLECTION_TRANSACTIONS),
+      where('tenantId', '==', tenantId),
+      orderBy('createdAt', 'desc')
+      // limit seria aplicado aqui, mas o firebase precisa de index composto para where+orderBy
+      // Vamos deixar sem limit por enquanto ou assumir que o index existe/será criado
+    );
 
-    if (wallet.balance < amount) {
-      throw new Error('Insufficient balance');
-    }
-
-    const balanceBefore = wallet.balance;
-    const balanceAfter = balanceBefore - amount;
-
-    const transactionService = this.services.createService<WalletTransaction>('wallet_transactions');
-    const transactionId = await transactionService.create({
-      tenantId: this.tenantId,
-      walletId: wallet.id!,
-      clientId,
-      type: WalletTransactionType.DEBIT,
-      status: WalletTransactionStatus.COMPLETED,
-      amount,
-      balanceBefore,
-      balanceAfter,
-      description,
-      reference: metadata?.reference,
-      transactionId: metadata?.transactionId,
-      processedAt: new Date(),
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map(doc => {
+      const data = doc.data();
+      return {
+        ...data,
+        createdAt: (data.createdAt as Timestamp).toDate(),
+        updatedAt: (data.updatedAt as Timestamp).toDate(),
+      } as WalletTransaction;
     });
-
-    const walletService = this.services.createService<Wallet>('wallets');
-    await walletService.update(wallet.id!, {
-      balance: balanceAfter,
-      totalSpent: wallet.totalSpent + amount,
-      transactionCount: wallet.transactionCount + 1,
-      lastTransactionAt: new Date(),
-      updatedAt: new Date(),
-    });
-
-    logger.info('Debit from wallet', { clientId, amount, balanceAfter });
-    return (await transactionService.get(transactionId))!;
   }
 
   /**
-   * Request withdrawal
+   * Lista solicitações de saque.
    */
-  async requestWithdrawal(input: CreateWithdrawalInput): Promise<Withdrawal> {
-    const wallet = await this.getOrCreateWallet(input.clientId, input.clientName, input.clientPhone);
+  static async getWithdrawals(tenantId: string): Promise<WithdrawalRequest[]> {
+    const q = query(
+      collection(db, this.COLLECTION_WITHDRAWALS),
+      where('tenantId', '==', tenantId),
+      orderBy('requestedAt', 'desc')
+    );
 
-    // Validations
-    if (wallet.isFrozen) {
-      throw new Error('Wallet is frozen');
-    }
-
-    if (input.amount < wallet.minWithdrawalAmount) {
-      throw new Error(`Minimum withdrawal amount is ${wallet.minWithdrawalAmount}`);
-    }
-
-    if (wallet.balance < input.amount) {
-      throw new Error('Insufficient balance');
-    }
-
-    // Calculate fee
-    const fee = 0; // No fee by default
-    const netAmount = input.amount - fee;
-
-    // Create withdrawal
-    const withdrawalService = this.services.createService<Withdrawal>('withdrawals');
-    const withdrawalId = await withdrawalService.create({
-      ...input,
-      tenantId: this.tenantId,
-      walletId: wallet.id!,
-      fee,
-      netAmount,
-      status: WithdrawalStatus.REQUESTED,
-      statusHistory: [{
-        status: WithdrawalStatus.REQUESTED,
-        changedAt: new Date(),
-        changedBy: input.clientId,
-        reason: 'Withdrawal requested by client',
-      }],
-      requestedAt: new Date(),
+    const snapshot = await getDocs(q);
+    return snapshot.docs.map(doc => {
+      const data = doc.data();
+      return {
+        ...data,
+        requestedAt: (data.requestedAt as Timestamp).toDate(),
+        processedAt: data.processedAt ? (data.processedAt as Timestamp).toDate() : undefined,
+      } as WithdrawalRequest;
     });
-
-    // Update wallet pending balance
-    const walletService = this.services.createService<Wallet>('wallets');
-    await walletService.update(wallet.id!, {
-      pendingBalance: wallet.pendingBalance + input.amount,
-      withdrawalCount: wallet.withdrawalCount + 1,
-      lastWithdrawalAt: new Date(),
-      updatedAt: new Date(),
-    });
-
-    logger.info('Withdrawal requested', { clientId: input.clientId, amount: input.amount, withdrawalId });
-    return (await withdrawalService.get(withdrawalId))!;
-  }
-
-  /**
-   * Approve withdrawal
-   */
-  async approveWithdrawal(withdrawalId: string, approvedBy: string): Promise<Withdrawal> {
-    const withdrawalService = this.services.createService<Withdrawal>('withdrawals');
-    const withdrawal = await withdrawalService.get(withdrawalId);
-
-    if (!withdrawal) throw new Error('Withdrawal not found');
-    if (withdrawal.status !== WithdrawalStatus.REQUESTED) {
-      throw new Error('Withdrawal cannot be approved in current status');
-    }
-
-    await withdrawalService.update(withdrawalId, {
-      status: WithdrawalStatus.APPROVED,
-      approvedAt: new Date(),
-      approvedBy,
-      statusHistory: [
-        ...withdrawal.statusHistory,
-        {
-          status: WithdrawalStatus.APPROVED,
-          changedAt: new Date(),
-          changedBy: approvedBy,
-          reason: 'Approved by admin',
-        },
-      ],
-      updatedAt: new Date(),
-    });
-
-    logger.info('Withdrawal approved', { withdrawalId, approvedBy });
-    return (await withdrawalService.get(withdrawalId))!;
-  }
-
-  /**
-   * Complete withdrawal (mark as paid)
-   */
-  async completeWithdrawal(
-    withdrawalId: string,
-    completedBy: string,
-    transactionReference?: string
-  ): Promise<Withdrawal> {
-    const withdrawalService = this.services.createService<Withdrawal>('withdrawals');
-    const withdrawal = await withdrawalService.get(withdrawalId);
-
-    if (!withdrawal) throw new Error('Withdrawal not found');
-
-    // Deduct from wallet balance
-    const walletService = this.services.createService<Wallet>('wallets');
-    const wallet = await walletService.get(withdrawal.walletId);
-    if (!wallet) throw new Error('Wallet not found');
-
-    // Create wallet transaction
-    const transactionService = this.services.createService<WalletTransaction>('wallet_transactions');
-    const walletTxId = await transactionService.create({
-      tenantId: this.tenantId,
-      walletId: wallet.id!,
-      clientId: withdrawal.clientId,
-      type: WalletTransactionType.WITHDRAWAL,
-      status: WalletTransactionStatus.COMPLETED,
-      amount: withdrawal.amount,
-      balanceBefore: wallet.balance,
-      balanceAfter: wallet.balance - withdrawal.amount,
-      description: `Saque via ${withdrawal.method}`,
-      reference: withdrawalId,
-      withdrawalId,
-      processedAt: new Date(),
-    });
-
-    // Create financial transaction
-    const financialService = this.services.createService<Transaction>('transactions');
-    const financialTxId = await financialService.create({
-      tenantId: this.tenantId,
-      type: TransactionType.EXPENSE,
-      status: TransactionStatus.PAID,
-      amount: withdrawal.amount,
-      description: `Saque - ${withdrawal.clientName}`,
-      category: 'withdrawal' as any,
-      paymentMethod: withdrawal.method as any,
-      transactionReference,
-      clientId: withdrawal.clientId,
-      clientName: withdrawal.clientName,
-      paymentDate: new Date(),
-      metadata: { withdrawalId, walletTransactionId: walletTxId },
-    } as any);
-
-    // Update wallet
-    await walletService.update(wallet.id!, {
-      balance: wallet.balance - withdrawal.amount,
-      pendingBalance: wallet.pendingBalance - withdrawal.amount,
-      totalWithdrawn: wallet.totalWithdrawn + withdrawal.amount,
-      updatedAt: new Date(),
-    });
-
-    // Update withdrawal
-    await withdrawalService.update(withdrawalId, {
-      status: WithdrawalStatus.COMPLETED,
-      completedAt: new Date(),
-      processedBy: completedBy,
-      transactionReference,
-      walletTransactionId: walletTxId,
-      financialTransactionId: financialTxId,
-      statusHistory: [
-        ...withdrawal.statusHistory,
-        {
-          status: WithdrawalStatus.COMPLETED,
-          changedAt: new Date(),
-          changedBy: completedBy,
-          reason: 'Payment processed',
-        },
-      ],
-      updatedAt: new Date(),
-    });
-
-    logger.info('Withdrawal completed', { withdrawalId, amount: withdrawal.amount });
-    return (await withdrawalService.get(withdrawalId))!;
-  }
-}
-
-/**
- * Factory
- */
-export class WalletServiceFactory {
-  private static instances: Map<string, WalletService> = new Map();
-
-  static getInstance(tenantId: string): WalletService {
-    if (!this.instances.has(tenantId)) {
-      this.instances.set(tenantId, new WalletService(tenantId));
-    }
-    return this.instances.get(tenantId)!;
-  }
-
-  static clearInstance(tenantId: string): void {
-    this.instances.delete(tenantId);
   }
 }
