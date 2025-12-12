@@ -37,7 +37,6 @@ import { useRevolutionaryOnboarding } from '@/lib/hooks/useRevolutionaryOnboardi
 import OnboardingStepCard from './OnboardingStepCard';
 import {
   Step1PropertySetup,
-  Step2ConfigureSystem,
   Step3WhatsAppSetup,
 } from './steps';
 import { logger } from '@/lib/utils/logger';
@@ -695,21 +694,6 @@ export default function RevolutionaryOnboarding({
               }}
               onSkip={async () => {
                 await skipStep('add_property');
-                closeDialog();
-              }}
-            />
-          )}
-
-          {state.activeDialog.mode === 'system_configure' && (
-            <Step2ConfigureSystem
-              open={true}
-              onClose={closeDialog}
-              onComplete={async (data) => {
-                await completeStep('configure_system', data);
-                closeDialog();
-              }}
-              onSkip={async () => {
-                await skipStep('configure_system');
                 closeDialog();
               }}
             />

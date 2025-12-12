@@ -8,7 +8,6 @@ import { OnboardingStepId, OnboardingStepStatus } from './onboarding';
 export type OnboardingDialogMode =
   | 'property_import'
   | 'property_create'
-  | 'system_configure'
   | 'whatsapp_connect'
   | null;
 
@@ -172,7 +171,6 @@ export interface UseRevolutionaryOnboardingResult {
   canGoForward: boolean;
 }
 
-// ⏸️ BACKUP: Versão com 3 passos salva em revolutionary-onboarding.old.ts
 export const REVOLUTIONARY_ONBOARDING_STEPS: Omit<RevolutionaryOnboardingStep, 'status'>[] = [
   {
     id: 'add_property',
@@ -215,18 +213,12 @@ export const REVOLUTIONARY_ONBOARDING_STEPS: Omit<RevolutionaryOnboardingStep, '
       icon: 'Home',
     },
   },
-  // ⏸️ PASSO 2 REMOVIDO TEMPORARIAMENTE - Código preservado em revolutionary-onboarding.old.ts
-  // {
-  //   id: 'configure_system',
-  //   title: 'Configurar Empresa e Sofia IA',
-  //   ...
-  // },
   {
     id: 'connect_whatsapp',
     title: 'Conectar WhatsApp',
     description: 'Conecte seu WhatsApp para atendimento automatizado com Sofia IA',
     icon: 'WhatsApp',
-    order: 2, // ← Mudado de 3 para 2
+    order: 2,
     isOptional: false,
     estimatedMinutes: 3,
     hasEmbeddedDialog: true,
@@ -267,7 +259,6 @@ export const DEFAULT_REVOLUTIONARY_STATE: Omit<RevolutionaryOnboardingState, 'st
   timeSpentSeconds: 0,
   stepInteractions: {
     add_property: { stepId: 'add_property', attempts: 0, timeSpentSeconds: 0, actions: [] },
-    // configure_system removido - backup em revolutionary-onboarding.old.ts
     connect_whatsapp: { stepId: 'connect_whatsapp', attempts: 0, timeSpentSeconds: 0, actions: [] },
   },
   showTooltips: true,

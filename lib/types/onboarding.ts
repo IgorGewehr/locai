@@ -1,8 +1,6 @@
 /**
  * Onboarding Types
  * Types for the first-time user onboarding flow
- *
- * BACKUP: Código completo com 3 passos salvo em onboarding.old.ts
  */
 
 export type OnboardingStepId = 'add_property' | 'connect_whatsapp';

@@ -43,7 +43,6 @@ export function useRevolutionaryOnboarding(): UseRevolutionaryOnboardingResult {
   const startTimeRef = useRef<number>(Date.now());
   const stepStartTimeRef = useRef<Record<OnboardingStepId, number>>({
     add_property: 0,
-    configure_system: 0,
     connect_whatsapp: 0,
   });
 
