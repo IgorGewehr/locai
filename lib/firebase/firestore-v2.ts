@@ -600,39 +600,9 @@ export class TenantServiceFactory {
   }
 
   // Specialized Services
-  get accounts() {
-    const { createAccountsService } = require('@/lib/services/accounts-service');
-    return createAccountsService(this.tenantId);
-  }
-
-  get banks() {
-    const { createBankService } = require('@/lib/services/accounts-service');
-    return createBankService(this.tenantId);
-  }
-
-  get costCenters() {
-    const { createCostCenterService } = require('@/lib/services/accounts-service');
-    return createCostCenterService(this.tenantId);
-  }
-
-  get commissions() {
-    const { createCommissionService } = require('@/lib/services/accounts-service');
-    return createCommissionService(this.tenantId);
-  }
-
-  get alerts() {
-    const { createAlertsService } = require('@/lib/services/accounts-service');
-    return createAlertsService(this.tenantId);
-  }
-
   get notifications() {
     const { NotificationServiceFactory } = require('@/lib/services/notification-service');
     return NotificationServiceFactory.getInstance(this.tenantId);
-  }
-
-  get crm() {
-    const { createCRMService } = require('@/lib/services/crm-service');
-    return createCRMService(this.tenantId);
   }
 
   get interactions() {

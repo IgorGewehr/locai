@@ -133,7 +133,14 @@
       "WebFetch(domain:elfsight.com)",
       "WebFetch(domain:gist.github.com)",
       "Bash(NEXT_USE_TURBOPACK=0 npm run build:*)",
-      "WebFetch(domain:docs.abacatepay.com)"
+      "WebFetch(domain:docs.abacatepay.com)",
+      "Bash(/Users/igorgewehr/WebstormProjects/locai/lib/services/whatsapp-websocket-service.ts )",
+      "Bash(/Users/igorgewehr/WebstormProjects/locai/lib/services/message-deduplication-service.ts )",
+      "Bash(/Users/igorgewehr/WebstormProjects/locai/lib/services/optimized-history-manager-service.ts )",
+      "Bash(/Users/igorgewehr/WebstormProjects/locai/lib/services/availability-rules-service.ts )",
+      "Bash(/Users/igorgewehr/WebstormProjects/locai/lib/services/visit-service.ts )",
+      "Bash(/Users/igorgewehr/WebstormProjects/locai/lib/services/financial-movement-service.ts )",
+      "Bash(/Users/igorgewehr/WebstormProjects/locai/lib/services/ticket-service.ts)"
     ],
     "deny": [],
     "defaultMode": "acceptEdits",
