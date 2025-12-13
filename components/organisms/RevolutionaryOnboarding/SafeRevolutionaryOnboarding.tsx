@@ -1,7 +1,4 @@
-/**
- * Safe Revolutionary Onboarding Wrapper
- * Wraps the onboarding with error boundary and safety checks
- */
+
 
 'use client';
 
