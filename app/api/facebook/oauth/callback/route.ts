@@ -41,6 +41,16 @@ export async function GET(request: NextRequest) {
         const error = searchParams.get('error');
         const errorDescription = searchParams.get('error_description');
 
+        // DEBUG: Log all incoming parameters
+        console.log('=== FACEBOOK OAUTH CALLBACK DEBUG ===');
+        console.log('Full URL:', request.url);
+        console.log('Code:', code ? 'present' : 'MISSING');
+        console.log('State:', state ? 'present' : 'MISSING');
+        console.log('Error:', error);
+        console.log('Error Description:', errorDescription);
+        console.log('All params:', Object.fromEntries(searchParams.entries()));
+        console.log('=====================================');
+
         // Handle OAuth errors
         if (error) {
             logger.warn('[Facebook OAuth Callback] OAuth error:', { error, errorDescription });

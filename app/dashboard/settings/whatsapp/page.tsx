@@ -1414,24 +1414,13 @@ export default function WhatsAppPage() {
             <>
               <Button
                 variant="contained"
-                onClick={handleFacebookConnectOAuth}
+                onClick={handleFacebookConnectWithTestToken}
                 startIcon={connecting ? <CircularProgress size={20} color="inherit" /> : <Facebook />}
                 disabled={connecting || processingOAuth}
                 sx={{ bgcolor: '#1877F2', '&:hover': { bgcolor: '#166fe5' } }}
               >
-                {connecting ? 'Redirecionando...' : 'Conectar com Facebook'}
+                {connecting ? 'Conectando...' : 'Conectar com Facebook'}
               </Button>
-              {process.env.NODE_ENV === 'development' && (
-                <Button
-                  variant="outlined"
-                  onClick={handleFacebookConnectWithTestToken}
-                  disabled={connecting}
-                  size="small"
-                  sx={{ color: '#1877F2', borderColor: '#1877F2' }}
-                >
-                  Usar Token de Teste
-                </Button>
-              )}
             </>
           ) : (
             <Button
