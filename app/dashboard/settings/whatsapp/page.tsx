@@ -1414,9 +1414,9 @@ export default function WhatsAppPage() {
             <>
               <Button
                 variant="contained"
-                onClick={handleFacebookConnectWithTestToken}
+                onClick={handleFacebookConnect}
                 startIcon={connecting ? <CircularProgress size={20} color="inherit" /> : <Facebook />}
-                disabled={connecting || processingOAuth}
+                disabled={connecting || processingOAuth || !isSdkLoaded}
                 sx={{ bgcolor: '#1877F2', '&:hover': { bgcolor: '#166fe5' } }}
               >
                 {connecting ? 'Conectando...' : 'Conectar com Facebook'}
