@@ -1414,12 +1414,12 @@ export default function WhatsAppPage() {
             <>
               <Button
                 variant="contained"
-                onClick={handleFacebookConnect}
+                onClick={handleFacebookConnectOAuth}
                 startIcon={connecting ? <CircularProgress size={20} color="inherit" /> : <Facebook />}
-                disabled={connecting || processingOAuth || !isSdkLoaded}
+                disabled={connecting || processingOAuth}
                 sx={{ bgcolor: '#1877F2', '&:hover': { bgcolor: '#166fe5' } }}
               >
-                {connecting ? 'Conectando...' : 'Conectar com Facebook'}
+                {connecting ? 'Redirecionando...' : 'Conectar com Facebook'}
               </Button>
             </>
           ) : (
