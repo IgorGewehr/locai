@@ -66,6 +66,13 @@ export async function GET(request: NextRequest) {
         authUrl.searchParams.set('state', state);
         authUrl.searchParams.set('response_type', 'code');
 
+        // DEBUG: Log full URL for troubleshooting
+        console.log('=== FACEBOOK OAUTH DEBUG ===');
+        console.log('App ID:', appId);
+        console.log('Redirect URI:', redirectUri);
+        console.log('Full Auth URL:', authUrl.toString());
+        console.log('============================');
+
         logger.info('[Facebook OAuth] Generated authorization URL', {
             tenantId: tenantId.substring(0, 8) + '***',
             redirectUri,
