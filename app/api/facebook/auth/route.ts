@@ -278,10 +278,16 @@ async function handleDirectPageConnection(
  * Legacy: Exchange user token for pages (Facebook SDK flow)
  */
 async function handleLegacyTokenExchange(userAccessToken: string): Promise<NextResponse> {
+    console.log('[Facebook Auth] === Legacy Token Exchange ===');
+
     const appId = process.env.NEXT_PUBLIC_FACEBOOK_APP_ID;
     const appSecret = process.env.FACEBOOK_APP_SECRET;
 
+    console.log('[Facebook Auth] App ID:', appId);
+    console.log('[Facebook Auth] App Secret:', appSecret ? 'configured' : 'MISSING');
+
     if (!appId || !appSecret) {
+        console.error('[Facebook Auth] Missing configuration!');
         return NextResponse.json(
             { error: 'Server configuration error: Missing App ID/Secret' },
             { status: 500 }
@@ -289,33 +295,42 @@ async function handleLegacyTokenExchange(userAccessToken: string): Promise<NextR
     }
 
     // Exchange short-lived user token for long-lived user token
+    console.log('[Facebook Auth] Exchanging token...');
     const exchangeUrl = `${GRAPH_API_BASE_URL}/${GRAPH_API_VERSION}/oauth/access_token?grant_type=fb_exchange_token&client_id=${appId}&client_secret=${appSecret}&fb_exchange_token=${userAccessToken}`;
     const exchangeResponse = await fetch(exchangeUrl);
     const exchangeData = await exchangeResponse.json();
 
+    console.log('[Facebook Auth] Exchange response:', exchangeData.error ? 'ERROR' : 'SUCCESS');
+
     if (exchangeData.error) {
+        console.error('[Facebook Auth] Token exchange error:', exchangeData.error);
         logger.error('[Facebook Auth] Token exchange error:', exchangeData.error);
         return NextResponse.json(
-            { error: 'Failed to exchange token' },
+            { error: 'Failed to exchange token: ' + (exchangeData.error.message || 'Unknown error') },
             { status: 400 }
         );
     }
 
     const longLivedUserToken = exchangeData.access_token;
+    console.log('[Facebook Auth] Got long-lived token, fetching pages...');
 
     // Fetch Pages with their access tokens and Instagram accounts
     const pagesUrl = `${GRAPH_API_BASE_URL}/${GRAPH_API_VERSION}/me/accounts?fields=id,name,access_token,category,instagram_business_account{id,username,name}&access_token=${longLivedUserToken}`;
     const pagesResponse = await fetch(pagesUrl);
     const pagesData = await pagesResponse.json();
 
+    console.log('[Facebook Auth] Pages response:', pagesData.error ? 'ERROR' : `Found ${pagesData.data?.length || 0} pages`);
+
     if (pagesData.error) {
+        console.error('[Facebook Auth] Pages fetch error:', pagesData.error);
         logger.error('[Facebook Auth] Pages fetch error:', pagesData.error);
         return NextResponse.json(
-            { error: 'Failed to fetch pages' },
+            { error: 'Failed to fetch pages: ' + (pagesData.error.message || 'Unknown error') },
             { status: 400 }
         );
     }
 
+    console.log('[Facebook Auth] Success! Returning pages.');
     return NextResponse.json({
         success: true,
         pages: pagesData.data,

@@ -613,18 +613,18 @@ export default function WhatsAppPage() {
       return;
     }
 
+    setConnecting(true);
     try {
+      console.log('[Facebook Connect] Starting login...');
+
       // Facebook/Instagram permissions (Updated 2025)
-      // Required for Messenger + Instagram Direct:
-      // - pages_messaging: Send/receive messages on Facebook Pages
-      // - pages_show_list: List user's Facebook Pages
-      // - pages_manage_metadata: Manage page metadata
-      // - instagram_basic: Basic Instagram account info
-      // - instagram_manage_messages: Send/receive Instagram Direct messages
-      // - instagram_manage_comments: Manage Instagram comments (optional)
       const authResponse = await login('pages_messaging,pages_show_list,pages_manage_metadata,instagram_basic,instagram_manage_messages,instagram_manage_comments');
 
+      console.log('[Facebook Connect] Auth response:', authResponse ? 'received' : 'null');
+
       if (authResponse && authResponse.accessToken) {
+        console.log('[Facebook Connect] Got access token, exchanging...');
+
         // Exchange token and fetch pages
         const firebaseToken = await getFirebaseToken();
         const response = await fetch('/api/facebook/auth', {
@@ -634,26 +634,32 @@ export default function WhatsAppPage() {
             'Authorization': `Bearer ${firebaseToken}`,
           },
           body: JSON.stringify({
-            tenantId,
             userAccessToken: authResponse.accessToken,
           }),
         });
 
-        if (response.ok) {
-          const result = await response.json();
+        console.log('[Facebook Connect] API response status:', response.status);
+        const result = await response.json();
+        console.log('[Facebook Connect] API result:', result);
+
+        if (response.ok && result.success) {
           if (result.pages && result.pages.length > 0) {
+            console.log('[Facebook Connect] Found pages:', result.pages.length);
             setAvailablePages(result.pages);
             setShowPageSelection(true);
           } else {
-            alert('No Facebook Pages found for this account.');
+            alert('Nenhuma página do Facebook encontrada para esta conta.');
           }
         } else {
-          alert('Failed to connect Facebook');
+          console.error('[Facebook Connect] API error:', result);
+          alert('Falha ao conectar Facebook: ' + (result.error || 'Erro desconhecido'));
         }
       }
     } catch (err) {
-      console.error('Error connecting Facebook:', err);
-      alert('Error connecting Facebook: ' + (err instanceof Error ? err.message : String(err)));
+      console.error('[Facebook Connect] Error:', err);
+      alert('Erro ao conectar Facebook: ' + (err instanceof Error ? err.message : String(err)));
+    } finally {
+      setConnecting(false);
     }
   };
 
@@ -1414,12 +1420,12 @@ export default function WhatsAppPage() {
             <>
               <Button
                 variant="contained"
-                onClick={handleFacebookConnectOAuth}
+                onClick={handleFacebookConnect}
                 startIcon={connecting ? <CircularProgress size={20} color="inherit" /> : <Facebook />}
-                disabled={connecting || processingOAuth}
+                disabled={connecting || !isSdkLoaded}
                 sx={{ bgcolor: '#1877F2', '&:hover': { bgcolor: '#166fe5' } }}
               >
-                {connecting ? 'Redirecionando...' : 'Conectar com Facebook'}
+                {!isSdkLoaded ? 'Carregando...' : connecting ? 'Conectando...' : 'Conectar com Facebook'}
               </Button>
             </>
           ) : (
