@@ -65,6 +65,8 @@ export async function GET(request: NextRequest) {
         authUrl.searchParams.set('scope', scopes);
         authUrl.searchParams.set('state', state);
         authUrl.searchParams.set('response_type', 'code');
+        // Force full page display for better screencast experience
+        authUrl.searchParams.set('display', 'page');
 
         // DEBUG: Log full URL for troubleshooting
         console.log('=== FACEBOOK OAUTH DEBUG ===');
