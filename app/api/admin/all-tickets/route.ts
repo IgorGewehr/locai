@@ -22,6 +22,8 @@ interface UserInfo {
 
 interface TicketInfo {
   id: string;
+  tenantId: string;
+  tenantName: string;
   userId: string;
   userName: string;
   userEmail: string;
@@ -30,9 +32,11 @@ interface TicketInfo {
   description: string;
   status: string;
   priority: string;
+  category?: string;
   createdAt: any;
   updatedAt: any;
   responses?: any[];
+  metadata?: any;
 }
 
 export async function GET(request: NextRequest) {

@@ -20,7 +20,7 @@ const DiscountSettingsSchema = z.object({
  */
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const authContext = await validateFirebaseAuth(request);
@@ -31,7 +31,7 @@ export async function GET(
       );
     }
 
-    const propertyId = params.id;
+    const { id: propertyId } = await params;
 
     logger.info('📊 [DISCOUNT-SETTINGS-GET] Buscando configurações de desconto', {
       tenantId: authContext.tenantId.substring(0, 8) + '***',
@@ -70,7 +70,7 @@ export async function GET(
  */
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const authContext = await validateFirebaseAuth(request);
@@ -81,7 +81,7 @@ export async function PUT(
       );
     }
 
-    const propertyId = params.id;
+    const { id: propertyId } = await params;
     const body = await request.json();
 
     // Validar com Zod
@@ -149,7 +149,7 @@ export async function PUT(
  */
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const authContext = await validateFirebaseAuth(request);
@@ -160,7 +160,7 @@ export async function DELETE(
       );
     }
 
-    const propertyId = params.id;
+    const { id: propertyId } = await params;
 
     logger.info('🗑️ [DISCOUNT-SETTINGS-DELETE] Removendo configurações de desconto', {
       tenantId: authContext.tenantId.substring(0, 8) + '***',

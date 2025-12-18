@@ -130,9 +130,9 @@ export async function GET(request: NextRequest) {
 
     // Fetch data
     const [leads, clients, reservations] = await Promise.all([
-      leadService.list([]),
-      clientService.list([]),
-      reservationService.list([])
+      leadService.getAll(),
+      clientService.getAll(),
+      reservationService.getAll()
     ]);
 
     // Filter data by date range
@@ -228,7 +228,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Calculate conversion funnel
-    const funnelStages: LeadStatus[] = ['new', 'contacted', 'qualified', 'nurturing', 'proposal_sent'];
+    const funnelStages: LeadStatus[] = [LeadStatus.NEW, LeadStatus.CONTACTED, LeadStatus.QUALIFIED, LeadStatus.NURTURING, LeadStatus.OPPORTUNITY];
     const conversionFunnel = funnelStages.map((stage, index) => {
       const count = statusCounts[stage] || 0;
       const percentage = (count / totalLeads) * 100;

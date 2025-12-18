@@ -1,5 +1,7 @@
 // CRM Types for Enterprise-level Customer Relationship Management
 
+export type LeadTemperature = 'cold' | 'warm' | 'hot';
+
 export enum LeadStatus {
   NEW = 'new',
   CONTACTED = 'contacted',

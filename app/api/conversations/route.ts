@@ -28,7 +28,7 @@ export async function GET(request: NextRequest) {
 
     if (clientId) {
       // Get conversations for specific client
-      conversations = await conversationService.getConversationsByClient(clientId)
+      conversations = await conversationService.getConversationsByClient(clientId, tenantId)
     } else if (status || stage) {
       // Search with filters
       const filters = {
@@ -98,12 +98,12 @@ export async function POST(request: NextRequest) {
     const conversation = await conversationService.createNew(phoneNumber, clientName, tenantId)
 
     // Trigger notification for new conversation
-    if (conversation && authContext.user?.uid && authContext.user?.email) {
+    if (conversation && authContext.userId && authContext.email) {
       await triggerNewConversationNotification(
         tenantId,
         conversation,
-        authContext.user.uid,
-        authContext.user.email
+        authContext.userId,
+        authContext.email
       ).catch(err => {
         // Log but don't fail the request
         console.error('Failed to send conversation notification:', err)

@@ -10,7 +10,8 @@
  */
 
 import { NextRequest, NextResponse } from 'next/server';
-import { TenantServiceFactory } from '@/lib/firebase/firestore-v2';
+import { db } from '@/lib/firebase/config';
+import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { tenantConfigCache } from '@/lib/services/tenant-config-cache-service';
 import { buildAllAgentPrompts } from '@/lib/utils/prompt-builder';
 import { logger } from '@/lib/utils/logger';
@@ -86,26 +87,20 @@ export async function POST(request: NextRequest) {
         tenantId: tenantId.substring(0, 8) + '***',
       });
 
-      const services = new TenantServiceFactory(tenantId);
-
       // Try to load tenant config from Firestore
       // Path: tenants/{tenantId}/config/ai-config
       try {
-        const configDoc = await services.db
-          .collection('tenants')
-          .doc(tenantId)
-          .collection('config')
-          .doc('ai-config')
-          .get();
+        const configRef = doc(db, 'tenants', tenantId, 'config', 'ai-config');
+        const configDoc = await getDoc(configRef);
 
-        if (configDoc.exists) {
+        if (configDoc.exists()) {
           config = configDoc.data() as TenantConfig;
           logger.info('[GET-AGENT-CONFIG] Config loaded from Firestore', {
             requestId,
             hasCustomPrompts: !!config.customPrompts,
             featuresEnabled: Object.entries(config.features)
               .filter(([_, enabled]) => enabled)
-              .map(([name, _]) => name),
+              .map(([name]) => name),
           });
         } else {
           // No config found - use defaults
@@ -125,12 +120,7 @@ export async function POST(request: NextRequest) {
           };
 
           // Save default config to Firestore
-          await services.db
-            .collection('tenants')
-            .doc(tenantId)
-            .collection('config')
-            .doc('ai-config')
-            .set(config);
+          await setDoc(configRef, config);
 
           logger.info('[GET-AGENT-CONFIG] Default config saved to Firestore', {
             requestId,

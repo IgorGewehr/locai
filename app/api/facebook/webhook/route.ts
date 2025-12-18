@@ -6,9 +6,66 @@ import { logger } from '@/lib/utils/logger'
 import { collectionGroup, query, where, getDocs, limit } from 'firebase/firestore';
 import { db } from '@/lib/firebase/config';
 import { WEBHOOK_RETRY_CONFIG, CACHE_CONFIG } from '@/lib/facebook/constants';
+import crypto from 'crypto';
 
 // Verify Token - configured in Meta Developer Console
 const VERIFY_TOKEN = process.env.FACEBOOK_VERIFY_TOKEN || process.env.N8N_WEBHOOK_SECRET || 'locai_verify_token'
+
+/**
+ * Validate the signature of incoming webhook requests from Meta
+ * This is REQUIRED for App Review approval
+ *
+ * Meta signs all webhook payloads with x-hub-signature-256 header
+ * We must validate this signature using our App Secret
+ */
+function validateWebhookSignature(
+    signature: string | null,
+    payload: string
+): { valid: boolean; error?: string } {
+    const appSecret = process.env.FACEBOOK_APP_SECRET;
+
+    if (!appSecret) {
+        logger.warn('[Facebook Webhook] FACEBOOK_APP_SECRET not configured - signature validation skipped');
+        // Em desenvolvimento, permitir sem validação, mas logar warning
+        if (process.env.NODE_ENV === 'development') {
+            return { valid: true };
+        }
+        return { valid: false, error: 'App secret not configured' };
+    }
+
+    if (!signature) {
+        logger.warn('[Facebook Webhook] Missing x-hub-signature-256 header');
+        return { valid: false, error: 'Missing signature header' };
+    }
+
+    // O header vem no formato: sha256=<signature>
+    const signatureParts = signature.split('=');
+    if (signatureParts.length !== 2 || signatureParts[0] !== 'sha256') {
+        logger.warn('[Facebook Webhook] Invalid signature format');
+        return { valid: false, error: 'Invalid signature format' };
+    }
+
+    const receivedSignature = signatureParts[1];
+
+    // Calcular a assinatura esperada
+    const expectedSignature = crypto
+        .createHmac('sha256', appSecret)
+        .update(payload, 'utf8')
+        .digest('hex');
+
+    // Usar comparação de tempo constante para prevenir timing attacks
+    const isValid = crypto.timingSafeEqual(
+        Buffer.from(receivedSignature, 'hex'),
+        Buffer.from(expectedSignature, 'hex')
+    );
+
+    if (!isValid) {
+        logger.warn('[Facebook Webhook] Invalid signature - payload may have been tampered');
+        return { valid: false, error: 'Invalid signature' };
+    }
+
+    return { valid: true };
+}
 
 // Cache for tenant lookups (pageId -> tenantId)
 // This reduces Firestore queries for high-volume webhooks
@@ -75,14 +132,38 @@ export async function GET(req: NextRequest) {
 /**
  * POST /api/facebook/webhook
  * Receives webhook events from Facebook/Instagram
+ *
+ * IMPORTANTE: Este endpoint valida a assinatura x-hub-signature-256
+ * enviada pela Meta para garantir autenticidade das requisições.
+ * Isso é OBRIGATÓRIO para aprovação no App Review.
  */
 export async function POST(req: NextRequest) {
     try {
-        const body = await req.json()
+        // Ler o body como texto para validação de assinatura
+        const rawBody = await req.text();
+
+        // Validar assinatura HMAC-SHA256 da Meta
+        const signature = req.headers.get('x-hub-signature-256');
+        const signatureValidation = validateWebhookSignature(signature, rawBody);
+
+        if (!signatureValidation.valid) {
+            logger.error('[Facebook Webhook] Signature validation failed', {
+                error: signatureValidation.error,
+                hasSignature: !!signature
+            });
+
+            // Em produção, rejeitar requisições com assinatura inválida
+            // Retornar 401 para assinatura inválida (Meta vai parar de enviar)
+            return new NextResponse('Unauthorized', { status: 401 });
+        }
+
+        // Parse do body após validação
+        const body = JSON.parse(rawBody);
 
         logger.info('[Facebook Webhook] Received event', {
             object: body.object,
-            entryCount: body.entry?.length || 0
+            entryCount: body.entry?.length || 0,
+            signatureValid: true
         })
 
         // Handle Facebook Messenger / Instagram DM

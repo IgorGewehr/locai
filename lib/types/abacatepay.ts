@@ -218,6 +218,25 @@ export interface ListWithdrawsResponse {
   error: string | null;
 }
 
+// ===== STORE =====
+
+export interface StoreBalance {
+  available: number; // Funds ready for withdrawal (in cents)
+  pending: number; // Funds awaiting confirmation (in cents)
+  blocked: number; // Funds held in disputes (in cents)
+}
+
+export interface StoreInfo {
+  id: string; // Store identifier (format: store_xxxxx)
+  name: string; // Store name
+  balance: StoreBalance;
+}
+
+export interface GetStoreResponse {
+  data: StoreInfo | null;
+  error: string | null;
+}
+
 // ===== WEBHOOKS =====
 
 export enum WebhookEventType {
@@ -389,35 +408,3 @@ export const MAX_PIX_EXPIRATION_MINUTES = 1440; // 24 hours
 export const MAX_DAILY_PIX_GENERATIONS = 100;
 export const MAX_DAILY_BILLING_CREATIONS = 50;
 export const MAX_DAILY_WITHDRAWALS = 3;
-
-// ===== TYPE EXPORTS =====
-export type {
-  AbacatePayCustomer,
-  AbacatePayCustomerResponse,
-  CreateCustomerRequest,
-  CreateCustomerResponse,
-  ListCustomersResponse,
-  BillingProduct,
-  BillingProductResponse,
-  CreateBillingRequest,
-  BillingResponse,
-  CreateBillingResponse,
-  ListBillingsResponse,
-  CreatePixQrCodeRequest,
-  PixQrCodeResponse,
-  CreatePixQrCodeResponse,
-  CheckPixQrCodeResponse,
-  PixWithdrawDetails,
-  CreateWithdrawRequest,
-  WithdrawResponse,
-  CreateWithdrawResponse,
-  GetWithdrawResponse,
-  ListWithdrawsResponse,
-  WebhookPayloadBase,
-  BillingWebhookPayload,
-  PixWebhookPayload,
-  WithdrawWebhookPayload,
-  WebhookPayload,
-  AbacatePayError,
-  AbacatePayServiceOptions,
-};

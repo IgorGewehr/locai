@@ -24,18 +24,24 @@ export const getInstagramApiUrl = (endpoint: string) =>
   `${INSTAGRAM_API_BASE_URL}/${endpoint}`;
 
 // OAuth Scopes
+// IMPORTANTE: Estas permissões devem corresponder EXATAMENTE às aprovadas no Meta App Review
+// Permissões aprovadas: pages_show_list, pages_messaging, instagram_basic,
+// instagram_manage_comments, instagram_manage_messages, pages_manage_metadata
 export const FACEBOOK_OAUTH_SCOPES = [
-  'pages_show_list',        // List pages user manages
-  'pages_messaging',        // Send/receive messages on Pages
-  'pages_manage_metadata',  // Subscribe to webhooks
-  'instagram_basic',        // Instagram account info
-  'instagram_manage_messages', // Instagram DMs
+  'pages_show_list',           // Listar páginas que o usuário gerencia
+  'pages_messaging',           // Enviar/receber mensagens do Messenger
+  'pages_manage_metadata',     // Inscrever páginas em webhooks
+  'instagram_basic',           // Informações básicas da conta Instagram vinculada
+  'instagram_manage_messages', // Enviar/receber DMs do Instagram
+  'instagram_manage_comments', // Gerenciar comentários do Instagram (necessário para algumas funcionalidades de DM)
 ];
 
+// Para Instagram Business API (contas profissionais conectadas via Facebook Page)
+// Nota: instagram_manage_messages requer que a conta Instagram esteja vinculada a uma página
 export const INSTAGRAM_OAUTH_SCOPES = [
-  'instagram_business_basic',           // Basic profile info
-  'instagram_business_manage_messages', // DMs - send and receive
-  'instagram_business_manage_comments', // Comments management
+  'instagram_basic',           // Informações básicas do perfil Instagram
+  'instagram_manage_messages', // Gerenciar DMs do Instagram
+  'instagram_manage_comments', // Gerenciar comentários do Instagram
 ];
 
 // Webhook subscription fields

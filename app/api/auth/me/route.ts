@@ -4,28 +4,24 @@ import { apiResponse } from '@/lib/utils/api-response';
 
 export async function GET(request: NextRequest) {
   try {
-    const authResult = await authService.requireAuth(request);
+    const authContext = await validateFirebaseAuth(request);
 
-    if (authResult instanceof NextResponse) {
-      return authResult; // Auth failed, return error response
+    if (!authContext.authenticated || !authContext.userId) {
+      return NextResponse.json(
+        { error: 'Authentication required', code: 'UNAUTHORIZED' },
+        { status: 401 }
+      );
     }
-
-    const { user } = authResult;
 
     return apiResponse.success({
       user: {
-        id: user.id,
-        email: user.email,
-        name: user.name,
-        role: user.role,
-        tenantId: user.tenantId,
-        createdAt: user.createdAt,
-        lastLogin: user.lastLogin,
+        id: authContext.userId,
+        email: authContext.email,
+        tenantId: authContext.tenantId,
       },
     });
 
   } catch (error) {
-
     return apiResponse.error(
       'Erro interno do servidor',
       500,

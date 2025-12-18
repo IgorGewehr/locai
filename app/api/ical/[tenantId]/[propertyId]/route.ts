@@ -17,10 +17,10 @@ import { logger } from '@/lib/utils/logger';
 import { getRateLimiter, rateLimitConfigs, getClientIdentifier } from '@/lib/utils/rate-limiter';
 
 interface RouteParams {
-  params: {
+  params: Promise<{
     tenantId: string;
     propertyId: string;
-  };
+  }>;
 }
 
 export async function GET(
@@ -28,7 +28,7 @@ export async function GET(
   { params }: RouteParams
 ) {
   const startTime = Date.now();
-  const { tenantId, propertyId } = params;
+  const { tenantId, propertyId } = await params;
 
   try {
     // ✅ MÉDIO 7: Rate limiting para feed iCal público

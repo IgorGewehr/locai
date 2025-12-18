@@ -303,6 +303,22 @@ export class PropertyCacheManager {
   }
 
   /**
+   * Reseta estatísticas do cache (mantém dados)
+   */
+  resetStats(): void {
+    this.stats = {
+      hits: 0,
+      misses: 0,
+      evictions: 0,
+      size: this.cache.size,
+      hitRate: 0
+    };
+    logger.info('📊 [PropertyCache] Stats reset', {
+      cacheSize: this.cache.size
+    });
+  }
+
+  /**
    * Warmup do cache - pré-carrega dados comuns
    */
   async warmup(tenantId: string, commonFilters: any[]): Promise<void> {

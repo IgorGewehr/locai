@@ -27,6 +27,8 @@ import type {
   CreateWithdrawResponse,
   GetWithdrawResponse,
   ListWithdrawsResponse,
+  // Store
+  GetStoreResponse,
   // Options
   AbacatePayServiceOptions,
   AbacatePayError,
@@ -418,6 +420,32 @@ export class AbacatePayService {
     if (isAbacatePaySuccess(response)) {
       logger.info('[ABACATEPAY] Withdrawals listed', {
         count: response.data.length,
+      });
+    }
+
+    return response;
+  }
+
+  // ===== STORE METHODS =====
+
+  /**
+   * Get store information and balance
+   * Useful for reconciliation with internal wallet
+   */
+  async getStoreBalance(): Promise<GetStoreResponse> {
+    logger.info('[ABACATEPAY] Getting store balance');
+
+    const response = await this.request<GetStoreResponse>(
+      '/store/get',
+      'GET'
+    );
+
+    if (isAbacatePaySuccess(response)) {
+      logger.info('[ABACATEPAY] Store balance retrieved', {
+        storeId: response.data.id,
+        available: response.data.balance.available,
+        pending: response.data.balance.pending,
+        blocked: response.data.balance.blocked,
       });
     }
 

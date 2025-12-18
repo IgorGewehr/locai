@@ -2,21 +2,32 @@ import { NextRequest, NextResponse } from 'next/server';
 import { validateFirebaseAuth } from '@/lib/middleware/firebase-auth';
 import { logger } from '@/lib/utils/logger';
 import crypto from 'crypto';
-import { INSTAGRAM_OAUTH_BASE_URL, INSTAGRAM_OAUTH_SCOPES } from '@/lib/facebook/constants';
+import {
+    FACEBOOK_OAUTH_BASE_URL,
+    GRAPH_API_VERSION,
+    FACEBOOK_OAUTH_SCOPES
+} from '@/lib/facebook/constants';
 
 /**
  * GET /api/instagram/oauth/start
  *
- * Initiates the Instagram OAuth flow using Instagram Direct Login.
- * This allows users to connect their Instagram Business/Creator accounts
- * directly without needing a Facebook Page.
+ * Inicia o fluxo OAuth para conectar Instagram via Facebook Page.
  *
- * Note: Instagram messaging still requires the account to be a Business or Creator account.
+ * IMPORTANTE: O Instagram Messaging API requer que a conta Instagram Business
+ * esteja vinculada a uma Página do Facebook. Por isso, usamos o fluxo OAuth
+ * do Facebook que inclui as permissões de Instagram.
  *
- * Required permissions:
- * - instagram_business_basic: Basic profile info
- * - instagram_business_manage_messages: Send/receive DMs
- * - instagram_business_manage_comments: Manage comments (optional)
+ * Permissões usadas (aprovadas no App Review):
+ * - pages_show_list: Listar páginas do usuário
+ * - pages_messaging: Enviar/receber mensagens no Messenger
+ * - pages_manage_metadata: Inscrever páginas em webhooks
+ * - instagram_basic: Informações básicas da conta Instagram vinculada
+ * - instagram_manage_messages: Enviar/receber DMs do Instagram
+ * - instagram_manage_comments: Gerenciar comentários do Instagram
+ *
+ * Nota: Este endpoint redireciona para o OAuth do Facebook pois as permissões
+ * de Instagram (instagram_basic, instagram_manage_messages) são concedidas
+ * através do login do Facebook quando a página tem um Instagram Business vinculado.
  */
 export async function GET(request: NextRequest) {
     try {
@@ -32,47 +43,56 @@ export async function GET(request: NextRequest) {
         const tenantId = authContext.tenantId;
 
         // Get configuration
-        // Instagram uses the same App ID as Facebook (they're both Meta apps)
         const appId = process.env.NEXT_PUBLIC_FACEBOOK_APP_ID;
         const redirectUri = process.env.INSTAGRAM_OAUTH_REDIRECT_URI ||
-            `${process.env.NEXT_PUBLIC_APP_URL}/api/instagram/oauth/callback`;
+            process.env.FACEBOOK_OAUTH_REDIRECT_URI ||
+            `${process.env.NEXT_PUBLIC_APP_URL}/api/facebook/oauth/callback`;
 
         if (!appId) {
             logger.error('[Instagram OAuth] Missing NEXT_PUBLIC_FACEBOOK_APP_ID');
             return NextResponse.json(
-                { error: 'Instagram App ID not configured', code: 'CONFIG_ERROR' },
+                { error: 'Facebook/Instagram App ID not configured', code: 'CONFIG_ERROR' },
                 { status: 500 }
             );
         }
 
         // Generate CSRF state token
+        // Incluímos flag para indicar que o fluxo foi iniciado para Instagram
         const randomToken = crypto.randomBytes(32).toString('hex');
         const timestamp = Date.now();
         const state = Buffer.from(
-            JSON.stringify({ tenantId, token: randomToken, ts: timestamp })
+            JSON.stringify({
+                tenantId,
+                token: randomToken,
+                ts: timestamp,
+                source: 'instagram' // Indica que o fluxo foi iniciado para Instagram
+            })
         ).toString('base64url');
 
-        // Instagram OAuth scopes from centralized config
-        const scopes = INSTAGRAM_OAUTH_SCOPES.join(',');
+        // Usar as mesmas permissões do Facebook OAuth (que incluem Instagram)
+        const scopes = FACEBOOK_OAUTH_SCOPES.join(',');
 
-        // Build Instagram authorization URL
-        const authUrl = new URL(`${INSTAGRAM_OAUTH_BASE_URL}/oauth/authorize`);
+        // Build Facebook authorization URL (que inclui permissões de Instagram)
+        // O Instagram Business Account vinculado à página será retornado automaticamente
+        const authUrl = new URL(`${FACEBOOK_OAUTH_BASE_URL}/${GRAPH_API_VERSION}/dialog/oauth`);
         authUrl.searchParams.set('client_id', appId);
         authUrl.searchParams.set('redirect_uri', redirectUri);
         authUrl.searchParams.set('scope', scopes);
-        authUrl.searchParams.set('response_type', 'code');
         authUrl.searchParams.set('state', state);
+        authUrl.searchParams.set('response_type', 'code');
 
-        logger.info('[Instagram OAuth] Generated authorization URL', {
+        logger.info('[Instagram OAuth] Generated authorization URL (via Facebook)', {
             tenantId: tenantId.substring(0, 8) + '***',
             redirectUri,
-            scopes
+            scopes,
+            note: 'Instagram connection requires Facebook Page with linked Instagram Business Account'
         });
 
         return NextResponse.json({
             success: true,
             authUrl: authUrl.toString(),
             state,
+            message: 'Para conectar o Instagram, você precisa de uma Página do Facebook com uma conta Instagram Business vinculada.'
         });
 
     } catch (error) {

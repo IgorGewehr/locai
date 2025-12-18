@@ -3,6 +3,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/firebase/config'
+import { doc, getDoc } from 'firebase/firestore'
 import { logger } from '@/lib/utils/logger'
 import { z } from 'zod'
 import { NegotiationSettings, DEFAULT_NEGOTIATION_SETTINGS } from '@/lib/types/tenant-settings'
@@ -59,19 +60,14 @@ export async function POST(request: NextRequest) {
       tenantId: tenantId.substring(0, 8) + '***'
     })
 
-    // Fetch from Firestore
-    const settingsRef = db
-      .collection('tenants')
-      .doc(tenantId)
-      .collection('settings')
-      .doc('negotiation')
-
-    const settingsDoc = await settingsRef.get()
+    // Fetch from Firestore using modular syntax
+    const settingsRef = doc(db, 'tenants', tenantId, 'settings', 'negotiation')
+    const settingsDoc = await getDoc(settingsRef)
 
     let settings: NegotiationSettings
     let isDefault = false
 
-    if (!settingsDoc.exists) {
+    if (!settingsDoc.exists()) {
       logger.info('[GET-NEGOTIATION-SETTINGS] Using default settings', {
         requestId,
         tenantId: tenantId.substring(0, 8) + '***'
