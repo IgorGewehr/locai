@@ -187,8 +187,9 @@ class ConversationService {
         clientId: client.id,
         agentId: 'ai-agent-default',
         tenantId,
-        whatsappPhone: channel === 'whatsapp' ? identifier : undefined,
-        socialId: channel !== 'whatsapp' ? identifier : undefined,
+        // Use null instead of undefined - Firestore doesn't accept undefined values
+        whatsappPhone: channel === 'whatsapp' ? identifier : null,
+        socialId: channel !== 'whatsapp' ? identifier : null,
         channel,
         status: ConversationStatus.ACTIVE,
         stage: ConversationStage.GREETING,
