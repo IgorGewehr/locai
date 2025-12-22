@@ -37,6 +37,12 @@ import {
   RadioGroup,
   FormControlLabel,
   Radio,
+  Stepper,
+  Step,
+  StepLabel,
+  StepContent,
+  Collapse,
+  Tooltip,
 } from '@mui/material';
 import {
   QrCode2,
@@ -52,6 +58,13 @@ import {
   WhatsApp,
   Instagram,
   OpenInNew,
+  Security,
+  Message,
+  Pages,
+  Settings,
+  ArrowForward,
+  Info,
+  Verified,
 } from '@mui/icons-material';
 import { useTenant } from '@/contexts/TenantContext';
 import { useAuth } from '@/lib/hooks/useAuth';
@@ -157,6 +170,10 @@ export default function WhatsAppPage() {
   const [availableInstagramAccounts, setAvailableInstagramAccounts] = useState<InstagramAccount[]>([]);
   const [connectingInstagram, setConnectingInstagram] = useState(false);
 
+  // Screencast/Demo Mode - Show authorization flow step by step
+  const [showPermissionsInfo, setShowPermissionsInfo] = useState(false);
+  const [oauthStep, setOauthStep] = useState(0); // 0: not started, 1: permissions explained, 2: redirecting, 3: selecting page, 4: connected
+
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const isPollingRef = useRef(false);
   const qrCodeRef = useRef<HTMLDivElement>(null);
@@ -196,12 +213,14 @@ export default function WhatsAppPage() {
 
       if (oauthError) {
         setError(`Erro ao conectar Facebook: ${oauthError}`);
+        setOauthStep(0);
         return;
       }
 
       if (success === 'true' && pagesToken) {
         // Successfully got pages from OAuth - fetch and show selection
         setOauthPagesToken(pagesToken);
+        setOauthStep(3); // Step 3: Selecting page
         fetchPagesFromOAuthToken(pagesToken);
       }
     }
@@ -534,6 +553,7 @@ export default function WhatsAppPage() {
   // Handler for connecting Facebook via OAuth flow (production)
   const handleFacebookConnectOAuth = async () => {
     setConnecting(true);
+    setOauthStep(2); // Step 2: Redirecting to Facebook
     try {
       const firebaseToken = await getFirebaseToken();
 
@@ -547,16 +567,18 @@ export default function WhatsAppPage() {
       const result = await response.json();
 
       if (response.ok && result.success && result.authUrl) {
-        // Redirect to Facebook OAuth
+        // Redirect to Facebook OAuth - popup will show
         window.location.href = result.authUrl;
       } else {
         setError(result.error || 'Falha ao iniciar conexão com Facebook');
         setConnecting(false);
+        setOauthStep(0);
       }
     } catch (err) {
       console.error('Error starting Facebook OAuth:', err);
       setError('Erro ao conectar com Facebook');
       setConnecting(false);
+      setOauthStep(0);
     }
   };
 
@@ -588,20 +610,23 @@ export default function WhatsAppPage() {
         setOauthPages([]);
         setOauthPagesToken(null);
         setSelectedOAuthPage('');
+        setOauthStep(4); // Step 4: Connected successfully
 
         const message = result.page?.hasInstagram
           ? `Facebook e Instagram (@${result.page.instagramUsername}) conectados com sucesso!`
           : 'Facebook conectado com sucesso!';
         setSuccessMessage(message);
 
-        // Clear success message after 5 seconds
-        setTimeout(() => setSuccessMessage(null), 5000);
+        // Clear success message after 8 seconds (longer for screencast visibility)
+        setTimeout(() => setSuccessMessage(null), 8000);
       } else {
         setError(result.error || 'Falha ao conectar página');
+        setOauthStep(0);
       }
     } catch (err) {
       console.error('Error confirming OAuth page:', err);
       setError('Erro ao conectar página do Facebook');
+      setOauthStep(0);
     } finally {
       setProcessingOAuth(false);
     }
@@ -1381,7 +1406,7 @@ export default function WhatsAppPage() {
         </Typography>
       </Box>
 
-      {/* Facebook Card */}
+      {/* Facebook Card - Enhanced for App Review Screencast */}
       <Paper sx={{ p: 3, mb: 3 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
@@ -1409,6 +1434,118 @@ export default function WhatsAppPage() {
 
         <Divider sx={{ my: 2 }} />
 
+        {/* Permissions Info Section - Visible before connecting */}
+        {!facebookStatus.connected && (
+          <Collapse in={showPermissionsInfo || !facebookStatus.connected}>
+            <Paper
+              elevation={0}
+              sx={{
+                p: 2,
+                mb: 3,
+                bgcolor: alpha('#1877F2', 0.04),
+                border: '1px solid',
+                borderColor: alpha('#1877F2', 0.2),
+                borderRadius: 2
+              }}
+            >
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
+                <Security sx={{ color: '#1877F2', fontSize: 20 }} />
+                <Typography variant="subtitle2" fontWeight={600} color="#1877F2">
+                  Permissões Solicitadas
+                </Typography>
+                <Tooltip title="Estas permissões são necessárias para a integração funcionar corretamente">
+                  <Info sx={{ fontSize: 16, color: 'text.secondary', cursor: 'help' }} />
+                </Tooltip>
+              </Box>
+
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+                <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1.5 }}>
+                  <Pages sx={{ fontSize: 20, color: 'text.secondary', mt: 0.25 }} />
+                  <Box>
+                    <Typography variant="body2" fontWeight={500}>
+                      pages_show_list
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      Lista as páginas do Facebook que você administra para que você possa escolher qual conectar
+                    </Typography>
+                  </Box>
+                </Box>
+
+                <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1.5 }}>
+                  <Message sx={{ fontSize: 20, color: 'text.secondary', mt: 0.25 }} />
+                  <Box>
+                    <Typography variant="body2" fontWeight={500}>
+                      pages_messaging
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      Permite enviar e receber mensagens do Messenger em nome da sua página
+                    </Typography>
+                  </Box>
+                </Box>
+
+                <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1.5 }}>
+                  <Settings sx={{ fontSize: 20, color: 'text.secondary', mt: 0.25 }} />
+                  <Box>
+                    <Typography variant="body2" fontWeight={500}>
+                      pages_manage_metadata
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      Necessário para inscrever a página no webhook e receber notificações de novas mensagens
+                    </Typography>
+                  </Box>
+                </Box>
+              </Box>
+            </Paper>
+
+            {/* Authorization Flow Steps - Visual Guide */}
+            <Paper
+              elevation={0}
+              sx={{
+                p: 2,
+                mb: 3,
+                bgcolor: 'background.default',
+                border: '1px solid',
+                borderColor: 'divider',
+                borderRadius: 2
+              }}
+            >
+              <Typography variant="subtitle2" fontWeight={600} sx={{ mb: 2 }}>
+                Como funciona a conexão:
+              </Typography>
+              <Stepper activeStep={oauthStep} orientation="vertical">
+                <Step completed={oauthStep > 0}>
+                  <StepLabel>
+                    <Typography variant="body2" fontWeight={oauthStep === 0 ? 600 : 400}>
+                      Clique em &quot;Conectar com Facebook&quot;
+                    </Typography>
+                  </StepLabel>
+                </Step>
+                <Step completed={oauthStep > 2}>
+                  <StepLabel>
+                    <Typography variant="body2" fontWeight={oauthStep === 2 ? 600 : 400}>
+                      Autorize as permissões no popup do Facebook
+                    </Typography>
+                  </StepLabel>
+                </Step>
+                <Step completed={oauthStep > 3}>
+                  <StepLabel>
+                    <Typography variant="body2" fontWeight={oauthStep === 3 ? 600 : 400}>
+                      Selecione a página que deseja conectar
+                    </Typography>
+                  </StepLabel>
+                </Step>
+                <Step completed={oauthStep === 4}>
+                  <StepLabel>
+                    <Typography variant="body2" fontWeight={oauthStep === 4 ? 600 : 400}>
+                      Pronto! Comece a receber mensagens
+                    </Typography>
+                  </StepLabel>
+                </Step>
+              </Stepper>
+            </Paper>
+          </Collapse>
+        )}
+
         <Box sx={{ display: 'flex', gap: 2, alignItems: 'center', flexWrap: 'wrap' }}>
           {!facebookStatus.connected ? (
             <>
@@ -1417,21 +1554,27 @@ export default function WhatsAppPage() {
                 onClick={handleFacebookConnectOAuth}
                 startIcon={connecting ? <CircularProgress size={20} color="inherit" /> : <Facebook />}
                 disabled={connecting || processingOAuth}
-                sx={{ bgcolor: '#1877F2', '&:hover': { bgcolor: '#166fe5' } }}
+                size="large"
+                sx={{
+                  bgcolor: '#1877F2',
+                  '&:hover': { bgcolor: '#166fe5' },
+                  py: 1.5,
+                  px: 4,
+                  fontSize: '1rem'
+                }}
               >
-                {connecting ? 'Redirecionando...' : 'Conectar com Facebook'}
+                {connecting ? 'Redirecionando para Facebook...' : 'Conectar com Facebook'}
               </Button>
-              {process.env.NODE_ENV === 'development' && (
-                <Button
-                  variant="outlined"
-                  onClick={handleFacebookConnectWithTestToken}
-                  disabled={connecting}
-                  size="small"
-                  sx={{ color: '#1877F2', borderColor: '#1877F2' }}
-                >
-                  Usar Token de Teste
-                </Button>
-              )}
+              {/* Test Token Button - Always visible for App Review Screencast */}
+              <Button
+                variant="outlined"
+                onClick={handleFacebookConnectWithTestToken}
+                disabled={connecting}
+                size="small"
+                sx={{ color: '#1877F2', borderColor: '#1877F2' }}
+              >
+                Usar Token de Teste (Demo)
+              </Button>
             </>
           ) : (
             <Button
@@ -1444,6 +1587,27 @@ export default function WhatsAppPage() {
             </Button>
           )}
         </Box>
+
+        {/* Success State - Enhanced for Screencast */}
+        {facebookStatus.connected && (
+          <Box
+            sx={{
+              mt: 3,
+              p: 2,
+              bgcolor: alpha('#4caf50', 0.08),
+              borderRadius: 2,
+              border: '1px solid',
+              borderColor: alpha('#4caf50', 0.3)
+            }}
+          >
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <Verified sx={{ color: 'success.main' }} />
+              <Typography variant="body2" fontWeight={500} color="success.dark">
+                Página conectada com sucesso! Mensagens do Messenger serão recebidas automaticamente.
+              </Typography>
+            </Box>
+          </Box>
+        )}
       </Paper>
 
       {/* Instagram Card */}
@@ -1599,7 +1763,7 @@ export default function WhatsAppPage() {
         </DialogActions>
       </Dialog>
 
-      {/* Facebook Page Selection Dialog - Supports both OAuth and legacy flows */}
+      {/* Facebook Page Selection Dialog - Enhanced for App Review Screencast */}
       <Dialog
         open={showPageSelection}
         onClose={() => {
@@ -1607,78 +1771,121 @@ export default function WhatsAppPage() {
           setOauthPages([]);
           setSelectedOAuthPage('');
           setSelectedPage('');
+          setOauthStep(0);
         }}
         maxWidth="sm"
         fullWidth
+        PaperProps={{
+          sx: { borderRadius: 3 }
+        }}
       >
-        <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          <Facebook sx={{ color: '#1877F2' }} />
-          Selecione a Página do Facebook
+        <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1.5, pb: 1 }}>
+          <Facebook sx={{ color: '#1877F2', fontSize: 32 }} />
+          <Box>
+            <Typography variant="h6" fontWeight={600}>
+              Selecione sua Página
+            </Typography>
+            <Typography variant="caption" color="text.secondary">
+              Etapa 3 de 4: Escolha da página
+            </Typography>
+          </Box>
         </DialogTitle>
         <DialogContent>
-          <DialogContentText sx={{ mb: 3 }}>
-            Escolha a página que deseja conectar para receber mensagens do Facebook Messenger.
-            {oauthPages.some(p => p.hasInstagram) && (
-              <Typography component="span" color="primary" sx={{ display: 'block', mt: 1 }}>
-                Páginas com Instagram vinculado serão conectadas automaticamente.
+          {/* Clear label explaining what pages_show_list does */}
+          <Paper
+            elevation={0}
+            sx={{
+              p: 2,
+              mb: 3,
+              bgcolor: alpha('#1877F2', 0.04),
+              border: '1px solid',
+              borderColor: alpha('#1877F2', 0.15),
+              borderRadius: 2
+            }}
+          >
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+              <Pages sx={{ color: '#1877F2', fontSize: 20 }} />
+              <Typography variant="subtitle2" fontWeight={600} color="#1877F2">
+                Páginas do Facebook que você administra
               </Typography>
-            )}
-          </DialogContentText>
+            </Box>
+            <Typography variant="body2" color="text.secondary">
+              Estas são as páginas do Facebook onde você tem permissão de administrador.
+              A permissão <strong>pages_show_list</strong> foi usada para listar estas páginas.
+            </Typography>
+          </Paper>
+
+          {oauthPages.some(p => p.hasInstagram) && (
+            <Alert severity="info" sx={{ mb: 3 }} icon={<Instagram />}>
+              Páginas com conta do Instagram Business vinculada serão conectadas automaticamente para receber mensagens do Instagram Direct também.
+            </Alert>
+          )}
 
           {/* OAuth Flow - Show pages with more details */}
           {oauthPages.length > 0 ? (
-            <RadioGroup
-              value={selectedOAuthPage}
-              onChange={(e) => setSelectedOAuthPage(e.target.value)}
-            >
-              {oauthPages.map((page) => (
-                <Paper
-                  key={page.id}
-                  sx={{
-                    p: 2,
-                    mb: 2,
-                    border: '2px solid',
-                    borderColor: selectedOAuthPage === page.id ? 'primary.main' : 'divider',
-                    borderRadius: 2,
-                    cursor: 'pointer',
-                    transition: 'all 0.2s',
-                    '&:hover': { borderColor: 'primary.light', bgcolor: 'action.hover' }
-                  }}
-                  onClick={() => setSelectedOAuthPage(page.id)}
-                >
-                  <FormControlLabel
-                    value={page.id}
-                    control={<Radio />}
-                    label={
-                      <Box sx={{ ml: 1 }}>
-                        <Typography variant="subtitle1" fontWeight={600}>
-                          {page.name}
-                        </Typography>
-                        {page.category && (
-                          <Typography variant="caption" color="text.secondary">
-                            {page.category}
-                          </Typography>
-                        )}
-                        {page.hasInstagram && (
-                          <Chip
-                            icon={<Instagram sx={{ fontSize: 16 }} />}
-                            label={`@${page.instagramUsername}`}
-                            size="small"
-                            sx={{
-                              ml: 1,
-                              background: 'linear-gradient(45deg, #f09433 0%, #e6683c 25%, #dc2743 50%, #cc2366 75%, #bc1888 100%)',
-                              color: 'white',
-                              '& .MuiChip-icon': { color: 'white' }
-                            }}
-                          />
-                        )}
-                      </Box>
-                    }
-                    sx={{ width: '100%', m: 0 }}
-                  />
-                </Paper>
-              ))}
-            </RadioGroup>
+            <Box>
+              <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 2 }}>
+                {oauthPages.length} {oauthPages.length === 1 ? 'página encontrada' : 'páginas encontradas'}:
+              </Typography>
+              <RadioGroup
+                value={selectedOAuthPage}
+                onChange={(e) => setSelectedOAuthPage(e.target.value)}
+              >
+                {oauthPages.map((page) => (
+                  <Paper
+                    key={page.id}
+                    sx={{
+                      p: 2,
+                      mb: 2,
+                      border: '2px solid',
+                      borderColor: selectedOAuthPage === page.id ? '#1877F2' : 'divider',
+                      borderRadius: 2,
+                      cursor: 'pointer',
+                      transition: 'all 0.2s',
+                      bgcolor: selectedOAuthPage === page.id ? alpha('#1877F2', 0.04) : 'transparent',
+                      '&:hover': { borderColor: '#1877F2', bgcolor: alpha('#1877F2', 0.02) }
+                    }}
+                    onClick={() => setSelectedOAuthPage(page.id)}
+                  >
+                    <FormControlLabel
+                      value={page.id}
+                      control={<Radio sx={{ color: '#1877F2', '&.Mui-checked': { color: '#1877F2' } }} />}
+                      label={
+                        <Box sx={{ ml: 1 }}>
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                            <Typography variant="subtitle1" fontWeight={600}>
+                              {page.name}
+                            </Typography>
+                            {selectedOAuthPage === page.id && (
+                              <CheckCircle sx={{ fontSize: 18, color: '#1877F2' }} />
+                            )}
+                          </Box>
+                          {page.category && (
+                            <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+                              Categoria: {page.category}
+                            </Typography>
+                          )}
+                          {page.hasInstagram && (
+                            <Chip
+                              icon={<Instagram sx={{ fontSize: 16 }} />}
+                              label={`Instagram: @${page.instagramUsername}`}
+                              size="small"
+                              sx={{
+                                mt: 1,
+                                background: 'linear-gradient(45deg, #f09433 0%, #e6683c 25%, #dc2743 50%, #cc2366 75%, #bc1888 100%)',
+                                color: 'white',
+                                '& .MuiChip-icon': { color: 'white' }
+                              }}
+                            />
+                          )}
+                        </Box>
+                      }
+                      sx={{ width: '100%', m: 0, alignItems: 'flex-start' }}
+                    />
+                  </Paper>
+                ))}
+              </RadioGroup>
+            </Box>
           ) : (
             /* Legacy Flow - Simple select */
             <FormControl fullWidth>
@@ -1706,15 +1913,47 @@ export default function WhatsAppPage() {
               </Select>
             </FormControl>
           )}
+
+          {/* What happens next explanation */}
+          {selectedOAuthPage && (
+            <Paper
+              elevation={0}
+              sx={{
+                p: 2,
+                mt: 2,
+                bgcolor: alpha('#4caf50', 0.04),
+                border: '1px solid',
+                borderColor: alpha('#4caf50', 0.2),
+                borderRadius: 2
+              }}
+            >
+              <Typography variant="subtitle2" fontWeight={600} color="success.dark" sx={{ mb: 1 }}>
+                O que acontece ao conectar:
+              </Typography>
+              <Box component="ul" sx={{ m: 0, pl: 2.5 }}>
+                <Typography component="li" variant="body2" color="text.secondary">
+                  A página será inscrita para receber webhooks de mensagens (<strong>pages_manage_metadata</strong>)
+                </Typography>
+                <Typography component="li" variant="body2" color="text.secondary">
+                  Mensagens recebidas no Messenger serão processadas pela IA (<strong>pages_messaging</strong>)
+                </Typography>
+                <Typography component="li" variant="body2" color="text.secondary">
+                  Respostas automáticas serão enviadas em nome da página
+                </Typography>
+              </Box>
+            </Paper>
+          )}
         </DialogContent>
-        <DialogActions>
+        <DialogActions sx={{ p: 2.5, pt: 1 }}>
           <Button
             onClick={() => {
               setShowPageSelection(false);
               setOauthPages([]);
               setSelectedOAuthPage('');
               setSelectedPage('');
+              setOauthStep(0);
             }}
+            sx={{ color: 'text.secondary' }}
           >
             Cancelar
           </Button>
@@ -1725,10 +1964,15 @@ export default function WhatsAppPage() {
               processingOAuth ||
               (oauthPages.length > 0 ? !selectedOAuthPage : !selectedPage)
             }
-            startIcon={processingOAuth ? <CircularProgress size={20} /> : <Facebook />}
-            sx={{ bgcolor: '#1877F2', '&:hover': { bgcolor: '#166fe5' } }}
+            startIcon={processingOAuth ? <CircularProgress size={20} color="inherit" /> : <CheckCircle />}
+            size="large"
+            sx={{
+              bgcolor: '#1877F2',
+              '&:hover': { bgcolor: '#166fe5' },
+              px: 4
+            }}
           >
-            {processingOAuth ? 'Conectando...' : 'Conectar Página'}
+            {processingOAuth ? 'Conectando página...' : 'Conectar Página Selecionada'}
           </Button>
         </DialogActions>
       </Dialog>
