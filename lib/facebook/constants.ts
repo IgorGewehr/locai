@@ -31,9 +31,12 @@ export const getInstagramApiUrl = (endpoint: string) =>
 // - pages_messaging: Enviar/receber mensagens do Messenger
 // - pages_manage_metadata: Inscrever páginas em webhooks
 //
-// Permissões Instagram (API 2024+):
-// - instagram_business_basic: Informações básicas da conta Instagram Business
-// - instagram_business_manage_messages: Enviar/receber DMs do Instagram
+// Permissões Instagram (via Facebook Login):
+// - instagram_basic: Informações básicas da conta Instagram vinculada
+// - instagram_manage_messages: Enviar/receber DMs do Instagram
+//
+// Nota: As permissões instagram_* são concedidas através do Facebook Login
+// quando a Página do Facebook tem uma conta Instagram Business/Creator vinculada.
 //
 export const FACEBOOK_OAUTH_SCOPES = [
   'pages_show_list',           // Listar páginas que o usuário gerencia
@@ -41,11 +44,11 @@ export const FACEBOOK_OAUTH_SCOPES = [
   'pages_manage_metadata',     // Inscrever páginas em webhooks
 ];
 
-// Instagram Business API Scopes (2024+)
+// Instagram Scopes (via Facebook Login)
 // Requer conta Instagram Business/Creator vinculada a uma Página do Facebook
 export const INSTAGRAM_OAUTH_SCOPES = [
-  'instagram_business_basic',           // Informações básicas do perfil Instagram Business
-  'instagram_business_manage_messages', // Gerenciar DMs do Instagram Business
+  'instagram_basic',           // Informações básicas do perfil Instagram vinculado
+  'instagram_manage_messages', // Gerenciar DMs do Instagram
 ];
 
 // Combined scopes for Facebook + Instagram integration

@@ -1663,7 +1663,7 @@ export default function WhatsAppPage() {
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
                 <Security sx={{ color: '#E4405F', fontSize: 20 }} />
                 <Typography variant="subtitle2" fontWeight={600} color="#E4405F">
-                  Permissões Solicitadas (Instagram Business API)
+                  Permissões Solicitadas
                 </Typography>
                 <Tooltip title="Estas permissões são necessárias para a integração com Instagram funcionar">
                   <Info sx={{ fontSize: 16, color: 'text.secondary', cursor: 'help' }} />
@@ -1675,10 +1675,10 @@ export default function WhatsAppPage() {
                   <Instagram sx={{ fontSize: 20, color: 'text.secondary', mt: 0.25 }} />
                   <Box>
                     <Typography variant="body2" fontWeight={500}>
-                      instagram_business_basic
+                      instagram_basic
                     </Typography>
                     <Typography variant="caption" color="text.secondary">
-                      Acesso às informações básicas da conta Instagram Business vinculada à sua Página do Facebook
+                      Acesso às informações básicas da conta Instagram vinculada à sua Página do Facebook
                     </Typography>
                   </Box>
                 </Box>
@@ -1687,10 +1687,10 @@ export default function WhatsAppPage() {
                   <Message sx={{ fontSize: 20, color: 'text.secondary', mt: 0.25 }} />
                   <Box>
                     <Typography variant="body2" fontWeight={500}>
-                      instagram_business_manage_messages
+                      instagram_manage_messages
                     </Typography>
                     <Typography variant="caption" color="text.secondary">
-                      Permite enviar e receber mensagens diretas (DMs) do Instagram em nome da sua conta Business
+                      Permite enviar e receber mensagens diretas (DMs) do Instagram em nome da sua conta
                     </Typography>
                   </Box>
                 </Box>
