@@ -1610,13 +1610,13 @@ export default function WhatsAppPage() {
         )}
       </Paper>
 
-      {/* Instagram Card */}
+      {/* Instagram Card - Enhanced for App Review Screencast */}
       <Paper sx={{ p: 3, mb: 3 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
             <Instagram sx={{ fontSize: 28, color: '#E4405F' }} />
             <Typography variant="h6" fontWeight={600}>
-              Instagram Direct
+              Instagram Direct Messages
             </Typography>
           </Box>
 
@@ -1646,6 +1646,125 @@ export default function WhatsAppPage() {
 
         <Divider sx={{ my: 2 }} />
 
+        {/* Permissions Info Section - Visible before connecting */}
+        {!instagramStatus.connected && (
+          <Collapse in={true}>
+            <Paper
+              elevation={0}
+              sx={{
+                p: 2,
+                mb: 3,
+                bgcolor: alpha('#E4405F', 0.04),
+                border: '1px solid',
+                borderColor: alpha('#E4405F', 0.2),
+                borderRadius: 2
+              }}
+            >
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
+                <Security sx={{ color: '#E4405F', fontSize: 20 }} />
+                <Typography variant="subtitle2" fontWeight={600} color="#E4405F">
+                  Permissões Solicitadas (Instagram Business API)
+                </Typography>
+                <Tooltip title="Estas permissões são necessárias para a integração com Instagram funcionar">
+                  <Info sx={{ fontSize: 16, color: 'text.secondary', cursor: 'help' }} />
+                </Tooltip>
+              </Box>
+
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+                <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1.5 }}>
+                  <Instagram sx={{ fontSize: 20, color: 'text.secondary', mt: 0.25 }} />
+                  <Box>
+                    <Typography variant="body2" fontWeight={500}>
+                      instagram_business_basic
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      Acesso às informações básicas da conta Instagram Business vinculada à sua Página do Facebook
+                    </Typography>
+                  </Box>
+                </Box>
+
+                <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1.5 }}>
+                  <Message sx={{ fontSize: 20, color: 'text.secondary', mt: 0.25 }} />
+                  <Box>
+                    <Typography variant="body2" fontWeight={500}>
+                      instagram_business_manage_messages
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      Permite enviar e receber mensagens diretas (DMs) do Instagram em nome da sua conta Business
+                    </Typography>
+                  </Box>
+                </Box>
+              </Box>
+            </Paper>
+
+            {/* Authorization Flow Steps - Visual Guide */}
+            <Paper
+              elevation={0}
+              sx={{
+                p: 2,
+                mb: 3,
+                bgcolor: 'background.default',
+                border: '1px solid',
+                borderColor: 'divider',
+                borderRadius: 2
+              }}
+            >
+              <Typography variant="subtitle2" fontWeight={600} sx={{ mb: 2 }}>
+                Como funciona a conexão:
+              </Typography>
+              <Stepper activeStep={0} orientation="vertical">
+                <Step>
+                  <StepLabel>
+                    <Typography variant="body2" fontWeight={600}>
+                      Clique em &quot;Conectar Instagram&quot;
+                    </Typography>
+                  </StepLabel>
+                </Step>
+                <Step>
+                  <StepLabel>
+                    <Typography variant="body2">
+                      Faça login no Facebook (conta vinculada ao Instagram Business)
+                    </Typography>
+                  </StepLabel>
+                </Step>
+                <Step>
+                  <StepLabel>
+                    <Typography variant="body2">
+                      Autorize as permissões do Instagram Business
+                    </Typography>
+                  </StepLabel>
+                </Step>
+                <Step>
+                  <StepLabel>
+                    <Typography variant="body2">
+                      Selecione a conta Instagram Business que deseja conectar
+                    </Typography>
+                  </StepLabel>
+                </Step>
+                <Step>
+                  <StepLabel>
+                    <Typography variant="body2">
+                      Pronto! Comece a receber mensagens do Instagram
+                    </Typography>
+                  </StepLabel>
+                </Step>
+              </Stepper>
+            </Paper>
+
+            {/* Requirement notice */}
+            <Alert
+              severity="info"
+              sx={{ mb: 3 }}
+              icon={<Info />}
+            >
+              <Typography variant="body2">
+                <strong>Requisito:</strong> Sua conta do Instagram deve ser uma conta Business ou Creator
+                e estar vinculada a uma Página do Facebook para usar o Instagram Business API.
+              </Typography>
+            </Alert>
+          </Collapse>
+        )}
+
         <Box sx={{ display: 'flex', gap: 2, alignItems: 'center', flexWrap: 'wrap' }}>
           {!instagramStatus.connected ? (
             <>
@@ -1655,6 +1774,7 @@ export default function WhatsAppPage() {
                 onClick={handleInstagramConnectOAuth}
                 startIcon={connectingInstagram ? <CircularProgress size={20} color="inherit" /> : <Instagram />}
                 disabled={connectingInstagram}
+                size="large"
                 sx={{
                   background: 'linear-gradient(45deg, #f09433 0%, #e6683c 25%, #dc2743 50%, #cc2366 75%, #bc1888 100%)',
                   '&:hover': {
@@ -1662,10 +1782,13 @@ export default function WhatsAppPage() {
                   },
                   '&:disabled': {
                     background: 'rgba(0,0,0,0.12)',
-                  }
+                  },
+                  py: 1.5,
+                  px: 4,
+                  fontSize: '1rem'
                 }}
               >
-                {connectingInstagram ? 'Redirecionando...' : 'Conectar Instagram'}
+                {connectingInstagram ? 'Redirecionando para Instagram...' : 'Conectar Instagram'}
               </Button>
 
               {/* Secondary: Via Facebook Page (if Facebook is connected) */}
@@ -1694,13 +1817,25 @@ export default function WhatsAppPage() {
           )}
         </Box>
 
-        {!instagramStatus.connected && !facebookStatus.connected && (
-          <Alert severity="info" sx={{ mt: 2 }}>
-            <Typography variant="body2">
-              Você pode conectar o Instagram diretamente usando o botão acima.
-              Alternativamente, conecte uma página do Facebook primeiro para usar o método via Facebook Page.
-            </Typography>
-          </Alert>
+        {/* Success State - Enhanced for Screencast */}
+        {instagramStatus.connected && (
+          <Box
+            sx={{
+              mt: 3,
+              p: 2,
+              bgcolor: alpha('#4caf50', 0.08),
+              borderRadius: 2,
+              border: '1px solid',
+              borderColor: alpha('#4caf50', 0.3)
+            }}
+          >
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <Verified sx={{ color: 'success.main' }} />
+              <Typography variant="body2" fontWeight={500} color="success.dark">
+                Instagram conectado com sucesso! Mensagens do Instagram Direct serão recebidas automaticamente.
+              </Typography>
+            </Box>
+          </Box>
         )}
       </Paper>
 

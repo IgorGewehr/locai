@@ -145,7 +145,8 @@
       "Bash(cut:*)",
       "Bash(git -C /Users/igorgewehr/WebstormProjects/locai status:*)",
       "Bash(git -C /Users/igorgewehr/WebstormProjects/locai log --oneline --all -- \"app/ccreate/0n3fr33/*\" \"app/ccreate/7r3fr33/*\")",
-      "Bash(git -C /Users/igorgewehr/WebstormProjects/locai check-ignore:*)"
+      "Bash(git -C /Users/igorgewehr/WebstormProjects/locai check-ignore:*)",
+      "Bash(JWT_SECRET=test-secret npm run build:*)"
     ],
     "deny": [],
     "defaultMode": "acceptEdits",

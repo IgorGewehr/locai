@@ -5,29 +5,24 @@ import crypto from 'crypto';
 import {
     FACEBOOK_OAUTH_BASE_URL,
     GRAPH_API_VERSION,
-    FACEBOOK_OAUTH_SCOPES
+    INSTAGRAM_OAUTH_SCOPES
 } from '@/lib/facebook/constants';
 
 /**
  * GET /api/instagram/oauth/start
  *
- * Inicia o fluxo OAuth para conectar Instagram via Facebook Page.
+ * Inicia o fluxo OAuth para conectar Instagram Business.
  *
- * IMPORTANTE: O Instagram Messaging API requer que a conta Instagram Business
- * esteja vinculada a uma Página do Facebook. Por isso, usamos o fluxo OAuth
- * do Facebook que inclui as permissões de Instagram.
+ * IMPORTANTE: O Instagram Business API (2024+) requer que a conta Instagram
+ * Business/Creator esteja vinculada a uma Página do Facebook.
  *
- * Permissões usadas (aprovadas no App Review):
- * - pages_show_list: Listar páginas do usuário
- * - pages_messaging: Enviar/receber mensagens no Messenger
- * - pages_manage_metadata: Inscrever páginas em webhooks
- * - instagram_basic: Informações básicas da conta Instagram vinculada
- * - instagram_manage_messages: Enviar/receber DMs do Instagram
- * - instagram_manage_comments: Gerenciar comentários do Instagram
+ * Permissões Instagram Business API:
+ * - instagram_business_basic: Informações básicas da conta Instagram Business
+ * - instagram_business_manage_messages: Enviar/receber DMs do Instagram
  *
- * Nota: Este endpoint redireciona para o OAuth do Facebook pois as permissões
- * de Instagram (instagram_basic, instagram_manage_messages) são concedidas
- * através do login do Facebook quando a página tem um Instagram Business vinculado.
+ * Nota: Este endpoint usa o fluxo OAuth do Facebook pois as permissões
+ * de Instagram são concedidas através do login do Facebook quando a página
+ * tem uma conta Instagram Business vinculada.
  */
 export async function GET(request: NextRequest) {
     try {
@@ -69,8 +64,8 @@ export async function GET(request: NextRequest) {
             })
         ).toString('base64url');
 
-        // Usar as mesmas permissões do Facebook OAuth (que incluem Instagram)
-        const scopes = FACEBOOK_OAUTH_SCOPES.join(',');
+        // Usar as permissões do Instagram Business API
+        const scopes = INSTAGRAM_OAUTH_SCOPES.join(',');
 
         // Build Facebook authorization URL (que inclui permissões de Instagram)
         // O Instagram Business Account vinculado à página será retornado automaticamente

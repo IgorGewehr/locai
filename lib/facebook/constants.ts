@@ -25,23 +25,33 @@ export const getInstagramApiUrl = (endpoint: string) =>
 
 // OAuth Scopes
 // IMPORTANTE: Estas permissões devem corresponder EXATAMENTE às aprovadas no Meta App Review
-// Permissões aprovadas: pages_show_list, pages_messaging, instagram_basic,
-// instagram_manage_comments, instagram_manage_messages, pages_manage_metadata
+//
+// Permissões Facebook:
+// - pages_show_list: Listar páginas do usuário
+// - pages_messaging: Enviar/receber mensagens do Messenger
+// - pages_manage_metadata: Inscrever páginas em webhooks
+//
+// Permissões Instagram (API 2024+):
+// - instagram_business_basic: Informações básicas da conta Instagram Business
+// - instagram_business_manage_messages: Enviar/receber DMs do Instagram
+//
 export const FACEBOOK_OAUTH_SCOPES = [
   'pages_show_list',           // Listar páginas que o usuário gerencia
   'pages_messaging',           // Enviar/receber mensagens do Messenger
   'pages_manage_metadata',     // Inscrever páginas em webhooks
-  'instagram_basic',           // Informações básicas da conta Instagram vinculada
-  'instagram_manage_messages', // Enviar/receber DMs do Instagram
-  'instagram_manage_comments', // Gerenciar comentários do Instagram (necessário para algumas funcionalidades de DM)
 ];
 
-// Para Instagram Business API (contas profissionais conectadas via Facebook Page)
-// Nota: instagram_manage_messages requer que a conta Instagram esteja vinculada a uma página
+// Instagram Business API Scopes (2024+)
+// Requer conta Instagram Business/Creator vinculada a uma Página do Facebook
 export const INSTAGRAM_OAUTH_SCOPES = [
-  'instagram_basic',           // Informações básicas do perfil Instagram
-  'instagram_manage_messages', // Gerenciar DMs do Instagram
-  'instagram_manage_comments', // Gerenciar comentários do Instagram
+  'instagram_business_basic',           // Informações básicas do perfil Instagram Business
+  'instagram_business_manage_messages', // Gerenciar DMs do Instagram Business
+];
+
+// Combined scopes for Facebook + Instagram integration
+export const FACEBOOK_INSTAGRAM_OAUTH_SCOPES = [
+  ...FACEBOOK_OAUTH_SCOPES,
+  ...INSTAGRAM_OAUTH_SCOPES,
 ];
 
 // Webhook subscription fields

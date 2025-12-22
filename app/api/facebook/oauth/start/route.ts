@@ -5,7 +5,7 @@ import crypto from 'crypto';
 import {
     GRAPH_API_VERSION,
     FACEBOOK_OAUTH_BASE_URL,
-    FACEBOOK_OAUTH_SCOPES
+    FACEBOOK_INSTAGRAM_OAUTH_SCOPES
 } from '@/lib/facebook/constants';
 
 /**
@@ -14,12 +14,16 @@ import {
  * Initiates the Facebook OAuth flow for connecting Facebook Pages.
  * Returns the authorization URL that the frontend should redirect to.
  *
- * Required permissions for Messenger + Instagram:
+ * Required permissions for Facebook Messenger + Instagram DMs:
+ *
+ * Facebook Permissions:
  * - pages_show_list: List user's Facebook Pages
  * - pages_messaging: Send/receive Messenger messages
  * - pages_manage_metadata: Subscribe pages to webhooks
- * - instagram_basic: Basic Instagram account info
- * - instagram_manage_messages: Send/receive Instagram DMs
+ *
+ * Instagram Business API Permissions (2024+):
+ * - instagram_business_basic: Basic Instagram Business account info
+ * - instagram_business_manage_messages: Send/receive Instagram DMs
  */
 export async function GET(request: NextRequest) {
     try {
@@ -55,8 +59,8 @@ export async function GET(request: NextRequest) {
             JSON.stringify({ tenantId, token: randomToken, ts: timestamp })
         ).toString('base64url');
 
-        // Facebook OAuth permissions from centralized config
-        const scopes = FACEBOOK_OAUTH_SCOPES.join(',');
+        // Facebook + Instagram OAuth permissions from centralized config
+        const scopes = FACEBOOK_INSTAGRAM_OAUTH_SCOPES.join(',');
 
         // Build authorization URL using centralized API version
         const authUrl = new URL(`${FACEBOOK_OAUTH_BASE_URL}/${GRAPH_API_VERSION}/dialog/oauth`);
