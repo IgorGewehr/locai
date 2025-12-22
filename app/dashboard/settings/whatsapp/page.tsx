@@ -68,6 +68,10 @@ import {
 } from '@mui/icons-material';
 import { useTenant } from '@/contexts/TenantContext';
 import { useAuth } from '@/lib/hooks/useAuth';
+import {
+  GRAPH_API_VERSION,
+  FACEBOOK_INSTAGRAM_OAUTH_SCOPES
+} from '@/lib/facebook/constants';
 import { useWhatsAppStatus } from '@/lib/hooks/useWhatsAppStatus';
 import { useFacebookSDK } from '@/lib/hooks/useFacebookSDK';
 
@@ -692,8 +696,7 @@ export default function WhatsAppPage() {
       // - pages_manage_metadata: Manage page metadata
       // - instagram_basic: Basic Instagram account info
       // - instagram_manage_messages: Send/receive Instagram Direct messages
-      // - instagram_manage_comments: Manage Instagram comments (optional)
-      const authResponse = await login('pages_messaging,pages_show_list,pages_manage_metadata,instagram_basic,instagram_manage_messages,instagram_manage_comments');
+      const authResponse = await login(FACEBOOK_INSTAGRAM_OAUTH_SCOPES.join(','));
 
       if (authResponse && authResponse.accessToken) {
         // Exchange token and fetch pages
