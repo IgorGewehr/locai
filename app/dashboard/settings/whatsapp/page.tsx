@@ -233,11 +233,9 @@ export default function WhatsAppPage() {
         return;
       }
 
-      if (success === 'true') {
-        // Instagram connected successfully via OAuth
-        setSuccessMessage(`Instagram @${username || ''} conectado com sucesso!`);
-        loadInstagramStatus();
-        setTimeout(() => setSuccessMessage(null), 5000);
+      if (success === 'true' && pagesToken) {
+        // Instagram OAuth returns pages with Instagram accounts - extract and show selection
+        fetchInstagramAccountsFromOAuthToken(pagesToken);
       }
     }
   }, [searchParams]);
@@ -269,6 +267,54 @@ export default function WhatsAppPage() {
       setError('Erro ao processar autorização do Facebook');
     } finally {
       setProcessingOAuth(false);
+    }
+  };
+
+  // Fetch Instagram accounts from OAuth token (for Instagram OAuth flow)
+  const fetchInstagramAccountsFromOAuthToken = async (pagesToken: string) => {
+    setConnectingInstagram(true);
+    try {
+      const firebaseToken = await getFirebaseToken();
+      const response = await fetch('/api/facebook/auth', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${firebaseToken}`,
+        },
+        body: JSON.stringify({ pagesToken }),
+      });
+
+      const result = await response.json();
+
+      if (response.ok && result.success && result.pages) {
+        // Extract Instagram accounts from pages
+        const instagramAccounts: InstagramAccount[] = [];
+        for (const page of result.pages) {
+          if (page.instagram_business_account) {
+            instagramAccounts.push({
+              id: page.instagram_business_account.id,
+              username: page.instagram_business_account.username || 'Instagram Business',
+              name: page.instagram_business_account.name,
+              pageId: page.id,
+              pageName: page.name,
+            });
+          }
+        }
+
+        if (instagramAccounts.length > 0) {
+          setAvailableInstagramAccounts(instagramAccounts);
+          setShowInstagramSelection(true);
+        } else {
+          setError('Nenhuma conta Instagram Business encontrada vinculada às suas páginas do Facebook. Certifique-se de que sua conta Instagram Business está vinculada a uma Página do Facebook.');
+        }
+      } else {
+        setError(result.error || 'Falha ao processar autorização do Instagram');
+      }
+    } catch (err) {
+      console.error('Error fetching Instagram accounts from OAuth token:', err);
+      setError('Erro ao processar autorização do Instagram');
+    } finally {
+      setConnectingInstagram(false);
     }
   };
 
