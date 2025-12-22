@@ -4,7 +4,7 @@
  * Endpoint para N8N verificar status de um pagamento PIX ou Billing
  * Usado pela Sofia IA para confirmar se cliente já pagou
  *
- * @version 1.0.0
+ * @version 1.0.0 oo
  */
 
 import { NextRequest, NextResponse } from 'next/server';
