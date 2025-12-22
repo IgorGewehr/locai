@@ -18,6 +18,7 @@ interface OAuthState {
     tenantId: string;
     token: string;
     ts: number;
+    source?: 'facebook' | 'instagram'; // Indicates which flow initiated the OAuth
 }
 
 /**
@@ -173,8 +174,12 @@ export async function GET(request: NextRequest) {
             ts: Date.now()
         })).toString('base64url');
 
+        // Determine the OAuth source (facebook or instagram)
+        const oauthSource = (stateData as OAuthState).source || 'facebook';
+
         // Redirect to settings page with success status
         return redirectToSettings({
+            oauth: oauthSource,
             success: 'true',
             pagesToken,
             pageCount: pages.length.toString()
@@ -193,8 +198,10 @@ function redirectToSettings(params: Record<string, string>): NextResponse {
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
     const settingsUrl = new URL('/dashboard/settings/whatsapp', baseUrl);
 
-    // Add oauth=facebook to indicate this is a Facebook OAuth callback
-    settingsUrl.searchParams.set('oauth', 'facebook');
+    // Add oauth param - use provided value or default to 'facebook'
+    if (!params.oauth) {
+        settingsUrl.searchParams.set('oauth', 'facebook');
+    }
 
     for (const [key, value] of Object.entries(params)) {
         settingsUrl.searchParams.set(key, value);
