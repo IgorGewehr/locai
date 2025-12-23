@@ -7,18 +7,12 @@ interface FacebookPage {
     name: string;
     access_token: string;
     category?: string;
-    instagram_business_account?: {
-        id: string;
-        username?: string;
-        name?: string;
-    };
 }
 
 interface OAuthState {
     tenantId: string;
     token: string;
     ts: number;
-    source?: 'facebook' | 'instagram'; // Indicates which flow initiated the OAuth
 }
 
 /**
@@ -128,10 +122,10 @@ export async function GET(request: NextRequest) {
         const userAccessToken = longLivedData.access_token;
         const expiresIn = longLivedData.expires_in; // Seconds until expiration
 
-        // Step 3: Fetch user's pages with their access tokens and Instagram accounts
+        // Step 3: Fetch user's pages with their access tokens
         logger.info('[Facebook OAuth Callback] Fetching user pages');
 
-        const pagesUrl = `${GRAPH_API_BASE_URL}/${GRAPH_API_VERSION}/me/accounts?fields=id,name,access_token,category,instagram_business_account{id,username,name}&access_token=${userAccessToken}`;
+        const pagesUrl = `${GRAPH_API_BASE_URL}/${GRAPH_API_VERSION}/me/accounts?fields=id,name,access_token,category&access_token=${userAccessToken}`;
         const pagesResponse = await fetch(pagesUrl);
         const pagesData = await pagesResponse.json();
 
@@ -151,13 +145,8 @@ export async function GET(request: NextRequest) {
 
         logger.info('[Facebook OAuth Callback] Successfully fetched pages', {
             tenantId: tenantId.substring(0, 8) + '***',
-            pageCount: pages.length,
-            pagesWithInstagram: pages.filter(p => p.instagram_business_account).length
+            pageCount: pages.length
         });
-
-        // Store pages data in a temporary session/cache
-        // We'll pass minimal data in URL and store full data server-side
-        // For now, we encode essential data in the URL (will be replaced with proper session storage)
 
         // Create a secure token to store pages temporarily
         const pagesToken = Buffer.from(JSON.stringify({
@@ -168,18 +157,14 @@ export async function GET(request: NextRequest) {
                 id: p.id,
                 name: p.name,
                 access_token: p.access_token,
-                category: p.category,
-                instagram_business_account: p.instagram_business_account
+                category: p.category
             })),
             ts: Date.now()
         })).toString('base64url');
 
-        // Determine the OAuth source (facebook or instagram)
-        const oauthSource = (stateData as OAuthState).source || 'facebook';
-
         // Redirect to settings page with success status
         return redirectToSettings({
-            oauth: oauthSource,
+            oauth: 'facebook',
             success: 'true',
             pagesToken,
             pageCount: pages.length.toString()
@@ -198,7 +183,7 @@ function redirectToSettings(params: Record<string, string>): NextResponse {
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000';
     const settingsUrl = new URL('/dashboard/settings/whatsapp', baseUrl);
 
-    // Add oauth param - use provided value or default to 'facebook'
+    // Add oauth param if not present
     if (!params.oauth) {
         settingsUrl.searchParams.set('oauth', 'facebook');
     }

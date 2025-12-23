@@ -13,11 +13,6 @@ interface FacebookPage {
     name: string;
     access_token: string;
     category?: string;
-    instagram_business_account?: {
-        id: string;
-        username?: string;
-        name?: string;
-    };
 }
 
 interface PagesTokenData {
@@ -140,7 +135,7 @@ async function handleOAuthPageSelection(
             // Continue anyway - webhook might already be subscribed
         }
 
-        // Save page settings
+        // Save page settings to Firebase
         const settingsService = createSettingsService(tenantId);
         await settingsService.updateFacebookSettings(tenantId, {
             pageId: selectedPage.id,
@@ -150,38 +145,17 @@ async function handleOAuthPageSelection(
             updatedAt: new Date(),
         });
 
-        // If page has Instagram, save that too
-        if (selectedPage.instagram_business_account) {
-            await settingsService.updateInstagramSettings(tenantId, {
-                businessAccountId: selectedPage.instagram_business_account.id,
-                username: selectedPage.instagram_business_account.username || '',
-                connected: true,
-                pageAccessToken: selectedPage.access_token,
-                pageId: selectedPage.id,
-                updatedAt: new Date(),
-            });
-
-            logger.info('[Facebook Auth] Page and Instagram connected', {
-                tenantId: tenantId.substring(0, 8) + '***',
-                pageId: selectedPage.id,
-                pageName: selectedPage.name,
-                instagramUsername: selectedPage.instagram_business_account.username
-            });
-        } else {
-            logger.info('[Facebook Auth] Page connected (no Instagram)', {
-                tenantId: tenantId.substring(0, 8) + '***',
-                pageId: selectedPage.id,
-                pageName: selectedPage.name
-            });
-        }
+        logger.info('[Facebook Auth] Page connected successfully', {
+            tenantId: tenantId.substring(0, 8) + '***',
+            pageId: selectedPage.id,
+            pageName: selectedPage.name
+        });
 
         return NextResponse.json({
             success: true,
             page: {
                 id: selectedPage.id,
-                name: selectedPage.name,
-                hasInstagram: !!selectedPage.instagram_business_account,
-                instagramUsername: selectedPage.instagram_business_account?.username
+                name: selectedPage.name
             },
             webhookSubscribed: subscribeResult.success
         });
@@ -218,10 +192,7 @@ async function handleGetPagesFromToken(pagesToken: string): Promise<NextResponse
             pages: tokenData.pages.map(p => ({
                 id: p.id,
                 name: p.name,
-                category: p.category,
-                hasInstagram: !!p.instagram_business_account,
-                instagramUsername: p.instagram_business_account?.username,
-                instagramName: p.instagram_business_account?.name
+                category: p.category
             }))
         });
 
@@ -253,7 +224,7 @@ async function handleDirectPageConnection(
         });
     }
 
-    // Save settings
+    // Save settings to Firebase
     const settingsService = createSettingsService(tenantId);
     await settingsService.updateFacebookSettings(tenantId, {
         pageId,
@@ -303,8 +274,8 @@ async function handleLegacyTokenExchange(userAccessToken: string): Promise<NextR
 
     const longLivedUserToken = exchangeData.access_token;
 
-    // Fetch Pages with their access tokens and Instagram accounts
-    const pagesUrl = `${GRAPH_API_BASE_URL}/${GRAPH_API_VERSION}/me/accounts?fields=id,name,access_token,category,instagram_business_account{id,username,name}&access_token=${longLivedUserToken}`;
+    // Fetch Pages with their access tokens
+    const pagesUrl = `${GRAPH_API_BASE_URL}/${GRAPH_API_VERSION}/me/accounts?fields=id,name,access_token,category&access_token=${longLivedUserToken}`;
     const pagesResponse = await fetch(pagesUrl);
     const pagesData = await pagesResponse.json();
 
@@ -407,18 +378,6 @@ export async function DELETE(request: NextRequest) {
             pageName: '',
             updatedAt: new Date(),
         });
-
-        // Also disconnect Instagram if it was connected via this page
-        if (settings?.instagram?.connected) {
-            await settingsService.updateInstagramSettings(tenantId, {
-                businessAccountId: '',
-                username: '',
-                connected: false,
-                pageAccessToken: '',
-                pageId: '',
-                updatedAt: new Date(),
-            });
-        }
 
         logger.info('[Facebook Auth] Disconnected', {
             tenantId: tenantId.substring(0, 8) + '***'

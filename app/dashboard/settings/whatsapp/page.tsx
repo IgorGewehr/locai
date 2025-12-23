@@ -56,7 +56,6 @@ import {
   Business,
   Facebook,
   WhatsApp,
-  Instagram,
   OpenInNew,
   Security,
   Message,
@@ -69,8 +68,7 @@ import {
 import { useTenant } from '@/contexts/TenantContext';
 import { useAuth } from '@/lib/hooks/useAuth';
 import {
-  GRAPH_API_VERSION,
-  FACEBOOK_INSTAGRAM_OAUTH_SCOPES
+  FACEBOOK_OAUTH_SCOPES
 } from '@/lib/facebook/constants';
 import { useWhatsAppStatus } from '@/lib/hooks/useWhatsAppStatus';
 import { useFacebookSDK } from '@/lib/hooks/useFacebookSDK';
@@ -90,35 +88,10 @@ interface FacebookStatus {
   pageId?: string;
 }
 
-interface InstagramStatus {
-  connected: boolean;
-  username?: string;
-  businessAccountId?: string;
-  facebookConnected?: boolean;
-  canConnect?: boolean;
-  authMethod?: 'facebook_page' | 'instagram_login';
-  name?: string;
-  profilePictureUrl?: string;
-  accountType?: string;
-}
-
-interface InstagramAccount {
-  id: string;
-  username: string;
-  name?: string;
-  profilePictureUrl?: string;
-  followersCount?: number;
-  pageId: string;
-  pageName?: string;
-}
-
 interface OAuthFacebookPage {
   id: string;
   name: string;
   category?: string;
-  hasInstagram?: boolean;
-  instagramUsername?: string;
-  instagramName?: string;
   access_token?: string;
 }
 
@@ -144,7 +117,6 @@ export default function WhatsAppPage() {
   const [connecting, setConnecting] = useState(false);
   const [status, setStatus] = useState<WhatsAppStatus>({ connected: false, status: 'disconnected' });
   const [facebookStatus, setFacebookStatus] = useState<FacebookStatus>({ connected: false });
-  const [instagramStatus, setInstagramStatus] = useState<InstagramStatus>({ connected: false });
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
@@ -169,11 +141,6 @@ export default function WhatsAppPage() {
   const [selectedOAuthPage, setSelectedOAuthPage] = useState<string>('');
   const [processingOAuth, setProcessingOAuth] = useState(false);
 
-  // Instagram Selection State
-  const [showInstagramSelection, setShowInstagramSelection] = useState(false);
-  const [availableInstagramAccounts, setAvailableInstagramAccounts] = useState<InstagramAccount[]>([]);
-  const [connectingInstagram, setConnectingInstagram] = useState(false);
-
   // Screencast/Demo Mode - Show authorization flow step by step
   const [showPermissionsInfo, setShowPermissionsInfo] = useState(false);
   const [oauthStep, setOauthStep] = useState(0); // 0: not started, 1: permissions explained, 2: redirecting, 3: selecting page, 4: connected
@@ -192,7 +159,7 @@ export default function WhatsAppPage() {
     }
   }, [sdkError]);
 
-  // Process OAuth callback from Facebook or Instagram
+  // Process OAuth callback from Facebook
   useEffect(() => {
     const oauth = searchParams.get('oauth');
     const pagesToken = searchParams.get('pagesToken');
@@ -229,19 +196,6 @@ export default function WhatsAppPage() {
       }
     }
 
-    if (oauth === 'instagram') {
-      clearUrlParams();
-
-      if (oauthError) {
-        setError(`Erro ao conectar Instagram: ${oauthError}`);
-        return;
-      }
-
-      if (success === 'true' && pagesToken) {
-        // Instagram OAuth returns pages with Instagram accounts - extract and show selection
-        fetchInstagramAccountsFromOAuthToken(pagesToken);
-      }
-    }
   }, [searchParams]);
 
   // Fetch pages from OAuth token
@@ -274,58 +228,9 @@ export default function WhatsAppPage() {
     }
   };
 
-  // Fetch Instagram accounts from OAuth token (for Instagram OAuth flow)
-  const fetchInstagramAccountsFromOAuthToken = async (pagesToken: string) => {
-    setConnectingInstagram(true);
-    try {
-      const firebaseToken = await getFirebaseToken();
-      const response = await fetch('/api/facebook/auth', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${firebaseToken}`,
-        },
-        body: JSON.stringify({ pagesToken }),
-      });
-
-      const result = await response.json();
-
-      if (response.ok && result.success && result.pages) {
-        // Extract Instagram accounts from pages
-        const instagramAccounts: InstagramAccount[] = [];
-        for (const page of result.pages) {
-          if (page.instagram_business_account) {
-            instagramAccounts.push({
-              id: page.instagram_business_account.id,
-              username: page.instagram_business_account.username || 'Instagram Business',
-              name: page.instagram_business_account.name,
-              pageId: page.id,
-              pageName: page.name,
-            });
-          }
-        }
-
-        if (instagramAccounts.length > 0) {
-          setAvailableInstagramAccounts(instagramAccounts);
-          setShowInstagramSelection(true);
-        } else {
-          setError('Nenhuma conta Instagram Business encontrada vinculada às suas páginas do Facebook. Certifique-se de que sua conta Instagram Business está vinculada a uma Página do Facebook.');
-        }
-      } else {
-        setError(result.error || 'Falha ao processar autorização do Instagram');
-      }
-    } catch (err) {
-      console.error('Error fetching Instagram accounts from OAuth token:', err);
-      setError('Erro ao processar autorização do Instagram');
-    } finally {
-      setConnectingInstagram(false);
-    }
-  };
-
   useEffect(() => {
     loadStatus();
     loadFacebookStatus();
-    loadInstagramStatus();
 
     // Start polling based on status
     startPolling();
@@ -451,28 +356,6 @@ export default function WhatsAppPage() {
     }
   };
 
-  const loadInstagramStatus = async () => {
-    if (!tenantId) return;
-
-    try {
-      const token = await getFirebaseToken();
-      const response = await fetch('/api/instagram/status', {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-        },
-      });
-
-      if (response.ok) {
-        const result = await response.json();
-        if (result.success && result.data) {
-          setInstagramStatus(result.data);
-        }
-      }
-    } catch (err) {
-      console.error('[Settings] Error loading Instagram status:', err);
-    }
-  };
-
   // --- Official API Handlers ---
 
   const handleOfficialConnect = async () => {
@@ -567,40 +450,7 @@ export default function WhatsAppPage() {
 
   // --- Facebook Page Handlers ---
 
-  // Handler for connecting Facebook using test token (for app review/demo)
-  const handleFacebookConnectWithTestToken = async () => {
-    setConnecting(true);
-    try {
-      const firebaseToken = await getFirebaseToken();
-
-      // Fetch pages using the test token configured in the server
-      const response = await fetch('/api/facebook/pages', {
-        headers: {
-          'Authorization': `Bearer ${firebaseToken}`,
-        },
-      });
-
-      const result = await response.json();
-
-      if (response.ok && result.success) {
-        if (result.pages && result.pages.length > 0) {
-          setAvailablePages(result.pages);
-          setShowPageSelection(true);
-        } else {
-          alert('Nenhuma página do Facebook encontrada. Verifique se o token tem as permissões corretas.');
-        }
-      } else {
-        alert('Falha ao buscar páginas: ' + (result.error || 'Erro desconhecido'));
-      }
-    } catch (err) {
-      console.error('Error fetching Facebook pages:', err);
-      alert('Erro ao conectar com Facebook: ' + (err instanceof Error ? err.message : String(err)));
-    } finally {
-      setConnecting(false);
-    }
-  };
-
-  // Handler for connecting Facebook via OAuth flow (production)
+  // Handler for connecting Facebook via OAuth flow
   const handleFacebookConnectOAuth = async () => {
     setConnecting(true);
     setOauthStep(2); // Step 2: Redirecting to Facebook
@@ -655,20 +505,16 @@ export default function WhatsAppPage() {
 
       if (response.ok && result.success) {
         await loadFacebookStatus();
-        await loadInstagramStatus();
         setShowPageSelection(false);
         setOauthPages([]);
         setOauthPagesToken(null);
         setSelectedOAuthPage('');
         setOauthStep(4); // Step 4: Connected successfully
 
-        const message = result.page?.hasInstagram
-          ? `Facebook e Instagram (@${result.page.instagramUsername}) conectados com sucesso!`
-          : 'Facebook conectado com sucesso!';
-        setSuccessMessage(message);
+        setSuccessMessage('Facebook conectado com sucesso!');
 
-        // Clear success message after 8 seconds (longer for screencast visibility)
-        setTimeout(() => setSuccessMessage(null), 8000);
+        // Clear success message after 5 seconds
+        setTimeout(() => setSuccessMessage(null), 5000);
       } else {
         setError(result.error || 'Falha ao conectar página');
         setOauthStep(0);
@@ -689,14 +535,8 @@ export default function WhatsAppPage() {
     }
 
     try {
-      // Facebook/Instagram permissions (Updated 2025)
-      // Required for Messenger + Instagram Direct:
-      // - pages_messaging: Send/receive messages on Facebook Pages
-      // - pages_show_list: List user's Facebook Pages
-      // - pages_manage_metadata: Manage page metadata
-      // - instagram_basic: Basic Instagram account info
-      // - instagram_manage_messages: Send/receive Instagram Direct messages
-      const authResponse = await login(FACEBOOK_INSTAGRAM_OAUTH_SCOPES.join(','));
+      // Facebook Messenger permissions
+      const authResponse = await login(FACEBOOK_OAUTH_SCOPES.join(','));
 
       if (authResponse && authResponse.accessToken) {
         // Exchange token and fetch pages
@@ -755,9 +595,8 @@ export default function WhatsAppPage() {
 
       if (response.ok) {
         await loadFacebookStatus();
-        await loadInstagramStatus();
         setShowPageSelection(false);
-        alert('Facebook conectado com sucesso! Agora você pode conectar o Instagram.');
+        alert('Facebook conectado com sucesso!');
       } else {
         alert('Falha ao salvar configurações do Facebook');
       }
@@ -768,7 +607,7 @@ export default function WhatsAppPage() {
   };
 
   const handleFacebookDisconnect = async () => {
-    if (!confirm('Tem certeza que deseja desconectar o Facebook? Isso também desconectará o Instagram.')) return;
+    if (!confirm('Tem certeza que deseja desconectar o Facebook?')) return;
 
     try {
       const firebaseToken = await getFirebaseToken();
@@ -781,150 +620,14 @@ export default function WhatsAppPage() {
         },
       });
 
-      // Also disconnect Instagram if connected
-      if (instagramStatus.connected) {
-        await fetch('/api/instagram/auth', {
-          method: 'DELETE',
-          headers: {
-            'Authorization': `Bearer ${firebaseToken}`,
-          },
-        });
-      }
-
       if (response.ok) {
         await loadFacebookStatus();
-        await loadInstagramStatus();
       } else {
         alert('Falha ao desconectar Facebook');
       }
     } catch (err) {
       console.error('Error disconnecting Facebook:', err);
       alert('Erro ao desconectar Facebook');
-    }
-  };
-
-  // --- Instagram Handlers ---
-
-  // Handler for connecting Instagram via OAuth (Instagram Direct Login - 2024+)
-  const handleInstagramConnectOAuth = async () => {
-    setConnectingInstagram(true);
-    try {
-      const firebaseToken = await getFirebaseToken();
-
-      // Get OAuth URL from server
-      const response = await fetch('/api/instagram/oauth/start', {
-        headers: {
-          'Authorization': `Bearer ${firebaseToken}`,
-        },
-      });
-
-      const result = await response.json();
-
-      if (response.ok && result.success && result.authUrl) {
-        // Redirect to Instagram OAuth
-        window.location.href = result.authUrl;
-      } else {
-        setError(result.error || 'Falha ao iniciar conexão com Instagram');
-        setConnectingInstagram(false);
-      }
-    } catch (err) {
-      console.error('Error starting Instagram OAuth:', err);
-      setError('Erro ao conectar com Instagram');
-      setConnectingInstagram(false);
-    }
-  };
-
-  // Handler for connecting Instagram via Facebook Page (legacy method)
-  const handleInstagramConnectViaFacebook = async () => {
-    if (!facebookStatus.connected) {
-      alert('Conecte o Facebook primeiro para usar este método.');
-      return;
-    }
-
-    setConnectingInstagram(true);
-    try {
-      const firebaseToken = await getFirebaseToken();
-
-      // Fetch Instagram accounts connected to the Facebook page
-      const response = await fetch('/api/instagram/accounts', {
-        headers: {
-          'Authorization': `Bearer ${firebaseToken}`,
-        },
-      });
-
-      const result = await response.json();
-
-      if (response.ok && result.success) {
-        if (result.hasInstagram && result.accounts.length > 0) {
-          setAvailableInstagramAccounts(result.accounts);
-          setShowInstagramSelection(true);
-        } else {
-          alert('Nenhuma conta do Instagram Business encontrada conectada à sua página do Facebook.');
-        }
-      } else {
-        alert('Falha ao buscar contas do Instagram: ' + (result.error || 'Erro desconhecido'));
-      }
-    } catch (err) {
-      console.error('Error fetching Instagram accounts:', err);
-      alert('Erro ao conectar com Instagram');
-    } finally {
-      setConnectingInstagram(false);
-    }
-  };
-
-  // Legacy handler - kept for compatibility
-  const handleInstagramConnect = handleInstagramConnectViaFacebook;
-
-  const confirmInstagramSelection = async (account: InstagramAccount) => {
-    try {
-      const firebaseToken = await getFirebaseToken();
-
-      const response = await fetch('/api/instagram/auth', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${firebaseToken}`,
-        },
-        body: JSON.stringify({
-          businessAccountId: account.id,
-          username: account.username,
-          pageId: account.pageId,
-        }),
-      });
-
-      if (response.ok) {
-        await loadInstagramStatus();
-        setShowInstagramSelection(false);
-        alert(`Instagram @${account.username} conectado com sucesso!`);
-      } else {
-        alert('Falha ao conectar Instagram');
-      }
-    } catch (err) {
-      console.error('Error connecting Instagram:', err);
-      alert('Erro ao conectar Instagram');
-    }
-  };
-
-  const handleInstagramDisconnect = async () => {
-    if (!confirm('Tem certeza que deseja desconectar o Instagram?')) return;
-
-    try {
-      const firebaseToken = await getFirebaseToken();
-      const response = await fetch('/api/instagram/auth', {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${firebaseToken}`,
-        },
-      });
-
-      if (response.ok) {
-        await loadInstagramStatus();
-      } else {
-        alert('Falha ao desconectar Instagram');
-      }
-    } catch (err) {
-      console.error('Error disconnecting Instagram:', err);
-      alert('Erro ao desconectar Instagram');
     }
   };
 
@@ -1445,13 +1148,13 @@ export default function WhatsAppPage() {
         )
       }
 
-      {/* Facebook & Instagram Section */}
+      {/* Facebook Messenger Section */}
       <Box sx={{ mb: 4, mt: 6 }}>
         <Typography variant="h5" fontWeight={600} gutterBottom>
-          Facebook & Instagram
+          Facebook Messenger
         </Typography>
         <Typography variant="body2" color="text.secondary">
-          Conecte suas páginas do Facebook e Instagram para receber mensagens
+          Conecte sua página do Facebook para receber mensagens do Messenger
         </Typography>
       </Box>
 
@@ -1512,10 +1215,10 @@ export default function WhatsAppPage() {
                   <Pages sx={{ fontSize: 20, color: 'text.secondary', mt: 0.25 }} />
                   <Box>
                     <Typography variant="body2" fontWeight={500}>
-                      pages_show_list
+                      Listar suas páginas
                     </Typography>
                     <Typography variant="caption" color="text.secondary">
-                      Lista as páginas do Facebook que você administra para que você possa escolher qual conectar
+                      Para que você possa escolher qual página conectar
                     </Typography>
                   </Box>
                 </Box>
@@ -1524,10 +1227,10 @@ export default function WhatsAppPage() {
                   <Message sx={{ fontSize: 20, color: 'text.secondary', mt: 0.25 }} />
                   <Box>
                     <Typography variant="body2" fontWeight={500}>
-                      pages_messaging
+                      Gerenciar mensagens
                     </Typography>
                     <Typography variant="caption" color="text.secondary">
-                      Permite enviar e receber mensagens do Messenger em nome da sua página
+                      Enviar e receber mensagens do Messenger em nome da sua página
                     </Typography>
                   </Box>
                 </Box>
@@ -1536,10 +1239,10 @@ export default function WhatsAppPage() {
                   <Settings sx={{ fontSize: 20, color: 'text.secondary', mt: 0.25 }} />
                   <Box>
                     <Typography variant="body2" fontWeight={500}>
-                      pages_manage_metadata
+                      Receber notificações
                     </Typography>
                     <Typography variant="caption" color="text.secondary">
-                      Necessário para inscrever a página no webhook e receber notificações de novas mensagens
+                      Receber notificações instantâneas quando novas mensagens chegarem
                     </Typography>
                   </Box>
                 </Box>
@@ -1614,16 +1317,6 @@ export default function WhatsAppPage() {
               >
                 {connecting ? 'Redirecionando para Facebook...' : 'Conectar com Facebook'}
               </Button>
-              {/* Test Token Button - Always visible for App Review Screencast */}
-              <Button
-                variant="outlined"
-                onClick={handleFacebookConnectWithTestToken}
-                disabled={connecting}
-                size="small"
-                sx={{ color: '#1877F2', borderColor: '#1877F2' }}
-              >
-                Usar Token de Teste (Demo)
-              </Button>
             </>
           ) : (
             <Button
@@ -1653,235 +1346,6 @@ export default function WhatsAppPage() {
               <Verified sx={{ color: 'success.main' }} />
               <Typography variant="body2" fontWeight={500} color="success.dark">
                 Página conectada com sucesso! Mensagens do Messenger serão recebidas automaticamente.
-              </Typography>
-            </Box>
-          </Box>
-        )}
-      </Paper>
-
-      {/* Instagram Card - Enhanced for App Review Screencast */}
-      <Paper sx={{ p: 3, mb: 3 }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-            <Instagram sx={{ fontSize: 28, color: '#E4405F' }} />
-            <Typography variant="h6" fontWeight={600}>
-              Instagram Direct Messages
-            </Typography>
-          </Box>
-
-          <Chip
-            icon={instagramStatus.connected ? <CheckCircle /> : <Error />}
-            label={instagramStatus.connected ? 'Conectado' : 'Desconectado'}
-            color={instagramStatus.connected ? 'success' : 'default'}
-            size="small"
-          />
-        </Box>
-
-        {instagramStatus.connected && (
-          <Box sx={{ mt: 2, mb: 2 }}>
-            <Typography variant="body2" color="text.secondary">
-              Conta: <strong>@{instagramStatus.username}</strong>
-            </Typography>
-            {instagramStatus.name && instagramStatus.name !== instagramStatus.username && (
-              <Typography variant="body2" color="text.secondary">
-                Nome: <strong>{instagramStatus.name}</strong>
-              </Typography>
-            )}
-            <Typography variant="body2" color="text.secondary">
-              Tipo de Conexão: <strong>{instagramStatus.authMethod === 'instagram_login' ? 'Instagram Direct' : 'Via Facebook Page'}</strong>
-            </Typography>
-          </Box>
-        )}
-
-        <Divider sx={{ my: 2 }} />
-
-        {/* Permissions Info Section - Visible before connecting */}
-        {!instagramStatus.connected && (
-          <Collapse in={true}>
-            <Paper
-              elevation={0}
-              sx={{
-                p: 2,
-                mb: 3,
-                bgcolor: alpha('#E4405F', 0.04),
-                border: '1px solid',
-                borderColor: alpha('#E4405F', 0.2),
-                borderRadius: 2
-              }}
-            >
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
-                <Security sx={{ color: '#E4405F', fontSize: 20 }} />
-                <Typography variant="subtitle2" fontWeight={600} color="#E4405F">
-                  Permissões Solicitadas
-                </Typography>
-                <Tooltip title="Estas permissões são necessárias para a integração com Instagram funcionar">
-                  <Info sx={{ fontSize: 16, color: 'text.secondary', cursor: 'help' }} />
-                </Tooltip>
-              </Box>
-
-              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
-                <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1.5 }}>
-                  <Instagram sx={{ fontSize: 20, color: 'text.secondary', mt: 0.25 }} />
-                  <Box>
-                    <Typography variant="body2" fontWeight={500}>
-                      instagram_basic
-                    </Typography>
-                    <Typography variant="caption" color="text.secondary">
-                      Acesso às informações básicas da conta Instagram vinculada à sua Página do Facebook
-                    </Typography>
-                  </Box>
-                </Box>
-
-                <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1.5 }}>
-                  <Message sx={{ fontSize: 20, color: 'text.secondary', mt: 0.25 }} />
-                  <Box>
-                    <Typography variant="body2" fontWeight={500}>
-                      instagram_manage_messages
-                    </Typography>
-                    <Typography variant="caption" color="text.secondary">
-                      Permite enviar e receber mensagens diretas (DMs) do Instagram em nome da sua conta
-                    </Typography>
-                  </Box>
-                </Box>
-              </Box>
-            </Paper>
-
-            {/* Authorization Flow Steps - Visual Guide */}
-            <Paper
-              elevation={0}
-              sx={{
-                p: 2,
-                mb: 3,
-                bgcolor: 'background.default',
-                border: '1px solid',
-                borderColor: 'divider',
-                borderRadius: 2
-              }}
-            >
-              <Typography variant="subtitle2" fontWeight={600} sx={{ mb: 2 }}>
-                Como funciona a conexão:
-              </Typography>
-              <Stepper activeStep={0} orientation="vertical">
-                <Step>
-                  <StepLabel>
-                    <Typography variant="body2" fontWeight={600}>
-                      Clique em &quot;Conectar Instagram&quot;
-                    </Typography>
-                  </StepLabel>
-                </Step>
-                <Step>
-                  <StepLabel>
-                    <Typography variant="body2">
-                      Faça login no Facebook (conta vinculada ao Instagram Business)
-                    </Typography>
-                  </StepLabel>
-                </Step>
-                <Step>
-                  <StepLabel>
-                    <Typography variant="body2">
-                      Autorize as permissões do Instagram Business
-                    </Typography>
-                  </StepLabel>
-                </Step>
-                <Step>
-                  <StepLabel>
-                    <Typography variant="body2">
-                      Selecione a conta Instagram Business que deseja conectar
-                    </Typography>
-                  </StepLabel>
-                </Step>
-                <Step>
-                  <StepLabel>
-                    <Typography variant="body2">
-                      Pronto! Comece a receber mensagens do Instagram
-                    </Typography>
-                  </StepLabel>
-                </Step>
-              </Stepper>
-            </Paper>
-
-            {/* Requirement notice */}
-            <Alert
-              severity="info"
-              sx={{ mb: 3 }}
-              icon={<Info />}
-            >
-              <Typography variant="body2">
-                <strong>Requisito:</strong> Sua conta do Instagram deve ser uma conta Business ou Creator
-                e estar vinculada a uma Página do Facebook para usar o Instagram Business API.
-              </Typography>
-            </Alert>
-          </Collapse>
-        )}
-
-        <Box sx={{ display: 'flex', gap: 2, alignItems: 'center', flexWrap: 'wrap' }}>
-          {!instagramStatus.connected ? (
-            <>
-              {/* Primary: Instagram Direct Login (OAuth) */}
-              <Button
-                variant="contained"
-                onClick={handleInstagramConnectOAuth}
-                startIcon={connectingInstagram ? <CircularProgress size={20} color="inherit" /> : <Instagram />}
-                disabled={connectingInstagram}
-                size="large"
-                sx={{
-                  background: 'linear-gradient(45deg, #f09433 0%, #e6683c 25%, #dc2743 50%, #cc2366 75%, #bc1888 100%)',
-                  '&:hover': {
-                    background: 'linear-gradient(45deg, #d98530 0%, #cc5c35 25%, #c4223c 50%, #b81f5b 75%, #a6157a 100%)',
-                  },
-                  '&:disabled': {
-                    background: 'rgba(0,0,0,0.12)',
-                  },
-                  py: 1.5,
-                  px: 4,
-                  fontSize: '1rem'
-                }}
-              >
-                {connectingInstagram ? 'Redirecionando para Instagram...' : 'Conectar Instagram'}
-              </Button>
-
-              {/* Secondary: Via Facebook Page (if Facebook is connected) */}
-              {facebookStatus.connected && (
-                <Button
-                  variant="outlined"
-                  onClick={handleInstagramConnectViaFacebook}
-                  startIcon={<Facebook />}
-                  disabled={connectingInstagram}
-                  size="small"
-                  sx={{ color: '#E4405F', borderColor: '#E4405F' }}
-                >
-                  Via Facebook Page
-                </Button>
-              )}
-            </>
-          ) : (
-            <Button
-              variant="outlined"
-              onClick={handleInstagramDisconnect}
-              color="error"
-              startIcon={<PowerSettingsNew />}
-            >
-              Desconectar
-            </Button>
-          )}
-        </Box>
-
-        {/* Success State - Enhanced for Screencast */}
-        {instagramStatus.connected && (
-          <Box
-            sx={{
-              mt: 3,
-              p: 2,
-              bgcolor: alpha('#4caf50', 0.08),
-              borderRadius: 2,
-              border: '1px solid',
-              borderColor: alpha('#4caf50', 0.3)
-            }}
-          >
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-              <Verified sx={{ color: 'success.main' }} />
-              <Typography variant="body2" fontWeight={500} color="success.dark">
-                Instagram conectado com sucesso! Mensagens do Instagram Direct serão recebidas automaticamente.
               </Typography>
             </Box>
           </Box>
@@ -1975,7 +1439,6 @@ export default function WhatsAppPage() {
           </Box>
         </DialogTitle>
         <DialogContent>
-          {/* Clear label explaining what pages_show_list does */}
           <Paper
             elevation={0}
             sx={{
@@ -1990,20 +1453,13 @@ export default function WhatsAppPage() {
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
               <Pages sx={{ color: '#1877F2', fontSize: 20 }} />
               <Typography variant="subtitle2" fontWeight={600} color="#1877F2">
-                Páginas do Facebook que você administra
+                Suas páginas do Facebook
               </Typography>
             </Box>
             <Typography variant="body2" color="text.secondary">
-              Estas são as páginas do Facebook onde você tem permissão de administrador.
-              A permissão <strong>pages_show_list</strong> foi usada para listar estas páginas.
+              Selecione a página que você deseja conectar para receber mensagens do Messenger.
             </Typography>
           </Paper>
-
-          {oauthPages.some(p => p.hasInstagram) && (
-            <Alert severity="info" sx={{ mb: 3 }} icon={<Instagram />}>
-              Páginas com conta do Instagram Business vinculada serão conectadas automaticamente para receber mensagens do Instagram Direct também.
-            </Alert>
-          )}
 
           {/* OAuth Flow - Show pages with more details */}
           {oauthPages.length > 0 ? (
@@ -2049,19 +1505,6 @@ export default function WhatsAppPage() {
                               Categoria: {page.category}
                             </Typography>
                           )}
-                          {page.hasInstagram && (
-                            <Chip
-                              icon={<Instagram sx={{ fontSize: 16 }} />}
-                              label={`Instagram: @${page.instagramUsername}`}
-                              size="small"
-                              sx={{
-                                mt: 1,
-                                background: 'linear-gradient(45deg, #f09433 0%, #e6683c 25%, #dc2743 50%, #cc2366 75%, #bc1888 100%)',
-                                color: 'white',
-                                '& .MuiChip-icon': { color: 'white' }
-                              }}
-                            />
-                          )}
                         </Box>
                       }
                       sx={{ width: '100%', m: 0, alignItems: 'flex-start' }}
@@ -2081,17 +1524,7 @@ export default function WhatsAppPage() {
               >
                 {availablePages.map((page) => (
                   <MenuItem key={page.id} value={page.id}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                      {page.name}
-                      {page.instagram_business_account && (
-                        <Chip
-                          icon={<Instagram sx={{ fontSize: 14 }} />}
-                          label={`@${page.instagram_business_account.username}`}
-                          size="small"
-                          sx={{ ml: 1 }}
-                        />
-                      )}
-                    </Box>
+                    {page.name}
                   </MenuItem>
                 ))}
               </Select>
@@ -2116,13 +1549,13 @@ export default function WhatsAppPage() {
               </Typography>
               <Box component="ul" sx={{ m: 0, pl: 2.5 }}>
                 <Typography component="li" variant="body2" color="text.secondary">
-                  A página será inscrita para receber webhooks de mensagens (<strong>pages_manage_metadata</strong>)
+                  A página será configurada para receber mensagens automaticamente
                 </Typography>
                 <Typography component="li" variant="body2" color="text.secondary">
-                  Mensagens recebidas no Messenger serão processadas pela IA (<strong>pages_messaging</strong>)
+                  Mensagens recebidas no Messenger serão processadas pela Sofia IA
                 </Typography>
                 <Typography component="li" variant="body2" color="text.secondary">
-                  Respostas automáticas serão enviadas em nome da página
+                  Respostas automáticas serão enviadas em nome da sua página
                 </Typography>
               </Box>
             </Paper>
@@ -2161,61 +1594,6 @@ export default function WhatsAppPage() {
         </DialogActions>
       </Dialog>
 
-      {/* Instagram Account Selection Dialog */}
-      <Dialog open={showInstagramSelection} onClose={() => setShowInstagramSelection(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>Conectar Instagram</DialogTitle>
-        <DialogContent>
-          <DialogContentText sx={{ mb: 3 }}>
-            A seguinte conta do Instagram está vinculada à sua página do Facebook:
-          </DialogContentText>
-          {availableInstagramAccounts.map((account) => (
-            <Paper
-              key={account.id}
-              sx={{
-                p: 2,
-                mb: 2,
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                border: '1px solid',
-                borderColor: 'divider',
-                '&:hover': { borderColor: 'primary.main', bgcolor: 'action.hover' }
-              }}
-            >
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-                <Instagram sx={{ fontSize: 40, color: '#E4405F' }} />
-                <Box>
-                  <Typography variant="subtitle1" fontWeight={600}>
-                    @{account.username}
-                  </Typography>
-                  {account.name && (
-                    <Typography variant="body2" color="text.secondary">
-                      {account.name}
-                    </Typography>
-                  )}
-                  {account.followersCount && (
-                    <Typography variant="caption" color="text.secondary">
-                      {account.followersCount.toLocaleString()} seguidores
-                    </Typography>
-                  )}
-                </Box>
-              </Box>
-              <Button
-                variant="contained"
-                onClick={() => confirmInstagramSelection(account)}
-                sx={{
-                  background: 'linear-gradient(45deg, #f09433 0%, #e6683c 25%, #dc2743 50%, #cc2366 75%, #bc1888 100%)',
-                }}
-              >
-                Conectar
-              </Button>
-            </Paper>
-          ))}
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setShowInstagramSelection(false)}>Cancelar</Button>
-        </DialogActions>
-      </Dialog>
     </Box >
   );
 }

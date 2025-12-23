@@ -1,7 +1,7 @@
 /**
  * Facebook/Meta API Constants
  *
- * Centralized configuration for all Facebook/Instagram API interactions.
+ * Centralized configuration for Facebook Messenger API interactions.
  * Update GRAPH_API_VERSION when Meta releases new versions.
  */
 
@@ -12,49 +12,18 @@ export const GRAPH_API_VERSION = 'v21.0';
 
 // Base URLs
 export const GRAPH_API_BASE_URL = 'https://graph.facebook.com';
-export const INSTAGRAM_API_BASE_URL = 'https://graph.instagram.com';
 export const FACEBOOK_OAUTH_BASE_URL = 'https://www.facebook.com';
-export const INSTAGRAM_OAUTH_BASE_URL = 'https://api.instagram.com';
 
 // Constructed URLs
 export const getGraphApiUrl = (endpoint: string) =>
   `${GRAPH_API_BASE_URL}/${GRAPH_API_VERSION}/${endpoint}`;
 
-export const getInstagramApiUrl = (endpoint: string) =>
-  `${INSTAGRAM_API_BASE_URL}/${endpoint}`;
-
-// OAuth Scopes
-// IMPORTANTE: Estas permissões devem corresponder EXATAMENTE às aprovadas no Meta App Review
-//
-// Permissões Facebook:
-// - pages_show_list: Listar páginas do usuário
-// - pages_messaging: Enviar/receber mensagens do Messenger
-// - pages_manage_metadata: Inscrever páginas em webhooks
-//
-// Permissões Instagram (via Facebook Login):
-// - instagram_basic: Informações básicas da conta Instagram vinculada
-// - instagram_manage_messages: Enviar/receber DMs do Instagram
-//
-// Nota: As permissões instagram_* são concedidas através do Facebook Login
-// quando a Página do Facebook tem uma conta Instagram Business/Creator vinculada.
-//
+// OAuth Scopes for Facebook Messenger
+// These permissions must match EXACTLY those approved in Meta App Review
 export const FACEBOOK_OAUTH_SCOPES = [
-  'pages_show_list',           // Listar páginas que o usuário gerencia
-  'pages_messaging',           // Enviar/receber mensagens do Messenger
-  'pages_manage_metadata',     // Inscrever páginas em webhooks
-];
-
-// Instagram Scopes (via Facebook Login)
-// Requer conta Instagram Business/Creator vinculada a uma Página do Facebook
-export const INSTAGRAM_OAUTH_SCOPES = [
-  'instagram_basic',           // Informações básicas do perfil Instagram vinculado
-  'instagram_manage_messages', // Gerenciar DMs do Instagram
-];
-
-// Combined scopes for Facebook + Instagram integration
-export const FACEBOOK_INSTAGRAM_OAUTH_SCOPES = [
-  ...FACEBOOK_OAUTH_SCOPES,
-  ...INSTAGRAM_OAUTH_SCOPES,
+  'pages_show_list',           // List pages the user manages
+  'pages_messaging',           // Send/receive Messenger messages
+  'pages_manage_metadata',     // Subscribe pages to webhooks
 ];
 
 // Webhook subscription fields

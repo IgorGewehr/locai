@@ -44,7 +44,6 @@ import {
   DoneAll,
   MarkChatUnread,
   Facebook,
-  Instagram,
   WhatsApp,
 } from '@mui/icons-material';
 import { useSearchParams } from 'next/navigation';
@@ -107,7 +106,7 @@ const ChannelSelector = memo(({
 }: {
   selectedChannel: string;
   onChannelChange: (channel: string) => void;
-  stats: { total: number; whatsapp: number; facebook: number; instagram: number };
+  stats: { total: number; whatsapp: number; facebook: number };
 }) => {
   const theme = useTheme();
 
@@ -115,7 +114,6 @@ const ChannelSelector = memo(({
     { id: 'all', icon: Chat, label: 'Todas', count: stats.total, color: theme.palette.primary.main },
     { id: 'whatsapp', icon: WhatsApp, label: 'WhatsApp', count: stats.whatsapp, color: '#25D366' },
     { id: 'facebook', icon: Facebook, label: 'Facebook', count: stats.facebook, color: '#1877F2' },
-    { id: 'instagram', icon: Instagram, label: 'Instagram', count: stats.instagram, color: '#E4405F' },
   ];
 
   return (
@@ -424,7 +422,7 @@ export default function ConversationsPage() {
     let endpoint = '/api/whatsapp/send-manual';
     let body: any = { tenantId, message };
 
-    if (selectedConversation.channel === 'facebook' || selectedConversation.channel === 'instagram') {
+    if (selectedConversation.channel === 'facebook') {
       endpoint = '/api/social/send';
       body = { tenantId, conversationId: selectedConversation.id, message };
     } else {
@@ -500,7 +498,6 @@ export default function ConversationsPage() {
                 <Tab value="all" icon={<Chat />} label={`Todas (${stats.total})`} iconPosition="start" />
                 <Tab value="whatsapp" icon={<WhatsApp />} label={`WhatsApp (${stats.whatsapp})`} iconPosition="start" />
                 <Tab value="facebook" icon={<Facebook />} label={`Facebook (${stats.facebook})`} iconPosition="start" />
-                <Tab value="instagram" icon={<Instagram />} label={`Instagram (${stats.instagram})`} iconPosition="start" />
               </Tabs>
             </Box>
 
@@ -524,8 +521,8 @@ export default function ConversationsPage() {
                   {filters.channel !== 'all' && (
                     <Chip
                       size="small"
-                      icon={filters.channel === 'whatsapp' ? <WhatsApp sx={{ fontSize: 14 }} /> : filters.channel === 'facebook' ? <Facebook sx={{ fontSize: 14 }} /> : <Instagram sx={{ fontSize: 14 }} />}
-                      label={filters.channel === 'whatsapp' ? 'WhatsApp' : filters.channel === 'facebook' ? 'Facebook' : 'Instagram'}
+                      icon={filters.channel === 'whatsapp' ? <WhatsApp sx={{ fontSize: 14 }} /> : <Facebook sx={{ fontSize: 14 }} />}
+                      label={filters.channel === 'whatsapp' ? 'WhatsApp' : 'Facebook'}
                       onDelete={() => handleChannelChange('all')}
                       sx={{ height: 24 }}
                     />

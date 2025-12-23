@@ -5,7 +5,7 @@ import crypto from 'crypto';
 import {
     GRAPH_API_VERSION,
     FACEBOOK_OAUTH_BASE_URL,
-    FACEBOOK_INSTAGRAM_OAUTH_SCOPES
+    FACEBOOK_OAUTH_SCOPES
 } from '@/lib/facebook/constants';
 
 /**
@@ -14,16 +14,10 @@ import {
  * Initiates the Facebook OAuth flow for connecting Facebook Pages.
  * Returns the authorization URL that the frontend should redirect to.
  *
- * Required permissions for Facebook Messenger + Instagram DMs:
- *
- * Facebook Permissions:
+ * Required permissions for Facebook Messenger:
  * - pages_show_list: List user's Facebook Pages
  * - pages_messaging: Send/receive Messenger messages
  * - pages_manage_metadata: Subscribe pages to webhooks
- *
- * Instagram Business API Permissions (2024+):
- * - instagram_business_basic: Basic Instagram Business account info
- * - instagram_business_manage_messages: Send/receive Instagram DMs
  */
 export async function GET(request: NextRequest) {
     try {
@@ -52,17 +46,16 @@ export async function GET(request: NextRequest) {
         }
 
         // Generate CSRF state token
-        // Format: tenantId:randomToken:timestamp
         const randomToken = crypto.randomBytes(32).toString('hex');
         const timestamp = Date.now();
         const state = Buffer.from(
             JSON.stringify({ tenantId, token: randomToken, ts: timestamp })
         ).toString('base64url');
 
-        // Facebook + Instagram OAuth permissions from centralized config
-        const scopes = FACEBOOK_INSTAGRAM_OAUTH_SCOPES.join(',');
+        // Facebook OAuth permissions
+        const scopes = FACEBOOK_OAUTH_SCOPES.join(',');
 
-        // Build authorization URL using centralized API version
+        // Build authorization URL
         const authUrl = new URL(`${FACEBOOK_OAUTH_BASE_URL}/${GRAPH_API_VERSION}/dialog/oauth`);
         authUrl.searchParams.set('client_id', appId);
         authUrl.searchParams.set('redirect_uri', redirectUri);
@@ -79,7 +72,7 @@ export async function GET(request: NextRequest) {
         return NextResponse.json({
             success: true,
             authUrl: authUrl.toString(),
-            state, // Return state so frontend can verify on callback
+            state,
         });
 
     } catch (error) {

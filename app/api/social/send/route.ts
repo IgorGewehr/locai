@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { FacebookService } from '@/lib/services/facebook-service';
-import { InstagramService } from '@/lib/services/instagram-service';
 import { ConversationService } from '@/lib/services/conversation-service';
 import { TenantServiceFactory } from '@/lib/firebase/firestore-v2';
 import { logger } from '@/lib/utils/logger';
@@ -90,7 +89,6 @@ export async function POST(req: NextRequest) {
 
         // Initialize services
         const facebookService = new FacebookService();
-        const instagramService = new InstagramService();
         const conversationService = new ConversationService();
 
         // 1. Get conversation to find social ID and channel
@@ -101,7 +99,7 @@ export async function POST(req: NextRequest) {
             return new NextResponse(JSON.stringify({ error: 'Conversation not found' }), { status: 404 });
         }
 
-        if (!conversation.socialId || (conversation.channel !== 'facebook' && conversation.channel !== 'instagram')) {
+        if (!conversation.socialId || conversation.channel !== 'facebook') {
             logger.warn('[SOCIAL-SEND] Invalid channel or missing socialId', {
                 requestId,
                 conversationId,
@@ -111,10 +109,8 @@ export async function POST(req: NextRequest) {
             return new NextResponse(JSON.stringify({ error: 'Invalid conversation channel or missing social ID' }), { status: 400 });
         }
 
-        // 2. Send message via appropriate service based on channel
-        const result = conversation.channel === 'instagram'
-            ? await instagramService.sendText(conversation.socialId, message, tenantId)
-            : await facebookService.sendText(conversation.socialId, message, tenantId);
+        // 2. Send message via Facebook service
+        const result = await facebookService.sendText(conversation.socialId, message, tenantId);
 
         if (!result.success) {
             logger.error('[SOCIAL-SEND] Failed to send message', new Error(result.error || 'Unknown error'), {
@@ -124,17 +120,16 @@ export async function POST(req: NextRequest) {
                 channel: conversation.channel
             });
             return new NextResponse(JSON.stringify({
-                error: `Failed to send message to ${conversation.channel === 'instagram' ? 'Instagram' : 'Facebook'}`
+                error: 'Failed to send message to Facebook'
             }), { status: 500 });
         }
 
-        // 3. Save message to database no formato correto
+        // 3. Save message to database
         const now = new Date();
         const services = new TenantServiceFactory(tenantId);
         await services.messages.create({
             conversationId,
             tenantId,
-            // Mensagem manual é sofiaMessage (enviada pelo atendente)
             clientMessage: null,
             clientMessageTimestamp: null,
             sofiaMessage: message,
