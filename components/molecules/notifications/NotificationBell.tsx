@@ -195,54 +195,56 @@ export const NotificationBell: React.FC<NotificationBellProps> = ({
   return (
     <>
       <Tooltip title={tooltipTitle}>
-        <IconButton
-          onClick={handleClick}
-          size={size}
-          disabled={loading}
-          sx={{
-            color: 'rgba(255, 255, 255, 0.8)',
-            position: 'relative',
-            transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-            animation: hasNewNotification ? 'bellRing 0.5s ease-in-out' : 'none',
-            '@keyframes bellRing': {
-              '0%, 100%': { transform: 'rotate(0deg)' },
-              '10%, 30%': { transform: 'rotate(-10deg)' },
-              '20%, 40%': { transform: 'rotate(10deg)' },
-            },
-            '&:hover': {
-              backgroundColor: 'rgba(255, 255, 255, 0.1)',
-              transform: 'scale(1.1)',
-            }
-          }}
-        >
-          <Badge
-            badgeContent={showCount ? unreadCount : undefined}
-            color="error"
-            max={99}
-            invisible={unreadCount === 0}
+        <span>
+          <IconButton
+            onClick={handleClick}
+            size={size}
+            disabled={loading}
             sx={{
-              '& .MuiBadge-badge': {
-                fontSize: '0.7rem',
-                fontWeight: 700,
-                minWidth: 18,
-                height: 18,
-                borderRadius: '9px',
-                border: `2px solid ${theme.palette.background.paper}`,
-                animation: hasNewNotification ? 'badgePulse 1s ease-in-out' : 'none',
-                '@keyframes badgePulse': {
-                  '0%, 100%': { transform: 'scale(1)' },
-                  '50%': { transform: 'scale(1.3)' },
-                },
+              color: 'rgba(255, 255, 255, 0.8)',
+              position: 'relative',
+              transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+              animation: hasNewNotification ? 'bellRing 0.5s ease-in-out' : 'none',
+              '@keyframes bellRing': {
+                '0%, 100%': { transform: 'rotate(0deg)' },
+                '10%, 30%': { transform: 'rotate(-10deg)' },
+                '20%, 40%': { transform: 'rotate(10deg)' },
+              },
+              '&:hover': {
+                backgroundColor: 'rgba(255, 255, 255, 0.1)',
+                transform: 'scale(1.1)',
               }
             }}
           >
-            {unreadCount > 0 ? (
-              <NotificationsIcon sx={{ fontSize: 24 }} />
-            ) : (
-              <NotificationsNoneIcon sx={{ fontSize: 24 }} />
-            )}
-          </Badge>
-        </IconButton>
+            <Badge
+              badgeContent={showCount ? unreadCount : undefined}
+              color="error"
+              max={99}
+              invisible={unreadCount === 0}
+              sx={{
+                '& .MuiBadge-badge': {
+                  fontSize: '0.7rem',
+                  fontWeight: 700,
+                  minWidth: 18,
+                  height: 18,
+                  borderRadius: '9px',
+                  border: `2px solid ${theme.palette.background.paper}`,
+                  animation: hasNewNotification ? 'badgePulse 1s ease-in-out' : 'none',
+                  '@keyframes badgePulse': {
+                    '0%, 100%': { transform: 'scale(1)' },
+                    '50%': { transform: 'scale(1.3)' },
+                  },
+                }
+              }}
+            >
+              {unreadCount > 0 ? (
+                <NotificationsIcon sx={{ fontSize: 24 }} />
+              ) : (
+                <NotificationsNoneIcon sx={{ fontSize: 24 }} />
+              )}
+            </Badge>
+          </IconButton>
+        </span>
       </Tooltip>
 
       <Popover
