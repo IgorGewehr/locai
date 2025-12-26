@@ -1,5 +1,4 @@
 import { FacebookService } from '@/lib/services/facebook-service'
-import { InstagramService } from '@/lib/services/instagram-service'
 import { ConversationService } from '@/lib/services/conversation-service'
 import { AIService } from '@/lib/services/ai-service-stub'
 import { TenantServiceFactory } from '@/lib/firebase/firestore-v2'
@@ -9,12 +8,13 @@ import { logger } from '@/lib/utils/logger'
 /**
  * FacebookMessageHandler
  *
- * Handles incoming webhook events from both Facebook Messenger and Instagram DMs.
+ * Handles incoming webhook events from Facebook Messenger.
  * Processes messages, saves to database, generates AI responses, and sends replies.
+ *
+ * Note: Instagram DM support is currently disabled.
  */
 export class FacebookMessageHandler {
     private facebookService: FacebookService
-    private instagramService: InstagramService
     private conversationService: ConversationService
     private aiService: AIService
     private tenantId: string
@@ -22,25 +22,31 @@ export class FacebookMessageHandler {
     constructor(
         tenantId: string,
         facebookService?: FacebookService,
-        instagramService?: InstagramService,
         conversationService?: ConversationService,
         aiService?: AIService
     ) {
         this.tenantId = tenantId
         this.facebookService = facebookService || new FacebookService()
-        this.instagramService = instagramService || new InstagramService()
         this.conversationService = conversationService || new ConversationService()
         this.aiService = aiService || new AIService(tenantId)
     }
 
     /**
-     * Handle incoming webhook from Facebook/Instagram
+     * Handle incoming webhook from Facebook Messenger
+     * Note: Instagram DM support is currently disabled
      */
     async handleWebhook(body: any): Promise<void> {
         try {
-            // Determine channel type
-            const isInstagram = body.object === 'instagram'
-            const channel: 'facebook' | 'instagram' = isInstagram ? 'instagram' : 'facebook'
+            // Skip Instagram webhooks - only Facebook Messenger is supported
+            if (body.object === 'instagram') {
+                logger.info('[MessageHandler] Instagram webhook received but Instagram support is disabled', {
+                    tenantId: this.tenantId.substring(0, 8) + '***',
+                    entryCount: body.entry?.length || 0
+                })
+                return
+            }
+
+            const channel: 'facebook' = 'facebook'
 
             logger.info(`[MessageHandler] Processing ${channel} webhook`, {
                 tenantId: this.tenantId.substring(0, 8) + '***',
@@ -90,12 +96,12 @@ export class FacebookMessageHandler {
     }
 
     /**
-     * Handle incoming message
+     * Handle incoming message from Facebook Messenger
      */
     private async handleMessage(
         senderId: string,
         message: any,
-        channel: 'facebook' | 'instagram'
+        channel: 'facebook'
     ): Promise<void> {
         try {
             logger.info(`[MessageHandler] Processing ${channel} message`, {
@@ -113,19 +119,13 @@ export class FacebookMessageHandler {
 
             if (!conversation) {
                 // Get user profile for name
-                const profile = channel === 'instagram'
-                    ? await this.instagramService.getUserProfile(senderId, this.tenantId)
-                    : await this.facebookService.getUserProfile(senderId, this.tenantId)
+                const profile = await this.facebookService.getUserProfile(senderId, this.tenantId)
 
                 let clientName: string
                 if (!profile) {
-                    clientName = `${channel === 'instagram' ? 'Instagram' : 'Facebook'} User`
-                } else if (channel === 'instagram') {
-                    const igProfile = profile as { username?: string; name?: string }
-                    clientName = igProfile.username || igProfile.name || 'Instagram User'
+                    clientName = 'Facebook User'
                 } else {
-                    const fbProfile = profile as { firstName?: string; lastName?: string }
-                    clientName = `${fbProfile.firstName || ''} ${fbProfile.lastName || ''}`.trim() || 'Facebook User'
+                    clientName = `${profile.firstName || ''} ${profile.lastName || ''}`.trim() || 'Facebook User'
                 }
 
                 conversation = await this.conversationService.createNewSocial(
@@ -216,10 +216,8 @@ export class FacebookMessageHandler {
                     const aiResponse = await this.aiService.processMessage(message.text, conversation)
 
                     if (aiResponse.content) {
-                        // Send response via appropriate channel
-                        const sendResult = channel === 'instagram'
-                            ? await this.instagramService.sendText(senderId, aiResponse.content, this.tenantId)
-                            : await this.facebookService.sendText(senderId, aiResponse.content, this.tenantId)
+                        // Send response via Facebook Messenger
+                        const sendResult = await this.facebookService.sendText(senderId, aiResponse.content, this.tenantId)
 
                         if (sendResult.success) {
                             // Save AI response to database
@@ -255,12 +253,12 @@ export class FacebookMessageHandler {
     }
 
     /**
-     * Handle postback events (button clicks, quick replies)
+     * Handle postback events (button clicks, quick replies) for Facebook Messenger
      */
     private async handlePostback(
         senderId: string,
         postback: any,
-        channel: 'facebook' | 'instagram'
+        channel: 'facebook'
     ): Promise<void> {
         try {
             const payload = postback.payload
@@ -305,9 +303,8 @@ export class FacebookMessageHandler {
             )
 
             if (aiResponse.content) {
-                const sendResult = channel === 'instagram'
-                    ? await this.instagramService.sendText(senderId, aiResponse.content, this.tenantId)
-                    : await this.facebookService.sendText(senderId, aiResponse.content, this.tenantId)
+                // Send response via Facebook Messenger
+                const sendResult = await this.facebookService.sendText(senderId, aiResponse.content, this.tenantId)
 
                 if (sendResult.success) {
                     const aiNow = new Date()
