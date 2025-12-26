@@ -7,6 +7,7 @@ interface FacebookPage {
     name: string;
     access_token: string;
     category?: string;
+    tasks?: string[]; // Roles/permissions the user has on this page
 }
 
 interface OAuthState {
@@ -122,30 +123,64 @@ export async function GET(request: NextRequest) {
         const userAccessToken = longLivedData.access_token;
         const expiresIn = longLivedData.expires_in; // Seconds until expiration
 
-        // Step 3: Fetch user's pages with their access tokens
+        // Step 3: Check granted permissions first
+        logger.info('[Facebook OAuth Callback] Checking granted permissions');
+
+        const permissionsUrl = `${GRAPH_API_BASE_URL}/${GRAPH_API_VERSION}/me/permissions?access_token=${userAccessToken}`;
+        const permissionsResponse = await fetch(permissionsUrl);
+        const permissionsData = await permissionsResponse.json();
+
+        const grantedPermissions = (permissionsData.data || [])
+            .filter((p: any) => p.status === 'granted')
+            .map((p: any) => p.permission);
+
+        logger.info('[Facebook OAuth Callback] Granted permissions:', {
+            tenantId: tenantId.substring(0, 8) + '***',
+            permissions: grantedPermissions
+        });
+
+        // Check if pages_show_list was granted
+        if (!grantedPermissions.includes('pages_show_list')) {
+            logger.warn('[Facebook OAuth Callback] pages_show_list permission not granted');
+            return redirectToSettings({
+                error: 'Permissão negada. Durante a autorização, você precisa permitir acesso às suas Páginas do Facebook.'
+            });
+        }
+
+        // Step 4: Fetch user's pages with their access tokens
         logger.info('[Facebook OAuth Callback] Fetching user pages');
 
-        const pagesUrl = `${GRAPH_API_BASE_URL}/${GRAPH_API_VERSION}/me/accounts?fields=id,name,access_token,category&access_token=${userAccessToken}`;
+        const pagesUrl = `${GRAPH_API_BASE_URL}/${GRAPH_API_VERSION}/me/accounts?fields=id,name,access_token,category,tasks&access_token=${userAccessToken}`;
         const pagesResponse = await fetch(pagesUrl);
         const pagesData = await pagesResponse.json();
 
         if (pagesData.error) {
             logger.error('[Facebook OAuth Callback] Pages fetch error:', pagesData.error);
-            return redirectToSettings({ error: 'Failed to fetch Facebook pages' });
+            return redirectToSettings({
+                error: `Erro ao buscar páginas: ${pagesData.error.message || 'Erro desconhecido'}`
+            });
         }
+
+        logger.info('[Facebook OAuth Callback] Pages API response:', {
+            tenantId: tenantId.substring(0, 8) + '***',
+            hasData: !!pagesData.data,
+            dataLength: pagesData.data?.length || 0,
+            rawResponse: JSON.stringify(pagesData).substring(0, 500)
+        });
 
         const pages: FacebookPage[] = pagesData.data || [];
 
         if (pages.length === 0) {
-            logger.warn('[Facebook OAuth Callback] No pages found');
+            logger.warn('[Facebook OAuth Callback] No pages found despite permissions');
             return redirectToSettings({
-                error: 'No Facebook Pages found. Make sure you have admin access to at least one Page.'
+                error: 'Nenhuma Página encontrada. Durante a autorização do Facebook, você precisa SELECIONAR pelo menos uma página na lista. Tente novamente e certifique-se de marcar a checkbox da página desejada.'
             });
         }
 
         logger.info('[Facebook OAuth Callback] Successfully fetched pages', {
             tenantId: tenantId.substring(0, 8) + '***',
-            pageCount: pages.length
+            pageCount: pages.length,
+            pages: pages.map(p => ({ id: p.id, name: p.name, tasks: p.tasks }))
         });
 
         // Create a secure token to store pages temporarily
@@ -157,7 +192,8 @@ export async function GET(request: NextRequest) {
                 id: p.id,
                 name: p.name,
                 access_token: p.access_token,
-                category: p.category
+                category: p.category,
+                tasks: p.tasks
             })),
             ts: Date.now()
         })).toString('base64url');
