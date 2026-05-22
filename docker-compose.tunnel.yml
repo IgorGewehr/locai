@@ -1,0 +1,141 @@
+# ============================================================
+# LOCAI - Docker Compose (Cloudflare Tunnel)
+# ============================================================
+# Uso: docker compose -f docker-compose.tunnel.yml up -d --build
+#
+# Este arquivo sobe a stack atrás de um Cloudflare Tunnel:
+# - App Next.js (porta 7070, sem exposição pública na máquina)
+# - Redis para cache
+# - cloudflared como conector do tunnel
+#
+# Pré-requisitos no .env:
+#   TUNNEL_TOKEN=<token connector do Cloudflare>
+#   + variáveis padrão da aplicação (Firebase, etc.)
+#
+# O hostname `alugazap` configurado no painel do tunnel
+# (Service URL: http://alugazap:7070) resolve via DNS interno
+# do Docker porque o service abaixo se chama `alugazap`.
+# ============================================================
+
+services:
+  # ============================================================
+  # Aplicação Next.js (acesso só via tunnel)
+  # ============================================================
+  alugazap:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: runner
+    container_name: alugazap
+    restart: always
+    # Sem `ports:` propositalmente — acesso apenas via cloudflared.
+    # Para debug local na máquina servidor, descomente:
+    # ports:
+    #   - "7070:7070"
+    environment:
+      - NODE_ENV=production
+      - PORT=7070
+      - HOSTNAME=0.0.0.0
+      - REDIS_URL=${REDIS_URL:-redis://redis:6379}
+    env_file:
+      - .env
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - locai-network
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:7070/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # ============================================================
+  # Redis - Cache e Sessions
+  # ============================================================
+  redis:
+    image: redis:7-alpine
+    container_name: alugazap-redis
+    restart: always
+    volumes:
+      - redis-data:/data
+    command: >
+      redis-server
+      --appendonly yes
+      --maxmemory 512mb
+      --maxmemory-policy allkeys-lru
+      --tcp-keepalive 300
+      --timeout 0
+    networks:
+      - locai-network
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+        reservations:
+          cpus: '0.1'
+          memory: 128M
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "5m"
+        max-file: "2"
+
+  # ============================================================
+  # Cloudflare Tunnel - Conector
+  # ============================================================
+  # O TUNNEL_TOKEN carrega accountId/tunnelId/secret. Toda a
+  # configuração de rotas/hostname público é gerenciada pelo
+  # painel do Cloudflare (Zero Trust > Networks > Tunnels).
+  # ============================================================
+  cloudflared:
+    image: cloudflare/cloudflared:latest
+    container_name: alugazap-tunnel
+    restart: unless-stopped
+    command: tunnel --no-autoupdate run
+    environment:
+      - TUNNEL_TOKEN=${TUNNEL_TOKEN}
+    depends_on:
+      alugazap:
+        condition: service_healthy
+    networks:
+      - locai-network
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "5m"
+        max-file: "2"
+
+# ============================================================
+# Volumes persistentes
+# ============================================================
+volumes:
+  redis-data:
+    driver: local
+
+# ============================================================
+# Rede interna
+# ============================================================
+networks:
+  locai-network:
+    driver: bridge
