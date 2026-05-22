@@ -5,10 +5,11 @@ import { WhatsAppStatusService } from '@/lib/services/whatsapp-status-service'
 import { deduplicationCache } from '@/lib/cache/deduplication-cache'
 
 /**
- * Webhook para receber mensagens do WhatsApp Microservice
- * Este endpoint recebe eventos do microserviço e encaminha mensagens para o N8N
- * 
- * Fluxo: WhatsApp -> Microservice -> Este Webhook -> N8N -> Processamento
+ * Webhook para receber mensagens do WhatsApp Microservice.
+ * Eventos `message` são persistidos no Firestore via /api/webhook/client-message.
+ * Atendimento manual — Sofia/IA não responde automaticamente.
+ *
+ * Fluxo: WhatsApp -> Microservice -> Este Webhook -> client-message -> Firestore
  */
 export async function POST(request: NextRequest) {
     try {
@@ -89,8 +90,9 @@ export async function POST(request: NextRequest) {
 
         // ✅ PROCESSAR DIFERENTES TIPOS DE EVENTOS
         if (body.event === 'message') {
-            // Encaminhar mensagem para N8N processar
-            await processIncomingMessageViaN8N(body.tenantId, body.data)
+            // Persistir direto no Firestore via /api/webhook/client-message
+            // (sem N8N — atendimento manual; Sofia não responde automaticamente)
+            await persistIncomingMessage(body.tenantId, body.data)
         } else if (body.event === 'status_change') {
             await processStatusChange(body.tenantId, body.data)
         } else if (body.event === 'qr_code') {
@@ -115,15 +117,16 @@ export async function POST(request: NextRequest) {
 }
 
 /**
- * 🚀 NOVA FUNÇÃO: Processar mensagem enviando para N8N Workflow
+ * Persistir mensagem entrante delegando para /api/webhook/client-message,
+ * que já cuida de criar conversation, salvar message e publicar real-time
+ * no Redis. Sem chamada para N8N — atendimento é manual.
  */
-async function processIncomingMessageViaN8N(tenantId: string, messageData: any) {
+async function persistIncomingMessage(tenantId: string, messageData: any) {
     try {
         const messageId = messageData.messageId || messageData.id;
         const clientPhone = messageData.from;
         const message = messageData.message || messageData.text;
 
-        // ✅ VALIDAÇÕES BÁSICAS (mantém as mesmas do código original)
         if (!messageId || !clientPhone || !message || message.trim() === '') {
             logger.warn('⚠️ Invalid message data, skipping', {
                 tenantId: tenantId?.substring(0, 8) + '***',
@@ -134,15 +137,6 @@ async function processIncomingMessageViaN8N(tenantId: string, messageData: any) 
             return;
         }
 
-
-        logger.info('📨 Processing incoming message via N8N', {
-            tenantId: tenantId?.substring(0, 8) + '***',
-            from: clientPhone?.substring(0, 6) + '***',
-            messageId: messageId?.substring(0, 8) + '***',
-            messageLength: message.length
-        })
-
-        // ✅ SISTEMA DE DEDUPLICAÇÃO (mantém igual)
         if (deduplicationCache.isDuplicate(tenantId, messageId)) {
             logger.info('🔁 Message already processed, skipping', {
                 tenantId: tenantId?.substring(0, 8) + '***',
@@ -153,67 +147,66 @@ async function processIncomingMessageViaN8N(tenantId: string, messageData: any) 
 
         deduplicationCache.markAsProcessed(tenantId, messageId);
 
-        // 🚀 NOVA LÓGICA: Chamar N8N Workflow
-        const n8nWebhookUrl = process.env.N8N_WEBHOOK_URL;
-        const n8nSecret = process.env.N8N_WEBHOOK_SECRET;
+        const apiKey = process.env.WHATSAPP_MICROSERVICE_API_KEY;
+        if (!apiKey) {
+            logger.error('❌ WHATSAPP_MICROSERVICE_API_KEY not set — cannot delegate to client-message');
+            return;
+        }
 
+        // Loopback evita round-trip externo via Cloudflare Tunnel.
+        const internalPort = process.env.PORT || '7070';
+        const internalUrl = `http://127.0.0.1:${internalPort}/api/webhook/client-message`;
 
-        logger.info('🚀 Sending message to N8N workflow', {
-            url: n8nWebhookUrl.substring(0, 50) + '...',
-            tenantId: tenantId?.substring(0, 8) + '***'
-        });
+        // Microservice envia `type` ∈ {text,image,video,document}; client-message
+        // espera `mediaType` ∈ {image,video,audio,document}. Só repassa quando há
+        // mídia de verdade (text vira undefined).
+        const allowedMediaTypes = ['image', 'video', 'audio', 'document'] as const;
+        const incomingType = messageData.type;
+        const mediaType = allowedMediaTypes.includes(incomingType) ? incomingType : undefined;
 
-        // 🎯 PAYLOAD para N8N (exatamente como esperado pelo webhook node)
-        const n8nPayload = {
+        const payload = {
             tenantId,
+            event: 'message',
             data: {
                 from: clientPhone,
-                message: message,
-                messageId: messageId,
-                timestamp: new Date().toISOString()
-            },
-            event: 'message',
-            source: 'whatsapp-microservice',
-            webhookTimestamp: new Date().toISOString()
+                message,
+                messageId,
+                timestamp: new Date().toISOString(),
+                ...(messageData.mediaUrl && { mediaUrl: messageData.mediaUrl }),
+                ...(mediaType && { mediaType }),
+            }
         };
 
-        const n8nResponse = await fetch(n8nWebhookUrl, {
+        const response = await fetch(internalUrl, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                'x-webhook-signature': n8nSecret,
-                'X-Tenant-ID': tenantId,
-                'User-Agent': 'LocAI-Frontend/1.0'
+                'Authorization': `Bearer ${apiKey}`,
             },
-            body: JSON.stringify(n8nPayload),
-            signal: AbortSignal.timeout(30000) // 30s timeout
+            body: JSON.stringify(payload),
+            signal: AbortSignal.timeout(15000),
         });
 
-        if (n8nResponse.ok) {
-            logger.info('✅ Message sent to N8N successfully', {
+        if (!response.ok) {
+            const errorText = await response.text().catch(() => 'unable to read body');
+            logger.error('❌ client-message rejected payload', {
+                status: response.status,
                 tenantId: tenantId?.substring(0, 8) + '***',
-                clientPhone: clientPhone?.substring(0, 6) + '***',
-                messageId: messageId?.substring(0, 8) + '***',
-                status: n8nResponse.status
+                body: errorText.substring(0, 200),
             });
-
-            // 🎉 N8N vai processar e depois chamar /api/whatsapp/send-n8n
-            // Não precisamos fazer mais nada aqui!
-
-        } else {
-            const errorText = await n8nResponse.text().catch(() => 'Unable to read error response');
-            throw new Error(`N8N responded with ${n8nResponse.status}: ${errorText}`);
+            return;
         }
 
+        logger.info('✅ Incoming message persisted via client-message', {
+            tenantId: tenantId?.substring(0, 8) + '***',
+            from: clientPhone?.substring(0, 6) + '***',
+            messageId: messageId?.substring(0, 8) + '***',
+        });
     } catch (error) {
-        logger.error('❌ Error calling N8N workflow:', {
+        logger.error('❌ Error persisting incoming message:', {
             error: error instanceof Error ? error.message : 'Unknown error',
             tenantId: tenantId?.substring(0, 8) + '***',
-            stack: error instanceof Error ? error.stack?.substring(0, 200) : undefined
         });
-
-        // Se falhar ao chamar N8N, apenas logar erro
-        logger.error('❌ N8N call failed - message not processed');
     }
 }
 
