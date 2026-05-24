@@ -1,23 +1,14 @@
 'use client';
 
+import React, { useState } from 'react';
 import { usePathname } from 'next/navigation';
 import Link from 'next/link';
-import { useMemo, useState } from 'react';
-import { scrollbarStyles } from '@/styles/scrollbarStyles';
+import { motion, AnimatePresence } from 'framer-motion';
 import {
-  Drawer,
-  List,
-  ListItemButton,
-  ListItemIcon,
-  ListItemText,
-  Divider,
-  Toolbar,
   Box,
   Typography,
   useTheme,
   useMediaQuery,
-  Chip,
-  Collapse,
 } from '@mui/material';
 import {
   Dashboard,
@@ -28,456 +19,602 @@ import {
   AccountBalance,
   Settings,
   HelpOutline,
-  TrendingUp,
-  ExpandLess,
-  ExpandMore,
-  Receipt,
-  AttachMoney,
-  Campaign,
-  NotificationsActive,
-  Assessment,
-  AccountBalanceWallet,
-  GroupWork,
-  Analytics,
-  AccountTree,
-  Widgets,
-  BugReport,
   Event,
-  Schedule,
-  AdminPanelSettings,
+  ChevronLeft,
+  ChevronRight,
+  Close,
 } from '@mui/icons-material';
-import { useAuth } from '@/lib/hooks/useAuth';
+
+export const SIDEBAR_EXPANDED = 260;
+export const SIDEBAR_COLLAPSED = 68;
 
 interface SidebarProps {
   open: boolean;
   onClose: () => void;
+  isCollapsed: boolean;
+  onToggleCollapse: () => void;
 }
 
-const menuItems = [
-  {
-    text: 'Dashboard',
-    href: '/dashboard',
-    icon: <Dashboard />,
-    badge: null,
-  },
-  {
-    text: 'Propriedades',
-    href: '/dashboard/properties',
-    icon: <Home />,
-    badge: null,
-  },
-  {
-    text: 'Reservas',
-    href: '/dashboard/reservations',
-    icon: <CalendarMonth />,
-    badge: null,
-  },
-  {
-    text: 'Agenda',
-    href: '/dashboard/agenda',
-    icon: <Event />,
-    badge: null,
-  },
-  // {
-  //   text: 'CRM',
-  //   href: '/dashboard/crm',
-  //   icon: <GroupWork />,
-  //   badge: null,
-  // },
-  {
-    text: 'Clientes',
-    href: '/dashboard/clients',
-    icon: <People />,
-    badge: null,
-  },
-  {
-    text: 'Conversas',
-    href: '/dashboard/conversas',
-    icon: <Chat />,
-    badge: null,
-  },
-  {
-    text: 'Financeiro',
-    href: '/dashboard/financeiro/transacoes',
-    icon: <AccountBalance />,
-    badge: null,
-  },
-  {
-    text: 'Ajuda',
-    href: '/dashboard/help',
-    icon: <HelpOutline />,
-    badge: null,
-  },
-  // Teste restaurado para desenvolvimento
-];
+interface NavItem {
+  id: string;
+  label: string;
+  href: string;
+  icon: React.ReactNode;
+}
 
-const secondaryItems = [
+interface NavSection {
+  key: string;
+  title: string;
+  items: NavItem[];
+}
+
+const NAV_SECTIONS: NavSection[] = [
   {
-    text: 'Configurações',
-    href: '/dashboard/settings',
-    icon: <Settings />,
-    badge: null,
+    key: 'principal',
+    title: 'PRINCIPAL',
+    items: [
+      { id: 'dashboard', label: 'Dashboard', href: '/dashboard', icon: <Dashboard sx={{ fontSize: 18 }} /> },
+      { id: 'properties', label: 'Propriedades', href: '/dashboard/properties', icon: <Home sx={{ fontSize: 18 }} /> },
+      { id: 'reservations', label: 'Reservas', href: '/dashboard/reservations', icon: <CalendarMonth sx={{ fontSize: 18 }} /> },
+      { id: 'agenda', label: 'Agenda', href: '/dashboard/agenda', icon: <Event sx={{ fontSize: 18 }} /> },
+    ],
+  },
+  {
+    key: 'gestao',
+    title: 'GESTÃO',
+    items: [
+      { id: 'clients', label: 'Clientes', href: '/dashboard/clients', icon: <People sx={{ fontSize: 18 }} /> },
+      { id: 'conversas', label: 'Conversas', href: '/dashboard/conversas', icon: <Chat sx={{ fontSize: 18 }} /> },
+      { id: 'financeiro', label: 'Financeiro', href: '/dashboard/financeiro/transacoes', icon: <AccountBalance sx={{ fontSize: 18 }} /> },
+    ],
+  },
+  {
+    key: 'sistema',
+    title: 'SISTEMA',
+    items: [
+      { id: 'settings', label: 'Configurações', href: '/dashboard/settings', icon: <Settings sx={{ fontSize: 18 }} /> },
+      { id: 'help', label: 'Ajuda', href: '/dashboard/help', icon: <HelpOutline sx={{ fontSize: 18 }} /> },
+    ],
   },
 ];
 
-const drawerWidth = 260;
+function NavButton({
+  item,
+  isActive,
+  collapsed,
+  onClick,
+}: {
+  item: NavItem;
+  isActive: boolean;
+  collapsed: boolean;
+  onClick?: () => void;
+}) {
+  const [ripple, setRipple] = useState(false);
 
-export default function Sidebar({ open, onClose }: SidebarProps) {
-  const pathname = usePathname();
-  const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down('lg'));
-  const [expandedMenu, setExpandedMenu] = useState<string | null>(null);
-  const { user } = useAuth();
-
-  // Memoize menu items with conditional admin item
-  const allMenuItems = useMemo(() => {
-    const items = [...menuItems];
-
-
-    return items;
-  }, [user?.id]);
-
-  const handleMenuClick = (itemText: string, hasSubmenu: boolean) => {
-    if (hasSubmenu) {
-      setExpandedMenu(expandedMenu === itemText ? null : itemText);
-    } else if (isMobile) {
-      onClose();
-    }
+  const handleClick = () => {
+    setRipple(true);
+    setTimeout(() => setRipple(false), 500);
+    onClick?.();
   };
 
-  const drawerContent = (
-    <Box sx={{ 
-      height: '100%', 
-      display: 'flex', 
-      flexDirection: 'column',
-      background: 'linear-gradient(180deg, #0f172a 0%, #1e293b 100%)',
-      borderRight: '1px solid',
-      borderColor: 'rgba(255, 255, 255, 0.08)',
-      boxShadow: '0 0 32px rgba(0, 0, 0, 0.2)',
-    }}>
-      <Toolbar sx={{ 
-        minHeight: { xs: 56, md: 64 }, 
-        px: { xs: 2, md: 3 },
-        background: 'linear-gradient(135deg, #0f172a 0%, #1e293b 100%)',
-        color: 'white',
-        borderBottom: '1px solid rgba(255, 255, 255, 0.06)',
-        boxShadow: '0 2px 12px rgba(0, 0, 0, 0.15)',
-      }}>
-        <Box 
-          component={Link}
-          href="/dashboard"
-          sx={{ 
-            display: 'flex', 
-            alignItems: 'center', 
-            gap: 1.5,
-            textDecoration: 'none',
-            cursor: 'pointer',
-            borderRadius: 2,
-            p: 1,
-            mx: -1,
-            transition: 'all 0.2s ease',
-            '&:hover': {
-              transform: 'scale(1.02)',
-              bgcolor: 'rgba(255, 255, 255, 0.05)',
-            }
-          }}
-        >
-          <Box
-            component="img"
-            src="/logo.jpg"
-            alt="AlugaZap"
-            sx={{
-              width: { xs: 36, md: 40 },
-              height: { xs: 36, md: 40 },
-              borderRadius: 2,
-              objectFit: 'contain',
-              border: '1px solid rgba(255, 255, 255, 0.2)',
-              boxShadow: '0 4px 16px rgba(6, 182, 212, 0.4)',
-            }}
-          />
-          <Box>
-            <Typography 
-              variant="subtitle1" 
-              fontWeight={700} 
-              sx={{ 
-                lineHeight: 1,
-                color: 'white',
-                fontSize: { xs: '1rem', md: '1.125rem' },
-                textShadow: '0 1px 2px rgba(0, 0, 0, 0.2)',
-              }}
-            >
-              AlugaZap
-            </Typography>
-            <Typography 
-              variant="caption" 
-              sx={{ 
-                color: 'rgba(255, 255, 255, 0.85)',
-                fontSize: { xs: '0.75rem', md: '0.813rem' },
-                fontWeight: 500,
-              }}
-            >
-              Gestão Imobiliária
-            </Typography>
-          </Box>
-        </Box>
-      </Toolbar>
-
-      <Divider sx={{ borderColor: 'rgba(255, 255, 255, 0.08)' }} />
-
-      <Box sx={{
-        flex: 1,
-        overflowY: 'auto',
-        py: 2,
-        // Scrollbar invisível mas funcional
-        '&::-webkit-scrollbar': {
-          display: 'none'
-        },
-        msOverflowStyle: 'none',
-        scrollbarWidth: 'none',
-      }}>
-        <List sx={{ px: { xs: 1.5, md: 2 } }}>
-          {allMenuItems.map((item) => (
-            <Box key={item.href}>
-              <ListItemButton
-                component={item.submenu ? 'div' : Link}
-                href={!item.submenu ? item.href : undefined}
-                selected={pathname === item.href || item.submenu?.some(sub => pathname === sub.href)}
-                onClick={() => handleMenuClick(item.text, !!item.submenu)}
-                sx={{
-                  borderRadius: 2,
-                  mb: 1,
-                  minHeight: { xs: 52, md: 56 },
-                  px: { xs: 2, md: 2.5 },
-                  mx: 0.5,
-                  background: 'transparent',
-                  border: '1px solid transparent',
-                  color: 'rgba(255, 255, 255, 0.8)',
-                  transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                  '&:hover': {
-                    background: 'linear-gradient(135deg, rgba(6, 182, 212, 0.12) 0%, rgba(8, 145, 178, 0.12) 100%)',
-                    border: '1px solid rgba(6, 182, 212, 0.2)',
-                    transform: 'translateX(2px)',
-                    boxShadow: '0 4px 16px rgba(6, 182, 212, 0.15)',
-                    color: 'rgba(255, 255, 255, 0.95)',
-                  },
-                  '&.Mui-selected': {
-                    background: 'linear-gradient(135deg, #06b6d4 0%, #0891b2 100%)',
-                    color: 'white',
-                    border: '1px solid rgba(255, 255, 255, 0.2)',
-                    boxShadow: '0 4px 20px rgba(6, 182, 212, 0.3)',
-                    '&:hover': {
-                      background: 'linear-gradient(135deg, #0891b2 0%, #0e7490 100%)',
-                      transform: 'translateX(4px)',
-                      boxShadow: '0 6px 24px rgba(6, 182, 212, 0.4)',
-                    },
-                    '& .MuiListItemIcon-root': {
-                      color: 'white',
-                    },
-                  },
-                }}
-              >
-                <ListItemIcon
-                  sx={{
-                    minWidth: { xs: 40, md: 44 },
-                    color: (pathname === item.href || item.submenu?.some(sub => pathname === sub.href)) ? 'inherit' : 'rgba(255, 255, 255, 0.6)',
-                  }}
-                >
-                  {item.icon}
-                </ListItemIcon>
-                <ListItemText 
-                  primary={item.text}
-                  primaryTypographyProps={{
-                    fontSize: { xs: '0.875rem', md: '0.9rem' },
-                    fontWeight: (pathname === item.href || item.submenu?.some(sub => pathname === sub.href)) ? 600 : 500,
-                  }}
-                />
-                {item.badge && (
-                  <Chip
-                    label={item.badge}
-                    size="small"
-                    sx={{
-                      height: 20,
-                      fontSize: '0.625rem',
-                      fontWeight: 600,
-                      bgcolor: item.badge === 'ADMIN' ? '#dc2626' : '#22c55e',
-                      color: 'white',
-                      boxShadow: item.badge === 'ADMIN' ? '0 2px 8px rgba(220, 38, 38, 0.3)' : '0 2px 8px rgba(34, 197, 94, 0.3)',
-                      '& .MuiChip-label': {
-                        px: 1,
-                      },
-                    }}
-                  />
-                )}
-                {item.submenu && (
-                  expandedMenu === item.text ? <ExpandLess sx={{ fontSize: { xs: 20, md: 24 } }} /> : <ExpandMore sx={{ fontSize: { xs: 20, md: 24 } }} />
-                )}
-              </ListItemButton>
-              {item.submenu && (
-                <Collapse in={expandedMenu === item.text} timeout="auto" unmountOnExit>
-                  <List component="div" disablePadding sx={{ pl: 2 }}>
-                    {item.submenu.map((subItem) => (
-                      <ListItemButton
-                        key={subItem.href}
-                        component={Link}
-                        href={subItem.href}
-                        selected={pathname === subItem.href}
-                        onClick={isMobile ? onClose : undefined}
-                        sx={{
-                          borderRadius: 1.5,
-                          mb: 0.5,
-                          minHeight: { xs: 44, md: 48 },
-                          px: { xs: 1.5, md: 2 },
-                          mx: 0.5,
-                          color: 'rgba(255, 255, 255, 0.7)',
-                          transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                          '&:hover': {
-                            background: 'linear-gradient(135deg, rgba(6, 182, 212, 0.08) 0%, rgba(8, 145, 178, 0.08) 100%)',
-                            transform: 'translateX(2px)',
-                            boxShadow: '0 2px 8px rgba(6, 182, 212, 0.1)',
-                            color: 'rgba(255, 255, 255, 0.9)',
-                          },
-                          '&.Mui-selected': {
-                            background: 'linear-gradient(135deg, rgba(6, 182, 212, 0.15) 0%, rgba(8, 145, 178, 0.15) 100%)',
-                            color: '#67e8f9',
-                            border: '1px solid rgba(6, 182, 212, 0.3)',
-                            boxShadow: '0 3px 12px rgba(6, 182, 212, 0.2)',
-                            '&:hover': {
-                              background: 'linear-gradient(135deg, rgba(6, 182, 212, 0.2) 0%, rgba(8, 145, 178, 0.2) 100%)',
-                              transform: 'translateX(4px)',
-                              boxShadow: '0 4px 16px rgba(6, 182, 212, 0.25)',
-                            },
-                            '& .MuiListItemIcon-root': {
-                              color: '#67e8f9',
-                            },
-                          },
-                        }}
-                      >
-                        <ListItemIcon
-                          sx={{
-                            minWidth: { xs: 32, md: 36 },
-                            color: pathname === subItem.href ? '#67e8f9' : 'rgba(255, 255, 255, 0.5)',
-                          }}
-                        >
-                          {subItem.icon}
-                        </ListItemIcon>
-                        <ListItemText 
-                          primary={subItem.text}
-                          primaryTypographyProps={{
-                            fontSize: { xs: '0.813rem', md: '0.875rem' },
-                            fontWeight: pathname === subItem.href ? 600 : 500,
-                          }}
-                        />
-                      </ListItemButton>
-                    ))}
-                  </List>
-                </Collapse>
-              )}
-            </Box>
-          ))}
-        </List>
-      </Box>
-
-      <Divider sx={{ borderColor: 'rgba(255, 255, 255, 0.08)' }} />
-
-      <Box sx={{ p: { xs: 1.5, md: 2 } }}>
-        <List>
-          {secondaryItems.map((item) => (
-            <ListItemButton
-              key={item.href}
-              component={Link}
-              href={item.href}
-              selected={pathname === item.href}
-              onClick={isMobile ? onClose : undefined}
-              sx={{
-                borderRadius: 2,
-                mb: 1,
-                minHeight: { xs: 48, md: 52 },
-                px: { xs: 1.5, md: 2 },
-                mx: 0.5,
-                color: 'rgba(255, 255, 255, 0.7)',
-                transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
-                '&:hover': {
-                  background: 'linear-gradient(135deg, rgba(148, 163, 184, 0.08) 0%, rgba(203, 213, 225, 0.08) 100%)',
-                  transform: 'translateX(2px)',
-                  boxShadow: '0 2px 8px rgba(148, 163, 184, 0.1)',
-                  color: 'rgba(255, 255, 255, 0.9)',
-                },
-                '&.Mui-selected': {
-                  background: 'linear-gradient(135deg, rgba(148, 163, 184, 0.15) 0%, rgba(203, 213, 225, 0.15) 100%)',
-                  color: '#cbd5e1',
-                  border: '1px solid rgba(148, 163, 184, 0.3)',
-                  boxShadow: '0 2px 8px rgba(148, 163, 184, 0.15)',
-                  '& .MuiListItemIcon-root': {
-                    color: '#cbd5e1',
-                  },
-                },
-              }}
-            >
-              <ListItemIcon
-                sx={{
-                  minWidth: { xs: 36, md: 40 },
-                  color: pathname === item.href ? '#cbd5e1' : 'rgba(255, 255, 255, 0.5)',
-                }}
-              >
-                {item.icon}
-              </ListItemIcon>
-              <ListItemText 
-                primary={item.text}
-                primaryTypographyProps={{
-                  fontSize: { xs: '0.813rem', md: '0.875rem' },
-                  fontWeight: pathname === item.href ? 600 : 500,
-                }}
-              />
-              {item.badge && (
-                <Chip
-                  label={item.badge}
-                  size="small"
-                  sx={{
-                    height: 20,
-                    fontSize: '0.625rem',
-                    fontWeight: 600,
-                    bgcolor: '#f59e0b',
-                    color: 'white',
-                    boxShadow: '0 2px 8px rgba(245, 158, 11, 0.3)',
-                    '& .MuiChip-label': {
-                      px: 1,
-                    },
-                  }}
-                />
-              )}
-            </ListItemButton>
-          ))}
-        </List>
-
-      </Box>
-    </Box>
-  );
-
-  return (
-    <Drawer
-      variant="temporary"
-      open={open}
-      onClose={onClose}
-      ModalProps={{
-        keepMounted: true,
-      }}
+  const btn = (
+    <Box
+      component={Link}
+      href={item.href}
+      onClick={handleClick}
       sx={{
-        width: drawerWidth,
-        flexShrink: 0,
-        '& .MuiDrawer-paper': {
-          width: drawerWidth,
-          boxSizing: 'border-box',
-          borderRight: 1,
-          borderColor: 'divider',
-          position: 'fixed',
-          top: 0,
-          height: '100vh',
-          zIndex: theme.zIndex.drawer + 1,
-          boxShadow: '4px 0 20px rgba(0, 0, 0, 0.15)',
+        position: 'relative',
+        display: 'flex',
+        alignItems: 'center',
+        gap: collapsed ? 0 : 1.5,
+        justifyContent: collapsed ? 'center' : 'flex-start',
+        width: '100%',
+        minHeight: 40,
+        px: collapsed ? 0 : 1.5,
+        borderRadius: '10px',
+        textDecoration: 'none',
+        cursor: 'pointer',
+        overflow: 'hidden',
+        color: isActive ? 'white' : 'rgba(255,255,255,0.5)',
+        transition: 'color 0.15s ease',
+        '&:hover': {
+          color: isActive ? 'white' : 'rgba(255,255,255,0.85)',
+        },
+        '&:hover .nav-hover-bg': {
+          opacity: isActive ? 0 : 1,
         },
       }}
     >
-      {drawerContent}
-    </Drawer>
+      {/* Hover background */}
+      <Box
+        className="nav-hover-bg"
+        sx={{
+          position: 'absolute',
+          inset: 0,
+          borderRadius: '10px',
+          bgcolor: 'rgba(255,255,255,0.05)',
+          opacity: 0,
+          transition: 'opacity 0.15s ease',
+          pointerEvents: 'none',
+        }}
+      />
+
+      {/* Active pill — shared layout animation */}
+      {isActive && (
+        <motion.span
+          layoutId="nav-active-pill"
+          style={{
+            position: 'absolute',
+            inset: 0,
+            borderRadius: 10,
+            background: 'linear-gradient(135deg, #4338ca 0%, #6366f1 100%)',
+            zIndex: 0,
+          }}
+          transition={{ type: 'spring', stiffness: 420, damping: 38 }}
+        />
+      )}
+
+      {/* Click ripple */}
+      <AnimatePresence>
+        {ripple && (
+          <motion.span
+            initial={{ opacity: 0.3, scale: 0.4 }}
+            animate={{ opacity: 0, scale: 2.2 }}
+            exit={{}}
+            transition={{ duration: 0.45, ease: [0.2, 0, 0.3, 1] }}
+            style={{
+              position: 'absolute',
+              inset: 0,
+              borderRadius: 10,
+              background: 'rgba(99,102,241,0.25)',
+              pointerEvents: 'none',
+              zIndex: 1,
+            }}
+          />
+        )}
+      </AnimatePresence>
+
+      {/* Icon */}
+      <Box
+        sx={{
+          position: 'relative',
+          zIndex: 2,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          flexShrink: 0,
+          color: 'inherit',
+          transition: 'transform 0.15s ease',
+          '.nav-btn:hover &': {
+            transform: 'scale(1.08)',
+          },
+        }}
+      >
+        {item.icon}
+      </Box>
+
+      {/* Label */}
+      {!collapsed && (
+        <Typography
+          component="span"
+          sx={{
+            position: 'relative',
+            zIndex: 2,
+            fontSize: '0.875rem',
+            fontWeight: isActive ? 600 : 500,
+            lineHeight: 1,
+            letterSpacing: '-0.01em',
+            whiteSpace: 'nowrap',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+          }}
+        >
+          {item.label}
+        </Typography>
+      )}
+
+      {/* Tooltip arrow for collapsed state */}
+      {collapsed && (
+        <Box
+          className="nav-tooltip"
+          sx={{
+            position: 'absolute',
+            left: 'calc(100% + 12px)',
+            top: '50%',
+            transform: 'translateY(-50%) translateX(4px)',
+            px: 1.5,
+            py: 0.75,
+            borderRadius: '8px',
+            bgcolor: '#1e293b',
+            border: '1px solid rgba(255,255,255,0.1)',
+            boxShadow: '0 8px 24px rgba(0,0,0,0.4)',
+            whiteSpace: 'nowrap',
+            zIndex: 9999,
+            opacity: 0,
+            pointerEvents: 'none',
+            transition: 'opacity 0.15s ease, transform 0.15s ease',
+            '.MuiDrawer-paper:has(&:hover) &, &': { opacity: 0 },
+          }}
+        >
+          <Typography sx={{ fontSize: '0.8125rem', fontWeight: 500, color: 'rgba(255,255,255,0.9)' }}>
+            {item.label}
+          </Typography>
+          {/* Arrow */}
+          <Box sx={{
+            position: 'absolute',
+            right: '100%',
+            top: '50%',
+            transform: 'translateY(-50%)',
+            borderWidth: 5,
+            borderStyle: 'solid',
+            borderColor: 'transparent #1e293b transparent transparent',
+          }} />
+        </Box>
+      )}
+    </Box>
+  );
+
+  if (!collapsed) return btn;
+
+  // CSS-only tooltip for collapsed mode (no extra DOM, no flicker)
+  return (
+    <Box
+      sx={{
+        position: 'relative',
+        '&:hover .nav-collapsed-tooltip': {
+          opacity: 1,
+          transform: 'translateY(-50%) translateX(0)',
+        },
+      }}
+    >
+      {btn}
+      <Box
+        className="nav-collapsed-tooltip"
+        sx={{
+          position: 'absolute',
+          left: 'calc(100% + 12px)',
+          top: '50%',
+          transform: 'translateY(-50%) translateX(4px)',
+          px: 1.5,
+          py: 0.75,
+          borderRadius: '8px',
+          bgcolor: '#1e293b',
+          border: '1px solid rgba(255,255,255,0.1)',
+          boxShadow: '0 8px 24px rgba(0,0,0,0.4)',
+          whiteSpace: 'nowrap',
+          zIndex: 9999,
+          opacity: 0,
+          pointerEvents: 'none',
+          transition: 'opacity 0.15s ease, transform 0.15s ease',
+        }}
+      >
+        <Typography sx={{ fontSize: '0.8125rem', fontWeight: 500, color: 'rgba(255,255,255,0.9)' }}>
+          {item.label}
+        </Typography>
+        <Box sx={{
+          position: 'absolute',
+          right: '100%',
+          top: '50%',
+          transform: 'translateY(-50%)',
+          width: 0,
+          height: 0,
+          borderTop: '5px solid transparent',
+          borderBottom: '5px solid transparent',
+          borderRight: '5px solid #1e293b',
+        }} />
+      </Box>
+    </Box>
+  );
+}
+
+function SidebarContent({
+  isCollapsed,
+  onToggleCollapse,
+  isMobile,
+  onClose,
+  pathname,
+}: {
+  isCollapsed: boolean;
+  onToggleCollapse: () => void;
+  isMobile: boolean;
+  onClose: () => void;
+  pathname: string;
+}) {
+  const collapsed = isCollapsed && !isMobile;
+
+  const isActive = (href: string) => {
+    if (href === '/dashboard') return pathname === '/dashboard';
+    // Use the first two path segments as the base for matching (handles deep sub-pages)
+    const base = '/' + href.split('/').filter(Boolean).slice(0, 2).join('/');
+    return pathname === href || pathname.startsWith(base + '/') || pathname === base;
+  };
+
+  return (
+    <Box
+      sx={{
+        display: 'flex',
+        flexDirection: 'column',
+        height: '100%',
+        bgcolor: '#0a0e17',
+        borderRight: '1px solid rgba(255,255,255,0.07)',
+        width: collapsed ? SIDEBAR_COLLAPSED : SIDEBAR_EXPANDED,
+        transition: 'width 0.28s cubic-bezier(0.4, 0, 0.2, 1)',
+        overflowX: 'hidden',
+        overflowY: 'hidden',
+      }}
+    >
+      {/* Header */}
+      <Box
+        sx={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: collapsed ? 'center' : 'space-between',
+          minHeight: 60,
+          px: collapsed ? 0 : 2,
+          borderBottom: '1px solid rgba(255,255,255,0.07)',
+          flexShrink: 0,
+        }}
+      >
+        {collapsed ? (
+          /* Collapsed: chevron right = expand */
+          <Box
+            component="button"
+            onClick={onToggleCollapse}
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              width: '100%',
+              height: 60,
+              border: 'none',
+              bgcolor: 'transparent',
+              cursor: 'pointer',
+              color: 'rgba(255,255,255,0.35)',
+              transition: 'color 0.15s ease, background 0.15s ease',
+              '&:hover': {
+                color: 'rgba(255,255,255,0.8)',
+                bgcolor: 'rgba(255,255,255,0.04)',
+              },
+            }}
+          >
+            <ChevronRight sx={{ fontSize: 20 }} />
+          </Box>
+        ) : (
+          <>
+            {/* Logo + name */}
+            <Box
+              component={Link}
+              href="/dashboard"
+              sx={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 1.5,
+                textDecoration: 'none',
+                minWidth: 0,
+                flex: 1,
+              }}
+            >
+              <Box
+                component="img"
+                src="/logo.jpg"
+                alt="AlugaZap"
+                sx={{
+                  width: 30,
+                  height: 30,
+                  borderRadius: '8px',
+                  objectFit: 'contain',
+                  border: '1px solid rgba(255,255,255,0.12)',
+                  flexShrink: 0,
+                }}
+              />
+              <Box sx={{ minWidth: 0 }}>
+                <Typography
+                  sx={{
+                    fontSize: '0.9375rem',
+                    fontWeight: 700,
+                    color: 'rgba(255,255,255,0.95)',
+                    lineHeight: 1.2,
+                    letterSpacing: '-0.02em',
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  AlugaZap
+                </Typography>
+                <Typography
+                  sx={{
+                    fontSize: '0.6875rem',
+                    color: 'rgba(255,255,255,0.35)',
+                    fontWeight: 500,
+                    lineHeight: 1,
+                    whiteSpace: 'nowrap',
+                    mt: 0.25,
+                  }}
+                >
+                  Gestão Imobiliária
+                </Typography>
+              </Box>
+            </Box>
+
+            {/* Collapse / close button */}
+            <Box
+              component="button"
+              onClick={isMobile ? onClose : onToggleCollapse}
+              sx={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                width: 28,
+                height: 28,
+                borderRadius: '7px',
+                border: 'none',
+                bgcolor: 'transparent',
+                cursor: 'pointer',
+                color: 'rgba(255,255,255,0.3)',
+                flexShrink: 0,
+                transition: 'color 0.15s ease, background 0.15s ease',
+                '&:hover': {
+                  color: 'rgba(255,255,255,0.75)',
+                  bgcolor: 'rgba(255,255,255,0.07)',
+                },
+              }}
+            >
+              {isMobile ? (
+                <Close sx={{ fontSize: 16 }} />
+              ) : (
+                <ChevronLeft sx={{ fontSize: 16 }} />
+              )}
+            </Box>
+          </>
+        )}
+      </Box>
+
+      {/* Navigation */}
+      <Box
+        component="nav"
+        sx={{
+          flex: 1,
+          overflowY: 'auto',
+          overflowX: 'hidden',
+          py: 1.5,
+          px: collapsed ? 0.75 : 1.5,
+          '&::-webkit-scrollbar': { display: 'none' },
+          scrollbarWidth: 'none',
+        }}
+      >
+        {NAV_SECTIONS.map((section, sIdx) => (
+          <Box key={section.key} sx={{ mb: sIdx < NAV_SECTIONS.length - 1 ? 2 : 0 }}>
+            {/* Section header */}
+            <Box
+              sx={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 1,
+                px: collapsed ? 0 : 1,
+                mb: 0.5,
+                height: 24,
+              }}
+            >
+              {!collapsed && (
+                <Typography
+                  sx={{
+                    fontSize: '0.6875rem',
+                    fontWeight: 700,
+                    letterSpacing: '0.08em',
+                    color: 'rgba(255,255,255,0.2)',
+                    whiteSpace: 'nowrap',
+                  }}
+                >
+                  {section.title}
+                </Typography>
+              )}
+              <Box
+                sx={{
+                  flex: 1,
+                  height: '1px',
+                  background: collapsed
+                    ? 'linear-gradient(to right, transparent, rgba(255,255,255,0.08), transparent)'
+                    : 'linear-gradient(to right, rgba(255,255,255,0.1), transparent)',
+                }}
+              />
+            </Box>
+
+            {/* Items */}
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+              {section.items.map((item) => (
+                <NavButton
+                  key={item.id}
+                  item={item}
+                  isActive={isActive(item.href)}
+                  collapsed={collapsed}
+                  onClick={isMobile ? onClose : undefined}
+                />
+              ))}
+            </Box>
+          </Box>
+        ))}
+      </Box>
+    </Box>
+  );
+}
+
+export default function Sidebar({ open, onClose, isCollapsed, onToggleCollapse }: SidebarProps) {
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('lg'));
+  const pathname = usePathname();
+
+  const content = (
+    <SidebarContent
+      isCollapsed={isCollapsed}
+      onToggleCollapse={onToggleCollapse}
+      isMobile={isMobile}
+      onClose={onClose}
+      pathname={pathname}
+    />
+  );
+
+  if (isMobile) {
+    return (
+      <>
+        {/* Overlay */}
+        <AnimatePresence>
+          {open && (
+            <motion.div
+              key="overlay"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              transition={{ duration: 0.22 }}
+              onClick={onClose}
+              style={{
+                position: 'fixed',
+                inset: 0,
+                background: 'rgba(0,0,0,0.5)',
+                backdropFilter: 'blur(2px)',
+                zIndex: theme.zIndex.drawer,
+              }}
+            />
+          )}
+        </AnimatePresence>
+
+        {/* Drawer */}
+        <AnimatePresence>
+          {open && (
+            <motion.div
+              key="drawer"
+              initial={{ x: -SIDEBAR_EXPANDED, opacity: 0.6 }}
+              animate={{ x: 0, opacity: 1 }}
+              exit={{ x: -SIDEBAR_EXPANDED, opacity: 0 }}
+              transition={{ type: 'spring', damping: 28, stiffness: 280 }}
+              style={{
+                position: 'fixed',
+                top: 0,
+                left: 0,
+                bottom: 0,
+                zIndex: theme.zIndex.drawer + 1,
+              }}
+            >
+              {content}
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </>
+    );
+  }
+
+  // Desktop: permanent sidebar
+  return (
+    <Box
+      sx={{
+        flexShrink: 0,
+        height: '100vh',
+        position: 'sticky',
+        top: 0,
+        display: { xs: 'none', lg: 'block' },
+        width: isCollapsed ? SIDEBAR_COLLAPSED : SIDEBAR_EXPANDED,
+        transition: 'width 0.28s cubic-bezier(0.4, 0, 0.2, 1)',
+      }}
+    >
+      {content}
+    </Box>
   );
 }

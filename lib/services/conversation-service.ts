@@ -8,7 +8,7 @@ import {
   MessageStatus
 } from '@/lib/types/conversation'
 import { TenantServiceFactory } from '@/lib/firebase/firestore-v2'
-import { Timestamp, where } from 'firebase/firestore'
+import { Timestamp, where, orderBy, limit as fsLimit } from 'firebase/firestore'
 import { clientServiceWrapper } from './client-service'
 
 class ConversationService {
@@ -1187,33 +1187,29 @@ export class ConversationServiceOptimized {
    */
   subscribeToConversations(
     callback: (conversations: ConversationHeader[]) => void,
-    limit: number = 50
+    pageSize: number = 50
   ): () => void {
     try {
       logger.info('🔥 [REALTIME] Setting up Firestore listener for conversations list', {
         tenantId: this.tenantId.substring(0, 8) + '***',
-        limit
+        pageSize
       });
 
       const conversationsService = this.services.createService<ConversationHeader>('conversations');
 
-      const unsubscribe = conversationsService.onSnapshot((conversations) => {
-        const sortedConversations = conversations
-          .filter(conv => conv.id)
-          .sort((a, b) => {
-            const dateA = (a.lastMessageAt as any)?.toDate?.() || new Date(a.lastMessageAt || 0);
-            const dateB = (b.lastMessageAt as any)?.toDate?.() || new Date(b.lastMessageAt || 0);
-            return dateB.getTime() - dateA.getTime();
-          })
-          .slice(0, limit);
-
-        logger.info('🔥 [REALTIME] Conversations snapshot received', {
-          tenantId: this.tenantId.substring(0, 8) + '***',
-          totalConversations: sortedConversations.length
-        });
-
-        callback(sortedConversations);
-      });
+      // Server-side orderBy + limit — avoids loading the entire collection client-side.
+      // Without these constraints the listener would stream ALL documents on every update,
+      // making memory and bandwidth O(n) regardless of how many conversations the UI shows.
+      const unsubscribe = conversationsService.onSnapshot(
+        (conversations) => {
+          logger.info('🔥 [REALTIME] Conversations snapshot received', {
+            tenantId: this.tenantId.substring(0, 8) + '***',
+            count: conversations.length
+          });
+          callback(conversations.filter(conv => conv.id));
+        },
+        [orderBy('lastMessageAt', 'desc'), fsLimit(pageSize)]
+      );
 
       return unsubscribe;
     } catch (error) {

@@ -86,140 +86,91 @@ interface StatCardProps {
 
 function StatCard({ title, value, subtitle, icon, trend, color }: StatCardProps) {
   const [mounted, setMounted] = React.useState(false);
-
-  React.useEffect(() => {
-    setMounted(true);
-  }, []);
+  React.useEffect(() => { setMounted(true); }, []);
 
   const colorMap = {
-    primary: { gradient: '#6366f1, #8b5cf6', shadow: 'rgba(99, 102, 241, 0.3)' },
-    secondary: { gradient: '#8b5cf6, #d946ef', shadow: 'rgba(139, 92, 246, 0.3)' },
-    success: { gradient: '#10b981, #059669', shadow: 'rgba(16, 185, 129, 0.3)' },
-    warning: { gradient: '#f59e0b, #d97706', shadow: 'rgba(245, 158, 11, 0.3)' },
-    error: { gradient: '#ef4444, #dc2626', shadow: 'rgba(239, 68, 68, 0.3)' }
+    primary:   { accent: '#6366f1', iconBg: 'rgba(99,102,241,0.12)',  iconColor: '#818cf8' },
+    secondary: { accent: '#8b5cf6', iconBg: 'rgba(139,92,246,0.12)', iconColor: '#a78bfa' },
+    success:   { accent: '#10b981', iconBg: 'rgba(16,185,129,0.12)', iconColor: '#34d399' },
+    warning:   { accent: '#f59e0b', iconBg: 'rgba(245,158,11,0.12)', iconColor: '#fbbf24' },
+    error:     { accent: '#ef4444', iconBg: 'rgba(239,68,68,0.12)',  iconColor: '#f87171' },
   };
-
-  const colorConfig = colorMap[color];
+  const c = colorMap[color];
 
   return (
     <Card
       sx={{
         height: '100%',
-        minHeight: { xs: 160, sm: 180, md: 200 },
-        background: 'rgba(255, 255, 255, 0.06)',
-        backdropFilter: 'blur(20px)',
-        border: '1px solid rgba(255, 255, 255, 0.1)',
-        borderRadius: '20px',
-        transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
+        minHeight: { xs: 148, sm: 168 },
+        bgcolor: '#111827',
+        border: '1px solid rgba(255,255,255,0.08)',
+        borderRadius: '14px',
         position: 'relative',
         overflow: 'hidden',
+        transition: 'border-color 0.2s ease, transform 0.2s ease',
         '&:hover': {
-          transform: 'translateY(-4px)',
-          boxShadow: `0 12px 40px ${colorConfig.shadow}`,
-          border: '1px solid rgba(99, 102, 241, 0.3)',
+          borderColor: 'rgba(255,255,255,0.14)',
+          transform: 'translateY(-2px)',
         },
+        /* thin top accent line */
         '&::before': {
           content: '""',
           position: 'absolute',
-          top: 0,
-          left: 0,
-          right: 0,
-          height: '3px',
-          background: `linear-gradient(90deg, ${colorConfig.gradient})`,
-        }
+          top: 0, left: 0, right: 0,
+          height: '2px',
+          background: c.accent,
+          opacity: 0.7,
+        },
       }}
     >
-      <CardContent sx={{
-        p: { xs: 2.5, md: 3 },
-        height: '100%',
-        display: 'flex',
-        flexDirection: 'column',
-        justifyContent: 'space-between'
-      }}>
-        <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', mb: 2 }}>
+      <CardContent sx={{ p: { xs: 2.5, md: 3 }, height: '100%', display: 'flex', flexDirection: 'column', gap: 2 }}>
+        {/* Top row */}
+        <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between' }}>
           <Box
             sx={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              width: { xs: 48, md: 56 },
-              height: { xs: 48, md: 56 },
-              borderRadius: '16px',
-              background: `linear-gradient(135deg, ${colorConfig.gradient})`,
-              color: 'white',
-              boxShadow: `0 6px 20px ${colorConfig.shadow}`,
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              width: 40, height: 40,
+              borderRadius: '10px',
+              bgcolor: c.iconBg,
+              color: c.iconColor,
             }}
           >
             {icon}
           </Box>
           {trend && (
-            <Box
-              sx={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 0.5,
-                background: trend.isPositive ? 'rgba(16, 185, 129, 0.12)' : 'rgba(239, 68, 68, 0.12)',
-                borderRadius: '10px',
-                px: 1.5,
-                py: 0.5,
-                border: `1px solid ${trend.isPositive ? 'rgba(16, 185, 129, 0.25)' : 'rgba(239, 68, 68, 0.25)'}`,
-              }}
-            >
-              {trend.isPositive ? (
-                <TrendingUp sx={{ color: '#10b981', fontSize: 16 }} />
-              ) : (
-                <TrendingDown sx={{ color: '#ef4444', fontSize: 16 }} />
-              )}
-              <Typography
-                variant="body2"
-                color={trend.isPositive ? '#10b981' : '#ef4444'}
-                fontWeight="700"
-                sx={{ fontSize: '0.8125rem' }}
-              >
+            <Box sx={{
+              display: 'flex', alignItems: 'center', gap: 0.5,
+              bgcolor: trend.isPositive ? 'rgba(16,185,129,0.1)' : 'rgba(239,68,68,0.1)',
+              borderRadius: '8px', px: 1, py: 0.375,
+            }}>
+              {trend.isPositive
+                ? <TrendingUp sx={{ color: '#10b981', fontSize: 14 }} />
+                : <TrendingDown sx={{ color: '#ef4444', fontSize: 14 }} />
+              }
+              <Typography sx={{ fontSize: '0.75rem', fontWeight: 700, color: trend.isPositive ? '#10b981' : '#ef4444' }}>
                 {!isNaN(trend.value) ? trend.value : 0}%
               </Typography>
             </Box>
           )}
         </Box>
 
+        {/* Values */}
         <Box>
-          <Typography
-            variant="h2"
-            fontWeight="800"
-            sx={{
-              color: '#ffffff',
-              mb: 0.5,
-              fontSize: { xs: '1.75rem', md: '2rem' },
-              letterSpacing: '-0.02em',
-              lineHeight: 1.2,
-              minHeight: { xs: '2.5rem', md: '3rem' }, // Previne layout shift
-            }}
-          >
-            {mounted ? (typeof value === 'number' && !isNaN(value) ? value.toLocaleString() : (value || '0')) : '...'}
+          <Typography sx={{
+            fontSize: { xs: '1.625rem', md: '1.875rem' },
+            fontWeight: 700,
+            color: '#f1f5f9',
+            letterSpacing: '-0.025em',
+            lineHeight: 1.1,
+            mb: 0.5,
+          }}>
+            {mounted ? (typeof value === 'number' && !isNaN(value) ? value.toLocaleString('pt-BR') : (value || '0')) : '—'}
           </Typography>
-
-          <Typography
-            variant="h6"
-            sx={{
-              color: 'rgba(255, 255, 255, 0.95)',
-              fontWeight: 600,
-              fontSize: { xs: '0.9375rem', md: '1rem' },
-              mb: 0.25,
-              lineHeight: 1.3,
-            }}
-          >
+          <Typography sx={{ fontSize: '0.875rem', fontWeight: 500, color: 'rgba(255,255,255,0.6)', lineHeight: 1.3 }}>
             {title}
           </Typography>
-
           {subtitle && (
-            <Typography
-              variant="body2"
-              sx={{
-                color: 'rgba(255, 255, 255, 0.65)',
-                fontSize: '0.8125rem',
-                lineHeight: 1.4,
-              }}
-            >
+            <Typography sx={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.35)', mt: 0.25, lineHeight: 1.3 }}>
               {subtitle}
             </Typography>
           )}

@@ -2,27 +2,21 @@
 
 import React, { useState, useEffect } from 'react';
 import {
-  IconButton,
-  Tooltip,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  Button,
-  TextField,
-  Typography,
   Box,
-  Chip,
+  Typography,
   CircularProgress,
+  Popover,
   ToggleButtonGroup,
   ToggleButton,
+  Button,
+  Tooltip,
 } from '@mui/material';
 import {
   SmartToy as AIIcon,
-  Block as BlockIcon,
-  PlayArrow as PlayIcon,
-  Schedule as ScheduleIcon,
+  PersonOutline as ManualIcon,
+  AccessTime as ClockIcon,
 } from '@mui/icons-material';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useTenant } from '@/contexts/TenantContext';
 import { logger } from '@/lib/utils/logger';
 
@@ -31,196 +25,221 @@ interface AIControlButtonProps {
   conversationName?: string;
 }
 
+const DURATIONS = [
+  { value: 1, label: '1h' },
+  { value: 2, label: '2h' },
+  { value: 4, label: '4h' },
+  { value: 24, label: '24h' },
+];
+
 export default function AIControlButton({ phone, conversationName }: AIControlButtonProps) {
   const { tenantId } = useTenant();
   const [blocked, setBlocked] = useState(false);
   const [blockExpiry, setBlockExpiry] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [reason, setReason] = useState('');
-  const [duration, setDuration] = useState<number>(1); // Default 1 hour
   const [submitting, setSubmitting] = useState(false);
+  const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
+  const [selectedDuration, setSelectedDuration] = useState(1);
 
-  // Verificar status atual do bloqueio
   useEffect(() => {
-    if (!tenantId || !phone) {
-      setLoading(false);
-      return;
-    }
+    if (!tenantId || !phone) { setLoading(false); return; }
 
-    let isMounted = true;
-
-    const checkStatus = async () => {
+    let mounted = true;
+    const check = async () => {
       try {
-        const response = await fetch(`/api/ai/block-conversation?phone=${encodeURIComponent(phone)}`);
-        const result = await response.json();
-
-        if (isMounted && result.success) {
-          setBlocked(result.data.blocked || false);
-          setBlockExpiry(result.data.expiresAt || null);
+        const res = await fetch(`/api/ai/block-conversation?phone=${encodeURIComponent(phone)}`);
+        const data = await res.json();
+        if (mounted && data.success) {
+          setBlocked(data.data.blocked ?? false);
+          setBlockExpiry(data.data.expiresAt ?? null);
         }
-      } catch (error) {
-        if (isMounted) {
-          logger.error('Failed to check AI block status', { error });
-        }
-      } finally {
-        if (isMounted) {
-          setLoading(false);
-        }
-      }
+      } catch { /* silent */ }
+      finally { if (mounted) setLoading(false); }
     };
 
-    checkStatus();
-    // Poll every 2 minutes to update expiry (reduced for better performance)
-    const interval = setInterval(checkStatus, 120000);
-
-    return () => {
-      isMounted = false;
-      clearInterval(interval);
-    };
+    check();
+    const t = setInterval(check, 120_000);
+    return () => { mounted = false; clearInterval(t); };
   }, [tenantId, phone]);
 
-  // Alternar bloqueio
-  const handleToggleBlock = async (block: boolean, blockReason?: string, blockDuration?: number) => {
+  const toggle = async (block: boolean, duration?: number) => {
     setSubmitting(true);
     try {
-      const response = await fetch('/api/ai/block-conversation', {
+      const res = await fetch('/api/ai/block-conversation', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          phone,
-          blocked: block,
-          reason: blockReason || reason,
-          duration: blockDuration || duration,
-        }),
+        body: JSON.stringify({ phone, blocked: block, duration: block ? duration : undefined }),
       });
-
-      const result = await response.json();
-
-      if (result.success) {
+      const data = await res.json();
+      if (data.success) {
         setBlocked(block);
-        setBlockExpiry(result.data?.expiresAt || null);
-        setDialogOpen(false);
-        setReason('');
-        setDuration(1); // Reset to default
-      } else {
-        alert('Erro ao alterar status do agente de IA');
+        setBlockExpiry(data.data?.expiresAt ?? null);
+        setAnchorEl(null);
       }
-    } catch (error) {
-      logger.error('Failed to toggle AI block', { error });
-      alert('Erro ao alterar status do agente de IA');
+    } catch (e) {
+      logger.error('[AIControlButton] toggle error', { error: e });
     } finally {
       setSubmitting(false);
     }
   };
 
+  const expiryLabel = blockExpiry
+    ? new Date(blockExpiry).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+    : null;
+
   if (loading) {
-    return <CircularProgress size={24} />;
+    return <CircularProgress size={16} sx={{ color: 'rgba(255,255,255,0.3)' }} />;
   }
 
   return (
     <>
-      <Tooltip title={blocked ? 'Agente de IA bloqueado - Clique para reativar' : 'Bloquear agente de IA'}>
-        <IconButton
-          onClick={() => {
+      <Tooltip title={blocked ? `IA pausada${expiryLabel ? ` até ${expiryLabel}` : ''} — clique para reativar` : 'IA ativa — clique para pausar'} arrow>
+        <Box
+          component="button"
+          onClick={(e: React.MouseEvent<HTMLElement>) => {
             if (blocked) {
-              // Desbloquear diretamente
-              handleToggleBlock(false);
+              toggle(false);
             } else {
-              // Abrir diálogo para bloquear
-              setDialogOpen(true);
+              setAnchorEl(e.currentTarget);
             }
           }}
-          color={blocked ? 'error' : 'default'}
-          size="small"
+          disabled={submitting}
+          sx={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: 0.75,
+            px: 1.25,
+            py: 0.625,
+            borderRadius: '20px',
+            border: '1px solid',
+            borderColor: blocked ? 'rgba(239,68,68,0.35)' : 'rgba(99,102,241,0.35)',
+            bgcolor: blocked ? 'rgba(239,68,68,0.08)' : 'rgba(99,102,241,0.08)',
+            cursor: submitting ? 'not-allowed' : 'pointer',
+            transition: 'all 0.18s ease',
+            opacity: submitting ? 0.6 : 1,
+            outline: 'none',
+            '&:hover': {
+              borderColor: blocked ? 'rgba(239,68,68,0.6)' : 'rgba(99,102,241,0.6)',
+              bgcolor: blocked ? 'rgba(239,68,68,0.13)' : 'rgba(99,102,241,0.13)',
+            },
+          }}
         >
-          {blocked ? <BlockIcon /> : <AIIcon />}
-        </IconButton>
+          {submitting ? (
+            <CircularProgress size={12} sx={{ color: blocked ? '#f87171' : '#818cf8' }} />
+          ) : blocked ? (
+            <ManualIcon sx={{ fontSize: 14, color: '#f87171' }} />
+          ) : (
+            <AIIcon sx={{ fontSize: 14, color: '#818cf8' }} />
+          )}
+
+          <AnimatePresence mode="wait" initial={false}>
+            <motion.span
+              key={blocked ? 'manual' : 'ia'}
+              initial={{ opacity: 0, y: -4 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 4 }}
+              transition={{ duration: 0.14 }}
+            >
+              <Typography
+                component="span"
+                sx={{
+                  fontSize: '0.75rem',
+                  fontWeight: 600,
+                  color: blocked ? '#f87171' : '#818cf8',
+                  lineHeight: 1,
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                {blocked ? 'Manual' : 'IA ativa'}
+              </Typography>
+            </motion.span>
+          </AnimatePresence>
+
+          {blocked && expiryLabel && (
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.25 }}>
+              <ClockIcon sx={{ fontSize: 11, color: 'rgba(248,113,113,0.7)' }} />
+              <Typography sx={{ fontSize: '0.6875rem', color: 'rgba(248,113,113,0.8)', lineHeight: 1 }}>
+                {expiryLabel}
+              </Typography>
+            </Box>
+          )}
+        </Box>
       </Tooltip>
 
-      {/* Indicador visual na conversa */}
-      {blocked && (
-        <Chip
-          icon={<BlockIcon />}
-          label={
-            blockExpiry
-              ? `IA Bloqueada (expira: ${new Date(blockExpiry).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })})`
-              : 'IA Bloqueada'
-          }
-          color="error"
+      {/* Duration picker popover — only appears when activating manual mode */}
+      <Popover
+        open={Boolean(anchorEl)}
+        anchorEl={anchorEl}
+        onClose={() => setAnchorEl(null)}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+        transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+        PaperProps={{
+          sx: {
+            mt: 1,
+            bgcolor: '#111827',
+            border: '1px solid rgba(255,255,255,0.1)',
+            borderRadius: '12px',
+            boxShadow: '0 16px 40px rgba(0,0,0,0.5)',
+            p: 2,
+            minWidth: 220,
+          },
+        }}
+      >
+        <Typography sx={{ fontSize: '0.8125rem', fontWeight: 600, color: 'rgba(255,255,255,0.8)', mb: 0.5 }}>
+          Pausar IA para
+        </Typography>
+        <Typography sx={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.4)', mb: 1.5 }}>
+          {conversationName || phone}
+        </Typography>
+
+        <ToggleButtonGroup
+          value={selectedDuration}
+          exclusive
+          onChange={(_, v) => v && setSelectedDuration(v)}
+          fullWidth
           size="small"
-          sx={{ ml: 1 }}
-        />
-      )}
+          sx={{
+            mb: 1.5,
+            '& .MuiToggleButton-root': {
+              border: '1px solid rgba(255,255,255,0.1)',
+              color: 'rgba(255,255,255,0.5)',
+              fontSize: '0.8125rem',
+              fontWeight: 500,
+              py: 0.625,
+              '&.Mui-selected': {
+                bgcolor: 'rgba(99,102,241,0.2)',
+                borderColor: 'rgba(99,102,241,0.5)',
+                color: '#818cf8',
+              },
+            },
+          }}
+        >
+          {DURATIONS.map(d => (
+            <ToggleButton key={d.value} value={d.value}>{d.label}</ToggleButton>
+          ))}
+        </ToggleButtonGroup>
 
-      {/* Diálogo de confirmação */}
-      <Dialog open={dialogOpen} onClose={() => !submitting && setDialogOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>
-          Bloquear Agente de IA
-        </DialogTitle>
-        <DialogContent>
-          <Box sx={{ mb: 2 }}>
-            <Typography variant="body1" gutterBottom>
-              Você está prestes a bloquear o agente Sofia para esta conversa:
-            </Typography>
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-              <strong>{conversationName || phone}</strong>
-            </Typography>
-            <Typography variant="body2" color="warning.main">
-              ⚠️ Enquanto bloqueado, a Sofia não responderá automaticamente a esta conversa. Você precisará responder manualmente.
-            </Typography>
-          </Box>
-
-          <Box sx={{ mb: 3 }}>
-            <Typography variant="subtitle2" gutterBottom sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-              <ScheduleIcon fontSize="small" />
-              Duração do Bloqueio
-            </Typography>
-            <ToggleButtonGroup
-              value={duration}
-              exclusive
-              onChange={(_, value) => value && setDuration(value)}
-              fullWidth
-              disabled={submitting}
-            >
-              <ToggleButton value={1}>1 hora</ToggleButton>
-              <ToggleButton value={2}>2 horas</ToggleButton>
-              <ToggleButton value={4}>4 horas</ToggleButton>
-              <ToggleButton value={24}>24 horas</ToggleButton>
-            </ToggleButtonGroup>
-            <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
-              A IA será automaticamente reativada após o período selecionado
-            </Typography>
-          </Box>
-
-          <TextField
-            fullWidth
-            multiline
-            rows={3}
-            label="Motivo do Bloqueio (Opcional)"
-            value={reason}
-            onChange={(e) => setReason(e.target.value)}
-            placeholder="Ex: Cliente preferiu atendimento humano, negociação complexa, etc."
-            disabled={submitting}
-            inputProps={{ maxLength: 200 }}
-            helperText={`${reason.length}/200 caracteres`}
-          />
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setDialogOpen(false)} disabled={submitting}>
-            Cancelar
-          </Button>
-          <Button
-            onClick={() => handleToggleBlock(true)}
-            variant="contained"
-            color="error"
-            disabled={submitting}
-            startIcon={submitting ? <CircularProgress size={16} /> : <BlockIcon />}
-          >
-            {submitting ? 'Bloqueando...' : 'Confirmar Bloqueio'}
-          </Button>
-        </DialogActions>
-      </Dialog>
+        <Button
+          fullWidth
+          variant="contained"
+          onClick={() => toggle(true, selectedDuration)}
+          disabled={submitting}
+          startIcon={submitting ? <CircularProgress size={14} color="inherit" /> : <ManualIcon />}
+          sx={{
+            bgcolor: 'rgba(239,68,68,0.15)',
+            color: '#f87171',
+            border: '1px solid rgba(239,68,68,0.3)',
+            borderRadius: '8px',
+            fontWeight: 600,
+            fontSize: '0.8125rem',
+            textTransform: 'none',
+            '&:hover': { bgcolor: 'rgba(239,68,68,0.22)' },
+            boxShadow: 'none',
+          }}
+        >
+          {submitting ? 'Pausando...' : 'Ativar modo manual'}
+        </Button>
+      </Popover>
     </>
   );
 }

@@ -1,17 +1,12 @@
-// Cache global de deduplicação para evitar processamento duplicado de mensagens
+import { getRedisClient } from '@/lib/redis/client';
 import { logger } from '@/lib/utils/logger';
+
+const TTL_SECONDS = 60;
 
 class DeduplicationCache {
   private static instance: DeduplicationCache;
-  private cache: Map<string, number>;
-  private readonly TTL = 60000; // 1 minuto
-  private readonly CLEANUP_INTERVAL = 300000; // 5 minutos
-  private cleanupTimer: NodeJS.Timeout | null = null;
-
-  private constructor() {
-    this.cache = new Map();
-    this.startCleanupTimer();
-  }
+  private inMemory = new Map<string, number>();
+  private readonly TTL_MS = TTL_SECONDS * 1000;
 
   static getInstance(): DeduplicationCache {
     if (!this.instance) {
@@ -20,87 +15,40 @@ class DeduplicationCache {
     return this.instance;
   }
 
-  // Verificar se mensagem já foi processada
-  isDuplicate(tenantId: string, messageId: string): boolean {
-    const key = `msg_${tenantId}_${messageId}`;
-    const processedAt = this.cache.get(key);
-    
-    if (!processedAt) {
-      return false;
-    }
-    
-    const timeSinceProcessed = Date.now() - processedAt;
-    
-    // Se passou do TTL, não é mais duplicada
-    if (timeSinceProcessed > this.TTL) {
-      this.cache.delete(key);
-      return false;
-    }
-    
-    logger.info('🔁 [Deduplication] Mensagem duplicada detectada', {
-      messageId: messageId?.substring(0, 8) + '***',
-      timeSinceProcessed: `${timeSinceProcessed}ms`
-    });
-    
-    return true;
-  }
+  // Atomic check-and-mark. Returns true if message was already processed (duplicate).
+  async checkAndMark(tenantId: string, messageId: string): Promise<boolean> {
+    const key = `dedup:${tenantId}:${messageId}`;
 
-  // Marcar mensagem como processada
-  markAsProcessed(tenantId: string, messageId: string): void {
-    const key = `msg_${tenantId}_${messageId}`;
-    this.cache.set(key, Date.now());
-    
-    logger.debug('✅ [Deduplication] Mensagem marcada como processada', {
-      messageId: messageId?.substring(0, 8) + '***',
-      cacheSize: this.cache.size
-    });
-  }
-
-  // Limpar cache antigo
-  private cleanup(): void {
-    const now = Date.now();
-    let cleaned = 0;
-    
-    for (const [key, timestamp] of this.cache.entries()) {
-      if (now - timestamp > this.TTL * 5) { // 5x TTL para limpeza
-        this.cache.delete(key);
-        cleaned++;
+    try {
+      const redis = getRedisClient();
+      // SET key 1 EX 60 NX — returns 'OK' if inserted (new), null if key existed (duplicate)
+      const result = await redis.set(key, '1', 'EX', TTL_SECONDS, 'NX');
+      const isDuplicate = result === null;
+      if (isDuplicate) {
+        logger.info('[Deduplication] Duplicate detected', {
+          messageId: messageId?.substring(0, 8) + '***',
+          backend: 'redis',
+        });
       }
-    }
-    
-    if (cleaned > 0) {
-      logger.info('🧹 [Deduplication] Cache limpo', {
-        entriesRemoved: cleaned,
-        remainingEntries: this.cache.size
+      return isDuplicate;
+    } catch (e) {
+      logger.warn('[Deduplication] Redis unavailable, falling back to in-memory', {
+        error: (e as Error).message,
       });
     }
-  }
 
-  // Iniciar timer de limpeza
-  private startCleanupTimer(): void {
-    if (this.cleanupTimer) {
-      clearInterval(this.cleanupTimer);
+    // In-memory fallback for when Redis is down
+    const now = Date.now();
+    const processedAt = this.inMemory.get(key);
+    if (processedAt && now - processedAt < this.TTL_MS) {
+      logger.info('[Deduplication] Duplicate detected', {
+        messageId: messageId?.substring(0, 8) + '***',
+        backend: 'memory',
+      });
+      return true;
     }
-    
-    this.cleanupTimer = setInterval(() => {
-      this.cleanup();
-    }, this.CLEANUP_INTERVAL);
-  }
-
-  // Estatísticas do cache
-  getStats(): { size: number; oldestEntry: number | null } {
-    let oldest: number | null = null;
-    
-    for (const timestamp of this.cache.values()) {
-      if (!oldest || timestamp < oldest) {
-        oldest = timestamp;
-      }
-    }
-    
-    return {
-      size: this.cache.size,
-      oldestEntry: oldest ? Date.now() - oldest : null
-    };
+    this.inMemory.set(key, now);
+    return false;
   }
 }
 

@@ -90,9 +90,15 @@ export async function POST(request: NextRequest) {
 
         // ✅ PROCESSAR DIFERENTES TIPOS DE EVENTOS
         if (body.event === 'message') {
-            // Persistir direto no Firestore via /api/webhook/client-message
-            // (sem N8N — atendimento manual; Sofia não responde automaticamente)
+            // 1. Persist message to Firestore (for dashboard + history)
             await persistIncomingMessage(body.tenantId, body.data)
+            // 2. Dispatch to AI agent (fire-and-forget — does NOT block the webhook response)
+            dispatchToAgent(body.tenantId, body.data).catch((err: unknown) => {
+                logger.error('❌ Agent dispatch error', {
+                    error: err instanceof Error ? err.message : String(err),
+                    tenantId: body.tenantId?.substring(0, 8) + '***',
+                })
+            })
         } else if (body.event === 'status_change') {
             await processStatusChange(body.tenantId, body.data)
         } else if (body.event === 'qr_code') {
@@ -137,15 +143,13 @@ async function persistIncomingMessage(tenantId: string, messageData: any) {
             return;
         }
 
-        if (deduplicationCache.isDuplicate(tenantId, messageId)) {
+        if (await deduplicationCache.checkAndMark(tenantId, messageId)) {
             logger.info('🔁 Message already processed, skipping', {
                 tenantId: tenantId?.substring(0, 8) + '***',
                 messageId: messageId?.substring(0, 8) + '***'
             });
             return;
         }
-
-        deduplicationCache.markAsProcessed(tenantId, messageId);
 
         const apiKey = process.env.WHATSAPP_MICROSERVICE_API_KEY;
         if (!apiKey) {
@@ -208,6 +212,125 @@ async function persistIncomingMessage(tenantId: string, messageData: any) {
             tenantId: tenantId?.substring(0, 8) + '***',
         });
     }
+}
+
+/**
+ * Dispatch incoming message to the Python LangGraph agent.
+ *
+ * The agent will:
+ * 1. Build conversation history from Firestore
+ * 2. Run the LangGraph property-search flow
+ * 3. Send the AI response back via the whatsapp_microservice
+ */
+async function dispatchToAgent(tenantId: string, messageData: any) {
+    const agentUrl = process.env.AGENT_SERVICE_URL
+    const agentSecret = process.env.AGENT_SHARED_SECRET
+    const microserviceUrl = process.env.WHATSAPP_MICROSERVICE_URL
+    const microserviceApiKey = process.env.WHATSAPP_MICROSERVICE_API_KEY
+
+    if (!agentUrl || !agentSecret) {
+        logger.warn('⚠️ AGENT_SERVICE_URL or AGENT_SHARED_SECRET not set — AI response skipped')
+        return
+    }
+
+    const clientPhone: string = messageData.from || ''
+    const message: string = messageData.message || messageData.text || ''
+    const messageId: string = messageData.messageId || messageData.id || ''
+
+    if (!clientPhone || !message) return
+
+    // Fetch recent conversation history from Firestore
+    let history: Array<{ role: string; content: string }> = []
+    try {
+        const { TenantServiceFactory } = await import('@/lib/firebase/firestore-v2')
+        const services = new TenantServiceFactory(tenantId)
+        // Get conversation by phone
+        const conversations = await services.conversations.getWhere('whatsappPhone', '==', clientPhone)
+        const conv = conversations[0]
+        if (conv?.messages && Array.isArray(conv.messages)) {
+            history = conv.messages.slice(-20).map((m: any) => ({
+                role: (m.direction === 'outbound' || m.isFromAI) ? 'assistant' : 'user',
+                content: m.content || m.text || '',
+            }))
+        }
+    } catch (err) {
+        logger.warn('⚠️ Failed to load conversation history for agent', {
+            error: err instanceof Error ? err.message : String(err),
+        })
+    }
+
+    // Sign request with HMAC
+    const crypto = await import('crypto')
+    const payload = JSON.stringify({
+        tenant_id: tenantId,
+        conversation_id: `${tenantId}:${clientPhone}`,
+        message_id: messageId,
+        message,
+        history,
+        contact: { phone: clientPhone },
+    })
+    const ts = String(Date.now())
+    const sig = crypto.createHmac('sha256', agentSecret).update(`${ts}.`, 'utf8').update(payload).digest('hex')
+
+    const agentResp = await fetch(`${agentUrl}/process`, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+            'X-Agent-Signature': sig,
+            'X-Agent-Timestamp': ts,
+        },
+        body: payload,
+        signal: AbortSignal.timeout(55_000),
+    })
+
+    if (!agentResp.ok) {
+        logger.error('❌ Agent returned error', { status: agentResp.status })
+        return
+    }
+
+    const agentResult = await agentResp.json()
+    const finalResponse: string = agentResult.final_response || ''
+    const mediaUrls: string[] = agentResult.media_urls || []
+
+    if (!finalResponse) return
+
+    // Send AI response back via whatsapp_microservice
+    if (microserviceUrl && microserviceApiKey) {
+        await fetch(`${microserviceUrl}/api/v1/messages/${tenantId}/send`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${microserviceApiKey}`,
+            },
+            body: JSON.stringify({ to: clientPhone, type: 'text', text: finalResponse }),
+            signal: AbortSignal.timeout(10_000),
+        })
+
+        // Send media files if any (images/videos)
+        for (const url of mediaUrls.slice(0, 5)) {
+            const isVideo = url.match(/\.(mp4|mov|avi|webm)/i)
+            await fetch(`${microserviceUrl}/api/v1/messages/${tenantId}/send`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${microserviceApiKey}`,
+                },
+                body: JSON.stringify({
+                    to: clientPhone,
+                    type: isVideo ? 'video' : 'image',
+                    url,
+                }),
+                signal: AbortSignal.timeout(10_000),
+            })
+        }
+    }
+
+    logger.info('✅ Agent response dispatched', {
+        tenantId: tenantId?.substring(0, 8) + '***',
+        hasResponse: !!finalResponse,
+        mediaCount: mediaUrls.length,
+        intent: agentResult.intent,
+    })
 }
 
 /**

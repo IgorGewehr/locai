@@ -540,33 +540,33 @@ export const darkTheme = createTheme({
       contrastText: '#ffffff',
     },
     background: {
-      default: '#0f172a',
-      paper: '#1e293b',
+      default: '#0b0f1a',
+      paper: '#111827',
     },
     text: {
-      primary: '#f1f5f9',
-      secondary: '#cbd5e1',
+      primary: '#e2e8f0',
+      secondary: '#94a3b8',
     },
-    divider: '#334155',
+    divider: 'rgba(255,255,255,0.09)',
     action: {
-      hover: 'rgba(255, 255, 255, 0.08)',
-      selected: 'rgba(59, 130, 246, 0.16)',
-      disabled: 'rgba(255, 255, 255, 0.3)',
-      disabledBackground: 'rgba(255, 255, 255, 0.12)',
+      hover: 'rgba(255, 255, 255, 0.05)',
+      selected: 'rgba(99, 102, 241, 0.14)',
+      disabled: 'rgba(255, 255, 255, 0.26)',
+      disabledBackground: 'rgba(255, 255, 255, 0.1)',
     },
   },
   status: {
     danger: '#ef4444',
     success: '#10b981',
     warning: '#f59e0b',
-    info: '#3b82f6',
+    info: '#6366f1',
   },
   custom: {
-    glassEffect: 'rgba(30, 41, 59, 0.8)',
-    cardBackground: '#1e293b',
-    sidebarBackground: '#1e293b',
-    headerBackground: '#0f172a',
-    borderColor: '#334155',
+    glassEffect: 'rgba(17, 24, 39, 0.85)',
+    cardBackground: '#111827',
+    sidebarBackground: '#0a0e17',
+    headerBackground: '#0a0e17',
+    borderColor: 'rgba(255,255,255,0.09)',
     elevation: {
       low: '0 1px 2px 0 rgba(0, 0, 0, 0.3)',
       medium: '0 4px 6px -1px rgba(0, 0, 0, 0.4), 0 2px 4px -1px rgba(0, 0, 0, 0.2)',
@@ -578,9 +578,9 @@ export const darkTheme = createTheme({
     MuiCssBaseline: {
       styleOverrides: {
         body: {
-          backgroundColor: '#0f172a',
+          backgroundColor: '#0b0f1a',
           '&::-webkit-scrollbar-thumb': {
-            backgroundColor: '#475569',
+            backgroundColor: 'rgba(255,255,255,0.12)',
           },
         },
       },
@@ -614,10 +614,10 @@ export const darkTheme = createTheme({
     MuiCard: {
       styleOverrides: {
         root: {
-          border: '1px solid #334155',
-          backgroundColor: '#1e293b',
+          border: '1px solid rgba(255,255,255,0.08)',
+          backgroundColor: '#111827',
           '&:hover': {
-            borderColor: '#475569',
+            borderColor: 'rgba(255,255,255,0.13)',
           },
         },
       },
@@ -626,24 +626,24 @@ export const darkTheme = createTheme({
       styleOverrides: {
         root: {
           '& .MuiOutlinedInput-root': {
-            backgroundColor: '#1e293b',
-            color: '#f1f5f9',
+            backgroundColor: '#161d2c',
+            color: '#e2e8f0',
             '& fieldset': {
-              borderColor: '#334155',
+              borderColor: 'rgba(255,255,255,0.1)',
             },
             '&:hover fieldset': {
-              borderColor: '#475569',
+              borderColor: 'rgba(255,255,255,0.18)',
             },
             '&.Mui-focused fieldset': {
-              borderColor: '#3b82f6',
+              borderColor: '#6366f1',
               borderWidth: 1,
             },
           },
           '& .MuiInputLabel-root': {
-            color: '#94a3b8',
+            color: '#64748b',
             fontSize: '0.875rem',
             '&.Mui-focused': {
-              color: '#3b82f6',
+              color: '#818cf8',
             },
           },
         },
@@ -653,12 +653,12 @@ export const darkTheme = createTheme({
       styleOverrides: {
         root: {
           '&:hover': {
-            backgroundColor: 'rgba(255, 255, 255, 0.08)',
+            backgroundColor: 'rgba(255,255,255,0.04)',
           },
           '&.Mui-selected': {
-            backgroundColor: 'rgba(59, 130, 246, 0.16)',
+            backgroundColor: 'rgba(99,102,241,0.13)',
             '&:hover': {
-              backgroundColor: 'rgba(59, 130, 246, 0.24)',
+              backgroundColor: 'rgba(99,102,241,0.18)',
             },
           },
         },
@@ -667,7 +667,7 @@ export const darkTheme = createTheme({
     MuiDivider: {
       styleOverrides: {
         root: {
-          borderColor: '#334155',
+          borderColor: 'rgba(255,255,255,0.09)',
         },
       },
     },
