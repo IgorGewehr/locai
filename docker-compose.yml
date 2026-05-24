@@ -1,84 +1,101 @@
 # ============================================================
-# LOCAI - Docker Compose (Development)
-# ============================================================
-# Uso: docker-compose up
+# LOCAI — Production Stack
+# alugazap.tensorroot.com · porta host 8084
 #
-# Este arquivo é otimizado para DESENVOLVIMENTO LOCAL com:
-# - Hot reload (código sincronizado via volume)
-# - Redis local para cache
-# - Variáveis de ambiente via .env
+# Dev local:  docker compose up
+# Produção:   docker compose --profile tunnel up -d
+#
+# Tunnel token: cp .env.example .env  →  preencha CLOUDFLARE_TUNNEL_TOKEN
 # ============================================================
 
 services:
-  # ============================================================
-  # Aplicação Next.js
-  # ============================================================
-  app:
+
+  locai:
     build:
       context: .
       dockerfile: Dockerfile
-      target: development
-    container_name: locai-app
+      target: runner
+    image: locai:latest
+    container_name: locai
     restart: unless-stopped
     ports:
-      - "3000:3000"
-    environment:
-      - NODE_ENV=development
-      - PORT=3000
-      - HOSTNAME=0.0.0.0
-      # Redis local
-      - REDIS_URL=redis://redis:6379
+      - "8084:3000"
     env_file:
-      - .env
-    volumes:
-      # Sincronizar código para hot reload
-      - .:/app
-      # Preservar node_modules do container (não sobrescrever com local)
-      - /app/node_modules
-      # Preservar .next para builds incrementais
-      - /app/.next
+      - .env.production
     depends_on:
       redis:
         condition: service_healthy
     networks:
-      - locai-network
+      - locai-net
+    deploy:
+      resources:
+        limits:
+          cpus: "2"
+          memory: 2G
+        reservations:
+          cpus: "0.5"
+          memory: 512M
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3000/api/health"]
       interval: 30s
       timeout: 10s
       retries: 3
-      start_period: 60s
+      start_period: 45s
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
 
-  # ============================================================
-  # Redis - Cache e Sessions
-  # ============================================================
   redis:
     image: redis:7-alpine
     container_name: locai-redis
     restart: unless-stopped
-    ports:
-      - "6379:6379"
     volumes:
-      - redis-data:/data
-    command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
+      - redis_data:/data
+    command: >
+      redis-server
+      --appendonly yes
+      --maxmemory 512mb
+      --maxmemory-policy allkeys-lru
     networks:
-      - locai-network
+      - locai-net
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 512M
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s
-      timeout: 5s
+      timeout: 3s
       retries: 5
+    logging:
+      driver: json-file
+      options:
+        max-size: "5m"
+        max-file: "2"
 
-# ============================================================
-# Volumes persistentes
-# ============================================================
+  # Cloudflare Tunnel → alugazap.tensorroot.com → locai:3000
+  cloudflared:
+    profiles: ["tunnel"]
+    image: cloudflare/cloudflared:latest
+    container_name: cloudflared-locai
+    restart: unless-stopped
+    command: tunnel --no-autoupdate run --protocol http2
+    environment:
+      - TUNNEL_TOKEN=${CLOUDFLARE_TUNNEL_TOKEN}
+    networks:
+      - locai-net
+    logging:
+      driver: json-file
+      options:
+        max-size: "5m"
+        max-file: "2"
+
 volumes:
-  redis-data:
-    driver: local
+  redis_data:
 
-# ============================================================
-# Rede interna
-# ============================================================
 networks:
-  locai-network:
+  locai-net:
     driver: bridge
