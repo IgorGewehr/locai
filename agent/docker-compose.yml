@@ -5,7 +5,7 @@
 # Dev local:  docker compose up  (acesso em localhost:8080)
 # Produção:   docker compose --profile tunnel up -d
 #
-# Tunnel token: cp .env.example .env  →  preencha CLOUDFLARE_TUNNEL_TOKEN
+# Todas as configurações em .env.production (incluindo TUNNEL_TOKEN)
 # ============================================================
 
 services:
@@ -50,8 +50,8 @@ services:
     container_name: cloudflared-agent
     restart: unless-stopped
     command: tunnel --no-autoupdate run --protocol http2
-    environment:
-      - TUNNEL_TOKEN=${CLOUDFLARE_TUNNEL_TOKEN}
+    env_file:
+      - .env.production
     networks:
       - agent-net
     logging:
