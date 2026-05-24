@@ -83,7 +83,7 @@ RUN apk add --no-cache \
 # Configurar ambiente de produção
 ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
-ENV PORT=7070
+ENV PORT=3000
 ENV HOSTNAME="0.0.0.0"
 
 # Copiar arquivos públicos
@@ -100,11 +100,11 @@ COPY --from=builder /app/package.json ./package.json
 USER nextjs
 
 # Expor porta
-EXPOSE 7070
+EXPOSE 3000
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=10s --start-period=40s --retries=3 \
-    CMD curl -f http://localhost:7070/api/health || exit 1
+    CMD curl -f http://localhost:3000/api/health || exit 1
 
 # Comando de inicialização
 # Usa o server.js gerado pelo standalone output
@@ -126,15 +126,15 @@ COPY . .
 # Configurar ambiente de desenvolvimento
 ENV NODE_ENV=development
 ENV NEXT_TELEMETRY_DISABLED=1
-ENV PORT=7070
+ENV PORT=3000
 ENV HOSTNAME="0.0.0.0"
 
 # Expor porta
-EXPOSE 7070
+EXPOSE 3000
 
 # Health check para dev
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
-    CMD curl -f http://localhost:7070/api/health || exit 1
+    CMD curl -f http://localhost:3000/api/health || exit 1
 
 # Comando de desenvolvimento com hot reload
 CMD ["npm", "run", "dev", "--", "-H", "0.0.0.0"]
