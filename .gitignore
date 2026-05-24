@@ -67,9 +67,8 @@ logs/
 .env.development.local
 .env.test.local
 .env.production.local
-# IMPORTANT: .env.production is a template with placeholder values
-# Real production values should ONLY be set in Vercel UI
-# If you need to override locally, use .env.production.local (already in .gitignore)
+.env.production
+.env.production.local
 
 # Firebase credentials (NEVER COMMIT)
 *-firebase-adminsdk-*.json
