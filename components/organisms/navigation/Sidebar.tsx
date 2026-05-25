@@ -20,6 +20,7 @@ import {
   Settings,
   HelpOutline,
   Event,
+  Inbox,
   ChevronLeft,
   ChevronRight,
   Close,
@@ -63,6 +64,7 @@ const NAV_SECTIONS: NavSection[] = [
     key: 'gestao',
     title: 'GESTÃO',
     items: [
+      { id: 'atendimentos', label: 'Atendimentos', href: '/dashboard/atendimentos', icon: <Inbox sx={{ fontSize: 18 }} /> },
       { id: 'clients', label: 'Clientes', href: '/dashboard/clients', icon: <People sx={{ fontSize: 18 }} /> },
       { id: 'conversas', label: 'Conversas', href: '/dashboard/conversas', icon: <Chat sx={{ fontSize: 18 }} /> },
       { id: 'financeiro', label: 'Financeiro', href: '/dashboard/financeiro/transacoes', icon: <AccountBalance sx={{ fontSize: 18 }} /> },

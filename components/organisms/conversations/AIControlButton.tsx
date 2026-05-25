@@ -77,7 +77,7 @@ export default function AIControlButton({ phone, conversationName }: AIControlBu
         setAnchorEl(null);
       }
     } catch (e) {
-      logger.error('[AIControlButton] toggle error', { error: e });
+      logger.error('[AIControlButton] toggle error', e instanceof Error ? e : undefined);
     } finally {
       setSubmitting(false);
     }

@@ -4,6 +4,7 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { notifyAdminsHumanAssistanceRequest } from '@/lib/utils/admin-notifications'
+import { setLeadEscalation } from '@/lib/services/lead-lookup'
 import { logger } from '@/lib/utils/logger'
 import { z } from 'zod'
 
@@ -83,6 +84,17 @@ export async function POST(request: NextRequest) {
       tenantId,
       reason: reason || undefined
     })
+
+    // Persiste a escalação no lead para que apareça na Triagem Inteligente
+    // (o broadcast acima é transitório; isto torna o sinal consultável).
+    try {
+      await setLeadEscalation(tenantId, clientPhone, reason)
+    } catch (escalationError) {
+      logger.warn('[POST-NOTIFICATION] Failed to persist escalation on lead', {
+        requestId,
+        error: escalationError instanceof Error ? escalationError.message : 'Unknown',
+      })
+    }
 
     const processingTime = Date.now() - startTime
 

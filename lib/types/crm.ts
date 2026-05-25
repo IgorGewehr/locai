@@ -110,6 +110,14 @@ export interface Lead {
   preferredContactMethods?: string[];
   scheduledFollowUp?: Date; // Next follow-up date
 
+  // Escalation — AI flagged that a human needs to step in
+  escalation?: {
+    active: boolean;
+    at: Date;
+    reason?: string;
+    resolvedAt?: Date;
+  };
+
   // Assignment and Ownership
   assignedTo?: string; // User ID
   assignedAt?: Date;
