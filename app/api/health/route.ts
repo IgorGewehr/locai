@@ -145,7 +145,6 @@ async function checkEnvironmentVariables(): Promise<{ status: 'up' | 'down' | 'w
       'JWT_SECRET',
       'NEXT_PUBLIC_FIREBASE_PROJECT_ID',
       'FIREBASE_PROJECT_ID',
-      'OPENAI_API_KEY',
     ];
 
     const missingVars = criticalEnvVars.filter(varName => !process.env[varName]);
@@ -257,8 +256,8 @@ export async function GET(request: NextRequest): Promise<NextResponse> {
     lastHealthCheck = healthCheck;
     lastCheckTime = now;
 
-    // Return appropriate status code
-    const statusCode = healthCheck.status === 'healthy' ? 200 : 503;
+    // Return appropriate status code (degraded is still operational)
+    const statusCode = healthCheck.status === 'unhealthy' ? 503 : 200;
 
     // Return detailed or summary response
     const response = detailed ? healthCheck : {

@@ -15,7 +15,7 @@ RUN uv venv .venv && \
     uv pip install \
         --python /app/.venv/bin/python \
         --no-cache \
-        -e .
+        .
 
 # ============================================================
 FROM python:3.12-slim AS runtime

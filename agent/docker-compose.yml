@@ -17,8 +17,8 @@ services:
     image: locai-agent:latest
     container_name: locai-agent
     restart: unless-stopped
-    ports:
-      - "8080:8080"
+    # ports:
+    #   - "8080:8080"    # Uncomment for local dev without tunnel
     env_file:
       - .env.production
     networks:
