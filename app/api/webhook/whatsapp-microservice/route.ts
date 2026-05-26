@@ -39,12 +39,19 @@ export async function POST(request: NextRequest) {
 
         // Método 2: Verificar HMAC signature (fallback)
         if (!authenticated && secret && signature) {
-            const expectedSignature = 'sha256=' + crypto
+            const expectedHex = crypto
                 .createHmac('sha256', secret)
                 .update(rawBody, 'utf8')
                 .digest('hex')
 
-            if (signature === expectedSignature) {
+            // O microservice envia o digest hex puro (sem prefixo). Aceitamos
+            // ambos os formatos — com e sem o prefixo `sha256=` — para manter
+            // compatibilidade independente de quem assina.
+            const normalizedSignature = signature.startsWith('sha256=')
+                ? signature.slice('sha256='.length)
+                : signature
+
+            if (normalizedSignature === expectedHex) {
                 authenticated = true
                 logger.info('✅ Microservice authenticated via HMAC signature', {
                     tenantId: tenantId?.substring(0, 8) + '***'
@@ -52,7 +59,7 @@ export async function POST(request: NextRequest) {
             } else {
                 logger.warn('🔍 HMAC signature mismatch', {
                     received: signature,
-                    expected: expectedSignature,
+                    expected: expectedHex,
                     rawBodyLength: rawBody.length,
                     tenantId: tenantId?.substring(0, 8) + '***'
                 })
