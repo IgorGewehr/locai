@@ -142,7 +142,7 @@ export default function PropertyImportWizard({
     if (!url.trim()) return;
 
     if (!isValidAirbnbUrl(url)) {
-      setUrlError('URL inválida. Use um link do Airbnb');
+      setUrlError('Link inválido. Cole o link do anúncio (ex: airbnb.com/rooms/12345)');
       return;
     }
 
@@ -150,7 +150,7 @@ export default function PropertyImportWizard({
     if (propertyId) {
       setAirbnbPropertyId(propertyId);
     } else {
-      setUrlError('Não foi possível extrair o ID da propriedade');
+      setUrlError('Não foi possível identificar o ID do anúncio neste link');
     }
   };
 
@@ -756,8 +756,52 @@ export default function PropertyImportWizard({
                 {createdPropertyId && (
                   <Box>
                     <Alert severity="success" icon={<CheckCircle />} sx={{ mb: 2 }}>
-                      ✓ Imóvel criado com sucesso! ID: <strong>{createdPropertyId}</strong>
+                      Imóvel criado com sucesso!
                     </Alert>
+
+                    {mappedProperty && (
+                      <Paper
+                        variant="outlined"
+                        sx={{
+                          p: 2,
+                          mb: 2,
+                          bgcolor: alpha(theme.palette.primary.main, 0.04),
+                          border: `1px solid ${alpha(theme.palette.primary.main, 0.2)}`,
+                        }}
+                      >
+                        <Typography variant="subtitle2" fontWeight={700} gutterBottom>
+                          {mappedProperty.title}
+                        </Typography>
+                        <Box display="flex" gap={3} flexWrap="wrap" sx={{ mb: 1 }}>
+                          <Typography variant="body2" color="text.secondary">
+                            {mappedProperty.bedrooms} quarto(s) • {mappedProperty.bathrooms} banheiro(s) • {mappedProperty.maxGuests} hóspedes
+                          </Typography>
+                        </Box>
+                        <Box display="flex" gap={3} flexWrap="wrap">
+                          <Typography variant="body2" color="text.secondary">
+                            {mappedProperty.photos?.length || 0} foto(s) importada(s)
+                          </Typography>
+                          <Typography variant="body2" color="text.secondary">
+                            {mappedProperty.amenities?.length || 0} comodidade(s)
+                          </Typography>
+                          <Typography
+                            variant="body2"
+                            color={mappedProperty.basePrice > 0 ? 'success.main' : 'warning.main'}
+                            fontWeight={600}
+                          >
+                            {mappedProperty.basePrice > 0
+                              ? `R$ ${mappedProperty.basePrice} / noite`
+                              : 'Preço a definir'}
+                          </Typography>
+                        </Box>
+                        {mappedProperty.needsPriceConfiguration && (
+                          <Typography variant="caption" color="warning.main" display="block" sx={{ mt: 1 }}>
+                            O imóvel ficará inativo até você definir o preço na etapa de revisão.
+                          </Typography>
+                        )}
+                      </Paper>
+                    )}
+
                     <Box display="flex" gap={2}>
                       <Button onClick={() => setActiveStep(0)} disabled={loading}>
                         Voltar
@@ -855,7 +899,7 @@ export default function PropertyImportWizard({
                     }}
                   >
                     <Typography variant="subtitle2" fontWeight={600} gutterBottom>
-                      📅 Reservas encontradas: {iCalPreview.futureReservations}
+                      Reservas encontradas: {iCalPreview.futureReservations}
                     </Typography>
                     <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 1 }}>
                       As seguintes reservas futuras serão importadas:
@@ -1004,7 +1048,7 @@ export default function PropertyImportWizard({
 
                     <Alert severity="info" sx={{ mb: 2 }}>
                       <Typography variant="body2" fontWeight={600} gutterBottom>
-                        📋 Como importar no Airbnb:
+                        Como importar no Airbnb:
                       </Typography>
                       <Typography variant="caption" component="div">
                         1. Copie a URL acima<br />
@@ -1127,7 +1171,7 @@ export default function PropertyImportWizard({
                       </Box>
 
                       <Typography variant="h5" fontWeight={700} color="success.main" gutterBottom>
-                        🎉 Importação Concluída!
+                        Importação Concluída!
                       </Typography>
 
                       <Typography variant="h6" fontWeight={500} sx={{ mb: 2 }}>
@@ -1176,7 +1220,7 @@ export default function PropertyImportWizard({
                             border: `1px solid ${alpha(theme.palette.success.main, 0.3)}`,
                           }}
                         >
-                          📅 Sincronização automática ativa • Disponibilidades atualizadas
+                          Sincronização automática ativa • Disponibilidades atualizadas
                         </Alert>
                       )}
                     </Paper>

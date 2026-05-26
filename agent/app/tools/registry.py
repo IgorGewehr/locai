@@ -45,8 +45,10 @@ TOOLS: list[dict] = [
                     },
                     "max_results": {
                         "type": "integer",
-                        "description": "Máximo de imóveis para retornar (padrão 3)",
+                        "description": "Máximo de imóveis para retornar (padrão 3, máximo 5)",
                         "default": 3,
+                        "minimum": 1,
+                        "maximum": 5,
                     },
                 },
                 "required": ["checkin", "checkout"],
@@ -59,7 +61,9 @@ TOOLS: list[dict] = [
             "name": "get_property_media",
             "description": (
                 "Retorna fotos e vídeos adicionais de um imóvel específico. "
-                "Use quando o cliente pedir para ver mais fotos, vídeos ou detalhes visuais de um imóvel."
+                "Use SOMENTE quando o cliente demonstrar interesse claro em um imóvel e quiser "
+                "ver mais fotos, vídeos ou como é por dentro. Nunca envie mídia sem o cliente pedir "
+                "ou demonstrar interesse. Requer o property_id retornado por search_available_properties."
             ),
             "parameters": {
                 "type": "object",
@@ -104,9 +108,11 @@ TOOLS: list[dict] = [
         "function": {
             "name": "notify_owner",
             "description": (
-                "Notifica o proprietário da imobiliária que um cliente está interessado em fechar negócio. "
-                "Use quando o cliente demonstrar intenção de reservar mas não houver link do Airbnb disponível, "
-                "ou quando o cliente preferir ser atendido diretamente."
+                "Aciona o time humano / proprietário e escala o atendimento. "
+                "Use quando: (1) o cliente quer fechar ou agendar uma visita e NÃO há link do Airbnb, "
+                "(2) o cliente pede explicitamente para falar com uma pessoa/atendente, ou "
+                "(3) a conversa precisa de um humano (caso fora do seu alcance). "
+                "Envie um resumo curto do interesse (nome, datas, hóspedes, o que o cliente quer)."
             ),
             "parameters": {
                 "type": "object",

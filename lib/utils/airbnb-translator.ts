@@ -176,11 +176,20 @@ export async function translateText(text: string, from: string = 'en', to: strin
     // Usando API pública do Google Translate (sem autenticação)
     const url = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=${from}&tl=${to}&dt=t&q=${encodeURIComponent(text)}`;
 
-    const response = await fetch(url, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0',
-      },
-    });
+    // Timeout para não travar a importação caso o serviço fique lento.
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 8000);
+    let response: Response;
+    try {
+      response = await fetch(url, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0',
+        },
+        signal: controller.signal,
+      });
+    } finally {
+      clearTimeout(timeout);
+    }
 
     if (!response.ok) {
       throw new Error(`Translation API returned ${response.status}`);
@@ -250,17 +259,18 @@ export async function translateAirbnbProperty(property: any): Promise<any> {
   });
 
   try {
-    // Traduz título (até 200 chars para não estourar API)
-    const title = property.title
-      ? await translateText(property.title.substring(0, 200))
-      : property.title;
+    // Traduz título (até 200 chars) e descrição (até 5000 chars) em paralelo
+    // para reduzir a latência total da importação.
+    const [title, description] = await Promise.all([
+      property.title
+        ? translateText(property.title.substring(0, 200))
+        : Promise.resolve(property.title),
+      property.description
+        ? translateText(property.description.substring(0, 5000))
+        : Promise.resolve(property.description),
+    ]);
 
-    // Traduz descrição (até 5000 chars)
-    const description = property.description
-      ? await translateText(property.description.substring(0, 5000))
-      : property.description;
-
-    // Traduz amenidades
+    // Traduz amenidades (dicionário local, sem rede)
     const amenities = property.amenities
       ? await translateAmenities(property.amenities)
       : property.amenities;

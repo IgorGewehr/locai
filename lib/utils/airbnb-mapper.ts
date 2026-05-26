@@ -228,6 +228,14 @@ export function mapAirbnbToProperty(
 
     const photos = mediaValidation.valid;
 
+    // Use the price extracted from the listing when available; otherwise the
+    // property starts inactive and the user is prompted to set it.
+    const importedPrice =
+      typeof airbnbData.nightlyPrice === 'number' && airbnbData.nightlyPrice > 0
+        ? Math.round(airbnbData.nightlyPrice)
+        : 0;
+    const hasPrice = importedPrice > 0;
+
     // Build property object
     // Note: paymentMethodSurcharges was removed from Property type - now managed at tenant level
     const property: Omit<Property, 'id' | 'createdAt' | 'updatedAt'> = {
@@ -250,8 +258,8 @@ export function mapAirbnbToProperty(
       maxGuests: airbnbData.guestCapacity.guests || 2,
       capacity: airbnbData.guestCapacity.guests || 2,
 
-      // Pricing (defaults - user should adjust)
-      basePrice: 0, // Must be set manually
+      // Pricing (imported from Airbnb when available; otherwise user must set)
+      basePrice: importedPrice,
       pricePerExtraGuest: 0,
       minimumNights: 2,
       cleaningFee: 0,
@@ -283,12 +291,17 @@ export function mapAirbnbToProperty(
 
       // Metadata
       // ⚠️ CRÍTICO: Propriedades importadas sem preço ficam INATIVAS até configurar basePrice
-      // Isso previne reservas com valor R$0
-      isActive: false, // Será ativada quando basePrice > 0 for configurado
+      // Isso previne reservas com valor R$0. Quando o preço vem do Airbnb, já ativa.
+      isActive: hasPrice,
       tenantId,
 
-      // Flag para identificar que precisa de configuração
-      needsPriceConfiguration: true,
+      // Flag para identificar que precisa de configuração de preço
+      needsPriceConfiguration: !hasPrice,
+
+      // Linkagem com a origem (necessário para export iCal e ferramentas do agente)
+      airbnbPropertyId: airbnbData.id ? String(airbnbData.id) : undefined,
+      externalId: airbnbData.id ? String(airbnbData.id) : undefined,
+      externalSource: 'airbnb',
     };
 
     logger.info('Successfully mapped Airbnb property to internal format', {
@@ -297,6 +310,7 @@ export function mapAirbnbToProperty(
       photosCount: photos.length,
       photosRejected: mediaValidation.invalid.length,
       amenitiesCount: amenities.length,
+      basePrice: property.basePrice,
       isActive: property.isActive,
       needsPriceConfiguration: property.needsPriceConfiguration,
     });
@@ -339,9 +353,9 @@ export function validateMappedProperty(
     errors.push('Capacidade de hóspedes inválida');
   }
 
-  if (!property.photos || property.photos.length === 0) {
-    errors.push('Pelo menos uma foto é obrigatória');
-  }
+  // Photos are highly desirable but NOT a hard requirement: a listing with no
+  // parsable photos should still import (user can add photos later in review).
+  // Surfaced as a warning via generateWarnings() in the preview route instead.
 
   return {
     valid: errors.length === 0,

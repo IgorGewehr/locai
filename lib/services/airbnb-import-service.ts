@@ -38,6 +38,8 @@ export interface AirbnbPropertyData {
     bathrooms: number;
   };
   propertyType?: string;
+  /** Nightly price extracted from the Airbnb listing (0 when unavailable) */
+  nightlyPrice?: number;
   checkIn?: {
     time?: string;
     instructions?: string;

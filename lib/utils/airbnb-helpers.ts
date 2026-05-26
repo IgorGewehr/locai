@@ -22,17 +22,23 @@ export function extractAirbnbPropertyId(url: string): string | null {
     // Clean the URL
     const cleanUrl = url.trim();
 
-    // Pattern: /rooms/[ID] or /rooms/[ID]?params
-    const roomsPattern = /\/rooms\/(\d+)/;
-    const match = cleanUrl.match(roomsPattern);
+    // Patterns: /rooms/[ID], /rooms/plus/[ID] or roomId=[ID] query param
+    const patterns = [/\/rooms\/(?:plus\/)?(\d+)/i, /[?&]roomId=(\d+)/i];
+    for (const pattern of patterns) {
+      const match = cleanUrl.match(pattern);
+      if (match && match[1]) {
+        const propertyId = match[1];
+        logger.info('Extracted Airbnb property ID', {
+          url: url.substring(0, 50) + '...',
+          propertyId,
+        });
+        return propertyId;
+      }
+    }
 
-    if (match && match[1]) {
-      const propertyId = match[1];
-      logger.info('Extracted Airbnb property ID', {
-        url: url.substring(0, 50) + '...',
-        propertyId,
-      });
-      return propertyId;
+    // Accept a bare numeric ID pasted directly
+    if (/^\d+$/.test(cleanUrl)) {
+      return cleanUrl;
     }
 
     logger.warn('Could not extract property ID from Airbnb URL', {
@@ -59,19 +65,17 @@ export function isValidAirbnbUrl(url: string): boolean {
   try {
     const cleanUrl = url.trim();
 
-    // Must contain airbnb domain
-    if (!cleanUrl.includes('airbnb.com')) {
+    // Accept a bare numeric ID pasted directly
+    if (/^\d+$/.test(cleanUrl)) {
+      return true;
+    }
+
+    // Otherwise must be an Airbnb URL from which we can extract an ID
+    if (!cleanUrl.toLowerCase().includes('airbnb.com')) {
       return false;
     }
 
-    // Must contain /rooms/ path
-    if (!cleanUrl.includes('/rooms/')) {
-      return false;
-    }
-
-    // Must have property ID
-    const propertyId = extractAirbnbPropertyId(cleanUrl);
-    return propertyId !== null;
+    return extractAirbnbPropertyId(cleanUrl) !== null;
   } catch {
     return false;
   }

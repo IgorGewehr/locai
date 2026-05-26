@@ -19,9 +19,15 @@ def _sign(secret: str, timestamp: str, body: bytes) -> str:
     return hmac.new(secret.encode(), payload, digestmod=hashlib.sha256).hexdigest()
 
 
-# Maps LLM tool name -> locai endpoint path segment when they differ.
-# read_system is a single generic READ endpoint at /api/agent/tools/read.
+# Maps LLM tool name -> locai endpoint path segment.
+# The LLM tool names use snake_case, but the Next.js route directories use
+# kebab-case, so every tool needs an explicit mapping (not just read_system).
+# Endpoints live at /api/agent/tools/{path}.
 _TOOL_PATHS: dict[str, str] = {
+    "search_available_properties": "search-properties",
+    "get_property_media": "property-media",
+    "get_airbnb_link": "airbnb-link",
+    "notify_owner": "notify-owner",
     "read_system": "read",
 }
 

@@ -59,14 +59,39 @@ export async function GET(
       apiUrl: hasdataApiUrl.replace(apiKey, '***')
     });
 
-    // Make request to hasdata.com API
-    const response = await fetch(hasdataApiUrl, {
-      method: 'GET',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': apiKey,
-      },
-    });
+    // Make request to hasdata.com API with a hard timeout so a hung upstream
+    // never blocks the import flow indefinitely.
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 45000);
+    let response: Response;
+    try {
+      response = await fetch(hasdataApiUrl, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': apiKey,
+        },
+        signal: controller.signal,
+      });
+    } catch (fetchError) {
+      const aborted = fetchError instanceof Error && fetchError.name === 'AbortError';
+      logger.error('hasdata.com API request failed (network/timeout)', {
+        propertyId,
+        aborted,
+        error: fetchError instanceof Error ? fetchError.message : 'Unknown error',
+      });
+      return NextResponse.json(
+        {
+          error: aborted ? 'Tempo de resposta esgotado' : 'Erro de conexão com o Airbnb',
+          message: aborted
+            ? 'O Airbnb demorou muito para responder. Tente novamente em instantes.'
+            : 'Não foi possível conectar ao serviço de importação. Tente novamente.',
+        },
+        { status: 504 }
+      );
+    } finally {
+      clearTimeout(timeout);
+    }
 
     if (!response.ok) {
       logger.error('hasdata.com API request failed', {
@@ -173,16 +198,26 @@ function transformAirbnbResponse(apiData: any, propertyId: string): any {
   // Extract capacity info
   const guestCapacity = extractGuestCapacity(listing);
 
+  // Extract nightly price (so imports arrive pre-populated instead of R$0)
+  const nightlyPrice = extractNightlyPrice(listing);
+
   // Build standardized response
   return {
-    id: listing.id || propertyId,
-    title: listing.title || listing.name || listing.publicAddress || 'Propriedade Importada do Airbnb',
-    description: listing.description || listing.summary || '',
+    id: String(listing.id || propertyId),
+    title: extractTitle(listing) || 'Propriedade Importada do Airbnb',
+    description: extractDescription(listing),
     address,
     photos,
     amenities,
     guestCapacity,
-    propertyType: listing.roomType || listing.propertyType || 'Entire home/apt',
+    // Prefer the human-readable property type over the room type code.
+    propertyType:
+      listing.propertyType ||
+      listing.roomTypeCategory ||
+      listing.roomType ||
+      listing.spaceType ||
+      'Entire home/apt',
+    nightlyPrice,
     checkIn: {
       time: listing.checkInTime || listing.checkIn,
       instructions: listing.checkInInstructions,
@@ -196,34 +231,173 @@ function transformAirbnbResponse(apiData: any, propertyId: string): any {
 }
 
 /**
- * Extract photos from hasdata.com response
+ * Extract a usable title from the many possible hasdata.com field names.
+ */
+function extractTitle(listing: any): string {
+  return (
+    listing.title ||
+    listing.name ||
+    listing.seoTitle ||
+    listing.publicAddress ||
+    ''
+  ).toString().trim();
+}
+
+/**
+ * Extract description. hasdata.com may return a plain string, an object with
+ * sections, or an array of { title, value } blocks. Normalize all of them.
+ */
+function extractDescription(listing: any): string {
+  const raw =
+    listing.description ??
+    listing.descriptionOriginal ??
+    listing.summary ??
+    listing.space ??
+    '';
+
+  if (typeof raw === 'string') return raw.trim();
+
+  // Object with a text/value field
+  if (raw && typeof raw === 'object' && !Array.isArray(raw)) {
+    const text = raw.text || raw.value || raw.html || raw.summary;
+    if (typeof text === 'string') return text.trim();
+  }
+
+  // Array of sections: join their text content
+  if (Array.isArray(raw)) {
+    const parts = raw
+      .map((s: any) =>
+        typeof s === 'string' ? s : s?.value || s?.text || s?.title || ''
+      )
+      .filter(Boolean);
+    if (parts.length) return parts.join('\n\n').trim();
+  }
+
+  return '';
+}
+
+/**
+ * Extract a numeric nightly price from the assorted shapes hasdata.com returns.
+ * Returns 0 when no reliable price is found (caller treats 0 as "needs setup").
+ */
+function extractNightlyPrice(listing: any): number {
+  const candidates: any[] = [
+    listing.price?.rate?.amount,
+    listing.price?.rate,
+    listing.price?.amount,
+    listing.price?.value,
+    listing.pricing?.rate?.amount,
+    listing.pricing?.rate,
+    listing.nightlyPrice,
+    listing.ratePerNight,
+    listing.basePrice,
+    typeof listing.price === 'number' ? listing.price : undefined,
+    typeof listing.price === 'string' ? listing.price : undefined,
+  ];
+
+  for (const candidate of candidates) {
+    if (candidate == null) continue;
+    if (typeof candidate === 'number' && isFinite(candidate) && candidate > 0) {
+      return Math.round(candidate);
+    }
+    if (typeof candidate === 'string') {
+      // Strip currency symbols / thousands separators: "R$ 1.234,56" -> 1234
+      const digits = candidate.replace(/[^\d.,]/g, '');
+      // Heuristic: if both separators present, treat "." as thousands and "," as decimal
+      const normalized =
+        digits.includes(',') && digits.includes('.')
+          ? digits.replace(/\./g, '').replace(',', '.')
+          : digits.replace(',', '.');
+      const parsed = parseFloat(normalized);
+      if (isFinite(parsed) && parsed > 0) return Math.round(parsed);
+    }
+  }
+
+  return 0;
+}
+
+/**
+ * Upgrade an Airbnb/muscache image URL to a high resolution variant.
+ *
+ * Airbnb thumbnails embed resize hints (e.g. `?im_w=720`, `im_policy=...`).
+ * We request a large width so imported photos look good in the gallery.
+ */
+function upgradePhotoResolution(rawUrl: string): string {
+  try {
+    const url = new URL(rawUrl);
+    if (!/muscache\.com$/.test(url.hostname) && !url.hostname.includes('muscache')) {
+      return rawUrl;
+    }
+    // Drop low-res policies and force a large width.
+    url.searchParams.delete('im_policy');
+    url.searchParams.set('im_w', '1200');
+    return url.toString();
+  } catch {
+    return rawUrl;
+  }
+}
+
+/**
+ * Extract photos from hasdata.com response.
+ *
+ * Aggregates across every known field shape (not just the first that matches),
+ * deduplicates, upgrades resolution and preserves ordering.
  */
 function extractPhotos(listing: any): Array<{ url: string; caption?: string; sort_order: number }> {
   const photos: Array<{ url: string; caption?: string; sort_order: number }> = [];
+  const seen = new Set<string>();
 
-  // Try different possible photo field names
+  // Try different possible photo field names (collect from ALL of them)
   const photoSources = [
     listing.photos,
     listing.images,
     listing.pictureUrls,
+    listing.pictures,
+    listing.photoUrls,
     listing.listingExpectations?.photos,
   ];
 
+  let order = 0;
   for (const source of photoSources) {
-    if (Array.isArray(source) && source.length > 0) {
-      source.forEach((photo: any, index: number) => {
-        if (typeof photo === 'string') {
-          photos.push({ url: photo, sort_order: index });
-        } else if (photo.url || photo.picture || photo.baseUrl) {
-          photos.push({
-            url: photo.url || photo.picture || photo.baseUrl,
-            caption: photo.caption || photo.description || '',
-            sort_order: photo.sortOrder || photo.order || index,
-          });
-        }
+    if (!Array.isArray(source) || source.length === 0) continue;
+
+    source.forEach((photo: any) => {
+      let rawUrl: string | undefined;
+      let caption = '';
+      let sortOrder: number | undefined;
+
+      if (typeof photo === 'string') {
+        rawUrl = photo;
+      } else if (photo && typeof photo === 'object') {
+        // hasdata.com sometimes nests the best image under sized variants.
+        rawUrl =
+          photo.xlPicture ||
+          photo.large ||
+          photo.url ||
+          photo.picture ||
+          photo.baseUrl ||
+          photo.src;
+        caption = photo.caption || photo.description || '';
+        sortOrder = photo.sortOrder ?? photo.order;
+      }
+
+      if (!rawUrl || typeof rawUrl !== 'string' || !rawUrl.startsWith('http')) {
+        return;
+      }
+
+      const finalUrl = upgradePhotoResolution(rawUrl);
+      // Dedupe by base path (ignoring resize query) to avoid duplicate variants.
+      const dedupeKey = finalUrl.split('?')[0];
+      if (seen.has(dedupeKey)) return;
+      seen.add(dedupeKey);
+
+      photos.push({
+        url: finalUrl,
+        caption,
+        sort_order: sortOrder ?? order,
       });
-      break; // Use first valid source
-    }
+      order++;
+    });
   }
 
   return photos;
