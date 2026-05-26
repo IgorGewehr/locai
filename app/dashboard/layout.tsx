@@ -56,7 +56,7 @@ function DashboardHeader({
     try { await logout(); } catch { setLoggingOut(false); }
   };
 
-  const waConnected = whatsappStatus.status === 'connected';
+  const waConnected = (whatsappStatus as any).connected === true || whatsappStatus.status === 'connected';
   const waColor = waConnected ? '#22c55e' : whatsappStatus.status === 'connecting' || whatsappStatus.status === 'qr' ? '#f59e0b' : '#ef4444';
   const waLabel = waConnected ? 'WhatsApp Conectado' : whatsappStatus.status === 'connecting' ? 'Conectando...' : whatsappStatus.status === 'qr' ? 'Aguardando QR Code' : 'Desconectado';
 

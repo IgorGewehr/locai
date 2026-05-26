@@ -452,9 +452,7 @@ export default function SettingsLayout({ children }: { children: ReactNode }) {
             flexGrow: 1,
             p: { xs: 2, sm: 3, md: 4 },
             pb: { xs: 10, md: 4 }, // Extra padding at bottom for mobile menu button
-            maxWidth: '1400px',
             width: '100%',
-            mx: 'auto',
             overflowY: 'auto',
           }}
         >
