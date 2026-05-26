@@ -29,6 +29,8 @@ _TOOL_PATHS: dict[str, str] = {
     "get_airbnb_link": "airbnb-link",
     "notify_owner": "notify-owner",
     "read_system": "read",
+    "schedule_visit": "schedule-visit",
+    "report_issue": "report-issue",
 }
 
 
