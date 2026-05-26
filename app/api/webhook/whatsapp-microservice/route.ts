@@ -99,13 +99,28 @@ export async function POST(request: NextRequest) {
         if (body.event === 'message') {
             // 1. Persist message to Firestore (for dashboard + history)
             await persistIncomingMessage(body.tenantId, body.data)
-            // 2. Dispatch to AI agent (fire-and-forget — does NOT block the webhook response)
-            dispatchToAgent(body.tenantId, body.data).catch((err: unknown) => {
-                logger.error('❌ Agent dispatch error', {
-                    error: err instanceof Error ? err.message : String(err),
+
+            // 2. Check if AI is blocked for this conversation before dispatching
+            const clientFrom: string = body.data?.from || ''
+            const normalizedFrom = clientFrom.replace(/@(c\.us|lid|g\.us|s\.whatsapp\.net)$/i, '')
+            const redis = (await import('@/lib/redis/client')).getRedisClient()
+            const blockKey = `ai_blocked:${body.tenantId}:${normalizedFrom}`
+            const isBlocked = await redis.get(blockKey)
+
+            if (isBlocked) {
+                logger.info('🚫 AI blocked for this conversation, skipping agent dispatch', {
                     tenantId: body.tenantId?.substring(0, 8) + '***',
+                    phone: normalizedFrom.substring(0, 6) + '***',
                 })
-            })
+            } else {
+                // 3. Dispatch to AI agent (fire-and-forget)
+                dispatchToAgent(body.tenantId, body.data).catch((err: unknown) => {
+                    logger.error('❌ Agent dispatch error', {
+                        error: err instanceof Error ? err.message : String(err),
+                        tenantId: body.tenantId?.substring(0, 8) + '***',
+                    })
+                })
+            }
         } else if (body.event === 'status_change') {
             await processStatusChange(body.tenantId, body.data)
         } else if (body.event === 'qr_code') {
@@ -241,6 +256,7 @@ async function dispatchToAgent(tenantId: string, messageData: any) {
     }
 
     const clientPhone: string = messageData.from || ''
+    const replyJid: string = messageData.replyJid || clientPhone // Original JID for sending replies
     const message: string = messageData.message || messageData.text || ''
     const messageId: string = messageData.messageId || messageData.id || ''
 
@@ -317,7 +333,7 @@ async function dispatchToAgent(tenantId: string, messageData: any) {
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${microserviceApiKey}`,
                 },
-                body: JSON.stringify({ to: clientPhone, message: 'Desculpa, tive um probleminha aqui. Pode repetir?' }),
+                body: JSON.stringify({ to: replyJid, message: 'Desculpa, tive um probleminha aqui. Pode repetir?' }),
                 signal: AbortSignal.timeout(10_000),
             }).catch(() => {})
         }
@@ -363,7 +379,7 @@ async function dispatchToAgent(tenantId: string, messageData: any) {
                 'Content-Type': 'application/json',
                 'Authorization': `Bearer ${microserviceApiKey}`,
             },
-            body: JSON.stringify({ to: clientPhone, message: finalResponse }),
+            body: JSON.stringify({ to: replyJid, message: finalResponse }),
             signal: AbortSignal.timeout(10_000),
         })
 
@@ -377,7 +393,7 @@ async function dispatchToAgent(tenantId: string, messageData: any) {
                     'Authorization': `Bearer ${microserviceApiKey}`,
                 },
                 body: JSON.stringify({
-                    to: clientPhone,
+                    to: replyJid,
                     type: isVideo ? 'video' : 'image',
                     url,
                 }),

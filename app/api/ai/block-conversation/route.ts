@@ -53,13 +53,10 @@ export async function POST(request: NextRequest) {
     // Get Redis singleton client
     const redis = getRedisClient();
 
-    // Normalizar telefone: remover sufixos WhatsApp e garantir 55 na frente
-    let normalizedPhone = phone.replace(/@(c\.us|lid|g\.us|s\.whatsapp\.net)$/i, '');
-    if (!normalizedPhone.startsWith('55')) {
-      normalizedPhone = '55' + normalizedPhone;
-    }
+    // Normalizar telefone: remover sufixos WhatsApp
+    const normalizedPhone = phone.replace(/@(c\.us|lid|g\.us|s\.whatsapp\.net)$/i, '');
 
-    // Chave Redis: ai_blocked:{tenantId}:{phone com 55}
+    // Chave Redis: ai_blocked:{tenantId}:{phone}
     const redisKey = `ai_blocked:${tenantId}:${normalizedPhone}`;
 
     logger.info('[AI-BLOCK] Redis key generated', {
@@ -170,11 +167,8 @@ export async function GET(request: NextRequest) {
     // Get Redis singleton client
     const redis = getRedisClient();
 
-    // Normalizar telefone: remover sufixos WhatsApp e garantir 55 na frente
-    let normalizedPhone = phone.replace(/@(c\.us|lid|g\.us|s\.whatsapp\.net)$/i, '');
-    if (!normalizedPhone.startsWith('55')) {
-      normalizedPhone = '55' + normalizedPhone;
-    }
+    // Normalizar telefone: remover sufixos WhatsApp
+    const normalizedPhone = phone.replace(/@(c\.us|lid|g\.us|s\.whatsapp\.net)$/i, '');
 
     // Buscar status no Redis
     const redisKey = `ai_blocked:${tenantId}:${normalizedPhone}`;
