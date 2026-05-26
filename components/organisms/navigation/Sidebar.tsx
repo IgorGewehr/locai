@@ -562,7 +562,7 @@ export default function Sidebar({ open, onClose, isCollapsed, onToggleCollapse }
         position: 'sticky',
         top: 0,
         display: { xs: 'none', lg: 'block' },
-        width: isCollapsed ? SIDEBAR_COLLAPSED : SIDEBAR_EXPANDED,
+        width: isCollapsed ? SIDEBAR_COLLAPSED : { lg: SIDEBAR_EXPANDED, xl: 300 },
         transition: 'width 0.28s cubic-bezier(0.4, 0, 0.2, 1)',
       }}
     >
