@@ -35,6 +35,15 @@ function greetingFor(d: Date): string {
 const brl = (v: number) =>
   new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 }).format(v);
 
+// Lightweight inline markdown: renders **bold** (line breaks handled by pre-wrap).
+function renderRich(text: string): React.ReactNode {
+  return text.split(/(\*\*[^*]+\*\*)/g).map((part, i) =>
+    /^\*\*[^*]+\*\*$/.test(part)
+      ? <strong key={i}>{part.slice(2, -2)}</strong>
+      : <React.Fragment key={i}>{part}</React.Fragment>
+  );
+}
+
 function StatTile({ label, value, subtitle, color, icon }: { label: string; value: string | number; subtitle: string; color: string; icon: React.ReactNode }) {
   return (
     <Box
@@ -256,7 +265,7 @@ export default function DashboardPage() {
                 bgcolor: m.role === 'user' ? '#dc2626' : 'rgba(255,255,255,0.06)',
                 color: m.role === 'user' ? '#fff' : 'rgba(255,255,255,0.9)',
               }}>
-                {m.content}
+                {m.role === 'assistant' ? renderRich(m.content) : m.content}
               </Box>
             </Box>
           ))}
