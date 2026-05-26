@@ -122,13 +122,16 @@ export async function POST(request: NextRequest) {
     const existingConversations = await services.conversations.getWhere('clientPhone', '==', phone);
     let conversationId: string;
 
+    // Format phone for display: strip @c.us suffix, add + prefix
+    const displayPhone = phone.replace(/@[a-z.]+$/i, '').replace(/^(\d+)$/, '+$1');
+
     if (existingConversations.length > 0) {
       conversationId = existingConversations[0].id!;
     } else {
       // Create new conversation
       conversationId = await services.conversations.create({
         clientPhone: phone,
-        clientName: phone, // Will be updated later
+        clientName: displayPhone, // Phone as name until AI discovers real name
         startedAt: new Date(),
         lastMessageAt: new Date(),
         lastMessage: message || '[Mídia]',

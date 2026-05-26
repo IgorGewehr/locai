@@ -128,13 +128,22 @@ async def run_agent(
             timeout=float(s.agent_request_timeout_s),
         )
 
+        final_response = final_state.get("final_response")
+        # Fallback: extract last AI message if planner never produced a plain response
+        if not final_response:
+            for m in reversed(final_state.get("messages", [])):
+                content = getattr(m, "content", None)
+                if isinstance(content, str) and content.strip() and not getattr(m, "tool_calls", None):
+                    final_response = content
+                    break
+
         return AgentRunResult(
             run_id=run_id,
             tenant_id=tenant_id,
             conversation_id=conversation_id,
             message_id=message_id,
             user_message=message,
-            final_response=final_state.get("final_response"),
+            final_response=final_response,
             media_urls=final_state.get("media_urls", []),
             intent=final_state.get("intent"),
             iterations=final_state.get("iterations", 0),

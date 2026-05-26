@@ -49,7 +49,8 @@ def _get_llm(provider: str, model: str, api_key: str | None, fast: bool):
 def _llm(fast: bool = False):
     s = get_settings()
     model = s.model_fast if fast else s.model_main
-    return _get_llm(s.llm_provider, model, s.openai_api_key or s.anthropic_api_key, fast)
+    api_key = s.anthropic_api_key if s.llm_provider == "anthropic" else s.openai_api_key
+    return _get_llm(s.llm_provider, model, api_key, fast)
 
 
 async def router_node(state: AgentState) -> dict:
@@ -84,7 +85,11 @@ async def planner_node(state: AgentState) -> dict:
     llm = _llm(fast=False)
     llm_with_tools = llm.bind_tools(TOOLS)
 
-    system_msg = SystemMessage(content=PLANNER_SYSTEM)
+    from datetime import date as _date
+
+    today = _date.today().isoformat()
+    system_content = PLANNER_SYSTEM.replace("{TODAY}", today)
+    system_msg = SystemMessage(content=system_content)
     history = state.get("messages", [])
     resp = await llm_with_tools.ainvoke([system_msg] + history)
 
@@ -204,8 +209,16 @@ async def executor_node(state: AgentState) -> dict:
     tool_msgs, log_entries, media_lists = zip(*results) if results else ([], [], [])
     all_media: list[str] = [url for urls in media_lists for url in urls]
 
+    # Deduplicate while preserving order
+    existing = set(state.get("media_urls", []))
+    unique_new = []
+    for url in all_media:
+        if url not in existing:
+            existing.add(url)
+            unique_new.append(url)
+
     return {
         "messages": list(tool_msgs),  # add_messages reducer appends
         "tool_calls_log": state.get("tool_calls_log", []) + list(log_entries),
-        "media_urls": state.get("media_urls", []) + all_media,
+        "media_urls": state.get("media_urls", []) + unique_new,
     }

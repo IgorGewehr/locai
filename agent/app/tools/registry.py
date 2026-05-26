@@ -9,6 +9,7 @@ READ_ONLY_TOOL_NAMES: frozenset[str] = frozenset(
         "read_system",
         "search_available_properties",
         "get_property_media",
+        "get_property_map",
         "get_airbnb_link",
     }
 )
@@ -20,9 +21,11 @@ TOOLS: list[dict] = [
             "name": "search_available_properties",
             "description": (
                 "Busca imóveis disponíveis para o período e critérios informados. "
-                "Retorna até 3 imóveis com título, quartos, hóspedes máximos, preço base, "
-                "taxa de limpeza, comodidades principais, foto principal e link do Airbnb. "
-                "Use apenas quando tiver data de check-in, check-out e pelo menos um critério (quartos ou hóspedes)."
+                "Retorna até 3 imóveis com título, quartos, hóspedes máximos, preço por noite, "
+                "total do período, comodidades e link do Airbnb. A foto principal de cada imóvel "
+                "é enviada automaticamente como imagem no WhatsApp. "
+                "Passe SEMPRE a cidade/localização se o cliente informou. "
+                "Use quando tiver check-in, check-out e pelo menos um critério (hóspedes, quartos ou localização)."
             ),
             "parameters": {
                 "type": "object",
@@ -35,6 +38,10 @@ TOOLS: list[dict] = [
                         "type": "string",
                         "description": "Data de saída no formato YYYY-MM-DD",
                     },
+                    "location": {
+                        "type": "string",
+                        "description": "Cidade, bairro ou região desejada (ex: 'Piratuba', 'Balneário Camboriú')",
+                    },
                     "bedrooms": {
                         "type": "integer",
                         "description": "Número mínimo de quartos desejado",
@@ -42,6 +49,10 @@ TOOLS: list[dict] = [
                     "guests": {
                         "type": "integer",
                         "description": "Número de hóspedes",
+                    },
+                    "max_price": {
+                        "type": "number",
+                        "description": "Preço máximo por noite em reais",
                     },
                     "max_results": {
                         "type": "integer",
@@ -60,10 +71,12 @@ TOOLS: list[dict] = [
         "function": {
             "name": "get_property_media",
             "description": (
-                "Retorna fotos e vídeos adicionais de um imóvel específico. "
-                "Use SOMENTE quando o cliente demonstrar interesse claro em um imóvel e quiser "
-                "ver mais fotos, vídeos ou como é por dentro. Nunca envie mídia sem o cliente pedir "
-                "ou demonstrar interesse. Requer o property_id retornado por search_available_properties."
+                "Retorna fotos e vídeos de um imóvel específico. "
+                "Use quando o cliente demonstrar interesse em um imóvel e quiser ver fotos/vídeos. "
+                "As mídias são enviadas AUTOMATICAMENTE como imagens no WhatsApp — "
+                "NUNCA inclua URLs ou links no texto da resposta. "
+                "Apenas diga algo natural como 'vou te mandar as fotos' ou 'olha só as fotos dele'. "
+                "Requer o property_id retornado por search_available_properties."
             ),
             "parameters": {
                 "type": "object",
@@ -106,6 +119,29 @@ TOOLS: list[dict] = [
     {
         "type": "function",
         "function": {
+            "name": "get_property_map",
+            "description": (
+                "Retorna uma imagem de mapa (Google Maps) mostrando a localização de um imóvel. "
+                "Use quando o cliente perguntar onde fica o imóvel, quiser ver a localização, "
+                "ou perguntar o que tem perto. O mapa é enviado automaticamente como imagem no WhatsApp. "
+                "NÃO coloque URLs no texto. Apenas diga algo natural como 'vou te mandar a localização'. "
+                "Requer o property_id retornado por search_available_properties."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "property_id": {
+                        "type": "string",
+                        "description": "ID do imóvel",
+                    },
+                },
+                "required": ["property_id"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
             "name": "notify_owner",
             "description": (
                 "Aciona o time humano / proprietário e escala o atendimento. "
@@ -126,7 +162,7 @@ TOOLS: list[dict] = [
                         "description": "Resumo do interesse do cliente (datas, hóspedes, intenção)",
                     },
                 },
-                "required": ["property_id", "client_summary"],
+                "required": ["client_summary"],
             },
         },
     },
@@ -215,9 +251,10 @@ TOOLS: list[dict] = [
         "function": {
             "name": "create_client",
             "description": (
-                "Cadastra um novo cliente/contato no sistema. "
+                "Cadastra ou atualiza um cliente/contato no sistema e atualiza o nome na conversa do WhatsApp. "
                 "Apenas o nome é obrigatório — telefone, e-mail, documento e endereço são opcionais "
-                "(preencha só o que o usuário informar). Use quando o operador pedir para cadastrar/registrar um cliente."
+                "(preencha só o que souber). Use SEMPRE que descobrir o nome do cliente na conversa "
+                "(ex.: ele se apresentou ou disse o nome). Passe o phone do contact para vincular à conversa."
             ),
             "parameters": {
                 "type": "object",

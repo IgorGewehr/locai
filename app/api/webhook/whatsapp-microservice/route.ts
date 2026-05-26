@@ -251,14 +251,23 @@ async function dispatchToAgent(tenantId: string, messageData: any) {
     try {
         const { TenantServiceFactory } = await import('@/lib/firebase/firestore-v2')
         const services = new TenantServiceFactory(tenantId)
-        // Get conversation by phone
-        const conversations = await services.conversations.getWhere('whatsappPhone', '==', clientPhone)
+        // Get conversation by phone (field is `clientPhone`, set in client-message/route.ts)
+        const conversations = await services.conversations.getWhere('clientPhone', '==', clientPhone)
         const conv = conversations[0]
-        if (conv?.messages && Array.isArray(conv.messages)) {
-            history = conv.messages.slice(-20).map((m: any) => ({
-                role: (m.direction === 'outbound' || m.isFromAI) ? 'assistant' : 'user',
-                content: m.content || m.text || '',
-            }))
+        if (conv?.id) {
+            const recentMessages = await services.messages.getMany(
+                [{ field: 'conversationId', operator: '==', value: conv.id }],
+                { orderBy: [{ field: 'createdAt', direction: 'desc' }], limit: 20 }
+            )
+            // Reverse to chronological order and flatten client/sofia pairs into role-based history
+            for (const msg of recentMessages.reverse()) {
+                if ((msg as any).clientMessage) {
+                    history.push({ role: 'user', content: (msg as any).clientMessage })
+                }
+                if ((msg as any).sofiaMessage) {
+                    history.push({ role: 'assistant', content: (msg as any).sofiaMessage })
+                }
+            }
         }
     } catch (err) {
         logger.warn('⚠️ Failed to load conversation history for agent', {
@@ -299,7 +308,52 @@ async function dispatchToAgent(tenantId: string, messageData: any) {
     const finalResponse: string = agentResult.final_response || ''
     const mediaUrls: string[] = agentResult.media_urls || []
 
-    if (!finalResponse) return
+    if (!finalResponse) {
+        // Send a fallback so the user doesn't get silence
+        if (microserviceUrl && microserviceApiKey) {
+            await fetch(`${microserviceUrl}/api/v1/messages/${tenantId}/send`, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${microserviceApiKey}`,
+                },
+                body: JSON.stringify({ to: clientPhone, message: 'Desculpa, tive um probleminha aqui. Pode repetir?' }),
+                signal: AbortSignal.timeout(10_000),
+            }).catch(() => {})
+        }
+        return
+    }
+
+    // Persist Sofia's response to Firestore (before sending to WhatsApp so it shows in Conversas)
+    try {
+        const { TenantServiceFactory } = await import('@/lib/firebase/firestore-v2')
+        const svc = new TenantServiceFactory(tenantId)
+        const convs = await svc.conversations.getWhere('clientPhone', '==', clientPhone)
+        const convId = convs[0]?.id
+        if (convId) {
+            const now = new Date()
+            await svc.messages.create({
+                conversationId: convId,
+                tenantId,
+                clientMessage: null,
+                clientMessageTimestamp: null,
+                sofiaMessage: finalResponse,
+                sofiaMessageTimestamp: now,
+                createdAt: now,
+                ...(mediaUrls.length > 0 && { sofiaMediaUrls: mediaUrls }),
+            } as any)
+            await svc.conversations.update(convId, {
+                lastMessageAt: now,
+                lastMessage: finalResponse.substring(0, 200),
+                lastMessageFrom: 'sofia',
+                updatedAt: now,
+            } as any)
+        }
+    } catch (err) {
+        logger.warn('Failed to persist agent response', {
+            error: err instanceof Error ? err.message : String(err),
+        })
+    }
 
     // Send AI response back via whatsapp_microservice
     if (microserviceUrl && microserviceApiKey) {
@@ -309,7 +363,7 @@ async function dispatchToAgent(tenantId: string, messageData: any) {
                 'Content-Type': 'application/json',
                 'Authorization': `Bearer ${microserviceApiKey}`,
             },
-            body: JSON.stringify({ to: clientPhone, type: 'text', text: finalResponse }),
+            body: JSON.stringify({ to: clientPhone, message: finalResponse }),
             signal: AbortSignal.timeout(10_000),
         })
 

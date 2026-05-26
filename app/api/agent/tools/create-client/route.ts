@@ -56,9 +56,34 @@ export async function POST(request: NextRequest) {
     if (document && document.replace(/\D/g, '')) clientData.document = document.replace(/\D/g, '')
     if (noteParts.length) clientData.notes = noteParts.join(' | ')
 
-    const clientId = await services.clients.create(clientData)
+    // Check if client with same phone already exists
+    let clientId: string
+    if (digits) {
+      const existing = await services.clients.getWhere('phone', '==', digits)
+      if (existing.length > 0) {
+        clientId = existing[0].id!
+        await services.clients.update(clientId, { ...clientData, createdAt: existing[0].createdAt || now })
+      } else {
+        clientId = await services.clients.create(clientData)
+      }
+    } else {
+      clientId = await services.clients.create(clientData)
+    }
 
-    logger.info('[agent/create-client] client created', {
+    // Update clientName in conversations matching this phone
+    if (digits) {
+      const phoneVariants = [digits, `${digits}@s.whatsapp.net`, `${digits}@c.us`]
+      for (const variant of phoneVariants) {
+        const convos = await services.conversations.getWhere('clientPhone', '==', variant)
+        for (const conv of convos) {
+          if (conv.id) {
+            await services.conversations.update(conv.id, { clientName: name.trim() } as any)
+          }
+        }
+      }
+    }
+
+    logger.info('[agent/create-client] client created/updated', {
       tenantId: tenantId.substring(0, 8) + '***',
       clientId,
     })

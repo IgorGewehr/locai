@@ -26,6 +26,7 @@ def _sign(secret: str, timestamp: str, body: bytes) -> str:
 _TOOL_PATHS: dict[str, str] = {
     "search_available_properties": "search-properties",
     "get_property_media": "property-media",
+    "get_property_map": "property-map",
     "get_airbnb_link": "airbnb-link",
     "notify_owner": "notify-owner",
     "read_system": "read",

@@ -15,8 +15,10 @@ const Schema = z.object({
   tenant_id: z.string().min(1),
   checkin: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Format: YYYY-MM-DD'),
   checkout: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Format: YYYY-MM-DD'),
+  location: z.string().optional(),
   bedrooms: z.number().int().positive().optional(),
   guests: z.number().int().positive().optional(),
+  max_price: z.number().positive().optional(),
   max_results: z.number().int().min(1).max(5).default(3),
 })
 
@@ -32,7 +34,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Invalid parameters', details: parsed.error.issues }, { status: 400 })
   }
 
-  const { checkin, checkout, bedrooms, guests, max_results } = parsed.data
+  const { checkin, checkout, location, bedrooms, guests, max_price, max_results } = parsed.data
   const checkinDate = new Date(checkin)
   const checkoutDate = new Date(checkout)
 
@@ -44,8 +46,10 @@ export async function POST(request: NextRequest) {
     // Use existing searchProperties which queries Firestore with filters
     const result = await searchProperties(
       {
+        location,
         bedrooms,
         guests,
+        maxPrice: max_price,
         checkIn: checkin,
         checkOut: checkout,
       },
@@ -104,9 +108,15 @@ export async function POST(request: NextRequest) {
 
     const available = items.filter(Boolean).slice(0, max_results)
 
+    // Collect main photos so they are sent as WhatsApp images automatically
+    const media_urls = available
+      .map((p: any) => p.main_photo)
+      .filter(Boolean)
+
     logger.info('[agent/search-properties] completed', {
       tenantId: tenantId.substring(0, 8) + '***',
       found: available.length,
+      mainPhotos: media_urls.length,
       checkin,
       checkout,
     })
@@ -114,6 +124,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       ok: true,
       properties: available,
+      media_urls,
       checkin,
       checkout,
       total_found: available.length,
