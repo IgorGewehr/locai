@@ -18,6 +18,7 @@ import {
 } from '@mui/icons-material';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useTenant } from '@/contexts/TenantContext';
+import { useAuth } from '@/lib/hooks/useAuth';
 import { logger } from '@/lib/utils/logger';
 
 interface AIControlButtonProps {
@@ -34,6 +35,7 @@ const DURATIONS = [
 
 export default function AIControlButton({ phone, conversationName }: AIControlButtonProps) {
   const { tenantId } = useTenant();
+  const { getFirebaseToken } = useAuth();
   const [blocked, setBlocked] = useState(false);
   const [blockExpiry, setBlockExpiry] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -47,7 +49,10 @@ export default function AIControlButton({ phone, conversationName }: AIControlBu
     let mounted = true;
     const check = async () => {
       try {
-        const res = await fetch(`/api/ai/block-conversation?phone=${encodeURIComponent(phone)}`);
+        const token = await getFirebaseToken();
+        const res = await fetch(`/api/ai/block-conversation?phone=${encodeURIComponent(phone)}`, {
+          headers: token ? { 'Authorization': `Bearer ${token}` } : {},
+        });
         const data = await res.json();
         if (mounted && data.success) {
           setBlocked(data.data.blocked ?? false);
@@ -65,9 +70,13 @@ export default function AIControlButton({ phone, conversationName }: AIControlBu
   const toggle = async (block: boolean, duration?: number) => {
     setSubmitting(true);
     try {
+      const token = await getFirebaseToken();
       const res = await fetch('/api/ai/block-conversation', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {}),
+        },
         body: JSON.stringify({ phone, blocked: block, duration: block ? duration : undefined }),
       });
       const data = await res.json();
