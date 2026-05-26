@@ -213,6 +213,29 @@ TOOLS: list[dict] = [
     {
         "type": "function",
         "function": {
+            "name": "create_client",
+            "description": (
+                "Cadastra um novo cliente/contato no sistema. "
+                "Apenas o nome é obrigatório — telefone, e-mail, documento e endereço são opcionais "
+                "(preencha só o que o usuário informar). Use quando o operador pedir para cadastrar/registrar um cliente."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "name": {"type": "string", "description": "Nome do cliente (obrigatório)"},
+                    "phone": {"type": "string", "description": "Telefone/WhatsApp (opcional)"},
+                    "email": {"type": "string", "description": "E-mail (opcional)"},
+                    "document": {"type": "string", "description": "CPF/CNPJ (opcional)"},
+                    "address": {"type": "string", "description": "Endereço (opcional)"},
+                    "notes": {"type": "string", "description": "Observações (opcional)"},
+                },
+                "required": ["name"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
             "name": "report_issue",
             "description": (
                 "Abre um chamado de suporte/manutenção quando um cliente que JÁ está hospedado/alugando "

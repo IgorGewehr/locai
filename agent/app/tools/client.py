@@ -31,6 +31,7 @@ _TOOL_PATHS: dict[str, str] = {
     "read_system": "read",
     "schedule_visit": "schedule-visit",
     "report_issue": "report-issue",
+    "create_client": "create-client",
 }
 
 
