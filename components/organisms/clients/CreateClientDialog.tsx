@@ -84,18 +84,18 @@ export default function CreateClientDialog({ open, onClose, onSuccess }: CreateC
   const validateForm = (): boolean => {
     const errors: FormErrors = {};
     
+    // Only the name is required. Everything else is optional —
+    // validated for format only when the user actually filled it in.
     if (!formData.name.trim()) {
       errors.name = 'Nome é obrigatório';
     } else if (formData.name.trim().length < 2) {
       errors.name = 'Nome deve ter pelo menos 2 caracteres';
     }
-    
-    if (!formData.phone.trim()) {
-      errors.phone = 'Telefone é obrigatório';
-    } else if (formData.phone.replace(/\D/g, '').length < 10) {
+
+    if (formData.phone.trim() && formData.phone.replace(/\D/g, '').length < 10) {
       errors.phone = 'Telefone deve ter pelo menos 10 dígitos';
     }
-    
+
     if (formData.email.trim() && !isValidEmail(formData.email)) {
       errors.email = 'E-mail deve ter um formato válido';
     }
@@ -321,11 +321,10 @@ export default function CreateClientDialog({ open, onClose, onSuccess }: CreateC
             <Grid item xs={12} sm={6}>
               <TextField
                 fullWidth
-                label="Telefone *"
+                label="Telefone (opcional)"
                 value={formData.phone}
                 onChange={handlePhoneChangeWithValidation}
                 placeholder="(11) 99999-9999"
-                required
                 disabled={loading}
                 error={!!formErrors.phone}
                 helperText={formErrors.phone}
@@ -475,7 +474,7 @@ export default function CreateClientDialog({ open, onClose, onSuccess }: CreateC
         <Button
           onClick={handleSubmit}
           variant="contained"
-          disabled={loading || !formData.name.trim() || !formData.phone.replace(/\D/g, '') || !services || !isReady}
+          disabled={loading || !formData.name.trim() || !services || !isReady}
           startIcon={loading ? <CircularProgress size={20} color="inherit" /> : <PersonAdd />}
           sx={{
             borderRadius: '50px',

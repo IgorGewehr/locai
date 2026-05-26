@@ -73,9 +73,10 @@ export default function DashboardPage() {
 
   const [mode, setMode] = useState<'operador' | 'analista'>('operador');
   const [input, setInput] = useState('');
-  const [reply, setReply] = useState<string | null>(null);
+  const [chat, setChat] = useState<{ role: 'user' | 'assistant'; content: string }[]>([]);
   const [sending, setSending] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const chatEndRef = useRef<HTMLDivElement>(null);
 
   const now = new Date();
   const firstName = (user as any)?.displayName?.split(' ')[0] || user?.email?.split('@')[0] || '';
@@ -136,7 +137,8 @@ export default function DashboardPage() {
     const message = input.trim();
     if (!message || sending) return;
     setSending(true);
-    setReply(null);
+    setChat((prev) => [...prev, { role: 'user', content: message }]);
+    setInput('');
     try {
       const token = await getFirebaseToken();
       const res = await fetch('/api/agent/console', {
@@ -145,25 +147,26 @@ export default function DashboardPage() {
         body: JSON.stringify({ message, mode }),
       });
       const data = await res.json();
-      setReply(data.reply || 'Sem resposta do agente.');
-      setInput('');
+      setChat((prev) => [...prev, { role: 'assistant', content: data.reply || 'Sem resposta do agente.' }]);
     } catch {
-      setReply('Não consegui falar com o agente agora.');
+      setChat((prev) => [...prev, { role: 'assistant', content: 'Não consegui falar com o agente agora.' }]);
     } finally {
       setSending(false);
       inputRef.current?.focus();
     }
   }, [input, sending, mode, getFirebaseToken]);
 
+  useEffect(() => { chatEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' }); }, [chat, sending]);
+
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendConsole(); }
   };
 
   return (
-    <Box sx={{ maxWidth: 1080, mx: 'auto', pt: { xs: 2, md: 5 }, pb: 6 }}>
+    <Box sx={{ maxWidth: 1080, mx: 'auto', pt: { xs: 1, md: 2 }, pb: 2 }}>
       {/* Greeting */}
-      <Box sx={{ textAlign: 'center', mb: 4 }}>
-        <Typography sx={{ fontSize: { xs: '2rem', md: '2.75rem' }, fontWeight: 700, letterSpacing: '-0.03em', color: '#f1f5f9', lineHeight: 1.1 }}>
+      <Box sx={{ textAlign: 'center', mb: 2.5 }}>
+        <Typography sx={{ fontSize: { xs: '1.75rem', md: '2.25rem' }, fontWeight: 700, letterSpacing: '-0.03em', color: '#f1f5f9', lineHeight: 1.1 }}>
           {greetingFor(now)},{' '}
           <Box component="span" sx={{ background: 'linear-gradient(135deg, #f87171, #dc2626)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>
             {firstName}
@@ -175,7 +178,7 @@ export default function DashboardPage() {
       </Box>
 
       {/* Mode toggle */}
-      <Box sx={{ display: 'flex', justifyContent: 'center', mb: 2.5 }}>
+      <Box sx={{ display: 'flex', justifyContent: 'center', mb: 1.75 }}>
         <Box sx={{ display: 'inline-flex', p: 0.5, borderRadius: '12px', bgcolor: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)', gap: 0.5 }}>
           {([['operador', 'Operador', KeyboardCommandKey], ['analista', 'Analista', InsertChartOutlined]] as const).map(([key, label, Icon]) => {
             const active = mode === key;
@@ -240,17 +243,36 @@ export default function DashboardPage() {
         <Typography sx={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.4)' }}>Enter envia · Shift+Enter quebra linha</Typography>
       </Box>
 
-      {/* Console reply */}
-      {reply && (
-        <Box sx={{ mt: 2, p: 2, borderRadius: '14px', bgcolor: '#0f1525', border: '1px solid rgba(255,255,255,0.08)' }}>
-          <Typography sx={{ fontSize: '0.9375rem', color: 'rgba(255,255,255,0.85)', whiteSpace: 'pre-wrap', lineHeight: 1.6 }}>
-            {reply}
-          </Typography>
+      {/* Console chat thread */}
+      {chat.length > 0 && (
+        <Box sx={{ mt: 2, p: 1.5, borderRadius: '14px', bgcolor: '#0f1525', border: '1px solid rgba(255,255,255,0.08)', maxHeight: 300, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 1.25 }}>
+          {chat.map((m, i) => (
+            <Box key={i} sx={{ display: 'flex', justifyContent: m.role === 'user' ? 'flex-end' : 'flex-start' }}>
+              <Box sx={{
+                maxWidth: '82%', px: 1.75, py: 1.125, fontSize: '0.9375rem', lineHeight: 1.55, whiteSpace: 'pre-wrap',
+                borderRadius: '16px',
+                borderBottomRightRadius: m.role === 'user' ? '4px' : '16px',
+                borderBottomLeftRadius: m.role === 'assistant' ? '4px' : '16px',
+                bgcolor: m.role === 'user' ? '#dc2626' : 'rgba(255,255,255,0.06)',
+                color: m.role === 'user' ? '#fff' : 'rgba(255,255,255,0.9)',
+              }}>
+                {m.content}
+              </Box>
+            </Box>
+          ))}
+          {sending && (
+            <Box sx={{ display: 'flex', justifyContent: 'flex-start' }}>
+              <Box sx={{ px: 2, py: 1.25, borderRadius: '16px', borderBottomLeftRadius: '4px', bgcolor: 'rgba(255,255,255,0.06)' }}>
+                <CircularProgress size={14} sx={{ color: 'rgba(255,255,255,0.5)' }} />
+              </Box>
+            </Box>
+          )}
+          <div ref={chatEndRef} />
         </Box>
       )}
 
       {/* Module shortcuts */}
-      <Box sx={{ display: 'flex', justifyContent: 'center', gap: { xs: 2, md: 3.5 }, flexWrap: 'wrap', mt: 5, mb: 5 }}>
+      <Box sx={{ display: 'flex', justifyContent: 'center', gap: { xs: 2, md: 3 }, flexWrap: 'wrap', mt: 3.5, mb: 3.5 }}>
         {MODULES.map((m) => {
           const Icon = m.icon;
           return (
