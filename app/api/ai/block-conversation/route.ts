@@ -73,8 +73,23 @@ export async function POST(request: NextRequest) {
       const durationHours = duration || 1;
       const ttlSeconds = durationHours * 60 * 60;
 
-      // Bloquear IA - salva apenas "true" no Redis
+      // Bloquear IA - salva "true" no Redis com TTL
       await redis.set(redisKey, 'true', 'EX', ttlSeconds);
+
+      // Also update Firestore conversation for list display
+      try {
+        const { TenantServiceFactory } = await import('@/lib/firebase/firestore-v2');
+        const services = new TenantServiceFactory(tenantId);
+        const phoneVariants = [normalizedPhone, `${normalizedPhone}@s.whatsapp.net`, `${normalizedPhone}@lid`, `${normalizedPhone}@c.us`];
+        for (const variant of phoneVariants) {
+          const convos = await services.conversations.getWhere('clientPhone', '==', variant);
+          for (const conv of convos) {
+            if (conv.id) {
+              await services.conversations.update(conv.id, { aiBlocked: true } as any);
+            }
+          }
+        }
+      } catch { /* non-critical */ }
 
       logger.info('[AI-BLOCK] Conversation blocked', {
         requestId,
@@ -100,6 +115,21 @@ export async function POST(request: NextRequest) {
     } else {
       // Desbloquear IA
       await redis.del(redisKey);
+
+      // Also update Firestore conversation
+      try {
+        const { TenantServiceFactory } = await import('@/lib/firebase/firestore-v2');
+        const services = new TenantServiceFactory(tenantId);
+        const phoneVariants = [normalizedPhone, `${normalizedPhone}@s.whatsapp.net`, `${normalizedPhone}@lid`, `${normalizedPhone}@c.us`];
+        for (const variant of phoneVariants) {
+          const convos = await services.conversations.getWhere('clientPhone', '==', variant);
+          for (const conv of convos) {
+            if (conv.id) {
+              await services.conversations.update(conv.id, { aiBlocked: false } as any);
+            }
+          }
+        }
+      } catch { /* non-critical */ }
 
       logger.info('[AI-BLOCK] Conversation unblocked', {
         requestId,

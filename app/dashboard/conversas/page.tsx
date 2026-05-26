@@ -8,6 +8,7 @@ import {
 import {
   Search, Refresh, MoreVert, WhatsApp, Chat,
   ArrowBack, KeyboardArrowDown, DoneAll, MarkChatUnread, Edit,
+  PanTool,
 } from '@mui/icons-material';
 import { useSearchParams } from 'next/navigation';
 import { useAuth } from '@/lib/hooks/useAuth';
@@ -63,10 +64,11 @@ interface RowProps {
   conv: ConversationListSummary;
   selected: boolean;
   triage: TriageStatus | null;
+  manual?: boolean;
   onSelect: (id: string) => void;
   onContextMenu: (e: React.MouseEvent, id: string) => void;
 }
-const ConversationRow = memo(({ conv, selected, triage, onSelect, onContextMenu }: RowProps) => {
+const ConversationRow = memo(({ conv, selected, triage, manual, onSelect, onContextMenu }: RowProps) => {
   const unread = (conv.unreadCount ?? 0) > 0 || conv.isRead === false;
   const accent = triage ? TRIAGE_CONFIG[triage].color : 'transparent';
 
@@ -99,13 +101,27 @@ const ConversationRow = memo(({ conv, selected, triage, onSelect, onContextMenu 
       {/* Text */}
       <Box sx={{ flex: 1, minWidth: 0 }}>
         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1 }}>
-          <Typography sx={{
-            fontSize: '0.875rem', fontWeight: unread ? 700 : 500,
-            color: unread ? '#f1f5f9' : 'rgba(255,255,255,0.82)',
-            whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
-          }}>
-            {conv.clientName || conv.clientPhone}
-          </Typography>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, minWidth: 0, flex: 1 }}>
+            <Typography sx={{
+              fontSize: '0.875rem', fontWeight: unread ? 700 : 500,
+              color: unread ? '#f1f5f9' : 'rgba(255,255,255,0.82)',
+              whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+            }}>
+              {conv.clientName || conv.clientPhone}
+            </Typography>
+            {manual && (
+              <Box sx={{
+                display: 'inline-flex', alignItems: 'center', gap: 0.25,
+                px: 0.625, py: 0.125, borderRadius: '5px', flexShrink: 0,
+                bgcolor: 'rgba(107,114,128,0.15)', border: '0.5px solid rgba(107,114,128,0.3)',
+              }}>
+                <PanTool sx={{ fontSize: 9, color: '#9ca3af' }} />
+                <Typography sx={{ fontSize: '0.5625rem', color: '#9ca3af', fontWeight: 600, lineHeight: 1 }}>
+                  Manual
+                </Typography>
+              </Box>
+            )}
+          </Box>
           <Typography sx={{ fontSize: '0.6875rem', color: 'rgba(255,255,255,0.4)', flexShrink: 0 }}>
             {relTime(toDate(conv.lastMessageAt))}
           </Typography>
@@ -348,6 +364,7 @@ export default function ConversationsPage() {
                   conv={conv}
                   selected={selectedConversation?.id === conv.id}
                   triage={triageFor(conv.clientPhone)}
+                  manual={(conv as any).aiBlocked === true}
                   onSelect={handleSelect}
                   onContextMenu={handleContextMenu}
                 />
