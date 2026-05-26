@@ -53,28 +53,28 @@ const NAV_SECTIONS: NavSection[] = [
     key: 'principal',
     title: 'PRINCIPAL',
     items: [
-      { id: 'dashboard', label: 'Dashboard', href: '/dashboard', icon: <Dashboard sx={{ fontSize: 18 }} /> },
-      { id: 'properties', label: 'Propriedades', href: '/dashboard/properties', icon: <Home sx={{ fontSize: 18 }} /> },
-      { id: 'reservations', label: 'Reservas', href: '/dashboard/reservations', icon: <CalendarMonth sx={{ fontSize: 18 }} /> },
-      { id: 'agenda', label: 'Agenda', href: '/dashboard/agenda', icon: <Event sx={{ fontSize: 18 }} /> },
+      { id: 'dashboard', label: 'Dashboard', href: '/dashboard', icon: <Dashboard sx={{ fontSize: { md: 18, xl: 22 } }} /> },
+      { id: 'properties', label: 'Propriedades', href: '/dashboard/properties', icon: <Home sx={{ fontSize: { md: 18, xl: 22 } }} /> },
+      { id: 'reservations', label: 'Reservas', href: '/dashboard/reservations', icon: <CalendarMonth sx={{ fontSize: { md: 18, xl: 22 } }} /> },
+      { id: 'agenda', label: 'Agenda', href: '/dashboard/agenda', icon: <Event sx={{ fontSize: { md: 18, xl: 22 } }} /> },
     ],
   },
   {
     key: 'gestao',
     title: 'GESTÃO',
     items: [
-      { id: 'atendimentos', label: 'Atendimentos', href: '/dashboard/atendimentos', icon: <Inbox sx={{ fontSize: 18 }} /> },
-      { id: 'clients', label: 'Clientes', href: '/dashboard/clients', icon: <People sx={{ fontSize: 18 }} /> },
-      { id: 'conversas', label: 'Conversas', href: '/dashboard/conversas', icon: <Chat sx={{ fontSize: 18 }} /> },
-      { id: 'financeiro', label: 'Financeiro', href: '/dashboard/financeiro', icon: <AccountBalance sx={{ fontSize: 18 }} /> },
+      { id: 'atendimentos', label: 'Atendimentos', href: '/dashboard/atendimentos', icon: <Inbox sx={{ fontSize: { md: 18, xl: 22 } }} /> },
+      { id: 'clients', label: 'Clientes', href: '/dashboard/clients', icon: <People sx={{ fontSize: { md: 18, xl: 22 } }} /> },
+      { id: 'conversas', label: 'Conversas', href: '/dashboard/conversas', icon: <Chat sx={{ fontSize: { md: 18, xl: 22 } }} /> },
+      { id: 'financeiro', label: 'Financeiro', href: '/dashboard/financeiro', icon: <AccountBalance sx={{ fontSize: { md: 18, xl: 22 } }} /> },
     ],
   },
   {
     key: 'sistema',
     title: 'SISTEMA',
     items: [
-      { id: 'settings', label: 'Configurações', href: '/dashboard/settings', icon: <Settings sx={{ fontSize: 18 }} /> },
-      { id: 'help', label: 'Ajuda', href: '/dashboard/help', icon: <HelpOutline sx={{ fontSize: 18 }} /> },
+      { id: 'settings', label: 'Configurações', href: '/dashboard/settings', icon: <Settings sx={{ fontSize: { md: 18, xl: 22 } }} /> },
+      { id: 'help', label: 'Ajuda', href: '/dashboard/help', icon: <HelpOutline sx={{ fontSize: { md: 18, xl: 22 } }} /> },
     ],
   },
 ];
@@ -107,11 +107,11 @@ function NavButton({
         position: 'relative',
         display: 'flex',
         alignItems: 'center',
-        gap: collapsed ? 0 : 1.5,
+        gap: collapsed ? 0 : { md: 1.5, xl: 1.75 },
         justifyContent: collapsed ? 'center' : 'flex-start',
         width: '100%',
-        minHeight: 40,
-        px: collapsed ? 0 : 1.5,
+        minHeight: { md: 40, xl: 46 },
+        px: collapsed ? 0 : { md: 1.5, xl: 1.75 },
         borderRadius: '10px',
         textDecoration: 'none',
         cursor: 'pointer',
@@ -205,7 +205,7 @@ function NavButton({
           sx={{
             position: 'relative',
             zIndex: 2,
-            fontSize: '0.875rem',
+            fontSize: { md: '0.875rem', xl: '0.95rem' },
             fontWeight: isActive ? 600 : 500,
             lineHeight: 1,
             letterSpacing: '-0.01em',
@@ -342,7 +342,7 @@ function SidebarContent({
         height: '100%',
         bgcolor: '#0a0e17',
         borderRight: '1px solid rgba(255,255,255,0.07)',
-        width: collapsed ? SIDEBAR_COLLAPSED : SIDEBAR_EXPANDED,
+        width: collapsed ? SIDEBAR_COLLAPSED : { md: SIDEBAR_EXPANDED, xl: 300 },
         transition: 'width 0.28s cubic-bezier(0.4, 0, 0.2, 1)',
         overflowX: 'hidden',
         overflowY: 'hidden',
@@ -414,7 +414,7 @@ function SidebarContent({
               transition={{ type: 'spring', stiffness: 320, damping: 22 }}
               sx={{ display: 'flex' }}
             >
-              <ChevronRight sx={{ fontSize: 18 }} />
+              <ChevronRight sx={{ fontSize: { md: 18, xl: 22 } }} />
             </Box>
           )}
         </Box>

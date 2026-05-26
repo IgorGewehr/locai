@@ -49,24 +49,24 @@ function StatTile({ label, value, subtitle, color, icon }: { label: string; valu
     <Box
       sx={{
         position: 'relative', bgcolor: '#0f1525', border: '1px solid rgba(255,255,255,0.07)',
-        borderRadius: '16px', p: 2.5, overflow: 'hidden', minWidth: 0,
+        borderRadius: '16px', p: { xs: 2.5, xl: 3 }, overflow: 'hidden', minWidth: 0,
         transition: 'border-color 0.2s ease, transform 0.2s ease',
         '&:hover': { borderColor: 'rgba(255,255,255,0.14)', transform: 'translateY(-2px)' },
         '&::before': { content: '""', position: 'absolute', top: 0, left: 0, right: 0, height: '2px', background: color },
       }}
     >
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}>
-        <Box sx={{ width: 28, height: 28, borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', bgcolor: alpha(color, 0.14), color }}>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: { xs: 1.5, xl: 2 } }}>
+        <Box sx={{ width: { xs: 28, xl: 34 }, height: { xs: 28, xl: 34 }, borderRadius: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', bgcolor: alpha(color, 0.14), color }}>
           {icon}
         </Box>
-        <Typography sx={{ fontSize: '0.6875rem', fontWeight: 700, letterSpacing: '0.06em', color: 'rgba(255,255,255,0.5)' }}>
+        <Typography sx={{ fontSize: { xs: '0.6875rem', xl: '0.8125rem' }, fontWeight: 700, letterSpacing: '0.06em', color: 'rgba(255,255,255,0.5)' }}>
           {label}
         </Typography>
       </Box>
-      <Typography sx={{ fontSize: '2rem', fontWeight: 700, color: '#f1f5f9', lineHeight: 1, letterSpacing: '-0.03em', mb: 0.75 }}>
+      <Typography sx={{ fontSize: { xs: '2rem', xl: '2.5rem' }, fontWeight: 700, color: '#f1f5f9', lineHeight: 1, letterSpacing: '-0.03em', mb: 0.75 }}>
         {value}
       </Typography>
-      <Typography sx={{ fontSize: '0.8125rem', color: 'rgba(255,255,255,0.4)' }}>{subtitle}</Typography>
+      <Typography sx={{ fontSize: { xs: '0.8125rem', xl: '0.9375rem' }, color: 'rgba(255,255,255,0.4)' }}>{subtitle}</Typography>
     </Box>
   );
 }
@@ -172,16 +172,16 @@ export default function DashboardPage() {
   };
 
   return (
-    <Box sx={{ maxWidth: 1080, mx: 'auto', pt: { xs: 1, md: 2 }, pb: 2 }}>
+    <Box sx={{ maxWidth: { xs: 1080, xl: 1320 }, mx: 'auto', pt: { xs: 1, md: 2, xl: 4 }, pb: 2 }}>
       {/* Greeting */}
-      <Box sx={{ textAlign: 'center', mb: 2.5 }}>
-        <Typography sx={{ fontSize: { xs: '1.75rem', md: '2.25rem' }, fontWeight: 700, letterSpacing: '-0.03em', color: '#f1f5f9', lineHeight: 1.1 }}>
+      <Box sx={{ textAlign: 'center', mb: { xs: 2.5, xl: 4 } }}>
+        <Typography sx={{ fontSize: { xs: '1.75rem', md: '2.25rem', xl: '3rem' }, fontWeight: 700, letterSpacing: '-0.03em', color: '#f1f5f9', lineHeight: 1.1 }}>
           {greetingFor(now)},{' '}
           <Box component="span" sx={{ background: 'linear-gradient(135deg, #f87171, #dc2626)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', backgroundClip: 'text' }}>
             {firstName}
           </Box>
         </Typography>
-        <Typography sx={{ fontSize: { xs: '0.9375rem', md: '1.0625rem' }, color: 'rgba(255,255,255,0.45)', mt: 0.5 }}>
+        <Typography sx={{ fontSize: { xs: '0.9375rem', md: '1.0625rem', xl: '1.25rem' }, color: 'rgba(255,255,255,0.45)', mt: 0.5 }}>
           {weekdayCap}, <Box component="span" sx={{ color: '#f87171', fontWeight: 600 }}>{now.getDate()}</Box> de {monthName}
         </Typography>
       </Box>
@@ -200,7 +200,7 @@ export default function DashboardPage() {
                   color: active ? '#fff' : 'rgba(255,255,255,0.55)',
                   '&:hover': { color: active ? '#fff' : 'rgba(255,255,255,0.85)' },
                 }}>
-                <Icon sx={{ fontSize: 16 }} />
+                <Icon sx={{ fontSize: { xs: 16, xl: 20 } }} />
                 <Typography sx={{ fontSize: '0.8125rem', fontWeight: 600 }}>{label}</Typography>
               </Box>
             );
@@ -218,7 +218,7 @@ export default function DashboardPage() {
           '&:focus-within': { borderColor: 'rgba(220,38,38,0.6)', boxShadow: '0 0 0 4px rgba(220,38,38,0.08)' },
         }}
       >
-        <AutoAwesome sx={{ fontSize: 22, color: '#f87171', mt: 1.25, flexShrink: 0 }} />
+        <AutoAwesome sx={{ fontSize: { xs: 22, xl: 26 }, color: '#f87171', mt: 1.25, flexShrink: 0 }} />
         <InputBase
           inputRef={inputRef}
           fullWidth multiline maxRows={6}
@@ -227,13 +227,13 @@ export default function DashboardPage() {
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={handleKeyDown}
           disabled={sending}
-          sx={{ flex: 1, fontSize: '1rem', color: '#f1f5f9', py: 1, '& textarea::placeholder, & input::placeholder': { color: 'rgba(255,255,255,0.4)', opacity: 1 } }}
+          sx={{ flex: 1, fontSize: { xs: '1rem', xl: '1.125rem' }, color: '#f1f5f9', py: { xs: 1, xl: 1.5 }, '& textarea::placeholder, & input::placeholder': { color: 'rgba(255,255,255,0.4)', opacity: 1 } }}
         />
         <IconButton
           onClick={sendConsole}
           disabled={!input.trim() || sending}
           sx={{
-            width: 44, height: 44, flexShrink: 0, borderRadius: '12px',
+            width: { xs: 44, xl: 52 }, height: { xs: 44, xl: 52 }, flexShrink: 0, borderRadius: '12px',
             bgcolor: input.trim() ? '#dc2626' : 'rgba(255,255,255,0.06)',
             color: input.trim() ? '#fff' : 'rgba(255,255,255,0.3)',
             '&:hover': { bgcolor: input.trim() ? '#b91c1c' : 'rgba(255,255,255,0.08)' },
@@ -281,42 +281,42 @@ export default function DashboardPage() {
       )}
 
       {/* Module shortcuts */}
-      <Box sx={{ display: 'flex', justifyContent: 'center', gap: { xs: 2, md: 3 }, flexWrap: 'wrap', mt: 3.5, mb: 3.5 }}>
+      <Box sx={{ display: 'flex', justifyContent: 'center', gap: { xs: 2, md: 3, xl: 4.5 }, flexWrap: 'wrap', mt: { xs: 3.5, xl: 5 }, mb: { xs: 3.5, xl: 5 } }}>
         {MODULES.map((m) => {
           const Icon = m.icon;
           return (
             <Box key={m.href} component={Link} href={m.href}
-              sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1, textDecoration: 'none', width: 72 }}>
+              sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1, textDecoration: 'none', width: { xs: 72, xl: 92 } }}>
               <Box sx={{
-                width: 52, height: 52, borderRadius: '15px', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                width: { xs: 52, xl: 64 }, height: { xs: 52, xl: 64 }, borderRadius: { xs: '15px', xl: '18px' }, display: 'flex', alignItems: 'center', justifyContent: 'center',
                 bgcolor: alpha(m.color, 0.12), border: `1px solid ${alpha(m.color, 0.2)}`,
                 transition: 'all 0.18s ease',
                 '&:hover': { transform: 'translateY(-3px)', bgcolor: alpha(m.color, 0.2), borderColor: alpha(m.color, 0.45) },
               }}>
-                <Icon sx={{ fontSize: 24, color: m.color }} />
+                <Icon sx={{ fontSize: { xs: 24, xl: 30 }, color: m.color }} />
               </Box>
-              <Typography sx={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.6)', textAlign: 'center' }}>{m.label}</Typography>
+              <Typography sx={{ fontSize: { xs: '0.75rem', xl: '0.875rem' }, color: 'rgba(255,255,255,0.6)', textAlign: 'center' }}>{m.label}</Typography>
             </Box>
           );
         })}
       </Box>
 
       {/* Stat tiles */}
-      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr', lg: 'repeat(4, 1fr)' }, gap: 2 }}>
+      <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr', lg: 'repeat(4, 1fr)' }, gap: { xs: 2, xl: 3 } }}>
         <StatTile
-          label="AGENDA HOJE" value={stats.visitsToday} color="#f59e0b" icon={<Event sx={{ fontSize: 16 }} />}
+          label="AGENDA HOJE" value={stats.visitsToday} color="#f59e0b" icon={<Event sx={{ fontSize: { xs: 16, xl: 20 } }} />}
           subtitle={stats.visitsToday === 0 ? 'Sem agendamentos' : stats.visitsToday === 1 ? '1 agendamento' : `${stats.visitsToday} agendamentos`}
         />
         <StatTile
-          label="CONVERSAS" value={stats.activeConversations} color="#ec4899" icon={<Chat sx={{ fontSize: 16 }} />}
+          label="CONVERSAS" value={stats.activeConversations} color="#ec4899" icon={<Chat sx={{ fontSize: { xs: 16, xl: 20 } }} />}
           subtitle={stats.messagesToday === 0 ? 'Sem mensagens novas' : `${stats.messagesToday} mensagens hoje`}
         />
         <StatTile
-          label="ATENDIMENTOS" value={stats.needsYou > 0 ? stats.needsYou : stats.leadsThisMonth} color="#ef4444" icon={<Inbox sx={{ fontSize: 16 }} />}
+          label="ATENDIMENTOS" value={stats.needsYou > 0 ? stats.needsYou : stats.leadsThisMonth} color="#ef4444" icon={<Inbox sx={{ fontSize: { xs: 16, xl: 20 } }} />}
           subtitle={stats.needsYou > 0 ? `${stats.needsYou} precisam de você` : `${stats.leadsThisMonth} leads no mês`}
         />
         <StatTile
-          label="FINANCEIRO" value={brl(stats.monthResult)} color="#0ea5e9" icon={<AccountBalanceWallet sx={{ fontSize: 16 }} />}
+          label="FINANCEIRO" value={brl(stats.monthResult)} color="#0ea5e9" icon={<AccountBalanceWallet sx={{ fontSize: { xs: 16, xl: 20 } }} />}
           subtitle={stats.pendingTx === 0 ? 'Tudo em dia' : `${stats.pendingTx} pendência(s)`}
         />
       </Box>
