@@ -398,7 +398,7 @@ function SidebarContent({
           whileTap={{ scale: 0.9 }}
           aria-label={collapsed ? 'Expandir menu' : 'Recolher menu'}
           sx={{
-            width: 32, height: 32, borderRadius: '50%', p: 0, flexShrink: 0,
+            width: { md: 32, xl: 38 }, height: { md: 32, xl: 38 }, borderRadius: '50%', p: 0, flexShrink: 0,
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             border: 'none', cursor: 'pointer', color: '#fff',
             background: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)',
@@ -414,7 +414,7 @@ function SidebarContent({
               transition={{ type: 'spring', stiffness: 320, damping: 22 }}
               sx={{ display: 'flex' }}
             >
-              <ChevronRight sx={{ fontSize: { md: 18, xl: 22 } }} />
+              <ChevronRight sx={{ fontSize: { md: 18, xl: 20 } }} />
             </Box>
           )}
         </Box>
