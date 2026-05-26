@@ -14,7 +14,6 @@ import {
     Divider,
     Paper,
     IconButton,
-    useTheme,
 } from '@mui/material';
 import {
     Close,
@@ -25,12 +24,22 @@ import {
     LocationOn,
     Notes,
     DirectionsCar,
-    Home,
 } from '@mui/icons-material';
 import { format, addMinutes } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { VisitAppointment, VISIT_STATUS_LABELS, VisitStatus } from '@/lib/types/visit-appointment';
-import { Reservation, RESERVATION_STATUS_LABELS, ReservationStatus } from '@/lib/types/reservation';
+
+// === Paleta dark + vermelho (AlugaZap) ===
+const C = {
+    panel: '#111827',
+    panelAlt: 'rgba(255,255,255,0.03)',
+    border: 'rgba(255,255,255,0.08)',
+    text: '#f1f5f9',
+    textDim: 'rgba(255,255,255,0.5)',
+    red: '#dc2626',
+    redLight: '#ef4444',
+    redSoft: 'rgba(220,38,38,0.12)',
+};
 
 interface EventDetailsModalProps {
     open: boolean;
@@ -43,29 +52,16 @@ interface EventDetailsModalProps {
         type: 'reservation' | 'visit';
         status: string;
         statusColor: string;
-        details: Reservation | VisitAppointment;
+        details: VisitAppointment;
     } | null;
 }
 
 export default function EventDetailsModal({ open, onClose, event }: EventDetailsModalProps) {
-    const theme = useTheme();
-
     if (!event) return null;
 
-    const isVisit = event.type === 'visit';
-    const visitDetails = isVisit ? event.details as VisitAppointment : null;
-    const reservationDetails = !isVisit ? event.details as Reservation : null;
-
-    // Calculate end time for visits (events)
-    const getEndTime = () => {
-        if (isVisit && visitDetails) {
-            const duration = visitDetails.duration || 60;
-            return addMinutes(event.date, duration);
-        }
-        return event.date;
-    };
-
-    const endTime = getEndTime();
+    const visitDetails = event.details;
+    const duration = visitDetails?.duration || 60;
+    const endTime = addMinutes(event.date, duration);
     const isGenericEvent = visitDetails?.propertyId === 'GENERIC_EVENT';
 
     return (
@@ -76,28 +72,26 @@ export default function EventDetailsModal({ open, onClose, event }: EventDetails
             fullWidth
             PaperProps={{
                 sx: {
-                    borderRadius: 3,
-                    boxShadow: theme.shadows[8],
+                    borderRadius: '14px',
+                    bgcolor: C.panel,
+                    border: `1px solid ${C.border}`,
+                    backgroundImage: 'none',
                 }
             }}
         >
-            <DialogTitle sx={{ 
+            <DialogTitle sx={{
                 pb: 1,
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'space-between'
             }}>
                 <Stack direction="row" alignItems="center" spacing={2}>
-                    {isVisit ? (
-                        <DirectionsCar sx={{ color: 'primary.main' }} />
-                    ) : (
-                        <Home sx={{ color: 'secondary.main' }} />
-                    )}
-                    <Typography variant="h6" fontWeight={600}>
-                        {isGenericEvent ? 'Detalhes do Evento' : (isVisit ? 'Detalhes da Visita' : 'Detalhes da Reserva')}
+                    <DirectionsCar sx={{ color: C.redLight }} />
+                    <Typography variant="h6" fontWeight={600} sx={{ color: C.text }}>
+                        {isGenericEvent ? 'Detalhes do Compromisso' : 'Detalhes da Visita'}
                     </Typography>
                 </Stack>
-                <IconButton onClick={onClose} size="small">
+                <IconButton onClick={onClose} size="small" sx={{ color: C.textDim }}>
                     <Close />
                 </IconButton>
             </DialogTitle>
@@ -107,82 +101,75 @@ export default function EventDetailsModal({ open, onClose, event }: EventDetails
                     {/* Status Chip */}
                     <Box sx={{ display: 'flex', justifyContent: 'center' }}>
                         <Chip
-                            label={isVisit 
-                                ? VISIT_STATUS_LABELS[visitDetails?.status as VisitStatus] || visitDetails?.status
-                                : RESERVATION_STATUS_LABELS[reservationDetails?.status as ReservationStatus] || reservationDetails?.status
-                            }
-                            color={event.statusColor as any}
-                            variant="filled"
-                            sx={{ 
+                            label={VISIT_STATUS_LABELS[visitDetails?.status as VisitStatus] || visitDetails?.status}
+                            variant="outlined"
+                            sx={{
                                 fontSize: '0.875rem',
                                 fontWeight: 600,
                                 px: 2,
                                 py: 1,
-                                height: 'auto'
+                                height: 'auto',
+                                borderColor: event.statusColor,
+                                color: event.statusColor,
+                                bgcolor: 'transparent'
                             }}
                         />
                     </Box>
 
                     {/* Title and Basic Info */}
-                    <Paper sx={{ p: 3, bgcolor: 'background.default', borderRadius: 2 }}>
+                    <Paper sx={{ p: 3, bgcolor: C.panelAlt, border: `1px solid ${C.border}`, borderRadius: '12px', boxShadow: 'none', backgroundImage: 'none' }}>
                         <Stack spacing={2}>
-                            <Typography variant="h6" fontWeight={600} color="primary.main">
+                            <Typography variant="h6" fontWeight={600} sx={{ color: C.redLight }}>
                                 {event.title}
                             </Typography>
-                            
+
                             {event.subtitle && (
-                                <Typography variant="body2" color="text.secondary">
+                                <Typography variant="body2" sx={{ color: C.textDim }}>
                                     {event.subtitle}
                                 </Typography>
                             )}
 
-                            <Divider />
+                            <Divider sx={{ borderColor: C.border }} />
 
                             {/* Date and Time */}
                             <Stack direction="row" alignItems="center" spacing={2}>
-                                <Event sx={{ color: 'text.secondary', fontSize: 20 }} />
+                                <Event sx={{ color: C.textDim, fontSize: 20 }} />
                                 <Box>
-                                    <Typography variant="body2" fontWeight={500}>
+                                    <Typography variant="body2" fontWeight={500} sx={{ color: C.text, textTransform: 'capitalize' }}>
                                         {format(event.date, "EEEE, d 'de' MMMM 'de' yyyy", { locale: ptBR })}
                                     </Typography>
-                                    <Typography variant="caption" color="text.secondary">
-                                        {format(event.date, 'HH:mm')} 
-                                        {isVisit && visitDetails?.duration && (
-                                            <> - {format(endTime, 'HH:mm')} ({visitDetails.duration} min)</>
-                                        )}
+                                    <Typography variant="caption" sx={{ color: C.textDim }}>
+                                        {format(event.date, 'HH:mm')} - {format(endTime, 'HH:mm')} ({duration} min)
                                     </Typography>
                                 </Box>
                             </Stack>
 
                             {/* Client Info */}
                             <Stack direction="row" alignItems="center" spacing={2}>
-                                <Person sx={{ color: 'text.secondary', fontSize: 20 }} />
+                                <Person sx={{ color: C.textDim, fontSize: 20 }} />
                                 <Box>
-                                    <Typography variant="body2" fontWeight={500}>
-                                        {isVisit ? visitDetails?.clientName : reservationDetails?.guestName || 'Cliente'}
+                                    <Typography variant="body2" fontWeight={500} sx={{ color: C.text }}>
+                                        {visitDetails?.clientName || 'Cliente'}
                                     </Typography>
-                                    {((isVisit && visitDetails?.clientPhone) || (!isVisit && reservationDetails?.guestPhone)) && (
-                                        <Typography variant="caption" color="text.secondary">
+                                    {visitDetails?.clientPhone && (
+                                        <Typography variant="caption" sx={{ color: C.textDim }}>
                                             <Phone sx={{ fontSize: 14, mr: 0.5, verticalAlign: 'middle' }} />
-                                            {isVisit ? visitDetails?.clientPhone : reservationDetails?.guestPhone}
+                                            {visitDetails.clientPhone}
                                         </Typography>
                                     )}
                                 </Box>
                             </Stack>
 
                             {/* Location/Property */}
-                            {((isVisit && visitDetails?.propertyAddress) || (!isVisit && reservationDetails?.propertyId)) && (
+                            {(visitDetails?.propertyAddress || visitDetails?.propertyName) && (
                                 <Stack direction="row" alignItems="center" spacing={2}>
-                                    <LocationOn sx={{ color: 'text.secondary', fontSize: 20 }} />
+                                    <LocationOn sx={{ color: C.textDim, fontSize: 20 }} />
                                     <Box>
-                                        <Typography variant="body2" fontWeight={500}>
-                                            {isVisit 
-                                                ? (isGenericEvent ? 'Evento Geral' : visitDetails?.propertyName || 'Propriedade')
-                                                : 'Reserva de Propriedade'
-                                            }
+                                        <Typography variant="body2" fontWeight={500} sx={{ color: C.text }}>
+                                            {isGenericEvent ? 'Compromisso Geral' : visitDetails?.propertyName || 'Propriedade'}
                                         </Typography>
-                                        {isVisit && visitDetails?.propertyAddress && !isGenericEvent && (
-                                            <Typography variant="caption" color="text.secondary">
+                                        {visitDetails?.propertyAddress && !isGenericEvent && (
+                                            <Typography variant="caption" sx={{ color: C.textDim }}>
                                                 {visitDetails.propertyAddress}
                                             </Typography>
                                         )}
@@ -190,11 +177,11 @@ export default function EventDetailsModal({ open, onClose, event }: EventDetails
                                 </Stack>
                             )}
 
-                            {/* Duration (for visits/events) */}
-                            {isVisit && visitDetails?.duration && (
+                            {/* Duration */}
+                            {visitDetails?.duration && (
                                 <Stack direction="row" alignItems="center" spacing={2}>
-                                    <Schedule sx={{ color: 'text.secondary', fontSize: 20 }} />
-                                    <Typography variant="body2">
+                                    <Schedule sx={{ color: C.textDim, fontSize: 20 }} />
+                                    <Typography variant="body2" sx={{ color: C.text }}>
                                         Duração: {visitDetails.duration} minutos
                                     </Typography>
                                 </Stack>
@@ -202,45 +189,19 @@ export default function EventDetailsModal({ open, onClose, event }: EventDetails
                         </Stack>
                     </Paper>
 
-                    {/* Description/Notes */}
-                    {((isVisit && visitDetails?.notes) || (!isVisit && reservationDetails?.specialRequests)) && (
-                        <Paper sx={{ p: 3, bgcolor: 'background.default', borderRadius: 2 }}>
+                    {/* Notes */}
+                    {visitDetails?.notes && (
+                        <Paper sx={{ p: 3, bgcolor: C.panelAlt, border: `1px solid ${C.border}`, borderRadius: '12px', boxShadow: 'none', backgroundImage: 'none' }}>
                             <Stack direction="row" alignItems="flex-start" spacing={2}>
-                                <Notes sx={{ color: 'text.secondary', fontSize: 20, mt: 0.5 }} />
+                                <Notes sx={{ color: C.textDim, fontSize: 20, mt: 0.5 }} />
                                 <Box sx={{ flex: 1 }}>
-                                    <Typography variant="subtitle2" fontWeight={600} gutterBottom>
-                                        {isVisit ? 'Observações' : 'Solicitações Especiais'}
+                                    <Typography variant="subtitle2" fontWeight={600} gutterBottom sx={{ color: C.text }}>
+                                        Observações
                                     </Typography>
-                                    <Typography variant="body2" color="text.secondary" sx={{ whiteSpace: 'pre-wrap' }}>
-                                        {isVisit ? visitDetails?.notes : reservationDetails?.specialRequests}
+                                    <Typography variant="body2" sx={{ color: C.textDim, whiteSpace: 'pre-wrap' }}>
+                                        {visitDetails.notes}
                                     </Typography>
                                 </Box>
-                            </Stack>
-                        </Paper>
-                    )}
-
-                    {/* Additional Info for Reservations */}
-                    {!isVisit && reservationDetails && (
-                        <Paper sx={{ p: 3, bgcolor: 'background.default', borderRadius: 2 }}>
-                            <Typography variant="subtitle2" fontWeight={600} gutterBottom>
-                                Informações da Reserva
-                            </Typography>
-                            <Stack spacing={1}>
-                                {reservationDetails.checkOut && (
-                                    <Typography variant="body2">
-                                        <strong>Check-out:</strong> {format(new Date(reservationDetails.checkOut), "d 'de' MMMM", { locale: ptBR })}
-                                    </Typography>
-                                )}
-                                {reservationDetails.guests && (
-                                    <Typography variant="body2">
-                                        <strong>Hóspedes:</strong> {reservationDetails.guests}
-                                    </Typography>
-                                )}
-                                {reservationDetails.totalAmount && (
-                                    <Typography variant="body2">
-                                        <strong>Valor Total:</strong> R$ {reservationDetails.totalAmount.toLocaleString('pt-BR')}
-                                    </Typography>
-                                )}
                             </Stack>
                         </Paper>
                     )}
@@ -248,14 +209,18 @@ export default function EventDetailsModal({ open, onClose, event }: EventDetails
             </DialogContent>
 
             <DialogActions sx={{ p: 3, pt: 0 }}>
-                <Button 
+                <Button
                     onClick={onClose}
                     variant="contained"
                     fullWidth
                     sx={{
-                        borderRadius: 2,
+                        borderRadius: '12px',
                         py: 1.5,
-                        fontWeight: 600
+                        fontWeight: 600,
+                        textTransform: 'none',
+                        bgcolor: C.red,
+                        boxShadow: 'none',
+                        '&:hover': { bgcolor: '#b91c1c', boxShadow: 'none' }
                     }}
                 >
                     Fechar

@@ -6,8 +6,8 @@ import {
   ListItemIcon, ListItemText, CircularProgress, Divider, alpha,
 } from '@mui/material';
 import {
-  Search, Refresh, MoreVert, WhatsApp, Facebook, Instagram, Chat,
-  ArrowBack, KeyboardArrowDown, DoneAll, MarkChatUnread, Edit, Person,
+  Search, Refresh, MoreVert, WhatsApp, Chat,
+  ArrowBack, KeyboardArrowDown, DoneAll, MarkChatUnread, Edit,
 } from '@mui/icons-material';
 import { useSearchParams } from 'next/navigation';
 import { useAuth } from '@/lib/hooks/useAuth';
@@ -25,12 +25,7 @@ import AIControlButton from '@/components/organisms/conversations/AIControlButto
 import MessageBubble from '@/components/organisms/conversations/MessageBubble';
 import MessageInput from '@/components/organisms/conversations/MessageInput';
 
-const CHANNELS = [
-  { id: 'all', label: 'Todas', icon: Chat, color: '#94a3b8' },
-  { id: 'whatsapp', label: 'WhatsApp', icon: WhatsApp, color: '#25D366' },
-  { id: 'facebook', label: 'Facebook', icon: Facebook, color: '#1877F2' },
-  { id: 'instagram', label: 'Instagram', icon: Instagram, color: '#E1306C' },
-] as const;
+const WA_COLOR = '#25D366';
 
 const STATUS_FILTERS: { id: ConversationHeaderStatus | 'all'; label: string }[] = [
   { id: 'all', label: 'Todas' },
@@ -43,10 +38,6 @@ const STATUS_FILTERS: { id: ConversationHeaderStatus | 'all'; label: string }[] 
 const CONV_STATUS_LABEL: Record<string, string> = {
   active: 'Ativa', completed: 'Concluída', success: 'Sucesso', abandoned: 'Abandonada', pending: 'Pendente',
 };
-
-function channelMeta(channel?: string) {
-  return CHANNELS.find((c) => c.id === channel) || CHANNELS[1];
-}
 
 function initials(name?: string, phone?: string): string {
   const src = (name || '').trim();
@@ -76,8 +67,6 @@ interface RowProps {
   onContextMenu: (e: React.MouseEvent, id: string) => void;
 }
 const ConversationRow = memo(({ conv, selected, triage, onSelect, onContextMenu }: RowProps) => {
-  const ch = channelMeta(conv.channel);
-  const ChIcon = ch.icon;
   const unread = (conv.unreadCount ?? 0) > 0 || conv.isRead === false;
   const accent = triage ? TRIAGE_CONFIG[triage].color : 'transparent';
 
@@ -89,21 +78,21 @@ const ConversationRow = memo(({ conv, selected, triage, onSelect, onContextMenu 
         display: 'flex', alignItems: 'center', gap: 1.25, px: 1.5, py: 1.25,
         cursor: 'pointer', position: 'relative',
         borderLeft: '3px solid', borderLeftColor: accent,
-        bgcolor: selected ? 'rgba(99,102,241,0.1)' : 'transparent',
+        bgcolor: selected ? 'rgba(220,38,38,0.1)' : 'transparent',
         transition: 'background 0.12s ease',
-        '&:hover': { bgcolor: selected ? 'rgba(99,102,241,0.12)' : 'rgba(255,255,255,0.03)' },
+        '&:hover': { bgcolor: selected ? 'rgba(220,38,38,0.12)' : 'rgba(255,255,255,0.03)' },
       }}
     >
       {/* Avatar + channel badge */}
       <Box sx={{ position: 'relative', flexShrink: 0 }}>
-        <Avatar sx={{ width: 42, height: 42, bgcolor: 'rgba(99,102,241,0.18)', color: '#a5b4fc', fontSize: '0.875rem', fontWeight: 600 }}>
+        <Avatar sx={{ width: 42, height: 42, bgcolor: 'rgba(220,38,38,0.18)', color: '#fca5a5', fontSize: '0.875rem', fontWeight: 600 }}>
           {initials(conv.clientName, conv.clientPhone)}
         </Avatar>
         <Box sx={{
           position: 'absolute', bottom: -2, right: -2, width: 18, height: 18, borderRadius: '50%',
           bgcolor: '#0b0f1a', display: 'flex', alignItems: 'center', justifyContent: 'center',
         }}>
-          <ChIcon sx={{ fontSize: 12, color: ch.color }} />
+          <WhatsApp sx={{ fontSize: 12, color: WA_COLOR }} />
         </Box>
       </Box>
 
@@ -130,7 +119,7 @@ const ConversationRow = memo(({ conv, selected, triage, onSelect, onContextMenu 
           </Typography>
           {(conv.unreadCount ?? 0) > 0 && (
             <Box sx={{
-              minWidth: 18, height: 18, px: 0.5, borderRadius: '9px', bgcolor: '#6366f1',
+              minWidth: 18, height: 18, px: 0.5, borderRadius: '9px', bgcolor: '#dc2626',
               display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
             }}>
               <Typography sx={{ fontSize: '0.6875rem', fontWeight: 700, color: '#fff' }}>
@@ -197,7 +186,7 @@ export default function ConversationsPage() {
   // Load leads once → phone→lead map for triage accents/chips
   useEffect(() => {
     if (!services) return;
-    services.leads.getAll(500)
+    services.leads.getAll(300)
       .then((all) => {
         const m = new Map<string, Lead>();
         all.forEach((l) => { if (l.phone) m.set(normalizeBrazilPhone(l.phone), l); });
@@ -253,16 +242,10 @@ export default function ConversationsPage() {
   const handleSend = useCallback(async (message: string) => {
     if (!selectedConversation || !tenantId) return;
     const token = await getFirebaseToken();
-    let endpoint = '/api/whatsapp/send-manual';
-    let body: any = { tenantId, message, phone: selectedConversation.clientPhone };
-    if (selectedConversation.channel === 'facebook') {
-      endpoint = '/api/social/send';
-      body = { tenantId, conversationId: selectedConversation.id, message };
-    }
-    const res = await fetch(endpoint, {
+    const res = await fetch('/api/whatsapp/send-manual', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-      body: JSON.stringify(body),
+      body: JSON.stringify({ tenantId, message, phone: selectedConversation.clientPhone }),
     });
     if (!res.ok) throw new Error((await res.json()).error || 'Falha ao enviar mensagem');
   }, [selectedConversation, tenantId, getFirebaseToken]);
@@ -319,29 +302,6 @@ export default function ConversationsPage() {
           </Box>
         </Box>
 
-        {/* Channel filter chips */}
-        <Box sx={{ display: 'flex', gap: 0.75, px: 2, pb: 1, flexWrap: 'wrap' }}>
-          {CHANNELS.map((c) => {
-            const active = filters.channel === c.id;
-            const count = c.id === 'all' ? stats.total : (stats as any)[c.id] ?? 0;
-            const Icon = c.icon;
-            return (
-              <Box key={c.id} component="button" onClick={() => setFilters((p) => ({ ...p, channel: c.id as any }))}
-                sx={{
-                  display: 'inline-flex', alignItems: 'center', gap: 0.5, px: 1, py: 0.5, borderRadius: '16px',
-                  border: '1px solid', borderColor: active ? c.color : 'rgba(255,255,255,0.1)',
-                  bgcolor: active ? alpha(c.color, 0.14) : 'transparent', cursor: 'pointer', outline: 'none',
-                  transition: 'all 0.12s ease', '&:hover': { borderColor: c.color },
-                }}>
-                <Icon sx={{ fontSize: 13, color: active ? c.color : 'rgba(255,255,255,0.5)' }} />
-                <Typography sx={{ fontSize: '0.6875rem', fontWeight: 600, color: active ? c.color : 'rgba(255,255,255,0.6)' }}>
-                  {c.label}{count ? ` ${count}` : ''}
-                </Typography>
-              </Box>
-            );
-          })}
-        </Box>
-
         {/* Status filter chips */}
         <Box sx={{ display: 'flex', gap: 0.75, px: 2, pb: 1.5, flexWrap: 'wrap' }}>
           {STATUS_FILTERS.map((s) => {
@@ -350,11 +310,11 @@ export default function ConversationsPage() {
               <Box key={s.id} component="button" onClick={() => setFilters((p) => ({ ...p, status: s.id }))}
                 sx={{
                   px: 1, py: 0.375, borderRadius: '14px', cursor: 'pointer', outline: 'none',
-                  border: '1px solid', borderColor: active ? '#6366f1' : 'rgba(255,255,255,0.08)',
-                  bgcolor: active ? 'rgba(99,102,241,0.14)' : 'transparent',
-                  transition: 'all 0.12s ease', '&:hover': { borderColor: 'rgba(99,102,241,0.5)' },
+                  border: '1px solid', borderColor: active ? '#dc2626' : 'rgba(255,255,255,0.08)',
+                  bgcolor: active ? 'rgba(220,38,38,0.14)' : 'transparent',
+                  transition: 'all 0.12s ease', '&:hover': { borderColor: 'rgba(220,38,38,0.5)' },
                 }}>
-                <Typography sx={{ fontSize: '0.6875rem', fontWeight: 600, color: active ? '#818cf8' : 'rgba(255,255,255,0.5)' }}>
+                <Typography sx={{ fontSize: '0.6875rem', fontWeight: 600, color: active ? '#f87171' : 'rgba(255,255,255,0.5)' }}>
                   {s.label}
                 </Typography>
               </Box>
@@ -409,7 +369,7 @@ export default function ConversationsPage() {
                 <ArrowBack fontSize="small" />
               </IconButton>
 
-              <Avatar sx={{ width: 40, height: 40, bgcolor: 'rgba(99,102,241,0.18)', color: '#a5b4fc', fontSize: '0.875rem', fontWeight: 600 }}>
+              <Avatar sx={{ width: 40, height: 40, bgcolor: 'rgba(220,38,38,0.18)', color: '#fca5a5', fontSize: '0.875rem', fontWeight: 600 }}>
                 {initials(selectedConversation.clientName, selectedConversation.clientPhone)}
               </Avatar>
 
@@ -419,12 +379,10 @@ export default function ConversationsPage() {
                     {selectedConversation.clientName || selectedConversation.clientPhone}
                   </Typography>
                   {/* channel chip */}
-                  {(() => { const ch = channelMeta(selectedConversation.channel); const I = ch.icon; return (
-                    <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.375, px: 0.75, py: 0.125, borderRadius: '10px', bgcolor: alpha(ch.color, 0.14) }}>
-                      <I sx={{ fontSize: 12, color: ch.color }} />
-                      <Typography sx={{ fontSize: '0.625rem', fontWeight: 600, color: ch.color }}>{ch.label}</Typography>
-                    </Box>
-                  ); })()}
+                  <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.375, px: 0.75, py: 0.125, borderRadius: '10px', bgcolor: alpha(WA_COLOR, 0.14) }}>
+                    <WhatsApp sx={{ fontSize: 12, color: WA_COLOR }} />
+                    <Typography sx={{ fontSize: '0.625rem', fontWeight: 600, color: WA_COLOR }}>WhatsApp</Typography>
+                  </Box>
                   {/* triage chip */}
                   {selTriage && (
                     <Box sx={{ display: 'inline-flex', alignItems: 'center', gap: 0.375, px: 0.75, py: 0.125, borderRadius: '10px', bgcolor: alpha(TRIAGE_CONFIG[selTriage].color, 0.14) }}>

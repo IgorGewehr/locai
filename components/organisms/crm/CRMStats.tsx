@@ -37,8 +37,8 @@ export default function CRMStats({
       title: 'Total de Leads',
       value: totalLeads,
       icon: <Groups />,
-      gradient: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)',
-      shadowColor: 'rgba(99, 102, 241, 0.4)',
+      gradient: 'linear-gradient(135deg, #dc2626 0%, #dc2626 100%)',
+      shadowColor: 'rgba(220, 38, 38, 0.4)',
     },
     {
       title: 'Leads Quentes',

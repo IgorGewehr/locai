@@ -9,8 +9,8 @@
 import SimpleSignup from '@/components/organisms/SimpleSignup';
 
 export const metadata = {
-  title: 'Criar Conta - Locai',
-  description: 'Crie sua conta e ganhe 7 dias grátis para testar todas as funcionalidades do Locai',
+  title: 'Criar Conta - AlugaZap',
+  description: 'Crie sua conta e ganhe 7 dias grátis para testar todas as funcionalidades do AlugaZap',
 };
 
 export default function CreateAccountPage() {

@@ -714,12 +714,12 @@ export default function LeadPerformanceTracker({
           <Grid item xs={12} sm={3}>
             <Paper sx={{
               p: 3,
-              background: 'rgba(99, 102, 241, 0.1)',
-              border: '1px solid rgba(99, 102, 241, 0.3)',
+              background: 'rgba(220, 38, 38, 0.1)',
+              border: '1px solid rgba(220, 38, 38, 0.3)',
               borderRadius: '16px',
               textAlign: 'center'
             }}>
-              <Typography variant="h4" fontWeight="700" color="#6366f1">
+              <Typography variant="h4" fontWeight="700" color="#dc2626">
                 {filteredAndSortedMetrics.filter(m => m.momentum === 'increasing').length}
               </Typography>
               <Typography variant="body2" color="rgba(255, 255, 255, 0.7)">

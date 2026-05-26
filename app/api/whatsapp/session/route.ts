@@ -362,9 +362,15 @@ export async function POST(request: NextRequest) {
       sessionCache.delete(tenantId);
     }
 
+    const rawMessage = error instanceof Error ? error.message : '';
+    const unreachable = /fetch failed|ECONNREFUSED|ENOTFOUND|aborted|timeout|network|530|502|503|504/i.test(rawMessage);
+    const userMessage = unreachable
+      ? 'Serviço de WhatsApp indisponível no momento. Verifique se o microserviço está online e tente novamente.'
+      : 'Não foi possível iniciar a sessão do WhatsApp. Tente novamente em instantes.';
+
     return NextResponse.json({
       success: false,
-      error: 'Session initialization failed',
+      error: userMessage,
       data: {
         connected: false,
         status: 'error',
@@ -372,9 +378,9 @@ export async function POST(request: NextRequest) {
         businessName: null,
         qrCode: null,
         lastUpdated: new Date().toISOString(),
-        message: 'Failed to initialize WhatsApp session'
+        message: userMessage,
       }
-    }, { status: 500 });
+    }, { status: unreachable ? 503 : 500 });
   }
 }
 

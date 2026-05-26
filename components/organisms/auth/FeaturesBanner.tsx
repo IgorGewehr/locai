@@ -167,15 +167,15 @@ export default function FeaturesBanner({ freeDays }: FeaturesBannerProps) {
                     width: 32,
                     height: 32,
                     borderRadius: 1.5,
-                    background: 'rgba(99, 102, 241, 0.15)',
-                    border: '1px solid rgba(99, 102, 241, 0.3)',
+                    background: 'rgba(220, 38, 38, 0.15)',
+                    border: '1px solid rgba(220, 38, 38, 0.3)',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
                     flexShrink: 0,
                   }}
                 >
-                  <IconComponent sx={{ color: '#6366f1', fontSize: 16 }} />
+                  <IconComponent sx={{ color: '#dc2626', fontSize: 16 }} />
                 </Box>
                 <Box>
                   <Typography

@@ -317,9 +317,9 @@ export const lightTheme = createTheme({
   palette: {
     mode: 'light',
     primary: {
-      main: '#2563eb',
-      light: '#3b82f6',
-      dark: '#1d4ed8',
+      main: '#dc2626',
+      light: '#ef4444',
+      dark: '#b91c1c',
       contrastText: '#ffffff',
     },
     secondary: {
@@ -371,7 +371,7 @@ export const lightTheme = createTheme({
     divider: '#e2e8f0',
     action: {
       hover: 'rgba(0, 0, 0, 0.04)',
-      selected: 'rgba(37, 99, 235, 0.08)',
+      selected: 'rgba(220, 38, 38, 0.08)',
       disabled: 'rgba(0, 0, 0, 0.26)',
       disabledBackground: 'rgba(0, 0, 0, 0.12)',
     },
@@ -410,10 +410,10 @@ export const lightTheme = createTheme({
       styleOverrides: {
         ...baseTheme.components?.MuiButton?.styleOverrides,
         containedPrimary: {
-          backgroundColor: '#2563eb',
+          backgroundColor: '#dc2626',
           color: '#ffffff',
           '&:hover': {
-            backgroundColor: '#1d4ed8',
+            backgroundColor: '#b91c1c',
           },
         },
         outlined: {
@@ -455,7 +455,7 @@ export const lightTheme = createTheme({
               borderColor: '#cbd5e1',
             },
             '&.Mui-focused fieldset': {
-              borderColor: '#2563eb',
+              borderColor: '#dc2626',
               borderWidth: 1,
             },
           },
@@ -463,7 +463,7 @@ export const lightTheme = createTheme({
             color: '#64748b',
             fontSize: '0.875rem',
             '&.Mui-focused': {
-              color: '#2563eb',
+              color: '#dc2626',
             },
           },
         },
@@ -476,9 +476,9 @@ export const lightTheme = createTheme({
             backgroundColor: 'rgba(0, 0, 0, 0.04)',
           },
           '&.Mui-selected': {
-            backgroundColor: 'rgba(37, 99, 235, 0.08)',
+            backgroundColor: 'rgba(220, 38, 38, 0.08)',
             '&:hover': {
-              backgroundColor: 'rgba(37, 99, 235, 0.12)',
+              backgroundColor: 'rgba(220, 38, 38, 0.12)',
             },
           },
         },
@@ -492,9 +492,9 @@ export const darkTheme = createTheme({
   palette: {
     mode: 'dark',
     primary: {
-      main: '#3b82f6',
-      light: '#60a5fa',
-      dark: '#2563eb',
+      main: '#dc2626',
+      light: '#ef4444',
+      dark: '#b91c1c',
       contrastText: '#ffffff',
     },
     secondary: {
@@ -550,7 +550,7 @@ export const darkTheme = createTheme({
     divider: 'rgba(255,255,255,0.09)',
     action: {
       hover: 'rgba(255, 255, 255, 0.05)',
-      selected: 'rgba(99, 102, 241, 0.14)',
+      selected: 'rgba(220, 38, 38, 0.14)',
       disabled: 'rgba(255, 255, 255, 0.26)',
       disabledBackground: 'rgba(255, 255, 255, 0.1)',
     },
@@ -559,7 +559,7 @@ export const darkTheme = createTheme({
     danger: '#ef4444',
     success: '#10b981',
     warning: '#f59e0b',
-    info: '#6366f1',
+    info: '#3b82f6',
   },
   custom: {
     glassEffect: 'rgba(17, 24, 39, 0.85)',
@@ -589,10 +589,10 @@ export const darkTheme = createTheme({
       styleOverrides: {
         ...baseTheme.components?.MuiButton?.styleOverrides,
         containedPrimary: {
-          backgroundColor: '#3b82f6',
+          backgroundColor: '#dc2626',
           color: '#ffffff',
           '&:hover': {
-            backgroundColor: '#2563eb',
+            backgroundColor: '#b91c1c',
           },
         },
         outlined: {
@@ -635,7 +635,7 @@ export const darkTheme = createTheme({
               borderColor: 'rgba(255,255,255,0.18)',
             },
             '&.Mui-focused fieldset': {
-              borderColor: '#6366f1',
+              borderColor: '#dc2626',
               borderWidth: 1,
             },
           },
@@ -643,7 +643,7 @@ export const darkTheme = createTheme({
             color: '#64748b',
             fontSize: '0.875rem',
             '&.Mui-focused': {
-              color: '#818cf8',
+              color: '#f87171',
             },
           },
         },
@@ -656,9 +656,9 @@ export const darkTheme = createTheme({
             backgroundColor: 'rgba(255,255,255,0.04)',
           },
           '&.Mui-selected': {
-            backgroundColor: 'rgba(99,102,241,0.13)',
+            backgroundColor: 'rgba(220,38,38,0.13)',
             '&:hover': {
-              backgroundColor: 'rgba(99,102,241,0.18)',
+              backgroundColor: 'rgba(220,38,38,0.18)',
             },
           },
         },

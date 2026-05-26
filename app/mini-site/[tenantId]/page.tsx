@@ -595,11 +595,11 @@ export default function MiniSitePage() {
                 gradient: 'linear-gradient(135deg, rgba(245, 158, 11, 0.1), rgba(245, 158, 11, 0.05))',
               },
               {
-                icon: <Speed sx={{ fontSize: 32, color: '#8b5cf6' }} />,
+                icon: <Speed sx={{ fontSize: 32, color: '#dc2626' }} />,
                 title: 'Reserva Rápida',
                 value: '2 min',
                 subtitle: 'Processo simplificado',
-                gradient: 'linear-gradient(135deg, rgba(139, 92, 246, 0.1), rgba(139, 92, 246, 0.05))',
+                gradient: 'linear-gradient(135deg, rgba(220, 38, 38, 0.1), rgba(220, 38, 38, 0.05))',
               },
             ].map((stat, index) => (
               <Grid item xs={6} md={3} key={index}>

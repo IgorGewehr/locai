@@ -202,12 +202,12 @@ export class AdminErrorBoundary extends Component<Props, State> {
                   sx={{
                     py: 1.5,
                     borderRadius: '12px',
-                    bgcolor: '#8b5cf6',
+                    bgcolor: '#dc2626',
                     fontFamily: 'Inter, sans-serif',
                     fontWeight: 600,
                     textTransform: 'none',
                     '&:hover': {
-                      bgcolor: '#7c3aed'
+                      bgcolor: '#b91c1c'
                     }
                   }}
                 >

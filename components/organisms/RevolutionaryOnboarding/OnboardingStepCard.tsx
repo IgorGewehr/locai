@@ -129,7 +129,7 @@ export default function OnboardingStepCard({
       return `linear-gradient(135deg, ${alpha('#10b981', 0.15)}, ${alpha('#059669', 0.1)})`;
     }
     if (isActive) {
-      return `linear-gradient(135deg, ${alpha('#6366f1', 0.2)}, ${alpha('#8b5cf6', 0.15)})`;
+      return `linear-gradient(135deg, ${alpha('#dc2626', 0.2)}, ${alpha('#dc2626', 0.15)})`;
     }
     if (isSkipped) {
       return alpha(theme.palette.background.paper, 0.3);
@@ -140,7 +140,7 @@ export default function OnboardingStepCard({
   // Border color based on state
   const getBorderColor = () => {
     if (isCompleted) return alpha('#10b981', 0.4);
-    if (isActive) return alpha('#6366f1', 0.6);
+    if (isActive) return alpha('#dc2626', 0.6);
     if (isSkipped) return alpha(theme.palette.divider, 0.2);
     return alpha(theme.palette.divider, 0.3);
   };
@@ -148,7 +148,7 @@ export default function OnboardingStepCard({
   // Icon background gradient
   const getIconGradient = () => {
     if (isCompleted) return 'linear-gradient(135deg, #10b981, #059669)';
-    if (isActive) return 'linear-gradient(135deg, #6366f1, #8b5cf6)';
+    if (isActive) return 'linear-gradient(135deg, #dc2626, #dc2626)';
     return `linear-gradient(135deg, ${alpha('#ffffff', 0.1)}, ${alpha('#ffffff', 0.05)})`;
   };
 
@@ -169,7 +169,7 @@ export default function OnboardingStepCard({
         position: 'relative',
         '&:hover': {
           boxShadow: isActive || isCompleted
-            ? `0 12px 40px ${alpha(isCompleted ? '#10b981' : '#6366f1', 0.3)}`
+            ? `0 12px 40px ${alpha(isCompleted ? '#10b981' : '#dc2626', 0.3)}`
             : 'none',
         },
       }}
@@ -188,7 +188,7 @@ export default function OnboardingStepCard({
               left: 0,
               right: 0,
               height: '4px',
-              background: 'linear-gradient(90deg, #6366f1, #8b5cf6, #d946ef)',
+              background: 'linear-gradient(90deg, #dc2626, #dc2626, #d946ef)',
               transformOrigin: 'left',
             }}
           />
@@ -214,7 +214,7 @@ export default function OnboardingStepCard({
                 alignItems: 'center',
                 justifyContent: 'center',
                 flexShrink: 0,
-                boxShadow: isActive ? `0 8px 24px ${alpha('#6366f1', 0.4)}` : 'none',
+                boxShadow: isActive ? `0 8px 24px ${alpha('#dc2626', 0.4)}` : 'none',
               }}
             >
               {isCompleted ? (
@@ -243,9 +243,9 @@ export default function OnboardingStepCard({
                   size="small"
                   sx={{
                     backgroundColor: isActive
-                      ? alpha('#6366f1', 0.2)
+                      ? alpha('#dc2626', 0.2)
                       : alpha(theme.palette.background.paper, 0.5),
-                    color: isActive ? '#a5b4fc' : alpha('#ffffff', 0.6),
+                    color: isActive ? '#fca5a5' : alpha('#ffffff', 0.6),
                     fontWeight: 600,
                     fontSize: '0.75rem',
                     height: 22,
@@ -347,16 +347,16 @@ export default function OnboardingStepCard({
                     sx={{
                       p: 1.5,
                       borderRadius: '8px',
-                      backgroundColor: alpha('#6366f1', 0.1),
-                      border: `1px solid ${alpha('#6366f1', 0.2)}`,
+                      backgroundColor: alpha('#dc2626', 0.1),
+                      border: `1px solid ${alpha('#dc2626', 0.2)}`,
                       mb: 1.5,
                     }}
                   >
                     <Stack direction="row" spacing={1}>
-                      <Info sx={{ fontSize: 18, color: '#a5b4fc', flexShrink: 0 }} />
+                      <Info sx={{ fontSize: 18, color: '#fca5a5', flexShrink: 0 }} />
                       <Typography
                         variant="caption"
-                        sx={{ color: '#c7d2fe', lineHeight: 1.5, fontSize: '0.8125rem' }}
+                        sx={{ color: '#fca5a5', lineHeight: 1.5, fontSize: '0.8125rem' }}
                       >
                         {step.guidanceText}
                       </Typography>
@@ -433,16 +433,16 @@ export default function OnboardingStepCard({
                       sx={{
                         background: isActive
                           ? 'linear-gradient(135deg, #10b981, #059669)'
-                          : 'linear-gradient(135deg, #6366f1, #8b5cf6)',
+                          : 'linear-gradient(135deg, #dc2626, #dc2626)',
                         boxShadow: isActive
                           ? `0 4px 16px ${alpha('#10b981', 0.3)}`
-                          : `0 4px 16px ${alpha('#6366f1', 0.3)}`,
+                          : `0 4px 16px ${alpha('#dc2626', 0.3)}`,
                         fontWeight: 600,
                         '&:hover': {
                           transform: 'translateY(-2px)',
                           boxShadow: isActive
                             ? `0 6px 20px ${alpha('#10b981', 0.4)}`
-                            : `0 6px 20px ${alpha('#6366f1', 0.4)}`,
+                            : `0 6px 20px ${alpha('#dc2626', 0.4)}`,
                         },
                         transition: 'all 0.2s ease',
                       }}

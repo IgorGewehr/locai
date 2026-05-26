@@ -3,8 +3,8 @@
 
 import { logger } from '@/lib/utils/logger';
 
-const MICROSERVICE_BASE_URL = process.env.WHATSAPP_MICROSERVICE_URL || 'http://167.172.116.195:3000';
-const MICROSERVICE_API_KEY = process.env.WHATSAPP_MICROSERVICE_API_KEY || 'tTmMQE3Rdgu1UpwEwTBow4GmBU9XstTaGva2kIqGjCU=';
+const MICROSERVICE_BASE_URL = process.env.WHATSAPP_MICROSERVICE_URL || 'http://localhost:3000';
+const MICROSERVICE_API_KEY = process.env.WHATSAPP_MICROSERVICE_API_KEY || '';
 
 interface MicroserviceResponse {
   success: boolean;

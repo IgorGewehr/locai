@@ -18,16 +18,15 @@ import {
 } from '@mui/material';
 import {
     Home,
-    CalendarMonth,
     People,
-    AttachMoney,
     TrendingUp,
     TrendingDown,
     Refresh,
     WhatsApp,
-    Settings,
     SmartToy,
+    NotificationsActive,
 } from '@mui/icons-material';
+import { toDate } from '@/lib/utils/date-helpers';
 import WhatsAppStatusIndicator from '@/components/molecules/whatsapp/WhatsAppStatusIndicator';
 import type { DashboardStats } from '@/lib/types';
 import { db } from '@/lib/firebase/config';
@@ -68,7 +67,7 @@ const CardSkeleton = () => (
       justifyContent: 'center',
     }}
   >
-    <CircularProgress size={40} sx={{ color: 'rgba(99, 102, 241, 0.6)' }} />
+    <CircularProgress size={40} sx={{ color: 'rgba(220, 38, 38, 0.6)' }} />
   </Card>
 );
 
@@ -89,8 +88,8 @@ function StatCard({ title, value, subtitle, icon, trend, color }: StatCardProps)
   React.useEffect(() => { setMounted(true); }, []);
 
   const colorMap = {
-    primary:   { accent: '#6366f1', iconBg: 'rgba(99,102,241,0.12)',  iconColor: '#818cf8' },
-    secondary: { accent: '#8b5cf6', iconBg: 'rgba(139,92,246,0.12)', iconColor: '#a78bfa' },
+    primary:   { accent: '#dc2626', iconBg: 'rgba(220,38,38,0.12)',  iconColor: '#f87171' },
+    secondary: { accent: '#dc2626', iconBg: 'rgba(220, 38, 38,0.12)', iconColor: '#f87171' },
     success:   { accent: '#10b981', iconBg: 'rgba(16,185,129,0.12)', iconColor: '#34d399' },
     warning:   { accent: '#f59e0b', iconBg: 'rgba(245,158,11,0.12)', iconColor: '#fbbf24' },
     error:     { accent: '#ef4444', iconBg: 'rgba(239,68,68,0.12)',  iconColor: '#f87171' },
@@ -193,11 +192,13 @@ export default function DashboardPage() {
     avgResponseTime: 0,
     connected: false,
   });
-  const [trends, setTrends] = useState({
-    propertiesTrend: 0,
-    reservationsTrend: 0,
-    revenueTrend: 0,
-    occupancyTrend: 0
+  const [agentMetrics, setAgentMetrics] = useState({
+    leadsThisMonth: 0,
+    totalLeads: 0,
+    needsYou: 0,
+    hot: 0,
+    warm: 0,
+    cold: 0,
   });
 
   // 🚀 OTIMIZAÇÃO: useCallback previne re-criação da função
@@ -207,58 +208,26 @@ export default function DashboardPage() {
 
     setLoading(true);
     try {
-      // 🚀 OTIMIZAÇÃO: getAll() agora tem limit de 1000 docs (antes era ilimitado)
+      // Properties (real — shown by the agent)
       const properties = await services.properties.getAll();
       const activeProperties = properties.filter((p: any) => p.isActive === true);
 
-      // 🚀 OTIMIZAÇÃO: getAll() agora tem limit de 1000 docs
-      const reservations = await services.reservations.getAll();
-      const pendingReservations = reservations.filter((r: any) => r.status === 'pending');
-
-      // Calculate monthly revenue and trends
-      const currentMonth = new Date().getMonth();
-      const currentYear = new Date().getFullYear();
-      const lastMonth = currentMonth === 0 ? 11 : currentMonth - 1;
-      const lastMonthYear = currentMonth === 0 ? currentYear - 1 : currentYear;
-      
-      const monthlyReservations = reservations.filter(r => {
-        const date = (r.checkIn as any)?.toDate ? (r.checkIn as any).toDate() : new Date(r.checkIn);
-        return date.getMonth() === currentMonth && date.getFullYear() === currentYear && r.status === 'confirmed';
-      });
-      
-      const lastMonthReservations = reservations.filter(r => {
-        const date = (r.checkIn as any)?.toDate ? (r.checkIn as any).toDate() : new Date(r.checkIn);
-        return date.getMonth() === lastMonth && date.getFullYear() === lastMonthYear && r.status === 'confirmed';
+      // Leads — the agent's core output: classification, temperature, escalations
+      const leads = await services.leads.getAll(500);
+      const now = new Date();
+      const leadsThisMonth = leads.filter((l: any) => {
+        const d = toDate(l.createdAt);
+        return d && d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+      }).length;
+      let needsYou = 0, hot = 0, warm = 0, cold = 0;
+      leads.forEach((l: any) => {
+        if (l.escalation?.active) needsYou++;
+        if (l.temperature === 'hot') hot++;
+        else if (l.temperature === 'warm') warm++;
+        else cold++;
       });
 
-      const monthlyRevenue = monthlyReservations.reduce((total, r) => total + r.totalPrice, 0);
-      const lastMonthRevenue = lastMonthReservations.reduce((total, r) => total + r.totalPrice, 0);
-      const totalRevenue = reservations
-        .filter(r => r.status === 'confirmed')
-        .reduce((total, r) => total + r.totalPrice, 0);
-        
-      // Calculate trends
-      const revenueTrend = lastMonthRevenue > 0 ? ((monthlyRevenue - lastMonthRevenue) / lastMonthRevenue) * 100 : 0;
-      const reservationsTrend = lastMonthReservations.length > 0 ? 
-        ((monthlyReservations.length - lastMonthReservations.length) / lastMonthReservations.length) * 100 : 0;
-
-      // Calculate occupancy rate
-      const totalDays = activeProperties.length * 30; // Assuming 30 days
-      const occupiedDays = reservations
-        .filter(r => r.status === 'confirmed')
-        .reduce((total, r) => {
-          const checkIn = (r.checkIn as any)?.toDate ? (r.checkIn as any).toDate() : new Date(r.checkIn);
-          const checkOut = (r.checkOut as any)?.toDate ? (r.checkOut as any).toDate() : new Date(r.checkOut);
-          const days = Math.ceil((checkOut.getTime() - checkIn.getTime()) / (1000 * 60 * 60 * 24));
-          return total + days;
-        }, 0);
-      const occupancyRate = totalDays > 0 ? (occupiedDays / totalDays) * 100 : 0;
-
-      // WhatsApp connection status - REMOVIDO para evitar erros 401
-      // O status deve ser verificado apenas na página de settings quando necessário
-      let whatsappConnected = false; // Sempre false por enquanto
-
-      // Fetch WhatsApp stats from tenant-isolated collections
+      // WhatsApp / Sofia stats from tenant-isolated collections
       const today = new Date();
       today.setHours(0, 0, 0, 0);
 
@@ -274,7 +243,7 @@ export default function DashboardPage() {
       );
       const conversationsSnapshot = await getDocs(conversationsQuery);
 
-      // Calculate average response time from real data
+      // Average response time from real bot messages
       let avgResponseTime = 0;
       if (messagesSnapshot.size > 0) {
         const messages = messagesSnapshot.docs.map(doc => doc.data());
@@ -285,38 +254,22 @@ export default function DashboardPage() {
         }
       }
 
-
-      setStats({
+      setStats(prev => ({
+        ...prev,
         totalProperties: properties.length,
         activeProperties: activeProperties.length,
-        totalReservations: reservations.length,
-        pendingReservations: pendingReservations.length,
-        totalRevenue,
-        monthlyRevenue,
-        occupancyRate,
-        averageRating: 0, // Reviews system not implemented yet
-      });
+      }));
+
+      setAgentMetrics({ leadsThisMonth, totalLeads: leads.length, needsYou, hot, warm, cold });
 
       setWhatsappStats({
         messagesTotal: messagesSnapshot.size,
         activeConversations: conversationsSnapshot.size,
-        avgResponseTime: avgResponseTime,
-        connected: whatsappConnected,
-      });
-
-      
-      // Set calculated trends
-      setTrends({
-        propertiesTrend: 0, // Properties trend (growth in properties)
-        reservationsTrend: Math.round(reservationsTrend),
-        revenueTrend: Math.round(revenueTrend),
-        occupancyTrend: 0 // Calculate based on previous month if needed
+        avgResponseTime,
+        connected: false,
       });
     } catch (error) {
-      logger.error('[Dashboard] Error fetching stats', {
-        error: error instanceof Error ? error.message : 'Unknown error',
-        tenantId,
-      });
+      logger.error('[Dashboard] Error fetching stats', error instanceof Error ? error : undefined);
     } finally {
       setLoading(false);
     }
@@ -335,6 +288,13 @@ export default function DashboardPage() {
     await fetchStats();
   };
 
+  const mainCards: { id: string; title: string; value: string | number; subtitle: string; icon: React.ReactNode; color: StatCardProps['color'] }[] = [
+    { id: 'properties', title: 'Propriedades Ativas', value: stats.activeProperties, subtitle: `${stats.totalProperties} no total`, icon: <Home sx={{ fontSize: { xs: 28, md: 32 } }} />, color: 'primary' },
+    { id: 'leads', title: 'Leads novos (mês)', value: agentMetrics.leadsThisMonth, subtitle: `${agentMetrics.totalLeads} no total`, icon: <People sx={{ fontSize: { xs: 28, md: 32 } }} />, color: 'primary' },
+    { id: 'conversas', title: 'Conversas ativas', value: whatsappStats.activeConversations, subtitle: `${whatsappStats.messagesTotal} msgs hoje`, icon: <WhatsApp sx={{ fontSize: { xs: 28, md: 32 } }} />, color: 'success' },
+    { id: 'needs', title: 'Precisam de você', value: agentMetrics.needsYou, subtitle: 'atendimentos escalados pela IA', icon: <NotificationsActive sx={{ fontSize: { xs: 28, md: 32 } }} />, color: 'error' },
+  ];
+
   return (
     <Box sx={{ pb: { xs: 4, md: 6 } }}>
       {/* Header Section */}
@@ -352,7 +312,7 @@ export default function DashboardPage() {
             component="h1"
             fontWeight="800"
             sx={{
-              background: 'linear-gradient(135deg, #ffffff 0%, #c7d2fe 100%)',
+              background: 'linear-gradient(135deg, #ffffff 0%, #fca5a5 100%)',
               WebkitBackgroundClip: 'text',
               WebkitTextFillColor: 'transparent',
               backgroundClip: 'text',
@@ -380,21 +340,21 @@ export default function DashboardPage() {
             onClick={refreshStats}
             disabled={loading}
             sx={{
-              background: 'rgba(99, 102, 241, 0.1)',
-              border: '1px solid rgba(99, 102, 241, 0.2)',
+              background: 'rgba(220, 38, 38, 0.1)',
+              border: '1px solid rgba(220, 38, 38, 0.2)',
               borderRadius: '14px',
               p: 2,
               width: 52,
               height: 52,
               transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
               '&:hover': {
-                background: 'rgba(99, 102, 241, 0.2)',
+                background: 'rgba(220, 38, 38, 0.2)',
                 transform: 'translateY(-2px)',
-                boxShadow: '0 8px 24px rgba(99, 102, 241, 0.3)',
+                boxShadow: '0 8px 24px rgba(220, 38, 38, 0.3)',
               }
             }}
           >
-            <Refresh sx={{ color: '#6366f1', fontSize: 24 }} />
+            <Refresh sx={{ color: '#dc2626', fontSize: 24 }} />
           </IconButton>
         </Box>
       </Box>
@@ -407,7 +367,7 @@ export default function DashboardPage() {
               borderRadius: 1.5,
               backgroundColor: 'rgba(255, 255, 255, 0.08)',
               '& .MuiLinearProgress-bar': {
-                background: 'linear-gradient(90deg, #6366f1 0%, #8b5cf6 100%)',
+                background: 'linear-gradient(90deg, #dc2626 0%, #dc2626 100%)',
                 borderRadius: 1.5,
               }
             }}
@@ -422,7 +382,7 @@ export default function DashboardPage() {
 
       {/* Clean Grid Layout - Optimized Architecture */}
       <Grid container spacing={{ xs: 2.5, md: 3 }}>
-        {/* Main Statistics Row - 4 Key Metrics */}
+        {/* Main Statistics Row — agent-driven metrics */}
         {/* Mobile: Horizontal Carousel */}
         <Grid item xs={12} sx={{ display: { xs: 'block', lg: 'none' } }}>
           <Box
@@ -432,119 +392,48 @@ export default function DashboardPage() {
               overflowX: 'auto',
               pb: 2,
               scrollSnapType: 'x mandatory',
-              '&::-webkit-scrollbar': {
-                height: 6,
-              },
-              '&::-webkit-scrollbar-track': {
-                bgcolor: 'rgba(255, 255, 255, 0.05)',
-                borderRadius: 3,
-              },
+              '&::-webkit-scrollbar': { height: 6 },
+              '&::-webkit-scrollbar-track': { bgcolor: 'rgba(255, 255, 255, 0.05)', borderRadius: 3 },
               '&::-webkit-scrollbar-thumb': {
-                bgcolor: 'rgba(99, 102, 241, 0.5)',
+                bgcolor: 'rgba(220, 38, 38, 0.5)',
                 borderRadius: 3,
-                '&:hover': {
-                  bgcolor: 'rgba(99, 102, 241, 0.7)',
-                },
+                '&:hover': { bgcolor: 'rgba(220, 38, 38, 0.7)' },
               },
             }}
           >
-            <Box sx={{ minWidth: { xs: '85vw', sm: '45%' }, scrollSnapAlign: 'start' }}>
-              <StatCard
-                key={`properties-${stats.activeProperties}-${loading}`}
-                title="Propriedades Ativas"
-                value={stats.activeProperties}
-                subtitle={`${stats.totalProperties} total`}
-                icon={<Home sx={{ fontSize: { xs: 28, md: 32 } }} />}
-                color="primary"
-                trend={{ value: trends.propertiesTrend, isPositive: trends.propertiesTrend >= 0 }}
-              />
-            </Box>
-
-            <Box sx={{ minWidth: { xs: '85vw', sm: '45%' }, scrollSnapAlign: 'start' }}>
-              <StatCard
-                key={`reservations-${stats.pendingReservations}-${loading}`}
-                title="Reservas Pendentes"
-                value={stats.pendingReservations}
-                subtitle={`${stats.totalReservations} total`}
-                icon={<CalendarMonth sx={{ fontSize: { xs: 28, md: 32 } }} />}
-                color="secondary"
-                trend={{ value: trends.reservationsTrend, isPositive: trends.reservationsTrend >= 0 }}
-              />
-            </Box>
-
-            <Box sx={{ minWidth: { xs: '85vw', sm: '45%' }, scrollSnapAlign: 'start' }}>
-              <StatCard
-                key={`revenue-${stats.monthlyRevenue}-${loading}`}
-                title="Receita Mensal"
-                value={`R$ ${(isNaN(stats.monthlyRevenue) ? 0 : stats.monthlyRevenue / 1000).toFixed(1)}k`}
-                subtitle={`R$ ${(isNaN(stats.totalRevenue) ? 0 : stats.totalRevenue / 1000).toFixed(0)}k total`}
-                icon={<AttachMoney sx={{ fontSize: { xs: 28, md: 32 } }} />}
-                color="success"
-                trend={{ value: trends.revenueTrend, isPositive: trends.revenueTrend >= 0 }}
-              />
-            </Box>
-
-            <Box sx={{ minWidth: { xs: '85vw', sm: '45%' }, scrollSnapAlign: 'start' }}>
-              <StatCard
-                key={`occupancy-${stats.occupancyRate}-${loading}`}
-                title="Taxa de Ocupação"
-                value={`${(isNaN(stats.occupancyRate) ? 0 : stats.occupancyRate).toFixed(1)}%`}
-                subtitle={`${stats.activeProperties} propriedades ativas`}
-                icon={<People sx={{ fontSize: { xs: 28, md: 32 } }} />}
-                color="warning"
-                trend={{ value: trends.occupancyTrend, isPositive: trends.occupancyTrend >= 0 }}
-              />
-            </Box>
+            {mainCards.map((card) => (
+              <Box key={card.id} sx={{ minWidth: { xs: '85vw', sm: '45%' }, scrollSnapAlign: 'start' }}>
+                <StatCard title={card.title} value={card.value} subtitle={card.subtitle} icon={card.icon} color={card.color} />
+              </Box>
+            ))}
           </Box>
         </Grid>
 
         {/* Desktop: Grid Layout */}
-        <Grid item xs={12} sm={6} lg={3} sx={{ display: { xs: 'none', lg: 'block' } }}>
-          <StatCard
-            key={`properties-${stats.activeProperties}-${loading}`}
-            title="Propriedades Ativas"
-            value={stats.activeProperties}
-            subtitle={`${stats.totalProperties} total`}
-            icon={<Home sx={{ fontSize: { xs: 28, md: 32 } }} />}
-            color="primary"
-            trend={{ value: trends.propertiesTrend, isPositive: trends.propertiesTrend >= 0 }}
-          />
-        </Grid>
+        {mainCards.map((card) => (
+          <Grid key={card.id} item xs={12} sm={6} lg={3} sx={{ display: { xs: 'none', lg: 'block' } }}>
+            <StatCard title={card.title} value={card.value} subtitle={card.subtitle} icon={card.icon} color={card.color} />
+          </Grid>
+        ))}
 
-        <Grid item xs={12} sm={6} lg={3} sx={{ display: { xs: 'none', lg: 'block' } }}>
-          <StatCard
-            key={`reservations-${stats.pendingReservations}-${loading}`}
-            title="Reservas Pendentes"
-            value={stats.pendingReservations}
-            subtitle={`${stats.totalReservations} total`}
-            icon={<CalendarMonth sx={{ fontSize: { xs: 28, md: 32 } }} />}
-            color="secondary"
-            trend={{ value: trends.reservationsTrend, isPositive: trends.reservationsTrend >= 0 }}
-          />
-        </Grid>
-
-        <Grid item xs={12} sm={6} lg={3} sx={{ display: { xs: 'none', lg: 'block' } }}>
-          <StatCard
-            key={`revenue-${stats.monthlyRevenue}-${loading}`}
-            title="Receita Mensal"
-            value={`R$ ${(isNaN(stats.monthlyRevenue) ? 0 : stats.monthlyRevenue / 1000).toFixed(1)}k`}
-            subtitle={`R$ ${(isNaN(stats.totalRevenue) ? 0 : stats.totalRevenue / 1000).toFixed(0)}k total`}
-            icon={<AttachMoney sx={{ fontSize: { xs: 28, md: 32 } }} />}
-            color="success"
-            trend={{ value: trends.revenueTrend, isPositive: trends.revenueTrend >= 0 }}
-          />
-        </Grid>
-
-        <Grid item xs={12} sm={6} lg={3} sx={{ display: { xs: 'none', lg: 'block' } }}>
-          <StatCard
-            key={`occupancy-${stats.occupancyRate}-${loading}`}
-            title="Taxa de Ocupação"
-            value={`${(isNaN(stats.occupancyRate) ? 0 : stats.occupancyRate).toFixed(1)}%`}
-            subtitle={`${stats.activeProperties} propriedades ativas`}
-            icon={<People sx={{ fontSize: { xs: 28, md: 32 } }} />}
-            color="warning"
-            trend={{ value: trends.occupancyTrend, isPositive: trends.occupancyTrend >= 0 }}
-          />
+        {/* Lead temperature strip */}
+        <Grid item xs={12}>
+          <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', bgcolor: '#111827', border: '1px solid rgba(255,255,255,0.08)', borderRadius: '14px', p: 2.5 }}>
+            <Typography sx={{ fontSize: '0.875rem', fontWeight: 600, color: 'rgba(255,255,255,0.6)', mr: 1, alignSelf: 'center' }}>
+              Leads por temperatura
+            </Typography>
+            {[
+              { label: 'Quentes', value: agentMetrics.hot, color: '#fb923c' },
+              { label: 'Mornos', value: agentMetrics.warm, color: '#94a3b8' },
+              { label: 'Frios', value: agentMetrics.cold, color: '#64748b' },
+            ].map((t) => (
+              <Box key={t.label} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: t.color }} />
+                <Typography sx={{ fontSize: '0.9375rem', fontWeight: 700, color: '#f1f5f9' }}>{t.value}</Typography>
+                <Typography sx={{ fontSize: '0.8125rem', color: 'rgba(255,255,255,0.45)' }}>{t.label}</Typography>
+              </Box>
+            ))}
+          </Box>
         </Grid>
 
         {/* Sofia Stats - Mobile: Modern Banking Style Layout, Desktop: Card */}
@@ -554,14 +443,14 @@ export default function DashboardPage() {
             {/* Sofia Title Banner */}
             <Box
               sx={{
-                background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)',
+                background: 'linear-gradient(135deg, #dc2626 0%, #dc2626 100%)',
                 borderRadius: '20px',
                 p: 2.5,
                 mb: 2,
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'space-between',
-                boxShadow: '0 8px 32px rgba(99, 102, 241, 0.4)',
+                boxShadow: '0 8px 32px rgba(220, 38, 38, 0.4)',
               }}
             >
               <Box>
@@ -673,12 +562,12 @@ export default function DashboardPage() {
                   sx={{
                     borderRadius: '16px',
                     py: 1.5,
-                    borderColor: 'rgba(99, 102, 241, 0.3)',
-                    color: '#6366f1',
+                    borderColor: 'rgba(220, 38, 38, 0.3)',
+                    color: '#dc2626',
                     fontWeight: 600,
                     '&:hover': {
-                      borderColor: '#6366f1',
-                      bgcolor: 'rgba(99, 102, 241, 0.1)',
+                      borderColor: '#dc2626',
+                      bgcolor: 'rgba(220, 38, 38, 0.1)',
                     },
                   }}
                 >
@@ -693,12 +582,12 @@ export default function DashboardPage() {
                   sx={{
                     borderRadius: '16px',
                     py: 1.5,
-                    borderColor: 'rgba(139, 92, 246, 0.3)',
-                    color: '#8b5cf6',
+                    borderColor: 'rgba(220, 38, 38, 0.3)',
+                    color: '#dc2626',
                     fontWeight: 600,
                     '&:hover': {
-                      borderColor: '#8b5cf6',
-                      bgcolor: 'rgba(139, 92, 246, 0.1)',
+                      borderColor: '#dc2626',
+                      bgcolor: 'rgba(220, 38, 38, 0.1)',
                     },
                   }}
                 >

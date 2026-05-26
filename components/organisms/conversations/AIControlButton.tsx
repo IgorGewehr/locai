@@ -112,24 +112,24 @@ export default function AIControlButton({ phone, conversationName }: AIControlBu
             py: 0.625,
             borderRadius: '20px',
             border: '1px solid',
-            borderColor: blocked ? 'rgba(239,68,68,0.35)' : 'rgba(99,102,241,0.35)',
-            bgcolor: blocked ? 'rgba(239,68,68,0.08)' : 'rgba(99,102,241,0.08)',
+            borderColor: blocked ? 'rgba(239,68,68,0.35)' : 'rgba(220,38,38,0.35)',
+            bgcolor: blocked ? 'rgba(239,68,68,0.08)' : 'rgba(220,38,38,0.08)',
             cursor: submitting ? 'not-allowed' : 'pointer',
             transition: 'all 0.18s ease',
             opacity: submitting ? 0.6 : 1,
             outline: 'none',
             '&:hover': {
-              borderColor: blocked ? 'rgba(239,68,68,0.6)' : 'rgba(99,102,241,0.6)',
-              bgcolor: blocked ? 'rgba(239,68,68,0.13)' : 'rgba(99,102,241,0.13)',
+              borderColor: blocked ? 'rgba(239,68,68,0.6)' : 'rgba(220,38,38,0.6)',
+              bgcolor: blocked ? 'rgba(239,68,68,0.13)' : 'rgba(220,38,38,0.13)',
             },
           }}
         >
           {submitting ? (
-            <CircularProgress size={12} sx={{ color: blocked ? '#f87171' : '#818cf8' }} />
+            <CircularProgress size={12} sx={{ color: blocked ? '#f87171' : '#f87171' }} />
           ) : blocked ? (
             <ManualIcon sx={{ fontSize: 14, color: '#f87171' }} />
           ) : (
-            <AIIcon sx={{ fontSize: 14, color: '#818cf8' }} />
+            <AIIcon sx={{ fontSize: 14, color: '#f87171' }} />
           )}
 
           <AnimatePresence mode="wait" initial={false}>
@@ -145,7 +145,7 @@ export default function AIControlButton({ phone, conversationName }: AIControlBu
                 sx={{
                   fontSize: '0.75rem',
                   fontWeight: 600,
-                  color: blocked ? '#f87171' : '#818cf8',
+                  color: blocked ? '#f87171' : '#f87171',
                   lineHeight: 1,
                   whiteSpace: 'nowrap',
                 }}
@@ -207,9 +207,9 @@ export default function AIControlButton({ phone, conversationName }: AIControlBu
               fontWeight: 500,
               py: 0.625,
               '&.Mui-selected': {
-                bgcolor: 'rgba(99,102,241,0.2)',
-                borderColor: 'rgba(99,102,241,0.5)',
-                color: '#818cf8',
+                bgcolor: 'rgba(220,38,38,0.2)',
+                borderColor: 'rgba(220,38,38,0.5)',
+                color: '#f87171',
               },
             },
           }}

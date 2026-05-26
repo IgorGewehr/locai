@@ -1,19 +1,8 @@
 'use client';
 
 import React, { useState, useCallback, memo, useRef } from 'react';
-import {
-  Box,
-  TextField,
-  IconButton,
-  CircularProgress,
-  Typography,
-  alpha,
-  useTheme,
-} from '@mui/material';
-import {
-  Send,
-  Block as BlockIcon,
-} from '@mui/icons-material';
+import { Box, InputBase, IconButton, CircularProgress, Typography } from '@mui/material';
+import { Send, SmartToy, PanTool } from '@mui/icons-material';
 
 interface MessageInputProps {
   aiBlocked: boolean;
@@ -22,205 +11,134 @@ interface MessageInputProps {
   onEnableManualMode: () => Promise<void>;
 }
 
-const MessageInput = memo(({
-  aiBlocked,
-  checkingAiStatus,
-  onSendMessage,
-  onEnableManualMode,
-}: MessageInputProps) => {
-  const theme = useTheme();
+const MessageInput = memo(({ aiBlocked, checkingAiStatus, onSendMessage, onEnableManualMode }: MessageInputProps) => {
   const [messageInput, setMessageInput] = useState('');
-  const [sendingMessage, setSendingMessage] = useState(false);
+  const [sending, setSending] = useState(false);
+  const [pausing, setPausing] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const handleSend = useCallback(async () => {
-    if (!messageInput.trim() || sendingMessage) return;
-
     const message = messageInput.trim();
-    setSendingMessage(true);
-    setMessageInput(''); // Clear immediately for better UX
-
+    if (!message || sending) return;
+    setSending(true);
+    setMessageInput('');
     try {
       await onSendMessage(message);
-    } catch (error) {
-      // Restore message if send failed
+    } catch {
       setMessageInput(message);
     } finally {
-      setSendingMessage(false);
-      // Focus back on input after sending
+      setSending(false);
       inputRef.current?.focus();
     }
-  }, [messageInput, sendingMessage, onSendMessage]);
+  }, [messageInput, sending, onSendMessage]);
+
+  const handlePause = useCallback(async () => {
+    if (pausing || checkingAiStatus) return;
+    setPausing(true);
+    try {
+      await onEnableManualMode();
+    } finally {
+      setPausing(false);
+    }
+  }, [pausing, checkingAiStatus, onEnableManualMode]);
 
   const handleKeyDown = useCallback((e: React.KeyboardEvent) => {
-    // Enter without shift sends, Enter with shift creates new line
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
       handleSend();
     }
   }, [handleSend]);
 
-  const handleInputChange = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    setMessageInput(e.target.value);
-  }, []);
-
-  return (
-    <Box
-      sx={{
-        p: 2,
-        borderTop: `1px solid ${theme.palette.divider}`,
-        bgcolor: !aiBlocked
-          ? alpha(theme.palette.error.main, 0.05)
-          : theme.palette.background.paper,
-        position: 'sticky',
-        bottom: 0,
-        zIndex: 10,
-        backdropFilter: 'blur(10px)',
-        boxShadow: `0 -2px 8px ${alpha(theme.palette.common.black, 0.05)}`,
-      }}
-    >
-      <Box
-        sx={{
-          display: 'flex',
-          gap: 1.5,
-          alignItems: 'center',
-          maxWidth: '100%',
-        }}
-      >
-        {!aiBlocked ? (
-          // AI Mode Active - Click to enable manual mode
-          <Box
-            onClick={!checkingAiStatus ? onEnableManualMode : undefined}
-            sx={{
-              flex: 1,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: 2,
-              py: 1.25,
-              px: 3,
-              bgcolor: alpha(theme.palette.error.main, 0.08),
-              borderRadius: '24px',
-              cursor: checkingAiStatus ? 'default' : 'pointer',
-              transition: 'all 0.2s ease-out',
-              border: `1.5px solid ${alpha(theme.palette.error.main, 0.2)}`,
-              '&:hover': checkingAiStatus ? {} : {
-                bgcolor: alpha(theme.palette.error.main, 0.15),
-                transform: 'translateY(-1px)',
-                boxShadow: `0 4px 16px ${alpha(theme.palette.error.main, 0.15)}`,
-                borderColor: alpha(theme.palette.error.main, 0.4),
-              },
-            }}
-          >
-            {checkingAiStatus ? (
-              <CircularProgress size={20} thickness={4} sx={{ color: theme.palette.error.main }} />
-            ) : (
-              <BlockIcon sx={{ color: theme.palette.error.main, fontSize: 20 }} />
-            )}
-            <Typography
-              sx={{
-                color: theme.palette.error.main,
-                fontWeight: 600,
-                fontSize: '0.875rem',
-                userSelect: 'none',
-                letterSpacing: '0.01em',
-              }}
-            >
-              Pausar IA e responder manualmente
+  // ── AI active: typing is locked until the human takes over ──────
+  if (!aiBlocked) {
+    const busy = pausing || checkingAiStatus;
+    return (
+      <Box sx={{ p: 2, borderTop: '1px solid rgba(255,255,255,0.08)', bgcolor: '#0d1220' }}>
+        <Box
+          sx={{
+            display: 'flex', alignItems: 'center', gap: 1.5, p: 1.5,
+            borderRadius: '12px', border: '1px solid rgba(16,185,129,0.25)',
+            bgcolor: 'rgba(16,185,129,0.06)',
+          }}
+        >
+          <SmartToy sx={{ fontSize: 20, color: '#10b981', flexShrink: 0 }} />
+          <Box sx={{ flex: 1, minWidth: 0 }}>
+            <Typography sx={{ fontSize: '0.8125rem', fontWeight: 600, color: '#10b981', lineHeight: 1.2 }}>
+              A IA está respondendo este cliente
+            </Typography>
+            <Typography sx={{ fontSize: '0.75rem', color: 'rgba(255,255,255,0.5)', mt: 0.25 }}>
+              Pause a IA para assumir e digitar manualmente.
             </Typography>
           </Box>
-        ) : (
-          // Manual Mode Active - Input bar
-          <>
-            <TextField
-              inputRef={inputRef}
-              fullWidth
-              multiline
-              maxRows={4}
-              placeholder="Digite sua mensagem..."
-              value={messageInput}
-              onChange={handleInputChange}
-              onKeyDown={handleKeyDown}
-              disabled={sendingMessage}
-              variant="outlined"
-              autoComplete="off"
-              sx={{
-                '& .MuiOutlinedInput-root': {
-                  borderRadius: '20px',
-                  bgcolor: theme.palette.mode === 'dark'
-                    ? alpha(theme.palette.background.paper, 0.9)
-                    : alpha(theme.palette.common.white, 0.95),
-                  transition: 'box-shadow 0.2s ease-out, border-color 0.2s ease-out',
-                  boxShadow: `0 2px 8px ${alpha(theme.palette.common.black, 0.04)}`,
-                  '& fieldset': {
-                    borderColor: alpha(theme.palette.divider, 0.6),
-                    borderWidth: '1.5px',
-                    transition: 'border-color 0.2s ease-out',
-                  },
-                  '&:hover': {
-                    boxShadow: `0 4px 12px ${alpha(theme.palette.common.black, 0.08)}`,
-                    '& fieldset': {
-                      borderColor: alpha(theme.palette.primary.main, 0.4),
-                    },
-                  },
-                  '&.Mui-focused': {
-                    boxShadow: `0 4px 16px ${alpha(theme.palette.primary.main, 0.12)}`,
-                    '& fieldset': {
-                      borderColor: theme.palette.primary.main,
-                      borderWidth: '2px',
-                    },
-                  },
-                  '&.Mui-disabled': {
-                    opacity: 0.6,
-                  },
-                },
-                '& .MuiInputBase-input': {
-                  py: 1,
-                  px: 2,
-                  fontSize: '0.9rem',
-                  lineHeight: 1.5,
-                  '&::placeholder': {
-                    color: alpha(theme.palette.text.secondary, 0.5),
-                    opacity: 1,
-                  },
-                },
-              }}
-            />
-            <IconButton
-              onClick={handleSend}
-              disabled={!messageInput.trim() || sendingMessage}
-              sx={{
-                bgcolor: theme.palette.primary.main,
-                color: theme.palette.common.white,
-                width: 44,
-                height: 44,
-                flexShrink: 0,
-                boxShadow: `0 4px 12px ${alpha(theme.palette.primary.main, 0.3)}`,
-                transition: 'all 0.2s ease-out',
-                '&:hover': {
-                  bgcolor: theme.palette.primary.dark,
-                  transform: 'scale(1.05)',
-                  boxShadow: `0 6px 20px ${alpha(theme.palette.primary.main, 0.4)}`,
-                },
-                '&:active': {
-                  transform: 'scale(0.98)',
-                },
-                '&.Mui-disabled': {
-                  bgcolor: alpha(theme.palette.action.disabled, 0.15),
-                  color: alpha(theme.palette.action.disabled, 0.4),
-                  boxShadow: 'none',
-                },
-              }}
-            >
-              {sendingMessage ? (
-                <CircularProgress size={20} thickness={4} sx={{ color: theme.palette.common.white }} />
-              ) : (
-                <Send sx={{ fontSize: 20 }} />
-              )}
-            </IconButton>
-          </>
-        )}
+          <Box
+            component="button"
+            onClick={handlePause}
+            disabled={busy}
+            sx={{
+              display: 'inline-flex', alignItems: 'center', gap: 0.75,
+              px: 1.75, py: 1, borderRadius: '10px', flexShrink: 0,
+              border: '1px solid rgba(239,68,68,0.4)',
+              bgcolor: 'rgba(239,68,68,0.12)',
+              color: '#f87171', cursor: busy ? 'default' : 'pointer',
+              fontWeight: 600, fontSize: '0.8125rem', outline: 'none',
+              transition: 'all 0.15s ease',
+              opacity: busy ? 0.6 : 1,
+              '&:hover': busy ? {} : { bgcolor: 'rgba(239,68,68,0.2)', borderColor: 'rgba(239,68,68,0.6)' },
+            }}
+          >
+            {busy ? <CircularProgress size={16} sx={{ color: '#f87171' }} /> : <PanTool sx={{ fontSize: 16 }} />}
+            Assumir conversa
+          </Box>
+        </Box>
       </Box>
+    );
+  }
+
+  // ── Manual mode: input enabled ──────────────────────────────────
+  return (
+    <Box sx={{ p: 2, borderTop: '1px solid rgba(255,255,255,0.08)', bgcolor: '#0d1220' }}>
+      <Box
+        sx={{
+          display: 'flex', alignItems: 'flex-end', gap: 1,
+          p: 0.5, pl: 2, borderRadius: '14px',
+          border: '1px solid rgba(255,255,255,0.1)',
+          bgcolor: 'rgba(255,255,255,0.04)',
+          transition: 'border-color 0.15s ease',
+          '&:focus-within': { borderColor: 'rgba(220,38,38,0.5)' },
+        }}
+      >
+        <InputBase
+          inputRef={inputRef}
+          fullWidth
+          multiline
+          maxRows={5}
+          autoFocus
+          placeholder="Digite sua mensagem..."
+          value={messageInput}
+          onChange={(e) => setMessageInput(e.target.value)}
+          onKeyDown={handleKeyDown}
+          disabled={sending}
+          sx={{
+            flex: 1, fontSize: '0.875rem', color: '#e2e8f0', py: 1,
+            '& textarea::placeholder': { color: 'rgba(255,255,255,0.35)', opacity: 1 },
+          }}
+        />
+        <IconButton
+          onClick={handleSend}
+          disabled={!messageInput.trim() || sending}
+          sx={{
+            width: 40, height: 40, flexShrink: 0, bgcolor: '#dc2626', color: '#fff',
+            transition: 'all 0.15s ease',
+            '&:hover': { bgcolor: '#b91c1c' },
+            '&.Mui-disabled': { bgcolor: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.25)' },
+          }}
+        >
+          {sending ? <CircularProgress size={18} sx={{ color: '#fff' }} /> : <Send sx={{ fontSize: 18 }} />}
+        </IconButton>
+      </Box>
+      <Typography sx={{ fontSize: '0.6875rem', color: 'rgba(255,255,255,0.4)', mt: 0.75, ml: 0.5 }}>
+        Modo manual ativo — a IA está pausada nesta conversa.
+      </Typography>
     </Box>
   );
 });

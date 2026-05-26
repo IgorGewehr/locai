@@ -118,8 +118,8 @@ export default function LeadTriageCard({ lead, index, onOpenConversation, onAssu
               onClick={() => onOpenConversation(lead)}
               sx={{
                 fontSize: '0.75rem', fontWeight: 600, textTransform: 'none',
-                color: '#818cf8', px: 1.25, minWidth: 0,
-                '&:hover': { bgcolor: 'rgba(99,102,241,0.1)' },
+                color: '#f87171', px: 1.25, minWidth: 0,
+                '&:hover': { bgcolor: 'rgba(220,38,38,0.1)' },
               }}
             >
               Abrir conversa

@@ -458,9 +458,9 @@ export default function AIInsights({ leads, onActionClick, onRefresh }: AIInsigh
             title: 'Valor do Pipeline',
             value: formatCurrency(performanceMetrics.totalPipelineValue),
             icon: <AttachMoney />,
-            color: '#6366f1',
-            gradient: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)',
-            shadowColor: 'rgba(99, 102, 241, 0.4)',
+            color: '#dc2626',
+            gradient: 'linear-gradient(135deg, #dc2626 0%, #8b5cf6 100%)',
+            shadowColor: 'rgba(220, 38, 38, 0.4)',
           },
           {
             title: 'Leads Quentes',

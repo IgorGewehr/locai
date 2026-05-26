@@ -159,7 +159,7 @@ function AgendaCard({ onCreateEvent }: AgendaCardProps) {
           justifyContent: 'center',
         }}
       >
-        <CircularProgress size={40} sx={{ color: 'rgba(99, 102, 241, 0.6)' }} />
+        <CircularProgress size={40} sx={{ color: 'rgba(220, 38, 38, 0.6)' }} />
       </Card>
     );
   }
@@ -187,7 +187,7 @@ function AgendaCard({ onCreateEvent }: AgendaCardProps) {
           left: 0,
           right: 0,
           height: '4px',
-          background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
+          background: 'linear-gradient(135deg, #dc2626, #dc2626)',
         }
       }}
     >
@@ -203,9 +203,9 @@ function AgendaCard({ onCreateEvent }: AgendaCardProps) {
                 width: 56,
                 height: 56,
                 borderRadius: '14px',
-                background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
+                background: 'linear-gradient(135deg, #dc2626, #dc2626)',
                 color: 'white',
-                boxShadow: '0 8px 24px rgba(99, 102, 241, 0.4)',
+                boxShadow: '0 8px 24px rgba(220, 38, 38, 0.4)',
               }}
             >
               <Schedule sx={{ fontSize: 28 }} />
@@ -225,11 +225,11 @@ function AgendaCard({ onCreateEvent }: AgendaCardProps) {
               onClick={loadNextEvent}
               disabled={loading}
               sx={{
-                background: 'rgba(99, 102, 241, 0.1)',
-                border: '1px solid rgba(99, 102, 241, 0.2)',
-                color: '#6366f1',
+                background: 'rgba(220, 38, 38, 0.1)',
+                border: '1px solid rgba(220, 38, 38, 0.2)',
+                color: '#dc2626',
                 '&:hover': {
-                  background: 'rgba(99, 102, 241, 0.2)',
+                  background: 'rgba(220, 38, 38, 0.2)',
                 },
               }}
             >
@@ -238,11 +238,11 @@ function AgendaCard({ onCreateEvent }: AgendaCardProps) {
             <IconButton 
               onClick={onCreateEvent}
               sx={{
-                background: 'rgba(99, 102, 241, 0.1)',
-                border: '1px solid rgba(99, 102, 241, 0.2)',
-                color: '#6366f1',
+                background: 'rgba(220, 38, 38, 0.1)',
+                border: '1px solid rgba(220, 38, 38, 0.2)',
+                color: '#dc2626',
                 '&:hover': {
-                  background: 'rgba(99, 102, 241, 0.2)',
+                  background: 'rgba(220, 38, 38, 0.2)',
                 },
               }}
             >
@@ -309,9 +309,9 @@ function AgendaCard({ onCreateEvent }: AgendaCardProps) {
                       icon={<AccessTime />}
                       label={dateTime.relative}
                       sx={{
-                        backgroundColor: dateTime.urgent ? 'rgba(239, 68, 68, 0.2)' : 'rgba(99, 102, 241, 0.2)',
-                        color: dateTime.urgent ? '#fca5a5' : '#a5b4fc',
-                        border: `1px solid ${dateTime.urgent ? 'rgba(239, 68, 68, 0.3)' : 'rgba(99, 102, 241, 0.3)'}`,
+                        backgroundColor: dateTime.urgent ? 'rgba(239, 68, 68, 0.2)' : 'rgba(220, 38, 38, 0.2)',
+                        color: dateTime.urgent ? '#fca5a5' : '#fca5a5',
+                        border: `1px solid ${dateTime.urgent ? 'rgba(239, 68, 68, 0.3)' : 'rgba(220, 38, 38, 0.3)'}`,
                         fontWeight: 600,
                         fontSize: '0.8rem',
                         height: 32,
@@ -364,15 +364,15 @@ function AgendaCard({ onCreateEvent }: AgendaCardProps) {
                 endIcon={<ArrowForward sx={{ fontSize: 14 }} />}
                 href="/dashboard/agenda"
                 sx={{
-                  borderColor: 'rgba(99, 102, 241, 0.3)',
-                  color: '#6366f1',
+                  borderColor: 'rgba(220, 38, 38, 0.3)',
+                  color: '#dc2626',
                   textTransform: 'none',
                   fontSize: '0.8rem',
                   borderRadius: 2,
                   py: 0.75,
                   '&:hover': {
-                    borderColor: '#6366f1',
-                    background: 'rgba(99, 102, 241, 0.1)',
+                    borderColor: '#dc2626',
+                    background: 'rgba(220, 38, 38, 0.1)',
                   },
                 }}
               >
@@ -432,15 +432,15 @@ function AgendaCard({ onCreateEvent }: AgendaCardProps) {
                 startIcon={<Add />}
                 onClick={onCreateEvent}
                 sx={{
-                  background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
+                  background: 'linear-gradient(135deg, #dc2626, #dc2626)',
                   textTransform: 'none',
                   fontSize: '0.8rem',
                   borderRadius: 2,
                   py: 0.75,
-                  boxShadow: '0 4px 16px rgba(99, 102, 241, 0.4)',
+                  boxShadow: '0 4px 16px rgba(220, 38, 38, 0.4)',
                   '&:hover': {
-                    background: 'linear-gradient(135deg, #5855eb, #7c3aed)',
-                    boxShadow: '0 6px 20px rgba(99, 102, 241, 0.5)',
+                    background: 'linear-gradient(135deg, #5855eb, #b91c1c)',
+                    boxShadow: '0 6px 20px rgba(220, 38, 38, 0.5)',
                   },
                 }}
               >

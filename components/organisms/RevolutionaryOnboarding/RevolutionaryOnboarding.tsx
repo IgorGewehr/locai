@@ -202,9 +202,9 @@ export default function RevolutionaryOnboarding({
         exit={{ opacity: 0, scale: 0.95 }}
         transition={{ duration: 0.4 }}
         sx={{
-          background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.1) 0%, rgba(139, 92, 246, 0.1) 100%)',
+          background: 'linear-gradient(135deg, rgba(220, 38, 38, 0.1) 0%, rgba(220, 38, 38, 0.1) 100%)',
           backdropFilter: 'blur(20px)',
-          border: '1px solid rgba(99, 102, 241, 0.2)',
+          border: '1px solid rgba(220, 38, 38, 0.2)',
           borderRadius: { xs: '16px', md: '20px' },
           position: 'relative',
           overflow: 'hidden',
@@ -215,7 +215,7 @@ export default function RevolutionaryOnboarding({
             left: 0,
             right: 0,
             height: { xs: '3px', md: '4px' },
-            background: 'linear-gradient(90deg, #6366f1, #8b5cf6, #d946ef)',
+            background: 'linear-gradient(90deg, #dc2626, #dc2626, #d946ef)',
           },
         }}
       >
@@ -229,11 +229,11 @@ export default function RevolutionaryOnboarding({
                     width: { xs: 40, md: 48 },
                     height: { xs: 40, md: 48 },
                     borderRadius: { xs: '10px', md: '12px' },
-                    background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
+                    background: 'linear-gradient(135deg, #dc2626, #dc2626)',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    boxShadow: '0 8px 20px rgba(99, 102, 241, 0.3)',
+                    boxShadow: '0 8px 20px rgba(220, 38, 38, 0.3)',
                     flexShrink: 0,
                   }}
                 >
@@ -395,9 +395,9 @@ export default function RevolutionaryOnboarding({
     <Fade in={true}>
       <Card
         sx={{
-          background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.1) 0%, rgba(139, 92, 246, 0.1) 100%)',
+          background: 'linear-gradient(135deg, rgba(220, 38, 38, 0.1) 0%, rgba(220, 38, 38, 0.1) 100%)',
           backdropFilter: 'blur(20px)',
-          border: '1px solid rgba(99, 102, 241, 0.2)',
+          border: '1px solid rgba(220, 38, 38, 0.2)',
           borderRadius: { xs: '16px', md: '20px' },
           position: 'relative',
           overflow: 'hidden',
@@ -408,7 +408,7 @@ export default function RevolutionaryOnboarding({
             left: 0,
             right: 0,
             height: { xs: '3px', md: '4px' },
-            background: 'linear-gradient(90deg, #6366f1, #8b5cf6, #d946ef)',
+            background: 'linear-gradient(90deg, #dc2626, #dc2626, #d946ef)',
           },
         }}
       >
@@ -427,11 +427,11 @@ export default function RevolutionaryOnboarding({
                     width: { xs: 48, sm: 56, md: 64 },
                     height: { xs: 48, sm: 56, md: 64 },
                     borderRadius: { xs: '12px', md: '16px' },
-                    background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
+                    background: 'linear-gradient(135deg, #dc2626, #dc2626)',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    boxShadow: '0 8px 24px rgba(99, 102, 241, 0.4)',
+                    boxShadow: '0 8px 24px rgba(220, 38, 38, 0.4)',
                     flexShrink: 0,
                   }}
                 >

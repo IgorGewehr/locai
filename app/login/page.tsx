@@ -10,27 +10,20 @@ import {
   Typography,
   Alert,
   CircularProgress,
-  Container,
   InputAdornment,
   IconButton,
   Link,
   Stack,
-  Fade,
-  useMediaQuery,
-  useTheme,
   Tabs,
   Tab,
   Chip,
 } from '@mui/material';
 import {
-  Email,
-  Lock,
   Visibility,
   VisibilityOff,
   Login as LoginIcon,
   PersonAdd,
   LockReset,
-  ArrowForward,
   CheckCircle,
   CardGiftcard,
   Google as GoogleIcon,
@@ -39,18 +32,12 @@ import {
 import { useForm, Controller } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
 import * as yup from 'yup';
-import Image from 'next/image';
 import { formatBrazilianPhone, normalizePhoneNumber, applyPhoneMask } from '@/lib/utils/phone-formatter';
+import LoadingScreen from '@/components/atoms/LoadingScreen/LoadingScreen';
 
 const loginSchema = yup.object().shape({
-  email: yup
-    .string()
-    .email('Email inválido')
-    .required('Email é obrigatório'),
-  password: yup
-    .string()
-    .min(6, 'Senha deve ter pelo menos 6 caracteres')
-    .required('Senha é obrigatória'),
+  email: yup.string().email('Email inválido').required('Email é obrigatório'),
+  password: yup.string().min(6, 'Senha deve ter pelo menos 6 caracteres').required('Senha é obrigatória'),
 });
 
 const registerSchema = yup.object().shape({
@@ -62,14 +49,8 @@ const registerSchema = yup.object().shape({
       const cleaned = value.replace(/\D/g, '');
       return cleaned.length >= 10 && cleaned.length <= 13;
     }),
-  email: yup
-    .string()
-    .email('Email inválido')
-    .required('Email é obrigatório'),
-  password: yup
-    .string()
-    .min(6, 'Senha deve ter pelo menos 6 caracteres')
-    .required('Senha é obrigatória'),
+  email: yup.string().email('Email inválido').required('Email é obrigatório'),
+  password: yup.string().min(6, 'Senha deve ter pelo menos 6 caracteres').required('Senha é obrigatória'),
   confirmPassword: yup
     .string()
     .oneOf([yup.ref('password')], 'As senhas devem ser iguais')
@@ -88,9 +69,48 @@ interface RegisterFormData {
   confirmPassword: string;
 }
 
+const fieldSx = {
+  '& .MuiOutlinedInput-root': {
+    borderRadius: '10px',
+    backgroundColor: 'rgba(255,255,255,0.04)',
+    '& fieldset': { borderColor: 'rgba(255,255,255,0.1)' },
+    '&:hover fieldset': { borderColor: 'rgba(255,255,255,0.2)' },
+    '&.Mui-focused fieldset': { borderColor: '#dc2626', borderWidth: 2 },
+  },
+  '& .MuiInputLabel-root': { color: 'rgba(255,255,255,0.5)', '&.Mui-focused': { color: '#f87171' } },
+  '& .MuiOutlinedInput-input': { color: '#f1f5f9' },
+};
+
+const alertErrorSx = {
+  borderRadius: '10px', backgroundColor: 'rgba(239,68,68,0.1)', border: '1px solid rgba(239,68,68,0.3)',
+  color: '#f87171', '& .MuiAlert-icon': { color: '#f87171' }, py: 0.5,
+};
+const alertSuccessSx = {
+  borderRadius: '10px', backgroundColor: 'rgba(16,185,129,0.1)', border: '1px solid rgba(16,185,129,0.3)',
+  color: '#4ade80', '& .MuiAlert-icon': { color: '#4ade80' }, py: 0.5,
+};
+
+const primaryBtnSx = {
+  py: 1.5, borderRadius: '10px', textTransform: 'none', fontWeight: 600, fontSize: '0.9375rem',
+  bgcolor: '#dc2626', color: '#fff', boxShadow: 'none',
+  transition: 'all 0.2s ease',
+  '&:hover': { bgcolor: '#b91c1c', boxShadow: '0 4px 16px rgba(220,38,38,0.3)' },
+  '&:disabled': { bgcolor: 'rgba(220,38,38,0.4)', color: 'rgba(255,255,255,0.7)' },
+};
+const googleBtnSx = {
+  py: 1.5, borderRadius: '10px', textTransform: 'none', fontWeight: 600, fontSize: '0.9375rem',
+  bgcolor: 'transparent', color: '#e2e8f0', boxShadow: 'none', border: '1px solid rgba(255,255,255,0.14)',
+  '&:hover': { bgcolor: 'rgba(255,255,255,0.04)', borderColor: 'rgba(255,255,255,0.25)' },
+  '&:disabled': { opacity: 0.5, color: 'rgba(255,255,255,0.4)' },
+};
+
+const FEATURES = [
+  'Atendimento automático 24 horas no WhatsApp',
+  'Triagem inteligente: veja quem precisa de você agora',
+  'Assuma a conversa com um clique, quando quiser',
+];
+
 export default function LoginPage() {
-  const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -102,27 +122,22 @@ export default function LoginPage() {
   const [loginSuccess, setLoginSuccess] = useState(false);
   const [registerSuccess, setRegisterSuccess] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
-  
+
   const router = useRouter();
   const { signIn, signUp, signInWithGoogle, resetPassword, user, loading } = useAuth();
 
-  // ✅ CORREÇÃO: Evitar redirect loop no useEffect
   useEffect(() => {
     if (!loading && user) {
-      // ✅ NOVO: Evitar redirecionamentos múltiplos
       const isAlreadyRedirecting = sessionStorage.getItem('redirecting');
       if (isAlreadyRedirecting) {
         sessionStorage.removeItem('redirecting');
         return;
       }
-      
-      console.log('🔄 [LoginPage] User authenticated, redirecting to dashboard');
       sessionStorage.setItem('redirecting', 'true');
-      router.replace('/dashboard'); // ✅ replace em vez de push
+      router.replace('/dashboard');
     }
   }, [user, loading, router]);
 
-  // Clear error and success when tab changes
   useEffect(() => {
     setError(null);
     setSuccess(null);
@@ -131,74 +146,48 @@ export default function LoginPage() {
   }, [activeTab]);
 
   const loginForm = useForm<LoginFormData>({
-    resolver: yupResolver(loginSchema),
-    defaultValues: {
-      email: '',
-      password: '',
-    },
+    resolver: yupResolver(loginSchema) as any,
+    defaultValues: { email: '', password: '' },
   });
 
   const registerForm = useForm<RegisterFormData>({
-    resolver: yupResolver(registerSchema),
-    defaultValues: {
-      phone: '',
-      email: '',
-      password: '',
-      confirmPassword: '',
-    },
+    resolver: yupResolver(registerSchema) as any,
+    defaultValues: { phone: '', email: '', password: '', confirmPassword: '' },
   });
+
+  const resolveTarget = (): string => {
+    let targetPath = '/dashboard';
+    try {
+      const savedPath = localStorage.getItem('redirectPath');
+      if (savedPath && savedPath.startsWith('/dashboard')) {
+        targetPath = savedPath;
+        localStorage.removeItem('redirectPath');
+      }
+    } catch { /* ignore */ }
+    return targetPath;
+  };
 
   const handleLogin = async (data: LoginFormData) => {
     try {
       setIsLoading(true);
       setError(null);
       setSuccess(null);
-      
       await signIn(data.email, data.password);
-      
-      // Notion-style minimal feedback
       setLoginSuccess(true);
       setIsProcessing(true);
-      
-      // ✅ MELHORADO: Redirect com feedback suave
       setTimeout(() => {
-        // ✅ NOVO: Evitar redirecionamentos múltiplos
-        const isAlreadyRedirecting = sessionStorage.getItem('redirecting');
-        if (isAlreadyRedirecting) return;
-        
-        let targetPath = '/dashboard';
-        
-        try {
-          const savedPath = localStorage.getItem('redirectPath');
-          if (savedPath && savedPath.startsWith('/dashboard')) {
-            targetPath = savedPath;
-            localStorage.removeItem('redirectPath'); // Limpar após usar
-          }
-        } catch (error) {
-          // Se der erro ao acessar localStorage, usar dashboard padrão
-        }
-        
-        console.log('🔄 [LoginPage] Login success, redirecting to:', targetPath);
+        if (sessionStorage.getItem('redirecting')) return;
         sessionStorage.setItem('redirecting', 'true');
-        router.replace(targetPath); // ✅ replace em vez de push
-      }, 500); // ✅ Reduzido de 600ms para 500ms
+        router.replace(resolveTarget());
+      }, 500);
     } catch (err: any) {
       let errorMessage = 'Email ou senha incorretos';
-      
-      if (err.code === 'auth/network-request-failed') {
-        errorMessage = 'Erro de conexão. Verifique sua internet.';
-      } else if (err.code === 'auth/user-disabled') {
-        errorMessage = 'Esta conta foi desativada.';
-      } else if (err.code === 'auth/user-not-found') {
-        errorMessage = 'Email não encontrado.';
-      } else if (err.code === 'auth/wrong-password') {
-        errorMessage = 'Senha incorreta.';
-      } else if (err.code === 'auth/invalid-credential') {
-        errorMessage = 'Email ou senha incorretos.';
-      } else if (err.code === 'auth/too-many-requests') {
-        errorMessage = 'Muitas tentativas. Tente novamente mais tarde.';
-      }
-      
+      if (err.code === 'auth/network-request-failed') errorMessage = 'Erro de conexão. Verifique sua internet.';
+      else if (err.code === 'auth/user-disabled') errorMessage = 'Esta conta foi desativada.';
+      else if (err.code === 'auth/user-not-found') errorMessage = 'Email não encontrado.';
+      else if (err.code === 'auth/wrong-password') errorMessage = 'Senha incorreta.';
+      else if (err.code === 'auth/invalid-credential') errorMessage = 'Email ou senha incorretos.';
+      else if (err.code === 'auth/too-many-requests') errorMessage = 'Muitas tentativas. Tente novamente mais tarde.';
       setError(errorMessage);
       setIsLoading(false);
     }
@@ -209,57 +198,23 @@ export default function LoginPage() {
       setIsLoading(true);
       setError(null);
       setSuccess(null);
-
-      // Normalizar número de telefone antes de enviar
-      const normalizedPhone = normalizePhoneNumber(data.phone, true); // Incluir código do país
-
-      // 🎁 Garantir 7 dias grátis para todos os novos cadastros
-      // Usar telefone formatado como nome inicial (será atualizado no perfil)
+      const normalizedPhone = normalizePhoneNumber(data.phone, true);
       await signUp(data.email, data.password, normalizedPhone, { free: 7 });
-
-      // Mostrar feedback de sucesso
       setRegisterSuccess(true);
-      setSuccess('Conta criada com sucesso! Redirecionando para o dashboard...');
-
-      // ✅ MELHORADO: Redirect com feedback suave
+      setSuccess('Conta criada com sucesso! Redirecionando...');
       setTimeout(() => {
-        // ✅ NOVO: Evitar redirecionamentos múltiplos
-        const isAlreadyRedirecting = sessionStorage.getItem('redirecting');
-        if (isAlreadyRedirecting) return;
-
-        let targetPath = '/dashboard';
-
-        try {
-          const savedPath = localStorage.getItem('redirectPath');
-          if (savedPath && savedPath.startsWith('/dashboard')) {
-            targetPath = savedPath;
-            localStorage.removeItem('redirectPath'); // Limpar após usar
-          }
-        } catch (error) {
-          // Se der erro ao acessar localStorage, usar dashboard padrão
-        }
-
-        console.log('🔄 [LoginPage] Register success, redirecting to:', targetPath);
+        if (sessionStorage.getItem('redirecting')) return;
         sessionStorage.setItem('redirecting', 'true');
-        router.replace(targetPath); // ✅ replace em vez de push
-      }, 800); // ✅ Reduzido de 1000ms para 800ms
+        router.replace(resolveTarget());
+      }, 800);
     } catch (err: any) {
       let errorMessage = 'Erro ao criar conta';
-
-      if (err.code === 'auth/network-request-failed') {
-        errorMessage = 'Erro de conexão. Verifique sua internet.';
-      } else if (err.code === 'auth/email-already-in-use') {
-        errorMessage = 'Este email já está em uso.';
-      } else if (err.code === 'auth/weak-password') {
-        errorMessage = 'A senha é muito fraca.';
-      } else if (err.code === 'auth/invalid-email') {
-        errorMessage = 'Email inválido.';
-      } else if (err.code === 'auth/operation-not-allowed') {
-        errorMessage = 'Criação de conta não permitida no momento.';
-      } else if (err.message) {
-        errorMessage = err.message;
-      }
-
+      if (err.code === 'auth/network-request-failed') errorMessage = 'Erro de conexão. Verifique sua internet.';
+      else if (err.code === 'auth/email-already-in-use') errorMessage = 'Este email já está em uso.';
+      else if (err.code === 'auth/weak-password') errorMessage = 'A senha é muito fraca.';
+      else if (err.code === 'auth/invalid-email') errorMessage = 'Email inválido.';
+      else if (err.code === 'auth/operation-not-allowed') errorMessage = 'Criação de conta não permitida no momento.';
+      else if (err.message) errorMessage = err.message;
       setError(errorMessage);
       setIsLoading(false);
     }
@@ -270,17 +225,15 @@ export default function LoginPage() {
       setError('Digite seu email');
       return;
     }
-
     try {
       setIsLoading(true);
       setError(null);
       await resetPassword(forgotEmail);
       setShowForgotPassword(false);
       setForgotEmail('');
-      // Show success message
       setError(null);
       setSuccess('Email de recuperação enviado! Verifique sua caixa de entrada.');
-    } catch (err: any) {
+    } catch {
       setError('Erro ao enviar email de recuperação');
     } finally {
       setIsLoading(false);
@@ -292,931 +245,238 @@ export default function LoginPage() {
       setIsLoading(true);
       setError(null);
       setSuccess(null);
-
       await signInWithGoogle();
-
-      // Mostrar feedback de sucesso
-      if (activeTab === 0) {
-        setLoginSuccess(true);
-      } else {
-        setRegisterSuccess(true);
-      }
+      if (activeTab === 0) setLoginSuccess(true);
+      else setRegisterSuccess(true);
       setIsProcessing(true);
-
-      // Redirect
       setTimeout(() => {
-        const isAlreadyRedirecting = sessionStorage.getItem('redirecting');
-        if (isAlreadyRedirecting) return;
-
-        let targetPath = '/dashboard';
-
-        try {
-          const savedPath = localStorage.getItem('redirectPath');
-          if (savedPath && savedPath.startsWith('/dashboard')) {
-            targetPath = savedPath;
-            localStorage.removeItem('redirectPath');
-          }
-        } catch (error) {
-          // Se der erro ao acessar localStorage, usar dashboard padrão
-        }
-
-        console.log('🔄 [LoginPage] Google sign-in success, redirecting to:', targetPath);
+        if (sessionStorage.getItem('redirecting')) return;
         sessionStorage.setItem('redirecting', 'true');
-        router.replace(targetPath);
+        router.replace(resolveTarget());
       }, 500);
     } catch (err: any) {
       let errorMessage = 'Erro ao fazer login com Google';
-
-      if (err.code === 'auth/popup-closed-by-user') {
-        errorMessage = 'Login cancelado pelo usuário.';
-      } else if (err.code === 'auth/popup-blocked') {
-        errorMessage = 'Pop-up bloqueado. Permita pop-ups para este site.';
-      } else if (err.code === 'auth/account-exists-with-different-credential') {
-        // Caso especial: sugerir vincular contas
-        setError(
-          'Este email já está cadastrado com outro método de login. ' +
-          'Faça login com email/senha primeiro e depois vincule sua conta Google em Configurações.'
-        );
+      if (err.code === 'auth/popup-closed-by-user') errorMessage = 'Login cancelado pelo usuário.';
+      else if (err.code === 'auth/popup-blocked') errorMessage = 'Pop-up bloqueado. Permita pop-ups para este site.';
+      else if (err.code === 'auth/account-exists-with-different-credential') {
+        setError('Este email já está cadastrado com outro método de login. Faça login com email/senha primeiro e depois vincule sua conta Google em Configurações.');
         setIsLoading(false);
         return;
-      } else if (err.code === 'auth/network-request-failed') {
-        errorMessage = 'Erro de conexão. Verifique sua internet.';
-      } else if (err.message) {
-        errorMessage = err.message;
-      }
-
+      } else if (err.code === 'auth/network-request-failed') errorMessage = 'Erro de conexão. Verifique sua internet.';
+      else if (err.message) errorMessage = err.message;
       setError(errorMessage);
       setIsLoading(false);
     }
   };
 
-  const darkFieldStyles = {
-    '& .MuiOutlinedInput-root': {
-      borderRadius: 2,
-      backgroundColor: '#1a1a1a',
-      '& fieldset': {
-        borderColor: '#404040',
-      },
-      '&:hover fieldset': {
-        borderColor: '#525252',
-      },
-      '&.Mui-focused fieldset': {
-        borderColor: '#3b82f6',
-        borderWidth: 2,
-      },
-    },
-    '& .MuiInputLabel-root': {
-      color: '#a1a1a1',
-      '&.Mui-focused': {
-        color: '#3b82f6',
-      },
-    },
-    '& .MuiOutlinedInput-input': {
-      color: '#ffffff',
-    },
-  };
-
-  // ✅ NOVO: Se está redirecionando ou processando, mostrar loading suave
-  if ((loginSuccess && isProcessing) || (registerSuccess)) {
-    return (
-      <Box
-        sx={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          backgroundColor: '#0a0a0a',
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 9999,
-        }}
-      >
-        <CircularProgress 
-          sx={{ 
-            color: '#10b981', 
-            mb: 2,
-            '& .MuiCircularProgress-circle': {
-              strokeLinecap: 'round',
-            }
-          }} 
-          size={40}
-        />
-        <Typography 
-          variant="h6" 
-          sx={{ 
-            color: '#10b981', 
-            fontWeight: 500,
-            textAlign: 'center',
-            animation: 'fadeIn 0.5s ease-in',
-            '@keyframes fadeIn': {
-              '0%': { opacity: 0, transform: 'translateY(10px)' },
-              '100%': { opacity: 1, transform: 'translateY(0)' }
-            }
-          }}
-        >
-          {loginSuccess ? 'Entrando no dashboard...' : 'Criando sua conta...'}
-        </Typography>
-      </Box>
-    );
+  // Redirecting / processing overlay — standardized red load screen
+  if ((loginSuccess && isProcessing) || registerSuccess) {
+    return <LoadingScreen />;
   }
 
   return (
-    <Box
-      sx={{
-        minHeight: '100vh',
-        background: '#0a0a0a',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        position: 'relative',
-        px: 2,
-      }}
-    >
-      {/* Background Pattern - Subtle */}
+    <Box sx={{ height: '100vh', display: 'flex', overflow: 'hidden', bgcolor: '#0b0f1a' }}>
+      {/* ── LEFT: branding ─────────────────────────────── */}
       <Box
         sx={{
-          position: 'absolute',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          opacity: 0.4,
-          backgroundImage: `
-            radial-gradient(circle at 25% 25%, #1a1a1a 0%, transparent 50%),
-            radial-gradient(circle at 75% 75%, #262626 0%, transparent 50%)
-          `,
-          zIndex: 0,
+          flex: 1.1, display: { xs: 'none', md: 'flex' }, flexDirection: 'column', justifyContent: 'space-between',
+          p: 7, position: 'relative', overflow: 'hidden',
+          background: 'linear-gradient(150deg, #450a0a 0%, #7f1d1d 45%, #b91c1c 100%)',
         }}
-      />
+      >
+        <Box sx={{
+          position: 'absolute', inset: 0, opacity: 0.6,
+          background: 'radial-gradient(circle at 18% 18%, rgba(248,113,113,0.35), transparent 42%), radial-gradient(circle at 85% 82%, rgba(220,38,38,0.3), transparent 40%)',
+        }} />
 
-      <Container maxWidth="sm" sx={{ position: 'relative', zIndex: 1 }}>
-        <Fade in timeout={800}>
-          <Box
-            sx={{
-              textAlign: 'center',
-              background: '#111111',
-              borderRadius: 3,
-              boxShadow: '0 8px 32px rgba(0, 0, 0, 0.3), 0 4px 16px rgba(0, 0, 0, 0.2)',
-              border: '1px solid #333333',
-              overflow: 'hidden',
-              maxWidth: 420,
-              mx: 'auto',
-            }}
-          >
-            {/* Header com Logo */}
-            <Box sx={{ p: { xs: 4, sm: 5 }, pb: { xs: 2, sm: 3 } }}>
-              <Box
-                sx={{
-                  display: 'flex',
-                  justifyContent: 'center',
-                  mb: 3,
-                }}
-              >
-                <Box
-                  sx={{
-                    width: 56,
-                    height: 56,
-                    borderRadius: 2,
-                    overflow: 'hidden',
-                    position: 'relative',
-                    border: '1px solid #333333',
-                  }}
-                >
-                  <Image
-                    src="/logo.jpg"
-                    alt="Logo"
-                    fill
-                    style={{
-                      objectFit: 'cover',
-                    }}
-                    priority
-                  />
-                </Box>
+        {/* Brand */}
+        <Box sx={{ position: 'relative', zIndex: 1, display: 'flex', alignItems: 'center', gap: 1.25 }}>
+          <Box component="img" src="/logo.png" alt="AlugaZap" sx={{ width: 36, height: 36, borderRadius: '9px', objectFit: 'cover' }} />
+          <Typography sx={{ fontSize: '1.5rem', fontWeight: 800, color: '#fff', letterSpacing: '-0.03em' }}>
+            AlugaZap
+          </Typography>
+        </Box>
+
+        {/* Headline + features */}
+        <Box sx={{ position: 'relative', zIndex: 1, maxWidth: 460 }}>
+          <Typography sx={{ fontSize: '2.5rem', fontWeight: 700, color: '#fff', lineHeight: 1.15, letterSpacing: '-0.025em', mb: 2 }}>
+            Sua imobiliária trabalhando enquanto você dorme.
+          </Typography>
+          <Typography sx={{ fontSize: '1rem', color: 'rgba(255,255,255,0.7)', lineHeight: 1.6, mb: 4 }}>
+            A Sofia atende seus clientes no WhatsApp, qualifica os leads e organiza tudo.
+            Você entra só na hora de fechar.
+          </Typography>
+          <Stack spacing={1.75}>
+            {FEATURES.map((f) => (
+              <Box key={f} sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                <CheckCircle sx={{ fontSize: 20, color: '#fca5a5', flexShrink: 0 }} />
+                <Typography sx={{ fontSize: '0.9375rem', color: 'rgba(255,255,255,0.85)' }}>{f}</Typography>
               </Box>
+            ))}
+          </Stack>
+        </Box>
 
-              <Typography 
-                variant="h4" 
-                sx={{
-                  fontWeight: 700,
-                  color: '#ffffff',
-                  mb: 1,
-                  fontSize: { xs: '1.5rem', sm: '1.75rem' },
-                }}
-              >
-                Bem-vindo
-              </Typography>
+        <Typography sx={{ position: 'relative', zIndex: 1, fontSize: '0.75rem', color: 'rgba(255,255,255,0.5)' }}>
+          © 2024 Locai. Todos os direitos reservados.
+        </Typography>
+      </Box>
 
-              <Typography 
-                variant="body1" 
-                sx={{
-                  color: '#a1a1a1',
-                  fontWeight: 400,
-                  fontSize: '0.95rem',
-                }}
-              >
-                Entre na sua conta ou crie uma nova para começar
-              </Typography>
-            </Box>
+      {/* ── RIGHT: form ────────────────────────────────── */}
+      <Box sx={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', overflowY: 'auto', px: { xs: 3, sm: 6 }, py: 4 }}>
+        <Box sx={{ width: '100%', maxWidth: 380 }}>
+          {/* Header */}
+          <Box sx={{ mb: 3, display: { xs: 'flex', md: 'none' }, alignItems: 'center', gap: 1 }}>
+            <Box component="img" src="/logo.png" alt="AlugaZap" sx={{ width: 32, height: 32, borderRadius: '8px', objectFit: 'cover' }} />
+            <Typography sx={{ fontSize: '1.5rem', fontWeight: 800, color: '#fff', letterSpacing: '-0.03em' }}>AlugaZap</Typography>
+          </Box>
+          <Typography sx={{ fontSize: '1.5rem', fontWeight: 700, color: '#f1f5f9', mb: 0.5 }}>
+            {showForgotPassword ? 'Recuperar senha' : activeTab === 0 ? 'Bem-vindo de volta' : 'Crie sua conta'}
+          </Typography>
+          <Typography sx={{ fontSize: '0.875rem', color: 'rgba(255,255,255,0.5)', mb: 3 }}>
+            {showForgotPassword
+              ? 'Enviaremos um link para redefinir sua senha.'
+              : activeTab === 0 ? 'Entre para acessar seu painel.' : 'Comece com 7 dias grátis, sem cartão.'}
+          </Typography>
 
-            {/* Tabs */}
-            <Box sx={{ borderBottom: '1px solid #333333', mb: 0 }}>
-              <Tabs
-                value={activeTab}
-                onChange={(_, newValue) => setActiveTab(newValue)}
-                centered
-                sx={{
-                  '& .MuiTabs-indicator': {
-                    backgroundColor: '#3b82f6',
-                    height: 2,
-                  },
-                  '& .MuiTab-root': {
-                    textTransform: 'none',
-                    fontWeight: 500,
-                    fontSize: '0.95rem',
-                    minHeight: 48,
-                    color: '#a1a1a1',
-                    '&.Mui-selected': {
-                      color: '#3b82f6',
-                    },
-                  },
-                }}
-              >
-                <Tab label="Entrar" />
-                <Tab label="Criar conta" />
-              </Tabs>
-            </Box>
-
-            {/* Forms */}
-            <Box sx={{ p: { xs: 4, sm: 5 }, pt: { xs: 3, sm: 4 } }}>
-              {!showForgotPassword ? (
-                <>
-                  {/* Login Form */}
-                  {activeTab === 0 && (
-                    <Fade in timeout={300}>
-                      <form onSubmit={loginForm.handleSubmit(handleLogin)}>
-                        <Stack spacing={3}>
-                          <Controller
-                            name="email"
-                            control={loginForm.control}
-                            render={({ field }) => (
-                              <TextField
-                                {...field}
-                                fullWidth
-                                label="Email"
-                                type="email"
-                                variant="outlined"
-                                error={!!loginForm.formState.errors.email}
-                                helperText={loginForm.formState.errors.email?.message}
-                                sx={darkFieldStyles}
-                              />
-                            )}
-                          />
-
-                          <Controller
-                            name="password"
-                            control={loginForm.control}
-                            render={({ field }) => (
-                              <TextField
-                                {...field}
-                                fullWidth
-                                label="Senha"
-                                type={showPassword ? 'text' : 'password'}
-                                variant="outlined"
-                                error={!!loginForm.formState.errors.password}
-                                helperText={loginForm.formState.errors.password?.message}
-                                InputProps={{
-                                  endAdornment: (
-                                    <InputAdornment position="end">
-                                      <IconButton
-                                        onClick={() => setShowPassword(!showPassword)}
-                                        edge="end"
-                                        size="small"
-                                        sx={{ color: '#a1a1a1' }}
-                                      >
-                                        {showPassword ? <VisibilityOff /> : <Visibility />}
-                                      </IconButton>
-                                    </InputAdornment>
-                                  ),
-                                }}
-                                sx={darkFieldStyles}
-                              />
-                            )}
-                          />
-
-                          <Box sx={{ textAlign: 'right' }}>
-                            <Link
-                              component="button"
-                              type="button"
-                              variant="body2"
-                              onClick={() => setShowForgotPassword(true)}
-                              sx={{ 
-                                color: '#3b82f6',
-                                textDecoration: 'none',
-                                fontSize: '0.875rem',
-                                fontWeight: 500,
-                                '&:hover': {
-                                  textDecoration: 'underline',
-                                },
-                              }}
-                            >
-                              Esqueceu a senha?
-                            </Link>
-                          </Box>
-
-                          {error && (
-                            <Alert 
-                              severity="error" 
-                              sx={{
-                                borderRadius: 2,
-                                backgroundColor: '#2d1b1b',
-                                border: '1px solid #7f1d1d',
-                                color: '#f87171',
-                                '& .MuiAlert-icon': {
-                                  color: '#f87171',
-                                },
-                              }}
-                            >
-                              {error}
-                            </Alert>
-                          )}
-
-                          {success && (
-                            <Alert 
-                              severity="success" 
-                              sx={{
-                                borderRadius: 2,
-                                backgroundColor: '#1b2d1b',
-                                border: '1px solid #16a34a',
-                                color: '#4ade80',
-                                '& .MuiAlert-icon': {
-                                  color: '#4ade80',
-                                },
-                              }}
-                            >
-                              {success}
-                            </Alert>
-                          )}
-
-                          <Button
-                            type="submit"
-                            fullWidth
-                            size="large"
-                            disabled={isLoading || isProcessing}
-                            startIcon={
-                              isLoading ? (
-                                <Box
-                                  sx={{
-                                    width: 14,
-                                    height: 14,
-                                    border: '1.5px solid rgba(255,255,255,0.3)',
-                                    borderTop: '1.5px solid white',
-                                    borderRadius: '50%',
-                                    animation: 'spin 0.8s linear infinite',
-                                    '@keyframes spin': {
-                                      '0%': { transform: 'rotate(0deg)' },
-                                      '100%': { transform: 'rotate(360deg)' }
-                                    }
-                                  }}
-                                />
-                              ) : isProcessing ? (
-                                <CheckCircle sx={{ fontSize: 16, color: 'white' }} />
-                              ) : (
-                                <LoginIcon sx={{ fontSize: 16 }} />
-                              )
-                            }
-                            sx={{
-                              py: 1.8,
-                              borderRadius: 2,
-                              textTransform: 'none',
-                              fontWeight: 600,
-                              fontSize: '1rem',
-                              backgroundColor: isProcessing ? '#10b981' : (isLoading ? '#6b7280' : '#1f2937'),
-                              color: '#ffffff',
-                              boxShadow: 'none',
-                              border: '1px solid rgba(255,255,255,0.1)',
-                              // ✅ MELHORADO: Transição mais suave com cubic-bezier
-                              transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
-                              '&:hover': {
-                                backgroundColor: isProcessing ? '#10b981' : (isLoading ? '#6b7280' : '#374151'),
-                                boxShadow: isLoading || isProcessing ? 'none' : '0 4px 12px rgba(59, 130, 246, 0.15)',
-                                transform: isLoading || isProcessing ? 'none' : 'translateY(-1px) scale(1.02)',
-                              },
-                              '&:active': {
-                                transform: isLoading || isProcessing ? 'none' : 'translateY(0) scale(0.98)',
-                                transition: 'all 0.1s ease',
-                              },
-                              '&:disabled': {
-                                backgroundColor: isProcessing ? '#10b981' : '#6b7280',
-                                color: '#ffffff',
-                                opacity: 1,
-                              },
-                            }}
-                          >
-                            {isProcessing ? 'Logado' : isLoading ? 'Verificando...' : 'Entrar'}
-                          </Button>
-
-                          {/* Divider */}
-                          <Box sx={{ position: 'relative', my: 2 }}>
-                            <Box
-                              sx={{
-                                position: 'absolute',
-                                top: '50%',
-                                left: 0,
-                                right: 0,
-                                height: '1px',
-                                backgroundColor: '#333333',
-                              }}
-                            />
-                            <Typography
-                              variant="caption"
-                              sx={{
-                                position: 'relative',
-                                backgroundColor: '#111111',
-                                px: 2,
-                                color: '#a1a1a1',
-                                display: 'inline-block',
-                                left: '50%',
-                                transform: 'translateX(-50%)',
-                              }}
-                            >
-                              ou
-                            </Typography>
-                          </Box>
-
-                          {/* Google Sign-in Button */}
-                          <Button
-                            fullWidth
-                            size="large"
-                            disabled={isLoading || isProcessing}
-                            onClick={handleGoogleSignIn}
-                            startIcon={<GoogleIcon sx={{ fontSize: 18 }} />}
-                            sx={{
-                              py: 1.8,
-                              borderRadius: 2,
-                              textTransform: 'none',
-                              fontWeight: 600,
-                              fontSize: '1rem',
-                              backgroundColor: '#ffffff',
-                              color: '#1f2937',
-                              boxShadow: 'none',
-                              border: '1px solid #404040',
-                              transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
-                              '&:hover': {
-                                backgroundColor: '#f9fafb',
-                                boxShadow: '0 4px 12px rgba(255, 255, 255, 0.1)',
-                                transform: isLoading || isProcessing ? 'none' : 'translateY(-1px) scale(1.02)',
-                              },
-                              '&:active': {
-                                transform: isLoading || isProcessing ? 'none' : 'translateY(0) scale(0.98)',
-                                transition: 'all 0.1s ease',
-                              },
-                              '&:disabled': {
-                                backgroundColor: '#6b7280',
-                                color: '#ffffff',
-                                opacity: 0.5,
-                              },
-                            }}
-                          >
-                            Continuar com Google
-                          </Button>
-                        </Stack>
-                      </form>
-                    </Fade>
-                  )}
-
-                  {/* Register Form */}
-                  {activeTab === 1 && (
-                    <Fade in timeout={300}>
-                      <form onSubmit={registerForm.handleSubmit(handleRegister)}>
-                        <Stack spacing={3}>
-                          {/* Chip de 7 dias grátis */}
-                          <Box sx={{ textAlign: 'center', mb: 1 }}>
-                            <Chip
-                              icon={<CardGiftcard sx={{ fontSize: '1rem' }} />}
-                              label="7 dias grátis"
-                              color="success"
-                              sx={{
-                                backgroundColor: '#10b981',
-                                color: '#ffffff',
-                                fontWeight: 600,
-                                fontSize: '0.9rem',
-                                '& .MuiChip-icon': {
-                                  color: '#ffffff',
-                                },
-                              }}
-                            />
-                          </Box>
-                          <Controller
-                            name="phone"
-                            control={registerForm.control}
-                            render={({ field: { onChange, onBlur, value, ref } }) => (
-                              <TextField
-                                fullWidth
-                                label="Celular"
-                                variant="outlined"
-                                value={value}
-                                onChange={(e) => {
-                                  // Aplicar máscara enquanto digita
-                                  const masked = applyPhoneMask(e.target.value);
-                                  onChange(masked);
-                                }}
-                                onBlur={(e) => {
-                                  // Formatar ao sair do campo
-                                  const formatted = formatBrazilianPhone(e.target.value);
-                                  onChange(formatted);
-                                  onBlur();
-                                }}
-                                inputRef={ref}
-                                error={!!registerForm.formState.errors.phone}
-                                helperText={registerForm.formState.errors.phone?.message}
-                                placeholder="(00) 0 0000-0000"
-                                InputProps={{
-                                  startAdornment: (
-                                    <InputAdornment position="start">
-                                      <PhoneIcon sx={{ color: '#a1a1a1', fontSize: 20 }} />
-                                    </InputAdornment>
-                                  ),
-                                }}
-                                sx={darkFieldStyles}
-                              />
-                            )}
-                          />
-
-                          <Controller
-                            name="email"
-                            control={registerForm.control}
-                            render={({ field }) => (
-                              <TextField
-                                {...field}
-                                fullWidth
-                                label="Email"
-                                type="email"
-                                variant="outlined"
-                                error={!!registerForm.formState.errors.email}
-                                helperText={registerForm.formState.errors.email?.message}
-                                sx={darkFieldStyles}
-                              />
-                            )}
-                          />
-
-                          <Controller
-                            name="password"
-                            control={registerForm.control}
-                            render={({ field }) => (
-                              <TextField
-                                {...field}
-                                fullWidth
-                                label="Senha"
-                                type={showPassword ? 'text' : 'password'}
-                                variant="outlined"
-                                error={!!registerForm.formState.errors.password}
-                                helperText={registerForm.formState.errors.password?.message}
-                                InputProps={{
-                                  endAdornment: (
-                                    <InputAdornment position="end">
-                                      <IconButton
-                                        onClick={() => setShowPassword(!showPassword)}
-                                        edge="end"
-                                        size="small"
-                                        sx={{ color: '#a1a1a1' }}
-                                      >
-                                        {showPassword ? <VisibilityOff /> : <Visibility />}
-                                      </IconButton>
-                                    </InputAdornment>
-                                  ),
-                                }}
-                                sx={darkFieldStyles}
-                              />
-                            )}
-                          />
-
-                          <Controller
-                            name="confirmPassword"
-                            control={registerForm.control}
-                            render={({ field }) => (
-                              <TextField
-                                {...field}
-                                fullWidth
-                                label="Confirmar senha"
-                                type={showConfirmPassword ? 'text' : 'password'}
-                                variant="outlined"
-                                error={!!registerForm.formState.errors.confirmPassword}
-                                helperText={registerForm.formState.errors.confirmPassword?.message}
-                                InputProps={{
-                                  endAdornment: (
-                                    <InputAdornment position="end">
-                                      <IconButton
-                                        onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                                        edge="end"
-                                        size="small"
-                                        sx={{ color: '#a1a1a1' }}
-                                      >
-                                        {showConfirmPassword ? <VisibilityOff /> : <Visibility />}
-                                      </IconButton>
-                                    </InputAdornment>
-                                  ),
-                                }}
-                                sx={darkFieldStyles}
-                              />
-                            )}
-                          />
-
-                          {error && (
-                            <Alert 
-                              severity="error" 
-                              sx={{
-                                borderRadius: 2,
-                                backgroundColor: '#2d1b1b',
-                                border: '1px solid #7f1d1d',
-                                color: '#f87171',
-                                '& .MuiAlert-icon': {
-                                  color: '#f87171',
-                                },
-                              }}
-                            >
-                              {error}
-                            </Alert>
-                          )}
-
-                          {success && (
-                            <Alert 
-                              severity="success" 
-                              sx={{
-                                borderRadius: 2,
-                                backgroundColor: '#1b2d1b',
-                                border: '1px solid #16a34a',
-                                color: '#4ade80',
-                                '& .MuiAlert-icon': {
-                                  color: '#4ade80',
-                                },
-                              }}
-                            >
-                              {success}
-                            </Alert>
-                          )}
-
-                          <Button
-                            type="submit"
-                            fullWidth
-                            size="large"
-                            disabled={isLoading || registerSuccess}
-                            startIcon={
-                              isLoading ? (
-                                <Box
-                                  sx={{
-                                    width: 14,
-                                    height: 14,
-                                    border: '1.5px solid rgba(255,255,255,0.3)',
-                                    borderTop: '1.5px solid white',
-                                    borderRadius: '50%',
-                                    animation: 'spin 0.8s linear infinite',
-                                    '@keyframes spin': {
-                                      '0%': { transform: 'rotate(0deg)' },
-                                      '100%': { transform: 'rotate(360deg)' }
-                                    }
-                                  }}
-                                />
-                              ) : registerSuccess ? (
-                                <CheckCircle sx={{ fontSize: 16, color: 'white' }} />
-                              ) : (
-                                <PersonAdd sx={{ fontSize: 16 }} />
-                              )
-                            }
-                            sx={{
-                              py: 1.8,
-                              borderRadius: 2,
-                              textTransform: 'none',
-                              fontWeight: 600,
-                              fontSize: '1rem',
-                              backgroundColor: registerSuccess ? '#10b981' : (isLoading ? '#6b7280' : '#1f2937'),
-                              color: '#ffffff',
-                              boxShadow: 'none',
-                              border: '1px solid rgba(255,255,255,0.1)',
-                              // ✅ MELHORADO: Transição mais suave com cubic-bezier
-                              transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
-                              '&:hover': {
-                                backgroundColor: registerSuccess ? '#10b981' : (isLoading ? '#6b7280' : '#374151'),
-                                boxShadow: isLoading || registerSuccess ? 'none' : '0 4px 12px rgba(59, 130, 246, 0.15)',
-                                transform: isLoading || registerSuccess ? 'none' : 'translateY(-1px) scale(1.02)',
-                              },
-                              '&:active': {
-                                transform: isLoading || registerSuccess ? 'none' : 'translateY(0) scale(0.98)',
-                                transition: 'all 0.1s ease',
-                              },
-                              '&:disabled': {
-                                backgroundColor: registerSuccess ? '#10b981' : '#6b7280',
-                                color: '#ffffff',
-                                opacity: 1,
-                              },
-                            }}
-                          >
-                            {registerSuccess ? 'Redirecionando...' : isLoading ? 'Criando conta...' : 'Criar conta'}
-                          </Button>
-
-                          {/* Divider */}
-                          <Box sx={{ position: 'relative', my: 2 }}>
-                            <Box
-                              sx={{
-                                position: 'absolute',
-                                top: '50%',
-                                left: 0,
-                                right: 0,
-                                height: '1px',
-                                backgroundColor: '#333333',
-                              }}
-                            />
-                            <Typography
-                              variant="caption"
-                              sx={{
-                                position: 'relative',
-                                backgroundColor: '#111111',
-                                px: 2,
-                                color: '#a1a1a1',
-                                display: 'inline-block',
-                                left: '50%',
-                                transform: 'translateX(-50%)',
-                              }}
-                            >
-                              ou
-                            </Typography>
-                          </Box>
-
-                          {/* Google Sign-up Button */}
-                          <Button
-                            fullWidth
-                            size="large"
-                            disabled={isLoading || registerSuccess}
-                            onClick={handleGoogleSignIn}
-                            startIcon={<GoogleIcon sx={{ fontSize: 18 }} />}
-                            sx={{
-                              py: 1.8,
-                              borderRadius: 2,
-                              textTransform: 'none',
-                              fontWeight: 600,
-                              fontSize: '1rem',
-                              backgroundColor: '#ffffff',
-                              color: '#1f2937',
-                              boxShadow: 'none',
-                              border: '1px solid #404040',
-                              transition: 'all 0.25s cubic-bezier(0.4, 0, 0.2, 1)',
-                              '&:hover': {
-                                backgroundColor: '#f9fafb',
-                                boxShadow: '0 4px 12px rgba(255, 255, 255, 0.1)',
-                                transform: isLoading || registerSuccess ? 'none' : 'translateY(-1px) scale(1.02)',
-                              },
-                              '&:active': {
-                                transform: isLoading || registerSuccess ? 'none' : 'translateY(0) scale(0.98)',
-                                transition: 'all 0.1s ease',
-                              },
-                              '&:disabled': {
-                                backgroundColor: '#6b7280',
-                                color: '#ffffff',
-                                opacity: 0.5,
-                              },
-                            }}
-                          >
-                            Continuar com Google
-                          </Button>
-                        </Stack>
-                      </form>
-                    </Fade>
-                  )}
-                </>
-              ) : (
-                /* Forgot Password Form */
-                <Fade in timeout={300}>
-                  <Stack spacing={3}>
-                    <Box>
-                      <Typography 
-                        variant="h6" 
-                        sx={{
-                          fontWeight: 600,
-                          color: '#ffffff',
-                          mb: 1,
-                        }}
-                      >
-                        Recuperar senha
-                      </Typography>
-                      <Typography 
-                        variant="body2" 
-                        sx={{
-                          color: '#a1a1a1',
-                        }}
-                      >
-                        Digite seu email e enviaremos um link para redefinir sua senha.
-                      </Typography>
-                    </Box>
-
-                    <TextField
-                      fullWidth
-                      label="Email"
-                      type="email"
-                      variant="outlined"
-                      value={forgotEmail}
-                      onChange={(e) => setForgotEmail(e.target.value)}
-                      sx={darkFieldStyles}
-                    />
-
-                    {error && (
-                      <Alert 
-                        severity="error" 
-                        sx={{
-                          borderRadius: 2,
-                          backgroundColor: '#2d1b1b',
-                          border: '1px solid #7f1d1d',
-                          color: '#f87171',
-                          '& .MuiAlert-icon': {
-                            color: '#f87171',
-                          },
-                        }}
-                      >
-                        {error}
-                      </Alert>
-                    )}
-
-                    <Stack direction="row" spacing={2}>
-                      <Button
-                        fullWidth
-                        variant="outlined"
-                        onClick={() => {
-                          setShowForgotPassword(false);
-                          setForgotEmail('');
-                          setError(null);
-                        }}
-                        sx={{
-                          py: 1.8,
-                          borderRadius: 2,
-                          textTransform: 'none',
-                          fontWeight: 600,
-                          borderColor: '#404040',
-                          color: '#a1a1a1',
-                          '&:hover': {
-                            borderColor: '#525252',
-                            backgroundColor: '#1a1a1a',
-                          },
-                        }}
-                      >
-                        Voltar
-                      </Button>
-                      <Button
-                        fullWidth
-                        size="large"
-                        disabled={isLoading}
-                        onClick={handleForgotPassword}
-                        endIcon={isLoading ? <CircularProgress size={16} color="inherit" /> : <LockReset />}
-                        sx={{
-                          py: 1.8,
-                          borderRadius: 2,
-                          textTransform: 'none',
-                          fontWeight: 600,
-                          fontSize: '1rem',
-                          backgroundColor: '#3b82f6',
-                          color: '#ffffff',
-                          boxShadow: 'none',
-                          '&:hover': {
-                            backgroundColor: '#2563eb',
-                            boxShadow: 'none',
-                          },
-                          '&:disabled': {
-                            backgroundColor: '#525252',
-                            color: '#a1a1a1',
-                          },
-                        }}
-                      >
-                        {isLoading ? 'Enviando...' : 'Enviar'}
-                      </Button>
-                    </Stack>
-                  </Stack>
-                </Fade>
-              )}
-            </Box>
-
-            {/* Footer */}
-            <Box 
-              sx={{ 
-                px: { xs: 4, sm: 5 },
-                pb: { xs: 4, sm: 5 },
-                pt: 0,
+          {!showForgotPassword && (
+            <Tabs
+              value={activeTab}
+              onChange={(_, v) => setActiveTab(v)}
+              sx={{
+                mb: 3, minHeight: 40,
+                '& .MuiTabs-indicator': { backgroundColor: '#dc2626', height: 2 },
+                '& .MuiTab-root': {
+                  textTransform: 'none', fontWeight: 600, fontSize: '0.875rem', minHeight: 40, p: 0, mr: 3,
+                  color: 'rgba(255,255,255,0.5)', '&.Mui-selected': { color: '#f87171' },
+                },
               }}
             >
-              <Typography
-                variant="caption"
-                sx={{ 
-                  color: '#525252',
-                  display: 'block',
-                  textAlign: 'center',
-                  fontSize: '0.75rem',
-                }}
-              >
-                © 2024 Locai. Todos os direitos reservados.
-              </Typography>
-            </Box>
-          </Box>
-        </Fade>
-      </Container>
+              <Tab label="Entrar" />
+              <Tab label="Criar conta" />
+            </Tabs>
+          )}
+
+          {/* ── Forgot password ── */}
+          {showForgotPassword ? (
+            <Stack spacing={2.5}>
+              <TextField fullWidth label="Email" type="email" value={forgotEmail} onChange={(e) => setForgotEmail(e.target.value)} sx={fieldSx} />
+              {error && <Alert severity="error" sx={alertErrorSx}>{error}</Alert>}
+              <Stack direction="row" spacing={1.5}>
+                <Button fullWidth variant="outlined" onClick={() => { setShowForgotPassword(false); setForgotEmail(''); setError(null); }}
+                  sx={{ py: 1.5, borderRadius: '10px', textTransform: 'none', fontWeight: 600, borderColor: 'rgba(255,255,255,0.14)', color: 'rgba(255,255,255,0.6)', '&:hover': { borderColor: 'rgba(255,255,255,0.25)', bgcolor: 'rgba(255,255,255,0.04)' } }}>
+                  Voltar
+                </Button>
+                <Button fullWidth disabled={isLoading} onClick={handleForgotPassword}
+                  endIcon={isLoading ? <CircularProgress size={16} color="inherit" /> : <LockReset />} sx={primaryBtnSx}>
+                  {isLoading ? 'Enviando...' : 'Enviar'}
+                </Button>
+              </Stack>
+            </Stack>
+          ) : activeTab === 0 ? (
+            /* ── Login ── */
+            <form onSubmit={loginForm.handleSubmit(handleLogin)}>
+              <Stack spacing={2.5}>
+                <Controller name="email" control={loginForm.control} render={({ field }) => (
+                  <TextField {...field} fullWidth label="Email" type="email" error={!!loginForm.formState.errors.email} helperText={loginForm.formState.errors.email?.message} sx={fieldSx} />
+                )} />
+                <Controller name="password" control={loginForm.control} render={({ field }) => (
+                  <TextField {...field} fullWidth label="Senha" type={showPassword ? 'text' : 'password'}
+                    error={!!loginForm.formState.errors.password} helperText={loginForm.formState.errors.password?.message}
+                    InputProps={{ endAdornment: (
+                      <InputAdornment position="end">
+                        <IconButton onClick={() => setShowPassword(!showPassword)} edge="end" size="small" sx={{ color: 'rgba(255,255,255,0.5)' }}>
+                          {showPassword ? <VisibilityOff /> : <Visibility />}
+                        </IconButton>
+                      </InputAdornment>
+                    )}} sx={fieldSx} />
+                )} />
+                <Box sx={{ textAlign: 'right', mt: '-8px !important' }}>
+                  <Link component="button" type="button" onClick={() => setShowForgotPassword(true)}
+                    sx={{ color: '#f87171', textDecoration: 'none', fontSize: '0.8125rem', fontWeight: 500, '&:hover': { textDecoration: 'underline' } }}>
+                    Esqueceu a senha?
+                  </Link>
+                </Box>
+                {error && <Alert severity="error" sx={alertErrorSx}>{error}</Alert>}
+                {success && <Alert severity="success" sx={alertSuccessSx}>{success}</Alert>}
+                <Button type="submit" fullWidth disabled={isLoading || isProcessing}
+                  startIcon={isLoading ? <CircularProgress size={16} color="inherit" /> : isProcessing ? <CheckCircle sx={{ fontSize: 18 }} /> : <LoginIcon sx={{ fontSize: 18 }} />}
+                  sx={{ ...primaryBtnSx, ...(isProcessing && { bgcolor: '#10b981', '&:hover': { bgcolor: '#10b981' } }) }}>
+                  {isProcessing ? 'Logado' : isLoading ? 'Verificando...' : 'Entrar'}
+                </Button>
+                <Divider />
+                <Button fullWidth disabled={isLoading || isProcessing} onClick={handleGoogleSignIn} startIcon={<GoogleIcon sx={{ fontSize: 18 }} />} sx={googleBtnSx}>
+                  Continuar com Google
+                </Button>
+              </Stack>
+            </form>
+          ) : (
+            /* ── Register ── */
+            <form onSubmit={registerForm.handleSubmit(handleRegister)}>
+              <Stack spacing={2.5}>
+                <Box>
+                  <Chip icon={<CardGiftcard sx={{ fontSize: '1rem' }} />} label="7 dias grátis"
+                    sx={{ bgcolor: 'rgba(16,185,129,0.15)', color: '#4ade80', fontWeight: 600, fontSize: '0.8125rem', '& .MuiChip-icon': { color: '#4ade80' } }} />
+                </Box>
+                <Controller name="phone" control={registerForm.control} render={({ field: { onChange, onBlur, value, ref } }) => (
+                  <TextField fullWidth label="Celular" value={value}
+                    onChange={(e) => onChange(applyPhoneMask(e.target.value))}
+                    onBlur={(e) => { onChange(formatBrazilianPhone(e.target.value)); onBlur(); }}
+                    inputRef={ref} error={!!registerForm.formState.errors.phone} helperText={registerForm.formState.errors.phone?.message}
+                    placeholder="(00) 0 0000-0000"
+                    InputProps={{ startAdornment: (<InputAdornment position="start"><PhoneIcon sx={{ color: 'rgba(255,255,255,0.5)', fontSize: 20 }} /></InputAdornment>) }}
+                    sx={fieldSx} />
+                )} />
+                <Controller name="email" control={registerForm.control} render={({ field }) => (
+                  <TextField {...field} fullWidth label="Email" type="email" error={!!registerForm.formState.errors.email} helperText={registerForm.formState.errors.email?.message} sx={fieldSx} />
+                )} />
+                <Controller name="password" control={registerForm.control} render={({ field }) => (
+                  <TextField {...field} fullWidth label="Senha" type={showPassword ? 'text' : 'password'}
+                    error={!!registerForm.formState.errors.password} helperText={registerForm.formState.errors.password?.message}
+                    InputProps={{ endAdornment: (
+                      <InputAdornment position="end">
+                        <IconButton onClick={() => setShowPassword(!showPassword)} edge="end" size="small" sx={{ color: 'rgba(255,255,255,0.5)' }}>
+                          {showPassword ? <VisibilityOff /> : <Visibility />}
+                        </IconButton>
+                      </InputAdornment>
+                    )}} sx={fieldSx} />
+                )} />
+                <Controller name="confirmPassword" control={registerForm.control} render={({ field }) => (
+                  <TextField {...field} fullWidth label="Confirmar senha" type={showConfirmPassword ? 'text' : 'password'}
+                    error={!!registerForm.formState.errors.confirmPassword} helperText={registerForm.formState.errors.confirmPassword?.message}
+                    InputProps={{ endAdornment: (
+                      <InputAdornment position="end">
+                        <IconButton onClick={() => setShowConfirmPassword(!showConfirmPassword)} edge="end" size="small" sx={{ color: 'rgba(255,255,255,0.5)' }}>
+                          {showConfirmPassword ? <VisibilityOff /> : <Visibility />}
+                        </IconButton>
+                      </InputAdornment>
+                    )}} sx={fieldSx} />
+                )} />
+                {error && <Alert severity="error" sx={alertErrorSx}>{error}</Alert>}
+                {success && <Alert severity="success" sx={alertSuccessSx}>{success}</Alert>}
+                <Button type="submit" fullWidth disabled={isLoading || registerSuccess}
+                  startIcon={isLoading ? <CircularProgress size={16} color="inherit" /> : <PersonAdd sx={{ fontSize: 18 }} />} sx={primaryBtnSx}>
+                  {isLoading ? 'Criando conta...' : 'Criar conta'}
+                </Button>
+                <Divider />
+                <Button fullWidth disabled={isLoading || registerSuccess} onClick={handleGoogleSignIn} startIcon={<GoogleIcon sx={{ fontSize: 18 }} />} sx={googleBtnSx}>
+                  Continuar com Google
+                </Button>
+              </Stack>
+            </form>
+          )}
+        </Box>
+      </Box>
+    </Box>
+  );
+}
+
+function Divider() {
+  return (
+    <Box sx={{ position: 'relative', textAlign: 'center', my: 0.5 }}>
+      <Box sx={{ position: 'absolute', top: '50%', left: 0, right: 0, height: '1px', bgcolor: 'rgba(255,255,255,0.1)' }} />
+      <Typography component="span" sx={{ position: 'relative', bgcolor: '#0b0f1a', px: 1.5, fontSize: '0.75rem', color: 'rgba(255,255,255,0.4)' }}>
+        ou
+      </Typography>
     </Box>
   );
 }

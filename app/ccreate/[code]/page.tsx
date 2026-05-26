@@ -423,14 +423,14 @@ export default function CreateAccountPage() {
                                   borderColor: 'rgba(255, 255, 255, 0.25)',
                                 },
                                 '&.Mui-focused fieldset': {
-                                  borderColor: '#6366f1',
+                                  borderColor: '#dc2626',
                                   borderWidth: 2,
                                 },
                               },
                               '& .MuiInputLabel-root': {
                                 color: 'rgba(255, 255, 255, 0.7)',
                                 '&.Mui-focused': {
-                                  color: '#6366f1',
+                                  color: '#dc2626',
                                 },
                               },
                               '& .MuiOutlinedInput-input': {
@@ -464,14 +464,14 @@ export default function CreateAccountPage() {
                                   borderColor: 'rgba(255, 255, 255, 0.25)',
                                 },
                                 '&.Mui-focused fieldset': {
-                                  borderColor: '#6366f1',
+                                  borderColor: '#dc2626',
                                   borderWidth: 2,
                                 },
                               },
                               '& .MuiInputLabel-root': {
                                 color: 'rgba(255, 255, 255, 0.7)',
                                 '&.Mui-focused': {
-                                  color: '#6366f1',
+                                  color: '#dc2626',
                                 },
                               },
                               '& .MuiOutlinedInput-input': {
@@ -519,14 +519,14 @@ export default function CreateAccountPage() {
                                   borderColor: 'rgba(255, 255, 255, 0.25)',
                                 },
                                 '&.Mui-focused fieldset': {
-                                  borderColor: '#6366f1',
+                                  borderColor: '#dc2626',
                                   borderWidth: 2,
                                 },
                               },
                               '& .MuiInputLabel-root': {
                                 color: 'rgba(255, 255, 255, 0.7)',
                                 '&.Mui-focused': {
-                                  color: '#6366f1',
+                                  color: '#dc2626',
                                 },
                               },
                               '& .MuiOutlinedInput-input': {

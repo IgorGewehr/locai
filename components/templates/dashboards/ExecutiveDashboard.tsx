@@ -612,7 +612,7 @@ export default function ExecutiveDashboard() {
             variant="h3" 
             fontWeight={700}
             sx={{
-              background: 'linear-gradient(135deg, #ffffff 0%, #a5b4fc 100%)',
+              background: 'linear-gradient(135deg, #ffffff 0%, #fca5a5 100%)',
               WebkitBackgroundClip: 'text',
               WebkitTextFillColor: 'transparent',
               backgroundClip: 'text',

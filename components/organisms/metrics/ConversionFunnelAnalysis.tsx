@@ -189,7 +189,7 @@ export default function ConversionFunnelAnalysis({ data }: ConversionFunnelProps
       value: data.meaningfulConversations,
       percentage: (data.meaningfulConversations / totalContacts) * 100,
       conversionRate: data.conversionRates.contactToConversation,
-      color: 'linear-gradient(135deg, #8b5cf6, #6366f1)',
+      color: 'linear-gradient(135deg, #8b5cf6, #dc2626)',
       insights: [
         '3+ mensagens trocadas',
         `${(data.whatsappContacts - data.meaningfulConversations)} abandonos iniciais`
@@ -300,7 +300,7 @@ export default function ConversionFunnelAnalysis({ data }: ConversionFunnelProps
               width: 48,
               height: 48,
               borderRadius: '12px',
-              background: 'linear-gradient(135deg, #8b5cf6, #6366f1)',
+              background: 'linear-gradient(135deg, #8b5cf6, #dc2626)',
               color: 'white',
             }}
           >

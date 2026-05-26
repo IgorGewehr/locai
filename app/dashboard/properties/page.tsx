@@ -35,6 +35,7 @@ import {
 import ModernButton from '@/components/atoms/ModernButton';
 import ModernFAB from '@/components/atoms/ModernFAB';
 import PropertyPriceDisplay from '@/components/atoms/PropertyPriceDisplay';
+import { CardGridSkeleton } from '@/components/atoms/Skeletons';
 import {
   Add,
   Search,
@@ -418,12 +419,11 @@ export default function PropertiesPage() {
       </Card>
 
       {/* Properties Grid */}
+      {loading ? (
+        <CardGridSkeleton count={8} />
+      ) : (
       <Grid container spacing={{ xs: 2, md: 3 }}>
-        {loading ? (
-          <Box sx={{ display: 'flex', justifyContent: 'center', p: 4, width: '100%' }}>
-            <CircularProgress />
-          </Box>
-        ) : filteredProperties.length === 0 ? (
+        {filteredProperties.length === 0 ? (
           <Box sx={{ textAlign: 'center', p: 4, width: '100%' }}>
             <Typography color="text.secondary" sx={{ fontSize: { xs: '0.875rem', md: '1rem' } }}>
               Nenhuma propriedade encontrada
@@ -665,6 +665,7 @@ export default function PropertiesPage() {
           </Grid>
         )))}
       </Grid>
+      )}
 
       {/* Action Menu */}
       <Menu

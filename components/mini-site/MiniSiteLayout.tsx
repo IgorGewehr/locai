@@ -682,7 +682,7 @@ export default function MiniSiteLayout({
               <Typography variant="caption" sx={{ color: 'text.secondary', lineHeight: 1.6 }}>
                 © 2024 {config.contactInfo.businessName}. Todos os direitos reservados.
                 <br />
-                Powered by <strong>Locai</strong> - Plataforma de CRM e Maximização de Reservas
+                Powered by <strong>AlugaZap</strong> - Plataforma de CRM e Maximização de Reservas
               </Typography>
             </Box>
           </Box>

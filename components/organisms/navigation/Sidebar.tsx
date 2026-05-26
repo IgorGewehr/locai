@@ -21,7 +21,6 @@ import {
   HelpOutline,
   Event,
   Inbox,
-  ChevronLeft,
   ChevronRight,
   Close,
 } from '@mui/icons-material';
@@ -67,7 +66,7 @@ const NAV_SECTIONS: NavSection[] = [
       { id: 'atendimentos', label: 'Atendimentos', href: '/dashboard/atendimentos', icon: <Inbox sx={{ fontSize: 18 }} /> },
       { id: 'clients', label: 'Clientes', href: '/dashboard/clients', icon: <People sx={{ fontSize: 18 }} /> },
       { id: 'conversas', label: 'Conversas', href: '/dashboard/conversas', icon: <Chat sx={{ fontSize: 18 }} /> },
-      { id: 'financeiro', label: 'Financeiro', href: '/dashboard/financeiro/transacoes', icon: <AccountBalance sx={{ fontSize: 18 }} /> },
+      { id: 'financeiro', label: 'Financeiro', href: '/dashboard/financeiro', icon: <AccountBalance sx={{ fontSize: 18 }} /> },
     ],
   },
   {
@@ -149,7 +148,7 @@ function NavButton({
             position: 'absolute',
             inset: 0,
             borderRadius: 10,
-            background: 'linear-gradient(135deg, #4338ca 0%, #6366f1 100%)',
+            background: 'linear-gradient(135deg, #b91c1c 0%, #dc2626 100%)',
             zIndex: 0,
           }}
           transition={{ type: 'spring', stiffness: 420, damping: 38 }}
@@ -168,7 +167,7 @@ function NavButton({
               position: 'absolute',
               inset: 0,
               borderRadius: 10,
-              background: 'rgba(99,102,241,0.25)',
+              background: 'rgba(220,38,38,0.25)',
               pointerEvents: 'none',
               zIndex: 1,
             }}
@@ -357,117 +356,64 @@ function SidebarContent({
           flexShrink: 0,
         }}
       >
-        {collapsed ? (
-          /* Collapsed: chevron right = expand */
-          <Box
-            component="button"
-            onClick={onToggleCollapse}
-            sx={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              width: '100%',
-              height: 60,
-              border: 'none',
-              bgcolor: 'transparent',
-              cursor: 'pointer',
-              color: 'rgba(255,255,255,0.35)',
-              transition: 'color 0.15s ease, background 0.15s ease',
-              '&:hover': {
-                color: 'rgba(255,255,255,0.8)',
-                bgcolor: 'rgba(255,255,255,0.04)',
-              },
-            }}
-          >
-            <ChevronRight sx={{ fontSize: 20 }} />
-          </Box>
-        ) : (
-          <>
-            {/* Logo + name */}
+        {/* Logo + name (hidden when collapsed) */}
+        <AnimatePresence initial={false}>
+          {!collapsed && (
             <Box
-              component={Link}
+              component={motion.a}
               href="/dashboard"
-              sx={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: 1.5,
-                textDecoration: 'none',
-                minWidth: 0,
-                flex: 1,
-              }}
+              initial={{ opacity: 0, x: -8 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -8 }}
+              transition={{ duration: 0.18 }}
+              sx={{ display: 'flex', alignItems: 'center', gap: 1.5, textDecoration: 'none', minWidth: 0, flex: 1 }}
             >
               <Box
                 component="img"
                 src="/logo.jpg"
                 alt="AlugaZap"
-                sx={{
-                  width: 30,
-                  height: 30,
-                  borderRadius: '8px',
-                  objectFit: 'contain',
-                  border: '1px solid rgba(255,255,255,0.12)',
-                  flexShrink: 0,
-                }}
+                sx={{ width: 30, height: 30, borderRadius: '8px', objectFit: 'contain', border: '1px solid rgba(255,255,255,0.12)', flexShrink: 0 }}
               />
               <Box sx={{ minWidth: 0 }}>
-                <Typography
-                  sx={{
-                    fontSize: '0.9375rem',
-                    fontWeight: 700,
-                    color: 'rgba(255,255,255,0.95)',
-                    lineHeight: 1.2,
-                    letterSpacing: '-0.02em',
-                    whiteSpace: 'nowrap',
-                  }}
-                >
+                <Typography sx={{ fontSize: '0.9375rem', fontWeight: 700, color: 'rgba(255,255,255,0.95)', lineHeight: 1.2, letterSpacing: '-0.02em', whiteSpace: 'nowrap' }}>
                   AlugaZap
                 </Typography>
-                <Typography
-                  sx={{
-                    fontSize: '0.6875rem',
-                    color: 'rgba(255,255,255,0.35)',
-                    fontWeight: 500,
-                    lineHeight: 1,
-                    whiteSpace: 'nowrap',
-                    mt: 0.25,
-                  }}
-                >
+                <Typography sx={{ fontSize: '0.6875rem', color: 'rgba(255,255,255,0.35)', fontWeight: 500, lineHeight: 1, whiteSpace: 'nowrap', mt: 0.25 }}>
                   Gestão Imobiliária
                 </Typography>
               </Box>
             </Box>
+          )}
+        </AnimatePresence>
 
-            {/* Collapse / close button */}
+        {/* Prominent collapse / expand toggle */}
+        <Box
+          component={motion.button}
+          onClick={isMobile ? onClose : onToggleCollapse}
+          whileHover={{ scale: 1.12 }}
+          whileTap={{ scale: 0.9 }}
+          aria-label={collapsed ? 'Expandir menu' : 'Recolher menu'}
+          sx={{
+            width: 32, height: 32, borderRadius: '50%', p: 0, flexShrink: 0,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            border: 'none', cursor: 'pointer', color: '#fff',
+            background: 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)',
+            boxShadow: '0 3px 12px rgba(220,38,38,0.45)',
+          }}
+        >
+          {isMobile ? (
+            <Close sx={{ fontSize: 17 }} />
+          ) : (
             <Box
-              component="button"
-              onClick={isMobile ? onClose : onToggleCollapse}
-              sx={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                width: 28,
-                height: 28,
-                borderRadius: '7px',
-                border: 'none',
-                bgcolor: 'transparent',
-                cursor: 'pointer',
-                color: 'rgba(255,255,255,0.3)',
-                flexShrink: 0,
-                transition: 'color 0.15s ease, background 0.15s ease',
-                '&:hover': {
-                  color: 'rgba(255,255,255,0.75)',
-                  bgcolor: 'rgba(255,255,255,0.07)',
-                },
-              }}
+              component={motion.span}
+              animate={{ rotate: collapsed ? 0 : 180 }}
+              transition={{ type: 'spring', stiffness: 320, damping: 22 }}
+              sx={{ display: 'flex' }}
             >
-              {isMobile ? (
-                <Close sx={{ fontSize: 16 }} />
-              ) : (
-                <ChevronLeft sx={{ fontSize: 16 }} />
-              )}
+              <ChevronRight sx={{ fontSize: 18 }} />
             </Box>
-          </>
-        )}
+          )}
+        </Box>
       </Box>
 
       {/* Navigation */}

@@ -444,7 +444,7 @@ function CRMPageContent() {
               component="h1" 
               fontWeight="700"
               sx={{
-                background: 'linear-gradient(135deg, #ffffff 0%, #a5b4fc 100%)',
+                background: 'linear-gradient(135deg, #ffffff 0%, #fca5a5 100%)',
                 WebkitBackgroundClip: 'text',
                 WebkitTextFillColor: 'transparent',
                 backgroundClip: 'text',
@@ -675,9 +675,9 @@ function CRMPageContent() {
                 color: 'rgba(255, 255, 255, 0.9)',
               },
               '&.Mui-selected': {
-                background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)',
+                background: 'linear-gradient(135deg, #dc2626 0%, #dc2626 100%)',
                 color: 'white',
-                boxShadow: '0 4px 12px rgba(99, 102, 241, 0.4)',
+                boxShadow: '0 4px 12px rgba(220, 38, 38, 0.4)',
               }
             },
             '& .MuiTabs-indicator': {

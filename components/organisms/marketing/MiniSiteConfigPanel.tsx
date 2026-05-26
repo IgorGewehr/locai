@@ -341,11 +341,11 @@ export default function MiniSiteConfigPanel() {
                 width: 48,
                 height: 48,
                 borderRadius: '12px',
-                background: 'linear-gradient(135deg, #8b5cf6, #d946ef)',
+                background: 'linear-gradient(135deg, #dc2626, #d946ef)',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                boxShadow: '0 8px 24px rgba(139, 92, 246, 0.4)',
+                boxShadow: '0 8px 24px rgba(220, 38, 38, 0.4)',
               }}
             >
               <Settings sx={{ fontSize: 24, color: 'white' }} />

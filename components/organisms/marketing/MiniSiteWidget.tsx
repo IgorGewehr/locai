@@ -427,7 +427,7 @@ export default function MiniSiteWidget({ tenantId = 'demo' }: MiniSiteWidgetProp
                 }}
               >
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                  <TouchApp sx={{ color: '#a78bfa', fontSize: 20 }} />
+                  <TouchApp sx={{ color: '#f87171', fontSize: 20 }} />
                   <Typography variant="body1" sx={{ color: 'rgba(255, 255, 255, 0.9)' }}>
                     Imóveis Vistos
                   </Typography>

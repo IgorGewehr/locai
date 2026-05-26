@@ -21,7 +21,7 @@ export const TRIAGE_CONFIG: Record<TriageStatus, TriageConfig> = {
   cooling: { label: 'Esfriando', color: '#f59e0b', priority: 2 },
   closing: { label: 'Fechando', color: '#10b981', priority: 3 },
   hot: { label: 'Quente', color: '#fb923c', priority: 4 },
-  warm: { label: 'Morno', color: '#6366f1', priority: 5 },
+  warm: { label: 'Morno', color: '#94a3b8', priority: 5 },
   cold: { label: 'Frio', color: '#64748b', priority: 6 },
 };
 

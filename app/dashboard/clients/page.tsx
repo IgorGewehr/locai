@@ -40,6 +40,7 @@ import {
   Tooltip,
 } from '@mui/material';
 import ModernButton from '@/components/atoms/ModernButton';
+import { ListSkeleton } from '@/components/atoms/Skeletons';
 import {
   Search,
   Add,
@@ -459,9 +460,7 @@ export default function ClientsPage() {
       <Card>
         <List sx={{ p: 0 }}>
           {loading ? (
-            <Box sx={{ textAlign: 'center', py: 8 }}>
-              <Typography color="text.secondary">Carregando clientes...</Typography>
-            </Box>
+            <ListSkeleton count={6} />
           ) : filteredClients.length === 0 ? (
             <Box sx={{ textAlign: 'center', py: 8 }}>
               <Person sx={{ fontSize: 64, color: 'text.disabled', mb: 2 }} />

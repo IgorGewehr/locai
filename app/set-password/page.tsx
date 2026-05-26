@@ -249,14 +249,14 @@ export default function SetPasswordPage() {
                       borderColor: 'rgba(255, 255, 255, 0.25)',
                     },
                     '&.Mui-focused fieldset': {
-                      borderColor: '#6366f1',
+                      borderColor: '#dc2626',
                       borderWidth: 2,
                     },
                   },
                   '& .MuiInputLabel-root': {
                     color: 'rgba(255, 255, 255, 0.7)',
                     '&.Mui-focused': {
-                      color: '#6366f1',
+                      color: '#dc2626',
                     },
                   },
                   '& .MuiOutlinedInput-input': {
@@ -302,7 +302,7 @@ export default function SetPasswordPage() {
               textTransform: 'none',
               fontWeight: 600,
               fontSize: '1rem',
-              background: '#6366f1',
+              background: '#dc2626',
               color: '#ffffff',
               transition: 'all 0.15s ease',
               '&:hover': {
@@ -462,14 +462,14 @@ export default function SetPasswordPage() {
                       borderColor: 'rgba(255, 255, 255, 0.25)',
                     },
                     '&.Mui-focused fieldset': {
-                      borderColor: '#6366f1',
+                      borderColor: '#dc2626',
                       borderWidth: 2,
                     },
                   },
                   '& .MuiInputLabel-root': {
                     color: 'rgba(255, 255, 255, 0.7)',
                     '&.Mui-focused': {
-                      color: '#6366f1',
+                      color: '#dc2626',
                     },
                   },
                   '& .MuiOutlinedInput-input': {
@@ -517,14 +517,14 @@ export default function SetPasswordPage() {
                       borderColor: 'rgba(255, 255, 255, 0.25)',
                     },
                     '&.Mui-focused fieldset': {
-                      borderColor: '#6366f1',
+                      borderColor: '#dc2626',
                       borderWidth: 2,
                     },
                   },
                   '& .MuiInputLabel-root': {
                     color: 'rgba(255, 255, 255, 0.7)',
                     '&.Mui-focused': {
-                      color: '#6366f1',
+                      color: '#dc2626',
                     },
                   },
                   '& .MuiOutlinedInput-input': {

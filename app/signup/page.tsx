@@ -563,7 +563,7 @@ export default function SignupPage() {
                   fontSize: '0.75rem',
                 }}
               >
-                © 2024 Locai. Todos os direitos reservados.
+                © 2024 AlugaZap. Todos os direitos reservados.
               </Typography>
             </Box>
           </Box>

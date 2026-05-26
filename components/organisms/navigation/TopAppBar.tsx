@@ -97,7 +97,7 @@ const navigationItems: NavigationItem[] = [
   },
   {
     text: 'Financeiro',
-    href: '/dashboard/financeiro/transacoes',
+    href: '/dashboard/financeiro',
     icon: <AccountBalance sx={{ fontSize: 20 }} />,
   },
   {

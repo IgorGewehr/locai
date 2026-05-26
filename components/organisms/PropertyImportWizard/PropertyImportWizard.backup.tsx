@@ -384,7 +384,7 @@ export default function PropertyImportWizard({
         {/* Modern Header with Gradient */}
         <Box
           sx={{
-            background: 'linear-gradient(135deg, #6366f1, #8b5cf6, #d946ef)',
+            background: 'linear-gradient(135deg, #dc2626, #dc2626, #d946ef)',
             p: 4,
             pb: 5,
             position: 'relative',
@@ -501,9 +501,9 @@ export default function PropertyImportWizard({
                 mb: 3,
                 borderRadius: 2,
                 height: 6,
-                backgroundColor: alpha('#6366f1', 0.1),
+                backgroundColor: alpha('#dc2626', 0.1),
                 '& .MuiLinearProgress-bar': {
-                  background: 'linear-gradient(90deg, #6366f1, #8b5cf6, #d946ef)',
+                  background: 'linear-gradient(90deg, #dc2626, #dc2626, #d946ef)',
                   borderRadius: 2,
                 },
               }}
@@ -519,12 +519,12 @@ export default function PropertyImportWizard({
                 padding: 0,
               },
               '& .MuiStepContent-root': {
-                borderLeft: `2px solid ${alpha('#6366f1', 0.2)}`,
+                borderLeft: `2px solid ${alpha('#dc2626', 0.2)}`,
                 ml: 2.5,
                 pl: 3,
               },
               '& .MuiStepConnector-line': {
-                borderColor: alpha('#6366f1', 0.2),
+                borderColor: alpha('#dc2626', 0.2),
                 borderWidth: 2,
               },
             }}
@@ -536,9 +536,9 @@ export default function PropertyImportWizard({
               <StepLabel
                 StepIconProps={{
                   sx: {
-                    color: alpha('#6366f1', 0.3),
+                    color: alpha('#dc2626', 0.3),
                     '&.Mui-active': {
-                      color: '#6366f1',
+                      color: '#dc2626',
                     },
                     '&.Mui-completed': {
                       color: '#10b981',
@@ -564,7 +564,7 @@ export default function PropertyImportWizard({
                   '& .MuiStepLabel-label': {
                     fontSize: '1.125rem',
                     fontWeight: 600,
-                    color: activeStep === 0 ? '#6366f1' : alpha('#ffffff', 0.7),
+                    color: activeStep === 0 ? '#dc2626' : alpha('#ffffff', 0.7),
                   },
                 }}
               >
@@ -575,8 +575,8 @@ export default function PropertyImportWizard({
                   sx={{
                     p: 3,
                     borderRadius: 3,
-                    background: alpha('#6366f1', 0.05),
-                    border: `1px solid ${alpha('#6366f1', 0.1)}`,
+                    background: alpha('#dc2626', 0.05),
+                    border: `1px solid ${alpha('#dc2626', 0.1)}`,
                     mb: 2,
                   }}
                 >
@@ -606,14 +606,14 @@ export default function PropertyImportWizard({
                         borderRadius: 2,
                         fontSize: '0.9375rem',
                         '& fieldset': {
-                          borderColor: alpha('#6366f1', 0.2),
+                          borderColor: alpha('#dc2626', 0.2),
                           borderWidth: 2,
                         },
                         '&:hover fieldset': {
-                          borderColor: alpha('#6366f1', 0.4),
+                          borderColor: alpha('#dc2626', 0.4),
                         },
                         '&.Mui-focused fieldset': {
-                          borderColor: '#6366f1',
+                          borderColor: '#dc2626',
                         },
                       },
                       '& .MuiInputBase-input': {
@@ -669,8 +669,8 @@ export default function PropertyImportWizard({
                     endIcon={<NavigateNext />}
                     size="large"
                     sx={{
-                      background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
-                      boxShadow: `0 4px 16px ${alpha('#6366f1', 0.3)}`,
+                      background: 'linear-gradient(135deg, #dc2626, #dc2626)',
+                      boxShadow: `0 4px 16px ${alpha('#dc2626', 0.3)}`,
                       fontWeight: 600,
                       py: 1.5,
                       px: 3,
@@ -679,10 +679,10 @@ export default function PropertyImportWizard({
                       fontSize: '1rem',
                       '&:hover': {
                         transform: 'translateY(-2px)',
-                        boxShadow: `0 6px 20px ${alpha('#6366f1', 0.4)}`,
+                        boxShadow: `0 6px 20px ${alpha('#dc2626', 0.4)}`,
                       },
                       '&:disabled': {
-                        background: alpha('#6366f1', 0.2),
+                        background: alpha('#dc2626', 0.2),
                         color: alpha('#ffffff', 0.4),
                       },
                       transition: 'all 0.2s ease',
@@ -701,9 +701,9 @@ export default function PropertyImportWizard({
               <StepLabel
                 StepIconProps={{
                   sx: {
-                    color: alpha('#6366f1', 0.3),
+                    color: alpha('#dc2626', 0.3),
                     '&.Mui-active': {
-                      color: '#6366f1',
+                      color: '#dc2626',
                     },
                     '&.Mui-completed': {
                       color: '#10b981',
@@ -730,7 +730,7 @@ export default function PropertyImportWizard({
                   '& .MuiStepLabel-label': {
                     fontSize: '1.125rem',
                     fontWeight: 600,
-                    color: activeStep === 1 ? '#6366f1' : alpha('#ffffff', 0.7),
+                    color: activeStep === 1 ? '#dc2626' : alpha('#ffffff', 0.7),
                   },
                 }}
               >
@@ -892,8 +892,8 @@ export default function PropertyImportWizard({
                       startIcon={loading ? <CircularProgress size={20} /> : <CloudSync />}
                       size="large"
                       sx={{
-                        background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
-                        boxShadow: `0 4px 16px ${alpha('#6366f1', 0.3)}`,
+                        background: 'linear-gradient(135deg, #dc2626, #dc2626)',
+                        boxShadow: `0 4px 16px ${alpha('#dc2626', 0.3)}`,
                         fontWeight: 600,
                         py: 1.5,
                         px: 3,
@@ -902,10 +902,10 @@ export default function PropertyImportWizard({
                         fontSize: '1rem',
                         '&:hover': {
                           transform: 'translateY(-2px)',
-                          boxShadow: `0 6px 20px ${alpha('#6366f1', 0.4)}`,
+                          boxShadow: `0 6px 20px ${alpha('#dc2626', 0.4)}`,
                         },
                         '&:disabled': {
-                          background: alpha('#6366f1', 0.2),
+                          background: alpha('#dc2626', 0.2),
                           color: alpha('#ffffff', 0.4),
                         },
                         transition: 'all 0.2s ease',
@@ -921,8 +921,8 @@ export default function PropertyImportWizard({
                       endIcon={<NavigateNext />}
                       size="large"
                       sx={{
-                        background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
-                        boxShadow: `0 4px 16px ${alpha('#6366f1', 0.3)}`,
+                        background: 'linear-gradient(135deg, #dc2626, #dc2626)',
+                        boxShadow: `0 4px 16px ${alpha('#dc2626', 0.3)}`,
                         fontWeight: 600,
                         py: 1.5,
                         px: 3,
@@ -931,7 +931,7 @@ export default function PropertyImportWizard({
                         fontSize: '1rem',
                         '&:hover': {
                           transform: 'translateY(-2px)',
-                          boxShadow: `0 6px 20px ${alpha('#6366f1', 0.4)}`,
+                          boxShadow: `0 6px 20px ${alpha('#dc2626', 0.4)}`,
                         },
                         transition: 'all 0.2s ease',
                       }}

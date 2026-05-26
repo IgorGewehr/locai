@@ -131,9 +131,9 @@ export default function KanbanBoard({
             label={`${currentPage + 1} de ${totalPages}`}
             size="small"
             sx={{
-              background: 'rgba(99, 102, 241, 0.2)',
-              color: '#c7d2fe',
-              border: '1px solid rgba(99, 102, 241, 0.3)',
+              background: 'rgba(220, 38, 38, 0.2)',
+              color: '#fca5a5',
+              border: '1px solid rgba(220, 38, 38, 0.3)',
               fontWeight: 600,
             }}
           />
@@ -268,7 +268,7 @@ export default function KanbanBoard({
                         maxHeight: 500,
                         overflowY: 'auto',
                         p: 3,
-                        background: snapshot.isDraggingOver ? 'rgba(99, 102, 241, 0.1)' : 'transparent',
+                        background: snapshot.isDraggingOver ? 'rgba(220, 38, 38, 0.1)' : 'transparent',
                         transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
                         '&::-webkit-scrollbar': {
                           width: '8px',
@@ -337,8 +337,8 @@ export default function KanbanBoard({
                                           height: 40, 
                                           fontSize: 16, 
                                           mr: 1.5,
-                                          background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
-                                          boxShadow: '0 4px 12px rgba(99, 102, 241, 0.3)',
+                                          background: 'linear-gradient(135deg, #dc2626, #dc2626)',
+                                          boxShadow: '0 4px 12px rgba(220, 38, 38, 0.3)',
                                         }}
                                       >
                                         {lead.name ? lead.name.charAt(0).toUpperCase() : '?'}
@@ -420,7 +420,7 @@ export default function KanbanBoard({
                                         </Box>
                                       )}
                                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                        <AccessTime sx={{ fontSize: 16, color: '#8b5cf6' }} />
+                                        <AccessTime sx={{ fontSize: 16, color: '#dc2626' }} />
                                         <Typography 
                                           variant="body2" 
                                           sx={{ color: 'rgba(255, 255, 255, 0.8)', fontSize: '0.875rem' }}
@@ -436,9 +436,9 @@ export default function KanbanBoard({
                                         label={lead.source} 
                                         size="small" 
                                         sx={{
-                                          background: 'rgba(99, 102, 241, 0.2)',
-                                          color: '#c7d2fe',
-                                          border: '1px solid rgba(99, 102, 241, 0.3)',
+                                          background: 'rgba(220, 38, 38, 0.2)',
+                                          color: '#fca5a5',
+                                          border: '1px solid rgba(220, 38, 38, 0.3)',
                                           fontWeight: 600,
                                           fontSize: '0.75rem',
                                         }}
@@ -449,9 +449,9 @@ export default function KanbanBoard({
                                           label={tag} 
                                           size="small" 
                                           sx={{
-                                            background: 'rgba(139, 92, 246, 0.2)',
+                                            background: 'rgba(220, 38, 38, 0.2)',
                                             color: '#d8b4fe',
-                                            border: '1px solid rgba(139, 92, 246, 0.3)',
+                                            border: '1px solid rgba(220, 38, 38, 0.3)',
                                             fontWeight: 600,
                                             fontSize: '0.75rem',
                                           }}
@@ -617,11 +617,11 @@ export default function KanbanBoard({
                                             onQuickAction(lead, 'task');
                                           }}
                                           sx={{
-                                            background: 'rgba(139, 92, 246, 0.2)',
-                                            color: '#8b5cf6',
-                                            border: '1px solid rgba(139, 92, 246, 0.3)',
+                                            background: 'rgba(220, 38, 38, 0.2)',
+                                            color: '#dc2626',
+                                            border: '1px solid rgba(220, 38, 38, 0.3)',
                                             '&:hover': {
-                                              background: 'rgba(139, 92, 246, 0.3)',
+                                              background: 'rgba(220, 38, 38, 0.3)',
                                               transform: 'scale(1.1)',
                                             }
                                           }}

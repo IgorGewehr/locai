@@ -104,7 +104,7 @@ interface PerformanceMetrics {
   bestConvertingDay: string;
 }
 
-const COLORS = ['#6366f1', '#8b5cf6', '#ec4899', '#f59e0b', '#10b981', '#06b6d4', '#ef4444'];
+const COLORS = ['#dc2626', '#8b5cf6', '#ec4899', '#f59e0b', '#10b981', '#06b6d4', '#ef4444'];
 
 const statusOrder = [
   LeadStatus.NEW,
@@ -274,7 +274,7 @@ export default function AdvancedAnalytics({ leads, onRefresh }: AdvancedAnalytic
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 4 }}>
         <Box>
           <Typography variant="h4" fontWeight="700" sx={{
-            background: 'linear-gradient(135deg, #ffffff 0%, #a5b4fc 100%)',
+            background: 'linear-gradient(135deg, #ffffff 0%, #fca5a5 100%)',
             WebkitBackgroundClip: 'text',
             WebkitTextFillColor: 'transparent',
             backgroundClip: 'text',
@@ -303,7 +303,7 @@ export default function AdvancedAnalytics({ leads, onRefresh }: AdvancedAnalytic
                 sx={{
                   minWidth: 100,
                   ...(timeRange === period.value && {
-                    background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)',
+                    background: 'linear-gradient(135deg, #dc2626 0%, #8b5cf6 100%)',
                   })
                 }}
               >
@@ -338,7 +338,7 @@ export default function AdvancedAnalytics({ leads, onRefresh }: AdvancedAnalytic
             title: 'Total de Leads',
             value: performanceMetrics.totalLeads,
             icon: <Groups />,
-            color: '#6366f1',
+            color: '#dc2626',
             change: '+12%',
             trend: 'up'
           },
@@ -442,9 +442,9 @@ export default function AdvancedAnalytics({ leads, onRefresh }: AdvancedAnalytic
                 color: 'rgba(255, 255, 255, 0.9)',
               },
               '&.Mui-selected': {
-                background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)',
+                background: 'linear-gradient(135deg, #dc2626 0%, #8b5cf6 100%)',
                 color: 'white',
-                boxShadow: '0 4px 12px rgba(99, 102, 241, 0.4)',
+                boxShadow: '0 4px 12px rgba(220, 38, 38, 0.4)',
               }
             },
             '& .MuiTabs-indicator': {
@@ -470,8 +470,8 @@ export default function AdvancedAnalytics({ leads, onRefresh }: AdvancedAnalytic
                   <AreaChart data={timeSeriesData}>
                     <defs>
                       <linearGradient id="colorLeads" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#6366f1" stopOpacity={0.8}/>
-                        <stop offset="95%" stopColor="#6366f1" stopOpacity={0.1}/>
+                        <stop offset="5%" stopColor="#dc2626" stopOpacity={0.8}/>
+                        <stop offset="95%" stopColor="#dc2626" stopOpacity={0.1}/>
                       </linearGradient>
                       <linearGradient id="colorConversions" x1="0" y1="0" x2="0" y2="1">
                         <stop offset="5%" stopColor="#10b981" stopOpacity={0.8}/>
@@ -492,7 +492,7 @@ export default function AdvancedAnalytics({ leads, onRefresh }: AdvancedAnalytic
                     <Area
                       type="monotone"
                       dataKey="leads"
-                      stroke="#6366f1"
+                      stroke="#dc2626"
                       fillOpacity={1}
                       fill="url(#colorLeads)"
                       name="Novos Leads"
@@ -699,7 +699,7 @@ export default function AdvancedAnalytics({ leads, onRefresh }: AdvancedAnalytic
                         </Typography>
                       </Box>
                       <Box>
-                        <Typography variant="subtitle2" color="#6366f1" fontWeight="600">
+                        <Typography variant="subtitle2" color="#dc2626" fontWeight="600">
                           Score Médio dos Leads
                         </Typography>
                         <Typography variant="body1" color="white">
@@ -714,7 +714,7 @@ export default function AdvancedAnalytics({ leads, onRefresh }: AdvancedAnalytic
                             borderRadius: 4,
                             bgcolor: 'rgba(255, 255, 255, 0.1)',
                             '& .MuiLinearProgress-bar': {
-                              background: 'linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%)',
+                              background: 'linear-gradient(135deg, #dc2626 0%, #8b5cf6 100%)',
                               borderRadius: 4,
                             },
                           }}
@@ -750,10 +750,10 @@ export default function AdvancedAnalytics({ leads, onRefresh }: AdvancedAnalytic
                     </Alert>
 
                     <Alert severity="info" sx={{
-                      backgroundColor: 'rgba(99, 102, 241, 0.1)',
-                      border: '1px solid rgba(99, 102, 241, 0.3)',
+                      backgroundColor: 'rgba(220, 38, 38, 0.1)',
+                      border: '1px solid rgba(220, 38, 38, 0.3)',
                       borderRadius: '16px',
-                      '& .MuiAlert-icon': { color: '#6366f1' },
+                      '& .MuiAlert-icon': { color: '#dc2626' },
                       '& .MuiAlert-message': { color: 'white' },
                     }}>
                       <Typography variant="subtitle2" fontWeight="600">

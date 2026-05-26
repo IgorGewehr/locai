@@ -42,6 +42,7 @@ import {
 } from '@mui/material';
 import ModernButton from '@/components/atoms/ModernButton';
 import ModernFAB from '@/components/atoms/ModernFAB';
+import { TableSkeleton } from '@/components/atoms/Skeletons';
 import {
   Add,
   Search,
@@ -592,8 +593,8 @@ export default function ReservationsPage() {
             <TableBody>
               {loading || !isReady ? (
                 <TableRow>
-                  <TableCell colSpan={10} align="center" sx={{ py: 4 }}>
-                    <Typography color="text.secondary">Carregando reservas...</Typography>
+                  <TableCell colSpan={10} sx={{ p: 0, border: 0 }}>
+                    <TableSkeleton rows={6} columns={6} />
                   </TableCell>
                 </TableRow>
               ) : filteredReservations.length === 0 ? (

@@ -19,7 +19,7 @@ const FILTERS: { key: FilterKey; label: string; color: string }[] = [
   { key: 'cooling', label: 'Esfriando', color: '#f59e0b' },
   { key: 'closing', label: 'Fechando', color: '#10b981' },
   { key: 'hot', label: 'Quentes', color: '#fb923c' },
-  { key: 'today', label: 'Hoje', color: '#6366f1' },
+  { key: 'today', label: 'Hoje', color: '#dc2626' },
 ];
 
 function matchesFilter(lead: Lead, key: FilterKey): boolean {
@@ -41,7 +41,7 @@ export default function AtendimentosPage() {
   const loadLeads = useCallback(async () => {
     if (!services) return;
     try {
-      const all = await services.leads.getAll(500);
+      const all = await services.leads.getAll(300);
       setLeads(all);
     } catch (e) {
       logger.error('[Atendimentos] Failed to load leads', e instanceof Error ? e : undefined);
@@ -52,7 +52,10 @@ export default function AtendimentosPage() {
 
   useEffect(() => {
     loadLeads();
-    const t = setInterval(loadLeads, 60_000);
+    // Refresh every 5 min, only while the tab is visible — avoids runaway Firebase reads.
+    const t = setInterval(() => {
+      if (document.visibilityState === 'visible') loadLeads();
+    }, 300_000);
     return () => clearInterval(t);
   }, [loadLeads]);
 
@@ -91,9 +94,9 @@ export default function AtendimentosPage() {
   }, [getFirebaseToken, openConversation]);
 
   return (
-    <Box sx={{ maxWidth: 720, mx: 'auto' }}>
+    <Box sx={{ height: { xs: 'calc(100vh - 64px)', md: 'calc(100vh - 96px)' }, display: 'flex', flexDirection: 'column' }}>
       {/* Header */}
-      <Box sx={{ mb: 3 }}>
+      <Box sx={{ mb: 2.5, flexShrink: 0 }}>
         <Typography variant="h5" fontWeight={700} sx={{ color: '#f1f5f9', letterSpacing: '-0.02em' }}>
           Atendimentos
         </Typography>
@@ -105,7 +108,7 @@ export default function AtendimentosPage() {
       </Box>
 
       {/* Filter chips */}
-      <Box sx={{ display: 'flex', gap: 1, mb: 3, flexWrap: 'wrap' }}>
+      <Box sx={{ display: 'flex', gap: 1, mb: 2.5, flexWrap: 'wrap', flexShrink: 0 }}>
         {FILTERS.map((f) => {
           const active = filter === f.key;
           const count = counts[f.key];
@@ -141,30 +144,32 @@ export default function AtendimentosPage() {
         })}
       </Box>
 
-      {/* List */}
-      {loading ? (
-        <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
-          <CircularProgress size={28} sx={{ color: 'rgba(255,255,255,0.3)' }} />
-        </Box>
-      ) : visible.length === 0 ? (
-        <Box sx={{ textAlign: 'center', py: 8 }}>
-          <Typography sx={{ color: 'rgba(255,255,255,0.4)', fontSize: '0.875rem' }}>
-            Nenhum atendimento neste filtro.
-          </Typography>
-        </Box>
-      ) : (
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
-          {visible.map((lead, i) => (
-            <LeadTriageCard
-              key={lead.id}
-              lead={lead}
-              index={i}
-              onOpenConversation={openConversation}
-              onAssume={assume}
-            />
-          ))}
-        </Box>
-      )}
+      {/* List — fills remaining space, scrolls internally */}
+      <Box sx={{ flex: 1, overflowY: 'auto', minHeight: 0, pr: 0.5 }}>
+        {loading ? (
+          <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
+            <CircularProgress size={28} sx={{ color: 'rgba(255,255,255,0.3)' }} />
+          </Box>
+        ) : visible.length === 0 ? (
+          <Box sx={{ textAlign: 'center', py: 8 }}>
+            <Typography sx={{ color: 'rgba(255,255,255,0.4)', fontSize: '0.875rem' }}>
+              Nenhum atendimento neste filtro.
+            </Typography>
+          </Box>
+        ) : (
+          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', lg: '1fr 1fr', xl: '1fr 1fr 1fr' }, gap: 1.5, alignContent: 'start' }}>
+            {visible.map((lead, i) => (
+              <LeadTriageCard
+                key={lead.id}
+                lead={lead}
+                index={i}
+                onOpenConversation={openConversation}
+                onAssume={assume}
+              />
+            ))}
+          </Box>
+        )}
+      </Box>
     </Box>
   );
 }

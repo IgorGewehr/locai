@@ -237,15 +237,15 @@ export default function CreateVisitDialog({ open, onClose, onSuccess }: CreateVi
             },
             body: JSON.stringify({
               to: clientPhone,
-              message: `🏠 *Agendamento Confirmado*\n\n` +
+              message: `*Visita Agendada*\n\n` +
                       `Olá ${clientName}! Sua visita foi agendada:\n\n` +
-                      `📍 *Propriedade:* ${selectedProperty.title}\n` +
-                      `📅 *Data:* ${scheduledDateTime.toLocaleDateString('pt-BR')}\n` +
-                      `⏰ *Horário:* ${selectedTime.toTimeString().slice(0, 5)}\n` +
-                      `⏱️ *Duração:* ${duration} minutos\n\n` +
-                      `${notes ? `📝 *Observações:* ${notes}\n\n` : ''}` +
+                      `*Propriedade:* ${selectedProperty.title}\n` +
+                      `*Data:* ${scheduledDateTime.toLocaleDateString('pt-BR')}\n` +
+                      `*Horário:* ${selectedTime.toTimeString().slice(0, 5)}\n` +
+                      `*Duração:* ${duration} minutos\n\n` +
+                      `${notes ? `*Observações:* ${notes}\n\n` : ''}` +
                       `Para confirmar ou remarcar, responda esta mensagem.\n\n` +
-                      `_Mensagem enviada automaticamente pela Sofia IA_ 🤖`
+                      `_Mensagem enviada automaticamente pela Sofia IA_`
             }),
           });
         } catch (whatsappError) {
@@ -297,36 +297,36 @@ export default function CreateVisitDialog({ open, onClose, onSuccess }: CreateVi
         fullWidth
         PaperProps={{
           sx: {
-            background: 'rgba(30, 41, 59, 0.95)',
-            backdropFilter: 'blur(20px)',
-            border: '1px solid rgba(255, 255, 255, 0.1)',
-            borderRadius: 2,
+            bgcolor: '#111827',
+            border: '1px solid rgba(255, 255, 255, 0.08)',
+            borderRadius: '14px',
+            backgroundImage: 'none',
           }
         }}
       >
-        <DialogTitle sx={{ 
-          display: 'flex', 
-          alignItems: 'center', 
+        <DialogTitle sx={{
+          display: 'flex',
+          alignItems: 'center',
           justifyContent: 'space-between',
-          color: 'white',
+          color: '#f1f5f9',
           pb: 2
         }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            <CalendarToday sx={{ color: 'primary.main' }} />
+            <CalendarToday sx={{ color: '#ef4444' }} />
             <Typography variant="h6" fontWeight={600}>
-              Agendar Novo Evento
+              Agendar Nova Visita
             </Typography>
-            <Chip 
-              label="Sofia IA" 
-              size="small" 
-              sx={{ 
-                bgcolor: 'primary.main', 
-                color: 'white',
+            <Chip
+              label="Sofia IA"
+              size="small"
+              sx={{
+                bgcolor: '#dc2626',
+                color: '#fff',
                 fontSize: '0.75rem'
-              }} 
+              }}
             />
           </Box>
-          <IconButton onClick={handleClose} sx={{ color: 'white' }}>
+          <IconButton onClick={handleClose} sx={{ color: 'rgba(255,255,255,0.7)' }}>
             <Close />
           </IconButton>
         </DialogTitle>
@@ -610,7 +610,7 @@ export default function CreateVisitDialog({ open, onClose, onSuccess }: CreateVi
         </DialogContent>
 
         <DialogActions sx={{ p: 3, pt: 2 }}>
-          <Button onClick={handleClose} sx={{ color: 'rgba(255, 255, 255, 0.7)' }}>
+          <Button onClick={handleClose} sx={{ color: 'rgba(255, 255, 255, 0.7)', textTransform: 'none' }}>
             Cancelar
           </Button>
           <Button
@@ -619,10 +619,11 @@ export default function CreateVisitDialog({ open, onClose, onSuccess }: CreateVi
             disabled={loading || loadingOptions}
             startIcon={loading ? <CircularProgress size={20} /> : <SmartToy />}
             sx={{
-              background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-              '&:hover': {
-                background: 'linear-gradient(135deg, #5a67d8 0%, #6b47a8 100%)',
-              },
+              bgcolor: '#dc2626',
+              borderRadius: '12px',
+              textTransform: 'none',
+              boxShadow: 'none',
+              '&:hover': { bgcolor: '#b91c1c', boxShadow: 'none' },
             }}
           >
             {loading ? 'Agendando...' : 'Agendar Visita'}

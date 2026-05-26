@@ -245,15 +245,15 @@ export default function ProfilePage() {
         <Grid item xs={12}>
           <Card
             sx={{
-              background: 'rgba(59, 130, 246, 0.05)',
-              border: '1px solid rgba(59, 130, 246, 0.2)',
+              background: 'rgba(220, 38, 38, 0.05)',
+              border: '1px solid rgba(220, 38, 38, 0.2)',
             }}
           >
             <CardContent>
               <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                 <Box>
                   <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
-                    <LinkIcon sx={{ mr: 1.5, color: '#3b82f6' }} />
+                    <LinkIcon sx={{ mr: 1.5, color: '#dc2626' }} />
                     <Typography variant="h6" fontWeight={600}>
                       Métodos de Login
                     </Typography>
@@ -267,8 +267,8 @@ export default function ProfilePage() {
                   startIcon={<LinkIcon />}
                   onClick={() => router.push('/link-accounts')}
                   sx={{
-                    backgroundColor: '#3b82f6',
-                    '&:hover': { backgroundColor: '#2563eb' },
+                    backgroundColor: '#dc2626',
+                    '&:hover': { backgroundColor: '#b91c1c' },
                   }}
                 >
                   Gerenciar Métodos

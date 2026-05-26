@@ -88,9 +88,7 @@ import {
   Edit,
 } from '@mui/icons-material';
 import { Transaction, Client, Property, Reservation } from '@/lib/types';
-import { Wallet } from '@/lib/types/financial-wallet';
-import { WalletService } from '@/lib/services/wallet-service';
-import { BalanceCard, FinancialStats } from '@/components/organisms/financeiro/WalletComponents';
+import { FinancialStats } from '@/components/organisms/financeiro/WalletComponents';
 import { useTenantServices } from '@/lib/hooks/useTenantServices';
 import { useForm, Controller } from 'react-hook-form';
 import { yupResolver } from '@hookform/resolvers/yup';
@@ -134,13 +132,6 @@ export default function TransactionsPage() {
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
   const [selectedReservation, setSelectedReservation] = useState<Reservation | null>(null);
   const [filteredReservations, setFilteredReservations] = useState<Reservation[]>([]);
-
-  // Wallet state
-  const [wallet, setWallet] = useState<Wallet | null>(null);
-  const [withdrawOpen, setWithdrawOpen] = useState(false);
-  const [withdrawAmount, setWithdrawAmount] = useState('');
-  const [withdrawPixKey, setWithdrawPixKey] = useState('');
-  const [withdrawLoading, setWithdrawLoading] = useState(false);
 
   // Transaction form validation schema
   const transactionSchema = yup.object().shape({
@@ -223,12 +214,6 @@ export default function TransactionsPage() {
       });
 
       setTransactions(sortedTransactions);
-
-      // Load wallet data
-      if (services.tenantId) {
-        const walletData = await WalletService.getWallet(services.tenantId);
-        setWallet(walletData);
-      }
     } catch (error) {
       console.error('Error loading transactions:', error);
     } finally {
@@ -746,25 +731,11 @@ export default function TransactionsPage() {
 
       {/* Financial Overview Section */}
       <Box sx={{ mb: 5 }}>
-        <Grid container spacing={3}>
-          {/* Wallet Card - Prominent */}
-          <Grid item xs={12} md={7} lg={8}>
-            <BalanceCard
-              wallet={wallet}
-              loading={loading}
-              onWithdraw={() => setWithdrawOpen(true)}
-            />
-          </Grid>
-
-          {/* Stats Cards - Compact */}
-          <Grid item xs={12} md={5} lg={4}>
-            <FinancialStats
-              income={stats.income}
-              expense={stats.expense}
-              loading={loading}
-            />
-          </Grid>
-        </Grid>
+        <FinancialStats
+          income={stats.income}
+          expense={stats.expense}
+          loading={loading}
+        />
       </Box>
 
       {/* Filters */}
@@ -1603,91 +1574,6 @@ export default function TransactionsPage() {
             )}
           </DialogActions>
         </form>
-      </Dialog>
-
-      {/* Dialog de Saque */}
-      <Dialog open={withdrawOpen} onClose={() => !withdrawLoading && setWithdrawOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>Solicitar Saque</DialogTitle>
-        <DialogContent>
-          <Box pt={1}>
-            <Typography variant="body2" color="text.secondary" paragraph>
-              O valor será transferido para a chave PIX informada em até 1 dia útil.
-            </Typography>
-
-            <TextField
-              fullWidth
-              label="Valor do Saque"
-              value={withdrawAmount}
-              onChange={(e) => setWithdrawAmount(e.target.value)}
-              type="number"
-              sx={{ mb: 2 }}
-              InputProps={{
-                startAdornment: <InputAdornment position="start">R$</InputAdornment>,
-              }}
-            />
-
-            <TextField
-              fullWidth
-              label="Chave PIX"
-              value={withdrawPixKey}
-              onChange={(e) => setWithdrawPixKey(e.target.value)}
-              placeholder="CPF, Email, Telefone ou Aleatória"
-            />
-          </Box>
-        </DialogContent>
-        <DialogActions sx={{ p: 2.5 }}>
-          <Button onClick={() => setWithdrawOpen(false)} disabled={withdrawLoading}>
-            Cancelar
-          </Button>
-          <Button
-            variant="contained"
-            onClick={async () => {
-              if (!services?.tenantId || !wallet) return;
-
-              const amount = parseFloat(withdrawAmount.replace(',', '.'));
-
-              if (isNaN(amount) || amount <= 0) {
-                setSnackbar({ open: true, message: 'Valor inválido', severity: 'error' });
-                return;
-              }
-
-              if (amount > wallet.balance) {
-                setSnackbar({ open: true, message: 'Saldo insuficiente', severity: 'error' });
-                return;
-              }
-
-              if (!withdrawPixKey) {
-                setSnackbar({ open: true, message: 'Chave PIX é obrigatória', severity: 'error' });
-                return;
-              }
-
-              try {
-                setWithdrawLoading(true);
-
-                await WalletService.requestWithdrawal(services.tenantId, amount, {
-                  pixKey: withdrawPixKey
-                });
-
-                setSnackbar({ open: true, message: 'Solicitação de saque realizada com sucesso!', severity: 'success' });
-                setWithdrawOpen(false);
-                setWithdrawAmount('');
-                setWithdrawPixKey('');
-
-                // Recarregar dados
-                loadTransactions();
-
-              } catch (err) {
-                console.error('Erro no saque:', err);
-                setSnackbar({ open: true, message: err instanceof Error ? err.message : 'Erro ao solicitar saque', severity: 'error' });
-              } finally {
-                setWithdrawLoading(false);
-              }
-            }}
-            disabled={withdrawLoading}
-          >
-            {withdrawLoading ? 'Processando...' : 'Confirmar Saque'}
-          </Button>
-        </DialogActions>
       </Dialog>
 
       {/* Success/Error Snackbar */}

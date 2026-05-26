@@ -189,8 +189,8 @@ export function ConversationsMetricsCard() {
         overflow: 'hidden',
         '&:hover': {
           transform: 'translateY(-4px)',
-          boxShadow: '0 12px 40px rgba(99, 102, 241, 0.3)',
-          border: '1px solid rgba(99, 102, 241, 0.3)',
+          boxShadow: '0 12px 40px rgba(220, 38, 38, 0.3)',
+          border: '1px solid rgba(220, 38, 38, 0.3)',
         },
         '&::before': {
           content: '""',
@@ -199,7 +199,7 @@ export function ConversationsMetricsCard() {
           left: 0,
           right: 0,
           height: '3px',
-          background: 'linear-gradient(90deg, #6366f1, #8b5cf6)',
+          background: 'linear-gradient(90deg, #dc2626, #8b5cf6)',
         },
       }}
     >
@@ -228,9 +228,9 @@ export function ConversationsMetricsCard() {
             label="Hoje"
             size="small"
             sx={{
-              background: 'rgba(99, 102, 241, 0.15)',
+              background: 'rgba(220, 38, 38, 0.15)',
               color: '#c7d2fe',
-              border: '1px solid rgba(99, 102, 241, 0.3)',
+              border: '1px solid rgba(220, 38, 38, 0.3)',
               fontWeight: 600,
               fontSize: '0.75rem',
             }}
@@ -244,14 +244,14 @@ export function ConversationsMetricsCard() {
               sx={{
                 p: 2,
                 borderRadius: '16px',
-                background: 'rgba(99, 102, 241, 0.1)',
-                border: '1px solid rgba(99, 102, 241, 0.2)',
+                background: 'rgba(220, 38, 38, 0.1)',
+                border: '1px solid rgba(220, 38, 38, 0.2)',
               }}
             >
               <Typography
                 variant="h3"
                 sx={{
-                  color: '#6366f1',
+                  color: '#dc2626',
                   fontWeight: 800,
                   fontSize: { xs: '1.75rem', md: '2rem' },
                   letterSpacing: '-0.02em',
@@ -422,16 +422,16 @@ export function ConversationsMetricsCard() {
             mt: 2.5,
             py: 1.25,
             borderRadius: '12px',
-            background: 'rgba(99, 102, 241, 0.12)',
-            border: '1px solid rgba(99, 102, 241, 0.3)',
+            background: 'rgba(220, 38, 38, 0.12)',
+            border: '1px solid rgba(220, 38, 38, 0.3)',
             color: '#c7d2fe',
             fontWeight: 600,
             fontSize: '0.875rem',
             textTransform: 'none',
             transition: 'all 0.2s',
             '&:hover': {
-              background: 'rgba(99, 102, 241, 0.2)',
-              borderColor: 'rgba(99, 102, 241, 0.4)',
+              background: 'rgba(220, 38, 38, 0.2)',
+              borderColor: 'rgba(220, 38, 38, 0.4)',
               transform: 'translateY(-2px)',
             },
           }}

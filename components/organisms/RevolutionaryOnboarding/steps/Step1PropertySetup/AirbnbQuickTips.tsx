@@ -59,7 +59,7 @@ export default function AirbnbQuickTips({ onComplete, embedded = false }: Airbnb
       id: 'hasdata',
       title: 'Como pegar o hasData do Airbnb',
       icon: Code,
-      color: '#6366f1',
+      color: '#dc2626',
       difficulty: 'Intermediário',
       time: '2 min',
       steps: [
@@ -188,7 +188,7 @@ export default function AirbnbQuickTips({ onComplete, embedded = false }: Airbnb
               width: 48,
               height: 48,
               borderRadius: '12px',
-              background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
+              background: 'linear-gradient(135deg, #dc2626, #dc2626)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',

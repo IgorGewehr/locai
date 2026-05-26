@@ -242,131 +242,67 @@ export default function LoadingScreen({ variant = 'default' }: LoadingScreenProp
     );
   }
 
-  // Default modern variant
+  // Default modern variant — clean, premium, fully circular
+  const accent = theme.palette.primary.main;
   return (
     <Box
       sx={{
         position: 'fixed',
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
+        inset: 0,
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        background: `linear-gradient(135deg, 
-          ${theme.palette.mode === 'dark' ? '#0a0a0a' : '#fafafa'} 0%, 
-          ${theme.palette.mode === 'dark' ? '#1a1a1a' : '#f0f0f0'} 100%)`,
+        bgcolor: theme.palette.mode === 'dark' ? '#0b0f1a' : '#fafafa',
         zIndex: 9999,
         overflow: 'hidden',
-        willChange: 'opacity',
-        // Melhorar performance das animações
-        backfaceVisibility: 'hidden',
-        transform: 'translateZ(0)',
       }}
     >
-      {/* Background pattern */}
+      {/* Soft ambient glow */}
       <Box
         sx={{
           position: 'absolute',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          opacity: 0.03,
-          background: `
-            radial-gradient(circle at 25% 25%, ${theme.palette.primary.main} 0%, transparent 50%),
-            radial-gradient(circle at 75% 75%, ${theme.palette.secondary.main} 0%, transparent 50%),
-            radial-gradient(circle at 50% 50%, ${theme.palette.primary.main} 0%, transparent 30%)
-          `,
-          animation: `${gradientShift} 8s ease-in-out infinite`,
+          width: 260,
+          height: 260,
+          borderRadius: '50%',
+          background: `radial-gradient(circle, ${accent}22 0%, transparent 68%)`,
+          filter: 'blur(24px)',
+          animation: `${breathe} 3s ease-in-out infinite`,
         }}
       />
 
-      {/* Main loading container */}
+      {/* Spinner */}
       <Box
         sx={{
           position: 'relative',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          animation: `${fadeIn} 1.2s cubic-bezier(0.4, 0, 0.2, 1)`,
-          willChange: 'transform, opacity',
-          transform: 'translateZ(0)',
+          width: 64,
+          height: 64,
+          animation: `${fadeIn} 0.6s cubic-bezier(0.4, 0, 0.2, 1)`,
         }}
       >
-        {/* Outer rotating ring */}
+        {/* Rotating arc */}
         <Box
           sx={{
             position: 'absolute',
-            width: 100,
-            height: 100,
-            border: `2px solid ${theme.palette.primary.main}20`,
-            borderTopColor: `${theme.palette.primary.main}70`,
-            borderRightColor: `${theme.palette.secondary.main}50`,
+            inset: 0,
             borderRadius: '50%',
-            animation: `${spin} 2s linear infinite, ${breathe} 4s ease-in-out infinite`,
+            border: '3px solid rgba(255,255,255,0.08)',
+            borderTopColor: accent,
+            borderRightColor: `${accent}88`,
+            animation: `${spin} 0.9s linear infinite`,
             willChange: 'transform',
-            transform: 'translateZ(0)',
           }}
         />
-
-        {/* Inner morphing shape */}
-        <Box
-          sx={{
-            width: 60,
-            height: 60,
-            background: `linear-gradient(135deg, 
-              ${theme.palette.primary.main}90, 
-              ${theme.palette.secondary.main}90)`,
-            animation: `${morphShape} 8s ease-in-out infinite, ${breathe} 3s ease-in-out infinite`,
-            filter: 'blur(0.3px)',
-            boxShadow: `0 0 30px ${theme.palette.primary.main}30`,
-            willChange: 'transform, border-radius',
-            transform: 'translateZ(0)',
-          }}
-        />
-
-        {/* Central dot */}
+        {/* Pulsing core */}
         <Box
           sx={{
             position: 'absolute',
-            width: 10,
-            height: 10,
+            inset: '36%',
             borderRadius: '50%',
-            background: theme.palette.background.paper,
-            animation: `${breathe} 2s ease-in-out infinite`,
-            boxShadow: `
-              0 0 20px ${theme.palette.primary.main}60,
-              0 0 40px ${theme.palette.primary.main}30,
-              inset 0 0 10px ${theme.palette.primary.main}20
-            `,
-            border: `1px solid ${theme.palette.primary.main}30`,
+            background: accent,
+            boxShadow: `0 0 16px ${accent}99`,
+            animation: `${breathe} 1.6s ease-in-out infinite`,
           }}
         />
-
-        {/* Ambient particles */}
-        {[...Array(6)].map((_, i) => (
-          <Box
-            key={i}
-            sx={{
-              position: 'absolute',
-              width: Math.random() * 2 + 2,
-              height: Math.random() * 2 + 2,
-              borderRadius: '50%',
-              background: i % 2 === 0 ? theme.palette.primary.main : theme.palette.secondary.main,
-              opacity: 0.6,
-              left: `${50 + Math.cos((i * 2 * Math.PI) / 6) * 45}px`,
-              top: `${50 + Math.sin((i * 2 * Math.PI) / 6) * 45}px`,
-              animation: `
-                ${breathe} ${2 + Math.random()}s ease-in-out infinite,
-                ${spin} ${8 + Math.random() * 4}s linear infinite
-              `,
-              animationDelay: `${i * 0.4}s`,
-              boxShadow: `0 0 10px currentColor`,
-            }}
-          />
-        ))}
       </Box>
     </Box>
   );

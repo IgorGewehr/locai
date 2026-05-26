@@ -350,7 +350,7 @@ export default function EnhancedFinancialDashboard() {
           color: name === 'Reserva' ? '#10b981' : 
                 name === 'Limpeza' ? '#ef4444' : 
                 name === 'Manutenção' ? '#f59e0b' : 
-                name === 'Comissão' ? '#8b5cf6' : '#6b7280'
+                name === 'Comissão' ? '#dc2626' : '#6b7280'
         }))
         .sort((a, b) => b.value - a.value)
         .slice(0, 5);

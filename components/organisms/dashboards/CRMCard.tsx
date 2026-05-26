@@ -141,7 +141,7 @@ export default function CRMCard() {
           left: 0,
           right: 0,
           height: '4px',
-          background: 'linear-gradient(135deg, #8b5cf6, #d946ef)',
+          background: 'linear-gradient(135deg, #dc2626, #d946ef)',
         }
       }}
     >
@@ -157,9 +157,9 @@ export default function CRMCard() {
                 width: 56,
                 height: 56,
                 borderRadius: '14px',
-                background: 'linear-gradient(135deg, #8b5cf6, #d946ef)',
+                background: 'linear-gradient(135deg, #dc2626, #d946ef)',
                 color: 'white',
-                boxShadow: '0 8px 24px rgba(139, 92, 246, 0.4)',
+                boxShadow: '0 8px 24px rgba(220, 38, 38, 0.4)',
               }}
             >
               <GroupWork sx={{ fontSize: 28 }} />
@@ -249,7 +249,7 @@ export default function CRMCard() {
                 <Typography variant="body2" fontWeight={600} sx={{ color: '#ffffff', mb: 0.5 }}>
                   Atividade Recente
                 </Typography>
-                <Typography variant="h6" fontWeight={700} sx={{ color: '#8b5cf6' }}>
+                <Typography variant="h6" fontWeight={700} sx={{ color: '#dc2626' }}>
                   {stats.recentActivity} interações
                 </Typography>
               </Box>

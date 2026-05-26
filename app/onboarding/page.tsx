@@ -9,8 +9,8 @@
 import OnboardingQuiz from '@/components/organisms/OnboardingQuiz';
 
 export const metadata = {
-  title: 'Configurar Conta - Locai',
-  description: 'Configure sua conta e personalize sua experiência no Locai',
+  title: 'Configurar Conta - AlugaZap',
+  description: 'Configure sua conta e personalize sua experiência no AlugaZap',
 };
 
 export default function OnboardingPage() {

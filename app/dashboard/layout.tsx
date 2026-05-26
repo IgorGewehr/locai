@@ -28,6 +28,7 @@ import {
   AdminPanelSettings,
 } from '@mui/icons-material';
 import ProtectedRoute from '@/components/utilities/ProtectedRoute';
+import LoadingScreen from '@/components/atoms/LoadingScreen/LoadingScreen';
 import { useAuth } from '@/contexts/AuthProvider';
 import { WhatsAppStatusProvider, useWhatsAppStatus } from '@/contexts/WhatsAppStatusContext';
 import { useRouter } from 'next/navigation';
@@ -48,9 +49,11 @@ function DashboardHeader({
   const router = useRouter();
   const theme = useTheme();
   const [profileAnchorEl, setProfileAnchorEl] = useState<null | HTMLElement>(null);
+  const [loggingOut, setLoggingOut] = useState(false);
 
   const handleLogout = async () => {
-    try { await logout(); } catch {}
+    setLoggingOut(true);
+    try { await logout(); } catch { setLoggingOut(false); }
   };
 
   const waConnected = whatsappStatus.status === 'connected';
@@ -58,6 +61,8 @@ function DashboardHeader({
   const waLabel = waConnected ? 'WhatsApp Conectado' : whatsappStatus.status === 'connecting' ? 'Conectando...' : whatsappStatus.status === 'qr' ? 'Aguardando QR Code' : 'Desconectado';
 
   return (
+    <>
+    {loggingOut && <LoadingScreen />}
     <Box
       sx={{
         background: 'rgba(10,14,23,0.92)',
@@ -172,7 +177,7 @@ function DashboardHeader({
           onClick={(e) => setProfileAnchorEl(e.currentTarget)}
           sx={{ p: 0.25, display: { xs: 'flex', md: 'none' } }}
         >
-          <Avatar sx={{ width: 30, height: 30, bgcolor: 'rgba(99,102,241,0.2)', color: '#818cf8', border: '1px solid rgba(99,102,241,0.25)', fontSize: '0.8125rem', fontWeight: 600 }}>
+          <Avatar sx={{ width: 30, height: 30, bgcolor: 'rgba(220,38,38,0.2)', color: '#f87171', border: '1px solid rgba(220,38,38,0.25)', fontSize: '0.8125rem', fontWeight: 600 }}>
             {user?.displayName?.charAt(0) || user?.email?.charAt(0) || 'U'}
           </Avatar>
         </IconButton>
@@ -191,7 +196,7 @@ function DashboardHeader({
             '&:hover': { bgcolor: 'rgba(255,255,255,0.06)', color: 'white' },
           }}
         >
-          <Avatar sx={{ width: 26, height: 26, bgcolor: 'rgba(99,102,241,0.2)', color: '#818cf8', border: '1px solid rgba(99,102,241,0.25)', fontSize: '0.75rem', fontWeight: 600 }}>
+          <Avatar sx={{ width: 26, height: 26, bgcolor: 'rgba(220,38,38,0.2)', color: '#f87171', border: '1px solid rgba(220,38,38,0.25)', fontSize: '0.75rem', fontWeight: 600 }}>
             {user?.displayName?.charAt(0) || user?.email?.charAt(0) || 'U'}
           </Avatar>
           <Box sx={{ textAlign: 'left', maxWidth: 140, overflow: 'hidden' }}>
@@ -239,6 +244,7 @@ function DashboardHeader({
         </Menu>
       </Box>
     </Box>
+    </>
   );
 }
 

@@ -28,7 +28,7 @@ export default function SafeRevolutionaryOnboarding({
   if (authLoading) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', p: 2 }}>
-        <CircularProgress size={24} sx={{ color: alpha('#6366f1', 0.6) }} />
+        <CircularProgress size={24} sx={{ color: alpha('#dc2626', 0.6) }} />
       </Box>
     );
   }

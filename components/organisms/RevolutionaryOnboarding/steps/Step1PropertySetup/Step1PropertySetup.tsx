@@ -108,7 +108,7 @@ export default function Step1PropertySetup({
       title: 'Importar do Airbnb',
       description: 'Importe todas as informações, fotos e configurações automaticamente',
       icon: CloudUpload,
-      color: '#6366f1',
+      color: '#dc2626',
       recommended: true,
       features: ['Importação completa', 'Fotos incluídas', 'Dados validados', 'Mais rápido'],
       time: '2-3 min',
@@ -135,11 +135,11 @@ export default function Step1PropertySetup({
                 width: 56,
                 height: 56,
                 borderRadius: '14px',
-                background: 'linear-gradient(135deg, #6366f1, #8b5cf6)',
+                background: 'linear-gradient(135deg, #dc2626, #dc2626)',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                boxShadow: '0 8px 24px rgba(99, 102, 241, 0.4)',
+                boxShadow: '0 8px 24px rgba(220, 38, 38, 0.4)',
               }}
             >
               <Home sx={{ color: 'white', fontSize: 28 }} />
