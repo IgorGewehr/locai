@@ -13,7 +13,7 @@ from langchain_core.messages import AIMessage, HumanMessage, SystemMessage, Tool
 
 from ..config import get_settings
 from ..tools.client import call_tool
-from ..tools.registry import TOOLS
+from ..tools.registry import READ_ONLY_TOOL_NAMES, TOOLS
 from .prompts import PLANNER_SYSTEM, ROUTER_SYSTEM
 from .state import AgentState
 
@@ -107,6 +107,51 @@ async def planner_node(state: AgentState) -> dict:
         "total_tokens_out": state.get("total_tokens_out", 0) + usage.get("output_tokens", 0),
         "iterations": state.get("iterations", 0) + 1,
     }
+
+
+def make_operator_planner_node(system_prompt: str, read_only: bool):
+    """Build a planner node for the operator console.
+
+    Uses an operator system prompt. In read-only mode the LLM is bound only to
+    read tools (READ_ONLY_TOOL_NAMES) so it cannot mutate the system.
+    """
+    if read_only:
+        tools = [t for t in TOOLS if t.get("function", {}).get("name") in READ_ONLY_TOOL_NAMES]
+    else:
+        tools = TOOLS
+
+    async def operator_planner_node(state: AgentState) -> dict:
+        t0 = time.time()
+
+        llm = _llm(fast=False)
+        llm_with_tools = llm.bind_tools(tools)
+
+        system_msg = SystemMessage(content=system_prompt)
+        history = state.get("messages", [])
+        resp = await llm_with_tools.ainvoke([system_msg] + history)
+
+        trace = {
+            "node": "operator_planner",
+            "has_tool_calls": bool(getattr(resp, "tool_calls", None)),
+            "read_only": read_only,
+            "latency_ms": int((time.time() - t0) * 1000),
+        }
+        usage = getattr(resp, "usage_metadata", None) or {}
+
+        final_response = None
+        if not getattr(resp, "tool_calls", None):
+            final_response = resp.content if isinstance(resp.content, str) else ""
+
+        return {
+            "messages": [resp],
+            "final_response": final_response,
+            "node_traces": state.get("node_traces", []) + [trace],
+            "total_tokens_in": state.get("total_tokens_in", 0) + usage.get("input_tokens", 0),
+            "total_tokens_out": state.get("total_tokens_out", 0) + usage.get("output_tokens", 0),
+            "iterations": state.get("iterations", 0) + 1,
+        }
+
+    return operator_planner_node
 
 
 async def executor_node(state: AgentState) -> dict:

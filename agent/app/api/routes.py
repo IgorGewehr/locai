@@ -10,7 +10,7 @@ from fastapi import APIRouter, Request
 from pydantic import BaseModel
 
 from ..auth import verify_request
-from ..graph.graph import run_agent
+from ..graph.graph import run_agent, run_operator
 
 log = structlog.get_logger()
 router = APIRouter()
@@ -67,6 +67,47 @@ async def process(request: Request) -> ProcessResponse:
         total_latency_ms=result.total_latency_ms,
         error=result.error,
     )
+
+
+class OperateRequest(BaseModel):
+    tenant_id: str
+    message: str
+    mode: str = "analista"  # "operador" | "analista"
+
+
+class OperateResponse(BaseModel):
+    reply: str
+
+
+@router.post("/operate", response_model=OperateResponse)
+async def operate(request: Request) -> OperateResponse:
+    """Operator console: the dashboard sends an operator message; Sofia reads
+    across the whole system (and, in operador mode, may act) and replies in
+    plain text.
+    """
+    tenant_id, raw_body = await verify_request(request)
+
+    if not tenant_id:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=400, detail="tenant_id is required")
+
+    req = OperateRequest.model_validate(json.loads(raw_body))
+
+    mode = req.mode if req.mode in ("operador", "analista") else "analista"
+
+    log.info(
+        "agent.operate",
+        tenant_id=tenant_id[:8] + "***",
+        mode=mode,
+    )
+
+    reply = await run_operator(
+        tenant_id=req.tenant_id,
+        message=req.message,
+        mode=mode,
+    )
+
+    return OperateResponse(reply=reply)
 
 
 @router.get("/health")

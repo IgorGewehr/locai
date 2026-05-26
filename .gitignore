@@ -87,3 +87,7 @@ locai-*-firebase-adminsdk-*.json
 
 # Claude Code
 .claude/
+
+# python
+__pycache__/
+*.pyc

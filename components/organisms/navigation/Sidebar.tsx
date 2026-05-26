@@ -117,13 +117,14 @@ function NavButton({
         cursor: 'pointer',
         overflow: 'hidden',
         color: isActive ? 'white' : 'rgba(255,255,255,0.5)',
-        transition: 'color 0.15s ease',
+        transition: 'color 0.15s ease, transform 0.12s ease',
         '&:hover': {
           color: isActive ? 'white' : 'rgba(255,255,255,0.85)',
         },
         '&:hover .nav-hover-bg': {
           opacity: isActive ? 0 : 1,
         },
+        '&:active': { transform: 'scale(0.96)' },
       }}
     >
       {/* Hover background */}
@@ -197,7 +198,10 @@ function NavButton({
       {/* Label */}
       {!collapsed && (
         <Typography
-          component="span"
+          component={motion.span}
+          initial={{ opacity: 0, x: -6 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={{ duration: 0.18, ease: 'easeOut' }}
           sx={{
             position: 'relative',
             zIndex: 2,

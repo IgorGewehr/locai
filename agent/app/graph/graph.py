@@ -12,7 +12,7 @@ from langchain_core.messages import AIMessage, HumanMessage
 from langgraph.graph import END, StateGraph
 
 from ..config import get_settings
-from .nodes import executor_node, planner_node, router_node
+from .nodes import executor_node, make_operator_planner_node, planner_node, router_node
 from .state import AgentRunResult, AgentState
 
 log = structlog.get_logger()
@@ -46,8 +46,31 @@ def build_graph() -> Any:
     return g.compile()
 
 
+def build_operator_graph(system_prompt: str, read_only: bool) -> Any:
+    """Operator-console graph: planner <-> executor loop (no client router).
+
+    The planner uses an operator system prompt and, in read-only ("analista")
+    mode, is bound only to read tools so it physically cannot mutate.
+    """
+    g = StateGraph(AgentState)
+    g.add_node("planner", make_operator_planner_node(system_prompt, read_only))
+    g.add_node("executor", executor_node)
+    g.set_entry_point("planner")
+    g.add_conditional_edges("planner", _has_tool_calls, {"executor": "executor", "end": END})
+    g.add_conditional_edges("executor", _should_continue, {"planner": "planner", "end": END})
+    return g.compile()
+
+
 # One compiled graph per worker process — thread-safe (uvicorn forks workers)
 _GRAPH = build_graph()
+
+# Operator console graphs (one per mode), compiled once per worker.
+from .prompts import OPERATOR_ANALISTA_SYSTEM, OPERATOR_OPERADOR_SYSTEM  # noqa: E402
+
+_OPERATOR_GRAPHS: dict[str, Any] = {
+    "analista": build_operator_graph(OPERATOR_ANALISTA_SYSTEM, read_only=True),
+    "operador": build_operator_graph(OPERATOR_OPERADOR_SYSTEM, read_only=False),
+}
 
 
 async def run_agent(
@@ -157,3 +180,58 @@ async def run_agent(
             error=str(exc),
             total_latency_ms=int((time.time() - t0) * 1000),
         )
+
+
+async def run_operator(*, tenant_id: str, message: str, mode: str) -> str:
+    """Operator-console flow. Returns a plain-text reply.
+
+    mode="analista" -> read-only (cannot mutate).
+    mode="operador" -> may use write tools (cautiously).
+    """
+    s = get_settings()
+    norm_mode = mode if mode in _OPERATOR_GRAPHS else "analista"
+    graph = _OPERATOR_GRAPHS[norm_mode]
+    run_id = str(uuid.uuid4())
+
+    initial_state: AgentState = {
+        "run_id": run_id,
+        "tenant_id": tenant_id,
+        "conversation_id": f"operator:{run_id}",
+        "message_id": run_id,
+        "contact": {},
+        "messages": [HumanMessage(content=message)],
+        "intent": "operator",
+        "iterations": 0,
+        "final_response": None,
+        "media_urls": [],
+        "error": None,
+        "node_traces": [],
+        "tool_calls_log": [],
+        "total_tokens_in": 0,
+        "total_tokens_out": 0,
+    }
+
+    try:
+        final_state = await asyncio.wait_for(
+            graph.ainvoke(
+                initial_state,
+                config={"run_name": f"locai.operator.{norm_mode}", "tags": [f"tenant:{tenant_id}"]},
+            ),
+            timeout=float(s.agent_request_timeout_s),
+        )
+        reply = final_state.get("final_response")
+        if reply:
+            return reply
+        # Fall back to the last AI message content if the loop ended without a plain reply.
+        for m in reversed(final_state.get("messages", [])):
+            content = getattr(m, "content", None)
+            if isinstance(content, str) and content.strip() and not getattr(m, "tool_calls", None):
+                return content
+        return "Não consegui produzir uma resposta. Tente reformular a solicitação."
+
+    except asyncio.TimeoutError:
+        log.error("operator.timeout", run_id=run_id, timeout_s=s.agent_request_timeout_s)
+        return "A solicitação demorou demais para ser processada. Tente novamente."
+    except Exception as exc:
+        log.error("operator.run_error", run_id=run_id, error=str(exc))
+        return "Ocorreu um erro ao processar a solicitação."

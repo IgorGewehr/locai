@@ -2,6 +2,17 @@
 
 from __future__ import annotations
 
+# Tools that only read/query and never mutate system state. Used to restrict
+# the operator console "analista" (read-only) mode.
+READ_ONLY_TOOL_NAMES: frozenset[str] = frozenset(
+    {
+        "read_system",
+        "search_available_properties",
+        "get_property_media",
+        "get_airbnb_link",
+    }
+)
+
 TOOLS: list[dict] = [
     {
         "type": "function",
@@ -110,6 +121,51 @@ TOOLS: list[dict] = [
                     },
                 },
                 "required": ["property_id", "client_summary"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "read_system",
+            "description": (
+                "Consulta (somente leitura) dados de qualquer parte do sistema do tenant. "
+                "Use para responder perguntas do operador/analista no console do dashboard ou "
+                "para se informar antes de agir. NÃO altera nada. "
+                "Recursos disponíveis: "
+                "'leads' (lista de leads com status, temperatura, score, escalonamento), "
+                "'conversations' (conversas ativas/recentes com canal, status, estágio), "
+                "'properties' (imóveis com cidade, quartos, preço, status), "
+                "'reservations' (reservas com datas, hóspedes, valores, pagamento), "
+                "'transactions' (transações financeiras de receita/despesa), "
+                "'clients' (clientes cadastrados), "
+                "'dashboard' (resumo compacto: totais de leads por temperatura + escalonamentos, "
+                "conversas ativas, imóveis ativos, reservas, e receita/despesa do mês atual). "
+                "Para visão geral, prefira 'dashboard'. Retorna JSON compacto."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "resource": {
+                        "type": "string",
+                        "enum": [
+                            "leads",
+                            "conversations",
+                            "properties",
+                            "reservations",
+                            "transactions",
+                            "clients",
+                            "dashboard",
+                        ],
+                        "description": "Qual recurso do sistema consultar",
+                    },
+                    "limit": {
+                        "type": "integer",
+                        "description": "Máximo de registros a retornar (padrão 50, máx 200). Ignorado para 'dashboard'.",
+                        "default": 50,
+                    },
+                },
+                "required": ["resource"],
             },
         },
     },

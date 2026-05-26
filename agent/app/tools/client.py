@@ -19,10 +19,18 @@ def _sign(secret: str, timestamp: str, body: bytes) -> str:
     return hmac.new(secret.encode(), payload, digestmod=hashlib.sha256).hexdigest()
 
 
+# Maps LLM tool name -> locai endpoint path segment when they differ.
+# read_system is a single generic READ endpoint at /api/agent/tools/read.
+_TOOL_PATHS: dict[str, str] = {
+    "read_system": "read",
+}
+
+
 async def call_tool(name: str, args: dict[str, Any], tenant_id: str) -> dict[str, Any]:
-    """POST to locai /api/agent/tools/{name} with HMAC auth."""
+    """POST to locai /api/agent/tools/{path} with HMAC auth."""
     s = get_settings()
-    url = f"{s.locai_api_url}/api/agent/tools/{name}"
+    path = _TOOL_PATHS.get(name, name)
+    url = f"{s.locai_api_url}/api/agent/tools/{path}"
 
     payload = {"tenant_id": tenant_id, **args}
     body = json.dumps(payload, ensure_ascii=False).encode()
