@@ -27,11 +27,12 @@ import {
 } from '@mui/icons-material';
 import { useAuth } from '@/lib/hooks/useAuth';
 import { updateProfile, updatePassword, EmailAuthProvider, reauthenticateWithCredential } from 'firebase/auth';
-import { auth } from '@/lib/firebase/config';
+import { auth, db } from '@/lib/firebase/config';
+import { doc, updateDoc } from 'firebase/firestore';
 import { useRouter } from 'next/navigation';
 
 export default function ProfilePage() {
-  const { user } = useAuth();
+  const { user, reloadUser } = useAuth();
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [editingProfile, setEditingProfile] = useState(false);
@@ -69,9 +70,15 @@ export default function ProfilePage() {
     setError(null);
 
     try {
-      await updateProfile(auth.currentUser, {
-        displayName: profileData.displayName,
-      });
+      const displayName = profileData.displayName.trim();
+      // Update Firebase Auth profile
+      await updateProfile(auth.currentUser, { displayName });
+      // Persist to the Firestore users doc — this is what feeds user.name / the greeting
+      if (user?.uid) {
+        await updateDoc(doc(db, 'users', user.uid), { name: displayName, fullName: displayName });
+      }
+      // Refresh the in-memory user so the greeting/header update immediately
+      await reloadUser?.(true);
 
       setSuccess('Perfil atualizado com sucesso!');
       setEditingProfile(false);

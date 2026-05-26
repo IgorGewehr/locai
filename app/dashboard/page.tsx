@@ -88,7 +88,7 @@ export default function DashboardPage() {
   const chatEndRef = useRef<HTMLDivElement>(null);
 
   const now = new Date();
-  const firstName = (user as any)?.displayName?.split(' ')[0] || user?.email?.split('@')[0] || '';
+  const firstName = (user as any)?.name?.split(' ')[0] || (user as any)?.displayName?.split(' ')[0] || user?.email?.split('@')[0] || '';
   const weekday = now.toLocaleDateString('pt-BR', { weekday: 'long' });
   const weekdayCap = weekday.charAt(0).toUpperCase() + weekday.slice(1);
   const monthName = now.toLocaleDateString('pt-BR', { month: 'long' });
