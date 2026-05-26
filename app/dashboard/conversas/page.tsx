@@ -170,7 +170,15 @@ export default function ConversationsPage() {
     conversations, selectedConversation, messages, loading, loadingMessages, error,
     stats, filters, setFilters, selectConversation, clearSelection, refresh,
     markAsRead, markAsUnread, updateStatus, renameConversation,
+    hasMore, loadMoreConversations,
   } = useConversations({ tenantId: tenantId || '', autoLoad: isReady, limit: 50 });
+
+  const handleListScroll = useCallback((e: React.UIEvent<HTMLDivElement>) => {
+    const el = e.currentTarget;
+    if (hasMore && !loading && el.scrollHeight - el.scrollTop - el.clientHeight < 240) {
+      loadMoreConversations();
+    }
+  }, [hasMore, loading, loadMoreConversations]);
 
   const { blocked: aiBlocked, loading: checkingAiStatus, enableManualMode } = useAIBlockStatus({
     phone: selectedConversation?.clientPhone, tenantId, getFirebaseToken,
@@ -325,7 +333,7 @@ export default function ConversationsPage() {
         <Divider sx={{ borderColor: 'rgba(255,255,255,0.06)' }} />
 
         {/* List */}
-        <Box sx={{ flex: 1, overflowY: 'auto' }}>
+        <Box sx={{ flex: 1, overflowY: 'auto' }} onScroll={handleListScroll}>
           {loading && conversations.length === 0 ? (
             <Box sx={{ display: 'flex', justifyContent: 'center', py: 6 }}><CircularProgress size={24} sx={{ color: 'rgba(255,255,255,0.3)' }} /></Box>
           ) : conversations.length === 0 ? (
@@ -333,16 +341,28 @@ export default function ConversationsPage() {
               Nenhuma conversa encontrada.
             </Typography>
           ) : (
-            conversations.map((conv) => (
-              <ConversationRow
-                key={conv.id}
-                conv={conv}
-                selected={selectedConversation?.id === conv.id}
-                triage={triageFor(conv.clientPhone)}
-                onSelect={handleSelect}
-                onContextMenu={handleContextMenu}
-              />
-            ))
+            <>
+              {conversations.map((conv) => (
+                <ConversationRow
+                  key={conv.id}
+                  conv={conv}
+                  selected={selectedConversation?.id === conv.id}
+                  triage={triageFor(conv.clientPhone)}
+                  onSelect={handleSelect}
+                  onContextMenu={handleContextMenu}
+                />
+              ))}
+              {loading && conversations.length > 0 && (
+                <Box sx={{ display: 'flex', justifyContent: 'center', py: 2 }}>
+                  <CircularProgress size={18} sx={{ color: 'rgba(255,255,255,0.3)' }} />
+                </Box>
+              )}
+              {!hasMore && (
+                <Typography sx={{ textAlign: 'center', py: 2, color: 'rgba(255,255,255,0.25)', fontSize: '0.6875rem' }}>
+                  Todas as conversas carregadas
+                </Typography>
+              )}
+            </>
           )}
         </Box>
       </Box>

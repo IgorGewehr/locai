@@ -71,6 +71,10 @@ export function useConversations({
     channel: 'all',
   });
 
+  // Current real-time window size. loadMore grows it by `limit`; the subscription
+  // re-subscribes with the larger limit (live updates preserved, reads bounded).
+  const [pageSize, setPageSize] = useState(limit);
+
   // Load conversations
   const loadConversations = useCallback(async () => {
     if (!tenantId) return;
@@ -79,18 +83,16 @@ export function useConversations({
 
     try {
       const service = createConversationService(tenantId);
-      const summaries = await service.getConversationSummaries(undefined, limit);
+      const summaries = await service.getConversationSummaries(undefined, pageSize);
 
       setState(prev => ({
         ...prev,
         conversations: summaries,
         loading: false,
-        hasMore: summaries.length === limit,
+        hasMore: summaries.length === pageSize,
       }));
     } catch (error) {
-      logger.error('Error loading conversations', {
-        error: error instanceof Error ? error.message : 'Unknown error',
-      });
+      logger.error('Error loading conversations', error instanceof Error ? error : undefined);
 
       setState(prev => ({
         ...prev,
@@ -98,24 +100,15 @@ export function useConversations({
         error: 'Erro ao carregar conversas',
       }));
     }
-  }, [tenantId, limit]);
+  }, [tenantId, pageSize]);
 
-  // Load more conversations (infinite scroll)
-  // Note: Currently loads from real-time subscription which handles all data
-  // This function is kept for manual trigger but the real-time listener
-  // already maintains the full conversation list
+  // Infinite scroll: grow the real-time window. The subscription effect
+  // re-subscribes with the larger limit and updates hasMore from the result.
   const loadMoreConversations = useCallback(async () => {
     if (!tenantId || !state.hasMore || state.loading) return;
-
-    // Since we have real-time subscription that manages the list,
-    // we just trigger a refresh which will be handled by the subscription
     setState(prev => ({ ...prev, loading: true }));
-
-    // Small delay to show loading state, then let the subscription update
-    setTimeout(() => {
-      setState(prev => ({ ...prev, loading: false, hasMore: false }));
-    }, 300);
-  }, [tenantId, state.hasMore, state.loading]);
+    setPageSize(prev => prev + limit);
+  }, [tenantId, state.hasMore, state.loading, limit]);
 
   // Select conversation - messages will be loaded by the realtime subscription
   const selectConversation = useCallback(async (conversationId: string) => {
@@ -227,16 +220,16 @@ export function useConversations({
           ...prev,
           conversations: mergedSummaries,
           loading: false,
-          hasMore: summaries.length === limit,
+          hasMore: summaries.length === pageSize,
         };
       });
-    }, limit);
+    }, pageSize);
 
     return () => {
       logger.info('🔥 [REALTIME] Cleaning up conversations list listener');
       unsubscribe();
     };
-  }, [autoLoad, tenantId, limit]);
+  }, [autoLoad, tenantId, pageSize]);
 
   // Realtime listener for selected conversation messages
   useEffect(() => {
