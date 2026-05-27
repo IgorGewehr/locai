@@ -268,14 +268,26 @@ async function dispatchToAgent(tenantId: string, messageData: any) {
         const { TenantServiceFactory } = await import('@/lib/firebase/firestore-v2')
         const services = new TenantServiceFactory(tenantId)
         // Get conversation by phone (field is `clientPhone`, set in client-message/route.ts)
-        const conversations = await services.conversations.getWhere('clientPhone', '==', clientPhone)
-        const conv = conversations[0]
+        // Try multiple phone formats to find the conversation
+        const phoneVariants = [
+            clientPhone,
+            `${clientPhone}@s.whatsapp.net`,
+            `${clientPhone}@lid`,
+            `${clientPhone}@c.us`,
+        ]
+        let conv: any = null
+        for (const variant of phoneVariants) {
+            const found = await services.conversations.getWhere('clientPhone', '==', variant)
+            if (found.length > 0) {
+                conv = found[0]
+                break
+            }
+        }
         if (conv?.id) {
             const recentMessages = await services.messages.getMany(
                 [{ field: 'conversationId', operator: '==', value: conv.id }],
                 { orderBy: [{ field: 'createdAt', direction: 'desc' }], limit: 20 }
             )
-            // Reverse to chronological order and flatten client/sofia pairs into role-based history
             for (const msg of recentMessages.reverse()) {
                 if ((msg as any).clientMessage) {
                     history.push({ role: 'user', content: (msg as any).clientMessage })
@@ -284,6 +296,16 @@ async function dispatchToAgent(tenantId: string, messageData: any) {
                     history.push({ role: 'assistant', content: (msg as any).sofiaMessage })
                 }
             }
+            logger.info('📚 Loaded conversation history for agent', {
+                tenantId: tenantId?.substring(0, 8) + '***',
+                conversationId: conv.id,
+                historyLength: history.length,
+            })
+        } else {
+            logger.warn('⚠️ No conversation found for history lookup', {
+                tenantId: tenantId?.substring(0, 8) + '***',
+                phone: clientPhone?.substring(0, 6) + '***',
+            })
         }
     } catch (err) {
         logger.warn('⚠️ Failed to load conversation history for agent', {
@@ -344,8 +366,12 @@ async function dispatchToAgent(tenantId: string, messageData: any) {
     try {
         const { TenantServiceFactory } = await import('@/lib/firebase/firestore-v2')
         const svc = new TenantServiceFactory(tenantId)
-        const convs = await svc.conversations.getWhere('clientPhone', '==', clientPhone)
-        const convId = convs[0]?.id
+        // Try phone variants to find conversation
+        let convId: string | undefined
+        for (const v of [clientPhone, `${clientPhone}@s.whatsapp.net`, `${clientPhone}@lid`, `${clientPhone}@c.us`]) {
+            const found = await svc.conversations.getWhere('clientPhone', '==', v)
+            if (found.length > 0) { convId = found[0].id; break }
+        }
         if (convId) {
             const now = new Date()
             await svc.messages.create({
@@ -371,7 +397,7 @@ async function dispatchToAgent(tenantId: string, messageData: any) {
         })
     }
 
-    // Send AI response back via whatsapp_microservice
+    // Send AI response via WhatsApp microservice
     if (microserviceUrl && microserviceApiKey) {
         await fetch(`${microserviceUrl}/api/v1/messages/${tenantId}/send`, {
             method: 'POST',
