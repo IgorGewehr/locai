@@ -195,6 +195,7 @@ async function persistIncomingMessage(tenantId: string, messageData: any) {
             event: 'message',
             data: {
                 from: clientPhone,
+                pushName: messageData.pushName,
                 message,
                 messageId,
                 timestamp: new Date().toISOString(),

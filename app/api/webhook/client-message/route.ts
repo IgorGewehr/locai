@@ -71,7 +71,7 @@ export async function POST(request: NextRequest) {
     }
 
     const { tenantId, event, data } = result.data;
-    const { from: phone, message, messageId, timestamp, messageReplied, mediaUrl, mediaType } = data;
+    const { from: phone, pushName, message, messageId, timestamp, messageReplied, mediaUrl, mediaType } = data;
 
     logger.info('[CLIENT-MESSAGE] Received webhook', {
       requestId,
@@ -125,18 +125,25 @@ export async function POST(request: NextRequest) {
     // Format phone for display: strip @c.us suffix, add + prefix
     const displayPhone = phone.replace(/@[a-z.]+$/i, '').replace(/^(\d+)$/, '+$1');
 
+    // Best available name: pushName from WhatsApp > formatted phone
+    const bestName = pushName || displayPhone;
+
     if (existingConversations.length > 0) {
       conversationId = existingConversations[0].id!;
-      // Fix clientName if it's still a raw number (pre-fix conversations)
+      // Update clientName if we have a better name (pushName or formatted phone vs raw digits)
       const existing = existingConversations[0] as any;
-      if (existing.clientName && /^\d+$/.test(existing.clientName)) {
+      const currentName = existing.clientName || '';
+      const isBadName = /^\d+$/.test(currentName) || /^\+\d+$/.test(currentName) || !currentName;
+      if (isBadName && pushName) {
+        await services.conversations.update(conversationId, { clientName: pushName } as any);
+      } else if (/^\d+$/.test(currentName)) {
         await services.conversations.update(conversationId, { clientName: displayPhone } as any);
       }
     } else {
       // Create new conversation
       conversationId = await services.conversations.create({
         clientPhone: phone,
-        clientName: displayPhone, // Phone as name until AI discovers real name
+        clientName: bestName, // pushName from WhatsApp or formatted phone
         startedAt: new Date(),
         lastMessageAt: new Date(),
         lastMessage: message || '[Mídia]',
