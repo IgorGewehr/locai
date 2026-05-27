@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { TenantServiceFactory } from '@/lib/firebase/firestore-v2'
 import type { Message } from '@/lib/types/conversation'
+import { logger } from '@/lib/utils/logger'
 
 export async function GET(
   request: NextRequest,
@@ -39,7 +40,7 @@ export async function GET(
     return NextResponse.json(sortedMessages)
 
   } catch (error) {
-    console.error('Error fetching messages:', error)
+    logger.error('Error fetching messages', { error: error instanceof Error ? error.message : String(error) })
     return NextResponse.json(
       { 
         error: 'Internal server error',
@@ -92,7 +93,7 @@ export async function POST(
     })
 
   } catch (error) {
-    console.error('Error creating message:', error)
+    logger.error('Error creating message', { error: error instanceof Error ? error.message : String(error) })
     return NextResponse.json(
       { 
         error: 'Internal server error',

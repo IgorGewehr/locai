@@ -3,6 +3,7 @@ import { TenantServiceFactory } from '@/lib/firebase/firestore-v2'
 import { handleApiError } from '@/lib/utils/api-errors'
 import { sanitizeUserInput } from '@/lib/utils/validation'
 import { validateFirebaseAuth } from '@/lib/middleware/firebase-auth'
+import { logger } from '@/lib/utils/logger'
 import type { Transaction } from '@/lib/types'
 import {
   CreateTransactionSchema,
@@ -270,7 +271,7 @@ export async function POST(request: NextRequest) {
         })
       }).catch(notificationError => {
         // Log but don't fail the transaction creation
-        console.error('Failed to send payment notification:', notificationError)
+        logger.error('Failed to send payment notification', { error: notificationError instanceof Error ? notificationError.message : String(notificationError) })
       })
     }
 

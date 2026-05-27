@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { adminDb } from '@/lib/firebase/admin';
 import { validateFirebaseAuth } from '@/lib/middleware/firebase-auth';
+import { logger } from '@/lib/utils/logger';
 
 export async function GET(request: NextRequest) {
   try {
@@ -44,7 +45,7 @@ export async function GET(request: NextRequest) {
     });
 
   } catch (error) {
-    console.error('Profile fetch error:', error);
+    logger.error('Profile fetch error', { error: error instanceof Error ? error.message : String(error) });
     return NextResponse.json(
       { error: 'Failed to fetch profile' },
       { status: 500 }
@@ -79,7 +80,7 @@ export async function PUT(request: NextRequest) {
     });
 
   } catch (error) {
-    console.error('Profile update error:', error);
+    logger.error('Profile update error', { error: error instanceof Error ? error.message : String(error) });
     return NextResponse.json(
       { error: 'Failed to update profile' },
       { status: 500 }

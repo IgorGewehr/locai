@@ -294,8 +294,8 @@ export async function GET(request: NextRequest) {
 
     // Log completo em desenvolvimento
     if (process.env.NODE_ENV === 'development') {
-      console.error('[GET-CONV-METRICS] Full error:', error);
-      console.error('[GET-CONV-METRICS] Stack:', errorStack);
+      logger.error('[GET-CONV-METRICS] Full error', { error: error instanceof Error ? error.message : String(error) });
+      logger.error('[GET-CONV-METRICS] Stack', { error: errorStack || 'No stack trace available' });
     }
 
     return NextResponse.json(

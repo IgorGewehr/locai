@@ -136,7 +136,7 @@ export async function GET(
         try {
           relatedData.client = await services.clients.getById(reservation.clientId)
         } catch (error) {
-          console.error('Error loading client:', error)
+          logger.error('Error loading client', { error: error instanceof Error ? error.message : String(error) })
         }
       }
 
@@ -144,7 +144,7 @@ export async function GET(
         try {
           relatedData.property = await services.properties.getById(reservation.propertyId)
         } catch (error) {
-          console.error('Error loading property:', error)
+          logger.error('Error loading property', { error: error instanceof Error ? error.message : String(error) })
         }
       }
 
@@ -155,7 +155,7 @@ export async function GET(
             (t: any) => t.reservationId === id
           )
         } catch (error) {
-          console.error('Error loading transactions:', error)
+          logger.error('Error loading transactions', { error: error instanceof Error ? error.message : String(error) })
         }
       }
     }

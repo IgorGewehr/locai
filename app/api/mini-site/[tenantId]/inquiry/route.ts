@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { TenantServiceFactory } from '@/lib/firebase/firestore-v2';
+import { logger } from '@/lib/utils/logger';
 
 export async function POST(
   request: NextRequest,
@@ -53,7 +54,7 @@ export async function POST(
     });
 
   } catch (error) {
-    console.error('Error creating inquiry:', error);
+    logger.error('Error creating inquiry', { error: error instanceof Error ? error.message : String(error) });
     return NextResponse.json(
       { 
         success: false, 

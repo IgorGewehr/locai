@@ -4,6 +4,7 @@ import { conversationService } from '@/lib/services/conversation-service'
 import { validateFirebaseAuth } from '@/lib/middleware/firebase-auth'
 import { handleApiError } from '@/lib/utils/api-errors'
 import { triggerNewConversationNotification } from '@/lib/utils/notification-triggers'
+import { logger } from '@/lib/utils/logger'
 
 export async function GET(request: NextRequest) {
   try {
@@ -106,7 +107,7 @@ export async function POST(request: NextRequest) {
         authContext.email
       ).catch(err => {
         // Log but don't fail the request
-        console.error('Failed to send conversation notification:', err)
+        logger.error('Failed to send conversation notification', { error: err instanceof Error ? err.message : String(err) })
       })
     }
 

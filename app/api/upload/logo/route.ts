@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { validateFirebaseAuth } from '@/lib/middleware/firebase-auth';
 import { StorageService } from '@/lib/firebase/storage';
+import { logger } from '@/lib/utils/logger';
 
 export async function POST(request: NextRequest) {
   try {
@@ -56,7 +57,7 @@ export async function POST(request: NextRequest) {
     });
 
   } catch (error) {
-    console.error('Logo upload error:', error);
+    logger.error('Logo upload error', { error: error instanceof Error ? error.message : String(error) });
     return NextResponse.json(
       { error: 'Failed to upload logo' },
       { status: 500 }

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { TenantServiceFactory } from '@/lib/firebase/firestore-v2';
+import { logger } from '@/lib/utils/logger';
 
 export async function GET(
   request: NextRequest,
@@ -51,7 +52,7 @@ export async function GET(
     });
 
   } catch (error) {
-    console.error('Error fetching mini-site config:', error);
+    logger.error('Error fetching mini-site config', { error: error instanceof Error ? error.message : String(error) });
     return NextResponse.json(
       { 
         success: false, 

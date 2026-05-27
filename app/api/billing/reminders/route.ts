@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { createBillingService } from '@/lib/services/billing-service';
 import { auth } from '@/lib/firebase/admin';
+import { logger } from '@/lib/utils/logger';
 
 export async function GET(request: NextRequest) {
   try {
@@ -38,7 +39,7 @@ export async function GET(request: NextRequest) {
       );
     }
   } catch (error) {
-    console.error('Erro ao buscar lembretes:', error);
+    logger.error('Erro ao buscar lembretes', { error: error instanceof Error ? error.message : String(error) });
     return NextResponse.json(
       { error: 'Erro ao buscar lembretes' },
       { status: 500 }
@@ -106,7 +107,7 @@ export async function POST(request: NextRequest) {
       );
     }
   } catch (error) {
-    console.error('Erro ao processar lembretes:', error);
+    logger.error('Erro ao processar lembretes', { error: error instanceof Error ? error.message : String(error) });
     return NextResponse.json(
       { error: 'Erro ao processar lembretes' },
       { status: 500 }

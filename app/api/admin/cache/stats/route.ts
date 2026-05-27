@@ -4,6 +4,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { propertyCache } from '@/lib/cache/property-cache-manager';
 import { verifyAdminAccess } from '@/lib/middleware/admin-auth';
+import { logger } from '@/lib/utils/logger';
 
 // GET /api/admin/cache/stats - Obter estatísticas do cache
 export async function GET(request: NextRequest) {
@@ -30,7 +31,7 @@ export async function GET(request: NextRequest) {
     });
 
   } catch (error) {
-    console.error('[CacheStats] Error:', error);
+    logger.error('[CacheStats] Error', { error: error instanceof Error ? error.message : String(error) });
     return NextResponse.json(
       {
         success: false,
@@ -95,7 +96,7 @@ export async function POST(request: NextRequest) {
     });
 
   } catch (error) {
-    console.error('[CacheStats] Error:', error);
+    logger.error('[CacheStats] Error', { error: error instanceof Error ? error.message : String(error) });
     return NextResponse.json(
       {
         success: false,

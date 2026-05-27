@@ -269,7 +269,7 @@ export async function POST(
       );
     }
 
-    console.error('Error creating inquiry:', error);
+    logger.error('Error creating inquiry', { error: error instanceof Error ? error.message : String(error) });
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

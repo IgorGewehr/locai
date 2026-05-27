@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { createWhatsAppClient } from '@/lib/whatsapp/whatsapp-client-factory';
 import { authService } from '@/lib/auth/auth-service';
 import { z } from 'zod';
+import { logger } from '@/lib/utils/logger';
 
 const sendMessageSchema = z.object({
   phoneNumber: z.string().regex(/^\d+$/),
@@ -56,7 +57,7 @@ export async function POST(request: NextRequest) {
       message: 'Message sent successfully',
     });
   } catch (error) {
-    console.error('Error sending message:', error);
+    logger.error('Error sending message', { error: error instanceof Error ? error.message : String(error) });
     return NextResponse.json(
       { success: false, error: 'Failed to send message' },
       { status: 500 }

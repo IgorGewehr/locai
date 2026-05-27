@@ -353,7 +353,7 @@ export async function POST(request: NextRequest) {
 
     // Log completo do stack em desenvolvimento
     if (process.env.NODE_ENV === 'development' && errorStack) {
-      console.error('Full error stack:', errorStack);
+      logger.error('Full error stack', { error: errorStack || 'No stack trace available' });
     }
 
     return NextResponse.json(

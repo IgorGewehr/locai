@@ -5,6 +5,7 @@
 
 import { NextRequest, NextResponse } from 'next/server';
 import { TenantServiceFactory } from '@/lib/firebase/firestore-v2';
+import { logger } from '@/lib/utils/logger';
 
 export async function GET(
   request: NextRequest,
@@ -70,7 +71,7 @@ export async function GET(
     });
 
   } catch (error) {
-    console.error('Error in property API:', error);
+    logger.error('Error in property API', { error: error instanceof Error ? error.message : String(error) });
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

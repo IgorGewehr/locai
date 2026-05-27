@@ -204,7 +204,7 @@ export async function GET(request: NextRequest) {
           try {
             reservation.property = await services.properties.getById(reservation.propertyId)
           } catch (error) {
-            console.error('Error loading property:', error)
+            logger.error('Error loading property', { error: error instanceof Error ? error.message : String(error) })
           }
         }
 
@@ -212,7 +212,7 @@ export async function GET(request: NextRequest) {
           try {
             reservation.client = await services.clients.getById(reservation.clientId)
           } catch (error) {
-            console.error('Error loading client:', error)
+            logger.error('Error loading client', { error: error instanceof Error ? error.message : String(error) })
           }
         }
       }

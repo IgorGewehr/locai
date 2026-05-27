@@ -3,6 +3,7 @@ import { TenantServiceFactory } from '@/lib/firebase/firestore-v2'
 import { handleApiError } from '@/lib/utils/api-errors'
 import { sanitizeUserInput } from '@/lib/utils/validation'
 import { validateFirebaseAuth } from '@/lib/middleware/firebase-auth'
+import { logger } from '@/lib/utils/logger'
 import {
   UpdateTransactionSchema,
   validateUpdateTransaction,
@@ -47,7 +48,7 @@ export async function GET(
         try {
           relatedData.client = await services.clients.getById(transaction.clientId)
         } catch (error) {
-          console.error('Error loading client:', error)
+          logger.error('Error loading client', { error: error instanceof Error ? error.message : String(error) })
         }
       }
 
@@ -55,7 +56,7 @@ export async function GET(
         try {
           relatedData.property = await services.properties.getById(transaction.propertyId)
         } catch (error) {
-          console.error('Error loading property:', error)
+          logger.error('Error loading property', { error: error instanceof Error ? error.message : String(error) })
         }
       }
 
@@ -63,7 +64,7 @@ export async function GET(
         try {
           relatedData.reservation = await services.reservations.getById(transaction.reservationId)
         } catch (error) {
-          console.error('Error loading reservation:', error)
+          logger.error('Error loading reservation', { error: error instanceof Error ? error.message : String(error) })
         }
       }
     }
