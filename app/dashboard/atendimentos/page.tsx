@@ -80,9 +80,16 @@ export default function AtendimentosPage() {
   const assume = useCallback(async (lead: Lead) => {
     try {
       const token = await getFirebaseToken();
+      // 1. Resolve escalation
       await fetch(`/api/crm/leads/${lead.id}/resolve-escalation`, {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}` },
+      });
+      // 2. Block AI for this conversation (1h manual mode)
+      await fetch('/api/ai/block-conversation', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ phone: lead.phone, blocked: true, duration: 1 }),
       });
       setLeads((prev) =>
         prev.map((l) => (l.id === lead.id ? { ...l, escalation: { ...l.escalation!, active: false } } : l))

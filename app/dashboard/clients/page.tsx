@@ -63,6 +63,8 @@ import {
 import { useRouter } from 'next/navigation';
 import { safeFormatDate, DateFormats } from '@/lib/utils/date-formatter';
 import { useAuth } from '@/lib/hooks/useAuth';
+import type { Lead } from '@/lib/types/crm';
+import { normalizeBrazilPhone } from '@/lib/services/lead-lookup';
 import CreateClientDialog from '@/components/organisms/clients/CreateClientDialog';
 import EditClientDialog from '@/components/organisms/clients/EditClientDialog';
 import ClientDetailsDialog from '@/components/organisms/clients/ClientDetailsDialog';
@@ -77,12 +79,15 @@ interface ClientFormData {
   notes?: string;
 }
 
-// Interface para cliente com dados de conversa
+// Interface para cliente com dados de conversa e lead
 interface ClientWithConversation extends Client {
   lastConversation?: ConversationHeader;
   hasActiveConversation?: boolean;
   totalMessages?: number;
   lastMessageAt?: Date;
+  lead?: Lead;
+  leadStatus?: string;
+  leadTemperature?: 'cold' | 'warm' | 'hot';
 }
 
 export default function ClientsPage() {
@@ -124,10 +129,11 @@ export default function ClientsPage() {
         setError(null);
       }
 
-      // Buscar clientes e conversas em paralelo
-      const [clientsData, conversationsData] = await Promise.all([
+      // Buscar clientes, conversas e leads em paralelo
+      const [clientsData, conversationsData, leadsData] = await Promise.all([
         services.clients.getAll(),
-        services.conversations.getAll()
+        services.conversations.getAll(),
+        services.leads.getAll(500),
       ]);
 
       setConversations(conversationsData);
@@ -142,7 +148,14 @@ export default function ClientsPage() {
         conversationsByPhone.get(phone)!.push(conv);
       });
 
-      // Enriquecer clientes com dados de conversas
+      // Criar mapa de leads por telefone normalizado
+      const leadsByPhone = new Map<string, Lead>();
+      leadsData.forEach((lead: Lead) => {
+        const p = lead.phone || (lead as any).clientPhone;
+        if (p) leadsByPhone.set(normalizeBrazilPhone(p), lead);
+      });
+
+      // Enriquecer clientes com dados de conversas e leads
       const enrichedClients: ClientWithConversation[] = clientsData.map((client: Client) => {
         const clientConvs = conversationsByPhone.get(client.phone) || [];
 
@@ -156,12 +169,19 @@ export default function ClientsPage() {
         const totalMessages = clientConvs.reduce((sum, c) => sum + (c.messageCount || 0), 0);
         const lastMessageAt = lastConversation?.lastMessageAt;
 
+        // Lead enrichment
+        const normalizedPhone = normalizeBrazilPhone(client.phone);
+        const lead = leadsByPhone.get(normalizedPhone);
+
         return {
           ...client,
           lastConversation,
           hasActiveConversation,
           totalMessages,
-          lastMessageAt
+          lastMessageAt,
+          lead,
+          leadStatus: lead?.status,
+          leadTemperature: lead?.temperature,
         };
       });
 
@@ -255,6 +275,8 @@ export default function ClientsPage() {
     if (selectedTab === 1) return matchesSearch && client.lastConversation; // Com Conversas
     if (selectedTab === 2) return matchesSearch && client.hasActiveConversation; // Conversas Ativas
     if (selectedTab === 3) return matchesSearch && (client.totalReservations || 0) > 0; // Com Reservas
+    if (selectedTab === 4) return matchesSearch && client.leadTemperature === 'hot'; // Leads Quentes
+    if (selectedTab === 5) return matchesSearch && client.lead; // Com Lead
     return matchesSearch;
   });
 
@@ -379,6 +401,22 @@ export default function ClientsPage() {
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                 Com Reservas
                 <Chip label={clients.filter(c => (c.totalReservations || 0) > 0).length} size="small" color="info" />
+              </Box>
+            }
+          />
+          <Tab
+            label={
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                Leads Quentes
+                <Chip label={clients.filter(c => c.leadTemperature === 'hot').length} size="small" color="error" />
+              </Box>
+            }
+          />
+          <Tab
+            label={
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                Com Lead
+                <Chip label={clients.filter(c => c.lead).length} size="small" color="warning" />
               </Box>
             }
           />
@@ -532,6 +570,31 @@ export default function ClientsPage() {
                             label={`${client.totalMessages} msg${client.totalMessages > 1 ? 's' : ''}`}
                             size="small"
                             variant="outlined"
+                            sx={{ height: 20, fontSize: '0.7rem' }}
+                          />
+                        )}
+                        {client.leadTemperature && (
+                          <Chip
+                            label={client.leadTemperature === 'hot' ? '🔥 Quente' : client.leadTemperature === 'warm' ? '🌡️ Morno' : '❄️ Frio'}
+                            size="small"
+                            color={client.leadTemperature === 'hot' ? 'error' : client.leadTemperature === 'warm' ? 'warning' : 'default'}
+                            sx={{ height: 20, fontSize: '0.7rem' }}
+                          />
+                        )}
+                        {client.leadStatus && !['new', 'lost'].includes(client.leadStatus) && (
+                          <Chip
+                            label={
+                              client.leadStatus === 'contacted' ? 'Contatado' :
+                              client.leadStatus === 'qualified' ? 'Qualificado' :
+                              client.leadStatus === 'opportunity' ? 'Oportunidade' :
+                              client.leadStatus === 'negotiation' ? 'Negociação' :
+                              client.leadStatus === 'won' ? 'Convertido' :
+                              client.leadStatus === 'nurturing' ? 'Nutrição' :
+                              client.leadStatus
+                            }
+                            size="small"
+                            variant="outlined"
+                            color={client.leadStatus === 'won' ? 'success' : client.leadStatus === 'negotiation' ? 'error' : 'default'}
                             sx={{ height: 20, fontSize: '0.7rem' }}
                           />
                         )}
