@@ -12,10 +12,26 @@ from langchain_core.messages import AIMessage, HumanMessage
 from langgraph.graph import END, StateGraph
 
 from ..config import get_settings
+from ..observability import get_langsmith_callbacks
 from .nodes import executor_node, make_operator_planner_node, planner_node, router_node
 from .state import AgentRunResult, AgentState
 
 log = structlog.get_logger()
+
+# Cost per 1M tokens (USD) — update when models change
+_COST_TABLE: dict[str, tuple[float, float]] = {  # (input, output) per 1M tokens
+    "gpt-4o-mini": (0.15, 0.60),
+    "gpt-4o": (2.50, 10.00),
+    "gpt-4.1-mini": (0.40, 1.60),
+    "gpt-4.1-nano": (0.10, 0.40),
+    "claude-sonnet-4-5-20251022": (3.00, 15.00),
+    "claude-haiku-3-5-20241022": (0.80, 4.00),
+}
+
+
+def _estimate_cost(model: str, tokens_in: int, tokens_out: int) -> float:
+    rates = _COST_TABLE.get(model, (0.15, 0.60))  # default to gpt-4o-mini
+    return (tokens_in * rates[0] + tokens_out * rates[1]) / 1_000_000
 
 
 def _has_tool_calls(state: AgentState) -> str:
@@ -117,14 +133,16 @@ async def run_agent(
 
     try:
         # Hard timeout — prevents workers from hanging on slow LLM calls
+        config: dict = {
+            "run_name": f"locai.{conversation_id}",
+            "tags": [f"tenant:{tenant_id}"],
+        }
+        ls_callbacks = get_langsmith_callbacks()
+        if ls_callbacks:
+            config["callbacks"] = ls_callbacks
+
         final_state = await asyncio.wait_for(
-            _GRAPH.ainvoke(
-                initial_state,
-                config={
-                    "run_name": f"locai.{conversation_id}",
-                    "tags": [f"tenant:{tenant_id}"],
-                },
-            ),
+            _GRAPH.ainvoke(initial_state, config=config),
             timeout=float(s.agent_request_timeout_s),
         )
 
@@ -136,6 +154,9 @@ async def run_agent(
                 if isinstance(content, str) and content.strip() and not getattr(m, "tool_calls", None):
                     final_response = content
                     break
+
+        tok_in = final_state.get("total_tokens_in", 0)
+        tok_out = final_state.get("total_tokens_out", 0)
 
         return AgentRunResult(
             run_id=run_id,
@@ -151,9 +172,10 @@ async def run_agent(
             error=None,
             node_traces=final_state.get("node_traces", []),
             tool_calls=final_state.get("tool_calls_log", []),
-            total_tokens_in=final_state.get("total_tokens_in", 0),
-            total_tokens_out=final_state.get("total_tokens_out", 0),
+            total_tokens_in=tok_in,
+            total_tokens_out=tok_out,
             total_latency_ms=int((time.time() - t0) * 1000),
+            cost_usd=_estimate_cost(s.model_main, tok_in, tok_out),
         )
 
     except asyncio.TimeoutError:
@@ -221,11 +243,16 @@ async def run_operator(*, tenant_id: str, message: str, mode: str) -> str:
     }
 
     try:
+        op_config: dict = {
+            "run_name": f"locai.operator.{norm_mode}",
+            "tags": [f"tenant:{tenant_id}"],
+        }
+        ls_cbs = get_langsmith_callbacks()
+        if ls_cbs:
+            op_config["callbacks"] = ls_cbs
+
         final_state = await asyncio.wait_for(
-            graph.ainvoke(
-                initial_state,
-                config={"run_name": f"locai.operator.{norm_mode}", "tags": [f"tenant:{tenant_id}"]},
-            ),
+            graph.ainvoke(initial_state, config=op_config),
             timeout=float(s.agent_request_timeout_s),
         )
         reply = final_state.get("final_response")

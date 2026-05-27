@@ -496,19 +496,24 @@ export class MultiTenantFirestoreService<T extends { id?: string }> {
    * Batch operations
    */
   async batchCreate(items: Array<Omit<T, 'id'>>): Promise<void> {
-    const batch = writeBatch(db);
+    // Firestore batch limit is 500 operations — chunk if needed
+    const BATCH_LIMIT = 500;
+    for (let i = 0; i < items.length; i += BATCH_LIMIT) {
+      const chunk = items.slice(i, i + BATCH_LIMIT);
+      const batch = writeBatch(db);
 
-    items.forEach(item => {
-      const docRef = doc(this.getCollectionRef());
-      batch.set(docRef, {
-        ...item,
-        tenantId: this.tenantId,
-        createdAt: Timestamp.now(),
-        updatedAt: Timestamp.now(),
+      chunk.forEach(item => {
+        const docRef = doc(this.getCollectionRef());
+        batch.set(docRef, {
+          ...item,
+          tenantId: this.tenantId,
+          createdAt: Timestamp.now(),
+          updatedAt: Timestamp.now(),
+        });
       });
-    });
 
-    await batch.commit();
+      await batch.commit();
+    }
   }
 
   /**

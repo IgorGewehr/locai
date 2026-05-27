@@ -7,7 +7,7 @@ from typing import Any
 
 import structlog
 from fastapi import APIRouter, Request
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from ..auth import verify_request
 from ..graph.graph import run_agent, run_operator
@@ -15,14 +15,16 @@ from ..graph.graph import run_agent, run_operator
 log = structlog.get_logger()
 router = APIRouter()
 
+MAX_HISTORY = 40  # Hard cap on conversation history length
+
 
 class ProcessRequest(BaseModel):
     tenant_id: str
     conversation_id: str
     message_id: str
-    message: str
-    history: list[dict[str, str]] = []
-    contact: dict[str, str] = {}
+    message: str = Field(max_length=8000)
+    history: list[dict[str, str]] = Field(default_factory=list, max_length=MAX_HISTORY)
+    contact: dict[str, str] = Field(default_factory=dict)
 
 
 class ProcessResponse(BaseModel):
@@ -35,6 +37,7 @@ class ProcessResponse(BaseModel):
     total_latency_ms: int
     total_tokens_in: int = 0
     total_tokens_out: int = 0
+    cost_usd: float = 0.0
     tool_calls: list[dict[str, Any]] = []
     error: str | None
 
@@ -70,6 +73,7 @@ async def process(request: Request) -> ProcessResponse:
         total_latency_ms=result.total_latency_ms,
         total_tokens_in=result.total_tokens_in,
         total_tokens_out=result.total_tokens_out,
+        cost_usd=result.cost_usd,
         tool_calls=result.tool_calls,
         error=result.error,
     )
