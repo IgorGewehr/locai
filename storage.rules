@@ -1,34 +1,27 @@
 rules_version = '2';
 service firebase.storage {
   match /b/{bucket}/o {
-    // Allow authenticated users to read and write to their tenant's files
+    // Tenant-scoped files — read/write only for users belonging to the tenant
     match /tenants/{tenantId}/{allPaths=**} {
-      allow read: if request.auth != null;
-      allow write: if request.auth != null && 
-        (request.auth.uid == tenantId || 
-         request.auth.token.tenantId == tenantId ||
-         request.auth.uid == resource.metadata.uploadedBy);
+      allow read: if request.auth != null &&
+        (request.auth.uid == tenantId || request.auth.token.tenantId == tenantId);
+      allow write: if request.auth != null &&
+        (request.auth.uid == tenantId || request.auth.token.tenantId == tenantId) &&
+        request.resource.size < 100 * 1024 * 1024;
     }
-    
-    // Allow test uploads for debugging (temporary)
-    match /test/{allPaths=**} {
-      allow read, write: if request.auth != null;
+
+    // Legacy paths — tenant-scoped via metadata or auth
+    match /properties/{tenantId}/{allPaths=**} {
+      allow read: if request.auth != null &&
+        (request.auth.uid == tenantId || request.auth.token.tenantId == tenantId);
+      allow write: if request.auth != null &&
+        (request.auth.uid == tenantId || request.auth.token.tenantId == tenantId) &&
+        request.resource.size < 50 * 1024 * 1024;
     }
-    
-    // Legacy paths (for backward compatibility)
-    match /properties/{allPaths=**} {
-      allow read: if request.auth != null;
-      allow write: if request.auth != null;
-    }
-    
-    match /clients/{allPaths=**} {
-      allow read: if request.auth != null;
-      allow write: if request.auth != null;
-    }
-    
-    match /chat/{allPaths=**} {
-      allow read: if request.auth != null;
-      allow write: if request.auth != null;
+
+    // Default deny all other paths
+    match /{allPaths=**} {
+      allow read, write: if false;
     }
   }
 }

@@ -36,7 +36,11 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ ok: false, error: 'Property not found' }, { status: 404 })
     }
 
-    const location = (property as any).location
+    // Build location from available fields: location, city, neighborhood, address
+    const p = property as any
+    const location = p.location || p.address ||
+      [p.neighborhood, p.city, p.state].filter(Boolean).join(', ') ||
+      p.city
     if (!location) {
       return NextResponse.json({ ok: false, error: 'Property has no location info' }, { status: 400 })
     }

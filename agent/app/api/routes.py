@@ -33,6 +33,9 @@ class ProcessResponse(BaseModel):
     intent: str | None
     iterations: int
     total_latency_ms: int
+    total_tokens_in: int = 0
+    total_tokens_out: int = 0
+    tool_calls: list[dict[str, Any]] = []
     error: str | None
 
 
@@ -49,7 +52,7 @@ async def process(request: Request) -> ProcessResponse:
     log.info("agent.process", tenant_id=tenant_id[:8] + "***", conversation_id=req.conversation_id)
 
     result = await run_agent(
-        tenant_id=req.tenant_id,
+        tenant_id=tenant_id,  # Use authenticated tenant_id, not request body
         conversation_id=req.conversation_id,
         message_id=req.message_id,
         message=req.message,
@@ -65,6 +68,9 @@ async def process(request: Request) -> ProcessResponse:
         intent=result.intent,
         iterations=result.iterations,
         total_latency_ms=result.total_latency_ms,
+        total_tokens_in=result.total_tokens_in,
+        total_tokens_out=result.total_tokens_out,
+        tool_calls=result.tool_calls,
         error=result.error,
     )
 
@@ -102,7 +108,7 @@ async def operate(request: Request) -> OperateResponse:
     )
 
     reply = await run_operator(
-        tenant_id=req.tenant_id,
+        tenant_id=tenant_id,  # Use authenticated tenant_id, not request body
         message=req.message,
         mode=mode,
     )
