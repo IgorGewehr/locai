@@ -127,6 +127,11 @@ export async function POST(request: NextRequest) {
 
     if (existingConversations.length > 0) {
       conversationId = existingConversations[0].id!;
+      // Fix clientName if it's still a raw number (pre-fix conversations)
+      const existing = existingConversations[0] as any;
+      if (existing.clientName && /^\d+$/.test(existing.clientName)) {
+        await services.conversations.update(conversationId, { clientName: displayPhone } as any);
+      }
     } else {
       // Create new conversation
       conversationId = await services.conversations.create({
