@@ -113,12 +113,16 @@ export async function fetchAirbnbPropertyData(
     });
 
     if (!response.ok) {
+      // Surface the proxy's specific reason (ex.: "API do Airbnb não configurada")
+      // em vez de engolir num null genérico.
+      const errBody = await response.json().catch(() => ({} as { message?: string; error?: string }));
+      const detail = errBody?.message || errBody?.error || `status ${response.status}`;
       logger.error('Failed to fetch Airbnb property data', {
         propertyId,
         status: response.status,
-        statusText: response.statusText,
+        detail,
       });
-      return null;
+      throw new Error(detail);
     }
 
     const data = await response.json();
@@ -175,7 +179,10 @@ export async function importFromAirbnbUrl(
     logger.error('Error importing from Airbnb URL', { url, error });
     return {
       success: false,
-      error: 'Erro ao importar propriedade. Tente novamente mais tarde.',
+      error:
+        error instanceof Error && error.message
+          ? `Não foi possível importar: ${error.message}`
+          : 'Erro ao importar propriedade. Tente novamente mais tarde.',
     };
   }
 }
