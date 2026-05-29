@@ -5,6 +5,7 @@ import { WhatsAppStatusService } from '@/lib/services/whatsapp-status-service'
 import { deduplicationCache } from '@/lib/cache/deduplication-cache'
 import { getConversationState } from '@/lib/conversation/state'
 import { sendWhatsAppText, sendWhatsAppMedia } from '@/lib/whatsapp/outbound'
+import { findLeadByPhone, normalizeBrazilPhone } from '@/lib/services/lead-lookup'
 
 /**
  * Webhook para receber mensagens do WhatsApp Microservice.
@@ -122,6 +123,15 @@ export async function POST(request: NextRequest) {
             } else {
                 // 1. Persist message to Firestore (for dashboard + history)
                 await persistIncomingMessage(body.tenantId, body.data)
+                // 1b. Garantir que existe um Lead para este telefone (raiz do handoff —
+                //     sem Lead, a tela de Atendimentos fica vazia). Fire-and-forget:
+                //     idempotente por telefone e nunca bloqueia a resposta da IA.
+                ensureLeadExists(body.tenantId, body.data).catch((err: unknown) => {
+                    logger.error('❌ ensureLeadExists error', {
+                        error: err instanceof Error ? err.message : String(err),
+                        tenantId: body.tenantId?.substring(0, 8) + '***',
+                    })
+                })
                 // 2. Dispatch to AI agent (fire-and-forget — does NOT block the webhook response)
                 dispatchToAgent(body.tenantId, body.data).catch((err: unknown) => {
                     logger.error('❌ Agent dispatch error', {
@@ -239,6 +249,134 @@ async function persistIncomingMessage(tenantId: string, messageData: any) {
 }
 
 /**
+ * Garante que existe um Lead para o telefone que está mandando mensagem.
+ *
+ * É a RAIZ do handoff: sem um Lead no caminho vivo, a tela de Atendimentos fica
+ * vazia e o humano nunca vê a conversa pra assumir. Na 1ª mensagem de um telefone
+ * novo cria o Lead (status NEW, source whatsapp, telefone NORMALIZADO via
+ * lead-lookup); nas mensagens seguintes só atualiza `lastContactDate`.
+ *
+ * Idempotente por telefone: usa findLeadByPhone (que testa comDDI/semDDI/raw ×
+ * phone/clientPhone) antes de criar, então não duplica Lead.
+ *
+ * Roda fire-and-forget (chamado com .catch no POST handler) — nunca bloqueia a
+ * resposta da IA.
+ */
+async function ensureLeadExists(tenantId: string, messageData: any) {
+    const rawPhone: string = messageData?.from || ''
+    if (!tenantId || !rawPhone) return
+
+    try {
+        const { TenantServiceFactory } = await import('@/lib/firebase/firestore-v2')
+        const { LeadStatus, LeadSource } = await import('@/lib/types/crm')
+        const services = new TenantServiceFactory(tenantId)
+        const now = new Date()
+
+        // Idempotência: se já existe lead (em qualquer variação de telefone), só
+        // atualiza o último contato. NÃO cria de novo.
+        const existing = await findLeadByPhone(tenantId, rawPhone)
+        if (existing) {
+            await services.leads.update(existing.id, {
+                lastContactDate: now,
+            } as any)
+            logger.info('🔄 Lead existente — lastContactDate atualizado', {
+                tenantId: tenantId.substring(0, 8) + '***',
+                leadId: existing.id,
+                phone: rawPhone.substring(0, 6) + '***',
+            })
+            return
+        }
+
+        // Telefone NORMALIZADO consistente (comDDI 55) — mesmo helper usado no
+        // resto do sistema, para que o lookup futuro sempre encontre.
+        const phone = normalizeBrazilPhone(rawPhone)
+        const name: string | undefined = messageData?.name || messageData?.pushName || undefined
+
+        // 1ª mensagem deste telefone → cria o Lead. status NEW, source whatsapp.
+        // create() já preenche createdAt/updatedAt e filtra undefineds.
+        const leadId = await services.leads.create({
+            tenantId,
+            name: name || 'Lead WhatsApp',
+            phone,
+            clientPhone: phone,
+            whatsappNumber: rawPhone,
+            status: LeadStatus.NEW,
+            source: LeadSource.WHATSAPP_AI,
+            sourceDetails: 'Primeiro contato via WhatsApp — criado no webhook',
+            score: 25,
+            temperature: 'cold',
+            qualificationCriteria: { budget: false, authority: false, need: false, timeline: false },
+            preferences: {},
+            firstContactDate: now,
+            lastContactDate: now,
+            totalInteractions: 1,
+            tags: [],
+        } as any)
+
+        logger.info('✨ Lead criado no caminho vivo (webhook)', {
+            tenantId: tenantId.substring(0, 8) + '***',
+            leadId,
+            phone: phone.substring(0, 6) + '***',
+        })
+    } catch (error) {
+        logger.error('❌ Error ensuring lead exists:', {
+            error: error instanceof Error ? error.message : 'Unknown error',
+            tenantId: tenantId?.substring(0, 8) + '***',
+        })
+    }
+}
+
+/**
+ * Carrega os overrides do ai-config do tenant para repassar ao agente.
+ *
+ * Lê de `tenants/{tenantId}/aiConfig/settings` — o MESMO path que a página
+ * settings/ai-config grava (via /api/ai/config). Mapeia os campos de storage
+ * para o contrato esperado pelo agente:
+ *   customPrompts.companyName        → assistantName
+ *   customPrompts.tone               → tone
+ *   customPrompts.welcome            → welcomeMessage
+ *   customPrompts.specialInstructions→ specialInstructions
+ *
+ * Retorna `null` quando não há nada útil para sobrepor (ou em erro — fail-open).
+ * Pagamento/desconto NÃO é repassado (fora do MVP).
+ */
+async function loadAiConfigOverrides(tenantId: string): Promise<{
+    assistantName?: string
+    tone?: string
+    welcomeMessage?: string
+    specialInstructions?: string
+} | null> {
+    if (!tenantId) return null
+    try {
+        const { db } = await import('@/lib/firebase/config')
+        const { doc, getDoc } = await import('firebase/firestore')
+        const snap = await getDoc(doc(db, 'tenants', tenantId, 'aiConfig', 'settings'))
+        if (!snap.exists()) return null
+        const data = snap.data() as any
+        const cp = data?.customPrompts || {}
+
+        const overrides: {
+            assistantName?: string
+            tone?: string
+            welcomeMessage?: string
+            specialInstructions?: string
+        } = {}
+        if (cp.companyName) overrides.assistantName = cp.companyName
+        if (cp.tone) overrides.tone = cp.tone
+        if (cp.welcome) overrides.welcomeMessage = cp.welcome
+        if (cp.specialInstructions) overrides.specialInstructions = cp.specialInstructions
+
+        return Object.keys(overrides).length > 0 ? overrides : null
+    } catch (err) {
+        logger.warn('⚠️ Falha ao carregar ai-config do tenant — seguindo sem overrides', {
+            error: err instanceof Error ? err.message : String(err),
+            tenantId: tenantId?.substring(0, 8) + '***',
+        })
+        return null
+    }
+}
+
+/**
  * Dispatch incoming message to the Python LangGraph agent.
  *
  * The agent will:
@@ -322,6 +460,13 @@ async function dispatchToAgent(tenantId: string, messageData: any) {
         })
     }
 
+    // AI-CONFIG → AGENTE: carrega o ai-config do tenant (mesmo path que a página
+    // settings/ai-config grava: tenants/{tid}/aiConfig/settings) e repassa como
+    // `ai_config` no /process. O agente injeta esses overrides no system prompt
+    // (assistantName/tone/welcomeMessage/specialInstructions) sem quebrar as
+    // regras-mãe. Sem desconto. Fail-open: se a leitura falhar, segue sem override.
+    const aiConfig = await loadAiConfigOverrides(tenantId)
+
     // Sign request with HMAC
     const crypto = await import('crypto')
     const payload = JSON.stringify({
@@ -331,6 +476,7 @@ async function dispatchToAgent(tenantId: string, messageData: any) {
         message,
         history,
         contact: { phone: clientPhone },
+        ...(aiConfig && { ai_config: aiConfig }),
     })
     const ts = String(Date.now())
     const sig = crypto.createHmac('sha256', agentSecret).update(`${ts}.`, 'utf8').update(payload).digest('hex')

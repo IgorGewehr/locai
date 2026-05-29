@@ -24,13 +24,7 @@ import {
   Divider,
   Alert,
   CircularProgress,
-  Chip,
-  Accordion,
-  AccordionSummary,
-  AccordionDetails,
-  Slider,
   TextField,
-  Grid,
   Stack,
   Select,
   MenuItem,
@@ -43,7 +37,6 @@ import {
   Refresh as RefreshIcon,
   CheckCircle as CheckCircleIcon,
   SmartToy as SmartToyIcon,
-  Percent as PercentIcon,
 } from '@mui/icons-material';
 import { useTenant } from '@/contexts/TenantContext';
 import { useAuth } from '@/contexts/AuthProvider';
@@ -155,31 +148,6 @@ export default function AIConfigPage() {
   const updateConfig = (updates: Partial<AIConfig>) => {
     if (!config) return;
     setConfig({ ...config, ...updates });
-  };
-
-  const updateDiscountSettings = (updates: Partial<AIConfig['discountSettings']>) => {
-    if (!config) return;
-    setConfig({
-      ...config,
-      discountSettings: {
-        ...config.discountSettings,
-        ...updates,
-      },
-    });
-  };
-
-  const updateDiscountCriteria = (updates: Partial<AIConfig['discountSettings']['allowedCriteria']>) => {
-    if (!config) return;
-    setConfig({
-      ...config,
-      discountSettings: {
-        ...config.discountSettings,
-        allowedCriteria: {
-          ...config.discountSettings.allowedCriteria,
-          ...updates,
-        },
-      },
-    });
   };
 
   const updateCustomPrompts = (updates: Partial<AIConfig['customPrompts']>) => {
@@ -393,191 +361,6 @@ export default function AIConfigPage() {
               inputProps={{ maxLength: 2000 }}
               helperText={`${config.customPrompts.specialInstructions?.length || 0}/2000 caracteres`}
             />
-          </Stack>
-        </CardContent>
-      </Card>
-
-      {/* DISCOUNT SETTINGS */}
-      <Card>
-        <CardContent>
-          <Box display="flex" alignItems="center" gap={1} mb={1}>
-            <PercentIcon sx={{ color: 'primary.main' }} />
-            <Typography variant="h6">
-              Configurações de Desconto
-            </Typography>
-          </Box>
-          <Typography variant="body2" color="text.secondary" paragraph>
-            Configure descontos dinâmicos oferecidos pela Sofia
-          </Typography>
-
-          <Divider sx={{ my: 2 }} />
-
-          <Stack spacing={3}>
-            {/* Enable Discounts */}
-            <FormControlLabel
-              control={
-                <Switch
-                  checked={config.discountSettings.enabled}
-                  onChange={(e) => updateDiscountSettings({ enabled: e.target.checked })}
-                />
-              }
-              label={
-                <Box>
-                  <Typography variant="body1" fontWeight={600}>
-                    Permitir Descontos Dinâmicos
-                  </Typography>
-                  <Typography variant="caption" color="text.secondary">
-                    Sofia poderá oferecer descontos automaticamente
-                  </Typography>
-                </Box>
-              }
-            />
-
-            {config.discountSettings.enabled && (
-              <>
-                {/* Max Discount Percentage */}
-                <Box>
-                  <Box display="flex" justifyContent="space-between" alignItems="center" mb={1}>
-                    <Typography variant="body2" fontWeight={600}>
-                      Desconto Máximo
-                    </Typography>
-                    <Chip label={`${config.discountSettings.maxPercentage}%`} color="primary" size="small" />
-                  </Box>
-                  <Slider
-                    value={config.discountSettings.maxPercentage}
-                    onChange={(_, value) => updateDiscountSettings({ maxPercentage: value as number })}
-                    min={0}
-                    max={50}
-                    step={5}
-                    marks={[
-                      { value: 0, label: '0%' },
-                      { value: 25, label: '25%' },
-                      { value: 50, label: '50%' },
-                    ]}
-                    valueLabelDisplay="auto"
-                    valueLabelFormat={(value) => `${value}%`}
-                  />
-                </Box>
-
-                {/* Requires Approval */}
-                <FormControlLabel
-                  control={
-                    <Switch
-                      checked={config.discountSettings.requiresApproval}
-                      onChange={(e) => updateDiscountSettings({ requiresApproval: e.target.checked })}
-                    />
-                  }
-                  label={
-                    <Box>
-                      <Typography variant="body2" fontWeight={600}>
-                        Requer Aprovação Humana
-                      </Typography>
-                      <Typography variant="caption" color="text.secondary">
-                        Descontos acima do threshold precisam de aprovação
-                      </Typography>
-                    </Box>
-                  }
-                />
-
-                {/* Approval Threshold */}
-                {config.discountSettings.requiresApproval && (
-                  <Box>
-                    <Box display="flex" justifyContent="space-between" alignItems="center" mb={1}>
-                      <Typography variant="body2" fontWeight={600}>
-                        Limite para Aprovação Automática
-                      </Typography>
-                      <Chip label={`${config.discountSettings.approvalThreshold}%`} size="small" />
-                    </Box>
-                    <Slider
-                      value={config.discountSettings.approvalThreshold}
-                      onChange={(_, value) =>
-                        updateDiscountSettings({
-                          approvalThreshold: Math.min(value as number, config.discountSettings.maxPercentage),
-                        })
-                      }
-                      min={0}
-                      max={config.discountSettings.maxPercentage}
-                      step={1}
-                      valueLabelDisplay="auto"
-                      valueLabelFormat={(value) => `${value}%`}
-                    />
-                    <Typography variant="caption" color="text.secondary">
-                      Descontos até {config.discountSettings.approvalThreshold}% são aplicados automaticamente.
-                      Acima disso, Sofia pedirá aprovação.
-                    </Typography>
-                  </Box>
-                )}
-
-                <Divider />
-
-                {/* Allowed Criteria */}
-                <Typography variant="body2" fontWeight={600} gutterBottom>
-                  Critérios de Desconto Permitidos
-                </Typography>
-
-                <Grid container spacing={2}>
-                  <Grid item xs={12} md={6}>
-                    <FormControlLabel
-                      control={
-                        <Switch
-                          checked={config.discountSettings.allowedCriteria.earlyBooking}
-                          onChange={(e) => updateDiscountCriteria({ earlyBooking: e.target.checked })}
-                        />
-                      }
-                      label="📅 Reserva Antecipada"
-                    />
-                  </Grid>
-
-                  <Grid item xs={12} md={6}>
-                    <FormControlLabel
-                      control={
-                        <Switch
-                          checked={config.discountSettings.allowedCriteria.longStay}
-                          onChange={(e) => updateDiscountCriteria({ longStay: e.target.checked })}
-                        />
-                      }
-                      label="📆 Estadia Longa"
-                    />
-                  </Grid>
-
-                  <Grid item xs={12} md={6}>
-                    <FormControlLabel
-                      control={
-                        <Switch
-                          checked={config.discountSettings.allowedCriteria.lowSeason}
-                          onChange={(e) => updateDiscountCriteria({ lowSeason: e.target.checked })}
-                        />
-                      }
-                      label="🌊 Baixa Temporada"
-                    />
-                  </Grid>
-
-                  <Grid item xs={12} md={6}>
-                    <FormControlLabel
-                      control={
-                        <Switch
-                          checked={config.discountSettings.allowedCriteria.lastMinute}
-                          onChange={(e) => updateDiscountCriteria({ lastMinute: e.target.checked })}
-                        />
-                      }
-                      label="⏰ Última Hora"
-                    />
-                  </Grid>
-
-                  <Grid item xs={12} md={6}>
-                    <FormControlLabel
-                      control={
-                        <Switch
-                          checked={config.discountSettings.allowedCriteria.multiProperty}
-                          onChange={(e) => updateDiscountCriteria({ multiProperty: e.target.checked })}
-                        />
-                      }
-                      label="🏘️ Múltiplos Imóveis"
-                    />
-                  </Grid>
-                </Grid>
-              </>
-            )}
           </Stack>
         </CardContent>
       </Card>

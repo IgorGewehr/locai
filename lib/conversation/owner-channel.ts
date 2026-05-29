@@ -2,7 +2,8 @@
  * Resolução do canal do dono (docs/blueprint/06 §3.3, 11).
  *
  * Número canônico: `tenants/{tid}/config/owner-channel.ownerWhatsappPhone`, com
- * fallback para `tenants/{tid}/settings/company.phone` (compat). Sempre normalizado.
+ * fallback para `tenants/{tid}/config/company-info.phone` — o path REAL que a
+ * página de Empresa grava. Sempre normalizado.
  */
 import { TenantServiceFactory } from '@/lib/firebase/firestore-v2';
 import { logger } from '@/lib/utils/logger';
@@ -20,9 +21,10 @@ export async function getOwnerWhatsappPhone(tenantId: string): Promise<string | 
       return normalizeBlockPhone(ownerChannel.ownerWhatsappPhone);
     }
 
+    // Fallback: config/company-info.phone — path REAL que a UI de Empresa grava.
     const company = await services
-      .createService<{ id?: string; phone?: string }>('settings')
-      .get('company')
+      .createService<{ id?: string; phone?: string }>('config')
+      .get('company-info')
       .catch(() => null);
     if (company?.phone) {
       return normalizeBlockPhone(company.phone);

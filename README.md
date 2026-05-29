@@ -569,9 +569,6 @@ POST /api/webhook/client-message
 // Enviar manualmente (operador)
 POST /api/whatsapp/send-manual
 
-// LEGADO (era N8N) — nao usado pelo agente LangGraph
-POST /api/whatsapp/send-n8n
-
 // QR Code
 GET /api/whatsapp/qr
 
@@ -706,7 +703,6 @@ POST /api/calendar/sync/cron
 POST /api/webhook/whatsapp-microservice    // inbound -> dispatch ao agente
 POST /api/webhook/client-message
 POST /api/whatsapp/send-manual
-POST /api/whatsapp/send-n8n                 // LEGADO (era N8N)
 GET  /api/whatsapp/qr
 GET  /api/whatsapp/session
 

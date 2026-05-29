@@ -14,7 +14,7 @@ from langchain_core.messages import AIMessage, HumanMessage, SystemMessage, Tool
 from ..config import get_settings
 from ..tools.client import call_tool
 from ..tools.registry import READ_ONLY_TOOL_NAMES, TOOLS
-from .prompts import PLANNER_SYSTEM, ROUTER_SYSTEM
+from .prompts import ROUTER_SYSTEM, build_planner_system
 from .state import AgentState
 
 log = structlog.get_logger()
@@ -88,7 +88,9 @@ async def planner_node(state: AgentState) -> dict:
     from datetime import date as _date
 
     today = _date.today().isoformat()
-    system_content = PLANNER_SYSTEM.replace("{TODAY}", today)
+    # AI-CONFIG → AGENTE: injeta os overrides do tenant (assistantName, tone,
+    # welcomeMessage, specialInstructions) por cima das regras-mãe do PLANNER_SYSTEM.
+    system_content = build_planner_system(today, state.get("ai_config"))
     system_msg = SystemMessage(content=system_content)
     history = state.get("messages", [])
     resp = await llm_with_tools.ainvoke([system_msg] + history)

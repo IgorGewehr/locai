@@ -9,6 +9,7 @@ import { z } from 'zod'
 import { validateAgentRequest } from '@/lib/middleware/agent-auth'
 import { searchProperties } from '@/lib/ai/tenant-aware-agent-functions'
 import { iCalParserService } from '@/lib/services/ical-parser-service'
+import { AvailabilityService } from '@/lib/services/availability-service'
 import { logger } from '@/lib/utils/logger'
 
 const Schema = z.object({
@@ -58,25 +59,49 @@ export async function POST(request: NextRequest) {
 
     const allProperties = result?.properties || []
 
+    // Internal availability service: covers manual properties + confirmed/pending
+    // reservations + blocked periods (iCal alone does NOT cover manual bookings).
+    const availabilityService = new AvailabilityService(tenantId)
+
     // Build clean response for the LLM
     const items = await Promise.all(
       allProperties.map(async (p: any) => {
-        // Check iCal availability if property has an import URL
-        let icalAvailable = true
-        if (p.iCalImportUrl && p.iCalSyncEnabled) {
-          try {
-            const events = await iCalParserService.fetchAndParse(p.iCalImportUrl)
-            icalAvailable = !events.some((e: any) => {
-              const eStart = new Date(e.startDate)
-              const eEnd = new Date(e.endDate)
-              return eStart < checkoutDate && eEnd > checkinDate
-            })
-          } catch {
-            // If iCal fetch fails, don't block the property
+        // Run iCal check (external platforms) and internal availability check in parallel.
+        const icalCheck = (async (): Promise<boolean> => {
+          // Check iCal availability if property has an import URL
+          if (p.iCalImportUrl && p.iCalSyncEnabled) {
+            try {
+              const events = await iCalParserService.fetchAndParse(p.iCalImportUrl)
+              return !events.some((e: any) => {
+                const eStart = new Date(e.startDate)
+                const eEnd = new Date(e.endDate)
+                return eStart < checkoutDate && eEnd > checkinDate
+              })
+            } catch {
+              // If iCal fetch fails, don't block the property
+              return true
+            }
           }
-        }
+          return true
+        })()
 
-        if (!icalAvailable) return null
+        const internalCheck = (async (): Promise<boolean> => {
+          try {
+            return await availabilityService.checkAvailability(p.id, checkinDate, checkoutDate)
+          } catch (err) {
+            logger.warn('[agent/search-properties] internal availability check failed', {
+              propertyId: p.id,
+              error: err instanceof Error ? err.message : 'Unknown',
+            })
+            // On error, don't block the property (avoid fabricating unavailability).
+            return true
+          }
+        })()
+
+        const [icalAvailable, internalAvailable] = await Promise.all([icalCheck, internalCheck])
+
+        // Discard properties that are unavailable by EITHER source.
+        if (!icalAvailable || !internalAvailable) return null
 
         const nights = Math.ceil((checkoutDate.getTime() - checkinDate.getTime()) / (1000 * 60 * 60 * 24))
         const totalPrice = (p.basePrice || 0) * nights + (p.cleaningFee || 0)

@@ -23,6 +23,10 @@ class ProcessRequest(BaseModel):
     message: str
     history: list[dict[str, str]] = []
     contact: dict[str, str] = {}
+    # AI-CONFIG → AGENTE: overrides do ai-config do tenant (assistantName, tone,
+    # welcomeMessage, specialInstructions). Injetados no system prompt SEM quebrar
+    # as regras-mãe (Sofia não fecha/negocia/cobra). Sem desconto.
+    ai_config: dict[str, Any] | None = None
 
 
 class ProcessResponse(BaseModel):
@@ -56,6 +60,7 @@ async def process(request: Request) -> ProcessResponse:
         message=req.message,
         history=req.history,
         contact=req.contact,
+        ai_config=req.ai_config,
     )
 
     return ProcessResponse(

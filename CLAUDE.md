@@ -414,7 +414,6 @@ POST /api/calendar/sync/cron                    // Automated sync (every 30min)
 POST /api/webhook/whatsapp-microservice         // Inbound from Baileys microservice → dispatches to agent
 POST /api/webhook/client-message                // Real-time client messages (persist + Redis)
 POST /api/whatsapp/send-manual                  // Operator manual send
-POST /api/whatsapp/send-n8n                     // LEGACY (N8N era) — not used by the LangGraph agent
 GET  /api/whatsapp/qr
 GET  /api/whatsapp/session
 

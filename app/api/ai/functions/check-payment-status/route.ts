@@ -44,7 +44,17 @@ export async function POST(request: NextRequest) {
     const authHeader = request.headers.get('Authorization');
     const n8nSecret = process.env.N8N_WEBHOOK_SECRET;
 
-    if (n8nSecret && authHeader !== `Bearer ${n8nSecret}`) {
+    // GUARD DE SEGURANÇA: rota financeira NUNCA pode ficar sem auth.
+    // Se o secret não estiver configurado, NEGAR (em vez de liberar).
+    if (!n8nSecret) {
+      logger.error('[CHECK-PAYMENT] N8N_WEBHOOK_SECRET not configured - denying request', { requestId });
+      return NextResponse.json(
+        { success: false, error: 'Service unavailable - auth not configured', code: 'AUTH_NOT_CONFIGURED' },
+        { status: 401 }
+      );
+    }
+
+    if (authHeader !== `Bearer ${n8nSecret}`) {
       logger.warn('[CHECK-PAYMENT] Unauthorized request', { requestId });
       return NextResponse.json(
         { success: false, error: 'Unauthorized', code: 'UNAUTHORIZED' },

@@ -85,6 +85,7 @@ async def run_agent(
     message: str,
     history: list[dict[str, str]],
     contact: dict[str, str],
+    ai_config: dict[str, Any] | None = None,
 ) -> AgentRunResult:
     s = get_settings()
     run_id = str(uuid.uuid4())
@@ -117,6 +118,9 @@ async def run_agent(
         "tool_calls_log": [],
         "total_tokens_in": 0,
         "total_tokens_out": 0,
+        # AI-CONFIG → AGENTE: overrides do tenant lidos pelo planner_node para
+        # personalizar o system prompt sem quebrar as regras-mãe.
+        "ai_config": ai_config or {},
     }
 
     try:

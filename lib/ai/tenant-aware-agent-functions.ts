@@ -532,12 +532,6 @@ export async function searchProperties(args: SearchPropertiesArgs, tenantId: str
       }
     });
 
-    // ✅ LIMPAR CACHE PARA DEBUG (remover depois)
-    if (args.location?.toLowerCase() === 'piratuba') {
-      propertyCache.clear();
-      logger.info('🧹 [TenantAgent] Cache limpo para debug de Piratuba', { tenantId });
-    }
-
     // Verificar cache primeiro
     const cachedProperties = propertyCache.get(tenantId, args);
     if (cachedProperties) {

@@ -4,10 +4,13 @@ import React, { useState, useEffect, useMemo, useCallback, useRef, memo } from '
 import {
   Box, Typography, IconButton, InputBase, Avatar, Menu, MenuItem,
   ListItemIcon, ListItemText, CircularProgress, Divider, alpha,
+  Dialog, DialogTitle, DialogContent, DialogActions, TextField, Button,
+  Snackbar, Alert,
 } from '@mui/material';
 import {
   Search, Refresh, MoreVert, WhatsApp, Chat,
   ArrowBack, KeyboardArrowDown, DoneAll, MarkChatUnread, Edit,
+  ErrorOutline,
 } from '@mui/icons-material';
 import { useSearchParams } from 'next/navigation';
 import { useAuth } from '@/lib/hooks/useAuth';
@@ -180,7 +183,12 @@ export default function ConversationsPage() {
     }
   }, [hasMore, loading, loadMoreConversations]);
 
-  const { blocked: aiBlocked, loading: checkingAiStatus, enableManualMode } = useAIBlockStatus({
+  // P1-4: single AI-block source for both the header pill (AIControlButton)
+  // and the input footer (MessageInput).
+  const {
+    blocked: aiBlocked, expiresAt: aiExpiresAt, loading: checkingAiStatus,
+    error: aiError, enableManualMode, disableManualMode,
+  } = useAIBlockStatus({
     phone: selectedConversation?.clientPhone, tenantId, getFirebaseToken,
   });
 
@@ -188,6 +196,11 @@ export default function ConversationsPage() {
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; id: string } | null>(null);
   const [statusMenuEl, setStatusMenuEl] = useState<null | HTMLElement>(null);
   const [leadMap, setLeadMap] = useState<Map<string, Lead>>(new Map());
+  // P2: MUI rename dialog (replaces native prompt()).
+  const [renameTarget, setRenameTarget] = useState<{ id: string; name: string } | null>(null);
+  const [renameValue, setRenameValue] = useState('');
+  // P1-6: feedback toast for failed manual sends / actions.
+  const [toast, setToast] = useState<{ msg: string; severity: 'error' | 'success' } | null>(null);
   const endRef = useRef<HTMLDivElement>(null);
   const deepLinkDone = useRef(false);
 
@@ -236,6 +249,11 @@ export default function ConversationsPage() {
     if (messages.length > 0) endRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
   }, [messages.length]);
 
+  // P1-6: surface AI-status load errors instead of swallowing them.
+  useEffect(() => {
+    if (aiError) setToast({ msg: 'Não foi possível verificar o status da IA.', severity: 'error' });
+  }, [aiError]);
+
   const handleSelect = useCallback(async (id: string) => {
     selectConversation(id);
     const conv = conversations.find((c) => c.id === id);
@@ -249,19 +267,44 @@ export default function ConversationsPage() {
 
   const handleSend = useCallback(async (message: string) => {
     if (!selectedConversation || !tenantId) return;
-    const token = await getFirebaseToken();
-    const res = await fetch('/api/whatsapp/send-manual', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-      body: JSON.stringify({ tenantId, message, phone: selectedConversation.clientPhone }),
-    });
-    if (!res.ok) throw new Error((await res.json()).error || 'Falha ao enviar mensagem');
+    try {
+      const token = await getFirebaseToken();
+      const res = await fetch('/api/whatsapp/send-manual', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ tenantId, message, phone: selectedConversation.clientPhone }),
+      });
+      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || 'Falha ao enviar mensagem');
+    } catch (e) {
+      // P1-6: give the operator real feedback — don't just silently restore text.
+      setToast({ msg: e instanceof Error ? e.message : 'Falha ao enviar mensagem', severity: 'error' });
+      throw e; // MessageInput restores the typed text on rejection
+    }
   }, [selectedConversation, tenantId, getFirebaseToken]);
 
   const handleEnableManual = useCallback(async () => {
     try { await enableManualMode(1, 'Modo manual ativado pelo usuário'); }
-    catch (e) { logger.error('[Conversas] enableManualMode failed', e instanceof Error ? e : undefined); }
+    catch (e) {
+      logger.error('[Conversas] enableManualMode failed', e instanceof Error ? e : undefined);
+      setToast({ msg: 'Falha ao pausar a IA. Tente novamente.', severity: 'error' });
+    }
   }, [enableManualMode]);
+
+  // P2: confirm the rename via MUI dialog.
+  const handleRenameConfirm = useCallback(async () => {
+    if (!renameTarget) return;
+    const name = renameValue.trim();
+    if (!name) return;
+    try {
+      await renameConversation(renameTarget.id, name);
+      setToast({ msg: 'Contato renomeado.', severity: 'success' });
+    } catch (e) {
+      logger.error('[Conversas] renameConversation failed', e instanceof Error ? e : undefined);
+      setToast({ msg: 'Falha ao renomear o contato.', severity: 'error' });
+    } finally {
+      setRenameTarget(null);
+    }
+  }, [renameTarget, renameValue, renameConversation]);
 
   const selLead = leadFor(selectedConversation?.clientPhone);
   const selTriage = selLead ? computeTriageStatus(selLead) : null;
@@ -336,6 +379,23 @@ export default function ConversationsPage() {
         <Box sx={{ flex: 1, overflowY: 'auto' }} onScroll={handleListScroll}>
           {loading && conversations.length === 0 ? (
             <Box sx={{ display: 'flex', justifyContent: 'center', py: 6 }}><CircularProgress size={24} sx={{ color: 'rgba(255,255,255,0.3)' }} /></Box>
+          ) : error && conversations.length === 0 ? (
+            // P1-6: a load failure must NOT masquerade as "no conversations".
+            <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1.5, py: 6, px: 2 }}>
+              <ErrorOutline sx={{ fontSize: 32, color: 'rgba(248,113,113,0.7)' }} />
+              <Typography sx={{ textAlign: 'center', color: 'rgba(248,113,113,0.9)', fontSize: '0.8125rem', fontWeight: 600 }}>
+                {error}
+              </Typography>
+              <Box component="button" onClick={refresh}
+                sx={{
+                  px: 1.5, py: 0.625, borderRadius: '8px', cursor: 'pointer', outline: 'none',
+                  border: '1px solid rgba(220,38,38,0.4)', bgcolor: 'rgba(220,38,38,0.1)',
+                  color: '#f87171', fontSize: '0.75rem', fontWeight: 600,
+                  '&:hover': { bgcolor: 'rgba(220,38,38,0.18)' },
+                }}>
+                Tentar novamente
+              </Box>
+            </Box>
           ) : conversations.length === 0 ? (
             <Typography sx={{ textAlign: 'center', py: 6, px: 2, color: 'rgba(255,255,255,0.4)', fontSize: '0.8125rem' }}>
               Nenhuma conversa encontrada.
@@ -423,7 +483,15 @@ export default function ConversationsPage() {
               </Box>
 
               {/* actions */}
-              <AIControlButton phone={selectedConversation.clientPhone} conversationName={selectedConversation.clientName} />
+              <AIControlButton
+                phone={selectedConversation.clientPhone}
+                conversationName={selectedConversation.clientName}
+                blocked={aiBlocked}
+                expiresAt={aiExpiresAt}
+                loading={checkingAiStatus}
+                enableManualMode={enableManualMode}
+                disableManualMode={disableManualMode}
+              />
               <Box component="button" onClick={(e) => setStatusMenuEl(e.currentTarget)}
                 sx={{
                   display: 'inline-flex', alignItems: 'center', gap: 0.25, px: 1, py: 0.5, borderRadius: '8px',
@@ -478,14 +546,84 @@ export default function ConversationsPage() {
         <MenuItem onClick={() => {
           if (contextMenu) {
             const conv = conversations.find((c) => c.id === contextMenu.id);
-            const name = prompt('Novo nome do contato:', conv?.clientName || conv?.clientPhone || '');
-            if (name?.trim()) renameConversation(contextMenu.id, name.trim());
+            const initial = conv?.clientName || conv?.clientPhone || '';
+            setRenameTarget({ id: contextMenu.id, name: initial });
+            setRenameValue(initial);
             setContextMenu(null);
           }
         }}>
           <ListItemIcon><Edit fontSize="small" /></ListItemIcon><ListItemText>Renomear</ListItemText>
         </MenuItem>
       </Menu>
+
+      {/* P2: Rename dialog (replaces native prompt()) */}
+      <Dialog
+        open={renameTarget !== null}
+        onClose={() => setRenameTarget(null)}
+        maxWidth="xs"
+        fullWidth
+        PaperProps={{ sx: { bgcolor: '#111827', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '14px' } }}
+      >
+        <DialogTitle sx={{ color: '#f1f5f9', fontSize: '1rem', fontWeight: 700 }}>Renomear contato</DialogTitle>
+        <DialogContent>
+          <TextField
+            autoFocus
+            fullWidth
+            variant="outlined"
+            size="small"
+            placeholder="Novo nome do contato"
+            value={renameValue}
+            onChange={(e) => setRenameValue(e.target.value)}
+            onKeyDown={(e) => { if (e.key === 'Enter') handleRenameConfirm(); }}
+            sx={{
+              mt: 1,
+              '& .MuiOutlinedInput-root': {
+                color: '#e2e8f0',
+                '& fieldset': { borderColor: 'rgba(255,255,255,0.15)' },
+                '&:hover fieldset': { borderColor: 'rgba(255,255,255,0.3)' },
+                '&.Mui-focused fieldset': { borderColor: '#dc2626' },
+              },
+              '& input::placeholder': { color: 'rgba(255,255,255,0.35)', opacity: 1 },
+            }}
+          />
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button onClick={() => setRenameTarget(null)} sx={{ color: 'rgba(255,255,255,0.6)', textTransform: 'none' }}>
+            Cancelar
+          </Button>
+          <Button
+            onClick={handleRenameConfirm}
+            disabled={!renameValue.trim()}
+            variant="contained"
+            sx={{
+              bgcolor: '#dc2626', color: '#fff', textTransform: 'none', fontWeight: 600, boxShadow: 'none',
+              '&:hover': { bgcolor: '#b91c1c' },
+              '&.Mui-disabled': { bgcolor: 'rgba(255,255,255,0.08)', color: 'rgba(255,255,255,0.3)' },
+            }}
+          >
+            Salvar
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* P1-6: action feedback toast */}
+      <Snackbar
+        open={toast !== null}
+        autoHideDuration={4000}
+        onClose={() => setToast(null)}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        {toast ? (
+          <Alert
+            onClose={() => setToast(null)}
+            severity={toast.severity}
+            variant="filled"
+            sx={{ width: '100%' }}
+          >
+            {toast.msg}
+          </Alert>
+        ) : undefined}
+      </Snackbar>
     </Box>
   );
 }

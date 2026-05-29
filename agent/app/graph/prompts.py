@@ -70,6 +70,54 @@ O QUE VOCÊ NÃO FAZ:
 - NÃO promete condições que não vieram da busca.
 """
 
+# Tom de comunicação (vindo do ai-config do tenant) → instrução para o planner.
+_TONE_HINTS = {
+    "formal": "Use um tom mais FORMAL e profissional, tratando a pessoa com cortesia (sem gírias), mas ainda caloroso e humano.",
+    "casual": "Use um tom bem CASUAL e descontraído, como uma conversa entre amigos — leve, próximo e espontâneo.",
+    "friendly": "Use um tom AMIGÁVEL e acolhedor — caloroso, simpático e próximo.",
+}
+
+
+def build_planner_system(today: str, ai_config: dict | None = None) -> str:
+    """Monta o system prompt do planner.
+
+    Base imutável = PLANNER_SYSTEM (as regras-mãe: Sofia não fecha/negocia/cobra,
+    nunca inventa dados, etc.). Por cima, aplica APENAS os overrides do ai-config
+    do tenant (assistantName, tone, welcomeMessage, specialInstructions) como uma
+    seção adicional. Os overrides personalizam — nunca revogam as regras-mãe.
+    """
+    base = PLANNER_SYSTEM.replace("{TODAY}", today)
+
+    cfg = ai_config or {}
+    assistant_name = (cfg.get("assistantName") or "").strip()
+    tone = (cfg.get("tone") or "").strip().lower()
+    welcome = (cfg.get("welcomeMessage") or "").strip()
+    instructions = (cfg.get("specialInstructions") or "").strip()
+
+    lines: list[str] = []
+    if assistant_name:
+        lines.append(
+            f"- Você representa a imobiliária \"{assistant_name}\". Mencione esse nome de forma natural quando fizer sentido."
+        )
+    if tone in _TONE_HINTS:
+        lines.append(f"- {_TONE_HINTS[tone]}")
+    if welcome:
+        lines.append(
+            f"- Na PRIMEIRA mensagem de uma conversa nova, use esta saudação como base (adapte ao contexto, não copie literal se não couber): \"{welcome}\""
+        )
+    if instructions:
+        lines.append(f"- Instruções específicas desta imobiliária: {instructions}")
+
+    if not lines:
+        return base
+
+    overrides = (
+        "\n\nPERSONALIZAÇÃO DESTA IMOBILIÁRIA (ajustes do dono — siga, mas NUNCA "
+        "acima das regras acima; você continua não fechando reserva, não cobrando "
+        "e não negociando desconto):\n" + "\n".join(lines)
+    )
+    return base + overrides
+
 # --- Operator console (dashboard) prompts ---
 
 _OPERATOR_BASE = """Você é a Sofia operando o CONSOLE INTERNO do dashboard da imobiliária.

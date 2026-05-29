@@ -60,7 +60,7 @@ function Tile({ label, value, sub, color = '#f1f5f9', tooltip }: TileProps) {
   );
 }
 
-export default function ReceitaPerdidaPanel({ leads }: { leads: Lead[] }) {
+export default function ReceitaPerdidaPanel({ leads, hideTitle = false }: { leads: Lead[]; hideTitle?: boolean }) {
   const ins = useMemo(() => computeCrmInsightsFromLeads(leads), [leads]);
 
   const ticket = ins.overview.averageTicket;
@@ -81,14 +81,16 @@ export default function ReceitaPerdidaPanel({ leads }: { leads: Lead[] }) {
 
   return (
     <Box sx={{ mb: 2.5, flexShrink: 0 }}>
-      <Box sx={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', mb: 1 }}>
-        <Typography sx={{ fontSize: '0.8125rem', fontWeight: 700, color: 'rgba(255,255,255,0.7)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-          Receita perdida
-        </Typography>
-        <Typography sx={{ fontSize: '0.6875rem', color: 'rgba(255,255,255,0.35)' }}>
-          últimos {ins.period.months} meses
-        </Typography>
-      </Box>
+      {!hideTitle && (
+        <Box sx={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between', mb: 1 }}>
+          <Typography sx={{ fontSize: '0.8125rem', fontWeight: 700, color: 'rgba(255,255,255,0.7)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+            Receita perdida
+          </Typography>
+          <Typography sx={{ fontSize: '0.6875rem', color: 'rgba(255,255,255,0.35)' }}>
+            últimos {ins.period.months} meses
+          </Typography>
+        </Box>
+      )}
 
       <Box sx={{ display: 'flex', gap: 1.5, flexWrap: 'wrap' }}>
         <Tile

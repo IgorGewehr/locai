@@ -23,6 +23,7 @@ import { getOwnerWhatsappPhone, conversationDeepLink } from '@/lib/conversation/
 import { setConversationState } from '@/lib/conversation/state';
 import { derivePhoneFromConversationId } from '@/lib/conversation/resume';
 import { normalizeBlockPhone } from '@/lib/utils/ai-block';
+import { setLeadEscalation } from '@/lib/services/lead-lookup';
 
 const Schema = z.object({
   tenant_id: z.string().min(1),
@@ -136,15 +137,13 @@ export async function POST(request: NextRequest) {
     await setConversationState(tenantId, clientPhone, 'AGUARDANDO_HUMANO', { ownerAlertedAt: new Date() }).catch(() => {});
   }
 
-  // Trilho C — escalation.active no lead → topo de "Precisam de você" na UI atual
+  // Trilho C — escalation.active no lead → topo de "Precisam de você" na UI atual.
+  // setLeadEscalation normaliza o telefone e testa variantes (comDDI/semDDI/raw ×
+  // phone/clientPhone), então casa o lead mesmo quando o clientPhone vem cru.
   if (clientPhone) {
     try {
-      const leads = await services.leads.getWhere('phone', '==', clientPhone);
-      const lead = leads[0] || (await services.leads.getWhere('clientPhone', '==', clientPhone))[0];
-      if (lead?.id) {
-        await services.leads.update(lead.id, {
-          escalation: { active: true, at: new Date(), reason: client_summary.substring(0, 200) },
-        } as never);
+      const flagged = await setLeadEscalation(tenantId, clientPhone, client_summary.substring(0, 200));
+      if (flagged) {
         channels.push('dashboard');
       }
     } catch (err) {

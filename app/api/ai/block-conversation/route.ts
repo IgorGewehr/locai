@@ -76,6 +76,9 @@ export async function POST(request: NextRequest) {
       // Bloquear IA - salva apenas "true" no Redis
       await redis.set(redisKey, 'true', 'EX', ttlSeconds);
 
+      // expiresAt em epoch ms (now + TTL) para alimentar o timer "IA pausada até HH:MM"
+      const expiresAt = Date.now() + ttlSeconds * 1000;
+
       logger.info('[AI-BLOCK] Conversation blocked', {
         requestId,
         tenantId: tenantId.substring(0, 8) + '***',
@@ -87,10 +90,13 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({
         success: true,
         message: 'Agente de IA bloqueado para esta conversa',
+        blocked: true,
+        expiresAt,
         data: {
           tenantId,
           phone: normalizedPhone,
           blocked: true,
+          expiresAt,
         },
         meta: {
           requestId,
@@ -110,10 +116,13 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({
         success: true,
         message: 'Agente de IA desbloqueado para esta conversa',
+        blocked: false,
+        expiresAt: null,
         data: {
           tenantId,
           phone: normalizedPhone,
           blocked: false,
+          expiresAt: null,
         },
         meta: { requestId, timestamp: new Date().toISOString() },
       });
@@ -171,6 +180,17 @@ export async function GET(request: NextRequest) {
     const normalizedPhone = normalizeBlockPhone(phone);
     const redisKey = aiBlockKey(tenantId, phone);
     const blockData = await redis.get(redisKey);
+    const blocked = blockData === 'true';
+
+    // Deriva expiresAt (epoch ms) do TTL restante da chave.
+    // PTTL retorna ms restantes; -1 = sem expiração, -2 = chave inexistente.
+    let expiresAt: number | null = null;
+    if (blocked) {
+      const pttlMs = await redis.pttl(redisKey);
+      if (pttlMs > 0) {
+        expiresAt = Date.now() + pttlMs;
+      }
+    }
 
     logger.info('[AI-BLOCK] GET request', {
       requestId,
@@ -178,14 +198,18 @@ export async function GET(request: NextRequest) {
       tenantId: tenantId.substring(0, 8) + '***',
       phoneNormalized: normalizedPhone,
       hasBlockData: !!blockData,
+      expiresAt,
     });
 
     return NextResponse.json({
       success: true,
+      blocked,
+      expiresAt,
       data: {
         tenantId,
         phone: normalizedPhone,
-        blocked: blockData === 'true',
+        blocked,
+        expiresAt,
       },
       meta: { requestId, timestamp: new Date().toISOString() },
     });
