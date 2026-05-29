@@ -171,17 +171,20 @@ async def executor_node(state: AgentState) -> dict:
     tenant_id: str = state.get("tenant_id", "")
     conversation_id: str = state.get("conversation_id", "")
     contact: dict = state.get("contact", {})
+    message_id: str = state.get("message_id", "")
 
-    async def _run_one(tc: dict) -> tuple[ToolMessage, dict, list[str]]:
+    async def _run_one(tc: dict) -> tuple[ToolMessage, dict, list[str], bool]:
         name: str = tc["name"]
         args: dict = tc["args"]
         tc_id: str = tc["id"]
         t0 = time.time()
         media: list[str] = []
+        deferred = False
         try:
             result = await call_tool(
                 name,
-                {**args, "conversation_id": conversation_id, "contact": contact},
+                # message_id habilita a idempotência da criação de task no defer-task
+                {**args, "conversation_id": conversation_id, "contact": contact, "message_id": message_id},
                 tenant_id,
             )
             content = json.dumps(result, ensure_ascii=False)
@@ -190,6 +193,10 @@ async def executor_node(state: AgentState) -> dict:
                 urls = result.get("media_urls") or result.get("photos") or result.get("videos") or []
                 if isinstance(urls, list):
                     media = urls
+                # defer_and_work encerra o turno: a frase humana já foi enviada pelo
+                # endpoint defer-task; não deve haver uma 2ª resposta neste turno.
+                if name == "defer_and_work" and result.get("deferred"):
+                    deferred = True
         except Exception as exc:
             content = json.dumps({"error": str(exc)})
             success = False
@@ -201,12 +208,14 @@ async def executor_node(state: AgentState) -> dict:
             "success": success,
             "latency_ms": int((time.time() - t0) * 1000),
         }
-        return tool_msg, log_entry, media
+        return tool_msg, log_entry, media, deferred
 
     # All tool calls run concurrently
     results = await asyncio.gather(*[_run_one(tc) for tc in tool_calls])
 
-    tool_msgs, log_entries, media_lists = zip(*results) if results else ([], [], [])
+    tool_msgs, log_entries, media_lists, deferred_flags = (
+        zip(*results) if results else ([], [], [], [])
+    )
     all_media: list[str] = [url for urls in media_lists for url in urls]
 
     # Deduplicate while preserving order
@@ -217,8 +226,11 @@ async def executor_node(state: AgentState) -> dict:
             existing.add(url)
             unique_new.append(url)
 
-    return {
+    out: dict = {
         "messages": list(tool_msgs),  # add_messages reducer appends
         "tool_calls_log": state.get("tool_calls_log", []) + list(log_entries),
         "media_urls": state.get("media_urls", []) + unique_new,
     }
+    if any(deferred_flags):
+        out["deferred"] = True
+    return out

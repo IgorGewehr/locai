@@ -6,16 +6,23 @@
 
 ```bash
 npm install                 # Install dependencies
-npm run dev                 # Start dev server (port 3000)
+npm run dev                 # Start dev server (port 8080)
 npm run build              # Production build
 npm run type-check         # TypeScript validation
 ```
 
-**Access Points:**
-- Dashboard: `http://localhost:3000/dashboard`
-- CRM: `http://localhost:3000/dashboard/crm`
-- Conversas: `http://localhost:3000/dashboard/conversas`
-- Admin: `http://localhost:3000/dashboard/lkjhg` (ultra-secure)
+> The AI agent runs as a **separate service** (`locai/agent/`, Python + LangGraph).
+> See `agent/README.md` to run it. This Next.js app and the agent talk over HTTP
+> with a shared HMAC secret (`AGENT_SHARED_SECRET`).
+
+**Access Points (local dev):**
+- Dashboard: `http://localhost:8080/dashboard`
+- CRM: `http://localhost:8080/dashboard/crm`
+- Conversas: `http://localhost:8080/dashboard/conversas`
+- Admin: `http://localhost:8080/dashboard/lkjhg` (ultra-secure)
+
+> Production runs in Docker behind a Cloudflare Tunnel (`alugazap.tensorroot.com`);
+> the container listens on `7070`, published on host port `8084`.
 
 ---
 
@@ -31,21 +38,28 @@ npm run type-check         # TypeScript validation
 | **UI** | Material-UI v5.15 + Emotion |
 | **Database** | Firebase Firestore v10.7 |
 | **Auth** | Firebase Auth + Multi-tenant JWT |
-| **AI** | N8N + Sofia Agent (GPT-4o Mini) |
-| **Messaging** | Baileys v6.7 (dedicated server) + Facebook/Instagram (in development) |
+| **AI Agent** | Sofia — Python + LangGraph + FastAPI service (`locai/agent/`), OpenAI/Anthropic, default `gpt-4o-mini` |
+| **Messaging** | Baileys WhatsApp microservice (`whatsapp_microservice/`) + Facebook/Instagram (in development) |
 | **Validation** | Zod schemas + input sanitization |
 | **Calendar Sync** | iCal bidirectional (Airbnb/Booking) |
 
+> **Note on AI:** the AI brain is the **LangGraph agent** in `locai/agent/`. It
+> **replaced the former N8N + Sofia workflow engine.** The legacy
+> `/api/ai/functions/*` endpoints (the "60 functions") still exist for
+> compatibility but are **no longer the path the agent uses** — the agent calls a
+> small set of tool endpoints under `/api/agent/tools/*` (see "AI Agent
+> Architecture" below).
+
 ### Core Features
 
-- **Sofia AI**: N8N-powered consultant with 60 specialized functions
+- **Sofia AI**: LangGraph agent (router → planner ⇄ executor) with a focused tool set
 - **Multi-tenant**: Complete isolation (`tenants/{tenantId}/collections`)
 - **CRM**: Pipeline automation, lead scoring, advanced analytics
-- **WhatsApp**: Dedicated Baileys server on DigitalOcean
+- **WhatsApp**: Dedicated Baileys microservice
 - **Facebook/Instagram**: Direct Messages integration (in development)
 - **iCal Sync**: Bidirectional sync with Airbnb/Booking (import/export)
 - **Revolutionary Onboarding**: Guided 2-step property + WhatsApp setup
-- **Security**: Zod validation + sanitization + rate limiting
+- **Security**: Zod validation + sanitization + rate limiting + HMAC agent auth
 
 ---
 
@@ -129,11 +143,100 @@ class MultiTenantFirestoreService<T> {
 
 ---
 
-## AI Functions Architecture (60 Endpoints)
+## AI Agent Architecture (LangGraph) — CURRENT
+
+The active AI brain is **"Sofia"**, a standalone Python service in `locai/agent/`
+(FastAPI + LangGraph). It replaced the old N8N workflow engine. This Next.js app
+**orchestrates** it: it receives WhatsApp messages, dispatches them to the agent,
+then sends the agent's reply back through the WhatsApp microservice.
+
+### Round-trip message flow
+
+```
+Client (WhatsApp)
+   │
+   ▼
+whatsapp_microservice (Baileys)  ── webhook ──▶  POST /api/webhook/whatsapp-microservice
+   │                                                  │ (auth: Bearer API key OR HMAC)
+   │                                                  ├─ persist incoming msg (Firestore + Redis)
+   │                                                  └─ dispatchToAgent()  [fire-and-forget]
+   │                                                          │ HMAC sign "{ts}.{body}"
+   │                                                          ▼
+   │                                              agent  POST /process
+   │                                                  │ run_agent(): router → planner ⇄ executor
+   │                                                  │ executor calls tools back into THIS app:
+   │                                                  ▼
+   │                                              POST /api/agent/tools/{search-properties,…}
+   │                                                  │ (auth: validateAgentRequest — HMAC)
+   │                                              ◀─ { final_response, media_urls, intent }
+   │                                                  │
+   │   ◀── POST /api/v1/messages/{tenantId}/send ─────┤ persist Sofia reply to Firestore,
+   ▼                                                  └─ send text + up to 5 media
+Client receives reply
+```
+
+Key files: `app/api/webhook/whatsapp-microservice/route.ts` (orchestration),
+`lib/middleware/agent-auth.ts` (`validateAgentRequest`), `app/api/agent/tools/*`,
+`app/api/agent/console/route.ts` (operator console).
+
+### Agent tools (9) → locai endpoints
+
+The LLM planner is bound to these tools (snake_case names map to kebab-case
+routes under `/api/agent/tools/`). Defined in `agent/app/tools/registry.py`,
+routed in `agent/app/tools/client.py`:
+
+| Tool (LLM) | locai endpoint | Purpose |
+|---|---|---|
+| `search_available_properties` | `search-properties` | Search listings by dates/criteria (read) |
+| `get_property_media` | `property-media` | Photos/videos of a property (read) |
+| `get_property_map` | `property-map` | Google Maps image (read) |
+| `get_airbnb_link` | `airbnb-link` | Airbnb booking link (read) |
+| `read_system` | `read` | Read-only query: leads, conversations, properties, reservations, etc. |
+| `notify_owner` | `notify-owner` | Escalate to human / owner |
+| `schedule_visit` | `schedule-visit` | Book an in-person visit |
+| `create_client` | `create-client` | Register/update a contact |
+| `report_issue` | `report-issue` | Open a support/maintenance ticket |
+
+The first 5 are read-only (`READ_ONLY_TOOL_NAMES`); the rest mutate state.
+
+### Operator console
+
+`POST /api/agent/console` (locai) → agent `POST /operate`. Two modes:
+- **`analista`** — read-only; the LLM is bound *only* to read tools, so it
+  physically cannot mutate.
+- **`operador`** — may use write tools.
+
+### Agent ⇄ locai auth (HMAC)
+
+Both directions share `AGENT_SHARED_SECRET` and sign the payload as
+`HMAC-SHA256("{timestamp}.{body}")`, with a 60-second replay window. A
+`Bearer <secret>` header is also accepted as a simpler dev path. Implemented in
+`lib/middleware/agent-auth.ts` (locai) and `agent/app/auth.py` (agent) — keep
+the two signing schemes identical when changing either.
+
+### Relevant env vars (locai side)
+
+```bash
+AGENT_SERVICE_URL=http://agent:8080        # agent base URL (tunnel URL in prod)
+AGENT_SHARED_SECRET=<hex32+>               # MUST match agent's AGENT_SHARED_SECRET
+WHATSAPP_MICROSERVICE_URL=http://whatsapp:3000
+WHATSAPP_MICROSERVICE_API_KEY=<key>        # Bearer used to send replies back
+WHATSAPP_WEBHOOK_SECRET=<hex32+>           # HMAC for inbound microservice webhooks
+```
+
+---
+
+## Legacy AI Functions (`/api/ai/functions/*`) — N8N era
+
+> **Status: legacy.** These ~60 endpoints date from the N8N + Sofia era. They
+> still exist and some are still called by parts of the app, but the **LangGraph
+> agent above does NOT use them** — it uses `/api/agent/tools/*`. Treat this
+> section as a reference for the older surface; prefer the agent tools for new
+> AI work, and check whether a function is still wired before relying on it.
 
 ### Function Pattern
 
-All AI functions follow this structure:
+All legacy AI functions follow this structure:
 
 ```typescript
 // app/api/ai/functions/[function-name]/route.ts
@@ -308,12 +411,16 @@ POST /api/calendar/sync/[propertyId]           // Manual sync trigger
 POST /api/calendar/sync/cron                    // Automated sync (every 30min)
 
 // WhatsApp Integration
-POST /api/webhook/whatsapp-microservice
-POST /api/webhook/client-message                // Real-time client messages
-POST /api/whatsapp/send-n8n
-POST /api/whatsapp/send-manual
+POST /api/webhook/whatsapp-microservice         // Inbound from Baileys microservice → dispatches to agent
+POST /api/webhook/client-message                // Real-time client messages (persist + Redis)
+POST /api/whatsapp/send-manual                  // Operator manual send
+POST /api/whatsapp/send-n8n                     // LEGACY (N8N era) — not used by the LangGraph agent
 GET  /api/whatsapp/qr
 GET  /api/whatsapp/session
+
+// AI Agent (LangGraph) — see "AI Agent Architecture" above
+POST /api/agent/tools/*                         // Tool endpoints called BY the agent
+POST /api/agent/console                         // Operator console → agent /operate
 
 // Facebook/Instagram Integration (In Development)
 GET/POST /api/facebook/webhook                  // FB/IG webhook
@@ -718,7 +825,7 @@ try {
 ```bash
 # Development
 npm install                      # Install dependencies
-npm run dev                      # Dev server (port 3000)
+npm run dev                      # Dev server (port 8080)
 
 # Build & Deploy
 npm run build                    # Production build
@@ -741,22 +848,22 @@ npm run generate-password-hash   # Admin password hash
 
 ```bash
 # Test AI Functions
-curl -X POST http://localhost:3000/api/ai/functions/create-lead \
+curl -X POST http://localhost:8080/api/ai/functions/create-lead \
   -H "Content-Type: application/json" \
   -d '{"tenantId":"test","phone":"+5511999999999"}'
 
 # Search properties
-curl -X POST http://localhost:3000/api/ai/functions/search-properties \
+curl -X POST http://localhost:8080/api/ai/functions/search-properties \
   -H "Content-Type: application/json" \
   -d '{"tenantId":"test","location":"Praia","guests":4}'
 
 # Check discount opportunities
-curl -X POST http://localhost:3000/api/ai/functions/check-discount-opportunities \
+curl -X POST http://localhost:8080/api/ai/functions/check-discount-opportunities \
   -H "Content-Type: application/json" \
   -d '{"tenantId":"test"}'
 
 # Test iCal export
-curl http://localhost:3000/api/ical/{tenantId}/{propertyId}?token={token}
+curl http://localhost:8080/api/ical/{tenantId}/{propertyId}?token={token}
 ```
 
 ---
@@ -765,15 +872,24 @@ curl http://localhost:3000/api/ical/{tenantId}/{propertyId}?token={token}
 
 ### Core Services
 - `lib/firebase/firestore-v2.ts` - Multi-tenant Firestore + TenantServiceFactory
-- `lib/ai/tenant-aware-agent-functions.ts` - AI function implementations
-- `lib/middleware/firebase-auth.ts` - Authentication middleware
+- `lib/middleware/firebase-auth.ts` - User authentication middleware
+- `lib/middleware/agent-auth.ts` - HMAC auth for requests from the LangGraph agent
+- `lib/ai/tenant-aware-agent-functions.ts` - Legacy AI function implementations
 
 ### API Routes
-- `app/api/ai/functions/*/route.ts` - 60 AI function endpoints
+- `app/api/webhook/whatsapp-microservice/route.ts` - Inbound WhatsApp → dispatch to agent
+- `app/api/agent/tools/*/route.ts` - Tool endpoints called BY the LangGraph agent (current)
+- `app/api/agent/console/route.ts` - Operator console → agent `/operate`
+- `app/api/ai/functions/*/route.ts` - Legacy AI function endpoints (N8N era)
 - `app/api/reservations/route.ts` - Reservations CRUD
 - `app/api/transactions/route.ts` - Transactions CRUD
-- `app/api/whatsapp/send-n8n/route.ts` - WhatsApp integration
 - `app/api/calendar/sync/*/route.ts` - iCal sync endpoints
+
+### Agent (separate Python service)
+- `agent/README.md` - How to run and configure the agent
+- `agent/app/graph/graph.py` - LangGraph assembly + `run_agent`/`run_operator`
+- `agent/app/tools/registry.py` - Tool schemas exposed to the LLM
+- `agent/app/tools/client.py` - HTTP client that calls locai `/api/agent/tools/*`
 
 ### Dashboard
 - `app/dashboard/crm/page.tsx` - CRM interface
@@ -839,4 +955,4 @@ export async function POST(request: NextRequest) {
 
 **This CLAUDE.md is optimized for Claude Code development.**
 **Always prioritize: multi-tenant isolation, security, type safety, and professional error handling.**
-**Last updated: November 2025**
+**Last updated: May 2026 — AI brain migrated from N8N to the LangGraph agent (`locai/agent/`).**

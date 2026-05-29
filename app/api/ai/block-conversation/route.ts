@@ -9,9 +9,11 @@ import { validateFirebaseAuth } from '@/lib/middleware/firebase-auth';
 import { handleApiError } from '@/lib/utils/api-errors';
 import { logger } from '@/lib/utils/logger';
 import { getRedisClient } from '@/lib/redis/client';
+import { aiBlockKey, normalizeBlockPhone } from '@/lib/utils/ai-block';
 
-// Usar o MESMO formato de chave que o N8N usa para bloqueios
-// Exemplo: ai_block_{tenantId}_{phone}
+// Key format + phone normalization live in lib/utils/ai-block.ts so the writer
+// here and the reader in the WhatsApp webhook can never drift.
+// Key: ai_blocked:{tenantId}:{phone com 55}
 
 // Validation Schema
 const BlockConversationSchema = z.object({
@@ -53,14 +55,9 @@ export async function POST(request: NextRequest) {
     // Get Redis singleton client
     const redis = getRedisClient();
 
-    // Normalizar telefone: remover sufixos WhatsApp e garantir 55 na frente
-    let normalizedPhone = phone.replace(/@(c\.us|lid|g\.us|s\.whatsapp\.net)$/i, '');
-    if (!normalizedPhone.startsWith('55')) {
-      normalizedPhone = '55' + normalizedPhone;
-    }
-
-    // Chave Redis: ai_blocked:{tenantId}:{phone com 55}
-    const redisKey = `ai_blocked:${tenantId}:${normalizedPhone}`;
+    // Normalização + chave centralizadas em lib/utils/ai-block.ts
+    const normalizedPhone = normalizeBlockPhone(phone);
+    const redisKey = aiBlockKey(tenantId, phone);
 
     logger.info('[AI-BLOCK] Redis key generated', {
       requestId,
@@ -170,14 +167,9 @@ export async function GET(request: NextRequest) {
     // Get Redis singleton client
     const redis = getRedisClient();
 
-    // Normalizar telefone: remover sufixos WhatsApp e garantir 55 na frente
-    let normalizedPhone = phone.replace(/@(c\.us|lid|g\.us|s\.whatsapp\.net)$/i, '');
-    if (!normalizedPhone.startsWith('55')) {
-      normalizedPhone = '55' + normalizedPhone;
-    }
-
-    // Buscar status no Redis
-    const redisKey = `ai_blocked:${tenantId}:${normalizedPhone}`;
+    // Normalização + chave centralizadas em lib/utils/ai-block.ts
+    const normalizedPhone = normalizeBlockPhone(phone);
+    const redisKey = aiBlockKey(tenantId, phone);
     const blockData = await redis.get(redisKey);
 
     logger.info('[AI-BLOCK] GET request', {

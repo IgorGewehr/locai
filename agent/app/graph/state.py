@@ -40,6 +40,10 @@ class AgentState(TypedDict, total=False):
     total_tokens_in: int
     total_tokens_out: int
 
+    # Agente proativo (defer/resume) — ver docs/blueprint/01
+    deferred: bool          # turno encerrado via defer_and_work (sem 2ª resposta)
+    resume_context: dict    # carregado pelo run_resume com o result da task
+
 
 @dataclass
 class AgentRunResult:
@@ -60,3 +64,5 @@ class AgentRunResult:
     total_tokens_out: int = 0
     total_latency_ms: int = 0
     cost_usd: float = 0.0
+    deferred: bool = False          # /process: turno encerrou via defer_and_work
+    next_state: str | None = None   # /resume: sugestão de transição (ATIVA|FECHAMENTO|AGUARDANDO_HUMANO)

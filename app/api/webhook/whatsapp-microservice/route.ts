@@ -3,13 +3,25 @@ import crypto from 'crypto'
 import { logger } from '@/lib/utils/logger'
 import { WhatsAppStatusService } from '@/lib/services/whatsapp-status-service'
 import { deduplicationCache } from '@/lib/cache/deduplication-cache'
+import { getConversationState } from '@/lib/conversation/state'
+import { sendWhatsAppText, sendWhatsAppMedia } from '@/lib/whatsapp/outbound'
 
 /**
  * Webhook para receber mensagens do WhatsApp Microservice.
- * Eventos `message` são persistidos no Firestore via /api/webhook/client-message.
- * Atendimento manual — Sofia/IA não responde automaticamente.
  *
- * Fluxo: WhatsApp -> Microservice -> Este Webhook -> client-message -> Firestore
+ * Para cada evento `message`:
+ *  1. Persiste a mensagem no Firestore via /api/webhook/client-message (dashboard + histórico).
+ *  2. Despacha para o agente Sofia (LangGraph) em dispatchToAgent() — fire-and-forget;
+ *     a resposta da IA é persistida e enviada de volta ao cliente pelo microservice.
+ *
+ * Fluxo:
+ *   WhatsApp -> Microservice -> Este Webhook
+ *     -> client-message (Firestore)
+ *     -> agente POST /process -> /api/agent/tools/* -> resposta
+ *     -> POST {microservice}/api/v1/messages/{tenantId}/send
+ *
+ * Nota: o agente é o motor de IA atual (substituiu o N8N). A resposta automática
+ * só ocorre se AGENT_SERVICE_URL e AGENT_SHARED_SECRET estiverem configurados.
  */
 export async function POST(request: NextRequest) {
     try {
@@ -97,15 +109,27 @@ export async function POST(request: NextRequest) {
 
         // ✅ PROCESSAR DIFERENTES TIPOS DE EVENTOS
         if (body.event === 'message') {
-            // 1. Persist message to Firestore (for dashboard + history)
-            await persistIncomingMessage(body.tenantId, body.data)
-            // 2. Dispatch to AI agent (fire-and-forget — does NOT block the webhook response)
-            dispatchToAgent(body.tenantId, body.data).catch((err: unknown) => {
-                logger.error('❌ Agent dispatch error', {
-                    error: err instanceof Error ? err.message : String(err),
+            // Deduplicação ANTES de qualquer processamento. O microservice pode
+            // reentregar o mesmo evento (retry/reconexão); sem este gate, uma
+            // reentrega persistiria de novo E dispararia uma SEGUNDA resposta da
+            // IA ao cliente. Marcar uma única vez aqui cobre persist + dispatch.
+            const messageId: string | undefined = body.data?.messageId || body.data?.id
+            if (messageId && await deduplicationCache.checkAndMark(body.tenantId, messageId)) {
+                logger.info('🔁 Duplicate message — skipping persist + agent dispatch', {
                     tenantId: body.tenantId?.substring(0, 8) + '***',
+                    messageId: messageId?.substring(0, 8) + '***',
                 })
-            })
+            } else {
+                // 1. Persist message to Firestore (for dashboard + history)
+                await persistIncomingMessage(body.tenantId, body.data)
+                // 2. Dispatch to AI agent (fire-and-forget — does NOT block the webhook response)
+                dispatchToAgent(body.tenantId, body.data).catch((err: unknown) => {
+                    logger.error('❌ Agent dispatch error', {
+                        error: err instanceof Error ? err.message : String(err),
+                        tenantId: body.tenantId?.substring(0, 8) + '***',
+                    })
+                })
+            }
         } else if (body.event === 'status_change') {
             await processStatusChange(body.tenantId, body.data)
         } else if (body.event === 'qr_code') {
@@ -132,7 +156,8 @@ export async function POST(request: NextRequest) {
 /**
  * Persistir mensagem entrante delegando para /api/webhook/client-message,
  * que já cuida de criar conversation, salvar message e publicar real-time
- * no Redis. Sem chamada para N8N — atendimento é manual.
+ * no Redis. A deduplicação é feita pelo chamador (POST handler) antes desta
+ * função, então aqui não repetimos o check.
  */
 async function persistIncomingMessage(tenantId: string, messageData: any) {
     try {
@@ -146,14 +171,6 @@ async function persistIncomingMessage(tenantId: string, messageData: any) {
                 hasMessageId: !!messageId,
                 hasClientPhone: !!clientPhone,
                 hasMessage: !!message
-            });
-            return;
-        }
-
-        if (await deduplicationCache.checkAndMark(tenantId, messageId)) {
-            logger.info('🔁 Message already processed, skipping', {
-                tenantId: tenantId?.substring(0, 8) + '***',
-                messageId: messageId?.substring(0, 8) + '***'
             });
             return;
         }
@@ -232,8 +249,6 @@ async function persistIncomingMessage(tenantId: string, messageData: any) {
 async function dispatchToAgent(tenantId: string, messageData: any) {
     const agentUrl = process.env.AGENT_SERVICE_URL
     const agentSecret = process.env.AGENT_SHARED_SECRET
-    const microserviceUrl = process.env.WHATSAPP_MICROSERVICE_URL
-    const microserviceApiKey = process.env.WHATSAPP_MICROSERVICE_API_KEY
 
     if (!agentUrl || !agentSecret) {
         logger.warn('⚠️ AGENT_SERVICE_URL or AGENT_SHARED_SECRET not set — AI response skipped')
@@ -245,6 +260,38 @@ async function dispatchToAgent(tenantId: string, messageData: any) {
     const messageId: string = messageData.messageId || messageData.id || ''
 
     if (!clientPhone || !message) return
+
+    // Gate de estado da conversa (substitui a checagem isolada de isAiBlocked).
+    // `getConversationState` retorna MANUAL sempre que a flag de takeover do
+    // operador está setada, preservando o comportamento de hoje bit a bit. A
+    // mensagem já foi PERSISTIDA pelo caller; aqui só decidimos se a IA responde.
+    // Fail-open: se a checagem falhar, respondemos (cliente nunca fica no vácuo).
+    try {
+        const state = await getConversationState(tenantId, clientPhone)
+        if (state === 'MANUAL' || state === 'AGUARDANDO_HUMANO' || state === 'ENCERRADA') {
+            logger.info('🔕 Conversa não está com a IA — pulando o agente', {
+                tenantId: tenantId?.substring(0, 8) + '***',
+                phone: clientPhone?.substring(0, 6) + '***',
+                state,
+            })
+            return
+        }
+        if (state === 'IA_TRABALHANDO') {
+            // Task diferida em curso: a msg fica bufferizada (persistida) e será
+            // lida no /resume. Não dispara /process (evita resposta concorrente).
+            logger.info('🛠️ Conversa em IA_TRABALHANDO — mensagem bufferizada para o /resume', {
+                tenantId: tenantId?.substring(0, 8) + '***',
+                phone: clientPhone?.substring(0, 6) + '***',
+            })
+            return
+        }
+        // ATIVA | FECHAMENTO → segue para o /process normalmente
+    } catch (err) {
+        logger.warn('⚠️ Falha ao checar o estado da conversa — prosseguindo com a IA', {
+            error: err instanceof Error ? err.message : String(err),
+            tenantId: tenantId?.substring(0, 8) + '***',
+        })
+    }
 
     // Fetch recent conversation history from Firestore
     let history: Array<{ role: string; content: string }> = []
@@ -308,19 +355,19 @@ async function dispatchToAgent(tenantId: string, messageData: any) {
     const finalResponse: string = agentResult.final_response || ''
     const mediaUrls: string[] = agentResult.media_urls || []
 
+    // Turno diferido (defer_and_work): a frase de espera JÁ foi enviada pelo
+    // endpoint defer-task e a conversa está em IA_TRABALHANDO. Não enviar nada
+    // aqui (nem o fallback) — o re-engajamento virá pelo /resume.
+    if (agentResult.deferred) {
+        logger.info('🛠️ Agente deferiu o turno — frase de espera já enviada, aguardando /resume', {
+            tenantId: tenantId?.substring(0, 8) + '***',
+        })
+        return
+    }
+
     if (!finalResponse) {
         // Send a fallback so the user doesn't get silence
-        if (microserviceUrl && microserviceApiKey) {
-            await fetch(`${microserviceUrl}/api/v1/messages/${tenantId}/send`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${microserviceApiKey}`,
-                },
-                body: JSON.stringify({ to: clientPhone, message: 'Desculpa, tive um probleminha aqui. Pode repetir?' }),
-                signal: AbortSignal.timeout(10_000),
-            }).catch(() => {})
-        }
+        await sendWhatsAppText(tenantId, clientPhone, 'Desculpa, tive um probleminha aqui. Pode repetir?').catch(() => {})
         return
     }
 
@@ -355,35 +402,10 @@ async function dispatchToAgent(tenantId: string, messageData: any) {
         })
     }
 
-    // Send AI response back via whatsapp_microservice
-    if (microserviceUrl && microserviceApiKey) {
-        await fetch(`${microserviceUrl}/api/v1/messages/${tenantId}/send`, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${microserviceApiKey}`,
-            },
-            body: JSON.stringify({ to: clientPhone, message: finalResponse }),
-            signal: AbortSignal.timeout(10_000),
-        })
-
-        // Send media files if any (images/videos)
-        for (const url of mediaUrls.slice(0, 5)) {
-            const isVideo = url.match(/\.(mp4|mov|avi|webm)/i)
-            await fetch(`${microserviceUrl}/api/v1/messages/${tenantId}/send`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${microserviceApiKey}`,
-                },
-                body: JSON.stringify({
-                    to: clientPhone,
-                    type: isVideo ? 'video' : 'image',
-                    url,
-                }),
-                signal: AbortSignal.timeout(10_000),
-            })
-        }
+    // Send AI response back via whatsapp_microservice (text + up to 5 media)
+    await sendWhatsAppText(tenantId, clientPhone, finalResponse)
+    if (mediaUrls.length > 0) {
+        await sendWhatsAppMedia(tenantId, clientPhone, mediaUrls)
     }
 
     logger.info('✅ Agent response dispatched', {

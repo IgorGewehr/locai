@@ -1,12 +1,19 @@
 # LOCAI - Sistema Imobiliario com IA
 
-Sistema especializado de gestao imobiliaria para locacao por temporada, construido com Next.js 15, Firebase e integracao Sofia AI via N8N workflows + Baileys microservice.
+Sistema especializado de gestao imobiliaria para locacao por temporada, construido com Next.js 15, Firebase e o agente Sofia (LangGraph) integrado ao microservico WhatsApp (Baileys).
+
+> **Arquitetura de IA (atual):** o cerebro de IA e o **agente LangGraph** em `locai/agent/`
+> (Python + FastAPI). Ele **substituiu o antigo motor de workflows N8N**. Os endpoints
+> `/api/ai/functions/*` (as "60 funcoes") continuam existindo por compatibilidade, mas
+> **nao sao mais o caminho usado pelo agente** — o agente chama um conjunto enxuto de
+> ferramentas em `/api/agent/tools/*`. Veja [Integracao WhatsApp](#integracao-whatsapp)
+> e o `agent/README.md`.
 
 ## Indice
 
 1. [Visao Geral](#visao-geral)
 2. [Arquitetura](#arquitetura)
-3. [60 AI Functions](#60-ai-functions)
+3. [AI Functions (legado)](#ai-functions-legado)
 4. [Revolutionary Onboarding](#revolutionary-onboarding)
 5. [iCal Import/Export](#ical-importexport)
 6. [Sistema de Conversas](#sistema-de-conversas)
@@ -21,7 +28,7 @@ Sistema especializado de gestao imobiliaria para locacao por temporada, construi
 
 ## Visao Geral
 
-LOCAI e uma plataforma **enterprise-grade** completa para gestao de imoveis de temporada, com **Sofia AI Agent** especializada em consultoria imobiliaria, integrada via **N8N workflows** e **servidor Baileys dedicado** para WhatsApp.
+LOCAI e uma plataforma **enterprise-grade** completa para gestao de imoveis de temporada, com o agente **Sofia** especializado em consultoria imobiliaria, construido em **LangGraph** (servico Python separado) e integrado ao **microservico WhatsApp (Baileys)**.
 
 ### Tech Stack
 
@@ -36,17 +43,17 @@ LOCAI e uma plataforma **enterprise-grade** completa para gestao de imoveis de t
     "auth": "Firebase Auth + JWT Multi-tenant"
   },
   "ai_architecture": {
-    "agent": "Sofia - Consultora Imobiliaria Especializada",
-    "workflow_engine": "N8N v1.0+ (External)",
-    "ai_model": "OpenAI GPT-4o Mini (via N8N)",
-    "functions": "60 Business Functions via API",
-    "behavior": "Reactive - Single Complete Response"
+    "agent": "Sofia - agente LangGraph (router -> planner <-> executor)",
+    "runtime": "Servico Python separado (FastAPI), em locai/agent/",
+    "llm": "OpenAI ou Anthropic, default gpt-4o-mini",
+    "tools": "~9 ferramentas em /api/agent/tools/* (substituem o N8N)",
+    "legacy": "/api/ai/functions/* (60 funcoes da era N8N, ainda presentes)"
   },
   "messaging": {
-    "whatsapp": "Baileys v6.7.18 (Dedicated Server)",
+    "whatsapp": "Baileys v6.7 (microservico dedicado em whatsapp_microservice/)",
     "facebook": "Graph API v18.0 (In Development)",
     "instagram": "Graph API v18.0 (In Development)",
-    "deployment": "DigitalOcean Dedicated Droplet"
+    "deployment": "Docker + Cloudflare Tunnel"
   },
   "calendar_sync": {
     "protocol": "iCal RFC 5545",
@@ -64,7 +71,7 @@ LOCAI e uma plataforma **enterprise-grade** completa para gestao de imoveis de t
 
 ### Funcionalidades Principais
 
-- **Sofia AI Agent**: Consultora especializada com 60 funcoes de automacao
+- **Sofia AI Agent**: Agente LangGraph (router -> planner <-> executor) com ferramentas focadas
 - **Revolutionary Onboarding**: Setup guiado em 2 passos (Propriedade + WhatsApp)
 - **iCal Sync Bidirecional**: Import/Export com Airbnb, Booking, VRBO
 - **CRM Avancado**: Pipeline automatizado com 5 dashboards analiticos
@@ -87,13 +94,13 @@ LOCAI e uma plataforma **enterprise-grade** completa para gestao de imoveis de t
 |  |Onboarding  | |5 Dashboards| |Multi-channel| |iCal Sync| |
 |  +------------+ +------------+ +------------+ +----------+ |
 +-----------------------------------------------------------+
-                            | REST APIs
+                            | REST APIs (HMAC)
 +-----------------------------------------------------------+
-|              Sofia AI + N8N Layer                          |
+|         Sofia AI Layer — agente LangGraph (Python)         |
 |  +------------+ +------------+ +------------+ +----------+ |
-|  |Sofia Agent | |N8N Workflow| |60 Functions| |  GPT-4o  | |
-|  |Specialized | |Engine      | |Business    | |  Mini    | |
-|  |Real Estate | |External    | |Automation  | |          | |
+|  |  router    | |  planner   | |  executor  | | tools    | |
+|  | (intent)   | | (LLM main) | | (parallel) | |/api/agent| |
+|  | fast model | | bind tools | | tool calls | |/tools/*  | |
 |  +------------+ +------------+ +------------+ +----------+ |
 +-----------------------------------------------------------+
                             | Webhooks
@@ -101,8 +108,8 @@ LOCAI e uma plataforma **enterprise-grade** completa para gestao de imoveis de t
 |             Integration Layer                              |
 |  +------------+ +------------+ +------------+ +----------+ |
 |  |Baileys     | |Facebook    | |iCal Sync   | |  CRM     | |
-|  |Dedicated   | |Graph API   | |Cron Job    | |  Auto    | |
-|  |Server      | |Webhooks    | |Every 30min | |  Pipeline| |
+|  |Microservice| |Graph API   | |Cron Job    | |  Auto    | |
+|  |(WhatsApp)  | |Webhooks    | |Every 30min | |  Pipeline| |
 |  +------------+ +------------+ +------------+ +----------+ |
 +-----------------------------------------------------------+
                             | Data Services
@@ -116,36 +123,44 @@ LOCAI e uma plataforma **enterprise-grade** completa para gestao de imoveis de t
 +-----------------------------------------------------------+
 ```
 
-### Fluxo Sofia WhatsApp
+### Fluxo Sofia WhatsApp (round-trip)
 
 ```
 Cliente WhatsApp
        |
        v
-Baileys Server (Dedicado)
+whatsapp_microservice (Baileys)
+       |  webhook (Bearer API key OU HMAC)
+       v
+POST /api/webhook/whatsapp-microservice    (locai)
+       |  persiste msg + dispatchToAgent() [fire-and-forget, HMAC]
+       v
+POST /process                              (agente LangGraph)
+       |  router -> planner <-> executor
+       |  executor chama de volta no locai:
+       +--> POST /api/agent/tools/search-properties
+       +--> POST /api/agent/tools/property-media
+       +--> POST /api/agent/tools/read
+       +--> ... (notify-owner, schedule-visit, create-client, report-issue)
+       |  retorna { final_response, media_urls, intent }
+       v
+locai persiste a resposta da Sofia (Firestore) e envia de volta:
+POST /api/v1/messages/{tenantId}/send      (whatsapp_microservice)
        |
        v
-POST /webhook/whatsapp-microservice
-       |
-       v
-N8N + Sofia Workflow
-       |
-       +---> create_lead
-       +---> search_properties
-       +---> send_property_media
-       +---> add_lead_interaction
-       +---> lead_pipeline_movement
-       |
-       v
-POST /api/whatsapp/send-n8n
-       |
-       v
-Cliente recebe resposta completa
+Cliente recebe texto + ate 5 midias
 ```
+
+> O caminho acima e o **atual** (LangGraph). O antigo fluxo N8N
+> (`POST /api/whatsapp/send-n8n`) foi descontinuado como motor de IA.
 
 ---
 
-## 60 AI Functions
+## AI Functions (legado)
+
+> **Status: legado (era N8N).** Estes ~60 endpoints `/api/ai/functions/*` ainda
+> existem e parte do app ainda os chama, mas o **agente LangGraph NAO os usa** —
+> ele usa `/api/agent/tools/*`. Mantido como referencia da superficie antiga.
 
 ### Categorias de Funcoes
 
@@ -519,45 +534,60 @@ Pontuacao dinamica baseada em 20+ fatores:
 
 ## Integracao WhatsApp
 
-### Servidor Dedicado
+### Microservico WhatsApp
+
+A conexao com o WhatsApp roda em um microservico separado (`whatsapp_microservice/`,
+Node + Baileys). Ele recebe as mensagens do cliente e as entrega ao locai via webhook;
+o locai dispara o agente e devolve a resposta para o microservico enviar.
 
 ```typescript
 {
-  server: {
-    url: 'http://167.172.116.195:3000',
-    technology: 'Baileys v6.7.18',
-    deployment: 'DigitalOcean Dedicated Droplet',
-    isolation: 'Multi-tenant QR sessions'
+  service: {
+    repo: 'whatsapp_microservice/',
+    technology: 'Baileys v6.7 (Node + Express)',
+    deployment: 'Docker + Cloudflare Tunnel',
+    isolation: 'Sessoes QR isoladas por tenant'
   },
   features: {
-    session_management: 'QR code por tenant',
+    session_management: 'QR code por tenant + sessoes persistentes',
     media_handling: 'Upload/download direto',
-    multi_device: 'WhatsApp multi-device support',
+    transcription: 'Transcricao de audio (OpenAI Whisper) opcional',
     auto_reconnection: 'Reconexao automatica'
   }
 }
 ```
 
-### Endpoints
+### Endpoints (lado locai)
 
 ```typescript
-// Receber mensagens do Baileys
+// Receber mensagens do microservico (-> persiste + dispara o agente LangGraph)
 POST /api/webhook/whatsapp-microservice
 
-// Mensagens em tempo real (modo manual)
+// Mensagens em tempo real (modo manual / dashboard)
 POST /api/webhook/client-message
 
-// Enviar via Sofia/N8N
-POST /api/whatsapp/send-n8n
-
-// Enviar manualmente
+// Enviar manualmente (operador)
 POST /api/whatsapp/send-manual
+
+// LEGADO (era N8N) — nao usado pelo agente LangGraph
+POST /api/whatsapp/send-n8n
 
 // QR Code
 GET /api/whatsapp/qr
 
 // Status da sessao
 GET /api/whatsapp/session
+```
+
+### Endpoints (lado agente)
+
+```typescript
+// Ferramentas chamadas PELO agente (HMAC via validateAgentRequest)
+POST /api/agent/tools/{search-properties,property-media,property-map,airbnb-link,
+                       read,notify-owner,schedule-visit,create-client,report-issue}
+
+// Console do operador (analista read-only / operador) -> agente /operate
+POST /api/agent/console
 ```
 
 ---
@@ -673,12 +703,16 @@ POST /api/calendar/sync/[propertyId]
 POST /api/calendar/sync/cron
 
 // WhatsApp
-POST /api/webhook/whatsapp-microservice
+POST /api/webhook/whatsapp-microservice    // inbound -> dispatch ao agente
 POST /api/webhook/client-message
-POST /api/whatsapp/send-n8n
 POST /api/whatsapp/send-manual
+POST /api/whatsapp/send-n8n                 // LEGADO (era N8N)
 GET  /api/whatsapp/qr
 GET  /api/whatsapp/session
+
+// AI Agent (LangGraph)
+POST /api/agent/tools/*                     // ferramentas chamadas pelo agente
+POST /api/agent/console                     // console do operador -> agente /operate
 
 // Facebook/Instagram
 GET/POST /api/facebook/webhook
@@ -704,7 +738,7 @@ GET/PUT  /api/tenant/discount-settings
 
 ```bash
 # === CORE APPLICATION ===
-NEXT_PUBLIC_APP_URL=http://localhost:3000
+NEXT_PUBLIC_APP_URL=http://localhost:8080
 TENANT_ID=default-tenant
 NODE_ENV=development
 
@@ -717,15 +751,19 @@ NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=
 NEXT_PUBLIC_FIREBASE_APP_ID=
 FIREBASE_SERVICE_ACCOUNT_KEY=
 
-# === SOFIA AI + N8N ===
-N8N_WEBHOOK_URL=https://your-n8n-instance.com/webhook/sofia-messages
-N8N_WEBHOOK_SECRET=your-n8n-webhook-secret
-N8N_API_KEY=your-n8n-api-key-for-functions
+# === SOFIA AI — AGENTE LANGGRAPH ===
+# URL do servico do agente (locai/agent). Em prod, a URL do tunnel.
+AGENT_SERVICE_URL=http://agent:8080
+# Segredo HMAC compartilhado — DEVE ser igual ao AGENT_SHARED_SECRET do agente
+AGENT_SHARED_SECRET=generate-with-openssl-rand-hex-32
+ENABLE_AI_AGENT=true
 
-# === WHATSAPP - BAILEYS ===
-WHATSAPP_MICROSERVICE_URL=http://167.172.116.195:3000
-WHATSAPP_MICROSERVICE_API_KEY=your-dedicated-server-key
-WHATSAPP_WEBHOOK_SECRET=your-webhook-validation-secret
+# === WHATSAPP - MICROSERVICO BAILEYS ===
+# URL interna (Docker) ou do tunnel em producao
+WHATSAPP_MICROSERVICE_URL=http://whatsapp:3000
+WHATSAPP_MICROSERVICE_API_KEY=your-microservice-api-key
+# Segredo HMAC para validar os webhooks de entrada do microservico
+WHATSAPP_WEBHOOK_SECRET=generate-with-openssl-rand-hex-32
 
 # === FACEBOOK ===
 NEXT_PUBLIC_FACEBOOK_APP_ID=
@@ -766,22 +804,22 @@ npm run health                   # Health check
 
 ```bash
 # Test AI Functions
-curl -X POST http://localhost:3000/api/ai/functions/create-lead \
+curl -X POST http://localhost:8080/api/ai/functions/create-lead \
   -H "Content-Type: application/json" \
   -d '{"tenantId":"test","phone":"+5511999999999"}'
 
 # Search properties
-curl -X POST http://localhost:3000/api/ai/functions/search-properties \
+curl -X POST http://localhost:8080/api/ai/functions/search-properties \
   -H "Content-Type: application/json" \
   -d '{"tenantId":"test","location":"Praia","guests":4}'
 
 # Check discount opportunities
-curl -X POST http://localhost:3000/api/ai/functions/check-discount-opportunities \
+curl -X POST http://localhost:8080/api/ai/functions/check-discount-opportunities \
   -H "Content-Type: application/json" \
   -d '{"tenantId":"test"}'
 
 # Test iCal export
-curl http://localhost:3000/api/ical/{tenantId}/{propertyId}?token={token}
+curl http://localhost:8080/api/ical/{tenantId}/{propertyId}?token={token}
 ```
 
 ---
@@ -871,13 +909,16 @@ export async function POST(request: NextRequest) {
 
 ```
 locai/
+  agent/                      # Agente Sofia (Python + LangGraph) — ver agent/README.md
   app/
     api/
-      ai/functions/           # 60 AI function endpoints
+      agent/tools/            # Ferramentas chamadas PELO agente (atual)
+      agent/console/          # Console do operador -> agente /operate
+      ai/functions/           # Endpoints de IA legados (era N8N)
       calendar/sync/          # iCal sync endpoints
       facebook/               # Facebook/Instagram integration
       whatsapp/               # WhatsApp endpoints
-      webhook/                # Webhook handlers
+      webhook/                # Webhook handlers (whatsapp-microservice, client-message)
       properties/             # Properties CRUD
       reservations/           # Reservations CRUD
       tenant/                 # Tenant settings
@@ -927,7 +968,7 @@ locai/
 
 ---
 
-*Sistema LOCAI - Versao 6.0*
-*Arquitetura: Sofia AI Agent + N8N + Baileys + iCal Sync + Multi-channel*
-*60 AI Functions | Revolutionary Onboarding | Enterprise Security | Multi-tenant*
-*Ultima atualizacao: Novembro 2025*
+*Sistema LOCAI*
+*Arquitetura: Sofia (agente LangGraph) + microservico WhatsApp (Baileys) + iCal Sync + Multi-channel*
+*Agente LangGraph | Revolutionary Onboarding | Enterprise Security | Multi-tenant*
+*Ultima atualizacao: Maio 2026 — cerebro de IA migrado de N8N para o agente LangGraph (`locai/agent/`)*

@@ -7,8 +7,10 @@ import time
 import uuid
 from typing import Any
 
+import json
+
 import structlog
-from langchain_core.messages import AIMessage, HumanMessage
+from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 from langgraph.graph import END, StateGraph
 
 from ..config import get_settings
@@ -27,6 +29,8 @@ def _has_tool_calls(state: AgentState) -> str:
 
 
 def _should_continue(state: AgentState) -> str:
+    if state.get("deferred"):  # task diferida via defer_and_work — turno acabou
+        return "end"
     if state.get("iterations", 0) >= get_settings().agent_max_iterations:
         return "end"
     if state.get("final_response"):
@@ -128,9 +132,13 @@ async def run_agent(
             timeout=float(s.agent_request_timeout_s),
         )
 
+        deferred = bool(final_state.get("deferred"))
         final_response = final_state.get("final_response")
+        # Turno diferido: a frase humana já saiu pelo defer-task; NÃO há 2ª resposta.
+        if deferred:
+            final_response = None
         # Fallback: extract last AI message if planner never produced a plain response
-        if not final_response:
+        elif not final_response:
             for m in reversed(final_state.get("messages", [])):
                 content = getattr(m, "content", None)
                 if isinstance(content, str) and content.strip() and not getattr(m, "tool_calls", None):
@@ -154,6 +162,7 @@ async def run_agent(
             total_tokens_in=final_state.get("total_tokens_in", 0),
             total_tokens_out=final_state.get("total_tokens_out", 0),
             total_latency_ms=int((time.time() - t0) * 1000),
+            deferred=deferred,
         )
 
     except asyncio.TimeoutError:
@@ -244,3 +253,122 @@ async def run_operator(*, tenant_id: str, message: str, mode: str) -> str:
     except Exception as exc:
         log.error("operator.run_error", run_id=run_id, error=str(exc))
         return "Ocorreu um erro ao processar a solicitação."
+
+
+async def run_resume(
+    *,
+    tenant_id: str,
+    conversation_id: str,
+    task_id: str,
+    task_type: str,
+    task_result: dict,
+    resume_hint: str | None,
+    history: list[dict[str, str]],
+) -> AgentRunResult:
+    """Re-engajamento proativo após uma task diferida concluir.
+
+    Diferente do run_agent: NÃO há mensagem nova do cliente. O turno é iniciado por
+    um bloco de SISTEMA que injeta o `task_result` e instrui a Sofia a retomar a
+    conversa no seu tom (ver docs/blueprint/01 §5.2). O trabalho pesado já foi feito
+    pelo worker — aqui é só diálogo (tier MAIN, mesmo timeout do /process).
+    """
+    s = get_settings()
+    run_id = str(uuid.uuid4())
+    t0 = time.time()
+
+    lc_messages: list[Any] = []
+    for h in history[-20:]:
+        role = h.get("role", "")
+        content = h.get("content", "")
+        if role == "assistant":
+            lc_messages.append(AIMessage(content=content))
+        else:
+            lc_messages.append(HumanMessage(content=content))
+
+    resume_directive = (
+        f"[TASK CONCLUÍDA: {task_type}] Você pediu um instante ao cliente e agora tem "
+        f"o resultado abaixo. Volte a falar com ele de forma natural e calorosa, como "
+        f"quem prometeu retorno e está cumprindo. NÃO comece com 'oi' do zero — retome "
+        f"o fio da conversa.\n"
+        f"DICA DE APRESENTAÇÃO: {resume_hint or '—'}\n"
+        f"RESULTADO (use só o que for verdade; nunca invente): "
+        f"{json.dumps(task_result, ensure_ascii=False)}"
+    )
+    lc_messages.append(SystemMessage(content=resume_directive))
+
+    initial_state: AgentState = {
+        "run_id": run_id,
+        "tenant_id": tenant_id,
+        "conversation_id": conversation_id,
+        "message_id": task_id,
+        "contact": {},
+        "messages": lc_messages,
+        "intent": "resume",
+        "iterations": 0,
+        "final_response": None,
+        "media_urls": [],
+        "error": None,
+        "node_traces": [],
+        "tool_calls_log": [],
+        "total_tokens_in": 0,
+        "total_tokens_out": 0,
+    }
+
+    try:
+        final_state = await asyncio.wait_for(
+            _GRAPH.ainvoke(
+                initial_state,
+                config={"run_name": f"locai.resume.{conversation_id}", "tags": [f"tenant:{tenant_id}"]},
+            ),
+            timeout=float(s.agent_request_timeout_s),
+        )
+
+        final_response = final_state.get("final_response")
+        if not final_response:
+            for m in reversed(final_state.get("messages", [])):
+                content = getattr(m, "content", None)
+                if isinstance(content, str) and content.strip() and not getattr(m, "tool_calls", None):
+                    final_response = content
+                    break
+
+        # Sugestão de transição: se a Sofia escalou pra humano no resume, aguarda humano.
+        tool_names = {entry.get("name") for entry in final_state.get("tool_calls_log", [])}
+        next_state = "AGUARDANDO_HUMANO" if "notify_owner" in tool_names else "ATIVA"
+
+        return AgentRunResult(
+            run_id=run_id,
+            tenant_id=tenant_id,
+            conversation_id=conversation_id,
+            message_id=task_id,
+            user_message="",
+            final_response=final_response,
+            media_urls=final_state.get("media_urls", []),
+            intent=final_state.get("intent"),
+            iterations=final_state.get("iterations", 0),
+            status="success",
+            error=None,
+            node_traces=final_state.get("node_traces", []),
+            tool_calls=final_state.get("tool_calls_log", []),
+            total_tokens_in=final_state.get("total_tokens_in", 0),
+            total_tokens_out=final_state.get("total_tokens_out", 0),
+            total_latency_ms=int((time.time() - t0) * 1000),
+            next_state=next_state,
+        )
+
+    except asyncio.TimeoutError:
+        log.error("resume.timeout", run_id=run_id, timeout_s=s.agent_request_timeout_s)
+        return AgentRunResult(
+            run_id=run_id, tenant_id=tenant_id, conversation_id=conversation_id,
+            message_id=task_id, user_message="", final_response=None, media_urls=[],
+            intent="resume", iterations=0, status="error",
+            error=f"Resume timed out after {s.agent_request_timeout_s}s",
+            total_latency_ms=int((time.time() - t0) * 1000), next_state="ATIVA",
+        )
+    except Exception as exc:
+        log.error("resume.run_error", run_id=run_id, error=str(exc))
+        return AgentRunResult(
+            run_id=run_id, tenant_id=tenant_id, conversation_id=conversation_id,
+            message_id=task_id, user_message="", final_response=None, media_urls=[],
+            intent="resume", iterations=0, status="error", error=str(exc),
+            total_latency_ms=int((time.time() - t0) * 1000), next_state="ATIVA",
+        )

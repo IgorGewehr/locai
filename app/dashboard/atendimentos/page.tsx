@@ -10,6 +10,7 @@ import type { Lead } from '@/lib/types/crm';
 import { computeTriageStatus, sortLeadsByUrgency, hoursSince } from '@/lib/utils/triage';
 import { normalizeBrazilPhone } from '@/lib/services/lead-lookup';
 import LeadTriageCard from '@/components/organisms/triage/LeadTriageCard';
+import ReceitaPerdidaPanel from '@/components/organisms/atendimentos/ReceitaPerdidaPanel';
 
 type FilterKey = 'all' | 'needs_you' | 'cooling' | 'closing' | 'hot' | 'today';
 
@@ -106,6 +107,9 @@ export default function AtendimentosPage() {
             : 'A IA está cuidando de tudo — nenhuma intervenção pendente'}
         </Typography>
       </Box>
+
+      {/* Receita perdida — receita em risco/perdida sobre os leads carregados */}
+      {!loading && leads.length > 0 && <ReceitaPerdidaPanel leads={leads} />}
 
       {/* Filter chips */}
       <Box sx={{ display: 'flex', gap: 1, mb: 2.5, flexWrap: 'wrap', flexShrink: 0 }}>

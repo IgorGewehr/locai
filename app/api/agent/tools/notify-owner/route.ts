@@ -1,117 +1,164 @@
 /**
- * Agent tool: notify_owner
+ * Agent tool: notify_owner (v2 — canal IA↔Dono, docs/blueprint/06 §4).
  *
- * Notifies the property owner via WhatsApp that a client wants to close a deal.
- * Phone comes exclusively from Firestore tenant settings (company.phone) — multi-tenant safe.
- * Configure in: Dashboard → Settings → Company → Phone.
+ * Quando a Sofia escala (cliente quer fechar / pede humano / fora do alcance),
+ * dispara o handoff para o dono:
+ *  - Trilho A: WhatsApp pessoal do dono com resumo + deep-link ("chama AGORA")
+ *  - owner_alerts (auditoria + base do re-ping)
+ *  - estado da conversa → AGUARDANDO_HUMANO + ownerAlertedAt
+ *  - escalation.active no lead → aparece no topo de "Precisam de você" (UI atual)
+ * Idempotente por turno (SET NX EX). Auth HMAC via validateAgentRequest.
+ *
+ * MVP do handoff: o humano é avisado e cai na conversa com o resumo da IA. O
+ * trilho push (notification-service) e o re-ping com escalada são complementos.
  */
-import { NextRequest, NextResponse } from 'next/server'
-import { z } from 'zod'
-import { validateAgentRequest } from '@/lib/middleware/agent-auth'
-import { TenantServiceFactory } from '@/lib/firebase/firestore-v2'
-import { createSettingsService } from '@/lib/services/settings-service'
-import { logger } from '@/lib/utils/logger'
+import { NextRequest, NextResponse } from 'next/server';
+import { z } from 'zod';
+import { validateAgentRequest } from '@/lib/middleware/agent-auth';
+import { TenantServiceFactory } from '@/lib/firebase/firestore-v2';
+import { getRedisClient } from '@/lib/redis/client';
+import { logger } from '@/lib/utils/logger';
+import { sendWhatsAppText } from '@/lib/whatsapp/outbound';
+import { getOwnerWhatsappPhone, conversationDeepLink } from '@/lib/conversation/owner-channel';
+import { setConversationState } from '@/lib/conversation/state';
+import { derivePhoneFromConversationId } from '@/lib/conversation/resume';
+import { normalizeBlockPhone } from '@/lib/utils/ai-block';
 
 const Schema = z.object({
   tenant_id: z.string().min(1),
-  property_id: z.string().min(1),
+  property_id: z.string().optional(),
   client_summary: z.string().min(1),
   conversation_id: z.string().optional(),
-  contact: z.object({
-    name: z.string().optional(),
-    phone: z.string().optional(),
-  }).optional(),
-})
+  contact: z.object({ name: z.string().optional(), phone: z.string().optional() }).optional(),
+  reason: z.enum(['closing', 'escalation', 'other']).optional().default('escalation'),
+  severity: z.enum(['high', 'critical']).optional(),
+});
+
+/** true se este alerta já foi disparado neste turno (janela curta). */
+async function alreadyAlerted(tenantId: string, key: string): Promise<boolean> {
+  try {
+    const redis = getRedisClient();
+    const res = await redis.set(`alert_sent:${tenantId}:${key}`, '1', 'EX', 90, 'NX');
+    return res === null;
+  } catch {
+    return false;
+  }
+}
 
 export async function POST(request: NextRequest) {
-  const { authenticated, tenantId, body } = await validateAgentRequest(request)
-
+  const { authenticated, tenantId, body } = await validateAgentRequest(request);
   if (!authenticated) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
   }
 
-  const parsed = Schema.safeParse(body)
+  const parsed = Schema.safeParse(body);
   if (!parsed.success) {
-    return NextResponse.json({ error: 'Invalid parameters', details: parsed.error.issues }, { status: 400 })
+    return NextResponse.json({ error: 'Invalid parameters', details: parsed.error.issues }, { status: 400 });
   }
 
-  const { property_id, client_summary, contact } = parsed.data
+  const { property_id, client_summary, conversation_id, contact, reason } = parsed.data;
+  const severity = parsed.data.severity || (reason === 'closing' ? 'critical' : 'high');
 
+  // Telefone do cliente: do conversation_id ({tid}:{phone}) ou do contact.
+  const clientPhone = conversation_id
+    ? derivePhoneFromConversationId(conversation_id, contact?.phone)
+    : contact?.phone || '';
+
+  const services = new TenantServiceFactory(tenantId);
+
+  // Idempotência por turno
+  const dedupKey = `${conversation_id || clientPhone || 'unknown'}:${reason}`;
+  if (await alreadyAlerted(tenantId, dedupKey)) {
+    logger.info('[notify-owner] alerta duplicado no turno — no-op', { tenantId: tenantId.substring(0, 8) + '***' });
+    return NextResponse.json({ ok: true, dedup: true });
+  }
+
+  const ownerPhone = await getOwnerWhatsappPhone(tenantId);
+  const deepLink = clientPhone ? conversationDeepLink(clientPhone) : '';
+
+  // Título do imóvel (se houver) só para enriquecer a mensagem
+  let propertyTitle = '';
+  if (property_id) {
+    try {
+      const p = (await services.properties.get(property_id)) as { title?: string } | null;
+      propertyTitle = p?.title || '';
+    } catch {
+      /* opcional */
+    }
+  }
+
+  const channels: string[] = [];
+
+  // owner_alerts (auditoria + base do re-ping)
+  let alertId: string | undefined;
   try {
-    const services = new TenantServiceFactory(tenantId)
-    const settingsService = createSettingsService(tenantId)
-
-    const [property, tenantSettings] = await Promise.all([
-      services.properties.get(property_id),
-      settingsService.getSettings(tenantId).catch(() => null),
-    ])
-
-    if (!property) {
-      return NextResponse.json({ ok: false, error: 'Property not found' }, { status: 404 })
-    }
-
-    // Phone read exclusively from Firestore — no env var fallback (multi-tenant)
-    const ownerPhone: string = (tenantSettings as any)?.company?.phone || ''
-
-    if (!ownerPhone) {
-      logger.warn('[agent/notify-owner] owner phone not configured in tenant settings', {
-        tenantId: tenantId.substring(0, 8) + '***',
-      })
-      return NextResponse.json({
-        ok: false,
-        error: 'Telefone do proprietário não configurado. Acesse Dashboard → Configurações → Empresa → Telefone.',
-      }, { status: 400 })
-    }
-
-    const clientName = contact?.name || 'Cliente'
-    const clientPhone = contact?.phone || 'não informado'
-    const notificationText =
-      `🏡 *Interesse em imóvel!*\n\n` +
-      `*Imóvel:* ${property.title}\n` +
-      `*Cliente:* ${clientName} (${clientPhone})\n\n` +
-      `*Resumo:* ${client_summary}\n\n` +
-      `_Acesse o painel para ver a conversa completa._`
-
-    const microserviceUrl = process.env.WHATSAPP_MICROSERVICE_URL
-    const apiKey = process.env.WHATSAPP_MICROSERVICE_API_KEY
-
-    if (!microserviceUrl || !apiKey) {
-      logger.error('[agent/notify-owner] WHATSAPP_MICROSERVICE_URL or API_KEY not configured')
-      return NextResponse.json({ ok: false, error: 'WhatsApp service not configured' }, { status: 500 })
-    }
-
-    const sendResp = await fetch(`${microserviceUrl}/api/v1/messages/${tenantId}/send`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`,
-      },
-      body: JSON.stringify({ to: ownerPhone, type: 'text', text: notificationText }),
-      signal: AbortSignal.timeout(10_000),
-    })
-
-    if (!sendResp.ok) {
-      logger.error('[agent/notify-owner] microservice rejected send', {
-        status: sendResp.status,
-        tenantId: tenantId.substring(0, 8) + '***',
-      })
-      return NextResponse.json({ ok: false, error: 'Failed to send notification' }, { status: 502 })
-    }
-
-    logger.info('[agent/notify-owner] owner notified', {
-      tenantId: tenantId.substring(0, 8) + '***',
-      property_id,
-    })
-
-    return NextResponse.json({
-      ok: true,
-      message: 'Proprietário notificado com sucesso',
-      property_title: property.title,
-    })
-  } catch (error) {
-    logger.error('[agent/notify-owner] error', {
-      error: error instanceof Error ? error.message : 'Unknown',
-    })
-    return NextResponse.json({ ok: false, error: 'Notification failed' }, { status: 500 })
+    const alerts = services.createService('owner_alerts');
+    alertId = await alerts.create({
+      tenantId,
+      conversationId: conversation_id || '',
+      clientPhone: clientPhone ? normalizeBlockPhone(clientPhone) : '',
+      propertyId: property_id || null,
+      reason,
+      severity,
+      summary: client_summary,
+      deepLink,
+      status: ownerPhone ? 'sent' : 'no_owner_phone',
+      repingCount: 0,
+      createdAt: new Date(),
+    } as never);
+  } catch (err) {
+    logger.warn('[notify-owner] failed to log owner_alert', {
+      error: err instanceof Error ? err.message : String(err),
+    });
   }
+
+  // Trilho A — WhatsApp pessoal do dono
+  if (ownerPhone) {
+    const head = reason === 'closing' ? '🔴 FECHAMENTO — chama AGORA' : '🟠 Atenção — precisa de você';
+    const lines = [
+      head,
+      '',
+      client_summary,
+      propertyTitle ? `Imóvel: ${propertyTitle}` : '',
+      contact?.name ? `Cliente: ${contact.name}` : '',
+      deepLink ? `Abrir conversa: ${deepLink}` : '',
+    ].filter(Boolean);
+    await sendWhatsAppText(tenantId, ownerPhone, lines.join('\n')).catch(() => {});
+    channels.push('whatsapp');
+  } else {
+    logger.warn('[notify-owner] sem ownerWhatsappPhone — handoff só via dashboard', {
+      tenantId: tenantId.substring(0, 8) + '***',
+    });
+  }
+
+  // Estado → AGUARDANDO_HUMANO + ownerAlertedAt (a IA para de responder; humano assume)
+  if (clientPhone) {
+    await setConversationState(tenantId, clientPhone, 'AGUARDANDO_HUMANO', { ownerAlertedAt: new Date() }).catch(() => {});
+  }
+
+  // Trilho C — escalation.active no lead → topo de "Precisam de você" na UI atual
+  if (clientPhone) {
+    try {
+      const leads = await services.leads.getWhere('phone', '==', clientPhone);
+      const lead = leads[0] || (await services.leads.getWhere('clientPhone', '==', clientPhone))[0];
+      if (lead?.id) {
+        await services.leads.update(lead.id, {
+          escalation: { active: true, at: new Date(), reason: client_summary.substring(0, 200) },
+        } as never);
+        channels.push('dashboard');
+      }
+    } catch (err) {
+      logger.warn('[notify-owner] failed to flag lead escalation', {
+        error: err instanceof Error ? err.message : String(err),
+      });
+    }
+  }
+
+  logger.info('[notify-owner] handoff disparado', {
+    tenantId: tenantId.substring(0, 8) + '***',
+    reason,
+    severity,
+    channels,
+  });
+  return NextResponse.json({ ok: true, alertId, channels, ownerNotified: !!ownerPhone });
 }

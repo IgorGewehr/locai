@@ -17,6 +17,7 @@ import { z } from 'zod'
 import { validateAgentRequest } from '@/lib/middleware/agent-auth'
 import { TenantServiceFactory } from '@/lib/firebase/firestore-v2'
 import { logger } from '@/lib/utils/logger'
+import { computeCrmInsights, type CrmInsights } from '@/lib/analytics/crm-insights'
 
 const RESOURCES = [
   'leads',
@@ -26,6 +27,7 @@ const RESOURCES = [
   'transactions',
   'clients',
   'dashboard',
+  'insights',
 ] as const
 
 type Resource = (typeof RESOURCES)[number]
@@ -53,6 +55,51 @@ function toMillis(v: unknown): number | null {
 function toIso(v: unknown): string | null {
   const ms = toMillis(v)
   return ms === null ? null : new Date(ms).toISOString()
+}
+
+/**
+ * Derive 2-4 short, data-grounded observations from the computed insights.
+ * These are interpretive hints for the analyst LLM — every value comes straight
+ * from real aggregates; nothing is invented.
+ */
+function buildInsightObservations(ci: CrmInsights): string[] {
+  const obs: string[] = []
+  const o = ci.overview
+
+  if (o.totalLeads > 0) {
+    obs.push(
+      `Conversão geral de ${o.conversionRate.toFixed(1)}% (${o.wonLeads} ganhos de ${o.totalLeads} leads nos últimos ${ci.period.months} meses).`
+    )
+  }
+
+  const drops = ci.funnel.filter((f, i) => i > 0 && f.dropOffRate > 0)
+  if (drops.length) {
+    const worst = drops.reduce((a, b) => (b.dropOffRate > a.dropOffRate ? b : a))
+    obs.push(
+      `Maior gargalo no funil: queda de ${worst.dropOffRate.toFixed(0)}% ao chegar no estágio "${worst.status}".`
+    )
+  }
+
+  if (ci.hotLeadsNoFollowUp.count > 0) {
+    obs.push(
+      `${ci.hotLeadsNoFollowUp.count} lead(s) quente(s) sem retorno há mais de ${ci.hotLeadsNoFollowUp.slaHours}h — risco de perda imediato.`
+    )
+  }
+
+  const topLost = ci.winLoss.topLostReasons[0]
+  if (topLost) {
+    obs.push(`Maior motivo de perda: "${topLost.reason}" (${topLost.count}x).`)
+  }
+
+  const sources = ci.conversionBySource.filter((s) => s.leads >= 3)
+  if (sources.length) {
+    const best = sources.reduce((a, b) => (b.conversionRate > a.conversionRate ? b : a))
+    obs.push(
+      `Fonte que mais converte: "${best.source}" (${best.conversionRate.toFixed(0)}% de ${best.leads} leads).`
+    )
+  }
+
+  return obs.slice(0, 4)
 }
 
 async function buildPayload(resource: Resource, tenantId: string, max: number) {
@@ -234,6 +281,24 @@ async function buildPayload(resource: Resource, tenantId: string, max: number) {
             net: monthIncome - monthExpense,
           },
         },
+      }
+    }
+
+    case 'insights': {
+      // Analysis-ready CRM funnel for the senior-analyst persona. The heavy
+      // arrays are trimmed and short `observations` are derived (from real
+      // numbers only — never fabricated) to seed the LLM's reasoning.
+      const ci = await computeCrmInsights(tenantId)
+      const compact = {
+        ...ci,
+        hotLeadsNoFollowUp: {
+          ...ci.hotLeadsNoFollowUp,
+          leads: ci.hotLeadsNoFollowUp.leads.slice(0, 8),
+        },
+      }
+      return {
+        insights: compact,
+        observations: buildInsightObservations(ci),
       }
     }
   }

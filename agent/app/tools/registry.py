@@ -161,6 +161,14 @@ TOOLS: list[dict] = [
                         "type": "string",
                         "description": "Resumo do interesse do cliente (datas, hóspedes, intenção)",
                     },
+                    "reason": {
+                        "type": "string",
+                        "enum": ["closing", "escalation", "other"],
+                        "description": (
+                            "'closing' quando o cliente QUER FECHAR/reservar agora (alerta crítico ao dono); "
+                            "'escalation' quando pede humano ou foge do seu alcance; 'other' nos demais casos."
+                        ),
+                    },
                 },
                 "required": ["client_summary"],
             },
@@ -182,8 +190,13 @@ TOOLS: list[dict] = [
                 "'transactions' (transações financeiras de receita/despesa), "
                 "'clients' (clientes cadastrados), "
                 "'dashboard' (resumo compacto: totais de leads por temperatura + escalonamentos, "
-                "conversas ativas, imóveis ativos, reservas, e receita/despesa do mês atual). "
-                "Para visão geral, prefira 'dashboard'. Retorna JSON compacto."
+                "conversas ativas, imóveis ativos, reservas, e receita/despesa do mês atual), "
+                "'insights' (ANÁLISE PRONTA do funil de vendas: conversão geral, gargalos/drop-off "
+                "por estágio, conversão por temperatura e por fonte, tempo de resposta e de conversão, "
+                "win/loss com motivos de perda, leads quentes sem retorno, receita e tendência mensal — "
+                "números já agregados, com um array 'observations' de leituras textuais para começar). "
+                "Para perguntas amplas sobre desempenho/vendas ('como estou indo', 'onde estou perdendo'), "
+                "prefira 'insights'. Para um retrato geral do dia a dia, use 'dashboard'. Retorna JSON compacto."
             ),
             "parameters": {
                 "type": "object",
@@ -198,12 +211,13 @@ TOOLS: list[dict] = [
                             "transactions",
                             "clients",
                             "dashboard",
+                            "insights",
                         ],
                         "description": "Qual recurso do sistema consultar",
                     },
                     "limit": {
                         "type": "integer",
-                        "description": "Máximo de registros a retornar (padrão 50, máx 200). Ignorado para 'dashboard'.",
+                        "description": "Máximo de registros a retornar (padrão 50, máx 200). Ignorado para 'dashboard' e 'insights'.",
                         "default": 50,
                     },
                 },
@@ -299,6 +313,54 @@ TOOLS: list[dict] = [
                     },
                 },
                 "required": ["issue"],
+            },
+        },
+    },
+    {
+        "type": "function",
+        "function": {
+            "name": "defer_and_work",
+            "description": (
+                "Use quando a próxima resposta exigir um trabalho que demora "
+                "(garimpar/curar imóveis com critérios exigentes, ou confirmar uma "
+                "informação com a equipe humana da imobiliária). "
+                "Você manda AGORA uma frase curta e calorosa avisando que vai "
+                "verificar ('deixa eu garimpar/confirmar, já te chamo'), e o sistema "
+                "faz o trabalho em background. Quando terminar, VOCÊ MESMA volta a "
+                "falar com a pessoa — não precisa esperar ela mandar outra mensagem. "
+                "NÃO use para buscas simples (use search_available_properties direto). "
+                "Use só quando realmente valer a pena segurar a pessoa um instante."
+            ),
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "client_message": {
+                        "type": "string",
+                        "description": (
+                            "A frase humana e curta que será enviada AGORA ao cliente "
+                            "(ex.: 'Show! Deixa eu achar as melhores opções e já te chamo'). "
+                            "Escreva no tom da Sofia."
+                        ),
+                    },
+                    "task_type": {
+                        "type": "string",
+                        "enum": ["property_research", "ask_owner", "closing_prep", "other"],
+                        "description": (
+                            "property_research: garimpo/curadoria pesada de imóveis. "
+                            "ask_owner: confirmar algo com a equipe humana. "
+                            "closing_prep: preparar fechamento. other: genérico."
+                        ),
+                    },
+                    "task_payload": {
+                        "type": "object",
+                        "description": "Dados estruturados para a task (critérios, pergunta ao dono, etc.).",
+                    },
+                    "resume_hint": {
+                        "type": "string",
+                        "description": "Dica para você mesma de como apresentar o resultado quando voltar a falar.",
+                    },
+                },
+                "required": ["client_message", "task_type", "task_payload"],
             },
         },
     },

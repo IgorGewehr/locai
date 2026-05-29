@@ -10,7 +10,7 @@ from fastapi import APIRouter, Request
 from pydantic import BaseModel
 
 from ..auth import verify_request
-from ..graph.graph import run_agent, run_operator
+from ..graph.graph import run_agent, run_operator, run_resume
 
 log = structlog.get_logger()
 router = APIRouter()
@@ -34,6 +34,7 @@ class ProcessResponse(BaseModel):
     iterations: int
     total_latency_ms: int
     error: str | None
+    deferred: bool = False  # turno encerrou via defer_and_work (não enviar nada)
 
 
 @router.post("/process", response_model=ProcessResponse)
@@ -65,6 +66,65 @@ async def process(request: Request) -> ProcessResponse:
         intent=result.intent,
         iterations=result.iterations,
         total_latency_ms=result.total_latency_ms,
+        error=result.error,
+        deferred=result.deferred,
+    )
+
+
+class ResumeRequest(BaseModel):
+    tenant_id: str
+    conversation_id: str
+    task_id: str
+    task_type: str
+    result: dict[str, Any] = {}
+    resume_hint: str | None = None
+    history: list[dict[str, str]] = []
+
+
+class ResumeResponse(BaseModel):
+    run_id: str
+    status: str
+    final_response: str | None
+    media_urls: list[str] = []
+    next_state: str | None
+    error: str | None
+
+
+@router.post("/resume", response_model=ResumeResponse)
+async def resume(request: Request) -> ResumeResponse:
+    """Re-engajamento proativo: chamado pelo worker (Functions) quando uma task
+    diferida conclui. Mesma auth HMAC do /process. Ver docs/blueprint/01 §5."""
+    tenant_id, raw_body = await verify_request(request)
+
+    if not tenant_id:
+        from fastapi import HTTPException
+        raise HTTPException(status_code=400, detail="tenant_id is required")
+
+    req = ResumeRequest.model_validate(json.loads(raw_body))
+
+    log.info(
+        "agent.resume",
+        tenant_id=tenant_id[:8] + "***",
+        conversation_id=req.conversation_id,
+        task_type=req.task_type,
+    )
+
+    result = await run_resume(
+        tenant_id=req.tenant_id,
+        conversation_id=req.conversation_id,
+        task_id=req.task_id,
+        task_type=req.task_type,
+        task_result=req.result,
+        resume_hint=req.resume_hint,
+        history=req.history,
+    )
+
+    return ResumeResponse(
+        run_id=result.run_id,
+        status=result.status,
+        final_response=result.final_response,
+        media_urls=result.media_urls,
+        next_state=result.next_state,
         error=result.error,
     )
 
