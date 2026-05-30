@@ -20,7 +20,7 @@ Sequência única pra subir o MVP sem thrash. Faça na ordem. Detalhe de valida�
 
 ## 2. Código deployável
 - Mergear `feat/proactive-agent-mvp` → `main` (ou apontar o deploy pra branch). **PR aberto.**
-- **whatsapp_microservice:** build **corrigido** (o try/catch quebrado que cascateava 172 erros foi resolvido; `npm run build` gera `dist/`). Commit **local** nesse repo — **dar push você** quando for subir. Restam 5 erros de tipo legados não-bloqueantes (build emite via `noEmitOnError:false`); o único com efeito em runtime é o download de áudio do Baileys, que só afeta transcrição (desligada por padrão).
+- **whatsapp_microservice:** build **100% limpo** (`npm run build` → 0 erros, type-check estrito). Foram corrigidos o try/catch quebrado (cascata de 172 erros) **e** os 5 erros de tipo legados — incluindo o `downloadMediaMessage` do Baileys (transcrição de áudio funcional) e um bug latente em que `tenant.active` (inexistente) fazia o serviço **rejeitar (403) todo tenant** na rota de mensagem. Commits **locais** nesse repo — **dar push você** quando for subir.
 
 ## 3. Subir os serviços
 - locai (Next, Docker + Cloudflare Tunnel) · agent (Python, Docker + tunnel) · whatsapp (Baileys).
