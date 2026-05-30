@@ -33,6 +33,11 @@ const Schema = z.object({
   contact: z.object({ name: z.string().optional(), phone: z.string().optional() }).optional(),
   reason: z.enum(['closing', 'escalation', 'other']).optional().default('escalation'),
   severity: z.enum(['high', 'critical']).optional(),
+  // Dados do card (handoff enriquecido) — opcionais, preenchidos pela Sofia no fechamento.
+  guests: z.number().int().positive().optional(),
+  check_in: z.string().optional(),
+  check_out: z.string().optional(),
+  property_title: z.string().optional(),
 });
 
 /** true se este alerta já foi disparado neste turno (janela curta). */
@@ -58,6 +63,7 @@ export async function POST(request: NextRequest) {
   }
 
   const { property_id, client_summary, conversation_id, contact, reason } = parsed.data;
+  const { guests, check_in: checkIn, check_out: checkOut, property_title: propertyTitleArg } = parsed.data;
   const severity = parsed.data.severity || (reason === 'closing' ? 'critical' : 'high');
 
   // Telefone do cliente: do conversation_id ({tid}:{phone}) ou do contact.
@@ -77,9 +83,9 @@ export async function POST(request: NextRequest) {
   const ownerPhone = await getOwnerWhatsappPhone(tenantId);
   const deepLink = clientPhone ? conversationDeepLink(clientPhone) : '';
 
-  // Título do imóvel (se houver) só para enriquecer a mensagem
-  let propertyTitle = '';
-  if (property_id) {
+  // Título do imóvel: preferir o que a Sofia passou (property_title); senão, buscar pelo id.
+  let propertyTitle = (propertyTitleArg || '').trim();
+  if (!propertyTitle && property_id) {
     try {
       const p = (await services.properties.get(property_id)) as { title?: string } | null;
       propertyTitle = p?.title || '';
@@ -106,6 +112,12 @@ export async function POST(request: NextRequest) {
       status: ownerPhone ? 'sent' : 'no_owner_phone',
       repingCount: 0,
       createdAt: new Date(),
+      // Card do canal Sofia — só inclui campos que vieram (sem undefined no doc).
+      ...(contact?.name ? { clientName: contact.name } : {}),
+      ...(typeof guests === 'number' ? { guests } : {}),
+      ...(checkIn ? { checkIn } : {}),
+      ...(checkOut ? { checkOut } : {}),
+      ...(propertyTitle ? { propertyTitle } : {}),
     } as never);
   } catch (err) {
     logger.warn('[notify-owner] failed to log owner_alert', {

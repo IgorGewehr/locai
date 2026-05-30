@@ -161,6 +161,38 @@ TOOLS: list[dict] = [
                         "type": "string",
                         "description": "Resumo do interesse do cliente (datas, hóspedes, intenção)",
                     },
+                    "guests": {
+                        "type": "integer",
+                        "description": (
+                            "Número de hóspedes que o cliente mencionou. "
+                            "Preencha quando a conversa trouxer esse dado (especialmente no fechamento). "
+                            "NÃO invente — só preencha se o cliente disse."
+                        ),
+                    },
+                    "check_in": {
+                        "type": "string",
+                        "description": (
+                            "Data de check-in no formato YYYY-MM-DD. "
+                            "Preencha quando o cliente já informou a data de chegada (especialmente no fechamento). "
+                            "NÃO invente."
+                        ),
+                    },
+                    "check_out": {
+                        "type": "string",
+                        "description": (
+                            "Data de check-out no formato YYYY-MM-DD. "
+                            "Preencha quando o cliente já informou a data de saída (especialmente no fechamento). "
+                            "NÃO invente."
+                        ),
+                    },
+                    "property_title": {
+                        "type": "string",
+                        "description": (
+                            "Título/nome do imóvel de interesse, como apareceu na busca. "
+                            "Preencha quando houver um imóvel específico que o cliente quer (especialmente no fechamento). "
+                            "NÃO invente."
+                        ),
+                    },
                     "reason": {
                         "type": "string",
                         "enum": ["closing", "escalation", "other"],

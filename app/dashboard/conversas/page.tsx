@@ -27,6 +27,8 @@ import { normalizeBrazilPhone } from '@/lib/services/lead-lookup';
 import AIControlButton from '@/components/organisms/conversations/AIControlButton';
 import MessageBubble from '@/components/organisms/conversations/MessageBubble';
 import MessageInput from '@/components/organisms/conversations/MessageInput';
+import AssistantPinnedEntry from '@/components/organisms/conversations/AssistantPinnedEntry';
+import AssistantChat from '@/components/organisms/conversations/AssistantChat';
 
 const WA_COLOR = '#25D366';
 
@@ -193,6 +195,9 @@ export default function ConversationsPage() {
   });
 
   const [searchText, setSearchText] = useState('');
+  // Pinned "Assistente Sofia" channel: when true the right panel shows AssistantChat.
+  const [selectedAssistant, setSelectedAssistant] = useState(false);
+  const [assistantUnread, setAssistantUnread] = useState(0);
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; id: string } | null>(null);
   const [statusMenuEl, setStatusMenuEl] = useState<null | HTMLElement>(null);
   const [leadMap, setLeadMap] = useState<Map<string, Lead>>(new Map());
@@ -254,11 +259,59 @@ export default function ConversationsPage() {
     if (aiError) setToast({ msg: 'Não foi possível verificar o status da IA.', severity: 'error' });
   }, [aiError]);
 
+  // Keep the pinned-entry unread badge fresh while the assistant thread is
+  // closed (AssistantChat owns the live count once it's open). Light: fetch
+  // on mount + when the tab regains focus, only if the panel isn't open.
+  useEffect(() => {
+    if (selectedAssistant) return;
+    let cancelled = false;
+    const fetchUnread = async () => {
+      try {
+        const token = await getFirebaseToken();
+        if (!token) return;
+        const res = await fetch('/api/agent/assistant/feed?limit=50', {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (!res.ok) return;
+        const data = await res.json();
+        if (!cancelled && typeof data?.unread === 'number') setAssistantUnread(data.unread);
+      } catch (e) {
+        logger.error('[Conversas] assistant unread fetch failed', e instanceof Error ? e : undefined);
+      }
+    };
+    fetchUnread();
+    const onVis = () => { if (document.visibilityState === 'visible') fetchUnread(); };
+    document.addEventListener('visibilitychange', onVis);
+    return () => { cancelled = true; document.removeEventListener('visibilitychange', onVis); };
+  }, [selectedAssistant, getFirebaseToken]);
+
   const handleSelect = useCallback(async (id: string) => {
+    setSelectedAssistant(false);
     selectConversation(id);
     const conv = conversations.find((c) => c.id === id);
     if (conv && conv.isRead === false) await markAsRead(id);
   }, [selectConversation, conversations, markAsRead]);
+
+  const handleSelectAssistant = useCallback(() => {
+    clearSelection();
+    setSelectedAssistant(true);
+  }, [clearSelection]);
+
+  // Deep-link reused by the closing-alert card "Abrir conversa" button.
+  // Selects the matching conversation in-place (same normalizeBrazilPhone match
+  // the ?phone= deep-link uses) and leaves the assistant thread.
+  const openConversation = useCallback((phone: string) => {
+    const target = normalizeBrazilPhone(phone);
+    const match = conversations.find((c) => normalizeBrazilPhone(c.clientPhone) === target);
+    setSelectedAssistant(false);
+    if (match) {
+      selectConversation(match.id);
+      if (match.isRead === false) markAsRead(match.id);
+    } else {
+      // Conversation not in the loaded list — fall back to the URL deep-link.
+      window.location.href = `/dashboard/conversas?phone=${encodeURIComponent(phone)}`;
+    }
+  }, [conversations, selectConversation, markAsRead]);
 
   const handleContextMenu = useCallback((e: React.MouseEvent, id: string) => {
     e.preventDefault();
@@ -323,7 +376,7 @@ export default function ConversationsPage() {
       <Box sx={{
         width: { xs: '100%', md: 360 }, flexShrink: 0,
         borderRight: { md: '1px solid rgba(255,255,255,0.08)' },
-        display: { xs: selectedConversation ? 'none' : 'flex', md: 'flex' }, flexDirection: 'column',
+        display: { xs: (selectedConversation || selectedAssistant) ? 'none' : 'flex', md: 'flex' }, flexDirection: 'column',
       }}>
         {/* Header */}
         <Box sx={{ p: 2, pb: 1.5 }}>
@@ -377,6 +430,14 @@ export default function ConversationsPage() {
 
         {/* List */}
         <Box sx={{ flex: 1, overflowY: 'auto' }} onScroll={handleListScroll}>
+          {/* Pinned Sofia assistant — always 1st, regardless of filters/state */}
+          <AssistantPinnedEntry
+            selected={selectedAssistant}
+            unread={assistantUnread}
+            onSelect={handleSelectAssistant}
+          />
+          <Divider sx={{ borderColor: 'rgba(255,255,255,0.06)' }} />
+
           {loading && conversations.length === 0 ? (
             <Box sx={{ display: 'flex', justifyContent: 'center', py: 6 }}><CircularProgress size={24} sx={{ color: 'rgba(255,255,255,0.3)' }} /></Box>
           ) : error && conversations.length === 0 ? (
@@ -429,10 +490,17 @@ export default function ConversationsPage() {
 
       {/* ── RIGHT: chat ────────────────────────────── */}
       <Box sx={{
-        flex: 1, minWidth: 0, display: { xs: selectedConversation ? 'flex' : 'none', md: 'flex' },
+        flex: 1, minWidth: 0, display: { xs: (selectedConversation || selectedAssistant) ? 'flex' : 'none', md: 'flex' },
         flexDirection: 'column', bgcolor: '#0b0f1a',
       }}>
-        {!selectedConversation ? (
+        {selectedAssistant ? (
+          <AssistantChat
+            active={selectedAssistant}
+            onOpenConversation={openConversation}
+            onUnreadChange={setAssistantUnread}
+            onBack={() => setSelectedAssistant(false)}
+          />
+        ) : !selectedConversation ? (
           <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', gap: 1.5 }}>
             <Chat sx={{ fontSize: 56, color: 'rgba(255,255,255,0.12)' }} />
             <Typography sx={{ color: 'rgba(255,255,255,0.4)', fontSize: '0.9375rem', fontWeight: 500 }}>Selecione uma conversa</Typography>
