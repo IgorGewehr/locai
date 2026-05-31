@@ -1,0 +1,11 @@
+version: "3.9"
+services:
+  locai-agent:
+    build: .
+    container_name: locai-agent
+    env_file: .env
+    ports:
+      - "8090:8090"
+    restart: unless-stopped
+    extra_hosts:
+      - "host.docker.internal:host-gateway"

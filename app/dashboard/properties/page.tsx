@@ -61,7 +61,8 @@ import {
 import type { Property } from '@/lib/types/property';
 import type { TenantDiscountSettings } from '@/lib/types/tenant-settings';
 import { DEFAULT_TENANT_DISCOUNT_SETTINGS } from '@/lib/types/tenant-settings';
-import PropertyImportWizard from '@/components/organisms/PropertyImportWizard/PropertyImportWizard';
+// PropertyImportWizard removido — sistema não importa mais imóveis do Airbnb.
+// Cadastro é manual via /dashboard/properties/create.
 import TenantDiscountDialog from '@/components/dialogs/TenantDiscountDialog';
 
 // Disable static generation for this page
@@ -85,7 +86,7 @@ export default function PropertiesPage() {
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null);
   const [selectedProperty, setSelectedProperty] = useState<Property | null>(null);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const [importDialogOpen, setImportDialogOpen] = useState(false);
+  // importDialogOpen removido — wizard de import deletado.
   const [discountsDialogOpen, setDiscountsDialogOpen] = useState(false);
   const [discountSettings, setDiscountSettings] = useState<TenantDiscountSettings>(DEFAULT_TENANT_DISCOUNT_SETTINGS);
   const { services, isReady, tenantId } = useTenant();
@@ -251,18 +252,7 @@ export default function PropertiesPage() {
     }
   };
 
-  const handleImportSuccess = async (result: any) => {
-    // Reload properties after successful import
-    if (services && isReady) {
-      try {
-        const propertiesData = await services.properties.getAll();
-        setProperties(propertiesData);
-      } catch (error) {
-        // Property loading error handled
-      }
-    }
-    setImportDialogOpen(false);
-  };
+  // handleImportSuccess removido — fluxo de import descontinuado.
 
   return (
     <Box>
@@ -287,15 +277,7 @@ export default function PropertiesPage() {
           Imóveis
         </Typography>
         <Box sx={{ display: 'flex', gap: { xs: 1, md: 2 }, flexDirection: { xs: 'column', sm: 'row' } }}>
-          <ModernButton
-            variant="outlined"
-            size="large"
-            icon={<CloudUpload />}
-            onClick={() => setImportDialogOpen(true)}
-            sx={{ minWidth: { xs: 'auto', sm: '160px' } }}
-          >
-            Importar
-          </ModernButton>
+          {/* Botão "Importar" removido — sistema não importa mais do Airbnb. */}
           <ModernButton
             variant="outlined"
             size="large"
@@ -712,13 +694,6 @@ export default function PropertiesPage() {
           </Button>
         </DialogActions>
       </Dialog>
-
-      {/* Property Import Wizard - Improved UX */}
-      <PropertyImportWizard
-        open={importDialogOpen}
-        onClose={() => setImportDialogOpen(false)}
-        onSuccess={handleImportSuccess}
-      />
 
       {/* Tenant Discount Settings Dialog */}
       <TenantDiscountDialog

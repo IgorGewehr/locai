@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { FacebookService } from '@/lib/services/facebook-service';
 import { ConversationService } from '@/lib/services/conversation-service';
 import { TenantServiceFactory } from '@/lib/firebase/firestore-v2';
+import { validateFirebaseAuth } from '@/lib/middleware/firebase-auth';
 import { logger } from '@/lib/utils/logger';
 import { RATE_LIMIT_CONFIG } from '@/lib/facebook/constants';
 
@@ -49,8 +50,20 @@ export async function POST(req: NextRequest) {
     const requestId = `social_send_${Date.now()}_${Math.random().toString(36).substring(2, 6)}`;
 
     try {
+        // Authenticate and derive tenantId from the authenticated context.
+        // NEVER trust tenantId from the request body.
+        const authContext = await validateFirebaseAuth(req);
+        if (!authContext.authenticated || !authContext.tenantId) {
+            return new NextResponse(JSON.stringify({
+                error: 'Authentication required',
+                code: 'UNAUTHORIZED'
+            }), { status: 401 });
+        }
+
+        const tenantId = authContext.tenantId;
+
         const body = await req.json();
-        const { tenantId, conversationId, message } = body;
+        const { conversationId, message } = body;
 
         logger.info('[SOCIAL-SEND] Request received', {
             requestId,
@@ -59,10 +72,10 @@ export async function POST(req: NextRequest) {
             messageLength: message?.length
         });
 
-        if (!tenantId || !conversationId || !message) {
+        if (!conversationId || !message) {
             return new NextResponse(JSON.stringify({
                 error: 'Missing required fields',
-                requiredFields: ['tenantId', 'conversationId', 'message']
+                requiredFields: ['conversationId', 'message']
             }), { status: 400 });
         }
 

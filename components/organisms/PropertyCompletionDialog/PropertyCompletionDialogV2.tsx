@@ -127,8 +127,10 @@ export default function PropertyCompletionDialogV2({
 
   // Availability state
   const [unavailableDates, setUnavailableDates] = useState<Date[]>([]);
-  const [reservations, setReservations] = useState<any[]>([]);
-  const [loadingReservations, setLoadingReservations] = useState(false);
+  // Reservas removidas do sistema. Mantemos arrays vazios para compatibilidade
+  // com a UI legada deste dialog até ser refeito.
+  const reservations: any[] = [];
+  const loadingReservations = false;
 
   // Form with default values
   const methods = useForm({
@@ -148,35 +150,7 @@ export default function PropertyCompletionDialogV2({
 
   const { watch, setValue } = methods;
 
-  // Load existing reservations for this property
-  useEffect(() => {
-    if (open && propertyData?.id && activeStep === 3) {
-      loadReservations();
-    }
-  }, [open, propertyData?.id, activeStep]);
-
-  const loadReservations = async () => {
-    if (!propertyData?.id || !tenantId) return;
-
-    setLoadingReservations(true);
-    try {
-      const token = await getFirebaseToken();
-      const response = await fetch(`/api/reservations?propertyId=${propertyData.id}`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-
-      if (response.ok) {
-        const data = await response.json();
-        setReservations(data.reservations || []);
-      }
-    } catch (error) {
-      console.error('Error loading reservations:', error);
-    } finally {
-      setLoadingReservations(false);
-    }
-  };
+  // loadReservations removida — sistema não gerencia reservas (Airbnb cuida).
 
   const handleNext = () => {
     setActiveStep((prev) => prev + 1);

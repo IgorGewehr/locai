@@ -3,12 +3,14 @@ import crypto from 'crypto'
 import { logger } from '@/lib/utils/logger'
 import { WhatsAppStatusService } from '@/lib/services/whatsapp-status-service'
 import { deduplicationCache } from '@/lib/cache/deduplication-cache'
+import { dispatchToAgent } from '@/lib/agent/dispatchToAgent'
 
 /**
- * Webhook para receber mensagens do WhatsApp Microservice
- * Este endpoint recebe eventos do microserviço e encaminha mensagens para o N8N
- * 
- * Fluxo: WhatsApp -> Microservice -> Este Webhook -> N8N -> Processamento
+ * Webhook para receber mensagens do WhatsApp Microservice.
+ *
+ * Fluxo:
+ *   WhatsApp -> Microservice -> Este Webhook -> locai/agent (Python+LangGraph)
+ *      -> agent processa, chama tools, envia resposta via /api/conversations/send
  */
 export async function POST(request: NextRequest) {
     try {
@@ -89,8 +91,7 @@ export async function POST(request: NextRequest) {
 
         // ✅ PROCESSAR DIFERENTES TIPOS DE EVENTOS
         if (body.event === 'message') {
-            // Encaminhar mensagem para N8N processar
-            await processIncomingMessageViaN8N(body.tenantId, body.data)
+            await processIncomingMessageViaAgent(body.tenantId, body.data)
         } else if (body.event === 'status_change') {
             await processStatusChange(body.tenantId, body.data)
         } else if (body.event === 'qr_code') {
@@ -115,105 +116,53 @@ export async function POST(request: NextRequest) {
 }
 
 /**
- * 🚀 NOVA FUNÇÃO: Processar mensagem enviando para N8N Workflow
+ * 🚀 NOVO PADRÃO: encaminhar a mensagem para o agent LangGraph.
+ *
+ * Fire-and-forget. O agent processa internamente, chama as tools que precisar
+ * e dispara a resposta de volta via /api/conversations/send.
  */
-async function processIncomingMessageViaN8N(tenantId: string, messageData: any) {
+async function processIncomingMessageViaAgent(tenantId: string, messageData: any) {
     try {
-        const messageId = messageData.messageId || messageData.id;
-        const clientPhone = messageData.from;
-        const message = messageData.message || messageData.text;
+        const messageId = messageData.messageId || messageData.id
+        const clientPhone = messageData.from
+        const message = messageData.message || messageData.text
 
-        // ✅ VALIDAÇÕES BÁSICAS (mantém as mesmas do código original)
         if (!messageId || !clientPhone || !message || message.trim() === '') {
             logger.warn('⚠️ Invalid message data, skipping', {
                 tenantId: tenantId?.substring(0, 8) + '***',
-                hasMessageId: !!messageId,
-                hasClientPhone: !!clientPhone,
-                hasMessage: !!message
-            });
-            return;
+            })
+            return
         }
 
-
-        logger.info('📨 Processing incoming message via N8N', {
-            tenantId: tenantId?.substring(0, 8) + '***',
-            from: clientPhone?.substring(0, 6) + '***',
-            messageId: messageId?.substring(0, 8) + '***',
-            messageLength: message.length
-        })
-
-        // ✅ SISTEMA DE DEDUPLICAÇÃO (mantém igual)
         if (deduplicationCache.isDuplicate(tenantId, messageId)) {
             logger.info('🔁 Message already processed, skipping', {
                 tenantId: tenantId?.substring(0, 8) + '***',
-                messageId: messageId?.substring(0, 8) + '***'
-            });
-            return;
-        }
-
-        deduplicationCache.markAsProcessed(tenantId, messageId);
-
-        // 🚀 NOVA LÓGICA: Chamar N8N Workflow
-        const n8nWebhookUrl = process.env.N8N_WEBHOOK_URL;
-        const n8nSecret = process.env.N8N_WEBHOOK_SECRET;
-
-
-        logger.info('🚀 Sending message to N8N workflow', {
-            url: n8nWebhookUrl.substring(0, 50) + '...',
-            tenantId: tenantId?.substring(0, 8) + '***'
-        });
-
-        // 🎯 PAYLOAD para N8N (exatamente como esperado pelo webhook node)
-        const n8nPayload = {
-            tenantId,
-            data: {
-                from: clientPhone,
-                message: message,
-                messageId: messageId,
-                timestamp: new Date().toISOString()
-            },
-            event: 'message',
-            source: 'whatsapp-microservice',
-            webhookTimestamp: new Date().toISOString()
-        };
-
-        const n8nResponse = await fetch(n8nWebhookUrl, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'x-webhook-signature': n8nSecret,
-                'X-Tenant-ID': tenantId,
-                'User-Agent': 'LocAI-Frontend/1.0'
-            },
-            body: JSON.stringify(n8nPayload),
-            signal: AbortSignal.timeout(30000) // 30s timeout
-        });
-
-        if (n8nResponse.ok) {
-            logger.info('✅ Message sent to N8N successfully', {
-                tenantId: tenantId?.substring(0, 8) + '***',
-                clientPhone: clientPhone?.substring(0, 6) + '***',
                 messageId: messageId?.substring(0, 8) + '***',
-                status: n8nResponse.status
-            });
-
-            // 🎉 N8N vai processar e depois chamar /api/whatsapp/send-n8n
-            // Não precisamos fazer mais nada aqui!
-
-        } else {
-            const errorText = await n8nResponse.text().catch(() => 'Unable to read error response');
-            throw new Error(`N8N responded with ${n8nResponse.status}: ${errorText}`);
+            })
+            return
         }
+        deduplicationCache.markAsProcessed(tenantId, messageId)
 
+        await dispatchToAgent(tenantId, {
+            conversationId: messageData.conversationId || `wa_${tenantId}_${clientPhone}`,
+            messageId,
+            recipientId: clientPhone,
+            channel: 'whatsapp',
+            contactName: messageData.contactName || messageData.pushName || clientPhone,
+            contactPhone: clientPhone,
+            message,
+            history: [],
+        })
+
+        logger.info('✅ Message dispatched to LangGraph agent', {
+            tenantId: tenantId?.substring(0, 8) + '***',
+            messageId: messageId?.substring(0, 8) + '***',
+        })
     } catch (error) {
-        logger.error('❌ Error calling N8N workflow:', {
+        logger.error('❌ Error dispatching to LangGraph agent:', {
             error: error instanceof Error ? error.message : 'Unknown error',
             tenantId: tenantId?.substring(0, 8) + '***',
-            stack: error instanceof Error ? error.stack?.substring(0, 200) : undefined
-        });
-
-        // Se falhar ao chamar N8N, apenas logar erro
-        logger.error('❌ N8N call failed - message not processed');
+        })
     }
 }
 

@@ -1,10 +1,26 @@
 // Cliente para integração com WhatsApp Microservice
-// Conecta o LocAI ao microservice WhatsApp na DigitalOcean
+// Conecta o LocAI ao microservice WhatsApp (Docker, Windows)
 
 import { logger } from '@/lib/utils/logger';
 
-const MICROSERVICE_BASE_URL = process.env.WHATSAPP_MICROSERVICE_URL || 'http://167.172.116.195:3000';
-const MICROSERVICE_API_KEY = process.env.WHATSAPP_MICROSERVICE_API_KEY || 'tTmMQE3Rdgu1UpwEwTBow4GmBU9XstTaGva2kIqGjCU=';
+// As credenciais do microservice vêm exclusivamente por env.
+// A leitura é feita no momento do uso (não no carregamento do módulo)
+// para não quebrar build/import quando as envs ainda não estão presentes.
+function getMicroserviceBaseUrl(): string {
+  const url = process.env.WHATSAPP_MICROSERVICE_URL;
+  if (!url) {
+    throw new Error('WHATSAPP_MICROSERVICE_URL não configurada');
+  }
+  return url;
+}
+
+function getMicroserviceApiKey(): string {
+  const apiKey = process.env.WHATSAPP_MICROSERVICE_API_KEY;
+  if (!apiKey) {
+    throw new Error('WHATSAPP_MICROSERVICE_API_KEY não configurada');
+  }
+  return apiKey;
+}
 
 interface MicroserviceResponse {
   success: boolean;
@@ -34,12 +50,13 @@ interface MicroserviceSessionResponse {
 }
 
 export class WhatsAppMicroserviceClient {
-  private baseUrl: string;
-  private apiKey: string;
+  // Resolvidos sob demanda a partir das envs (lança erro claro se faltarem).
+  private get baseUrl(): string {
+    return getMicroserviceBaseUrl();
+  }
 
-  constructor() {
-    this.baseUrl = MICROSERVICE_BASE_URL;
-    this.apiKey = MICROSERVICE_API_KEY;
+  private get apiKey(): string {
+    return getMicroserviceApiKey();
   }
 
   /**

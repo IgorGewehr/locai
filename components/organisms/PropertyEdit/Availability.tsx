@@ -70,11 +70,13 @@ import { ptBR } from 'date-fns/locale';
 import { logger } from '@/lib/utils/logger';
 import AvailabilityInsights from '@/components/organisms/AvailabilityInsights/AvailabilityInsights';
 import AvailabilityRulesManager from '@/components/organisms/AvailabilityRulesManager/AvailabilityRulesManager';
-import CalendarExportMenu from '@/components/organisms/CalendarExportMenu/CalendarExportMenu';
-import PropertyICalManagement from '@/components/organisms/PropertyICalManagement/PropertyICalManagement';
 import { AvailabilityCalendarDay } from '@/lib/types/availability';
 
-type ViewMode = 'calendar' | 'insights' | 'rules' | 'ical';
+// CalendarExportMenu e PropertyICalManagement removidos: o sistema não
+// gerencia mais disponibilidade nem exporta/importa iCal. O agent consulta
+// o feed Airbnb sob demanda via ical_check_availability — tudo na hora,
+// nada persistido.
+type ViewMode = 'calendar' | 'insights' | 'rules';
 
 export const PropertyAvailability: React.FC = () => {
   const theme = useTheme();
@@ -326,19 +328,7 @@ export const PropertyAvailability: React.FC = () => {
                 <AutoAwesome sx={{ mr: 1 }} />
                 Regras
               </ToggleButton>
-              <ToggleButton value="ical" aria-label="sincronização iCal">
-                <CloudSync sx={{ mr: 1 }} />
-                iCal Sync
-              </ToggleButton>
             </ToggleButtonGroup>
-
-            {viewMode === 'calendar' && (
-              <CalendarExportMenu
-                property={property}
-                propertyName={propertyName}
-                calendarDays={getCalendarDaysForExport()}
-              />
-            )}
           </Box>
         </Grid>
 
@@ -356,45 +346,8 @@ export const PropertyAvailability: React.FC = () => {
           </Grid>
         )}
 
-        {/* iCal Sync View */}
-        {viewMode === 'ical' && (
-          <Grid item xs={12}>
-            {!propertyId ? (
-              <Paper
-                sx={{
-                  p: 4,
-                  textAlign: 'center',
-                  bgcolor: alpha(theme.palette.info.main, 0.05),
-                  border: `1px solid ${alpha(theme.palette.info.main, 0.2)}`,
-                  borderRadius: 2,
-                }}
-              >
-                <CloudSync sx={{ fontSize: 64, color: 'info.main', mb: 2 }} />
-                <Typography variant="h6" gutterBottom color="info.main">
-                  Salve a propriedade primeiro
-                </Typography>
-                <Typography variant="body2" color="text.secondary">
-                  A sincronização de calendário estará disponível após salvar a propriedade pela primeira vez.
-                </Typography>
-              </Paper>
-            ) : (
-              <PropertyICalManagement
-                propertyId={propertyId}
-                propertyName={propertyName}
-                currentData={{
-                  iCalExportToken: property?.iCalExportToken,
-                  iCalImportUrl: property?.iCalImportUrl,
-                  airbnbPropertyId: property?.airbnbPropertyId,
-                  externalCalendarUrls: property?.externalCalendarUrls,
-                }}
-                onUpdate={() => {
-                  logger.info('iCal configuration updated', { propertyId });
-                  // Optionally trigger a refresh
-                }}
-              />
-            )}
-          </Grid>
-        )}
+        {/* iCal Sync View — REMOVIDO. Disponibilidade agora vive no Airbnb;
+            o agent consulta o feed iCal sob demanda. */}
 
         {/* Calendar View (existing) */}
         {viewMode === 'calendar' && (

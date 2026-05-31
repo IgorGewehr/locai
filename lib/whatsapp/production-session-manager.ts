@@ -186,25 +186,6 @@ export class ProductionSessionManager extends EventEmitter {
     }
   }
   
-  private generateErrorQR(): string {
-    // Return a clear error message as SVG
-    return 'data:image/svg+xml;base64,' + Buffer.from(`
-      <svg width="350" height="350" viewBox="0 0 350 350" xmlns="http://www.w3.org/2000/svg">
-        <rect width="350" height="350" fill="#f8f8f8"/>
-        <rect x="10" y="10" width="330" height="330" fill="#ffffff" stroke="#e0e0e0" stroke-width="2"/>
-        <text x="175" y="150" font-family="Arial" font-size="16" text-anchor="middle" fill="#ff0000">
-          ❌ QR Code Error
-        </text>
-        <text x="175" y="180" font-family="Arial" font-size="12" text-anchor="middle" fill="#666">
-          Unable to generate WhatsApp QR
-        </text>
-        <text x="175" y="200" font-family="Arial" font-size="11" text-anchor="middle" fill="#999">
-          Please check server logs
-        </text>
-      </svg>
-    `).toString('base64');
-  }
-
   private async generateFallbackQRCode(tenantId: string): Promise<string> {
     // This method is deprecated, use generateRealQRCodeOrFallback instead
     return this.generateRealQRCodeOrFallback(tenantId);

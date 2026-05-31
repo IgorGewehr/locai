@@ -33,7 +33,7 @@ import { PropertySpecs } from '@/components/organisms/PropertyEdit/Specs';
 import { PropertyAmenities } from '@/components/organisms/PropertyEdit/Amenities';
 import { PropertyPricing } from '@/components/organisms/PropertyEdit/Pricing';
 import { PropertyMedia as PropertyMediaUpload } from '@/components/organisms/PropertyEdit/Media';
-import PropertyICalManagement from '@/components/organisms/PropertyICalManagement/PropertyICalManagement';
+// PropertyICalManagement removido — sistema não gerencia mais iCal/disponibilidade.
 import { Property, PricingRule, PropertyCategory, PropertyStatus, PropertyType } from '@/lib/types/property';
 import { PaymentMethod } from '@/lib/types/common';
 import { useTenant } from '@/contexts/TenantContext';
@@ -483,20 +483,14 @@ export default function CreatePropertyPage() {
           <Card>
             <CardContent>
               <Typography variant="h6" gutterBottom sx={{ mb: 3 }}>
-                Sincronização de Calendários (Opcional)
+                Integração com Airbnb
               </Typography>
-              <PropertyICalManagement
-                propertyId={propertyId}
-                propertyName={propertyName}
-                currentData={{
-                  iCalExportToken: propertyData?.iCalExportToken,
-                  iCalImportUrl: propertyData?.iCalImportUrl,
-                  airbnbPropertyId: propertyData?.airbnbPropertyId,
-                  iCalLastSync: propertyData?.iCalLastSync,
-                }}
-              />
-              <Alert severity="info" sx={{ mt: 3 }}>
-                Esta etapa é opcional. Você pode configurar a sincronização agora ou mais tarde na edição do imóvel.
+              <Alert severity="info" sx={{ mt: 1 }}>
+                A sincronização de calendário foi removida. O sistema não
+                bloqueia datas internamente — quem gerencia disponibilidade é
+                o próprio Airbnb. Para o agent conseguir checar
+                disponibilidade ao vivo e enviar o link de fechamento, basta
+                preencher o <strong>airbnbUrl</strong> do imóvel.
               </Alert>
             </CardContent>
           </Card>

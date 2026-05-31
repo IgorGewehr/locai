@@ -52,15 +52,21 @@ export interface Property {
   highSeasonSurcharge?: number // Percentual de acréscimo para alta temporada
   highSeasonMonths?: number[] // Meses considerados alta temporada (1-12)
 
-  // Sincronização iCal (Airbnb, Booking.com, etc.)
-  airbnbPropertyId?: string // ID da propriedade no Airbnb (extraído da URL)
-  iCalExportToken?: string // Token seguro para gerar URL de export
-  iCalExportTokenGeneratedAt?: Date // Quando o token foi gerado
-  iCalImportUrl?: string // URL do calendário externo para importar (Airbnb, Booking, etc.)
-  iCalImportSource?: 'airbnb' | 'booking' | 'vrbo' | 'other' // Fonte do calendário importado
-  iCalLastSync?: Date // Última vez que o calendário foi sincronizado
-  iCalSyncEnabled?: boolean // Se a sincronização automática está ativa
-  externalCalendarUrls?: ExternalCalendarUrl[] // Múltiplas fontes de calendário
+  // Integração com Airbnb — o sistema NÃO gerencia mais disponibilidade
+  // internamente. Mantemos apenas:
+  //   - airbnbUrl: link público da listagem, usado pelo agent (share_airbnb_link)
+  //     para fechar negociações; o cliente reserva no próprio Airbnb.
+  //   - airbnbPropertyId: id extraído da URL (preservado para eventual uso).
+  //   - iCalImportUrl: URL do feed iCal do Airbnb consultado SOB DEMANDA pelo
+  //     agent (ical_check_availability) para responder "está livre?". Nada é
+  //     persistido — é leitura ao vivo.
+  //
+  // REMOVIDOS na migração para o modelo "concorrente do Airbnb → vitrine
+  // que despacha pro Airbnb": iCalExportToken, iCalExportTokenGeneratedAt,
+  // iCalImportSource, iCalLastSync, iCalSyncEnabled, externalCalendarUrls.
+  airbnbPropertyId?: string
+  airbnbUrl?: string
+  iCalImportUrl?: string
 
   // Configurações de desconto (nível da propriedade)
   discountSettings?: PropertyDiscountSettings
@@ -181,16 +187,6 @@ export interface UploadedFile {
   name: string
   url: string
   size: number
-}
-
-export interface ExternalCalendarUrl {
-  id: string
-  url: string
-  source: 'airbnb' | 'booking' | 'vrbo' | 'other'
-  name: string
-  isActive: boolean
-  lastSync?: Date
-  createdAt: Date
 }
 
 export const PROPERTY_CATEGORIES_LABELS = {

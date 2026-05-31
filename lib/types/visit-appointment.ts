@@ -20,7 +20,11 @@ export interface VisitAppointment {
   
   // Status
   status: VisitStatus
-  
+
+  // Tipo de agendamento — distingue visita presencial, retirada de chave e suporte/manutenção.
+  // O agent jamais agenda 'reservation' (reservas vivem no Airbnb).
+  appointmentType?: AppointmentType
+
   // Detalhes
   notes?: string
   clientRequests?: string[] // Comodidades específicas que o cliente quer ver
@@ -45,6 +49,14 @@ export interface VisitAppointment {
   // Lembrete
   reminderSent?: boolean
   reminderSentAt?: Date | string // Date object ou ISO string para compatibilidade com Firebase
+}
+
+export type AppointmentType = 'visit' | 'key_pickup' | 'support'
+
+export const APPOINTMENT_TYPE_LABELS: Record<AppointmentType, string> = {
+  visit: 'Visita ao imóvel',
+  key_pickup: 'Retirada de chave',
+  support: 'Suporte / manutenção',
 }
 
 export enum VisitStatus {

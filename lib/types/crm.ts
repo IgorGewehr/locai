@@ -8,7 +8,19 @@ export enum LeadStatus {
   QUALIFIED = 'qualified',
   OPPORTUNITY = 'opportunity',
   NEGOTIATION = 'negotiation',
+  /**
+   * @deprecated Use HANDED_OFF. WON era usado quando o sistema criava reservas
+   * internamente. Hoje o "ganho" é quando o agent passa o link do Airbnb e o
+   * cliente confirma intenção de fechar lá. Mantido como string literal para
+   * compat com leads históricos no Firestore.
+   */
   WON = 'won',
+  /**
+   * Substitui WON no novo modelo (sistema = vitrine + concierge, fechamento
+   * acontece no Airbnb). Acionado por crm_update_lead_stage do agent depois
+   * de share_airbnb_link + confirmação do cliente.
+   */
+  HANDED_OFF = 'handed_off',
   LOST = 'lost',
   NURTURING = 'nurturing'
 }

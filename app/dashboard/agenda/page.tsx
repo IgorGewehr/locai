@@ -56,33 +56,40 @@ import {
     TrendingUp,
     AutoAwesome,
 } from '@mui/icons-material';
-import { useReservations, useProperties, useClients } from '@/lib/firebase/hooks';
+import { useProperties, useClients } from '@/lib/firebase/hooks';
 import { useVisits, useTodayVisits, useUpcomingVisits } from '@/lib/firebase/hooks/useVisits';
-import { Reservation, ReservationStatus, RESERVATION_STATUS_LABELS } from '@/lib/types/reservation';
 import { Property } from '@/lib/types/property';
 import { Client } from '@/lib/types/client';
-import { VisitAppointment, VISIT_STATUS_LABELS, VisitStatus } from '@/lib/types/visit-appointment';
-import EventoModal from '@/components/organisms/agenda/EventoModal';
-import ViewReservationDialog from '@/components/organisms/agenda/ViewReservationDialog';
+import {
+  VisitAppointment,
+  VISIT_STATUS_LABELS,
+  VisitStatus,
+  AppointmentType,
+  APPOINTMENT_TYPE_LABELS,
+} from '@/lib/types/visit-appointment';
+// EventoModal removido — só CreateVisitDialog é necessário agora.
 import CreateVisitDialog from '@/components/organisms/agenda/CreateVisitDialog';
 import EventDetailsModal from '@/components/organisms/agenda/EventDetailsModal';
+// Reservas removidas da agenda — quem gerencia reservas agora é o Airbnb.
+// A agenda interna mostra apenas appointments: visitas, retiradas de chave e suporte.
 import { format, isToday, isSameDay, addDays, startOfWeek, endOfWeek, startOfMonth, endOfMonth, eachDayOfInterval, isSameWeek, isSameMonth, parseISO, subMonths, addMonths, subWeeks, addWeeks } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import DashboardBreadcrumb from '@/components/atoms/DashboardBreadcrumb';
 import { useTenant } from '@/contexts/TenantContext';
 import { useRouter } from 'next/navigation';
 
-// Unified event interface for calendar
+// Unified event interface for calendar — só visitas/retiradas/suporte agora.
 interface AgendaEvent {
     id: string;
     title: string;
     subtitle?: string;
     date: Date;
-    type: 'reservation' | 'visit';
+    type: 'visit';
+    appointmentType: AppointmentType;
     status: string;
     statusColor: string;
     icon: React.ReactNode;
-    details: Reservation | VisitAppointment;
+    details: VisitAppointment;
 }
 
 // Helper function to calculate end time for events
@@ -93,16 +100,9 @@ const getEventEndTime = (startDate: Date, duration: number): Date => {
 // Helper function to format time range for events
 const getEventTimeRange = (event: AgendaEvent): string => {
     const startTime = format(event.date, 'HH:mm');
-    
-    if (event.type === 'visit') {
-        const visitEvent = event.details as VisitAppointment;
-        const duration = visitEvent.duration || 60;
-        const endTime = format(getEventEndTime(event.date, duration), 'HH:mm');
-        return `${startTime} - ${endTime}`;
-    }
-    
-    // For reservations, just show check-in time
-    return startTime;
+    const duration = event.details.duration || 60;
+    const endTime = format(getEventEndTime(event.date, duration), 'HH:mm');
+    return `${startTime} - ${endTime}`;
 };
 
 export default function UnifiedAgendaPage() {
@@ -115,21 +115,16 @@ export default function UnifiedAgendaPage() {
     const [currentDate, setCurrentDate] = useState(new Date());
     const [viewMode, setViewMode] = useState<'day' | 'week' | 'month'>('week');
     const [selectedTab, setSelectedTab] = useState(0);
-    const [showEventoModal, setShowEventoModal] = useState(false);
     const [showVisitDialog, setShowVisitDialog] = useState(false);
-    const [reservaSelecionada, setReservaSelecionada] = useState<Reservation | null>(null);
-    const [showReservationDialog, setShowReservationDialog] = useState(false);
     const [selectedVisit, setSelectedVisit] = useState<VisitAppointment | null>(null);
     const [allVisits, setAllVisits] = useState<VisitAppointment[]>([]);
     const [loadingVisits, setLoadingVisits] = useState(true);
     const [selectedEvent, setSelectedEvent] = useState<AgendaEvent | null>(null);
     const [showEventDetailsModal, setShowEventDetailsModal] = useState(false);
-    
-    // Hooks de dados
-    const { 
-        reservations: allReservations, 
-        loading: loadingReservations 
-    } = useReservations();
+    // Filtro por tipo de appointment (todos / visit / key_pickup / support).
+    const [appointmentTypeFilter, setAppointmentTypeFilter] = useState<'all' | AppointmentType>('all');
+
+    // Hooks de dados — sem reservas
     const { properties } = useProperties();
     const { clients } = useClients();
     const todayVisits = useTodayVisits();
@@ -163,80 +158,51 @@ export default function UnifiedAgendaPage() {
         return () => clearInterval(interval);
     }, []);
 
-    // Converter dados em eventos unificados
+    // Converter visitas em eventos unificados (reservas vivem no Airbnb).
     const getAllEvents = (): AgendaEvent[] => {
         const events: AgendaEvent[] = [];
-        
-        // Adicionar reservas como eventos (com verificação de segurança)
-        if (allReservations && Array.isArray(allReservations)) {
-            allReservations.forEach(reservation => {
-                const property = properties?.find(p => p.id === reservation.propertyId);
-                const client = clients?.find(c => c.id === reservation.clientId);
-                
-                const checkInDate = reservation.checkIn instanceof Date 
-                    ? reservation.checkIn 
-                    : new Date(reservation.checkIn);
-                    
-                events.push({
-                    id: reservation.id,
-                    title: property?.name || 'Propriedade',
-                    subtitle: client?.name || 'Cliente',
-                    date: checkInDate,
-                    type: 'reservation',
-                    status: reservation.status,
-                    statusColor: getReservationStatusColor(reservation.status),
-                    icon: <Home />,
-                    details: reservation
-                });
-            });
-        }
-        
-        // Adicionar visitas como eventos (com verificação de segurança)
+
         if (allVisits && Array.isArray(allVisits)) {
             allVisits.forEach(visit => {
-                // Usar scheduledDate ao invés de date
-                const visitDate = visit.scheduledDate 
-                    ? (typeof visit.scheduledDate === 'string' 
+                const visitDate = visit.scheduledDate
+                    ? (typeof visit.scheduledDate === 'string'
                         ? parseISO(visit.scheduledDate)
-                        : visit.scheduledDate instanceof Date 
-                            ? visit.scheduledDate 
+                        : visit.scheduledDate instanceof Date
+                            ? visit.scheduledDate
                             : new Date(visit.scheduledDate))
                     : new Date();
-                        
+
+                const type: AppointmentType = (visit.appointmentType as AppointmentType) || 'visit';
+                if (appointmentTypeFilter !== 'all' && type !== appointmentTypeFilter) return;
+
                 events.push({
                     id: visit.id,
                     title: visit.clientName,
-                    subtitle: visit.propertyAddress,
+                    subtitle: `${APPOINTMENT_TYPE_LABELS[type]} — ${visit.propertyAddress}`,
                     date: visitDate,
                     type: 'visit',
+                    appointmentType: type,
                     status: visit.status || 'scheduled',
                     statusColor: getVisitStatusColor(visit.status || 'scheduled'),
-                    icon: <DirectionsCar />,
+                    icon: type === 'key_pickup' ? <Home /> : type === 'support' ? <Warning /> : <DirectionsCar />,
                     details: visit
                 });
             });
         }
-        
+
         return events.sort((a, b) => a.date.getTime() - b.date.getTime());
     };
-    
-    const getReservationStatusColor = (status: ReservationStatus) => {
-        const colors = {
-            [ReservationStatus.CONFIRMED]: 'success',
-            [ReservationStatus.PENDING]: 'warning',
-            [ReservationStatus.CANCELLED]: 'error',
-            [ReservationStatus.COMPLETED]: 'info',
-        };
-        return colors[status] || 'default';
-    };
-    
+
     const getVisitStatusColor = (status: VisitStatus) => {
-        const colors = {
+        const colors: Partial<Record<VisitStatus, string>> = {
             [VisitStatus.SCHEDULED]: 'info',
             [VisitStatus.CONFIRMED]: 'success',
             [VisitStatus.COMPLETED]: 'default',
-            [VisitStatus.CANCELLED]: 'error',
+            [VisitStatus.CANCELLED_BY_CLIENT]: 'error',
+            [VisitStatus.CANCELLED_BY_AGENT]: 'error',
             [VisitStatus.NO_SHOW]: 'warning',
+            [VisitStatus.IN_PROGRESS]: 'info',
+            [VisitStatus.RESCHEDULED]: 'warning',
         };
         return colors[status] || 'default';
     };
@@ -261,9 +227,9 @@ export default function UnifiedAgendaPage() {
     
     // Estatísticas (calculadas apenas quando os dados estão carregados)
     const allEvents = React.useMemo(() => {
-        if (loadingReservations || loadingVisits) return [];
+        if (loadingVisits) return [];
         return getAllEvents();
-    }, [allReservations, allVisits, properties, clients, loadingReservations, loadingVisits]);
+    }, [allVisits, properties, clients, loadingVisits, appointmentTypeFilter]);
 
     const todayEvents = React.useMemo(() => 
         allEvents.filter(e => isToday(e.date)), 
@@ -294,13 +260,8 @@ export default function UnifiedAgendaPage() {
         
         const timeout = setTimeout(() => {
             if (clickCount === 0) {
-                // Single click - original behavior
-                if (event.type === 'reservation') {
-                    setReservaSelecionada(event.details as Reservation);
-                    setShowReservationDialog(true);
-                } else {
-                    setSelectedVisit(event.details as VisitAppointment);
-                }
+                // Single click — open visit dialog
+                setSelectedVisit(event.details);
             } else {
                 // Double click - show event details modal
                 setSelectedEvent(event);
@@ -401,7 +362,7 @@ export default function UnifiedAgendaPage() {
                                                     {event.subtitle}
                                                 </Typography>
                                                 <Typography variant="caption" color="text.secondary">
-                                                    {getEventTimeRange(event)} • {event.type === 'reservation' ? 'Reserva' : 'Evento'}
+                                                    {getEventTimeRange(event)} • {APPOINTMENT_TYPE_LABELS[event.appointmentType]}
                                                 </Typography>
                                             </Box>
                                             <Chip 
@@ -431,7 +392,7 @@ export default function UnifiedAgendaPage() {
                                         Nenhum evento agendado para este dia
                                     </Typography>
                                     <Typography variant="caption" color="text.secondary">
-                                        Clique nos botões acima para criar uma nova reserva ou evento
+                                        Clique no botão acima para agendar uma visita, retirada de chave ou suporte
                                     </Typography>
                                 </Box>
                             )}
@@ -613,7 +574,7 @@ export default function UnifiedAgendaPage() {
         }
     };
     
-    if (loadingReservations || loadingVisits) {
+    if (loadingVisits) {
         return (
             <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '60vh' }}>
                 <CircularProgress />
@@ -646,7 +607,7 @@ export default function UnifiedAgendaPage() {
                             Agenda
                         </Typography>
                         <Typography variant="body1" color="text.secondary">
-                            Gerencie reservas e eventos em um só lugar
+                            Visitas, retiradas de chave e suporte. Reservas vivem no Airbnb.
                         </Typography>
                     </Box>
                     
@@ -913,13 +874,7 @@ export default function UnifiedAgendaPage() {
             </Paper>
             
             
-            {/* Diálogos */}
-            <EventoModal
-                open={showEventoModal}
-                onClose={() => setShowEventoModal(false)}
-                reservaSelecionada={reservaSelecionada}
-            />
-            
+            {/* Diálogos — só visit/key_pickup/support agora */}
             <CreateVisitDialog
                 open={showVisitDialog}
                 onClose={() => {
@@ -928,26 +883,14 @@ export default function UnifiedAgendaPage() {
                 }}
                 onSuccess={async () => {
                     setShowVisitDialog(false);
-                    // ✅ CORREÇÃO: Usar refetch do hook para recarregar visitas
                     logger.info('✅ [Agenda] Visita criada, atualizando lista');
-                    
-                    // Aguardar um momento antes de fazer refetch para garantir que o Firebase sincronizou
                     setTimeout(() => {
                         allVisitsHook.refetch();
                     }, 1000);
                 }}
             />
-            
-            {reservaSelecionada && (
-                <ViewReservationDialog
-                    open={showReservationDialog}
-                    onClose={() => {
-                        setShowReservationDialog(false);
-                        setReservaSelecionada(null);
-                    }}
-                    reservation={reservaSelecionada}
-                />
-            )}
+
+            {/* EventoModal e ViewReservationDialog removidos — não há mais reservas. */}
 
             <EventDetailsModal
                 open={showEventDetailsModal}

@@ -88,3 +88,13 @@ locai-*-firebase-adminsdk-*.json
 
 # Claude Code
 .claude/
+
+# Python (locai/agent — LangGraph service)
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/

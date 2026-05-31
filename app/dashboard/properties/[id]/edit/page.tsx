@@ -143,11 +143,11 @@ const createPropertySections = (
   },
   {
     id: 'availability',
-    title: 'Disponibilidade e iCal',
-    description: 'Calendário, bloqueios e sincronização com Airbnb',
+    title: 'Disponibilidade e Airbnb',
+    description: 'Calendário interno + link Airbnb usado pelo agent',
     icon: <CloudSync />,
     component: <PropertyAvailability propertyId={propertyId} propertyName={propertyName} />,
-    fields: ['unavailableDates', 'customPricing', 'iCalExportToken', 'iCalImportUrl', 'airbnbPropertyId'],
+    fields: ['unavailableDates', 'customPricing', 'iCalImportUrl', 'airbnbPropertyId', 'airbnbUrl'],
     isRequired: false,
   },
 ];

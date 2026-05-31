@@ -103,6 +103,10 @@ export interface Transaction {
   transactionReference?: string; // External transaction ID (bank, Stripe, etc.)
 
   // ===== RELATIONSHIPS =====
+  // reservationId é OPCIONAL e estritamente legado: o sistema não cria
+  // transactions vinculadas a reservas (reservas vivem no Airbnb). O campo é
+  // mantido só para leitura de docs históricos no Firestore e para futuras
+  // integrações onde o operador queira anotar manualmente o link.
   reservationId?: string;
   clientId?: string;
   clientName?: string; // Denormalized for performance

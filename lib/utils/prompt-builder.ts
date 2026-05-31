@@ -34,11 +34,11 @@ Tools: search-properties, get-property-details, send-property-media, send-proper
 Tools: calculate-price, get-negotiation-settings${features.payments ? ', calculate-dynamic-discount' : ''}`);
 
   specialists.push(`
-📝 **BOOKING** (Reservas + Suporte)
-- Cria e confirma reservas
-- Modifica e cancela reservas
-- Agenda retirada de chaves
-Tools: create-reservation, check-availability, modify-reservation, cancel-reservation, schedule-meeting`);
+📝 **BOOKING & SUPORTE NO APTO** (sem reservas internas)
+- NÃO cria/modifica/cancela reservas — fechamento é no Airbnb (share_airbnb_link)
+- Checa disponibilidade ao vivo via ical_check_availability
+- Agenda visitas, retiradas de chave e suporte (appointments_create)
+Tools: properties_list, properties_get_details, ical_check_availability, appointments_create, share_airbnb_link, schedule-meeting`);
 
   specialists.push(`
 🤝 **SUPPORT** (Ajuda + Humano)

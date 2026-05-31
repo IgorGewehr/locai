@@ -58,7 +58,9 @@ export function useConversations({
     conversations: [],
     selectedConversation: null,
     messages: [],
-    loading: false,
+    // Start in loading state when auto-loading: the realtime subscription is
+    // the single source of truth and will flip this to false on first snapshot.
+    loading: autoLoad && !!tenantId,
     loadingMessages: false,
     error: null,
     hasMore: true,
@@ -173,16 +175,14 @@ export function useConversations({
     return true;
   });
 
-  // Auto-load on mount
-  useEffect(() => {
-    if (autoLoad && tenantId) {
-      loadConversations();
-    }
-  }, [autoLoad, tenantId, loadConversations]);
-
-  // Realtime listener for conversations list
+  // Realtime listener for conversations list (single source of truth)
+  // Note: there is intentionally no separate one-shot mount fetch — the
+  // subscription delivers the initial snapshot and sets loading=false.
   useEffect(() => {
     if (!autoLoad || !tenantId) return;
+
+    // Ensure loading reflects that we're (re)subscribing for a tenant.
+    setState(prev => (prev.loading ? prev : { ...prev, loading: true }));
 
     logger.info('🔥 [REALTIME] Setting up conversations list listener', {
       tenantId: tenantId.substring(0, 8) + '***'

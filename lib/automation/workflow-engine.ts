@@ -527,6 +527,11 @@ export class AutomationEngine {
       const aiResponse = await this.aiService.processMessage(eventData.conversation, eventData.message)
 
       const phone = this.getPhoneFromContext(eventData, context)
+      // MVP: respostas de IA por automação estão desativadas (ver ai-service-stub).
+      // Sem `content` não enviamos nada — evita disparar mensagem vazia/undefined.
+      if (!aiResponse?.content) {
+        return { phone, aiResponse, sent: false, skipped: 'ai_disabled' }
+      }
       await this.whatsappClient.sendText(phone, aiResponse.content)
 
       return { phone, aiResponse, sent: true }
