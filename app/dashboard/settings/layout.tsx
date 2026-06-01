@@ -259,7 +259,7 @@ export default function SettingsLayout({ children }: { children: ReactNode }) {
         })}
       </List>
 
-      {/* Footer Help Text */}
+      {/* Footer */}
       <Box
         sx={{
           p: 2,
@@ -269,8 +269,7 @@ export default function SettingsLayout({ children }: { children: ReactNode }) {
         }}
       >
         <Typography variant="caption" color="text.secondary" display="block">
-          💡 <strong>Dica:</strong> Configure seus agentes de IA para automatizar
-          cobranças e contratos
+          Configure a IA, WhatsApp e dados da empresa
         </Typography>
       </Box>
     </Box>
@@ -375,7 +374,8 @@ export default function SettingsLayout({ children }: { children: ReactNode }) {
         <Paper
           elevation={0}
           sx={{
-            p: { xs: 1.5, md: 3 },
+            px: { xs: 1.5, sm: 3 },
+            py: { xs: 1, sm: 1.5 },
             borderBottom: 1,
             borderColor: 'divider',
             bgcolor: 'background.paper',
@@ -442,10 +442,9 @@ export default function SettingsLayout({ children }: { children: ReactNode }) {
         <Box
           sx={{
             flexGrow: 1,
-            p: { xs: 2, sm: 3, md: 4 },
-            pb: { xs: 10, md: 4 },
+            p: { xs: 2, sm: 3 },
+            pb: { xs: 10, sm: 3 },
             width: '100%',
-            maxWidth: 1200,
             overflowY: 'auto',
           }}
         >
