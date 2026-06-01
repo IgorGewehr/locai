@@ -133,6 +133,10 @@ export async function POST(request: NextRequest) {
                 })
                 // 2. Dispatch to AI agent (fire-and-forget — does NOT block the webhook response)
                 const clientPhone = body.data?.from || ''
+                // replyJid is the original JID (e.g. 12345@lid) — MUST be used for
+                // sending replies back. `from` may be a resolved phone or a bare LID
+                // without suffix, which would be misrouted as @s.whatsapp.net.
+                const replyJid = body.data?.replyJid || clientPhone
                 const msgText = body.data?.message || body.data?.text || ''
                 const msgId = body.data?.messageId || body.data?.id || ''
                 const pushName = body.data?.pushName || body.data?.contactName || ''
@@ -140,7 +144,7 @@ export async function POST(request: NextRequest) {
                     dispatchToAgent(body.tenantId, {
                         conversationId: `${body.tenantId}:${clientPhone}`,
                         messageId: msgId,
-                        recipientId: clientPhone,
+                        recipientId: replyJid,
                         contactName: pushName || clientPhone,
                         contactPhone: clientPhone,
                         message: msgText,
