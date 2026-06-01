@@ -11,6 +11,7 @@ import time
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Request
+from pydantic import BaseModel
 
 from ..auth import verify_inbound
 from ..graph.graph import run_agent
@@ -26,6 +27,47 @@ log = get_logger("api")
 @router.get("/health")
 async def health() -> dict[str, str]:
     return {"status": "ok", "service": "locai-agent"}
+
+
+# ─── Operator console (/operate) ─────────────────────────────────────────────
+
+class OperateBody(BaseModel):
+    tenant_id: str
+    message: str
+    mode: str = "analista"
+
+
+@router.post("/operate")
+async def operate(request: Request, auth: tuple[str, str] = Depends(verify_inbound)):
+    """Operator/analyst console — reuses run_agent with use_case='operator'."""
+    tenant_id, raw_body = auth
+
+    try:
+        body = OperateBody.model_validate(json.loads(raw_body))
+    except Exception as e:
+        raise HTTPException(status_code=400, detail="Invalid body") from e
+
+    use_case = "analyst" if body.mode == "analista" else "operator"
+    run_id = str(uuid.uuid4())
+
+    req = ProcessRequest(
+        message_id=run_id,
+        conversation_id=f"console:{run_id}",
+        message=body.message,
+        contact_name="Operador",
+        recipient_id="dashboard",
+        channel="dashboard",
+        use_case=use_case,
+    )
+
+    log.info("operate.start", run_id=run_id, tenant_id=tenant_id, mode=body.mode)
+
+    try:
+        result = await run_agent(run_id=run_id, tenant_id=tenant_id, req=req)
+        return {"reply": result.final_response or "Não consegui produzir uma resposta."}
+    except Exception as e:
+        log.error("operate.error", run_id=run_id, error=str(e))
+        return {"reply": "Ocorreu um erro ao processar. Tente novamente."}
 
 
 @router.post("/process", response_model=ProcessResponse)

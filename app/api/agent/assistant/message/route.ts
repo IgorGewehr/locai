@@ -54,7 +54,7 @@ export async function POST(request: NextRequest) {
         });
       });
 
-    const agentUrl = process.env.AGENT_SERVICE_URL;
+    const agentUrl = process.env.LOCAI_AGENT_URL || process.env.AGENT_SERVICE_URL;
     const agentSecret = process.env.AGENT_SHARED_SECRET;
     if (!agentUrl || !agentSecret) {
       return NextResponse.json(
