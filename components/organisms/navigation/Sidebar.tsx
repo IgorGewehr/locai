@@ -55,7 +55,7 @@ const NAV_SECTIONS: NavSection[] = [
     items: [
       { id: 'dashboard', label: 'Dashboard', href: '/dashboard', icon: <Dashboard sx={{ fontSize: { md: 18, xl: 22 } }} /> },
       { id: 'properties', label: 'Propriedades', href: '/dashboard/properties', icon: <Home sx={{ fontSize: { md: 18, xl: 22 } }} /> },
-      { id: 'reservations', label: 'Reservas', href: '/dashboard/reservations', icon: <CalendarMonth sx={{ fontSize: { md: 18, xl: 22 } }} /> },
+      // Reservas removidas — o sistema não gerencia reservas (hand-off para Airbnb)
       { id: 'agenda', label: 'Agenda', href: '/dashboard/agenda', icon: <Event sx={{ fontSize: { md: 18, xl: 22 } }} /> },
     ],
   },

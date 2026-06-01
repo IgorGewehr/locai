@@ -368,7 +368,7 @@ export default function ConversationsPage() {
 
   return (
     <Box sx={{
-      height: { xs: 'calc(100vh - 64px)', md: 'calc(100vh - 96px)' },
+      height: '100%',
       display: 'flex', borderRadius: '14px', overflow: 'hidden',
       border: '1px solid rgba(255,255,255,0.08)', bgcolor: '#0d1220',
     }}>

@@ -272,9 +272,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       <WhatsAppStatusProvider>
         <Box
           sx={{
-            minHeight: '100vh',
+            height: '100vh',
             bgcolor: '#0b0f1a',
             display: 'flex',
+            overflow: 'hidden',
           }}
         >
           <Sidebar
@@ -291,7 +292,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
               display: 'flex',
               flexDirection: 'column',
               minWidth: 0,
-              minHeight: '100vh',
+              height: '100%',
               // Subtle scrollbar
               '&::-webkit-scrollbar': { width: 6 },
               '&::-webkit-scrollbar-track': { background: 'transparent' },
@@ -309,9 +310,10 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             <Box
               sx={{
                 flex: 1,
-                p: { xs: 2, sm: 2.5, md: 3 },
+                p: { xs: 1, sm: 1.5, md: 2 },
                 overflowY: 'auto',
                 overflowX: 'hidden',
+                minHeight: 0,
               }}
             >
               {children}
